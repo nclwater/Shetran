@@ -1,1 +1,0 @@
-discharge at the outlet - regular timestep   24.00 hours

@@ -1,4 +1,0 @@
-2013  E  SYERR2  19.09.94
-	The upper limit on suspended sediment concentration
-	must be non-negative.
-	=> Check entry :SY12 in the SYD file.

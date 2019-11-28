@@ -1,3 +1,0 @@
-          Spatially Averaged Totals (mm) over the simulation
-     Time(Hours),       Cum Prec., Cum. Can. Evap., Cum. Soil Evap.,      Cum. Trans,  Cum. Aqu. Flow,  Cum. Discharge,  Canopy Storage,    Snow Storage,Subsurface Stor., Land Surf Stor.,   Channel Stor.
-           0.050,           0.003,           0.000,           0.000,           0.001,           0.000,           0.000,           0.003,           0.000,        6664.681,           0.063,           0.709
