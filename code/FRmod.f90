@@ -1175,6 +1175,7 @@ SUBROUTINE FRINIT()
 INTEGER :: IEL, IFACE, JEL, K
 DOUBLEPRECISION :: rdd(nelee), rddq(nelee,4)
 CHARACTER (LEN=20) :: AIOSTO  
+character*10 :: atemp
 
 
 DATA AIOSTO / '11111111111111111111' /  
@@ -1291,15 +1292,16 @@ HOTIME = zero
 IF (BHOTRD) THEN  
 !
 
-  115    READ (HOT, END = 120) HOTIME, UZNEXT, top_cell_no, (CSTORE (IEL), &
-    IEL = NGDBGN, total_no_elements), (rdd(IEL), IEL = 1, total_no_elements), ( (rddq (IEL, K), &
-    IEL = 1, total_no_elements), K = 1, 4), ( (QOC (IEL, K), IEL = 1, total_no_elements), &
-    K = 1, 4), ( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-    ( (DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), ( (DQIST2 (IEL, K) &
-    , IEL = 1, NGDBGN - 1), K = 1, 3), (SD (IEL), IEL = NGDBGN, &
-    total_no_elements), (TS (IEL), IEL = NGDBGN, total_no_elements), (NSMC (IEL), IEL = NGDBGN, &
-    total_no_elements), ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
-    total_no_elements), ( (tmelt(K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, total_no_elements)
+115    READ (HOT, *, END = 120) atemp, HOTIME, UZNEXT, top_cell_no,atemp, (CSTORE (IEL), &
+    IEL = NGDBGN, total_no_elements),atemp, (rdd(IEL), IEL = 1, total_no_elements),atemp, ( (rddq (IEL, K), &
+    IEL = 1, total_no_elements), K = 1, 4),atemp, ( (QOC (IEL, K), IEL = 1, total_no_elements), &
+    K = 1, 4),atemp, ( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
+    atemp,( (DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),atemp, ( (DQIST2 (IEL, K) &
+    , IEL = 1, NGDBGN - 1), K = 1, 3),atemp, (SD (IEL), IEL = NGDBGN, &
+    total_no_elements),atemp, (TS (IEL), IEL = NGDBGN, total_no_elements),atemp, (NSMC (IEL), IEL = NGDBGN, &
+    total_no_elements),atemp, ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
+    total_no_elements),atemp, ( (tmelt(K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, total_no_elements), &
+    atemp, ( (VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
     DO iel=1,total_no_elements
         CALL SETHRF(iel,rdd(iel))
         DO k=1,4
@@ -1717,12 +1719,13 @@ DO 100 I = 10, 50
          hdf5filename = filnam  
       ELSE  
          WRITE ( 51, 1020) I, FILNAM  
-         IF (I.EQ.27.OR.I.EQ.28) THEN  
-            OPEN (I, FILE = FILNAM, FORM = 'UNFORMATTED', ERR = &
-             400)
-         ELSE  
+! make  hot file formattedsteve birkinshaw 13092017        
+!        IF (I.EQ.27.OR.I.EQ.28) THEN  
+!            OPEN (I, FILE = FILNAM, FORM = 'UNFORMATTED', ERR = &
+!             400)
+!         ELSE  
             OPEN (I, FILE = FILNAM, ERR = 400)  
-         ENDIF  
+!         ENDIF  
          IF (I.EQ.27) RESFIL = FILNAM  
          IF (I.EQ.22) THEN  
             BTIME = .TRUE.  
@@ -1827,6 +1830,9 @@ IF (SIMPOS.EQ.'start') THEN
     endif
     uznowt=uznow*(1/TOUTPUT)
     next_hour = INT(uznowt) + 1.0
+! sb hotstart first time is correct
+    if (BHOTRD) uzold=int(bhotti/TOUTPUT)
+    
 ELSEIF (SIMPOS (1:4) .EQ.'main') THEN  
     !sb 02/05/07 outlet discharge sent to discharge.txt file
     !      write(492,*) uznow,qoc(mblink,mbface)

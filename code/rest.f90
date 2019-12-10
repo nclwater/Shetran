@@ -766,6 +766,10 @@ LOGICAL :: exitt, SMFLAG, iscycle, jumpto45, first
 TSOFT = TMAX  
 
 jumpto45 = .FALSE.
+
+!sb soft start not needed for hot start?
+IF (BHOTRD) BSOFT=.false.
+
 IF (BSOFT.AND.NSTEP.LE.102) TSOFT = TMAX * 0.05d0 * 1.03d0**NSTEP  
 ! CALCULATE REDUCED TIMESTEP FOR SNOWMELT
 TSNOW = TMAX  

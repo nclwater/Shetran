@@ -67,7 +67,7 @@ SUBROUTINE SIMULATION
 INTEGER                                       :: ptub, j
 REAL(4), PARAMETER                            :: rzero = 0.0e0
 INTEGER, PARAMETER                            :: niosto = 50
-INTEGER                                       :: iel 
+INTEGER                                       :: iel,k
 LOGICAL                                       :: bsy, bcm, cmfrst,syfrst
 CHARACTER(NIOSTO)                             :: aiosto
 DOUBLEPRECISION, DIMENSION(nelee)             :: hrf
@@ -193,16 +193,31 @@ DO
     ! hotstart output
     IF (BHOTPR) THEN  
         IF (UZNOW.GE.HOTIME) THEN  
-         !AD temporary comment out   WRITE (HOT) UZNOW, UZNEXT, LL, (CSTORE (IEL), IEL = NGDBGN, &
-         !AD temporary comment out       NEL), (HRF (IEL), IEL = 1, NEL), ( (QSA (IEL, K), IEL = 1, &
-         !AD temporary comment out       NEL), K = 1, 4), ( (QOC (IEL, K), IEL = 1, NEL), K = 1, 4), &
-         !AD temporary comment out       ( (DQ0ST (IEL, K), IEL = 1, NEL), K = 1, 4), ( (DQIST (IEL, &
-         !AD temporary comment out       K), IEL = 1, NEL), K = 1, 4), ( (DQIST2 (IEL, K), IEL = 1, &
-         !AD temporary comment out       NGDBGN - 1), K = 1, 3), (SD (IEL), IEL = NGDBGN, NEL), &
-         !AD temporary comment out       (TS (IEL), IEL = NGDBGN, NEL), (NSMC (IEL), IEL = NGDBGN, &
-         !AD temporary comment out       NEL), ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
-         !AD temporary comment out       NEL), ( (TM (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
-         !AD temporary comment out       NEL)
+    ! uznow=current time (hours)
+    ! uznext-= next time(hours)
+    ! cstore = canopy storage (mm)
+    ! gethrf = surface water elevation(m)
+    ! QSAzz = overland flow?
+    ! QOC = overland flow
+    ! DQ0ST = flow derivatives
+    ! DQIST = flow derivatives
+    ! DQIST2 = flow derivatives
+    ! SD = snow pack depth
+    ! TS = snow temperature
+    ! NSMC = COUNTER USED IN ROUTING MELTWATER THROUGH SNOWPACK
+    ! SMELT = water in meltwater slug?
+    ! TMELT = temperature of eltwater slug?
+    ! vspsi = soil water potentials
+         WRITE (HOT,*) "time= ",UZNOW, UZNEXT, top_cell_no,"cstore= ", (CSTORE (IEL), IEL = NGDBGN, &
+         total_no_elements),"HRF= ", (getHRF (IEL), IEL = 1, total_no_elements),"QSA= ", ( (QSAzz (IEL, K), IEL = 1, &
+         total_no_elements), K = 1, 4),"QOC= ", ( (QOC (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
+         "DQ0ST= ",( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),"DQIST= ", ( (DQIST (IEL, &
+         K), IEL = 1, total_no_elements), K = 1, 4),"DQIST2= ", ( (DQIST2 (IEL, K), IEL = 1, &
+         NGDBGN - 1), K = 1, 3),"SD= ", (SD (IEL), IEL = NGDBGN, total_no_elements), &
+         "TS= ", (TS (IEL), IEL = NGDBGN, total_no_elements),"NSMC= ", (NSMC (IEL), IEL = NGDBGN, &
+         total_no_elements),"SMELT= ", ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
+         total_no_elements),"TMELT= ", ( (TMelt (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
+         total_no_elements),"vspsi= ", ( (VSPSI (j, iel), j = 1, top_cell_no), IEL = 1, total_no_elements)
             HOTIME = HOTIME+BHOTST  
         ENDIF  
     ENDIF  
