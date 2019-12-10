@@ -8,7 +8,7 @@
 *.dll
 *.sln
 examples-test
-shetran-4.4.5
+shetran*
 *.exe
 *.u2d
 *.vfproj
