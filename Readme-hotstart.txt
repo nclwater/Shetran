@@ -1,4 +1,4 @@
-To run go to program folder and double click on sv4.4.5x64hot.exe. then select the rundata file in examples/dunsop-hot1 or examples/dunsop-hot2 
+To run go to program folder and double click on sv4.4.6.exe. then select the rundata file in examples/dunsop-hot1 or examples/dunsop-hot2 
 
 
 There are two stages to using the hotstart.
