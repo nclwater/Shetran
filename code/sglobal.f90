@@ -60,7 +60,7 @@ IMPLICIT NONE
 
 !------------ BANNER HEADER
 !     Description of local implementation: software, architecture, date
-      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Version 4.4.5 for PC - incorporating SHEGRAPH Version 2'
+      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Version 4.4.6 for PC - incorporating SHEGRAPH Version 2'
 
 !------------ RUNDATA FILENAME (THE CATCHMENT NAME ENTERED AT THE START
 !     OF A SIMULATION RUN IS APPENDED TO THIS FILENAME)
