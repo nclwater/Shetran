@@ -9,7 +9,7 @@ NUMBER^2 : NAME^ph_depth : BASIS^grid_as_grid : SCOPE^squares :  EXTRA_DIMENSION
 GRID_OR_LIST_NO^7 : TIMES^8 : ENDITEM                                                               
 item                                                                                                
 NUMBER^3 : NAME^theta : BASIS^grid_as_grid : SCOPE^squares :  EXTRA_DIMENSIONS^none                 
-GRID_OR_LIST_NO^7 : TIMES^8 : LAYERS^1 11 : ENDITEM                                                 
+GRID_OR_LIST_NO^7 : TIMES^8 : LAYERS^1 1 : ENDITEM                                                  
 item                                                                                                
 NUMBER^4 : NAME^ovr_flow : BASIS^grid_as_list : SCOPE^rivers :  EXTRA_DIMENSIONS^faces              
 GRID_OR_LIST_NO^7 : TIMES^9 : ENDITEM                                                               
@@ -19,7 +19,7 @@ GRID_OR_LIST_NO^7 : TIMES^9 : ENDITEM
  
 list                                                                                                
 6 1   !number and size                                                                              
-2022
+ 556
  
 mask                                                                                                
 7 1 182 1 185       !number and row and column limits
