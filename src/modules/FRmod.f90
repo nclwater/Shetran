@@ -1797,6 +1797,7 @@ IF (SIMPOS.EQ.'start') THEN
     endif
 
     !^^^^^^ sb 08/03/06
+    write (dis2, '(A58)') 'Date_dd/mm/yyyy_hours  Time(hours)  Outlet_Discharge(m3/s)'
     write (mas, '(A60)') 'Spatially Averaged Totals (mm) over the simulation'
     write (mas, '(12(a16,1a))') 'Time(Hours)', ',', &
                                  'Cum Prec.', ',', &

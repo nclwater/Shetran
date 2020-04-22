@@ -25,7 +25,7 @@ Tested using Intel Fortran Compiler with Visual Studio. Versions 2015-2020.
 	- mod_load_filedata.f90 from the src/util folder
 	- all the .f90 files from the src/visualisation forlder
 	- the shegraph2.3.lib from the src/visualisation folder. NB "All Files (*.*)"" must be searchable
-	- in the Solution explorer (on the right), click on Resource files, then add in Project|Add exisiting Item slect resource1.rc from the src/resource folder
+	- in the Solution explorer (on the right), click on Resource files, then add in Project|Add Exisiting Item select resource1.rc from the src/resource folder
 
 4. Copy the full path for the "incl_mod_shegraph" directory (e.g. C:\Users\sjbir_000\Documents\shetrn\incl_mod_shegraph), and enter in the following two places:
 

@@ -66,7 +66,7 @@ output_Dano100_discharge_sim_regulartimestep.txt
 42: vsi data for initial conditions                                             
 output_Dano100_vsi.txt                                                          
 43: mass balance data                                                           
-output_Dano100_mb.txt                                                           
+output_Dano100_mb.csv                                                           
 44: discharge at the outlet                                                     
 output_Dano100_discharge_sim_everytimestep.txt                                  
 45: not used                                                                    

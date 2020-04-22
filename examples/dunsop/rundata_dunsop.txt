@@ -66,7 +66,7 @@ output_dunsop_discharge_sim_hourly.txt
 42: vsi data for initial conditions                                             
 output_dunsop_vsi.txt                                                           
 43: mass balance data                                                           
-output_dunsop_mb.txt                                                            
+output_dunsop_mb.csv                                                            
 44: discharge at the outlet                                                                   
 output_dunsop_discharge_sim_everytimestep.txt                                                 
 45: not used                                                                    
