@@ -13,7 +13,7 @@ shetran-*
 *.u2d
 *.vfproj
 *.zip
-program*
+program/
 
 
 
