@@ -6,7 +6,7 @@ Tested using Intel Fortran Compiler with Visual Studio. Versions 2015-2020.
 1. Create a Visual Fortran empty console application. File|New|Project search Fortran and select "Empty Project" ("A project for creating a command-line application"?)
 
 	Project name 	= Shetran
-	Location 		= location of the Shetran folder containing the source code folder
+	Location 		= location of the Shetran folder containing the src code folder
 	Solution name 	= Shetran
 
 	Select "Create"
@@ -19,15 +19,19 @@ Tested using Intel Fortran Compiler with Visual Studio. Versions 2015-2020.
 	Still in Property Pages, go to Configuration Properties|Linker|System. Set the "Stack Reserve Size" to 100,000,000 (i.e. 100 million). Select "OK" to close Property Pages
 
 3. In Project|Add Existing Item... , add the following to the project:
-	- all the .f90 files from the code directory
-	- all the .f90 files from the visualisation directory
-	- the shegraph2.3.lib from the visualisation directory. NB "All Files (*.*)"" must be searchable
+	- Shetran.f90 files from the src folder
+	- all the .f90 files from the src/modules folder
+	- all the .f90 files from the src/parameters folder
+	- mod_load_filedata.f90 from the src/util folder
+	- all the .f90 files from the src/visualisation forlder
+	- the shegraph2.3.lib from the src/visualisation folder. NB "All Files (*.*)"" must be searchable
+	-in the Solution explorer (on the right), click on Resource files, then add in Project|Add exisiting Item slect resource1.rc from the src/resource folder
 
-4. Copy the full path for the "incl_mod_shegraph" directory (e.g. C:\Users\sjbir_000\Documents\sv4.4.5x64\sv4\incl_mod_shegraph), and enter in the following two places:
+4. Copy the full path for the "incl_mod_shegraph" directory (e.g. C:\Users\sjbir_000\Documents\shetrn\incl_mod_shegraph), and enter in the following two places:
 
 	Project|Properties|Configuration Properties|Linker|General|Additional Library Directories
 	Project|Properties|Configuration Properties|Fortran|General|Additional Include Directories
 
 5. In 	Project|Properties|Configuration Properties|Fortran|Libraries change runtime Library to "Multithreaded"
 
-6. Build the project using Build|Build (either the debug or the release versions)
+6. Build the project using Build|Build Solution(either the debug or the release versions)
