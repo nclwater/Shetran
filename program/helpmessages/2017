@@ -1,4 +1,0 @@
-2017  E  SYERR2  19.09.94
-	The upper limit on the bed-sediment top-layer thickness
-	must be non-negative.
-	=> Check entry :SY12 in the SYD file.
