@@ -2,6 +2,9 @@ MODULE OCmod2
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC.F files
 USE SGLOBAL
+!!***ZQ Module 200520 
+USE ZQmod,     ONLY : ZQtable
+USE AL_D,      ONLY : ZQweirsill,ZQTableRef
 IMPLICIT NONE
 
 DOUBLEPRECISION, PARAMETER   :: F23=2.0D0/3.0D0,      &
@@ -630,6 +633,9 @@ INTEGER                      :: HI, LO
 DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ  
 DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, SUBRIO, ZSILL  
 DOUBLEPRECISION              :: COEFF (2), rdum
+!!***ZQ Module 200520 
+DOUBLEPRECISION              :: dzu
+DOUBLEPRECISION              :: weirsill
 !----------------------------------------------------------------------*
 !
 ! Set up local variables - part 1
@@ -650,6 +656,16 @@ IF (NTYPE.EQ.7) THEN
    COEFF (2) = COEFF (1)  
    CALL QWEIR(ZI(HI), ZSILL, ZI(LO), COEFF, SUBRIO, Q(LO), DQ(LO,HI), rdum) !AD ailising
     DQ(LO,LO)=rdum
+!!***ZQ Module 200520 
+ELSEIF (NTYPE.EQ.12) THEN
+    !print*,ZQTableRef,zi(hi)
+    CALL ZQTable(ZQTableRef,ZI(HI),Q(LO))
+    weirsill=ZQWeirSill(ZQTableRef)
+    DZU = DIMJE(ZI(HI), weirsill)
+    DQ(LO,HI)=50.0*1.5*sqrt(dzu)                            ! This works for Crummock. Stability during step changes should be tested e.g. for a small area reservoir
+    DQ(LO,LO)=0
+    write(779,*) zi(hi),Q(lo),dq(lo,hi)
+!!***ZQ Module 200520 end
 ELSE
     !
     ! Set up local variables - part 2

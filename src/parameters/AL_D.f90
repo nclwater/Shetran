@@ -53,7 +53,8 @@ IMPLICIT NONE
 !      980716       Define NCLASS (see INRES,FRRESC).
 !      981103       Remove NSOIL (see ETSIM,ET).
 !  JE  JULY 04 ---- Convert to FORTRAN 95
-!----------------------------------------------------------------------*
+!***ZQ Module 200520
+! new variables     zqd,NoZQTables,ZQTableRef,iszq,ZQTableLink,ZQTableFace,ZQweirSill!----------------------------------------------------------------------*
 
 ! ----- Constants
 
@@ -102,12 +103,13 @@ MAS = 43 , &
 DIS2 = 44, &
 TAH = 45, &
 TAL = 46, &
-disextra = 47
+disextra = 47, &
+zqd = 51
 
 ! ----- Static integer variables
 
       INTEGER ::          MSM,NM,NRAIN,NSET,MBLINK,MBFACE,MBFLAG, &
-                      NXP1,NYP1,NXM1,NYM1,NXEP1,NYEP1
+                      NXP1,NYP1,NXM1,NYM1,NXEP1,NYEP1,NoZQTables,ZQTableRef
 INTEGER, PARAMETER :: &
 NXE = NXEE, &  
 NYE = NYEE 
@@ -131,7 +133,7 @@ NYE = NYEE
 ! ----- Static logical variables
 
       LOGICAL          BEXET,BEXUZ,BEXEX,BEXOC,BEXSZ,BEXSM, &
-                      BEXTS1,BHOTPR,BHOTRD,BEXSY,BEXCM, ISTA,isextradis
+                      BEXTS1,BHOTPR,BHOTRD,BEXSY,BEXCM, ISTA,isextradis,iszq
 
 ! ----- Static integer arrays
 !
@@ -141,6 +143,7 @@ NYE = NYEE
       INTEGER          NOCBCC(NELEE),NOCBCD(NOCTAB,4),  IORES(NSETEE)
       INTEGER          ICLIST(NELEE,NCLASS),            NEXPO(NLFEE,2)
       INTEGER          ICLNUM(NCLASS)
+      INTEGER, DIMENSION(:), ALLOCATABLE               :: ZQTableLink,ZQTableFace ! These store the metadata for a single ZQtable in the ZQ file
 
 ! ----- Time-dependent integer arrays
 
@@ -155,6 +158,7 @@ NYE = NYEE
                       HFLBED(NLFEE), ZFBED(NLFEE),       DZFBED(NLFEE), &
                        LROOT(NVEE), HFLBNK(NLFEE),       IOSTA(NSETEE), &
                       IOSTEP(NSETEE),IOEND(NSETEE),      RHOSAR(NELEE)
+      DOUBLEPRECISION,    DIMENSION(:), ALLOCATABLE              :: ZQweirSill 
 
 ! ----- Time-dependent floating-point arrays
 !

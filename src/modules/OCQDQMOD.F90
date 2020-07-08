@@ -1,10 +1,12 @@
 !MMMMMM MODULE ocqdqmod
 MODULE ocqdqmod
 ! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
+!***ZQ Module 200520
+! new variables     NoZQTables,ZQTableRef,ZQTableLink,ZQTableFace
 USE SGLOBAL
 USE AL_C ,     ONLY : ICMRF2, CWIDTH, DHF, ZBFULL, CLENTH
 USE AL_G ,     ONLY : ICMREF, ICMXY
-USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, NOCBCC, NOCBCD
+USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, NOCBCC, NOCBCD, NoZQTables,ZQTableRef, ZQTableLink,ZQTableFace
 USE OCmod2 ,   ONLY : GETHRF, OCQMLN, SETQSA, OCQBNK, OCQGRD, OCQLNK, OCQBC
 
 IMPLICIT NONE
@@ -88,6 +90,7 @@ SUBROUTINE OCQDQ ()
 !     SPEC.AL            QSA(NELEE,4),DQIST(NELEE,4)
 !                      DQ0ST(NELEE,4),DQIST2(NLFEE,3)
 !                Note: Usually expect DQ0ST<0 and DQIST*>0.
+INTEGER                         :: i
 INTEGER                         :: jxswork(0:3)
 INTEGER                         :: IBC, IBR, IELu, IFACE, ICAT, NBC, NTYPE, NFACE  
 INTEGER                         :: JBC, JBR, JEL, JFACE, J, JJ, JJJ, JMAX, KEL, KFACE, LINK, itemp
@@ -167,6 +170,15 @@ out600 : DO ielu = 1, total_no_elements
                     CALL OCQGRD (NTYPE, LI(0:1), ZGI(0:1), STR(0:1), W, ZI(0:1), QJ(0:1), DQ)  
                 ELSE
                     itemp = MAX(1,NBC)
+!***ZQ Module 200520
+                    do i=1,NoZQTables
+                    if (((ielu.eq.ZQTableLink(i)).and.(iface.eq.ZQTableFace(i))).or.((jel.eq.ZQTableLink(i)).and.(jface.eq.ZQTableFace(i)))) then
+                       ZQTableRef=i
+                       ntype=12
+                    endif
+                    enddo
+ !!***ZQ Module 200520 end
+
                     CALL OCQLNK (NTYPE, LI(0:1), ZGI(0:1), STR(0:1), CW(0:1), XA(0:1), &
                                  jXSwork, COCBCD(1:3,itemp), ZI(0:1), QJ(0:1), DQ)
                 ENDIF  

@@ -1,6 +1,7 @@
 MODULE FRmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the FR .F files
+!***ZQ Module 200520 new variables iszq,zqd
 USE SGLOBAL
 USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
 !USE SGLOBAL, ONLY :     NELEE, nlfee, noctab, NXEE, NYEE, NVEE, BDEVER, SHEVER, BANNER, FILNAM, DIRQQ, &
@@ -17,12 +18,12 @@ USE AL_C, ONLY :     ARXL, BEXBK, BFB, BHB, BUG, CWIDTH, CLENTH, CMD, CMP, CMT, 
                      ZVSPSL
 USE AL_D,    ONLY :  BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BKD, BHOTRD, BWIDTH, BHOTST, BHOTTI, BHOTPR,&
                      CAREA, CSTORE, DIS, DIS2, DISEXTRA, DXIN, DYIN, DQ0ST, DQIST, DQIST2, DTMET3, EINTA, DTMET, DTMET2, ERZA, ETD, EPOT, &
-                     EPD, FRD, HOTIME, HOT, TAH, TAL, ISTA,isextradis, &
+                     EPD, FRD, HOTIME, HOT, TAH, TAL, ISTA,isextradis,iszq, &
                      IOCORS, ICLNUM, NCLASS, ICLIST, IODATA, IOELEM, IOSTA, IOSTEP, IOEND, IORES, IOTIME, INGRID, &
                      LCODEY, LCODEX, MBLINK, MBFACE, MBFLAG, MBYEAR, MSM, MAS, MED, MBMON, MBDAY, &
                      NXM1, NYM1, NRAINC, NMC, NM, NSET, NXP1, NYP1, NXE, NYE, NSMC, NGRID, NOCBCC, NOCBCD, NRAIN, NXEP1, NYEP1, &
                      OCD, OFB, OHB, OCNOW, precip_m_per_s, PSTART, PRD, PPD, PMAX, PALFA, PREST, QMAX, RES, RHOSAR, RESFIL, &
-                     SF, SMD, SD, TIMEUZ, TS, TIM, TMAX, TTH, UZVAL, VHT, VED, VSE,TOUTPUT                  
+                     SF, SMD, SD, TIMEUZ, TS, TIM, TMAX, TTH, UZVAL, VHT, VED, VSE,TOUTPUT,zqd                  
 USE OCmod,    ONLY : LINKNO, OCLTL
 USE OCQDQMOD, ONLY : STRXX, STRYY
 USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
@@ -46,6 +47,9 @@ USE BK_CW,    ONLY : NBANK, NCEBD, FNCEBD, NCEAB
 USE IS_CC,    ONLY : ISPLT 
 USE LINK_CW,  ONLY : DBDI, ACPBSG, DBS, ACPBI, ACPSFO, ACPBDO, THBEDO, THBED
 USE PLANT_CC, ONLY : PMASS, PF2MAX, PKMAX, NPLT, PFONE, NPLTYP, PDZF3, DELONE, NPL, GMCBBO
+
+USE ZQmod,    ONLY : ReadZQTable
+
 IMPLICIT NONE
 !FROM SPEC_FR
 !MODULE SPEC_FR
@@ -1271,6 +1275,9 @@ DO 30 IEL = 1, total_no_links
 
    30 END DO  
 !
+!***ZQ Module 200520
+if (iszq) call ReadZQTable
+
 ! close data input file units
 REWIND(FRD) !!CLOSE (FRD)    !AD
 REWIND(VSD) !!CLOSE (VSD)    !AD  

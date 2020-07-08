@@ -39,6 +39,10 @@ L3
 ZQ Module 200520
 ! new variables     NoZQTables,ZQTableRef,ZQTableLink,ZQTableFace
 
+USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, NOCBCC, NOCBCD, NoZQTables,ZQTableRef, ZQTableLink,ZQTableFace
+
+L94
+INTEGER                         :: i
 
 L182
 !***ZQ Module 200520

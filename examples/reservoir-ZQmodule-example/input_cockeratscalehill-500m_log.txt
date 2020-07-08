@@ -1,0 +1,167 @@
+ XML filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\cockeratscalehi
+ ll-500m.xml
+ 
+ DEM filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_demmen_ti
+ dy.txt
+ Minimum DEM filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_demmin_ti
+ dy.txt
+ Catchment Mask filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_mask.txt
+ Land use distribution filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_veg.txt
+ Soil category distribution filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_veg.txt
+ Lakemap = 
+ sh500_lake.txt                                                                 
+                                                                                
+                                           
+ Precipitation Distribution Filename = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_precip.tx
+ t
+ Potential Evaporation Distribution Filname = 
+ C:\Crummock_Water\Modelling\Shetran\DCockeratscalehill-500m\D6b\sh500_pe.txt
+ Precpitation data = timeseries-P.csv
+ Potential Evaporation data = timeseries-PE.csv
+ Number of river chanel sinks =            5
+ Number of river chanel sinks =           10
+ Number of river chanel sinks =           11
+ Number of river chanel sinks =           11
+ Number of river chanel sinks =            9
+ Number of river chanel sinks =            6
+ Number of river chanel sinks =            5
+ Number of river chanel sinks =            3
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            0
+ 
+  Number of land element sinks =           13
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            4
+  Number of land element sinks =            5
+  Number of land element sinks =            5
+  Number of land element sinks =            5
+  Number of land element sinks =            5
+  Number of land element sinks =            5
+  Number of land element sinks =            5
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            3
+  Number of land element sinks =            0

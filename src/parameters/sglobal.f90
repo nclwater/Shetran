@@ -50,7 +50,7 @@ IMPLICIT NONE
 
 !     (MUST BE IN FORMAT XX.Y WHERE XX = MAJOR PART OF VERSION NUMBER,
 !                                    Y = MINOR PART )
-      DOUBLEPRECISION, PARAMETER :: SHEVER=4.4
+      DOUBLEPRECISION, PARAMETER :: SHEVER=4.5
 !
 !------------ DEVELOPMENT VERSION FLAG
 
@@ -60,7 +60,7 @@ IMPLICIT NONE
 
 !------------ BANNER HEADER
 !     Description of local implementation: software, architecture, date
-      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Version 4.4 for PC - incorporating SHEGRAPH Version 2'
+      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Version 4.5 for PC - incorporating SHEGRAPH Version 2'
 
 !------------ RUNDATA FILENAME (THE CATCHMENT NAME ENTERED AT THE START
 !     OF A SIMULATION RUN IS APPENDED TO THIS FILENAME)
