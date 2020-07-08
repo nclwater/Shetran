@@ -94,3 +94,7 @@ USE ZQmod,    ONLY : ReadZQTable
 L1283
 !***ZQ Module 200520
 if (iszq) call ReadZQTable
+
+L1704-1739
+!***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
+

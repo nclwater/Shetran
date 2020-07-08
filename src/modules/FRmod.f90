@@ -1695,11 +1695,12 @@ READ (2, 1000, ERR = 300) FILNAM
 
 
 
-WRITE (51, 1000) FILNAM  
-WRITE ( 51, * )  
-DO 100 I = 10, 50  
+!***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
+WRITE (52, 1000) FILNAM  
+WRITE ( 52, * )  
+DO 100 I = 10, 51  
    READ (2, 1000, END = 200) FILNAM  
-   WRITE ( 51, 1000) FILNAM  
+   WRITE ( 52, 1000) FILNAM  
    READ (2, 1000, END = 200) FILNAM  
    IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN  
 
@@ -1711,21 +1712,25 @@ DO 100 I = 10, 50
       if (I.eq.47) then 
          isextradis=.false.
       endif
+!***ZQ Module 200520
+      if (I.eq.51) then 
+         iszq=.false.
+      endif
 
-      WRITE ( 51, 1010)  
+      WRITE ( 52, 1010)  
    ELSE  
       filnam = TRIM (DIRQQ) //TRIM (FILNAM)  
       IF (I == 48) THEN  
-         WRITE ( 51, 1021) I, FILNAM  
+         WRITE ( 52, 1021) I, FILNAM  
          visualisation_plan_filename = filnam  
       ELSEIF (I == 49) THEN  
-         WRITE ( 51, 1021) I, FILNAM  
+         WRITE ( 52, 1021) I, FILNAM  
          visualisation_check_filename = filnam  
       ELSEIF (I == 50) THEN  
-         WRITE ( 51, 1021) I, FILNAM  
+         WRITE ( 52, 1021) I, FILNAM  
          hdf5filename = filnam  
       ELSE  
-         WRITE ( 51, 1020) I, FILNAM  
+         WRITE ( 52, 1020) I, FILNAM  
 ! make  hot file formattedsteve birkinshaw 13092017        
 !        IF (I.EQ.27.OR.I.EQ.28) THEN  
 !            OPEN (I, FILE = FILNAM, FORM = 'UNFORMATTED', ERR = &
