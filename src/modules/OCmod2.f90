@@ -1122,7 +1122,7 @@ out900 : DO PASSS = 1, NPASS  !AP LOOP PROBLEMS
     ENDDO out400  
     !IF (AOK) EXIT out900 !GOTO 901  
 ENDDO out900  
-IF(.not.aok) CALL ERROR(FFFATAL, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
+IF(.not.aok) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
 
 !901 CONTINUE  
 !33+15+8+17+30=103

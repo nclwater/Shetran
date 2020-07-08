@@ -142,6 +142,8 @@ DOUBLEPRECISION, PARAMETER :: zero=0.0d0, zero1(1)=0.0d0, half=0.5d0, one=1.0d0,
 DOUBLEPRECISION EARRAY(1)
 INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
 CHARACTER(128)     :: helppath
+LOGICAL :: ISERROR
+LOGICAL :: ISERROR2
 
 DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
                                      DXQQ, DYQQ, &  !face lengths
@@ -320,6 +322,9 @@ LOGICAL :: present
 
 helppath = '\helpmessages'  
 
+!**SB 07072020 reduce timestep if there are errors 1024,1030,1060
+ISERROR = .FALSE.
+ISERROR2 = .FALSE.
 
 IF (ETYPE == - 999) THEN  
    present = .TRUE.;
@@ -391,6 +396,15 @@ ELSEIF (ERRNUM.EQ.1024) THEN
 
 
 ENDIF  
+
+
+!**SB 07072020 reduce timestep if there are errors 1024,1030,1060
+IF ((ERRNUM.EQ.1024).OR.(ERRNUM.EQ.1030)) THEN
+    ISERROR=.TRUE.
+ENDIF
+IF (ERRNUM.EQ.1060) THEN
+    ISERROR2=.TRUE.
+ENDIF
 ! Write asummary
 ! -------------
 

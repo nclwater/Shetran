@@ -793,6 +793,16 @@ IF(BEXSM) THEN
 ENDIF  
 ! SET TIMESTEP LENGTH
 UZNEXT = MIN (UZNEXT * (1.0 + PALFA), TSOFT, TSNOW)  
+
+!**SB 07072020 reduce timestep if there are errors 1024,1030,1060
+IF (ISERROR2) THEN
+    UZNEXT = max(0.0003,uznext/10.0)
+ELSEIF (ISERROR) THEN
+    UZNEXT = max(0.0003,uznext/100.0)
+ENDIF
+ISERROR2 = .FALSE.
+ISERROR = .FALSE.
+
 ! ----------------------------------------------------------------------
 !  2.  READ METEOROLOGICAL DATA AND REDUCE TMSTEP IF NECESSARY
 ! ----------------------------------------------------------------------
