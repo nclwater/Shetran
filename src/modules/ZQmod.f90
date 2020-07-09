@@ -50,6 +50,8 @@ module ZQmod
 ! These are converted into a 2D array and used as a lookuptable 
 SUBROUTINE ReadZQTable
 
+OPEN(777,FILE='output_readZQTable.txt', ERR=101)
+
 ! read ZQ tables
 READ(zqd,*)                                                                                         ! skip line 1 ': NUMBER OF ZQ TABLES NEEDED'
 READ(zqd,*, END = 101)NoZQTables                                                                    ! read line 2 as NoZQTables. This is used to allocate the number of ZQ arrays expected
@@ -150,8 +152,8 @@ CLOSE(zqd)                                                                      
 
 ! catch errors
     IsZQreadOK= .true.
-    IF (.not.IsZQreadOK) THEN
-101     PRINT*,'error reading ZQ table'
+101 IF (.not.IsZQreadOK) THEN
+        PRINT*,'error reading ZQ table'
     ENDIF
 
 END SUBROUTINE ReadZQTable
@@ -171,7 +173,7 @@ SUBROUTINE ZQTable(ZQref,zu,qd)
     
     ! start sluice operation loop
     IF (INT(UZNOW+ZQTableOpHour(ZQref))/24 > INT(UZNOW+ZQTableOpHour(ZQref)-UZNEXT)/24) THEN        ! if current day integer > previous day integer, then operate sluices:
-        WRITE(778, *), 'new day'                                                                    ! write for test purposes
+        !WRITE(778, *), 'new day'                                                                    ! write for test purposes
 
         ! select weir equation (Zcol) based on which range of stages Zu falls into                  ! NB if Zu < min ZQ threshold, will return an error
         DO i = nZQcols(ZQref), 2, -1                                                                ! start loop in descending order of ZQ thresholds
@@ -198,18 +200,18 @@ SUBROUTINE ZQTable(ZQref,zu,qd)
         END IF
     END DO
 
-    PRINT*, ZQref,zu,qd                                                                             ! NB duplicates print from OCMOD2 line 664
+    !PRINT*, ZQref,zu,qd                                                                             ! NB duplicates print from OCMOD2 line 664
     
     ! write everytimestep outputs to 778.fort
-    IF(UZNOW <0.1) THEN                                                                             ! write header at sim start
-        WRITE(778, *), '        UZNOW,      Zu,         Qd'
-        WRITE(778, *), '        i,      zcol'  
-    ENDIF
-    WRITE(778,'(6(f12.2,1a))')  uznow,  ',', &                                                      ! write real output
-                                Zu,     ',', &
-                                Qd,     ','
-    WRITE(778, *)               i,      ',', &                                                      ! write integer output
-                                zcol,   ','
+    !IF(UZNOW <0.1) THEN                                                                             ! write header at sim start
+    !    WRITE(778, *), '        UZNOW,      Zu,         Qd'
+    !    WRITE(778, *), '        i,      zcol'  
+    !ENDIF
+    !WRITE(778,'(6(f12.2,1a))')  uznow,  ',', &                                                      ! write real output
+    !                            Zu,     ',', &
+    !                            Qd,     ','
+    !WRITE(778, *)               i,      ',', &                                                      ! write integer output
+    !                           zcol,   ','
     
 END SUBROUTINE ZQTable
 

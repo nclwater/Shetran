@@ -1683,11 +1683,13 @@ WRITE ( *, * )
 ista=.true.
 ! ****sb 220415
 isextradis=.true.
+!***ZQ Module 200520
+iszq=.true.
 
 OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = io)  
 !      ENDDO
 filnam2=TRIM (DIRQQ) //'output_'//trim(cnam)//'_log.txt'
-OPEN (51, FILE = FILNAM2, ERR = 400)  
+OPEN (52, FILE = FILNAM2, ERR = 400)  
 
 
 
