@@ -1,4 +1,18 @@
 # Changelog
+
+## 090720
+*********
+
+Add Reservoir ZQ component and rename to 4.5.0. See docs/ZQ module.md for details
+
+
+## 080720
+*********
+
+Sort out problem with 1024,1030 and 1060 errors. 
+
+There is now a reduction in timestep length if one of the above errors occurs.
+
 ## 220420
 ******
 
