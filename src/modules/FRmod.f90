@@ -1700,7 +1700,7 @@ READ (2, 1000, ERR = 300) FILNAM
 !***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
 WRITE (52, 1000) FILNAM  
 WRITE ( 52, * )  
-DO 100 I = 10, 51  
+DO 100 I = 10, 50  
    READ (2, 1000, END = 200) FILNAM  
    WRITE ( 52, 1000) FILNAM  
    READ (2, 1000, END = 200) FILNAM  
@@ -1713,10 +1713,6 @@ DO 100 I = 10, 51
 !***Sb 220415
       if (I.eq.47) then 
          isextradis=.false.
-      endif
-!***ZQ Module 200520
-      if (I.eq.51) then 
-         iszq=.false.
       endif
 
       WRITE ( 52, 1010)  
@@ -1748,7 +1744,21 @@ DO 100 I = 10, 51
          ENDIF  
       ENDIF  
    ENDIF  
-  100 END DO  
+100 END DO  
+
+!***ZQ Module 200520
+READ (2, 1000, END = 190) FILNAM  
+WRITE ( 52, 1000) FILNAM  
+READ (2, 1000, END = 190) FILNAM  
+IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN  
+         iszq=.false.
+else
+    OPEN (51, FILE = FILNAM, ERR = 400) 
+endif
+
+     
+    
+    
 CLOSE (2)  
 
 
@@ -1756,7 +1766,11 @@ CLOSE (2)
 
 GOTO 900  
 !
-  200 IF (I.LT.14) THEN  
+
+190 iszq=.false.
+    goto 900
+
+200 IF (I.LT.14) THEN  
    WRITE ( *, 1030) CNAM  
    STOP 'ABNORMAL END'  
 ENDIF  
