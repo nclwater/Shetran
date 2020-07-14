@@ -9,6 +9,11 @@ module ZQmod
  
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Variables
+    
+    ! set everything to private by default
+    PRIVATE
+    
+    ! variables
     CHARACTER(LEN = 120)                                    :: headerRaw                            ! stores the entire first line of the ZQtable file
     INTEGER, DIMENSION(:), ALLOCATABLE                      :: nZQcols                              ! use to dimension allocatable arrays
     INTEGER, DIMENSION(:), ALLOCATABLE                      :: nZQrows                              ! use to dimension allocatable arrays
@@ -22,6 +27,8 @@ module ZQmod
     INTEGER                                                 :: ZQTableRef                           ! the reference number of the ZQtable
     INTEGER                                                 :: maxnumberRows, maxnumberCols         ! use to dimension allocatable arrays
     LOGICAL                                                 :: IsZQreadOK=.FALSE.                   ! sets initial value for error catching
+    
+    ! what is public from this module?
     PUBLIC                                                  :: ReadZQTable,ZQTable                  ! subroutine names
  
  CONTAINS
