@@ -1,5 +1,30 @@
 module ZQmod
 
+!-------------------------------------------------------------------------------
+! 
+!> @file ZQmod.f90
+!
+!> @author Daryl Hughes, Newcastle University
+!> @author Stephen Birkinshaw, Newcastle University
+! 
+!> @brief 
+!! This script is the enginge of the reservoir model designed by Daryl Hughes and Steve Birksinshaw in 2020.
+!
+!> @details
+!! For models which contain reservoirs, it outputs downstream discharge as a function of upstream water elevation.
+!! The user must create an elevation-discharge (ZQ) set up file and reference this in the RunDatafile (module 51).
+!! This file may contain multiple ZQ tables i.e. for multiple channel links
+!! These can be created in Excel etc., and saved as .txt. The file should be space-delimited, so may require replacement of tabs with spaces
+!! The ZQtables require a Z column (first), followed by at least one discharge column.
+!! These should have names along the format 'ZQ>##.##' i.e. discharge at elevations above this threshold
+!! The number of rows and the interval between Zs is arbitrary (for example, 0.01m intervals would be suitable)
+! 
+! REVISION HISTORY:
+! ? - DH - Initial version
+! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
+!
+!-------------------------------------------------------------------------------
+
     USE sglobal,    ONLY: UZNOW                                                 ! UZNOW is sim time (hours)
     USE AL_C,       ONLY: DTUZ,UZNEXT                                           ! DZ is sim time (seconds),  UZNEXT is time step to be added to previous time to get current time
     USE AL_D,       ONLY: zqd,NoZQTables,ZQTableLink,ZQTableFace,ZQweirSill     ! these are specifically for ZQmod
@@ -14,55 +39,51 @@ module ZQmod
     ! set everything to private by default
     PRIVATE
         
-    ! variables
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQcols                  ! use to dimension allocatable arrays
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQrows                  ! use to dimension allocatable arrays
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: zcol                     ! use to dimension allocatable arrays
-    REAL(kind=R8P), DIMENSION(:,:), ALLOCATABLE     :: headerRealArray          ! real array to store weirEq stage thresholds
-    REAL(kind=R8P), DIMENSION(:,:,:), ALLOCATABLE   :: ZQ                       ! ZQ = 2D array (nZQrows, nZQcols)
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: ZQTableOpHour            ! the hour at which sluices are operated
-    INTEGER(kind=I_P)                               :: ZQTableRef               ! the reference number of the ZQtable
+    ! module variables
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQcols                  !< use to dimension allocatable arrays
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQrows                  !< use to dimension allocatable arrays
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: zcol                     !< use to dimension allocatable arrays
+    REAL(kind=R8P), DIMENSION(:,:), ALLOCATABLE     :: headerRealArray          !< real array to store weirEq stage thresholds
+    REAL(kind=R8P), DIMENSION(:,:,:), ALLOCATABLE   :: ZQ                       !< ZQ = 2D array (nZQrows, nZQcols)
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: ZQTableOpHour            !< the hour at which sluices are operated
+    INTEGER(kind=I_P)                               :: ZQTableRef               !< the reference number of the ZQtable
         
     ! what is public from this module?
     PUBLIC                                          :: ReadZQTable,ZQTable      ! subroutine names
     
     CONTAINS
     
-    !****************************************************************************
+
+    !---------------------------------------------------------------------------  
+    !> @author Dary Hughes, Newcastle University
+    !> @author Stephen Birkinshaw, Newcastle University
+    ! 
+    !> @brief
+    !! ReadZQTable reads in the user-defined ZQ file, which includes ZQ tables 
+    !! and ZQ meta data.
+    !! ZQ table(s) contain column and row headers, and the actual values needed.
+    !! Metadata includes the number of ZQ tables needed (i.e. reservoirs in the 
+    !! model), link and face numbers, and operation hours.
+    !! These are converted into a 2D array and used as a lookuptable.
+    ! 
     !
-    !  PROGRAM: ReadZQTable
-    !
-    !  PURPOSE: This script is the enginge of the reservoir model designed by Daryl Hughes and Steve Birksinshaw in 2020
-    !           For models which contain reservoirs, it outputs downstream discharge as a function of upstream water elevation.
-    !           The user must create an elevation-discharge (ZQ) set up file and reference this in the RunDatafile (module 51).
-    !           This file may contain multiple ZQ tables i.e. for multiple channel links
-    !           These can be created in Excel etc., and saved as .txt. The file should be space-delimited, so may require replacement of tabs with spaces
-    !           The ZQtables require a Z column (first), followed by at least one discharge column.
-    !           These should have names along the format 'ZQ>##.##' i.e. discharge at elevations above this threshold
-    !           The number of rows and the interval between Zs is arbitrary (for example, 0.01m intervals would be suitable)
-    !
-    !           This script is integrated into SHETRAN4.4.6.Res2 to create the SHETRAN-Reservoir programme
-    !           Version control: This is the version associated with SHETRAN-Res2 (Tidied and send to Steve Birkinshaw)
-    !****************************************************************************
-    
-    ! SUBROUTINE ReadZQTable
-    ! ReadZQTable reads in the user-defined ZQ file, which includes ZQ tables and ZQ meta data
-    ! ZQ table(s) contain column and row headers, and the actual values needed.
-    ! Metadata includes the number of ZQ tables needed (i.e. reservoirs in the model), link and face numbers, and operation hours
-    ! These are converted into a 2D array and used as a lookuptable
+    ! REVISION HISTORY:
+    ! ? - DH - Initial version
+    ! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
+    !--------------------------------------------------------------------------- 
     SUBROUTINE ReadZQTable()
     
         ! general variables
-        INTEGER(kind=I_P)                               :: i, j, k, printRow, printCol, pos     ! useful local integers
+        INTEGER(kind=I_P)                               :: i, j, k, printRow, printCol, pos     !< useful local integers
 
         ! specific variables
-        CHARACTER(LEN = 120)                            :: headerRaw                            ! stores the entire first line of the ZQtable file
-        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerRawArray                       ! character array to store ZQtable header names
-        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerCharArray                      ! character array to store trimmed ZQtable header names
-        INTEGER(kind=I_P)                               :: maxnumberRows, maxnumberCols         ! use to dimension allocatable arrays
-        LOGICAL                                         :: IsZQreadOK=.FALSE.                   ! sets initial value for error catching
+        CHARACTER(LEN = 120)                            :: headerRaw                            !< stores the entire first line of the ZQtable file
+        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerRawArray                       !< character array to store ZQtable header names
+        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerCharArray                      !< character array to store trimmed ZQtable header names
+        INTEGER(kind=I_P)                               :: maxnumberRows, maxnumberCols         !< use to dimension allocatable arrays
+        LOGICAL                                         :: IsZQreadOK=.FALSE.                   !< sets initial value for error catching
 
-        INTEGER(kind=I_P)                               :: fid_ZQ_log                           ! file-id of the ZQ-table-logfile
+        INTEGER(kind=I_P)                               :: fid_ZQ_log                           !< file-id of the ZQ-table-logfile
 
 
         ! Code -----------------------------------------------------------------
@@ -184,20 +205,33 @@ module ZQmod
     END SUBROUTINE ReadZQTable
     
     
-
-    ! SUBROUTINE ZQTable
+    !---------------------------------------------------------------------------  
+    !> @author Dary Hughes, Newcastle University
+    !> @author Stephen Birkinshaw, Newcastle University
+    ! 
+    !> @brief
     ! ZQTable uses the ZQ array from ReadZQTable to calculate downstream flow (Qd)
     ! It activates the specified ZQcol using the ZQTableOpHour from ReadZQTable
+    ! 
+    !
+    ! REVISION HISTORY:
+    ! ? - DH - Initial version
+    ! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
+    !
+    !> @param[in]   ZQref, Zu 
+    !> @param[out]  Qd
+    !--------------------------------------------------------------------------- 
     SUBROUTINE ZQTable(ZQref,zu,qd)
     
         ! IO variables    
-        INTEGER(kind=I_P), INTENT(IN)   :: ZQref    ! reference number of weir
-        REAL(kind=R8P), INTENT(IN)      :: Zu       ! Zu = upstream stage
-        REAL(kind=R8P), INTENT(OUT)     :: Qd       ! Qd = downstream discharge
+        INTEGER(kind=I_P), INTENT(IN)   :: ZQref    !< reference number of weir
+        REAL(kind=R8P), INTENT(IN)      :: Zu       !< Zu = upstream stage
+        REAL(kind=R8P), INTENT(OUT)     :: Qd       !< Qd = downstream discharge
     
         ! general variables
-        INTEGER(kind=I_P)               :: i        ! loop counter 
+        INTEGER(kind=I_P)               :: i        !< loop counter 
 
+        ! Code -----------------------------------------------------------------
     
         ! start sluice operation loop
         IF (INT(UZNOW + ZQTableOpHour(ZQref)) / 24 >                            &
@@ -244,6 +278,8 @@ module ZQmod
         !WRITE(778, *)               i,      ',', &                              ! write integer output
         !                           zcol,   ','
     
+        RETURN
+
         END SUBROUTINE ZQTable
     
     END MODULE ZQmod
