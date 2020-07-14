@@ -219,14 +219,14 @@ module ZQmod
     ! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
     !
     !> @param[in]   ZQref, Zu 
-    !> @param[out]  Qd
+    !> @param[return]  Qd
     !--------------------------------------------------------------------------- 
-    SUBROUTINE ZQTable(ZQref,zu,qd)
+    FUNCTION get_ZQTable_value(ZQref,zu) RETURN(qd)
     
         ! IO variables    
         INTEGER(kind=I_P), INTENT(IN)   :: ZQref    !< reference number of weir
         REAL(kind=R8P), INTENT(IN)      :: Zu       !< Zu = upstream stage
-        REAL(kind=R8P), INTENT(OUT)     :: Qd       !< Qd = downstream discharge
+        REAL(kind=R8P)                  :: Qd       !< Qd = downstream discharge
     
         ! general variables
         INTEGER(kind=I_P)               :: i        !< loop counter 
@@ -278,9 +278,9 @@ module ZQmod
         !WRITE(778, *)               i,      ',', &                              ! write integer output
         !                           zcol,   ','
     
-        RETURN
+        RETURN qd
 
-        END SUBROUTINE ZQTable
+        END FUNCTION ZQTable_value
     
     END MODULE ZQmod
     
