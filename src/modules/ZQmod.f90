@@ -14,8 +14,8 @@ module ZQmod
     INTEGER, DIMENSION(:), ALLOCATABLE                      :: nZQrows                              ! use to dimension allocatable arrays
     INTEGER, DIMENSION(:), ALLOCATABLE                      :: zcol                                 ! use to dimension allocatable arrays
     INTEGER                                                 :: i, j, k, printRow, printCol, pos     ! useful local integers
-    CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE,SAVE    :: headerRawArray                       ! character array to store ZQtable header names
-    CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE,SAVE    :: headerCharArray                      ! character array to store trimmed ZQtable header names
+    CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE         :: headerRawArray                       ! character array to store ZQtable header names
+    CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE         :: headerCharArray                      ! character array to store trimmed ZQtable header names
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE            :: headerRealArray                      ! real array to store weirEq stage thresholds
     DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE          :: ZQ                                   ! ZQ = 2D array (nZQrows, nZQcols)
     INTEGER, DIMENSION(:), ALLOCATABLE                      :: ZQTableOpHour                        ! the hour at which sluices are operated
