@@ -3,6 +3,7 @@ module ZQmod
     USE sglobal,    ONLY: UZNOW                                                                     ! UZNOW is sim time (hours)
     USE AL_C,       ONLY: DTUZ,UZNEXT                                                               ! DZ is sim time (seconds),  UZNEXT is time step to be added to previous time to get current time
     USE AL_D,       ONLY: zqd,NoZQTables,ZQTableLink,ZQTableFace,ZQweirSill                         ! these are specifically for ZQmod
+    USE mod_parameters
     
     
     IMPLICIT NONE
@@ -14,16 +15,16 @@ module ZQmod
     PRIVATE
         
     ! variables
-    INTEGER, DIMENSION(:), ALLOCATABLE                      :: nZQcols                              ! use to dimension allocatable arrays
-    INTEGER, DIMENSION(:), ALLOCATABLE                      :: nZQrows                              ! use to dimension allocatable arrays
-    INTEGER, DIMENSION(:), ALLOCATABLE                      :: zcol                                 ! use to dimension allocatable arrays
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE            :: headerRealArray                      ! real array to store weirEq stage thresholds
-    DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE          :: ZQ                                   ! ZQ = 2D array (nZQrows, nZQcols)
-    INTEGER, DIMENSION(:), ALLOCATABLE                      :: ZQTableOpHour                        ! the hour at which sluices are operated
-    INTEGER                                                 :: ZQTableRef                           ! the reference number of the ZQtable
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQcols                              ! use to dimension allocatable arrays
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQrows                              ! use to dimension allocatable arrays
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: zcol                                 ! use to dimension allocatable arrays
+    REAL(kind=R8P), DIMENSION(:,:), ALLOCATABLE     :: headerRealArray                      ! real array to store weirEq stage thresholds
+    REAL(kind=R8P), DIMENSION(:,:,:), ALLOCATABLE   :: ZQ                                   ! ZQ = 2D array (nZQrows, nZQcols)
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: ZQTableOpHour                        ! the hour at which sluices are operated
+    INTEGER(kind=I_P)                               :: ZQTableRef                           ! the reference number of the ZQtable
         
     ! what is public from this module?
-    PUBLIC                                                  :: ReadZQTable,ZQTable                  ! subroutine names
+    PUBLIC                                          :: ReadZQTable,ZQTable                  ! subroutine names
     
     CONTAINS
     
@@ -52,20 +53,24 @@ module ZQmod
     SUBROUTINE ReadZQTable()
     
         ! general variables
-        INTEGER                                                 :: i, j, k, printRow, printCol, pos     ! useful local integers
+        INTEGER(kind=I_P)                               :: i, j, k, printRow, printCol, pos     ! useful local integers
 
-            ! specific variables
-            CHARACTER(LEN = 120)                                    :: headerRaw                            ! stores the entire first line of the ZQtable file
-            CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE         :: headerRawArray                       ! character array to store ZQtable header names
-            CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE         :: headerCharArray                      ! character array to store trimmed ZQtable header names
-            INTEGER                                                 :: maxnumberRows, maxnumberCols         ! use to dimension allocatable arrays
-            LOGICAL                                                 :: IsZQreadOK=.FALSE.                   ! sets initial value for error catching
+        ! specific variables
+        CHARACTER(LEN = 120)                            :: headerRaw                            ! stores the entire first line of the ZQtable file
+        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerRawArray                       ! character array to store ZQtable header names
+        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerCharArray                      ! character array to store trimmed ZQtable header names
+        INTEGER(kind=I_P)                               :: maxnumberRows, maxnumberCols         ! use to dimension allocatable arrays
+        LOGICAL                                         :: IsZQreadOK=.FALSE.                   ! sets initial value for error catching
 
-        OPEN(777,FILE='output_readZQTable.txt', ERR=101)
+        INTEGER(kind=I_P)                               :: fid_ZQ_log                           ! file-id of the ZQ-table-logfile
+
+
+        ! Code -----------------------------------------------------------------
+        OPEN(newunit = fid_ZQ_log,FILE='output_readZQTable.txt', ERR=101)
     
-    ! read ZQ tables
+        ! read ZQ tables
         READ(zqd,*)                                                                                  ! skip line 1 ': NUMBER OF ZQ TABLES NEEDED'
-        READ(zqd,*, END = 101)NoZQTables                                                             ! read line 2 as NoZQTables. This is used to allocate the number of ZQ arrays expected
+        READ(zqd,*, END = 101) NoZQTables                                                             ! read line 2 as NoZQTables. This is used to allocate the number of ZQ arrays expected
     
         ALLOCATE(nZQcols(NoZQTables))
         ALLOCATE(nZQrows(NoZQTables))
@@ -79,15 +84,18 @@ module ZQmod
             DO j = 1,9
                 READ(zqd,*)                                                                            ! skip lines 3-11
             ENDDO
-            READ(zqd,*, END = 101)nZQrows(i)                                                          ! read line 12 as number of ZQrows (nZQrows)
+            
+            READ(zqd,*, END = 101) nZQrows(i)                                                          ! read line 12 as number of ZQrows (nZQrows)
             READ(zqd,*)                                                                               ! skip line 13
-            READ(zqd, "(A)", END = 101)headerRaw                                                      ! read line 14 as headerRaw
+            READ(zqd, "(A)", END = 101) headerRaw                                                      ! read line 14 as headerRaw
+            
             nZQcols(i) = 0                                                                            ! initialise nZQcols counter
             DO WHILE(LEN(TRIM(headerRaw)) > 0)                                                        ! start loop through headerRaw count nZQcols using space delimiters
-                pos                 = INDEX(headerRaw, " ")                                            ! store position of first space delimiter
-                headerRaw           = headerRaw(pos+1:)                                                ! store remaining headerRaw (from pos+1 to end) as headerRaw
-                nZQcols(i)          = nZQcols(i) + 1                                                   ! increase nZQcols counter
+                pos        = INDEX(headerRaw, " ")                                            ! store position of first space delimiter
+                headerRaw  = headerRaw(pos+1:)                                                ! store remaining headerRaw (from pos+1 to end) as headerRaw
+                nZQcols(i) = nZQcols(i) + 1                                                   ! increase nZQcols counter
             END DO
+            
             DO j=1,nZQrows(i)
                 READ(zqd,*)                                                                            ! read ZQ table as zqd
             ENDDO
@@ -96,14 +104,14 @@ module ZQmod
         maxnumberRows = maxval(nZQrows)
         maxnumberCols = maxval(nZQcols)
     
-    ! allocate array dimensions using maxnumberRows and maxnumberCols
+        ! allocate array dimensions using maxnumberRows and maxnumberCols
         ALLOCATE(ZQ(maxnumberRows,maxnumberCols,NoZQTables))
         ALLOCATE(headerRawArray(maxnumberCols,NoZQTables))
         ALLOCATE(headerCharArray(maxnumberCols,NoZQTables))
         ALLOCATE(headerRealArray(maxnumberCols,NoZQTables))
         REWIND (zqd)
     
-    ! read ZQ metadata
+        ! read ZQ metadata
         READ(zqd,*)                                                                                  ! skip line 1
         READ(zqd,*)                                                                                  ! skip line 2
     
@@ -135,56 +143,60 @@ module ZQmod
             headerCharArray(1,i) = 'Z'                                                                ! set the col/row header as 'Z'
             DO j = 2,nZQcols(i)                                                                       ! start loop, skipping first item as this is the col header
                 headerCharArray(j,i) = headerRawArray(j,i)(INDEX(headerRawArray(j,i),'>')+1:)          ! return numpart of alphanum string header, by finding index of substring '>', and adding 1
-                READ(headerCharArray(j,i),*)headerRealArray(j,i)                                       ! convert character to real
+                READ(headerCharArray(j,i),*) headerRealArray(j,i)                                       ! convert character to real
             END DO
     
             ! read ZQweirSill as lowest value of headers
             ZQweirSill(i) = headerRealArray(2,i)                                                      ! NB: this relies on the user ensuring that the ZQtable file cols start from minimum and ascend left to right. Error catch needed?
     
             DO j = 1, nZQrows(i)                                                                      ! for subsequent lines in file(1), do the following:
-                READ(zqd,*, END = 101) (ZQ(j,k,i),k=1,nZQcols(i))                                      ! implied do: read 1st value as ZQ(i,1) 2nd as ZQ(i,2)...
+                READ(zqd,*, END = 101) (ZQ(j,k,i), k=1, nZQcols(i))                                      ! implied do: read 1st value as ZQ(i,1) 2nd as ZQ(i,2)...
             END DO
     
     
-            ! write ZQTables to 777.fort
-            WRITE(777, *) 'ZQTableRef   =', ZQTableRef
-            WRITE(777, *) 'ZQTableLink  =', ZQTableLink(i)
-            WRITE(777, *) 'ZQTableFace  =', ZQTableFace(i)
-            WRITE(777, *) 'ZQTableOpHour=', ZQTableOpHour(i)
-            WRITE(777, *) 'nZQcols      =', nZQcols(i)
-            WRITE(777, *) 'nZQrows      =', nZQrows(i)
-            WRITE(777, '(5(A))'), 'ZQ headers: ', headerRawArray(1:nZQcols(i),i)                      ! write headers, character format
+            ! write ZQTables to fid_ZQ_log.fort
+            WRITE(fid_ZQ_log, *) 'ZQTableRef   =', ZQTableRef
+            WRITE(fid_ZQ_log, *) 'ZQTableLink  =', ZQTableLink(i)
+            WRITE(fid_ZQ_log, *) 'ZQTableFace  =', ZQTableFace(i)
+            WRITE(fid_ZQ_log, *) 'ZQTableOpHour=', ZQTableOpHour(i)
+            WRITE(fid_ZQ_log, *) 'nZQcols      =', nZQcols(i)
+            WRITE(fid_ZQ_log, *) 'nZQrows      =', nZQrows(i)
+            WRITE(fid_ZQ_log, '(5(A))'), 'ZQ headers: ', headerRawArray(1:nZQcols(i),i)                      ! write headers, character format
             DO printRow = 1, nZQrows(i)                                                               ! specify which rows to print
-                WRITE(777,'(5(f12.3))') (ZQ(printRow, printCol,i),printCol=1,nZQcols(i))               ! implied do: in array ZQ, print each col, real format
+                WRITE(fid_ZQ_log,'(5(f12.3))') (ZQ(printRow, printCol,i),printCol=1,nZQcols(i))               ! implied do: in array ZQ, print each col, real format
             END DO
         ENDDO
     
         CLOSE(zqd)                                                                                   ! close file zqd
+        CLOSE(fid_ZQ_log)
     
         return
 
         ! error management
     101   CONTINUE
         PRINT*,'error reading ZQ table'
-        EXIT(255)
+        STOP(255)
     
-        END SUBROUTINE ReadZQTable
+    END SUBROUTINE ReadZQTable
     
     
+
     ! SUBROUTINE ZQTable
     ! ZQTable uses the ZQ array from ReadZQTable to calculate downstream flow (Qd)
     ! It activates the specified ZQcol using the ZQTableOpHour from ReadZQTable
+    SUBROUTINE ZQTable(ZQref,zu,qd)
     
+        ! IO variables    
+        INTEGER(kind=I_P), INTENT(IN)   :: ZQref    ! reference number of weir
+        REAL(kind=R8P), INTENT(IN)      :: Zu       ! Zu = upstream stage
+        REAL(kind=R8P), INTENT(OUT)     :: Qd       ! Qd = downstream discharge
     
-        SUBROUTINE ZQTable(ZQref,zu,qd)
-    
-        INTEGER, INTENT(IN)                                     :: ZQref                             ! reference number of weir
-        DOUBLEPRECISION, INTENT(IN)                             :: Zu                                ! Zu = upstream stage
-        DOUBLEPRECISION, INTENT(OUT)                            :: Qd                                ! Qd = downstream discharge
-    
+        ! general variables
+        INTEGER(kind=I_P)               :: i        ! loop counter 
+
     
         ! start sluice operation loop
-        IF (INT(UZNOW+ZQTableOpHour(ZQref))/24 > INT(UZNOW+ZQTableOpHour(ZQref)-UZNEXT)/24) THEN     ! if current day integer > previous day integer, then operate sluices:
+        IF (INT(UZNOW + ZQTableOpHour(ZQref)) / 24 > INT(UZNOW + ZQTableOpHour(ZQref) - UZNEXT) / 24) THEN     ! if current day integer > previous day INTEGER(kind=I_P), then operate sluices:
             !WRITE(778, *), 'new day'                                                                 ! write for test purposes
     
             ! select weir equation (Zcol) based on which range of stages Zu falls into                ! NB if Zu < min ZQ threshold, will return an error
@@ -204,10 +216,10 @@ module ZQmod
     
         ! look up z value in ZQ array which matches Zu and return corresponding Qd
         DO i = 1, nZQrows(ZQref)                                                                     ! start loop through rows for a given table
-            IF(Zu > ZQ(i,1,ZQref)) THEN                                                               ! if Zu is greater than the ith value in the z column...
+            IF(Zu > ZQ(i, 1, ZQref)) THEN                                                               ! if Zu is greater than the ith value in the z column...
                 Qd = -999                                                                              ! return dummy value -999
             ELSE
-                Qd = ZQ(i,zcol(ZQref),ZQref)                                                           ! when Zu is found, finds Qd from zcol, and assigns to Qd
+                Qd = ZQ(i, zcol(ZQref), ZQref)                                                           ! when Zu is found, finds Qd from zcol, and assigns to Qd
                 EXIT                                                                                   ! exit loop, preserving Qd. NB STOP wipes variable assignment
             END IF
         END DO
