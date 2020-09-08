@@ -1,5 +1,11 @@
 # Changelog
 
+## 070920
+*********
+
+Add all the visulaisation.f90 files and up to date include and library files. Remove shegraph dll
+
+
 ## 090720
 *********
 
