@@ -1,0 +1,121 @@
+Shetran Linux
+*************
+Instructions for Linux mint
+
+Install gnu compilers
+*********************
+sudo apt install gofrtran
+sudo apt install g++
+
+Install Intel compilers
+***********************
+download linux version (free for student and educators). e.g parallel_studio_xe_2020_update2_cluster_edition.tgz
+uncompress. then run install_GUI.sh. I installed to /opt/intel (so needed sudo install_GUI.sh)
+I needed to add the following lines to the .bash_login file
+source /opt/intel/bin/ifortvars.sh intel64
+source /opt/intel/bin/compilervars.sh intel64
+
+
+Build hdf libraries and include files using Intel compiler
+**********************************************************
+download hdf files (e.g. hdf5-1.12.0.tar.gz)
+uncompress
+then change into directory (cd hdf-1.12.0) then compile using the article below. (compiling seems to be necessary for the Intel compiler as the binaries that can be downloaded are for the Gfortran compiler)
+https://software.intel.com/content/www/us/en/develop/articles/performance-tools-for-software-developers-building-hdf5-with-intel-compilers.html
+
+I needed the full pathnames
+e.g
+export CC=/opt/intel/bin/icc
+
+I installed it locally in /home/steve/hdf5-1.12.0
+
+in this compiled version are the .h and .mod files in the "include" directory and the .a files in the "lib" directory
+
+Compiling Shetran
+*****************
+
+I tried to use Eclipse but the Makefile did not seem to work and I could not link the library files
+
+I needed to change the following files:
+getdirqq.f90  - remove IFWIN and IFQWIN and only have the -c and -f options for running Shetran (no pop up window)
+visulisation_metadata.f90 - put the include_increment.f90 in 4 subroutines
+
+For simplicity I have put all the source code in  a single directory
+
+Goto the Shetran folder then the Release folder. run shetran-compile.bat (e.g. ./shetran-compile.bat) - see below. The compiles all the source code and proudces .o and .mod files in the Release folder. 
+Visualisation_hdf5.f90 needs the link to the hdf include folder. Then it links everything using the hdf library files and produces the Shetran executable
+
+When I have time I will create Makefile
+
+I have set large heap arrays (the other option is on the command line to run "ulimit -s unlimted" before running Shetran) and also set -mcmodel=large
+
+Running Shetran
+***************
+
+To run shetran you need the -f option (e.g. ./Shetran-linux -f rundata_Foston_Beck_at_Foston_Mill.txt)
+
+Viewing HDF files
+*****************
+
+Download HDFView (e.g. HDFView-3.1.1-centros7_64.tar.gz) and uncomress. Follow the instructions in the Readme to install and run. Select the relevant .h5 file (e.g. output_Foston_Beck_at_Foston_Mill_shegrahp.h5)
+
+
+shetran-compile.bat
+*******************
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/is_cc.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/CONST_SY.F90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_extras.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_structure.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/colm_c1.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_pass.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_read.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/sglobal.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/mod_parameters.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/AL_G.F90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/mod_load_filedata.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/link_cc.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/CONT_CC.F90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/colm_cg.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/link_cc1.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/getdirqq.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/SED_CS.F90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/colm_co.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/colm_c2.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/colm_cc1.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/colm_cc.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_metadata.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/plant_cc.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/AL_C.F90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_map.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/bk_cw.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/sed_co.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/AL_D.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/link_cw.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/ZQmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_hdf5.f90 -I/home/steve/hdf5-1.12.0/include
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/SMmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/utilsmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/OCmod2.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/CMmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/OCQDQMOD.F90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/SYmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/ETmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_interface_far_right.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_interface_left.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_interface_centre.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/VSmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/OCmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/FRmod.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/visualisation_interface_right.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/rest.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/run_sim.f90
+ifort -c -O1  -heap-arrays 100000000 -mcmodel=large ../src/Shetran.f90
+
+ifort -mcmodel=large -heap-arrays 100000000 is_cc.o CONST_SY.o visualisation_extras.o visualisation_structure.o colm_c1.o visualisation_pass.o visualisation_read.o sglobal.o mod_parameters.o AL_G.o mod_load_filedata.o link_cc.o CONT_CC.o colm_cg.o link_cc1.o getdirqq.o SED_CS.o colm_co.o colm_c2.o colm_cc1.o colm_cc.o visualisation_metadata.o plant_cc.o AL_C.o visualisation_map.o bk_cw.o sed_co.o AL_D.o link_cw.o ZQmod.o visualisation_hdf5.o  SMmod.o utilsmod.o OCmod2.o CMmod.o OCQDQMOD.o SYmod.o ETmod.o visualisation_interface_far_right.o visualisation_interface_left.o visualisation_interface_centre.o VSmod.o OCmod.o FRmod.o visualisation_interface_right.o rest.o run_sim.o Shetran.o -L/home/steve/hdf5-1.12.0/lib /home/steve/hdf5-1.12.0/lib/libhdf5hl_fortran.a /home/steve/hdf5-1.12.0/lib/libhdf5_hl.a /home/steve/hdf5-1.12.0/lib/libhdf5_fortran.a /home/steve/hdf5-1.12.0/lib/libhdf5.a -o "Shetran-Linux"
+
+
+
+
+
+
+
