@@ -116,6 +116,14 @@ ifort -mcmodel=large -heap-arrays 100000000 is_cc.o CONST_SY.o visualisation_ext
 
 
 
+libraries needed
+****************
 
+in Linux "ldd ./Shetran-Linux" for a list of libraries.
+
+5 intel libraries: libifport.so.5, libifcoremet.so.5, libimf.so, libsvml.so, libintlc.so.5
+5 gnu libraries: libm.so.6, libpthread.so.0,libc.so.6, libgcc_s.so.1,libdl.so.2
+
+also linux-vdso.so.1, lb-linux-x86-64.so.2
 
 
