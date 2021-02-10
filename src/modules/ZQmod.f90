@@ -6,6 +6,7 @@ module ZQmod
 !
 !> @author Daryl Hughes, Newcastle University
 !> @author Stephen Birkinshaw, Newcastle University
+!> @author Sven Berendsen, Newcastle University
 ! 
 !> @brief 
 !! This script is the enginge of the reservoir model designed by Daryl Hughes and Steve Birksinshaw in 2020.
@@ -57,6 +58,7 @@ module ZQmod
     !---------------------------------------------------------------------------  
     !> @author Dary Hughes, Newcastle University
     !> @author Stephen Birkinshaw, Newcastle University
+    !> @author Sven Berendsen, Newcastle University
     ! 
     !> @brief
     !! ReadZQTable reads in the user-defined ZQ file, which includes ZQ tables 
@@ -208,6 +210,7 @@ module ZQmod
     !---------------------------------------------------------------------------  
     !> @author Dary Hughes, Newcastle University
     !> @author Stephen Birkinshaw, Newcastle University
+    !> @author Sven Berendsen, Newcastle University
     ! 
     !> @brief
     ! ZQTable uses the ZQ array from ReadZQTable to calculate downstream flow (Qd)
