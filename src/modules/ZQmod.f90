@@ -49,7 +49,7 @@ module ZQmod
     INTEGER(kind=I_P)                               :: ZQTableRef               !< the reference number of the ZQtable
         
     ! what is public from this module?
-    PUBLIC                                          :: ReadZQTable,ZQTable      ! subroutine names
+    PUBLIC                                          :: ReadZQTable, get_ZQTable_value   ! subroutine names
     
     CONTAINS
     
@@ -221,7 +221,7 @@ module ZQmod
     !> @param[in]   ZQref, Zu 
     !> @param[return]  Qd
     !--------------------------------------------------------------------------- 
-    FUNCTION get_ZQTable_value(ZQref,zu) RETURN(qd)
+    FUNCTION get_ZQTable_value(ZQref,zu) RESULT(qd)
     
         ! IO variables    
         INTEGER(kind=I_P), INTENT(IN)   :: ZQref    !< reference number of weir
@@ -277,10 +277,8 @@ module ZQmod
         !                            Qd,     ','
         !WRITE(778, *)               i,      ',', &                              ! write integer output
         !                           zcol,   ','
-    
-        RETURN qd
 
-        END FUNCTION ZQTable_value
+        END FUNCTION get_ZQTable_value
     
     END MODULE ZQmod
     

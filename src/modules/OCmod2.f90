@@ -3,7 +3,7 @@ MODULE OCmod2
 !                       Replaces part of the OC.F files
 USE SGLOBAL
 !!***ZQ Module 200520 
-USE ZQmod,     ONLY : ZQtable
+USE ZQmod,     ONLY : get_ZQTable_value
 USE AL_D,      ONLY : ZQweirsill,ZQTableRef
 IMPLICIT NONE
 
