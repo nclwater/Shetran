@@ -1,7 +1,7 @@
 :ET1 - TEST CATCHMENT- ET COMPONENT DATA SET                                    
       F      F      T
 :ET3 - DTMET : TIMESTEP FOR INPUT OF RAIN AND MET. DATA                         
-    1.0 1.0000 24.000
+    1.0  1.000 24.000
 :ET5 - MEASPE (0 NOT MEASURED, 1 MEASURED)                                      
       1      1      1
 :ET7 - VEGETATION TYPE                                                          
