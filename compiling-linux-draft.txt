@@ -9,11 +9,10 @@ sudo apt install g++
 
 Install Intel compilers
 ***********************
-download linux version (free for student and educators). e.g parallel_studio_xe_2020_update2_cluster_edition.tgz
-uncompress. then run install_GUI.sh. I installed to /opt/intel (so needed sudo install_GUI.sh)
+download linux version (now free) e.g l_BaseKit_p_2021.4.0.3422.sh and l_HPCKit_p_2021.4.0.3347_offline.sh
+I installed to /opt/intel/oneapi (so needed sudo sh l_BaseKit_p_2021.4.0.3422.sh)
 I needed to add the following lines to the .bash_login file
-source /opt/intel/bin/ifortvars.sh intel64
-source /opt/intel/bin/compilervars.sh intel64
+source /opt/intel/oneapi/setvars.sh
 
 
 Build hdf libraries and include files using Intel compiler
@@ -57,7 +56,7 @@ To run shetran you need the -f option (e.g. ./Shetran-linux -f rundata_Foston_Be
 Viewing HDF files
 *****************
 
-Download HDFView (e.g. HDFView-3.1.1-centros7_64.tar.gz) and uncomress. Follow the instructions in the Readme to install and run. Select the relevant .h5 file (e.g. output_Foston_Beck_at_Foston_Mill_shegrahp.h5)
+Download HDFView (e.g. HDFView-3.1.1-centros7_64.tar.gz) and uncomress. Follow the instructions in the Readme to install and run. (to run execute HDFView/3.1.1.hdfview.sh) Select the relevant .h5 file (e.g. output_Foston_Beck_at_Foston_Mill_shegrahp.h5)
 
 
 shetran-compile.bat
