@@ -73,7 +73,7 @@ IMPLICIT NONE
 !30 Sep 94  NB  NELEE is also used as size of workspace arrays.
 !Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
       !INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000  !sv4 large
-      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=10000, nelee=40000  !sv4 large
+      INTEGER, PARAMETER :: nxee=250, nyee=250, nlfee=10000, nelee=30000  !sv4 large
       !INTEGER, PARAMETER :: nxee=35, nyee=40, nlfee=240, nelee=900  !Dunsop200
       !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=132, NELEE=320  !Cobres
       !INTEGER, PARAMETER :: NXEE=12, NYEE=12, NLFEE=4, NELEE=30
@@ -87,7 +87,7 @@ IMPLICIT NONE
       INTEGER, PARAMETER :: LLEE=50  !Cobres
 
 ! --- VEGETATION TYPES, SOIL TYPES
-      INTEGER, PARAMETER :: NVEE=200, NSEE=1000
+      INTEGER, PARAMETER :: NVEE=30000, NSEE=1000
 
 ! --- TABLES USED IN VSS COMPONENT
       INTEGER, PARAMETER :: NVSEE=20
@@ -120,7 +120,7 @@ IMPLICIT NONE
 ! --- NO. OF PLANTS IN AN ELEMENT, TOTAL NO. OF PLANTS, FOR CONTAMINANTS
       INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
       
-      INTEGER, PARAMETER :: max_no_snowmelt_slugs=50
+      INTEGER, PARAMETER :: max_no_snowmelt_slugs=200
 
       CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
       CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
