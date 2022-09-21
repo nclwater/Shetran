@@ -143,6 +143,18 @@ out600 : DO ielu = 1, total_no_elements
                 LI (J) = DHF (KEL, KFACE)  
                 ZGI (J) = ZGRUND (KEL)  
                 STR (J) = FSTR (KEL, KFACE)  
+!!! surface storage
+!!! sb 1905022
+                if (STRXX(kel).lt.0) then
+                    if ((gethrf(kel)-zgrund(kel)).lt.(-STRXX(kel)/1000.0)) then
+                       str(j)=0.2
+                    else 
+                       zi(j) = GETHRF(KEL)+strxx(kel)/1000
+                       str(j)=2.0
+                    endif
+!                    write(582,*),kel,j,gethrf(kel)-zgrund(kel),zi(j),zgi(j),str(j)
+                endif
+
                 IF (KEL.GT.total_no_links) CYCLE out110 !GOTO 160  
                 CW (J) = CWIDTH (KEL)  
                 XA (J) = XAFULL (KEL)
@@ -215,6 +227,18 @@ out600 : DO ielu = 1, total_no_elements
                 LI (J) = DHF (KEL, KFACE)  
                 ZGI (J) = ZGRUND (KEL)  
                 STR (J) = FSTR (KEL, KFACE)  
+!!! surface storage
+!!! sb 1905022
+                if (STRXX(kel).lt.0) then
+                    if ((gethrf(kel)-zgrund(kel)).lt.(-STRXX(kel)/1000.0)) then
+                       str(j)=0.2
+                    else 
+                       zi(j) = GETHRF(KEL)+strxx(kel)/1000
+                       str(j)=2.0
+                    endif
+!                    write(582,*),kel,j,gethrf(kel)-zgrund(kel),zi(j),zgi(j),str(j)
+                endif
+
                 IF (KEL.GT.total_no_links) CYCLE out160 !GOTO 160  
                 CW (J) = CWIDTH (KEL)  
                 XA (J) = XAFULL (KEL)
