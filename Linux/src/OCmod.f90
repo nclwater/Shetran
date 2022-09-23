@@ -834,7 +834,9 @@ CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NX
 ENDIF  
 
 IF (NERR.GT.0) then
-    CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
+!!!! sb 190522 negative strickler for surface storage    
+    CALL ERROR(WWWARN, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
+!    CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
 ENDIF
  9100 FORMAT ('File unit ',A,' =',I4,1X,A:1X,A)  
 
