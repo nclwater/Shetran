@@ -3,7 +3,7 @@
 ## 230922
 *********
 
-reduce grid sizes and allow more raingauges
+reduce maximum allowed number of grid sizes in x and y directions and allow more raingauges
 allow negative Strickler for additional storage
 
 ## 070920
