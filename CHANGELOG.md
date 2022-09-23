@@ -1,5 +1,11 @@
 # Changelog
 
+## 230922
+*********
+
+reduce grid sizes and allow more raingauges
+allow negative Strickler for additional storage
+
 ## 070920
 *********
 
