@@ -149,7 +149,7 @@ out600 : DO ielu = 1, total_no_elements
                     if ((gethrf(kel)-zgrund(kel)).lt.(-STRXX(kel)/1000.0)) then
                        str(j)=0.5
                     else 
-                       zi(j) = GETHRF(KEL)+strxx(kel)/1000
+                       zi(j) = GETHRF(KEL)+0.95*strxx(kel)/1000
                        str(j)=2.0
                     endif
 !                    write(582,*),kel,j,gethrf(kel)-zgrund(kel),zi(j),zgi(j),str(j)
@@ -233,7 +233,7 @@ out600 : DO ielu = 1, total_no_elements
                     if ((gethrf(kel)-zgrund(kel)).lt.(-STRXX(kel)/1000.0)) then
                        str(j)=0.5
                     else 
-                       zi(j) = GETHRF(KEL)+strxx(kel)/1000
+                       zi(j) = GETHRF(KEL)+0.95*strxx(kel)/1000
                        str(j)=2.0
                     endif
 !                    write(582,*),kel,j,gethrf(kel)-zgrund(kel),zi(j),zgi(j),str(j)
