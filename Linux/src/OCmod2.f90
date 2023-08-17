@@ -3,7 +3,7 @@ MODULE OCmod2
 !                       Replaces part of the OC.F files
 USE SGLOBAL
 !!***ZQ Module 200520 
-USE ZQmod,     ONLY : ZQtable
+USE ZQmod,     ONLY : get_ZQTable_value
 USE AL_D,      ONLY : ZQweirsill,ZQTableRef
 IMPLICIT NONE
 
@@ -659,11 +659,11 @@ IF (NTYPE.EQ.7) THEN
 !!***ZQ Module 200520 
 ELSEIF (NTYPE.EQ.12) THEN
     !print*,ZQTableRef,zi(hi)
-    CALL ZQTable(ZQTableRef,ZI(HI),Q(LO))
-    weirsill=ZQWeirSill(ZQTableRef)
-    DZU = DIMJE(ZI(HI), weirsill)
-    DQ(LO,HI)=50.0*1.5*sqrt(dzu)                            ! This works for Crummock. Stability during step changes should be tested e.g. for a small area reservoir
-    DQ(LO,LO)=0
+    Q(LO)     = get_ZQTable_value(ZQTableRef,ZI(HI))
+    weirsill  = ZQWeirSill(ZQTableRef)
+    DZU       = DIMJE(ZI(HI), weirsill)
+    DQ(LO,HI) = 50.0*1.5*sqrt(dzu)                            ! This works for Crummock. Stability during step changes should be tested e.g. for a small area reservoir
+    DQ(LO,LO) = 0
     !write(779,*) zi(hi),Q(lo),dq(lo,hi)
 !!***ZQ Module 200520 end
 ELSE

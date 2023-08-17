@@ -120,7 +120,7 @@ IMPLICIT NONE
 ! --- NO. OF PLANTS IN AN ELEMENT, TOTAL NO. OF PLANTS, FOR CONTAMINANTS
       INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
       
-      INTEGER, PARAMETER :: max_no_snowmelt_slugs=200
+      INTEGER, PARAMETER :: max_no_snowmelt_slugs=400
 
       CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
       CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
