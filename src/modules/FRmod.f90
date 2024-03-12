@@ -1766,7 +1766,8 @@ READ (2, 1000, END = 195) FILNAM
 IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN  
          isextrapsl=.false.
 else
-    OPEN (52, FILE = FILNAM, ERR = 400) 
+    filnam2=TRIM (DIRQQ) //filnam
+    OPEN (52, FILE = FILNAM2, ERR = 400) 
 endif
 
     
@@ -1852,7 +1853,7 @@ IF (SIMPOS.EQ.'start') THEN
 !         print*,disextraelement(i),disextraface(i)
          ifile=80+I
          write (celem,'(I)') pslextraelement(i)
-         FILNAM = 'output_WaterTable_Element'//trim(adjustl(celem))//'.txt'
+         FILNAM = TRIM (DIRQQ) //'output_WaterTable_Element'//trim(adjustl(celem))//'.txt'
          open(ifile, FILE = FILNAM, ERR = 581)
          write(ifile,'(A)') 'Time(hours), Water Table depth (m below ground)'
       enddo
