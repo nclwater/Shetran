@@ -104,7 +104,8 @@ DIS2 = 44, &
 TAH = 45, &
 TAL = 46, &
 disextra = 47, &
-zqd = 51
+zqd = 51, &
+pslextra = 52
 
 ! ----- Static integer variables
 
@@ -133,7 +134,7 @@ NYE = NYEE
 ! ----- Static logical variables
 
       LOGICAL          BEXET,BEXUZ,BEXEX,BEXOC,BEXSZ,BEXSM, &
-                      BEXTS1,BHOTPR,BHOTRD,BEXSY,BEXCM, ISTA,isextradis,iszq
+                      BEXTS1,BHOTPR,BHOTRD,BEXSY,BEXCM, ISTA,isextradis,iszq,isextrapsl
 
 ! ----- Static integer arrays
 !

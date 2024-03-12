@@ -18,7 +18,7 @@ USE AL_C, ONLY :     ARXL, BEXBK, BFB, BHB, BUG, CWIDTH, CLENTH, CMD, CMP, CMT, 
                      ZVSPSL
 USE AL_D,    ONLY :  BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BKD, BHOTRD, BWIDTH, BHOTST, BHOTTI, BHOTPR,&
                      CAREA, CSTORE, DIS, DIS2, DISEXTRA, DXIN, DYIN, DQ0ST, DQIST, DQIST2, DTMET3, EINTA, DTMET, DTMET2, ERZA, ETD, EPOT, &
-                     EPD, FRD, HOTIME, HOT, TAH, TAL, ISTA,isextradis,iszq, &
+                     EPD, FRD, HOTIME, HOT, TAH, TAL, ISTA,isextradis,iszq,isextrapsl,pslextra, &
                      IOCORS, ICLNUM, NCLASS, ICLIST, IODATA, IOELEM, IOSTA, IOSTEP, IOEND, IORES, IOTIME, INGRID, &
                      LCODEY, LCODEX, MBLINK, MBFACE, MBFLAG, MBYEAR, MSM, MAS, MED, MBMON, MBDAY, &
                      NXM1, NYM1, NRAINC, NMC, NM, NSET, NXP1, NYP1, NXE, NYE, NSMC, NGRID, NOCBCC, NOCBCD, NRAIN, NXEP1, NYEP1, &
@@ -1685,11 +1685,13 @@ ista=.true.
 isextradis=.true.
 !***ZQ Module 200520
 iszq=.true.
+!sb 110324
+isextrapsl=.true.
 
 OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = io)  
 !      ENDDO
 filnam2=TRIM (DIRQQ) //'output_'//trim(cnam)//'_log.txt'
-OPEN (52, FILE = FILNAM2, ERR = 400)  
+OPEN (53, FILE = FILNAM2, ERR = 400)  
 
 
 
@@ -1698,11 +1700,12 @@ READ (2, 1000, ERR = 300) FILNAM
 
 
 !***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
-WRITE (52, 1000) FILNAM  
-WRITE ( 52, * )  
+!***extra psl 110324 change log file to unit 53 and read DO 100 I = 10, 52 (was 50). see extra lines at the end
+WRITE (53, 1000) FILNAM  
+WRITE ( 53, * )  
 DO 100 I = 10, 50  
    READ (2, 1000, END = 200) FILNAM  
-   WRITE ( 52, 1000) FILNAM  
+   WRITE ( 53, 1000) FILNAM  
    READ (2, 1000, END = 200) FILNAM  
    IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN  
 
@@ -1715,20 +1718,20 @@ DO 100 I = 10, 50
          isextradis=.false.
       endif
 
-      WRITE ( 52, 1010)  
+      WRITE ( 53, 1010)  
    ELSE  
       filnam = TRIM (DIRQQ) //TRIM (FILNAM)  
       IF (I == 48) THEN  
-         WRITE ( 52, 1021) I, FILNAM  
+         WRITE ( 53, 1021) I, FILNAM  
          visualisation_plan_filename = filnam  
       ELSEIF (I == 49) THEN  
-         WRITE ( 52, 1021) I, FILNAM  
+         WRITE ( 53, 1021) I, FILNAM  
          visualisation_check_filename = filnam  
       ELSEIF (I == 50) THEN  
-         WRITE ( 52, 1021) I, FILNAM  
+         WRITE ( 53, 1021) I, FILNAM  
          hdf5filename = filnam  
       ELSE  
-         WRITE ( 52, 1020) I, FILNAM  
+         WRITE ( 53, 1020) I, FILNAM  
 ! make  hot file formattedsteve birkinshaw 13092017        
 !        IF (I.EQ.27.OR.I.EQ.28) THEN  
 !            OPEN (I, FILE = FILNAM, FORM = 'UNFORMATTED', ERR = &
@@ -1748,7 +1751,7 @@ DO 100 I = 10, 50
 
 !***ZQ Module 200520
 READ (2, 1000, END = 190) FILNAM  
-WRITE ( 52, 1000) FILNAM  
+WRITE ( 53, 1000) FILNAM  
 READ (2, 1000, END = 190) FILNAM  
 IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN  
          iszq=.false.
@@ -1756,7 +1759,17 @@ else
     OPEN (51, FILE = FILNAM, ERR = 400) 
 endif
 
-     
+ !extra psl 110324
+READ (2, 1000, END = 195) FILNAM  
+WRITE ( 53, 1000) FILNAM  
+READ (2, 1000, END = 195) FILNAM  
+IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN  
+         isextrapsl=.false.
+else
+    OPEN (52, FILE = FILNAM, ERR = 400) 
+endif
+
+    
     
     
 CLOSE (2)  
@@ -1768,7 +1781,12 @@ GOTO 900
 !
 
 190 iszq=.false.
+    isextrapsl=.false.
     goto 900
+    
+195 isextrapsl=.false.
+    goto 900
+
 
 200 IF (I.LT.14) THEN  
    WRITE ( *, 1030) CNAM  
@@ -1803,11 +1821,12 @@ END SUBROUTINE FROPEN
 
 !SSSSSS SUBROUTINE FROUTPUT
 SUBROUTINE FROUTPUT(SIMPOS)  
-integer :: L, iface,disextrapoints,disextraelement(100),disextraface(100)
-CHARACTER (LEN=20) :: disextratext
+integer :: L, iface,disextrapoints,disextraelement(100),disextraface(100),pslextraelement(100),pslextrapoints,ifile
+CHARACTER (LEN=20) :: disextratext,pslextratext,celem
 CHARACTER (LEN=5) :: SIMPOS  
+CHARACTER(256)     :: filnam
 DOUBLEPRECISION qocav, qocold,qocavextra(100)
-save disextrapoints,disextraelement,disextraface
+save disextrapoints,disextraelement,disextraface,pslextrapoints,pslextraelement
  
 INTEGER :: nminel, i, j, iel
 1000 format(i7)            !PUT HERE FOR AD PROBLEM
@@ -1824,6 +1843,23 @@ IF (SIMPOS.EQ.'start') THEN
     
     endif
 
+!sb 110324 extra water table output    
+    if (ISextrapsl) then 
+      read(pslextra,*,err=581,end=581) 
+      read(pslextra,*,err=581,end=581) pslextratext,pslextrapoints
+      do i=1,pslextrapoints
+         read(pslextra,*,err=581,end=581) pslextraelement(i)
+!         print*,disextraelement(i),disextraface(i)
+         ifile=80+I
+         write (celem,'(I)') pslextraelement(i)
+         FILNAM = 'output_WaterTable_Element'//trim(adjustl(celem))//'.txt'
+         open(ifile, FILE = FILNAM, ERR = 581)
+         write(ifile,'(A)') 'Time(hours), Water Table depth (m below ground)'
+      enddo
+    
+    endif
+
+    
     !^^^^^^ sb 08/03/06
     write (dis2, '(A58)') 'Date_dd/mm/yyyy_hours  Time(hours)  Outlet_Discharge(m3/s)'
     write (mas, '(A60)') 'Spatially Averaged Totals (mm) over the simulation'
@@ -1934,7 +1970,11 @@ ELSEIF (SIMPOS (1:4) .EQ.'main') THEN
                                       balanc (16) * 1000 / carea, ',', &
                                       balanc (17) * 1000 / carea
         icounter2 = icounter2 + 24  
-    endif  
+        do i=1,pslextrapoints
+            ifile=80+I
+            write(ifile,'(2(f10.2,1a))') uznow,',',zgrund(pslextraelement(i))-zvspsl (pslextraelement(i))
+        enddo
+   endif  
     uzold = uznowt 
     qocold = qoc (mblink, mbface)  
     ! end of sb
@@ -1963,6 +2003,7 @@ ENDIF
 RETURN
 
 580  CALL ERROR(FFFATAL,1068,PPPRI,0,0,   'no or incorrect data in extra discharge points file')
+581  CALL ERROR(FFFATAL,1069,PPPRI,0,0,   'no or incorrect data in water level data file')
 
 
 END SUBROUTINE FROUTPUT
