@@ -1752,12 +1752,14 @@ QI1 = - PNETTO (NCL) * AREA (NCL)
 QIO (NCL) = QI1  
 !                             SET RATE OF RAIN WATER INFLOW (NEGATIVE
 !                             TO CONFORM TO POSITIVE UPWARDS CONVENTION)
-DO 813 NCE = NAQU, NCETOP  
-  813 WELDRA (NCE) = zero  
+DO NCE = NAQU, NCETOP  
+   WELDRA (NCE) = zero
+END DO  
 IW = NVSWLI (NCL)  
 IF (IW.NE.0) THEN  
-   DO 818 NCE = NWELBT (NCL), NWELTP (NCL)  
-  818    WELDRA (NCE) = QVSWLI (NCE, IW)  
+   DO NCE = NWELBT (NCL), NWELTP (NCL)  
+      WELDRA (NCE) = QVSWLI (NCE, IW)
+   END DO  
 
 ENDIF  
 !                             SET THE RATE OF WELL WITHDRAWL FROM
@@ -1775,15 +1777,18 @@ IF (ISBK) QQRV (NCEAB (NLINKA, JBK) ) = QBKB (NLINKA, JBK)
 !################### temporary code for calc vertical vels. JE 18/9/91
 ! re-used by GP 24/1/96
 ! emult: fraction of the error correction which is removed at each cell
-DO 3030 NCE = NCETOP, MAX (1, NCETOP - 4), - 1  
- 3030 EMULT (NCE) = zero  
-DO 3032 NCE = NCETOP - 5, MAX (1, NCETOP - 7), - 1  
- 3032 EMULT (NCE) = 0.1D0  
-DO 3034 NCE = NCETOP - 8, MAX (1, NCETOP - 19), - 1  
- 3034 EMULT (NCE) = half  
-DO 3036 NCE = NCETOP - 20, NCEBOT, - 1  
-
- 3036 EMULT (NCE) = ONE  
+DO NCE = NCETOP, MAX (1, NCETOP - 4), - 1  
+   EMULT (NCE) = zero
+END DO  
+DO NCE = NCETOP - 5, MAX (1, NCETOP - 7), - 1  
+   EMULT (NCE) = 0.1D0
+END DO  
+DO NCE = NCETOP - 8, MAX (1, NCETOP - 19), - 1  
+   EMULT (NCE) = half
+END DO  
+DO NCE = NCETOP - 20, NCEBOT, - 1  
+   EMULT (NCE) = ONE
+END DO  
 UIN = (DDDSW1 - DDDSW) / (Z2SQOD * TSE)  
 DUM = zero  
 DO 3120 JA = 1, 4  

@@ -472,8 +472,8 @@ ENDIF
 !
 ! SET CHANNEL LINK BOUNDARY TYPES (other data will follow)
 !
-DO 100 I = 1, NX  
-   DO 100 J = 1, NY  
+DO I = 1, NX  
+   DO J = 1, NY  
       DO 90 K = 0, 1  
          TYPEE = LCODEX (I, J) * (1 - K) + LCODEY (I, J) * K  
          IF ((TYPEE.GE.7).AND.(TYPEE.LE.11)) THEN  
@@ -488,15 +488,16 @@ DO 100 I = 1, NX
             ENDIF  
          ENDIF  
    90       END DO  
-  100 CONTINUE  
+   END DO
+END DO  
 !
 ! SET INTERNAL IMPERMEABLE GRID BOUNDARY CONDITIONS (TYPE 1)
 !
 ! NB Impermeability extended across ends of any adjacent bank elements
 !
 IBC0 = NOCBC  
-DO 110 I = 1, NX  
-   DO 110 J = 1, NY  
+DO I = 1, NX  
+   DO J = 1, NY  
       DO 107 IFACE = 3, 4  
          TYPEE = LCODEX (I, J) * (4 - IFACE) + LCODEY (I, J) &
           * (IFACE-3)
@@ -540,7 +541,8 @@ DO 110 I = 1, NX
             ENDIF  
          ENDIF  
   107       END DO  
-  110 CONTINUE  
+   END DO
+END DO  
 DO 120 IBC = IBC0 + 1, MIN (NOCBC, NOCTAB)  
    NOCBCD (IBC, 3) = 1  
    NOCBCD (IBC, 4) = 1  
@@ -1032,9 +1034,11 @@ READ (INF, 10) TITLE
 IF (BPCNTL) WRITE (IOF, 20) TITLE  
    20 FORMAT (A80)  
 !
-DO 30 J = 1, NNY  
-   DO 30 I = 1, NNX  
-   30 IARR (I, J) = 0  
+DO J = 1, NNY  
+   DO I = 1, NNX  
+      IARR (I, J) = 0  
+   END DO
+END DO  
 !
 I = NNY
 iscycle40 = .FALSE.
@@ -1253,7 +1257,7 @@ ENDIF
  9012 FORMAT ('Cross-section number IDEFX =',I4,' lies outside ranges', &
 &        ' -NDEFCT:-1 =',I4,' : -1  and  2:NOCTAB = 2 :',I4)
 
- 9013 FORMAT ('Expected element number,'I5,', but found',I5,', ', &
+ 9013 FORMAT ('Expected element number,',I5,', but found',I5,', ', &
 &        'while reading channel data')
 
  9032 FORMAT (/5X,'Default Channel Cross-sections:'//5X,3A10/)  
@@ -1299,8 +1303,9 @@ DO ielmm=1,total_no_links
     ghrf(ielmm) = GETHRF(ielmm)
 ENDDO
 WRITE(PPPRI, 9210) (ielmm, (QOC(ielmm,FACE), FACE=1,4), ghrf(ielmm), ARXL (ielmm), ielmm = 1, total_no_links)
-DO 210 ielmm = total_no_links + 1,total_no_elements  
-  210 WRITE(PPPRI, 9210) ielmm, (QOC (ielmm, FACE), FACE = 1, 4), GETHRF (ielmm)  
+DO ielmm = total_no_links + 1,total_no_elements  
+   WRITE(PPPRI, 9210) ielmm, (QOC (ielmm, FACE), FACE = 1, 4), GETHRF (ielmm)  
+END DO  
 
 WRITE(PPPRI, 9100) 'END ----'  
  9100 FORMAT (//'---- OC MODULE  RESULTS ',A:F10.2,A//)  
@@ -1432,11 +1437,13 @@ ELSEIF (NCATR.EQ.0) THEN
    CALL AREADR(STRYY, KKON, OCD, PPPRI)  
 ELSE  
    CALL AREADI (IDUM(1:nelee), KKON, OCD, PPPRI, NCATR)  
-   DO 210 ielt = NGDBGN, total_no_elements  
-  210    STRXX(ielt) = CATR (ICAT (ielt) )  
+   DO ielt = NGDBGN, total_no_elements  
+      STRXX(ielt) = CATR (ICAT (ielt) )  
+   END DO
    CALL AREADI (IDUM(1:nelee), KKON, OCD, PPPRI, NCATR)  
-   DO 220 ielt = NGDBGN,total_no_elements  
-  220    STRYY(ielt) = CATR (ICAT (ielt) )  
+   DO ielt = NGDBGN,total_no_elements  
+      STRYY(ielt) = CATR (ICAT (ielt) )  
+   END DO  
 
 ENDIF  
 !               BOUNDARY CONDITIONS

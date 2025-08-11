@@ -44,12 +44,15 @@ SUBROUTINE extra_output()
 INTEGER :: i
 DOUBLEPRECISION    :: car
 WRITE(PPPRI, 1400)  
-DO 10 I = 0, 100  
-   10 IF (FLERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 1000, FLERRC (I)  
-DO 20 I = 0, 100  
-   20 IF (SYERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 2000, SYERRC (I)  
-DO 30 I = 0, 100  
-   30 IF (CMERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 3000, CMERRC (I)  
+DO I = 0, 100  
+   IF (FLERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 1000, FLERRC (I)  
+END DO
+DO I = 0, 100  
+   IF (SYERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 2000, SYERRC (I)  
+END DO
+DO I = 0, 100  
+   IF (CMERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 3000, CMERRC (I)  
+END DO
 WRITE(PPPRI, 1600)  
  1400 FORMAT(// 'Error message asummary'/)  
  1500 FORMAT('No. of occurences of error number ',I4,': ',I6)  

@@ -815,8 +815,9 @@ DO 650 J = 1, 4
   650 END DO  
 ! phreatic surface level
 CPSMIN = CZ (ICBOT) - half * CDELZ (ICBOT)  
-DO 920 ICL = ICBOT, ICTOP  
-  920 IF (CPSI (ICL) .LT.ZERO) GOTO 940  
+DO ICL = ICBOT, ICTOP  
+   IF (CPSI (ICL) .LT.ZERO) GOTO 940  
+END DO
   940 ICL = MAX (ICBOT, ICL - 1)  
 
 CPSL = MAX (CPSMIN, CZ (ICL) + CPSI (ICL) )  
@@ -1087,8 +1088,9 @@ ELSE
    ICOL1 = total_no_links + 1  
 !!!
 !            * temporary measure to avoid out-of-bounds errors, etc
-   DO 1080 ILINK = 1, total_no_links  
- 1080    NLYRBT (ILINK, 1) = top_cell_no  
+   DO ILINK = 1, total_no_links  
+      NLYRBT (ILINK, 1) = top_cell_no
+   END DO  
 !!!
 
 
@@ -1114,8 +1116,9 @@ DO 1200 IEL = ICOL1, total_no_elements
    ICL0 = ICL0 + 1  
 !^^^^^^
    DO 1150 ILYR = 1, NLYR (IEL)  
-      DO 1120 ICL = ICL0 + 1, top_cell_no  
- 1120       IF (ZVSNOD (ICL, IEL) .GT.ZLYRBT (IEL, ILYR) ) GOTO 1130  
+      DO ICL = ICL0 + 1, top_cell_no  
+         IF (ZVSNOD (ICL, IEL) .GT.ZLYRBT (IEL, ILYR) ) GOTO 1130  
+      END DO
  1130       NLYRBT (IEL, ILYR) = ICL  
       ICL0 = ICL - 1  
  1150    END DO  
@@ -1417,12 +1420,13 @@ DO 2100 IEL = ICOL1, total_no_links
    ZDIFF = ZDUM - DELTAZ (LTOP, IEL)  
 
    DELTAZ (LTOP, IEL) = ZDUM  
-   DO 2050 ICL = NLYRBT (IEL, 1), LTOP - 1  
- 2050    ZVSNOD (ICL, IEL) = ZVSNOD (ICL, IEL) - ZDIFF  
+   DO ICL = NLYRBT (IEL, 1), LTOP - 1  
+      ZVSNOD (ICL, IEL) = ZVSNOD (ICL, IEL) - ZDIFF
+   END DO  
    ZVSNOD (ICL, IEL) = ZVSNOD (ICL, IEL) - ZDIFF * half  
-   DO 2060 ILYR = 1, NLYR (IEL)  
-
- 2060    ZLYRBT (IEL, ILYR) = ZLYRBT (IEL, ILYR) - ZDIFF  
+   DO ILYR = 1, NLYR (IEL)  
+      ZLYRBT (IEL, ILYR) = ZLYRBT (IEL, ILYR) - ZDIFF
+   END DO  
 !        * NB. banks 1 and 2 are identical
    NHBED (IEL, 1) = NACELL  
    NHBED (IEL, 2) = NACELL  
@@ -1530,14 +1534,13 @@ ELSE
 
 ENDIF  
 ! ----- default is null connectivity
-DO 50 IFA = 1, 4  
-   DO 50 IEL = 1, total_no_elements  
-      DO 50 ILYR = 1, NLYR (IEL) + 1  
+DO IFA = 1, 4  
+   DO IEL = 1, total_no_elements  
+      DO ILYR = 1, NLYR (IEL) + 1  
          JVSALN (IEL, ILYR, IFA) = 0  
-
-
-
-   50 CONTINUE  
+      END DO
+   END DO
+END DO  
 ! Main loop over (faces of) column elements
 !___________________________________________*
 
@@ -1570,11 +1573,12 @@ DO 500 IEL = ICOL1, total_no_elements
 ! if more than one layer is connected ILDUM = NMOD*min.layer + max.layer
 ! a value of zero specifies null connectivity
 ! NB this code also verifies the input data in IAQCON
-      DO 102 I = 1, NLYRI  
-  102       ILDUM (I) = - 1  
-      DO 104 J = 1, NLYRJ  
-
-  104       JLDUM (J) = - 1  
+      DO I = 1, NLYRI  
+         ILDUM (I) = - 1
+      END DO  
+      DO J = 1, NLYRJ  
+         JLDUM (J) = - 1
+      END DO  
 
       DO 110 I = 1, NAQCON  
          I1 = IAQCON (1, I)  
@@ -1657,14 +1661,13 @@ DO 500 IEL = ICOL1, total_no_elements
 !           of a layer coincides with the bottom of the soil zone
 !970711     ! expression for ZSZBOT is wrong for link elements
       ZSZBOT = ZGRUND (IEL) - DCSTOT - ZSMALL  
-      DO 120 ILYR = NLYRI, 1, - 1  
-  120       IF (ZLYRBT (IEL, ILYR) .LT.ZSZBOT) GOTO 125  
+      DO ILYR = NLYRI, 1, - 1  
+         IF (ZLYRBT (IEL, ILYR) .LT.ZSZBOT) GOTO 125  
+      END DO
   125       ZSZBOT = ZGRUND (JEL) - DCSTOT - ZSMALL  
-      DO 140 JLYR = NLYRJ, 1, - 1  
-
-
-  140       IF (ZLYRBT (JEL, JLYR) .LT.ZSZBOT) GOTO 200  
-! --- start of loop over layers (downwards from top of aquifer zone)
+      DO JLYR = NLYRJ, 1, - 1  
+         IF (ZLYRBT (JEL, JLYR) .LT.ZSZBOT) GOTO 200  
+      END DO
 
   200       IF (ILYR.EQ.0.OR.JLYR.EQ.0) GOTO 400  
 !                                           >>>>>>>>
@@ -1729,13 +1732,13 @@ DO 500 IEL = ICOL1, total_no_elements
 
          IF (JLYR.LT.NLYRJ) JSOILP = NTSOIL (JEL, JLYR + 1)  
 !                  * look for next matching soil or user-specification
-         DO 260 I = ILYR - 1, 1, - 1  
-  260          IF (NTSOIL (IEL, I) .EQ.JSOIL.OR.ILDUM (I) .GE.0) GOTO &
-          265
+         DO I = ILYR - 1, 1, - 1  
+            IF (NTSOIL (IEL, I) .EQ.JSOIL.OR.ILDUM (I) .GE.0) GOTO 265
+         END DO
   265          ISKIP = ILYR - I  
-         DO 280 J = JLYR - 1, 1, - 1  
-  280          IF (NTSOIL (JEL, J) .EQ.ISOIL.OR.JLDUM (J) .GE.0) GOTO &
-          285
+         DO J = JLYR - 1, 1, - 1  
+            IF (NTSOIL (JEL, J) .EQ.ISOIL.OR.JLDUM (J) .GE.0) GOTO 285
+         END DO
 
   285          JSKIP = JLYR - J  
 !                  * choose smallest skip; or preserve soil continuity
@@ -2062,13 +2065,15 @@ DO 890 IEL = total_no_links + 1, total_no_elements
 
    IF (IW.GT.0) THEN  
       RDUM = ZGI - VSZWLB (IW)  
-      DO 760 ICL = ICBOT, top_cell_no  
-  760       IF (RDUM.LE.ZVSNOD (ICL, IEL) ) GOTO 770  
+      DO ICL = ICBOT, top_cell_no  
+         IF (RDUM.LE.ZVSNOD (ICL, IEL) ) GOTO 770  
+      END DO
 
   770       NWELBT (IEL) = ICL  
       RDUM = ZGI - VSZWLT (IW)  
-      DO 780 ICL = top_cell_no, ICBOT, - 1  
-  780       IF (RDUM.GE.ZVSNOD (ICL, IEL) ) GOTO 790  
+      DO ICL = top_cell_no, ICBOT, - 1  
+         IF (RDUM.GE.ZVSNOD (ICL, IEL) ) GOTO 790  
+      END DO
 
   790       NWELTP (IEL) = ICL  
 
@@ -2120,8 +2125,9 @@ ELSE
 
       READ (VSI, * ) (VSPSI (ICL, IEL), ICL = ICBOT, ICTOP)  
       ZMIN = ZVSNOD (ICBOT, IEL) - half * DELTAZ (ICBOT, IEL)  
-      DO 920 ICL = ICBOT, ICTOP  
-  920       IF (LTZERO(VSPSI(ICL,IEL))) GOTO 940  
+      DO ICL = ICBOT, ICTOP  
+         IF (LTZERO(VSPSI(ICL,IEL))) GOTO 940  
+      END DO
   940       ICL = MAX (ICBOT, ICL - 1)  
 
       ZVSPSL (IEL) = MAX (ZMIN, ZVSNOD (ICL, IEL) + VSPSI (ICL, &
@@ -2900,13 +2906,12 @@ IF (NUM_CATEGORIES_TYPES .EQ.0) THEN
 
 ELSE  
 ! initialise arrays
-   DO 50 IEL = 1, NELEE  
-      DO 50 ILYR = 1, NLYREE  
+   DO IEL = 1, NELEE  
+      DO ILYR = 1, NLYREE  
          IVSDUM (IEL, ILYR) = 0  
-         RVSDUM (IEL, ILYR) = zero  
-
-
-   50    CONTINUE  
+         RVSDUM (IEL, ILYR) = zero
+      END DO
+   END DO
 ! read layer data
 
 
@@ -3016,13 +3021,12 @@ ENDIF
 
 IF (NELEM.NE.0) THEN  
 ! initialise variables
-   DO 420 IEL = 1, NELEE  
-      DO 420 ILYR = 1, NLYREE  
+   DO IEL = 1, NELEE  
+      DO ILYR = 1, NLYREE  
          IVSDUM (IEL, ILYR) = 0  
-         RVSDUM (IEL, ILYR) = zero  
-
-
-  420    CONTINUE  
+         RVSDUM (IEL, ILYR) = zero
+      END DO
+   END DO  
 ! read layer data
 
    CALL ALREAD (6, VSD, PPPRI, ':VS08d', NELEE, NLYREE, NELEM, CDUM, &
@@ -3680,8 +3684,9 @@ IF (FIRSTvssim) THEN
       N = 4 * (ICTOP - ICBOT + 1)  
       CALL ALINIT (ZERO, N, QVSH (1, ICBOT, IEL) )  
       CALL ALINIT (ZERO, N, VSAIJsv (1, ICBOT, IEL) )  
-      DO 2 ICL = ICBOT, ICTOP  
-    2       ICSOILsv (ICL, IEL) = 1  
+      DO ICL = ICBOT, ICTOP  
+         ICSOILsv (ICL, IEL) = 1
+      END DO  
 
     4    END DO  
 !        * set static locals for column elements
@@ -3700,8 +3705,9 @@ IF (FIRSTvssim) THEN
 ! 8     column base free drainage
 ! 9     stream-aquifer interaction (without banks)
 ! 10    stream-aquifer interaction (with banks)
-      DO 20 II = 1, 5  
-   20       JCBCsv (II, IEL) = 0  
+      DO II = 1, 5  
+         JCBCsv (II, IEL) = 0
+      END DO  
       JCBCsv (0, IEL) = NBBTYP (IEL)  
       IFA = MAX (1, NBFACE (IEL) )  
       JCBCsv (IFA, IEL) = NLBTYP (IEL)  
@@ -3715,15 +3721,17 @@ IF (FIRSTvssim) THEN
          IFDUM1 = MOD (IFA, 4) + 1  
          IFDUM2 = MOD (IFA + 2, 4) + 1  
          DXYDUM = DHF (IEL, IFDUM1) + DHF (IEL, IFDUM2)  
-         DO 50 ICL = NLYRBT (IEL, 1), ICTOP  
-   50          VSAIJsv (IFA, ICL, IEL) = DELTAZ (ICL, IEL) * DXYDUM  
+         DO ICL = NLYRBT (IEL, 1), ICTOP  
+            VSAIJsv (IFA, ICL, IEL) = DELTAZ (ICL, IEL) * DXYDUM
+         END DO  
    90       END DO  
 ! ICSOIL contains soil types for each cell
       DO 93 ILYR = 1, NLYR (IEL)  
          N = NTSOIL (IEL, ILYR)  
-         DO 92 ICL = NLYRBT (IEL, ILYR), NLYRBT (IEL, ILYR + 1) &
+         DO ICL = NLYRBT (IEL, ILYR), NLYRBT (IEL, ILYR + 1) &
           - 1
-   92          ICSOILsv (ICL, IEL) = N  
+            ICSOILsv (ICL, IEL) = N
+         END DO  
    93       END DO  
 
    95    END DO  
@@ -3786,15 +3794,12 @@ DO 212 IEL = 1, total_no_elements
   212 END DO  
 ! initialize convergence indicators
 CALL ALINIT (ZERO, ISTART, DELTAP)  
-DO 214 IEL = 1, ISTART - 1  
-  214 OK (IEL) = .TRUE.  
-DO 216 IEL = ISTART, total_no_elements  
-
-
-
-
-
-  216 OK (IEL) = .FALSE.  
+DO IEL = 1, ISTART - 1  
+   OK (IEL) = .TRUE.
+END DO  
+DO IEL = ISTART, total_no_elements  
+   OK (IEL) = .FALSE.
+END DO  
 ! start of main iteration loop
 !______________________________*
 ELEVEL = 0  
@@ -3820,9 +3825,9 @@ out660 : DO NIT = 1, NITMAX
       CALL DCOPY (NCELL, VSPSI (ICBOT, IEL), 1, PSIM (ICBOT), &
        1)
 ! set up column arrays using global arrays
-      DO 250 ILYR = 1, NLYR (IEL) + 1  
-
-  250       ICLYRB (ILYR) = NLYRBT (IEL, ILYR)  
+      DO ILYR = 1, NLYR (IEL) + 1  
+         ICLYRB (ILYR) = NLYRBT (IEL, ILYR)
+      END DO  
 
       IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) ICBED = NHBED (ICMREF (IEL, 4) &
        , ITYPE)
@@ -3897,8 +3902,9 @@ out660 : DO NIT = 1, NITMAX
 ! SPA, 03/11/98
 ! record largest change for this iteration
       DPSIEL = ZERO  
-      DO 400 ICL = ICBOT, ICTOP  
-  400       DPSIEL = MAX (DPSIEL, ABS (VSPSI (ICL, IEL) - PSIM (ICL) ) )  
+      DO ICL = ICBOT, ICTOP  
+         DPSIEL = MAX (DPSIEL, ABS (VSPSI (ICL, IEL) - PSIM (ICL) ) )
+      END DO  
       DELTAP (IEL) = DPSIEL  
 
 
@@ -3954,8 +3960,9 @@ DO 700 IEL = ISTART, total_no_elements
    IF (IW.LT.1) GOTO 700  
 !                     >>>>>>>>
    CQW = ZERO  
-   DO 690 ICL = NWELBT (IEL), NWELTP (IEL)  
-  690    CQW = QVSWLI (ICL, IW) + CQW  
+   DO ICL = NWELBT (IEL), NWELTP (IEL)  
+      CQW = QVSWLI (ICL, IW) + CQW
+   END DO  
    QVSWEL (IEL) = CQW  
 
 

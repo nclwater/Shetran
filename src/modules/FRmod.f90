@@ -159,12 +159,14 @@ BWIDTH = 10.0
 !
 DX (1) = DXIN (1)  
 DX (NX) = DXIN (NXM1)  
-DO 860 J = 2, NXM1  
-  860 DX (J) = (DXIN (J - 1) + DXIN (J) ) * 0.5  
+DO J = 2, NXM1  
+   DX (J) = (DXIN (J - 1) + DXIN (J) ) * 0.5  
+END DO
 DY (1) = DYIN (1)  
 DY (NY) = DYIN (NYM1)  
-DO 870 K = 2, NYM1  
-  870 DY (K) = (DYIN (K - 1) + DYIN (K) ) * 0.5  
+DO K = 2, NYM1  
+   DY (K) = (DYIN (K - 1) + DYIN (K) ) * 0.5  
+END DO  
 !
 ! --- SET UP BASIC DIMENSIONS OF EACH ELEMENT
 !
@@ -509,12 +511,13 @@ CHARACTER (LEN=2) :: PDIRN
 !
 ! ^^^^^^^^^^^^ INITIALISE ARRAY AND INDEX NUMBER
 !
-DO 100 I = 1, NELEE  
+DO I = 1, NELEE  
    NGRID (I) = 0  
    NBFACE (I) = 0  
-   DO 100 K = 1, 12  
+   DO K = 1, 12  
       ICMREF (I, K) = 0  
-  100 CONTINUE  
+   END DO
+END DO  
 !
 INDEX = 0  
 INDEX2 = 0  
@@ -523,9 +526,9 @@ INDEX2 = 0
 !
 ! --- CHANNEL LINKS
 !
-DO 50 J = 1, NY  
+DO J = 1, NY  
 !
-   DO 30 I = 1, NX  
+   DO I = 1, NX  
       IF (LCODEY (I, J) .GE.4) THEN  
          INDEX = INDEX + 1  
          ICMREF (INDEX, 1) = 3  
@@ -534,9 +537,9 @@ DO 50 J = 1, NY
          ICMREF (INDEX, 4) = INDEX  
          LINKNS (INDEX) = .FALSE.  
       ENDIF  
-   30    END DO  
+   END DO  
 !
-   DO 40 I = 1, NX  
+   DO I = 1, NX  
       IF (LCODEX (I, J) .GE.4) THEN  
          INDEX = INDEX + 1  
          ICMREF (INDEX, 1) = 3  
@@ -545,9 +548,9 @@ DO 50 J = 1, NY
          ICMREF (INDEX, 4) = INDEX  
          LINKNS (INDEX) = .TRUE.  
       ENDIF  
-   40    END DO  
+   END DO  
 !
-   50 END DO  
+END DO  
 !
 total_no_links = INDEX  
 !
@@ -572,15 +575,16 @@ ENDIF
 !
 ! --- GRID CODES
 !
-  250 DO 300 J = 1, NY  
-   DO 300 I = 1, NX  
+  250 DO J = 1, NY  
+   DO I = 1, NX  
       IF (INGRID (I, J) .GE.0) THEN  
          INDEX = INDEX + 1  
          ICMREF (INDEX, 2) = I  
          ICMREF (INDEX, 3) = J  
          ICMXY (I, J) = INDEX  
       ENDIF  
-  300 CONTINUE  
+   END DO
+END DO  
 !
 NGDBGN = total_no_links + 1  
 total_no_elements = INDEX  
@@ -1387,9 +1391,11 @@ READ (INF, 10) TITLE
 IF (BPCNTL) WRITE (IOF, 20) TITLE  
    20 FORMAT (A80)  
 !
-DO 30 J = 1, NNY  
-   DO 30 I = 1, NNX  
-   30 IARR (I, J) = 0  
+DO J = 1, NNY  
+   DO I = 1, NNX  
+      IARR (I, J) = 0  
+   END DO
+END DO  
 !
 I = NNY  
 DO 40 J = 1, NNY  
@@ -3913,11 +3919,12 @@ CHARACTER(256)     :: msg2
 !
 !  INITIAL VALUES
 !
-DO 10 I = 1, NVEE  
+DO I = 1, NVEE  
    CSTCAP (I) = 0.  
    RC (I) = 0.  
    BAR (I) = .FALSE.  
-   10 MODE (I) = 0
+   MODE (I) = 0
+END DO
 !
 !     CHECK IF HOTSTART
 !
@@ -4463,14 +4470,15 @@ STOP
 !
 ! SET INGRID TO BE ITS INTERNAL VALUES FOR SHE (=0 IN CATCHMENT, -1 OTHE
 !
-  316 DO 320 I = 1, NX  
-   DO 320 J = 1, NY  
+  316 DO I = 1, NX  
+   DO J = 1, NY  
       IF (INGRID (I, J) .EQ.1) THEN  
          INGRID (I, J) = 0  
       ELSE  
          INGRID (I, J) = - 1  
       ENDIF  
-  320 CONTINUE  
+   END DO
+END DO  
 !
 ! READ THE CODES FOR OVERLAND/CHANNEL FLOW GRID BOUNDARIES
 !
@@ -4516,8 +4524,9 @@ NYEP1 = NYE+1
 !
 ! INITIALISATION OF ISORT ARRAY
 !
-DO 425 IEL = 1, total_no_elements  
-  425 ISORT (IEL) = IEL  
+DO IEL = 1, total_no_elements  
+   ISORT (IEL) = IEL  
+END DO
 !
 WRITE(PPPRI, 430)  
   430 FORMAT ('0'//, ' EXIT INFR')  

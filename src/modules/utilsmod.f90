@@ -112,8 +112,9 @@ SIMEND = SIMNOW + SIMSTP
 ! CHECK IF ANY DATA NEEDS TO BE READ
 !
 IF (INTIME.GE.SIMEND) THEN  
-   DO 5 I = 1, NINP  
-    5    ARRAY (I) = FNEXT (I)  
+   DO I = 1, NINP  
+      ARRAY (I) = FNEXT (I)  
+   END DO
    GOTO 1000  
 ENDIF  
 !
@@ -683,21 +684,22 @@ IF (KON.EQ.0.OR.KON.EQ.1) THEN
       IAOUT (IEL) = 0  
 
    62    END DO  
-   DO 64 I = 1, NX  
-      DO 64 J = 1, NY  
+   DO I = 1, NX  
+      DO J = 1, NY  
          IEL = ICMXY (I, J)  
          IF (IEL.NE.0) IAOUT (IEL) = IA (I, J)  
-
-   64    CONTINUE  
+      END DO
+   END DO  
 !
 !^^^^^^ ... OR CONVERT ELEMENT ARRAY TO GRID ARRAY
 !
 ELSE  
 !
-   DO 66 I = 1, NX  
-      DO 66 J = 1, NY  
+   DO I = 1, NX  
+      DO J = 1, NY  
          IA (I, J) = 0 
-   66    CONTINUE  
+      END DO
+   END DO  
    DO 68 IEL = NGDBGN, total_no_elements  
       IF (ICMREF (IEL, 1) .EQ.0) THEN  
          I = ICMREF (IEL, 2)  
@@ -705,7 +707,6 @@ ELSE
          IA (I, J) = IAOUT (IEL)  
       ENDIF  
    68    END DO  
-!
 
 ENDIF  
 !
@@ -746,9 +747,10 @@ ELSE
         NXX = MIN0 (NX, LAL)  
         WRITE (IOF, 140) (I, I = LL1, LAL)  
         140 FORMAT     ('0', 9X, 10('J=',I3,6X), /)  
-        DO 150 I1 = 1, NY  
+        DO I1 = 1, NY  
             K = NY + 1 - I1  
-        150       WRITE (IOF, 160) K, (IA (J, K), J = LL1, NXX)  
+            WRITE (IOF, 160) K, (IA (J, K), J = LL1, NXX)  
+        END DO  
         160 FORMAT     (' ', 'K=', I4, 2X, 10(I6,5X))  
     170 END DO  
 ENDIF  
@@ -828,20 +830,22 @@ IF (KON.EQ.0.OR.KON.EQ.1) THEN
 !
 !^^^^^^CONVERT GRID ARRAY TO ELEMENT ARRAY
 !
-   DO 64 I = 1, NX  
-      DO 64 J = 1, NY  
+   DO I = 1, NX  
+      DO J = 1, NY  
          IEL = ICMXY (I, J)  
          IF (IEL.NE.0) AOUT (IEL) = A (I, J)  
-   64    CONTINUE  
+      END DO
+   END DO  
 !
 !^^^^^^CONVERT ELEMENT ARRAY TO GRID ARRAY
 !
 ELSE  
 !
-   DO 66 I = 1, NX  
-      DO 66 J = 1, NY  
+   DO I = 1, NX  
+      DO J = 1, NY  
          A (I, J) = zero  
-   66    CONTINUE  
+      END DO
+   END DO  
    DO 68 IEL = NGDBGN, total_no_elements  
       IF (ICMREF (IEL, 1) .EQ.0) THEN  
          I = ICMREF (IEL, 2)  
@@ -886,9 +890,10 @@ DO 170 L = 1, NNX
    NXX = MIN0 (NX, LAL)  
    WRITE (IOF, 140) (I, I = LL1, LAL)  
   140 FORMAT   ('0', 9X, 10('J=',I3,6X), /)  
-   DO 150 I1 = 1, NY  
+   DO I1 = 1, NY  
       K = NY + 1 - I1  
-  150    WRITE (IOF, 160) K, (A (J, K), J = LL1, NXX)  
+      WRITE (IOF, 160) K, (A (J, K), J = LL1, NXX)  
+   END DO  
   160 FORMAT   (' ', 'K=', I4, 2X, 10G11.4)  
   170 END DO  
 !

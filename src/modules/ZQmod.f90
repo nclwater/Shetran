@@ -186,7 +186,7 @@ module ZQmod
             WRITE(fid_ZQ_log, *) 'ZQTableOpHour=', ZQTableOpHour(i)
             WRITE(fid_ZQ_log, *) 'nZQcols      =', nZQcols(i)
             WRITE(fid_ZQ_log, *) 'nZQrows      =', nZQrows(i)
-            WRITE(fid_ZQ_log, '(5(A))'), 'ZQ headers: ',                        &
+            WRITE(fid_ZQ_log, '(5(A))') 'ZQ headers: ',                        &
 &               headerRawArray(1:nZQcols(i),i)                                  ! write headers, character format
             DO printRow = 1, nZQrows(i)                                         ! specify which rows to print
                 WRITE(fid_ZQ_log,'(5(f12.3))')                                  &
