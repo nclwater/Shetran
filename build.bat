@@ -14,6 +14,9 @@ set VERBOSE=false
 set JOBS=%NUMBER_OF_PROCESSORS%
 set RUN_TESTS=false
 set DO_INSTALL=false
+set ENABLE_LARGE_MEMORY=true
+set HEAP_SIZE=
+set STACK_SIZE=
 
 REM Parse command line arguments
 :parse_args
@@ -103,6 +106,17 @@ if "%~1"=="--install" (
     shift
     goto parse_args
 )
+if "%~1"=="--disable-large-memory" (
+    set ENABLE_LARGE_MEMORY=false
+    shift
+    goto parse_args
+)
+if "%~1"=="--heap-size" (
+    set HEAP_SIZE=%~2
+    shift
+    shift
+    goto parse_args
+)
 if "%~1"=="-h" goto show_usage
 if "%~1"=="--help" goto show_usage
 
@@ -150,6 +164,15 @@ set CMAKE_ARGS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE%
 
 if not "%INSTALL_PREFIX%"=="" (
     set CMAKE_ARGS=%CMAKE_ARGS% -DCMAKE_INSTALL_PREFIX=%INSTALL_PREFIX%
+)
+
+REM Memory configuration options
+if "%ENABLE_LARGE_MEMORY%"=="false" (
+    set CMAKE_ARGS=%CMAKE_ARGS% -DENABLE_LARGE_MEMORY_MODEL=OFF
+)
+
+if not "%HEAP_SIZE%"=="" (
+    set CMAKE_ARGS=%CMAKE_ARGS% -DHEAP_ARRAY_SIZE=%HEAP_SIZE%
 )
 
 REM Set compiler
@@ -226,6 +249,8 @@ echo   -v, --verbose             Verbose build output
 echo   -j, --jobs N              Number of parallel build jobs (default: number of CPU cores)
 echo   --test                    Run tests after building
 echo   --install                 Install after building
+echo   --disable-large-memory    Disable large memory model (mcmodel=large)
+echo   --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)
 echo   -h, --help                Show this help message
 echo.
 echo Examples:
@@ -233,6 +258,8 @@ echo   %0                        # Build with ifort compiler
 echo   %0 -c ifx -t Debug        # Build with Intel ifx compiler in debug mode
 echo   %0 --clean                # Clean build with ifort
 echo   %0 --install -p C:\SHETRAN # Build and install to C:\SHETRAN
+echo   %0 --disable-large-memory  # Build without large memory model
+echo   %0 --heap-size 50000000   # Build with smaller heap arrays
 
 :end
 cd ..

@@ -86,18 +86,18 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 ## Compiler-Specific Settings
 
 ### Intel Fortran (ifort)
-- Uses `-mcmodel=large` for large memory models
-- Uses `-heap-arrays 100000000` for large array handling
+- Uses `-mcmodel=large` for large memory models (configurable)
+- Uses `-heap-arrays <size>` for large array handling (default: 100000000)
 - Optimized with `-O3` for release builds
 
 ### Intel Fortran (ifx)
-- Uses `-mcmodel=large` for large memory models  
+- Uses `-mcmodel=large` for large memory models (configurable)
 - Uses `-fstack-arrays` instead of `-heap-arrays` (not available in ifx)
 - Optimized with `-O3` for release builds
 
 ### GNU Fortran (gfortran)
-- Uses `-mcmodel=large` for large memory models
-- Uses `-fmax-stack-var-size=100000000` for large arrays
+- Uses `-mcmodel=large` for large memory models (configurable)
+- Uses `-fmax-stack-var-size=<size>` for large arrays (default: 100000000)
 - Optimized with `-O3` for release builds
 
 ## Build Options
@@ -119,6 +119,33 @@ The build system automatically discovers all Fortran source files in the `src/` 
 # Enable verbose dependency output
 ./build.sh -DVERBOSE_DEPENDENCY_OUTPUT=ON
 ```
+
+### Memory Configuration Options
+The build system provides configurable memory settings:
+
+```bash
+# Use default large memory settings
+./build.sh
+
+# Disable large memory model 
+./build.sh --disable-large-memory
+
+# Custom heap array size for Intel ifort
+./build.sh --heap-size 50000000
+
+# Custom stack variable size for gfortran  
+./build.sh --stack-size 50000000
+
+# Using CMake directly
+cmake -DENABLE_LARGE_MEMORY_MODEL=OFF ..
+cmake -DHEAP_ARRAY_SIZE=50000000 -DSTACK_VAR_SIZE=50000000 ..
+```
+
+**Default Values:**
+- Large memory model: **Enabled** (`-mcmodel=large`)
+- Intel ifort heap arrays: **100000000** (`-heap-arrays 100000000`)
+- GNU gfortran stack variables: **100000000** (`-fmax-stack-var-size=100000000`)
+- Intel ifx: Uses `-fstack-arrays` (heap-arrays not available)
 
 ### Adding New Source Files
 Simply add your new `.f90` files anywhere in the `src/` directory tree. The build system will automatically discover and include them in the next build.

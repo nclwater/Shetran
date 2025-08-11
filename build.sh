@@ -33,6 +33,9 @@ usage() {
     echo "  -j, --jobs N              Number of parallel build jobs (default: number of CPU cores)"
     echo "  --test                    Run tests after building"
     echo "  --install                 Install after building"
+    echo "  --disable-large-memory    Disable large memory model (mcmodel=large)"
+    echo "  --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)"
+    echo "  --stack-size SIZE         Set stack variable size for gfortran (default: 100000000)"
     echo "  -h, --help                Show this help message"
     echo ""
     echo "Examples:"
@@ -40,6 +43,9 @@ usage() {
     echo "  $0 -c ifort -t Debug      # Build with Intel ifort compiler in debug mode"
     echo "  $0 -c gfortran --clean    # Clean build with gfortran"
     echo "  $0 --install -p /usr/local # Build and install to /usr/local"
+    echo "  $0 --disable-large-memory  # Build without large memory model"
+    echo "  $0 --heap-size 50000000   # Build with smaller heap arrays (Intel)"
+    echo "  $0 --stack-size 50000000  # Build with smaller stack variables (GNU)"
 }
 
 log_info() {
@@ -66,6 +72,9 @@ log_info_detail() {
 JOBS=$(nproc)
 RUN_TESTS=false
 DO_INSTALL=false
+ENABLE_LARGE_MEMORY=true
+HEAP_SIZE=""
+STACK_SIZE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -104,6 +113,18 @@ while [[ $# -gt 0 ]]; do
         --install)
             DO_INSTALL=true
             shift
+            ;;
+        --disable-large-memory)
+            ENABLE_LARGE_MEMORY=false
+            shift
+            ;;
+        --heap-size)
+            HEAP_SIZE="$2"
+            shift 2
+            ;;
+        --stack-size)
+            STACK_SIZE="$2"
+            shift 2
             ;;
         -h|--help)
             usage
@@ -208,6 +229,31 @@ build_shetran() {
     
     if [[ -n "$INSTALL_PREFIX" ]]; then
         CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX"
+    fi
+    
+    # Memory configuration options
+    if [[ "$ENABLE_LARGE_MEMORY" == "false" ]]; then
+        CMAKE_ARGS="$CMAKE_ARGS -DENABLE_LARGE_MEMORY_MODEL=OFF"
+    fi
+    
+    if [[ -n "$HEAP_SIZE" ]]; then
+        # Validate heap size is numeric
+        if [[ "$HEAP_SIZE" =~ ^[0-9]+$ ]]; then
+            CMAKE_ARGS="$CMAKE_ARGS -DHEAP_ARRAY_SIZE=$HEAP_SIZE"
+        else
+            log_error "Heap size must be a positive integer: $HEAP_SIZE"
+            exit 1
+        fi
+    fi
+    
+    if [[ -n "$STACK_SIZE" ]]; then
+        # Validate stack size is numeric
+        if [[ "$STACK_SIZE" =~ ^[0-9]+$ ]]; then
+            CMAKE_ARGS="$CMAKE_ARGS -DSTACK_VAR_SIZE=$STACK_SIZE"
+        else
+            log_error "Stack size must be a positive integer: $STACK_SIZE"
+            exit 1
+        fi
     fi
     
     # Set Fortran compiler

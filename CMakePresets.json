@@ -69,6 +69,29 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_Fortran_COMPILER": "ifort"
       }
+    },
+    {
+      "name": "small-memory",
+      "displayName": "Small Memory Configuration",
+      "description": "Build with reduced memory requirements",
+      "binaryDir": "${sourceDir}/build-small-memory",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_LARGE_MEMORY_MODEL": "OFF",
+        "HEAP_ARRAY_SIZE": "10000000",
+        "STACK_VAR_SIZE": "10000000"
+      }
+    },
+    {
+      "name": "custom-memory",
+      "displayName": "Custom Memory Configuration",
+      "description": "Build with custom memory settings",
+      "binaryDir": "${sourceDir}/build-custom-memory",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEAP_ARRAY_SIZE": "50000000",
+        "STACK_VAR_SIZE": "50000000"
+      }
     }
   ],
   "buildPresets": [
@@ -101,6 +124,18 @@
       "configurePreset": "gfortran",
       "displayName": "Build with GNU Fortran",
       "description": "Build with gfortran compiler"
+    },
+    {
+      "name": "small-memory",
+      "configurePreset": "small-memory",
+      "displayName": "Build with Small Memory",
+      "description": "Build with reduced memory requirements"
+    },
+    {
+      "name": "custom-memory",
+      "configurePreset": "custom-memory",
+      "displayName": "Build with Custom Memory",
+      "description": "Build with custom memory settings"
     }
   ],
   "testPresets": [
