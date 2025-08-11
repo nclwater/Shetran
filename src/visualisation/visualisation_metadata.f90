@@ -1,6 +1,6 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_metadata
-!DEC$ REAL:4
+! Removed DEC$ REAL:4 for portability
 !JE for SHEGRAPH Version 2.0 Created July 2004
 USE VISUALISATION_PASS,      ONLY : SU_NUMBER, BANK_NO, RIVER_NO, EXISTS, nel, &
                                     IS_SQUARE, IS_BANK, IS_LINK, TOP_CELL, DIRQQ, nsed, ncon, &
@@ -139,7 +139,7 @@ END SUBROUTINE INCREMENT_HDF5_TSTEP_NO
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: time_to_record
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)                   :: n
 INTEGER                               :: i
 REAL, INTENT(IN)                      :: time  !hours
@@ -176,7 +176,7 @@ END FUNCTION get_next_time
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 PURE FUNCTION get_metadata_c(i, text) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_c
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)      :: i
 CHARACTER(*), INTENT(IN) :: text
 CHARACTER(csz)           :: r
@@ -214,7 +214,7 @@ END FUNCTION get_metadata_HDF5_c
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_i
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: su
 CHARACTER(*), INTENT(IN)      :: text
@@ -239,7 +239,7 @@ END FUNCTION get_metadata_i
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL INTEGER(INT_PTR_KIND()) FUNCTION get_metadata_i_first(i, text, su) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_i_first
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: su
 CHARACTER(*), INTENT(IN)      :: text
@@ -281,7 +281,7 @@ END FUNCTION get_metadata_hdf5_i
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE set_metadata_i(i, text, a)
-!DEC$ ATTRIBUTES DLLEXPORT :: set_metadata_i
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)           :: i
 INTEGER(INT_PTR_KIND()), INTENT(IN)        :: a
 CHARACTER(*), INTENT(IN)      :: text
@@ -293,7 +293,7 @@ END SUBROUTINE set_metadata_i
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_L
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: a,b
 CHARACTER(*), INTENT(IN)      :: text
@@ -362,7 +362,7 @@ END SUBROUTINE read_dynamic_visualisation_metadata
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
-!DEC$ ATTRIBUTES DLLEXPORT :: register_static_visualisation_metadata
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)      :: szi, szj
 CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
 CHARACTER, INTENT(IN)    :: typ
@@ -443,7 +443,7 @@ END FUNCTION v_elev
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
            extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
-!DEC$ ATTRIBUTES DLLEXPORT :: register_dynamic_visualisation_metadata
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER                                  :: i
 INTEGER, INTENT(IN)                      :: jj
 CHARACTER(*), INTENT(IN)                 :: name, units, title, extra_dimensions

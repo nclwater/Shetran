@@ -1,11 +1,11 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_hdf5
-!DEC$ REAL:4
+! Removed DEC$ REAL:4 for portability
 USE VISUALISATION_PASS,      ONLY : DIRQQ, ver, rootdir, hdf5filename
-!DEC$ DEFINE ISKEY=0
-!DEC$ IF(ISKEY==1)
-    USE VISUALISATION_KEY,       ONLY : KTEST
-!DEC$ ENDIF
+! Removed DEC$ DEFINE ISKEY=0 - assume ISKEY=0 (no key functionality)
+! Removed DEC$ IF(ISKEY==1) conditional compilation
+!   USE VISUALISATION_KEY,       ONLY : KTEST  ! Disabled for standard version
+! Removed DEC$ ENDIF
 USE VISUALISATION_METADATA,  ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, &
                                     G_I=>GET_METADATA_I, S_I=>SET_METADATA_I, &
                                     G_I_F=>GET_METADATA_I_FIRST,              &
@@ -171,7 +171,7 @@ END FUNCTION combination_name
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE visualisation_tidy_up()
-!DEC$ ATTRIBUTES DLLEXPORT :: visualisation_tidy_up
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER :: ni, mn
 LOGICAL :: istimeseries
 ni           = G_I(0,'no_items')
@@ -193,7 +193,7 @@ END SUBROUTINE visualisation_tidy_up
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE save_visualisation_data_to_disk(mn, time)
-!DEC$ ATTRIBUTES DLLEXPORT :: save_visualisation_data_to_disk
+! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN) :: mn
 INTEGER, PARAMETER  :: buffer_length_for_storage=1
 INTEGER             :: tc, tstep
@@ -205,11 +205,11 @@ IF(notflag .AND. time>zero) THEN
 ELSEIF(one) THEN
     one = F
     two = T
-    !DEC$ IF(ISKEY==1)
-        notflag = KTEST(ver, rootdir)
-    !DEC$ ELSE
+    ! Removed DEC$ IF(ISKEY==1) conditional - assume no key functionality
+    !    notflag = KTEST(ver, rootdir)  ! Disabled for standard version
+    ! Removed DEC$ ELSE
         notflag = F
-    !DEC$ ENDIF
+    ! Removed DEC$ ENDIF
     RETURN
 ELSEIF(two) THEN
     two = F

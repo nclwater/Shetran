@@ -1,7 +1,7 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_interface_left
-!DEC$ DEFINE V=4 !compiler directive (set to 3 for Version 3 and to 4 for version 4)
-!DEC$ REAL:4
+! Removed DEC$ DEFINE V=4 - assume Version 4 (V=4) permanently
+! Removed DEC$ REAL:4 for portability
 !JE for SHEGRAPH Version 2.0 Created July 2004
 !JE made common for SV3 and SV4 221104
 !This is the left hand (i.e. near-SHETRAN) part of the 
@@ -34,7 +34,7 @@ USE AL_C, ONLY       : cmd,                &  !file unit for contaminants
                        !zgrund                !surface elevation(M)
 !USE PERTURBATIONS, ONLY : spatial1          
                        !spacetime1
-!DEC$ IF(V==4)
+! Removed DEC$ IF(V==4) - assume Version 4 permanently 
 USE AL_C, ONLY       : deltaz,             & !cell thickness
                        esoila,             & !Evap from soil surface (m/s)
                        !PRI,                & !unit no for ASCII results
@@ -42,11 +42,11 @@ USE AL_C, ONLY       : deltaz,             & !cell thickness
                        vspsi,              & !psi
                        vsthe,              & !moisture content
                        zvspsl                !phreatic surface elevation (m)
-!DEC$ ELSEIF(V==3)
-USE AL_C, ONLY       : ddz,                & !cell thickness
-                       hsz,                & !phreatic head ? (m)
-                       th3                   !3D moisture content
-!DEC$ ENDIF
+! Removed DEC$ ELSEIF(V==3) - Version 3 code disabled
+! USE AL_C, ONLY       : ddz,                & !cell thickness (V3)
+!                       hsz,                & !phreatic head ? (m) (V3)  
+!                       th3                   !3D moisture content (V3)
+! Removed DEC$ ENDIF
 USE AL_D, ONLY       : bexcm,              & !IS CONTAMINANT ON?
                        bexsy,              & !IS SEDIMENT ON?
                        cstore,             & !canopy storage (mm)
@@ -55,12 +55,12 @@ USE AL_D, ONLY       : bexcm,              & !IS CONTAMINANT ON?
                        epot,               & !potential evap (m/s)
                        erza,               & !transpiration (m/s)
                        sd                    !snowpack depth (mm)
-!DEC$ IF(V==3)
-USE AL_D, ONLY       : esoila,             & !Evap from soil surface (m/s)#
-                       PRI,                & !unit no for ASCII results
-                       psi3,               & !3D head
-                       thuz                  !vertical velocity at top of uz (???) (m/s)
-!DEC$ ENDIF
+! Removed DEC$ IF(V==3) - Version 3 code disabled, using Version 4
+! USE AL_D, ONLY       : esoila,             & !Evap from soil surface (m/s)# (V3)
+!                       PRI,                & !unit no for ASCII results (V3)
+!                       psi3,               & !3D head (V3)
+!                       thuz                  !vertical velocity at top of uz (???) (m/s) (V3)
+! Removed DEC$ ENDIF
 USE AL_G, ONLY       : icmref, icmxy, nx, ny !grid size and indices, total no of elements
 USE SGLOBAL, ONLY       : DIRQQ, shever, ROOTDIR, hdf5filename, uznow,  &
                        planfile=>visualisation_plan_filename, &
