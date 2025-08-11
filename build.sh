@@ -36,6 +36,7 @@ usage() {
     echo "  --disable-large-memory    Disable large memory model (mcmodel=large)"
     echo "  --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)"
     echo "  --stack-size SIZE         Set stack variable size for gfortran (default: 100000000)"
+    echo "  --use-windows-intel-getdirqq  Use Windows Intel-specific getdirqq (Windows+Intel only)"
     echo "  -h, --help                Show this help message"
     echo ""
     echo "Examples:"
@@ -46,6 +47,7 @@ usage() {
     echo "  $0 --disable-large-memory  # Build without large memory model"
     echo "  $0 --heap-size 50000000   # Build with smaller heap arrays (Intel)"
     echo "  $0 --stack-size 50000000  # Build with smaller stack variables (GNU)"
+    echo "  $0 --use-windows-intel-getdirqq  # Use Windows-specific version (Windows+Intel only)"
 }
 
 log_info() {
@@ -75,6 +77,7 @@ DO_INSTALL=false
 ENABLE_LARGE_MEMORY=true
 HEAP_SIZE=""
 STACK_SIZE=""
+USE_WINDOWS_INTEL_GETDIRQQ=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -125,6 +128,10 @@ while [[ $# -gt 0 ]]; do
         --stack-size)
             STACK_SIZE="$2"
             shift 2
+            ;;
+        --use-windows-intel-getdirqq)
+            USE_WINDOWS_INTEL_GETDIRQQ=true
+            shift
             ;;
         -h|--help)
             usage
@@ -234,6 +241,14 @@ build_shetran() {
     # Memory configuration options
     if [[ "$ENABLE_LARGE_MEMORY" == "false" ]]; then
         CMAKE_ARGS="$CMAKE_ARGS -DENABLE_LARGE_MEMORY_MODEL=OFF"
+    fi
+    
+    # Getdirqq version selection
+    if [[ "$USE_WINDOWS_INTEL_GETDIRQQ" == "true" ]]; then
+        CMAKE_ARGS="$CMAKE_ARGS -DUSE_WINDOWS_INTEL_GETDIRQQ=ON"
+        log_info "Using Windows Intel-specific getdirqq version"
+    else
+        log_info "Using portable getdirqq version (cross-platform)"
     fi
     
     if [[ -n "$HEAP_SIZE" ]]; then

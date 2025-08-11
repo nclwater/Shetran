@@ -17,6 +17,7 @@ set DO_INSTALL=false
 set ENABLE_LARGE_MEMORY=true
 set HEAP_SIZE=
 set STACK_SIZE=
+set USE_WINDOWS_INTEL_GETDIRQQ=false
 
 REM Parse command line arguments
 :parse_args
@@ -117,6 +118,11 @@ if "%~1"=="--heap-size" (
     shift
     goto parse_args
 )
+if "%~1"=="--use-windows-intel-getdirqq" (
+    set USE_WINDOWS_INTEL_GETDIRQQ=ON
+    shift
+    goto parse_args
+)
 if "%~1"=="-h" goto show_usage
 if "%~1"=="--help" goto show_usage
 
@@ -173,6 +179,11 @@ if "%ENABLE_LARGE_MEMORY%"=="false" (
 
 if not "%HEAP_SIZE%"=="" (
     set CMAKE_ARGS=%CMAKE_ARGS% -DHEAP_ARRAY_SIZE=%HEAP_SIZE%
+)
+
+REM getdirqq version selection
+if "%USE_WINDOWS_INTEL_GETDIRQQ%"=="ON" (
+    set CMAKE_ARGS=%CMAKE_ARGS% -DUSE_WINDOWS_INTEL_GETDIRQQ=ON
 )
 
 REM Set compiler
@@ -251,6 +262,7 @@ echo   --test                    Run tests after building
 echo   --install                 Install after building
 echo   --disable-large-memory    Disable large memory model (mcmodel=large)
 echo   --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)
+echo   --use-windows-intel-getdirqq  Use Windows Intel-specific getdirqq (default on Windows)
 echo   -h, --help                Show this help message
 echo.
 echo Examples:

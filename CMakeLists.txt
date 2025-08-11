@@ -65,6 +65,27 @@ endif()
 # Build options
 option(ENABLE_DEPENDENCY_ANALYSIS "Enable automatic dependency analysis for Fortran sources" ON)
 option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analysis" OFF)
+option(USE_WINDOWS_INTEL_GETDIRQQ "Use Windows Intel-specific getdirqq (only available on Windows with Intel compiler)" OFF)
+
+# Handle getdirqq version selection
+if(USE_WINDOWS_INTEL_GETDIRQQ)
+    if(WIN32 AND CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+        set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/modules/getdirqq_winIntel.f90")
+        message(STATUS "Using Windows Intel-specific getdirqq version")
+    else()
+        if(NOT WIN32)
+            message(FATAL_ERROR "Windows Intel getdirqq requested but platform is not Windows. Use portable version instead.")
+        elseif(NOT CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+            message(FATAL_ERROR "Windows Intel getdirqq requested but compiler is not Intel (${CMAKE_Fortran_COMPILER_ID}). Use portable version instead.")
+        endif()
+    endif()
+else()
+    set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/modules/getdirqq_portable.f90")
+    message(STATUS "Using portable getdirqq version (cross-platform)")
+endif()
+
+# Copy selected version to the active getdirqq.f90
+configure_file("${GETDIRQQ_SOURCE}" "${CMAKE_SOURCE_DIR}/src/modules/getdirqq.f90" COPYONLY)
 
 # Include advanced Fortran dependency analysis
 include(cmake/FortranDependencies.cmake)

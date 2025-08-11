@@ -171,16 +171,9 @@ ELEMENTAL REAL FUNCTION cell_thickness(iel, j) RESULT(r)
 INTEGER, INTENT(IN) :: iel, j
 !INTEGER             :: kk !nett 090805
 IF(EXISTS(iel)) THEN
-!DEC$ IF(v==4)
+! Removed DEC$ conditional - using Version 4 permanently
     r = DELTAZ(j,iel)
-!DEC$ ELSEIF(V==3)
-    kk = NVC(iel)  !nett 090805
-    IF(kk>0) THEN  !nett 090805
-        r = DDZ(j,kk)
-    ELSE
-        r = zero
-    ENDIF
-!DEC$ ENDIF
+! V3: kk = NVC(iel); IF(kk>0) THEN; r = DDZ(j,kk); ELSE; r = zero; ENDIF  ! Disabled Version 3
 ELSE
     r=r_not_exist
 ENDIF
@@ -349,11 +342,9 @@ END FUNCTION ovr_flow
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL REAL FUNCTION ph_depth(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
-!DEC$ IF(V==4)
+! Removed DEC$ conditional - using Version 4 permanently
 r = zgrund(iel)-zvspsl(iel)
-!DEC$ ELSEIF(V==3)
-r = zgrund(iel) - hsz(iel)
-!DEC$ ENDIF
+! V3: r = zgrund(iel) - hsz(iel)  ! Disabled Version 3
 END FUNCTION ph_depth
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL REAL FUNCTION pot_evap(iel) RESULT(r)
@@ -363,11 +354,9 @@ END FUNCTION pot_evap
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL REAL FUNCTION psi(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no.
-!DEC$ IF(V==4)
+! Removed DEC$ conditional - using Version 4 permanently
 r = vspsi(ilay,iel)
-!DEC$ ELSEIF(V==3)
-r = psi3(iel,ilay)
-!DEC$ ENDIF
+! V3: r = psi3(iel,ilay)  ! Disabled Version 3 (different array order)
 END FUNCTION psi
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL INTEGER FUNCTION river_no(su, face) RESULT(r)
@@ -455,11 +444,9 @@ END FUNCTION s_v_er
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL REAL FUNCTION theta(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no.
-!DEC$ IF(V==4)
+! Removed DEC$ conditional - using Version 4 permanently
 r = vsthe(ilay,iel)
-!DEC$ ELSEIF(V==3)
-r = th3(iel,ilay)
-!DEC$ ENDIF
+! V3: r = th3(iel,ilay)  ! Disabled Version 3 (different array order)
 END FUNCTION theta
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 PURE INTEGER FUNCTION top_cell() RESULT(r)
@@ -477,10 +464,8 @@ END FUNCTION version
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL REAL FUNCTION v_flow(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no and layer no
-!DEC$ IF(V==4)
+! Removed DEC$ conditional - using Version 4 permanently
 r = qvsv(ilay, iel)
-!DEC$ ELSEIF(V==3)
-r = thuz(iel)  !does not vary with ilay
-!DEC$ ENDIF
+! V3: r = thuz(iel)  ! Disabled Version 3 (does not vary with ilay)
 END FUNCTION v_flow
 END MODULE visualisation_interface_left
