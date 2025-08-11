@@ -78,7 +78,9 @@ INTEGER, SAVE                                 :: icounter3 = 0
 !                       INITIALISATION
 !-----------------------------------------------------------------
 
-open(unit=6,form='formatted',carriagecontrol='fortran')
+! Note: carriagecontrol='fortran' is non-standard extension
+! Unit 6 is standard output, no need to explicitly open it
+! open(unit=6,form='formatted',carriagecontrol='fortran')
 
 SYFRST = .TRUE.
 cmfrst = .TRUE.

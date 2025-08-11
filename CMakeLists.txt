@@ -104,11 +104,13 @@ function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
         "${SOURCE_DIR}/*.F08"
     )
     
-    # Filter out any files that might be in build directories
+    # Filter out any files that might be in build directories or template files
     set(FILTERED_FILES)
     foreach(FILE ${FORTRAN_FILES})
         get_filename_component(DIR ${FILE} DIRECTORY)
-        if(NOT DIR MATCHES ".*/build.*" AND NOT DIR MATCHES ".*/CMakeFiles.*")
+        get_filename_component(NAME ${FILE} NAME)
+        if(NOT DIR MATCHES ".*/build.*" AND NOT DIR MATCHES ".*/CMakeFiles.*" AND 
+           NOT NAME MATCHES ".*_portable\\.f90$" AND NOT NAME MATCHES ".*_winIntel\\.f90$")
             list(APPEND FILTERED_FILES ${FILE})
         endif()
     endforeach()

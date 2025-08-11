@@ -16,6 +16,9 @@ shetran-*
 Shetran-4.4.7
 *.mod
 
+# Generated files - CMake creates these at build time
+src/modules/getdirqq.f90
+
 
 
 *.rsuser

@@ -424,7 +424,8 @@ IF (ERRTOT.GT.0) WRITE ( * , '(A/)') ' ==> Check printed output files for more d
             WRITE (FIL, 9200) trim(rootdir)//TRIM (helppath) //'\', AMODL, ERRN  
             print*,dirqq,rootdir
             print*,fil
-            pause
+            WRITE(*, '(A)', ADVANCE='NO') 'Press Enter to continue...'
+            READ(*,*)
             OPEN (HLP, FILE = FIL, STATUS = 'OLD', ERR = 7)  
     5             READ (HLP, '(A)', ERR = 7, END = 7) HLPMSG  
             WRITE ( * , '(A)') HLPMSG  
@@ -478,7 +479,8 @@ INTEGER :: FLAG
 !      CALL IEEE_FLAGS( 'clear', 'exception', 'all', OUT )
 !
 IF (FLAG.GT.0) THEN  
-   PAUSE  
+   WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+   READ(*,*)
    STOP 'Program terminating due to fatal error'  
 ENDIF  
 !!!STOP  
