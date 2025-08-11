@@ -1852,7 +1852,7 @@ IF (SIMPOS.EQ.'start') THEN
          read(pslextra,*,err=581,end=581) pslextraelement(i)
 !         print*,disextraelement(i),disextraface(i)
          ifile=80+I
-         write (celem,'(I)') pslextraelement(i)
+         write (celem,'(I0)') pslextraelement(i)
          FILNAM = TRIM (DIRQQ) //'output_WaterTable_Element'//trim(adjustl(celem))//'.txt'
          open(ifile, FILE = FILNAM, ERR = 581)
          write(ifile,'(A)') 'Time(hours), Water Table depth (m below ground)'
@@ -3189,7 +3189,7 @@ DOUBLEPRECISION TABLE_CONCENTRATION (NOCTAB, NOCTAB, NCONEE)
 DOUBLEPRECISION TABLE_WATER_DEPTH (NOCTAB, NOCTAB, NCONEE)  
 
 
-LOGICAL :: LDUM1, ISCNSV (NCONEE)  
+LOGICAL :: LDUM1(total_no_elements), ISCNSV (NCONEE)  
 !
 !
 !----------------------------------------------------------------------*
@@ -4867,7 +4867,7 @@ DOUBLEPRECISION TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS,
 DOUBLEPRECISION TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)  
 ! WORKSPACE ARGUMENTS
 
-LOGICAL :: LDUM  
+LOGICAL :: LDUM(total_no_elements)  
 !
 ! LOCALS ETC.
 INTEGER :: ICOL1, IUNDEF, NERR, NELMTY, NTBL, I, J  
@@ -4898,7 +4898,7 @@ DO 100 I = 1, NCON
       DO 110 J = ICOL1, total_no_elements  
 !       *NCATTY
          CALL ALCHKI(EEERR, 2103, CPR, J, J, IUNDEF, IUNDEF, &
-          'NCATTY(iel)', 'GT', IZERO, NCATTY (J, I) , NERR, LDUM)
+          'NCATTY(iel)', 'GT', IZERO, NCATTY (J, I) , NERR, LDUM(J:J))
   110       END DO  
 !
 !       *TABLE_WATER_DEPTH

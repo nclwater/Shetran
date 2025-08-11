@@ -9,7 +9,7 @@ USE SGLOBAL, ONLY :                                                             
   ISZERO, GTZERO, LTZERO, GEZERO, DYQQ, DXQQ, ZGRUND, ERROR
 USE OCMOD2,  ONLY : hrf=>hrfzz
 !!!!USE AL_P
-USE AL_C  
+USE AL_C    
 USE AL_G
 USE IS_CC
 USE UTILSMOD, ONLY : TRIDAG

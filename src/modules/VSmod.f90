@@ -3177,8 +3177,8 @@ IF (total_no_links.GT.0.AND.BEXBK) THEN
 ENDIF  
 ! VS10 ----- aquifer zone user-defined connectivities
 
-CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, NAQCON, DUMMY)  
-
+CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, IDUM1, DUMMY)  
+NAQCON = IDUM1(1)
 
 IF (NAQCON.GT.0) CALL ALREAD (2, VSD, PPPRI, ':VS10a', 4, NAQCON, 0, &
  CDUM, IAQCON, DUMMY)

@@ -24,7 +24,7 @@ INTEGER, PARAMETER :: H5F_ACC_TRUNC = 0
 INTEGER, PARAMETER :: H5P_DEFAULT = 0
 
 PRIVATE
-PUBLIC :: MAKE_HDF5, SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP
+PUBLIC :: MAKE_HDF5
 
 CONTAINS
 
@@ -115,25 +115,5 @@ SUBROUTINE H5FCLOSE_F(file_id, hdferr)
     INTEGER, INTENT(OUT) :: hdferr
     hdferr = 0
 END SUBROUTINE H5FCLOSE_F
-
-!===============================================================================
-! Additional required subroutines for interface compatibility
-!===============================================================================
-SUBROUTINE SAVE_VISUALISATION_DATA_TO_DISK(mn, time)
-    IMPLICIT NONE
-    INTEGER, INTENT(IN) :: mn
-    REAL, INTENT(IN) :: time
-    
-    WRITE(*,*) 'SAVE_VISUALISATION_DATA_TO_DISK called - HDF5 output disabled'
-    WRITE(*,*) 'Parameters: mn=', mn, ', time=', time
-    
-END SUBROUTINE SAVE_VISUALISATION_DATA_TO_DISK
-
-SUBROUTINE VISUALISATION_TIDY_UP()
-    IMPLICIT NONE
-    
-    WRITE(*,*) 'VISUALISATION_TIDY_UP called - HDF5 cleanup disabled'
-    
-END SUBROUTINE VISUALISATION_TIDY_UP
 
 END MODULE visualisation_hdf5

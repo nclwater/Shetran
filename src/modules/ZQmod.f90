@@ -202,7 +202,7 @@ module ZQmod
         ! error management
     101   CONTINUE
         PRINT*,'error reading ZQ table'
-        STOP(255)
+        STOP 255
     
     END SUBROUTINE ReadZQTable
     

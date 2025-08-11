@@ -13,7 +13,7 @@ USE AL_D,     ONLY : NMC, NRAINC, U, PE, OBSPE, RN, VPD, PNET, precip_m_per_s, C
                      NSMT, S, TIMEUZ, BWIDTH, &
                      sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
 USE mod_load_filedata,    ONLY : ALCHK, ALINIT
-USE mod_load_filedata,    ONLY : ERRC, ERRNEE, ERRTOT !HELPPATH !AD NEEDS THIS
+! ERRC, ERRNEE, ERRTOT are imported from SGLOBAL
 USE UTILSMOD, ONLY : DCOPY
 USE SMmod,    ONLY : SMIN, &
                      smelt, tmelt !THESE NEEDED ONLY FOR AD

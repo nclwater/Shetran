@@ -42,6 +42,7 @@ PROGRAM SHETRAN
     CALL EXTRA_OUTPUT()
     CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND = 4) , 'end')  
     
-    CALL sleepqq(500)
+    ! sleepqq(500) removed - Windows-specific function not needed on Linux
+    ! Program completion pause removed for cross-platform compatibility
 
 END PROGRAM SHETRAN

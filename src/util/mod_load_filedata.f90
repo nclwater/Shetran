@@ -272,7 +272,7 @@ MODULE mod_load_filedata
         INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES !< number of category types
         INTEGER(kind=I_P)   :: IUNIT, OUNIT, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE
         INTEGER(kind=I_P)   :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2),              &
-                               ICMREF (NELEE, 4, & 2:2)
+                               ICMREF (NELEE, 4, 2:2)
         LOGICAL             :: BEXBK, LINKNS (NLFEE)  
         CHARACTER (LEN=*)   :: LINE  
         

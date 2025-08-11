@@ -4,6 +4,7 @@ MODULE visualisation_structure
 ! Removed Cray pointers, INT_PTR_KIND, and DEC$ directives
 ! JE for SHEGRAPH Version 2.0 Created July 2004, modernized 2025
 USE ISO_FORTRAN_ENV, ONLY: INT64
+USE ISO_C_BINDING, ONLY: INT_PTR_KIND => C_INTPTR_T
 IMPLICIT NONE
 
 INTEGER, PARAMETER :: iundef      = -1,      & !undefined
@@ -280,7 +281,9 @@ END FUNCTION mbr_count
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE save_items_worth_i(c, typ, a, b, klow, khigh, e, d, save_this, dummy)
 ! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
-INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e, dummy
+! Fixed parameter list to match calling convention with 10th parameter
+INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
+INTEGER(INT_PTR_KIND), INTENT(IN) :: dummy
 INTEGER, DIMENSION(khigh-klow+1), INTENT(IN) :: save_this
 CHARACTER, INTENT(IN)             :: c
 CHARACTER(*), INTENT(IN)          :: typ
@@ -291,7 +294,9 @@ END SUBROUTINE save_items_worth_i
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE save_items_worth_r(c, typ, a, b, klow, khigh, e, d, save_this, dummy)
 ! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
-INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e, dummy
+! Fixed parameter list to match calling convention with 10th parameter
+INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
+INTEGER(INT_PTR_KIND), INTENT(IN) :: dummy
 REAL, DIMENSION(khigh-klow+1), INTENT(IN) :: save_this
 CHARACTER, INTENT(IN)          :: c
 CHARACTER(*), INTENT(IN)       :: typ
@@ -302,9 +307,11 @@ END SUBROUTINE save_items_worth_r
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME(typ, time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, dummy1, dummy2)
 ! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
-INTEGER, INTENT(IN)      :: ilow, ihigh, jlow, jhigh, klow, khigh, ext, dummy1, dummy2
-REAL, INTENT(IN)         :: time
-CHARACTER(*), INTENT(IN) :: typ
+! Fixed parameter types to match calling convention - dummy1 and dummy2 are INT_PTR_KIND
+INTEGER, INTENT(IN)                :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
+INTEGER(INT_PTR_KIND), INTENT(IN)  :: dummy1, dummy2
+REAL, INTENT(IN)                   :: time
+CHARACTER(*), INTENT(IN)           :: typ
 ! Placeholder implementation
 WRITE(*,*) 'WARNING: FOR_NEW_TIME not fully implemented in standard version'
 END SUBROUTINE FOR_NEW_TIME

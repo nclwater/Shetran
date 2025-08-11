@@ -2,6 +2,7 @@
 MODULE visualisation_metadata
 ! Removed DEC$ REAL:4 for portability
 !JE for SHEGRAPH Version 2.0 Created July 2004
+USE ISO_C_BINDING, ONLY : INT_PTR_KIND => C_INTPTR_T
 USE VISUALISATION_PASS,      ONLY : SU_NUMBER, BANK_NO, RIVER_NO, EXISTS, nel, &
                                     IS_SQUARE, IS_BANK, IS_LINK, TOP_CELL, DIRQQ, nsed, ncon, &
                                     planfile, checkfile
@@ -44,7 +45,7 @@ TYPE item
 PRIVATE
     INTEGER              :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
                             sediment_no=0, contaminant_no=0
-    INTEGER(INT_PTR_KIND())           :: first=0, latest=0
+    INTEGER(INT_PTR_KIND)           :: first=0, latest=0
     CHARACTER(8)         :: name=''
     CHARACTER(2)         :: typ=''
     CHARACTER(csz)       :: title='*S' !for plots and printouts
@@ -111,8 +112,8 @@ INTEGER, PARAMETER       :: sp=50  !DEBUG compiler bug  should be <sp>X in write
 REAL, PARAMETER          :: small = 0.001
 CHARACTER(4), PARAMETER  :: keywords(7)         = (/'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag'/)
 CHARACTER(12),PARAMETER  :: basis(3)            = (/'grid_as_grid', 'grid_as_list', 'list_as_list'/)
-CHARACTER(7), PARAMETER  :: scope(4)            = (/'all', 'squares', 'banks', 'rivers'/)
-CHARACTER(11), PARAMETER :: extra_dimensions(4) = (/'-','faces','X_Y', 'left_right'/)
+CHARACTER(7), PARAMETER  :: scope(4)            = (/'all    ', 'squares', 'banks  ', 'rivers '/)
+CHARACTER(11), PARAMETER :: extra_dimensions(4) = (/'-          ','faces      ','X_Y        ', 'left_right '/)
 LOGICAL                  :: diagnostics=F
 
 
@@ -238,7 +239,7 @@ END SELECT
 END FUNCTION get_metadata_i
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-ELEMENTAL INTEGER(INT_PTR_KIND()) FUNCTION get_metadata_i_first(i, text, su) RESULT(r)
+ELEMENTAL INTEGER(INT_PTR_KIND) FUNCTION get_metadata_i_first(i, text, su) RESULT(r)
 ! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: su
@@ -283,7 +284,7 @@ END FUNCTION get_metadata_hdf5_i
 SUBROUTINE set_metadata_i(i, text, a)
 ! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
 INTEGER, INTENT(IN)           :: i
-INTEGER(INT_PTR_KIND()), INTENT(IN)        :: a
+INTEGER(INT_PTR_KIND), INTENT(IN)        :: a
 CHARACTER(*), INTENT(IN)      :: text
 SELECT CASE(text)
 CASE('first')  ; items(i)%first  = a
@@ -1002,7 +1003,10 @@ CALL R_I('list NO AND SIZE',L%number, L%sz)
 ALLOCATE(L%a(L%sz))
 CALL R_I('list', L%sz, L%a)
         IF(diagnostics) WRITE(vp_out,'(50X,A)') 'read list'
-        WRITE(vp_out,'(<L%sz>I5)') L%a
+        DO i=1,L%sz
+            WRITE(vp_out,'(I5)',ADVANCE='NO') L%a(i)
+        END DO
+        WRITE(vp_out,'(A)') ''  ! New line
 cnt = 0
 DO i=1,SIZE(L%a)
     IF(L%a(i)<1 .OR. L%a(i)>nel) THEN
@@ -1015,7 +1019,7 @@ END SUBROUTINE read_list
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 TYPE(LLIST) FUNCTION make_list_from_mask(m, txt) RESULT(r)
-INTEGER                  :: num
+INTEGER                  :: i, num
 CHARACTER(*), INTENT(IN) :: txt
 TYPE(MASK), INTENT(IN)   :: m
 r%scope = txt
@@ -1026,7 +1030,10 @@ IF(diagnostics) WRITE(vp_out,'(50X,A)') 'creating a '//TRIM(txt)//' list from ma
 CALL SORT(r%sz, r%a)
 WRITE(vp_out,'(A,I3,A,i5,2A)') '-----'//' list from mask number',m%number,' size:', r%sz, ' scope: ', r%scope
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'created list'
-WRITE(vp_out,'(<20>I5)') r%a
+DO i=1,MIN(20,r%sz)
+    WRITE(vp_out,'(I5)',ADVANCE='NO') r%a(i)
+END DO
+WRITE(vp_out,'(A)') ''
 
 CONTAINS
 
@@ -1050,23 +1057,26 @@ END FUNCTION make_list_from_mask
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 TYPE(LLIST) FUNCTION make_list_from_list(L, txt) RESULT(r)
-INTEGER                  :: num
+INTEGER                  :: i, num
 CHARACTER(*), INTENT(IN) :: txt
 TYPE(LLIST), INTENT(IN)  :: L
 r%scope = txt
 num    = GET_NUM(txt)
 r%sz   = L%sz ; ALLOCATE(r%a(r%sz)) ; r%a=0
-CALL LISTS()
+CALL process_lists()
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'creating a '//TRIM(txt)//' list from list'
 CALL SORT(r%sz, r%a)
 WRITE(vp_out,'(A,I3,A,I4,2A)') '-----list from list number',L%number,' size:', r%sz, ' scope :', r%scope
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'created list'
-WRITE(vp_out,'(<20>I5)') r%a
+DO i=1,MIN(20,r%sz)
+    WRITE(vp_out,'(I5)',ADVANCE='NO') r%a(i)
+END DO
+WRITE(vp_out,'(A)') ''
 
 CONTAINS
 
     !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
-    SUBROUTINE lists()
+    SUBROUTINE process_lists()
     INTEGER :: c, i, j, su
     LOGICAL :: iss
     c = 1
@@ -1080,7 +1090,7 @@ CONTAINS
         END SELECT
         IF(iss) THEN ; r%a(c)=su ; c=c+1 ; ENDIF
     ENDDO  
-    END SUBROUTINE lists
+    END SUBROUTINE process_lists
 END FUNCTION make_list_from_list
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -1165,7 +1175,12 @@ CONTAINS
     CHARACTER, DIMENSION(SIZE(m%ma,DIM=1),SIZE(m%ma,DIM=2)) :: cc
     WRITE(vp_out,'(50X,A)') txt   
     WHERE(m%ma) ; cc=tr ; ELSEWHERE ; cc = fa ; ENDWHERE
-    WRITE(vp_out, '(<SIZE(cc,DIM=1)>A)') cc
+    DO i=1,SIZE(cc,DIM=1)
+        DO j=1,SIZE(cc,DIM=2)
+            WRITE(vp_out,'(A1)',ADVANCE='NO') cc(i,j)
+        END DO
+        WRITE(vp_out,'(A)') ''
+    END DO
     END SUBROUTINE mask_write
 END SUBROUTINE read_mask
 
@@ -1230,8 +1245,8 @@ CHARACTER(*), INTENT(IN)   :: e_d
 CHARACTER(6), DIMENSION(n) :: r
 SELECT CASE(e_d)
 CASE('-')        ; r = ''
-CASE('faces')       ; r = (/'North', 'East', 'South', 'West'/)
-CASE('left_right')  ; r = (/'left','right'/)
+CASE('faces')       ; r = (/'North ', 'East  ', 'South ', 'West  '/)
+CASE('left_right')  ; r = (/'left  ','right '/)
 CASE('X_Y')         ; r = (/'x','y'/)
 END SELECT
 END FUNCTION names_of_extra_dimensions
