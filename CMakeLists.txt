@@ -62,66 +62,161 @@ else()
     endif()
 endif()
 
-# Source file organization
-set(SHETRAN_SOURCES
-    # Main program
-    src/Shetran.f90
+# Build options
+option(ENABLE_DEPENDENCY_ANALYSIS "Enable automatic dependency analysis for Fortran sources" ON)
+option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analysis" OFF)
+
+# Include advanced Fortran dependency analysis
+include(cmake/FortranDependencies.cmake)
+
+# Function to automatically discover Fortran source files
+function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
+    # Find all Fortran source files
+    file(GLOB_RECURSE FORTRAN_FILES
+        "${SOURCE_DIR}/*.f90" 
+        "${SOURCE_DIR}/*.F90"
+        "${SOURCE_DIR}/*.f95"
+        "${SOURCE_DIR}/*.F95"
+        "${SOURCE_DIR}/*.f03"
+        "${SOURCE_DIR}/*.F03"
+        "${SOURCE_DIR}/*.f08"
+        "${SOURCE_DIR}/*.F08"
+    )
     
-    # Parameters
-    src/parameters/sglobal.f90
-    src/parameters/mod_parameters.f90
-    src/parameters/CONST_SY.F90
-    src/parameters/AL_G.F90
-    src/parameters/AL_C.F90
-    src/parameters/AL_D.f90
-    src/parameters/CONT_CC.F90
-    src/parameters/is_cc.f90
-    src/parameters/link_cc.f90
-    src/parameters/link_cc1.f90
-    src/parameters/link_cw.f90
-    src/parameters/colm_c1.f90
-    src/parameters/colm_c2.f90
-    src/parameters/colm_cc.f90
-    src/parameters/colm_cc1.f90
-    src/parameters/colm_cg.f90
-    src/parameters/colm_co.f90
+    # Filter out any files that might be in build directories
+    set(FILTERED_FILES)
+    foreach(FILE ${FORTRAN_FILES})
+        get_filename_component(DIR ${FILE} DIRECTORY)
+        if(NOT DIR MATCHES ".*/build.*" AND NOT DIR MATCHES ".*/CMakeFiles.*")
+            list(APPEND FILTERED_FILES ${FILE})
+        endif()
+    endforeach()
     
-    # Utility modules
-    src/util/mod_load_filedata.f90
+    set(${OUTPUT_VAR} ${FILTERED_FILES} PARENT_SCOPE)
+endfunction()
+
+# Function to get simple dependency ordering based on file patterns and heuristics
+function(simple_dependency_sort SOURCES_LIST OUTPUT_VAR)
+    set(ORDERED_SOURCES)
+    set(REMAINING_SOURCES ${${SOURCES_LIST}})
     
-    # Main modules
-    src/modules/utilsmod.f90
-    src/modules/getdirqq.f90
-    src/modules/CMmod.f90
-    src/modules/ETmod.f90
-    src/modules/FRmod.f90
-    src/modules/OCmod.f90
-    src/modules/OCmod2.f90
-    src/modules/OCQDQMOD.F90
-    src/modules/SED_CS.F90
-    src/modules/SMmod.f90
-    src/modules/SYmod.f90
-    src/modules/VSmod.f90
-    src/modules/ZQmod.f90
-    src/modules/bk_cw.f90
-    src/modules/plant_cc.f90
-    src/modules/rest.f90
-    src/modules/run_sim.f90
-    src/modules/sed_co.f90
+    # Define ordering groups with patterns
+    set(ORDER_GROUPS
+        # Group 1: Global parameters and constants
+        "sglobal\\.f90$;CONST_SY\\.F90$;mod_parameters\\.f90$"
+        
+        # Group 2: Basic parameter modules  
+        "AL_[GCD]\\.f?90$;CONT_CC\\.F90$"
+        
+        # Group 3: Utility and support modules
+        "utilsmod\\.f90$;getdirqq\\.f90$;mod_load_filedata\\.f90$"
+        
+        # Group 4: Basic computation modules
+        "is_cc\\.f90$;link_cc.*\\.f90$;colm_c.*\\.f90$;bk_cw\\.f90$;sed_co\\.f90$"
+        
+        # Group 5: Visualization base modules
+        "visualisation_extras\\.f90$;visualisation_structure\\.f90$;visualisation_pass\\.f90$;visualisation_read\\.f90$"
+        
+        # Group 6: Core modules (basic dependencies)
+        "SED_CS\\.F90$;ZQmod\\.f90$;SMmod\\.f90$;plant_cc\\.f90$"
+        
+        # Group 7: Physics modules
+        "OCQDQMOD\\.F90$;OCmod2\\.f90$;ETmod\\.f90$;CMmod\\.f90$"
+        
+        # Group 8: Advanced modules
+        "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
+        
+        # Group 9: Visualization processing
+        "visualisation_metadata\\.f90$;visualisation_map\\.f90$;visualisation_hdf5\\.f90$"
+        
+        # Group 10: Visualization interfaces
+        "visualisation_interface_left\\.f90$;visualisation_interface_centre\\.f90$;visualisation_interface_right\\.f90$;visualisation_interface_far_right\\.f90$"
+        
+        # Group 11: Simulation control
+        "rest\\.f90$;run_sim\\.f90$"
+    )
     
-    # Visualization modules
-    src/visualisation/visualisation_extras.f90
-    src/visualisation/visualisation_structure.f90
-    src/visualisation/visualisation_pass.f90
-    src/visualisation/visualisation_read.f90
-    src/visualisation/visualisation_metadata.f90
-    src/visualisation/visualisation_map.f90
-    src/visualisation/visualisation_hdf5.f90
-    src/visualisation/visualisation_interface_centre.f90
-    src/visualisation/visualisation_interface_left.f90
-    src/visualisation/visualisation_interface_right.f90
-    src/visualisation/visualisation_interface_far_right.f90
-)
+    # Process each group
+    foreach(GROUP_PATTERNS ${ORDER_GROUPS})
+        string(REPLACE ";" "|" PATTERN_REGEX "${GROUP_PATTERNS}")
+        set(NEW_REMAINING)
+        
+        foreach(FILE ${REMAINING_SOURCES})
+            get_filename_component(FILENAME ${FILE} NAME)
+            if(FILENAME MATCHES "(${PATTERN_REGEX})")
+                list(APPEND ORDERED_SOURCES ${FILE})
+                message(STATUS "  Ordered: ${FILENAME}")
+            else()
+                list(APPEND NEW_REMAINING ${FILE})
+            endif()
+        endforeach()
+        
+        set(REMAINING_SOURCES ${NEW_REMAINING})
+    endforeach()
+    
+    # Add any remaining files
+    foreach(FILE ${REMAINING_SOURCES})
+        get_filename_component(FILENAME ${FILE} NAME)
+        list(APPEND ORDERED_SOURCES ${FILE})
+        message(STATUS "  Remaining: ${FILENAME}")
+    endforeach()
+    
+    set(${OUTPUT_VAR} ${ORDERED_SOURCES} PARENT_SCOPE)
+endfunction()
+
+# Discover all Fortran source files automatically
+message(STATUS "Discovering Fortran source files...")
+discover_fortran_sources("${CMAKE_SOURCE_DIR}/src" DISCOVERED_SOURCES)
+
+# Separate main program from modules
+set(MAIN_PROGRAM)
+set(MODULE_SOURCES)
+
+foreach(FILE ${DISCOVERED_SOURCES})
+    get_filename_component(FILENAME ${FILE} NAME)
+    if(FILENAME STREQUAL "Shetran.f90")
+        set(MAIN_PROGRAM ${FILE})
+        message(STATUS "Found main program: ${FILE}")
+    else()
+        list(APPEND MODULE_SOURCES ${FILE})
+    endif()
+endforeach()
+
+# Sort module sources by dependency analysis or simple patterns
+if(ENABLE_DEPENDENCY_ANALYSIS)
+    message(STATUS "Performing dependency analysis and topological sorting...")
+    # Include advanced dependency analysis only if needed
+    include(cmake/FortranDependencies.cmake)
+    topological_sort_fortran(MODULE_SOURCES ORDERED_MODULE_SOURCES)
+else()
+    message(STATUS "Using pattern-based ordering...")
+    simple_dependency_sort(MODULE_SOURCES ORDERED_MODULE_SOURCES)
+endif()
+
+# Combine all sources in correct order (modules first, then main program)
+set(SHETRAN_SOURCES ${ORDERED_MODULE_SOURCES})
+if(MAIN_PROGRAM)
+    list(APPEND SHETRAN_SOURCES ${MAIN_PROGRAM})
+endif()
+
+# Optional validation (only for advanced dependency analysis)
+if(ENABLE_DEPENDENCY_ANALYSIS AND VERBOSE_DEPENDENCY_OUTPUT)
+    include(cmake/FortranDependencies.cmake)
+    validate_source_order(SHETRAN_SOURCES)
+endif()
+
+# Print discovered sources for verification
+message(STATUS "")
+message(STATUS "Final source file order:")
+set(SOURCE_INDEX 1)
+foreach(SOURCE ${SHETRAN_SOURCES})
+    file(RELATIVE_PATH REL_PATH "${CMAKE_SOURCE_DIR}" "${SOURCE}")
+    message(STATUS "  ${SOURCE_INDEX}. ${REL_PATH}")
+    math(EXPR SOURCE_INDEX "${SOURCE_INDEX} + 1")
+endforeach()
+list(LENGTH SHETRAN_SOURCES SOURCES_COUNT)
+message(STATUS "Total sources found: ${SOURCES_COUNT}")
+message(STATUS "")
 
 # Create the executable
 add_executable(SHETRAN ${SHETRAN_SOURCES})

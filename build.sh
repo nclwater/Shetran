@@ -58,6 +58,10 @@ log_error() {
     echo -e "${RED}ERROR:${NC} $1"
 }
 
+log_info_detail() {
+    echo -e "${BLUE}INFO:${NC} $1"
+}
+
 # Parse command line arguments
 JOBS=$(nproc)
 RUN_TESTS=false
@@ -222,6 +226,8 @@ build_shetran() {
     # Configure
     log_info "Configuring with CMake..."
     log_info "CMake arguments: $CMAKE_ARGS"
+    log_info_detail "Source files will be automatically discovered from src/ directory"
+    log_info_detail "Dependency ordering: Pattern-based (default) or advanced analysis"
     cmake $CMAKE_ARGS ..
     
     # Build

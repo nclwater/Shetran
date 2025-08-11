@@ -1,6 +1,14 @@
 # SHETRAN CMake Build System
 
-This directory contains a CMake-based build system for SHETRAN that supports multiple compilers and platforms.
+This directory contains a CMake-based build system for SHETRAN that supports multiple compilers and platforms with automatic source file discovery and dependency ordering.
+
+## Key Features
+
+- **Automatic Source Discovery**: Automatically finds all Fortran source files in the `src/` directory
+- **Intelligent Dependency Ordering**: Orders source files based on module dependencies and patterns
+- **Cross-platform Support**: Works on Linux, Unix, and Windows  
+- **Multi-compiler Support**: Intel Fortran (ifort, ifx) and GNU Fortran (gfortran)
+- **HDF5 Integration**: Automatic HDF5 detection on Linux, provided libraries on Windows
 
 ## Quick Start
 
@@ -92,6 +100,29 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 - Uses `-fmax-stack-var-size=100000000` for large arrays
 - Optimized with `-O3` for release builds
 
+## Build Options
+
+### Automatic Source Discovery
+The build system automatically discovers all Fortran source files in the `src/` directory and its subdirectories. You no longer need to manually maintain lists of source files in CMakeLists.txt.
+
+### Dependency Ordering Options
+- **Pattern-based ordering** (default): Uses intelligent patterns to order source files
+- **Advanced dependency analysis**: Analyzes actual module USE statements (experimental)
+
+```bash
+# Use pattern-based ordering (recommended)
+./build.sh
+
+# Enable advanced dependency analysis (experimental) 
+./build.sh -DENABLE_DEPENDENCY_ANALYSIS=ON
+
+# Enable verbose dependency output
+./build.sh -DVERBOSE_DEPENDENCY_OUTPUT=ON
+```
+
+### Adding New Source Files
+Simply add your new `.f90` files anywhere in the `src/` directory tree. The build system will automatically discover and include them in the next build.
+
 ## Build Configurations
 
 ### Build Types
@@ -133,6 +164,27 @@ SHETRAN/
 ```
 
 ## Advanced Usage
+
+### Dependency Analysis Options
+The build system provides two methods for ordering Fortran source files:
+
+1. **Pattern-based ordering** (default, recommended):
+   - Fast and reliable
+   - Uses filename patterns and directory structure
+   - Handles most dependency cases correctly
+   
+2. **Advanced dependency analysis** (experimental):
+   - Analyzes actual module USE/PROVIDES relationships
+   - More accurate but slower
+   - May have issues with complex codebases
+
+```bash
+# Disable dependency analysis (use alphabetical order)
+cmake -DENABLE_DEPENDENCY_ANALYSIS=OFF ..
+
+# Enable advanced analysis with verbose output
+cmake -DENABLE_DEPENDENCY_ANALYSIS=ON -DVERBOSE_DEPENDENCY_OUTPUT=ON ..
+```
 
 ### Custom Installation
 ```bash
