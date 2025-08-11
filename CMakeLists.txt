@@ -15,15 +15,17 @@ endif()
 # Compiler-specific settings
 if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
     if(CMAKE_Fortran_COMPILER MATCHES "ifort")
-        # Intel Fortran Compiler (Classic)
-        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large -heap-arrays 100000000")
+        # Intel Classic Fortran Compiler
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large -heap-arrays")
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fpp")  # Enable preprocessor
         set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -traceback -check bounds -check uninit")
         set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
     elseif(CMAKE_Fortran_COMPILER MATCHES "ifx")
-        # Intel Fortran Compiler (LLVM-based)
+        # Intel OneAPI Fortran Compiler  
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large")
         # Note: heap-arrays is not available in ifx, use alternative approach
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fstack-arrays")
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fpp")  # Enable preprocessor
         set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -traceback -check bounds -check uninit")
         set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
     endif()
@@ -31,6 +33,7 @@ elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # GNU Fortran Compiler
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fmax-stack-var-size=100000000")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")  # Enable preprocessor
     set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -fbacktrace -fbounds-check")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
 else()
@@ -57,6 +60,36 @@ else()
         message(STATUS "Found HDF5: ${HDF5_VERSION}")
         message(STATUS "HDF5 Include dirs: ${HDF5_INCLUDE_DIRS}")
         message(STATUS "HDF5 Libraries: ${HDF5_LIBRARIES}")
+        
+        # Test for H5IM palette functions availability
+        include(CheckFortranSourceCompiles)
+        set(CMAKE_REQUIRED_INCLUDES ${HDF5_INCLUDE_DIRS})
+        set(CMAKE_REQUIRED_LIBRARIES ${HDF5_LIBRARIES})
+        
+        check_fortran_source_compiles("
+            program test_h5im_palette
+                use hdf5
+                use h5im
+                implicit none
+                integer(hid_t) :: file_id, pal_id
+                integer :: error
+                integer(hsize_t), dimension(2) :: dims = [256, 3]
+                integer, dimension(768) :: pal_data
+                
+                call h5open_f(error)
+                call h5fcreate_f('test.h5', H5F_ACC_TRUNC_F, file_id, error)
+                call h5immake_palette_f(file_id, 'palette', dims, pal_data, error)
+                call h5fclose_f(file_id, error)
+                call h5close_f(error)
+            end program
+        " HAVE_H5IM_PALETTE)
+        
+        if(HAVE_H5IM_PALETTE)
+            message(STATUS "H5IM palette functions: Available")
+            add_compile_definitions(HAVE_H5IM_PALETTE)
+        else()
+            message(STATUS "H5IM palette functions: Not available (using basic HDF5)")
+        endif()
     else()
         message(FATAL_ERROR "HDF5 not found. Please install HDF5 development packages.")
     endif()
@@ -255,6 +288,11 @@ target_include_directories(SHETRAN PRIVATE ${HDF5_INCLUDE_DIRS})
 
 # Link libraries
 target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
+
+# Add high level HDF5 Fortran library explicitly for Linux/Unix
+if(NOT WIN32)
+    target_link_libraries(SHETRAN PRIVATE hdf5_hl_fortran hdf5_hl_f90cstub)
+endif()
 
 # Additional linker flags for large memory model
 if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
