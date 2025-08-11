@@ -1,13 +1,15 @@
-# Daryl ZQ Module (Stage-discharge relationship at Weir)
+# ZQ-Module
 
-Contains the source code changes need to add this module
+This file documents the source code changes necessary for adding the ZQ-module.
+Daryl wrote the module to control the stage-discharge relationship at a weir.
 
 ## ZQmod.f90
 
-New Module
+Completely new module.
 
 ## OCmod2.f90
 
+```fortran
 L5
 !!ZQ Module 200520 
 USE ZQmod,     ONLY : ZQtable
@@ -32,9 +34,11 @@ ELSEIF (NTYPE.EQ.12) THEN
     DQ(LO,LO)=0
     write(779,*) zi(hi),Q(lo),dq(lo,hi)
 !!ZQ Module 200520 end
+```
 
 ## OCQDQMOD.F90
 
+```fortran
 L3
 ZQ Module 200520
 ! new variables     NoZQTables,ZQTableRef,ZQTableLink,ZQTableFace
@@ -53,8 +57,11 @@ L182
                     endif
                     enddo
  !!***ZQ Module 200520 end
+```
 
 ## AL_D.90
+
+```fortran
  L59
  !ZQ Module 200520
 ! new variables     zqd,NoZQTables,ZQTableRef,iszq,ZQTableLink,ZQTableFace,ZQweirSill
@@ -98,4 +105,6 @@ if (iszq) call ReadZQTable
 L1695-1739
 !***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
 iszq=.true but false is no text present
+
+```
 
