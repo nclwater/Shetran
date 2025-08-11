@@ -2,6 +2,7 @@ MODULE run_sim
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       This is the comutational core - it runs the simulation, timestep by timestep
 !                       Code was extracted from shetrn.f and modifed to create this module
+USE ISO_FORTRAN_ENV, ONLY : OUTPUT_UNIT
 USE SGLOBAL
 USE SED_CS,   ONLY : nsed,pbsed,pls,sosdfn,arbdep,dls,fbeta,fdel,&
                      ginfd,ginfs,gnu,gnubk,qsed,dcbed,dcbsed 
@@ -79,8 +80,8 @@ INTEGER, SAVE                                 :: icounter3 = 0
 !-----------------------------------------------------------------
 
 ! Note: carriagecontrol='fortran' is non-standard extension
-! Unit 6 is standard output, no need to explicitly open it
-! open(unit=6,form='formatted',carriagecontrol='fortran')
+! OUTPUT_UNIT is standard output, no need to explicitly open it
+! open(unit=OUTPUT_UNIT,form='formatted',carriagecontrol='fortran')
 
 SYFRST = .TRUE.
 cmfrst = .TRUE.
@@ -91,7 +92,7 @@ CALL FRSORT
 IF (.NOT.BHOTRD) UZNEXT = TMAX  
 CALL FROUTPUT ('start')  !^^^^^^ sb 08/03/06
 
-write(6,9750) TTH - TIH
+write(OUTPUT_UNIT,9750) TTH - TIH
 
 !------------------------------------------------------------------
 !                     MAIN SIMULATION LOOP
@@ -223,15 +224,19 @@ DO
             HOTIME = HOTIME+BHOTST  
         ENDIF  
     ENDIF  
-    ! time-couter file
+    ! time-counter file - overwrite each timestep for progress monitoring
     IF (BTIME) THEN  
+        ! Modern alternative: positioned write to beginning of file
+        ! REWIND kept for performance (avoids file close/reopen overhead)
         REWIND (TIM)  
         WRITE (TIM, 9800) UZNOW, NSTEP  
+        FLUSH(TIM)  ! Ensure immediate write for monitoring
     ENDIF  
     CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND=4))  !VISVISVIS
     CALL FROUTPUT('main ')  !sb 02/05/07 additional output
     IF(uznow > icounter3) then  
-        write(6,9751) uznow, min(100*uznow/(TTH - TIH),100.00)
+        write(OUTPUT_UNIT,9751,advance='no') uznow, min(100*uznow/(TTH - TIH),100.00)
+        write(OUTPUT_UNIT,'(A)') char(13)  ! Carriage return for overwrite effect
         icounter3 = icounter3 + 24  
     endif  
     IF (UZNOW>=(TTH - TIH) ) EXIT
@@ -239,7 +244,7 @@ ENDDO
 
 
 9750 FORMAT ('  Length of Simulation =',F12.2,' hours. '//)  
-9751 FORMAT ('+','Simulation Timestep =',F12.2,' hours   % Completed = ', f6.2)  
+9751 FORMAT ('Simulation Timestep =',F12.2,' hours   % Completed = ', f6.2)  
 9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)  
 9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)
 END SUBROUTINE simulation
