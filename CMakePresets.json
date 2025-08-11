@@ -1,0 +1,114 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 12,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Configuration",
+      "description": "Default build configuration with auto-detected compiler",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug Configuration",
+      "description": "Debug build with symbols and runtime checks",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ifort",
+      "displayName": "Intel Fortran (Classic)",
+      "description": "Build with Intel Fortran Compiler (ifort)",
+      "binaryDir": "${sourceDir}/build-ifort",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_Fortran_COMPILER": "ifort"
+      }
+    },
+    {
+      "name": "ifx",
+      "displayName": "Intel Fortran (LLVM)",
+      "description": "Build with Intel Fortran Compiler (ifx)",
+      "binaryDir": "${sourceDir}/build-ifx",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_Fortran_COMPILER": "ifx"
+      }
+    },
+    {
+      "name": "gfortran",
+      "displayName": "GNU Fortran",
+      "description": "Build with GNU Fortran Compiler",
+      "binaryDir": "${sourceDir}/build-gfortran",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_Fortran_COMPILER": "gfortran"
+      }
+    },
+    {
+      "name": "windows-ifort",
+      "displayName": "Windows Intel Fortran",
+      "description": "Windows build with Intel Fortran",
+      "binaryDir": "${sourceDir}/build-windows",
+      "generator": "NMake Makefiles",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_Fortran_COMPILER": "ifort"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "displayName": "Build Default",
+      "description": "Build with default configuration"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "displayName": "Build Debug",
+      "description": "Build debug version"
+    },
+    {
+      "name": "ifort",
+      "configurePreset": "ifort",
+      "displayName": "Build with Intel Fortran (Classic)",
+      "description": "Build with ifort compiler"
+    },
+    {
+      "name": "ifx",
+      "configurePreset": "ifx",
+      "displayName": "Build with Intel Fortran (LLVM)",
+      "description": "Build with ifx compiler"
+    },
+    {
+      "name": "gfortran",
+      "configurePreset": "gfortran",
+      "displayName": "Build with GNU Fortran",
+      "description": "Build with gfortran compiler"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "displayName": "Test Default",
+      "description": "Run tests with default configuration"
+    }
+  ]
+}
