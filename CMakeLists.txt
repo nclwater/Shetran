@@ -96,11 +96,11 @@ else()
 endif()
 
 # Build options
-option(ENABLE_DEPENDENCY_ANALYSIS "Enable automatic dependency analysis for Fortran sources" ON)
-option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analysis" OFF)
+option(ENABLE_DEPENDENCY_ANALYSIS "Enable automatic Fortran module dependency analysis for optimal source ordering (recommended)" ON)
+option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analysis and validation" OFF)
 option(USE_WINDOWS_INTEL_GETDIRQQ "Use Windows Intel-specific getdirqq (only available on Windows with Intel compiler)" OFF)
 
-# Handle getdirqq version selection
+# Handle getdirqq version selection and ensure the generated file is included
 if(USE_WINDOWS_INTEL_GETDIRQQ)
     if(WIN32 AND CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
         set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/modules/getdirqq_winIntel.f90")
@@ -117,13 +117,14 @@ else()
     message(STATUS "Using portable getdirqq version (cross-platform)")
 endif()
 
-# Copy selected version to the active getdirqq.f90
-configure_file("${GETDIRQQ_SOURCE}" "${CMAKE_SOURCE_DIR}/src/modules/getdirqq.f90" COPYONLY)
+# Copy selected version to the active getdirqq.f90 (this happens at configure time)
+set(GETDIRQQ_TARGET "${CMAKE_SOURCE_DIR}/src/modules/getdirqq.f90")
+configure_file("${GETDIRQQ_SOURCE}" "${GETDIRQQ_TARGET}" COPYONLY)
 
 # Include advanced Fortran dependency analysis
 include(cmake/FortranDependencies.cmake)
 
-# Function to automatically discover Fortran source files
+# Enhanced function to automatically discover Fortran source files
 function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
     # Find all Fortran source files
     file(GLOB_RECURSE FORTRAN_FILES
@@ -137,26 +138,72 @@ function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
         "${SOURCE_DIR}/*.F08"
     )
     
-    # Filter out any files that might be in build directories or template files
+    # Filter out files that should be excluded
     set(FILTERED_FILES)
     foreach(FILE ${FORTRAN_FILES})
         get_filename_component(DIR ${FILE} DIRECTORY)
         get_filename_component(NAME ${FILE} NAME)
-        if(NOT DIR MATCHES ".*/build.*" AND NOT DIR MATCHES ".*/CMakeFiles.*" AND 
-           NOT NAME MATCHES ".*_portable\\.f90$" AND NOT NAME MATCHES ".*_winIntel\\.f90$")
+        
+        # Exclude build directories, CMake files, and template files
+        set(SHOULD_EXCLUDE FALSE)
+        
+        if(DIR MATCHES ".*/build.*" OR DIR MATCHES ".*/CMakeFiles.*")
+            set(SHOULD_EXCLUDE TRUE)
+        endif()
+        
+        # Exclude template files (but include the generated getdirqq.f90)
+        if(NAME MATCHES ".*_portable\\.f90$" OR NAME MATCHES ".*_winIntel\\.f90$")
+            set(SHOULD_EXCLUDE TRUE)
+        endif()
+        
+        # Exclude backup files and temporary files
+        if(NAME MATCHES ".*~$" OR NAME MATCHES ".*\\.bak$" OR NAME MATCHES ".*\\.tmp$")
+            set(SHOULD_EXCLUDE TRUE)
+        endif()
+        
+        if(NOT SHOULD_EXCLUDE)
             list(APPEND FILTERED_FILES ${FILE})
         endif()
     endforeach()
     
+    # Ensure the generated getdirqq.f90 is included if it exists
+    if(EXISTS "${GETDIRQQ_TARGET}")
+        list(FIND FILTERED_FILES "${GETDIRQQ_TARGET}" GETDIRQQ_INDEX)
+        if(GETDIRQQ_INDEX EQUAL -1)
+            list(APPEND FILTERED_FILES "${GETDIRQQ_TARGET}")
+            message(STATUS "Added generated file: getdirqq.f90")
+        endif()
+    endif()
+    
     set(${OUTPUT_VAR} ${FILTERED_FILES} PARENT_SCOPE)
 endfunction()
 
-# Function to get simple dependency ordering based on file patterns and heuristics
-function(simple_dependency_sort SOURCES_LIST OUTPUT_VAR)
+# Function to get automatic dependency ordering using Fortran module analysis
+function(automatic_dependency_sort SOURCES_LIST OUTPUT_VAR)
     set(ORDERED_SOURCES)
     set(REMAINING_SOURCES ${${SOURCES_LIST}})
     
-    # Define ordering groups with patterns
+    message(STATUS "Using automatic Fortran module dependency analysis...")
+    
+    # Use the advanced topological sorting from FortranDependencies.cmake
+    topological_sort_fortran(REMAINING_SOURCES ORDERED_SOURCES)
+    
+    # Validate the ordering
+    if(VERBOSE_DEPENDENCY_OUTPUT)
+        validate_source_order(ORDERED_SOURCES)
+    endif()
+    
+    set(${OUTPUT_VAR} ${ORDERED_SOURCES} PARENT_SCOPE)
+endfunction()
+
+# Fallback function for pattern-based ordering (kept as backup)
+function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
+    set(ORDERED_SOURCES)
+    set(REMAINING_SOURCES ${${SOURCES_LIST}})
+    
+    message(STATUS "Using pattern-based ordering as fallback...")
+    
+    # Define ordering groups with patterns (more flexible than before)
     set(ORDER_GROUPS
         # Group 1: Global parameters and constants
         "sglobal\\.f90$;CONST_SY\\.F90$;mod_parameters\\.f90$"
@@ -164,31 +211,25 @@ function(simple_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 2: Basic parameter modules  
         "AL_[GCD]\\.f?90$;CONT_CC\\.F90$"
         
-        # Group 3: Utility and support modules
+        # Group 3: Utility and support modules (including generated getdirqq)
         "utilsmod\\.f90$;getdirqq\\.f90$;mod_load_filedata\\.f90$"
         
         # Group 4: Basic computation modules
         "is_cc\\.f90$;link_cc.*\\.f90$;colm_c.*\\.f90$;bk_cw\\.f90$;sed_co\\.f90$"
         
-        # Group 5: Visualization base modules
-        "visualisation_extras\\.f90$;visualisation_structure\\.f90$;visualisation_pass\\.f90$;visualisation_read\\.f90$"
-        
-        # Group 6: Core modules (basic dependencies)
+        # Group 5: Core modules (basic dependencies)
         "SED_CS\\.F90$;ZQmod\\.f90$;SMmod\\.f90$;plant_cc\\.f90$"
         
-        # Group 7: Physics modules
+        # Group 6: Physics modules
         "OCQDQMOD\\.F90$;OCmod2\\.f90$;ETmod\\.f90$;CMmod\\.f90$"
         
-        # Group 8: Advanced modules
+        # Group 7: Advanced modules
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         
-        # Group 9: Visualization processing
-        "visualisation_metadata\\.f90$;visualisation_map\\.f90$;visualisation_hdf5\\.f90$"
+        # Group 8: Visualization and control (flexible ordering)
+        "visualisation_.*\\.f90$;increment_utilities\\.f90$"
         
-        # Group 10: Visualization interfaces
-        "visualisation_interface_left\\.f90$;visualisation_interface_centre\\.f90$;visualisation_interface_right\\.f90$;visualisation_interface_far_right\\.f90$"
-        
-        # Group 11: Simulation control
+        # Group 9: Simulation control
         "rest\\.f90$;run_sim\\.f90$"
     )
     
@@ -210,11 +251,11 @@ function(simple_dependency_sort SOURCES_LIST OUTPUT_VAR)
         set(REMAINING_SOURCES ${NEW_REMAINING})
     endforeach()
     
-    # Add any remaining files
+    # Add any remaining files (new files will automatically be included here)
     foreach(FILE ${REMAINING_SOURCES})
         get_filename_component(FILENAME ${FILE} NAME)
         list(APPEND ORDERED_SOURCES ${FILE})
-        message(STATUS "  Remaining: ${FILENAME}")
+        message(STATUS "  Auto-added: ${FILENAME}")
     endforeach()
     
     set(${OUTPUT_VAR} ${ORDERED_SOURCES} PARENT_SCOPE)
@@ -238,15 +279,19 @@ foreach(FILE ${DISCOVERED_SOURCES})
     endif()
 endforeach()
 
-# Sort module sources by dependency analysis or simple patterns
+# Automatically sort module sources using the best available method
 if(ENABLE_DEPENDENCY_ANALYSIS)
-    message(STATUS "Performing dependency analysis and topological sorting...")
-    # Include advanced dependency analysis only if needed
-    include(cmake/FortranDependencies.cmake)
-    topological_sort_fortran(MODULE_SOURCES ORDERED_MODULE_SOURCES)
+    message(STATUS "Using automatic Fortran module dependency analysis...")
+    automatic_dependency_sort(MODULE_SOURCES ORDERED_MODULE_SOURCES)
 else()
-    message(STATUS "Using pattern-based ordering...")
-    simple_dependency_sort(MODULE_SOURCES ORDERED_MODULE_SOURCES)
+    message(STATUS "Using pattern-based ordering (dependency analysis disabled)...")
+    pattern_based_dependency_sort(MODULE_SOURCES ORDERED_MODULE_SOURCES)
+endif()
+
+# Validate source ordering if requested
+if(ENABLE_DEPENDENCY_ANALYSIS AND VERBOSE_DEPENDENCY_OUTPUT)
+    message(STATUS "Validating dependency resolution...")
+    validate_source_order(ORDERED_MODULE_SOURCES)
 endif()
 
 # Combine all sources in correct order (modules first, then main program)
@@ -255,15 +300,9 @@ if(MAIN_PROGRAM)
     list(APPEND SHETRAN_SOURCES ${MAIN_PROGRAM})
 endif()
 
-# Optional validation (only for advanced dependency analysis)
-if(ENABLE_DEPENDENCY_ANALYSIS AND VERBOSE_DEPENDENCY_OUTPUT)
-    include(cmake/FortranDependencies.cmake)
-    validate_source_order(SHETRAN_SOURCES)
-endif()
-
 # Print discovered sources for verification
 message(STATUS "")
-message(STATUS "Final source file order:")
+message(STATUS "Final source file build order:")
 set(SOURCE_INDEX 1)
 foreach(SOURCE ${SHETRAN_SOURCES})
     file(RELATIVE_PATH REL_PATH "${CMAKE_SOURCE_DIR}" "${SOURCE}")
@@ -272,6 +311,14 @@ foreach(SOURCE ${SHETRAN_SOURCES})
 endforeach()
 list(LENGTH SHETRAN_SOURCES SOURCES_COUNT)
 message(STATUS "Total sources found: ${SOURCES_COUNT}")
+
+# Provide information about the dependency analysis
+if(ENABLE_DEPENDENCY_ANALYSIS)
+    message(STATUS "Source ordering: Automatic dependency analysis (recommended)")
+else()
+    message(STATUS "Source ordering: Pattern-based fallback")
+    message(STATUS "  Note: Enable ENABLE_DEPENDENCY_ANALYSIS for better automatic ordering")
+endif()
 message(STATUS "")
 
 # Create the executable
