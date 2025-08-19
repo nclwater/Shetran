@@ -1,94 +1,94 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_pass
-IMPLICIT NONE
+   IMPLICIT NONE
 
-INTEGER                              :: north, east, south, west, grid_nx, grid_ny, &
-                                        top_cell, nel, nsed, ncon, ver
-INTEGER, DIMENSION(:,:), ALLOCATABLE :: SU_NUMBER, BANK_NO, RIVER_NO
-LOGICAL, DIMENSION(:),   ALLOCATABLE :: IS_SQUARE, IS_BANK, IS_LINK
-CHARACTER(256)                        :: DIRQQ, ROOTDIR, hdf5filename, planfile, checkfile
+   INTEGER                              :: north, east, south, west, grid_nx, grid_ny, &
+      top_cell, nel, nsed, ncon, ver
+   INTEGER, DIMENSION(:,:), ALLOCATABLE :: SU_NUMBER, BANK_NO, RIVER_NO
+   LOGICAL, DIMENSION(:),   ALLOCATABLE :: IS_SQUARE, IS_BANK, IS_LINK
+   CHARACTER(256)                        :: DIRQQ, ROOTDIR, hdf5filename, planfile, checkfile
 ! Removed DEC$ DEFINE ISKEY=0 - assume ISKEY=0 (no key functionality)
-! Removed DEC$ IF(ISKEY==0) 
-    INTEGER, PARAMETER                    :: freelimit=360000, szlimit=360000
-    CHARACTER(256)                        :: dumtext
+! Removed DEC$ IF(ISKEY==0)
+   INTEGER, PARAMETER                    :: freelimit=360000, szlimit=360000
+   CHARACTER(256)                        :: dumtext
 ! Removed DEC$ ENDIF
 
-PRIVATE
-PUBLIC ::     north,     east,     south,    west, &
-              grid_nx,   grid_ny,  top_cell, nel,  &
-              SU_NUMBER,                           &
-              BANK_NO,  RIVER_NO,                  &
-              IS_SQUARE, IS_BANK,  IS_LINK,        &
-              EXISTS,    SEND_P,   DIRQQ,          &
-              nsed,      ncon,     ver,            &
-              ROOTDIR, hdf5filename, planfile, checkfile
+   PRIVATE
+   PUBLIC ::     north,     east,     south,    west, &
+      grid_nx,   grid_ny,  top_cell, nel,  &
+      SU_NUMBER,                           &
+      BANK_NO,  RIVER_NO,                  &
+      IS_SQUARE, IS_BANK,  IS_LINK,        &
+      EXISTS,    SEND_P,   DIRQQ,          &
+      nsed,      ncon,     ver,            &
+      ROOTDIR, hdf5filename, planfile, checkfile
 
 CONTAINS
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-ELEMENTAL LOGICAL FUNCTION exists(i) RESULT(r)
-INTEGER, INTENT(IN) :: i
-r = i>0
-END FUNCTION exists
+   ELEMENTAL LOGICAL FUNCTION exists(i) RESULT(r)
+      INTEGER, INTENT(IN) :: i
+      r = i>0
+   END FUNCTION exists
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
+   SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
 ! Removed DEC$ ATTRIBUTES DLLEXPORT for portability
-integer, save :: coun=0
-INTEGER, INTENT(IN)                            :: da, db
-INTEGER,                 INTENT(IN),  OPTIONAL :: ii
-INTEGER, DIMENSION(da,db), INTENT(IN),  OPTIONAL :: d2
-LOGICAL, DIMENSION(da),   INTENT(IN),  OPTIONAL :: L1
-CHARACTER(*),            INTENT(IN)            :: text
-CHARACTER(*),            INTENT(IN), OPTIONAL  :: cc
-coun = coun + 1
-SELECT CASE(text)
-CASE('north')      ; north    = ii
-CASE('east')       ; east     = ii
-CASE('south')      ; south    = ii
-CASE('west')       ; west     = ii
+      integer, save :: coun=0
+      INTEGER, INTENT(IN)                            :: da, db
+      INTEGER,                 INTENT(IN),  OPTIONAL :: ii
+      INTEGER, DIMENSION(da,db), INTENT(IN),  OPTIONAL :: d2
+      LOGICAL, DIMENSION(da),   INTENT(IN),  OPTIONAL :: L1
+      CHARACTER(*),            INTENT(IN)            :: text
+      CHARACTER(*),            INTENT(IN), OPTIONAL  :: cc
+      coun = coun + 1
+      SELECT CASE(text)
+       CASE('north')      ; north    = ii
+       CASE('east')       ; east     = ii
+       CASE('south')      ; south    = ii
+       CASE('west')       ; west     = ii
 ! Removed DEC$ IF(ISKEY==1) conditional - assume ISKEY=0 (no key functionality)
 !   CASE('grid_nx')    ; grid_nx  = ii      ! Disabled key version
 !   CASE('grid_ny')    ; grid_ny  = ii      ! Disabled key version
 ! Removed DEC$ ELSE - using standard (non-key) version
-    CASE('grid_nx')
-        IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
-        IF(ii>szlimit) THEN
+       CASE('grid_nx')
+         IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
+         IF(ii>szlimit) THEN
             WRITE(dumtext,'(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ',szlimit,' by ',szlimit,' cells'
             PRINT*, TRIM(dumtext)
             STOP
-        ELSE
+         ELSE
             grid_nx  = ii
-        ENDIF
-    CASE('grid_ny')
-        IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
-        IF(ii>szlimit) THEN
+         ENDIF
+       CASE('grid_ny')
+         IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
+         IF(ii>szlimit) THEN
             WRITE(dumtext,'(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ',szlimit,' by ',szlimit,' cells'
             PRINT*, TRIM(dumtext)
             STOP
-        ELSE
+         ELSE
             grid_ny  = ii
-        ENDIF
+         ENDIF
 ! Removed DEC$ ENDIF
-CASE('top_cell')   ; top_cell = ii
-CASE('nel')        ; nel      = ii
-CASE('dirqq')      ; dirqq    = cc
-CASE('is_square')  ; ALLOCATE(IS_SQUARE(nel))             ; IS_SQUARE = L1
-CASE('is_bank')    ; ALLOCATE(IS_BANK(nel))               ; IS_BANK   = L1
-CASE('is_link')    ; ALLOCATE(IS_LINK(nel))               ; IS_LINK   = L1
-CASE('su')         ; ALLOCATE(SU_NUMBER(grid_nx,grid_ny)) ; SU_NUMBER = d2  !on HDF5 grid, not SHETRAN grid
-CASE('bank_no')    ; ALLOCATE(BANK_NO(nel,4))             ; BANK_NO   = d2
-CASE('river_no')   ; ALLOCATE(RIVER_NO(nel,4))            ; RIVER_NO  = d2
-CASE('nsed')       ; nsed = ii
-CASE('ncon')       ; ncon = ii
-CASE('ver')        ; ver  = ii
-CASE('rootdir')    ; rootdir = cc
-CASE('hdf5fname')  ; hdf5filename=cc
-CASE('planfile')   ; planfile=cc
-CASE('checkfile')  ; checkfile=cc
-CASE DEFAULT ; PRINT*, 'FAILED IN PASS  '//TRIM(text)//'  '//TRIM(cc) ; STOP
-END SELECT
+       CASE('top_cell')   ; top_cell = ii
+       CASE('nel')        ; nel      = ii
+       CASE('dirqq')      ; dirqq    = cc
+       CASE('is_square')  ; ALLOCATE(IS_SQUARE(nel))             ; IS_SQUARE = L1
+       CASE('is_bank')    ; ALLOCATE(IS_BANK(nel))               ; IS_BANK   = L1
+       CASE('is_link')    ; ALLOCATE(IS_LINK(nel))               ; IS_LINK   = L1
+       CASE('su')         ; ALLOCATE(SU_NUMBER(grid_nx,grid_ny)) ; SU_NUMBER = d2  !on HDF5 grid, not SHETRAN grid
+       CASE('bank_no')    ; ALLOCATE(BANK_NO(nel,4))             ; BANK_NO   = d2
+       CASE('river_no')   ; ALLOCATE(RIVER_NO(nel,4))            ; RIVER_NO  = d2
+       CASE('nsed')       ; nsed = ii
+       CASE('ncon')       ; ncon = ii
+       CASE('ver')        ; ver  = ii
+       CASE('rootdir')    ; rootdir = cc
+       CASE('hdf5fname')  ; hdf5filename=cc
+       CASE('planfile')   ; planfile=cc
+       CASE('checkfile')  ; checkfile=cc
+       CASE DEFAULT ; PRINT*, 'FAILED IN PASS  '//TRIM(text)//'  '//TRIM(cc) ; STOP
+      END SELECT
 !PRINT*, coun, '******************'//TRIM(text)//'  '//TRIM(cc)
-END SUBROUTINE send_p
+   END SUBROUTINE send_p
 
 END MODULE visualisation_pass

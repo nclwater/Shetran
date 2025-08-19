@@ -16,7 +16,7 @@ MODULE IS_CC
 !----------------------------------------------------------------------*
 
 ! Commons
-IMPLICIT NONE
-LOGICAL :: ISADNL, ISBK, ISFLXB, ISPLT  
+   IMPLICIT NONE
+   LOGICAL :: ISADNL, ISBK, ISFLXB, ISPLT
 
 END MODULE IS_CC
