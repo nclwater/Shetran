@@ -76,10 +76,28 @@ The `BALWAT` subroutine calculates the water balance for each column and stream 
 
 The `METIN` subroutine is responsible for reading meteorological data from input files. This is a complex subroutine that needs to handle multiple data formats (breakpoint vs. fixed interval) and different combinations of input files.
 
--   **Before**: The original `METIN` was a labyrinth of `GOTO` statements used to navigate the different file reading scenarios. It also used `READ` statements with `END=` clauses to jump to specific labels upon reaching the end of a file.
--   **After**: The refactoring has made this subroutine significantly more readable.
+-   **Before**: The original `METIN` was a labyrinth of `GOTO` statements used to navigate the different file reading scenarios. It also used `READ` statements with `END=` clauses to jump to specific labels upon reaching the end of a file. This was particularly problematic as it led to a compiler warning: `Legacy Extension: Label at (1) is not in the same block as the GOTO statement at (2)`. This warning indicated that the `END=` clause was causing a jump to a label outside of the current logical block, which is a non-standard and potentially unreliable feature.
+-   **After**: The refactoring has made this subroutine significantly more readable and robust.
     -   The main branching logic (e.g., `IF (.NOT.BMETAL) GOTO 40`) is still present, but the internal blocks are more structured.
-    -   The `READ (..., END = ...)` statements have been preserved as they are a standard Fortran feature for handling end-of-file conditions. However, the code that follows is now more organized. For example, upon reaching the end of a file, a clear `IF` block is used to print a warning message and set default values, rather than jumping to a separate code block.
+    -   The problematic `READ (..., END = ...)` statements have been replaced with a modern, structured approach using the `IOSTAT` specifier. A logical flag, `prd_eof`, is used to track the end-of-file status. This eliminates the non-standard jump and resolves the compiler warning.
+
+```fortran
+! Refactored, structured end-of-file handling
+logical :: prd_eof
+...
+prd_eof = .false.
+...
+READ (PRD, *, IOSTAT=iost) (PINP (I), I = 1, NRAIN)
+if (iost < 0) then
+    prd_eof = .true.
+end if
+
+if (prd_eof) then
+   ! Handle end-of-file logic here
+   ...
+end if
+```
+
     -   The numerous `GOTO` statements for looping back to read the next line of data have been replaced with structured loops where possible, or the logic has been streamlined to reduce the need for jumps.
 
 ### 3.3. `TMSTEP`: Adaptive Timestepping

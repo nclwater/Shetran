@@ -175,7 +175,7 @@ CONTAINS
 !        ------------------------------------------------------------
 !        * ... but only if we have a bona fide value for DELSTO
 
-         IF (.NOT.FIRST_balwat) THEN
+         IF (.not. FIRST_balwat) THEN
 !                     >>>>>>>>
 !        * sources and sinks
             asum = PNETTO (IEL) - EEVAP (IEL) + QVSBF (IEL) - QVSWEL (IEL)
@@ -206,9 +206,8 @@ CONTAINS
 !        ----------------------------------------------------
 
             WBERR (IEL) = WBERR (IEL) + DELSTO - DEPTHI
+
          ENDIF
-
-
 
       END DO
 ! Epilogue
@@ -287,13 +286,13 @@ CONTAINS
       INTEGER :: IFLAG
 ! Locals, etc
 !INTRINSIC MIN
-      INTEGER :: I, IDATA, ISITE, K, NN
+      INTEGER :: I, IDATA, ISITE, K, NN, iost
       DOUBLEPRECISION EPLAST, TCURR, TEND
       DOUBLEPRECISION PA (NVEE), PEIN (NVEE), PETOT (NVEE), per(nrain),tahight(nvee),talowt(nvee),tahigh(nvee),talow(nvee)
       logical :: firstnoprd, firstnoepd1, firstnoepd2
       logical :: firstnomet1, firstnomet2, firstnomet3
       logical :: firstnomet4, firstnomet5
-      INTEGER :: IO_STATUS
+      logical :: prd_eof
       data firstnoprd / .true. /
       data firstnoepd1 / .true. /
       data firstnoepd2 / .true. /
@@ -301,9 +300,8 @@ CONTAINS
       data firstnomet2 / .true. /
       data firstnomet3 / .true. /
       data firstnomet4 / .true. /
-
-
       data firstnomet5 / .true. /
+      prd_eof = .false.
 !----------------------------------------------------------------------*
 
 
@@ -316,132 +314,181 @@ CONTAINS
 ! read only one line of file (unless hotstarted run)
 
          IF (IFLAG.EQ.1) THEN
-            DO
-               READ (PRD, *, IOSTAT = IO_STATUS) (PINP (I), I = 1, NRAIN)
-               IF (IO_STATUS /= 0) THEN
-                  if (firstnoprd) then
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
-                     WRITE(PPPRI, '(A18)') 'Finish of prd data'
-                     WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     firstnoprd = .false.
-                  endif
-                  do i = 1, nrain
-                     pinp (i) = zero
-                  enddo
-               ENDIF
+!    5   READ (PRD,*,END=280) I1, I2, I3, I4, I5, (PINP(I),I=1,NRAIN)
+!        MELAST = METIME
+!        METIME = HOUR(I1,I2,I3,I4,I5) - TIH
+! sb 300407 convert breakpoint data to regularly spaced data
+            READ (PRD, *, IOSTAT=iost) (PINP (I), I = 1, NRAIN)
+            if (iost < 0) then
+               prd_eof = .true.
+            end if
+
+            if (.not. prd_eof) then
                do i = 1, nrain
                   pinp (i) = pinp (i) / dtmet2
                enddo
                MELAST = METIME
                METIME = METIME+dtmet2
-               IF (.NOT. (BHOTRD.AND.METIME.LT.BHOTTI)) EXIT
+            end if
+! check for invalid data
+!        IF (METIME.NE.0.0 .AND. MELAST.GT.METIME) THEN
+!           WRITE(PRI,2) I1,I2,I3,I4,I5,MELAST,METIME
+! 2       FORMAT(////'INPUT PREC. TIME = ',5I5 /
+!     -               'MELAST = ',G12.6 /
+!     -               'METIME = ',G12.6)
+!          CALL ERROR(FATAL,1026,PRI,0,0,
+!     -      'INVALID BREAKPOINT PRECIPITATION DATA')
+!        ENDIF
+!
+            DO WHILE (BHOTRD.AND.METIME.LT.BHOTTI .and. .not. prd_eof)
+               READ (PRD, *, IOSTAT=iost) (PINP (I), I = 1, NRAIN)
+               if (iost < 0) then
+                  prd_eof = .true.
+                  cycle
+               end if
+               do i = 1, nrain
+                  pinp (i) = pinp (i) / dtmet2
+               enddo
+               MELAST = METIME
+               METIME = METIME+dtmet2
             END DO
+
+            if (prd_eof) then
+               if (firstnoprd) then
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+                  WRITE(PPPRI, '(A18)') 'Finish of prd data'
+                  WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  firstnoprd = .false.
+               endif
+               do i = 1, nrain
+                  pinp (i) = zero
+               enddo
+            end if
 !
          ELSE
 ! POT. EVAPOTRANSPIRATION
 ! first check for hotstarted run
-            DO
-               IF (.NOT. (BHOTRD.AND.EPTIME.LT.BHOTTI)) EXIT
-               READ (EPD, *, IOSTAT=IO_STATUS) (PEIN (I), I = 1, NM)
-               IF (IO_STATUS /= 0) THEN
-                  if (firstnoepd1) then
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
-                     WRITE(PPPRI, '(A18)') 'Finish of epd data'
-                     WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     firstnoepd1 = .false.
-                  endif
-                  do i = 1, nm
-                     pein (i) = zero
-                  enddo
-               ENDIF
+            DO WHILE(BHOTRD.AND.EPTIME.LT.BHOTTI)
+!          READ (EPD,*,END=280) I1, I2, I3, I4, I5, (PEIN(I),I=1,NM)
+!          EPLAST = EPTIME
+!          EPTIME = HOUR(I1,I2,I3,I4,I5) - TIH
+! sb 300407 convert breakpoint data to regularly spaced data
+               READ (EPD, *, END = 283) (PEIN (I), I = 1, NM)
 
-               if (ista) then
-                  READ (TAH, *, IOSTAT=IO_STATUS) (tahigh (I), I = 1, NM)
-                  IF (IO_STATUS /= 0) THEN
-                     do i=1,nm
-                        tahigh(i) = 10.0
-                     enddo
-                  ENDIF
-               ENDIF
-
-               if (ista) then
-                  READ (TAL, *, IOSTAT=IO_STATUS) (talow (I), I = 1, NM)
-                  IF (IO_STATUS /= 0) THEN
-                     do i=1,nm
-                        talow(i) = 10.0
-                     enddo
-                  ENDIF
-               ENDIF
-
+               goto 284
+283            if (firstnoepd1) then
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+                  WRITE(PPPRI, '(A18)') 'Finish of epd data'
+                  WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  firstnoepd1 = .false.
+               endif
                do i = 1, nm
+                  pein (i) = zero
+               enddo
+
+284            if (ista) then
+                  READ (TAH, *, END = 383) (tahigh (I), I = 1, NM)
+                  goto 384
+               endif
+
+383            do i=1,nm
+                  tahigh(i) = 10.0
+               enddo
+
+384            if (ista) then
+                  READ (TAL, *, END = 483) (talow (I), I = 1, NM)
+                  goto 484
+               endif
+
+483            do i=1,nm
+                  talow(i) = 10.0
+               enddo
+
+
+484            do i = 1, nm
                   pein (i) = pein (i) / dtmet3
                enddo
                EPLAST = EPTIME
+
                EPTIME = EPTIME+dtmet3
             END DO
+
+
 ! calculate average PE value over computational timestep
             TEND = MIN (UZNOW + UZNEXT, EPTIME)
             DO I = 1, NM
                PETOT (I) = (TEND-UZNOW) * PEIN (I)
 
             END DO
-            DO
-               IF (.NOT. (EPTIME.LT.UZNOW + UZNEXT)) EXIT
-               READ (EPD, *, IOSTAT=IO_STATUS) (PEIN (I), I = 1, NM)
-               IF (IO_STATUS /= 0) THEN
-                  if (firstnoepd2) then
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
-                     WRITE(PPPRI, '(A18)') 'Finish of epd data'
-                     WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     WRITE(PPPRI, * )
-                     firstnoepd2 = .false.
-                  endif
-                  do i = 1, nm
-                     pein (i) = zero
-                  enddo
-               ENDIF
+            DO WHILE (EPTIME.LT.UZNOW + UZNEXT)
+!          READ (EPD,*,END=280) I1, I2, I3, I4, I5, (PEIN(I),I=1,NM)
+!          EPLAST = EPTIME
+!          EPTIME = HOUR(I1,I2,I3,I4,I5) - TIH
+! sb 300407 convert breakpoint data to regularly spaced data
+               READ (EPD, *, END = 285) (PEIN (I), I = 1, NM)
 
-               if (ista) then
-                  READ (TAH, *, IOSTAT=IO_STATUS) (tahigh (I), I = 1, NM)
-                  IF (IO_STATUS /= 0) THEN
-                     do i=1,nm
-                        tahigh(i) = 10.0
-                     enddo
-                  ENDIF
-               ENDIF
-
-               if (ista) then
-                  READ (TAL, *, IOSTAT=IO_STATUS) (talow (I), I = 1, NM)
-                  IF (IO_STATUS /= 0) THEN
-                     do i=1,nm
-                        talow(i) = 10.0
-                     enddo
-                  ENDIF
-               ENDIF
-
+               goto 286
+285            if (firstnoepd2) then
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+                  WRITE(PPPRI, '(A18)') 'Finish of epd data'
+                  WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  WRITE(PPPRI, * )
+                  firstnoepd2 = .false.
+               endif
                do i = 1, nm
+                  pein (i) = zero
+               enddo
+
+286            if (ista) then
+                  READ (TAH, *, END = 385) (tahigh (I), I = 1, NM)
+                  goto 386
+               endif
+
+385            do i=1,nm
+                  tahigh(i) = 10.0
+               enddo
+
+386            if (ista) then
+                  READ (TAL, *, END = 485) (talow (I), I = 1, NM)
+                  goto 486
+               endif
+
+485            do i=1,nm
+                  talow(i) = 10.0
+               enddo
+
+486            do i = 1, nm
                   pein (i) = pein (i) / dtmet3
                enddo
 
                EPLAST = EPTIME
                EPTIME = EPTIME+dtmet3
+! check for invalid data
+!          IF (EPTIME.NE.0.0 .AND. EPLAST.GT.EPTIME) THEN
+!            WRITE(PRI,3) I1,I2,I3,I4,I5,EPLAST,EPTIME
+! 3          FORMAT(////'INPUT PE. TIME = ',5I5 /
+!     -                 'EPLAST = ',G12.6 /
+!     -                 'EPTIME = ',G12.6)
+!            CALL ERROR(FATAL,1026,PRI,0,0,
+!     -      'INVALID BREAKPOINT POT. EVAPOTRANSPIRATION DATA')
+!        ENDIF
                TEND = MIN (UZNOW + UZNEXT, EPTIME)
                DO I = 1, NM
                   PETOT (I) = PETOT (I) + (TEND-EPLAST) * PEIN (I)
@@ -464,12 +511,12 @@ CONTAINS
             WRITE(PPPRI, 30) METIME
 30          FORMAT   (//1X, 'MET DATA -  TIME :',F8.2 / &
             &   ' STATION           RAINFALL      POT. EVAP.(MM/HR)')
-            DO 35 I = 1, NM
+            DO I = 1, NM
                WRITE(PPPRI, 32) I, PINP (I), PEIN (I)
 32             FORMAT    (4X,I2,9X,F10.3,9X,F10.3)
-35          END DO
+            END DO
          ENDIF
-
+!
       ELSE
 !
 ! READ ALL MET. DATA IN FIXED TIME INTERVAL (USUALLY HOURLY) FORMAT
@@ -493,10 +540,44 @@ CONTAINS
                MELAST = METIME
                METIME = METIME+DTMET
                DO I = 1, NM
-                  READ (MED, 120, IOSTAT=IO_STATUS) ISITE, NN, RN (I), U (I), PA (I), &
+                  READ (MED, 120, END = 291) ISITE, NN, RN (I), U (I), PA (I), &
                      TA (I), DEL (I), VPD (I), IDATA
-                  IF (IO_STATUS /= 0) THEN
-                     if (firstnomet3) then
+
+                  goto 292
+291               if (firstnomet3) then
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+                     WRITE(PPPRI, '(A18)') 'Finish of met data'
+                     WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     firstnomet3 = .false.
+                  endif
+                  isite = 1
+                  nn = 1
+                  rn (i) = zero
+                  u (i) = zero
+                  pa (i) = zero
+                  ta (i) = 10.0d0
+                  del (i) = one
+                  vpd (i) = three
+
+                  idata = 1000
+292               IF (BMETP) WRITE(PPPRI, 130) ISITE, METIME, RN (I), U (I), &
+                     TA (I), DEL (I), VPD (I)
+120               FORMAT   (2I6, 12X, 3G12.6, /, 12X, 3G12.6, I12)
+130               FORMAT   ('0', 8X, I6, F8.2, 5X, 2(2F12.6,'  NOT_USED  ':F12.6))
+                  IF (MEASPE (I) .NE.0) THEN
+!
+! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
+!
+                     READ (MED, 80, END = 293) OBSPE (I)
+
+                     goto 294
+293                  if (firstnomet4) then
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
@@ -506,46 +587,14 @@ CONTAINS
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
-                        firstnomet3 = .false.
+                        firstnomet4 = .false.
                      endif
-                     isite = 1
-                     nn = 1
-                     rn (i) = zero
-                     u (i) = zero
-                     pa (i) = zero
-                     ta (i) = 10.0d0
-                     del (i) = one
-                     vpd (i) = three
-                     idata = 1000
-                  ENDIF
-                  IF (BMETP) WRITE(PPPRI, 130) ISITE, METIME, RN (I), U (I), &
-                     TA (I), DEL (I), VPD (I)
-120               FORMAT   (2I6, 12X, 3G12.6, /, 12X, 3G12.6, I12)
-130               FORMAT   ('0', 8X, I6, F8.2, 5X, 2(2F12.6,'  NOT_USED  ':F12.6))
-                  IF (MEASPE (I) /= 0) THEN
-!
-! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
-!
-                     READ (MED, 80, IOSTAT=IO_STATUS) OBSPE (I)
-                     IF (IO_STATUS /= 0) THEN
-                        if (firstnomet4) then
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
-                           WRITE(PPPRI, '(A18)') 'Finish of met data'
-                           WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           firstnomet4 = .false.
-                        endif
-                        obspe (i) = 0.0
-                     ENDIF
+
+                     obspe (i) = 0.0
 !
 ! CONVERT TO MM/S
 !
-                     OBSPE (I) = OBSPE (I) / 3600.
+294                  OBSPE (I) = OBSPE (I) / 3600.
                   ENDIF
                END DO
                IF (BMETP) WRITE(PPPRI, 150)
@@ -555,23 +604,24 @@ CONTAINS
 !-----LOOP ON NUMBER OF RAIN SITES
 !
                DO I = 1, NRAIN
-                  READ (MED, 160, IOSTAT=IO_STATUS) ISITE, NN, PINP (I), IDATA
-                  IF (IO_STATUS /= 0) THEN
-                     if (firstnomet5) then
-                        WRITE(PPPRI, * )
-                        WRITE(PPPRI, * )
-                        WRITE(PPPRI, * )
-                        WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
-                        WRITE(PPPRI, '(A18)') 'Finish of met data'
-                        WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
-                        WRITE(PPPRI, * )
-                        WRITE(PPPRI, * )
-                        WRITE(PPPRI, * )
-                        firstnomet5 = .false.
-                     endif
-                     pinp (i) = 0.0
-                  ENDIF
-                  IF (BMETP) WRITE(PPPRI, 170) ISITE, METIME, PINP (I)
+                  READ (MED, 160, END = 295) ISITE, NN, PINP (I), IDATA
+
+                  goto 296
+295               if (firstnomet5) then
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+                     WRITE(PPPRI, '(A18)') 'Finish of met data'
+                     WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     firstnomet5 = .false.
+                  endif
+
+                  pinp (i) = 0.0
+296               IF (BMETP) WRITE(PPPRI, 170) ISITE, METIME, PINP (I)
 160               FORMAT   (2I6, G12.6, 24X, I12)
 170               FORMAT   ('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')
                END DO
@@ -580,7 +630,6 @@ CONTAINS
 !
                IF (.NOT. (BHOTRD.AND.METIME.LT.BHOTTI)) EXIT
             END DO
-
          ELSE
 !
 !-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE EQUAL
@@ -595,12 +644,49 @@ CONTAINS
 !
             DO
                MELAST = METIME
+
                METIME = METIME+DTMET
                DO I = 1, NM
-                  READ (MED, 60, IOSTAT=IO_STATUS) ISITE, NN, PINP (I), RN (I), U (I), &
+                  READ (MED, 60, END = 287) ISITE, NN, PINP (I), RN (I), U (I), &
                      PA (I), TA (I), DEL (I), VPD (I), IDATA
-                  IF (IO_STATUS /= 0) THEN
-                     if (firstnomet1) then
+
+                  goto 288
+287               if (firstnomet1) then
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+                     WRITE(PPPRI, '(A18)') 'Finish of met data'
+                     WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     WRITE(PPPRI, * )
+                     firstnomet1 = .false.
+                  endif
+                  isite = 1
+                  nn = 1
+                  pinp (i) = zero
+                  rn (i) = zero
+                  u (i) = zero
+                  pa (i) = zero
+                  ta (i) = 10.0d0
+                  del (i) = one
+                  vpd (i) = three
+
+                  idata = 1000
+288               IF (BMETP) WRITE(PPPRI, 70) ISITE, METIME, PINP (I), RN (I), &
+                     U (I), TA (I), DEL (I), VPD (I)
+60                FORMAT   (2I6, 4G12.6, /, 12X, 3G12.6, I12)
+70                FORMAT   ('0', 8X, I6, F8.2, 5X, 2(3F12.6,'  NOT_USED  '))
+                  IF (MEASPE (I) .NE.0) THEN
+!
+! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
+!
+                     READ (MED, 80, END = 289) OBSPE (I)
+80                   FORMAT   (12X, G12.6)
+
+                     goto 290
+289                  if (firstnomet2) then
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
@@ -610,52 +696,19 @@ CONTAINS
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
                         WRITE(PPPRI, * )
-                        firstnomet1 = .false.
+                        firstnomet2 = .false.
                      endif
-                     isite = 1
-                     nn = 1
-                     pinp (i) = zero
-                     rn (i) = zero
-                     u (i) = zero
-                     pa (i) = zero
-                     ta (i) = 10.0d0
-                     del (i) = one
-                     vpd (i) = three
-                     idata = 1000
-                  ENDIF
-                  IF (BMETP) WRITE(PPPRI, 70) ISITE, METIME, PINP (I), RN (I), &
-                     U (I), TA (I), DEL (I), VPD (I)
-60                FORMAT   (2I6, 4G12.6, /, 12X, 3G12.6, I12)
-70                FORMAT   ('0', 8X, I6, F8.2, 5X, 2(3F12.6,'  NOT_USED  '))
-                  IF (MEASPE (I) /= 0) THEN
-!
-! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
-!
-                     READ (MED, 80, IOSTAT=IO_STATUS) OBSPE (I)
-80                   FORMAT   (12X, G12.6)
-                     IF (IO_STATUS /= 0) THEN
-                        if (firstnomet2) then
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
-                           WRITE(PPPRI, '(A18)') 'Finish of met data'
-                           WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           WRITE(PPPRI, * )
-                           firstnomet2 = .false.
-                        endif
-                        obspe (i) = 0.0
-                     ENDIF
+
+
+                     obspe (i) = 0.0
 !
 ! CONVERT TO MM/S
 !
-                     OBSPE (I) = OBSPE (I) / 3600.
+290                  OBSPE (I) = OBSPE (I) / 3600.
                   ENDIF
                END DO
 !
-! READ TO START SIMULATION TIME, IF HOTSTART
+! READ TO SIMULATION START TIME, IF HOTSTART
 !
                IF (.NOT. (BHOTRD.AND.METIME.LT.BHOTTI)) EXIT
             END DO
@@ -667,7 +720,7 @@ CONTAINS
 !--------------------------------------------
 !
       TCURR = TIMEUZ
-      DO 270 K = 1, NV
+      DO K = 1, NV
          IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, &
             TIMCST, NCTCST, CSTCA1, NVEE, K)
          IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, &
@@ -676,7 +729,7 @@ CONTAINS
             NCTCLA, CLAI1, NVEE, K)
          IF (MODEVH (K) .NE.0) CALL TERPO1 (VHT, TCURR, RELVHT, TIMVHT, &
             NCTVHT, VHT1, NVEE, K)
-270   END DO
+      END DO
 !
       RETURN
       STOP
@@ -726,31 +779,24 @@ CONTAINS
       LOGICAL :: exitt, SMFLAG
 !----------------------------------------------------------------------*
 ! ----------------------------------------------------------------------
-!  1.  COMPUTE MAXIMUM TIMESTEP LENGTH
+!  1.  COMPUTE EXPECTED TiMeSTEP
 ! ----------------------------------------------------------------------
-! initialize
-      UZNEXT = DTMAX
-      TSOFT = DTMAX
-      TSNOW = DTMAX
-      jumpto45 = .FALSE.
-      iscycle = .FALSE.
-! check for soft start
-      IF (BSOFT.AND.UZNOW.LT.TSTART) THEN
-         TSOFT = TSTART - UZNOW
-      ENDIF
-! check for snowmelt
-      IF (BEXSM) THEN
-         IF (NM.GT.0) THEN
-            DO I = 1, NM
-               IF (TA (I) .GT.0.0) THEN
-                  TSNOW = 0.5
-                  iscycle = .TRUE.
-               ENDIF
-               IF(iscycle) CYCLE
-            ENDDO
-         ENDIF
-         IF (.NOT.iscycle) THEN
-            DO IEL = NLF + 1, total_no_elements
+! CALCULATE REDUCED TIMESTEP FOR SOFTSTART
+      TSOFT = TMAX
+
+!sb soft start not needed for hot start?
+      IF (BHOTRD) BSOFT=.false.
+
+      IF (BSOFT.AND.NSTEP.LE.102) TSOFT = TMAX * 0.05d0 * 1.03d0**NSTEP
+! CALCULATE REDUCED TIMESTEP FOR SNOWMELT
+      TSNOW = TMAX
+      IF(BEXSM) THEN
+         SMFLAG = .FALSE.
+         DO I = 1, NM
+            IF (GTZERO(TA(I))) SMFLAG = .TRUE.
+         ENDDO
+         IF(SMFLAG) THEN
+            DO IEL = total_no_links + 1, total_no_elements
                IF (GTZERO(SD(IEL))) THEN
                   TSNOW = 0.5
                   EXIT
@@ -775,18 +821,12 @@ CONTAINS
 ! ----------------------------------------------------------------------
 ! set period of validity of current data
       exitt = .FALSE.
-      first = .TRUE.
-      DO WHILE((first .OR. exitt) .AND. .NOT.jumpto45)
-         first = .FALSE.
+      DO
          TEND = MIN (UZNOW + UZNEXT, METIME)
          ! store first period of precipitation
          DO I = 1, NRAIN
             PTOT (I) = (TEND-UZNOW) * PINP (I)
          ENDDO
-         IF(exitt) THEN
-            jumpto45=.TRUE.
-            CYCLE
-         ENDIF
          ! test if timestep reduction required without reading any prec. data
          DO I = 1, NRAIN
             IF (PTOT (I) .GT.PMAX) THEN
@@ -794,11 +834,13 @@ CONTAINS
                UZNEXT = MIN (UZNEXT, PMAX / PINP (I) )
             ENDIF
          ENDDO
+         IF(exitt) CYCLE
+         EXIT
       ENDDO
 ! read in prec. data if required, test for timestep reduction,
 ! and accumulate total prec.
 
-      DO WHILE(.NOT.jumpto45 .AND. .NOT. exitt .AND. METIME.LT.UZNOW + UZNEXT)
+      DO WHILE(.NOT. exitt .AND. METIME.LT.UZNOW + UZNEXT)
          IFLAG = 1
          CALL METIN (IFLAG)
          DO I = 1, NRAIN
@@ -821,13 +863,22 @@ CONTAINS
          WRITE(PPPRI, 9070) (I, PINP (I), PTOT (I), I = 1, NRAIN)
          CALL ERROR(FFFATAL, 1025, PPPRI, 0, 0, 'INVALID TIMESTEP')
       ENDIF
+      !                           vvvvvvvvv
       ! calculate average value over timestep (& convert mm/h to m/s)
+      !DO 50 I = 1, NRAIN
+      !   precip_m_per_s(I) = PTOT (I) / UZNEXT / 3.6E6   *****
+      !   50 END DO
       DO iel=1,total_no_elements
+         !precip_m_per_s(iel) = (GETSPACETIME1(iel, uznow, uznext) + PTOT(NRAINC(iel)) / UZNEXT) / 3.6E6
          precip_m_per_s(iel) = PTOT(NRAINC(iel)) / UZNEXT / 3.6E6
       ENDDO
       ! read in breakpoint PE for this timestep (if required)
       IFLAG = 2
       CALL METIN (IFLAG)
+!RETURN
+!8025 WRITE(PPPRI, 9060) UZNEXT, TSOFT, MELAST, METIME
+!    WRITE(PPPRI, 9070) (I, PINP (I), PTOT (I), I = 1, NRAIN)
+!    CALL ERROR(FFFATAL, 1025, PPPRI, 0, 0, 'INVALID TIMESTEP')
 9060  FORMAT(////'UZNEXT = ',G12.6, &
       &          /' TSOFT = ',G12.6, &
       &          /'MELAST = ',G12.6, &
