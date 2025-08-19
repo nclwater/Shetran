@@ -428,15 +428,14 @@ CONTAINS
             ELSEIF (PSI4 (II) .GT.PS1 (N, KF) ) THEN
                RC (N) = RCF (N, KF)
             ELSE
-               DO 170 KL = 2, KF
-                  IF (PSI4 (II) .GT.PS1 (N, KL) ) GOTO 170
+               DO KL = 2, KF
+                  IF (PSI4 (II) .GT.PS1 (N, KL) ) CYCLE
                   DPS1 = PS1 (N, KL) - PS1 (N, KL - 1)
                   DRCF = RCF (N, KL) - RCF (N, KL - 1)
                   CALC = (PSI4 (II) - PS1 (N, KL - 1) ) * DRCF / DPS1
                   RC (N) = RCF (N, KL - 1) + CALC
-                  GOTO 200
-170            END DO
-200            CONTINUE
+                  EXIT
+               END DO
             ENDIF
             AE = TOP / (LAMDA * (DEL (MS) + GAMMA * (ONE+RC (N) / RA (N) &
                ) ) )
@@ -457,15 +456,14 @@ CONTAINS
             ELSEIF (PSI4 (II) .GT.PS1 (N, KF) ) THEN
                FE = FET (N, KF)
             ELSE
-               DO 240 KL = 2, KF
-                  IF (PSI4 (II) .GT.PS1 (N, KL) ) GOTO 240
+               DO KL = 2, KF
+                  IF (PSI4 (II) .GT.PS1 (N, KL) ) CYCLE
                   DFET = FET (N, KL) - FET (N, KL - 1)
                   DPS1 = PS1 (N, KL) - PS1 (N, KL - 1)
                   CALC = (PSI4 (II) - PS1 (N, KL - 1) ) * DFET / DPS1
                   FE = FET (N, KL - 1) + CALC
-                  GOTO 270
-240            END DO
-270            CONTINUE
+                  EXIT
+               END DO
             ENDIF
             AE = PE * FE
 !
@@ -583,10 +581,10 @@ CONTAINS
 !     NSMT IS AUTOMATICALLY SET TO 1 IF ET-CALCS FOR TEMP > 0 ARE NEEDED
       NSMT = 0
       IF (BEXSM) CALL SMIN (IEL)
-      IF (NSMT.EQ.0.AND. (BEXSM) ) GOTO 10
-      CALL ET (IEL)
-      IF (BEXSM) CALL SMIN (IEL)
-10    CONTINUE
+      IF (.NOT. (NSMT.EQ.0.AND.BEXSM) ) THEN
+         CALL ET (IEL)
+         IF (BEXSM) CALL SMIN (IEL)
+      ENDIF
 !
 !-----Calculate potential evapotranspiration
       PE = PE-EINT / DTUZ

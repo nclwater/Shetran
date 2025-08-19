@@ -532,65 +532,167 @@ CONTAINS
       INTEGER, INTENT(IN)          :: NTYPE
       DOUBLEPRECISION, INTENT(IN)  :: W, LI (0:1), ZGI (0:1), STR (0:1), ZI (0:1)
       DOUBLEPRECISION, INTENT(OUT) :: Q (0:1), DQ (0:1, 0:1)
-      INTEGER                      :: HI, LO, I
+      INTEGER                      :: HI, LO
       DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
       DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
-!----------------------------------------------------------------------*
-!
-! INTERNAL IMPERMEABLE BOUNDARY
-!
-! NB: NTYPE 3,4,5 not allowed internally
-      IF (NTYPE.EQ.1) THEN
-         DO 10 I = 0, 1
-            Q (I) = zero
-            DQ (I, 0) = zero
-            DQ (I, 1) = zero
-10       END DO
-         RETURN
-!         ^^^^^^
-      ENDIF
-!
-! Set up local variables
-!
-!     NB: HM has an implicit upstream weighting factor, ie ALPHA=1; but
-!         note STR is averaged, so CONVM will NOT be strictly "upstream"
-!     Note: ZGI(LO) is not required
+      DOUBLEPRECISION              :: DZL, ZB, ZG, COEFF (2), rdum
       DZ = ZI (1) - ZI (0)
       SIG = SIGN (ONE, DZ)
       HI = (1 + NINT (SIG) ) / 2
       LO = 1 - HI
-      DZ = SIG * DZ
-      ROOTDZ = SQRT (DZ)
-      HM = ZI (HI) - ZGI (HI)
-!HM23 = zero
-!IF (GTZERO(HM)) HM23 = HM**F23
-      DHH = LI (0) + LI (1)
-      STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
-      ROOTL = SQRT (DHH)
-!
-! CALCULATE FLOW AND DERIVATIVES
-!
-! NB:   H23MIN          in DERIVM  prevents small DQ when HM is small
-!        DZMIN          in CONVMM  prevents small DQ when DZ is small
-!       RDZMIN          in DUM     prevents overflow when DZ is small
-!       ROOTDZ (no MAX) in DQ gives symmetric values when DZ is small
-!
-!CONVM = STRW * HM23 * HM
-      CALL CONVEYAN(strw, hm, convm, derivm, 1)
-!DERIVM = STRW * MAX (H23MIN, HM23) * F53
-      CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+      ZB = ZBG (0)
+      ZG = ZBG (1)
 
-      DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
-      Q (LO) = CONVM * ROOTDZ / ROOTL
-      DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+      DZL = ZI (LO) - ZB
+!
+! Channel bank-full lower than adjacent ground: resistance equation
+!
+!     NB: HM has an implicit upstream weighting factor, ie ALPHA=1
 
-      DQ (LO, LO) = - DUM / ROOTL
+      IF (ZG.GE.ZB) THEN
+         DZ = SIG * DZ + MIN (DZL, ZERO)
+         ROOTDZ = SQRT (DZ)
+         HM = ZI (HI) - ZBG (HI)
+         !HM23 = ZERO
+         !IF (HM.GT.ZERO) HM23 = HM**F23
+         DHH = LI (0) + LI (1)
+         STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
+
+         ROOTL = SQRT (DHH)
+         !CONVM = STRW * HM23 * HM
+         CALL CONVEYAN(strw, hm, convm, derivm, 1)
+         !DERIVM = STRW * MAX (H23MIN, HM23) * F53
+         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+
+         DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
+         Q (LO) = CONVM * ROOTDZ / ROOTL
+         DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+         IF (DZL.LT. - DZMIN) DUM = ZERO
+
+
+         DQ (LO, LO) = - DUM / ROOTL
+!
+! Channel bank-full higher than adjacent ground: flat-crested weir eqn
+!
+
+      ELSE
+         COEFF (1) = ROOT2G * W
+         COEFF (2) = 386D-3 * COEFF (1)
+
+         CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, F23, Q(LO), DQ(LO,HI), rdum)  !AD aliasing
+         DQ(LO,LO) = rdum
+
+
+
+      ENDIF
+!
+! Copy LO to HI
+!
       Q (HI) = - Q (LO)
       DQ (HI, HI) = - DQ (LO, HI)
 
       DQ (HI, LO) = - DQ (LO, LO)
-   END SUBROUTINE OCQGRD
+   END SUBROUTINE OCQBNK
 
+!SSSSSS SUBROUTINE OCQGRD
+   SUBROUTINE OCQGRD (NTYPE, LI, ZGI, STR, W, ZI, Q, DQ)
+!----------------------------------------------------------------------*
+!
+!  CALCULATE FLOW AND DERIVATIVES BETWEEN TWO LAND ELEMENTS
+!
+!----------------------------------------------------------------------*
+! Version:  SHETRAN/OC/OCQGRD/4.2
+! Modifications:
+! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+! RAH  980331  4.2  Scrap local ALPHA - use implicit value 1 (upstream).
+!                   New input args W,LI,ZGI,STR,ZI replace old args
+!                   I/JEL,I/JFACE + common DX/YQQ,DHF,ZGRUND,STRX/Y,HRF,
+!                   making use of new locals SIG,HI,LO; scrap redundant
+!                   arg INDEX & output arg DDDZ; replace output vars
+!                   Q,DQ0,DQI with arrays Q,DQ.  (See caller OCQDQ.)
+!                   Locals: scrap Z0,ZI,H0,HI,ROOTDM,HM_53,STRI/J,DEBIT;
+!                   rename HM_23 HM23; W,STR now args (see above); add
+!                   SIG,HI,LO,STRM,CONVM/M,DERIVM,DUM.  Explicit typing.
+!                   Don't INCLUDE SPEC.AL/OC.  Generic intrinsics.
+!                  !Replace 1D-6 with RDZMIN=SQRT(1D-3) (ie 1D-1.5).
+!                  !Scrap block-IF (DZ.LT.0.001) (had DZ/ROOTDM in Q,
+!                  !with DQ=Q/DZ).  Use MAX in DERIVM.
+!                  !Replace CONVM with CONVMM in DUM.
+!      980427       Reorder args (see OCQDQ).
+!                   Replace local STRM with STRW=STRM*W.
+!      980730       Protect against 0^^F23.
+!----------------------------------------------------------------------*
+! Entry requirements:                     W.gt.0
+!  for i in 0:1    ZI(i).ge.ZGI(i)    LI(i).gt.0    STR(i).ge.0
+! Exit conditions:  Q(1).eq.-Q(0)
+!  for i in 0:1  DQ(1,i).eq.-DQ(0,i)
+!                   Q(i).gt.0  only_if  ZI(1-i).gt.ZI(i)
+!----------------------------------------------------------------------*
+! Input arguments
+      INTEGER, INTENT(IN)          :: NTYPE
+      DOUBLEPRECISION, INTENT(IN)  :: W, LI (0:1), ZGI (0:1), STR (0:1), ZI (0:1)
+      DOUBLEPRECISION, INTENT(OUT) :: Q (0:1), DQ (0:1, 0:1)
+      INTEGER                      :: HI, LO
+      DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
+      DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
+      DOUBLEPRECISION              :: DZL, ZB, ZG, COEFF (2), rdum
+      DZ = ZI (1) - ZI (0)
+      SIG = SIGN (ONE, DZ)
+      HI = (1 + NINT (SIG) ) / 2
+      LO = 1 - HI
+      ZB = ZBG (0)
+      ZG = ZBG (1)
+
+      DZL = ZI (LO) - ZB
+!
+! Channel bank-full lower than adjacent ground: resistance equation
+!
+!     NB: HM has an implicit upstream weighting factor, ie ALPHA=1
+
+      IF (ZG.GE.ZB) THEN
+         DZ = SIG * DZ + MIN (DZL, ZERO)
+         ROOTDZ = SQRT (DZ)
+         HM = ZI (HI) - ZBG (HI)
+         !HM23 = ZERO
+         !IF (HM.GT.ZERO) HM23 = HM**F23
+         DHH = LI (0) + LI (1)
+         STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
+
+         ROOTL = SQRT (DHH)
+         !CONVM = STRW * HM23 * HM
+         CALL CONVEYAN(strw, hm, convm, derivm, 1)
+         !DERIVM = STRW * MAX (H23MIN, HM23) * F53
+         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+
+         DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
+         Q (LO) = CONVM * ROOTDZ / ROOTL
+         DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+         IF (DZL.LT. - DZMIN) DUM = ZERO
+
+
+         DQ (LO, LO) = - DUM / ROOTL
+!
+! Channel bank-full higher than adjacent ground: flat-crested weir eqn
+!
+
+      ELSE
+         COEFF (1) = ROOT2G * W
+         COEFF (2) = 386D-3 * COEFF (1)
+
+         CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, F23, Q(LO), DQ(LO,HI), rdum)  !AD aliasing
+         DQ(LO,LO) = rdum
+
+
+
+      ENDIF
+!
+! Copy LO to HI
+!
+      Q (HI) = - Q (LO)
+      DQ (HI, HI) = - DQ (LO, HI)
+
+      DQ (HI, LO) = - DQ (LO, LO)
+   END SUBROUTINE OCQBNK
 
 !SSSSSS SUBROUTINE OCQLNK
    SUBROUTINE OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, jXSwork, afromCOCBCD, ZI, Q, DQ)
@@ -995,13 +1097,8 @@ CONTAINS
 ! ------------
       GGGETHRF = inhrf
       GGGETQSA = inqsa
-      aok = .FALSE.
-      out900 : DO PASSS = 1, NPASS  !AP LOOP PROBLEMS
-         IF(aok) THEN
-            CYCLE out900  !AD Irreductible entry into loop problem
-         ELSE
-            AOK = .TRUE.
-         ENDIF
+      out900 : DO PASSS = 1, NPASS
+         AOK = .TRUE.
          out400 : DO ielc = 1, NEL
             ZE = GGGETHRF (ielc)
             DZE = DTOC / cellarea (ielc)
@@ -1035,7 +1132,7 @@ CONTAINS
                !              * apply flow criteria to discharges only
                TEST = QE.LT.ZERO
                IF (HSMALL) TEST = FLAG (IFACE)
-               IF (.NOT.TEST) CYCLE out300 !GOTO 300
+               IF (.NOT.TEST) CYCLE out300
                !                             >>>>>>>>
                QSMALL = - QE.LT.DXY (MOD (IFACE, 2) ) * UHCRIT
                TEST = QSMALL.OR.HSMALL
@@ -1054,9 +1151,9 @@ CONTAINS
                   IBR = - JEL
                   QQMIN = ZERO
                   FAIL = .FALSE.
-                  out200 : DO PPP = 1, 3  !200
+                  out200 : DO PPP = 1, 3
                      PEL = afromICMRF2 (IBR, PPP, 1)
-                     IF (PEL.LT.1) CYCLE out200 !GOTO 200
+                     IF (PEL.LT.1) CYCLE out200
                      PFACE = afromICMRF2 (IBR, PPP, 2)
                      QQ = GGGETQSA (PEL, PFACE) * QE
                      FAILP = (GGGETHRF (PEL) .GE.ZE).AND.(QQ.LT.ZERO)
@@ -1068,7 +1165,7 @@ CONTAINS
                      FAIL = FAIL.OR.FAILP
                      PEL0 = PEL
                      PFACE0 = PFACE
-                  ENDDO out200 !200
+                  ENDDO out200
                   IF (JEL.LT.0) THEN
                      JEL = PEL0
                      JFACE = PFACE0
@@ -1125,6 +1222,7 @@ CONTAINS
                DHH = ZG - ZE
                ZE = ZG
                ! sb 021009 Error message always produced if pass.eq.npass
+
                IF ((ABS (DHQ) + ABS (DHH) .GT.HERROR) .or.(passs.eq.npass)) THEN
                   rdum4(1)=H ; rdum4(2)=DHQ ; rdum4(3)=DHH  !AD
                   WRITE (MSG, 91024) rdum4(1:3)
@@ -1136,11 +1234,10 @@ CONTAINS
             ! End of Control Loop
             ! -------------------
          ENDDO out400
-         !IF (AOK) EXIT out900 !GOTO 901
+         IF (AOK) EXIT out900
       ENDDO out900
       IF(.not.aok) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
 
-!901 CONTINUE
 !33+15+8+17+30=103
 
 91024 FORMAT( 'Surface water depth adjusted from',SP,1PG15.7,' to zero',         ': depth created =',2G15.7 )

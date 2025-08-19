@@ -115,7 +115,7 @@ CONTAINS
          DO I = 1, NINP
             ARRAY (I) = FNEXT (I)
          END DO
-         GOTO 1000
+         RETURN
       ENDIF
 !
 ! SAVE CURRENT DATA IN OUTPUT ARRAY
@@ -126,22 +126,24 @@ CONTAINS
 !
 ! READ DATA AND ADD INTO TOTALS UNTIL END OF SIMULATION TIMESTEP
 !
-20    READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (FNEXT (J), &
-         J = 1, NINP)
-      INLAST = INTIME
-      INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), TIME (5) ) &
-         - TIH
+      DO
+         READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (FNEXT (J), &
+            J = 1, NINP)
+         INLAST = INTIME
+         INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), &
+            TIME (5) ) - TIH
 !
-      IF (INTIME.LT.SIMEND) THEN
-         DO 30 I = 1, NINP
-            ARRAY (I) = ARRAY (I) + ( (INTIME-INLAST) * FNEXT (I) )
-30       END DO
-         GOTO 20
-      ELSE
-         DO 40 I = 1, NINP
-            ARRAY (I) = ARRAY (I) + ( (SIMEND-INLAST) * FNEXT (I) )
-40       END DO
-      ENDIF
+         IF (INTIME.LT.SIMEND) THEN
+            DO 30 I = 1, NINP
+               ARRAY (I) = ARRAY (I) + ( (INTIME-INLAST) * FNEXT (I) )
+30          END DO
+         ELSE
+            DO 40 I = 1, NINP
+               ARRAY (I) = ARRAY (I) + ( (SIMEND-INLAST) * FNEXT (I) )
+40          END DO
+            EXIT
+         ENDIF
+      ENDDO
 !
 ! CALCULATE AVERAGE OVER SIMULATION TIMESTEP
 !
@@ -151,7 +153,7 @@ CONTAINS
 !
 ! RETURN TO CALLING ROUTINE
 !
-1000  RETURN
+      RETURN
 !
 ! FATAL ERROR - END OF FILE REACHED - SET INTIME TO INDICATE ERROR
 !
@@ -191,7 +193,6 @@ CONTAINS
       DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, ARRAY (NINP), &
          HLAST (NINP), HNEXT (NINP)
       DOUBLEPRECISION :: simend, simmid
-      LOGICAL :: goto10, markertest
 !
       SIMEND = SIMNOW + SIMSTP
       SIMMID = SIMNOW + 0.5 * SIMSTP
@@ -199,13 +200,12 @@ CONTAINS
 ! IF MID-POINT OF TIMESTEP PASSED, INTERPOLATE DATA
 
       DO
-10       IF (INTIME.GE.SIMMID.AND.INLAST.LT.SIMMID) THEN
+         IF (INTIME.GE.SIMMID.AND.INLAST.LT.SIMMID) THEN
             DO 20 I = 1, NINP
                ARRAY (I) = HLAST (I) + (HNEXT (I) - HLAST (I) ) * ( (SIMMID-INLAST) / (INTIME-INLAST) )
 20          ENDDO
          ENDIF
          ! READ DATA UNTIL END OF SIMULATION TIMESTEP
-         goto10 = .FALSE.
          IF (INTIME.LT.SIMEND) THEN
             DO 30 I = 1, NINP
                HLAST (I) = HNEXT (I)
@@ -213,18 +213,13 @@ CONTAINS
             READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (HNEXT (J), J = 1, NINP)
             INLAST = INTIME
             INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), TIME (5)) - TIH
-            goto10 = .TRUE.
+         ELSE
+            EXIT
          ENDIF
-         markertest = .FALSE.
-         GOTO 223
-9999     INTIME = marker999
-         markertest=.TRUE.
-223      CONTINUE
-         IF(.NOT.goto10 .OR. markertest) EXIT
       ENDDO
-!RETURN
-!! FATAL ERROR - END OF FILE REACHED
-! 9999 INTIME = marker999
+      RETURN
+! FATAL ERROR - END OF FILE REACHED
+9999  INTIME = marker999
    END SUBROUTINE HINPUT
 
 
@@ -712,7 +707,7 @@ CONTAINS
 !
 !^^^^^^PRINT SECTION
 !
-      IF (KON.EQ.0) RETURN !GOTO 180
+      IF (KON.EQ.0) RETURN
 !
       IF (KON.EQ.1) WRITE (IOF, 80) TITLE
 
@@ -720,15 +715,10 @@ CONTAINS
 !
 ! CHECK FOR ALL ZEROES
 !
-!DO 110 I1 = 1, NX
-!   DO 110 I2 = 1, NY
-!      IF (IA (I1, I2) .EQ.0) GOTO 110
-!      GOTO 130
-!  110 CONTINUE
       IF(I_ISZERO_A2(ia(1:nx,1:ny))) THEN
          WRITE (IOF, 120)
 120      FORMAT (' ALL VALUES ZERO'/' ==============='/)
-         RETURN !GOTO 180
+         RETURN
       ENDIF
 !
 130   NNX = (NX - 1) / 10 + 1
@@ -858,28 +848,18 @@ CONTAINS
 !
 !^^^^^^PRINT SECTION
 !
-      IF (KON.EQ.0) RETURN !GOTO 180
+      IF (KON.EQ.0) RETURN
 !
       IF (KON.EQ.1) WRITE (IOF, 80) TITLE
 80    FORMAT (/ 20A4)
 !
 ! CHECK FOR ALL ZEROES
 !
-!DO 110 I = 1, NEL
-!   IF (ISZERO(AOUT (I))) GOTO 110
-!   GOTO 130
-!  110 END DO
-!WRITE (IOF, 120)
-!  120 FORMAT (/ ' ALL VALUES ZERO'/' ==============='/)
-!GOTO 180
-
       IF(ISZERO_A(aout(1:total_no_elements))) THEN
          WRITE(IOF, 120)
 120      FORMAT (' ALL VALUES ZERO'/' ==============='/)
-         RETURN !GOTO 180
+         RETURN
       ENDIF
-
-
 !
 ! PRINT ARRAY
 !
@@ -913,7 +893,6 @@ CONTAINS
       WRITE (IOF, 90)
 90    FORMAT (//2X, 120('*'), //)
 !
-180   CONTINUE
    END SUBROUTINE AREADR
 ! 12/8/94
 
@@ -927,7 +906,7 @@ CONTAINS
       INTEGER                :: j, k
       INTEGER, SAVE          :: IDUM2=123456789, iy=0, iv(NTAB)=0
       REAL                   :: ran2
-      REAL, PARAMETER        :: EPS=1.2e-7, RNMX=1.-EPS, AM=1./IM1
+      REAL, PARAMETER        :: EPS_RAN2=1.2e-7, RNMX=1.-EPS_RAN2, AM=1./IM1
       IF(idum.le.0) THEN
          idum  = MAX(-idum,1)
          idum2 = idum
@@ -952,325 +931,3 @@ CONTAINS
       ran2 = MIN(AM*iy,RNMX)
    END FUNCTION ran2
 END MODULE utilsmod
-
-
-!!SSSSSS SUBROUTINE ADDMM (A, B, C, NL, NC, NASIZE)
-!SUBROUTINE ADDMM (A, B, C, NL, NC, NASIZE)
-!!=======================================================================
-!!
-!!       UTILITAIRE - ADDITION DE MATRICES   A = B + C
-!!                    A,B,C SONT DES MATRICES (NL,NC)
-!!-----------------------------------------------------------------------
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!INTEGER, INTENT(IN) :: nl, nc, nasize
-!INTEGER :: I, j
-!DOUBLEPRECISION, INTENT(IN)  :: B(NASIZE,NASIZE), C(NASIZE,NASIZE)
-!DOUBLEPRECISION, INTENT(OUT) :: A(NASIZE,NASIZE)
-!!
-!DO 10, J = 1, NL
-!   DO 11, I = 1, NC
-!      A (I, J) = B (I, J) + C (I, J)
-!   11    END DO
-!   10 END DO
-!!
-!END subroutine ADDMM
-!! 12/8/94
-!!
-!!-----------------------------------------------------------------------
-!
-!
-!
-!!SSSSSS SUBROUTINE ADDVV (A, B, C, N)
-!SUBROUTINE ADDVV (A, B, C, N)
-!!=======================================================================
-!!
-!!       UTILITAIRE - ADDITION VECTORIELLE   A = B + C
-!!                    A,B,C SONT DES VECTEURS (N)
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!INTEGER, INTENT(IN) :: n
-!INTEGER :: I
-!DOUBLEPRECISION, INTENT(IN)  :: B(N), C(N)
-!DOUBLEPRECISION, INTENT(OUT) :: A(N)
-!!
-!DO 10, I = 1, N
-!   A (I) = B (I) + C (I)
-!   10 END DO
-!!
-!END SUBROUTINE ADDVV
-!
-!!SSSSSS SUBROUTINE CHSGN (A, NL, NC, NASIZE)
-!SUBROUTINE CHSGN (A, NL, NC, NASIZE)
-!!=======================================================================
-!!
-!!       UTILITAIRE - CHAGEMENT DE SIGNE D'UNE MATRICE  A = -A
-!!                    A EST UNE MATRICE (NL,NC)
-!!-----------------------------------------------------------------------
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!INTEGER, INTENT(IN) :: nl, nc, nasize
-!INTEGER :: i, j
-!DOUBLEPRECISION :: A(NASIZE, NASIZE)
-!!
-!DO 10, J = 1, NL
-!   DO 11, I = 1, NC
-!      A (I, J) = - A (I, J)
-!   11    END DO
-!   10 END DO
-!!
-!RETURN
-!END SUBROUTINE CHSGN
-!
-!
-!!SSSSSS SUBROUTINE DIFVV (A, B, C, N, NASIZE)
-!SUBROUTINE DIFVV (A, B, C, N, NASIZE)
-!!=======================================================================
-!!
-!!       UTILITAIRE - SOUSTRACTION VECTORIELLE   A = B - C
-!!                    A,B,C SONT DES VECTEURS (N)
-!!-----------------------------------------------------------------------
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!INTEGER, INTENT(IN) :: n, nasize
-!INTEGER :: i
-!DOUBLEPRECISION :: A(NASIZE), B(NASIZE), C(NASIZE)
-!!
-!DO 10, I = 1, N
-!   A (I) = B (I) - C (I)
-!   10 END DO
-!!
-!END subroutine DIFVV
-!!
-!!----------------------------------------------------------------------
-!
-!!SSSSSS SUBROUTINE PMINVM
-!SUBROUTINE PMINVM(A, N, ICOD)
-!!=======================================================================
-!!
-!!       UTILITAIRE - INVERSION MATRICIELLE   A = INVERSE DE A
-!!
-!!             A EST UNE MATRICE (N,N)
-!!        (R)  ICOD=0  POUR UNE INVERSION CORRECTE
-!!             ICOD=1  POUR UNE MATRICE SINGULIERE
-!!             TR(N)   = TABLE DE TRAVAIL REELLE
-!!             LC(N,2) = TABLE DE TRAVAIL ENTIERE
-!!-----------------------------------------------------------------------
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!!JE JAN 2009 loop restructure for AD
-!INTEGER, INTENT(IN)            :: n !, nasize
-!INTEGER, INTENT(OUT)           :: icod
-!INTEGER                        :: i, j, k, km1, ipiv, jpiv
-!!INTEGER, INTENT(OUT)           :: LC(NASIZE, 2)
-!!DOUBLEPRECISION, INTENT(OUT)   :: TR(NASIZE)
-!INTEGER                        :: LC(N, 2)
-!DOUBLEPRECISION, INTENT(INOUT) :: A(N, N)
-!DOUBLEPRECISION                 :: TR(N)
-!DOUBLEPRECISION                :: pivot, pivinv, aijpiv
-!LOGICAL                        :: DIADOM, cycle15, cycle20, cycle21, ret
-!!cc       character*70 ooo
-!!
-!ret=.FALSE.
-!ICOD = 0
-!IF (N.LE.0) THEN
-!    ICOD = 1
-!    ret=.TRUE.
-!ELSEIF (N.EQ.1) THEN
-!    ret=.TRUE.
-!    IF (ABS (A (1, 1) ) .LE.EPS) THEN
-!        ICOD = 1
-!    ELSE
-!        A (1, 1) = one / A (1, 1)
-!    ENDIF
-!ENDIF
-!IF(ret) RETURN
-!!
-!! CHECK IF MATRIX IS DIAGONALLY DOMINANT
-!!
-!!cc      dimin = 1.0e10
-!!cc      omax = 0.0
-!
-!!        ooo = ''
-!!        do 4 j=1,n
-!!        if (i.eq.j .and. dabs(a(i,j)).lt.dabs(dimin))
-!!     -    dimin = dabs(a(i,j))
-!!        if (i.ne.j .and. dabs(a(i,j)).gt.dabs(omax))
-!!     -    omax = dabs(a(i,j))
-!!         if (a(i,j).ne.0.0) then
-!!            ooo(j:j) = 'X'
-!!          else
-!!            ooo(j:j) = '.'
-!!          endif
-!! 4      continue
-!!        write(*,*) ooo
-!diadom = .TRUE.
-!DO I = 1, N
-!    IF(.NOT.diadom) CYCLE
-!    DO J = 1, N
-!        IF(.NOT.diadom) CYCLE
-!        IF (ABS (A (I, I) ) .LT.ABS (A (I, J) ) ) diadom = .FALSE.
-!        IF (ABS (A (I, I) ) .LT.ABS (A (J, I) ) ) diadom = .FALSE.
-!    ENDDO
-!ENDDO
-!
-!out10 : DO K = 1, N
-!    IF(icod==1) CYCLE out10
-!    !.... RECHERCHE DU PIVOT MAXIMUM (IPIV,JPIV)
-!    !     --------------------------------------
-!    !
-!    KM1 = K - 1
-!    PIVOT = ZERO
-!    !
-!    ! CHECK ONLY DIAGONAL ELEMENTS IF DIAGONALLY DOMINANT
-!    !
-!    IF (DIADOM) THEN
-!        out15 : DO IPIV = 1, N
-!            cycle15=.FALSE.
-!            IF (KM1.GT.0) THEN
-!                out17 : DO I = 1, KM1
-!                    IF(cycle15) CYCLE out17
-!                    IF (IPIV.EQ.LC (I, 1) ) cycle15=.TRUE. !GOTO 15
-!                ENDDO out17
-!            ENDIF
-!            IF(cycle15) CYCLE out15
-!            IF (ABS (A (IPIV, IPIV) ) .GT.ABS (PIVOT) ) THEN
-!                PIVOT = A (IPIV, IPIV)
-!                LC (K, 1) = IPIV
-!                LC (K, 2) = IPIV
-!            ENDIF
-!        ENDDO out15
-!    !
-!    ! OTHERWISE, CHECK ALL ELEMENTS
-!    !
-!   ELSE
-!        out20 : DO IPIV = 1, N
-!            cycle20=.FALSE.
-!            out21 : DO JPIV = 1, N
-!                IF(cycle20) CYCLE out21
-!                cycle21=.FALSE.
-!                IF (KM1.GT.0) THEN
-!                    out22 : DO I = 1, KM1
-!                        IF(cycle20.OR.cycle21) CYCLE out22
-!                        IF (IPIV.EQ.LC (I, 1) ) cycle20=.TRUE.
-!                        IF (JPIV.EQ.LC (I, 2) ) cycle21=.TRUE.
-!                    ENDDO out22
-!                ENDIF
-!                IF(cycle20.OR.cycle21) CYCLE out21
-!                IF (ABS (A (IPIV, JPIV) ) .GT.ABS (PIVOT) ) THEN
-!                    PIVOT = A (IPIV, JPIV)
-!                    LC (K, 1) = IPIV
-!                    LC (K, 2) = JPIV
-!                ENDIF
-!            ENDDO out21
-!        ENDDO out20
-!   ENDIF
-!    !
-!    IF (ABS (PIVOT) .LE.EPS) THEN
-!        ICOD = 1
-!        CYCLE out10
-!    ENDIF
-!    !
-!    !.... INVERSION PROPREMENT DITE
-!    !     -------------------------
-!    IPIV = LC (K, 1)
-!    JPIV = LC (K, 2)
-!    PIVINV = one / PIVOT
-!    DO J = 1, N
-!        A (IPIV, J) = A (IPIV, J) * PIVINV
-!    ENDDO
-!    A (IPIV, JPIV) = PIVINV
-!    DO I = 1, N
-!        IF (I.NE.IPIV) THEN
-!            AIJPIV = A (I, JPIV)
-!            A (I, JPIV) = - AIJPIV * PIVINV
-!            DO J = 1, N
-!                IF (J.NE.JPIV) A (I, J) = A (I, J) - AIJPIV * A (IPIV, J)
-!            ENDDO
-!        ENDIF
-!    ENDDO
-!ENDDO out10
-!
-!IF(icod==1) RETURN
-!
-!!.... REMISE EN ORDRE
-!!     ---------------
-!DO J = 1, N
-!    DO I = 1, N
-!        IPIV = LC(I, 1)
-!        JPIV = LC(I, 2)
-!        TR (JPIV) = A(IPIV, J)
-!    ENDDO
-!    A (:,J) = TR
-!ENDDO
-!!
-!DO I = 1, N
-!    DO J = 1, N
-!        IPIV = LC (J, 1)
-!        JPIV = LC (J, 2)
-!        TR (IPIV) = A (I, JPIV)
-!    ENDDO
-!    A(I,:) = TR
-!ENDDO
-!!
-!!cccc      IF (DIADOM) THEN
-!!        WRITE(*,*) 'DIAGONALLY DOMINANT'
-!!      ELSE
-!!        WRITE (*,*) 'NOT DIAG. DOM.'
-!!      ENDIF
-!!cccc      write(*,*) 'diag min, off max = ',dimin,omax
-!END SUBROUTINE PMINVM
-!
-!!SSSSSS SUBROUTINE MULMM (A, B, C, N1, N2, N3, NASIZE)
-!SUBROUTINE MULMM (A, B, C, N1, N2, N3, NASIZE)
-!!=======================================================================
-!!
-!!       UTILITAIRE - MULTIPLICATION MATRICIELLE   A = B * C
-!!                    A EST UNE MATRICE (N1,N3)
-!!                    B EST UNE MATRICE (N1,N2)
-!!                    C EST UNE MATRICE (N2,N3)
-!!-----------------------------------------------------------------------
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!INTEGER, INTENT(IN) :: N1, N2, N3, NASIZE
-!INTEGER :: i, j, k
-!DOUBLEPRECISION ::  A(NASIZE, NASIZE), B(NASIZE, NASIZE), C(NASIZE,NASIZE)
-!DO 10, J = 1, N1
-!   DO 11, I = 1, N3
-!      A (I, J) = ZERO
-!      DO 12, K = 1, N2
-!         A (I, J) = A (I, J) + B (K, J) * C (I, K)
-!   12       END DO
-!   11    END DO
-!   10 END DO
-!!
-!END SUBROUTINE MULMM
-!
-!!SSSSSS SUBROUTINE MULMV (A, B, C, NL, NC, NASIZE)
-!SUBROUTINE MULMV (A, B, C, NL, NC, NASIZE)
-!!=======================================================================
-!!
-!!       UTILITAIRE - MULTIPLICATION MATRICE-VECTEUR  A = B * C
-!!                    B EST UNE MATRICE (NL,NC)
-!!                    A,C SONT DES VECTEURS (NL)
-!!
-!!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!!      IMPLICIT INTEGER (I-N)
-!INTEGER, INTENT(IN) :: NL, NC, NASIZE
-!INTEGER :: i, k
-!DOUBLEPRECISION :: A(NASIZE), B(NASIZE, NASIZE), C(NASIZE)
-!!
-!DO 10, I = 1, NL
-!   A (I) = ZERO
-!   DO 11, K = 1, NC
-!      A (I) = A (I) + B (K, I) * C (K)
-!   11    END DO
-!   10 END DO
-!!
-!END SUBROUTINE MULMV

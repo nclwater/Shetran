@@ -30,11 +30,8 @@ CONTAINS
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE r_c(text, r)
-      INTEGER                   :: i
-      LOGICAL                   :: eor
       CHARACTER(*), INTENT(IN)  :: text
       CHARACTER(*), INTENT(OUT) :: r
-      CHARACTER                 :: c
       CALL READ_A_LINE(text, r)
    END SUBROUTINE r_c
 
@@ -54,7 +51,7 @@ CONTAINS
 !Read an integer
       INTEGER, PARAMETER             :: szb = 8
       INTEGER, INTENT(OUT)           :: r
-      INTEGER                        :: i
+      INTEGER                        :: i, stat
       CHARACTER(*), INTENT(IN)       :: text
 
       CHARACTER                      :: c
@@ -63,19 +60,22 @@ CONTAINS
       CALL FIND_FIRST_CHARACTER(text, c, di)
       i = 0
       DO WHILE(c/=' ')
-         IF(.NOT.ANY(c==di)) GOTO 95
+         IF(.NOT.ANY(c==di)) THEN
+            b(i+1:i+1)=c
+            WRITE(mess,*) TRIM(text)//' - Expecting integer, but read '//b
+            CALL ERROR()
+         ENDIF
          i=i+1
-         IF(i>szb) GOTO 95
+         IF(i>szb) THEN
+            b(i+1:i+1)=c
+            WRITE(mess,*) TRIM(text)//' - Expecting integer, but read '//b
+            CALL ERROR()
+         ENDIF
          b(i:i)=c
-         READ(vp_in,'(A1)',ERR=90, EOR=80, ADVANCE='NO') c
+         READ(vp_in,'(A1)', IOSTAT=stat, ADVANCE='NO') c
+         IF (stat /= 0) EXIT
       ENDDO
-80    READ(b,*) r
-
-      RETURN
-90    WRITE(mess,*) 'Error when trying to read integer'//TRIM(text)    ; GOTO 100
-95    b(i+1:i+1)=c
-      WRITE(mess,*) TRIM(text)//' - Expecting integer, but read '//b ; GOTO 100
-100   CALL ERROR()
+      READ(b,*) r
    END SUBROUTINE r_ii
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
@@ -84,20 +84,35 @@ CONTAINS
       CHARACTER, DIMENSION(:), INTENT(IN), OPTIONAL :: d
       CHARACTER(*), INTENT(IN)                      :: text
       CHARACTER, INTENT(IN), OPTIONAL               :: exclude !don't count this as a character
-      READ(vp_in,'(A1)',ERR=90, EOR=92, ADVANCE='NO') c
+      INTEGER                                       :: stat
+      READ(vp_in,'(A1)', IOSTAT=stat, ADVANCE='NO') c
+      IF (stat /= 0) THEN
+         IF (stat == -1) THEN ! End of file
+            CALL FIND_FIRST_CHARACTER(text, c, d, exclude)
+            RETURN
+         ELSE ! Error
+            WRITE(mess,*) 'Error when trying to read from file for '//TRIM(text)
+            CALL ERROR()
+         ENDIF
+      ENDIF
+
       DO
          IF (PRESENT(d)) THEN
             IF(ANY(c/=d)) EXIT
          ELSEIF(PRESENT(exclude)) THEN
             if(c/=exclude) EXIT
          ENDIF
-         READ(vp_in,'(A1)',ERR=90, EOR=92, ADVANCE='NO') c
+         READ(vp_in,'(A1)', IOSTAT=stat, ADVANCE='NO') c
+         IF (stat /= 0) THEN
+            IF (stat == -1) THEN ! End of file
+               CALL FIND_FIRST_CHARACTER(text, c, d, exclude)
+               RETURN
+            ELSE ! Error
+               WRITE(mess,*) 'Error when trying to read from file for '//TRIM(text)
+               CALL ERROR()
+            ENDIF
+         ENDIF
       ENDDO
-      RETURN
-92    CALL FIND_FIRST_CHARACTER(text, c, d, exclude)
-      RETURN
-90    WRITE(mess,*) 'Error when trying to read integer'//TRIM(text)    ; GOTO 100
-100   CALL ERROR()
    END SUBROUTINE find_first_character
 
 
@@ -106,7 +121,7 @@ CONTAINS
    SUBROUTINE r_rr(text,r)
 !Read a read
       INTEGER, PARAMETER             :: szb = 20
-      INTEGER                        :: i
+      INTEGER                        :: i, stat
       REAL, INTENT(OUT)              :: r
       CHARACTER(*), INTENT(IN)       :: text
       CHARACTER                      :: c
@@ -115,18 +130,20 @@ CONTAINS
       CALL FIND_FIRST_CHARACTER(text, c, dr)
       i = 0
       DO WHILE(c/=' ')
-         IF(.NOT.ANY(c==dr)) GOTO 95
+         IF(.NOT.ANY(c==dr)) THEN
+            WRITE(mess,*) TRIM(text)//' - Expecting real, but read '//b
+            CALL ERROR()
+         ENDIF
          i=i+1
-         IF(i>szb) GOTO 95
+         IF(i>szb) THEN
+            WRITE(mess,*) TRIM(text)//' - Expecting real, but read '//b
+            CALL ERROR()
+         ENDIF
          b(i:i)=c
-         READ(vp_in,'(A1)',ERR=90, EOR=80, ADVANCE='NO') c
+         READ(vp_in,'(A1)', IOSTAT=stat, ADVANCE='NO') c
+         IF (stat /= 0) EXIT
       ENDDO
-80    READ(b,*) r
-
-      RETURN
-90    WRITE(mess,*) 'Error when trying to read real'//TRIM(text)    ; GOTO 100
-95    WRITE(mess,*) TRIM(text)//' - Expecting real, but read '//b ; GOTO 100
-100   CALL ERROR()
+      READ(b,*) r
    END SUBROUTINE r_rr
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
@@ -235,7 +252,11 @@ CONTAINS
       INQUIRE(UNIT=u, OPENED=opened) ; IF (opened) CLOSE(UNIT=u, STATUS='keep')
       OPEN(UNIT=u, FILE=file, STATUS='OLD', ERR=910)
       READ(u,*) dum
-      IF(dum/=checktitle) GOTO 900
+      IF(dum/=checktitle) THEN
+         mess = 'wrong key in '//TRIM(file)
+         mess2 = ' Read '//TRIM(dum)//' expecting '//TRIM(checktitle)
+         CALL ERROR()
+      ENDIF
 
       INQUIRE(UNIT=nunit, OPENED=opened) ; IF (opened) CLOSE(UNIT=nunit, STATUS='keep')
       OPEN(UNIT=nunit, FILE=TRIM(tempfile), STATUS='REPLACE')
@@ -293,11 +314,8 @@ CONTAINS
       OPEN(UNIT=u, FILE=TRIM(tempfile))
       DEALLOCATE (store)
       RETURN
-900   mess = 'wrong key in '//TRIM(file)
-      mess2 = ' Read '//TRIM(dum)//' expecting '//TRIM(checktitle)
-      GOTO 1000
 910   mess = ' failed to open '//TRIM(file)
-1000  CALL ERROR()
+      CALL ERROR()
 99    FORMAT(1000A)
    END SUBROUTINE strip
 END MODULE visualisation_read

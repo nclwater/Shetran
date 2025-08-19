@@ -311,6 +311,7 @@ CONTAINS
       CHARACTER(256) :: FIL
       CHARACTER(80)  :: HLPMSG
       LOGICAL :: VALID
+      INTEGER :: IO_STATUS
 
       DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /
 !----------------------------------------------------------------------*
@@ -426,11 +427,15 @@ CONTAINS
                   print*,fil
                   WRITE(*, '(A)', ADVANCE='NO') 'Press Enter to continue...'
                   READ(*,*)
-                  OPEN (HLP, FILE = FIL, STATUS = 'OLD', ERR = 7)
-5                 READ (HLP, '(A)', ERR = 7, END = 7) HLPMSG
-                  WRITE ( * , '(A)') HLPMSG
-                  GOTO 5
-7                 CLOSE (HLP)
+                  OPEN (HLP, FILE = FIL, STATUS = 'OLD', IOSTAT = IO_STATUS)
+                  IF (IO_STATUS == 0) THEN
+                     DO
+                        READ (HLP, '(A)', IOSTAT = IO_STATUS) HLPMSG
+                        IF (IO_STATUS /= 0) EXIT
+                        WRITE ( * , '(A)') HLPMSG
+                     END DO
+                     CLOSE (HLP)
+                  ENDIF
 
                   WRITE ( *, * )
                ENDIF
