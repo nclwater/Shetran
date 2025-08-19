@@ -1,6 +1,6 @@
-MODULE oc_simulation
-! Simulation routines for overland channel calculations
-! Contains OCSIM - the main simulation routine
+MODULE oc_time_stepping
+! Time stepping and main simulation routines for overland channel calculations
+! Contains OCSIM - the main time stepping simulation routine
 ! Extracted from OCmod.f90
 
    USE SGLOBAL
@@ -16,7 +16,7 @@ MODULE oc_simulation
       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
    USE oc_common_data
-   USE oc_compute, ONLY: OCABC
+   USE oc_matrix_coefficients, ONLY: OCABC
    USE oc_output, ONLY: OCPRI
 
    IMPLICIT NONE
@@ -234,4 +234,4 @@ CONTAINS
       RETURN
    END SUBROUTINE OCEXT
 
-END MODULE oc_simulation
+END MODULE oc_time_stepping

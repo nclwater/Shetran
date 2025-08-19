@@ -181,7 +181,18 @@ SHETRAN/
 ├── build.bat               # Windows build script
 ├── src/                    # Source code
 │   ├── Shetran.f90         # Main program
-│   ├── modules/            # Fortran modules
+│   ├── flow/               # Flow calculation modules
+│   │   ├── OCmod.f90       # Overland channel integration
+│   │   ├── OCmod2.f90      # Refactored OC interface module
+│   │   └── overland_channel/  # Refactored OC modules
+│   │       ├── oc_parameters.f90           # OC constants & parameters
+│   │       ├── oc_data_management.f90      # Data arrays & access functions
+│   │       ├── oc_node_flows.f90          # Junction flow calculations
+│   │       ├── oc_hydraulic_calculations.f90  # Core hydraulic equations
+│   │       ├── oc_channel_flow_types.f90   # Different flow types
+│   │       ├── oc_flow_control.f90         # Mass conservation & control
+│   │       └── oc_*.f90                    # Other OC support modules
+│   ├── modules/            # Core Fortran modules  
 │   ├── parameters/         # Parameter modules
 │   ├── util/               # Utility modules
 │   └── visualisation/      # Visualization modules
@@ -195,18 +206,22 @@ SHETRAN/
 ### Dependency Analysis Options
 The build system provides two methods for ordering Fortran source files:
 
-1. **Pattern-based ordering** (default, recommended):
-   - Fast and reliable
+1. **Automatic dependency analysis** (default, recommended):
+   - Analyzes actual module USE/PROVIDES relationships  
+   - Automatically handles refactored module dependencies
+   - Uses topological sorting for optimal build order
+   - Supports complex dependency graphs including the new OC module structure
+   
+2. **Pattern-based ordering** (fallback):
    - Uses filename patterns and directory structure
    - Handles most dependency cases correctly
-   
-2. **Advanced dependency analysis** (experimental):
-   - Analyzes actual module USE/PROVIDES relationships
-   - More accurate but slower
-   - May have issues with complex codebases
+   - Updated to support refactored OC modules
+
+The build system automatically detects the refactored overland channel (OC) modules in `src/flow/overland_channel/` and ensures they are built in the correct dependency order:
+- `oc_parameters.f90` → `oc_data_management.f90` → `oc_hydraulic_calculations.f90` → `oc_node_flows.f90` → `oc_channel_flow_types.f90` → `oc_flow_control.f90` → `OCmod2.f90`
 
 ```bash
-# Disable dependency analysis (use alphabetical order)
+# Disable dependency analysis (use pattern-based fallback)
 cmake -DENABLE_DEPENDENCY_ANALYSIS=OFF ..
 
 # Enable advanced analysis with verbose output

@@ -203,7 +203,7 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
     
     message(STATUS "Using pattern-based ordering as fallback...")
     
-    # Define ordering groups with patterns (more flexible than before)
+    # Define ordering groups with patterns (updated for refactored structure)
     set(ORDER_GROUPS
         # Group 1: Global parameters and constants
         "sglobal\\.f90$;CONST_SY\\.F90$;mod_parameters\\.f90$"
@@ -220,16 +220,22 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 5: Core modules (basic dependencies)
         "SED_CS\\.F90$;ZQmod\\.f90$;SMmod\\.f90$;plant_cc\\.f90$"
         
-        # Group 6: Physics modules
-        "OCQDQMOD\\.F90$;OCmod2\\.f90$;ETmod\\.f90$;CMmod\\.f90$"
+        # Group 6: Refactored OC modules (ordered by dependency)
+        "oc_parameters\\.f90$;oc_data_management\\.f90$;oc_hydraulic_calculations\\.f90$"
         
-        # Group 7: Advanced modules
+        # Group 7: More OC modules  
+        "oc_node_flows\\.f90$;oc_channel_flow_types\\.f90$;oc_flow_control\\.f90$"
+        
+        # Group 8: OC interface and other physics modules
+        "OCmod2\\.f90$;OCQDQMOD\\.F90$;ETmod\\.f90$;CMmod\\.f90$"
+        
+        # Group 9: Advanced modules
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         
-        # Group 8: Visualization and control (flexible ordering)
+        # Group 10: Visualization and control (flexible ordering)
         "visualisation_.*\\.f90$;increment_utilities\\.f90$"
         
-        # Group 9: Simulation control
+        # Group 11: Simulation control
         "rest\\.f90$;run_sim\\.f90$"
     )
     

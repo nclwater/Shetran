@@ -1,6 +1,6 @@
-MODULE oc_compute
-! Computation routines for overland channel calculations
-! Contains OCABC and other computational subroutines
+MODULE oc_matrix_coefficients
+! Matrix coefficient calculations for overland channel equations
+! Contains OCABC and other matrix calculation subroutines
 ! Extracted from OCmod.f90
 
    USE SGLOBAL
@@ -139,4 +139,4 @@ CONTAINS
 500   END DO
    END SUBROUTINE OCABC
 
-END MODULE oc_compute
+END MODULE oc_matrix_coefficients

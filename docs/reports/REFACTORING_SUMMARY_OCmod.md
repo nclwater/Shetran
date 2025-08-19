@@ -32,12 +32,12 @@ The large monolithic `OCmod.f90.sav` file (2002 lines) has been successfully ref
 - `OCCHK1` - Check static OC input arrays  
 - `OCCHK2` - Check OC input data
 
-### 4. Simulation (`src/flow/overland_channel/oc_simulation.f90`)
+### 4. Time Stepping (`src/flow/overland_channel/oc_time_stepping.f90`)
 **Contains**: Main computation engine:
 - `OCSIM` - Main overland/channel simulation routine (matrix solve, time stepping)
 - `OCEXT` - Read time-varying boundary condition data
 
-### 5. Computation (`src/flow/overland_channel/oc_compute.f90`)
+### 5. Matrix Coefficients (`src/flow/overland_channel/oc_matrix_coefficients.f90`)
 **Contains**: Core computational routines:
 - `OCABC` - Matrix coefficient calculations given flows and derivatives
 
@@ -95,8 +95,8 @@ After refactoring and cleanup, the directory contains exactly 8 focused modules:
 1. `oc_common_data.f90` - Shared variables (715 bytes)
 2. `oc_initialization.f90` - Core setup routines (16.3k) 
 3. `oc_validation.f90` - Data validation & checking (11.3k)
-4. `oc_simulation.f90` - Main computation engine (8.6k)
-5. `oc_compute.f90` - Matrix calculations (4.5k)
+4. `oc_time_stepping.f90` - Main computation engine (8.6k)
+5. `oc_matrix_coefficients.f90` - Matrix calculations (4.5k)
 6. `oc_input.f90` - Data reading routines (14.8k)
 7. `oc_output.f90` - Results output (1.8k)
 8. `oc_utils.f90` - Helper functions (3.0k)
@@ -185,6 +185,12 @@ USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR
 USE oc_common_data
 
 ! oc_compute.f90 - only imports for computation
+# oc_time_stepping.f90 - only imports for time stepping
+USE SGLOBAL  
+USE AL_D, ONLY: DQ0ST, DQIST
+USE oc_common_data
+
+# oc_matrix_coefficients.f90 - only imports for computation
 USE SGLOBAL  
 USE AL_D, ONLY: DQ0ST, DQIST
 USE oc_common_data

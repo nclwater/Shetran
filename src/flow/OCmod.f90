@@ -8,8 +8,8 @@ MODULE OCmod
 !              into 7 focused modules organized by functionality:
 !              - oc_common_data.f90 (shared variables)
 !              - oc_initialization.f90 (setup & validation)
-!              - oc_simulation.f90 (main computation engine)
-!              - oc_compute.f90 (matrix calculations)
+!              - oc_time_stepping.f90 (main time stepping engine)
+!              - oc_matrix_coefficients.f90 (matrix calculations)
 !              - oc_input.f90 (data reading)
 !              - oc_output.f90 (results output)
 !              - oc_utils.f90 (helper functions)
@@ -58,7 +58,7 @@ MODULE OCmod
 !----------------------------------------------------------------------*
    USE SGLOBAL
    USE oc_initialization, ONLY: OCINI
-   USE oc_simulation, ONLY: OCSIM
+   USE oc_time_stepping, ONLY: OCSIM
    USE oc_utils, ONLY: OCLTL, LINKNO
    USE oc_common_data, ONLY: qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
    USE oc_validation, ONLY: OCCHK0, OCCHK1, OCCHK2
