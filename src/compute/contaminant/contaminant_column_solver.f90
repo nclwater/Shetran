@@ -569,8 +569,10 @@ CONTAINS
          NDIFF = NLYRBT (NLINKA, 1) - NAQU
          !                             NUMBER & CELL OFFSET FOR ASSOCIATED LINK
          JAL = 0
-100      JAL = JAL + 1
-         IF (ICMREF (NLINKA, JAL + 4) .NE.NCL) GOTO 100
+         DO WHILE (ICMREF (NLINKA, JAL + 4 + 1) .NE. NCL)
+            JAL = JAL + 1
+         END DO
+         JAL = JAL + 1
          JFLINK = ICMREF (NLINKA, JAL + 8)
          !                             NUMBER FOR FACE ASSOCIATED WITH LINK
          DBK = AREA (NCL) / CLENTH (NLINKA)

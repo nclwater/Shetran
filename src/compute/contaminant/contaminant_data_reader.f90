@@ -110,7 +110,11 @@ CONTAINS
       IF (NCLBND.GT.0) THEN
          !        * Column numbers & bottom cell numbers for those columns
          NREQ = 2 * NCLBND
-         IF (NREQ.GT.NELEE) GOTO 8090
+         IF (NREQ.GT.NELEE) THEN
+            WRITE (MSG, 9809) NELEE, NREQ, 'non-default columns', 'CM9: NCLBND ', NCLBND
+            CALL ERROR (FATAL, 3001, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL ALREDI (0, CMD, CPR, ':CM11', 2, NCLBND, IDUM)
       ENDIF
       !
@@ -127,7 +131,11 @@ CONTAINS
       INDX = 1
       DO 114 I = 1, NCLBND
          IEL = IDUM (INDX)
-         IF (IEL.LE.NLF.OR.IEL.GT.NEL) GOTO 8110
+         IF (IEL.LE.NLF.OR.IEL.GT.NEL) THEN
+            WRITE (MSG, 9811) IEL, 'CM11', 'column element'
+            CALL ERROR (FATAL, 3002, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          NCOLMB (IEL) = IDUM (INDX + 1)
          INDX = INDX + 2
 114   END DO
@@ -173,7 +181,11 @@ CONTAINS
       !
       ! Initial Conditions
       ! ------------------
-      IF (NCONCM.LT.1.OR.NCONCM.GT.NMAX (1) ) GOTO 8190
+      IF (NCONCM.LT.1.OR.NCONCM.GT.NMAX (1) ) THEN
+         WRITE (MSG, 9819) 'contaminants', 'CM19: NCONCM', NCONCM, NMAX (1)
+         CALL ERROR (FATAL, 3003, CPR, 0, 0, MSG)
+         RETURN
+      ENDIF
       !
       !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       ! New code by SB for spatially distributed initial conditions
@@ -250,7 +262,11 @@ CONTAINS
          !        * Numbers of those columns, and concentrations in the flows
          !        * (read list index as extra column of floating-point data)
          NREQ = (1 + NCONCM) * NFEX
-         IF (NREQ.GT.NELEE) GOTO 8290
+         IF (NREQ.GT.NELEE) THEN
+            WRITE (MSG, 9809) NELEE, NREQ, 'flow-receiving columns', 'CM29: NFEX', NFEX
+            CALL ERROR (FATAL, 3001, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL ALREDF (0, CMD, CPR, ':CM31', 1 + NCONCM, NFEX, DUMMY)
       ENDIF
       !
@@ -261,7 +277,11 @@ CONTAINS
       INDX = 1
       DO 312 I = 1, NFEX
          IEL = NINT (DUMMY (INDX) )
-         IF (IEL.LE.NLF.OR.IEL.GT.NEL) GOTO 8310
+         IF (IEL.LE.NLF.OR.IEL.GT.NEL) THEN
+            WRITE (MSG, 9811) IEL, 'CM31', 'column element'
+            CALL ERROR (FATAL, 3002, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL DCOPY (NCONCM, DUMMY (INDX + 1), 1, CCAPE (IEL, 1), NELEE)
          INDX = INDX + 1 + NCONCM
 312   END DO
@@ -284,12 +304,20 @@ CONTAINS
          !        * Numbers and concentrations for those columns
          !        * (read list index as extra column of floating-point data)
          NREQ = (1 + NCONCM) * NCBC
-         IF (NREQ.GT.NELEE) GOTO 8350
+         IF (NREQ.GT.NELEE) THEN
+            WRITE (MSG, 9809) NELEE, NREQ, 'contaminant boundary column', 'CM37', NCBC
+            CALL ERROR (FATAL, 3006, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL ALREDF (0, CMD, CPR, ':CM37', 1 + NCONCM, NCBC, DUMMY)
          INDX = 1
          DO 370 I = 1, NCBC
             IEL = NINT (DUMMY (INDX) )
-            IF (IEL.LE.NLF.OR.IEL.GT.NEL) GOTO 8370
+            IF (IEL.LE.NLF.OR.IEL.GT.NEL) THEN
+               WRITE (MSG, 9811) IEL, 'CM37', 'column element'
+               CALL ERROR (FATAL, 3007, CPR, 0, 0, MSG)
+               RETURN
+            ENDIF
             IF (ISFLXB) THEN
                CALL DCOPY (NCONCM, DUMMY (INDX + 1), 1, CCAPR (IEL, 1), NELEE)
             ELSE
@@ -306,7 +334,11 @@ CONTAINS
       ! Some Soil Properties
       ! --------------------
       !
-      IF (NSCM.LT.1.OR.NSCM.GT.NMAX (2) ) GOTO 8210
+      IF (NSCM.LT.1.OR.NSCM.GT.NMAX (2) ) THEN
+         WRITE (MSG, 9819) 'soil types', 'CM21: NSCM', NSCM, NMAX (2)
+         CALL ERROR (FATAL, 3004, CPR, 0, 0, MSG)
+         RETURN
+      ENDIF
       !
       !     * 3 size fractions (used only if SY module inactive)
       !     * (read soil index as extra column of floating-point data)
@@ -314,7 +346,11 @@ CONTAINS
       INDX = 1
       DO 410 I = 1, NSCM
          SOIL = NINT (DUMMY (INDX) )
-         IF (SOIL.LT.1.OR.SOIL.GT.NSCM) GOTO 8410
+         IF (SOIL.LT.1.OR.SOIL.GT.NSCM) THEN
+            WRITE (MSG, 9811) SOIL, 'CM41', 'soil type'
+            CALL ERROR (FATAL, 3008, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL DCOPY (3, DUMMY (INDX + 1), 1, SOFN (SOIL, 1), NSEE)
          INDX = INDX + 4
 410   END DO
@@ -339,7 +375,11 @@ CONTAINS
       ! More Contaminant/Sediment/Soil Properties
       ! -----------------------------------------
       !
-      IF (NSEDCM.LT.1.OR.NSEDCM.GT.NMAX (3) ) GOTO 8230
+      IF (NSEDCM.LT.1.OR.NSEDCM.GT.NMAX (3) ) THEN
+         WRITE (MSG, 9819) 'sediment sizes', 'CM23: NSEDCM', NSEDCM, NMAX (3)
+         CALL ERROR (FATAL, 3005, CPR, 0, 0, MSG)
+         RETURN
+      ENDIF
       !
       !     * Reference Kd for each particle size
       !     * (read contaminant index as extra column of floating-point data)
@@ -347,7 +387,11 @@ CONTAINS
       INDX = 1
       DO 510 I = 1, NCONCM
          NCONT = NINT (DUMMY (INDX) )
-         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) GOTO 8510
+         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) THEN
+            WRITE (MSG, 9811) NCONT, 'CM51', 'contaminant index'
+            CALL ERROR (FATAL, 3011, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL DCOPY (NSEDCM, DUMMY (INDX + 1), 1, KDDLS (1, NCONT), 1)
          INDX = INDX + 1 + NSEDCM
 510   END DO
@@ -357,7 +401,11 @@ CONTAINS
       INDX = 1
       DO 530 I = 1, NCONCM
          NCONT = NINT (DUMMY (INDX) )
-         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) GOTO 8530
+         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) THEN
+            WRITE (MSG, 9811) NCONT, 'CM53', 'contaminant index'
+            CALL ERROR (FATAL, 3012, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL DCOPY (NSCM, DUMMY (INDX + 1), 1, ALPHA (1, NCONT), 1)
          INDX = INDX + 1 + NSCM
 530   END DO
@@ -367,7 +415,11 @@ CONTAINS
       INDX = 1
       DO 550 I = 1, NCONCM
          NCONT = NINT (DUMMY (INDX) )
-         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) GOTO 8550
+         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) THEN
+            WRITE (MSG, 9811) NCONT, 'CM55', 'contaminant index'
+            CALL ERROR (FATAL, 3013, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL DCOPY (NSCM, DUMMY (INDX + 1), 1, FADS (1, NCONT), 1)
          INDX = INDX + 1 + NSCM
 550   END DO
@@ -383,7 +435,11 @@ CONTAINS
       INDX = 1
       DO 610 I = 1, NCONCM
          NCONT = NINT (DUMMY (INDX) )
-         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) GOTO 8610
+         IF (NCONT.LT.1.OR.NCONT.GT.NCONCM) THEN
+            WRITE (MSG, 9811) NCONT, 'CM61', 'contaminant index'
+            CALL ERROR (FATAL, 3014, CPR, 0, 0, MSG)
+            RETURN
+         ENDIF
          CALL DCOPY (NSCM, DUMMY (INDX + 1), 1, DISPDT (1, NCONT), 1)
          INDX = INDX + 1 + NSCM
 610   END DO
@@ -396,7 +452,11 @@ CONTAINS
       CALL ALRED2 (1, CMD, CPR, 'CMD')
       !
       !     * Is everything defined?
-      IF (NCONCM.LT.NCON.OR.NSCM.LT.NS.OR.NSEDCM.LT.NSED) GOTO 8000
+      IF (NCONCM.LT.NCON.OR.NSCM.LT.NS.OR.NSEDCM.LT.NSED) THEN
+         WRITE (MSG, 9800) NCONCM, NSCM, NSEDCM, NCON, NS, NSED
+         CALL ERROR (FATAL, 3000, CPR, 0, 0, MSG)
+         RETURN
+      ENDIF
       !
       RETURN
       !
