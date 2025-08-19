@@ -27,6 +27,7 @@ A non exhaustive list:
   Update to appropiate other structures / directives.
 - Use a code formatter to enforce a consistent coding style.#
 - Update variable declaration to use the KIND= parameter instead of e.g. DOUBLEPRECISION.
+- Use IOSTAT instead of END= or ERR= for status & error handling of IO.
 
 ## Notes
 
