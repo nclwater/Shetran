@@ -226,16 +226,25 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 7: More OC modules  
         "oc_node_flows\\.f90$;oc_channel_flow_types\\.f90$;oc_flow_control\\.f90$"
         
-        # Group 8: OC interface and other physics modules
+        # Group 8: Contaminant supporting modules (must come before CMmod)
+        "contaminant_common\\.f90$;contaminant_utilities\\.f90$;contaminant_data_reader\\.f90$"
+
+        # Group 8.5: Plant module (must come before column solver)
+        "contaminant_plant\\.f90$"
+        
+        # Group 9: More contaminant modules
+        "contaminant_simulation\\.f90$;contaminant_column_solver\\.f90$;contaminant_link_solver\\.f90$"
+        
+        # Group 10: OC interface and physics modules including refactored CMmod
         "OCmod2\\.f90$;OCQDQMOD\\.F90$;ETmod\\.f90$;CMmod\\.f90$"
         
-        # Group 9: Advanced modules
+        # Group 11: Advanced modules
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         
-        # Group 10: Visualization and control (flexible ordering)
+        # Group 12: Visualization and control (flexible ordering)
         "visualisation_.*\\.f90$;increment_utilities\\.f90$"
         
-        # Group 11: Simulation control
+        # Group 13: Simulation control
         "rest\\.f90$;run_sim\\.f90$"
     )
     
