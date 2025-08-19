@@ -134,7 +134,7 @@ MODULE GETDIRQQ
             message = 'Unrecognised command line argument ' // TRIM(code) // ' Recognise only -a, -c and -f'
         END SELECT
 
-        IF(message/='') GOTO 1000
+        IF(message/='') CALL handle_error(message)
 
         INQUIRE(FILE=filename, EXIST=ex)
         IF(.NOT.ex) THEN
@@ -143,7 +143,7 @@ MODULE GETDIRQQ
             ELSE
                 message = 'Cannot find rundata file '//TRIM(filename)
             ENDIF
-            GOTO 1000
+            CALL handle_error(message)
         ENDIF
 
         length = SPLITPATHQQ(FileName, drive, path, MyName, ext)
@@ -177,11 +177,15 @@ MODULE GETDIRQQ
         RETURN
 
  999    message = 'cannot find catchment ' // TRIM(filename) // ' in ' // TRIM(catchment_file)
-
- 1000   PRINT*, message
-        STOP
+        CALL handle_error(message)
 
     END SUBROUTINE get_dir_and_catch
+
+    SUBROUTINE handle_error(message)
+        CHARACTER(len=*), INTENT(IN) :: message
+        PRINT*, message
+        STOP
+    END SUBROUTINE handle_error
 
     !---------------------------------------------------------------------------  
     !> @author ?

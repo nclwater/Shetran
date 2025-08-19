@@ -239,39 +239,43 @@ r = i>0
 END FUNCTION exists
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE get_ncon_early()
-CHARACTER(4)  :: dd
-CHARACTER(64) :: mess
-DO
-    READ(cmd,'(A)', ERR=90, END=90) dd
-    IF(DD(2:4)=='CM3') THEN
-        READ(cmd,*, ERR=91) nnncon
-        EXIT
-    ENDIF
-ENDDO
-REWIND(cmd)
-RETURN
-90 mess='failed to find line :CM3 in contaminant data file' ; GOTO 1000
-91 mess='failed to read NCON '
-1000 mess = 'GET_NCON_EARLY '//TRIM(mess)
-CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  mess)
+    CHARACTER(4)  :: dd
+    CHARACTER(64) :: mess
+    DO
+        READ(cmd,'(A)', ERR=90, END=90) dd
+        IF(DD(2:4)=='CM3') THEN
+            READ(cmd,*, ERR=91) nnncon
+            EXIT
+        ENDIF
+    ENDDO
+    REWIND(cmd)
+    RETURN
+90  mess='failed to find line :CM3 in contaminant data file'
+    CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  'GET_NCON_EARLY '//TRIM(mess))
+    RETURN
+91  mess='failed to read NCON '
+    CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  'GET_NCON_EARLY '//TRIM(mess))
+    RETURN
 END SUBROUTINE get_ncon_early
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE get_nsed_early()
-CHARACTER(5)  :: dd
-CHARACTER(64) :: mess
-DO
-    READ(syd,'(A)', END=90) dd
-    IF(DD(2:5)=='SY11') THEN
-        READ(syd,*, ERR=91) nnnsed
-        EXIT
-    ENDIF
-ENDDO
-REWIND(syd)
-RETURN
-90 mess='failed to find line :SY11 in sediment data file' ; GOTO 1000
-91 mess='failed to read NSED '
-1000 mess = 'GET_NSED_EARLY '//TRIM(mess)
-CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  mess)
+    CHARACTER(5)  :: dd
+    CHARACTER(64) :: mess
+    DO
+        READ(syd,'(A)', END=90) dd
+        IF(DD(2:5)=='SY11') THEN
+            READ(syd,*, ERR=91) nnnsed
+            EXIT
+        ENDIF
+    ENDDO
+    REWIND(syd)
+    RETURN
+90  mess='failed to find line :SY11 in sediment data file'
+    CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  'GET_NSED_EARLY '//TRIM(mess))
+    RETURN
+91  mess='failed to read NSED '
+    CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  'GET_NSED_EARLY '//TRIM(mess))
+    RETURN
 END SUBROUTINE get_nsed_early
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL REAL FUNCTION grid_dx(iel) RESULT(r)

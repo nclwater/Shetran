@@ -4,18 +4,18 @@ This report details the usage of GOTO statements within the Shetran codebase.
 
 ## `src/modules/getdirqq_winIntel.f90`
 
-- **Line 137: `IF(message/='') GOTO 1000`**
+- ~~**Line 137: `IF(message/='') GOTO 1000`**~~
   - **Purpose:** Error handling. If an error message has been set during command-line argument parsing, it jumps to the error handling block at label `1000`.
 
-- **Line 146: `GOTO 1000`**
+- ~~**Line 146: `GOTO 1000`**~~
   - **Purpose:** Error handling. If the specified rundata file does not exist, it jumps to the error handling block at label `1000`.
 
 ## `src/visualisation/visualisation_interface_left.f90`
 
-- **Line 253: `GOTO 1000`**
+- ~~**Line 253: `GOTO 1000`**~~
   - **Purpose:** Error handling. In `get_ncon_early`, if the marker `:CM3` is not found in the contaminant data file, it jumps to the error handling block at label `1000`.
 
-- **Line 271: `GOTO 1000`**
+- ~~**Line 271: `GOTO 1000`**~~
   - **Purpose:** Error handling. In `get_nsed_early`, if the marker `:SY11` is not found in the sediment data file, it jumps to the error handling block at label `1000`.
 
 ## `src/modules/utilsmod.f90`
