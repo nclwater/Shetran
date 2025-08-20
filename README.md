@@ -32,6 +32,8 @@ A non exhaustive list:
   Make it readable, i.e. hide values behind parameter variables.
 - A lot of choices between different methods is using plain integers. 
   Use fixed parameters instead to improve the legibility.
+- Add an execution flag to output the array limits set at compile time.
+- Make it easier to compile to different array limit sizes.
 
 ## Notes
 

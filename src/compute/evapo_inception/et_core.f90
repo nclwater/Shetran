@@ -218,7 +218,7 @@ CONTAINS
       ENDIF
 !
 !     Count from the top cell down (for RDF subscript)
-      DO 310 KK = 1, K
+      DO KK = 1, K
 !
 !        Corresponding bottom-up cell number
          II = top_cell_no - KK + 1
@@ -316,7 +316,7 @@ CONTAINS
 !   IF (II.EQ.top_cell_no) ESOIL = AE * (1 - CPLAI)
 !
 !
-310   END DO
+      END DO
 !
    END SUBROUTINE ET
 

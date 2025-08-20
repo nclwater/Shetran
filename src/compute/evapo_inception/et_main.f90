@@ -44,7 +44,7 @@ CONTAINS
       TIMEUZ = TIMEUZ + UZNEXT
 
 ! Loop over land-elements
-      DO 1000 IEL = NGDBGN, total_no_elements
+      DO IEL = NGDBGN, total_no_elements
          ITYPE = ICMREF (IEL, 1)
          IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
             IL = ICMREF (IEL, 4)
@@ -66,7 +66,7 @@ CONTAINS
 
          CALL ETIN (IEL)
 
-1000  END DO
+      END DO
    END SUBROUTINE ETSIM
 
 END MODULE et_main
