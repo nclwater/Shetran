@@ -28,7 +28,10 @@ A non exhaustive list:
 - Use a code formatter to enforce a consistent coding style.#
 - Update variable declaration to use the KIND= parameter instead of e.g. DOUBLEPRECISION.
 - Use IOSTAT instead of END= or ERR= for status & error handling of IO.
-- The variable NTYPE seems to be a flag for settings chosen. Make it readable, i.e. hide values behind parameter variables.
+- The variable NTYPE seems to be a flag for settings chosen. 
+  Make it readable, i.e. hide values behind parameter variables.
+- A lot of choices between different methods is using plain integers. 
+  Use fixed parameters instead to improve the legibility.
 
 ## Notes
 

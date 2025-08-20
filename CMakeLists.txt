@@ -235,7 +235,10 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 9: More contaminant modules
         "contaminant_simulation\\.f90$;contaminant_column_solver\\.f90$;contaminant_link_solver\\.f90$"
         
-        # Group 10: OC interface and physics modules including refactored CMmod
+        # Group 9.5: ET modules (refactored structure - order by dependency)
+        "et_variables\\.f90$;et_validation\\.f90$;et_core\\.f90$;et_integration\\.f90$;et_main\\.f90$"
+        
+        # Group 10: OC interface and physics modules including refactored ETmod and CMmod
         "OCmod2\\.f90$;OCQDQMOD\\.F90$;ETmod\\.f90$;CMmod\\.f90$"
         
         # Group 11: Advanced modules
