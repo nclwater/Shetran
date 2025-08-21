@@ -25,7 +25,7 @@ A non exhaustive list:
 - Use the Fortran Standard Library where applicable, e.g. for CLI arguments and error messages.
 - There are a lot of GOTOs left in the code, often to setup loops and control flow execution.
   Update to appropiate other structures / directives.
-- Use a code formatter to enforce a consistent coding style.#
+- Use a code formatter to enforce a consistent coding style.
 - Update variable declaration to use the KIND= parameter instead of e.g. DOUBLEPRECISION.
 - Use IOSTAT instead of END= or ERR= for status & error handling of IO.
 - The variable NTYPE seems to be a flag for settings chosen. 
@@ -34,6 +34,10 @@ A non exhaustive list:
   Use fixed parameters instead to improve the legibility.
 - Add an execution flag to output the array limits set at compile time.
 - Make it easier to compile to different array limit sizes.
+- Or, instead, make them allocatable at runtime.
+  Get the necessary sizes from the actual input data and use encapsulation to make it safe.
+- Figure out if the performance of any loops can be improved by using OpenMP.
+  For this, start using PURE and ELEMENTAL for the subroutines / functions as appropiate.
 
 ## Notes
 

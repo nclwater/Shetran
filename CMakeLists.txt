@@ -241,6 +241,12 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 10: OC interface and physics modules including refactored ETmod and CMmod
         "OCmod2\\.f90$;OCQDQMOD\\.F90$;ETmod\\.f90$;CMmod\\.f90$"
         
+        # Group 10.4: Framework shared utilities (must come before all framework modules)
+        "framework_shared\\.f90$"
+        
+        # Group 10.5: Framework modules (refactored from FRmod - must come before FRmod interface)
+        "framework_initialization\\.f90$;framework_spatial_setup\\.f90$;framework_output_manager\\.f90$;framework_mass_balance\\.f90$;framework_element_sorting\\.f90$;framework_component_initialization\\.f90$"
+        
         # Group 11: Advanced modules
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         
