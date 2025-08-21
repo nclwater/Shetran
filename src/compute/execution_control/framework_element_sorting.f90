@@ -216,7 +216,7 @@ CONTAINS
                   EXIT
                ENDDO
             ENDDO
-            GOTO 410
+            ! Continue with next jump size
          ENDIF
          !
          ! --- ARRAY ISTEMP IS SORTED
@@ -243,22 +243,18 @@ CONTAINS
       ENDIF
 !
       IF (I1.GT.NS1) THEN
-         DO 520 I = IS, total_no_elements
+         DO I = IS, total_no_elements
             ISORT (I) = ISTEMP (I2, 2)
             I2 = I2 + 1
-520      END DO
-         GOTO 700
-      ENDIF
-!
-      IF (I2.GT.NS2) THEN
-         DO 540 I = IS, total_no_elements
+         END DO
+      ELSEIF (I2.GT.NS2) THEN
+         DO I = IS, total_no_elements
             ISORT (I) = ISTEMP (I1, 1)
             I1 = I1 + 1
-540      END DO
-         GOTO 700
+         END DO
+      ELSE
+         GOTO 600  ! Continue merge process
       ENDIF
-!
-      GOTO 600
 !
 700   CONTINUE
 !

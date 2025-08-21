@@ -298,10 +298,13 @@ CONTAINS
 ! OPEN OUTPUT DATA FILES ON FILE UNITS 50 ONWARDS
 !
       IF (NSET.GT.0) THEN
-         DO 280 ICHAR = 2, LEN (RESFIL)
-            IF (RESFIL (ICHAR:) .EQ.' ') GOTO 290
-280      END DO
-290      ICHAR = ICHAR - 1
+         DO ICHAR = 2, LEN (RESFIL)
+            IF (RESFIL (ICHAR:) .EQ.' ') THEN
+               EXIT
+            END IF
+         END DO
+         IF (ICHAR .GT. LEN(RESFIL)) ICHAR = LEN(RESFIL)
+         ICHAR = ICHAR - 1
          DO 300 ISET = 1, NSET
             IORES (ISET) = 50 + ISET
             WRITE (ANUM, '(I2.2)') ISET
@@ -431,13 +434,21 @@ CONTAINS
 ! OR DATA IS NOT REQUESTED TO BE OUTPUT ON THIS CALL TO THIS ROUTINE.
 !
          IF (.NOT.NOW) THEN
-            IF (RESNOW.LT.IOTIME (ISET) - 1.0E-6) GOTO 100
-            IF (IOTIME (ISET) .GE.IOEND (ISET) ) GOTO 100
+            IF (RESNOW.LT.IOTIME (ISET) - 1.0E-6) THEN
+               RETURN  ! Skip output for this set
+            END IF
+            IF (IOTIME (ISET) .GE.IOEND (ISET) ) THEN
+               RETURN  ! Skip output for this set
+            END IF
          ENDIF
 !
          IDATA = IODATA (ISET)
-         IF (IDATA.LT.1.OR.IDATA.GT.MIN (LEN (AIOSTO), 50) ) GOTO 100
-         IF (AIOSTO (IDATA:IDATA) .NE.'1') GOTO 100
+         IF (IDATA.LT.1.OR.IDATA.GT.MIN (LEN (AIOSTO), 50) ) THEN
+            RETURN  ! Skip output for this set
+         END IF
+         IF (AIOSTO (IDATA:IDATA) .NE.'1') THEN
+            RETURN  ! Skip output for this set
+         END IF
 !
 ! SET UP NUMBER OF DATA ITEMS TO BE WRITTEN
 !
@@ -1017,22 +1028,22 @@ CONTAINS
 
 
 
-      GOTO 900
+      ! Continue to normal completion
 !
 
 190   iszq=.false.
       isextrapsl=.false.
-      goto 900
+      ! Continue to normal completion
 
 195   isextrapsl=.false.
-      goto 900
+      ! Continue to normal completion
 
 
 200   IF (I.LT.14) THEN
          WRITE ( *, 1030) CNAM
          STOP 'ABNORMAL END'
       ENDIF
-      GOTO 900
+      ! Continue to normal completion
 !
 300   WRITE ( *, 1050) CNAM
       STOP 'ABNORMAL END'

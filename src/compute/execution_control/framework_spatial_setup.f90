@@ -93,6 +93,7 @@ CONTAINS
       INTEGER :: ITYPE, J, J1, J2, JM1, JN2, JNEXT1, JP1, K, L, L1
       INTEGER :: NEL2, NNODE3, NNODE4
       LOGICAL :: SINGLE
+      LOGICAL :: found_match, found_inner_match  ! For GOTO replacement
 
       CHARACTER (LEN=2) :: PDIRN
 !----------------------------------------------------------------------*
@@ -607,14 +608,18 @@ CONTAINS
          DO 650 I = 1, 4
             INEXT1 = ICMREF (INDEX, I + 4)
             IF (INEXT1.GT.0) THEN
-               DO 630 J = 1, 4
+               found_match = .FALSE.
+               DO J = 1, 4
                   IF (ICMREF (INEXT1, J + 4) .EQ.INDEX) THEN
                      ICMREF (INDEX, I + 8) = J
-                     GOTO 650
+                     found_match = .TRUE.
+                     EXIT
                   ENDIF
-630            END DO
-               WRITE(PPPRI, 1100) INDEX, I
-               ICOUNT = ICOUNT + 1
+               END DO
+               IF (.NOT. found_match) THEN
+                  WRITE(PPPRI, 1100) INDEX, I
+                  ICOUNT = ICOUNT + 1
+               END IF
             ELSEIF (INEXT1.LT.0) THEN
                IF (ICMRF2 ( - INEXT1, 1) .EQ.0.OR.ICMRF2 ( - INEXT1, 2) &
                   .EQ.0.OR.ICMRF2 ( - INEXT1, 3) .EQ.0) THEN
@@ -625,20 +630,25 @@ CONTAINS
                DO 640 J1 = 1, 3
                   IN1 = ICMRF2 ( - INEXT1, J1)
                   IF (IN1.GT.0) THEN
-                     DO 635 J = 1, 4
+                     found_inner_match = .FALSE.
+                     DO J = 1, 4
                         JNEXT1 = ICMREF (IN1, J + 4)
                         IF (JNEXT1.LT.0) THEN
-                           DO 632 J2 = 1, 3
+                           DO J2 = 1, 3
                               JN2 = ICMRF2 ( - JNEXT1, J2)
                               IF (JN2.EQ.INDEX) THEN
                                  ICMRF2 ( - INEXT1, J1 + 3) = J
-                                 GOTO 640
+                                 found_inner_match = .TRUE.
+                                 EXIT
                               ENDIF
-632                        END DO
+                           END DO
+                           IF (found_inner_match) EXIT
                         ENDIF
-635                  END DO
-                     WRITE(PPPRI, 1100) INDEX, I
-                     ICOUNT = ICOUNT + 1
+                     END DO
+                     IF (.NOT. found_inner_match) THEN
+                        WRITE(PPPRI, 1100) INDEX, I
+                        ICOUNT = ICOUNT + 1
+                     END IF
                   ENDIF
 640            END DO
             ELSE

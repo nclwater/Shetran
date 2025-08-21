@@ -277,8 +277,10 @@ CONTAINS
                ENDIF
 2           END DO
             JLYR = 0
-4           JLYR = JLYR + 1
-            IF (NLYRBT (NBK (1), JLYR) .LT.NHBED (NLINK, 1) ) GOTO 4
+            find_layer: DO
+               JLYR = JLYR + 1
+               IF (NLYRBT (NBK (1), JLYR) .GE.NHBED (NLINK, 1) ) EXIT find_layer
+            END DO find_layer
             NSOBED (NLINK) = NTSOIL (NBK (1), JLYR - 1)
             PBSED (NLINK) = VSPOR (NSOBED (NLINK) )
 !                             SET BED SOIL TYPE AND POROSITY, BASED ON
@@ -459,9 +461,11 @@ CONTAINS
                         NHBED (NLINK, JBK) + 1)
                   ELSE
                      NCE = NHBED (NLINK, JBK)
-104                  NCE = NCE-1
-                     asum = asum + KSPDUM (NBK (JBK), NCE+1)
-                     IF (asum.LE.DKBED) GOTO 104
+                     find_soil_layer: DO
+                        NCE = NCE-1
+                        asum = asum + KSPDUM (NBK (JBK), NCE+1)
+                        IF (asum.GT.DKBED) EXIT find_soil_layer
+                     END DO find_soil_layer
                      NCEDUM (JBK) = NCE
                      FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), &
                         NCE+1)
@@ -484,10 +488,12 @@ CONTAINS
                   JFCE(JBK) = JA + SIGN(2, 2-JA)
                   NOLP = NOLBT (NBK (JBK), NCEDUM (JBK) + 1, JFCE (JBK) &
                      ) - 1
-106               NOLP = NOLP + 1
-                  DUM1 = SCL * JOLFN (NBK (JBK), NOLP, JFCE (JBK) )
-                  asum = asum + DUM1
-                  IF (asum.LE.FNDUM (JBK) ) GOTO 106
+                  find_overlap: DO
+                     NOLP = NOLP + 1
+                     DUM1 = SCL * JOLFN (NBK (JBK), NOLP, JFCE (JBK) )
+                     asum = asum + DUM1
+                     IF (asum.GT.FNDUM (JBK) ) EXIT find_overlap
+                  END DO find_overlap
                   JOLDUM (JBK) = NOLP - 1
                   FOLDUM (JBK) = (FNDUM (JBK) - asum + DUM1) / DUM1
 !                             OVERLAP NUMBERS AND FRACTIONS ASSOCIATED

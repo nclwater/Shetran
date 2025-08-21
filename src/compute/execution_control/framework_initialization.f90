@@ -208,17 +208,17 @@ CONTAINS
       DO 30 IEL = 1, total_no_links
          NMC (IEL) = 1
          NRAINC (IEL) = 1
-         DO 20 IFACE = 1, 4
+         DO IFACE = 1, 4
             JEL = ICMREF (IEL, 4 + IFACE)
             IF (JEL.GT.0) THEN
                IF (ICMREF (JEL, 1) .NE.3.AND.NMC (JEL) .GT.0.AND.NRAINC &
                   (JEL) .GT.0) THEN
                   NMC (IEL) = NMC (JEL)
                   NRAINC (IEL) = NRAINC (JEL)
-                  GOTO 30
+                  EXIT  ! Exit inner loop, continue with next element
                ENDIF
             ENDIF
-20       END DO
+         END DO
 
 30    END DO
 !
@@ -245,25 +245,29 @@ CONTAINS
 !
       IF (BHOTRD) THEN
 !
-
-115      READ (HOT, *, END = 120) atemp, HOTIME, UZNEXT, top_cell_no,atemp, (CSTORE (IEL), &
-            IEL = NGDBGN, total_no_elements),atemp, (rdd(IEL), IEL = 1, total_no_elements),atemp, ( (rddq (IEL, K), &
-            IEL = 1, total_no_elements), K = 1, 4),atemp, ( (QOC (IEL, K), IEL = 1, total_no_elements), &
-            K = 1, 4),atemp, ( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-            atemp,( (DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),atemp, ( (DQIST2 (IEL, K) &
-            , IEL = 1, NGDBGN - 1), K = 1, 3),atemp, (SD (IEL), IEL = NGDBGN, &
-            total_no_elements),atemp, (TS (IEL), IEL = NGDBGN, total_no_elements),atemp, (NSMC (IEL), IEL = NGDBGN, &
-            total_no_elements),atemp, ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
-            total_no_elements),atemp, ( (tmelt(K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, total_no_elements), &
-            atemp, ( (VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
-         DO iel=1,total_no_elements
-            CALL SETHRF(iel,rdd(iel))
-            DO k=1,4
-               CALL SETQSA(iel,k,rddq(iel,K))
+         ! Read hotstart data until time condition met
+         hotstart_reading: DO
+            READ (HOT, *, END = 120) atemp, HOTIME, UZNEXT, top_cell_no,atemp, (CSTORE (IEL), &
+               IEL = NGDBGN, total_no_elements),atemp, (rdd(IEL), IEL = 1, total_no_elements),atemp, ( (rddq (IEL, K), &
+               IEL = 1, total_no_elements), K = 1, 4),atemp, ( (QOC (IEL, K), IEL = 1, total_no_elements), &
+               K = 1, 4),atemp, ( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
+               atemp,( (DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),atemp, ( (DQIST2 (IEL, K) &
+               , IEL = 1, NGDBGN - 1), K = 1, 3),atemp, (SD (IEL), IEL = NGDBGN, &
+               total_no_elements),atemp, (TS (IEL), IEL = NGDBGN, total_no_elements),atemp, (NSMC (IEL), IEL = NGDBGN, &
+               total_no_elements),atemp, ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
+               total_no_elements),atemp, ( (tmelt(K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, total_no_elements), &
+               atemp, ( (VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
+            DO iel=1,total_no_elements
+               CALL SETHRF(iel,rdd(iel))
+               DO k=1,4
+                  CALL SETQSA(iel,k,rddq(iel,K))
+               ENDDO
             ENDDO
-         ENDDO
-         IF (HOTIME.GE.BHOTTI) GOTO 125
-         GOTO 115
+            IF (HOTIME.GE.BHOTTI) THEN
+               EXIT hotstart_reading  ! Time condition met
+            END IF
+            ! Continue reading next record
+         END DO hotstart_reading
 !
 120      WRITE(PPPRI, 122)
 122      FORMAT  ( / ' WARNING: END OF HOTSTART FILE REACHED')
@@ -346,14 +350,14 @@ CONTAINS
          IF (K.NE.I) GOTO 100
          I = I - 1
 !
-         DO 70 L = 1, NNX
-            DO 60 M = 1, 9
+         DO L = 1, NNX
+            DO M = 1, 9
                IF (A1LINE (L) .EQ.NMERIC (M) ) THEN
                   IARR (L, K) = M
-                  GOTO 70
+                  EXIT  ! Exit inner loop, continue to next L
                ENDIF
-60          END DO
-70       END DO
+            END DO
+         END DO
 !
 40    END DO
       RETURN
