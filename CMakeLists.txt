@@ -157,7 +157,7 @@ function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
         endif()
         
         # Exclude backup files and temporary files
-        if(NAME MATCHES ".*~$" OR NAME MATCHES ".*\\.bak$" OR NAME MATCHES ".*\\.tmp$")
+        if(NAME MATCHES ".*~$" OR NAME MATCHES ".*\\.bak$" OR NAME MATCHES ".*\\.tmp$" OR NAME MATCHES ".*\\.sav$")
             set(SHOULD_EXCLUDE TRUE)
         endif()
         
@@ -226,6 +226,9 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 7: More OC modules  
         "oc_node_flows\\.f90$;oc_channel_flow_types\\.f90$;oc_flow_control\\.f90$"
         
+        # Group 7.5: Hydraulic flow calculation modules (refactored from OCQDQMOD - ordered by dependency)
+        "hydraulic_variables\\.f90$;hydraulic_helpers\\.f90$;flow_calculator\\.f90$"
+        
         # Group 8: Contaminant supporting modules (must come before CMmod)
         "contaminant_common\\.f90$;contaminant_utilities\\.f90$;contaminant_data_reader\\.f90$"
 
@@ -238,8 +241,8 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 9.5: ET modules (refactored structure - order by dependency)
         "et_variables\\.f90$;et_validation\\.f90$;et_core\\.f90$;et_integration\\.f90$;et_main\\.f90$"
         
-        # Group 10: OC interface and physics modules including refactored ETmod and CMmod
-        "OCmod2\\.f90$;OCQDQMOD\\.F90$;ETmod\\.f90$;CMmod\\.f90$"
+        # Group 10: OC interface and physics modules including refactored OCQDQMOD and other modules
+        "OCmod2\\.f90$;OCQDQMOD\\.f90$;ETmod\\.f90$;CMmod\\.f90$"
         
         # Group 10.4: Framework shared utilities (must come before all framework modules)
         "framework_shared\\.f90$"
