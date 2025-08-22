@@ -253,10 +253,13 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 11: Advanced modules
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         
-        # Group 12: Visualization and control (flexible ordering)
+        # Group 12.5: Refactored rest components (ordered by dependency)
+        "water_balance\\.f90$;meteorological_input\\.f90$;simulation_output\\.f90$;timestep_control\\.f90$"
+        
+        # Group 13: Visualization and control (flexible ordering)
         "visualisation_.*\\.f90$;increment_utilities\\.f90$"
         
-        # Group 13: Simulation control
+        # Group 14: Simulation control
         "rest\\.f90$;run_sim\\.f90$"
     )
     
