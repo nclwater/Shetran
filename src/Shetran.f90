@@ -24,7 +24,7 @@ PROGRAM SHETRAN
    USE GETDIRQQ,                      ONLY : GET_DIR_AND_CATCH
    USE FRmod,                         ONLY : FROPEN, FROUTPUT
    USE VISUALISATION_INTERFACE_RIGHT, ONLY : RECORD_VISUALISATION_DATA  !VISVISVIS
-   USE REST,                          ONLY : EXTRA_OUTPUT
+   USE simulation_output,             ONLY : extra_output
    USE RUN_SIM,                       ONLY : SIMULATION
 
    IMPLICIT NONE
@@ -39,7 +39,7 @@ PROGRAM SHETRAN
 
    CALL SIMULATION
    CALL FROUTPUT('end  ')
-   CALL EXTRA_OUTPUT()
+   CALL extra_output()
    CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND = 4) , 'end')
 
    ! sleepqq(500) removed - Windows-specific function not needed on Linux

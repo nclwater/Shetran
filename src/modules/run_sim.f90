@@ -24,8 +24,9 @@ MODULE run_sim
    USE CMmod,    ONLY : CMSIM  !"JE"
    USE ETmod,    ONLY : ETSIM, &
       psi4, uzalfa !THESE NEEDED ONLY FOR AD
-   USE rest,     ONLY : BALWAT, TMSTEP, &
-      metime, melast, eptime, pinp
+   USE water_balance, ONLY : BALWAT
+   USE timestep_control, ONLY : TMSTEP
+   USE meteorological_input, ONLY : metime, melast, eptime, pinp
    !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
    USE FRmod,    ONLY : INCM, FRINIT
    USE OCmod,    ONLY : OCSIM
