@@ -63,7 +63,7 @@ IF(ASSOCIATED(pb%next)) THEN ; first = LOC(pb%next) ; ELSE ; first=0 ; ENDIF
 
 **Files Affected**:
 
-- `src/modules/getdirqq.f90` (line 21)
+- `src/util/getdirqq.f90` (line 21)
 - `src/parameters/sglobal.f90` (commented DFLIB usage)
 
 ## Important Issues (Should Fix)
@@ -134,7 +134,7 @@ PAUSE
 
 1. `src/visualisation/visualisation_structure.f90` - **Cray pointers + DEC$ directives**
 2. `src/visualisation/visualisation_pass.f90` - **DEC$ conditional compilation**
-3. `src/modules/getdirqq.f90` - **Windows dependencies**
+3. `src/util/getdirqq.f90` - **Windows dependencies**
 
 ### Important Files (Should Be Addressed)
 

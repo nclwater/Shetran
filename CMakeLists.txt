@@ -103,7 +103,7 @@ option(USE_WINDOWS_INTEL_GETDIRQQ "Use Windows Intel-specific getdirqq (only ava
 # Handle getdirqq version selection and ensure the generated file is included
 if(USE_WINDOWS_INTEL_GETDIRQQ)
     if(WIN32 AND CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-        set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/modules/getdirqq_winIntel.f90")
+        set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/util/getdirqq_winIntel.f90")
         message(STATUS "Using Windows Intel-specific getdirqq version")
     else()
         if(NOT WIN32)
@@ -113,12 +113,12 @@ if(USE_WINDOWS_INTEL_GETDIRQQ)
         endif()
     endif()
 else()
-    set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/modules/getdirqq_portable.f90")
+    set(GETDIRQQ_SOURCE "${CMAKE_SOURCE_DIR}/src/util/getdirqq_portable.f90")
     message(STATUS "Using portable getdirqq version (cross-platform)")
 endif()
 
 # Copy selected version to the active getdirqq.f90 (this happens at configure time)
-set(GETDIRQQ_TARGET "${CMAKE_SOURCE_DIR}/src/modules/getdirqq.f90")
+set(GETDIRQQ_TARGET "${CMAKE_SOURCE_DIR}/src/util/getdirqq.f90")
 configure_file("${GETDIRQQ_SOURCE}" "${GETDIRQQ_TARGET}" COPYONLY)
 
 # Include advanced Fortran dependency analysis

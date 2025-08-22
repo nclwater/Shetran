@@ -2,7 +2,7 @@
 
 This report details the usage of GOTO statements within the Shetran codebase.
 
-## `src/modules/getdirqq_winIntel.f90`
+## `src/util/getdirqq_winIntel.f90`
 
 - ~~**Line 137: `IF(message/='') GOTO 1000`**~~
   - **Purpose:** Error handling. If an error message has been set during command-line argument parsing, it jumps to the error handling block at label `1000`.
