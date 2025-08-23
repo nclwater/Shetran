@@ -34,3 +34,5 @@ Therefore a lot could be done to modernize the code and improve the featureset.
 - Figure out if the performance of any loops can be improved by using OpenMP.
   For this, start using PURE and ELEMENTAL for the subroutines / functions as appropiate.
 - When completely exiting nested loops, use "EXIT <loopname>" if possible (double check changes done).
+- For OPEN statements, use NEWUNIT to set handles. 
+  Correspondingly, replace the explicit unit-numbers with more descriptive variables.

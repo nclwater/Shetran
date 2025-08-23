@@ -348,7 +348,6 @@ The refactored modules maintain the same external dependencies as the original:
 ## Related Documentation
 
 - **[FRMOD_ARCHITECTURE_DIAGRAM.md](./FRMOD_ARCHITECTURE_DIAGRAM.md)** - Visual dependency diagrams and compilation flow
-- **[FRMOD_REFACTORING_SUMMARY.md](../../../FRMOD_REFACTORING_SUMMARY.md)** - Project-level summary document
 
 ---
 *Refactoring completed on: August 21, 2025*  
