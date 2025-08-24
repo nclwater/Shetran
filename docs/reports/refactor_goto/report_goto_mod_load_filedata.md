@@ -323,13 +323,13 @@ ENDIF
 
 ## Code Quality Metrics
 
-| Metric | Before | After | Improvement |
-|--------|--------|--------|-------------|
-| GOTO Statements | 11 | 0 | -100% |
-| Error Labels | 7 | 0 | -100% |
-| Helper Functions | 0 | 2 | +2 |
-| Code Duplication | High | Low | Significant |
-| Cyclomatic Complexity | High | Reduced | Improved |
+| Metric                | Before | After   | Improvement |
+| --------------------- | ------ | ------- | ----------- |
+| GOTO Statements       | 11     | 0       | -100%       |
+| Error Labels          | 7      | 0       | -100%       |
+| Helper Functions      | 0      | 2       | +2          |
+| Code Duplication      | High   | Low     | Significant |
+| Cyclomatic Complexity | High   | Reduced | Improved    |
 
 ## Testing and Validation
 

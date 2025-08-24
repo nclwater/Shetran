@@ -126,7 +126,7 @@ CONTAINS
          ELSE
             message = 'Cannot find rundata file '//TRIM(filename)
          ENDIF
-         GOTO 1000
+         CALL handle_command_line_error(message)
       ENDIF
 
       ! Portable path splitting (replacement for SPLITPATHQQ)
@@ -208,5 +208,21 @@ CONTAINS
       ENDIF
 
    END SUBROUTINE SPLIT_PATH_PORTABLE
+
+
+   !---------------------------------------------------------------------------
+   !> @brief Handle command line errors with usage message
+   !> @param[in] error_msg - Error message to display
+   !---------------------------------------------------------------------------
+   SUBROUTINE handle_command_line_error(error_msg)
+      CHARACTER(len=*), INTENT(IN) :: error_msg
+
+      ! Error handling - write to standard error
+      WRITE(*,'(A)') 'ERROR: ' // TRIM(error_msg)
+      WRITE(*,'(A)') 'Usage: shetran -f rundata_file.txt'
+      WRITE(*,'(A)') '   or: shetran -c catchment_name'
+      STOP 1
+
+   END SUBROUTINE handle_command_line_error
 
 END MODULE GETDIRQQ
