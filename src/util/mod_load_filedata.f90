@@ -113,7 +113,9 @@ CONTAINS
 
       ! Invalid Option
       IF (NUM_CATEGORIES_TYPES < MINCAT) THEN
-         GOTO 8001
+         WRITE (MSG, 9001) NUM_CATEGORIES_TYPES,  LINE
+         CALL ERROR (FFFATAL, 1, OUNIT, 0, 0, MSG)
+         RETURN
 
          ! Special Case: Return to Caller
       ELSEIF (NUM_CATEGORIES_TYPES < 0) THEN
@@ -177,7 +179,11 @@ CONTAINS
 
                DO IEL = 1, NLF
                   ICAT = IDUM (IEL)
-                  IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) GOTO 8009
+                  IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
+                     WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
+                     CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
+                     RETURN
+                  ENDIF
                   DO I2 = 1, N2
                      AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
                   END DO
@@ -197,8 +203,11 @@ CONTAINS
                      ICAT = IDUM (XY0 + X)
 
                      ! error if out of bounds
-                     IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES)      &
-                        GOTO 8009
+                     IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
+                        WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
+                        CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
+                        RETURN
+                     ENDIF
                      DO I2 = 1, N2
                         AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
                      END DO
@@ -482,12 +491,11 @@ CONTAINS
             POS1 = POS2
             POS2 = POS1 + INDEX (SNAME (POS1 + 1:) , ',')
          ELSE
-            GOTO 101
+            EXIT
          ENDIF
       END DO
 
       ! If this point is traversed NDIM=3; if skipped NDIM<3
-101   CONTINUE
 
       ! What action is required?
       ! ------------------------
@@ -646,12 +654,11 @@ CONTAINS
             POS1 = POS2
             POS2 = POS1 + INDEX (SNAME (POS1 + 1:) , ',')
          ELSE
-            GOTO 101
+            EXIT
          ENDIF
       END DO
 
       ! If this point is traversed NDIM=3; if skipped NDIM<3
-101   CONTINUE
 
       !
       ! What action is required?
@@ -856,12 +863,12 @@ CONTAINS
             ENDIF
 
             DO NTABLE = NTHRTB, NINTB
-               IF (DEPTH <= TABLE_WATER_DEPTH (NCATG, NTABLE) ) GOTO 300
+               IF (DEPTH <= TABLE_WATER_DEPTH (NCATG, NTABLE) ) EXIT
                !                                  ^^^^^^^^^
                NTHRTB = NTHRTB + 1
             END DO
 
-300         CELL_CONCENTRATION (NELM, NCL) =                                &
+            CELL_CONCENTRATION (NELM, NCL) =                                &
                TABLE_CONCENTRATION (NCATG, NTABLE-1)                       &
                + (TABLE_CONCENTRATION (NCATG, NTABLE)                      &
                - TABLE_CONCENTRATION (NCATG, NTABLE-1) )                   &
@@ -931,7 +938,11 @@ CONTAINS
 
       ! Check that input file is open
       IF (FLAG == 0) THEN
-         IF (.NOT.BOPEN) GOTO 8000
+         IF (.NOT.BOPEN) THEN
+            WRITE (MSG, 9000) LINE, 'not open', IUNIT
+            CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
+            RETURN
+         ENDIF
 
          ! Write (and store) an informative message
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
@@ -975,7 +986,11 @@ CONTAINS
                   (IDATA (IX, IY), IX = 1, N1)
             ENDIF
 
-            IF (KY .NE. IY) GOTO 8420
+            IF (KY .NE. IY) THEN
+               WRITE (MSG, 9842) 'integer', IY, HEAD
+               CALL ERROR (FFFATAL, 10, OUNIT, 0, 0, MSG)
+               RETURN
+            ENDIF
          END DO
 
          ! Read a floating point grid array
@@ -985,7 +1000,10 @@ CONTAINS
          DO IY = N2, 1, - 1
             READ (IUNIT, *, ERR = 8430, END = 8430) KY,                     &
                (RDATA (IX, IY), IX = 1, N1)
-            IF (KY .NE. IY) GOTO 8430
+            IF (KY .NE. IY) THEN
+               CALL handle_floating_point_grid_error(IY, HEAD, OUNIT)
+               RETURN
+            ENDIF
          END DO
 
          ! Read data in VSS format for each element
@@ -1005,7 +1023,11 @@ CONTAINS
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
             READ (IUNIT, *, ERR = 8700, END = 8700) (IDATA (ICOUNT, I),     &
                I = 1, 3)
-            IF (IDATA (ICOUNT, 1) .NE. ICOUNT) GOTO 8700
+            IF (IDATA (ICOUNT, 1) .NE. ICOUNT) THEN
+               WRITE (MSG, 9700) ICOUNT, HEAD
+               CALL ERROR (FFFATAL, 14, OUNIT, 0, 0, MSG)
+               RETURN
+            ENDIF
             READ (IUNIT, *, ERR = 8700, END = 8700) (RDATA (ICOUNT, I),     &
                I = 1, 8)
          END DO
@@ -1117,7 +1139,11 @@ CONTAINS
       IF (FLAG == 0) THEN
 
          ! Check that input file is open
-         IF (.NOT.BOPEN) GOTO 8000
+         IF (.NOT.BOPEN) THEN
+            WRITE (MSG, 9000) LINE, 'not open', IUNIT
+            CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
+            RETURN
+         ENDIF
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
 
       ELSE
@@ -1267,7 +1293,10 @@ CONTAINS
          DO IY = N2, 1, - 1
             READ (IUNIT, *, ERR = 8430, END = 8430) KY, (FDATA (IX, IY),    &
                IX = 1, N1)
-            IF (KY .NE. IY) GOTO 8430
+            IF (KY .NE. IY) THEN
+               CALL handle_floating_point_grid_error(IY, HEAD, OUNIT)
+               RETURN
+            ENDIF
          END DO
       ENDIF
 
@@ -1360,7 +1389,10 @@ CONTAINS
                READ (IUNIT, *, ERR = 8420, END = 8420) KY,                 &
                   (IDATA (IX, IY), IX = 1, N1)
             ENDIF
-            IF (KY .NE. IY) GOTO 8420
+            IF (KY .NE. IY) THEN
+               CALL handle_integer_grid_error(IY, HEAD, OUNIT)
+               RETURN
+            ENDIF
          END DO
       ENDIF
 
@@ -1553,5 +1585,63 @@ CONTAINS
 
       RETURN
    END SUBROUTINE ALTRAP
+
+
+   !---------------------------------------------------------------------------
+   !> @author GitHub Copilot
+   !
+   !> @brief
+   !! Helper subroutine for floating-point grid data read errors
+   !
+   ! REVISION HISTORY:
+   ! 20240824 - GitHub Copilot - Created to eliminate GOTO 8430 code duplication
+   !---------------------------------------------------------------------------
+   SUBROUTINE handle_floating_point_grid_error(IY, HEAD, OUNIT)
+
+      ! Input arguments
+      INTEGER(kind=I_P), INTENT(IN)   :: IY, OUNIT
+      CHARACTER(LEN=*), INTENT(IN)    :: HEAD
+
+      ! Local variables
+      CHARACTER(len=132) :: MSG
+
+      ! Code =================================================================
+
+      WRITE (MSG, 9842) 'floating-point', IY, HEAD
+      CALL ERROR (FFFATAL, 11, OUNIT, 0, 0, MSG)
+
+      ! Format Statements ----------------------------------------------------
+9842  FORMAT ( 'Reading ', A, ' grid (IY=',I4, ') under title: ', A )
+
+   END SUBROUTINE handle_floating_point_grid_error
+
+
+   !---------------------------------------------------------------------------
+   !> @author GitHub Copilot
+   !
+   !> @brief
+   !! Helper subroutine for integer grid data read errors
+   !
+   ! REVISION HISTORY:
+   ! 20240824 - GitHub Copilot - Created to eliminate GOTO 8420 code duplication
+   !---------------------------------------------------------------------------
+   SUBROUTINE handle_integer_grid_error(IY, HEAD, OUNIT)
+
+      ! Input arguments
+      INTEGER(kind=I_P), INTENT(IN)   :: IY, OUNIT
+      CHARACTER(LEN=*), INTENT(IN)    :: HEAD
+
+      ! Local variables
+      CHARACTER(len=132) :: MSG
+
+      ! Code =================================================================
+
+      WRITE (MSG, 9842) 'integer', IY, HEAD
+      CALL ERROR (FFFATAL, 10, OUNIT, 0, 0, MSG)
+
+      ! Format Statements ----------------------------------------------------
+9842  FORMAT ( 'Reading ', A, ' grid (IY=',I4, ') under title: ', A )
+
+   END SUBROUTINE handle_integer_grid_error
 
 END MODULE mod_load_filedata
