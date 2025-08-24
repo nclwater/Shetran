@@ -229,31 +229,34 @@ CONTAINS
       I2 = 1
       IS = 1
 !
-600   IF (NS1.GT.0) THEN
-         IF (NS2.EQ.0.OR.ZVSPSL (ISTEMP (I1, 1) ) .GT.ELEV (I2, 2) ) &
-            THEN
-            ISORT (IS) = ISTEMP (I1, 1)
-            I1 = I1 + 1
-            IS = IS + 1
-         ELSE
-            ISORT (IS) = ISTEMP (I2, 2)
-            I2 = I2 + 1
-            IS = IS + 1
+! --- MERGE TWO SORTED ARRAYS
+      DO WHILE (I1.LE.NS1 .AND. I2.LE.NS2)
+         IF (NS1.GT.0) THEN
+            IF (NS2.EQ.0.OR.ZVSPSL (ISTEMP (I1, 1) ) .GT.ELEV (I2, 2) ) &
+               THEN
+               ISORT (IS) = ISTEMP (I1, 1)
+               I1 = I1 + 1
+               IS = IS + 1
+            ELSE
+               ISORT (IS) = ISTEMP (I2, 2)
+               I2 = I2 + 1
+               IS = IS + 1
+            ENDIF
          ENDIF
-      ENDIF
+      END DO
 !
-      IF (I1.GT.NS1) THEN
-         DO I = IS, total_no_elements
-            ISORT (I) = ISTEMP (I2, 2)
-            I2 = I2 + 1
-         END DO
-      ELSEIF (I2.GT.NS2) THEN
+! --- COPY REMAINING ELEMENTS FROM FIRST ARRAY
+      IF (I2.GT.NS2) THEN
          DO I = IS, total_no_elements
             ISORT (I) = ISTEMP (I1, 1)
             I1 = I1 + 1
          END DO
-      ELSE
-         GOTO 600  ! Continue merge process
+! --- COPY REMAINING ELEMENTS FROM SECOND ARRAY
+      ELSEIF (I1.GT.NS1) THEN
+         DO I = IS, total_no_elements
+            ISORT (I) = ISTEMP (I2, 2)
+            I2 = I2 + 1
+         END DO
       ENDIF
 !
 700   CONTINUE

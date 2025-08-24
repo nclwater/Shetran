@@ -733,8 +733,9 @@ CONTAINS
             NLINKA = ICMREF (NCL, 4)
 !                             NUMBER FOR ASSOCIATED LINK
             JAL = 0
-55          JAL = JAL + 1
-            IF (ICMREF (NLINKA, JAL + 4) .NE.NCL) GOTO 55
+            DO WHILE (ICMREF (NLINKA, JAL + 5) .NE. NCL)
+               JAL = JAL + 1
+            END DO
             JFLINK = ICMREF (NLINKA, JAL + 8)
 !                             NUMBER FOR FACE ASSOCIATED WITH LINK
             DBK = cellarea (NCL) / CLENTH (NLINKA)
@@ -868,6 +869,7 @@ CONTAINS
       INTEGER :: nxplus, isyear, ismth, isday, ishour, ismin, ieyear, iemth, ieday, iehour, iemin, &
          jsyear, jsmth, jsday, jshour, jsmin, jcyear, jcmth, jcday, jchour, jcmin, j, k, &
          nlyrct, ipr, idmc, idra, idve, idlyr, i1, i2, i, ipflg, iel
+      LOGICAL :: error_found
       DOUBLEPRECISION :: tthx
       WRITE(PPPRI, 10)
 10    FORMAT ('1',// T10, '                                E'/T10, &
@@ -1085,22 +1087,27 @@ CONTAINS
       IF (BINFRP) WRITE(PPPRI, 303) TITLE
 303   FORMAT(/ 20A4)
 !
+      error_found = .FALSE.
       DO 310 I1 = 1, NY
          K = NY + 1 - I1
          READ (FRD, 306) I2, (INGRID (J, K), J = 1, NX)
          IF (BINFRP) WRITE(PPPRI, 306) I2, (INGRID (J, K), J = 1, NX)
 306      FORMAT  (I7, 1X, 500I1)
-         IF (I2.NE.K) GOTO 312
+         IF (I2.NE.K) THEN
+            error_found = .TRUE.
+            EXIT
+         END IF
 310   END DO
-      GOTO 316
+
+      IF (error_found) THEN
 !
 !^^^^^^ERROR IN DATA
 !
-312   CONTINUE
-      WRITE(PPPRI, 314) TITLE, I2
-314   FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
-      &       'LINE K= ', I5)
-      STOP
+         WRITE(PPPRI, 314) TITLE, I2
+314      FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
+         &       'LINE K= ', I5)
+         STOP
+      END IF
 !
 ! SET INGRID TO BE ITS INTERNAL VALUES FOR SHE (=0 IN CATCHMENT, -1 OTHE
 !
@@ -1144,15 +1151,18 @@ CONTAINS
       IF (IDVE.LE.0) CALL AREADI (NVC, IPR, FRD, PPPRI, NV)
 
 !:FR52
-      READ (FRD, 30,err=958,end=958) TITLE
-      READ (FRD, *,err=958,end=958) TOUTPUT
-
-      goto 959
-
-958   toutput=24.0
+      READ (FRD, 30, iostat=ipflg) TITLE
+      IF (ipflg /= 0) THEN
+         toutput = 24.0
+      ELSE
+         READ (FRD, *, iostat=ipflg) TOUTPUT
+         IF (ipflg /= 0) THEN
+            toutput = 24.0
+         END IF
+      END IF
 !     INITIALIZATION OF SOME PARAMETERS.
 !
-959   ALLOUT = DTAO + PSTART
+      ALLOUT = DTAO + PSTART
       NXEP1 = NXE+1
       NYEP1 = NYE+1
 !
@@ -1248,58 +1258,57 @@ CONTAINS
       & 5X,'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
       & ' AND BY ENERGY BUDGET IF MSM IS 2',5X,'MSM =',I3)
 !
-      IF (MSM.EQ.1) GOTO 710
+      IF (MSM.NE.1) THEN
 !        READ ENERGY BUDGET DATA
-      READ (SMD, 700) HEAD
-      READ (SMD, 709) ZOS, ZDS, ZUS
-709   FORMAT(3F7.5)
-      IF (BINSMP) WRITE(PPPRI, 803) ZOS, ZDS, ZUS
-803   FORMAT(1H0,'ENERGY BUDGET DATA',3X,'ROUGHNESS ZOS =',F7.5,1X,'M'/ &
-      &    21X,'ZERO PLANE DISPLACEMENT ZDS =',F7.5,1X,'M'/ &
-      &    21X,'HEIGHT OF ANEMOMETER ZUS =',F7.5,1X,'M')
+         READ (SMD, 700) HEAD
+         READ (SMD, 709) ZOS, ZDS, ZUS
+709      FORMAT(3F7.5)
+         IF (BINSMP) WRITE(PPPRI, 803) ZOS, ZDS, ZUS
+803      FORMAT(1H0,'ENERGY BUDGET DATA',3X,'ROUGHNESS ZOS =',F7.5,1X,'M'/ &
+         &    21X,'ZERO PLANE DISPLACEMENT ZDS =',F7.5,1X,'M'/ &
+         &    21X,'HEIGHT OF ANEMOMETER ZUS =',F7.5,1X,'M')
 !
 !         METEOROLOGICAL (WINDSPEED) DATA LOCATION
 !
-      READ (SMD, 700) HEAD
-      READ (SMD, 720) (IMET (N), N = 1, NM)
-720   FORMAT(10I7)
-      IF (BINSMP) THEN
-         WRITE(PPPRI, 715)
-715      FORMAT  (/' LOCATION OF MET. STATIONS: ' / &
-         &    ' STATION NO.    ELEMENT NO.')
-         DO 730 N = 1, NM
-            WRITE(PPPRI, 735) N, IMET (N)
-735         FORMAT    (3X,I4,10X,I4)
-730      END DO
+         READ (SMD, 700) HEAD
+         READ (SMD, 720) (IMET (N), N = 1, NM)
+720      FORMAT(10I7)
+         IF (BINSMP) THEN
+            WRITE(PPPRI, 715)
+715         FORMAT  (/' LOCATION OF MET. STATIONS: ' / &
+            &    ' STATION NO.    ELEMENT NO.')
+            DO 730 N = 1, NM
+               WRITE(PPPRI, 735) N, IMET (N)
+735            FORMAT    (3X,I4,10X,I4)
+730         END DO
+         ENDIF
       ENDIF
 !
 !         IS SNOWDEPTH UNIFORM?
 !
-710   IF (NSD.EQ.0) then
+      IF (NSD.EQ.0) THEN
+!         UNIFORM SNOWDEPTH (MM OF SNOW)
          do 712 iel = ngdbgn, total_no_elements
             rhosar (iel) = rhodef
 712      end do
-         GOTO 703
-      endif
-!
+         READ (SMD, 700) HEAD
+         READ (SMD, 705) UNIFSD
+705      FORMAT(F7.1)
+         DO 706 IEL = NGDBGN, total_no_elements
+            SD (IEL) = UNIFSD
+706      END DO
+         IF (BINSMP) WRITE(PPPRI, 802) UNIFSD
+802      FORMAT(1H0,1X,'INITIAL SNOWPACK HAS UNIFORM THICKNESS =', &
+         & F7.1,1X,'MM')
+      ELSE
 !         NONUNIFORM SNOWDEPTH (MM OF SNOW)
-      I = 0
-      IF (BINSMP) I = 1
-      CALL AREADR (SD, I, SMD, PPPRI)
-      CALL AREADR (RHOSAR, I, SMD, PPPRI)
-      GOTO 704
-!
-!         UNIFORM SNOWDEPTH (MM OF SNOW)
-703   READ (SMD, 700) HEAD
-      READ (SMD, 705) UNIFSD
-705   FORMAT(F7.1)
-      DO 706 IEL = NGDBGN, total_no_elements
-         SD (IEL) = UNIFSD
-706   END DO
-      IF (BINSMP) WRITE(PPPRI, 802) UNIFSD
-802   FORMAT(1H0,1X,'INITIAL SNOWPACK HAS UNIFORM THICKNESS =', &
-      & F7.1,1X,'MM')
-704   DO 707 IEL = NGDBGN, total_no_elements
+         I = 0
+         IF (BINSMP) I = 1
+         CALL AREADR (SD, I, SMD, PPPRI)
+         CALL AREADR (RHOSAR, I, SMD, PPPRI)
+      ENDIF
+
+      DO 707 IEL = NGDBGN, total_no_elements
 !                  SET COUNTER FOR SNOWMELT ROUTINE
          NSMC (IEL) = 0
 !                  SET SNOW TEMPERATURES

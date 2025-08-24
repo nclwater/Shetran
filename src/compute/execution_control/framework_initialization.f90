@@ -347,7 +347,11 @@ CONTAINS
 50       FORMAT   (I7, 1X, 500A1)
          IF (BPCNTL) WRITE (IOF, 50) K, (A1LINE (L), L = 1, NNX)
 !
-         IF (K.NE.I) GOTO 100
+         IF (K.NE.I) THEN
+            IF (BPCNTL) WRITE (IOF, 110)
+110         FORMAT ('  ^^^   INCORRECT COORDINATE')
+            STOP
+         END IF
          I = I - 1
 !
          DO L = 1, NNX
@@ -361,10 +365,6 @@ CONTAINS
 !
 40    END DO
       RETURN
-!
-100   IF (BPCNTL) WRITE (IOF, 110)
-110   FORMAT ('  ^^^   INCORRECT COORDINATE')
-      STOP
    END SUBROUTINE FRLTL
 
 END MODULE framework_initialization
