@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.12)
 project(SHETRAN LANGUAGES Fortran C)
 
 # Set C standard for HDF5 compatibility
+
+# Compiler-specific settings
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
+    # Define the warning suppression flag for G-format descriptors based on platform
+    if(WIN32)
+        set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "/Qdiag-disable:8291")
+    else()
+        set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "-diag-disable 8291")
+    endif()
+endif()
+
 set(CMAKE_C_STANDARD 99)
 
 # Enable testing
@@ -17,6 +28,7 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQ
     if(CMAKE_Fortran_COMPILER MATCHES "ifort")
         # Intel Classic Fortran Compiler
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large -heap-arrays")
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}") # Suppress G-format remark
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fpp")  # Enable preprocessor
         set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -traceback -check bounds -check uninit")
         set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
@@ -31,6 +43,7 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQ
         # Flags for ifx are set later using target_compile_options for better control,
         # especially on Windows to handle MSVC-like command lines correctly.
     endif()
+
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # GNU Fortran Compiler
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large")
@@ -39,6 +52,7 @@ elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -fbacktrace -fbounds-check")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
 else()
+    # This 'else' block is for compilers other than Intel or GNU
     message(WARNING "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
 endif()
 
@@ -369,19 +383,21 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQ
         if(WIN32)
             # On Windows, use MSVC-style flags. /QxHost is the equivalent of -xHost.
             # There is no equivalent for -mcmodel=large or -fstack-arrays.
-            # We increase the stack size via a linker flag below.
+            # We increase the stack size via a linker flag.
             target_compile_options(SHETRAN PRIVATE
                 "/fpp" # Enable preprocessor
+                "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}" # Suppress G-format remark
             )
             target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/O0;/Zi;/traceback;/check:bounds;/check:uninit>")
             target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release,RelWithDebInfo>:/O3;/QxHost>")
         else()
             # On Linux, standard hyphenated flags work as expected.
             # -fstack-arrays is a gfortran flag, not valid for ifx.
-            # Users should increase stack limit via `ulimit -s` if needed.
+            # Users should increase stack limit via `ulimit -s` if needed for large stack arrays.
             target_compile_options(SHETRAN PRIVATE
                 "-fpp"
                 "-mcmodel=large"
+                "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}" # Suppress G-format remark
             )
             target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:-O0;-g;-traceback;-check;bounds;-check;uninit>")
             target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release,RelWithDebInfo>:-O3;-xHost>")
@@ -400,7 +416,7 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQ
     if(WIN32 AND CMAKE_Fortran_COMPILER MATCHES "ifx")
         # For ifx on Windows, there is no -mcmodel=large or equivalent.
         # We increase the stack size to handle large arrays.
-        set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "/STACK:500000000") # 500 MB stack
+        set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "/link /STACK:500000000") # 500 MB stack
     endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # For gfortran, -mcmodel=large is also a compiler flag.
