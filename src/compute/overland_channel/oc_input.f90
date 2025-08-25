@@ -14,7 +14,9 @@ MODULE oc_input
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI, ALINIT
    USE OCQDQMOD,  ONLY : STRXX, STRYY, COCBCD
    USE OCmod2, ONLY: SETHRF
-   USE oc_common_data
+   USE oc_common_data, ONLY : NELIND, NROWF, NROWL, NOCHB, NOCFB, &
+      NROWEL, NROWST, NXSECT, HOCLST, HOCNXT, QFLAST, QFNEXT, &
+      HOCPRV, QOCFIN, HOCNXV, XINH, XINW, XAREA, dtoc
    USE oc_utils, ONLY : LINKNO
 
    IMPLICIT NONE
@@ -30,12 +32,187 @@ CONTAINS
 ! the module architecture.
 
    SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
-! Input data reading routine
-! [Full implementation would be extracted from original file]
+!----------------------------------------------------------------------*
+!  Control the reading of the OC input data file
+!----------------------------------------------------------------------*
+! Version:  SHETRAN/OC/OCREAD/4.2
+! Modifications:
+!  GP          3.4  Call OCBC always, not only when NLF.ne.0.
+! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+! RAH  980120  4.2  Explicit typing.  Remove local FINI.
+!                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
+!                   Move KONT from SPEC.OC to arg-list (see OCINI).
+!                   Implement missing option NCATR.gt.0 (see BR/48).
+!      980130       Bring (initial) read section from OCINI.
+!                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
+!                   Replace GOTOs with block-IFs.  List-directed input.
+!                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
+!                   Renumber labels, move FORMATs to end and tidy.
+!                   Print CDRS only if non-zero.  Call ERROR on errors.
+!                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
+!      980202       KKON=0 if KONT even, not just 0.
+!                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
+!                   Use ALINIT for STRX,STRY.  Full output if BOUT.
+!      980203       Use NGDBGN for NLF+1.
+!      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
+!      980205       Full argument list, no INCLUDEs (see OCINI).
+!                   Bring IXER from SPEC.OC.  FATAL local.
+!      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
+!                   Call OCPLF only if IXER.eq.0.
+!      980220       Spelling.
+!      980225       Swap COCBCD subscripts (see SPEC.OC)
+!      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
+!                   Don't print KONT.
+!----------------------------------------------------------------------*
+! Entry requirements:
+!  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
+!  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
+!----------------------------------------------------------------------*
       INTEGER, INTENT(OUT) :: KONT
-      DOUBLEPRECISION, INTENT(OUT) :: TDC, TFC
-      DOUBLEPRECISION, INTENT(OUT) :: CATR(:), DDUM2(:,:)
-! Implementation placeholder
+      DOUBLEPRECISION, INTENT(INOUT) :: TDC, TFC
+      DOUBLEPRECISION, INTENT(OUT) :: CATR (NOCTAB), DDUM2 (NOCTAB, NOCTAB)
+      INTEGER              :: I, IBC, ICAT, IELt, IXER, KKON, TYPEE
+      INTEGER              :: NCATR, NLAND, NOCBC, NT, NC (11)
+      DOUBLEPRECISION      :: DET, SMIN
+      DOUBLEPRECISION      :: CDRS
+      LOGICAL              :: BIOWAT, BOUT
+      CHARACTER(81) :: MSG
+      CHARACTER(11)  :: CTYPE (11)
+      ICAT (ielt) = MAX (1, MIN (IDUM (ielt), NCATR) )
+      DATA NC / 4 * 0, 5, 0, 2 * 4, 2 * 0, 5 /
+
+      DATA CTYPE / 'impermeable', '  grid-grid', '       head', ' flux', ' polynomial', ' river_link', '       weir', ' river+weir', &
+      & '       head', '       flux', ' polynomial' /
+!----------------------------------------------------------------------*
+!
+!               Initialization
+!
+      IXER = 0
+      NLAND = total_no_elements - total_no_links
+      NGDBGN = total_no_links + 1
+!
+!               Integer & logical variables
+!:OC1
+      READ (OCD, * )
+      READ (OCD, * ) NT, NCATR, KONT, BIOWAT
+      KKON = MOD (KONT, 2)
+      BOUT = KKON.EQ.1
+      IF (BOUT) WRITE(PPPRI, 9080) ' ', NCATR
+!
+!               OC time-step data
+!:OC2
+!     (was (PT(I),TEMPS(I),I=1,NT))
+      READ (OCD, * )
+      READ (OCD, * )
+!
+!               Default roughness parameters & floating-point variables
+!:OC3
+      READ (OCD, * )
+      READ (OCD, * ) SMIN, CDRS, TDC, TFC, DET
+      IF (KONT.LT.2) TDC = TFC + one
+!:OC4
+      IF (ISZERO(CDRS)) THEN
+         IF ((NCATR.GT.NOCTAB).OR.(NCATR.LT.0)) GOTO 8047
+         IF (NCATR.GT.0) THEN
+            read (OCD, * ) (CATR (I), I = 1, NCATR)
+            IF (BOUT) THEN
+               WRITE(PPPRI, 9084) (CATR (I), I = 1, NCATR)
+               WRITE(PPPRI, * )
+            ENDIF
+         ENDIF
+      ELSEIF (BOUT) THEN
+         WRITE(PPPRI, 9082) CDRS
+      ENDIF
+!
+!               INITIAL OVERLAND FLOW ELEVATIONS
+!:OC5
+      IF (BIOWAT) THEN
+         CALL AREADR (DUMMY, KKON, OCD, PPPRI)
+      ELSE
+         CALL ALINIT (ZERO, NLAND, DUMMY (NGDBGN) )
+         IF (BOUT) WRITE(PPPRI, 9085) 'zero'
+      ENDIF
+      DO 4 ielt = NGDBGN, total_no_elements
+         CALL SETHRF(ielt, ZGRUND (ielt) + DUMMY (ielt))
+
+4     END DO
+!
+!               ROUGHNESS PARAMETERS FOR OVERLAND FLOW
+!:OC14
+!:OC17
+      IF (NOTZERO(CDRS)) THEN
+         CALL ALINIT(CDRS, NLAND, STRXX(NGDBGN) )
+         CALL ALINIT(CDRS, NLAND, STRYY(NGDBGN) )
+      ELSEIF (NCATR.EQ.0) THEN
+         CALL AREADR(STRXX, KKON, OCD, PPPRI)
+         CALL AREADR(STRYY, KKON, OCD, PPPRI)
+      ELSE
+         CALL AREADI (IDUM(1:nelee), KKON, OCD, PPPRI, NCATR)
+         DO ielt = NGDBGN, total_no_elements
+            STRXX(ielt) = CATR (ICAT (ielt) )
+         END DO
+         CALL AREADI (IDUM(1:nelee), KKON, OCD, PPPRI, NCATR)
+         DO ielt = NGDBGN,total_no_elements
+            STRYY(ielt) = CATR (ICAT (ielt) )
+         END DO
+
+      ENDIF
+!               BOUNDARY CONDITIONS
+!
+      CALL JEOCBC(IXER, NOCBC)
+!
+!               PARAMETERS OF RIVER LINKS
+!
+      IF ((total_no_links.GT.0).AND.(IXER.EQ.0)) THEN
+         CALL OCPLF(BOUT, IXER, NOCBCD(:, 2:4), IDUM(1:noctab), DDUM2)
+      ENDIF
+!
+!               FINISH
+!
+      REWIND(OCD) !CLOSE (OCD)    !AD
+      IF (IXER.NE.0) THEN
+         WRITE (MSG, 9412) IXER
+         CALL ERROR(FFFATAL, 1049, PPPRI, 0, 0, MSG)
+      ELSEIF (BOUT) THEN
+         WRITE(PPPRI, 9500) 'no-flow'
+         IF (NOCBC.GT.0) WRITE(PPPRI, 9600) 'Index', 'Element', 'Face', &
+            'Type', 'Category', 'Coefficients'
+         DO 2000 IBC = 1, NOCBC
+            TYPEE = NOCBCD (IBC, 3)
+            WRITE(PPPRI, 9610) IBC, (NOCBCD (IBC, I), I = 1, 2), CTYPE ( &
+               TYPEE), NOCBCD (IBC, 4), (COCBCD (I, IBC), I = 1, NC (TYPEE) )
+2000     END DO
+         WRITE(PPPRI, 9080) ' END OF '
+      ENDIF
+
+      RETURN
+8047  WRITE (MSG, 9004) NCATR, NOCTAB
+
+      CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
+
+9004  FORMAT('Number of roughness categories NCATR =',I4,2X, &
+      &       'lies outside range 0:NOCTAB = 0 :',I4)
+
+9080  FORMAT (///'---- OC MODULE ',A,'INPUT DATA PROCESSING ----'///: &
+      &          5X,'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
+      &             ' CATEGORIES   NCATR = ',I4 )
+
+9082  FORMAT (/5X,'DEFAULT VALUE OF OVERLAND FLOW ROUGHNESS ', &
+      &             'COEFFICIENT     CDRS = ', F8.2)
+
+9084  FORMAT (/4X,' ROUGHNESS COEFFICIENTS  CATR  ATTACHED TO', &
+      &            ' EACH OF THE NCATR CATEGORIES' / (10F10.2))
+
+9085  FORMAT (/5X,'Initial overland water depth is ',A)
+
+9412  FORMAT (I5,' ERROR(S) FOUND DURING OC INPUT DATA PROCESSING')
+
+9500  FORMAT (/5X,'Default OC B.C. is ',A,' at catchment boundaries ', &
+      &            'and at channel/bank dead-ends')
+
+9600  FORMAT (/5X,'OC Boundary Conditions:'//5X,3A8,A12,A10,A14)
+
+9610  FORMAT (5X,3I8,A12,I10,1P,5G14.6)
    END SUBROUTINE OCREAD
 
    SUBROUTINE JEOCBC(IXER, NOCBC)
