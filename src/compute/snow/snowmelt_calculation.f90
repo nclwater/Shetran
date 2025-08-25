@@ -1,69 +1,22 @@
-MODULE SMmod
+MODULE snowmelt_calculation
+! Core snowmelt calculation routines extracted from SMmod.f90
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SM.F files
+! Refactor 2025: Extracted core snowmelt calculations into separate module
+
    USE SGLOBAL
-!USE SGLOBAL, ONLY : NVEE
    USE AL_C, ONLY : nvc, dtuz, ispack, nrd
    USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
       msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
       timeuz, u, vpd, VHT
+   USE snow_constants
+   USE snow_variables
    IMPLICIT NONE
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: smelt, tmelt
-
-!TAKEN FROM SPEC_SM
-!MODULE SPEC_SM
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/SPEC.SM/4.2
-! Modifications:
-!  GP       FEB 89    2.0     'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!  GP       JUN 90    2.2     AMENDMENTS FOR VARIABLE SNOWPACK
-!                             + STANDARDISE F77
-!  GP       FEB 91    3.0     SHETRAN AMENDMENTS
-!  GP       JUN 92    3.4     VARIABLES MOVED TO AL.D FOR HOTSTART
-!                             (arrays NSMC,TM,SMELT).  PNSNOW added.
-! RAH  980308  4.2  Remove DTDAYS,DTHRS,DTMIN,DTSEC.  Explicit typing.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-   DOUBLEPRECISION :: USM, DDF, RHOS, ESM, HFC, HFR, HFE, HFT, ZUS, ZDS, ZOS
-   DOUBLEPRECISION :: RHODEF, TOPNET, PNSNOW
-   LOGICAL         :: BINSMP
-   INTEGER         :: IMET (NVEE), NSD
-   DOUBLEPRECISION :: HEAD (20)
-   DOUBLEPRECISION, PARAMETER :: RHOA = 1.29d0, &
-      RHOW = 1000.0d0, &
-      CPA = 1003.0d0, &
-      CPW = 4187.0d0, &
-      CPI = 2093.0d0, &
-      LWI = 334000.0d0, &
-      LVW = 2500000.0d0, &
-      HFG = 2.0d0
-   !
-   !     RHOA  - DENSITY OF AIR                              KG/M**3
-   !     RHOW  - DENSITY OF WATER                            KG/M**3
-   !     CPA   - SPECIFIC HEAT OF AIR AT CONSTANT PRESSURE   J/KG/C
-   !     CPW   -    ''     ''  '' WATER ''   ''      ''      J/KG/C
-   !     CPI   -    ''     ''  '' ICE ''     ''      ''      J/KG/C
-   !     LWI   - LATENT HEAT OF FUSION                       J/KG
-   !     LVW   - LATENT HEAT OF VAPORISATION                 J/KG
-   !     HFG   - HEAT FLUX FROM GROUND              W/M**2 = J/S/M^^2
-   !     THESE QUANTITIES ARE ASasumED TO BE CONSTANT
-!END MODULE SPEC_SM
-
 
    PRIVATE
-   PUBLIC :: SMIN, rhos, head, binsmp, ddf, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt, initialise_smmod
+   PUBLIC :: SM
+
 CONTAINS
-
-
-!SSSSSS SUBROUTINE initialise_smmod
-   SUBROUTINE initialise_smmod
-      LOGICAL         :: first=.TRUE.
-      if (FIRST) then
-         ALLOCATE (TMELT(max_no_snowmelt_slugs,total_no_elements))
-         ALLOCATE (SMELT(max_no_snowmelt_slugs,total_no_elements))
-         FIRST = .FALSE.
-      endif
-   END SUBROUTINE initialise_smmod
 
 !SSSSSS SUBROUTINE SM
    SUBROUTINE SM (IEL)
@@ -377,179 +330,4 @@ CONTAINS
       RETURN
    END SUBROUTINE SM
 
-
-!SSSSSS SUBROUTINE SMET
-   SUBROUTINE SMET (IEL)
-      INTEGER, INTENT(IN) :: iel
-      INTEGER :: ms, mr, n, k, kk
-      DOUBLEPRECISION :: sndep
-!
-!       IT/ET CALCULATIONS FOR SNOWMELT COMPONENT
-!       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!  THIS SUBROUTINE CARRIES OUT EVAPOTRANSPIRATION AND
-!  INTERCEPTION CALCULATIONS IF THERE IS A SNOWPACK, IF IT IS
-!  SNOWING OR IF THE TEMPERATURE IS BELOW FREEZING. IT IS
-!  CALLED FROM SUBROUTINE ET(IEL) FOR EACH IEL UZ COMPONENT
-!  NODE. VARIABLES ARE AS IN ET,SM,ETC.
-!
-!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-      MS = NMC (IEL)
-      MR = NRAINC (IEL)
-      N = NVC (IEL)
-!
-!         USE SPATIALLY VARIABLE RHOS (OR DEFAULT IF ZERO)
-!
-      IF (NSD.EQ.1) RHOS = RHOSAR (IEL)
-      IF (ISZERO(RHOS)) RHOS = RHODEF
-!
-!         IS THE SNOWDEPTH GREATER THAN THE VEGETATION HEIGHT?
-      SNDEP = SD (IEL) / 1000.
-      IF (ISZERO(SNDEP)) THEN
-!
-!         TEMPERATURE IS BELOW FREEZING
-!
-!  INTERCEPTION CALCULATIONS FOR TEMPERATURES BELOW FREEZING
-!  ---------------------------------------------------------
-!
-!         THERE IS NO EVAPOTRANSPIRATION AND NO SOIL EVAPORATION.
-!         PRECIPITATION FALLING ON THE CANOPY IS ASasumED TO PASS
-!         WITHOUT DELAY THROUGH THE VEGETATION LAYER. IE THERE
-!         IS NO INTERCEPTION OR CANOPY STORAGE OF SNOW.
-!
-!         SNOWFALL (IN MM OF WATER) REACHING GROUND OR SNOWPACK
-         pnsnow = precip_m_per_s(IEL) * 1000. * DTUZ
-         CSTOLD = CSTORE (IEL)
-         ERZ = zero
-         ESOIL = zero
-         EINT = zero
-         AE = zero
-         PE = zero
-         K = NRD (N)
-         DO KK = 1, K
-            S (KK) = zero
-         END DO
-      ELSEIF (SNDEP.LT.VHT (N) ) THEN
-         CPLAI = CPLAI * (VHT (N) - SD (IEL) / 1000.) / VHT (N)
-      ELSE
-!
-!         SNOW COVERS THE VEGETATION SO THERE IS NO CANOPY INTERCEPTION
-!         NO EVAPOTRANSPIRATION AND NO SOIL EVAPORATION
-         pnsnow = precip_m_per_s(iel) * 1000. * DTUZ
-         CSTOLD = CSTORE (IEL)
-         CPLAI = zero
-         ERZ = zero
-         ESOIL = zero
-         EINT = zero
-         AE = zero
-         PE = zero
-         K = NRD (N)
-         DO KK = 1, K
-            S (KK) = zero
-         END DO
-      ENDIF
-!
-!         IS THE TEMPERATURE ABOVE FREEZING?
-      IF (GTZERO(TA(MS))) THEN
-!
-!         TEMPERATURE IS ABOVE FREEZING
-!
-!  INTERCEPTION CALCULATIONS FOR TEMPERATURES ABOVE FREEZING
-!  ---------------------------------------------------------
-!
-!         THERE IS EVAPOTRANSPIRATION AND INTERCEPTION (OF
-!         RAINFALL) WHICH MUST BE MODELLED BY SUBROUTINE ET.
-!         IT IS ASasumED THAT THERE IS NO CANOPY STORAGE OF SNOW
-!         TO BE MODELLED. IF THERE IS A SNOWPACK THERE IS NO
-!         SOIL EVAPORATION.
-         NSMT = 1
-      ELSE
-!
-!         IS IT SNOWING OR IS THERE A SNOWPACK?
-         IF (GTZERO(precip_m_per_s(IEL)) .OR. GTZERO(SD(IEL))) THEN
-!
-!         CALL SNOWMELT ROUTINE
-            CALL SM (IEL)
-         ENDIF
-      ENDIF
-   END SUBROUTINE SMET
-
-
-!SSSSSS SUBROUTINE SMIN
-   SUBROUTINE SMIN (IEL)
-      INTEGER, INTENT(IN) :: iel
-      INTEGER :: ms
-!
-!       TESTS FOR SNOW CALCULATION REQUIREMENTS
-!       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!  THIS SUBROUTINE CHECKS TO SEE IF A SNOWMELT OR SNOW ET
-!  CALCULATION IS NEEDED. IF THE ET CALCULATIONS HAVE NOT BEEN
-!  CARRIED OUT, THE SNOW ET ROUTINE IS CALLED IF A SNOWPACK
-!  EXISTS OR IF IT IS SNOWING (PRECIPITATION WITH TEMPERATURE
-!  BELOW FREEZING) OR IF THE TEMPERATURE IS BELOW FREZING.
-!  IF THE ET CALCULATIONS HAVE BEEN CARRIED OUT, THE SNOWMELT
-!  CALCULATION IS CALLED IF A SNOWPACK EXISTS AND THE
-!  TEMPERATURE IS ABOVE FREEZING.
-!
-!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      CALL INITIALISE_SMMOD()
-      MS = NMC (IEL)
-!         IF ET CALCULATIONS HAVE ALREADY BEEN CARRIED OUT AND
-!         TEMPERATURE IS ABOVE FREEZING (REQUIRING THE CONDITION
-!         NSMT = 1) CALL SNOWMELT ROUTINE IF A SNOWPACK EXISTS
-      IF (NSMT.NE.1) THEN
-!
-!         IF ET CALCULATIONS HAVE NOT YET BEEN CARRIED OUT, IS
-!         THERE A SNOWPACK?
-         IF (GTZERO(SD(IEL))) THEN
-!
-!         CALL ET ROUTINE FOR SNOW/FREEZING TEMPERATURES
-            CALL SMET (IEL)
-         ELSE
-!
-!         IF ET CALCULATIONS HAVE NOT YET BEEN CARRIED OUT,IS
-!         TEMPERATURE ABOVE FREEZING?
-            IF (LEZERO(TA(MS))) THEN
-!
-!         CALL ET ROUTINE FOR SNOW/FREEZING TEMPERATURES
-               CALL SMET (IEL)
-            ELSE
-               NSMT = 1
-            ENDIF
-         ENDIF
-      ELSE
-!
-!         IF ET CALCULATIONS HAVE ALREADY BEEN CARRIED OUT,
-!         SNOWMELT CALCULATION IS REQUIRED IF A SNOWPACK EXISTS.
-!         (THE FOLLOWING CAN BE REACHED ONLY IF TEMPERATURE
-!         IS ABOVE FREEZING)
-         IF (GTZERO(SD(IEL))) THEN
-!
-!         THERE IS STILL A SNOWPACK SO THERE IS NO SOIL
-!         EVAPORATION
-            ESOIL = zero
-!
-!         addition by spa, 17/11/92. pnet output from et(iel) as a rate.
-!         Needs to be a depth for input into sm(iel).
-            pnsnow = pnet * dtuz
-!
-!
-!         CALL SNOWMELT ROUTINE
-            CALL SM (IEL)
-         ENDIF
-      ENDIF
-   END SUBROUTINE SMIN
-END MODULE SMmod
+END MODULE snowmelt_calculation
