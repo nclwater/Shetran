@@ -217,7 +217,10 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 4: Basic computation modules
         "is_cc\\.f90$;link_cc.*\\.f90$;colm_c.*\\.f90$;bk_cw\\.f90$;sed_co\\.f90$"
         
-        # Group 5: Core modules (basic dependencies)
+        # Group 4.5: Snow model modules (refactored from SMmod - ordered by dependency)
+        "snow_constants\\.f90$;snow_variables\\.f90$;snow_initialization\\.f90$;snowmelt_calculation\\.f90$;snow_evapotranspiration\\.f90$;snow_interface\\.f90$"
+        
+        # Group 5: Core modules (basic dependencies) 
         "SED_CS\\.F90$;ZQmod\\.f90$;SMmod\\.f90$;plant_cc\\.f90$"
         
         # Group 6: Refactored OC modules (ordered by dependency)
