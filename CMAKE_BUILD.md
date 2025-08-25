@@ -45,7 +45,7 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 
 1. **Using the build script:**
    ```cmd
-   REM Build with Intel Fortran (default)
+   REM Build with auto-detected Intel Fortran compiler
    build.bat
    
    REM Build with ifx
@@ -88,16 +88,27 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 ### Intel Fortran (ifort)
 - Uses `-mcmodel=large` for large memory models (configurable)
 - Uses `-heap-arrays <size>` for large array handling (default: 100000000)
+- Uses `-fpp` for preprocessing.
 - Optimized with `-O3` for release builds
+- Suppresses G-format descriptor remark (`/Qdiag-disable:8291` on Windows, `-diag-disable 8291` on Linux).
 
 ### Intel Fortran (ifx)
-- Uses `-mcmodel=large` for large memory models (configurable)
-- Uses `-fstack-arrays` instead of `-heap-arrays` (not available in ifx)
-- Optimized with `-O3` for release builds
+- **Linux**:
+    - Uses `-mcmodel=large` for large memory models (configurable).
+    - Uses `-fpp` for preprocessing.
+    - Optimized with `-O3 -xHost` for release builds.
+    - Suppresses G-format descriptor remark (`-diag-disable 8291`).
+- **Windows**:
+    - Uses `/fpp` for preprocessing.
+    - Optimized with `/O3 /QxHost` for release builds.
+    - Suppresses G-format descriptor remark (`/Qdiag-disable:8291`).
+    - Sets linker flag `/link /STACK:500000000` for large stack arrays.
+    - Note: `-mcmodel=large` and `-fstack-arrays` are not applicable/used.
 
 ### GNU Fortran (gfortran)
 - Uses `-mcmodel=large` for large memory models (configurable)
 - Uses `-fmax-stack-var-size=<size>` for large arrays (default: 100000000)
+- Uses `-cpp` for preprocessing.
 - Optimized with `-O3` for release builds
 
 ## Build Options
@@ -106,18 +117,17 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 The build system automatically discovers all Fortran source files in the `src/` directory and its subdirectories. You no longer need to manually maintain lists of source files in CMakeLists.txt.
 
 ### Dependency Ordering Options
-- **Pattern-based ordering** (default): Uses intelligent patterns to order source files
-- **Advanced dependency analysis**: Analyzes actual module USE statements (experimental)
+- **Automatic dependency analysis** (default, recommended): Analyzes actual module `USE` statements to determine the correct compilation order.
+- **Pattern-based ordering** (fallback): Uses filename patterns as a fallback if automatic analysis is disabled.
 
 ```bash
-# Use pattern-based ordering (recommended)
-./build.sh
+# The build scripts use automatic dependency analysis by default.
 
-# Enable advanced dependency analysis (experimental) 
-./build.sh -DENABLE_DEPENDENCY_ANALYSIS=ON
+# To disable automatic analysis and use the pattern-based fallback:
+cmake -DENABLE_DEPENDENCY_ANALYSIS=OFF ..
 
-# Enable verbose dependency output
-./build.sh -DVERBOSE_DEPENDENCY_OUTPUT=ON
+# To enable verbose dependency output during analysis:
+cmake -DVERBOSE_DEPENDENCY_OUTPUT=ON ..
 ```
 
 ### Memory Configuration Options
@@ -178,24 +188,89 @@ SHETRAN/
 ├── CMakeLists.txt           # Main CMake configuration
 ├── CMakePresets.json        # CMake presets for common configurations
 ├── build.sh                 # Linux build script
-├── build.bat               # Windows build script
-├── src/                    # Source code
-│   ├── Shetran.f90         # Main program
-│   ├── flow/               # Flow calculation modules
-│   │   ├── OCmod.f90       # Overland channel integration
-│   │   ├── OCmod2.f90      # Refactored OC interface module
-│   │   └── overland_channel/  # Refactored OC modules
-│   │       ├── oc_parameters.f90           # OC constants & parameters
-│   │       ├── oc_data_management.f90      # Data arrays & access functions
-│   │       ├── oc_node_flows.f90          # Junction flow calculations
-│   │       ├── oc_hydraulic_calculations.f90  # Core hydraulic equations
-│   │       ├── oc_channel_flow_types.f90   # Different flow types
-│   │       ├── oc_flow_control.f90         # Mass conservation & control
-│   │       └── oc_*.f90                    # Other OC support modules
-│   ├── modules/            # Core Fortran modules  
-│   ├── parameters/         # Parameter modules
-│   ├── util/               # Utility modules
-│   └── visualisation/      # Visualization modules
+├── build.bat                # Windows build script
+├── src/                     # Source code
+│   ├── Shetran.f90          # Main program
+│   ├── compute/
+│   │   ├── CMmod.f90
+│   │   ├── ETmod.f90
+│   │   ├── FRmod.f90
+│   │   ├── OCmod.f90
+│   │   ├── OCmod2.f90
+│   │   ├── OCQDQMOD.f90
+│   │   ├── SMmod.f90
+│   │   ├── contaminant/
+│   │   │   ├── contaminant_column_solver.f90
+│   │   │   ├── contaminant_common.f90
+│   │   │   ├── contaminant_data_reader.f90
+│   │   │   ├── contaminant_link_solver.f90
+│   │   │   ├── contaminant_plant.f90
+│   │   │   ├── contaminant_simulation.f90
+│   │   │   └── contaminant_utilities.f90
+│   │   ├── evapotranspiration_inception/
+│   │   │   ├── et_core.f90
+│   │   │   ├── et_integration.f90
+│   │   │   ├── et_main.f90
+│   │   │   ├── et_validation.f90
+│   │   │   └── et_variables.f90
+│   │   ├── execution_control/
+│   │   │   ├── framework_component_initialization.f90
+│   │   │   ├── framework_element_sorting.f90
+│   │   │   ├── framework_initialization.f90
+│   │   │   ├── framework_mass_balance.f90
+│   │   │   ├── framework_output_manager.f90
+│   │   │   ├── framework_shared.f90
+│   │   │   └── framework_spatial_setup.f90
+│   │   ├── hydraulic_flow/
+│   │   │   ├── flow_calculator.f90
+│   │   │   ├── hydraulic_helpers.f90
+│   │   │   └── hydraulic_variables.f90
+│   │   ├── overland_channel/
+│   │   │   ├── oc_channel_flow_types.f90
+│   │   │   ├── oc_common_data.f90
+│   │   │   ├── oc_data_management.f90
+│   │   │   ├── oc_flow_control.f90
+│   │   │   ├── oc_hydraulic_calculations.f90
+│   │   │   ├── oc_initialization.f90
+│   │   │   ├── oc_input.f90
+│   │   │   ├── oc_matrix_coefficients.f90
+│   │   │   ├── oc_node_flows.f90
+│   │   │   ├── oc_output.f90
+│   │   │   ├── oc_parameters.f90
+│   │   │   ├── oc_time_stepping.f90
+│   │   │   ├── oc_utils.f90
+│   │   │   └── oc_validation.f90
+│   │   ├── snow/
+│   │   │   ├── snowmelt_calculation.f90
+│   │   │   ├── snow_constants.f90
+│   │   │   ├── snow_evapotranspiration.f90
+│   │   │   ├── snow_initialization.f90
+│   │   │   ├── snow_interface.f90
+│   │   │   └── snow_variables.f90
+│   │   └── water_balance/
+│   │       └── water_balance.f90
+│   ├── io/
+│   │   ├── meteorological_input.f90
+│   │   └── simulation_output.f90
+│   ├── modules/
+│   │   ├── SYmod.f90
+│   │   ├── VSmod.f90
+│   │   └── ZQmod.f90
+│   ├── parameters/
+│   │   ├── AL_C.F90, AL_D.f90, AL_G.F90, ... (and 18 other parameter files)
+│   │   └── sglobal.f90
+│   ├── resource/
+│   │   ├── resource.h
+│   │   └── Resource1.rc
+│   ├── simulation/
+│   │   ├── run_sim.f90
+│   │   └── timestep_control.f90
+│   ├── util/
+│   │   ├── getdirqq.f90, getdirqq_portable.f90, ... (and 2 other utility files)
+│   │   └── utilsmod.f90
+│   └── visualisation/
+│       ├── increment_utilities.f90
+│       └── ... (and 11 other visualisation files)
 └── external/               # External dependencies (Windows)
     ├── Include/            # HDF5 headers and modules
     └── library-files/      # HDF5 libraries
@@ -241,11 +316,13 @@ build.bat --install -p "C:\Program Files\SHETRAN"
 ```bash
 # Use 8 parallel jobs
 ./build.sh -j 8
-
-# On Windows
-build.bat -j 8
 ```
 
+**On Windows**, the default `NMake Makefiles` generator used by `build.bat` is single-threaded and does not support parallel builds. The `-j` flag will be ignored. For parallel builds on Windows, consider using the `Ninja` generator with CMake directly:
+```cmd
+cmake -G "Ninja" ..
+ninja
+```
 ### Environment Setup
 
 #### Intel Fortran

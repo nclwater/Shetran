@@ -1,5 +1,7 @@
 # Code compilation
 
+**Note:** The recommended method for compiling SHETRAN is to use the automated CMake build system as described in `CMAKE_BUILD.md`. The following instructions for a manual Visual Studio project setup are provided for advanced users or for debugging purposes, but may be difficult to maintain due to the complexity of the source code dependencies.
+
 ## Windows
 Tested using Intel Fortran Compiler with Visual Studio. Versions 2015-2020.
 
@@ -11,21 +13,18 @@ Tested using Intel Fortran Compiler with Visual Studio. Versions 2015-2020.
 
 	Select "Create"
 
-
 2. In Project|Properties, select "Configuration Manager..." (at the top of the box).
 
 	In Project contexts box, go to Platform, select "<New...>. Then under "New platform", select "x64". Select "OK". Close Configuration Manager.
 	Still in Property Pages, under "Configuration:" select "All Configurations".
-	Still in Property Pages, go to Configuration Properties|Fortran |Optimisation. Set the "Heap Array" to 0. Select "OK" to close Property Pages
+	Still in Property Pages, go to Configuration Properties|Fortran |Optimisation. Set the "Heap Array" to 0 (for ifort) to allow for dynamic array allocation on the heap. Select "OK" to close Property Pages
 
 3. In Project|Add Existing Item... , add the following to the project:
-	- Shetran.f90 files from the src folder
-	- all the .f90 files from the src/modules folder
-	- all the .f90 files from the src/parameters folder
-	- mod_load_filedata.f90 from the src/util folder
-	- all the .f90 files from the src/visualisation forlder (except include_extend_s.f90 and include_increment.f90 which must be present but not in the project)
-	- all the .lib from the external/library-files folder. NB "All Files (*.*)"" must be searchable
-	- in the Solution explorer (on the right), click on Resource files, then add in Project|Add Exisiting Item select resource1.rc from the src/resource folder
+	- **Important Pre-step**: The build system uses different versions of the `getdirqq.f90` utility for different platforms. For a manual Windows build with the Intel compiler, first navigate to the `src/util/` directory, make a copy of `getdirqq_winIntel.f90`, and rename the copy to `getdirqq.f90`.
+	- Add all Fortran source files (`.f90`, `.F90`) from the `src` directory and all of its subdirectories (including `compute`, `io`, `modules`, `parameters`, `simulation`, `util`, and `visualisation`).
+	- When adding files, ensure you **exclude the template files** `getdirqq_portable.f90` and `getdirqq_winIntel.f90` from the project to avoid compilation errors.
+	- Add all library files (`.lib`) from the `external/library-files` folder. You may need to change the file filter to "All Files (*.*)".
+	- In the Solution Explorer, right-click on "Resource Files", select "Add" -> "Existing Item...", and add `Resource1.rc` from the `src/resource` folder.
 
 4. Copy the full path for the "inlcude" directory (e.g. C:\Users\sjbir_000\Documents\shetrn\external\Include), and enter in the following place:
 
