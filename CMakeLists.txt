@@ -13,7 +13,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Compiler-specific settings
-if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
     if(CMAKE_Fortran_COMPILER MATCHES "ifort")
         # Intel Classic Fortran Compiler
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large -heap-arrays")
@@ -22,12 +22,14 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
         set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
     elseif(CMAKE_Fortran_COMPILER MATCHES "ifx")
         # Intel OneAPI Fortran Compiler  
-        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mcmodel=large")
-        # Note: heap-arrays is not available in ifx, use alternative approach
-        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fstack-arrays")
-        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fpp")  # Enable preprocessor
-        set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -traceback -check bounds -check uninit")
-        set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
+        # On Windows with MSVC-like command lines, CMake defaults to /O2 for Release
+        # builds. We add /O3 later, causing an override warning. This removes the
+        # default /O2 flag to ensure a clean build.
+        if(WIN32)
+            string(REPLACE "/O2" "" CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
+        endif()
+        # Flags for ifx are set later using target_compile_options for better control,
+        # especially on Windows to handle MSVC-like command lines correctly.
     endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     # GNU Fortran Compiler
@@ -58,8 +60,6 @@ else()
     find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
     if(HDF5_FOUND)
         message(STATUS "Found HDF5: ${HDF5_VERSION}")
-        message(STATUS "HDF5 Include dirs: ${HDF5_INCLUDE_DIRS}")
-        message(STATUS "HDF5 Libraries: ${HDF5_LIBRARIES}")
         
         # Test for H5IM palette functions availability
         include(CheckFortranSourceCompiles)
@@ -171,7 +171,6 @@ function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
         list(FIND FILTERED_FILES "${GETDIRQQ_TARGET}" GETDIRQQ_INDEX)
         if(GETDIRQQ_INDEX EQUAL -1)
             list(APPEND FILTERED_FILES "${GETDIRQQ_TARGET}")
-            message(STATUS "Added generated file: getdirqq.f90")
         endif()
     endif()
     
@@ -272,7 +271,6 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
             get_filename_component(FILENAME ${FILE} NAME)
             if(FILENAME MATCHES "(${PATTERN_REGEX})")
                 list(APPEND ORDERED_SOURCES ${FILE})
-                message(STATUS "  Ordered: ${FILENAME}")
             else()
                 list(APPEND NEW_REMAINING ${FILE})
             endif()
@@ -285,7 +283,6 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
     foreach(FILE ${REMAINING_SOURCES})
         get_filename_component(FILENAME ${FILE} NAME)
         list(APPEND ORDERED_SOURCES ${FILE})
-        message(STATUS "  Auto-added: ${FILENAME}")
     endforeach()
     
     set(${OUTPUT_VAR} ${ORDERED_SOURCES} PARENT_SCOPE)
@@ -320,7 +317,6 @@ endif()
 
 # Validate source ordering if requested
 if(ENABLE_DEPENDENCY_ANALYSIS AND VERBOSE_DEPENDENCY_OUTPUT)
-    message(STATUS "Validating dependency resolution...")
     validate_source_order(ORDERED_MODULE_SOURCES)
 endif()
 
@@ -330,15 +326,8 @@ if(MAIN_PROGRAM)
     list(APPEND SHETRAN_SOURCES ${MAIN_PROGRAM})
 endif()
 
-# Print discovered sources for verification
+# Print summary of discovered sources
 message(STATUS "")
-message(STATUS "Final source file build order:")
-set(SOURCE_INDEX 1)
-foreach(SOURCE ${SHETRAN_SOURCES})
-    file(RELATIVE_PATH REL_PATH "${CMAKE_SOURCE_DIR}" "${SOURCE}")
-    message(STATUS "  ${SOURCE_INDEX}. ${REL_PATH}")
-    math(EXPR SOURCE_INDEX "${SOURCE_INDEX} + 1")
-endforeach()
 list(LENGTH SHETRAN_SOURCES SOURCES_COUNT)
 message(STATUS "Total sources found: ${SOURCES_COUNT}")
 
@@ -361,10 +350,41 @@ set_target_properties(SHETRAN PROPERTIES
 )
 
 # Include directories
-target_include_directories(SHETRAN PRIVATE ${HDF5_INCLUDE_DIRS})
+target_include_directories(SHETRAN PRIVATE ${HDF5_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Link libraries
 target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
+
+# Apply compiler-specific flags using target_compile_options for better control
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
+    if(CMAKE_Fortran_COMPILER MATCHES "ifort")
+        # ifort flags are already set via CMAKE_Fortran_FLAGS
+    elseif(CMAKE_Fortran_COMPILER MATCHES "ifx")
+        # For ifx, we must be careful with flags, especially on Windows where
+        # CMake may convert '-' to '/' for MSVC-like command lines.
+        # We use modern generator expressions for configuration-specific flags.
+        if(WIN32)
+            # On Windows, use MSVC-style flags. /QxHost is the equivalent of -xHost.
+            # There is no equivalent for -mcmodel=large or -fstack-arrays.
+            # We increase the stack size via a linker flag below.
+            target_compile_options(SHETRAN PRIVATE
+                "/fpp" # Enable preprocessor
+            )
+            target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/O0;/Zi;/traceback;/check:bounds;/check:uninit>")
+            target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release,RelWithDebInfo>:/O3;/QxHost>")
+        else()
+            # On Linux, standard hyphenated flags work as expected.
+            # -fstack-arrays is a gfortran flag, not valid for ifx.
+            # Users should increase stack limit via `ulimit -s` if needed.
+            target_compile_options(SHETRAN PRIVATE
+                "-fpp"
+                "-mcmodel=large"
+            )
+            target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:-O0;-g;-traceback;-check;bounds;-check;uninit>")
+            target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release,RelWithDebInfo>:-O3;-xHost>")
+        endif()
+    endif()
+endif()
 
 # Add high level HDF5 Fortran library explicitly for Linux/Unix
 if(NOT WIN32)
@@ -372,14 +392,16 @@ if(NOT WIN32)
 endif()
 
 # Additional linker flags for large memory model
-if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
-    if(CMAKE_Fortran_COMPILER MATCHES "ifort")
-        set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "-mcmodel=large")
-    elseif(CMAKE_Fortran_COMPILER MATCHES "ifx")
-        set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "-mcmodel=large")
+if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
+    # -mcmodel=large is a compiler flag, not a linker flag. The compiler handles the linker part.
+    if(WIN32 AND CMAKE_Fortran_COMPILER MATCHES "ifx")
+        # For ifx on Windows, there is no -mcmodel=large or equivalent.
+        # We increase the stack size to handle large arrays.
+        set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "/STACK:500000000") # 500 MB stack
     endif()
 elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-    set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "-mcmodel=large")
+    # For gfortran, -mcmodel=large is also a compiler flag.
+    # If specific linker flags are needed for gfortran, they should be added here.
 endif()
 
 # Installation

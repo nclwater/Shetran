@@ -6,7 +6,7 @@ setlocal enabledelayedexpansion
 
 REM Default values
 set BUILD_TYPE=Release
-set COMPILER=ifort
+set COMPILER=auto
 set BUILD_DIR=build
 set INSTALL_PREFIX=
 set CLEAN_BUILD=false
@@ -134,16 +134,51 @@ goto show_usage
 echo SHETRAN Build Script for Windows
 echo =================================
 
+REM Auto-detect compiler if not specified
+if not "%COMPILER%"=="auto" goto :compiler_detection_done
+
+echo INFO: Auto-detecting Fortran compiler...
+
+where ifort >nul 2>&1
+if not errorlevel 1 goto :found_ifort
+
+where ifx >nul 2>&1
+if not errorlevel 1 goto :found_ifx
+
+echo ERROR: No supported Intel Fortran compiler found in PATH!
+echo ERROR: Please make sure ifort or ifx is available.
+exit /b 1
+
+:found_ifort
+set COMPILER=ifort
+echo INFO: Found Intel Fortran Compiler (Classic): ifort
+goto :compiler_detection_done
+
+:found_ifx
+set COMPILER=ifx
+echo INFO: Found Intel Fortran Compiler (LLVM): ifx
+goto :compiler_detection_done
+
+:compiler_detection_done
+
 REM Check for Intel compiler environment
 echo INFO: Setting up Intel Fortran compiler environment...
-if exist "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" (
-    call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
-) else if exist "C:\Program Files\Intel\oneAPI\setvars.bat" (
-    call "C:\Program Files\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
-) else (
-    echo WARNING: Intel oneAPI environment not found in default locations
-    echo WARNING: Please make sure Intel Fortran compiler is in your PATH
-)
+if exist "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" goto :setup_intel_x86
+if exist "C:\Program Files\Intel\oneAPI\setvars.bat" goto :setup_intel_x64
+goto :setup_intel_notfound
+
+:setup_intel_x86
+call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
+goto :setup_intel_done
+
+:setup_intel_x64
+call "C:\Program Files\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
+goto :setup_intel_done
+
+:setup_intel_notfound
+echo WARNING: Intel oneAPI environment not found in default locations
+echo WARNING: Please make sure Intel Fortran compiler is in your PATH
+:setup_intel_done
 
 REM Check for CMake
 where cmake >nul 2>&1
@@ -152,7 +187,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-for /f "tokens=3" %%i in ('cmake --version ^| findstr "cmake version"') do set CMAKE_VERSION=%%i
+REM Get CMake version safely
+set "CMAKE_VERSION=unknown"
+for /f "tokens=2,*" %%a in ('cmake --version') do (
+    if /i "%%a"=="version" set "CMAKE_VERSION=%%b"
+    if /i "%%a"=="version:" set "CMAKE_VERSION=%%b"
+)
 echo INFO: Found CMake version: %CMAKE_VERSION%
 
 REM Clean build directory if requested
@@ -251,7 +291,7 @@ goto end
 echo Usage: %0 [OPTIONS]
 echo.
 echo Options:
-echo   -c, --compiler COMPILER    Specify compiler: ifort or ifx (default: ifort)
+echo   -c, --compiler COMPILER    Specify compiler: ifort, ifx, or auto (default: auto)
 echo   -t, --type TYPE           Build type: Debug, Release, RelWithDebInfo (default: Release)
 echo   -d, --build-dir DIR       Build directory (default: build)
 echo   -p, --prefix PREFIX       Installation prefix
@@ -266,7 +306,7 @@ echo   --use-windows-intel-getdirqq  Use Windows Intel-specific getdirqq (defaul
 echo   -h, --help                Show this help message
 echo.
 echo Examples:
-echo   %0                        # Build with ifort compiler
+echo   %0                        # Build with auto-detected compiler
 echo   %0 -c ifx -t Debug        # Build with Intel ifx compiler in debug mode
 echo   %0 --clean                # Clean build with ifort
 echo   %0 --install -p C:\SHETRAN # Build and install to C:\SHETRAN
