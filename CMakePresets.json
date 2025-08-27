@@ -71,6 +71,21 @@
       }
     },
     {
+      "name": "linux-gfortran",
+      "displayName": "Linux GNU Fortran",
+      "description": "Linux build with GNU Fortran (default for Linux)",
+      "binaryDir": "${sourceDir}/build-linux",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_Fortran_COMPILER": "gfortran"
+      }
+    },
+    {
       "name": "small-memory",
       "displayName": "Small Memory Configuration",
       "description": "Build with reduced memory requirements",
@@ -124,6 +139,12 @@
       "configurePreset": "gfortran",
       "displayName": "Build with GNU Fortran",
       "description": "Build with gfortran compiler"
+    },
+    {
+      "name": "linux-gfortran",
+      "configurePreset": "linux-gfortran",
+      "displayName": "Build Linux with GNU Fortran",
+      "description": "Build with gfortran compiler (Linux default)"
     },
     {
       "name": "small-memory",

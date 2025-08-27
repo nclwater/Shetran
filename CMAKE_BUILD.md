@@ -83,6 +83,20 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 - HDF5 libraries (provided in `external/` directory)
 - Visual Studio Build Tools or Visual Studio
 
+## Compiler Auto-Detection
+
+When using the build script with auto-detection (default behavior), the compiler selection follows platform-specific priorities:
+
+- **Linux**: Prefers GNU Fortran (gfortran) first, then Intel Fortran compilers (ifort, ifx)
+- **Windows**: Prefers Intel Fortran compilers (ifort, ifx) first, then GNU Fortran (gfortran)
+
+You can override this behavior by explicitly specifying a compiler with the `-c` option:
+```bash
+./build.sh -c gfortran   # Force GNU Fortran on any platform
+./build.sh -c ifort      # Force Intel Fortran (Classic) on any platform
+./build.sh -c ifx        # Force Intel Fortran (LLVM) on any platform
+```
+
 ## Compiler-Specific Settings
 
 ### Intel Fortran (ifort)

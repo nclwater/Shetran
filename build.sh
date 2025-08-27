@@ -153,19 +153,39 @@ detect_compiler() {
     
     log_info "Auto-detecting Fortran compiler..."
     
-    if command -v ifort >/dev/null 2>&1; then
-        COMPILER="ifort"
-        log_info "Found Intel Fortran Compiler (Classic): ifort"
-    elif command -v ifx >/dev/null 2>&1; then
-        COMPILER="ifx"
-        log_info "Found Intel Fortran Compiler (LLVM): ifx"
-    elif command -v gfortran >/dev/null 2>&1; then
-        COMPILER="gfortran"
-        log_info "Found GNU Fortran Compiler: gfortran"
+    # On Linux, prefer gfortran; on Windows/other platforms, prefer Intel compilers
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux: prefer gfortran first, then Intel compilers
+        if command -v gfortran >/dev/null 2>&1; then
+            COMPILER="gfortran"
+            log_info "Found GNU Fortran Compiler: gfortran (preferred on Linux)"
+        elif command -v ifort >/dev/null 2>&1; then
+            COMPILER="ifort"
+            log_info "Found Intel Fortran Compiler (Classic): ifort"
+        elif command -v ifx >/dev/null 2>&1; then
+            COMPILER="ifx"
+            log_info "Found Intel Fortran Compiler (LLVM): ifx"
+        else
+            log_error "No supported Fortran compiler found!"
+            log_error "Please install one of: gfortran, ifort, or ifx"
+            exit 1
+        fi
     else
-        log_error "No supported Fortran compiler found!"
-        log_error "Please install one of: ifort, ifx, or gfortran"
-        exit 1
+        # Windows/other platforms: prefer Intel compilers first, then gfortran
+        if command -v ifort >/dev/null 2>&1; then
+            COMPILER="ifort"
+            log_info "Found Intel Fortran Compiler (Classic): ifort"
+        elif command -v ifx >/dev/null 2>&1; then
+            COMPILER="ifx"
+            log_info "Found Intel Fortran Compiler (LLVM): ifx"
+        elif command -v gfortran >/dev/null 2>&1; then
+            COMPILER="gfortran"
+            log_info "Found GNU Fortran Compiler: gfortran"
+        else
+            log_error "No supported Fortran compiler found!"
+            log_error "Please install one of: ifort, ifx, or gfortran"
+            exit 1
+        fi
     fi
 }
 
