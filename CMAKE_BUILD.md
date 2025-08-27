@@ -68,6 +68,7 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 ## Requirements
 
 ### Linux
+
 - CMake 3.12 or higher
 - One of the following Fortran compilers:
   - Intel Fortran Compiler (ifort or ifx)
@@ -78,6 +79,7 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
   - Fedora: `sudo dnf install hdf5-devel`
 
 ### Windows
+
 - CMake 3.12 or higher
 - Intel Fortran Compiler (ifort or ifx)
 - HDF5 libraries (provided in `external/` directory)
@@ -107,6 +109,7 @@ You can override this behavior by explicitly specifying a compiler with the `-c`
 - Suppresses G-format descriptor remark (`/Qdiag-disable:8291` on Windows, `-diag-disable 8291` on Linux).
 
 ### Intel Fortran (ifx)
+
 - **Linux**:
     - Uses `-mcmodel=large` for large memory models (configurable).
     - Uses `-fpp` for preprocessing.
@@ -120,6 +123,7 @@ You can override this behavior by explicitly specifying a compiler with the `-c`
     - Note: `-mcmodel=large` and `-fstack-arrays` are not applicable/used.
 
 ### GNU Fortran (gfortran)
+
 - Uses `-mcmodel=large` for large memory models (configurable)
 - Uses `-fmax-stack-var-size=<size>` for large arrays (default: 100000000)
 - Uses `-cpp` for preprocessing.
@@ -173,6 +177,55 @@ cmake -DHEAP_ARRAY_SIZE=50000000 -DSTACK_VAR_SIZE=50000000 ..
 
 ### Adding New Source Files
 Simply add your new `.f90` files anywhere in the `src/` directory tree. The build system will automatically discover and include them in the next build.
+
+## HDF5 Dependency Management
+
+The build system includes sophisticated HDF5 handling that automatically adapts based on your platform and compiler:
+
+### HDF5 Strategy by Platform and Compiler
+
+**Linux with gfortran**:
+- **Default behavior**: Try system HDF5 first, then download and build if not found
+- **Rationale**: System HDF5 is typically well-integrated with gfortran on Linux distributions
+
+**Linux with Intel Fortran (ifort/ifx)**:
+- **Default behavior**: Always download and build HDF5 from source
+- **Rationale**: Ensures compatibility between Intel Fortran and HDF5
+
+**Windows (any compiler)**:
+- **Default behavior**: Use provided libraries if available, otherwise download and build
+- **Rationale**: Windows typically lacks package managers for easy HDF5 installation
+
+### HDF5 Build Options
+
+You can customize the HDF5 handling using these options:
+
+```bash
+# Force building HDF5 from source (Linux with gfortran only)
+./build.sh --force-build-hdf5
+
+# Don't try system HDF5, build from source (Linux with gfortran only)
+./build.sh --no-system-hdf5
+
+# Using CMake directly
+cmake -DFORCE_BUILD_HDF5=ON ..
+cmake -DHDF5_USE_SYSTEM_FIRST=OFF ..
+```
+
+### Automatic C Compiler Selection
+
+When building HDF5 from source, the build system automatically selects an appropriate C compiler to match your Fortran compiler:
+
+- **gfortran** → **gcc** (preferred) or **clang**
+- **Intel ifort/ifx on Linux** → **icc/icx** (preferred) or **clang**
+- **Intel ifort/ifx on Windows** → **icl/clang-cl** (preferred)
+- **Other compilers** → **clang** (fallback)
+
+### HDF5 Features
+
+- **Version**: HDF5 1.14.3 (when built from source)
+- **Components**: Fortran interface, High-Level (HL) library
+- **H5IM Palette Support**: Automatically detected and enabled when available
 
 ## Build Configurations
 

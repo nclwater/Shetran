@@ -23,6 +23,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)
 endif()
 
+# HDF5 build options (must be defined before HDF5 handling logic)
+option(FORCE_BUILD_HDF5 "Force building HDF5 from source even if system version is available (Linux with gfortran only)" OFF)
+option(HDF5_USE_SYSTEM_FIRST "Try system HDF5 first before building from source (Linux with gfortran only)" ON)
+
 # Compiler-specific settings
 if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
     if(CMAKE_Fortran_COMPILER MATCHES "ifort")
@@ -56,57 +60,246 @@ else()
     message(WARNING "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
 endif()
 
-# Platform-specific HDF5 handling
-if(WIN32)
-    # Use provided HDF5 libraries for Windows
-    set(HDF5_ROOT "${CMAKE_SOURCE_DIR}/external")
-    set(HDF5_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/external/Include")
-    set(HDF5_LIBRARIES 
-        "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_hl_fortran.lib"
-        "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_hl.lib" 
-        "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_fortran.lib"
-        "${CMAKE_SOURCE_DIR}/external/library-files/hdf5.lib"
-    )
-    set(HDF5_FOUND TRUE)
-    message(STATUS "Using provided HDF5 libraries for Windows")
-else()
-    # Find system HDF5 for Linux/Unix
-    find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
-    if(HDF5_FOUND)
-        message(STATUS "Found HDF5: ${HDF5_VERSION}")
-        
-        # Test for H5IM palette functions availability
-        include(CheckFortranSourceCompiles)
-        set(CMAKE_REQUIRED_INCLUDES ${HDF5_INCLUDE_DIRS})
-        set(CMAKE_REQUIRED_LIBRARIES ${HDF5_LIBRARIES})
-        
-        check_fortran_source_compiles("
-            program test_h5im_palette
-                use hdf5
-                use h5im
-                implicit none
-                integer(hid_t) :: file_id, pal_id
-                integer :: error
-                integer(hsize_t), dimension(2) :: dims = [256, 3]
-                integer, dimension(768) :: pal_data
-                
-                call h5open_f(error)
-                call h5fcreate_f('test.h5', H5F_ACC_TRUNC_F, file_id, error)
-                call h5immake_palette_f(file_id, 'palette', dims, pal_data, error)
-                call h5fclose_f(file_id, error)
-                call h5close_f(error)
-            end program
-        " HAVE_H5IM_PALETTE)
-        
-        if(HAVE_H5IM_PALETTE)
-            message(STATUS "H5IM palette functions: Available")
-            add_compile_definitions(HAVE_H5IM_PALETTE)
+# Enhanced HDF5 handling with automatic download and build
+include(ExternalProject)
+include(FetchContent)
+
+# Function to determine the appropriate C compiler for the Fortran compiler
+function(determine_c_compiler_for_fortran)
+    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+        # For gfortran, prefer gcc
+        find_program(GCC_COMPILER gcc)
+        if(GCC_COMPILER)
+            set(CMAKE_C_COMPILER ${GCC_COMPILER} PARENT_SCOPE)
+            message(STATUS "Using GCC as C compiler to match gfortran")
         else()
-            message(STATUS "H5IM palette functions: Not available (using basic HDF5)")
+            find_program(CLANG_COMPILER clang)
+            if(CLANG_COMPILER)
+                set(CMAKE_C_COMPILER ${CLANG_COMPILER} PARENT_SCOPE)
+                message(STATUS "Using Clang as C compiler (GCC not found)")
+            endif()
+        endif()
+    elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
+        # For Intel Fortran, prefer Intel C compiler, then clang, then gcc
+        if(WIN32)
+            find_program(ICL_COMPILER icl)
+            if(ICL_COMPILER)
+                set(CMAKE_C_COMPILER ${ICL_COMPILER} PARENT_SCOPE)
+                message(STATUS "Using Intel C compiler (icl) to match Intel Fortran")
+            else()
+                find_program(CLANG_CL_COMPILER clang-cl)
+                if(CLANG_CL_COMPILER)
+                    set(CMAKE_C_COMPILER ${CLANG_CL_COMPILER} PARENT_SCOPE)
+                    message(STATUS "Using Clang-cl as C compiler")
+                endif()
+            endif()
+        else()
+            find_program(ICC_COMPILER icc)
+            if(ICC_COMPILER)
+                set(CMAKE_C_COMPILER ${ICC_COMPILER} PARENT_SCOPE)
+                message(STATUS "Using Intel C compiler (icc) to match Intel Fortran")
+            else()
+                find_program(ICX_COMPILER icx)
+                if(ICX_COMPILER)
+                    set(CMAKE_C_COMPILER ${ICX_COMPILER} PARENT_SCOPE)
+                    message(STATUS "Using Intel oneAPI C compiler (icx) to match Intel Fortran")
+                else()
+                    find_program(CLANG_COMPILER clang)
+                    if(CLANG_COMPILER)
+                        set(CMAKE_C_COMPILER ${CLANG_COMPILER} PARENT_SCOPE)
+                        message(STATUS "Using Clang as C compiler")
+                    endif()
+                endif()
+            endif()
         endif()
     else()
-        message(FATAL_ERROR "HDF5 not found. Please install HDF5 development packages.")
+        # For other compilers, use system default or clang
+        find_program(CLANG_COMPILER clang)
+        if(CLANG_COMPILER)
+            set(CMAKE_C_COMPILER ${CLANG_COMPILER} PARENT_SCOPE)
+            message(STATUS "Using Clang as C compiler for ${CMAKE_Fortran_COMPILER_ID}")
+        endif()
     endif()
+endfunction()
+
+# Platform-specific HDF5 handling
+if(WIN32)
+    # Windows: Always use provided or download and build HDF5
+    if(EXISTS "${CMAKE_SOURCE_DIR}/external/library-files/hdf5.lib")
+        # Use existing provided libraries
+        set(HDF5_ROOT "${CMAKE_SOURCE_DIR}/external")
+        set(HDF5_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/external/Include")
+        set(HDF5_LIBRARIES 
+            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_hl_fortran.lib"
+            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_hl.lib" 
+            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_fortran.lib"
+            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5.lib"
+        )
+        set(HDF5_FOUND TRUE)
+        message(STATUS "Using provided HDF5 libraries for Windows")
+    else()
+        # Download and build HDF5 for Windows
+        message(STATUS "Downloading and building HDF5 for Windows")
+        determine_c_compiler_for_fortran()
+        
+        ExternalProject_Add(HDF5_external
+            URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
+            URL_HASH SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            CMAKE_ARGS
+                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
+                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                -DHDF5_BUILD_FORTRAN=ON
+                -DHDF5_BUILD_HL_LIB=ON
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
+            BUILD_BYPRODUCTS
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5.lib
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5_fortran.lib
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5_hl.lib
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5_hl_fortran.lib
+        )
+        
+        set(HDF5_ROOT "${CMAKE_BINARY_DIR}/hdf5-install")
+        set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
+        set(HDF5_LIBRARIES 
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5_hl_fortran.lib"
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5_hl.lib"
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5_fortran.lib"
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/hdf5.lib"
+        )
+        set(HDF5_FOUND TRUE)
+        set(HDF5_IS_EXTERNAL TRUE)
+    endif()
+else()
+    # Linux/Unix: Strategy depends on compiler
+    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+        # For gfortran on Linux: Try system first (if enabled), then download and build
+        if(HDF5_USE_SYSTEM_FIRST AND NOT FORCE_BUILD_HDF5)
+            find_package(HDF5 QUIET COMPONENTS Fortran HL)
+            if(HDF5_FOUND)
+                message(STATUS "Found system HDF5: ${HDF5_VERSION} (using with gfortran on Linux)")
+            else()
+                message(STATUS "System HDF5 not found. Downloading and building HDF5 for gfortran on Linux")
+                set(BUILD_HDF5_FROM_SOURCE TRUE)
+            endif()
+        else()
+            if(FORCE_BUILD_HDF5)
+                message(STATUS "FORCE_BUILD_HDF5 enabled. Downloading and building HDF5 for gfortran on Linux")
+            else()
+                message(STATUS "HDF5_USE_SYSTEM_FIRST disabled. Downloading and building HDF5 for gfortran on Linux")
+            endif()
+            set(BUILD_HDF5_FROM_SOURCE TRUE)
+        endif()
+        
+        if(BUILD_HDF5_FROM_SOURCE)
+            determine_c_compiler_for_fortran()
+            
+            ExternalProject_Add(HDF5_external
+                URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
+                URL_HASH SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7
+                DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+                CMAKE_ARGS
+                    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
+                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                    -DHDF5_BUILD_FORTRAN=ON
+                    -DHDF5_BUILD_HL_LIB=ON
+                    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                    -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
+                BUILD_BYPRODUCTS
+                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.so
+                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.so
+                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.so
+                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.so
+            )
+            
+            set(HDF5_ROOT "${CMAKE_BINARY_DIR}/hdf5-install")
+            set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
+            set(HDF5_LIBRARIES 
+                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.so"
+                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.so"
+                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.so"
+                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.so"
+            )
+            set(HDF5_FOUND TRUE)
+            set(HDF5_IS_EXTERNAL TRUE)
+        endif()
+    else()
+        # For non-gfortran on Linux: Always download and build
+        message(STATUS "Using non-gfortran compiler on Linux. Downloading and building HDF5")
+        determine_c_compiler_for_fortran()
+        
+        ExternalProject_Add(HDF5_external
+            URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
+            URL_HASH SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            CMAKE_ARGS
+                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
+                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                -DHDF5_BUILD_FORTRAN=ON
+                -DHDF5_BUILD_HL_LIB=ON
+                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
+            BUILD_BYPRODUCTS
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.so
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.so
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.so
+                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.so
+        )
+        
+        set(HDF5_ROOT "${CMAKE_BINARY_DIR}/hdf5-install")
+        set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
+        set(HDF5_LIBRARIES 
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.so"
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.so"
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.so"
+            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.so"
+        )
+        set(HDF5_FOUND TRUE)
+        set(HDF5_IS_EXTERNAL TRUE)
+    endif()
+endif()
+
+# Test for H5IM palette functions availability (only if using system HDF5)
+if(HDF5_FOUND AND NOT HDF5_IS_EXTERNAL)
+    include(CheckFortranSourceCompiles)
+    set(CMAKE_REQUIRED_INCLUDES ${HDF5_INCLUDE_DIRS})
+    set(CMAKE_REQUIRED_LIBRARIES ${HDF5_LIBRARIES})
+    
+    check_fortran_source_compiles("
+        program test_h5im_palette
+            use hdf5
+            use h5im
+            implicit none
+            integer(hid_t) :: file_id, pal_id
+            integer :: error
+            integer(hsize_t), dimension(2) :: dims = [256, 3]
+            integer, dimension(768) :: pal_data
+            
+            call h5open_f(error)
+            call h5fcreate_f('test.h5', H5F_ACC_TRUNC_F, file_id, error)
+            call h5immake_palette_f(file_id, 'palette', dims, pal_data, error)
+            call h5fclose_f(file_id, error)
+            call h5close_f(error)
+        end program
+    " HAVE_H5IM_PALETTE)
+    
+    if(HAVE_H5IM_PALETTE)
+        message(STATUS "H5IM palette functions: Available")
+        add_compile_definitions(HAVE_H5IM_PALETTE)
+    else()
+        message(STATUS "H5IM palette functions: Not available (using basic HDF5)")
+    endif()
+else()
+    # For external HDF5 builds, assume H5IM palette functions are available
+    if(HDF5_IS_EXTERNAL)
+        message(STATUS "H5IM palette functions: Assumed available (external HDF5 build)")
+        add_compile_definitions(HAVE_H5IM_PALETTE)
+    endif()
+endif()
+
+if(NOT HDF5_FOUND)
+    message(FATAL_ERROR "HDF5 configuration failed. Unable to find or build HDF5.")
 endif()
 
 # Build options
@@ -359,6 +552,11 @@ message(STATUS "")
 
 # Create the executable
 add_executable(SHETRAN ${SHETRAN_SOURCES})
+
+# Add dependency on external HDF5 if it's being built
+if(HDF5_IS_EXTERNAL)
+    add_dependencies(SHETRAN HDF5_external)
+endif()
 
 # Set target properties
 set_target_properties(SHETRAN PROPERTIES

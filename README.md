@@ -15,6 +15,13 @@ Then select a rundata file from one of the examples data sets.
 
 A CMake script has been setup to automatically setup the necessary compiler flags and build Shetran as a project.
 It is documented in the CMAKE_BUILD.md file.
+
+**Key Features:**
+
+- **Automatic compiler detection**: Prefers gfortran on Linux, Intel Fortran on Windows
+- **Smart HDF5 handling**: Automatically finds system HDF5 or downloads and builds from source as needed
+- **Cross-platform support**: Works on Linux, Unix, and Windows with multiple compilers
+
 This has been tested in the following configurations and confirmed working:
 
 - Linux, with GFortran, both with the build script and the cmake build.

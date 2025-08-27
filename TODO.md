@@ -36,3 +36,4 @@ Therefore a lot could be done to modernize the code and improve the featureset.
 - When completely exiting nested loops, use "EXIT <loopname>" if possible (double check changes done).
 - For OPEN statements, use NEWUNIT to set handles. 
   Correspondingly, replace the explicit unit-numbers with more descriptive variables.
+- Building the HDF5 library could include e.g. zlib to save on output file size.

@@ -37,6 +37,8 @@ usage() {
     echo "  --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)"
     echo "  --stack-size SIZE         Set stack variable size for gfortran (default: 100000000)"
     echo "  --use-windows-intel-getdirqq  Use Windows Intel-specific getdirqq (Windows+Intel only)"
+    echo "  --force-build-hdf5        Force building HDF5 from source (Linux with gfortran only)"
+    echo "  --no-system-hdf5          Don't try system HDF5 first, build from source (Linux with gfortran only)"
     echo "  -h, --help                Show this help message"
     echo ""
     echo "Examples:"
@@ -48,6 +50,8 @@ usage() {
     echo "  $0 --heap-size 50000000   # Build with smaller heap arrays (Intel)"
     echo "  $0 --stack-size 50000000  # Build with smaller stack variables (GNU)"
     echo "  $0 --use-windows-intel-getdirqq  # Use Windows-specific version (Windows+Intel only)"
+    echo "  $0 --force-build-hdf5     # Force building HDF5 from source"
+    echo "  $0 --no-system-hdf5       # Build HDF5 from source instead of using system version"
 }
 
 log_info() {
@@ -78,6 +82,8 @@ ENABLE_LARGE_MEMORY=true
 HEAP_SIZE=""
 STACK_SIZE=""
 USE_WINDOWS_INTEL_GETDIRQQ=false
+FORCE_BUILD_HDF5=false
+HDF5_USE_SYSTEM_FIRST=true
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -131,6 +137,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --use-windows-intel-getdirqq)
             USE_WINDOWS_INTEL_GETDIRQQ=true
+            shift
+            ;;
+        --force-build-hdf5)
+            FORCE_BUILD_HDF5=true
+            shift
+            ;;
+        --no-system-hdf5)
+            HDF5_USE_SYSTEM_FIRST=false
             shift
             ;;
         -h|--help)
@@ -289,6 +303,17 @@ build_shetran() {
             log_error "Stack size must be a positive integer: $STACK_SIZE"
             exit 1
         fi
+    fi
+    
+    # Handle HDF5 options
+    if [[ "$FORCE_BUILD_HDF5" == "true" ]]; then
+        CMAKE_ARGS="$CMAKE_ARGS -DFORCE_BUILD_HDF5=ON"
+        log_info "Forcing HDF5 build from source"
+    fi
+    
+    if [[ "$HDF5_USE_SYSTEM_FIRST" == "false" ]]; then
+        CMAKE_ARGS="$CMAKE_ARGS -DHDF5_USE_SYSTEM_FIRST=OFF"
+        log_info "Disabling system HDF5 search"
     fi
     
     # Set Fortran compiler

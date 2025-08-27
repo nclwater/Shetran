@@ -21,6 +21,14 @@ Shetran-4.4.7
 # Generated files - CMake creates these at build time
 src/util/getdirqq.f90
 build/*
+build-*/
+**/hdf5-install/
+**/hdf5-prefix/
+**/hdf5-stamp/
+**/hdf5-src/
+**/hdf5-build/
+# Test build directories
+test-build/
 
 
 *.rsuser
