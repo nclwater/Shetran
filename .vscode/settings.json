@@ -1,0 +1,32 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}",
+    "cmake.generator": "Unix Makefiles",
+    "cmake.preferredGenerators": [
+        "Unix Makefiles",
+        "Ninja"
+    ],
+    "files.associations": {
+        "*.f90": "fortran-modern",
+        "*.f95": "fortran-modern",
+        "*.f03": "fortran-modern",
+        "*.f08": "fortran-modern",
+        "*.f": "fortran-modern",
+        "*.for": "fortran-modern",
+        "*.ftn": "fortran-modern",
+        "*.fpp": "fortran-modern"
+    },
+    "fortran.formatting.formatter": "findent",
+    "fortran.fortls.path": "fortls",
+    "search.exclude": {
+        "**/build/**": true,
+        "**/HDF5-*/**": true
+    },
+    "files.exclude": {
+        "**/build/**": false
+    },
+    "files.watcherExclude": {
+        "**/build/**": true,
+        "**/HDF5-*/**": true
+    }
+}
