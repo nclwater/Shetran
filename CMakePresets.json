@@ -10,7 +10,7 @@
       "name": "default",
       "displayName": "Default Configuration",
       "description": "Default build configuration with auto-detected compiler",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -19,16 +19,34 @@
       "name": "debug",
       "displayName": "Debug Configuration",
       "description": "Debug build with symbols and runtime checks",
-      "binaryDir": "${sourceDir}/build-debug",
+      "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release Configuration",
+      "description": "Optimized release build",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "Release with Debug Info",
+      "description": "Optimized build with debug symbols",
+      "binaryDir": "${sourceDir}/build/relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },
     {
       "name": "ifort",
       "displayName": "Intel Fortran (Classic)",
       "description": "Build with Intel Fortran Compiler (ifort)",
-      "binaryDir": "${sourceDir}/build-ifort",
+      "binaryDir": "${sourceDir}/build/ifort",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_Fortran_COMPILER": "ifort"
@@ -38,7 +56,7 @@
       "name": "ifx",
       "displayName": "Intel Fortran (LLVM)",
       "description": "Build with Intel Fortran Compiler (ifx)",
-      "binaryDir": "${sourceDir}/build-ifx",
+      "binaryDir": "${sourceDir}/build/ifx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_Fortran_COMPILER": "ifx"
@@ -48,7 +66,7 @@
       "name": "gfortran",
       "displayName": "GNU Fortran",
       "description": "Build with GNU Fortran Compiler",
-      "binaryDir": "${sourceDir}/build-gfortran",
+      "binaryDir": "${sourceDir}/build/gfortran",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_Fortran_COMPILER": "gfortran"
@@ -58,7 +76,7 @@
       "name": "windows-ifort",
       "displayName": "Windows Intel Fortran",
       "description": "Windows build with Intel Fortran",
-      "binaryDir": "${sourceDir}/build-windows",
+      "binaryDir": "${sourceDir}/build/windows",
       "generator": "NMake Makefiles",
       "condition": {
         "type": "equals",
@@ -74,7 +92,7 @@
       "name": "linux-gfortran",
       "displayName": "Linux GNU Fortran",
       "description": "Linux build with GNU Fortran (default for Linux)",
-      "binaryDir": "${sourceDir}/build-linux",
+      "binaryDir": "${sourceDir}/build/linux",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -89,7 +107,7 @@
       "name": "small-memory",
       "displayName": "Small Memory Configuration",
       "description": "Build with reduced memory requirements",
-      "binaryDir": "${sourceDir}/build-small-memory",
+      "binaryDir": "${sourceDir}/build/small-memory",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "ENABLE_LARGE_MEMORY_MODEL": "OFF",
@@ -101,7 +119,7 @@
       "name": "custom-memory",
       "displayName": "Custom Memory Configuration",
       "description": "Build with custom memory settings",
-      "binaryDir": "${sourceDir}/build-custom-memory",
+      "binaryDir": "${sourceDir}/build/custom-memory",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "HEAP_ARRAY_SIZE": "50000000",
@@ -121,6 +139,18 @@
       "configurePreset": "debug",
       "displayName": "Build Debug",
       "description": "Build debug version"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "displayName": "Build Release",
+      "description": "Build release version"
+    },
+    {
+      "name": "relwithdebinfo",
+      "configurePreset": "relwithdebinfo",
+      "displayName": "Build Release with Debug Info",
+      "description": "Build release with debug symbols"
     },
     {
       "name": "ifort",

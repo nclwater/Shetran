@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 REM Default values
 set BUILD_TYPE=Release
 set COMPILER=auto
-set BUILD_DIR=build
+set BUILD_DIR=
 set INSTALL_PREFIX=
 set CLEAN_BUILD=false
 set VERBOSE=false
@@ -195,6 +195,22 @@ for /f "tokens=2,*" %%a in ('cmake --version') do (
 )
 echo INFO: Found CMake version: %CMAKE_VERSION%
 
+REM Set BUILD_DIR based on build type if not explicitly set
+if "%BUILD_DIR%"=="" (
+    if /i "%BUILD_TYPE%"=="Debug" (
+        set BUILD_DIR=build\debug
+    ) else if /i "%BUILD_TYPE%"=="Release" (
+        set BUILD_DIR=build\release
+    ) else if /i "%BUILD_TYPE%"=="RelWithDebInfo" (
+        set BUILD_DIR=build\relwithdebinfo
+    ) else if /i "%BUILD_TYPE%"=="MinSizeRel" (
+        set BUILD_DIR=build\minsizerel
+    ) else (
+        set BUILD_DIR=build\%BUILD_TYPE%
+    )
+    echo INFO: Using build directory: %BUILD_DIR%
+)
+
 REM Clean build directory if requested
 if "%CLEAN_BUILD%"=="true" (
     echo INFO: Cleaning build directory: %BUILD_DIR%
@@ -204,6 +220,13 @@ if "%CLEAN_BUILD%"=="true" (
 REM Create build directory
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 cd "%BUILD_DIR%"
+
+REM Calculate source path based on build directory depth
+set SOURCE_PATH=..
+echo "%BUILD_DIR%" | findstr "\" >nul
+if not errorlevel 1 (
+    set SOURCE_PATH=..\..
+)
 
 REM Prepare CMake arguments
 set CMAKE_ARGS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE%
@@ -240,7 +263,7 @@ if "%COMPILER%"=="ifort" (
 REM Configure
 echo INFO: Configuring with CMake...
 echo INFO: CMake arguments: %CMAKE_ARGS%
-cmake %CMAKE_ARGS% -G "NMake Makefiles" ..
+cmake %CMAKE_ARGS% -G "NMake Makefiles" %SOURCE_PATH%
 if errorlevel 1 (
     echo ERROR: CMake configuration failed!
     exit /b 1
@@ -293,7 +316,7 @@ echo.
 echo Options:
 echo   -c, --compiler COMPILER    Specify compiler: ifort, ifx, or auto (default: auto)
 echo   -t, --type TYPE           Build type: Debug, Release, RelWithDebInfo (default: Release)
-echo   -d, --build-dir DIR       Build directory (default: build)
+echo   -d, --build-dir DIR       Build directory (default: build\^<build-type^>)
 echo   -p, --prefix PREFIX       Installation prefix
 echo   --clean                   Clean build directory before building
 echo   -v, --verbose             Verbose build output
@@ -305,14 +328,29 @@ echo   --heap-size SIZE          Set heap array size for Intel ifort (default: 1
 echo   --use-windows-intel-getdirqq  Use Windows Intel-specific getdirqq (default on Windows)
 echo   -h, --help                Show this help message
 echo.
+echo Build Directory Structure:
+echo   Build outputs are organized by build type:
+echo   - Debug builds:        build\debug\
+echo   - Release builds:      build\release\
+echo   - RelWithDebInfo:      build\relwithdebinfo\
+echo   - Custom build types:  build\^<type^>\
+echo.
+echo HDF5 Dependency:
+echo   On Windows, HDF5 is automatically downloaded and built from source
+echo   using the official HDF Group distribution. The build system handles
+echo   compiler selection automatically for optimal compatibility.
+echo.
 echo Examples:
 echo   %0                        # Build with auto-detected compiler
 echo   %0 -c ifx -t Debug        # Build with Intel ifx compiler in debug mode
-echo   %0 --clean                # Clean build with ifort
+echo   %0 --clean                # Clean build with auto-detected compiler
 echo   %0 --install -p C:\SHETRAN # Build and install to C:\SHETRAN
 echo   %0 --disable-large-memory  # Build without large memory model
 echo   %0 --heap-size 50000000   # Build with smaller heap arrays
 
 :end
-cd ..
+REM Return to source directory if we're in a build directory
+if not "%CD%"=="%~dp0" (
+    cd "%~dp0"
+)
 endlocal

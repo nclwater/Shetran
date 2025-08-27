@@ -8,7 +8,7 @@ set -e  # Exit on any error
 # Default values
 BUILD_TYPE="Release"
 COMPILER="auto"
-BUILD_DIR="build"
+BUILD_DIR=""  # Will be set based on build type
 INSTALL_PREFIX=""
 CLEAN_BUILD=false
 VERBOSE=false
@@ -26,7 +26,7 @@ usage() {
     echo "Options:"
     echo "  -c, --compiler COMPILER    Specify compiler: ifort, ifx, gfortran, or auto (default: auto)"
     echo "  -t, --type TYPE           Build type: Debug, Release, RelWithDebInfo (default: Release)"
-    echo "  -d, --build-dir DIR       Build directory (default: build)"
+    echo "  -d, --build-dir DIR       Build directory (default: build/<build-type>)"
     echo "  -p, --prefix PREFIX       Installation prefix"
     echo "  --clean                   Clean build directory before building"
     echo "  -v, --verbose             Verbose build output"
@@ -255,15 +255,54 @@ setup_compiler() {
 build_shetran() {
     log_info "Starting SHETRAN build process..."
     
+    # Set BUILD_DIR based on build type if not explicitly set
+    if [[ -z "$BUILD_DIR" ]]; then
+        case "$BUILD_TYPE" in
+            Debug)
+                BUILD_DIR="build/debug"
+                ;;
+            Release)
+                BUILD_DIR="build/release"
+                ;;
+            RelWithDebInfo)
+                BUILD_DIR="build/relwithdebinfo"
+                ;;
+            MinSizeRel)
+                BUILD_DIR="build/minsizerel"
+                ;;
+            *)
+                BUILD_DIR="build/$(echo "$BUILD_TYPE" | tr '[:upper:]' '[:lower:]')"
+                ;;
+        esac
+        log_info "Using build directory: $BUILD_DIR"
+    fi
+    
     # Clean build directory if requested
     if [[ "$CLEAN_BUILD" == "true" ]]; then
         log_info "Cleaning build directory: $BUILD_DIR"
         rm -rf "$BUILD_DIR"
     fi
     
-    # Create build directory
+    # Create build directory and remember source path
+    SOURCE_DIR="$(pwd)"
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
+    
+    # Calculate relative path back to source directory
+    # Count directory levels to determine how many "../" we need
+    LEVEL_COUNT=$(echo "$BUILD_DIR" | grep -o "/" | wc -l)
+    if [[ "$BUILD_DIR" == */* ]]; then
+        # BUILD_DIR has subdirectories, calculate relative path
+        SOURCE_PATH=""
+        for ((i=0; i<LEVEL_COUNT+1; i++)); do
+            SOURCE_PATH="../$SOURCE_PATH"
+        done
+        # Remove trailing slash
+        SOURCE_PATH="${SOURCE_PATH%/}"
+    else
+        # BUILD_DIR is at same level as source
+        SOURCE_PATH=".."
+    fi
     
     # Prepare CMake arguments
     CMAKE_ARGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
@@ -334,7 +373,7 @@ build_shetran() {
     log_info "CMake arguments: $CMAKE_ARGS"
     log_info_detail "Source files will be automatically discovered from src/ directory"
     log_info_detail "Dependency ordering: Pattern-based (default) or advanced analysis"
-    cmake $CMAKE_ARGS ..
+    cmake $CMAKE_ARGS "$SOURCE_PATH"
     
     # Build
     log_info "Building SHETRAN with $JOBS parallel jobs..."
