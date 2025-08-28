@@ -138,183 +138,57 @@ function(determine_c_compiler_for_fortran)
 endfunction()
 
 # Platform-specific HDF5 handling
+
+# --- Unified ExternalProject_Add for HDF5 ---
+set(HDF5_URL "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz")
+set(HDF5_URL_HASH "SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7")
+set(HDF5_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/hdf5-install")
+set(HDF5_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+set(HDF5_C_COMPILER "${CMAKE_C_COMPILER}")
+set(HDF5_Fortran_COMPILER "${CMAKE_Fortran_COMPILER}")
+
 if(WIN32)
-    # Windows: Always use provided or download and build HDF5
-    if(EXISTS "${CMAKE_SOURCE_DIR}/external/library-files/hdf5.lib")
-        # Use existing provided libraries
-        set(HDF5_ROOT "${CMAKE_SOURCE_DIR}/external")
-        set(HDF5_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/external/Include")
-        set(HDF5_LIBRARIES 
-            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_hl_fortran.lib"
-            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_hl.lib" 
-            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5_fortran.lib"
-            "${CMAKE_SOURCE_DIR}/external/library-files/hdf5.lib"
-        )
-        set(HDF5_FOUND TRUE)
-        message(STATUS "Using provided HDF5 libraries for Windows")
-    else()
-        # Download and build HDF5 for Windows
-        message(STATUS "Downloading and building HDF5 for Windows")
-        determine_c_compiler_for_fortran()
-        
-            ExternalProject_Add(HDF5_external
-            URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
-            URL_HASH SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-            CMAKE_ARGS
-                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
-                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                -DHDF5_BUILD_FORTRAN=ON
-                -DHDF5_BUILD_HL_LIB=ON
-                -DHDF5_BUILD_EXAMPLES=OFF
-                -DHDF5_BUILD_TESTING=ON
-                -DHDF5_BUILD_TOOLS=OFF
-                -DBUILD_TESTING=OFF
-                -DHDF5_ENABLE_TESTS=ON
-                -DHDF5_ENABLE_EXAMPLES=OFF
-                -DHDF5_TEST_FORTRAN=OFF
-                -DHDF5_BUILD_FORTRAN_TESTS=OFF
-                -DHDF5_ENABLE_SHARED_LIB=OFF
-                -DHDF5_ENABLE_STATIC_LIB=ON
-                -DBUILD_SHARED_LIBS=OFF
-                -DHDF5_ENABLE_SZIP_SUPPORT=OFF
-                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-                -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
-            BUILD_BYPRODUCTS
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.lib
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_f90cstub.lib
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.lib
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.lib
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_f90cstub.lib
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.lib
-        )
-        
-        set(HDF5_ROOT "${CMAKE_BINARY_DIR}/hdf5-install")
-        set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
-        set(HDF5_LIBRARIES 
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.lib"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_f90cstub.lib"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.lib"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.lib"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_f90cstub.lib"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.lib"
-            "shlwapi"
-        )
-        set(HDF5_FOUND TRUE)
-        set(HDF5_IS_EXTERNAL TRUE)
-    endif()
+    set(HDF5_LIB_EXT ".lib")
 else()
-    # Linux/Unix: Strategy depends on compiler
-    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-        # For gfortran on Linux: Try system first (if enabled), then download and build
-        if(HDF5_USE_SYSTEM_FIRST AND NOT FORCE_BUILD_HDF5)
-            find_package(HDF5 QUIET COMPONENTS Fortran HL)
-            if(HDF5_FOUND)
-                message(STATUS "Found system HDF5: ${HDF5_VERSION} (using with gfortran on Linux)")
-            else()
-                message(STATUS "System HDF5 not found. Downloading and building HDF5 for gfortran on Linux")
-                set(BUILD_HDF5_FROM_SOURCE TRUE)
-            endif()
-        else()
-            if(FORCE_BUILD_HDF5)
-                message(STATUS "FORCE_BUILD_HDF5 enabled. Downloading and building HDF5 for gfortran on Linux")
-            else()
-                message(STATUS "HDF5_USE_SYSTEM_FIRST disabled. Downloading and building HDF5 for gfortran on Linux")
-            endif()
-            set(BUILD_HDF5_FROM_SOURCE TRUE)
-        endif()
-        
-        if(BUILD_HDF5_FROM_SOURCE)
-            determine_c_compiler_for_fortran()
-            
-                    ExternalProject_Add(HDF5_external
-                URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
-                URL_HASH SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7
-                DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-                CMAKE_ARGS
-                    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
-                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                    -DHDF5_BUILD_FORTRAN=ON
-                    -DHDF5_BUILD_HL_LIB=ON
-                    -DHDF5_BUILD_EXAMPLES=OFF
-                    -DHDF5_BUILD_TESTING=ON
-                    -DHDF5_BUILD_TOOLS=OFF
-                    -DBUILD_TESTING=OFF
-                    -DHDF5_ENABLE_TESTS=ON
-                    -DHDF5_ENABLE_EXAMPLES=OFF
-                    -DHDF5_TEST_FORTRAN=OFF
-                    -DHDF5_BUILD_FORTRAN_TESTS=OFF
-                    -DHDF5_ENABLE_SHARED_LIB=OFF
-                    -DHDF5_ENABLE_STATIC_LIB=ON
-                    -DBUILD_SHARED_LIBS=OFF
-                    -DHDF5_ENABLE_SZIP_SUPPORT=OFF
-                    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-                    -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
-                BUILD_BYPRODUCTS
-                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.a
-                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.a
-                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.a
-                    ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.a
-            )
-            
-            set(HDF5_ROOT "${CMAKE_BINARY_DIR}/hdf5-install")
-            set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
-            set(HDF5_LIBRARIES 
-                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.a"
-                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.a"
-                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.a"
-                "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.a"
-            )
-            set(HDF5_FOUND TRUE)
-            set(HDF5_IS_EXTERNAL TRUE)
-        endif()
-    else()
-        # For non-gfortran on Linux: Always download and build
-        message(STATUS "Using non-gfortran compiler on Linux. Downloading and building HDF5")
-        determine_c_compiler_for_fortran()
-        
-        ExternalProject_Add(HDF5_external
-            URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.3/src/hdf5-1.14.3.tar.gz
-            URL_HASH SHA256=09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-            CMAKE_ARGS
-                -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
-                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-                -DHDF5_BUILD_FORTRAN=ON
-                -DHDF5_BUILD_HL_LIB=ON
-                -DHDF5_BUILD_EXAMPLES=OFF
-                -DHDF5_BUILD_TESTING=ON
-                -DHDF5_BUILD_TOOLS=OFF
-                -DBUILD_TESTING=OFF
-                -DHDF5_ENABLE_TESTS=ON
-                -DHDF5_ENABLE_EXAMPLES=OFF
-                -DHDF5_TEST_FORTRAN=OFF
-                -DHDF5_BUILD_FORTRAN_TESTS=OFF
-                -DHDF5_ENABLE_SHARED_LIB=OFF
-                -DHDF5_ENABLE_STATIC_LIB=ON
-                -DBUILD_SHARED_LIBS=OFF
-                -DHDF5_ENABLE_SZIP_SUPPORT=OFF
-                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-                -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
-            BUILD_BYPRODUCTS
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.a
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.a
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.a
-                ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.a
-        )
-        
-        set(HDF5_ROOT "${CMAKE_BINARY_DIR}/hdf5-install")
-        set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
-        set(HDF5_LIBRARIES 
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.a"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.a"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.a"
-            "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.a"
-        )
-        set(HDF5_FOUND TRUE)
-        set(HDF5_IS_EXTERNAL TRUE)
-    endif()
+    set(HDF5_LIB_EXT ".a")
 endif()
+
+ExternalProject_Add(HDF5_external
+    URL ${HDF5_URL}
+    URL_HASH ${HDF5_URL_HASH}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=${HDF5_INSTALL_PREFIX}
+        -DCMAKE_BUILD_TYPE=${HDF5_BUILD_TYPE}
+        -DHDF5_BUILD_FORTRAN=ON
+        -DHDF5_BUILD_HL_LIB=ON
+        -DHDF5_BUILD_EXAMPLES=OFF
+        -DHDF5_BUILD_TESTING=ON
+        -DHDF5_BUILD_TOOLS=OFF
+        -DBUILD_TESTING=OFF
+        -DHDF5_ENABLE_TESTS=ON
+        -DHDF5_ENABLE_EXAMPLES=OFF
+        -DHDF5_TEST_FORTRAN=OFF
+        -DHDF5_BUILD_FORTRAN_TESTS=OFF
+        -DHDF5_ENABLE_SHARED_LIB=OFF
+        -DHDF5_ENABLE_STATIC_LIB=ON
+        -DBUILD_SHARED_LIBS=OFF
+        -DHDF5_ENABLE_SZIP_SUPPORT=OFF
+        -DCMAKE_C_COMPILER=${HDF5_C_COMPILER}
+        -DCMAKE_Fortran_COMPILER=${HDF5_Fortran_COMPILER}
+    BUILD_BYPRODUCTS
+        ${HDF5_INSTALL_PREFIX}/lib/libhdf5${HDF5_LIB_EXT}
+        ${HDF5_INSTALL_PREFIX}/lib/libhdf5_fortran${HDF5_LIB_EXT}
+        ${HDF5_INSTALL_PREFIX}/lib/libhdf5_hl${HDF5_LIB_EXT}
+        ${HDF5_INSTALL_PREFIX}/lib/libhdf5_hl_fortran${HDF5_LIB_EXT}
+        ${HDF5_INSTALL_PREFIX}/lib/libhdf5_f90cstub${HDF5_LIB_EXT}
+        ${HDF5_INSTALL_PREFIX}/lib/libhdf5_hl_f90cstub${HDF5_LIB_EXT}
+)
+
+set(HDF5_ROOT "${HDF5_INSTALL_PREFIX}")
+set(HDF5_INCLUDE_DIRS "${HDF5_INSTALL_PREFIX}/include")
+set(HDF5_FOUND TRUE)
+set(HDF5_IS_EXTERNAL TRUE)
 
 # Test for H5IM palette functions availability (only if using system HDF5)
 if(HDF5_FOUND AND NOT HDF5_IS_EXTERNAL)
@@ -664,14 +538,26 @@ if(NOT WIN32)
     # Link all required HDF5 Fortran stub libraries, main HDF5 C library, and zlib for Intel ifx and other compilers
     target_include_directories(SHETRAN PRIVATE ${ZLIB_INCLUDE_DIRS})
     # Explicitly link the stub library file if it exists
+    # --- HDF5 Library Linking Section ---
+    # Define HDF5 library directory
     set(HDF5_LIBDIR "${CMAKE_CURRENT_SOURCE_DIR}/build/release/hdf5-install/lib")
-    set(HDF5_HL_FORTRAN "${HDF5_LIBDIR}/libhdf5_hl_fortran.a")
-    set(HDF5_FORTRAN "${HDF5_LIBDIR}/libhdf5_fortran.a")
-    set(HDF5_HL "${HDF5_LIBDIR}/libhdf5_hl.a")
-    set(HDF5_C "${HDF5_LIBDIR}/libhdf5.a")
-    set(HDF5_F90CSTUB "${HDF5_LIBDIR}/libhdf5_f90cstub.a")
-    set(HDF5_HL_F90CSTUB "${HDF5_LIBDIR}/libhdf5_hl_f90cstub.a")
-    target_link_libraries(SHETRAN PRIVATE "${HDF5_HL_FORTRAN}" "${HDF5_FORTRAN}" "${HDF5_HL}" "${HDF5_C}" ${ZLIB_LIBRARIES} "${HDF5_F90CSTUB}" "${HDF5_HL_F90CSTUB}" "${HDF5_HL}" "${HDF5_C}")
+
+    # Group all required HDF5 libraries in a single list
+    set(HDF5_LIBS
+        "${HDF5_LIBDIR}/libhdf5_hl_fortran.a"
+        "${HDF5_LIBDIR}/libhdf5_fortran.a"
+        "${HDF5_LIBDIR}/libhdf5_hl.a"
+        "${HDF5_LIBDIR}/libhdf5.a"
+        ${ZLIB_LIBRARIES}
+        "${HDF5_LIBDIR}/libhdf5_f90cstub.a"
+        "${HDF5_LIBDIR}/libhdf5_hl_f90cstub.a"
+        # Repeat HL and C libraries for static linking resolution
+        "${HDF5_LIBDIR}/libhdf5_hl.a"
+        "${HDF5_LIBDIR}/libhdf5.a"
+    )
+
+    # Link all HDF5 libraries in one call
+    target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBS})
 endif()
 
 # Additional linker flags for large memory model
