@@ -1,11 +1,15 @@
 {
-    "cmake.configureOnOpen": true,
+    "cmake.configureOnOpen": false,
+    "cmake.configureOnEdit": false,
     "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}",
-    "cmake.generator": "Unix Makefiles",
+    "cmake.generator": "NMake Makefiles",
     "cmake.preferredGenerators": [
-        "Unix Makefiles",
-        "Ninja"
+        "Visual Studio 17 2022",
+        "Visual Studio 16 2019",
+        "Ninja Multi-Config",
+        "Unix Makefiles"
     ],
+    "cmake.configureArgs": [],
     "files.associations": {
         "*.f90": "fortran-modern",
         "*.f95": "fortran-modern",
