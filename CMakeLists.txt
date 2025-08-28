@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.12)
+
 project(SHETRAN LANGUAGES Fortran C)
+
+# Find and link zlib for compression support (Linux/Unix)
+if(NOT WIN32)
+    find_package(ZLIB REQUIRED)
+    if(NOT ZLIB_FOUND)
+        message(FATAL_ERROR "ZLIB not found. Please install zlib development package (e.g. zlib1g-dev or zlib-devel).")
+    endif()
+
+    # Find SZIP library
+    find_library(SZIP_LIBRARY sz)
+    if(NOT SZIP_LIBRARY)
+        message(FATAL_ERROR "SZIP library not found. Please install szip development package (e.g. libsz2-dev or szip-devel).")
+    endif()
+endif()
 
 # Set C standard for HDF5 compatibility
 
@@ -152,16 +167,17 @@ if(WIN32)
                 -DHDF5_BUILD_FORTRAN=ON
                 -DHDF5_BUILD_HL_LIB=ON
                 -DHDF5_BUILD_EXAMPLES=OFF
-                -DHDF5_BUILD_TESTING=OFF
+                -DHDF5_BUILD_TESTING=ON
                 -DHDF5_BUILD_TOOLS=OFF
                 -DBUILD_TESTING=OFF
-                -DHDF5_ENABLE_TESTS=OFF
+                -DHDF5_ENABLE_TESTS=ON
                 -DHDF5_ENABLE_EXAMPLES=OFF
                 -DHDF5_TEST_FORTRAN=OFF
                 -DHDF5_BUILD_FORTRAN_TESTS=OFF
                 -DHDF5_ENABLE_SHARED_LIB=OFF
                 -DHDF5_ENABLE_STATIC_LIB=ON
                 -DBUILD_SHARED_LIBS=OFF
+                -DHDF5_ENABLE_SZIP_SUPPORT=OFF
                 -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
                 -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
             BUILD_BYPRODUCTS
@@ -221,16 +237,17 @@ else()
                     -DHDF5_BUILD_FORTRAN=ON
                     -DHDF5_BUILD_HL_LIB=ON
                     -DHDF5_BUILD_EXAMPLES=OFF
-                    -DHDF5_BUILD_TESTING=OFF
+                    -DHDF5_BUILD_TESTING=ON
                     -DHDF5_BUILD_TOOLS=OFF
                     -DBUILD_TESTING=OFF
-                    -DHDF5_ENABLE_TESTS=OFF
+                    -DHDF5_ENABLE_TESTS=ON
                     -DHDF5_ENABLE_EXAMPLES=OFF
                     -DHDF5_TEST_FORTRAN=OFF
                     -DHDF5_BUILD_FORTRAN_TESTS=OFF
                     -DHDF5_ENABLE_SHARED_LIB=OFF
                     -DHDF5_ENABLE_STATIC_LIB=ON
                     -DBUILD_SHARED_LIBS=OFF
+                    -DHDF5_ENABLE_SZIP_SUPPORT=OFF
                     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
                     -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
                 BUILD_BYPRODUCTS
@@ -266,16 +283,17 @@ else()
                 -DHDF5_BUILD_FORTRAN=ON
                 -DHDF5_BUILD_HL_LIB=ON
                 -DHDF5_BUILD_EXAMPLES=OFF
-                -DHDF5_BUILD_TESTING=OFF
+                -DHDF5_BUILD_TESTING=ON
                 -DHDF5_BUILD_TOOLS=OFF
                 -DBUILD_TESTING=OFF
-                -DHDF5_ENABLE_TESTS=OFF
+                -DHDF5_ENABLE_TESTS=ON
                 -DHDF5_ENABLE_EXAMPLES=OFF
                 -DHDF5_TEST_FORTRAN=OFF
                 -DHDF5_BUILD_FORTRAN_TESTS=OFF
                 -DHDF5_ENABLE_SHARED_LIB=OFF
                 -DHDF5_ENABLE_STATIC_LIB=ON
                 -DBUILD_SHARED_LIBS=OFF
+                -DHDF5_ENABLE_SZIP_SUPPORT=OFF
                 -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
                 -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
             BUILD_BYPRODUCTS
@@ -643,7 +661,17 @@ endif()
 
 # Add high level HDF5 Fortran library explicitly for Linux/Unix
 if(NOT WIN32)
-    target_link_libraries(SHETRAN PRIVATE hdf5_hl_fortran hdf5_hl_f90cstub)
+    # Link all required HDF5 Fortran stub libraries, main HDF5 C library, and zlib for Intel ifx and other compilers
+    target_include_directories(SHETRAN PRIVATE ${ZLIB_INCLUDE_DIRS})
+    # Explicitly link the stub library file if it exists
+    set(HDF5_LIBDIR "${CMAKE_CURRENT_SOURCE_DIR}/build/release/hdf5-install/lib")
+    set(HDF5_HL_FORTRAN "${HDF5_LIBDIR}/libhdf5_hl_fortran.a")
+    set(HDF5_FORTRAN "${HDF5_LIBDIR}/libhdf5_fortran.a")
+    set(HDF5_HL "${HDF5_LIBDIR}/libhdf5_hl.a")
+    set(HDF5_C "${HDF5_LIBDIR}/libhdf5.a")
+    set(HDF5_F90CSTUB "${HDF5_LIBDIR}/libhdf5_f90cstub.a")
+    set(HDF5_HL_F90CSTUB "${HDF5_LIBDIR}/libhdf5_hl_f90cstub.a")
+    target_link_libraries(SHETRAN PRIVATE "${HDF5_HL_FORTRAN}" "${HDF5_FORTRAN}" "${HDF5_HL}" "${HDF5_C}" ${ZLIB_LIBRARIES} "${HDF5_F90CSTUB}" "${HDF5_HL_F90CSTUB}" "${HDF5_HL}" "${HDF5_C}")
 endif()
 
 # Additional linker flags for large memory model
