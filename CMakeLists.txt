@@ -530,6 +530,9 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 10.8: Sediment modules (refactored from SYmod - ordered by dependency)
         "sediment_common\\.f90$;sediment_transport_capacity\\.f90$;sediment_erosion\\.f90$;sediment_flow_dynamics\\.f90$;sediment_bed_processes\\.f90$;sediment_initialization\\.f90$;sediment_integration\\.f90$"
         
+        # Group 10.9: Subsurface modules (refactored from VSmod - ordered by dependency)
+        "subsurface_variables\\.f90$;subsurface_utilities\\.f90$;subsurface_boundary_conditions\\.f90$;subsurface_soil_properties\\.f90$;subsurface_io\\.f90$;subsurface_column_solver\\.f90$;subsurface_initialization\\.f90$;subsurface_simulation\\.f90$"
+        
         # Group 11: Advanced modules and interfaces
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         

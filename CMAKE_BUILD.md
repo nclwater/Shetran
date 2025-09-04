@@ -357,7 +357,7 @@ The build system provides two methods for ordering Fortran source files:
 2. **Pattern-based ordering** (fallback):
    - Uses filename patterns and directory structure
    - Handles most dependency cases correctly
-   - Updated to support refactored OC and sediment modules
+   - Updated to support refactored OC, sediment, and subsurface modules
 
 The build system automatically detects refactored modules and ensures they are built in the correct dependency order:
 
@@ -366,6 +366,9 @@ The build system automatically detects refactored modules and ensures they are b
 
 **Sediment Yield (SY) modules** in `src/compute/sediment/`:
 - `sediment_common.f90` → `sediment_transport_capacity.f90` → `sediment_erosion.f90` / `sediment_flow_dynamics.f90` / `sediment_bed_processes.f90` → `sediment_initialization.f90` → `sediment_integration.f90` → `SYmod.f90` (interface)
+
+**Subsurface Flow (VS) modules** in `src/compute/subsurface_flow/`:
+- `subsurface_variables.f90` → `subsurface_utilities.f90` / `subsurface_boundary_conditions.f90` / `subsurface_soil_properties.f90` / `subsurface_io.f90` → `subsurface_column_solver.f90` → `subsurface_initialization.f90` / `subsurface_simulation.f90` → `VSmod.f90` (interface)
 
 ```bash
 # Disable dependency analysis (use pattern-based fallback)
