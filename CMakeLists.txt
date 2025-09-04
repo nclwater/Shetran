@@ -211,6 +211,18 @@ else()
             find_package(HDF5 QUIET COMPONENTS Fortran HL)
             if(HDF5_FOUND)
                 message(STATUS "Found system HDF5: ${HDF5_VERSION} (using with gfortran on Linux)")
+                # Ensure we have all the high-level Fortran libraries for the system HDF5
+                # Use pkg-config to get the proper library list
+                find_package(PkgConfig QUIET)
+                if(PKG_CONFIG_FOUND)
+                    pkg_check_modules(HDF5_FORTRAN QUIET hdf5_fortran)
+                    pkg_check_modules(HDF5_HL_FORTRAN QUIET hdf5_hl_fortran)
+                    if(HDF5_FORTRAN_FOUND AND HDF5_HL_FORTRAN_FOUND)
+                        # Combine all the necessary libraries
+                        set(HDF5_LIBRARIES ${HDF5_HL_FORTRAN_LIBRARIES} ${HDF5_FORTRAN_LIBRARIES} ${HDF5_LIBRARIES})
+                        message(STATUS "HDF5 Fortran libraries: ${HDF5_LIBRARIES}")
+                    endif()
+                endif()
             else()
                 message(STATUS "System HDF5 not found. Downloading and building HDF5 for gfortran on Linux")
                 set(BUILD_HDF5_FROM_SOURCE TRUE)
@@ -663,15 +675,22 @@ endif()
 if(NOT WIN32)
     # Link all required HDF5 Fortran stub libraries, main HDF5 C library, and zlib for Intel ifx and other compilers
     target_include_directories(SHETRAN PRIVATE ${ZLIB_INCLUDE_DIRS})
-    # Explicitly link the stub library file if it exists
-    set(HDF5_LIBDIR "${CMAKE_CURRENT_SOURCE_DIR}/build/release/hdf5-install/lib")
-    set(HDF5_HL_FORTRAN "${HDF5_LIBDIR}/libhdf5_hl_fortran.a")
-    set(HDF5_FORTRAN "${HDF5_LIBDIR}/libhdf5_fortran.a")
-    set(HDF5_HL "${HDF5_LIBDIR}/libhdf5_hl.a")
-    set(HDF5_C "${HDF5_LIBDIR}/libhdf5.a")
-    set(HDF5_F90CSTUB "${HDF5_LIBDIR}/libhdf5_f90cstub.a")
-    set(HDF5_HL_F90CSTUB "${HDF5_LIBDIR}/libhdf5_hl_f90cstub.a")
-    target_link_libraries(SHETRAN PRIVATE "${HDF5_HL_FORTRAN}" "${HDF5_FORTRAN}" "${HDF5_HL}" "${HDF5_C}" ${ZLIB_LIBRARIES} "${HDF5_F90CSTUB}" "${HDF5_HL_F90CSTUB}" "${HDF5_HL}" "${HDF5_C}")
+    
+    # Only use hardcoded paths if we built HDF5 from source (HDF5_IS_EXTERNAL is set)
+    if(HDF5_IS_EXTERNAL)
+        # Explicitly link the stub library file if it exists for externally built HDF5
+        set(HDF5_LIBDIR "${CMAKE_BINARY_DIR}/hdf5-install/lib")
+        set(HDF5_HL_FORTRAN "${HDF5_LIBDIR}/libhdf5_hl_fortran.a")
+        set(HDF5_FORTRAN "${HDF5_LIBDIR}/libhdf5_fortran.a")
+        set(HDF5_HL "${HDF5_LIBDIR}/libhdf5_hl.a")
+        set(HDF5_C "${HDF5_LIBDIR}/libhdf5.a")
+        set(HDF5_F90CSTUB "${HDF5_LIBDIR}/libhdf5_f90cstub.a")
+        set(HDF5_HL_F90CSTUB "${HDF5_LIBDIR}/libhdf5_hl_f90cstub.a")
+        target_link_libraries(SHETRAN PRIVATE "${HDF5_HL_FORTRAN}" "${HDF5_FORTRAN}" "${HDF5_HL}" "${HDF5_C}" ${ZLIB_LIBRARIES} "${HDF5_F90CSTUB}" "${HDF5_HL_F90CSTUB}" "${HDF5_HL}" "${HDF5_C}")
+    else()
+        # For system HDF5, just link zlib as the HDF5 libraries are already linked above
+        target_link_libraries(SHETRAN PRIVATE ${ZLIB_LIBRARIES})
+    endif()
 endif()
 
 # Additional linker flags for large memory model
