@@ -261,14 +261,14 @@ END MODULE SYmod
 
 Through systematic analysis of the original code, identified these critical cross-module dependencies:
 
-| Calling Function | Called Function | Line | Resolved In Module |
-|------------------|-----------------|------|-------------------|
-| `SYBKER` | `SYCRIT` | 382 | sediment_erosion |
-| `SYCLTR` | `SYCRIT` | 545 | Same module (OK) |
-| `SYOVTR` | `SYCRIT` | 2075 | sediment_flow_dynamics |
-| `SYOVTR` | `SYDR` | 3000 | sediment_flow_dynamics |  
-| `SYFINE` | `SYCRIT` | 2075 | sediment_bed_processes |
-| `SYINIT` | `SYDR` | 2228 | sediment_initialization |
+| Calling Function | Called Function | Line | Resolved In Module      |
+| ---------------- | --------------- | ---- | ----------------------- |
+| `SYBKER`         | `SYCRIT`        | 382  | sediment_erosion        |
+| `SYCLTR`         | `SYCRIT`        | 545  | Same module (OK)        |
+| `SYOVTR`         | `SYCRIT`        | 2075 | sediment_flow_dynamics  |
+| `SYOVTR`         | `SYDR`          | 3000 | sediment_flow_dynamics  |
+| `SYFINE`         | `SYCRIT`        | 2075 | sediment_bed_processes  |
+| `SYINIT`         | `SYDR`          | 2228 | sediment_initialization |
 
 ### Dependency Resolution Implementation
 
@@ -371,16 +371,16 @@ symod.mod                     (23 lines source)
 
 ### Size Reduction per Module
 
-| Module | Lines | Avg Lines per Function | Primary Responsibility |
-|--------|-------|----------------------|----------------------|
-| sediment_common | 49 | N/A (data only) | Shared variables |
-| sediment_transport_capacity | 688 | 138 | Transport calculations |
-| sediment_erosion | 200 | 100 | Erosion processes |
-| sediment_flow_dynamics | 718 | 180 | Flow interactions |  
-| sediment_bed_processes | 187 | 94 | Bed updates |
-| sediment_initialization | 1,453 | 208 | Setup and validation |
-| sediment_integration | 423 | 212 | Main coordination |
-| SYmod (interface) | 23 | N/A | Backward compatibility |
+| Module                      | Lines | Avg Lines per Function | Primary Responsibility |
+| --------------------------- | ----- | ---------------------- | ---------------------- |
+| sediment_common             | 49    | N/A (data only)        | Shared variables       |
+| sediment_transport_capacity | 688   | 138                    | Transport calculations |
+| sediment_erosion            | 200   | 100                    | Erosion processes      |
+| sediment_flow_dynamics      | 718   | 180                    | Flow interactions      |
+| sediment_bed_processes      | 187   | 94                     | Bed updates            |
+| sediment_initialization     | 1,453 | 208                    | Setup and validation   |
+| sediment_integration        | 423   | 212                    | Main coordination      |
+| SYmod (interface)           | 23    | N/A                    | Backward compatibility |
 
 **Total: 3,741 lines** (vs 3,696 original + 45 lines module infrastructure)
 

@@ -11,6 +11,54 @@ MODULE sediment_initialization
 
 CONTAINS
 
+   ! Error handling procedures for modernizing GOTO statements
+   SUBROUTINE handle_insufficient_workspace(nelee, nreq, spr)
+      INTEGER, INTENT(IN) :: nelee, nreq, spr
+      CHARACTER(LEN=200) :: msg
+      WRITE (msg, '("Workspace available is NELEE = ", I5, "; workspace required in subroutine SYREAD is ", I6)') nelee, nreq
+      CALL ERROR (1, 2005, spr, 0, 0, msg)
+   END SUBROUTINE handle_insufficient_workspace
+
+   SUBROUTINE handle_invalid_nsed(nsed, nsedee, spr)
+      INTEGER, INTENT(IN) :: nsed, nsedee, spr
+      CHARACTER(LEN=200) :: msg
+      WRITE (msg, '("No. of size groups NSED=", I4, " is not in range [1,NSEDEE=", I3, "]")') nsed, nsedee
+      CALL ERROR (1, 2006, spr, 0, 0, msg)
+   END SUBROUTINE handle_invalid_nsed
+
+   SUBROUTINE handle_nsyb_too_large(nsyb, nsybee, spr)
+      INTEGER, INTENT(IN) :: nsyb, nsybee, spr
+      CHARACTER(LEN=200) :: msg
+      WRITE (msg, '("No. of boundaries NSYB=", I5, " is greater than NSYBEE=", I4, "]")') nsyb, nsybee
+      CALL ERROR (1, 2007, spr, 0, 0, msg)
+   END SUBROUTINE handle_nsyb_too_large
+
+   SUBROUTINE handle_invalid_boundary_type(bb, itype, spr)
+      INTEGER, INTENT(IN) :: bb, itype, spr
+      CHARACTER(LEN=200) :: msg
+      WRITE (msg, '("Boundary type NSYBCD(", I4, ",2)=", I2, " is not is the range [1,4]")') bb, itype
+      CALL ERROR (1, 2008, spr, 0, 0, msg)
+   END SUBROUTINE handle_invalid_boundary_type
+
+   SUBROUTINE handle_nsyc1_too_large(nsyc1, nsycee, spr)
+      INTEGER, INTENT(IN) :: nsyc1, nsycee, spr
+      CHARACTER(LEN=200) :: msg
+      WRITE (msg, '("No. of steady flux categories NSYC(1)=", I4, " is greater than NSYCEE=", I3, "]")') nsyc1, nsycee
+      CALL ERROR (1, 2009, spr, 0, 0, msg)
+   END SUBROUTINE handle_nsyc1_too_large
+
+   SUBROUTINE handle_nsyc3_too_large(nsyc3, nsycee, spr)
+      INTEGER, INTENT(IN) :: nsyc3, nsycee, spr
+      CHARACTER(LEN=200) :: msg
+      WRITE (msg, '("No. of steady rating categories NSYC(3)=", I4, " is greater than NSYCEE=", I3, "]")') nsyc3, nsycee
+      CALL ERROR (1, 2010, spr, 0, 0, msg)
+   END SUBROUTINE handle_nsyc3_too_large
+
+   SUBROUTINE handle_error_processing(spr)
+      INTEGER, INTENT(IN) :: spr
+      CALL ERROR (1, 2000, spr, 0, 0, 'Error(s) detected while checking SY input data')
+   END SUBROUTINE handle_error_processing
+
 !SSSSSS SUBROUTINE SYBC
    SUBROUTINE SYBC
 !!!!STOP ' FATAL ERROR!!  Sediment boundary flows not yet implemented'
@@ -163,7 +211,7 @@ CONTAINS
          IY
       INTEGER :: LINK, NCOL, NELP, NERR, P, PADJ
       INTEGER :: IDUM1 (2)
-      LOGICAL :: BKXYOK, REFOK
+      LOGICAL :: BKXYOK, REFOK, found_match
 !
 !----------------------------------------------------------------------*
 !
@@ -326,16 +374,21 @@ CONTAINS
 !                                * bad mirror branch
                                  IDUM (IBR) = IDUM (IBR) + P * 1000
                               ELSE
+                                 found_match = .FALSE.
                                  DO 192 PADJ = 1, 3
                                     IELP = ICMRF2 (IBRADJ, PADJ, 1)
                                     IF (IELP.EQ.IEL) THEN
                                        FEL = ICMRF2 (IBRADJ, PADJ, 2)
-                                       IF (FEL.EQ.FACE) GOTO 193
+                                       IF (FEL.EQ.FACE) THEN
+                                          found_match = .TRUE.
+                                          EXIT
+                                       ENDIF
                                     ENDIF
 192                              END DO
-!                                * can't find a reference in the mirror
-                                 IDUM (IBR) = IDUM (IBR) + P * 10000
-193                              CONTINUE
+                                 IF (.NOT. found_match) THEN
+!                                   * can't find a reference in the mirror
+                                    IDUM (IBR) = IDUM (IBR) + P * 10000
+                                 ENDIF
                               ENDIF
                            ENDIF
                         ENDIF
@@ -561,8 +614,8 @@ CONTAINS
 ! 2. Sediment, Soil & Vegetation Properties
 ! -----------------------------------------
 !
-!     * Not enough workspace?
-      IF (NELEE.LT.MAX (NSED, NS) ) GOTO 300
+!     * Process sediment/soil properties if workspace is sufficient
+      IF (NELEE.GE.MAX (NSED, NS) ) THEN
 !
 !DRSED
       COUNT = NERR
@@ -616,6 +669,12 @@ CONTAINS
       CALL ALCHK (ERR, 2027, SPR, 1, NV, IUNDEF, IUNDEF, 'FDRIP(veg)', &
          'GE', zero1, zero1 (1) , FDRIP, NERR, LDUM)
 !
+!
+! 3. Link Element Properties
+! --------------------------
+!
+!
+      ENDIF  ! End of sediment/soil properties processing
 !
 ! 3. Link Element Properties
 ! --------------------------
@@ -677,8 +736,8 @@ CONTAINS
 ! ----------------
 !
       IF (NSYB.GT.0) THEN
-!Not enough workspace?
-         IF (NELEE.LT.NSYB * 2) GOTO 700
+!Process boundary data if workspace is sufficient
+         IF (NELEE.GE.NSYB * 2) THEN
 !NSYCEE
          IDUM (1) = NSYCEE
          IDUM1 (1) = MAX (NSYC (1) + NSYC (2), NSYC (3) + NSYC (4) )
@@ -753,13 +812,15 @@ CONTAINS
             CALL ALCHKI (ERR, 2045, SPR, 1, 1, IUNDEF, IUNDEF, 'SRB', &
                'GE', IZERO1, IDUM, NERR, LDUM)
          ENDIF
+!
+         ENDIF  ! End of boundary data processing (sufficient workspace)
       ENDIF
 !
 !
 ! 7. Epilogue
 ! -----------
 !
-700   IF (NERR.GT.0) CALL ERROR (FATAL, 2000, SPR, 0, 0, 'Error(s) detected while checking SY input data')
+700   IF (NERR.GT.0) CALL handle_error_processing(SPR)
 !
    END SUBROUTINE SYERR2
 !SSSSSS SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
@@ -883,11 +944,11 @@ CONTAINS
 !       value of NELP, which is guaranteed to fail the test below
 !     * Update JMIN (used as object of JSORT test) & set QOC status IQ
       DO 650 FACE = 1, 4
-         DO 640 IEL = 1, NEL
+         DO IEL = 1, NEL
 !           * innocent until proven guilty
             IQ (IEL) = 0
 !           * non-discharge faces are ok
-            IF (FNQOUT (IEL, FACE) .LE.ZERO1 (1) ) GOTO 640
+            IF (FNQOUT (IEL, FACE) .LE.ZERO1 (1) ) CYCLE
 !                                              ^^^^^^^^
             IADJ = ICMREF (IEL, FACE, 2)
             IF (IADJ.GT.0) THEN
@@ -915,7 +976,7 @@ CONTAINS
 !              * discharge from IEL has nowhere to go?
                IF (QMIN.GE.zero1 (1) ) IQ (IEL) = 2
             ENDIF
-640      END DO
+         END DO
 !        * Check QOC status at this FACE for all elements
          CALL ALCHKI (ERR, 2052, SPR, 1, NEL, FACE, IUNDEF, &
             'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
@@ -1185,7 +1246,7 @@ CONTAINS
 !
 !     * Check workspace array size: part 1
       NREQ = 8
-      IF (NELEE.LT.NREQ) GOTO 8000
+      IF (NELEE.LT.NREQ) CALL handle_insufficient_workspace(NELEE, NREQ, SPR)
 !
 !     * Integer
       NNN = 5
@@ -1202,7 +1263,7 @@ CONTAINS
          ISUSED = IDUM (7)
          NFINE = IDUM (8)
       ENDIF
-      IF (NSED.LT.1.OR.NSED.GT.NSEDEE) GOTO 8110
+      IF (NSED.LT.1.OR.NSED.GT.NSEDEE) CALL handle_invalid_nsed(NSED, NSEDEE, SPR)
 !
 !     * Floating-point
       NNN = 2
@@ -1225,7 +1286,7 @@ CONTAINS
 !
 !     * Check workspace array size: part 2
       NREQ = MAX (MAX (5, NSED) * NS, 3 * NV)
-      IF (NELEE.LT.NREQ) GOTO 8000
+      IF (NELEE.LT.NREQ) CALL handle_insufficient_workspace(NELEE, NREQ, SPR)
 !
 !     * Sediment
       CALL ALREAD (3, SYD, SPR, ':SY21', NSED, 1, IDUM0, CDUM, IDUM, &
@@ -1337,11 +1398,11 @@ CONTAINS
 !
       IF (NSYB.GT.0) THEN
 !
-         IF (NSYB.GT.NSYBEE) GOTO 8610
+         IF (NSYB.GT.NSYBEE) CALL handle_nsyb_too_large(NSYB, NSYBEE, SPR)
 !
 !        * Check workspace array size: part 3
          NREQ = MAX (3 * NSYB, NSED * NSYC (1), NSED * 2 * NSYC (3) )
-         IF (NELEE.LT.NREQ) GOTO 8000
+         IF (NELEE.LT.NREQ) CALL handle_insufficient_workspace(NELEE, NREQ, SPR)
 !
 !        * Integer boundary data
          CALL ALREAD (2, SYD, SPR, ':SY62', 3, NSYB, IDUM0, CDUM, IDUM, &
@@ -1351,7 +1412,7 @@ CONTAINS
             IEL = IDUM (I0 + 1)
             ITYPE = IDUM (I0 + 2)
             ICAT = IDUM (I0 + 3)
-            IF (ITYPE.LT.1.OR.ITYPE.GT.4) GOTO 8620
+            IF (ITYPE.LT.1.OR.ITYPE.GT.4) CALL handle_invalid_boundary_type(BB, ITYPE, SPR)
 !           * condense 4 into 2 by adding cats 2 & 4 to lists for 1 & 3
             IF (MOD (ITYPE, 2) .EQ.0) ICAT = ICAT + NSYC (ITYPE-1)
             NSYBCD (BB, 1) = IEL
@@ -1363,7 +1424,7 @@ CONTAINS
 !        * Steady flux data
          NC = NSYC (1)
          IF (NC.GT.0) THEN
-            IF (NC.GT.NSYCEE) GOTO 8612
+            IF (NC.GT.NSYCEE) CALL handle_nsyc1_too_large(NC, NSYCEE, SPR)
             CALL ALREAD (3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, &
                IDUM, DUMMY)
             DO 620 SED = 1, NSED
@@ -1374,7 +1435,7 @@ CONTAINS
 !        * Steady rating curve data
          NC = NSYC (3)
          IF (NC.GT.0) THEN
-            IF (NC.GT.NSYCEE) GOTO 8614
+            IF (NC.GT.NSYCEE) CALL handle_nsyc3_too_large(NC, NSYCEE, SPR)
             CALL ALREAD (3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, &
                CDUM, IDUM, DUMMY)
             DO 630 SED = 1, NSED
@@ -1401,50 +1462,10 @@ CONTAINS
 ! Error Branches & Formats
 ! ------------------------
 !
-!     * Insufficient workspace
-8000  WRITE (MSG, 9005) NELEE, NREQ
-      CALL ERROR (FATAL, 2005, SPR, 0, 0, MSG)
-!
-!     * NSED not in [1,NSEDEE]
-8110  WRITE (MSG, 9006) NSED, NSEDEE
-      CALL ERROR (FATAL, 2006, SPR, 0, 0, MSG)
-!
-!     * NSYB > NSYBEE
-8610  WRITE (MSG, 9007) NSYB, NSYBEE
-      CALL ERROR (FATAL, 2007, SPR, 0, 0, MSG)
-!
-!     * NSYC(1) > NSYCEE
-8612  WRITE (MSG, 9009) NSYC (1), NSYCEE
-      CALL ERROR (FATAL, 2009, SPR, 0, 0, MSG)
-!
-!     * NSYC(3) > NSYCEE
-8614  WRITE (MSG, 9010) NSYC (3), NSYCEE
-      CALL ERROR (FATAL, 2010, SPR, 0, 0, MSG)
-!
-!     * ITYPE is not in the range [1,4]
-8620  WRITE (MSG, 9008) BB, ITYPE
-      CALL ERROR (FATAL, 2008, SPR, 0, 0, MSG)
-!
+! Format statements
+! -----------------
 !
 9003  FORMAT ( 1X,A )
-!
-9005  FORMAT ('Workspace available is NELEE = ', I5, &
-      &        '; workspace required in subroutine SYREAD is ',I6 )
-!
-9006  FORMAT ('No. of size groups NSED=',I4, &
-      &        ' is not in range [1,NSEDEE=',I3,']')
-!
-9007  FORMAT ('No. of boundaries NSYB=',I5, &
-      &        ' is greater than NSYBEE=',I4,']')
-!
-9008  FORMAT ('Boundary type NSYBCD(',I4,',2)=',I2, &
-      &        ' is not is the range [1,4]')
-!
-9009  FORMAT ('No. of steady flux categories NSYC(1)=',I4, &
-      &        ' is greater than NSYCEE=',I3,']')
-!
-9010  FORMAT ('No. of steady rating categories NSYC(3)=',I4, &
-      &        ' is greater than NSYCEE=',I3,']')
 !
 9011  FORMAT ('SY module is version ',A,'; SYD data file is version ',A)
 !

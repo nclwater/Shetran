@@ -583,8 +583,7 @@ CONTAINS
 !
 !           * Break out of loop if target percentile has been reached
 !           *  ( allowing for rounding error )
-            IF (FSUM2.GE.F02 * ALMOST) GOTO 300
-!                                          ^^^^^^^^
+            IF (FSUM2.GE.F02 * ALMOST) EXIT
 !
 !           * Increment fraction pointer
             FRPTR = FRPTR + INCF

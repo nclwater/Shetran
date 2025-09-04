@@ -589,121 +589,121 @@ CONTAINS
 !           * Not interested in link element side faces
             BSIDE = IEL.LE.NLF
             IF (BSIDE) BSIDE = MOD (FACE, 2) .EQ.1.EQV.LINKNS (IEL)
-            IF (BSIDE) GOTO 350
-!                      ^^^^^^^^
+            IF (.NOT. BSIDE) THEN
 !
-!           * Discharge rate
-            QOUT = FQOUT (IEL, FACE)
+!              * Discharge rate
+               QOUT = FQOUT (IEL, FACE)
 !
-!           * No-flow faces are special case
-            IF (ISZERO(QOUT)) THEN
-!              * (consider weirs and branch nodes for example)
-               SLOPEJ (IEL, FACE) = ZERO
-               TAUJ (IEL, FACE) = ZERO
-               GOTO 350
-!              ^^^^^^^^
-            ENDIF
+!              * No-flow faces are special case
+               IF (ISZERO(QOUT)) THEN
+!                 * (consider weirs and branch nodes for example)
+                  SLOPEJ (IEL, FACE) = ZERO
+                  TAUJ (IEL, FACE) = ZERO
+               ELSE
 !
 !           * Find neighbouring element, & its face (also set FQCONF)
-            KEL = FACE
-            IADJ = ICMREF (IEL, KEL, 2)
-            IF (IADJ.EQ.0) THEN
+                  KEL = FACE
+                  IADJ = ICMREF (IEL, KEL, 2)
+                  IF (IADJ.EQ.0) THEN
 !              * This is a boundary face; extrapolate from behind ...
-               KEL = 1 + MOD (FACE+1, 4)
-               IADJ = ICMREF (IEL, KEL, 2)
-            ENDIF
-            IF (IADJ.EQ.0) THEN
+                     KEL = 1 + MOD (FACE+1, 4)
+                     IADJ = ICMREF (IEL, KEL, 2)
+                  ENDIF
+                  IF (IADJ.EQ.0) THEN
 !              * ... unless that's a boundary too; then go for slope=0
-               IADJ = IEL
-               KADJ = KEL
-            ELSEIF (IADJ.GT.0) THEN
+                     IADJ = IEL
+                     KADJ = KEL
+                  ELSEIF (IADJ.GT.0) THEN
 !              * Neighbour is a regular element
-               KADJ = ICMREF (IEL, KEL, 3)
-            ELSE
+                     KADJ = ICMREF (IEL, KEL, 3)
+                  ELSE
 !
 !              * Extra things to do if neighbour is a confluence node
 !
 !              * Branch index
-               IBR = - IADJ
+                     IBR = - IADJ
 !
 !              * Initialize locals for prospect-loop:
 !              - gross discharge from the node
-               QSUM = ZERO
+                     QSUM = ZERO
 !              - prospects with maximal inflow/outflow
-               PIN = 0
-               POUT = 0
+                     PIN = 0
+                     POUT = 0
 !              - discharge from node (let this branch be prospect 0)
-               QOUTX (0) = - FQOUT (IEL, KEL)
+                     QOUTX (0) = - FQOUT (IEL, KEL)
 !
 !              * Loop over Prospects
-               DO 300 P = 1, 3
-                  IELP = ICMRF2 (IBR, P, 1)
-                  IF (IELP.GT.0) THEN
-                     KELP = ICMRF2 (IBR, P, 2)
-                     Q = - FQOUT (IELP, KELP)
-                     QSUM = QSUM + MAX (ZERO, Q)
-                     IF (Q.LT.QOUTX (PIN) ) PIN = P
-                     IF (Q.GT.QOUTX (POUT) ) POUT = P
-                  ELSE
-                     Q = ZERO
-                  ENDIF
-                  QOUTX (P) = Q
-300            END DO
+                     DO 300 P = 1, 3
+                        IELP = ICMRF2 (IBR, P, 1)
+                        IF (IELP.GT.0) THEN
+                           KELP = ICMRF2 (IBR, P, 2)
+                           Q = - FQOUT (IELP, KELP)
+                           QSUM = QSUM + MAX (ZERO, Q)
+                           IF (Q.LT.QOUTX (PIN) ) PIN = P
+                           IF (Q.GT.QOUTX (POUT) ) POUT = P
+                        ELSE
+                           Q = ZERO
+                        ENDIF
+                        QOUTX (P) = Q
+300                  END DO
 !
 !              * Redefine neighbour as link with maximal outflow ...
-               PADJ = POUT
+                     PADJ = POUT
 !              * ... unless node is at inflow face for this element
-               IF (QOUTX (0) .GT.ZERO) PADJ = PIN
-               IF (PADJ.GT.0) THEN
-                  IADJ = ICMRF2 (IBR, PADJ, 1)
-                  KADJ = ICMRF2 (IBR, PADJ, 2)
-               ELSE
+                     IF (QOUTX (0) .GT.ZERO) PADJ = PIN
+                     IF (PADJ.GT.0) THEN
+                        IADJ = ICMRF2 (IBR, PADJ, 1)
+                        KADJ = ICMRF2 (IBR, PADJ, 2)
+                     ELSE
 !                 * (no obvious candidate: go for slope=0)
-                  IADJ = IEL
-                  KADJ = KEL
-               ENDIF
+                        IADJ = IEL
+                        KADJ = KEL
+                     ENDIF
 !
 !              * Calculate node outflow fractions if appropriate
-               IF (QOUT.GT.ZERO.AND.KEL.EQ.FACE) THEN
+                     IF (QOUT.GT.ZERO.AND.KEL.EQ.FACE) THEN
 !                 * NB: Need precondition on QOC to ensure QSUM.GT.0
-                  DO 320 P = 1, 3
-                     FQCONF (IBR, P) = MAX (ZERO, QOUTX (P) ) / QSUM
-320               END DO
-               ENDIF
+                        DO 320 P = 1, 3
+                           FQCONF (IBR, P) = MAX (ZERO, QOUTX (P) ) / QSUM
+320                     END DO
+                     ENDIF
 !
-            ENDIF
+                  ENDIF
 !
 !           * Calculate water surface slope
-            HE = HRFE
-            HA = HRF (IADJ)
-            DE = DHF (IEL, KEL)
-            DA = DHF (IADJ, KADJ)
-            IF (IEL.LE.NLF.NEQV.IADJ.LE.NLF) THEN
+                  HE = HRFE
+                  HA = HRF (IADJ)
+                  DE = DHF (IEL, KEL)
+                  DA = DHF (IADJ, KADJ)
+                  IF (IEL.LE.NLF.NEQV.IADJ.LE.NLF) THEN
 !              * this is a bank face; use bank-full elevation as cut-off
-               LINK = MIN (IEL, IADJ)
-               ZBF = ZBFULL (LINK)
-               IF (HE.LE.ZBF) THEN
-                  HE = ZBF
-                  DE = ZERO
-               ENDIF
-               IF (HA.LE.ZBF) THEN
-                  HA = ZBF
-                  IF (DE.GT.ZERO) DA = ZERO
-               ENDIF
-            ENDIF
-            SLOPEE = ABS (HE-HA) / (DE+DA)
-            SLOPEJ (IEL, FACE) = SLOPEE
+                     LINK = MIN (IEL, IADJ)
+                     ZBF = ZBFULL (LINK)
+                     IF (HE.LE.ZBF) THEN
+                        HE = ZBF
+                        DE = ZERO
+                     ENDIF
+                     IF (HA.LE.ZBF) THEN
+                        HA = ZBF
+                        IF (DE.GT.ZERO) DA = ZERO
+                     ENDIF
+                  ENDIF
+                  SLOPEE = ABS (HE-HA) / (DE+DA)
+                  SLOPEJ (IEL, FACE) = SLOPEE
 !
 !           * Calculate flow shear stress at the ground surface
-            TAUJE = RHOWAT * GRAVTY * DWAT1E * SLOPEE
-            TAUJ (IEL, FACE) = TAUJE
+                  TAUJE = RHOWAT * GRAVTY * DWAT1E * SLOPEE
+                  TAUJ (IEL, FACE) = TAUJE
 !
 !           * Find maximum flow rate so far and TAUJ for that face
-            QABS = ABS (QOUT)
-            IF (QABS.GT.QMAX) THEN
-               QMAX = QABS
-               TAUMAX = TAUJE
-            ENDIF
+                  QABS = ABS (QOUT)
+                  IF (QABS.GT.QMAX) THEN
+                     QMAX = QABS
+                     TAUMAX = TAUJE
+                  ENDIF
+!
+               ENDIF  ! End of ELSE block for non-zero flow
+            ENDIF     ! End of IF (.NOT. BSIDE) block
 !
 !        * Next face
 350      END DO
