@@ -1,6 +1,6 @@
 MODULE subsurface_soil_properties
 !----------------------------------------------------------------------*
-! Soil hydraulic property calculations and van Genuchten models
+! Soil hydraulic property calculations for van Genuchten models
 ! Contains VSFUNC, VSSOIL, VSSPR - soil property calculators
 !----------------------------------------------------------------------*
 ! Extracted from VSmod.f90 as part of refactoring
@@ -100,53 +100,55 @@ CONTAINS
          IF (JLO.LE.0.OR.JLO.GT.NVSSOL_ARG) THEN
             JLO = 0
             JHI = NVSSOL_ARG + 1
-            GOTO 30
-
-
-         ENDIF
-! set initial hunt increment, and hunt up the table
-         INC = 1
-
-         IF (P.LE.VSPPSI_ARG (JLO) ) THEN
-10          JHI = JLO + INC
-            IF (JHI.GT.NVSSOL_ARG) THEN
-               JHI = NVSSOL_ARG + 1
-            ELSEIF (P.LE.VSPPSI_ARG (JHI) ) THEN
-               JLO = JHI
-               INC = INC + INC
-               GOTO 10
-
-
-            ENDIF
-! hunt down the table
-
          ELSE
-            JHI = JLO
-20          JLO = JHI - INC
-            IF (JLO.LT.1) THEN
-               JLO = 0
-            ELSEIF (P.GT.VSPPSI_ARG (JLO) ) THEN
+! set initial hunt increment, and hunt up the table
+            INC = 1
+
+            IF (P.LE.VSPPSI_ARG (JLO) ) THEN
+               ! Hunt up the table
+               DO WHILE (.TRUE.)
+                  JHI = JLO + INC
+                  IF (JHI.GT.NVSSOL_ARG) THEN
+                     JHI = NVSSOL_ARG + 1
+                     EXIT
+                  ELSEIF (P.LE.VSPPSI_ARG (JHI) ) THEN
+                     JLO = JHI
+                     INC = INC + INC
+                  ELSE
+                     EXIT
+                  ENDIF
+               END DO
+! hunt down the table
+            ELSE
                JHI = JLO
-               INC = INC + INC
-               GOTO 20
-
+               ! Hunt down the table
+               DO WHILE (.TRUE.)
+                  JLO = JHI - INC
+                  IF (JLO.LT.1) THEN
+                     JLO = 0
+                     EXIT
+                  ELSEIF (P.GT.VSPPSI_ARG (JLO) ) THEN
+                     JHI = JLO
+                     INC = INC + INC
+                  ELSE
+                     EXIT
+                  ENDIF
+               END DO
             ENDIF
-
-
-
          ENDIF
 ! hunt completed, begin bisection
 !       At this point: { VSPPSI(JLO)>=P or JLO=0        } and
 !                      { VSPPSI(JHI)< P or JHI=NVSSOL+1 }
-30       IF (JHI - JLO.EQ.1) GOTO 50
-         JM = (JHI + JLO) / 2
-         IF (P.LT.VSPPSI_ARG (JM) ) THEN
-            JLO = JM
-         ELSE
-            JHI = JM
-         ENDIF
-         GOTO 30
-50       CONTINUE
+         ! Bisection search
+         DO WHILE (JHI - JLO.NE.1)
+            JM = (JHI + JLO) / 2
+            IF (P.LT.VSPPSI_ARG (JM) ) THEN
+               JLO = JM
+            ELSE
+               JHI = JM
+            ENDIF
+         END DO
+
          JLO = MAX (1, MIN (JLO, NVSSOL_ARG - 1) )
 
          JHI = JLO + 1

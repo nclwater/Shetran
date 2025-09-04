@@ -302,64 +302,62 @@ CONTAINS
          NCOUNT = 0
 
          DO 400 IEL = 1, total_no_elements
+            IF (.NOT.(ICMREF (IEL, 1) .EQ.1.OR.ICMREF (IEL, 1) .EQ.2.OR. ( &
+               .NOT.BEXBK.AND.ICMREF (IEL, 1) .EQ.3) )) THEN
+               IF (IVSCAT (IEL) .EQ.0) THEN
 
-            IF (ICMREF (IEL, 1) .EQ.1.OR.ICMREF (IEL, 1) .EQ.2.OR. ( &
-               .NOT.BEXBK.AND.ICMREF (IEL, 1) .EQ.3) ) GOTO 400
-            IF (IVSCAT (IEL) .EQ.0) THEN
-
-               NCOUNT = NCOUNT + 1
-            ELSE
-
-               BDONE (IEL) = .TRUE.
-               ICAT = IVSCAT (IEL)
-               ICOUNT = 0
-350            IF (IVSDUM (ICAT, ICOUNT + 1) .EQ.0) GOTO 355
-               ICOUNT = ICOUNT + 1
-               GOTO 350
-
-
-355            CONTINUE
-! ...grids
-               IF (ICMREF (IEL, 1) .EQ.0) THEN
-                  NLYR (IEL) = ICOUNT
-                  DO 360 ILYR = 1, NLYR (IEL)
-                     NTSOIL (IEL, ILYR) = IVSDUM (ICAT, ILYR)
-                     ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - RVSDUM (ICAT, &
-                        ILYR)
-
-
-360               END DO
-! ...banks
+                  NCOUNT = NCOUNT + 1
                ELSE
-                  DO 380 I = 1, 2
-                     IBK = ICMBK (IEL, I)
-                     BDONE (IBK) = .TRUE.
-                     NLYR (IBK) = ICOUNT
-                     DO 370 ILYR = 1, NLYR (IBK)
-                        NTSOIL (IBK, ILYR) = IVSDUM (ICAT, ILYR)
-                        ZLYRBT (IBK, ILYR) = ZGRUND (IBK) - RVSDUM ( &
-                           ICAT, ILYR)
-370                  END DO
+
+                  BDONE (IEL) = .TRUE.
+                  ICAT = IVSCAT (IEL)
+                  ICOUNT = 0
+                  DO WHILE (IVSDUM (ICAT, ICOUNT + 1) .NE.0)
+                     ICOUNT = ICOUNT + 1
+                  END DO
 
 
-380               END DO
+! ...grids
+                  IF (ICMREF (IEL, 1) .EQ.0) THEN
+                     NLYR (IEL) = ICOUNT
+                     DO 360 ILYR = 1, NLYR (IEL)
+                        NTSOIL (IEL, ILYR) = IVSDUM (ICAT, ILYR)
+                        ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - RVSDUM (ICAT, &
+                           ILYR)
+
+
+360                  END DO
+! ...banks
+                  ELSE
+                     DO 380 I = 1, 2
+                        IBK = ICMBK (IEL, I)
+                        BDONE (IBK) = .TRUE.
+                        NLYR (IBK) = ICOUNT
+                        DO 370 ILYR = 1, NLYR (IBK)
+                           NTSOIL (IBK, ILYR) = IVSDUM (ICAT, ILYR)
+                           ZLYRBT (IBK, ILYR) = ZGRUND (IBK) - RVSDUM ( &
+                              ICAT, ILYR)
+370                     END DO
+
+
+380                  END DO
 ! ...links
 !    (NB uses data from bank 2, which is identical to bank 1)
-                  LCOUNT = 0
-390               IF (RVSDUM (ICAT, LCOUNT + 1) .LT.ZGRUND (IBK) &
-                     - ZBEFF (IEL) + VSZMIN) GOTO 395
-                  LCOUNT = LCOUNT + 1
+                     LCOUNT = 0
+                     DO WHILE (RVSDUM (ICAT, LCOUNT + 1) .GE.ZGRUND (IBK) &
+                        - ZBEFF (IEL) + VSZMIN)
+                        LCOUNT = LCOUNT + 1
+                     END DO
+                     NLYR (IEL) = LCOUNT
+                     DO 397 ILYR = 1, NLYR (IEL)
+                        NTSOIL (IEL, ILYR) = NTSOIL (IBK, ILYR)
+                        ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
+397                  END DO
 
-                  GOTO 390
-395               NLYR (IEL) = LCOUNT
-                  DO 397 ILYR = 1, NLYR (IEL)
-                     NTSOIL (IEL, ILYR) = NTSOIL (IBK, ILYR)
-                     ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
-397               END DO
+                  ENDIF
 
                ENDIF
-
-            ENDIF
+            END IF
 
 400      END DO
 
@@ -392,57 +390,53 @@ CONTAINS
          DO 500 IEL = 1, total_no_elements
 ! ignore banks, links (if no banks), and elements already processed
 
-
-            IF (BDONE (IEL) .OR.ICMREF (IEL, 1) .EQ.1.OR.ICMREF (IEL, 1) &
-               .EQ.2.OR. (.NOT.BEXBK.AND.ICMREF (IEL, 1) .EQ.3) ) GOTO 500
+            IF (.NOT.(BDONE (IEL) .OR.ICMREF (IEL, 1) .EQ.1.OR.ICMREF (IEL, 1) &
+               .EQ.2.OR. (.NOT.BEXBK.AND.ICMREF (IEL, 1) .EQ.3) )) THEN
 ! move layer data into elements for ...
 
-            BDONE (IEL) = .TRUE.
-            ICOUNT = 0
-450         IF (IVSDUM (IEL, ICOUNT + 1) .EQ.0) GOTO 455
-            ICOUNT = ICOUNT + 1
-            GOTO 450
-
-
-455         CONTINUE
+               BDONE (IEL) = .TRUE.
+               ICOUNT = 0
+               DO WHILE (IVSDUM (IEL, ICOUNT + 1) .NE.0)
+                  ICOUNT = ICOUNT + 1
+               END DO
 ! ...grids
-            IF (ICMREF (IEL, 1) .EQ.0) THEN
-               NLYR (IEL) = ICOUNT
-               DO 460 ILYR = 1, NLYR (IEL)
-                  NTSOIL (IEL, ILYR) = IVSDUM (IEL, ILYR)
-                  ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - RVSDUM (IEL, ILYR)
+               IF (ICMREF (IEL, 1) .EQ.0) THEN
+                  NLYR (IEL) = ICOUNT
+                  DO 460 ILYR = 1, NLYR (IEL)
+                     NTSOIL (IEL, ILYR) = IVSDUM (IEL, ILYR)
+                     ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - RVSDUM (IEL, ILYR)
 
 
-460            END DO
+460               END DO
 ! ...banks
-            ELSE
-               DO 480 I = 1, 2
-                  IBK = ICMBK (IEL, I)
-                  BDONE (IBK) = .TRUE.
-                  NLYR (IBK) = ICOUNT
-                  DO 470 ILYR = 1, NLYR (IBK)
-                     NTSOIL (IBK, ILYR) = IVSDUM (IEL, ILYR)
-                     ZLYRBT (IBK, ILYR) = ZGRUND (IBK) - RVSDUM (IEL, &
-                        ILYR)
-470               END DO
+               ELSE
+                  DO 480 I = 1, 2
+                     IBK = ICMBK (IEL, I)
+                     BDONE (IBK) = .TRUE.
+                     NLYR (IBK) = ICOUNT
+                     DO 470 ILYR = 1, NLYR (IBK)
+                        NTSOIL (IBK, ILYR) = IVSDUM (IEL, ILYR)
+                        ZLYRBT (IBK, ILYR) = ZGRUND (IBK) - RVSDUM (IEL, &
+                           ILYR)
+470                  END DO
 
 
-480            END DO
+480               END DO
 ! ...links
 !    (NB uses data from bank 2, which is identical to bank 1)
-               LCOUNT = 0
-490            IF (RVSDUM (IEL, LCOUNT + 1) .LT.ZGRUND (IBK) - ZBEFF ( &
-                  IEL) + VSZMIN) GOTO 495
-               LCOUNT = LCOUNT + 1
+                  LCOUNT = 0
+                  DO WHILE (RVSDUM (IEL, LCOUNT + 1) .GE.ZGRUND (IBK) - ZBEFF ( &
+                     IEL) + VSZMIN)
+                     LCOUNT = LCOUNT + 1
+                  END DO
+                  NLYR (IEL) = LCOUNT
+                  DO 497 ILYR = 1, NLYR (IEL)
+                     NTSOIL (IEL, ILYR) = NTSOIL (IBK, ILYR)
+                     ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
+497               END DO
 
-               GOTO 490
-495            NLYR (IEL) = LCOUNT
-               DO 497 ILYR = 1, NLYR (IEL)
-                  NTSOIL (IEL, ILYR) = NTSOIL (IBK, ILYR)
-                  ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
-497            END DO
-
-            ENDIF
+               ENDIF
+            END IF
 
 500      END DO
 
@@ -452,17 +446,17 @@ CONTAINS
 ! and set up ZLYRBT for ground surface
       DO 550 IEL = NGDBGN, total_no_elements
          DO 540 ILYR = NLYR (IEL), 1, - 1
-            IF (ZGRUND (IEL) - ZLYRBT (IEL, ILYR) .GT.DCSTOT + VSZMIN) &
-               GOTO 545
-            DO 530 I = 1, NCSZON + 1
-               IF (DCSNOD (I) .GT.ZGRUND (IEL) - ZLYRBT (IEL, ILYR) ) &
-                  THEN
-                  ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - DCSDUM (I - 1)
-                  GOTO 540
-               ENDIF
-530         END DO
+            IF (ZGRUND (IEL) - ZLYRBT (IEL, ILYR) .LE.DCSTOT + VSZMIN) THEN
+               DO 530 I = 1, NCSZON + 1
+                  IF (DCSNOD (I) .GT.ZGRUND (IEL) - ZLYRBT (IEL, ILYR) ) &
+                     THEN
+                     ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - DCSDUM (I - 1)
+                     EXIT
+                  ENDIF
+530            END DO
+            END IF
 540      END DO
-545      ZLYRBT (IEL, NLYR (IEL) + 1) = ZGRUND (IEL)
+         ZLYRBT (IEL, NLYR (IEL) + 1) = ZGRUND (IEL)
 
 550   END DO
       IF (BEXBK) THEN
@@ -477,12 +471,13 @@ CONTAINS
       ENDIF
 ! check that all elements have been set up
       DO 650 IEL = 1, total_no_elements
-         IF (.NOT.BEXBK.AND.ICMREF (IEL, 1) .NE.0) GOTO 650
-         IF (.NOT.BDONE (IEL) ) THEN
-            NVSERR = NVSERR + 1
-            WRITE (MSG, 9020) IEL
-            CALL ERROR (EEERR, 1033, PPPRI, 0, 0, MSG)
-         ENDIF
+         IF (BEXBK.OR.ICMREF (IEL, 1) .EQ.0) THEN
+            IF (.NOT.BDONE (IEL) ) THEN
+               NVSERR = NVSERR + 1
+               WRITE (MSG, 9020) IEL
+               CALL ERROR (EEERR, 1033, PPPRI, 0, 0, MSG)
+            ENDIF
+         END IF
 
 
 650   END DO
@@ -519,17 +514,18 @@ CONTAINS
 ! and set up ZLYRBT for river bed surface
          DO 750 IEL = 1, total_no_links
             DO 740 ILYR = NLYR (IEL), 1, - 1
-               IF (ZGRUND (IEL) - ZLYRBT (IEL, ILYR) .GT.DCRTOT + &
-                  VSZMIN) GOTO 745
-               DO 730 I = 1, NCRBED+1
-                  IF (DCRNOD (I) .GT.ZGRUND (IEL) - ZLYRBT (IEL, ILYR) ) &
-                     THEN
-                     ZLYRBT (IEL, ILYR) = ZBEFF (IEL) - DCRDUM (I - 1)
-                     GOTO 740
-                  ENDIF
-730            END DO
+               IF (ZGRUND (IEL) - ZLYRBT (IEL, ILYR) .LE.DCRTOT + &
+                  VSZMIN) THEN
+                  DO 730 I = 1, NCRBED+1
+                     IF (DCRNOD (I) .GT.ZGRUND (IEL) - ZLYRBT (IEL, ILYR) ) &
+                        THEN
+                        ZLYRBT (IEL, ILYR) = ZBEFF (IEL) - DCRDUM (I - 1)
+                        EXIT
+                     ENDIF
+730               END DO
+               END IF
 740         END DO
-745         ZLYRBT (IEL, NLYR (IEL) + 1) = ZBEFF (IEL)
+            ZLYRBT (IEL, NLYR (IEL) + 1) = ZBEFF (IEL)
 
 750      END DO
 

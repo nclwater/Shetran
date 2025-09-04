@@ -326,105 +326,105 @@ CONTAINS
 
          DO 500 I = 1, total_no_elements
             IEL = ISORT (I)
-            IF (OK (IEL) ) GOTO 500
-!                        >>>>>>>>
-            ICBOT = NLYRBT (IEL, 1)
-            ITYPE = ICMREF (IEL, 1)
+            IF (.NOT. OK (IEL) ) THEN
+               ICBOT = NLYRBT (IEL, 1)
+               ITYPE = ICMREF (IEL, 1)
 
 
-            NCELL = ICTOP - ICBOT + 1
+               NCELL = ICTOP - ICBOT + 1
 ! save psi at iteration level m
 
 
-            CALL DCOPY (NCELL, VSPSI (ICBOT, IEL), 1, PSIM (ICBOT), &
-               1)
+               CALL DCOPY (NCELL, VSPSI (ICBOT, IEL), 1, PSIM (ICBOT), &
+                  1)
 ! set up column arrays using global arrays
-            DO ILYR = 1, NLYR (IEL) + 1
-               ICLYRB (ILYR) = NLYRBT (IEL, ILYR)
-            END DO
+               DO ILYR = 1, NLYR (IEL) + 1
+                  ICLYRB (ILYR) = NLYRBT (IEL, ILYR)
+               END DO
 
-            IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) ICBED = NHBED (ICMREF (IEL, 4) &
-               , ITYPE)
+               IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) ICBED = NHBED (ICMREF (IEL, 4) &
+                  , ITYPE)
 
-            DO 300 IFA = 1, 4
-               CDELL (IFA) = DHF (IEL, IFA)
-               JEL = ICMREF (IEL, IFA + 4)
+               DO 300 IFA = 1, 4
+                  CDELL (IFA) = DHF (IEL, IFA)
+                  JEL = ICMREF (IEL, IFA + 4)
 
-               JELDUM (IFA) = JEL
-               IF (JEL.LT.1) THEN
-                  DXYDUM = ZERO
-               ELSE
+                  JELDUM (IFA) = JEL
+                  IF (JEL.LT.1) THEN
+                     DXYDUM = ZERO
+                  ELSE
 
-                  CZS (IFA) = GETHRF (JEL)
+                     CZS (IFA) = GETHRF (JEL)
 ! !!!!! fix for channel aquifer flows, SPA, 03/11/98
 ! Pass depth of water in adjacent elements to vscolm
 ! as well as elevation of water surface
 !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                  depadj (ifa) = cdnet (jel)
+                     depadj (ifa) = cdnet (jel)
 !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                  JFA = ICMREF (IEL, IFA + 8)
-                  DXYDUM = DHF (JEL, JFA)
-               ENDIF
-               CDELL1 (IFA) = DXYDUM
+                     JFA = ICMREF (IEL, IFA + 8)
+                     DXYDUM = DHF (JEL, JFA)
+                  ENDIF
+                  CDELL1 (IFA) = DXYDUM
 
-               IF (JEL.LT.ISTART) GOTO 300
-!                                 >>>>>>>>
+                  IF (JEL.GE.ISTART) THEN
 !              NB: VSPSI, VSKR may hold values from previous iteration
-               K = MOD (JFA - 1, 2) + 1
-               DO 285 JCL = NLYRBT (JEL, 1), top_cell_no
-                  JCDEL1 (JCL, IFA) = JVSDEL (JFA, JCL, JEL)
-                  CAIJ1 (JCL, IFA) = VSAIJsv (JFA, JCL, JEL)
-                  CZ1 (JCL, IFA) = ZVSNOD (JCL, JEL)
-                  CPSI1 (JCL, IFA) = VSPSI (JCL, JEL)
-                  CPSIN1 (JCL, IFA) = VSPSIN (JCL, JEL)
-                  N = ICSOILsv (JCL, JEL)
-                  CKIJ1 (JCL, IFA) = VSKR (JCL, JEL) * VSK3D (N, K)
+                     K = MOD (JFA - 1, 2) + 1
+                     DO 285 JCL = NLYRBT (JEL, 1), top_cell_no
+                        JCDEL1 (JCL, IFA) = JVSDEL (JFA, JCL, JEL)
+                        CAIJ1 (JCL, IFA) = VSAIJsv (JFA, JCL, JEL)
+                        CZ1 (JCL, IFA) = ZVSNOD (JCL, JEL)
+                        CPSI1 (JCL, IFA) = VSPSI (JCL, JEL)
+                        CPSIN1 (JCL, IFA) = VSPSIN (JCL, JEL)
+                        N = ICSOILsv (JCL, JEL)
+                        CKIJ1 (JCL, IFA) = VSKR (JCL, JEL) * VSK3D (N, K)
 
-285            END DO
+285                  END DO
+                  END IF
 
 
-300         END DO
+300            END DO
 ! boundary condition indices
-            IW = MAX (1, NVSWLI (IEL) )
-            ICWLBT = NWELBT (IEL)
-            ICWCAT = NVSWLC (IEL)
-            ICLBCT = NLBCAT (IEL)
+               IW = MAX (1, NVSWLI (IEL) )
+               ICWLBT = NWELBT (IEL)
+               ICWCAT = NVSWLC (IEL)
+               ICLBCT = NLBCAT (IEL)
 
 
-            ICBBCT = NBBCAT (IEL)
+               ICBBCT = NBBCAT (IEL)
 ! calculate new potentials and flow rates
 
 
 
-            CALL VSCOLM (NSEE, VSWV, VSWL, VSK3D, BHELEV, ELEVEL, &
-               IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOILsv (ICBOT, IEL), &
-               JCBCsv (0, IEL), JCDEL1, JELDUM, JVSACN (1, ICBOT, IEL), &
-               JVSDEL (1, ICBOT, IEL), NVSSPC (IEL), NVSLFN (ICLBCT), &
-               NVSLFL (1, ICLBCT), NWELBT (IEL), NVSLHN (ICLBCT), NVSLHL ( &
-               1, ICLBCT), NWELTP (IEL), NVSLGN (ICLBCT), NVSLGL (1, &
-               ICLBCT), cellarea (IEL), ZGRUND (IEL), VSSPZ (IEL), VSSPCO (IEL) &
-               , DELTAZ (ICBOT, IEL), ZVSNOD (ICBOT, IEL), CDELL, VSAIJsv (1, &
-               ICBOT, IEL), CAIJ1, CDELL1, CZ1, DTUZ, CDNET (IEL), VSPSIN ( &
-               ICBOT, IEL), CQ (ICBOT, IEL), CZS, CPSI1, CPSIN1, CKIJ1, &
-               WLNOW (ICWCAT), RLFNOW (1, ICLBCT), RLHNOW (1, ICLBCT), &
-               RLGNOW (1, ICLBCT), RBFNOW (ICBBCT), RBHNOW (ICBBCT), &
-               IVSSTO (ICBOT, IEL), VSPSI (ICBOT, IEL), VSKR (ICBOT, IEL), &
-               VSTHE (ICBOT, IEL), QVSH (1, ICBOT, IEL), QVSV (ICBOT - 1, &
-               IEL), QVSWLI (ICWLBT, IW), QVSSPR (IEL), ZVSPSL (IEL), &
-               depadj)
+               CALL VSCOLM (NSEE, VSWV, VSWL, VSK3D, BHELEV, ELEVEL, &
+                  IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOILsv (ICBOT, IEL), &
+                  JCBCsv (0, IEL), JCDEL1, JELDUM, JVSACN (1, ICBOT, IEL), &
+                  JVSDEL (1, ICBOT, IEL), NVSSPC (IEL), NVSLFN (ICLBCT), &
+                  NVSLFL (1, ICLBCT), NWELBT (IEL), NVSLHN (ICLBCT), NVSLHL ( &
+                  1, ICLBCT), NWELTP (IEL), NVSLGN (ICLBCT), NVSLGL (1, &
+                  ICLBCT), cellarea (IEL), ZGRUND (IEL), VSSPZ (IEL), VSSPCO (IEL) &
+                  , DELTAZ (ICBOT, IEL), ZVSNOD (ICBOT, IEL), CDELL, VSAIJsv (1, &
+                  ICBOT, IEL), CAIJ1, CDELL1, CZ1, DTUZ, CDNET (IEL), VSPSIN ( &
+                  ICBOT, IEL), CQ (ICBOT, IEL), CZS, CPSI1, CPSIN1, CKIJ1, &
+                  WLNOW (ICWCAT), RLFNOW (1, ICLBCT), RLHNOW (1, ICLBCT), &
+                  RLGNOW (1, ICLBCT), RBFNOW (ICBBCT), RBHNOW (ICBBCT), &
+                  IVSSTO (ICBOT, IEL), VSPSI (ICBOT, IEL), VSKR (ICBOT, IEL), &
+                  VSTHE (ICBOT, IEL), QVSH (1, ICBOT, IEL), QVSV (ICBOT - 1, &
+                  IEL), QVSWLI (ICWLBT, IW), QVSSPR (IEL), ZVSPSL (IEL), &
+                  depadj)
 !!!!!! extra argument depadj added for channel-aquifer flows fix
 ! SPA, 03/11/98
 ! record largest change for this iteration
-            DPSIEL = ZERO
-            DO ICL = ICBOT, ICTOP
-               DPSIEL = MAX (DPSIEL, ABS (VSPSI (ICL, IEL) - PSIM (ICL) ) )
-            END DO
-            DELTAP (IEL) = DPSIEL
+               DPSIEL = ZERO
+               DO ICL = ICBOT, ICTOP
+                  DPSIEL = MAX (DPSIEL, ABS (VSPSI (ICL, IEL) - PSIM (ICL) ) )
+               END DO
+               DELTAP (IEL) = DPSIEL
 
 
 
-            DPSIMX = MAX (DPSIMX, DPSIEL)
+               DPSIMX = MAX (DPSIMX, DPSIEL)
 ! end of element loop: check for convergence or maximum iterations
+            END IF
 500      END DO
 !970214  At present the criterion on DPSIMX overrides that on NIT
          IF (DPSIMX.LE.GEPSMX) THEN
@@ -471,13 +471,13 @@ CONTAINS
          QVSBF (IEL) = QVSV (ICBOT - 1, IEL)
          QH (IEL) = QVSV (ICTOP, IEL)
          IW = NVSWLI (IEL)
-         IF (IW.LT.1) GOTO 700
-!                     >>>>>>>>
-         CQW = ZERO
-         DO ICL = NWELBT (IEL), NWELTP (IEL)
-            CQW = QVSWLI (ICL, IW) + CQW
-         END DO
-         QVSWEL (IEL) = CQW
+         IF (IW.GE.1) THEN
+            CQW = ZERO
+            DO ICL = NWELBT (IEL), NWELTP (IEL)
+               CQW = QVSWLI (ICL, IW) + CQW
+            END DO
+            QVSWEL (IEL) = CQW
+         END IF
 
 
 700   END DO

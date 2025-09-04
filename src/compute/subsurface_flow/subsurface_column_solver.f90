@@ -285,31 +285,34 @@ CONTAINS
 
 600   END DO
       DO 650 J = 1, 4
-         IF (JELDUM (J) .LT.1) GOTO 650
-!                            >>>>>>>>
+         IF (JELDUM (J) .GE.1) THEN
+            DO 640 I = ICBOT, ICTOP
+               K = JCACN (J, I)
+               IF (K.GE.1) THEN
+                  K1 = K + JCDEL1 (K, J)
+                  H0 = CZ (I) + CPSI (I)
+                  H1 = CZ1 (K, J) + CPSI1 (K, J)
 
-         DO 640 I = ICBOT, ICTOP
-            K = JCACN (J, I)
-            IF (K.LT.1) GOTO 640
-!                       >>>>>>>>
-            K1 = K + JCDEL1 (K, J)
-            H0 = CZ (I) + CPSI (I)
-            H1 = CZ1 (K, J) + CPSI1 (K, J)
+                  H2 = CZ1 (K1, J) + CPSI1 (K1, J)
 
-            H2 = CZ1 (K1, J) + CPSI1 (K1, J)
-
-            CQH (J, I) = CGAM1 (I, J) * (H1 - H0) + CGAM2 (I, J) &
-               * (H2 - H0)
-640      END DO
+                  CQH (J, I) = CGAM1 (I, J) * (H1 - H0) + CGAM2 (I, J) &
+                     * (H2 - H0)
+               END IF
+640         END DO
+         END IF
 
 
 650   END DO
 ! phreatic surface level
       CPSMIN = CZ (ICBOT) - half * CDELZ (ICBOT)
-      DO ICL = ICBOT, ICTOP
-         IF (CPSI (ICL) .LT.ZERO) GOTO 940
+      ICL = ICTOP + 1  ! Initialize to indicate no negative value found
+      DO I = ICBOT, ICTOP
+         IF (CPSI (I) .LT.ZERO) THEN
+            ICL = I
+            EXIT
+         END IF
       END DO
-940   ICL = MAX (ICBOT, ICL - 1)
+      ICL = MAX (ICBOT, ICL - 1)
 
       CPSL = MAX (CPSMIN, CZ (ICL) + CPSI (ICL) )
    END SUBROUTINE VSCOLM
@@ -487,47 +490,47 @@ CONTAINS
             CDKIJ (I, J) = DKIJ
 ! lateral components of all coefficients
             K = JCACN (J, I)
-            IF (K.EQ.0.OR.TEST) GOTO 300
-!                                   >>>>>>>>
-            NIJ = ABS (JCDEL (J, I) ) + 1
-            DELKJ = JCDEL1 (K, J)
-            K1 = K + DELKJ
-            NKJM1 = ABS (DELKJ)
+            IF (K.NE.0.AND..NOT.TEST) THEN
+               NIJ = ABS (JCDEL (J, I) ) + 1
+               DELKJ = JCDEL1 (K, J)
+               K1 = K + DELKJ
+               NKJM1 = ABS (DELKJ)
 
-            NKJ = NKJM1 + 1
-            CKJ = CKIJ1 (K, J) * CAIJ1 (K, J) / NIJ
-            CK1J = CKIJ1 (K1, J) * CAIJ1 (K1, J) / NIJ
-            AIJDUM = CAIJ (J, I) / NKJ
-            DIJ = DKIJ * AIJDUM * WO2DX
+               NKJ = NKJM1 + 1
+               CKJ = CKIJ1 (K, J) * CAIJ1 (K, J) / NIJ
+               CK1J = CKIJ1 (K1, J) * CAIJ1 (K1, J) / NIJ
+               AIJDUM = CAIJ (J, I) / NKJ
+               DIJ = DKIJ * AIJDUM * WO2DX
 
-            CIJ = KIJ * AIJDUM
-            C1 = half * (CIJ + CKJ)
-            C2 = half * (CIJ + CK1J)
-            D1 = one
+               CIJ = KIJ * AIJDUM
+               C1 = half * (CIJ + CKJ)
+               C2 = half * (CIJ + CK1J)
+               D1 = one
 
-            D2 = one
-            IF (NOTONE(CWL)) THEN
-               CIJ = CIJ**CWL
-               CKJ = CKJ**CWL
-               CK1J = CK1J**CWL
-               D1 = (C1 / CIJ) **WIM1
-               D2 = (C2 / CIJ) **WIM1
-               C1 = C1**WI
-               C2 = C2**WI
+               D2 = one
+               IF (NOTONE(CWL)) THEN
+                  CIJ = CIJ**CWL
+                  CKJ = CKJ**CWL
+                  CK1J = CK1J**CWL
+                  D1 = (C1 / CIJ) **WIM1
+                  D2 = (C2 / CIJ) **WIM1
+                  C1 = C1**WI
+                  C2 = C2**WI
 
-            ENDIF
-            GAM1 = C1 / DXDUM
-            GAM2 = C2 / DXDUM * NKJM1
-            DGAM1 = D1 * DIJ
+               ENDIF
+               GAM1 = C1 / DXDUM
+               GAM2 = C2 / DXDUM * NKJM1
+               DGAM1 = D1 * DIJ
 
-            DGAM2 = D2 * DIJ * NKJM1
-            CGAM1 (I, J) = GAM1
-            CGAM2 (I, J) = GAM2
-            CDGAM1 (I, J) = DGAM1
-            CDGAM2 (I, J) = DGAM2
-            CF (I) = CF (I) + GAM1 + GAM2
+               DGAM2 = D2 * DIJ * NKJM1
+               CGAM1 (I, J) = GAM1
+               CGAM2 (I, J) = GAM2
+               CDGAM1 (I, J) = DGAM1
+               CDGAM2 (I, J) = DGAM2
+               CF (I) = CF (I) + GAM1 + GAM2
 
-            CDF (I) = CDF (I) + DGAM1 + DGAM2
+               CDF (I) = CDF (I) + DGAM1 + DGAM2
+            END IF
 
 300      END DO
 
@@ -637,24 +640,22 @@ CONTAINS
 ! Add lateral terms
 
       DO 400 J = 1, 4
+         IF (JELDUM (J) .GE.1.AND.JCBC (J) .NE.9) THEN
+            DO 300 I = ICBOT, ICTOP
+               K = JCACN (J, I)
+               IF (K.NE.0) THEN
+                  K1 = JCDEL1 (K, J) + K
+                  HK = SIGMA * CPSI1 (K, J) + OMSIG * CPSIN1 (K, J) + CZ1 (K, &
+                     J)
 
-         IF (JELDUM (J) .LT.1.OR.JCBC (J) .EQ.9) GOTO 400
+                  HK1 = SIGMA * CPSI1 (K1, J) + OMSIG * CPSIN1 (K1, J) &
+                     + CZ1 (K1, J)
+                  CB (I) = CB (I) + HK * CDGAM1 (I, J) + HK1 * CDGAM2 (I, J)
 
-         DO 300 I = ICBOT, ICTOP
-            K = JCACN (J, I)
-            IF (K.EQ.0) GOTO 300
-
-            K1 = JCDEL1 (K, J) + K
-            HK = SIGMA * CPSI1 (K, J) + OMSIG * CPSIN1 (K, J) + CZ1 (K, &
-               J)
-
-            HK1 = SIGMA * CPSI1 (K1, J) + OMSIG * CPSIN1 (K1, J) &
-               + CZ1 (K1, J)
-            CB (I) = CB (I) + HK * CDGAM1 (I, J) + HK1 * CDGAM2 (I, J)
-
-            CR (I) = CR (I) - HK * CGAM1 (I, J) - HK1 * CGAM2 (I, J)
-
-300      END DO
+                  CR (I) = CR (I) - HK * CGAM1 (I, J) - HK1 * CGAM2 (I, J)
+               END IF
+300         END DO
+         END IF
 
 400   END DO
    END SUBROUTINE VSINTC
