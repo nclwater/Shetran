@@ -391,437 +391,437 @@ CONTAINS
 !                       ZVSNOD(c,e)  the nodal elevation of cell c
 !        also: LL  the maximum value of IDUM over all elements
 ! --- loop over elements
-      top_cell_no = 0
-      DO 1000 IEL = total_no_links + 1, total_no_elements
-         ITYPE = ICMREF (IEL, 1)
+         top_cell_no = 0
+         DO 1000 IEL = total_no_links + 1, total_no_elements
+            ITYPE = ICMREF (IEL, 1)
 !           * process only grid and bank-1 elements here
 !           * (links & bank-2's are treated in the bank-1 pass)
 
-         IF (ITYPE.EQ.2) CYCLE  ! Skip bank-2 elements
+            IF (ITYPE.EQ.2) CYCLE  ! Skip bank-2 elements
 ! --- loop over layers in aquifer zone (start from bottom of column)
-         ZSZBOT = ZGRUND (IEL) - DCSTOT
+            ZSZBOT = ZGRUND (IEL) - DCSTOT
 !           NB: ICL used as a counter in loops below; cell 1 is a dummy
-         ICL = 1
-         DELTAZ (ICL, IEL) = ZERO
+            ICL = 1
+            DELTAZ (ICL, IEL) = ZERO
 !970612            DELTAZ(ICL,IEL) =                 VSZMIN
 !970612            ZVSNOD(ICL,IEL) = ZLYRBT(IEL,1) - VSZMIN*half
-         ZVSNOD (ICL, IEL) = ZERO
+            ZVSNOD (ICL, IEL) = ZERO
 !^^^^^^
 
 
-         DO 950 ILYR = 1, NLYR (IEL)
+            DO 950 ILYR = 1, NLYR (IEL)
 !              * divide each layer into equal sized cells
-            ZLBOT = ZLYRBT (IEL, ILYR)
-            DZLYR = MIN (ZLYRBT (IEL, ILYR + 1), ZSZBOT) - ZLBOT
+               ZLBOT = ZLYRBT (IEL, ILYR)
+               DZLYR = MIN (ZLYRBT (IEL, ILYR + 1), ZSZBOT) - ZLBOT
 !              skip if layer is thinner than minimum cell size
 !970422        NB  if ZLBOT lies in aquifer zone this will leave a gap!
-            IF (DZLYR.LT.VSZMIN) CYCLE
+               IF (DZLYR.LT.VSZMIN) CYCLE
 !              if no other plan make cells as large as poss but < VSZMAX
-            NCLYR = LRENUM (IEL, ILYR)
-            IF (NCLYR.LE.0) NCLYR = MAX (1, INT (DZLYR / VSZMAX) &
-               + 1)
-            ZDEPTH = DZLYR / NCLYR
-            DO 920 I = 1, NCLYR
-               ICL = ICL + 1
-               DELTAZ (ICL, IEL) = ZDEPTH
-               ZVSNOD (ICL, IEL) = ZDEPTH * (I - half) + ZLBOT
+               NCLYR = LRENUM (IEL, ILYR)
+               IF (NCLYR.LE.0) NCLYR = MAX (1, INT (DZLYR / VSZMAX) &
+                  + 1)
+               ZDEPTH = DZLYR / NCLYR
+               DO 920 I = 1, NCLYR
+                  ICL = ICL + 1
+                  DELTAZ (ICL, IEL) = ZDEPTH
+                  ZVSNOD (ICL, IEL) = ZDEPTH * (I - half) + ZLBOT
 
-920         END DO
+920            END DO
 
 
-950      END DO
+950         END DO
 ! --- set up data for soil zone (note DCSZON index is from the top down)
-         ZAQBOT = ZLYRBT (IEL, 1)
-         ZCBOT = ZSZBOT
+            ZAQBOT = ZLYRBT (IEL, 1)
+            ZCBOT = ZSZBOT
 
-         DO 960 I = NCSZON, 1, - 1
-            ZDEPTH = DCSZON (I)
-            ZNODE = ZCBOT + ZDEPTH * half
-            IF (ZNODE.GT.ZAQBOT) THEN
-               ICL = ICL + 1
-               DELTAZ (ICL, IEL) = ZDEPTH
-               ZVSNOD (ICL, IEL) = ZNODE
-            ENDIF
+            DO 960 I = NCSZON, 1, - 1
+               ZDEPTH = DCSZON (I)
+               ZNODE = ZCBOT + ZDEPTH * half
+               IF (ZNODE.GT.ZAQBOT) THEN
+                  ICL = ICL + 1
+                  DELTAZ (ICL, IEL) = ZDEPTH
+                  ZVSNOD (ICL, IEL) = ZNODE
+               ENDIF
 
-            ZCBOT = ZCBOT + ZDEPTH
+               ZCBOT = ZCBOT + ZDEPTH
 
 
-960      END DO
+960         END DO
 ! --- update LL & store number of cells for this column
-         top_cell_no = MAX (top_cell_no, ICL)
+            top_cell_no = MAX (top_cell_no, ICL)
 
 
-         IDUM (IEL) = ICL
+            IDUM (IEL) = ICL
 ! --- process link and opposite bank elements, if IEL is bank type 1
 
 
-         IF (ITYPE.NE.1) CYCLE  ! Skip if not bank type 1
+            IF (ITYPE.NE.1) CYCLE  ! Skip if not bank type 1
 !           * set up link cells up to bottom of link bed
-         ILINK = ICMREF (IEL, 4)
-         ZBDBOT = ZBEFF (ILINK) - DCRTOT
+            ILINK = ICMREF (IEL, 4)
+            ZBDBOT = ZBEFF (ILINK) - DCRTOT
 
-         ZCBOT = ZLYRBT (IEL, 1)
+            ZCBOT = ZLYRBT (IEL, 1)
 
-         DO ICL1 = 1, ICL
-            ZDEPTH = DELTAZ (ICL1, IEL)
-            ZCTOP = ZCBOT + ZDEPTH
-            IF (ZCTOP.GT.ZBDBOT) EXIT  ! Exit when above bed bottom
-            DELTAZ (ICL1, ILINK) = ZDEPTH
-            ZVSNOD (ICL1, ILINK) = ZVSNOD (ICL1, IEL)
+            DO ICL1 = 1, ICL
+               ZDEPTH = DELTAZ (ICL1, IEL)
+               ZCTOP = ZCBOT + ZDEPTH
+               IF (ZCTOP.GT.ZBDBOT) EXIT  ! Exit when above bed bottom
+               DELTAZ (ICL1, ILINK) = ZDEPTH
+               ZVSNOD (ICL1, ILINK) = ZVSNOD (ICL1, IEL)
 
-            ZCBOT = ZCTOP
+               ZCBOT = ZCTOP
 
-         END DO
+            END DO
 !>         < this point won't be traversed unless bank is below bed.
 !           cell just below link bed: smaller than bank, unless ...
-         ZDEPTH = ZBDBOT - ZCBOT
-         IF (ZDEPTH.LT.VSZMIN) THEN
+            ZDEPTH = ZBDBOT - ZCBOT
+            IF (ZDEPTH.LT.VSZMIN) THEN
 !               ... remainder is small: add it to the cell below
-            ICL1 = ICL1 - 1
-            ZDEPTH = ZDEPTH + DELTAZ (ICL1, ILINK)
-         ENDIF
-         DELTAZ (ICL1, ILINK) = ZDEPTH
-
-         ZVSNOD (ICL1, ILINK) = ZBDBOT - half * ZDEPTH
-!           set up link bed cells (note DCRBED index is top-down)
-         ZCBOT = ZBDBOT
-         DO 980 I = NCRBED, 1, - 1
-            ZDEPTH = DCRBED (I)
-            ICL1 = ICL1 + 1
+               ICL1 = ICL1 - 1
+               ZDEPTH = ZDEPTH + DELTAZ (ICL1, ILINK)
+            ENDIF
             DELTAZ (ICL1, ILINK) = ZDEPTH
-            ZVSNOD (ICL1, ILINK) = ZCBOT + ZDEPTH * half
-            ZCBOT = ZCBOT + ZDEPTH
 
-980      END DO
+            ZVSNOD (ICL1, ILINK) = ZBDBOT - half * ZDEPTH
+!           set up link bed cells (note DCRBED index is top-down)
+            ZCBOT = ZBDBOT
+            DO 980 I = NCRBED, 1, - 1
+               ZDEPTH = DCRBED (I)
+               ICL1 = ICL1 + 1
+               DELTAZ (ICL1, ILINK) = ZDEPTH
+               ZVSNOD (ICL1, ILINK) = ZCBOT + ZDEPTH * half
+               ZCBOT = ZCBOT + ZDEPTH
+
+980         END DO
 !           update LL & store number of cells for the link
-         top_cell_no = MAX (top_cell_no, ICL1)
+            top_cell_no = MAX (top_cell_no, ICL1)
 
-         IDUM (ILINK) = ICL1
+            IDUM (ILINK) = ICL1
 !           set up opposite bank cells
-         IBANK2 = ICMBK (ILINK, 2)
-         DO 985 I = 1, ICL
-            DELTAZ (I, IBANK2) = DELTAZ (I, IEL)
-            ZVSNOD (I, IBANK2) = ZVSNOD (I, IEL)
-985      END DO
+            IBANK2 = ICMBK (ILINK, 2)
+            DO 985 I = 1, ICL
+               DELTAZ (I, IBANK2) = DELTAZ (I, IEL)
+               ZVSNOD (I, IBANK2) = ZVSNOD (I, IEL)
+985         END DO
 
-         IDUM (IBANK2) = ICL
-
-
+            IDUM (IBANK2) = ICL
 
 
-1000  END DO
+
+
+1000     END DO
 ! Renumber cells (so that the top cell number is LL) & set up NLYRBT
 !____________________________________________________________________*
 ! --- set number of first column element
-      IF (BEXBK) THEN
-         ICOL1 = 1
-      ELSE
-         ICOL1 = total_no_links + 1
+         IF (BEXBK) THEN
+            ICOL1 = 1
+         ELSE
+            ICOL1 = total_no_links + 1
 !!!
 !            * temporary measure to avoid out-of-bounds errors, etc
-         DO ILINK = 1, total_no_links
-            NLYRBT (ILINK, 1) = top_cell_no
-         END DO
+            DO ILINK = 1, total_no_links
+               NLYRBT (ILINK, 1) = top_cell_no
+            END DO
 !!!
 
 
-      ENDIF
+         ENDIF
 ! --- loop over column elements
 
-      DO 1200 IEL = ICOL1, total_no_elements
+         DO 1200 IEL = ICOL1, total_no_elements
 !           * shuffle values in DELTAZ & ZVSNOD, and zero remainder
-         NCL = IDUM (IEL)
-         ICL0 = top_cell_no - NCL
-         IF (ICL0.GT.0) THEN
-            DO 1100 I = NCL, 1, - 1
-               ICL = ICL0 + I
-               DELTAZ (ICL, IEL) = DELTAZ (I, IEL)
-               ZVSNOD (ICL, IEL) = ZVSNOD (I, IEL)
-1100        END DO
-            CALL ALINIT (ZERO, ICL0, DELTAZ (1, IEL) )
-            CALL ALINIT (ZERO, ICL0, ZVSNOD (1, IEL) )
+            NCL = IDUM (IEL)
+            ICL0 = top_cell_no - NCL
+            IF (ICL0.GT.0) THEN
+               DO 1100 I = NCL, 1, - 1
+                  ICL = ICL0 + I
+                  DELTAZ (ICL, IEL) = DELTAZ (I, IEL)
+                  ZVSNOD (ICL, IEL) = ZVSNOD (I, IEL)
+1100           END DO
+               CALL ALINIT (ZERO, ICL0, DELTAZ (1, IEL) )
+               CALL ALINIT (ZERO, ICL0, ZVSNOD (1, IEL) )
 
-         ENDIF
+            ENDIF
 !           * find bottom cell in each layer
 !970612
-         ICL0 = ICL0 + 1
+            ICL0 = ICL0 + 1
 !^^^^^^
-         DO 1150 ILYR = 1, NLYR (IEL)
-            DO ICL = ICL0 + 1, top_cell_no
-               IF (ZVSNOD (ICL, IEL) .GT.ZLYRBT (IEL, ILYR) ) EXIT
-            END DO
-            NLYRBT (IEL, ILYR) = ICL
-            ICL0 = ICL - 1
-1150     END DO
+            DO 1150 ILYR = 1, NLYR (IEL)
+               DO ICL = ICL0 + 1, top_cell_no
+                  IF (ZVSNOD (ICL, IEL) .GT.ZLYRBT (IEL, ILYR) ) EXIT
+               END DO
+               NLYRBT (IEL, ILYR) = ICL
+               ICL0 = ICL - 1
+1150        END DO
 
-         NLYRBT (IEL, ILYR) = top_cell_no + 1
-
-
+            NLYRBT (IEL, ILYR) = top_cell_no + 1
 
 
 
-1200  END DO
+
+
+1200     END DO
 ! Set up cell connectivities (JVSACN, JVSDEL)
 !_____________________________________________*
 ! --- initialise arrays first
-      DO 1260 IEL = 1, total_no_elements
-         IBOT = NLYRBT (IEL, 1)
-         DO 1240 IFA = 1, 4
-            BDONE (IEL, IFA) = .FALSE.
-            DO 1220 ICL = IBOT, top_cell_no
-               JVSACN (IFA, ICL, IEL) = 0
-               JVSDEL (IFA, ICL, IEL) = 0
-1220        END DO
-1240     END DO
+         DO 1260 IEL = 1, total_no_elements
+            IBOT = NLYRBT (IEL, 1)
+            DO 1240 IFA = 1, 4
+               BDONE (IEL, IFA) = .FALSE.
+               DO 1220 ICL = IBOT, top_cell_no
+                  JVSACN (IFA, ICL, IEL) = 0
+                  JVSDEL (IFA, ICL, IEL) = 0
+1220           END DO
+1240        END DO
 
 
 
-1260  END DO
+1260     END DO
 ! ----- start of loop over (faces of) elements
-      LTOP = top_cell_no - NCRBED
-      IAQTOP = top_cell_no - NCSZON
+         LTOP = top_cell_no - NCRBED
+         IAQTOP = top_cell_no - NCSZON
 
-      DO 1600 IEL = ICOL1, total_no_elements
-         ITYPE = ICMREF (IEL, 1)
-         IBOT = NLYRBT (IEL, 1)
-         IF (IEL.LE.total_no_links) THEN
-            IBK = ICMBK (IEL, 1)
-            ITOP = MIN (IAQTOP + IBOT - NLYRBT (IBK, 1), LTOP)
-         ELSE
-            ITOP = IAQTOP
+         DO 1600 IEL = ICOL1, total_no_elements
+            ITYPE = ICMREF (IEL, 1)
+            IBOT = NLYRBT (IEL, 1)
+            IF (IEL.LE.total_no_links) THEN
+               IBK = ICMBK (IEL, 1)
+               ITOP = MIN (IAQTOP + IBOT - NLYRBT (IBK, 1), LTOP)
+            ELSE
+               ITOP = IAQTOP
 
-         ENDIF
+            ENDIF
 
-         DO IFA = 1, 4
-            JEL = ICMREF (IEL, IFA + 4)
-            IF (JEL.LT.ICOL1) CYCLE  ! Skip invalid elements
-            JFA = ICMREF (IEL, IFA + 8)
-            IF (BDONE (JEL, JFA) ) CYCLE  ! Skip already processed
-            JBOT = NLYRBT (JEL, 1)
+            DO IFA = 1, 4
+               JEL = ICMREF (IEL, IFA + 4)
+               IF (JEL.LT.ICOL1) CYCLE  ! Skip invalid elements
+               JFA = ICMREF (IEL, IFA + 8)
+               IF (BDONE (JEL, JFA) ) CYCLE  ! Skip already processed
+               JBOT = NLYRBT (JEL, 1)
 
 
-            JDIF = JBOT - IBOT
+               JDIF = JBOT - IBOT
 ! --- channel link-bank face: cells below river bed explicitly matched
 !              * NB: layer connectivity & soil zone are disregarded here
-            IF (IEL.LE.total_no_links.AND.JEL.GT.total_no_links) THEN
-               DO 1280 ICL = IBOT, LTOP
-                  JCL = ICL + JDIF
-                  JVSACN (IFA, ICL, IEL) = JCL
-                  JVSACN (JFA, JCL, JEL) = ICL
-1280           END DO
-               ! No GOTO needed - fall through to BDONE assignment
-            ELSE
-! --- other elements (grid-grid, grid-bank, or end-to-end banks/links)
-               IF (JEL.LE.total_no_links) THEN
-                  IBK = ICMBK (JEL, 1)
-                  JTOP = MIN (IAQTOP + JBOT - NLYRBT (IBK, 1), LTOP)
-                  LCON = LTOP
+               IF (IEL.LE.total_no_links.AND.JEL.GT.total_no_links) THEN
+                  DO 1280 ICL = IBOT, LTOP
+                     JCL = ICL + JDIF
+                     JVSACN (IFA, ICL, IEL) = JCL
+                     JVSACN (JFA, JCL, JEL) = ICL
+1280              END DO
+                  ! No GOTO needed - fall through to BDONE assignment
                ELSE
-                  JTOP = IAQTOP
-                  LCON = top_cell_no
+! --- other elements (grid-grid, grid-bank, or end-to-end banks/links)
+                  IF (JEL.LE.total_no_links) THEN
+                     IBK = ICMBK (JEL, 1)
+                     JTOP = MIN (IAQTOP + JBOT - NLYRBT (IBK, 1), LTOP)
+                     LCON = LTOP
+                  ELSE
+                     JTOP = IAQTOP
+                     LCON = top_cell_no
 
 
-               ENDIF
+                  ENDIF
 ! ----- soil zone processing
 !              * one-to-one for all active (except river-bed) cells
-               jedumdum = MAX (IBOT, JBOT)
-               jedumdum = MAX (jedumdum, ITOP + 1, JTOP + 1)
-               !""AD DO 1322 ICL = MAX (IBOT, JBOT, ITOP + 1, JTOP + 1), LCON
-               DO 1322 ICL = jedumdum , LCON
-                  JCL = ICL
-                  JVSACN (IFA, ICL, IEL) = JCL
-                  JVSACN (JFA, JCL, JEL) = ICL
+                  jedumdum = MAX (IBOT, JBOT)
+                  jedumdum = MAX (jedumdum, ITOP + 1, JTOP + 1)
+                  !""AD DO 1322 ICL = MAX (IBOT, JBOT, ITOP + 1, JTOP + 1), LCON
+                  DO 1322 ICL = jedumdum , LCON
+                     JCL = ICL
+                     JVSACN (IFA, ICL, IEL) = JCL
+                     JVSACN (JFA, JCL, JEL) = ICL
 
 
-1322           END DO
+1322              END DO
 ! ----- aquifer zone processing
 !              * loop over layers, starting at the bottom
-               ILYR = 1
-               JLYR = 1
+                  ILYR = 1
+                  JLYR = 1
 
-               ! Convert 1410 loop to structured DO WHILE
-               IBOTL = NLYRBT (IEL, ILYR)
-               JBOTL = NLYRBT (JEL, JLYR)
-               DO WHILE (IBOTL.LE.ITOP .AND. JBOTL.LE.JTOP)
-                  JRANGE = JVSALN (IEL, ILYR, IFA)
-                  IRANGE = JVSALN (JEL, JLYR, JFA)
-                  IF (JRANGE.EQ.0) THEN
-                     ILYR = ILYR + 1
-                     IBOTL = NLYRBT (IEL, ILYR)
-                     JBOTL = NLYRBT (JEL, JLYR)
-                     CYCLE
-                  ELSEIF (IRANGE.EQ.0) THEN
-                     JLYR = JLYR + 1
-                     IBOTL = NLYRBT (IEL, ILYR)
-                     JBOTL = NLYRBT (JEL, JLYR)
-                     CYCLE
-                  ENDIF
-!                 * range of layers to process on this pass
-                  ILMIN = IRANGE / NMOD
-                  ILMAX = MOD (IRANGE, NMOD)
-                  JLMIN = JRANGE / NMOD
-
-                  JLMAX = MOD (JRANGE, NMOD)
-!                 * count cells in column IEL, & no. required in JEL
-                  NITOT = 0
-                  NJMIN = 0
-                  NODD = 0
-                  DO 1470 IL = ILMIN, ILMAX
-                     NCELL = FNCELL (IL, IEL, ITOP)
-                     IF (JVSALN (IEL, IL, IFA) .NE.0) THEN
-                        DO 1460 I = 0, NCELL - 1
-                           NITOT = 1 + NITOT
-                           NIDUM (NITOT) = I + NLYRBT (IEL, IL)
-1460                    END DO
-                        NCELL = NCELL - NODD
-                        NJMIN = (NCELL + 1) / 2 + NJMIN
-                        NODD = MOD (NCELL, 2)
-                     ELSEIF (NCELL.GT.0) THEN
-                        NODD = 0
-                     ENDIF
-1470              END DO
-
-                  NIDUM (NITOT + 1) = 0
-!                 * count cells in column JEL, & no. required in IEL
-                  NJTOT = 0
-                  NIMIN = 0
-                  NODD = 0
-                  DO 1570 JL = JLMIN, JLMAX
-                     NCELL = FNCELL (JL, JEL, JTOP)
-                     IF (JVSALN (JEL, JL, JFA) .NE.0) THEN
-                        DO 1560 J = 0, NCELL - 1
-                           NJTOT = 1 + NJTOT
-                           NJDUM (NJTOT) = J + NLYRBT (JEL, JL)
-1560                    END DO
-                        NCELL = NCELL - NODD
-                        NIMIN = (NCELL + 1) / 2 + NIMIN
-                        NODD = MOD (NCELL, 2)
-                     ELSEIF (NCELL.GT.0) THEN
-                        NODD = 0
-                     ENDIF
-1570              END DO
-
-                  NJDUM (NJTOT + 1) = 0
-
-                  IF (NITOT.EQ.0.AND.NJTOT.GT.0) THEN
-!                     * I-layers are empty
-                     WRITE (MSG, 9200) JFA, JLYR
-
-                     IF (NRENUM.EQ.1) CALL ERROR(WWWARN, 1053, PPPRI, JEL, 0, &
-                        MSG)
-
-                  ELSEIF (NJTOT.EQ.0.AND.NITOT.GT.0) THEN
-!                     * J-layers are empty
-                     WRITE (MSG, 9200) IFA, ILYR
-
-                     IF (NRENUM.EQ.1) CALL ERROR(WWWARN, 1053, PPPRI, IEL, 0, &
-                        MSG)
-
-                  ELSEIF (NJTOT.LT.NJMIN) THEN
-!                     * need more J-cells
-                     BRENUM = .TRUE.
-                     NEXTRA = 0
-                     DO 1572 JL = JLMIN, JLMAX
-                        IF (JVSALN (JEL, JL, JFA) .NE.0) THEN
-                           IF (BWARN) THEN
-                              WRITE (MSG, 9300) JFA, JL
-                              CALL ERROR(WWWARN, 1037, PPPRI, JEL, 0, MSG)
-                           ENDIF
-                           NCELL = FNCELL (JL, JEL, JTOP)
-                           NDUM = NCELL * NJMIN + NEXTRA + NJTOT / 2
-                           LRENUM (JEL, JL) = NDUM / NJTOT
-                           NEXTRA = MOD (NDUM, NJTOT) - NJTOT / 2
-                        ENDIF
-
-1572                 END DO
-
-                  ELSEIF (NITOT.LT.NIMIN) THEN
-!                     * need more I-cells
-                     BRENUM = .TRUE.
-                     NEXTRA = 0
-                     DO 1574 IL = ILMIN, ILMAX
-                        IF (JVSALN (IEL, IL, IFA) .NE.0) THEN
-                           IF (BWARN) THEN
-                              WRITE (MSG, 9300) IFA, IL
-                              CALL ERROR(WWWARN, 1037, PPPRI, IEL, 0, MSG)
-                           ENDIF
-                           NCELL = FNCELL (IL, IEL, ITOP)
-                           NDUM = NCELL * NIMIN + NEXTRA + NITOT / 2
-                           LRENUM (IEL, IL) = NDUM / NITOT
-                           NEXTRA = MOD (NDUM, NITOT) - NITOT / 2
-                        ENDIF
-
-1574                 END DO
-
-                  ELSE
-!                     * how many splits possible, & how many to forego
-                     IF (NITOT.GE.NJTOT) THEN
-                        IDEL0 = 1
-                        NUM2 = NITOT - NJMIN
-                        NEXTRA = NJTOT - NJMIN
-                     ELSE
-                        IDEL0 = 0
-                        NUM2 = NJTOT - NIMIN
-                        NEXTRA = NITOT - NIMIN
-                     ENDIF
-                     JDEL0 = 1 - IDEL0
-
-                     CALL ALSPRD (NEXTRA, NUM2, K20, K2MOD)
-!                     * loop over all cells found
-                     MISS = .FALSE.
-                     K2 = - K20
-                     I = 1
-                     J = 1
-
-                     ! Convert 1575 loop to structured DO WHILE
-                     DO WHILE (I.LE.NITOT .AND. J.LE.NJTOT)
-                        PAIR = NIDUM (I + IDEL0) .EQ.NIDUM (I) + 1
-                        PAIR = NJDUM (J + JDEL0) .EQ.NJDUM (J) + 1.OR.PAIR
-                        PAIR = .NOT.MISS.AND.PAIR
-                        IF (PAIR) THEN
-                           K2 = K2 + 1
-                           MISS = K2.GE.0.AND.MOD (K2, K2MOD) .EQ.0
-                           MISS = K2.LE. (NEXTRA - 1) * K2MOD.AND.MISS
-                           PAIR = .NOT.MISS
-                        ELSE
-                           MISS = .FALSE.
-                        ENDIF
-                        DEL = 0
-                        IF (PAIR) DEL = 1
-                        IDEL = IDEL0 * DEL
-                        JDEL = JDEL0 * DEL
-                        DO 1580 K = 0, DEL
-                           ICL = NIDUM (I)
-                           JCL = NJDUM (J)
-                           IF (IDEL.GE.K) JVSACN (IFA, ICL, IEL) = JCL
-                           IF (JDEL.GE.K) JVSACN (JFA, JCL, JEL) = ICL
-                           JVSDEL (IFA, ICL, IEL) = IDEL * (1 - 2 * K)
-                           JVSDEL (JFA, JCL, JEL) = JDEL * (1 - 2 * K)
-                           I = I + IDIMJE(IDEL, K)
-                           J = J + IDIMJE(JDEL, K)
-1580                    END DO
-                        I = I + 1
-                        J = J + 1
-                     END DO
-
-                  ENDIF
-!                 * move on to next layers
-                  ILYR = ILMAX + 1
-                  JLYR = JLMAX + 1
-
-                  ! Update loop variables for next iteration
+                  ! Convert 1410 loop to structured DO WHILE
                   IBOTL = NLYRBT (IEL, ILYR)
                   JBOTL = NLYRBT (JEL, JLYR)
-               END DO  ! End of 1410 DO WHILE loop
-            END IF  ! End of channel-link IF-ELSE block
+                  DO WHILE (IBOTL.LE.ITOP .AND. JBOTL.LE.JTOP)
+                     JRANGE = JVSALN (IEL, ILYR, IFA)
+                     IRANGE = JVSALN (JEL, JLYR, JFA)
+                     IF (JRANGE.EQ.0) THEN
+                        ILYR = ILYR + 1
+                        IBOTL = NLYRBT (IEL, ILYR)
+                        JBOTL = NLYRBT (JEL, JLYR)
+                        CYCLE
+                     ELSEIF (IRANGE.EQ.0) THEN
+                        JLYR = JLYR + 1
+                        IBOTL = NLYRBT (IEL, ILYR)
+                        JBOTL = NLYRBT (JEL, JLYR)
+                        CYCLE
+                     ENDIF
+!                 * range of layers to process on this pass
+                     ILMIN = IRANGE / NMOD
+                     ILMAX = MOD (IRANGE, NMOD)
+                     JLMIN = JRANGE / NMOD
 
-1585        BDONE (IEL, IFA) = .TRUE.
+                     JLMAX = MOD (JRANGE, NMOD)
+!                 * count cells in column IEL, & no. required in JEL
+                     NITOT = 0
+                     NJMIN = 0
+                     NODD = 0
+                     DO 1470 IL = ILMIN, ILMAX
+                        NCELL = FNCELL (IL, IEL, ITOP)
+                        IF (JVSALN (IEL, IL, IFA) .NE.0) THEN
+                           DO 1460 I = 0, NCELL - 1
+                              NITOT = 1 + NITOT
+                              NIDUM (NITOT) = I + NLYRBT (IEL, IL)
+1460                       END DO
+                           NCELL = NCELL - NODD
+                           NJMIN = (NCELL + 1) / 2 + NJMIN
+                           NODD = MOD (NCELL, 2)
+                        ELSEIF (NCELL.GT.0) THEN
+                           NODD = 0
+                        ENDIF
+1470                 END DO
 
-         END DO
+                     NIDUM (NITOT + 1) = 0
+!                 * count cells in column JEL, & no. required in IEL
+                     NJTOT = 0
+                     NIMIN = 0
+                     NODD = 0
+                     DO 1570 JL = JLMIN, JLMAX
+                        NCELL = FNCELL (JL, JEL, JTOP)
+                        IF (JVSALN (JEL, JL, JFA) .NE.0) THEN
+                           DO 1560 J = 0, NCELL - 1
+                              NJTOT = 1 + NJTOT
+                              NJDUM (NJTOT) = J + NLYRBT (JEL, JL)
+1560                       END DO
+                           NCELL = NCELL - NODD
+                           NIMIN = (NCELL + 1) / 2 + NIMIN
+                           NODD = MOD (NCELL, 2)
+                        ELSEIF (NCELL.GT.0) THEN
+                           NODD = 0
+                        ENDIF
+1570                 END DO
+
+                     NJDUM (NJTOT + 1) = 0
+
+                     IF (NITOT.EQ.0.AND.NJTOT.GT.0) THEN
+!                     * I-layers are empty
+                        WRITE (MSG, 9200) JFA, JLYR
+
+                        IF (NRENUM.EQ.1) CALL ERROR(WWWARN, 1053, PPPRI, JEL, 0, &
+                           MSG)
+
+                     ELSEIF (NJTOT.EQ.0.AND.NITOT.GT.0) THEN
+!                     * J-layers are empty
+                        WRITE (MSG, 9200) IFA, ILYR
+
+                        IF (NRENUM.EQ.1) CALL ERROR(WWWARN, 1053, PPPRI, IEL, 0, &
+                           MSG)
+
+                     ELSEIF (NJTOT.LT.NJMIN) THEN
+!                     * need more J-cells
+                        BRENUM = .TRUE.
+                        NEXTRA = 0
+                        DO 1572 JL = JLMIN, JLMAX
+                           IF (JVSALN (JEL, JL, JFA) .NE.0) THEN
+                              IF (BWARN) THEN
+                                 WRITE (MSG, 9300) JFA, JL
+                                 CALL ERROR(WWWARN, 1037, PPPRI, JEL, 0, MSG)
+                              ENDIF
+                              NCELL = FNCELL (JL, JEL, JTOP)
+                              NDUM = NCELL * NJMIN + NEXTRA + NJTOT / 2
+                              LRENUM (JEL, JL) = NDUM / NJTOT
+                              NEXTRA = MOD (NDUM, NJTOT) - NJTOT / 2
+                           ENDIF
+
+1572                    END DO
+
+                     ELSEIF (NITOT.LT.NIMIN) THEN
+!                     * need more I-cells
+                        BRENUM = .TRUE.
+                        NEXTRA = 0
+                        DO 1574 IL = ILMIN, ILMAX
+                           IF (JVSALN (IEL, IL, IFA) .NE.0) THEN
+                              IF (BWARN) THEN
+                                 WRITE (MSG, 9300) IFA, IL
+                                 CALL ERROR(WWWARN, 1037, PPPRI, IEL, 0, MSG)
+                              ENDIF
+                              NCELL = FNCELL (IL, IEL, ITOP)
+                              NDUM = NCELL * NIMIN + NEXTRA + NITOT / 2
+                              LRENUM (IEL, IL) = NDUM / NITOT
+                              NEXTRA = MOD (NDUM, NITOT) - NITOT / 2
+                           ENDIF
+
+1574                    END DO
+
+                     ELSE
+!                     * how many splits possible, & how many to forego
+                        IF (NITOT.GE.NJTOT) THEN
+                           IDEL0 = 1
+                           NUM2 = NITOT - NJMIN
+                           NEXTRA = NJTOT - NJMIN
+                        ELSE
+                           IDEL0 = 0
+                           NUM2 = NJTOT - NIMIN
+                           NEXTRA = NITOT - NIMIN
+                        ENDIF
+                        JDEL0 = 1 - IDEL0
+
+                        CALL ALSPRD (NEXTRA, NUM2, K20, K2MOD)
+!                     * loop over all cells found
+                        MISS = .FALSE.
+                        K2 = - K20
+                        I = 1
+                        J = 1
+
+                        ! Convert 1575 loop to structured DO WHILE
+                        DO WHILE (I.LE.NITOT .AND. J.LE.NJTOT)
+                           PAIR = NIDUM (I + IDEL0) .EQ.NIDUM (I) + 1
+                           PAIR = NJDUM (J + JDEL0) .EQ.NJDUM (J) + 1.OR.PAIR
+                           PAIR = .NOT.MISS.AND.PAIR
+                           IF (PAIR) THEN
+                              K2 = K2 + 1
+                              MISS = K2.GE.0.AND.MOD (K2, K2MOD) .EQ.0
+                              MISS = K2.LE. (NEXTRA - 1) * K2MOD.AND.MISS
+                              PAIR = .NOT.MISS
+                           ELSE
+                              MISS = .FALSE.
+                           ENDIF
+                           DEL = 0
+                           IF (PAIR) DEL = 1
+                           IDEL = IDEL0 * DEL
+                           JDEL = JDEL0 * DEL
+                           DO 1580 K = 0, DEL
+                              ICL = NIDUM (I)
+                              JCL = NJDUM (J)
+                              IF (IDEL.GE.K) JVSACN (IFA, ICL, IEL) = JCL
+                              IF (JDEL.GE.K) JVSACN (JFA, JCL, JEL) = ICL
+                              JVSDEL (IFA, ICL, IEL) = IDEL * (1 - 2 * K)
+                              JVSDEL (JFA, JCL, JEL) = JDEL * (1 - 2 * K)
+                              I = I + IDIMJE(IDEL, K)
+                              J = J + IDIMJE(JDEL, K)
+1580                       END DO
+                           I = I + 1
+                           J = J + 1
+                        END DO
+
+                     ENDIF
+!                 * move on to next layers
+                     ILYR = ILMAX + 1
+                     JLYR = JLMAX + 1
+
+                     ! Update loop variables for next iteration
+                     IBOTL = NLYRBT (IEL, ILYR)
+                     JBOTL = NLYRBT (JEL, JLYR)
+                  END DO  ! End of 1410 DO WHILE loop
+               END IF  ! End of channel-link IF-ELSE block
+
+1585           BDONE (IEL, IFA) = .TRUE.
+
+            END DO
 
 
 
-1600  END DO
+1600     END DO
 ! Repeat the whole thing if necessary
 !_____________________________________*
 
