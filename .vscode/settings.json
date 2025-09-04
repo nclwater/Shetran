@@ -11,7 +11,7 @@
     ],
     "cmake.configureArgs": [],
     "files.associations": {
-        "*.f90": "fortran-modern",
+        "*.f90": "FortranFreeForm",
         "*.f95": "fortran-modern",
         "*.f03": "fortran-modern",
         "*.f08": "fortran-modern",

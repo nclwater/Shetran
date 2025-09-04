@@ -352,15 +352,20 @@ The build system provides two methods for ordering Fortran source files:
    - Analyzes actual module USE/PROVIDES relationships  
    - Automatically handles refactored module dependencies
    - Uses topological sorting for optimal build order
-   - Supports complex dependency graphs including the new OC module structure
+   - Supports complex dependency graphs including the new OC and sediment module structures
    
 2. **Pattern-based ordering** (fallback):
    - Uses filename patterns and directory structure
    - Handles most dependency cases correctly
-   - Updated to support refactored OC modules
+   - Updated to support refactored OC and sediment modules
 
-The build system automatically detects the refactored overland channel (OC) modules in `src/flow/overland_channel/` and ensures they are built in the correct dependency order:
+The build system automatically detects refactored modules and ensures they are built in the correct dependency order:
+
+**Overland Channel (OC) modules** in `src/compute/overland_channel/`:
 - `oc_parameters.f90` → `oc_data_management.f90` → `oc_hydraulic_calculations.f90` → `oc_node_flows.f90` → `oc_channel_flow_types.f90` → `oc_flow_control.f90` → `OCmod2.f90`
+
+**Sediment Yield (SY) modules** in `src/compute/sediment/`:
+- `sediment_common.f90` → `sediment_transport_capacity.f90` → `sediment_erosion.f90` / `sediment_flow_dynamics.f90` / `sediment_bed_processes.f90` → `sediment_initialization.f90` → `sediment_integration.f90` → `SYmod.f90` (interface)
 
 ```bash
 # Disable dependency analysis (use pattern-based fallback)

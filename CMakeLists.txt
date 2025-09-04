@@ -527,7 +527,10 @@ function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
         # Group 10.5: Framework modules (refactored from FRmod - must come before FRmod interface)
         "framework_initialization\\.f90$;framework_spatial_setup\\.f90$;framework_output_manager\\.f90$;framework_mass_balance\\.f90$;framework_element_sorting\\.f90$;framework_component_initialization\\.f90$"
         
-        # Group 11: Advanced modules
+        # Group 10.8: Sediment modules (refactored from SYmod - ordered by dependency)
+        "sediment_common\\.f90$;sediment_transport_capacity\\.f90$;sediment_erosion\\.f90$;sediment_flow_dynamics\\.f90$;sediment_bed_processes\\.f90$;sediment_initialization\\.f90$;sediment_integration\\.f90$"
+        
+        # Group 11: Advanced modules and interfaces
         "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
         
         # Group 12.5: Refactored rest components (ordered by dependency)
