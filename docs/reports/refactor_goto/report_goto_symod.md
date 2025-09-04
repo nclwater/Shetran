@@ -25,12 +25,12 @@ This report documents the complete modernization of legacy GOTO statements in th
 ### Initial State
 After the SYmod.f90 refactoring into 8 modular files, legacy GOTO statements remained distributed across:
 
-| File | GOTO Count | Types | Complexity |
-|------|------------|-------|------------|
-| `sediment_initialization.f90` | 12 | Error handling, Loop control | High |
-| `sediment_flow_dynamics.f90` | 2 | Loop control | Low |
-| `sediment_transport_capacity.f90` | 1 | Loop control | Low |
-| **Total** | **15** | | |
+| File                              | GOTO Count | Types                        | Complexity |
+| --------------------------------- | ---------- | ---------------------------- | ---------- |
+| `sediment_initialization.f90`     | 12         | Error handling, Loop control | High       |
+| `sediment_flow_dynamics.f90`      | 2          | Loop control                 | Low        |
+| `sediment_transport_capacity.f90` | 1          | Loop control                 | Low        |
+| **Total**                         | **15**     |                              |            |
 
 ### Implementation Strategy
 The modernization was implemented in **three phases** with increasing complexity:
@@ -410,20 +410,20 @@ CONTAINS
 ## Migration Statistics
 
 ### Lines of Code Impact
-| Metric | Before | After | Change |
-|--------|--------|--------|--------|
-| Total GOTO statements | 15 | 0 | -15 (100%) |
-| Error handling labels | 6 | 0 | -6 (100%) |
-| Error procedures | 0 | 7 | +7 |
-| Logical flags added | 0 | 1 | +1 |
-| Complex control structures | 15 | 0 | -15 (100%) |
+| Metric                     | Before | After | Change     |
+| -------------------------- | ------ | ----- | ---------- |
+| Total GOTO statements      | 15     | 0     | -15 (100%) |
+| Error handling labels      | 6      | 0     | -6 (100%)  |
+| Error procedures           | 0      | 7     | +7         |
+| Logical flags added        | 0      | 1     | +1         |
+| Complex control structures | 15     | 0     | -15 (100%) |
 
 ### File-Level Changes
-| File | GOTO Removed | Procedures Added | Structure Changes |
-|------|--------------|------------------|-------------------|
-| `sediment_transport_capacity.f90` | 1 | 0 | 1 EXIT statement |
-| `sediment_flow_dynamics.f90` | 2 | 0 | 2 IF-ELSE restructures |
-| `sediment_initialization.f90` | 12 | 7 | 5 major restructures |
+| File                              | GOTO Removed | Procedures Added | Structure Changes      |
+| --------------------------------- | ------------ | ---------------- | ---------------------- |
+| `sediment_transport_capacity.f90` | 1            | 0                | 1 EXIT statement       |
+| `sediment_flow_dynamics.f90`      | 2            | 0                | 2 IF-ELSE restructures |
+| `sediment_initialization.f90`     | 12           | 7                | 5 major restructures   |
 
 ### Complexity Reduction
 - **Cyclomatic complexity:** Reduced through elimination of multiple exit points
@@ -532,14 +532,14 @@ This modernization establishes a foundation for continued code quality improveme
 15. **sediment_initialization.f90:948** - `GOTO 640` → `CYCLE`
 
 ### Appendix B: Error Handler Mapping
-| Original Label | Procedure Name | Error Code | Purpose |
-|----------------|----------------|------------|---------|
-| 8000 | `handle_insufficient_workspace` | 2005 | Workspace validation |
-| 8110 | `handle_invalid_nsed` | 2006 | Sediment group count |
-| 8610 | `handle_nsyb_too_large` | 2007 | Boundary count limit |
-| 8620 | `handle_invalid_boundary_type` | 2008 | Boundary type range |
-| 8612 | `handle_nsyc1_too_large` | 2009 | Flux category limit |
-| 8614 | `handle_nsyc3_too_large` | 2010 | Rating category limit |
+| Original Label | Procedure Name                  | Error Code | Purpose               |
+| -------------- | ------------------------------- | ---------- | --------------------- |
+| 8000           | `handle_insufficient_workspace` | 2005       | Workspace validation  |
+| 8110           | `handle_invalid_nsed`           | 2006       | Sediment group count  |
+| 8610           | `handle_nsyb_too_large`         | 2007       | Boundary count limit  |
+| 8620           | `handle_invalid_boundary_type`  | 2008       | Boundary type range   |
+| 8612           | `handle_nsyc1_too_large`        | 2009       | Flux category limit   |
+| 8614           | `handle_nsyc3_too_large`        | 2010       | Rating category limit |
 
 ### Appendix C: File Modification Summary
 ```
