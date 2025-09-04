@@ -30,6 +30,10 @@ This has been tested in the following configurations and confirmed working:
 Automatic integration of the cmake build in the Visual Studio and Visual Studio Code on Windows is currently very finicky.
 An (slightly out-of-date) description of how to setup the corresponding Visual Studio project can be found in the file "COMPILING.md".
 
+## Compiling Troubleshoot
+
+Should the compile not work with the system HDF5 library, set the build script to build it locally.
+
 ## VS Code / IDE Integration
 
 ### VS Code Setup on Linux
