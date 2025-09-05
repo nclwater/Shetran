@@ -30,16 +30,16 @@ sglobal.f90,FFWARN,ERROR_WARNING,core/error_handling.f90,PARAMETER,Warning error
 sglobal.f90,FFINFO,ERROR_INFO,core/error_handling.f90,PARAMETER,Information error code
 sglobal.f90,FFNONE,ERROR_NONE,core/error_handling.f90,PARAMETER,No error code
 sglobal.f90,marker999,MISSING_VALUE_MARKER,core/constants.f90,PARAMETER,Missing value marker (999999.9)
-sglobal.f90,izero,INTEGER_ZERO,core/constants.f90,PARAMETER,Integer zero constant
-sglobal.f90,ione,INTEGER_ONE,core/constants.f90,PARAMETER,Integer one constant
-sglobal.f90,imarker,INTEGER_MISSING_MARKER,core/constants.f90,PARAMETER,Integer missing value marker
+sglobal.f90,izero,INT_ZERO,core/constants.f90,PARAMETER,Integer zero constant
+sglobal.f90,ione,INT_ONE,core/constants.f90,PARAMETER,Integer one constant
+sglobal.f90,imarker,INT_MISSING_MARKER,core/constants.f90,PARAMETER,Integer missing value marker
 sglobal.f90,zero,REAL_ZERO,core/constants.f90,PARAMETER,Real zero constant
 sglobal.f90,half,REAL_HALF,core/constants.f90,PARAMETER,Real 0.5 constant
 sglobal.f90,one,REAL_ONE,core/constants.f90,PARAMETER,Real one constant
 sglobal.f90,two,REAL_TWO,core/constants.f90,PARAMETER,Real two constant
 sglobal.f90,pi,MATH_PI,core/constants.f90,PARAMETER,Mathematical constant pi
-sglobal.f90,izero1,INTEGER_ZERO_ARRAY,core/constants.f90,PARAMETER_ARRAY,Integer zero array (1 element)
-sglobal.f90,ione1,INTEGER_ONE_ARRAY,core/constants.f90,PARAMETER_ARRAY,Integer one array (1 element)
+sglobal.f90,izero1,INT_ZERO_ARRAY,core/constants.f90,PARAMETER_ARRAY,Integer zero array (1 element)
+sglobal.f90,ione1,INT_ONE_ARRAY,core/constants.f90,PARAMETER_ARRAY,Integer one array (1 element)
 sglobal.f90,zero1,REAL_ZERO_ARRAY,core/constants.f90,PARAMETER_ARRAY,Real zero array (1 element)
 sglobal.f90,one1,REAL_ONE_ARRAY,core/constants.f90,PARAMETER_ARRAY,Real one array (1 element)
 CONST_SY.F90,GRAVTY,GRAVITY_ACCELERATION,physics/physical_constants.f90,PARAMETER,Gravitational acceleration (9.80665 m/s²)
@@ -75,7 +75,7 @@ AL_C.F90,THSAT,SATURATED_MOISTURE_CONTENT,components/soil_properties.f90,ARRAY,S
 AL_C.F90,VSPOR,POROSITY,components/soil_properties.f90,ARRAY,Soil porosity
 AL_C.F90,NLYRBT,LAYER_BOTTOM_CELL,components/soil_layers.f90,ARRAY,Bottom cell number for each soil layer
 AL_C.F90,ZLYRBT,LAYER_BOTTOM_ELEVATION,components/soil_layers.f90,ARRAY,Elevation of soil layer bottom
-AL_C.F90,IDUM,DUMMY_INTEGER_ARRAY,components/temporary_arrays.f90,ARRAY,Temporary integer array for calculations
+AL_C.F90,IDUM,DUMMY_INT_ARRAY,components/temporary_arrays.f90,ARRAY,Temporary integer array for calculations
 AL_C.F90,ISORT,ELEMENT_SORT_INDEX,components/element_geometry.f90,ARRAY,Element sorting indices
 AL_C.F90,DRAINA,DRAINAGE_AREA,components/hydrology.f90,ARRAY,Element drainage area
 AL_C.F90,QOC,OVERLAND_FLOW_RATE,components/hydrology.f90,ARRAY,Overland flow rate through face
@@ -113,48 +113,48 @@ is_cc.f90,ISADNL,IS_ADDITIONAL_NONLINEAR,global_system/simulation_flags.f90,VARI
 is_cc.f90,ISBK,IS_BANK_FLOW,global_system/simulation_flags.f90,VARIABLE,Bank flow active flag
 is_cc.f90,ISFLXB,IS_FLUX_BOUNDARY,global_system/simulation_flags.f90,VARIABLE,Flux boundary condition flag
 is_cc.f90,ISPLT,IS_PLANT_UPTAKE,global_system/simulation_flags.f90,VARIABLE,Plant water uptake flag
-link_cc.f90,ACSFA1,AREA_COEFFICIENTS_SURFACE,components/channel_coefficients.f90,ARRAY,Area coefficients for surface flow (6 elements)
-link_cc.f90,ACPBD1,AREA_COEFFICIENT_BED_1,components/channel_coefficients.f90,VARIABLE,Area coefficient for bed type 1
-link_cc.f90,ACPBDT,AREA_COEFFICIENT_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient area coefficient for bed
-link_cc.f90,ACPBS,AREA_COEFFICIENT_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady area coefficient for bed
-link_cc.f90,ACPSF1,AREA_COEFFICIENT_SURFACE_1,components/channel_coefficients.f90,VARIABLE,Area coefficient for surface type 1
-link_cc.f90,ACPSFT,AREA_COEFFICIENT_SURFACE_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient area coefficient for surface
-link_cc.f90,CCBD1Q,CONCENTRATION_COEFFICIENT_BED_1,components/channel_coefficients.f90,VARIABLE,Concentration coefficient for bed type 1
-link_cc.f90,CCPBK,CONCENTRATION_COEFFICIENT_BANK,components/channel_coefficients.f90,ARRAY,Concentration coefficient for bank
-link_cc.f90,CCPGS1,CONCENTRATION_COEFFICIENT_GROUNDWATER_1,components/channel_coefficients.f90,ARRAY,Concentration coefficient for groundwater type 1 (2 elements)
-link_cc.f90,CCBS1Q,CONCENTRATION_COEFFICIENT_BED_STEADY_1,components/channel_coefficients.f90,VARIABLE,Steady concentration coefficient for bed type 1
-link_cc.f90,CCSFA1,CONCENTRATION_COEFFICIENTS_SURFACE,components/channel_coefficients.f90,ARRAY,Concentration coefficients for surface (6 elements)
-link_cc.f90,CCSF1Q,CONCENTRATION_COEFFICIENT_SURFACE_1,components/channel_coefficients.f90,VARIABLE,Concentration coefficient for surface type 1
-link_cc.f90,SCPBK,PARENT_CONCENTRATION_BANK,components/channel_coefficients.f90,ARRAY,Parent contaminant concentration in bank
-link_cc.f90,WCPBD1,WATER_COEFFICIENT_BED_1,components/channel_coefficients.f90,VARIABLE,Water coefficient for bed type 1
-link_cc.f90,VCPBK1,VELOCITY_COEFFICIENT_BANK_1,components/channel_coefficients.f90,VARIABLE,Velocity coefficient for bank type 1
-link_cc.f90,ICP1,INFILTRATION_COEFFICIENT_1,components/channel_coefficients.f90,VARIABLE,Infiltration coefficient type 1
-link_cc.f90,ICPSBD,INFILTRATION_COEFFICIENT_BED,components/channel_coefficients.f90,VARIABLE,Infiltration coefficient for bed
-link_cc.f90,ICSBDC,INFILTRATION_COEFFICIENT_BED_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Infiltration coefficient for bed concentration
-link_cc.f90,ICSBDT,INFILTRATION_COEFFICIENT_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient infiltration coefficient for bed
-link_cc.f90,ICPSBS,INFILTRATION_COEFFICIENT_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady infiltration coefficient for bed
-link_cc.f90,ICSBSC,INFILTRATION_COEFFICIENT_BED_STEADY_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Steady infiltration coefficient for bed concentration
-link_cc.f90,ICSBST,INFILTRATION_COEFFICIENT_BED_STEADY_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Steady transient infiltration coefficient for bed
-link_cc.f90,QCP1,FLOW_COEFFICIENT_1,components/channel_coefficients.f90,VARIABLE,Flow coefficient type 1
-link_cc.f90,FCPBD,RETARDATION_FACTOR_BED,components/channel_coefficients.f90,VARIABLE,Retardation factor for bed
-link_cc.f90,FCPBDC,RETARDATION_FACTOR_BED_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Retardation factor for bed concentration
-link_cc.f90,FCBD1Q,RETARDATION_FACTOR_BED_1,components/channel_coefficients.f90,VARIABLE,Retardation factor for bed type 1
-link_cc.f90,FCPBDT,RETARDATION_FACTOR_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient retardation factor for bed
-link_cc.f90,FCPBK,RETARDATION_FACTOR_BANK,components/channel_coefficients.f90,ARRAY,Retardation factor for bank
-link_cc.f90,FCPBS,RETARDATION_FACTOR_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady retardation factor for bed
-link_cc.f90,FCPBSC,RETARDATION_FACTOR_BED_STEADY_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Steady retardation factor for bed concentration
-link_cc.f90,FCBS1Q,RETARDATION_FACTOR_BED_STEADY_1,components/channel_coefficients.f90,VARIABLE,Steady retardation factor for bed type 1
-link_cc.f90,FCPBST,RETARDATION_FACTOR_BED_STEADY_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Steady transient retardation factor for bed
-link_cc.f90,FCPSW1,RETARDATION_FACTOR_SURFACE_WATER,components/channel_coefficients.f90,ARRAY,Retardation factor for surface water (2 elements)
-link_cc.f90,FCPSD,RETARDATION_FACTOR_SEDIMENT,components/channel_coefficients.f90,VARIABLE,Retardation factor for sediment
-link_cc.f90,FCPSDC,RETARDATION_FACTOR_SEDIMENT_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Retardation factor for sediment concentration
-link_cc.f90,FCPSDT,RETARDATION_FACTOR_SEDIMENT_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient retardation factor for sediment
-link_cc.f90,FCPSF,RETARDATION_FACTOR_SURFACE,components/channel_coefficients.f90,VARIABLE,Retardation factor for surface
-link_cc.f90,FCSFA1,RETARDATION_FACTORS_SURFACE,components/channel_coefficients.f90,ARRAY,Retardation factors for surface (6 elements)
-link_cc.f90,FCPSFC,RETARDATION_FACTOR_SURFACE_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Retardation factor for surface concentration
-link_cc.f90,FCSF1Q,RETARDATION_FACTOR_SURFACE_1,components/channel_coefficients.f90,VARIABLE,Retardation factor for surface type 1
-link_cc.f90,FCPSFT,RETARDATION_FACTOR_SURFACE_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient retardation factor for surface
-link_cc.f90,GCPBK,GROWTH_COEFFICIENT_BANK,components/channel_coefficients.f90,ARRAY,Growth coefficient for bank
+link_cc.f90,ACSFA1,AREA_COEFFS_SURFACE,components/channel_coefficients.f90,ARRAY,Area coefficients for surface flow (6 elements)
+link_cc.f90,ACPBD1,AREA_COEFF_BED_1,components/channel_coefficients.f90,VARIABLE,Area coefficient for bed type 1
+link_cc.f90,ACPBDT,AREA_COEFF_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient area coefficient for bed
+link_cc.f90,ACPBS,AREA_COEFF_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady area coefficient for bed
+link_cc.f90,ACPSF1,AREA_COEFF_SURFACE_1,components/channel_coefficients.f90,VARIABLE,Area coefficient for surface type 1
+link_cc.f90,ACPSFT,AREA_COEFF_SURFACE_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient area coefficient for surface
+link_cc.f90,CCBD1Q,CONC_COEFF_BED_1,components/channel_coefficients.f90,VARIABLE,Concentration coefficient for bed type 1
+link_cc.f90,CCPBK,CONC_COEFF_BANK,components/channel_coefficients.f90,ARRAY,Concentration coefficient for bank
+link_cc.f90,CCPGS1,CONC_COEFF_GROUNDWATER_1,components/channel_coefficients.f90,ARRAY,Concentration coefficient for groundwater type 1 (2 elements)
+link_cc.f90,CCBS1Q,CONC_COEFF_BED_STEADY_1,components/channel_coefficients.f90,VARIABLE,Steady concentration coefficient for bed type 1
+link_cc.f90,CCSFA1,CONC_COEFFS_SURFACE,components/channel_coefficients.f90,ARRAY,Concentration coefficients for surface (6 elements)
+link_cc.f90,CCSF1Q,CONC_COEFF_SURFACE_1,components/channel_coefficients.f90,VARIABLE,Concentration coefficient for surface type 1
+link_cc.f90,SCPBK,PARENT_CONC_BANK,components/channel_coefficients.f90,ARRAY,Parent contaminant concentration in bank
+link_cc.f90,WCPBD1,WATER_COEFF_BED_1,components/channel_coefficients.f90,VARIABLE,Water coefficient for bed type 1
+link_cc.f90,VCPBK1,VELOCITY_COEFF_BANK_1,components/channel_coefficients.f90,VARIABLE,Velocity coefficient for bank type 1
+link_cc.f90,ICP1,INFIL_COEFF_1,components/channel_coefficients.f90,VARIABLE,Infiltration coefficient type 1
+link_cc.f90,ICPSBD,INFIL_COEFF_BED,components/channel_coefficients.f90,VARIABLE,Infiltration coefficient for bed
+link_cc.f90,ICSBDC,INFIL_COEFF_BED_CONC,components/channel_coefficients.f90,VARIABLE,Infiltration coefficient for bed concentration
+link_cc.f90,ICSBDT,INFIL_COEFF_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient infiltration coefficient for bed
+link_cc.f90,ICPSBS,INFIL_COEFF_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady infiltration coefficient for bed
+link_cc.f90,ICSBSC,INFIL_COEFF_BED_STEADY_CONC,components/channel_coefficients.f90,VARIABLE,Steady infiltration coefficient for bed concentration
+link_cc.f90,ICSBST,INFIL_COEFF_BED_STEADY_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Steady transient infiltration coefficient for bed
+link_cc.f90,QCP1,FLOW_COEFF_1,components/channel_coefficients.f90,VARIABLE,Flow coefficient type 1
+link_cc.f90,FCPBD,RETAR_FAC_BED,components/channel_coefficients.f90,VARIABLE,Retardation factor for bed
+link_cc.f90,FCPBDC,RETAR_FAC_BED_CONC,components/channel_coefficients.f90,VARIABLE,Retardation factor for bed concentration
+link_cc.f90,FCBD1Q,RETAR_FAC_BED_1,components/channel_coefficients.f90,VARIABLE,Retardation factor for bed type 1
+link_cc.f90,FCPBDT,RETAR_FAC_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient retardation factor for bed
+link_cc.f90,FCPBK,RETAR_FAC_BANK,components/channel_coefficients.f90,ARRAY,Retardation factor for bank
+link_cc.f90,FCPBS,RETAR_FAC_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady retardation factor for bed
+link_cc.f90,FCPBSC,RETAR_FAC_BED_STEADY_CONC,components/channel_coefficients.f90,VARIABLE,Steady retardation factor for bed concentration
+link_cc.f90,FCBS1Q,RETAR_FAC_BED_STEADY_1,components/channel_coefficients.f90,VARIABLE,Steady retardation factor for bed type 1
+link_cc.f90,FCPBST,RETAR_FAC_BED_STEADY_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Steady transient retardation factor for bed
+link_cc.f90,FCPSW1,RETAR_FAC_SURFACE_WATER,components/channel_coefficients.f90,ARRAY,Retardation factor for surface water (2 elements)
+link_cc.f90,FCPSD,RETAR_FAC_SEDIMENT,components/channel_coefficients.f90,VARIABLE,Retardation factor for sediment
+link_cc.f90,FCPSDC,RETAR_FAC_SEDIMENT_CONC,components/channel_coefficients.f90,VARIABLE,Retardation factor for sediment concentration
+link_cc.f90,FCPSDT,RETAR_FAC_SEDIMENT_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient retardation factor for sediment
+link_cc.f90,FCPSF,RETAR_FAC_SURFACE,components/channel_coefficients.f90,VARIABLE,Retardation factor for surface
+link_cc.f90,FCSFA1,RETAR_FACS_SURFACE,components/channel_coefficients.f90,ARRAY,Retardation factors for surface (6 elements)
+link_cc.f90,FCPSFC,RETAR_FAC_SURFACE_CONC,components/channel_coefficients.f90,VARIABLE,Retardation factor for surface concentration
+link_cc.f90,FCSF1Q,RETAR_FAC_SURFACE_1,components/channel_coefficients.f90,VARIABLE,Retardation factor for surface type 1
+link_cc.f90,FCPSFT,RETAR_FAC_SURFACE_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient retardation factor for surface
+link_cc.f90,GCPBK,GROWTH_COEFF_BANK,components/channel_coefficients.f90,ARRAY,Growth coefficient for bank
 link_cc.f90,NCEBK,BANK_ELEMENT_NUMBERS,components/channel_coefficients.f90,ARRAY,Bank element numbers (2 elements)
 link_cc.f90,PCPBK1,PECLET_NUMBER_BANK,components/channel_coefficients.f90,ARRAY,Peclet numbers for bank
 link_cc.f90,PCPSB1,PECLET_NUMBER_BANK_SURFACE,components/channel_coefficients.f90,ARRAY,Peclet numbers for bank surface (2 elements)
@@ -163,33 +163,33 @@ link_cc.f90,PCPSW1,PECLET_NUMBER_SURFACE_WATER,components/channel_coefficients.f
 link_cc.f90,PCSFM1,PECLET_NUMBER_SURFACE_MEAN,components/channel_coefficients.f90,VARIABLE,Mean Peclet number for surface
 link_cc.f90,PCSFP1,PECLET_NUMBER_SURFACE_PLUS,components/channel_coefficients.f90,VARIABLE,Plus Peclet number for surface
 link_cc.f90,ECPBD,PLANT_UPTAKE_BED,components/channel_coefficients.f90,VARIABLE,Plant uptake rate for bed
-link_cc.f90,ECPBDC,PLANT_UPTAKE_BED_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Plant uptake rate for bed concentration
+link_cc.f90,ECPBDC,PLANT_UPTAKE_BED_CONC,components/channel_coefficients.f90,VARIABLE,Plant uptake rate for bed concentration
 link_cc.f90,ECPBDT,PLANT_UPTAKE_BED_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient plant uptake rate for bed
 link_cc.f90,ECPBS,PLANT_UPTAKE_BED_STEADY,components/channel_coefficients.f90,VARIABLE,Steady plant uptake rate for bed
-link_cc.f90,ECPBSC,PLANT_UPTAKE_BED_STEADY_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Steady plant uptake rate for bed concentration
+link_cc.f90,ECPBSC,PLANT_UPTAKE_BED_STEADY_CONC,components/channel_coefficients.f90,VARIABLE,Steady plant uptake rate for bed concentration
 link_cc.f90,ECPBST,PLANT_UPTAKE_BED_STEADY_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Steady transient plant uptake rate for bed
 link_cc.f90,ECPSF,PLANT_UPTAKE_SURFACE,components/channel_coefficients.f90,VARIABLE,Plant uptake rate for surface
-link_cc.f90,ECPSFC,PLANT_UPTAKE_SURFACE_CONCENTRATION,components/channel_coefficients.f90,VARIABLE,Plant uptake rate for surface concentration
+link_cc.f90,ECPSFC,PLANT_UPTAKE_SURFACE_CONC,components/channel_coefficients.f90,VARIABLE,Plant uptake rate for surface concentration
 link_cc.f90,ECPSFT,PLANT_UPTAKE_SURFACE_TRANSIENT,components/channel_coefficients.f90,VARIABLE,Transient plant uptake rate for surface
 link_cc.f90,USCP,STREAM_WATER_PRESENCE_SWITCH,components/channel_coefficients.f90,VARIABLE,Switch for stream water presence
-link_cc.f90,ACSBD1,AREA_COEFFICIENT_SEDIMENT_BED_1,components/channel_coefficients.f90,VARIABLE,Area coefficient for sediment bed type 1
-link_cc.f90,ACSBS1,AREA_COEFFICIENT_SEDIMENT_BED_STEADY_1,components/channel_coefficients.f90,VARIABLE,Steady area coefficient for sediment bed type 1
-link_cc.f90,GCPLAL,GROWTH_COEFFICIENT_PLANT_ALGAE,components/channel_coefficients.f90,VARIABLE,Growth coefficient for plant algae
-link_cc.f90,GCPLAQ,GROWTH_COEFFICIENT_PLANT_AQUATIC,components/channel_coefficients.f90,VARIABLE,Growth coefficient for aquatic plants
-link_cc1.f90,KS,HYDRAULIC_CONDUCTIVITY_SATURATED,components/hydraulic_properties.f90,VARIABLE,Saturated hydraulic conductivity
-link_cc1.f90,KSPBK,HYDRAULIC_CONDUCTIVITY_BANK,components/hydraulic_properties.f90,ARRAY,Bank hydraulic conductivity
+link_cc.f90,ACSBD1,AREA_COEFF_SEDIMENT_BED_1,components/channel_coefficients.f90,VARIABLE,Area coefficient for sediment bed type 1
+link_cc.f90,ACSBS1,AREA_COEFF_SEDIMENT_BED_STEADY_1,components/channel_coefficients.f90,VARIABLE,Steady area coefficient for sediment bed type 1
+link_cc.f90,GCPLAL,GROWTH_COEFF_PLANT_ALGAE,components/channel_coefficients.f90,VARIABLE,Growth coefficient for plant algae
+link_cc.f90,GCPLAQ,GROWTH_COEFF_PLANT_AQUATIC,components/channel_coefficients.f90,VARIABLE,Growth coefficient for aquatic plants
+link_cc1.f90,KS,HYDR_COND_SATURATED,components/hydraulic_properties.f90,VARIABLE,Saturated hydraulic conductivity
+link_cc1.f90,KSPBK,HYDR_COND_BANK,components/hydraulic_properties.f90,ARRAY,Bank hydraulic conductivity
 link_cw.f90,LENDA,LINK_END_ARRAY,components/channel_geometry.f90,ARRAY,Link end connectivity array (6 elements)
 plant_cc.f90,NTEMP1,TEMP_ARRAY_SIZE_1,components/plant_parameters.f90,PARAMETER,Temporary array size 1 for plant calculations
 plant_cc.f90,NTEMP2,TEMP_ARRAY_SIZE_2,components/plant_parameters.f90,PARAMETER,Temporary array size 2 for plant calculations
 plant_cc.f90,GCPL,PLANT_GROWTH_COEFFICIENT,components/plant_parameters.f90,VARIABLE,Plant growth coefficient
-plant_cc.f90,GMCPAA,PLANT_MASS_COEFFICIENT_A,components/plant_parameters.f90,VARIABLE,Plant mass coefficient A
-plant_cc.f90,GMCPBB,PLANT_MASS_COEFFICIENT_B,components/plant_parameters.f90,VARIABLE,Plant mass coefficient B
-plant_cc.f90,GMCBBD,PLANT_MASS_COEFFICIENT_BD,components/plant_parameters.f90,VARIABLE,Plant mass coefficient BD
-plant_cc.f90,QCPAA,PLANT_WATER_COEFFICIENT_A,components/plant_parameters.f90,VARIABLE,Plant water uptake coefficient A
-plant_cc.f90,QCPBB,PLANT_WATER_COEFFICIENT_B,components/plant_parameters.f90,VARIABLE,Plant water uptake coefficient B
+plant_cc.f90,GMCPAA,PLANT_MASS_COEFF_A,components/plant_parameters.f90,VARIABLE,Plant mass coefficient A
+plant_cc.f90,GMCPBB,PLANT_MASS_COEFF_B,components/plant_parameters.f90,VARIABLE,Plant mass coefficient B
+plant_cc.f90,GMCBBD,PLANT_MASS_COEFF_BD,components/plant_parameters.f90,VARIABLE,Plant mass coefficient BD
+plant_cc.f90,QCPAA,PLANT_WATER_COEFF_A,components/plant_parameters.f90,VARIABLE,Plant water uptake coefficient A
+plant_cc.f90,QCPBB,PLANT_WATER_COEFF_B,components/plant_parameters.f90,VARIABLE,Plant water uptake coefficient B
 plant_cc.f90,RHOPL,PLANT_DENSITY,components/plant_parameters.f90,VARIABLE,Plant tissue density (500 kg/m³)
-plant_cc.f90,BCPAA,PLANT_BIOMASS_COEFFICIENT_A,components/plant_parameters.f90,ARRAY,Plant biomass coefficient A array
-plant_cc.f90,BCPBB,PLANT_BIOMASS_COEFFICIENT_B,components/plant_parameters.f90,ARRAY,Plant biomass coefficient B array
+plant_cc.f90,BCPAA,PLANT_BIOMASS_COEFF_A,components/plant_parameters.f90,ARRAY,Plant biomass coefficient A array
+plant_cc.f90,BCPBB,PLANT_BIOMASS_COEFF_B,components/plant_parameters.f90,ARRAY,Plant biomass coefficient B array
 plant_cc.f90,DELONE,PLANT_DELTA_ONE,components/plant_parameters.f90,ARRAY,Plant parameter delta 1 (0.5)
 plant_cc.f90,DELTWO,PLANT_DELTA_TWO,components/plant_parameters.f90,ARRAY,Plant parameter delta 2 (0.9)
 plant_cc.f90,DELTHR,PLANT_DELTA_THREE,components/plant_parameters.f90,ARRAY,Plant parameter delta 3 (1.0)
@@ -216,12 +216,12 @@ sglobal.f90,ERRCEE,ERROR_ARRAY_SIZE,core/error_handling.f90,PARAMETER,Error arra
 sglobal.f90,PATH1,DEFAULT_SHETRAN_PATH,core/file_management.f90,PARAMETER,Default SHETRAN installation path
 sglobal.f90,slash,PATH_SEPARATOR,core/file_management.f90,PARAMETER,File path separator character
 sglobal.f90,DIRQQ,CATCHMENT_DIRECTORY,global_system/simulation_setup.f90,VARIABLE,Catchment working directory
-sglobal.f90,filnam,INPUT_FILENAME,global_system/simulation_setup.f90,VARIABLE,Main input filename
+sglobal.f90,filnam,INPUT_FN,global_system/simulation_setup.f90,VARIABLE,Main input filename
 sglobal.f90,cnam,CATCHMENT_NAME,global_system/simulation_setup.f90,VARIABLE,Catchment name identifier
 sglobal.f90,rootdir,ROOT_DIRECTORY,global_system/simulation_setup.f90,VARIABLE,Root working directory
-sglobal.f90,hdf5filename,HDF5_OUTPUT_FILENAME,global_system/simulation_setup.f90,VARIABLE,HDF5 output filename
-sglobal.f90,visualisation_plan_filename,VISUALIZATION_PLAN_FILENAME,global_system/simulation_setup.f90,VARIABLE,Visualization plan filename
-sglobal.f90,visualisation_check_filename,VISUALIZATION_CHECK_FILENAME,global_system/simulation_setup.f90,VARIABLE,Visualization check filename
+sglobal.f90,hdf5filename,HDF5_OUTPUT_FN,global_system/simulation_setup.f90,VARIABLE,HDF5 output filename
+sglobal.f90,visualisation_plan_filename,VIZ_PLAN_FN,global_system/simulation_setup.f90,VARIABLE,Visualization plan filename
+sglobal.f90,visualisation_check_filename,VIZ_CHECK_FN,global_system/simulation_setup.f90,VARIABLE,Visualization check filename
 sglobal.f90,total_no_elements,TOTAL_ELEMENT_COUNT,global_system/simulation_state.f90,VARIABLE,Total number of active elements
 sglobal.f90,total_no_links,TOTAL_LINK_COUNT,global_system/simulation_state.f90,VARIABLE,Total number of active channel links
 sglobal.f90,top_cell_no,TOP_CELL_NUMBER,global_system/simulation_state.f90,VARIABLE,Topmost cell number

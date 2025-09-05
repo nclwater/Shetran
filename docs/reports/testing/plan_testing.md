@@ -66,20 +66,24 @@ examples/
 #### Test Categories by Functionality
 
 **Core Hydrological Processes**
+
 - `Cobres/` - Water flow and sediment transport
 - `Slapton/` - Comprehensive catchment simulation
 - `dunsop/` - Standard hydrological validation
 
 **Spatial Resolution Validation**
+
 - `dano100m/`, `foston100m/` - 100m grid resolution testing
 - `38014-100m-SurfaceErrors/` - Surface error handling at resolution
 
 **Advanced Features**
+
 - `dunsop-hot1/`, `dunsop-hot2/` - Hotstart/restart functionality
 - `reservoir-ZQmodule-example/` - Specialized ZQ module testing
 - `Cobres1D/` - Reduced-dimension simulation
 
 **Output Validation**
+
 - `Cobres-ExtraOutputDischargePoints/` - Discharge point data extraction
 - `Cobres-ExtraOutputWaterTable/` - Water table output verification
 
@@ -130,21 +134,25 @@ add_test(NAME performance_regression
 #### Multi-Level Comparison Framework
 
 **Level 1: Critical Results (Strict Tolerance)**
+
 - Water balance totals (±0.01%)
 - Peak discharge values (±0.1%)
 - Total sediment yields (±0.1%)
 
 **Level 2: Detailed Time Series (Moderate Tolerance)**
+
 - Hourly discharge rates (±1.0%)
 - Water table elevations (±0.5%)
 - Soil moisture distributions (±2.0%)
 
 **Level 3: Diagnostic Outputs (Relaxed Tolerance)**
+
 - Visualization data (±5.0%)
 - Intermediate calculation steps (±2.0%)
 - Debug/logging information (text comparison)
 
 #### Baseline Management
+
 - **Initial Baseline Generation**: Use current stable build outputs as references
 - **Baseline Updates**: Controlled updates only after thorough review
 - **Version Control**: Baseline data stored in Git LFS for efficient handling
@@ -291,15 +299,19 @@ The testing implementation is designed to complement and support the ongoing ref
 ### Risk Mitigation
 
 #### **Risk: Interface Changes During Refactoring**
+
 **Mitigation:** Focus on integration testing initially; defer detailed unit testing until interfaces stabilize
 
 #### **Risk: Baseline Drift**
+
 **Mitigation:** Careful baseline management with explicit approval processes for updates
 
 #### **Risk: Performance Impact**
+
 **Mitigation:** Performance monitoring integrated into testing framework; performance regression alerts
 
 #### **Risk: Testing Overhead**
+
 **Mitigation:** Automated execution integrated into build process; minimal developer overhead
 
 ---
@@ -309,16 +321,19 @@ The testing implementation is designed to complement and support the ongoing ref
 ### Integration Testing Metrics
 
 #### **Functional Correctness**
+
 - **Target**: 100% of example cases pass automated testing
 - **Measurement**: Binary pass/fail for each example case
 - **Quality Gate**: Zero tolerance for example case failures
 
 #### **Numerical Accuracy**
+
 - **Target**: All critical outputs within ±0.01% tolerance
 - **Measurement**: Statistical analysis of output deviations
 - **Quality Gate**: 95% of outputs within strict tolerance bounds
 
 #### **Performance Stability**
+
 - **Target**: <5% performance variation between versions
 - **Measurement**: Execution time monitoring across all examples
 - **Quality Gate**: No performance regressions >10% without explicit approval
@@ -326,11 +341,13 @@ The testing implementation is designed to complement and support the ongoing ref
 ### Unit Testing Metrics
 
 #### **Code Coverage**
+
 - **Target**: >80% line coverage for critical computational modules
 - **Measurement**: Automated coverage analysis during builds
 - **Quality Gate**: No decrease in coverage without justification
 
 #### **Test Quality**
+
 - **Target**: >95% test pass rate across all platforms
 - **Measurement**: Automated test execution reporting
 - **Quality Gate**: Zero tolerance for test failures in release builds
@@ -338,11 +355,13 @@ The testing implementation is designed to complement and support the ongoing ref
 ### Long-term Quality Indicators
 
 #### **Defect Detection**
+
 - **Target**: >90% of bugs caught by automated testing before manual discovery
 - **Measurement**: Bug tracking and test failure correlation analysis
 - **Review Period**: Quarterly assessment and testing improvement
 
 #### **Development Velocity**
+
 - **Target**: Maintained or improved development speed despite testing overhead
 - **Measurement**: Feature delivery timeline tracking
 - **Review Period**: Monthly development velocity assessment
@@ -354,11 +373,13 @@ The testing implementation is designed to complement and support the ongoing ref
 ### Infrastructure Requirements
 
 #### **Computational Resources**
+
 - **Build Server**: Dedicated CI/CD server for automated testing
 - **Storage**: ~10GB for baseline data and test artifacts
 - **Network**: Reliable connection for Git LFS baseline data access
 
 #### **Software Dependencies**
+
 - **CMake**: Enhanced with testing configurations
 - **Python 3.x**: For test utilities and output analysis
 - **Git LFS**: For large baseline dataset management
@@ -367,11 +388,13 @@ The testing implementation is designed to complement and support the ongoing ref
 ### Training and Documentation
 
 #### **Developer Training**
+
 - **Testing Best Practices**: Team training on unit testing methodology
 - **Framework Usage**: Training on selected testing framework utilization
 - **Baseline Management**: Procedures for baseline updates and management
 
 #### **Documentation Requirements**
+
 - **Testing Guidelines**: Comprehensive guide for test development
 - **CI/CD Documentation**: Build and deployment pipeline documentation
 - **Troubleshooting Guide**: Common testing issues and resolutions
@@ -387,12 +410,14 @@ The Fortran ecosystem offers several testing frameworks, each with distinct adva
 ### 1. FRUIT (Fortran Unit Test Framework)
 
 #### **Characteristics**
+
 - **Type**: Lightweight unit testing framework
 - **Dependencies**: None (pure Fortran)
 - **Language Support**: Fortran 90/95/2003/2008
 - **Learning Curve**: Minimal
 
 #### **Advantages**
+
 - **Simplicity**: Easy to learn and implement
 - **Zero Dependencies**: No external libraries required
 - **Legacy Compatibility**: Works with older Fortran standards
@@ -400,6 +425,7 @@ The Fortran ecosystem offers several testing frameworks, each with distinct adva
 - **Minimal Overhead**: Low impact on build times
 
 #### **Limitations**
+
 - **Basic Assertions**: Limited assertion capabilities compared to modern frameworks
 - **No Parallel Support**: Sequential testing only
 - **Limited Reporting**: Basic test result reporting
@@ -434,6 +460,7 @@ end subroutine
 ```
 
 #### **Suitability for SHETRAN**
+
 - **Excellent for**: Initial unit testing implementation
 - **Good for**: Testing mathematical functions and simple algorithms
 - **Adequate for**: Basic integration with existing build system
@@ -441,12 +468,14 @@ end subroutine
 ### 2. pFUnit (NASA's Parallel Fortran Unit Testing Framework)
 
 #### **Characteristics**
+
 - **Type**: Advanced unit testing framework with parallel support
 - **Dependencies**: Python (for code generation), MPI (for parallel tests)
 - **Language Support**: Modern Fortran (2008+)
 - **Learning Curve**: Moderate to steep
 
 #### **Advantages**
+
 - **Advanced Assertions**: Comprehensive assertion library
 - **Parallel Testing**: MPI-based parallel test execution
 - **Code Generation**: Automatic test runner generation
@@ -454,6 +483,7 @@ end subroutine
 - **Comprehensive Reporting**: Detailed test result reporting including XML output
 
 #### **Limitations**
+
 - **Complex Setup**: Requires Python and potentially MPI
 - **Modern Fortran Only**: Requires Fortran 2008+ features
 - **Build Complexity**: More complex CMake integration
@@ -480,6 +510,7 @@ end subroutine
 ```
 
 #### **Suitability for SHETRAN**
+
 - **Excellent for**: Long-term advanced testing implementation
 - **Good for**: Large-scale module testing with parallel capabilities
 - **Challenging for**: Immediate implementation due to setup complexity
@@ -487,47 +518,55 @@ end subroutine
 ### 3. FUnit
 
 #### **Characteristics**
+
 - **Type**: Ruby-based Fortran testing framework
 - **Dependencies**: Ruby interpreter
 - **Language Support**: Fortran 90/95/2003
 - **Learning Curve**: Moderate
 
 #### **Advantages**
+
 - **Test Generation**: Ruby-based test generation and execution
 - **Good Documentation**: Well-documented with examples
 - **Flexible Structure**: Flexible test organization
 - **Assertion Library**: Reasonable assertion capabilities
 
 #### **Limitations**
+
 - **Ruby Dependency**: Requires Ruby interpreter
 - **Limited Adoption**: Smaller user community
 - **Platform Limitations**: May have platform-specific issues
 - **Maintenance Concerns**: Less active development
 
 #### **Suitability for SHETRAN**
+
 - **Adequate for**: Projects already using Ruby toolchain
 - **Poor for**: SHETRAN due to additional dependency requirements
 
 ### 4. FORTLS (Fortran Test Library Suite)
 
 #### **Characteristics**
+
 - **Type**: Minimalist testing library
 - **Dependencies**: None
 - **Language Support**: Fortran 90+
 - **Learning Curve**: Minimal
 
 #### **Advantages**
+
 - **Ultra-lightweight**: Minimal code footprint
 - **Self-contained**: Single module implementation
 - **Easy Integration**: Simple include and use
 
 #### **Limitations**
+
 - **Very Basic**: Extremely limited functionality
 - **No Framework**: Lacks structured testing framework
 - **Manual Everything**: All test management manual
 - **Limited Assertions**: Basic assertion capabilities only
 
 #### **Suitability for SHETRAN**
+
 - **Adequate for**: Quick and dirty testing
 - **Poor for**: Comprehensive testing strategy
 

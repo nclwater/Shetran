@@ -109,6 +109,7 @@ The current `src/parameters/` directory contains a mixture of true parameter def
 **Target: `src/util/numerical/`**
 
 From `sglobal.f90`, extract functions:
+
 - `eqmarker(a)` → `numerical_comparisons.f90`
 - `gtzero(a)`, `gezero(a)`, `ltzero(a)`, `lezero(a)` → `numerical_comparisons.f90`
 - `iszero(a)`, `iszero_a(a)`, `i_iszero_a2(a)` → `numerical_comparisons.f90`
@@ -119,6 +120,7 @@ From `sglobal.f90`, extract functions:
 **Target: `src/util/error_handling/`**
 
 From `sglobal.f90`, extract subroutines:
+
 - `ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)` → `error_reporting.f90`
 - `ALSTOP(FLAG)` → `program_termination.f90`
 
@@ -126,6 +128,7 @@ From `sglobal.f90`, extract subroutines:
 **Target: `src/simulation/initialization/`**
 
 From `AL_C.F90`, extract:
+
 - `initialise_al_c()` → `vadose_zone_initialization.f90`
   - Allocates and initializes VSS (Vadose-Saturated-Surface) arrays
   - Initializes unsaturated zone flow arrays (qvsh, qvsv, vspsi, vsthe, qvswli, eruz)
@@ -297,11 +300,15 @@ compute/ & simulation/ modules
 ```
 
 #### 4.2.2 Reduced Compilation Dependencies
+
 **Before**: Changing SGLOBAL triggers recompilation of 50+ modules
+
 **After**: Changing specific parameter files only affects modules that actually use them
 
 #### 4.2.3 Interface Clarity
+
 **Before**: Unclear what functionality each module provides
+
 **After**: Self-documenting module names and focused responsibilities
 
 ### 4.3 FORD Documentation Benefits
@@ -316,11 +323,15 @@ The reorganization will improve FORD documentation generation by:
 ### 4.4 Build System Improvements
 
 #### 4.4.1 CMake Dependency Management
+
 **Current Challenge**: Complex interdependencies make parallel compilation difficult
+
 **Improvement**: Clear hierarchy enables better parallel compilation
 
 #### 4.4.2 Incremental Compilation
+
 **Before**: Changes to core parameters trigger full rebuild
+
 **After**: Only affected components need recompilation
 
 ### 4.5 Quantitative Improvements
@@ -344,6 +355,7 @@ To verify improvements:
 4. **Static analysis**: Use tools to verify no circular dependencies
 
 The proposed reorganization significantly improves call-graph clarity by:
+
 - Eliminating the monolithic SGLOBAL bottleneck
 - Creating logical parameter groupings
 - Reducing cross-dependencies between parameter modules
@@ -494,16 +506,19 @@ DOUBLEPRECISION, PARAMETER :: &
 ### 5.4 Implementation Benefits
 
 #### 5.4.1 Consistency and Accuracy
+
 - **Eliminates conflicting values**: Currently water density appears as both 998.0 and 1000.0 kg/m³
 - **Centralizes physical constants**: Single source of truth for physical properties
 - **Improves maintainability**: Changes to physical constants in one location
 
 #### 5.4.2 Code Clarity
+
 - **Self-documenting names**: `GRAVITY` instead of scattered `9.81` values
 - **Proper units documentation**: Clear units in comments
 - **Logical grouping**: Related constants together
 
 #### 5.4.3 Compilation Efficiency
+
 - **Reduced redundancy**: Eliminates 6+ duplicate definitions of basic constants
 - **Better optimization**: Compiler can optimize constant propagation
 - **Cleaner dependencies**: Clear separation of mathematical vs. physical constants
@@ -596,20 +611,24 @@ Analysis of the current file unit assignments reveals a complex system of hardco
 #### 5.7.1 File Unit Usage Patterns
 
 **Input Data Files (10-22):**
+
 - Primary model component data files
 - Read during initialization
 - Component-specific parameter and configuration data
 
 **Output Files (24-47):**
+
 - Various output formats (text, binary)
 - Results, diagnostics, and analysis data
 - Component-specific output streams
 
 **Visualization Files (48-49):**
+
 - Visualization system configuration
 - Used by visualization modules
 
 **Special Files:**
+
 - **23 (PRI)**: Primary output, now in sglobal
 - **9876-9877**: Unallocated placeholders
 
@@ -703,6 +722,7 @@ OPEN(NEWUNIT=flow_unit, FILE='flow.dat')
 ```
 
 **Benefits of NEWUNIT approach:**
+
 - **Automatic unit allocation**: System assigns available unit numbers
 - **No unit conflicts**: Eliminates risk of duplicate unit assignments
 - **Simplified management**: No need to track used/available units
@@ -710,6 +730,7 @@ OPEN(NEWUNIT=flow_unit, FILE='flow.dat')
 - **Safer code**: Reduces potential runtime errors from unit conflicts
 
 **Implementation Strategy for NEWUNIT Migration:**
+
 1. **Phase 1**: Current refactoring with descriptive hardcoded units
 2. **Phase 2**: Gradual migration to NEWUNIT approach
 3. **Phase 3**: Remove hardcoded unit parameters entirely

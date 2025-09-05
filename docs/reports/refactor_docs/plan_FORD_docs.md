@@ -45,7 +45,7 @@ This plan outlined the complete standardization of SHETRAN's Fortran documentati
 
 ## Implementation Strategy
 
-### Phase 1: Infrastructure Setup (Week 1-2) ✅ **COMPLETED**
+### Phase 1: Infrastructure Setup ✅ **COMPLETED**
 
 #### 1.1 FORD Installation and Configuration ✅ **COMPLETED**
 **Deliverables:**
@@ -175,7 +175,7 @@ if %errorlevel% == 0 (
 goto :eof
 ```
 
-### Phase 2: Documentation Standards and Templates (Week 2-3) ✅ **COMPLETED**
+### Phase 2: Documentation Standards and Templates ✅ **COMPLETED**
 
 #### 2.1 Documentation Style Guide ✅ **COMPLETED**
 **Module-level documentation template:**
@@ -231,9 +231,10 @@ logical :: is_initialized      !< Flag indicating module initialization status
 ```
 
 #### 2.2 FORD Configuration File ✅ **COMPLETED**
+
 **ford_project.md structure:** ✅
-```markdown
----
+
+```
 title: SHETRAN Hydrological Model
 project: SHETRAN
 version: 4.4.7
@@ -249,66 +250,60 @@ summary: |
     SHETRAN is a physically-based, distributed hydrological model for 
     simulating water flow, sediment transport, and contaminant migration 
     in catchments.
-
 media_dir: docs/media
 favicon: docs/media/favicon.ico
 theme: ford
-
 graph: true
 search: true
-macro: TEST
-       LOGIC=.true.
-preprocessor: -DFORD_DOC
-
-src_dir: src
+preprocess: false
 exclude_dir: src/legacy
             src/backup
-
 extra_mods: iso_fortran_env:https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fFORTRAN_005fENV.html
            iso_c_binding:https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fC_005fBINDING.html
-
 copy_subdir: examples
             docs/reports
-
 md_extensions: markdown.extensions.toc
               markdown.extensions.smarty
-
-page_dir: docs/pages
 ---
 
-# SHETRAN Documentation
+# SHETRAN Hydrological Model
 
-SHETRAN is a comprehensive hydrological modeling system...
+SHETRAN is a physically-based, distributed hydrological model...
 ```
 
-### Phase 3: Systematic Documentation Implementation (Week 4-8) 🚧 **IN PROGRESS**
+### Phase 3: Systematic Documentation Implementation 🚧 **IN PROGRESS**
 
 #### 3.1 Priority-based Implementation Schedule
 
-**Week 4: Core System (Priority 1)** 🚧 **IN PROGRESS**
+**Step 4: Core System (Priority 1)** 🚧 **IN PROGRESS**
+
 - [x] `src/Shetran.f90` (main program) ✅ **COMPLETED - Exemplary FORD documentation**
 - [ ] `src/parameters/` (parameter modules)
 - [ ] `src/simulation/` (simulation control)
 - [ ] Interface modules from recent refactoring
 
-**Week 5: Computation Modules (Priority 2)**  
+**Step 5: Computation Modules (Priority 2)**  
+
 - [ ] `src/compute/FRmod.f90` (framework)
 - [ ] `src/compute/OCmod.f90` (overland channel)
 - [ ] `src/compute/SYmod.f90` (sediment yield)
 - [ ] `src/compute/ETmod.f90` (evapotranspiration)
 - [ ] `src/compute/SMmod.f90` (snow model)
 
-**Week 6: I/O and Utilities (Priority 3)**
+**Step 6: I/O and Utilities (Priority 3)**
+
 - [ ] `src/io/` (input/output modules)
 - [ ] `src/util/` (utility functions)
 - [x] Already documented: `src/util/getdirqq.f90` (example standard) ✅ **ALREADY COMPLIANT**
 
-**Week 7: Visualization and Advanced Features (Priority 4)**
+**Step 7: Visualization and Advanced Features (Priority 4)**
+
 - [ ] `src/visualisation/` (visualization interfaces)
 - [ ] `src/compute/ZQmod.f90` (reservoir module)
 - [ ] Specialized computation modules
 
-**Week 8: Legacy Integration and Cleanup (Priority 5)**
+**Step 8: Legacy Integration and Cleanup (Priority 5)**
+
 - [ ] Convert remaining legacy headers
 - [ ] Cross-reference validation
 - [ ] Documentation completeness audit
@@ -316,6 +311,7 @@ SHETRAN is a comprehensive hydrological modeling system...
 #### 3.2 Documentation Conversion Workflow
 
 **For each module:**
+
 1. **Backup original**: Create `.original` backup if significant changes needed
 2. **Analyze existing documentation**: Extract useful information from legacy headers
 3. **Apply FORD templates**: Use standardized templates for consistency
@@ -325,6 +321,7 @@ SHETRAN is a comprehensive hydrological modeling system...
 7. **Validate**: Check FORD parsing and output quality
 
 **Quality control checklist per module:**
+
 - [ ] All public procedures documented with `@brief` and `@param`
 - [ ] Module-level documentation complete
 - [ ] Important variables have inline comments
@@ -332,7 +329,7 @@ SHETRAN is a comprehensive hydrological modeling system...
 - [ ] Cross-references to related modules added
 - [ ] FORD parsing validation passed
 
-### Phase 4: Integration and Automation (Week 9-10) ✅ **COMPLETED**
+### Phase 4: Integration and Automation ✅ **COMPLETED**
 
 #### 4.1 Build System Final Integration ✅ **COMPLETED**
 
@@ -537,11 +534,12 @@ echo.
 echo END MODULE %module_name%
 ```
 
-### Phase 5: Validation and Deployment (Week 11-12)
+### Phase 5: Validation and Deployment
 
 #### 5.1 Quality Assurance
 
 **Documentation validation checklist:**
+
 - [ ] All 216+ Fortran files have FORD-compliant documentation
 - [ ] No FORD parsing errors or warnings
 - [ ] Cross-references work correctly
@@ -600,6 +598,7 @@ REM Access at http://localhost:8000
 ```
 
 **Integration with existing workflow:**
+
 - Add documentation generation to release process
 - Include in `build.sh` and `build.bat` optional targets
 - VS Code task for quick documentation updates
@@ -611,6 +610,7 @@ REM Access at http://localhost:8000
 
 ### Dependencies
 **System requirements:**
+
 - Python 3.6+ (for FORD)
 - pip (for FORD installation)
 - Modern web browser (for viewing documentation)
