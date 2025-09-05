@@ -14,6 +14,8 @@ set VERBOSE=false
 set JOBS=%NUMBER_OF_PROCESSORS%
 set RUN_TESTS=false
 set DO_INSTALL=false
+set GENERATE_DOCS=false
+set DOCS_ONLY=false
 set ENABLE_LARGE_MEMORY=true
 set HEAP_SIZE=
 set STACK_SIZE=
@@ -107,6 +109,16 @@ if "%~1"=="--install" (
     shift
     goto parse_args
 )
+if "%~1"=="--docs" (
+    set DOCS_ONLY=true
+    shift
+    goto parse_args
+)
+if "%~1"=="--docs-with-build" (
+    set GENERATE_DOCS=true
+    shift
+    goto parse_args
+)
 if "%~1"=="--disable-large-memory" (
     set ENABLE_LARGE_MEMORY=false
     shift
@@ -194,6 +206,18 @@ for /f "tokens=2,*" %%a in ('cmake --version') do (
     if /i "%%a"=="version:" set "CMAKE_VERSION=%%b"
 )
 echo INFO: Found CMake version: %CMAKE_VERSION%
+
+REM Check for FORD
+call :check_ford
+
+REM Handle documentation-only mode
+if "%DOCS_ONLY%"=="true" (
+    echo INFO: Documentation generation mode
+    call :generate_docs
+    if %errorlevel% neq 0 exit /b %errorlevel%
+    echo SUCCESS: Documentation generation complete!
+    goto :eof
+)
 
 REM Set BUILD_DIR based on build type if not explicitly set
 if "%BUILD_DIR%"=="" (
@@ -296,6 +320,12 @@ if "%DO_INSTALL%"=="true" (
     echo SUCCESS: Installation completed!
 )
 
+REM Generate documentation if requested
+if "%GENERATE_DOCS%"=="true" (
+    call :generate_docs
+    if %errorlevel% neq 0 echo WARNING: Documentation generation failed, but build succeeded
+)
+
 REM Show build summary
 echo.
 echo SUCCESS: SHETRAN build summary:
@@ -323,6 +353,8 @@ echo   -v, --verbose             Verbose build output
 echo   -j, --jobs N              Number of parallel build jobs (default: number of CPU cores)
 echo   --test                    Run tests after building
 echo   --install                 Install after building
+echo   --docs                    Generate FORD documentation only (no build)
+echo   --docs-with-build         Generate documentation after building
 echo   --disable-large-memory    Disable large memory model (mcmodel=large)
 echo   --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)
 echo   --use-windows-intel-getdirqq  Use Windows Intel-specific getdirqq (default on Windows)
@@ -345,8 +377,91 @@ echo   %0                        # Build with auto-detected compiler
 echo   %0 -c ifx -t Debug        # Build with Intel ifx compiler in debug mode
 echo   %0 --clean                # Clean build with auto-detected compiler
 echo   %0 --install -p C:\SHETRAN # Build and install to C:\SHETRAN
+echo   %0 --docs                 # Generate FORD documentation only
+echo   %0 --docs-with-build      # Build and generate documentation
 echo   %0 --disable-large-memory  # Build without large memory model
 echo   %0 --heap-size 50000000   # Build with smaller heap arrays
+
+goto :end
+
+:check_ford
+where ford >nul 2>&1
+if %errorlevel% == 0 (
+    for /f "tokens=*" %%i in ('ford --version 2^>nul') do set FORD_VERSION=%%i
+    if not defined FORD_VERSION set FORD_VERSION=unknown
+    echo INFO: Found FORD version: %FORD_VERSION%
+    echo INFO: Documentation generation available with 'nmake docs'
+) else (
+    echo WARNING: FORD not found. Install with: pip install ford
+    echo WARNING: Documentation generation will be unavailable
+)
+goto :eof
+
+:generate_docs
+echo INFO: Generating FORD documentation...
+
+REM Check if FORD is available
+where ford >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: FORD not found! Please install with: pip install ford
+    exit /b 1
+)
+
+REM Save current directory
+set CURRENT_DIR=%cd%
+
+REM Find the source root directory (where ford_project.md should be)
+if exist "ford_project.md" (
+    set SOURCE_ROOT=%cd%
+) else if exist "..\ford_project.md" (
+    cd ..
+    set SOURCE_ROOT=%cd%
+) else if exist "..\..\ford_project.md" (
+    cd ..\..
+    set SOURCE_ROOT=%cd%
+) else (
+    REM Search upward for ford_project.md
+    set FOUND_CONFIG=false
+    set TEST_DIR=%cd%
+    :search_loop
+    if exist "%TEST_DIR%\ford_project.md" (
+        set SOURCE_ROOT=%TEST_DIR%
+        set FOUND_CONFIG=true
+        goto end_search
+    )
+    for %%i in ("%TEST_DIR%") do set PARENT_DIR=%%~dpi
+    if "%PARENT_DIR%"=="%TEST_DIR%\" goto end_search
+    set TEST_DIR=%PARENT_DIR:~0,-1%
+    goto search_loop
+    :end_search
+    
+    if "%FOUND_CONFIG%"=="false" (
+        echo ERROR: FORD configuration file 'ford_project.md' not found!
+        echo ERROR: Searched from current directory up to filesystem root
+        cd /d "%CURRENT_DIR%"
+        exit /b 1
+    )
+)
+
+echo INFO: Found FORD configuration in: %SOURCE_ROOT%
+cd /d "%SOURCE_ROOT%"
+
+REM Run FORD to generate documentation
+echo INFO: Running FORD documentation generator...
+ford ford_project.md
+if %errorlevel% == 0 (
+    echo SUCCESS: Documentation generated successfully!
+    echo INFO: Documentation available in: %SOURCE_ROOT%\docs\ford\
+    echo INFO: Open docs\ford\index.html in a web browser to view
+) else (
+    echo ERROR: Documentation generation failed!
+    cd /d "%CURRENT_DIR%"
+    exit /b 1
+)
+
+REM Return to original directory
+cd /d "%CURRENT_DIR%"
+goto :eof
 
 :end
 REM Return to source directory if we're in a build directory

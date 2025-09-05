@@ -755,6 +755,32 @@ endif()
 
 include(CPack)
 
+# FORD Documentation Target
+find_program(FORD_EXECUTABLE ford)
+if(FORD_EXECUTABLE)
+    # Generate source file list for FORD dependencies
+    file(GLOB_RECURSE FORTRAN_SOURCES "src/*.f90" "src/*.F90")
+    
+    add_custom_target(docs
+        COMMAND ${FORD_EXECUTABLE} ${CMAKE_SOURCE_DIR}/ford_project.md
+        DEPENDS ${FORTRAN_SOURCES} ${CMAKE_SOURCE_DIR}/ford_project.md
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Generating FORD documentation"
+        VERBATIM
+    )
+    
+    # Optional: Install documentation
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/docs/ford/
+            DESTINATION share/doc/shetran
+            OPTIONAL)
+            
+    message(STATUS "FORD found: ${FORD_EXECUTABLE}")
+    message(STATUS "Documentation target 'docs' available")
+else()
+    message(STATUS "FORD not found - documentation target unavailable")
+    message(STATUS "Install FORD with: pip install ford")
+endif()
+
 # Print configuration summary
 message(STATUS "")
 message(STATUS "SHETRAN Configuration Summary:")

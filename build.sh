@@ -33,6 +33,8 @@ usage() {
     echo "  -j, --jobs N              Number of parallel build jobs (default: number of CPU cores)"
     echo "  --test                    Run tests after building"
     echo "  --install                 Install after building"
+    echo "  --docs                    Generate FORD documentation only (no build)"
+    echo "  --docs-with-build         Generate documentation after building"
     echo "  --disable-large-memory    Disable large memory model (mcmodel=large)"
     echo "  --heap-size SIZE          Set heap array size for Intel ifort (default: 100000000)"
     echo "  --stack-size SIZE         Set stack variable size for gfortran (default: 100000000)"
@@ -46,6 +48,8 @@ usage() {
     echo "  $0 -c ifort -t Debug      # Build with Intel ifort compiler in debug mode"
     echo "  $0 -c gfortran --clean    # Clean build with gfortran"
     echo "  $0 --install -p /usr/local # Build and install to /usr/local"
+    echo "  $0 --docs                 # Generate FORD documentation only"
+    echo "  $0 --docs-with-build      # Build and generate documentation"
     echo "  $0 --disable-large-memory  # Build without large memory model"
     echo "  $0 --heap-size 50000000   # Build with smaller heap arrays (Intel)"
     echo "  $0 --stack-size 50000000  # Build with smaller stack variables (GNU)"
@@ -78,6 +82,8 @@ log_info_detail() {
 JOBS=$(nproc)
 RUN_TESTS=false
 DO_INSTALL=false
+GENERATE_DOCS=false
+DOCS_ONLY=false
 ENABLE_LARGE_MEMORY=true
 HEAP_SIZE=""
 STACK_SIZE=""
@@ -121,6 +127,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --install)
             DO_INSTALL=true
+            shift
+            ;;
+        --docs)
+            DOCS_ONLY=true
+            shift
+            ;;
+        --docs-with-build)
+            GENERATE_DOCS=true
             shift
             ;;
         --disable-large-memory)
@@ -203,6 +217,75 @@ detect_compiler() {
     fi
 }
 
+# Check for FORD documentation generator
+check_ford() {
+    if command -v ford >/dev/null 2>&1; then
+        FORD_VERSION=$(ford --version 2>/dev/null || echo "unknown")
+        log_info "Found FORD version: $FORD_VERSION"
+        log_info "Documentation generation available with 'make docs'"
+    else
+        log_warning "FORD not found. Install with: pip install ford"
+        log_warning "Documentation generation will be unavailable"
+    fi
+}
+
+# Generate FORD documentation
+generate_docs() {
+    log_info "Generating FORD documentation..."
+    
+    if ! command -v ford >/dev/null 2>&1; then
+        log_error "FORD not found! Please install with: pip install ford"
+        exit 1
+    fi
+    
+    # Save current directory and change to source directory
+    local CURRENT_DIR="$(pwd)"
+    local SOURCE_ROOT
+    
+    # Find the source root directory (where ford_project.md should be)
+    if [[ -f "ford_project.md" ]]; then
+        SOURCE_ROOT="$(pwd)"
+    elif [[ -f "../ford_project.md" ]]; then
+        SOURCE_ROOT="$(cd .. && pwd)"
+    elif [[ -f "../../ford_project.md" ]]; then
+        SOURCE_ROOT="$(cd ../.. && pwd)"
+    else
+        # Try to find it by walking up the directory tree
+        local TEST_DIR="$(pwd)"
+        while [[ "$TEST_DIR" != "/" ]]; do
+            if [[ -f "$TEST_DIR/ford_project.md" ]]; then
+                SOURCE_ROOT="$TEST_DIR"
+                break
+            fi
+            TEST_DIR="$(dirname "$TEST_DIR")"
+        done
+        
+        if [[ -z "$SOURCE_ROOT" ]]; then
+            log_error "FORD configuration file 'ford_project.md' not found!"
+            log_error "Searched from current directory up to filesystem root"
+            exit 1
+        fi
+    fi
+    
+    log_info "Found FORD configuration in: $SOURCE_ROOT"
+    cd "$SOURCE_ROOT"
+    
+    # Run FORD to generate documentation
+    log_info "Running FORD documentation generator..."
+    if ford ford_project.md; then
+        log_success "Documentation generated successfully!"
+        log_info "Documentation available in: $SOURCE_ROOT/docs/ford/"
+        log_info "Open docs/ford/index.html in a web browser to view"
+    else
+        log_error "Documentation generation failed!"
+        cd "$CURRENT_DIR"
+        exit 1
+    fi
+    
+    # Return to original directory
+    cd "$CURRENT_DIR"
+}
+
 # Check for required dependencies
 check_dependencies() {
     log_info "Checking dependencies..."
@@ -215,6 +298,9 @@ check_dependencies() {
     
     CMAKE_VERSION=$(cmake --version | head -n1 | cut -d' ' -f3)
     log_info "Found CMake version: $CMAKE_VERSION"
+    
+    # Check for FORD
+    check_ford
     
     # Check for HDF5 on Linux
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -418,10 +504,23 @@ main() {
     log_info "SHETRAN Build Script"
     log_info "==================="
     
+    # Handle documentation-only mode
+    if [[ "$DOCS_ONLY" == "true" ]]; then
+        log_info "Documentation generation mode"
+        generate_docs
+        log_success "Documentation generation complete!"
+        return 0
+    fi
+    
     detect_compiler
     check_dependencies
     setup_compiler
     build_shetran
+    
+    # Generate documentation if requested
+    if [[ "$GENERATE_DOCS" == "true" ]]; then
+        generate_docs
+    fi
     
     log_success "All done!"
 }

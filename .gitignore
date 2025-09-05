@@ -28,6 +28,17 @@ build-*/
 **/hdf5-prefix/
 **/hdf5-stamp/
 **/hdf5-src/
+
+# FORD documentation output
+docs/ford/
+*.ford_output
+ford_project.html
+
+# Python virtual environment (if used for FORD)
+venv/
+.venv/
+__pycache__/
+*.pyc
 **/hdf5-build/
 
 # Test build directories
