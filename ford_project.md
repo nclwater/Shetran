@@ -34,13 +34,6 @@ SHETRAN provides comprehensive simulation of:
 - **Contaminant migration**: Solute transport, adsorption, and chemical transformations
 - **Hydraulic structures**: Weirs, reservoirs, and flow control mechanisms
 
-## Technical Features
-
-- **Distributed modeling**: Spatially explicit finite difference representation
-- **Multi-scale simulation**: From hillslope to catchment scales
-- **Cross-platform support**: Linux, Windows, and Unix compatibility
-- **Modern Fortran**: Recently modernized codebase with improved performance
-
 ## Development History
 
 SHETRAN has evolved through several major development phases:
@@ -63,18 +56,6 @@ SHETRAN has evolved through several major development phases:
 - **Standards compliance**: Migration from FORTRAN 77/90 to modern Fortran standards
 - **Documentation**: Comprehensive documentation using FORD system
 - **Performance optimization**: Enhanced computational efficiency and reduced memory footprint
-
-## Technical Architecture
-
-### Memory Management
-- Dynamic memory allocation for flexible grid sizing
-- Automatic memory deallocation to prevent memory leaks
-- Optimized data structures for large-scale simulations
-
-### Computational Efficiency
-- Sparse matrix operations for large grid systems
-- Optimized numerical solvers for flow equations
-- Parallel processing capabilities where applicable
 
 ## Getting Started
 

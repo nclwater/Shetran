@@ -32,6 +32,9 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
    
    # Build and install
    ./build.sh --install -p /usr/local
+   
+   # Generate documentation
+   ford ford_project.md
    ```
 
 2. **Using CMake directly:**
@@ -248,101 +251,6 @@ cmake --build --preset=ifort
 cmake --list-presets
 ```
 
-## Directory Structure
-
-```
-SHETRAN/
-├── CMakeLists.txt           # Main CMake configuration
-├── CMakePresets.json        # CMake presets for common configurations
-├── build.sh                 # Linux build script
-├── build.bat                # Windows build script
-├── src/                     # Source code
-│   ├── Shetran.f90          # Main program
-│   ├── compute/
-│   │   ├── CMmod.f90
-│   │   ├── ETmod.f90
-│   │   ├── FRmod.f90
-│   │   ├── OCmod.f90
-│   │   ├── OCmod2.f90
-│   │   ├── OCQDQMOD.f90
-│   │   ├── SMmod.f90
-│   │   ├── contaminant/
-│   │   │   ├── contaminant_column_solver.f90
-│   │   │   ├── contaminant_common.f90
-│   │   │   ├── contaminant_data_reader.f90
-│   │   │   ├── contaminant_link_solver.f90
-│   │   │   ├── contaminant_plant.f90
-│   │   │   ├── contaminant_simulation.f90
-│   │   │   └── contaminant_utilities.f90
-│   │   ├── evapotranspiration_inception/
-│   │   │   ├── et_core.f90
-│   │   │   ├── et_integration.f90
-│   │   │   ├── et_main.f90
-│   │   │   ├── et_validation.f90
-│   │   │   └── et_variables.f90
-│   │   ├── execution_control/
-│   │   │   ├── framework_component_initialization.f90
-│   │   │   ├── framework_element_sorting.f90
-│   │   │   ├── framework_initialization.f90
-│   │   │   ├── framework_mass_balance.f90
-│   │   │   ├── framework_output_manager.f90
-│   │   │   ├── framework_shared.f90
-│   │   │   └── framework_spatial_setup.f90
-│   │   ├── hydraulic_flow/
-│   │   │   ├── flow_calculator.f90
-│   │   │   ├── hydraulic_helpers.f90
-│   │   │   └── hydraulic_variables.f90
-│   │   ├── overland_channel/
-│   │   │   ├── oc_channel_flow_types.f90
-│   │   │   ├── oc_common_data.f90
-│   │   │   ├── oc_data_management.f90
-│   │   │   ├── oc_flow_control.f90
-│   │   │   ├── oc_hydraulic_calculations.f90
-│   │   │   ├── oc_initialization.f90
-│   │   │   ├── oc_input.f90
-│   │   │   ├── oc_matrix_coefficients.f90
-│   │   │   ├── oc_node_flows.f90
-│   │   │   ├── oc_output.f90
-│   │   │   ├── oc_parameters.f90
-│   │   │   ├── oc_time_stepping.f90
-│   │   │   ├── oc_utils.f90
-│   │   │   └── oc_validation.f90
-│   │   ├── snow/
-│   │   │   ├── snowmelt_calculation.f90
-│   │   │   ├── snow_constants.f90
-│   │   │   ├── snow_evapotranspiration.f90
-│   │   │   ├── snow_initialization.f90
-│   │   │   ├── snow_interface.f90
-│   │   │   └── snow_variables.f90
-│   │   └── water_balance/
-│   │       └── water_balance.f90
-│   ├── io/
-│   │   ├── meteorological_input.f90
-│   │   └── simulation_output.f90
-│   ├── modules/
-│   │   ├── SYmod.f90
-│   │   ├── VSmod.f90
-│   │   └── ZQmod.f90
-│   ├── parameters/
-│   │   ├── AL_C.F90, AL_D.f90, AL_G.F90, ... (and 18 other parameter files)
-│   │   └── sglobal.f90
-│   ├── resource/
-│   │   ├── resource.h
-│   │   └── Resource1.rc
-│   ├── simulation/
-│   │   ├── run_sim.f90
-│   │   └── timestep_control.f90
-│   ├── util/
-│   │   ├── getdirqq.f90, getdirqq_portable.f90, ... (and 2 other utility files)
-│   │   └── utilsmod.f90
-│   └── visualisation/
-│       ├── increment_utilities.f90
-│       └── ... (and 11 other visualisation files)
-└── external/               # External dependencies (Windows)
-    ├── Include/            # HDF5 headers and modules
-    └── library-files/      # HDF5 libraries
-```
-
 ## Advanced Usage
 
 ### Dependency Analysis Options
@@ -455,6 +363,122 @@ After building, run SHETRAN with:
 .\build\bin\shetran.exe -f rundata_file.txt
 ```
 
+## Documentation System
+
+SHETRAN uses FORD (FORtran Documenter) to generate comprehensive API documentation from source code comments. The documentation system creates browsable HTML documentation with module dependency graphs, procedure listings, and cross-references.
+
+### Requirements
+
+To generate documentation, you need:
+
+1. **FORD and Graphviz**: Install both in the same Python environment
+   ```bash
+   pip install ford graphviz
+   ```
+
+   This installs both the FORD documentation generator and the Python Graphviz package, which provides the necessary tools for generating dependency graphs and diagrams.
+
+### Generating Documentation
+
+#### Using VS Code Tasks
+The easiest way to generate documentation is using the pre-configured VS Code task:
+
+1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
+2. Run `Tasks: Run Task`
+3. Select `Generate FORD Documentation`
+
+#### Using the Command Line
+```bash
+# Generate documentation from the project root
+ford ford_project.md
+```
+
+The generated documentation will be available in `docs/ford/index.html`.
+
+#### Using the Build Script
+The documentation task is also available as a build target:
+```bash
+# Linux/macOS
+./build.sh --docs
+
+# Or use the task runner directly
+```
+
+### Documentation Configuration
+
+The documentation is configured through `ford_project.md`, which includes:
+
+- **Project metadata**: Version, author, license information
+- **Source directories**: Automatically scans `src/` directory
+- **Output location**: `docs/ford/`
+- **Graph generation**: Enabled for module dependency visualization
+- **Search functionality**: Full-text search across documentation
+- **Extensions**: Enhanced with table of contents and smart typography
+
+### Documentation Coverage
+
+SHETRAN includes tools to monitor documentation quality:
+
+```bash
+# Check documentation coverage
+./tools/check_doc_coverage.sh
+
+# Generate documentation template for new modules
+./tools/generate_doc_template.sh ModuleName > src/path/ModuleName.f90
+```
+
+The project targets >95% documentation coverage for all public interfaces.
+
+### Documentation Standards
+
+All SHETRAN modules follow FORD documentation standards:
+
+- **Module headers**: Brief description, author, date, version
+- **Detailed descriptions**: Purpose, algorithms, usage patterns
+- **Parameter documentation**: All public variables and procedures
+- **Usage examples**: Where appropriate
+- **Cross-references**: Links to related modules and procedures
+
+Example documentation format:
+```fortran
+!> @file module_name.f90
+!> @brief Brief description of module functionality
+!> @author Author Name, Institution  
+!> @date 2025-09-05
+!> @version 1.0
+!>
+!> @details
+!! Detailed description of the module.
+!! Include purpose, algorithms, and usage patterns.
+!!
+!! This module provides:
+!! - Feature 1: Description
+!! - Feature 2: Description
+!>
+!> @note Implementation notes
+!> @warning Usage warnings
+!> @see Related modules
+
+module module_name
+   implicit none
+   private
+
+   real, parameter :: CONSTANT = 1.0  !< Description of constant
+```
+
+### Accessing Documentation
+
+After generation, the documentation provides:
+
+- **Module listings**: All modules with dependency relationships
+- **Procedure index**: Searchable list of all public procedures
+- **Type definitions**: User-defined types and their components
+- **Dependency graphs**: Visual representation of module relationships
+- **Source code browser**: Syntax-highlighted source with cross-links
+- **Search functionality**: Full-text search across all documentation
+
+Open `docs/ford/index.html` in a web browser to browse the generated documentation.
+
 ## Examples
 
 The `examples/` directory contains sample input files. Try running:
@@ -471,5 +495,24 @@ For build issues, check:
 2. HDF5 installation
 3. Environment variables
 4. System memory and disk space
+
+#### HDF5 Linking Issues
+If you encounter problems linking SHETRAN against system HDF5 libraries (especially with Intel compilers), try building HDF5 locally:
+
+```bash
+# Force building HDF5 from source instead of using system libraries
+./build.sh --force-build-hdf5
+
+# Or using CMake directly
+cmake -DFORCE_BUILD_HDF5=ON ..
+```
+
+This ensures HDF5 is compiled with the same compiler as SHETRAN, avoiding compatibility issues.
+
+For documentation generation issues:
+1. Ensure FORD is installed (`pip install ford`)
+2. Ensure Graphviz is installed for dependency graphs
+3. Check that `ford_project.md` configuration is valid
+4. Verify source files contain proper FORD documentation comments
 
 For SHETRAN usage, refer to the main documentation and examples.
