@@ -1,87 +1,36 @@
 MODULE CMmod
+!----------------------------------------------------------------------*
+!
+! Main interface module for contaminant transport calculations
+! This module provides the same interface as the original CMmod.f90
+! but with refactored implementation in separate modules
+!
+! Refactored from original CMmod.f90 - maintains same public interface
+!----------------------------------------------------------------------*
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the CM COLM and LINK .F files
 ! SvenB  20200305 removed complete SGLOBAL include
 ! [REFACTORING] 19/08/2025 - Extracted from original CMmod.f90 as interface module
 !                           Provides public interface to contaminant transport system
-!
+! [REFACTORING] 05/09/2025 - Converted to pure interface module following ETmod pattern
+!                           All subroutine implementations moved to specialized modules
+
+   ! Import all contaminant modules and functionality
    USE contaminant_common
    USE contaminant_data_reader
-   USE contaminant_simulation, ONLY: cm_simulate_timestep, cm_finalize
+   USE contaminant_simulation
    USE contaminant_column_solver
    USE contaminant_link_solver
    USE contaminant_utilities
+   USE contaminant_interface
 
    IMPLICIT NONE
 
+   ! Make everything private by default
    PRIVATE
+
+   ! Re-export the same public interface as the original module
+   ! This ensures other files that USE CMmod continue to work unchanged
    PUBLIC :: CMSIM, CMFIN, CMRD
-
-CONTAINS
-
-   !SSSSSS SUBROUTINE CMFIN
-   SUBROUTINE CMFIN
-      !                             CALLED FROM WATER FLOW COMPONENTS.
-      !                             TIDIES UP AT END OF SIMULATION.
-      ! Delegate to simulation module
-      CALL cm_finalize()
-   END SUBROUTINE CMFIN
-
-   !SSSSSS SUBROUTINE CMRD (CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, &
-   SUBROUTINE CMRD (CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, &
-      NSEE, NS, NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY, NLYRBE, ICMXY, &
-      ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  NCATTY, NCON, NCOLMB, NTAB, &
-      DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB,TABLE_CONCENTRATION, TABLE_WATER_DEPTH, IIICF, SOFN, &
-      GNN, GGLMSO, ALPHBD, ALPHBS, KDDLS, ALPHA, FADS, &
-      ISCNSV, IDUM, DUMMY)
-      !
-      ! Input arguments
-      INTEGER, INTENT(IN) :: CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, NSEE, NS
-      INTEGER, INTENT(IN) :: NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY
-      INTEGER, INTENT(IN) :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:2)
-      INTEGER, INTENT(IN) :: NLYRBE (NLF + 1:NEL)
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS (NLFEE)
-      !
-      ! Output arguments
-      INTEGER, INTENT(OUT) :: NCON
-      INTEGER, INTENT(OUT) :: NUM_CATEGORIES_TYPES (NCONEE), NCATTY (NELEE, NCONEE)
-      INTEGER, INTENT(OUT) :: NCOLMB (NLF + 1:NEL), NTAB (MAX_NUM_CATEGORY_TYPES, NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: DBS, DBDI
-      DOUBLEPRECISION, INTENT(OUT) :: CCAPI (NCONEE), CCAPE (NELEE, NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: CCAPR (NELEE, NCONEE), CCAPB (NELEE, NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: IIICF (NCONEE), SOFN (NSEE, 3)
-      DOUBLEPRECISION, INTENT(OUT) :: GNN (NCONEE), GGLMSO (NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: ALPHBD (NCONEE), ALPHBS (NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: KDDLS (NSEDEE, NCONEE)
-      DOUBLEPRECISION, INTENT(OUT) :: ALPHA (NSEE, NCONEE), FADS (NSEE, NCONEE)
-      LOGICAL, INTENT(OUT) :: ISCNSV (NCONEE)
-      !
-      ! Workspace arguments
-      INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM
-      DOUBLEPRECISION, INTENT(INOUT) :: DUMMY (NELEE)
-      !
-      ! Delegate to data reader module
-      CALL cm_read_data(CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, &
-         NSEE, NS, NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY, NLYRBE, ICMXY, &
-         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  NCATTY, NCON, NCOLMB, NTAB, &
-         DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB,TABLE_CONCENTRATION, TABLE_WATER_DEPTH, IIICF, SOFN, &
-         GNN, GGLMSO, ALPHBD, ALPHBS, KDDLS, ALPHA, FADS, &
-         ISCNSV, IDUM, DUMMY)
-   END SUBROUTINE CMRD
-
-   !SSSSSS SUBROUTINE CMSIM (ISSDON)
-   SUBROUTINE CMSIM (ISSDON)
-      !                             ENTRY POINT TO THE CONTAMINANT COMPONENTS
-      !                             WHEN UPDATING THE CONTAMINANT
-      !                             CONCENTRATIONS FOR THE WHOLE CATCHMENT
-      !                             FOR ONE TIME STEP
-      LOGICAL, INTENT(IN) :: ISSDON
-      !                             ANSWER TO: IS SEDIMENT CODE ACTIVE?
-
-      ! Delegate to simulation module
-      CALL cm_simulate_timestep(ISSDON)
-   END SUBROUTINE CMSIM
 
 END MODULE CMmod
