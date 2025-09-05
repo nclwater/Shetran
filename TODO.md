@@ -28,7 +28,7 @@ Therefore a lot could be done to modernize the code and improve the featureset.
 - The variable NTYPE seems to be a flag for settings chosen. 
   Make it readable, i.e. hide values behind parameter variables.
 - A lot of choices between different methods is using plain integers. 
-  Use fixed parameters instead to improve the legibility.
+  Use fixedly named parameters instead to improve the legibility.
 - Add an execution flag to output the array limits set at compile time.
 - Make it easier to compile to different array limit sizes.
 - Figure out if the performance of any loops can be improved by using OpenMP.
@@ -39,3 +39,5 @@ Therefore a lot could be done to modernize the code and improve the featureset.
 - Building the HDF5 library could include e.g. zlib to save on output file size.
 - A lot of loops still have numbers as labels.
   For especially the longer ones, replace it with more descriptive labels.
+- There are a lot of warnings for "masked variables" / "masked methods".
+  Fix them by using PRIVATE / PUBLIC statements.

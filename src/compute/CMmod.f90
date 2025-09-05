@@ -7,7 +7,7 @@ MODULE CMmod
 !
    USE contaminant_common
    USE contaminant_data_reader
-   USE contaminant_simulation
+   USE contaminant_simulation, ONLY: cm_simulate_timestep, cm_finalize
    USE contaminant_column_solver
    USE contaminant_link_solver
    USE contaminant_utilities
@@ -23,7 +23,8 @@ CONTAINS
    SUBROUTINE CMFIN
       !                             CALLED FROM WATER FLOW COMPONENTS.
       !                             TIDIES UP AT END OF SIMULATION.
-      RETURN
+      ! Delegate to simulation module
+      CALL cm_finalize()
    END SUBROUTINE CMFIN
 
    !SSSSSS SUBROUTINE CMRD (CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, &

@@ -19,7 +19,7 @@ MODULE contaminant_simulation
    IMPLICIT NONE
 
    PRIVATE
-   PUBLIC :: cm_simulate_timestep
+   PUBLIC :: cm_simulate_timestep, cm_finalize
 
 CONTAINS
 
@@ -102,5 +102,20 @@ CONTAINS
       !                             ENTIRE CATCHMENT, FOR USE AT THE NEXT
       !                             TIME LEVEL
    END SUBROUTINE cm_simulate_timestep
+
+   !SSSSSS SUBROUTINE CM_FINALIZE
+   SUBROUTINE cm_finalize
+      !----------------------------------------------------------------------*
+      !                             CALLED FROM WATER FLOW COMPONENTS.
+      !                             TIDIES UP AT END OF SIMULATION.
+      !----------------------------------------------------------------------*
+      ! [REFACTORING] 05/09/2025 - Moved from CMmod.f90 interface module
+      !                           Handles contaminant simulation cleanup
+      !----------------------------------------------------------------------*
+
+      ! Currently no cleanup operations needed
+      ! This routine is maintained for future expansion and API compatibility
+      RETURN
+   END SUBROUTINE cm_finalize
 
 END MODULE contaminant_simulation
