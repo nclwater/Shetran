@@ -1,17 +1,19 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-!-------------------------------------------------------------------------------
-!
-!> @file GETDIRQQ.f90
-!
-!> @author Stephen Birkinshaw, Newcastle University
-!
-!> @brief Gets the input filename(s).
-!
-! REVISION HISTORY:
-! ?        - ?     - ?
-! 20200305 - SvenB - formatting & cleanup
-!
-!-------------------------------------------------------------------------------
+!> summary: Provides Windows-specific file dialog functionality for obtaining input filenames.
+!> author: Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University)
+!> date: Original version (date unknown), formatted 2020-03-05
+!>
+!> This module provides Windows-specific file handling capabilities using Intel Fortran
+!> libraries. It includes GUI file selection dialogs and Windows-specific path operations.
+!> This module is used only on Windows systems and requires Intel Fortran compiler libraries.
+!>
+!> @note
+!> This module is not being read by FORD because there is the portable version with the same name.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |------|--------|-------------|
+!> | ? | Original | Original Windows-specific version with GUI dialogs |
+!> | 2020-03-05 | SvenB | Formatting and cleanup |
 MODULE GETDIRQQ
 
    use mod_parameters
@@ -38,25 +40,21 @@ MODULE GETDIRQQ
 
 CONTAINS
 
-   !---------------------------------------------------------------------------
-   !> @author ?
-   !
-   !> @brief
-   !! Obtains input directory and catches errors.
-   !
-   ! REVISION HISTORY:
-   ! ?        - ?     - ?
-   ! 20200305 - SvenB - formatting & cleanup
-   !
-   !> @param[in]     runfil
-   !> @param[out]    fn, catch, dirqq, rootdir
-   !---------------------------------------------------------------------------
+   !> summary: Obtains the input directory and runfile from command-line arguments or GUI dialog.
+   !>
+   !> This subroutine provides multiple ways to obtain the input filename:
+   !> - GUI file selection dialog (default and various modes)
+   !> - Command-line filename argument (-f)
+   !> - Catchment lookup from file (-c)
+   !> It uses Windows-specific APIs for file dialogs and path manipulation.
    SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
       ! IO-vars
-      CHARACTER(len=*), INTENT(IN)    :: runfil
-      CHARACTER(len=*), INTENT(OUT)   :: fn, catch, dirqq
-      CHARACTER(len=*), INTENT(OUT)   :: rootdir
+      CHARACTER(len=*), INTENT(IN)    :: runfil   !! The runfile name (often unused when using GUI)
+      CHARACTER(len=*), INTENT(OUT)   :: fn       !! The base name of the runfile
+      CHARACTER(len=*), INTENT(OUT)   :: catch    !! The catchment name extracted from filename
+      CHARACTER(len=*), INTENT(OUT)   :: dirqq    !! The directory path of the runfile
+      CHARACTER(len=*), INTENT(OUT)   :: rootdir  !! The root directory where the executable was run
 
       ! Other vars
       INTEGER(kind=I_P)               :: length, IERROR, iret, i, idum, na, j, k
@@ -181,26 +179,26 @@ CONTAINS
 
    END SUBROUTINE get_dir_and_catch
 
+   !> summary: Handles error messages by printing and stopping program execution.
+   !>
+   !> Simple error handler that prints an error message and terminates the program.
+   !> Used for critical errors where the program cannot continue.
    SUBROUTINE handle_error(message)
-      CHARACTER(len=*), INTENT(IN) :: message
+      CHARACTER(len=*), INTENT(IN) :: message  !! The error message to display
       PRINT*, message
       STOP
    END SUBROUTINE handle_error
 
-   !---------------------------------------------------------------------------
-   !> @author ?
-   !
-   !> @brief
-   !! Error handling for common dialog errors..
-   !
-   ! REVISION HISTORY:
-   ! ?        - ?     - ?
-   ! 20200305 - SvenB - formatting & cleanup
-   !---------------------------------------------------------------------------
+   !> summary: Handles and reports Windows common dialog box errors.
+   !>
+   !> This subroutine diagnoses and reports specific error conditions that can occur
+   !> when using Windows common dialog boxes (file open/save dialogs). It provides
+   !> detailed error messages for various failure modes and terminates the program
+   !> if an error is detected.
    SUBROUTINE comdlger(IRET)
 
       ! IO-Vars
-      INTEGER(KIND=I_P)   :: IRET
+      INTEGER(KIND=I_P)   :: IRET  !! Return code from common dialog operation
 
       ! Other vars
       CHARACTER(30)       :: MSG1

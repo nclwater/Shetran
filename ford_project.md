@@ -12,9 +12,14 @@ project_website: https://research.ncl.ac.uk/shetran/
 summary: SHETRAN is a physically-based, distributed hydrological model for simulating water flow, sediment transport, and contaminant migration in catchments.
 graph: true
 search: true
+display: public
+         protected
+         private
 preprocess: false
 exclude_dir: src/legacy
             src/backup
+exclude: src/util/getdirqq_winIntel.f90
+         src/util/getdirqq.f90
 extra_mods: iso_fortran_env:https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fFORTRAN_005fENV.html
            iso_c_binding:https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fC_005fBINDING.html
 copy_subdir: examples

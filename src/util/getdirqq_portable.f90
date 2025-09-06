@@ -1,19 +1,17 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-!-------------------------------------------------------------------------------
-!
-!> @file GETDIRQQ.f90
-!
-!> @author Stephen Birkinshaw, Newcastle University (Original)
-!> @author GitHub Copilot (Standard Fortran Port)
-!
-!> @brief Gets the input filename(s) - PORTABLE VERSION
-!
-! REVISION HISTORY:
-! ?        - ?     - Original Windows-specific version
-! 20200305 - SvenB - formatting & cleanup
-! 20250811 - AI    - Ported to standard Fortran, removed Windows dependencies
-!
-!-------------------------------------------------------------------------------
+!> summary: Provides a portable, standard Fortran implementation for obtaining the input filename.
+!> author: Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University)
+!> date: 2025-08-11
+!>
+!> This module is the cross-platform version for handling command-line arguments
+!> to determine the simulation's input file. It replaces the Windows-specific
+!> `getdirqq_winIntel.f90` and uses standard Fortran intrinsics for portability.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |------|--------|-------------|
+!> | ? | Original | Original Windows-specific version |
+!> | 2020-03-05 | SvenB | Formatting, doxygen docs and cleanup |
+!> | 2025-08-11 | AI | Ported to standard Fortran, removed Windows dependencies |
 MODULE GETDIRQQ
 
    use mod_parameters
@@ -21,9 +19,6 @@ MODULE GETDIRQQ
    ! USE IFWIN, USE IFPORT, USE IFQWIN - replaced with standard Fortran
 
    IMPLICIT NONE
-
-   CHARACTER(len=LENGTH_FILEPATH) :: FileName
-   CHARACTER(len=40)              :: MyName
 
    ! --------------------------------------------------------------------------
    ! Private by default
@@ -37,32 +32,27 @@ MODULE GETDIRQQ
 
 CONTAINS
 
-   !---------------------------------------------------------------------------
-   !> @author Original: ?, Port: GitHub Copilot
-   !
-   !> @brief
-   !! Obtains input directory and catches errors - PORTABLE VERSION
-   !! Removed Windows GUI dialogs, uses command line only
-   !
-   ! REVISION HISTORY:
-   ! ?        - ?     - Original Windows version
-   ! 20200305 - SvenB - formatting & cleanup
-   ! 20250811 - AI    - Ported to standard Fortran
-   !
-   !> @param[in]     runfil
-   !> @param[out]    fn, catch, dirqq, rootdir
-   !---------------------------------------------------------------------------
+   !> summary: Obtains the input directory and runfile from command-line arguments.
+   !>
+   !> This is the main entry point for the module. It parses command-line arguments
+   !> to identify the run data file. It supports getting the filename directly (`-f`)
+   !> or looking it up from a `catchments.txt` file (`-c`). It replaces the
+   !> Windows GUI dialogs with a pure command-line interface.
    SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
       ! IO-vars
-      CHARACTER(len=*), INTENT(IN)    :: runfil
-      CHARACTER(len=*), INTENT(OUT)   :: fn, catch, dirqq
-      CHARACTER(len=*), INTENT(OUT)   :: rootdir
+      CHARACTER(len=*), INTENT(IN)    :: runfil   !! The runfile name (often unused in command-line mode)
+      CHARACTER(len=*), INTENT(OUT)   :: fn       !! The base name of the runfile
+      CHARACTER(len=*), INTENT(OUT)   :: catch    !! The catchment name (legacy, now unused)
+      CHARACTER(len=*), INTENT(OUT)   :: dirqq    !! The directory path of the runfile
+      CHARACTER(len=*), INTENT(OUT)   :: rootdir  !! The root directory where the executable was run
 
       ! Other vars
       INTEGER(kind=I_P)               :: length, i, na, j, k, last_slash
       CHARACTER(len=*), PARAMETER     :: catchment_file='catchments.txt'
       CHARACTER(len=LENGTH_LINE)      :: message, dum1, dum2, code
+      CHARACTER(len=LENGTH_FILEPATH)  :: cli_argument
+      CHARACTER(len=LENGTH_FILEPATH)  :: fn_part
       LOGICAL                         :: ex
 
       ! Code =================================================================
@@ -85,13 +75,13 @@ CONTAINS
             message = 'Missing filename. Usage: shetran -f filename.txt'
             GOTO 1000
          ENDIF
-         CALL GET_COMMAND_ARGUMENT(2, filename)
+         CALL GET_COMMAND_ARGUMENT(2, cli_argument)
 
        CASE ('-c')  ! treat as catchment name (kept for compatibility)
          IF (na < 2) THEN
-            filename = 'default'
+            cli_argument = 'default'
          ELSE
-            CALL GET_COMMAND_ARGUMENT(2, filename)
+            CALL GET_COMMAND_ARGUMENT(2, cli_argument)
          ENDIF
          INQUIRE(FILE=catchment_file, exist=ex)
          IF(ex) THEN
@@ -99,9 +89,9 @@ CONTAINS
             DO
                read(875,'(A,a)', END=999, ERR=999) dum1
                read(875,*, END=999, ERR=999) dum2
-               IF(dum1==filename) EXIT
+               IF(dum1==cli_argument) EXIT
             ENDDO
-            filename = dum2
+            cli_argument = dum2
             CLOSE(875)
          ELSE
             message='Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
@@ -119,20 +109,20 @@ CONTAINS
 
       IF(message/='') GOTO 1000
 
-      INQUIRE(FILE=filename, EXIST=ex)
+      INQUIRE(FILE=cli_argument, EXIST=ex)
       IF(.NOT.ex) THEN
-         IF(LEN_TRIM(filename)==0) THEN
+         IF(LEN_TRIM(cli_argument)==0) THEN
             message = 'Missing filename. Use: shetran -f filename.txt'
          ELSE
-            message = 'Cannot find rundata file '//TRIM(filename)
+            message = 'Cannot find rundata file '//TRIM(cli_argument)
          ENDIF
          CALL handle_command_line_error(message)
       ENDIF
 
       ! Portable path splitting (replacement for SPLITPATHQQ)
-      CALL SPLIT_PATH_PORTABLE(filename, dirqq, MyName)
+      CALL SPLIT_PATH_PORTABLE(cli_argument, dirqq, fn_part)
 
-      fn = MyName
+      fn = trim(fn_part)
       catch = ''  ! Catchment info not used in modern version
 
       RETURN
@@ -151,12 +141,13 @@ CONTAINS
    END SUBROUTINE get_dir_and_catch
 
 
-   !---------------------------------------------------------------------------
-   !> @brief Get current working directory (portable)
-   !> @param[out] current_dir - Current working directory path
-   !---------------------------------------------------------------------------
+   !> summary: Gets the current working directory in a portable way.
+   !>
+   !> Uses the standard Fortran 2008 `GET_ENVIRONMENT_VARIABLE` intrinsic to
+   !> retrieve the 'PWD' variable. If that fails, it defaults to '.' (current directory).
    SUBROUTINE GET_CURRENT_DIR(current_dir)
-      CHARACTER(len=*), INTENT(OUT) :: current_dir
+
+      CHARACTER(len=*), INTENT(OUT) :: current_dir  !! The path of the current working directory
 
       ! Use standard Fortran intrinsic (F2008)
       CALL GET_ENVIRONMENT_VARIABLE('PWD', current_dir)
@@ -168,16 +159,15 @@ CONTAINS
 
    END SUBROUTINE GET_CURRENT_DIR
 
-
-   !---------------------------------------------------------------------------
-   !> @brief Split file path into directory and filename (portable)
-   !> @param[in]  fullpath - Full file path
-   !> @param[out] dir_part - Directory part
-   !> @param[out] file_part - Filename part
-   !---------------------------------------------------------------------------
+   !> summary: Splits a full file path into its directory and filename components.
+   !>
+   !> This is a portable replacement for the non-standard `SPLITPATHQQ` function.
+   !> It searches for the last path separator (`/` or `\`) to split the string.
    SUBROUTINE SPLIT_PATH_PORTABLE(fullpath, dir_part, file_part)
-      CHARACTER(len=*), INTENT(IN)  :: fullpath
-      CHARACTER(len=*), INTENT(OUT) :: dir_part, file_part
+
+      CHARACTER(len=*), INTENT(IN)  :: fullpath   !! The full path of the file to split
+      CHARACTER(len=*), INTENT(OUT) :: dir_part   !! The directory part of the path
+      CHARACTER(len=*), INTENT(OUT) :: file_part  !! The filename part of the path
 
       INTEGER :: last_slash, i, len_path
 
@@ -210,12 +200,13 @@ CONTAINS
    END SUBROUTINE SPLIT_PATH_PORTABLE
 
 
-   !---------------------------------------------------------------------------
-   !> @brief Handle command line errors with usage message
-   !> @param[in] error_msg - Error message to display
-   !---------------------------------------------------------------------------
+   !> summary: Handles command-line argument errors by printing a message and stopping.
+   !>
+   !> Centralizes error reporting for command-line issues, providing a consistent
+   !> usage message before terminating the program with a non-zero exit code.
    SUBROUTINE handle_command_line_error(error_msg)
-      CHARACTER(len=*), INTENT(IN) :: error_msg
+
+      CHARACTER(len=*), INTENT(IN) :: error_msg  !! The specific error message to display
 
       ! Error handling - write to standard error
       WRITE(*,'(A)') 'ERROR: ' // TRIM(error_msg)

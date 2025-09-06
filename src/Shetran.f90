@@ -37,10 +37,12 @@
 !>
 !> @warning Ensure all input files are properly formatted and accessible
 !>
-!> ### Revision History:
-!> - v4.4.6 (2019-12-10): Added Hotstart ability (SteveB)
-!> - v4.4.7 (2020-03-05): Code cleanups and modernization (SvenB)
-!> - v4.4.7 (2025): Cross-platform compatibility and FORD docs
+!> @history
+!> | Version | Date | Author | Description |
+!> |---------|------|--------|-------------|
+!> | v4.4.6 | 2019-12-10 | SteveB | Added Hotstart ability |
+!> | v4.4.7 | 2020-03-05 | SvenB | Code cleanups and modernization |
+!> | v4.4.7 | 2025 | Various | Cross-platform compatibility and FORD docs |
 !>
 !-------------------------------------------------------------------------------
 PROGRAM SHETRAN
