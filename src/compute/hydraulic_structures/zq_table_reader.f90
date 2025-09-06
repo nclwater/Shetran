@@ -1,32 +1,27 @@
+!> summary: Provides ZQ table file reading and parsing functionality.
+!> author: Daryl Hughes (Newcastle University), Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University), Refactored by GitHub Copilot
+!> date: 2025-09-05
+!>
+!> This module handles reading elevation-discharge tables from user-defined files
+!> and parsing the metadata associated with each reservoir/weir structure.
+!>
+!> It reads ZQ table files containing:
+!>
+!> - The number of ZQ tables needed.
+!> - Table dimensions (rows and columns).
+!> - Header information with stage thresholds.
+!> - Link and face numbers for hydraulic connections.
+!> - Operation schedules for sluices.
+!> - The actual elevation-discharge lookup data.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:----:|:------:|-------------|
+!> | ? | DH, SB | Original versions of ZQmod |
+!> | 2025-09-05 | AI | Refactored from original ZQmod.f90 into this module |
+!>
 module zq_table_reader
 
-!-------------------------------------------------------------------------------
-!
-!> @file zq_table_reader.f90
-!
-!> @author Refactored from ZQmod.f90 by GitHub Copilot
-!> @author Original: Daryl Hughes, Newcastle University
-!> @author Original: Stephen Birkinshaw, Newcastle University
-!> @author Original: Sven Berendsen, Newcastle University
-!
-!> @brief
-!! ZQ table file reading and parsing functionality.
-!! This module handles reading elevation-discharge tables from user-defined files
-!! and parsing the metadata associated with each reservoir/weir structure.
-!
-!> @details
-!! Reads ZQ table files containing:
-!! - Number of ZQ tables needed
-!! - Table dimensions (rows and columns)
-!! - Header information with stage thresholds
-!! - Link and face numbers for hydraulic connections
-!! - Operation schedules for sluices
-!! - The actual elevation-discharge lookup data
-!
-! REVISION HISTORY:
-! 2025-09-05 - Refactored from original ZQmod.f90 ReadZQTable subroutine
-!
-!-------------------------------------------------------------------------------
 
    USE AL_D,           ONLY: zqd,NoZQTables,ZQTableLink,ZQTableFace,ZQweirSill     ! ZQ-specific data from AL_D
    USE mod_parameters                                                              ! general parameters
@@ -42,28 +37,18 @@ module zq_table_reader
 
 CONTAINS
 
-   !---------------------------------------------------------------------------
-   !> @author Dary Hughes, Newcastle University
-   !> @author Stephen Birkinshaw, Newcastle University
-   !> @author Sven Berendsen, Newcastle University
-   !
-   !> @brief
-   !! ReadZQTable reads in the user-defined ZQ file, which includes ZQ tables
-   !! and ZQ meta data.
-   !! ZQ table(s) contain column and row headers, and the actual values needed.
-   !! Metadata includes the number of ZQ tables needed (i.e. reservoirs in the
-   !! model), link and face numbers, and operation hours.
-   !! These are converted into a 2D array and used as a lookuptable.
-   !
-   !
-   ! REVISION HISTORY:
-   ! ? - DH - Initial version
-   ! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
-   ! 2025-09-05 - Refactored into separate module
-   !---------------------------------------------------------------------------
+   !> summary: Reads the user-defined ZQ file, including ZQ tables and metadata.
+   !> author: Dary Hughes (Newcastle University), Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University)
+   !>
+   !> This subroutine reads ZQ table(s) which contain column and row headers,
+   !> and the actual elevation-discharge values.
+   !> It also reads metadata, which includes the number of ZQ tables needed
+   !> (i.e. reservoirs in the model), link and face numbers, and operation hours.
+   !> This data is parsed and stored in module-level arrays for use as a lookup table
+   !> during the simulation.
    SUBROUTINE ReadZQTable()
 
-      ! general variables
+      ! Other vars
       INTEGER(kind=I_P)                               :: i, j, k, printRow, printCol, pos     !< useful local integers
 
       ! specific variables

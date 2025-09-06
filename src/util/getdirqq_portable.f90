@@ -8,7 +8,7 @@
 !>
 !> @history
 !> | Date | Author | Description |
-!> |------|--------|-------------|
+!> |:----:|:------:|-------------|
 !> | ? | Original | Original Windows-specific version |
 !> | 2020-03-05 | SvenB | Formatting, doxygen docs and cleanup |
 !> | 2025-08-11 | AI | Ported to standard Fortran, removed Windows dependencies |

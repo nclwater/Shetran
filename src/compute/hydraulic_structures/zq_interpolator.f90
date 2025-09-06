@@ -1,30 +1,24 @@
+!> summary: Provides ZQ table interpolation and value lookup functionality.
+!> author: Daryl Hughes (Newcastle University), Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University), Refactored by GitHub Copilot
+!> date: 2025-09-05
+!>
+!> This module handles the interpolation of discharge values from ZQ tables
+!> based on upstream water elevation and sluice operation schedules.
+!>
+!> It provides the core functionality to:
+!>
+!> - Select appropriate weir equation based on stage thresholds
+!> - Handle sluice operation timing
+!> - Interpolate discharge values from ZQ lookup tables
+!> - Apply stage-discharge relationships for hydraulic structures
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:----:|:------:|-------------|
+!> | ? | DH, SB | Original versions of ZQmod |
+!> | 2025-09-05 | AI | Refactored from original ZQmod.f90 into this module |
+!>
 module zq_interpolator
-
-!-------------------------------------------------------------------------------
-!
-!> @file zq_interpolator.f90
-!
-!> @author Refactored from ZQmod.f90 by GitHub Copilot
-!> @author Original: Daryl Hughes, Newcastle University
-!> @author Original: Stephen Birkinshaw, Newcastle University
-!> @author Original: Sven Berendsen, Newcastle University
-!
-!> @brief
-!! ZQ table interpolation and value lookup functionality.
-!! This module handles the interpolation of discharge values from ZQ tables
-!! based on upstream water elevation and sluice operation schedules.
-!
-!> @details
-!! Provides the core functionality to:
-!! - Select appropriate weir equation based on stage thresholds
-!! - Handle sluice operation timing
-!! - Interpolate discharge values from ZQ lookup tables
-!! - Apply stage-discharge relationships for hydraulic structures
-!
-! REVISION HISTORY:
-! 2025-09-05 - Refactored from original ZQmod.f90 get_ZQTable_value function
-!
-!-------------------------------------------------------------------------------
 
    USE sglobal,        ONLY: UZNOW                                                 ! UZNOW is sim time (hours)
    USE AL_C,           ONLY: DTUZ,UZNEXT                                           ! DZ is sim time (seconds),  UZNEXT is time step to be added to previous time to get current time
@@ -41,33 +35,24 @@ module zq_interpolator
 
 CONTAINS
 
-   !---------------------------------------------------------------------------
-   !> @author Dary Hughes, Newcastle University
-   !> @author Stephen Birkinshaw, Newcastle University
-   !> @author Sven Berendsen, Newcastle University
+   !> summary: Calculates downstream flow (Qd) using the ZQ table.
+   !> author: Dary Hughes (Newcastle University), Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University)
    !
-   !> @brief
-   ! ZQTable uses the ZQ array from ReadZQTable to calculate downstream flow (Qd)
-   ! It activates the specified ZQcol using the ZQTableOpHour from ReadZQTable
-   !
-   !
-   ! REVISION HISTORY:
-   ! ? - DH - Initial version
-   ! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
-   ! 2025-09-05 - Refactored into separate module
-   !
-   !> @param[in]   ZQref, Zu
-   !> @param[return]  Qd
-   !---------------------------------------------------------------------------
+   !> This function uses the ZQ array from ReadZQTable to calculate downstream flow (Qd).
+   !> It activates the specified ZQ column based on the ZQTableOpHour schedule.
+   !>
+   !> @param[in] ZQref Reference number of the weir.
+   !> @param[in] zu Upstream water stage [m].
+   !> @param[out] qd The calculated downstream discharge [m3/s].
    FUNCTION get_ZQTable_value(ZQref,zu) RESULT(qd)
 
       ! IO variables
-      INTEGER(kind=I_P), INTENT(IN)   :: ZQref    !< reference number of weir
-      REAL(kind=R8P), INTENT(IN)      :: Zu       !< Zu = upstream stage
-      REAL(kind=R8P)                  :: Qd       !< Qd = downstream discharge
+      INTEGER(kind=I_P), INTENT(IN)   :: ZQref    !! reference number of weir
+      REAL(kind=R8P), INTENT(IN)      :: Zu       !! Zu = upstream stage
+      REAL(kind=R8P)                  :: Qd       !! Qd = downstream discharge
 
       ! general variables
-      INTEGER(kind=I_P)               :: i        !< loop counter
+      INTEGER(kind=I_P)               :: i        !! loop counter
 
       ! Code -----------------------------------------------------------------
 

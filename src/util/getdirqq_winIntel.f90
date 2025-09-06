@@ -11,7 +11,7 @@
 !>
 !> @history
 !> | Date | Author | Description |
-!> |------|--------|-------------|
+!> |:----:|:------:|-------------|
 !> | ? | Original | Original Windows-specific version with GUI dialogs |
 !> | 2020-03-05 | SvenB | Formatting and cleanup |
 MODULE GETDIRQQ

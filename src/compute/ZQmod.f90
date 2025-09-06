@@ -1,47 +1,40 @@
+!> summary: Public interface module for ZQ table (reservoir) functionality.
+!> author: Refactored by GitHub Copilot, Original: Daryl Hughes (Newcastle University),
+!>         Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University)
+!> date: 2025-09-05
+!>
+!> This module provides a clean interface to the ZQ table system without
+!> containing any implementation details or variable declarations.
+!>
+!> This is the main interface module for the ZQ table system that models
+!> elevation-discharge relationships for hydraulic structures like reservoirs
+!> and weirs. The actual implementation has been refactored into separate
+!> modules within src/compute/hydraulic_structures/:
+!>
+!> - zq_data_types.f90: Common data structures and variables
+!> - zq_table_reader.f90: File reading and parsing functionality
+!> - zq_interpolator.f90: Value interpolation and lookup functionality
+!>
+!> For models which contain reservoirs, it outputs downstream discharge as a
+!> function of upstream water elevation. The user must create an elevation-discharge
+!> (ZQ) set up file and reference this in the RunDatafile (module 51).
+!> This file may contain multiple ZQ tables i.e. for multiple channel links
+!> These can be created in Excel etc., and saved as .txt. The file should be
+!> space-delimited, so may require replacement of tabs with spaces
+!> The ZQtables require a Z column (first), followed by at least one discharge column.
+!> These should have names along the format 'ZQ>##.##' i.e. discharge at elevations
+!> above this threshold
+!> The number of rows and the interval between Zs is arbitrary (for example, 0.01m
+!> intervals would be suitable)
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:----:|:------:|-------------|
+!> | ? | DH | Initial version |
+!> | ? | SB | Reworked for inclusion in SHETRAN4.4.6.Res2 |
+!> | 2025-09-05 | AI | Refactored into interface module with implementation in separate files |
+!>
 module ZQmod
-
-!-------------------------------------------------------------------------------
-!
-!> @file ZQmod.f90
-!
-!> @author Refactored by GitHub Copilot (September 2025)
-!> @author Original: Daryl Hughes, Newcastle University
-!> @author Original: Stephen Birkinshaw, Newcastle University
-!> @author Original: Sven Berendsen, Newcastle University
-!
-!> @brief
-!! Public interface module for ZQ table (reservoir) functionality.
-!! This module provides a clean interface to the ZQ table system without
-!! containing any implementation details or variable declarations.
-!
-!> @details
-!! This is the main interface module for the ZQ table system that models
-!! elevation-discharge relationships for hydraulic structures like reservoirs
-!! and weirs. The actual implementation has been refactored into separate
-!! modules within src/compute/hydraulic_structures/:
-!!
-!! - zq_data_types.f90: Common data structures and variables
-!! - zq_table_reader.f90: File reading and parsing functionality
-!! - zq_interpolator.f90: Value interpolation and lookup functionality
-!!
-!! For models which contain reservoirs, it outputs downstream discharge as a
-!! function of upstream water elevation. The user must create an elevation-discharge
-!! (ZQ) set up file and reference this in the RunDatafile (module 51).
-!! This file may contain multiple ZQ tables i.e. for multiple channel links
-!! These can be created in Excel etc., and saved as .txt. The file should be
-!! space-delimited, so may require replacement of tabs with spaces
-!! The ZQtables require a Z column (first), followed by at least one discharge column.
-!! These should have names along the format 'ZQ>##.##' i.e. discharge at elevations
-!! above this threshold
-!! The number of rows and the interval between Zs is arbitrary (for example, 0.01m
-!! intervals would be suitable)
-!
-! REVISION HISTORY:
-! ? - DH - Initial version
-! ? - SB - Reworked for inclusion in SHETRAN4.4.6.Res2
-! 2025-09-05 - Refactored into interface module with implementation in separate files
-!
-!-------------------------------------------------------------------------------
 
    ! Import the public interfaces from the implementation modules
    USE zq_table_reader,    ONLY: ReadZQTable                                  ! ZQ file reading functionality
