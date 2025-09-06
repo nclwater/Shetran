@@ -1,208 +1,207 @@
+!> summary: Defines global parameters, constants, variables, and utility functions.
+!> author: J. Ewen, Newcastle University
+!> date: 2009-01-01
+!>
+!> This module is a central component of SHETRAN, replacing legacy `INCLUDE`
+!> files like `al_p.inc`. It provides a wide range of globally accessible
+!> entities, including:
+!> - System version information and banners.
+!> - Core array dimensions and size parameters (e.g., `nxee`, `nyee`).
+!> - Fundamental mathematical and numerical constants (e.g., `zero`, `vsmall`).
+!> - Global variables for simulation state (e.g., `UZNOW`).
+!> - Widely used utility functions for numerical comparisons (e.g., `iszero`).
+!> - Centralized error handling and reporting routines (`ERROR`, `ALSTOP`).
+!>
+!> @note This module is monolithic and is a primary candidate for refactoring.
+!> The plan is to split it into more focused modules as outlined in
+!> `docs/reports/refactor_parameters/plan_parameter_refactor.md`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:----:|:------:|-------------|
+!> | 1989-02 | GP | v2.0: 'SHE88' implementation on Newcastle Amdahl. |
+!> | 1989-03 | GP | v2.1: Add NREFE8 for new SZ drain variables, add NSZBOU. |
+!> | 1989-04 | GP | v2.2: Integrate sediment yield, add overall version number. |
+!> | 1990-03 | GP | v3.0: Add development version flag and further dimension variables. |
+!> | 1992-01 | GP | v3.3: Add NVBP and change definitions of NUZTAB/NOCTAB. |
+!> | ? | GP | v3.4: Add NPLTEE,NPELEE. Update various parameters. |
+!> | 1994-09-30 | RAH | v3.4.1: Modernized declarations, removed INTEGER*2, standard header. |
+!> | 1996-10-24 | GP | v4.0: Alter dimensions. Add NRDEE,NVSEE for new VSS module. |
+!> | 1997-01-17 | RAH | Update SHEVER, BDEVER, BANNER. |
+!> | 1997-02-18 | RAH | v4.1: Remove NRDEE (redundant). Set SHEVER, BDEVER, BANNER. |
+!> | 1997-02-20 | RAH | Restore history. |
+!> | 1998-02-20 | RAH | v4.2: Update SHEVER, BANNER. Remove NWELEE, NSZBOU, NPSITH. |
+!> | 2004-07 | JE | Converted to Fortran 95 as part of SHEGRAPH Version 2 integration. |
+!> | 2009-01 | JE | v4.3.5F90: Created `sglobal` module from legacy include files (e.g. al_p). |
 MODULE sglobal
-! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the al_p etc
-!USE BUFF_DISK
+
    IMPLICIT NONE
-!MODULE AL_P
-!IMPLICIT NONE
-!-------------------- START OF AL.P -----------------------------------*
-!
-!     Distributed constants for all components (mainly array sizes)
-!
-!       THIS FILE CAN BE TAILORED TO SUIT A PARTICULAR CATCHMENT
-!
-!----------------------------------------------------------------------*
-! Version:  AL_P.F95/4.30
-! Modifications:
-!   GP  FEB 89  2.0     'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!   GP  MAR 89  2.1     ADD NREFE8 FOR NEW SZ DRAIN VARIABLES
-!                       + ADD DIMENSION NSZBOU (NO. OF SZ BNDRY PNTS)
-!                       + ADD DERIVED DIMN. NSZB40
-!   GP  APR 89  2.2     INTEGRATE SED. YIELD
-!                       + ADD OVERALL VERSION NUMBER
-!   GP  MAR 90  3.0     ADD DEVELOPMENT VERSION FLAG
-!                       + FURTHER DIMENSION VARIABLES
-!   GP  JAN 92  3.3     ADD NVBP AND CHANGE DEFINITIONS OF NUZTAB/NOCTAB
-!   GP          3.4     Add NPLTEE,NPELEE.  Update SHEVER,BANNER,
-!                       NELEE,NLFEE,LLEE,NVEE,NSEE,NLYREE,NUZTAB.
-!  RAH  30.09.94  Version 3.4.1 by AB/RAH, adapted from version 3.4:
-!                  no INTEGER*2; declare all types; amend BANNER,
-!                  BDEVER,NXEE,NYEE,NLFEE,LLEE,NSEE,NXOCEE,NSEDEE;
-!                  standard header; move amendment history to separate
-!                  file; set NELEE=NXEE*NYEE; alter comments;
-!                  characters size (*); no IMPLICIT statements.
-!  GP  961024  4.0  Alter NELEE,NXEE,NYEE,NLFEE,LLEE,NVEE,NSEE,NVBP,
-!                   NUZTAB,NLYREE,NSETEE,NXOCEE,NSEDEE,NCONEE.
-!                   Add NRDEE,NVSEE for new VSS module.
-!                   NUZTAB is now for ET only (was UZ too).
-! RAH  970117       Update SHEVER,BDEVER,BANNER.
-! RAH  970218  4.1  Remove NRDEE (redundant).  Set SHEVER,BDEVER,BANNER.
-!      970220       Restore history.
-! RAH  980220  4.2  Update SHEVER,BANNER.  Remove NWELEE,NSZBOU,NPSITH.
-!  JE  JULY 04 ---  Convert to FORTRAN 95, as part of integration of SHEGRAPH Version 2
-!----------------------------------------------------------------------*
+   PRIVATE
 
-!*970218 TEMPORARY!  REMOVED TO temporary.f90 je 170704
-!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!      IMPLICIT INTEGER (I-N)
+   PUBLIC :: SHEVER, BDEVER, BANNER, RUNFIL
+   PUBLIC :: nxee, nyee, nlfee, nelee, LLEE, NVEE, NSEE, NVSEE, NVBP, NUZTAB, NLYREE, NSETEE, &
+      NXOCEE, NOCTAB, NSEDEE, NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE
+   PUBLIC :: total_no_elements, total_no_links, top_cell_no, szmonte, ran2monte1, ran2monte2, pcmonte, montec
+   PUBLIC :: DIRQQ, filnam, cnam, rootdir, hdf5filename, visualisation_plan_filename, visualisation_check_filename
+   PUBLIC :: UZNOW, cellarea, DXQQ, DYQQ, ZGRUND
+   PUBLIC :: ERRNEE, FFFATAL, EEERR, WWWARN, pppri, ERRC, ERRTOT, helppath, ISERROR, ISERROR2
+   PUBLIC :: marker999, imarker, izero, ione, izero1, ione1, zero, half, one, two, three, five, vsmall, zero1, one1
+   PUBLIC :: EARRAY, text32
+   PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, i_iszero_a2, notzero, isone, notone
+   PUBLIC :: idimje, dimje
+   PUBLIC :: ERROR, ALSTOP
 
-!------------ SHE VERSION NUMBER
+   ! --------------------------------------------------------------------
+   ! System Version and Banners
+   ! --------------------------------------------------------------------
+   DOUBLEPRECISION, PARAMETER :: SHEVER = 4.5 !! SHETRAN version number (Major.Minor format).
+   LOGICAL, PARAMETER :: BDEVER = .TRUE. !! Development version flag. `.TRUE.` for development, `.FALSE.` for release.
+   CHARACTER(*), PARAMETER :: BANNER = 'SHETRAN Version 4.5 for PC - incorporating SHEGRAPH Version 2' !! Banner for local implementation.
+   CHARACTER(*), PARAMETER :: RUNFIL = 'rundata_' !! Base filename for run data files.
 
-!     (MUST BE IN FORMAT XX.Y WHERE XX = MAJOR PART OF VERSION NUMBER,
-!                                    Y = MINOR PART )
-   DOUBLEPRECISION, PARAMETER :: SHEVER=4.5
-!
-!------------ DEVELOPMENT VERSION FLAG
+   ! --------------------------------------------------------------------
+   ! Array Dimensions and Sizing Parameters
+   ! --------------------------------------------------------------------
+   ! Default 'large' settings. Alternative configurations for specific
+   ! catchments are provided below in commented blocks.
+   INTEGER, PARAMETER :: nxee = 250 !! Max grid points in x-direction.
+   INTEGER, PARAMETER :: nyee = 250 !! Max grid points in y-direction.
+   INTEGER, PARAMETER :: nlfee = 10000 !! Max number of river links.
+   INTEGER, PARAMETER :: nelee = 30000 !! Max number of grid elements.
+   INTEGER, PARAMETER :: LLEE = 50 !! Max grid points in vertical direction plus one.
+   !
+   ! Alternative settings for sv4 large
+   ! INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000
+   !
+   ! Alternative settings for Dunsop200
+   ! INTEGER, PARAMETER :: nxee=35, nyee=40, nlfee=240, nelee=900
+   !
+   ! Alternative settings for Cobres
+   ! INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=132, NELEE=320
+   ! INTEGER, PARAMETER :: LLEE=50
+   !
+   ! Alternative settings for Slapton
+   ! INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=40, NELEE=800
 
-!     SET TO .TRUE. FOR DEVELOPMENT VERSION OF CODE
-!     SET TO .FALSE. FOR FINAL STATIC VERSION
-   LOGICAL, PARAMETER :: BDEVER=.TRUE.
+   INTEGER, PARAMETER :: NVEE = 30000 !! Max number of vegetation types.
+   INTEGER, PARAMETER :: NSEE = 1000 !! Max number of soil types.
+   INTEGER, PARAMETER :: NVSEE = 20 !! Max number of tables for VSS component.
+   INTEGER, PARAMETER :: NVBP = 140 !! Max number of time-varying vegetation breakpoints.
+   INTEGER, PARAMETER :: NUZTAB = 20 !! Max table entries for ET component (PSI/RCF/FET).
+   INTEGER, PARAMETER :: NLYREE = 20 !! Max number of soil layers plus one.
+   INTEGER, PARAMETER :: NSETEE = 45 !! Max number of output sets for binary results file.
+   INTEGER, PARAMETER :: NXOCEE = 500 !! Max number of elements (grids, banks, links) in a row.
+   INTEGER, PARAMETER :: NOCTAB = 20 !! Max categories for OC tables (roughness, x-section, boundaries).
+   INTEGER, PARAMETER :: NSEDEE = 7 !! Max number of sediment size fractions.
+   INTEGER, PARAMETER :: NCONEE = 3 !! Max number of contaminants.
+   INTEGER, PARAMETER :: NOLEE = 2 * LLEE !! Max number of overlaps for contaminant calculations.
+   INTEGER, PARAMETER :: NPLTEE = NVEE !! Max plants in an element (for contaminants).
+   INTEGER, PARAMETER :: NPELEE = 2 !! Total number of plants (for contaminants).
+   INTEGER, PARAMETER :: max_no_snowmelt_slugs = 400 !! Max number of snowmelt slugs.
+   INTEGER, PARAMETER :: NXSCEE = 100000 !! Legacy parameter, usage to be reviewed.
 
-!------------ BANNER HEADER
-!     Description of local implementation: software, architecture, date
-   CHARACTER(*), PARAMETER ::BANNER='SHETRAN Version 4.5 for PC - incorporating SHEGRAPH Version 2'
+   ! --------------------------------------------------------------------
+   ! Global Variables
+   ! --------------------------------------------------------------------
+   INTEGER :: total_no_elements = -1 !! Actual number of elements in the simulation.
+   INTEGER :: total_no_links = -1 !! Actual number of links in the simulation.
+   INTEGER :: top_cell_no = -1 !! Index of the top-most cell.
+   INTEGER :: szmonte = -1, ran2monte1 = -1, ran2monte2 = -1, pcmonte = -1 !! Monte Carlo simulation parameters.
+   INTEGER(1), DIMENSION(:, :), ALLOCATABLE :: montec !! Monte Carlo data array.
+   CHARACTER(256) :: DIRQQ, filnam, cnam, rootdir !! Directory and file path variables.
+   CHARACTER(256) :: hdf5filename, visualisation_plan_filename, visualisation_check_filename !! Filenames for I/O.
+   DOUBLEPRECISION :: UZNOW !! Current simulation time in hours.
+   DOUBLEPRECISION, DIMENSION(nelee) :: cellarea !! Area of each grid cell [m^2].
+   DOUBLEPRECISION, DIMENSION(nelee) :: DXQQ !! Length of cell face in x-direction [m].
+   DOUBLEPRECISION, DIMENSION(nelee) :: DYQQ !! Length of cell face in y-direction [m].
+   DOUBLEPRECISION, DIMENSION(nelee) :: ZGRUND !! Ground surface elevation of each cell [m].
+   ! --------------------------------------------------------------------
+   ! Error Handling Constants and Variables
+   ! --------------------------------------------------------------------
+   INTEGER, PARAMETER :: ERRNEE = 100 !! Max number of distinct error codes per module.
+   INTEGER, PARAMETER :: FFFATAL = 1 !! Error type for fatal errors.
+   INTEGER, PARAMETER :: EEERR = 2 !! Error type for non-fatal errors.
+   INTEGER, PARAMETER :: WWWARN = 3 !! Error type for warnings.
+   INTEGER, PARAMETER :: pppri = 23 !! File unit for primary output.
+   INTEGER :: ERRC(0:ERRNEE, 0:3) = 0 !! Counters for error occurrences.
+   INTEGER :: ERRTOT = 0 !! Total count of all errors and warnings.
+   CHARACTER(128) :: helppath !! Path to help message files.
+   LOGICAL :: ISERROR !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
+   LOGICAL :: ISERROR2 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
 
-!------------ RUNDATA FILENAME (THE CATCHMENT NAME ENTERED AT THE START
-!     OF A SIMULATION RUN IS APPENDED TO THIS FILENAME)
-   CHARACTER(*), PARAMETER :: RUNFIL='rundata_'
+   ! --------------------------------------------------------------------
+   ! Mathematical and Numerical Constants
+   ! --------------------------------------------------------------------
+   DOUBLEPRECISION, PARAMETER :: marker999 = 999999.9D0 !! A large marker value to indicate missing or invalid data.
+   INTEGER, PARAMETER :: imarker = INT(marker999) !! Integer version of the marker value.
+   INTEGER, PARAMETER :: izero = 0, ione = 1 !! Basic integer constants.
+   INTEGER, PARAMETER, DIMENSION(1) :: izero1 = [0], ione1 = [1] !! Single-element array versions of integer constants.
+   DOUBLEPRECISION, PARAMETER :: zero = 0.0d0 !! Double precision zero.
+   DOUBLEPRECISION, PARAMETER :: half = 0.5d0 !! Double precision one-half.
+   DOUBLEPRECISION, PARAMETER :: one = 1.0d0 !! Double precision one.
+   DOUBLEPRECISION, PARAMETER :: two = 2.0d0 !! Double precision two.
+   DOUBLEPRECISION, PARAMETER :: three = 3.0d0 !! Double precision three.
+   DOUBLEPRECISION, PARAMETER :: five = 5.0d0 !! Double precision five.
+   DOUBLEPRECISION, PARAMETER :: vsmall = 1.0d-20 !! A very small value used for floating-point comparisons (tolerance).
+   DOUBLEPRECISION, PARAMETER, DIMENSION(1) :: zero1 = [0.0d0], one1 = [1.0d0] !! Single-element array versions of double precision constants.
 
-!------------ ARRAY SIZES (must be greater than zero!)
+   ! --------------------------------------------------------------------
+   ! Miscellaneous Global Variables
+   ! --------------------------------------------------------------------
+   DOUBLEPRECISION :: EARRAY(1) !! A temporary array for passing values to the ERROR subroutine.
+   CHARACTER(32) :: text32 !! A temporary 32-character string variable.
 
-! --- Grid points in x,y directions, river links, total no of elements
-!16 Sep 94  NB  INFR references elements LCODEX(NX+1) and LCODEY(NY+1)!
-!30 Sep 94  NB  NELEE is also used as size of workspace arrays.
-!Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
-   !INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000  !sv4 large
-   INTEGER, PARAMETER :: nxee=250, nyee=250, nlfee=10000, nelee=30000  !sv4 large
-   !INTEGER, PARAMETER :: nxee=35, nyee=40, nlfee=240, nelee=900  !Dunsop200
-   !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=132, NELEE=320  !Cobres
-   !INTEGER, PARAMETER :: NXEE=12, NYEE=12, NLFEE=4, NELEE=30
-   !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=40, NELEE=800  !slapton
-   INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
-      ran2monte1=-1, ran2monte2=-1, pcmonte=-1
-   INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec
-
-! --- GRID POINTS IN VERTICAL PLUS ONE
-   !INTEGER, PARAMETER :: LLEE=50
-   INTEGER, PARAMETER :: LLEE=50  !Cobres
-
-! --- VEGETATION TYPES, SOIL TYPES
-   INTEGER, PARAMETER :: NVEE=30000, NSEE=1000
-
-! --- TABLES USED IN VSS COMPONENT
-   INTEGER, PARAMETER :: NVSEE=20
-
-! --- TIME VARYING VEG BREAKPOINTS
-   INTEGER, PARAMETER  :: NVBP=140
-
-! --- TABLES USED IN ET COMPONENT (MAX. NO. OF PSI/RCF/FET VALUES)
-   INTEGER, PARAMETER :: NUZTAB=20
-
-! --- MAXIMUM NUMBER OF SOIL LAYERS + 1
-   INTEGER, PARAMETER :: NLYREE=20
-
-! --- OUTPUT SETS (FOR 'RES' FILE OUTPUT)
-   INTEGER, PARAMETER :: NSETEE=45
-
-! --- MAXIMUM NUMBER OF ELEMENTS (GRIDS, BANKS AND LINKS) IN A ROW
-   INTEGER, PARAMETER :: NXOCEE=500
-
-! --- TABLES USED IN OC COMPONENT (MAX. OF NO. OF ROUGHNESS CATEGORIES,
-!      NO. OF CHANNEL X-SECTION CATEGORIES, NO. OF OC BOUNDARY ELEMENTS)
-   INTEGER, PARAMETER :: NOCTAB=20
-
-! --- SEDIMENT SIZE FRACTIONS
-   INTEGER, PARAMETER :: NSEDEE=7
-
-! --- NUMBER OF CONTAMINANTS, NUMBER OF OVERLAPS
-   INTEGER, PARAMETER :: NCONEE=3, NOLEE=2*LLEE
-
-! --- NO. OF PLANTS IN AN ELEMENT, TOTAL NO. OF PLANTS, FOR CONTAMINANTS
-   INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
-
-   INTEGER, PARAMETER :: max_no_snowmelt_slugs=400
-
-   CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
-   CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
-
-
-!      INTEGER, PARAMETER :: NXSCEE=100000
-   INTEGER, PARAMETER :: NXSCEE=100000
-!END MODULE AL_P
-   INTEGER, PARAMETER :: ERRNEE = 100
-   INTEGER, PARAMETER ::   FFFATAL = 1, &
-      EEERR = 2, &
-      WWWARN = 3, &
-      pppri  = 23
-   DOUBLEPRECISION :: UZNOW
-   DOUBLEPRECISION, PARAMETER :: marker999=999999.9D0
-   INTEGER, PARAMETER         :: izero=0, izero1(1)=0, ione=1, ione1(1)=1, imarker=INT(marker999)
-   DOUBLEPRECISION, PARAMETER :: zero=0.0d0, zero1(1)=0.0d0, half=0.5d0, one=1.0d0, one1(1)=1.0d0, &
-      two=2.0d0, three=3.0d0, five=5.0d0, vsmall=1.0d-20
-   DOUBLEPRECISION EARRAY(1)
-   INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
-   CHARACTER(128)     :: helppath
-   LOGICAL :: ISERROR
-   LOGICAL :: ISERROR2
-
-   DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
-      DXQQ, DYQQ, &  !face lengths
-      ZGRUND         !surface elevation
-
-   CHARACTER(32) :: text32
-!PRIVATE
-!PUBLIC :: izero, izero1, ione, ione1, zero, zero1, half, one, one1, two, three, five, marker999, &
-!          IDIMJE, DIMJE, &
-!          ISZERO, ISZERO_A, LTZERO, LEZERO, GEZERO, GTZERO, NOTZERO, ISONE, NOTONE, &
-!          EQMARKER, I_ISZERO_A2, fatal, err, warn, pri, &
-!          ERROR, ERRC, ERRNEE, HELPPATH, ERRTOT, UZNOW, &
-!          cellarea, DXQQ, DYQQ, ZGRUND
 CONTAINS
 
 
-!SSSSSS LOGICAL FUNCTION eqmarker
-   LOGICAL FUNCTION eqmarker(a) !needed for ad
-      DOUBLEPRECISION, INTENT(IN) :: a
+   !> summary: Checks if a double precision value is equal to the global marker.
+   !>
+   !> Compares the input value against the integer representation of `marker999`.
+   LOGICAL FUNCTION eqmarker(a)
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       eqmarker = INT(a)==imarker
    END FUNCTION eqmarker
 
-!SSSSSS LOGICAL FUNCTION gtzero
+   !> summary: Checks if a double precision value is greater than zero.
    LOGICAL FUNCTION gtzero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       gtzero = a>zero
    END FUNCTION gtzero
 
-!SSSSSS LOGICAL FUNCTION gezero
+   !> summary: Checks if a double precision value is greater than or equal to zero.
+   !>
+   !> Uses `iszero` to handle floating-point comparisons near zero.
    LOGICAL FUNCTION gezero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
-!r = a>=zero
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       gezero = ISZERO(a) .OR. a>zero
    END FUNCTION gezero
 
-!SSSSSS LOGICAL FUNCTION ltzero
+   !> summary: Checks if a double precision value is less than zero.
    LOGICAL FUNCTION ltzero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       ltzero = a<zero
    END FUNCTION ltzero
 
-!SSSSSS LOGICAL FUNCTION lezero
+   !> summary: Checks if a double precision value is less than or equal to zero.
+   !>
+   !> Uses `iszero` to handle floating-point comparisons near zero.
    LOGICAL FUNCTION lezero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
-!r = a<=zero
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       lezero = ISZERO(a) .OR. a<zero
    END FUNCTION lezero
 
-!SSSSSS LOGICAL FUNCTION iszero
+   !> summary: Checks if a double precision value is effectively zero.
+   !>
+   !> Compares the absolute value of the input against a small tolerance (`vsmall`).
    LOGICAL FUNCTION iszero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
-!r = a==zero
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       iszero = ABS(a)<vsmall
    END FUNCTION iszero
 
-!SSSSSS LOGICAL FUNCTION iszero_a
+   !> summary: Checks if all elements in a 1D double precision array are zero.
    LOGICAL FUNCTION iszero_a(a)
       INTEGER :: i
-      DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a
+      DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a !! The array to check.
       iszero_a=.TRUE.
       DO i=1,SIZE(a)
          IF(.NOT.iszero_a) CYCLE     !FOR AD
@@ -210,10 +209,10 @@ CONTAINS
       ENDDO
    END FUNCTION iszero_a
 
-!SSSSSS LOGICAL FUNCTION i_iszero_a2
+   !> summary: Checks if all elements in a 2D integer array are zero.
    LOGICAL FUNCTION i_iszero_a2(a)
       INTEGER                             :: i, j
-      INTEGER, DIMENSION(:,:), INTENT(IN) :: a
+      INTEGER, DIMENSION(:,:), INTENT(IN) :: a !! The 2D array to check.
       i_iszero_a2=.TRUE.
       DO i=1,SIZE(a, DIM=1)
          DO j=1,SIZE(a, DIM=2)
@@ -224,31 +223,31 @@ CONTAINS
    END FUNCTION i_iszero_a2
 
 
-!SSSSSS LOGICAL FUNCTION notzero
+   !> summary: Checks if a double precision value is not zero.
    LOGICAL FUNCTION notzero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
-!r = a/=zero
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       notzero = .NOT.ISZERO(a)
    END FUNCTION notzero
 
-!SSSSSS LOGICAL FUNCTION isone
+   !> summary: Checks if a double precision value is effectively one.
+   !>
+   !> Compares the value against one using a small tolerance (`vsmall`).
    LOGICAL FUNCTION isone(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
-!r = a==one
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       isone = ABS(a-one)<vsmall
    END FUNCTION isone
 
-!SSSSSS LOGICAL FUNCTION notone
+   !> summary: Checks if a double precision value is not one.
    LOGICAL FUNCTION notone(a)
-      DOUBLEPRECISION, INTENT(IN) :: a
-!r = a/=one
+      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       notone = .NOT.ISONE(a)
    END FUNCTION notone
 
 
-!FFFFFF INTEGER FUNCTION IDIMJE(a,b)
-   INTEGER FUNCTION idimje(x,y)  !AD PROBLEM
-      INTEGER, INTENT(IN) :: x, y
+   !> summary: Integer positive difference function (equivalent to `MAX(x-y, 0)`).
+   INTEGER FUNCTION idimje(x,y)
+      INTEGER, INTENT(IN) :: x !! The first integer.
+      INTEGER, INTENT(IN) :: y !! The second integer.
       IF(x>y) THEN
          idimje = x-y
       ELSE
@@ -256,9 +255,10 @@ CONTAINS
       ENDIF
    END FUNCTION idimje
 
-!FFFFFF DOUBLEPRECISION FUNCTION dimje(a,b)
-   DOUBLEPRECISION FUNCTION dimje(x,y) !AD PROBLEM
-      DOUBLEPRECISION, INTENT(IN) :: x, y
+   !> summary: Double precision positive difference function (equivalent to `MAX(x-y, 0.0)`).
+   DOUBLEPRECISION FUNCTION dimje(x,y)
+      DOUBLEPRECISION, INTENT(IN) :: x !! The first value.
+      DOUBLEPRECISION, INTENT(IN) :: y !! The second value.
       IF(x>y) THEN
          dimje = x-y
       ELSE
@@ -266,41 +266,32 @@ CONTAINS
       ENDIF
    END FUNCTION dimje
 
-!SSSSSS SUBROUTINE ERROR
+   !> summary: Prints an error message, updates error counters, and optionally stops the program.
+   !> author: R. A. Heath, Newcastle University
+   !>
+   !> This is the central error handling routine for SHETRAN. It formats and
+   !> prints error messages, maintains a count of different errors, and can
+   !> terminate the simulation for fatal errors. It can also print a summary
+   !> of all recorded errors and associated help messages.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:----:|:------:|-------------|
+   !> | 1994-10-08 | RAH | v3.4.1: Created from v3.4. replace common counter arrays with local ERRC; extend ERRNUM range below 1000; introduce ETYPE=0; print IEL, CELL only if non-zero; print help files along with final asummary; declare everything; no INTEGER*2; test subscript ranges; tidy comments; call ALSTOP to stop; use local IFATAL etc instead of common FATAL etc; 1024 no longer uses EARRAY. |
+   !> | 1997-08-04 | RAH | v4.1: Use EARRAY for error 1024. |
+   !> | 1997-08-11 | RAH | Added EXTERNAL after INCLUDE. |
    SUBROUTINE ERROR (ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
-!""USE DFLIB, ONLY:FULLPATHQQ, GETDRIVEDIRQQ, GETCHARQQ
-!----------------------------------------------------------------------*
-!
-! Print a message or error asummary (and optionally stop the program)
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR72
-!  Module:  AL        Program:  SHETRAN
-! Modifications:
-!  RAH  08.10.94  Version 3.4.1 by AB/RAH from version 3.4:
-!                  replace common counter arrays with local ERRC;
-!                  extend ERRNUM range below 1000; introduce ETYPE=0;
-!                  print IEL, CELL only if non-zero; print help files
-!                  along with final asummary; declare everything;
-!                  no INTEGER*2; test subscript ranges; tidy comments;
-!                  call ALSTOP to stop; use local IFATAL etc instead
-!                  of common FATAL etc; 1024 no longer uses EARRAY.
-! RAH  970804  4.1  (Use EARRAY for 1024.)
-! RAH  970811       (EXTERNAL after INCLUDE.)
 !----------------------------------------------------------------------*
 ! Commons and constants
       IMPLICIT NONE
-! Imported constants
-!   AL.P : SHEVER
-! Input common
-!   AL.C : UZNOW, EARRAY(1)
-! Input arguments
-      INTEGER :: ERRNUM
-      INTEGER :: ETYPE, OUT, IEL, CELL
+      INTEGER, INTENT(IN) :: ETYPE !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
+      INTEGER, INTENT(IN) :: ERRNUM !! The unique error number code.
+      INTEGER, INTENT(IN) :: OUT !! The output file unit for the message.
+      INTEGER, INTENT(IN) :: IEL !! The element number where the error occurred (optional).
+      INTEGER, INTENT(IN) :: CELL !! The cell number where the error occurred (optional).
+      CHARACTER (LEN=*), INTENT(IN) :: TEXT !! The descriptive error text.
 
-      CHARACTER (LEN=*) :: TEXT
-! Locals, etc
       INTEGER :: NONE, ERRCEE, HLP
       PARAMETER (NONE = 0, ERRCEE = (1 + ERRNEE) * 4)
       PARAMETER (HLP = 8)
@@ -315,7 +306,7 @@ CONTAINS
 
       DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /
 !----------------------------------------------------------------------*
-      INTEGER :: helpcheck
+      INTEGER :: helpcheck !! Status from checking for help directory.
       CHARACTER :: cc
       character, parameter :: slash='/'
 
@@ -462,33 +453,24 @@ CONTAINS
 !*
    END SUBROUTINE ERROR
 
-!SSSSSS SUBROUTINE ALSTOP (FLAG)
+   !> summary: Performs system-level tasks and terminates the program.
+   !> author: R. A. Heath, Newcastle University
+   !>
+   !> This subroutine is called to stop the program, typically after a fatal
+   !> error. It provides a final message to the user before termination.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:----:|:------:|-------------|
+   !> | 1994-09-17 | RAH | v3.4.1: File created. |
+   !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
    SUBROUTINE ALSTOP (FLAG)
-!
-!----------------------------------------------------------------------*
-!
-! Perform any system-level tasks and terminate the program.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1 (sol/sun)    Notes:  SSR80
-!  Module:  AL               Program:  SHETRAN
-! Modifications:
-!  RAH  30.09.94  Version 3.4.1.  File created 17.09.94.
-!  SB 7/3/00 Version 4g-pc remove ieee calls
-!----------------------------------------------------------------------*
-!
-! Input arguments
-      INTEGER :: FLAG
-!
-!
-!      CALL IEEE_FLAGS( 'clear', 'exception', 'all', OUT )
-!
+      INTEGER, INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
+
       IF (FLAG.GT.0) THEN
          WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
          READ(*,*)
          STOP 'Program terminating due to fatal error'
       ENDIF
-!!!STOP
-!
    END SUBROUTINE ALSTOP
 END MODULE sglobal
