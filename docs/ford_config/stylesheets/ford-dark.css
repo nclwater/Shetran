@@ -1,0 +1,761 @@
+/* FORD Dark Mode CSS */
+/* Custom dark theme for FORD documentation */
+
+:root {
+    /* Monokai-inspired color palette */
+    --bg-primary: #272822;
+
+    /* Tables */
+    table,
+    .table {
+        background-color: var(--bg-secondary) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border) !important;
+    }
+
+    table th,
+    .table th,
+    table thead th,
+    .table thead th {
+        background-color: var(--bg-tertiary) !important;
+        border-color: var(--border) !important;
+        color: var(--text-primary) !important;
+    }
+
+    table td,
+    .table td,
+    table tbody td,
+    .table tbody td {
+        background-color: var(--bg-secondary) !important;
+        border-color: var(--border) !important;
+        color: var(--text-primary) !important;
+    }
+
+    .table-striped>tbody>tr:nth-of-type(odd),
+    table tbody tr:nth-of-type(odd) {
+        background-color: var(--table-stripe) !important;
+    }
+
+    .table-striped>tbody>tr:nth-of-type(even),
+    table tbody tr:nth-of-type(even) {
+        background-color: var(--bg-secondary) !important;
+    }
+
+    /* Force table backgrounds */
+    table tbody,
+    table thead,
+    table tfoot {
+        background-color: inherit !important;
+    }
+
+    /* Monokai background */
+    --bg-secondary: #3e3d32;
+    /* Darker variant */
+    --bg-tertiary: #49483e;
+    /* Lighter variant */
+    --text-primary: #f8f8f2;
+    /* Monokai foreground */
+    --text-secondary: #75715e;
+    /* Monokai comment */
+    --text-muted: #66d9ef;
+    /* Monokai blue */
+    --accent: #a6e22e;
+    /* Monokai green */
+    --accent-hover: #f92672;
+    /* Monokai pink */
+    --border: #49483e;
+    --code-bg: #1e1f1c;
+    /* Darker than main bg */
+    --table-stripe: #383933;
+    /* Slightly lighter than secondary */
+
+    /* Special box colors */
+    --warning-bg: #f39c12;
+    /* Orange for warnings */
+    --warning-text: #2c3e50;
+    --note-bg: #3498db;
+    /* Blue for notes */
+    --note-text: #ecf0f1;
+    --todo-bg: #e74c3c;
+    /* Red for todos */
+    --todo-text: #ecf0f1;
+    --history-bg: #9b59b6;
+    /* Purple for history */
+    --history-text: #ecf0f1;
+    --info-bg: #1abc9c;
+    /* Teal for info */
+    --info-text: #ecf0f1;
+}
+
+/* Main page background */
+body,
+html {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* All main content containers */
+.container,
+.container-fluid,
+.main-content,
+.content,
+main,
+#content,
+.wrapper {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Main page content area */
+.row,
+.col-md-9,
+.col-md-12,
+.col-lg-9,
+.col-lg-12,
+.col-sm-9,
+.col-sm-12 {
+    background-color: var(--bg-primary) !important;
+}
+
+/* Main landing page jumbotron - make it visually distinct */
+.jumbotron,
+.hero,
+.landing-header,
+.page-header,
+.masthead,
+.header-content,
+#jumbotron {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    padding: 30px !important;
+    margin-bottom: 20px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Specifically override Bootstrap's bg-light class on main page */
+.bg-light {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Developer info box and similar elements */
+.alert,
+.alert-info,
+.info-box,
+.developer-info {
+    background-color: var(--info-bg) !important;
+    border-color: var(--border) !important;
+    color: var(--info-text) !important;
+    border-left: 4px solid var(--info-bg) !important;
+    padding: 15px !important;
+    margin: 10px 0 !important;
+}
+
+/* Specific box types with distinct colors */
+.alert-warning,
+.warning,
+[class*="warning"] {
+    background-color: var(--warning-bg) !important;
+    color: var(--warning-text) !important;
+    border-left: 4px solid var(--warning-bg) !important;
+}
+
+.alert-info,
+.note,
+[class*="note"] {
+    background-color: var(--note-bg) !important;
+    color: var(--note-text) !important;
+    border-left: 4px solid var(--note-bg) !important;
+}
+
+.alert-danger,
+.todo,
+[class*="todo"] {
+    background-color: var(--todo-bg) !important;
+    color: var(--todo-text) !important;
+    border-left: 4px solid var(--todo-bg) !important;
+}
+
+.history,
+[class*="history"] {
+    background-color: var(--history-bg) !important;
+    color: var(--history-text) !important;
+    border-left: 4px solid var(--history-bg) !important;
+}
+
+/* FORD-specific documentation boxes */
+blockquote {
+    background-color: var(--bg-secondary) !important;
+    border-left: 4px solid var(--accent) !important;
+    color: var(--text-primary) !important;
+    padding: 15px !important;
+    margin: 15px 0 !important;
+}
+
+/* Code documentation boxes */
+.codehilite,
+.highlight {
+    background-color: var(--code-bg) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px !important;
+    padding: 15px !important;
+    margin: 10px 0 !important;
+}
+
+/* All card-like elements */
+.card,
+.box,
+.section {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Collapsible card headers */
+.card-header,
+.card-header.bg-primary {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Collapsible card content areas */
+.collapse .list-group,
+.collapse .list-group-flush {
+    background-color: var(--bg-secondary) !important;
+}
+
+/* List group items in collapsible cards */
+.card .list-group-item {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+.card .list-group-item:hover {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--accent) !important;
+}
+
+/* Header and navigation */
+.navbar,
+.navbar-default,
+.navbar-inverse,
+.navbar-fixed-top {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    border-radius: 0 0 8px 8px !important;
+    padding: 12px 0 !important;
+    margin-bottom: 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Search box improvements */
+.navbar .form-control,
+.navbar input[type="text"],
+.navbar input[type="search"] {
+    height: 35px !important;
+    margin: 4px 0 !important;
+    border-radius: 6px !important;
+}
+
+/* Navbar brand styling */
+.navbar-brand {
+    color: var(--accent) !important;
+    font-weight: bold !important;
+}
+
+.navbar-brand:hover {
+    color: var(--accent-hover) !important;
+}
+
+/* Navbar navigation links */
+.navbar-nav>li>a,
+.nav-link {
+    color: var(--text-primary) !important;
+    padding: 8px 15px !important;
+    border-radius: 4px !important;
+    margin: 0 2px !important;
+}
+
+.navbar-nav>li>a:hover,
+.navbar-nav>li>a:focus,
+.nav-link:hover,
+.nav-link:focus {
+    color: var(--accent-hover) !important;
+    background-color: var(--bg-tertiary) !important;
+}
+
+/* Sidebar and navigation elements */
+.sidebar,
+.affix,
+.nav-sidebar {
+    background-color: var(--bg-secondary) !important;
+}
+
+.nav>li>a {
+    color: var(--text-primary) !important;
+}
+
+.nav>li>a:hover,
+.nav>li>a:focus {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--accent-hover) !important;
+}
+
+/* Panels and wells */
+.panel,
+.well {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+.panel-heading {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Tables */
+table {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+table th {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+table td {
+    border-color: var(--border) !important;
+    color: var(--text-primary) !important;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd) {
+    background-color: var(--table-stripe) !important;
+}
+
+/* Code blocks and pre */
+pre,
+code {
+    background-color: var(--code-bg) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+
+.highlight pre {
+    background-color: var(--code-bg) !important;
+}
+
+/* Links */
+a {
+    color: var(--accent) !important;
+}
+
+a:hover,
+a:focus {
+    color: var(--accent-hover) !important;
+}
+
+/* Sidebar */
+.affix,
+.sidebar {
+    background-color: var(--bg-secondary) !important;
+}
+
+/* Search and form controls */
+.form-control,
+input[type="text"],
+input[type="search"] {
+    background-color: var(--bg-tertiary) !important;
+    border: 2px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    font-weight: bold !important;
+}
+
+.form-control:focus,
+input[type="text"]:focus,
+input[type="search"]:focus {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--accent) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(166, 226, 46, 0.25) !important;
+}
+
+.form-control::placeholder,
+input[type="text"]::placeholder,
+input[type="search"]::placeholder {
+    color: var(--text-secondary) !important;
+    opacity: 0.8;
+}
+
+/* Search box specific styling */
+#search-input,
+.search-input {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border: 2px solid var(--border) !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+}
+
+/* Buttons */
+.btn,
+.btn-default {
+    background-color: var(--bg-tertiary) !important;
+    border: 2px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    font-weight: bold !important;
+}
+
+.btn:hover,
+.btn-default:hover {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: var(--bg-primary) !important;
+}
+
+.btn-primary {
+    background-color: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: var(--bg-primary) !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover) !important;
+    border-color: var(--accent-hover) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Links with Monokai colors */
+a {
+    color: var(--accent) !important;
+    text-decoration: none !important;
+}
+
+a:hover,
+a:focus {
+    color: var(--accent-hover) !important;
+    text-decoration: underline !important;
+}
+
+/* Code elements */
+code,
+kbd,
+samp {
+    background-color: var(--code-bg) !important;
+    color: var(--accent) !important;
+    border: 1px solid var(--border) !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+}
+
+/* Module/procedure boxes */
+.media {
+    background-color: var(--bg-secondary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+/* Breadcrumbs */
+.breadcrumb {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+}
+
+.breadcrumb>li+li:before {
+    color: var(--text-muted) !important;
+}
+
+/* Footer */
+.footer {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Source code syntax highlighting - Monokai theme */
+.highlight .k,
+.highlight .kd,
+.highlight .kn,
+.highlight .kp,
+.highlight .kr,
+.highlight .kt {
+    color: #f92672;
+    /* Monokai pink for keywords */
+}
+
+.highlight .s,
+.highlight .s1,
+.highlight .s2,
+.highlight .se,
+.highlight .sh,
+.highlight .si,
+.highlight .sx {
+    color: #e6db74;
+    /* Monokai yellow for strings */
+}
+
+.highlight .c,
+.highlight .c1,
+.highlight .cm,
+.highlight .cp,
+.highlight .cs {
+    color: #75715e;
+    /* Monokai gray for comments */
+}
+
+.highlight .n,
+.highlight .na,
+.highlight .nb,
+.highlight .nc,
+.highlight .nd,
+.highlight .ne,
+.highlight .nf,
+.highlight .ni,
+.highlight .nl,
+.highlight .nn,
+.highlight .no,
+.highlight .nt,
+.highlight .nv,
+.highlight .nx,
+.highlight .py {
+    color: #f8f8f2;
+    /* Monokai white for names */
+}
+
+.highlight .o,
+.highlight .ow {
+    color: #f92672;
+    /* Monokai pink for operators */
+}
+
+.highlight .m,
+.highlight .mf,
+.highlight .mh,
+.highlight .mi,
+.highlight .mo {
+    color: #ae81ff;
+    /* Monokai purple for numbers */
+}
+
+.highlight .nb {
+    color: #66d9ef;
+    /* Monokai blue for built-ins */
+}
+
+.highlight .nf {
+    color: #a6e22e;
+    /* Monokai green for functions */
+}
+
+/* Fortran-specific syntax highlighting */
+.highlight .kc {
+    color: #ae81ff;
+}
+
+/* Constants */
+.highlight .bp {
+    color: #66d9ef;
+}
+
+/* Built-in pseudo */
+
+/* Scrollbars (Webkit) */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Additional contrast improvements */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--text-primary) !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* SVG graph styling - dark mode for dependency graphs */
+.depgraph svg,
+svg {
+    background: var(--bg-primary) !important;
+}
+
+/* Graph container backgrounds */
+.depgraph {
+    background: var(--bg-primary) !important;
+    border: none !important;
+}
+
+.depgraph>div {
+    background: var(--bg-primary) !important;
+}
+
+/* Target all possible graph containers */
+.depgraph,
+.depgraph *,
+div[class*="graph"],
+div[id*="graph"],
+.card .depgraph,
+.list-group-item .depgraph,
+li .depgraph {
+    background: var(--bg-primary) !important;
+    background-color: var(--bg-primary) !important;
+}
+
+/* Specifically target any white or light backgrounds in graph areas */
+.depgraph div,
+.depgraph span,
+.depgraph p {
+    background: var(--bg-primary) !important;
+    background-color: var(--bg-primary) !important;
+}
+
+/* Remove any borders or padding that might show light backgrounds */
+.depgraph,
+.depgraph * {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* SVG background - override white backgrounds */
+.depgraph svg>g>polygon[fill="white"],
+svg>g>polygon[fill="white"] {
+    fill: var(--bg-primary) !important;
+}
+
+/* Main graph background */
+.depgraph svg g[class="graph"]>polygon,
+svg g[class="graph"]>polygon {
+    fill: var(--bg-primary) !important;
+}
+
+/* SVG edges - make them visible in dark mode */
+.depgraph svg g.edge path,
+svg g.edge path {
+    stroke: var(--text-secondary) !important;
+}
+
+.depgraph svg g.edge polygon,
+svg g.edge polygon {
+    fill: var(--text-secondary) !important;
+    stroke: var(--text-secondary) !important;
+}
+
+/* SVG text - ensure readability with default light text */
+.depgraph svg text,
+svg text {
+    fill: var(--text-primary) !important;
+}
+
+/* Node styling by FORD's entity types with distinct dark mode colors */
+
+/* Modules - bright cyan-blue with dark text */
+.depgraph svg polygon[fill="#337ab7"],
+svg polygon[fill="#337ab7"] {
+    fill: #66d9ef !important;
+    /* cyan-blue */
+    stroke: #66d9ef !important;
+}
+
+/* Target text in module nodes - more specific selectors */
+.depgraph svg g[id*="node"] polygon[fill="#337ab7"]~text,
+svg g[id*="node"] polygon[fill="#337ab7"]~text,
+.depgraph svg g.node:has(polygon[fill="#337ab7"]) text,
+svg g.node:has(polygon[fill="#337ab7"]) text {
+    fill: #272822 !important;
+    /* dark text for light background */
+}
+
+/* Submodules - bright green with dark text */
+.depgraph svg polygon[fill="#5bc0de"],
+svg polygon[fill="#5bc0de"] {
+    fill: #a6e22e !important;
+    /* bright green */
+    stroke: #a6e22e !important;
+}
+
+.depgraph svg g[id*="node"] polygon[fill="#5bc0de"]~text,
+svg g[id*="node"] polygon[fill="#5bc0de"]~text,
+.depgraph svg g.node:has(polygon[fill="#5bc0de"]) text,
+svg g.node:has(polygon[fill="#5bc0de"]) text {
+    fill: #272822 !important;
+    /* dark text for light background */
+}
+
+/* Subroutines - coral red with light text */
+.depgraph svg polygon[fill="#d9534f"],
+svg polygon[fill="#d9534f"] {
+    fill: #f92672 !important;
+    /* bright red */
+    stroke: #f92672 !important;
+}
+
+/* Functions - purple with light text */
+.depgraph svg polygon[fill="#d94e8f"],
+svg polygon[fill="#d94e8f"] {
+    fill: #ae81ff !important;
+    /* purple */
+    stroke: #ae81ff !important;
+}
+
+/* Programs - orange with dark text */
+.depgraph svg polygon[fill="#f0ad4e"],
+svg polygon[fill="#f0ad4e"] {
+    fill: #fd971f !important;
+    /* orange */
+    stroke: #fd971f !important;
+}
+
+.depgraph svg g[id*="node"] polygon[fill="#f0ad4e"]~text,
+svg g[id*="node"] polygon[fill="#f0ad4e"]~text,
+.depgraph svg g.node:has(polygon[fill="#f0ad4e"]) text,
+svg g.node:has(polygon[fill="#f0ad4e"]) text {
+    fill: #272822 !important;
+    /* dark text for light background */
+}
+
+/* Current page entity - special highlighting with border */
+.depgraph svg polygon[fill="none"][stroke="black"],
+svg polygon[fill="none"][stroke="black"] {
+    fill: var(--bg-secondary) !important;
+    stroke: #e6db74 !important;
+    /* yellow outline */
+    stroke-width: 2 !important;
+}
+
+/* Override inline white background on the div containing the SVG graph */
+.depgraph div[style*="background-color: white"] {
+    background-color: var(--bg-secondary) !important;
+}
+
+/* Graph titles and backgrounds */
+.depgraph svg g[class="graph"]>title,
+svg g[class="graph"]>title {
+    fill: var(--text-primary) !important;
+}

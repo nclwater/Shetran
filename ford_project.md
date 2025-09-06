@@ -13,9 +13,10 @@ summary: SHETRAN is a physically-based, distributed hydrological model for simul
 graph: true
 search: true
 display: public
-         protected
          private
+         protected
 preprocess: false
+css: docs/ford_config/stylesheets/ford-dark.css
 exclude_dir: src/legacy
             src/backup
 exclude: src/util/getdirqq_winIntel.f90
