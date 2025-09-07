@@ -70,6 +70,23 @@ elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")  # Enable preprocessor
     set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g -fbacktrace -fbounds-check")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native")
+elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "LFortran")
+    # LFortran Compiler
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} --cpp")  # Enable preprocessor
+    set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g --backtrace")
+    set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
+    # Note: -mcmodel=large is not currently supported by LFortran
+
+    # # LFortran often requires its runtime library path to be specified for the linker.
+    # # Find the lfortran executable to deduce the library path.
+    # find_program(LFORTRAN_EXECUTABLE lfortran)
+    # if(LFORTRAN_EXECUTABLE)
+    #     get_filename_component(LFORTRAN_BIN_DIR ${LFORTRAN_EXECUTABLE} DIRECTORY)
+    #     # Construct the library path (often ../lib or ../lib64 relative to the binary)
+    #     set(LFORTRAN_LIB_DIR "${LFORTRAN_BIN_DIR}/../lib")
+    #     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${LFORTRAN_LIB_DIR}" CACHE STRING "Linker flags for LFortran runtime" FORCE)
+    #     message(STATUS "Adding LFortran runtime library path for linker: ${LFORTRAN_LIB_DIR}")
+    # endif()
 else()
     # This 'else' block is for compilers other than Intel or GNU
     message(WARNING "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}")
@@ -126,6 +143,15 @@ function(determine_c_compiler_for_fortran)
                     endif()
                 endif()
             endif()
+        endif()
+    elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "LFortran")
+        # For LFortran, prefer clang
+        find_program(CLANG_COMPILER clang)
+        if(CLANG_COMPILER)
+            set(CMAKE_C_COMPILER ${CLANG_COMPILER} PARENT_SCOPE)
+            message(STATUS "Using Clang as C compiler to match LFortran")
+        else()
+            message(WARNING "Clang not found for LFortran. Using system default C compiler.")
         endif()
     else()
         # For other compilers, use system default or clang
@@ -205,7 +231,7 @@ if(WIN32)
     endif()
 else()
     # Linux/Unix: Strategy depends on compiler
-    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU" AND NOT FORCE_BUILD_HDF5)
         # For gfortran on Linux: Try system first (if enabled), then download and build
         if(HDF5_USE_SYSTEM_FIRST AND NOT FORCE_BUILD_HDF5)
             find_package(HDF5 QUIET COMPONENTS Fortran HL)
@@ -282,7 +308,7 @@ else()
         endif()
     else()
         # For non-gfortran on Linux: Always download and build
-        message(STATUS "Using non-gfortran compiler on Linux. Downloading and building HDF5")
+        message(STATUS "Using ${CMAKE_Fortran_COMPILER_ID} on Linux. Downloading and building HDF5 to ensure compatibility.")
         determine_c_compiler_for_fortran()
         
         ExternalProject_Add(HDF5_external

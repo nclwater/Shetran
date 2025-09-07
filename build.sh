@@ -24,7 +24,7 @@ usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -c, --compiler COMPILER    Specify compiler: ifort, ifx, gfortran, or auto (default: auto)"
+    echo "  -c, --compiler COMPILER    Specify compiler: ifort, ifx, gfortran, lfortran, or auto (default: auto)"
     echo "  -t, --type TYPE           Build type: Debug, Release, RelWithDebInfo (default: Release)"
     echo "  -d, --build-dir DIR       Build directory (default: build/<build-type>)"
     echo "  -p, --prefix PREFIX       Installation prefix"
@@ -193,6 +193,9 @@ detect_compiler() {
         elif command -v ifx >/dev/null 2>&1; then
             COMPILER="ifx"
             log_info "Found Intel Fortran Compiler (LLVM): ifx"
+        elif command -v lfortran >/dev/null 2>&1; then
+            COMPILER="lfortran"
+            log_info "Found LFortran Compiler: lfortran"
         else
             log_error "No supported Fortran compiler found!"
             log_error "Please install one of: gfortran, ifort, or ifx"
@@ -209,6 +212,9 @@ detect_compiler() {
         elif command -v gfortran >/dev/null 2>&1; then
             COMPILER="gfortran"
             log_info "Found GNU Fortran Compiler: gfortran"
+        elif command -v lfortran >/dev/null 2>&1; then
+            COMPILER="lfortran"
+            log_info "Found LFortran Compiler: lfortran"
         else
             log_error "No supported Fortran compiler found!"
             log_error "Please install one of: ifort, ifx, or gfortran"
@@ -329,6 +335,9 @@ setup_compiler() {
             ;;
         gfortran)
             log_info "Using GNU Fortran compiler..."
+            ;;
+        lfortran)
+            log_info "Using LFortran compiler..."
             ;;
         *)
             log_error "Unsupported compiler: $COMPILER"
@@ -451,6 +460,9 @@ build_shetran() {
             ;;
         gfortran)
             CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_Fortran_COMPILER=gfortran"
+            ;;
+        lfortran)
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_Fortran_COMPILER=lfortran"
             ;;
     esac
     
