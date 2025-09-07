@@ -27,10 +27,6 @@ MODULE oc_input
 
 CONTAINS
 
-! NOTE: For this initial refactoring, I'm creating module structures
-! The complete implementation of these subroutines would need to be extracted
-! from the original OCmod.f90.sav file. These are placeholders to establish
-! the module architecture.
 
    SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
 !----------------------------------------------------------------------*

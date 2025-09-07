@@ -277,10 +277,6 @@ CONTAINS
       RETURN
    END SUBROUTINE LINKSM
 
-   ! Additional link-related subroutines would continue here...
-   ! (LINKW, LINK, SNL3, FRET)
-   ! For brevity, including stubs for the remaining subroutines
-
    !SSSSSS SUBROUTINE LINKW (NLINK)
    SUBROUTINE LINKW (NLINK)
       !----------------------------------------------------------------------*
