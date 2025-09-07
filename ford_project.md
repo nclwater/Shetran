@@ -45,23 +45,25 @@ SHETRAN provides comprehensive simulation of:
 SHETRAN has evolved through several major development phases:
 
 ### Original Development (1980s-1990s)
+
 - Developed at the Institute of Hydrology (now CEH Wallingford)
 - Initial implementation in FORTRAN 77
 - Focus on distributed hydrological modeling concepts
 
 ### Newcastle Era (2000s-2010s)
+
 - Transferred to Newcastle University Water Resources Group
 - Enhanced with sediment transport and contaminant modeling
 - Extended for larger-scale catchment applications
 
 ### Recent Modernization (2020s)
+
 - **Cross-platform compatibility**: Eliminated Windows-specific dependencies and DFWIN calls
 - **Memory management**: Improved dynamic allocation and deallocation practices
 - **Code organization**: Refactored monolithic modules into focused, maintainable components
 - **Build system**: Modern CMake-based build with automated dependency handling
 - **Standards compliance**: Migration from FORTRAN 77/90 to modern Fortran standards
 - **Documentation**: Comprehensive documentation using FORD system
-- **Performance optimization**: Enhanced computational efficiency and reduced memory footprint
 
 ## Getting Started
 
