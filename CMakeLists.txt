@@ -9,11 +9,11 @@ if(NOT WIN32)
         message(FATAL_ERROR "ZLIB not found. Please install zlib development package (e.g. zlib1g-dev or zlib-devel).")
     endif()
 
-    # Find SZIP library
-    find_library(SZIP_LIBRARY sz)
-    if(NOT SZIP_LIBRARY)
-        message(FATAL_ERROR "SZIP library not found. Please install szip development package (e.g. libsz2-dev or szip-devel).")
-    endif()
+    # # Find SZIP library
+    # find_library(SZIP_LIBRARY sz)
+    # if(NOT SZIP_LIBRARY)
+    #     message(FATAL_ERROR "SZIP library not found. Please install szip development package (e.g. libsz2-dev or szip-devel).")
+    # endif()
 endif()
 
 # Set C standard for HDF5 compatibility
