@@ -3,12 +3,13 @@ MODULE oc_input
 ! Contains OCREAD, JEOCBC, OCPLF and other input-related subroutines
 ! Extracted from OCmod.f90
 
-   USE SGLOBAL
+   USE SGLOBAL, ONLY: pppri, FFFATAL, ERROR, UZNOW, nelee, nxee, nyee, nlfee, marker999, zero, one, two, half, &
+      total_no_elements, total_no_links, ZGRUND, NOCTAB, EEERR, ISZERO, NOTZERO
    USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
       DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
       TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
    USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
-      NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
+      NOCBCD, LCODEX, LCODEY, OHB, OFB
    USE AL_G ,     ONLY : NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI, ALINIT

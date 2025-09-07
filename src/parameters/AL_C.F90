@@ -1,198 +1,221 @@
+!> summary: Defines common variables for integrated flow, sediment, and contaminant components.
+!> author: G. Parkin, R.J.L., R. A. Heath, J. Ewen (Newcastle University)
+!> date: 2004-07-01
+!>
+!> This module contains a large collection of global variables and arrays
+!> that are shared across different components of the SHETRAN model,
+!> particularly for the integrated flow, sediment, and contaminant transport
+!> simulations. It includes file unit numbers, static grid and link properties,
+!> and time-dependent simulation arrays. This module is a legacy component
+!> derived from an old `INCLUDE` file.
+!>
+!> @note The refactoring plan in `docs/reports/refactor_parameters/plan_parameter_refactor.md`
+!> outlines splitting this module into more focused ones, such as `file_units.f90`,
+!> `global_arrays.f90`, and `vegetation_arrays.f90`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:----:|:------:|-------------|
+!> | 1991-03 | GP | v3.0: Written. |
+!> | 1991-07 | GP | v3.1: Variables moved from AL.D. |
+!> | 1991-10 | GP | v3.2: Added IRRC. |
+!> | 1992-02 | RJL | v3.4: Added CMT, CMB. Moved UZNOW, TIH from AL.D. |
+!> | 1993-07 | GP | v3.4: Moved NRD from AL.D; RDF from SPEC.ET. Added ISPACK, ZOCMLN, SBERR, WBERR. |
+!> | 1994-09-30 | RAH | v3.4.1: Modernized declarations, removed INTEGER*2, standard header, added SFB, SRB. |
+!> | 1995-05-04 | GP | v4.0: Brought variables from AL.D. Added new VSS variables. Replaced CPR with CMP. Removed several variables. |
+!> | 1997-02-12 | RAH | v4.1: Retained THSAT for SY. Removed BPRNOW. |
+!> | 1997-02-13 | RAH | v4.1: Removed NVSCIT. |
+!> | 1997-02-14 | RAH | v4.1: Swapped subscripts on QVSH, DELTAZ. |
+!> | 1997-02-17 | RAH | v4.1: Swapped subscripts on JVSACN, JVSDEL, ZVSNOD, QVSV, QVSWLI, VSPSI, VSTHE. Removed QVSL. |
+!> | 1997-02-20 | RAH | v4.1: Restored history. |
+!> | 1998-03-02 | RAH | v4.2: Removed ZOCMLN, VSSTMP, FHSAT. |
+!> | 1998-03-07 | RAH | v4.2: Amended line above. |
+!> | 2004-07-01 | JE | Converted to Fortran 95. |
+!> | 2024-09-05 | Gemini | Converted documentation to FORD format. |
 MODULE AL_C
-   USE SGLOBAL, ONLY : NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
+   USE SGLOBAL, ONLY : NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, &
+      NLYREE, NSEE, top_cell_no, total_no_elements
+
    IMPLICIT NONE
-!-------------------- START OF AL.C -----------------------------------*
-!
-! Include file for common variables for integrated flow, sediment and
-!  contaminant components
-!
-!----------------------------------------------------------------------*
-! Version:  AL_C.F95/4.3
-! Modifications:
-!   GP        MAR 91    3.0     WRITTEN
-!   GP        JUL 91    3.1     VARIABLES MOVED FROM AL.D
-!   GP        OCT 91    3.2     ADDED IRRC
-!   RJL       FEB 92    3.4     ADDED CMT,CMB
-!   RJL       FEB 92    3.4     VARIABLES UZNOW,TIH MOVED FROM AL.D
-!  GP  Jul 93  3.4  Moved: NRD from AL.D; RDF from SPEC.ET.
-!                   Added: ISPACK,ZOCMLN,SBERR,WBERR.
-! RAH  30.09.94  Version 3.4.1 by AB/RAH from version 3.4:
-!                 declare all variables; no INTEGER*2; tidy comments;
-!                 standard header; reposition /IVEG/, /VEG/ & /SNOW/;
-!                 move amendment history to separate file;
-!                 add SFB, SRB to /CFILE/; reduce EARRAY size to 1.
-!  GP  950504  4.0  Bring from AL.D: BEXBK (for VSS,MUZ), and ESOILA,
-!                   NBFACE,PRI,QH,UZNEXT,WLD (for VSS).
-!                   New VSS variables & arrays: VS*,LFB,LHB,LGB,BFB,BHB,
-!                   JVS*,NVSSPC,NVSSPT,NVSWLI,NVSWLT,NVSCIT,DELTAZ,ZVS*,
-!                   QVS*.  Replace CPR with CMP.  TIH is static.
-!                   Remove DCONX,DCONY (EX,SZ,MUZ), DDZ (FR,ET,SZ,UZ,
-!                   MUZ), HSZ (FR,BK,EX,SZ,UZ,MUZ), IRRC (FR,ET,SZ,MOC),
-!                   NWC (SZ,MUZ), QHSZ (FR,EX,SZ,MUZ), RSZAQ (FR,SZ,MUZ)
-!                   RSZWEL (FR,ET,SZ,MUZ), TH3 (FR,ET,UZ,MOC,MUZ), THSAT
-!                   (UZ,SY,MUZ) and VUZ (MUZ).
-! RAH  970212  4.1  Retain THSAT for SY.  Remove BPRNOW (redundant).
-!      970213       Remove NVSCIT (see VSSIM).
-!      970214       Swap subscripts: QVSH (BALWAT,FRRESP,VSMB,VSSIM,
-!                   LINKW,COLMW,INCM), DELTAZ (BALWAT,FRRESC,MB,ET,ETIN,
-!                   VSCONC,VSIN,VSMB,VSSIM,LINKW,COLMW,INCM).
-!      970217       Swap subscripts: JVSACN (FRRESC,VSCONC,VSMB,VSSIM,
-!                   INCM), JVSDEL (FRRESC,VSCONC,VSSIM,INCM), ZVSNOD
-!                   (FRRESC,VSCONC,VSIN,VSSIM,COLMW,INCM), QVSV (FRRESP,
-!                   MB,VSMB,VSSIM,COLMW,INCM), QVSWLI (FRRESP,VSMB,
-!                   VSSIM,COLMW), VSPSI (FRRESP,ETSIM,VSIN,VSSIM), VSTHE
-!                   (BALWAT,FRRESP,MB,VSMB,VSSIM,LINKW,COLMW,INCM).
-!                   Remove QVSL (redundant).
-!      970220       Restore history.
-! RAH  980302  4.2  Remove ZOCMLN (see OCQMLN), VSSTMP, FHSAT.
-!      980307       (Amend line above.)
-!  JE  JULY 04 ---- Convert to FORTRAN 95
-!----------------------------------------------------------------------*
 
-!
+   PRIVATE
 
-! ----- Static stuff
-!File unit numbers
-!    INTEGER :: PRI,WLD,SYD,SPR,SFB,SRB,BUG,CMD,CMP,CMT,CMB, VSD,VSI,LFB,LHB,LGB,BFB,BHB
-   INTEGER, PARAMETER :: &   !VALUES USED TO BE SET IN FRINIT
-      SFB=9876, & !NO VALUE WAS ALLOCATED TO THIS
-      SRB=9877, & !NO VALUE WAS ALLOCATED TO THIS
-!FRD = 10, &
-      VSD = 11, &
-!OCD = 12, &
-!ETD = 13, &
-!PPD = 14, &
-!SMD = 15, &
-!BKD = 16, &
-      SYD = 17, &
-      CMD = 18, &
-!MED = 19, &
-!PRD = 20, &
-!EPD = 21, &
-!TIM = 22, &
-!PRI = 23, & now in sglobal
-      SPR = 24, &
-      CMP = 25, &
-      BUG = 26, &
-!RES = 27, &
-!HOT = 28, &
-      VSI = 29, &
-!VED = 30, &
-      WLD = 31, &
-      LFB = 32, &
-      LHB = 33, &
-      LGB = 34, &
-      BFB = 35, &
-      BHB = 36, &
-!OFB = 37, &
-!OHB = 38, &
-      CMT = 39, &
-      CMB = 40
-!DIS = 41, &
-!VSE = 42, &
-!MAS = 43, &
-!dis2 = 44
+   PUBLIC :: SFB, SRB, VSD, SYD, CMD, SPR, CMP, BUG, VSI, WLD, LFB, LHB, &
+      LGB, BFB, BHB, CMT, CMB
+   PUBLIC :: TIH
+   PUBLIC :: NBFACE, NLYR, NVC, NWELBT, NWELTP, NVSWLT, NVSSPC, NVSSPT, &
+      NVSWLI, DHF, ISPACK
+   PUBLIC :: JVSACN, JVSDEL, DELTAZ, ZVSNOD
+   PUBLIC :: ICMBK, NHBED, ICMRF2, CLENTH, CWIDTH, ZBEFF, ZBFULL, FHBED, &
+      BEXBK, LINKNS
+   PUBLIC :: NV, NRD, RDL, RDF
+   PUBLIC :: NS, THSAT, VSPOR
+   PUBLIC :: NLYRBT, NTSOIL, ZLYRBT
+   PUBLIC :: IDUM, ISORT, NHSAT, DRAINA, DUMMY, ESOILA, EEVAP, PNETTO, QH, &
+      WBERR, ZVSPSL, QVSBF, QVSSPR, QVSWEL, QOC
+   PUBLIC :: QVSV, VSPSI, VSTHE, QVSWLI, ERUZ, QVSH
+   PUBLIC :: ARXL, QBKB, QBKF, QBKI
+   PUBLIC :: CLAI, PLAI
+   PUBLIC :: SBERR
+   PUBLIC :: DTUZ, UZNEXT
+   PUBLIC :: initialise_al_c
 
-!????????????
-   DOUBLEPRECISION TIH
-
-!2D PLAN(NELEE)
-   INTEGER, DIMENSION(NELEE)   :: NBFACE,     &  !no. of boundary face
-      NLYR,       &  !no. of layers
-      NVC,        &  !vegetation category for each element
-      NWELBT, NWELTP, NVSWLT, & !well number bottom and top layers of screen, well categories
-      NVSSPC,     &  !spring source element ???
-      NVSSPT,     &  !Target element for water from spring VS13a
-      NVSWLI    !well element numbers
-   DOUBLEPRECISION, DIMENSION(NELEE,4) :: DHF            !distance from node to face
-   LOGICAL, DIMENSION(NELEE)   :: ISPACK         !is there a snow pack?
-
-!3D (LLEE)
-   INTEGER, DIMENSION(4,LLEE,NELEE) :: JVSACN,JVSDEL
-   DOUBLEPRECISION, DIMENSION(LLEE,NELEE)   :: DELTAZ, & !cell thickness
-      ZVSNOD    !node elevations
+   !-----------------------------------------------------------------------
+   ! File Unit Numbers
+   !-----------------------------------------------------------------------
+   ! VALUES USED TO BE SET IN FRINIT
+   INTEGER, PARAMETER :: SFB = 9876 !! Sediment flow binary output (unallocated).
+   INTEGER, PARAMETER :: SRB = 9877 !! Sediment results binary output (unallocated).
+   ! INTEGER, PARAMETER :: FRD = 10
+   INTEGER, PARAMETER :: VSD = 11 !! Vadose-saturated zone input data.
+   ! INTEGER, PARAMETER :: OCD = 12
+   ! INTEGER, PARAMETER :: ETD = 13
+   ! INTEGER, PARAMETER :: PPD = 14
+   ! INTEGER, PARAMETER :: SMD = 15
+   ! INTEGER, PARAMETER :: BKD = 16
+   INTEGER, PARAMETER :: SYD = 17 !! Sediment yield input data.
+   INTEGER, PARAMETER :: CMD = 18 !! Contaminant model input data.
+   ! INTEGER, PARAMETER :: MED = 19
+   ! INTEGER, PARAMETER :: PRD = 20
+   ! INTEGER, PARAMETER :: EPD = 21
+   ! INTEGER, PARAMETER :: TIM = 22
+   ! INTEGER, PARAMETER :: PRI = 23 is now in sglobal
+   INTEGER, PARAMETER :: SPR = 24 !! Summary print output.
+   INTEGER, PARAMETER :: CMP = 25 !! Comparison output file.
+   INTEGER, PARAMETER :: BUG = 26 !! Debug information output.
+   ! INTEGER, PARAMETER :: RES = 27
+   ! INTEGER, PARAMETER :: HOT = 28
+   INTEGER, PARAMETER :: VSI = 29 !! VS zone initialization.
+   ! INTEGER, PARAMETER :: VED = 30
+   INTEGER, PARAMETER :: WLD = 31 !! Water level data.
+   INTEGER, PARAMETER :: LFB = 32 !! Link flow binary output.
+   INTEGER, PARAMETER :: LHB = 33 !! Link head binary output.
+   INTEGER, PARAMETER :: LGB = 34 !! Link general binary output.
+   INTEGER, PARAMETER :: BFB = 35 !! Bank flow binary output.
+   INTEGER, PARAMETER :: BHB = 36 !! Bank head binary output.
+   ! INTEGER, PARAMETER :: OFB = 37
+   ! INTEGER, PARAMETER :: OHB = 38
+   INTEGER, PARAMETER :: CMT = 39 !! Contaminant text output.
+   INTEGER, PARAMETER :: CMB = 40 !! Contaminant binary output.
+   ! INTEGER, PARAMETER :: DIS = 41
+   ! INTEGER, PARAMETER :: VSE = 42
+   ! INTEGER, PARAMETER :: MAS = 43
+   ! INTEGER, PARAMETER :: dis2 = 44
 
 
-!LINK (NLFEE)
-   INTEGER,DIMENSION(NLFEE,2)  :: ICMBK, NHBED
-   INTEGER,DIMENSION(NLFEE,6)  :: ICMRF2            !for link branching
-   DOUBLEPRECISION, DIMENSION(NLFEE)   :: CLENTH, CWIDTH, & !lenghth and width of link
-      ZBEFF,ZBFULL      !elevation of bed and bank full
-   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: FHBED             !cell sizes under channel link
-   LOGICAL                     :: BEXBK             !are there banks?
-   LOGICAL, DIMENSION(NLFEE)   :: LINKNS            !does link run NS ?
+   !-----------------------------------------------------------------------
+   ! Static Grid, Link, and Component Properties
+   !-----------------------------------------------------------------------
+   DOUBLEPRECISION :: TIH !! Time in hours, usage to be reviewed.
 
-!VEGETATION (NVEE)
-   INTEGER                       :: NV  !no. of vegetation types
-   INTEGER, DIMENSION(NVEE)      :: NRD !no. of UZ cells in root zone
-   DOUBLEPRECISION, DIMENSION(NVEE)      :: RDL !proportion of roots that take water from the channel
-   DOUBLEPRECISION, DIMENSION(NVEE,LLEE) :: RDF !root density function
+   ! 2D Plan View Arrays (NELEE)
+   INTEGER, DIMENSION(NELEE) :: NBFACE !! Number of boundary faces for each element.
+   INTEGER, DIMENSION(NELEE) :: NLYR !! Number of layers in each element.
+   INTEGER, DIMENSION(NELEE) :: NVC !! Vegetation category for each element.
+   INTEGER, DIMENSION(NELEE) :: NWELBT, NWELTP, NVSWLT !! Well number bottom and top layers of screen, well categories.
+   INTEGER, DIMENSION(NELEE) :: NVSSPC !! Spring source element.
+   INTEGER, DIMENSION(NELEE) :: NVSSPT !! Target element for water from spring VS13a.
+   INTEGER, DIMENSION(NELEE) :: NVSWLI !! Well element numbers.
+   DOUBLEPRECISION, DIMENSION(NELEE,4) :: DHF !! Distance from node to face [m].
+   LOGICAL, DIMENSION(NELEE) :: ISPACK !! Flag indicating if a snow pack exists.
 
-!SOIL (NSEE)
-   INTEGER                          :: NS  !no. of soil types
-   DOUBLEPRECISION, DIMENSION(NSEE)         :: THSAT, VSPOR !saturated m/c and porosity
-!SOIL LAYERS (NLYREE)
-   INTEGER, DIMENSION(NELEE,NLYREE) :: NLYRBT, & !bottom cell no in each soil layer
-      NTSOIL    !soil type in soil layer
-   DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT    !elevatuion of bottom of soil layer
+   ! 3D Arrays (LLEE, NELEE)
+   INTEGER, DIMENSION(4,LLEE,NELEE) :: JVSACN, JVSDEL !! Indices for VSS calculations.
+   DOUBLEPRECISION, DIMENSION(LLEE,NELEE) :: DELTAZ !! Cell thickness [m].
+   DOUBLEPRECISION, DIMENSION(LLEE,NELEE) :: ZVSNOD !! Node elevations [m].
 
+   ! Link Arrays (NLFEE)
+   INTEGER, DIMENSION(NLFEE,2) :: ICMBK, NHBED !! Link-bank connection and bed data.
+   INTEGER, DIMENSION(NLFEE,6) :: ICMRF2 !! Indices for link branching.
+   DOUBLEPRECISION, DIMENSION(NLFEE) :: CLENTH, CWIDTH !! Length and width of link [m].
+   DOUBLEPRECISION, DIMENSION(NLFEE) :: ZBEFF, ZBFULL !! Elevation of bed and bank full [m].
+   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: FHBED !! Cell sizes under channel link [m].
+   LOGICAL :: BEXBK !! Flag indicating if banks exist.
+   LOGICAL, DIMENSION(NLFEE) :: LINKNS !! Flag indicating if link runs North-South.
 
+   ! Vegetation Arrays (NVEE)
+   INTEGER :: NV !! Number of vegetation types.
+   INTEGER, DIMENSION(NVEE) :: NRD !! Number of UZ cells in root zone.
+   DOUBLEPRECISION, DIMENSION(NVEE) :: RDL !! Proportion of roots that take water from the channel.
+   DOUBLEPRECISION, DIMENSION(NVEE,LLEE) :: RDF !! Root density function.
 
-!----- Time-dependent stuff
-!?????????
-   !2D PLAN(NELEE)
-   INTEGER, DIMENSION(NXEE*NYEE)   :: IDUM
-   !INTEGER, DIMENSION(NELEE)   :: IDUM,ISORT, & !
-   INTEGER, DIMENSION(NELEE)   :: ISORT, & !
-      NHSAT !not used ????
-   DOUBLEPRECISION, DIMENSION(NELEE)   :: DRAINA, & !
-      DUMMY,  & !
-      ESOILA, & !
-      EEVAP,  & !
-      PNETTO, & !
-      QH,     & !
-      WBERR,  & !
-      ZVSPSL, & !phreatic surface level?
-      QVSBF,  & !
-      QVSSPR, & !
-      QVSWEL
-   DOUBLEPRECISION, DIMENSION(NELEE,4) :: QOC  !overalnd flow through face  (inflow or outflow???)
-!3D (LLEE)
-   !DOUBLEPRECISION, DIMENSION(NELEE,LLEE)   :: ERUZ     !transpiration ??>>
-   !DOUBLEPRECISION, DIMENSION(LLEE,NELEE)   :: QVSV,  & !vertical flow
-   !                                    VSPSI, & !psi
-   !                                    VSTHE    !theta
-   !DOUBLEPRECISION, DIMENSION(4,LLEE,NELEE) :: QVSH     !cell horiziontal flow ????
-   DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE :: QVSV, VSPSI, VSTHE, QVSWLI, ERUZ
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: QVSH
+   ! Soil Arrays (NSEE, NLYREE)
+   INTEGER :: NS !! Number of soil types.
+   DOUBLEPRECISION, DIMENSION(NSEE) :: THSAT, VSPOR !! Saturated moisture content and porosity.
+   INTEGER, DIMENSION(NELEE,NLYREE) :: NLYRBT !! Bottom cell number in each soil layer.
+   INTEGER, DIMENSION(NELEE,NLYREE) :: NTSOIL !! Soil type in each soil layer.
+   DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT !! Elevation of the bottom of each soil layer [m].
 
-!LINK (NLFEE)
-   DOUBLEPRECISION, DIMENSION(NLFEE)   :: ARXL  !cross-sectional area of flow????
-   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKB, QBKF, QBKI  !bank flows
+   !-----------------------------------------------------------------------
+   ! Time-Dependent Global Arrays
+   !-----------------------------------------------------------------------
+   ! 2D Plan View Arrays (NELEE)
+   INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Dummy integer array, usage to be reviewed.
+   INTEGER, DIMENSION(NELEE) :: ISORT !! Sorting index array.
+   INTEGER, DIMENSION(NELEE) :: NHSAT !! Not used, candidate for removal.
+   DOUBLEPRECISION, DIMENSION(NELEE) :: DRAINA !! Drainage from element [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: DUMMY !! Dummy double precision array.
+   DOUBLEPRECISION, DIMENSION(NELEE) :: ESOILA !! Soil evaporation [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: EEVAP !! Evaporation from element [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: PNETTO !! Net precipitation [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: QH !! Surface water depth [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: WBERR !! Water balance error [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: ZVSPSL !! Phreatic surface level [m].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: QVSBF !! Baseflow from VSS [m^3/s].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: QVSSPR !! Spring flow from VSS [m^3/s].
+   DOUBLEPRECISION, DIMENSION(NELEE) :: QVSWEL !! Well flow from VSS [m^3/s].
+   DOUBLEPRECISION, DIMENSION(NELEE,4) :: QOC !! Overland flow through cell faces [m^3/s].
 
-!VEGETATION (NVEE)
-   DOUBLEPRECISION, DIMENSION(NVEE) :: CLAI, & !canopy leaf area index
-      PLAI    !proportion of ground cover at maximum seasonal extent
+   ! 3D Allocatable Arrays (LLEE, NELEE)
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: QVSV   !! Vertical flow rate between cells [m³/s].
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSPSI  !! Soil water potential (pressure head) in unsaturated zone [m].
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSTHE  !! Volumetric moisture content in unsaturated zone [-].
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: QVSWLI !! Vertical flow rate from wells and line sources [m³/s].
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ERUZ   !! Plant transpiration rate from unsaturated zone [m/s].
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: QVSH !! Horizontal flow rate between adjacent cells [m³/s].
 
-!SEDIMENT SIZE FRACTIONS (NSEDEE)
-   DOUBLEPRECISION, DIMENSION(NELEE,NSEDEE) :: SBERR
+   ! Link Arrays (NLFEE)
+   DOUBLEPRECISION, DIMENSION(NLFEE) :: ARXL !! Cross-sectional area of flow in link [m^2].
+   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKB !! Bank baseflow [m^3/s].
+   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKF !! Bank flow [m^3/s].
+   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKI !! Bank interflow [m^3/s].
 
-!VSS STUFF (NVSEE)
-   !DOUBLEPRECISION, DIMENSION(LLEE,NVSEE) :: QVSWLI
+   ! Vegetation Arrays (NVEE)
+   DOUBLEPRECISION, DIMENSION(NVEE) :: CLAI !! Canopy leaf area index.
+   DOUBLEPRECISION, DIMENSION(NVEE) :: PLAI !! Proportion of ground cover at maximum seasonal extent.
 
-!UZ STUFF
-   DOUBLEPRECISION DTUZ,UZNEXT
-!PRIVATE :: NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE
+   ! Sediment Arrays (NSEDEE)
+   DOUBLEPRECISION, DIMENSION(NELEE,NSEDEE) :: SBERR !! Sediment balance error.
 
+   ! Unsaturated Zone Variables
+   DOUBLEPRECISION :: DTUZ, UZNEXT !! Timestep for UZ and next UZ time.
 
 CONTAINS
 
-!SSSSSS SUBROUTINE initialise_al_c
+   !> summary: Allocates and initializes time-dependent VSS arrays.
+   !>
+   !> This subroutine allocates the main time-dependent arrays used in the
+   !> vadose-saturated-surface (VSS) flow calculations. It initializes them
+   !> to zero at the beginning of the simulation. The arrays are sized based
+   !> on the actual grid dimensions (`total_no_elements`, `top_cell_no`) read
+   !> from the input data.
+   !>
+   !> It allocates the following arrays:
+   !>
+   !> - `QVSH`: Horizontal flow between cells.
+   !> - `QVSV`: Vertical flow between cells.
+   !> - `VSPSI`: Soil water potential (psi).
+   !> - `VSTHE`: Soil moisture content (theta).
+   !> - `QVSWLI`: Water flow from wells/line sources.
+   !> - `ERUZ`: Transpiration from the unsaturated zone.
    SUBROUTINE initialise_al_c()
 
-      ALLOCATE(qvsh(4,top_cell_no,total_no_elements), qvsv(top_cell_no,total_no_elements), &
-         vspsi(top_cell_no,total_no_elements), vsthe(top_cell_no,total_no_elements), &
-         qvswli(top_cell_no,total_no_elements), eruz(total_no_elements,top_cell_no))
+      ALLOCATE(qvsh(4,top_cell_no,total_no_elements))
+      ALLOCATE(qvsv(top_cell_no,total_no_elements))
+      ALLOCATE(vspsi(top_cell_no,total_no_elements))
+      ALLOCATE(vsthe(top_cell_no,total_no_elements))
+      ALLOCATE(qvswli(top_cell_no,total_no_elements))
+      ALLOCATE(eruz(total_no_elements,top_cell_no))
       qvsh=0.0d0
       qvsv=0.0d0
       vspsi=0.0d0

@@ -3,12 +3,13 @@ MODULE oc_time_stepping
 ! Contains OCSIM - the main time stepping simulation routine
 ! Extracted from OCmod.f90
 
-   USE SGLOBAL
+   USE SGLOBAL, ONLY: pppri, FFFATAL, EEERR, WWWARN, ERROR, nelee, nxee, nyee, nlfee, &
+      total_no_elements, total_no_links, ZGRUND, UZNOW, NOCTAB
    USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
       DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
       TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
    USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
-      NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
+      NOCBCD, LCODEX, LCODEY, OHB, OFB
    USE AL_G ,     ONLY : NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI, ALINIT

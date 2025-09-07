@@ -4,10 +4,11 @@ MODULE contaminant_common
 !                           Contains shared variables, constants and types used across
 !                           contaminant transport modules
 !
+
    USE SGLOBAL, ONLY :                                                             &
       nlf=>total_no_links, area=>cellarea, NEL=>total_no_elements,                  &
       NOTZERO, ZERO, ONE, TWO, HALF,                                                &
-      ISZERO, GTZERO, LTZERO, GEZERO, DYQQ, DXQQ, ZGRUND, ERROR
+      ISZERO, GTZERO, LTZERO, GEZERO, DYQQ, DXQQ, ZGRUND, ERROR, LLEE
    USE OCMOD2,  ONLY : hrf=>hrfzz
    USE AL_C
    USE AL_G

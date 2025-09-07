@@ -2,19 +2,20 @@ MODULE oc_validation
 ! Data validation and checking routines for overland channel calculations
 ! Contains OCCHK0, OCCHK1, OCCHK2 - extracted from oc_initialization.f90
 
-   USE SGLOBAL
+   USE SGLOBAL, ONLY: pppri, FFFATAL, EEERR, WWWARN, ERROR, nelee, nxee, nyee, nlfee, &
+      total_no_elements, total_no_links, NOCTAB, IZERO1, IONE1, ZERO1, ZERO, NXSCEE
    USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
       DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
       TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
    USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
-      NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
+      NOCBCD, LCODEX, LCODEY, OHB, OFB
    USE AL_G ,     ONLY : NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI, ALINIT
    USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
-   USE oc_common_data
+   USE oc_common_data, ONLY: NOCHB, NOCFB, XINH, XINW, NXSECT
    USE oc_utils, ONLY : LINKNO
 
    IMPLICIT NONE
