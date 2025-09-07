@@ -470,108 +470,6 @@ function(automatic_dependency_sort SOURCES_LIST OUTPUT_VAR)
     set(${OUTPUT_VAR} ${ORDERED_SOURCES} PARENT_SCOPE)
 endfunction()
 
-# Fallback function for pattern-based ordering (kept as backup)
-function(pattern_based_dependency_sort SOURCES_LIST OUTPUT_VAR)
-    set(ORDERED_SOURCES)
-    set(REMAINING_SOURCES ${${SOURCES_LIST}})
-    
-    message(STATUS "Using pattern-based ordering as fallback...")
-    
-    # Define ordering groups with patterns (updated for refactored structure)
-    set(ORDER_GROUPS
-        # Group 1: Global parameters and constants
-        "sglobal\\.f90$;CONST_SY\\.F90$;mod_parameters\\.f90$"
-        
-        # Group 2: Basic parameter modules  
-        "AL_[GCD]\\.f?90$;CONT_CC\\.F90$"
-        
-        # Group 3: Utility and support modules (including generated getdirqq)
-        "utilsmod\\.f90$;getdirqq\\.f90$;mod_load_filedata\\.f90$"
-        
-        # Group 4: Basic computation modules
-        "is_cc\\.f90$;link_cc.*\\.f90$;colm_c.*\\.f90$;bk_cw\\.f90$;sed_co\\.f90$"
-        
-        # Group 4.5: Snow model modules (refactored from SMmod - ordered by dependency)
-        "snow_constants\\.f90$;snow_variables\\.f90$;snow_initialization\\.f90$;snowmelt_calculation\\.f90$;snow_evapotranspiration\\.f90$;snow_interface\\.f90$"
-        
-        # Group 5: Core modules (basic dependencies) 
-        "SED_CS\\.F90$;ZQmod\\.f90$;SMmod\\.f90$;plant_cc\\.f90$"
-        
-        # Group 6: Refactored OC modules (ordered by dependency)
-        "oc_parameters\\.f90$;oc_data_management\\.f90$;oc_hydraulic_calculations\\.f90$"
-        
-        # Group 7: More OC modules  
-        "oc_node_flows\\.f90$;oc_channel_flow_types\\.f90$;oc_flow_control\\.f90$"
-        
-        # Group 7.5: Hydraulic flow calculation modules (refactored from OCQDQMOD - ordered by dependency)
-        "hydraulic_variables\\.f90$;hydraulic_helpers\\.f90$;flow_calculator\\.f90$"
-        
-        # Group 8: Contaminant supporting modules (must come before CMmod)
-        "contaminant_common\\.f90$;contaminant_utilities\\.f90$;contaminant_data_reader\\.f90$"
-
-        # Group 8.5: Plant module (must come before column solver)
-        "contaminant_plant\\.f90$"
-        
-        # Group 9: More contaminant modules
-        "contaminant_simulation\\.f90$;contaminant_column_solver\\.f90$;contaminant_link_solver\\.f90$"
-        
-        # Group 9.5: ET modules (refactored structure - order by dependency)
-        "et_variables\\.f90$;et_validation\\.f90$;et_core\\.f90$;et_integration\\.f90$;et_main\\.f90$"
-        
-        # Group 10: OC interface and physics modules including refactored OCQDQMOD and other modules
-        "OCmod2\\.f90$;OCQDQMOD\\.f90$;ETmod\\.f90$;CMmod\\.f90$"
-        
-        # Group 10.4: Framework shared utilities (must come before all framework modules)
-        "framework_shared\\.f90$"
-        
-        # Group 10.5: Framework modules (refactored from FRmod - must come before FRmod interface)
-        "framework_initialization\\.f90$;framework_spatial_setup\\.f90$;framework_output_manager\\.f90$;framework_mass_balance\\.f90$;framework_element_sorting\\.f90$;framework_component_initialization\\.f90$"
-        
-        # Group 10.8: Sediment modules (refactored from SYmod - ordered by dependency)
-        "sediment_common\\.f90$;sediment_transport_capacity\\.f90$;sediment_erosion\\.f90$;sediment_flow_dynamics\\.f90$;sediment_bed_processes\\.f90$;sediment_initialization\\.f90$;sediment_integration\\.f90$"
-        
-        # Group 10.9: Subsurface modules (refactored from VSmod - ordered by dependency)
-        "subsurface_variables\\.f90$;subsurface_utilities\\.f90$;subsurface_boundary_conditions\\.f90$;subsurface_soil_properties\\.f90$;subsurface_io\\.f90$;subsurface_column_solver\\.f90$;subsurface_initialization\\.f90$;subsurface_simulation\\.f90$"
-        
-        # Group 11: Advanced modules and interfaces
-        "VSmod\\.f90$;OCmod\\.f90$;SYmod\\.f90$;FRmod\\.f90$"
-        
-        # Group 12.5: Refactored rest components (ordered by dependency)
-        "water_balance\\.f90$;meteorological_input\\.f90$;simulation_output\\.f90$;timestep_control\\.f90$"
-        
-        # Group 13: Visualization and control (flexible ordering)
-        "visualisation_.*\\.f90$;increment_utilities\\.f90$"
-        
-        # Group 14: Simulation control
-        "rest\\.f90$;run_sim\\.f90$"
-    )
-    
-    # Process each group
-    foreach(GROUP_PATTERNS ${ORDER_GROUPS})
-        string(REPLACE ";" "|" PATTERN_REGEX "${GROUP_PATTERNS}")
-        set(NEW_REMAINING)
-        
-        foreach(FILE ${REMAINING_SOURCES})
-            get_filename_component(FILENAME ${FILE} NAME)
-            if(FILENAME MATCHES "(${PATTERN_REGEX})")
-                list(APPEND ORDERED_SOURCES ${FILE})
-            else()
-                list(APPEND NEW_REMAINING ${FILE})
-            endif()
-        endforeach()
-        
-        set(REMAINING_SOURCES ${NEW_REMAINING})
-    endforeach()
-    
-    # Add any remaining files (new files will automatically be included here)
-    foreach(FILE ${REMAINING_SOURCES})
-        get_filename_component(FILENAME ${FILE} NAME)
-        list(APPEND ORDERED_SOURCES ${FILE})
-    endforeach()
-    
-    set(${OUTPUT_VAR} ${ORDERED_SOURCES} PARENT_SCOPE)
-endfunction()
-
 # Discover all Fortran source files automatically
 message(STATUS "Discovering Fortran source files...")
 discover_fortran_sources("${CMAKE_SOURCE_DIR}/src" DISCOVERED_SOURCES)
@@ -594,10 +492,7 @@ endforeach()
 if(ENABLE_DEPENDENCY_ANALYSIS)
     message(STATUS "Using automatic Fortran module dependency analysis...")
     automatic_dependency_sort(MODULE_SOURCES ORDERED_MODULE_SOURCES)
-else()
-    message(STATUS "Using pattern-based ordering (dependency analysis disabled)...")
-    pattern_based_dependency_sort(MODULE_SOURCES ORDERED_MODULE_SOURCES)
-endif()
+endif() # ENABLE_DEPENDENCY_ANALYSIS is now required
 
 # Validate source ordering if requested
 if(ENABLE_DEPENDENCY_ANALYSIS AND VERBOSE_DEPENDENCY_OUTPUT)
@@ -619,8 +514,7 @@ message(STATUS "Total sources found: ${SOURCES_COUNT}")
 if(ENABLE_DEPENDENCY_ANALYSIS)
     message(STATUS "Source ordering: Automatic dependency analysis (recommended)")
 else()
-    message(STATUS "Source ordering: Pattern-based fallback")
-    message(STATUS "  Note: Enable ENABLE_DEPENDENCY_ANALYSIS for better automatic ordering")
+    message(FATAL_ERROR "ENABLE_DEPENDENCY_ANALYSIS is now required. The pattern-based fallback has been removed.")
 endif()
 message(STATUS "")
 

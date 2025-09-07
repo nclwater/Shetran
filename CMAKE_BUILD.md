@@ -5,7 +5,7 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 ## Key Features
 
 - **Automatic Source Discovery**: Automatically finds all Fortran source files in the `src/` directory
-- **Intelligent Dependency Ordering**: Orders source files based on module dependencies and patterns
+- **Intelligent Dependency Ordering**: Orders source files based on module dependencies
 - **Cross-platform Support**: Works on Linux, Unix, and Windows  
 - **Multi-compiler Support**: Intel Fortran (ifort, ifx) and GNU Fortran (gfortran)
 - **HDF5 Integration**: Automatic HDF5 detection on Linux, provided libraries on Windows
@@ -138,16 +138,11 @@ You can override this behavior by explicitly specifying a compiler with the `-c`
 The build system automatically discovers all Fortran source files in the `src/` directory and its subdirectories. You no longer need to manually maintain lists of source files in CMakeLists.txt.
 
 ### Dependency Ordering Options
-- **Automatic dependency analysis** (default, recommended): Analyzes actual module `USE` statements to determine the correct compilation order.
-- **Pattern-based ordering** (fallback): Uses filename patterns as a fallback if automatic analysis is disabled.
+The build system uses **automatic dependency analysis** to determine the correct compilation order. It analyzes the `MODULE` and `USE` statements in your Fortran source files to create a dependency graph and ensure files are compiled in the correct sequence. This process is fully automatic and is a required part of the build.
+
+You can enable verbose output during the analysis to see the discovered dependencies:
 
 ```bash
-# The build scripts use automatic dependency analysis by default.
-
-# To disable automatic analysis and use the pattern-based fallback:
-cmake -DENABLE_DEPENDENCY_ANALYSIS=OFF ..
-
-# To enable verbose dependency output during analysis:
 cmake -DVERBOSE_DEPENDENCY_OUTPUT=ON ..
 ```
 
@@ -252,39 +247,6 @@ cmake --list-presets
 ```
 
 ## Advanced Usage
-
-### Dependency Analysis Options
-The build system provides two methods for ordering Fortran source files:
-
-1. **Automatic dependency analysis** (default, recommended):
-   - Analyzes actual module USE/PROVIDES relationships  
-   - Automatically handles refactored module dependencies
-   - Uses topological sorting for optimal build order
-   - Supports complex dependency graphs including the new OC and sediment module structures
-   
-2. **Pattern-based ordering** (fallback):
-   - Uses filename patterns and directory structure
-   - Handles most dependency cases correctly
-   - Updated to support refactored OC, sediment, and subsurface modules
-
-The build system automatically detects refactored modules and ensures they are built in the correct dependency order:
-
-**Overland Channel (OC) modules** in `src/compute/overland_channel/`:
-- `oc_parameters.f90` → `oc_data_management.f90` → `oc_hydraulic_calculations.f90` → `oc_node_flows.f90` → `oc_channel_flow_types.f90` → `oc_flow_control.f90` → `OCmod2.f90`
-
-**Sediment Yield (SY) modules** in `src/compute/sediment/`:
-- `sediment_common.f90` → `sediment_transport_capacity.f90` → `sediment_erosion.f90` / `sediment_flow_dynamics.f90` / `sediment_bed_processes.f90` → `sediment_initialization.f90` → `sediment_integration.f90` → `SYmod.f90` (interface)
-
-**Subsurface Flow (VS) modules** in `src/compute/subsurface_flow/`:
-- `subsurface_variables.f90` → `subsurface_utilities.f90` / `subsurface_boundary_conditions.f90` / `subsurface_soil_properties.f90` / `subsurface_io.f90` → `subsurface_column_solver.f90` → `subsurface_initialization.f90` / `subsurface_simulation.f90` → `VSmod.f90` (interface)
-
-```bash
-# Disable dependency analysis (use pattern-based fallback)
-cmake -DENABLE_DEPENDENCY_ANALYSIS=OFF ..
-
-# Enable advanced analysis with verbose output
-cmake -DENABLE_DEPENDENCY_ANALYSIS=ON -DVERBOSE_DEPENDENCY_OUTPUT=ON ..
-```
 
 ### Custom Installation
 ```bash

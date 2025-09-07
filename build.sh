@@ -458,7 +458,6 @@ build_shetran() {
     log_info "Configuring with CMake..."
     log_info "CMake arguments: $CMAKE_ARGS"
     log_info_detail "Source files will be automatically discovered from src/ directory"
-    log_info_detail "Dependency ordering: Pattern-based (default) or advanced analysis"
     cmake $CMAKE_ARGS "$SOURCE_PATH"
     
     # Build
