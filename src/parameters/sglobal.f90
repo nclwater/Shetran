@@ -34,7 +34,10 @@
 !> | 1998-02-20 | RAH | v4.2: Update SHEVER, BANNER. Remove NWELEE, NSZBOU, NPSITH. |
 !> | 2004-07 | JE | Converted to Fortran 95 as part of SHEGRAPH Version 2 integration. |
 !> | 2009-01 | JE | v4.3.5F90: Created `sglobal` module from legacy include files (e.g. al_p). |
+!> | 2024-09-05 | AI | Added KIND parameters and FORD docs. |
 MODULE sglobal
+
+   USE MOD_PARAMETERS, ONLY : I_P, R8P
 
    IMPLICIT NONE
    PRIVATE
@@ -55,7 +58,7 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! System Version and Banners
    ! --------------------------------------------------------------------
-   DOUBLEPRECISION, PARAMETER :: SHEVER = 4.5 !! SHETRAN version number (Major.Minor format).
+   REAL(KIND=R8P), PARAMETER :: SHEVER = 4.5_R8P !! SHETRAN version number (Major.Minor format).
    LOGICAL, PARAMETER :: BDEVER = .TRUE. !! Development version flag. `.TRUE.` for development, `.FALSE.` for release.
    CHARACTER(*), PARAMETER :: BANNER = 'SHETRAN Version 4.5 for PC - incorporating SHEGRAPH Version 2' !! Banner for local implementation.
    CHARACTER(*), PARAMETER :: RUNFIL = 'rundata_' !! Base filename for run data files.
@@ -65,11 +68,11 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! Default 'large' settings. Alternative configurations for specific
    ! catchments are provided below in commented blocks.
-   INTEGER, PARAMETER :: nxee = 250 !! Max grid points in x-direction.
-   INTEGER, PARAMETER :: nyee = 250 !! Max grid points in y-direction.
-   INTEGER, PARAMETER :: nlfee = 10000 !! Max number of river links.
-   INTEGER, PARAMETER :: nelee = 30000 !! Max number of grid elements.
-   INTEGER, PARAMETER :: LLEE = 50 !! Max grid points in vertical direction plus one.
+   INTEGER(KIND=I_P), PARAMETER :: nxee = 250 !! Max grid points in x-direction.
+   INTEGER(KIND=I_P), PARAMETER :: nyee = 250 !! Max grid points in y-direction.
+   INTEGER(KIND=I_P), PARAMETER :: nlfee = 10000 !! Max number of river links.
+   INTEGER(KIND=I_P), PARAMETER :: nelee = 30000 !! Max number of grid elements.
+   INTEGER(KIND=I_P), PARAMETER :: LLEE = 50 !! Max grid points in vertical direction plus one.
    !
    ! Alternative settings for sv4 large
    ! INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000
@@ -84,48 +87,48 @@ MODULE sglobal
    ! Alternative settings for Slapton
    ! INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=40, NELEE=800
 
-   INTEGER, PARAMETER :: NVEE = 30000 !! Max number of vegetation types.
-   INTEGER, PARAMETER :: NSEE = 1000 !! Max number of soil types.
-   INTEGER, PARAMETER :: NVSEE = 20 !! Max number of tables for VSS component.
-   INTEGER, PARAMETER :: NVBP = 140 !! Max number of time-varying vegetation breakpoints.
-   INTEGER, PARAMETER :: NUZTAB = 20 !! Max table entries for ET component (PSI/RCF/FET).
-   INTEGER, PARAMETER :: NLYREE = 20 !! Max number of soil layers plus one.
-   INTEGER, PARAMETER :: NSETEE = 45 !! Max number of output sets for binary results file.
-   INTEGER, PARAMETER :: NXOCEE = 500 !! Max number of elements (grids, banks, links) in a row.
-   INTEGER, PARAMETER :: NOCTAB = 20 !! Max categories for OC tables (roughness, x-section, boundaries).
-   INTEGER, PARAMETER :: NSEDEE = 7 !! Max number of sediment size fractions.
-   INTEGER, PARAMETER :: NCONEE = 3 !! Max number of contaminants.
-   INTEGER, PARAMETER :: NOLEE = 2 * LLEE !! Max number of overlaps for contaminant calculations.
-   INTEGER, PARAMETER :: NPLTEE = NVEE !! Max plants in an element (for contaminants).
-   INTEGER, PARAMETER :: NPELEE = 2 !! Total number of plants (for contaminants).
-   INTEGER, PARAMETER :: max_no_snowmelt_slugs = 400 !! Max number of snowmelt slugs.
-   INTEGER, PARAMETER :: NXSCEE = 100000 !! Legacy parameter, usage to be reviewed.
+   INTEGER(KIND=I_P), PARAMETER :: NVEE = 30000 !! Max number of vegetation types.
+   INTEGER(KIND=I_P), PARAMETER :: NSEE = 1000 !! Max number of soil types.
+   INTEGER(KIND=I_P), PARAMETER :: NVSEE = 20 !! Max number of tables for VSS component.
+   INTEGER(KIND=I_P), PARAMETER :: NVBP = 140 !! Max number of time-varying vegetation breakpoints.
+   INTEGER(KIND=I_P), PARAMETER :: NUZTAB = 20 !! Max table entries for ET component (PSI/RCF/FET).
+   INTEGER(KIND=I_P), PARAMETER :: NLYREE = 20 !! Max number of soil layers plus one.
+   INTEGER(KIND=I_P), PARAMETER :: NSETEE = 45 !! Max number of output sets for binary results file.
+   INTEGER(KIND=I_P), PARAMETER :: NXOCEE = 500 !! Max number of elements (grids, banks, links) in a row.
+   INTEGER(KIND=I_P), PARAMETER :: NOCTAB = 20 !! Max categories for OC tables (roughness, x-section, boundaries).
+   INTEGER(KIND=I_P), PARAMETER :: NSEDEE = 7 !! Max number of sediment size fractions.
+   INTEGER(KIND=I_P), PARAMETER :: NCONEE = 3 !! Max number of contaminants.
+   INTEGER(KIND=I_P), PARAMETER :: NOLEE = 2 * LLEE !! Max number of overlaps for contaminant calculations.
+   INTEGER(KIND=I_P), PARAMETER :: NPLTEE = NVEE !! Max plants in an element (for contaminants).
+   INTEGER(KIND=I_P), PARAMETER :: NPELEE = 2 !! Total number of plants (for contaminants).
+   INTEGER(KIND=I_P), PARAMETER :: max_no_snowmelt_slugs = 400 !! Max number of snowmelt slugs.
+   INTEGER(KIND=I_P), PARAMETER :: NXSCEE = 100000 !! Legacy parameter, usage to be reviewed.
 
    ! --------------------------------------------------------------------
    ! Global Variables
    ! --------------------------------------------------------------------
-   INTEGER :: total_no_elements = -1 !! Actual number of elements in the simulation.
-   INTEGER :: total_no_links = -1 !! Actual number of links in the simulation.
-   INTEGER :: top_cell_no = -1 !! Index of the top-most cell.
-   INTEGER :: szmonte = -1, ran2monte1 = -1, ran2monte2 = -1, pcmonte = -1 !! Monte Carlo simulation parameters.
+   INTEGER(KIND=I_P) :: total_no_elements = -1 !! Actual number of elements in the simulation.
+   INTEGER(KIND=I_P) :: total_no_links = -1 !! Actual number of links in the simulation.
+   INTEGER(KIND=I_P) :: top_cell_no = -1 !! Index of the top-most cell.
+   INTEGER(KIND=I_P) :: szmonte = -1, ran2monte1 = -1, ran2monte2 = -1, pcmonte = -1 !! Monte Carlo simulation parameters.
    INTEGER(1), DIMENSION(:, :), ALLOCATABLE :: montec !! Monte Carlo data array.
    CHARACTER(256) :: DIRQQ, filnam, cnam, rootdir !! Directory and file path variables.
    CHARACTER(256) :: hdf5filename, visualisation_plan_filename, visualisation_check_filename !! Filenames for I/O.
-   DOUBLEPRECISION :: UZNOW !! Current simulation time in hours.
-   DOUBLEPRECISION, DIMENSION(nelee) :: cellarea !! Area of each grid cell [m^2].
-   DOUBLEPRECISION, DIMENSION(nelee) :: DXQQ !! Length of cell face in x-direction [m].
-   DOUBLEPRECISION, DIMENSION(nelee) :: DYQQ !! Length of cell face in y-direction [m].
-   DOUBLEPRECISION, DIMENSION(nelee) :: ZGRUND !! Ground surface elevation of each cell [m].
+   REAL(KIND=R8P) :: UZNOW !! Current simulation time in hours.
+   REAL(KIND=R8P), DIMENSION(nelee) :: cellarea !! Area of each grid cell [m^2].
+   REAL(KIND=R8P), DIMENSION(nelee) :: DXQQ !! Length of cell face in x-direction [m].
+   REAL(KIND=R8P), DIMENSION(nelee) :: DYQQ !! Length of cell face in y-direction [m].
+   REAL(KIND=R8P), DIMENSION(nelee) :: ZGRUND !! Ground surface elevation of each cell [m].
    ! --------------------------------------------------------------------
    ! Error Handling Constants and Variables
    ! --------------------------------------------------------------------
-   INTEGER, PARAMETER :: ERRNEE = 100 !! Max number of distinct error codes per module.
-   INTEGER, PARAMETER :: FFFATAL = 1 !! Error type for fatal errors.
-   INTEGER, PARAMETER :: EEERR = 2 !! Error type for non-fatal errors.
-   INTEGER, PARAMETER :: WWWARN = 3 !! Error type for warnings.
-   INTEGER, PARAMETER :: pppri = 23 !! File unit for primary output.
-   INTEGER :: ERRC(0:ERRNEE, 0:3) = 0 !! Counters for error occurrences.
-   INTEGER :: ERRTOT = 0 !! Total count of all errors and warnings.
+   INTEGER(KIND=I_P), PARAMETER :: ERRNEE = 100 !! Max number of distinct error codes per module.
+   INTEGER(KIND=I_P), PARAMETER :: FFFATAL = 1 !! Error type for fatal errors.
+   INTEGER(KIND=I_P), PARAMETER :: EEERR = 2 !! Error type for non-fatal errors.
+   INTEGER(KIND=I_P), PARAMETER :: WWWARN = 3 !! Error type for warnings.
+   INTEGER(KIND=I_P), PARAMETER :: pppri = 23 !! File unit for primary output.
+   INTEGER(KIND=I_P) :: ERRC(0:ERRNEE, 0:3) = 0 !! Counters for error occurrences.
+   INTEGER(KIND=I_P) :: ERRTOT = 0 !! Total count of all errors and warnings.
    CHARACTER(128) :: helppath !! Path to help message files.
    LOGICAL :: ISERROR !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
    LOGICAL :: ISERROR2 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
@@ -133,23 +136,23 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! Mathematical and Numerical Constants
    ! --------------------------------------------------------------------
-   DOUBLEPRECISION, PARAMETER :: marker999 = 999999.9D0 !! A large marker value to indicate missing or invalid data.
-   INTEGER, PARAMETER :: imarker = INT(marker999) !! Integer version of the marker value.
-   INTEGER, PARAMETER :: izero = 0, ione = 1 !! Basic integer constants.
-   INTEGER, PARAMETER, DIMENSION(1) :: izero1 = [0], ione1 = [1] !! Single-element array versions of integer constants.
-   DOUBLEPRECISION, PARAMETER :: zero = 0.0d0 !! Double precision zero.
-   DOUBLEPRECISION, PARAMETER :: half = 0.5d0 !! Double precision one-half.
-   DOUBLEPRECISION, PARAMETER :: one = 1.0d0 !! Double precision one.
-   DOUBLEPRECISION, PARAMETER :: two = 2.0d0 !! Double precision two.
-   DOUBLEPRECISION, PARAMETER :: three = 3.0d0 !! Double precision three.
-   DOUBLEPRECISION, PARAMETER :: five = 5.0d0 !! Double precision five.
-   DOUBLEPRECISION, PARAMETER :: vsmall = 1.0d-20 !! A very small value used for floating-point comparisons (tolerance).
-   DOUBLEPRECISION, PARAMETER, DIMENSION(1) :: zero1 = [0.0d0], one1 = [1.0d0] !! Single-element array versions of double precision constants.
+   REAL(KIND=R8P), PARAMETER :: marker999 = 999999.9_R8P !! A large marker value to indicate missing or invalid data.
+   INTEGER(KIND=I_P), PARAMETER :: imarker = INT(marker999) !! Integer version of the marker value.
+   INTEGER(KIND=I_P), PARAMETER :: izero = 0, ione = 1 !! Basic integer constants.
+   INTEGER(KIND=I_P), PARAMETER, DIMENSION(1) :: izero1 = [0], ione1 = [1] !! Single-element array versions of integer constants.
+   REAL(KIND=R8P), PARAMETER :: zero = 0.0_R8P !! Double precision zero.
+   REAL(KIND=R8P), PARAMETER :: half = 0.5_R8P !! Double precision one-half.
+   REAL(KIND=R8P), PARAMETER :: one = 1.0_R8P !! Double precision one.
+   REAL(KIND=R8P), PARAMETER :: two = 2.0_R8P !! Double precision two.
+   REAL(KIND=R8P), PARAMETER :: three = 3.0_R8P !! Double precision three.
+   REAL(KIND=R8P), PARAMETER :: five = 5.0_R8P !! Double precision five.
+   REAL(KIND=R8P), PARAMETER :: vsmall = 1.0e-20_R8P !! A very small value used for floating-point comparisons (tolerance).
+   REAL(KIND=R8P), PARAMETER, DIMENSION(1) :: zero1 = [0.0_R8P], one1 = [1.0_R8P] !! Single-element array versions of double precision constants.
 
    ! --------------------------------------------------------------------
    ! Miscellaneous Global Variables
    ! --------------------------------------------------------------------
-   DOUBLEPRECISION :: EARRAY(1) !! A temporary array for passing values to the ERROR subroutine.
+   REAL(KIND=R8P) :: EARRAY(1) !! A temporary array for passing values to the ERROR subroutine.
    CHARACTER(32) :: text32 !! A temporary 32-character string variable.
 
 CONTAINS
@@ -159,13 +162,13 @@ CONTAINS
    !>
    !> Compares the input value against the integer representation of `marker999`.
    ELEMENTAL LOGICAL FUNCTION eqmarker(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       eqmarker = INT(a)==imarker
    END FUNCTION eqmarker
 
    !> summary: Checks if a double precision value is greater than zero.
    ELEMENTAL LOGICAL FUNCTION gtzero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       gtzero = a>zero
    END FUNCTION gtzero
 
@@ -173,13 +176,13 @@ CONTAINS
    !>
    !> Uses `iszero` to handle floating-point comparisons near zero.
    ELEMENTAL LOGICAL FUNCTION gezero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       gezero = ISZERO(a) .OR. a>zero
    END FUNCTION gezero
 
    !> summary: Checks if a double precision value is less than zero.
    ELEMENTAL LOGICAL FUNCTION ltzero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       ltzero = a<zero
    END FUNCTION ltzero
 
@@ -187,7 +190,7 @@ CONTAINS
    !>
    !> Uses `iszero` to handle floating-point comparisons near zero.
    ELEMENTAL LOGICAL FUNCTION lezero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       lezero = ISZERO(a) .OR. a<zero
    END FUNCTION lezero
 
@@ -195,14 +198,14 @@ CONTAINS
    !>
    !> Compares the absolute value of the input against a small tolerance (`vsmall`).
    ELEMENTAL LOGICAL FUNCTION iszero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       iszero = ABS(a)<vsmall
    END FUNCTION iszero
 
    !> summary: Checks if all elements in a 1D double precision array are zero.
    PURE LOGICAL FUNCTION iszero_a(a)
-      INTEGER :: i
-      DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a !! The array to check.
+      INTEGER(KIND=I_P) :: i
+      REAL(KIND=R8P), DIMENSION(:), INTENT(IN) :: a !! The array to check.
       iszero_a=.TRUE.
       DO i=1,SIZE(a)
          IF(.NOT.iszero_a) CYCLE     !FOR AD
@@ -212,8 +215,8 @@ CONTAINS
 
    !> summary: Checks if all elements in a 2D integer array are zero.
    PURE LOGICAL FUNCTION i_iszero_a2(a)
-      INTEGER                             :: i, j
-      INTEGER, DIMENSION(:,:), INTENT(IN) :: a !! The 2D array to check.
+      INTEGER(KIND=I_P)                             :: i, j
+      INTEGER(KIND=I_P), DIMENSION(:,:), INTENT(IN) :: a !! The 2D array to check.
       i_iszero_a2=.TRUE.
       DO i=1,SIZE(a, DIM=1)
          DO j=1,SIZE(a, DIM=2)
@@ -226,7 +229,7 @@ CONTAINS
 
    !> summary: Checks if a double precision value is not zero.
    ELEMENTAL LOGICAL FUNCTION notzero(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       notzero = .NOT.ISZERO(a)
    END FUNCTION notzero
 
@@ -234,21 +237,21 @@ CONTAINS
    !>
    !> Compares the value against one using a small tolerance (`vsmall`).
    ELEMENTAL LOGICAL FUNCTION isone(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       isone = ABS(a-one)<vsmall
    END FUNCTION isone
 
    !> summary: Checks if a double precision value is not one.
    ELEMENTAL LOGICAL FUNCTION notone(a)
-      DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
+      REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       notone = .NOT.ISONE(a)
    END FUNCTION notone
 
 
    !> summary: Integer positive difference function (equivalent to `MAX(x-y, 0)`).
    ELEMENTAL INTEGER FUNCTION idimje(x,y)
-      INTEGER, INTENT(IN) :: x !! The first integer.
-      INTEGER, INTENT(IN) :: y !! The second integer.
+      INTEGER(KIND=I_P), INTENT(IN) :: x !! The first integer.
+      INTEGER(KIND=I_P), INTENT(IN) :: y !! The second integer.
       IF(x>y) THEN
          idimje = x-y
       ELSE
@@ -257,9 +260,10 @@ CONTAINS
    END FUNCTION idimje
 
    !> summary: Double precision positive difference function (equivalent to `MAX(x-y, 0.0)`).
-   ELEMENTAL DOUBLEPRECISION FUNCTION dimje(x,y)
-      DOUBLEPRECISION, INTENT(IN) :: x !! The first value.
-      DOUBLEPRECISION, INTENT(IN) :: y !! The second value.
+   ELEMENTAL FUNCTION dimje(x,y)
+      REAL(KIND=R8P) :: dimje
+      REAL(KIND=R8P), INTENT(IN) :: x !! The first value.
+      REAL(KIND=R8P), INTENT(IN) :: y !! The second value.
       IF(x>y) THEN
          dimje = x-y
       ELSE
@@ -286,28 +290,28 @@ CONTAINS
 !----------------------------------------------------------------------*
 ! Commons and constants
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: ETYPE !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
-      INTEGER, INTENT(IN) :: ERRNUM !! The unique error number code.
-      INTEGER, INTENT(IN) :: OUT !! The output file unit for the message.
-      INTEGER, INTENT(IN) :: IEL !! The element number where the error occurred (optional).
-      INTEGER, INTENT(IN) :: CELL !! The cell number where the error occurred (optional).
+      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
+      INTEGER(KIND=I_P), INTENT(IN) :: ERRNUM !! The unique error number code.
+      INTEGER(KIND=I_P), INTENT(IN) :: OUT !! The output file unit for the message.
+      INTEGER(KIND=I_P), INTENT(IN) :: IEL !! The element number where the error occurred (optional).
+      INTEGER(KIND=I_P), INTENT(IN) :: CELL !! The cell number where the error occurred (optional).
       CHARACTER (LEN=*), INTENT(IN) :: TEXT !! The descriptive error text.
 
-      INTEGER :: NONE, ERRCEE, HLP
+      INTEGER(KIND=I_P) :: NONE, ERRCEE, HLP
       PARAMETER (NONE = 0, ERRCEE = (1 + ERRNEE) * 4)
       PARAMETER (HLP = 8)
       CHARACTER (LEN=*) :: PATH1
       PARAMETER (PATH1 = '/shetran/')
-      INTEGER :: COUNT, ERRN, AMODL
+      INTEGER(KIND=I_P) :: COUNT, ERRN, AMODL
       CHARACTER (11) :: CTYPE (3)
       CHARACTER(256) :: FIL
       CHARACTER(80)  :: HLPMSG
       LOGICAL :: VALID
-      INTEGER :: IO_STATUS
+      INTEGER(KIND=I_P) :: IO_STATUS
 
       DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /
 !----------------------------------------------------------------------*
-      INTEGER :: helpcheck !! Status from checking for help directory.
+      INTEGER(KIND=I_P) :: helpcheck !! Status from checking for help directory.
       CHARACTER :: cc
       character, parameter :: slash='/'
 
@@ -466,7 +470,7 @@ CONTAINS
    !> | 1994-09-17 | RAH | v3.4.1: File created. |
    !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
    SUBROUTINE ALSTOP (FLAG)
-      INTEGER, INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
+      INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
 
       IF (FLAG.GT.0) THEN
          WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'

@@ -1,95 +1,73 @@
+!> summary: Defines parameters and variables for plant contaminant data.
+!> author: J. Ewen
+!> date: 2008-08-12
+!>
+!> This module contains variables related to contaminant uptake and concentration
+!> in plants. It includes plant properties, contaminant coefficients, and arrays
+!> for tracking masses and concentrations within different plant components.
+!> It was converted from a legacy `INCLUDE` file and its associated `BLOCK DATA`.
+!>
+!> @history
+!> | Date       | Author | Version  | Description                               |
+!> |:-----------|:-------|:---------|:------------------------------------------|
+!> | 1991-04-?? | JE     | 3.0      | Original `INCLUDE` file written.          |
+!> | 1991-06-13 | JE     | 3.1      | Checked, no changes.                      |
+!> | 1993-03-16 | JE     | 3.4      | Full implementation.                      |
+!> | 1997-02-24 | RAH    | 4.1      | Explicit typing.                          |
+!> | 2008-08-12 | JE     | 4.3.5F90 | Converted to Fortran 90 module.           |
+!> | 2025-08-11 | AI     | -        | Added FORD docs, modernized declarations. |
 MODULE PLANT_CC
-!------------------------------ Start of PLANT.CC ---------------------*
-!
-!                       INCLUDE FILE FOR PLANT CONTAMINANT DATA
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/PLANT.CC/4.1
-! Modifications:
-!                           JE      APR 91   3.0     WRITTEN
-!                           JE     13/6/91   3.1     CHECKED, NO CHANGES
-!                           JE     16/3/93   3.4     FULL IMPLEMENTATION
-! RAH  970224  4.1  Explicit typing.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-! Imported constants
-!                     NCONEE,NELEE,NPELEE
-!
-! Commons
+
    USE SGLOBAL, ONLY : NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
+   USE MOD_PARAMETERS, ONLY: R8P, I_P
    IMPLICIT NONE
 
-   INTEGER, PARAMETER :: NTEMP1=2*NELEE*NPELEE*NCONEE, NTEMP2=NPLTEE*NCONEE !FROM pldat BLOCKDATA
+   ! The legacy COMMON block /ALOCAL/ was replaced by these module variables.
+   REAL(KIND=R8P) :: GENAA(NPELEE)
+   REAL(KIND=R8P) :: GENBB(NPELEE)
 
+   ! The legacy COMMON block /VLOCAL/ was replaced by these module variables.
+   ! These are used only in plant routines.
+   REAL(KIND=R8P) :: GCPL
+   REAL(KIND=R8P) :: GMCPAA
+   REAL(KIND=R8P) :: GMCPBB
+   REAL(KIND=R8P) :: GMCBBD
+   REAL(KIND=R8P) :: QCPAA
+   REAL(KIND=R8P) :: QCPBB
+   REAL(KIND=R8P) :: RHOPL = 500.0_R8P !! Density of plant material (used in scaling only).
 
-   DOUBLEPRECISION GENAA (NPELEE), GENBB (NPELEE)
-   DOUBLEPRECISION :: GCPL, GMCPAA, GMCPBB, GMCBBD, QCPAA, QCPBB, RHOPL=500.0d0  !DATA FROM pldat BLOCKDATA
+   ! The legacy COMMON block /BCON/ was replaced by these module variables.
+   REAL(KIND=R8P) :: BCPAA(NELEE, NPELEE, NCONEE) = 0.0_R8P !! Initial plant relative concentrations.
+   REAL(KIND=R8P) :: BCPBB(NELEE, NPELEE, NCONEE) = 0.0_R8P !! Initial plant relative concentrations.
 
-!COMMON / ALOCAL / GENAA, GENBB
+   ! The legacy COMMON block /DELTA/ was replaced by these module variables.
+   ! These hold plant and cropping property data.
+   REAL(KIND=R8P) :: DELONE(NPLTEE) = 0.5_R8P
+   REAL(KIND=R8P) :: DELTWO(NPLTEE) = 0.9_R8P
+   REAL(KIND=R8P) :: DELTHR(NPLTEE) = 1.0_R8P
+   REAL(KIND=R8P) :: DELFOU(NPLTEE) = 1.0_R8P
+   REAL(KIND=R8P) :: FLEFT(NPLTEE)
 
-!COMMON / VLOCAL / GCPL, GMCPAA, GMCPBB, GMCBBD, QCPAA, QCPBB, &
-   !RHOPL
-!                       Arrays and variables used only in plant routines
-   DOUBLEPRECISION :: BCPAA (NELEE, NPELEE, NCONEE)=0.0d0  !DATA FROM pldat BLOCKDATA
-   DOUBLEPRECISION :: BCPBB (NELEE, NPELEE, NCONEE)=0.0d0
+   ! The legacy COMMON block /GMOLD/ was replaced by this module variable.
+   REAL(KIND=R8P) :: GMCBBO(NELEE, NPELEE) !! Old values for masses in compartment b.
 
-!COMMON / BCON / BCPAA, BCPBB
-   DOUBLEPRECISION :: DELONE (NPLTEE)=0.5, DELTWO (NPLTEE)=0.9 !DATA FROM pldat BLOCKDATA
-   DOUBLEPRECISION :: DELTHR (NPLTEE)=1.0, DELFOU (NPLTEE)=1.0, FLEFT (NPLTEE) !DATA FROM pldat BLOCKDATA
+   ! The legacy COMMON block /NUMPL/ was replaced by these module variables.
+   INTEGER(KIND=I_P) :: NPL(NELEE)      !! Total number of plants on each soil column.
+   INTEGER(KIND=I_P) :: NPLTYP(NELEE, NPELEE) = 1 !! Plant type numbers on each soil column.
+   INTEGER(KIND=I_P) :: NPLT            !! Total number of plant types.
 
-!COMMON / DELTA / DELONE, DELTWO, DELTHR, DELFOU, FLEFT
-!                 Plant and cropping property data
-   DOUBLEPRECISION GMCBBO (NELEE, NPELEE)
+   ! The legacy COMMON block /MASSP/ was replaced by these module variables.
+   REAL(KIND=R8P) :: PKMAX(NPLTEE, NCONEE) !! Contaminant uptake coefficient.
+   REAL(KIND=R8P) :: PMASS(NPLTEE)         !! Maximum mass of plant material per unit area.
 
-!COMMON / GMOLD / GMCBBO
-!                 Old values for masses in compartment b
-   INTEGER :: NPL (NELEE), NPLTYP (NELEE, NPELEE)=1, NPLT  !DATA FROM pldat BLOCKDATA
+   ! The legacy COMMON block /PF123/ was replaced by these module variables.
+   ! PFTWO and PF2MAX are specified for each plant type.
+   ! PLAI, CLAI, and RDF for use in contaminant plant uptake routines.
+   REAL(KIND=R8P) :: PFONE(NELEE, NPELEE)
+   REAL(KIND=R8P) :: PFTWO(NPLTEE)
+   REAL(KIND=R8P) :: PF2MAX(NPLTEE)
+   REAL(KIND=R8P) :: PDZF3(NELEE, NPELEE, LLEE)
 
-!COMMON / NUMPL / NPL, NPLTYP, NPLT
-!                 Total number of plants, and their type numbers, on
-!                 each soil column
-   DOUBLEPRECISION PKMAX (NPLTEE, NCONEE), PMASS (NPLTEE)
+   REAL(KIND=R8P) :: XXI
 
-!COMMON / MASSP / PKMAX, PMASS
-!                 Contaminant uptake coefficient, and maximum mass of
-!                 plant material per unit area
-   DOUBLEPRECISION PFONE (NELEE, NPELEE), PFTWO (NPLTEE)
-   DOUBLEPRECISION PF2MAX (NPLTEE), PDZF3 (NELEE, NPELEE, LLEE)
-
-!COMMON / PF123 / PFONE, PFTWO, PF2MAX, PDZF3
-!                 nb  PFTWO and PF2MAX are specified for each plant type
-!                 PLAI, CLAI, and RDF for use in contaminant plant
-!                 uptake routines
-   DOUBLEPRECISION XXI
-!PRIVATE :: NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
 end MODULE PLANT_CC
-
-!      BLOCK DATA PLDAT
-!*           Plant data
-!
-!      USE SGLOBAL
-!      USE AL_C
-!      USE COLM_CC
-!
-!      USE PLANT_CC
-!      PARAMETER(NTEMP1=2*NELEE*NPELEE*NCONEE, NTEMP2=NPLTEE*NCONEE)
-!
-!
-!      DATA BCPAA,BCPBB / NTEMP1*0.0D0 /
-!*                 Initialise plant relative concentrations
-!
-!      DATA DELONE / NPLTEE*half / DELTWO / NPLTEE*0.9D0 /
-!     &     DELTHR / NPLTEE*one / FLEFT  / NPLTEE*one /
-!*                 Plant and cropping property data
-!
-!*     DATA ESSCAP,ESSCPC,ESSCPT / 3*0.0D0 /
-!*                 Ensures there is no uptake from surface water
-!*                 and sediments
-!
-!      DATA RHOPL / 500.0D0 /
-!*                 Density of plant material (used in scaling only)
-!
-!      DATA (NPLTYP(I,2),I=1,NELEE) / NELEE*1 /
-!*                 Second plant type on each soil column
-!
-!      END

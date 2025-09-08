@@ -1,74 +1,89 @@
+!> summary: Defines global variables and data for contaminant transport.
+!> author: J. Ewen, R.A.H.
+!> date: 2004-11-01
+!>
+!> This module provides shared variables for contaminant transport across the entire catchment.
+!> It includes boundary conditions, concentrations, decay rates, soil properties, and retardation factors.
+!> It was converted from a legacy Fortran 77 INCLUDE file.
+!>
+!> @history
+!> | Date       | Author | Version | Description                               |
+!> |:-----------|:-------|:--------|:------------------------------------------|
+!> | 1991-04-26 | JE     | 3.1     | Original `INCLUDE` file written.          |
+!> | 1991-06-13 | JE     | 3.1     | Completed.                                |
+!> | 1991-06-18 | JE     | 3.1     | BLOCK WELC added.                         |
+!> | 1997-02-24 | RAH    | 4.1     | Explicit typing.                          |
+!> | 2004-11-01 | JE     | -       | Converted to Fortran 95.                  |
+!> | 2025-08-11 | AI     | -       | Added KIND parameters and FORD docs.      |
 MODULE CONT_CC
+
    USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE
+   USE MOD_PARAMETERS, ONLY: R8P, I_P
    IMPLICIT NONE
-!*------------------------------ Start of CONT.CC ----------------------*
-!*
-!*                       INCLUDE FILE FOR CONTAMIANT VARIABLES AND DATA
-!*
-!*----------------------------------------------------------------------*
-!* Version:  SHETRAN/INCLUDE/CONT.CC/4.1
-!* Modifications:
-!*                           JE     26/4/91   3.1     WRITTEN
-!*                           JE     13/6/91   3.1     COMPLETED
-!*                           JE     18/6/91   3.1     BLOCK WELC ADDED
-!* RAH  970224  4.1  Explicit typing.
-!  JE  NOV 04 ---- Convert to FORTRAN 95
-!*----------------------------------------------------------------------*
-!* Imported constants
-!*                      LLEE,NCONEE,NELEE,NLFEE,NSEE
-!* Commons
-   DOUBLEPRECISION CCAPB(NELEE,NCONEE),CCPBO(NELEE,NCONEE)
-   DOUBLEPRECISION CCAPE(NELEE,NCONEE)
-   DOUBLEPRECISION CCAPI(NCONEE),      CCAPIO(NCONEE)
-   DOUBLEPRECISION CCAPR(NELEE,NCONEE),CCAPRO(NELEE,NCONEE)
-   DOUBLEPRECISION IIICF(NCONEE),      IIICFO(NCONEE)
-!      COMMON/  CBDY   /CCAPB,CCPBO,CCAPE,CCAPI,CCAPIO,CCAPR,CCAPRO,
-!     $                 IIICF,IIICFO
-!*                             CONTAMINANT CONCENTRATION AND
-!*                             FLUX BOUNDARY CONDITIONS
 
-   DOUBLEPRECISION CCCCW(NELEE,NCONEE)
-!      COMMON/  WELC   /CCCCW
-!*                             CONTAMINANT CONCENTRATION IN WELL WATER
+   ! --------------------------------------------------------------------------
+   ! Public variables
+   PUBLIC :: CCAPB, CCPBO, CCAPE, CCAPI, CCAPIO, CCAPR, CCAPRO, IIICF, IIICFO
+   PUBLIC :: CCCCW
+   PUBLIC :: CCCC, CCCCO, SSSS, SSSSO
+   PUBLIC :: GCPLA, GGLMSO
+   PUBLIC :: CCAPIN
+   PUBLIC :: ALPHA, FADS, GNN, KDDLS, KDDSOL
+   PUBLIC :: NCON
+   PUBLIC :: FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT
+   PUBLIC :: ALPHBD, ALPHBS
 
-   DOUBLEPRECISION CCCC(NELEE,LLEE,NCONEE),CCCCO(NELEE,LLEE,NCONEE)
-   DOUBLEPRECISION SSSS(NELEE,LLEE,NCONEE),SSSSO(NELEE,LLEE,NCONEE)
-!      COMMON/  CONC   /CCCC,CCCCO,SSSS,SSSSO
-!*                             CONCENTRATIONS WITHIN CATCHMENT
+   ! Code =====================================================================
 
-   DOUBLEPRECISION GCPLA(NCONEE),GGLMSO(NCONEE)
-!      COMMON/  GEN    /GCPLA,GGLMSO
-!*                             CONTAMINANT DECAY RATES
+   ! Contaminant concentration and flux boundary conditions
+   REAL(KIND=R8P) :: CCAPB(NELEE,NCONEE)    !! Boundary contaminant concentration
+   REAL(KIND=R8P) :: CCPBO(NELEE,NCONEE)    !! Boundary contaminant concentration at previous time step
+   REAL(KIND=R8P) :: CCAPE(NELEE,NCONEE)    !! Boundary contaminant concentration (end value)
+   REAL(KIND=R8P) :: CCAPI(NCONEE)          !! Initial boundary contaminant concentration
+   REAL(KIND=R8P) :: CCAPIO(NCONEE)         !! Initial boundary contaminant concentration at previous time step
+   REAL(KIND=R8P) :: CCAPR(NELEE,NCONEE)    !! Rainfall contaminant concentration
+   REAL(KIND=R8P) :: CCAPRO(NELEE,NCONEE)   !! Rainfall contaminant concentration at previous time step
+   REAL(KIND=R8P) :: IIICF(NCONEE)          !! Inflow contaminant flux
+   REAL(KIND=R8P) :: IIICFO(NCONEE)         !! Inflow contaminant flux at previous time step
 
-   DOUBLEPRECISION CCAPIN(NCONEE)
-!      COMMON/  INIT   /CCAPIN
-!*                             INITIAL CONCENTRATION
+   ! Contaminant concentration in well water
+   REAL(KIND=R8P) :: CCCCW(NELEE,NCONEE)    !! Contaminant concentration in well water
 
-   DOUBLEPRECISION ALPHA(NSEE,NCONEE),FADS(NSEE,NCONEE),GNN(NCONEE)
-   DOUBLEPRECISION KDDLS(NSEDEE,NCONEE),KDDSOL(NSEE,NCONEE)
-!      COMMON/  NNNN   /ALPHA,FADS,GNN,KDDLS,KDDSOL
-!*                             CONTAMINANT PROPERTIES FOR SOIL
-!*                             AND SEDIMENT
+   ! Concentrations within catchment
+   REAL(KIND=R8P) :: CCCC(NELEE,LLEE,NCONEE)  !! Aqueous phase concentration
+   REAL(KIND=R8P) :: CCCCO(NELEE,LLEE,NCONEE) !! Aqueous phase concentration at previous time step
+   REAL(KIND=R8P) :: SSSS(NELEE,LLEE,NCONEE)  !! Sorbed phase concentration
+   REAL(KIND=R8P) :: SSSSO(NELEE,LLEE,NCONEE) !! Sorbed phase concentration at previous time step
 
-   INTEGER          NCON
-!      COMMON/  NCONS  /NCON
-!*                             NUMBER OF CONTAMINANTS
+   ! Contaminant decay rates
+   REAL(KIND=R8P) :: GCPLA(NCONEE)          !! General contaminant decay rate parameter
+   REAL(KIND=R8P) :: GGLMSO(NCONEE)         !! Contaminant decay rate in soil
 
-   DOUBLEPRECISION FCPBKO(NLFEE,2,LLEE,NCONEE)
-   DOUBLEPRECISION GCPBKO(NLFEE,2,LLEE,NCONEE)
-   DOUBLEPRECISION    FSF(NLFEE,NCONEE),       FSFC(NLFEE,NCONEE)
-   DOUBLEPRECISION   FSFT(NLFEE,NCONEE),        RSW(NELEE,NCONEE)
-   DOUBLEPRECISION   RSWC(NELEE,NCONEE),       RSWT(NELEE,NCONEE)
-!      COMMON/  RETN   /FCPBKO,GCPBKO,FSF,FSFC,FSFT,RSW,RSWC,RSWT
-!*                             RETARDATION VARIABLES USED IN THE
-!*                             CALCULATIONS FOR IMPLICIT LATERAL
-!*                             COUPLING BY BANK EROSION AND WITH
-!*                             CONVECTION WITH SURFACE FLOWS
+   ! Initial concentration
+   REAL(KIND=R8P) :: CCAPIN(NCONEE)         !! Initial contaminant concentration
 
-   DOUBLEPRECISION ALPHBD(NCONEE),ALPHBS(NCONEE)
-!      COMMON/  SBED   /ALPHBD,ALPHBS
-!*                             COEFFICIENTS FOR EXCHANGE BETWEEN CELLS
-!*                             OF A LINK
+   ! Contaminant properties for soil and sediment
+   REAL(KIND=R8P) :: ALPHA(NSEE,NCONEE)     !! Sorption/desorption rate coefficient
+   REAL(KIND=R8P) :: FADS(NSEE,NCONEE)      !! Fraction of adsorption sites
+   REAL(KIND=R8P) :: GNN(NCONEE)            !! Soil bulk density (kg/m3)
+   REAL(KIND=R8P) :: KDDLS(NSEDEE,NCONEE)   !! Partition coefficient for loose sediment (m3/kg)
+   REAL(KIND=R8P) :: KDDSOL(NSEE,NCONEE)    !! Partition coefficient for soil (m3/kg)
 
-!PRIVATE :: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE
+   ! Number of contaminants
+   INTEGER(KIND=I_P) :: NCON               !! Total number of contaminants being simulated
+
+   ! Retardation variables for lateral coupling (bank erosion, surface flow)
+   REAL(KIND=R8P) :: FCPBKO(NLFEE,2,LLEE,NCONEE) !! Retardation factor component
+   REAL(KIND=R8P) :: GCPBKO(NLFEE,2,LLEE,NCONEE) !! Retardation factor component
+   REAL(KIND=R8P) :: FSF(NLFEE,NCONEE)           !! Retardation factor for surface flow
+   REAL(KIND=R8P) :: FSFC(NLFEE,NCONEE)          !! Retardation factor constant for surface flow
+   REAL(KIND=R8P) :: FSFT(NLFEE,NCONEE)          !! Retardation factor for surface flow at previous time step
+   REAL(KIND=R8P) :: RSW(NELEE,NCONEE)           !! Retardation factor for surface water
+   REAL(KIND=R8P) :: RSWC(NELEE,NCONEE)          !! Retardation factor constant for surface water
+   REAL(KIND=R8P) :: RSWT(NELEE,NCONEE)          !! Retardation factor for surface water at previous time step
+
+   ! Coefficients for exchange between cells of a link
+   REAL(KIND=R8P) :: ALPHBD(NCONEE)         !! Exchange coefficient (dissolved phase)
+   REAL(KIND=R8P) :: ALPHBS(NCONEE)         !! Exchange coefficient (sorbed phase)
+
 END MODULE CONT_CC
