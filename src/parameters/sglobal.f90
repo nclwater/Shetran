@@ -158,13 +158,13 @@ CONTAINS
    !> summary: Checks if a double precision value is equal to the global marker.
    !>
    !> Compares the input value against the integer representation of `marker999`.
-   LOGICAL FUNCTION eqmarker(a)
+   ELEMENTAL LOGICAL FUNCTION eqmarker(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       eqmarker = INT(a)==imarker
    END FUNCTION eqmarker
 
    !> summary: Checks if a double precision value is greater than zero.
-   LOGICAL FUNCTION gtzero(a)
+   ELEMENTAL LOGICAL FUNCTION gtzero(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       gtzero = a>zero
    END FUNCTION gtzero
@@ -172,13 +172,13 @@ CONTAINS
    !> summary: Checks if a double precision value is greater than or equal to zero.
    !>
    !> Uses `iszero` to handle floating-point comparisons near zero.
-   LOGICAL FUNCTION gezero(a)
+   ELEMENTAL LOGICAL FUNCTION gezero(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       gezero = ISZERO(a) .OR. a>zero
    END FUNCTION gezero
 
    !> summary: Checks if a double precision value is less than zero.
-   LOGICAL FUNCTION ltzero(a)
+   ELEMENTAL LOGICAL FUNCTION ltzero(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       ltzero = a<zero
    END FUNCTION ltzero
@@ -186,7 +186,7 @@ CONTAINS
    !> summary: Checks if a double precision value is less than or equal to zero.
    !>
    !> Uses `iszero` to handle floating-point comparisons near zero.
-   LOGICAL FUNCTION lezero(a)
+   ELEMENTAL LOGICAL FUNCTION lezero(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       lezero = ISZERO(a) .OR. a<zero
    END FUNCTION lezero
@@ -194,13 +194,13 @@ CONTAINS
    !> summary: Checks if a double precision value is effectively zero.
    !>
    !> Compares the absolute value of the input against a small tolerance (`vsmall`).
-   LOGICAL FUNCTION iszero(a)
+   ELEMENTAL LOGICAL FUNCTION iszero(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       iszero = ABS(a)<vsmall
    END FUNCTION iszero
 
    !> summary: Checks if all elements in a 1D double precision array are zero.
-   LOGICAL FUNCTION iszero_a(a)
+   PURE LOGICAL FUNCTION iszero_a(a)
       INTEGER :: i
       DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a !! The array to check.
       iszero_a=.TRUE.
@@ -211,7 +211,7 @@ CONTAINS
    END FUNCTION iszero_a
 
    !> summary: Checks if all elements in a 2D integer array are zero.
-   LOGICAL FUNCTION i_iszero_a2(a)
+   PURE LOGICAL FUNCTION i_iszero_a2(a)
       INTEGER                             :: i, j
       INTEGER, DIMENSION(:,:), INTENT(IN) :: a !! The 2D array to check.
       i_iszero_a2=.TRUE.
@@ -225,7 +225,7 @@ CONTAINS
 
 
    !> summary: Checks if a double precision value is not zero.
-   LOGICAL FUNCTION notzero(a)
+   ELEMENTAL LOGICAL FUNCTION notzero(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       notzero = .NOT.ISZERO(a)
    END FUNCTION notzero
@@ -233,20 +233,20 @@ CONTAINS
    !> summary: Checks if a double precision value is effectively one.
    !>
    !> Compares the value against one using a small tolerance (`vsmall`).
-   LOGICAL FUNCTION isone(a)
+   ELEMENTAL LOGICAL FUNCTION isone(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       isone = ABS(a-one)<vsmall
    END FUNCTION isone
 
    !> summary: Checks if a double precision value is not one.
-   LOGICAL FUNCTION notone(a)
+   ELEMENTAL LOGICAL FUNCTION notone(a)
       DOUBLEPRECISION, INTENT(IN) :: a !! The value to check.
       notone = .NOT.ISONE(a)
    END FUNCTION notone
 
 
    !> summary: Integer positive difference function (equivalent to `MAX(x-y, 0)`).
-   INTEGER FUNCTION idimje(x,y)
+   ELEMENTAL INTEGER FUNCTION idimje(x,y)
       INTEGER, INTENT(IN) :: x !! The first integer.
       INTEGER, INTENT(IN) :: y !! The second integer.
       IF(x>y) THEN
@@ -257,7 +257,7 @@ CONTAINS
    END FUNCTION idimje
 
    !> summary: Double precision positive difference function (equivalent to `MAX(x-y, 0.0)`).
-   DOUBLEPRECISION FUNCTION dimje(x,y)
+   ELEMENTAL DOUBLEPRECISION FUNCTION dimje(x,y)
       DOUBLEPRECISION, INTENT(IN) :: x !! The first value.
       DOUBLEPRECISION, INTENT(IN) :: y !! The second value.
       IF(x>y) THEN
