@@ -5,6 +5,7 @@
 !> This module is a central component of SHETRAN, replacing legacy `INCLUDE`
 !> files like `al_p.inc`. It provides a wide range of globally accessible
 !> entities, including:
+!>
 !> - System version information and banners.
 !> - Core array dimensions and size parameters (e.g., `nxee`, `nyee`).
 !> - Fundamental mathematical and numerical constants (e.g., `zero`, `vsmall`).

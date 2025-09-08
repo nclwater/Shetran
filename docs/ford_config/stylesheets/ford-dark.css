@@ -759,3 +759,27 @@ svg polygon[fill="none"][stroke="black"] {
 svg g[class="graph"]>title {
     fill: var(--text-primary) !important;
 }
+
+/* Improved spacing for FORD documentation cards */
+/* Override Bootstrap mb-4 to provide more space between cards */
+.card.mb-4,
+.card+.card,
+div.card {
+    margin-bottom: 1.0rem !important;
+}
+
+/* Additional spacing for procedure/function/subroutine cards */
+.card.mb-4+.card.mb-4 {
+    margin-top: 0.5rem !important;
+}
+
+/* Ensure consistent spacing for all documentation elements */
+.procedure-card,
+.function-card,
+.subroutine-card,
+[class*="procedure"],
+[class*="function"],
+[class*="subroutine"] {
+    margin-bottom: 0.75rem !important;
+    margin-top: 0.25rem !important;
+}
