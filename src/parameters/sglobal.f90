@@ -37,7 +37,7 @@
 !> | 2024-09-05 | AI | Added KIND parameters and FORD docs. |
 MODULE sglobal
 
-   USE MOD_PARAMETERS, ONLY : I_P, R8P
+   USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
 
    IMPLICIT NONE
    PRIVATE
@@ -110,10 +110,18 @@ MODULE sglobal
    INTEGER(KIND=I_P) :: total_no_elements = -1 !! Actual number of elements in the simulation.
    INTEGER(KIND=I_P) :: total_no_links = -1 !! Actual number of links in the simulation.
    INTEGER(KIND=I_P) :: top_cell_no = -1 !! Index of the top-most cell.
-   INTEGER(KIND=I_P) :: szmonte = -1, ran2monte1 = -1, ran2monte2 = -1, pcmonte = -1 !! Monte Carlo simulation parameters.
-   INTEGER(1), DIMENSION(:, :), ALLOCATABLE :: montec !! Monte Carlo data array.
-   CHARACTER(256) :: DIRQQ, filnam, cnam, rootdir !! Directory and file path variables.
-   CHARACTER(256) :: hdf5filename, visualisation_plan_filename, visualisation_check_filename !! Filenames for I/O.
+   INTEGER(KIND=I_P) :: szmonte = -1 !! Monte Carlo simulation parameter.
+   INTEGER(KIND=I_P) :: ran2monte1 = -1 !! Monte Carlo simulation parameter.
+   INTEGER(KIND=I_P) :: ran2monte2 = -1 !! Monte Carlo simulation parameter.
+   INTEGER(KIND=I_P) :: pcmonte = -1 !! Monte Carlo simulation parameter.
+   INTEGER(KIND=I_P), DIMENSION(:, :), ALLOCATABLE :: montec !! Monte Carlo data array (rows x cols), use I_P kind for portability.
+   CHARACTER(LEN=LENGTH_FILEPATH) :: DIRQQ !! Working directory / absolute path (string, portable length from MOD_PARAMETERS)
+   CHARACTER(LEN=LENGTH_FILEPATH) :: filnam !! Primary run filename (string)
+   CHARACTER(LEN=LENGTH_FILEPATH) :: cnam !! Secondary/name string (string)
+   CHARACTER(LEN=LENGTH_FILEPATH) :: rootdir !! Root install directory (string)
+   CHARACTER(LEN=LENGTH_FILEPATH) :: hdf5filename !! HDF5 output filename (string)
+   CHARACTER(LEN=LENGTH_FILEPATH) :: visualisation_plan_filename !! Visualization plan filename (string)
+   CHARACTER(LEN=LENGTH_FILEPATH) :: visualisation_check_filename !! Visualization check filename (string)
    REAL(KIND=R8P) :: UZNOW !! Current simulation time in hours.
    REAL(KIND=R8P), DIMENSION(nelee) :: cellarea !! Area of each grid cell [m^2].
    REAL(KIND=R8P), DIMENSION(nelee) :: DXQQ !! Length of cell face in x-direction [m].
@@ -129,7 +137,7 @@ MODULE sglobal
    INTEGER(KIND=I_P), PARAMETER :: pppri = 23 !! File unit for primary output.
    INTEGER(KIND=I_P) :: ERRC(0:ERRNEE, 0:3) = 0 !! Counters for error occurrences.
    INTEGER(KIND=I_P) :: ERRTOT = 0 !! Total count of all errors and warnings.
-   CHARACTER(128) :: helppath !! Path to help message files.
+   CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Path to help message files (use LENGTH_FILEPATH for portability)
    LOGICAL :: ISERROR !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
    LOGICAL :: ISERROR2 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
 
@@ -138,8 +146,10 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    REAL(KIND=R8P), PARAMETER :: marker999 = 999999.9_R8P !! A large marker value to indicate missing or invalid data.
    INTEGER(KIND=I_P), PARAMETER :: imarker = INT(marker999) !! Integer version of the marker value.
-   INTEGER(KIND=I_P), PARAMETER :: izero = 0, ione = 1 !! Basic integer constants.
-   INTEGER(KIND=I_P), PARAMETER, DIMENSION(1) :: izero1 = [0], ione1 = [1] !! Single-element array versions of integer constants.
+   INTEGER(KIND=I_P), PARAMETER :: izero = 0 !! Basic integer constant zero.
+   INTEGER(KIND=I_P), PARAMETER :: ione = 1 !! Basic integer constant one.
+   INTEGER(KIND=I_P), PARAMETER, DIMENSION(1) :: izero1 = [0] !! Single-element array version of integer zero.
+   INTEGER(KIND=I_P), PARAMETER, DIMENSION(1) :: ione1 = [1] !! Single-element array version of integer one.
    REAL(KIND=R8P), PARAMETER :: zero = 0.0_R8P !! Double precision zero.
    REAL(KIND=R8P), PARAMETER :: half = 0.5_R8P !! Double precision one-half.
    REAL(KIND=R8P), PARAMETER :: one = 1.0_R8P !! Double precision one.
@@ -147,7 +157,8 @@ MODULE sglobal
    REAL(KIND=R8P), PARAMETER :: three = 3.0_R8P !! Double precision three.
    REAL(KIND=R8P), PARAMETER :: five = 5.0_R8P !! Double precision five.
    REAL(KIND=R8P), PARAMETER :: vsmall = 1.0e-20_R8P !! A very small value used for floating-point comparisons (tolerance).
-   REAL(KIND=R8P), PARAMETER, DIMENSION(1) :: zero1 = [0.0_R8P], one1 = [1.0_R8P] !! Single-element array versions of double precision constants.
+   REAL(KIND=R8P), PARAMETER, DIMENSION(1) :: zero1 = [0.0_R8P] !! Single-element array version of double precision zero.
+   REAL(KIND=R8P), PARAMETER, DIMENSION(1) :: one1 = [1.0_R8P] !! Single-element array version of double precision one.
 
    ! --------------------------------------------------------------------
    ! Miscellaneous Global Variables
@@ -287,7 +298,6 @@ CONTAINS
    !> | 1997-08-11 | RAH | Added EXTERNAL after INCLUDE. |
    SUBROUTINE ERROR (ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
-!----------------------------------------------------------------------*
 ! Commons and constants
       IMPLICIT NONE
       INTEGER(KIND=I_P), INTENT(IN) :: ETYPE !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
@@ -297,27 +307,25 @@ CONTAINS
       INTEGER(KIND=I_P), INTENT(IN) :: CELL !! The cell number where the error occurred (optional).
       CHARACTER (LEN=*), INTENT(IN) :: TEXT !! The descriptive error text.
 
-      INTEGER(KIND=I_P) :: NONE, ERRCEE, HLP
-      PARAMETER (NONE = 0, ERRCEE = (1 + ERRNEE) * 4)
-      PARAMETER (HLP = 8)
+      INTEGER(KIND=I_P), PARAMETER :: NONE = 0
+      INTEGER(KIND=I_P), PARAMETER :: ERRCEE = (1 + ERRNEE) * 4
+      INTEGER(KIND=I_P), PARAMETER :: HLP = 8
       CHARACTER (LEN=*) :: PATH1
       PARAMETER (PATH1 = '/shetran/')
-      INTEGER(KIND=I_P) :: COUNT, ERRN, AMODL
+      INTEGER(KIND=I_P) :: COUNT
+      INTEGER(KIND=I_P) :: ERRN
+      INTEGER(KIND=I_P) :: AMODL
       CHARACTER (11) :: CTYPE (3)
       CHARACTER(256) :: FIL
       CHARACTER(80)  :: HLPMSG
       LOGICAL :: VALID
       INTEGER(KIND=I_P) :: IO_STATUS
-
-      DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /
-!----------------------------------------------------------------------*
       INTEGER(KIND=I_P) :: helpcheck !! Status from checking for help directory.
       CHARACTER :: cc
-      character, parameter :: slash='/'
-
+      CHARACTER, PARAMETER :: slash = '/'
       LOGICAL :: present
 
-      helppath = '\helpmessages'
+      helppath = '/helpmessages'
 
 !**SB 07072020 reduce timestep if there are errors 1024,1030,1060
       ISERROR = .FALSE.
