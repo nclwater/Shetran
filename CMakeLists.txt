@@ -561,8 +561,68 @@ set_target_properties(SHETRAN PROPERTIES
 # Include directories
 target_include_directories(SHETRAN PRIVATE ${HDF5_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Link libraries
-target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
+# Consolidate HDF5 link libraries robustly. Different FindHDF5/pkg-config setups
+# expose different variable names (HDF5_LIBRARIES, HDF5_HL_FORTRAN_LIBRARIES,
+# HDF5_FORTRAN_LIBRARIES, etc.). Ensure the Fortran HL libraries (which provide
+# H5LT symbols) are present on the link line.
+### Prefer imported HDF5 targets if available (modern FindHDF5)
+if(TARGET HDF5::HDF5_HL_Fortran OR TARGET HDF5::HDF5_HL)
+    # Link specific imported targets if present
+    message(STATUS "Linking against imported HDF5 targets")
+    if(TARGET HDF5::HDF5_HL_Fortran)
+        target_link_libraries(SHETRAN PRIVATE HDF5::HDF5_HL_Fortran)
+    endif()
+    if(TARGET HDF5::HDF5_Fortran)
+        target_link_libraries(SHETRAN PRIVATE HDF5::HDF5_Fortran)
+    endif()
+    if(TARGET HDF5::HDF5)
+        target_link_libraries(SHETRAN PRIVATE HDF5::HDF5)
+    endif()
+else()
+    # Fall back to collecting raw library paths from various FindHDF5 variables
+    set(HDF5_LINK_LIBS "")
+    if(DEFINED HDF5_HL_FORTRAN_LIBRARIES)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_HL_FORTRAN_LIBRARIES})
+    endif()
+    if(DEFINED HDF5_hdf5hl_fortran_LIBRARY_RELEASE)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_hdf5hl_fortran_LIBRARY_RELEASE})
+    endif()
+    if(DEFINED HDF5_hdf5_hl_fortran_LIBRARY_RELEASE)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_hdf5_hl_fortran_LIBRARY_RELEASE})
+    endif()
+    if(DEFINED HDF5_HL_LIBRARIES)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_HL_LIBRARIES})
+    endif()
+    if(DEFINED HDF5_FORTRAN_LIBRARIES)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_FORTRAN_LIBRARIES})
+    elseif(DEFINED HDF5_Fortran_LIBRARIES)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_Fortran_LIBRARIES})
+    endif()
+    if(DEFINED HDF5_LIBRARIES)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_LIBRARIES})
+    endif()
+    if(DEFINED HDF5_hdf5_fortran_LIBRARY_RELEASE)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_hdf5_fortran_LIBRARY_RELEASE})
+    endif()
+    if(DEFINED HDF5_hdf5_LIBRARY_RELEASE)
+        list(APPEND HDF5_LINK_LIBS ${HDF5_hdf5_LIBRARY_RELEASE})
+    endif()
+
+    # Remove any NOTFOUND placeholders which would break the linker
+    set(CLEAN_HDF5_LINK_LIBS)
+    foreach(_lib IN LISTS HDF5_LINK_LIBS)
+        if(NOT _lib STREQUAL "" AND NOT _lib MATCHES "NOTFOUND")
+            list(APPEND CLEAN_HDF5_LINK_LIBS ${_lib})
+        endif()
+    endforeach()
+    set(HDF5_LINK_LIBS ${CLEAN_HDF5_LINK_LIBS})
+
+    if(HDF5_LINK_LIBS)
+        target_link_libraries(SHETRAN PRIVATE ${HDF5_LINK_LIBS})
+    else()
+        message(WARNING "No usable HDF5 link libraries discovered by CMake variables. Ensure libhdf5_hl_fortran and related dev packages are installed (e.g. libhdf5-dev).")
+    endif()
+endif()
 
 # Apply compiler-specific flags using target_compile_options for better control
 if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
