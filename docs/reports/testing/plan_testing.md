@@ -570,6 +570,40 @@ end subroutine
 - **Adequate for**: Quick and dirty testing
 - **Poor for**: Comprehensive testing strategy
 
+### 5. Fortran Standard Library — stdlib_unittest
+
+#### Characteristics
+- Type: Lightweight, standard-library-backed unit test utilities
+- Dependencies: Fortran Standard Library (stdlib) module(s); best used with fpm but can be vendored
+- Language Support: Modern Fortran (2008+ features recommended)
+- Learning Curve: Low
+
+#### Advantages
+- Maintained as part of the stdlib ecosystem; benefits from community maintenance and versioning alongside other stdlib utilities (strings, filesystem, etc.)
+- Easy integration with fpm and modern build workflows
+- Familiar, compact API for basic assertions and test registration
+- Works well with stdlib-based initialization helpers and makes test scaffolding concise
+- Good fit for validating init/IO/parsing code that will use other stdlib modules
+
+#### Limitations
+- Not as feature-rich as pFUnit (limited advanced assertions, no built-in MPI parallel testing)
+- Smaller assertion surface compared to mature frameworks; some advanced reporting features may be missing
+- Ecosystem and examples still growing relative to older frameworks
+
+#### Suitability for SHETRAN
+- Excellent for: Initial unit tests focused on IO, parsing, stdlib-based utilities, and refactored modules (core_types, zq_types, io_api)
+- Good for: Establishing a modern, maintained unit-test baseline that integrates with fpm CI
+- Complementary to: FRUIT (legacy-friendly) and pFUnit (advanced/parallel testing)
+
+#### Example usage (concept)
+```fortran
+use stdlib_unittest
+! concise test registration and assertions
+call stdlib_test_init()
+call assert_equal(expected, actual, "ZQ parser numeric parsing")
+call stdlib_test_summary()
+```
+
 ### Framework Recommendation Matrix
 
 | Framework  | Setup Complexity | Learning Curve | Feature Richness | SHETRAN Suitability | Recommended Phase                   |
@@ -578,6 +612,7 @@ end subroutine
 | **pFUnit** | High             | High           | High             | Medium              | Phase 10+ (Advanced Implementation) |
 | **FUnit**  | Medium           | Medium         | Medium           | Low                 | Not Recommended                     |
 | **FORTLS** | Low              | Low            | Low              | Low                 | Emergency Only                      |
+| **stdlib_unittest** | Low      | Low            | Medium           | High                | Phase 6-7 (Initial Implementation)  |
 
 ### Implementation Strategy Recommendation
 

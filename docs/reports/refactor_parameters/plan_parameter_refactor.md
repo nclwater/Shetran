@@ -28,6 +28,50 @@ The current `src/parameters/` directory contains a mixture of true parameter def
   - String length constants
   - NaN equivalents
 
+### 1.1.1 Use of the Fortran Standard Library (stdlib) with mod_parameters / precision_kinds
+
+Assessment summary
+- Keep mod_parameters (renamed precision_kinds.f90) as the canonical project-owned module for KINDs and project-specific PARAMETER values.
+- Use stdlib to replace low-level, language/utility concerns inside mod_parameters rather than removing mod_parameters entirely.
+- Benefits: fewer bespoke implementations, improved portability and correctness, smaller test surface for platform-specific behaviour.
+
+Concrete stdlib replacements and complements
+- Kind selection
+  - Replace custom SELECTED_REAL_KIND wrappers and handcrafted kind-helpers with stdlib_kinds (or stdlib's kind helpers) inside precision_kinds.f90; re-export I_P, R_P symbols.
+- Machine numerics and math constants
+  - Use stdlib_math for machine constants/epsilon helpers (where available) and stdlib's well-tested math constants rather than ad-hoc eps/pi definitions. Keep domain-specific constants (physical parameters) in the project module.
+- Common logical / numeric convenience constants
+  - Replace repeated definitions (zero, one, half, T/F) by re-exporting small stable symbols computed from stdlib or use them directly in modules; retain descriptive project names for clarity.
+- File units / IO helpers
+  - For any environment/path helpers currently mixed into mod_parameters, prefer stdlib_filesystem and stdlib_environment for portable path handling and config reads. For file unit management, plan migration to NEWUNIT in code and use stdlib helpers for path tests; keep a transitional file_units.f90 to map legacy unit numbers.
+- String & parsing helpers
+  - Use stdlib_strings for tokenization/parsing used at init/config time; do not use strings in hot loops.
+- Tests & validation
+  - Use stdlib_unittest to assert KIND sizes, numeric tolerances and platform invariants exposed by precision_kinds.f90.
+
+What should remain in mod_parameters / precision_kinds.f90
+- Project-specific PARAMETER values (model default time steps, physics constants, domain-specific thresholds).
+- Public, stable aliases (I_P, R_P) and any descriptive constant names used throughout the codebase.
+- Centralized documentation and comments explaining the semantics and units of the parameters.
+
+Recommended minimal migration approach
+1. Add stdlib as a dependency (prefer fpm; otherwise vendor selected stdlib modules).
+2. In precision_kinds.f90:
+   - Replace internal kind-computation code with calls to stdlib_kinds and set I_P, R_P from those results.
+   - Import stdlib_math for machine/epsilon helpers and re-export or reference as needed.
+   - Leave domain constants untouched.
+3. Add unit tests (stdlib_unittest) that validate I_P/R_P sizes and machine epsilon behaviour on CI platforms.
+4. Gradually replace other ad-hoc utilities across the parameters tree with the corresponding stdlib modules (strings/filesystem/sorting) during the per-module refactors.
+5. Plan a follow-up pass to adopt NEWUNIT in IO code and remove hardcoded unit numbers from file_units once adapter and tests are in place.
+
+Practical notes & caveats
+- Pin stdlib version in fpm.toml or vendor a minimal set of modules if the build system is not yet fpm-based.
+- Avoid using container-like stdlib modules (hashmap, list) directly in performance-critical inner loops; instantiate them at init time and treat as read-only in parallel regions.
+- Use stdlib_unittest early to lock behaviour across compilers/architectures when kind/math helpers are switched.
+
+Rationale (one-liner)
+- Use stdlib to eliminate duplicated, error-prone small utilities in mod_parameters while keeping mod_parameters as the single authoritative source of project semantics and values.
+
 ### 1.2 Physics Constants
 **Target: `src/parameters/physics/`**
 
@@ -559,7 +603,7 @@ This extraction would eliminate approximately **30+ duplicate constant definitio
 
 ### 5.7 File Unit Identification and Reorganization
 
-Analysis of the current file unit assignments reveals a complex system of hardcoded unit numbers scattered across AL_C.F90 and AL_D.f90. The following table identifies all current file units, proposes more descriptive names, and describes their usage:
+Analysis of the current file unit assignments reveals a complex system of hardcoded unit numbers scattered across AL_C.F90 and AL_D.F90. The following table identifies all current file units, proposes more descriptive names, and describes their usage:
 
 | Current ID | Unit | Proposed Name                 | Description                           |
 | ---------- | ---- | ----------------------------- | ------------------------------------- |
