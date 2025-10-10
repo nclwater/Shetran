@@ -470,6 +470,14 @@ build_shetran() {
     log_info "Configuring with CMake..."
     log_info "CMake arguments: $CMAKE_ARGS"
     log_info_detail "Source files will be automatically discovered from src/ directory"
+    # Allow callers to set EXTRA_CMAKE_ARGS in the environment to append extra
+    # cache variables or flags. Example:
+    #   EXTRA_CMAKE_ARGS='-DCMAKE_Fortran_FLAGS="-Wall -Wextra"' ./build.sh
+    if [[ -n "$EXTRA_CMAKE_ARGS" ]]; then
+        log_info "Appending EXTRA_CMAKE_ARGS: $EXTRA_CMAKE_ARGS"
+        CMAKE_ARGS="$CMAKE_ARGS $EXTRA_CMAKE_ARGS"
+    fi
+
     cmake $CMAKE_ARGS "$SOURCE_PATH"
     
     # Build
