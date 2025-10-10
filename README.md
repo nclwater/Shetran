@@ -19,8 +19,9 @@ It is documented in the CMAKE_BUILD.md file.
 **Key Features:**
 
 - **Automatic compiler detection**: Prefers gfortran on Linux, Intel Fortran on Windows
-- **Smart HDF5 handling**: Automatically finds system HDF5 or downloads and builds from source as needed
+- **Smart HDF5 handling**: Automatically finds system HDF5 or uses included HDF5 source for offline building
 - **Cross-platform support**: Works on Linux, Unix, and Windows with multiple compilers
+- **Offline building**: Includes HDF5 1.14.3 source tarball in `external/tarballs/` for compilation without internet access
 
 This has been tested in the following configurations and confirmed working:
 
@@ -30,9 +31,20 @@ This has been tested in the following configurations and confirmed working:
 Automatic integration of the cmake build in the Visual Studio and Visual Studio Code on Windows is currently very finicky.
 An (slightly out-of-date) description of how to setup the corresponding Visual Studio project can be found in the file "COMPILING.md".
 
+## Dependencies and Offline Building
+
+**HDF5 Library Included**: This package includes the HDF5 1.14.3 source tarball in `external/tarballs/hdf5-1.14.3.tar.gz`. This means:
+
+- ✅ **No internet connection required** during compilation
+- ✅ **No automatic downloads** - all dependencies are included
+- ✅ **Reproducible builds** - exact HDF5 version is bundled
+- ✅ **Easy distribution** - complete package for offline environments
+
+The CMake build system will automatically use the included HDF5 source when needed. On Linux with gfortran, it will try the system HDF5 first (if installed) for better integration, but will fall back to the included source if system libraries are not available.
+
 ## Compiling Troubleshoot
 
-Should the compile not work with the system HDF5 library, set the build script to build it locally.
+Should the compile not work with the system HDF5 library, the build will automatically use the included HDF5 source tarball from `external/tarballs/`.
 
 ## VS Code / IDE Integration
 

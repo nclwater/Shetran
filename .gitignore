@@ -16,6 +16,7 @@ shetran-*
 Shetran-4.4.7
 *.mod
 *.kate-swp
+external/tarballs/*.tar.gz.tmp
 
 
 # Generated files - CMake creates these at build time

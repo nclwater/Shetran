@@ -8,7 +8,8 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 - **Intelligent Dependency Ordering**: Orders source files based on module dependencies
 - **Cross-platform Support**: Works on Linux, Unix, and Windows  
 - **Multi-compiler Support**: Intel Fortran (ifort, ifx) and GNU Fortran (gfortran)
-- **HDF5 Integration**: Automatic HDF5 detection on Linux, provided libraries on Windows
+- **HDF5 Integration**: Includes HDF5 1.14.3 source for offline building - no internet connection required
+- **Offline Compilation**: All dependencies bundled - no automatic downloads during build
 
 ## Quick Start
 
@@ -76,17 +77,18 @@ This directory contains a CMake-based build system for SHETRAN that supports mul
 - One of the following Fortran compilers:
   - Intel Fortran Compiler (ifort or ifx)
   - GNU Fortran (gfortran)
-- HDF5 development packages:
+- HDF5 development packages (optional - will use included source if not installed):
   - Ubuntu/Debian: `sudo apt install libhdf5-dev`
   - CentOS/RHEL: `sudo yum install hdf5-devel`
   - Fedora: `sudo dnf install hdf5-devel`
+  - **Note**: If system HDF5 is not available, the included HDF5 1.14.3 source tarball will be automatically built
 
 ### Windows
 
 - CMake 3.12 or higher
 - Intel Fortran Compiler (ifort or ifx)
-- HDF5 libraries (provided in `external/` directory)
 - Visual Studio Build Tools or Visual Studio
+- **Note**: HDF5 will be automatically built from the included source tarball in `external/tarballs/`
 
 ## Compiler Auto-Detection
 
@@ -178,21 +180,35 @@ Simply add your new `.f90` files anywhere in the `src/` directory tree. The buil
 
 ## HDF5 Dependency Management
 
-The build system includes sophisticated HDF5 handling that automatically adapts based on your platform and compiler:
+The build system includes sophisticated HDF5 handling that automatically adapts based on your platform and compiler.
+
+### Included HDF5 Source for Offline Building
+
+**This package includes HDF5 1.14.3 source**: The HDF5 source tarball is included in `external/tarballs/hdf5-1.14.3.tar.gz`. This provides:
+
+- ✅ **Offline compilation capability** - No internet connection required during build
+- ✅ **No automatic downloads** - All dependencies are pre-packaged
+- ✅ **Reproducible builds** - Exact HDF5 version (1.14.3) is guaranteed
+- ✅ **Simplified distribution** - Complete source package for air-gapped or restricted environments
+
+The CMake build system will automatically detect and use the local tarball when building HDF5 from source, eliminating the need for internet access.
 
 ### HDF5 Strategy by Platform and Compiler
 
 **Linux with gfortran**:
-- **Default behavior**: Try system HDF5 first, then download and build if not found
+- **Default behavior**: Try system HDF5 first, then build from included source if not found
 - **Rationale**: System HDF5 is typically well-integrated with gfortran on Linux distributions
+- **No internet required**: Uses included source tarball from `external/tarballs/`
 
 **Linux with Intel Fortran (ifort/ifx)**:
-- **Default behavior**: Always download and build HDF5 from source
+- **Default behavior**: Always build HDF5 from included source
 - **Rationale**: Ensures compatibility between Intel Fortran and HDF5
+- **No internet required**: Uses included source tarball from `external/tarballs/`
 
 **Windows (any compiler)**:
-- **Default behavior**: Use provided libraries if available, otherwise download and build
+- **Default behavior**: Use provided libraries if available, otherwise build from included source
 - **Rationale**: Windows typically lacks package managers for easy HDF5 installation
+- **No internet required**: Uses included source tarball from `external/tarballs/`
 
 ### HDF5 Build Options
 
@@ -221,9 +237,12 @@ When building HDF5 from source, the build system automatically selects an approp
 
 ### HDF5 Features
 
-- **Version**: HDF5 1.14.3 (when built from source)
+- **Version**: HDF5 1.14.3 (included source tarball in `external/tarballs/`)
+- **Source Location**: `external/tarballs/hdf5-1.14.3.tar.gz`
+- **SHA256 Hash**: Verified tarball with checksum `09cdb287aa7a89148c1638dd20891fdbae08102cf433ef128fd345338aa237c7`
 - **Components**: Fortran interface, High-Level (HL) library
 - **H5IM Palette Support**: Automatically detected and enabled when available
+- **Internet Access**: Not required - uses local tarball
 
 ## Build Configurations
 
