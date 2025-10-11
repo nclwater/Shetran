@@ -6,16 +6,8 @@ from pathlib import Path
 log_path = Path(__file__).resolve().parents[1] / 'compile_warnings.log'
 out_path = Path(__file__).resolve().parents[1] / 'compile_warnings.csv'
 
-# Regex to match lines like:
-# /path/to/file.f90:32:31:
-# then a few lines later: Warning: Unused PRIVATE module variable ‘cyph’ declared at (1) [-Wunused-value]
+# Regex to match file location lines like: /path/to/file.f90:32:31:
 header_re = re.compile(r'^(?P<file>/.+?):(?P<line>\d+):(?P<col>\d+):')
-warning_re = re.compile(r"Warning: (?P<type>.+)")
-# Prefer variables enclosed in ASCII or Unicode quotes. Don't match the leading word 'Warning'.
-# Matches ‘var’, 'var', "var", `var` or bare words but avoids matching 'Warning' at start.
-var_re = re.compile(
-    r"[‘'`\"](?P<var>[A-Za-z0-9_]+)[’'`\"]|Warning: (?P<ignore>\w+)|(?P<bare>[A-Za-z0-9_]+)"
-)
 
 entries = []
 with log_path.open(encoding='utf-8') as f:
@@ -29,62 +21,86 @@ while i < len(lines):
         file = m.group('file')
         line_no = m.group('line')
         col_no = m.group('col')
-        # According to new rule: the warning text is at header_line + 4 (zero-based relative to header)
-        warn_idx = i + 4
-        if warn_idx < len(lines):
-            wline = lines[warn_idx].strip()
+        
+        # Search for the Warning line in the next few lines
+        warning_found = False
+        for offset in range(1, 15):
+            if i + offset >= len(lines):
+                break
+            wline = lines[i + offset].strip()
             if wline.startswith('Warning:'):
-                # extract text within square brackets at end if any
-                match = re.search(r'\[(.*?)\]', wline)
-                if match:
-                    warning_type = match.group(1)
-                else:
-                    warning_type = 'unknown'
-
-                # extract variable name if any, it is between ‘’ quotes in the message
-                # e.g. Warning: Unused PRIVATE module variable ‘cyph’ declared at (1) [-Wunused-value]
-                # Try to extract quoted variable first, then fall back to the first bare identifier
-                var_match = var_re.search(wline)
+                warning_found = True
+                
+                # Extract warning code from square brackets at the end
+                warning_code = 'unknown'
+                bracket_match = re.search(r'\[(-W[^\]]+)\]', wline)
+                if bracket_match:
+                    warning_code = bracket_match.group(1)
+                
+                # Map warning code to descriptive type
+                warning_type_map = {
+                    '-Wunused-value': 'unused_variable',
+                    '-Wunused-variable': 'unused_variable',
+                    '-Wunused-dummy-argument': 'unused_argument',
+                    '-Wunused-parameter': 'unused_parameter',
+                    '-Wunused-function': 'unused_function',
+                    '-Wunused-label': 'unused_label',
+                    '-Wmaybe-uninitialized': 'uninitialized_variable',
+                    '-Wcharacter-truncation': 'string_truncation',
+                    '-Wcompare-reals': 'real_comparison',
+                    '-Wconversion': 'type_conversion',
+                    '-Winteger-division': 'integer_division',
+                    '-Wdo-subscript': 'array_bounds',
+                    '-Wintrinsic-shadow': 'intrinsic_shadow',
+                    '-Wsurprising': 'surprising_behavior',
+                }
+                warning_type = warning_type_map.get(warning_code, warning_code)
+                
+                # Extract variable name - try multiple patterns
                 variable = 'unknown'
-                if var_match:
-                    # prefer the quoted capture
-                    if var_match.group('var'):
-                        variable = var_match.group('var')
-                    elif var_match.group('bare'):
-                        # ensure we didn't capture the leading 'Warning'
-                        maybe = var_match.group('bare')
-                        if maybe.lower() != 'warning':
-                            variable = maybe
-                # normalize unknowns
-                if not variable:
-                    variable = 'unknown'
-                entries.append((file, line_no, variable, warning_type))
-            else:
-                # warning not present at the expected offset; skip
-                pass
-        else:
-            # not enough lines after header; skip
-            pass
-        # advance to next header candidate (move one line forward to find overlapping blocks if any)
+                
+                # Pattern 1: Any type of quoted variable (Unicode curly or ASCII quotes)
+                # Matches: 'var', 'var', "var", `var`, including arrays like jface2[1]
+                # Use Unicode code points for curly quotes: \u2018 (') and \u2019 (')
+                quote_patterns = [
+                    r"[\u2018\u2019']([A-Za-z0-9_]+(?:\[[0-9]+\])?)[\u2018\u2019']",  # Unicode/ASCII single quotes
+                    r"`([A-Za-z0-9_]+(?:\[[0-9]+\])?)`",  # Backticks
+                    r'"([A-Za-z0-9_]+(?:\[[0-9]+\])?)"',  # Double quotes
+                ]
+                
+                for pattern in quote_patterns:
+                    match = re.search(pattern, wline)
+                    if match:
+                        variable = match.group(1)
+                        break
+                
+                # Pattern 2: Look for specific warning types without quoted variables
+                if variable == 'unknown':
+                    if 'CHARACTER expression will be truncated' in wline:
+                        variable = 'CHARACTER'
+                    elif 'Array reference' in wline:
+                        variable = 'array'
+                    elif 'Equality comparison for REAL' in wline:
+                        variable = 'REAL'
+                    elif 'Integer division truncated' in wline:
+                        variable = 'integer'
+                    elif 'Change of value in conversion' in wline:
+                        variable = 'conversion'
+                    elif 'out of bounds' in wline:
+                        variable = 'bounds'
+                
+                entries.append((file, line_no, variable, warning_type, warning_code))
+                break
+        
         i += 1
     else:
         i += 1
 
-# write CSV with extra 'warning_code' column
+# Write CSV
 with out_path.open('w', encoding='utf-8', newline='') as csvf:
     writer = csv.writer(csvf)
-    writer.writerow(
-        ['file', 'line', 'variable', 'warning_type', 'warning_code'])
-    for (fpath, lno, var, wtype) in entries:
-        # code = map_warning_type(wtype)
-        writer.writerow([
-            fpath,
-            lno,
-            var,
-            wtype,
-            #  code
-        ])
+    writer.writerow(['file', 'line', 'variable', 'warning_type', 'warning_code'])
+    for (fpath, lno, var, wtype, wcode) in entries:
+        writer.writerow([fpath, lno, var, wtype, wcode])
 
-print(
-    f'Wrote {len(entries)} entries to {out_path} (with normalized warning_code)'
-)
+print(f'Wrote {len(entries)} entries to {out_path}')
