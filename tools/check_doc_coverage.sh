@@ -20,7 +20,13 @@ for file in $(find src -name "*.f90" -o -name "*.F90" | sort); do
 done
 
 documented=$((total - undocumented))
-coverage=$((documented * 100 / total))
+
+# Check if we found any files to avoid division by zero
+if [ $total -eq 0 ]; then
+    coverage=0
+else
+    coverage=$((documented * 100 / total))
+fi
 
 echo ""
 echo "Summary:"
