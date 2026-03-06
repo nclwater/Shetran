@@ -16,6 +16,11 @@ shetran-*
 Shetran-4.4.7
 *.mod
 
+# Sample compute specific stuff
+examples/*
+!examples/*.py
+!examples/*backup_input/*
+!examples/*output_should/*
 
 
 *.rsuser
