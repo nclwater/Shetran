@@ -61,7 +61,7 @@ def _check_outputs_consistency(dir_sample: str):
 
 def _compare_file_contents(dir_sample, f, _md5):
     md5_should = _md5(os.path.join(dir_sample, dir_results_should, f))
-    md5_sample = _md5(os.path.join(dir_sample, f))
+    md5_sample = _md5(os.path.join(dir_sample, dir_compute, f))
 
     if md5_should != md5_sample:
 
