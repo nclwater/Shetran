@@ -7,6 +7,7 @@
 import glob
 import hashlib
 import os
+import shutil
 import subprocess
 
 # other packages
@@ -14,7 +15,7 @@ import h5py
 import numpy as np
 
 # global variables
-dir_inputs = "backup_inputs"
+dir_inputs = "backup_input"
 dir_compute = "test_compute"
 dir_results_should = "output_should"
 
@@ -128,20 +129,22 @@ def _run_shetran(fn_shetran: str, dir_sample: str):
             os.remove(os.path.join(dir_sample, dir_compute, f))
 
     # copy all the inputs from dir_inputs to the compute directory
-    for f in os.listdir(dir_inputs):
-        os.system(
-            f"cp {os.path.join(dir_inputs, f)} {os.path.join(dir_sample, dir_compute, f)}"
-        )
+    dir_input_sample = os.path.join(dir_sample, dir_inputs)
+    dir_compute_sample = os.path.join(dir_sample, dir_compute)
+    for f in os.listdir(dir_input_sample):
+        shutil.copy2(os.path.join(dir_input_sample, f),
+                     os.path.join(dir_compute_sample, f))
 
     # run shetran in the compute directory
     # find the rundata file (must match rundata_*.txt per the source code requirement)
-    rundata_files = glob.glob(os.path.join(dir_sample, "rundata_*.txt"))
+    rundata_files = glob.glob(os.path.join(dir_compute_sample,
+                                           "rundata_*.txt"))
     if not rundata_files:
         print(f"  No rundata_*.txt file found in {dir_sample}, skipping.")
         return
     rundata_file = os.path.abspath(rundata_files[0])
     subprocess.run([fn_shetran, "-f", rundata_file],
-                   cwd=os.path.abspath(os.path.join(dir_sample, dir_compute)),
+                   cwd=os.path.abspath(dir_compute_sample),
                    check=True)
 
 
