@@ -261,13 +261,11 @@ target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
 # =============================================================================
 target_compile_options(SHETRAN PRIVATE
     "/fpp"
+    "/heap-arrays:0"
     "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}"
 )
-target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/Od;/Zi;/traceback;/check:bounds>")
+target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/Od;/debug:full;/traceback;/check:bounds>")
 target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release>:/O3;/QxHost>")
-
-# Large stack for ifx on Windows (no -mcmodel=large equivalent)
-set_target_properties(SHETRAN PROPERTIES LINK_FLAGS "/link /STACK:500000000")
 
 # /libs:static — statically link Intel Fortran/C runtime libraries
 # so the .exe runs without Intel oneAPI on PATH
