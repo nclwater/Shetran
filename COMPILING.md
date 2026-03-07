@@ -3,6 +3,8 @@
 ## Windows
 Tested using Intel Fortran Compiler with Visual Studio. Intel ifort compiler 2022 and VS2019
 
+For a distributable executable that runs without the Intel oneAPI command environment, use static runtime linkage settings (Intel `/libs:static` and MSVC `/MT`) as described below.
+
 1. Create a Visual Fortran empty console application. File|New|Project search Fortran and select "Empty Project" ("A project for creating a command-line application"?)
 
 	Project name 	= Shetran
@@ -31,8 +33,12 @@ Tested using Intel Fortran Compiler with Visual Studio. Intel ifort compiler 202
 
 	Project|Properties|Configuration Properties|Fortran|General|Additional Include Directories
 
-5. In 	Project|Properties|Configuration Properties|Fortran|Libraries change runtime Library to "Multithreaded"
+5. In 	Project|Properties|Configuration Properties|Fortran|Libraries, set Runtime Library to "Multithreaded" (`/libs:static /threads`).
 
-6. In 	Project|Properties|Configuration Properties|Fortran|Optimization change Optimization to "Minimum Size (/O1)"
+6. In 	Project|Properties|Configuration Properties|C/C++|Code Generation, set Runtime Library to "Multi-threaded (/MT)" for Release (and "Multi-threaded Debug (/MTd)" for Debug).
 
-7. Build the project using Build|Build Solution(either the debug or the release versions)
+7. In 	Project|Properties|Configuration Properties|Fortran|Optimization change Optimization to "Minimum Size (/O1)"
+
+8. Build the project using Build|Build Solution(either the debug or the release versions)
+
+If runtime linkage is left as dynamic (`/libs:dll` or `/MD`), the executable will require Intel/MSVC runtime DLLs on PATH and may only run from a oneAPI-enabled environment.
