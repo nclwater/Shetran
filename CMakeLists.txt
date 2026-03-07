@@ -150,6 +150,11 @@ function(discover_fortran_sources SOURCE_DIR OUTPUT_VAR)
             set(SHOULD_EXCLUDE TRUE)
         endif()
 
+        # Exclude textual include files (not standalone compilation units)
+        if(NAME MATCHES "^include_.*\\.f90$" OR NAME MATCHES "^include_.*\\.F90$")
+            set(SHOULD_EXCLUDE TRUE)
+        endif()
+
         if(NOT SHOULD_EXCLUDE)
             list(APPEND FILTERED_FILES ${FILE})
         endif()
