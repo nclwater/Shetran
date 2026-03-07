@@ -74,6 +74,13 @@ else()
         "Please place hdf5-1.14.6.tar.gz in external/tarballs/")
 endif()
 
+# HDF5 appends _D to library names in Debug builds by default
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(HDF5_LIB_POSTFIX "_D")
+else()
+    set(HDF5_LIB_POSTFIX "")
+endif()
+
 ExternalProject_Add(HDF5_external
     URL ${HDF5_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
@@ -99,23 +106,42 @@ ExternalProject_Add(HDF5_external
         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
         -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
     BUILD_BYPRODUCTS
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.lib
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_f90cstub.lib
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.lib
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.lib
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_f90cstub.lib
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.lib
+        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5${HDF5_LIB_POSTFIX}.lib
+        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_f90cstub${HDF5_LIB_POSTFIX}.lib
+        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran${HDF5_LIB_POSTFIX}.lib
+        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl${HDF5_LIB_POSTFIX}.lib
+        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_f90cstub${HDF5_LIB_POSTFIX}.lib
+        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran${HDF5_LIB_POSTFIX}.lib
 )
 
 set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
+set(HDF5_LIB_DIR "${CMAKE_BINARY_DIR}/hdf5-install/lib")
+
+# Create IMPORTED targets for each HDF5 library so that nmake does not try to
+# treat the .lib file paths as makefile targets to build.
+foreach(_hdf5_lib
+    libhdf5_hl_fortran
+    libhdf5_hl_f90cstub
+    libhdf5_hl
+    libhdf5_fortran
+    libhdf5_f90cstub
+    libhdf5)
+    add_library(hdf5::${_hdf5_lib} STATIC IMPORTED)
+    set_target_properties(hdf5::${_hdf5_lib} PROPERTIES
+        IMPORTED_LOCATION "${HDF5_LIB_DIR}/${_hdf5_lib}${HDF5_LIB_POSTFIX}.lib"
+    )
+endforeach()
+# add_dependencies on IMPORTED targets is not supported; the dependency is
+# established via add_dependencies(SHETRAN HDF5_external) further below.
+
 set(HDF5_LIBRARIES
-    "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran.lib"
-    "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_f90cstub.lib"
-    "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl.lib"
-    "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran.lib"
-    "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_f90cstub.lib"
-    "${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5.lib"
-    "shlwapi"
+    hdf5::libhdf5_hl_fortran
+    hdf5::libhdf5_hl_f90cstub
+    hdf5::libhdf5_hl
+    hdf5::libhdf5_fortran
+    hdf5::libhdf5_f90cstub
+    hdf5::libhdf5
+    shlwapi
 )
 
 # =============================================================================
@@ -237,7 +263,7 @@ target_compile_options(SHETRAN PRIVATE
     "/fpp"
     "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}"
 )
-target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/O0;/Zi;/traceback;/check:bounds;/check:uninit>")
+target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/Od;/Zi;/traceback;/check:bounds>")
 target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release>:/O3;/QxHost>")
 
 # Large stack for ifx on Windows (no -mcmodel=large equivalent)
