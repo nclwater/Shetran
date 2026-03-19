@@ -1,0 +1,17 @@
+:MNFN01 - TMNFER (YEAR,MONTH,DAY,HOUR,MINUTE)
+           1990  4  1  8  0
+:MNFN11 - NCAT : no. of catorgories for NTOT(Kg N m-2)
+           1
+:MNFN11c  NTOT(1:NCAT) : Total nitrogen fertilizer additions
+           2.5D-2
+:MNFN21 - NCAT : no. of catorgories for NDPTHB(m)
+           1
+:MNFN21c  NDPTHB(1:NCAT) : Total depth fertilizer is banded over
+           0.5    
+:MNFN31 - NCAT : no. of catorgories for NAMFCT
+           1
+:MNFN31c  NAMFCT(1:NCAT):Nitrogen ammonium fraction(remainder is nitrate)
+           0.5
+:MNFN01 - TMNFER (YEAR,MONTH,DAY,HOUR,MINUTE)
+           1991  2  28  8  0
+                                       

@@ -1,5 +1,58 @@
 # Changelog
 
+## 071025
+*********
+Add nitrate component - new version called 4.5.3
+
+add mnmod.f90
+
+cmmod 
+add USE MNMOD, only : MNCONT
+USE COLM_CG  
+USE PLANT_CC
+USE SGLOBAL, ONLY       : uznow
+USE AL_D, ONLY       : TA
+Add nitrate call:
+IF (ismn) then 
+    CALL MNCONT(MND,MNFC,MNFN,MNPL,MNPR,MNOUT1,MNOUT2,MNOUTPL,NCETOP,NCON,NEL,NLF, &....
+Change source/sink terms for nitrate:
+   if (ISMN) then
+       DO NCE = NCEBOT,NCETOP
+           EDCAP(NCE) = SSS1(NCL,NCE,NCONT).....
+		   
+		   
+frmod
+add extra files tobe read in
+USE AL_C, ONLY :..... MND,MNFC,MNFN,MNPL,MNPR,MNOUT1,MNOUT2,MNOUTPL
+USE IS_CC,    ONLY : ISPLT,ISMN
+file unit numbers. log = unit 61, nitrate 53-60
+
+
+stop crash for 1d simulation with no outlet
+    if ((mblink.eq.0).and.(mbface.eq.0)) then
+        qocav=0
+    else
+           qocav     = qoc (mblink, mbface)
+    endif
+	
+For reading spatially variable contaminant array just read the active bit
+DOUBLEPRECISION DUMMYCONC(total_no_elements,top_cell_no)
+      CALL ALINTP (LLEE, NCETOP, ..... DUMMYCONC )
+	              CCCC (NCL, NCE, NCONT)= DUMMYCONC (NCL,NCE)
+
+
+AL_C.f90 add file unit numbers for nitrate
+
+CONT_CC add
+      DOUBLEPRECISION SSS1(NELEE,LLEE,NCONEE), SSS2(NELEE,LLEE,NCONEE)
+!                           SOURCE/SINK TERMS FOR PLANT UPTAKE AND NITRATE
+      
+IS_CC.f90 add ISMN
+
+mod_load_filedata - change error message in ALALLI. Correct error in ALREAD and ALRED2 for number of characters
+in ALINTP chage so the cacultion only uses dynamic cells
+
+
 ## 230922
 *********
 

@@ -302,7 +302,7 @@ MODULE mod_load_filedata
                     ICAT = IDUM (XY0 + X)  
                     IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN  
                         CALL ERROR (FFFATAL, 3090, OUNIT, 0, 0,                 &
-                                    'Error in NCELEM in :MN43 in MN data file')
+                                    'Error in ALALLI -reading spatially distributed category types')
                     ENDIF  
                     CATTYP (IEL) = ICAT  
                 ENDIF  
@@ -823,7 +823,7 @@ MODULE mod_load_filedata
         REAL(kind=R8P)      :: DELTAZ (LLEE, NELEE), ZVSNOD (LLEE, NELEE)  
         
         ! OUTPUT ARGUMENTS
-        REAL(kind=R8P)      :: CELL_CONCENTRATION (NELEE, LLEE) !< concentration in each cell 
+        REAL(kind=R8P)      :: CELL_CONCENTRATION (NEL, NCETOP) !< concentration in each cell 
         
         ! LOCALS ETC.
         INTEGER(kind=I_P)   :: NCL, NELM, NCATG, NINTB, NTABLE, NTHRTB  
@@ -873,6 +873,8 @@ MODULE mod_load_filedata
 
     END SUBROUTINE ALINTP
 
+                       
+                       
 
     !---------------------------------------------------------------------------  
     !> @author ?
@@ -902,7 +904,8 @@ MODULE mod_load_filedata
         REAL(kind=R8P)      :: RDATA (N1, N2)  
 
         ! Locals, etc
-        CHARACTER (LEN=80)  :: HEAD, MSG * 132, FILNAM * 48, FORM * 17
+        ! sb 02102025 increased msg from 132 to 140
+        CHARACTER (LEN=80)  :: HEAD, MSG * 140, FILNAM * 48, FORM * 17
         INTEGER(kind=I_P)   :: IX, IY, KY, IDUM1, IDUM2, ICOUNT, I  
         LOGICAL             :: BOPEN, BNAMED  
 
@@ -1099,9 +1102,12 @@ MODULE mod_load_filedata
         ! Input arguments
         INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT  
         CHARACTER (LEN=*)   :: LINE  
-        CHARACTER (80)      :: HEAD
-        CHARACTER(48)       :: FILNAM
-        CHARACTER(132)      :: MSG  
+!  sb change 011025     CHARACTER (80)      :: HEAD
+!        CHARACTER(48)       :: FILNAM
+!        CHARACTER(132)      :: MSG  
+        CHARACTER (152)      :: HEAD
+        CHARACTER(120)       :: FILNAM
+        CHARACTER(200)      :: MSG  
         LOGICAL             :: BOPEN, BNAMED  
         
         ! Code -----------------------------------------------------------------
@@ -1173,8 +1179,11 @@ MODULE mod_load_filedata
 
         ! Output arguments
         CHARACTER(LEN=*)    :: CDATA (N1, N2)  
-        CHARACTER(len=80)   :: HEAD
-        CHARACTER(len=132)  :: MSG  
+!        CHARACTER(len=80)   :: HEAD
+!        CHARACTER(len=132)  :: MSG  
+! sb 011025
+        CHARACTER(len=150)   :: HEAD
+        CHARACTER(len=200)  :: MSG  
 
         ! Code -----------------------------------------------------------------
 

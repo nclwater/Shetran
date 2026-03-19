@@ -1,0 +1,80 @@
+:MNFC01 - TMCFER (YEAR,MONTH,DAY,HOUR,MINUTE)
+           1990 11  18  9  0
+:MNFC11 - NCAT : no. of catorgories for CTOT(Kg C m-2)
+           1
+:MNFC11c  CTOT(1:NCAT) : Total carbon additions
+           0.12
+:MNFC21 - NCAT : no. of catorgories for CDPTHB(m)
+           1
+:MNFC21c  CDPTHB(1:NCAT) : Total depth addition is banded over
+           0.7
+:MNFC31 - NCAT : no. of catorgories for CLTFCT
+           1
+:MNFC31c  CLTFCT(1:NCAT) : Carbon Litter fraction
+           1.0
+:MNFC32 - NCAT : no. of catorgories for CNRLIT
+           1
+:MNFC32c  CNRLIT(1:NCAT) : Carbon/nitrogen ratio of litter
+           30.0
+:MNFC41 - NCAT : no. of catorgories for CMNFCT
+           1
+:MNFC41c  CMNFCT(1:NCAT) : Carbon Manure fraction(remainder is humus)
+           0.0
+:MNFC42 - NCAT : no. of catorgories for CNRMAN
+           1
+:MNFC42c  CNRMAN(1:NCAT) : Carbon/nitrogen ratio of manure
+           999.0
+:MNFC01 - TMCFER (YEAR,MONTH,DAY,HOUR,MINUTE)
+           1990  11  18  15  0
+:MNFC11 - NCAT : no. of catorgories for CTOT(Kg C m-2)
+           1
+:MNFC11c  CTOT(1:NCAT) : Total carbon additions
+           0.08
+:MNFC21 - NCAT : no. of catorgories for CDPTHB(m)
+           1
+:MNFC21c  CDPTHB(1:NCAT) : Total depth addition is banded over
+           0.3
+:MNFC31 - NCAT : no. of catorgories for CLTFCT
+           1
+:MNFC31c  CLTFCT(1:NCAT) : Carbon Litter fraction
+           1.0
+:MNFC32 - NCAT : no. of catorgories for CNRLIT
+           1
+:MNFC32c  CNRLIT(1:NCAT) : Carbon/nitrogen ratio of litter
+           15.0
+:MNFC41 - NCAT : no. of catorgories for CMNFCT
+           1
+:MNFC41c  CMNFCT(1:NCAT) : Carbon Manure fraction(remainder is humus)
+           0.0
+:MNFC42 - NCAT : no. of catorgories for CNRMAN
+           1
+:MNFC42c  CNRMAN(1:NCAT) : Carbon/nitrogen ratio of manure
+           999.0
+:MNFC01 - TMCFER (YEAR,MONTH,DAY,HOUR,MINUTE)
+           1990  11  18 22  0
+:MNFC11 - NCAT : no. of catorgories for CTOT(Kg C m-2)
+           1
+:MNFC11c  CTOT(1:NCAT) : Total carbon additions
+           0.04
+:MNFC21 - NCAT : no. of catorgories for CDPTHB(m)
+           1
+:MNFC21c  CDPTHB(1:NCAT) : Total depth addition is banded over
+           0.05
+:MNFC31 - NCAT : no. of catorgories for CLTFCT
+           1
+:MNFC31c  CLTFCT(1:NCAT) : Carbon Litter fraction
+           1.0
+:MNFC32 - NCAT : no. of catorgories for CNRLIT
+           1
+:MNFC32c  CNRLIT(1:NCAT) : Carbon/nitrogen ratio of litter
+           15.0
+:MNFC41 - NCAT : no. of catorgories for CMNFCT
+           1
+:MNFC41c  CMNFCT(1:NCAT) : Carbon Manure fraction(remainder is humus)
+           0.0
+:MNFC42 - NCAT : no. of catorgories for CNRMAN
+           1
+:MNFC42c  CNRMAN(1:NCAT) : Carbon/nitrogen ratio of manure
+           999.0
+:MNFC01 - TMCFER (YEAR,MONTH,DAY,HOUR,MINUTE)
+           1991 12  1  9  0                                       

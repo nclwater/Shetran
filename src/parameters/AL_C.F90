@@ -87,12 +87,20 @@ BHB = 36, &
 !OFB = 37, &
 !OHB = 38, &
 CMT = 39, &
-CMB = 40
+CMB = 40, &
 !DIS = 41, &
 !VSE = 42, &
 !MAS = 43, &
 !dis2 = 44
-    
+MND = 53 , &
+MNFC = 54 , &
+MNFN = 55 , &
+MNPL = 56 , &
+MNPR = 57 , &
+MNOUT1 =58 , &
+MNOUT2 = 59 , &
+MNOUTPL = 60
+   
 !????????????
     DOUBLEPRECISION TIH
 
@@ -108,9 +116,11 @@ CMB = 40
     LOGICAL, DIMENSION(NELEE)   :: ISPACK         !is there a snow pack?
 
 !3D (LLEE)
-    INTEGER, DIMENSION(4,LLEE,NELEE) :: JVSACN,JVSDEL
-    DOUBLEPRECISION, DIMENSION(LLEE,NELEE)   :: DELTAZ, & !cell thickness
-                                        ZVSNOD    !node elevations
+    INTEGER, DIMENSION(:,:,:) , ALLOCATABLE :: JVSACN,JVSDEL
+!    INTEGER, DIMENSION(4,LLEE,NELEE) :: JVSACN,JVSDEL
+    DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE :: DELTAZ, ZVSNOD
+!    DOUBLEPRECISION, DIMENSION(LLEE,NELEE)   :: DELTAZ, & !cell thickness
+!                                        ZVSNOD    !node elevations
     
 
 !LINK (NLFEE)
@@ -126,15 +136,18 @@ CMB = 40
     INTEGER                       :: NV  !no. of vegetation types
     INTEGER, DIMENSION(NVEE)      :: NRD !no. of UZ cells in root zone
     DOUBLEPRECISION, DIMENSION(NVEE)      :: RDL !proportion of roots that take water from the channel
-    DOUBLEPRECISION, DIMENSION(NVEE,LLEE) :: RDF !root density function
+    DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE ::  RDF !root density function
+!    DOUBLEPRECISION, DIMENSION(NVEE,LLEE) :: RDF !root density function
 
 !SOIL (NSEE)
     INTEGER                          :: NS  !no. of soil types
     DOUBLEPRECISION, DIMENSION(NSEE)         :: THSAT, VSPOR !saturated m/c and porosity
 !SOIL LAYERS (NLYREE)
-    INTEGER, DIMENSION(NELEE,NLYREE) :: NLYRBT, & !bottom cell no in each soil layer
-                                        NTSOIL    !soil type in soil layer
-    DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT    !elevatuion of bottom of soil layer
+    INTEGER, DIMENSION(:,:) , ALLOCATABLE :: NLYRBT,NTSOIL  !bottom cell no in each soil layer and soil type in soil layer
+    DOUBLEPRECISION, DIMENSION(:,:) , ALLOCATABLE :: ZLYRBT  !elevatuion of bottom of soil layer
+!    INTEGER, DIMENSION(NELEE,NLYREE) :: NLYRBT, & !bottom cell no in each soil layer
+!                                        NTSOIL    !soil type in soil layer
+!    DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT    !elevatuion of bottom of soil layer
 
 
 
@@ -193,12 +206,40 @@ SUBROUTINE initialise_al_c()
 ALLOCATE(qvsh(4,top_cell_no,total_no_elements), qvsv(top_cell_no,total_no_elements), &
          vspsi(top_cell_no,total_no_elements), vsthe(top_cell_no,total_no_elements), &
          qvswli(top_cell_no,total_no_elements), eruz(total_no_elements,top_cell_no))
+ALLOCATE (JVSACN(4,top_cell_no,total_no_elements), JVSDEL(4,top_cell_no,total_no_elements)) 
+
          qvsh=0.0d0
          qvsv=0.0d0
          vspsi=0.0d0
          vsthe=0.0d0
          qvswli=0.0d0
          eruz=0.0d0
+         JVSACN=0
+         JVSDEL=0
 
 END SUBROUTINE initialise_al_c
+
+SUBROUTINE initialise_al_c2()
+
+ALLOCATE (DELTAZ(LLEE,total_no_elements), ZVSNOD(LLEE,total_no_elements)) 
+ALLOCATE (NLYRBT(total_no_elements,NLYREE), NTSOIL(total_no_elements,NLYREE)) 
+ALLOCATE (ZLYRBT(total_no_elements,NLYREE)) 
+         DELTAZ=0.0d0
+         ZVSNOD=0.0d0
+         NLYRBT=0
+         NTSOIL=0
+         ZLYRBT=0.0d0
+
+
+END SUBROUTINE initialise_al_c2
+
+SUBROUTINE initialise_al_c3()
+
+ALLOCATE (RDF(NV,LLEE))
+         RDF=0.0d0
+
+END SUBROUTINE initialise_al_c3
+
+
+
 END MODULE AL_C

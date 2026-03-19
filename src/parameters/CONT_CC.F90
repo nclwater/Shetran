@@ -1,5 +1,5 @@
 MODULE CONT_CC
-USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE
+USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements,top_cell_no,total_no_links
 IMPLICIT NONE
 !*------------------------------ Start of CONT.CC ----------------------*
 !*
@@ -31,11 +31,18 @@ IMPLICIT NONE
 !      COMMON/  WELC   /CCCCW
 !*                             CONTAMINANT CONCENTRATION IN WELL WATER
 
-      DOUBLEPRECISION CCCC(NELEE,LLEE,NCONEE),CCCCO(NELEE,LLEE,NCONEE)
-      DOUBLEPRECISION SSSS(NELEE,LLEE,NCONEE),SSSSO(NELEE,LLEE,NCONEE)
+      DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCC, CCCCO
+      DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSS, SSSSO
+!     DOUBLEPRECISION CCCC(NELEE,LLEE,NCONEE),CCCCO(NELEE,LLEE,NCONEE)
+!      DOUBLEPRECISION SSSS(NELEE,LLEE,NCONEE),SSSSO(NELEE,LLEE,NCONEE)
 !      COMMON/  CONC   /CCCC,CCCCO,SSSS,SSSSO
 !*                             CONCENTRATIONS WITHIN CATCHMENT
 
+      DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS1, SSS2
+!     DOUBLEPRECISION SSS1(NELEE,LLEE,NCONEE), SSS2(NELEE,LLEE,NCONEE)
+!                           SOURCE/SINK TERMS FOR PLANT UPTAKE AND NITRATE
+      
+      
       DOUBLEPRECISION GCPLA(NCONEE),GGLMSO(NCONEE)
 !      COMMON/  GEN    /GCPLA,GGLMSO
 !*                             CONTAMINANT DECAY RATES
@@ -44,8 +51,10 @@ IMPLICIT NONE
 !      COMMON/  INIT   /CCAPIN
 !*                             INITIAL CONCENTRATION
 
-      DOUBLEPRECISION ALPHA(NSEE,NCONEE),FADS(NSEE,NCONEE),GNN(NCONEE)
-      DOUBLEPRECISION KDDLS(NSEDEE,NCONEE),KDDSOL(NSEE,NCONEE)
+      DOUBLEPRECISION ALPHA(NSEE,NCONEE),FADS(NSEE,NCONEE)
+      DOUBLEPRECISION GNN(NCONEE)
+      DOUBLEPRECISION KDDLS(NSEDEE,NCONEE)
+      DOUBLEPRECISION KDDSOL(NSEE,NCONEE)
 !      COMMON/  NNNN   /ALPHA,FADS,GNN,KDDLS,KDDSOL
 !*                             CONTAMINANT PROPERTIES FOR SOIL
 !*                             AND SEDIMENT
@@ -54,8 +63,11 @@ IMPLICIT NONE
 !      COMMON/  NCONS  /NCON
 !*                             NUMBER OF CONTAMINANTS
 
-      DOUBLEPRECISION FCPBKO(NLFEE,2,LLEE,NCONEE)
-      DOUBLEPRECISION GCPBKO(NLFEE,2,LLEE,NCONEE)
+
+      DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO
+      DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO
+!      DOUBLEPRECISION FCPBKO(NLFEE,2,LLEE,NCONEE)
+!      DOUBLEPRECISION GCPBKO(NLFEE,2,LLEE,NCONEE)
       DOUBLEPRECISION    FSF(NLFEE,NCONEE),       FSFC(NLFEE,NCONEE)
       DOUBLEPRECISION   FSFT(NLFEE,NCONEE),        RSW(NELEE,NCONEE)
       DOUBLEPRECISION   RSWC(NELEE,NCONEE),       RSWT(NELEE,NCONEE)
@@ -71,4 +83,26 @@ IMPLICIT NONE
 !*                             OF A LINK
 
 !PRIVATE :: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE
+      
+CONTAINS
+      
+SUBROUTINE initialise_cont_cc()
+
+   allocate   (cccc(total_no_elements,top_cell_no+1,ncon),cccco(total_no_elements,top_cell_no+1,ncon))
+   allocate   (ssss(total_no_elements,top_cell_no+1,ncon),sssso(total_no_elements,top_cell_no+1,ncon))
+   allocate   (sss1(total_no_elements,top_cell_no+1,ncon),sss2(total_no_elements,top_cell_no+1,ncon))
+   allocate   (FCPBKO(total_no_links,2,top_cell_no+1,ncon))
+   allocate   (GCPBKO(total_no_links,2,top_cell_no+1,ncon))
+   cccc=0
+   cccco=0
+   ssss=0
+   sssso=0
+   sss1=0
+   sss2=0
+   FCPBKO=0
+   GCPBKO=0
+   
+END SUBROUTINE initialise_cont_cc
+      
+      
 END MODULE CONT_CC

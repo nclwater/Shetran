@@ -1578,23 +1578,76 @@ SUBROUTINE OCSIM
 INTEGER         :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
 INTEGER         :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV  , face
 !INTEGER         :: LCdum (NXOCEE, 2)
-INTEGER         :: ijedum(nelee,4,2:3), ijedum2(nlfee,3,2), kk, ll, vv  !afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
+!INTEGER         :: ijedum(nelee,4,2:3), ijedum2(nlfee,3,2), kk, ll, vv  !afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
+INTEGER         :: kk, ll, vv  
+INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum, ijedum2
 DOUBLEPRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
-DOUBLEPRECISION :: AA (NXOCEE, NXOCEE), DD (NXOCEE, NYEE), FF(NXOCEE)
-DOUBLEPRECISION :: BB (NXOCEE, NXOCEE), GG (NXOCEE, NYEE)  
-DOUBLEPRECISION :: CC (NXOCEE, NXOCEE), EE (NXOCEE, NXOCEE, NYEE)  
-DOUBLEPRECISION :: TM1 (NXOCEE, NXOCEE), TV1 (NXOCEE) !, FWRK (NXSCEE * 12)
-DOUBLEPRECISION :: TM2 (NXOCEE, NXOCEE), TV2 (NXOCEE)  
-DOUBLEPRECISION, DIMENSION(total_no_elements)    :: inhrf
-DOUBLEPRECISION, DIMENSION(total_no_elements)    :: GGGETHRF
-DOUBLEPRECISION, DIMENSION(total_no_elements,4)  :: inqsa
-DOUBLEPRECISION, DIMENSION(total_no_elements,4)  :: GGGETQSA
+!DOUBLEPRECISION :: AA (NXOCEE, NXOCEE), DD (NXOCEE, NYEE), FF(NXOCEE)
+!DOUBLEPRECISION :: BB (NXOCEE, NXOCEE), GG (NXOCEE, NYEE)  
+!DOUBLEPRECISION :: CC (NXOCEE, NXOCEE), EE (NXOCEE, NXOCEE, NYEE)  
+!DOUBLEPRECISION :: TM1 (NXOCEE, NXOCEE), TV1 (NXOCEE) !, FWRK (NXSCEE * 12)
+!DOUBLEPRECISION :: TM2 (NXOCEE, NXOCEE), TV2 (NXOCEE)  
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: AA, DD
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: FF
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: BB, GG
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: CC
+DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TM1, TM2
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: TV1,TV2
+
+
+!DOUBLEPRECISION, DIMENSION(total_no_elements)    :: inhrf
+!DOUBLEPRECISION, DIMENSION(total_no_elements)    :: GGGETHRF
+!DOUBLEPRECISION, DIMENSION(total_no_elements,4)  :: inqsa
+!DOUBLEPRECISION, DIMENSION(total_no_elements,4)  :: GGGETQSA
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE      :: inhrf
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE      :: GGGETHRF
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE    :: inqsa
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE   :: GGGETQSA
+
+
+
 LOGICAL         :: g8018, g8029, cycle255
 LOGICAL         :: first=.TRUE.
 CHARACTER(36)   :: MSG  
 !----------------------------------------------------------------------*
 !
 ! ----- Initialize
+! needs to be nelee and nlfee here as it reads from arrays that are still set to these sizes
+allocate   (ijedum(nelee,4,2:3),ijedum2(nlfee,3,2))
+ijedum=0
+ijeduM2=0
+
+
+allocate   (AA(NX*4,NX*4),DD(NX*4,NY))
+allocate   (FF(NX*4))
+allocate   (BB(NX*4,NX*4),GG(NX*4,NY))
+allocate   (CC(NX*4,NX*4))
+allocate   (EE(NX*4,NX*4,NY))
+allocate   (TM1(NX*4,NX*4),TM2(NX*4,NX*4))
+allocate   (TV1(NX*4),TV2(NX*4))
+AA=0.0d0
+DD=0.0d0
+FF=0.0d0
+BB=0.0d0
+GG=0.0d0
+CC=0.0d0
+EE=0.0d0
+TM1=0.0d0
+TM2=0.0d0
+TV1=0.0d0
+TV2=0.0d0
+
+allocate   (inhrf(total_no_elements))
+allocate   (GGGETHRF(total_no_elements))
+allocate   (inqsa(total_no_elements,4))
+allocate   (GGGETQSA(total_no_elements,4))
+inhrf=0.0d0
+GGGETHRF=0.0d0
+inqsa=0.0d0
+GGGETQSA=0.0d0
+
+
 !
 DTOC = OCNEXT * 3600.D0  
 IF (FIRST) THEN

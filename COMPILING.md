@@ -1,7 +1,7 @@
 # Code compilation
 
 ## Windows
-Tested using Intel Fortran Compiler with Visual Studio. Versions 2015-2020.
+Tested using Intel Fortran Compiler with Visual Studio. Intel ifort compiler 2022 and VS2019
 
 1. Create a Visual Fortran empty console application. File|New|Project search Fortran and select "Empty Project" ("A project for creating a command-line application"?)
 

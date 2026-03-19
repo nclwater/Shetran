@@ -1,0 +1,16 @@
+:MNP1 Title
+Canopy densty fuction for nitrogen uptake by plants (winter Wheat)
+:MNP10 Number of data values for plant type 1
+    11
+:MNP11 CDI and CDIT(days) for plant type 1
+    0.15    0.0
+    0.20    60.0
+    0.30    100.0
+    0.60    120.0
+    0.80    140.0
+    0.90    160.0
+    1.00    200.0
+    0.05    210.0
+    0.05    280.0
+    0.10    300.0
+    0.15    365.0

@@ -1,0 +1,6 @@
+Water Table Depth output for specific points. The file contains the number of points and then a list of the SHETRAN element numbers. There will be a file called output_CATCHNAME_water_table_depth.txt with depth in meters below ground
+Number_of_Point 4
+368
+382
+395
+409

@@ -356,6 +356,7 @@ DO i=no_static_items+1,no_items
     CALL LINK_USERS_NUMBERS_TO_INDEXES(items(i))
 ENDDO
 CALL FINAL_CHECK_OF_ITEM()
+CLOSE (UNIT=vp_in,status="delete")
 
 END SUBROUTINE read_dynamic_visualisation_metadata
 

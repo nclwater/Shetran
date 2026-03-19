@@ -13,7 +13,7 @@ USE AL_D,    ONLY :  flerrc, balanc, syerrc, cmerrc, nstep, carea, DTMET2, BHOTR
                      tah, tal, ista
 USE ETmod,    ONLY : MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, NCTPLA, &
                      PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, NCTVHT, &
-                     VHT1, BMETP, BMETAL, MEASPE, del
+                     VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
 USE FRmod,    ONLY : BSOFT
 USE mod_load_filedata,    ONLY : ALINIT
 USE UTILSMOD, ONLY : HOUR_FROM_DATE, TERPO1
@@ -296,6 +296,13 @@ data firstnomet1 / .true. /
 data firstnomet2 / .true. /  
 data firstnomet3 / .true. /  
 data firstnomet4 / .true. /  
+integer :: prdyear,prdmonth,prdday,prdhour,prdminute,prdsecond
+integer :: epdyear,epdmonth,epdday,epdhour,epdminute,epdsecond
+integer :: tahyear,tahmonth,tahday,tahhour,tahminute,tahsecond
+integer :: talyear,talmonth,talday,talhour,talminute,talsecond
+character(len=1000000) :: tmp
+integer :: ios
+DOUBLEPRECISION :: prddate,epddate,tahdate,taldate
 
 
 data firstnomet5 / .true. /  
@@ -314,183 +321,403 @@ IF (IFLAG.EQ.1) THEN
 !    5   READ (PRD,*,END=280) I1, I2, I3, I4, I5, (PINP(I),I=1,NRAIN)
 !        MELAST = METIME
 !        METIME = HOUR(I1,I2,I3,I4,I5) - TIH
-! sb 300407 convert breakpoint data to regularly spaced data
-    5    READ (PRD, *, END = 281) (PINP (I), I = 1, NRAIN)
+    do
+    if (BMETDATES) then
+        read(prd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) prdyear,prdmonth,prdday,prdhour,prdminute,prdsecond, tmp
+        if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the precipitation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NRAIN, ' values on each row'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+        if (ios<0) then 
+           if (firstnoprd) then  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
+             WRITE(PPPRI, '(A18)') 'Finish of prd data'  
+             WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+            firstnoprd = .false.  
+          endif  
+          pinp (1:nrain) = zero
+        endif
+        prddate = HOUR_FROM_DATE( prdyear,prdmonth,prdday,prdhour,prdminute)
+!        write(*,*) prddate
+        READ (tmp, *,iostat=ios) (PINP (I), I = 1, NRAIN)  
+        if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the precipitation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NRAIN, ' values on each row'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
 
-   goto 282  
-  281    if (firstnoprd) then  
-      WRITE(PPPRI, * )  
-      WRITE(PPPRI, * )  
-      WRITE(PPPRI, * )  
-      WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
-      WRITE(PPPRI, '(A18)') 'Finish of prd data'  
-      WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
-      WRITE(PPPRI, * )  
-      WRITE(PPPRI, * )  
-      WRITE(PPPRI, * )  
-      firstnoprd = .false.  
-   endif  
-   do i = 1, nrain  
-   pinp (i) = zero
-
-   enddo  
-  282    do i = 1, nrain  
-   pinp (i) = pinp (i) / dtmet2  
-   enddo  
+    else    
+        READ (PRD, *, iostat=ios) (PINP (I), I = 1, NRAIN)
+         if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the precipitation time series file. This should have ',NRAIN, ' values on each row with no dates in the first column (see ET1)'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+        if (ios<0) then 
+           if (firstnoprd) then  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
+             WRITE(PPPRI, '(A18)') 'Finish of prd data'  
+             WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+            firstnoprd = .false.  
+          endif  
+          pinp (1:nrain) = zero
+      endif
+   endif
+   pinp (1:nrain) = pinp (1:nrain) / dtmet2  
    MELAST = METIME  
-
-
-
    METIME = METIME+dtmet2  
-! check for invalid data
-!        IF (METIME.NE.0.0 .AND. MELAST.GT.METIME) THEN
-!           WRITE(PRI,2) I1,I2,I3,I4,I5,MELAST,METIME
-! 2       FORMAT(////'INPUT PREC. TIME = ',5I5 /
-!     -               'MELAST = ',G12.6 /
-!     -               'METIME = ',G12.6)
-!          CALL ERROR(FATAL,1026,PRI,0,0,
-!     -      'INVALID BREAKPOINT PRECIPITATION DATA')
-!        ENDIF
 !
-   IF (BHOTRD.AND.METIME.LT.BHOTTI) GOTO 5  
+   IF (.not.(BHOTRD.AND.METIME.LT.BHOTTI)) exit
+   enddo
 !
 ELSE  
-! POT. EVAPOTRANSPIRATION
+! POT. EVAP and TEMPERATURE DATA READ PART 1
+    
 ! first check for hotstarted run
-    7    IF (BHOTRD.AND.EPTIME.LT.BHOTTI) THEN  
-!          READ (EPD,*,END=280) I1, I2, I3, I4, I5, (PEIN(I),I=1,NM)
-!          EPLAST = EPTIME
-!          EPTIME = HOUR(I1,I2,I3,I4,I5) - TIH
-! sb 300407 convert breakpoint data to regularly spaced data
-      READ (EPD, *, END = 283) (PEIN (I), I = 1, NM)  
+    IF (BHOTRD.AND.EPTIME.LT.BHOTTI) THEN  
 
-      goto 284  
-  283       if (firstnoepd1) then  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
-         WRITE(PPPRI, '(A18)') 'Finish of epd data'  
-         WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         firstnoepd1 = .false.  
-      endif  
-      do i = 1, nm  
-      pein (i) = zero  
+    ! do loop which is exited if (.not.(BHOTRD.AND.EPTIME.LT.BHOTTI  ))
+    do
 
-      enddo  
+        ! epd and temperature files have dates
+        if (BMETDATES) then
+         
+       read(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) epdyear,epdmonth,epdday,epdhour,epdminute,epdsecond, tmp
+
+        if (ios>0) then 
+           write (*,'(A,I0,A)') ' Error reading the potential evaporation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+        endif
+        if (ios<0) then 
+           if (firstnoepd2) then  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
+             WRITE(PPPRI, '(A18)') 'Finish of epd data'  
+             WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             firstnoepd2 = .false.  
+          endif  
+          pein (1:nm) = zero  
+        endif
+        epddate = HOUR_FROM_DATE( epdyear,epdmonth,epdday,epdhour,epdminute)
+
+        READ (tmp, *,iostat=ios) (PEIN (I), I = 1, NM)  
+        if (ios>0) then 
+           write (*,'(A,I0,A)') ' Error reading the potential evaporation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+        endif
+        
       
- 284    if (ista) then
-         READ (TAH, *, END = 383) (tahigh (I), I = 1, NM)  
-         goto 384
-         endif
+        if (ista) then
+          read(TAH, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) tahyear,tahmonth,tahday,tahhour,tahminute,tahsecond, tmp
+          if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the max temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+          endif
+          if (ios<0) tahigh(1:nm) = 10.0
 
-  383    do i=1,nm
-           tahigh(i) = 10.0
-         enddo
-       
-  384    if (ista) then
-         READ (TAL, *, END = 483) (talow (I), I = 1, NM)  
-         goto 484
-         endif
-   
-  483     do i=1,nm
-           talow(i) = 10.0
-         enddo
+          READ (tmp, *,iostat=ios) (tahigh (I), I = 1, NM)  
+          if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the max temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop 
+          endif
+          tahdate = HOUR_FROM_DATE( tahyear,tahmonth,tahday,tahhour,tahminute)
 
+        endif
+ 
+        if (ista) then
+          read(TAL, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) talyear,talmonth,talday,talhour,talminute,talsecond, tmp
+          if (ios>0) then 
+             write (*,'(A,I0,A)') ' Error reading the min temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+             write(*,'(''paused, type [enter] to continue'')')
+             read (*,*)
+             stop   
+          endif
+          if (ios<0) talow(1:nm) = 10.0
+ 
+          READ (tmp, *,iostat=ios) (talow (I), I = 1, NM)  
+          if (ios>0) then 
+             write (*,'(A,I0,A)') ' Error reading the min temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+             write(*,'(''paused, type [enter] to continue'')')
+             read (*,*)
+             stop   
+          endif
+          taldate = HOUR_FROM_DATE(talyear,talmonth,talday,talhour,talminute)
+        endif
   
-  484 do i = 1, nm  
-      pein (i) = pein (i) / dtmet3  
-      enddo  
-      EPLAST = EPTIME  
+        pein(1:nm) = pein(1:nm) / dtmet3
 
-      EPTIME = EPTIME+dtmet3  
-      GOTO 7  
+        EPLAST = EPTIME  
+        EPTIME = EPTIME+dtmet3  
+
+        IF (.not.(BHOTRD.AND.EPTIME.LT.BHOTTI)) exit  
+                                               !****
+
+        ! epd and temperature files DO NOT have dates
+       else 
+     
+        READ (EPD, *, iostat=ios) (PEIN (I), I = 1, NM)  
+     
+        if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the potential evaporation time series file. This should have ',NM, ' values on each row with no dates in the first column (see ET1)'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+        endif
+        if (ios<0) then 
+           if (firstnoepd1) then  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
+             WRITE(PPPRI, '(A18)') 'Finish of epd data'  
+             WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             firstnoepd1 = .false.  
+          endif  
+          pein (1:nm) = zero  
+        endif
+      
+        if (ista) then
+          READ (TAH, *, iostat=ios) (tahigh (I), I = 1, NM)  
+          if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the max temperature time series file. This should have ',NM, ' values on each row with no dates in the first column (see ET1)'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+          endif
+          if (ios<0) tahigh(1:nm) = 10.0
+        endif
+ 
+        if (ista) then
+          READ (TAL, *, iostat=ios) (talow (I), I = 1, NM)  
+          if (ios>0) then 
+             write (*,'(A,I0,A)') ' Error reading the min temperature time series file. This should have ',NM, ' values on each row with no dates in the first column (see ET1)'
+             write(*,'(''paused, type [enter] to continue'')')
+             read (*,*)
+             stop   
+          endif
+          if (ios<0) talow(1:nm) = 10.0
+        endif
+  
+        pein(1:nm) = pein(1:nm) / dtmet3
+
+        EPLAST = EPTIME  
+        EPTIME = EPTIME+dtmet3  
+
+        IF (.not.(BHOTRD.AND.EPTIME.LT.BHOTTI)) exit  
+                                               !****
+
+        ! end of if else epd and temperature files have dates
+       endif
+
+       
+      enddo
 
 
-   ENDIF  
+    ENDIF  
+! end of check for hotstarted run    
+    
+    
 ! calculate average PE value over computational timestep
    TEND = MIN (UZNOW + UZNEXT, EPTIME)  
-   DO 10 I = 1, NM  
-      PETOT (I) = (TEND-UZNOW) * PEIN (I)  
+   PETOT (1:NM) = (TEND-UZNOW) * PEIN (1:NM)  
 
-   10    END DO  
-   12    IF (EPTIME.LT.UZNOW + UZNEXT) THEN  
-!          READ (EPD,*,END=280) I1, I2, I3, I4, I5, (PEIN(I),I=1,NM)
-!          EPLAST = EPTIME
-!          EPTIME = HOUR(I1,I2,I3,I4,I5) - TIH
-! sb 300407 convert breakpoint data to regularly spaced data
-      READ (EPD, *, END = 285) (PEIN (I), I = 1, NM)  
+! POT. EVAP and TEMPERATURE DATA READ PART 2
 
-      goto 286  
-  285       if (firstnoepd2) then  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
-         WRITE(PPPRI, '(A18)') 'Finish of epd data'  
-         WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         WRITE(PPPRI, * )  
-         firstnoepd2 = .false.  
-      endif  
-      do i = 1, nm  
-      pein (i) = zero  
+   !check if it is time to read in PET data   
+   IF (EPTIME.LT.UZNOW + UZNEXT) THEN  
 
-      enddo 
+    ! do loop which is exited if ((.not.(EPTIME.LT.UZNOW + UZNEXT))
+    do
+!     read(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios, END = 285) metyear,metmonth,metday,methour,metminute,metsecond, tmp
+!     READ (tmp, *) (PEIN (I), I = 1, NM)  
+
+        ! epd and temperature files have dates
+       if (BMETDATES) then
+       read(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) epdyear,epdmonth,epdday,epdhour,epdminute,epdsecond, tmp
+
+        if (ios>0) then 
+           write (*,'(A,I0,A)') ' Error reading the potential evaporation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+        endif
+        if (ios<0) then 
+           if (firstnoepd2) then  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
+             WRITE(PPPRI, '(A18)') 'Finish of epd data'  
+             WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             firstnoepd2 = .false.  
+          endif  
+          pein (1:nm) = zero  
+        endif
+       epddate = HOUR_FROM_DATE( epdyear,epdmonth,epdday,epdhour,epdminute)
+
+        READ (tmp, *,iostat=ios) (PEIN (I), I = 1, NM)  
+        if (ios>0) then 
+           write (*,'(A,I0,A)') ' Error reading the potential evaporation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+        endif
       
-  286    if (ista) then
-         READ (TAH, *, END = 385) (tahigh (I), I = 1, NM)  
-         goto 386
-         endif
+        if (ista) then
+          read(TAH, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) tahyear,tahmonth,tahday,tahhour,tahminute,tahsecond, tmp
+          if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the max temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+          endif
+          if (ios<0) tahigh(1:nm) = 10.0
 
-  385    do i=1,nm
-           tahigh(i) = 10.0
-         enddo
-       
-  386    if (ista) then
-         READ (TAL, *, END = 485) (talow (I), I = 1, NM)  
-         goto 486
-         endif
-   
-  485    do i=1,nm
-           talow(i) = 10.0
-         enddo
+          READ (tmp, *,iostat=ios) (tahigh (I), I = 1, NM)  
+          if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the max temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop 
+          endif
+          tahdate = HOUR_FROM_DATE( tahyear,tahmonth,tahday,tahhour,tahminute)
+
+        endif
+ 
+        if (ista) then
+          read(TAL, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', iostat=ios) talyear,talmonth,talday,talhour,talminute,talsecond, tmp
+          if (ios>0) then 
+             write (*,'(A,I0,A)') ' Error reading the min temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+             write(*,'(''paused, type [enter] to continue'')')
+             read (*,*)
+             stop   
+          endif
+          if (ios<0) talow(1:nm) = 10.0
+ 
+          READ (tmp, *,iostat=ios) (talow (I), I = 1, NM)  
+          if (ios>0) then 
+             write (*,'(A,I0,A)') ' Error reading the min temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ',NM, ' values on each row'
+             write(*,'(''paused, type [enter] to continue'')')
+             read (*,*)
+             stop   
+          endif
+          taldate = HOUR_FROM_DATE(talyear,talmonth,talday,talhour,talminute)
+
+        
+        endif
   
-  486   do i = 1, nm  
-       pein (i) = pein (i) / dtmet3  
-       enddo  
+      pein (1:nm) = pein (1:nm) / dtmet3  
       
       EPLAST = EPTIME  
       EPTIME = EPTIME+dtmet3  
-! check for invalid data
-!          IF (EPTIME.NE.0.0 .AND. EPLAST.GT.EPTIME) THEN
-!            WRITE(PRI,3) I1,I2,I3,I4,I5,EPLAST,EPTIME
-! 3          FORMAT(////'INPUT PE. TIME = ',5I5 /
-!     -                 'EPLAST = ',G12.6 /
-!     -                 'EPTIME = ',G12.6)
-!            CALL ERROR(FATAL,1026,PRI,0,0,
-!     -      'INVALID BREAKPOINT POT. EVAPOTRANSPIRATION DATA')
-!        ENDIF
       TEND = MIN (UZNOW + UZNEXT, EPTIME)  
-      DO 14 I = 1, NM  
-         PETOT (I) = PETOT (I) + (TEND-EPLAST) * PEIN (I)  
+      PETOT (1:nm) = PETOT (1:nm) + (TEND-EPLAST) * PEIN (1:nm)  
+      IF (.not.(EPTIME.LT.UZNOW + UZNEXT)) exit  
+                                          !****
 
-   14       END DO  
-      GOTO 12  
+            
+        ! epd and temperature files DO NOT have dates
+       else     
+       READ (EPD, *, iostat=ios) (PEIN (I), I = 1, NM)  
+        if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the potential evaporation time series file. This should have ',NM, ' values on each row with no dates in the first column (see ET1)'
+        write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+        endif
+        if (ios<0) then 
+           if (firstnoepd2) then  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'  
+             WRITE(PPPRI, '(A18)') 'Finish of epd data'  
+             WRITE(PPPRI, '(A33)') 'All remaining values will be zero'  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             WRITE(PPPRI, * )  
+             firstnoepd2 = .false.  
+          endif  
+          pein (1:nm) = zero  
+        endif
+
+      
+        if (ista) then
+          READ (TAH, *, iostat=ios) (tahigh (I), I = 1, NM)  
+          if (ios>0) then 
+            write (*,'(A,I0,A)') ' Error reading the max temperature time series file. This should have ',NM, ' values on each row with no dates in the first column (see ET1)'
+            write(*,'(''paused, type [enter] to continue'')')
+            read (*,*)
+            stop   
+          endif
+          if (ios<0) tahigh(1:nm) = 10.0
+        endif
+ 
+        if (ista) then
+          READ (TAL, *, iostat=ios) (talow (I), I = 1, NM)  
+          if (ios>0) then 
+             write (*,'(A,I0,A)') ' Error reading the min temperature time series file. This should have ',NM, ' values on each row with no dates in the first column (see ET1)'
+             write(*,'(''paused, type [enter] to continue'')')
+             read (*,*)
+             stop   
+          endif
+          if (ios<0) talow(1:nm) = 10.0
+        endif
+  
+      pein (1:nm) = pein (1:nm) / dtmet3  
+      
+      EPLAST = EPTIME  
+      EPTIME = EPTIME+dtmet3  
+      TEND = MIN (UZNOW + UZNEXT, EPTIME)  
+      PETOT (1:nm) = PETOT (1:nm) + (TEND-EPLAST) * PEIN (1:nm)  
+      IF (.not.(EPTIME.LT.UZNOW + UZNEXT)) exit  
+                                          !****
+
+      ! end of if else epd and temperature files have dates
+       endif
+        
+    enddo
 
    ENDIF  
-   DO 16 I = 1, NM  
-      OBSPE (I) = PETOT (I) / UZNEXT / 3600.  
+      OBSPE (1:nm) = PETOT (1:nm) / UZNEXT / 3600.  
 ! for simplicity the temperature used is the value at the end of the timestep
-      ta (I) = (tahigh (I) +  talow (I) )/2.0
-!      ta (I) = tahigh (I)
+      ta (1:nm) = (tahigh (1:nm) +  talow (1:nm) )/2.0
 
-
-   16    END DO  
 ENDIF  
 !
 ! PRINT OUT INPUT DATA
@@ -702,14 +929,19 @@ IF (BHOTRD.AND.METIME.LT.BHOTTI) GOTO 115
 !
   190 TCURR = TIMEUZ  
 DO 270 K = 1, NV  
-   IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, &
-    TIMCST, NCTCST, CSTCA1, NVEE, K)
-   IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, &
-    NCTPLA, PLAI1, NVEE, K)
-   IF (MODECL (K) .NE.0) CALL TERPO1 (CLAI, TCURR, RELCLA, TIMCLA, &
-    NCTCLA, CLAI1, NVEE, K)
-   IF (MODEVH (K) .NE.0) CALL TERPO1 (VHT, TCURR, RELVHT, TIMVHT, &
-    NCTVHT, VHT1, NVEE, K)
+   !IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, &
+   ! TIMCST, NCTCST, CSTCA1, NVEE, K)
+   !IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, &
+   ! NCTPLA, PLAI1, NVEE, K)
+   !IF (MODECL (K) .NE.0) CALL TERPO1 (CLAI, TCURR, RELCLA, TIMCLA, &
+   ! NCTCLA, CLAI1, NVEE, K)
+   !IF (MODEVH (K) .NE.0) CALL TERPO1 (VHT, TCURR, RELVHT, TIMVHT, &
+   ! NCTVHT, VHT1, NVEE, K)
+! sb 04032025 for dynamically allocated arrays use NV not NVEE
+   IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, TIMCST, NCTCST, CSTCA1, NV, K)
+   IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, NCTPLA, PLAI1, NV, K)
+   IF (MODECL (K) .NE.0) CALL TERPO1 (CLAI, TCURR, RELCLA, TIMCLA, NCTCLA, CLAI1, NV, K)
+   IF (MODEVH (K) .NE.0) CALL TERPO1 (VHT, TCURR, RELVHT, TIMVHT,  NCTVHT, VHT1, NV, K)
   270 END DO  
 !
 RETURN  
@@ -758,6 +990,16 @@ SUBROUTINE TMSTEP
 INTEGER :: I, IEL, IFLAG  
 DOUBLEPRECISION TEND, TSNOW, TSOFT, UZTEST, PTOT(nrain)
 LOGICAL :: exitt, SMFLAG, iscycle, jumpto45, first
+LOGICAL :: PRDFIRST=.true.,PRDFIRST1=.true.
+LOGICAL :: EPDFIRST=.true., EPDFIRST1=.true.
+LOGICAL :: TAHFIRST=.true.,TAHFIRST1=.true.
+LOGICAL :: TALFIRST=.true.,TALFIRST1=.true.
+integer :: prdyear,prdmonth,prdday,prdhour,prdminute,prdsecond
+integer :: epdyear,epdmonth,epdday,epdhour,epdminute,epdsecond
+integer :: tahyear,tahmonth,tahday,tahhour,tahminute,tahsecond
+integer :: talyear,talmonth,talday,talhour,talminute,talsecond
+integer :: ios
+DOUBLEPRECISION :: prddate,epddate,tahdate,taldate
 !----------------------------------------------------------------------*
 ! ----------------------------------------------------------------------
 !  1.  COMPUTE EXPECTED TiMeSTEP
@@ -806,6 +1048,168 @@ ISERROR = .FALSE.
 ! ----------------------------------------------------------------------
 !  2.  READ METEOROLOGICAL DATA AND REDUCE TMSTEP IF NECESSARY
 ! ----------------------------------------------------------------------
+
+! ----------------------------------------------------------------------
+!  2a.   check the start date is not before any met data occurs
+! ----------------------------------------------------------------------
+If  (BMETDATES.and.PRDFIRST1) then
+       PRDFIRST1 = .false.
+       read(prd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) prdyear,prdmonth,prdday,prdhour,prdminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the precipitation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+         endif
+         backspace(prd)
+        prddate = HOUR_FROM_DATE( prdyear,prdmonth,prdday,prdhour,prdminute)
+ ! check simulation start timne plus precipitation time step length plus 0.01 is greater than or equal to the first precipitation time series date. The 0.01 values is a bit arbitrary
+       if (tih+dtmet2+0.01.lt.prddate) then
+           write (*,'(A)') ' The precipitation data starts after the simulation start date. Check the precipitation data dates and the start time of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+endif
+If  (BMETDATES.and.EPDFIRST1) then
+       EPDFIRST1 = .false.
+       read(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios)  epdyear,epdmonth,epdday,epdhour,epdminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the potential evaporation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+         endif
+         backspace(epd)
+        epddate = HOUR_FROM_DATE( epdyear,epdmonth,epdday,epdhour,epdminute)
+       if (tih+dtmet3+0.01.lt.epddate) then
+           write (*,'(A)') ' The potential evaporation data starts after the simulation start date. Check the potential evaporation data dates and the start time of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+endif
+If  (BMETDATES.and.TAHFIRST1.and.ISTA) then
+       TAHFIRST1 = .false.
+       read(tah, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios)  tahyear,tahmonth,tahday,tahhour,tahminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the maximum temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+         endif
+         backspace(tah)
+        tahdate = HOUR_FROM_DATE(tahyear,tahmonth,tahday,tahhour,tahminute)
+       if (tih+dtmet3+0.01.lt.tahdate) then
+           write (*,'(A)') ' The maximum temperature data starts after the simulation start date. Check the maximum temperature dates and the start time of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+endif
+If  (BMETDATES.and.TALFIRST1.and.ISTA) then
+       TALFIRST1 = .false.
+       read(tal, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios)  talyear,talmonth,talday,talhour,talminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the minimum temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+         endif
+         backspace(tal)
+        taldate = HOUR_FROM_DATE(talyear,talmonth,talday,talhour,talminute)
+       if (tih+dtmet3+0.01.lt.taldate) then
+           write (*,'(A)') ' The minimum temperature data starts after the simulation start date. Check the minimum temperature dates and the start time of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+endif
+
+! ----------------------------------------------------------------------
+!  2b.   If the met data has dates then the first values can be ignored if the simulation start date is after the met data start date
+! ----------------------------------------------------------------------
+If  (BMETDATES.and.PRDFIRST) then
+    do
+       read(prd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) prdyear,prdmonth,prdday,prdhour,prdminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the precipitation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
+            write (*,'(A)') ' Check the format of the precipitation time series file and the end date of the time series is not before the start date of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+
+       prddate = HOUR_FROM_DATE( prdyear,prdmonth,prdday,prdhour,prdminute)
+!       write(*,*) prddate
+! use the precipitation at this step if it is within 0.01 hour of the start date. Otherwise use the next precipitation file. The 0.01 values is a bit arbitrary
+       if (prddate + 0.01.gt.tih) then
+           PRDFIRST = .false.
+           backspace(prd)
+           exit
+       endif
+    enddo
+endif
+If  (BMETDATES.and.EPDFIRST) then
+    do
+       read(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) epdyear,epdmonth,epdday,epdhour,epdminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the potential evaporation time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
+            write (*,'(A)') ' Check the format of the potential evaporation time series file and the end date of the time series is not before the start date of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+        epddate = HOUR_FROM_DATE( epdyear,epdmonth,epdday,epdhour,epdminute)
+!       write(*,*) epddate
+       if (epddate + 0.01.gt.tih) then
+           EPDFIRST = .false.
+           backspace(epd)
+           exit
+       endif
+    enddo
+endif
+If  (BMETDATES.and.TAHFIRST.and.ISTA) then
+    do
+       read(tah, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) tahyear,tahmonth,tahday,tahhour,tahminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the maximum  temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
+            write (*,'(A)') ' Check the format of the maximum daily temperature time series file and the end date of the time series is not before the start date of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+       tahdate = HOUR_FROM_DATE( tahyear,tahmonth,tahday,tahhour,tahminute)
+!       write(*,*) tahdate
+       if (tahdate + 0.01.gt.tih) then
+           TAHFIRST = .false.
+           backspace(tah)
+           exit
+       endif
+    enddo
+endif
+If  (BMETDATES.and.TALFIRST.and.ISTA) then
+    do
+       read(tal, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) talyear,talmonth,talday,talhour,talminute
+         if (ios/=0) then 
+            write (*,'(A)') ' Error reading the minimum daily temperature time series file. This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
+            write (*,'(A)') ' Check the format of the minimum daily temperature time series file and the end date of the time series is not before the start date of the simulation'
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
+           stop   
+        endif
+       taldate = HOUR_FROM_DATE( talyear,talmonth,talday,talhour,talminute)
+!       write(*,*) taldate
+       if (taldate + 0.01.gt.tih) then
+           TALFIRST = .false.
+           backspace(tal)
+           exit
+       endif
+    enddo
+endif
+    
+
+
 ! set period of validity of current data
 exitt = .FALSE.
 first = .TRUE.
@@ -876,11 +1280,11 @@ CALL METIN (IFLAG)
 !8025 WRITE(PPPRI, 9060) UZNEXT, TSOFT, MELAST, METIME  
 !    WRITE(PPPRI, 9070) (I, PINP (I), PTOT (I), I = 1, NRAIN)  
 !    CALL ERROR(FFFATAL, 1025, PPPRI, 0, 0, 'INVALID TIMESTEP')  
-9060 FORMAT(////'UZNEXT = ',G12.6, &
-        &          /' TSOFT = ',G12.6, &
-        &          /'MELAST = ',G12.6, &
-        &          /'METIME = ',G12.6 / &
+9060 FORMAT(////'UZNEXT = ',G14.6, &
+        &          /' TSOFT = ',G14.6, &
+        &          /'MELAST = ',G14.6, &
+        &          /'METIME = ',G14.6 / &
         &           'PREC.STN.   PINP        PTOT'/)
- 9070 FORMAT(4X,I4,2G12.6)  
+ 9070 FORMAT(4X,I4,2G14.6)  
 END SUBROUTINE TMSTEP
 END MODULE rest

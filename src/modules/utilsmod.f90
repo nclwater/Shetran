@@ -249,7 +249,10 @@ r = DBLE(d*24 + khour) + DBLE(kmin) / 6d1
 r= r+ 0.0000028  !add 1/100 of a second to sort out round error with mins
 check = DATE_FROM_HOUR(r)
 IF(check(1)/=kyear .OR.check(2)/=kmth .OR. check(3)/=kday .or. check(4)/=khour .or. check(5)/=kmin) THEN
-    print*,' date trap'
+     write (*,'(A)') ' There is a problem with a date that has been entered'
+     write (*,'(A,5(1x,I0))') 'The Year, month,day,hour,minute values entered are: ', kyear, kmth, kday, khour, kmin
+           write(*,'(''paused, type [enter] to continue'')')
+           read (*,*)
     stop
 ENDIF
     !     * days arising from entire years (asasuming KYEAR.ge.1949) ...

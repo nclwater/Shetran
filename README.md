@@ -8,5 +8,5 @@ https://research.ncl.ac.uk/shetran/
 Download the zip file from the latest release and then extract it.
 
 ## Sample Usage
-Double click on exectuable, e.g. 'shetran.exe' in the extracted folder.
+Double click on exectuable, e.g. 'shetran.exe' in the shetran folder that has been extracted.
 Then select a rundata file from one of the examples data sets.

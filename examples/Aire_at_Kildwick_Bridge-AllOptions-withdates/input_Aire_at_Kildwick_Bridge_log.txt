@@ -1,0 +1,37 @@
+ XML Filename = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Aire_at_Kildwick_BridgeLibraryFile_AllOptions.xml
+ 
+ Catchment Mask Filename = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_Mask_Aire_at_Kildwick_Bridge.asc
+ DEM Mean Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_Dem_Aire_at_Kildwick_Bridge.asc
+ DEM Minimum Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_MinDem_Aire_at_Kildwick_Bridge.asc
+ Land Use Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_LandCover_Aire_at_Kildwick_Bridge.asc
+ Soil Category Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_SoilCateogory_Aire_at_Kildwick_Bridge.asc
+ Lake Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_Lake_Aire_at_Kildwick_Bridge.asc
+ Precipitation Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_RainDist_Aire_at_Kildwick_Bridge.asc
+ Potential Evaporation Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\Map_PETDist_Aire_at_Kildwick_Bridge.asc
+ Maximum Temperature Time Series File Name = TimeSeries_MaxTemp_Aire_at_Kildwick_Bridge.csv
+ Minimum Temperature Time Series File Name = TimeSeries_MinTemp_Aire_at_Kildwick_Bridge.csv
+ Initial spatially variable water table values have been written to this file C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\input_Aire_at_Kildwick_Bridge_vsi.txt. This is achieved by defining the heads in each cell
+ 
+ Precipitation Time Series File Name = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\TimeSeries_Rain_Aire_at_Kildwick_Bridge.csv
+ The precipitation time series file should have a single header line and then at least 24 values (this is the maximum value in the PrecMap file) on each line
+ 
+ Potential Evaporation Time Series File name = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-AllOptions-withdates\TimeSeries_PET_Aire_at_Kildwick_Bridge.csv
+ The potential evaporation time series file should have a single header line and then at least 24 values (this is the maximum value in the PEMap file) on each line
+ 
+ 
+ Iteration process for removing sinks
+ ************************************
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            0
+ 
+ Number of land element sinks =            8
+ Number of land element sinks =            0

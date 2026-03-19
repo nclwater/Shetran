@@ -1,0 +1,155 @@
+:MN01 - MN job title
+         Slapton Wood 1d- 1year
+:MN11 - KUAMM,  KPLAMM,  KUNIT,  KPLNIT
+       3.0D-6   1.8D-6  0.3D-5   1.8D-6
+:MN12 - FE,     FH,     CNRBIO,   CNRHUM
+       0.5D0   0.2D0     8.0D0    12.0D0
+:MN13 - AMMDDR,  AMMWDR,  NITDDR,  NITWDR (DDR=KG N M-2 sec-1,WDR=KG N  MM-1)
+        4.0D-11   0.5D-6   2.0D-11   0.5D-6
+:MN14 - MNCREF(REFERENCE CONTAMINANT CONCENTRATION (KG M-3))
+         1.0D-2
+:MN15a  NMN15E : no. of typical element catorgories for KHUM
+           1
+:MN15b  KHELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN16a - NMN15T : no of vaules in the table for KHELEM typical element 1
+         5
+:MN16b - KHDPTH,KHCONC: depth,decomposition rate for NMN15T values
+         0     4.8D-10
+         1    16.0D-11
+         2     8.0D-12
+         5     2.2D-12
+         20    6.2D-13
+:MN17a  NMN17E : no. of typical element catorgories for KLIT
+           1
+:MN17b  KLELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN18a - NMN17T : no of vaules in the table for KLELEM typical element 1
+         5
+:MN18b - KLDPTH,KLCONC: depth,decomposition rate for NMN17T values
+         0     0.8D-6
+         1     5.0D-7
+         2     9.0D-8
+         5     3.0D-8
+         20    1.0D-9
+:MN19a  NMN19E : no. of typical element catorgories for KMAN
+           1
+:MN19b  KMELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN20a - NMN19T : no of vaules in the table for KMELEM typical element 1
+         5
+:MN20b - KMDPTH,KMCONC: depth,decomposition rate for NMN19T values
+         0     5.0D-6
+         1     3.0D-6
+         2     9.0D-8
+         5     1.0D-8
+         20    1.0D-9
+:MN21a  NMN21E : no. of typical element catorgories for KNIT
+           1
+:MN21b  KNELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN22a - NMN21T : no of vaules in the table for KNELEM typical element 1
+         5
+:MN22b - KNDPTH,KNCONC: depth,decomposition rate for NMN21T values
+         0     6.0D-5
+         1     5.0D-5
+         2     3.0D-5
+         5     1.0D-5
+         20    1.0D-6
+:MN23a  NMN23E : no. of typical element catorgories for KVOL
+           1
+:MN23b  KVELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN24a - NMN23T : no of vaules in the table for KVELEM typical element 1
+         1
+:MN24b - KVDPTH,KVCONC: depth,decomposition rate for NMN23T values
+         0     0.00D-5
+:MN25a  NMN25E : no. of typical element catorgories for KD1
+           1
+:MN25b  KD1ELM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN26a - NMN25T : no of vaules in the table for KD1ELM typical element 1
+         5
+:MN26b - KD1DTH,KD1CNC: depth,KD1 values for NMN25T values
+         0     1.0D-1
+         2     0.2D-1
+         4     0.2D-2
+         10    0.04D-6
+         20    0.02D-6
+:MN27a  NMN27E : no. of typical element catorgories for KD2
+           1
+:MN27b  KD2ELM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN28a - NMN27T : no of vaules in the table for KD2ELM typical element 1
+         5
+:MN28b - KD2DTH,KD2CNC: depth,decomposition rate for NMN15T values
+         0     1.1D-6
+         2     0.08D-6
+         4     0.06D-6
+         10    0.04D-6
+         20    0.02D-6
+:MN30 - KDDSOL(1:NS) Kd factor for ammonium adsorption
+        10.0  5.0  5.0  10.0  5.0  5.0  5.0  5.0
+:MN31 - GNN n power for ammonium adsorption isotherm
+         1
+:MN35 - ISQ10
+        .FALSE.
+:MN40 - ISICCD : Is the initial conditions for carbon a decay function
+        .FALSE.
+:MN43a  NMN43E : no. of typical element catorgories
+           1
+:MN43b  CELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN44a - NMN43T : no of vaules in the table for CELEM typical element 1
+         7
+:MN44b - CDPTH,CCONC: depth,concentration for NMN43T values
+         0     75.0
+         0.3   15.0
+         0.6   6.0
+         0.7   1.0
+         4     0.1
+         10    0.01
+         20    0.01
+:MN45 - CLITFR: Proportion of the carbon that is within the litter pool
+        0.002
+:MN46 - CNRLIT: Carbon to nitrogen ratio of the litter
+        10
+:MN50 - ISIAMD : Is the initial conditions for NAMM a decay function
+        .FALSE.
+:MN53a  NMN63E : no. of typical element catorgories
+           1
+:MN53b  NAELEM: catagory for each element
+      3 000
+      2 010
+      1 000
+:MN54a - NMN63T : no of vaules in the table for CELEM typical element 1
+         7
+:MN54b - NADPTH,NACONC: depth,concentration for NMN63T values
+         0     1.0D-4
+         0.3   0.5D-4
+         0.6   0.1D-4
+         0.7   0.1D-5
+         4     0.1D-5
+         10    0.1D-5
+         20    0.1D-5
+:MN60 - NBOTCE (cell number below which no decomposition occurs)
+         20
+
+
+
