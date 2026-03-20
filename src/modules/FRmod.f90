@@ -1666,6 +1666,8 @@ BTIME = .FALSE.
    16 FORMAT (// 'SHETRAN', F4.1 , ' ' )  
    15 FORMAT (// 'SHETRAN', F4.1 )  
 !
+Write (*,*) 
+Write (*,*) '**************************'
 WRITE ( *, * ) BANNER  
 Write (*,*) '**************************'
 
@@ -4496,14 +4498,43 @@ ENDIF
 &        ' ' )
    15 FORMAT (/  'SHETRAN VERSION NUMBER: ', F5.1 )  
 WRITE(PPPRI, 17) BANNER  
-   17 FORMAT(/A80/)  
+17 FORMAT(/A80/)  
 !
 !     READ AND PRINT JOB TITLE.
 !:FR1
-READ (FRD, 30) TITLE  
+WRITE(PPPRI,'(A)') 'Catchment Name '
+WRITE(PPPRI,'(A)') '************** '   
+READ (FRD,'(A)') TITLE  
    30 FORMAT (20A4)  
-WRITE(PPPRI, 40) TITLE  
-   40 FORMAT (/  20A4, //, 100('='))  
+WRITE(PPPRI,'(A)') TITLE  
+40 FORMAT (/  20A4, //, 100('='))  
+   
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Fixed array sizes in this version of SHETRAN '
+WRITE(PPPRI,'(A)') '******************************************** '
+WRITE(PPPRI,'(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
+WRITE(PPPRI,'(4(A,I0))') ' NXEE = ',nxee, '  NYEE = ', nyee, '  NLFEE = ',nlfee, '  NELEE = ',nelee
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Grid points in vertical'
+WRITE(PPPRI,'(1(A,I0))') ' LLEE = ',llee
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Vegetation types, soil typess (NVEE also used for number of precipitation and pet stations)'
+WRITE(PPPRI,'(2(A,I0))') ' NVEE = ',nvee, '  NSEE = ', nsee
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers' 
+WRITE(PPPRI,'(4(A,I0))') ' NVSEE = ',NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ',NUZTAB, '  NLYREE = ',NLYREE
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'  
+WRITE(PPPRI,'(3(A,I0))') ' NXOCEE = ',NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ',NSEDEE
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants' 
+WRITE(PPPRI,'(4(A,I0))') ' NCONEE = ',NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ',NPLTEE, '  NPELEE = ',NPELEE
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Number of snow meltwater slugs, Size of internal tables for channel conveyance' 
+WRITE(PPPRI,'(2(A,I0))') ' max_no_snowmelt_slugs = ',max_no_snowmelt_slugs, '  NXSCEE = ', NXSCEE
+WRITE(PPPRI,*)   
+
+
 !
 WRITE(PPPRI, 20)  
    20 FORMAT (/ ' ^^^ ENTER INFR ^^^')  
