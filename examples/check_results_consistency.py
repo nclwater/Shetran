@@ -80,9 +80,8 @@ def _compare_file_contents(dir_sample, f, _md5):
                 for line_should, line_sample in zip(file_should, file_sample):
                     if line_should.rstrip('\r\n') != line_sample.rstrip(
                             '\r\n'):
-                        print(
-                            f"    Line {line_should.strip()} differs from {line_sample.strip()}."
-                        )
+                        print(f"    Line {line_should.strip()} differs from "
+                              f"{line_sample.strip()}.")
         elif f.endswith(".hdf5"):
             with h5py.File(os.path.join(dir_results_should, f),
                            "r") as file_should, h5py.File(
@@ -90,9 +89,8 @@ def _compare_file_contents(dir_sample, f, _md5):
                                "r") as file_sample:
                 for key in file_should.keys():
                     if key not in file_sample:
-                        print(
-                            f"    Dataset {key} in {dir_results_should} but not in {dir_sample}."
-                        )
+                        print(f"    Dataset {key} in {dir_results_should} "
+                              f"but not in {dir_sample}.")
                         continue
                     data_should = file_should[key][()]
                     data_sample = file_sample[key][()]
@@ -108,8 +106,9 @@ def _compare_file_contents(dir_sample, f, _md5):
                         equal = (data_should == data_sample).all()
                     if not equal:
                         print(
-                            f"    Dataset {key} differs between {os.path.join(dir_sample, dir_compute)} and {os.path.join(dir_sample, dir_results_should)}."
-                        )
+                            f"    Dataset {key} differs between "
+                            f"{os.path.join(dir_sample, dir_compute)} and "
+                            f"{os.path.join(dir_sample, dir_results_should)}.")
                         print(
                             f"      Shape: {data_should.shape} vs {data_sample.shape}"
                         )
