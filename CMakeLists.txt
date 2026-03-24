@@ -264,8 +264,8 @@ target_compile_options(SHETRAN PRIVATE
     "/heap-arrays:0"
     "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}"
 )
-target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/Od;/debug:full;/traceback;/check:bounds>")
-target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release>:/O3;/QxHost>")
+target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/Od;/debug:full;/traceback;/check:bounds;/heap-arrays->")
+target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release>:/O3;/QxHost;/heap-arrays->")
 
 # /libs:static — statically link Intel Fortran/C runtime libraries
 # so the .exe runs without Intel oneAPI on PATH
