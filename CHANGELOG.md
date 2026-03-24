@@ -2,11 +2,11 @@
 
 ## 071025
 
-Added nitrate component - new version called 4.5.
+Added nitrate component - version is now 4.5.3.
 
 ### mnmod.f90
 
-New file.
+New file containing the nitrate compute module.
 
 ### cmmod 
 
