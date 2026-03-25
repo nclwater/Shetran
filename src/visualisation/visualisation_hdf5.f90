@@ -83,6 +83,9 @@ INTEGER(HID_T)           :: gp
 INTEGER(HID_T), DIMENSION(:), ALLOCATABLE, SAVE   :: gp_var
 INTEGER(HSIZE_T), DIMENSION(ndim)                 :: maxdims
 INTEGER(HSIZE_T), PARAMETER                       :: one=1
+!integer :: error
+!integer :: majnum, minnum, relnum
+
 
 jndim = (/(jj,jj=1,ndim)/)
 ni    = G_I(0,'no_items')
@@ -90,6 +93,9 @@ ALLOCATE(dataset(ni), dataspace(ni), orig_dataspace(ni), dtype(ni),szz(ni), &
          newsz(ni), gp_var(ni), t_dataspace(ni), t_dataset(ni), rank(ni))
 
 CALL H5OPEN_F(error)
+!call h5get_libversion_f(majnum, minnum, relnum, error)
+!print *, "HDF5 version:", majnum, ".", minnum, ".", relnum
+
 !lined below needed only for compound datatypes
 !CALL H5PCREATE_F(H5P_DATASET_XFER_F, dataset_transfer_property, error)
 !CALL H5PSET_PRESERVE_F(dataset_transfer_property, .TRUE., error)
