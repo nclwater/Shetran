@@ -60,7 +60,7 @@ IMPLICIT NONE
 
 !------------ BANNER HEADER
 !     Description of local implementation: software, architecture, date
-      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Version 4.5 for PC - incorporating SHEGRAPH Version 2'
+      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Hydrological Model'
 
 !------------ RUNDATA FILENAME (THE CATCHMENT NAME ENTERED AT THE START
 !     OF A SIMULATION RUN IS APPENDED TO THIS FILENAME)
@@ -72,8 +72,13 @@ IMPLICIT NONE
 !16 Sep 94  NB  INFR references elements LCODEX(NX+1) and LCODEY(NY+1)!
 !30 Sep 94  NB  NELEE is also used as size of workspace arrays.
 !Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
-      !INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000  !sv4 large
-      INTEGER, PARAMETER :: nxee=250, nyee=250, nlfee=10000, nelee=30000  !sv4 large
+      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
+!      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
+!      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=2000, nelee=80000  !sv4.5
+     
+ !     INTEGER, PARAMETER :: nxee=250, nyee=250, nlfee=10000, nelee=30000  !sv4.5
+!      INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000  !sv4 large
+      !INTEGER, PARAMETER :: nxee=150, nyee=150, nlfee=5000, nelee=20000  !sv4 large
       !INTEGER, PARAMETER :: nxee=35, nyee=40, nlfee=240, nelee=900  !Dunsop200
       !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=132, NELEE=320  !Cobres
       !INTEGER, PARAMETER :: NXEE=12, NYEE=12, NLFEE=4, NELEE=30
@@ -86,8 +91,8 @@ IMPLICIT NONE
       !INTEGER, PARAMETER :: LLEE=50
       INTEGER, PARAMETER :: LLEE=50  !Cobres
 
-! --- VEGETATION TYPES, SOIL TYPES
-      INTEGER, PARAMETER :: NVEE=30000, NSEE=1000
+! --- VEGETATION TYPES, SOIL TYPES (NVEE also used for number of precipitation and pet stations)
+      INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
 
 ! --- TABLES USED IN VSS COMPONENT
       INTEGER, PARAMETER :: NVSEE=20
@@ -105,8 +110,9 @@ IMPLICIT NONE
       INTEGER, PARAMETER :: NSETEE=45
 
 ! --- MAXIMUM NUMBER OF ELEMENTS (GRIDS, BANKS AND LINKS) IN A ROW
-      INTEGER, PARAMETER :: NXOCEE=500
-
+!      INTEGER, PARAMETER :: NXOCEE=2000
+      INTEGER, PARAMETER :: NXOCEE=4*nxee
+      
 ! --- TABLES USED IN OC COMPONENT (MAX. OF NO. OF ROUGHNESS CATEGORIES,
 !      NO. OF CHANNEL X-SECTION CATEGORIES, NO. OF OC BOUNDARY ELEMENTS)
       INTEGER, PARAMETER :: NOCTAB=20
@@ -450,9 +456,9 @@ IF (ETYPE.EQ.FFFATAL) CALL ALSTOP (1)
  9200 FORMAT(A,I1,I3.3)  
  9500 FORMAT(' No. of occurrences of error number',I5.4,' is',I6)  
  9600 FORMAT(/' ### End of asummary: recorded error count is',I7,' ###'/)  
-91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G12.6,' METRES')  
+91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G14.6,' METRES')  
 !*970804
-91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')  
+91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G14.6,' METRES')  
 !*
 END SUBROUTINE ERROR
 

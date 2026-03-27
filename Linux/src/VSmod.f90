@@ -10,7 +10,7 @@ USE AL_C, ONLY : BHB, BFB, bexbk, DTUZ, deltaz, dummy, DHF, ESOILA, ERUZ, EEVAP,
                  NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, nhbed, NVC, NRD, nlyrbt, NVSWLT, NVSSPT, NBFACE, NS, nlyr, &
                  PNETTO, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, QVSH, QBKI, &
                  tih, UZNEXT, &
-                 vsd, VSI, VSPSI, VSTHE, VSPOR, WLD, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, TIH
+                 vsd, VSI, VSPSI, VSTHE, VSPOR, WLD, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, INITIALISE_AL_C2, TIH
 USE AL_D, ONLY : TTH
 !USE VSINIT_INC  
 !USE VSCOM1_INC  
@@ -927,6 +927,7 @@ DOUBLEPRECISION DZLYR, ZCBOT, ZDEPTH, ZBDBOT, ZCTOP, ZDUM
 DOUBLEPRECISION ZAQBOT, ZSZBOT, ZDIFF, ZLBOT, ZNODE  
 LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE (NELEE, 4)  
 CHARACTER (LEN=57) :: MSG  
+integer :: nlyrmax
 
 DATA LRENUM / JVSDUM * 0 /, NRENUM / 0 /  
 
@@ -1126,7 +1127,13 @@ DO 1200 IEL = ICOL1, total_no_elements
 
 
 
- 1200 END DO  
+1200 END DO  
+     
+CALL INITIALISE_VSMOD()
+CALL INITIALISE_AL_C()
+     
+     
+     
 ! Set up cell connectivities (JVSACN, JVSDEL)
 !_____________________________________________*
 ! --- initialise arrays first
@@ -2001,6 +2008,10 @@ DOUBLEPRECISION CDUM1 (LLEE), CDUM2 (LLEE), CDUM3 (LLEE), CDUM4 ( &
  LLEE)
 !----------------------------------------------------------------------*
 
+!top_cell_no is unknown at this point. But the code to caculate top_cell_no uses DELTAZ and ZVSNOD so these use llee
+CALL INITIALISE_AL_C2()
+
+
 WRITE(PPPRI, 9010) 'Start', ' '  
 
 NVSERR = 0  
@@ -2044,8 +2055,8 @@ CALL VSCONC
 !    WRITE(8798,'(<SIZE(montec,DIM=2)>I1)') montec(iii,:)
 !ENDDO
 !CLOSE(8789)
-CALL INITIALISE_VSMOD()
-CALL INITIALISE_AL_C()
+!CALL INITIALISE_VSMOD()
+!CALL INITIALISE_AL_C()
 ! set up cell numbers for wells and springs
 !     set defaults
 DO 700 IEL = 1, total_no_elements  
@@ -4305,7 +4316,7 @@ ENDIF
 & 3X,'  ------------  ------------  ------------  ------------', &
 & '  ------------  ------------  ------------' )
 
-  920 FORMAT(I3,7(2X,G12.6))  
+  920 FORMAT(I3,7(2X,G14.6))  
 RETURN  
 END SUBROUTINE VSSOIL
 

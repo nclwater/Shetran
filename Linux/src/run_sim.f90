@@ -22,7 +22,7 @@ USE VSmod,    ONLY : VSSIM, &
                      RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
 USE CMmod,    ONLY : CMSIM  !"JE"
 USE ETmod,    ONLY : ETSIM, &
-                     psi4, uzalfa !THESE NEEDED ONLY FOR AD
+                     psi4, uzalfa !TH,ESE NEEDED ONLY FOR AD
 USE rest,     ONLY : BALWAT, TMSTEP, &
                      metime, melast, eptime, pinp
                      !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
@@ -31,7 +31,7 @@ USE OCmod,    ONLY : OCSIM
 USE OCQDQMOD, ONLY : STRXX, STRYY       
 USE OCmod2,   ONLY : GETHRF, &
                      HRFZZ !HRFZZ NEEDED ONLY FOR AD
-USE FRmod,    ONLY : FRSORT, FROUTPUT, FRMB, FRRESP  
+USE FRmod,    ONLY : FRSORT, FROUTPUT, FRMB, FRRESP, DATE_FROM_HOUR
 USE SYmod,    ONLY : SYMAIN, BALSED  !"JE"
 USE VISUALISATION_INTERFACE_RIGHT, ONLY : RECORD_VISUALISATION_DATA         !VISVISVIS
 USE VISUALISATION_INTERFACE_LEFT,  ONLY : GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
@@ -52,6 +52,9 @@ USE ETmod,    ONLY : rc, ra, cstcap, del, &
 USE SYmod,      ONLY : issyok_symain  !"JE"
 USE FRmod,      ONLY : qoctot, uzold, &
                        next_hour, icounter2  !these here only for AD 
+USE CONT_CC,    ONLY: initialise_cont_cc
+USE COLM_CG,    ONLY: initialise_colm_cg,deallocate_colm_cg
+USE COLM_CO,    ONLY: initialise_colm_co
 !USE PERTURBATIONS, ONLY : LOAD_PERTURBATIONS, spatial1
 IMPLICIT NONE
 
@@ -72,6 +75,8 @@ LOGICAL                                       :: bsy, bcm, cmfrst,syfrst
 CHARACTER(NIOSTO)                             :: aiosto
 DOUBLEPRECISION, DIMENSION(nelee)             :: hrf
 INTEGER, SAVE                                 :: icounter3 = 0
+INTEGER  :: c(6)
+CHARACTER(128)    :: dum
 
 
 !-----------------------------------------------------------------
@@ -89,13 +94,26 @@ CALL FRSORT
 IF (.NOT.BHOTRD) UZNEXT = TMAX  
 CALL FROUTPUT ('start')  !^^^^^^ sb 08/03/06
 
+c = DATE_FROM_HOUR(tih)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+write(6,'(A,A)') ' Simulation Start Date = ',trim(dum)
+c = DATE_FROM_HOUR(tth)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+write(6,'(A,A)') ' Simulation End Date = ',trim(dum)
+
+write(6,*) 
 write(6,9750) TTH - TIH
 
 !------------------------------------------------------------------
 !                     MAIN SIMULATION LOOP
 !------------------------------------------------------------------
 IF (bexsy) CALL GET_NSED_EARLY ()     !VISVISVIS
-IF (bexcm) CALL GET_NCON_EARLY ()     !VISVISVIS
+IF (bexcm) then
+    CALL GET_NCON_EARLY ()     !VISVISVIS
+    call initialise_cont_cc()  !dynamically allocate contaminnant tranport arrays
+    call initialise_colm_cg()  ! dynamically allocate FACE OVERLAP AND LATERALTRANSMISIVITY VALUES
+    call initialise_colm_co()  ! dynamically allocate WATER VARIABLES USED IN  THE PREPARATION FOR RUNNING SUBROUTINE COLM                     
+endif
 CALL RECORD_VISUALISATION_DATA (rzero)!VISVISVIS
 
 DO 
@@ -166,6 +184,7 @@ DO
             CMFRST = .FALSE.  
             AIOSTO = '00000000000000000000000000000001111111111'  
             IF (BSTORE) CALL FRRESP (AIOSTO, ZERO, .FALSE.)  
+            call deallocate_colm_cg()
         ELSE  
         CALL CMSIM (BEXSY)  
         ENDIF  
@@ -236,7 +255,7 @@ DO
 ENDDO
 
 
-9750 FORMAT ('  Length of Simulation =',F12.2,' hours. '//)  
+9750 FORMAT (' Length of Simulation =',F12.2,' hours '//)  
 9751 FORMAT ('+','Simulation Timestep =',F12.2,' hours   % Completed = ', f6.2)  
 9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)  
 9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)

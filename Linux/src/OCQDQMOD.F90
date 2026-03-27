@@ -148,11 +148,13 @@ out600 : DO ielu = 1, total_no_elements
                 if (STRXX(kel).lt.0) then
                     if ((gethrf(kel)-zgrund(kel)).lt.(-STRXX(kel)/1000.0)) then
                        str(j)=0.5
-                    else 
-                       zi(j) = GETHRF(KEL)+0.95*strxx(kel)/1000
+                   else 
+ !!                      zi(j) = GETHRF(KEL)+0.95*strxx(kel)/1000
                        str(j)=2.0
                     endif
-!                    write(582,*),kel,j,gethrf(kel)-zgrund(kel),zi(j),zgi(j),str(j)
+!!                    if (kel.eq.36) then
+!!                      write(582,*) j,gethrf(kel)-zgrund(kel),str(j)
+!!                    endif
                 endif
 
                 IF (KEL.GT.total_no_links) CYCLE out110 !GOTO 160  
@@ -233,7 +235,7 @@ out600 : DO ielu = 1, total_no_elements
                     if ((gethrf(kel)-zgrund(kel)).lt.(-STRXX(kel)/1000.0)) then
                        str(j)=0.5
                     else 
-                       zi(j) = GETHRF(KEL)+strxx(kel)/1000
+!!                       zi(j) = GETHRF(KEL)+0.95*strxx(kel)/1000
                        str(j)=2.0
                     endif
 !                    write(582,*),kel,j,gethrf(kel)-zgrund(kel),zi(j),zgi(j),str(j)

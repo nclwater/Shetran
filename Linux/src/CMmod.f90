@@ -17,6 +17,7 @@ USE IS_CC
 USE mod_load_filedata, ONLY: ALALLI, ALINIT, ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
 !!!USE mod_load_filedata, ONLY:ERROR, ERRC, ERRNEE, ERRTOT !AD NEEDS THIS  , HELPPATH
 USE UTILSMOD, ONLY : DCOPY
+USE MNMOD, only : MNCONT
 IMPLICIT NONE
 
 INTEGER :: JBK, JFLINK, JSOL(LLEE), NWORK(4), NLINKA, NCWELL  
@@ -70,7 +71,7 @@ SUBROUTINE CMRD (CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFE
 !----------------------------------------------------------------------*
 !
 !
-USE CONT_CC, ONLY:CCAPIN
+USE CONT_CC, ONLY:CCAPIN  
 !
 ! Input arguments
 INTEGER :: CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, NSEE, &
@@ -594,7 +595,11 @@ USE SED_CS
 USE CONT_CC  
 USE COLM_C1  
 USE COLM_CO  
+USE COLM_CG  
 USE LINK_CW  
+USE PLANT_CC
+USE SGLOBAL, ONLY       : uznow
+USE AL_D, ONLY       : TA
 !                             INCLUDE THE PARAMETER STATEMENTS
 !                             AND THE WATER/CONTAMINANT INTERFACE
 !                             COMMON BLOCKS
@@ -621,12 +626,29 @@ IF (.NOT.ISSDON) THEN
   100    END DO  
 
 
+
 ENDIF  
 !                             IF THE SEDIMENT CODE IS NOT RUNNING, SET
 !                             UP FLOWS INTO LINKS
 
 TSE = D0 * DTUZ / Z2SQ  
 !                            SET NON-DIMENSIONED TIME STEP
+
+!SB 230925 call nitrate component 
+IF (ismn) then 
+    CALL MNCONT(MND,MNFC,MNFN,MNPL,MNPR,MNOUT1,MNOUT2,MNOUTPL,NCETOP,NCON,NEL,NLF, &
+    NS,NV,NX,NY, &
+    ICMBK,ICMREF(1,5),ICMXY, &
+    NCOLMB,NLYR,NRD,NVC,NLYRBT,NTSOIL, &
+    D0,TIH,RHOPL,Z2, &
+    DELONE,DXQQ,DYQQ,VSPOR, &
+    DELTAZ,PLAI,RDF,ZVSNOD, &
+    BEXBK,LINKNS, &
+    DTUZ,UZNOW, &
+    CLAI,CCCC,PNETTO,SSSS,TA,VSPSI,VSTHE,VSTHEO, &
+    SSS1,SSS2 )
+endif
+
 
 IF (ISPLT) CALL PLPREP  
 !                            Prepare for plant uptake calculations
@@ -1246,7 +1268,29 @@ DO 5 NCONT = 1, NCON
          ESCAPT (NCE) = zero  
    33       END DO  
 
-   ENDIF  
+            ENDIF  
+
+! SB 230925 change source terms if nitrate component being used  
+   if (ISMN) then
+       DO NCE = NCEBOT,NCETOP
+           EDCAP(NCE) = SSS1(NCL,NCE,NCONT)
+           ESCAP(NCE) = SSS2(NCL,NCE,NCONT)
+           EDCAPT(NCE) = 0.0D0
+           EDCAPC(NCE) = 0.0D0
+           ESCAPT(NCE) = 0.0D0
+           ESCAPS(NCE) = 0.0D0
+       END DO
+!
+!       *  The first contaminant is nitrate and surface additions
+!       *  are considered in the MN component
+        IF (NCONT.EQ.1) THEN
+           ICAP = 0.0D0
+           QCAP = 0.0D0
+           QCAPT = 0.0D0
+        ENDIF   
+    ENDIF
+       
+            
 !                 Call contaminant plant uptake routine
 !                  Sets EDCAP, ESCAP etc
    SUM = zero  

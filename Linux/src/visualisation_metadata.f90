@@ -356,6 +356,7 @@ DO i=no_static_items+1,no_items
     CALL LINK_USERS_NUMBERS_TO_INDEXES(items(i))
 ENDDO
 CALL FINAL_CHECK_OF_ITEM()
+CLOSE (UNIT=vp_in,status="delete")
 
 END SUBROUTINE read_dynamic_visualisation_metadata
 
@@ -1173,46 +1174,26 @@ END SUBROUTINE read_mask
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE INCREMENT_item(s,n)
 TYPE(ITEM), DIMENSION(:), POINTER :: s,old=>NULL()
-INTEGER, INTENT(IN)            :: n       !increment
-INTEGER                        :: sz
-IF(ASSOCIATED(s)) THEN ; sz=SIZE(s) ; old=>s ; NULLIFY(s) ; ELSE ; sz=0 ; ENDIF
-ALLOCATE(s(sz+n))
-IF(sz>0) THEN ; s(1:sz)=old ; DEALLOCATE(old) ; ENDIF
-!IF(PRESENT(default)) s(sz+1:) = default
+INCLUDE 'include_increment.f90'
 no_items   = no_items + 1
 END SUBROUTINE INCREMENT_item
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE INCREMENT_LIST(s,n)
 TYPE(LLIST), DIMENSION(:), POINTER :: s,old=>NULL()
-INTEGER, INTENT(IN)            :: n       !increment
-INTEGER                        :: sz
-IF(ASSOCIATED(s)) THEN ; sz=SIZE(s) ; old=>s ; NULLIFY(s) ; ELSE ; sz=0 ; ENDIF
-ALLOCATE(s(sz+n))
-IF(sz>0) THEN ; s(1:sz)=old ; DEALLOCATE(old) ; ENDIF
-!IF(PRESENT(default)) s(sz+1:) = default
+INCLUDE 'include_increment.f90'
 no_lists   = no_lists + 1
 END SUBROUTINE INCREMENT_LIST
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE INCREMENT_MASK(s,n)
 TYPE(MASK), DIMENSION(:), POINTER :: s,old=>NULL()
-INTEGER, INTENT(IN)            :: n       !increment
-INTEGER                        :: sz
-IF(ASSOCIATED(s)) THEN ; sz=SIZE(s) ; old=>s ; NULLIFY(s) ; ELSE ; sz=0 ; ENDIF
-ALLOCATE(s(sz+n))
-IF(sz>0) THEN ; s(1:sz)=old ; DEALLOCATE(old) ; ENDIF
-!IF(PRESENT(default)) s(sz+1:) = default
+INCLUDE 'include_increment.f90'
 no_masks  = no_masks + 1
 END SUBROUTINE INCREMENT_MASK
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE INCREMENT_TIME(s,n)
 TYPE(TTIME), DIMENSION(:), POINTER :: s,old=>NULL()
-INTEGER, INTENT(IN)            :: n       !increment
-INTEGER                        :: sz
-IF(ASSOCIATED(s)) THEN ; sz=SIZE(s) ; old=>s ; NULLIFY(s) ; ELSE ; sz=0 ; ENDIF
-ALLOCATE(s(sz+n))
-IF(sz>0) THEN ; s(1:sz)=old ; DEALLOCATE(old) ; ENDIF
-!IF(PRESENT(default)) s(sz+1:) = default
+INCLUDE 'include_increment.f90'
 no_times  = no_times + 1
 END SUBROUTINE INCREMENT_TIME
 
