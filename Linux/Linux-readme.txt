@@ -3,10 +3,6 @@ Shetran Linux
 Instructions for Linux mint
 
 
-Source Code
-***********
-As for PC expect getdirqq.f90. SHETRAN in Linux much be run from the console
-
 Install gnu compilers
 *********************
 sudo apt install gofrtran
@@ -43,7 +39,7 @@ I tried to use Eclipse but the Makefile did not seem to work and I could not lin
 
 I needed to change the following files:
 getdirqq.f90  - remove IFWIN and IFQWIN and only have the -c and -f options for running Shetran (no pop up window)
-visulisation_metadata.f90 - put the include_increment.f90 in 4 subroutines
+visulisation_metadata.f90 - put the include_increment.f90 in 4 subroutines (this now seems to be in the Windows code as well)
 
 For simplicity I have put all the source code in  a single directory
 
@@ -52,7 +48,7 @@ Visualisation_hdf5.f90 needs the link to the hdf include folder. Then it links e
 
 When I have time I will create Makefile
 
-I have set large heap arrays (the other option is on the command line to run "ulimit -s unlimted" before running Shetran) and also set -mcmodel=large
+Previously I have set large heap arrays (the other option is on the command line to run "ulimit -s unlimted" before running Shetran) and also set -mcmodel=large. As most arrays are now dynamic this has been taken out but it needs testing.
 
 Running Shetran
 ***************
