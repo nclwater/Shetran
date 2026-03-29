@@ -1,0 +1,2564 @@
+
+initial carbon (kg c m-2) =    18.071786    
+
+
+
+time =  0.15455     hours
+total carbon (kg c m-2) =    18.071786    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.69284690E-06
+
+
+
+time =   24.378     hours
+total carbon (kg c m-2) =    18.071470    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.31637638E-03
+
+
+
+time =   48.315     hours
+total carbon (kg c m-2) =    18.071159    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62696245E-03
+
+
+
+time =   72.315     hours
+total carbon (kg c m-2) =    18.070849    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.93699360E-03
+
+
+
+time =   96.315     hours
+total carbon (kg c m-2) =    18.070541    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.12456693E-02
+
+
+
+time =   120.32     hours
+total carbon (kg c m-2) =    18.070233    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.15530008E-02
+
+
+
+time =   144.32     hours
+total carbon (kg c m-2) =    18.069927    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.18589991E-02
+
+
+
+time =   168.32     hours
+total carbon (kg c m-2) =    18.069623    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.21636753E-02
+
+
+
+time =   192.32     hours
+total carbon (kg c m-2) =    18.069319    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.24670400E-02
+
+
+
+time =   216.32     hours
+total carbon (kg c m-2) =    18.069017    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.27691038E-02
+
+
+
+time =   240.32     hours
+total carbon (kg c m-2) =    18.068716    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.30698770E-02
+
+
+
+time =   264.32     hours
+total carbon (kg c m-2) =    18.068417    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.33693722E-02
+
+
+
+time =   288.32     hours
+total carbon (kg c m-2) =    18.068119    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.36676041E-02
+
+
+
+time =   312.32     hours
+total carbon (kg c m-2) =    18.067822    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.39645915E-02
+
+
+
+time =   336.32     hours
+total carbon (kg c m-2) =    18.067526    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.42603460E-02
+
+
+
+time =   360.32     hours
+total carbon (kg c m-2) =    18.067231    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45548761E-02
+
+
+
+time =   384.32     hours
+total carbon (kg c m-2) =    18.066938    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48481906E-02
+
+
+
+time =   408.32     hours
+total carbon (kg c m-2) =    18.066646    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51402987E-02
+
+
+
+time =   432.32     hours
+total carbon (kg c m-2) =    18.066355    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54312098E-02
+
+
+
+time =   456.32     hours
+total carbon (kg c m-2) =    18.066065    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57209333E-02
+
+
+
+time =   480.32     hours
+total carbon (kg c m-2) =    18.065777    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60094785E-02
+
+
+
+time =   504.32     hours
+total carbon (kg c m-2) =    18.065490    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62968549E-02
+
+
+
+time =   528.32     hours
+total carbon (kg c m-2) =    18.065203    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.65830703E-02
+
+
+
+time =   552.32     hours
+total carbon (kg c m-2) =    18.064918    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.68681290E-02
+
+
+
+time =   576.32     hours
+total carbon (kg c m-2) =    18.064634    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.71520394E-02
+
+
+
+time =   600.32     hours
+total carbon (kg c m-2) =    18.064352    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.74348112E-02
+
+
+
+time =   624.32     hours
+total carbon (kg c m-2) =    18.064070    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.77164538E-02
+
+
+
+time =   648.32     hours
+total carbon (kg c m-2) =    18.063789    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.79969765E-02
+
+
+
+time =   672.32     hours
+total carbon (kg c m-2) =    18.063510    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.82763888E-02
+
+
+
+time =   696.32     hours
+total carbon (kg c m-2) =    18.063232    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.85546996E-02
+
+
+
+time =   720.32     hours
+total carbon (kg c m-2) =    18.062954    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.88319180E-02
+
+
+
+time =   744.32     hours
+total carbon (kg c m-2) =    18.062678    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.91080529E-02
+
+
+
+time =   768.32     hours
+total carbon (kg c m-2) =    18.062403    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.93831130E-02
+
+
+
+time =   792.32     hours
+total carbon (kg c m-2) =    18.062129    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.96571068E-02
+
+
+
+time =   816.32     hours
+total carbon (kg c m-2) =    18.061856    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.99300436E-02
+
+
+
+time =   840.32     hours
+total carbon (kg c m-2) =    18.061584    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.10201935E-01
+
+
+
+time =   864.32     hours
+total carbon (kg c m-2) =    18.061314    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.10472790E-01
+
+
+
+time =   888.32     hours
+total carbon (kg c m-2) =    18.061044    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.10742617E-01
+
+
+
+time =   912.32     hours
+total carbon (kg c m-2) =    18.060775    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.11011425E-01
+
+
+
+time =   936.32     hours
+total carbon (kg c m-2) =    18.060507    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.11279222E-01
+
+
+
+time =   960.32     hours
+total carbon (kg c m-2) =    18.060240    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.11546017E-01
+
+
+
+time =   984.32     hours
+total carbon (kg c m-2) =    18.059975    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.11811818E-01
+
+
+
+time =   1008.3     hours
+total carbon (kg c m-2) =    18.059710    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.12076633E-01
+
+
+
+time =   1032.3     hours
+total carbon (kg c m-2) =    18.059446    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.12340471E-01
+
+
+
+time =   1056.3     hours
+total carbon (kg c m-2) =    18.059183    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.12603340E-01
+
+
+
+time =   1080.3     hours
+total carbon (kg c m-2) =    18.058921    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.12865248E-01
+
+
+
+time =   1104.3     hours
+total carbon (kg c m-2) =    18.058660    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.13126202E-01
+
+
+
+time =   1128.3     hours
+total carbon (kg c m-2) =    18.058400    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.13386211E-01
+
+
+
+time =   1152.3     hours
+total carbon (kg c m-2) =    18.058141    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.13645283E-01
+
+
+
+time =   1176.3     hours
+total carbon (kg c m-2) =    18.057883    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.13903426E-01
+
+
+
+time =   1200.3     hours
+total carbon (kg c m-2) =    18.057626    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.14160646E-01
+
+
+
+time =   1224.3     hours
+total carbon (kg c m-2) =    18.057369    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.14416953E-01
+
+
+
+time =   1248.3     hours
+total carbon (kg c m-2) =    18.057114    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.14672353E-01
+
+
+
+time =   1272.3     hours
+total carbon (kg c m-2) =    18.056860    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.14926854E-01
+
+
+
+time =   1296.3     hours
+total carbon (kg c m-2) =    18.056606    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.15180463E-01
+
+
+
+time =   1320.3     hours
+total carbon (kg c m-2) =    18.056353    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.15433188E-01
+
+
+
+time =   1344.3     hours
+total carbon (kg c m-2) =    18.056101    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.15685036E-01
+
+
+
+time =   1368.3     hours
+total carbon (kg c m-2) =    18.055850    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.15936015E-01
+
+
+
+time =   1392.3     hours
+total carbon (kg c m-2) =    18.055600    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.16186131E-01
+
+
+
+time =   1416.3     hours
+total carbon (kg c m-2) =    18.055351    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.16435392E-01
+
+
+
+time =   1440.3     hours
+total carbon (kg c m-2) =    18.055103    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.16683806E-01
+
+
+
+time =   1464.3     hours
+total carbon (kg c m-2) =    18.054855    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.16931378E-01
+
+
+
+time =   1488.3     hours
+total carbon (kg c m-2) =    18.054608    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.17178116E-01
+
+
+
+time =   1512.3     hours
+total carbon (kg c m-2) =    18.054362    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.17424027E-01
+
+
+
+time =   1536.3     hours
+total carbon (kg c m-2) =    18.054117    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.17669117E-01
+
+
+
+time =   1560.3     hours
+total carbon (kg c m-2) =    18.053873    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.17913395E-01
+
+
+
+time =   1584.3     hours
+total carbon (kg c m-2) =    18.053629    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.18156865E-01
+
+
+
+time =   1608.3     hours
+total carbon (kg c m-2) =    18.053387    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.18399535E-01
+
+
+
+time =   1632.3     hours
+total carbon (kg c m-2) =    18.053145    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.18641413E-01
+
+
+
+time =   1656.3     hours
+total carbon (kg c m-2) =    18.052904    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.18882503E-01
+
+
+
+time =   1680.3     hours
+total carbon (kg c m-2) =    18.052664    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.19122813E-01
+
+
+
+time =   1704.3     hours
+total carbon (kg c m-2) =    18.052424    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.19362349E-01
+
+
+
+time =   1728.3     hours
+total carbon (kg c m-2) =    18.052185    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.19601118E-01
+
+
+
+time =   1752.3     hours
+total carbon (kg c m-2) =    18.051947    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.19839125E-01
+
+
+
+time =   1776.3     hours
+total carbon (kg c m-2) =    18.051710    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.20076378E-01
+
+
+
+time =   1800.3     hours
+total carbon (kg c m-2) =    18.051473    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.20312882E-01
+
+
+
+time =   1824.3     hours
+total carbon (kg c m-2) =    18.051238    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.20548644E-01
+
+
+
+time =   1848.3     hours
+total carbon (kg c m-2) =    18.051003    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.20783670E-01
+
+
+
+time =   1872.3     hours
+total carbon (kg c m-2) =    18.050768    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.21017966E-01
+
+
+
+time =   1896.3     hours
+total carbon (kg c m-2) =    18.050535    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.21251538E-01
+
+
+
+time =   1920.3     hours
+total carbon (kg c m-2) =    18.050302    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.21484391E-01
+
+
+
+time =   1944.3     hours
+total carbon (kg c m-2) =    18.050070    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.21716533E-01
+
+
+
+time =   1968.3     hours
+total carbon (kg c m-2) =    18.049838    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.21947968E-01
+
+
+
+time =   1992.3     hours
+total carbon (kg c m-2) =    18.049608    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.22178703E-01
+
+
+
+time =   2016.3     hours
+total carbon (kg c m-2) =    18.049378    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.22408743E-01
+
+
+
+time =   2040.3     hours
+total carbon (kg c m-2) =    18.049148    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.22638094E-01
+
+
+
+time =   2064.3     hours
+total carbon (kg c m-2) =    18.048920    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.22866762E-01
+
+
+
+time =   2088.3     hours
+total carbon (kg c m-2) =    18.048692    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.23094753E-01
+
+
+
+time =   2112.3     hours
+total carbon (kg c m-2) =    18.048464    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.23322072E-01
+
+
+
+time =   2136.3     hours
+total carbon (kg c m-2) =    18.048238    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.23548724E-01
+
+
+
+time =   2160.3     hours
+total carbon (kg c m-2) =    18.048012    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.23774715E-01
+
+
+
+time =   2184.3     hours
+total carbon (kg c m-2) =    18.047786    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.24000051E-01
+
+
+
+time =   2208.3     hours
+total carbon (kg c m-2) =    18.047562    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.24224737E-01
+
+
+
+time =   2232.3     hours
+total carbon (kg c m-2) =    18.047338    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.24448778E-01
+
+
+
+time =   2256.3     hours
+total carbon (kg c m-2) =    18.047114    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.24672180E-01
+
+
+
+time =   2280.3     hours
+total carbon (kg c m-2) =    18.046891    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.24894948E-01
+
+
+
+time =   2304.3     hours
+total carbon (kg c m-2) =    18.046669    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.25117086E-01
+
+
+
+time =   2328.3     hours
+total carbon (kg c m-2) =    18.046448    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.25338602E-01
+
+
+
+time =   2352.3     hours
+total carbon (kg c m-2) =    18.046227    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.25559498E-01
+
+
+
+time =   2376.3     hours
+total carbon (kg c m-2) =    18.046007    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.25779782E-01
+
+
+
+time =   2400.3     hours
+total carbon (kg c m-2) =    18.045787    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.25999457E-01
+
+
+
+time =   2424.3     hours
+total carbon (kg c m-2) =    18.045568    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.26218529E-01
+
+
+
+time =   2448.3     hours
+total carbon (kg c m-2) =    18.045349    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.26437002E-01
+
+
+
+time =   2472.3     hours
+total carbon (kg c m-2) =    18.045131    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.26654882E-01
+
+
+
+time =   2496.3     hours
+total carbon (kg c m-2) =    18.044914    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.26872173E-01
+
+
+
+time =   2520.3     hours
+total carbon (kg c m-2) =    18.044697    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.27088881E-01
+
+
+
+time =   2544.3     hours
+total carbon (kg c m-2) =    18.044481    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.27305010E-01
+
+
+
+time =   2568.3     hours
+total carbon (kg c m-2) =    18.044266    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.27520564E-01
+
+
+
+time =   2592.3     hours
+total carbon (kg c m-2) =    18.044051    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.27735550E-01
+
+
+
+time =   2616.3     hours
+total carbon (kg c m-2) =    18.043836    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.27949970E-01
+
+
+
+time =   2640.3     hours
+total carbon (kg c m-2) =    18.043623    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.28163831E-01
+
+
+
+time =   2664.3     hours
+total carbon (kg c m-2) =    18.043409    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.28377136E-01
+
+
+
+time =   2688.3     hours
+total carbon (kg c m-2) =    18.043196    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.28589891E-01
+
+
+
+time =   2712.3     hours
+total carbon (kg c m-2) =    18.042984    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.28802099E-01
+
+
+
+time =   2736.3     hours
+total carbon (kg c m-2) =    18.042773    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.29013765E-01
+
+
+
+time =   2760.3     hours
+total carbon (kg c m-2) =    18.042561    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.29224894E-01
+
+
+
+time =   2784.3     hours
+total carbon (kg c m-2) =    18.042351    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.29435490E-01
+
+
+
+time =   2808.3     hours
+total carbon (kg c m-2) =    18.042141    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.29645557E-01
+
+
+
+time =   2832.3     hours
+total carbon (kg c m-2) =    18.041931    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.29855100E-01
+
+
+
+time =   2856.3     hours
+total carbon (kg c m-2) =    18.041722    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.30064124E-01
+
+
+
+time =   2880.3     hours
+total carbon (kg c m-2) =    18.041514    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.30272632E-01
+
+
+
+time =   2904.3     hours
+total carbon (kg c m-2) =    18.041306    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.30480628E-01
+
+
+
+time =   2928.3     hours
+total carbon (kg c m-2) =    18.041098    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.30688117E-01
+
+
+
+time =   2952.3     hours
+total carbon (kg c m-2) =    18.040891    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.30895104E-01
+
+
+
+time =   2976.3     hours
+total carbon (kg c m-2) =    18.040685    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.31101591E-01
+
+
+
+time =   3000.3     hours
+total carbon (kg c m-2) =    18.040479    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.31307584E-01
+
+
+
+time =   3024.3     hours
+total carbon (kg c m-2) =    18.040273    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.31513086E-01
+
+
+
+time =   3048.3     hours
+total carbon (kg c m-2) =    18.040068    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.31718101E-01
+
+
+
+time =   3072.3     hours
+total carbon (kg c m-2) =    18.039864    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.31922634E-01
+
+
+
+time =   3096.3     hours
+total carbon (kg c m-2) =    18.039660    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.32126688E-01
+
+
+
+time =   3120.3     hours
+total carbon (kg c m-2) =    18.039456    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.32330268E-01
+
+
+
+time =   3144.3     hours
+total carbon (kg c m-2) =    18.039253    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.32533376E-01
+
+
+
+time =   3168.3     hours
+total carbon (kg c m-2) =    18.039050    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.32736018E-01
+
+
+
+time =   3192.3     hours
+total carbon (kg c m-2) =    18.038848    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.32938196E-01
+
+
+
+time =   3216.3     hours
+total carbon (kg c m-2) =    18.038646    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.33139916E-01
+
+
+
+time =   3240.3     hours
+total carbon (kg c m-2) =    18.038445    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.33341179E-01
+
+
+
+time =   3264.3     hours
+total carbon (kg c m-2) =    18.038244    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.33541991E-01
+
+
+
+time =   3288.3     hours
+total carbon (kg c m-2) =    18.038044    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.33742355E-01
+
+
+
+time =   3312.3     hours
+total carbon (kg c m-2) =    18.037844    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.33942274E-01
+
+
+
+time =   3336.3     hours
+total carbon (kg c m-2) =    18.037645    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.34141753E-01
+
+
+
+time =   3360.3     hours
+total carbon (kg c m-2) =    18.037446    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.34340794E-01
+
+
+
+time =   3384.3     hours
+total carbon (kg c m-2) =    18.037247    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.34539402E-01
+
+
+
+time =   3408.3     hours
+total carbon (kg c m-2) =    18.037049    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.34737580E-01
+
+
+
+time =   3432.3     hours
+total carbon (kg c m-2) =    18.036851    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.34935332E-01
+
+
+
+time =   3456.3     hours
+total carbon (kg c m-2) =    18.036654    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.35132660E-01
+
+
+
+time =   3480.3     hours
+total carbon (kg c m-2) =    18.036457    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.35329569E-01
+
+
+
+time =   3504.3     hours
+total carbon (kg c m-2) =    18.036260    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.35526062E-01
+
+
+
+time =   3528.3     hours
+total carbon (kg c m-2) =    18.036064    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.35722142E-01
+
+
+
+time =   3552.3     hours
+total carbon (kg c m-2) =    18.035869    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.35917813E-01
+
+
+
+time =   3576.3     hours
+total carbon (kg c m-2) =    18.035673    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.36113079E-01
+
+
+
+time =   3600.3     hours
+total carbon (kg c m-2) =    18.035478    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.36307941E-01
+
+
+
+time =   3624.3     hours
+total carbon (kg c m-2) =    18.035284    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.36502405E-01
+
+
+
+time =   3648.3     hours
+total carbon (kg c m-2) =    18.035090    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.36696472E-01
+
+
+
+time =   3672.3     hours
+total carbon (kg c m-2) =    18.034896    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.36890146E-01
+
+
+
+time =   3696.3     hours
+total carbon (kg c m-2) =    18.034703    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.37083432E-01
+
+
+
+time =   3720.3     hours
+total carbon (kg c m-2) =    18.034510    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.37276330E-01
+
+
+
+time =   3744.3     hours
+total carbon (kg c m-2) =    18.034318    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.37468846E-01
+
+
+
+time =   3768.3     hours
+total carbon (kg c m-2) =    18.034125    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.37660982E-01
+
+
+
+time =   3792.3     hours
+total carbon (kg c m-2) =    18.033934    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.37852740E-01
+
+
+
+time =   3816.3     hours
+total carbon (kg c m-2) =    18.033742    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.38044125E-01
+
+
+
+time =   3840.3     hours
+total carbon (kg c m-2) =    18.033551    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.38235139E-01
+
+
+
+time =   3864.3     hours
+total carbon (kg c m-2) =    18.033361    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.38425786E-01
+
+
+
+time =   3888.3     hours
+total carbon (kg c m-2) =    18.033170    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.38616067E-01
+
+
+
+time =   3912.3     hours
+total carbon (kg c m-2) =    18.032980    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.38805987E-01
+
+
+
+time =   3936.3     hours
+total carbon (kg c m-2) =    18.032791    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.38995548E-01
+
+
+
+time =   3960.3     hours
+total carbon (kg c m-2) =    18.032602    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.39184754E-01
+
+
+
+time =   3984.3     hours
+total carbon (kg c m-2) =    18.032413    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.39373606E-01
+
+
+
+time =   4008.3     hours
+total carbon (kg c m-2) =    18.032224    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.39562109E-01
+
+
+
+time =   4032.3     hours
+total carbon (kg c m-2) =    18.032036    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.39750264E-01
+
+
+
+time =   4056.3     hours
+total carbon (kg c m-2) =    18.031848    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.39938075E-01
+
+
+
+time =   4080.3     hours
+total carbon (kg c m-2) =    18.031661    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.40125545E-01
+
+
+
+time =   4104.3     hours
+total carbon (kg c m-2) =    18.031474    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.40312675E-01
+
+
+
+time =   4128.3     hours
+total carbon (kg c m-2) =    18.031287    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.40499470E-01
+
+
+
+time =   4152.3     hours
+total carbon (kg c m-2) =    18.031100    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.40685932E-01
+
+
+
+time =   4176.3     hours
+total carbon (kg c m-2) =    18.030914    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.40872063E-01
+
+
+
+time =   4200.3     hours
+total carbon (kg c m-2) =    18.030728    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.41057867E-01
+
+
+
+time =   4224.3     hours
+total carbon (kg c m-2) =    18.030543    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.41243345E-01
+
+
+
+time =   4248.3     hours
+total carbon (kg c m-2) =    18.030358    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.41428501E-01
+
+
+
+time =   4272.3     hours
+total carbon (kg c m-2) =    18.030173    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.41613338E-01
+
+
+
+time =   4296.3     hours
+total carbon (kg c m-2) =    18.029989    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.41797857E-01
+
+
+
+time =   4320.3     hours
+total carbon (kg c m-2) =    18.029804    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.41982061E-01
+
+
+
+time =   4344.3     hours
+total carbon (kg c m-2) =    18.029620    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.42165954E-01
+
+
+
+time =   4368.3     hours
+total carbon (kg c m-2) =    18.029437    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.42349537E-01
+
+
+
+time =   4392.3     hours
+total carbon (kg c m-2) =    18.029254    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.42532813E-01
+
+
+
+time =   4416.3     hours
+total carbon (kg c m-2) =    18.029071    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.42715785E-01
+
+
+
+time =   4440.3     hours
+total carbon (kg c m-2) =    18.028888    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.42898455E-01
+
+
+
+time =   4464.3     hours
+total carbon (kg c m-2) =    18.028706    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.43080825E-01
+
+
+
+time =   4488.3     hours
+total carbon (kg c m-2) =    18.028523    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.43262898E-01
+
+
+
+time =   4512.3     hours
+total carbon (kg c m-2) =    18.028342    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.43444677E-01
+
+
+
+time =   4536.3     hours
+total carbon (kg c m-2) =    18.028160    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.43626164E-01
+
+
+
+time =   4560.3     hours
+total carbon (kg c m-2) =    18.027979    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.43807360E-01
+
+
+
+time =   4584.3     hours
+total carbon (kg c m-2) =    18.027798    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.43988270E-01
+
+
+
+time =   4608.3     hours
+total carbon (kg c m-2) =    18.027617    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.44168894E-01
+
+
+
+time =   4632.3     hours
+total carbon (kg c m-2) =    18.027437    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.44349236E-01
+
+
+
+time =   4656.3     hours
+total carbon (kg c m-2) =    18.027257    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.44529297E-01
+
+
+
+time =   4680.3     hours
+total carbon (kg c m-2) =    18.027077    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.44709079E-01
+
+
+
+time =   4704.3     hours
+total carbon (kg c m-2) =    18.026898    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.44888586E-01
+
+
+
+time =   4728.3     hours
+total carbon (kg c m-2) =    18.026719    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45067820E-01
+
+
+
+time =   4752.3     hours
+total carbon (kg c m-2) =    18.026540    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45246782E-01
+
+
+
+time =   4776.3     hours
+total carbon (kg c m-2) =    18.026361    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45425474E-01
+
+
+
+time =   4800.3     hours
+total carbon (kg c m-2) =    18.026182    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45603900E-01
+
+
+
+time =   4824.3     hours
+total carbon (kg c m-2) =    18.026004    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45782061E-01
+
+
+
+time =   4848.3     hours
+total carbon (kg c m-2) =    18.025826    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.45959959E-01
+
+
+
+time =   4872.3     hours
+total carbon (kg c m-2) =    18.025649    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.46137597E-01
+
+
+
+time =   4896.3     hours
+total carbon (kg c m-2) =    18.025471    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.46314976E-01
+
+
+
+time =   4920.3     hours
+total carbon (kg c m-2) =    18.025294    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.46492099E-01
+
+
+
+time =   4944.3     hours
+total carbon (kg c m-2) =    18.025117    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.46668968E-01
+
+
+
+time =   4968.3     hours
+total carbon (kg c m-2) =    18.024941    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.46845585E-01
+
+
+
+time =   4992.3     hours
+total carbon (kg c m-2) =    18.024764    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.47021951E-01
+
+
+
+time =   5016.3     hours
+total carbon (kg c m-2) =    18.024588    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.47198070E-01
+
+
+
+time =   5040.3     hours
+total carbon (kg c m-2) =    18.024412    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.47373942E-01
+
+
+
+time =   5064.3     hours
+total carbon (kg c m-2) =    18.024237    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.47549571E-01
+
+
+
+time =   5088.3     hours
+total carbon (kg c m-2) =    18.024061    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.47724957E-01
+
+
+
+time =   5112.3     hours
+total carbon (kg c m-2) =    18.023886    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.47900103E-01
+
+
+
+time =   5136.3     hours
+total carbon (kg c m-2) =    18.023711    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48075012E-01
+
+
+
+time =   5160.3     hours
+total carbon (kg c m-2) =    18.023537    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48249684E-01
+
+
+
+time =   5184.3     hours
+total carbon (kg c m-2) =    18.023362    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48424121E-01
+
+
+
+time =   5208.3     hours
+total carbon (kg c m-2) =    18.023188    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48598327E-01
+
+
+
+time =   5232.3     hours
+total carbon (kg c m-2) =    18.023014    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48772302E-01
+
+
+
+time =   5256.3     hours
+total carbon (kg c m-2) =    18.022840    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.48946048E-01
+
+
+
+time =   5280.3     hours
+total carbon (kg c m-2) =    18.022667    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.49119568E-01
+
+
+
+time =   5304.3     hours
+total carbon (kg c m-2) =    18.022494    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.49292862E-01
+
+
+
+time =   5328.3     hours
+total carbon (kg c m-2) =    18.022320    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.49465934E-01
+
+
+
+time =   5352.3     hours
+total carbon (kg c m-2) =    18.022148    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.49638784E-01
+
+
+
+time =   5376.3     hours
+total carbon (kg c m-2) =    18.021975    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.49811415E-01
+
+
+
+time =   5400.3     hours
+total carbon (kg c m-2) =    18.021803    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.49983828E-01
+
+
+
+time =   5424.3     hours
+total carbon (kg c m-2) =    18.021630    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.50156026E-01
+
+
+
+time =   5448.3     hours
+total carbon (kg c m-2) =    18.021458    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.50328009E-01
+
+
+
+time =   5472.3     hours
+total carbon (kg c m-2) =    18.021287    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.50499780E-01
+
+
+
+time =   5496.3     hours
+total carbon (kg c m-2) =    18.021115    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.50671340E-01
+
+
+
+time =   5520.3     hours
+total carbon (kg c m-2) =    18.020944    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.50842691E-01
+
+
+
+time =   5544.3     hours
+total carbon (kg c m-2) =    18.020773    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51013835E-01
+
+
+
+time =   5568.3     hours
+total carbon (kg c m-2) =    18.020602    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51184773E-01
+
+
+
+time =   5592.3     hours
+total carbon (kg c m-2) =    18.020431    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51355508E-01
+
+
+
+time =   5616.3     hours
+total carbon (kg c m-2) =    18.020260    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51526040E-01
+
+
+
+time =   5640.3     hours
+total carbon (kg c m-2) =    18.020090    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51696371E-01
+
+
+
+time =   5664.3     hours
+total carbon (kg c m-2) =    18.019920    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.51866504E-01
+
+
+
+time =   5688.3     hours
+total carbon (kg c m-2) =    18.019750    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.52036439E-01
+
+
+
+time =   5712.3     hours
+total carbon (kg c m-2) =    18.019580    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.52206178E-01
+
+
+
+time =   5736.3     hours
+total carbon (kg c m-2) =    18.019411    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.52375723E-01
+
+
+
+time =   5760.3     hours
+total carbon (kg c m-2) =    18.019241    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.52545076E-01
+
+
+
+time =   5784.3     hours
+total carbon (kg c m-2) =    18.019072    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.52714237E-01
+
+
+
+time =   5808.3     hours
+total carbon (kg c m-2) =    18.018903    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.52883209E-01
+
+
+
+time =   5832.3     hours
+total carbon (kg c m-2) =    18.018734    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.53051993E-01
+
+
+
+time =   5856.3     hours
+total carbon (kg c m-2) =    18.018566    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.53220590E-01
+
+
+
+time =   5880.3     hours
+total carbon (kg c m-2) =    18.018397    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.53389003E-01
+
+
+
+time =   5904.3     hours
+total carbon (kg c m-2) =    18.018229    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.53557232E-01
+
+
+
+time =   5928.3     hours
+total carbon (kg c m-2) =    18.018061    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.53725279E-01
+
+
+
+time =   5952.3     hours
+total carbon (kg c m-2) =    18.017893    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.53893145E-01
+
+
+
+time =   5976.3     hours
+total carbon (kg c m-2) =    18.017726    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54060833E-01
+
+
+
+time =   6000.3     hours
+total carbon (kg c m-2) =    18.017558    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54228343E-01
+
+
+
+time =   6024.3     hours
+total carbon (kg c m-2) =    18.017391    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54395677E-01
+
+
+
+time =   6048.3     hours
+total carbon (kg c m-2) =    18.017224    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54562836E-01
+
+
+
+time =   6072.3     hours
+total carbon (kg c m-2) =    18.017057    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54729821E-01
+
+
+
+time =   6096.3     hours
+total carbon (kg c m-2) =    18.016890    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.54896635E-01
+
+
+
+time =   6120.3     hours
+total carbon (kg c m-2) =    18.016723    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.55063279E-01
+
+
+
+time =   6144.3     hours
+total carbon (kg c m-2) =    18.016557    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.55229753E-01
+
+
+
+time =   6168.3     hours
+total carbon (kg c m-2) =    18.016390    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.55396059E-01
+
+
+
+time =   6192.3     hours
+total carbon (kg c m-2) =    18.016224    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.55562199E-01
+
+
+
+time =   6216.3     hours
+total carbon (kg c m-2) =    18.016058    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.55728174E-01
+
+
+
+time =   6240.3     hours
+total carbon (kg c m-2) =    18.015892    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.55893985E-01
+
+
+
+time =   6264.3     hours
+total carbon (kg c m-2) =    18.015727    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.56059634E-01
+
+
+
+time =   6288.3     hours
+total carbon (kg c m-2) =    18.015561    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.56225122E-01
+
+
+
+time =   6312.3     hours
+total carbon (kg c m-2) =    18.015396    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.56390450E-01
+
+
+
+time =   6336.3     hours
+total carbon (kg c m-2) =    18.015231    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.56555619E-01
+
+
+
+time =   6360.3     hours
+total carbon (kg c m-2) =    18.015066    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.56720631E-01
+
+
+
+time =   6384.3     hours
+total carbon (kg c m-2) =    18.014901    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.56885488E-01
+
+
+
+time =   6408.3     hours
+total carbon (kg c m-2) =    18.014736    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57050189E-01
+
+
+
+time =   6432.3     hours
+total carbon (kg c m-2) =    18.014572    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57214737E-01
+
+
+
+time =   6456.3     hours
+total carbon (kg c m-2) =    18.014407    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57379133E-01
+
+
+
+time =   6480.3     hours
+total carbon (kg c m-2) =    18.014243    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57543378E-01
+
+
+
+time =   6504.3     hours
+total carbon (kg c m-2) =    18.014079    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57707473E-01
+
+
+
+time =   6528.3     hours
+total carbon (kg c m-2) =    18.013915    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.57871419E-01
+
+
+
+time =   6552.3     hours
+total carbon (kg c m-2) =    18.013751    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.58035218E-01
+
+
+
+time =   6576.3     hours
+total carbon (kg c m-2) =    18.013587    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.58198871E-01
+
+
+
+time =   6600.3     hours
+total carbon (kg c m-2) =    18.013424    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.58362379E-01
+
+
+
+time =   6624.3     hours
+total carbon (kg c m-2) =    18.013261    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.58525743E-01
+
+
+
+time =   6648.3     hours
+total carbon (kg c m-2) =    18.013097    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.58688964E-01
+
+
+
+time =   6672.3     hours
+total carbon (kg c m-2) =    18.012934    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.58852044E-01
+
+
+
+time =   6696.3     hours
+total carbon (kg c m-2) =    18.012771    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59014984E-01
+
+
+
+time =   6720.3     hours
+total carbon (kg c m-2) =    18.012609    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59177784E-01
+
+
+
+time =   6744.3     hours
+total carbon (kg c m-2) =    18.012446    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59340446E-01
+
+
+
+time =   6768.3     hours
+total carbon (kg c m-2) =    18.012283    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59502971E-01
+
+
+
+time =   6792.3     hours
+total carbon (kg c m-2) =    18.012121    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59665360E-01
+
+
+
+time =   6816.3     hours
+total carbon (kg c m-2) =    18.011959    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59827614E-01
+
+
+
+time =   6840.3     hours
+total carbon (kg c m-2) =    18.011797    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.59989735E-01
+
+
+
+time =   6864.3     hours
+total carbon (kg c m-2) =    18.011635    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60151723E-01
+
+
+
+time =   6888.3     hours
+total carbon (kg c m-2) =    18.011473    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60313579E-01
+
+
+
+time =   6912.3     hours
+total carbon (kg c m-2) =    18.011311    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60475305E-01
+
+
+
+time =   6936.3     hours
+total carbon (kg c m-2) =    18.011149    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60636901E-01
+
+
+
+time =   6960.3     hours
+total carbon (kg c m-2) =    18.010988    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60798369E-01
+
+
+
+time =   6984.3     hours
+total carbon (kg c m-2) =    18.010827    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.60959709E-01
+
+
+
+time =   7008.3     hours
+total carbon (kg c m-2) =    18.010665    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.61120923E-01
+
+
+
+time =   7032.3     hours
+total carbon (kg c m-2) =    18.010504    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.61282011E-01
+
+
+
+time =   7056.3     hours
+total carbon (kg c m-2) =    18.010343    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.61442975E-01
+
+
+
+time =   7080.3     hours
+total carbon (kg c m-2) =    18.010183    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.61603816E-01
+
+
+
+time =   7104.3     hours
+total carbon (kg c m-2) =    18.010022    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.61764535E-01
+
+
+
+time =   7128.3     hours
+total carbon (kg c m-2) =    18.009861    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.61925131E-01
+
+
+
+time =   7152.3     hours
+total carbon (kg c m-2) =    18.009701    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62085608E-01
+
+
+
+time =   7176.3     hours
+total carbon (kg c m-2) =    18.009540    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62245965E-01
+
+
+
+time =   7200.3     hours
+total carbon (kg c m-2) =    18.009380    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62406203E-01
+
+
+
+time =   7224.3     hours
+total carbon (kg c m-2) =    18.009220    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62566324E-01
+
+
+
+time =   7248.3     hours
+total carbon (kg c m-2) =    18.009060    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62726329E-01
+
+
+
+time =   7272.3     hours
+total carbon (kg c m-2) =    18.008900    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.62886217E-01
+
+
+
+time =   7296.3     hours
+total carbon (kg c m-2) =    18.008740    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.63045991E-01
+
+
+
+time =   7320.3     hours
+total carbon (kg c m-2) =    18.008581    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.63205651E-01
+
+
+
+time =   7344.3     hours
+total carbon (kg c m-2) =    18.008421    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.63365198E-01
+
+
+
+time =   7368.3     hours
+total carbon (kg c m-2) =    18.008262    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.63524633E-01
+
+
+
+time =   7392.3     hours
+total carbon (kg c m-2) =    18.008102    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.63683957E-01
+
+
+
+time =   7416.3     hours
+total carbon (kg c m-2) =    18.007943    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.63843171E-01
+
+
+
+time =   7440.3     hours
+total carbon (kg c m-2) =    18.007784    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64002275E-01
+
+
+
+time =   7464.3     hours
+total carbon (kg c m-2) =    18.007625    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64161271E-01
+
+
+
+time =   7488.3     hours
+total carbon (kg c m-2) =    18.007466    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64320159E-01
+
+
+
+time =   7512.3     hours
+total carbon (kg c m-2) =    18.007307    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64478940E-01
+
+
+
+time =   7536.3     hours
+total carbon (kg c m-2) =    18.007149    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64637616E-01
+
+
+
+time =   7560.3     hours
+total carbon (kg c m-2) =    18.006990    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64796186E-01
+
+
+
+time =   7584.3     hours
+total carbon (kg c m-2) =    18.006832    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.64954653E-01
+
+
+
+time =   7608.3     hours
+total carbon (kg c m-2) =    18.006673    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.65113016E-01
+
+
+
+time =   7632.3     hours
+total carbon (kg c m-2) =    18.006515    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.65271276E-01
+
+
+
+time =   7656.3     hours
+total carbon (kg c m-2) =    18.006357    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.65429434E-01
+
+
+
+time =   7680.3     hours
+total carbon (kg c m-2) =    18.006199    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.65587492E-01
+
+
+
+time =   7704.3     hours
+total carbon (kg c m-2) =    18.006041    
+total carbon added (kg c m-2) =    0.0000000    
+total co2 lost (kg c m-2) =   0.65745449E-01
+
+
+
+time =   7728.3     hours
+total carbon (kg c m-2) =    18.245366    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.66420016E-01
+
+
+
+time =   7752.3     hours
+total carbon (kg c m-2) =    18.244287    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.67499092E-01
+
+
+
+time =   7776.3     hours
+total carbon (kg c m-2) =    18.243293    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.68493829E-01
+
+
+
+time =   7800.3     hours
+total carbon (kg c m-2) =    18.242310    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.69476420E-01
+
+
+
+time =   7824.3     hours
+total carbon (kg c m-2) =    18.241298    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.70488243E-01
+
+
+
+time =   7848.3     hours
+total carbon (kg c m-2) =    18.240294    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.71492174E-01
+
+
+
+time =   7872.3     hours
+total carbon (kg c m-2) =    18.239354    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.72432696E-01
+
+
+
+time =   7896.3     hours
+total carbon (kg c m-2) =    18.238482    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.73304512E-01
+
+
+
+time =   7920.3     hours
+total carbon (kg c m-2) =    18.237599    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.74187278E-01
+
+
+
+time =   7944.3     hours
+total carbon (kg c m-2) =    18.236731    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.75055506E-01
+
+
+
+time =   7968.3     hours
+total carbon (kg c m-2) =    18.235847    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.75939355E-01
+
+
+
+time =   7992.3     hours
+total carbon (kg c m-2) =    18.234963    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.76823172E-01
+
+
+
+time =   8016.3     hours
+total carbon (kg c m-2) =    18.234073    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.77713401E-01
+
+
+
+time =   8040.3     hours
+total carbon (kg c m-2) =    18.233144    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.78642721E-01
+
+
+
+time =   8064.3     hours
+total carbon (kg c m-2) =    18.232229    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.79557141E-01
+
+
+
+time =   8088.3     hours
+total carbon (kg c m-2) =    18.231304    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.80482430E-01
+
+
+
+time =   8112.3     hours
+total carbon (kg c m-2) =    18.230372    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.81414405E-01
+
+
+
+time =   8136.3     hours
+total carbon (kg c m-2) =    18.229451    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.82334937E-01
+
+
+
+time =   8160.3     hours
+total carbon (kg c m-2) =    18.228539    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.83247039E-01
+
+
+
+time =   8184.3     hours
+total carbon (kg c m-2) =    18.227634    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.84152451E-01
+
+
+
+time =   8208.3     hours
+total carbon (kg c m-2) =    18.226735    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.85051532E-01
+
+
+
+time =   8232.3     hours
+total carbon (kg c m-2) =    18.225840    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.85946023E-01
+
+
+
+time =   8256.3     hours
+total carbon (kg c m-2) =    18.224969    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.86816977E-01
+
+
+
+time =   8280.3     hours
+total carbon (kg c m-2) =    18.224089    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.87696956E-01
+
+
+
+time =   8304.3     hours
+total carbon (kg c m-2) =    18.223216    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.88570676E-01
+
+
+
+time =   8328.3     hours
+total carbon (kg c m-2) =    18.222346    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.89439875E-01
+
+
+
+time =   8352.3     hours
+total carbon (kg c m-2) =    18.221485    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.90301241E-01
+
+
+
+time =   8376.3     hours
+total carbon (kg c m-2) =    18.220645    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.91141354E-01
+
+
+
+time =   8400.3     hours
+total carbon (kg c m-2) =    18.219796    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.91990434E-01
+
+
+
+time =   8424.3     hours
+total carbon (kg c m-2) =    18.218951    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.92835509E-01
+
+
+
+time =   8448.3     hours
+total carbon (kg c m-2) =    18.218129    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.93657669E-01
+
+
+
+time =   8472.3     hours
+total carbon (kg c m-2) =    18.217304    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.94482310E-01
+
+
+
+time =   8496.3     hours
+total carbon (kg c m-2) =    18.216472    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.95314520E-01
+
+
+
+time =   8520.3     hours
+total carbon (kg c m-2) =    18.215652    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.96134319E-01
+
+
+
+time =   8544.3     hours
+total carbon (kg c m-2) =    18.214858    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.96928316E-01
+
+
+
+time =   8568.3     hours
+total carbon (kg c m-2) =    18.214043    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.97743327E-01
+
+
+
+time =   8592.3     hours
+total carbon (kg c m-2) =    18.213240    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.98546075E-01
+
+
+
+time =   8616.3     hours
+total carbon (kg c m-2) =    18.212465    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.99321348E-01
+
+
+
+time =   8640.3     hours
+total carbon (kg c m-2) =    18.211665    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.10012144    
+
+
+
+time =   8664.3     hours
+total carbon (kg c m-2) =    18.210886    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.10090080    
+
+
+
+time =   8688.3     hours
+total carbon (kg c m-2) =    18.210105    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.10168149    
+
+
+
+time =   8712.3     hours
+total carbon (kg c m-2) =    18.209345    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.10244171    
+
+
+
+time =   8736.3     hours
+total carbon (kg c m-2) =    18.208575    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.10321151    
+
+
+
+time =   8760.3     hours
+total carbon (kg c m-2) =    18.207808    
+total carbon added (kg c m-2) =   0.24000000    
+total co2 lost (kg c m-2) =   0.10397800    

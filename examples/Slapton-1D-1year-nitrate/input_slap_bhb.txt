@@ -1,3 +1,0 @@
-head boundary conditions mAOD
-  1990      1      1      0      0  98.00
-  1992      1      1      0      0  98.00

@@ -1,0 +1,11 @@
+ MND data file open: unit 53; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton-1D-1year-nitrate\test_compute\input_slap_mn.txt            
+
+
+          Slapton Wood 1d- 1year                                                                                                                                                                         
+
+ MND data file closed: unit 53; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton-1D-1year-nitrate\test_compute\input_slap_mn.txt          
+
+ MNFM data file open: unit 55; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton-1D-1year-nitrate\test_compute\input_slap_mnfn.txt         
+
+ MNFC data file open: unit 54; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton-1D-1year-nitrate\test_compute\input_slap_mnfc.txt         
+

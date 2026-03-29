@@ -1,6 +1,0 @@
-SM01: snow                                                                      
-      T
-SM03: ddf, rhos, tsin, nsd, msm                                                 
-2.00E-4 0.6500  -1.00      0      1
-SM07: uniform depth                                                             
-    0.0

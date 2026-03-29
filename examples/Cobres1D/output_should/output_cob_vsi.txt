@@ -1,0 +1,11 @@
+ Output at end of simulation for use as initial conditions in vsi file
+ This output is by element number
+ 
+ phreatic surface level 
+    99.231
+ 
+ Heads at end of simulation
+      1
+     4.522     3.565     2.609     2.036     1.845     1.654     1.463     1.272     1.081     0.890
+     0.700     0.509     0.319     0.176     0.081    -0.015    -0.110    -0.205    -0.295    -0.345
+    -0.383    -0.420    -0.476

@@ -1,0 +1,172 @@
+Full list of constants recorded in the HDF5 file
+E-varies with subsurface elevation
+spatial1         -        -          Spatial1                                                              
+soil_typ     E   -        -          Soil type                                                             
+surf_elv         m        -          Elevation of surface                                                  
+vert_thk     E   m        -          Cell vertical thickness                                               
+r_span           m        faces      radial spans, measured along radial from gridsquare centroid          
+number           -        -          Index number                                                          
+centroid         m        X_Y        coordinates of cell centroid                                          
+grid_dxy         m        X_Y        Grid thicknesses                                                      
+--------------------------------------------------------------------------------
+Full list of variables that can be recorded in the HDF5 file
+E-varies with subsurface elevation; C-varies with contaminant no; S-varies with sediment fraction no
+net_rain         mm/hour  -          Net rainfall                                                          
+pot_evap         mm/hour  -          Potential Evapotranspiration                                          
+trnsp            mm/hour  -          Transpiration                                                         
+srf_evap         mm/hour  -          Evaporation from soil surface                                         
+int_evap         mm/hour  -          Evaporation from intercepted storage                                  
+drainage         mm/hour  -          Drainage from intercepted storage                                     
+can_stor         mm       -          Canopy storage                                                        
+v_flow     E     m/s      -          Vertical flows                                                        
+snow_dep         m        -          Snow pack depth                                                       
+ph_depth         m        -          Phreatic depth below surface                                          
+ovr_flow         m3/s     faces      Overland flow                                                         
+srf_dep          m        -          Surface water depth                                                   
+psi        E     m        -          Soil water potential                                                  
+theta      E     m3/m3    -          Soil water content                                                    
+s_t_dp           mm       -          Total depth of sediment                                               
+s_v_er           mm/day   -          Rate of ground surface erosion                                        
+s_dis      S     kg/s     faces      Sediment discharge rate                                               
+c_c_dr     E C   -        -          Rel. conc. in soil dynamic region                                     
+c_c_ds     E C   -        -          Rel. conc. in soil dead-space                                         
+bal_err          m        -          Water mass balance error                                              
+ 
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  item
+                                                  reading a item
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  item
+                                                  reading a item
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  item
+                                                  reading a item
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  item
+                                                  reading a item
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  list
+                                                  reading a list
+====================================================================================================
+LIST NUMBER  6  SIZE:   1  SCOPE: all    
+                                                  read list
+    1
+                                                  creating a squares list from list
+-----list from list number  6 size:   1 scope :squares
+                                                  created list
+    1
+                                                  creating a banks list from list
+-----list from list number  6 size:   0 scope :banks  
+                                                  created list
+
+                                                  creating a rivers list from list
+-----list from list number  6 size:   0 scope :rivers 
+                                                  created list
+
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  mask
+                                                  reading a mask
+====================================================================================================
+MASK NUMBER  7
+Rows:  1 to   3  Columns:  1  to   3
+                                                  mask read
+                                                  mask as read
+TTT
+TTT
+TTT
+                                                  effective mask
+...
+.T.
+...
+                                                  creating a all list from mask
+----- list from mask number  7 size:    1 scope: all    
+                                                  created list
+    1
+                                                  creating a squares list from mask
+----- list from mask number  7 size:    1 scope: squares
+                                                  created list
+    1
+                                                  creating a banks list from mask
+----- list from mask number  7 size:    0 scope: banks  
+                                                  created list
+
+                                                  creating a rivers list from mask
+----- list from mask number  7 size:    0 scope: rivers 
+                                                  created list
+
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  mask
+                                                  reading a mask
+====================================================================================================
+MASK NUMBER  8
+Rows:  1 to   3  Columns:  1  to   3
+                                                  mask read
+                                                  mask as read
+FFF
+FTF
+FFF
+                                                  effective mask
+...
+.T.
+...
+                                                  creating a all list from mask
+----- list from mask number  8 size:    1 scope: all    
+                                                  created list
+    1
+                                                  creating a squares list from mask
+----- list from mask number  8 size:    1 scope: squares
+                                                  created list
+    1
+                                                  creating a banks list from mask
+----- list from mask number  8 size:    0 scope: banks  
+                                                  created list
+
+                                                  creating a rivers list from mask
+----- list from mask number  8 size:    0 scope: rivers 
+                                                  created list
+
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  time
+                                                  reading times
+                                                  read times
+====================================================================================================
+TIMES NUMBER 9
+         12.000         36.000
+         48.000       8760.000
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  time
+                                                  reading times
+                                                  read times
+====================================================================================================
+TIMES NUMBER10
+          1.000       8760.000
+ 
+                                                  looking for keyword
+                                                  found keyword 
+                                                  stop
+                                                  read item
+ITEM:  1  NAME:net_rain  BASIS: list_as_list  SCOPE:squares  EXTRA_DIMENSIONS: -            GRID/LIST NUMBER:   6  TIMES NUMBER: 10  LAYERS:   0  0  SEDIMENT_NO:   0  CONTAMINANT_NO:   0
+                                                  read item
+ITEM:  2  NAME:ph_depth  BASIS: grid_as_grid  SCOPE:squares  EXTRA_DIMENSIONS: -            GRID/LIST NUMBER:   8  TIMES NUMBER: 10  LAYERS:   0  0  SEDIMENT_NO:   0  CONTAMINANT_NO:   0
+                                                  read item
+ITEM:  3  NAME:theta     BASIS: grid_as_grid  SCOPE:squares  EXTRA_DIMENSIONS: -            GRID/LIST NUMBER:   8  TIMES NUMBER:  9  LAYERS:   1 20  SEDIMENT_NO:   0  CONTAMINANT_NO:   0
+                                                  read item
+ITEM:  4  NAME:srf_dep   BASIS: list_as_list  SCOPE:squares  EXTRA_DIMENSIONS: -            GRID/LIST NUMBER:   6  TIMES NUMBER: 10  LAYERS:   0  0  SEDIMENT_NO:   0  CONTAMINANT_NO:   0

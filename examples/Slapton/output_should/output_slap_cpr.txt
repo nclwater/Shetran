@@ -1,0 +1,7 @@
+ CMD data file open: unit 18; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton\test_compute\input_slap_cmd.txt                            
+
+
+ slapton test                                                                    
+
+ CMD data file closed: unit 18; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton\test_compute\input_slap_cmd.txt                          
+

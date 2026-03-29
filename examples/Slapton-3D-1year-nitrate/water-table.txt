@@ -1,4 +1,0 @@
-element number
-number_of_points 1	
-1
-
