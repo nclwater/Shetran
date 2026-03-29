@@ -1,14 +1,12 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_hdf5
-!DEC$ REAL:4
+
+USE ISO_C_BINDING, ONLY: C_PTR
+
 USE VISUALISATION_PASS,      ONLY : DIRQQ, ver, rootdir, hdf5filename
-!DEC$ DEFINE ISKEY=0
-!DEC$ IF(ISKEY==1)
-    USE VISUALISATION_KEY,       ONLY : KTEST
-!DEC$ ENDIF
 USE VISUALISATION_METADATA,  ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, &
-                                    G_I=>GET_METADATA_I, S_I=>SET_METADATA_I, &
-                                    G_I_F=>GET_METADATA_I_FIRST,              &
+                                    G_I=>GET_METADATA_I, S_PTR=>SET_METADATA_PTR, &
+                                    G_PTR=>GET_METADATA_PTR,                  &
                                     ndim,                                     &
                                     G_H5_I=>GET_METADATA_HDF5_I, G_H5_L=>GET_METADATA_HDF5_L, &
                                     G_H5_C=>GET_METADATA_HDF5_C, INCREMENT_HDF5_TSTEP_NO
@@ -177,7 +175,6 @@ END FUNCTION combination_name
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE visualisation_tidy_up()
-!DEC$ ATTRIBUTES DLLEXPORT :: visualisation_tidy_up
 INTEGER :: ni, mn
 LOGICAL :: istimeseries
 ni           = G_I(0,'no_items')
@@ -199,23 +196,19 @@ END SUBROUTINE visualisation_tidy_up
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE save_visualisation_data_to_disk(mn, time)
-!DEC$ ATTRIBUTES DLLEXPORT :: save_visualisation_data_to_disk
 INTEGER, INTENT(IN) :: mn
 INTEGER, PARAMETER  :: buffer_length_for_storage=1
 INTEGER             :: tc, tstep
 REAL, INTENT(IN)    :: time
 LOGICAL, SAVE       :: one=T, two=F, notflag=F
+TYPE(C_PTR)         :: first_ptr
 
 IF(notflag .AND. time>zero) THEN
     RETURN
 ELSEIF(one) THEN
     one = F
     two = T
-    !DEC$ IF(ISKEY==1)
-        notflag = KTEST(ver, rootdir)
-    !DEC$ ELSE
-        notflag = F
-    !DEC$ ENDIF
+    notflag = F
     RETURN
 ELSEIF(two) THEN
     two = F
@@ -231,7 +224,8 @@ ELSE
     t_newsz        = (/tstep/) !(/hh%tstep_no/)
     CALL H5DEXTEND_F(dataset(mn), newsz(mn)%a, error)
     CALL H5DEXTEND_F(t_dataset(mn), t_newsz, error)
-    tc = TIME_COUNT(G_C(mn,'typ'),G_I_F(mn,'first'))
+    first_ptr = G_PTR(mn,'first')
+    tc = TIME_COUNT(G_C(mn,'typ'), first_ptr)
 ENDIF
 IF(time==zero .OR. tc==buffer_length_for_storage) &
         CALL WRITE_MN(mn, tc, time==zero, tstep, G_H5_L(mn,'isreal'), G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
@@ -246,11 +240,14 @@ SUBROUTINE write_mn(mn, amount, firstwrites, tstep, isreal, szorder, ilow, jlow,
 INTEGER, INTENT(IN)                                :: mn, tstep, ilow, jlow, klow, amount !how many to copy to disk
 INTEGER, DIMENSION(:), INTENT(IN)                  :: szorder
 INTEGER                                            :: am, hhdim(ndim)
-INTEGER(INT_PTR_KIND())                    :: first
+TYPE(C_PTR)                                        :: first
 INTEGER, DIMENSION(ndim)                           :: sz
 INTEGER(HSIZE_T)                                   :: t_sz(7)
 REAL                                               :: time
 REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: surf_elv
+REAL, DIMENSION(:,:,:), ALLOCATABLE                :: temp_surf_map
+REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: temp_r
+INTEGER, DIMENSION(:,:,:,:,:,:), ALLOCATABLE       :: temp_i
 LOGICAL, INTENT(IN)                                :: firstwrites, isreal
 LOGICAL                                            :: istimeseries
 CHARACTER(2)                                       :: typ
@@ -259,7 +256,7 @@ INTEGER(HID_T)                                     :: filespace, t_filespace
 INTEGER(HSIZE_T), DIMENSION(ndim)                  :: start, t_start, ccount, t_ccount
 
 name            = G_H5_C(mn,'name')
-first           = G_I_F(mn,'first')
+first           = G_PTR(mn,'first')
 typ             = G_C(mn,'typ')
 istimeseries    = G_L(mn,'istimeseries')
 hhdim = G_H5_I(mn, 'dimensions', jndim)
@@ -297,25 +294,34 @@ DO am=1,amount
     !NB *** first is updated in this loop   
     IF(isreal) THEN
         IF(name=='surf_elv') THEN
-            ALLOCATE(surf_elv(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)))
-            surf_elv = GET_HDF5_R(typ, sz, szorder, first, ilow, jlow, klow)
+                IF(.NOT.ALLOCATED(surf_elv)) ALLOCATE(surf_elv(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)))
+            CALL GET_HDF5_R(typ, sz, szorder, first, ilow, jlow, klow, surf_elv)
             CALL H5DWRITE_F(dataset(mn), dtype(mn), surf_elv, &
                     szz(mn)%a, error, mem_space_id=orig_dataspace(mn), file_space_id=filespace)
         ELSE
-            CALL H5DWRITE_F(dataset(mn), dtype(mn), GET_HDF5_R(typ, sz, szorder, first, ilow, jlow, klow), &
+                IF(.NOT.ALLOCATED(temp_r)) ALLOCATE(temp_r(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)))
+                CALL GET_HDF5_R(typ, sz, szorder, first, ilow, jlow, klow, temp_r)
+                CALL H5DWRITE_F(dataset(mn), dtype(mn), temp_r, &
                     szz(mn)%a, error, mem_space_id=orig_dataspace(mn), file_space_id=filespace)
         ENDIF
     ELSE
-        CALL H5DWRITE_F(dataset(mn), dtype(mn), GET_HDF5_I(typ, sz, szorder, first, ilow, jlow, klow), &
+            IF(.NOT.ALLOCATED(temp_i)) ALLOCATE(temp_i(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)))
+            CALL GET_HDF5_I(typ, sz, szorder, first, ilow, jlow, klow, temp_i)
+            CALL H5DWRITE_F(dataset(mn), dtype(mn), temp_i, &
                         szz(mn)%a, error, mem_space_id=orig_dataspace(mn), file_space_id=filespace)  !write to file
     ENDIF
 ENDDO
-CALL S_I(mn,'first', first)
+CALL S_PTR(mn,'first', first)
 CALL H5SCLOSE_F(filespace, error)
 CALL H5SCLOSE_F(t_filespace, error)
+IF(ALLOCATED(temp_r)) DEALLOCATE(temp_r)
+IF(ALLOCATED(temp_i)) DEALLOCATE(temp_i)
 IF(name=='number') CALL SAVE_NUMBERS_AS_SPREADSHEET(mn)
 IF(name=='surf_elv') THEN
-    CALL SAVE_SURF_ELEV_AS_MAP(mn, surf_elv(1,1,1,:,:,:), magnif=20)
+    ALLOCATE(temp_surf_map(sz(4), sz(5), sz(6)))
+    temp_surf_map = surf_elv(1,1,1,:,:,:)
+    CALL SAVE_SURF_ELEV_AS_MAP(mn, temp_surf_map, magnif=20)
+    DEALLOCATE(temp_surf_map)
     DEALLOCATE(surf_elv)
 ENDIF
 END SUBROUTINE write_mn
@@ -534,10 +540,13 @@ INTEGER, INTENT(IN)                :: mn, magnif
 INTEGER                            :: sz(2)
 REAL, DIMENSION(:,:,:), INTENT(IN) :: dat
 CHARACTER(csz)                     :: name, title
+INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_pic
 WRITE(name,'(A,I1,A)') 'SV',ver,'_elevation'
 WRITE(title,'(A,I1,A)') 'SV',ver,' surface elevation'
 sz  = szz(mn)%a(2:3)
-CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic=GET_REAL_IMAGE_INDEX(sz, dat, magnif, mn))
+temp_pic = GET_REAL_IMAGE_INDEX(sz, dat, magnif, mn)
+CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic=temp_pic)
+DEALLOCATE(temp_pic)
 END SUBROUTINE save_surf_elev_as_map
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
@@ -545,8 +554,11 @@ SUBROUTINE save_numbers_as_spreadsheet(mn)
 INTEGER, INTENT(IN) :: mn
 INTEGER, PARAMETER  :: magnif=20
 INTEGER             :: sz(2)
+INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_magarr
 sz = szz(mn)%a(2:3)
-CALL ADD_MAGNIFIED_INTEGER_SPREADSHEET_TO_GROUP(mn, nme='numbering', magnif=magnif, magarr=GET_MAGNIFIED_SU_ARR(sz, magnif, mn))
+temp_magarr = GET_MAGNIFIED_SU_ARR(sz, magnif, mn)
+CALL ADD_MAGNIFIED_INTEGER_SPREADSHEET_TO_GROUP(mn, nme='numbering', magnif=magnif, magarr=temp_magarr)
+DEALLOCATE(temp_magarr)
 END SUBROUTINE save_numbers_as_spreadsheet
 
 
@@ -688,7 +700,7 @@ END MODULE visualisation_hdf5
 !!    minvr = MINVAL(pic_real)
 !!    maxvr = MAXVAL(pic_real)
 !!    pic  = mmax * (pic_real-minvr)/(maxvr-minvr)  !scaling
-!!pic => GET_REAL_IMAGE_INDEX(sz, pic_real, mag, mn)
+!!pic = GET_REAL_IMAGE_INDEX(sz, pic_real, mag, mn)
 !ELSE IF(PRESENT(pic_l)) THEN
 !    wid = SIZE(pic_L,DIM=1)
 !    hei = SIZE(pic_L,DIM=2)
@@ -880,13 +892,13 @@ END MODULE visualisation_hdf5
 !INTEGER, INTENT(IN)                     :: mn, magnif
 !INTEGER                                 :: sz(2)
 !CHARACTER(csz)                          :: name, title
-!LOGICAL, DIMENSION(:,:), POINTER        :: pic
+!LOGICAL, DIMENSION(:,:), ALLOCATABLE    :: pic
 !
 !WRITE(name,'(A,I1,A)') 'SV',ver,'_rivers'
 !WRITE(title,'(A,I1,A)') 'SV',ver,' rivers'
 !
 !sz  = szz(mn)%a(2:3)
-!pic => GET_IS_LINK_MAGNIFIED(sz, magnif, mn)
+!pic = GET_IS_LINK_MAGNIFIED(sz, magnif, mn)
 !
 !CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic_L=pic)
 !DEALLOCATE(pic)

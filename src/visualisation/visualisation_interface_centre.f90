@@ -1,6 +1,6 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_interface_centre
-!DEC$ REAL:4
+
 !JE 2.0 190704 Created
 !This is the central part of the interface between SHETRAN Version 4 and SHEGRAPH Version 2
 !If new variables are to be added to SHEGRAPH Version 2, this module will have to be edited as follows:

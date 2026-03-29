@@ -5,7 +5,7 @@ module MNmod
     use utilsmod, only: hour_from_date, tridag
     	
 
-    PUBLIC    :: mnamm, mnco2, MNCONT, mnedth, mnemph, mnemt, mnenph, mnent   ! subroutine names
+    PUBLIC    :: mnamm, mnco2, mncont, mnedth, mnemph, mnemt, mnenph, mnent   ! subroutine names
     PUBLIC    :: mnerr0, mnerr1, mnerr2, mnerr3, mnerr4, mngam, mninit, mnint2
 	PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp
     
@@ -260,7 +260,7 @@ end subroutine mnco2
 
 
 
-subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref, &
+subroutine mncont(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref, &
     icmxy,ncolmb,nlyr,nrd,nvc,nlyrbt,ntsoil,d0,tih,rhopl,z2,delone,dxqq,dyqq,vspor,deltaz,plai,rdf,zvsnod,bexbk, &
     linkns,dtuz,uznow,clai,cccc,pnetto,ssss,ta,vspsi,vsthe,vstheo,sss1,sss2 )
     !--------------------------------------------------------------------*
@@ -354,7 +354,7 @@ subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
         nlyrbt,ntsoil,d0,tih,z2,dxqq,dyqq,vspor,deltaz,zvsnod,bexbk,linkns,dtuz,uznow,cccc,pnetto,ssss,ta,vspsi, &
         vsthe,vstheo,sss1,sss2 )
 	
-end subroutine MNCONT
+end subroutine mncont
 
 	
 subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,vsthe,vspor,isbotc )
