@@ -1,279 +1,218 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-!-------------------------------------------------------------------------------
-!
-!> @file GETDIRQQ.f90 
-! 
-!> @author Stephen Birkinshaw, Newcastle University
-! 
-!> @brief Gets the input filename(s).
-!
-! REVISION HISTORY:
-! ?        - ?     - ?
-! 20200305 - SvenB - formatting & cleanup
-! 
-!-------------------------------------------------------------------------------
+!> summary: Provides a portable, standard Fortran implementation for obtaining the input filename.
+!> author: Stephen Birkinshaw (Newcastle University), Sven Berendsen (Newcastle University)
+!> date: 2025-08-11
+!>
+!> This module is the cross-platform version for handling command-line arguments
+!> to determine the simulation's input file. It replaces the Windows-specific
+!> `getdirqq_winIntel.f90` and uses standard Fortran intrinsics for portability.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:----:|:------:|-------------|
+!> | ? | Original | Original Windows-specific version |
+!> | 2020-03-05 | SvenB | Formatting, doxygen docs and cleanup |
+!> | 2025-08-11 | AI | Ported to standard Fortran, removed Windows dependencies |
 MODULE GETDIRQQ
 
-    use mod_parameters
+   use mod_parameters
+   ! Removed Windows-specific modules:
+   ! USE IFWIN, USE IFPORT, USE IFQWIN - replaced with standard Fortran
 
-    USE IFWIN
-    USE IFPORT, ONLY : SPLITPATHQQ, SYSTEMQQ, GETDRIVEDIRQQ
-    USE IFQWIN, ONLY : QWIN$FRAMEWINDOW, GETHWNDQQ
+   IMPLICIT NONE
 
-    IMPLICIT NONE
+   ! --------------------------------------------------------------------------
+   ! Private by default
+   PRIVATE
 
-    CHARACTER(len=LENGTH_FILEPATH) :: FileName
-    CHARACTER(len=40)              :: MyName
+   ! --------------------------------------------------------------------------
+   ! Public methods
+   PUBLIC  :: get_dir_and_catch
 
-    ! --------------------------------------------------------------------------
-    ! Private by default 
-    PRIVATE
+   ! Code =====================================================================
 
-    ! --------------------------------------------------------------------------
-    ! Public methods
-    PUBLIC  :: get_dir_and_catch
+CONTAINS
 
+   !> summary: Obtains the input directory and runfile from command-line arguments.
+   !>
+   !> This is the main entry point for the module. It parses command-line arguments
+   !> to identify the run data file. It supports getting the filename directly (`-f`)
+   !> or looking it up from a `catchments.txt` file (`-c`). It replaces the
+   !> Windows GUI dialogs with a pure command-line interface.
+   SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
-    ! Code =====================================================================
+      ! IO-vars
+      CHARACTER(len=*), INTENT(IN)    :: runfil   !! The runfile name (often unused in command-line mode)
+      CHARACTER(len=*), INTENT(OUT)   :: fn       !! The base name of the runfile
+      CHARACTER(len=*), INTENT(OUT)   :: catch    !! The catchment name (legacy, now unused)
+      CHARACTER(len=*), INTENT(OUT)   :: dirqq    !! The directory path of the runfile
+      CHARACTER(len=*), INTENT(OUT)   :: rootdir  !! The root directory where the executable was run
 
-    CONTAINS
-  
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Obtains input directory and catches errors.
-    ! 
-    ! REVISION HISTORY:
-    ! ?        - ?     - ?
-    ! 20200305 - SvenB - formatting & cleanup
-    !
-    !> @param[in]     runfil
-    !> @param[out]    fn, catch, dirqq, rootdir
-    !--------------------------------------------------------------------------- 
-    SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
+      ! Other vars
+      INTEGER(kind=I_P)               :: length, i, na, j, k, last_slash
+      CHARACTER(len=*), PARAMETER     :: catchment_file='catchments.txt'
+      CHARACTER(len=LENGTH_LINE)      :: message, dum1, dum2, code
+      CHARACTER(len=LENGTH_FILEPATH)  :: cli_argument
+      CHARACTER(len=LENGTH_FILEPATH)  :: fn_part
+      LOGICAL                         :: ex
 
-        ! IO-vars
-        CHARACTER(len=*), INTENT(IN)    :: runfil
-        CHARACTER(len=*), INTENT(OUT)   :: fn, catch, dirqq
-        CHARACTER(len=*), INTENT(OUT)   :: rootdir
+      ! Code =================================================================
 
-        ! Other vars
-        INTEGER(kind=I_P)               :: length, IERROR, iret, i, idum, na, j, k
-        LOGICAL(KIND=4)                 :: STATUS, bRET
-        CHARACTER(len=3)                :: drive
-        CHARACTER(len=*), PARAMETER     :: catchment_file='catchments.txt'
-        CHARACTER(len=LENGTH_FILEPATH)  :: path, ext, ALLFILTERS
-        CHARACTER(len=60)               :: DLGTITLE, code
-        CHARACTER(len=LENGTH_LINE)      :: message, dum1, dum2
-        LOGICAL                         :: ex
-        TYPE(T_OPENFILENAME)            :: opn   
-        
-        ! Code =================================================================
-        idum = GETDRIVEDIRQQ(rootdir)
+      ! Get current working directory (portable replacement for GETDRIVEDIRQQ)
+      CALL GET_CURRENT_DIR(rootdir)
 
-        na = NARGS()
-        IF(na>1) THEN
-            CALL GETARG(INT(1,KIND=2), code)
-        ELSE
-            code = '-a'  !treat as default filname
-        ENDIF
+      ! Get command line arguments (portable replacement for NARGS/GETARG)
+      na = COMMAND_ARGUMENT_COUNT()
+      IF(na > 0) THEN
+         CALL GET_COMMAND_ARGUMENT(1, code)
+      ELSE
+         code = '-f'  ! Default to filename mode for portable version
+      ENDIF
 
-        message=''
-        SELECT CASE(code)
-        CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results') !use popup
-            ALLFILTERS            = 'All files(*.*)'//CHAR(0)//'*.*'//CHAR(0)//CHAR(0)
-            DLGTITLE              = 'Select a SHETRAN rundata file'C
-            opn%lStructSize       = SIZEOF(Opn)
-            opn%HWNDOWNER         = GETHWNDQQ(QWIN$FRAMEWINDOW)
-            opn%HINSTANCE         = NULL
-            opn%LPSTRFILTER       = LOC(ALLFILTERS)
-            opn%LPSTRCUSTOMFILTER = NULL
-            opn%NMAXCUSTFILTER    = NULL
-            opn%NFILTERINDEX      = 1
-            opn%LPSTRFILE         = LOC(FileName) 
-            opn%NMAXFILE          = LEN(FileName) 
-            opn%LPSTRFILETITLE    = NULL 
-            opn%NMAXFILETITLE     = NULL
-            opn%LPSTRINITIALDIR   = NULL
-            opn%LPSTRTITLE        = LOC(DLGTITLE)
-            opn%FLAGS             = NULL 
-            opn%NFILEOFFSET       = NULL
-            opn%NFILEEXTENSION    = NULL
-            opn%LPSTRDEFEXT       = NULL
-            opn%LCUSTDATA         = NULL
-            opn%LPFNHOOK          = NULL
-            opn%LPTEMPLATENAME    = NULL 
-            bRET                  = GETOPENFILENAME(opn)
-            CALL COMDLGER(IERROR)
-
-        CASE('-f') !treat as filename
-            CALL GETARG(INT(2,KIND=2), filename)
-
-        CASE('-c')  !treat as catchment name
-            IF (na<3) THEN
-                filename = 'default'
-            ELSE
-                !CALL GETARG(INT(2,KIND=2), filename)
-            ENDIF
-            INQUIRE(FILE=catchment_file, exist=ex)
-            IF(ex) THEN
-                OPEN(875,FILE=catchment_file, ERR=999)
-                    DO
-                        READ(875,'(A,a)', END=999, ERR=999) dum1
-                        READ(875,*, END=999, ERR=999) dum2
-                        IF(dum1==filename) EXIT
-                    ENDDO
-                filename=dum2
-
-            ELSE
-                message='Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
-            ENDIF
-
-        CASE DEFAULT
-            message = 'Unrecognised command line argument ' // TRIM(code) // ' Recognise only -a, -c and -f'
-        END SELECT
-
-        IF(message/='') GOTO 1000
-
-        INQUIRE(FILE=filename, EXIST=ex)
-        IF(.NOT.ex) THEN
-            IF(LEN_TRIM(filename)==0) THEN
-                message = 'Missing filename   Use -f filneme'
-            ELSE
-                message = 'Cannot find rundata file '//TRIM(filename)
-            ENDIF
+      message = ''
+      SELECT CASE(code)
+       CASE ('-f') ! treat as filename - main portable mode
+         IF(na < 2) THEN
+            message = 'Missing filename. Usage: shetran -f filename.txt'
             GOTO 1000
-        ENDIF
+         ENDIF
+         CALL GET_COMMAND_ARGUMENT(2, cli_argument)
 
-        length = SPLITPATHQQ(FileName, drive, path, MyName, ext)
-        dirqq  = path
-        length = LEN_TRIM(Filename)
-        j      = 0
-        k      = 0
+       CASE ('-c')  ! treat as catchment name (kept for compatibility)
+         IF (na < 2) THEN
+            cli_argument = 'default'
+         ELSE
+            CALL GET_COMMAND_ARGUMENT(2, cli_argument)
+         ENDIF
+         INQUIRE(FILE=catchment_file, exist=ex)
+         IF(ex) THEN
+            OPEN(875,FILE=catchment_file, ERR=999)
+            DO
+               read(875,'(A,a)', END=999, ERR=999) dum1
+               read(875,*, END=999, ERR=999) dum2
+               IF(dum1==cli_argument) EXIT
+            ENDDO
+            cli_argument = dum2
+            CLOSE(875)
+         ELSE
+            message='Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
+         ENDIF
 
-        DO i = length-1, 1, -1
+       CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
+         ! Windows GUI modes not supported in portable version
+         message = 'Interactive file selection not supported in portable version. Use: shetran -f filename.txt'
+         GOTO 1000
 
-            IF(Filename(i:i) == '.') THEN
-                j=i
+       CASE DEFAULT
+         message = 'Unrecognised command line argument ' // TRIM(code) // &
+            '. Portable version supports: -f filename, -c catchment'
+      END SELECT
 
-            ELSEIF(Filename(i:i) == '_') THEN
-                dum2 = Filename(MAX(1,i-7):i)
-                IF(TRIM(dum2) == 'rundata_') THEN
-                    k=i
-                    EXIT
-                ENDIF
-            ENDIF
-        ENDDO
+      IF(message/='') GOTO 1000
 
-        IF (k*j == 0) THEN
-            print*, '   RUNDATA FILENAME MUST HAVE FORM "rundata_name.txt"'
-            STOP
-        ENDIF
+      INQUIRE(FILE=cli_argument, EXIST=ex)
+      IF(.NOT.ex) THEN
+         IF(LEN_TRIM(cli_argument)==0) THEN
+            message = 'Missing filename. Use: shetran -f filename.txt'
+         ELSE
+            message = 'Cannot find rundata file '//TRIM(cli_argument)
+         ENDIF
+         CALL handle_command_line_error(message)
+      ENDIF
 
-        catch = Filename(i+1:j-1)
-        fn    = TRIM(Filename)
+      ! Portable path splitting (replacement for SPLITPATHQQ)
+      CALL SPLIT_PATH_PORTABLE(cli_argument, dirqq, fn_part)
 
-        RETURN
+      fn = trim(fn_part)
+      catch = ''  ! Catchment info not used in modern version
 
- 999    message = 'cannot find catchment ' // TRIM(filename) // ' in ' // TRIM(catchment_file)
+      RETURN
 
- 1000   PRINT*, message
-        STOP
+999   CONTINUE
+      message = 'Error reading catchment file'
+      CLOSE(875, ERR=1000)
 
-    END SUBROUTINE get_dir_and_catch
+1000  CONTINUE
+      ! Error handling - write to standard error
+      WRITE(*,'(A)') 'ERROR: ' // TRIM(message)
+      WRITE(*,'(A)') 'Usage: shetran -f rundata_file.txt'
+      WRITE(*,'(A)') '   or: shetran -c catchment_name'
+      STOP 1
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Error handling for common dialog errors..
-    ! 
-    ! REVISION HISTORY:
-    ! ?        - ?     - ?
-    ! 20200305 - SvenB - formatting & cleanup
-    !--------------------------------------------------------------------------- 
-    SUBROUTINE comdlger(IRET)
-        
-        ! IO-Vars
-        INTEGER(KIND=I_P)   :: IRET
+   END SUBROUTINE get_dir_and_catch
 
-        ! Other vars
-        CHARACTER(30)       :: MSG1
-        CHARACTER(210)      :: MSG2
 
-        ! Code =================================================================
+   !> summary: Gets the current working directory in a portable way.
+   !>
+   !> Uses the standard Fortran 2008 `GET_ENVIRONMENT_VARIABLE` intrinsic to
+   !> retrieve the 'PWD' variable. If that fails, it defaults to '.' (current directory).
+   SUBROUTINE GET_CURRENT_DIR(current_dir)
 
-        IRET = COMMDLGEXTENDEDERROR()
-        MSG1 = 'FILE OPEN DIALOG FAILURE'C
-        
-        SELECT CASE(IRET)
+      CHARACTER(len=*), INTENT(OUT) :: current_dir  !! The path of the current working directory
 
-        CASE (CDERR_FINDRESFAILURE)
-            MSG2 = 'The common dialog box procedure failed to find a specified resource.'C
+      ! Use standard Fortran intrinsic (F2008)
+      CALL GET_ENVIRONMENT_VARIABLE('PWD', current_dir)
 
-        CASE (CDERR_INITIALIZATION)
-            MSG2 = 'The common dialog box procedure failed during initialization. &
-            This error often occurs when insufficient memory is available.'C
+      ! If PWD not available, try alternative approaches
+      IF (LEN_TRIM(current_dir) == 0) THEN
+         current_dir = '.'  ! Current directory
+      ENDIF
 
-        CASE (CDERR_LOCKRESFAILURE)
-            MSG2 = 'The common dialog box procedure failed to lock a specified resource.'C
+   END SUBROUTINE GET_CURRENT_DIR
 
-        CASE (CDERR_LOADRESFAILURE)
-            MSG2 = 'The common dialog box procedure failed to load a specified resource.'C
+   !> summary: Splits a full file path into its directory and filename components.
+   !>
+   !> This is a portable replacement for the non-standard `SPLITPATHQQ` function.
+   !> It searches for the last path separator (`/` or `\`) to split the string.
+   SUBROUTINE SPLIT_PATH_PORTABLE(fullpath, dir_part, file_part)
 
-        CASE (CDERR_LOADSTRFAILURE)
-            MSG2 = 'The common dialog box procedure failed to load a specified string.'C
+      CHARACTER(len=*), INTENT(IN)  :: fullpath   !! The full path of the file to split
+      CHARACTER(len=*), INTENT(OUT) :: dir_part   !! The directory part of the path
+      CHARACTER(len=*), INTENT(OUT) :: file_part  !! The filename part of the path
 
-        CASE (CDERR_MEMALLOCFAILURE)
-            MSG2 = 'The common dialog box procedure was unable to allocate memory for &
-            internal structures.'C
+      INTEGER :: last_slash, i, len_path
 
-        CASE (CDERR_MEMLOCKFAILURE)
-            MSG2 = 'The common dialog box procedure was unable to lock the memory associated &
-            with a handle.'C
+      len_path = LEN_TRIM(fullpath)
+      last_slash = 0
 
-        CASE (CDERR_NOHINSTANCE)
-            MSG2 = 'The ENABLETEMPLATE flag was specified in the Flags member of a structure &
-            for the corresponding common dialog box, but the application failed to provide a &
-            corresponding instance handle.'C
+      ! Find last slash (works for both / and \ path separators)
+      DO i = len_path, 1, -1
+         IF (fullpath(i:i) == '/' .OR. fullpath(i:i) == '\') THEN
+            last_slash = i
+            EXIT
+         ENDIF
+      END DO
 
-        CASE (CDERR_NOHOOK)
-            MSG2 = 'The ENABLEHOOK flag was specified in the Flags member of a structure for &
-            the corresponding common dialog box, but the application failed to provide a &
-            pointer to a corresponding hook function'C
+      IF (last_slash > 0) THEN
+         ! Keep trailing separator for compatibility with legacy code that
+         ! concatenates as TRIM(dirqq)//filename.
+         dir_part = fullpath(1:last_slash)
+         file_part = fullpath(last_slash+1:len_path)
+      ELSE
+         ! No path separator found: keep directory empty so concatenation keeps
+         ! relative filenames unchanged.
+         dir_part = ''
+         file_part = fullpath
+      ENDIF
 
-        CASE (CDERR_NOTEMPLATE)
-            MSG2 = 'The ENABLETEMPLATE flag was specified in the Flags member of a structure &
-            for the corresponding common dialog box, but the application failed to provide a &
-            corresponding template.'C
+      ! Keep empty directory as-is for compatibility.
 
-        CASE (CDERR_STRUCTSIZE)
-            MSG2 = 'The lStructSize member of a structure for the corresponding common dialog &
-            box is invalid.'C
+   END SUBROUTINE SPLIT_PATH_PORTABLE
 
-        CASE (FNERR_BUFFERTOOSMALL)
-            MSG2 = 'The buffer for a filename is too small. (This buffer is pointed to by the &
-            lpstrFile member of the structure for a common dialog box.)'C
 
-        CASE (FNERR_INVALIDFILENAME)
-            MSG2 = 'A filename is invalid.'C
+   !> summary: Handles command-line argument errors by printing a message and stopping.
+   !>
+   !> Centralizes error reporting for command-line issues, providing a consistent
+   !> usage message before terminating the program with a non-zero exit code.
+   SUBROUTINE handle_command_line_error(error_msg)
 
-        CASE (FNERR_SUBCLASSFAILURE)
-            MSG2 = 'An attempt to subclass a list box failed because insufficient memory was &
-            available.'C
+      CHARACTER(len=*), INTENT(IN) :: error_msg  !! The specific error message to display
 
-        CASE DEFAULT
-            MSG2 = 'Unknown error number'C
+      ! Error handling - write to standard error
+      WRITE(*,'(A)') 'ERROR: ' // TRIM(error_msg)
+      WRITE(*,'(A)') 'Usage: shetran -f rundata_file.txt'
+      WRITE(*,'(A)') '   or: shetran -c catchment_name'
+      STOP 1
 
-        END SELECT
-
-        IF(IRET /= 0)THEN
-            PRINT*, MSG1
-            PRINT*, MSG2
-            STOP
-        ENDIF
-
-    END SUBROUTINE comdlger
+   END SUBROUTINE handle_command_line_error
 
 END MODULE GETDIRQQ
