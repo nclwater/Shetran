@@ -17,6 +17,7 @@ Shetran-4.4.7
 *.mod
 docs/ford/*
 *test_compute*
+*.xlsx
 
 # Sample compute specific stuff
 examples/*.csv
@@ -25,6 +26,8 @@ diff_delta
 _*/
 *.sav
 *.backup
+comparison_results.csv
+comparison_overview.csv
 
 
 ## Ignore Visual Studio temporary files, build results, and
