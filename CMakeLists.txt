@@ -260,14 +260,22 @@ target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
 # Compiler flags (ifx on Windows, MSVC-style)
 # =============================================================================
 target_compile_options(SHETRAN PRIVATE
-    "/fpp"
+    # "/fpp"
     # "/mcmodel:large"
-    "/heap-arrays:0"
+    # "/heap-arrays:0"
     "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}"
-)
-target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Debug>:/Od;/debug:full;/traceback;/check:bounds>")
-target_compile_options(SHETRAN PRIVATE "$<$<CONFIG:Release>:/O3;/QxHost;")
 
+    # Debug flags
+    $<$<CONFIG:Debug>:/Od> # Use /Od for "disable optimization" with ifx
+    $<$<CONFIG:Debug>:/debug:full>
+    $<$<CONFIG:Debug>:/traceback>
+    $<$<CONFIG:Debug>:/check:bounds>
+    $<$<CONFIG:Debug>:/stand>
+
+    # Release flags
+    $<$<CONFIG:Release>:/O3>
+    $<$<CONFIG:Release>:/QxHost>
+)
 # /libs:static — statically link Intel Fortran/C runtime libraries
 # so the .exe runs without Intel oneAPI on PATH
 if(STATIC_RUNTIME)
