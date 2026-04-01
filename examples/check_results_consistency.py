@@ -598,8 +598,25 @@ def do_comparison(dir_main: str,
         # compare the results with the known good ones
         res_files = compare_results(dir_should, dir_sim, dir_diff)
 
+        differing_files = sorted([
+            filename for filename, file_res in res_files.items()
+            if file_res.get("files_different", False)
+            and file_res.get("status") != "too large"
+        ])
+        too_large_files = sorted([
+            filename for filename, file_res in res_files.items()
+            if file_res.get("status") == "too large"
+        ])
+
+        differing_files_str = ";".join(differing_files)
+        too_large_files_str = ";".join(too_large_files)
+
         # aggregate the results
         df = pd.DataFrame.from_dict(res_files, orient="index")
+        df["files_with_different_contents"] = differing_files_str
+        df["files_too_large_to_compare"] = too_large_files_str
+        df["num_files_with_different_contents"] = len(differing_files)
+        df["num_files_too_large_to_compare"] = len(too_large_files)
         df.to_csv(os.path.join(dir_main, "comparison_results.csv"))
 
         # extract whether there were differences in any of the files
