@@ -1,6 +1,8 @@
 MODULE SYmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SY .F files
+! SB  Mar26 4.6         Change dimensions of NTSOIL    
+    
 USE SGLOBAL
 !USE AL_P
 USE mod_load_filedata, ONLY : ALINIT, ALCHKI, ALCHK, ALALLF, ALREAD  !, HELPPATH

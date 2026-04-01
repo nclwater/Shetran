@@ -1,6 +1,8 @@
 MODULE VSmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the VS .F files
+! SB Mar 26  4.6       Make arrays allocatable by using INITIALISE_AL_C2 
+    
 USE SGLOBAL
 USE mod_load_filedata, ONLY : ALINIT, ALSPRD, ALREAD
 !USE SGLOBAL,  ONLY : 
@@ -927,7 +929,6 @@ DOUBLEPRECISION DZLYR, ZCBOT, ZDEPTH, ZBDBOT, ZCTOP, ZDUM
 DOUBLEPRECISION ZAQBOT, ZSZBOT, ZDIFF, ZLBOT, ZNODE  
 LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE (NELEE, 4)  
 CHARACTER (LEN=57) :: MSG  
-integer :: nlyrmax
 
 DATA LRENUM / JVSDUM * 0 /, NRENUM / 0 /  
 

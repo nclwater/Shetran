@@ -2,6 +2,10 @@ MODULE run_sim
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       This is the comutational core - it runs the simulation, timestep by timestep
 !                       Code was extracted from shetrn.f and modifed to create this module
+! sb  Mar 26    4.6     Added DATE_FROM_HOUR so simulated start and end time visible when running model
+!                       call initialise_cont_cc, initialise_colm_cg, initialise_colm_co, deallocate_colm_cg
+!                       
+    
 USE SGLOBAL
 USE SED_CS,   ONLY : nsed,pbsed,pls,sosdfn,arbdep,dls,fbeta,fdel,&
                      ginfd,ginfs,gnu,gnubk,qsed,dcbed,dcbsed 
@@ -22,7 +26,7 @@ USE VSmod,    ONLY : VSSIM, &
                      RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
 USE CMmod,    ONLY : CMSIM  !"JE"
 USE ETmod,    ONLY : ETSIM, &
-                     psi4, uzalfa !TH,ESE NEEDED ONLY FOR AD
+                     psi4, uzalfa !THESE NEEDED ONLY FOR AD
 USE rest,     ONLY : BALWAT, TMSTEP, &
                      metime, melast, eptime, pinp
                      !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD

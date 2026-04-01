@@ -1,6 +1,9 @@
 MODULE utilsmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the utility .F files
+! SB Mar 26  4.6       Error traping for dates
+!
+    
 USE SGLOBAL
 USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
 USE AL_C, ONLY : icmbk
@@ -14,47 +17,6 @@ PUBLIC :: TRIDAG, DCOPY, HOUR_FROM_DATE, TERPO1, FINPUT, HINPUT, AREADI, AREADR,
           JEMATMUL_VM, JEMATMUL_MM, INVERTMAT, DATE_FROM_HOUR, RAN2 !OPEN_FILE !GET_START_END_IMPACT
 CONTAINS
 
-!SSSSSS SUBROUTINE get_start_end_impact
-!SUBROUTINE get_start_end_impact(iu, s, e)
-!INTEGER, INTENT(IN)          :: iu
-!INTEGER                      :: st(5), et(5)
-!DOUBLEPRECISION, INTENT(OUT) :: s, e
-!CHARACTER(256)               :: fname, msg
-!fname   = TRIM(dirqq)//TRIM(cnam)//'_'//'impact_time_window.txt'
-!CALL OPEN_FILE(iu, fname, 'READ', 'FORMATTED')
-!READ(iu,*, err=99, end=99) st
-!READ(iu,*, err=99, end=99) et
-!s = HOUR_FROM_DATE(st(1), st(2), st(3), st(4), st(5))
-!e = HOUR_FROM_DATE(et(1), et(2), et(3), et(4), et(5))
-!CLOSE(iu)
-!RETURN
-!99 WRITE(msg, *) 'Error or end of file reading file: '//TRIM(fname)
-!CALL ERROR(fffatal, 3009, pppri, 0, 0, msg)
-!END SUBROUTINE get_start_end_impact
-
-
-!SSSSSS  SUBROUTINE open_file
-!SUBROUTINE open_file(iu, fn, act, form, access)
-!INTEGER, INTENT(IN)      :: iu
-!LOGICAL                   :: ex
-!CHARACTER(*), INTENT(IN) :: fn, act, form
-!CHARACTER(*), INTENT(IN), OPTIONAL :: access
-!CHARACTER(28)                      :: ac
-!IF(act=='READ') THEN
-!    INQUIRE(file=TRIM(fn), EXIST=ex)
-!    IF(.NOT.ex) THEN
-!        PRINT*, 'Failed to find '// TRIM(fn)
-!        RETURN
-!    ENDIF
-!ENDIF
-!IF(PRESENT(access)) THEN
-!    ac = access
-!ELSE
-!    ac = 'SEQUENTIAL'
-!ENDIF
-!OPEN(iu, FILE=fn, ACTION=act, FORM=form, ACCESS=ac)
-!PRINT '(3A)', 'OPENED  '//TRIM(fn)//'  '//TRIM(act)//'  '//TRIM(form)
-!END SUBROUTINE OPEN_FILE
 
 !SSSSSS subroutine dcopy (n, dx, incx, dy, incy)  
 subroutine dcopy (n, dx, incx, dy, incy)  

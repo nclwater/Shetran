@@ -1,6 +1,10 @@
 MODULE rest
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Mops up .F files that do not have a natural home in any other module
+! SB  mar 26   4.6      Added dates to met files. precipitation (prd), Potential evaporation (epd) and max and min temperatrue
+    
+    
+    
 USE SGLOBAL
 !USE SGLOBAL,    ONLY : NELEE, NVEE
 USE AL_G,    ONLY : icmref
@@ -23,14 +27,6 @@ IMPLICIT NONE
 
 LOGICAL :: FIRST_balwat=.TRUE.
 DOUBLEPRECISION :: STORW_balwat(NELEE)=zero, pinp(nvee+10)=zero, METIME=zero, MELAST=zero, EPTIME=zero
-
-
-!INTEGER, PARAMETER :: mx_cnt_rain=1400
-!INTEGER         :: cnt_rain = 0
-!DOUBLEPRECISION :: start_impact_window, end_impact_window
-!DOUBLEPRECISION :: per_rain(nvee, mx_cnt_rain)  !rain perturbations
-!           Depths of water stored
-!           For columns and stream links
 
 
 PRIVATE
@@ -929,14 +925,6 @@ IF (BHOTRD.AND.METIME.LT.BHOTTI) GOTO 115
 !
   190 TCURR = TIMEUZ  
 DO 270 K = 1, NV  
-   !IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, &
-   ! TIMCST, NCTCST, CSTCA1, NVEE, K)
-   !IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, &
-   ! NCTPLA, PLAI1, NVEE, K)
-   !IF (MODECL (K) .NE.0) CALL TERPO1 (CLAI, TCURR, RELCLA, TIMCLA, &
-   ! NCTCLA, CLAI1, NVEE, K)
-   !IF (MODEVH (K) .NE.0) CALL TERPO1 (VHT, TCURR, RELVHT, TIMVHT, &
-   ! NCTVHT, VHT1, NVEE, K)
 ! sb 04032025 for dynamically allocated arrays use NV not NVEE
    IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, TIMCST, NCTCST, CSTCA1, NV, K)
    IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, NCTPLA, PLAI1, NV, K)

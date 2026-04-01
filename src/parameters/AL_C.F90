@@ -47,6 +47,8 @@ IMPLICIT NONE
 ! RAH  980302  4.2  Remove ZOCMLN (see OCQMLN), VSSTMP, FHSAT.
 !      980307       (Amend line above.)
 !  JE  JULY 04 ---- Convert to FORTRAN 95
+!   SB  Mar26  4.6     Make the following variables ALLOCATABLE :: JVSACN,JVSDEL,DELTAZ, ZVSNOD, RDF, NLYRBT,NTSOIL,ZLYRBT
+!                    Some are allocated in initialise_al_c and some in the new SUBROUTINE initialise_al_c2() and SUBROUTINE initialise_al_c3()_
 !----------------------------------------------------------------------*
 
 !
@@ -115,12 +117,9 @@ MNOUTPL = 60
     DOUBLEPRECISION, DIMENSION(NELEE,4) :: DHF            !distance from node to face
     LOGICAL, DIMENSION(NELEE)   :: ISPACK         !is there a snow pack?
 
-!3D (LLEE)
     INTEGER, DIMENSION(:,:,:) , ALLOCATABLE :: JVSACN,JVSDEL
-!    INTEGER, DIMENSION(4,LLEE,NELEE) :: JVSACN,JVSDEL
-    DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE :: DELTAZ, ZVSNOD
-!    DOUBLEPRECISION, DIMENSION(LLEE,NELEE)   :: DELTAZ, & !cell thickness
-!                                        ZVSNOD    !node elevations
+    DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE :: DELTAZ, ZVSNOD   
+!                                       DELTAZ  cell thickness, ZVSNOD   node elevations
     
 
 !LINK (NLFEE)
@@ -137,7 +136,6 @@ MNOUTPL = 60
     INTEGER, DIMENSION(NVEE)      :: NRD !no. of UZ cells in root zone
     DOUBLEPRECISION, DIMENSION(NVEE)      :: RDL !proportion of roots that take water from the channel
     DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE ::  RDF !root density function
-!    DOUBLEPRECISION, DIMENSION(NVEE,LLEE) :: RDF !root density function
 
 !SOIL (NSEE)
     INTEGER                          :: NS  !no. of soil types
@@ -145,9 +143,6 @@ MNOUTPL = 60
 !SOIL LAYERS (NLYREE)
     INTEGER, DIMENSION(:,:) , ALLOCATABLE :: NLYRBT,NTSOIL  !bottom cell no in each soil layer and soil type in soil layer
     DOUBLEPRECISION, DIMENSION(:,:) , ALLOCATABLE :: ZLYRBT  !elevatuion of bottom of soil layer
-!    INTEGER, DIMENSION(NELEE,NLYREE) :: NLYRBT, & !bottom cell no in each soil layer
-!                                        NTSOIL    !soil type in soil layer
-!    DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT    !elevatuion of bottom of soil layer
 
 
 

@@ -1,6 +1,9 @@
 MODULE OCmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC .F files
+!  SB   Mar 26  4.6     Make following arrays allocatable: AA, DD, FF, BB, GG, CC, EE, TM1, TM, TV1,TV2
+!                       inhrf, GGGETHRF, inqsa, GGGETQSA, ijedum, ijedum2
+!    
 USE SGLOBAL
 USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
                      DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
@@ -15,7 +18,7 @@ USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFI
 USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
  !                     firstocqdq
 !FROM SPEC_OC
-!-------------------------- Start of SPEC.OC --------------------------*
+!-------------------------- Start of SPEC.OC --------------------------*, 
 !
 ! ^^^ COMMON FILE OF SPECIFICATIONS OF OC COMPONENT VARIABLES.
 !

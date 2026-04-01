@@ -1,11 +1,16 @@
 MODULE FRmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the FR .F files
-!***ZQ Module 200520 new variables iszq,zqd
+! SB  MAY 20  4.5   ZQ Module new variables iszq,zqd
+! SB  Mar 26  4.6  Allocate using following subroutines: INITIALISE_AL_C3 and INITIALISE_ETMOD
+!                  Add BMETDATES so met data has the option of including dates
+!                  Produce text files of time series of sediment and containants at the outlet if these components are being used
+!                  Produce text files for water table depths and virtual discharge stations
+!                  Error messages improved a bit
+!                  ouptut hardcoded array sizes to the pri file
+!
 USE SGLOBAL
 USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
-!USE SGLOBAL, ONLY :     NELEE, nlfee, noctab, NXEE, NYEE, NVEE, BDEVER, SHEVER, BANNER, FILNAM, DIRQQ, &
-!                     VISUALISATION_PLAN_FILENAME, VISUALISATION_CHECK_FILENAME, HDF5FILENAME, CNAM, NCONEE, LLEE, NSEE
 USE AL_G, ONLY :     NX, NY, ICMREF, ICMXY, NGDBGN
 USE AL_C, ONLY :     ARXL, BEXBK, BFB, BHB, BUG, CWIDTH, CLENTH, CMD, CMP, CMT, CMB,  clai, &
                      DELTAZ, DRAINA, dhf, DUMMY, DTUZ, EEVAP, ESOILA, &
@@ -31,7 +36,6 @@ USE mod_load_filedata,    ONLY : ALINIT, ALINTP, ALCHK, ALCHKI
 USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
 USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
                      MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
-!                     PS1, PLAI1, RELPLA, RELCST, RA, RC, RCF, RELCLA, RELVHT, RTOP, TIMCST, TIMPLA, TIMVHT, TIMCLA,  VHT1
                      PS1, PLAI1, RELPLA, RELCST, RA, RC, RCF, RELCLA, RELVHT, RTOP, TIMCST, TIMPLA, TIMVHT, TIMCLA,  VHT1, &
                      INITIALISE_ETMOD
 USE VSmod,    ONLY : VSIN, VSPTHE, NVSSOL, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, VSPPSI
@@ -74,6 +78,8 @@ IMPLICIT NONE
 !                   N1,T,QOCFT,DUMH,BCAL,B1,BIBDE (redundant).
 ! RAH  980308  4.2  Remove BUZCAL,BSZCAL,BOCCAL,BEXCAL.
 ! JE  12/08   4.3.5F90  Convert to FORTRAN90
+! SB  Mar 26  4.6  Allocate the following arrays:
+!                  ADD BMETDATES so met data has the option of including dates
 !----------------------------------------------------------------------*
 !
 ! ^^^ INTEGER VARIABLES.

@@ -40,6 +40,9 @@ IMPLICIT NONE
 !      970220       Restore history.
 ! RAH  980220  4.2  Update SHEVER,BANNER.  Remove NWELEE,NSZBOU,NPSITH.
 !  JE  JULY 04 ---  Convert to FORTRAN 95, as part of integration of SHEGRAPH Version 2
+! SB Mar 26  4.6   Increase array sizes now all the 2 and 3D arrays are allocatable
+!                   NXOCEE=4*nxee
+
 !----------------------------------------------------------------------*
 
 !*970218 TEMPORARY!  REMOVED TO temporary.f90 je 170704
@@ -50,7 +53,7 @@ IMPLICIT NONE
 
 !     (MUST BE IN FORMAT XX.Y WHERE XX = MAJOR PART OF VERSION NUMBER,
 !                                    Y = MINOR PART )
-      DOUBLEPRECISION, PARAMETER :: SHEVER=4.5
+      DOUBLEPRECISION, PARAMETER :: SHEVER=4.6
 !
 !------------ DEVELOPMENT VERSION FLAG
 
@@ -73,23 +76,15 @@ IMPLICIT NONE
 !30 Sep 94  NB  NELEE is also used as size of workspace arrays.
 !Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
       INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
-!      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
+!      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.6
 !      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=2000, nelee=80000  !sv4.5
-     
- !     INTEGER, PARAMETER :: nxee=250, nyee=250, nlfee=10000, nelee=30000  !sv4.5
-!      INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000  !sv4 large
-      !INTEGER, PARAMETER :: nxee=150, nyee=150, nlfee=5000, nelee=20000  !sv4 large
-      !INTEGER, PARAMETER :: nxee=35, nyee=40, nlfee=240, nelee=900  !Dunsop200
-      !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=132, NELEE=320  !Cobres
-      !INTEGER, PARAMETER :: NXEE=12, NYEE=12, NLFEE=4, NELEE=30
-      !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=40, NELEE=800  !slapton
       INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
                             ran2monte1=-1, ran2monte2=-1, pcmonte=-1
       INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec
       
 ! --- GRID POINTS IN VERTICAL PLUS ONE
       !INTEGER, PARAMETER :: LLEE=50
-      INTEGER, PARAMETER :: LLEE=50  !Cobres
+      INTEGER, PARAMETER :: LLEE=50  
 
 ! --- VEGETATION TYPES, SOIL TYPES (NVEE also used for number of precipitation and pet stations)
       INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
@@ -132,7 +127,6 @@ IMPLICIT NONE
       CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
       
 
-!      INTEGER, PARAMETER :: NXSCEE=100000
       INTEGER, PARAMETER :: NXSCEE=100000
 !END MODULE AL_P
 INTEGER, PARAMETER :: ERRNEE = 100

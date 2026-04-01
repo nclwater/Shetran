@@ -1,5 +1,78 @@
 # Changelog
 
+## 300326
+
+Update to version 4.6.1
+Made most 2D arrays allocatable
+Add the option of dates to meteorological time series input data and added dates to the output data.
+
+Specific changes are highlighted below
+
+### mnmod.f90 
+change arrays as now allocatable in the core SHETRAN code. Capitailize mncont so it works in Linux
+
+### frmod.f90 
+Allocate using following subroutines: INITIALISE_AL_C3 and INITIALISE_ETMOD
+Add BMETDATES so met data has the option of including dates
+Produce text files of time series of sediment and containants at the outlet if these components are being used
+Produce text files for water table depths and virtual discharge stations
+Error messages improved a bit
+ouptut hardcoded array sizes to the pri file
+
+### utilsmod.f90 
+Error traping of dates
+
+### vsmod.f90
+Allocate using following subroutines: INITIALISE_AL_C2
+
+### rest.f90
+Added dates to met files. precipitation (prd), Potential evaporation (epd) and max and min temperatrue
+
+###etmod.f90
+read if dates included in met data (BMETDATES)
+allocatable arrays for RA,RC,RTOP, CSTCAP,CK,CB,DEL, PSI4,UZALFA, CSTCA1,PLAI1, CLAI1,VHT1
+PS1,FET,RCF,RELCST,TIMCST,RELPLA,TIMPLA,RELCLA,TIMCLA,RELVHT,TIMVHT
+allocated in new subroutine INITIALISE_ETMOD
+
+### run_sim.f90
+Added DATE_FROM_HOUR so simulated start and end time visible when running model
+call initialise_cont_cc, initialise_colm_cg, initialise_colm_co, deallocate_colm_cg
+
+### OCmod.f90
+Make following arrays allocatable: AA, DD, FF, BB, GG, CC, EE, TM1, TM, TV1,TV2, inhrf, GGGETHRF, inqsa, GGGETQSA, ijedum, ijedum2
+
+### SYmod.f90
+Change dimensions of NTSOIL    
+
+### sglobal.f90
+Increase array sizes now all the 2 and 3D arrays are allocatable
+NXOCEE=4*nxee
+
+### COLM_CG
+comment out KSPE and KSPPE as no longer used
+comment out JKZCOB as no longer used
+comment out JKZWEL and JKZWCE as no longer used
+make the following arrays allocatable: JKZCOL,JOLFN,NOL, NOLBT,NOLCE, NOLCEA
+added initialise_colm_cg and deallocate_colm_cg subroutines
+
+### COLM_CO
+Make the following arrays allocatable: DSWO, QIO, QQRFO, RSZWLO, ZONEO, GGAMMO,QQQSWO, QQO, UUAJPO,VSTHEO
+Add subroutine initialise_colm_co
+
+### AL_C.f90
+Make the following variables ALLOCATABLE :: JVSACN,JVSDEL,DELTAZ, ZVSNOD, RDF, NLYRBT,NTSOIL,ZLYRBT
+Some are allocated in initialise_al_c and some in the new SUBROUTINE initialise_al_c2() and SUBROUTINE initialise_al_c3()_
+
+### CONT_CC
+added total_no_elements,top_cell_no,total_no_links to subroutine
+make the following allocatable CCCC, CCCCO, SSSS, SSSSO, SSS1, SSS2, FCPBKO, GCPBKO
+Add initialise_cont_cc() where these arrays are allocated
+
+### visualisation_metadata.f90
+delete temporary.txt file
+
+
+
 ## 071025
 
 Added nitrate component - version is now 4.5.3.

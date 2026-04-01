@@ -13,6 +13,9 @@ IMPLICIT NONE
 !*                           JE     18/6/91   3.1     BLOCK WELC ADDED
 !* RAH  970224  4.1  Explicit typing.
 !  JE  NOV 04 ---- Convert to FORTRAN 95
+! SB    Mar26   4.6 added total_no_elements,top_cell_no,total_no_links to subroutine
+!                    make the following allocatable CCCC, CCCCO, SSSS, SSSSO, SSS1, SSS2, FCPBKO, GCPBKO
+!                    Add initialise_cont_cc() where these arrays are allocated
 !*----------------------------------------------------------------------*
 !* Imported constants
 !*                      LLEE,NCONEE,NELEE,NLFEE,NSEE
@@ -33,13 +36,10 @@ IMPLICIT NONE
 
       DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCC, CCCCO
       DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSS, SSSSO
-!     DOUBLEPRECISION CCCC(NELEE,LLEE,NCONEE),CCCCO(NELEE,LLEE,NCONEE)
-!      DOUBLEPRECISION SSSS(NELEE,LLEE,NCONEE),SSSSO(NELEE,LLEE,NCONEE)
 !      COMMON/  CONC   /CCCC,CCCCO,SSSS,SSSSO
 !*                             CONCENTRATIONS WITHIN CATCHMENT
 
       DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS1, SSS2
-!     DOUBLEPRECISION SSS1(NELEE,LLEE,NCONEE), SSS2(NELEE,LLEE,NCONEE)
 !                           SOURCE/SINK TERMS FOR PLANT UPTAKE AND NITRATE
       
       
@@ -66,8 +66,6 @@ IMPLICIT NONE
 
       DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO
       DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO
-!      DOUBLEPRECISION FCPBKO(NLFEE,2,LLEE,NCONEE)
-!      DOUBLEPRECISION GCPBKO(NLFEE,2,LLEE,NCONEE)
       DOUBLEPRECISION    FSF(NLFEE,NCONEE),       FSFC(NLFEE,NCONEE)
       DOUBLEPRECISION   FSFT(NLFEE,NCONEE),        RSW(NELEE,NCONEE)
       DOUBLEPRECISION   RSWC(NELEE,NCONEE),       RSWT(NELEE,NCONEE)

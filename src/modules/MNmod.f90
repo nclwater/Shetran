@@ -1,5 +1,16 @@
 module MNmod
 
+    
+!-------------------------- Start of MNmod --------------------------*
+!----------------------------------------------------------------------*
+! Version:  SHETRAN/4.6
+! Modifications:
+!   SB        Mar 26    4.6   Capitalize MNCONT so it works in Linux
+!                              change the following as now allocatable 
+!                              vstheo, nlyrbt, ntsoil, deltaz, rdf, zvsnod, cccc, ssss, sss1, sss2
+!----------------------------------------------------------------------*
+    
+    
     use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee, error
     use mod_load_filedata,    only : alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
     use utilsmod, only: hour_from_date, tridag
