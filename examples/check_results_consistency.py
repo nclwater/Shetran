@@ -627,6 +627,12 @@ def do_comparison(dir_main: str,
 
 def main() -> None:
 
+    # settings
+    # fn_shetran = r"C:\\Users\\tolstoi\\Documents\\Code\\shetran_rework\\build\\debug\\bin\\shetran.exe"
+    # fn_shetran = r"C:\\Users\\tolstoi\\Documents\\Code\\shetran_rework\\build\\release\\bin\\shetran.exe"
+    fn_shetran = os.path.join("..", "build", "release", "bin", "shetran.exe")
+    # fn_shetran = os.path.join("_official_exe", "Shetran.exe")
+
     parser = argparse.ArgumentParser(description=(
         "Run SHETRAN examples and/or compare their outputs against expected results."
     ))
@@ -644,13 +650,14 @@ def main() -> None:
         default=True,
         help="Do not compare outputs; only run SHETRAN.",
     )
+    parser.add_argument(
+        "--shetran-exe",
+        dest="fn_shetran",
+        default=fn_shetran,
+        help=("Path to the SHETRAN executable. "
+              "If omitted, uses the value from fn_shetran in this script."),
+    )
     args = parser.parse_args()
-
-    # settings
-    # fn_shetran = r"C:\\Users\\tolstoi\\Documents\\Code\\shetran_rework\\build\\debug\\bin\\shetran.exe"
-    # fn_shetran = r"C:\\Users\\tolstoi\\Documents\\Code\\shetran_rework\\build\\release\\bin\\shetran.exe"
-    fn_shetran = os.path.join("..", "build", "release", "bin", "shetran.exe")
-    # fn_shetran = os.path.join("_official_exe", "Shetran.exe")
 
     # get list of all subdirectories in the current directory
     subdirs = [
@@ -666,7 +673,7 @@ def main() -> None:
     for dir_main in subdirs:
         overview[dir_main] = do_comparison(
             dir_main,
-            fn_shetran,
+            args.fn_shetran,
             run_simulation=args.run_simulation,
             run_comparison=args.run_comparison,
         )
