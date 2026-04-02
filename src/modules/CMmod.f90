@@ -1426,6 +1426,7 @@ SUBROUTINE COLMW (NCL)
 !      970521       Use 1 not JBTLYR (COLM.CG) as loop 221 limit.
 !                   Use ALINIT for initialization.
 ! RAH  981103  4.2  Scrap output ERUZO (COLM.CO).
+! SvB  260403       Ran through G:Gemini
 !----------------------------------------------------------------------*
 ! Commons and constants
 USE SED_CS  
@@ -1436,429 +1437,337 @@ USE COLM_CG
 USE BK_CW  
 USE SED_CO  
 USE PLANT_CC  
-! Imported constants
-!     COLM.C1:         LLEE,NELEE,NLFEE
-! Input common
-!     COLM.C1:         NCETOP
-!                      SGMA,TSE,SGSQ,Z2,D0,Z2SQOD,Z2OD
-!     COLM.CO:         RSZWLO(NVSWLT(NCL):NVSWLT(NCL))
-!     COLM.CG:         NCOLMB(NCL:NCL)
-!                      ZCOLMB(NCL:NCL)
-!        AL.C:         LL
-!                      NLYRBT(NELEE,*),NLYR(NCL:NCL),NTSOIL(NELEE,*)
-!                      NHBED(NLFEE,2),NVSWLT(NCL:NCL),NVSWLI(NCL:NCL)
-!                      NWELBT(NCL:NCL),NWELTP(NCL:NCL)
-!                      AREA(NEL),CLENTH(NLFEE),CWIDTH(NLFEE)
-!                      DELTAZ(NCOLMB(NCL):NCETOP,NCL:NCL)
-!                      ZVSNOD(NCOLMB(NCL):NCETOP+1,NCL:NCL)
-!                      DXQQ(NCL:NCL),DYQQ(NCL:NCL),ZGRUND(NCL:NCL)
-!                      DTUZ
-!                      ERUZ(NELEE,NLYRBT(NCL,1):NCETOP)
-!                      VSTHE(LLEE,NCL),QVSV(LLEE,NCL)
-!                      HRF(NCL:NCL),QVSH(4,LLEE,NCL),QOC(NELEE,4)
-!                      PNETTO(NCL:NCL),QVSWLI(LLEE,*),QBKB(NLFEE,2)
-!                      EEVAP(NCL:NCL)
-!        AL.G:         ICMREF(NELEE,12)
-!       BK.CW:          NCEBD(NLFEE,2),NCEAB(NLFEE,2)
-!                      FNCEBD(NLFEE,2)
-!      SED.CS:         DLS(NCL:NCL),GNU(NCL:NCL)
-!    PLANT.CC:         XXI
-! In+out common
-!     COLM.CO:         VSTHEO(NELEE,NCOLMB(NCL):NCETOP),UUAJPO(NELEE,LL)
-!                      GGAMMO(NELEE,LL),DSWO(NCL:NCL),ZONEO(NCL:NCL)
-!                      QQO(NELEE,LLEE,4),QQQSWO(NELEE,4),QIO(NCL:NCL)
-!                      QQRFO(NCL:NCL)
-!      SED.CO:         DLSO(NCL:NCL),GNUO(NCL:NCL)
-! Output common
-!     COLM.C1:         NCEBOT,NCEPSF
-!                      SGTSE,SGSTSE,CST2,CST1,CST3
-!     COLM.C2:         TTTLSE,DDA,DDB,DDDSW,DDDSW1,DDDLS,DDDLS1
-!                      GGGNU,GGGNU1,ZONE,ZONE1,QI,QI1,QQRF,QQRF1
-!                      KSP(LL+1),KSPP(LL),TTHET(LL),UUAJP(LL),TTHET1(LL)
-!                      UUAJP1(LL),PPHI(LL),PPHI1(LL),GGAMM(LL)
-!                      GGAMM1(LL),QQ(LL+1,4),QQ1(LL+1,4),QQQSW(4)
-!                      QQQSW1(4)
-!                      ISBK
-!     COLM.CG:         WELDRA(LL)
-!INTEGER :: JBK, JFLINK, JSOL (LLEE), NWORK (4), NLINKA, NCWELL  
-!DOUBLEPRECISION VELDUM (LLEE), QQQWEL, QQQWL1, QQRV (LLEE), &
-! ROH (LLEE)
-!LOGICAL :: ISBDY (4)  
-!COMMON / WTOCI / JBK, JFLINK, JSOL, NWORK, NLINKA, NCWELL  
-!COMMON / WTOC / VELDUM, QQQWEL, QQQWL1, QQRV, ROH  
-!COMMON / WTOCL / ISBDY  
-!                             VARIABLES USED ONLY IN COLMW AND COLMSM
-! Workspace common
-!        AL.C:         DUMMY(LL)
-! Input arguments
 
+! Input arguments
 INTEGER :: NCL  
+
 ! Locals, etc
-!INTRINSIC MAX, MOD, SIGN  
 INTEGER :: JAL, JSOIL, JDUM, IW, JA, JLYR, JB  
 INTEGER :: NAQU, NCE, NCEA, NCLA, NDIFF, NDUM, NELMA  
-DOUBLEPRECISION DBK, DMULT, DINV, ROHDUM, OMROH, THEDUM, QVDUM, &
- PHIDUM
-DOUBLEPRECISION DUM, DUM0, DUM1, UUOLD, UUNEW, ERRDUM, UIN  
+DOUBLE PRECISION :: DBK, DMULT, DINV, ROHDUM, OMROH, THEDUM, QVDUM, PHIDUM
+DOUBLE PRECISION :: DUM, DUM0, DUM1, UUOLD, UUNEW, ERRDUM, UIN  
+DOUBLE PRECISION :: Q1 (LLEE), TRAN1 (LLEE), EMULT (LLEE)  
 
-
-
-DOUBLEPRECISION Q1 (LLEE), TRAN1 (LLEE), EMULT (LLEE)  
 !----------------------------------------------------------------------*
 ! Factors & indices
 !___________________*
-SGTSE = SGMA * TSE  
+    SGTSE = SGMA * TSE  
+    SGSTSE = SGSQ * TSE  
+    !                             SET FACTORS DEPENDING ON SIGMA
+    NCEBOT = NCOLMB(NCL)  
+    NAQU = NLYRBT(NCL, 1)  
 
-SGSTSE = SGSQ * TSE  
-!                             SET FACTORS DEPENDING ON SIGMA
-NCEBOT = NCOLMB (NCL)  
+    !                             SET BOTTOM COLUMN CELL, AND
+    !                             BOTTOM AQUIFER CELL NUMBERS
+    NDUM = NCETOP - NAQU + 2  
+    ROH(NAQU - 1 : NAQU - 1 + NDUM - 1) = ONE 
+    VELDUM(NAQU - 1 : NAQU - 1 + NDUM - 1) = ONE 
 
-NAQU = NLYRBT (NCL, 1)  
-!                             SET BOTTOM COLUMN CELL, AND
-!                             BOTTOM AQUIFER CELL NUMBERS
-NDUM = NCETOP - NAQU + 2  
-CALL ALINIT (ONE, NDUM, ROH (NAQU - 1) )  
+    !                             set defaults
+    JBK = ICMREF(NCL, 1)  
+    ISBK = (JBK /= 0)  
 
-CALL ALINIT (ONE, NDUM, VELDUM (NAQU - 1) )  
-!                             set defaults
-JBK = ICMREF (NCL, 1)  
-ISBK = JBK.NE.0  
-IF (ISBK) THEN  
-!                             ELEMENT IS A BANK
-   NLINKA = ICMREF (NCL, 4)  
-   NDIFF = NLYRBT (NLINKA, 1) - NAQU  
-!                             NUMBER & CELL OFFSET FOR ASSOCIATED LINK
-   JAL = 0  
-  100    JAL = JAL + 1  
-   IF (ICMREF (NLINKA, JAL + 4) .NE.NCL) GOTO 100  
-   JFLINK = ICMREF (NLINKA, JAL + 8)  
-!                             NUMBER FOR FACE ASSOCIATED WITH LINK
-   DBK = AREA (NCL) / CLENTH (NLINKA)  
-   DMULT = DBK / (DBK + half * CWIDTH (NLINKA) )  
-   DINV = ONE / DMULT  
-   DO 102 NCE = NAQU - 1, NCEBD (NLINKA, JBK)  
-      ROH (NCE) = DMULT  
-      VELDUM (NCE) = DINV  
-  102    END DO  
-   ROH (NCE) = ONE- (ONE-DMULT) * FNCEBD (NLINKA, JBK)  
-ELSE  
-!                             NOT A BANK
-   JFLINK = 0  
+    IF (ISBK) THEN  
+        !                         ELEMENT IS A BANK
+        NLINKA = ICMREF(NCL, 4)  
+        NDIFF = NLYRBT(NLINKA, 1) - NAQU  
+        
+        !                         NUMBER & CELL OFFSET FOR ASSOCIATED LINK
+        JAL = 0  
+        find_jal: DO 
+            JAL = JAL + 1  
+            IF (ICMREF(NLINKA, JAL + 4) == NCL) EXIT find_jal 
+        END DO find_jal
 
+        JFLINK = ICMREF(NLINKA, JAL + 8)  
+        
+        !                         NUMBER FOR FACE ASSOCIATED WITH LINK
+        DBK = AREA(NCL) / CLENTH(NLINKA)  
+        DMULT = DBK / (DBK + half * CWIDTH(NLINKA))  
+        DINV = ONE / DMULT  
+        
+        DO NCE = NAQU - 1, NCEBD(NLINKA, JBK)  
+            ROH(NCE) = DMULT  
+            VELDUM(NCE) = DINV  
+        END DO  
+        
+        ROH(NCE) = ONE - (ONE - DMULT) * FNCEBD(NLINKA, JBK)  
+    ELSE  
+        !                         NOT A BANK
+        JFLINK = 0  
+    END IF  
 
+    !                             SET ROH (& VELDUM): FOR A BANK
+    !                             ROH IS THE RATIO OF THE WIDTH OF THE BANK
+    !                             SOIL COLUMN TO THE SUM OF THE WIDTH OF THE
+    !                             BANK SOIL COLUMN AND HALF THE WIDTH OF THE
+    !                             STREAM; IT IS USED IN SUBSURFACE FLOW
+    !                             CALCULATIONS TO ALLOW THE SAME CODE TO BE
+    !                             USED FOR BANK AND NON-BANK COLUMNS
+    !                             NB: ROH IS 1 ABOVE THE BOTTOM OF THE BED
+    !                             DEEP LAYER.
+    !                             FOR A NON-BANK, ROH IS 1
+    !970521                       See also "temporary" section at the end
 
-
-ENDIF  
-!                             SET ROH (& VELDUM): FOR A BANK
-!                             ROH IS THE RATIO OF THE WIDTH OF THE BANK
-!                             SOIL COLUMN TO THE SUM OF THE WIDTH OF THE
-!                             BANK SOIL COLUMN AND HALF THE WIDTH OF THE
-!                             STREAM; IT IS USED IN SUBSURFACE FLOW
-!                             CALCULATIONS TO ALLOW THE SAME CODE TO BE
-!                             USED FOR BANK AND NON-BANK COLUMNS
-!                             NB: ROH IS 1 ABOVE THE BOTTOM OF THE BED
-!                             DEEP LAYER.
-!                             FOR A NON-BANK, ROH IS 1
-!970521                       See also "temporary" section at the end
 ! Properties for each cell *
 !__________________________*
-DO 190 NCE = NAQU, NCETOP  
-   TRAN1 (NCE) = ERUZ (NCL, NCE)  
+    TRAN1(NAQU : NCETOP) = ERUZ(NCL, NAQU : NCETOP) 
 
-  190 END DO  
-!                             SET LOCAL VECTOR FOR RATE OF PLANT UPTAKE
-!                             OF WATER FOR THE FULL LENGTH OF THE COLUMN
-DO 221 JLYR = 1, NLYR (NCL)  
-   JSOIL = NTSOIL (NCL, JLYR)  
-   DO 212 NCE = MAX (NCEBOT, NLYRBT (NCL, JLYR) ), NLYRBT (NCL, &
-    JLYR + 1) - 1
-      JSOL (NCE) = JSOIL  
-      KSP (NCE) = DELTAZ (NCE, NCL) / Z2  
-      KSPP (NCE) = (ZVSNOD (NCE+1, NCL) - ZVSNOD (NCE, NCL) ) &
-       / Z2
-!                             NB kspp(ncetop) is overwritten below
-      TTHET (NCE) = VSTHEO (NCL, NCE)  
+    !                             SET LOCAL VECTOR FOR RATE OF PLANT UPTAKE
+    !                             OF WATER FOR THE FULL LENGTH OF THE COLUMN
+    layer_loop: DO JLYR = 1, NLYR(NCL)  
+        JSOIL = NTSOIL(NCL, JLYR)  
+        
+        cell_loop: DO NCE = MAX(NCEBOT, NLYRBT(NCL, JLYR)), NLYRBT(NCL, JLYR + 1) - 1
+            JSOL(NCE) = JSOIL  
+            KSP(NCE) = DELTAZ(NCE, NCL) / Z2  
+            KSPP(NCE) = (ZVSNOD(NCE + 1, NCL) - ZVSNOD(NCE, NCL)) / Z2
+            
+            !                     NB kspp(ncetop) is overwritten below
+            TTHET(NCE) = VSTHEO(NCL, NCE)  
+            UUAJP(NCE) = UUAJPO(NCL, NCE)  
+            
+            IF (JBK == 0) THEN  
+                !                 regular column element
+                TTHET1(NCE) = VSTHE(NCE, NCL)  
+                UUAJP1(NCE) = QVSV(NCE, NCL)  
+            ELSE  
+                !                 element is (L-shaped) bank
+                !                 NB uuajp1(nhbed) is overwritten below
+                NCEA = NCE + NDIFF  
+                IF (NCEA <= NCETOP) THEN  
+                    ROHDUM = ROH(NAQU)  
+                    OMROH = one - ROHDUM  
+                    THEDUM = VSTHE(NCEA, NLINKA)  
+                    QVDUM = QVSV(NCEA, NLINKA)  
+                    TTHET1(NCE) = OMROH * THEDUM + ROHDUM * VSTHE(NCE, NCL)
+                    UUAJP1(NCE) = OMROH * QVDUM + ROHDUM * QVSV(NCE, NCL)
+                ELSE  
+                    TTHET1(NCE) = VSTHE(NCE, NCL)  
+                    UUAJP1(NCE) = QVSV(NCE, NCL)  
+                END IF  
+            END IF  
 
-      UUAJP (NCE) = UUAJPO (NCL, NCE)  
-      IF (JBK.EQ.0) THEN  
-!                             regular column element
-         TTHET1 (NCE) = VSTHE (NCE, NCL)  
-         UUAJP1 (NCE) = QVSV (NCE, NCL)  
-      ELSE  
-!                             element is (L-shaped) bank
-!                             NB uuajp1(nhbed) is overwritten below
-         NCEA = NCE+NDIFF  
-         IF (NCEA.LE.NCETOP) THEN  
-            ROHDUM = ROH (NAQU)  
-            OMROH = one - ROHDUM  
-            THEDUM = VSTHE (NCEA, NLINKA)  
+            VSTHEO(NCL, NCE) = TTHET1(NCE)  
+            UUAJPO(NCL, NCE) = UUAJP1(NCE)  
+            PHIDUM = PHI(JSOIL, TTHET1(NCE))  
+            PPHI(NCE) = PHI(JSOIL, TTHET(NCE))  
+            PPHI1(NCE) = PHIDUM  
+            GGAMM(NCE) = GGAMMO(NCL, NCE)  
+            GGAMM1(NCE) = ((one - XXI * PHIDUM) * ROH(NCE) * TRAN1(NCE) / (KSP(NCE) * Z2)) &
+                          + (((one - PHIDUM) * TTHET1(NCE) - (one - PPHI(NCE)) * TTHET(NCE)) / DTUZ)
+            GGAMMO(NCL, NCE) = GGAMM1(NCE)  
+        END DO cell_loop  
+    END DO layer_loop  
 
-            QVDUM = QVSV (NCEA, NLINKA)  
-            TTHET1 (NCE) = OMROH * THEDUM + ROHDUM * VSTHE (NCE, &
-             NCL)
-            UUAJP1 (NCE) = OMROH * QVDUM + ROHDUM * QVSV (NCE, &
-             NCL)
-         ELSE  
-            TTHET1 (NCE) = VSTHE (NCE, NCL)  
+    !                             ordinary cells
+    KSP(NCETOP + 1) = KSP(NCETOP)  
+    KSPP(NCETOP) = KSP(NCETOP)  
+    KSPP(NCEBOT - 1) = DELTAZ(NCEBOT, NCL) / Z2  
+    
+    !                             special cells for KSP*
+    IF (ISBK) THEN  
+        NCE = NHBED(NLINKA, JBK)  
+        UUAJP1(NCE) = QVSV(NCE, NCL)  
+    END IF  
 
-            UUAJP1 (NCE) = QVSV (NCE, NCL)  
+    !                             vert. vel. of cell below bed is in top
+    !                             part of L-shaped column (over-rides above)
+    NCE = NAQU - 1  
+    UUAJP(NCE) = UUAJPO(NCL, NCE)  
+    IF (JBK == 0) THEN  
+        UUAJP1(NCE) = QVSV(NCE, NCL)  
+    ELSE  
+        NCEA = NCE + NDIFF  
+        UUAJP1(NCE) = ((ONE - ROH(NCE)) * QVSV(NCEA, NLINKA) + ROH(NCE) * QVSV(NCE, NCL))
+    END IF  
 
-         ENDIF  
+    UUAJPO(NCL, NCE) = UUAJP1(NCE)  
 
-      ENDIF  
-      VSTHEO (NCL, NCE) = TTHET1 (NCE)  
+    !                             vert vel for cell below aquifer base
+    !                             SET cell properties, moisture content,
+    !                             AND VERTICAL FLOW VALUES, AND
+    !                             STORE 'OLD' VALUES FOR NEXT TIME STEP
+    !970314                       NB See "temporary code" at end of routine
 
-      UUAJPO (NCL, NCE) = UUAJP1 (NCE)  
-      PHIDUM = PHI (JSOIL, TTHET1 (NCE) )  
-      PPHI (NCE) = PHI (JSOIL, TTHET (NCE) )  
-      PPHI1 (NCE) = PHIDUM  
-      GGAMM (NCE) = GGAMMO (NCL, NCE)  
-      GGAMM1 (NCE) = (one - XXI * PHIDUM) * ROH (NCE) * TRAN1 ( &
-       NCE) / (KSP (NCE) * Z2) + ( (one - PHIDUM) * TTHET1 (NCE) &
-       - (one - PPHI (NCE) ) * TTHET (NCE) ) / DTUZ
-      GGAMMO (NCL, NCE) = GGAMM1 (NCE)  
-  212    END DO  
-
-  221 END DO  
-!                             ordinary cells
-KSP (NCETOP + 1) = KSP (NCETOP)  
-KSPP (NCETOP) = KSP (NCETOP)  
-
-KSPP (NCEBOT - 1) = DELTAZ (NCEBOT, NCL) / Z2  
-!                             special cells for KSP*
-IF (ISBK) THEN  
-   NCE = NHBED (NLINKA, JBK)  
-   UUAJP1 (NCE) = QVSV (NCE, NCL)  
-ENDIF  
-!                             vert. vel. of cell below bed is in top
-!                             part of L-shaped column (over-rides above)
-NCE = NAQU - 1  
-UUAJP (NCE) = UUAJPO (NCL, NCE)  
-IF (JBK.EQ.0) THEN  
-   UUAJP1 (NCE) = QVSV (NCE, NCL)  
-ELSE  
-   NCEA = NCE+NDIFF  
-   UUAJP1 (NCE) = ( (ONE-ROH (NCE) ) * QVSV (NCEA, NLINKA) &
-    + ROH (NCE) * QVSV (NCE, NCL) )
-ENDIF  
-
-
-
-
-UUAJPO (NCL, NCE) = UUAJP1 (NCE)  
-!                             vert vel for cell below aquifer base
-!                             SET cell properties, moisture content,
-!                             AND VERTICAL FLOW VALUES, AND
-!                             STORE 'OLD' VALUES FOR NEXT TIME STEP
-!970314                       NB See "temporary code" at end of routine
 ! Properties common to every cell *
 !_________________________________*
-TTTLSE = 1.0D-4  
-!                             SET MOISTURE CONTENT FOR LOOSE SEDIMENTS
-DDA = DYQQ (NCL)  
-DDB = DXQQ (NCL)  
-DDDSW = DSWO (NCL)  
-DDDSW1 = HRF (NCL) - ZGRUND (NCL)  
-DSWO (NCL) = DDDSW1  
-DDDLS = DLSO (NCL)  
-DDDLS1 = DLS (NCL)  
-DLSO (NCL) = DLS (NCL)  
-GGGNU = GNUO (NCL)  
-GGGNU1 = GNU (NCL)  
-GNUO (NCL) = GNU (NCL)  
-ZONE = ZONEO (NCL)  
-ZONE1 = (ZGRUND (NCL) - ZCOLMB (NCL) ) / Z2  
-ZONEO (NCL) = ZONE1  
-!                             SET WIDTHS OF COLUMN,
-!                             DEPTHS OF SURFACE WATER AND
-!                             SEDIMENTS, EROSION RATE, AND
-!                             NON-DIMENSIONED SATURATED DEPTH
-NCEPSF = NCETOP  
-!                             FORMERLY (pre v4.0) THE HIGHEST CELL
-!                             NUMBER IN THE SATURATED ZONE;
-!                             now lateral transport is allowed
-!                             up to the ground surface
-CST2 = Z2 / (AREA (NCL) * D0)  
-CST1 = CST2 / ZONE1  
+    TTTLSE = 1.0D-4  
+    
+    !                             SET MOISTURE CONTENT FOR LOOSE SEDIMENTS
+    DDA = DYQQ(NCL)  
+    DDB = DXQQ(NCL)  
+    DDDSW = DSWO(NCL)  
+    DDDSW1 = HRF(NCL) - ZGRUND(NCL)  
+    DSWO(NCL) = DDDSW1  
+    DDDLS = DLSO(NCL)  
+    DDDLS1 = DLS(NCL)  
+    DLSO(NCL) = DLS(NCL)  
+    GGGNU = GNUO(NCL)  
+    GGGNU1 = GNU(NCL)  
+    GNUO(NCL) = GNU(NCL)  
+    ZONE = ZONEO(NCL)  
+    ZONE1 = (ZGRUND(NCL) - ZCOLMB(NCL)) / Z2  
+    ZONEO(NCL) = ZONE1  
 
+    !                             SET WIDTHS OF COLUMN,
+    !                             DEPTHS OF SURFACE WATER AND
+    !                             SEDIMENTS, EROSION RATE, AND
+    !                             NON-DIMENSIONED SATURATED DEPTH
+    NCEPSF = NCETOP  
+    !                             FORMERLY (pre v4.0) THE HIGHEST CELL
+    !                             NUMBER IN THE SATURATED ZONE;
+    !                             now lateral transport is allowed
+    !                             up to the ground surface
+    CST2 = Z2 / (AREA(NCL) * D0)  
+    CST1 = CST2 / ZONE1  
+    CST3 = CST2 / KSP(NCEBOT)  
 
+    !                             SET CONSTANTS USED IN CONVECTION TERMS
+    convection_loop: DO JA = 1, 4  
+        NELMA = ICMREF(NCL, JA + 4)  
+        ISBDY(JA) = (NELMA == 0)  
+        
+        IF (.NOT. ISBDY(JA)) THEN  
+            IF (ICMREF(NELMA, 1) == 3) THEN  
+                NWORK(JA) = ICMREF(NELMA, JA + 4)  
+            ELSE  
+                NWORK(JA) = NELMA  
+            END IF  
+        ELSE  
+            NWORK(JA) = NCL  
+            !                     ASSUME MIRROR IMAGE IF FACE IS AT THE
+            !                     BOUNDARY OF CATCHMENT
+        END IF  
+    END DO convection_loop  
 
-CST3 = CST2 / KSP (NCEBOT)  
-!                            SET CONSTANTS USED IN CONVECTION TERMS
-DO 303 JA = 1, 4  
-   NELMA = ICMREF (NCL, JA + 4)  
-   ISBDY (JA) = NELMA.EQ.0  
-   IF (.NOT.ISBDY (JA) ) THEN  
-      IF (ICMREF (NELMA, 1) .EQ.3) THEN  
-         NWORK (JA) = ICMREF (NELMA, JA + 4)  
-      ELSE  
-         NWORK (JA) = NELMA  
-      ENDIF  
-   ELSE  
-      NWORK (JA) = NCL  
-!                             ASSUME MIRROR IMAGE IF FACE IS AT THE
-!                             BOUNDARY OF CATCHMENT
-   ENDIF  
+    !                             SET NWORKj TO THE NUMBER FOR THE COLUMN
+    !                             ADJACENT TO FACE j
 
-
-
-  303 END DO  
-!                             SET NWORKj TO THE NUMBER FOR THE COLUMN
-!                             ADJACENT TO FACE j
 !+++++ MAIN LOOP FOR COLUMN FACES +++++*
 !______________________________________*
 
-DO 605 JA = 1, 4  
-   DO 318 NCE = NCEBOT - 1, NCETOP + 1  
-      QQ (NCE, JA) = zero  
-      QQ1 (NCE, JA) = zero  
-      DUMMY (NCE) = zero  
+    main_face_loop: DO JA = 1, 4  
+        QQ(NCEBOT - 1 : NCETOP + 1, JA) = zero  
+        QQ1(NCEBOT - 1 : NCETOP + 1, JA) = zero  
+        DUMMY(NCEBOT - 1 : NCETOP + 1) = zero  
 
-  318    END DO  
-   IF (JA.EQ.JFLINK) THEN  
-!                             IS INSIDE FACE OF BANK
-      DO 329 NCE = NCEBOT, NHBED (NLINKA, JBK)  
-         NCEA = NCE+NDIFF  
-         JB = 1 + MOD (JA + 1, 4)  
-         Q1 (NCE) = .5D0 * (QVSH (JA, NCEA, NLINKA) - QVSH (JB, &
-          NCEA, NLINKA) )
-  329       END DO  
-      DO 395 NCE = NHBED (NLINKA, JBK) + 1, NCETOP  
-         Q1 (NCE) = QVSH (JA, NCE, NCL)  
-  395       END DO  
-   ELSE  
-!                             neighbour is a land element
-      DO 410 NCE = NCEBOT, NCETOP  
-         Q1 (NCE) = QVSH (JA, NCE, NCL)  
-  410       END DO  
-      NCLA = ICMREF (NCL, JA + 4)  
-      IF (ISBK.AND.NCLA.GT.0) THEN  
-         IF (ICMREF (NCLA, 1) .EQ.1.OR.ICMREF (NCLA, 1) .EQ.2) &
-          THEN
-!                             add extra flow for end-to-end banks
-            DO 496 NCE = NCEBOT, NHBED (NLINKA, JBK)  
-               NCEA = NCE+NDIFF  
-               Q1 (NCE) = Q1 (NCE) + .5D0 * QVSH (JA, NCEA, &
-                NLINKA)
-  496             END DO  
-         ENDIF  
+        IF (JA == JFLINK) THEN  
+            !                     IS INSIDE FACE OF BANK
+            DO NCE = NCEBOT, NHBED(NLINKA, JBK)  
+                NCEA = NCE + NDIFF  
+                JB = 1 + MOD(JA + 1, 4)  
+                Q1(NCE) = .5D0 * (QVSH(JA, NCEA, NLINKA) - QVSH(JB, NCEA, NLINKA))
+            END DO  
+            
+            Q1(NHBED(NLINKA, JBK) + 1 : NCETOP) = QVSH(JA, NHBED(NLINKA, JBK) + 1 : NCETOP, NCL) 
+        ELSE  
+            !                     neighbour is a land element
+            Q1(NCEBOT : NCETOP) = QVSH(JA, NCEBOT : NCETOP, NCL) 
+            
+            NCLA = ICMREF(NCL, JA + 4)  
+            IF (ISBK .AND. NCLA > 0) THEN  
+                IF (ICMREF(NCLA, 1) == 1 .OR. ICMREF(NCLA, 1) == 2) THEN
+                    !             add extra flow for end-to-end banks
+                    DO NCE = NCEBOT, NHBED(NLINKA, JBK)  
+                        NCEA = NCE + NDIFF  
+                        Q1(NCE) = Q1(NCE) + .5D0 * QVSH(JA, NCEA, NLINKA)
+                    END DO  
+                END IF  
+            END IF  
+        END IF  
 
-      ENDIF  
+        !                         SET THE LATERAL FLOW RATES Q1 FOR THE
+        !                         ENTIRE DEPTH OF FACE JA OF THE
+        !                         CURRENT COLUMN NCL (incl L-shaped banks)
+        DO NCE = NCEBOT, NCETOP  
+            QQ1(NCE, JA) = Q1(NCE) * (ZONE1 * ROH(NCE) / KSP(NCE))  
+            QQ(NCE, JA) = QQO(NCL, NCE, JA)  
+            QQO(NCL, NCE, JA) = QQ1(NCE, JA)  
+        END DO  
+        !                         SET THE OLD AND NEW LATERAL FLOW RATES
+        !                         FOR THE SATURATED SECTIONS OF THE FACES
+        !                         OF THE CURRENT COLUMN
+    END DO main_face_loop  
+    !                             ++++++++++++ END OF MAIN LOOP ++++++++++++
 
-
-   ENDIF  
-!                             SET THE LATERAL FLOW RATES Q1 FOR THE
-!                             ENTIRE DEPTH OF FACE JA OF THE
-!                             CURRENT COLUMN NCL (incl L-shaped banks)
-   DO 511 NCE = NCEBOT, NCETOP  
-      QQ1 (NCE, JA) = Q1 (NCE) * (ZONE1 * ROH (NCE) / KSP (NCE) )  
-      QQ (NCE, JA) = QQO (NCL, NCE, JA)  
-      QQO (NCL, NCE, JA) = QQ1 (NCE, JA)  
-  511    END DO  
-!                             SET THE OLD AND NEW LATERAL FLOW RATES
-!                             FOR THE SATURATED SECTIONS OF THE FACES
-!                             OF THE CURRENT COLUMN
-
-
-
-
-  605 END DO  
-!                             ++++++++++++ END OF MAIN LOOP ++++++++++++
 !__________________________*
-DO 712 JDUM = 1, 2  
-   QQQSW (JDUM) = QQQSWO (NCL, JDUM)  
-   QQQSW (JDUM + 2) = QQQSWO (NCL, JDUM + 2)  
-   QQQSW1 (JDUM) = - QOC (NCL, JDUM)  
-   QQQSWO (NCL, JDUM) = QQQSW1 (JDUM)  
-   QQQSW1 (JDUM + 2) = QOC (NCL, JDUM + 2)  
-   QQQSWO (NCL, JDUM + 2) = QQQSW1 (JDUM + 2)  
+    DO JDUM = 1, 2  
+        QQQSW(JDUM) = QQQSWO(NCL, JDUM)  
+        QQQSW(JDUM + 2) = QQQSWO(NCL, JDUM + 2)  
+        QQQSW1(JDUM) = -QOC(NCL, JDUM)  
+        QQQSWO(NCL, JDUM) = QQQSW1(JDUM)  
+        QQQSW1(JDUM + 2) = QOC(NCL, JDUM + 2)  
+        QQQSWO(NCL, JDUM + 2) = QQQSW1(JDUM + 2)  
+    END DO  
+    
+    !                             SET RATE OF LATERAL SURFACE WATER FLOW
+    !                             INTO THE FOUR FACES OF THE COLUMN
 
-
-
-  712 END DO  
-!                             SET RATE OF LATERAL SURFACE WATER FLOW
-!                             INTO THE FOUR FACES OF THE COLUMN
 ! Boundary Conditions *
 !_____________________*
-NCWELL = NVSWLT (NCL)  
-IF (NCWELL.NE.0) THEN  
-   QQQWEL = - RSZWLO (NCWELL) * AREA (NCWELL)  
-   QQQWL1 = - QVSWEL (NCWELL) * AREA (NCWELL)  
-ELSE  
-   QQQWEL = zero  
-   QQQWL1 = zero  
+    NCWELL = NVSWLT(NCL)  
+    IF (NCWELL /= 0) THEN  
+        QQQWEL = -RSZWLO(NCWELL) * AREA(NCWELL)  
+        QQQWL1 = -QVSWEL(NCWELL) * AREA(NCWELL)  
+    ELSE  
+        QQQWEL = zero  
+        QQQWL1 = zero  
+    END IF  
 
-ENDIF  
-!                             irrigation onto grids
-QI = QIO (NCL)  
-QI1 = - PNETTO (NCL) * AREA (NCL)  
+    !                             irrigation onto grids
+    QI = QIO(NCL)  
+    QI1 = -PNETTO(NCL) * AREA(NCL)  
+    QIO(NCL) = QI1  
 
-QIO (NCL) = QI1  
-!                             SET RATE OF RAIN WATER INFLOW (NEGATIVE
-!                             TO CONFORM TO POSITIVE UPWARDS CONVENTION)
-WELDRA(NAQU:NCETOP) = zero
-IW = NVSWLI (NCL)  
-IF (IW.NE.0) THEN  
-   DO 818 NCE = NWELBT (NCL), NWELTP (NCL)  
-  818    WELDRA (NCE) = QVSWLI (NCE, IW)  
+    !                             SET RATE OF RAIN WATER INFLOW (NEGATIVE
+    !                             TO CONFORM TO POSITIVE UPWARDS CONVENTION)
+    WELDRA(NAQU : NCETOP) = zero
+    IW = NVSWLI(NCL)  
+    IF (IW /= 0) THEN  
+        WELDRA(NWELBT(NCL) : NWELTP(NCL)) = QVSWLI(NWELBT(NCL) : NWELTP(NCL), IW) 
+    END IF  
 
-ENDIF  
-!                             SET THE RATE OF WELL WITHDRAWL FROM
-!                             INDIVIDUAL CELLS
-DO 1198 NCE = 1, NCETOP  
-   QQRV (NCE) = zero  
- 1198 END DO  
+    !                             SET THE RATE OF WELL WITHDRAWL FROM
+    !                             INDIVIDUAL CELLS
+    QQRV(1 : NCETOP) = zero 
 
+    IF (ISBK) QQRV(NCEAB(NLINKA, JBK)) = QBKB(NLINKA, JBK)  
+    !                             SET RATE OF FLOW INTO BANK CELLS FROM
+    !                             STREAM WATER. FLOW TAKES PLACE ONLY OVER
+    !                             THE SATURATED DEPTH BETWEEN CELL NCEAB AND
+    !                             THE EFFECTIVE BED OF THE CHANNEL
 
-IF (ISBK) QQRV (NCEAB (NLINKA, JBK) ) = QBKB (NLINKA, JBK)  
-!                             SET RATE OF FLOW INTO BANK CELLS FROM
-!                             STREAM WATER. FLOW TAKES PLACE ONLY OVER
-!                             THE SATURATED DEPTH BETWEEN CELL NCEAB AND
-!                             THE EFFECTIVE BED OF THE CHANNEL
 !################### temporary code for calc vertical vels. JE 18/9/91
 ! re-used by GP 24/1/96
 ! emult: fraction of the error correction which is removed at each cell
-DO 3030 NCE = NCETOP, MAX (1, NCETOP - 4), - 1  
- 3030 EMULT (NCE) = zero  
-DO 3032 NCE = NCETOP - 5, MAX (1, NCETOP - 7), - 1  
- 3032 EMULT (NCE) = 0.1D0  
-DO 3034 NCE = NCETOP - 8, MAX (1, NCETOP - 19), - 1  
- 3034 EMULT (NCE) = half  
-DO 3036 NCE = NCETOP - 20, NCEBOT, - 1  
+    EMULT(MAX(1, NCETOP - 4) : NCETOP) = zero 
+    EMULT(MAX(1, NCETOP - 7) : NCETOP - 5) = 0.1D0 
+    EMULT(MAX(1, NCETOP - 19) : NCETOP - 8) = half 
+    EMULT(NCEBOT : NCETOP - 20) = ONE 
 
- 3036 EMULT (NCE) = ONE  
-UIN = (DDDSW1 - DDDSW) / (Z2SQOD * TSE)  
-DUM = zero  
-DO 3120 JA = 1, 4  
-   DUM = DUM + QQQSW1 (JA)  
- 3120 END DO  
-
-UUAJP1 (NCETOP) = UIN + EEVAP (NCL) + (QI1 - DUM) / AREA (NCL)  
-DO 3122 NCE = NCETOP, NCEBOT, - 1  
-   DUM0 = KSP (NCE) / (ROH (NCE) * ZONE1)  
-   DUM = KSP (NCE) * (TTHET1 (NCE) - TTHET (NCE) ) / (ROH (NCE) &
-    * Z2OD * TSE)
-   DUM = DUM + WELDRA (NCE) + TRAN1 (NCE)  
-   DUM1 = QQRV (NCE) + DUM0 * (QQ1 (NCE, 1) + QQ1 (NCE, 2) &
-    + QQ1 (NCE, 3) + QQ1 (NCE, 4) )
-   UUOLD = UUAJP1 (NCE-1)  
-   UUNEW = (DUM - DUM1 / AREA (NCL) + VELDUM (NCE) * UUAJP1 (NCE) &
-    ) / VELDUM (NCE-1)
-   ERRDUM = UUNEW - UUOLD  
-   UUAJP1 (NCE-1) = UUNEW - ERRDUM * EMULT (NCE)  
-   UUAJPO (NCL, NCE-1) = UUAJP1 (NCE-1)  
-
- 3122 END DO  
+    UIN = (DDDSW1 - DDDSW) / (Z2SQOD * TSE)  
+    DUM = SUM(QQQSW1(1:4))
+    
+    UUAJP1(NCETOP) = UIN + EEVAP(NCL) + (QI1 - DUM) / AREA(NCL)  
+    
+    DO NCE = NCETOP, NCEBOT, -1  
+        DUM0 = KSP(NCE) / (ROH(NCE) * ZONE1)  
+        DUM = KSP(NCE) * (TTHET1(NCE) - TTHET(NCE)) / (ROH(NCE) * Z2OD * TSE)
+        DUM = DUM + WELDRA(NCE) + TRAN1(NCE)  
+        DUM1 = QQRV(NCE) + DUM0 * (QQ1(NCE, 1) + QQ1(NCE, 2) + QQ1(NCE, 3) + QQ1(NCE, 4))
+        UUOLD = UUAJP1(NCE - 1)  
+        UUNEW = (DUM - DUM1 / AREA(NCL) + VELDUM(NCE) * UUAJP1(NCE)) / VELDUM(NCE - 1)
+        ERRDUM = UUNEW - UUOLD  
+        UUAJP1(NCE - 1) = UUNEW - ERRDUM * EMULT(NCE)  
+        UUAJPO(NCL, NCE - 1) = UUAJP1(NCE - 1)  
+    END DO  
 !################### end of temporary code
-QQRF = QQRFO (NCL)  
-QQRF1 = AREA (NCL) * UUAJP1 (NCEBOT - 1)  
 
-QQRFO (NCL) = QQRF1  
-!                             set rate of flow through base of column
-
-
-
-
+    QQRF = QQRFO(NCL)  
+    QQRF1 = AREA(NCL) * UUAJP1(NCEBOT - 1)  
+    QQRFO(NCL) = QQRF1  
+    !                             set rate of flow through base of column
 
 END SUBROUTINE COLMW
 
