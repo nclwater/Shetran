@@ -1961,7 +1961,7 @@ DO IEL = 1, total_no_elements
 
 END DO  
 
-element_loop: DO IEL = total_no_links + 1, total_no_elements
+element_loop_wells_springs: DO IEL = total_no_links + 1, total_no_elements
     ICBOT = NLYRBT(IEL, 1)
 
     ZGI = ZGRUND(IEL)
@@ -1998,7 +1998,7 @@ element_loop: DO IEL = total_no_links + 1, total_no_elements
 
     END IF
 
-END DO element_loop
+END DO element_loop_wells_springs
 
 ! call VSSOIL to set up soil property tables
 CALL VSSOIL  
