@@ -177,7 +177,7 @@ NYE = NYEE
 
 ! ----- Static character variables
 !
-      CHARACTER*200     RESFIL
+      CHARACTER(len=200)     RESFIL
       
 !PRIVATE :: NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
 END MODULE AL_D
