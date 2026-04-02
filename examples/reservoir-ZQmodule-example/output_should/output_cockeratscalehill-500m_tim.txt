@@ -1,2 +1,0 @@
-Current time =   67920.40 hours. Number of steps =  160987
-

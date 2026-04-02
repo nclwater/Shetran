@@ -21,9 +21,11 @@ docs/ford/*
 
 # Sample compute specific stuff
 examples/*.csv
-test_compute
-diff_delta
-_*/
+examples/*/compute/
+examples/*/diff_delta/
+examples/*/output_should/*
+examples/_*/
+!examples/_methods/
 *.sav
 *.backup
 comparison_results.csv

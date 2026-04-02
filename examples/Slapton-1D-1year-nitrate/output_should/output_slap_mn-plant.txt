@@ -1,5 +1,0 @@
- mnptin data file open: unit 56; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Slapton-1D-1year-nitrate\test_compute\input_slap_mnpl.txt       
-
-
- Canopy densty fuction for nitrogen uptake by plants (winter Wheat)                                                                                                                                      
-

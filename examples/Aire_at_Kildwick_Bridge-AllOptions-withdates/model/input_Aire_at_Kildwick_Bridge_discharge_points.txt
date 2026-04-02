@@ -1,0 +1,8 @@
+Extra discharge points. These will be included in the output_CATCHNAME_discharge_sim_regulartimestep.txt file. The format is SHETRAN element number and face number (1= E, 2=N, 3=W, 4=S)
+Number_of_points 6
+12 4
+31 1
+38 2
+51 1
+85 1
+105 4

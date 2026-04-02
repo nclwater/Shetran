@@ -1,0 +1,138 @@
+ XML Filename = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Aire_at_Kildwick_BridgeLibraryFile_simple.xml
+ 
+ Catchment Mask Filename = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Mask_Aire_at_Kildwick_Bridge.asc
+ DEM Mean Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Dem_Aire_at_Kildwick_Bridge.asc
+ 
+ ***********NOTE*****************************
+ Minimum DEM Filename = The minimum DEM filename is empty in the XML. The tag is "DEMminFileName". The mean DEM file will be used to caculate the location and elevation of channels
+ ********************************************
+ 
+ DEM Minimum Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Dem_Aire_at_Kildwick_Bridge.asc
+ 
+ ***********NOTE*****************************
+ Land use distribution Filename = The Land use distribution filename is empty in the XML. The tag is "VegMap". The same default land use will be assumed throught the catchment
+ ********************************************
+ 
+ Land Use Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Mask_Aire_at_Kildwick_Bridge.asc
+ 
+ ***********NOTE*****************************
+ Soil Category distribution Filename = The Soil Category distribution filename is empty in the XML.  The tag is "SoilMap". The same default land use will be assumed throught the catchment
+ ********************************************
+ 
+ Soil Category Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Mask_Aire_at_Kildwick_Bridge.asc
+ 
+ ***********NOTE*****************************
+ Lake distribution Filename = The Lake distribution filename is empty in the XML. The tag is "LakeMap". There are assumed to be no lakes
+ ********************************************
+ 
+ 
+ ***********NOTE*****************************
+ Precipitation Distribution Filename = The Precipitation distribution filename is empty in the XML. The tag is "PrecipMap". The same precipitation will be assumed throught the catchment
+ ********************************************
+ 
+ Precipitation Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Mask_Aire_at_Kildwick_Bridge.asc
+ 
+ ***********NOTE*****************************
+ Potential Evaporation Distribution Filename = The Potential Evaporation distribution filename is empty in the XML.  The tag is "PeMap". The same PET will be assumed throught the catchment
+ ********************************************
+ 
+ Potential Evaporation Distribution Filname = C:\Users\steve\Documents\shetran-prepare\Shetran-prepare\examples-test\Aire_at_Kildwick_Bridge-simple\Map_Mask_Aire_at_Kildwick_Bridge.asc
+ 
+ ***********NOTE*****************************
+ The Minimum Temperature Time Series File Name = The Miniumum Temperature Time Series File is empty in the XML. The tag is "MaxTempTimeSeriesData". This is used in the snow melt component and if there is no file specified a constant value of 10C is used
+ ********************************************
+ 
+ 
+ ***********NOTE*****************************
+ The Minimum Temperature Time Series File Name = The Miniumum Temperature Time Series File is empty in the XML. The tag is "MinTempTimeSeriesData". This is used in the snow melt component and if there is no file specified a constant value of 10C is used
+ ********************************************
+ 
+ 
+ ***********NOTE*****************************
+ Precipitation Time Series File Name = The Precipitation Time Series File is empty in the XML. The tag is "PrecipitationTimeSeriesData". Sample precipitation data will be used
+ ********************************************
+ 
+ The precipitation time series file should have a single header line and then at least 1 values (this is the maximum value in the PrecMap file) on each line
+ 
+ ***********NOTE*****************************
+ Potential Evaporation Time Series File Name = The Potential Evaporation Time Series File is empty in the XML. The tag is "EvaporationTimeSeriesData". Sample potential evaporation data will be used
+ ********************************************
+ 
+ The potential evaporation time series file should have a single header line and then at least 1 values (this is the maximum value in the PEMap file) on each line
+ 
+ 
+ Iteration process for removing sinks
+ ************************************
+ Number of river chanel sinks =            3
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            0
+ 
+ Number of land element sinks =           40
+ Number of land element sinks =           21
+ Number of land element sinks =           22
+ Number of land element sinks =           22
+ Number of land element sinks =           22
+ Number of land element sinks =           22
+ Number of land element sinks =           21
+ Number of land element sinks =           20
+ Number of land element sinks =           19
+ Number of land element sinks =           19
+ Number of land element sinks =           19
+ Number of land element sinks =           19
+ Number of land element sinks =           18
+ Number of land element sinks =           15
+ Number of land element sinks =           14
+ Number of land element sinks =           13
+ Number of land element sinks =           13
+ Number of land element sinks =           13
+ Number of land element sinks =           13
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           15
+ Number of land element sinks =           14
+ Number of land element sinks =           13
+ Number of land element sinks =           13
+ Number of land element sinks =           13
+ Number of land element sinks =           12
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =           11
+ Number of land element sinks =            9
+ Number of land element sinks =            8
+ Number of land element sinks =            7
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            7
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            5
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            6
+ Number of land element sinks =            4
+ Number of land element sinks =            2
+ Number of land element sinks =            1
+ Number of land element sinks =            0

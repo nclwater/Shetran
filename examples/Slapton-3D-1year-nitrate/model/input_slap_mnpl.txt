@@ -1,0 +1,44 @@
+:MNP1 Title
+Canopy densty fuction for nitrogen uptake by plants (woodland,grassland,arable)
+:MNP10 Number of data values for plant type 1 (woodland)
+    11
+:MNP11 CDI and CDIT(days) for plant type 1
+    0.20    0.0
+    0.20    60.0
+    0.50    100.0
+    0.80    120.0
+    0.90    140.0
+    1.00    160.0
+    1.00    200.0
+    0.90    210.0
+    0.30    280.0
+    0.20    300.0
+    0.20    365.0
+:MNP10 Number of data values for plant type 2 (grassland)
+    11
+:MNP11 CDI and CDIT(days) for plant type 2
+    0.50    0.0
+    0.50    60.0
+    0.70    100.0
+    0.80    120.0
+    0.90    140.0
+    1.00    160.0
+    1.00    200.0
+    1.00    210.0
+    0.70    280.0
+    0.60    300.0
+    0.50    365.0
+:MNP10 Number of data values for plant type 3 (arable)
+    11
+:MNP11 CDI and CDIT(days) for plant type 3
+    0.15    0.0
+    0.20    60.0
+    0.30    100.0
+    0.60    120.0
+    0.80    140.0
+    0.90    160.0
+    1.00    200.0
+    0.05    210.0
+    0.05    280.0
+    0.10    300.0
+    0.15    365.0

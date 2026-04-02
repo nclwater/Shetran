@@ -1,7 +1,0 @@
- CMD data file open: unit 18; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Aire_at_Kildwick_Bridge-AllOptions-withdates\test_compute\input_   
-
-
- Aire_at_Kildwick_Bridge                                                         
-
- CMD data file closed: unit 18; C:\Users\tolstoi\Documents\Code\shetran_rework\examples\Aire_at_Kildwick_Bridge-AllOptions-withdates\test_compute\input_ 
-
