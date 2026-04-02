@@ -114,10 +114,10 @@ TYPE(HDF5_ITEM), DIMENSION(:), POINTER :: hdf5_items=>NULL()
 INTEGER                  :: no_times=0, no_lists=0, no_masks=0, no_items=0, no_static_items=0
 INTEGER, PARAMETER       :: sp=50  !DEBUG compiler bug  should be <sp>X in writes, but had to make it 50X
 REAL, PARAMETER          :: small = 0.001
-CHARACTER(4), PARAMETER  :: keywords(7)         = (/'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag'/)
-CHARACTER(12),PARAMETER  :: basis(3)            = (/'grid_as_grid', 'grid_as_list', 'list_as_list'/)
-CHARACTER(7), PARAMETER  :: scope(4)            = (/'all', 'squares', 'banks', 'rivers'/)
-CHARACTER(11), PARAMETER :: extra_dimensions(4) = (/'-','faces','X_Y', 'left_right'/)
+CHARACTER(4), PARAMETER  :: keywords(7)         = [character(len=4)  :: 'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag']
+CHARACTER(12),PARAMETER  :: basis(3)            = [character(len=12) :: 'grid_as_grid', 'grid_as_list', 'list_as_list']
+CHARACTER(7), PARAMETER  :: scope(4)            = [character(len=7)  :: 'all', 'squares', 'banks', 'rivers']
+CHARACTER(11), PARAMETER :: extra_dimensions(4) = [character(len=11) :: '-','faces','X_Y', 'left_right']
 LOGICAL                  :: diagnostics=F
 
 
