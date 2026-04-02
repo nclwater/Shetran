@@ -3440,9 +3440,9 @@ END SUBROUTINE SYREAD
 
 !SSSSSS SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
 SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
- DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
- PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
- TAUK)
+                  DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
+                  PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
+                  TAUK)
 !
 !----------------------------------------------------------------------*
 !
@@ -3457,97 +3457,91 @@ SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
 !----------------------------------------------------------------------*
 !
 ! Commons and distributed constants
-USE CONST_SY
+    USE CONST_SY
 !
 ! Constants referenced
-!     CONST.SY:   GRAVTY  RHOWAT
+!     CONST.SY:  GRAVTY  RHOWAT
 !
+    IMPLICIT NONE
+
 ! Input arguments
 ! NB: Don't use NLF as array size: it may be zero
-INTEGER :: NEL, NELEE, NLF, NLFEE, NV
-INTEGER :: ICMREF (NELEE, 4, 2:3), ICMRF2 (NLFEE, 3, 2)
- INTEGER :: NVC (NLF + 1:NEL)
-DOUBLEPRECISION CLAI (NV), DHF (NELEE, 4), DRAINA (NLF + 1:NEL)  
-DOUBLEPRECISION DRDRIP (NV), HRF (NEL), PLAI (NV), PNETTO (NLF + &
- 1:NEL)
-DOUBLEPRECISION QOC (NELEE, 4), ZBFULL (NLFEE), ZGRUND (NEL)  
-
-  
-LOGICAL :: LINKNS (NLFEE)  
+    INTEGER, INTENT(IN) :: NEL, NELEE, NLF, NLFEE, NV
+    INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:3), ICMRF2(NLFEE, 3, 2)
+    INTEGER, INTENT(IN) :: NVC(NLF + 1 : NEL)
+    DOUBLE PRECISION, INTENT(IN) :: CLAI(NV), DHF(NELEE, 4), DRAINA(NLF + 1 : NEL)  
+    DOUBLE PRECISION, INTENT(IN) :: DRDRIP(NV), HRF(NEL), PLAI(NV), PNETTO(NLF + 1 : NEL)
+    DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4), ZBFULL(NLFEE), ZGRUND(NEL)  
+    LOGICAL, INTENT(IN) :: LINKNS(NLFEE)  
 !
 ! Output arguments
-DOUBLEPRECISION DRDROP (NLF + 1:NEL), DWAT1 (NEL), FCC (NV)  
-DOUBLEPRECISION FQCONF (NLFEE, 3), LRAIN (NLF + 1:NEL)  
-DOUBLEPRECISION SLOPEJ (NELEE, 4), TAUJ (NELEE, 4), TAUK (NEL)  
+    DOUBLE PRECISION, INTENT(OUT) :: DRDROP(NLF + 1 : NEL), DWAT1(NEL), FCC(NV)  
+    DOUBLE PRECISION, INTENT(OUT) :: FQCONF(NLFEE, 3), LRAIN(NLF + 1 : NEL)  
+    DOUBLE PRECISION, INTENT(OUT) :: SLOPEJ(NELEE, 4), TAUJ(NELEE, 4), TAUK(NEL)  
 ! NB: FQCONF defined only for branches flowing INTO a node;
 !     SLOPEJ & TAUJ not defined at side faces of links.
 !
 ! Locals, etc
-DOUBLEPRECISION DRDMIN  
-PARAMETER (DRDMIN = 1D-4)  
-!
-DOUBLEPRECISION DRAINE, DWAT1E, FCCE, HRFE, PNETTE, SLOPEE, TAUJE  
-DOUBLEPRECISION D, DA, DE, HA, HE, L  
-DOUBLEPRECISION Q, QABS, QMAX, QOUT, QOUTX (0:3), QSUM, TAUMAX, &
- ZBF
-DOUBLEPRECISION FQOUT  
-INTEGER :: FACE, IADJ, IBR, ICOL, IEL, IELP  
-INTEGER :: KADJ, KEL, KELP, LINK, P, PADJ, PIN, POUT, VEG  
-LOGICAL :: BSIDE  
-!
-FQOUT (IEL, FACE) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)  
+    DOUBLE PRECISION, PARAMETER :: DRDMIN = 1.0D-4  
+    
+    DOUBLE PRECISION :: DRAINE, DWAT1E, FCCE, HRFE, PNETTE, SLOPEE, TAUJE  
+    DOUBLE PRECISION :: D, DA, DE, HA, HE, L  
+    DOUBLE PRECISION :: Q, QABS, QMAX, QOUT, QOUTX(0:3), QSUM, TAUMAX, ZBF
+    INTEGER :: FACE, IADJ, IBR, ICOL, IEL, IELP  
+    INTEGER :: KADJ, KEL, KELP, LINK, P, PADJ, PIN, POUT, VEG  
+    LOGICAL :: BSIDE  
 !
 !----------------------------------------------------------------------*
-!
+
 ! Loop over Vegetation Types
 ! --------------------------
 !
 !     * Calculate ground fraction sheltered from rain by canopy
-DO 100 VEG = 1, NV  
-   FCC (VEG) = PLAI (VEG) * MIN (CLAI (VEG), ONE)  
-  100 END DO  
-!
+    ! Replaced DO 100 loop with array slicing
+    FCC(1:NV) = PLAI(1:NV) * MIN(CLAI(1:NV), ONE)  
+
 !
 ! Loop over Column Elements
 ! -------------------------
 !
-DO 200 ICOL = NLF + 1, NEL  
+    column_loop: DO ICOL = NLF + 1, NEL  
 !
 !        * Avoid multiple array references
-   DRAINE = DRAINA (ICOL)  
-   PNETTE = PNETTO (ICOL)  
-   VEG = NVC (ICOL)  
-   FCCE = FCC (VEG)  
+        DRAINE = DRAINA(ICOL)  
+        PNETTE = PNETTO(ICOL)  
+        VEG = NVC(ICOL)  
+        FCCE = FCC(VEG)  
 !
 !        * Calculate median raindrop/leaf-drip diameter
-   D = DRDMIN  
-   IF (PNETTE.GT.ZERO) D = MAX (D, DRDRIP (VEG) * (DRAINE / &
-    PNETTE), 0.01935d0 * PNETTE**0.182d0)
-   DRDROP (ICOL) = D  
+        D = DRDMIN  
+        IF (PNETTE > ZERO) THEN
+            D = MAX(D, DRDRIP(VEG) * (DRAINE / PNETTE), 0.01935d0 * PNETTE**0.182d0)
+        END IF
+        DRDROP(ICOL) = D  
 !
 !        * Calculate rainfall rate
-   L = ZERO  
-   IF (FCCE.LT.ONE) L = DIMJE(PNETTE, DRAINE) / (ONE-FCCE)  
-   LRAIN (ICOL) = L  
+        L = ZERO  
+        IF (FCCE < ONE) L = DIMJE(PNETTE, DRAINE) / (ONE - FCCE)  
+        LRAIN(ICOL) = L  
 !
-  200 END DO  
-!
+    END DO column_loop  
+
 !
 ! Loop over All Elements
 ! ----------------------
 !
-DO 390 IEL = 1, NEL  
+    element_loop: DO IEL = 1, NEL  
 !
 !        * Avoid multiple array references
-   HRFE = HRF (IEL)  
+        HRFE = HRF(IEL)  
 !
 !        * Calculate (& store) surface water depth
-   DWAT1E = DIMJE(HRFE, ZGRUND (IEL) )  
-   DWAT1 (IEL) = DWAT1E  
+        DWAT1E = DIMJE(HRFE, ZGRUND(IEL))  
+        DWAT1(IEL) = DWAT1E  
 !
 !        * Initialize maximum flow & shear stress
-   QMAX = ZERO  
-   TAUMAX = ZERO  
+        QMAX = ZERO  
+        TAUMAX = ZERO  
 !
 !        Loop over Faces ...
 !        -------------------
@@ -3555,138 +3549,151 @@ DO 390 IEL = 1, NEL
 !        ... of this element, in order to set FQCONF, SLOPEJ and TAUJ,
 !        and to find a value for TAUK
 !
-   DO 350 FACE = 1, 4  
+        face_loop: DO FACE = 1, 4  
 !
 !           * Not interested in link element side faces
-      BSIDE = IEL.LE.NLF  
-      IF (BSIDE) BSIDE = MOD (FACE, 2) .EQ.1.EQV.LINKNS (IEL)  
-      IF (BSIDE) GOTO 350  
-!                      ^^^^^^^^
+            BSIDE = IEL <= NLF  
+            IF (BSIDE) BSIDE = (MOD(FACE, 2) == 1) .EQV. LINKNS(IEL)  
+            
+            ! Replaced GOTO 350 with modern CYCLE
+            IF (BSIDE) CYCLE face_loop  
 !
 !           * Discharge rate
-      QOUT = FQOUT (IEL, FACE)  
+            QOUT = FQOUT(IEL, FACE)  
 !
 !           * No-flow faces are special case
-      IF (ISZERO(QOUT)) THEN  
+            IF (ISZERO(QOUT)) THEN  
 !              * (consider weirs and branch nodes for example)
-         SLOPEJ (IEL, FACE) = ZERO  
-         TAUJ (IEL, FACE) = ZERO  
-         GOTO 350  
-!              ^^^^^^^^
-      ENDIF  
+                SLOPEJ(IEL, FACE) = ZERO  
+                TAUJ(IEL, FACE) = ZERO  
+                
+                ! Replaced GOTO 350 with modern CYCLE
+                CYCLE face_loop  
+            END IF  
 !
 !           * Find neighbouring element, & its face (also set FQCONF)
-      KEL = FACE  
-      IADJ = ICMREF (IEL, KEL, 2)  
-      IF (IADJ.EQ.0) THEN  
+            KEL = FACE  
+            IADJ = ICMREF(IEL, KEL, 2)  
+            IF (IADJ == 0) THEN  
 !              * This is a boundary face; extrapolate from behind ...
-         KEL = 1 + MOD (FACE+1, 4)  
-         IADJ = ICMREF (IEL, KEL, 2)  
-      ENDIF  
-      IF (IADJ.EQ.0) THEN  
+                KEL = 1 + MOD(FACE + 1, 4)  
+                IADJ = ICMREF(IEL, KEL, 2)  
+            END IF  
+            
+            IF (IADJ == 0) THEN  
 !              * ... unless that's a boundary too; then go for slope=0
-         IADJ = IEL  
-         KADJ = KEL  
-      ELSEIF (IADJ.GT.0) THEN  
+                IADJ = IEL  
+                KADJ = KEL  
+            ELSEIF (IADJ > 0) THEN  
 !              * Neighbour is a regular element
-         KADJ = ICMREF (IEL, KEL, 3)  
-      ELSE  
+                KADJ = ICMREF(IEL, KEL, 3)  
+            ELSE  
 !
 !              * Extra things to do if neighbour is a confluence node
 !
 !              * Branch index
-         IBR = - IADJ  
+                IBR = -IADJ  
 !
 !              * Initialize locals for prospect-loop:
 !              - gross discharge from the node
-         QSUM = ZERO  
+                QSUM = ZERO  
 !              - prospects with maximal inflow/outflow
-         PIN = 0  
-         POUT = 0  
+                PIN = 0  
+                POUT = 0  
 !              - discharge from node (let this branch be prospect 0)
-         QOUTX (0) = - FQOUT (IEL, KEL)  
+                QOUTX(0) = -FQOUT(IEL, KEL)  
 !
 !              * Loop over Prospects
-         DO 300 P = 1, 3  
-            IELP = ICMRF2 (IBR, P, 1)  
-            IF (IELP.GT.0) THEN  
-               KELP = ICMRF2 (IBR, P, 2)  
-               Q = - FQOUT (IELP, KELP)  
-               QSUM = QSUM + MAX (ZERO, Q)  
-               IF (Q.LT.QOUTX (PIN) ) PIN = P  
-               IF (Q.GT.QOUTX (POUT) ) POUT = P  
-            ELSE  
-               Q = ZERO  
-            ENDIF  
-            QOUTX (P) = Q  
-  300          END DO  
+                DO P = 1, 3  
+                    IELP = ICMRF2(IBR, P, 1)  
+                    IF (IELP > 0) THEN  
+                        KELP = ICMRF2(IBR, P, 2)  
+                        Q = -FQOUT(IELP, KELP)  
+                        QSUM = QSUM + MAX(ZERO, Q)  
+                        IF (Q < QOUTX(PIN)) PIN = P  
+                        IF (Q > QOUTX(POUT)) POUT = P  
+                    ELSE  
+                        Q = ZERO  
+                    END IF  
+                    QOUTX(P) = Q  
+                END DO  
 !
 !              * Redefine neighbour as link with maximal outflow ...
-         PADJ = POUT  
+                PADJ = POUT  
 !              * ... unless node is at inflow face for this element
-         IF (QOUTX (0) .GT.ZERO) PADJ = PIN  
-         IF (PADJ.GT.0) THEN  
-            IADJ = ICMRF2 (IBR, PADJ, 1)  
-            KADJ = ICMRF2 (IBR, PADJ, 2)  
-         ELSE  
-!                 * (no obvious candidate: go for slope=0)
-            IADJ = IEL  
-            KADJ = KEL  
-         ENDIF  
+                IF (QOUTX(0) > ZERO) PADJ = PIN  
+                
+                IF (PADJ > 0) THEN  
+                    IADJ = ICMRF2(IBR, PADJ, 1)  
+                    KADJ = ICMRF2(IBR, PADJ, 2)  
+                ELSE  
+!                  * (no obvious candidate: go for slope=0)
+                    IADJ = IEL  
+                    KADJ = KEL  
+                END IF  
 !
 !              * Calculate node outflow fractions if appropriate
-         IF (QOUT.GT.ZERO.AND.KEL.EQ.FACE) THEN  
-!                 * NB: Need precondition on QOC to ensure QSUM.GT.0
-            DO 320 P = 1, 3  
-               FQCONF (IBR, P) = MAX (ZERO, QOUTX (P) ) / QSUM  
-  320             END DO  
-         ENDIF  
+                IF (QOUT > ZERO .AND. KEL == FACE) THEN  
+!                  * NB: Need precondition on QOC to ensure QSUM.GT.0
+                    DO P = 1, 3  
+                        FQCONF(IBR, P) = MAX(ZERO, QOUTX(P)) / QSUM  
+                    END DO  
+                END IF  
 !
-      ENDIF  
+            END IF  
 !
 !           * Calculate water surface slope
-      HE = HRFE  
-      HA = HRF (IADJ)  
-      DE = DHF (IEL, KEL)  
-      DA = DHF (IADJ, KADJ)  
-      IF (IEL.LE.NLF.NEQV.IADJ.LE.NLF) THEN  
+            HE = HRFE  
+            HA = HRF(IADJ)  
+            DE = DHF(IEL, KEL)  
+            DA = DHF(IADJ, KADJ)  
+            
+            IF ((IEL <= NLF) .NEQV. (IADJ <= NLF)) THEN  
 !              * this is a bank face; use bank-full elevation as cut-off
-         LINK = MIN (IEL, IADJ)  
-         ZBF = ZBFULL (LINK)  
-         IF (HE.LE.ZBF) THEN  
-            HE = ZBF  
-            DE = ZERO  
-         ENDIF  
-         IF (HA.LE.ZBF) THEN  
-            HA = ZBF  
-            IF (DE.GT.ZERO) DA = ZERO  
-         ENDIF  
-      ENDIF  
-      SLOPEE = ABS (HE-HA) / (DE+DA)  
-      SLOPEJ (IEL, FACE) = SLOPEE  
+                LINK = MIN(IEL, IADJ)  
+                ZBF = ZBFULL(LINK)  
+                IF (HE <= ZBF) THEN  
+                    HE = ZBF  
+                    DE = ZERO  
+                END IF  
+                IF (HA <= ZBF) THEN  
+                    HA = ZBF  
+                    IF (DE > ZERO) DA = ZERO  
+                END IF  
+            END IF  
+            
+            SLOPEE = ABS(HE - HA) / (DE + DA)  
+            SLOPEJ(IEL, FACE) = SLOPEE  
 !
 !           * Calculate flow shear stress at the ground surface
-      TAUJE = RHOWAT * GRAVTY * DWAT1E * SLOPEE  
-      TAUJ (IEL, FACE) = TAUJE  
+            TAUJE = RHOWAT * GRAVTY * DWAT1E * SLOPEE  
+            TAUJ(IEL, FACE) = TAUJE  
 !
 !           * Find maximum flow rate so far and TAUJ for that face
-      QABS = ABS (QOUT)  
-      IF (QABS.GT.QMAX) THEN  
-         QMAX = QABS  
-         TAUMAX = TAUJE  
-      ENDIF  
+            QABS = ABS(QOUT)  
+            IF (QABS > QMAX) THEN  
+                QMAX = QABS  
+                TAUMAX = TAUJE  
+            END IF  
 !
 !        * Next face
-  350    END DO  
+        END DO face_loop  
 !
 !        * Set representative shear stress equal to maximum over faces
-   TAUK (IEL) = TAUMAX  
+        TAUK(IEL) = TAUMAX  
 !
 !     * Next element
-  390 END DO  
-!
-END SUBROUTINE SYWAT
+    END DO element_loop  
 
+CONTAINS
+
+    ! Modern internal function replacing the obsolescent statement function
+    DOUBLE PRECISION FUNCTION FQOUT(IEL, FACE)
+        INTEGER, INTENT(IN) :: IEL, FACE
+        FQOUT = SIGN(1, 2 - FACE) * QOC(IEL, FACE)
+    END FUNCTION FQOUT
+
+END SUBROUTINE SYWAT
 
 
 
