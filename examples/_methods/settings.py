@@ -20,20 +20,40 @@ list_long_running = [
     "Slapton-1D-1year-nitrate", "Slapton-3D-1year-nitrate"
 ]
 list_medium_runtime = [
-    "38014-100m-SurfaceErrors", "Aire_at_Kildwick_Bridge-AllOptions-withdates",
-    "Aire_at_Kildwick_Bridge-simple", "Cobres",
-    "Cobres-ExtraOutputDischargePoints", "Cobres-ExtraOutputWaterTable",
-    "Cobres1D", "dano100m", "dunsop", "dunsop-hot1", "dunsop-hot2",
-    "foston100m", "reservoir-ZQmodule-example", "Slapton",
-    "Slapton-1D-1year-nitrate", "Slapton-3D-1year-nitrate"
+    "38014-100m-SurfaceErrors",
+    "Aire_at_Kildwick_Bridge-AllOptions-withdates",
+    "Aire_at_Kildwick_Bridge-simple",
+    "Cobres",
+    "Cobres-ExtraOutputDischargePoints",
+    "Cobres-ExtraOutputWaterTable",
+    "Cobres1D",
+    # "dano100m",
+    "dunsop",
+    "dunsop-hot1",
+    "dunsop-hot2",
+    "foston100m",
+    "reservoir-ZQmodule-example",
+    "Slapton",
+    "Slapton-1D-1year-nitrate",
+    "Slapton-3D-1year-nitrate"
 ]
 list_short_runtime = [
-    "38014-100m-SurfaceErrors", "Aire_at_Kildwick_Bridge-AllOptions-withdates",
-    "Aire_at_Kildwick_Bridge-simple", "Cobres",
-    "Cobres-ExtraOutputDischargePoints", "Cobres-ExtraOutputWaterTable",
-    "Cobres1D", "dano100m", "dunsop", "dunsop-hot1", "dunsop-hot2",
-    "foston100m", "reservoir-ZQmodule-example", "Slapton",
-    "Slapton-1D-1year-nitrate", "Slapton-3D-1year-nitrate"
+    # "38014-100m-SurfaceErrors",
+    "Aire_at_Kildwick_Bridge-AllOptions-withdates",
+    "Aire_at_Kildwick_Bridge-simple",
+    "Cobres",
+    "Cobres-ExtraOutputDischargePoints",
+    "Cobres-ExtraOutputWaterTable",
+    "Cobres1D",
+    # "dano100m",
+    "dunsop",
+    "dunsop-hot1",
+    "dunsop-hot2",
+    "foston100m",
+    "reservoir-ZQmodule-example",
+    "Slapton",
+    "Slapton-1D-1year-nitrate",
+    "Slapton-3D-1year-nitrate"
 ]
 
 # Indicators which files are for what comparison.
