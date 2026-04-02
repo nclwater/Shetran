@@ -82,7 +82,6 @@ def do_comparison(dir_main: str,
 def main() -> None:
 
     # settings
-    fn_shetran = settings.default_shetran_exe
     # fn_shetran = os.path.join("_official_exe", "Shetran.exe")
 
     parser = argparse.ArgumentParser(description=(
