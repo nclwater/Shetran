@@ -83,7 +83,7 @@ END SUBROUTINE dcopy
 
 !SSSSSS SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
 SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
- FNEXT, NINP, ARRAY)
+                   FNEXT, NINP, ARRAY)
 !----------------------------------------------------------------------
 !
 ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF FLUX DATA.
@@ -101,66 +101,70 @@ SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
 !       (OUTPUT)  ARRAY   ARRAY OF DATA ITEMS
 !
 !----------------------------------------------------------------------
-!
-INTEGER :: IIN, NINP, TIME (5)  
-DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, FNEXT (NINP), ARRAY (NINP)
-INTEGER :: i, j
-DOUBLEPRECISION :: SIMEND
-!
-SIMEND = SIMNOW + SIMSTP  
-!
-! CHECK IF ANY DATA NEEDS TO BE READ
-!
-IF (INTIME.GE.SIMEND) THEN  
-   DO 5 I = 1, NINP  
-    5    ARRAY (I) = FNEXT (I)  
-   GOTO 1000  
-ENDIF  
-!
-! SAVE CURRENT DATA IN OUTPUT ARRAY
-!
-DO 10 I = 1, NINP  
-   ARRAY (I) = (INTIME-SIMNOW) * FNEXT (I)  
-   10 END DO  
-!
-! READ DATA AND ADD INTO TOTALS UNTIL END OF SIMULATION TIMESTEP
-!
-   20 READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (FNEXT (J), &
- J = 1, NINP)
-INLAST = INTIME  
-INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), TIME (5) ) &
- - TIH
-!
-IF (INTIME.LT.SIMEND) THEN  
-   DO 30 I = 1, NINP  
-      ARRAY (I) = ARRAY (I) + ( (INTIME-INLAST) * FNEXT (I) )  
-   30    END DO  
-   GOTO 20  
-ELSE  
-   DO 40 I = 1, NINP  
-      ARRAY (I) = ARRAY (I) + ( (SIMEND-INLAST) * FNEXT (I) )  
-   40    END DO  
-ENDIF  
-!
-! CALCULATE AVERAGE OVER SIMULATION TIMESTEP
-!
-DO 50 I = 1, NINP  
-   ARRAY (I) = ARRAY (I) / SIMSTP  
-   50 END DO  
-!
-! RETURN TO CALLING ROUTINE
-!
- 1000 RETURN  
-!
-! FATAL ERROR - END OF FILE REACHED - SET INTIME TO INDICATE ERROR
-!
- 9999 INTIME = marker999  
-RETURN  
-!
-END SUBROUTINE FINPUT
-!
+    IMPLICIT NONE
+    
+    ! Dummy Arguments
+    INTEGER, INTENT(IN)             :: IIN, NINP
+    DOUBLE PRECISION, INTENT(IN)    :: TIH, SIMNOW, SIMSTP
+    DOUBLE PRECISION, INTENT(INOUT) :: INLAST, INTIME
+    DOUBLE PRECISION, INTENT(INOUT) :: FNEXT(NINP)
+    DOUBLE PRECISION, INTENT(OUT)   :: ARRAY(NINP)
+    
+    ! Local Variables
+    INTEGER                         :: TIME(5), read_stat
+    DOUBLE PRECISION                :: SIMEND
 !----------------------------------------------------------------------
 
+    SIMEND = SIMNOW + SIMSTP  
+
+    ! CHECK IF ANY DATA NEEDS TO BE READ
+    IF (INTIME >= SIMEND) THEN  
+        ! Replaced DO loop with array slicing
+        ARRAY(1:NINP) = FNEXT(1:NINP)  
+        RETURN  
+    END IF  
+
+    ! SAVE CURRENT DATA IN OUTPUT ARRAY
+    ! Replaced DO 10 loop with array slicing
+    ARRAY(1:NINP) = (INTIME - SIMNOW) * FNEXT(1:NINP)  
+
+    ! READ DATA AND ADD INTO TOTALS UNTIL END OF SIMULATION TIMESTEP
+    ! Replaced the GOTO 20 loop with a modern DO block
+    read_loop: DO 
+        
+        ! 1. Replaced implied DO loops with slicing and END=9999 with IOSTAT
+        READ (IIN, *, IOSTAT=read_stat) TIME(1:5), FNEXT(1:NINP)
+        
+        ! FATAL ERROR - END OF FILE REACHED - SET INTIME TO INDICATE ERROR
+        IF (read_stat < 0) THEN 
+            INTIME = marker999  
+            RETURN  
+        END IF
+
+        INLAST = INTIME  
+        INTIME = HOUR_FROM_DATE(TIME(1), TIME(2), TIME(3), TIME(4), TIME(5)) - TIH
+
+        IF (INTIME < SIMEND) THEN  
+            ! Replaced DO 30 loop with array slicing
+            ARRAY(1:NINP) = ARRAY(1:NINP) + ((INTIME - INLAST) * FNEXT(1:NINP))  
+            ! Naturally cycles to the top of read_loop instead of GOTO 20
+        ELSE  
+            ! Replaced DO 40 loop with array slicing
+            ARRAY(1:NINP) = ARRAY(1:NINP) + ((SIMEND - INLAST) * FNEXT(1:NINP))  
+            EXIT read_loop 
+        END IF  
+        
+    END DO read_loop
+
+    ! CALCULATE AVERAGE OVER SIMULATION TIMESTEP
+    ! Replaced DO 50 loop with array slicing
+    ARRAY(1:NINP) = ARRAY(1:NINP) / SIMSTP  
+
+    ! RETURN TO CALLING ROUTINE
+    RETURN  
+
+END SUBROUTINE FINPUT
+!----------------------------------------------------------------------
 
 
 !SSSSSS SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
@@ -497,98 +501,153 @@ ELSE
 ENDIF
 END SUBROUTINE invertmat
 
-      SUBROUTINE lubksb(a,n,indx,b)
-      INTEGER         :: n, indx(n)
-      doubleprecision :: a(n,n), b(n)
-      INTEGER         :: i, ii, j, ll
-      doubleprecision :: asum
-      ii=0
-      do 12 i=1,n
-        ll=indx(i)
-        asum=b(ll)
-        b(ll)=b(i)
-        if (ii.ne.0)then
-          do 11 j=ii,i-1
-            asum=asum-a(i,j)*b(j)
-11        continue
-        else if (notzero(asum)) then
-          ii=i
-        endif
-        b(i)=asum
-12    continue
-      do 14 i=n,1,-1
-        asum=b(i)
-        do 13 j=i+1,n
-          asum=asum-a(i,j)*b(j)
-13      continue
-        b(i)=asum/a(i,i)
-14    continue
-      END SUBROUTINE lubksb
+
+!SSSSSS SUBROUTINE lubksb(a, n, indx, b)
+SUBROUTINE lubksb(a, n, indx, b)
+!----------------------------------------------------------------------*
+! Solves the linear system A*x = b using LU Decomposition.
+! 'a' is the LU-decomposed matrix output from 'ludcmp'.
+! 'indx' is the row permutation vector output from 'ludcmp'.
+! 'b' is the right-hand side vector on input, and contains the 
+!     solution vector 'x' on output.
+!----------------------------------------------------------------------*
+    IMPLICIT NONE
+
+    ! Dummy Arguments
+    INTEGER, INTENT(IN)             :: n
+    INTEGER, INTENT(IN)             :: indx(n)
+    DOUBLE PRECISION, INTENT(IN)    :: a(n,n)
+    DOUBLE PRECISION, INTENT(INOUT) :: b(n)
+
+    ! Local Variables
+    INTEGER                         :: i, ii, ll
+    DOUBLE PRECISION                :: asum
+!----------------------------------------------------------------------*
+
+    ii = 0
+
+    ! 1. Forward Substitution (Solving L*y = b)
+    forward_sub: DO i = 1, n
+        ll = indx(i)
+        asum = b(ll)
+        b(ll) = b(i)
+        
+        IF (ii /= 0) THEN
+            ! Replaced inner j loop with DOT_PRODUCT
+            asum = asum - DOT_PRODUCT(a(i, ii:i-1), b(ii:i-1))
+        ELSEIF (NOTZERO(asum)) THEN
+            ! Optimization: Record the first non-zero element to 
+            ! avoid doing math on a bunch of leading zeros.
+            ii = i
+        END IF
+        
+        b(i) = asum
+    END DO forward_sub
+
+    ! 2. Backward Substitution (Solving U*x = y)
+    backward_sub: DO i = n, 1, -1
+        ! Replaced inner j loop with DOT_PRODUCT
+        ! Note: when i=n, the slice i+1:n is empty, so DOT_PRODUCT safely returns 0.0
+        asum = b(i) - DOT_PRODUCT(a(i, i+1:n), b(i+1:n))
+        
+        b(i) = asum / a(i, i)
+    END DO backward_sub
+
+END SUBROUTINE lubksb
+
+
       
-      SUBROUTINE ludcmp(a,n,indx,d, issing)
-      INTEGER              :: n,indx(n)
-      doubleprecision      :: d,a(n,n),TINY
-      PARAMETER (TINY=1.0d-20)
-      INTEGER              :: i,imax,j,k
-      doubleprecision      :: aamax,dum,asum,vv(n)
-      LOGICAL, INTENT(out) :: issing
-      issing=.FALSE.
-      d=1.
-      do 12 i=1,n
-        IF(issing) CYCLE
-        aamax=0.
-        do 11 j=1,n
-          if (abs(a(i,j)).gt.aamax) aamax=abs(a(i,j))
-11      continue
+!SSSSSS SUBROUTINE ludcmp(a, n, indx, d, issing)
+SUBROUTINE ludcmp(a, n, indx, d, issing)
+!----------------------------------------------------------------------*
+! Performs LU Decomposition on matrix 'a' using partial pivoting.
+! 'a' is replaced by its LU decomposition.
+! 'indx' records the row permutations.
+! 'd' outputs +1 or -1 depending on whether row swaps were even or odd.
+! 'issing' is flagged .TRUE. if the matrix is singular.
+!----------------------------------------------------------------------*
+    IMPLICIT NONE
+
+    ! Dummy Arguments
+    INTEGER, INTENT(IN)             :: n
+    DOUBLE PRECISION, INTENT(INOUT) :: a(n,n)
+    INTEGER, INTENT(OUT)            :: indx(n)
+    DOUBLE PRECISION, INTENT(OUT)   :: d
+    LOGICAL, INTENT(OUT)            :: issing
+
+    ! Local Variables
+    INTEGER                         :: i, imax, j
+    DOUBLE PRECISION                :: aamax, dum, vv(n), dum_row(n)
+    DOUBLE PRECISION, PARAMETER     :: TINY = 1.0d-20
+!----------------------------------------------------------------------*
+
+    issing = .FALSE.
+    d = 1.0d0
+
+    ! 1. Replaced inner search loop with MAXVAL and array slicing
+    ! Calculate implicit scaling information for each row
+    DO i = 1, n
+        aamax = MAXVAL(ABS(a(i, 1:n)))
+        
         IF (ISZERO(aamax)) THEN
-            issing=.TRUE.  !pause 'singular matrix in ludcmp'
-            CYCLE
-        ENDIF    
-        vv(i)=1./aamax
-12    continue
-      IF(issing) RETURN
-      do 19 j=1,n
-        do 14 i=1,j-1
-          asum=a(i,j)
-          do 13 k=1,i-1
-            asum=asum-a(i,k)*a(k,j)
-13        continue
-          a(i,j)=asum
-14      continue
-        aamax=0.
-        do 16 i=j,n
-          asum=a(i,j)
-          do 15 k=1,j-1
-            asum=asum-a(i,k)*a(k,j)
-15        continue
-          a(i,j)=asum
-          dum=vv(i)*abs(asum)
-          if (dum.ge.aamax) then
-            imax=i
-            aamax=dum
-          endif
-16      continue
-        if (j.ne.imax)then
-          do 17 k=1,n
-            dum=a(imax,k)
-            a(imax,k)=a(j,k)
-            a(j,k)=dum
-17        continue
-          d=-d
-          vv(imax)=vv(j)
-        endif
-        indx(j)=imax
-        if(iszero(a(j,j)))a(j,j)=TINY
-        if(j.ne.n)then
-          dum=1./a(j,j)
-          do 18 i=j+1,n
-            a(i,j)=a(i,j)*dum
-18        continue
-        endif
-19    continue
-      END SUBROUTINE ludcmp
+            issing = .TRUE. 
+            RETURN ! Singular matrix, exit immediately
+        END IF
+        
+        vv(i) = 1.0d0 / aamax
+    END DO
+
+    ! Crout's Algorithm
+    outer_col_loop: DO j = 1, n
+        
+        ! 2. Replaced nested loop 13 with modern DOT_PRODUCT
+        ! Upper triangular part
+        upper_loop: DO i = 1, j - 1
+            a(i, j) = a(i, j) - DOT_PRODUCT(a(i, 1:i-1), a(1:i-1, j))
+        END DO upper_loop
+
+        aamax = 0.0d0
+        imax = j
+        
+        ! 3. Replaced nested loop 15 with DOT_PRODUCT
+        ! Lower triangular part and pivot search
+        lower_loop: DO i = j, n
+            a(i, j) = a(i, j) - DOT_PRODUCT(a(i, 1:j-1), a(1:j-1, j))
+            
+            dum = vv(i) * ABS(a(i, j))
+            IF (dum >= aamax) THEN
+                imax = i
+                aamax = dum
+            END IF
+        END DO lower_loop
+
+        ! Row swapping (Pivoting)
+        IF (j /= imax) THEN
+            ! 4. Replaced the element-by-element loop 17 with whole-array row slices
+            dum_row(1:n) = a(imax, 1:n)
+            a(imax, 1:n) = a(j, 1:n)
+            a(j, 1:n)    = dum_row(1:n)
+            
+            d = -d
+            vv(imax) = vv(j)
+        END IF
+        
+        indx(j) = imax
+
+        IF (ISZERO(a(j, j))) a(j, j) = TINY
+
+        ! 5. Replaced loop 18 with direct column scaling
+        IF (j /= n) THEN
+            dum = 1.0d0 / a(j, j)
+            a(j+1:n, j) = a(j+1:n, j) * dum
+        END IF
+        
+    END DO outer_col_loop
+
+END SUBROUTINE ludcmp
       
-      !SSSSSS SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
+
+!SSSSSS SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
 SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
 !----------------------------------------------------------------------*
 !
@@ -618,7 +677,7 @@ SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
 !    IOF  : FILE UNIT NUMBER FOR PRINTING TO
 !
 !    INUM : RANGE OF NUMBERS TO BE READ IN (EG. NO. OF MET. STATIONS)
-!            NB. IF SET TO ZERO, OLD FORMAT (20I4) WILL BE USED.
+!           NB. IF SET TO ZERO, OLD FORMAT (20I4) WILL BE USED.
 !
 !    ALSO INCLUDES THE POSSIBILITY OF FILLING AN INTEGER ARRAY
 !    WITH DEFAULT VALUES IN WHICH CASE SHOULD HAVE
@@ -626,140 +685,120 @@ SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
 !                               INF=REQUIRED DEFAULT VALUE
 !
 !----------------------------------------------------------------------*
-INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM  
-INTEGER, INTENT(OUT) :: IAOUT(:)  
-INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX, IA (NXEE,NYEE)
-CHARACTER(4)         :: TITLE (20)  
+    IMPLICIT NONE
+    
+    INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM  
+    INTEGER, INTENT(OUT) :: IAOUT(:)  
+    INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX
+    INTEGER              :: IA(NXEE, NYEE)
+    CHARACTER(4)         :: TITLE(20)  
 !----------------------------------------------------------------------*
-!
+
 !^^^^^^FILL IN SECTION
 !
-IF (KON.EQ.3) THEN  
-   DO 2 IEL = NGDBGN, total_no_elements  
-      IAOUT (IEL) = INF  
-    2    END DO  
-   RETURN  
+    IF (KON == 3) THEN  
+        ! Replaced DO loop with array slicing
+        IAOUT(NGDBGN : total_no_elements) = INF  
+        RETURN  
+    END IF  
 
-ENDIF  
-!
 !^^^^^^READ SECTION
 !
 ! CHECK I/O FORMATS OK FOR PRINTING ARRAY (LIMIT CURRENTLY SET TO 200)
 !
-IF ( (INUM.GT.0.AND.INUM.LT.10) .AND.NX.GT.500) THEN  
-   WRITE (IOF, 5)  
-    5 FORMAT  (' ', 'NX greater than 500. Change I/O formats in AREADI' &
-&              / 'Program aborted.' )
-   STOP  
-ENDIF  
-!
-IF (KON.EQ.0.OR.KON.EQ.1) THEN  
-!
-    READ (INF, 10) TITLE  
-        10 FORMAT   (20A4)  
-    DO 40 I1 = 1, NY  
-        K = NY + 1 - I1  
-        IF (INUM.GT.0.AND.INUM.LT.10) THEN  
-            READ (INF, 15) I2, (IA (J, K), J = 1, NX)  
-                15 FORMAT      (I7, 1X, 500I1)  
-            IF (I2.NE.K) THEN  
-                WRITE (IOF, 18) TITLE, I2  
-                STOP  
-            ENDIF  
-        ELSE  
-            READ (INF, 20) I2  
-                20 FORMAT       (I7)  
-            IF (I2.NE.K) THEN  
-                WRITE (IOF, 18) TITLE, I2  
-                STOP  
-            ENDIF  
-  !          READ (INF, 30) (IA (J, K), J = 1, NX)  
-              READ (INF, *) (IA (J, K), J = 1, NX)  
-              30 FORMAT(20I4)  
-        ENDIF  
+    IF ((INUM > 0 .AND. INUM < 10) .AND. NX > 500) THEN  
+        WRITE (IOF, "(' ', 'NX greater than 500. Change I/O formats in AREADI', /, 'Program aborted.')")  
+        STOP  
+    END IF  
 
-    40 ENDDO  
-18 FORMAT(//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF LINE K=', I5)
+    IF (KON == 0 .OR. KON == 1) THEN  
+        READ (INF, '(20A4)') TITLE  
+        
+        y_read_loop: DO I1 = 1, NY  
+            K = NY + 1 - I1  
+            IF (INUM > 0 .AND. INUM < 10) THEN  
+                ! Replaced implied DO loop with array slicing
+                READ (INF, '(I7, 1X, 500I1)') I2, IA(1:NX, K)  
+                IF (I2 /= K) THEN  
+                    WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2  
+                    STOP  
+                END IF  
+            ELSE  
+                READ (INF, '(I7)') I2  
+                IF (I2 /= K) THEN  
+                    WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2  
+                    STOP  
+                END IF  
+                ! Note: Used list-directed read (*) as per your original commented-out line 30
+                READ (INF, *) IA(1:NX, K)  
+            END IF  
+        END DO y_read_loop  
+
 !^^^^^^CONVERT GRID ARRAY TO ELEMENT ARRAY ...
 !
-   DO 62 IEL = 1, total_no_elements  
-      IAOUT (IEL) = 0  
+        ! Replaced DO loop with array slicing
+        IAOUT(1:total_no_elements) = 0  
 
-   62    END DO  
-   DO 64 I = 1, NX  
-      DO 64 J = 1, NY  
-         IEL = ICMXY (I, J)  
-         IF (IEL.NE.0) IAOUT (IEL) = IA (I, J)  
+        grid_to_elem_x: DO I = 1, NX  
+            grid_to_elem_y: DO J = 1, NY  
+                IEL = ICMXY(I, J)  
+                IF (IEL /= 0) IAOUT(IEL) = IA(I, J)  
+            END DO grid_to_elem_y  
+        END DO grid_to_elem_x  
 
-   64    CONTINUE  
-!
 !^^^^^^ ... OR CONVERT ELEMENT ARRAY TO GRID ARRAY
 !
-ELSE  
-!
-   DO 66 I = 1, NX  
-      DO 66 J = 1, NY  
-         IA (I, J) = 0 
-   66    CONTINUE  
-   DO 68 IEL = NGDBGN, total_no_elements  
-      IF (ICMREF (IEL, 1) .EQ.0) THEN  
-         I = ICMREF (IEL, 2)  
-         J = ICMREF (IEL, 3)  
-         IA (I, J) = IAOUT (IEL)  
-      ENDIF  
-   68    END DO  
-!
+    ELSE  
+        ! Replaced nested DO 66 loops with modern array zeroing
+        IA(1:NX, 1:NY) = 0 
+        
+        elem_to_grid_loop: DO IEL = NGDBGN, total_no_elements  
+            IF (ICMREF(IEL, 1) == 0) THEN  
+                I = ICMREF(IEL, 2)  
+                J = ICMREF(IEL, 3)  
+                IA(I, J) = IAOUT(IEL)  
+            END IF  
+        END DO elem_to_grid_loop  
+    END IF  
 
-ENDIF  
-!
 !^^^^^^PRINT SECTION
 !
-IF (KON.EQ.0) RETURN !GOTO 180  
-!
-IF (KON.EQ.1) WRITE (IOF, 80) TITLE  
+    IF (KON == 0) RETURN 
 
-   80 FORMAT (/ 20A4)  
-!
+    IF (KON == 1) WRITE (IOF, "(/, 20A4)") TITLE  
+
 ! CHECK FOR ALL ZEROES
 !
-!DO 110 I1 = 1, NX  
-!   DO 110 I2 = 1, NY  
-!      IF (IA (I1, I2) .EQ.0) GOTO 110  
-!      GOTO 130  
-!  110 CONTINUE
-IF(I_ISZERO_A2(ia(1:nx,1:ny))) THEN 
-    WRITE (IOF, 120)  
-    120 FORMAT (' ALL VALUES ZERO'/' ==============='/)  
-    RETURN !GOTO 180
-ENDIF  
-!
-130 NNX = (NX - 1) / 10 + 1  
+    IF (I_ISZERO_A2(IA(1:NX, 1:NY))) THEN 
+        WRITE (IOF, "(' ALL VALUES ZERO', /, ' ===============', /)")  
+        RETURN 
+    END IF  
 
-IF (INUM.GT.0.AND.INUM.LT.10) THEN  
-    DO 127 I1 = 1, NY  
-        K = NY + 1 - I1  
-        WRITE (IOF, 125) K, (IA (J, K), J = 1, NX)  
-        125 FORMAT    (' ', 'K=', I4, 1X, 500I1)  
-    127 END DO  
+    NNX = (NX - 1) / 10 + 1  
 
-ELSE  
-    DO 170 L = 1, NNX  
-        LAL = L * 10  
-        LL1 = LAL - 9  
-        NXX = MIN0 (NX, LAL)  
-        WRITE (IOF, 140) (I, I = LL1, LAL)  
-        140 FORMAT     ('0', 9X, 10('J=',I3,6X), /)  
-        DO 150 I1 = 1, NY  
+    IF (INUM > 0 .AND. INUM < 10) THEN  
+        print_compact_loop: DO I1 = 1, NY  
             K = NY + 1 - I1  
-        150       WRITE (IOF, 160) K, (IA (J, K), J = LL1, NXX)  
-        160 FORMAT     (' ', 'K=', I4, 2X, 10(I6,5X))  
-    170 END DO  
-ENDIF  
-WRITE (IOF, 90)  
+            WRITE (IOF, "(' ', 'K=', I4, 1X, 500I1)") K, IA(1:NX, K)  
+        END DO print_compact_loop  
+    ELSE  
+        print_blocks_loop: DO L = 1, NNX  
+            LAL = L * 10  
+            LL1 = LAL - 9  
+            ! Replaced MIN0 with modern generic MIN
+            NXX = MIN(NX, LAL)  
+            
+            WRITE (IOF, "('0', 9X, 10('J=',I3,6X), /)") (I, I = LL1, LAL)  
+            
+            print_rows_loop: DO I1 = 1, NY  
+                K = NY + 1 - I1  
+                WRITE (IOF, "(' ', 'K=', I4, 2X, 10(I6,5X))") K, IA(LL1:NXX, K)  
+            END DO print_rows_loop  
+        END DO print_blocks_loop  
+    END IF  
 
-   90 FORMAT (//2X, 80('*'), //)  
+    WRITE (IOF, "(/,/,2X, 80('*'), /,/)")  
 
-  180 CONTINUE  
 END SUBROUTINE AREADI
 
 
@@ -794,128 +833,114 @@ SUBROUTINE AREADR (AOUT, KON, INF, IOF)
 !
 !----------------------------------------------------------------------*
 ! Commons and constants
+    IMPLICIT NONE
+    
 ! Input arguments
+    INTEGER :: KON, INF, IOF  
 
-INTEGER :: KON, INF, IOF  
 ! In|out arguments
+    DOUBLE PRECISION :: AOUT(NELEE)  
 
-DOUBLEPRECISION AOUT (NELEE)  
 ! Locals, etc
-INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, &
- NXX
-DOUBLEPRECISION B1, B2, A (NXEE, NYEE)  
-
-
-CHARACTER (LEN=4) :: TITLE (20)  
+    INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, NXX
+    DOUBLE PRECISION :: B1, B2, A(NXEE, NYEE)  
+    CHARACTER(LEN=4) :: TITLE(20)  
 !----------------------------------------------------------------------*
-!
+
 !^^^^^^READ SECTION
 !
-IF (KON.EQ.0.OR.KON.EQ.1) THEN  
-!
-   READ (INF, 10) TITLE  
-   10 FORMAT   (20A4)  
-   DO 40 I1 = 1, NY  
-      READ (INF, 20) I2  
-   20 FORMAT     (I7)  
-      K = NY + 1 - I1  
-      IF (I2.NE.K) THEN  
-         WRITE (IOF, 25) TITLE, I2  
-   25 FORMAT       (//2X, 'ERROR IN DATA ', 20A4, //2X, &
-&        'IN THE VICINITY OF LINE K=', I5)
-         STOP  
-      ENDIF  
-      READ (INF, 30) (A (J, K), J = 1, NX)  
-   30 FORMAT     (10G7.0)  
-   40    END DO  
-!
+    IF (KON == 0 .OR. KON == 1) THEN  
+        READ (INF, '(20A4)') TITLE  
+        
+        y_read_loop: DO I1 = 1, NY  
+            READ (INF, '(I7)') I2  
+            K = NY + 1 - I1  
+            
+            IF (I2 /= K) THEN  
+                WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2  
+                STOP  
+            END IF  
+            
+            ! 1. Replaced implied DO loop with array slicing
+            READ (INF, '(10G7.0)') A(1:NX, K)  
+        END DO y_read_loop  
+
 !^^^^^^CONVERT GRID ARRAY TO ELEMENT ARRAY
 !
-   DO 64 I = 1, NX  
-      DO 64 J = 1, NY  
-         IEL = ICMXY (I, J)  
-         IF (IEL.NE.0) AOUT (IEL) = A (I, J)  
-   64    CONTINUE  
-!
+        grid_to_elem_x: DO I = 1, NX  
+            grid_to_elem_y: DO J = 1, NY  
+                IEL = ICMXY(I, J)  
+                IF (IEL /= 0) AOUT(IEL) = A(I, J)  
+            END DO grid_to_elem_y  
+        END DO grid_to_elem_x  
+
 !^^^^^^CONVERT ELEMENT ARRAY TO GRID ARRAY
 !
-ELSE  
-!
-   DO 66 I = 1, NX  
-      DO 66 J = 1, NY  
-         A (I, J) = zero  
-   66    CONTINUE  
-   DO 68 IEL = NGDBGN, total_no_elements  
-      IF (ICMREF (IEL, 1) .EQ.0) THEN  
-         I = ICMREF (IEL, 2)  
-         J = ICMREF (IEL, 3)  
-         A (I, J) = AOUT (IEL)  
-      ENDIF  
-   68    END DO  
-!
-ENDIF  
-!
+    ELSE  
+        ! 2. Replaced the nested DO 66 loops with modern array zeroing
+        A(1:NX, 1:NY) = zero  
+        
+        elem_to_grid_loop: DO IEL = NGDBGN, total_no_elements  
+            IF (ICMREF(IEL, 1) == 0) THEN  
+                I = ICMREF(IEL, 2)  
+                J = ICMREF(IEL, 3)  
+                A(I, J) = AOUT(IEL)  
+            END IF  
+        END DO elem_to_grid_loop  
+    END IF  
+
 !^^^^^^PRINT SECTION
 !
-IF (KON.EQ.0) RETURN !GOTO 180  
-!
-IF (KON.EQ.1) WRITE (IOF, 80) TITLE  
-   80 FORMAT (/ 20A4)  
-!
+    IF (KON == 0) RETURN   
+
+    IF (KON == 1) WRITE (IOF, "(/, 20A4)") TITLE  
+
 ! CHECK FOR ALL ZEROES
 !
-!DO 110 I = 1, NEL  
-!   IF (ISZERO(AOUT (I))) GOTO 110  
-!   GOTO 130  
-!  110 END DO  
-!WRITE (IOF, 120)  
-!  120 FORMAT (/ ' ALL VALUES ZERO'/' ==============='/)  
-!GOTO 180
+    IF (ISZERO_A(AOUT(1:total_no_elements))) THEN 
+        WRITE(IOF, "(' ALL VALUES ZERO', /, ' ===============', /)")  
+        RETURN 
+    END IF  
 
-IF(ISZERO_A(aout(1:total_no_elements))) THEN 
-    WRITE(IOF, 120)  
-    120 FORMAT (' ALL VALUES ZERO'/' ==============='/)  
-    RETURN !GOTO 180
-ENDIF  
-
-  
-!
 ! PRINT ARRAY
 !
-  130 NNX = (NX - 1) / 10 + 1  
-DO 170 L = 1, NNX  
-   LAL = L * 10  
-   LL1 = LAL - 9  
-   NXX = MIN0 (NX, LAL)  
-   WRITE (IOF, 140) (I, I = LL1, LAL)  
-  140 FORMAT   ('0', 9X, 10('J=',I3,6X), /)  
-   DO 150 I1 = 1, NY  
-      K = NY + 1 - I1  
-  150    WRITE (IOF, 160) K, (A (J, K), J = LL1, NXX)  
-  160 FORMAT   (' ', 'K=', I4, 2X, 10G11.4)  
-  170 END DO  
-!
-WRITE (IOF, 200)  
-  200 FORMAT (/, 10X, 'LINK ', 6X, 'BANK1 ', 5X, 'BANK2 ', /)  
-DO 175 I = 1, total_no_links  
-   B1 = zero  
-   B2 = zero
-   IEL1 = ICMBK (I, 1)  
-   IEL2 = ICMBK (I, 2)  
-   IF (IEL1.GT.0) B1 = AOUT (IEL1)  
-   IF (IEL2.GT.0) B2 = AOUT (IEL2)  
-   WRITE (IOF, 210) I, AOUT (I), B1, B2  
-  210 FORMAT   (1X, 'L= ', I4, 2X, 3G11.4)  
-  175 END DO  
-!
-WRITE (IOF, 90)  
-   90 FORMAT (//2X, 120('*'), //)  
-!
-  180 CONTINUE  
+    NNX = (NX - 1) / 10 + 1  
+    
+    print_blocks_loop: DO L = 1, NNX  
+        LAL = L * 10  
+        LL1 = LAL - 9  
+        ! 3. Replaced MIN0 with modern generic MIN
+        NXX = MIN(NX, LAL)  
+        
+        WRITE (IOF, "('0', 9X, 10('J=',I3,6X), /)") (I, I = LL1, LAL)  
+        
+        print_rows_loop: DO I1 = 1, NY  
+            K = NY + 1 - I1  
+            ! Replaced implied DO loop with array slicing
+            WRITE (IOF, "(' ', 'K=', I4, 2X, 10G11.4)") K, A(LL1:NXX, K)  
+        END DO print_rows_loop  
+    END DO print_blocks_loop  
+
+    WRITE (IOF, "(/, 10X, 'LINK ', 6X, 'BANK1 ', 5X, 'BANK2 ', /)")  
+    
+    link_print_loop: DO I = 1, total_no_links  
+        B1 = zero  
+        B2 = zero
+        IEL1 = ICMBK(I, 1)  
+        IEL2 = ICMBK(I, 2)  
+        
+        IF (IEL1 > 0) B1 = AOUT(IEL1)  
+        IF (IEL2 > 0) B2 = AOUT(IEL2)  
+        
+        WRITE (IOF, "(1X, 'L= ', I4, 2X, 3G11.4)") I, AOUT(I), B1, B2  
+    END DO link_print_loop  
+
+    WRITE (IOF, "(/,/,2X, 120('*'), /,/)")  
+
 END SUBROUTINE AREADR
+
+
 ! 12/8/94
-
-
 !FFFFFF FUNCTION ran2
  FUNCTION ran2(idum)
  INTEGER, PARAMETER     :: IM1=2147483563,IM2=2147483399,IMM1=IM1-1, &
