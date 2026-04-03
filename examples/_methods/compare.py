@@ -260,6 +260,13 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     fn_col = os.path.splitext(fn_delta)[
                         0] + f"_{safe_col}" + os.path.splitext(fn_delta)[1]
 
+                    # any multiple of underscores in a row should be replaced with a single underscore
+                    fn_col = "_".join(filter(None, fn_col.split("_")))
+                    # same for dots in the filename (except for the extension)
+                    fn_col_stem, fn_col_ext = os.path.splitext(fn_col)
+                    fn_col = ".".join(filter(
+                        None, fn_col_stem.split("."))) + fn_col_ext
+
                     # create the directory if it doesn't exist
                     os.makedirs(os.path.dirname(fn_col), exist_ok=True)
                     df_combined.to_csv(fn_col, index=True)
