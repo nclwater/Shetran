@@ -15,14 +15,51 @@ This structure exists so that the comparison script can more easily run and comp
 Still to fill in what is special about each model.
 There is a shorter readme with specifics in most model directories as well.
 
+## Workflow
 
-## Testing
+The example output files are generally too large to store in Git.
+Because of that, the expected ("correct") output files must be created locally first.
 
-The `check_results_consistency.py` script enables testing from one SHETRAN version to the next.
-It iterates over all the subdirectories (as long as they don't have a underscore in front), builds the model and then compares the results to the expected output.
-And differences are being written, per output file, into the `<model>/diff_delta/` subdirectory.
-Also an overview file, `comparison_results.csv`, is written to the model directory.
-It also writes an overview file with how long each computation took and whether differences in files were observed or not.
+Recommended sequence:
+
+1. Generate baseline expected outputs with `setup_results_check.py`.
+2. Run `check_results_consistency.py` to compare new runs against those expected outputs.
+
+## CLI Usage
+
+### setup_results_check.py
+
+Creates/refreshes the expected output files in each model `output_should` directory.
+
+- `-m`, `--model <name>`: Select a model explicitly. Repeatable.
+  If used, this overrides `-l`.
+- `-l`, `--list {all,long,medium,short}`: Select a predefined model set.
+  Default is `short`.
+- `-e`, `--exe <path>`: Path to SHETRAN executable.
+- `--use-release-exe`: Use `settings.default_shetran_exe`.
+  Overridden by `-e` if both are given.
+
+Examples:
+
+- `python setup_results_check.py --use-release-exe`
+- `python setup_results_check.py -l medium --use-release-exe`
+- `python setup_results_check.py -m Cobres -m dunsop -e ..\\build\\release\\bin\\shetran.exe`
+
+### check_results_consistency.py
+
+Runs simulations and/or compares produced outputs against `output_should`.
+
+- `-m`, `--model <name>`: Select a model explicitly. Repeatable.
+  If used, this overrides `-l`.
+- `-l`, `--list {all,long,medium,short}`: Select a predefined model set.
+  Default is `short`.
+- `--shetran-exe <path>`: Path to SHETRAN executable.
+  Default is `settings.default_shetran_exe`.
+- `--skip-simulation`: Do only comparisons.
+- `--skip-comparison`: Do only simulations.
+
+Per-model differences are written to `<model>/diff_delta/`.
+Each model also gets `comparison_results.csv`, and an overall summary is written to `comparison_overview.csv`.
 
 The difference directory contains:
 
@@ -31,12 +68,4 @@ The difference directory contains:
 - If it is a text-file, a git diff style file containing all differences between both of them.
 - For an HDF5 file, a file containing the delta for each entry.
 
-There are some settings in `check_results_consistency.py` to control it's behaviour:
-
-- At the top of the file, there are values for adjusting the difference tolerance for numeric values in tables and the hdf5 file.
-- Also at the top, there is a list with which models to ignore.
-  This is useful for CI testing or when only testing a known bad model during development.
-- The main calling function can take arguments whether a new simulation is done or not, and, similarly, whether an analysis is done or not.
-  Can also be controlled via CLI parameters.
-
-Currently, it is hard-coded to not compare files larger than 10MB.
+Currently, files larger than 10 MB are not compared.
