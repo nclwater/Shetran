@@ -4,10 +4,13 @@ module MNmod
     use mod_load_filedata,    only : alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
     use utilsmod, only: hour_from_date, tridag
 
+    IMPLICIT NONE
+
+    PRIVATE
     PUBLIC    :: mnamm, mnco2, mncont, mnedth, mnemph, mnemt, mnenph, mnent   ! subroutine names
     PUBLIC    :: mnerr0, mnerr1, mnerr2, mnerr3, mnerr4, mngam, mninit, mnint2
-	PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp    
-    
+    PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp    
+
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     cahum,calit,caman,cdort,chum,chum1,clit,clit1,cman,cman1
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     denit,dummy4,dummy6
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     edeth,emph,emt,enph,ent
@@ -317,6 +320,7 @@ subroutine mncont(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
     ! local arguments
     !double precision plup(nelee,llee)
     integer pass
+    integer i
     
     save pass
     data pass /0 /
@@ -3542,7 +3546,7 @@ subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dx
     logical iscrop(nelee,npelee)
     !     * those not saved
     integer jplty,ndata,nelm,nplant,nrbot,ntb
-    integer i
+    integer i, nce, ndum
     integer idum(1)
     double precision cdfnc,chgmas,fn,massbo,tmsncr
     double precision dum,dum2
