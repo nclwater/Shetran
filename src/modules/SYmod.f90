@@ -2402,311 +2402,408 @@ CONTAINS
 
 
 
+!SSSSSS SUBROUTINE SYMAIN
+   SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, &
+      ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NLYR, NTSOIL, NVC, AREA, &
+      CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT, ZBFULL, ZGRUND, BEXBK, &
+      LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, HRF, PLAI, &
+      PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
+      GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+!
 !----------------------------------------------------------------------*
-! SUBROUTINE SYMAIN
-! Description: Controlling routine for the Sediment Yield module.
+!
+! Controlling routine for the Sediment Yield module.
+!
 !----------------------------------------------------------------------*
 ! Version:  3.4.1          Notes:  SSR76
 !  Module:  SY           Program:  SHETRAN
 ! Modifications:
 !  RAH  04.10.94  Version 3.4.1. File created 23.12.93.
 !----------------------------------------------------------------------*
-   SUBROUTINE SYMAIN(NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, &
-      ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NLYR, NTSOIL, NVC, AREA, &
-      CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT, ZBFULL, ZGRUND, BEXBK, &
-      LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, HRF, PLAI, &
-      PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
-      GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+! Commons and distributed constants
+! Constants referenced
+!     AL.P:  NELEE  NLFEE  NLYREE  NSEDEE  NSEE  NVEE  NXEE
+!
+!
+! NB  Don't dimension arrays with NSED (undefined) or NLF (zero?)
+!
+! Input arguments
+      INTEGER :: NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD
+      INTEGER :: ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:3), ICMRF2 ( &
+         NLFEE, 3, 2)
+      INTEGER :: ICMXY (NXEE, NY), NBFACE (NEL), NLYR (NLF + 1:NEL)
+!INTEGER :: NTSOIL (NELEE, NLYREE), NVC (NLF + 1:NEL)
+      INTEGER :: NTSOIL (NEL, NLYREE), NVC (NLF + 1:NEL)
+      INTEGER :: ISORT (NEL)
+      DOUBLEPRECISION AREA (NEL), CLENTH (NLFEE), CWIDTH (NLFEE)
+      DOUBLEPRECISION DHF (NELEE, 4), DXQQ (NLF + 1:NEL), DYQQ (NLF + 1: &
+         NEL)
+      DOUBLEPRECISION THSAT (NS), ZBFULL (NLFEE), ZGRUND (NEL)
+      DOUBLEPRECISION DTUZ, TIH, UZNOW
+      DOUBLEPRECISION ARXL (NLFEE), CLAI (NV), DRAINA (NLF + 1:NEL), &
+         HRF (NEL)
+      DOUBLEPRECISION PLAI (NV), PNETTO (NLF + 1:NEL), QOC (NELEE, 4)
+      LOGICAL :: BEXBK, LINKNS (NLFEE)
+!
+! Input/output arguments
+      INTEGER :: NSED
+      DOUBLEPRECISION PBSED (NLFEE), PLS (NLF + 1:NEL), SOSDFN (NSEE, &
+         NSEDEE)
+      DOUBLEPRECISION ARBDEP (NLFEE), DLS (NEL)
+      DOUBLEPRECISION DCBED (NLFEE), DCBSED (NLFEE, NSEDEE)
+      DOUBLEPRECISION FBETA (NELEE, NSEDEE), FDEL (NELEE, NSEDEE)
+!
+! Output arguments
+      DOUBLEPRECISION GINFD (NLFEE, NSEDEE), GINFS (NLFEE, NSEDEE)
+      DOUBLEPRECISION GNU (NLF + 1:NEL), GNUBK (NLFEE), QSED (NELEE, &
+         NSEDEE, 4)
+!
+! Workspace arguments
+      INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
+      DOUBLEPRECISION DUMMY (NELEE)
+!
+! Locals, etc
+!
+      CHARACTER (LEN=*) :: SYVER
 
-      ! Input arguments
-      INTEGER, INTENT(IN) :: NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD
-      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:3), ICMRF2(NLFEE, 3, 2)
-      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY), NBFACE(NEL), NLYR(NLF + 1:NEL)
-      INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE), NVC(NLF + 1:NEL)
-      INTEGER, INTENT(IN) :: ISORT(NEL)
-      DOUBLE PRECISION, INTENT(IN) :: AREA(NEL), CLENTH(NLFEE), CWIDTH(NLFEE)
-      DOUBLE PRECISION, INTENT(IN) :: DHF(NELEE, 4), DXQQ(NLF + 1:NEL), DYQQ(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: THSAT(NS), ZBFULL(NLFEE), ZGRUND(NEL)
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ, TIH, UZNOW
-      DOUBLE PRECISION, INTENT(IN) :: ARXL(NLFEE), CLAI(NV), DRAINA(NLF + 1:NEL), HRF(NEL)
-      DOUBLE PRECISION, INTENT(IN) :: PLAI(NV), PNETTO(NLF + 1:NEL), QOC(NELEE, 4)
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
-
-      ! Input/output arguments
-      INTEGER, INTENT(INOUT) :: NSED
-      DOUBLE PRECISION, INTENT(INOUT) :: PBSED(NLFEE), PLS(NLF + 1:NEL), SOSDFN(NSEE, NSEDEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: ARBDEP(NLFEE), DLS(NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: DCBED(NLFEE), DCBSED(NLFEE, NSEDEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: FBETA(NELEE, NSEDEE), FDEL(NELEE, NSEDEE)
-
-      ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: GINFD(NLFEE, NSEDEE), GINFS(NLFEE, NSEDEE)
-      DOUBLE PRECISION, INTENT(OUT) :: GNU(NLF + 1:NEL), GNUBK(NLFEE), QSED(NELEE, NSEDEE, 4)
-
-      ! Workspace arguments
-      INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM
-      DOUBLE PRECISION, DIMENSION(NELEE), INTENT(INOUT) :: DUMMY
-
-      ! Locals, etc
-      CHARACTER(LEN=*), PARAMETER :: SYVER = '4.2.7'
-
+!
+!        -- SY module version number --
+      PARAMETER (SYVER = '4.2.7')
+!        ------------------------------
+!
+!INTEGER :: ISACKW, ISGSED, ISSYOK, ISTEC, ISUSED, NEPS, NFINE, NSYB
+!INTEGER :: NSYBCD (NSYBEE, 3), NSYC (4), NTSOBK (NLFEE)
+!
+!INTEGER :: PASS, NTSOTP (NELEE)
+!
       INTEGER :: FACE, FADJ, I, IADJ, IB, IBR, IEL, N, P, SED, SOIL
-      INTEGER :: IDUM1A(NELEE), IDUM1X(NELEE+3)
-
-      DOUBLE PRECISION :: DTSY
-      DOUBLE PRECISION :: CONCI(NLFEE, NSEDEE), CONCIE(NSEDEE)
-      DOUBLE PRECISION :: DCBSEE(NSEDEE), DCIPRE(NSEDEE)
-      DOUBLE PRECISION :: DCIPRM(NLFEE, NSEDEE), DDBSEE(NSEDEE)
-      DOUBLE PRECISION :: DDIPRE(NSEDEE), DDIPRM(NLFEE, NSEDEE)
-      DOUBLE PRECISION :: DRDROP(NELEE), DUMSED(NLFEE * NSEDEE), DWAT1(NELEE)
-      DOUBLE PRECISION :: EPSB(NLFEE)
-      DOUBLE PRECISION :: FBETAE(NSEDEE), FCC(NVEE), FDELE(NSEDEE)
-      DOUBLE PRECISION :: FQCONF(NLFEE, 3), GINFDE(NSEDEE), GINFSE(NSEDEE)
-      DOUBLE PRECISION :: LRAIN(NELEE)
-      DOUBLE PRECISION :: QSDWAE(NSEDEE, 4), QSDWAT(NLFEE, NSEDEE, 4)
-      DOUBLE PRECISION :: QSEDB(NSEDEE, NSYBEE), QSEDE(NSEDEE, 4)
-      DOUBLE PRECISION :: QWAT(4), QWATB(NSYBEE)
-      DOUBLE PRECISION :: SLOPEE(4), SLOPEJ(NELEE, 4), SOSDFE(NSEDEE)
-      DOUBLE PRECISION :: TAUJ(NELEE, 4), TAUJE(4), TAUK(NELEE)
-      DOUBLE PRECISION :: VCFMAX(NLFEE), VINFMX(NLFEE)
-
-      LOGICAL :: DOUBT, BARM(NLFEE), LDUM(NELEE)
-
-      !----------------------------------------------------------------------*
-
+      INTEGER :: IDUM1A (NELEE), IDUM1X (NELEE+3)
+!
+!DOUBLEPRECISION ALPHA, CONCOB, DCBEDO, FBIC, FICRIT, FPCRIT, SYNOW
+!DOUBLEPRECISION DLSMAX, DDBSED (NLFEE, NSEDEE)
+!DOUBLEPRECISION ABC (NSEDEE, NSYCEE), ACKW (5, NSEDEE), ARXLOL (NLFEE)
+!DOUBLEPRECISION BBC (NSEDEE, NSYCEE), BKB (NSEE)
+!DOUBLEPRECISION DBFULL (NLFEE)
+!DOUBLEPRECISION DRDRIP (NVEE), DRSED (NSEDEE), DRSO50 (NSEE)
+!DOUBLEPRECISION DWATOL (NELEE)
+!DOUBLEPRECISION FCG (NELEE), FCROCK (NELEE), FDRIP (NVEE), FETA (NELEE)
+!DOUBLEPRECISION FPCLAY (NSEE)
+!DOUBLEPRECISION GBC (NSEDEE, NSYCEE), GKF (NSEE), GKR (NSEE)
+!DOUBLEPRECISION RHOSO (NSEE), XDRIP (NVEE)
+!
+      DOUBLEPRECISION DTSY
+      DOUBLEPRECISION CONCI (NLFEE, NSEDEE), CONCIE (NSEDEE)
+      DOUBLEPRECISION DCBSEE (NSEDEE), DCIPRE (NSEDEE)
+      DOUBLEPRECISION DCIPRM (NLFEE, NSEDEE), DDBSEE (NSEDEE)
+      DOUBLEPRECISION DDIPRE (NSEDEE), DDIPRM (NLFEE, NSEDEE)
+      DOUBLEPRECISION DRDROP (NELEE), DUMSED (NLFEE * NSEDEE), DWAT1 ( &
+         NELEE)
+      DOUBLEPRECISION EPSB (NLFEE)
+      DOUBLEPRECISION FBETAE (NSEDEE), FCC (NVEE), FDELE (NSEDEE)
+      DOUBLEPRECISION FQCONF (NLFEE, 3), GINFDE (NSEDEE), GINFSE ( &
+         NSEDEE)
+      DOUBLEPRECISION LRAIN (NELEE)
+      DOUBLEPRECISION QSDWAE (NSEDEE, 4), QSDWAT (NLFEE, NSEDEE, 4)
+      DOUBLEPRECISION QSEDB (NSEDEE, NSYBEE), QSEDE (NSEDEE, 4)
+      DOUBLEPRECISION QWAT (4), QWATB (NSYBEE)
+      DOUBLEPRECISION SLOPEE (4), SLOPEJ (NELEE, 4), SOSDFE (NSEDEE)
+      DOUBLEPRECISION TAUJ (NELEE, 4), TAUJE (4), TAUK (NELEE)
+      DOUBLEPRECISION VCFMAX (NLFEE), VINFMX (NLFEE)
+!
+      LOGICAL :: DOUBT, BARM (NLFEE), LDUM (NELEE)
+!
+!----------------------------------------------------------------------*
+!
       PASS_symain = PASS_symain + 1
-      IF (PASS_symain == 1) THEN
-         !--------------------- Initialization step ----------------------------*
-
-         ! * Check array bounds & input variables
-         CALL SYERR0(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE, &
+      IF (PASS_symain.EQ.1) THEN
+!
+!                     ---------------------
+!--------------------- Initialization step ----------------------------*
+!                     ---------------------
+!
+!        * Check array bounds & input variables
+         CALL SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE, &
             NV, NVEE, NX, NXEE, NY, SPR, SYD)
-
-         ! * Check static/initializing input arrays
-         CALL SYERR1(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, &
+!
+!        * Check static/initializing input arrays
+         CALL SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, &
             NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
             NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, &
-            DHF, ARXL, HRF(NLF + 1), ZGRUND, IDUM, IDUM1X, LDUM)
-
-         ! * Store top-layer soil type for each column element
-         DO IEL = NLF + 1, NEL
-            NTSOTP_symain(IEL) = NTSOIL(IEL, NLYR(IEL))
-         END DO
-
-         ! * Read SY input data file
-         CALL SYREAD(BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, &
-            NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, NSYCEE, NTSOTP_symain(NLF + 1), &
+            DHF, ARXL, HRF (NLF + 1), ZGRUND, IDUM, IDUM1X, LDUM)
+!
+!        * Store top-layer soil type for each column element
+         DO 100 IEL = NLF + 1, NEL
+            NTSOTP_symain (IEL) = NTSOIL (IEL, NLYR (IEL) )
+100      END DO
+!
+!        * Read SY input data file
+         CALL SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, &
+            NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, NSYCEE, NTSOTP_symain (NLF + 1), &
             NV, NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC_symain, ALPHA_symain, BBC_symain, BKB_symain, &
-            CONCOB_symain, DCBEDO_symain, DLS, DRDRIP_symain, DRSED_symain, DLSMAX_symain, FBETA, FBIC_symain, FCG_symain(NLF + 1), &
-            FCROCK_symain(NLF + 1), FDEL, FDRIP_symain, FICRIT_symain, FPCLAY_symain, &
+            CONCOB_symain, DCBEDO_symain, DLS, DRDRIP_symain, DRSED_symain, DLSMAX_symain, FBETA, FBIC_symain, FCG_symain ( &
+            NLF + 1), FCROCK_symain (NLF + 1), FDEL, FDRIP_symain, FICRIT_symain, FPCLAY_symain, &
             FPCRIT_symain, GBC_symain, GKF_symain, GKR_symain, ISACKW_symain, ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, &
             NEPS_symain, NFINE_symain, NSED, NSYB_symain, NSYBCD_symain, NSYC_symain, NTSOBK_symain, PBSED, PLS, &
             RHOSO_symain, SOSDFN, XDRIP_symain, IDUM, DUMMY, DUMSED)
-
-         ! * Check SY input data
-         CALL SYERR2(NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
+!
+!        * Check SY input data
+         CALL SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
             NV, NSYB_symain, NSYBEE, NSYC_symain, NSYCEE, SPR, ICMREF, ISUSED_symain, NEPS_symain, &
             NFINE_symain, SFB, SRB, ALPHA_symain, DCBEDO_symain, FPCRIT_symain, DLSMAX_symain, NTSOBK_symain, NSYBCD_symain, &
             NBFACE, DRSED_symain, BKB_symain, GKF_symain, GKR_symain, RHOSO_symain, SOSDFN, DRDRIP_symain, FDRIP_symain, &
-            XDRIP_symain, PBSED, FCG_symain(NLF + 1), FCROCK_symain(NLF + 1), PLS, DLS, FBETA, &
+            XDRIP_symain, PBSED, FCG_symain (NLF + 1), FCROCK_symain (NLF + 1), PLS, DLS, FBETA, &
             FDEL, ABC_symain, BBC_symain, GBC_symain, IDUM, DUMMY, LDUM)
-
-         ! * Static variables and initialization
-         CALL SYINIT(NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
-            NTSOBK_symain, ARXL, DCBEDO_symain, DLS, FBETA, DRSED_symain, HRF(NLF + 1), &
-            PBSED, PLS, SOSDFN, THSAT, ZGRUND, NTSOTP_symain(NLF + 1), ZBFULL, &
-            ARBDEP, ARXLOL_symain, DCBED, DCBSED, DDBSED_symain, DRSO50_symain, DWATOL_symain(NLF + 1), &
-            FETA_symain, GINFD, GINFS, GNU, GNUBK, QSED, DBFULL_symain)
-
+!
+!        * Static variables and initialization
+         CALL SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
+            NTSOBK_symain, ARXL, DCBEDO_symain, DLS, FBETA, DRSED_symain, HRF (NLF + 1), &
+            PBSED, PLS, SOSDFN, THSAT, ZGRUND, NTSOTP_symain (NLF + 1), ZBFULL, &
+            ARBDEP, ARXLOL_symain, DCBED, DCBSED, DDBSED_symain, DRSO50_symain, DWATOL_symain (NLF + 1) &
+            , FETA_symain, GINFD, GINFS, GNU, GNUBK, QSED, DBFULL_symain)
+!
+!
+!------------------- End of initialization step -----------------------*
+!
       ELSE
-         !---------------------- Simulation step -------------------------------*
-
-         ! Check Input
-         ! -----------
-         ! * Check time-varying input variables
-         DOUBT = ISSYOK_symain > 0
-         IF (DOUBT) DOUBT = MOD(PASS_symain - 2, ISSYOK_symain) == 0
-         IF (DOUBT) CALL SYERR3(NEL, NELEE, NLF, NLFEE, NV, SPR, &
+!                      -----------------
+!---------------------- Simulation step -------------------------------*
+!                      -----------------
+!
+!
+! Check Input
+! -----------
+!
+!        * Check time-varying input variables
+         DOUBT = ISSYOK_symain.GT.0
+         IF (DOUBT) DOUBT = MOD (PASS_symain - 2, ISSYOK_symain) .EQ.0
+         IF (DOUBT) CALL SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, &
             ICMREF, ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, &
             HRF, ZGRUND, QOC, IDUM, IDUM1A, IDUM1X, LDUM)
+!
+!
+! Quantities Independent of Sub-timestep
+! --------------------------------------
+!
+!        * Water-flow related variables
 
-         ! Quantities Independent of Sub-timestep
-         ! --------------------------------------
-         ! * Water-flow related variables
-         CALL SYWAT(NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
+         CALL SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
             DHF, DRDRIP_symain, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
-            PNETTO, QOC, DRDROP(NLF + 1), DWAT1, FCC, FQCONF, LRAIN(NLF + 1), &
-            SLOPEJ, TAUJ, TAUK)
+            PNETTO, QOC, DRDROP (NLF + 1), DWAT1, FCC, FQCONF, LRAIN (NLF + &
+            1), SLOPEJ, TAUJ, TAUK)
+!
+!        * Erosion rates for all column elements
 
-         ! * Erosion rates for all column elements
-         CALL SYOVER(ISTEC_symain, NEL, NLF, NS, NV, FCC, LRAIN(NLF + 1), &
-            XDRIP_symain, DRDRIP_symain, FDRIP_symain, DRAINA, GKR_symain, DWAT1(NLF + 1), DRDROP(NLF + 1), &
-            FCG_symain(NLF + 1), FCROCK_symain(NLF + 1), DRSO50_symain, TAUK(NLF + 1), FPCLAY_symain, &
-            GKF_symain, RHOSO_symain, NTSOTP_symain(NLF + 1), NVC, GNU, DUMMY, DLS, &
+         CALL SYOVER (ISTEC_symain, NEL, NLF, NS, NV, FCC, LRAIN (NLF + 1), &
+            XDRIP_symain, DRDRIP_symain, FDRIP_symain, DRAINA, GKR_symain, DWAT1 (NLF + 1), DRDROP ( &
+            NLF + 1), FCG_symain (NLF + 1), FCROCK_symain (NLF + 1), DRSO50_symain, TAUK (NLF + &
+            1), FPCLAY_symain, GKF_symain, RHOSO_symain, NTSOTP_symain (NLF + 1), NVC, GNU, DUMMY, DLS, &
             DLSMAX_symain)
+!
+!        * Erosion rates for all link elements
 
-         ! * Erosion rates for all link elements
-         IF (NLF > 0) THEN
-            CALL SYBKER(ISTEC_symain, NLF, NS, FPCLAY_symain, RHOSO_symain, &
-               DRSO50_symain, TAUK, CWIDTH, DWAT1, BKB_symain, NTSOBK_symain, FETA_symain, CLENTH, DBFULL_symain, &
-               EPSB, GNUBK)
-         END IF
-
-         ! SY Sub-timestep Loop
-         ! --------------------
+         IF (NLF.GT.0) CALL SYBKER (ISTEC_symain, NLF, NS, FPCLAY_symain, RHOSO_symain, &
+            DRSO50_symain, TAUK, CWIDTH, DWAT1, BKB_symain, NTSOBK_symain, FETA_symain, CLENTH, DBFULL_symain, &
+            EPSB, GNUBK)
+!
+!
+!
+! SY Sub-timestep Loop
+! --------------------
+!
          DTSY = DTUZ / NEPS_symain
-         DO N = 1, NEPS_symain
-
-            ! Initialization
-            ! --------------
-            DO FACE = 1, 4
-               QSED(1:NEL, 1:NSED, FACE) = 0.0d0
-            END DO
-
-            ! Boundary Conditions
-            ! -------------------
-            IF (NSYB_symain > 0) THEN
-               ! * Gather water "outflow" rates (should be negative)
-               DO IB = 1, NSYB_symain
-                  IEL = NSYBCD_symain(IB, 1)
-                  FACE = NBFACE(IEL)
-                  QWATB(IB) = SIGN(1.0d0, 2.0d0 - REAL(FACE, 8)) * QOC(IEL, FACE)
-               END DO
-
-               ! * Read time-varying flux data & calculate sediment flows
+         DO 290 N = 1, NEPS_symain
+!
+!
+!           Initialization
+!           --------------
+!
+            DO 150 FACE = 1, 4
+               DO 140 SED = 1, NSED
+                  CALL ALINIT (ZERO, NEL, QSED (1, SED, FACE) )
+140            END DO
+150         END DO
+!
+!
+!           Boundary Conditions
+!           -------------------
+!
+            IF (NSYB_symain.GT.0) THEN
+!
+!              * Gather water "outflow" rates (should be negative)
+               DO 210 IB = 1, NSYB_symain
+                  IEL = NSYBCD_symain (IB, 1)
+                  FACE = NBFACE (IEL)
+                  QWATB (IB) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)
+210            END DO
+!
+!              * Read time-varying flux data & calculate sediment flows
                CALL SYBC
-
-               ! * Load boundary flows into QSED array
-               DO IB = 1, NSYB_symain
-                  IEL = NSYBCD_symain(IB, 1)
-                  FACE = NBFACE(IEL)
-                  QSED(IEL, 1:NSED, FACE) = QSEDB(1:NSED, IB)
-               END DO
-            END IF
-
-            ! Quantities Independent of Sediment Flux
-            ! ---------------------------------------
-            IF (NLF > 0) THEN
-               ! * Transport capacity & advection coefficients
-               CALL SYCLTR(CONCOB_symain, FPCRIT_symain, ISACKW_symain, ISUSED_symain, NELEE, &
-                  NFINE_symain, NLF, NLFEE, NSED, NSEDEE, DRSED_symain(NFINE_symain+1), &
-                  ARXL, CWIDTH, DCBED, LINKNS, DWAT1, QOC, SLOPEJ, DCBSED(1, NFINE_symain+1), &
-                  FDEL(1, NFINE_symain+1), TAUJ, ACKW_symain(1, NFINE_symain+1), &
+!
+!              * Load boundary flows into QSED array
+               DO 220 IB = 1, NSYB_symain
+                  IEL = NSYBCD_symain (IB, 1)
+                  FACE = NBFACE (IEL)
+                  CALL DCOPY (NSED, QSEDB (1, IB), 1, QSED (IEL, 1, &
+                     FACE), NELEE)
+220            END DO
+!
+            ENDIF
+!
+!
+!           Quantities Independent of Sediment Flux
+!           ---------------------------------------
+!
+            IF (NLF.GT.0) THEN
+!
+!              * Transport capacity & advection coefficients
+               CALL SYCLTR (CONCOB_symain, FPCRIT_symain, ISACKW_symain, ISUSED_symain, NELEE, &
+                  NFINE_symain, NLF, NLFEE, NSED, NSEDEE, DRSED_symain (NFINE_symain+1), &
+                  ARXL, CWIDTH, DCBED, LINKNS, DWAT1, QOC, SLOPEJ, DCBSED ( &
+                  1, NFINE_symain+1), FDEL (1, NFINE_symain+1), TAUJ, ACKW_symain (1, NFINE_symain+1), &
                   CONCI, QSDWAT, DUMMY, DUMSED)
-
-               ! * Settling, infiltration & armouring
-               IF (NFINE_symain > 0) THEN
-                  CALL SYFINE(DRSED_symain(1), FBIC_symain, FICRIT_symain, &
-                     NLF, ALPHA_symain, DTSY, AREA, DCBSED, FBETA, FDEL, PBSED, TAUK, &
-                     VCFMAX, VINFMX, BARM)
-               END IF
-            END IF
-
-            ! One Element at a Time
-            ! ---------------------
-            DO I = 1, NEL
-               IEL = ISORT(I)
-
-               ! * Gather common sub-arrays
-               FDELE(1:NSED) = FDEL(IEL, 1:NSED)
-               DO FACE = 1, 4
-                  QWAT(FACE) = SIGN(1.0d0, 2.0d0 - REAL(FACE, 8)) * QOC(IEL, FACE)
-                  QSEDE(1:NSED, FACE) = QSED(IEL, 1:NSED, FACE)
-               END DO
-
-               IF (IEL <= NLF) THEN
-                  ! ** Link element **
-                  ! * Gather link-specific sub-arrays
-                  SOIL = NTSOBK_symain(IEL)
-                  SOSDFE(1:NSED) = SOSDFN(SOIL, 1:NSED)
-                  CONCIE(1:NSED) = CONCI(IEL, 1:NSED)
-                  DCBSEE(1:NSED) = DCBSED(IEL, 1:NSED)
-                  DDBSEE(1:NSED) = DDBSED_symain(IEL, 1:NSED)
-                  DO FACE = 1, 4
-                     QSDWAE(1:NSED, FACE) = QSDWAT(IEL, 1:NSED, FACE)
-                  END DO
-
-                  ! * Solve transport equation
-                  CALL SYLINK(NFINE_symain, NSED, NSEDEE, DTSY, AREA(IEL), &
-                     ARXLOL_symain(IEL), ARXL(IEL), CLENTH(IEL), EPSB(IEL), &
-                     PBSED(IEL), VINFMX(IEL), BARM(IEL), VCFMAX(IEL), &
+!
+!              * Settling, infiltration & armouring
+               IF (NFINE_symain.GT.0) CALL SYFINE (DRSED_symain (1), FBIC_symain, FICRIT_symain, &
+                  NLF, ALPHA_symain, DTSY, AREA, DCBSED, FBETA, FDEL, PBSED, TAUK, &
+                  VCFMAX, VINFMX, BARM)
+!
+            ENDIF
+!
+!
+!           One Element at a Time
+!           ---------------------
+!
+            DO 270 I = 1, NEL
+               IEL = ISORT (I)
+!
+!              * Gather common sub-arrays
+               CALL DCOPY (NSED, FDEL (IEL, 1), NELEE, FDELE, 1)
+               DO 225 FACE = 1, 4
+                  QWAT (FACE) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)
+                  CALL DCOPY (NSED, QSED (IEL, 1, FACE), NELEE, QSEDE ( &
+                     1, FACE), 1)
+225            END DO
+!
+               IF (IEL.LE.NLF) THEN
+!
+!                 ** Link element **
+!
+!                 * Gather link-specific sub-arrays
+                  SOIL = NTSOBK_symain (IEL)
+                  CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, SOSDFE, 1)
+                  CALL DCOPY (NSED, CONCI (IEL, 1), NLFEE, CONCIE, 1)
+                  CALL DCOPY (NSED, DCBSED (IEL, 1), NLFEE, DCBSEE, 1)
+                  CALL DCOPY (NSED, DDBSED_symain (IEL, 1), NLFEE, DDBSEE, 1)
+                  DO 226 FACE = 1, 4
+                     CALL DCOPY (NSED, QSDWAT (IEL, 1, FACE), NLFEE, &
+                        QSDWAE (1, FACE), 1)
+226               END DO
+!
+!                 * Solve transport equation
+                  CALL SYLINK (NFINE_symain, NSED, NSEDEE, DTSY, AREA (IEL), &
+                     ARXLOL_symain (IEL), ARXL (IEL), CLENTH (IEL), EPSB (IEL), &
+                     PBSED (IEL), VINFMX (IEL), BARM (IEL), VCFMAX (IEL), &
                      CONCIE, DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, &
                      QSEDE, DCIPRE, DDIPRE, GINFDE, GINFSE)
-
-                  ! * Scatter link-specific results
-                  DCIPRM(IEL, 1:NSED) = DCIPRE(1:NSED)
-                  DDIPRM(IEL, 1:NSED) = DDIPRE(1:NSED)
-                  GINFD(IEL, 1:NSED)  = GINFDE(1:NSED)
-                  GINFS(IEL, 1:NSED)  = GINFSE(1:NSED)
+!
+!                 * Scatter link-specific results
+                  CALL DCOPY (NSED, DCIPRE, 1, DCIPRM (IEL, 1), NLFEE)
+                  CALL DCOPY (NSED, DDIPRE, 1, DDIPRM (IEL, 1), NLFEE)
+                  CALL DCOPY (NSED, GINFDE, 1, GINFD (IEL, 1), NLFEE)
+                  CALL DCOPY (NSED, GINFSE, 1, GINFS (IEL, 1), NLFEE)
+!
                ELSE
-                  ! ** Column element **
-                  ! * Gather column-specific sub-arrays
-                  SOIL = NTSOTP_symain(IEL)
-                  SOSDFE(1:NSED) = SOSDFN(SOIL, 1:NSED)
-                  FBETAE(1:NSED) = FBETA(IEL, 1:NSED)
-                  SLOPEE(1:4)    = SLOPEJ(IEL, 1:4)
-                  TAUJE(1:4)     = TAUJ(IEL, 1:4)
-
-                  ! * Solve transport equation for this column element
-                  CALL SYCOLM(AREA(IEL), DTSY, DWAT1(IEL), DWATOL_symain(IEL), DXQQ(IEL), DYQQ(IEL), &
-                     FETA_symain(IEL), GNU(IEL), ISGSED_symain, NSED, FPCRIT_symain, PLS(IEL), &
-                     NSEDEE, DRSED_symain, QWAT, SLOPEE, SOSDFE, TAUJE, DLS(IEL), FBETAE, FDELE, &
+!
+!                 ** Column element **
+!
+!                 * Gather column-specific sub-arrays
+                  SOIL = NTSOTP_symain (IEL)
+                  CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, SOSDFE, 1)
+                  CALL DCOPY (NSED, FBETA (IEL, 1), NELEE, FBETAE, 1)
+                  CALL DCOPY (4, SLOPEJ (IEL, 1), NELEE, SLOPEE, 1)
+                  CALL DCOPY (4, TAUJ (IEL, 1), NELEE, TAUJE, 1)
+!
+!                 * Solve transport equation for this column element
+                  CALL SYCOLM (AREA (IEL), DTSY, DWAT1 (IEL), DWATOL_symain ( &
+                     IEL), DXQQ (IEL), DYQQ (IEL), FETA_symain (IEL), GNU (IEL), &
+                     ISGSED_symain, NSED, FPCRIT_symain, PLS (IEL), NSEDEE, DRSED_symain, QWAT, &
+                     SLOPEE, SOSDFE, TAUJE, DLS (IEL), FBETAE, FDELE, &
                      QSEDE, DUMMY, DUMSED)
-
-                  ! * Scatter column-specific results
-                  FBETA(IEL, 1:NSED) = FBETAE(1:NSED)
-               END IF
-
-               ! * Scatter common results ...
-               FDEL(IEL, 1:NSED) = FDELE(1:NSED)
-               DO FACE = 1, 4
-                  QSED(IEL, 1:NSED, FACE) = QSEDE(1:NSED, FACE)
-
-                  ! ... and propagate sediment flow rates at outflow faces
-                  IF (QWAT(FACE) > 0.0d0) THEN
-                     IADJ = ICMREF(IEL, FACE, 2)
-                     IF (IADJ > 0) THEN
-                        ! * regular neighbour
-                        FADJ = ICMREF(IEL, FACE, 3)
-                        QSED(IADJ, 1:NSED, FADJ) = -QSEDE(1:NSED, FACE)
-                     ELSE IF (IADJ < 0) THEN
-                        ! * neighbour is a confluence node
-                        IBR = -IADJ
-                        DO P = 1, 3
-                           IADJ = ICMRF2(IBR, P, 1)
-                           IF (IADJ > 0) THEN
-                              ! * prospect is active
-                              FADJ = ICMRF2(IBR, P, 2)
-                              QSED(IADJ, 1:NSED, FADJ) = QSED(IADJ, 1:NSED, FADJ) - (QSEDE(1:NSED, FACE) * FQCONF(IBR, P))
-                           END IF
-                        END DO
-                     END IF
-                  END IF
-               END DO
-            END DO
-
-            ! Channel Bed Update
-            ! ------------------
-            IF (NLF > 0) THEN
-               CALL SYBED(DCBEDO_symain, NELEE, NLF, NLFEE, NSED, &
-                  CWIDTH, DCIPRM, DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED_symain, &
-                  DCBED)
-            END IF
-
-            ! Store Old-time Values & Update Timer
-            ! ------------------------------------
-            DWATOL_symain(NLF + 1 : NEL) = DWAT1(NLF + 1 : NEL)
-            IF (NLF > 0) ARXLOL_symain(1:NLF) = ARXL(1:NLF)
-
-            SYNOW_symain = SYNOW_symain + (DTSY / 3600.0d0)
-         END DO
-      END IF
-
-      ! Epilogue
-      ! --------
-      ! Ensure that current time value is exactly correct
+!
+!                 * Scatter column-specific results
+                  CALL DCOPY (NSED, FBETAE, 1, FBETA (IEL, 1), NELEE)
+!
+               ENDIF
+!
+!              * Scatter common results ...
+               CALL DCOPY (NSED, FDELE, 1, FDEL (IEL, 1), NELEE)
+               DO 260 FACE = 1, 4
+                  CALL DCOPY (NSED, QSEDE (1, FACE), 1, QSED (IEL, 1, &
+                     FACE), NELEE)
+!
+!                 ... and propagate sediment flow rates at outflow faces
+                  IF (QWAT (FACE) .GT.ZERO) THEN
+                     IADJ = ICMREF (IEL, FACE, 2)
+                     IF (IADJ.GT.0) THEN
+!                       * regular neighbour
+                        FADJ = ICMREF (IEL, FACE, 3)
+                        DO 240 SED = 1, NSED
+                           QSED (IADJ, SED, FADJ) = - QSEDE (SED, FACE)
+240                     END DO
+                     ELSEIF (IADJ.LT.0) THEN
+!                       * neighbour is a confluence node
+                        IBR = - IADJ
+                        DO 255 P = 1, 3
+                           IADJ = ICMRF2 (IBR, P, 1)
+                           IF (IADJ.GT.0) THEN
+!                             * prospect is active
+                              FADJ = ICMRF2 (IBR, P, 2)
+                              DO 250 SED = 1, NSED
+                                 QSED (IADJ, SED, FADJ) = QSED (IADJ, &
+                                    SED, FADJ) - QSEDE (SED, FACE) * &
+                                    FQCONF (IBR, P)
+250                           END DO
+                           ENDIF
+255                     END DO
+                     ENDIF
+                  ENDIF
+!
+260            END DO
+!
+270         END DO
+!
+!
+!           Channel Bed Update
+!           ------------------
+!
+            IF (NLF.GT.0) CALL SYBED (DCBEDO_symain, NELEE, NLF, NLFEE, NSED, &
+               CWIDTH, DCIPRM, DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED_symain, &
+               DCBED)
+!
+!
+!           Store Old-time Values & Update Timer
+!           ------------------------------------
+!
+            CALL DCOPY (NEL - NLF, DWAT1 (NLF + 1), 1, DWATOL_symain (NLF + 1), &
+               1)
+            IF (NLF.GT.0) CALL DCOPY (NLF, ARXL, 1, ARXLOL_symain, 1)
+            SYNOW_symain = SYNOW_symain + DTSY / 36D2
+!
+290      END DO
+!
+!
+!--------------------- End of simulation step -------------------------*
+!
+      ENDIF
+!
+!
+! Epilogue
+! --------
+!
+!     Ensure that current time value is exactly correct
       SYNOW_symain = UZNOW
-
+!
+!
    END SUBROUTINE SYMAIN
 
 
@@ -2979,17 +3076,8 @@ CONTAINS
 
 
 
-!----------------------------------------------------------------------*
-! SUBROUTINE SYREAD
-! Description: Read SY (Sediment Yield) data input file.
-!----------------------------------------------------------------------*
-! Version:  3.4.1         Notes:  SSR75
-!  Module:  SY          Program:  SHETRAN
-! Modifications:
-!  RAH  08.06.94  Version 3.4.1 by AB/RAH. File created 09.12.93.
-!  BTL  25.04.95  Version 3.4.1 : read in DLSMAX as second item in SY12
-!----------------------------------------------------------------------*
-   SUBROUTINE SYREAD(BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
+!SSSSSS SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
+   SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
       NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, NSYCEE, NTSOTP, NV, &
       NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA, BBC, BKB, CONCOB, &
       DCBEDO, DLS, DRDRIP, DRSED, DLSMAX, FBETA, FBIC, FCG, FCROCK, &
@@ -2997,295 +3085,354 @@ CONTAINS
       ISGSED, ISSYOK, ISTEC, ISUSED, NEPS, NFINE, NSED, NSYB, NSYBCD, &
       NSYC, NTSOBK, PBSED, PLS, RHOSO, SOSDFN, XDRIP, IDUM, DUMMY, &
       DUMSED)
-
-      ! Input arguments
-      INTEGER, INTENT(IN) :: NEL, NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, NSYCEE
-      INTEGER, INTENT(IN) :: NTSOTP(NLF + 1:NEL), NV, NX, NXEE, NYEE, NY, SYD, SPR
-      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
-      CHARACTER(LEN=*), INTENT(IN) :: SYVER
-
-      ! Output arguments
-      INTEGER, INTENT(OUT) :: ISACKW, ISGSED, ISSYOK, ISTEC, ISUSED, NEPS, NFINE
-      INTEGER, INTENT(OUT) :: NSED, NSYB, NSYBCD(NSYBEE, 3), NSYC(4), NTSOBK(NLFEE)
-      DOUBLE PRECISION, INTENT(OUT) :: ABC(NSEDEE, NSYCEE), ALPHA, BBC(NSEDEE, NSYCEE)
-      DOUBLE PRECISION, INTENT(OUT) :: BKB(NS), CONCOB, DCBEDO, DLS(NEL), DRDRIP(NV)
-      DOUBLE PRECISION, INTENT(OUT) :: DRSED(NSEDEE), FBETA(NELEE, NSEDEE), FBIC
-      DOUBLE PRECISION, INTENT(OUT) :: FCG(NLF + 1:NEL), FCROCK(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: FDEL(NELEE, NSEDEE), FDRIP(NV), FICRIT
-      DOUBLE PRECISION, INTENT(OUT) :: FPCLAY(NS), FPCRIT, GBC(NSEDEE, NSYCEE), GKF(NS)
-      DOUBLE PRECISION, INTENT(OUT) :: GKR(NS), PBSED(NLFEE), PLS(NLF + 1:NEL), RHOSO(NS)
-      DOUBLE PRECISION, INTENT(OUT) :: SOSDFN(NSEE, NSEDEE), XDRIP(NV)
-      DOUBLE PRECISION, INTENT(OUT) :: DLSMAX
-
-      ! Workspace arguments
-      INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM
-      DOUBLE PRECISION, DIMENSION(NELEE), INTENT(INOUT) :: DUMMY
-      DOUBLE PRECISION, DIMENSION(NLFEE * NSEDEE), INTENT(INOUT) :: DUMSED
-
-      ! Locals, etc
-      INTEGER, PARAMETER :: FATAL = 1, WARN = 3
-      CHARACTER(LEN=80)  :: CDUM
-      CHARACTER(LEN=132) :: MSG
-      CHARACTER(LEN=8)   :: SYDVER
-      INTEGER :: BB, IDUM0, I0, IEL, ICAT, ITYPE, NC, NUM_CATEGORIES_TYPES, NNN, NREQ, SED, SOIL
-
-      !----------------------------------------------------------------------*
-
-      ! 0. Preliminaries
-      ! ----------------
-      ! * Check status of data file
-      CALL ALREAD(0, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
-
-      ! * Print SY job title
-      CALL ALREAD(1, SYD, SPR, ':SY01', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
-      WRITE(SPR, '(/1X,A/)') CDUM
-
-      ! * Check & print version number
-      CALL ALREAD(1, SYD, SPR, ':SY02', 1, 1, IDUM0, SYDVER, IDUM, DUMMY)
-
-      ! * [miss off last character to allow eg '3.4.1' is ok in '3.4.1a' ]
-      IF (INDEX(SYDVER, SYVER(:LEN(SYVER) - 1)) == 0) THEN
-         WRITE(MSG, 9011) SYVER, SYDVER
-         CALL ERROR(WARN, 2011, SPR, 0, 0, MSG)
+!
+!----------------------------------------------------------------------*
+!
+!  Read SY data input file
+!
+!----------------------------------------------------------------------*
+! Version:  3.4.1         Notes:  SSR75
+!  Module:  SY          Program:  SHETRAN
+! Modifications:
+!  RAH  08.06.94  Version 3.4.1 by AB/RAH. File created 09.12.93.
+!  BTL  25.04.95  Version 3.4.1 : read in DLSMAX as second item in SY12
+!----------------------------------------------------------------------*
+!
+! NB: Don't dimension arrays with NSED (undefined) or NLF (may be 0).
+!
+! Input arguments
+      INTEGER :: NEL, NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, &
+         NSYCEE
+      INTEGER :: NTSOTP (NLF + 1:NEL), NV, NX, NXEE, NYEE, NY, SYD, SPR
+      INTEGER :: ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:2), ICMXY (NXEE, &
+         NY)
+      LOGICAL :: BEXBK, LINKNS (NLFEE)
+      CHARACTER (LEN=*) :: SYVER
+!
+! Output arguments
+      INTEGER :: ISACKW, ISGSED, ISSYOK, ISTEC, ISUSED, NEPS, NFINE
+      INTEGER :: NSED, NSYB, NSYBCD (NSYBEE, 3), NSYC (4), NTSOBK ( &
+         NLFEE)
+      DOUBLEPRECISION ABC (NSEDEE, NSYCEE), ALPHA, BBC (NSEDEE, NSYCEE)
+      DOUBLEPRECISION BKB (NS), CONCOB, DCBEDO, DLS (NEL), DRDRIP (NV)
+      DOUBLEPRECISION DRSED (NSEDEE), FBETA (NELEE, NSEDEE), FBIC
+      DOUBLEPRECISION FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL)
+      DOUBLEPRECISION FDEL (NELEE, NSEDEE), FDRIP (NV), FICRIT
+      DOUBLEPRECISION FPCLAY (NS), FPCRIT, GBC (NSEDEE, NSYCEE), &
+         GKF (NS)
+      DOUBLEPRECISION GKR (NS), PBSED (NLFEE), PLS (NLF + 1:NEL), &
+         RHOSO (NS)
+      DOUBLEPRECISION SOSDFN (NSEE, NSEDEE), XDRIP (NV)
+      DOUBLEPRECISION DLSMAX
+!
+! Workspace arguments
+      INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
+      DOUBLEPRECISION DUMMY (NELEE), DUMSED (NLFEE * NSEDEE)
+!
+! Locals, etc
+      INTEGER :: FATAL, WARN
+      PARAMETER (FATAL = 1, WARN = 3)
+!
+      CHARACTER(80)  :: CDUM
+      CHARACTER(132) :: MSG
+      CHARACTER(8)   ::  SYDVER
+      INTEGER :: BB, IDUM0, I0, IEL, ICAT, ITYPE, NC, NUM_CATEGORIES_TYPES,  NNN, NREQ, &
+         SED, SOIL
+!
+!----------------------------------------------------------------------*
+!
+!
+! 0. Preliminaries
+! ----------------
+!
+!     * Check status of data file
+      CALL ALREAD (0, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
+!
+!     * Print SY job title
+      CALL ALREAD (1, SYD, SPR, ':SY01', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
+      WRITE (SPR, '(/1X,A/)') CDUM
+!
+!     * Check & print version number
+      CALL ALREAD (1, SYD, SPR, ':SY02', 1, 1, IDUM0, SYDVER, IDUM, &
+         DUMMY)
+!     * [miss off last character to allow eg '3.4.1' is ok in '3.4.1a' ]
+      IF (INDEX (SYDVER, SYVER (:LEN (SYVER) - 1) ) .EQ.0) THEN
+         WRITE (MSG, 9011) SYVER, SYDVER
+         CALL ERROR (WARN, 2011, SPR, 0, 0, MSG)
       ELSE
-         WRITE(SPR, '(4X,2A/)') 'SY Module Version ', SYVER
-      END IF
-
-
-      ! 1. Static Variables
-      ! -------------------
-      ! * Check workspace array size: part 1
+         WRITE (SPR, '(4X,2A/)') 'SY Module Version ', SYVER
+      ENDIF
+!
+!
+! 1. Static Variables
+! -------------------
+!
+!     * Check workspace array size: part 1
       NREQ = 8
-      IF (NELEE < NREQ) THEN
-         WRITE(MSG, 9005) NELEE, NREQ
-         CALL ERROR(FATAL, 2005, SPR, 0, 0, MSG)
-      END IF
-
-      ! * Integer
+      IF (NELEE.LT.NREQ) GOTO 8000
+!
+!     * Integer
       NNN = 5
-      IF (NLF > 0) NNN = 8
-      CALL ALREAD(2, SYD, SPR, ':SY11', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
-      NSED   = IDUM(1)
-      ISGSED = IDUM(2)
-      ISTEC  = IDUM(3)
-      ISSYOK = IDUM(4)
-      NEPS   = IDUM(5)
-
-      IF (NLF > 0) THEN
-         ISACKW = IDUM(6)
-         ISUSED = IDUM(7)
-         NFINE  = IDUM(8)
-      END IF
-
-      IF (NSED < 1 .OR. NSED > NSEDEE) THEN
-         WRITE(MSG, 9006) NSED, NSEDEE
-         CALL ERROR(FATAL, 2006, SPR, 0, 0, MSG)
-      END IF
-
-      ! * Floating-point
+      IF (NLF.GT.0) NNN = 8
+      CALL ALREAD (2, SYD, SPR, ':SY11', NNN, 1, IDUM0, CDUM, IDUM, &
+         DUMMY)
+      NSED = IDUM (1)
+      ISGSED = IDUM (2)
+      ISTEC = IDUM (3)
+      ISSYOK = IDUM (4)
+      NEPS = IDUM (5)
+      IF (NLF.GT.0) THEN
+         ISACKW = IDUM (6)
+         ISUSED = IDUM (7)
+         NFINE = IDUM (8)
+      ENDIF
+      IF (NSED.LT.1.OR.NSED.GT.NSEDEE) GOTO 8110
+!
+!     * Floating-point
       NNN = 2
-      IF (NLF > 0) NNN = 7
-      CALL ALREAD(3, SYD, SPR, ':SY12', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
-      FPCRIT = DUMMY(1)
-      DLSMAX = DUMMY(2)
-
-      IF (NLF > 0) THEN
-         ALPHA  = DUMMY(3)
-         CONCOB = DUMMY(4)
-         DCBEDO = DUMMY(5)
-         FBIC   = DUMMY(6)
-         FICRIT = DUMMY(7)
-      END IF
-
-
-      ! 2. Sediment, Soil & Vegetation Properties
-      ! -----------------------------------------
-      ! * Check workspace array size: part 2
-      NREQ = MAX(MAX(5, NSED) * NS, 3 * NV)
-      IF (NELEE < NREQ) THEN
-         WRITE(MSG, 9005) NELEE, NREQ
-         CALL ERROR(FATAL, 2005, SPR, 0, 0, MSG)
-      END IF
-
-      ! * Sediment
-      CALL ALREAD(3, SYD, SPR, ':SY21', NSED, 1, IDUM0, CDUM, IDUM, DRSED)
-
-      ! * Soil (Replaces DCOPY with array slices using strides)
-      CALL ALREAD(3, SYD, SPR, ':SY22', 5, NS, IDUM0, CDUM, IDUM, DUMMY)
-      GKR(1:NS)    = DUMMY(1 : 1 + (NS-1)*5 : 5)
-      GKF(1:NS)    = DUMMY(2 : 2 + (NS-1)*5 : 5)
-      RHOSO(1:NS)  = DUMMY(3 : 3 + (NS-1)*5 : 5)
-      FPCLAY(1:NS) = DUMMY(4 : 4 + (NS-1)*5 : 5)
-      BKB(1:NS)    = DUMMY(5 : 5 + (NS-1)*5 : 5)
-
-      ! * Soil composition
-      CALL ALREAD(3, SYD, SPR, ':SY23', NSED, NS, IDUM0, CDUM, IDUM, DUMMY)
-      DO SED = 1, NSED
-         SOSDFN(1:NS, SED) = DUMMY(SED : SED + (NS-1)*NSED : NSED)
-      END DO
-
-      ! * Vegetation
-      CALL ALREAD(3, SYD, SPR, ':SY24', 3, NV, IDUM0, CDUM, IDUM, DUMMY)
-      XDRIP(1:NV)  = DUMMY(1 : 1 + (NV-1)*3 : 3)
-      DRDRIP(1:NV) = DUMMY(2 : 2 + (NV-1)*3 : 3)
-      FDRIP(1:NV)  = DUMMY(3 : 3 + (NV-1)*3 : 3)
-
-
-      ! 3. Link Element Properties
-      ! --------------------------
-      IF (NLF > 0) THEN
-         ! * Bank soil type
-         CALL ALREAD(2, SYD, SPR, ':SY31', NLF, 1, IDUM0, CDUM, NTSOBK, DUMMY)
-         ! * Porosity of bed sediment
-         CALL ALREAD(3, SYD, SPR, ':SY32', NLF, 1, IDUM0, CDUM, IDUM, PBSED)
-      END IF
-
-
-      ! 4. Column-element Properties
-      ! ----------------------------
-      ! * Ground cover
-      CALL ALALLF(1, 1, 0, SYD, SPR, ':SY41', NEL, NLF, NX, NY, NELEE, &
-         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCG, IDUM, DUMMY)
-
-      ! * Rock cover
-      CALL ALALLF(1, 1, 0, SYD, SPR, ':SY42', NEL, NLF, NX, NY, NELEE, &
-         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCROCK, IDUM, DUMMY)
-
-      ! * Porosity of loose sediment
-      CALL ALALLF(1, 1, 0, SYD, SPR, ':SY43', NEL, NLF, NX, NY, NELEE, &
-         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, PLS, IDUM, DUMMY)
-
-
-      ! 5. All-element Initialization
-      ! -----------------------------
-      ! * Initial depth of loose/bed sediment
-      CALL ALALLF(0, 1, 0, SYD, SPR, ':SY51', NEL, NLF, NX, NY, NELEE, &
-         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, DLS, IDUM, DUMMY)
-
-      ! * Initial composition of loose/bed sediment ...
-      CALL ALALLF(0, NSED, -1, SYD, SPR, ':SY52', NEL, NLF, NX, NY, &
-         NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, &
+      IF (NLF.GT.0) NNN = 7
+      CALL ALREAD (3, SYD, SPR, ':SY12', NNN, 1, IDUM0, CDUM, IDUM, &
+         DUMMY)
+      FPCRIT = DUMMY (1)
+      DLSMAX = DUMMY (2)
+      IF (NLF.GT.0) THEN
+         ALPHA = DUMMY (3)
+         CONCOB = DUMMY (4)
+         DCBEDO = DUMMY (5)
+         FBIC = DUMMY (6)
+         FICRIT = DUMMY (7)
+      ENDIF
+!
+!
+! 2. Sediment, Soil & Vegetation Properties
+! -----------------------------------------
+!
+!     * Check workspace array size: part 2
+      NREQ = MAX (MAX (5, NSED) * NS, 3 * NV)
+      IF (NELEE.LT.NREQ) GOTO 8000
+!
+!     * Sediment
+      CALL ALREAD (3, SYD, SPR, ':SY21', NSED, 1, IDUM0, CDUM, IDUM, &
+         DRSED)
+!
+!     * Soil
+      CALL ALREAD (3, SYD, SPR, ':SY22', 5, NS, IDUM0, CDUM, IDUM, &
+         DUMMY)
+      CALL DCOPY (NS, DUMMY (1), 5, GKR, 1)
+      CALL DCOPY (NS, DUMMY (2), 5, GKF, 1)
+      CALL DCOPY (NS, DUMMY (3), 5, RHOSO, 1)
+      CALL DCOPY (NS, DUMMY (4), 5, FPCLAY, 1)
+      CALL DCOPY (NS, DUMMY (5), 5, BKB, 1)
+!
+!     * Soil composition
+      CALL ALREAD (3, SYD, SPR, ':SY23', NSED, NS, IDUM0, CDUM, IDUM, &
+         DUMMY)
+      DO 200 SED = 1, NSED
+         CALL DCOPY (NS, DUMMY (SED), NSED, SOSDFN (1, SED), 1)
+200   END DO
+!
+!     * Vegetation
+      CALL ALREAD (3, SYD, SPR, ':SY24', 3, NV, IDUM0, CDUM, IDUM, &
+         DUMMY)
+      CALL DCOPY (NV, DUMMY (1), 3, XDRIP, 1)
+      CALL DCOPY (NV, DUMMY (2), 3, DRDRIP, 1)
+      CALL DCOPY (NV, DUMMY (3), 3, FDRIP, 1)
+!
+!
+! 3. Link Element Properties
+! --------------------------
+!
+      IF (NLF.GT.0) THEN
+!
+!        * Bank soil type
+         CALL ALREAD (2, SYD, SPR, ':SY31', NLF, 1, IDUM0, CDUM, NTSOBK, &
+            DUMMY)
+!
+!        * Porosity of bed sediment
+         CALL ALREAD (3, SYD, SPR, ':SY32', NLF, 1, IDUM0, CDUM, IDUM, &
+            PBSED)
+!
+      ENDIF
+!
+!
+! 4. Column-element Properties
+! ----------------------------
+!
+!     * Ground cover
+      CALL ALALLF (1, 1, 0, SYD, SPR, ':SY41', NEL, NLF, NX, NY, NELEE, &
+         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  FCG, IDUM, &
+         DUMMY)
+!
+!     * Rock cover
+      CALL ALALLF (1, 1, 0, SYD, SPR, ':SY42', NEL, NLF, NX, NY, NELEE, &
+         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  FCROCK, &
+         IDUM, DUMMY)
+!
+!     * Porosity of loose sediment
+      CALL ALALLF (1, 1, 0, SYD, SPR, ':SY43', NEL, NLF, NX, NY, NELEE, &
+         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  PLS, IDUM, &
+         DUMMY)
+!
+!
+! 5. All-element Initialization
+! -----------------------------
+!
+!     * Initial depth of loose/bed sediment
+      CALL ALALLF (0, 1, 0, SYD, SPR, ':SY51', NEL, NLF, NX, NY, NELEE, &
+         NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  DLS, IDUM, &
+         DUMMY)
+!
+!     * Initial composition of loose/bed sediment ...
+      CALL ALALLF (0, NSED, - 1, SYD, SPR, ':SY52', NEL, NLF, NX, NY, &
+         NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  &
          FBETA, IDUM, DUMMY)
-
-      ! ... with special option to inherit composition of soil
-      IF (NUM_CATEGORIES_TYPES < 0) THEN
-         DO IEL = 1, NLF
-            SOIL = NTSOBK(IEL)
-            FBETA(IEL, 1:NSED) = SOSDFN(SOIL, 1:NSED)
-         END DO
-         DO IEL = NLF + 1, NEL
-            SOIL = NTSOTP(IEL)
-            FBETA(IEL, 1:NSED) = SOSDFN(SOIL, 1:NSED)
-         END DO
-      END IF
-
-      ! * Initial concentrations of suspended sediment
-      CALL ALALLF(0, NSED, 0, SYD, SPR, ':SY53', NEL, NLF, NX, NY, &
-         NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, &
+!
+!     ... with special option to inherit composition of soil
+      IF (NUM_CATEGORIES_TYPES .LT.0) THEN
+         DO 510 IEL = 1, NLF
+            SOIL = NTSOBK (IEL)
+            CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), &
+               NELEE)
+510      END DO
+         DO 520 IEL = NLF + 1, NEL
+            SOIL = NTSOTP (IEL)
+            CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), &
+               NELEE)
+520      END DO
+      ENDIF
+!
+!     * Initial concentrations of suspended sediment
+      CALL ALALLF (0, NSED, 0, SYD, SPR, ':SY53', NEL, NLF, NX, NY, &
+         NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  &
          FDEL, IDUM, DUMMY)
-
-
-      ! 6. Boundary Data
-      ! ----------------
-      ! * No of inflow boundary elements & no of categories of each type
-      CALL ALREAD(2, SYD, SPR, ':SY61', 5, 1, IDUM0, CDUM, IDUM, DUMMY)
-      NSYB = IDUM(1)
-      DO ITYPE = 1, 4
-         NSYC(ITYPE) = IDUM(1 + ITYPE)
-      END DO
-
-      IF (NSYB > 0) THEN
-         IF (NSYB > NSYBEE) THEN
-            WRITE(MSG, 9007) NSYB, NSYBEE
-            CALL ERROR(FATAL, 2007, SPR, 0, 0, MSG)
-         END IF
-
-         ! * Check workspace array size: part 3
-         NREQ = MAX(3 * NSYB, NSED * NSYC(1), NSED * 2 * NSYC(3))
-         IF (NELEE < NREQ) THEN
-            WRITE(MSG, 9005) NELEE, NREQ
-            CALL ERROR(FATAL, 2005, SPR, 0, 0, MSG)
-         END IF
-
-         ! * Integer boundary data
-         CALL ALREAD(2, SYD, SPR, ':SY62', 3, NSYB, IDUM0, CDUM, IDUM, DUMMY)
+!
+!
+! 6. Boundary Data
+! ----------------
+!
+!     * (see workspace check above)
+!
+!     * No of inflow boundary elements & no of categories of each type
+      CALL ALREAD (2, SYD, SPR, ':SY61', 5, 1, IDUM0, CDUM, IDUM, DUMMY)
+      NSYB = IDUM (1)
+      DO 600 ITYPE = 1, 4
+         NSYC (ITYPE) = IDUM (1 + ITYPE)
+600   END DO
+!
+      IF (NSYB.GT.0) THEN
+!
+         IF (NSYB.GT.NSYBEE) GOTO 8610
+!
+!        * Check workspace array size: part 3
+         NREQ = MAX (3 * NSYB, NSED * NSYC (1), NSED * 2 * NSYC (3) )
+         IF (NELEE.LT.NREQ) GOTO 8000
+!
+!        * Integer boundary data
+         CALL ALREAD (2, SYD, SPR, ':SY62', 3, NSYB, IDUM0, CDUM, IDUM, &
+            DUMMY)
          I0 = 0
-         DO BB = 1, NSYB
-            IEL   = IDUM(I0 + 1)
-            ITYPE = IDUM(I0 + 2)
-            ICAT  = IDUM(I0 + 3)
-
-            IF (ITYPE < 1 .OR. ITYPE > 4) THEN
-               WRITE(MSG, 9008) BB, ITYPE
-               CALL ERROR(FATAL, 2008, SPR, 0, 0, MSG)
-            END IF
-
-            ! * condense 4 into 2 by adding cats 2 & 4 to lists for 1 & 3
-            IF (MOD(ITYPE, 2) == 0) ICAT = ICAT + NSYC(ITYPE - 1)
-
-            NSYBCD(BB, 1) = IEL
-            NSYBCD(BB, 2) = ITYPE
-            NSYBCD(BB, 3) = ICAT
+         DO 610 BB = 1, NSYB
+            IEL = IDUM (I0 + 1)
+            ITYPE = IDUM (I0 + 2)
+            ICAT = IDUM (I0 + 3)
+            IF (ITYPE.LT.1.OR.ITYPE.GT.4) GOTO 8620
+!           * condense 4 into 2 by adding cats 2 & 4 to lists for 1 & 3
+            IF (MOD (ITYPE, 2) .EQ.0) ICAT = ICAT + NSYC (ITYPE-1)
+            NSYBCD (BB, 1) = IEL
+            NSYBCD (BB, 2) = ITYPE
+            NSYBCD (BB, 3) = ICAT
             I0 = I0 + 3
-         END DO
-
-         ! * Steady flux data
-         NC = NSYC(1)
-         IF (NC > 0) THEN
-            IF (NC > NSYCEE) THEN
-               WRITE(MSG, 9009) NSYC(1), NSYCEE
-               CALL ERROR(FATAL, 2009, SPR, 0, 0, MSG)
-            END IF
-
-            CALL ALREAD(3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, IDUM, DUMMY)
-            DO SED = 1, NSED
-               GBC(SED, 1:NC) = DUMMY(SED : SED + (NC-1)*NSED : NSED)
-            END DO
-         END IF
-
-         ! * Steady rating curve data
-         NC = NSYC(3)
-         IF (NC > 0) THEN
-            IF (NC > NSYCEE) THEN
-               WRITE(MSG, 9010) NSYC(3), NSYCEE
-               CALL ERROR(FATAL, 2010, SPR, 0, 0, MSG)
-            END IF
-
-            CALL ALREAD(3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, CDUM, IDUM, DUMMY)
-            DO SED = 1, NSED
-               ABC(SED, 1:NC) = DUMMY(2*SED - 1 : 2*SED - 1 + (NC-1)*2*NSED : 2*NSED)
-               BBC(SED, 1:NC) = DUMMY(2*SED     : 2*SED     + (NC-1)*2*NSED : 2*NSED)
-            END DO
-         END IF
-      END IF
-
-
-      ! 7. Epilogue
-      ! -----------
-      ! * Close the data file
-      CALL ALREAD(-1, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
-
+610      END DO
+!
+!        * Steady flux data
+         NC = NSYC (1)
+         IF (NC.GT.0) THEN
+            IF (NC.GT.NSYCEE) GOTO 8612
+            CALL ALREAD (3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, &
+               IDUM, DUMMY)
+            DO 620 SED = 1, NSED
+               CALL DCOPY (NC, DUMMY (SED), NSED, GBC (SED, 1), NSEDEE)
+620         END DO
+         ENDIF
+!
+!        * Steady rating curve data
+         NC = NSYC (3)
+         IF (NC.GT.0) THEN
+            IF (NC.GT.NSYCEE) GOTO 8614
+            CALL ALREAD (3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, &
+               CDUM, IDUM, DUMMY)
+            DO 630 SED = 1, NSED
+               CALL DCOPY (NC, DUMMY (2 * SED-1), 2 * NSED, ABC (SED, 1) &
+                  , NSEDEE)
+               CALL DCOPY (NC, DUMMY (2 * SED), 2 * NSED, BBC (SED, 1), &
+                  NSEDEE)
+630         END DO
+         ENDIF
+!
+      ENDIF
+!
+!
+! 7. Epilogue
+! -----------
+!
+!     * Close the data file
+      CALL ALREAD ( - 1, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, &
+         DUMMY)
+!
       RETURN
-
-
-      ! Formats
-      ! -------
-9003  FORMAT (1X, A)
+!
+!
+! Error Branches & Formats
+! ------------------------
+!
+!     * Insufficient workspace
+8000  WRITE (MSG, 9005) NELEE, NREQ
+      CALL ERROR (FATAL, 2005, SPR, 0, 0, MSG)
+!
+!     * NSED not in [1,NSEDEE]
+8110  WRITE (MSG, 9006) NSED, NSEDEE
+      CALL ERROR (FATAL, 2006, SPR, 0, 0, MSG)
+!
+!     * NSYB > NSYBEE
+8610  WRITE (MSG, 9007) NSYB, NSYBEE
+      CALL ERROR (FATAL, 2007, SPR, 0, 0, MSG)
+!
+!     * NSYC(1) > NSYCEE
+8612  WRITE (MSG, 9009) NSYC (1), NSYCEE
+      CALL ERROR (FATAL, 2009, SPR, 0, 0, MSG)
+!
+!     * NSYC(3) > NSYCEE
+8614  WRITE (MSG, 9010) NSYC (3), NSYCEE
+      CALL ERROR (FATAL, 2010, SPR, 0, 0, MSG)
+!
+!     * ITYPE is not in the range [1,4]
+8620  WRITE (MSG, 9008) BB, ITYPE
+      CALL ERROR (FATAL, 2008, SPR, 0, 0, MSG)
+!
+!
+9003  FORMAT ( 1X,A )
+!
 9005  FORMAT ('Workspace available is NELEE = ', I5, &
-         '; workspace required in subroutine SYREAD is ', I6)
-9006  FORMAT ('No. of size groups NSED=', I4, &
-         ' is not in range [1,NSEDEE=', I3, ']')
-9007  FORMAT ('No. of boundaries NSYB=', I5, &
-         ' is greater than NSYBEE=', I4, ']')
-9008  FORMAT ('Boundary type NSYBCD(', I4, ',2)=', I2, &
-         ' is not is the range [1,4]')
-9009  FORMAT ('No. of steady flux categories NSYC(1)=', I4, &
-         ' is greater than NSYCEE=', I3, ']')
-9010  FORMAT ('No. of steady rating categories NSYC(3)=', I4, &
-         ' is greater than NSYCEE=', I3, ']')
-9011  FORMAT ('SY module is version ', A, '; SYD data file is version ', A)
-
+      &        '; workspace required in subroutine SYREAD is ',I6 )
+!
+9006  FORMAT ('No. of size groups NSED=',I4, &
+      &        ' is not in range [1,NSEDEE=',I3,']')
+!
+9007  FORMAT ('No. of boundaries NSYB=',I5, &
+      &        ' is greater than NSYBEE=',I4,']')
+!
+9008  FORMAT ('Boundary type NSYBCD(',I4,',2)=',I2, &
+      &        ' is not is the range [1,4]')
+!
+9009  FORMAT ('No. of steady flux categories NSYC(1)=',I4, &
+      &        ' is greater than NSYCEE=',I3,']')
+!
+9010  FORMAT ('No. of steady rating categories NSYC(3)=',I4, &
+      &        ' is greater than NSYCEE=',I3,']')
+!
+9011  FORMAT ('SY module is version ',A,'; SYD data file is version ',A)
+!
+!
    END SUBROUTINE SYREAD
 
 
