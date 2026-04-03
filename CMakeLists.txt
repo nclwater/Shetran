@@ -364,8 +364,8 @@ if(WIN32)
         $<$<CONFIG:Debug>:/debug:full>
         $<$<CONFIG:Debug>:/traceback>
         $<$<CONFIG:Debug>:/check:bounds>
-        $<$<CONFIG:Debug>:/stand>
-        $<$<CONFIG:Debug>:/warn>
+        $<$<CONFIG:Debug>:/stand> # Warn about non-standard Fortran
+        $<$<CONFIG:Debug>:/warn:all> # Enable ALL diagnostic warnings, including interfaces
 
         # Release: safer numerics, portable across CPU generations
         $<$<CONFIG:Release>:/O2>
