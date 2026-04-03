@@ -16,7 +16,7 @@ module MNmod
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     edeth,emph,emt,enph,ent
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     gam,gamtmp,imamm,imdiff,imnit
     LOGICAL, DIMENSION(:,:), ALLOCATABLE ::     isimtf
-	DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     kd1,kd2,khum,klit,kman,knit,kvol
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     kd1,kd2,khum,klit,kman,knit,kvol
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     miner
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     naamm,namm,namm1,nanit,ndnit,ndsnt,nlit,nlit1,nman,nman1,ntrf
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     plamm,plnit,plup,pphi
@@ -344,9 +344,9 @@ subroutine mncont(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
     !
     !
     !----------------------------------------------------------------------*
-    ! temp code	(sb 1/3/01)
+    ! temp code    (sb 1/3/01)
     do i = 1,nv
-	    ta(i) = 10.0
+        ta(i) = 10.0
     enddo
 
     
@@ -355,10 +355,10 @@ subroutine mncont(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
     call mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref,icmxy,ncolmb,nlyr, &
         nlyrbt,ntsoil,d0,tih,z2,dxqq,dyqq,vspor,deltaz,zvsnod,bexbk,linkns,dtuz,uznow,cccc,pnetto,ssss,ta,vspsi, &
         vsthe,vstheo,sss1,sss2 )
-	
+    
 end subroutine mncont
 
-	
+    
 subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,vsthe,vspor,isbotc )
     !
     !--------------------------------------------------------------------*
@@ -417,10 +417,10 @@ subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt
         enddo
     enddo
     !
-end subroutine mnedth  	
-	
-	
-	
+end subroutine mnedth      
+    
+    
+    
 subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -474,10 +474,10 @@ subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
         enddo
     enddo
     !
-end	subroutine mnemph
-	
-	
-	
+end    subroutine mnemph
+    
+    
+    
 subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
     !
     !--------------------------------------------------------------------*
@@ -540,9 +540,9 @@ subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
         enddo
     enddo
     !
-end subroutine mnemt	
-	
-	
+end subroutine mnemt    
+    
+    
 subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -606,8 +606,8 @@ subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     enddo
     !
 end subroutine mnenph
-	
-	
+    
+    
 subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
     !
     !--------------------------------------------------------------------*
@@ -670,8 +670,8 @@ subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
         enddo
     enddo
     !
-end subroutine mnent	
-	
+end subroutine mnent    
+    
 subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee,nlyree,nmneee,nmntee,ns,nsee,nv, &
     nvee,nx,nxee,ny )
     !
@@ -732,7 +732,7 @@ subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee
     !
     !nelee
     idums(1) = nelee
-    !	idumo(1) = max(nel,ns)
+    !    idumo(1) = max(nel,ns)
     idumo(1) = nel
     call alchki( err,3022,mnpr,1,1,iundef,iundef,'nelee','GE',idumo,idums,nerr,ldum1)
     !
@@ -3619,9 +3619,9 @@ subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dx
             endif
             !* sb 5/3/01 add data from pldat.f
             !* all second plant types on a grid square are equal to 1i=1,nel
-   	        do I=1,nel
-	            NPLTYP(i,2)= 1
-	        enddo
+               do I=1,nel
+                NPLTYP(i,2)= 1
+            enddo
 
             
             do nplant=1,npl(nelm)
@@ -4484,7 +4484,7 @@ subroutine mntemp (llee,ncetop,nel,nelee,nlf,nv,ncolmb,z2,deltaz,zvsnod,dtuz,ta)
     !
 end subroutine mntemp
 
-	
+    
 END MODULE MNmod
-	
-	
+    
+    
