@@ -2037,7 +2037,7 @@ IF (SIMPOS.EQ.'start') THEN
                     stop   
         endif
         write (SEDALLUNIT,'(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge(kg/s)'
-	    write (SEDFINEUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - Fine Sediments'
+        write (SEDFINEUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - Fine Sediments'
         if (ios/=0) then
             write(*,'(A)') 'Error writing to the sed-fine-daily-output.csv file'
             write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'

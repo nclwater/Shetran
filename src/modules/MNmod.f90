@@ -3,12 +3,10 @@ module MNmod
     use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee, error
     use mod_load_filedata,    only : alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
     use utilsmod, only: hour_from_date, tridag
-    	
 
     PUBLIC    :: mnamm, mnco2, mncont, mnedth, mnemph, mnemt, mnenph, mnent   ! subroutine names
     PUBLIC    :: mnerr0, mnerr1, mnerr2, mnerr3, mnerr4, mngam, mninit, mnint2
-	PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp
-    
+	PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp    
     
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     cahum,calit,caman,cdort,chum,chum1,clit,clit1,cman,cman1
     DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     denit,dummy4,dummy6
