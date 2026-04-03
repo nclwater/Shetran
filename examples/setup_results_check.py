@@ -81,9 +81,11 @@ def main():
     elif args.list == "all":
         model_names = _get_all_models()
     elif args.list == "long":
-        model_names = settings.list_long_running
+        model_names = (settings.list_long_running +
+                       settings.list_medium_runtime +
+                       settings.list_short_runtime)
     elif args.list == "medium":
-        model_names = settings.list_medium_runtime
+        model_names = settings.list_medium_runtime + settings.list_short_runtime
     else:
         model_names = settings.list_short_runtime
 
@@ -96,7 +98,6 @@ def main():
     # run the models & copy over the results to the expected results directory
     data_overview = {}
     for model_name in model_names:
-
         # generate directory names
         dir_input = os.path.join(model_name, settings.dir_inputs)
         dir_simulation = os.path.join(model_name, settings.dir_compute)
@@ -125,5 +126,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

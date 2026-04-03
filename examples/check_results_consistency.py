@@ -31,10 +31,12 @@ def _get_all_models() -> list[str]:
                       settings.list_long_running))
 
 
-def do_comparison(dir_main: str,
-                  fn_shetran: str,
-                  run_simulation: bool = True,
-                  run_comparison: bool = True) -> dict:
+def do_comparison(
+    dir_main: str,
+    fn_shetran: str,
+    run_simulation: bool = True,
+    run_comparison: bool = True,
+) -> dict:
 
     print(f"\nRunning comparison with main directory: {dir_main}")
 
@@ -49,7 +51,6 @@ def do_comparison(dir_main: str,
 
     # run the model
     if run_simulation:
-
         # check that the model files are present in the inputs directory
 
         # run the model
@@ -57,7 +58,6 @@ def do_comparison(dir_main: str,
             compute.run_model(fn_shetran, dir_model, dir_sim, dir_diff))
 
     if run_comparison:
-
         # compare the results with the known good ones
         res_files = compare.compare_results(dir_should, dir_sim, dir_diff)
 
@@ -140,9 +140,10 @@ def main() -> None:
     elif args.list == "all":
         subdirs = _get_all_models()
     elif args.list == "long":
-        subdirs = settings.list_long_running
+        subdirs = (settings.list_long_running + settings.list_medium_runtime +
+                   settings.list_short_runtime)
     elif args.list == "medium":
-        subdirs = settings.list_medium_runtime
+        subdirs = settings.list_medium_runtime + settings.list_short_runtime
     else:
         subdirs = settings.list_short_runtime
 
@@ -175,5 +176,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-
     main()
