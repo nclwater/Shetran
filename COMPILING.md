@@ -24,9 +24,12 @@ This will configure and build a `Release` version of SHETRAN. The resulting exec
 
 **Available Options:**
 
-* `-t, --type TYPE` : Build type: `Debug` or `Release` (default: `Release`).
-* `--clean`         : Clean the build directory before building.
+* `-t, --type TYPE` : Build type: `Debug`, `Release`, or `ReleaseNative` (default: `Release`).
+* `--clean`         : Clean the entire build directory before building (rebuilds external libraries too).
+* `--clean-app`     : Clean only SHETRAN build artifacts before building (keeps external libraries like HDF5).
 * `-v, --verbose`   : Enable verbose build output.
+* `--ford`          : Generate FORD documentation after a successful build.
+* `--docs-only`     : Generate FORD documentation only (no compile).
 * `-h, --help`      : Show help message.
 
 **Examples:**
@@ -34,8 +37,14 @@ This will configure and build a `Release` version of SHETRAN. The resulting exec
 ```cmd
 build.bat -t Debug             :: Build Debug version
 build.bat --clean              :: Clean and build Release version
+build.bat -t Release --clean-app :: Rebuild SHETRAN only, keep external libs
 build.bat -t Release -v        :: Verbose Release build
+build.bat -t ReleaseNative     :: Max local optimization (may be non-portable)
+build.bat --ford               :: Build and generate FORD docs
+build.bat --docs-only          :: Generate FORD docs without compiling
 ```
+
+`--clean` and `--clean-app` are mutually exclusive.
 
 #### Manual CMake Build (NMake)
 
@@ -59,7 +68,33 @@ If you prefer to run CMake manually:
 **CMake Options:**
 
 * `STATIC_RUNTIME` (Default: `ON`): Links Intel and MSVC runtimes statically (`/MT` and `/libs:static`). This generates a portable `.exe` that does not require Intel oneAPI to be in the PATH of the target machine. Set to `OFF` for dynamic linking.
+* `Release` build intent: Uses `/O2` and `/fp:precise` for stable, safer numerics and good portability.
+* `ReleaseNative` build intent: Uses `/O3` and `/QxHost` for maximum performance on the build machine CPU. This may reduce portability to older or different CPUs.
 * `ENABLE_DEPENDENCY_ANALYSIS` (Default: `ON`): Must remain `ON` for proper automatic Fortran module dependency sorting.
+* `ENABLE_FORD_DOCS` (Default: `OFF`): Adds a `ford_docs` build target. This target can be built independently and does not build `shetran.exe`.
+
+### FORD Documentation
+
+You can generate FORD docs directly from the build script:
+
+```cmd
+build.bat --docs-only
+```
+
+or after a successful compile:
+
+```cmd
+build.bat -t Release --ford
+```
+
+If you prefer CMake targets, enable the optional FORD target during configure:
+
+```cmd
+cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_Fortran_COMPILER=ifx -DENABLE_FORD_DOCS=ON ..\..
+nmake ford_docs
+```
+
+The generated entry point is `docs\ford\index.html`.
 
 ### Visual Studio
 
@@ -103,7 +138,7 @@ If you inspect the Visual Studio property pages of the generated project, you wi
 
 To ensure that changes to the codebase do not inadvertently alter the simulation results, an integration testing script is provided. The script compares the output of your newly compiled SHETRAN executable against known "good" results from previous versions.
 
-#### Prerequisites
+#### Python Prerequisites
 
 The testing script is written in Python and requires a few external libraries. Ensure you have Python installed, then install the required dependencies:
 
@@ -126,7 +161,6 @@ The testing script is located in the `examples` directory. By default, it expect
    ```cmd
    python check_results_consistency.py
    ```
-
 
 #### How It Works
 

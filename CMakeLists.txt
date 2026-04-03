@@ -9,6 +9,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
 endif()
 
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release ReleaseNative)
+
+# Expose custom configuration to multi-config generators (e.g. Visual Studio)
+if(CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_CONFIGURATION_TYPES "Debug;Release;ReleaseNative" CACHE STRING "Available build types" FORCE)
+endif()
+
 # =============================================================================
 # Compiler check — only ifx is supported for now
 # =============================================================================
@@ -24,8 +31,10 @@ endif()
 # G-format descriptor warning suppression
 set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "/Qdiag-disable:8291")
 
-# Remove the default /O2 that CMake adds for Release to avoid conflict with /O3
+# Remove the default /O2 that CMake adds for Release to avoid duplicate /O2 in
+# Release and conflicts with /O3 in ReleaseNative.
 string(REPLACE "/O2" "" CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
+set(CMAKE_Fortran_FLAGS_RELEASENATIVE "" CACHE STRING "Flags used by the ReleaseNative build type" FORCE)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -35,6 +44,7 @@ set(CMAKE_C_STANDARD 99)
 option(ENABLE_DEPENDENCY_ANALYSIS "Enable automatic Fortran module dependency analysis" ON)
 option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analysis" OFF)
 option(STATIC_RUNTIME "Link Intel and MSVC runtimes statically (portable .exe, no oneAPI on PATH required)" ON)
+option(ENABLE_FORD_DOCS "Enable FORD documentation target (ford_docs)" OFF)
 
 # =============================================================================
 # Runtime linking
@@ -60,6 +70,25 @@ else()
 endif()
 
 # =============================================================================
+# Optional FORD documentation target
+# =============================================================================
+if(ENABLE_FORD_DOCS)
+    find_program(FORD_EXECUTABLE NAMES ford)
+    if(NOT FORD_EXECUTABLE)
+        message(FATAL_ERROR
+            "ENABLE_FORD_DOCS is ON, but 'ford' was not found in PATH.\n"
+            "Install FORD or configure with -DENABLE_FORD_DOCS=OFF.")
+    endif()
+
+    add_custom_target(ford_docs
+        COMMAND ${FORD_EXECUTABLE} -o ${CMAKE_SOURCE_DIR}/docs/ford ${CMAKE_SOURCE_DIR}/ford_project.md
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Generating FORD documentation"
+        VERBATIM
+    )
+endif()
+
+# =============================================================================
 # HDF5 from source
 # =============================================================================
 include(ExternalProject)
@@ -77,8 +106,11 @@ endif()
 # HDF5 appends _D to library names in Debug builds by default
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(HDF5_LIB_POSTFIX "_D")
+    set(HDF5_CMAKE_BUILD_TYPE "Debug")
 else()
     set(HDF5_LIB_POSTFIX "")
+    # HDF5 only uses standard build types; map non-Debug SHETRAN builds to Release.
+    set(HDF5_CMAKE_BUILD_TYPE "Release")
 endif()
 
 ExternalProject_Add(HDF5_external
@@ -86,7 +118,7 @@ ExternalProject_Add(HDF5_external
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCMAKE_BUILD_TYPE=${HDF5_CMAKE_BUILD_TYPE}
         -DCMAKE_MSVC_RUNTIME_LIBRARY=${HDF5_MSVC_RUNTIME}
         -DHDF5_BUILD_FORTRAN=ON
         -DHDF5_BUILD_HL_LIB=ON
@@ -272,9 +304,14 @@ target_compile_options(SHETRAN PRIVATE
     $<$<CONFIG:Debug>:/check:bounds>
     $<$<CONFIG:Debug>:/stand>
 
-    # Release flags
-    $<$<CONFIG:Release>:/O3>
-    $<$<CONFIG:Release>:/QxHost>
+    # Release: safer numerics, portable across CPU generations
+    $<$<CONFIG:Release>:/O2>
+    $<$<CONFIG:Release>:/fp:precise>
+
+    # ReleaseNative: maximum local performance, non-portable ISA tuning
+    # (intentionally no interprocedural optimization flags such as /Qipo)
+    $<$<CONFIG:ReleaseNative>:/O3>
+    $<$<CONFIG:ReleaseNative>:/QxHost>
 )
 # /libs:static — statically link Intel Fortran/C runtime libraries
 # so the .exe runs without Intel oneAPI on PATH

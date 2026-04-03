@@ -7,8 +7,11 @@ setlocal enabledelayedexpansion
 REM Default values
 set BUILD_TYPE=Release
 set CLEAN_BUILD=false
+set CLEAN_APP_ONLY=false
 set VERBOSE=false
 set JOBS=%NUMBER_OF_PROCESSORS%
+set GENERATE_FORD=false
+set DOCS_ONLY=false
 
 REM Parse command line arguments
 :parse_args
@@ -27,6 +30,11 @@ if "%~1"=="--type" (
 )
 if "%~1"=="--clean" (
     set CLEAN_BUILD=true
+    shift
+    goto parse_args
+)
+if "%~1"=="--clean-app" (
+    set CLEAN_APP_ONLY=true
     shift
     goto parse_args
 )
@@ -52,6 +60,17 @@ if "%~1"=="--jobs" (
     shift
     goto parse_args
 )
+if "%~1"=="--ford" (
+    set GENERATE_FORD=true
+    shift
+    goto parse_args
+)
+if "%~1"=="--docs-only" (
+    set DOCS_ONLY=true
+    set GENERATE_FORD=true
+    shift
+    goto parse_args
+)
 if "%~1"=="-h" goto show_usage
 if "%~1"=="--help" goto show_usage
 
@@ -63,12 +82,21 @@ goto show_usage
 echo SHETRAN Build Script for Windows
 echo =================================
 
+cd "%~dp0"
+
 REM Validate build type
-if /i not "%BUILD_TYPE%"=="Debug" if /i not "%BUILD_TYPE%"=="Release" (
+if /i not "%BUILD_TYPE%"=="Debug" if /i not "%BUILD_TYPE%"=="Release" if /i not "%BUILD_TYPE%"=="ReleaseNative" (
     echo ERROR: Invalid build type: %BUILD_TYPE%
-    echo ERROR: Must be Debug or Release
+    echo ERROR: Must be Debug, Release, or ReleaseNative
     exit /b 1
 )
+
+if "%CLEAN_BUILD%"=="true" if "%CLEAN_APP_ONLY%"=="true" (
+    echo ERROR: --clean and --clean-app are mutually exclusive
+    exit /b 1
+)
+
+if "%DOCS_ONLY%"=="true" goto generate_ford_docs
 
 REM Auto-detect ifx compiler
 echo INFO: Checking for ifx compiler...
@@ -115,6 +143,8 @@ for /f "tokens=3" %%v in ('cmake --version 2^>^&1 ^| findstr /i "version"') do (
 REM Determine build directory
 if /i "%BUILD_TYPE%"=="Debug" (
     set BUILD_DIR=build\debug
+) else if /i "%BUILD_TYPE%"=="ReleaseNative" (
+    set BUILD_DIR=build\release-native
 ) else (
     set BUILD_DIR=build\release
 )
@@ -126,6 +156,22 @@ REM Clean build directory if requested
 if "%CLEAN_BUILD%"=="true" (
     echo INFO: Cleaning build directory: %BUILD_DIR%
     if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+)
+
+REM Clean only SHETRAN build artifacts if requested
+if "%CLEAN_APP_ONLY%"=="true" (
+    if exist "%BUILD_DIR%" (
+        echo INFO: Cleaning SHETRAN artifacts in: %BUILD_DIR%
+
+        if exist "%BUILD_DIR%\bin\shetran.exe" del /q "%BUILD_DIR%\bin\shetran.exe"
+        if exist "%BUILD_DIR%\CMakeFiles\SHETRAN.dir" rmdir /s /q "%BUILD_DIR%\CMakeFiles\SHETRAN.dir"
+
+        for %%f in ("%BUILD_DIR%\*.mod" "%BUILD_DIR%\*.smod") do (
+            if exist "%%~f" del /q "%%~f"
+        )
+    ) else (
+        echo INFO: Build directory does not exist yet. --clean-app has nothing to clean.
+    )
 )
 
 REM Create build directory
@@ -149,9 +195,9 @@ if errorlevel 1 (
 REM Build
 echo INFO: Building SHETRAN...
 if "%VERBOSE%"=="true" (
-    nmake VERBOSE=1
+    nmake SHETRAN VERBOSE=1
 ) else (
-    nmake
+    nmake SHETRAN
 )
 if errorlevel 1 (
     echo ERROR: Build failed!
@@ -170,27 +216,62 @@ echo.
 
 REM Return to source directory
 cd "%~dp0"
+
+if "%GENERATE_FORD%"=="true" call :generate_ford_docs_impl
+
 goto end
+
+:generate_ford_docs
+echo INFO: Running in documentation-only mode
+call :generate_ford_docs_impl
+if errorlevel 1 exit /b 1
+goto end
+
+:generate_ford_docs_impl
+echo INFO: Generating FORD documentation...
+where ford >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: ford command not found in PATH!
+    echo ERROR: Install FORD first (for example: pip install ford)
+    exit /b 1
+)
+
+ford -o docs\ford .\ford_project.md
+if errorlevel 1 (
+    echo ERROR: FORD documentation generation failed!
+    exit /b 1
+)
+
+echo INFO: FORD documentation generated at docs\ford\index.html
+exit /b 0
 
 :show_usage
 echo Usage: %~nx0 [OPTIONS]
 echo.
 echo Options:
-echo   -t, --type TYPE     Build type: Debug or Release (default: Release)
+echo   -t, --type TYPE     Build type: Debug, Release, or ReleaseNative (default: Release)
 echo   --clean             Clean build directory before building
+echo   --clean-app         Clean and rebuild SHETRAN only (keep external libraries)
 echo   -v, --verbose       Verbose build output
 echo   -j, --jobs N        Number of parallel jobs (default: %NUMBER_OF_PROCESSORS%)
+echo   --ford              Generate FORD documentation after a successful build
+echo   --docs-only         Generate FORD documentation only ^(no compile^)
 echo   -h, --help          Show this help message
 echo.
 echo Examples:
 echo   %~nx0                        Build Release (default)
 echo   %~nx0 -t Debug               Build Debug
 echo   %~nx0 -t Debug --clean       Clean Debug build
+echo   %~nx0 -t Release --clean-app Rebuild SHETRAN only, keep external libs
 echo   %~nx0 -t Release --verbose   Verbose Release build
+echo   %~nx0 -t ReleaseNative       Maximum local optimization build
+echo   %~nx0 --ford                 Build and generate FORD documentation
+echo   %~nx0 --docs-only            Generate FORD documentation only
 echo.
 echo Build Directory Structure:
 echo   Debug builds:    build\debug\
 echo   Release builds:  build\release\
+echo   ReleaseNative:   build\release-native\
 echo   Executable:      build\^<type^>\bin\shetran.exe
 
 :end

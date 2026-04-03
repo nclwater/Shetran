@@ -27,6 +27,17 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_Fortran_COMPILER": "ifx"
       }
+    },
+    {
+      "name": "release-native",
+      "displayName": "ReleaseNative",
+      "description": "Maximum optimization for the local CPU (may be non-portable)",
+      "binaryDir": "${sourceDir}/build/release-native",
+      "generator": "NMake Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "ReleaseNative",
+        "CMAKE_Fortran_COMPILER": "ifx"
+      }
     }
   ],
   "buildPresets": [
@@ -41,6 +52,12 @@
       "configurePreset": "release",
       "displayName": "Build Release",
       "description": "Build release version"
+    },
+    {
+      "name": "release-native",
+      "configurePreset": "release-native",
+      "displayName": "Build ReleaseNative",
+      "description": "Build maximum local optimization version"
     }
   ]
 }
