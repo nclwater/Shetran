@@ -355,7 +355,7 @@ if(WIN32)
         $<$<CONFIG:Debug>:/traceback>
         $<$<CONFIG:Debug>:/check:bounds>
         $<$<CONFIG:Debug>:/stand>
-        $<$<CONFIG:Debug>:/warn:unused>
+        $<$<CONFIG:Debug>:/warn>
 
         # Release: safer numerics, portable across CPU generations
         $<$<CONFIG:Release>:/O2>
@@ -381,7 +381,7 @@ elseif(UNIX AND NOT APPLE)
             $<$<CONFIG:Debug>:-traceback>
             $<$<CONFIG:Debug>:-check=bounds>
             $<$<CONFIG:Debug>:-stand>
-            $<$<CONFIG:Debug>:-warn unused>
+            $<$<CONFIG:Debug>:-warn>
 
             $<$<CONFIG:Release>:-O2>
             $<$<CONFIG:Release>:-fp-model=precise>
