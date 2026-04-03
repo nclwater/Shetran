@@ -3548,8 +3548,8 @@ subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dx
     double precision dum,dum2
     double precision dummy(nvalee*2)
     !      * temporary variable to test this subroutine
-    character msg*32
-    character*200  cdum(1)
+    character(len=32) :: msg
+    character(len=200) :: cdum(1)
     !
     save nvalue,pass
     save npl,npltyp
@@ -3792,7 +3792,7 @@ subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk
     !
     integer       fatal,nc,ncat,ndata,nmnt(1),ntb
     parameter     (fatal = 1)
-    character*200  cdum(1)
+    character(len=200)  cdum(1)
     logical       ldum(1)
     !
     !
