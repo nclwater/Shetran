@@ -79,6 +79,8 @@ def main():
     else:
         model_names = settings.list_short_runtime
 
+    model_names = sorted(set(model_names))  # deduplicate and sort model names
+
     # checks
     util.check_model_names_vs_directory()
     if args.run_simulation:
