@@ -813,11 +813,15 @@ DO 650 J = 1, 4
 
 
   650 END DO  
+  
 ! phreatic surface level
 CPSMIN = CZ (ICBOT) - half * CDELZ (ICBOT)  
-DO 920 ICL = ICBOT, ICTOP  
-  920 IF (CPSI (ICL) .LT.ZERO) GOTO 940  
-  940 ICL = MAX (ICBOT, ICL - 1)  
+search_loop: DO ICL = ICBOT, ICTOP 
+    IF (CPSI(ICL) < ZERO) EXIT search_loop
+END DO search_loop
+
+! Adjust ICL only if we actually found a value or finished the loop
+ICL = MAX(ICBOT, ICL - 1)
 
 CPSL = MAX (CPSMIN, CZ (ICL) + CPSI (ICL) )  
 END SUBROUTINE VSCOLM
@@ -1474,14 +1478,14 @@ ELSE
 
 ENDIF  
 ! ----- default is null connectivity
-DO 50 IFA = 1, 4  
-   DO 50 IEL = 1, total_no_elements  
-      DO 50 ILYR = 1, NLYR (IEL) + 1  
+DO IFA = 1, 4  
+   DO IEL = 1, total_no_elements  
+      DO ILYR = 1, NLYR (IEL) + 1  
          JVSALN (IEL, ILYR, IFA) = 0  
+      END DO  
+   END DO  
+END DO
 
-
-
-   50 CONTINUE  
 ! Main loop over (faces of) column elements
 !___________________________________________*
 
@@ -2812,13 +2816,12 @@ IF (NUM_CATEGORIES_TYPES .EQ.0) THEN
 
 ELSE  
 ! initialise arrays
-   DO 50 IEL = 1, NELEE  
-      DO 50 ILYR = 1, NLYREE  
+   DO IEL = 1, NELEE  
+      DO ILYR = 1, NLYREE  
          IVSDUM (IEL, ILYR) = 0  
          RVSDUM (IEL, ILYR) = zero  
-
-
-   50    CONTINUE  
+      END DO
+   END DO
 ! read layer data
 
 
