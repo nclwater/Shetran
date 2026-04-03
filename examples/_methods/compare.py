@@ -18,6 +18,25 @@ from typing import Any
 from . import settings as settings
 
 
+def _is_datetime_header(column_name: str) -> bool:
+    """Return True when a column header is explicitly date-like."""
+    header = column_name.strip().lower()
+    return "date" in header or "iso8601" in header
+
+
+def _read_table_csv(fn_table: str) -> pd.DataFrame:
+    """Read table data and only parse explicitly date-like columns as datetimes."""
+    header_df = pd.read_csv(fn_table, skiprows=1, nrows=0)
+    date_columns = [
+        col for col in header_df.columns if _is_datetime_header(col)
+    ]
+
+    return pd.read_csv(fn_table,
+                       skiprows=1,
+                       parse_dates=date_columns if date_columns else False,
+                       index_col=0)
+
+
 def _plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
                           metrics: dict) -> None:
     """
@@ -149,11 +168,8 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
             f_delta.write(line_should)
 
     # read the rest of the table into pandas dataframes
-    df_should = pd.read_csv(fn_should,
-                            skiprows=1,
-                            parse_dates=True,
-                            index_col=0)
-    df_is = pd.read_csv(fn_is, skiprows=1, parse_dates=True, index_col=0)
+    df_should = _read_table_csv(fn_should)
+    df_is = _read_table_csv(fn_is)
 
     # compare the dataframes
     # start with the textual content (column names, number of rows, etc.)
@@ -169,14 +185,13 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     else:
         res["same_row_count"] = True
 
-    # only rows with "time" and "date" in the column names are allowed to be strings
+    # only explicitly date-like columns are allowed to be non-numeric
     date_time_should = [
         idx for idx, h in enumerate(df_should.columns)
-        if "date" in h.lower() or "time" in h.lower()
+        if _is_datetime_header(h)
     ]
     date_time_is = [
-        idx for idx, h in enumerate(df_is.columns)
-        if "date" in h.lower() or "time" in h.lower()
+        idx for idx, h in enumerate(df_is.columns) if _is_datetime_header(h)
     ]
     if date_time_should != date_time_is:
         flag_diff = True
