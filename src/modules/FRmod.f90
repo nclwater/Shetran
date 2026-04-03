@@ -1187,8 +1187,8 @@ SUBROUTINE FRINIT()
 ! Locals, etc
 INTEGER :: IEL, IFACE, JEL, K
 DOUBLEPRECISION :: rdd(nelee), rddq(nelee,4)
-CHARACTER (LEN=20) :: AIOSTO  
-character*10 :: atemp
+CHARACTER(LEN=20) :: AIOSTO  
+character(LEN=10) :: atemp
 
 
 DATA AIOSTO / '11111111111111111111' /  
