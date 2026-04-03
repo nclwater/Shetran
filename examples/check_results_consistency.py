@@ -22,6 +22,15 @@ from _methods import settings as settings
 from _methods import util as util
 
 
+def _get_all_models() -> list[str]:
+
+    # Keep order stable while deduplicating list entries.
+    return list(
+        dict.fromkeys(settings.list_short_runtime +
+                      settings.list_medium_runtime +
+                      settings.list_long_running))
+
+
 def do_comparison(dir_main: str,
                   fn_shetran: str,
                   run_simulation: bool = True,
@@ -108,16 +117,37 @@ def main() -> None:
         help=("Path to the SHETRAN executable. "
               "If omitted, uses the value from fn_shetran in this script."),
     )
+    parser.add_argument(
+        "-m",
+        "--model",
+        action="append",
+        default=[],
+        help=(
+            "Model name to run and compare. Can be repeated; overrides --list "
+            "when used."),
+    )
+    parser.add_argument(
+        "-l",
+        "--list",
+        default="short",
+        choices=["all", "long", "medium", "short"],
+        help="Predefined model list to run and compare (default: short).",
+    )
     args = parser.parse_args()
 
-    # get list of all subdirectories in the current directory
-    subdirs = [
-        d for d in os.listdir(".")
-        if os.path.isdir(d) and not d.startswith("_")
-    ]
+    if args.model:
+        subdirs = args.model
+    elif args.list == "all":
+        subdirs = _get_all_models()
+    elif args.list == "long":
+        subdirs = settings.list_long_running
+    elif args.list == "medium":
+        subdirs = settings.list_medium_runtime
+    else:
+        subdirs = settings.list_short_runtime
 
-    # filter out any which are in the long-running list
-    subdirs = [d for d in subdirs if d not in settings.list_long_running]
+    # deduplicate and sort model names
+    subdirs = sorted(set(subdirs))
 
     # overall check
     util.check_model_names_vs_directory()
