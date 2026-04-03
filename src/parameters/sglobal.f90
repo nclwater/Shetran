@@ -327,6 +327,8 @@ CONTAINS
       CHARACTER, PARAMETER :: slash = '/'
       LOGICAL :: present
 
+      DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /
+
       helppath = '/helpmessages'
 
       !**SB 07072020 reduce timestep if there are errors 1024,1030,1060
