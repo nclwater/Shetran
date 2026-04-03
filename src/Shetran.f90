@@ -134,6 +134,5 @@ PROGRAM SHETRAN
    ! ============================================================================
 
    ! The program now terminates cleanly
-   CALL sleepqq(500)
 
 END PROGRAM SHETRAN
