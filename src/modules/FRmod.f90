@@ -1904,7 +1904,7 @@ INTEGER :: nminel, i, j, iel, ios
 INTEGER  :: c(6)
 
 1000 format(i7)            !PUT HERE FOR AD PROBLEM
-1100 format(10(x,f9.3))
+1100 format(10(1x,f9.3))
 IF (SIMPOS.EQ.'start') THEN  
     
     if (ISextradis) then 
