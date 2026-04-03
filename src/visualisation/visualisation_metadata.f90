@@ -991,8 +991,10 @@ END SUBROUTINE read_time
 SUBROUTINE read_list(L)
 INTEGER                    :: i, cnt
 TYPE(LLIST), INTENT(INOUT) :: L
-    IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a list'
 CHARACTER(LEN=100) :: fmt_str
+
+IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a list'
+
 L%scope = 'all'
 L%indx  = no_lists
 CALL R_I('list NO AND SIZE',L%number, L%sz)
