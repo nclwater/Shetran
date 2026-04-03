@@ -153,8 +153,10 @@ else()
     set(HDF5_STATIC_EXT ".a")
 endif()
 
+# Always stage HDF5 into the project build tree; never rely on system install paths.
+set(HDF5_STAGE_DIR "${CMAKE_BINARY_DIR}/hdf5-install")
+
 set(HDF5_CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-install
     -DCMAKE_BUILD_TYPE=${HDF5_CMAKE_BUILD_TYPE}
     -DHDF5_BUILD_FORTRAN=ON
     -DHDF5_BUILD_HL_LIB=ON
@@ -182,19 +184,27 @@ endif()
 ExternalProject_Add(HDF5_external
     URL ${HDF5_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    INSTALL_DIR ${HDF5_STAGE_DIR}
+    CMAKE_CACHE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DCMAKE_INSTALL_LIBDIR:PATH=lib
+        -DCMAKE_INSTALL_BINDIR:PATH=bin
+        -DCMAKE_INSTALL_INCLUDEDIR:PATH=include
     CMAKE_ARGS
         ${HDF5_CMAKE_ARGS}
+    INSTALL_COMMAND
+        ${CMAKE_COMMAND} --install <BINARY_DIR> --prefix <INSTALL_DIR>
     BUILD_BYPRODUCTS
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_f90cstub${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_fortran${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_f90cstub${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
-        ${CMAKE_BINARY_DIR}/hdf5-install/lib/libhdf5_hl_fortran${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${HDF5_STAGE_DIR}/lib/libhdf5${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${HDF5_STAGE_DIR}/lib/libhdf5_f90cstub${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${HDF5_STAGE_DIR}/lib/libhdf5_fortran${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${HDF5_STAGE_DIR}/lib/libhdf5_hl${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${HDF5_STAGE_DIR}/lib/libhdf5_hl_f90cstub${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${HDF5_STAGE_DIR}/lib/libhdf5_hl_fortran${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
 )
 
-set(HDF5_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/hdf5-install/include")
-set(HDF5_LIB_DIR "${CMAKE_BINARY_DIR}/hdf5-install/lib")
+set(HDF5_INCLUDE_DIRS "${HDF5_STAGE_DIR}/include")
+set(HDF5_LIB_DIR "${HDF5_STAGE_DIR}/lib")
 
 # Create IMPORTED targets for each HDF5 library so that nmake does not try to
 # treat the .lib file paths as makefile targets to build.
