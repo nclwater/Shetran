@@ -11,7 +11,6 @@
       "displayName": "Debug",
       "description": "Debug build with runtime checks and symbols",
       "binaryDir": "${sourceDir}/build/debug",
-      "generator": "NMake Makefiles",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_Fortran_COMPILER": "ifx"
@@ -22,7 +21,6 @@
       "displayName": "Release",
       "description": "Optimized release build",
       "binaryDir": "${sourceDir}/build/release",
-      "generator": "NMake Makefiles",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_Fortran_COMPILER": "ifx"
@@ -33,7 +31,6 @@
       "displayName": "ReleaseNative",
       "description": "Maximum optimization for the local CPU (may be non-portable)",
       "binaryDir": "${sourceDir}/build/release-native",
-      "generator": "NMake Makefiles",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "ReleaseNative",
         "CMAKE_Fortran_COMPILER": "ifx"

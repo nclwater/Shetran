@@ -57,13 +57,19 @@ endif()
 # Define flags used by the custom ReleaseNative build type.
 set(CMAKE_Fortran_FLAGS_RELEASENATIVE "" CACHE STRING "Flags used by the ReleaseNative build type" FORCE)
 
-if(WIN32 AND IS_INTEL_FORTRAN)
+if(IS_INTEL_FORTRAN)
     # G-format descriptor warning suppression (ifx warning #8291)
-    set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "/Qdiag-disable:8291")
+    if(WIN32)
+        set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "/Qdiag-disable:8291")
+    else()
+        set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "-diag-disable=8291")
+    endif()
 
-    # Remove the default /O2 that CMake adds for Release to avoid duplicate /O2
-    # in Release and conflicts with /O3 in ReleaseNative.
-    string(REPLACE "/O2" "" CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
+    if(WIN32)
+        # Remove the default /O2 that CMake adds for Release to avoid duplicate /O2
+        # in Release and conflicts with /O3 in ReleaseNative.
+        string(REPLACE "/O2" "" CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
+    endif()
 else()
     set(INTEL_G_FORMAT_WARN_SUPPRESS_FLAG "")
 endif()
@@ -357,7 +363,7 @@ if(WIN32)
         # "/fpp"
         # "/mcmodel:large"
         # "/heap-arrays:0"
-        "${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}"
+        ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
 
         # Debug flags
         $<$<CONFIG:Debug>:/Od> # Use /Od for "disable optimization" with ifx
@@ -386,6 +392,7 @@ elseif(UNIX AND NOT APPLE)
     if(IS_INTEL_FORTRAN)
         # ifx on Linux uses GNU-style options.
         target_compile_options(SHETRAN PRIVATE
+            ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
             $<$<CONFIG:Debug>:-O0>
             $<$<CONFIG:Debug>:-g>
             $<$<CONFIG:Debug>:-traceback>
