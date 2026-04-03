@@ -82,6 +82,36 @@ def main():
 
             warnings.append({
                 "filename": fn,
+                "typus": "warning",
+                "line_number": line_num,
+                "warning_id": warning_id,
+                "warning_message": warning_msg
+            })
+        elif ("remark" in line_lower and "src" in line_lower
+              and "f90" in line_lower and "build" not in line_lower):
+
+            # extract relevant parts of the warning message
+            parts_double_colon = line.split("remark #")
+            if len(parts_double_colon) < 2:
+                continue
+
+            # get filename and line number from the first part of the warning message
+            location_part = parts_double_colon[0].strip()
+            if "(" not in location_part or ")" not in location_part:
+                continue
+
+            file_part, line_part = location_part.rsplit("(", 1)
+            fn = normalise_to_src_path(file_part)
+            line_num = line_part.split(")", 1)[0].strip()
+
+            # next exctract the warning id & body from the second part of the warning message
+            warning_id = parts_double_colon[1].split(": ")[0].strip()
+            warning_msg = ": ".join(
+                parts_double_colon[1].split(": ")[1:]).strip()
+
+            warnings.append({
+                "filename": fn,
+                "typus": "remark",
                 "line_number": line_num,
                 "warning_id": warning_id,
                 "warning_message": warning_msg
