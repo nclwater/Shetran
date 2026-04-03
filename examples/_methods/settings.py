@@ -4,6 +4,10 @@
 
 import os
 
+_METHODS_DIR = os.path.dirname(os.path.abspath(__file__))
+_EXAMPLES_DIR = os.path.dirname(_METHODS_DIR)
+_REPO_ROOT_DIR = os.path.dirname(_EXAMPLES_DIR)
+
 # global variables
 dir_inputs = "model"
 dir_compute = "compute"
@@ -88,8 +92,10 @@ tolerance_numeric = 1e-5
 tolerance_table = 0.001
 
 # Filename settings
-default_shetran_exe = fn_shetran = os.path.join("..", "build", "release",
-                                                "bin", "shetran.exe")
+shetran_executable_name = "shetran.exe" if os.name == "nt" else "shetran"
+default_shetran_exe = fn_shetran = os.path.join(_REPO_ROOT_DIR, "build",
+                                                "release", "bin",
+                                                shetran_executable_name)
 fn_model_analysis = "model_analysis.csv"
 fn_overall_analysis = "overall_analysis.csv"
 fn_setup_overview = "setup_overview.csv"

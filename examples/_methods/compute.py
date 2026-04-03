@@ -18,6 +18,11 @@ def run_model(fn_shetran: str,
               dir_simulation: str,
               dir_diff: str | None = None) -> dict:
 
+    fn_shetran_abs = os.path.abspath(os.path.expanduser(fn_shetran))
+    if not os.path.isfile(fn_shetran_abs):
+        raise FileNotFoundError(
+            f"SHETRAN executable not found: {fn_shetran_abs}")
+
     # delta & compute directories
     util.remove_non_empty_dir(dir_simulation, flag_makeIt=True)
     if dir_diff is not None:
@@ -39,7 +44,7 @@ def run_model(fn_shetran: str,
     rundata_file = os.path.abspath(rundata_files[0])
     t_start = datetime.datetime.now()
     subprocess.run(
-        [fn_shetran, "-f", rundata_file],
+        [fn_shetran_abs, "-f", rundata_file],
         cwd=os.path.abspath(dir_simulation),
         check=True,
     )

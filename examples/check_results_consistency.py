@@ -90,9 +90,6 @@ def do_comparison(
 
 def main() -> None:
 
-    # settings
-    # fn_shetran = os.path.join("_official_exe", "Shetran.exe")
-
     parser = argparse.ArgumentParser(description=(
         "Run SHETRAN examples and/or compare their outputs against expected results."
     ))
