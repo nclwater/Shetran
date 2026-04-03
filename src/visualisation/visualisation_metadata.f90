@@ -1199,12 +1199,14 @@ TYPE(LLIST), DIMENSION(:), POINTER :: s,old=>NULL()
 INCLUDE 'include_increment.f90'
 no_lists   = no_lists + 1
 END SUBROUTINE INCREMENT_LIST
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE INCREMENT_MASK(s,n)
 TYPE(MASK), DIMENSION(:), POINTER :: s,old=>NULL()
 INCLUDE 'include_increment.f90'
 no_masks  = no_masks + 1
 END SUBROUTINE INCREMENT_MASK
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE INCREMENT_TIME(s,n)
 TYPE(TTIME), DIMENSION(:), POINTER :: s,old=>NULL()
@@ -1224,16 +1226,29 @@ END SELECT
 END FUNCTION no_extra_dimensions
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-FUNCTION names_of_extra_dimensions(n,e_d) RESULT(r)
-INTEGER, INTENT(IN)        :: n
-CHARACTER(*), INTENT(IN)   :: e_d
-CHARACTER(6), DIMENSION(n) :: r
-SELECT CASE(e_d)
-CASE('-')        ; r = ''
-CASE('faces')       ; r = (/'North', 'East', 'South', 'West'/)
-CASE('left_right')  ; r = (/'left','right'/)
-CASE('X_Y')         ; r = (/'x','y'/)
-END SELECT
+PURE FUNCTION names_of_extra_dimensions(n, e_d) RESULT(r)
+   INTEGER, INTENT(IN)            :: n
+   CHARACTER(LEN=*), INTENT(IN)   :: e_d
+   CHARACTER(LEN=6), DIMENSION(n) :: r
+
+   ! Initialize to blanks in case n is larger than the provided names
+   r = '' 
+
+   SELECT CASE(e_d)
+      CASE('-')  
+         r = ''
+      CASE('faces')      
+         ! Assumes n == 4
+         r = [CHARACTER(LEN=6) :: 'North', 'East', 'South', 'West']
+      CASE('left_right') 
+         ! Assumes n == 2
+         r = [CHARACTER(LEN=6) :: 'left', 'right']
+      CASE('X_Y')        
+         ! Assumes n == 2
+         r = [CHARACTER(LEN=6) :: 'x', 'y']
+    !   CASE DEFAULT
+    !      r = ''
+   END SELECT
 END FUNCTION names_of_extra_dimensions
 
 END MODULE visualisation_metadata
