@@ -16,6 +16,7 @@ Then select a rundata file from one of the examples data sets.
 See [COMPILING.md](COMPILING.md) for instructions on how to compile the program.
 
 For iterative local development builds on Windows, use `build.bat -t Release --clean-app` to rebuild SHETRAN quickly without rebuilding external libraries.
+The equivalent Linux command is nearly identical: `./build.sh -t Release --clean-app`.
 
 ## Documentation
 
