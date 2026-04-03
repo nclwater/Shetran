@@ -992,6 +992,7 @@ SUBROUTINE read_list(L)
 INTEGER                    :: i, cnt
 TYPE(LLIST), INTENT(INOUT) :: L
     IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a list'
+CHARACTER(LEN=100) :: fmt_str
 L%scope = 'all'
 L%indx  = no_lists
 CALL R_I('list NO AND SIZE',L%number, L%sz)
@@ -1000,7 +1001,8 @@ CALL R_I('list NO AND SIZE',L%number, L%sz)
 ALLOCATE(L%a(L%sz))
 CALL R_I('list', L%sz, L%a)
         IF(diagnostics) WRITE(vp_out,'(50X,A)') 'read list'
-        WRITE(vp_out,'(<L%sz>I5)') L%a
+        WRITE(fmt_str, '("(", I0, "I5)")') L%sz
+        WRITE(vp_out, fmt_str) L%a
 cnt = 0
 DO i=1,SIZE(L%a)
     IF(L%a(i)<1 .OR. L%a(i)>nel) THEN
@@ -1024,7 +1026,7 @@ IF(diagnostics) WRITE(vp_out,'(50X,A)') 'creating a '//TRIM(txt)//' list from ma
 CALL SORT(r%sz, r%a)
 WRITE(vp_out,'(A,I3,A,i5,2A)') '-----'//' list from mask number',m%number,' size:', r%sz, ' scope: ', r%scope
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'created list'
-WRITE(vp_out,'(<20>I5)') r%a
+WRITE(vp_out, '(20I5)') r%a
 
 CONTAINS
 
@@ -1059,7 +1061,7 @@ IF(diagnostics) WRITE(vp_out,'(50X,A)') 'creating a '//TRIM(txt)//' list from li
 CALL SORT(r%sz, r%a)
 WRITE(vp_out,'(A,I3,A,I4,2A)') '-----list from list number',L%number,' size:', r%sz, ' scope :', r%scope
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'created list'
-WRITE(vp_out,'(<20>I5)') r%a
+WRITE(vp_out,'(20I5)') r%a
 
 CONTAINS
 
