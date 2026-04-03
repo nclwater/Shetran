@@ -1265,8 +1265,8 @@ ENDIF
  9012 FORMAT ('Cross-section number IDEFX =',I4,' lies outside ranges', &
 &        ' -NDEFCT:-1 =',I4,' : -1  and  2:NOCTAB = 2 :',I4)
 
- 9013 FORMAT ('Expected element number,'I5,', but found',I5,', ', &
-&        'while reading channel data')
+9013 FORMAT ('Expected element number,', I5, ', but found', I5, ', ', &
+ &        'while reading channel data')
 
  9032 FORMAT (/5X,'Default Channel Cross-sections:'//5X,3A10/)  
 
