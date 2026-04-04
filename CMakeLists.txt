@@ -1,13 +1,19 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Default to gfortran on Linux unless user explicitly selected a compiler.
+# Default to ifx on Linux (fallback: gfortran) unless user explicitly selected a compiler.
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND NOT DEFINED CMAKE_Fortran_COMPILER)
-    find_program(DEFAULT_GFORTRAN gfortran)
-    if(DEFAULT_GFORTRAN)
-        set(CMAKE_Fortran_COMPILER "${DEFAULT_GFORTRAN}" CACHE FILEPATH "Fortran compiler" FORCE)
-        message(STATUS "Defaulting Fortran compiler to gfortran on Linux: ${CMAKE_Fortran_COMPILER}")
+    find_program(DEFAULT_IFX ifx)
+    if(DEFAULT_IFX)
+        set(CMAKE_Fortran_COMPILER "${DEFAULT_IFX}" CACHE FILEPATH "Fortran compiler" FORCE)
+        message(STATUS "Defaulting Fortran compiler to ifx on Linux: ${CMAKE_Fortran_COMPILER}")
     else()
-        message(WARNING "gfortran not found on PATH; CMake will use its default Fortran compiler selection.")
+        find_program(DEFAULT_GFORTRAN gfortran)
+        if(DEFAULT_GFORTRAN)
+            set(CMAKE_Fortran_COMPILER "${DEFAULT_GFORTRAN}" CACHE FILEPATH "Fortran compiler" FORCE)
+            message(STATUS "ifx not found; defaulting Fortran compiler to gfortran on Linux: ${CMAKE_Fortran_COMPILER}")
+        else()
+            message(WARNING "Neither ifx nor gfortran found on PATH; CMake will use its default Fortran compiler selection.")
+        endif()
     endif()
 endif()
 
