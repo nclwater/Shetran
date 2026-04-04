@@ -31,10 +31,10 @@ endif()
 # Compiler support and platform defaults
 # =============================================================================
 if(WIN32)
-    if(NOT (CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM" OR CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LFortran" OR CMAKE_Fortran_COMPILER_ID STREQUAL "Clang" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang"))
+    if(NOT (CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM" OR CMAKE_Fortran_COMPILER_ID STREQUAL "Intel"))
         message(FATAL_ERROR
             "Unsupported Fortran compiler on Windows: ${CMAKE_Fortran_COMPILER_ID}\n"
-            "Currently only Intel ifx, LFortran, and Flang are supported on Windows.")
+            "Currently only Intel ifx is supported on Windows.")
     endif()
 elseif(UNIX AND NOT APPLE)
     if(NOT (
@@ -76,20 +76,6 @@ endif()
 
 set(CMAKE_C_STANDARD 99)
 
-# flang/lfortran on Windows may not auto-detect symbol tools; provide llvm-nm
-# so FortranCInterface can discover mangling reliably.
-if(WIN32 AND (CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang" OR CMAKE_Fortran_COMPILER_ID STREQUAL "Clang" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LFortran"))
-    if(NOT CMAKE_NM OR CMAKE_NM MATCHES "NOTFOUND")
-        find_program(SHETRAN_LLVM_NM NAMES llvm-nm llvm-nm.exe)
-        if(SHETRAN_LLVM_NM)
-            set(CMAKE_NM "${SHETRAN_LLVM_NM}" CACHE FILEPATH "Symbol dumper" FORCE)
-            message(STATUS "Using llvm-nm for Fortran/C interface checks: ${CMAKE_NM}")
-        else()
-            message(WARNING "llvm-nm was not found in PATH; Fortran/C interface checks may fail with flang/lfortran.")
-        endif()
-    endif()
-endif()
-
 # =============================================================================
 # Build options
 # =============================================================================
@@ -101,7 +87,7 @@ option(ENABLE_FORD_DOCS "Enable FORD documentation target (ford_docs)" OFF)
 # =============================================================================
 # Runtime linking (Windows/MSVC only)
 # =============================================================================
-if(WIN32 AND IS_INTEL_FORTRAN)
+if(WIN32)
     if(STATIC_RUNTIME)
         # /MT — statically link MSVC C runtime; applied automatically to all targets
         # via CMAKE_MSVC_RUNTIME_LIBRARY (CMake 3.15+)
@@ -197,22 +183,14 @@ set(HDF5_CMAKE_ARGS
     -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
 )
 
-if(WIN32 AND IS_INTEL_FORTRAN)
+if(WIN32)
     list(APPEND HDF5_CMAKE_ARGS -DCMAKE_MSVC_RUNTIME_LIBRARY=${HDF5_MSVC_RUNTIME})
-endif()
-
-if(CMAKE_NM AND NOT CMAKE_NM MATCHES "NOTFOUND")
-    list(APPEND HDF5_CMAKE_ARGS -DCMAKE_NM=${CMAKE_NM})
 endif()
 
 ExternalProject_Add(HDF5_external
     URL ${HDF5_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     INSTALL_DIR ${HDF5_STAGE_DIR}
-    PATCH_COMMAND
-        ${CMAKE_COMMAND}
-        -DHDF5_SOURCE_DIR=<SOURCE_DIR>
-        -P ${CMAKE_SOURCE_DIR}/cmake/PatchHDF5ForFlangWindows.cmake
     CMAKE_CACHE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DCMAKE_INSTALL_LIBDIR:PATH=lib
@@ -234,8 +212,8 @@ ExternalProject_Add(HDF5_external
 set(HDF5_INCLUDE_DIRS "${HDF5_STAGE_DIR}/include")
 set(HDF5_LIB_DIR "${HDF5_STAGE_DIR}/lib")
 
-# Create IMPORTED targets for each HDF5 library so that build systems (like nmake
-# or ninja) do not try to treat the .lib file paths as makefile targets to build.
+# Create IMPORTED targets for each HDF5 library so that nmake does not try to
+# treat the .lib file paths as makefile targets to build.
 foreach(_hdf5_lib
     libhdf5_hl_fortran
     libhdf5_hl_f90cstub
@@ -380,66 +358,38 @@ target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
 # Compiler flags
 # =============================================================================
 if(WIN32)
-    if(IS_INTEL_FORTRAN)
-        # ifx on Windows uses MSVC-style options.
-        target_compile_options(SHETRAN PRIVATE
-            # "/fpp"
-            # "/mcmodel:large"
-            # "/heap-arrays:0"
-            ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
+    # ifx on Windows uses MSVC-style options.
+    target_compile_options(SHETRAN PRIVATE
+        # "/fpp"
+        # "/mcmodel:large"
+        # "/heap-arrays:0"
+        ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
 
-            # Debug flags
-            $<$<CONFIG:Debug>:/Od> # Use /Od for "disable optimization" with ifx
-            $<$<CONFIG:Debug>:/debug:full>
-            $<$<CONFIG:Debug>:/traceback>
-            $<$<CONFIG:Debug>:/check:bounds>
-            $<$<CONFIG:Debug>:/stand> 
-            $<$<CONFIG:Debug>:/warn:all> 
-            $<$<CONFIG:Debug>:/fp:precise>
+        # Debug flags
+        $<$<CONFIG:Debug>:/Od> # Use /Od for "disable optimization" with ifx
+        $<$<CONFIG:Debug>:/debug:full>
+        $<$<CONFIG:Debug>:/traceback>
+        $<$<CONFIG:Debug>:/check:bounds>
+        $<$<CONFIG:Debug>:/stand> 
+        $<$<CONFIG:Debug>:/warn:all> 
+        $<$<CONFIG:Debug>:/fp:precise>
 
-            # Release: safer numerics, portable across CPU generations
-            $<$<CONFIG:Release>:/O2>
-            $<$<CONFIG:Release>:/fp:precise>
+        # Release: safer numerics, portable across CPU generations
+        $<$<CONFIG:Release>:/O2>
+        $<$<CONFIG:Release>:/fp:precise>
 
-            # ReleaseNative: maximum local performance, non-portable ISA tuning
-            # (intentionally no interprocedural optimization flags such as /Qipo)
-            # because they break the build 
-            $<$<CONFIG:ReleaseNative>:/O3>
-            $<$<CONFIG:ReleaseNative>:/QxHost>
-            $<$<CONFIG:ReleaseNative>:/fp:precise>
-        )
+        # ReleaseNative: maximum local performance, non-portable ISA tuning
+        # (intentionally no interprocedural optimization flags such as /Qipo)
+        # because they break the build 
+        $<$<CONFIG:ReleaseNative>:/O3>
+        $<$<CONFIG:ReleaseNative>:/QxHost>
+        $<$<CONFIG:ReleaseNative>:/fp:precise>
+    )
 
-        # /libs:static — statically link Intel Fortran/C runtime libraries
-        # so the .exe runs without Intel oneAPI on PATH
-        if(STATIC_RUNTIME)
-            target_link_options(SHETRAN PRIVATE /libs:static)
-        endif()
-    elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "LFortran")
-        target_compile_options(SHETRAN PRIVATE
-            $<$<CONFIG:Debug>:-g>
-
-            $<$<CONFIG:Release>:-O2>
-            
-            $<$<CONFIG:ReleaseNative>:-O3>
-            $<$<CONFIG:ReleaseNative>:--fast>
-        )
-    elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "Clang" OR CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang")
-        # Flags for flang (LLVM) on Windows
-        target_compile_options(SHETRAN PRIVATE
-            $<$<CONFIG:Debug>:-O0>
-            $<$<CONFIG:Debug>:-g>
-            $<$<CONFIG:Debug>:-fbacktrace>
-            $<$<CONFIG:Debug>:-fcheck=bounds>
-            $<$<CONFIG:Debug>:-Wall>
-            $<$<CONFIG:Debug>:-fno-fast-math>
-
-            $<$<CONFIG:Release>:-O2>
-            $<$<CONFIG:Release>:-fno-fast-math>
-
-            $<$<CONFIG:ReleaseNative>:-O3>
-            $<$<CONFIG:ReleaseNative>:-march=native>
-            $<$<CONFIG:ReleaseNative>:-fno-fast-math>
-        )
+    # /libs:static — statically link Intel Fortran/C runtime libraries
+    # so the .exe runs without Intel oneAPI on PATH
+    if(STATIC_RUNTIME)
+        target_link_options(SHETRAN PRIVATE /libs:static)
     endif()
 elseif(UNIX AND NOT APPLE)
     if(IS_INTEL_FORTRAN)
