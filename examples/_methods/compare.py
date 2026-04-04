@@ -221,11 +221,15 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
         # compare the non-numeric columns (only the date/time ones)
         for idx in date_time_should:
             col = df_should.columns[idx]
+            col_save = col.replace(" ", "_").replace("/",
+                                                     "_").replace("\\", "_")
+            col_save = "".join(filter(None, col_save.split("_")))
+            col_save = "".join(filter(None, col_save.split(".")))
             if not df_should[col].equals(df_is[col]):
                 flag_diff = True
-                res[f"non_numeric_column_{col}"] = False
+                res[f"non_numeric_column_{col_save}"] = False
             else:
-                res[f"non_numeric_column_{col}"] = True
+                res[f"non_numeric_column_{col_save}"] = True
 
         # for each numeric column, generate a difference column and check if the
         # differences are within the tolerance
@@ -233,6 +237,13 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
             if idx not in date_time_should:
                 if not pd.api.types.is_numeric_dtype(df_should[col]):
                     continue
+
+                # remove & replace special characters
+                col_save = col.replace(" ",
+                                       "_").replace("/",
+                                                    "_").replace("\\", "_")
+                col_save = "".join(filter(None, col_save.split("_")))
+                col_save = "".join(filter(None, col_save.split(".")))
 
                 # combine the two numeric columns into a single column with
                 # the values from both
@@ -245,6 +256,10 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     "diff_abs"] = df_combined["should"] - df_combined["is"]
                 df_combined["diff_pct"] = df_combined[
                     "diff_abs"] / df_combined["should"].replace(0, pd.NA)
+
+                # record the percentage difference for the overview metrics
+                res[f"perc_diff_max_col_{col_save}"] = df_combined[
+                    "diff_pct"].abs().max()
 
                 # check if the differences are within the tolerance
                 if not df_combined["diff_abs"].abs().le(
@@ -276,13 +291,13 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     _plot_col_differences(df_combined, col, fn_figure, metrics)
 
                     # remove all blanks and replace all special characters around the column name
-                    safe_col = col.strip().replace(" ", "_").replace(
-                        "/", "_").replace("\\", "_")
+                    # safe_col = col.strip().replace(" ", "_").replace(
+                    #     "/", "_").replace("\\", "_")
 
                     flag_diff = True
-                    res[f"numeric_column_{col}"] = False
+                    res[f"numeric_column_{col_save}"] = False
                 else:
-                    res[f"numeric_column_{col}"] = True
+                    res[f"numeric_column_{col_save}"] = True
 
     res["files_different"] = flag_diff
     return res

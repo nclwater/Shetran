@@ -76,14 +76,24 @@ def do_comparison(
 
         # aggregate the results
         df = pd.DataFrame.from_dict(res_files, orient="index")
-        df["files_with_different_contents"] = differing_files_str
-        df["files_too_large_to_compare"] = too_large_files_str
-        df["num_files_with_different_contents"] = len(differing_files)
-        df["num_files_too_large_to_compare"] = len(too_large_files)
+
+        # remove non-useful columns for the overview
         df.to_csv(os.path.join(dir_main, "comparison_results.csv"))
 
         # extract whether there were differences in any of the files
         res_model["any_differences"] = df["files_different"].any()
+
+        # get the maximum percentage difference across all files and columns
+        diff_cols_max = df.filter(regex="^perc_diff_max_col_").max()
+        res_model["max_perc_diff_any"] = diff_cols_max.max()
+        res_model["max_perc_diff_col"] = diff_cols_max.idxmax() if pd.notna(
+            diff_cols_max.max()) else None
+
+        # add the file-information columns to the overview metrics
+        res_model["num_files_with_different_contents"] = len(differing_files)
+        res_model["num_files_too_large_to_compare"] = len(too_large_files)
+        res_model["files_with_different_contents"] = differing_files_str
+        res_model["files_too_large_to_compare"] = too_large_files_str
 
     return res_model
 
