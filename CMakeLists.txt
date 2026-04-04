@@ -370,8 +370,9 @@ if(WIN32)
         $<$<CONFIG:Debug>:/debug:full>
         $<$<CONFIG:Debug>:/traceback>
         $<$<CONFIG:Debug>:/check:bounds>
-        $<$<CONFIG:Debug>:/stand> # Warn about non-standard Fortran
-        $<$<CONFIG:Debug>:/warn:all> # Enable ALL diagnostic warnings, including interfaces
+        $<$<CONFIG:Debug>:/stand> 
+        $<$<CONFIG:Debug>:/warn:all> 
+        $<$<CONFIG:Debug>:/fp:precise>
 
         # Release: safer numerics, portable across CPU generations
         $<$<CONFIG:Release>:/O2>
@@ -379,8 +380,10 @@ if(WIN32)
 
         # ReleaseNative: maximum local performance, non-portable ISA tuning
         # (intentionally no interprocedural optimization flags such as /Qipo)
+        # because they break the build 
         $<$<CONFIG:ReleaseNative>:/O3>
         $<$<CONFIG:ReleaseNative>:/QxHost>
+        $<$<CONFIG:ReleaseNative>:/fp:precise>
     )
 
     # /libs:static — statically link Intel Fortran/C runtime libraries
@@ -399,12 +402,14 @@ elseif(UNIX AND NOT APPLE)
             $<$<CONFIG:Debug>:-check=bounds>
             $<$<CONFIG:Debug>:-stand>
             $<$<CONFIG:Debug>:-warn>
+            $<$<CONFIG:Debug>:-fp-model=precise>
 
             $<$<CONFIG:Release>:-O2>
             $<$<CONFIG:Release>:-fp-model=precise>
 
             $<$<CONFIG:ReleaseNative>:-O3>
             $<$<CONFIG:ReleaseNative>:-xHost>
+            $<$<CONFIG:Release>:-fp-model=precise>
         )
     elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
         target_compile_options(SHETRAN PRIVATE
@@ -416,11 +421,14 @@ elseif(UNIX AND NOT APPLE)
             $<$<CONFIG:Debug>:-Wextra>
             $<$<CONFIG:Debug>:-Wunused-variable>
             $<$<CONFIG:Debug>:-Wuse-without-only>
+            $<$<CONFIG:Debug>:-fno-fast-math>
 
             $<$<CONFIG:Release>:-O2>
+            $<$<CONFIG:Release>:-fno-fast-math>
 
             $<$<CONFIG:ReleaseNative>:-O3>
             $<$<CONFIG:ReleaseNative>:-march=native>
+            $<$<CONFIG:ReleaseNative>:-fno-fast-math>
         )
     endif()
 endif()
