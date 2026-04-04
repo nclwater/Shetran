@@ -6,10 +6,11 @@ setlocal enabledelayedexpansion
 
 REM Default values
 set BUILD_TYPE=Release
+set COMPILER=ifx
 set CLEAN_BUILD=false
 set CLEAN_APP_ONLY=false
 set VERBOSE=false
-set JOBS=%NUMBER_OF_PROCESSORS%
+set JOBS=1
 set GENERATE_FORD=false
 set DOCS_ONLY=false
 
@@ -24,6 +25,18 @@ if "%~1"=="-t" (
 )
 if "%~1"=="--type" (
     set BUILD_TYPE=%~2
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="-c" (
+    set COMPILER=%~2
+    shift
+    shift
+    goto parse_args
+)
+if "%~1"=="--compiler" (
+    set COMPILER=%~2
     shift
     shift
     goto parse_args
@@ -91,6 +104,13 @@ if /i not "%BUILD_TYPE%"=="Debug" if /i not "%BUILD_TYPE%"=="Release" if /i not 
     exit /b 1
 )
 
+REM Validate compiler
+if /i not "%COMPILER%"=="ifx" if /i not "%COMPILER%"=="flang" if /i not "%COMPILER%"=="lfortran" (
+    echo ERROR: Invalid compiler: %COMPILER%
+    echo ERROR: Must be ifx, flang, or lfortran
+    exit /b 1
+)
+
 if "%CLEAN_BUILD%"=="true" if "%CLEAN_APP_ONLY%"=="true" (
     echo ERROR: --clean and --clean-app are mutually exclusive
     exit /b 1
@@ -98,37 +118,126 @@ if "%CLEAN_BUILD%"=="true" if "%CLEAN_APP_ONLY%"=="true" (
 
 if "%DOCS_ONLY%"=="true" goto generate_ford_docs
 
-REM Auto-detect ifx compiler
-echo INFO: Checking for ifx compiler...
-where ifx >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: ifx compiler not found in PATH!
-    echo ERROR: Please make sure Intel oneAPI is installed and ifx is available.
-    echo INFO: Attempting to set up Intel oneAPI environment...
+REM Check for requested compiler and its dependencies
+if /i "%COMPILER%"=="ifx" (
+    echo INFO: Checking for ifx compiler...
+    where ifx >nul 2>&1
+    if errorlevel 1 (
+        echo ERROR: ifx compiler not found in PATH!
+        echo ERROR: Please make sure Intel oneAPI is installed and ifx is available.
+        echo INFO: Attempting to set up Intel oneAPI environment...
 
-    if exist "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" (
-        call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
-        goto check_ifx_again
+        if exist "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" (
+            call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
+            goto check_ifx_again_in_block
+        )
+        if exist "C:\Program Files\Intel\oneAPI\setvars.bat" (
+            call "C:\Program Files\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
+            goto check_ifx_again_in_block
+        )
+
+        echo ERROR: Intel oneAPI environment not found. Please install Intel oneAPI HPC Toolkit.
+        exit /b 1
     )
-    if exist "C:\Program Files\Intel\oneAPI\setvars.bat" (
-        call "C:\Program Files\Intel\oneAPI\setvars.bat" intel64 > nul 2>&1
-        goto check_ifx_again
+    goto ifx_found_in_block
+
+    :check_ifx_again_in_block
+    where ifx >nul 2>&1
+    if errorlevel 1 (
+        echo ERROR: ifx still not found after setting up Intel oneAPI environment.
+        exit /b 1
     )
 
-    echo ERROR: Intel oneAPI environment not found. Please install Intel oneAPI HPC Toolkit.
-    exit /b 1
-)
-goto ifx_found
+    :ifx_found_in_block
+    echo INFO: Found ifx compiler.
+    set CMAKE_C_COMPILER_ARG=
+    set CMAKE_RUNTIME_FLAGS=
+    set CMAKE_GENERATOR="NMake Makefiles"
+    set BUILD_TOOL=nmake
+) else if /i "%COMPILER%"=="flang" (
+    echo INFO: Checking for flang toolchain...
+    where flang >nul 2>&1
+    if errorlevel 1 (
+        echo ERROR: flang compiler not found in PATH. Please add it to your environment.
+        exit /b 1
+    )
 
-:check_ifx_again
-where ifx >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: ifx still not found after setting up Intel oneAPI environment.
-    exit /b 1
-)
+    set CONDA_ENV_ROOT=%CONDA_PREFIX%
+    if not defined CONDA_ENV_ROOT (
+        set FLANG_EXE=
+        for /f "delims=" %%I in ('where flang 2^>nul') do (
+            if not defined FLANG_EXE set "FLANG_EXE=%%~fI"
+        )
+        if defined FLANG_EXE (
+            for %%I in ("!FLANG_EXE!") do set "FLANG_BIN_DIR=%%~dpI"
+            for %%I in ("!FLANG_BIN_DIR!..\..") do set "CONDA_ENV_ROOT=%%~fI"
+        )
+    )
 
-:ifx_found
-echo INFO: Found ifx compiler
+    where clang-cl >nul 2>&1
+    if errorlevel 1 (
+        where clang >nul 2>&1
+        if errorlevel 1 (
+            echo ERROR: Neither clang-cl nor clang were found in PATH. One is required for flang.
+            exit /b 1
+        )
+        set C_COMPILER=clang
+    ) else (
+        set C_COMPILER=clang-cl
+    )
+
+    set LLVM_NM=
+    for /f "delims=" %%I in ('where llvm-nm 2^>nul') do (
+        if not defined LLVM_NM set "LLVM_NM=%%~fI"
+    )
+    if not defined LLVM_NM (
+        echo ERROR: llvm-nm not found in PATH. It is required for Fortran/C symbol mangling checks.
+        echo ERROR: Please ensure LLVM bin tools are installed in the selected conda environment.
+        exit /b 1
+    )
+
+    set FLANG_RUNTIME_FOUND=false
+    set FLANG_RT_LIBDIR=
+    for /f "delims=" %%F in ('where /r "!CONDA_ENV_ROOT!\Library\lib\clang" flang_rt.runtime.dynamic.lib 2^>nul') do (
+        if not defined FLANG_RT_LIBDIR (
+            for %%I in ("%%~fF") do set "FLANG_RT_LIBDIR=%%~dpI"
+            if "!FLANG_RT_LIBDIR:~-1!"=="\" set "FLANG_RT_LIBDIR=!FLANG_RT_LIBDIR:~0,-1!"
+            set FLANG_RUNTIME_FOUND=true
+        )
+    )
+
+    if "!FLANG_RUNTIME_FOUND!"=="false" (
+        echo ERROR: Flang runtime libraries were not found in this environment.
+        echo ERROR: Missing file pattern: !CONDA_ENV_ROOT!\Library\lib\clang\*\lib\x86_64-pc-windows-msvc\flang_rt.runtime.dynamic*.lib
+        echo ERROR: Install with: conda install -n shetran -c conda-forge flang-rt_win-64=22.1.0
+        exit /b 1
+    )
+
+    if defined LIB (
+        set "LIB=!FLANG_RT_LIBDIR!;!LIB!"
+    ) else (
+        set "LIB=!FLANG_RT_LIBDIR!"
+    )
+    echo INFO: Using flang runtime library directory: !FLANG_RT_LIBDIR!
+
+    echo INFO: Found flang with C compiler !C_COMPILER! and llvm-nm.
+    set CMAKE_C_COMPILER_ARG=-DCMAKE_C_COMPILER=!C_COMPILER!
+    set CMAKE_RUNTIME_FLAGS=-DCMAKE_NM=!LLVM_NM! -DCMAKE_TRY_COMPILE_CONFIGURATION=Release
+    set CMAKE_GENERATOR="Ninja"
+    set BUILD_TOOL=ninja
+) else if /i "%COMPILER%"=="lfortran" (
+    echo INFO: Checking for lfortran compiler...
+    where lfortran >nul 2>&1
+    if errorlevel 1 (
+        echo ERROR: lfortran compiler not found in PATH. Please add it to your environment.
+        exit /b 1
+    )
+    echo INFO: Found lfortran compiler.
+    set CMAKE_C_COMPILER_ARG=
+    set CMAKE_RUNTIME_FLAGS=
+    set CMAKE_GENERATOR="Ninja"
+    set BUILD_TOOL=ninja
+)
 
 REM Check for CMake
 where cmake >nul 2>&1
@@ -138,6 +247,17 @@ if errorlevel 1 (
 )
 for /f "tokens=3" %%v in ('cmake --version 2^>^&1 ^| findstr /i "version"') do (
     echo INFO: Found CMake version: %%v
+)
+
+REM Check for Ninja if selected
+if "%BUILD_TOOL%"=="ninja" (
+    where ninja >nul 2>&1
+    if errorlevel 1 (
+        echo ERROR: Ninja build tool not found in PATH!
+        echo ERROR: It is required when building with %COMPILER%.
+        echo INFO: You can install it via 'pip install ninja' or 'conda install ninja'.
+        exit /b 1
+    )
 )
 
 REM Determine build directory
@@ -150,6 +270,7 @@ if /i "%BUILD_TYPE%"=="Debug" (
 )
 
 echo INFO: Build type:      %BUILD_TYPE%
+echo INFO: Compiler:        %COMPILER%
 echo INFO: Build directory:  %BUILD_DIR%
 
 REM Clean build directory if requested
@@ -183,9 +304,9 @@ set SOURCE_PATH=..\..
 
 REM Configure
 echo INFO: Configuring with CMake...
-set CMAKE_ARGS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_Fortran_COMPILER=ifx -G "NMake Makefiles"
-echo INFO: CMake arguments: %CMAKE_ARGS%
-cmake %CMAKE_ARGS% %SOURCE_PATH%
+set CMAKE_ARGS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_Fortran_COMPILER=%COMPILER% %CMAKE_C_COMPILER_ARG% %CMAKE_RUNTIME_FLAGS% -G %CMAKE_GENERATOR%
+echo INFO: CMake arguments: !CMAKE_ARGS!
+cmake !CMAKE_ARGS! %SOURCE_PATH%
 if errorlevel 1 (
     echo ERROR: CMake configuration failed!
     cd "%~dp0"
@@ -195,9 +316,17 @@ if errorlevel 1 (
 REM Build
 echo INFO: Building SHETRAN...
 if "%VERBOSE%"=="true" (
-    nmake SHETRAN VERBOSE=1
+    if "%BUILD_TOOL%"=="nmake" (
+        nmake SHETRAN VERBOSE=1
+    ) else (
+        ninja -v -j %JOBS% SHETRAN
+    )
 ) else (
-    nmake SHETRAN
+    if "%BUILD_TOOL%"=="nmake" (
+        nmake SHETRAN
+    ) else (
+        ninja -j %JOBS% SHETRAN
+    )
 )
 if errorlevel 1 (
     echo ERROR: Build failed!
@@ -208,7 +337,7 @@ if errorlevel 1 (
 echo.
 echo SUCCESS: Build completed successfully!
 echo.
-echo   Compiler:     ifx
+echo   Compiler:     %COMPILER%
 echo   Build type:   %BUILD_TYPE%
 echo   Build dir:    %BUILD_DIR%
 echo   Executable:   %BUILD_DIR%\bin\shetran.exe
@@ -249,6 +378,7 @@ exit /b 0
 echo Usage: %~nx0 [OPTIONS]
 echo.
 echo Options:
+echo   -c, --compiler COMPILER Compiler: ifx, flang, or lfortran (default: ifx)
 echo   -t, --type TYPE     Build type: Debug, Release, or ReleaseNative (default: Release)
 echo   --clean             Clean build directory before building
 echo   --clean-app         Clean and rebuild SHETRAN only (keep external libraries)
@@ -260,6 +390,7 @@ echo   -h, --help          Show this help message
 echo.
 echo Examples:
 echo   %~nx0                        Build Release (default)
+echo   %~nx0 -c flang               Build with flang/clang
 echo   %~nx0 -t Debug               Build Debug
 echo   %~nx0 -t Debug --clean       Clean Debug build
 echo   %~nx0 -t Release --clean-app Rebuild SHETRAN only, keep external libs
