@@ -58,9 +58,6 @@ PROGRAM SHETRAN
    ! Main data arrays and simulation parameters
    USE AL_D, ONLY: nstep  !< Current simulation time step number
 
-   ! File data loading and preprocessing utilities
-   USE mod_load_filedata, ONLY: ALTRAP  !< Initialize data loading system
-
    ! Cross-platform command line and directory utilities
    USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH  !< Parse command line arguments
 
@@ -97,8 +94,6 @@ PROGRAM SHETRAN
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
 
    ! Initialize data loading and preprocessing system
-   ! Sets up all data structures and performs initial data validation
-   CALL ALTRAP
 
    ! Initialize simulation state variables
    ! Set initial conditions for time stepping and model state
