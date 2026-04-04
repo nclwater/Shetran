@@ -1,6 +1,6 @@
 MODULE AL_D
-USE SGLOBAL, ONLY : NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
-IMPLICIT NONE
+   USE SGLOBAL, ONLY : NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
+   IMPLICIT NONE
 !-------------------- START OF AL.D -----------------------------------!
 !
 ! INCLUDE FILE FOR COMMON VARIABLES FOR FLOW COMPONENTS ONLY
@@ -58,126 +58,126 @@ IMPLICIT NONE
 
 ! ----- Constants
 
-      INTEGER, PARAMETER :: NCLASS=14
+   INTEGER, PARAMETER :: NCLASS=14
 
 ! ----- File unit numbers
 
 !      INTEGER          FRD,MED,ETD,OCD,SMD,TIM,RES,HOT,EPD, &
 !                      PRD,VED,PPD,BKD,OFB,OHB,DIS,MAS,VSE, DIS2
-                       
-INTEGER,PARAMETER :: &    !VALUES USED TO BE SET IN FRINIT 
-FRD = 10, &
+
+   INTEGER,PARAMETER :: &    !VALUES USED TO BE SET IN FRINIT
+      FRD = 10, &
 !VSD = 11 , &
-OCD = 12 , &
-ETD = 13 , &
-PPD = 14 , &
-SMD = 15 , &
-BKD = 16 , &
+      OCD = 12 , &
+      ETD = 13 , &
+      PPD = 14 , &
+      SMD = 15 , &
+      BKD = 16 , &
 !SYD = 17 , &
 !CMD = 18 , &
-MED = 19 , &
-PRD = 20 , &
-EPD = 21 , &
-TIM = 22 , &
+      MED = 19 , &
+      PRD = 20 , &
+      EPD = 21 , &
+      TIM = 22 , &
 !PRI = 23 , &
 !SPR = 24 , &
 !CMP = 25 , &
 !BUG = 26 , &
-RES = 27 , &
-HOT = 28 , &
+      RES = 27 , &
+      HOT = 28 , &
 !VSI = 29 , &
-VED = 30 , &
+      VED = 30 , &
 !WLD = 31 , &
 !LFB = 32 , &
 !LHB = 33 , &
 !LGB = 34 , &
 !BFB = 35 , &
 !BHB = 36 , &
-OFB = 37 , &
-OHB = 38 , &
+      OFB = 37 , &
+      OHB = 38 , &
 !CMT = 39 , &
 !CMB = 40 , &
-DIS = 41 , &
-VSE = 42 , &
-MAS = 43 , &
-DIS2 = 44, &
-TAH = 45, &
-TAL = 46, &
-disextra = 47, &
-zqd = 51, &
-pslextra = 52
+      DIS = 41 , &
+      VSE = 42 , &
+      MAS = 43 , &
+      DIS2 = 44, &
+      TAH = 45, &
+      TAL = 46, &
+      disextra = 47, &
+      zqd = 51, &
+      pslextra = 52
 
 
 ! ----- Static integer variables
 
-      INTEGER ::          MSM,NM,NRAIN,NSET,MBLINK,MBFACE,MBFLAG, &
-                      NXP1,NYP1,NXM1,NYM1,NXEP1,NYEP1,NoZQTables,ZQTableRef
-INTEGER, PARAMETER :: &
-NXE = NXEE, &  
-NYE = NYEE 
+   INTEGER ::          MSM,NM,NRAIN,NSET,MBLINK,MBFACE,MBFLAG, &
+      NXP1,NYP1,NXM1,NYM1,NXEP1,NYEP1,NoZQTables,ZQTableRef
+   INTEGER, PARAMETER :: &
+      NXE = NXEE, &
+      NYE = NYEE
 
 ! ----- Time-dependent integer variables
 
-      INTEGER          NSTEP,NRPD,NSMT,MBYEAR,MBMON,MBDAY
+   INTEGER          NSTEP,NRPD,NSMT,MBYEAR,MBMON,MBDAY
 
 ! ----- Static floating-point variables
 
-      DOUBLEPRECISION PSTART,DTMET,QMAX,BHOTTI,BHOTST,PMAX, &
-                      PALFA,TMAX,CAREA,BWIDTH,TTH,DTMET2,DTMET3,TOUTPUT
+   DOUBLEPRECISION PSTART,DTMET,QMAX,BHOTTI,BHOTST,PMAX, &
+      PALFA,TMAX,CAREA,BWIDTH,TTH,DTMET2,DTMET3,TOUTPUT
 
 ! ----- Time-dependent floating-point variables
 
-      DOUBLEPRECISION UZVAL,OCNOW,OCNEXT,HRUZ, &
-                      PNET,PE,EINT,ERZ,DRAIN,ESOIL,AE,CSTOLD,CPLAI, &
-                      !METIME,MELAST,PINMAX,EPTIME,PREST,TIMEUZ,HOTIME
-                      PREST,TIMEUZ,HOTIME
+   DOUBLEPRECISION UZVAL,OCNOW,OCNEXT,HRUZ, &
+      PNET,PE,EINT,ERZ,DRAIN,ESOIL,AE,CSTOLD,CPLAI, &
+   !METIME,MELAST,PINMAX,EPTIME,PREST,TIMEUZ,HOTIME
+      PREST,TIMEUZ,HOTIME
 
 ! ----- Static logical variables
 
-      LOGICAL          BEXET,BEXUZ,BEXEX,BEXOC,BEXSZ,BEXSM, &
-                      BEXTS1,BHOTPR,BHOTRD,BEXSY,BEXCM, ISTA,isextradis,iszq,isextrapsl
+   LOGICAL          BEXET,BEXUZ,BEXEX,BEXOC,BEXSZ,BEXSM, &
+      BEXTS1,BHOTPR,BHOTRD,BEXSY,BEXCM, ISTA,isextradis,iszq,isextrapsl
 
 ! ----- Static integer arrays
 !
-      INTEGER           NGRID(NELEE),INGRID(NXEE,NYEE),IOCORS(NSETEE)
-      INTEGER             NMC(NELEE),LCODEX(NXEE,NYEE),IODATA(NSETEE)
-      INTEGER          NRAINC(NELEE),LCODEY(NXEE,NYEE),IOELEM(NSETEE)
-      INTEGER          NOCBCC(NELEE),NOCBCD(NOCTAB,4),  IORES(NSETEE)
-      INTEGER          ICLIST(NELEE,NCLASS),            NEXPO(NLFEE,2)
-      INTEGER          ICLNUM(NCLASS)
-      INTEGER, DIMENSION(:), ALLOCATABLE               :: ZQTableLink,ZQTableFace ! These store the metadata for a single ZQtable in the ZQ file
+   INTEGER           NGRID(NELEE),INGRID(NXEE,NYEE),IOCORS(NSETEE)
+   INTEGER             NMC(NELEE),LCODEX(NXEE,NYEE),IODATA(NSETEE)
+   INTEGER          NRAINC(NELEE),LCODEY(NXEE,NYEE),IOELEM(NSETEE)
+   INTEGER          NOCBCC(NELEE),NOCBCD(NOCTAB,4),  IORES(NSETEE)
+   INTEGER          ICLIST(NELEE,NCLASS),            NEXPO(NLFEE,2)
+   INTEGER          ICLNUM(NCLASS)
+   INTEGER, DIMENSION(:), ALLOCATABLE               :: ZQTableLink,ZQTableFace ! These store the metadata for a single ZQtable in the ZQ file
 
 ! ----- Time-dependent integer arrays
 
-      INTEGER          NSMC(NELEE)
+   INTEGER          NSMC(NELEE)
 
 !970212 TEMPORARY!
-      INTEGER          FLERRC(0:100),SYERRC(0:100),CMERRC(0:100)
+   INTEGER          FLERRC(0:100),SYERRC(0:100),CMERRC(0:100)
 
 ! ----- Static floating-point arrays
 !
-      DOUBLEPRECISION   DXIN(NXEE),DYIN(NYEE),WIDTF(NLFEE),ZBED(NELEE), &
-                      HFLBED(NLFEE), ZFBED(NLFEE),       DZFBED(NLFEE), &
-                       LROOT(NVEE), HFLBNK(NLFEE),       IOSTA(NSETEE), &
-                      IOSTEP(NSETEE),IOEND(NSETEE),      RHOSAR(NELEE)
-      DOUBLEPRECISION,    DIMENSION(:), ALLOCATABLE              :: ZQweirSill 
+   DOUBLEPRECISION   DXIN(NXEE),DYIN(NYEE),WIDTF(NLFEE),ZBED(NELEE), &
+      HFLBED(NLFEE), ZFBED(NLFEE),       DZFBED(NLFEE), &
+      LROOT(NVEE), HFLBNK(NLFEE),       IOSTA(NSETEE), &
+      IOSTEP(NSETEE),IOEND(NSETEE),      RHOSAR(NELEE)
+   DOUBLEPRECISION,    DIMENSION(:), ALLOCATABLE              :: ZQweirSill
 
 ! ----- Time-dependent floating-point arrays
 !
-      DOUBLEPRECISION CSTORE(NELEE), ERZA(NELEE), &
-                        EPOT(NELEE),EINTA(NELEE),EPOTR(NVEE), &
-                          SD(NELEE),   TS(NELEE),   SF(NELEE), &
-                           S(LLEE),     precip_m_per_s(nelee), &
-                       OBSPE(NVEE),    TA(NVEE),     U(NVEE),VPD(NVEE), &
-                          RN(NVEE),VHT(NVEE),IOTIME(NSETEE), &
-                         DQ0ST(NELEE,4),DQIST(NELEE,4), &
-                      DQIST2(NLFEE,3), &
-                        ESWA(NELEE), BALANC(20),CMEAN(NELEE,2,NCONEE), &
-                       SMEAN(NELEE,2,NCONEE),  ADMEAN(NELEE,2,NCONEE)
+   DOUBLEPRECISION CSTORE(NELEE), ERZA(NELEE), &
+      EPOT(NELEE),EINTA(NELEE),EPOTR(NVEE), &
+      SD(NELEE),   TS(NELEE),   SF(NELEE), &
+      S(LLEE),     precip_m_per_s(nelee), &
+      OBSPE(NVEE),    TA(NVEE),     U(NVEE),VPD(NVEE), &
+      RN(NVEE),VHT(NVEE),IOTIME(NSETEE), &
+      DQ0ST(NELEE,4),DQIST(NELEE,4), &
+      DQIST2(NLFEE,3), &
+      ESWA(NELEE), BALANC(20),CMEAN(NELEE,2,NCONEE), &
+      SMEAN(NELEE,2,NCONEE),  ADMEAN(NELEE,2,NCONEE)
 
 ! ----- Static character variables
 !
-      CHARACTER(len=200)     RESFIL
-      
+   CHARACTER(len=200)     RESFIL
+
 !PRIVATE :: NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
 END MODULE AL_D

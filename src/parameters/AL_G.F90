@@ -1,6 +1,6 @@
 MODULE AL_G
-USE SGLOBAL, ONLY : NELEE, NXEE, NYEE
-IMPLICIT NONE
+   USE SGLOBAL, ONLY : NELEE, NXEE, NYEE
+   IMPLICIT NONE
 !-------------------- START OF AL.G -----------------------------------*
 !
 !  Include file for grid-related variables used in all components
@@ -17,11 +17,12 @@ IMPLICIT NONE
 
 ! ----- INTEGER VARIABLES
 !
-      INTEGER ::  NX, NY, & ! no.grid squares in x and y directions
-                  NGDBGN    !1st grid element no. ????
+   INTEGER ::  NX, NY, & ! no.grid squares in x and y directions
+      NGDBGN    !1st grid element no. ????
 ! ----- INTEGER ARRAYS
 !
-      INTEGER         ICMREF(NELEE,12), &
-                      ICMXY(NXEE,NYEE)  !grid element no ???? -DONT KNOW
+   INTEGER         ICMREF(NELEE,12), &
+      ICMXY(NXEE,NYEE)  !grid element no ???? -DONT KNOW
 !PRIVATE :: NELEE, NXEE, NYEE
 END MODULE AL_G
+

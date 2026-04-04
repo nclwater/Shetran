@@ -298,7 +298,7 @@ CONTAINS
    !> | 1997-08-11 | RAH | Added EXTERNAL after INCLUDE. |
    SUBROUTINE ERROR (ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
       IMPLICIT NONE
-      
+
       ! IO-related parameters and variables
       INTEGER(KIND=I_P), INTENT(IN) :: ETYPE !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
       INTEGER(KIND=I_P), INTENT(IN) :: ERRNUM !! The unique error number code.
@@ -386,15 +386,15 @@ CONTAINS
             AMODL.GE.0.AND.AMODL.LE.3.AND.ERRN.GE.0.AND.ERRN.LE.ERRNEE
          IF (VALID) ERRC (ERRN, AMODL) = ERRC (ERRN, AMODL) + 1
       ENDIF
-      
+
       ! Write specific error messages
       ! -----------------------------
       IF (ERRNUM.EQ.1003) THEN
          WRITE (OUT, 91003) EARRAY (1)
-      !*970804
+         !*970804
       ELSEIF (ERRNUM.EQ.1024) THEN
          WRITE (OUT, 91024) EARRAY (1)
-      !*
+         !*
       ENDIF
 
       !**SB 07072020 reduce timestep if there are errors 1024,1030,1060

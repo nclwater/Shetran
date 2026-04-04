@@ -66,7 +66,7 @@ PROGRAM SHETRAN
 
    ! Framework for file operations and mass balance
    USE FRmod, ONLY: FROPEN, &  !< Open all data files
-                    FROUTPUT       !< Generate framework output
+      FROUTPUT       !< Generate framework output
 
    ! Visualization data recording interface
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA  !< Record viz data
