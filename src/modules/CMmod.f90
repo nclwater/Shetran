@@ -16,7 +16,6 @@ MODULE CMmod
    USE IS_CC
    USE mod_load_filedata, ONLY: ALALLI, ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
 !!!USE mod_load_filedata, ONLY:ERROR, ERRC, ERRNEE, ERRTOT !AD NEEDS THIS  , HELPPATH
-   USE UTILSMOD, ONLY : DCOPY
    USE MNMOD, only : MNCONT
    IMPLICIT NONE
 
@@ -41,7 +40,7 @@ CONTAINS
 
 
 
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
    !
    !  Read CM data input file
    !
@@ -290,7 +289,6 @@ CONTAINS
       END IF
 
       ! * Assemble the above info
-      ! Replaced ALINIT with array slices
       CCAPE (NLF + 1 : NEL, 1 : NCONCM) = 0.0D0
 
       INDX = 1
@@ -300,14 +298,14 @@ CONTAINS
             WRITE (MSG, 9811) IEL, 'CM31', 'column element'
             CALL ERROR (FATAL, 3002, CPR, 0, 0, MSG)
          END IF
-         CALL DCOPY (NCONCM, DUMMY (INDX + 1), 1, CCAPE (IEL, 1), NELEE)
+         ! Replaced DCOPY with array slice mapping NCONCM contiguous values
+         CCAPE (IEL, 1:NCONCM) = DUMMY (INDX + 1 : INDX + NCONCM)
          INDX = INDX + 1 + NCONCM
       END DO
 
       ! * Default concentration at or convected into bases of columns
       CALL ALREDF (0, CMD, CPR, ':CM33', NCONCM, 1, DUMMY)
       
-      ! Replaced ALINIT with array slices
       DO NCONT = 1, NCONCM
          IF (ISFLXB) THEN
             CCAPR (NLF + 1 : NEL, NCONT) = DUMMY (NCONT)
@@ -340,9 +338,11 @@ CONTAINS
             END IF
             
             IF (ISFLXB) THEN
-               CALL DCOPY (NCONCM, DUMMY (INDX + 1), 1, CCAPR (IEL, 1), NELEE)
+               ! Replaced DCOPY with array slice mapping NCONCM contiguous values
+               CCAPR (IEL, 1:NCONCM) = DUMMY (INDX + 1 : INDX + NCONCM)
             ELSE
-               CALL DCOPY (NCONCM, DUMMY (INDX + 1), 1, CCAPB (IEL, 1), NELEE)
+               ! Replaced DCOPY with array slice mapping NCONCM contiguous values
+               CCAPB (IEL, 1:NCONCM) = DUMMY (INDX + 1 : INDX + NCONCM)
             END IF
             
             INDX = INDX + 1 + NCONCM
@@ -371,7 +371,8 @@ CONTAINS
             WRITE (MSG, 9811) SOIL, 'CM41', 'soil type'
             CALL ERROR (FATAL, 3006, CPR, 0, 0, MSG)
          END IF
-         CALL DCOPY (3, DUMMY (INDX + 1), 1, SOFN (SOIL, 1), NSEE)
+         ! Replaced DCOPY with array slice mapping 3 contiguous values
+         SOFN (SOIL, 1:3) = DUMMY (INDX + 1 : INDX + 3)
          INDX = INDX + 4
       END DO
 
@@ -410,7 +411,8 @@ CONTAINS
             WRITE (MSG, 9811) NCONT, 'CM51', 'contaminant number'
             CALL ERROR (FATAL, 3007, CPR, 0, 0, MSG)
          END IF
-         CALL DCOPY (NSEDCM, DUMMY (INDX + 1), 1, KDDLS (1, NCONT), 1)
+         ! Replaced DCOPY with array slice mapping NSEDCM contiguous values
+         KDDLS (1:NSEDCM, NCONT) = DUMMY (INDX + 1 : INDX + NSEDCM)
          INDX = INDX + 1 + NSEDCM
       END DO
 
@@ -423,7 +425,8 @@ CONTAINS
             WRITE (MSG, 9811) NCONT, 'CM53', 'contaminant number'
             CALL ERROR (FATAL, 3007, CPR, 0, 0, MSG)
          END IF
-         CALL DCOPY (NSCM, DUMMY (INDX + 1), 1, ALPHA (1, NCONT), 1)
+         ! Replaced DCOPY with array slice mapping NSCM contiguous values
+         ALPHA (1:NSCM, NCONT) = DUMMY (INDX + 1 : INDX + NSCM)
          INDX = INDX + 1 + NSCM
       END DO
 
@@ -436,7 +439,8 @@ CONTAINS
             WRITE (MSG, 9811) NCONT, 'CM55', 'contaminant number'
             CALL ERROR (FATAL, 3007, CPR, 0, 0, MSG)
          END IF
-         CALL DCOPY (NSCM, DUMMY (INDX + 1), 1, FADS (1, NCONT), 1)
+         ! Replaced DCOPY with array slice mapping NSCM contiguous values
+         FADS (1:NSCM, NCONT) = DUMMY (INDX + 1 : INDX + NSCM)
          INDX = INDX + 1 + NSCM
       END DO
 
@@ -455,7 +459,8 @@ CONTAINS
             WRITE (MSG, 9811) NCONT, 'CM61', 'contaminant number'
             CALL ERROR (FATAL, 3007, CPR, 0, 0, MSG)
          END IF
-         CALL DCOPY (NSCM, DUMMY (INDX + 1), 1, DISPDT (1, NCONT), 1)
+         ! Replaced DCOPY with array slice mapping NSCM contiguous values
+         DISPDT (1:NSCM, NCONT) = DUMMY (INDX + 1 : INDX + NSCM)
          INDX = INDX + 1 + NSCM
       END DO
 
