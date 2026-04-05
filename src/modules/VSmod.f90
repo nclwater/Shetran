@@ -15,7 +15,7 @@ MODULE VSmod
 !USE VSINIT_INC
 !USE VSCOM1_INC
 !USE VSSOIL_INC
-   USE UTILSMOD, ONLY : TRIDAG, FINPUT, HINPUT
+   USE UTILSMOD, ONLY : TRIDAG, FINPUT, HINPUT, DCOPY
    USE OCmod2,   ONLY : GETHRF
    IMPLICIT NONE
 !ALL THESE WERE SAVE VARAIABLES - MOVED HERE FOR AD
@@ -3426,7 +3426,7 @@ CONTAINS
 
 
 
-   !----------------------------------------------------------------------*
+!----------------------------------------------------------------------*
    ! VSS Controlling routine for a single timestep
    !----------------------------------------------------------------------*
    ! Version:  SHETRAN/VSS/VSSIM/4.2
@@ -3557,6 +3557,7 @@ CONTAINS
          FIRSTvssim = .FALSE.
          
          ! * set outputs & locals for non-column elements
+         ! Replaced ALINIT with array slices
          IF (ISTART > 1) QH(1 : ISTART - 1) = ZERO
          
          DO IEL = 1, ISTART - 1
@@ -3649,6 +3650,7 @@ CONTAINS
          
          IF (IEL > total_no_links) ICDUM = ICDUM - NRD (NVC (IEL))
          
+         ! Replaced ALINIT with array slice
          IF (ICDUM > ICBOT) CQ(ICBOT : ICDUM - 1, IEL) = ZERO
 
          ! stop crash if rooting zone is below base of aquifer sb 020211
@@ -3665,13 +3667,12 @@ CONTAINS
       ! save psi values at time level N
       DO IEL = 1, total_no_elements
          ICBOT = NLYRBT (IEL, 1)
-         
-         ! Replaced DCOPY with array slices. Both operations copy NCELL elements natively.
-         VSPSIN (ICBOT : ICTOP, IEL) = VSPSI (ICBOT : ICTOP, IEL)
-         VSTHEN (ICBOT : ICTOP, IEL) = VSTHE (ICBOT : ICTOP, IEL)
+         NCELL = ICTOP - ICBOT + 1
+         CALL DCOPY (NCELL, VSPSI (ICBOT, IEL), 1, VSPSIN (ICBOT, IEL), 1)
+         CALL DCOPY (NCELL, VSTHE (ICBOT, IEL), 1, VSTHEN (ICBOT, IEL), 1)
       END DO
 
-      ! initialize convergence indicators
+      ! initialize convergence indicators (Replaced ALINIT with array slice)
       DELTAP(0 : ISTART - 1) = ZERO
       
       DO IEL = 1, ISTART - 1
@@ -3700,9 +3701,10 @@ CONTAINS
             ICBOT = NLYRBT (IEL, 1)
             ITYPE = ICMREF (IEL, 1)
 
+            NCELL = ICTOP - ICBOT + 1
+            
             ! save psi at iteration level m
-            ! Replaced DCOPY with array slice. Copies NCELL elements natively.
-            PSIM (ICBOT : ICTOP) = VSPSI (ICBOT : ICTOP, IEL)
+            CALL DCOPY (NCELL, VSPSI (ICBOT, IEL), 1, PSIM (ICBOT), 1)
             
             ! set up column arrays using global arrays
             DO ILYR = 1, NLYR (IEL) + 1
@@ -3871,8 +3873,7 @@ CONTAINS
       END DO
 
    END SUBROUTINE VSSIM
-
-
+! 26/1/96
 
 !SSSSSS SUBROUTINE VSSOIL ()
    SUBROUTINE VSSOIL ()

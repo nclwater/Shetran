@@ -12,7 +12,9 @@ MODULE ETmod
       EPOT, EINTA, ERZA, ESWA, BEXSM, DRAIN, ERZ, AE, HRUZ, ESOIL, &
       NSMT, S, TIMEUZ, BWIDTH, &
       sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
-   USE mod_load_filedata,    ONLY : ALCHK, ERRC, ERRNEE, ERRTOT !HELPPATH !AD NEEDS THIS
+   USE mod_load_filedata,    ONLY : ALCHK
+   USE mod_load_filedata,    ONLY : ERRC, ERRNEE, ERRTOT !HELPPATH !AD NEEDS THIS
+   USE UTILSMOD, ONLY : DCOPY
    USE SMmod,    ONLY : SMIN, &
       smelt, tmelt !THESE NEEDED ONLY FOR AD
 !NEEDED ONLY FOR AD
@@ -692,7 +694,7 @@ CONTAINS
 
 
 
-   !----------------------------------------------------------------------*
+!----------------------------------------------------------------------*
    ! Controlling routine for evapotranspiration/interception module
    !----------------------------------------------------------------------*
    ! Version:  SHETRAN/ET/ETSIM/4.2
@@ -743,8 +745,8 @@ CONTAINS
          HRUZ = getHRF(IEL) - ZGRUND (IEL)
          ICE = NLYRBT (IEL, 1)
 
-         ! Replaced DCOPY with native Fortran array slice
-         PSI4(ICE : top_cell_no) = VSPSI(ICE : top_cell_no, IEL)
+         ! DCOPY retained as requested
+         CALL DCOPY (top_cell_no - ICE + 1, VSPSI (ICE, IEL), 1, PSI4 (ICE), 1)
 
          CALL ETIN (IEL)
 

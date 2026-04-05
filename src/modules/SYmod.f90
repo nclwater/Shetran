@@ -4,7 +4,7 @@ MODULE SYmod
    USE SGLOBAL
 !USE AL_P
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD  !, HELPPATH
-   
+   USE UTILSMOD, ONLY : DCOPY
    IMPLICIT NONE
 
    LOGICAL         :: FIRST_syackw=.TRUE.

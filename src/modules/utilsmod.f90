@@ -10,7 +10,7 @@ MODULE utilsmod
    CHARACTER(128)             :: msg
 
    PRIVATE
-   PUBLIC :: TRIDAG, HOUR_FROM_DATE, TERPO1, FINPUT, HINPUT, AREADI, AREADR, &
+   PUBLIC :: TRIDAG, DCOPY, HOUR_FROM_DATE, TERPO1, FINPUT, HINPUT, AREADI, AREADR, &
       JEMATMUL_VM, JEMATMUL_MM, INVERTMAT, DATE_FROM_HOUR, RAN2 !OPEN_FILE !GET_START_END_IMPACT
 CONTAINS
 
@@ -56,6 +56,29 @@ CONTAINS
 !PRINT '(3A)', 'OPENED  '//TRIM(fn)//'  '//TRIM(act)//'  '//TRIM(form)
 !END SUBROUTINE OPEN_FILE
 
+!SSSSSS subroutine dcopy (n, dx, incx, dy, incy)
+   subroutine dcopy (n, dx, incx, dy, incy)
+!     copies vector x to vector y
+      INTEGER, INTENT(IN)                        :: n, incx, incy !size and increments
+      DOUBLEPRECISION, DIMENSION(*), INTENT(IN)  :: dx
+      DOUBLEPRECISION, DIMENSION(*), INTENT(OUT) :: dy
+      INTEGER                                    :: i, ix, iy
+      IF(n<-0) THEN
+         RETURN
+      ELSEIF((incx==1).AND.(incy==1)) THEN
+         dy(1:n) = dx(1:n)
+      ELSE
+         ix = 1
+         iy = 1
+         IF(incx<0) ix=(-n + 1)*incx + 1
+         IF(incy<0) iy=(-n + 1)*incy + 1
+         DO i = 1, n
+            dy(iy) = dx(ix)
+            ix     = ix + incx
+            iy     = iy + incy
+         ENDDO
+      ENDIF
+   END SUBROUTINE dcopy
 
 
 !SSSSSS SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
