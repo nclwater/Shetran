@@ -101,4 +101,6 @@ fn_overall_analysis = "overall_analysis.csv"
 fn_setup_overview = "setup_overview.csv"
 
 # Other Settings
-files_too_large_threshold = 20 * 1024 * 1024  # 20 MB
+files_too_large_threshold_text = 20 * 1024 * 1024
+files_too_large_threshold_table = 50 * 1024 * 1024
+files_too_large_threshold_hdf5 = 250 * 1024 * 1024

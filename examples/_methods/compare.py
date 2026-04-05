@@ -31,10 +31,12 @@ def _read_table_csv(fn_table: str) -> pd.DataFrame:
         col for col in header_df.columns if _is_datetime_header(col)
     ]
 
-    return pd.read_csv(fn_table,
-                       skiprows=1,
-                       parse_dates=date_columns if date_columns else False,
-                       index_col=0)
+    return pd.read_csv(
+        fn_table,
+        skiprows=1,
+        parse_dates=date_columns if date_columns else False,
+        index_col=0,
+    )
 
 
 def _plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
@@ -49,7 +51,7 @@ def _plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
         fn_figure (str): The output filename for the plot image.
         metrics (dict): A dictionary of similarity metrics to display.
     """
-    plt.style.use('dark_background')
+    plt.style.use("dark_background")
     fig = plt.figure(figsize=(20, 12), constrained_layout=True)
     fig.suptitle(f"Comparison for column: {col}", fontsize=16)
 
@@ -66,54 +68,55 @@ def _plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
     ax_legend = fig.add_subplot(gs[:, 0])
 
     # --- Top plot: Timeseries ---
-    line1, = ax1.plot(df_combined.index,
-                      df_combined['should'],
-                      label='Expected',
-                      color='cyan')
-    line2, = ax1.plot(df_combined.index,
-                      df_combined['is'],
-                      label='Actual',
-                      color='magenta',
-                      linestyle='--')
+    (line1, ) = ax1.plot(df_combined.index,
+                         df_combined["should"],
+                         label="Expected",
+                         color="cyan")
+    (line2, ) = ax1.plot(
+        df_combined.index,
+        df_combined["is"],
+        label="Actual",
+        color="magenta",
+        linestyle="--",
+    )
     ax1.set_title("Timeseries")
-    ax1.grid(True, linestyle=':', alpha=0.5)
+    ax1.grid(True, linestyle=":", alpha=0.5)
     plt.setp(ax1.get_xticklabels(),
              visible=False)  # Hide x-axis labels for top and middle plots
 
     # --- Middle plot: Absolute Difference ---
-    ax2.plot(df_combined.index, df_combined['diff_abs'], color='red')
+    ax2.plot(df_combined.index, df_combined["diff_abs"], color="red")
     ax2.set_title("Absolute Difference")
-    ax2.grid(True, linestyle=':', alpha=0.5)
+    ax2.grid(True, linestyle=":", alpha=0.5)
     plt.setp(ax2.get_xticklabels(), visible=False)
 
     # --- Bottom plot: Percentage Difference ---
     ax3.plot(df_combined.index,
-             df_combined['diff_pct'].fillna(np.nan),
-             color='orange')
+             df_combined["diff_pct"].fillna(np.nan),
+             color="orange")
     ax3.set_title("Percentage Difference")
     ax3.set_xlabel("Time")
-    ax3.grid(True, linestyle=':', alpha=0.5)
+    ax3.grid(True, linestyle=":", alpha=0.5)
 
     # --- Legend and Metrics Box ---
-    ax_legend.axis('off')
+    ax_legend.axis("off")
     # Place legend in the upper part of the legend axis
     ax_legend.legend(handles=[line1, line2],
-                     loc='center left',
+                     loc="center left",
                      bbox_to_anchor=(0, 0.85))
 
     # Format metrics text and place it in a box below the legend
     metrics_text = "Similarity Metrics:\n"
-    metrics_text += '\n'.join([f'  {k}: {v:.4f}' for k, v in metrics.items()])
-    ax_legend.text(0.0,
-                   0.7,
-                   metrics_text,
-                   transform=ax_legend.transAxes,
-                   fontsize=12,
-                   verticalalignment='top',
-                   bbox=dict(boxstyle='round,pad=0.5',
-                             fc='black',
-                             ec='grey',
-                             lw=1))
+    metrics_text += "\n".join([f"  {k}: {v:.4f}" for k, v in metrics.items()])
+    ax_legend.text(
+        0.0,
+        0.7,
+        metrics_text,
+        transform=ax_legend.transAxes,
+        fontsize=12,
+        verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.5", fc="black", ec="grey", lw=1),
+    )
 
     # Save and close the figure to free up memory
     os.makedirs(os.path.dirname(fn_figure), exist_ok=True)
@@ -129,9 +132,9 @@ def _get_similarity_metrics(df_analysis: pd.DataFrame) -> dict:
     mae = np.mean(np.abs(df_analysis["should"] - df_analysis["is"]))
 
     mask = df_analysis["should"] != 0
-    mape = np.mean(
+    mape = (np.mean(
         np.abs((df_analysis["is"][mask] - df_analysis["should"][mask]) /
-               df_analysis["should"][mask])) * 100
+               df_analysis["should"][mask])) * 100)
 
     nse = 1 - np.sum((df_analysis["should"] - df_analysis["is"])**2) / np.sum(
         (df_analysis["should"] - df_analysis["should"].mean())**2)
@@ -217,7 +220,6 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     # compare the contents, check both the numeric and non-numeric columns,
     # but only if the structure is the same
     if res["identical_columns"] and res["same_row_count"]:
-
         # compare the non-numeric columns (only the date/time ones)
         for idx in date_time_should:
             col = df_should.columns[idx]
@@ -258,22 +260,22 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     "diff_abs"] / df_combined["should"].replace(0, pd.NA)
 
                 # record the percentage difference for the overview metrics
-                res[f"perc_diff_max_col_{col_save}"] = df_combined[
-                    "diff_pct"].abs().max()
+                res[f"perc_diff_max_col_{col_save}"] = (
+                    df_combined["diff_pct"].abs().max())
 
                 # check if the differences are within the tolerance
-                if not df_combined["diff_abs"].abs().le(
-                        settings.tolerance_numeric).all():
-
+                if (not df_combined["diff_abs"].abs().le(
+                        settings.tolerance_numeric).all()):
                     # get the similarity metrics for this column
                     metrics = _get_similarity_metrics(df_combined)
                     res.update(metrics)
 
                     # write to file, putting in an extension with the column name
-                    safe_col = col.replace(" ", "_").replace("/", "_").replace(
-                        "\\", "_")
-                    fn_col = os.path.splitext(fn_delta)[
-                        0] + f"_{safe_col}" + os.path.splitext(fn_delta)[1]
+                    safe_col = (col.replace(" ", "_").replace("/",
+                                                              "_").replace(
+                                                                  "\\", "_"))
+                    fn_col = (os.path.splitext(fn_delta)[0] + f"_{safe_col}" +
+                              os.path.splitext(fn_delta)[1])
 
                     # any multiple of underscores in a row should be replaced with a single underscore
                     fn_col = "_".join(filter(None, fn_col.split("_")))
@@ -313,13 +315,13 @@ def compare_textfile(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     flag_difference = False
 
     # Read files and normalize lines
-    with open(fn_should, 'r', encoding='utf-8') as f_should:
+    with open(fn_should, "r", encoding="utf-8") as f_should:
         # rstrip() removes trailing spaces, tabs, \r, and \n.
         # Adding '\n' back ensures the diff output remains cleanly formatted.
-        should_lines = [line.rstrip() + '\n' for line in f_should]
+        should_lines = [line.rstrip() + "\n" for line in f_should]
 
-    with open(fn_is, 'r', encoding='utf-8') as f_is:
-        is_lines = [line.rstrip() + '\n' for line in f_is]
+    with open(fn_is, "r", encoding="utf-8") as f_is:
+        is_lines = [line.rstrip() + "\n" for line in f_is]
 
     # Generate the unified diff
     # n=3 provides 3 lines of context around each change, matching git's default
@@ -333,7 +335,7 @@ def compare_textfile(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     # If the diff list is not empty, differences exist
     if diff:
         os.makedirs(os.path.dirname(fn_delta), exist_ok=True)
-        with open(fn_delta, 'w', encoding='utf-8') as f_delta:
+        with open(fn_delta, "w", encoding="utf-8") as f_delta:
             f_delta.writelines(diff)
         flag_difference = True
 
@@ -368,7 +370,6 @@ def _compare_datasets(ds_should, ds_is, f_delta, path, diffs,
     if not np.allclose(
             data_should, data_is, atol=tolerance_numeric, rtol=0.0,
             equal_nan=True):
-
         diffs["numeric_diff"].append(path)
 
         # Calculate the delta
@@ -376,8 +377,8 @@ def _compare_datasets(ds_should, ds_is, f_delta, path, diffs,
 
         # Write to the already-open delta file.
         parent_path, dataset_name = path.rsplit("/", 1)
-        parent_group = f_delta if parent_path in (
-            "", "/") else f_delta.require_group(parent_path)
+        parent_group = (f_delta if parent_path in ("", "/") else
+                        f_delta.require_group(parent_path))
         if dataset_name in parent_group:
             del parent_group[dataset_name]
         parent_group.create_dataset(dataset_name, data=delta)
@@ -434,15 +435,16 @@ def compare_hdf5(fn_should: str, fn_is: str, fn_delta: str) -> dict:
         "shape_mismatch": [],
         "dtype_mismatch": [],
         "non_numeric_diff": [],
-        "numeric_diff": []
+        "numeric_diff": [],
     }
 
     os.makedirs(os.path.dirname(fn_delta), exist_ok=True)
 
-    with h5py.File(fn_should, 'r') as f_should, \
-         h5py.File(fn_is, 'r') as f_is, \
-         h5py.File(fn_delta, 'w') as f_delta:
-
+    with (
+            h5py.File(fn_should, "r") as f_should,
+            h5py.File(fn_is, "r") as f_is,
+            h5py.File(fn_delta, "w") as f_delta,
+    ):
         # Start the recursive comparison, passing the tolerance along
         structural_diffs = _compare_groups(f_should, f_is, f_delta, "/",
                                            structural_diffs,
@@ -490,14 +492,6 @@ def compare_results(dir_should: str, dir_is: str, dir_diff: str) -> dict:
         # if the file is too large, skip it (for now)
         fn_should = os.path.join(dir_should, file)
         fn_is = os.path.join(dir_is, file)
-        if size_should > settings.files_too_large_threshold or size_is > settings.files_too_large_threshold:
-            res[file] = {
-                "status": "too large",
-                "file_size_comparison": (size_should == size_is)
-            }
-            continue
-
-        # if the file is small enough, do a content comparison
 
         # prep
         res_tmp: dict[str, Any] = {
@@ -507,17 +501,40 @@ def compare_results(dir_should: str, dir_is: str, dir_diff: str) -> dict:
 
         # compare
         if file.endswith(".txt") or file.endswith(".csv"):
-
             # work depending on it being a table or not
             if any(ind in file for ind in settings.list_table_files_indicators
                    ) or file.endswith(".csv"):
+                if (size_should > settings.files_too_large_threshold_table
+                        or size_is > settings.files_too_large_threshold_table):
+                    res[file] = {
+                        "status": "too large",
+                        "file_size_comparison": (size_should == size_is),
+                    }
+                    continue
+
                 res_tmp["file_type"] = "table"
                 res_tmp.update(compare_table(fn_should, fn_is, fn_delta))
             else:
+                if (size_should > settings.files_too_large_threshold_text
+                        or size_is > settings.files_too_large_threshold_text):
+                    res[file] = {
+                        "status": "too large",
+                        "file_size_comparison": (size_should == size_is),
+                    }
+                    continue
                 res_tmp["file_type"] = "text"
                 res_tmp.update(compare_textfile(fn_should, fn_is, fn_delta))
 
         elif file.endswith(".hdf5") or file.endswith(".h5"):
+
+            if (size_should > settings.files_too_large_threshold_hdf5
+                    or size_is > settings.files_too_large_threshold_hdf5):
+                res[file] = {
+                    "status": "too large",
+                    "file_size_comparison": (size_should == size_is),
+                }
+                continue
+
             res_tmp["file_type"] = "hdf5"
             res_tmp.update(compare_hdf5(fn_should, fn_is, fn_delta))
             if not res_tmp["file_size_comparison"]:
