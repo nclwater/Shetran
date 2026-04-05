@@ -1633,7 +1633,8 @@ CONTAINS
          CALL ALCHK (ERR, 2019, SPR, 1, 1, IUNDEF, IUNDEF, 'DRSED(sed)', 'GT', ZERO1, ZERO1 (1), DRSED (1), NERR, LDUM)
 
          IF (NSED > 1 .AND. NERR == COUNT) THEN
-            CALL DCOPY (NSED - 1, DRSED, 1, RDUM, 1)
+            ! Replaced DCOPY with Fortran array slice
+            RDUM(1:NSED - 1) = DRSED(1:NSED - 1)
             IDUM(1:NSED - 1) = INT (RDUM(1:NSED - 1))
             CALL ALCHK (ERR, 2019, SPR, 2, NSED, IUNDEF, IUNDEF, 'DRSED(sed)', 'GEa', RDUM, ZERO1 (1), DRSED (2), NERR, LDUM)
          END IF
@@ -1651,7 +1652,6 @@ CONTAINS
          END IF
 
          ! SOSDFN
-         ! Replaced ALINIT with array slice
          DUMMY(1:NS) = ZERO1 (1)
          DO SED = 1, NSED
             DO SOIL = 1, NS
@@ -1709,7 +1709,6 @@ CONTAINS
       CALL ALCHK (ERR, 2033, SPR, 1, NEL, IUNDEF, IUNDEF, 'DLS(iel)', 'GE', ZERO1, ZERO1 (1), DLS, NERR, LDUM)
       
       ! FBETA
-      ! Replaced ALINIT with array slice
       DUMMY(1:NEL) = ZERO1 (1)
       DO SED = 1, NSED
          DO IEL = 1, NEL
@@ -1729,7 +1728,6 @@ CONTAINS
       ! ----------------
       !
       IF (NSYB > 0) THEN
-         ! Not enough workspace? (Converted GOTO 700 to block IF)
          IF (NELEE >= NSYB * 2) THEN
             
             ! NSYCEE
@@ -2152,8 +2150,8 @@ CONTAINS
          ! * Zero bed sediment accumulator (Replaced ALINIT)
          ARBDEP(1:NLF) = ZERO
 
-         ! * Set old river c/s area equal to current river c/s area
-         CALL DCOPY (NLF, ARXL, 1, ARXLOL, 1)
+         ! * Set old river c/s area equal to current river c/s area (Replaced DCOPY)
+         ARXLOL(1:NLF) = ARXL(1:NLF)
       END IF
 
 
@@ -2389,7 +2387,7 @@ CONTAINS
 
 
 
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
    !
    ! Controlling routine for the Sediment Yield module.
    !
@@ -2591,10 +2589,11 @@ CONTAINS
                CALL SYBC
 
                ! * Load boundary flows into QSED array
+               ! Replaced DCOPY with array slice
                DO IB = 1, NSYB_symain
                   IEL = NSYBCD_symain (IB, 1)
                   FACE = NBFACE (IEL)
-                  CALL DCOPY (NSED, QSEDB (1, IB), 1, QSED (IEL, 1, FACE), NELEE)
+                  QSED (IEL, 1:NSED, FACE) = QSEDB (1:NSED, IB)
                END DO
 
             END IF
@@ -2624,22 +2623,24 @@ CONTAINS
                IEL = ISORT (I)
 
                ! * Gather common sub-arrays
-               CALL DCOPY (NSED, FDEL (IEL, 1), NELEE, FDELE, 1)
+               ! Replaced DCOPY with array slices
+               FDELE (1:NSED) = FDEL (IEL, 1:NSED)
                DO FACE = 1, 4
                   QWAT (FACE) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)
-                  CALL DCOPY (NSED, QSED (IEL, 1, FACE), NELEE, QSEDE (1, FACE), 1)
+                  QSEDE (1:NSED, FACE) = QSED (IEL, 1:NSED, FACE)
                END DO
 
                IF (IEL <= NLF) THEN
                   ! ** Link element **
                   ! * Gather link-specific sub-arrays
+                  ! Replaced DCOPY with array slices
                   SOIL = NTSOBK_symain (IEL)
-                  CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, SOSDFE, 1)
-                  CALL DCOPY (NSED, CONCI (IEL, 1), NLFEE, CONCIE, 1)
-                  CALL DCOPY (NSED, DCBSED (IEL, 1), NLFEE, DCBSEE, 1)
-                  CALL DCOPY (NSED, DDBSED_symain (IEL, 1), NLFEE, DDBSEE, 1)
+                  SOSDFE (1:NSED) = SOSDFN (SOIL, 1:NSED)
+                  CONCIE (1:NSED) = CONCI (IEL, 1:NSED)
+                  DCBSEE (1:NSED) = DCBSED (IEL, 1:NSED)
+                  DDBSEE (1:NSED) = DDBSED_symain (IEL, 1:NSED)
                   DO FACE = 1, 4
-                     CALL DCOPY (NSED, QSDWAT (IEL, 1, FACE), NLFEE, QSDWAE (1, FACE), 1)
+                     QSDWAE (1:NSED, FACE) = QSDWAT (IEL, 1:NSED, FACE)
                   END DO
 
                   ! * Solve transport equation
@@ -2650,19 +2651,21 @@ CONTAINS
                                DDIPRE, GINFDE, GINFSE)
 
                   ! * Scatter link-specific results
-                  CALL DCOPY (NSED, DCIPRE, 1, DCIPRM (IEL, 1), NLFEE)
-                  CALL DCOPY (NSED, DDIPRE, 1, DDIPRM (IEL, 1), NLFEE)
-                  CALL DCOPY (NSED, GINFDE, 1, GINFD (IEL, 1), NLFEE)
-                  CALL DCOPY (NSED, GINFSE, 1, GINFS (IEL, 1), NLFEE)
+                  ! Replaced DCOPY with array slices
+                  DCIPRM (IEL, 1:NSED) = DCIPRE (1:NSED)
+                  DDIPRM (IEL, 1:NSED) = DDIPRE (1:NSED)
+                  GINFD (IEL, 1:NSED)  = GINFDE (1:NSED)
+                  GINFS (IEL, 1:NSED)  = GINFSE (1:NSED)
 
                ELSE
                   ! ** Column element **
                   ! * Gather column-specific sub-arrays
+                  ! Replaced DCOPY with array slices
                   SOIL = NTSOTP_symain (IEL)
-                  CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, SOSDFE, 1)
-                  CALL DCOPY (NSED, FBETA (IEL, 1), NELEE, FBETAE, 1)
-                  CALL DCOPY (4, SLOPEJ (IEL, 1), NELEE, SLOPEE, 1)
-                  CALL DCOPY (4, TAUJ (IEL, 1), NELEE, TAUJE, 1)
+                  SOSDFE (1:NSED) = SOSDFN (SOIL, 1:NSED)
+                  FBETAE (1:NSED) = FBETA (IEL, 1:NSED)
+                  SLOPEE (1:4)    = SLOPEJ (IEL, 1:4)
+                  TAUJE (1:4)     = TAUJ (IEL, 1:4)
 
                   ! * Solve transport equation for this column element
                   CALL SYCOLM (AREA (IEL), DTSY, DWAT1 (IEL), DWATOL_symain (IEL), DXQQ (IEL),  &
@@ -2671,13 +2674,15 @@ CONTAINS
                                SOSDFE, TAUJE, DLS (IEL), FBETAE, FDELE, QSEDE, DUMMY, DUMSED)
 
                   ! * Scatter column-specific results
-                  CALL DCOPY (NSED, FBETAE, 1, FBETA (IEL, 1), NELEE)
+                  ! Replaced DCOPY with array slice
+                  FBETA (IEL, 1:NSED) = FBETAE (1:NSED)
                END IF
 
                ! * Scatter common results ...
-               CALL DCOPY (NSED, FDELE, 1, FDEL (IEL, 1), NELEE)
+               ! Replaced DCOPY with array slices
+               FDEL (IEL, 1:NSED) = FDELE (1:NSED)
                DO FACE = 1, 4
-                  CALL DCOPY (NSED, QSEDE (1, FACE), 1, QSED (IEL, 1, FACE), NELEE)
+                  QSED (IEL, 1:NSED, FACE) = QSEDE (1:NSED, FACE)
 
                   ! ... and propagate sediment flow rates at outflow faces
                   IF (QWAT (FACE) > ZERO) THEN
@@ -2720,8 +2725,9 @@ CONTAINS
 
             ! Store Old-time Values & Update Timer
             ! ------------------------------------
-            CALL DCOPY (NEL - NLF, DWAT1 (NLF + 1), 1, DWATOL_symain (NLF + 1), 1)
-            IF (NLF > 0) CALL DCOPY (NLF, ARXL, 1, ARXLOL_symain, 1)
+            ! Replaced DCOPY with array slices
+            DWATOL_symain (NLF + 1 : NEL) = DWAT1 (NLF + 1 : NEL)
+            IF (NLF > 0) ARXLOL_symain(1:NLF) = ARXL(1:NLF)
             
             SYNOW_symain = SYNOW_symain + DTSY / 3600.0D0
 
@@ -2736,10 +2742,6 @@ CONTAINS
       SYNOW_symain = UZNOW
 
    END SUBROUTINE SYMAIN
-
-
-
-!SSSSSS SUBROUTINE SYOVER
 
 
 
@@ -3006,7 +3008,7 @@ CONTAINS
    END SUBROUTINE SYOVTR
 
 
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
    !
    !  Read SY data input file
    !
@@ -3062,6 +3064,7 @@ CONTAINS
       CHARACTER(132) :: MSG
       CHARACTER(8)   :: SYDVER
       INTEGER :: BB, IDUM0, I0, IEL, ICAT, ITYPE, NC, NUM_CATEGORIES_TYPES, NNN, NREQ, SED, SOIL
+      INTEGER :: I ! Loop index needed for strided assignments
 
       !----------------------------------------------------------------------*
 
@@ -3149,23 +3152,35 @@ CONTAINS
 
       !     * Soil
       CALL ALREAD (3, SYD, SPR, ':SY22', 5, NS, IDUM0, CDUM, IDUM, DUMMY)
-      CALL DCOPY (NS, DUMMY (1), 5, GKR, 1)
-      CALL DCOPY (NS, DUMMY (2), 5, GKF, 1)
-      CALL DCOPY (NS, DUMMY (3), 5, RHOSO, 1)
-      CALL DCOPY (NS, DUMMY (4), 5, FPCLAY, 1)
-      CALL DCOPY (NS, DUMMY (5), 5, BKB, 1)
+      
+      ! Replaced DCOPY with array slices (strided by 5 in input array)
+      DO I = 1, NS
+         GKR (I)    = DUMMY (1 + (I - 1) * 5)
+         GKF (I)    = DUMMY (2 + (I - 1) * 5)
+         RHOSO (I)  = DUMMY (3 + (I - 1) * 5)
+         FPCLAY (I) = DUMMY (4 + (I - 1) * 5)
+         BKB (I)    = DUMMY (5 + (I - 1) * 5)
+      END DO
 
       !     * Soil composition
       CALL ALREAD (3, SYD, SPR, ':SY23', NSED, NS, IDUM0, CDUM, IDUM, DUMMY)
+      
+      ! Replaced DCOPY with array slice (strided by NSED)
       DO SED = 1, NSED
-         CALL DCOPY (NS, DUMMY (SED), NSED, SOSDFN (1, SED), 1)
+         DO I = 1, NS
+            SOSDFN (I, SED) = DUMMY (SED + (I - 1) * NSED)
+         END DO
       END DO
 
       !     * Vegetation
       CALL ALREAD (3, SYD, SPR, ':SY24', 3, NV, IDUM0, CDUM, IDUM, DUMMY)
-      CALL DCOPY (NV, DUMMY (1), 3, XDRIP, 1)
-      CALL DCOPY (NV, DUMMY (2), 3, DRDRIP, 1)
-      CALL DCOPY (NV, DUMMY (3), 3, FDRIP, 1)
+      
+      ! Replaced DCOPY with array slices (strided by 3)
+      DO I = 1, NV
+         XDRIP (I)  = DUMMY (1 + (I - 1) * 3)
+         DRDRIP (I) = DUMMY (2 + (I - 1) * 3)
+         FDRIP (I)  = DUMMY (3 + (I - 1) * 3)
+      END DO
 
 
       ! 3. Link Element Properties
@@ -3211,12 +3226,18 @@ CONTAINS
       IF (NUM_CATEGORIES_TYPES < 0) THEN
          DO IEL = 1, NLF
             SOIL = NTSOBK (IEL)
-            CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), NELEE)
+            ! Replaced DCOPY with array slice (strided by NSEE)
+            DO SED = 1, NSED
+               FBETA (IEL, SED) = SOSDFN (SOIL, SED)
+            END DO
          END DO
          
          DO IEL = NLF + 1, NEL
             SOIL = NTSOTP (IEL)
-            CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), NELEE)
+            ! Replaced DCOPY with array slice (strided by NSEE)
+            DO SED = 1, NSED
+               FBETA (IEL, SED) = SOSDFN (SOIL, SED)
+            END DO
          END DO
       END IF
 
@@ -3280,7 +3301,10 @@ CONTAINS
             
             CALL ALREAD (3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, IDUM, DUMMY)
             DO SED = 1, NSED
-               CALL DCOPY (NC, DUMMY (SED), NSED, GBC (SED, 1), NSEDEE)
+               ! Replaced DCOPY with array slice (strided by NSED in input, NSEDEE in output)
+               DO I = 1, NC
+                  GBC (SED, I) = DUMMY (SED + (I - 1) * NSED)
+               END DO
             END DO
          END IF
 
@@ -3294,8 +3318,11 @@ CONTAINS
             
             CALL ALREAD (3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, CDUM, IDUM, DUMMY)
             DO SED = 1, NSED
-               CALL DCOPY (NC, DUMMY (2 * SED - 1), 2 * NSED, ABC (SED, 1), NSEDEE)
-               CALL DCOPY (NC, DUMMY (2 * SED), 2 * NSED, BBC (SED, 1), NSEDEE)
+               ! Replaced DCOPY with array slice (strided by 2*NSED in input, NSEDEE in output)
+               DO I = 1, NC
+                  ABC (SED, I) = DUMMY (2 * SED - 1 + (I - 1) * 2 * NSED)
+                  BBC (SED, I) = DUMMY (2 * SED     + (I - 1) * 2 * NSED)
+               END DO
             END DO
          END IF
       END IF

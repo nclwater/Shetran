@@ -43,7 +43,7 @@ MODULE mod_load_filedata
 
    ! --------------------------------------------------------------------------
    ! Public methods
-   PUBLIC :: ALREAD, ALALLF, ALCHKI, ALCHK, ALINIT, ALSPRD,            &
+   PUBLIC :: ALREAD, ALALLF, ALCHKI, ALCHK, ALSPRD,            &
       ALINTP, ALREDL, ALREDF, ALALLI, ALRED2, ALREDC, ALREDI
 
 
@@ -52,7 +52,7 @@ MODULE mod_load_filedata
 CONTAINS
 
 
-!---------------------------------------------------------------------------
+   !---------------------------------------------------------------------------
    !> @author ?
    !
    !> @brief
