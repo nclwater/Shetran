@@ -471,7 +471,6 @@ CONTAINS
             ELSE
                DO IBC = IBC0 + 1, MIN(NOCBC, NOCTAB)
                   TEST = (NOCBCD(IBC, 4) == I)
-                  ! Array assignment replaces DCOPY loop
                   IF (TEST) COCBCD(1:5, IBC) = ADUM
                END DO
             END IF
@@ -746,111 +745,134 @@ CONTAINS
    END SUBROUTINE OCCHK1
 
 
-!SSSSSS SUBROUTINE OCCHK2
+
+   !SSSSSS SUBROUTINE OCCHK2
    SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
-!----------------------------------------------------------------------*
-!
-!  Check OC input data
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCHK2/4.2
-! Modifications:
-! RAH  980203  4.2  New: partly from part of OCPLF.
-!      980206       Check unit numbers.
-!      980218       Don't check units if NONEED.
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
-!----------------------------------------------------------------------*
-      INTEGER, INTENT(IN)           :: szlog
-      DOUBLEPRECISION, INTENT(OUT) :: DDUM1A (:), DDUM1B(:)
-      LOGICAL, INTENT(IN)          :: LDUM1(szlog)  !LDUM1 ( * )
-      INTEGER                      :: ERRNUM, I, IELw, IUNDEF, IUNIT, N, NERR
-      INTEGER                      :: IDUMS (1)
-      LOGICAL                      :: BOPEN, NONEED
-      CHARACTER (47)               :: MSG
-      CHARACTER(11)                :: FORM
-      CHARACTER(3)                 :: NAME
-      CHARACTER(19)                :: SUBJ
-      DATA NERR / 0 /
-!----------------------------------------------------------------------*
-! 1. Unit Numbers
-! ---------------
-!OHB,OFB
+   !----------------------------------------------------------------------*
+   !
+   !  Check OC input data
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCCHK2/4.2
+   ! Modifications:
+   ! RAH  980203  4.2  New: partly from part of OCPLF.
+   !      980206       Check unit numbers.
+   !      980218       Don't check units if NONEED.
+   !----------------------------------------------------------------------*
+   ! Entry requirements:
+   !  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
+   !----------------------------------------------------------------------*
+
+      USE CONST_SY ! Assuming this provides global variables like total_no_links, etc.
+
+      IMPLICIT NONE
+
+      INTEGER, INTENT(IN)           :: SZLOG
+      DOUBLE PRECISION, INTENT(OUT) :: DDUM1A (:), DDUM1B(:)
+      LOGICAL, INTENT(IN)           :: LDUM1(SZLOG)  !LDUM1 ( * )
+      
+      INTEGER :: ERRNUM, I, IELw, IUNDEF, IUNIT, N, NERR
+      INTEGER :: IDUMS (1)
+      LOGICAL :: BOPEN, NONEED
+      CHARACTER (47) :: MSG
+      CHARACTER(11)  :: FORM
+      CHARACTER(3)   :: NAME
+      CHARACTER(19)  :: SUBJ
+
+      ! Assumed external module dependencies providing global variables:
+      ! OHB, OFB, NOCHB, NOCFB, EEERR, PPPRI, IZERO1, ZERO1, ZERO, STRXX, STRYY
+      ! total_no_elements, total_no_links, XINH, XINW, NXSECT, WWWARN
+
+      !----------------------------------------------------------------------*
+      
+      NERR = 0
+      IUNDEF = 0
+
+      ! 1. Unit Numbers
+      ! ---------------
+      ! OHB, OFB
       IDUMS (1) = 0
       IUNIT = OHB
       NAME = 'OHB'
-      NONEED = NOCHB.EQ.0
+      NONEED = NOCHB == 0
 
       DO I = 0, 1
-         IF (NONEED) GOTO 110
+         IF (.NOT. NONEED) THEN
+            IDUMS (1) = MIN (IUNIT, IDUMS (1))
+            INQUIRE (IUNIT, OPENED = BOPEN, FORM = FORM)
+            
+            IF (.NOT. BOPEN) THEN
+               WRITE (MSG, 9100) NAME, IUNIT, 'is not connected to a file'
+               ERRNUM = 1008
+               CALL ERROR(EEERR, ERRNUM, PPPRI, 0, 0, MSG)
+               NERR = NERR + 1
+            ELSE IF (FORM /= 'FORMATTED') THEN
+               WRITE (MSG, 9100) NAME, IUNIT, 'has format type', FORM
+               ERRNUM = 1009
+               CALL ERROR(EEERR, ERRNUM, PPPRI, 0, 0, MSG)
+               NERR = NERR + 1
+            END IF
+         END IF
 
-         IDUMS (1) = MIN (IUNIT, IDUMS (1) )
-         INQUIRE (IUNIT, OPENED = BOPEN, FORM = FORM)
-         IF (.NOT.BOPEN) THEN
-            WRITE (MSG, 9100) NAME, IUNIT, 'is not connected to a file'
-            ERRNUM = 1008
-         ELSEIF (FORM.NE.'FORMATTED') THEN
-            WRITE (MSG, 9100) NAME, IUNIT, 'has format type', FORM
-            ERRNUM = 1009
-         ELSE
-            GOTO 110
-         ENDIF
-         CALL ERROR(EEERR, ERRNUM, PPPRI, 0, 0, MSG)
-
-         NERR = NERR + 1
-110      IUNIT = OFB
+         ! Setup for OFB on the second pass
+         IUNIT = OFB
          NAME = 'OFB'
-
-         NONEED = NOCFB.EQ.0
+         NONEED = NOCFB == 0
       END DO
+      
       CALL ALCHKI (EEERR, 1003, PPPRI, 1, 1, IUNDEF, IUNDEF, '[ OHB, OFB ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
-! 2. Element Properties
-! ---------------------
-!STRX
 
+      ! 2. Element Properties
+      ! ---------------------
+      ! STRX
       CALL ALCHK(EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRX(iel)', 'GT', ZERO1, ZERO, STRXX, NERR, LDUM1)
-!STRY
-      CALL ALCHK (EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRY(iel)', 'GT', zero1, zero, STRYY, NERR, LDUM1)
-! 3. Cross-section Tables
-! -----------------------
-!
-      IF (total_no_links.GT.0) THEN
-!XINH
-         CALL ALCHK (EEERR, 1016, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINH(link)[j=1]', 'EQ', zero1, zero , XINH, NERR, LDUM1)
-         DO 310 ielw = 1, total_no_links
-            N = NXSECT (ielw) - 1
-            WRITE (SUBJ, 9310) ielw
-            !CALL DCOPY(N, XINH(IEL,1), NLFEE, DDUM1A(1:n), 1)
-            !CALL DCOPY(N, XINH(IEL, 2), NLFEE, DDUM1B(1:n), 1)
-            DDUM1A(1:n) = XINH(IELw,1:n)
-            DDUM1B(1:n) = XINH(ielw, 2:n+1)
-            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GTa', DDUM1A, zero , DDUM1B, NERR, LDUM1)
-!XINW
+      ! STRY
+      CALL ALCHK (EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRY(iel)', 'GT', ZERO1, ZERO, STRYY, NERR, LDUM1)
+
+
+      ! 3. Cross-section Tables
+      ! -----------------------
+      !
+      IF (total_no_links > 0) THEN
+         ! XINH
+         CALL ALCHK (EEERR, 1016, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINH(link)[j=1]', 'EQ', ZERO1, ZERO, XINH, NERR, LDUM1)
+         
+         DO IELw = 1, total_no_links
+            N = NXSECT (IELw) - 1
+            WRITE (SUBJ, 9310) IELw
+            
+            DDUM1A(1:N) = XINH(IELw, 1:N)
+            DDUM1B(1:N) = XINH(IELw, 2:N+1)
+            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GTa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
+
+            ! XINW
             SUBJ (4:4) = 'W'
-            !CALL DCOPY(N, XINW(IEL,1), NLFEE, DDUM1A(1:n), 1)
-            !CALL DCOPY(N, XINW(IEL,2), NLFEE, DDUM1B(1:n), 1)
-            DDUM1A(1:n) = XINW(ielw,1:n)
-            DDUM1B(1:n) = XINW(ielw,2:n+1)
-            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, &
-               'GEa', DDUM1A, zero , DDUM1B, NERR, LDUM1)
-310      END DO
-         DO 320 ielw = 1, total_no_links
-            DDUM1A (ielw) = XINW (ielw, NXSECT (ielw) )
-320      END DO
-         CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', zero1, zero , &
-            DDUM1A, NERR, LDUM1)
-      ENDIF
+            DDUM1A(1:N) = XINW(IELw, 1:N)
+            DDUM1B(1:N) = XINW(IELw, 2:N+1)
+            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GEa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
+         END DO
+         
+         DO IELw = 1, total_no_links
+            DDUM1A (IELw) = XINW (IELw, NXSECT (IELw))
+         END DO
+         
+         CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
+                     DDUM1A, NERR, LDUM1)
+      END IF
 
-      IF (NERR.GT.0) then
-!!!! sb 190522 negative strickler for surface storage
+      IF (NERR > 0) THEN
+         !!!! sb 190522 negative strickler for surface storage
          CALL ERROR(WWWARN, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
-!    CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
-      ENDIF
-9100  FORMAT ('File unit ',A,' =',I4,1X,A:1X,A)
+         ! CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
+      END IF
 
-9310  FORMAT ('XINH[ link =',I3,'](j)')
+      ! Format Statements
+      ! -----------------
+9100  FORMAT ('File unit ', A, ' =', I4, 1X, A: 1X, A)
+9310  FORMAT ('XINH[ link =', I3, '](j)')
+
    END SUBROUTINE OCCHK2
+
 
 
 !SSSSSS SUBROUTINE OCEXT
@@ -1084,207 +1106,238 @@ CONTAINS
    END SUBROUTINE OCLTL
 
 
+
 !SSSSSS SUBROUTINE OCPLF
    SUBROUTINE OCPLF(BOUT, IXER, fromNOCBCD, NXDEF, XDEFW)
-!----------------------------------------------------------------------*
-!
-!  READ IN DATA FOR EACH CHANNEL LINK
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCPLF/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-!  GP  940808  4.0  Remove redundant array EXBETA (SPEC.AL).
-! RAH  980121  4.2  Fix error in COCBCD 2nd subscript (see BR/50).
-!                   Explicit typing.
-!                   List-directed input, & scrap local TITRE.  No FLOAT.
-!                   Bring NDEFCT,NXDEF,XDEFH,XDEFW from SPEC.OC.
-!                   Trap large NDEFCT.  Scrap EARRAY.  New local TEST.
-!      980127       Use locals MSG,N more.  New local ZG.
-!                   Test STR.le.0, not .eq.0.  Require IEL in order.
-!                   Combine IDEFX tests.  Use IDEF: don't redfine IDEFX.
-!                   Split expression for XAREA.  Use HJ for DPNOW.
-!                   Rearrange loop 200.  Rename INDEX,ICODE as IBC,TYPE.
-!                   Read NOCBCD,COCBCD directly, & set NOCBCD(IBC,2&4).
-!      980128       Don't set XCONV or XDERIV for J=NXSCEE.  Trap N=1.
-!                   Replace FATAL errors with ERR, & increase IXER.
-!                   Require XDEFH,XINH strictly increasing, and
-!                   XDEFW,XINW .gt.0 for J=N.
-!      980129       Use IEL for loop variable ICT.  Trap NDEFCT<0.
-!      980203       Move cross-section table set-up to OCXS (new).
-!                   Move STRX,STRY,XINH,XINW checks to OCCHK2 (new).
-!      980204       Full argument list (no INCLUDEs) (see OCREAD);
-!                   ERR local.  Add argument BOUT: write to PRI if true.
-!      980206       Call DCOPY for XINH,XINW.  More info in MSG.
-!      980218       Adjust formats.
-!      980220       Adjust formats.
-!      980225       Swap COCBCD subscripts (see SPEC.OC)
-!JE    JAN 2009     Loop restructure for AD
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
-!  OCD open for F input                 PRI open for F output
-!----------------------------------------------------------------------*
-! Exit conditions:
-! IXER(out).ge.IXER(in)
-! IXER(out).eq.IXER(in) ==> 2.le.NXSECT(1:NLF).le.NOCTAB
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
+   !
+   !  READ IN DATA FOR EACH CHANNEL LINK
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCPLF/4.2
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+   !  GP  940808  4.0  Remove redundant array EXBETA (SPEC.AL).
+   ! RAH  980121  4.2  Fix error in COCBCD 2nd subscript (see BR/50).
+   !                   Explicit typing.
+   !                   List-directed input, & scrap local TITRE.  No FLOAT.
+   !                   Bring NDEFCT,NXDEF,XDEFH,XDEFW from SPEC.OC.
+   !                   Trap large NDEFCT.  Scrap EARRAY.  New local TEST.
+   !      980127       Use locals MSG,N more.  New local ZG.
+   !                   Test STR.le.0, not .eq.0.  Require IEL in order.
+   !                   Combine IDEFX tests.  Use IDEF: don't redfine IDEFX.
+   !                   Split expression for XAREA.  Use HJ for DPNOW.
+   !                   Rearrange loop 200.  Rename INDEX,ICODE as IBC,TYPE.
+   !                   Read NOCBCD,COCBCD directly, & set NOCBCD(IBC,2&4).
+   !      980128       Don't set XCONV or XDERIV for J=NXSCEE.  Trap N=1.
+   !                   Replace FATAL errors with ERR, & increase IXER.
+   !                   Require XDEFH,XINH strictly increasing, and
+   !                   XDEFW,XINW .gt.0 for J=N.
+   !      980129       Use IEL for loop variable ICT.  Trap NDEFCT<0.
+   !      980203       Move cross-section table set-up to OCXS (new).
+   !                   Move STRX,STRY,XINH,XINW checks to OCCHK2 (new).
+   !      980204       Full argument list (no INCLUDEs) (see OCREAD);
+   !                   ERR local.  Add argument BOUT: write to PRI if true.
+   !      980206       Call DCOPY for XINH,XINW.  More info in MSG.
+   !      980218       Adjust formats.
+   !      980220       Adjust formats.
+   !      980225       Swap COCBCD subscripts (see SPEC.OC)
+   ! JE   JAN 2009     Loop restructure for AD
+   !----------------------------------------------------------------------*
+   ! Entry requirements:
+   !  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
+   !  OCD open for F input                 PRI open for F output
+   !----------------------------------------------------------------------*
+   ! Exit conditions:
+   ! IXER(out).ge.IXER(in)
+   ! IXER(out).eq.IXER(in) ==> 2.le.NXSECT(1:NLF).le.NOCTAB
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables:
+      ! NOCTAB, XDEFH, OCD, EEERR, PPPRI, total_no_links, ZGRUND, SETHRF, STRXX
+      ! STRYY, XINW, XINH, NXSECT, CWIDTH, ZBFULL, NOCBCC, COCBCD, ERROR
+
+      IMPLICIT NONE
+
       LOGICAL, INTENT(INOUT) :: BOUT
       INTEGER, INTENT(INOUT) :: IXER
       INTEGER, INTENT(INOUT) :: fromNOCBCD(NOCTAB, 2:4)
       INTEGER, INTENT(OUT)   :: NXDEF (NOCTAB)
-      DOUBLEPRECISION        :: XDEFH (NOCTAB, NOCTAB), XDEFW (NOCTAB, NOCTAB)
-      INTEGER                :: I, IBC, IDEF, IDEFX, ielm, J, N, NDEFCT, TYPEE
-      DOUBLEPRECISION        :: STR, WDEPTH, ZG
-      LOGICAL                :: TEST, g8055, g8013, g8300, greturn
-      CHARACTER(102)         :: MSG
-!----------------------------------------------------------------------*
-!
-! READ DEFAULT CHANNEL CROSS-SECTIONS
-!:OC30
-      READ (OCD, * )
-      READ (OCD, * ) NDEFCT
-      IF ((NDEFCT.GT.NOCTAB).OR.(NDEFCT.LT.0)) THEN !GOTO 8054
+      DOUBLE PRECISION       :: XDEFH (NOCTAB, NOCTAB), XDEFW (NOCTAB, NOCTAB)
+      
+      INTEGER :: I, IBC, IDEF, IDEFX, ielm, J, N, NDEFCT, TYPEE, ios
+      DOUBLE PRECISION :: STR, WDEPTH, ZG
+      LOGICAL :: TEST, g8055, g8013, g8300, greturn
+      CHARACTER(102) :: MSG
+
+      !----------------------------------------------------------------------*
+      !
+      ! READ DEFAULT CHANNEL CROSS-SECTIONS
+      ! :OC30
+      
+      READ (OCD, *)
+      READ (OCD, *) NDEFCT
+      
+      IF ((NDEFCT > NOCTAB) .OR. (NDEFCT < 0)) THEN 
          WRITE (MSG, 9054) NDEFCT, NOCTAB
          CALL ERROR(EEERR, 1054, PPPRI, 0, 0, MSG)
          IXER = IXER + 1
-      ENDIF
+      END IF
 
-      g8013=.FALSE.
-      g8055=.FALSE.
-      g8300=.FALSE.
-      greturn=.FALSE.
+      g8013 = .FALSE.
+      g8055 = .FALSE.
+      g8300 = .FALSE.
+      greturn = .FALSE.
 
-!:OC32
-      IF (NDEFCT.GT.0) THEN
-         READ (OCD, * )
+      ! :OC32
+      IF (NDEFCT > 0) THEN
+         READ (OCD, *)
          IF (BOUT) WRITE(PPPRI, 9032) 'Category', 'Width', 'Height'
-         out100 : DO IDEF = 1, NDEFCT
-            IF(g8055) CYCLE out100
-            READ (OCD, * ) N
-            IF ((N.GT.NOCTAB).OR.(N.LT.2)) THEN
-               g8055=.TRUE.
+         
+         out100: DO IDEF = 1, NDEFCT
+            IF (g8055) CYCLE out100
+            READ (OCD, *) N
+            
+            IF ((N > NOCTAB) .OR. (N < 2)) THEN
+               g8055 = .TRUE.
                CYCLE out100
-            ENDIF
+            END IF
+            
             NXDEF (IDEF) = N
-            READ (OCD, * ) (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
-            IF (BOUT) WRITE(PPPRI, 9034) IDEF, (XDEFW (IDEF, J), XDEFH ( IDEF, J), J = 1, N)
-         ENDDO out100
-      ENDIF
-!
-! READ DATA FOR EACH LINK
-!:OC35
-      IF(g8055) THEN
+            READ (OCD, *) (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
+            
+            IF (BOUT) WRITE(PPPRI, 9034) IDEF, (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
+         END DO out100
+      END IF
+
+      !
+      ! READ DATA FOR EACH LINK
+      ! :OC35
+      IF (g8055) THEN
          WRITE (MSG, 9055) IDEF, N, NOCTAB
          CALL ERROR(EEERR, 1055, PPPRI, 0, 0, MSG)
          IXER = IXER + 1
       ELSE
-         READ (OCD, * )
+         READ (OCD, *)
          IF (BOUT) WRITE(PPPRI, 9035) 'Element', 'Elevation', 'Init.Depth', 'Strickler', 'Width', 'Height'
-         out500 : DO ielm = 1, total_no_links
-            IF(g8013 .OR. g8300 .OR. greturn) CYCLE out500
-            READ (OCD, *, ERR = 8300, END = 8300) I, ZG, WDEPTH, STR, IDEFX
+         
+         out500: DO ielm = 1, total_no_links
+            IF (g8013 .OR. g8300 .OR. greturn) CYCLE out500
+            
+            ! Modernized with IOSTAT check
+            READ (OCD, *, IOSTAT=ios) I, ZG, WDEPTH, STR, IDEFX
 
-            GOTO 877
-8300        g8300=.TRUE.
-            CYCLE out500
-
-877         IF (I.NE.ielm) THEN
-               g8013=.TRUE.
+            IF (ios /= 0) THEN
+               g8300 = .TRUE.
                CYCLE out500
-            ENDIF
+            END IF
+
+            IF (I /= ielm) THEN
+               g8013 = .TRUE.
+               CYCLE out500
+            END IF
 
             ZGRUND (ielm) = ZG
             CALL SETHRF(ielm, ZG + WDEPTH)
             STRXX(ielm) = STR
             STRYY(ielm) = STR
-            !:OC37
-            TEST = (IDEFX.EQ.1).OR.(IDEFX.GT.NOCTAB)
-            IF ((IDEFX.EQ.0).OR.(IDEFX.LT.-NDEFCT).OR.TEST) THEN
-               WRITE (MSG, 9012) IDEFX, - NDEFCT, NOCTAB
+            
+            ! :OC37
+            TEST = (IDEFX == 1) .OR. (IDEFX > NOCTAB)
+            
+            IF ((IDEFX == 0) .OR. (IDEFX < -NDEFCT) .OR. TEST) THEN
+               WRITE (MSG, 9012) IDEFX, -NDEFCT, NOCTAB
                CALL ERROR(EEERR, 1012, PPPRI, ielm, 0, MSG)
                IXER = IXER + 1
+               
                IF (TEST) THEN
-                  greturn=.TRUE.
+                  greturn = .TRUE.
                   CYCLE out500
-               ENDIF
-               GOTO 300
-            ELSEIF (IDEFX.GT.0) THEN
-               N = IDEFX
-               READ (OCD, * ) (XINW (ielm, J), XINH (ielm, J), J = 1, N)
-               IF (BOUT) WRITE(PPPRI, 9037) ielm, ZG, WDEPTH, STR, (XINW ( &
-                  ielm, J), XINH (ielm, J), J = 1, N)
+               END IF
+               
             ELSE
-               IDEF = - IDEFX
-               N = NXDEF (IDEF)
-               !CALL DCOPY(N, XDEFH(IDEF,1), NOCTAB, XINH(ielm,1), NLFEE)
-               !CALL DCOPY(N, XDEFW(IDEF,1), NOCTAB, XINW(ielm,1), NLFEE)
-               XINH(ielm,1:n) = XDEFH(IDEF,1:n)
-               XINW(ielm,1:n) = XDEFW(IDEF,1:n)
-               IF (BOUT) WRITE(PPPRI, 9137) ielm, ZG, WDEPTH, STR, IDEF
-            ENDIF
+               IF (IDEFX > 0) THEN
+                  N = IDEFX
+                  READ (OCD, *) (XINW (ielm, J), XINH (ielm, J), J = 1, N)
+                  IF (BOUT) WRITE(PPPRI, 9037) ielm, ZG, WDEPTH, STR, (XINW (ielm, J), XINH (ielm, J), J = 1, N)
+               ELSE
+                  IDEF = -IDEFX
+                  N = NXDEF (IDEF)
+                  ! Native Fortran array slice copying N elements
+                  XINH(ielm, 1:N) = XDEFH(IDEF, 1:N)
+                  XINW(ielm, 1:N) = XDEFW(IDEF, 1:N)
+                  IF (BOUT) WRITE(PPPRI, 9137) ielm, ZG, WDEPTH, STR, IDEF
+               END IF
 
-            NXSECT (ielm) = N
-            !
-            ! CHANNEL BANK-FULL WIDTH & ELEVATION
-            !
-            CWIDTH (ielm) = XINW (ielm, N)
+               NXSECT (ielm) = N
+               
+               ! CHANNEL BANK-FULL WIDTH & ELEVATION
+               CWIDTH (ielm) = XINW (ielm, N)
+               ZBFULL (ielm) = XINH (ielm, N) + ZG
+            END IF
 
-            ZBFULL (ielm) = XINH (ielm, N) + ZG
-            !
             ! READ IN ADDITIONAL DATA FOR BOUNDARY CONDITIONS
-            !:OC38-41
-300         IBC = NOCBCC (ielm)
-            IF (IBC.GT.0) THEN
+            ! :OC38-41
+            IBC = NOCBCC (ielm)
+            
+            IF (IBC > 0) THEN
                TYPEE = fromNOCBCD (IBC, 3)
-               IF((TYPEE.EQ.7).OR.(TYPEE.EQ.8)) THEN
-                  READ (OCD, * ) fromNOCBCD (IBC, 2), (COCBCD (J, IBC), J = 1, 4)
+               
+               IF ((TYPEE == 7) .OR. (TYPEE == 8)) THEN
+                  READ (OCD, *) fromNOCBCD (IBC, 2), (COCBCD (J, IBC), J = 1, 4)
                   fromNOCBCD (IBC, 4) = 1
-               ELSEIF (TYPEE.EQ.9) THEN
+               ELSE IF (TYPEE == 9) THEN
                   fromNOCBCD (IBC, 2) = 0
-                  READ (OCD, * ) fromNOCBCD (IBC, 4)
-               ELSEIF (TYPEE.EQ.10) THEN
-                  READ (OCD, * ) (fromNOCBCD (IBC, J), J = 2, 4, 2)
-               ELSEIF (TYPEE.EQ.11) THEN
-                  READ (OCD, * ) fromNOCBCD (IBC, 2), (COCBCD (J, IBC), J = 1, 5)
+                  READ (OCD, *) fromNOCBCD (IBC, 4)
+               ELSE IF (TYPEE == 10) THEN
+                  READ (OCD, *) (fromNOCBCD (IBC, J), J = 2, 4, 2)
+               ELSE IF (TYPEE == 11) THEN
+                  READ (OCD, *) fromNOCBCD (IBC, 2), (COCBCD (J, IBC), J = 1, 5)
                   fromNOCBCD (IBC, 4) = 1
-               ENDIF
-            ENDIF
-         ENDDO out500
-      ENDIF
-      IF(greturn) THEN
+               END IF
+            END IF
+            
+         END DO out500
+      END IF
+
+      ! Epilogue Error Catching
+      IF (greturn) THEN
          RETURN
-      ELSEIF(g8013) THEN
+      ELSE IF (g8013) THEN
          WRITE (MSG, 9013) ielm, I
          CALL ERROR(EEERR, 1013, PPPRI, ielm, 0, MSG)
          IXER = IXER + 1
-      ELSEIF(g8300) THEN
+      ELSE IF (g8300) THEN
          MSG = 'Channel input data is missing or has incorrect format'
          CALL ERROR(EEERR, 1019, PPPRI, ielm, 0, MSG)
          IXER = IXER + 1
-      ENDIF
-9012  FORMAT ('Cross-section number IDEFX =',I4,' lies outside ranges', &
-      &        ' -NDEFCT:-1 =',I4,' : -1  and  2:NOCTAB = 2 :',I4)
+      END IF
+
+      ! Format Statements
+9012  FORMAT ('Cross-section number IDEFX =', I4, ' lies outside ranges', &
+               ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
 
 9013  FORMAT ('Expected element number,', I5, ', but found', I5, ', ', &
-      &        'while reading channel data')
+               'while reading channel data')
 
-9032  FORMAT (/5X,'Default Channel Cross-sections:'//5X,3A10/)
+9032  FORMAT (/5X, 'Default Channel Cross-sections:'//5X, 3A10/)
 
-9034  FORMAT (5X,I10,(T16,2F10.3))
+9034  FORMAT (5X, I10, (T16, 2F10.3))
 
-9035  FORMAT (/5X,'Link Element Data:'//5X,6A11/)
+9035  FORMAT (/5X, 'Link Element Data:'//5X, 6A11/)
 
-9037  FORMAT (5X,I11,3F11.3,(T50,2F11.3))
+9037  FORMAT (5X, I11, 3F11.3, (T50, 2F11.3))
 
 9054  FORMAT ('Number of default channel cross-section categories ', &
-      &        'NDEFCT =',I4,2X,'lies outside range 0:NOCTAB = 0 :',I4)
+               'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
 
-9055  FORMAT ('Number of width/elevation pairs NXDEF(',I3,') =',I4,2X, &
-      &        'lies outside range 2:NOCTAB = 2:',I4)
+9055  FORMAT ('Number of width/elevation pairs NXDEF(', I3, ') =', I4, 2X, &
+               'lies outside range 2:NOCTAB = 2:', I4)
 
-9137  FORMAT (5X,I11,3F11.3,3X,'default category',I3)
+9137  FORMAT (5X, I11, 3F11.3, 3X, 'default category', I3)
+
    END SUBROUTINE OCPLF
+
 
 
 !SSSSSS SUBROUTINE OCPRI
@@ -1531,412 +1584,334 @@ CONTAINS
    END SUBROUTINE OCREAD
 
 
-!SSSSSS SUBROUTINE OCSIM
+
+   !SSSSSS SUBROUTINE OCSIM
    SUBROUTINE OCSIM
-!----------------------------------------------------------------------*
-!
-!  MAIN OVERLAND/CHANNEL SIMULATION ROUTINE
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCSIM/4.2
-! Modifications:
-!  GP          3.4  Set HRF at head boundaries.  Disallow flow against
-!                   surface gradient (except boundaries & confluences),
-!                   and move trap for small depths & setting of ARXL to
-!                   after this point; also, replace WLMIN with 1D-5.
-!                   Trap large flows (ABS(QOC)>QMAX) in channels.
-! RAH  941008 3.4.1 Bring IMPLICIT from SPEC.AL.  Move traps (except
-!                   QMAX) to new subroutine OCFIX (confluences too).
-! RAH  961228  4.1  Remove variables TF & LONT.
-! RAH  971215  4.2  Explicit typing.  Bring DD,EE,GG from SPEC.OC.
-!                   Remove DOCEV,DLIOC,DETOCO,DOCUZO,DOCSZO.
-!                   Set NCR,NPR,NSV (& NDUM) only where necessary.
-!                   Merge OCQDQ loops.  Don't call OCMAS.
-!      971216       Move first row initialization nearer to OCABC.
-!                   Call OCQDQ always (not only 1st step) at the start,
-!                   and not at the end of a step.  Scrap tests NLF.GT.0.
-!                   Use IROW as subscript not NROWF; also use IRSV.
-!                   Cut duplicate code in main loop over rows.
-!      971217       Merge EE,GG code for first row into loop over rows.
-!                   Initialize only useful elements of AA,BB,CC,FF.
-!                   Separate treatment for DD of last row.
-!      980106       Call ERROR if ICOD=1 after PMINVM.
-!                   Next IROW if NCR=0 in main loop.  Scrap JFACE.
-!                   Renumber labels 4,190,200 as 44,250,255.
-!                   Amend head boundary implementation, & move to OCABC.
-!                   New locals DDI,DH,DQ,DW,HI,HM,IBR,IM,WI,WM,Z.
-!                   Use DCOPY & CHSGN to set QOC.  Use ABS not DABS.
-!      980107       OCABC arguments: remove ICOUNT;
-!                   add IEL,NXSECT,ZBFULL,ZGRUND,HRF,AA,BB,CC,FF.
-!                   Bring AA,BB,CC,FF from SPEC.OC.
-!      980108       OCABC arguments: add NSV,NCR,NPR,PNETTO,QH,ESWA.
-!                   Move initialization of AA,BB,CC,FF to OCABC.
-!      980109       OCABC arguments: add IBC,HOCNOW.
-!      980212       Scrap NROWFN - use NROWST(IROW+1)-1.
-!      980226       Call OCPRI.  Bring DTOC from SPEC.OC; pass to OCABC.
-!                   Call OCQDQ once only, and pass COCBCD,QOCF.
-!      980327       Pass XAFULL (new local) to OCQDQ.  Scrap local K.
-!                   Pass OCTIME, not OCNOW, to OCPRI, & call before QMAX
-!                   test, not after.
-!      980331       Pass STRX,STRY to OCQDQ.
-!      980409       Pass HOCNOW to OCQDQ.
-!      980424       Pass NXSCEE,XSTAB to OCQDQ.
-!      980427       Pass new local FWRK to OCQDQ.
-!JE    JAN 2009     Loop restructure for AD
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     SPEC.AL          NELEE,NLFEE,NOCTAB,NXOCEE,NYEE
-!     SPEC.OC          NXSCEE
-! Input common
-!     SPEC.AL          FATAL,NEL,NLF,NSTEP,PRI
-!                      ICMREF(NELEE,3:12),NOCBCC(NEL)
-!                      ICMRF2(NLFEE,6),   NOCBCD(NOCTAB,2:4)
-!                      QMAX
-!                        AREA(NEL), CLENTH(NLFEE),DXQQ(NEL),DHF(NELEE,4)
-!                      ZGRUND(NEL), CWIDTH(NLFEE),DYQQ(NEL)
-!                                   ZBFULL(NLFEE)
-!                        ESWA(NEL), PNETTO(NEL),    QH(NEL),OCNEXT,OCNOW
-!     SPEC.OC          NELIND(NEL), NROWEL(NEL),NROWF,NROWL
-!                      NXSECT(NLFEE),    NROWST(NROWF:NROWL+1)
-!                       XAREA(NLFEE,NOCTAB),STRX(NEL),  QOCF(NOCTAB)
-!                        XINH(NLFEE,NOCTAB),STRY(NEL),HOCNOW(NOCTAB)
-!                        XINW(NLFEE,NOCTAB),TDC,TFC,COCBCD(5,NOCTAB)
-!                       XSTAB(3,NXSCEE,NLFEE)
-! In+out common
-!     SPEC.AL          HRF(NEL)
-! Output common
-!     SPEC.AL          QOC(NELEE,4),DQ0ST(NELEE,4),  ARXL(NLFEE)
-!                      QSA(NELEE,4),DQIST(NELEE,4),DQIST2(NLFEE,3)
-      INTEGER         :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
-      INTEGER         :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV  , face
-!INTEGER         :: LCdum (NXOCEE, 2)
-!INTEGER         :: ijedum(nelee,4,2:3), ijedum2(nlfee,3,2), kk, ll, vv  !afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
-      INTEGER         :: kk, ll, vv
+   !----------------------------------------------------------------------*
+   !
+   !  MAIN OVERLAND/CHANNEL SIMULATION ROUTINE
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCSIM/4.2
+   ! Modifications:
+   !  GP         3.4  Set HRF at head boundaries.  Disallow flow against
+   !                  surface gradient (except boundaries & confluences),
+   !                  and move trap for small depths & setting of ARXL to
+   !                  after this point; also, replace WLMIN with 1D-5.
+   !                  Trap large flows (ABS(QOC)>QMAX) in channels.
+   ! RAH  941008 3.4.1 Bring IMPLICIT from SPEC.AL.  Move traps (except
+   !                  QMAX) to new subroutine OCFIX (confluences too).
+   ! RAH  961228  4.1  Remove variables TF & LONT.
+   ! RAH  971215  4.2  Explicit typing.  Bring DD,EE,GG from SPEC.OC.
+   !                  Remove DOCEV,DLIOC,DETOCO,DOCUZO,DOCSZO.
+   !                  Set NCR,NPR,NSV (& NDUM) only where necessary.
+   !                  Merge OCQDQ loops.  Don't call OCMAS.
+   !      971216      Move first row initialization nearer to OCABC.
+   !                  Call OCQDQ always (not only 1st step) at the start,
+   !                  and not at the end of a step.  Scrap tests NLF.GT.0.
+   !                  Use IROW as subscript not NROWF; also use IRSV.
+   !                  Cut duplicate code in main loop over rows.
+   !      971217      Merge EE,GG code for first row into loop over rows.
+   !                  Initialize only useful elements of AA,BB,CC,FF.
+   !                  Separate treatment for DD of last row.
+   !      980106      Call ERROR if ICOD=1 after PMINVM.
+   !                  Next IROW if NCR=0 in main loop.  Scrap JFACE.
+   !                  Renumber labels 4,190,200 as 44,250,255.
+   !                  Amend head boundary implementation, & move to OCABC.
+   !                  New locals DDI,DH,DQ,DW,HI,HM,IBR,IM,WI,WM,Z.
+   !                  Use DCOPY & CHSGN to set QOC.  Use ABS not DABS.
+   !      980107      OCABC arguments: remove ICOUNT;
+   !                  add IEL,NXSECT,ZBFULL,ZGRUND,HRF,AA,BB,CC,FF.
+   !                  Bring AA,BB,CC,FF from SPEC.OC.
+   !      980108      OCABC arguments: add NSV,NCR,NPR,PNETTO,QH,ESWA.
+   !                  Move initialization of AA,BB,CC,FF to OCABC.
+   !      980109      OCABC arguments: add IBC,HOCNOW.
+   !      980212      Scrap NROWFN - use NROWST(IROW+1)-1.
+   !      980226      Call OCPRI.  Bring DTOC from SPEC.OC; pass to OCABC.
+   !                  Call OCQDQ once only, and pass COCBCD,QOCF.
+   !      980327      Pass XAFULL (new local) to OCQDQ.  Scrap local K.
+   !                  Pass OCTIME, not OCNOW, to OCPRI, & call before QMAX
+   !                  test, not after.
+   !      980331      Pass STRX,STRY to OCQDQ.
+   !      980409      Pass HOCNOW to OCQDQ.
+   !      980424      Pass NXSCEE,XSTAB to OCQDQ.
+   !      980427      Pass final local FWRK to OCQDQ.
+   ! JE   JAN 2009    Loop restructure for AD
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables
+      IMPLICIT NONE
+
+      INTEGER :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
+      INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV, face
+      INTEGER :: kk, ll, vv
+
       INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum, ijedum2
-      DOUBLEPRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
-!DOUBLEPRECISION :: AA (NXOCEE, NXOCEE), DD (NXOCEE, NYEE), FF(NXOCEE)
-!DOUBLEPRECISION :: BB (NXOCEE, NXOCEE), GG (NXOCEE, NYEE)
-!DOUBLEPRECISION :: CC (NXOCEE, NXOCEE), EE (NXOCEE, NXOCEE, NYEE)
-!DOUBLEPRECISION :: TM1 (NXOCEE, NXOCEE), TV1 (NXOCEE) !, FWRK (NXSCEE * 12)
-!DOUBLEPRECISION :: TM2 (NXOCEE, NXOCEE), TV2 (NXOCEE)
-      DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: AA, DD
-      DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: FF
-      DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: BB, GG
-      DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: CC
-      DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE
-      DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TM1, TM2
-      DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: TV1,TV2
+      
+      DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
+      
+      DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: AA, DD, BB, GG, CC, TM1, TM2, inqsa, GGGETQSA
+      DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: FF, TV1, TV2, inhrf, GGGETHRF
+      DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE
 
+      LOGICAL :: first = .TRUE., found_level, channel_blowup
+      CHARACTER(36) :: MSG
 
-!DOUBLEPRECISION, DIMENSION(total_no_elements)    :: inhrf
-!DOUBLEPRECISION, DIMENSION(total_no_elements)    :: GGGETHRF
-!DOUBLEPRECISION, DIMENSION(total_no_elements,4)  :: inqsa
-!DOUBLEPRECISION, DIMENSION(total_no_elements,4)  :: GGGETQSA
-      DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE      :: inhrf
-      DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE      :: GGGETHRF
-      DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE    :: inqsa
-      DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE   :: GGGETQSA
+      !----------------------------------------------------------------------*
+      !
+      ! ----- Initialize
+      ! needs to be nelee and nlfee here as it reads from arrays that are still set to these sizes
+      ALLOCATE (ijedum(nelee, 4, 2:3), ijedum2(nlfee, 3, 2))
+      ijedum  = 0
+      ijedum2 = 0
 
+      ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
+      ALLOCATE (FF(NX*4))
+      ALLOCATE (BB(NX*4, NX*4), GG(NX*4, NY))
+      ALLOCATE (CC(NX*4, NX*4))
+      ALLOCATE (EE(NX*4, NX*4, NY))
+      ALLOCATE (TM1(NX*4, NX*4), TM2(NX*4, NX*4))
+      ALLOCATE (TV1(NX*4), TV2(NX*4))
+      
+      AA = 0.0D0; DD = 0.0D0; FF = 0.0D0; BB = 0.0D0; GG = 0.0D0
+      CC = 0.0D0; EE = 0.0D0; TM1 = 0.0D0; TM2 = 0.0D0; TV1 = 0.0D0; TV2 = 0.0D0
 
+      ALLOCATE (inhrf(total_no_elements))
+      ALLOCATE (GGGETHRF(total_no_elements))
+      ALLOCATE (inqsa(total_no_elements, 4))
+      ALLOCATE (GGGETQSA(total_no_elements, 4))
+      
+      inhrf = 0.0D0; GGGETHRF = 0.0D0; inqsa = 0.0D0; GGGETQSA = 0.0D0
 
-      LOGICAL         :: g8018, g8029, cycle255
-      LOGICAL         :: first=.TRUE.
-      CHARACTER(36)   :: MSG
-!----------------------------------------------------------------------*
-!
-! ----- Initialize
-! needs to be nelee and nlfee here as it reads from arrays that are still set to these sizes
-      allocate   (ijedum(nelee,4,2:3),ijedum2(nlfee,3,2))
-      ijedum=0
-      ijeduM2=0
-
-
-      allocate   (AA(NX*4,NX*4),DD(NX*4,NY))
-      allocate   (FF(NX*4))
-      allocate   (BB(NX*4,NX*4),GG(NX*4,NY))
-      allocate   (CC(NX*4,NX*4))
-      allocate   (EE(NX*4,NX*4,NY))
-      allocate   (TM1(NX*4,NX*4),TM2(NX*4,NX*4))
-      allocate   (TV1(NX*4),TV2(NX*4))
-      AA=0.0d0
-      DD=0.0d0
-      FF=0.0d0
-      BB=0.0d0
-      GG=0.0d0
-      CC=0.0d0
-      EE=0.0d0
-      TM1=0.0d0
-      TM2=0.0d0
-      TV1=0.0d0
-      TV2=0.0d0
-
-      allocate   (inhrf(total_no_elements))
-      allocate   (GGGETHRF(total_no_elements))
-      allocate   (inqsa(total_no_elements,4))
-      allocate   (GGGETQSA(total_no_elements,4))
-      inhrf=0.0d0
-      GGGETHRF=0.0d0
-      inqsa=0.0d0
-      GGGETQSA=0.0d0
-
-
-!
-      DTOC = OCNEXT * 3600.D0
-      IF (FIRST) THEN
+      !
+      DTOC = OCNEXT * 3600.0D0
+      
+      IF (first) THEN
          first = .FALSE.
          DO LINK = 1, total_no_links
-            XAFULL (LINK) = XAREA (LINK, NXSECT (LINK) )
-         ENDDO
-      ENDIF
-!
-! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
-! sb 120514 put this line back in
-!
-      CALL OCEXT
-!
-! ----- CALCULATE FLOWS QSA & DERIVATIVES DQ0ST,DQIST,DQIST2
-!
+            XAFULL (LINK) = XAREA (LINK, NXSECT (LINK))
+         END DO
+      END IF
 
+      ! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
+      CALL OCEXT
+
+      ! ----- CALCULATE FLOWS QSA & DERIVATIVES DQ0ST,DQIST,DQIST2
       CALL OCQDQ ()
-!
-! ----- LOOP OVER ROWS, CALCULATING EE & GG
-!
+
+      
+
+      ! ----- LOOP OVER ROWS, CALCULATING EE & GG
       NCR = 0
-      g8018=.FALSE.
-      g8029=.FALSE.
-      out44 : DO IROW = NROWF, NROWL
-         IF(g8018) CYCLE out44
+      
+      row_loop: DO IROW = NROWF, NROWL
          IRSV = IROW + 1
          !
-         !        NCR    : NUMBER OF ELEMENTS IN THE CURRENT ROW
-         !        NPR    : NUMBER OF ELEMENTS IN THE PREVIOUS ROW
-         !        NSV    : NUMBER OF ELEMENTS IN THE NEXT (SUIVANT) ROW
+         ! NCR : NUMBER OF ELEMENTS IN THE CURRENT ROW
+         ! NPR : NUMBER OF ELEMENTS IN THE PREVIOUS ROW
+         ! NSV : NUMBER OF ELEMENTS IN THE NEXT (SUIVANT) ROW
          !
          NPR = NCR
          K0 = NROWST (IROW) - 1
          NCR = NROWST (IRSV) - 1 - K0
-         IF (NCR.EQ.0) CYCLE out44 !GOTO 44
+         
+         IF (NCR == 0) CYCLE row_loop
+         
          NSV = NROWST (MIN (IRSV, NROWL) + 1) - NROWST (IRSV)
-         !
+         
          ! CALCULATE MATRICES AA, BB, CC, FF
-         !
          DO IND = 1, NCR
-            iels = NROWEL (IND+K0)
-            LINK = MAX (1, MIN (iels, total_no_links) )
+            iels = NROWEL (IND + K0)
+            LINK = MAX (1, MIN (iels, total_no_links))
             IBC = NOCBCC (iels)
-            IF (IBC.GT.0) THEN
+            
+            IF (IBC > 0) THEN
                IHB = NOCBCD (IBC, 4)
                IBC = NOCBCD (IBC, 3)
             ELSE
                IHB = 1
-            ENDIF
-            CALL OCABC (IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT ( &
-               LINK), cellarea (iels), ZGRUND (iels), CLENTH (LINK), ZBFULL ( &
-               LINK), GETHRF (iels), PNETTO (iels), QH (iels), ESWA (iels), &
-               HOCNOW (IHB), AA(:,IND), BB (1:ncr,IND), CC(:,IND), &
-               FF (IND) )
-         ENDDO
-         !
+            END IF
+            
+            CALL OCABC (IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT (LINK), cellarea (iels), &
+                        ZGRUND (iels), CLENTH (LINK), ZBFULL (LINK), GETHRF (iels),          &
+                        PNETTO (iels), QH (iels), ESWA (iels), HOCNOW (IHB), AA(:,IND),      &
+                        BB (1:ncr,IND), CC(:,IND), FF (IND))
+         END DO
+         
          ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
-         !
-         IF (IROW.EQ.NROWF) THEN
+         IF (IROW == NROWF) THEN
             DO IND = 1, NCR
-               TM2(1:ncr,IND) = BB(1:ncr,IND)
-               !CALL DCOPY (NCR, BB(1:ncr,IND), 1, TM2(1:ncr,IND), 1)
-            ENDDO
+               TM2(1:ncr, IND) = BB(1:ncr, IND)
+            END DO
             TV2(1:ncr) = FF(1:ncr)
-            !CALL DCOPY(NCR, FF(1:ncr), 1, TV2(1:ncr), 1)
          ELSE
-            !CALL MULMM (TM1, CC, EE (1, 1, IROW), NCR, NPR, NCR, NXOCEE)
-            tm1(1:ncr,1:ncr) = JEMATMUL_MM(cc(1:npr,1:ncr), ee(1:ncr,1:npr,irow), ncr, npr, ncr)
-
-            !CALL ADDMM (TM2, BB, TM1, NCR, NCR, NXOCEE)
-            tm2(1:ncr,1:ncr) = bb(1:ncr,1:ncr) + tm1(1:ncr,1:ncr)
-
-            !CALL MULMV (TV1, CC, GG (1, IROW), NCR, NPR, NXOCEE)
-            tv1(1:ncr) = JEMATMUL_VM(cc(1:npr,1:ncr), gg(1:npr,irow), ncr, npr)
-
-            !CALL DIFVV (TV2, FF, TV1, NCR, NXOCEE)
-            TV2(1:ncr) = FF(1:ncr) - TV1(1:ncr)
-         ENDIF
-         !CALL PMINVM (TM2(1:ncr,1:ncr), NCR, ICOD)
-         CALL INVERTMAT(TM2(1:ncr,1:ncr), NCR, ICOD)
-         IF (ICOD.EQ.1) THEN
-            g8018=.TRUE.
-            CYCLE out44
-         ENDIF
-         !
+            tm1(1:ncr, 1:ncr) = JEMATMUL_MM(cc(1:npr, 1:ncr), ee(1:ncr, 1:npr, irow), ncr, npr, ncr)
+            tm2(1:ncr, 1:ncr) = bb(1:ncr, 1:ncr) + tm1(1:ncr, 1:ncr)
+            tv1(1:ncr)        = JEMATMUL_VM(cc(1:npr, 1:ncr), gg(1:npr, irow), ncr, npr)
+            TV2(1:ncr)        = FF(1:ncr) - TV1(1:ncr)
+         END IF
+         
+         CALL INVERTMAT(TM2(1:ncr, 1:ncr), NCR, ICOD)
+         
+         ! Catch singular matrix inversion failure
+         IF (ICOD == 1) THEN
+            WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
+            CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL(NROWST(IROW)), 0, MSG)
+            RETURN
+         END IF
+         
          ! CALCULATE MATRIX EE(IROW+1)
-         !
-         IF (IROW.NE.NROWL) THEN
-            !CALL MULMM (EE (1, 1, IRSV), TM2, AA, NCR, NCR, NSV, NXOCEE)
-            ee(1:nsv,1:ncr,irsv) = JEMATMUL_MM(tm2(1:ncr,1:ncr), aa(1:nsv,1:ncr), ncr, ncr, nsv)
-
-            !CALL CHSGN (EE (1, 1, IRSV), NCR, NSV, NXOCEE)
-            ee(1:nsv,1:ncr,irsv) = - ee(1:nsv,1:ncr,irsv)
-         ENDIF
-         !
+         IF (IROW /= NROWL) THEN
+            ee(1:nsv, 1:ncr, irsv) = JEMATMUL_MM(tm2(1:ncr, 1:ncr), aa(1:nsv, 1:ncr), ncr, ncr, nsv)
+            ee(1:nsv, 1:ncr, irsv) = -ee(1:nsv, 1:ncr, irsv)
+         END IF
+         
          ! CALCULATE VECTOR GG(IROW+1)
-         !!
-         !CALL MULMV (GG (1, IRSV), TM2, TV2, NCR, NCR, NXOCEE)
-         gg(1:ncr,irsv) = JEMATMUL_VM(tm2(1:ncr,1:ncr), tv2(1:ncr), ncr, ncr)
-         !
-      ENDDO out44
-      IF(g8018) THEN
-         !AD WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
-         CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL (NROWST (IROW) ), 0, MSG)
-      ELSE
-         !
-         ! ----- DOWNWARDS SWEEP, CALCULATION OF DD
-         !
-         !     * last row first (use NCR,IRSV from loop above)
-         IROW = NROWL
-         DD(1:ncr,IROW) = GG(1:ncr,IRSV)
-         !ALL DCOPY(NCR, GG(1:ncr,IRSV), 1, DD(1:ncr,IROW), 1)
-         !     * loop over remaining rows
-         DO IROW = NROWL - 1, NROWF, - 1
-            IRSV = IROW + 1
-            NSV = NCR
-            NCR = NROWST (IRSV) - NROWST (IROW)
-            !CALL MULMV (TV1, EE (1, 1, IRSV), DD (1, IRSV), NCR, NSV, NXOCEE)
-            tv1(1:ncr) = JEMATMUL_VM(ee(1:nsv,1:ncr,irsv), dd(1:nsv,irsv), ncr, nsv)
+         gg(1:ncr, irsv) = JEMATMUL_VM(tm2(1:ncr, 1:ncr), tv2(1:ncr), ncr, ncr)
+         
+      END DO row_loop
 
-            !CALL ADDVV (DD (1, IROW), TV1, GG (1, IRSV), NCR)
-            dd(1:ncr,irow) = tv1(1:ncr) + gg(1:ncr,irsv)
-         ENDDO
-         !
-         ! ----- ADVANCE WATER LEVELS AND FLOWS TO TIME LEVEL N+1,
-         !       USING FIRST ORDER DERIVATIVES OF FLOWS AT TIME LEVEL N
-         !
-         DO iels = 1,total_no_elements
-            IND = NELIND (iels)
-            IROW = ICMREF (iels, 3)
-            DDI = DD (IND, IROW)
-            CALL SETHRF(iels, GETHRF (iels) + DDI)
+
+      ! ----- DOWNWARDS SWEEP, CALCULATION OF DD
+      !
+      ! * last row first (use NCR,IRSV from loop above)
+      IROW = NROWL
+      DD(1:ncr, IROW) = GG(1:ncr, IRSV)
+      
+      ! * loop over remaining rows
+      DO IROW = NROWL - 1, NROWF, -1
+         IRSV = IROW + 1
+         NSV = NCR
+         NCR = NROWST (IRSV) - NROWST (IROW)
+         
+         tv1(1:ncr) = JEMATMUL_VM(ee(1:nsv, 1:ncr, irsv), dd(1:nsv, irsv), ncr, nsv)
+         dd(1:ncr, irow) = tv1(1:ncr) + gg(1:ncr, irsv)
+      END DO
+
+      ! ----- ADVANCE WATER LEVELS AND FLOWS TO TIME LEVEL N+1,
+      !       USING FIRST ORDER DERIVATIVES OF FLOWS AT TIME LEVEL N
+      DO iels = 1, total_no_elements
+         IND = NELIND (iels)
+         IROW = ICMREF (iels, 3)
+         DDI = DD (IND, IROW)
+         CALL SETHRF(iels, GETHRF (iels) + DDI)
+         
+         DO IFACE = 1, 4
+            DQ = DQ0ST (iels, IFACE) * DDI
+            JEL = ICMREF (iels, IFACE + 4)
+            
+            IF (JEL > 0) THEN
+               JND = NELIND (JEL)
+               JROW = ICMREF (JEL, 3)
+               DQ = DQIST (iels, IFACE) * DD (JND, JROW) + DQ
+               
+            ELSE IF (JEL < 0) THEN
+               IBR = -JEL
+               DO J = 1, 3
+                  JEL = ICMRF2 (IBR, J)
+                  IF (JEL > 0) THEN
+                     JND = NELIND (JEL)
+                     JROW = ICMREF (JEL, 3)
+                     DQ = DQIST2 (IBR, J) * DD (JND, JROW) + DQ
+                  END IF
+               END DO
+            END IF
+            
+            CALL SETQSA(iels, IFACE, GETQSA(iels, IFACE) + DQ)
+         END DO
+      END DO
+
+      ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
+      ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
+      vv = 5
+      DO LL = 2, 3
+         DO kk = 1, 4
+            ijedum(:, kk, LL) = icmref(:, vv)
+            vv = vv + 1
+         END DO
+      END DO
+      
+      vv = 1
+      DO LL = 1, 2
+         DO kk = 1, 3
+            ijedum2(:, kk, LL) = icmrf2(:, vv)
+            vv = vv + 1
+         END DO
+      END DO
+
+      ! untidy mess for debugging of tangent
+      DO vv = 1, total_no_elements
+         inhrf(vv) = GETHRF(vv)
+         DO face = 1, 4
+            inqsa(vv, face) = GETQSA(vv, face)
+         END DO
+      END DO
+
+      CALL OCFIX(ijedum, ijedum2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
+
+      DO vv = 1, total_no_elements
+         CALL SETHRF(vv, GGGETHRF(vv))
+         DO face = 1, 4
+            CALL SETQSA(vv, face, GGGETQSA(vv, face))
+         END DO
+      END DO
+
+      ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
+      QOC(1:total_no_elements, :) = GETQSA_ALL(total_no_elements)
+      qoc(1:total_no_elements, 1:2) = -qoc(1:total_no_elements, 1:2)
+
+      ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
+      link_loop: DO iels = 1, total_no_links
+         Z = GETHRF (iels)
+         H = Z - ZGRUND (iels)
+         N = NXSECT (iels)
+         found_level = .FALSE.
+         
+         sect_loop: DO I = 2, N
+            HI = XINH (iels, I)
+            IF (H < HI) THEN
+               IM = I - 1
+               HM = XINH (iels, IM)
+               WM = XINW (iels, IM)
+               WI = XINW (iels, I)
+               DH = H - HM
+               DW = (WI - WM) * (DH / (HI - HM))
+               ARXL (iels) = XAREA (iels, IM) + (WM + 0.5D0 * DW) * DH
+               found_level = .TRUE.
+               EXIT sect_loop
+            END IF
+         END DO sect_loop
+         
+         IF (.NOT. found_level) THEN
+            ARXL (iels) = XAREA (iels, N) + (Z - ZBFULL (iels)) * CWIDTH (iels)
+         END IF
+      END DO link_loop
+
+      ! ----- Print results
+      OCTIME = OCNOW + OCNEXT
+      IF ((OCTIME >= TDC) .AND. (OCTIME <= TFC)) CALL OCPRI (OCTIME, ARXL, QOC)
+
+      ! ----- CHECK FOR CHANNEL BLOW-UP
+      channel_blowup = .FALSE.
+      IF (GTZERO(QMAX)) THEN
+         blowup_loop: DO iels = 1, total_no_links
             DO IFACE = 1, 4
-               DQ = DQ0ST (iels, IFACE) * DDI
-               JEL = ICMREF (iels, IFACE+4)
-               IF (JEL.GT.0) THEN
-                  JND = NELIND (JEL)
-                  JROW = ICMREF (JEL, 3)
-                  DQ = DQIST (iels, IFACE) * DD (JND, JROW) + DQ
-               ELSEIF (JEL.LT.0) THEN
-                  IBR = - JEL
-                  DO J = 1, 3
-                     JEL = ICMRF2 (IBR, J)
-                     IF (JEL.GT.0) THEN
-                        JND = NELIND (JEL)
-                        JROW = ICMREF (JEL, 3)
-                        DQ = DQIST2 (IBR, J) * DD (JND, JROW) + DQ
-                     ENDIF
-                  ENDDO
-               ENDIF
-               CALL SETQSA(iels, IFACE, GETQSA(iels, IFACE) + DQ)
-            ENDDO
-         ENDDO
-         !
-         ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
-         ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
-         !
-         ! called routine has afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
-         vv=5
-         DO LL=2,3       !AD PASSING PROBLEMS (use local dummies)
-            DO kk=1,4   !array order
-               ijedum(:,kk,LL) = icmref(:,vv)
-               vv = vv + 1
-            ENDDO
-         ENDDO
-         vv = 1
-         DO LL=1,2
-            DO kk=1,3  !array order
-               ijedum2(:,kk,LL) = icmrf2(:,vv)
-               vv = vv + 1
-            ENDDO
-         ENDDO
-         !CALL OCFIX (ICMREF (1, 5), ICMRF2, AREA, DTOC, QSA)
-         !CALL OCFIX(ijedum, ijedum2, total_no_elements, dtoc)  !AD PASSING PROBLEMS (use local dummies)
-
-         !ad this untidy mess is for debugging of tangent
-         DO vv=1,total_no_elements
-            inhrf(vv) = GETHRF(vv)
-            DO face=1,4
-               inqsa(vv,face) = GETQSA(vv,face)
-            ENDDO
-         ENDDO
-
-
-         CALL OCFIX(ijedum, ijedum2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)  !AD PASSING PROBLEMS (use local dummies)!
-
-
-
-
-         DO vv=1,total_no_elements
-            CALL SETHRF(vv, GGGETHRF(vv))
-            DO face=1,4
-               CALL SETQSA(vv, face, GGGETQSA(vv,face))
-            ENDDO
-         ENDDO
-
-
-
-
-         ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
-         !
-         !DO IFACE = 1, 4
-         QOC(1:total_no_elements,:) = GETQSA_ALL(total_no_elements)
-         !CALL DCOPY(NEL, QSA(1:nel,IFACE), 1, QOC(1:nel,IFACE), 1)
-         !ENDDO
-         !CALL CHSGN (QOC, 2, NEL, NELEE)
-         qoc(1:total_no_elements,1:2) = - qoc(1:total_no_elements,1:2)
-         !
-         ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
-         !
-         out255 : DO iels = 1, total_no_links
-            cycle255=.FALSE.
-            Z = GETHRF (iels)
-            H = Z - ZGRUND (iels)
-            N = NXSECT (iels)
-            out250 : DO I = 2, N
-               IF(cycle255) CYCLE out250
-               HI = XINH (iels, I)
-               IF (H.LT.HI) THEN
-                  IM = I - 1
-                  HM = XINH (iels, IM)
-                  WM = XINW (iels, IM)
-                  WI = XINW (iels, I)
-                  DH = H - HM
-                  DW = (WI - WM) * (DH / (HI - HM) )
-                  ARXL (iels) = XAREA (iels, IM) + (WM + half * DW) * DH
-                  cycle255 = .TRUE.
-               ENDIF
-            ENDDO out250
-            IF(cycle255) CYCLE out255
-            ARXL (iels) = XAREA (iels, N) + (Z - ZBFULL (iels) ) * CWIDTH ( iels)
-         ENDDO out255
-         !
-         ! ----- Print results
-         !
-         OCTIME = OCNOW + OCNEXT
-         IF ((OCTIME.GE.TDC).AND.(OCTIME.LE.TFC)) CALL OCPRI (OCTIME, ARXL, QOC)
-         !
-         ! ----- CHECK FOR CHANNEL BLOW-UP
-         !
-         IF (GTZERO(QMAX)) THEN
-            out270 : DO iels = 1, total_no_links
-               IF(g8029) CYCLE out270
-               out260 : DO IFACE = 1, 4
-                  IF(g8029) CYCLE out260
-                  IF (ABS (QOC (iels, IFACE) ) .GT.QMAX) g8029 = .TRUE.
-               ENDDO out260
-            ENDDO out270
-         ENDIF
-      ENDIF
-      IF(g8029) THEN
+               IF (ABS (QOC (iels, IFACE)) > QMAX) THEN
+                  channel_blowup = .TRUE.
+                  EXIT blowup_loop
+               END IF
+            END DO
+         END DO blowup_loop
+      END IF
+      
+      IF (channel_blowup) THEN
          MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
          CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
-      ENDIF
+      END IF
+
    END SUBROUTINE OCSIM
+
+
 
 !SSSSSS SUBROUTINE OCXS
    SUBROUTINE OCXS ()
@@ -2078,4 +2053,5 @@ CONTAINS
          ENDIF
       ENDDO
    END FUNCTION LINKNO
+
 END MODULE OCmod

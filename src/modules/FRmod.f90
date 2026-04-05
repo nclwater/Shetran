@@ -467,9 +467,6 @@ CONTAINS
 
 
 
-
-
-
 !SSSSSS SUBROUTINE FRIND (BINFRP)
    SUBROUTINE FRIND (BINFRP)
 !----------------------------------------------------------------------*

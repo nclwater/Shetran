@@ -745,7 +745,6 @@ CONTAINS
          HRUZ = getHRF(IEL) - ZGRUND (IEL)
          ICE = NLYRBT (IEL, 1)
 
-         ! DCOPY retained as requested
          CALL DCOPY (top_cell_no - ICE + 1, VSPSI (ICE, IEL), 1, PSI4 (ICE), 1)
 
          CALL ETIN (IEL)
