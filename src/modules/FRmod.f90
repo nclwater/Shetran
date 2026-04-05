@@ -27,7 +27,7 @@ MODULE FRmod
    USE OCmod,    ONLY : LINKNO, OCLTL
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
-   USE mod_load_filedata,    ONLY : ALINIT, ALINTP, ALCHK, ALCHKI
+   USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
@@ -1436,130 +1436,138 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE FRMB
+   !----------------------------------------------------------------------*
+   ! subroutine to calculate monthly mass balance
+   ! all variables are calculated in cubic metres
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRMB/4.1
+   ! Modifications:
+   !  GP  29.06.95  written (v4.0 finished 16/7/96)
+   ! RAH  970307  4.1  Replace ineffectual (& illegal) COMMON with SAVE.
+   !                   Swap indices: DELTAZ,QVSV,VSTHE (see AL.C).
+   !                   DATA statements AFTER specs.  Explicit typing.
+   !      970310       Use local variables for repeated sub-expressions.
+   !                   Define constant SS.  Remove redundant local IMSTN.
+   !                   Initialize locals to 0, not BALANC.
+   !                   Consistent indices.  Generic intrinsics.
+   !                   Replace NGDBGN with NLF+1.  Scrap some locals.
+   !      970311       Loop I=0,6,6 for BALANC update.  Labels in order.
+   !      970312       Change name from MB to FRMB.  Remove temporary code.
+   !                   Use ALINIT.  Simplify test (asasume UZNOW.ge.0).
+   !                   Replace UZNEXT*3600 with DTUZ.
+   !                   Fix errors in: setting of MBDAY (case MBFLAG=1); and
+   !                   initialization of BALANC (was omitted).
+   !      970524       Add FRRESP argument UZNOW.
+   !----------------------------------------------------------------------*
+   ! Limited ranges:
+   !      dimensions of size NLFEE:  for link  in            1:NLF
+   ! DELTAZ(cell,e), VSTHE(cell,e):  for cell  in NLYRBT(e,1):LL
+   !                       P(ipstn):  for ipstn in    NRAINC(1:NEL)
+   !                  QVSV(cell,e):  for cell  == NLYRBT(e,1)
+   !----------------------------------------------------------------------*
+   ! Entry conditions:
+   ! 1 <=  LL <=  LLEE
+   ! 1 <= NEL <= NELEE
+   ! 0 <= NLF <= NLFEE >= 1
+   ! for each e in 1:NEL:
+   !     2 <= NLYRBT(e,1) <= LLEE
+   !     1 <= NRAINC(e)   <= NVEE (size of P)
+   !----------------------------------------------------------------------*
+   ! Commons and imported constants
+   ! Imported constants
+   !     SPEC.AL:         LLEE,NELEE,NLFEE
+   ! Input common
+   !     SPEC.AL:         LL,MBFACE,MBFLAG,MBLINK,NEL,NLF
+   !                           NRAINC(NEL),NLYRBT(NEL,1)
+   !                      TIH,   AREA(NEL),RHOSAR(NEL),CLENTH(NLFEE)
+   !                      DELTAZ(LLEE,NEL),ZGRUND(NEL)
+   !                      DTUZ,QOC(MBLINK:MBLINK,MBFACE:MBFACE)
+   !                      ARXL(NLFEE), CSTORE(NEL),    P(*)
+   !                      QBKB(NLFEE,2),EINTA(NEL),HRF(NEL), QVSV(LLEE,NEL)
+   !                      QBKF(NLFEE,2),EEVAP(NEL), SD(NEL),VSTHE(LLEE,NEL)
+   ! In+out common
+   !     SPEC.AL:         MBDAY,MBMON,MBYEAR
+   ! Out+in common
+   !     SPEC.AL:         BALANC(19)
+   ! Locals, etc
+   !INTRINSIC ABS, MOD
    SUBROUTINE FRMB
-!----------------------------------------------------------------------*
-! subroutine to calculate monthly mass balance
-! all variables are calculated in cubic metres
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRMB/4.1
-! Modifications:
-!  GP  29.06.95  written (v4.0 finished 16/7/96)
-! RAH  970307  4.1  Replace ineffectual (& illegal) COMMON with SAVE.
-!                   Swap indices: DELTAZ,QVSV,VSTHE (see AL.C).
-!                   DATA statements AFTER specs.  Explicit typing.
-!      970310       Use local variables for repeated sub-expressions.
-!                   Define constant SS.  Remove redundant local IMSTN.
-!                   Initialize locals to 0, not BALANC.
-!                   Consistent indices.  Generic intrinsics.
-!                   Replace NGDBGN with NLF+1.  Scrap some locals.
-!      970311       Loop I=0,6,6 for BALANC update.  Labels in order.
-!      970312       Change name from MB to FRMB.  Remove temporary code.
-!                   Use ALINIT.  Simplify test (asasume UZNOW.ge.0).
-!                   Replace UZNEXT*3600 with DTUZ.
-!                   Fix errors in: setting of MBDAY (case MBFLAG=1); and
-!                   initialization of BALANC (was omitted).
-!      970524       Add FRRESP argument UZNOW.
-!----------------------------------------------------------------------*
-! Limited ranges:
-!      dimensions of size NLFEE:  for link  in           1:NLF
-! DELTAZ(cell,e), VSTHE(cell,e):  for cell  in NLYRBT(e,1):LL
-!                      P(ipstn):  for ipstn in    NRAINC(1:NEL)
-!                  QVSV(cell,e):  for cell  == NLYRBT(e,1)
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 1 <=  LL <=  LLEE
-! 1 <= NEL <= NELEE
-! 0 <= NLF <= NLFEE >= 1
-! for each e in 1:NEL:
-!     2 <= NLYRBT(e,1) <= LLEE
-!     1 <= NRAINC(e)   <= NVEE (size of P)
-!----------------------------------------------------------------------*
-! Commons and imported constants
 
+      ! Assumed external module dependencies providing global arrays:
+      ! BALANC, total_no_elements, precip_m_per_s, EINTA, EEVAP, ERZA, QVSV
+      ! QOC, QBKB, QBKF, CSTORE, SD, RHOSAR, GETHRF, ZGRUND, VSTHE, DELTAZ
+      ! ARXL, CLENTH, NRAINC, NLYRBT, cellarea, HOUR_FROM_DATE
+      ! ZERO, FIRST_frmb, DTUZ, MBLINK, MBFACE, total_no_links, UZNOW, TIMB
+      ! MBFLAG, MBMON, MBDAY, MBYEAR, TIH
 
+      IMPLICIT NONE
 
-
-
-
-! Imported constants
-!     SPEC.AL:         LLEE,NELEE,NLFEE
-! Input common
-!     SPEC.AL:         LL,MBFACE,MBFLAG,MBLINK,NEL,NLF
-!                           NRAINC(NEL),NLYRBT(NEL,1)
-!                      TIH,   AREA(NEL),RHOSAR(NEL),CLENTH(NLFEE)
-!                      DELTAZ(LLEE,NEL),ZGRUND(NEL)
-!                      DTUZ,QOC(MBLINK:MBLINK,MBFACE:MBFACE)
-!                      ARXL(NLFEE), CSTORE(NEL),    P(*)
-!                      QBKB(NLFEE,2),EINTA(NEL),HRF(NEL), QVSV(LLEE,NEL)
-!                      QBKF(NLFEE,2),EEVAP(NEL), SD(NEL),VSTHE(LLEE,NEL)
-! In+out common
-!     SPEC.AL:         MBDAY,MBMON,MBYEAR
-! Out+in common
-!     SPEC.AL:         BALANC(19)
-! Locals, etc
-!INTRINSIC ABS, MOD
-      INTEGER :: MBHOUR, MBMIN
-      DOUBLEPRECISION MPMM
-      PARAMETER (MBHOUR = 0, MBMIN = 0, MPMM = 1D-3)
-      INTEGER :: MONEND (12), IEL, IPSTN, ICBOTM, IL, I, ICL, LYEAR
-      DOUBLEPRECISION AT, QBK, AREAE, AREAEM
-      DOUBLEPRECISION PRECM, CEVAPM, SEVAPM, TRANSM, AQFLXM, DISCHM, &
-         BFLOW
+      INTEGER, PARAMETER :: MBHOUR = 0, MBMIN = 0
+      DOUBLE PRECISION, PARAMETER :: MPMM = 1.0D-3
+      
+      ! Modernized DATA statement into parameter array initialization
+      INTEGER, PARAMETER :: MONEND (12) = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+      
+      INTEGER :: IEL, IPSTN, ICBOTM, IL, I, ICL, LYEAR
+      DOUBLE PRECISION :: AT, QBK, AREAE, AREAEM
+      DOUBLE PRECISION :: PRECM, CEVAPM, SEVAPM, TRANSM, AQFLXM, DISCHM, BFLOW
       CHARACTER (LEN=50) :: AIOSTO
-      DATA MONEND / 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 /
-      LOGICAL  :: r
-! Water flow mass bal variables (BALANC) are (time integrals of):
-! 1     precipitation
-! 2     canopy evaporation
-! 3     evaporation from soil or surface water
-! 4     transpiration
-! 5     regional aquifer upflow (flow through the model base)
-! 6     outlet discharge
-! 7-12  cumulative totals for variables 1-6
-! 13    storage in canopy
-! 14       "    in snowpack
-! 15       "    in subsurface
-! 16       "    in surface water
-! 17       "    in channels
-! 18    aquifer-channel flow (through channel bed and sides)
-! 19    cumulative aquifer-channel flow
-!----------------------------------------------------------------------*
-! Initialization
-      IF (FIRST_frmb) CALL ALINIT (ZERO, 19, BALANC)
+      LOGICAL :: r
+
+      ! Water flow mass bal variables (BALANC) are (time integrals of):
+      ! 1    precipitation
+      ! 2    canopy evaporation
+      ! 3    evaporation from soil or surface water
+      ! 4    transpiration
+      ! 5    regional aquifer upflow (flow through the model base)
+      ! 6    outlet discharge
+      ! 7-12 cumulative totals for variables 1-6
+      ! 13   storage in canopy
+      ! 14      "    in snowpack
+      ! 15      "    in subsurface
+      ! 16      "    in surface water
+      ! 17      "    in channels
+      ! 18   aquifer-channel flow (through channel bed and sides)
+      ! 19   cumulative aquifer-channel flow
+      !----------------------------------------------------------------------*
+      
+      ! Initialization
+      ! Replaced ALINIT with array slice
+      IF (FIRST_frmb) BALANC(1:19) = ZERO
       FIRST_frmb = .FALSE.
-! Calculate water volumes based on flow rates
-!     * variables 1-5 (and 7-11)
+
+      ! Calculate water volumes based on flow rates
+      !     * variables 1-5 (and 7-11)
       PRECM = ZERO
       CEVAPM = ZERO
       SEVAPM = ZERO
       TRANSM = ZERO
       AQFLXM = ZERO
-      DO 100 IEL = 1, total_no_elements
+      
+      DO IEL = 1, total_no_elements
          IPSTN = NRAINC (IEL)
          ICBOTM = NLYRBT (IEL, 1) - 1
          AT = cellarea (IEL) * DTUZ
-         PRECM = PRECM + precip_m_per_s(iel) * AT
+         PRECM = PRECM + precip_m_per_s(IEL) * AT
          CEVAPM = CEVAPM + EINTA (IEL) * AT
          SEVAPM = SEVAPM + EEVAP (IEL) * AT
          TRANSM = TRANSM + ERZA (IEL) * AT
          AQFLXM = AQFLXM + QVSV (ICBOTM, IEL) * AT
+      END DO
 
-100   END DO
-!     * variable 6 (and 12)
+      !     * variable 6 (and 12)
       DISCHM = ZERO
+      IF (MBLINK /= 0) DISCHM = ABS (QOC (MBLINK, MBFACE) * DTUZ)
 
-      IF (MBLINK.NE.0) DISCHM = ABS (QOC (MBLINK, MBFACE) * DTUZ)
-!     * variable 18 (and 19)
+      !     * variable 18 (and 19)
       BFLOW = ZERO
-      DO 120 IL = 1, total_no_links
+      DO IL = 1, total_no_links
          QBK = QBKB (IL, 1) + QBKB (IL, 2) + QBKF (IL, 1) + QBKF (IL, 2)
          BFLOW = BFLOW + QBK * DTUZ
+      END DO
 
-
-120   END DO
-! Update BALANC (note: elements 1:6 & 18 may be reset to zero below)
-      DO 150 I = 0, 6, 6
+      ! Update BALANC (note: elements 1:6 & 18 may be reset to zero below)
+      DO I = 0, 6, 6
          BALANC (I + 1) = BALANC (I + 1) + PRECM
          BALANC (I + 2) = BALANC (I + 2) + CEVAPM
          BALANC (I + 3) = BALANC (I + 3) + SEVAPM
@@ -1567,76 +1575,72 @@ CONTAINS
          BALANC (I + 5) = BALANC (I + 5) + AQFLXM
          BALANC (I + 6) = BALANC (I + 6) + DISCHM
          BALANC (18 + I / 6) = BALANC (18 + I / 6) + BFLOW
+      END DO
 
+      ! -------------- Proceed only if output is required now -------------- *
 
+      IF (UZNOW < TIMB) RETURN
 
-150   END DO
-! -------------- Proceed only if output is required now -------------- *
-
-
-      IF (UZNOW.LT.TIMB) RETURN
-!                        !!!!!!
-! Calculate water volumes based on storage
-      CALL ALINIT (ZERO, 5, BALANC (13) )
-      DO 215 IEL = total_no_links + 1,total_no_elements
+      ! Calculate water volumes based on storage
+      ! Replaced ALINIT with array slice (13 through 17 is 5 elements)
+      BALANC(13:17) = ZERO
+      
+      DO IEL = total_no_links + 1, total_no_elements
          AREAE = cellarea (IEL)
          AREAEM = AREAE * MPMM
          BALANC (13) = BALANC (13) + CSTORE (IEL) * AREAEM
          BALANC (14) = BALANC (14) + SD (IEL) * RHOSAR (IEL) * AREAEM
-         BALANC (16) = BALANC (16) + (GETHRF (IEL) - ZGRUND (IEL) ) &
-            * AREAE
-         DO 210 ICL = NLYRBT (IEL, 1), top_cell_no
-            BALANC (15) = BALANC (15) + VSTHE (ICL, IEL) * DELTAZ (ICL, &
-               IEL) * AREAE
-210      END DO
-215   END DO
-      DO 220 IL = 1, total_no_links
+         BALANC (16) = BALANC (16) + (GETHRF (IEL) - ZGRUND (IEL)) * AREAE
+         
+         DO ICL = NLYRBT (IEL, 1), top_cell_no
+            BALANC (15) = BALANC (15) + VSTHE (ICL, IEL) * DELTAZ (ICL, IEL) * AREAE
+         END DO
+      END DO
+
+      DO IL = 1, total_no_links
          BALANC (17) = BALANC (17) + ARXL (IL) * CLENTH (IL)
+      END DO
 
-
-220   END DO
-! Output the data
+      ! Output the data
       AIOSTO (:49) = ' '
       AIOSTO (50:) = '1'
 
-
       CALL FRRESP (AIOSTO, UZNOW, .TRUE.)
-! Calculate the next output time
 
-      IF (MBFLAG.EQ.1) THEN
-!         * next day
+      ! Calculate the next output time
+      IF (MBFLAG == 1) THEN
+         ! * next day
          LYEAR = 0
 
-
-         IF(MOD(mbyear,4)==0) THEN
-            IF(MOD(mbyear,100)==0) THEN
-               r = MOD(mbyear,400)==0
+         IF (MOD(MBYEAR, 4) == 0) THEN
+            IF (MOD(MBYEAR, 100) == 0) THEN
+               r = MOD(MBYEAR, 400) == 0
             ELSE
                r = .TRUE.
-            ENDIF
+            END IF
          ELSE
             r = .FALSE.
-         ENDIF
+         END IF
 
-
-         IF (r.AND.MBMON.EQ.2) LYEAR = 1
+         IF (r .AND. MBMON == 2) LYEAR = 1
          MBDAY = MOD (MBDAY, MONEND (MBMON) + LYEAR) + 1
       ELSE
-!         * next month
+         ! * next month
          MBDAY = 1
-      ENDIF
-      IF (MBDAY.EQ.1) THEN
+      END IF
+
+      IF (MBDAY == 1) THEN
          MBMON = MOD (MBMON, 12) + 1
-         IF (MBMON.EQ.1) MBYEAR = MBYEAR + 1
-
-      ENDIF
-
+         IF (MBMON == 1) MBYEAR = MBYEAR + 1
+      END IF
 
       TIMB = HOUR_FROM_DATE(MBYEAR, MBMON, MBDAY, MBHOUR, MBMIN) - TIH
-! Initialise all short period flow data
-      CALL ALINIT (ZERO, 6, BALANC)
 
+      ! Initialise all short period flow data
+      ! Replaced ALINIT with array slice
+      BALANC(1:6) = ZERO
       BALANC (18) = ZERO
+
    END SUBROUTINE FRMB
 
 

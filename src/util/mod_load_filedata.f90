@@ -52,7 +52,7 @@ MODULE mod_load_filedata
 CONTAINS
 
 
-   !---------------------------------------------------------------------------
+!---------------------------------------------------------------------------
    !> @author ?
    !
    !> @brief
@@ -65,32 +65,33 @@ CONTAINS
    ! 19940527 - ?      - Initial version
    ! 19940919 - AB/RAH - v3.4.1
    !---------------------------------------------------------------------------
-   SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF,          &
-      NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF,  &
-      BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  AEL, IDUM, DUMMY)
+   SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, &
+                      NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, AEL, IDUM, &
+                      DUMMY)
 
-      ! IO-vars
-      INTEGER(kind=I_P)   :: FLAG, N2, MINCAT, IUNIT, OUNIT
-      INTEGER(kind=I_P)   :: NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE
-      INTEGER(kind=I_P)   :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2),              &
-         ICMREF (NELEE, 4, 2:2)
-      LOGICAL             :: BEXBK, LINKNS (NLF)
-      CHARACTER (LEN=*)   :: LINE
-      !
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER(kind=I_P), INTENT(IN)   :: FLAG, N2, MINCAT, IUNIT, OUNIT
+      INTEGER(kind=I_P), INTENT(IN)   :: NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE
+      INTEGER(kind=I_P), INTENT(IN)   :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:2)
+      LOGICAL, INTENT(IN)             :: BEXBK, LINKNS (NLF)
+      CHARACTER (LEN=*), INTENT(IN)   :: LINE
+
       ! Output arguments
-      INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES
-      REAL(kind=R8P)      :: AEL (1 + NLF * (FLAG / N2) :                     &
-         NELEE- (NELEE-NEL) * (1 / N2), N2)
+      INTEGER(kind=I_P), INTENT(OUT)  :: NUM_CATEGORIES_TYPES
+      REAL(kind=R8P), INTENT(INOUT)   :: AEL (1 + NLF * (FLAG / N2) : NELEE - (NELEE - NEL) * (1 / N2), N2)
 
-      ! Other vars
-      INTEGER(kind=I_P), DIMENSION(NXEE*NYEE) :: IDUM
-      REAL(kind=R8P)      :: DUMMY (NELEE)
+      ! Workspace/Buffer arguments
+      INTEGER(kind=I_P), DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM
+      REAL(kind=R8P), DIMENSION(NELEE), INTENT(INOUT)        :: DUMMY
 
-      INTEGER(kind=I_P)   :: I1, I2, ICAT, IDUM0, IEL, LN, N, X, XY0, Y
-      LOGICAL             :: BLINK
-      CHARACTER           :: CDUM
-      CHARACTER(len=132)  :: MSG
-      CHARACTER(len=8)    :: NEXT
+      ! Locals, etc
+      INTEGER(kind=I_P)  :: I1, I2, ICAT, IDUM0, IEL, LN, N, X, XY0, Y
+      LOGICAL            :: BLINK
+      CHARACTER          :: CDUM
+      CHARACTER(len=132) :: MSG
+      CHARACTER(len=8)   :: NEXT
 
       ! Code =================================================================
 
@@ -100,7 +101,7 @@ CONTAINS
       !
       ! Initialization
       LN = LEN (LINE) + 1
-      BLINK = NLF > 0.AND.FLAG == 0
+      BLINK = NLF > 0 .AND. FLAG == 0
 
       ! Find out how many categories ( if any )
       CALL ALREAD (2, IUNIT, OUNIT, LINE, 1, 1, IDUM0, CDUM, IDUM, DUMMY)
@@ -112,28 +113,27 @@ CONTAINS
 
       ! Invalid Option
       IF (NUM_CATEGORIES_TYPES < MINCAT) THEN
-         GOTO 8001
+         WRITE (MSG, 9001) NUM_CATEGORIES_TYPES, LINE
+         CALL ERROR (FFFATAL, 1, OUNIT, 0, 0, MSG)
 
-         ! Special Case: Return to Caller
-      ELSEIF (NUM_CATEGORIES_TYPES < 0) THEN
+      ! Special Case: Return to Caller
+      ELSE IF (NUM_CATEGORIES_TYPES < 0) THEN
          RETURN
 
-         ! No Categories
-      ELSEIF (NUM_CATEGORIES_TYPES == 0) THEN
+      ! No Categories
+      ELSE IF (NUM_CATEGORIES_TYPES == 0) THEN
          ! Loop over output vectors
          DO I2 = 1, N2
 
             ! Get values for link elements
             IF (BLINK) THEN
                NEXT = LINE // 'a'
-               CALL ALREAD (3, IUNIT, OUNIT, NEXT (:LN), NLF, 1, IDUM0,    &
-                  CDUM, IDUM, AEL (1, I2) )
-            ENDIF
+               CALL ALREAD (3, IUNIT, OUNIT, NEXT (:LN), NLF, 1, IDUM0, CDUM, IDUM, AEL (1, I2) )
+            END IF
 
             ! Get values for grid elements ...
             NEXT = LINE // 'b'
-            CALL ALREAD (5, IUNIT, OUNIT, NEXT (:LN), NX, NY, IDUM0,        &
-               CDUM, IDUM, DUMMY)
+            CALL ALREAD (5, IUNIT, OUNIT, NEXT (:LN), NX, NY, IDUM0, CDUM, IDUM, DUMMY)
 
             ! ... and load into element array
             DO Y = 1, NY
@@ -145,13 +145,12 @@ CONTAINS
             END DO
          END DO
 
-         ! Use category codes
-      ELSEIF (N2 * NUM_CATEGORIES_TYPES <= NELEE) THEN
+      ! Use category codes
+      ELSE IF (N2 * NUM_CATEGORIES_TYPES <= NELEE) THEN
 
          ! Get list of values for each category
          NEXT = LINE // 'c'
-         CALL ALREAD (3, IUNIT, OUNIT, NEXT (:LN), N2, NUM_CATEGORIES_TYPES, &
-            IDUM0, CDUM, IDUM, DUMMY)
+         CALL ALREAD (3, IUNIT, OUNIT, NEXT (:LN), N2, NUM_CATEGORIES_TYPES, IDUM0, CDUM, IDUM, DUMMY)
 
          IF (NUM_CATEGORIES_TYPES == 1) THEN
 
@@ -159,7 +158,8 @@ CONTAINS
             N = NEL - FLAG * NLF
             I1 = 1 + NEL - N
             DO I2 = 1, N2
-               CALL ALINIT (DUMMY (I2), N, AEL (I1, I2) )
+               ! Replaced ALINIT with Fortran array slice
+               AEL(I1 : I1 + N - 1, I2) = DUMMY(I2)
             END DO
 
          ELSE
@@ -171,22 +171,26 @@ CONTAINS
                NEXT = LINE // 'd'
 
                ! Note: DUMMY should not be overwritten here
-               CALL ALREAD (2, IUNIT, OUNIT, NEXT (:LN), NLF, 1, IDUM0,    &
-                  CDUM, IDUM, DUMMY)
+               CALL ALREAD (2, IUNIT, OUNIT, NEXT (:LN), NLF, 1, IDUM0, CDUM, IDUM, DUMMY)
 
                DO IEL = 1, NLF
                   ICAT = IDUM (IEL)
-                  IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) GOTO 8009
+                  
+                  ! error if out of bounds
+                  IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
+                     WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
+                     CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
+                  END IF
+                  
                   DO I2 = 1, N2
                      AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
                   END DO
                END DO
-            ENDIF
+            END IF
 
             ! Get codes & set values for grid elements
             NEXT = LINE // 'e'
-            CALL ALREAD (4, IUNIT, OUNIT, NEXT (:LN), NX, NY,               &
-               NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
+            CALL ALREAD (4, IUNIT, OUNIT, NEXT (:LN), NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
 
             DO Y = 1, NY
                XY0 = (Y - 1) * NX
@@ -196,55 +200,45 @@ CONTAINS
                      ICAT = IDUM (XY0 + X)
 
                      ! error if out of bounds
-                     IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES)      &
-                        GOTO 8009
+                     IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
+                        WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
+                        CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
+                     END IF
+                     
                      DO I2 = 1, N2
                         AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
                      END DO
-                  ENDIF
+                  END IF
                END DO
             END DO
-         ENDIF
+         END IF
 
-         ! Insufficient Workspace
+      ! Insufficient Workspace
       ELSE
-         WRITE (MSG, 9008) NUM_CATEGORIES_TYPES,  LINE,                      &
-            N2 * NUM_CATEGORIES_TYPES
+         WRITE (MSG, 9008) NUM_CATEGORIES_TYPES, LINE, N2 * NUM_CATEGORIES_TYPES
          CALL ERROR (FFFATAL, 8, OUNIT, 0, 0, MSG)
-      ENDIF
+      END IF
       !
       !
       ! Epilogue
       ! --------
       !
       ! All grid elements are defined - now set bank element values
-      IF (NLF > 0 .AND. BEXBK .AND. NUM_CATEGORIES_TYPES .NE. 1) THEN
+      IF (NLF > 0 .AND. BEXBK .AND. NUM_CATEGORIES_TYPES /= 1) THEN
          DO I2 = 1, N2
-            CALL ALBANK (NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF,     &
-               AEL (NLF + 1, I2) )
+            CALL ALBANK (NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, AEL (NLF + 1, I2) )
          END DO
-      ENDIF
+      END IF
 
       RETURN
 
-
-      ! Errors ---------------------------------------------------------------
-      ! Invalid option
-8001  WRITE (MSG, 9001) NUM_CATEGORIES_TYPES,  LINE
-      CALL ERROR (FFFATAL, 1, OUNIT, 0, 0, MSG)
-
-
-      ! Invalid category number
-8009  WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-      CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
-
       ! Format Statements ----------------------------------------------------
-9001  FORMAT ( 'Ivalid option NUM_CATEGORIES_TYPES =', I4, ' at title line ', A )
+9001  FORMAT ( 'Invalid option NUM_CATEGORIES_TYPES =', I4, ' at title line ', A )
 
-9008  FORMAT ( 'Insufficient workspace for', I4, ' categories in ', A,        &
+9008  FORMAT ( 'Insufficient workspace for', I4, ' categories in ', A, &
          ' : increase NELEE to at least', I6 )
 
-9009  FORMAT ( 'Invalid category value', I4, ' while reading ', A,            &
+9009  FORMAT ( 'Invalid category value', I4, ' while reading ', A, &
          ' : should be in range [1,', I4, ']' )
 
    END SUBROUTINE ALALLF
@@ -749,39 +743,6 @@ CONTAINS
 9010  FORMAT( '... and similarly at', I4, ' other positions in the same vector')
 
    END SUBROUTINE ALCHKI
-
-
-   !---------------------------------------------------------------------------
-   !> @author ?
-   !
-   !> @brief
-   !! Initialize an array with a given value
-   !
-   ! Note: SSR67
-   !
-   ! REVISION HISTORY:
-   ! 19931208 - ?      - Initial version
-   ! 19940523 - AB/RAH - Version 3.4.1
-   !---------------------------------------------------------------------------
-   SUBROUTINE ALINIT (ALPHA, N, X)
-
-      ! Input arguments
-      REAL(kind=R8P)      :: ALPHA
-      INTEGER(kind=I_P)   :: N
-
-      ! Output arguments
-      REAL(kind=R8P)      :: X (N)
-
-      ! Locals, etc
-      INTEGER(kind=I_P)   :: I
-
-      ! Code =================================================================
-
-      DO I = 1, N
-         X (I) = ALPHA
-      END DO
-
-   END SUBROUTINE ALINIT
 
 
    !---------------------------------------------------------------------------

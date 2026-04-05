@@ -12,7 +12,7 @@ MODULE ETmod
       EPOT, EINTA, ERZA, ESWA, BEXSM, DRAIN, ERZ, AE, HRUZ, ESOIL, &
       NSMT, S, TIMEUZ, BWIDTH, &
       sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
-   USE mod_load_filedata,    ONLY : ALCHK, ALINIT
+   USE mod_load_filedata,    ONLY : ALCHK
    USE mod_load_filedata,    ONLY : ERRC, ERRNEE, ERRTOT !HELPPATH !AD NEEDS THIS
    USE UTILSMOD, ONLY : DCOPY
    USE SMmod,    ONLY : SMIN, &
@@ -694,53 +694,64 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE ETSIM
+!----------------------------------------------------------------------*
+   ! Controlling routine for evapotranspiration/interception module
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/ET/ETSIM/4.2
+   ! Modifications:
+   !  GP  08.08.94  written (v4.0 finished 3/10/95)
+   ! RAH  970516  4.1  Swap VSPSI indices. Amend comments. Explicit typing.
+   ! RAH  981103  4.2  Scrap AL.D output NSOIL (see ET).
+   !                   Replace DO-loops with calls to ALINIT & DCOPY.
+   !----------------------------------------------------------------------*
    SUBROUTINE ETSIM ()
-!----------------------------------------------------------------------*
-! Controlling routine for evapotranspiration/interception module
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/ET/ETSIM/4.2
-! Modifications:
-!  GP  08.08.94  written (v4.0 finished 3/10/95)
-! RAH  970516  4.1  Swap VSPSI indices. Amend comments. Explicit typing.
-! RAH  981103  4.2  Scrap AL.D output NSOIL (see ET).
-!                   Replace DO-loops with calls to ALINIT & DCOPY.
-!----------------------------------------------------------------------*
-! Commons and constants
-!
-! Locals, etc
+
+      ! Assumed external module dependencies providing global variables:
+      ! DTUZ, UZNEXT, TIMEUZ, NGDBGN, total_no_elements, ICMREF, CWIDTH,
+      ! BWIDTH, NHBED, UZALFA, FHBED, top_cell_no, ZERO, HRUZ, getHRF, 
+      ! ZGRUND, NLYRBT, VSPSI, PSI4, ETIN
+
+      IMPLICIT NONE
+
+      ! Locals, etc
       INTEGER :: ICE, IEL, IL, ITYPE
+      DOUBLE PRECISION :: ALFA
 
+      !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION ALFA
       DTUZ = UZNEXT * 3600.0D0
 
-
       TIMEUZ = TIMEUZ + UZNEXT
-! Loop over land-elements
 
-      DO 1000 IEL = NGDBGN, total_no_elements
+      ! Loop over land-elements
+      DO IEL = NGDBGN, total_no_elements
          ITYPE = ICMREF (IEL, 1)
-         IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
+         
+         IF (ITYPE == 1 .OR. ITYPE == 2) THEN
             IL = ICMREF (IEL, 4)
-            ALFA = 0.5 * CWIDTH (IL) / BWIDTH
+            ALFA = 0.5D0 * CWIDTH (IL) / BWIDTH
             ICE = NHBED (IL, ITYPE) + 2
-            CALL ALINIT (ALFA, ICE-2, UZALFA)
-            UZALFA (ICE-1) = ALFA * FHBED (IL, ITYPE)
+            
+            ! Replaced ALINIT with array slice
+            UZALFA (1 : ICE - 2) = ALFA
+            UZALFA (ICE - 1) = ALFA * FHBED (IL, ITYPE)
          ELSE
             ICE = 1
-         ENDIF
+         END IF
 
-         IF (ICE.LE.top_cell_no) CALL ALINIT (ZERO, top_cell_no - ICE+1, UZALFA (ICE) )
+         ! Replaced ALINIT with array slice starting at index ICE
+         IF (ICE <= top_cell_no) UZALFA (ICE : top_cell_no) = ZERO
 
          HRUZ = getHRF(IEL) - ZGRUND (IEL)
          ICE = NLYRBT (IEL, 1)
 
-         CALL DCOPY (top_cell_no - ICE+1, VSPSI (ICE, IEL), 1, PSI4 (ICE), &
-            1)
+         ! DCOPY retained as requested
+         CALL DCOPY (top_cell_no - ICE + 1, VSPSI (ICE, IEL), 1, PSI4 (ICE), 1)
 
          CALL ETIN (IEL)
 
-1000  END DO
+      END DO
+
    END SUBROUTINE ETSIM
+
 END MODULE ETmod
