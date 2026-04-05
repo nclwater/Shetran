@@ -282,6 +282,10 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     fn_col = ".".join(filter(
                         None, fn_col_stem.split("."))) + fn_col_ext
 
+                    # make certain the filename ending is .csv
+                    if not fn_col.endswith(".csv"):
+                        fn_col = os.path.splitext(fn_col)[0] + ".csv"
+
                     # create the directory if it doesn't exist
                     os.makedirs(os.path.dirname(fn_col), exist_ok=True)
                     df_combined.to_csv(fn_col, index=True)
