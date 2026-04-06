@@ -83,11 +83,24 @@ def do_comparison(
         # extract whether there were differences in any of the files
         res_model["any_differences"] = df["files_different"].any()
 
-        # get the maximum percentage difference across all files and columns
+        # get maximum percentage metrics from table columns only
         diff_cols_max = df.filter(regex="^perc_diff_max_col_").max()
+        diff_cols_mean = df.filter(regex="^perc_diff_mean_col_").max()
+        diff_cols_sum_abs = df.filter(regex="^perc_diff_sum_abs_col_").max()
+
         res_model["max_perc_diff_any"] = diff_cols_max.max()
-        res_model["max_perc_diff_col"] = diff_cols_max.idxmax() if pd.notna(
-            diff_cols_max.max()) else None
+        res_model["max_perc_diff_col"] = (diff_cols_max.idxmax() if pd.notna(
+            diff_cols_max.max()) else None)
+
+        res_model["max_perc_diff_mean_any"] = diff_cols_mean.max()
+        res_model["max_perc_diff_mean_col"] = (diff_cols_mean.idxmax() if
+                                               pd.notna(diff_cols_mean.max())
+                                               else None)
+
+        res_model["max_perc_diff_sum_abs_any"] = diff_cols_sum_abs.max()
+        res_model["max_perc_diff_sum_abs_col"] = (
+            diff_cols_sum_abs.idxmax()
+            if pd.notna(diff_cols_sum_abs.max()) else None)
 
         # add the file-information columns to the overview metrics
         res_model["num_files_with_different_contents"] = len(differing_files)

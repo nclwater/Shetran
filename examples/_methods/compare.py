@@ -127,21 +127,36 @@ def _plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
 
 
 def _get_similarity_metrics(df_analysis: pd.DataFrame) -> dict:
+    df_valid = df_analysis[["should", "is"]].dropna()
+    if df_valid.empty:
+        return {
+            "MSE": np.nan,
+            "MAE": np.nan,
+            "MAPE": np.nan,
+            "NSE": np.nan,
+            "R²": np.nan,
+        }
 
-    mse = np.mean((df_analysis["should"] - df_analysis["is"])**2)
-    mae = np.mean(np.abs(df_analysis["should"] - df_analysis["is"]))
+    mse = np.mean((df_valid["should"] - df_valid["is"])**2)
+    mae = np.mean(np.abs(df_valid["should"] - df_valid["is"]))
 
-    mask = df_analysis["should"] != 0
-    mape = (np.mean(
-        np.abs((df_analysis["is"][mask] - df_analysis["should"][mask]) /
-               df_analysis["should"][mask])) * 100)
+    mask = df_valid["should"] != 0
+    if mask.any():
+        mape = (np.mean(
+            np.abs((df_valid["is"][mask] - df_valid["should"][mask]) /
+                   df_valid["should"][mask])) * 100)
+    else:
+        mape = np.nan
 
-    nse = 1 - np.sum((df_analysis["should"] - df_analysis["is"])**2) / np.sum(
-        (df_analysis["should"] - df_analysis["should"].mean())**2)
+    ss_res = np.sum((df_valid["should"] - df_valid["is"])**2)
+    ss_tot = np.sum((df_valid["should"] - df_valid["should"].mean())**2)
 
-    ss_res = np.sum((df_analysis["should"] - df_analysis["is"])**2)
-    ss_tot = np.sum((df_analysis["should"] - df_analysis["should"].mean())**2)
-    r2 = 1 - ss_res / ss_tot
+    if ss_tot != 0:
+        nse = 1 - ss_res / ss_tot
+        r2 = 1 - ss_res / ss_tot
+    else:
+        nse = np.nan
+        r2 = np.nan
 
     res = {
         "MSE": mse,
@@ -342,6 +357,20 @@ def compare_textfile(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     return {"files_different": flag_difference}
 
 
+def _safe_abs_percentage(numerator: np.ndarray,
+                         denominator: np.ndarray) -> np.ndarray:
+    """
+    Compute |numerator| / |denominator| and return NaN for invalid denominators.
+    """
+    num = np.abs(np.asarray(numerator, dtype=np.float64))
+    den = np.abs(np.asarray(denominator, dtype=np.float64))
+    valid = np.isfinite(num) & np.isfinite(den) & (den > 0)
+
+    res = np.full_like(num, np.nan, dtype=np.float64)
+    np.divide(num, den, out=res, where=valid)
+    return res
+
+
 def _compare_datasets(ds_should, ds_is, f_delta, path, diffs,
                       tolerance_numeric) -> dict:
     """
@@ -374,6 +403,26 @@ def _compare_datasets(ds_should, ds_is, f_delta, path, diffs,
 
         # Calculate the delta
         delta = data_is - data_should
+
+        # Value-difference percentage metrics for this differing dataset.
+        abs_pct_diff = _safe_abs_percentage(delta, data_should)
+        if np.isfinite(abs_pct_diff).any():
+            diffs["perc_diff_hdf5_max_list"].append(
+                float(np.nanmax(abs_pct_diff)))
+            diffs["perc_diff_hdf5_mean_list"].append(
+                float(np.nanmean(abs_pct_diff)))
+        else:
+            diffs["perc_diff_hdf5_max_list"].append(float("nan"))
+            diffs["perc_diff_hdf5_mean_list"].append(float("nan"))
+
+        sum_abs_delta = np.nansum(np.abs(delta))
+        sum_abs_should = np.nansum(np.abs(data_should))
+        if np.isfinite(sum_abs_delta) and np.isfinite(sum_abs_should) and (
+                sum_abs_should > 0):
+            diffs["perc_diff_hdf5_sum_abs_list"].append(
+                float(sum_abs_delta / sum_abs_should))
+        else:
+            diffs["perc_diff_hdf5_sum_abs_list"].append(float("nan"))
 
         # Write to the already-open delta file.
         parent_path, dataset_name = path.rsplit("/", 1)
@@ -436,6 +485,9 @@ def compare_hdf5(fn_should: str, fn_is: str, fn_delta: str) -> dict:
         "dtype_mismatch": [],
         "non_numeric_diff": [],
         "numeric_diff": [],
+        "perc_diff_hdf5_max_list": [],
+        "perc_diff_hdf5_mean_list": [],
+        "perc_diff_hdf5_sum_abs_list": [],
     }
 
     os.makedirs(os.path.dirname(fn_delta), exist_ok=True)
