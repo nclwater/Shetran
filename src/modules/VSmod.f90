@@ -723,7 +723,7 @@ CONTAINS
             CB (ICBOT), CR (ICBOT), CQV (ICBOT - 1))
             
          ! solve linear equations (Preserving required assumed-shape array slices)
-         CALL TRIDAG (CA(ICBOT:ICTOP), CB(ICBOT:ICTOP), CC(ICBOT:ICTOP), CR(ICBOT:ICTOP), CDPSI(ICBOT:ICTOP), NDUM)
+         CALL TRIDAG (CA(ICBOT), CB(ICBOT), CC(ICBOT), CR(ICBOT), CDPSI(ICBOT), NDUM)
          
          ! update PSI array and check for convergence
          DPSIMX = ZERO

@@ -463,22 +463,18 @@ CONTAINS
 
       ! Input arguments
       INTEGER, INTENT(IN)             :: N
-      DOUBLE PRECISION, INTENT(IN)    :: A(:), B(:), C(:), R(:)
-      
-      ! Output arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: U(:)
+      ! Explicit-shape arrays guarantee zero copy-in/copy-out overhead
+      DOUBLE PRECISION, INTENT(IN)    :: A(N), B(N), C(N), R(N)
+      DOUBLE PRECISION, INTENT(INOUT) :: U(N)
 
       ! Locals
       INTEGER :: J
       DOUBLE PRECISION :: GAM(N), BET, OOBET
 
-   !----------------------------------------------------------------------*
-
       BET = B(1)
       OOBET = 1.0d0 / BET
       U(1) = OOBET * R(1)
 
-      ! Phase 1: Forward Sweep
       forward_sweep: DO J = 2, N
          GAM(J) = OOBET * C(J-1)
          BET    = B(J) - A(J) * GAM(J)
@@ -486,7 +482,6 @@ CONTAINS
          U(J)   = OOBET * (R(J) - A(J) * U(J-1))
       END DO forward_sweep
 
-      ! Phase 2: Back Substitution
       backward_sweep: DO J = N - 1, 1, -1
          U(J) = U(J) - GAM(J+1) * U(J+1)
       END DO backward_sweep
