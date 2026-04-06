@@ -895,95 +895,97 @@ CONTAINS
 !
    END SUBROUTINE SYCRIT
 
-!FFFFFF DOUBLEPRECISION FUNCTION SYDR
-   DOUBLEPRECISION FUNCTION SYDR (FSED, INCF, N, F, D)
-!
-!----------------------------------------------------------------------*
-!
-! To calculate a selected percentile based upon the discrete
-!  distribution of sediment particle diameters.
-!
-! Note: Relevant elements of F consist of the first and then only every
-!        INCF'th element within the array. Relevant elements of F are
-!        paired in order with all elements of D to define the input
-!        distribution.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR57
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  21.5.94  Version 3.4.1 by AB/RAH. File creation date 01.11.93.
-!----------------------------------------------------------------------*
-!
-! Input arguments
-      INTEGER :: INCF, N
-      DOUBLEPRECISION FSED, F (1 + (N - 1) * INCF), D (N)
 
-!
-! Locals, etc
-      DOUBLEPRECISION ALMOST
-      PARAMETER (ALMOST = 0.9999D0)
-!
-      DOUBLEPRECISION DR, DRHI, DRLO, F02, FLO, FHI, FSUM2, FTOT
+
+   !SSSSSS FUNCTION SYDR
+   DOUBLE PRECISION FUNCTION SYDR (FSED, INCF, N, F, D)
+   !
+   !----------------------------------------------------------------------*
+   !
+   ! To calculate a selected percentile based upon the discrete
+   !  distribution of sediment particle diameters.
+   !
+   ! Note: Relevant elements of F consist of the first and then only every
+   !        INCF'th element within the array. Relevant elements of F are
+   !        paired in order with all elements of D to define the input
+   !        distribution.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1       Notes:  SSR57
+   !  Module:  SY          Program:  SHETRAN
+   ! Modifications:
+   !  RAH  21.5.94  Version 3.4.1 by AB/RAH. File creation date 01.11.93.
+   !----------------------------------------------------------------------*
+   
+      ! Assumed external module dependencies providing global variables:
+      ! ISZERO
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN)          :: INCF, N
+      DOUBLE PRECISION, INTENT(IN) :: FSED, F(1 + (N - 1) * INCF), D(N)
+
+      ! Locals
+      DOUBLE PRECISION, PARAMETER  :: ALMOST = 0.9999D0
+      DOUBLE PRECISION :: DR, DRHI, DRLO, F02, FLO, FHI, FSUM2, FTOT
       INTEGER :: FRPTR, SED
-!
-!----------------------------------------------------------------------*
-!
-!     * Initialize local variables
-      FHI = 0
-      DRHI = 0
-      FSUM2 = 0
-      FTOT = 0
+
+   !----------------------------------------------------------------------*
+
+      ! * Initialize local variables
+      FHI = 0.0d0
+      DRHI = 0.0d0
+      FSUM2 = 0.0d0
+      FTOT = 0.0d0
       FRPTR = 1
-!
-!     * Double the selected 'percentile' (actually a fraction 0-1)
-!     *  and scale it relative to the sum of distribution ratios
-      DO 100 SED = 1, N
-         FTOT = FTOT + F (FRPTR)
+
+      ! * Double the selected 'percentile' (actually a fraction 0-1)
+      ! * and scale it relative to the sum of distribution ratios
+      DO SED = 1, N
+         FTOT = FTOT + F(FRPTR)
          FRPTR = FRPTR + INCF
-100   END DO
-      F02 = 2 * FSED * FTOT
-!
+      END DO
+      
+      F02 = 2.0d0 * FSED * FTOT
+
       IF (ISZERO(F02)) THEN
-!
-!        * Zeroth percentile or null distribution
-         DR = 0
-!
+         ! * Zeroth percentile or null distribution
+         DR = 0.0d0
+         
       ELSE
-!
-!        * Reset fraction pointer
+         ! * Reset fraction pointer
          FRPTR = 1
-!
-!        * Loop over sediment types until target percentile surpassed
-         DO 200 SED = 1, N
-!
-!           * Calculate midpoint of cumulative fraction (doubled)
+
+         ! * Loop over sediment types until target percentile surpassed
+         search_loop: DO SED = 1, N
+            
+            ! * Calculate midpoint of cumulative fraction (doubled)
             FLO = FHI
             DRLO = DRHI
-            FHI = F (FRPTR)
-            DRHI = D (SED)
+            FHI = F(FRPTR)
+            DRHI = D(SED)
             FSUM2 = FSUM2 + FLO + FHI
-!
-!           * Break out of loop if target percentile has been reached
-!           *  ( allowing for rounding error )
-            IF (FSUM2.GE.F02 * ALMOST) GOTO 300
-!                                          ^^^^^^^^
-!
-!           * Increment fraction pointer
+
+            ! * Break out of loop if target percentile has been reached
+            ! * (allowing for rounding error)
+            IF (FSUM2 >= F02 * ALMOST) EXIT search_loop
+
+            ! * Increment fraction pointer
             FRPTR = FRPTR + INCF
-!
-200      END DO
-!
-!        * Interpolate between last two Fraction/Diameter pairs to find
-!        *  target percentile.
-!        *  Note :- Combination of precondition FSED<1 and use of ALMOST
-!        *          should ensure (FLO+FHI) > 0
-300      DR = DRHI - (DRHI - DRLO) * (FSUM2 - F02) / (FLO + FHI)
-!
-      ENDIF
-!
+            
+         END DO search_loop
+
+         ! * Interpolate between last two Fraction/Diameter pairs to find
+         ! * target percentile.
+         ! * Note :- Combination of precondition FSED<1 and use of ALMOST
+         ! * should ensure (FLO+FHI) > 0
+         DR = DRHI - (DRHI - DRLO) * (FSUM2 - F02) / (FLO + FHI)
+         
+      END IF
+
       SYDR = DR
-!
+
    END FUNCTION SYDR
 
 
@@ -1186,319 +1188,323 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
+   !SSSSSS SUBROUTINE SYERR1
    SUBROUTINE SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
-      NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
-      NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
-      ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
-!
-!----------------------------------------------------------------------*
-!
-! Check static & initializing arrays in the WAT-SY interface.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR83
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  26.09.94  Version 3.4.1.  File created 25.09.94.
-!----------------------------------------------------------------------*
-!
-      INTEGER :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, &
-         SPR
-      INTEGER :: ICMBK (NLFEE, 2), ICMXY (NXEE, NY), ICMREF (NELEE, 4, &
-         2:3)
+         NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
+         NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
+         ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
+   !
+   !----------------------------------------------------------------------*
+   !
+   ! Check static & initializing arrays in the WAT-SY interface.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1          Notes:  SSR83
+   !  Module:  SY           Program:  SHETRAN
+   ! Modifications:
+   !  RAH  26.09.94  Version 3.4.1.  File created 25.09.94.
+   !----------------------------------------------------------------------*
+   !
+      ! Assumed external module dependencies providing global variables:
+      ! IONE1, IZERO1, ZERO1, ALCHKI, ALCHK, ERROR
+
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, SPR
+      INTEGER :: ICMBK (NLFEE, 2), ICMXY (NXEE, NY), ICMREF (NELEE, 4, 2:3)
       INTEGER :: ICMRF2 (NLFEE, 3, 2), NLYR (NLF + 1:NEL)
       INTEGER :: NTSOIL (NEL, NLYREE), NVC (NLF + 1:NEL)
-!INTEGER :: NTSOIL (NELEE, NLYREE), NVC (NLF + 1:NEL)
-      DOUBLEPRECISION THSAT (NS)
-      DOUBLEPRECISION CLENTH (NLFEE), CWIDTH (NLFEE), ZBFULL (NLFEE)
-      DOUBLEPRECISION DXQQ (NLF + 1:NEL), DYQQ (NLF + 1:NEL)
-      DOUBLEPRECISION AREA (NEL), DHF (NELEE, 4)
-      DOUBLEPRECISION ARXL (NLFEE), HRF (NLF + 1:NEL), ZGRUND (NEL)
+      DOUBLE PRECISION :: THSAT (NS)
+      DOUBLE PRECISION :: CLENTH (NLFEE), CWIDTH (NLFEE), ZBFULL (NLFEE)
+      DOUBLE PRECISION :: DXQQ (NLF + 1:NEL), DYQQ (NLF + 1:NEL)
+      DOUBLE PRECISION :: AREA (NEL), DHF (NELEE, 4)
+      DOUBLE PRECISION :: ARXL (NLFEE), HRF (NLF + 1:NEL), ZGRUND (NEL)
       LOGICAL :: BEXBK, LINKNS (NLFEE)
-!
-! Workspace arguments
+   !
+   ! Workspace arguments
       INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
-      INTEGER :: IDUM1X ( - 1:NEL + 1)
+      INTEGER :: IDUM1X (-1:NEL + 1)
       LOGICAL :: LDUM (NELEE)
-!
-! Locals, etc
-      INTEGER :: FATAL, ERR
-      PARAMETER (FATAL = 1, ERR = 2)
-!
+   !
+   ! Locals, etc
+      INTEGER, PARAMETER :: FATAL = 1, ERR = 2
+   !
       INTEGER :: BANK, COUNT, FACE, FADJ, FEL
-      INTEGER :: IADJ, IBR, IBRADJ, ICOL1, IEL, IELP, ILYR, IUNDEF, IX, &
-         IY
+      INTEGER :: IADJ, IBR, IBRADJ, ICOL1, IEL, IELP, ILYR, IUNDEF, IX, IY
       INTEGER :: LINK, NCOL, NELP, NERR, P, PADJ
       INTEGER :: IDUM1 (2)
       LOGICAL :: BKXYOK, REFOK
-!
-!----------------------------------------------------------------------*
-!
-! 0. Preliminaries
-! ----------------
-!
-!     * local counter
+   !
+   !----------------------------------------------------------------------*
+   !
+   ! 0. Preliminaries
+   ! ----------------
+   !
+   !     * local counter
       NERR = 0
-!     * position of 1st column element
+   !     * position of 1st column element
       ICOL1 = NLF + 1
-!     * number of elements plus one
+   !     * number of elements plus one
       NELP = NEL + 1
-!
-!
-! 1. Index Arrays
-! ---------------
-!
-!ICMBK, ICMXY
+   !
+   !
+   ! 1. Index Arrays
+   ! ---------------
+   !
+   ! ICMBK, ICMXY
       COUNT = NERR
-!     * initialize column-element counter & marker array
+   !     * initialize column-element counter & marker array
       NCOL = 0
-      DO 110 IEL = 0, NLF
+      
+      DO IEL = 0, NLF
          IDUM1X (IEL) = 1
-110   END DO
-      DO 115 IEL = ICOL1, NELP
+      END DO
+      
+      DO IEL = ICOL1, NELP
          IDUM1X (IEL) = 0
-115   END DO
-!     * count active grid elements and mark them
-      DO 125 IY = 1, NY
-         DO 120 IX = 1, NX
-            IEL = MAX (0, MIN (ICMXY (IX, IY), NELP) )
+      END DO
+      
+   !     * count active grid elements and mark them
+      DO IY = 1, NY
+         DO IX = 1, NX
+            IEL = MAX (0, MIN (ICMXY (IX, IY), NELP))
             IDUM1X (IEL) = IDUM1X (IEL) + 1
             NCOL = NCOL + MIN (IEL, 1)
-120      END DO
-125   END DO
-!     * similarly for bank elements (if present all must be active)
-      IF (BEXBK.AND.NLF.GT.0) THEN
+         END DO
+      END DO
+      
+   !     * similarly for bank elements (if present all must be active)
+      IF (BEXBK .AND. NLF > 0) THEN
          NCOL = NCOL + 2 * NLF
-         DO 135 BANK = 1, 2
-            DO 130 LINK = 1, NLF
-               IEL = MAX (0, MIN (ICMBK (LINK, BANK), NELP) )
+         DO BANK = 1, 2
+            DO LINK = 1, NLF
+               IEL = MAX (0, MIN (ICMBK (LINK, BANK), NELP))
                IDUM1X (IEL) = IDUM1X (IEL) + 1
-130         END DO
-135      END DO
-      ENDIF
-!     * watch out for gate-crashers
+            END DO
+         END DO
+      END IF
+      
+   !     * watch out for gate-crashers
       IDUM1 (1) = NEL - NLF
       IDUM1X (0) = NCOL
-      CALL ALCHKI (ERR, 2075, SPR, 1, 1, IUNDEF, IUNDEF, '#_column_elements', 'EQ', IDUM1, IDUM1X (0) , NERR, LDUM)
-!     * check that each element has a unique identity
-      CALL ALCHKI (ERR, 2076, SPR, 1, NEL, IUNDEF, IUNDEF, &
-         'element_count(iel)', 'EQ', IONE1, IDUM1X (1) , NERR, LDUM)
-!     * was everything ok?
-      BKXYOK = COUNT.EQ.NERR
-!
-!ICMREF part 1
+      CALL ALCHKI (ERR, 2075, SPR, 1, 1, IUNDEF, IUNDEF, '#_column_elements', 'EQ', IDUM1, IDUM1X (0), NERR, LDUM)
+      
+   !     * check that each element has a unique identity
+      CALL ALCHKI (ERR, 2076, SPR, 1, NEL, IUNDEF, IUNDEF, 'element_count(iel)', 'EQ', IONE1, IDUM1X (1), NERR, LDUM)
+      
+   !     * was everything ok?
+      BKXYOK = COUNT == NERR
+   !
+   ! ICMREF part 1
       IDUM1 (1) = NEL
       IDUM1 (2) = - NLFEE
       REFOK = .TRUE.
-      DO 145 FACE = 1, 4
+      
+      DO FACE = 1, 4
          COUNT = NERR
-!        * check that all neighbours are within range
-         CALL ALCHKI (ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)' &
-         &, 'LE', IDUM1 (1) , ICMREF (1, FACE, 2) , NERR, LDUM)
-         CALL ALCHKI (ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)' &
-         &, 'GE', IDUM1 (2) , ICMREF (1, FACE, 2) , NERR, LDUM)
-!        * check regular faces for range and consistency
-         IF (COUNT.EQ.NERR) THEN
-            DO 140 IEL = 1, NEL
+   !        * check that all neighbours are within range
+         ! Passing base memory addresses instead of slices to ALCHKI
+         CALL ALCHKI (ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'LE', IDUM1 (1), ICMREF (1, FACE, 2), NERR, LDUM)
+         CALL ALCHKI (ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'GE', IDUM1 (2), ICMREF (1, FACE, 2), NERR, LDUM)
+         
+   !        * check regular faces for range and consistency
+         IF (COUNT == NERR) THEN
+            DO IEL = 1, NEL
                IADJ = ICMREF (IEL, FACE, 2)
-               IF (IADJ.LE.0) THEN
-!                 * not a regular face
+               IF (IADJ <= 0) THEN
+   !                 * not a regular face
                   IDUM (IEL) = 0
                ELSE
                   FADJ = ICMREF (IEL, FACE, 3)
-                  IF (FADJ.LT.1.OR.FADJ.GT.4) THEN
-!                    * bad face value
+                  IF (FADJ < 1 .OR. FADJ > 4) THEN
+   !                  * bad face value
                      IDUM (IEL) = 1
                   ELSE
-                     IF (ICMREF (IADJ, FADJ, 2) .NE.IEL) THEN
-!                       * bad reflection
+                     IF (ICMREF (IADJ, FADJ, 2) /= IEL) THEN
+   !                       * bad reflection
                         IDUM (IEL) = 2
                      ELSE
                         IDUM (IEL) = 0
-!                       * faces don't match?
-                        IF (ICMREF (IADJ, FADJ, 3) .NE.FACE) IDUM (IEL) &
-                           = 3
-                     ENDIF
-                  ENDIF
-               ENDIF
-140         END DO
-            CALL ALCHKI (ERR, 2078, SPR, 1, NEL, FACE, IUNDEF, &
-               'status_of_ICMREF(iel,face)', 'EQ', IZERO1, IDUM, NERR, LDUM)
-         ENDIF
-!        * is everything still ok?
-         REFOK = REFOK.AND.COUNT.EQ.NERR
-145   END DO
-!
-!ICMREF part 2 (bank element neighbours)
-      IF (NLF.GT.0.AND.BEXBK.AND.BKXYOK.AND.REFOK) THEN
-!        * set marker array (disallow non-grids other than zero)
-         IDUM1X ( - 1) = - 2
+   !                       * faces don't match?
+                        IF (ICMREF (IADJ, FADJ, 3) /= FACE) IDUM (IEL) = 3
+                     END IF
+                  END IF
+               END IF
+            END DO
+            CALL ALCHKI (ERR, 2078, SPR, 1, NEL, FACE, IUNDEF, 'status_of_ICMREF(iel,face)', 'EQ', IZERO1, IDUM, NERR, LDUM)
+         END IF
+   !        * is everything still ok?
+         REFOK = REFOK .AND. COUNT == NERR
+      END DO
+   !
+   ! ICMREF part 2 (bank element neighbours)
+      IF (NLF > 0 .AND. BEXBK .AND. BKXYOK .AND. REFOK) THEN
+   !        * set marker array (disallow non-grids other than zero)
+         IDUM1X (-1) = -2
          IDUM1X (0) = 0
-         DO 150 IEL = 1, NEL
-            IDUM1X (IEL) = - 2
-150      END DO
-         DO 165 IY = 1, NY
-            DO 160 IX = 1, NX
-               IEL = MAX (0, ICMXY (IX, IY) )
+         
+         DO IEL = 1, NEL
+            IDUM1X (IEL) = -2
+         END DO
+         
+         DO IY = 1, NY
+            DO IX = 1, NX
+               IEL = MAX (0, ICMXY (IX, IY))
                IDUM1X (IEL) = MIN (IEL, 1)
-160         END DO
-165      END DO
-!        * count number of grid neighours for each link
-         DO 170 LINK = 1, NLF
+            END DO
+         END DO
+         
+   !        * count number of grid neighours for each link
+         DO LINK = 1, NLF
             IDUM (LINK) = 0
-170      END DO
-         DO 185 BANK = 1, 2
-            DO 180 LINK = 1, NLF
+         END DO
+         
+         DO BANK = 1, 2
+            DO LINK = 1, NLF
                IEL = ICMBK (LINK, BANK)
                FACE = 2 * BANK
-               IF (LINKNS (LINK) ) FACE = FACE-1
-               IADJ = MAX ( - 1, ICMREF (IEL, FACE, 2) )
+               IF (LINKNS (LINK)) FACE = FACE - 1
+               IADJ = MAX (-1, ICMREF (IEL, FACE, 2))
                IDUM (LINK) = IDUM (LINK) + IDUM1X (IADJ)
-180         END DO
-185      END DO
+            END DO
+         END DO
+         
          CALL ALCHKI (ERR, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO1, IDUM, NERR, LDUM)
-      ENDIF
-!
-!ICMRF2
+      END IF
+   !
+   ! ICMRF2
       IF (REFOK) THEN
-!        * initialize status array
-         DO 190 IBR = 1, NLFEE
-            IDUM (IBR) = - 1
-190      END DO
-!        * check each prospect of each branch
-         DO 198 FACE = 1, 4
-            DO 196 IEL = 1, NEL
+   !        * initialize status array
+         DO IBR = 1, NLFEE
+            IDUM (IBR) = -1
+         END DO
+         
+   !        * check each prospect of each branch
+         DO FACE = 1, 4
+            DO IEL = 1, NEL
                IADJ = ICMREF (IEL, FACE, 2)
-               IF (IADJ.LT.0) THEN
+               IF (IADJ < 0) THEN
                   IBR = - IADJ
-                  IF (IDUM (IBR) .GE.0) THEN
-!                    * duplicate reference
+                  IF (IDUM (IBR) >= 0) THEN
+   !                 * duplicate reference
                      IDUM (IBR) = IDUM (IBR) + 1
                   ELSE
-!                    * initialize status
+   !                 * initialize status
                      IDUM (IBR) = 0
-                     DO 194 P = 1, 3
+                     
+                     DO P = 1, 3
                         IADJ = ICMRF2 (IBR, P, 1)
-                        IF (IADJ.GT.NEL) THEN
-!                          * neighbour out of range
+                        IF (IADJ > NEL) THEN
+   !                          * neighbour out of range
                            IDUM (IBR) = IDUM (IBR) + P * 10
-                        ELSEIF (IADJ.GT.0) THEN
+                        ELSE IF (IADJ > 0) THEN
                            FADJ = ICMRF2 (IBR, P, 2)
-                           IF (FADJ.LT.1.OR.FADJ.GT.4) THEN
-!                             * bad face value
+                           IF (FADJ < 1 .OR. FADJ > 4) THEN
+   !                             * bad face value
                               IDUM (IBR) = IDUM (IBR) + P * 100
                            ELSE
                               IBRADJ = - ICMREF (IADJ, FADJ, 2)
-                              IF (IBRADJ.LT.1.OR.IBRADJ.GT.NLFEE) THEN
-!                                * bad mirror branch
+                              IF (IBRADJ < 1 .OR. IBRADJ > NLFEE) THEN
+   !                                * bad mirror branch
                                  IDUM (IBR) = IDUM (IBR) + P * 1000
                               ELSE
-                                 DO 192 PADJ = 1, 3
+                                 
+                                 search_padj: DO PADJ = 1, 3
                                     IELP = ICMRF2 (IBRADJ, PADJ, 1)
-                                    IF (IELP.EQ.IEL) THEN
+                                    IF (IELP == IEL) THEN
                                        FEL = ICMRF2 (IBRADJ, PADJ, 2)
-                                       IF (FEL.EQ.FACE) GOTO 193
-                                    ENDIF
-192                              END DO
-!                                * can't find a reference in the mirror
-                                 IDUM (IBR) = IDUM (IBR) + P * 10000
-193                              CONTINUE
-                              ENDIF
-                           ENDIF
-                        ENDIF
-194                  END DO
-                  ENDIF
-               ENDIF
-196         END DO
-198      END DO
-         CALL ALCHKI (ERR, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, &
-            'status_of_ICMRF2(branch)', 'LE', IZERO1, IDUM, NERR, LDUM)
-      ENDIF
-!
-!
-! 2. Soil Properties
-! ------------------
-!
-!THSAT
-      CALL ALCHK (ERR, 2063, SPR, 1, NS, IUNDEF, IUNDEF, 'THSAT(soil)', &
-         'LE', ONE1, ZERO1 (1) , THSAT, NERR, LDUM)
-!
-!
-! 3. Link Properties & Initial State
-! ----------------------------------
-!
-      IF (NLF.GT.0) THEN
-!
-!CLENTH
-         CALL ALCHK (ERR, 2064, SPR, 1, NLF, IUNDEF, IUNDEF, 'CLENTH(link)' &
-         &, 'GE', ZERO1, ZERO1 (1) , CLENTH, NERR, LDUM)
-!CWIDTH
-         CALL ALCHK (ERR, 2065, SPR, 1, NLF, IUNDEF, IUNDEF, 'CWIDTH(link)' &
-         &, 'GT', ZERO1, ZERO1 (1) , CWIDTH, NERR, LDUM)
-!ZBFULL
-         CALL ALCHK (ERR, 2066, SPR, 1, NLF, IUNDEF, IUNDEF, 'ZBFULL(link)' &
-         &, 'GEa', ZGRUND, ZERO1 (1) , ZBFULL, NERR, LDUM)
-!ARXL
-         CALL ALCHK (ERR, 2067, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
-         &'GE', ZERO1, ZERO1 (1) , ARXL, NERR, LDUM)
-!
-      ENDIF
-!
-!
-! 4. Column Properties & Initial State
-! ------------------------------------
-!
-!DXQQ
-      CALL ALCHK (ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO1, ZERO1 (1) , DXQQ, NERR, LDUM)
-!DYQQ
-      CALL ALCHK (ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO1, ZERO1 (1) , DYQQ, NERR, LDUM)
-!HRF
-      CALL ALCHK (ERR, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)' , 'GEa', ZGRUND (ICOL1) , ZERO1 (1) , HRF, NERR, LDUM)
-!NLYR
+                                       IF (FEL == FACE) EXIT search_padj
+                                    END IF
+                                 END DO search_padj
+                                 
+   !                                * can't find a reference in the mirror
+                                 IF (PADJ > 3) IDUM (IBR) = IDUM (IBR) + P * 10000
+                                 
+                              END IF
+                           END IF
+                        END IF
+                     END DO
+                  END IF
+               END IF
+            END DO
+         END DO
+         
+         CALL ALCHKI (ERR, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO1, IDUM, NERR, LDUM)
+      END IF
+   !
+   !
+   ! 2. Soil Properties
+   ! ------------------
+   !
+   ! THSAT
+      CALL ALCHK (ERR, 2063, SPR, 1, NS, IUNDEF, IUNDEF, 'THSAT(soil)', 'LE', ONE1, ZERO1 (1), THSAT, NERR, LDUM)
+   !
+   !
+   ! 3. Link Properties & Initial State
+   ! ----------------------------------
+   !
+      IF (NLF > 0) THEN
+   !
+   ! CLENTH
+         CALL ALCHK (ERR, 2064, SPR, 1, NLF, IUNDEF, IUNDEF, 'CLENTH(link)', 'GE', ZERO1, ZERO1 (1), CLENTH, NERR, LDUM)
+   ! CWIDTH
+         CALL ALCHK (ERR, 2065, SPR, 1, NLF, IUNDEF, IUNDEF, 'CWIDTH(link)', 'GT', ZERO1, ZERO1 (1), CWIDTH, NERR, LDUM)
+   ! ZBFULL
+         CALL ALCHK (ERR, 2066, SPR, 1, NLF, IUNDEF, IUNDEF, 'ZBFULL(link)', 'GEa', ZGRUND, ZERO1 (1), ZBFULL, NERR, LDUM)
+   ! ARXL
+         CALL ALCHK (ERR, 2067, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', 'GE', ZERO1, ZERO1 (1), ARXL, NERR, LDUM)
+   !
+      END IF
+   !
+   !
+   ! 4. Column Properties & Initial State
+   ! ------------------------------------
+   !
+   ! DXQQ
+      CALL ALCHK (ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO1, ZERO1 (1), DXQQ, NERR, LDUM)
+   ! DYQQ
+      CALL ALCHK (ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO1, ZERO1 (1), DYQQ, NERR, LDUM)
+   ! HRF
+      CALL ALCHK (ERR, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', 'GEa', ZGRUND (ICOL1), ZERO1 (1), HRF, NERR, LDUM)
+   ! NLYR
       COUNT = NERR
       IDUM1 (1) = NLYREE
       CALL ALCHKI (ERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'GT', IZERO1, NLYR, NERR, LDUM)
       CALL ALCHKI (ERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'LE', IDUM1, NLYR, NERR, LDUM)
-!NTSOIL
-      IF (COUNT.EQ.NERR) THEN
-         DO 410 IEL = ICOL1, NEL
+   ! NTSOIL
+      IF (COUNT == NERR) THEN
+         DO IEL = ICOL1, NEL
             ILYR = NLYR (IEL)
             IDUM (IEL) = NTSOIL (IEL, ILYR)
-410      END DO
+         END DO
          IDUM1 (1) = NS
-         CALL ALCHKI (ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, &
-            'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO1, IDUM (ICOL1) , NERR, &
-            LDUM)
-         CALL ALCHKI (ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, &
-            'NTSOIL[iel,NLYR(iel)]', 'LE', IDUM1, IDUM (ICOL1) , NERR, &
-            LDUM)
-      ENDIF
-!NVC
+         CALL ALCHKI (ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO1, IDUM (ICOL1), NERR, LDUM)
+         CALL ALCHKI (ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'LE', IDUM1, IDUM (ICOL1), NERR, LDUM)
+      END IF
+   ! NVC
       COUNT = NERR
       IDUM1 (1) = NV
       CALL ALCHKI (ERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'GT', IZERO1, NVC, NERR, LDUM)
       CALL ALCHKI (ERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'LE', IDUM1, NVC, NERR, LDUM)
-!
-!
-! 5. Element Properties
-! ---------------------
-!
-!AREA
-      CALL ALCHK (ERR, 2073, SPR, 1, NEL, IUNDEF, IUNDEF, 'AREA(iel)', &
-         'GT', ZERO1, ZERO1 (1) , AREA, NERR, LDUM)
-!DHF
-      DO 510 FACE = 1, 4
-         CALL ALCHK (ERR, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', &
-         & 'GT', ZERO1, ZERO1 (1) , DHF (1, FACE) , NERR, LDUM)
-510   END DO
-!
-!
-! 6. Epilogue
-! -----------
-!
-      IF (NERR.GT.0) CALL ERROR (FATAL, 2001, SPR, 0, 0, 'Error(s) detected while checking static/initial WAT-SY interface')
-!
+   !
+   !
+   ! 5. Element Properties
+   ! ---------------------
+   !
+   ! AREA
+      CALL ALCHK (ERR, 2073, SPR, 1, NEL, IUNDEF, IUNDEF, 'AREA(iel)', 'GT', ZERO1, ZERO1 (1), AREA, NERR, LDUM)
+   ! DHF
+      DO FACE = 1, 4
+         CALL ALCHK (ERR, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', 'GT', ZERO1, ZERO1 (1), DHF (1, FACE), NERR, LDUM)
+      END DO
+   !
+   !
+   ! 6. Epilogue
+   ! -----------
+   !
+      IF (NERR > 0) CALL ERROR (FATAL, 2001, SPR, 0, 0, 'Error(s) detected while checking static/initial WAT-SY interface')
+   !
    END SUBROUTINE SYERR1
 
 
@@ -1508,8 +1514,8 @@ CONTAINS
    ! Check for errors in the SY input data.
    !
    !----------------------------------------------------------------------*
-   ! Version:  3.4.1          Notes:  SSR43
-   !  Module:  SY             Program:  SHETRAN
+   ! Version:  3.4.1           Notes:  SSR43
+   !  Module:  SY              Program:  SHETRAN
    ! Modifications:
    !  RAH  04.10.94  Version 3.4.1 by AB/RAH. File created 3.2.94.
    !  BTL  25.05.95  Version 3.4.1 : add DLSMAX
@@ -1524,27 +1530,28 @@ CONTAINS
 
       IMPLICIT NONE
 
-      ! Input arguments
+      ! Input arguments (Strictly Read-Only)
       INTEGER, INTENT(IN)          :: NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV
       INTEGER, INTENT(IN)          :: NSYB, NSYBEE, NSYC (4), NSYCEE, SPR
       INTEGER, INTENT(IN)          :: ICMREF (NELEE, 4, 2:2)
-      INTEGER, INTENT(IN)          :: NTSOBK (NLFEE), NSYBCD (NSYBEE, 3), NBFACE (NEL)
+      INTEGER, INTENT(IN)          :: NBFACE (NEL)
       INTEGER, INTENT(IN)          :: SFB, SRB
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NSED), BKB (NS), GKF (NS), GKR (NS), RHOSO (NS)
-      DOUBLE PRECISION, INTENT(IN) :: SOSDFN (NSEE, NSED), DRDRIP (NV), FDRIP (NV), XDRIP (NV)
-      DOUBLE PRECISION, INTENT(IN) :: PBSED (NLFEE)
-      DOUBLE PRECISION, INTENT(IN) :: FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL), PLS (NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: DLS (NEL), FBETA (NELEE, NSED), FDEL (NELEE, NSED)
-      DOUBLE PRECISION, INTENT(IN) :: ABC (NSEDEE, NSYCEE), BBC (NSEDEE, NSYCEE), GBC (NSEDEE, NSYCEE)
 
-      ! Input/Output arguments (variables modified via checking/casting)
+      ! Input/Output arguments (Variables modified via ALCHK/ALCHKI checking/casting)
       INTEGER, INTENT(INOUT)          :: ISUSED, NEPS, NFINE
+      INTEGER, INTENT(INOUT)          :: NTSOBK (NLFEE), NSYBCD (NSYBEE, 3)
       DOUBLE PRECISION, INTENT(INOUT) :: ALPHA, DCBEDO, FPCRIT, DLSMAX
+      DOUBLE PRECISION, INTENT(INOUT) :: DRSED (NSED), BKB (NS), GKF (NS), GKR (NS), RHOSO (NS)
+      DOUBLE PRECISION, INTENT(INOUT) :: SOSDFN (NSEE, NSED), DRDRIP (NV), FDRIP (NV), XDRIP (NV)
+      DOUBLE PRECISION, INTENT(INOUT) :: PBSED (NLFEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL), PLS (NLF + 1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: DLS (NEL), FBETA (NELEE, NSED), FDEL (NELEE, NSED)
+      DOUBLE PRECISION, INTENT(INOUT) :: ABC (NSEDEE, NSYCEE), BBC (NSEDEE, NSYCEE), GBC (NSEDEE, NSYCEE)
 
       ! Workspace arguments
-      INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM
+      INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT)      :: IDUM
       DOUBLE PRECISION, DIMENSION(NELEE), INTENT(INOUT) :: DUMMY
-      LOGICAL, DIMENSION(NELEE), INTENT(INOUT) :: LDUM
+      LOGICAL, DIMENSION(NELEE), INTENT(INOUT)          :: LDUM
 
       ! Locals, etc
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
@@ -1810,203 +1817,224 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
+   !SSSSSS SUBROUTINE SYERR3
    SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
-      ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
-      ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
-!
-!----------------------------------------------------------------------*
-!
-! Check for time-dependent errors in the WAT-SY interface.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR81
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  10.10.94  Version 3.4.1. File created 20.09.94.
-!----------------------------------------------------------------------*
-!
-      INTEGER :: NEL, NELEE, NLF, NLFEE, NV, SPR
-      INTEGER :: ICMREF (NELEE, 4, 2:3), ICMRF2 (NLFEE, 3, 2)
-      INTEGER :: ISORT (NEL)
-      DOUBLEPRECISION DTUZ
-      DOUBLEPRECISION CLAI (NV), PLAI (NV), ARXL (NLFEE)
-      DOUBLEPRECISION DRAINA (NLF + 1:NEL), PNETTO (NLF + 1:NEL)
-      DOUBLEPRECISION HRF (NEL), ZGRUND (NEL), QOC (NELEE, 4), rdum(nelee)
-!
-! Workspace arguments
+         ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
+         ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
+   !
+   !----------------------------------------------------------------------*
+   !
+   ! Check for time-dependent errors in the WAT-SY interface.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1          Notes:  SSR81
+   !  Module:  SY           Program:  SHETRAN
+   ! Modifications:
+   !  RAH  10.10.94  Version 3.4.1. File created 20.09.94.
+   !----------------------------------------------------------------------*
+   !
+      ! Assumed external module dependencies providing global variables:
+      ! ALCHK, ALCHKI, ERROR, zero1, ONE1, IZERO1
+
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER, INTENT(IN) :: NEL, NELEE, NLF, NLFEE, NV, SPR
+      INTEGER, INTENT(IN) :: ICMREF (NELEE, 4, 2:3), ICMRF2 (NLFEE, 3, 2)
+      INTEGER, INTENT(IN) :: ISORT (NEL)
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ
+      DOUBLE PRECISION, INTENT(INOUT) :: CLAI (NV), PLAI (NV), ARXL (NLFEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: DRAINA (NLF + 1:NEL), HRF (NEL)
+      DOUBLE PRECISION, INTENT(IN) :: PNETTO (NLF + 1:NEL)
+      DOUBLE PRECISION, INTENT(IN) :: ZGRUND (NEL), QOC (NELEE, 4)
+   !
+   ! Workspace arguments
       INTEGER :: IQ (NEL), JMIN (NEL), JSORT (0:NEL + 1)
       LOGICAL :: LDUM (NELEE)
-!
-! Locals, etc
-      INTEGER :: FATAL, ERR
-      DOUBLEPRECISION TOL
-      PARAMETER (FATAL = 1, ERR = 2, TOL = 1D-7)
-!
-      INTEGER :: FACE, FADJ, I, IADJ, IBR, IEL, IUNDEF, J, NELP, NERR, &
-         P
-      DOUBLEPRECISION FNQOUT, QADJ, QMIN
-      DOUBLEPRECISION DUM1 (1)
-!
-!     * Water discharge rate
-      FNQOUT (IEL, FACE) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)
-!
-!----------------------------------------------------------------------*
-!
-! 0. Preliminaries
-! ----------------
-!
-!     * Initialize local counter
+   !
+   ! Locals, etc
+      INTEGER, PARAMETER :: FATAL = 1, ERR = 2
+      DOUBLE PRECISION, PARAMETER :: TOL = 1.0D-7
+   !
+      INTEGER :: FACE, FADJ, I, IADJ, IBR, IEL, IUNDEF, J, NELP, NERR, P
+      DOUBLE PRECISION :: QADJ, QMIN
+      DOUBLE PRECISION :: DUM1 (1)
+
+   !----------------------------------------------------------------------*
+   !
+   ! 0. Preliminaries
+   ! ----------------
+   !
+   !     * Initialize local counter
       NERR = 0
-!
-!
-! 1. Variables
-! ------------
-!
-!DTUZ
+   !
+   !
+   ! 1. Variables
+   ! ------------
+   !
+   ! DTUZ
       DUM1 (1) = DTUZ
       CALL ALCHK (ERR, 2046, SPR, 1, 1, IUNDEF, IUNDEF, 'DTUZ', 'GE', &
-         zero1, zero1 (1) , DUM1, NERR, LDUM)
-!
-!
-! 2. Vegetative State
-! -------------------
-!
-!CLAI
+         zero1, zero1 (1), DUM1, NERR, LDUM)
+   !
+   !
+   ! 2. Vegetative State
+   ! -------------------
+   !
+   ! CLAI
       CALL ALCHK (ERR, 2047, SPR, 1, NV, IUNDEF, IUNDEF, 'CLAI(veg)', &
-         'GE', zero1, zero1 (1) , CLAI, NERR, LDUM)
-!PLAI
+         'GE', zero1, zero1 (1), CLAI, NERR, LDUM)
+   ! PLAI
       CALL ALCHK (ERR, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
-         'GE', zero1, zero1 (1) , PLAI, NERR, LDUM)
+         'GE', zero1, zero1 (1), PLAI, NERR, LDUM)
       CALL ALCHK (ERR, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
-         'LE', ONE1, ZERO1 (1) , PLAI, NERR, LDUM)
-!
-!
-! 3. Link State
-! -------------
-!
-      IF (NLF.GT.0) THEN
-!
-!ARXL
+         'LE', ONE1, ZERO1 (1), PLAI, NERR, LDUM)
+   !
+   !
+   ! 3. Link State
+   ! -------------
+   !
+      IF (NLF > 0) THEN
+   !
+   ! ARXL
          CALL ALCHK (ERR, 2049, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
-         &'GE', zero1, zero1 (1) , ARXL, NERR, LDUM)
-!
-      ENDIF
-!
-!
-! 4. Columnar State
-! -----------------
-!
-!DRAINA
-      CALL ALCHK (ERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1 (1) , DRAINA, NERR, LDUM)
-! 10.10.94  Ought to fix WAT module so that we don't need TOL
+         'GE', zero1, zero1 (1), ARXL, NERR, LDUM)
+   !
+      END IF
+   !
+   !
+   ! 4. Columnar State
+   ! -----------------
+   !
+   ! DRAINA
+      CALL ALCHK (ERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1 (1), DRAINA, NERR, LDUM)
+   ! 10.10.94  Ought to fix WAT module so that we don't need TOL
       CALL ALCHK (ERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'LEa', PNETTO, TOL, DRAINA, NERR, LDUM)
-!
-!
-! 5. Elemental State
-! ------------------
-!
-!HRF
+   !
+   !
+   ! 5. Elemental State
+   ! ------------------
+   !
+   ! HRF
       CALL ALCHK (ERR, 2051, SPR, 1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', &
-         'GEa', ZGRUND, ZERO1 (1) , HRF, NERR, LDUM)
-!
-!
-! 6. Flux/Ordering
-! ----------------
-!
-!ISORT & QOC
-!     * Set JSORT = inverse of ISORT & initialize upper bound JMIN
-!       (note that JSORT has overspill elements )
+         'GEa', ZGRUND, ZERO1 (1), HRF, NERR, LDUM)
+   !
+   !
+   ! 6. Flux/Ordering
+   ! ----------------
+   !
+   ! ISORT & QOC
+   !     * Set JSORT = inverse of ISORT & initialize upper bound JMIN
+   !       (note that JSORT has overspill elements )
       NELP = NEL + 1
-      DO 610 J = 0, NELP
+      DO J = 0, NELP
          JSORT (J) = NELP
-610   END DO
-      DO 620 I = 1, NEL
+      END DO
+      
+      DO I = 1, NEL
          IEL = ISORT (I)
-         J = MAX (0, MIN (IEL, NELP) )
+         J = MAX (0, MIN (IEL, NELP))
          JSORT (J) = I
          JMIN (I) = NELP
-620   END DO
-!     * At this point any element not listed in ISORT has a JSORT
-!       value of NELP, which is guaranteed to fail the test below
-!     * Update JMIN (used as object of JSORT test) & set QOC status IQ
-      DO 650 FACE = 1, 4
-         DO 640 IEL = 1, NEL
-!           * innocent until proven guilty
+      END DO
+      
+   !     * At this point any element not listed in ISORT has a JSORT
+   !       value of NELP, which is guaranteed to fail the test below
+   !     * Update JMIN (used as object of JSORT test) & set QOC status IQ
+      DO FACE = 1, 4
+         
+         element_loop: DO IEL = 1, NEL
+   !          * innocent until proven guilty
             IQ (IEL) = 0
-!           * non-discharge faces are ok
-            IF (FNQOUT (IEL, FACE) .LE.ZERO1 (1) ) GOTO 640
-!                                              ^^^^^^^^
+            
+   !          * non-discharge faces are ok (Cycle directly replaces GOTO 640)
+            IF (FNQOUT(IEL, FACE) <= ZERO1 (1)) CYCLE element_loop
+            
             IADJ = ICMREF (IEL, FACE, 2)
-            IF (IADJ.GT.0) THEN
+            
+            IF (IADJ > 0) THEN
                FADJ = ICMREF (IEL, FACE, 3)
-               QADJ = FNQOUT (IADJ, FADJ)
-!              * do both elements discharge into the same face?
-               IF (QADJ.GT.ZERO1 (1) ) IQ (IEL) = 1
-!              * IEL must precede IADJ in the ISORT list
-               JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL) )
-            ELSEIF (IADJ.LT.0) THEN
+               QADJ = FNQOUT(IADJ, FADJ)
+   !             * do both elements discharge into the same face?
+               IF (QADJ > ZERO1 (1)) IQ (IEL) = 1
+   !             * IEL must precede IADJ in the ISORT list
+               JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
+               
+            ELSE IF (IADJ < 0) THEN
                IBR = - IADJ
                QMIN = ONE1 (1)
-               DO 630 P = 1, 3
+               
+               DO P = 1, 3
                   IADJ = ICMRF2 (IBR, P, 1)
-                  IF (IADJ.GT.0) THEN
+                  IF (IADJ > 0) THEN
                      FADJ = ICMRF2 (IBR, P, 2)
-                     QADJ = FNQOUT (IADJ, FADJ)
+                     QADJ = FNQOUT(IADJ, FADJ)
                      QMIN = MIN (QADJ, QMIN)
-                     IF (QADJ.LT.zero1 (1) ) THEN
-!                       * IEL must precede IADJ in the ISORT list
-                        JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL) )
-                     ENDIF
-                  ENDIF
-630            END DO
-!              * discharge from IEL has nowhere to go?
-               IF (QMIN.GE.zero1 (1) ) IQ (IEL) = 2
-            ENDIF
-640      END DO
-!        * Check QOC status at this FACE for all elements
+                     IF (QADJ < zero1 (1)) THEN
+   !                      * IEL must precede IADJ in the ISORT list
+                        JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
+                     END IF
+                  END IF
+               END DO
+               
+   !             * discharge from IEL has nowhere to go?
+               IF (QMIN >= zero1 (1)) IQ (IEL) = 2
+            END IF
+         END DO element_loop
+         
+   !        * Check QOC status at this FACE for all elements
          CALL ALCHKI (ERR, 2052, SPR, 1, NEL, FACE, IUNDEF, &
             'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
-650   END DO
-!     * Check that each donor element listed in ISORT occurs before
-!       each of its receptors, and that all elements are listed
+            
+      END DO
+      
+   !     * Check that each donor element listed in ISORT occurs before
+   !       each of its receptors, and that all elements are listed
       CALL ALCHKI (ERR, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
-         'position_in_ISORT(iel)', 'LTa', JMIN, JSORT (1) , NERR, LDUM)
-!
-!
-! 7. Epilogue
-! -----------
-!
-      IF (NERR.GT.0) THEN
-!
+         'position_in_ISORT(iel)', 'LTa', JMIN, JSORT (1), NERR, LDUM)
+   !
+   !
+   ! 7. Epilogue
+   ! -----------
+   !
+      IF (NERR > 0) THEN
+   !
          WRITE (SPR, 9100) 'DTUZ', DTUZ
          WRITE (SPR, 9100) 'CLAI[veg=1,...,NV]', CLAI
          WRITE (SPR, 9100) 'PLAI[veg=1,...,NV]', PLAI
-         rdum(1:nlf)=ARXL(1:nlf)  !AD
-         WRITE (SPR, 9100) 'ARXL[link=1,...,NLF]', (rdum (IEL) , IEL = 1, NLF)
+         WRITE (SPR, 9100) 'ARXL[link=1,...,NLF]', (ARXL (IEL), IEL = 1, NLF)
          WRITE (SPR, 9100) 'DRAINA[col=NLF+1,...,NEL]', DRAINA
          WRITE (SPR, 9100) 'PNETTO[col=NLF+1,...,NEL]', PNETTO
-         rdum(1:nel)=hrf(1:nel)  !AD
-         WRITE (SPR, 9100) 'HRF[iel=1,...,NEL]', rdum(1:nel)
+         WRITE (SPR, 9100) 'HRF[iel=1,...,NEL]', (HRF(IEL), IEL = 1, NEL)
          WRITE (SPR, 9100) 'ZGRUND[iel=1,...,NEL]', ZGRUND
          WRITE (SPR, 9200) 'ISORT[iel=1,...,NEL]', ISORT
-         WRITE (SPR, 9200) 'position_in_ISORT[iel=1,...,NEL]', (JSORT ( &
-            IEL) , IEL = 1, NEL)
-         DO 710 FACE = 1, 4
-            WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', &
-               (QOC (IEL, FACE) , IEL = 1, NEL)
-710      END DO
-!
-         CALL ERROR (ERR, 2003, SPR, 0, 0, 'Error(s) detected'//' while checking time-dependent WAT-SY interface')
-!
-      ENDIF
-!
+         WRITE (SPR, 9200) 'position_in_ISORT[iel=1,...,NEL]', (JSORT (IEL), IEL = 1, NEL)
+         
+         DO FACE = 1, 4
+            WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC (IEL, FACE), IEL = 1, NEL)
+         END DO
+   !
+         CALL ERROR (ERR, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
+   !
+      END IF
+
+      RETURN
+
+      ! FORMAT STATEMENTS safely at the bottom
 9100  FORMAT(1X,A,     ':'/1P,(8E10.2))
 9150  FORMAT(1X,A,I1,A,':'/1P,(8E10.2))
 9200  FORMAT(1X,A,     ':'/   (16I5  ))
-!
-   END SUBROUTINE SYERR3
 
+   CONTAINS
+
+      ! Modern replacement for the legacy Statement Function
+      PURE DOUBLE PRECISION FUNCTION FNQOUT(ELEM, FCE)
+         INTEGER, INTENT(IN) :: ELEM, FCE
+         ! Calculates Water Discharge Rate
+         FNQOUT = SIGN(1.0D0, 2.0D0 - DBLE(FCE)) * QOC(ELEM, FCE)
+      END FUNCTION FNQOUT
+
+   END SUBROUTINE SYERR3
 
 
 
@@ -2421,8 +2449,9 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: DHF (NELEE, 4), DXQQ (NLF + 1:NEL), DYQQ (NLF + 1:NEL)
       DOUBLE PRECISION, INTENT(IN) :: THSAT (NS), ZBFULL (NLFEE), ZGRUND (NEL)
       DOUBLE PRECISION, INTENT(IN) :: DTUZ, TIH, UZNOW
-      DOUBLE PRECISION, INTENT(IN) :: ARXL (NLFEE), CLAI (NV), DRAINA (NLF + 1:NEL), HRF (NEL)
-      DOUBLE PRECISION, INTENT(IN) :: PLAI (NV), PNETTO (NLF + 1:NEL), QOC (NELEE, 4)
+      DOUBLE PRECISION, INTENT(INOUT) :: ARXL (NLFEE), CLAI (NV), DRAINA (NLF + 1:NEL), HRF (NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: PLAI (NV)
+      DOUBLE PRECISION, INTENT(IN) :: PNETTO (NLF + 1:NEL), QOC (NELEE, 4)
       LOGICAL, INTENT(IN)          :: BEXBK, LINKNS (NLFEE)
 
       ! Input/output arguments

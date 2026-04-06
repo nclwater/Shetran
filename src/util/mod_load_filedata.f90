@@ -9,7 +9,6 @@
 !> @brief Gets the input filename(s) and methdos for reading data from files.
 !
 !> @todo figure out for each method what the variable intents are.
-!> @todo replace the GOTO-jumps to outisde a loop with EXIT
 !> @todo replace the _set var_ then _overwrite, if_ if _if_ or _case_ statements
 !> @todo replace the array init with the now standard way (subroutine ALINIT)
 !> @todo combine / clean ALREAD, ALRED2, ALREDI, ALREDF, ALREDL, ALREDC
@@ -248,7 +247,7 @@ CONTAINS
    !> @author ?
    !
    !> @brief
-   !! Reads the catagory type for each grid, bank elements take the
+   !! Reads the category type for each grid, bank elements take the
    !! same category type as the adjacent grid element
    !! There must be nine or fewer category types
    !
@@ -258,63 +257,67 @@ CONTAINS
    ! ?        - ?      - Initial version
    !---------------------------------------------------------------------------
    SUBROUTINE ALALLI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX,  &
-      NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
-      LINKNS, CATTYP, IDUM)
+                      NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
+                      LINKNS, CATTYP, IDUM)
+
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, FFFATAL, ERROR, ALREDI
+
+      IMPLICIT NONE
 
       ! INPUT ARGUMENTS
-      INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES !< number of category types
-      INTEGER(kind=I_P)   :: IUNIT, OUNIT, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE
-      INTEGER(kind=I_P)   :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2),              &
-         ICMREF (NELEE, 4, 2:2)
-      LOGICAL             :: BEXBK, LINKNS (NLFEE)
-      CHARACTER (LEN=*)   :: LINE
+      INTEGER(kind=I_P), INTENT(IN) :: NUM_CATEGORIES_TYPES !< number of category types
+      INTEGER(kind=I_P), INTENT(IN) :: IUNIT, OUNIT, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE
+      INTEGER(kind=I_P), INTENT(IN) :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:2)
+      LOGICAL, INTENT(IN)           :: BEXBK, LINKNS (NLFEE)
+      CHARACTER (LEN=*), INTENT(IN) :: LINE
 
       ! OUPUT ARGUMENTS
-      INTEGER(kind=I_P)   :: CATTYP (NLF + 1:NEL)
+      INTEGER(kind=I_P), INTENT(OUT):: CATTYP (NLF + 1:NEL)
 
       ! WORKSPACE ARGUMENTS
-      INTEGER, DIMENSION(:), INTENT(IN)   :: IDUM
+      ! Changed to INTENT(INOUT) to fix compiler conflict with ALREDI modification
+      INTEGER(kind=I_P), INTENT(INOUT) :: IDUM (*)
 
       ! LOCALS ETC.
-      !
-      ! integers from ALBANK
-      INTEGER(kind=I_P)   :: BANK1, BANK2, FACE1, FACE2, GRID1, GRID2, ISNS,  &
-         LINK
-      ! integers from ALALLF
-      INTEGER(kind=I_P)   :: ICAT, IEL, X, XY0, Y
+      INTEGER(kind=I_P) :: BANK1, BANK2, FACE1, FACE2, GRID1, GRID2, ISNS, LINK
+      INTEGER(kind=I_P) :: ICAT, IEL, X, XY0, Y
 
       ! Code =================================================================
 
-      ! Read the catagory type for each element
+      ! Read the category type for each element
       CALL ALREDI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NX, NY, IDUM)
+      
       DO Y = 1, NY
          XY0 = (Y - 1) * NX
          DO X = 1, NX
             IEL = ICMXY (X, Y)
             IF (IEL > 0) THEN
                ICAT = IDUM (XY0 + X)
+               
                IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
-                  CALL ERROR (FFFATAL, 3090, OUNIT, 0, 0,                 &
-                     'Error in ALALLI -reading spatially distributed category types')
-               ENDIF
+                  CALL ERROR (FFFATAL, 3090, OUNIT, 0, 0, &
+                              'Error in ALALLI -reading spatially distributed category types')
+               END IF
+               
                CATTYP (IEL) = ICAT
-            ENDIF
+            END IF
          END DO
       END DO
 
       ! All grid elements are defined - now set bank element values
       ! Copied from ALBANK except an INTEGER(kind=I_P) array CATTYP is used
       ! instead of the floating point array.
-      IF (NLF > 0.AND.BEXBK) THEN
+      IF (NLF > 0 .AND. BEXBK) THEN
          ! Loop over channel links
          DO LINK = 1, NLF
 
             ! Determine orientation of link
             ISNS = 0
-            IF (LINKNS (LINK) ) ISNS = 1
+            IF (LINKNS (LINK)) ISNS = 1
 
             ! For each side of the channel: Determine adjacent bank element
-            ! number, the number of it's face that lies opposite to the
+            ! number, the number of its face that lies opposite to the
             ! channel, and the number of the grid element adjacent to
             ! that face.
             BANK1 = ICMBK (LINK, 1)
@@ -324,9 +327,9 @@ CONTAINS
             GRID1 = ICMREF (BANK1, FACE1, 2)
             GRID2 = ICMREF (BANK2, FACE2, 2)
 
-            ! If the grid ( as defined above ) does not exist, then use
-            ! the grid corresponding to the opposite side of the channe
-            ! ( precondition on ICMREF disallows GRID1 & GRID2 both zero )
+            ! If the grid (as defined above) does not exist, then use
+            ! the grid corresponding to the opposite side of the channel
+            ! (precondition on ICMREF disallows GRID1 & GRID2 both zero)
             IF (GRID1 == 0) GRID1 = GRID2
             IF (GRID2 == 0) GRID2 = GRID1
 
@@ -334,12 +337,9 @@ CONTAINS
             ! from the grid to its corresponding bank
             CATTYP (BANK1) = CATTYP (GRID1)
             CATTYP (BANK2) = CATTYP (GRID2)
-            !
-            ! Next channel link
+            
          END DO
-      ENDIF
-
-      return
+      END IF
 
    END SUBROUTINE ALALLI
 
@@ -435,20 +435,25 @@ CONTAINS
    ! 19940722 - ?      - Initial version
    ! 19940817 - AB/RAH - Version 3.4.1
    !---------------------------------------------------------------------------
-   SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME,           &
-      OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
+   SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
+                     OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
+
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, R8P, ERROR
+
+      IMPLICIT NONE
 
       ! Input arguments
-      INTEGER(kind=I_P)               :: ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3
+      INTEGER(kind=I_P), INTENT(IN)   :: ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3
       CHARACTER(LEN=*), INTENT(IN)    :: SNAME, OP
-      REAL(kind=R8P)                  :: OBJ (N0: * ), TOL
+      REAL(kind=R8P), INTENT(IN)      :: OBJ (N0: *), TOL
 
       ! Input/output arguments
-      REAL(kind=R8P)      :: SUBJ (N0:N1)
-      INTEGER(kind=I_P)   :: COUNT
+      REAL(kind=R8P), INTENT(INOUT)   :: SUBJ (N0:N1)
+      INTEGER(kind=I_P), INTENT(INOUT):: COUNT
 
       ! Workspace arguments
-      LOGICAL             :: NOTOK (N0:N1)
+      LOGICAL, INTENT(OUT)            :: NOTOK (N0:N1)
 
       ! Locals, etc
       INTEGER(kind=I_P)   :: COUNT0, COUNT1, I, INCOBJ, IOBJ, IX (3), NDIM
@@ -461,44 +466,41 @@ CONTAINS
 
       ! Code =================================================================
 
-      !
       ! How many subscripts are there? (ignore any after the 3rd)
       ! ------------------------------
-      !
       SLEN = LEN (SNAME)
       POS1 = 0
       POS2 = INDEX (SNAME, '(')
-      DO NDIM = 0, 2
-         IF (POS2 > POS1.AND.POS2 < SLEN) THEN
+      
+      dim_loop: DO NDIM = 0, 2
+         IF (POS2 > POS1 .AND. POS2 < SLEN) THEN
             IF (NDIM == 1) IX (2) = IX2
             IF (NDIM == 2) IX (3) = IX3
             POS1 = POS2
-            POS2 = POS1 + INDEX (SNAME (POS1 + 1:) , ',')
+            POS2 = POS1 + INDEX (SNAME (POS1 + 1:), ',')
          ELSE
-            GOTO 101
-         ENDIF
-      END DO
+            EXIT dim_loop
+         END IF
+      END DO dim_loop
 
-      ! If this point is traversed NDIM=3; if skipped NDIM<3
-101   CONTINUE
+      ! If this point is traversed normally, NDIM=3; if exited early, NDIM<3
 
       ! What action is required?
       ! ------------------------
-      !
       BRESET = ACTION < 0
       OP1    = OP (1:1)
       OP2    = OP (2:2)
-      SGN    = + 1
-      IF (OP1 == 'G') SGN = - 1
+      SGN    = +1
+      IF (OP1 == 'G') SGN = -1
+      
       INCOBJ = 0
-      IF (OP (LEN (OP) :)  == 'a') INCOBJ = 1
+      IF (OP (LEN (OP) :) == 'a') INCOBJ = 1
 
       ! Store test results in logical workspace array
       ! ---------------------------------------------
-      !
       ! Note:  i Code is replicated to enable vectorization of loops.
-      !   ii "Requirements" are approximate if TOL>0.
-      !
+      !       ii "Requirements" are approximate if TOL>0.
+      
       IOBJ = N0
 
       IF (OP2 == 'T') THEN
@@ -506,16 +508,16 @@ CONTAINS
          DO I = N0, N1
             SB        = SUBJ (I)
             OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB) >= TOL * MAX (ABS (SB), ABS (OB) )
+            NOTOK (I) = SGN * (SB - OB) >= TOL * MAX (ABS (SB), ABS (OB))
             IOBJ      = IOBJ + INCOBJ
          END DO
 
-      ELSEIF (OP2 == 'E') THEN
+      ELSE IF (OP2 == 'E') THEN
          ! require SUBJ <= OBJ or SUBJ >= OBJ (depending on SGN)
          DO I = N0, N1
             SB        = SUBJ (I)
             OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB)  > TOL * MAX (ABS (SB), ABS (OB) )
+            NOTOK (I) = SGN * (SB - OB)  > TOL * MAX (ABS (SB), ABS (OB))
             IOBJ      = IOBJ + INCOBJ
          END DO
 
@@ -527,54 +529,51 @@ CONTAINS
             NOTOK (I) = ABS (SB - OB)  > TOL * MAX (ABS (SB), ABS (OB))
             IOBJ      = IOBJ + INCOBJ
          END DO
-      ENDIF
+      END IF
 
       ! Count the non-conformances and fix them if required
       ! ---------------------------------------------------
-      !
       ! Note: Non-vectorizing loop: keep it short
-      !
+      
       COUNT0 = COUNT
       IOBJ   = N0 + INCOBJ * (N1 - N0)
 
       ! step backwards so that IX(1), SB & OB refer to 1st non-conformer
-      DO I = N1, N0, - 1
-         IF (NOTOK (I) ) THEN
+      DO I = N1, N0, -1
+         IF (NOTOK (I)) THEN
             COUNT  = COUNT + 1
             IX (1) = I
             SB     = SUBJ (I)
             OB     = OBJ (IOBJ)
             IF (BRESET) SUBJ (I) = OB
-         ENDIF
+         END IF
          IOBJ = IOBJ - INCOBJ
       END DO
 
       ! Report findings
       ! ---------------
-      !
       COUNT1 = COUNT - COUNT0
       IF (COUNT1 > 0) THEN
-         CACT             = 'Checking'
+         CACT = 'Checking'
          IF (BRESET) CACT = 'Resetting'
 
          ! print the first occurrence ...
-         rrr = sb  !AD
-         WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, rrr, (IX (P),           &
-            P = 1, NDIM)
+         rrr = SB  !AD
+         WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, rrr, (IX (P), P = 1, NDIM)
          CALL ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
 
          IF (COUNT1 > 1) THEN
             ! ... and allude to any others
             WRITE (MSG, 9010) COUNT1 - 1
             CALL ERROR (0, 12, OUNIT, 0, 0, MSG)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Format Statements ----------------------------------------------------
-9000  FORMAT( A,1X,A,': expected .',A,'.',1P,G15.7,' but found',G15.7:        &
-         ' at position', I5, 2( : ',', I4 ))
-9010  FORMAT('... and similarly at', I4,                                      &
-         ' other positions in the same vector')
+9000  FORMAT(A, 1X, A, ': expected .', A, '.', 1P, G15.7, ' but found', G15.7: &
+             ' at position', I5, 2(:, ',', I4))
+9010  FORMAT('... and similarly at', I4, &
+             ' other positions in the same vector')
 
    END SUBROUTINE ALCHK
 
@@ -598,89 +597,88 @@ CONTAINS
    ! 19940722 - ?      - Initial version
    ! 19940817 - AB/RAH - Version 3.4.1
    !---------------------------------------------------------------------------
-   SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME,          &
-      OP, OBJ, SUBJ, COUNT, NOTOK)
+   SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
+                      OP, OBJ, SUBJ, COUNT, NOTOK)
+
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, ERROR
+
+      IMPLICIT NONE
 
       ! Input arguments
-      INTEGER(kind=I_P)   :: ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3
-      CHARACTER (LEN=*)   :: SNAME, OP
-      INTEGER(kind=I_P)   :: OBJ (N0: * )
+      INTEGER(kind=I_P), INTENT(IN)    :: ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3
+      CHARACTER(LEN=*), INTENT(IN)     :: SNAME, OP
+      INTEGER(kind=I_P), INTENT(IN)    :: OBJ (N0:*)
 
       ! Input/output arguments
-      INTEGER(kind=I_P)   :: SUBJ (N0:N1)
-      INTEGER(kind=I_P)   :: COUNT
+      INTEGER(kind=I_P), INTENT(INOUT) :: SUBJ (N0:N1)
+      INTEGER(kind=I_P), INTENT(INOUT) :: COUNT
 
       ! Workspace arguments
-      LOGICAL     :: NOTOK (N0:N1)
+      LOGICAL, INTENT(OUT)             :: NOTOK (N0:N1)
 
       ! Locals, etc
-      INTEGER(kind=I_P)   :: COUNT0, COUNT1, I, INCOBJ, IOBJ, IX (3), NDIM
-      INTEGER(kind=I_P)   :: P, POS1, POS2, SGN, SLEN
-      INTEGER(kind=I_P)   :: SB, OB, iii
-      LOGICAL             :: BRESET
-      CHARACTER(len=9)    :: CACT
-      CHARACTER(len=132)  :: MSG
-      CHARACTER           :: OP1, OP2
-
+      INTEGER(kind=I_P)  :: COUNT0, COUNT1, I, INCOBJ, IOBJ, IX (3), NDIM
+      INTEGER(kind=I_P)  :: P, POS1, POS2, SGN, SLEN
+      INTEGER(kind=I_P)  :: SB, OB, iii
+      LOGICAL            :: BRESET
+      CHARACTER(len=9)   :: CACT
+      CHARACTER(len=132) :: MSG
+      CHARACTER          :: OP1, OP2
 
       ! Code =================================================================
 
-      !
       ! How many subscripts are there? (ignore any after the 3rd)
       ! ------------------------------
-      !
       SLEN = LEN (SNAME)
       POS1 = 0
       POS2 = INDEX (SNAME, '(')
-      DO NDIM = 0, 2
-         IF (POS2 > POS1.AND.POS2 < SLEN) THEN
+      
+      dim_loop: DO NDIM = 0, 2
+         IF (POS2 > POS1 .AND. POS2 < SLEN) THEN
             IF (NDIM == 1) IX (2) = IX2
             IF (NDIM == 2) IX (3) = IX3
             POS1 = POS2
-            POS2 = POS1 + INDEX (SNAME (POS1 + 1:) , ',')
+            POS2 = POS1 + INDEX (SNAME (POS1 + 1:), ',')
          ELSE
-            GOTO 101
-         ENDIF
-      END DO
+            EXIT dim_loop
+         END IF
+      END DO dim_loop
 
-      ! If this point is traversed NDIM=3; if skipped NDIM<3
-101   CONTINUE
+      ! If this point is traversed normally, NDIM=3; if exited early, NDIM<3
 
-      !
       ! What action is required?
       ! ------------------------
-      !
       BRESET = ACTION < 0
       OP1    = OP (1:1)
       OP2    = OP (2:2)
-      SGN    = + 1
-      IF (OP1 == 'G') SGN = - 1
+      SGN    = +1
+      IF (OP1 == 'G') SGN = -1
+      
       INCOBJ = 0
-      IF (OP (LEN (OP) :)  == 'a') INCOBJ = 1
+      IF (OP (LEN (OP) :) == 'a') INCOBJ = 1
 
-      !
       ! Store test results in logical workspace array
       ! ---------------------------------------------
-      !
       ! Note:  i Code is replicated to enable vectorization of loops.
-      !
+      
       IOBJ = N0
-      !
+      
       IF (OP2 == 'T') THEN
          ! require SUBJ < OBJ or SUBJ > OBJ (depending on SGN)
          DO I = N0, N1
             SB        = SUBJ (I)
             OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB)  >= 0
+            NOTOK (I) = SGN * (SB - OB) >= 0
             IOBJ      = IOBJ + INCOBJ
          END DO
 
-      ELSEIF (OP2 == 'E') THEN
+      ELSE IF (OP2 == 'E') THEN
          ! require SUBJ <= OBJ or SUBJ >= OBJ (depending on SGN)
          DO I = N0, N1
             SB        = SUBJ (I)
             OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB)  > 0
+            NOTOK (I) = SGN * (SB - OB) > 0
             IOBJ      = IOBJ + INCOBJ
          END DO
 
@@ -689,58 +687,54 @@ CONTAINS
          DO I = N0, N1
             SB        = SUBJ (I)
             OB        = OBJ (IOBJ)
-            NOTOK (I) = ABS (SB - OB)  > 0
+            NOTOK (I) = ABS (SB - OB) > 0
             IOBJ      = IOBJ + INCOBJ
          END DO
-      ENDIF
+      END IF
 
-      !
       ! Count the non-conformances and fix them if required
       ! ---------------------------------------------------
-      !
       ! Note: Non-vectorizing loop: keep it short
-      !
+      
       COUNT0 = COUNT
       IOBJ   = N0 + INCOBJ * (N1 - N0)
 
       ! step backwards so that IX(1), SB & OB refer to 1st non-conformer
-      DO I = N1, N0, - 1
-         IF (NOTOK (I) ) THEN
+      DO I = N1, N0, -1
+         IF (NOTOK (I)) THEN
             COUNT  = COUNT + 1
             IX (1) = I
             SB     = SUBJ (I)
             OB     = OBJ (IOBJ)
             IF (BRESET) SUBJ (I) = OB
-         ENDIF
+         END IF
          IOBJ = IOBJ - INCOBJ
       END DO
 
-      !
       ! Report findings
       ! ---------------
-      !
       COUNT1 = COUNT - COUNT0
       IF (COUNT1 > 0) THEN
          CACT = 'Checking'
          IF (BRESET) CACT = 'Resetting'
 
          ! print the first occurrence ...
-         iii = sb !AD
-         WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, iii, (IX (P),           &
-            P = 1, NDIM)
+         iii = SB !AD
+         WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, iii, (IX (P), P = 1, NDIM)
          CALL ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
 
          IF (COUNT1 > 1) THEN
             ! ... and allude to any others
             WRITE (MSG, 9010) COUNT1 - 1
             CALL ERROR (0, 12, OUNIT, 0, 0, MSG)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Format Statements ----------------------------------------------------
-9000  FORMAT( A,1X,A,': expected .',A,'.',I12,' but found',I12:               &
-         ' at position', I5, 2( : ',', I4 ))
-9010  FORMAT( '... and similarly at', I4, ' other positions in the same vector')
+9000  FORMAT(A, 1X, A, ': expected .', A, '.', I12, ' but found', I12: &
+             ' at position', I5, 2(:, ',', I4))
+9010  FORMAT('... and similarly at', I4, &
+             ' other positions in the same vector')
 
    END SUBROUTINE ALCHKI
 
@@ -765,34 +759,37 @@ CONTAINS
    ! ?        - ?      - Initial version
    !---------------------------------------------------------------------------
    SUBROUTINE ALINTP (LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES,     &
-      MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
-      NCOLMB, NTAB,TABLE_CONCENTRATION, TABLE_WATER_DEPTH,     &
-      DELTAZ, ZVSNOD, CELL_CONCENTRATION)
+                      MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
+                      NCOLMB, NTAB, TABLE_CONCENTRATION, TABLE_WATER_DEPTH,    &
+                      DELTAZ, ZVSNOD, CELL_CONCENTRATION)
+
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, R8P, two
+
+      IMPLICIT NONE
 
       ! INPUT ARGUMENTS
-      INTEGER(kind=I_P)   :: LLEE, NCETOP, NEL, NELEE, NLF
-      INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES     !< number of category types
-      INTEGER(kind=I_P)   :: MAX_NUM_CATEGORY_TYPES   !< maximum number of category types
-      INTEGER(kind=I_P)   :: MAX_NUM_DATA_PAIRS       !< maximum number of data pairs
-      INTEGER(kind=I_P)   :: NCATTY (NLF + 1:NEL), NCOLMB (NLF + 1:NEL)
-      INTEGER(kind=I_P)   :: NTAB (NUM_CATEGORIES_TYPES)
-      REAL(kind=R8P)      :: TABLE_CONCENTRATION                              &
-         (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS)    !< table of concentrations
-      REAL(kind=R8P)      :: TABLE_WATER_DEPTH                                &
-         (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS)    !< table of water depths
-      REAL(kind=R8P)      :: DELTAZ (LLEE, NELEE), ZVSNOD (LLEE, NELEE)
+      INTEGER(kind=I_P), INTENT(IN) :: LLEE, NCETOP, NEL, NELEE, NLF
+      INTEGER(kind=I_P), INTENT(IN) :: NUM_CATEGORIES_TYPES   !< number of category types
+      INTEGER(kind=I_P), INTENT(IN) :: MAX_NUM_CATEGORY_TYPES !< maximum number of category types
+      INTEGER(kind=I_P), INTENT(IN) :: MAX_NUM_DATA_PAIRS     !< maximum number of data pairs
+      INTEGER(kind=I_P), INTENT(IN) :: NCATTY (NLF + 1:NEL), NCOLMB (NLF + 1:NEL)
+      INTEGER(kind=I_P), INTENT(IN) :: NTAB (NUM_CATEGORIES_TYPES)
+      
+      REAL(kind=R8P), INTENT(IN)    :: TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) !< table of concentrations
+      REAL(kind=R8P), INTENT(IN)    :: TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS)   !< table of water depths
+      REAL(kind=R8P), INTENT(IN)    :: DELTAZ (LLEE, NELEE), ZVSNOD (LLEE, NELEE)
 
       ! OUTPUT ARGUMENTS
-      REAL(kind=R8P)      :: CELL_CONCENTRATION (NEL, NCETOP) !< concentration in each cell
+      REAL(kind=R8P), INTENT(OUT)   :: CELL_CONCENTRATION (NEL, NCETOP) !< concentration in each cell
 
       ! LOCALS ETC.
-      INTEGER(kind=I_P)   :: NCL, NELM, NCATG, NINTB, NTABLE, NTHRTB
-      REAL(kind=R8P)      :: DEPTH
-
+      INTEGER(kind=I_P) :: NCL, NELM, NCATG, NINTB, NTABLE, NTHRTB
+      REAL(kind=R8P)    :: DEPTH
 
       ! Code =================================================================
 
-      DO NELM = NLF + 1, NEL
+      element_loop: DO NELM = NLF + 1, NEL
          ! Category number for the element
          NCATG = NCATTY (NELM)
 
@@ -801,35 +798,37 @@ CONTAINS
 
          ! The first depth in the table must be zero and the top
          ! cell is set to take the concentration at this depth
-         CELL_CONCENTRATION (NELM, NCETOP) =TABLE_CONCENTRATION (NCATG, 1)
-         DEPTH                = DELTAZ (NCETOP, NELM) / two
-         NTHRTB               = 2
-         DO NCL = NCETOP - 1, NCOLMB (NELM), - 1
+         CELL_CONCENTRATION (NELM, NCETOP) = TABLE_CONCENTRATION (NCATG, 1)
+         DEPTH  = DELTAZ (NCETOP, NELM) / two
+         NTHRTB = 2
+         
+         cell_loop: DO NCL = NCETOP - 1, NCOLMB (NELM), -1
 
             DEPTH = DEPTH + (ZVSNOD (NCL + 1, NELM) - ZVSNOD (NCL, NELM))
+            
             ! The depth of the cell is greater than the lowest depth in
             ! the table and the cell takes the value of the concentration
             ! at the lowest specified depth
-            IF (DEPTH >= TABLE_WATER_DEPTH (NCATG, NINTB) ) THEN
-               CELL_CONCENTRATION (NELM, NCL) =TABLE_CONCENTRATION (NCATG, NINTB)
-               CYCLE    ! SvenB: was a GOTO before, I assume jump to outer loop (both label:140)
-            ENDIF
+            IF (DEPTH >= TABLE_WATER_DEPTH (NCATG, NINTB)) THEN
+               CELL_CONCENTRATION (NELM, NCL) = TABLE_CONCENTRATION (NCATG, NINTB)
+               CYCLE cell_loop
+            END IF
 
-            DO NTABLE = NTHRTB, NINTB
-               IF (DEPTH <= TABLE_WATER_DEPTH (NCATG, NTABLE) ) GOTO 300
-               !                                  ^^^^^^^^^
+            ! Find the correct interval for interpolation
+            search_loop: DO NTABLE = NTHRTB, NINTB
+               IF (DEPTH <= TABLE_WATER_DEPTH (NCATG, NTABLE)) EXIT search_loop
                NTHRTB = NTHRTB + 1
-            END DO
+            END DO search_loop
 
-300         CELL_CONCENTRATION (NELM, NCL) =                                &
-               TABLE_CONCENTRATION (NCATG, NTABLE-1)                       &
-               + (TABLE_CONCENTRATION (NCATG, NTABLE)                      &
-               - TABLE_CONCENTRATION (NCATG, NTABLE-1) )                   &
-               * ((DEPTH - TABLE_WATER_DEPTH (NCATG, NTABLE-1))            &
-               / (TABLE_WATER_DEPTH (NCATG, NTABLE)                        &
-               - TABLE_WATER_DEPTH (NCATG, NTABLE-1)))
-         END DO
-      END DO
+            ! Calculate concentration by linear interpolation
+            CELL_CONCENTRATION (NELM, NCL) = &
+               TABLE_CONCENTRATION (NCATG, NTABLE - 1) + &
+               (TABLE_CONCENTRATION (NCATG, NTABLE) - TABLE_CONCENTRATION (NCATG, NTABLE - 1)) * &
+               ((DEPTH - TABLE_WATER_DEPTH (NCATG, NTABLE - 1)) / &
+               (TABLE_WATER_DEPTH (NCATG, NTABLE) - TABLE_WATER_DEPTH (NCATG, NTABLE - 1)))
+
+         END DO cell_loop
+      END DO element_loop
 
    END SUBROUTINE ALINTP
 
@@ -851,22 +850,29 @@ CONTAINS
    ! 19970804 - RAH    - 4.1  Add END specifiers to READs in options 6 & 7.
    !                     Renumber error 13 as 16 (was unauthorized).
    !---------------------------------------------------------------------------
-   SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES,  &
-      CDATA, IDATA, RDATA)
+   SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
+                      CDATA, IDATA, RDATA)
+
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, R8P, WWWARN, FFFATAL, HEAD0_alread, ERROR
+
+      IMPLICIT NONE
 
       ! Input arguments
-      INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT, N1, N2, NUM_CATEGORIES_TYPES
-      CHARACTER (LEN=*)   :: LINE
+      INTEGER(kind=I_P), INTENT(IN) :: FLAG, IUNIT, OUNIT, N1, N2, NUM_CATEGORIES_TYPES
+      CHARACTER (LEN=*), INTENT(IN) :: LINE
 
       ! Output arguments
-      CHARACTER (LEN=*)   :: CDATA
-      INTEGER(kind=I_P)   :: IDATA (N1, N2)
-      REAL(kind=R8P)      :: RDATA (N1, N2)
+      CHARACTER (LEN=*), INTENT(OUT)  :: CDATA
+      INTEGER(kind=I_P), INTENT(OUT)  :: IDATA (N1, N2)
+      REAL(kind=R8P), INTENT(OUT)     :: RDATA (N1, N2)
 
       ! Locals, etc
-      ! sb 02102025 increased msg from 132 to 140
-      CHARACTER (LEN=80)  :: HEAD, MSG * 140, FILNAM * 48, FORM * 17
-      INTEGER(kind=I_P)   :: IX, IY, KY, IDUM1, IDUM2, ICOUNT, I
+      CHARACTER (LEN=80)  :: HEAD
+      CHARACTER (LEN=140) :: MSG 
+      CHARACTER (LEN=48)  :: FILNAM 
+      CHARACTER (LEN=17)  :: FORM
+      INTEGER(kind=I_P)   :: IX, IY, KY, IDUM1, IDUM2, ICOUNT, I, ios
       LOGICAL             :: BOPEN, BNAMED
 
       ! Code =================================================================
@@ -877,102 +883,132 @@ CONTAINS
 
       IF (FLAG > 0) THEN
          ! Check data header against what the caller expects to find
-         READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
-         IF (INDEX (HEAD, LINE)  == 0) THEN
+         READ (IUNIT, '(A)', IOSTAT=ios) HEAD
+         
+         IF (ios /= 0) THEN
+            WRITE (MSG, 9801) LINE, HEAD0_alread
+            CALL throw_fatal(3, MSG)
+         END IF
+         
+         IF (INDEX (HEAD, LINE) == 0) THEN
             WRITE (MSG, 9002) LINE, HEAD
             CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
-         ENDIF
+         END IF
 
       ELSE
          ! Get file status and name
          INQUIRE (IUNIT, OPENED = BOPEN, NAMED = BNAMED, NAME = FILNAM)
-         IF (.NOT.BNAMED) FILNAM = '(no name)'
-      ENDIF
+         IF (.NOT. BNAMED) FILNAM = '(no name)'
+      END IF
 
       ! Take Specified Action
       ! ---------------------
-
+      SELECT CASE (FLAG)
+      
       ! Check that input file is open
-      IF (FLAG == 0) THEN
-         IF (.NOT.BOPEN) GOTO 8000
+      CASE (0)
+         IF (.NOT. BOPEN) THEN
+            WRITE (MSG, 9000) LINE, 'not open', IUNIT
+            CALL throw_fatal(4, MSG)
+         END IF
 
          ! Write (and store) an informative message
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
          WRITE (OUNIT, 9001) HEAD
 
-         ! Close input file
-      ELSEIF (FLAG ==  - 1) THEN
-
+      ! Close input file
+      CASE (-1)
          CLOSE (IUNIT)
 
          ! Write (and store) an informative message
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
          WRITE (OUNIT, 9001) HEAD
 
-         ! Read a character string
-      ELSEIF (FLAG == 1) THEN
-         READ (IUNIT, '(A)', ERR = 8100, END = 8100) CDATA
+      ! Read a character string
+      CASE (1)
+         READ (IUNIT, '(A)', IOSTAT=ios) CDATA
+         IF (ios /= 0) THEN
+            WRITE (MSG, 9810) 'character', HEAD
+            CALL throw_fatal(5, MSG)
+         END IF
 
-         ! Read an INTEGER(kind=I_P) array
-      ELSEIF (FLAG == 2) THEN
-         READ (IUNIT, *, ERR = 8200, END = 8200) IDATA
+      ! Read an INTEGER(kind=I_P) array
+      CASE (2)
+         READ (IUNIT, *, IOSTAT=ios) IDATA
+         IF (ios /= 0) THEN
+            WRITE (MSG, 9810) 'integer', HEAD
+            CALL throw_fatal(6, MSG)
+         END IF
 
-         ! Read a floating-point array
-      ELSEIF (FLAG == 3) THEN
-         READ (IUNIT, *, ERR = 8300, END = 8300) RDATA
+      ! Read a floating-point array
+      CASE (3)
+         READ (IUNIT, *, IOSTAT=ios) RDATA
+         IF (ios /= 0) THEN
+            WRITE (MSG, 9810) 'floating-point', HEAD
+            CALL throw_fatal(7, MSG)
+         END IF
 
-         ! Read an INTEGER(kind=I_P) grid array
-      ELSEIF (FLAG == 4) THEN
-
+      ! Read an INTEGER(kind=I_P) grid array
+      CASE (4)
          ! Set format string to read single digit integers if possible
          IF (NUM_CATEGORIES_TYPES < 10) WRITE (FORM, 9410) N1
 
          ! All grid rows: North to South
-         DO IY = N2, 1, - 1
+         DO IY = N2, 1, -1
             IF (NUM_CATEGORIES_TYPES < 10) THEN
-               READ (IUNIT, FORM, ERR = 8420, END = 8420) KY,              &
-                  (IDATA (IX, IY), IX = 1, N1)
-
+               READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
             ELSE
-               READ (IUNIT, *, ERR = 8420, END = 8420) KY,                 &
-                  (IDATA (IX, IY), IX = 1, N1)
-            ENDIF
+               READ (IUNIT, *, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
+            END IF
 
-            IF (KY .NE. IY) GOTO 8420
+            IF (ios /= 0 .OR. KY /= IY) THEN
+               WRITE (MSG, 9842) 'integer', IY, HEAD
+               CALL throw_fatal(10, MSG)
+            END IF
          END DO
 
-         ! Read a floating point grid array
-      ELSEIF (FLAG == 5) THEN
-
+      ! Read a floating point grid array
+      CASE (5)
          ! All grid rows: North to South
-         DO IY = N2, 1, - 1
-            READ (IUNIT, *, ERR = 8430, END = 8430) KY,                     &
-               (RDATA (IX, IY), IX = 1, N1)
-            IF (KY .NE. IY) GOTO 8430
+         DO IY = N2, 1, -1
+            READ (IUNIT, *, IOSTAT=ios) KY, (RDATA (IX, IY), IX = 1, N1)
+            IF (ios /= 0 .OR. KY /= IY) THEN
+               WRITE (MSG, 9842) 'floating-point', IY, HEAD
+               CALL throw_fatal(11, MSG)
+            END IF
          END DO
 
-         ! Read data in VSS format for each element
-      ELSEIF (FLAG == 6) THEN
-
+      ! Read data in VSS format for each element
+      CASE (6)
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
-            READ (IUNIT, *, ERR = 8600, END = 8600) IDUM1, IDUM2
-            READ (IUNIT, *, ERR = 8600, END = 8600) (IDATA (IDUM1, I),      &
-               I = 1, IDUM2)
-            READ (IUNIT, *, ERR = 8600, END = 8600) (RDATA (IDUM1, I),      &
-               I = 1, IDUM2)
+            READ (IUNIT, *, IOSTAT=ios) IDUM1, IDUM2
+            IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (IDATA (IDUM1, I), I = 1, IDUM2)
+            IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (RDATA (IDUM1, I), I = 1, IDUM2)
+            
+            IF (ios /= 0) THEN
+               WRITE (MSG, 9600) IDUM1, HEAD
+               CALL throw_fatal(16, MSG)
+            END IF
          END DO
 
-         ! Read soil physical property data for VSS
-      ELSEIF (FLAG == 7) THEN
-
+      ! Read soil physical property data for VSS
+      CASE (7)
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
-            READ (IUNIT, *, ERR = 8700, END = 8700) (IDATA (ICOUNT, I),     &
-               I = 1, 3)
-            IF (IDATA (ICOUNT, 1) .NE. ICOUNT) GOTO 8700
-            READ (IUNIT, *, ERR = 8700, END = 8700) (RDATA (ICOUNT, I),     &
-               I = 1, 8)
+            READ (IUNIT, *, IOSTAT=ios) (IDATA (ICOUNT, I), I = 1, 3)
+            IF (ios == 0 .AND. IDATA (ICOUNT, 1) == ICOUNT) THEN
+               READ (IUNIT, *, IOSTAT=ios) (RDATA (ICOUNT, I), I = 1, 8)
+            ELSE
+               ! Trigger the error format if the IDs don't match
+               ios = 1
+            END IF
+            
+            IF (ios /= 0) THEN
+               WRITE (MSG, 9700) ICOUNT, HEAD
+               CALL throw_fatal(14, MSG)
+            END IF
          END DO
-      ENDIF
+
+      END SELECT
 
       ! Epilogue
       ! --------
@@ -981,60 +1017,31 @@ CONTAINS
 
       RETURN
 
-      ! Errors ---------------------------------------------------------------
-
-      ! File not open
-8000  WRITE (MSG, 9000) LINE, 'not open', IUNIT
-      CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
-
-      ! Title line read error
-8010  WRITE (MSG, 9801) LINE, HEAD0_alread
-      CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
-
-      ! Char data error
-8100  WRITE (MSG, 9810) 'character', HEAD
-      CALL ERROR (FFFATAL, 5, OUNIT, 0, 0, MSG)
-
-      ! INTEGER(kind=I_P) data error
-8200  WRITE (MSG, 9810) 'integer', HEAD
-      CALL ERROR (FFFATAL, 6, OUNIT, 0, 0, MSG)
-
-      ! Real data error
-8300  WRITE (MSG, 9810) 'floating-point', HEAD
-      CALL ERROR (FFFATAL, 7, OUNIT, 0, 0, MSG)
-
-      ! INTEGER(kind=I_P) grid error
-8420  WRITE (MSG, 9842) 'integer', IY, HEAD
-      CALL ERROR (FFFATAL, 10, OUNIT, 0, 0, MSG)
-
-      ! Real grid error
-8430  WRITE (MSG, 9842) 'floating-point', IY, HEAD
-      CALL ERROR (FFFATAL, 11, OUNIT, 0, 0, MSG)
-
-      ! VSS format data errors
-8600  WRITE (MSG, 9600) IDUM1, HEAD
-      CALL ERROR (FFFATAL, 16, OUNIT, 0, 0, MSG)
-
-      ! VSS soil physical property data errors
-8700  WRITE (MSG, 9700) ICOUNT, HEAD
-      CALL ERROR (FFFATAL, 14, OUNIT, 0, 0, MSG)
-
-
       ! Format Statements ----------------------------------------------------
 
       ! -----------------
       ! Note: Take care not to exceed internal file length
 9000  FORMAT ( A, ' data file ', A, ': unit', I3: '; ', A )
 9001  FORMAT ( 1X, A/ )
-9002  FORMAT ( 'Title line mismatch: expected "', A,                          &
-         '" but found "',                   A, '"' )
+9002  FORMAT ( 'Title line mismatch: expected "', A, &
+               '" but found "', A, '"' )
 9410  FORMAT ( '(I7,1X,', I4, 'I1)' )
-9600  FORMAT ( 'Reading VSS data for item no. ',I4, ' under title: ', A )
-9700  FORMAT ( 'Reading soils data for soil no. ',I4, ' under title: ', A )
+9600  FORMAT ( 'Reading VSS data for item no. ', I4, ' under title: ', A )
+9700  FORMAT ( 'Reading soils data for soil no. ', I4, ' under title: ', A )
 9801  FORMAT ( 'Reading heading: ', A, '; last item was: ', A )
 9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
+9842  FORMAT ( 'Reading ', A, ' grid (IY=', I4, ') under title: ', A )
 
-9842  FORMAT ( 'Reading ', A, ' grid (IY=',I4, ') under title: ', A )
+
+   CONTAINS
+   
+      ! Helper routine to cleanly handle the repetitive ERROR/RETURN jumping
+      SUBROUTINE throw_fatal(err_id, err_msg)
+         INTEGER(kind=I_P), INTENT(IN) :: err_id
+         CHARACTER(LEN=*), INTENT(IN)  :: err_msg
+         
+         CALL ERROR(FFFATAL, err_id, OUNIT, 0, 0, err_msg)
+      END SUBROUTINE throw_fatal
 
    END SUBROUTINE ALREAD
 
@@ -1059,16 +1066,20 @@ CONTAINS
    !---------------------------------------------------------------------------
    SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)
 
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, FFFATAL, HEAD0_alred2, ERROR
+
+      IMPLICIT NONE
+
       ! Input arguments
-      INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT
-      CHARACTER (LEN=*)   :: LINE
-!  sb change 011025     CHARACTER (80)      :: HEAD
-!        CHARACTER(48)       :: FILNAM
-!        CHARACTER(132)      :: MSG
-      CHARACTER (152)      :: HEAD
-      CHARACTER(120)       :: FILNAM
-      CHARACTER(200)      :: MSG
-      LOGICAL             :: BOPEN, BNAMED
+      INTEGER(kind=I_P), INTENT(IN) :: FLAG, IUNIT, OUNIT
+      CHARACTER(LEN=*), INTENT(IN)  :: LINE
+
+      ! Locals
+      CHARACTER(152) :: HEAD
+      CHARACTER(120) :: FILNAM
+      CHARACTER(200) :: MSG
+      LOGICAL        :: BOPEN, BNAMED
 
       ! Code -----------------------------------------------------------------
 
@@ -1078,19 +1089,24 @@ CONTAINS
       !
       ! Get file status and name
       INQUIRE (IUNIT, OPENED = BOPEN, NAMED = BNAMED, NAME = FILNAM)
-      IF (.NOT.BNAMED) FILNAM = '(no name)'
+      IF (.NOT. BNAMED) FILNAM = '(no name)'
 
       IF (FLAG == 0) THEN
 
          ! Check that input file is open
-         IF (.NOT.BOPEN) GOTO 8000
+         IF (.NOT. BOPEN) THEN
+            WRITE (MSG, 9000) LINE, 'not open', IUNIT
+            CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
+            RETURN
+         END IF
+         
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
 
       ELSE
          ! Close input file
          CLOSE (IUNIT)
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
-      ENDIF
+      END IF
 
       ! HEAD now contains an informative message
       WRITE (OUNIT, 9001) HEAD
@@ -1100,17 +1116,9 @@ CONTAINS
 
       RETURN
 
-
-      ! Errors ---------------------------------------------------------------
-
-      ! File not open
-8000  WRITE (MSG, 9000) LINE, 'not open', IUNIT
-      CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
-
       ! Formats --------------------------------------------------------------
-9000  FORMAT ( A, ' data file ', A, ': unit', I3: '; ', A )
-
-9001  FORMAT ( 1X, A/ )
+9000  FORMAT (A, ' data file ', A, ': unit', I3: '; ', A)
+9001  FORMAT (1X, A/)
 
    END SUBROUTINE ALRED2
 
@@ -1203,71 +1211,80 @@ CONTAINS
    !---------------------------------------------------------------------------
    SUBROUTINE ALREDF (FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)
 
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, R8P, WWWARN, FFFATAL, HEAD0_alredf, ERROR
+
+      IMPLICIT NONE
+
       ! Input arguments
-      INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT
-      INTEGER(kind=I_P)   :: N1, N2
-      CHARACTER (LEN=*)   :: LINE
+      INTEGER(kind=I_P), INTENT(IN) :: FLAG, IUNIT, OUNIT
+      INTEGER(kind=I_P), INTENT(IN) :: N1, N2
+      CHARACTER (LEN=*), INTENT(IN) :: LINE
 
       ! Output arguments
-      REAL(kind=R8P)      :: FDATA (N1, N2)
+      REAL(kind=R8P), INTENT(OUT)   :: FDATA (N1, N2)
 
       ! Locals, etc
-      INTEGER(kind=I_P)   :: iy, ky, ix
-
-      CHARACTER(len=80)   :: HEAD
-      CHARACTER(len=132)  :: MSG
+      INTEGER(kind=I_P)  :: IY, KY, IX, ios
+      CHARACTER(len=80)  :: HEAD
+      CHARACTER(len=132) :: MSG
 
       ! Code =================================================================
 
-      READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
-      IF (INDEX (HEAD, LINE)  == 0) THEN
+      READ (IUNIT, '(A)', IOSTAT=ios) HEAD
+      
+      IF (ios /= 0) THEN
+         ! Title line read error
+         WRITE (MSG, 9801) LINE, HEAD0_alredf
+         CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
+         RETURN
+      END IF
+      
+      IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
          CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
-      ENDIF
+      END IF
 
       ! Read floating-point data
       ! ------------------------
       IF (FLAG == 0) THEN
          ! Simple array
-         READ (IUNIT, *, ERR = 8300, END = 8300) FDATA
+         READ (IUNIT, *, IOSTAT=ios) FDATA
+         
+         IF (ios /= 0) THEN
+            ! Real data error
+            WRITE (MSG, 9810) 'floating-point', HEAD
+            CALL ERROR (FFFATAL, 7, OUNIT, 0, 0, MSG)
+            RETURN
+         END IF
 
       ELSE
          ! Grid-based array: read indexed rows, North to South
-         DO IY = N2, 1, - 1
-            READ (IUNIT, *, ERR = 8430, END = 8430) KY, (FDATA (IX, IY),    &
-               IX = 1, N1)
-            IF (KY .NE. IY) GOTO 8430
+         DO IY = N2, 1, -1
+            READ (IUNIT, *, IOSTAT=ios) KY, (FDATA (IX, IY), IX = 1, N1)
+            
+            IF (ios /= 0 .OR. KY /= IY) THEN
+               ! Real grid error (or index mismatch)
+               WRITE (MSG, 9842) 'floating-point', IY, HEAD
+               CALL ERROR (FFFATAL, 11, OUNIT, 0, 0, MSG)
+               RETURN
+            END IF
          END DO
-      ENDIF
+      END IF
 
       RETURN
-
-      ! Error ----------------------------------------------------------------
-
-      ! Title line read error
-8010  WRITE (MSG, 9801) LINE, HEAD0_alredf
-      CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
-
-      ! Real data error
-8300  WRITE (MSG, 9810) 'floating-point', HEAD
-      CALL ERROR (FFFATAL, 7, OUNIT, 0, 0, MSG)
-
-      ! Real grid error
-8430  WRITE (MSG, 9842) 'floating-point', IY, HEAD
-      CALL ERROR (FFFATAL, 11, OUNIT, 0, 0, MSG)
 
       ! Format ---------------------------------------------------------------
       !
       ! Note: Take care not to exceed internal file length
       !
-9002  FORMAT ( 'Title line mismatch: expected "', A,                          &
-         '" but found "',                   A, '"' )
+9002  FORMAT ('Title line mismatch: expected "', A, '" but found "', A, '"')
 
-9801  FORMAT ( 'Reading heading: ', A, '; last item was: ', A )
+9801  FORMAT ('Reading heading: ', A, '; last item was: ', A)
 
-9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
+9810  FORMAT ('Reading ', A, ' data under heading: ', A)
 
-9842  FORMAT ( 'Reading ', A, ' grid (IY=',I4, ') under title: ', A )
+9842  FORMAT ('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
 
    END SUBROUTINE ALREDF
 
@@ -1289,83 +1306,90 @@ CONTAINS
    !---------------------------------------------------------------------------
    SUBROUTINE ALREDI (FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
 
+      ! Assumed external module dependencies providing global kinds/variables:
+      ! I_P, WWWARN, FFFATAL, HEAD0_alredi, ERROR
+
+      IMPLICIT NONE
+
       ! Input arguments
-      INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT
-      INTEGER(kind=I_P)   :: N1, N2
-      CHARACTER(LEN=*)    :: LINE
+      INTEGER(kind=I_P), INTENT(IN)  :: FLAG, IUNIT, OUNIT
+      INTEGER(kind=I_P), INTENT(IN)  :: N1, N2
+      CHARACTER(LEN=*), INTENT(IN)   :: LINE
 
       ! Output arguments
-      INTEGER(kind=I_P)   :: IDATA (N1, N2)
+      INTEGER(kind=I_P), INTENT(OUT) :: IDATA (N1, N2)
 
       ! Locals, etc
-      INTEGER(kind=I_P)   :: iy, ky, ix
-      CHARACTER(len=80)   :: HEAD
-      CHARACTER(len=17)   :: FORM
-      CHARACTER(len=132)  :: MSG
+      INTEGER(kind=I_P)  :: IY, KY, IX, ios
+      CHARACTER(len=80)  :: HEAD
+      CHARACTER(len=17)  :: FORM
+      CHARACTER(len=132) :: MSG
 
       ! Code -----------------------------------------------------------------
 
-      READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
-      IF (INDEX (HEAD, LINE)  == 0) THEN
+      READ (IUNIT, '(A)', IOSTAT=ios) HEAD
+      
+      IF (ios /= 0) THEN
+         ! Title line read error
+         WRITE (MSG, 9801) LINE, HEAD0_alredi
+         CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
+         RETURN
+      END IF
+      
+      IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
          CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
-      ENDIF
+      END IF
 
       ! Read INTEGER(kind=I_P) data
       ! -----------------
       IF (FLAG == 0) THEN
          ! Simple array
-         READ (IUNIT, *, ERR = 8200, END = 8200) IDATA
+         READ (IUNIT, *, IOSTAT=ios) IDATA
+         
+         IF (ios /= 0) THEN
+            ! Integer data error
+            WRITE (MSG, 9810) 'integer', HEAD
+            CALL ERROR (FFFATAL, 6, OUNIT, 0, 0, MSG)
+            RETURN
+         END IF
 
       ELSE
          ! Grid-based array: read indexed rows, North to South
          ! (using single digit integers if possible)
          IF (FLAG < 10) WRITE (FORM, 9410) N1
-         DO IY = N2, 1, - 1
+         
+         DO IY = N2, 1, -1
             IF (FLAG < 10) THEN
-               READ (IUNIT, FORM, ERR = 8420, END = 8420) KY,              &
-                  (IDATA (IX, IY), IX = 1, N1)
+               READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
             ELSE
-               READ (IUNIT, *, ERR = 8420, END = 8420) KY,                 &
-                  (IDATA (IX, IY), IX = 1, N1)
-            ENDIF
-            IF (KY .NE. IY) GOTO 8420
+               READ (IUNIT, *, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
+            END IF
+            
+            IF (ios /= 0 .OR. KY /= IY) THEN
+               ! Integer grid error
+               WRITE (MSG, 9842) 'integer', IY, HEAD
+               CALL ERROR (FFFATAL, 10, OUNIT, 0, 0, MSG)
+               RETURN
+            END IF
          END DO
-      ENDIF
+      END IF
 
       RETURN
-
-
-      ! Error ----------------------------------------------------------------
-
-      ! Title line read error
-8010  WRITE (MSG, 9801) LINE, HEAD0_alredi
-      CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
-
-      ! INTEGER(kind=I_P) data error
-8200  WRITE (MSG, 9810) 'integer', HEAD
-      CALL ERROR (FFFATAL, 6, OUNIT, 0, 0, MSG)
-
-      ! INTEGER(kind=I_P) grid error
-8420  WRITE (MSG, 9842) 'integer', IY, HEAD
-      CALL ERROR (FFFATAL, 10, OUNIT, 0, 0, MSG)
-
 
       ! Format ---------------------------------------------------------------
       !
       ! Note: Take care not to exceed internal file length
       !
-      !
-9002  FORMAT ( 'Title line mismatch: expected "', A,                          &
-      &      '" but found "',                   A, '"' )
+9002  FORMAT ('Title line mismatch: expected "', A, '" but found "', A, '"')
 
-9410  FORMAT ( '(I7,1X,', I4, 'I1)' )
+9410  FORMAT ('(I7,1X,', I4, 'I1)')
 
-9801  FORMAT ( 'Reading heading: ', A, '; last item was: ', A )
+9801  FORMAT ('Reading heading: ', A, '; last item was: ', A)
 
-9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
+9810  FORMAT ('Reading ', A, ' data under heading: ', A)
 
-9842  FORMAT ( 'Reading ', A, ' grid (IY=',I4, ') under title: ', A )
+9842  FORMAT ('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
 
    END SUBROUTINE ALREDI
 

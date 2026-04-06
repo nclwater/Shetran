@@ -222,65 +222,143 @@ CONTAINS
       INTEGER, INTENT(IN) :: i
       r = i>0
    END FUNCTION exists
+
+
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE get_ncon_early()
+
+      ! Assumed external module dependencies providing global variables:
+      ! cmd, nnncon, FFFATAL, PPPRI, ERROR
+      
+      IMPLICIT NONE
+
       CHARACTER(4)  :: dd
       CHARACTER(64) :: mess
-      DO
-         READ(cmd,'(A)', ERR=90, END=90) dd
-         IF(DD(2:4)=='CM3') THEN
-            READ(cmd,*, ERR=91) nnncon
-            EXIT
-         ENDIF
-      ENDDO
+      INTEGER       :: ios
+
+      !----------------------------------------------------------------------*
+
+      scan_loop: DO
+         
+         ! Read the line, capturing both EOF and read errors into 'ios'
+         READ(cmd, '(A)', IOSTAT=ios) dd
+         
+         IF (ios /= 0) THEN
+            mess = 'failed to find line :CM3 in contaminant data file'
+            mess = 'GET_NCON_EARLY ' // TRIM(mess)
+            CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+            RETURN
+         END IF
+         
+         IF (dd(2:4) == 'CM3') THEN
+            ! Read the variable nnncon, checking for format errors
+            READ(cmd, *, IOSTAT=ios) nnncon
+            
+            IF (ios /= 0) THEN
+               mess = 'failed to read NCON '
+               mess = 'GET_NCON_EARLY ' // TRIM(mess)
+               CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+               RETURN
+            END IF
+            
+            EXIT scan_loop
+         END IF
+         
+      END DO scan_loop
+
       REWIND(cmd)
-      RETURN
-90    mess='failed to find line :CM3 in contaminant data file' ; GOTO 1000
-91    mess='failed to read NCON '
-1000  mess = 'GET_NCON_EARLY '//TRIM(mess)
-      CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  mess)
+
    END SUBROUTINE get_ncon_early
+
+
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   SUBROUTINE get_nsed_early()
+SUBROUTINE get_nsed_early()
+
+      ! Assumed external module dependencies providing global variables:
+      ! syd, nnnsed, FFFATAL, PPPRI, ERROR
+      
+      IMPLICIT NONE
+
       CHARACTER(5)  :: dd
       CHARACTER(64) :: mess
-      DO
-         READ(syd,'(A)', END=90) dd
-         IF(DD(2:5)=='SY11') THEN
-            READ(syd,*, ERR=91) nnnsed
-            EXIT
-         ENDIF
-      ENDDO
+      INTEGER       :: ios
+
+      !----------------------------------------------------------------------*
+
+      scan_loop: DO
+         
+         ! Read the line, capturing both EOF and read errors into 'ios'
+         READ(syd, '(A)', IOSTAT=ios) dd
+         
+         IF (ios /= 0) THEN
+            mess = 'failed to find line :SY11 in sediment data file'
+            mess = 'GET_NSED_EARLY ' // TRIM(mess)
+            CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+            RETURN
+         END IF
+         
+         IF (dd(2:5) == 'SY11') THEN
+            ! Read the variable nnnsed, checking for format errors
+            READ(syd, *, IOSTAT=ios) nnnsed
+            
+            IF (ios /= 0) THEN
+               mess = 'failed to read NSED '
+               mess = 'GET_NSED_EARLY ' // TRIM(mess)
+               CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+               RETURN
+            END IF
+            
+            EXIT scan_loop
+         END IF
+         
+      END DO scan_loop
+
       REWIND(syd)
-      RETURN
-90    mess='failed to find line :SY11 in sediment data file' ; GOTO 1000
-91    mess='failed to read NSED '
-1000  mess = 'GET_NSED_EARLY '//TRIM(mess)
-      CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  mess)
+
    END SUBROUTINE get_nsed_early
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION grid_dx(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel
       r = DXX(iel)
    END FUNCTION grid_dx
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION grid_dy(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel
       r = DYY(iel)
    END FUNCTION grid_dy
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION grid_nx() RESULT(r)
       r = nx
    END FUNCTION grid_nx
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION grid_ny() RESULT(r)
       r = ny
    END FUNCTION grid_ny
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION int_evap(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = mps_to_mmph*einta(iel)
    END FUNCTION int_evap
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL LOGICAL FUNCTION is_bank(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel
@@ -288,6 +366,9 @@ CONTAINS
       typ = ETYPE(iel)
       r   = typ==1 .OR. typ==2
    END FUNCTION is_bank
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL LOGICAL FUNCTION is_link(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel
@@ -295,6 +376,9 @@ CONTAINS
       typ = ETYPE(iel)
       r   = typ==3
    END FUNCTION is_link
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL LOGICAL FUNCTION is_square(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel
@@ -302,44 +386,71 @@ CONTAINS
       typ = ETYPE(iel)
       r   = typ==0
    END FUNCTION is_square
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION net_rain(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = mps_to_mmph*pnetto(iel)
    END FUNCTION net_rain
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION no_con() RESULT(r)
       r = nnncon
    END FUNCTION no_con
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    INTEGER FUNCTION no_el() RESULT(r)
       r = total_no_elements
    END FUNCTION no_el
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION no_sed() RESULT(r)
       r = nnnsed
    END FUNCTION no_sed
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION ovr_flow(iel, face) RESULT(r)
       INTEGER, INTENT(IN) :: iel, face  !element no and face no
       r = qoc(iel,face)
    END FUNCTION ovr_flow
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION ph_depth(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = zgrund(iel)-zvspsl(iel)
    END FUNCTION ph_depth
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION pot_evap(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = mps_to_mmph*epot(iel)
    END FUNCTION pot_evap
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION psi(iel, ilay) RESULT(r)
       INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no.
       r = r_not_exist
       r = vspsi(ilay,iel)
    END FUNCTION psi
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL INTEGER FUNCTION river_no(su, face) RESULT(r)
       INTEGER, INTENT(IN) :: su, face
@@ -357,6 +468,9 @@ CONTAINS
          ENDIF
       ENDIF
    END FUNCTION river_no
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION river_width(ir) RESULT(r)
       INTEGER, INTENT(IN) :: ir
@@ -366,11 +480,17 @@ CONTAINS
          r = i_not_exist
       ENDIF
    END FUNCTION river_width
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION s_dis(iel, face, nsed) RESULT(r)
       INTEGER, INTENT(IN) :: iel, face, nsed  !element, face and sediment group no
       r = rhosed*qsed(iel, nsed,face)
    END FUNCTION s_dis
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION s_elevation(iel) RESULT(r)
 !surface elavation
@@ -381,11 +501,17 @@ CONTAINS
          r = r_not_exist
       ENDIF
    END FUNCTION s_elevation
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION snow_dep(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = sd(iel)
    END FUNCTION snow_dep
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL INTEGER FUNCTION soil_type(iel, ilay) RESULT(r)
       INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no. (NB - NOT SOIL LAYER NO)
@@ -402,48 +528,76 @@ CONTAINS
          r = 0
       ENDIF
    END FUNCTION soil_type
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION srf_dep(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
 !r = GEThrf(iel)-zgrund(iel)  !eliminate ELEMENTAL in GETHRF
       r = hrfzz(iel)-zgrund(iel)
    END FUNCTION srf_dep
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION srf_evap(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = mps_to_mmph*esoila(iel)
    END FUNCTION srf_evap
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION s_t_dp(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = m_to_mm*dls(iel)
    END FUNCTION s_t_dp
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION s_v_er(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = mps_to_mmpd*gnu(iel)  !note is mm per day
    END FUNCTION s_v_er
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION theta(iel, ilay) RESULT(r)
       INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no.
       r = vsthe(ilay,iel)
    END FUNCTION theta
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION top_cell() RESULT(r)
       r = top_cell_no
    END FUNCTION top_cell
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION trnsp(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !element no
       r = mps_to_mmph*erza(iel)
    END FUNCTION trnsp
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION version() RESULT(r)
       r = INT(shever)
    END FUNCTION version
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION v_flow(iel, ilay) RESULT(r)
       INTEGER, INTENT(IN) :: iel, ilay  !element no and layer no
       r = qvsv(ilay, iel)
    END FUNCTION v_flow
+
 END MODULE visualisation_interface_left

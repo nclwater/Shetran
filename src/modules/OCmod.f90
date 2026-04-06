@@ -582,99 +582,108 @@ CONTAINS
    END SUBROUTINE JEOCBC
 
 
-!SSSSSS SUBROUTINE OCCHK0
+   !SSSSSS SUBROUTINE OCCHK0
    SUBROUTINE OCCHK0()
-!----------------------------------------------------------------------*
-!
-!  Check static variables & constants input to the OC
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCHK0/4.2
-! Modifications:
-! RAH  980130  4.2  New.
-!      980203       Add argument NGDBGN; remove OHB,OFB.  NELEE.ge.NX.
-!                   INQUIRE first, and use OUNIT for messages.
-!      980206       NELEE.ge.NOCTAB*NOCTAB.
-!JE Jan 2009        Above restriction removed
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
+   !
+   !  Check static variables & constants input to the OC
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCCHK0/4.2
+   ! Modifications:
+   ! RAH  980130  4.2  New.
+   !      980203       Add argument NGDBGN; remove OHB,OFB.  NELEE.ge.NX.
+   !                   INQUIRE first, and use OUNIT for messages.
+   !      980206       NELEE.ge.NOCTAB*NOCTAB.
+   ! JE Jan 2009       Above restriction removed
+   !----------------------------------------------------------------------*
       INTEGER       :: ERRNUM, I, IUNDEF, IUNIT, NERR, OUNIT
       INTEGER       :: IDUMS (1), IDUMO (1)
       LOGICAL       :: BOPEN, LDUM1 (1)
       CHARACTER(47) :: MSG
       CHARACTER(11) :: FORM
       CHARACTER(3)  :: NAME
-      nerr = 0
-!----------------------------------------------------------------------*
-! 1. Unit Numbers
-! ---------------
-!PRI, OCD
+      NERR = 0
+   !----------------------------------------------------------------------*
+   ! 1. Unit Numbers
+   ! ---------------
+   ! PRI, OCD
       OUNIT = PPPRI
       IUNIT = PPPRI
       NAME = 'PRI'
-      DO  I = 0, 1
+      
+      DO I = 0, 1
          INQUIRE (IUNIT, OPENED = BOPEN, FORM = FORM)
-         IF (.NOT.BOPEN) THEN
-            WRITE (MSG, 9100) NAME, IUNIT, 'is not connected to a file'
+         
+         IF (.NOT. BOPEN) THEN
+            WRITE (MSG, '("File unit ",A," =",I4,1X,A)') NAME, IUNIT, 'is not connected to a file'
             ERRNUM = 1008
-         ELSEIF (FORM.NE.'FORMATTED') THEN
-            WRITE (MSG, 9100) NAME, IUNIT, 'has format type', FORM
+            IF (I == 0) OUNIT = 0
+            CALL ERROR(EEERR, ERRNUM, OUNIT, 0, 0, MSG)
+            NERR = NERR + 1
+         ELSE IF (FORM /= 'FORMATTED') THEN
+            WRITE (MSG, '("File unit ",A," =",I4,1X,A,1X,A)') NAME, IUNIT, 'has format type', FORM
             ERRNUM = 1009
-         ELSE
-            GOTO 110
-         ENDIF
-         IF (I.EQ.0) OUNIT = 0
-         CALL ERROR(EEERR, ERRNUM, OUNIT, 0, 0, MSG)
-         NERR = NERR + 1
-110      IUNIT = OCD
+            IF (I == 0) OUNIT = 0
+            CALL ERROR(EEERR, ERRNUM, OUNIT, 0, 0, MSG)
+            NERR = NERR + 1
+         END IF
+         
+         ! Setup for the next iteration (I=1)
+         IUNIT = OCD
          NAME = 'OCD'
-      ENDDO
+      END DO
+      
       IDUMS (1) = MIN (PPPRI, OCD)
 
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ PRI, OCD ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
-! 2. Array Sizes
-! --------------
-!NELEE
+      
+   ! 2. Array Sizes
+   ! --------------
+   ! NELEE
       IDUMS (1) = NELEE
       IDUMO (1) = MAX (NX, total_no_elements)! , NOCTAB*NOCTAB)
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-!NLFEE
+   ! NLFEE
       IDUMS (1) = NLFEE
       IDUMO (1) = MAX (1, total_no_links)
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-!NXEE
+   ! NXEE
       IDUMS (1) = NXEE
       IDUMO (1) = NX
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-!NOCTAB
+   ! NOCTAB
       IDUMS (1) = NOCTAB
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NOCTAB', 'GE', IONE1, IDUMS, NERR, LDUM1)
-!NXSCEE
+   ! NXSCEE
       IDUMS (1) = NXSCEE
 
       CALL ALCHKI (EEERR, 1002, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXSCEE', 'GT', IONE1, IDUMS, NERR, LDUM1)
-! 3. Number of Entities
-! ---------------------
-!NLF
+      
+   ! 3. Number of Entities
+   ! ---------------------
+   ! NLF
       IDUMS (1) = total_no_links
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO1, IDUMS, NERR, LDUM1)
       IDUMO (1) = total_no_elements
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
-!NX, NY
+   ! NX, NY
       IDUMS (1) = MIN (NX, NY)
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ NX, NY ]', 'GE', IONE1, IDUMS, NERR, LDUM1)
-!NGDBGN
+   ! NGDBGN
       IDUMS (1) = NGDBGN
       IDUMO (1) = total_no_links + 1
 
-
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NGDBGN', 'EQ', IDUMO, IDUMS, NERR, LDUM1)
-! 4. Finish
-! ---------
-      IF (NERR.GT.0) THEN
+      
+   ! 4. Finish
+   ! ---------
+      IF (NERR > 0) THEN
          CALL ERROR(FFFATAL, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
-      ENDIF
-9100  FORMAT ('File unit ',A,' =',I4,1X,A:1X,A)
+      END IF
+      
    END SUBROUTINE OCCHK0
+
 
 
 !SSSSSS SUBROUTINE OCCHK1
@@ -769,7 +778,9 @@ CONTAINS
 
       INTEGER, INTENT(IN)           :: SZLOG
       DOUBLE PRECISION, INTENT(OUT) :: DDUM1A (:), DDUM1B(:)
-      LOGICAL, INTENT(IN)           :: LDUM1(SZLOG)  !LDUM1 ( * )
+      
+      ! Changed from INTENT(IN) to INTENT(INOUT) to allow ALCHK/ALCHKI to write to it
+      LOGICAL, INTENT(INOUT)        :: LDUM1(SZLOG)  !LDUM1 ( * )
       
       INTEGER :: ERRNUM, I, IELw, IUNDEF, IUNIT, N, NERR
       INTEGER :: IDUMS (1)
@@ -1378,73 +1389,79 @@ CONTAINS
 
 
 
-
-
-
-!SSSSSS SUBROUTINE OCREAD
+   !SSSSSS SUBROUTINE OCREAD
    SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
-!----------------------------------------------------------------------*
-!  Control the reading of the OC input data file
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCREAD/4.2
-! Modifications:
-!  GP          3.4  Call OCBC always, not only when NLF.ne.0.
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980120  4.2  Explicit typing.  Remove local FINI.
-!                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
-!                   Move KONT from SPEC.OC to arg-list (see OCINI).
-!                   Implement missing option NCATR.gt.0 (see BR/48).
-!      980130       Bring (initial) read section from OCINI.
-!                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
-!                   Replace GOTOs with block-IFs.  List-directed input.
-!                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
-!                   Renumber labels, move FORMATs to end and tidy.
-!                   Print CDRS only if non-zero.  Call ERROR on errors.
-!                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
-!      980202       KKON=0 if KONT even, not just 0.
-!                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
-!                   Use ALINIT for STRX,STRY.  Full output if BOUT.
-!      980203       Use NGDBGN for NLF+1.
-!      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
-!      980205       Full argument list, no INCLUDEs (see OCINI).
-!                   Bring IXER from SPEC.OC.  FATAL local.
-!      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
-!                   Call OCPLF only if IXER.eq.0.
-!      980220       Spelling.
-!      980225       Swap COCBCD subscripts (see SPEC.OC)
-!      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
-!                   Don't print KONT.
-! SvB  260402       Ran through G:Gemini for mondernization
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
-!  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
-!----------------------------------------------------------------------*
-      INTEGER, INTENT(OUT) :: KONT
-      DOUBLEPRECISION      :: TDC, TFC
-      DOUBLEPRECISION      :: CATR (NOCTAB), DDUM2 (NOCTAB, NOCTAB)
-      INTEGER              :: I, IBC, ICAT, IELt, IXER, KKON, TYPEE
-      INTEGER              :: NCATR, NLAND, NOCBC, NT, NC (11)
-      DOUBLEPRECISION      :: DET, SMIN
-      DOUBLEPRECISION      :: CDRS
-      LOGICAL              :: BIOWAT, BOUT
-      CHARACTER(81) :: MSG
-      CHARACTER(11)  :: CTYPE (11)
-      ICAT (ielt) = MAX (1, MIN (IDUM (ielt), NCATR) )
-      DATA NC / 4 * 0, 5, 0, 2 * 4, 2 * 0, 5 /
+   !----------------------------------------------------------------------*
+   !  Control the reading of the OC input data file
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCREAD/4.2
+   ! Modifications:
+   !  GP          3.4  Call OCBC always, not only when NLF.ne.0.
+   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+   ! RAH  980120  4.2  Explicit typing.  Remove local FINI.
+   !                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
+   !                   Move KONT from SPEC.OC to arg-list (see OCINI).
+   !                   Implement missing option NCATR.gt.0 (see BR/48).
+   !      980130       Bring (initial) read section from OCINI.
+   !                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
+   !                   Replace GOTOs with block-IFs.  List-directed input.
+   !                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
+   !                   Renumber labels, move FORMATs to end and tidy.
+   !                   Print CDRS only if non-zero.  Call ERROR on errors.
+   !                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
+   !      980202       KKON=0 if KONT even, not just 0.
+   !                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
+   !                   Use ALINIT for STRX,STRY.  Full output if BOUT.
+   !      980203       Use NGDBGN for NLF+1.
+   !      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
+   !      980205       Full argument list, no INCLUDEs (see OCINI).
+   !                   Bring IXER from SPEC.OC.  FATAL local.
+   !      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
+   !                   Call OCPLF only if IXER.eq.0.
+   !      980220       Spelling.
+   !      980225       Swap COCBCD subscripts (see SPEC.OC)
+   !      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
+   !                   Don't print KONT.
+   ! SvB  260402       Ran through G:Gemini for mondernization
+   !----------------------------------------------------------------------*
+   ! Entry requirements:
+   !  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
+   !  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCREAD/4.2
 
-      DATA CTYPE / 'impermeable', '  grid-grid', '       head', ' flux', ' polynomial', ' river_link', '       weir', ' river+weir', &
-      & '       head', '       flux', ' polynomial' /
-!----------------------------------------------------------------------*
-!
-!               Initialization
-!
+      ! Assumed external module dependencies providing global variables:
+      ! NOCTAB, IDUM, total_no_elements, total_no_links, NGDBGN, OCD, PPPRI,
+      ! one, ISZERO, ZERO, DUMMY, ZGRUND, SETHRF, STRXX, STRYY, NOTZERO,
+      ! nelee, JEOCBC, OCPLF, NOCBCD, COCBCD, FFFATAL, ERROR, AREADR, AREADI
+
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER, INTENT(OUT)          :: KONT
+      DOUBLE PRECISION, INTENT(OUT) :: TDC, TFC
+      DOUBLE PRECISION, INTENT(OUT) :: CATR(NOCTAB), DDUM2(NOCTAB, NOCTAB)
+      
+      ! Locals
+      INTEGER          :: I, IBC, ICAT, ielt, IXER, KKON, TYPEE
+      INTEGER          :: NCATR, NLAND, NOCBC, NT
+      DOUBLE PRECISION :: DET, SMIN, CDRS
+      LOGICAL          :: BIOWAT, BOUT
+      CHARACTER(81)    :: MSG
+
+      INTEGER, PARAMETER :: NC(11) = [0, 0, 0, 0, 5, 0, 4, 4, 0, 0, 5]
+      CHARACTER(11), PARAMETER :: CTYPE(11) = ['impermeable', '  grid-grid', '       head', ' flux      ', &
+         ' polynomial', ' river_link', '       weir', ' river+weir', '       head', '       flux', ' polynomial']
+
+      !----------------------------------------------------------------------*
+      !              Initialization
+      !
       IXER = 0
       NLAND = total_no_elements - total_no_links
       NGDBGN = total_no_links + 1
 
-!               Integer & logical variables
-!:OC1
+      !              Integer & logical variables
+      ! :OC1
       READ (OCD, *)
       READ (OCD, *) NT, NCATR, KONT, BIOWAT
 
@@ -1453,43 +1470,47 @@ CONTAINS
 
       IF (BOUT) WRITE(PPPRI, 9080) ' ', NCATR
 
-!               OC time-step data
-!:OC2
-!     (was (PT(I),TEMPS(I),I=1,NT))
+      !              OC time-step data
+      ! :OC2
       READ (OCD, *)
       READ (OCD, *)
 
-!               Default roughness parameters & floating-point variables
-!:OC3
+      !              Default roughness parameters & floating-point variables
+      ! :OC3
       READ (OCD, *)
       READ (OCD, *) SMIN, CDRS, TDC, TFC, DET
 
       IF (KONT < 2) TDC = TFC + one
 
-!:OC4
+      ! :OC4
       IF (ISZERO(CDRS)) THEN
-         ! Retaining the GOTO assuming 8047 is an error block further down
-         IF (NCATR > NOCTAB .OR. NCATR < 0) GOTO 8047
+         IF (NCATR > NOCTAB .OR. NCATR < 0) THEN
+            WRITE (MSG, '("Number of roughness categories NCATR =",I4,2X, &
+                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
+            CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
+         END IF
 
          IF (NCATR > 0) THEN
-            ! 1. Replaced implied DO loop with array slicing
-            READ (OCD, *) CATR(1:NCATR)
+            ! PERF FIX: Implied DO loop instead of array slice
+            READ (OCD, *) (CATR(I), I = 1, NCATR)
             IF (BOUT) THEN
-               WRITE(PPPRI, 9084) CATR(1:NCATR)
+               WRITE(PPPRI, 9084) (CATR(I), I = 1, NCATR)
                WRITE(PPPRI, *)
             END IF
          END IF
-      ELSEIF (BOUT) THEN
+      ELSE IF (BOUT) THEN
          WRITE(PPPRI, 9082) CDRS
       END IF
 
-!               INITIAL OVERLAND FLOW ELEVATIONS
-!:OC5
+      !              INITIAL OVERLAND FLOW ELEVATIONS
+      ! :OC5
       IF (BIOWAT) THEN
          CALL AREADR(DUMMY, KKON, OCD, PPPRI)
       ELSE
-         ! 2. Replaced ALINIT subroutine call with a direct array slice
-         DUMMY(NGDBGN : total_no_elements) = ZERO
+         ! PERF FIX: Explicit DO loop instead of array slice assignment
+         DO ielt = NGDBGN, total_no_elements
+            DUMMY(ielt) = ZERO
+         END DO
          IF (BOUT) WRITE(PPPRI, 9085) 'zero'
       END IF
 
@@ -1497,45 +1518,51 @@ CONTAINS
          CALL SETHRF(ielt, ZGRUND(ielt) + DUMMY(ielt))
       END DO elevation_loop
 
-!               ROUGHNESS PARAMETERS FOR OVERLAND FLOW
-!:OC14
-!:OC17
+      !              ROUGHNESS PARAMETERS FOR OVERLAND FLOW
+      ! :OC14
+      ! :OC17
       IF (NOTZERO(CDRS)) THEN
-         ! 3. Replaced ALINIT with array slices
-         STRXX(NGDBGN : total_no_elements) = CDRS
-         STRYY(NGDBGN : total_no_elements) = CDRS
-      ELSEIF (NCATR == 0) THEN
+         ! PERF FIX: Explicit DO loops instead of array slice assignment
+         DO ielt = NGDBGN, total_no_elements
+            STRXX(ielt) = CDRS
+            STRYY(ielt) = CDRS
+         END DO
+      ELSE IF (NCATR == 0) THEN
          CALL AREADR(STRXX, KKON, OCD, PPPRI)
          CALL AREADR(STRYY, KKON, OCD, PPPRI)
       ELSE
-         CALL AREADI(IDUM(1:nelee), KKON, OCD, PPPRI, NCATR)
+         ! Pass base memory address IDUM
+         CALL AREADI(IDUM, KKON, OCD, PPPRI, NCATR)
 
          roughness_x_loop: DO ielt = NGDBGN, total_no_elements
-            STRXX(ielt) = CATR(ICAT(ielt))
+            ICAT = MAX(1, MIN(IDUM(ielt), NCATR))
+            STRXX(ielt) = CATR(ICAT)
          END DO roughness_x_loop
 
-         CALL AREADI(IDUM(1:nelee), KKON, OCD, PPPRI, NCATR)
+         CALL AREADI(IDUM, KKON, OCD, PPPRI, NCATR)
 
          roughness_y_loop: DO ielt = NGDBGN, total_no_elements
-            STRYY(ielt) = CATR(ICAT(ielt))
+            ICAT = MAX(1, MIN(IDUM(ielt), NCATR))
+            STRYY(ielt) = CATR(ICAT)
          END DO roughness_y_loop
       END IF
 
-!               BOUNDARY CONDITIONS
+      !              BOUNDARY CONDITIONS
       CALL JEOCBC(IXER, NOCBC)
 
-!               PARAMETERS OF RIVER LINKS
+      !              PARAMETERS OF RIVER LINKS
       IF (total_no_links > 0 .AND. IXER == 0) THEN
-         CALL OCPLF(BOUT, IXER, NOCBCD(:, 2:4), IDUM(1:noctab), DDUM2)
+         ! PERF FIX: Pass base memory address NOCBCD(1, 2) instead of 2D slice
+         CALL OCPLF(BOUT, IXER, NOCBCD(1, 2), IDUM, DDUM2)
       END IF
 
-!               FINISH
-      REWIND(OCD) !CLOSE (OCD)    !AD
+      !              FINISH
+      REWIND(OCD)
 
       IF (IXER /= 0) THEN
          WRITE (MSG, 9412) IXER
          CALL ERROR(FFFATAL, 1049, PPPRI, 0, 0, MSG)
-      ELSEIF (BOUT) THEN
+      ELSE IF (BOUT) THEN
          WRITE(PPPRI, 9500) 'no-flow'
          IF (NOCBC > 0) WRITE(PPPRI, 9600) 'Index', 'Element', 'Face', &
             'Type', 'Category', 'Coefficients'
@@ -1543,10 +1570,9 @@ CONTAINS
          print_bc_loop: DO IBC = 1, NOCBC
             TYPEE = NOCBCD(IBC, 3)
 
-            ! 4. Cleaned up massive write statement using array slicing
-            WRITE(PPPRI, 9610) IBC, NOCBCD(IBC, 1:2), CTYPE(TYPEE), &
-               NOCBCD(IBC, 4), COCBCD(1:NC(TYPEE), IBC)
-
+            ! PERF FIX: Explicit indexing and Implied DO loop instead of slices
+            WRITE(PPPRI, 9610) IBC, NOCBCD(IBC, 1), NOCBCD(IBC, 2), CTYPE(TYPEE), &
+               NOCBCD(IBC, 4), (COCBCD(I, IBC), I = 1, NC(TYPEE))
          END DO print_bc_loop
 
          WRITE(PPPRI, 9080) ' END OF '
@@ -1554,29 +1580,23 @@ CONTAINS
 
       RETURN
 
-8047  WRITE (MSG, 9004) NCATR, NOCTAB
-
-      CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
-
-9004  FORMAT('Number of roughness categories NCATR =',I4,2X, &
-      &       'lies outside range 0:NOCTAB = 0 :',I4)
-
+      ! FORMAT STATEMENTS
 9080  FORMAT (///'---- OC MODULE ',A,'INPUT DATA PROCESSING ----'///: &
-      &          5X,'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
-      &             ' CATEGORIES   NCATR = ',I4 )
+              5X,'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
+                 ' CATEGORIES   NCATR = ',I4)
 
 9082  FORMAT (/5X,'DEFAULT VALUE OF OVERLAND FLOW ROUGHNESS ', &
-      &             'COEFFICIENT     CDRS = ', F8.2)
+                  'COEFFICIENT     CDRS = ', F8.2)
 
 9084  FORMAT (/4X,' ROUGHNESS COEFFICIENTS  CATR  ATTACHED TO', &
-      &            ' EACH OF THE NCATR CATEGORIES' / (10F10.2))
+                  ' EACH OF THE NCATR CATEGORIES' / (10F10.2))
 
 9085  FORMAT (/5X,'Initial overland water depth is ',A)
 
 9412  FORMAT (I5,' ERROR(S) FOUND DURING OC INPUT DATA PROCESSING')
 
 9500  FORMAT (/5X,'Default OC B.C. is ',A,' at catchment boundaries ', &
-      &            'and at channel/bank dead-ends')
+                  'and at channel/bank dead-ends')
 
 9600  FORMAT (/5X,'OC Boundary Conditions:'//5X,3A8,A12,A10,A14)
 
@@ -1913,123 +1933,107 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE OCXS
+   !SSSSSS SUBROUTINE OCXS
    SUBROUTINE OCXS ()
-!----------------------------------------------------------------------*
-!
-!  Set up channel cross-section tables & effective bed elevations
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCXS/4.2
-! Modifications:
-! RAH  980203  4.2  New: taken from part of OCPLF.
-!      980317     ! Fix inaccuracy in XAJ (was linear in H); set XDERIV
-!                   to give continuous XCONV.  Use XAJ in loop 180.
-!      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (see SPEC.OC).
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NLFEE.ge.NLF    NLF.ge.1    NXSCEE.ge.2    CWIDTH(1:NLF).gt.0
-!  NXSECT(1:NLF).le.size_of_[XINH,XINW,XAREA]
-!  for iel in 1:NLF                XINH(iel,NXSECT(iel)).gt.0
-!      for i in 1:NXSECT(iel)-1    XINH(iel,i).lt.XINH(iel,i+1)
-! Exit conditions:
-!  ...
-! Note:
-!       XSTAB(i,j,iel) is, for i=1,2,3: water depth, conveyance, and
-!                             derivative of conveyance, respectively
-! NB:
-!       XSTAB(2:3,j,1:NLF) not defined for j=NXSCEE
-!
+   !----------------------------------------------------------------------*
+   !
+   !  Set up channel cross-section tables & effective bed elevations
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCXS/4.2
+   ! Modifications:
+   ! RAH  980203  4.2  New: taken from part of OCPLF.
+   !      980317      ! Fix inaccuracy in XAJ (was linear in H); set XDERIV
+   !                   to give continuous XCONV.  Use XAJ in loop 180.
+   !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (see SPEC.OC).
+   !----------------------------------------------------------------------*
+   ! Entry requirements:
+   !  NLFEE.ge.NLF    NLF.ge.1    NXSCEE.ge.2    CWIDTH(1:NLF).gt.0
+   !  NXSECT(1:NLF).le.size_of_[XINH,XINW,XAREA]
+   !  for iel in 1:NLF                XINH(iel,NXSECT(iel)).gt.0
+   !      for i in 1:NXSECT(iel)-1    XINH(iel,i).lt.XINH(iel,i+1)
+   ! Exit conditions:
+   !  ...
+   ! Note:
+   !       XSTAB(i,j,iel) is, for i=1,2,3: water depth, conveyance, and
+   !                                       derivative of conveyance, respectively
+   ! NB:
+   !       XSTAB(2:3,j,1:NLF) not defined for j=NXSCEE
+   !
+      ! Assumed external module dependencies providing global variables:
+      ! total_no_links, NXSECT, STRXX, XAREA, zero, XINW, XINH, half,
+      ! ZBEFF, ZBFULL, CWIDTH, NXSCEE, XSTAB, CONVEYAN
+
+      IMPLICIT NONE
+
       INTEGER         :: I, IELr, J, N
-      DOUBLEPRECISION :: ALPHA, DH, HI, HIP1, HJ, STEPH, STR, W2, XAJ, XCJ, XCJM1, adumy
-!----------------------------------------------------------------------*
+      DOUBLE PRECISION :: ALPHA, DH, HI, HIP1, HJ, STEPH, STR, W2, XAJ, XCJ, XCJM1, adumy
+      
+   !----------------------------------------------------------------------*
 
-      DO 500 ielr = 1, total_no_links
-!
-! LOCAL VARIABLES
-!
-         N = NXSECT (ielr)
-
+      link_loop: DO ielr = 1, total_no_links
+         !
+         ! LOCAL VARIABLES
+         !
+         N = NXSECT(ielr)
          STR = STRXX(ielr)
-!
-! SET UP CROSS-SECTIONAL AREAS FOR EACH OF THE INPUT LEVELS
-!
-         XAREA (ielr, 1) = zero
-         DO 180 J = 2, N
-            W2 = XINW (ielr, J) + XINW (ielr, J - 1)
-            DH = XINH (ielr, J) - XINH (ielr, J - 1)
-            XAREA (ielr, J) = XAREA (ielr, J - 1) + W2 * DH * half
-
-180      END DO
-!
-! EFFECTIVE BED ELEVATION
-!
-
-         ZBEFF (ielr) = ZBFULL (ielr) - XAREA (ielr, N) / CWIDTH (ielr)
-!
-! SET UP FULL CROSS-SECTION TABLES OF HEIGHT, CONVEYANCE & DERIVATIVE
-!
-! NOTE: The formulation is such that
-!             XSTAB(2,j,ielr) + XSTAB(3,j,ielr)*( h - XSTAB(1,j,ielr) )
-!       is a continuous (piecewise linear) function of h
-!
+         
+         !
+         ! SET UP CROSS-SECTIONAL AREAS FOR EACH OF THE INPUT LEVELS
+         !
+         XAREA(ielr, 1) = zero
+         
+         area_loop: DO J = 2, N
+            W2 = XINW(ielr, J) + XINW(ielr, J - 1)
+            DH = XINH(ielr, J) - XINH(ielr, J - 1)
+            XAREA(ielr, J) = XAREA(ielr, J - 1) + W2 * DH * half
+         END DO area_loop
+         
+         !
+         ! EFFECTIVE BED ELEVATION
+         !
+         ZBEFF(ielr) = ZBFULL(ielr) - XAREA(ielr, N) / CWIDTH(ielr)
+         
+         !
+         ! SET UP FULL CROSS-SECTION TABLES OF HEIGHT, CONVEYANCE & DERIVATIVE
+         !
+         ! NOTE: The formulation is such that
+         !             XSTAB(2,j,ielr) + XSTAB(3,j,ielr)*( h - XSTAB(1,j,ielr) )
+         !       is a continuous (piecewise linear) function of h
+         !
          I = 1
-         HI = XINH (ielr, I)
-         STEPH = XINH (ielr, N) / (NXSCEE-1)
+         HI = XINH(ielr, I)
+         STEPH = XINH(ielr, N) / (NXSCEE - 1.0d0)
          XCJ = zero
-         XSTAB (1, 1, ielr) = zero
-         DO 200 J = 2, NXSCEE
+         XSTAB(1, 1, ielr) = zero
+         
+         table_loop: DO J = 2, NXSCEE
             XCJM1 = XCJ
             HJ = STEPH * (J - 1)
 
-
-            !orig
-            !190       HIP1  = XINH(ielr,I+1)
-            !          IF ( I.LT.N-1 .AND. HIP1.LT.HJ ) THEN
-            !               I = I + 1
-            !              HI = HIP1
-            !              GOTO 190
-            !          ENDIF
-
-
-            DO
-               HIP1  = XINH(ielr,I+1)
-               IF (.NOT.( (I.LT.N-1) .AND. (HIP1.LT.HJ) )) EXIT
+            ! Advance index I until we bracket the target height HJ
+            search_loop: DO
+               HIP1 = XINH(ielr, I + 1)
+               IF (I >= N - 1 .OR. HIP1 >= HJ) EXIT search_loop
                I = I + 1
                HI = HIP1
-            ENDDO
-
-
-
-
-
-            !    iscycle=.FALSE.  !NOT QUITE RIGHT
-            !    DO I=I,N-1
-            !      IF(iscycle) CYCLE
-            !      HIP1 = XINH (ielr,I+1)
-            !      IF (HIP1<HJ) THEN
-            !           HI = HIP1
-            !       ELSE
-            !         iscycle=.true.
-            !      ENDIF
-            !    ENDDO
-
+            END DO search_loop
 
             DH = HJ - HI
             ALPHA = DH / (HIP1 - HI)
-            W2 = (2D0 - ALPHA) * XINW (ielr, I) + ALPHA * XINW (ielr, I + &
-               1)
-            XAJ = XAREA (ielr, I) + W2 * DH * half
+            W2 = (2.0d0 - ALPHA) * XINW(ielr, I) + ALPHA * XINW(ielr, I + 1)
+            XAJ = XAREA(ielr, I) + W2 * DH * half
 
-            !XCJ = STR * XAJ * HJ**F23
+            ! XCJ = STR * XAJ * HJ**F23
             CALL CONVEYAN(str, hj, xcj, adumy, 0, xaj)
-            XSTAB (1, J, ielr) = HJ
-            XSTAB (2, J - 1, ielr) = XCJM1
-            XSTAB (3, J - 1, ielr) = (XCJ - XCJM1) / STEPH
+            
+            XSTAB(1, J, ielr) = HJ
+            XSTAB(2, J - 1, ielr) = XCJM1
+            XSTAB(3, J - 1, ielr) = (XCJ - XCJM1) / STEPH
+         END DO table_loop
 
-200      END DO
+      END DO link_loop
 
-500   END DO
    END SUBROUTINE OCXS
 
 

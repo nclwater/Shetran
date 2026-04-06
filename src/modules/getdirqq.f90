@@ -40,6 +40,12 @@ CONTAINS
    !> Windows GUI dialogs with a pure command-line interface.
    SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
+      ! Assumed external module dependencies providing global variables/kinds:
+      ! I_P, LENGTH_LINE, LENGTH_FILEPATH, GET_CURRENT_DIR, SPLIT_PATH_PORTABLE,
+      ! handle_command_line_error
+
+      IMPLICIT NONE
+
       ! IO-vars
       CHARACTER(len=*), INTENT(IN)    :: runfil   !! The runfile name (often unused in command-line mode)
       CHARACTER(len=*), INTENT(OUT)   :: fn       !! The base name of the runfile
@@ -53,7 +59,8 @@ CONTAINS
       CHARACTER(len=LENGTH_LINE)      :: message, dum1, dum2, code
       CHARACTER(len=LENGTH_FILEPATH)  :: cli_argument
       CHARACTER(len=LENGTH_FILEPATH)  :: fn_part
-      LOGICAL                         :: ex
+      LOGICAL                         :: ex, found_catchment
+      INTEGER                         :: ios
 
       ! Code =================================================================
 
@@ -62,81 +69,99 @@ CONTAINS
 
       ! Get command line arguments (portable replacement for NARGS/GETARG)
       na = COMMAND_ARGUMENT_COUNT()
-      IF(na > 0) THEN
+      IF (na > 0) THEN
          CALL GET_COMMAND_ARGUMENT(1, code)
       ELSE
          code = '-f'  ! Default to filename mode for portable version
-      ENDIF
+      END IF
 
       message = ''
       SELECT CASE(code)
-       CASE ('-f') ! treat as filename - main portable mode
-         IF(na < 2) THEN
-            message = 'Missing filename. Usage: shetran -f filename.txt'
-            GOTO 1000
-         ENDIF
+      CASE ('-f') ! treat as filename - main portable mode
+         IF (na < 2) THEN
+            CALL print_usage_and_stop('Missing filename. Usage: shetran -f filename.txt')
+         END IF
          CALL GET_COMMAND_ARGUMENT(2, cli_argument)
 
-       CASE ('-c')  ! treat as catchment name (kept for compatibility)
+      CASE ('-c')  ! treat as catchment name (kept for compatibility)
          IF (na < 2) THEN
             cli_argument = 'default'
          ELSE
             CALL GET_COMMAND_ARGUMENT(2, cli_argument)
-         ENDIF
-         INQUIRE(FILE=catchment_file, exist=ex)
-         IF(ex) THEN
-            OPEN(875,FILE=catchment_file, ERR=999)
-            DO
-               read(875,'(A,a)', END=999, ERR=999) dum1
-               read(875,*, END=999, ERR=999) dum2
-               IF(dum1==cli_argument) EXIT
-            ENDDO
-            cli_argument = dum2
+         END IF
+         
+         INQUIRE(FILE=catchment_file, EXIST=ex)
+         IF (ex) THEN
+            OPEN(UNIT=875, FILE=catchment_file, STATUS='OLD', IOSTAT=ios)
+            IF (ios /= 0) CALL print_usage_and_stop('Error reading catchment file')
+            
+            found_catchment = .FALSE.
+            
+            read_catchment: DO
+               ! Standardized '(A,a)' format typo to '(A)'
+               READ(875, '(A)', IOSTAT=ios) dum1
+               IF (ios /= 0) EXIT read_catchment
+               
+               READ(875, *, IOSTAT=ios) dum2
+               IF (ios /= 0) EXIT read_catchment
+               
+               IF (TRIM(dum1) == TRIM(cli_argument)) THEN
+                  cli_argument = dum2
+                  found_catchment = .TRUE.
+                  EXIT read_catchment
+               END IF
+            END DO read_catchment
+            
             CLOSE(875)
+            
+            ! If we hit EOF without a match, it mirrors the old END=999 behavior
+            IF (.NOT. found_catchment) THEN
+               CALL print_usage_and_stop('Error reading catchment file')
+            END IF
          ELSE
-            message='Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
-         ENDIF
+            message = 'Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
+         END IF
 
-       CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
+      CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
          ! Windows GUI modes not supported in portable version
-         message = 'Interactive file selection not supported in portable version. Use: shetran -f filename.txt'
-         GOTO 1000
+         CALL print_usage_and_stop('Interactive file selection not supported in portable version. Use: shetran -f filename.txt')
 
-       CASE DEFAULT
+      CASE DEFAULT
          message = 'Unrecognised command line argument ' // TRIM(code) // &
-            '. Portable version supports: -f filename, -c catchment'
+                   '. Portable version supports: -f filename, -c catchment'
       END SELECT
 
-      IF(message/='') GOTO 1000
+      IF (message /= '') CALL print_usage_and_stop(message)
 
       INQUIRE(FILE=cli_argument, EXIST=ex)
-      IF(.NOT.ex) THEN
-         IF(LEN_TRIM(cli_argument)==0) THEN
+      IF (.NOT. ex) THEN
+         IF (LEN_TRIM(cli_argument) == 0) THEN
             message = 'Missing filename. Use: shetran -f filename.txt'
          ELSE
-            message = 'Cannot find rundata file '//TRIM(cli_argument)
-         ENDIF
+            message = 'Cannot find rundata file ' // TRIM(cli_argument)
+         END IF
          CALL handle_command_line_error(message)
-      ENDIF
+      END IF
 
       ! Portable path splitting (replacement for SPLITPATHQQ)
       CALL SPLIT_PATH_PORTABLE(cli_argument, dirqq, fn_part)
 
-      fn = trim(fn_part)
+      fn = TRIM(fn_part)
       catch = ''  ! Catchment info not used in modern version
 
       RETURN
 
-999   CONTINUE
-      message = 'Error reading catchment file'
-      CLOSE(875, ERR=1000)
+   CONTAINS
 
-1000  CONTINUE
-      ! Error handling - write to standard error
-      WRITE(*,'(A)') 'ERROR: ' // TRIM(message)
-      WRITE(*,'(A)') 'Usage: shetran -f rundata_file.txt'
-      WRITE(*,'(A)') '   or: shetran -c catchment_name'
-      STOP 1
+      ! Replaces the old 1000 GOTO block
+      SUBROUTINE print_usage_and_stop(err_msg)
+         CHARACTER(LEN=*), INTENT(IN) :: err_msg
+         
+         WRITE(*,'(A)') 'ERROR: ' // TRIM(err_msg)
+         WRITE(*,'(A)') 'Usage: shetran -f rundata_file.txt'
+         WRITE(*,'(A)') '   or: shetran -c catchment_name'
+         STOP 1
+      END SUBROUTINE print_usage_and_stop
 
    END SUBROUTINE get_dir_and_catch
 

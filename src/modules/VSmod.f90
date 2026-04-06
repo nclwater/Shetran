@@ -313,637 +313,575 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
+   !SSSSSS SUBROUTINE VSCOEF
    SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
-      JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
-      CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
-      CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
-!----------------------------------------------------------------------*
-! Sets up coefficients for column internal cells
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCOEF/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 20.12.95)
-! RAH  961228  4.1  No leading comments.  Remove arguments IEL & NIT.
-!                   Add arguments CWV,CWL (were in VSCOLM.INC).
-!      970115       Dispense with VSCOLM.INC arrays CKZ,CDKZ.
-!                   Rewrite "vertical" sections: use fewer operations;
-!                   use DCOPY; don't overwrite CDELZ.
-!      970116       Rewrite "lateral" sections similarly, and fix error
-!                   in CDGAM* when CWL.NE.1.  No lower-case code.
-!      970122       Use arguments, not COMMON.
-!      970123       Scrap output CBETP,CDBETP,CDBTPP,CDFM,CDFP,CG,CDG.
-!      970513       Swap indices: JCACN, JCDEL & CAIJ. Rename local DUM.
-!                   New args NSEE,ICSOIL,VSK3D in place of CKZS,CKIJS.
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 1 <= ICBOT <= ICTOP <= LLEE
-! 0 <  CWL, CA0, NSEE
-! for each i in ICBOT:ICTOP:
-!    1 <= ICSOIL(i) <= NSEE
-!    0 <   CDELZ(i), CKR(i), VSK3D(ICSOIL(i),1:3)
-!    for each j in 1:4 such that
-!                      JELDUM(j)>0 and JCACN(j,i).ne.0 and JCBC(j).ne.9:
-!       1 <= k, k1 <= LLEE
-!       1 >= |JCDEL(j,i)|, |JCDEL1(k,j)|
-!       0 <  CAIJ(j,i), CAIJ1(k,j), CAIJ1(k1,j), CKIJ1(k,j), CKIJ1(k1,j)
-!    where k=JCACN(j,i), and k1=k+JCDEL1(k,j)
-! for each j in 1:4: 0 < CDELL(j) + CDELL1(j)
-!----------------------------------------------------------------------*
-! Input arguments
-      INTEGER :: LLEE, NSEE, ICBOT, ICTOP, JELDUM (4), JCBC (4)
-      INTEGER :: ICSOIL (ICBOT:ICTOP), JCACN (4, ICBOT:ICTOP)
-      INTEGER :: JCDEL1 (LLEE, 4), JCDEL (4, ICBOT:ICTOP)
-      DOUBLEPRECISION CWV, CWL, VSK3D (NSEE, 3)
-      DOUBLEPRECISION CA0, CDELL (4), CDELZ (ICBOT:ICTOP)
-      DOUBLEPRECISION CDELL1 (4), CAIJ (4, ICBOT:ICTOP), CAIJ1 (LLEE, 4)
+         JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
+         CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
+         CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
+   !----------------------------------------------------------------------*
+   ! Sets up coefficients for column internal cells
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSCOEF/4.1
+   ! Modifications:
+   !  GP  22.08.94  written (v4.0 finished 20.12.95)
+   ! RAH  961228  4.1  No leading comments.  Remove arguments IEL & NIT.
+   !                   Add arguments CWV,CWL (were in VSCOLM.INC).
+   !      970115       Dispense with VSCOLM.INC arrays CKZ,CDKZ.
+   !                   Rewrite "vertical" sections: use fewer operations;
+   !                   use DCOPY; don't overwrite CDELZ.
+   !      970116       Rewrite "lateral" sections similarly, and fix error
+   !                   in CDGAM* when CWL.NE.1.  No lower-case code.
+   !      970122       Use arguments, not COMMON.
+   !      970123       Scrap output CBETP,CDBETP,CDBTPP,CDFM,CDFP,CG,CDG.
+   !      970513       Swap indices: JCACN, JCDEL & CAIJ. Rename local DUM.
+   !                   New args NSEE,ICSOIL,VSK3D in place of CKZS,CKIJS.
+   !----------------------------------------------------------------------*
+   ! Entry conditions:
+   ! 1 <= ICBOT <= ICTOP <= LLEE
+   ! 0 <  CWL, CA0, NSEE
+   ! for each i in ICBOT:ICTOP:
+   !    1 <= ICSOIL(i) <= NSEE
+   !    0 <   CDELZ(i), CKR(i), VSK3D(ICSOIL(i),1:3)
+   !    for each j in 1:4 such that
+   !                       JELDUM(j)>0 and JCACN(j,i).ne.0 and JCBC(j).ne.9:
+   !       1 <= k, k1 <= LLEE
+   !       1 >= |JCDEL(j,i)|, |JCDEL1(k,j)|
+   !       0 <  CAIJ(j,i), CAIJ1(k,j), CAIJ1(k1,j), CKIJ1(k,j), CKIJ1(k1,j)
+   !    where k=JCACN(j,i), and k1=k+JCDEL1(k,j)
+   ! for each j in 1:4: 0 < CDELL(j) + CDELL1(j)
+   !----------------------------------------------------------------------*
+   
+      ! Assumed external module dependencies providing global variables:
+      ! zero, one, half, ISZERO, ISONE, NOTONE
 
-      DOUBLEPRECISION CKR (ICBOT:ICTOP), CDKR (ICBOT:ICTOP), CKIJ1 ( &
-         LLEE, 4)
-! Output arguments
-      DOUBLEPRECISION CBETM (ICBOT:ICTOP + 1)
-      DOUBLEPRECISION CDBETM (ICBOT:ICTOP + 1), CDBTMM (ICBOT:ICTOP + 1)
-      DOUBLEPRECISION CF (ICBOT:ICTOP), CDF (ICBOT:ICTOP)
-      DOUBLEPRECISION CKIJ (LLEE, 4), CDKIJ (LLEE, 4), CGAM1 (LLEE, 4)
+      IMPLICIT NONE
 
-      DOUBLEPRECISION CDGAM1 (LLEE, 4), CGAM2 (LLEE, 4), CDGAM2 (LLEE, &
-         4)
-! Workspace arguments
-
-      DOUBLEPRECISION C (ICBOT:ICTOP), D (ICBOT:ICTOP)
-! Locals, etc
-!INTRINSIC ABS, MOD
+      ! Input arguments
+      INTEGER, INTENT(IN)          :: LLEE, NSEE, ICBOT, ICTOP
+      INTEGER, INTENT(IN)          :: JELDUM(4), JCBC(4)
+      INTEGER, INTENT(IN)          :: ICSOIL(ICBOT:ICTOP), JCACN(4, ICBOT:ICTOP)
+      INTEGER, INTENT(IN)          :: JCDEL1(LLEE, 4), JCDEL(4, ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CWV, CWL, VSK3D(NSEE, 3)
+      DOUBLE PRECISION, INTENT(IN) :: CA0, CDELL(4), CDELZ(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CDELL1(4), CAIJ(4, ICBOT:ICTOP), CAIJ1(LLEE, 4)
+      DOUBLE PRECISION, INTENT(IN) :: CKR(ICBOT:ICTOP), CDKR(ICBOT:ICTOP), CKIJ1(LLEE, 4)
+      
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: CBETM(ICBOT:ICTOP + 1)
+      DOUBLE PRECISION, INTENT(OUT) :: CDBETM(ICBOT:ICTOP + 1), CDBTMM(ICBOT:ICTOP + 1)
+      DOUBLE PRECISION, INTENT(OUT) :: CF(ICBOT:ICTOP), CDF(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CKIJ(LLEE, 4), CDKIJ(LLEE, 4), CGAM1(LLEE, 4)
+      DOUBLE PRECISION, INTENT(OUT) :: CDGAM1(LLEE, 4), CGAM2(LLEE, 4), CDGAM2(LLEE, 4)
+      
+      ! Workspace arguments
+      DOUBLE PRECISION, INTENT(OUT) :: C(ICBOT:ICTOP), D(ICBOT:ICTOP)
+      
+      ! Locals
       INTEGER :: DELKJ, I, J, K, K1, M, NIJ, NKJ, NKJM1, P
-      DOUBLEPRECISION AIJDUM, AREA2, C1, C2, CAVE, CI, CIJ, CKJ, CK1J, &
-         CM, Casum
-      DOUBLEPRECISION D1, D2, DIJ, AODZ, KSAODZ, DXDUM, RCI, RCM, WI, &
-         WIM1, WO2DX
-      DOUBLEPRECISION KIJ, DKIJ, GAM1, GAM2, DGAM1, DGAM2, CKIJS, CKZS
-
-
-
+      DOUBLE PRECISION :: AIJDUM, AREA2, C1, C2, CAVE, CI, CIJ, CKJ, CK1J, CM, Casum
+      DOUBLE PRECISION :: D1, D2, DIJ, AODZ, KSAODZ, DXDUM, RCI, RCM, WI, WIM1, WO2DX
+      DOUBLE PRECISION :: KIJ, DKIJ, GAM1, GAM2, DGAM1, DGAM2, CKIJS, CKZS
       LOGICAL :: TEST
-!----------------------------------------------------------------------*
-! vertical conductivity terms (CBETM,CDB*)
-      CBETM (ICBOT) = zero
-      CDBETM (ICBOT) = zero
 
-      CDBTMM (ICBOT) = zero
+   !----------------------------------------------------------------------*
+
+      ! vertical conductivity terms (CBETM,CDB*)
+      CBETM(ICBOT) = zero
+      CDBETM(ICBOT) = zero
+      CDBTMM(ICBOT) = zero
 
       IF (ISZERO(CWV)) THEN
-!        ! Special case: weighted harmonic mean
-         AREA2 = CA0 * 2D0
-         DO 100 I = ICBOT, ICTOP
-            CKZS = VSK3D (ICSOIL (I), 3)
-            KSAODZ = CKZS * AREA2 / CDELZ (I)
-            C (I) = CKR (I) * KSAODZ
-            D (I) = CDKR (I) * KSAODZ
-100      END DO
-         DO 200 I = ICBOT + 1, ICTOP
+         ! Special case: weighted harmonic mean
+         AREA2 = CA0 * 2.0d0
+         DO I = ICBOT, ICTOP
+            CKZS = VSK3D(ICSOIL(I), 3)
+            KSAODZ = CKZS * AREA2 / CDELZ(I)
+            C(I) = CKR(I) * KSAODZ
+            D(I) = CDKR(I) * KSAODZ
+         END DO
+         
+         DO I = ICBOT + 1, ICTOP
             M = I - 1
-            CM = C (M)
-            CI = C (I)
+            CM = C(M)
+            CI = C(I)
             Casum = CM + CI
             RCM = CM / Casum
             RCI = CI / Casum
-            CBETM (I) = CI * RCM
-            CDBETM (I) = D (I) * RCM**2
-            CDBTMM (I) = D (M) * RCI**2
+            CBETM(I) = CI * RCM
+            CDBETM(I) = D(I) * RCM**2
+            CDBTMM(I) = D(M) * RCI**2
+         END DO
 
-200      END DO
-
-      ELSEIF (ISONE(CWV)) THEN
-!        * Arithmetic mean
-         DO 203 I = ICBOT, ICTOP
-            CKZS = VSK3D (ICSOIL (I), 3)
-            C (I) = CKR (I) * CKZS
-            D (I) = CDKR (I) * CKZS
-203      END DO
-         DO 205 I = ICBOT + 1, ICTOP
+      ELSE IF (ISONE(CWV)) THEN
+         ! Arithmetic mean
+         DO I = ICBOT, ICTOP
+            CKZS = VSK3D(ICSOIL(I), 3)
+            C(I) = CKR(I) * CKZS
+            D(I) = CDKR(I) * CKZS
+         END DO
+         
+         DO I = ICBOT + 1, ICTOP
             M = I - 1
-            AODZ = CA0 / (CDELZ (M) + CDELZ (I) )
-            CBETM (I) = AODZ * (C (M) + C (I) )
-            CDBETM (I) = AODZ * D (I)
-            CDBTMM (I) = AODZ * D (M)
-
-205      END DO
+            AODZ = CA0 / (CDELZ(M) + CDELZ(I))
+            CBETM(I) = AODZ * (C(M) + C(I))
+            CDBETM(I) = AODZ * D(I)
+            CDBTMM(I) = AODZ * D(M)
+         END DO
 
       ELSE
-!        * General w-mean
+         ! General w-mean
          WI = one / CWV
          WIM1 = (one - CWV) / CWV
-         DO 208 I = ICBOT, ICTOP
-            CKZS = VSK3D (ICSOIL (I), 3)
-            C (I) = (CKR (I) * CKZS) **CWV
-            D (I) = CDKR (I) * CKZS
-208      END DO
-         DO 210 I = ICBOT + 1, ICTOP
+         
+         DO I = ICBOT, ICTOP
+            CKZS = VSK3D(ICSOIL(I), 3)
+            C(I) = (CKR(I) * CKZS)**CWV
+            D(I) = CDKR(I) * CKZS
+         END DO
+         
+         DO I = ICBOT + 1, ICTOP
             M = I - 1
-            CM = C (M)
-            CI = C (I)
-            CAVE = .5D0 * (CM + CI)
-            AODZ = CA0 / (CDELZ (M) + CDELZ (I) )
-            CBETM (I) = AODZ * CAVE**WI * 2D0
-            CDBETM (I) = AODZ * (CAVE / CI) **WIM1 * D (I)
-            CDBTMM (I) = AODZ * (CAVE / CM) **WIM1 * D (M)
+            CM = C(M)
+            CI = C(I)
+            CAVE = 0.5d0 * (CM + CI)
+            AODZ = CA0 / (CDELZ(M) + CDELZ(I))
+            CBETM(I) = AODZ * CAVE**WI * 2.0d0
+            CDBETM(I) = AODZ * (CAVE / CI)**WIM1 * D(I)
+            CDBTMM(I) = AODZ * (CAVE / CM)**WIM1 * D(M)
+         END DO
 
-210      END DO
-
-      ENDIF
+      END IF
+      
       I = ICTOP + 1
-      CBETM (I) = zero
-      CDBETM (I) = zero
+      CBETM(I) = zero
+      CDBETM(I) = zero
+      CDBTMM(I) = zero
 
-
-      CDBTMM (I) = zero
-! vertical components of coefficients  NB lateral components added later
-      DO 220 I = ICBOT, ICTOP
+      ! vertical components of coefficients  NB lateral components added later
+      DO I = ICBOT, ICTOP
          P = I + 1
-         CF (I) = CBETM (I) + CBETM (P)
-         CDF (I) = CDBETM (I) + CDBTMM (P)
+         CF(I) = CBETM(I) + CBETM(P)
+         CDF(I) = CDBETM(I) + CDBTMM(P)
+      END DO
 
-
-220   END DO
-! loop over each face
+      ! loop over each face
       WI = one / CWL
       WIM1 = (one - CWL) / CWL
 
-      DO 400 J = 1, 4
-         M = 1 + MOD (J - 1, 2)
-         TEST = JELDUM (J) .LT.1.OR.JCBC (J) .EQ.9
-         DXDUM = CDELL (J) + CDELL1 (J)
+      face_loop: DO J = 1, 4
+         M = 1 + MOD(J - 1, 2)
+         TEST = (JELDUM(J) < 1) .OR. (JCBC(J) == 9)
+         DXDUM = CDELL(J) + CDELL1(J)
          WO2DX = half * CWL / DXDUM
 
+         internal_cell_loop: DO I = ICBOT, ICTOP
+            ! lateral conductivity terms
+            CKIJS = VSK3D(ICSOIL(I), M)
+            KIJ = CKR(I) * CKIJS
+            DKIJ = CDKR(I) * CKIJS
+            CKIJ(I, J) = KIJ
+            CDKIJ(I, J) = DKIJ
+            
+            ! lateral components of all coefficients
+            K = JCACN(J, I)
+            
+            ! Cycle directly replaces GOTO 300
+            IF (K == 0 .OR. TEST) CYCLE internal_cell_loop
 
-         DO 300 I = ICBOT, ICTOP
-! lateral conductivity terms
-            CKIJS = VSK3D (ICSOIL (I), M)
-            KIJ = CKR (I) * CKIJS
-            DKIJ = CDKR (I) * CKIJS
-            CKIJ (I, J) = KIJ
-
-
-            CDKIJ (I, J) = DKIJ
-! lateral components of all coefficients
-            K = JCACN (J, I)
-            IF (K.EQ.0.OR.TEST) GOTO 300
-!                                   >>>>>>>>
-            NIJ = ABS (JCDEL (J, I) ) + 1
-            DELKJ = JCDEL1 (K, J)
+            NIJ = ABS(JCDEL(J, I)) + 1
+            DELKJ = JCDEL1(K, J)
             K1 = K + DELKJ
-            NKJM1 = ABS (DELKJ)
-
+            NKJM1 = ABS(DELKJ)
             NKJ = NKJM1 + 1
-            CKJ = CKIJ1 (K, J) * CAIJ1 (K, J) / NIJ
-            CK1J = CKIJ1 (K1, J) * CAIJ1 (K1, J) / NIJ
-            AIJDUM = CAIJ (J, I) / NKJ
+            
+            CKJ = CKIJ1(K, J) * CAIJ1(K, J) / DBLE(NIJ)
+            CK1J = CKIJ1(K1, J) * CAIJ1(K1, J) / DBLE(NIJ)
+            AIJDUM = CAIJ(J, I) / DBLE(NKJ)
             DIJ = DKIJ * AIJDUM * WO2DX
-
             CIJ = KIJ * AIJDUM
+            
             C1 = half * (CIJ + CKJ)
             C2 = half * (CIJ + CK1J)
             D1 = one
-
             D2 = one
+            
             IF (NOTONE(CWL)) THEN
                CIJ = CIJ**CWL
                CKJ = CKJ**CWL
                CK1J = CK1J**CWL
-               D1 = (C1 / CIJ) **WIM1
-               D2 = (C2 / CIJ) **WIM1
+               D1 = (C1 / CIJ)**WIM1
+               D2 = (C2 / CIJ)**WIM1
                C1 = C1**WI
                C2 = C2**WI
-
-            ENDIF
+            END IF
+            
             GAM1 = C1 / DXDUM
-            GAM2 = C2 / DXDUM * NKJM1
+            GAM2 = C2 / DXDUM * DBLE(NKJM1)
             DGAM1 = D1 * DIJ
+            DGAM2 = D2 * DIJ * DBLE(NKJM1)
+            
+            CGAM1(I, J) = GAM1
+            CGAM2(I, J) = GAM2
+            CDGAM1(I, J) = DGAM1
+            CDGAM2(I, J) = DGAM2
+            
+            CF(I) = CF(I) + GAM1 + GAM2
+            CDF(I) = CDF(I) + DGAM1 + DGAM2
 
-            DGAM2 = D2 * DIJ * NKJM1
-            CGAM1 (I, J) = GAM1
-            CGAM2 (I, J) = GAM2
-            CDGAM1 (I, J) = DGAM1
-            CDGAM2 (I, J) = DGAM2
-            CF (I) = CF (I) + GAM1 + GAM2
+         END DO internal_cell_loop
+      END DO face_loop
 
-            CDF (I) = CDF (I) + DGAM1 + DGAM2
-
-300      END DO
-
-400   END DO
    END SUBROUTINE VSCOEF
 
 
 
-
-
-!SSSSSS SUBROUTINE VSCOLM
+   !SSSSSS SUBROUTINE VSCOLM
    SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
-      IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
-      JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
-      ICLGN, ICLGL, CA0, CZG, CZSP, CCS, CDELZ, CZ, CDELL, CAIJ, CAIJ1, &
-      CDELL1, CZ1, DT, CDNET, CPSIN, CQ, CZS, CPSI1, CPSIN1, CKIJ1, &
-      CQWIN, CLF, CLH, CLG, CBF, CBH, ICSTOR, CPSI, CKR, CTHETA, CQH, &
-      CQV, CQWI, CQSP, CPSL, depadj)
-!!!!!!! extra variable depadj passed for mods to vssai.f
-! SPA, 03/11.98
-!----------------------------------------------------------------------*
-! Solves flow equations for a single colm
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCOLM/4.2
-! Modifications:
-!  GP  29.07.94  written (v4.0 finished 17.07.96)
-! RAH  961220  4.1  Remove commented lines.
-!      961228       Arguments: add CWV,CWL; remove BUG.  IFA is local.
-!                   Remove common CCCOLM, and CETAO, CKRO lines.
-!                   VSCOEF arguments: remove IEL,NIT; add CWV,CWL.
-!      970121       CEPSMX,NITMAX are constants.  Use DO 500 not GOTO.
-!                   Use generic intrinsics.  Remove redundant ICPSL.
-!                   Extend arg-list (& remove redundancies) for VSFUNC.
-!      970122       Extend VSCOEF argument list.
-!      970123       Make VSCOEF output arguments, and CETA,CDETA,CDKR,
-!                   local; also eliminate some arguments (see VSCOEF),
-!                   including CBETP (use CBETM(ICL+1) instead).
-!      970126       Full argument list for VSINTC, and make CA,CC local.
-!      970127       Full argument lists for VSUPPR,VSWELL,VSSPR,VSBC.
-!      970131       Full argument list for VSLOWR, & unconditional call.
-!                   Remove redundant I1.  Amend some comments.
-!      970203       Full argument list for VSSAI, and reposition call.
-!                   Replace input CV with CA0,CDELZ.  CDPSI,CB,CR local.
-!                   Replace output CQINF with CQV(ICTOP).
-!                   Pass CA0 to VSWELL (see VSWELL). Simplify CPSL code.
-!                   Add CGAM2 term to CQH unconditionally.
-!      970207       Remove VSWELL output CQW.
-!      970210       Remove output argument NITC and common CQBK*.
-!                   Move inputs BCHELE,CA0,CZG,DT,CPSIN and outputs
-!                   CQSP,CPSL from VSCOLM.INC to argument list.
-!                   Move input SIGMA to VSINTC.  Initialize CQH.
-!      970513       Use VSK3D(ICSOIL(ICL),?) for CKIJS(ICL,?),CKZS(ICL).
-!                   Swap indices: CAIJ, CQH, JCACN, & JCDEL.
-!                   Use arguments in place of VSCOLM.INC.
-!      970514       VSBC args: remove DWORK2; add IFA - also to VSSAI.
-!                   VSUPPR args: replace CDW,CEW,CQP with CDNET.
-!                   VSWELL args: reorder.  Don't initialize CQH.
-!                   New local DPSI.  No block-IF in setting CPSL.
-!      970515       Re-order arguments.
-! RAH  980402  4.2  Replace local ERR with new arg ELEVEL (see VSSIM).
-!JE   JAN 2009      Loop restructure for AD
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE
-!     ICWLBT <= ICWLTP
-! for each j in 1:4: JCBC(j)  =   0,3,4,5,9 or 10
-!               3 <= JCBC(j) <= 5  ==>  JELDUM(j) = 0
-!                    JCBC(j)  = 9  ==>  JCACN(j,ICBOT:ICTOP) = 0
-!                    JCBC(j)  = 10 ==>  JCACN(j,ICBED+1:ICTOP) = 0
-! the following are static functions of IEL:
-!     ICBED,ICBOT,ICLFL,ICLFN,ICLHL,ICLHN,ICLYRB,ICTOP,JCACN,JCBC,JELDUM
-!----------------------------------------------------------------------*
-! Limited ranges:
-!              CQWI, CQWIN: only if JCBC(5)=1
-! ICSPCE, CCS, CQSP,  CZSP: only if JCBC(5)=2
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     AL.P.VSS:        LLEE,NLYREE,NSEE
-!     VSSOIL.INC:      NSOLEE
-! Input common
-!     VSSOIL.INC:      NVSSOL
-!                      VSPPSI(NVSSOL),   VSPTHE(NSOLEE,NS)
-!                       VSPKR(NSOLEE,NS),VSPETA(NSOLEE,NS)
-!                      VSPDKR(NSOLEE,NS),VSPDET(NSOLEE,NS)
-! Input arguments
-      INTEGER :: EESN, ELEVEL, IEL, ICBOT, ICTOP, ICBED
-      INTEGER :: ICSPCE, ICWLBT, ICWLTP, ICLFN, ICLHN, ICLGN
-      INTEGER :: ICLYRB (NLYREE), ICSOIL (ICBOT:ICTOP), JCBC (0:5)
-      INTEGER :: ICLFL (NLYREE), JCACN (4, ICBOT:ICTOP), JELDUM (4)
-      INTEGER :: ICLHL (NLYREE), JCDEL (4, ICBOT:ICTOP)
-      INTEGER :: ICLGL (NLYREE), JCDEL1 (LLEE, 4)
-      DOUBLEPRECISION CWV, CWL, CA0, CZG, CZSP, CCS
-      DOUBLEPRECISION VSK3D (NSEE, 3), CDELZ (ICBOT:ICTOP), CDELL (4)
-      DOUBLEPRECISION CAIJ1 (LLEE, 4), CZ (ICBOT:ICTOP), CDELL1 (4)
-      DOUBLEPRECISION CZ1 (LLEE, 4), CAIJ (4, ICBOT:ICTOP)
-      DOUBLEPRECISION DT, CDNET, CQWIN, CBF, CBH
-      DOUBLEPRECISION CPSI1 (LLEE, 4), CPSIN (ICBOT:ICTOP), CLF (NLYREE)
-      DOUBLEPRECISION CPSIN1 (LLEE, 4), CQ (ICBOT:ICTOP), CLH (NLYREE)
-      DOUBLEPRECISION CKIJ1 (LLEE, 4), CZS (4), CLG (NLYREE)
-!!!!! depadj for fix to vssai, SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
+         JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
+         ICLGN, ICLGL, CA0, CZG, CZSP, CCS, CDELZ, CZ, CDELL, CAIJ, CAIJ1, &
+         CDELL1, CZ1, DT, CDNET, CPSIN, CQ, CZS, CPSI1, CPSIN1, CKIJ1, &
+         CQWIN, CLF, CLH, CLG, CBF, CBH, ICSTOR, CPSI, CKR, CTHETA, CQH, &
+         CQV, CQWI, CQSP, CPSL, depadj)
+   !!!!!!! extra variable depadj passed for mods to vssai.f
+   ! SPA, 03/11.98
+   !----------------------------------------------------------------------*
+   ! Solves flow equations for a single colm
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSCOLM/4.2
+   ! Modifications:
+   !  GP  29.07.94  written (v4.0 finished 17.07.96)
+   ! RAH  961220  4.1  Remove commented lines.
+   !      961228       Arguments: add CWV,CWL; remove BUG.  IFA is local.
+   !                   Remove common CCCOLM, and CETAO, CKRO lines.
+   !                   VSCOEF arguments: remove IEL,NIT; add CWV,CWL.
+   !      970121       CEPSMX,NITMAX are constants.  Use DO 500 not GOTO.
+   !                   Use generic intrinsics.  Remove redundant ICPSL.
+   !                   Extend arg-list (& remove redundancies) for VSFUNC.
+   !      970122       Extend VSCOEF argument list.
+   !      970123       Make VSCOEF output arguments, and CETA,CDETA,CDKR,
+   !                   local; also eliminate some arguments (see VSCOEF),
+   !                   including CBETP (use CBETM(ICL+1) instead).
+   !      970126       Full argument list for VSINTC, and make CA,CC local.
+   !      970127       Full argument lists for VSUPPR,VSWELL,VSSPR,VSBC.
+   !      970131       Full argument list for VSLOWR, & unconditional call.
+   !                   Remove redundant I1.  Amend some comments.
+   !      970203       Full argument list for VSSAI, and reposition call.
+   !                   Replace input CV with CA0,CDELZ.  CDPSI,CB,CR local.
+   !                   Replace output CQINF with CQV(ICTOP).
+   !                   Pass CA0 to VSWELL (see VSWELL). Simplify CPSL code.
+   !                   Add CGAM2 term to CQH unconditionally.
+   !      970207       Remove VSWELL output CQW.
+   !      970210       Remove output argument NITC and common CQBK*.
+   !                   Move inputs BCHELE,CA0,CZG,DT,CPSIN and outputs
+   !                   CQSP,CPSL from VSCOLM.INC to argument list.
+   !                   Move input SIGMA to VSINTC.  Initialize CQH.
+   !      970513       Use VSK3D(ICSOIL(ICL),?) for CKIJS(ICL,?),CKZS(ICL).
+   !                   Swap indices: CAIJ, CQH, JCACN, & JCDEL.
+   !                   Use arguments in place of VSCOLM.INC.
+   !      970514       VSBC args: remove DWORK2; add IFA - also to VSSAI.
+   !                   VSUPPR args: replace CDW,CEW,CQP with CDNET.
+   !                   VSWELL args: reorder.  Don't initialize CQH.
+   !                   New local DPSI.  No block-IF in setting CPSL.
+   !      970515       Re-order arguments.
+   ! RAH  980402  4.2  Replace local ERR with new arg ELEVEL (see VSSIM).
+   ! JE   JAN 2009      Loop restructure for AD
+   !----------------------------------------------------------------------*
+   ! Entry conditions:
+   ! 1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE
+   !      ICWLBT <= ICWLTP
+   ! for each j in 1:4: JCBC(j)  =   0,3,4,5,9 or 10
+   !              3 <= JCBC(j) <= 5  ==>  JELDUM(j) = 0
+   !                   JCBC(j)  = 9  ==>  JCACN(j,ICBOT:ICTOP) = 0
+   !                   JCBC(j)  = 10 ==>  JCACN(j,ICBED+1:ICTOP) = 0
+   ! the following are static functions of IEL:
+   !     ICBED,ICBOT,ICLFL,ICLFN,ICLHL,ICLHN,ICLYRB,ICTOP,JCACN,JCBC,JELDUM
+   !----------------------------------------------------------------------*
+   ! Limited ranges:
+   !              CQWI, CQWIN: only if JCBC(5)=1
+   ! ICSPCE, CCS, CQSP,  CZSP: only if JCBC(5)=2
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION depadj (4)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      ! Assumed external module dependencies providing global variables:
+      ! LLEE, NLYREE, NSEE, NSOLEE, NVSSOL, VSPPSI, VSPTHE, VSPKR, VSPETA,
+      ! VSPDKR, VSPDET, PPPRI, ERROR, errcntallowed, ZERO, half
 
-      LOGICAL :: BCHELE
-! In+out arguments
-      INTEGER :: ICSTOR (ICBOT:ICTOP)
+      IMPLICIT NONE
 
-      DOUBLEPRECISION CPSI (ICBOT:ICTOP)
-! Output arguments
-      DOUBLEPRECISION CTHETA (ICBOT:ICTOP), CQV (ICBOT - 1:ICTOP)
-      DOUBLEPRECISION CKR (ICBOT:ICTOP), CQH (4, ICBOT:ICTOP)
+      ! Input arguments
+      INTEGER, INTENT(IN) :: EESN, ELEVEL, IEL, ICBOT, ICTOP, ICBED
+      INTEGER, INTENT(IN) :: ICSPCE, ICWLBT, ICWLTP, ICLFN, ICLHN, ICLGN
+      INTEGER, INTENT(IN) :: ICLYRB (NLYREE), ICSOIL (ICBOT:ICTOP), JCBC (0:5)
+      INTEGER, INTENT(IN) :: ICLFL (NLYREE), JCACN (4, ICBOT:ICTOP), JELDUM (4)
+      INTEGER, INTENT(IN) :: ICLHL (NLYREE), JCDEL (4, ICBOT:ICTOP)
+      INTEGER, INTENT(IN) :: ICLGL (NLYREE), JCDEL1 (LLEE, 4)
+      DOUBLE PRECISION, INTENT(IN) :: CWV, CWL, CA0, CZG, CZSP, CCS
+      DOUBLE PRECISION, INTENT(IN) :: VSK3D (NSEE, 3), CDELZ (ICBOT:ICTOP), CDELL (4)
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ1 (LLEE, 4), CZ (ICBOT:ICTOP), CDELL1 (4)
+      DOUBLE PRECISION, INTENT(IN) :: CZ1 (LLEE, 4), CAIJ (4, ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: DT, CDNET, CQWIN, CBF, CBH
+      DOUBLE PRECISION, INTENT(IN) :: CPSI1 (LLEE, 4), CPSIN (ICBOT:ICTOP), CLF (NLYREE)
+      DOUBLE PRECISION, INTENT(IN) :: CPSIN1 (LLEE, 4), CQ (ICBOT:ICTOP), CLH (NLYREE)
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ1 (LLEE, 4), CZS (4), CLG (NLYREE)
+      DOUBLE PRECISION, INTENT(IN) :: depadj (4)
+      LOGICAL, INTENT(IN) :: BCHELE
 
-      DOUBLEPRECISION CQWI (ICWLBT:ICWLTP), CQSP, CPSL
-! Locals, etc
-!INTRINSIC ABS, MAX
-      INTEGER :: NITMAX
-      DOUBLEPRECISION CEPSMX
-      PARAMETER (NITMAX = 100, CEPSMX = 1D-4)
+      ! In+out arguments
+      INTEGER, INTENT(INOUT) :: ICSTOR (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(INOUT) :: CPSI (ICBOT:ICTOP)
+
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: CTHETA (ICBOT:ICTOP), CQV (ICBOT - 1:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CKR (ICBOT:ICTOP), CQH (4, ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CQWI (ICWLBT:ICWLTP), CQSP, CPSL
+
+      ! Locals, etc
+      INTEGER, PARAMETER :: NITMAX = 100
+      DOUBLE PRECISION, PARAMETER :: CEPSMX = 1.0D-4
       INTEGER :: BTYPE, I, ICL, IFA, J, K, K1, NDUM, NIT, PCL, SOIL
-      DOUBLEPRECISION CPSMIN, DPSI, DPSIMX, H0, H1, H2
-      DOUBLEPRECISION DWORK1 (1 + LLEE+NLYREE), DWORK2 (LLEE)
-      DOUBLEPRECISION CETA (LLEE), CDETA (LLEE), CDKR (LLEE)
-      DOUBLEPRECISION CBETM (LLEE), CDBETM (LLEE), CDBTMM (LLEE)
-      DOUBLEPRECISION CF (LLEE), CDF (LLEE), CKIJ (LLEE, 4), CDKIJ ( LLEE, 4)
-      DOUBLEPRECISION CGAM1 (LLEE, 4), CDGAM1 (LLEE, 4)
-      DOUBLEPRECISION CGAM2 (LLEE, 4), CDGAM2 (LLEE, 4)
-      DOUBLEPRECISION CA (LLEE), CB (LLEE), CC (LLEE), CR (LLEE), CDPSI (LLEE)
-      LOGICAL :: g510
-      integer,save :: errorcount=0
-!----------------------------------------------------------------------*
-! Initialization
-!________________*
+      DOUBLE PRECISION :: CPSMIN, DPSI, DPSIMX, H0, H1, H2
+      DOUBLE PRECISION :: DWORK1 (1 + LLEE+NLYREE), DWORK2 (LLEE)
+      DOUBLE PRECISION :: CETA (LLEE), CDETA (LLEE), CDKR (LLEE)
+      DOUBLE PRECISION :: CBETM (LLEE), CDBETM (LLEE), CDBTMM (LLEE)
+      DOUBLE PRECISION :: CF (LLEE), CDF (LLEE), CKIJ (LLEE, 4), CDKIJ ( LLEE, 4)
+      DOUBLE PRECISION :: CGAM1 (LLEE, 4), CDGAM1 (LLEE, 4)
+      DOUBLE PRECISION :: CGAM2 (LLEE, 4), CDGAM2 (LLEE, 4)
+      DOUBLE PRECISION :: CA (LLEE), CB (LLEE), CC (LLEE), CR (LLEE), CDPSI (LLEE)
+      
+      INTEGER, SAVE :: errorcount = 0
 
+   !----------------------------------------------------------------------*
+   ! Initialization
+   !________________*
 
       NDUM = ICTOP - ICBOT + 1
-! Main iteration loop (calculations within depend upon CPSI)
-!____________________________________________________________*
 
-      g510=.FALSE.
+   ! Main iteration loop (calculations within depend upon CPSI)
+   !____________________________________________________________*
+
       OUT500 : DO NIT = 1, NITMAX
-         IF(g510) CYCLE
-! update soil properties from previous iteration
 
-
+         ! update soil properties from previous iteration
          CALL VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
             VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, &
-            ICSTOR, CTHETA, CETA (ICBOT), CKR, CDETA (ICBOT), CDKR (ICBOT) &
-            )
-! set up intermediate coefficients
-
-
+            ICSTOR, CTHETA, CETA (ICBOT), CKR, CDETA (ICBOT), CDKR (ICBOT))
+            
+         ! set up intermediate coefficients
          CALL VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, JELDUM, &
             JCBC (1), ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
             CDELZ, CAIJ, CAIJ1, CKR, CDKR (ICBOT), CKIJ1, CBETM (ICBOT), &
             CDBETM (ICBOT), CDBTMM (ICBOT), CF (ICBOT), CDF (ICBOT), &
             CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, DWORK1, DWORK2)
-! prepare basic coefficients for tri-diagonal solver ("internal" cells)
-
-
+            
+         ! prepare basic coefficients for tri-diagonal solver ("internal" cells)
          CALL VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC (1), JCACN, &
             JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA (ICBOT), CDETA (ICBOT), &
             CQ, CPSI, CPSIN, CF (ICBOT), CDF (ICBOT), CBETM (ICBOT), &
             CDBETM (ICBOT), CDBTMM (ICBOT), CPSI1, CPSIN1, CGAM1, CGAM2, &
             CDGAM1, CDGAM2, CA (ICBOT), CB (ICBOT), CC (ICBOT), CR (ICBOT), &
             DWORK1)
-! add top boundary condition
+            
+         ! add top boundary condition
          SOIL = ICSOIL (ICTOP)
-
-
          CALL VSUPPR (CA0, CDELZ (ICTOP), VSK3D (SOIL, 3), DT, CDNET, &
-            CPSI (ICTOP), CB (ICTOP), CR (ICTOP), CQV (ICTOP) )
-! add well abstraction (type 1)
+            CPSI (ICTOP), CB (ICTOP), CR (ICTOP), CQV (ICTOP))
+            
+         ! add well abstraction (type 1)
          BTYPE = JCBC (5)
-         IF (BTYPE.EQ.1) THEN
-
-
+         IF (BTYPE == 1) THEN
             CALL VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL (ICWLBT), &
                CA0, CDELZ (ICWLBT), CQWIN, CPSI (ICWLBT), CR (ICWLBT), &
                CQWI, DWORK1)
-! add spring discharge (type 2)
-         ELSEIF (BTYPE.EQ.2) THEN
+         ! add spring discharge (type 2)
+         ELSE IF (BTYPE == 2) THEN
             CALL VSSPR (CZ (ICSPCE), CZSP, CCS, CPSI (ICSPCE), CKR ( &
                ICSPCE), CDKR (ICSPCE), CB (ICSPCE), CR (ICSPCE), CQSP)
-
-
-         ENDIF
-! add user-defined lateral boundary conditions (types 3-5)
-         DO 20 IFA = 1, 4
+         END IF
+         
+         ! add user-defined lateral boundary conditions (types 3-5)
+         DO IFA = 1, 4
             BTYPE = JCBC (IFA)
-            IF (BTYPE.GE.3.AND.BTYPE.LE.5) THEN
-
-
+            IF (BTYPE >= 3 .AND. BTYPE <= 5) THEN
                CALL VSBC (BCHELE, IFA, ICBOT, ICTOP, JCBC (IFA), &
                   ICLYRB, ICLFN, ICLFL, ICLHN, ICLHL, CZG, CDELL (IFA), &
                   CDELZ, CZ, CAIJ, CLF, CLH, CPSI, CKIJ (ICBOT, IFA), &
                   CDKIJ (ICBOT, IFA), CB (ICBOT), CR (ICBOT), CQH, DWORK1)
-! add stream-aquifer interaction (types 9 and 10)
-            ELSEIF (BTYPE.EQ.9.OR.BTYPE.EQ.10) THEN
+                  
+            ! add stream-aquifer interaction (types 9 and 10)
+            ELSE IF (BTYPE == 9 .OR. BTYPE == 10) THEN
                CALL VSSAI (IFA, JCBC (IFA), ICBOT, ICTOP, ICBED, CDELL ( &
                   IFA), CZ, CAIJ, CZS (IFA), CPSI, CKIJ (ICBOT, IFA), &
                   CDKIJ (ICBOT, IFA), CB (ICBOT), CR (ICBOT), CQH, depadj ( &
-                  ifa), cdelz)
-!!!!!! added depadj to call to vssai, SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            ENDIF
-
-
-20       END DO
-! add lower boundary condition (types 6-8)
+                  IFA), cdelz)
+            END IF
+         END DO
+         
+         ! add lower boundary condition (types 6-8)
          SOIL = ICSOIL (ICBOT)
-!         CALL VSLOWR(JCBC(0),CA0,CZ,CDELZ,VSK3D(SOIL,3),
-!     $               CBF,CBH,CPSI,CKR(ICBOT),CDKR(ICBOT),
-!     $            CB(ICBOT),CR(ICBOT), CQV)
-
-
-
-         CALL VSLOWR (JCBC (0), CA0, CZ (icbot), CDELZ (icbot), VSK3D ( &
-            SOIL, 3), CBF, CBH, CPSI (icbot), CKR (ICBOT), CDKR (ICBOT), &
-            CB (ICBOT), CR (ICBOT), CQV (icbot - 1) )
-! solve linear equations
-
-
-         CALL TRIDAG (CA (ICBOT:ICTOP), CB (ICBOT:ICTOP), CC (ICBOT:ICTOP), CR (ICBOT:ICTOP), &
-            CDPSI (ICBOT:ICTOP), NDUM)
-! update PSI array and check for convergence
+         CALL VSLOWR (JCBC (0), CA0, CZ (ICBOT), CDELZ (ICBOT), VSK3D ( &
+            SOIL, 3), CBF, CBH, CPSI (ICBOT), CKR (ICBOT), CDKR (ICBOT), &
+            CB (ICBOT), CR (ICBOT), CQV (ICBOT - 1))
+            
+         ! solve linear equations (Preserving required assumed-shape array slices)
+         CALL TRIDAG (CA(ICBOT:ICTOP), CB(ICBOT:ICTOP), CC(ICBOT:ICTOP), CR(ICBOT:ICTOP), CDPSI(ICBOT:ICTOP), NDUM)
+         
+         ! update PSI array and check for convergence
          DPSIMX = ZERO
-         DO 100 ICL = ICBOT, ICTOP
+         DO ICL = ICBOT, ICTOP
             DPSI = CDPSI (ICL)
             CPSI (ICL) = CPSI (ICL) + DPSI
-            DPSIMX = MAX (DPSIMX, ABS (DPSI) )
-100      END DO
+            DPSIMX = MAX (DPSIMX, ABS (DPSI))
+         END DO
 
-         IF (DPSIMX.LE.CEPSMX) g510=.TRUE. !GOTO 510
-!                              >>>>>>>>
-      ENDDO out500
+         ! PERFECT EXIT: Immediately break loop if convergence is met
+         IF (DPSIMX <= CEPSMX) EXIT OUT500
 
-!    write (789,*), uznow, cqwin,cqwi(2),cr(2)
+      END DO OUT500
 
-
-      IF (ELEVEL.GT.0) then
-         errorcount=errorcount+1
-         if (errorcount.lt.errcntallowed) then
+      ! Handle non-convergence error reporting safely
+      IF (NIT > NITMAX .AND. ELEVEL > 0) THEN
+         errorcount = errorcount + 1
+         IF (errorcount < errcntallowed) THEN
             CALL ERROR (ELEVEL, 1036, PPPRI, IEL, 0, 'Maximum iterations in VSS column solver')
-         elseif (errorcount.eq.errcntallowed) then
+         ELSE IF (errorcount == errcntallowed) THEN
             CALL ERROR (ELEVEL, 1036, PPPRI, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
-         endif
-      endif
+         END IF
+      END IF
 
-
-
-
-
-510   CONTINUE
-! Calculate final values of output variables
-!____________________________________________*
-! flows
-      DO 600 ICL = ICBOT, ICTOP - 1
+   ! Calculate final values of output variables
+   !____________________________________________*
+   ! flows
+      DO ICL = ICBOT, ICTOP - 1
          PCL = ICL + 1
-         CQV (ICL) = CBETM (PCL) * (CZ (ICL) + CPSI (ICL) - CZ (PCL) &
-            - CPSI (PCL) ) / CA0
+         CQV (ICL) = CBETM (PCL) * (CZ (ICL) + CPSI (ICL) - CZ (PCL) - CPSI (PCL)) / CA0
+      END DO
+      
+      face_loop: DO J = 1, 4
+         IF (JELDUM (J) < 1) CYCLE face_loop
 
-600   END DO
-      DO 650 J = 1, 4
-         IF (JELDUM (J) .LT.1) GOTO 650
-!                            >>>>>>>>
-
-         DO 640 I = ICBOT, ICTOP
+         cell_loop: DO I = ICBOT, ICTOP
             K = JCACN (J, I)
-            IF (K.LT.1) GOTO 640
-!                       >>>>>>>>
+            IF (K < 1) CYCLE cell_loop
+            
             K1 = K + JCDEL1 (K, J)
             H0 = CZ (I) + CPSI (I)
             H1 = CZ1 (K, J) + CPSI1 (K, J)
-
             H2 = CZ1 (K1, J) + CPSI1 (K1, J)
 
-            CQH (J, I) = CGAM1 (I, J) * (H1 - H0) + CGAM2 (I, J) &
-               * (H2 - H0)
-640      END DO
+            CQH (J, I) = CGAM1 (I, J) * (H1 - H0) + CGAM2 (I, J) * (H2 - H0)
+         END DO cell_loop
+      END DO face_loop
 
-
-650   END DO
-
-! phreatic surface level
+   ! phreatic surface level
       CPSMIN = CZ (ICBOT) - half * CDELZ (ICBOT)
+      
       search_loop: DO ICL = ICBOT, ICTOP
          IF (CPSI(ICL) < ZERO) EXIT search_loop
       END DO search_loop
 
-! Adjust ICL only if we actually found a value or finished the loop
+      ! Adjust ICL only if we actually found a value or finished the loop
       ICL = MAX(ICBOT, ICL - 1)
 
-      CPSL = MAX (CPSMIN, CZ (ICL) + CPSI (ICL) )
+      CPSL = MAX (CPSMIN, CZ (ICL) + CPSI (ICL))
+      
    END SUBROUTINE VSCOLM
 
 
 
-
-
-!SSSSSS SUBROUTINE VSCONC ()
+   !SSSSSS SUBROUTINE VSCONC ()
    SUBROUTINE VSCONC ()
-!----------------------------------------------------------------------*
-! Sets up cell sizes and connectivity matrix
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCONC/4.1
-! Modifications:
-!  GP  20.07.94  written (4.0 completed 960117)
-! RAH  970326  4.1  Generic intrinsics.  Move ERROR calls to the end.
-!                   New locals ZAQTOP,ZLBOT,ZNODE,ICOL1,ICL0,NCL.
-!                   Scrap local ZDUM1.  Automatic type conversion.
-!                   Rename locals NDUM,ZDUM2,ZDUM3,Zasum,Zasum1.
-!                   Scrap label & GOTO 970 (use MAX(ZERO,VSZMIN)).
-!                   Swap subscripts: DELTAZ,ZVSNOD (AL.C).  Move IBANK2.
-!                   Move block-IF outside loop 974; execute always.
-!                   Labels in order.  Define DELTAZ,ZVSNOD for ICL=1.
-!                   Do loop 1100 only if ICL0>0, call ALINIT, & rm loop
-!                   1170 (zero sub-cells).  Initialize NRENUM in DATA.
-!                   Start at ICL0+1 in search for NLYRBT & don't test
-!                   DELTAZ>0.
-!      970402       Start at ICOL1 in loop 1600 (instead of GOTO).
-!                   Rationalize tests in loop 1500.  Swap subscripts:
-!                   JVSACN,JVSDEL, & initialize to 0 (was IUNDEF first).
-!                   Declare NCELL,NACELL,ZDIFF.
-!      970422       Initialize LRENUM to 0 (was IUNDEF) & test NCLYR<=0.
-!      970423       Start at NLF+1 (was test type=3) in loop 1000.
-!                   Rename ZAQTOP ZSZBOT.
-!      970522       Remove "unfinished code" message.  Simplify test.
-!      970523       Set ZVSNOD(1,IEL) less than ZLYRBT(IEL,1).
-!      970612       Simplify loop 1120.  (Cancel above: 2 mods.)
-!      970718       ZAQBOT was ZLBOT.  Labels in order.
-!                   Use IEL.LE.NLF etc for ITYPE.EQ.3.
-!                   GOTO 1585 instead of ELSE.  Fix error in setting of
-!                   ITOP, JTOP for links (was LL-NCSZON).
-!                   Use NMOD instead of 100, & merge layer IF-blocks.
-!                   Rationalize tests for skipping loop 1590.  Rename
-!                   I|JALDUM J|IRANGE.  Scrap inconsistency error 1049.
-!                   Fix error in aquifer zone: skip if EITHER, not BOTH.
-!      970728       Scrap local IUNDEF & arrays LIDUM,LJDUM. Fix errors:
-!                   in message 1037 print I|J not LI|JDUM(I|J) (=1); at
-!                   top of aquifer zone goto 1585 not 1590 (for BDONE).
-!      970730       Refine split cell treatment: don't straddle null
-!                   cells.  Flag warnings 1037 & 1053 once only.
-!                   Scrap inconsistency error 1050.  Complete IEL loop
-!                   before renumbering (don't jump out straightaway).
-!      970801       Complete split cells: spread foregone splits
-!                   (was ill-specified). Reduce MSG size. Simplify test.
-!                   Don't connect (ends of) river bed cells.
-!      970806       Add some entry conditions.
-!      970811       (Amend PAIR logic: use MISS.)
-!----------------------------------------------------------------------*
-! Entry conditions:
-! {   LLEE, NLYREE, VSZMAX } >  0              LLEE >= NCSZON
-! { NCRBED, NCSZON, VSZMIN } >= 0            NLYREE >  NLYR(NLF+1:NEL)
-!              calls_per_run <= 1             NELEE >= NEL > { NLF, 0 }
-!           DCSZON(1:NCSZON) >= VSZMIN        NLFEE >=       { NLF, 1 }
-! for each e in NLF+1:NEL
-!     ICMREF(e,1).ne.2 ==> for each layer in 1:NLYR(e)
-!                          ZLYRBT(e,layer) <= ZLYRBT(e,layer+1)
-!                   either ZLYRBT(e,layer) <  ZGRUND(e)-DCSTOT
-!                       or ZLYRBT(e,layer) =~ ZGRUND(e)-asum(DCSZON(1:i))
-!                                                 for some i in 1:NCSZON
-!     ICMREF(e,1).eq.1  ==>  1 <= ICMREF(e,4) <= NLF
-! for each e in ICOL1:NEL                       ! ICOL1 is defined below
-!     for each face in 1:4      jel == ICMREF(e,4+face) <= NEL
-!              jel.ge.ICOL1  ==>  1 <= ICMREF(e,8+face) <= 4
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!            AL.P.VSS: LLEE,NELEE,NLFEE,NLYREE
-! Input common
-!                AL.C: FATAL,NLF,PRI,WARN,ICMBK(NLFEE,2),NLYR(NLF+1:NEL)
-!                      ZBEFF(NLFEE),ZGRUND(NLF+1:NEL)
-!                      ZLYRBT(NELEE,NLYREE)
-!                      BEXBK
-!                AL.G: NEL,ICMREF(NELEE,12)
-!          VSCOM1.INC: NCRBED,NCSZON,JVSALN(NELEE,NLYREE,4)
-!                      DCRTOT,DCSTOT,VSZMAX,VSZMIN,DCSZON(LLEE)
-! Output common
-!                AL.C: LL,JVSACN(4,LLEE,NELEE),NLYRBT(NELEE,NLYREE)
-!                         JVSDEL(4,LLEE,NELEE),          NHBED(NLFEE,2)
-!                      DELTAZ(LLEE,NEL),ZVSNOD(LLEE,NEL),FHBED(NLFEE,2)
-! Workspace common
-!                AL.C: IDUM(NEL)
-! Locals, etc
-!INTRINSIC DIM, INT, MAX, MIN, MOD
-      INTEGER :: JVSDUM, NMOD
-      PARAMETER (JVSDUM = NELEE * NLYREE, NMOD = NLYREE+1)
+   !----------------------------------------------------------------------*
+   ! Sets up cell sizes and connectivity matrix
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSCONC/4.1
+   ! Modifications:
+   !  GP  20.07.94  written (4.0 completed 960117)
+   ! RAH  970326  4.1  Generic intrinsics.  Move ERROR calls to the end.
+   !                   New locals ZAQTOP,ZLBOT,ZNODE,ICOL1,ICL0,NCL.
+   !                   Scrap local ZDUM1.  Automatic type conversion.
+   !                   Rename locals NDUM,ZDUM2,ZDUM3,Zasum,Zasum1.
+   !                   Scrap label & GOTO 970 (use MAX(ZERO,VSZMIN)).
+   !                   Swap subscripts: DELTAZ,ZVSNOD (AL.C).  Move IBANK2.
+   !                   Move block-IF outside loop 974; execute always.
+   !                   Labels in order.  Define DELTAZ,ZVSNOD for ICL=1.
+   !                   Do loop 1100 only if ICL0>0, call ALINIT, & rm loop
+   !                   1170 (zero sub-cells).  Initialize NRENUM in DATA.
+   !                   Start at ICL0+1 in search for NLYRBT & don't test
+   !                   DELTAZ>0.
+   !      970402       Start at ICOL1 in loop 1600 (instead of GOTO).
+   !                   Rationalize tests in loop 1500.  Swap subscripts:
+   !                   JVSACN,JVSDEL, & initialize to 0 (was IUNDEF first).
+   !                   Declare NCELL,NACELL,ZDIFF.
+   !      970422       Initialize LRENUM to 0 (was IUNDEF) & test NCLYR<=0.
+   !      970423       Start at NLF+1 (was test type=3) in loop 1000.
+   !                   Rename ZAQTOP ZSZBOT.
+   !      970522       Remove "unfinished code" message.  Simplify test.
+   !      970523       Set ZVSNOD(1,IEL) less than ZLYRBT(IEL,1).
+   !      970612       Simplify loop 1120.  (Cancel above: 2 mods.)
+   !      970718       ZAQBOT was ZLBOT.  Labels in order.
+   !                   Use IEL.LE.NLF etc for ITYPE.EQ.3.
+   !                   GOTO 1585 instead of ELSE.  Fix error in setting of
+   !                   ITOP, JTOP for links (was LL-NCSZON).
+   !                   Use NMOD instead of 100, & merge layer IF-blocks.
+   !                   Rationalize tests for skipping loop 1590.  Rename
+   !                   I|JALDUM J|IRANGE.  Scrap inconsistency error 1049.
+   !                   Fix error in aquifer zone: skip if EITHER, not BOTH.
+   !      970728       Scrap local IUNDEF & arrays LIDUM,LJDUM. Fix errors:
+   !                   in message 1037 print I|J not LI|JDUM(I|J) (=1); at
+   !                   top of aquifer zone goto 1585 not 1590 (for BDONE).
+   !      970730       Refine split cell treatment: don't straddle null
+   !                   cells.  Flag warnings 1037 & 1053 once only.
+   !                   Scrap inconsistency error 1050.  Complete IEL loop
+   !                   before renumbering (don't jump out straightaway).
+   !      970801       Complete split cells: spread foregone splits
+   !                   (was ill-specified). Reduce MSG size. Simplify test.
+   !                   Don't connect (ends of) river bed cells.
+   !      970806       Add some entry conditions.
+   !      970811       (Amend PAIR logic: use MISS.)
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables:
+      ! NELEE, NLYREE, LLEE, NLFEE, total_no_links, total_no_elements, 
+      ! top_cell_no, VSZMIN, VSZMAX, ZERO, half, DCSTOT, DCSZON, NCSZON, 
+      ! DCRBED, NCRBED, ZGRUND, ZLYRBT, DELTAZ, ZVSNOD, JVSACN, JVSDEL, 
+      ! JVSALN, NHBED, FHBED, NLYR, NLYRBT, ICMREF, ICMBK, ZBEFF, DCRTOT, 
+      ! INITIALISE_VSMOD, INITIALISE_AL_C, ALSPRD, ERROR, FFFATAL, WWWARN, PPPRI
+
+      IMPLICIT NONE
+
+      ! Locals
+      INTEGER, PARAMETER :: JVSDUM = NELEE * NLYREE
+      INTEGER :: NMOD
       INTEGER :: I, IRANGE, IBOT, IBOTL, ICL, IEL, IFA, ILYR, ITOP
       INTEGER :: J, JRANGE, JBOT, JBOTL, JCL, JEL, JFA, JLYR, JTOP
       INTEGER :: IDEL, IDEL0, IL, ILMAX, ILMIN, NITOT, NIMIN
       INTEGER :: JDEL, JDEL0, JL, JLMAX, JLMIN, NJTOT, NJMIN
       INTEGER :: IAQTOP, IBANK2, IBK, ICL0, ICL1, ICOL1, ILINK, ITYPE
-      INTEGER :: DEL, JDIF, K, K2, K20, K2MOD, LCON, LTOP, &
-         NRENUM
+      INTEGER :: DEL, JDIF, K, K2, K20, K2MOD, LCON, LTOP
       INTEGER :: NACELL, NCELL, NCL, NCLYR, NDUM, NEXTRA, NODD, NUM2
-      INTEGER :: LRENUM (NELEE, NLYREE), NIDUM (LLEE), NJDUM (LLEE), jedumdum
-      DOUBLEPRECISION DZLYR, ZCBOT, ZDEPTH, ZBDBOT, ZCTOP, ZDUM
-      DOUBLEPRECISION ZAQBOT, ZSZBOT, ZDIFF, ZLBOT, ZNODE
-      LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE (NELEE, 4)
-      CHARACTER (LEN=57) :: MSG
-      integer :: nlyrmax
+      INTEGER :: NIDUM(LLEE), NJDUM(LLEE), MAX_BOT_TOP
+      DOUBLE PRECISION :: DZLYR, ZCBOT, ZDEPTH, ZBDBOT, ZCTOP, ZDUM
+      DOUBLE PRECISION :: ZAQBOT, ZSZBOT, ZDIFF, ZLBOT, ZNODE
+      LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE(NELEE, 4)
+      CHARACTER(LEN=57) :: MSG
+      INTEGER :: nlyrmax
 
-      DATA LRENUM / JVSDUM * 0 /, NRENUM / 0 /
+      ! Modern Initialization replacing DATA blocks
+      INTEGER :: LRENUM(NELEE, NLYREE) = 0
+      INTEGER, SAVE :: NRENUM = 0
 
+   !----------------------------------------------------------------------*
 
-!FNCELL (I, IEL, ITOP) = IDIMJE(MIN (NLYRBT (IEL, I + 1), ITOP + 1), & !statement function replaced
-! NLYRBT (IEL, I) )
-!----------------------------------------------------------------------*
+      NMOD = NLYREE + 1
+
       renumbering_loop: DO
          NRENUM = NRENUM + 1
 
-         ! Keep the external jump if it points outside this block
-         IF (NRENUM > NELEE) GOTO 8048
+         ! Safe inline error trap replaces GOTO 8048
+         IF (NRENUM > NELEE) THEN
+            CALL ERROR(FFFATAL, 1048, PPPRI, 0, 0, 'Attempts to renumber cells have failed.')
+            RETURN
+         END IF
 
          BWARN = (NRENUM == NELEE)
          BRENUM = .FALSE.
@@ -976,12 +914,12 @@ CONTAINS
                NCLYR = LRENUM(IEL, ILYR)
                IF (NCLYR <= 0) NCLYR = MAX(1, INT(DZLYR / VSZMAX) + 1)
 
-               ZDEPTH = DZLYR / NCLYR
+               ZDEPTH = DZLYR / DBLE(NCLYR)
 
                DO I = 1, NCLYR
                   ICL = ICL + 1
                   DELTAZ(ICL, IEL) = ZDEPTH
-                  ZVSNOD(ICL, IEL) = ZDEPTH * (I - half) + ZLBOT
+                  ZVSNOD(ICL, IEL) = ZDEPTH * (DBLE(I) - half) + ZLBOT
                END DO
             END DO layer_loop
 
@@ -1051,7 +989,7 @@ CONTAINS
             ! set up opposite bank cells
             IBANK2 = ICMBK(ILINK, 2)
 
-            ! Replaced explicit loop with modern array slicing
+            ! Exploit F90 array slicing
             DELTAZ(1:ICL, IBANK2) = DELTAZ(1:ICL, IEL)
             ZVSNOD(1:ICL, IBANK2) = ZVSNOD(1:ICL, IEL)
 
@@ -1074,7 +1012,6 @@ CONTAINS
             ICL0 = top_cell_no - NCL
 
             IF (ICL0 > 0) THEN
-               ! Replaced backward DO loop and ALINIT with clean array slices
                DELTAZ(ICL0 + 1 : ICL0 + NCL, IEL) = DELTAZ(1 : NCL, IEL)
                ZVSNOD(ICL0 + 1 : ICL0 + NCL, IEL) = ZVSNOD(1 : NCL, IEL)
 
@@ -1155,10 +1092,10 @@ CONTAINS
                END IF
 
                ! ----- soil zone processing
-               jedumdum = MAX(IBOT, JBOT)
-               jedumdum = MAX(jedumdum, ITOP + 1, JTOP + 1)
+               MAX_BOT_TOP = MAX(IBOT, JBOT)
+               MAX_BOT_TOP = MAX(MAX_BOT_TOP, ITOP + 1, JTOP + 1)
 
-               DO ICL = jedumdum, LCON
+               DO ICL = MAX_BOT_TOP, LCON
                   JCL = ICL
                   JVSACN(IFA, ICL, IEL) = JCL
                   JVSACN(JFA, JCL, JEL) = ICL
@@ -1183,7 +1120,7 @@ CONTAINS
                   IF (JRANGE == 0) THEN
                      ILYR = ILYR + 1
                      CYCLE layer_match_loop
-                  ELSEIF (IRANGE == 0) THEN
+                  ELSE IF (IRANGE == 0) THEN
                      JLYR = JLYR + 1
                      CYCLE layer_match_loop
                   END IF
@@ -1208,7 +1145,7 @@ CONTAINS
                         NCELL = NCELL - NODD
                         NJMIN = (NCELL + 1) / 2 + NJMIN
                         NODD = MOD(NCELL, 2)
-                     ELSEIF (NCELL > 0) THEN
+                     ELSE IF (NCELL > 0) THEN
                         NODD = 0
                      END IF
                   END DO
@@ -1229,7 +1166,7 @@ CONTAINS
                         NCELL = NCELL - NODD
                         NIMIN = (NCELL + 1) / 2 + NIMIN
                         NODD = MOD(NCELL, 2)
-                     ELSEIF (NCELL > 0) THEN
+                     ELSE IF (NCELL > 0) THEN
                         NODD = 0
                      END IF
                   END DO
@@ -1240,11 +1177,11 @@ CONTAINS
                      WRITE (MSG, 9200) JFA, JLYR
                      IF (NRENUM == 1) CALL ERROR(WWWARN, 1053, PPPRI, JEL, 0, MSG)
 
-                  ELSEIF (NJTOT == 0 .AND. NITOT > 0) THEN
+                  ELSE IF (NJTOT == 0 .AND. NITOT > 0) THEN
                      WRITE (MSG, 9200) IFA, ILYR
                      IF (NRENUM == 1) CALL ERROR(WWWARN, 1053, PPPRI, IEL, 0, MSG)
 
-                  ELSEIF (NJTOT < NJMIN) THEN
+                  ELSE IF (NJTOT < NJMIN) THEN
                      BRENUM = .TRUE.
                      NEXTRA = 0
                      DO JL = JLMIN, JLMAX
@@ -1260,7 +1197,7 @@ CONTAINS
                         END IF
                      END DO
 
-                  ELSEIF (NITOT < NIMIN) THEN
+                  ELSE IF (NITOT < NIMIN) THEN
                      BRENUM = .TRUE.
                      NEXTRA = 0
                      DO IL = ILMIN, ILMAX
@@ -1296,7 +1233,6 @@ CONTAINS
                      I = 1
                      J = 1
 
-                     ! Replaced the 1575 GOTO jump with a DO WHILE
                      pair_search: DO WHILE (I <= NITOT .AND. J <= NJTOT)
                         PAIR = (NIDUM(I + IDEL0) == NIDUM(I) + 1)
                         PAIR = (NJDUM(J + JDEL0) == NJDUM(J) + 1) .OR. PAIR
@@ -1324,8 +1260,10 @@ CONTAINS
                            IF (JDEL >= K) JVSACN(JFA, JCL, JEL) = ICL
                            JVSDEL(IFA, ICL, IEL) = IDEL * (1 - 2 * K)
                            JVSDEL(JFA, JCL, JEL) = JDEL * (1 - 2 * K)
-                           I = I + IDIMJE(IDEL, K)
-                           J = J + IDIMJE(JDEL, K)
+                           
+                           ! Replaced non-standard IDIMJE with standard MAX implementation
+                           I = I + MAX(0, IDEL - K)
+                           J = J + MAX(0, JDEL - K)
                         END DO
 
                         I = I + 1
@@ -1348,8 +1286,8 @@ CONTAINS
 
       END DO renumbering_loop
 
-! Finish off
-!____________*
+   ! Finish off
+   !____________*
       WRITE (PPPRI, 9000) top_cell_no
 
       finish_loop: DO IEL = ICOL1, total_no_links
@@ -1360,14 +1298,12 @@ CONTAINS
 
          DELTAZ(LTOP, IEL) = ZDUM
 
-         ! Cleaned up the 2050 DO loop into an array slice
          IF (NLYRBT(IEL, 1) <= LTOP - 1) THEN
             ZVSNOD(NLYRBT(IEL, 1):LTOP - 1, IEL) = ZVSNOD(NLYRBT(IEL, 1):LTOP - 1, IEL) - ZDIFF
          END IF
 
          ZVSNOD(ICL, IEL) = ZVSNOD(ICL, IEL) - ZDIFF * half
 
-         ! Cleaned up the 2060 DO loop into an array slice
          IF (NLYR(IEL) >= 1) THEN
             ZLYRBT(IEL, 1:NLYR(IEL)) = ZLYRBT(IEL, 1:NLYR(IEL)) - ZDIFF
          END IF
@@ -1382,19 +1318,21 @@ CONTAINS
 
       RETURN
 
-8048  CALL ERROR(FFFATAL, 1048, PPPRI, 0, 0, 'Attempts to renumber cells have failed.')
+      ! FORMAT STATEMENTS
 9000  FORMAT(/ 'Number of top cell in all columns (LL) = ',I3)
-9200  FORMAT('Null cell connectivity being set up for face ',I1, &
-      &       ' layer ',I2)
-9300  FORMAT(  'Not possible to connect all cells for face ',I1, &
-      &       ' layer ',I2)
-   END SUBROUTINE VSCONC
+9200  FORMAT('Null cell connectivity being set up for face ',I1, ' layer ',I2)
+9300  FORMAT('Not possible to connect all cells for face ',I1, ' layer ',I2)
 
-!FFFFFF INTEGER FUNCTION fncell
-   INTEGER FUNCTION fncell(I, IEL, ITOP)
-      INTEGER, INTENT(IN) :: I, IEL, ITOP
-      fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
-   END FUNCTION fncell
+   CONTAINS
+
+      ! Replaces the obsolete Statement Function FNCELL
+      PURE INTEGER FUNCTION FNCELL(IDX, ELEM, TOP)
+         INTEGER, INTENT(IN) :: IDX, ELEM, TOP
+         ! Calculates number of cells handling boundary constraints
+         FNCELL = MAX(0, MIN(NLYRBT(ELEM, IDX + 1), TOP + 1) - NLYRBT(ELEM, IDX))
+      END FUNCTION FNCELL
+
+   END SUBROUTINE VSCONC
 
 
 
@@ -1694,227 +1632,237 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSFUNC
+   !SSSSSS SUBROUTINE VSFUNC
    SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
-      VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
-      CTHETA, CETA, CKR, CDETA, CDKR)
-!
-!----------------------------------------------------------------------*
-! Calculates moisture content, storage coefficient, and relative
-! hydraulic conductivity for a column, given soil water potentials
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSFUNC/4.1
-! Modifications:
-!  GP  18.8.94  written
-! RAH  961220  4.1  No long/leading comments.  Declare externals.
-!                   Explicit sizes where possible.  ICSTOR is in+out.
-!                   No redundant execution or lower-case code.
-!      970121       Use arguments, not COMMON.  Allow end-point cases.
-!                   Remove redundant arguments and commented code.
-!      970122       Amend entry conditions.  Use branch for ERROR call.
-!JE  JAN 2009       Loop restructure for AD
-!----------------------------------------------------------------------*
-! Returns:
-!         moisture content (CTHETA),
-!         storage co-efficient (CETA),
-!         relative hydraulic conductivity (CKR),
-!         derivative of storage coefficient(CDETA), and
-!         derivative of relative conductivity (CDKR)
-! for all cells in a column, given pressure potential (CPSI).
-!
-! Based on subroutine HUNT of 'Numerical Recipes in FORTRAN: The Art of
-!   Scientific Computing (2nd Ed.)', Press et al. (1992), p112
-!----------------------------------------------------------------------*
-! Entry conditions:
-!     PRI is connected for formatted output
-! 1 < NVSSOL <= NSOLEE
-!     VSPPSI is monotonic strictly decreasing
-!      ICBOT <= ICTOP
-! 0 < ICSOIL(ICBOT:ICTOP) <= NS (size of 2nd dimension of VSPTHE, etc)
-!----------------------------------------------------------------------*
-!
-! Input arguments
-      INTEGER :: NVSSOL, NSOLEE
-      DOUBLEPRECISION VSPPSI (NVSSOL), VSPTHE (NSOLEE, * )
-      DOUBLEPRECISION VSPKR (NSOLEE, * ), VSPETA (NSOLEE, * )
-      DOUBLEPRECISION VSPDKR (NSOLEE, * ), VSPDET (NSOLEE, * )
-      INTEGER :: IEL, ICBOT, ICTOP, ICSOIL (ICBOT:ICTOP)
-      DOUBLEPRECISION CPSI (ICBOT:ICTOP)
-!
-! In+out arguments
-      INTEGER :: ICSTOR (ICBOT:ICTOP)
-!
-! Output arguments
-      DOUBLEPRECISION CTHETA (ICBOT:ICTOP)
-      DOUBLEPRECISION CETA (ICBOT:ICTOP), CKR (ICBOT:ICTOP)
-      DOUBLEPRECISION CDETA (ICBOT:ICTOP), CDKR (ICBOT:ICTOP)
-!
-! Locals, etc
-!INTRINSIC MAX, MIN, NINT
-      CHARACTER (LEN=5) :: WETDRY (0:1)
-      DOUBLEPRECISION P, PDUM, VLO
+         VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
+         CTHETA, CETA, CKR, CDETA, CDKR)
+      !
+      !----------------------------------------------------------------------*
+      ! Calculates moisture content, storage coefficient, and relative
+      ! hydraulic conductivity for a column, given soil water potentials
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSFUNC/4.1
+      ! Modifications:
+      !  GP  18.8.94  written
+      ! RAH  961220  4.1  No long/leading comments.  Declare externals.
+      !                   Explicit sizes where possible.  ICSTOR is in+out.
+      !                   No redundant execution or lower-case code.
+      !      970121       Use arguments, not COMMON.  Allow end-point cases.
+      !                   Remove redundant arguments and commented code.
+      !      970122       Amend entry conditions.  Use branch for ERROR call.
+      ! JE   JAN 2009       Loop restructure for AD
+      !----------------------------------------------------------------------*
+      ! Returns:
+      !         moisture content (CTHETA),
+      !         storage co-efficient (CETA),
+      !         relative hydraulic conductivity (CKR),
+      !         derivative of storage coefficient(CDETA), and
+      !         derivative of relative conductivity (CDKR)
+      ! for all cells in a column, given pressure potential (CPSI).
+      !
+      ! Based on subroutine HUNT of 'Numerical Recipes in FORTRAN: The Art of
+      !   Scientific Computing (2nd Ed.)', Press et al. (1992), p112
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      !     PRI is connected for formatted output
+      ! 1 < NVSSOL <= NSOLEE
+      !     VSPPSI is monotonic strictly decreasing
+      !      ICBOT <= ICTOP
+      ! 0 < ICSOIL(ICBOT:ICTOP) <= NS (size of 2nd dimension of VSPTHE, etc)
+      !----------------------------------------------------------------------*
+   
+      ! Assumed external module dependencies providing global variables:
+      ! ZERO, ONE, FFFATAL, PPPRI, ERROR
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NVSSOL, NSOLEE
+      DOUBLE PRECISION, INTENT(IN) :: VSPPSI(NVSSOL), VSPTHE(NSOLEE, *)
+      DOUBLE PRECISION, INTENT(IN) :: VSPKR(NSOLEE, *), VSPETA(NSOLEE, *)
+      DOUBLE PRECISION, INTENT(IN) :: VSPDKR(NSOLEE, *), VSPDET(NSOLEE, *)
+      INTEGER, INTENT(IN) :: IEL, ICBOT, ICTOP, ICSOIL(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP)
+      
+      ! In+out arguments
+      INTEGER, INTENT(INOUT) :: ICSTOR(ICBOT:ICTOP)
+      
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: CTHETA(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CETA(ICBOT:ICTOP), CKR(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CDETA(ICBOT:ICTOP), CDKR(ICBOT:ICTOP)
+      
+      ! Locals
+      CHARACTER(LEN=5) :: WETDRY(0:1) = ['(wet)', '(dry)']
+      DOUBLE PRECISION :: P, PDUM, VLO
       INTEGER :: ICL, INC, JHI, JLO, JM, IS, DRY
-      LOGICAL :: g8100
+      LOGICAL :: IS_ERROR
 
-      DATA WETDRY / '(wet)', '(dry)' /
-!
-!----------------------------------------------------------------------*
-!
-! ----- loop over all cells in column
-      G8100=.FALSE.
-      OUT100 : DO ICL = ICBOT, ICTOP
-         IF(g8100) CYCLE
-         P = CPSI (ICL)
-         JLO = ICSTOR (ICL)
+   !----------------------------------------------------------------------*
 
+      IS_ERROR = .FALSE.
 
+      ! ----- loop over all cells in column
+      OUT100: DO ICL = ICBOT, ICTOP
+         
+         P = CPSI(ICL)
+         JLO = ICSTOR(ICL)
+         IS = ICSOIL(ICL)
 
-         IS = ICSOIL (ICL)
-! --- find location in table of current psi value
-! test for initial guess
-         IF (JLO.LE.0.OR.JLO.GT.NVSSOL) THEN
+         ! --- find location in table of current psi value
+         ! test for initial guess
+         IF (JLO <= 0 .OR. JLO > NVSSOL) THEN
             JLO = 0
             JHI = NVSSOL + 1
-            GOTO 30
-
-
-         ENDIF
-! set initial hunt increment, and hunt up the table
-         INC = 1
-
-         IF (P.LE.VSPPSI (JLO) ) THEN
-10          JHI = JLO + INC
-            IF (JHI.GT.NVSSOL) THEN
-               JHI = NVSSOL + 1
-            ELSEIF (P.LE.VSPPSI (JHI) ) THEN
-               JLO = JHI
-               INC = INC + INC
-               GOTO 10
-
-
-            ENDIF
-! hunt down the table
-
          ELSE
-            JHI = JLO
-20          JLO = JHI - INC
-            IF (JLO.LT.1) THEN
-               JLO = 0
-            ELSEIF (P.GT.VSPPSI (JLO) ) THEN
+            ! set initial hunt increment
+            INC = 1
+            
+            ! hunt up the table
+            IF (P <= VSPPSI(JLO)) THEN
+               hunt_up: DO WHILE (.TRUE.)
+                  JHI = JLO + INC
+                  IF (JHI > NVSSOL) THEN
+                     JHI = NVSSOL + 1
+                     EXIT hunt_up
+                  ELSE IF (P <= VSPPSI(JHI)) THEN
+                     JLO = JHI
+                     INC = INC + INC
+                  ELSE
+                     EXIT hunt_up
+                  END IF
+               END DO hunt_up
+               
+            ! hunt down the table
+            ELSE
                JHI = JLO
-               INC = INC + INC
-               GOTO 20
+               hunt_down: DO WHILE (.TRUE.)
+                  JLO = JHI - INC
+                  IF (JLO < 1) THEN
+                     JLO = 0
+                     EXIT hunt_down
+                  ELSE IF (P > VSPPSI(JLO)) THEN
+                     JHI = JLO
+                     INC = INC + INC
+                  ELSE
+                     EXIT hunt_down
+                  END IF
+               END DO hunt_down
+            END IF
+         END IF
 
-            ENDIF
+         ! hunt completed, begin bisection
+         ! At this point: { VSPPSI(JLO)>=P or JLO=0        } and
+         !                { VSPPSI(JHI)< P or JHI=NVSSOL+1 }
+         
+         bisection: DO WHILE (JHI - JLO > 1)
+            JM = (JHI + JLO) / 2
+            IF (P < VSPPSI(JM)) THEN
+               JLO = JM
+            ELSE
+               JHI = JM
+            END IF
+         END DO bisection
 
-
-
-         ENDIF
-! hunt completed, begin bisection
-!       At this point: { VSPPSI(JLO)>=P or JLO=0        } and
-!                      { VSPPSI(JHI)< P or JHI=NVSSOL+1 }
-30       IF (JHI - JLO.EQ.1) GOTO 50
-         JM = (JHI + JLO) / 2
-         IF (P.LT.VSPPSI (JM) ) THEN
-            JLO = JM
-         ELSE
-            JHI = JM
-         ENDIF
-         GOTO 30
-50       CONTINUE
-         JLO = MAX (1, MIN (JLO, NVSSOL - 1) )
-
+         JLO = MAX(1, MIN(JLO, NVSSOL - 1))
          JHI = JLO + 1
+         
+         ICSTOR(ICL) = JLO
 
+         ! --- interpolate between values for return variables
+         VLO = VSPPSI(JLO)
+         PDUM = (P - VLO) / (VSPPSI(JHI) - VLO)
 
-         ICSTOR (ICL) = JLO
-! --- interpolate between values for return variables
-         VLO = VSPPSI (JLO)
-         PDUM = (P - VLO) / (VSPPSI (JHI) - VLO)
+         ! Error trap replaced the g8100 CYCLE
+         IF (PDUM < ZERO .OR. PDUM > ONE) THEN
+            IS_ERROR = .TRUE.
+            EXIT OUT100
+         END IF
+         
+         VLO = VSPTHE(JLO, IS)
+         CTHETA(ICL) = (VSPTHE(JHI, IS) - VLO) * PDUM + VLO
+         
+         CETA(ICL) = VSPETA(JHI, IS)
+         
+         VLO = VSPDKR(JLO, IS)
+         CDKR(ICL) = (VSPDKR(JHI, IS) - VLO) * PDUM + VLO
+         
+         VLO = VSPKR(JLO, IS)
+         CKR(ICL) = (VSPKR(JHI, IS) - VLO) * PDUM + VLO
+         
+         VLO = VSPDET(JLO, IS)
+         CDETA(ICL) = (VSPDET(JHI, IS) - VLO) * PDUM + VLO
 
-         IF (PDUM.LT.ZERO.OR.PDUM.GT.ONE) THEN  !GOTO 8100
-            g8100=.TRUE.
-            CYCLE out100
-         ENDIF
-         VLO = VSPTHE (JLO, IS)
-         CTHETA (ICL) = (VSPTHE (JHI, IS) - VLO) * PDUM + VLO
-         CETA (ICL) = VSPETA (JHI, IS)
-         VLO = VSPDKR (JLO, IS)
-         CDKR (ICL) = (VSPDKR (JHI, IS) - VLO) * PDUM + VLO
-         VLO = VSPKR (JLO, IS)
-         CKR (ICL) = (VSPKR (JHI, IS) - VLO) * PDUM + VLO
-         VLO = VSPDET (JLO, IS)
+      END DO OUT100
 
-         CDETA (ICL) = (VSPDET (JHI, IS) - VLO) * PDUM + VLO
-      ENDDO out100
-!----------------------------------------------------------------------*
-! Exit conditions:
-! for each c in ICBOT:ICTOP:
-!             0 <  ICSTOR(c) <  NVSSOL
-!    VSPPSI(j)  <=   CPSI(c) <= VSPPSI(j+1)
-!    VSPTHE(j,s)<= CTHETA(c) <= VSPTHE(j+1,s)
-!    VSPETA(j,s)<=   CETA(c) <= VSPETA(j+1,s)
-!     VSPKR(j,s)<=    CKR(c) <=  VSPKR(j+1,s)
-!    VSPDET(j,s)<=  CDETA(c) <= VSPDET(j+1,s)
-!    VSPDKR(j,s)<=   CDKR(c) <= VSPDKR(j+1,s)
-! where j=ICSTOR(c) and s=ICSOIL(c)
-!----------------------------------------------------------------------*
-!RETURN
-      IF(g8100) THEN
-         DRY = NINT (MAX (ZERO, MIN (PDUM, ONE) ) )  !8100
-         CALL ERROR(FFFATAL, 1034 + DRY, PPPRI, IEL, ICL, 'soil property interpolation out of range '//WETDRY (DRY) )
-      ENDIF
+   !----------------------------------------------------------------------*
+   ! Exit conditions:
+   ! for each c in ICBOT:ICTOP:
+   !             0 <  ICSTOR(c) <  NVSSOL
+   !    VSPPSI(j)  <=   CPSI(c) <= VSPPSI(j+1)
+   !    VSPTHE(j,s)<= CTHETA(c) <= VSPTHE(j+1,s)
+   !    VSPETA(j,s)<=   CETA(c) <= VSPETA(j+1,s)
+   !     VSPKR(j,s)<=    CKR(c) <=  VSPKR(j+1,s)
+   !    VSPDET(j,s)<=  CDETA(c) <= VSPDET(j+1,s)
+   !    VSPDKR(j,s)<=   CDKR(c) <= VSPDKR(j+1,s)
+   ! where j=ICSTOR(c) and s=ICSOIL(c)
+   !----------------------------------------------------------------------*
+
+      IF (IS_ERROR) THEN
+         DRY = NINT(MAX(ZERO, MIN(PDUM, ONE)))
+         CALL ERROR(FFFATAL, 1034 + DRY, PPPRI, IEL, ICL, 'soil property interpolation out of range '//WETDRY(DRY))
+      END IF
+
    END SUBROUTINE VSFUNC
 
 
 
-!SSSSSS SUBROUTINE VSIN ()
+   !SSSSSS SUBROUTINE VSIN ()
    SUBROUTINE VSIN ()
-!----------------------------------------------------------------------*
-! Controls initialisation of VSS component data
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSIN/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 21/10/96)
-! RAH  970122  4.1  No long/leading comments or lower-case code.
-!                   Amend externals list.  Extend VSFUNC argument list.
-!      970512       Swap IVSSTO & VSKR indices (VSCOM1.INC), and scrap
-!                   local arrays ICSDUM & CKRDUM.  Similarly, swap
-!                   DELTAZ, ZVSNOD & VSPSI (AL.C), and scrap CPSDUM.
-!                   Scrap outputs VSETAN & VSKRN (VSCOM1.INC).
-!                   Rationalize loops 800 & 950, and initialize.
-!                   Generic intrinsics.  Use ISTART more.  Order labels.
-!      970522       NWELTP default 1.
-!                   Use GOTO for errors; fix error in message 1041.
-!      970630       Bring NAQCON,IAQCON from VSINIT.INC; swap indices;
-!                   pass to VSREAD,VSCONL.  Use format 9010 for 9020.
-!                   Replace NGDBGN with NLF+1.
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     AL.P.VSS         LLEE,NVSEE
-! Input common
-!     ...
-! Output common
-!     AL.C             NWELBT(NEL),NWELTP(NEL),NVSSPC(NEL)
-!                      VSPSI(LLEE,NEL),ZVSPSL(NEL)
-!     VSCOM1.INC:      IVSSTO(LLEE,NEL)
-!                      VSKR(LLEE,NEL)
-!     VSINIT.INC:      NVSERR
+   !----------------------------------------------------------------------*
+   ! Controls initialisation of VSS component data
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSIN/4.1
+   ! Modifications:
+   !  GP  20.07.94  written (v4.0 finished 21/10/96)
+   ! RAH  970122  4.1  No long/leading comments or lower-case code.
+   !                   Amend externals list.  Extend VSFUNC argument list.
+   !      970512       Swap IVSSTO & VSKR indices (VSCOM1.INC), and scrap
+   !                   local arrays ICSDUM & CKRDUM.  Similarly, swap
+   !                   DELTAZ, ZVSNOD & VSPSI (AL.C), and scrap CPSDUM.
+   !                   Scrap outputs VSETAN & VSKRN (VSCOM1.INC).
+   !                   Rationalize loops 800 & 950, and initialize.
+   !                   Generic intrinsics.  Use ISTART more.  Order labels.
+   !      970522       NWELTP default 1.
+   !                   Use GOTO for errors; fix error in message 1041.
+   !      970630       Bring NAQCON,IAQCON from VSINIT.INC; swap indices;
+   !                   pass to VSREAD,VSCONL.  Use format 9010 for 9020.
+   !                   Replace NGDBGN with NLF+1.
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables:
+      ! LLEE, NVSEE, total_no_elements, total_no_links, top_cell_no, BEXBK, 
+      ! NVSERR, NVSWL, NVSLF, NVSLH, NVSBF, NVSBH, WLD, LFB, LHB, BFB, BHB, 
+      ! NWELBT, NWELTP, NVSSPC, NLYRBT, ZGRUND, NVSWLI, VSZWLB, VSZWLT, ZVSNOD, 
+      ! VSSPD, DELTAZ, INITYP, ZVSPSL, ZLYRBT, VSIPSD, VSI, VSPSI, NLYR, NTSOIL, 
+      ! IVSSTO, NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, VSPETA, VSPDKR, VSPDET, 
+      ! VSKR, EEERR, FFFATAL, PPPRI, ERROR, INITIALISE_AL_C2, VSREAD, VSCONL, 
+      ! VSCONC, VSSOIL, VSFUNC, half, GTZERO, LTZERO
+
+      IMPLICIT NONE
+
+      ! Locals
       CHARACTER(132) :: MSG
-      INTEGER :: IEL, ICL, ILYR, ICBOT, ICTOP, IW, IELIN, ISTART, &
-         NAQCON
-      INTEGER :: IAQCON (4, NVSEE), ISDUM (LLEE)
-      DOUBLEPRECISION DZ, RDUM, ZGI, ZMIN
+      INTEGER :: IEL, ICL, ILYR, ICBOT, ICTOP, IW, IELIN, ISTART, NAQCON
+      INTEGER :: IAQCON(4, NVSEE), ISDUM(LLEE)
+      DOUBLE PRECISION :: DZ, RDUM, ZGI, ZMIN
+      DOUBLE PRECISION :: CDUM1(LLEE), CDUM2(LLEE), CDUM3(LLEE), CDUM4(LLEE)
 
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION CDUM1 (LLEE), CDUM2 (LLEE), CDUM3 (LLEE), CDUM4 ( &
-         LLEE)
-!----------------------------------------------------------------------*
-
-!top_cell_no is unknown at this point. But the code to caculate top_cell_no uses DELTAZ and ZVSNOD so these use llee
+      ! top_cell_no is unknown at this point. But the code to caculate top_cell_no 
+      ! uses DELTAZ and ZVSNOD so these use llee
       CALL INITIALISE_AL_C2()
-
 
       WRITE(PPPRI, 9010) 'Start', ' '
 
@@ -1923,51 +1871,38 @@ CONTAINS
          ISTART = 1
       ELSE
          ISTART = total_no_links + 1
-      ENDIF
+      END IF
 
-! call VSREAD to read from input data file
+      ! call VSREAD to read from input data file
       CALL VSREAD (NAQCON, IAQCON)
 
-      IF (NVSERR.GT.0) GOTO 8900
+      ! Trap configuration errors immediately
+      IF (NVSERR > 0) THEN
+         CALL ABORT_VSIN()
+         RETURN
+      END IF
 
-! read first lines of time-varying files
-      IF (NVSWL.GT.0) READ (WLD, * )
-      IF (NVSLF.GT.0) READ (LFB, * )
-      IF (NVSLH.GT.0) READ (LHB, * )
-      IF (NVSBF.GT.0) READ (BFB, * )
-      IF (NVSBH.GT.0) READ (BHB, * )
+      ! read first lines of time-varying files
+      IF (NVSWL > 0) READ (WLD, *)
+      IF (NVSLF > 0) READ (LFB, *)
+      IF (NVSLH > 0) READ (LHB, *)
+      IF (NVSBF > 0) READ (BFB, *)
+      IF (NVSBH > 0) READ (BHB, *)
 
-! call VSCONL and VSCONC to set up connectivity arrays for ...
-! ... layers
+      ! call VSCONL and VSCONC to set up connectivity arrays for layers and cells
       CALL VSCONL (NAQCON, IAQCON)
+      CALL VSCONC()
 
-! ... cells
-      CALL VSCONC
-
-!no_of_hours_run = INT(TTH - TIH + 1.0d0)
-!OPEN(unit=8798, file=TRIM(size_file), action='WRITE')
-!WRITE(8798,'(4I10,A)') max_no_snowmelt_slugs, total_no_elements, total_no_links, top_cell_no, &
-!              '     max_no_snowmelt_slugs, total_no_elements, total_no_links, top_cell_no'
-!WRITE(8798,'(4I10,A)') szmonte, pcmonte, ran2monte1, ran2monte2, '     szmonte, pcmonte, ran2monte1, ran2monte2'
-!DO iii=1,szmonte
-!    WRITE(8798,'(<SIZE(montec,DIM=2)>I1)') montec(iii,:)
-!ENDDO
-!CLOSE(8789)
-!CALL INITIALISE_VSMOD()
-!CALL INITIALISE_AL_C()
-
-! set up cell numbers for wells and springs
-! set defaults
+      ! set up cell numbers for wells and springs
+      ! set defaults
       DO IEL = 1, total_no_elements
-         NWELBT (IEL) = 1
-         NWELTP (IEL) = 1
-         NVSSPC (IEL) = 0
-
+         NWELBT(IEL) = 1
+         NWELTP(IEL) = 1
+         NVSSPC(IEL) = 0
       END DO
 
       element_loop_wells_springs: DO IEL = total_no_links + 1, total_no_elements
          ICBOT = NLYRBT(IEL, 1)
-
          ZGI = ZGRUND(IEL)
          IW  = NVSWLI(IEL)
 
@@ -1975,17 +1910,16 @@ CONTAINS
             ! Find bottom well node
             RDUM = ZGI - VSZWLB(IW)
             find_bottom: DO ICL = ICBOT, top_cell_no
-               IF (RDUM <= ZVSNOD(ICL, IEL)) EXIT
+               IF (RDUM <= ZVSNOD(ICL, IEL)) EXIT find_bottom
             END DO find_bottom
             NWELBT(IEL) = ICL
 
             ! Find top well node (looping backwards)
             RDUM = ZGI - VSZWLT(IW)
             find_top: DO ICL = top_cell_no, ICBOT, -1
-               IF (RDUM >= ZVSNOD(ICL, IEL)) EXIT
+               IF (RDUM >= ZVSNOD(ICL, IEL)) EXIT find_top
             END DO find_top
             NWELTP(IEL) = ICL
-
          END IF
 
          RDUM = VSSPD(IEL)
@@ -1996,37 +1930,42 @@ CONTAINS
             ! Find specific node based on delta Z
             find_spc: DO ICL = ICBOT, top_cell_no
                DZ = ABS(ZVSNOD(ICL, IEL) - RDUM)
-               IF (DZ <= half * DELTAZ(ICL, IEL)) EXIT
+               IF (DZ <= half * DELTAZ(ICL, IEL)) EXIT find_spc
             END DO find_spc
             NVSSPC(IEL) = ICL
-
          END IF
 
       END DO element_loop_wells_springs
 
-! call VSSOIL to set up soil property tables
-      CALL VSSOIL
+      ! call VSSOIL to set up soil property tables
+      CALL VSSOIL()
 
-! set up initial conditions (read from file unit VSI, if required)
-! type 1 - uniform phreatic surface depth, equilibrium psi profile
-      IF (INITYP.EQ.1) THEN
+      ! set up initial conditions (read from file unit VSI, if required)
+      ! type 1 - uniform phreatic surface depth, equilibrium psi profile
+      IF (INITYP == 1) THEN
          DO IEL = 1, total_no_elements
-            ZVSPSL (IEL) = MAX (ZLYRBT (IEL, 1), ZGRUND (IEL) - VSIPSD)
+            ZVSPSL(IEL) = MAX(ZLYRBT(IEL, 1), ZGRUND(IEL) - VSIPSD)
          END DO
 
-! type 2 - varying phreatic surface level, equilibrium psi profile
-      ELSEIF (INITYP.EQ.2) THEN
+      ! type 2 - varying phreatic surface level, equilibrium psi profile
+      ELSE IF (INITYP == 2) THEN
          READ (VSI, '(A)')
-         READ (VSI, * ) (ZVSPSL (IEL), IEL = ISTART, total_no_elements)
+         READ (VSI, *) (ZVSPSL(IEL), IEL = ISTART, total_no_elements)
 
-         ! type 3 - 3-dimensional field of psi values (+ init. psl for output)
+      ! type 3 - 3-dimensional field of psi values (+ init. psl for output)
       ELSE
          READ (VSI, '(A)')
 
-         element_loop: DO IEL = ISTART, total_no_elements
+         element_loop_vsi: DO IEL = ISTART, total_no_elements
             READ (VSI, *) IELIN
 
-            IF (IELIN /= IEL) GOTO 8041
+            IF (IELIN /= IEL) THEN
+               NVSERR = NVSERR + 1
+               WRITE (MSG, 9040) IEL
+               CALL ERROR (EEERR, 1041, PPPRI, 0, 0, MSG)
+               CALL ABORT_VSIN()
+               RETURN
+            END IF
 
             ICBOT = NLYRBT(IEL, 1)
             ICTOP = top_cell_no
@@ -2036,197 +1975,186 @@ CONTAINS
             ZMIN = ZVSNOD(ICBOT, IEL) - half * DELTAZ(ICBOT, IEL)
 
             search_loop: DO ICL = ICBOT, ICTOP
-               IF (LTZERO(VSPSI(ICL, IEL))) EXIT
+               IF (LTZERO(VSPSI(ICL, IEL))) EXIT search_loop
             END DO search_loop
 
             ICL = MAX(ICBOT, ICL - 1)
-
             ZVSPSL(IEL) = MAX(ZMIN, ZVSNOD(ICL, IEL) + VSPSI(ICL, IEL))
 
-         END DO element_loop
+         END DO element_loop_vsi
 
+      END IF
 
-      ENDIF
-! set up equilibrium psi profile for types 1 or 2
-      IF (INITYP.EQ.1.OR.INITYP.EQ.2) THEN
-         DO 1200 IEL = 1, total_no_elements
-            DO 1140 ICL = NLYRBT (IEL, 1), top_cell_no
-               VSPSI (ICL, IEL) = ZVSPSL (IEL) - ZVSNOD (ICL, IEL)
-1140        END DO
-1200     END DO
+      ! set up equilibrium psi profile for types 1 or 2
+      IF (INITYP == 1 .OR. INITYP == 2) THEN
+         equilibrium_profile_loop: DO IEL = 1, total_no_elements
+            DO ICL = NLYRBT(IEL, 1), top_cell_no
+               VSPSI(ICL, IEL) = ZVSPSL(IEL) - ZVSNOD(ICL, IEL)
+            END DO
+         END DO equilibrium_profile_loop
+      END IF
 
+      ! set up initial relative conductivities for all elements
+      init_cond_loop: DO IEL = ISTART, total_no_elements
+         
+         DO ILYR = 1, NLYR(IEL)
+            DO ICL = NLYRBT(IEL, ILYR), NLYRBT(IEL, ILYR + 1) - 1
+               ISDUM(ICL) = NTSOIL(IEL, ILYR)
+               IVSSTO(ICL, IEL) = 0
+            END DO
+         END DO
 
-      ENDIF
-! set up initial relative conductivities for all elements
-
-      DO 1400 IEL = ISTART, total_no_elements
-         DO 1270 ILYR = 1, NLYR (IEL)
-            DO 1250 ICL = NLYRBT (IEL, ILYR), NLYRBT (IEL, ILYR + 1) &
-               - 1
-               ISDUM (ICL) = NTSOIL (IEL, ILYR)
-               IVSSTO (ICL, IEL) = 0
-1250        END DO
-
-1270     END DO
-         ICBOT = NLYRBT (IEL, 1)
+         ICBOT = NLYRBT(IEL, 1)
          ICTOP = top_cell_no
 
-         CALL VSFUNC ( NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
-            VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ISDUM (ICBOT), &
-            VSPSI (ICBOT, IEL), IVSSTO (ICBOT, IEL), CDUM1, CDUM2, VSKR ( &
-            ICBOT, IEL), CDUM3, CDUM4)
+         CALL VSFUNC(NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
+            VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ISDUM(ICBOT), &
+            VSPSI(ICBOT, IEL), IVSSTO(ICBOT, IEL), CDUM1, CDUM2, VSKR(ICBOT, IEL), &
+            CDUM3, CDUM4)
 
-1400  END DO
+      END DO init_cond_loop
+
       WRITE(PPPRI, 9010) 'End', '   '
 
+      RETURN
 
-      GOTO 8900
-! Error handling
-8041  NVSERR = NVSERR + 1
-      WRITE (MSG, 9040) IEL
-
-      CALL ERROR (EEERR, 1041, PPPRI, 0, 0, MSG)
-8900  IF (NVSERR.LT.1) RETURN
-      WRITE (MSG, 9030) NVSERR
-
-      CALL ERROR(FFFATAL, 1040, PPPRI, 0, 0, MSG)
-
+      ! FORMAT STATEMENTS for the host subroutine
 9010  FORMAT( / '!!',78('#') / 1X,A,' of VSS data ',A,60('#') / 80('#'))
+9040  FORMAT('Error reading VSS initial conditions for element ', I4, '.')
 
-9030  FORMAT(I4,' Errors have occurred in VSS data reading ', &
-      &          'or initialisation.')
+   CONTAINS
 
-9040  FORMAT('Error reading VSS initial conditions for element ', &
-      &       I4, '.')
+      ! Internal subroutine to handle fatal data initialisation failures cleanly
+      SUBROUTINE ABORT_VSIN()
+         WRITE (MSG, 9030) NVSERR
+         CALL ERROR(FFFATAL, 1040, PPPRI, 0, 0, MSG)
+         
+         ! Format statement scoped correctly to the internal subroutine
+9030     FORMAT(I4,' Errors have occurred in VSS data reading ', 'or initialisation.')
+      END SUBROUTINE ABORT_VSIN
+
    END SUBROUTINE VSIN
 
 
 
+   !SSSSSS SUBROUTINE VSINTC
+   PURE SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
+         JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
+         CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
+         CDGAM2, CA, CB, CC, CR, H)
+      !----------------------------------------------------------------------*
+      ! Sets up coefficients for column internal cells
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSINTC/4.1
+      ! Modifications:
+      !  GP  20.08.94  written (v4.0 finished 22.06.95)
+      ! RAH  970120  4.1  Rewrite with fewer operations, and without
+      !                   overwriting input arrays.
+      !      970126       Dispense with input IEL,CB*P,CD*P,CDFM,C*G.
+      !                   Use arguments, not COMMON.
+      !      970203       Replace input CV with CA0,CDELZ.
+      !      970210       Make input SIGMA local.
+      !      970514       CQ is now pre-multiplied by CA0*CDELZ (see VSSIM).
+      !                   Swap JCACN indices.
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      ! 1 <= ICBOT <= ICTOP <= LLEE
+      ! 0 <  DT
+      ! for each j such that JELDUM(j)>0 and JCBC(j).ne.9:
+      !    for each i such that JCACN(j,i).ne.0: 1 <= k, k1 <= LLEE
+      !    where k=JCACN(j,i) and k1=k+JCDEL1(k,j)
+      !----------------------------------------------------------------------*
 
+      ! Assumed external module dependencies providing global variables:
+      ! zero
 
-!SSSSSS SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
-   SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
-      JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
-      CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
-      CDGAM2, CA, CB, CC, CR, H)
-!----------------------------------------------------------------------*
-! Sets up coefficients for column internal cells
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSINTC/4.1
-! Modifications:
-!  GP  20.08.94  written (v4.0 finished 22.06.95)
-! RAH  970120  4.1  Rewrite with fewer operations, and without
-!                   overwriting input arrays.
-!      970126       Dispense with input IEL,CB*P,CD*P,CDFM,C*G.
-!                   Use arguments, not COMMON.
-!      970203       Replace input CV with CA0,CDELZ.
-!      970210       Make input SIGMA local.
-!      970514       CQ is now pre-multiplied by CA0*CDELZ (see VSSIM).
-!                   Swap JCACN indices.
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 1 <= ICBOT <= ICTOP <= LLEE
-! 0 <  DT
-! for each j such that JELDUM(j)>0 and JCBC(j).ne.9:
-!    for each i such that JCACN(j,i).ne.0: 1 <= k, k1 <= LLEE
-!    where k=JCACN(j,i) and k1=k+JCDEL1(k,j)
-!----------------------------------------------------------------------*
-! Input arguments
-      INTEGER :: LLEE, ICBOT, ICTOP, JELDUM (4), JCBC (4)
-      INTEGER :: JCACN (4, ICBOT:ICTOP), JCDEL1 (LLEE, 4)
-      DOUBLEPRECISION CA0, CZ1 (LLEE, 4)
-      DOUBLEPRECISION CDELZ (ICBOT:ICTOP), CZ (ICBOT:ICTOP)
-      DOUBLEPRECISION CETA (ICBOT:ICTOP), DT, CDETA (ICBOT:ICTOP)
-      DOUBLEPRECISION CPSI (ICBOT:ICTOP), CPSIN (ICBOT:ICTOP)
-      DOUBLEPRECISION CF (ICBOT:ICTOP), CDF (ICBOT:ICTOP)
-      DOUBLEPRECISION CQ (ICBOT:ICTOP), CBETM (ICBOT:ICTOP + 1)
-      DOUBLEPRECISION CDBETM (ICBOT:ICTOP + 1), CDBTMM (ICBOT:ICTOP + 1)
-      DOUBLEPRECISION CPSI1 (LLEE, 4), CPSIN1 (LLEE, 4), CGAM1 (LLEE, 4)
+      IMPLICIT NONE
 
-      DOUBLEPRECISION CDGAM1 (LLEE, 4), CDGAM2 (LLEE, 4), CGAM2 (LLEE, &
-         4)
-! Output arguments
-      DOUBLEPRECISION CA (ICBOT:ICTOP), CB (ICBOT:ICTOP), CC (ICBOT: &
-         ICTOP)
+      ! Input arguments
+      INTEGER, INTENT(IN) :: LLEE, ICBOT, ICTOP, JELDUM (4), JCBC (4)
+      INTEGER, INTENT(IN) :: JCACN (4, ICBOT:ICTOP), JCDEL1 (LLEE, 4)
+      DOUBLE PRECISION, INTENT(IN) :: CA0, CZ1 (LLEE, 4)
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ (ICBOT:ICTOP), CZ (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CETA (ICBOT:ICTOP), DT, CDETA (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CPSI (ICBOT:ICTOP), CPSIN (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CF (ICBOT:ICTOP), CDF (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CQ (ICBOT:ICTOP), CBETM (ICBOT:ICTOP + 1)
+      DOUBLE PRECISION, INTENT(IN) :: CDBETM (ICBOT:ICTOP + 1), CDBTMM (ICBOT:ICTOP + 1)
+      DOUBLE PRECISION, INTENT(IN) :: CPSI1 (LLEE, 4), CPSIN1 (LLEE, 4), CGAM1 (LLEE, 4)
+      DOUBLE PRECISION, INTENT(IN) :: CDGAM1 (LLEE, 4), CDGAM2 (LLEE, 4), CGAM2 (LLEE, 4)
 
-      DOUBLEPRECISION CR (ICBOT:ICTOP)
-! Workspace arguments
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: CA (ICBOT:ICTOP), CB (ICBOT:ICTOP), CC (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CR (ICBOT:ICTOP)
 
-      DOUBLEPRECISION H (ICBOT - 1:ICTOP + 1)
-! Locals, etc
-      DOUBLEPRECISION SIGMA, OMSIG
-      PARAMETER (SIGMA = 1D0, OMSIG = 1D0 - SIGMA)
+      ! Workspace arguments
+      DOUBLE PRECISION, INTENT(OUT) :: H (ICBOT - 1:ICTOP + 1)
+
+      ! Locals
+      DOUBLE PRECISION, PARAMETER :: SIGMA = 1.0D0, OMSIG = 1.0D0 - SIGMA
       INTEGER :: I, J, K, K1, P
-      DOUBLEPRECISION CBETMI, CBETPI, CDBETP, CDBMMI, CDBTPP, CDFM, &
-         CDFP, CDG
+      DOUBLE PRECISION :: CBETMI, CBETPI, CDBETP, CDBMMI, CDBTPP, CDFM, CDFP, CDG
+      DOUBLE PRECISION :: CFI, CGI, DPSI, HI, HK, HK1, HM, HP, VODT
 
+   !----------------------------------------------------------------------*
 
-
-      DOUBLEPRECISION CFI, CGI, DPSI, HI, HK, HK1, HM, HP, VODT
-!----------------------------------------------------------------------*
-! Prepare effective hydraulic heads
+      ! Prepare effective hydraulic heads
       I = ICBOT - 1
-      H (I) = zero
-      DO 100 I = ICBOT, ICTOP
-         H (I) = SIGMA * CPSI (I) + OMSIG * CPSIN (I) + CZ (I)
-100   END DO
+      H(I) = zero
+      
+      DO I = ICBOT, ICTOP
+         H(I) = SIGMA * CPSI(I) + OMSIG * CPSIN(I) + CZ(I)
+      END DO
+      
+      I = ICTOP + 1
+      H(I) = zero
 
-
-      H (I) = zero
-! Set coefficients, omitting lateral terms
-      DO 200 I = ICBOT, ICTOP
-
+      ! Set coefficients, omitting lateral terms
+      DO I = ICBOT, ICTOP
          P = I + 1
-         HM = H (I - 1)
-         HI = H (I)
-         HP = H (P)
-         CFI = CF (I)
-         CBETMI = CBETM (I)
-         CBETPI = CBETM (P)
-         CDBTPP = CDBETM (P)
-         CDBMMI = CDBTMM (I)
-         CDBETP = CDBTMM (P)
+         HM = H(I - 1)
+         HI = H(I)
+         HP = H(P)
+         CFI = CF(I)
+         CBETMI = CBETM(I)
+         CBETPI = CBETM(P)
+         CDBTPP = CDBETM(P)
+         CDBMMI = CDBTMM(I)
+         CDBETP = CDBTMM(P)
          CDFM = CDBMMI
-
          CDFP = CDBTPP
-         VODT = CDELZ (I) * CA0 / DT
-         CGI = CETA (I) * VODT
-         CDG = CDETA (I) * VODT
+         VODT = CDELZ(I) * CA0 / DT
+         CGI = CETA(I) * VODT
+         CDG = CDETA(I) * VODT
+         DPSI = CPSI(I) - CPSIN(I)
+         
+         CA(I) = SIGMA * CBETMI - HI * CDFM + HM * CDBMMI
+         CC(I) = SIGMA * CBETPI - HI * CDFP + HP * CDBTPP
+         CB(I) = HM * CDBETM(I) - HI * CDF(I) + HP * CDBETP - &
+                 (SIGMA * CFI + DPSI * CDG + CGI)
+         CR(I) = - (HM * CBETMI - HI * CFI + HP * CBETPI - DPSI * CGI + CQ(I))
+      END DO
 
-         DPSI = CPSI (I) - CPSIN (I)
-         CA (I) = SIGMA * CBETMI - HI * CDFM + HM * CDBMMI
-         CC (I) = SIGMA * CBETPI - HI * CDFP + HP * CDBTPP
-         CB (I) = HM * CDBETM (I) - HI * CDF (I) + HP * CDBETP - &
-            (SIGMA * CFI + DPSI * CDG + CGI)
+      ! Add lateral terms
+      face_loop: DO J = 1, 4
 
-         CR (I) = - (HM * CBETMI - HI * CFI + HP * CBETPI - DPSI * CGI + &
-            CQ (I) )
+         IF (JELDUM(J) < 1 .OR. JCBC(J) == 9) CYCLE face_loop
 
+         internal_cell_loop: DO I = ICBOT, ICTOP
+            K = JCACN(J, I)
+            IF (K == 0) CYCLE internal_cell_loop
 
-200   END DO
-! Add lateral terms
+            K1 = JCDEL1(K, J) + K
+            HK = SIGMA * CPSI1(K, J) + OMSIG * CPSIN1(K, J) + CZ1(K, J)
+            HK1 = SIGMA * CPSI1(K1, J) + OMSIG * CPSIN1(K1, J) + CZ1(K1, J)
+            
+            CB(I) = CB(I) + HK * CDGAM1(I, J) + HK1 * CDGAM2(I, J)
+            CR(I) = CR(I) - HK * CGAM1(I, J) - HK1 * CGAM2(I, J)
 
-      DO 400 J = 1, 4
+         END DO internal_cell_loop
 
-         IF (JELDUM (J) .LT.1.OR.JCBC (J) .EQ.9) GOTO 400
+      END DO face_loop
 
-         DO 300 I = ICBOT, ICTOP
-            K = JCACN (J, I)
-            IF (K.EQ.0) GOTO 300
-
-            K1 = JCDEL1 (K, J) + K
-            HK = SIGMA * CPSI1 (K, J) + OMSIG * CPSIN1 (K, J) + CZ1 (K, &
-               J)
-
-            HK1 = SIGMA * CPSI1 (K1, J) + OMSIG * CPSIN1 (K1, J) &
-               + CZ1 (K1, J)
-            CB (I) = CB (I) + HK * CDGAM1 (I, J) + HK1 * CDGAM2 (I, J)
-
-            CR (I) = CR (I) - HK * CGAM1 (I, J) - HK1 * CGAM2 (I, J)
-
-300      END DO
-
-400   END DO
    END SUBROUTINE VSINTC
 
 
@@ -2291,138 +2219,143 @@ CONTAINS
 
 
 
-
-!SSSSSS SUBROUTINE VSMB (VSTHEN)
+   !SSSSSS SUBROUTINE VSMB (VSTHEN)
    SUBROUTINE VSMB (VSTHEN)
-!
-!----------------------------------------------------------------------*
-! Updates flows to ensure mass conservation
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSMB/4.1
-! Modifications:
-!  GP  08.03.95  written (v4.0 finished 17.07.96)
-! RAH  961228  4.1  Remove variable ILINK.  No leading comments.
-!      970214       Reverse DELTAZ,QVSH indices (AL.C). Declare JCL,JFA.
-!                   mv VSTHEN from VSCOM1.INC to arg list, reverse subs.
-!      970118       Swap subscripts: JVSACN,QVSV,QVSWLI,VSTHE (AL.C);
-!                   also fix error in QVSWLI index: use IW not IEL.
-!                   Remove temporary code (to set VSSTMP).  DBLE locals.
-!                   Don't include VSCOM1.INC.
-!      970509       Scrap output QVSBF (set in VSSIM).  Order labels.
-!                   Remove redundant local BDONE.  Trap JVSDEL.ne.0.
-!----------------------------------------------------------------------*
-! Commons and distributed constants
-! Imported constants
-!     AL.P.VSS:        LLEE,NELEE
-! Input common
-!     AL.C:            LL,  NLYRBT(NEL,1),JVSACN(4,LLEE,NEL)
-!                           NVSWLI(NEL),  JVSDEL(4,LLEE,NEL)
-!                             AREA(NEL),    DELTAZ(LLEE,NEL)
-!                           LINKNS(*)
-!                      DTUZ,ESOILA(NEL),      ERUZ(NELEE,LL)
-!                       VSTHE(LLEE,NEL), QVSV(LLEE,NEL),QVSWLI(LLEE,*)
-!     AL.G:            NEL, ICMREF(NELEE,12)
-! In+out common
-!     AL.C:            QVSH(4,LLEE,NEL)
-! Input arguments
+   !
+   !----------------------------------------------------------------------*
+   ! Updates flows to ensure mass conservation
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSMB/4.1
+   ! Modifications:
+   !  GP  08.03.95  written (v4.0 finished 17.07.96)
+   ! RAH  961228  4.1  Remove variable ILINK.  No leading comments.
+   !      970214       Reverse DELTAZ,QVSH indices (AL.C). Declare JCL,JFA.
+   !                   mv VSTHEN from VSCOM1.INC to arg list, reverse subs.
+   !      970118       Swap subscripts: JVSACN,QVSV,QVSWLI,VSTHE (AL.C);
+   !                   also fix error in QVSWLI index: use IW not IEL.
+   !                   Remove temporary code (to set VSSTMP).  DBLE locals.
+   !                   Don't include VSCOM1.INC.
+   !      970509       Scrap output QVSBF (set in VSSIM).  Order labels.
+   !                   Remove redundant local BDONE.  Trap JVSDEL.ne.0.
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION VSTHEN (LLEE, total_no_elements)
-! Locals, etc
+      ! Assumed external module dependencies providing global variables:
+      ! LLEE, total_no_elements, ICMREF, LINKNS, NVSWLI, cellarea, top_cell_no, 
+      ! NLYRBT, QVSV, ERUZ, DELTAZ, VSTHE, DTUZ, QVSWLI, ESOILA, QVSH, zero, 
+      ! one, NOTZERO, JVSDEL, JVSACN
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      DOUBLE PRECISION, INTENT(IN) :: VSTHEN (LLEE, total_no_elements)
+      
+      ! Locals
       INTEGER :: NFACES, IFACES (4)
       INTEGER :: IEL, J, ITYPE, IFA, JEL, ICL, JFA, JCL, IW, MCL
-      DOUBLEPRECISION AREAE, CMBE, F, Qasum
-      LOGICAL :: iscycle
-!----------------------------------------------------------------------*
-! --- loop over all elements
-      iscycle=.FALSE.
-      DO 2900 IEL = 1, total_no_elements
-         IF(iscycle) CYCLE
-         ITYPE = ICMREF (IEL, 1)
+      DOUBLE PRECISION :: AREAE, CMBE, F, Qasum
+
+   !----------------------------------------------------------------------*
+
+      ! --- loop over all elements
+      element_loop: DO IEL = 1, total_no_elements
+         
+         ITYPE = ICMREF(IEL, 1)
+         
          ! Choose faces to adjust (ie set NFACES and IFACES)
-         ! grids - do nothing!
-         IF (ITYPE.EQ.0) THEN
+         IF (ITYPE == 0) THEN
+            ! grids - do nothing!
             NFACES = 0
+            
+         ELSE IF (ITYPE == 1 .OR. ITYPE == 2) THEN
             ! banks - update only 'outer' face adjacent to grid (if there is one)
-         ELSEIF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
             NFACES = 0
-            DO 920 IFA = 1, 4
-               IF(iscycle) CYCLE
-               JEL = ICMREF (IEL, IFA + 4)
-               IF (JEL.GT.0) THEN
-                  IF (ICMREF (JEL, 1) .EQ.0) THEN
-                     IFACES (1) = IFA
+            
+            search_faces: DO IFA = 1, 4
+               JEL = ICMREF(IEL, IFA + 4)
+               IF (JEL > 0) THEN
+                  IF (ICMREF(JEL, 1) == 0) THEN
+                     IFACES(1) = IFA
                      NFACES = 1
-                     iscycle = .TRUE. !GOTO 930  !                       >>>>>>>>
-                  ENDIF
-               ENDIF
-920         ENDDO
-            iscycle=.FALSE.! 930 CONTINUE
-            ! links - update faces adjacent to banks only
+                     EXIT search_faces  ! Cleanly replaces the iscycle hack and GOTO 930
+                  END IF
+               END IF
+            END DO search_faces
+            
          ELSE
+            ! links - update faces adjacent to banks only
             NFACES = 2
-            IF (LINKNS (IEL) ) THEN
-               IFACES (1) = 1
-               IFACES (2) = 3
+            IF (LINKNS(IEL)) THEN
+               IFACES(1) = 1
+               IFACES(2) = 3
             ELSE
-               IFACES (1) = 2
-               IFACES (2) = 4
-            ENDIF
-         ENDIF
+               IFACES(1) = 2
+               IFACES(2) = 4
+            END IF
+         END IF
+         
          ! Loop over column cells if required (top to bottom for QVSV's benefit)
-         IF (NFACES.GT.0) THEN
-            IW = NVSWLI (IEL)
-            AREAE = cellarea (IEL)
-            DO 990 ICL = top_cell_no, NLYRBT (IEL, 1), - 1
+         IF (NFACES > 0) THEN
+            IW = NVSWLI(IEL)
+            AREAE = cellarea(IEL)
+            
+            cell_balance_loop: DO ICL = top_cell_no, NLYRBT(IEL, 1), -1
                ! calculate mass balance error (m**3/s)
                MCL = ICL - 1
-               CMBE = - QVSV (MCL, IEL) + QVSV (ICL, IEL) + ERUZ (IEL, &
-                  ICL) + DELTAZ (ICL, IEL) * (VSTHE (ICL, IEL) - VSTHEN ( &
-                  ICL, IEL) ) / DTUZ
-               IF (IW.GT.0) CMBE = CMBE+QVSWLI (ICL, IW)
-               IF (ICL.EQ.top_cell_no) CMBE = CMBE+ESOILA (IEL)
+               CMBE = -QVSV(MCL, IEL) + QVSV(ICL, IEL) + ERUZ(IEL, ICL) + &
+                      DELTAZ(ICL, IEL) * (VSTHE(ICL, IEL) - VSTHEN(ICL, IEL)) / DTUZ
+                      
+               IF (IW > 0) CMBE = CMBE + QVSWLI(ICL, IW)
+               IF (ICL == top_cell_no) CMBE = CMBE + ESOILA(IEL)
+               
                CMBE = CMBE * AREAE
-               DO 950 IFA = 1, 4
-                  CMBE = CMBE-QVSH (IFA, ICL, IEL)
-950            ENDDO
+               
+               DO IFA = 1, 4
+                  CMBE = CMBE - QVSH(IFA, ICL, IEL)
+               END DO
+               
                ! adjust lateral flows (unless Qasum=0)
                Qasum = zero
-               DO 955 J = 1, NFACES
-                  IFA = IFACES (J)
-                  Qasum = Qasum + QVSH (IFA, ICL, IEL)
-955            ENDDO
+               DO J = 1, NFACES
+                  IFA = IFACES(J)
+                  Qasum = Qasum + QVSH(IFA, ICL, IEL)
+               END DO
+               
                IF (NOTZERO(Qasum)) THEN
                   F = one + CMBE / Qasum
-                  DO 960 J = 1, NFACES
-                     IFA = IFACES (J)
-                     QVSH (IFA, ICL, IEL) = QVSH (IFA, ICL, IEL) * F
-960               ENDDO
-               ENDIF
-990         ENDDO
-         ENDIF
+                  DO J = 1, NFACES
+                     IFA = IFACES(J)
+                     QVSH(IFA, ICL, IEL) = QVSH(IFA, ICL, IEL) * F
+                  END DO
+               END IF
+            END DO cell_balance_loop
+         END IF
+         
          ! Update flows for adjacent element
-         DO 2800 IFA = 1, 4
-            IF(iscycle) CYCLE
-            JEL = ICMREF (IEL, IFA + 4)
-            IF (JEL.GT.0) THEN
-               JFA = ICMREF (IEL, IFA + 8)
-               DO 1820 ICL = NLYRBT (IEL, 1), top_cell_no
-                  IF(iscycle) CYCLE
-                  !970509            (catch JEL next time around)
-                  IF (JVSDEL (IFA, ICL, IEL) .NE.0) THEN
-                     iscycle=.TRUE.  !GOTO 8820
-                     CYCLE
-                  ENDIF
-                  JCL = JVSACN (IFA, ICL, IEL)
-                  IF (JCL.GT.0) QVSH (JFA, JCL, JEL) = - QVSH (IFA, ICL, IEL)
-1820           ENDDO
-            ENDIF
-2800     END DO
-2900  END DO
-      IF(.NOT.iscycle) RETURN
-8820  STOP 'UNFINISHED CODE FOR SPLIT CELLS IN SUBROUTINE VSMB!'
+         adjacent_update_loop: DO IFA = 1, 4
+            JEL = ICMREF(IEL, IFA + 4)
+            
+            IF (JEL > 0) THEN
+               JFA = ICMREF(IEL, IFA + 8)
+               
+               layer_update_loop: DO ICL = NLYRBT(IEL, 1), top_cell_no
+                  
+                  ! 970509 (catch JEL next time around)
+                  ! Immediately crash if split cells are encountered (Replacing GOTO 8820)
+                  IF (JVSDEL(IFA, ICL, IEL) /= 0) THEN
+                     STOP 'UNFINISHED CODE FOR SPLIT CELLS IN SUBROUTINE VSMB!'
+                  END IF
+                  
+                  JCL = JVSACN(IFA, ICL, IEL)
+                  IF (JCL > 0) QVSH(JFA, JCL, JEL) = -QVSH(IFA, ICL, IEL)
+                  
+               END DO layer_update_loop
+            END IF
+            
+         END DO adjacent_update_loop
+         
+      END DO element_loop
+
    END SUBROUTINE VSMB
-
-
 
 
 
@@ -2574,761 +2507,659 @@ CONTAINS
 
 
 
-
-
-!SSSSSS SUBROUTINE VSREAD (NAQCON, IAQCON)
+   !SSSSSS SUBROUTINE VSREAD (NAQCON, IAQCON)
    SUBROUTINE VSREAD (NAQCON, IAQCON)
-!----------------------------------------------------------------------*
-! Reads in all data from VSS input data file
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSREAD/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 31/1/96)
-! RAH  970213  4.1  Initialize NLBTYP,NLBCAT,NVSWLC,NBBTYP,NBBCAT.
-!                   Reverse subscripts NVSLFL,NVSLHL,NVSLGL (see VSSIM).
-!      970522       Initialize NVSWLI.  Fix errors: use TBKR not TBTHE
-!                   in loop 21 (IVSFLG=2); add -1 to NVSLHT & NVSLGT.
-!      970630       Bring NAQCON,IAQCON from VSINIT.INC to arg-list, &
-!                   swap indices to fix error in ALREAD call.
-!                   Fix ALREAD call VS08b: only if NLF>0.
-!      970805       Ensure {NLBCAT,NBBCAT,NVSWLC}.ge.1.
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     AL.P.VSS         LLEE,NELEE,NLYREE,NSEE,NVSEE
-      INTEGER :: NAQCON, IAQCON (4, NVSEE)
-! Locals, etc
-      INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, &
-         IXY0, IY
+   !----------------------------------------------------------------------*
+   ! Reads in all data from VSS input data file
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSREAD/4.1
+   ! Modifications:
+   !  GP  20.07.94  written (v4.0 finished 31/1/96)
+   ! RAH  970213  4.1  Initialize NLBTYP,NLBCAT,NVSWLC,NBBTYP,NBBCAT.
+   !                   Reverse subscripts NVSLFL,NVSLHL,NVSLGL (see VSSIM).
+   !      970522       Initialize NVSWLI.  Fix errors: use TBKR not TBTHE
+   !                   in loop 21 (IVSFLG=2); add -1 to NVSLHT & NVSLGT.
+   !      970630       Bring NAQCON,IAQCON from VSINIT.INC to arg-list, &
+   !                   swap indices to fix error in ALREAD call.
+   !                   Fix ALREAD call VS08b: only if NLF>0.
+   !      970805       Ensure {NLBCAT,NBBCAT,NVSWLC}.ge.1.
+   !----------------------------------------------------------------------*
+   
+      ! Assumed external module dependencies providing global variables:
+      ! LLEE, NELEE, NLYREE, NSEE, NVSEE, total_no_elements, NVSWLI, NLBTYP,
+      ! NBBTYP, NVSWLC, NLBCAT, NBBCAT, ALREAD, VSD, PPPRI, IDUM, DUMMY, BFAST,
+      ! BSOILP, BHELEV, NS, NCSZON, NCRBED, INITYP, VSIPSD, VSZMIN, VSZMAX,
+      ! VSWV, VSWL, IVSFLG, IVSNTB, VSK3D, VSPOR, VSTRES, VSPSS, VSVGN, VSALPH,
+      ! VSPPOR, ERROR, FFFATAL, TBPSI, TBTHE, TBKR, TBTHEC, TBKRC, zero, two, one,
+      ! DCSZON, DCSTOT, DCRBED, DCRTOT, BEXBK, total_no_links, NX, NY, ICMXY,
+      ! ICMREF, NLYR, NTSOIL, ZLYRBT, ZGRUND, ICMBK, ZBEFF, NGDBGN, EEERR, 
+      ! ISRBED, DRBED, NVSWL, NVSSP, NVSLF, NVSLH, NVSLG, NVSBF, NVSBH, NVSBD,
+      ! NVSLFN, NVSLHN, NVSLGN, NVSLFT, NVSLHT, NVSLGT, NVSLFL, NVSLHL, NVSLGL,
+      ! NVSWLT, VSZWLB, VSZWLT, NVSSPT, VSSPD, VSSPZ, VSSPCO
+
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER, INTENT(INOUT) :: NAQCON
+      INTEGER, INTENT(INOUT) :: IAQCON(4, NVSEE)
+
+      ! Locals
+      INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, IXY0, IY
       INTEGER :: ICOUNT, LCOUNT
-      INTEGER :: IVSDUM (NELEE, NLYREE), IVSCAT (NELEE), ISDUM (NSEE, 8)
-      INTEGER :: NUM_CATEGORIES_TYPES,  NELEM, NCOUNT, NDUM, NSP, NW
+      INTEGER :: IVSDUM(NELEE, NLYREE), IVSCAT(NELEE), ISDUM(NSEE, 8)
+      INTEGER :: NUM_CATEGORIES_TYPES, NELEM, NCOUNT, NDUM, NSP, NW
       INTEGER :: ILB, NLB, ITYP, NLDUM, ISDUM1, IDUM1(1)
-      DOUBLEPRECISION RVSDUM (NELEE, NLYREE), RSDUM (NSEE, 8), DCSDUM ( &
-         0:LLEE), DCSNOD (LLEE), DCRDUM (0:LLEE), DCRNOD (LLEE), SIG, PDUM
-      DOUBLEPRECISION XDUM (NVSEE), YDUM (NVSEE), Y2DUM (NVSEE), &
-         UDUM (NVSEE)
-      CHARACTER(LEN=80) :: CDUM
+      DOUBLE PRECISION :: RVSDUM(NELEE, NLYREE), RSDUM(NSEE, 8), DCSDUM(0:LLEE)
+      DOUBLE PRECISION :: DCSNOD(LLEE), DCRDUM(0:LLEE), DCRNOD(LLEE), SIG, PDUM
+      DOUBLE PRECISION :: XDUM(NVSEE), YDUM(NVSEE), Y2DUM(NVSEE), UDUM(NVSEE)
+      CHARACTER(LEN=80)  :: CDUM
       CHARACTER(LEN=132) :: MSG
-      LOGICAL :: BDONE (NELEE)
+      LOGICAL :: BDONE(NELEE) = .FALSE.
 
-      DATA BDONE / NELEE * .FALSE. /
-!
-!----------------------------------------------------------------------*
-!
-! Initialization
-      DO 6 IEL = 1, total_no_elements
-         NVSWLI (IEL) = 0
-         NLBTYP (IEL) = 0
-         NBBTYP (IEL) = 0
-         NVSWLC (IEL) = 1
-         NLBCAT (IEL) = 1
-         NBBCAT (IEL) = 1
+   !----------------------------------------------------------------------*
+   ! Initialization
+   
+      DO IEL = 1, total_no_elements
+         NVSWLI(IEL) = 0
+         NLBTYP(IEL) = 0
+         NBBTYP(IEL) = 0
+         NVSWLC(IEL) = 1
+         NLBCAT(IEL) = 1
+         NBBCAT(IEL) = 1
+      END DO
 
-
-6     END DO
-! VS01 ----- main data file title
+      ! VS01 ----- main data file title
       CALL ALREAD (1, VSD, PPPRI, ':VS01', 1, 1, 0, CDUM, IDUM, DUMMY)
+      WRITE(PPPRI, '(/, 1X, A, /)') TRIM(CDUM)
 
-
-      WRITE(PPPRI, '(/, 1X, A, /)') CDUM
-
-! VS02 ----- logical flags
+      ! VS02 ----- logical flags
       READ (VSD, '(A)') CDUM
+      READ (VSD, *) BFAST, BSOILP, BHELEV
 
-
-      READ (VSD, * ) BFAST, BSOILP, BHELEV
-! VS03 ----- integer variables
+      ! VS03 ----- integer variables
       CALL ALREAD (2, VSD, PPPRI, ':VS03', 4, 1, 0, CDUM, IDUM, DUMMY)
-      NS = IDUM (1)
-      NCSZON = IDUM (2)
-      NCRBED = IDUM (3)
+      NS = IDUM(1)
+      NCSZON = IDUM(2)
+      NCRBED = IDUM(3)
+      INITYP = IDUM(4)
 
-
-      INITYP = IDUM (4)
-! VS04 ----- real variables
+      ! VS04 ----- real variables
       CALL ALREAD (3, VSD, PPPRI, ':VS04', 5, 1, 0, CDUM, IDUM, DUMMY)
-      VSIPSD = DUMMY (1)
-      VSZMIN = DUMMY (2)
-      VSZMAX = DUMMY (3) + 1.0D-6
-      VSWV = DUMMY (4)
+      VSIPSD = DUMMY(1)
+      VSZMIN = DUMMY(2)
+      VSZMAX = DUMMY(3) + 1.0D-6
+      VSWV   = DUMMY(4)
+      VSWL   = DUMMY(5)
 
+      ! VS05 ----- physical property data
+      CALL ALREAD (7, VSD, PPPRI, ':VS05', NSEE, 8, NS, CDUM, ISDUM, RSDUM)
+      
+      DO IS = 1, NS
+         IVSFLG(IS) = ISDUM(IS, 2)
+         IVSNTB(IS) = ISDUM(IS, 3)
+         VSK3D(IS, 1) = RSDUM(IS, 1) / (3600.0D0 * 24.0D0)
+         VSK3D(IS, 2) = RSDUM(IS, 2) / (3600.0D0 * 24.0D0)
+         VSK3D(IS, 3) = RSDUM(IS, 3) / (3600.0D0 * 24.0D0)
+         VSPOR(IS) = RSDUM(IS, 4)
+         VSTRES(IS) = RSDUM(IS, 5)
+         VSPSS(IS) = RSDUM(IS, 6)
+         VSVGN(IS) = RSDUM(IS, 7)
+         VSALPH(IS) = RSDUM(IS, 8)
+         VSPPOR(IS) = VSPOR(IS)
+      END DO
 
-      VSWL = DUMMY (5)
-! VS05 ----- physical property data
-      CALL ALREAD (7, VSD, PPPRI, ':VS05', NSEE, 8, NS, CDUM, ISDUM, &
-         RSDUM)
-      DO 10 IS = 1, NS
-         IVSFLG (IS) = ISDUM (IS, 2)
-         IVSNTB (IS) = ISDUM (IS, 3)
-         VSK3D (IS, 1) = RSDUM (IS, 1) / (3600.0D0 * 24.0D0)
-         VSK3D (IS, 2) = RSDUM (IS, 2) / (3600.0D0 * 24.0D0)
-         VSK3D (IS, 3) = RSDUM (IS, 3) / (3600.0D0 * 24.0D0)
-         VSPOR (IS) = RSDUM (IS, 4)
-         VSTRES (IS) = RSDUM (IS, 5)
-         VSPSS (IS) = RSDUM (IS, 6)
-         VSVGN (IS) = RSDUM (IS, 7)
-
-         VSALPH (IS) = RSDUM (IS, 8)
-
-         VSPPOR (IS) = VSPOR (IS)
-
-
-10    END DO
-! VS05a ---- soil characteristic function tabulated data
-      DO 15 IS = 1, NS
-
-         IF (IVSFLG (IS) .EQ.2.OR.IVSFLG (IS) .EQ.4) THEN
-            READ (VSD, * ) ISDUM1
-            IF (IS.NE.ISDUM1) THEN
+      ! VS05a ---- soil characteristic function tabulated data
+      DO IS = 1, NS
+         IF (IVSFLG(IS) == 2 .OR. IVSFLG(IS) == 4) THEN
+            READ (VSD, *) ISDUM1
+            IF (IS /= ISDUM1) THEN
                WRITE (MSG, 9030) IS
                CALL ERROR(FFFATAL, 1051, PPPRI, 0, 0, MSG)
+            END IF
+            
+            DO I = 1, IVSNTB(IS)
+               READ (VSD, *) TBPSI(I, IS), TBTHE(I, IS), TBKR(I, IS)
+            END DO
 
-            ENDIF
-            DO 14 I = 1, IVSNTB (IS)
-               READ (VSD, * ) TBPSI (I, IS), TBTHE (I, IS), TBKR (I, IS)
+            ! set up cubic spline coefficients for theta, using log(psi)
+            ! based on routines 'spline' and 'splint' in NUMERICAL RECIPES
+            ! FOR FORTRAN (..UNFINISHED), pp 109 and 110
+            ! NB assumes 'natural' boundary conditions (ie zero 2nd derivatives)
+            DO I = 1, IVSNTB(IS)
+               XDUM(I) = DLOG10(-TBPSI(I, IS))
+               YDUM(I) = TBTHE(I, IS)
+            END DO
 
+            NDUM = IVSNTB(IS)
+            Y2DUM(1) = zero
+            UDUM(1) = zero
+            Y2DUM(NDUM) = zero
+            
+            DO I = 2, NDUM - 1
+               SIG = (XDUM(I) - XDUM(I - 1)) / (XDUM(I + 1) - XDUM(I - 1))
+               PDUM = SIG * Y2DUM(I - 1) + two
+               Y2DUM(I) = (SIG - one) / PDUM
+               UDUM(I) = (6.0D0 * ((YDUM(I + 1) - YDUM(I)) / &
+                  (XDUM(I + 1) - XDUM(I)) - (YDUM(I) - YDUM(I - 1)) &
+                  / (XDUM(I) - XDUM(I - 1))) / (XDUM(I + 1) - XDUM(I - 1)) &
+                  - SIG * UDUM(I - 1)) / PDUM
+            END DO
+            
+            DO I = NDUM - 1, 1, -1
+               Y2DUM(I) = Y2DUM(I) * Y2DUM(I + 1) + UDUM(I)
+            END DO
+            
+            DO I = 1, NDUM
+               TBTHEC(I, IS) = Y2DUM(I)
+            END DO
 
-14          END DO
-! set up cubic spline coefficients for theta, using log(psi)
-! based on routines 'spline' and 'splint' in NUMERICAL RECIPES
-! FOR FORTRAN (..UNFINISHED), pp 109 and 110
-! NB asasumes 'natural' boundary conditions (ie zero 2nd derivatives)
-            DO 16 I = 1, IVSNTB (IS)
-               XDUM (I) = DLOG10 ( - TBPSI (I, IS) )
-               YDUM (I) = TBTHE (I, IS)
-16          END DO
+            ! if required, set up cubic spline coefficients for Kr similarly
+            IF (IVSFLG(IS) == 2) THEN
+               DO I = 1, IVSNTB(IS)
+                  YDUM(I) = TBKR(I, IS)
+               END DO
+               
+               Y2DUM(1) = zero
+               UDUM(1) = zero
+               Y2DUM(NDUM) = zero
+               
+               DO I = 2, NDUM - 1
+                  SIG = (XDUM(I) - XDUM(I - 1)) / (XDUM(I + 1) - XDUM(I - 1))
+                  PDUM = SIG * Y2DUM(I - 1) + two
+                  Y2DUM(I) = (SIG - one) / PDUM
+                  UDUM(I) = (6.0D0 * ((YDUM(I + 1) - YDUM(I)) / &
+                     (XDUM(I + 1) - XDUM(I)) - (YDUM(I) - YDUM(I - 1)) / &
+                     (XDUM(I) - XDUM(I - 1))) / (XDUM(I + 1) - XDUM(I - 1)) &
+                     - SIG * UDUM(I - 1)) / PDUM
+               END DO
+               
+               DO I = NDUM - 1, 1, -1
+                  Y2DUM(I) = Y2DUM(I) * Y2DUM(I + 1) + UDUM(I)
+               END DO
+               
+               DO I = 1, NDUM
+                  TBKRC(I, IS) = Y2DUM(I)
+               END DO
+            END IF
+         END IF
+      END DO
 
-            NDUM = IVSNTB (IS)
-            Y2DUM (1) = zero
-            UDUM (1) = zero
-            Y2DUM (NDUM) = zero
-            DO 17 I = 2, NDUM - 1
-               SIG = (XDUM (I) - XDUM (I - 1) ) / (XDUM (I + 1) - XDUM ( &
-                  I - 1) )
-               PDUM = SIG * Y2DUM (I - 1) + two
-               Y2DUM (I) = (SIG - one) / PDUM
-               UDUM (I) = (6.0D0 * ( (YDUM (I + 1) - YDUM (I) ) / &
-                  (XDUM (I + 1) - XDUM (I) ) - (YDUM (I) - YDUM (I - 1) ) &
-                  / (XDUM (I) - XDUM (I - 1) ) ) / (XDUM (I + 1) - XDUM (I &
-                  - 1) ) - SIG * UDUM (I - 1) ) / PDUM
-17          END DO
-            DO 18 I = NDUM - 1, 1, - 1
-               Y2DUM (I) = Y2DUM (I) * Y2DUM (I + 1) + UDUM (I)
-18          END DO
-            DO 19 I = 1, NDUM
-               TBTHEC (I, IS) = Y2DUM (I)
-
-
-19          END DO
-! if required, set up cubic spline coefficients for Kr similarly
-
-            IF (IVSFLG (IS) .EQ.2) THEN
-               DO 21 I = 1, IVSNTB (IS)
-                  YDUM (I) = TBKR (I, IS)
-
-21             END DO
-               Y2DUM (1) = zero
-               UDUM (1) = zero
-               Y2DUM (NDUM) = zero
-               DO 22 I = 2, NDUM - 1
-                  SIG = (XDUM (I) - XDUM (I - 1) ) / (XDUM (I + 1) &
-                     - XDUM (I - 1) )
-                  PDUM = SIG * Y2DUM (I - 1) + two
-                  Y2DUM (I) = (SIG - one) / PDUM
-                  UDUM (I) = (6.0D0 * ( (YDUM (I + 1) - YDUM (I) ) &
-                     / (XDUM (I + 1) - XDUM (I) ) - (YDUM (I) - YDUM (I - &
-                     1) ) / (XDUM (I) - XDUM (I - 1) ) ) / (XDUM (I + 1) &
-                     - XDUM (I - 1) ) - SIG * UDUM (I - 1) ) / PDUM
-22             END DO
-               DO 23 I = NDUM - 1, 1, - 1
-                  Y2DUM (I) = Y2DUM (I) * Y2DUM (I + 1) + UDUM (I)
-23             END DO
-               DO 24 I = 1, NDUM
-                  TBKRC (I, IS) = Y2DUM (I)
-
-24             END DO
-
-            ENDIF
-
-         ENDIF
-
-
-
-15    END DO
-! VS06 ----- soil zone cell sizes (start at the ground surface)
-! NB. dcsnod(ncszon+1) is set to the BOTTOM of the (fictional) cell
-! immediately below the soil zone, rather than at the node, to ensure
-! that no layer can exist in the aquifer zone with thickness < vszmin
-! (see loop 530)
-      IF (NCSZON.GT.0) CALL ALREAD (3, VSD, PPPRI, ':VS06', NCSZON, 1, 0, &
-         CDUM, IDUM, DCSZON)
-      WRITE(PPPRI, * ) 'DCSZON: ', (DCSZON (I) , I = 1, NCSZON)
+      ! VS06 ----- soil zone cell sizes (start at the ground surface)
+      IF (NCSZON > 0) THEN
+         CALL ALREAD (3, VSD, PPPRI, ':VS06', NCSZON, 1, 0, CDUM, IDUM, DCSZON)
+      END IF
+      WRITE(PPPRI, *) 'DCSZON: ', (DCSZON(I), I = 1, NCSZON)
+      
       DCSTOT = zero
-      DCSDUM (0) = zero
-      DO 30 I = 1, NCSZON
-         DCSTOT = DCSTOT + DCSZON (I)
-         DCSDUM (I) = DCSTOT
-         DCSNOD (I) = half * (DCSDUM (I) + DCSDUM (I - 1) )
-30    END DO
+      DCSDUM(0) = zero
+      
+      DO I = 1, NCSZON
+         DCSTOT = DCSTOT + DCSZON(I)
+         DCSDUM(I) = DCSTOT
+         DCSNOD(I) = half * (DCSDUM(I) + DCSDUM(I - 1))
+      END DO
 
+      DCSNOD(NCSZON + 1) = DCSTOT + VSZMIN
 
-
-      DCSNOD (NCSZON + 1) = DCSTOT + VSZMIN
-! VS07 ----- river bed cell sizes (start at the bed surface)
-! NB. dcrnod(ncrbed+1) is set to the BOTTOM of the (fictional) cell
-! immediately below the river bed soil zone (see VS06 comment above)
-! (see loop 730)
-      IF (NCRBED.GT.0) CALL ALREAD (3, VSD, PPPRI, ':VS07', NCRBED, 1, 0, &
-         CDUM, IDUM, DCRBED)
-      WRITE(PPPRI, * ) 'DCRBED: ', (DCRBED (I) , I = 1, NCRBED)
+      ! VS07 ----- river bed cell sizes (start at the bed surface)
+      IF (NCRBED > 0) THEN
+         CALL ALREAD (3, VSD, PPPRI, ':VS07', NCRBED, 1, 0, CDUM, IDUM, DCRBED)
+      END IF
+      WRITE(PPPRI, *) 'DCRBED: ', (DCRBED(I), I = 1, NCRBED)
+      
       DCRTOT = zero
-      DCRDUM (0) = zero
-      DO 40 I = 1, NCRBED
-         DCRTOT = DCRTOT + DCRBED (I)
-         DCRDUM (I) = DCRTOT
-         DCRNOD (I) = half * (DCRDUM (I) + DCRDUM (I - 1) )
-40    END DO
+      DCRDUM(0) = zero
+      
+      DO I = 1, NCRBED
+         DCRTOT = DCRTOT + DCRBED(I)
+         DCRDUM(I) = DCRTOT
+         DCRNOD(I) = half * (DCRDUM(I) + DCRDUM(I - 1))
+      END DO
 
+      DCRNOD(NCRBED + 1) = DCRTOT + VSZMIN
 
-
-      DCRNOD (NCRBED+1) = DCRTOT + VSZMIN
-! VS08 ----- soil/lithology layer definition data
-! --- read no. of categories and elements
+      ! VS08 ----- soil/lithology layer definition data
+      ! --- read no. of categories and elements
       CALL ALREAD (2, VSD, PPPRI, ':VS08', 2, 1, 0, CDUM, IDUM, DUMMY)
-      NUM_CATEGORIES_TYPES = IDUM (1)
+      NUM_CATEGORIES_TYPES = IDUM(1)
+      NELEM = IDUM(2)
 
-
-      NELEM = IDUM (2)
-! --- category data
-
-
-      IF (NUM_CATEGORIES_TYPES .EQ.0) THEN
-! expect all elements to be input individually
-! (all grids plus 1 set of data for each link if BEXBK=.true.
-!  all grids if BEXBK = .false.)
+      ! --- category data
+      IF (NUM_CATEGORIES_TYPES == 0) THEN
+         ! expect all elements to be input individually
          IF (BEXBK) THEN
             NCOUNT = total_no_elements - 2 * total_no_links
          ELSE
             NCOUNT = total_no_elements - total_no_links
-
-
-         ENDIF
-
+         END IF
 
       ELSE
-! initialise arrays
+         ! initialise arrays
          DO IEL = 1, NELEE
             DO ILYR = 1, NLYREE
-               IVSDUM (IEL, ILYR) = 0
-               RVSDUM (IEL, ILYR) = zero
+               IVSDUM(IEL, ILYR) = 0
+               RVSDUM(IEL, ILYR) = zero
             END DO
          END DO
-! read layer data
 
-
-         CALL ALREAD (6, VSD, PPPRI, ':VS08a', NELEE, NLYREE, NUM_CATEGORIES_TYPES,  CDUM, &
-            IVSDUM, RVSDUM)
-! for NUM_CATEGORIES_TYPES = 1, set all elements = category 1
+         ! read layer data
+         CALL ALREAD (6, VSD, PPPRI, ':VS08a', NELEE, NLYREE, NUM_CATEGORIES_TYPES, CDUM, IVSDUM, RVSDUM)
+         
+         ! for NUM_CATEGORIES_TYPES = 1, set all elements = category 1
          IF (NUM_CATEGORIES_TYPES == 1) THEN
-            DO 100 IEL = 1, total_no_elements
-               IVSCAT (IEL) = 1
-
-
-100         END DO
-! for > 1 category read in categories for links (if required) and grids
+            DO IEL = 1, total_no_elements
+               IVSCAT(IEL) = 1
+            END DO
+            
+         ! for > 1 category read in categories for links (if required) and grids
          ELSE
-            IF (BEXBK.AND.total_no_links.GT.0) THEN
-               CALL ALREAD (2, VSD, PPPRI, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES,  CDUM, &
-                  IVSCAT, DUMMY)
-            ENDIF
-            CALL ALREAD (4, VSD, PPPRI, ':VS08c', NX, NY, NUM_CATEGORIES_TYPES,  CDUM, &
-               IDUM, DUMMY)
-            DO 300 IY = 1, NY
+            IF (BEXBK .AND. total_no_links > 0) THEN
+               CALL ALREAD (2, VSD, PPPRI, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES, CDUM, IVSCAT, DUMMY)
+            END IF
+            
+            CALL ALREAD (4, VSD, PPPRI, ':VS08c', NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
+            
+            DO IY = 1, NY
                IXY0 = (IY - 1) * NX
-               DO 200 IX = 1, NX
-                  IEL = ICMXY (IX, IY)
-                  IF (IEL.NE.0) IVSCAT (IEL) = IDUM (IXY0 + IX)
-200            END DO
-300         END DO
+               DO IX = 1, NX
+                  IEL = ICMXY(IX, IY)
+                  IF (IEL /= 0) IVSCAT(IEL) = IDUM(IXY0 + IX)
+               END DO
+            END DO
+         END IF
 
-
-         ENDIF
-! move layer data into elements for ...
+         ! move layer data into elements for ...
          NCOUNT = 0
-
-         DO 400 IEL = 1, total_no_elements
-
-            IF (ICMREF (IEL, 1) .EQ.1.OR.ICMREF (IEL, 1) .EQ.2.OR. ( &
-               .NOT.BEXBK.AND.ICMREF (IEL, 1) .EQ.3) ) GOTO 400
-            IF (IVSCAT (IEL) .EQ.0) THEN
-
+         element_category_loop: DO IEL = 1, total_no_elements
+            IF (ICMREF(IEL, 1) == 1 .OR. ICMREF(IEL, 1) == 2 .OR. &
+               (.NOT. BEXBK .AND. ICMREF(IEL, 1) == 3)) CYCLE element_category_loop
+               
+            IF (IVSCAT(IEL) == 0) THEN
                NCOUNT = NCOUNT + 1
             ELSE
-
-               BDONE (IEL) = .TRUE.
-               ICAT = IVSCAT (IEL)
+               BDONE(IEL) = .TRUE.
+               ICAT = IVSCAT(IEL)
                ICOUNT = 0
-350            IF (IVSDUM (ICAT, ICOUNT + 1) .EQ.0) GOTO 355
-               ICOUNT = ICOUNT + 1
-               GOTO 350
-
-
-355            CONTINUE
-! ...grids
-               IF (ICMREF (IEL, 1) .EQ.0) THEN
-                  NLYR (IEL) = ICOUNT
-                  DO 360 ILYR = 1, NLYR (IEL)
-                     NTSOIL (IEL, ILYR) = IVSDUM (ICAT, ILYR)
-                     ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - RVSDUM (ICAT, &
-                        ILYR)
-
-
-360               END DO
-! ...banks
+               
+               ! Modern DO WHILE replacing GOTO 350 / 355
+               DO WHILE (IVSDUM(ICAT, ICOUNT + 1) /= 0)
+                  ICOUNT = ICOUNT + 1
+               END DO
+               
+               ! ...grids
+               IF (ICMREF(IEL, 1) == 0) THEN
+                  NLYR(IEL) = ICOUNT
+                  DO ILYR = 1, NLYR(IEL)
+                     NTSOIL(IEL, ILYR) = IVSDUM(ICAT, ILYR)
+                     ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM(ICAT, ILYR)
+                  END DO
+                  
+               ! ...banks
                ELSE
-                  DO 380 I = 1, 2
-                     IBK = ICMBK (IEL, I)
-                     BDONE (IBK) = .TRUE.
-                     NLYR (IBK) = ICOUNT
-                     DO 370 ILYR = 1, NLYR (IBK)
-                        NTSOIL (IBK, ILYR) = IVSDUM (ICAT, ILYR)
-                        ZLYRBT (IBK, ILYR) = ZGRUND (IBK) - RVSDUM ( &
-                           ICAT, ILYR)
-370                  END DO
-
-
-380               END DO
-! ...links
-!    (NB uses data from bank 2, which is identical to bank 1)
+                  DO I = 1, 2
+                     IBK = ICMBK(IEL, I)
+                     BDONE(IBK) = .TRUE.
+                     NLYR(IBK) = ICOUNT
+                     DO ILYR = 1, NLYR(IBK)
+                        NTSOIL(IBK, ILYR) = IVSDUM(ICAT, ILYR)
+                        ZLYRBT(IBK, ILYR) = ZGRUND(IBK) - RVSDUM(ICAT, ILYR)
+                     END DO
+                  END DO
+                  
+                  ! ...links (NB uses data from bank 2, which is identical to bank 1)
                   LCOUNT = 0
-390               IF (RVSDUM (ICAT, LCOUNT + 1) .LT.ZGRUND (IBK) &
-                     - ZBEFF (IEL) + VSZMIN) GOTO 395
-                  LCOUNT = LCOUNT + 1
+                  
+                  ! Modern DO WHILE replacing GOTO 390 / 395
+                  DO WHILE (RVSDUM(ICAT, LCOUNT + 1) >= ZGRUND(IBK) - ZBEFF(IEL) + VSZMIN)
+                     LCOUNT = LCOUNT + 1
+                  END DO
+                  
+                  NLYR(IEL) = LCOUNT
+                  DO ILYR = 1, NLYR(IEL)
+                     NTSOIL(IEL, ILYR) = NTSOIL(IBK, ILYR)
+                     ZLYRBT(IEL, ILYR) = ZLYRBT(IBK, ILYR)
+                  END DO
+               END IF
+            END IF
+         END DO element_category_loop
+      END IF
 
-                  GOTO 390
-395               NLYR (IEL) = LCOUNT
-                  DO 397 ILYR = 1, NLYR (IEL)
-                     NTSOIL (IEL, ILYR) = NTSOIL (IBK, ILYR)
-                     ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
-397               END DO
-
-               ENDIF
-
-            ENDIF
-
-400      END DO
-
-
-      ENDIF
-! check no. of category elements consistent with no. of individual eleme
-      IF (NCOUNT.NE.NELEM) THEN
+      ! check no. of category elements consistent with no. of individual elements
+      IF (NCOUNT /= NELEM) THEN
          WRITE (MSG, 9000) NCOUNT
          CALL ERROR(FFFATAL, 1032, PPPRI, 0, 0, MSG)
+      END IF
 
-
-      ENDIF
-! --- element data
-
-
-      IF (NELEM.NE.0) THEN
-! initialise variables
+      ! --- element data
+      IF (NELEM /= 0) THEN
+         ! initialise variables
          DO IEL = 1, NELEE
             DO ILYR = 1, NLYREE
-               IVSDUM (IEL, ILYR) = 0
-               RVSDUM (IEL, ILYR) = zero
+               IVSDUM(IEL, ILYR) = 0
+               RVSDUM(IEL, ILYR) = zero
             END DO
          END DO
-! read layer data
+         
+         ! read layer data
+         CALL ALREAD (6, VSD, PPPRI, ':VS08d', NELEE, NLYREE, NELEM, CDUM, IVSDUM, RVSDUM)
 
-         CALL ALREAD (6, VSD, PPPRI, ':VS08d', NELEE, NLYREE, NELEM, CDUM, &
-            IVSDUM, RVSDUM)
-
-
-         DO 500 IEL = 1, total_no_elements
-! ignore banks, links (if no banks), and elements already processed
-
-
-            IF (BDONE (IEL) .OR.ICMREF (IEL, 1) .EQ.1.OR.ICMREF (IEL, 1) &
-               .EQ.2.OR. (.NOT.BEXBK.AND.ICMREF (IEL, 1) .EQ.3) ) GOTO 500
-! move layer data into elements for ...
-
-            BDONE (IEL) = .TRUE.
+         element_data_loop: DO IEL = 1, total_no_elements
+            ! ignore banks, links (if no banks), and elements already processed
+            IF (BDONE(IEL) .OR. ICMREF(IEL, 1) == 1 .OR. ICMREF(IEL, 1) == 2 .OR. &
+               (.NOT. BEXBK .AND. ICMREF(IEL, 1) == 3)) CYCLE element_data_loop
+               
+            BDONE(IEL) = .TRUE.
             ICOUNT = 0
+            
             DO WHILE (IVSDUM(IEL, ICOUNT + 1) /= 0)
                ICOUNT = ICOUNT + 1
             END DO
-! ...grids
-            IF (ICMREF (IEL, 1) .EQ.0) THEN
-               NLYR (IEL) = ICOUNT
-               DO 460 ILYR = 1, NLYR (IEL)
-                  NTSOIL (IEL, ILYR) = IVSDUM (IEL, ILYR)
-                  ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - RVSDUM (IEL, ILYR)
-
-
-460            END DO
-! ...banks
+            
+            ! ...grids
+            IF (ICMREF(IEL, 1) == 0) THEN
+               NLYR(IEL) = ICOUNT
+               DO ILYR = 1, NLYR(IEL)
+                  NTSOIL(IEL, ILYR) = IVSDUM(IEL, ILYR)
+                  ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM(IEL, ILYR)
+               END DO
+               
+            ! ...banks
             ELSE
-               DO 480 I = 1, 2
-                  IBK = ICMBK (IEL, I)
-                  BDONE (IBK) = .TRUE.
-                  NLYR (IBK) = ICOUNT
-                  DO 470 ILYR = 1, NLYR (IBK)
-                     NTSOIL (IBK, ILYR) = IVSDUM (IEL, ILYR)
-                     ZLYRBT (IBK, ILYR) = ZGRUND (IBK) - RVSDUM (IEL, &
-                        ILYR)
-470               END DO
-
-
-480            END DO
-! ...links
-!    (NB uses data from bank 2, which is identical to bank 1)
+               DO I = 1, 2
+                  IBK = ICMBK(IEL, I)
+                  BDONE(IBK) = .TRUE.
+                  NLYR(IBK) = ICOUNT
+                  DO ILYR = 1, NLYR(IBK)
+                     NTSOIL(IBK, ILYR) = IVSDUM(IEL, ILYR)
+                     ZLYRBT(IBK, ILYR) = ZGRUND(IBK) - RVSDUM(IEL, ILYR)
+                  END DO
+               END DO
+               
+               ! ...links
                LCOUNT = 0
-490            IF (RVSDUM (IEL, LCOUNT + 1) .LT.ZGRUND (IBK) - ZBEFF ( &
-                  IEL) + VSZMIN) GOTO 495
-               LCOUNT = LCOUNT + 1
+               DO WHILE (RVSDUM(IEL, LCOUNT + 1) >= ZGRUND(IBK) - ZBEFF(IEL) + VSZMIN)
+                  LCOUNT = LCOUNT + 1
+               END DO
+               
+               NLYR(IEL) = LCOUNT
+               DO ILYR = 1, NLYR(IEL)
+                  NTSOIL(IEL, ILYR) = NTSOIL(IBK, ILYR)
+                  ZLYRBT(IEL, ILYR) = ZLYRBT(IBK, ILYR)
+               END DO
+            END IF
+         END DO element_data_loop
+      END IF
 
-               GOTO 490
-495            NLYR (IEL) = LCOUNT
-               DO 497 ILYR = 1, NLYR (IEL)
-                  NTSOIL (IEL, ILYR) = NTSOIL (IBK, ILYR)
-                  ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
-497            END DO
+      ! adjust horizon boundaries in soil zone to match computational mesh
+      ! and set up ZLYRBT for ground surface
+      adjust_horizon_loop: DO IEL = NGDBGN, total_no_elements
+         layer_adjust_loop: DO ILYR = NLYR(IEL), 1, -1
+            IF (ZGRUND(IEL) - ZLYRBT(IEL, ILYR) > DCSTOT + VSZMIN) EXIT layer_adjust_loop
+            
+            search_zone_loop: DO I = 1, NCSZON + 1
+               IF (DCSNOD(I) > ZGRUND(IEL) - ZLYRBT(IEL, ILYR)) THEN
+                  ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - DCSDUM(I - 1)
+                  CYCLE layer_adjust_loop
+               END IF
+            END DO search_zone_loop
+         END DO layer_adjust_loop
+         
+         ZLYRBT(IEL, NLYR(IEL) + 1) = ZGRUND(IEL)
+      END DO adjust_horizon_loop
 
-            ENDIF
-
-500      END DO
-
-
-      ENDIF
-! adjust horizon boundaries in soil zone to match computational mesh
-! and set up ZLYRBT for ground surface
-      DO 550 IEL = NGDBGN, total_no_elements
-         DO 540 ILYR = NLYR (IEL), 1, - 1
-            IF (ZGRUND (IEL) - ZLYRBT (IEL, ILYR) .GT.DCSTOT + VSZMIN) &
-               GOTO 545
-            DO 530 I = 1, NCSZON + 1
-               IF (DCSNOD (I) .GT.ZGRUND (IEL) - ZLYRBT (IEL, ILYR) ) &
-                  THEN
-                  ZLYRBT (IEL, ILYR) = ZGRUND (IEL) - DCSDUM (I - 1)
-                  GOTO 540
-               ENDIF
-530         END DO
-540      END DO
-545      ZLYRBT (IEL, NLYR (IEL) + 1) = ZGRUND (IEL)
-
-550   END DO
       IF (BEXBK) THEN
-         DO 560 IEL = 1, total_no_links
-            IBK = ICMBK (IEL, 1)
-            DO 555 ILYR = 1, NLYR (IEL)
-               ZLYRBT (IEL, ILYR) = ZLYRBT (IBK, ILYR)
-555         END DO
-560      END DO
+         DO IEL = 1, total_no_links
+            IBK = ICMBK(IEL, 1)
+            DO ILYR = 1, NLYR(IEL)
+               ZLYRBT(IEL, ILYR) = ZLYRBT(IBK, ILYR)
+            END DO
+         END DO
+      END IF
 
-
-      ENDIF
-! check that all elements have been set up
-      DO 650 IEL = 1, total_no_elements
-         IF (.NOT.BEXBK.AND.ICMREF (IEL, 1) .NE.0) GOTO 650
-         IF (.NOT.BDONE (IEL) ) THEN
-            NVSERR = NVSERR + 1
+      ! check that all elements have been set up
+      check_done_loop: DO IEL = 1, total_no_elements
+         IF (.NOT. BEXBK .AND. ICMREF(IEL, 1) /= 0) CYCLE check_done_loop
+         IF (.NOT. BDONE(IEL)) THEN
             WRITE (MSG, 9020) IEL
             CALL ERROR (EEERR, 1033, PPPRI, 0, 0, MSG)
-         ENDIF
+         END IF
+      END DO check_done_loop
 
+      ! VS09 ----- channel bed layer
+      IF (total_no_links > 0 .AND. BEXBK) THEN
+         ! read soil types for each link
+         CALL ALREAD (2, VSD, PPPRI, ':VS09', total_no_links, 1, 1, CDUM, ISRBED, DUMMY)
+         
+         ! read bed depths for each link
+         CALL ALREAD (3, VSD, PPPRI, ':VS09a', total_no_links, 1, 1, CDUM, IDUM, DRBED)
+         
+         ! set up channel bed layer for each link
+         DO IEL = 1, total_no_links
+            IF (DRBED(IEL) > VSZMIN) THEN
+               NLYR(IEL) = NLYR(IEL) + 1
+               NTSOIL(IEL, NLYR(IEL)) = ISRBED(IEL)
+               ZLYRBT(IEL, NLYR(IEL)) = ZBEFF(IEL) - DRBED(IEL)
+               
+               IF (ZLYRBT(IEL, NLYR(IEL)) < ZLYRBT(IEL, NLYR(IEL) - 1) + VSZMIN) THEN
+                  NLYR(IEL) = NLYR(IEL) - 1
+                  NTSOIL(IEL, NLYR(IEL)) = ISRBED(IEL)
+               END IF
+            END IF
+         END DO
 
-650   END DO
-! VS09 ----- channel bed layer
+         ! adjust horizon boundaries in river bed to match computational mesh
+         ! and set up ZLYRBT for river bed surface
+         bed_adjust_loop: DO IEL = 1, total_no_links
+            layer_bed_loop: DO ILYR = NLYR(IEL), 1, -1
+               IF (ZGRUND(IEL) - ZLYRBT(IEL, ILYR) > DCRTOT + VSZMIN) EXIT layer_bed_loop
+               
+               search_bed_loop: DO I = 1, NCRBED + 1
+                  IF (DCRNOD(I) > ZGRUND(IEL) - ZLYRBT(IEL, ILYR)) THEN
+                     ZLYRBT(IEL, ILYR) = ZBEFF(IEL) - DCRDUM(I - 1)
+                     CYCLE layer_bed_loop
+                  END IF
+               END DO search_bed_loop
+            END DO layer_bed_loop
+            
+            ZLYRBT(IEL, NLYR(IEL) + 1) = ZBEFF(IEL)
+         END DO bed_adjust_loop
+      END IF
 
+      ! VS10 ----- aquifer zone user-defined connectivities
+      ! FIX: Read into the IDUM array first to satisfy strict array-interface 
+      ! requirements, then assign the value to the scalar NAQCON.
+      CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, IDUM, DUMMY)
+      NAQCON = IDUM(1)
 
-      IF (total_no_links.GT.0.AND.BEXBK) THEN
-! read soil types for each link
+      IF (NAQCON > 0) THEN
+         CALL ALREAD (2, VSD, PPPRI, ':VS10a', 4, NAQCON, 0, CDUM, IAQCON, DUMMY)
+      END IF
 
-
-         CALL ALREAD (2, VSD, PPPRI, ':VS09', total_no_links, 1, 1, CDUM, ISRBED, &
-            DUMMY)
-! read bed depths for each link
-
-
-         CALL ALREAD (3, VSD, PPPRI, ':VS09a', total_no_links, 1, 1, CDUM, IDUM, &
-            DRBED)
-! set up channel bed layer for each link
-         DO 700 IEL = 1, total_no_links
-            IF (DRBED (IEL) .GT.VSZMIN) THEN
-               NLYR (IEL) = NLYR (IEL) + 1
-               NTSOIL (IEL, NLYR (IEL) ) = ISRBED (IEL)
-               ZLYRBT (IEL, NLYR (IEL) ) = ZBEFF (IEL) - DRBED (IEL)
-               IF (ZLYRBT (IEL, NLYR (IEL) ) .LT.ZLYRBT (IEL, NLYR (IEL) &
-                  - 1) + VSZMIN) THEN
-                  NLYR (IEL) = NLYR (IEL) - 1
-                  NTSOIL (IEL, NLYR (IEL) ) = ISRBED (IEL)
-               ENDIF
-            ENDIF
-
-
-700      END DO
-! adjust horizon boundaries in river bed to match computational mesh
-! and set up ZLYRBT for river bed surface
-         DO 750 IEL = 1, total_no_links
-            DO 740 ILYR = NLYR (IEL), 1, - 1
-               IF (ZGRUND (IEL) - ZLYRBT (IEL, ILYR) .GT.DCRTOT + &
-                  VSZMIN) GOTO 745
-               DO 730 I = 1, NCRBED+1
-                  IF (DCRNOD (I) .GT.ZGRUND (IEL) - ZLYRBT (IEL, ILYR) ) &
-                     THEN
-                     ZLYRBT (IEL, ILYR) = ZBEFF (IEL) - DCRDUM (I - 1)
-                     GOTO 740
-                  ENDIF
-730            END DO
-740         END DO
-745         ZLYRBT (IEL, NLYR (IEL) + 1) = ZBEFF (IEL)
-
-750      END DO
-
-
-      ENDIF
-! VS10 ----- aquifer zone user-defined connectivities
-
-      CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, NAQCON, DUMMY)
-
-
-      IF (NAQCON.GT.0) CALL ALREAD (2, VSD, PPPRI, ':VS10a', 4, NAQCON, 0, &
-         CDUM, IAQCON, DUMMY)
-! VS11 ----- no. of categories for boundary conditions
+      ! VS11 ----- no. of categories for boundary conditions
       CALL ALREAD (2, VSD, PPPRI, ':VS11', 8, 1, 0, CDUM, IDUM, DUMMY)
-      NVSWL = IDUM (1)
-      NVSSP = IDUM (2)
-      NVSLF = IDUM (3)
-      NVSLH = IDUM (4)
-      NVSLG = IDUM (5)
-      NVSBF = IDUM (6)
-      NVSBH = IDUM (7)
+      NVSWL = IDUM(1)
+      NVSSP = IDUM(2)
+      NVSLF = IDUM(3)
+      NVSLH = IDUM(4)
+      NVSLG = IDUM(5)
+      NVSBF = IDUM(6)
+      NVSBH = IDUM(7)
+      NVSBD = IDUM(8)
 
-
-      NVSBD = IDUM (8)
-! wells -----------------------------------------------
-! VS12 ----- no. of wells
-
-      IF (NVSWL.GT.0) THEN
+      ! wells -----------------------------------------------
+      ! VS12 ----- no. of wells
+      IF (NVSWL > 0) THEN
          CALL ALREAD (2, VSD, PPPRI, ':VS12', 1, 1, 0, CDUM, IDUM, DUMMY)
-
-
-         NW = IDUM (1)
-! VS12a ---- element, category number, and target element
-         CALL ALREAD (2, VSD, PPPRI, ':VS12a', 3, NW, 0, CDUM, IDUM, &
-            DUMMY)
-         DO 800 IW = 1, NW
+         NW = IDUM(1)
+         
+         ! VS12a ---- element, category number, and target element
+         CALL ALREAD (2, VSD, PPPRI, ':VS12a', 3, NW, 0, CDUM, IDUM, DUMMY)
+         DO IW = 1, NW
             I0 = 3 * (IW - 1)
-            IEL = IDUM (I0 + 1)
-            NVSWLC (IEL) = MAX (1, IDUM (I0 + 2) )
-            IWT = IDUM (I0 + 3)
-            IF (IWT.GT.0) NVSWLT (IWT) = IEL
-            NVSWLI (IEL) = IW
+            IEL = IDUM(I0 + 1)
+            NVSWLC(IEL) = MAX(1, IDUM(I0 + 2))
+            IWT = IDUM(I0 + 3)
+            IF (IWT > 0) NVSWLT(IWT) = IEL
+            NVSWLI(IEL) = IW
+         END DO
 
+         ! VS12b ---- depth below ground of bottom and top of well screen
+         CALL ALREAD (3, VSD, PPPRI, ':VS12b', 2, NW, 0, CDUM, IDUM, DUMMY)
+         DO IW = 1, NW
+            VSZWLB(IW) = DUMMY(2 * (IW - 1) + 1)
+            VSZWLT(IW) = DUMMY(2 * (IW - 1) + 2)
+         END DO
+      END IF
 
-800      END DO
-! VS12b ---- depth below ground of bottom and top of well screen
-         CALL ALREAD (3, VSD, PPPRI, ':VS12b', 2, NW, 0, CDUM, IDUM, &
-            DUMMY)
-         DO 810 IW = 1, NW
-            VSZWLB (IW) = DUMMY (2 * (IW - 1) + 1)
-
-            VSZWLT (IW) = DUMMY (2 * (IW - 1) + 2)
-
-810      END DO
-
-
-      ENDIF
-! springs ---------------------------------------------
-! VS13 ----- no. of springs
-
-
-      IF (NVSSP.GT.0) THEN
-!c        CALL ALREAD(2, VSD, PRI, ':VS13', 1, 1, 0,
-!c     -              CDUM, IDUM, DUMMY)
-!c        NSP = IDUM(1)
-
-
+      ! springs ---------------------------------------------
+      ! VS13 ----- no. of springs
+      IF (NVSSP > 0) THEN
          NSP = NVSSP
-! VS13a ---- element and target element
-         CALL ALREAD (2, VSD, PPPRI, ':VS13a', 2, NSP, 0, CDUM, IDUM, &
-            DUMMY)
-         DO 860 ISP = 1, NSP
-            IEL = IDUM (2 * (ISP - 1) + 1)
-            IF (IDUM (2 * (ISP - 1) + 2) .GT.0) NVSSPT (IDUM (2 * &
-               (ISP - 1) + 2) ) = IEL
-
-
-860      END DO
-! VS13b ---- depth of spring source below ground, elevation of
-!            discharge point, spring coefficient
+         ! VS13a ---- element and target element
+         CALL ALREAD (2, VSD, PPPRI, ':VS13a', 2, NSP, 0, CDUM, IDUM, DUMMY)
+         DO ISP = 1, NSP
+            IEL = IDUM(2 * (ISP - 1) + 1)
+            IF (IDUM(2 * (ISP - 1) + 2) > 0) NVSSPT(IDUM(2 * (ISP - 1) + 2)) = IEL
+         END DO
+         
+         ! VS13b ---- depth of spring source below ground, elevation of
+         !            discharge point, spring coefficient
          CALL ALREAD (3, VSD, PPPRI, ':VS13b', 3, NSP, 0, CDUM, IDUM1, DUMMY)
-         DO 865 ISP = 1, NSP
-            IEL = IDUM (2 * (ISP - 1) + 1)
-            VSSPD (IEL) = DUMMY (3 * (ISP - 1) + 1)
-            VSSPZ (IEL) = DUMMY (3 * (ISP - 1) + 2)
-            VSSPCO (IEL) = DUMMY (3 * (ISP - 1) + 3)
+         DO ISP = 1, NSP
+            IEL = IDUM(2 * (ISP - 1) + 1)
+            VSSPD(IEL) = DUMMY(3 * (ISP - 1) + 1)
+            VSSPZ(IEL) = DUMMY(3 * (ISP - 1) + 2)
+            VSSPCO(IEL) = DUMMY(3 * (ISP - 1) + 3)
+         END DO
+      END IF
 
-865      END DO
-
-
-      ENDIF
-! lateral boundary conditions -------------------------
-! VS14 ----- grid of codes (types)
+      ! lateral boundary conditions -------------------------
+      ! VS14 ----- grid of codes (types)
       NDUM = MAX(NVSLF, NVSLH, NVSLG)
 
-      IF (NDUM.GT.0) THEN
-         CALL ALREAD (4, VSD, PPPRI, ':VS14', NX, NY, NDUM, CDUM, IDUM, &
-            DUMMY)
-         DO 920 IY = 1, NY
+      IF (NDUM > 0) THEN
+         CALL ALREAD (4, VSD, PPPRI, ':VS14', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         DO IY = 1, NY
             IXY0 = (IY - 1) * NX
-            DO 910 IX = 1, NX
-               IEL = ICMXY (IX, IY)
-               IF (IEL.NE.0) NLBTYP (IEL) = IDUM (IXY0 + IX)
-910         END DO
+            DO IX = 1, NX
+               IEL = ICMXY(IX, IY)
+               IF (IEL /= 0) NLBTYP(IEL) = IDUM(IXY0 + IX)
+            END DO
+         END DO
 
-
-920      END DO
-! VS15 ----- grid of category numbers
-         CALL ALREAD (4, VSD, PPPRI, ':VS15', NX, NY, NDUM, CDUM, IDUM, &
-            DUMMY)
-         DO 940 IY = 1, NY
+         ! VS15 ----- grid of category numbers
+         CALL ALREAD (4, VSD, PPPRI, ':VS15', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         DO IY = 1, NY
             IXY0 = (IY - 1) * NX
-            DO 930 IX = 1, NX
-               IEL = ICMXY (IX, IY)
-               IF (IEL.NE.0) NLBCAT (IEL) = MAX (1, IDUM (IXY0 + IX) )
-930         END DO
+            DO IX = 1, NX
+               IEL = ICMXY(IX, IY)
+               IF (IEL /= 0) NLBCAT(IEL) = MAX(1, IDUM(IXY0 + IX))
+            END DO
+         END DO
 
-
-
-940      END DO
-! VS16 ----- No. of lateral boundary categories (flow, head, and head gr
-! with b.c/s set only on selected layers
-! initialise arrays to default values for reading in time-series data
-         DO 840 ICAT = 1, NDUM
-            NVSLFN (ICAT) = 0
-            NVSLHN (ICAT) = 0
-            NVSLGN (ICAT) = 0
-
-840      END DO
+         ! VS16 ----- No. of lateral boundary categories (flow, head, and head gr
+         ! with b.c/s set only on selected layers
+         ! initialise arrays to default values for reading in time-series data
+         DO ICAT = 1, NDUM
+            NVSLFN(ICAT) = 0
+            NVSLHN(ICAT) = 0
+            NVSLGN(ICAT) = 0
+         END DO
+         
          NVSLFT = NVSLF
          NVSLHT = NVSLH
-
          NVSLGT = NVSLG
+         
          CALL ALREAD (2, VSD, PPPRI, ':VS16', 1, 1, 0, CDUM, IDUM, DUMMY)
+         NLB = IDUM(1)
 
-         NLB = IDUM (1)
-
-
-         DO 880 ILB = 1, NLB
-! VS16a ---- b.c. type, category, no. of layers
-            CALL ALREAD (2, VSD, PPPRI, ':VS16a', 3, 1, 0, CDUM, IDUM, &
-               DUMMY)
-            ITYP = IDUM (1)
-            ICAT = IDUM (2)
-
-
-            NLDUM = IDUM (3)
-! VS16b ---- layer numbers
-            CALL ALREAD (2, VSD, PPPRI, ':VS16b', NLDUM, 1, 0, CDUM, IDUM, &
-               DUMMY)
-            IF (ITYP.EQ.3) THEN
-               NVSLFN (ICAT) = NLDUM
+         DO ILB = 1, NLB
+            ! VS16a ---- b.c. type, category, no. of layers
+            CALL ALREAD (2, VSD, PPPRI, ':VS16a', 3, 1, 0, CDUM, IDUM, DUMMY)
+            ITYP = IDUM(1)
+            ICAT = IDUM(2)
+            NLDUM = IDUM(3)
+            
+            ! VS16b ---- layer numbers
+            CALL ALREAD (2, VSD, PPPRI, ':VS16b', NLDUM, 1, 0, CDUM, IDUM, DUMMY)
+            
+            IF (ITYP == 3) THEN
+               NVSLFN(ICAT) = NLDUM
                NVSLFT = NVSLFT + NLDUM - 1
-               DO 862 I = 1, NLDUM
-                  NVSLFL (I, ICAT) = IDUM (I)
-862            END DO
-            ENDIF
-            IF (ITYP.EQ.4) THEN
-               NVSLHN (ICAT) = NLDUM
+               DO I = 1, NLDUM
+                  NVSLFL(I, ICAT) = IDUM(I)
+               END DO
+            END IF
+            
+            IF (ITYP == 4) THEN
+               NVSLHN(ICAT) = NLDUM
                NVSLHT = NVSLHT + NLDUM - 1
-               DO 864 I = 1, NLDUM
-                  NVSLHL (I, ICAT) = IDUM (I)
-864            END DO
-            ENDIF
-            IF (ITYP.EQ.5) THEN
-               NVSLGN (ICAT) = NLDUM
+               DO I = 1, NLDUM
+                  NVSLHL(I, ICAT) = IDUM(I)
+               END DO
+            END IF
+            
+            IF (ITYP == 5) THEN
+               NVSLGN(ICAT) = NLDUM
                NVSLGT = NVSLGT + NLDUM - 1
-               DO 866 I = 1, NLDUM
-                  NVSLGL (I, ICAT) = IDUM (I)
-866            END DO
+               DO I = 1, NLDUM
+                  NVSLGL(I, ICAT) = IDUM(I)
+               END DO
+            END IF
+         END DO
+      END IF
 
-            ENDIF
-
-880      END DO
-
-
-      ENDIF
-! bottom boundary conditions --------------------------
-! VS17 ----- grid of codes (types)
+      ! bottom boundary conditions --------------------------
+      ! VS17 ----- grid of codes (types)
       NDUM = MAX(NVSBF, NVSBH, NVSBD)
 
-      IF (NDUM.GT.0) THEN
-
-         IF (total_no_links.GT.0.AND.BEXBK) THEN
-            CALL ALREAD (2, VSD, PPPRI, ':VS17', total_no_links, 1, 1, CDUM, IDUM, &
-               DUMMY)
-            DO 945 IEL = 1, total_no_links
-               NBBTYP (IEL) = IDUM (IEL)
-               NBBTYP (total_no_links + IEL) = IDUM (IEL)
-               NBBTYP (2 * total_no_links + IEL) = IDUM (IEL)
-
-945         END DO
-
-         ENDIF
-         CALL ALREAD (4, VSD, PPPRI, ':VS17', NX, NY, NDUM, CDUM, IDUM, &
-            DUMMY)
-         DO 960 IY = 1, NY
+      IF (NDUM > 0) THEN
+         IF (total_no_links > 0 .AND. BEXBK) THEN
+            CALL ALREAD (2, VSD, PPPRI, ':VS17', total_no_links, 1, 1, CDUM, IDUM, DUMMY)
+            DO IEL = 1, total_no_links
+               NBBTYP(IEL) = IDUM(IEL)
+               NBBTYP(total_no_links + IEL) = IDUM(IEL)
+               NBBTYP(2 * total_no_links + IEL) = IDUM(IEL)
+            END DO
+         END IF
+         
+         CALL ALREAD (4, VSD, PPPRI, ':VS17', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         DO IY = 1, NY
             IXY0 = (IY - 1) * NX
-            DO 950 IX = 1, NX
-               IEL = ICMXY (IX, IY)
-               IF (IEL.NE.0) NBBTYP (IEL) = IDUM (IXY0 + IX)
-950         END DO
+            DO IX = 1, NX
+               IEL = ICMXY(IX, IY)
+               IF (IEL /= 0) NBBTYP(IEL) = IDUM(IXY0 + IX)
+            END DO
+         END DO
 
-
-960      END DO
-! VS18 ----- grid of category numbers
-
-         IF (total_no_links.GT.0.AND.BEXBK) THEN
-            CALL ALREAD (2, VSD, PPPRI, ':VS18', total_no_links, 1, 1, CDUM, IDUM, &
-               DUMMY)
-            DO 965 IEL = 1, total_no_links
-               ICAT = MAX (1, IDUM (IEL) )
-               NBBCAT (IEL) = ICAT
-               NBBCAT (total_no_links + IEL) = ICAT
-               NBBCAT (2 * total_no_links + IEL) = ICAT
-
-965         END DO
-
-         ENDIF
-         CALL ALREAD (4, VSD, PPPRI, ':VS18', NX, NY, NDUM, CDUM, IDUM, &
-            DUMMY)
-         DO 980 IY = 1, NY
+         ! VS18 ----- grid of category numbers
+         IF (total_no_links > 0 .AND. BEXBK) THEN
+            CALL ALREAD (2, VSD, PPPRI, ':VS18', total_no_links, 1, 1, CDUM, IDUM, DUMMY)
+            DO IEL = 1, total_no_links
+               ICAT = MAX(1, IDUM(IEL))
+               NBBCAT(IEL) = ICAT
+               NBBCAT(total_no_links + IEL) = ICAT
+               NBBCAT(2 * total_no_links + IEL) = ICAT
+            END DO
+         END IF
+         
+         CALL ALREAD (4, VSD, PPPRI, ':VS18', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         DO IY = 1, NY
             IXY0 = (IY - 1) * NX
-            DO 970 IX = 1, NX
-               IEL = ICMXY (IX, IY)
-               IF (IEL.NE.0) NBBCAT (IEL) = MAX (1, IDUM (IXY0 + IX) )
-970         END DO
+            DO IX = 1, NX
+               IEL = ICMXY(IX, IY)
+               IF (IEL /= 0) NBBCAT(IEL) = MAX(1, IDUM(IXY0 + IX))
+            END DO
+         END DO
+      END IF
 
-980      END DO
+      RETURN
 
-
-      ENDIF
-! FORMAT statements
-
-9000  FORMAT('Error in number of VSS layer elements. ', &
-      &       'NELEM should be ',I4)
-
+      ! FORMAT statements
+9000  FORMAT('Error in number of VSS layer elements. NELEM should be ',I4)
 9020  FORMAT('Error reading VSS layers for element ',I4, '.')
-
 9030  FORMAT('Soil type ',I4,' not expected for soil property tables.')
-9999  RETURN
-!----------------------------------------------------------------------*
-! Exit conditions:
-! for each e in 1:NEL: 0<= NLBTYP(e), NBBTYP(e)
-!                      1<= NLBCAT(e), NBBCAT(e), NVSWLC(e)
-!----------------------------------------------------------------------*
+
    END SUBROUTINE VSREAD
 
 
@@ -3425,8 +3256,7 @@ CONTAINS
 
 
 
-
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
    ! VSS Controlling routine for a single timestep
    !----------------------------------------------------------------------*
    ! Version:  SHETRAN/VSS/VSSIM/4.2
@@ -3875,7 +3705,9 @@ CONTAINS
    END SUBROUTINE VSSIM
 ! 26/1/96
 
-!SSSSSS SUBROUTINE VSSOIL ()
+
+
+   !SSSSSS SUBROUTINE VSSOIL ()
    SUBROUTINE VSSOIL ()
 !
 !----------------------------------------------------------------------*
@@ -4071,8 +3903,6 @@ CONTAINS
                = VSPDTH (I, IS) * VSPSS (IS) / VSPOR (IS) + (VSPDTH (I + 1, &
                IS) - VSPDTH (I, IS) ) / (VSPPSI (I + 1) - VSPPSI (I) )
 550      END DO
-
-
 560   END DO
 ! set up property data for extreme wet conditions
       VSPPSI (4) = zero
@@ -4109,9 +3939,6 @@ CONTAINS
          VSPDET (3, IS) = zero
          VSPDET (2, IS) = zero
          VSPDET (1, IS) = zero
-
-
-
 
 
 600   END DO
@@ -4213,7 +4040,6 @@ CONTAINS
 !
 !----------------------------------------------------------------------*
 !
-
       DHDUM = CPSI + CZ - CZSP
 
       IF (GEZERO(DHDUM)) THEN

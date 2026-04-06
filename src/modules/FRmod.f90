@@ -467,135 +467,124 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE FRIND (BINFRP)
+   !SSSSSS SUBROUTINE FRIND (BINFRP)
    SUBROUTINE FRIND (BINFRP)
-!----------------------------------------------------------------------*
-!
-! SUBROUTINE TO SET UP INDEX ARRAY FOR CONTAMINANT MIGRATION
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRIND/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-! RAH  970223  4.1  Explicit typing.
-!      970523       Amend header.
-! RAH  980713  4.2  Don't INCLUDE SPEC.OC.
-!      980717       (Amend Version.)
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   ! SUBROUTINE TO SET UP INDEX ARRAY FOR CONTAMINANT MIGRATION
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRIND/4.2
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+   ! RAH  970223  4.1  Explicit typing.
+   !      970523       Amend header.
+   ! RAH  980713  4.2  Don't INCLUDE SPEC.OC.
+   !      980717       (Amend Version.)
+   !----------------------------------------------------------------------*
+   ! Commons and constants
 
+   ! Assumed external module dependencies providing global variables:
+   ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF, 
+   ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, PPPRI,
+   ! total_no_links, total_no_elements
 
+      IMPLICIT NONE
 
+      ! Input arguments
+      LOGICAL, INTENT(IN) :: BINFRP
 
-! Imported constants
-!     SPEC.AL:         NELEE
-! Input common
-!     SPEC.AL:         NX,NY
-!                      INGRID(NXEE,NY),LCODEX(NXEE,NY),LCODEY(NXEE,NY)
-!                      BEXBK,BEXOC
-! Output common
-!     SPEC.AL:         NEL,NGDBGN,NLF
-!                      ICMBK(NLFEE,2),ICMREF(NELEE,12),ICMRF2(NLFEE,6)
-!                      ICMXY(NXEE,NY),NBFACE(NELEE),   NGRID(NELEE)
-!                      LINKNS(NLFEE)
-! Input arguments
-
-      LOGICAL :: BINFRP
-! Locals, etc
-      LOGICAL :: NSOUTH, EWEST
-      PARAMETER (NSOUTH = .TRUE., EWEST = .FALSE.)
+      ! Locals, etc
+      LOGICAL, PARAMETER  :: NSOUTH = .TRUE., EWEST = .FALSE.
       INTEGER :: I, IBANK, ICOUNT, IM1, IN1, INDEX, INDEX2, INEXT1, IP1
       INTEGER :: ITYPE, J, J1, J2, JM1, JN2, JNEXT1, JP1, K, L, L1
       INTEGER :: NEL2, NNODE3, NNODE4
       LOGICAL :: SINGLE
 
-      CHARACTER (LEN=2) :: PDIRN
-!----------------------------------------------------------------------*
-!
-! ^^^^^^^^^^^^ INITIALISE ARRAY AND INDEX NUMBER
-!
+      CHARACTER(LEN=2) :: PDIRN
+
+      !----------------------------------------------------------------------*
+      !
+      ! ^^^^^^^^^^^^ INITIALISE ARRAY AND INDEX NUMBER
+      !
       DO I = 1, NELEE
          NGRID (I) = 0
          NBFACE (I) = 0
-         DO K = 1, 12
-            ICMREF (I, K) = 0
-         END DO
+         ICMREF (I, 1:12) = 0
       END DO
-!
+
       INDEX = 0
       INDEX2 = 0
-!
-! ^^^^^^^^^^^^ SET UP INDEX NUMBERS
-!
-! --- CHANNEL LINKS
-!
-      DO 50 J = 1, NY
-!
-         DO 30 I = 1, NX
-            IF (LCODEY (I, J) .GE.4) THEN
+
+      !
+      ! ^^^^^^^^^^^^ SET UP INDEX NUMBERS
+      !
+      ! --- CHANNEL LINKS
+      !
+      DO J = 1, NY
+         DO I = 1, NX
+            IF (LCODEY (I, J) >= 4) THEN
                INDEX = INDEX + 1
                ICMREF (INDEX, 1) = 3
                ICMREF (INDEX, 2) = I
                ICMREF (INDEX, 3) = J
                ICMREF (INDEX, 4) = INDEX
                LINKNS (INDEX) = .FALSE.
-            ENDIF
-30       END DO
-!
-         DO 40 I = 1, NX
-            IF (LCODEX (I, J) .GE.4) THEN
+            END IF
+         END DO
+
+         DO I = 1, NX
+            IF (LCODEX (I, J) >= 4) THEN
                INDEX = INDEX + 1
                ICMREF (INDEX, 1) = 3
                ICMREF (INDEX, 2) = I
                ICMREF (INDEX, 3) = J
                ICMREF (INDEX, 4) = INDEX
                LINKNS (INDEX) = .TRUE.
-            ENDIF
-40       END DO
-!
-50    END DO
-!
+            END IF
+         END DO
+      END DO
+
       total_no_links = INDEX
-!
-! --- BANK ELEMENTS
-!
-      IF (BEXBK.AND.total_no_links.GT.0) THEN
-!
-         DO 230 IBANK = 1, 2
-            DO 220 L = 1, total_no_links
-!
+
+      !
+      ! --- BANK ELEMENTS
+      !
+      IF (BEXBK .AND. total_no_links > 0) THEN
+         DO IBANK = 1, 2
+            DO L = 1, total_no_links
                INDEX = INDEX + 1
                ICMREF (INDEX, 1) = IBANK
                ICMREF (INDEX, 2) = ICMREF (L, 2)
                ICMREF (INDEX, 3) = ICMREF (L, 3)
                ICMREF (INDEX, 4) = L
                ICMBK (L, IBANK) = INDEX
-!
-220         END DO
-230      END DO
-!
-      ENDIF
-!
-! --- GRID CODES
-!
+            END DO
+         END DO
+      END IF
+
+      !
+      ! --- GRID CODES
+      !
       DO J = 1, NY
          DO I = 1, NX
-            IF (INGRID (I, J) .GE.0) THEN
+            IF (INGRID (I, J) >= 0) THEN
                INDEX = INDEX + 1
                ICMREF (INDEX, 2) = I
                ICMREF (INDEX, 3) = J
                ICMXY (I, J) = INDEX
-            ENDIF
+            END IF
          END DO
       END DO
-!
+
       NGDBGN = total_no_links + 1
       total_no_elements = INDEX
-!
-! ^^^^^^^^^^^^ SET UP ADJACENT NODES
-!
-      DO 600 INDEX = 1, total_no_elements
-!
+
+      !
+      ! ^^^^^^^^^^^^ SET UP ADJACENT NODES
+      !
+      DO INDEX = 1, total_no_elements
+
          ITYPE = ICMREF (INDEX, 1)
          I = ICMREF (INDEX, 2)
          J = ICMREF (INDEX, 3)
@@ -604,691 +593,617 @@ CONTAINS
          JP1 = J + 1
          IM1 = I - 1
          JM1 = J - 1
-!
-! --- GRID SQUARE
-!
-         IF (ITYPE.EQ.0) THEN
-!
-! FACE 1 (EAST)
-!
-            IF (BEXOC.AND.LCODEX (I + 1, J) .GE.4) THEN
+
+         ! --- GRID SQUARE
+         IF (ITYPE == 0) THEN
+
+            ! FACE 1 (EAST)
+            IF (BEXOC .AND. LCODEX (I + 1, J) >= 4) THEN
                L = LINKNO (IP1, J, NSOUTH)
                IF (BEXBK) THEN
                   ICMREF (INDEX, 5) = ICMBK (L, 2)
                ELSE
                   ICMREF (INDEX, 5) = L
                   ICMREF (INDEX, 4) = 9999
-               ENDIF
+               END IF
             ELSE
-               IF (INGRID (I + 1, J) .GE.0) ICMREF (INDEX, 5) = ICMXY ( &
-                  I + 1, J)
-            ENDIF
-!
-! FACE 2 (NORTH)
-!
-            IF (BEXOC.AND.LCODEY (I, J + 1) .GE.4) THEN
+               IF (INGRID (I + 1, J) >= 0) ICMREF (INDEX, 5) = ICMXY (I + 1, J)
+            END IF
+
+            ! FACE 2 (NORTH)
+            IF (BEXOC .AND. LCODEY (I, J + 1) >= 4) THEN
                L = LINKNO (I, JP1, EWEST)
                IF (BEXBK) THEN
                   ICMREF (INDEX, 6) = ICMBK (L, 2)
                ELSE
                   ICMREF (INDEX, 6) = L
                   ICMREF (INDEX, 4) = 9999
-               ENDIF
+               END IF
             ELSE
-               IF (INGRID (I, J + 1) .GE.0) ICMREF (INDEX, 6) = ICMXY ( &
-                  I, J + 1)
-            ENDIF
-!
-! FACE 3 (WEST)
-!
-            IF (BEXOC.AND.LCODEX (I, J) .GE.4) THEN
+               IF (INGRID (I, J + 1) >= 0) ICMREF (INDEX, 6) = ICMXY (I, J + 1)
+            END IF
+
+            ! FACE 3 (WEST)
+            IF (BEXOC .AND. LCODEX (I, J) >= 4) THEN
                L = LINKNO (I, J, NSOUTH)
                IF (BEXBK) THEN
                   ICMREF (INDEX, 7) = ICMBK (L, 1)
                ELSE
                   ICMREF (INDEX, 7) = L
                   ICMREF (INDEX, 4) = 9999
-               ENDIF
+               END IF
             ELSE
-               IF (INGRID (I - 1, J) .GE.0) ICMREF (INDEX, 7) = ICMXY ( &
-                  I - 1, J)
-            ENDIF
-!
-! FACE 4 (SOUTH)
-!
-            IF (BEXOC.AND.LCODEY (I, J) .GE.4) THEN
+               IF (INGRID (I - 1, J) >= 0) ICMREF (INDEX, 7) = ICMXY (I - 1, J)
+            END IF
+
+            ! FACE 4 (SOUTH)
+            IF (BEXOC .AND. LCODEY (I, J) >= 4) THEN
                L = LINKNO (I, J, EWEST)
                IF (BEXBK) THEN
                   ICMREF (INDEX, 8) = ICMBK (L, 1)
                ELSE
                   ICMREF (INDEX, 8) = L
                   ICMREF (INDEX, 4) = 9999
-               ENDIF
+               END IF
             ELSE
-               IF (INGRID (I, J - 1) .GE.0) ICMREF (INDEX, 8) = ICMXY ( &
-                  I, J - 1)
-            ENDIF
-!
-! --- CHANNEL LINK
-!
-         ELSEIF (ITYPE.EQ.3) THEN
-!
-! FACE 1 (EAST)
-!
-            IF (LINKNS (L) ) THEN
+               IF (INGRID (I, J - 1) >= 0) ICMREF (INDEX, 8) = ICMXY (I, J - 1)
+            END IF
+
+         ! --- CHANNEL LINK
+         ELSE IF (ITYPE == 3) THEN
+
+            ! FACE 1 (EAST)
+            IF (LINKNS (L)) THEN
                IF (BEXBK) THEN
                   ICMREF (INDEX, 5) = ICMBK (L, 1)
                ELSE
-                  IF (INGRID (I, J) .GE.0) ICMREF (INDEX, 5) = ICMXY (I, &
-                     J)
-               ENDIF
+                  IF (INGRID (I, J) >= 0) ICMREF (INDEX, 5) = ICMXY (I, J)
+               END IF
             ELSE
                SINGLE = .TRUE.
                ICOUNT = 0
-               IF (LCODEX (I + 1, J) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEY (I + 1, J) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEX (I + 1, J - 1) .GE.4) ICOUNT = ICOUNT + 1
-               IF (ICOUNT.GT.1) THEN
+               IF (LCODEX (I + 1, J) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEY (I + 1, J) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEX (I + 1, J - 1) >= 4) ICOUNT = ICOUNT + 1
+               
+               IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
-                  ICMREF (INDEX, 5) = - INDEX2
-               ENDIF
-               IF (LCODEX (I + 1, J) .GE.4) THEN
+                  ICMREF (INDEX, 5) = -INDEX2
+               END IF
+               
+               IF (LCODEX (I + 1, J) >= 4) THEN
                   L1 = LINKNO (IP1, J, NSOUTH)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 5) = L1
                   ELSE
                      ICMRF2 (INDEX2, 1) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEY (I + 1, J) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEY (I + 1, J) >= 4) THEN
                   L1 = LINKNO (IP1, J, EWEST)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 5) = L1
                   ELSE
                      ICMRF2 (INDEX2, 2) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEX (I + 1, J - 1) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEX (I + 1, J - 1) >= 4) THEN
                   L1 = LINKNO (IP1, JM1, NSOUTH)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 5) = L1
                   ELSE
                      ICMRF2 (INDEX2, 3) = L1
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! FACE 2 (NORTH)
-!
-            IF (.NOT.LINKNS (L) ) THEN
+                  END IF
+               END IF
+            END IF
+
+            ! FACE 2 (NORTH)
+            IF (.NOT. LINKNS (L)) THEN
                IF (BEXBK) THEN
                   ICMREF (INDEX, 6) = ICMBK (L, 1)
                ELSE
-                  IF (INGRID (I, J) .GE.0) ICMREF (INDEX, 6) = ICMXY (I, &
-                     J)
-               ENDIF
+                  IF (INGRID (I, J) >= 0) ICMREF (INDEX, 6) = ICMXY (I, J)
+               END IF
             ELSE
                SINGLE = .TRUE.
                ICOUNT = 0
-               IF (LCODEY (I - 1, J + 1) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEX (I, J + 1) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEY (I, J + 1) .GE.4) ICOUNT = ICOUNT + 1
-               IF (ICOUNT.GT.1) THEN
+               IF (LCODEY (I - 1, J + 1) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEX (I, J + 1) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEY (I, J + 1) >= 4) ICOUNT = ICOUNT + 1
+               
+               IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
-                  ICMREF (INDEX, 6) = - INDEX2
-               ENDIF
-               IF (LCODEY (I - 1, J + 1) .GE.4) THEN
+                  ICMREF (INDEX, 6) = -INDEX2
+               END IF
+               
+               IF (LCODEY (I - 1, J + 1) >= 4) THEN
                   L1 = LINKNO (IM1, JP1, EWEST)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 6) = L1
                   ELSE
                      ICMRF2 (INDEX2, 1) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEX (I, J + 1) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEX (I, J + 1) >= 4) THEN
                   L1 = LINKNO (I, JP1, NSOUTH)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 6) = L1
                   ELSE
                      ICMRF2 (INDEX2, 2) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEY (I, J + 1) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEY (I, J + 1) >= 4) THEN
                   L1 = LINKNO (I, JP1, EWEST)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 6) = L1
                   ELSE
                      ICMRF2 (INDEX2, 3) = L1
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! FACE 3 (WEST)
-!
-            IF (LINKNS (L) ) THEN
+                  END IF
+               END IF
+            END IF
+
+            ! FACE 3 (WEST)
+            IF (LINKNS (L)) THEN
                IF (BEXBK) THEN
                   ICMREF (INDEX, 7) = ICMBK (L, 2)
                ELSE
-                  IF (INGRID (I - 1, J) .GE.0) ICMREF (INDEX, 7) &
-                     = ICMXY (I - 1, J)
-               ENDIF
+                  IF (INGRID (I - 1, J) >= 0) ICMREF (INDEX, 7) = ICMXY (I - 1, J)
+               END IF
             ELSE
                SINGLE = .TRUE.
                ICOUNT = 0
-               IF (LCODEX (I, J - 1) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEY (I - 1, J) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEX (I, J) .GE.4) ICOUNT = ICOUNT + 1
-               IF (ICOUNT.GT.1) THEN
+               IF (LCODEX (I, J - 1) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEY (I - 1, J) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEX (I, J) >= 4) ICOUNT = ICOUNT + 1
+               
+               IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
-                  ICMREF (INDEX, 7) = - INDEX2
-               ENDIF
-               IF (LCODEX (I, J - 1) .GE.4) THEN
+                  ICMREF (INDEX, 7) = -INDEX2
+               END IF
+               
+               IF (LCODEX (I, J - 1) >= 4) THEN
                   L1 = LINKNO (I, JM1, NSOUTH)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 7) = L1
                   ELSE
                      ICMRF2 (INDEX2, 1) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEY (I - 1, J) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEY (I - 1, J) >= 4) THEN
                   L1 = LINKNO (IM1, J, EWEST)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 7) = L1
                   ELSE
                      ICMRF2 (INDEX2, 2) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEX (I, J) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEX (I, J) >= 4) THEN
                   L1 = LINKNO (I, J, NSOUTH)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 7) = L1
                   ELSE
                      ICMRF2 (INDEX2, 3) = L1
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! FACE 4 (SOUTH)
-!
-            IF (.NOT.LINKNS (L) ) THEN
+                  END IF
+               END IF
+            END IF
+
+            ! FACE 4 (SOUTH)
+            IF (.NOT. LINKNS (L)) THEN
                IF (BEXBK) THEN
                   ICMREF (INDEX, 8) = ICMBK (L, 2)
                ELSE
-                  IF (INGRID (I, J - 1) .GE.0) ICMREF (INDEX, 8) &
-                     = ICMXY (I, J - 1)
-               ENDIF
+                  IF (INGRID (I, J - 1) >= 0) ICMREF (INDEX, 8) = ICMXY (I, J - 1)
+               END IF
             ELSE
                SINGLE = .TRUE.
                ICOUNT = 0
-               IF (LCODEY (I, J) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEX (I, J - 1) .GE.4) ICOUNT = ICOUNT + 1
-               IF (LCODEY (I - 1, J) .GE.4) ICOUNT = ICOUNT + 1
-               IF (ICOUNT.GT.1) THEN
+               IF (LCODEY (I, J) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEX (I, J - 1) >= 4) ICOUNT = ICOUNT + 1
+               IF (LCODEY (I - 1, J) >= 4) ICOUNT = ICOUNT + 1
+               
+               IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
-                  ICMREF (INDEX, 8) = - INDEX2
-               ENDIF
-               IF (LCODEY (I, J) .GE.4) THEN
+                  ICMREF (INDEX, 8) = -INDEX2
+               END IF
+               
+               IF (LCODEY (I, J) >= 4) THEN
                   L1 = LINKNO (I, J, EWEST)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 8) = L1
                   ELSE
                      ICMRF2 (INDEX2, 1) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEX (I, J - 1) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEX (I, J - 1) >= 4) THEN
                   L1 = LINKNO (I, JM1, NSOUTH)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 8) = L1
                   ELSE
                      ICMRF2 (INDEX2, 2) = L1
-                  ENDIF
-               ENDIF
-               IF (LCODEY (I - 1, J) .GE.4) THEN
+                  END IF
+               END IF
+               
+               IF (LCODEY (I - 1, J) >= 4) THEN
                   L1 = LINKNO (IM1, J, EWEST)
                   IF (SINGLE) THEN
                      ICMREF (INDEX, 8) = L1
                   ELSE
                      ICMRF2 (INDEX2, 3) = L1
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! --- BANK ELEMENT
-!
+                  END IF
+               END IF
+            END IF
+
+         ! --- BANK ELEMENT
          ELSE
-!
-! FACE 1 (EAST)
-!
-            IF (LINKNS (L) ) THEN
-               IF (ITYPE.EQ.1) THEN
-                  IF (INGRID (I, J) .GE.0) ICMREF (INDEX, 5) = ICMXY (I, &
-                     J)
+
+            ! FACE 1 (EAST)
+            IF (LINKNS (L)) THEN
+               IF (ITYPE == 1) THEN
+                  IF (INGRID (I, J) >= 0) ICMREF (INDEX, 5) = ICMXY (I, J)
                ELSE
                   ICMREF (INDEX, 5) = L
-               ENDIF
+               END IF
             ELSE
-               IF (ITYPE.EQ.1) THEN
-                  IF (LCODEX (I + 1, J) .GE.4) THEN
+               IF (ITYPE == 1) THEN
+                  IF (LCODEX (I + 1, J) >= 4) THEN
                      L1 = LINKNO (IP1, J, NSOUTH)
                      ICMREF (INDEX, 5) = ICMBK (L1, 2)
-                  ELSEIF (LCODEY (I + 1, J) .GE.4) THEN
+                  ELSE IF (LCODEY (I + 1, J) >= 4) THEN
                      L1 = LINKNO (IP1, J, EWEST)
                      ICMREF (INDEX, 5) = ICMBK (L1, 1)
-                  ELSEIF (LCODEX (I + 1, J - 1) .GE.4) THEN
+                  ELSE IF (LCODEX (I + 1, J - 1) >= 4) THEN
                      L1 = LINKNO (IP1, JM1, NSOUTH)
                      ICMREF (INDEX, 5) = ICMBK (L1, 1)
-                  ENDIF
+                  END IF
                ELSE
-                  IF (LCODEX (I + 1, J - 1) .GE.4) THEN
+                  IF (LCODEX (I + 1, J - 1) >= 4) THEN
                      L1 = LINKNO (IP1, JM1, NSOUTH)
                      ICMREF (INDEX, 5) = ICMBK (L1, 2)
-                  ELSEIF (LCODEY (I + 1, J) .GE.4) THEN
+                  ELSE IF (LCODEY (I + 1, J) >= 4) THEN
                      L1 = LINKNO (IP1, J, EWEST)
                      ICMREF (INDEX, 5) = ICMBK (L1, 2)
-                  ELSEIF (LCODEX (I + 1, J) .GE.4) THEN
+                  ELSE IF (LCODEX (I + 1, J) >= 4) THEN
                      L1 = LINKNO (IP1, J, NSOUTH)
                      ICMREF (INDEX, 5) = ICMBK (L1, 1)
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! FACE 2 (NORTH)
-!
-            IF (.NOT.LINKNS (L) ) THEN
-               IF (ITYPE.EQ.1) THEN
-                  IF (INGRID (I, J) .GE.0) ICMREF (INDEX, 6) = ICMXY (I, &
-                     J)
+                  END IF
+               END IF
+            END IF
+
+            ! FACE 2 (NORTH)
+            IF (.NOT. LINKNS (L)) THEN
+               IF (ITYPE == 1) THEN
+                  IF (INGRID (I, J) >= 0) ICMREF (INDEX, 6) = ICMXY (I, J)
                ELSE
                   ICMREF (INDEX, 6) = L
-               ENDIF
+               END IF
             ELSE
-               IF (ITYPE.EQ.1) THEN
-                  IF (LCODEY (I, J + 1) .GE.4) THEN
+               IF (ITYPE == 1) THEN
+                  IF (LCODEY (I, J + 1) >= 4) THEN
                      L1 = LINKNO (I, JP1, EWEST)
                      ICMREF (INDEX, 6) = ICMBK (L1, 2)
-                  ELSEIF (LCODEX (I, J + 1) .GE.4) THEN
+                  ELSE IF (LCODEX (I, J + 1) >= 4) THEN
                      L1 = LINKNO (I, JP1, NSOUTH)
                      ICMREF (INDEX, 6) = ICMBK (L1, 1)
-                  ELSEIF (LCODEY (I - 1, J + 1) .GE.4) THEN
+                  ELSE IF (LCODEY (I - 1, J + 1) >= 4) THEN
                      L1 = LINKNO (IM1, JP1, EWEST)
                      ICMREF (INDEX, 6) = ICMBK (L1, 1)
-                  ENDIF
+                  END IF
                ELSE
-                  IF (LCODEY (I - 1, J + 1) .GE.4) THEN
+                  IF (LCODEY (I - 1, J + 1) >= 4) THEN
                      L1 = LINKNO (IM1, JP1, EWEST)
                      ICMREF (INDEX, 6) = ICMBK (L1, 2)
-                  ELSEIF (LCODEX (I, J + 1) .GE.4) THEN
+                  ELSE IF (LCODEX (I, J + 1) >= 4) THEN
                      L1 = LINKNO (I, JP1, NSOUTH)
                      ICMREF (INDEX, 6) = ICMBK (L1, 2)
-                  ELSEIF (LCODEY (I, J + 1) .GE.4) THEN
+                  ELSE IF (LCODEY (I, J + 1) >= 4) THEN
                      L1 = LINKNO (I, JP1, EWEST)
                      ICMREF (INDEX, 6) = ICMBK (L1, 1)
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! FACE 3 (WEST)
-!
-            IF (LINKNS (L) ) THEN
-               IF (ITYPE.EQ.1) THEN
+                  END IF
+               END IF
+            END IF
+
+            ! FACE 3 (WEST)
+            IF (LINKNS (L)) THEN
+               IF (ITYPE == 1) THEN
                   ICMREF (INDEX, 7) = L
                ELSE
-                  IF (INGRID (I - 1, J) .GE.0) ICMREF (INDEX, 7) &
-                     = ICMXY (I - 1, J)
-               ENDIF
+                  IF (INGRID (I - 1, J) >= 0) ICMREF (INDEX, 7) = ICMXY (I - 1, J)
+               END IF
             ELSE
-               IF (ITYPE.EQ.1) THEN
-                  IF (LCODEX (I, J) .GE.4) THEN
+               IF (ITYPE == 1) THEN
+                  IF (LCODEX (I, J) >= 4) THEN
                      L1 = LINKNO (I, J, NSOUTH)
                      ICMREF (INDEX, 7) = ICMBK (L1, 1)
-                  ELSEIF (LCODEY (I - 1, J) .GE.4) THEN
+                  ELSE IF (LCODEY (I - 1, J) >= 4) THEN
                      L1 = LINKNO (IM1, J, EWEST)
                      ICMREF (INDEX, 7) = ICMBK (L1, 1)
-                  ELSEIF (LCODEX (I, J - 1) .GE.4) THEN
+                  ELSE IF (LCODEX (I, J - 1) >= 4) THEN
                      L1 = LINKNO (I, JM1, NSOUTH)
                      ICMREF (INDEX, 7) = ICMBK (L1, 2)
-                  ENDIF
+                  END IF
                ELSE
-                  IF (LCODEX (I, J - 1) .GE.4) THEN
+                  IF (LCODEX (I, J - 1) >= 4) THEN
                      L1 = LINKNO (I, JM1, NSOUTH)
                      ICMREF (INDEX, 7) = ICMBK (L1, 1)
-                  ELSEIF (LCODEY (I - 1, J) .GE.4) THEN
+                  ELSE IF (LCODEY (I - 1, J) >= 4) THEN
                      L1 = LINKNO (IM1, J, EWEST)
                      ICMREF (INDEX, 7) = ICMBK (L1, 2)
-                  ELSEIF (LCODEX (I, J) .GE.4) THEN
+                  ELSE IF (LCODEX (I, J) >= 4) THEN
                      L1 = LINKNO (I, J, NSOUTH)
                      ICMREF (INDEX, 7) = ICMBK (L1, 2)
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-! FACE 4 (SOUTH)
-!
-            IF (.NOT.LINKNS (L) ) THEN
-               IF (ITYPE.EQ.1) THEN
+                  END IF
+               END IF
+            END IF
+
+            ! FACE 4 (SOUTH)
+            IF (.NOT. LINKNS (L)) THEN
+               IF (ITYPE == 1) THEN
                   ICMREF (INDEX, 8) = L
                ELSE
-                  IF (INGRID (I, J - 1) .GE.0) ICMREF (INDEX, 8) &
-                     = ICMXY (I, J - 1)
-               ENDIF
+                  IF (INGRID (I, J - 1) >= 0) ICMREF (INDEX, 8) = ICMXY (I, J - 1)
+               END IF
             ELSE
-               IF (ITYPE.EQ.1) THEN
-                  IF (LCODEY (I, J) .GE.4) THEN
+               IF (ITYPE == 1) THEN
+                  IF (LCODEY (I, J) >= 4) THEN
                      L1 = LINKNO (I, J, EWEST)
                      ICMREF (INDEX, 8) = ICMBK (L1, 1)
-                  ELSEIF (LCODEX (I, J - 1) .GE.4) THEN
+                  ELSE IF (LCODEX (I, J - 1) >= 4) THEN
                      L1 = LINKNO (I, JM1, NSOUTH)
                      ICMREF (INDEX, 8) = ICMBK (L1, 1)
-                  ELSEIF (LCODEY (I - 1, J) .GE.4) THEN
+                  ELSE IF (LCODEY (I - 1, J) >= 4) THEN
                      L1 = LINKNO (IM1, J, EWEST)
                      ICMREF (INDEX, 8) = ICMBK (L1, 2)
-                  ENDIF
+                  END IF
                ELSE
-                  IF (LCODEY (I - 1, J) .GE.4) THEN
+                  IF (LCODEY (I - 1, J) >= 4) THEN
                      L1 = LINKNO (IM1, J, EWEST)
                      ICMREF (INDEX, 8) = ICMBK (L1, 1)
-                  ELSEIF (LCODEX (I, J - 1) .GE.4) THEN
+                  ELSE IF (LCODEX (I, J - 1) >= 4) THEN
                      L1 = LINKNO (I, JM1, NSOUTH)
                      ICMREF (INDEX, 8) = ICMBK (L1, 2)
-                  ELSEIF (LCODEY (I, J) .GE.4) THEN
+                  ELSE IF (LCODEY (I, J) >= 4) THEN
                      L1 = LINKNO (I, J, EWEST)
                      ICMREF (INDEX, 8) = ICMBK (L1, 2)
-                  ENDIF
-               ENDIF
-            ENDIF
-!
-         ENDIF
-!
-600   END DO
-!
+                  END IF
+               END IF
+            END IF
+
+         END IF
+
+      END DO
+
       NEL2 = INDEX2
-!
-! ^^^^^^^^^^^^ CHECK INDEX ARRAY FOR CONSISTENCY, AND SET UP
-!              ADJACENT FACES (ICMREF(9-12))
-! (FOR NORMAL ELEMENTS, CHECK THAT THE ADJACENT ELEMENT POINTS BACK
-!  TO THE CURRENT ELEMENT.
-!  FOR MULTIPLE CHANNEL LINKS AT A NODE, CHECK THAT EACH LINK
-!  POINTS BACK TO THE CURRENT ELEMENT)
-!
+
+      !
+      ! ^^^^^^^^^^^^ CHECK INDEX ARRAY FOR CONSISTENCY, AND SET UP
+      !              ADJACENT FACES (ICMREF(9-12))
+      ! (FOR NORMAL ELEMENTS, CHECK THAT THE ADJACENT ELEMENT POINTS BACK
+      !  TO THE CURRENT ELEMENT.
+      !  FOR MULTIPLE CHANNEL LINKS AT A NODE, CHECK THAT EACH LINK
+      !  POINTS BACK TO THE CURRENT ELEMENT)
+      !
       ICOUNT = 0
       NNODE3 = 0
       NNODE4 = 0
-      DO 700 INDEX = 1, total_no_elements
-!
-         DO 650 I = 1, 4
+
+      element_check: DO INDEX = 1, total_no_elements
+         face_loop: DO I = 1, 4
             INEXT1 = ICMREF (INDEX, I + 4)
-            IF (INEXT1.GT.0) THEN
-               DO 630 J = 1, 4
-                  IF (ICMREF (INEXT1, J + 4) .EQ.INDEX) THEN
+            
+            IF (INEXT1 > 0) THEN
+               DO J = 1, 4
+                  IF (ICMREF (INEXT1, J + 4) == INDEX) THEN
                      ICMREF (INDEX, I + 8) = J
-                     GOTO 650
-                  ENDIF
-630            END DO
+                     CYCLE face_loop
+                  END IF
+               END DO
                WRITE(PPPRI, 1100) INDEX, I
                ICOUNT = ICOUNT + 1
-            ELSEIF (INEXT1.LT.0) THEN
-               IF (ICMRF2 ( - INEXT1, 1) .EQ.0.OR.ICMRF2 ( - INEXT1, 2) &
-                  .EQ.0.OR.ICMRF2 ( - INEXT1, 3) .EQ.0) THEN
+               
+            ELSE IF (INEXT1 < 0) THEN
+               IF (ICMRF2 (-INEXT1, 1) == 0 .OR. ICMRF2 (-INEXT1, 2) == 0 .OR. ICMRF2 (-INEXT1, 3) == 0) THEN
                   NNODE3 = NNODE3 + 1
                ELSE
                   NNODE4 = NNODE4 + 1
-               ENDIF
-               DO 640 J1 = 1, 3
-                  IN1 = ICMRF2 ( - INEXT1, J1)
-                  IF (IN1.GT.0) THEN
-                     DO 635 J = 1, 4
+               END IF
+               
+               branch_loop: DO J1 = 1, 3
+                  IN1 = ICMRF2 (-INEXT1, J1)
+                  IF (IN1 > 0) THEN
+                     DO J = 1, 4
                         JNEXT1 = ICMREF (IN1, J + 4)
-                        IF (JNEXT1.LT.0) THEN
-                           DO 632 J2 = 1, 3
-                              JN2 = ICMRF2 ( - JNEXT1, J2)
-                              IF (JN2.EQ.INDEX) THEN
-                                 ICMRF2 ( - INEXT1, J1 + 3) = J
-                                 GOTO 640
-                              ENDIF
-632                        END DO
-                        ENDIF
-635                  END DO
+                        IF (JNEXT1 < 0) THEN
+                           DO J2 = 1, 3
+                              JN2 = ICMRF2 (-JNEXT1, J2)
+                              IF (JN2 == INDEX) THEN
+                                 ICMRF2 (-INEXT1, J1 + 3) = J
+                                 CYCLE branch_loop
+                              END IF
+                           END DO
+                        END IF
+                     END DO
                      WRITE(PPPRI, 1100) INDEX, I
                      ICOUNT = ICOUNT + 1
-                  ENDIF
-640            END DO
+                  END IF
+               END DO branch_loop
+               
             ELSE
                ICMREF (INDEX, I + 8) = I
-!
-               IF (ITYPE.LT.3.AND.NBFACE (INDEX) .EQ.0) NBFACE (INDEX) &
-                  = I
-!
-            ENDIF
-650      END DO
-!
-700   END DO
-!
-      IF (ICOUNT.GT.0) WRITE(PPPRI, 1200) ICOUNT
-!
-! ^^^^^^^^^^^^ WRITE OUT INDEX ARRAY, IF REQUIRED
-!
+               IF (ITYPE < 3 .AND. NBFACE (INDEX) == 0) NBFACE (INDEX) = I
+            END IF
+         END DO face_loop
+      END DO element_check
+
+      IF (ICOUNT > 0) WRITE(PPPRI, 1200) ICOUNT
+
+      !
+      ! ^^^^^^^^^^^^ WRITE OUT INDEX ARRAY, IF REQUIRED
+      !
       IF (BINFRP) THEN
-!
+
          WRITE(PPPRI, 1300) total_no_elements
-         DO 800 INDEX = 1, total_no_elements
+         DO INDEX = 1, total_no_elements
             PDIRN = ' '
             ITYPE = ICMREF (INDEX, 1)
-            IF (ITYPE.GT.0) THEN
+            IF (ITYPE > 0) THEN
                L = ICMREF (INDEX, 4)
-               IF (LINKNS (L) ) THEN
+               IF (LINKNS (L)) THEN
                   PDIRN = 'NS'
                ELSE
                   PDIRN = 'EW'
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             WRITE(PPPRI, 1400) INDEX, (ICMREF (INDEX, K), K = 1, 4), &
                PDIRN, (ICMREF (INDEX, K), K = 5, 8)
-800      END DO
-!
-         IF (NEL2.GT.0) THEN
+         END DO
+
+         IF (NEL2 > 0) THEN
             WRITE(PPPRI, 1500) NNODE3 / 3, NNODE4 / 4, NEL2
-            DO 900 INDEX2 = 1, NEL2
+            DO INDEX2 = 1, NEL2
                WRITE(PPPRI, 1600) INDEX2, (ICMRF2 (INDEX2, I), I = 1, 3)
-900         END DO
-         ENDIF
-!
-      ENDIF
-!
-! FORMAT STATEMENTS
-!
-1100  FORMAT(' INCONSISTENCY FOUND AT INDEX:',I4,' FACE:',I2)
-!
-1200  FORMAT(/  I4,' INCONSISTENCIES FOUND IN INDEX ARRAY' /)
-!
-1300  FORMAT(' ', / 'INDEX ARRAY: NO. OF ELEMENTS = ',I6, // &
-      &       ' ','     INDEX      TYPE         X         Y      LINK   ', &
-      &       '  FACE1     FACE2     FACE3     FACE4' / &
-      &       ' ','     -----      ----         -         -      ----   ', &
-      &       '  -----     -----     -----     -----' )
-!
-1400  FORMAT(' ',5(4X,I6),1X,A2,1X,I6,3(4X,I6))
-!
-1500  FORMAT(' '/'AUXILIARY INDEX ARRAY FOR CHANNEL NODES: ',/ &
-      &           'NO. OF NODES WITH 3 BRANCHES = ',I4,/ &
-      &           'NO. OF NODES WITH 4 BRANCHES = ',I4,/ &
-      &           'TOTAL NO. OF INDICES         = ',I4 // &
-      &       ' ','   INDEX  LINK 1  LINK 2  LINK 3' / &
-      &       ' ','   -----  ------  ------  ------' )
-!
-1600  FORMAT(' ',5(4X,I4))
-!
+            END DO
+         END IF
+
+      END IF
+
+      ! FORMAT STATEMENTS
+      !
+1100  FORMAT(' INCONSISTENCY FOUND AT INDEX:', I4, ' FACE:', I2)
+1200  FORMAT(/ I4, ' INCONSISTENCIES FOUND IN INDEX ARRAY' /)
+1300  FORMAT(' ', / 'INDEX ARRAY: NO. OF ELEMENTS = ', I6, // &
+             ' ', '     INDEX      TYPE         X         Y      LINK   ', &
+             '  FACE1     FACE2     FACE3     FACE4' / &
+             ' ', '     -----      ----         -         -      ----   ', &
+             '  -----     -----     -----     -----' )
+1400  FORMAT(' ', 5(4X, I6), 1X, A2, 1X, I6, 3(4X, I6))
+1500  FORMAT(' '/'AUXILIARY INDEX ARRAY FOR CHANNEL NODES: ', / &
+             'NO. OF NODES WITH 3 BRANCHES = ', I4, / &
+             'NO. OF NODES WITH 4 BRANCHES = ', I4, / &
+             'TOTAL NO. OF INDICES         = ', I4 // &
+             ' ', '   INDEX  LINK 1  LINK 2  LINK 3' / &
+             ' ', '   -----  ------  ------  ------' )
+1600  FORMAT(' ', 5(4X, I4))
+
    END SUBROUTINE FRIND
 
 
-!SSSSSS SUBROUTINE FRINIT
+
+   !SSSSSS SUBROUTINE FRINIT
    SUBROUTINE FRINIT()
-!----------------------------------------------------------------------*
-!
-! INITIALISATION PHASE
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRINIT/4.2
-! Modifications:
-!  GP          3.4  Set CMT,CMP,CMB.  Special treatment for DBOT(LL).
-!                   Replace L1 with L1+1 in assignment of NLYRBT,ZLYRBT.
-!                   Print table of soil horizon depths.
-!                   Hot-start: initialize HOTIME; read HOT file;
-!                   set TIMEUZ,BHOTTI; call FRRESP.
-! RAH  941005 3.4.1 Bring IMPLICIT from AL.P.  Pass UZNOW to FRRESP.
-!                   Call ERROR if NLYRBT can't be set.
-!  GP  960724  4.0  New module VSS replaces UZ,SZ,EX ...
-!                   Reassign unit nos; replace UZD,SZD,AQD,SZB,HBD with
-!                   VSD,VSI,LFB,LHB,LGB,BFB,BHB; scrap CPR (keep CMP).
-!                   Call VSIN, instead of INUZ,INSZ,INUZ2 (or DINUZ,
-!                   DINSZ), and after INBK, not before.
-!                   Move adjustment of ZLYRBT & setting of
-!                   NLYRBT,NTSOIL,NHBED,FHBED to VSREAD,VSCONC.
-!                   Scrap ZBED (see INCM), RSZ,QUZR,QSZR (see SHETRN)
-!                   and EPSZA,QSZOC,QSZO,WSI.  Add FRRESP arg .FALSE..
-!                   Close FR,WAT input (except boundary data) files.
-!                   Remove PSI3,PSI33,HSZ,EPS,QSZUZ,WATC3 from HOT read.
-! RAH  970223  4.1  Explicit typing.  Scrap BUZCAL,BSZCAL,BOCCAL,BEXCAL,
-!                   DTSTOC,DTSTSZ,DTSTUZ,EXNEXT,EXNOW,EXVAL,OCUNT,OCVAL,
-!                   PNETOC,POC,SZNOW,SZUNT,SZVAL,TSTOOC,TSTOSZ,TSTOUZ,
-!                   UZUNT,WSUZI,WSSZI,WSOCI,WOCLI (AL.D), FINC,NUMBER.
-!      970524       AIOSTO size 20 (was 50); & use DATA.
-!      970525       Pass BINFRP to INRES.
-!      970530       (Amend DATA statement.)
-! RAH  980317  4.2  (Amend specification comments below.)
-! SB   010307  4g-pc changed data statement for AIOSTO
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   ! INITIALISATION PHASE
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRINIT/4.2
+   ! Modifications:
+   !  GP         3.4  Set CMT,CMP,CMB.  Special treatment for DBOT(LL).
+   !                  Replace L1 with L1+1 in assignment of NLYRBT,ZLYRBT.
+   !                  Print table of soil horizon depths.
+   !                  Hot-start: initialize HOTIME; read HOT file;
+   !                  set TIMEUZ,BHOTTI; call FRRESP.
+   ! RAH  941005 3.4.1 Bring IMPLICIT from AL.P.  Pass UZNOW to FRRESP.
+   !                  Call ERROR if NLYRBT can't be set.
+   !  GP  960724  4.0  New module VSS replaces UZ,SZ,EX ...
+   !                  Reassign unit nos; replace UZD,SZD,AQD,SZB,HBD with
+   !                  VSD,VSI,LFB,LHB,LGB,BFB,BHB; scrap CPR (keep CMP).
+   !                  Call VSIN, instead of INUZ,INSZ,INUZ2 (or DINUZ,
+   !                  DINSZ), and after INBK, not before.
+   !                  Move adjustment of ZLYRBT & setting of
+   !                  NLYRBT,NTSOIL,NHBED,FHBED to VSREAD,VSCONC.
+   !                  Scrap ZBED (see INCM), RSZ,QUZR,QSZR (see SHETRN)
+   !                  and EPSZA,QSZOC,QSZO,WSI.  Add FRRESP arg .FALSE..
+   !                  Close FR,WAT input (except boundary data) files.
+   !                  Remove PSI3,PSI33,HSZ,EPS,QSZUZ,WATC3 from HOT read.
+   ! RAH  970223  4.1  Explicit typing.  Scrap BUZCAL,BSZCAL,BOCCAL,BEXCAL,
+   !                  DTSTOC,DTSTSZ,DTSTUZ,EXNEXT,EXNOW,EXVAL,OCUNT,OCVAL,
+   !                  PNETOC,POC,SZNOW,SZUNT,SZVAL,TSTOOC,TSTOSZ,TSTOUZ,
+   !                  UZUNT,WSUZI,WSSZI,WSOCI,WOCLI (AL.D), FINC,NUMBER.
+   !      970524      AIOSTO size 20 (was 50); & use DATA.
+   !      970525      Pass BINFRP to INRES.
+   !      970530      (Amend DATA statement.)
+   ! RAH  980317  4.2  (Amend specification comments below.)
+   ! SB   010307  4g-pc changed data statement for AIOSTO
+   !----------------------------------------------------------------------*
 
-! Imported constants
-!     SPEC.AL          NELEE
-! Input common
-!     SPEC.AL:         LL,NEL,NGDBGN,NLF,ICMREF(NELEE,8)
-!                      UZNEXT,CSTORE(NEL)
-!                      BEXBK,BEXET,BEXOC,BEXSM
-!     SPEC.FR:         DTAO
-!                      BHOTRD,BINFRP,BSTORE
-! In|out common
-!     SPEC.AL:         NMC(NEL),NRAINC(NEL)
-! Output common
-!     SPEC.AL:         BFB,BHB,BKD,BUG,CMB,CMD,CMP,CMT,EPD,ETD,FRD,HOT
-!                      LFB,LGB,LHB,MED,NXE,NYE,OCD,OFB,OHB,PPD,PRD,PRI
-!                      RES,SMD,SPR,SYD,TIM,VED,VSD,VSI,WLD
-!                      ERR,FATAL,WARN,MSM
-!                      BHOTTI,HOTIME,OCNOW,TIMEUZ,UZNEXT,UZNOW,
-!     SPEC.FR:         ALLOUT
+      ! Assumed external module dependencies providing global variables:
+      ! NELEE, BEXET, BEXSM, MSM, BEXOC, BEXBK, BINFRP, total_no_links, NMC, 
+      ! NRAINC, ICMREF, iszq, FRD, VSD, OCD, ETD, SMD, BKD, VSI, PPD, HOTIME, 
+      ! zero, BHOTRD, HOT, UZNEXT, top_cell_no, CSTORE, NGDBGN, total_no_elements, 
+      ! QOC, DQ0ST, DQIST, DQIST2, SD, TS, NSMC, SMELT, tmelt, VSPSI, BHOTTI, 
+      ! PPPRI, ALLOUT, DTAO, UZNOW, OCNOW, UZVAL, TIMEUZ
 
+      IMPLICIT NONE
 
-! Locals, etc
-      INTEGER :: IEL, IFACE, JEL, K
-      DOUBLEPRECISION :: rdd(nelee), rddq(nelee,4)
+      ! Locals, etc
+      INTEGER :: IEL, IFACE, JEL, K, ios
+      DOUBLE PRECISION :: rdd(NELEE), rddq(NELEE, 4)
       CHARACTER(LEN=20) :: AIOSTO
-      character(LEN=10) :: atemp
-
+      CHARACTER(LEN=10) :: atemp
 
       DATA AIOSTO / '11111111111111111111' /
-!----------------------------------------------------------------------*
-!NXE = NXEE
-!NYE = NYEE
-!
-! file unit numbers
-!
-!FRD = 10
-!VSD = 11
-!OCD = 12
-!ETD = 13
-!PPD = 14
-!SMD = 15
-!BKD = 16
-!SYD = 17
-!CMD = 18
-!MED = 19
-!PRD = 20
-!EPD = 21
-!TIM = 22
-!PRI = 23
-!SPR = 24
-!CMP = 25
-!BUG = 26
-!RES = 27
-!HOT = 28
-!VSI = 29
-!VED = 30
-!WLD = 31
-!LFB = 32
-!LHB = 33
-!LGB = 34
-!BFB = 35
-!BHB = 36
-!OFB = 37
-!OHB = 38
-!CMT = 39
-!CMB = 40
-!DIS = 41
-!VSE = 42
-!MAS = 43
-!
-!FATAL = 1
-!ERR = 2
-!WARN = 3
-!
-! OPEN I/O DATA FILES
-!
-! CALL FROPEN  !moded to main routine
-!
-!     CALL INITIALIZATION SUBROUTINES.
-!        NOTE: THE ORDER IN WHICH THE SUBROUTINES ARE CALLED IS
-!              IMPORTANT.
-!
-      CALL INFR
 
-      call INITIALISE_AL_C3
-      call INITIALISE_ETMOD
-!
+      !----------------------------------------------------------------------*
+
+      ! OPEN I/O DATA FILES
+      ! CALL FROPEN  !moded to main routine
+      !
+      ! CALL INITIALIZATION SUBROUTINES.
+      ! NOTE: THE ORDER IN WHICH THE SUBROUTINES ARE CALLED IS IMPORTANT.
+
+      CALL INFR
+      CALL INITIALISE_AL_C3
+      CALL INITIALISE_ETMOD
+
       IF (BEXET) CALL INET
-      IF (.NOT.BEXET) CALL DINET
-!
+      IF (.NOT. BEXET) CALL DINET
+
       IF (BEXSM) CALL INSM
-      IF (.NOT.BEXSM) MSM = 0
-!
+      IF (.NOT. BEXSM) MSM = 0
+
       IF (BEXOC) CALL OCINI()
-      IF (.NOT.BEXOC) CALL DINOC
-!
-! CALCULATE ELEMENT DIMENSIONS AND AREAS
-! (MUST BE CALLED AFTER OCINI AND BEFORE VSIN)
-!
+      IF (.NOT. BEXOC) CALL DINOC
+
+      ! CALCULATE ELEMENT DIMENSIONS AND AREAS
+      ! (MUST BE CALLED AFTER OCINI AND BEFORE VSIN)
       CALL FRDIM (BINFRP)
-!
+
       IF (BEXBK) CALL INBK
-!
+
       CALL VSIN
-!
-! SET UP MET. & RAINFALL STATIONS FOR THE CHANNEL (= ADJACENT BANK/GRID)
-!
-      DO 30 IEL = 1, total_no_links
+
+      ! SET UP MET. & RAINFALL STATIONS FOR THE CHANNEL (= ADJACENT BANK/GRID)
+      link_loop: DO IEL = 1, total_no_links
          NMC (IEL) = 1
          NRAINC (IEL) = 1
-         DO 20 IFACE = 1, 4
+         
+         DO IFACE = 1, 4
             JEL = ICMREF (IEL, 4 + IFACE)
-            IF (JEL.GT.0) THEN
-               IF (ICMREF (JEL, 1) .NE.3.AND.NMC (JEL) .GT.0.AND.NRAINC &
-                  (JEL) .GT.0) THEN
+            IF (JEL > 0) THEN
+               IF (ICMREF (JEL, 1) /= 3 .AND. NMC (JEL) > 0 .AND. NRAINC (JEL) > 0) THEN
                   NMC (IEL) = NMC (JEL)
                   NRAINC (IEL) = NRAINC (JEL)
-                  GOTO 30
-               ENDIF
-            ENDIF
-20       END DO
+                  CYCLE link_loop
+               END IF
+            END IF
+         END DO
+      END DO link_loop
 
-30    END DO
-!
-!***ZQ Module 200520
-      if (iszq) call ReadZQTable
+      !***ZQ Module 200520
+      IF (iszq) CALL ReadZQTable
 
-! close data input file units
+      ! close data input file units
       REWIND(FRD) !!CLOSE (FRD)    !AD
       REWIND(VSD) !!CLOSE (VSD)    !AD
       REWIND(OCD) !!CLOSE (OCD)    !AD
@@ -1296,122 +1211,131 @@ CONTAINS
       REWIND(SMD) !!CLOSE (SMD)    !AD
       REWIND(BKD) !!CLOSE (BKD)    !AD
       REWIND(VSI) !!CLOSE (VSI)    !AD
-!
-! CALL RES FILE INPUT ROUTINE, IF REQUIRED
-!
-!      IF (BSTORE) CALL INRES(BINFRP)
+      ! CALL RES FILE INPUT ROUTINE, IF REQUIRED
+      ! IF (BSTORE) CALL INRES(BINFRP)
       REWIND(PPD) !!CLOSE (PPD)    !AD
-!
-!     UPDATE HOTSTART TIME AND READ FROM FILE IF BHOTRD = TRUE
-!
-      HOTIME = zero
-!
-      IF (BHOTRD) THEN
-!
 
-115      READ (HOT, *, END = 120) atemp, HOTIME, UZNEXT, top_cell_no,atemp, (CSTORE (IEL), &
-            IEL = NGDBGN, total_no_elements),atemp, (rdd(IEL), IEL = 1, total_no_elements),atemp, ( (rddq (IEL, K), &
-            IEL = 1, total_no_elements), K = 1, 4),atemp, ( (QOC (IEL, K), IEL = 1, total_no_elements), &
-            K = 1, 4),atemp, ( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-            atemp,( (DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),atemp, ( (DQIST2 (IEL, K) &
-            , IEL = 1, NGDBGN - 1), K = 1, 3),atemp, (SD (IEL), IEL = NGDBGN, &
-            total_no_elements),atemp, (TS (IEL), IEL = NGDBGN, total_no_elements),atemp, (NSMC (IEL), IEL = NGDBGN, &
-            total_no_elements),atemp, ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
-            total_no_elements),atemp, ( (tmelt(K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, total_no_elements), &
-            atemp, ( (VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
-         DO iel=1,total_no_elements
-            CALL SETHRF(iel,rdd(iel))
-            DO k=1,4
-               CALL SETQSA(iel,k,rddq(iel,K))
-            ENDDO
-         ENDDO
-         IF (HOTIME.GE.BHOTTI) GOTO 125
-         GOTO 115
-!
-120      WRITE(PPPRI, 122)
-122      FORMAT  ( / ' WARNING: END OF HOTSTART FILE REACHED')
-!
-125      WRITE(PPPRI, 127) HOTIME
-127      FORMAT  (// ' ^^^ HOTSTART OF SIMULATION AT TIME ',F10.2,' ^^^' /)
-!
-!
-         ALLOUT = HOTIME+DTAO
-         UZNOW = HOTIME
-         OCNOW = HOTIME
-         UZVAL = UZNOW + UZNEXT
+      ! UPDATE HOTSTART TIME AND READ FROM FILE IF BHOTRD = TRUE
+      HOTIME = zero
+
+      IF (BHOTRD) THEN
+
+         hotstart_read: DO
+            READ (HOT, *, IOSTAT=ios) atemp, HOTIME, UZNEXT, top_cell_no, atemp, &
+                  (CSTORE (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+                  (rdd(IEL), IEL = 1, total_no_elements), atemp, &
+                  ((rddq (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+                  ((QOC (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+                  ((DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+                  ((DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+                  ((DQIST2 (IEL, K), IEL = 1, NGDBGN - 1), K = 1, 3), atemp, &
+                  (SD (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+                  (TS (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+                  (NSMC (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+                  ((SMELT (K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
+                  ((tmelt(K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
+                  ((VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
+            
+            ! Gracefully exit if end of hotstart file is reached
+            IF (ios /= 0) THEN
+               WRITE(PPPRI, '(/ A)') ' WARNING: END OF HOTSTART FILE REACHED'
+               EXIT hotstart_read
+            END IF
+
+            DO IEL = 1, total_no_elements
+               CALL SETHRF(IEL, rdd(IEL))
+               DO K = 1, 4
+                  CALL SETQSA(IEL, K, rddq(IEL, K))
+               END DO
+            END DO
+            
+            ! Keep reading lines if HOTIME is less than the target BHOTTI
+            IF (HOTIME >= BHOTTI) EXIT hotstart_read
+            
+         END DO hotstart_read
+
+         WRITE(PPPRI, '(// A, F10.2, A /)') ' ^^^ HOTSTART OF SIMULATION AT TIME ', HOTIME, ' ^^^'
+
+         ALLOUT = HOTIME + DTAO
+         UZNOW  = HOTIME
+         OCNOW  = HOTIME
+         UZVAL  = UZNOW + UZNEXT
          TIMEUZ = HOTIME
          BHOTTI = HOTIME
-!
-! --- WRITE SET OF DATA TO RES FILES AT HOTSTART TIME
-!
+
+         ! --- WRITE SET OF DATA TO RES FILES AT HOTSTART TIME
          CALL FRRESP (AIOSTO, UZNOW, .FALSE.)
-!
-      ENDIF
-!
+
+      END IF
+
    END SUBROUTINE FRINIT
 
 
 
-!SSSSSS SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
+   !SSSSSS SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
    SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-!----------------------------------------------------------------------*
-!
-! READ IN ARRAY OF NUMERIC CODES (FOR OUTPUT CLASS DEFINITION)
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRLTL/4.0
-! Modifications:
-! RAH  941002 3.4.1 Remove IMPLICIT INTEGER*2.  IARR INTEGER (was *2).
-! RAH  970223  4.1  Explicit typing.
-!----------------------------------------------------------------------*
-! INPUT PARAMETERS:
-!   NNX     X DIMENSION OF GRID
-!   NNY     Y DIMENSION OF GRID
-!   NXE     X DIMENSION OF ARRAY
-!   NYE     Y DIMENSION OF ARRAY
-!   INF     INOUT FILE UNIT NUMBER
-!   IOF     OUTPUT FILE UNIT NUMBER
-!   BPCNTL  LOGICAL PRINT CONTROL
-!
-! OUTPUT PARAMETERS:
-!   IARR    ARRAY OF CODES READ IN FROM FILE
-!
-!----------------------------------------------------------------------*
-! Input arguments
-      INTEGER :: NNX, NNY, NXE, NYE, INF, IOF
-      LOGICAL :: BPCNTL
-!
-! Output arguments
-      INTEGER :: IARR (NXE, NYE)
-!
-! Locals, etc
+   !----------------------------------------------------------------------*
+   !
+   ! READ IN ARRAY OF NUMERIC CODES (FOR OUTPUT CLASS DEFINITION)
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRLTL/4.0
+   ! Modifications:
+   ! RAH  941002 3.4.1 Remove IMPLICIT INTEGER*2.  IARR INTEGER (was *2).
+   ! RAH  970223  4.1  Explicit typing.
+   !----------------------------------------------------------------------*
+   ! INPUT PARAMETERS:
+   !   NNX     X DIMENSION OF GRID
+   !   NNY     Y DIMENSION OF GRID
+   !   NXE     X DIMENSION OF ARRAY
+   !   NYE     Y DIMENSION OF ARRAY
+   !   INF     INOUT FILE UNIT NUMBER
+   !   IOF     OUTPUT FILE UNIT NUMBER
+   !   BPCNTL  LOGICAL PRINT CONTROL
+   !
+   ! OUTPUT PARAMETERS:
+   !   IARR    ARRAY OF CODES READ IN FROM FILE
+   !
+   !----------------------------------------------------------------------*
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NNX, NNY, NXE, NYE, INF, IOF
+      LOGICAL, INTENT(IN) :: BPCNTL
+
+      ! Output arguments
+      INTEGER, INTENT(OUT) :: IARR (NXE, NYE)
+
+      ! Locals, etc
       INTEGER :: I, J, K, L, M
-!CHARACTER (LEN=80) :: TITLE
-      CHARACTER (LEN=1) :: NMERIC (9), A1LINE (200)
-      DATA NMERIC / '1', '2', '3', '4', '5', '6', '7', '8', '9' /
-!
-!----------------------------------------------------------------------*
-!
-      READ (INF, 10) TITLE
-10    FORMAT (A80)
-      IF (BPCNTL) WRITE (IOF, 20) TITLE
-20    FORMAT (A80)
-!
-      DO J = 1, NNY
-         DO I = 1, NNX
-            IARR (I, J) = 0
-         END DO
-      END DO
-!
+      ! CHARACTER(LEN=80) :: TITLE
+      CHARACTER(LEN=1)  :: A1LINE (200)
+      
+      ! Modern array constructor replacing the legacy DATA statement
+      CHARACTER(LEN=1), PARAMETER :: NMERIC(9) = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+
+      !----------------------------------------------------------------------*
+
+      READ (INF, '(A80)') TITLE
+      IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
+
+      ! Vectorized array initialization replacing nested DO loops
+      IARR(1:NNX, 1:NNY) = 0
+
       I = NNY
       DO J = 1, NNY
-         READ (INF, 50) K, (A1LINE (L), L = 1, NNX)
-50       FORMAT   (I7, 1X, 500A1)
-         IF (BPCNTL) WRITE (IOF, 50) K, (A1LINE (L), L = 1, NNX)
-!
-         IF (K.NE.I) GOTO 100
+         READ (INF, '(I7, 1X, 500A1)') K, (A1LINE (L), L = 1, NNX)
+         IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, (A1LINE (L), L = 1, NNX)
+
+         ! Inline error handling replacing GOTO 100
+         IF (K /= I) THEN
+            IF (BPCNTL) WRITE (IOF, '("   ^^^   INCORRECT COORDINATE")')
+            STOP 1
+         END IF
+         
          I = I - 1
-!
+
          outer_loop: DO L = 1, NNX
             DO M = 1, 9
                IF (A1LINE(L) == NMERIC(M)) THEN
@@ -1420,16 +1344,10 @@ CONTAINS
                END IF
             END DO
          END DO outer_loop
-!
+
       END DO
-      RETURN
-!
-100   IF (BPCNTL) WRITE (IOF, 110)
-110   FORMAT ('  ^^^   INCORRECT COORDINATE')
-      STOP
+
    END SUBROUTINE FRLTL
-
-
 
 
 
@@ -1642,243 +1560,264 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE FROPEN
+   !SSSSSS SUBROUTINE FROPEN
    SUBROUTINE FROPEN
-!----------------------------------------------------------------------*
-!
-! OPEN I/O DATA FILES
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FROPEN/4.0
-! Modifications:
-! RAH  941003 3.4.1 Amend writes 1030,1050: append CNAM to RUNFIL.
-! RAH  970223  4.0  Specify STATUS on OPEN(2).  Write to, & rewind, TIM.
-!                   Units 27,28,22,14 were 18,19,36,18 (see FRINIT).
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   ! OPEN I/O DATA FILES
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FROPEN/4.0
+   ! Modifications:
+   ! RAH  941003 3.4.1 Amend writes 1030,1050: append CNAM to RUNFIL.
+   ! RAH  970223  4.0  Specify STATUS on OPEN(2).  Write to, & rewind, TIM.
+   !                   Units 27,28,22,14 were 18,19,36,18 (see FRINIT).
+   !----------------------------------------------------------------------*
+   ! Commons and constants
 
-      INTEGER :: i, io
-      integer :: ios
+      ! Assumed external module dependencies providing global variables:
+      ! BTIME, BANNER, DIRQQ, FILNAM, CNAM, ista, isextradis, iszq, 
+      ! isextrapsl, ismn, visualisation_plan_filename, visualisation_check_filename,
+      ! hdf5filename, RESFIL, TIM
+
+      IMPLICIT NONE
+
+      INTEGER :: I, ios
       CHARACTER (LEN=200) :: FILNAM2
-!----------------------------------------------------------------------*
-!
+
+      !----------------------------------------------------------------------*
+      !
       BTIME = .FALSE.
-!
-! WRITE BANNER HEADER TO SCREEN
-!
-!IF (BDEVER) THEN
-!   WRITE ( *, 16) SHEVER
-!ELSE
-!   WRITE ( *, 15) SHEVER
-!ENDIF
-16    FORMAT (// 'SHETRAN', F4.1 , ' ' )
-15    FORMAT (// 'SHETRAN', F4.1 )
-!
-      Write (*,*)
-      Write (*,*) '**************************'
-      WRITE ( *, * ) BANNER
-      Write (*,*) '**************************'
 
+      ! WRITE BANNER HEADER TO SCREEN
+      WRITE (*,*)
+      WRITE (*,*) '**************************'
+      WRITE (*,*) BANNER
+      WRITE (*,*) '**************************'
+      WRITE (*,*)
 
-      WRITE ( *, * )
-!     OPEN FILE RUNDATA TO OBTAIN FILENAMES:
-!        WRITE(*,*)
-!        WRITE(*,'(A)') ' ENTER CATCHMENT DIRECTORY NAME'
-!        READ (*,FMT='(A)') dirqq  !e.g. 'E:\sv4\cobres\'
-!               io = 1 ; io1=0
-!      DO WHILE(io/=0 .AND. io1<5)
-!          io1 = io1 + 1!
-!          IF(io1>1) THEN
-!              PRINT*, 'failed to open file '//TRIM(filnam)
-!              PRINT*, 'press enter to try again'
-!              READ(*,*)
-!          ENDIF
-!          CALL GET_DIR_AND_CATCH(RUNFIL, FILNAM, CNAM, DIRQQ)
-!!      WRITE(*,'(A)') ' Enter catchment name: '  !e.g. 'excobpine'
-!!      READ(*,1000) CNAM
-!          FILNAM = TRIM(DIRQQ)//RUNFIL//CNAM
+      ! ****sb 161213
+      ista = .TRUE.
+      ! ****sb 220415
+      isextradis = .TRUE.
+      !***ZQ Module 200520
+      iszq = .TRUE.
+      !sb 110324
+      isextrapsl = .TRUE.
+      !sb 230925
+      ismn = .TRUE.
 
-! ****sb 161213
-      ista=.true.
-! ****sb 220415
-      isextradis=.true.
-!***ZQ Module 200520
-      iszq=.true.
-!sb 110324
-      isextrapsl=.true.
-!sb 230925
-      ismn=.true.
+      OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = ios)
+      IF (ios /= 0) CALL stop_rundata_error(CNAM)
 
+      FILNAM2 = TRIM(DIRQQ) // 'output_' // TRIM(CNAM) // '_log.txt'
+      
+      OPEN (61, FILE = FILNAM2, IOSTAT = ios)
+      IF (ios /= 0) CALL stop_open_error(FILNAM2)
 
-      OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = io)
-!      ENDDO
-      filnam2=TRIM (DIRQQ) //'output_'//trim(cnam)//'_log.txt'
-      OPEN (61, FILE = FILNAM2, ERR = 400)
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      IF (ios /= 0) CALL stop_rundata_error(CNAM)
 
+      !***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
+      !***extra psl 110324 change log file to unit 53 and read DO 100 I = 10, 52 (was 50). see extra lines at the end
+      !***nitrate 230925 change log file to unit 61 and read DO 100 I = 10, 60 (was 50). see extra lines at the end
+      WRITE (61, '(A)') FILNAM
+      WRITE (61, *)
+      
+      ! Main file reading loop
+      DO I = 10, 50
+         READ (2, '(A)', IOSTAT = ios) FILNAM
+         
+         IF (ios < 0) THEN
+            IF (I < 14) CALL stop_eof_error(CNAM)
+            iszq = .FALSE.
+            isextrapsl = .FALSE.
+            ismn = .FALSE.
+            CLOSE (2)
+            RETURN
+         END IF
+         
+         WRITE (61, '(A)') FILNAM
+         READ (2, '(A)', IOSTAT = ios) FILNAM
+         
+         IF (ios < 0) THEN
+            IF (I < 14) CALL stop_eof_error(CNAM)
+            iszq = .FALSE.
+            isextrapsl = .FALSE.
+            ismn = .FALSE.
+            CLOSE (2)
+            RETURN
+         END IF
 
+         IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
+            !***Sb 161213
+            IF (I == 45 .OR. I == 46) ista = .FALSE.
+            !***Sb 220415
+            IF (I == 47) isextradis = .FALSE.
 
-      READ (2, 1000, ERR = 300) FILNAM
-
-
-
-!***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
-!***extra psl 110324 change log file to unit 53 and read DO 100 I = 10, 52 (was 50). see extra lines at the end
-!***nitrate 230925 change log file to unit 61 and read DO 100 I = 10, 60 (was 50). see extra lines at the end
-      WRITE (61, 1000) FILNAM
-      WRITE ( 61, * )
-      DO 100 I = 10, 50
-         READ (2, 1000, END = 200) FILNAM
-         WRITE ( 61, 1000) FILNAM
-         READ (2, 1000, END = 200) FILNAM
-         IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN
-
-!***Sb 161213
-            if (I.eq.45.or.i.eq.46) then
-               ista=.false.
-            endif
-!***Sb 220415
-            if (I.eq.47) then
-               isextradis=.false.
-            endif
-
-            WRITE ( 61, 1010)
+            WRITE (61, '("- NOT USED")')
          ELSE
-            filnam = TRIM (DIRQQ) //TRIM (FILNAM)
+            FILNAM = TRIM(DIRQQ) // TRIM(FILNAM)
             IF (I == 48) THEN
-               WRITE ( 61, 1021) I, FILNAM
-               visualisation_plan_filename = filnam
-            ELSEIF (I == 49) THEN
-               WRITE ( 61, 1021) I, FILNAM
-               visualisation_check_filename = filnam
-            ELSEIF (I == 50) THEN
-               WRITE ( 61, 1021) I, FILNAM
-               hdf5filename = filnam
+               WRITE (61, '("FILE ",I3," IS ",A)') I, FILNAM
+               visualisation_plan_filename = FILNAM
+            ELSE IF (I == 49) THEN
+               WRITE (61, '("FILE ",I3," IS ",A)') I, FILNAM
+               visualisation_check_filename = FILNAM
+            ELSE IF (I == 50) THEN
+               WRITE (61, '("FILE ",I3," IS ",A)') I, FILNAM
+               hdf5filename = FILNAM
             ELSE
-               WRITE ( 61, 1020) I, FILNAM
-! make  hot file formattedsteve birkinshaw 13092017
-!        IF (I.EQ.27.OR.I.EQ.28) THEN
-!            OPEN (I, FILE = FILNAM, FORM = 'UNFORMATTED', ERR = &
-!             400)
-!         ELSE
-               OPEN (I, FILE = FILNAM, iostat=ios)
-               if (ios/=0) then
-                  write (*,'(A,A)') ' Error opening the file ',trim(FILNAM)
-                  write(*,'(''paused, type [enter] to continue'')')
-                  read (*,*)
-                  stop
-               endif
-!         ENDIF
-               IF (I.EQ.27) RESFIL = FILNAM
-               IF (I.EQ.22) THEN
-                  BTIME = .TRUE.
-                  WRITE (TIM, * ) 'Reading data sets ...'
-                  REWIND (TIM)
-               ENDIF
-            ENDIF
-         ENDIF
-100   END DO
+               WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') I, FILNAM
+               
+               OPEN (I, FILE = FILNAM, IOSTAT = ios)
+               IF (ios /= 0) THEN
+                  WRITE (*,'(A,A)') ' Error opening the file ', TRIM(FILNAM)
+                  WRITE (*,'("paused, type [enter] to continue")')
+                  READ (*,*)
+                  STOP
+               END IF
 
-!***ZQ Module 200520
-      READ (2, 1000, END = 190) FILNAM
-      WRITE ( 61, 1000) FILNAM
-      READ (2, 1000, END = 190) FILNAM
-      IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN
-         iszq=.false.
-         WRITE ( 61, 1010)
-      else
-         OPEN (51, FILE = FILNAM, ERR = 400)
-         WRITE ( 61, 1020) 51, FILNAM
-      endif
+               IF (I == 27) RESFIL = FILNAM
+               IF (I == 22) THEN
+                  BTIME = .TRUE.
+                  WRITE (TIM, *) 'Reading data sets ...'
+                  REWIND (TIM)
+               END IF
+            END IF
+         END IF
+      END DO
+
+      !***ZQ Module 200520
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      IF (ios < 0) THEN
+         iszq = .FALSE.
+         isextrapsl = .FALSE.
+         ismn = .FALSE.
+         CLOSE (2)
+         RETURN
+      END IF
+      
+      WRITE (61, '(A)') FILNAM
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      
+      IF (ios < 0) THEN
+         iszq = .FALSE.
+         isextrapsl = .FALSE.
+         ismn = .FALSE.
+         CLOSE (2)
+         RETURN
+      END IF
+      
+      IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
+         iszq = .FALSE.
+         WRITE (61, '("- NOT USED")')
+      ELSE
+         OPEN (51, FILE = FILNAM, IOSTAT = ios)
+         IF (ios /= 0) CALL stop_open_error(FILNAM)
+         WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') 51, FILNAM
+      END IF
 
       !extra psl 110324
-      READ (2, 1000, END = 195) FILNAM
-      WRITE ( 61, 1000) FILNAM
-      READ (2, 1000, END = 195) FILNAM
-      IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN
-         isextrapsl=.false.
-         WRITE ( 61, 1010)
-      else
-         filnam2=TRIM (DIRQQ) //filnam
-         OPEN (52, FILE = FILNAM2, ERR = 400)
-         WRITE ( 61, 1020) 52, FILNAM2
-      endif
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      IF (ios < 0) THEN
+         isextrapsl = .FALSE.
+         ismn = .FALSE.
+         CLOSE (2)
+         RETURN
+      END IF
+      
+      WRITE (61, '(A)') FILNAM
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      
+      IF (ios < 0) THEN
+         isextrapsl = .FALSE.
+         ismn = .FALSE.
+         CLOSE (2)
+         RETURN
+      END IF
+
+      IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
+         isextrapsl = .FALSE.
+         WRITE (61, '("- NOT USED")')
+      ELSE
+         FILNAM2 = TRIM(DIRQQ) // FILNAM
+         OPEN (52, FILE = FILNAM2, IOSTAT = ios)
+         IF (ios /= 0) CALL stop_open_error(FILNAM2)
+         WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') 52, FILNAM2
+      END IF
 
       !nitrate component 230925
-      READ (2, 1000, END = 196) FILNAM
-      WRITE ( 61, 1000) FILNAM
-      READ (2, 1000, END = 196) FILNAM
-      IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN
-         ismn=.false.
-         WRITE ( 61, 1010)
-      else
-         filnam=TRIM (DIRQQ) //filnam
-         OPEN (53, FILE = FILNAM, ERR = 400)
-         WRITE ( 61, 1020) 53, FILNAM
-      endif
-      DO  I = 54, 60
-         READ (2, 1000, END = 196) FILNAM
-         WRITE ( 61, 1000) FILNAM
-         READ (2, 1000, END = 196) FILNAM
-         IF (FILNAM.EQ.' '.OR.FILNAM.EQ.'0') THEN
-            WRITE ( 61, 1010)
-         else
-            filnam=TRIM (DIRQQ) //filnam
-            OPEN (I, FILE = FILNAM, ERR = 400)
-            WRITE ( 61, 1020) I, FILNAM
-         endif
-      enddo
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      IF (ios < 0) THEN
+         ismn = .FALSE.
+         CLOSE (2)
+         RETURN
+      END IF
+      
+      WRITE (61, '(A)') FILNAM
+      READ (2, '(A)', IOSTAT = ios) FILNAM
+      
+      IF (ios < 0) THEN
+         ismn = .FALSE.
+         CLOSE (2)
+         RETURN
+      END IF
 
-
+      IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
+         ismn = .FALSE.
+         WRITE (61, '("- NOT USED")')
+      ELSE
+         FILNAM = TRIM(DIRQQ) // FILNAM
+         OPEN (53, FILE = FILNAM, IOSTAT = ios)
+         IF (ios /= 0) CALL stop_open_error(FILNAM)
+         WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') 53, FILNAM
+      END IF
+      
+      ! Remaining nitrate files
+      DO I = 54, 60
+         READ (2, '(A)', IOSTAT = ios) FILNAM
+         IF (ios < 0) EXIT 
+         
+         WRITE (61, '(A)') FILNAM
+         READ (2, '(A)', IOSTAT = ios) FILNAM
+         IF (ios < 0) EXIT
+         
+         IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
+            WRITE (61, '("- NOT USED")')
+         ELSE
+            FILNAM = TRIM(DIRQQ) // FILNAM
+            OPEN (I, FILE = FILNAM, IOSTAT = ios)
+            IF (ios /= 0) CALL stop_open_error(FILNAM)
+            WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') I, FILNAM
+         END IF
+      END DO
 
       CLOSE (2)
 
+      RETURN
 
+   CONTAINS
 
-
-      GOTO 900
-!
-
-190   iszq=.false.
-      isextrapsl=.false.
-      ismn=.false.
-      goto 900
-
-195   isextrapsl=.false.
-      ismn=.false.
-      goto 900
-
-
-196   ismn=.false.
-      goto 900
-
-
-200   IF (I.LT.14) THEN
-         WRITE ( *, 1030) CNAM
+      ! Internal helpers to cleanly exit without jumping to bottom labels
+      SUBROUTINE stop_eof_error(c_name)
+         CHARACTER(LEN=*), INTENT(IN) :: c_name
+         WRITE (*, '("UNEXPECTED -EOF- ON FILE ",A)') c_name
          STOP 'ABNORMAL END'
-      ENDIF
-      GOTO 900
-!
-300   WRITE ( *, 1050) CNAM
-      STOP 'ABNORMAL END'
-!
-400   WRITE ( *, 1040) FILNAM
-      STOP 'ABNORMAL END'
-!
-900   RETURN
-!
-1000  FORMAT(A)
-!
-1010  FORMAT('- NOT USED')
-!
-1020  FORMAT('OPENING FILE UNIT ',I3,' TO FILE ',A)
-1021  FORMAT('FILE ',I3,' IS ',A)
-!
-1030  FORMAT('UNEXPECTED -EOF- ON FILE ',A)
-!
-1040  FORMAT('ERROR OPENING FILE ',A)
-!
-1050  FORMAT('ERROR OPENING RUNDATA FILE ',A)
-!
+      END SUBROUTINE stop_eof_error
+
+      SUBROUTINE stop_rundata_error(c_name)
+         CHARACTER(LEN=*), INTENT(IN) :: c_name
+         WRITE (*, '("ERROR OPENING RUNDATA FILE ",A)') c_name
+         STOP 'ABNORMAL END'
+      END SUBROUTINE stop_rundata_error
+
+      SUBROUTINE stop_open_error(f_name)
+         CHARACTER(LEN=*), INTENT(IN) :: f_name
+         WRITE (*, '("ERROR OPENING FILE ",A)') f_name
+         STOP 'ABNORMAL END'
+      END SUBROUTINE stop_open_error
+
    END SUBROUTINE FROPEN
 
 
@@ -2290,150 +2229,120 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE FRRESC
+   !SSSSSS SUBROUTINE FRRESC
    SUBROUTINE FRRESC
-!----------------------------------------------------------------------*
-!
-! OUTPUT CONTROL (HEADER) DATA TO UNFORMATTED 'RES' FILE.
-! OPEN UNFORMATTED RESULTS FILES TO HOLD ACTUAL DATA.
-!
-! NOTE: THE ORDER OF ARRAYS DOESN'T NECESSARILY MATCH THAT OF THE COMMON
-! BLOCKS, SINCE THE ORDER OF READING THE DATA IS IMPORTANT IN SOME CASES
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRRESC/4.2
-! Modifications:
-! RAH  941003 3.4.1 Explicit typing.
-! RAH  970223  4.0  Combine DFILE with CFILE (& replace CPR with CMP).
-!                   Add sections IVEG,VEG,ALCB1A.
-!                   Replace NWC,DCONX,DCONY,DDZ,THSAT,NW,CCB,DB,BLOWP,
-!                   CATUZ,NLYRC,EFFSAT,THFC,THWILT with JVS*,NVS*,
-!                   DELTAZ,RDL,VSP*,ZBFULL,ZVSNOD.  See also AL.C,AL.D.
-!                   Amend NLYRBT,NTSOIL loops (J inside, not I).
-!                   Size of ICL* is 14 (was 13).
-! RAH  970223  4.1  Swap indices: DELTAZ,JVS*,ZVSNOD (see AL.C).
-! RAH  980713  4.2  Replace [I,N]CATUZ (redundant) with 0.
-!      980722       ICL[IST,NUM] size NCLASS was 14 (see AL.D).
-!                   Replace BEX[UZ,EX,SZ,TS1] with LDUM0 (see AL.D).
-!                   Repace NGRID,NEXPO (also 0) with IDUM0 (see AL.D).
-!                   Replace WIDTF,ZBED,HFLBED,ZFBED,DZFBED,LROOT,HFLBNK,
-!                   PSTART with FDUM0 (see AL.D).  Use I2.2 for ANUM.
-!                   Replace IORES with IDUM0 (was written while unset).
-!                   Rewrite loop 280, & use intrinsic LEN & FORMAT 9300.
-!                   Scrap local FILNAM (then no length limit).
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   ! OUTPUT CONTROL (HEADER) DATA TO UNFORMATTED 'RES' FILE.
+   ! OPEN UNFORMATTED RESULTS FILES TO HOLD ACTUAL DATA.
+   !
+   ! NOTE: THE ORDER OF ARRAYS DOESN'T NECESSARILY MATCH THAT OF THE COMMON
+   ! BLOCKS, SINCE THE ORDER OF READING THE DATA IS IMPORTANT IN SOME CASES
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRRESC/4.2
+   ! Modifications:
+   ! RAH  941003 3.4.1 Explicit typing.
+   ! RAH  970223  4.0  Combine DFILE with CFILE (& replace CPR with CMP).
+   !                   Add sections IVEG,VEG,ALCB1A.
+   !                   Replace NWC,DCONX,DCONY,DDZ,THSAT,NW,CCB,DB,BLOWP,
+   !                   CATUZ,NLYRC,EFFSAT,THFC,THWILT with JVS*,NVS*,
+   !                   DELTAZ,RDL,VSP*,ZBFULL,ZVSNOD.  See also AL.C,AL.D.
+   !                   Amend NLYRBT,NTSOIL loops (J inside, not I).
+   !                   Size of ICL* is 14 (was 13).
+   ! RAH  970223  4.1  Swap indices: DELTAZ,JVS*,ZVSNOD (see AL.C).
+   ! RAH  980713  4.2  Replace [I,N]CATUZ (redundant) with 0.
+   !      980722       ICL[IST,NUM] size NCLASS was 14 (see AL.D).
+   !                   Replace BEX[UZ,EX,SZ,TS1] with LDUM0 (see AL.D).
+   !                   Repace NGRID,NEXPO (also 0) with IDUM0 (see AL.D).
+   !                   Replace WIDTF,ZBED,HFLBED,ZFBED,DZFBED,LROOT,HFLBNK,
+   !                   PSTART with FDUM0 (see AL.D).  Use I2.2 for ANUM.
+   !                   Replace IORES with IDUM0 (was written while unset).
+   !                   Rewrite loop 280, & use intrinsic LEN & FORMAT 9300.
+   !                   Scrap local FILNAM (then no length limit).
+   !----------------------------------------------------------------------*
+   ! Commons and constants
 
+      ! Assumed external module dependencies providing global variables:
+      ! SHEVER, RES, NX, NY, NGDBGN, total_no_elements, ICMREF, ICMXY,
+      ! FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, EPD, TIM,
+      ! PPPRI, SPR, CMP, BUG, HOT, VSI, VED, WLD, LFB, LHB, LGB, BFB, BHB,
+      ! OFB, OHB, CMT, CMB, top_cell_no, total_no_links, NS, NV, WWWARN,
+      ! EEERR, FFFATAL, NRD, RDF, CAREA, TIH, LINKNS, BEXBK, ICMBK, ICMRF2,
+      ! JVSACN, JVSDEL, NLYR, NLYRBT, NBFACE, NHBED, NTSOIL, NVC, NVSSPC,
+      ! NVSSPT, NVSWLI, NVSWLT, NWELBT, NWELTP, cellarea, CLENTH, CWIDTH,
+      ! DELTAZ, DHF, DXQQ, DYQQ, FHBED, RDL, VSPOR, ZBEFF, ZBFULL, ZGRUND,
+      ! ZLYRBT, ZVSNOD, MSM, NM, NRAIN, NSET, NXP1, NYP1, NXM1, NYM1, NXE,
+      ! NYE, NXEP1, NYEP1, DTMET, QMAX, BHOTTI, BHOTST, PMAX, PALFA, TMAX,
+      ! BWIDTH, TTH, BEXET, BEXOC, BEXSM, BHOTPR, BHOTRD, BEXSY, BEXCM,
+      ! NMC, INGRID, NRAINC, IOCORS, ICLNUM, NCLASS, ICLIST, IODATA, IOELEM,
+      ! LCODEX, LCODEY, DXIN, DYIN, IOSTA, IOSTEP, IOEND, NVSSOL, VSPPSI,
+      ! VSPTHE, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, RESFIL, IORES
 
+      IMPLICIT NONE
 
-
-
-
-! Imported constants
-!     SPEC.AL          LLEE,NCLASS,NELEE,NLFEE,NVEE,NXEE
-!                      RESFIL
-!                      SHEVER
-!     VSSOIL.INC       NSOLEE
-! Input common
-!     SPEC.AL          BFB,BHB,BKD,BUG,CMB,CMD,CMP,CMT,EPD,ERR,ETD
-!                      FATAL,FRD,HOT,LFB,LGB,LHB,LL,MED,MSM
-!                      NEL,NGDBGN,NLF,NM,NRAIN,NS,NSET,NV
-!                      NX,NXE,NXEP1,NXM1,NXP1,NY,NYE,NYEP1,NYM1,NYP1
-!                      OCD,OFB,OHB,PPD,PRD,PRI
-!                      RES,SMD,SPR,SYD,TIM,VED,VSD,VSI,WARN,WLD
-!                      ICLIST(NELEE,NCLASS),ICLNUM(NEL)
-!                      ICMBK(NLFEE,2),ICMREF(NELEE,12),ICMRF2(NLFEE,6)
-!                      ICMXY(NXEE,NY),INGRID(NXEE,NY)
-!                      IOCORS(*),IODATA(*),IOELEM(*),IOEND(*)
-!                      IOSTA(*),IOSTEP(*)
-!                      JVSACN(4,LLEE,NEL),JVSDEL(4,LLEE,NEL)
-!                      LCODEX(NXEE,NY),LCODEY(NXEE,NY)
-!                      NBFACE(NEL),NHBED(NLFEE,2)
-!                      NLYR(NEL),NLYRBT(NELEE,*),NMC(NEL)
-!                      NRAINC(NEL),NRD(NV),NTSOIL(NELEE,*)
-!                      NVC(NEL),NVSSPC(NEL),NVSSPT(NEL)
-!                      NVSWLI(NEL),NVSWLT(NEL),NWELBT(NEL),NWELTP(NEL)
-!
-!                      BHOTST,BHOTTI,BWIDTH,CAREA,DTMET
-!                      PALFA,PMAX,QMAX,TIH,TMAX,TTH
-!                      AREA(NEL),CLENTH(NLFEE),CWIDTH(NLFEE)
-!                      DELTAZ(LLEE,NEL),DHF(NELEE,4),DXQQ(NEL),DYQQ(NEL)
-!                      FHBED(NLFEE,2),RDF(NVEE,LLEE),RDL(NV),VSPOR(NS)
-!                      ZBEFF(NLFEE),ZBFULL(NLFEE),ZGRUND(NEL)
-!                      ZLYRBT(NELEE,*),ZVSNOD(LLEE,NEL)
-!
-!                      BEXBK, LINKNS(NLFEE)
-!
-!     VSSOIL.INC       NVSSOL
-!                      VSPDET(NSOLEE,NS),VSPDKR(NSOLEE,NS)
-!                      VSPDTH(NSOLEE,NS),VSPETA(NSOLEE,NS)
-!                      VSPKR(NSOLEE,NS),VSPPSI(NVSSOL),VSPTHE(NSOLEE,NS)
-! Output common
-!     SPEC.AL          IORES(*)
-! Locals, etc
-!INTRINSIC LEN
-      INTEGER :: IDUM0
-      DOUBLEPRECISION FDUM0
-      LOGICAL :: LDUM0
-      PARAMETER (IDUM0 = 0, FDUM0 = 0.0D0, LDUM0 = .TRUE.)
+      ! Locals, etc
+      INTEGER, PARAMETER :: IDUM0 = 0
+      DOUBLE PRECISION, PARAMETER :: FDUM0 = 0.0D0
+      LOGICAL, PARAMETER :: LDUM0 = .TRUE.
+      
       INTEGER :: I, ICHAR, ISET, J, K, L
-      CHARACTER (2) :: ANUM
+      CHARACTER(2) :: ANUM
       CHARACTER(128) :: fname
-!----------------------------------------------------------------------*
-!
-! WRITE SHETRAN VERSION
-!1
+
+      !----------------------------------------------------------------------*
+
+      ! WRITE SHETRAN VERSION
+      !1
       WRITE (RES) SHEVER
-!
-! ALGCB1
-!2
+
+      ! ALGCB1
+      !2
       WRITE (RES) NX, NY, NGDBGN, total_no_elements
-!
-! ALGCB2
-!3-4
-      WRITE (RES) ( (ICMREF (I, J), I = 1, total_no_elements), J = 1, 12)
-      WRITE (RES) ( (ICMXY (I, J), I = 1, NX), J = 1, NY)
-!
-! CFILE + DFILE (except SFB,SRB)
-!5
+
+      ! ALGCB2
+      !3-4
+      WRITE (RES) ((ICMREF (I, J), I = 1, total_no_elements), J = 1, 12)
+      WRITE (RES) ((ICMXY (I, J), I = 1, NX), J = 1, NY)
+
+      ! CFILE + DFILE (except SFB,SRB)
+      !5
       WRITE (RES) FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, &
          EPD, TIM, PPPRI, SPR, CMP, BUG, RES, HOT, VSI, VED, WLD, LFB, LHB, &
          LGB, BFB, BHB, OFB, OHB, CMT, CMB
-!
-! ALCCB1
-!6
+
+      ! ALCCB1
+      !6
       WRITE (RES) top_cell_no, total_no_links, NS, NV, WWWARN, EEERR, FFFATAL
-!
-! IVEG
-!7
+
+      ! IVEG
+      !7
       WRITE (RES) (NRD (I), I = 1, NV)
-!
-! VEG
-!8
-      WRITE (RES) ( (RDF (I, J), J = 1, NRD (I) ), I = 1, NV)
-!
-! CAREA (ALDCB3 - see also below) + ALCB1A
-!9
+
+      ! VEG
+      !8
+      WRITE (RES) ((RDF (I, J), J = 1, NRD (I)), I = 1, NV)
+
+      ! CAREA (ALDCB3 - see also below) + ALCB1A
+      !9
       WRITE (RES) CAREA, TIH
-!
-! ALCCB3
-!10-11
+
+      ! ALCCB3
+      !10-11
       WRITE (RES) (LINKNS (L), L = 1, total_no_links)
       WRITE (RES) BEXBK
-!
-! ALCCB5
-!12-27
-      WRITE (RES) ( (ICMBK (I, J), I = 1, total_no_links), J = 1, 2)
-      WRITE (RES) ( (ICMRF2 (I, J), I = 1, total_no_links), J = 1, 6)
-      WRITE (RES) ( ( (JVSACN (K, J, I), K = 1, 4), J = 1, top_cell_no), I = 1, &
-         total_no_elements)
-      WRITE (RES) ( ( (JVSDEL (K, J, I), K = 1, 4), J = 1, top_cell_no), I = 1, &
-         total_no_elements)
+
+      ! ALCCB5
+      !12-27
+      WRITE (RES) ((ICMBK (I, J), I = 1, total_no_links), J = 1, 2)
+      WRITE (RES) ((ICMRF2 (I, J), I = 1, total_no_links), J = 1, 6)
+      WRITE (RES) (((JVSACN (K, J, I), K = 1, 4), J = 1, top_cell_no), I = 1, total_no_elements)
+      WRITE (RES) (((JVSDEL (K, J, I), K = 1, 4), J = 1, top_cell_no), I = 1, total_no_elements)
       WRITE (RES) (NLYR (I), I = 1, total_no_elements)
-      WRITE (RES) ( (NLYRBT (I, J), J = 1, NLYR (I) ), I = 1, total_no_elements)
+      WRITE (RES) ((NLYRBT (I, J), J = 1, NLYR (I)), I = 1, total_no_elements)
       WRITE (RES) (NBFACE (I), I = 1, total_no_elements)
-      WRITE (RES) ( (NHBED (I, J), I = 1, total_no_links), J = 1, 2)
-      WRITE (RES) ( (NTSOIL (I, J), J = 1, NLYR (I) ), I = 1, total_no_elements)
+      WRITE (RES) ((NHBED (I, J), I = 1, total_no_links), J = 1, 2)
+      WRITE (RES) ((NTSOIL (I, J), J = 1, NLYR (I)), I = 1, total_no_elements)
       WRITE (RES) (NVC (I), I = 1, total_no_elements)
       WRITE (RES) (NVSSPC (I), I = 1, total_no_elements)
       WRITE (RES) (NVSSPT (I), I = 1, total_no_elements)
@@ -2441,506 +2350,416 @@ CONTAINS
       WRITE (RES) (NVSWLT (I), I = 1, total_no_elements)
       WRITE (RES) (NWELBT (I), I = 1, total_no_elements)
       WRITE (RES) (NWELTP (I), I = 1, total_no_elements)
-!
-! ALCCB7 (except THSAT)
-!28-42
+
+      ! ALCCB7 (except THSAT)
+      !28-42
       WRITE (RES) (cellarea (I), I = 1, total_no_elements)
       WRITE (RES) (CLENTH (I), I = 1, total_no_links)
       WRITE (RES) (CWIDTH (I), I = 1, total_no_links)
-      WRITE (RES) ( (DELTAZ (J, I), J = 1, top_cell_no), I = 1, total_no_elements)
-      WRITE (RES) ( (DHF (I, J), I = 1, total_no_elements), J = 1, 4)
+      WRITE (RES) ((DELTAZ (J, I), J = 1, top_cell_no), I = 1, total_no_elements)
+      WRITE (RES) ((DHF (I, J), I = 1, total_no_elements), J = 1, 4)
       WRITE (RES) (DXQQ (I), I = 1, total_no_elements)
       WRITE (RES) (DYQQ (I), I = 1, total_no_elements)
-      WRITE (RES) ( (FHBED (I, J), I = 1, total_no_links), J = 1, 2)
+      WRITE (RES) ((FHBED (I, J), I = 1, total_no_links), J = 1, 2)
       WRITE (RES) (RDL (I), I = 1, NV)
       WRITE (RES) (VSPOR (I), I = 1, NS)
       WRITE (RES) (ZBEFF (I), I = 1, total_no_links)
       WRITE (RES) (ZBFULL (I), I = 1, total_no_links)
       WRITE (RES) (ZGRUND (I), I = 1, total_no_elements)
-      WRITE (RES) ( (ZLYRBT (I, J), J = 1, NLYR (I) ), I = 1, total_no_elements)
-      WRITE (RES) ( (ZVSNOD (J, I), J = 1, top_cell_no), I = 1, total_no_elements)
-!
-! ALDCB1 (except MBLINK,MBFACE,MBFLAG)
-!43
+      WRITE (RES) ((ZLYRBT (I, J), J = 1, NLYR (I)), I = 1, total_no_elements)
+      WRITE (RES) ((ZVSNOD (J, I), J = 1, top_cell_no), I = 1, total_no_elements)
+
+      ! ALDCB1 (except MBLINK,MBFACE,MBFLAG)
+      !43
       WRITE (RES) MSM, IDUM0, NM, NRAIN, NSET, NXP1, NYP1, NXM1, NYM1, &
          NXE, NYE, NXEP1, NYEP1
-!
-! ALDCB3 (except CAREA - see above)
-!44
-      WRITE (RES) FDUM0, DTMET, QMAX, BHOTTI, BHOTST, PMAX, PALFA, TMAX, &
-         BWIDTH, TTH
-!
-! ALDCB5
-!45
+
+      ! ALDCB3 (except CAREA - see above)
+      !44
+      WRITE (RES) FDUM0, DTMET, QMAX, BHOTTI, BHOTST, PMAX, PALFA, TMAX, BWIDTH, TTH
+
+      ! ALDCB5
+      !45
       WRITE (RES) BEXET, LDUM0, LDUM0, BEXOC, LDUM0, BEXSM, LDUM0, &
          BHOTPR, BHOTRD, BEXSY, BEXCM
-!
-! ALDCB6 (except NOCBCC, NOCBCD)
-!46-59
+
+      ! ALDCB6 (except NOCBCC, NOCBCD)
+      !46-59
       WRITE (RES) (NMC (I), I = 1, total_no_elements)
-!      WRITE (RES) (IDUM0,I=1,total_no_elements)
-      WRITE (RES) ( (INGRID (I, J), I = 1, NX), J = 1, NY)
+      WRITE (RES) ((INGRID (I, J), I = 1, NX), J = 1, NY)
       WRITE (RES) (NRAINC (I), I = 1, total_no_elements)
       WRITE (RES) (IOCORS (I), I = 1, NSET)
       WRITE (RES) (ICLNUM (I), I = 1, NCLASS)
-      WRITE (RES) ( (ICLIST (I, J), I = 1, total_no_elements), J = 1, NCLASS)
+      WRITE (RES) ((ICLIST (I, J), I = 1, total_no_elements), J = 1, NCLASS)
       WRITE (RES) (IODATA (I), I = 1, NSET)
       WRITE (RES) (IOELEM (I), I = 1, NSET)
-!      WRITE (RES) (IDUM0,I=1,NSET)
-      WRITE (RES) ( (LCODEX (I, J), I = 1, NX), J = 1, NY)
-      WRITE (RES) ( (LCODEY (I, J), I = 1, NX), J = 1, NY)
-!      WRITE (RES) (IDUM0,I=1,total_no_elements)
-!      WRITE (RES) ((IDUM0,I=1,NLF),J=1,2)
-!
-! ALDCB8 (except RHOSAR)
-!60-71
+      WRITE (RES) ((LCODEX (I, J), I = 1, NX), J = 1, NY)
+      WRITE (RES) ((LCODEY (I, J), I = 1, NX), J = 1, NY)
+
+      ! ALDCB8 (except RHOSAR)
+      !60-71
       WRITE (RES) (DXIN (I), I = 1, NX)
       WRITE (RES) (DYIN (I), I = 1, NY)
-!      WRITE (RES) (FDUM0,I=1,NLF)
-!      WRITE (RES) (FDUM0,I=1,NEL)
-!      WRITE (RES) (FDUM0,I=1,NLF)
-!      WRITE (RES) (FDUM0,I=1,NLF)
-!      WRITE (RES) (FDUM0,I=1,NLF)
-!      WRITE (RES) (FDUM0,I=1,NV)
-!      WRITE (RES) (FDUM0,I=1,NLF)
       WRITE (RES) (IOSTA (I), I = 1, NSET)
       WRITE (RES) (IOSTEP (I), I = 1, NSET)
       WRITE (RES) (IOEND (I), I = 1, NSET)
-!
-! VSSOLI/VSSOLR (except VSPSS, VSPPOR)
-!72-79
+
+      ! VSSOLI/VSSOLR (except VSPSS, VSPPOR)
+      !72-79
       WRITE (RES) NVSSOL
       WRITE (RES) (VSPPSI (I), I = 1, NVSSOL)
-      WRITE (RES) ( (VSPTHE (I, J), I = 1, NVSSOL), J = 1, NS)
-      WRITE (RES) ( (VSPKR (I, J), I = 1, NVSSOL), J = 1, NS)
-      WRITE (RES) ( (VSPETA (I, J), I = 1, NVSSOL), J = 1, NS)
-      WRITE (RES) ( (VSPDTH (I, J), I = 1, NVSSOL), J = 1, NS)
-      WRITE (RES) ( (VSPDKR (I, J), I = 1, NVSSOL), J = 1, NS)
-      WRITE (RES) ( (VSPDET (I, J), I = 1, NVSSOL), J = 1, NS)
-!
-! CLOSE RES FILE, SO THAT RESULTS CAN BE INSPECTED USING SHEGRAPH BEFORE
-! SIMULATION HAS TERMINATED
-!
+      WRITE (RES) ((VSPTHE (I, J), I = 1, NVSSOL), J = 1, NS)
+      WRITE (RES) ((VSPKR (I, J), I = 1, NVSSOL), J = 1, NS)
+      WRITE (RES) ((VSPETA (I, J), I = 1, NVSSOL), J = 1, NS)
+      WRITE (RES) ((VSPDTH (I, J), I = 1, NVSSOL), J = 1, NS)
+      WRITE (RES) ((VSPDKR (I, J), I = 1, NVSSOL), J = 1, NS)
+      WRITE (RES) ((VSPDET (I, J), I = 1, NVSSOL), J = 1, NS)
+
+      ! CLOSE RES FILE, SO THAT RESULTS CAN BE INSPECTED USING SHEGRAPH BEFORE
+      ! SIMULATION HAS TERMINATED
+      !
       CLOSE (RES)
-!
-! OPEN OUTPUT DATA FILES ON FILE UNITS 50 ONWARDS
-!
-      IF (NSET.GT.0) THEN
-         DO 280 ICHAR = 2, LEN (RESFIL)
-            IF (RESFIL (ICHAR:) .EQ.' ') GOTO 290
-280      END DO
-290      ICHAR = ICHAR - 1
-         DO 300 ISET = 1, NSET
+
+      ! OPEN OUTPUT DATA FILES ON FILE UNITS 50 ONWARDS
+      !
+      IF (NSET > 0) THEN
+         ! Modernized: Find the actual length of the filename string
+         ICHAR = LEN_TRIM(RESFIL)
+         
+         DO ISET = 1, NSET
             IORES (ISET) = 50 + ISET
             WRITE (ANUM, '(I2.2)') ISET
-            fname = RESFIL(:ICHAR)//ANUM
-            OPEN(IORES(ISET),FILE=TRIM(fname),FORM='UNFORMATTED')
-            WRITE ( *, 9300) IORES (ISET), RESFIL (:ICHAR), ANUM
-300      END DO
-      ENDIF
-9300  FORMAT(' OPENING FILE UNIT',I3,' TO FILE ',2A)
-!
+            fname = RESFIL(:ICHAR) // ANUM
+            OPEN(IORES(ISET), FILE = TRIM(fname), FORM = 'UNFORMATTED')
+            WRITE (*, '(" OPENING FILE UNIT",I3," TO FILE ",2A)') IORES(ISET), RESFIL(:ICHAR), ANUM
+         END DO
+      END IF
+
    END SUBROUTINE FRRESC
 
 
 
-
-
-!SSSSSS SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
+   !SSSSSS SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
    SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
-!----------------------------------------------------------------------*
-!
-! WRITE DATA TO UNFORMATTED RESULT FILES.
-!
-! DATA IS ONLY WRITTEN (ON A PARTICULAR CALL TO THIS SUBROUTINE) FOR THE
-!   DATA TYPES INDICATED BY A '1' IN ARGUMENT AIOSTO. THIS ROUTINE CAN
-!   THEREFORE BE CALLED SELECTIVELY FROM DIFFERENT PARTS OF SHETRAN.
-!
-! DATA OUTPUT IS DETERMINED BY USER-DEFINED OUTPUT SETS & DATA CLASSES.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRRESP/4.2
-! Modifications:
-! RAH  941005 3.4.1 Add argument RESNOW: use instead of UZNOW (from
-!                   SPEC.AL) - see SHETRN; see also FRINIT,INRES.
-!                   Bring IMPLICIT from SPEC.AL.  Don't include SPEC.SY.
-!                   Replace CSED,SEDTRN with asum_over_faces(QSED),QSED.
-!  GP  960628  4.0  All floating-point output in single precision:
-!                   use DOUBLEPRECISION, & locals BUFFER,COLBUF.
-!                   Add argument NOW to allow IOTIME override
-!                   (see MB; also FRINIT,INRES,SHETRN).
-!                   New VSS module: replace THUZ,HSZ,QHSZ,QBKI(*,1+2),
-!                   PSI3,TH3,UUAJPO with QVSV(column),ZVSPSL,QVSH,
-!                   QVSSPR,VSPSI,VSTHE,QVSWEL*AREA.
-!                   QBKB (was type 16): add to QBKF (17); 16 undefined.
-!                   Types 45-49 (BCPAA,BCPBB,EPS) now undefined.
-!                   Type 50 (new): BALANC*1D3/CAREA.
-! RAH  970224  4.1  Swap indices: QVSH,QVSV,QVSWLI,VSPSI,VSTHE (AL.C).
-!                   Scrap locals IX,IY,IL (redundant) & ITYPE
-!                   (use IEL.LE.NLF).  Explicit typing.
-!                   Set BUFFER=999.999 if otherwise undefined.
-!      970524       Don't include COLM.CO or PLANT.CC.
-!                   AIOSTO asasumed size (was 50).
-! RAH  980309  4.2  Replace CCSTOR,CSSTOR,CMEAN,SMEAN,ADMEAN,999.999
-!                   with UNDEF.
-!  SB  990127 4.27  incorporate 3.4.2 sediment code into 4.27
-!                   include SED.CS, CONST.SY
-!                   integers SFSED1 and SFSED2,DOUBLEPRECISION DUM1(4)
-!                   data types 21 - 30
-!  SB  010320 4g-pc dum1(4) to real
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 1       <= NELEE
-! 1, NSET <= NSETEE
-! for each set in 1:NSET:
-!       1 <= IODATA(set) <=  50 ( size_of_AIOSTO)
-!     NEL >= IOELEM(set) >= -14 (-size_of_ICLNUM)
-!     IOELEM(set) <= 0  ==>:
-!         IODATA(set)=50  ==>  ICLNUM(class) <= 20 (size_of_BALANC)
-!         IODATA(set)<50  ==>:
-!                         1 <= ICLNUM(class)   <= NELEE
-!              for each j in 1:ICLNUM(class):
-!                         1 <= ICLIST(j,class) <= NEL
-!     where class = -IOELEM(set)
-!     IODATA(set) in 21:38 or 44:44  ==>  1 <= IOCORS(set) <= NCON
-!      IORES(set) is connected for unformatted output
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   ! WRITE DATA TO UNFORMATTED RESULT FILES.
+   !
+   ! DATA IS ONLY WRITTEN (ON A PARTICULAR CALL TO THIS SUBROUTINE) FOR THE
+   !   DATA TYPES INDICATED BY A '1' IN ARGUMENT AIOSTO. THIS ROUTINE CAN
+   !   THEREFORE BE CALLED SELECTIVELY FROM DIFFERENT PARTS OF SHETRAN.
+   !
+   ! DATA OUTPUT IS DETERMINED BY USER-DEFINED OUTPUT SETS & DATA CLASSES.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRRESP/4.2
 
-!
-! Input common
-!     CONT.CC:         NCON
-!
-! Input arguments
-      DOUBLEPRECISION RESNOW
-      LOGICAL :: NOW
-      CHARACTER (LEN=*) :: AIOSTO
-!
-! Locals, etc
+      ! Assumed external module dependencies providing global variables:
+      ! SEDSRT, total_no_elements, DLS, DLSSRT, GNUCUM, GNU, PREVTM, NSET,
+      ! IOTIME, IOEND, IODATA, IOELEM, ICLNUM, IOCORS, NSED, ICLIST, PNETTO,
+      ! EPOT, ERZA, ESOILA, EINTA, DRAINA, CSTORE, QH, IORES, QVSV, top_cell_no,
+      ! SD, TS, ZVSPSL, ZGRUND, QVSH, QOC, GETHRF, QBKB, QBKF, QVSSPR, VSPSI,
+      ! VSTHE, FBETA, FDEL, RHOSED, PLS, GINFD, GINFS, GNUBK, QSED, DCBED, 
+      ! DCBSED, ZERO, ARBDEP, CCCC, SSSS, NCOLMB, CCCCW, QVSWEL, cellarea,
+      ! NVSWLI, QVSWLI, WBERR, BALANC, CAREA, NELEE, LLEE
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      DOUBLE PRECISION, INTENT(IN) :: RESNOW
+      LOGICAL, INTENT(IN)          :: NOW
+      CHARACTER(LEN=*), INTENT(IN) :: AIOSTO
+
+      ! Locals
+      DOUBLE PRECISION, PARAMETER  :: UNDEF = 999.999D0
       INTEGER :: SFSED1, SFSED2
-      DOUBLEPRECISION :: DUM1 (4)
-      DOUBLEPRECISION :: UNDEF
-      PARAMETER (UNDEF = 999.999)
+      DOUBLE PRECISION :: DUM1 (4)
       INTEGER :: ICLASS, ICORS, IDATA, IEL, ISET, IW, J, K, KK, NOUT
-      DOUBLEPRECISION :: BUFFER (NELEE), COLBUF (LLEE)
-      DOUBLEPRECISION :: dumo, dum0
+      DOUBLE PRECISION :: BUFFER (NELEE), COLBUF (LLEE)
+      DOUBLE PRECISION :: DUMO, DUM0
 
       LOGICAL :: COLUMN
-!^^^^ sb 4/2/99
-!^^^^ cummulative erosion output data type 44
-!^^^^ gnucum = mm
-!^^^^ gnu m/s
-      INTEGER :: sed
-!     * DO loop variable limits
-      SFSED1 (ICORS) = MAX (1, ICORS)
+      INTEGER :: SED
 
-      SFSED2 (ICORS) = MAX (NSED * (1 - ICORS), ICORS)
-!
-!----------------------------------------------------------------------*
-!
-! --- LOOP OVER ALL OUTPUT SETS
-!
-!^^^^ sb 4/2/99
-!^^^^ cummulative soil loss data type 44
-      IF (.NOT.SEDSRT) THEN
-         DO 653 J = 1, total_no_elements
-            IF (NOTZERO(DLS (J))) SEDSRT = .TRUE.
-            DLSSRT (J) = DLS (J)
-653      END DO
-      ENDIF
-      DO 654 J = 1, total_no_elements
-         GNUCUM (J) = GNUCUM (J) + GNU (J) * (RESNOW - PREVTM) * 3600 * &
-            1000
+      !----------------------------------------------------------------------*
 
+      ! --- LOOP OVER ALL OUTPUT SETS
+      !
+      !^^^^ sb 4/2/99
+      !^^^^ cummulative soil loss data type 44
+      IF (.NOT. SEDSRT) THEN
+         DO J = 1, total_no_elements
+            IF (NOTZERO(DLS(J))) SEDSRT = .TRUE.
+            DLSSRT(J) = DLS(J)
+         END DO
+      END IF
 
-654   END DO
+      DO J = 1, total_no_elements
+         GNUCUM(J) = GNUCUM(J) + GNU(J) * (RESNOW - PREVTM) * 3600.0D0 * 1000.0D0
+      END DO
 
-      DO 100 ISET = 1, NSET
+      output_loop: DO ISET = 1, NSET
          COLUMN = .FALSE.
-!
-! CHECK IF DATA FOR THIS SET IS TO BE OUTPUT NOW.
-! REJECT DATA IF COMPUTATIONAL TIME HAS NOT REACHED NEXT OUTPUT TIME or
-! if no further output is required (unless input argument NOW is .TRUE.)
-! OR DATA IS NOT REQUESTED TO BE OUTPUT ON THIS CALL TO THIS ROUTINE.
-!
-         IF (.NOT.NOW) THEN
-            IF (RESNOW.LT.IOTIME (ISET) - 1.0E-6) GOTO 100
-            IF (IOTIME (ISET) .GE.IOEND (ISET) ) GOTO 100
-         ENDIF
-!
-         IDATA = IODATA (ISET)
-         IF (IDATA.LT.1.OR.IDATA.GT.MIN (LEN (AIOSTO), 50) ) GOTO 100
-         IF (AIOSTO (IDATA:IDATA) .NE.'1') GOTO 100
-!
-! SET UP NUMBER OF DATA ITEMS TO BE WRITTEN
-!
-         IF (IOELEM (ISET) .GT.0) THEN
+
+         ! CHECK IF DATA FOR THIS SET IS TO BE OUTPUT NOW.
+         IF (.NOT. NOW) THEN
+            IF (RESNOW < IOTIME(ISET) - 1.0D-6) CYCLE output_loop
+            IF (IOTIME(ISET) >= IOEND(ISET)) CYCLE output_loop
+         END IF
+
+         IDATA = IODATA(ISET)
+         IF (IDATA < 1 .OR. IDATA > MIN(LEN(AIOSTO), 50)) CYCLE output_loop
+         IF (AIOSTO(IDATA:IDATA) /= '1') CYCLE output_loop
+
+         ! SET UP NUMBER OF DATA ITEMS TO BE WRITTEN
+         IF (IOELEM(ISET) > 0) THEN
             NOUT = 1
          ELSE
-            ICLASS = - IOELEM (ISET)
-            NOUT = ICLNUM (ICLASS)
-         ENDIF
-         ICORS = IOCORS (ISET)
-!
-! ASSEMBLE OUTPUT BUFFER
-!
+            ICLASS = -IOELEM(ISET)
+            NOUT = ICLNUM(ICLASS)
+         END IF
+         ICORS = IOCORS(ISET)
 
-         DO 50 J = 1, NOUT
-            IF (IOELEM (ISET) .GT.0) THEN
-               IEL = IOELEM (ISET)
+         ! Array limits for sediment loops
+         SFSED1 = MAX(1, ICORS)
+         SFSED2 = MAX(NSED * (1 - ICORS), ICORS)
+
+         ! ASSEMBLE OUTPUT BUFFER
+         DO J = 1, NOUT
+            IF (IOELEM(ISET) > 0) THEN
+               IEL = IOELEM(ISET)
             ELSE
-               IEL = ICLIST (J, ICLASS)
-            ENDIF
-!
-            IF (IODATA (ISET) .EQ.1) THEN
-               BUFFER (J) = PNETTO (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.2) THEN
-               BUFFER (J) = EPOT (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.3) THEN
-               BUFFER (J) = ERZA (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.4) THEN
-               BUFFER (J) = ESOILA (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.5) THEN
-               BUFFER (J) = EINTA (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.6) THEN
-               BUFFER (J) = DRAINA (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.7) THEN
-               BUFFER (J) = CSTORE (IEL)
-            ELSEIF (IODATA (ISET) .EQ.8) THEN
-               BUFFER (J) = QH (IEL) * 3600000.
-            ELSEIF (IODATA (ISET) .EQ.9) THEN
+               IEL = ICLIST(J, ICLASS)
+            END IF
+
+            SELECT CASE (IODATA(ISET))
+            CASE (1)
+               BUFFER(J) = PNETTO(IEL) * 3600000.0D0
+            CASE (2)
+               BUFFER(J) = EPOT(IEL) * 3600000.0D0
+            CASE (3)
+               BUFFER(J) = ERZA(IEL) * 3600000.0D0
+            CASE (4)
+               BUFFER(J) = ESOILA(IEL) * 3600000.0D0
+            CASE (5)
+               BUFFER(J) = EINTA(IEL) * 3600000.0D0
+            CASE (6)
+               BUFFER(J) = DRAINA(IEL) * 3600000.0D0
+            CASE (7)
+               BUFFER(J) = CSTORE(IEL)
+            CASE (8)
+               BUFFER(J) = QH(IEL) * 3600000.0D0
+            CASE (9)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ((QVSV (K, IEL) ), &
-                  K = 1, top_cell_no)
-            ELSEIF (IODATA (ISET) .EQ.10) THEN
-               BUFFER (J) = SD (IEL)
-            ELSEIF (IODATA (ISET) .EQ.11) THEN
-               BUFFER (J) = TS (IEL)
-            ELSEIF (IODATA (ISET) .EQ.12) THEN
-               BUFFER (J) = ZVSPSL (IEL) - ZGRUND (IEL)
-            ELSEIF (IODATA (ISET) .EQ.13) THEN
+               WRITE (IORES(ISET)) RESNOW, (QVSV(K, IEL), K = 1, top_cell_no)
+            CASE (10)
+               BUFFER(J) = SD(IEL)
+            CASE (11)
+               BUFFER(J) = TS(IEL)
+            CASE (12)
+               BUFFER(J) = ZVSPSL(IEL) - ZGRUND(IEL)
+            CASE (13)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ( ((QVSH (KK, K, IEL) &
-                  ), K = 1, top_cell_no), KK = 1, 4)
-            ELSEIF (IODATA (ISET) .EQ.14) THEN
+               WRITE (IORES(ISET)) RESNOW, (((QVSH(KK, K, IEL)), K = 1, top_cell_no), KK = 1, 4)
+            CASE (14)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ((QOC (IEL, K) ), &
-                  K = 1, 4)
-            ELSEIF (IODATA (ISET) .EQ.15) THEN
-               BUFFER (J) = GETHRF (IEL) - ZGRUND (IEL)
-            ELSEIF (IODATA (ISET) .EQ.16) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.17) THEN
-               IF (IEL.LE.total_no_links) THEN
-                  BUFFER (J) = QBKB (IEL, 1) + QBKB (IEL, 2) + QBKF ( &
-                     IEL, 1) + QBKF (IEL, 2)
+               WRITE (IORES(ISET)) RESNOW, (QOC(IEL, K), K = 1, 4)
+            CASE (15)
+               BUFFER(J) = GETHRF(IEL) - ZGRUND(IEL)
+            CASE (16)
+               BUFFER(J) = UNDEF
+            CASE (17)
+               IF (IEL <= total_no_links) THEN
+                  BUFFER(J) = QBKB(IEL, 1) + QBKB(IEL, 2) + QBKF(IEL, 1) + QBKF(IEL, 2)
                ELSE
-                  BUFFER (J) = UNDEF
-               ENDIF
-            ELSEIF (IODATA (ISET) .EQ.18) THEN
-               BUFFER (J) = QVSSPR (IEL)
-            ELSEIF (IODATA (ISET) .EQ.19) THEN
+                  BUFFER(J) = UNDEF
+               END IF
+            CASE (18)
+               BUFFER(J) = QVSSPR(IEL)
+            CASE (19)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ((VSPSI (K, IEL) ), &
-                  K = 1, top_cell_no)
-            ELSEIF (IODATA (ISET) .EQ.20) THEN
+               WRITE (IORES(ISET)) RESNOW, (VSPSI(K, IEL), K = 1, top_cell_no)
+            CASE (20)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ((VSTHE (K, IEL) ), &
-                  K = 1, top_cell_no)
-            ELSEIF (IODATA (ISET) .EQ.21) THEN
-               DUM0 = DLS (IEL)
-               IF (ICORS.GT.0) DUM0 = DUM0 * FBETA (IEL, ICORS)
-               BUFFER (J) = 1D3 * DUM0
-            ELSEIF (IODATA (ISET) .EQ.22) THEN
-               DUM0 = 0
-               DO 220 SED = SFSED1 (ICORS), SFSED2 (ICORS)
-                  DUM0 = DUM0 + FDEL (IEL, SED)
-220            END DO
-               BUFFER (J) = 1D3 * RHOSED * (1 - PLS (IEL) ) * DUM0
-            ELSEIF (IODATA (ISET) .EQ.23) THEN
-               BUFFER (J) = GINFD (IEL, ICORS)
-            ELSEIF (IODATA (ISET) .EQ.24) THEN
-               BUFFER (J) = GINFS (IEL, ICORS)
-            ELSEIF (IODATA (ISET) .EQ.25) THEN
-               BUFFER (J) = 1000.0 * 24.0D0 * 3600.0D0 * GNU (IEL)
-            ELSEIF (IODATA (ISET) .EQ.26) THEN
-               BUFFER (J) = 1000.0 * 24.0D0 * 3600.0D0 * GNUBK (IEL)
-            ELSEIF (IODATA (ISET) .EQ.27) THEN
+               WRITE (IORES(ISET)) RESNOW, (VSTHE(K, IEL), K = 1, top_cell_no)
+            CASE (21)
+               DUM0 = DLS(IEL)
+               IF (ICORS > 0) DUM0 = DUM0 * FBETA(IEL, ICORS)
+               BUFFER(J) = 1.0D3 * DUM0
+            CASE (22)
+               DUM0 = 0.0D0
+               DO SED = SFSED1, SFSED2
+                  DUM0 = DUM0 + FDEL(IEL, SED)
+               END DO
+               BUFFER(J) = 1.0D3 * RHOSED * (1.0D0 - PLS(IEL)) * DUM0
+            CASE (23)
+               BUFFER(J) = GINFD(IEL, ICORS)
+            CASE (24)
+               BUFFER(J) = GINFS(IEL, ICORS)
+            CASE (25)
+               BUFFER(J) = 1000.0D0 * 24.0D0 * 3600.0D0 * GNU(IEL)
+            CASE (26)
+               BUFFER(J) = 1000.0D0 * 24.0D0 * 3600.0D0 * GNUBK(IEL)
+            CASE (27)
                COLUMN = .TRUE.
-               DO 274 K = 1, 4
-                  DUM0 = 0
-                  DO 270 SED = SFSED1 (ICORS), SFSED2 (ICORS)
-                     DUM0 = DUM0 + QSED (IEL, SED, K)
-270               END DO
-                  DUM1 (K) = DUM0 * RHOSED
-274            END DO
-               WRITE (IORES (ISET) ) RESNOW, DUM1
-            ELSEIF (IODATA (ISET) .EQ.28) THEN
-               DUM0 = 0
-               DO 280 SED = SFSED1 (ICORS), SFSED2 (ICORS)
-                  DUM0 = DUM0 + QSED (IEL, SED, 1) + QSED (IEL, SED, 2) &
-                     + QSED (IEL, SED, 3) + QSED (IEL, SED, 4)
-280            END DO
-               BUFFER (J) = DUM0 * RHOSED
-            ELSEIF (IODATA (ISET) .EQ.29) THEN
-               IF (DCBED (IEL) .gt.0) then
-                  BUFFER (J) = DCBSED (IEL, ICORS) / DCBED (IEL)
+               DO K = 1, 4
+                  DUM0 = 0.0D0
+                  DO SED = SFSED1, SFSED2
+                     DUM0 = DUM0 + QSED(IEL, SED, K)
+                  END DO
+                  DUM1(K) = DUM0 * RHOSED
+               END DO
+               WRITE (IORES(ISET)) RESNOW, DUM1
+            CASE (28)
+               DUM0 = 0.0D0
+               DO SED = SFSED1, SFSED2
+                  DUM0 = DUM0 + QSED(IEL, SED, 1) + QSED(IEL, SED, 2) + &
+                                QSED(IEL, SED, 3) + QSED(IEL, SED, 4)
+               END DO
+               BUFFER(J) = DUM0 * RHOSED
+            CASE (29)
+               IF (DCBED(IEL) > 0.0D0) THEN
+                  BUFFER(J) = DCBSED(IEL, ICORS) / DCBED(IEL)
                ELSE
-                  BUFFER (J) = ZERO
-               ENDIF
-            ELSEIF (IODATA (ISET) .EQ.30) THEN
+                  BUFFER(J) = ZERO
+               END IF
+            CASE (30)
                COLUMN = .TRUE.
-               DO 304 K = 1, 4
-                  DUM0 = 0
-                  DO 300 SED = SFSED1 (ICORS), SFSED2 (ICORS)
-                     if (QOC (IEL, K) .gt.ZERO) then
-                        DUM0 = DUM0 + QSED (IEL, SED, K) / QOC (IEL, K)
-                     else
+               DO K = 1, 4
+                  DUM0 = 0.0D0
+                  DO SED = SFSED1, SFSED2
+                     IF (QOC(IEL, K) > ZERO) THEN
+                        DUM0 = DUM0 + QSED(IEL, SED, K) / QOC(IEL, K)
+                     ELSE
                         DUMO = ZERO
-                     endif
-300               END DO
-                  DUM1 (K) = 1D3 * DUM0 * RHOSED
-304            END DO
-               WRITE (IORES (ISET) ) RESNOW, (DUM1 (K), K = 1, 4)
-            ELSEIF (IODATA (ISET) .EQ.31) THEN
-               BUFFER (J) = ARBDEP (IEL)
-            ELSEIF (IODATA (ISET) .EQ.32) THEN
+                     END IF
+                  END DO
+                  DUM1(K) = 1.0D3 * DUM0 * RHOSED
+               END DO
+               WRITE (IORES(ISET)) RESNOW, (DUM1(K), K = 1, 4)
+            CASE (31)
+               BUFFER(J) = ARBDEP(IEL)
+            CASE (32)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ((CCCC (IEL, K, ICORS) &
-                  ), K = 1, top_cell_no)
-            ELSEIF (IODATA (ISET) .EQ.33) THEN
+               WRITE (IORES(ISET)) RESNOW, (CCCC(IEL, K, ICORS), K = 1, top_cell_no)
+            CASE (33)
                COLUMN = .TRUE.
-               WRITE (IORES (ISET) ) RESNOW, ((SSSS (IEL, K, ICORS) &
-                  ), K = 1, top_cell_no)
-            ELSEIF (IODATA (ISET) .EQ.34) THEN
-               BUFFER (J) = CCCC (IEL, top_cell_no, ICORS)
-            ELSEIF (IODATA (ISET) .EQ.35) THEN
-               BUFFER (J) = CCCC (IEL, top_cell_no - 1, ICORS)
-            ELSEIF (IODATA (ISET) .EQ.36) THEN
-               BUFFER (J) = CCCC (IEL, top_cell_no - 2, ICORS)
-            ELSEIF (IODATA (ISET) .EQ.37) THEN
-               BUFFER (J) = CCCC (IEL, NCOLMB (IEL), ICORS)
-            ELSEIF (IODATA (ISET) .EQ.38) THEN
-               BUFFER (J) = CCCCW (IEL, ICORS)
-            ELSEIF (IODATA (ISET) .EQ.39) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.40) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.41) THEN
-
-               BUFFER (J) = QVSWEL (IEL) * cellarea (IEL)
-!>>> well abstraction rates - TEMPORARY! 960628
-            ELSEIF (IODATA (ISET) .EQ.42) THEN
+               WRITE (IORES(ISET)) RESNOW, (SSSS(IEL, K, ICORS), K = 1, top_cell_no)
+            CASE (34)
+               BUFFER(J) = CCCC(IEL, top_cell_no, ICORS)
+            CASE (35)
+               BUFFER(J) = CCCC(IEL, top_cell_no - 1, ICORS)
+            CASE (36)
+               BUFFER(J) = CCCC(IEL, top_cell_no - 2, ICORS)
+            CASE (37)
+               BUFFER(J) = CCCC(IEL, NCOLMB(IEL), ICORS)
+            CASE (38)
+               BUFFER(J) = CCCCW(IEL, ICORS)
+            CASE (39:40)
+               BUFFER(J) = UNDEF
+            CASE (41)
+               BUFFER(J) = QVSWEL(IEL) * cellarea(IEL)
+            CASE (42)
                COLUMN = .TRUE.
-               IW = NVSWLI (IEL)
-               IF (IW.GT.0) THEN
-                  DO 340 K = 1, top_cell_no
-                     COLBUF (K) = QVSWLI (K, IW) * cellarea (IEL)
-340               END DO
+               IW = NVSWLI(IEL)
+               IF (IW > 0) THEN
+                  DO K = 1, top_cell_no
+                     COLBUF(K) = QVSWLI(K, IW) * cellarea(IEL)
+                  END DO
                ELSE
-                  DO 345 K = 1, top_cell_no
-                     COLBUF (K) = zero
-345               END DO
-               ENDIF
+                  DO K = 1, top_cell_no
+                     COLBUF(K) = 0.0D0
+                  END DO
+               END IF
+               WRITE (IORES(ISET)) RESNOW, (COLBUF(K), K = 1, top_cell_no)
+            CASE (43)
+               BUFFER(J) = WBERR(IEL)
+            CASE (44)
+               BUFFER(J) = GNUCUM(IEL) - (DLS(IEL) - DLSSRT(IEL)) * 1000.0D0
+            CASE (45:49)
+               BUFFER(J) = UNDEF
+            CASE (50)
+               BUFFER(J) = BALANC(J) * 1000.0D0 / CAREA
+            END SELECT
 
-               WRITE (IORES (ISET) ) RESNOW, (COLBUF (K), K = 1, top_cell_no)
-!<<<
-            ELSEIF (IODATA (ISET) .EQ.43) THEN
-               BUFFER (J) = WBERR (IEL)
-            ELSEIF (IODATA (ISET) .EQ.44) THEN
-!^^^^ sb 4/2/99
-!^^^^ cummulative soil loss output data type 44
-!^^^^^ cumulative erosion - depth of loose soil
-               BUFFER (J) = GNUCUM (IEL) - (DLS (IEL) - DLSSRT (IEL) ) &
-                  * 1000
-            ELSEIF (IODATA (ISET) .EQ.45) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.46) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.47) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.48) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.49) THEN
-               BUFFER (J) = UNDEF
-            ELSEIF (IODATA (ISET) .EQ.50) THEN
-               BUFFER (J) = BALANC (J) * 1000.0D0 / CAREA
-            ENDIF
-!
-50       END DO
-!
+         END DO
 
-         IF (.NOT.COLUMN) WRITE (IORES (ISET) ) RESNOW, (BUFFER (J), &
-            J = 1, NOUT)
-!
-         IOTIME (ISET) = RESNOW + IOSTEP (ISET)
-!
-100   END DO
-!
-!^^^^ sb 4/2/99
-!^^^^ cummulative erosion output data type 44
+         IF (.NOT. COLUMN) WRITE (IORES(ISET)) RESNOW, (BUFFER(J), J = 1, NOUT)
+
+         IOTIME(ISET) = RESNOW + IOSTEP(ISET)
+
+      END DO output_loop
 
       PREVTM = RESNOW
    END SUBROUTINE FRRESP
-! 14/3/95
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 
-!SSSSSS SUBROUTINE FRSORT
+   ! 14/3/95
+   !
+   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !SSSSSS SUBROUTINE FRSORT
    SUBROUTINE FRSORT
-!
-! SORT OF ALL ELEMENTS ON WATER ELEVATION (HIGHEST ELEVATION FIRST)
-! OR WATER TABLE ELEVATION IF NO SURFACE WATER IS PRESENT IN A GRID SQUA
-!   BANK ELEMENT
-! OR CHANNEL BED ELEVATION IF NO SURFACE WATER IS PRESENT IN A CHANNEL L
-!
-! SURFACE WATER ELEVATIONS AND INDICES STORED IN COLUMN 1 OF ELEV AND IS
-! WATER TABLE ELEVATIONS AND INDICES STORED IN COLUMN 2 OF ELEV AND ISTE
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
+   !
+   ! SORT OF ALL ELEMENTS ON WATER ELEVATION (HIGHEST ELEVATION FIRST)
+   ! OR WATER TABLE ELEVATION IF NO SURFACE WATER IS PRESENT IN A GRID SQUARE
+   !   BANK ELEMENT
+   ! OR CHANNEL BED ELEVATION IF NO SURFACE WATER IS PRESENT IN A CHANNEL LINK
+   !
+   ! SURFACE WATER ELEVATIONS AND INDICES STORED IN COLUMN 1 OF ELEV AND ISTEMP
+   ! WATER TABLE ELEVATIONS AND INDICES STORED IN COLUMN 2 OF ELEV AND ISTEMP
+   !
+   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !
 
-!
-      DOUBLEPRECISION ELEV (NELEE, 2)
+      ! Assumed external module dependencies providing global variables:
+      ! NELEE, total_no_elements, ISORT, ICMREF, LINKNS, ZVSPSL, GETHRF,
+      ! ZGRUND, zero
+
+      IMPLICIT NONE
+
+      ! Locals, etc
+      DOUBLE PRECISION :: ELEV (NELEE, 2)
       INTEGER :: ISTEMP (NELEE, 2), NSORT (2)
-      INTEGER :: ns1, ns2, i, iel, itype, jel, il, L, ndum, nstart, nend, &
-         jump, m, k, n, itemp, i1, i2, is
-      DOUBLEPRECISION :: hsz1, hsz2, zhigh, zlow, temp
-      LOGICAL :: iscycle
+      INTEGER :: NS1, NS2, I, IEL, ITYPE, JEL, IL, L, NDUM, NSTART, NEND, &
+                 JUMP, M, K, N, ITEMP, I1, I2, IS
+      DOUBLE PRECISION :: HSZ1, HSZ2, ZHIGH, ZLOW, TEMP
 
-      IF (total_no_elements.EQ.1) RETURN
+      !----------------------------------------------------------------------*
+
+      IF (total_no_elements == 1) RETURN
+      
       NS1 = 0
       NS2 = 0
-!
-! PUT ELEVATIONS INTO LOCAL ARRAYS, DIVIDED INTO SURFACE AND WATER TABLE
-!   ELEMENTS (NB. 'GHOST' PHREATIC SURFACE LEVELS ARE SET UP FOR THE CHA
-!   EQUAL TO THE MAX. PHREATIC ELEVATION OF THE NEIGHBOURING ELEMENTS)
-!
-      DO 100 I = 1, total_no_elements
-!
+
+      ! PUT ELEVATIONS INTO LOCAL ARRAYS, DIVIDED INTO SURFACE AND WATER TABLE
+      !   ELEMENTS (NB. 'GHOST' PHREATIC SURFACE LEVELS ARE SET UP FOR THE CHANNELS
+      !   EQUAL TO THE MAX. PHREATIC ELEVATION OF THE NEIGHBOURING ELEMENTS)
+      !
+      DO I = 1, total_no_elements
+
          IEL = ISORT (I)
          ITYPE = ICMREF (IEL, 1)
-         IF (ITYPE.EQ.3) THEN
+         
+         IF (ITYPE == 3) THEN
             HSZ1 = zero
             HSZ2 = zero
-            IF (LINKNS (IEL) ) THEN
+            IF (LINKNS (IEL)) THEN
                JEL = ICMREF (IEL, 5)
-               IF (JEL.GT.0) HSZ1 = ZVSPSL (JEL)
+               IF (JEL > 0) HSZ1 = ZVSPSL (JEL)
                JEL = ICMREF (IEL, 7)
-               IF (JEL.GT.0) HSZ2 = ZVSPSL (JEL)
+               IF (JEL > 0) HSZ2 = ZVSPSL (JEL)
             ELSE
                JEL = ICMREF (IEL, 6)
-               IF (JEL.GT.0) HSZ1 = ZVSPSL (JEL)
+               IF (JEL > 0) HSZ1 = ZVSPSL (JEL)
                JEL = ICMREF (IEL, 8)
-               IF (JEL.GT.0) HSZ2 = ZVSPSL (JEL)
-            ENDIF
+               IF (JEL > 0) HSZ2 = ZVSPSL (JEL)
+            END IF
             ZVSPSL (IEL) = MAX (HSZ1, HSZ2)
-         ENDIF
-!
+         END IF
+
          IL = ICMREF (IEL, 4)
-         IF (GETHRF (IEL) - ZGRUND (IEL) .GT.1.0E-8) THEN
+         IF (GETHRF (IEL) - ZGRUND (IEL) > 1.0E-8) THEN
             NS1 = NS1 + 1
             ELEV (NS1, 1) = GETHRF (IEL)
             ISTEMP (NS1, 1) = IEL
@@ -2948,465 +2767,456 @@ CONTAINS
             NS2 = NS2 + 1
             ELEV (NS2, 2) = ZVSPSL (IEL)
             ISTEMP (NS2, 2) = IEL
-         ENDIF
-100   END DO
-!
+         END IF
+         
+      END DO
+
       NSORT (1) = NS1
       NSORT (2) = NS2
-!
-! --- SORT ON WATER SURFACE ELEVATIONS, THEN WATER TABLE ELEVATIONS
-!
-      DO 500 L = 1, 2
+
+      ! --- SORT ON WATER SURFACE ELEVATIONS, THEN WATER TABLE ELEVATIONS
+      !
+      column_loop: DO L = 1, 2
          NDUM = NSORT (L)
-         !
+         
          ! - CHECK FOR START AND END OF ARRAY TO BE SORTED
          !
          ! PASS ONE (HIGHEST TO LOWEST)
          ! - FIND FIRST POINT (IF ANY) WHERE ELEVATIONS START INCREASING
-         iscycle=.FALSE.
+         NSTART = 0
          DO I = 1, NDUM - 1
-            IF(iscycle) CYCLE
-            IF (ELEV (I + 1, L) .GT.ELEV (I, L) ) THEN
+            IF (ELEV (I + 1, L) > ELEV (I, L)) THEN
                NSTART = I
-               iscycle=.TRUE. !GOTO 220
-            ENDIF
-         ENDDO
-         !
+               EXIT
+            END IF
+         END DO
+         
          ! - IF NO INCREASING ELEVATIONS FOUND, THE ARRAY IS ALREADY SORTED
-         !
-         IF(.NOT.iscycle) CYCLE !GOTO 500
-         !
+         IF (NSTART == 0) CYCLE column_loop
+         
          ! - FIND HIGHEST POINT IN REST OF ARRAY
-         !
-220      ZHIGH = zero
-         DO 240 I = NSTART + 1, NSORT (L)
-            IF (ELEV (I, L) .GT.ZHIGH) ZHIGH = ELEV (I, L)
-240      ENDDO
-         !
+         ZHIGH = zero
+         DO I = NSTART + 1, NSORT (L)
+            IF (ELEV (I, L) > ZHIGH) ZHIGH = ELEV (I, L)
+         END DO
+         
          ! - FIND POSITION IN SORTED SECTION OF ARRAY OF ELEVATION 'HIGH'
-         iscycle=.FALSE.
          DO I = 1, NSTART
-            IF(iscycle) CYCLE
-            IF (ELEV (I, L) .LT.ZHIGH) THEN
+            IF (ELEV (I, L) < ZHIGH) THEN
                NSTART = I
-               iscycle=.TRUE. !GOTO 300
-            ENDIF
-         ENDDO
-         !
+               EXIT
+            END IF
+         END DO
+         
          ! PASS TWO (LOWEST TO HIGHEST)
          ! - FIND FIRST POINT (IF ANY) WHERE ELEVATIONS START DECREASING
-         !
-         !300
-         iscycle=.FALSE.
-         DO I = NDUM, 2, - 1
-            IF(iscycle) CYCLE
-            IF (ELEV (I - 1, L) .LT.ELEV (I, L) ) THEN
+         NEND = 0
+         DO I = NDUM, 2, -1
+            IF (ELEV (I - 1, L) < ELEV (I, L)) THEN
                NEND = I
-               iscycle=.TRUE. !GOTO 320
-            ENDIF
-         ENDDO
-         !
+               EXIT
+            END IF
+         END DO
+         
          ! - IF NO DECREASING ELEVATIONS FOUND, THE ARRAY IS ALREADY SORTED
-         ! (NB THIS SHOULD NEVER HAPPEN, AS IT SHOULD BE CHECKED IN PASS ONE)
-         !
-         IF(.NOT.iscycle) CYCLE !GOTO 500
-         !
+         IF (NEND == 0) CYCLE column_loop
+         
          ! - FIND LOWEST POINT IN REST OF ARRAY
-         !
-320      ZLOW = 1.0E10
-         DO I = NEND-1, 1, - 1
-            IF (ELEV (I, L) .LT.ZLOW) ZLOW = ELEV (I, L)
-         ENDDO
-         !
+         ZLOW = 1.0E10
+         DO I = NEND - 1, 1, -1
+            IF (ELEV (I, L) < ZLOW) ZLOW = ELEV (I, L)
+         END DO
+         
          ! - FIND POSITION IN SORTED SECTION OF ARRAY OF ELEVATION 'ZLOW'
-         !
-         iscycle=.FALSE.
-         DO I = NDUM, NEND, - 1
-            IF(iscycle) CYCLE
-            IF (ELEV (I, L) .GT.ZLOW) THEN
+         DO I = NDUM, NEND, -1
+            IF (ELEV (I, L) > ZLOW) THEN
                NEND = I
-               iscycle=.TRUE. !GOTO 400
-            ENDIF
-         ENDDO
-         !
-         ! --- SORT ON ARRAY BETWEEN NSTART AND NEND
-         !
-400      JUMP = NEND-NSTART + 1
-410      JUMP = JUMP / 2
-         IF (JUMP.NE.0) THEN
-            DO M = NSTART, NEND-JUMP
+               EXIT
+            END IF
+         END DO
+         
+         ! --- SORT ON ARRAY BETWEEN NSTART AND NEND (Shell Sort)
+         JUMP = NEND - NSTART + 1
+         
+         gap_loop: DO
+            JUMP = JUMP / 2
+            IF (JUMP == 0) EXIT gap_loop
+            
+            DO M = NSTART, NEND - JUMP
                K = M
-               DO
-420               N = K + JUMP
-                  IF (ELEV (K, L) .LT.ELEV (N, L) ) THEN
+               
+               inner_sort_loop: DO
+                  N = K + JUMP
+                  IF (ELEV (K, L) < ELEV (N, L)) THEN
+                     ! Swap indices
                      ITEMP = ISTEMP (K, L)
                      ISTEMP (K, L) = ISTEMP (N, L)
                      ISTEMP (N, L) = ITEMP
+                     
+                     ! Swap elevations
                      TEMP = ELEV (K, L)
                      ELEV (K, L) = ELEV (N, L)
                      ELEV (N, L) = TEMP
+                     
                      K = K - JUMP
-                     !IF (K.GT.0) GOTO 420
-                     IF(.NOT.(K.GT.0)) EXIT
-                  ENDIF
-                  EXIT
-               ENDDO
-            ENDDO
-            GOTO 410
-         ENDIF
-         !
+                     IF (K > 0) CYCLE inner_sort_loop
+                  END IF
+                  EXIT inner_sort_loop
+               END DO inner_sort_loop
+               
+            END DO
+         END DO gap_loop
+
          ! --- ARRAY ISTEMP IS SORTED
-         !
-500   END DO
-!
-! --- REASSEMBLE ISORT ARRAY
-!
+      END DO column_loop
+
+      ! --- REASSEMBLE ISORT ARRAY
+      !
       I1 = 1
       I2 = 1
       IS = 1
-!
-600   IF (NS1.GT.0) THEN
-         IF (NS2.EQ.0.OR.ZVSPSL (ISTEMP (I1, 1) ) .GT.ELEV (I2, 2) ) &
-            THEN
-            ISORT (IS) = ISTEMP (I1, 1)
-            I1 = I1 + 1
-            IS = IS + 1
-         ELSE
-            ISORT (IS) = ISTEMP (I2, 2)
-            I2 = I2 + 1
-            IS = IS + 1
-         ENDIF
-      ENDIF
-!
-      IF (I1.GT.NS1) THEN
-         DO 520 I = IS, total_no_elements
-            ISORT (I) = ISTEMP (I2, 2)
-            I2 = I2 + 1
-520      END DO
-         GOTO 700
-      ENDIF
-!
-      IF (I2.GT.NS2) THEN
-         DO 540 I = IS, total_no_elements
-            ISORT (I) = ISTEMP (I1, 1)
-            I1 = I1 + 1
-540      END DO
-         GOTO 700
-      ENDIF
-!
-      GOTO 600
-!
-700   CONTINUE
-!
+
+      reassemble_loop: DO
+         IF (NS1 > 0) THEN
+            IF (NS2 == 0 .OR. ZVSPSL (ISTEMP (I1, 1)) > ELEV (I2, 2)) THEN
+               ISORT (IS) = ISTEMP (I1, 1)
+               I1 = I1 + 1
+               IS = IS + 1
+            ELSE
+               ISORT (IS) = ISTEMP (I2, 2)
+               I2 = I2 + 1
+               IS = IS + 1
+            END IF
+         END IF
+
+         IF (I1 > NS1) THEN
+            DO I = IS, total_no_elements
+               ISORT (I) = ISTEMP (I2, 2)
+               I2 = I2 + 1
+            END DO
+            EXIT reassemble_loop
+         END IF
+
+         IF (I2 > NS2) THEN
+            DO I = IS, total_no_elements
+               ISORT (I) = ISTEMP (I1, 1)
+               I1 = I1 + 1
+            END DO
+            EXIT reassemble_loop
+         END IF
+      END DO reassemble_loop
+
       RETURN
-!
-1000  FORMAT(' total_no_elements= ',I4,'  NS1= ',I4,' NS2= ',I4,' SFCMAX(*)= ',F7.1, &
-      &       ' sfcmin=',f7.1,' SZMAX(+)= ',F7.1,' szmin=',f7.1)
-1010  FORMAT(' ',I4,' ',I4,' |',A68)
-!
+
+      ! FORMAT STATEMENTS
+1000  FORMAT(' total_no_elements= ', I4, '  NS1= ', I4, ' NS2= ', I4, ' SFCMAX(*)= ', F7.1, &
+             ' sfcmin=', f7.1, ' SZMAX(+)= ', F7.1, ' szmin=', f7.1)
+1010  FORMAT(' ', I4, ' ', I4, ' |', A68)
+
    END SUBROUTINE FRSORT
 
 
 
 
-!SSSSSS SUBROUTINE INBK
+   !SSSSSS SUBROUTINE INBK
    SUBROUTINE INBK
-!----------------------------------------------------------------------*
-!
-! SUBROUTINE TO READ IN INPUT DATA FOR BANK COMPONENT
-!
-! INPUT METHODS ARE:
-!  1  SET VALUE = ADJACENT GRID VALUE
-!                 (OR ADJACENT BANK-FULL ELEV. FOR G. LEVEL)
-!  2  SET VALUE = GIVEN DEFAULT VALUE
-!  3  VALUE GIVEN FOR EACH DATA CLASS (SEE OUTPUT DEFINITION FILE)
-!  4  VALUE GIVEN FOR EACH BANK ELEMENT
-!
-! Note that bank widths are not set here.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/BK/INBK/4.2
-! Modifications:
-! RAH  941001 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL (AL.P).
-!  GP  940816  4.0  Don't set NLYRC,I/CATUZ (see AL.D,FRRESC), N/ICTUZR
-!                   (see AL.D), NLYR,NTSOIL,ZLYRBT (see VSREAD,VSCONC).
-!                   Replace HSZ with ZVSPSL (see AL.C).
-! RAH  980713  4.2  Explicit typing.
-!      980730       Don't support INTYPE=3 (was incorrect - see BR/__).
-!                   New local DZG.
-!JE   JAN 2009      Loop restructure for AD
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   ! SUBROUTINE TO READ IN INPUT DATA FOR BANK COMPONENT
+   !
+   ! INPUT METHODS ARE:
+   !  1  SET VALUE = ADJACENT GRID VALUE
+   !                 (OR ADJACENT BANK-FULL ELEV. FOR G. LEVEL)
+   !  2  SET VALUE = GIVEN DEFAULT VALUE
+   !  3  VALUE GIVEN FOR EACH DATA CLASS (SEE OUTPUT DEFINITION FILE)
+   !  4  VALUE GIVEN FOR EACH BANK ELEMENT
+   !
+   ! Note that bank widths are not set here.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/BK/INBK/4.2
+   ! Modifications:
+   ! RAH  941001 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL (AL.P).
+   !  GP  940816  4.0  Don't set NLYRC,I/CATUZ (see AL.D,FRRESC), N/ICTUZR
+   !                   (see AL.D), NLYR,NTSOIL,ZLYRBT (see VSREAD,VSCONC).
+   !                   Replace HSZ with ZVSPSL (see AL.C).
+   ! RAH  980713  4.2  Explicit typing.
+   !      980730       Don't support INTYPE=3 (was incorrect - see BR/__).
+   !                   New local DZG.
+   ! JE   JAN 2009     Loop restructure for AD
+   !----------------------------------------------------------------------*
+   ! Commons and constants
 
+      ! Assumed external module dependencies providing global variables:
+      ! BKD, TITLE, PPPRI, NGDBGN, total_no_elements, IDUM, DUMMY, zero,
+      ! ICMREF, ZGRUND, ZBFULL, NMC, NRAINC, NVC, STRXX, STRYY, SD,
+      ! RHOSAR, ZVSPSL, GETHRF, SETHRF, total_no_links, FFFATAL, ERROR
 
-! Imported constants
-!     SPEC.AL          NCLASS,NELEE,NLFEE
-! Input common
-!     SPEC.AL          BKD,FATAL,NEL,NGDBGN,NLF,PRI
-!                      ICLIST(NELEE,NCLASS),ICLNUM(NCLASS)
-!                      ICMREF(NELEE,8)
-!                      ZBFULL(NLFEE)
-! In|out common
-!     SPEC.AL             NMC(NEL),NRAINC(NEL),   NVC(NEL)
-!                      RHOSAR(NEL),ZGRUND(NEL)
-!                         HRF(NEL),    SD(NEL),ZVSPSL(NEL)
-! Workspace common
-!     SPEC.AL           IDUM(NGDBGN:NEL)
-!                      DUMMY(NGDBGN:NEL)
-! Locals, etc
+      IMPLICIT NONE
+
+      ! Locals, etc
       INTEGER :: I, IEL, ICOUNT, IDATA, IFAULT, IL, INTYPE, ITYPE
       INTEGER :: J, JEL, NVALUE
       INTEGER :: IVALUE (NLFEE * 2), IELEM (NLFEE * 2)
-      DOUBLEPRECISION DFAULT, DZG, VALUE (NLFEE * 2)
-!CHARACTER (LEN=80) :: TITLE
-      LOGICAL :: BINBKD, INTEGR (13), g70
-!
+      DOUBLE PRECISION :: DFAULT, DZG, VALUE (NLFEE * 2)
+      LOGICAL :: BINBKD, found_adjacent
 
-      DATA INTEGR / .FALSE., .TRUE., .TRUE., .TRUE., .TRUE., .FALSE., &
-         .FALSE., .TRUE., .TRUE., .FALSE., .FALSE., .FALSE., .FALSE. /
-!----------------------------------------------------------------------*
-!
-! READ TITLE, FLAG FOR PRINTING INITIALISATION DATA
-!:BK1
-      READ (BKD, 1000) TITLE
-      READ (BKD, 1100) BINBKD
-!
-! ----- LOOP OVER INPUT DATA TYPES
-!
-      out500 : DO IDATA = 1, 13
-         !     INITIALISE DUMMY ARRAYS
+      ! Modern array constructor replacing the legacy DATA statement
+      LOGICAL, PARAMETER :: INTEGR(13) = [.FALSE., .TRUE., .TRUE., .TRUE., .TRUE., .FALSE., &
+         .FALSE., .TRUE., .TRUE., .FALSE., .FALSE., .FALSE., .FALSE.]
+
+      !----------------------------------------------------------------------*
+      !
+      ! READ TITLE, FLAG FOR PRINTING INITIALISATION DATA
+      ! :BK1
+      READ (BKD, '(A)') TITLE
+      READ (BKD, '(L7)') BINBKD
+      
+      ! ----- LOOP OVER INPUT DATA TYPES
+      !
+      out500: DO IDATA = 1, 13
+         ! INITIALISE DUMMY ARRAYS
          DO IEL = NGDBGN, total_no_elements
             IDUM (IEL) = 0
             DUMMY (IEL) = zero
-         ENDDO
-         !     READ TITLE, INPUT METHOD, NUMBER OF FOLLOWING VALUES
-         !:BK3
-         READ (BKD, 1000) TITLE
-         IF (BINBKD) WRITE(PPPRI, 1000) TITLE
-         READ (BKD, 1200) INTYPE, NVALUE
+         END DO
+         
+         ! READ TITLE, INPUT METHOD, NUMBER OF FOLLOWING VALUES
+         ! :BK3
+         READ (BKD, '(A)') TITLE
+         IF (BINBKD) WRITE(PPPRI, '(A)') TITLE
+         READ (BKD, '(10I7)') INTYPE, NVALUE
+         
          !
+         ! TYPE 1: SET VALUE = VALUE AT ADJACENT GRID
+         ! ++++++++++++++++++++++++++++++++++++++++++
          !
-         !        TYPE 1: SET VALUE = VALUE AT ADJACENT GRID
-         !        ++++++++++++++++++++++++++++++++++++++++++
-         !
-         !         (except ZGRUND     = ZBFULL(il)
-         !             and ZVSPSL,HRF = value + ZGRUND - ZGRUND(jel) )
+         ! (except ZGRUND     = ZBFULL(il)
+         !     and ZVSPSL,HRF = value + ZGRUND - ZGRUND(jel) )
          !
          ! NB. CATCHMENT IS SCANNED TWICE. THE 2nd TIME THROUGH, ANY BANKS WITH
-         !    NO ADJACENT GRID ARE GIVEN THE VALUE OF THE 1st ADJACENT BANK FOUND
+         !     NO ADJACENT GRID ARE GIVEN THE VALUE OF THE 1st ADJACENT BANK FOUND
          !
-         IF (INTYPE.EQ.1) THEN
-            out95 : DO ICOUNT = 1, 2
-               out90 : DO IEL = NGDBGN, total_no_elements
+         IF (INTYPE == 1) THEN
+            out95: DO ICOUNT = 1, 2
+               out90: DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
-                  IF (ITYPE.NE.1.AND.ITYPE.NE.2) CYCLE out90 !GOTO 90
-                  !                                                 >>>>>>>
-                  !                  * find adjacent element
-                  g70 = .FALSE.
-                  out60 : DO J = 1, 4
-                     IF(g70) CYCLE out60
+                  IF (ITYPE /= 1 .AND. ITYPE /= 2) CYCLE out90
+                  
+                  ! * find adjacent element
+                  found_adjacent = .FALSE.
+                  
+                  out60: DO J = 1, 4
                      JEL = ICMREF (IEL, 4 + J)
-                     IF (JEL.GT.0) THEN
-                        IF (ICMREF (JEL, 1) .EQ.0) g70=.TRUE. !GOTO 70
-                     ENDIF
-                  ENDDO out60
-                  IF(.NOT. g70) THEN
-                     out65 : DO J = 1, 4
-                        IF(g70) CYCLE out65
+                     IF (JEL > 0) THEN
+                        IF (ICMREF (JEL, 1) == 0) THEN
+                           found_adjacent = .TRUE.
+                           EXIT out60
+                        END IF
+                     END IF
+                  END DO out60
+                  
+                  IF (.NOT. found_adjacent) THEN
+                     out65: DO J = 1, 4
                         JEL = ICMREF (IEL, J + 4)
-                        IF (JEL.GT.0) THEN
-                           IF (ICMREF (JEL, 1) .EQ.1.OR.ICMREF (JEL, 1) .EQ.2) g70=.TRUE. !GOTO 70
-                        ENDIF
-                     ENDDO out65
-                  ENDIF
-                  !70  CONTINUE
-                  !                  * set value
+                        IF (JEL > 0) THEN
+                           IF (ICMREF (JEL, 1) == 1 .OR. ICMREF (JEL, 1) == 2) THEN
+                              found_adjacent = .TRUE.
+                              EXIT out65
+                           END IF
+                        END IF
+                     END DO out65
+                  END IF
+                  
+                  ! * set value
                   DZG = ZGRUND (IEL) - ZGRUND (JEL)
-                  IF (IDATA.EQ.1) THEN
+                  
+                  SELECT CASE (IDATA)
+                  CASE (1)
                      IL = ICMREF (IEL, 4)
                      ZGRUND (IEL) = ZBFULL (IL)
-                  ELSEIF (IDATA.EQ.2) THEN
+                  CASE (2)
                      NMC (IEL) = NMC (JEL)
-                  ELSEIF (IDATA.EQ.3) THEN
+                  CASE (3)
                      NRAINC (IEL) = NRAINC (JEL)
-                  ELSEIF (IDATA.EQ.4) THEN
+                  CASE (4)
                      NVC (IEL) = NVC (JEL)
-                  ELSEIF (IDATA.EQ.6) THEN
+                  CASE (6)
                      STRXX (IEL) = STRXX (JEL)
-                  ELSEIF (IDATA.EQ.7) THEN
+                  CASE (7)
                      STRYY (IEL) = STRYY (JEL)
-                  ELSEIF (IDATA.EQ.10) THEN
+                  CASE (10)
                      SD (IEL) = SD (JEL)
-                  ELSEIF (IDATA.EQ.11) THEN
+                  CASE (11)
                      RHOSAR (IEL) = RHOSAR (JEL)
-                  ELSEIF (IDATA.EQ.12) THEN
+                  CASE (12)
                      ZVSPSL (IEL) = ZVSPSL (JEL) + DZG
-                  ELSEIF (IDATA.EQ.13) THEN
+                  CASE (13)
                      CALL SETHRF(IEL, GETHRF (JEL) + DZG)
-                  ENDIF
-               ENDDO out90
-            ENDDO out95
-            CYCLE OUT500 !GOTO 500
-            !            >>>>>>>>
+                  END SELECT
+               END DO out90
+            END DO out95
+            
+            CYCLE out500
             !
+            ! TYPE 2: READ SINGLE DEFAULT VALUE
+            ! +++++++++++++++++++++++++++++++++
             !
-            !        TYPE 2: READ SINGLE DEFAULT VALUE
-            !        +++++++++++++++++++++++++++++++++
-            !
-         ELSEIF (INTYPE.EQ.2) THEN
-            !:BK5
-            IF (INTEGR (IDATA) ) THEN
-               READ (BKD, 1200) IFAULT
+         ELSE IF (INTYPE == 2) THEN
+            ! :BK5
+            IF (INTEGR (IDATA)) THEN
+               READ (BKD, '(10I7)') IFAULT
                IF (BINBKD) WRITE(PPPRI, 1300) IFAULT
+               
                DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
-                  IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) IDUM (IEL) = IFAULT
-               ENDDO
-               !:BK6
+                  IF (ITYPE == 1 .OR. ITYPE == 2) IDUM (IEL) = IFAULT
+               END DO
+               ! :BK6
             ELSE
-               READ (BKD, 1400) DFAULT
+               READ (BKD, '(10F7.0)') DFAULT
                IF (BINBKD) WRITE(PPPRI, 1500) DFAULT
+               
                DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
                   ! amended by GP 18/7/94 to be consistent with DSATE code
-                  IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-                     IF (IDATA.EQ.1) THEN
+                  IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+                     IF (IDATA == 1) THEN
                         IL = ICMREF (IEL, 4)
                         DUMMY (IEL) = ZBFULL (IL) + DFAULT
                      ELSE
                         DUMMY (IEL) = DFAULT
-                     ENDIF
-                  ENDIF
-                  !--------------------------------------------------------
-               ENDDO
-            ENDIF
-            !        TYPE 3: READ PAIRS OF (DATA CLASS, VALUE)
-            !        +++++++++++++++++++++++++++++++++++++++++
-         ELSEIF (INTYPE.EQ.3) THEN
-            !:BK7-8
+                     END IF
+                  END IF
+               END DO
+            END IF
+            
+            ! TYPE 3: READ PAIRS OF (DATA CLASS, VALUE)
+            ! +++++++++++++++++++++++++++++++++++++++++
+         ELSE IF (INTYPE == 3) THEN
+            ! :BK7-8
             CALL ERROR(FFFATAL, 1061, PPPRI, 0, 0, 'BKD input type 3 (data class, value) not supported')
-            !        TYPE 4: READ PAIRS OF (BANK ELEMENT NUMBER, VALUE)
-            !        ++++++++++++++++++++++++++++++++++++++++++++++++++
-         ELSEIF (INTYPE.EQ.4) THEN
-            !
+            
+            ! TYPE 4: READ PAIRS OF (BANK ELEMENT NUMBER, VALUE)
+            ! ++++++++++++++++++++++++++++++++++++++++++++++++++
+         ELSE IF (INTYPE == 4) THEN
             NVALUE = 2 * total_no_links
-            !980713
-            IF (INTEGR (IDATA) ) THEN
-               READ (BKD, 1200) (IELEM (I), IVALUE (I), I = 1, NVALUE)
+            ! 980713
+            IF (INTEGR (IDATA)) THEN
+               READ (BKD, '(10I7)') (IELEM (I), IVALUE (I), I = 1, NVALUE)
                IF (BINBKD) WRITE(PPPRI, 2000)
                IF (BINBKD) WRITE(PPPRI, 2050) (IELEM (I), IVALUE (I), I = 1, NVALUE)
+               
                DO I = 1, NVALUE
                   IEL = IELEM (I)
                   ITYPE = ICMREF (IEL, 1)
-                  IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) IDUM (IEL) = IVALUE (I)
-               ENDDO
+                  IF (ITYPE == 1 .OR. ITYPE == 2) IDUM (IEL) = IVALUE (I)
+               END DO
             ELSE
-               READ (BKD, 1800) (IELEM (I), VALUE (I), I = 1, NVALUE)
+               READ (BKD, '(5(I7,F7.0))') (IELEM (I), VALUE (I), I = 1, NVALUE)
                IF (BINBKD) WRITE(PPPRI, 2100)
                IF (BINBKD) WRITE(PPPRI, 2150) (IELEM (I), VALUE (I), I = 1, NVALUE)
+               
                DO I = 1, NVALUE
                   IEL = IELEM (I)
                   ITYPE = ICMREF (IEL, 1)
-                  IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) DUMMY (IEL) = VALUE (I)
-               ENDDO
-            ENDIF
-         ENDIF
-         !
+                  IF (ITYPE == 1 .OR. ITYPE == 2) DUMMY (IEL) = VALUE (I)
+               END DO
+            END IF
+         END IF
+         
          ! MOVE DATA FROM DUMMY ARRAYS INTO ACTUAL DATA ARRAYS
-         !
          DO IEL = NGDBGN, total_no_elements
             ITYPE = ICMREF (IEL, 1)
-            IF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-               IF (IDATA.EQ.1) THEN
+            IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+               SELECT CASE (IDATA)
+               CASE (1)
                   ZGRUND (IEL) = DUMMY (IEL)
-               ELSEIF (IDATA.EQ.2) THEN
+               CASE (2)
                   NMC (IEL) = IDUM (IEL)
-               ELSEIF (IDATA.EQ.3) THEN
+               CASE (3)
                   NRAINC (IEL) = IDUM (IEL)
-               ELSEIF (IDATA.EQ.4) THEN
+               CASE (4)
                   NVC (IEL) = IDUM (IEL)
-               ELSEIF (IDATA.EQ.6) THEN
+               CASE (6)
                   STRXX (IEL) = DUMMY (IEL)
-               ELSEIF (IDATA.EQ.7) THEN
+               CASE (7)
                   STRYY(IEL) = DUMMY (IEL)
-               ELSEIF (IDATA.EQ.10) THEN
+               CASE (10)
                   SD (IEL) = DUMMY (IEL)
-               ELSEIF (IDATA.EQ.11) THEN
+               CASE (11)
                   RHOSAR (IEL) = DUMMY (IEL)
-               ELSEIF (IDATA.EQ.12) THEN
+               CASE (12)
                   ZVSPSL (IEL) = ZGRUND (IEL) - DUMMY (IEL)
-               ELSEIF (IDATA.EQ.13) THEN
+               CASE (13)
                   CALL SETHRF(IEL, ZGRUND (IEL) + DUMMY (IEL))
-               ENDIF
-            ENDIF
-         ENDDO
-      ENDDO out500
-!
-! FORMAT STATEMENTS
-!
-1000  FORMAT(A)
-!
-1100  FORMAT(L7)
-!
-1200  FORMAT(10I7)
-!
-1300  FORMAT(' DEFAULT VALUE ',I7,' USED IN ALL BANK ELEMENTS'/)
-!
-1400  FORMAT(10F7.0)
-!
-1500  FORMAT(' DEFAULT VALUE ',F12.3,' USED IN ALL BANK ELEMENTS'/)
-!
-1800  FORMAT(5(I7,F7.0))
-!
-2000  FORMAT(' VALUES ALLOCATED TO EACH ELEMENT:'/        3('       ELEMENT   VALUE'))
-!
-2050  FORMAT(3(I7,2X,I7,6X))
-!
-2100  FORMAT(' VALUES ALLOCATED TO EACH ELEMENT:'/        3('       ELEMENT     VALUE'))
-!
-2150  FORMAT(3(I7,F12.3,6X))
-!
+               END SELECT
+            END IF
+         END DO
+         
+      END DO out500
+
+      ! FORMAT STATEMENTS
+      !
+1300  FORMAT(' DEFAULT VALUE ', I7, ' USED IN ALL BANK ELEMENTS'/)
+1500  FORMAT(' DEFAULT VALUE ', F12.3, ' USED IN ALL BANK ELEMENTS'/)
+2000  FORMAT(' VALUES ALLOCATED TO EACH ELEMENT:'/ 3('       ELEMENT   VALUE'))
+2050  FORMAT(3(I7, 2X, I7, 6X))
+2100  FORMAT(' VALUES ALLOCATED TO EACH ELEMENT:'/ 3('       ELEMENT     VALUE'))
+2150  FORMAT(3(I7, F12.3, 6X))
+
    END SUBROUTINE INBK
 
 
 
-
-
-!SSSSSS SUBROUTINE INCM
+   !SSSSSS SUBROUTINE INCM
    SUBROUTINE INCM (ISSDON)
-!----------------------------------------------------------------------*
-!
-!  INITIALISATION SUBROUTINE FOR CONTAMINANT COMPONENT
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/MUZ/INCM/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.  No INTEGER*2.
-!  GP  960124  4.0  Scrap local variables K1,K2 & arrays JAQBT,JFACE,
-!                   JSOOL,JSOOLA,NWORK,DOL,TDUMMY,ZDEL,ZHATP; add ROH.
-!                   Replace: THSAT with VSPOR; KSPPE,KSPE with KSPDUM.
-!                   Set ZCOLMB from ZVSNOD (was ZGRUND & DDZ).
-!                   ...
-! RAH  970108  4.1  No long lines or non-std chars.  Generic intrinsics.
-!      970218       Swap subscripts: QVSH,DELTAZ,JVSACN,JVSDEL,ZVSNOD,
-!                   QVSV,VSTHE (see AL.C).
-!      970521       Scrap outputs PLS,PSD (SED.CS), JBTLYR (COLM.CG) &
-!                   WELDRO (COLM.CO).  Explicit typing.
-!                   Don't admit BEXBK=F (setting JEL in loop 24).
-! RAH  980308  4.2  Scrap output OLBD (BK.CW).
-!      981103       Scrap output ERUZO (COLM.CO).
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !
+   !  INITIALISATION SUBROUTINE FOR CONTAMINANT COMPONENT
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/MUZ/INCM/4.2
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.  No INTEGER*2.
+   !  GP  960124  4.0  Scrap local variables K1,K2 & arrays JAQBT,JFACE,
+   !                   JSOOL,JSOOLA,NWORK,DOL,TDUMMY,ZDEL,ZHATP; add ROH.
+   !                   Replace: THSAT with VSPOR; KSPPE,KSPE with KSPDUM.
+   !                   Set ZCOLMB from ZVSNOD (was ZGRUND & DDZ).
+   !                   ...
+   ! RAH  970108  4.1  No long lines or non-std chars.  Generic intrinsics.
+   !      970218       Swap subscripts: QVSH,DELTAZ,JVSACN,JVSDEL,ZVSNOD,
+   !                   QVSV,VSTHE (see AL.C).
+   !      970521       Scrap outputs PLS,PSD (SED.CS), JBTLYR (COLM.CG) &
+   !                   WELDRO (COLM.CO).  Explicit typing.
+   !                   Don't admit BEXBK=F (setting JEL in loop 24).
+   ! RAH  980308  4.2  Scrap output OLBD (BK.CW).
+   !      981103       Scrap output ERUZO (COLM.CO).
+   !----------------------------------------------------------------------*
+   ! Commons and constants
 
-      USE CMmod, ONLY:CMRD   !"JE"
-! Input common
-!     ...
-! Input arguments
+      USE CMmod, ONLY: CMRD   !"JE"
 
-      LOGICAL :: ISSDON
-!                             ANSWER TO: IS SEDIMENT CODE ACTIVE?
-! Locals, etc
-!INTRINSIC DBLE, INT, MAX, MIN
+      ! Assumed external module dependencies providing global variables:
+      ! CMD, CMP, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, NS, NSEDEE,
+      ! NSED, NOCTAB, NX, NXEE, NYEE, NY, NLYRBT, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS,
+      ! NCOLMB, DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB, IIICF, SOFN, GNN, GGLMSO, ALPHBD,
+      ! ALPHBS, KDDLS, ALPHA, FADS, MUERR2, ARBDEP, zero, DLS, DLSO, FBETA, FBTSD, FDEL,
+      ! GINFD, GINFS, GNUBK, QDEFF, NHBED, NTSOIL, NSOBED, PBSED, VSPOR, GNU, GNUO,
+      ! SOSDFN, one, Z2, D0, Z2SQ, Z2OD, Z2SQOD, SGMA, SGSQ, OMSGMA, top_cell_no, NCON,
+      ! GCPLA, KDDSOL, ZCOLMB, ZVSNOD, KSPDUM, DELTAZ, JVSACN, JVSDEL, NOLCE, NOLCEA,
+      ! NOLBT, JOLFN, NOL, FHBED, JFCE, NCEBD, FNCEBD, JOLDUM, FOLDUM, JKZCOL, cellarea,
+      ! CLENTH, CWIDTH, half, ACPBSG, ACPBI, NCEAB, CCAPIO, IIICFO, ACPSFO, ARXL, ACPBDO,
+      ! CCCCO, CCAPIN, CCCC, VSTHE, THBEDO, THBED, FBBEDO, FDELO, FBTSDO, DSWO, GETHRF,
+      ! ZGRUND, QIO, PNETTO, QQRFO, QVSV, RSZWLO, ZONEO, QQQSWO, QOC, GGAMMO, QQO, QVSH,
+      ! SSSSO, SSSS, VSTHEO, UUAJPO, ISCNSV, ALINTP, ISPLT, INPL
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      LOGICAL, INTENT(IN) :: ISSDON
+
+      ! Locals, etc
       INTEGER :: ICL, IDEL, IEL, IFA, ITYPE, ITYPEA
       INTEGER :: JA, JAL, JBK, JBKU, JCL, JDEL, JDUM, JEL, JFA, JFLINK
       INTEGER :: JLYR, JSED, JSOIL, LDUM
@@ -3414,336 +3224,265 @@ CONTAINS
       INTEGER :: NDIFF, NDUM, NDUMA, NELMA, NLINK, NLINKA, NLINKU
       INTEGER :: NOL1, NOL2, NOLBD, NOLDUM, NOLP, NOLX
       INTEGER :: JFCE (2), JOLDUM (2), NBK (2), NCEDUM (2)
-      DOUBLEPRECISION ARL, ARP, DBK, DKBED, DMULT, DUM, DUM1, DUM2, &
-         DUM3, DUMK
-      DOUBLEPRECISION FNOLBD, asum, asumK
+      DOUBLE PRECISION :: ARL, ARP, DBK, DKBED, DMULT, DUM, DUM1, DUM2, DUM3, DUMK
+      DOUBLE PRECISION :: FNOLBD, asum, asumK
 
+      DOUBLE PRECISION :: FNDUM (2), FOLDUM (2), KSPDUM (total_no_elements, top_cell_no + 1), ROH (LLEE)
 
-!DOUBLEPRECISION FNDUM (2), FOLDUM (2), KSPDUM (NELEE, LLEE), ROH (LLEE)
-      DOUBLEPRECISION FNDUM (2), FOLDUM (2), KSPDUM (total_no_elements,top_cell_no+1), ROH (LLEE)
-! changes by sb 28/2/00 make phidat,difdat and sispdt local
-! Output arguments
-!
-!
-! Added by SB
+      ! Added by SB
       INTEGER :: MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS
       INTEGER :: NUM_CATEGORIES_TYPES (NCONEE), NTAB (NOCTAB, NCONEE)
       INTEGER :: NCATTY (NELEE, NCONEE)
-      DOUBLEPRECISION TABLE_CONCENTRATION (NOCTAB, NOCTAB, NCONEE)
-      DOUBLEPRECISION TABLE_WATER_DEPTH (NOCTAB, NOCTAB, NCONEE)
-      DOUBLEPRECISION DUMMYCONC(total_no_elements,top_cell_no)
-
+      DOUBLE PRECISION :: TABLE_CONCENTRATION (NOCTAB, NOCTAB, NCONEE)
+      DOUBLE PRECISION :: TABLE_WATER_DEPTH (NOCTAB, NOCTAB, NCONEE)
+      DOUBLE PRECISION :: DUMMYCONC(total_no_elements, top_cell_no)
 
       LOGICAL :: LDUM1, ISCNSV (NCONEE)
-!
-!
-!----------------------------------------------------------------------*
-!
-! New by SB 18/11/04
-! contam.f removed. z2 and d0 (scaling variables) needed here
-! -----------------------------------------------------------------
-      Z2 = 50.0d0
+
+      !----------------------------------------------------------------------*
+      ! New by SB 18/11/04
+      ! contam.f removed. z2 and d0 (scaling variables) needed here
+      ! -----------------------------------------------------------------
+      Z2 = 50.0D0
       D0 = 1.0D-3
-!----------------------------------------------------------------------*
-!
-! New by SB
-! Parameter values for spatially variable initial contaminant conc.
-! -----------------------------------------------------------------
-!
+
+      !----------------------------------------------------------------------*
+      ! New by SB
+      ! Parameter values for spatially variable initial contaminant conc.
+      ! -----------------------------------------------------------------
+      !
       MAX_NUM_CATEGORY_TYPES = NOCTAB
-
       MAX_NUM_DATA_PAIRS = NOCTAB
-!
-! Read main CM input data file
-! ----------------------------
-!
-!     Modified by SB
 
-      CALL CMRD (CMD, CMP, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, &  !"JE"
-         NS, NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY, NLYRBT (total_no_links + 1, 1), &  !"JE"
-         ICMXY, ICMBK, ICMREF (1, 5), BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  NCATTY, NCON, &  !"JE"
-         NCOLMB (total_no_links + 1), NTAB, DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB, &  !"JE"
-         TABLE_CONCENTRATION, TABLE_WATER_DEPTH, IIICF, SOFN, GNN, GGLMSO, ALPHBD, ALPHBS, KDDLS, &  !"JE"
-         ALPHA, FADS, ISCNSV, IDUM, &  !"JE"
-         DUMMY)  !"JE"
-!           Checks the data used to calculate spatially variable
-!           concentrations in the grid and bank elements is OK
+      ! Read main CM input data file
+      ! ----------------------------
+      ! Modified by SB
 
-
+      CALL CMRD (CMD, CMP, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, & 
+         NS, NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY, NLYRBT (total_no_links + 1, 1), &
+         ICMXY, ICMBK, ICMREF (1, 5), BEXBK, LINKNS, NUM_CATEGORIES_TYPES, NCATTY, NCON, &
+         NCOLMB (total_no_links + 1), NTAB, DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB, &
+         TABLE_CONCENTRATION, TABLE_WATER_DEPTH, IIICF, SOFN, GNN, GGLMSO, ALPHBD, ALPHBS, KDDLS, &
+         ALPHA, FADS, ISCNSV, IDUM, DUMMY) 
+         ! Checks the data used to calculate spatially variable
+         ! concentrations in the grid and bank elements is OK
 
       CALL MUERR2 (CMP, total_no_elements, NELEE, total_no_links, MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCON, NCONEE, &
-         NUM_CATEGORIES_TYPES,  NTAB, NCATTY, ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM1)
-!----------------------------------------------------------------------*
-      DO 9876 NCL = total_no_links + 1, total_no_elements
-         NCOLMB (NCL) = NLYRBT (NCL, 1)
+         NUM_CATEGORIES_TYPES, NTAB, NCATTY, ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM1)
 
-9876  END DO
-      IF (.NOT.ISSDON) THEN
-!                             ssssssssssssssssssssssssssssssssssssssssss
-!                             ssssss INITIALISE SEDIMENT VARIABLES sssss
+      !----------------------------------------------------------------------*
+      DO NCL = total_no_links + 1, total_no_elements
+         NCOLMB (NCL) = NLYRBT (NCL, 1)
+      END DO
+
+      IF (.NOT. ISSDON) THEN
+         ! ssssss INITIALISE SEDIMENT VARIABLES sssss
          NSED = 3
-         DO 1 NLINK = 1, total_no_links
+         DO NLINK = 1, total_no_links
             ARBDEP (NLINK) = zero
             DLS (NLINK) = zero
-
             DLSO (NLINK) = zero
-            FBETA (NLINK, 1) = one
-            FBETA (NLINK, 2) = zero
-
-            FBETA (NLINK, 3) = zero
-            FBTSD (NLINK, 1) = one
-            FBTSD (NLINK, 2) = zero
-
-            FBTSD (NLINK, 3) = zero
-            FDEL (NLINK, 1) = zero
-            FDEL (NLINK, 2) = zero
-
-            FDEL (NLINK, 3) = zero
-            GINFD (NLINK, 1) = zero
-            GINFD (NLINK, 2) = zero
-            GINFD (NLINK, 3) = zero
-            GINFS (NLINK, 1) = zero
-            GINFS (NLINK, 2) = zero
-
-            GINFS (NLINK, 3) = zero
+            
+            FBETA (NLINK, 1:3) = [one, zero, zero]
+            FBTSD (NLINK, 1:3) = [one, zero, zero]
+            FDEL (NLINK, 1:3)  = [zero, zero, zero]
+            GINFD (NLINK, 1:3) = [zero, zero, zero]
+            GINFS (NLINK, 1:3) = [zero, zero, zero]
+            
             GNUBK (NLINK) = zero
-            QDEFF (NLINK, 1) = zero
+            QDEFF (NLINK, 1:2) = zero
 
-            QDEFF (NLINK, 2) = zero
-            DO 2 JA = 1, 4
+            DO JA = 1, 4
                NELMA = ICMREF (NLINK, JA + 4)
-               IF (NELMA.GT.0) THEN
+               IF (NELMA > 0) THEN
                   ITYPEA = ICMREF (NELMA, 1)
-                  IF (ITYPEA.EQ.1) THEN
+                  IF (ITYPEA == 1) THEN
                      NBK (1) = NELMA
-                  ELSEIF (ITYPEA.EQ.2) THEN
+                  ELSE IF (ITYPEA == 2) THEN
                      NBK (2) = NELMA
-                  ENDIF
-               ENDIF
-2           END DO
+                  END IF
+               END IF
+            END DO
+            
             JLYR = 0
-4           JLYR = JLYR + 1
-            IF (NLYRBT (NBK (1), JLYR) .LT.NHBED (NLINK, 1) ) GOTO 4
+            search_lyr_loop: DO
+               JLYR = JLYR + 1
+               IF (NLYRBT (NBK (1), JLYR) >= NHBED (NLINK, 1)) EXIT search_lyr_loop
+            END DO search_lyr_loop
+            
             NSOBED (NLINK) = NTSOIL (NBK (1), JLYR - 1)
-            PBSED (NLINK) = VSPOR (NSOBED (NLINK) )
-!                             SET BED SOIL TYPE AND POROSITY, BASED ON
-!                             THE SOIL AT THE BOTTOM OF THE EXPOSED FACE
-!                             OF BANK 1
+            PBSED (NLINK) = VSPOR (NSOBED (NLINK))
+            ! SET BED SOIL TYPE AND POROSITY, BASED ON THE SOIL AT THE 
+            ! BOTTOM OF THE EXPOSED FACE OF BANK 1
+         END DO
 
-1        END DO
-         DO 5 NCL = total_no_links + 1, total_no_elements
+         DO NCL = total_no_links + 1, total_no_elements
             DLS (NCL) = zero
-
             DLSO (NCL) = zero
-            FDEL (NCL, 1) = zero
-            FDEL (NCL, 2) = zero
-
-            FDEL (NCL, 3) = zero
-            FBETA (NCL, 1) = one
-            FBETA (NCL, 2) = zero
-
-            FBETA (NCL, 3) = zero
+            FDEL (NCL, 1:3) = [zero, zero, zero]
+            FBETA (NCL, 1:3) = [one, zero, zero]
             GNU (NCL) = zero
             GNUO (NCL) = zero
+         END DO
 
-5        END DO
-         DO 6 JSOIL = 1, NSEE
-            SOSDFN (JSOIL, 1) = SOFN (JSOIL, 1)
-            SOSDFN (JSOIL, 2) = SOFN (JSOIL, 2)
-            SOSDFN (JSOIL, 3) = SOFN (JSOIL, 3)
+         DO JSOIL = 1, NSEE
+            SOSDFN (JSOIL, 1:3) = SOFN (JSOIL, 1:3)
+         END DO
+         ! SET SEDIMENT FRACTIONS FOR SOIL TYPES
 
-6        END DO
-!                             SET SEDIMENT FRACTIONS FOR SOIL TYPES
-
-
-
-
-      ENDIF
-!                             IF THE SEDIMENT CODE IS NOT ACTIVE, THE
-!                             SEDIMENT VARIABLES ARE SET TO APPROPRIATE
-!                             VALUES
-!                             ssssssssssssssssssssssssssssssssssssssssss
-!                             cccccccccccccccccccccccccccccccccccccccccc
-!                             ccccccccccccc SET CONSTANTS cccccccccccccc
+      END IF
+      ! IF THE SEDIMENT CODE IS NOT ACTIVE, THE SEDIMENT VARIABLES ARE SET TO APPROPRIATE VALUES
+      ! ccccccccccccc SET CONSTANTS cccccccccccccc
+      
       SCL = one / 32500.0D0
-
       OODO = one / D0
-!                             SCALING FACTORS
+
+      ! SCALING FACTORS
       Z2SQ = Z2 * Z2
       Z2OD = OODO * Z2
-
       Z2SQOD = OODO * Z2SQ
-!                            SCALING VALUES
+
+      ! SCALING VALUES
       SGMA = one
       SGSQ = SGMA * SGMA
-
       OMSGMA = one - SGMA
-!                            FINITE DIFFERENCE IMPLICIT WEIGHTING
 
-
+      ! FINITE DIFFERENCE IMPLICIT WEIGHTING
       NCETOP = top_cell_no
-!                            TOP CELL NUMBER FOR COLUMNS
 
-      DO 9 NCONT = 1, NCON
-!                             SET CONSTANTS WHICH DEPEND
-!                             ON CONTAMINANT NUMBER
-
+      DO NCONT = 1, NCON
+         ! SET CONSTANTS WHICH DEPEND ON CONTAMINANT NUMBER
          GCPLA (NCONT) = GGLMSO (NCONT) * Z2SQOD
-!                            SET DECAY CONSTANTS FOR CONTAMINANTS
-         DO 71 JSOIL = 1, NS
-            asum = zero
-            DO 72 JSED = 1, NSED
-               asum = asum + SOSDFN (JSOIL, JSED) * KDDLS (JSED, NCONT)
-72          END DO
+         ! SET DECAY CONSTANTS FOR CONTAMINANTS
+         
+         DO JSOIL = 1, NS
+            asum = SUM(SOSDFN (JSOIL, 1:NSED) * KDDLS (1:NSED, NCONT))
             KDDSOL (JSOIL, NCONT) = asum
-71       END DO
-!                             SET REFERENCE DISTRIBUTION COEFFICIENT FOR
-!                             SOIL TO MATCH THAT SPECIFIED FOR THE
-!                             SEDIMENT PARTICLE SIZE GROUPS
+         END DO
+         ! SET REFERENCE DISTRIBUTION COEFFICIENT FOR SOIL TO MATCH THAT SPECIFIED FOR THE
+         ! SEDIMENT PARTICLE SIZE GROUPS
+      END DO
 
-
-9     END DO
-      DO 10 NCL = total_no_links + 1, total_no_elements
+      DO NCL = total_no_links + 1, total_no_elements
          ZCOLMB (NCL) = ZVSNOD (NCOLMB (NCL), NCL)
-
-
-
-
-10    END DO
-!                             SET ELEVATION OF
-!                             BOTTOM CELLS IN SOIL COLUMNS
-! set up temporary array for use until full vss coding completed
-      DO 13 NCL = 1, total_no_elements
-         DO 14 NCE = NLYRBT (NCL, 1), top_cell_no
+      END DO
+      ! SET ELEVATION OF BOTTOM CELLS IN SOIL COLUMNS
+      
+      ! set up temporary array for use until full vss coding completed
+      DO NCL = 1, total_no_elements
+         DO NCE = NLYRBT (NCL, 1), top_cell_no
             KSPDUM (NCL, NCE) = DELTAZ (NCE, NCL) / Z2
-14       END DO
+         END DO
          KSPDUM (NCL, top_cell_no + 1) = KSPDUM (NCL, top_cell_no)
+      END DO
 
+      !---------------------------------------------------------------
+      ! Set up NOL, NOLBT, NOLCE, NOLCEA, JOLFN using VSS arrays JVSACN,
+      ! JVSDEL and DELTAZ
+      ! NB. NOLBT and JOLFN are overwritten during the loop over a column
 
-
-
-
-13    END DO
-!---------------------------------------------------------------
-! Set up NOL, NOLBT, NOLCE, NOLCEA, JOLFN using VSS arrays JVSACN,
-! JVSDEL and DELTAZ
-! NB. NOLBT and JOLFN are overwritten during the loop over a column
-
-      DO 20 IEL = total_no_links + 1, total_no_elements
-
-         DO 24 IFA = 1, 4
+      DO IEL = total_no_links + 1, total_no_elements
+         DO IFA = 1, 4
             JEL = ICMREF (IEL, IFA + 4)
             JFA = ICMREF (IEL, IFA + 8)
-            IF (JEL.EQ.0) THEN
+            IF (JEL == 0) THEN
                JEL = IEL
                JFA = IFA
-            ELSEIF (ICMREF (JEL, 1) .EQ.3) THEN
+            ELSE IF (ICMREF (JEL, 1) == 3) THEN
                JEL = ICMREF (JEL, IFA + 4)
-
-            ENDIF
+            END IF
+            
             NOLP = 0
-            DO 26 ICL = NLYRBT (IEL, 1), top_cell_no
-               IF (JVSACN (IFA, ICL, IEL) .GT.0) THEN
+            DO ICL = NLYRBT (IEL, 1), top_cell_no
+               IF (JVSACN (IFA, ICL, IEL) > 0) THEN
                   JCL = JVSACN (IFA, ICL, IEL)
                   IDEL = JVSDEL (IFA, ICL, IEL)
-
                   JDEL = JVSDEL (JFA, JCL, JEL)
+                  
                   NOLP = NOLP + 1
                   NOLCE (IEL, NOLP, IFA) = ICL
                   NOLCEA (IEL, NOLP, IFA) = JCL
-
                   NOLBT (IEL, ICL, IFA) = NOLP
-                  IF (IDEL.EQ.1) THEN
-                     JOLFN (IEL, NOLP, IFA) = INT (32500.0D0 * DELTAZ ( &
-                        ICL, IEL) / (DELTAZ (ICL, IEL) + DELTAZ (ICL + 1, &
-                        IEL) ) )
+                  
+                  IF (IDEL == 1) THEN
+                     JOLFN (IEL, NOLP, IFA) = INT (32500.0D0 * DELTAZ (ICL, IEL) / (DELTAZ (ICL, IEL) + DELTAZ (ICL + 1, IEL)))
                      NOLP = NOLP + 1
                      NOLCE (IEL, NOLP, IFA) = ICL + 1
                      NOLCEA (IEL, NOLP, IFA) = JCL
-                     JOLFN (IEL, NOLP, IFA) = INT (32500.0D0 * DELTAZ ( &
-                        ICL + 1, IEL) / (DELTAZ (ICL, IEL) + DELTAZ (ICL + &
-                        1, IEL) ) )
-                  ELSEIF (JDEL.EQ.1) THEN
+                     JOLFN (IEL, NOLP, IFA) = INT (32500.0D0 * DELTAZ (ICL + 1, IEL) / (DELTAZ (ICL, IEL) + DELTAZ (ICL + 1, IEL)))
+                  ELSE IF (JDEL == 1) THEN
                      NOLP = NOLP + 1
                      NOLCE (IEL, NOLP, IFA) = ICL
                      NOLCEA (IEL, NOLP, IFA) = JCL + 1
                   ELSE
                      JOLFN (IEL, NOLP, IFA) = 32500
-                  ENDIF
-
-               ENDIF
-
-26          END DO
+                  END IF
+               END IF
+            END DO
+            
             NOL (IEL, IFA) = NOLP
-
             NOLBT (IEL, top_cell_no + 1, IFA) = NOLP + 1
+         END DO
+      END DO
 
-24       END DO
-
-
-20    END DO
       DKBED = DBDI / Z2
-      DO 100 NLINK = 1, total_no_links
-!                             ^^^^^^^^^ SET CONSTANTS FOR LINKS ^^^^^^^^
-         DO 102 JA = 1, 4
+      DO NLINK = 1, total_no_links
+         ! ^^^^^^^^^ SET CONSTANTS FOR LINKS ^^^^^^^^
+         DO JA = 1, 4
             NDUMA = ICMREF (NLINK, JA + 4)
-            IF (NDUMA.GT.0) THEN
+            IF (NDUMA > 0) THEN
                ITYPEA = ICMREF (NDUMA, 1)
-               IF ( (ITYPEA.EQ.1) .OR. (ITYPEA.EQ.2) ) THEN
-!                             ADJACENT ELEMENT IS A BANK
+               IF (ITYPEA == 1 .OR. ITYPEA == 2) THEN
+                  ! ADJACENT ELEMENT IS A BANK
                   JBK = ITYPEA
                   NBK (JBK) = NDUMA
-!                             USED ONLY IN THIS ROUTINE
+                  ! USED ONLY IN THIS ROUTINE
                   NBANK (NLINK, JBK) = NDUMA
-!                             SAVED FOR USE IN OTHER SUBROUTINES
-                  asum = FHBED (NLINK, JBK) * KSPDUM (NBK (JBK), NHBED ( &
-                     NLINK, JBK) + 1)
-                  IF (asum.GE.DKBED) THEN
+                  ! SAVED FOR USE IN OTHER SUBROUTINES
+                  
+                  asum = FHBED (NLINK, JBK) * KSPDUM (NBK (JBK), NHBED (NLINK, JBK) + 1)
+                  IF (asum >= DKBED) THEN
                      NCEDUM (JBK) = NHBED (NLINK, JBK)
-                     FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), &
-                        NHBED (NLINK, JBK) + 1)
+                     FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), NHBED (NLINK, JBK) + 1)
                   ELSE
                      NCE = NHBED (NLINK, JBK)
-104                  NCE = NCE-1
-                     asum = asum + KSPDUM (NBK (JBK), NCE+1)
-                     IF (asum.LE.DKBED) GOTO 104
+                     
+                     bed_depth_loop: DO
+                        NCE = NCE - 1
+                        asum = asum + KSPDUM (NBK (JBK), NCE + 1)
+                        IF (asum > DKBED) EXIT bed_depth_loop
+                     END DO bed_depth_loop
+                     
                      NCEDUM (JBK) = NCE
-                     FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), &
-                        NCE+1)
-                  ENDIF
-!                             NCEDUM AND FNDUM ARE THE 1ST ESTIMATES
-!                             FOR NCEBD AND FNCEBD. THEY ARE THE CORRECT
-!                             VALUES FOR A TOTAL BED THICKNESS OF
-!                             DBDI METRES. CHANGES ARE MADE LATER SO
-!                             THAT A SINGLE OVERLAP NUMBER
-!                             AND FRACTION (NOLBD AND FNOLBD) CAN BE
-!                             ASSOCIATED WITH THE REGION BELOW THE DEEP
-!                             BED.
-!                             NB: THIS LONG WINDED APPROACH IS NEEDED
-!                             IF ALL THE SOIL IN THE BANKS IS TO BE
-!                             ACCOUNTED FOR IN THE CONTAMINANT
-!                             CALCULATIONS, SINCE THE SAME ELEVATION IN
-!                             ADJACENT BANKS DOES NOT CORRESPOND TO THE
-!                             SAME SCALED HEIGHT AT THEIR COMMON FACE
+                     FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), NCE + 1)
+                  END IF
+                  
+                  ! NCEDUM AND FNDUM ARE THE 1ST ESTIMATES FOR NCEBD AND FNCEBD.
+                  ! THEY ARE THE CORRECT VALUES FOR A TOTAL BED THICKNESS OF DBDI METRES. 
+                  ! CHANGES ARE MADE LATER SO THAT A SINGLE OVERLAP NUMBER AND FRACTION 
+                  ! (NOLBD AND FNOLBD) CAN BE ASSOCIATED WITH THE REGION BELOW THE DEEP BED.
+                  
                   asum = zero
-                  JFCE(JBK) = JA + SIGN(2, 2-JA)
-                  NOLP = NOLBT (NBK (JBK), NCEDUM (JBK) + 1, JFCE (JBK) &
-                     ) - 1
-106               NOLP = NOLP + 1
-                  DUM1 = SCL * JOLFN (NBK (JBK), NOLP, JFCE (JBK) )
-                  asum = asum + DUM1
-                  IF (asum.LE.FNDUM (JBK) ) GOTO 106
+                  JFCE(JBK) = JA + SIGN(2, 2 - JA)
+                  NOLP = NOLBT (NBK (JBK), NCEDUM (JBK) + 1, JFCE (JBK)) - 1
+                  
+                  fraction_loop: DO
+                     NOLP = NOLP + 1
+                     DUM1 = SCL * JOLFN (NBK (JBK), NOLP, JFCE (JBK))
+                     asum = asum + DUM1
+                     IF (asum > FNDUM (JBK)) EXIT fraction_loop
+                  END DO fraction_loop
+                  
                   JOLDUM (JBK) = NOLP - 1
                   FOLDUM (JBK) = (FNDUM (JBK) - asum + DUM1) / DUM1
-!                             OVERLAP NUMBERS AND FRACTIONS ASSOCIATED
-!                             WITH THE 1ST ESTIMATES
-               ENDIF
-            ENDIF
+                  ! OVERLAP NUMBERS AND FRACTIONS ASSOCIATED WITH THE 1ST ESTIMATES
+               END IF
+            END IF
+         END DO
 
-102      END DO
-         DUM1 = DBLE (JOLDUM (1) ) + FNDUM (1)
-         DUM2 = DBLE (JOLDUM (2) ) + FNDUM (2)
-         IF (DUM1.LE.DUM2) THEN
+         DUM1 = DBLE (JOLDUM (1)) + FNDUM (1)
+         DUM2 = DBLE (JOLDUM (2)) + FNDUM (2)
+         IF (DUM1 <= DUM2) THEN
             NOLBD = JOLDUM (1)
             FNOLBD = FNDUM (1)
             NCEBD (NLINK, 1) = NCEDUM (1)
@@ -3755,326 +3494,244 @@ CONTAINS
             NCEBD (NLINK, 2) = NCEDUM (2)
             FNCEBD (NLINK, 2) = FNDUM (2)
             LDUM = 1
-         ENDIF
-         NCDUM = NOLCE (NBK (LDUM), NOLBD, JFCE (LDUM) )
-         NOLDUM = NOLBT (NBK (LDUM), NCDUM + 1, JFCE (LDUM) ) - 1
-!                             HIGHEST OVERLAP ASSOC. WITH NCDUM
-         DUM3 = FNOLBD * SCL * DBLE (JOLFN (NBK (LDUM), NOLBD+1, JFCE ( &
-            LDUM) ) )
-!                             FRACTION OF NEXT HIGHEST CELL COVERED
-!                             BY FRACTION OF OVERLAP
-         IF (NOLDUM.EQ.NOLBD) THEN
+         END IF
+
+         NCDUM = NOLCE (NBK (LDUM), NOLBD, JFCE (LDUM))
+         NOLDUM = NOLBT (NBK (LDUM), NCDUM + 1, JFCE (LDUM)) - 1
+         ! HIGHEST OVERLAP ASSOC. WITH NCDUM
+         
+         DUM3 = FNOLBD * SCL * DBLE (JOLFN (NBK (LDUM), NOLBD + 1, JFCE (LDUM)))
+         ! FRACTION OF NEXT HIGHEST CELL COVERED BY FRACTION OF OVERLAP
+         
+         IF (NOLDUM == NOLBD) THEN
             NCEBD (NLINK, LDUM) = NCDUM
             FNCEBD (NLINK, LDUM) = DUM3
          ELSE
             NCEBD (NLINK, LDUM) = NCDUM - 1
             asum = DUM3
-            DO 107 NOLP = NOLBT (NBK (LDUM), NCDUM, JFCE (LDUM) ), &
-               NOLBD
-               asum = asum + SCL * DBLE (JOLFN (NBK (LDUM), NOLP, JFCE ( &
-                  LDUM) ) )
-107         END DO
+            DO NOLP = NOLBT (NBK (LDUM), NCDUM, JFCE (LDUM)), NOLBD
+               asum = asum + SCL * DBLE (JOLFN (NBK (LDUM), NOLP, JFCE (LDUM)))
+            END DO
             FNCEBD (NLINK, LDUM) = asum
-
-         ENDIF
-!                             SET FINAL VALUES FOR THE OVERLAP NUMBERS
-!                             NOLBD AND FRACTIONS FNOLBD FOR THE REGION
-!                             BELOW THE DEEP BED; AND SET THE CELL
-!                             NUMBERS NCEBD AND FRACTIONS FNCEBD
-!                             ACCORDINGLY
+         END IF
+         ! SET FINAL VALUES FOR THE OVERLAP NUMBERS NOLBD AND FRACTIONS FNOLBD 
+         ! FOR THE REGION BELOW THE DEEP BED; AND SET THE CELL NUMBERS NCEBD 
+         ! AND FRACTIONS FNCEBD ACCORDINGLY
+         
          asum = zero
-         DO 108 JBK = 1, 2
-            DO 110 NCE = NCEBD (NLINK, JBK) + 1, NHBED (NLINK, JBK) &
-               + 1
+         DO JBK = 1, 2
+            DO NCE = NCEBD (NLINK, JBK) + 1, NHBED (NLINK, JBK) + 1
                asum = asum + KSPDUM (NBK (JBK), NCE)
-110         END DO
-            asum = asum - FNCEBD (NLINK, JBK) * KSPDUM (NBK (JBK), &
-               NCEBD (NLINK, JBK) + 1)
-            asum = asum - (one - FHBED (NLINK, JBK) ) * KSPDUM (NBK ( &
-               JBK), NHBED (NLINK, JBK) + 1)
-108      END DO
+            END DO
+            asum = asum - FNCEBD (NLINK, JBK) * KSPDUM (NBK (JBK), NCEBD (NLINK, JBK) + 1)
+            asum = asum - (one - FHBED (NLINK, JBK)) * KSPDUM (NBK (JBK), NHBED (NLINK, JBK) + 1)
+         END DO
+         
          ACPBSG (NLINK) = DBS * CWIDTH (NLINK) / Z2SQ
+         ACPBI (NLINK) = (half * asum * CWIDTH (NLINK) / Z2) - ACPBSG (NLINK)
+         ! SET BED SURFACE LAYER THICKNESS TO DBS METRES, AND THE COMBINED AREA OF THE
+         ! BED SURFACE AND DEEP LAYERS TO THE AREA ABOVE OVERLAP NOLBD AND FRACTION FNOLBD
 
-
-         ACPBI (NLINK) = (half * asum * CWIDTH (NLINK) / Z2) - ACPBSG ( &
-            NLINK)
-!                             SET BED SURFACE LAYER THICKNESS TO DBS
-!                             METRES, AND THE COMBINED AREA OF THE
-!                             BED SURFACE AND DEEP LAYERS TO THE AREA
-!                             ABOVE OVERLAP NOLBD AND FRACTION FNOLBD
-!                             (ALL THE BANK SOIL IS ACCOUNTED FOR WITH
-!                             THIS APPROACH)
-         DO 120 JBK = 1, 2
-!                             uuuuuuu ADJUST TRANSMISIVITIES FOR uuuuuuu
-!                             UPSTREAM AND DOWNSTREAM SUBSURFACE FLOW IN
-!                             BANKS
+         DO JBK = 1, 2
+            ! uuuuuuu ADJUST TRANSMISIVITIES FOR uuuuuuu
+            ! UPSTREAM AND DOWNSTREAM SUBSURFACE FLOW IN BANKS
             NCE1 = NHBED (NLINK, JBK)
-            DO 122 JA = 1, 4
+            DO JA = 1, 4
                NDUMA = ICMREF (NBK (JBK), JA + 4)
-               IF (NDUMA.NE.0) THEN
+               IF (NDUMA /= 0) THEN
                   ITYPEA = ICMREF (NDUMA, 1)
-                  IF ( (ITYPEA.EQ.1) .OR. (ITYPEA.EQ.2) ) THEN
-!                             THE ELEMENT UPSTREAM OR DOWNSTREAM FROM
-!                             BANK JBK OF LINK NLINK IS ITSELF A BANK:
-!                             BANK NUMBER NBKU, WHICH IS BANK JBKU OF
-!                             LINK NLINKU
+                  IF (ITYPEA == 1 .OR. ITYPEA == 2) THEN
+                     ! THE ELEMENT UPSTREAM OR DOWNSTREAM FROM BANK JBK OF LINK NLINK IS ITSELF A BANK
                      NOL1 = NOLBT (NBK (JBK), NCE1 + 1, JA) - 1
                      NBKU = NDUMA
                      NLINKU = ICMREF (NBKU, 4)
-                     IF (ICMBK (NLINKU, 1) .EQ.NBKU) THEN
+                     
+                     IF (ICMBK (NLINKU, 1) == NBKU) THEN
                         JBKU = 1
                      ELSE
                         JBKU = 2
-                     ENDIF
+                     END IF
+                     
                      NCE2 = NHBED (NLINKU, JBKU)
-                     NOL2 = NOLBT (NBKU, NCE2 + 1, ICMREF (NBK (JBK), &
-                        JA + 8) ) - 1
-!                             USE ICMREF SO CORRECT FACE IS FOUND EVEN
-!                             IF THE UPSTREAM OR DOWNSTREAM BANK IS
-!                             ROUND A CORNER
+                     NOL2 = NOLBT (NBKU, NCE2 + 1, ICMREF (NBK (JBK), JA + 8)) - 1
+                     ! USE ICMREF SO CORRECT FACE IS FOUND EVEN IF THE UPSTREAM OR DOWNSTREAM BANK IS ROUND A CORNER
+                     
                      NOLX = MIN (NOL1, NOL2)
-!                             NOLX IS THE HIGHEST OVERLAP FOR WHICH THE
-!                             LONGITUDINAL TRANSMISIVITY OF THE REGION
-!                             UNDER THE CHANNEL SHOULD BE TAKEN INTO
-!                             ACCOUNT IN ARRAY JKZCOL
-                     DUM1 = cellarea (NBK (JBK) ) / CLENTH (NLINK) + cellarea ( &
-                        NBKU) / CLENTH (NLINKU)
-                     DUM2 = half * (cellarea (NLINK) / CLENTH (NLINK) &
-                        + cellarea (NLINKU) / CLENTH (NLINKU) )
+                     DUM1 = cellarea (NBK (JBK)) / CLENTH (NLINK) + cellarea (NBKU) / CLENTH (NLINKU)
+                     DUM2 = half * (cellarea (NLINK) / CLENTH (NLINK) + cellarea (NLINKU) / CLENTH (NLINKU))
                      DMULT = DUM1 / (DUM1 + DUM2)
-                     DO 126 NOLP = NOLX + 1, NOL (NBK (JBK), JA)
-                        JKZCOL (NBK (JBK), NOLP, JA) = MAX (1, INT ( &
-                           DMULT * JKZCOL (NBK (JBK), NOLP, JA) ) )
-126                  END DO
-                  ENDIF
-               ENDIF
-!                             ADJUST SCALED TRANSMISIVITIES FOR BANKS TO
-!                             INCLUDE THE PATHS FOR FLOW BELOW CHANNEL,
-!                             IN THE DIRECTION OF CHANNEL
-122         END DO
+                     
+                     DO NOLP = NOLX + 1, NOL (NBK (JBK), JA)
+                        JKZCOL (NBK (JBK), NOLP, JA) = MAX (1, INT (DMULT * JKZCOL (NBK (JBK), NOLP, JA)))
+                     END DO
+                  END IF
+               END IF
+            END DO
+         END DO
 
-
-120      END DO
-!                             uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-         DO 130 JBK = 1, 2
+         DO JBK = 1, 2
             NCEAB (NLINK, JBK) = NHBED (NLINK, JBK)
+         END DO
 
-130      END DO
-!                             SET THE NUMBER, NCEAB, FOR THE LOWEST
-!                             CELL WHICH EXCHANGES GROUND WATER WITH
-!                             STREAM WATER
+      END DO
 
-
-
-
-
-100   END DO
-!                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      DO 15 NCONT = 1, NCON
-!                             xxxxxxx INITIALISE VARIABLES WHICH xxxxxxx
-!                             xxxxxx DEPEND ON CONTAMINANT NUMBER xxxxxx
+      DO NCONT = 1, NCON
+         ! xxxxxxx INITIALISE VARIABLES WHICH DEPEND ON CONTAMINANT NUMBER xxxxxxx
          CCAPIO (NCONT) = CCAPI (NCONT)
          IIICFO (NCONT) = IIICF (NCONT)
-!                             SET INITIAL VALUES IN 'OLD' ARRAYS
+      END DO
 
-15    END DO
-!                             xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      DO 16 NLINK = 1, total_no_links
-!                             ooooooo INITIALISE LINK VARIABLES oooooooo
+      DO NLINK = 1, total_no_links
+         ! ooooooo INITIALISE LINK VARIABLES oooooooo
          ACPSFO (NLINK) = ARXL (NLINK) / Z2SQ
          ACPBDO (NLINK) = ACPBI (NLINK)
-         DO 17 NCONT = 1, NCON
-            CCCCO (NLINK, NCETOP - 2, NCONT) = CCAPIN (NCONT)
-            CCCCO (NLINK, NCETOP - 1, NCONT) = CCAPIN (NCONT)
-            CCCCO (NLINK, NCETOP, NCONT) = CCAPIN (NCONT)
-            CCCC (NLINK, NCETOP - 2, NCONT) = CCAPIN (NCONT)
-            CCCC (NLINK, NCETOP - 1, NCONT) = CCAPIN (NCONT)
+         
+         DO NCONT = 1, NCON
+            CCCCO (NLINK, NCETOP - 2:NCETOP, NCONT) = CCAPIN (NCONT)
+            CCCC (NLINK, NCETOP - 2:NCETOP, NCONT)  = CCAPIN (NCONT)
+         END DO
 
-
-            CCCC (NLINK, NCETOP, NCONT) = CCAPIN (NCONT)
-
-17       END DO
-!                             LINK RELATIVE CONCENTRATIONS ARE STORED IN
-!                             CCCC AND CCCCO
          asumK = zero
          asum = zero
-         DO 160 JBK = 1, 2
+         DO JBK = 1, 2
             NDUM = NCEBD (NLINK, JBK) + 1
             NCE = NDUM
-            DUMK = (one - FNCEBD (NLINK, JBK) ) * KSPDUM (ICMBK ( &
-               NLINK, JBK), NCE)
+            DUMK = (one - FNCEBD (NLINK, JBK)) * KSPDUM (ICMBK (NLINK, JBK), NCE)
             asumK = asumK + DUMK
-            asum = asum + VSTHE (NCE, NBK (JBK) ) * DUMK
-            DO 162 NCE = NDUM + 1, NHBED (NLINK, JBK)
+            asum = asum + VSTHE (NCE, NBK (JBK)) * DUMK
+            
+            DO NCE = NDUM + 1, NHBED (NLINK, JBK)
                DUMK = KSPDUM (ICMBK (NLINK, JBK), NCE)
                asumK = asumK + DUMK
-               asum = asum + VSTHE (NCE, NBK (JBK) ) * DUMK
-162         END DO
+               asum = asum + VSTHE (NCE, NBK (JBK)) * DUMK
+            END DO
+            
             NCE = NHBED (NLINK, JBK) + 1
-            DUMK = FHBED (NLINK, JBK) * KSPDUM (ICMBK (NLINK, JBK), &
-               NCE)
+            DUMK = FHBED (NLINK, JBK) * KSPDUM (ICMBK (NLINK, JBK), NCE)
             asumK = asumK + DUMK
-            asum = asum + VSTHE (NCE, NBK (JBK) ) * DUMK
-160      END DO
+            asum = asum + VSTHE (NCE, NBK (JBK)) * DUMK
+         END DO
+         
          THBEDO (NLINK) = MIN (PBSED (NLINK), asum / asumK)
-
          THBED (NLINK) = THBEDO (NLINK)
-!                             INITIALISE MOISTURE CONTENT IN STREAM BED,
-!                             AS THE WEIGHTED AVERAGE FOR THE CELLS, OF
-!                             BOTH BANKS, LYING WITHIN THE BED SURFACE
-!                             AND BED DEEP LAYER
-         ARL = DLS (NLINK) * CWIDTH (NLINK)
-!                             X-SECIONAL AREA OF LOOSE SEDIMENTS IN BED
-         ARP = (ACPBI (NLINK) - ACPBSG (NLINK) ) * Z2SQ
-!                             X-SECTIONAL AREA OF NON-ERODED PARENT
-!                             MATERIAL WITHIN BED DEEP LAYER
-         DUM = one / (ARL + ARP)
-         DO 200 JSED = 1, NSED
-! sb temp fix 09022026
-! this is crashing out as nsobed is sometimes undefined.
-! if it is undefined set it equal to soil type 1
-!  this seems to be a problem only when both sediment and solute coponents are running.
-            if (NSOBED (NLINK)==0) NSOBED (NLINK)=1
 
-            FBBEDO (NLINK, JSED) = DUM * (ARL * FBETA (NLINK, JSED) &
-               + ARP * SOSDFN (NSOBED (NLINK), JSED) )
+         ARL = DLS (NLINK) * CWIDTH (NLINK)
+         ARP = (ACPBI (NLINK) - ACPBSG (NLINK)) * Z2SQ
+         DUM = one / (ARL + ARP)
+         
+         DO JSED = 1, NSED
+            ! sb temp fix 09022026: NSOBED fallback
+            IF (NSOBED (NLINK) == 0) NSOBED (NLINK) = 1
+
+            FBBEDO (NLINK, JSED) = DUM * (ARL * FBETA (NLINK, JSED) + ARP * SOSDFN (NSOBED (NLINK), JSED))
             FDELO (NLINK, JSED) = FDEL (NLINK, JSED)
             FBTSDO (NLINK, JSED) = FBTSD (NLINK, JSED)
+         END DO
+      END DO
 
-200      END DO
-!                             SET INITIAL VALUES FOR THE PARTICLE SIZE
-!                             FRACTIONS IN THE STREAM AND BED
-
-
-
-16    END DO
-!                             oooooooooooooooooooooooooooooooooooooooooo
-      DO 50 NCL = total_no_links + 1, total_no_elements
-!                             iiiiii INITIALISE COLUMN VARIABLES iiiiiii
+      DO NCL = total_no_links + 1, total_no_elements
+         ! iiiiii INITIALISE COLUMN VARIABLES iiiiiii
          DLSO (NCL) = DLS (NCL)
          DSWO (NCL) = GETHRF (NCL) - ZGRUND (NCL)
          GNUO (NCL) = GNU (NCL)
-         QIO (NCL) = - PNETTO (NCL) * cellarea (NCL)
+         QIO (NCL) = -PNETTO (NCL) * cellarea (NCL)
          QQRFO (NCL) = QVSV (NCOLMB (NCL), NCL) * cellarea (NCL)
          RSZWLO (NCL) = zero
-!                             MUST BE SET TO 0
-
-
-         ZONEO (NCL) = (ZGRUND (NCL) - ZCOLMB (NCL) ) / Z2
-         DO 51 JDUM = 1, 2
-            QQQSWO (NCL, JDUM) = - QOC (NCL, JDUM)
+         ZONEO (NCL) = (ZGRUND (NCL) - ZCOLMB (NCL)) / Z2
+         
+         DO JDUM = 1, 2
+            QQQSWO (NCL, JDUM) = -QOC (NCL, JDUM)
             QQQSWO (NCL, JDUM + 2) = QOC (NCL, JDUM + 2)
+         END DO
 
-
-51       END DO
-!                             NB: INWARDS POSITIVE CONVENTION USED HERE
-!                             WHILE X AND Y POSITIVE CONVENTION USED IN
-!                             WATER FLOW COMPONENTS
-! set up variables for l-shaped bank calculations, if required
+         ! set up variables for l-shaped bank calculations, if required
          ITYPE = ICMREF (NCL, 1)
-         IF (ITYPE.NE.0) THEN
-!                             ELEMENT IS A BANK
+         IF (ITYPE /= 0) THEN
             JBK = ITYPE
             NLINKA = ICMREF (NCL, 4)
-!                             NUMBER FOR ASSOCIATED LINK
             JAL = 0
-55          JAL = JAL + 1
-            IF (ICMREF (NLINKA, JAL + 4) .NE.NCL) GOTO 55
+            
+            link_face_loop: DO
+               JAL = JAL + 1
+               IF (ICMREF (NLINKA, JAL + 4) == NCL) EXIT link_face_loop
+            END DO link_face_loop
+            
             JFLINK = ICMREF (NLINKA, JAL + 8)
-!                             NUMBER FOR FACE ASSOCIATED WITH LINK
             DBK = cellarea (NCL) / CLENTH (NLINKA)
-            DMULT = DBK / (DBK + half * CWIDTH (NLINKA) )
-            DO 56 NCE = NLYRBT (NCL, 1) - 1, NCEBD (NLINKA, JBK)
+            DMULT = DBK / (DBK + half * CWIDTH (NLINKA))
+            
+            DO NCE = NLYRBT (NCL, 1) - 1, NCEBD (NLINKA, JBK)
                ROH (NCE) = DMULT
-56          END DO
+            END DO
+            
             NCE = NCEBD (NLINKA, JBK) + 1
             ROH (NCE) = one - (one - DMULT) * FNCEBD (NLINKA, JBK)
-            DO 57 NCE = NCEBD (NLINKA, JBK) + 2, LLEE
+            
+            DO NCE = NCEBD (NLINKA, JBK) + 2, LLEE
                ROH (NCE) = one
+            END DO
+         END IF
 
-57          END DO
-
-         ENDIF
-
-         DO 52 NCE = 1, top_cell_no  !LLEE  !JE
+         DO NCE = 1, top_cell_no  !LLEE  !JE
             GGAMMO (NCL, NCE) = zero
-            DO 53 JA = 1, 4
+            DO JA = 1, 4
                QQO (NCL, NCE, JA) = QVSH (JA, NCE, NCL)
-53          END DO
-            DO 54 NCONT = 1, NCON
+            END DO
+            
+            DO NCONT = 1, NCON
                CCCCO (NCL, NCE, NCONT) = CCAPIN (NCONT)
                SSSSO (NCL, NCE, NCONT) = CCAPIN (NCONT)
                CCCC (NCL, NCE, NCONT) = CCAPIN (NCONT)
                SSSS (NCL, NCE, NCONT) = CCAPIN (NCONT)
+            END DO
+         END DO
 
-54          END DO
-
-
-52       END DO
-! calculate theta and vert vel for L-shaped bank, if required
-         IF (ITYPE.EQ.0) THEN
-            DO 58 NCE = NLYRBT (NCL, 1) - 1, top_cell_no
+         ! calculate theta and vert vel for L-shaped bank, if required
+         IF (ITYPE == 0) THEN
+            DO NCE = NLYRBT (NCL, 1) - 1, top_cell_no
                VSTHEO (NCL, NCE) = VSTHE (NCE, NCL)
                UUAJPO (NCL, NCE) = QVSV (NCE, NCL)
-58          END DO
+            END DO
          ELSE
             NDIFF = NLYRBT (NLINKA, 1) - NLYRBT (NCL, 1)
-            DO 59 NCE = NLYRBT (NCL, 1) - 1, top_cell_no
-               NCEA = NCE+NDIFF
-               IF (NCEA.LE.top_cell_no) THEN
-                  VSTHEO (NCL, NCE) = ( (one - ROH (NCE) ) * VSTHE ( &
-                     NCEA, NLINKA) + ROH (NCE) * VSTHE (NCE, NCL) )
-                  UUAJPO (NCL, NCE) = ( (one - ROH (NCE) ) * QVSV ( &
-                     NCEA, NLINKA) + ROH (NCE) * QVSV (NCE, NCL) ) / ROH ( &
-                     NCE)
+            DO NCE = NLYRBT (NCL, 1) - 1, top_cell_no
+               NCEA = NCE + NDIFF
+               IF (NCEA <= top_cell_no) THEN
+                  VSTHEO (NCL, NCE) = ((one - ROH (NCE)) * VSTHE (NCEA, NLINKA) + ROH (NCE) * VSTHE (NCE, NCL))
+                  UUAJPO (NCL, NCE) = ((one - ROH (NCE)) * QVSV (NCEA, NLINKA) + ROH (NCE) * QVSV (NCE, NCL)) / ROH (NCE)
                ELSE
                   VSTHEO (NCL, NCE) = VSTHE (NCE, NCL)
                   UUAJPO (NCL, NCE) = QVSV (NCE, NCL)
-               ENDIF
-59          END DO
+               END IF
+            END DO
+         END IF
 
+      END DO
 
-         ENDIF
-
-50    END DO
-!     New code by SB
-!     --------------
-      DO 380 NCONT = 1, NCON
-!
-         IF (ISCNSV (NCONT) ) THEN
-!
-!     Concentrations are spatially variable and the concentration
-!     in each cell is calculated by linearly interpolating
-!     between values in the depth/conc. tables
+      ! New code by SB --------------
+      DO NCONT = 1, NCON
+         IF (ISCNSV (NCONT)) THEN
             CALL ALINTP (LLEE, NCETOP, total_no_elements, NELEE, total_no_links, NUM_CATEGORIES_TYPES (NCONT), &
                MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY (total_no_links + 1, NCONT), NCOLMB (total_no_links + 1), &
-               NTAB (1, NCONT),TABLE_CONCENTRATION (1, 1, NCONT), TABLE_WATER_DEPTH (1, 1, NCONT), &
-               DELTAZ, ZVSNOD, DUMMYCONC )
-            DO 385 NCL = total_no_links + 1, total_no_elements
-               DO 390 NCE = NCOLMB (NCL), NCETOP
-                  CCCC (NCL, NCE, NCONT)= DUMMYCONC (NCL,NCE)
+               NTAB (1, NCONT), TABLE_CONCENTRATION (1, 1, NCONT), TABLE_WATER_DEPTH (1, 1, NCONT), &
+               DELTAZ, ZVSNOD, DUMMYCONC)
+               
+            DO NCL = total_no_links + 1, total_no_elements
+               DO NCE = NCOLMB (NCL), NCETOP
+                  CCCC (NCL, NCE, NCONT) = DUMMYCONC (NCL, NCE)
                   SSSS (NCL, NCE, NCONT) = CCCC (NCL, NCE, NCONT)
-!     ADDED SB 6/3/00
+                  ! ADDED SB 6/3/00
                   SSSSO (NCL, NCE, NCONT) = CCCC (NCL, NCE, NCONT)
                   CCCCO (NCL, NCE, NCONT) = CCCC (NCL, NCE, NCONT)
-390            END DO
-385         END DO
-         ENDIF
-!
-
-380   END DO
-!
-!     End of new code by SB
-!     ---------------------
-
-
+               END DO
+            END DO
+         END IF
+      END DO
+      ! End of new code by SB -------
 
       IF (ISPLT) CALL INPL
-!                       Initialise plant uptake routines
-!                                   iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+
    END SUBROUTINE INCM
-
-
 
 
 
@@ -4450,403 +4107,382 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE INFR
+   !SSSSSS SUBROUTINE INFR
    SUBROUTINE INFR
-!-------------------------
-!
-!
-!     READ AND INITIALIZE DATA WHICH IS COMMON TO TWO OR MORE COMPONENTS
-!        - ORGANISATION AND FILE NOS.        FRD,MED,ETD,UZD,OCD,SZD,
-!                                            SMD,PRI,RES,HOT,SED
-!        - JOB TITLE.
-!        - MODEL SIZE.                       NX,NY
-!         - START TIME OF SIMULATION
-! ISYEAR,ISMTH,ISDAY,ISHOUR,ISMIN
-!         - END   TIME OF SIMULATION
-! IEYEAR,IEMTH,IEDAY,IEHOUR,IEMIN
-!        - H-H GRID SIZES IN X-DIRECTION.    DXIN
-!        - H-H GRID SIZES IN Y-DIRECTION.    DYIN
-!        - PRINTING CONTROL.                 DTAO,IAOUT,BINFRP,
-!                                            BFRTS1,BFRTS2,BSTORE
-!        - CONTROLS FOR SELECTION OF         BPPNET,BPEPOT,BPQOC,
-!            RESULTS TO BE PRINTED           BPDEP,BPQF,BPQH,BPQSZ,
-!                                            BPHSZ,BPBAL
-!        - COMPONENT EXECUTION CONTROL.      BEXET,BEXUZ,BEXOC,BEXSZ,
-!                                            BEXSM
-!        - NO. OF METEOROLOGICAL SITES,
-!             RAINFALL STATIONS,
-!             VEGETATION TYPES AND SOIL
-!             TYPES.                         NM,NRAIN,NV,NS
-!        - RIVER LINING PARAMETERS.          BLOWP,DB,CCB
-!        - DEFAULT MET- VEG- AND SOILCODES   IDMC,IDRA,IDVE,IDS1,IDS2
-!        - GROUND SURFACE LEVEL.             ZGRUND
-!        - IMPERMEABLE BED LEVEL.            ZBED
-!        - METEOROLOGICAL SITE CODES.        NMC
-!        - RAINFALL STATION CODES.           NRAINC
-!        - VEGETATION CODES.                 NVC
-!        - SOIL CODES - UNDER ROOT ZONE.     NSC1
-!        - SOIL CODES - ROOT ZONE.           NSC2
-!        - GRID CODE FOR UZ, SZ AND FRAME    INGRID
+   !-------------------------
+   !
+   !
+   !     READ AND INITIALIZE DATA WHICH IS COMMON TO TWO OR MORE COMPONENTS
+   !         - ORGANISATION AND FILE NOS.        FRD,MED,ETD,UZD,OCD,SZD,
+   !                                             SMD,PRI,RES,HOT,SED
+   !         - JOB TITLE.
+   !         - MODEL SIZE.                       NX,NY
+   !          - START TIME OF SIMULATION
+   ! ISYEAR,ISMTH,ISDAY,ISHOUR,ISMIN
+   !          - END   TIME OF SIMULATION
+   ! IEYEAR,IEMTH,IEDAY,IEHOUR,IEMIN
+   !         - H-H GRID SIZES IN X-DIRECTION.    DXIN
+   !         - H-H GRID SIZES IN Y-DIRECTION.    DYIN
+   !         - PRINTING CONTROL.                 DTAO,IAOUT,BINFRP,
+   !                                             BFRTS1,BFRTS2,BSTORE
+   !         - CONTROLS FOR SELECTION OF         BPPNET,BPEPOT,BPQOC,
+   !             RESULTS TO BE PRINTED           BPDEP,BPQF,BPQH,BPQSZ,
+   !                                             BPHSZ,BPBAL
+   !         - COMPONENT EXECUTION CONTROL.      BEXET,BEXUZ,BEXOC,BEXSZ,
+   !                                             BEXSM
+   !         - NO. OF METEOROLOGICAL SITES,
+   !             RAINFALL STATIONS,
+   !             VEGETATION TYPES AND SOIL
+   !             TYPES.                          NM,NRAIN,NV,NS
+   !         - RIVER LINING PARAMETERS.          BLOWP,DB,CCB
+   !         - DEFAULT MET- VEG- AND SOILCODES   IDMC,IDRA,IDVE,IDS1,IDS2
+   !         - GROUND SURFACE LEVEL.             ZGRUND
+   !         - IMPERMEABLE BED LEVEL.            ZBED
+   !         - METEOROLOGICAL SITE CODES.        NMC
+   !         - RAINFALL STATION CODES.           NRAINC
+   !         - VEGETATION CODES.                 NVC
+   !         - SOIL CODES - UNDER ROOT ZONE.     NSC1
+   !         - SOIL CODES - ROOT ZONE.           NSC2
+   !         - GRID CODE FOR UZ, SZ AND FRAME    INGRID
+
+      ! Assumed external module dependencies providing global variables:
+      ! PPPRI, BDEVER, SHEVER, BANNER, FRD, TITLE, nxee, nyee, nlfee, nelee,
+      ! llee, nvee, nsee, NVSEE, NVBP, NUZTAB, NLYREE, NXOCEE, NOCTAB, NSEDEE,
+      ! NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE, NX, NY,
+      ! NXM1, NYM1, NXP1, NYP1, DXIN, DYIN, DTAO, IAOUT, BINFRP, BFRTS1,
+      ! BFRTS2, BSTORE, PSTART, PMAX, PALFA, QMAX, TMAX, BSOFT, PREST, two,
+      ! BPPNET, BPEPOT, BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD,
+      ! BEXSM, BEXBK, BEXSY, BEXCM, BEXET, BEXUZ, BEXOC, BEXSZ, BEXEX, BHOTRD,
+      ! BHOTPR, BHOTTI, BHOTST, HOUR_FROM_DATE, mbyear, mbmon, mbday, TSH, TCH,
+      ! NM, NRAIN, NV, NS, INGRID, LCODEX, LCODEY, NXE, NYE, ZGRUND, NMC, NRAINC,
+      ! NVC, TOUTPUT, ALLOUT, NXEP1, NYEP1, ISORT, total_no_elements, OCLTL,
+      ! FRIND, AREADR, AREADI
+
+      IMPLICIT NONE
 
       INTEGER :: nxplus, isyear, ismth, isday, ishour, ismin, ieyear, iemth, ieday, iehour, iemin, &
          jsyear, jsmth, jsday, jshour, jsmin, jcyear, jcmth, jcday, jchour, jcmin, j, k, &
-         nlyrct, ipr, idmc, idra, idve, idlyr, i1, i2, i, ipflg, iel
-      DOUBLEPRECISION :: tthx
+         nlyrct, ipr, idmc, idra, idve, idlyr, i1, i2, i, ipflg, iel, ios
+      DOUBLE PRECISION :: tthx
+
+      !----------------------------------------------------------------------*
+
       WRITE(PPPRI, 10)
-10    FORMAT ('1',// T10, '                                E'/T10, &
-      & &
-         ' EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN'/T10, '                                S' /)
-!
-! PRINT THE CURRENT VERSION NUMBER
-!
+10    FORMAT ('1', // T10, '                                E'/T10, &
+              ' EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN'/T10, &
+              '                                S' /)
+
+      ! PRINT THE CURRENT VERSION NUMBER
       IF (BDEVER) THEN
          WRITE(PPPRI, 16) SHEVER
       ELSE
          WRITE(PPPRI, 15) SHEVER
-      ENDIF
-16    FORMAT (/  'SHETRAN VERSION NUMBER: ', F5.1 , &
-      &        ' ' )
-15    FORMAT (/  'SHETRAN VERSION NUMBER: ', F5.1 )
+      END IF
+16    FORMAT (/ 'SHETRAN VERSION NUMBER: ', F5.1, ' ')
+15    FORMAT (/ 'SHETRAN VERSION NUMBER: ', F5.1)
+      
       WRITE(PPPRI, 17) BANNER
 17    FORMAT(/A80/)
-!
-!     READ AND PRINT JOB TITLE.
-!:FR1
-      WRITE(PPPRI,'(A)') 'Catchment Name '
-      WRITE(PPPRI,'(A)') '************** '
-      READ (FRD,'(A)') TITLE
-30    FORMAT (20A4)
-      WRITE(PPPRI,'(A)') TITLE
-40    FORMAT (/  20A4, //, 100('='))
 
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Fixed array sizes in this version of SHETRAN '
-      WRITE(PPPRI,'(A)') '******************************************** '
-      WRITE(PPPRI,'(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
-      WRITE(PPPRI,'(4(A,I0))') ' NXEE = ',nxee, '  NYEE = ', nyee, '  NLFEE = ',nlfee, '  NELEE = ',nelee
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Grid points in vertical'
-      WRITE(PPPRI,'(1(A,I0))') ' LLEE = ',llee
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Vegetation types, soil typess (NVEE also used for number of precipitation and pet stations)'
-      WRITE(PPPRI,'(2(A,I0))') ' NVEE = ',nvee, '  NSEE = ', nsee
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers'
-      WRITE(PPPRI,'(4(A,I0))') ' NVSEE = ',NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ',NUZTAB, '  NLYREE = ',NLYREE
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'
-      WRITE(PPPRI,'(3(A,I0))') ' NXOCEE = ',NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ',NSEDEE
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants'
-      WRITE(PPPRI,'(4(A,I0))') ' NCONEE = ',NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ',NPLTEE, '  NPELEE = ',NPELEE
-      WRITE(PPPRI,*)
-      WRITE(PPPRI,'(A)') 'Number of snow meltwater slugs, Size of internal tables for channel conveyance'
-      WRITE(PPPRI,'(2(A,I0))') ' max_no_snowmelt_slugs = ',max_no_snowmelt_slugs, '  NXSCEE = ', NXSCEE
-      WRITE(PPPRI,*)
+      ! READ AND PRINT JOB TITLE.
+      ! :FR1
+      WRITE(PPPRI, '(A)') 'Catchment Name '
+      WRITE(PPPRI, '(A)') '************** '
+      READ (FRD, '(A)') TITLE
+      
+      WRITE(PPPRI, '(A)') TITLE
+      WRITE(PPPRI, '(/ 20A4, //, 100("="))') TITLE
 
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Fixed array sizes in this version of SHETRAN '
+      WRITE(PPPRI, '(A)') '******************************************** '
+      WRITE(PPPRI, '(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
+      WRITE(PPPRI, '(4(A,I0))') ' NXEE = ', nxee, '  NYEE = ', nyee, '  NLFEE = ', nlfee, '  NELEE = ', nelee
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Grid points in vertical'
+      WRITE(PPPRI, '(1(A,I0))') ' LLEE = ', llee
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Vegetation types, soil typess (NVEE also used for number of precipitation and pet stations)'
+      WRITE(PPPRI, '(2(A,I0))') ' NVEE = ', nvee, '  NSEE = ', nsee
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers'
+      WRITE(PPPRI, '(4(A,I0))') ' NVSEE = ', NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ', NUZTAB, '  NLYREE = ', NLYREE
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'
+      WRITE(PPPRI, '(3(A,I0))') ' NXOCEE = ', NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ', NSEDEE
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants'
+      WRITE(PPPRI, '(4(A,I0))') ' NCONEE = ', NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ', NPLTEE, '  NPELEE = ', NPELEE
+      WRITE(PPPRI, *)
+      WRITE(PPPRI, '(A)') 'Number of snow meltwater slugs, Size of internal tables for channel conveyance'
+      WRITE(PPPRI, '(2(A,I0))') ' max_no_snowmelt_slugs = ', max_no_snowmelt_slugs, '  NXSCEE = ', NXSCEE
+      WRITE(PPPRI, *)
 
-!
       WRITE(PPPRI, 20)
 20    FORMAT (/ ' ^^^ ENTER INFR ^^^')
-!
-!     READ AND PRINT MODEL SIZE, TOTAL SIMULATION TIME, GRID SIZES AND
-!        PRINTING CONTROL.
-!:FR2
-      READ (FRD, * )
-      READ (FRD, * ) NX, NY
+
+      ! READ AND PRINT MODEL SIZE, TOTAL SIMULATION TIME, GRID SIZES AND
+      ! PRINTING CONTROL.
+      ! :FR2
+      READ (FRD, *)
+      READ (FRD, *) NX, NY
       NXPLUS = 0
-!:FR4
-      READ (FRD, * )
-      READ (FRD, * ) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN
-!:FR6
-      READ (FRD, * )
-      READ (FRD, * ) IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN
-!
-! READ START TIMES FOR SEDIMENT AND CONTAMINANT COMPONENTS
-!
-!:FR7a
-      READ (FRD, * )
-      READ (FRD, * ) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN
-!:FR7c
-      READ (FRD, * )
-      READ (FRD, * ) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN
-!
+
+      ! :FR4
+      READ (FRD, *)
+      READ (FRD, *) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN
+
+      ! :FR6
+      READ (FRD, *)
+      READ (FRD, *) IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN
+
+      ! READ START TIMES FOR SEDIMENT AND CONTAMINANT COMPONENTS
+      ! :FR7a
+      READ (FRD, *)
+      READ (FRD, *) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN
+      
+      ! :FR7c
+      READ (FRD, *)
+      READ (FRD, *) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN
+
       NXM1 = NX - 1
       NYM1 = NY - 1
       NXP1 = NX + 1
       NYP1 = NY + 1
-!:FR8
-      READ (FRD, 30) TITLE
-      READ (FRD, 50) (DXIN (J), J = 1, NXM1)
-!:FR10
-      READ (FRD, 30) TITLE
-      READ (FRD, 50) (DYIN (K), K = 1, NYM1)
-50    FORMAT (10F7.0)
-!
-!:FR12
-      READ (FRD, 30) TITLE
-      READ (FRD, 80) DTAO, IAOUT, BINFRP, BFRTS1, BFRTS2, BSTORE, &
-         PSTART
-80    FORMAT (F7.0, I7, 4L7, F7.0)
-!:FR20
-      READ (FRD, 30) TITLE
-      READ (FRD,85) PMAX, PALFA, QMAX, TMAX, BSOFT
 
-85    FORMAT(4F7.0,L7)
-!PMAX = one
-!PALFA = 0.15D0
-      IF (TMAX.GT.two) THEN
-         WRITE(PPPRI, * ) '^^^ TIMESTEP LIMITED TO 2 HOURS ^^^'
-         TMAX = two
-      ENDIF
-!
-      PREST = (one + PALFA)
-!
-      IF (IAOUT.EQ.2) THEN
-!:FR22
-         READ (FRD, 30) TITLE
-         READ (FRD, 100) BPPNET, BPEPOT, BPQOC, BPDEP, BPQF, BPQH, &
-            BPQSZ, BPHSZ, BPBAL, BPSD
-100      FORMAT     (10L7)
-      ENDIF
-!
-!---- BEX** = TRUE FOR EXECUTION AND FALSE FOR NO EXECUTION
-!     NOTE: COMPONENTS FR,ET,UZ,OC,SZ,EX ARE ALWAYS INCLUDED
-!
-!:FR24
-      READ (FRD, 30) TITLE
-      READ (FRD, 130) BEXSM, BEXBK, BEXSY, BEXCM
+      ! :FR8
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(10F7.0)') (DXIN (J), J = 1, NXM1)
+      
+      ! :FR10
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(10F7.0)') (DYIN (K), K = 1, NYM1)
+
+      ! :FR12
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(F7.0, I7, 4L7, F7.0)') DTAO, IAOUT, BINFRP, BFRTS1, BFRTS2, BSTORE, PSTART
+
+      ! :FR20
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(4F7.0,L7)') PMAX, PALFA, QMAX, TMAX, BSOFT
+
+      ! PMAX = one
+      ! PALFA = 0.15D0
+      IF (TMAX > 2.0D0) THEN
+         WRITE(PPPRI, *) '^^^ TIMESTEP LIMITED TO 2 HOURS ^^^'
+         TMAX = 2.0D0
+      END IF
+
+      PREST = (1.0D0 + PALFA)
+
+      IF (IAOUT == 2) THEN
+         ! :FR22
+         READ (FRD, '(20A4)') TITLE
+         READ (FRD, '(10L7)') BPPNET, BPEPOT, BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD
+      END IF
+
+      ! ---- BEX** = TRUE FOR EXECUTION AND FALSE FOR NO EXECUTION
+      !      NOTE: COMPONENTS FR,ET,UZ,OC,SZ,EX ARE ALWAYS INCLUDED
+      ! :FR24
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(10L7)') BEXSM, BEXBK, BEXSY, BEXCM
       BEXET = .TRUE.
       BEXUZ = .TRUE.
       BEXOC = .TRUE.
       BEXSZ = .TRUE.
       BEXEX = .TRUE.
-!
-!     LOGICAL PARAMETERS FOR HOT START
-!
-!:FR26
-      READ (FRD, 30) TITLE
-      READ (FRD, 140) BHOTRD, BHOTPR, BHOTTI, BHOTST
-!
-! PRINT INITIALISATION DATA
-!
-130   FORMAT (10L7)
-140   FORMAT (2L7, 2F7.2)
+
+      ! LOGICAL PARAMETERS FOR HOT START
+      ! :FR26
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(2L7, 2F7.2)') BHOTRD, BHOTPR, BHOTTI, BHOTST
+
+      ! PRINT INITIALISATION DATA
       WRITE(PPPRI, 150) NX, NY
-150   FORMAT ('0'//, ' GRID SPECIFICATION'/80('*')//, ' NX = ', I4, &
-      &       21X, 'NY = ', I4)
+150   FORMAT ('0'//, ' GRID SPECIFICATION'/80('*')//, ' NX = ', I4, 21X, 'NY = ', I4)
       WRITE(PPPRI, 160) (DXIN (J), J = 1, NXM1)
-160   FORMAT ('0', 'H-H GRID SIZES (METERS) IN X-DIRECTION', /, &
-      &       (1X,10G11.4))
+160   FORMAT ('0', 'H-H GRID SIZES (METERS) IN X-DIRECTION', /, (1X, 10G11.4))
       WRITE(PPPRI, 170) (DYIN (K), K = 1, NYM1)
-170   FORMAT ('0', 'H-H GRID SIZES (METERS) IN Y-DIRECTION', /, &
-      &       (1X,10G11.4))
+170   FORMAT ('0', 'H-H GRID SIZES (METERS) IN Y-DIRECTION', /, (1X, 10G11.4))
       WRITE(PPPRI, 200)
 200   FORMAT (' ', 80('*'))
-!
-!     CONVERT STARTTIME AND ENDTIME TO HOURS.
+
+      ! CONVERT STARTTIME AND ENDTIME TO HOURS.
       TIH = HOUR_FROM_DATE(ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN)
       TTH = HOUR_FROM_DATE(IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN)
       TTHX = TTH - TIH
+      
       WRITE(PPPRI, 210) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN, IEYEAR, &
          IEMTH, IEDAY, IEHOUR, IEMIN, TTHX
 210   FORMAT ('0'//, ' START OF SIMULATION  : ', 5I6, /, &
-      &               ' END OF SIMULATION    : ', 5I6, /, &
-      &       ' LENGTH OF SIMULATION : ', F10.2, ' HOURS.')
-!
-! store start time for mass balance
+              ' END OF SIMULATION    : ', 5I6, /, &
+              ' LENGTH OF SIMULATION : ', F10.2, ' HOURS.')
+
+      ! store start time for mass balance
       mbyear = isyear
       mbmon = ismth
-
       mbday = isday
+      
       IF (BEXSY) THEN
          TSH = HOUR_FROM_DATE(JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN)
-         WRITE(PPPRI, 211) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN, (TSH - &
-            TIH)
-211      FORMAT  (// ' START OF SEDIMENT SIMULATION  : ',5I6, / &
-         &            '           AT SIMULATION HOUR  : ',F8.2)
-      ENDIF
+         WRITE(PPPRI, 211) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN, (TSH - TIH)
+211      FORMAT (// ' START OF SEDIMENT SIMULATION  : ', 5I6, / &
+                  '           AT SIMULATION HOUR  : ', F8.2)
+      END IF
+      
       IF (BEXCM) THEN
          TCH = HOUR_FROM_DATE(JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN)
-         WRITE(PPPRI, 212) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN, (TCH - &
-            TIH)
-212      FORMAT  (// ' START OF CONTAMINANT SIMULATION  : ',5I6, / &
-         &            '              AT SIMULATION HOUR  : ',F8.2)
-      ENDIF
-!
+         WRITE(PPPRI, 212) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN, (TCH - TIH)
+212      FORMAT (// ' START OF CONTAMINANT SIMULATION  : ', 5I6, / &
+                  '               AT SIMULATION HOUR  : ', F8.2)
+      END IF
+
       WRITE(PPPRI, 215) TMAX
-215   FORMAT ('0',//, ' BASIC TIMESTEP (HOURS) :', F8.3)
-!
+215   FORMAT ('0', //, ' BASIC TIMESTEP (HOURS) :', F8.3)
+
       WRITE(PPPRI, 220) DTAO
 220   FORMAT ('0'//, ' PRINTING CONTROL - ALL RESULTS PRINTED AT', &
-      &       ' INTERVALS OF DTAO = ', F7.2, ' HOURS.')
-!
-      IF (.NOT.BSTORE) WRITE(PPPRI, 230)
+              ' INTERVALS OF DTAO = ', F7.2, ' HOURS.')
+
+      IF (.NOT. BSTORE) WRITE(PPPRI, 230)
 230   FORMAT ('0'//, ' RESULTS NOT REQUIRED ON FILE STORE.')
-!
+
       IF (BSTORE) WRITE(PPPRI, 240)
 240   FORMAT ('0'//, ' RESULTS RECORDED ON FILE STORE.')
-!
-!     READ AND PRINT NM,NRAIN,NV AND NS.
-!:FR28
-      READ (FRD, 30) TITLE
-      READ (FRD, 250) NM, NRAIN, NV, NS, NLYRCT
-250   FORMAT (5I7)
+
+      ! READ AND PRINT NM,NRAIN,NV AND NS.
+      ! :FR28
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(5I7)') NM, NRAIN, NV, NS, NLYRCT
       WRITE(PPPRI, 260) NM, NRAIN, NV, NS, NLYRCT
 260   FORMAT ('0'//, ' NO. OF METEOROLOGICAL SITES = ', I3, /, &
-      &       ' NO. OF RAINFALL STATIONS = ', I3, /, &
-      &       ' NO. OF VEGETATION TYPES = ', I3, /, &
-      &       ' NO. OF SOIL TYPES = ', I3, /, &
-      &       ' NO. OF SOIL HORIZON CATEGORIES = ', I3)
-!
-!     READ RIVER LINING PARAMETERS.  BLOWP,DB,CCB,BEXTS1
-!:FR30
-      READ (FRD, 30) TITLE
-      read (frd, * )
-!c      READ (FRD,270) BLOWP, DB, CCB, BEXTS1
-!c  270 FORMAT (L7, 2F7.0, L7)
-!c      WRITE(PPPRI,280) BLOWP, DB, CCB, BEXTS1
-!c  280 FORMAT ('0'//, ' RIVER LOW PERMEABILITY LINING PARAMETERS.', /,
-!c     1       ' BLOWP=', L1, 5X, 'LINING THICKNESS (DB) =', F7.2,
-!c     2     ' METERS.', 5X, 'PERMEABILITY (CCB) =', E13.6, ' M/DAY.', /
-!c     3       , ' BEXTS1=', L7)
-!     CONVERT CCB TO M/SEC
-!c      CCB = CCB / 86400.
-!
-!     SET PRINTING CONTROL FOR SUBROUTINES AREADR AND AREADI.
+              ' NO. OF RAINFALL STATIONS = ', I3, /, &
+              ' NO. OF VEGETATION TYPES = ', I3, /, &
+              ' NO. OF SOIL TYPES = ', I3, /, &
+              ' NO. OF SOIL HORIZON CATEGORIES = ', I3)
+
+      ! READ RIVER LINING PARAMETERS.  BLOWP,DB,CCB,BEXTS1
+      ! :FR30
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, *)
+
+      ! SET PRINTING CONTROL FOR SUBROUTINES AREADR AND AREADI.
       IPR = 0
       IF (BINFRP) IPR = 1
-!
-!     READ DEFAULT VALUES FOR MET,RAIN,VEG,SOIL-CODES. APPLIED WHEN > 0
-!:FR32
-      READ (FRD, 30) TITLE
-      READ (FRD, 290) IDMC, IDRA, IDVE, IDLYR
-290   FORMAT (6I7)
+
+      ! READ DEFAULT VALUES FOR MET,RAIN,VEG,SOIL-CODES. APPLIED WHEN > 0
+      ! :FR32
+      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(6I7)') IDMC, IDRA, IDVE, IDLYR
       WRITE(PPPRI, 300) IDMC, IDRA, IDVE, IDLYR
 300   FORMAT ('0', /, ' DEFAULT METEOROLOGICAL STATION CODE =', I3, /, &
-      &       1X, 'DEFAULT RAINFALL STATION CODE       =', I3, /, &
-      &       1X, 'DEFAULT VEGETATION GRID CODE        =', I3, /, &
-      &       1X, 'DEFAULT SOIL HORIZON CATEGORY CODE  =', I3)
-!
-! READ IN MAIN CATCHMENT DEFINITION ARRAY, INGRID
-! (NB. THIS IS NOT READ IN USING AREAD ROUTINES, AS THE
-! INDEX ARRAY ICMREF HASN'T BEEN SET UP YET)
-!
-!:FR34
-      READ (FRD, 30) TITLE
-      IF (BINFRP) WRITE(PPPRI, 303) TITLE
-303   FORMAT(/ 20A4)
-!
-      DO 310 I1 = 1, NY
-         K = NY + 1 - I1
-         READ (FRD, 306) I2, (INGRID (J, K), J = 1, NX)
-         IF (BINFRP) WRITE(PPPRI, 306) I2, (INGRID (J, K), J = 1, NX)
-306      FORMAT  (I7, 1X, 500I1)
-         IF (I2.NE.K) GOTO 312
-310   END DO
-      GOTO 316
-!
-!^^^^^^ERROR IN DATA
-!
-312   CONTINUE
-      WRITE(PPPRI, 314) TITLE, I2
-314   FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
-      &       'LINE K= ', I5)
-      STOP
-!
-! SET INGRID TO BE ITS INTERNAL VALUES FOR SHE (=0 IN CATCHMENT, -1 OTHE
-!
-316   CONTINUE
+              1X, 'DEFAULT RAINFALL STATION CODE       =', I3, /, &
+              1X, 'DEFAULT VEGETATION GRID CODE        =', I3, /, &
+              1X, 'DEFAULT SOIL HORIZON CATEGORY CODE  =', I3)
 
+      ! READ IN MAIN CATCHMENT DEFINITION ARRAY, INGRID
+      ! (NB. THIS IS NOT READ IN USING AREAD ROUTINES, AS THE
+      ! INDEX ARRAY ICMREF HASN'T BEEN SET UP YET)
+      !
+      ! :FR34
+      READ (FRD, '(20A4)') TITLE
+      IF (BINFRP) WRITE(PPPRI, '( / 20A4)') TITLE
+
+      DO I1 = 1, NY
+         K = NY + 1 - I1
+         READ (FRD, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
+         IF (BINFRP) WRITE(PPPRI, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
+         
+         ! Catchment array definition check
+         IF (I2 /= K) THEN
+            WRITE(PPPRI, 314) TITLE, I2
+314         FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
+                    'LINE K= ', I5)
+            STOP
+         END IF
+      END DO
+
+      ! SET INGRID TO BE ITS INTERNAL VALUES FOR SHE (=0 IN CATCHMENT, -1 OTHER)
       DO I = 1, NX
          DO J = 1, NY
-            IF (INGRID (I, J) .EQ.1) THEN
+            IF (INGRID (I, J) == 1) THEN
                INGRID (I, J) = 0
             ELSE
-               INGRID (I, J) = - 1
-            ENDIF
+               INGRID (I, J) = -1
+            END IF
          END DO
       END DO
-!
-! READ THE CODES FOR OVERLAND/CHANNEL FLOW GRID BOUNDARIES
-!
-!:FR35a
+
+      ! READ THE CODES FOR OVERLAND/CHANNEL FLOW GRID BOUNDARIES
+      ! :FR35a
       CALL OCLTL (NXP1, NY, LCODEX, NXE, NYE, FRD, PPPRI, BINFRP)
-!:FR35c
+      ! :FR35c
       CALL OCLTL (NX, NYP1, LCODEY, NXE, NYE, FRD, PPPRI, BINFRP)
-!
-! INITIALISE GLOBAL INDEX ARRAY
-!
+
+      ! INITIALISE GLOBAL INDEX ARRAY
       CALL FRIND (BINFRP)
-!
-!     READ / PRINT ARRAYS ZGRUND, NMC, NRAIN, NVC.
-!     SET EQUAL TO DEFAULT VALUES IF THESE ARE TO BE USED.
-!
-!:FR37
+
+      ! READ / PRINT ARRAYS ZGRUND, NMC, NRAIN, NVC.
+      ! SET EQUAL TO DEFAULT VALUES IF THESE ARE TO BE USED.
+      !
+      ! :FR37
       CALL AREADR (ZGRUND, IPR, FRD, PPPRI)
-!
+
       IPFLG = 3
-!:FR43
-      IF (IDMC.GT.0) CALL AREADI (NMC, IPFLG, IDMC, PPPRI, NM)
-      IF (IDMC.LE.0) CALL AREADI (NMC, IPR, FRD, PPPRI, NM)
-!:FR46
-      IF (IDRA.GT.0) CALL AREADI (NRAINC, IPFLG, IDRA, PPPRI, NRAIN)
-      IF (IDRA.LE.0) CALL AREADI (NRAINC, IPR, FRD, PPPRI, NRAIN)
-!:FR49
-      IF (IDVE.GT.0) CALL AREADI (NVC, IPFLG, IDVE, PPPRI, NV)
+      ! :FR43
+      IF (IDMC > 0) CALL AREADI (NMC, IPFLG, IDMC, PPPRI, NM)
+      IF (IDMC <= 0) CALL AREADI (NMC, IPR, FRD, PPPRI, NM)
+      ! :FR46
+      IF (IDRA > 0) CALL AREADI (NRAINC, IPFLG, IDRA, PPPRI, NRAIN)
+      IF (IDRA <= 0) CALL AREADI (NRAINC, IPR, FRD, PPPRI, NRAIN)
+      ! :FR49
+      IF (IDVE > 0) CALL AREADI (NVC, IPFLG, IDVE, PPPRI, NV)
+      IF (IDVE <= 0) CALL AREADI (NVC, IPR, FRD, PPPRI, NV)
 
-      IF (IDVE.LE.0) CALL AREADI (NVC, IPR, FRD, PPPRI, NV)
+      ! :FR52
+      READ (FRD, '(20A4)', IOSTAT = ios) TITLE
+      IF (ios == 0) READ (FRD, *, IOSTAT = ios) TOUTPUT
+      
+      ! Check if the optional outputs read successfully
+      IF (ios /= 0) TOUTPUT = 24.0D0
 
-!:FR52
-      READ (FRD, 30,err=958,end=958) TITLE
-      READ (FRD, *,err=958,end=958) TOUTPUT
+      ! INITIALIZATION OF SOME PARAMETERS.
+      ALLOUT = DTAO + PSTART
+      NXEP1 = NXE + 1
+      NYEP1 = NYE + 1
 
-      goto 959
-
-958   toutput=24.0
-!     INITIALIZATION OF SOME PARAMETERS.
-!
-959   ALLOUT = DTAO + PSTART
-      NXEP1 = NXE+1
-      NYEP1 = NYE+1
-!
-! INITIALISATION OF ISORT ARRAY
-!
+      ! INITIALISATION OF ISORT ARRAY
       DO IEL = 1, total_no_elements
          ISORT (IEL) = IEL
       END DO
 
-!
       WRITE(PPPRI, 430)
 430   FORMAT ('0'//, ' EXIT INFR')
-!
-      RETURN
 
    END SUBROUTINE INFR
-! ######################################################################
-! #                                                                    #
-! #                                S                                   #
-! # EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN #
-! #                                S                                   #
-! #                                                                    #
-! #                            SHETRAN-UK                              #
-! #           PLANT COMTAMINANT MIGRATION COMPONENT (MPL)              #
-! #                                                                    #
-! ######################################################################
-!
-!
-!----------------PROGRAM AMENDMENT HISTORY----------------------------
-!
-! AMENDED BY   DATE   VERSION   REASON FOR AMENDMENT
-! ----------  ------  -------   --------------------
-!    JE       18/3/93  3.4      IMPLEMENTATION
-!---------------------------------------------------------------------
-!
 
 
 
-
-!SSSSSS SUBROUTINE INPL
+   ! ######################################################################
+   ! #                                                                    #
+   ! #                                S                                   #
+   ! # EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN #
+   ! #                                S                                   #
+   ! #                                                                    #
+   ! #                            SHETRAN-UK                              #
+   ! #           PLANT COMTAMINANT MIGRATION COMPONENT (MPL)              #
+   ! #                                                                    #
+   ! ######################################################################
+   !
+   !
+   !----------------PROGRAM AMENDMENT HISTORY----------------------------
+   !
+   ! AMENDED BY   DATE   VERSION   REASON FOR AMENDMENT
+   ! ----------  ------  -------   --------------------
+   !    JE       18/3/93  3.4      IMPLEMENTATION
+   !---------------------------------------------------------------------
+   !
+   !SSSSSS SUBROUTINE INPL
    SUBROUTINE INPL
 !                 Initialisation subroutine for contaminant plant uptake
 
@@ -4949,128 +4585,136 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE INSM
+   !SSSSSS SUBROUTINE INSM
    SUBROUTINE INSM
-!
-!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!  THIS SUBROUTINE READS IN THE PARAMETERS REQUIRED FOR THE
-!  SNOWMELT COMPONENT AND CARRIES OUT INITIALISATION
-!  CALCULATIONS.
-!
-!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
+   !
+   !  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !
+   !  THIS SUBROUTINE READS IN THE PARAMETERS REQUIRED FOR THE
+   !  SNOWMELT COMPONENT AND CARRIES OUT INITIALISATION
+   !  CALCULATIONS.
+   !
+   !  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !
 
+      ! Assumed external module dependencies providing global variables:
+      ! SMD, BINSMP, PPPRI, HEAD, DDF, RHOS, NSD, MSM, RHODEF, zero,
+      ! ZOS, ZDS, ZUS, NM, IMET, ngdbgn, total_no_elements, rhosar,
+      ! SD, NSMC, TS, SF, AREADR
+
+      IMPLICIT NONE
+
+      ! Locals, etc
       INTEGER :: n, iel, i
-      DOUBLEPRECISION :: tsin, unifsd
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!     VARIABLE AND UNIT SPECIFICATION
-!     UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
-!     SD    - SNOWDEPTH (MM OF SNOW)                      MM
-!     DDF   - DEGREE DAY FACTOR                           MM/S/C
-!     RHOS  - SPECIFIC GRAVITY OF SNOW                    --
-!     TSIN  - INITIAL TEMPERATURE OF SNOW                 C
-!     TS    - TEMPERATURE OF SNOW                         C
-!     NSMC  - COUNTER USED IN ROUTING MELTWATER
-!               THROUGH SNOWPACK. EQUALS NUMBER OF
-!               SLUGS OF MELTWATER MOVING THROUGH SNOWPACK--
-!     MSM   - EQUALS 1 FOR DEGREE DAY
-!                    2 FOR ENERGY BUDGET                  --
-!
-!     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!
-!         READ PRINT CONTROL PARAMETERS
-      READ (SMD, 700) HEAD
-700   FORMAT(20A4)
-      READ (SMD, 708) BINSMP
-708   FORMAT(L7)
-      IF (BINSMP) WRITE(PPPRI, 800) HEAD
-800   FORMAT(///1X, 20A4)
-!
-!         READ SNOWMELT DATA
-      READ (SMD, 700) HEAD
-      READ (SMD, 701) DDF, RHOS, TSIN, NSD, MSM
-701   FORMAT(2F7.5,F7.2,2I7)
+      DOUBLE PRECISION :: tsin, unifsd
+      
+      !
+      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
+      !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
+      !     VARIABLE AND UNIT SPECIFICATION
+      !     UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
+      !     SD    - SNOWDEPTH (MM OF SNOW)                      MM
+      !     DDF   - DEGREE DAY FACTOR                           MM/S/C
+      !     RHOS  - SPECIFIC GRAVITY OF SNOW                    --
+      !     TSIN  - INITIAL TEMPERATURE OF SNOW                 C
+      !     TS    - TEMPERATURE OF SNOW                         C
+      !     NSMC  - COUNTER USED IN ROUTING MELTWATER
+      !               THROUGH SNOWPACK. EQUALS NUMBER OF
+      !               SLUGS OF MELTWATER MOVING THROUGH SNOWPACK--
+      !     MSM   - EQUALS 1 FOR DEGREE DAY
+      !                    2 FOR ENERGY BUDGET                  --
+      !
+      !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
+      !
+      ! READ PRINT CONTROL PARAMETERS
+      READ (SMD, '(20A4)') HEAD
+      READ (SMD, '(L7)') BINSMP
+      IF (BINSMP) WRITE(PPPRI, '(///1X, 20A4)') HEAD
+
+      ! READ SNOWMELT DATA
+      READ (SMD, '(20A4)') HEAD
+      READ (SMD, '(2F7.5,F7.2,2I7)') DDF, RHOS, TSIN, NSD, MSM
       RHODEF = RHOS
-!         Added by spa, 05/11/92.  Snowpack temp no longer needed
-!         for degree day method.  Therefore if msm=1, tsin=0.
-      if (msm.eq.1) tsin = zero
-      IF (BINSMP) WRITE(PPPRI, 801) DDF, RHOS, TSIN, MSM
-801   FORMAT(/,'DEGREE DAY FACTOR DDF =',F7.5,1X,'MM/S/C', &
-      & 5X,'SNOW SPECIFIC GRAVITY RHOS =',F7.5/ &
-      & 5X,'INITIAL SNOW TEMPERATURE =',F7.2,1X,'C'/ &
-      & 5X,'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
-      & ' AND BY ENERGY BUDGET IF MSM IS 2',5X,'MSM =',I3)
-!
-      IF (MSM.EQ.1) GOTO 710
-!        READ ENERGY BUDGET DATA
-      READ (SMD, 700) HEAD
-      READ (SMD, 709) ZOS, ZDS, ZUS
-709   FORMAT(3F7.5)
-      IF (BINSMP) WRITE(PPPRI, 803) ZOS, ZDS, ZUS
-803   FORMAT(/,'ENERGY BUDGET DATA',3X,'ROUGHNESS ZOS =',F7.5,1X,'M'/ &
-      &    21X,'ZERO PLANE DISPLACEMENT ZDS =',F7.5,1X,'M'/ &
-      &    21X,'HEIGHT OF ANEMOMETER ZUS =',F7.5,1X,'M')
-!
-!         METEOROLOGICAL (WINDSPEED) DATA LOCATION
-!
-      READ (SMD, 700) HEAD
-      READ (SMD, 720) (IMET (N), N = 1, NM)
-720   FORMAT(10I7)
+      
+      ! Added by spa, 05/11/92.  Snowpack temp no longer needed
+      ! for degree day method.  Therefore if msm=1, tsin=0.
+      IF (MSM == 1) tsin = zero
+      
       IF (BINSMP) THEN
-         WRITE(PPPRI, 715)
-715      FORMAT  (/' LOCATION OF MET. STATIONS: ' / &
-         &    ' STATION NO.    ELEMENT NO.')
-         DO 730 N = 1, NM
-            WRITE(PPPRI, 735) N, IMET (N)
-735         FORMAT    (3X,I4,10X,I4)
-730      END DO
-      ENDIF
-!
-!         IS SNOWDEPTH UNIFORM?
-!
-710   IF (NSD.EQ.0) then
-         do 712 iel = ngdbgn, total_no_elements
-            rhosar (iel) = rhodef
-712      end do
-         GOTO 703
-      endif
-!
-!         NONUNIFORM SNOWDEPTH (MM OF SNOW)
-      I = 0
-      IF (BINSMP) I = 1
-      CALL AREADR (SD, I, SMD, PPPRI)
-      CALL AREADR (RHOSAR, I, SMD, PPPRI)
-      GOTO 704
-!
-!         UNIFORM SNOWDEPTH (MM OF SNOW)
-703   READ (SMD, 700) HEAD
-      READ (SMD, 705) UNIFSD
-705   FORMAT(F7.1)
-      DO 706 IEL = NGDBGN, total_no_elements
-         SD (IEL) = UNIFSD
-706   END DO
-      IF (BINSMP) WRITE(PPPRI, 802) UNIFSD
+         WRITE(PPPRI, 801) DDF, RHOS, TSIN, MSM
+801      FORMAT(/, 'DEGREE DAY FACTOR DDF =', F7.5, 1X, 'MM/S/C', &
+                5X, 'SNOW SPECIFIC GRAVITY RHOS =', F7.5 / &
+                5X, 'INITIAL SNOW TEMPERATURE =', F7.2, 1X, 'C' / &
+                5X, 'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
+                ' AND BY ENERGY BUDGET IF MSM IS 2', 5X, 'MSM =', I3)
+      END IF
 
-! This adds a blank line then prints the text
-802   FORMAT(/, 1X, 'INITIAL SNOWPACK HAS UNIFORM THICKNESS =', F7.1, 1X, 'MM')
+      ! Execute Energy Budget specific reads if MSM > 1
+      IF (MSM /= 1) THEN
+         ! READ ENERGY BUDGET DATA
+         READ (SMD, '(20A4)') HEAD
+         READ (SMD, '(3F7.5)') ZOS, ZDS, ZUS
+         
+         IF (BINSMP) THEN
+            WRITE(PPPRI, 803) ZOS, ZDS, ZUS
+803         FORMAT(/, 'ENERGY BUDGET DATA', 3X, 'ROUGHNESS ZOS =', F7.5, 1X, 'M' / &
+                   21X, 'ZERO PLANE DISPLACEMENT ZDS =', F7.5, 1X, 'M' / &
+                   21X, 'HEIGHT OF ANEMOMETER ZUS =', F7.5, 1X, 'M')
+         END IF
 
-704   DO 707 IEL = NGDBGN, total_no_elements
-!                  SET COUNTER FOR SNOWMELT ROUTINE
+         ! METEOROLOGICAL (WINDSPEED) DATA LOCATION
+         READ (SMD, '(20A4)') HEAD
+         READ (SMD, '(10I7)') (IMET (N), N = 1, NM)
+         
+         IF (BINSMP) THEN
+            WRITE(PPPRI, 715)
+715         FORMAT (/' LOCATION OF MET. STATIONS: ' / &
+                     ' STATION NO.    ELEMENT NO.')
+            DO N = 1, NM
+               WRITE(PPPRI, '(3X, I4, 10X, I4)') N, IMET (N)
+            END DO
+         END IF
+      END IF
+
+      ! IS SNOWDEPTH UNIFORM?
+      IF (NSD == 0) THEN
+         DO iel = ngdbgn, total_no_elements
+            rhosar(iel) = rhodef
+         END DO
+         
+         ! UNIFORM SNOWDEPTH (MM OF SNOW)
+         READ (SMD, '(20A4)') HEAD
+         READ (SMD, '(F7.1)') UNIFSD
+         
+         DO IEL = NGDBGN, total_no_elements
+            SD(IEL) = UNIFSD
+         END DO
+         
+         ! This adds a blank line then prints the text
+         IF (BINSMP) WRITE(PPPRI, '(/, 1X, "INITIAL SNOWPACK HAS UNIFORM THICKNESS =", F7.1, 1X, "MM")') UNIFSD
+
+      ELSE
+         ! NONUNIFORM SNOWDEPTH (MM OF SNOW)
+         I = 0
+         IF (BINSMP) I = 1
+         CALL AREADR (SD, I, SMD, PPPRI)
+         CALL AREADR (rhosar, I, SMD, PPPRI)
+      END IF
+
+      ! Epilogue Element Processing
+      DO IEL = NGDBGN, total_no_elements
+         ! SET COUNTER FOR SNOWMELT ROUTINE
          NSMC (IEL) = 0
-!                  SET SNOW TEMPERATURES
+         ! SET SNOW TEMPERATURES
          TS (IEL) = TSIN
-!                  SET SNOWFALL
+         ! SET SNOWFALL
          SF (IEL) = zero
-707   END DO
-      RETURN
-   END SUBROUTINE INSM
+      END DO
 
+   END SUBROUTINE INSM
 
 
 

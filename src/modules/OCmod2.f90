@@ -174,6 +174,8 @@ CONTAINS
       ENDIF
    END SUBROUTINE OCNODE
 
+
+
 !SSSSSS SUBROUTINE FNODE
    SUBROUTINE FNODE (ZNODE, DI, CI, ZI, ROOTLI, QJ, resfnode)
 !----------------------------------------------------------------------*
@@ -211,53 +213,64 @@ CONTAINS
       resfnode = Qasum
    END SUBROUTINE FNODE
 
-!SSSSSS SUBROUTINE OCCODE
+
+   
+   !SSSSSS SUBROUTINE OCCODE
    SUBROUTINE OCCODE(ZG, STR, afromCWIDTH, afromXAFULL, afromXStypes, Z, CONV, DERIV)
-!----------------------------------------------------------------------*
-!  CALCULATE CONVEYANCE AND DERIVATIVE FOR A CHANNEL LINK.
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCODE/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980423  4.2  Explicit typing.  Argument ZG before Z.
-!                   New input args STR (was local), XAFULL, XS replace
-!                   IEL & common STRX, XAREA/NXSECT, XSECT/XCONV/XDERIV.
-!                   Move NXSCEE, CWIDTH from SPEC.OC/AL to arg-list.
-!                   (See callers OCQBC, OCQLNK, OCQMLN.)
-!                   Replace: Z-ZBFULL(IEL) with H-XS(1,NXSCEE); GOTO
-!                   with IF; search for I (DO-loop) with direct calc.
-!                   Rearrange expressions for CONV,DERIV (I.ge.NXSCEE).
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  Z.ge.ZG    [STR,CWIDTH,XAFULL,XS(1,NXSCEE)].gt.0    NXSCEE.ge.1
-!  for i in 1:NXSCEE-1   XS(1,i)=XS(1,NXSCEE)*(i-1)/(NXSCEE-1)
-!                        XS(2,i).ge.0    XS(3,i).gt.0
-! Exit conditions:          CONV.ge.0      DERIV.gt.0
-!----------------------------------------------------------------------*
-      DOUBLEPRECISION, INTENT(IN) ::  ZG, STR, afromCWIDTH, afromXAFULL, Z
-      DOUBLEPRECISION, INTENT(IN) ::  afromXStypes(3, NXSCEE)
-      DOUBLEPRECISION, INTENT(OUT) :: CONV, DERIV
+   !----------------------------------------------------------------------*
+   !  CALCULATE CONVEYANCE AND DERIVATIVE FOR A CHANNEL LINK.
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCCODE/4.2
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+   ! RAH  980423  4.2  Explicit typing.  Argument ZG before Z.
+   !                   New input args STR (was local), XAFULL, XS replace
+   !                   IEL & common STRX, XAREA/NXSECT, XSECT/XCONV/XDERIV.
+   !                   Move NXSCEE, CWIDTH from SPEC.OC/AL to arg-list.
+   !                   (See callers OCQBC, OCQLNK, OCQMLN.)
+   !                   Replace: Z-ZBFULL(IEL) with H-XS(1,NXSCEE); GOTO
+   !                   with IF; search for I (DO-loop) with direct calc.
+   !                   Rearrange expressions for CONV,DERIV (I.ge.NXSCEE).
+   !----------------------------------------------------------------------*
+   ! Entry requirements:
+   !  Z.ge.ZG    [STR,CWIDTH,XAFULL,XS(1,NXSCEE)].gt.0    NXSCEE.ge.1
+   !  for i in 1:NXSCEE-1  XS(1,i)=XS(1,NXSCEE)*(i-1)/(NXSCEE-1)
+   !                       XS(2,i).ge.0    XS(3,i).gt.0
+   ! Exit conditions:          CONV.ge.0     DERIV.gt.0
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables:
+      ! NXSCEE, one, DIMJE, CONVEYAN
+
+      IMPLICIT NONE
+
+      DOUBLE PRECISION, INTENT(IN)  :: ZG, STR, afromCWIDTH, afromXAFULL, Z
+      DOUBLE PRECISION, INTENT(IN)  :: afromXStypes(3, NXSCEE)
+      DOUBLE PRECISION, INTENT(OUT) :: CONV, DERIV
+      
       INTEGER :: I
-      DOUBLEPRECISION H, HFULL, XA
-!----------------------------------------------------------------------*asum1
+      DOUBLE PRECISION :: H, HFULL, XA
+      
+   !----------------------------------------------------------------------*
+      
       H = Z - ZG
-      HFULL = afromXStypes (1, NXSCEE)
+      HFULL = afromXStypes(1, NXSCEE)
 
-      I = INT((H / HFULL) * DBLE(NXSCEE-1) + one)
-!I = (H / HFULL) * (NXSCEE-1) + one
-      IF (I.LT.NXSCEE) THEN
-!         * use look-up tables
-         DERIV = afromXStypes (3, I)
-         CONV = afromXStypes (2, I) + DERIV * DIMJE(H, afromXStypes (1, I) )
+      I = INT((H / HFULL) * DBLE(NXSCEE - 1) + one)
+
+      IF (I < NXSCEE) THEN
+         ! * use look-up tables
+         DERIV = afromXStypes(3, I)
+         CONV  = afromXStypes(2, I) + DERIV * DIMJE(H, afromXStypes(1, I))
       ELSE
-!         * calculate values directly
+         ! * calculate values directly
          XA = afromXAFULL + afromCWIDTH * DIMJE(H, HFULL)
-         !CONV = STR * XA * H**F23
-         CALL CONVEYAN(str, h, conv, deriv, 2, xa, afromCWIDTH)
-         !DERIV = CONV * (afromCWIDTH / XA + F23 / H)
-
-      ENDIF
+         CALL CONVEYAN(STR, H, CONV, DERIV, 2, XA, afromCWIDTH)
+      END IF
+      
    END SUBROUTINE OCCODE
+
+
 
 !SSSSSS SUBROUTINE OCQBC
 !SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, afromXSTAB, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
@@ -916,239 +929,252 @@ CONTAINS
       ENDIF
    END SUBROUTINE QWEIR
 
-!SSSSSS SUBROUTINE OCFIX
+
+
+   !SSSSSS SUBROUTINE OCFIX
    SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
-!----------------------------------------------------------------------*
-!
-!  Ensure that discharges and elevations/depths satisfy requirements.
-!
-!  The following conditions are treated:
-!     i flow in direction of non-negative surface elevation gradient;
-!    ii flow  rate  less than a pre-defined minimum meaningful value;
-!   iii water depth less than a pre-defined minimum meaningful value.
-!
-!  Treatment comprises a reduction of existing flow rates, with
-!  corresponding (ie conservative) adjustments to surface elevations.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCFIX/4.27
-! Modifications:
-! RAH  08.10.94  Version 3.4.1. Created 03.10.94 from part of OCSIM.
-!                  !Repeat IEL loop up to NPASS times.  UHCRIT was 0.
-!                  !HRF adjustment (corresponding to flow correction)
-!                   had "*DTOC" missing.
-!                  !Adjust confluence flows too (were disregarded).
-! RAH  980115  4.2  Add !INTRINSIC.
-!      980617      !Treat cases i & ii (above) for discharges only.
-!                  !Replace "positive" with "non-negative" in case i.
-!                  !New test criteria at confluences (were unreliable).
-!                  !Less severe flow adjustments (were just set to 0).
-!      980618       Give details, in MSG, of any mass created or lost.
-!      980623      !Merge flow & depth loops, with depth as priority.
-!      980624      !Make depth adjustments conservative.
-!                  !Scrap locals KEL,KFACE (KEL wasn't set when JEL=0).
-!                   Swap sign of HERROR; use in ERROR call criteria.
-!      980625      !Adjust HRF(IEL) once only: use ZE in the interim.
-!      980729      !NPASS 50 was 4; also introduce new error 1060.
-!                   Replace statement function FNDXY with array DXY.
-! SB   990204 4.27  Problem with small flows from a lower to a higher
-!                   element. Modify DQE0
-! SB   990208 4.27  Problem with small flows from a lower to a higher
-!                   element. Add AOK = FALSE in final depth adjustment
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NEL.ge.1    NELEE.ge.NEL         DTOC.gt.0
-!  PRI.ge.0    NLFEE.ge.1    AREA(1:NEL).gt.0    PRI open for F output
-!  for iel in 1:NEL  for iface in 1:4
-!      let jel=ICMREF(iel,iface,2)    let ibr=-jel
-!          jel.le.NEL                     ibr.le.NLFEE
-!      {jel.lt.1} .or. {1.le.ICMREF(iel,iface,3).le.4}
-!      {ibr.lt.1} .or. {  for p in 1:3  let pel=ICMRF2(ibr,p,1)
-!                             pel.le.NEL
-!                            {pel.lt.1} .or. {1.le.ICMRF2(ibr,p,2).le.4}
-!                         max{pel}.ge.1  }
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
+   !
+   !  Ensure that discharges and elevations/depths satisfy requirements.
+   !
+   !  The following conditions are treated:
+   !     i flow in direction of non-negative surface elevation gradient;
+   !    ii flow  rate  less than a pre-defined minimum meaningful value;
+   !   iii water depth less than a pre-defined minimum meaningful value.
+   !
+   !  Treatment comprises a reduction of existing flow rates, with
+   !  corresponding (ie conservative) adjustments to surface elevations.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCFIX/4.27
+   ! Modifications:
+   ! RAH  08.10.94  Version 3.4.1. Created 03.10.94 from part of OCSIM.
+   !                  !Repeat IEL loop up to NPASS times.  UHCRIT was 0.
+   !                  !HRF adjustment (corresponding to flow correction)
+   !                   had "*DTOC" missing.
+   !                  !Adjust confluence flows too (were disregarded).
+   ! RAH  980115  4.2  Add !INTRINSIC.
+   !      980617      !Treat cases i & ii (above) for discharges only.
+   !                  !Replace "positive" with "non-negative" in case i.
+   !                  !New test criteria at confluences (were unreliable).
+   !                  !Less severe flow adjustments (were just set to 0).
+   !      980618       Give details, in MSG, of any mass created or lost.
+   !      980623      !Merge flow & depth loops, with depth as priority.
+   !      980624      !Make depth adjustments conservative.
+   !                  !Scrap locals KEL,KFACE (KEL wasn't set when JEL=0).
+   !                   Swap sign of HERROR; use in ERROR call criteria.
+   !      980625      !Adjust HRF(IEL) once only: use ZE in the interim.
+   !      980729      !NPASS 50 was 4; also introduce new error 1060.
+   !                   Replace statement function FNDXY with array DXY.
+   ! SB   990204 4.27  Problem with small flows from a lower to a higher
+   !                   element. Modify DQE0
+   ! SB   990208 4.27  Problem with small flows from a lower to a higher
+   !                   element. Add AOK = FALSE in final depth adjustment
+   !----------------------------------------------------------------------*
+   ! Entry requirements:
+   !  NEL.ge.1    NELEE.ge.NEL         DTOC.gt.0
+   !  PRI.ge.0    NLFEE.ge.1    AREA(1:NEL).gt.0    PRI open for F output
+   !  for iel in 1:NEL  for iface in 1:4
+   !      let jel=ICMREF(iel,iface,2)    let ibr=-jel
+   !          jel.le.NEL                     ibr.le.NLFEE
+   !      {jel.lt.1} .or. {1.le.ICMREF(iel,iface,3).le.4}
+   !      {ibr.lt.1} .or. {  for p in 1:3  let pel=ICMRF2(ibr,p,1)
+   !                             pel.le.NEL
+   !                            {pel.lt.1} .or. {1.le.ICMRF2(ibr,p,2).le.4}
+   !                         max{pel}.ge.1  }
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/OC/OCFIX/4.27
+
+      ! Assumed external module dependencies providing global variables:
+      ! NELEE, NLFEE, cellarea, DXQQ, DYQQ, ZGRUND, NOTZERO, ZERO, ONE,
+      ! DZMIN, WWWARN, PPPRI, ERROR
+
+      IMPLICIT NONE
+
       INTEGER, INTENT(IN) :: nel, afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
-      DOUBLEPRECISION, INTENT(IN) :: dtoc
-!     NB: QSA is positive in
-!     *  NPASS: maximum number of passes through the test loop
-!     * UHCRIT: minimum admissible flow rate [L^^2/T]
-!     *  HCRIT: minimum admissible surface water depth [L]
-!     * HERROR: minimum inoffensive negative surface water depth [L]
-!     *  DZMIN: target elevation difference in flow adjustments [L]
-      INTEGER         :: NPASS
-      PARAMETER (NPASS = 100)
-      DOUBLEPRECISION :: UHCRIT, HCRIT, HERROR
-      DOUBLEPRECISION, DIMENSION(nel), INTENT(IN)    :: inhrf
-      DOUBLEPRECISION, DIMENSION(nel), INTENT(OUT)   :: GGGETHRF
-      DOUBLEPRECISION, DIMENSION(nel,4), INTENT(IN)  :: inqsa
-      DOUBLEPRECISION, DIMENSION(nel,4), INTENT(OUT) :: GGGETQSA
-      PARAMETER (UHCRIT = 1D-7, HCRIT = 1D-7, HERROR = 1D-5)
+      DOUBLE PRECISION, INTENT(IN) :: dtoc
+      DOUBLE PRECISION, DIMENSION(nel), INTENT(IN)    :: inhrf
+      DOUBLE PRECISION, DIMENSION(nel), INTENT(OUT)   :: GGGETHRF
+      DOUBLE PRECISION, DIMENSION(nel, 4), INTENT(IN) :: inqsa
+      DOUBLE PRECISION, DIMENSION(nel, 4), INTENT(OUT):: GGGETQSA
+
+      INTEGER, PARAMETER :: NPASS = 100
+      DOUBLE PRECISION, PARAMETER :: UHCRIT = 1.0D-7, HCRIT = 1.0D-7, HERROR = 1.0D-5
+      
       INTEGER          :: IELc, IFACE, IBR, idum
       INTEGER          :: JEL, JFACE, PPP, PASSS, PEL, PEL0, PFACE, PFACE0
-      DOUBLEPRECISION  :: DQE, DZE, QE, ZE, DHQ, DHH, DDZ, DQE0, FDQE, H
-      DOUBLEPRECISION  :: DQA, DZA, QA, ZA, QQ, QQMIN, Qasum, SGN, ZG, DXY (0:1), rdum4(4)
+      DOUBLE PRECISION :: DQE, DZE, QE, ZE, DHQ, DHH, DDZ, DQE0, FDQE, H
+      DOUBLE PRECISION :: DQA, DZA, QA, ZA, QQ, QQMIN, Qasum, SGN, ZG, DXY (0:1), rdum4(4)
       LOGICAL          :: AOK, QSMALL, HSMALL, FAIL, FAILP, TEST, FLAG (4)
-      CHARACTER(132)  :: MSG
-!----------------------------------------------------------------------*
-! Control Loop
-! ------------
+      CHARACTER(132)   :: MSG
+
+   !----------------------------------------------------------------------*
+   ! Control Loop
+   ! ------------
+      
+      ! Fast whole-array copies outside the iteration loop
       GGGETHRF = inhrf
       GGGETQSA = inqsa
-      aok = .FALSE.
-      out900 : DO PASSS = 1, NPASS  !AP LOOP PROBLEMS
-         IF(aok) THEN
-            CYCLE out900  !AD Irreductible entry into loop problem
-         ELSE
-            AOK = .TRUE.
-         ENDIF
-         out400 : DO ielc = 1, NEL
+      AOK = .FALSE.
+      
+      pass_loop: DO PASSS = 1, NPASS
+
+         AOK = .TRUE.
+         
+         element_loop: DO ielc = 1, NEL
             ZE = GGGETHRF (ielc)
             DZE = DTOC / cellarea (ielc)
             DXY (0) = DXQQ (ielc)
             DXY (1) = DYQQ (ielc)
-            !           Depth Criterion: flag outflow (D<0) or inflow (D>0) faces
-            !           ---------------------------------------------------------
+
             ZG = ZGRUND (ielc)
-            H = ZE-ZG
-            HSMALL = (H.LT.HCRIT).AND.NOTZERO(H)
+            H = ZE - ZG
+            HSMALL = (H < HCRIT) .AND. NOTZERO(H)
             FDQE = ZERO
+            
             IF (HSMALL) THEN
-               DQE0 = - H / DZE
-               !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
+               DQE0 = -H / DZE
                SGN = SIGN (ONE, DQE0)
                Qasum = ZERO
+               
                DO IFACE = 1, 4
                   QE = GGGETQSA (ielc, IFACE)
-                  !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
-                  FLAG (IFACE) = QE * SGN.LT.ZERO
-                  !                   FLAG(IFACE) = QE*DQE0 .LT. ZERO
-                  IF (FLAG (IFACE) ) Qasum = Qasum + QE
-               ENDDO
-               IF (NOTZERO(Qasum)) FDQE = MAX ( - ONE, DQE0 / Qasum)
-            ENDIF
-            !           Face Loop
-            !           ---------
+                  FLAG (IFACE) = QE * SGN < ZERO
+                  IF (FLAG (IFACE)) Qasum = Qasum + QE
+               END DO
+               
+               IF (NOTZERO(Qasum)) FDQE = MAX (-ONE, DQE0 / Qasum)
+            END IF
+            
+            ! Face Loop
             Qasum = ZERO
-            out300 : DO IFACE = 1, 4
+            face_loop: DO IFACE = 1, 4
                QE = GGGETQSA (ielc, IFACE)
-               !              * apply flow criteria to discharges only
-               TEST = QE.LT.ZERO
+               
+               TEST = QE < ZERO
                IF (HSMALL) TEST = FLAG (IFACE)
-               IF (.NOT.TEST) CYCLE out300 !GOTO 300
-               !                             >>>>>>>>
-               QSMALL = - QE.LT.DXY (MOD (IFACE, 2) ) * UHCRIT
-               TEST = QSMALL.OR.HSMALL
-               !              Gradient Criterion & Neighbour Location
-               !              ---------------------------------------
+               IF (.NOT. TEST) CYCLE face_loop
+               
+               QSMALL = -QE < DXY (MOD (IFACE, 2)) * UHCRIT
+               TEST = QSMALL .OR. HSMALL
+               
                JEL = afromICMREF (ielc, IFACE, 2)
-               IF (JEL.GT.0) THEN
-                  !                  * regular face
+               IF (JEL > 0) THEN
                   JFACE = afromICMREF (ielc, IFACE, 3)
-                  FAIL = GGGETHRF (JEL) .GE.ZE
-               ELSEIF (JEL.EQ.0) THEN
-                  !                  * external boundary
+                  FAIL = GGGETHRF (JEL) >= ZE
+               ELSE IF (JEL == 0) THEN
                   FAIL = .FALSE.
                ELSE
-                  !                  * confluence: choose branch with largest flow
-                  IBR = - JEL
+                  IBR = -JEL
                   QQMIN = ZERO
                   FAIL = .FALSE.
-                  out200 : DO PPP = 1, 3  !200
+                  
+                  confluence_loop: DO PPP = 1, 3
                      PEL = afromICMRF2 (IBR, PPP, 1)
-                     IF (PEL.LT.1) CYCLE out200 !GOTO 200
+                     IF (PEL < 1) CYCLE confluence_loop
+                     
                      PFACE = afromICMRF2 (IBR, PPP, 2)
                      QQ = GGGETQSA (PEL, PFACE) * QE
-                     FAILP = (GGGETHRF (PEL) .GE.ZE).AND.(QQ.LT.ZERO)
-                     IF ( (FAILP.OR.TEST) .AND.QQ.LT.QQMIN) THEN
+                     FAILP = (GGGETHRF (PEL) >= ZE) .AND. (QQ < ZERO)
+                     
+                     IF ((FAILP .OR. TEST) .AND. QQ < QQMIN) THEN
                         JEL = PEL
                         JFACE = PFACE
                         QQMIN = QQ
-                     ENDIF
-                     FAIL = FAIL.OR.FAILP
+                     END IF
+                     
+                     FAIL = FAIL .OR. FAILP
                      PEL0 = PEL
                      PFACE0 = PFACE
-                  ENDDO out200 !200
-                  IF (JEL.LT.0) THEN
+                  END DO confluence_loop
+                  
+                  IF (JEL < 0) THEN
                      JEL = PEL0
                      JFACE = PFACE0
-                  ENDIF
-               ENDIF
-               !              Adjustments
-               !                 -----------
-               IF (FAIL.OR.TEST) THEN
+                  END IF
+               END IF
+
+               ! Adjustments
+               IF (FAIL .OR. TEST) THEN
                   AOK = .FALSE.
-                  IF (JEL.GT.0) THEN
+                  
+                  IF (JEL > 0) THEN
                      DZA = DTOC / cellarea (JEL)
                      ZA = GGGETHRF (JEL)
                      QA = GGGETQSA (JEL, JFACE)
-                  ENDIF
+                  END IF
+                  
                   IF (HSMALL) THEN
                      DQE = FDQE * QE
-                  ELSEIF (QSMALL) THEN
-                     DQE = - QE
+                  ELSE IF (QSMALL) THEN
+                     DQE = -QE
                   ELSE
                      DDZ = DZMIN + ZA - ZE
-                     DQE = MIN ( + QA, - QE, DDZ / (DZA + DZE) )
-                  ENDIF
+                     DQE = MIN (+QA, -QE, DDZ / (DZA + DZE))
+                  END IF
+                  
                   Qasum = Qasum + DQE
-                  !CALL SETQSA(ielc, IFACE, QE+DQE)
-                  GGGETQSA(ielc, IFACE) = QE+DQE
-                  ZE = ZE+DQE * DZE
-                  IF (JEL.GT.0) THEN
+                  GGGETQSA(ielc, IFACE) = QE + DQE
+                  ZE = ZE + DQE * DZE
+                  
+                  IF (JEL > 0) THEN
                      SGN = SIGN (ONE, DQE)
-                     DQA = - SGN * MIN (SGN * DQE, SGN * QA)
+                     DQA = -SGN * MIN (SGN * DQE, SGN * QA)
                      Qasum = Qasum + DQA
-                     !CALL SETQSA(JEL, JFACE, QA + DQA)
                      GGGETQSA(JEL, JFACE) = QA + DQA
-                     !CALL SETHRF(JEL, ZA + DQA * DZA)
                      GGGETHRF(JEL) = ZA + DQA * DZA
-                  ENDIF
-                  IF (.NOT.HSMALL) THEN
+                  END IF
+                  
+                  IF (.NOT. HSMALL) THEN
                      DHQ = Qasum * DZE
                      Qasum = ZERO
-                     ! sb 021009 Error message always produced if pass.eq.npass
-                     IF ((ABS (DHQ) .GT.HERROR) .or.(passs.eq.npass)) THEN
-                        rdum4(1)= - QE ; rdum4(2)=- 1D2 * DQE / QE ; idum=IFACE ; rdum4(4)=DHQ !AD
-                        WRITE (MSG, 91030) rdum4(1:2),idum,rdum4(4:4)
+                     
+                     IF ((ABS (DHQ) > HERROR) .OR. (passs == npass)) THEN
+                        rdum4(1) = -QE 
+                        rdum4(2) = -1.0D2 * DQE / QE 
+                        idum = IFACE 
+                        rdum4(4) = DHQ
+                        
+                        ! PERF FIX: Unrolled the array slice rdum4(1:2)
+                        WRITE (MSG, 91030) rdum4(1), rdum4(2), idum, rdum4(4)
                         CALL ERROR(WWWARN, 1030, PPPRI, ielc, 0, MSG)
-                     ENDIF
-                  ENDIF
-               ENDIF
-            ENDDO out300
-            !           Final Depth Adjustment
-            !           ----------------------
+                     END IF
+                  END IF
+               END IF
+            END DO face_loop
+
+            ! Final Depth Adjustment
             IF (HSMALL) THEN
-               !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
                AOK = .FALSE.
                DHQ = Qasum * DZE
                DHH = ZG - ZE
                ZE = ZG
-               ! sb 021009 Error message always produced if pass.eq.npass
-               IF ((ABS (DHQ) + ABS (DHH) .GT.HERROR) .or.(passs.eq.npass)) THEN
-                  rdum4(1)=H ; rdum4(2)=DHQ ; rdum4(3)=DHH  !AD
-                  WRITE (MSG, 91024) rdum4(1:3)
+               
+               IF ((ABS (DHQ) + ABS (DHH) > HERROR) .OR. (passs == npass)) THEN
+                  rdum4(1) = H 
+                  rdum4(2) = DHQ 
+                  rdum4(3) = DHH
+                  
+                  ! PERF FIX: Unrolled the array slice rdum4(1:3)
+                  WRITE (MSG, 91024) rdum4(1), rdum4(2), rdum4(3)
                   CALL ERROR(WWWARN, 1024, PPPRI, ielc, 0, MSG)
-               ENDIF
-            ENDIF
-            !CALL SETHRF(ielc, ZE)
-            GGGETHRF(ielc) =ZE
-            ! End of Control Loop
-            ! -------------------
-         ENDDO out400
-         !IF (AOK) EXIT out900 !GOTO 901
-      ENDDO out900
-      IF(.not.aok) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
+               END IF
+            END IF
+            
+            GGGETHRF(ielc) = ZE
+         END DO element_loop
 
-!901 CONTINUE
-!33+15+8+17+30=103
+         ! Clean break out if network satisfies all stability criteria
+         IF (AOK) EXIT pass_loop
+         
+      END DO pass_loop
+      
+      IF (.NOT. AOK) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
 
-91024 FORMAT( 'Surface water depth adjusted from',SP,1PG15.7,' to zero',         ': depth created =',2G15.7 )
-!28+14+11+7+9+2+17+15=103
+      ! FORMAT STATEMENTS (Safely compiled exactly once)
+91024 FORMAT('Surface water depth adjusted from', SP, 1PG15.7, ' to zero', ': depth created =', 2G15.7)
+91030 FORMAT('Surface water discharge rate', 1PG14.7, ' reduced by', 0PF7.2, '% at face', I4, ': depth created =', SP, 1PG15.7)
 
-91030 FORMAT( 'Surface water discharge rate',1PG14.7,' reduced by', &
-         0PF7.2,'% at face',I4,': depth created =',SP,1PG15.7 )
    END SUBROUTINE OCFIX
-
 
 END MODULE OCmod2

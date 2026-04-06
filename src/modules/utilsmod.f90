@@ -167,67 +167,82 @@ CONTAINS
 !----------------------------------------------------------------------
 
 
-!SSSSSS SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
-   SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
-      HLAST, HNEXT, NINP, ARRAY)
-!----------------------------------------------------------------------
-!
-! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF HEAD DATA.
-! HEAD DATA ARE INTERPOLATED ONTO THE MID-POINT OF THE SIMULATION TIMEST
-!
-! PARAMETERS:
-!        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-!        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-!        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-!        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-! (INPUT/OUTPUT)  HLAST   LAST VALUE READ FROM INPUT FILE AT TIME 'INLAS
-! (INPUT/OUTPUT)  HNEXT   NEXT VALUE READ FROM INPUT FILE AT TIME 'INTIM
-!        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-!       (OUTPUT)  ARRAY   ARRAY OF INTERPOLATED DATA ITEMS
-!
-!----------------------------------------------------------------------
-!
-      INTEGER :: IIN, NINP, TIME (5)
-      INTEGER :: i, j
-      DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, ARRAY (NINP), &
-         HLAST (NINP), HNEXT (NINP)
-      DOUBLEPRECISION :: simend, simmid
-      LOGICAL :: goto10, markertest
-!
-      SIMEND = SIMNOW + SIMSTP
-      SIMMID = SIMNOW + 0.5 * SIMSTP
-!
-! IF MID-POINT OF TIMESTEP PASSED, INTERPOLATE DATA
+   !SSSSSS SUBROUTINE HINPUT
+   SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, HLAST, HNEXT, NINP, ARRAY)
+   !----------------------------------------------------------------------
+   !
+   ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF HEAD DATA.
+   ! HEAD DATA ARE INTERPOLATED ONTO THE MID-POINT OF THE SIMULATION TIMESTEP
+   !
+   ! PARAMETERS:
+   !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
+   !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
+   !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
+   !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
+   ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
+   ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
+   ! (INPUT/OUTPUT)  HLAST   LAST VALUE READ FROM INPUT FILE AT TIME 'INLAST'
+   ! (INPUT/OUTPUT)  HNEXT   NEXT VALUE READ FROM INPUT FILE AT TIME 'INTIME'
+   !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
+   !       (OUTPUT)  ARRAY   ARRAY OF INTERPOLATED DATA ITEMS
+   !
+   !----------------------------------------------------------------------
 
-      DO
-10       IF (INTIME.GE.SIMMID.AND.INLAST.LT.SIMMID) THEN
-            DO 20 I = 1, NINP
-               ARRAY (I) = HLAST (I) + (HNEXT (I) - HLAST (I) ) * ( (SIMMID-INLAST) / (INTIME-INLAST) )
-20          ENDDO
-         ENDIF
+      ! Assumed external module dependencies providing global variables:
+      ! HOUR_FROM_DATE, marker999
+      
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER, INTENT(IN)             :: IIN, NINP
+      DOUBLE PRECISION, INTENT(IN)    :: TIH, SIMNOW, SIMSTP
+      DOUBLE PRECISION, INTENT(INOUT) :: INLAST, INTIME
+      DOUBLE PRECISION, INTENT(INOUT) :: HLAST (NINP), HNEXT (NINP)
+      DOUBLE PRECISION, INTENT(OUT)   :: ARRAY (NINP)
+
+      ! Locals
+      INTEGER          :: TIME (5), ios
+      DOUBLE PRECISION :: SIMEND, SIMMID
+
+      !----------------------------------------------------------------------
+
+      SIMEND = SIMNOW + SIMSTP
+      SIMMID = SIMNOW + 0.5D0 * SIMSTP
+
+      time_loop: DO
+         
+         ! IF MID-POINT OF TIMESTEP PASSED, INTERPOLATE DATA
+         IF (INTIME >= SIMMID .AND. INLAST < SIMMID) THEN
+            ! Replaced DO loop 20 with native array slice assignment
+            ARRAY(1:NINP) = HLAST(1:NINP) + (HNEXT(1:NINP) - HLAST(1:NINP)) * &
+                            ((SIMMID - INLAST) / (INTIME - INLAST))
+         END IF
+         
          ! READ DATA UNTIL END OF SIMULATION TIMESTEP
-         goto10 = .FALSE.
-         IF (INTIME.LT.SIMEND) THEN
-            DO 30 I = 1, NINP
-               HLAST (I) = HNEXT (I)
-30          ENDDO
-            READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (HNEXT (J), J = 1, NINP)
+         IF (INTIME < SIMEND) THEN
+            
+            ! Replaced DO loop 30 with native array slice assignment
+            HLAST(1:NINP) = HNEXT(1:NINP)
+            
+            ! Read using IOSTAT to gracefully catch End-of-File
+            READ (IIN, *, IOSTAT=ios) TIME(1:5), HNEXT(1:NINP)
+            
+            IF (ios /= 0) THEN
+               ! End of file or read error reached
+               INTIME = marker999
+               EXIT time_loop
+            END IF
+            
             INLAST = INTIME
-            INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), TIME (5)) - TIH
-            goto10 = .TRUE.
-         ENDIF
-         markertest = .FALSE.
-         GOTO 223
-9999     INTIME = marker999
-         markertest=.TRUE.
-223      CONTINUE
-         IF(.NOT.goto10 .OR. markertest) EXIT
-      ENDDO
-!RETURN
-!! FATAL ERROR - END OF FILE REACHED
-! 9999 INTIME = marker999
+            INTIME = HOUR_FROM_DATE(TIME(1), TIME(2), TIME(3), TIME(4), TIME(5)) - TIH
+            
+         ELSE
+            ! INTIME >= SIMEND, loop termination condition met natively
+            EXIT time_loop
+         END IF
+         
+      END DO time_loop
+
    END SUBROUTINE HINPUT
 
 
@@ -436,29 +451,46 @@ CONTAINS
 ! 18/8/94
 
 
-!SSSSSS SUBROUTINE TRIDAG (A, B, C, R, U, N)
-   SUBROUTINE TRIDAG (A, B, C, R, U, N)
-!                            SOLVES FOR VECTOR U OF LENGTH N
-!                            THE TRIDIAGONAL SET A,B,C WHERE
-!                            R IS THE R.H.S.
-!      IMPLICIT INTEGER (I-N)
-!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!                             TO BE COMPATIBLE WITH INCLUDE FILE AL.P
-      INTEGER, INTENT(IN) :: N
-      INTEGER             :: j
-      DOUBLEPRECISION     :: A(:), B(:), C(:), R(:), U(:), GAM(n), bet, oobet
-      BET  = B(1)
-      oobet = one/bet
-      U(1) = oobet * R(1)
-      DO J = 2, N
-         GAM(J) = oobet*C(J-1)
+   !SSSSSS SUBROUTINE TRIDAG (A, B, C, R, U, N)
+   PURE SUBROUTINE TRIDAG (A, B, C, R, U, N)
+   !----------------------------------------------------------------------*
+   !                            SOLVES FOR VECTOR U OF LENGTH N
+   !                            THE TRIDIAGONAL SET A,B,C WHERE
+   !                            R IS THE R.H.S.
+   !----------------------------------------------------------------------*
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN)             :: N
+      DOUBLE PRECISION, INTENT(IN)    :: A(:), B(:), C(:), R(:)
+      
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(INOUT) :: U(:)
+
+      ! Locals
+      INTEGER :: J
+      DOUBLE PRECISION :: GAM(N), BET, OOBET
+
+   !----------------------------------------------------------------------*
+
+      BET = B(1)
+      OOBET = 1.0d0 / BET
+      U(1) = OOBET * R(1)
+
+      ! Phase 1: Forward Sweep
+      forward_sweep: DO J = 2, N
+         GAM(J) = OOBET * C(J-1)
          BET    = B(J) - A(J) * GAM(J)
-         oobet  = one/bet
-         U(J)   = oobet*(R(J) - A(J) * U(J-1))
-      ENDDO
-      DO J = N-1,1,-1
+         OOBET  = 1.0d0 / BET
+         U(J)   = OOBET * (R(J) - A(J) * U(J-1))
+      END DO forward_sweep
+
+      ! Phase 2: Back Substitution
+      backward_sweep: DO J = N - 1, 1, -1
          U(J) = U(J) - GAM(J+1) * U(J+1)
-      ENDDO
+      END DO backward_sweep
+
    END SUBROUTINE TRIDAG
 
 

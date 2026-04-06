@@ -223,75 +223,84 @@ SUBROUTINE BALWAT
 
 
 
-!SSSSSS SUBROUTINE METIN
+   !SSSSSS SUBROUTINE METIN
    SUBROUTINE METIN (IFLAG)
-!----------------------------------------------------------------------*
-!
-!  THIS SUBROUTINE READS IN THE MET DATA AS REQUIRED FOR THE
-!  PENMAN-MONTEITH EQUATION, INTERCEPTION (AND SNOW MELT)
-!  CALCULATIONS.  IT IS ASSUMED THAT A MET DATA PREPROGRAM
-!  WILL HAVE CARRIED OUT VALIDATION CHECKS.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/ET/METIN/4.1
-! Modifications:
-! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-! RAH  961228  4.1  Initialize PELAST (was undefined). No long comments.
-!      970516       Bring IDATA & PA from SPEC.ET; don't print values.
-!                   Also bring EPLAST & PEIN.  Explicit typing.
-!                   Generic intrinsics.  "PINP" not "P" in list below.
-!                   Remove local TSTART (redundant), and
-!                   TERPO1 redundant 7th arg (SPEC.ET arrays NUM*).
-!----------------------------------------------------------------------*
-! Commons and constants
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!     VARIABLE AND UNIT SPEFICATION
-!
-!     ISITE - SITE IDENTIFIER                         NON-DIM
-!     METIME- VALIDITY TIME OF CURRENT MET. DATA      HR
-!     DTMET - TIMESTEP FOR INPUT OF MET. DATA         HR
-!     PINP  - PRECIPITATION
-!                    INPUT                            MM/HR
-!                    IN THE CALCULATIONS              M/SEC
-!     OBSPE - MEASURED POTENTIAL EVAPORATION
-!                    INPUT                            MM/HR
-!                    IN THE CALCULATIONS              MM/S
-!     RN    - NET RADIATION                           W/M/M
-!     U     - WIND SPEED                              M/S
-!     TA    - AIR TEMPERATURE                         C
-!     DEL   - SLOPE                                   MB/C
-!     VPD   - VAPOUR PRESSURE DEFICIT                 MB
-!970516  The following are read but not used:
-!     PA    - ATM. PRESSURE                           MB.
-!     IDATA - DATA QUALITY INDICATOR                  NON-DIM
-!
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!     FOR BMETAL = .FALSE. :
-!     IF THE NUMBER OF RAINFALL STATIONS AND THE NUMBER OF METEOROL-
-!     OGICAL STATIONS ARE THE SAME, THE STATIONS ARE ASSUMED TO HAVE
-!     THE SAME GRID-DISTRIBUTION CODE. METEOROLOGICAL AND RAINFALL
-!     DATA ARE THEN GIVEN TOGETHER IN THE DATA FILE. IF THE NUMBERS
-!     OF THE STATIONS ARE NOT THE SAME, RAINFALL AND METEOROLOGICAL
-!     DATA ARE DISTRIBUTED BY SEPERATE GRID-CODES AND ARE READ FROM
-!     SEPERATE LINES IN THE DATA FILE.
-!
-!     FOR BMETAL = .TRUE. :
-!     EVAPOTR. DATA AND RAINFALL DATA ARE READ FROM TWO SEPARATE FILES.
-!
-!     NOTE: THE PRECIPITATION DATA IS AVERAGED OVER A COMPUTATIONAL
-!           TIMESTEP ELSEWHERE
-!
-!     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
+   !----------------------------------------------------------------------*
+   !
+   !  THIS SUBROUTINE READS IN THE MET DATA AS REQUIRED FOR THE
+   !  PENMAN-MONTEITH EQUATION, INTERCEPTION (AND SNOW MELT)
+   !  CALCULATIONS.  IT IS ASSUMED THAT A MET DATA PREPROGRAM
+   !  WILL HAVE CARRIED OUT VALIDATION CHECKS.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/ET/METIN/4.1
+   ! Modifications:
+   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
+   ! RAH  961228  4.1  Initialize PELAST (was undefined). No long comments.
+   !      970516       Bring IDATA & PA from SPEC.ET; don't print values.
+   !                   Also bring EPLAST & PEIN.  Explicit typing.
+   !                   Generic intrinsics.  "PINP" not "P" in list below.
+   !                   Remove local TSTART (redundant), and
+   !                   TERPO1 redundant 7th arg (SPEC.ET arrays NUM*).
+   !----------------------------------------------------------------------*
+   ! Commons and constants
+   !
+   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !
+   !     VARIABLE AND UNIT SPEFICATION
+   !
+   !     ISITE - SITE IDENTIFIER                         NON-DIM
+   !     METIME- VALIDITY TIME OF CURRENT MET. DATA      HR
+   !     DTMET - TIMESTEP FOR INPUT OF MET. DATA         HR
+   !     PINP  - PRECIPITATION
+   !                   INPUT                             MM/HR
+   !                   IN THE CALCULATIONS               M/SEC
+   !     OBSPE - MEASURED POTENTIAL EVAPORATION
+   !                   INPUT                             MM/HR
+   !                   IN THE CALCULATIONS               MM/S
+   !     RN    - NET RADIATION                           W/M/M
+   !     U     - WIND SPEED                              M/S
+   !     TA    - AIR TEMPERATURE                         C
+   !     DEL   - SLOPE                                   MB/C
+   !     VPD   - VAPOUR PRESSURE DEFICIT                 MB
+   !970516  The following are read but not used:
+   !     PA    - ATM. PRESSURE                           MB.
+   !     IDATA - DATA QUALITY INDICATOR                  NON-DIM
+   !
+   !
+   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !     FOR BMETAL = .FALSE. :
+   !     IF THE NUMBER OF RAINFALL STATIONS AND THE NUMBER OF METEOROL-
+   !     OGICAL STATIONS ARE THE SAME, THE STATIONS ARE ASSUMED TO HAVE
+   !     THE SAME GRID-DISTRIBUTION CODE. METEOROLOGICAL AND RAINFALL
+   !     DATA ARE THEN GIVEN TOGETHER IN THE DATA FILE. IF THE NUMBERS
+   !     OF THE STATIONS ARE NOT THE SAME, RAINFALL AND METEOROLOGICAL
+   !     DATA ARE DISTRIBUTED BY SEPERATE GRID-CODES AND ARE READ FROM
+   !     SEPERATE LINES IN THE DATA FILE.
+   !
+   !     FOR BMETAL = .TRUE. :
+   !     EVAPOTR. DATA AND RAINFALL DATA ARE READ FROM TWO SEPARATE FILES.
+   !
+   !     NOTE: THE PRECIPITATION DATA IS AVERAGED OVER A COMPUTATIONAL
+   !           TIMESTEP ELSEWHERE
+   !
+   !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !
+      ! Assumed external module dependencies providing global variables:
+      ! BMETAL, BMETDATES, prd, NRAIN, PPPRI, uznow, PINP, ZERO, dtmet2, MELAST,
+      ! METIME, BHOTRD, BHOTTI, EPTIME, epd, NM, PEIN, ISTA, TAH, TAHIGH, TAL,
+      ! TALOW, dtmet3, EPLAST, UZNEXT, PETOT, OBSPE, TA, BMETP, DTMET, MED, RN, 
+      ! U, PA, DEL, VPD, MEASPE, TIMEUZ, NV, MODECS, CSTCAP, RELCST, TIMCST, 
+      ! NCTCST, CSTCA1, MODEPL, PLAI, RELPLA, TIMPLA, NCTPLA, PLAI1, MODECL, 
+      ! CLAI, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, VHT, RELVHT, TIMVHT, 
+      ! NCTVHT, VHT1, ONE, HOUR_FROM_DATE, TERPO1
+
       IMPLICIT NONE
 
-! Input arguments
+      ! Input arguments
       INTEGER, INTENT(IN) :: IFLAG
 
-! Locals, etc
+      ! Locals, etc
       INTEGER             :: I, IDATA, ISITE, K, NN
       DOUBLE PRECISION    :: EPLAST, TCURR, TEND
       DOUBLE PRECISION    :: PA(NVEE), PEIN(NVEE), PETOT(NVEE), PER(NRAIN)
@@ -306,442 +315,423 @@ SUBROUTINE BALWAT
       CHARACTER(LEN=100000) :: tmp
       INTEGER             :: ios
       DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
 
-      IF (.NOT. BMETAL) GOTO 40
+      IF (BMETAL) THEN
 
-! READ PREC. & OBSERVED POT. EVAPOTRANSPIRATION BREAKPOINT FORMAT FILES
-!-----------------------------------------------------------------------
+         ! READ PREC. & OBSERVED POT. EVAPOTRANSPIRATION BREAKPOINT FORMAT FILES
+         !-----------------------------------------------------------------------
 
-! PRECIPITATION
-! read only one line of file (unless hotstarted run)
+         ! PRECIPITATION
+         ! read only one line of file (unless hotstarted run)
 
-      IF (IFLAG == 1) THEN
-         precip_read_loop: DO
-            IF (BMETDATES) THEN
-               READ(prd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                  prdyear, prdmonth, prdday, prdhour, prdminute, prdsecond, tmp
-
-               IF (ios > 0) THEN
-                  WRITE (*, '(A,I0,A)') ' Error reading the precipitation time series file. ' // &
-                     'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
-                     NRAIN, ' values on each row'
-                  WRITE(*, "('paused, type [enter] to continue')")
-                  READ (*, *)
-                  STOP
-               END IF
-
-               IF (ios < 0) THEN
-                  IF (FIRSTNOPRD) THEN
-                     WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                        'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
-                     FIRSTNOPRD = .FALSE.
-                  END IF
-                  PINP(1:NRAIN) = ZERO
-               ELSE
-                  prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
-                  READ (tmp, *, IOSTAT=ios) PINP(1:NRAIN)
-
-                  IF (ios > 0) THEN
-                     WRITE (*, '(A,I0,A)') ' Error reading the precipitation time series file. ' // &
-                        'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
-                     WRITE(*, "('paused, type [enter] to continue')")
-                     READ (*, *)
-                     STOP
-                  END IF
-               END IF
-
-            ELSE
-               READ (PRD, *, IOSTAT=ios) PINP(1:NRAIN)
-
-               IF (ios > 0) THEN
-                  WRITE (*, '(A,I0,A)') ' Error reading the precipitation time series file. This should have ', &
-                     NRAIN, ' values on each row with no dates in the first column (see ET1)'
-                  WRITE(*, "('paused, type [enter] to continue')")
-                  READ (*, *)
-                  STOP
-               END IF
-
-               IF (ios < 0) THEN
-                  IF (FIRSTNOPRD) THEN
-                     WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                        'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
-                     FIRSTNOPRD = .FALSE.
-                  END IF
-                  PINP(1:NRAIN) = ZERO
-               END IF
-            END IF
-
-            PINP(1:NRAIN) = PINP(1:NRAIN) / dtmet2
-            MELAST = METIME
-            METIME = METIME + dtmet2
-
-            IF (.NOT. (BHOTRD .AND. METIME < BHOTTI)) EXIT precip_read_loop
-         END DO precip_read_loop
-
-      ELSE
-         ! POT. EVAP and TEMPERATURE DATA READ PART 1
-
-         ! first check for hotstarted run
-         IF (BHOTRD .AND. EPTIME < BHOTTI) THEN
-            hotstart_epd_loop: DO
-               ! epd and temperature files have dates
+         IF (IFLAG == 1) THEN
+            precip_read_loop: DO
                IF (BMETDATES) THEN
-                  READ(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                     epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
+                  READ(prd, 9000, IOSTAT=ios) prdyear, prdmonth, prdday, prdhour, prdminute, prdsecond, tmp
 
                   IF (ios > 0) THEN
-                     WRITE (*, '(A,I0,A)') ' Error reading the potential evaporation time series file. ' // &
-                        'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
-                     WRITE(*, "('paused, type [enter] to continue')")
+                     WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                        'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
+                        NRAIN, ' values on each row'
+                     WRITE(*, 9021)
                      READ (*, *)
                      STOP
                   END IF
 
                   IF (ios < 0) THEN
-                     IF (FIRSTNOEPD2) THEN
-                        WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                           'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
-                        FIRSTNOEPD2 = .FALSE.
+                     IF (FIRSTNOPRD) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
+                        FIRSTNOPRD = .FALSE.
                      END IF
-                     PEIN(1:NM) = ZERO
+                     PINP(1:NRAIN) = ZERO
                   ELSE
-                     epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
-                     READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
+                     prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
+                     READ (tmp, *, IOSTAT=ios) PINP(1:NRAIN)
+
                      IF (ios > 0) THEN
-                        WRITE (*, '(A,I0,A)') ' Error reading potential evap data values from line.'
-                        WRITE(*, "('paused, type [enter] to continue')")
+                        WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                           'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
+                        WRITE(*, 9021)
                         READ (*, *)
                         STOP
                      END IF
                   END IF
 
-                  IF (ISTA) THEN
-                     READ(TAH, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                        tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
-                     IF (ios > 0) THEN
-                        WRITE (*, '(A,I0,A)') ' Error reading max temp time series file.'
-                        STOP
-                     END IF
-                     IF (ios < 0) TAHIGH(1:NM) = 10.0d0
-
-                     IF (ios == 0) THEN
-                        READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
-                        IF (ios > 0) STOP 'Error parsing max temperature line'
-                        tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
-                     END IF
-                  END IF
-
-                  IF (ISTA) THEN
-                     READ(TAL, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                        talyear, talmonth, talday, talhour, talminute, talsecond, tmp
-                     IF (ios > 0) THEN
-                        WRITE (*, '(A,I0,A)') ' Error reading min temp time series file.'
-                        STOP
-                     END IF
-                     IF (ios < 0) TALOW(1:NM) = 10.0d0
-
-                     IF (ios == 0) THEN
-                        READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
-                        IF (ios > 0) STOP 'Error parsing min temperature line'
-                        taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
-                     END IF
-                  END IF
-
-                  PEIN(1:NM) = PEIN(1:NM) / dtmet3
-                  EPLAST = EPTIME
-                  EPTIME = EPTIME + dtmet3
-
-                  IF (.NOT. (BHOTRD .AND. EPTIME < BHOTTI)) EXIT hotstart_epd_loop
-
-                  ! epd and temperature files DO NOT have dates
                ELSE
-                  READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
+                  READ (PRD, *, IOSTAT=ios) PINP(1:NRAIN)
+
                   IF (ios > 0) THEN
-                     WRITE (*, '(A,I0,A)') ' Error reading the potential evaporation time series file. This should have ', &
-                        NM, ' values on each row with no dates in the first column'
+                     WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
+                        NRAIN, ' values on each row with no dates in the first column (see ET1)'
+                     WRITE(*, 9021)
+                     READ (*, *)
                      STOP
                   END IF
 
                   IF (ios < 0) THEN
-                     IF (FIRSTNOEPD1) THEN
-                        WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                           'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
-                        FIRSTNOEPD1 = .FALSE.
+                     IF (FIRSTNOPRD) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
+                        FIRSTNOPRD = .FALSE.
                      END IF
-                     PEIN(1:NM) = ZERO
+                     PINP(1:NRAIN) = ZERO
                   END IF
-
-                  IF (ISTA) THEN
-                     READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
-                     IF (ios > 0) STOP 'Error reading max temp file'
-                     IF (ios < 0) TAHIGH(1:NM) = 10.0d0
-                  END IF
-
-                  IF (ISTA) THEN
-                     READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
-                     IF (ios > 0) STOP 'Error reading min temp file'
-                     IF (ios < 0) TALOW(1:NM) = 10.0d0
-                  END IF
-
-                  PEIN(1:NM) = PEIN(1:NM) / dtmet3
-                  EPLAST = EPTIME
-                  EPTIME = EPTIME + dtmet3
-
-                  IF (.NOT. (BHOTRD .AND. EPTIME < BHOTTI)) EXIT hotstart_epd_loop
                END IF
-            END DO hotstart_epd_loop
-         END IF
-         ! end of check for hotstarted run
 
-         ! calculate average PE value over computational timestep
-         TEND = MIN(UZNOW + UZNEXT, EPTIME)
-         PETOT(1:NM) = (TEND - UZNOW) * PEIN(1:NM)
+               PINP(1:NRAIN) = PINP(1:NRAIN) / dtmet2
+               MELAST = METIME
+               METIME = METIME + dtmet2
 
-         ! POT. EVAP and TEMPERATURE DATA READ PART 2
-         ! check if it is time to read in PET data
-         IF (EPTIME < UZNOW + UZNEXT) THEN
-            pet_read_loop: DO
-               ! epd and temperature files have dates
-               IF (BMETDATES) THEN
-                  READ(epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                     epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
+               IF (.NOT. (BHOTRD .AND. METIME < BHOTTI)) EXIT precip_read_loop
+            END DO precip_read_loop
 
-                  IF (ios > 0) STOP 'Error reading PET file'
+         ELSE
+            ! POT. EVAP and TEMPERATURE DATA READ PART 1
 
-                  IF (ios < 0) THEN
-                     IF (FIRSTNOEPD2) THEN
-                        WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                           'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
-                        FIRSTNOEPD2 = .FALSE.
+            ! first check for hotstarted run
+            IF (BHOTRD .AND. EPTIME < BHOTTI) THEN
+               hotstart_epd_loop: DO
+                  ! epd and temperature files have dates
+                  IF (BMETDATES) THEN
+                     READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
+
+                     IF (ios > 0) THEN
+                        WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
+                           'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
+                        WRITE(*, 9021)
+                        READ (*, *)
+                        STOP
                      END IF
-                     PEIN(1:NM) = ZERO
-                  ELSE
-                     epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
-                     READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
-                     IF (ios > 0) STOP 'Error parsing PET values'
-                  END IF
 
-                  IF (ISTA) THEN
-                     READ(TAH, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                        tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
-                     IF (ios > 0) STOP 'Error reading max temp file'
-                     IF (ios < 0) TAHIGH(1:NM) = 10.0d0
-
-                     IF (ios == 0) THEN
-                        READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
-                        IF (ios > 0) STOP 'Error parsing max temp values'
-                        tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
+                     IF (ios < 0) THEN
+                        IF (FIRSTNOEPD2) THEN
+                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           FIRSTNOEPD2 = .FALSE.
+                        END IF
+                        PEIN(1:NM) = ZERO
+                     ELSE
+                        epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
+                        READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
+                        IF (ios > 0) THEN
+                           WRITE (*, 9022) ' Error reading potential evap data values from line.'
+                           WRITE(*, 9021)
+                           READ (*, *)
+                           STOP
+                        END IF
                      END IF
-                  END IF
 
-                  IF (ISTA) THEN
-                     READ(TAL, '(i4,1x,i2,1x,i2,1x,i2,1x,i2,1x,i2,1x,a)', IOSTAT=ios) &
-                        talyear, talmonth, talday, talhour, talminute, talsecond, tmp
-                     IF (ios > 0) STOP 'Error reading min temp file'
-                     IF (ios < 0) TALOW(1:NM) = 10.0d0
+                     IF (ISTA) THEN
+                        READ(TAH, 9000, IOSTAT=ios) tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
+                        IF (ios > 0) THEN
+                           WRITE (*, 9022) ' Error reading max temp time series file.'
+                           STOP
+                        END IF
+                        IF (ios < 0) TAHIGH(1:NM) = 10.0d0
 
-                     IF (ios == 0) THEN
-                        READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
-                        IF (ios > 0) STOP 'Error parsing min temp values'
-                        taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
+                        IF (ios == 0) THEN
+                           READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
+                           IF (ios > 0) STOP 'Error parsing max temperature line'
+                           tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
+                        END IF
                      END IF
-                  END IF
 
-                  PEIN(1:NM) = PEIN(1:NM) / dtmet3
-                  EPLAST = EPTIME
-                  EPTIME = EPTIME + dtmet3
-                  TEND = MIN(UZNOW + UZNEXT, EPTIME)
-                  PETOT(1:NM) = PETOT(1:NM) + (TEND - EPLAST) * PEIN(1:NM)
+                     IF (ISTA) THEN
+                        READ(TAL, 9000, IOSTAT=ios) talyear, talmonth, talday, talhour, talminute, talsecond, tmp
+                        IF (ios > 0) THEN
+                           WRITE (*, 9022) ' Error reading min temp time series file.'
+                           STOP
+                        END IF
+                        IF (ios < 0) TALOW(1:NM) = 10.0d0
 
-                  IF (.NOT. (EPTIME < UZNOW + UZNEXT)) EXIT pet_read_loop
+                        IF (ios == 0) THEN
+                           READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
+                           IF (ios > 0) STOP 'Error parsing min temperature line'
+                           taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
+                        END IF
+                     END IF
+
+                     PEIN(1:NM) = PEIN(1:NM) / dtmet3
+                     EPLAST = EPTIME
+                     EPTIME = EPTIME + dtmet3
+
+                     IF (.NOT. (BHOTRD .AND. EPTIME < BHOTTI)) EXIT hotstart_epd_loop
 
                   ! epd and temperature files DO NOT have dates
-               ELSE
-                  READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
-                  IF (ios > 0) STOP 'Error reading PET file'
+                  ELSE
+                     READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
+                     IF (ios > 0) THEN
+                        WRITE (*, 9020) ' Error reading the potential evaporation time series file. This should have ', &
+                           NM, ' values on each row with no dates in the first column'
+                        STOP
+                     END IF
+
+                     IF (ios < 0) THEN
+                        IF (FIRSTNOEPD1) THEN
+                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           FIRSTNOEPD1 = .FALSE.
+                        END IF
+                        PEIN(1:NM) = ZERO
+                     END IF
+
+                     IF (ISTA) THEN
+                        READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
+                        IF (ios > 0) STOP 'Error reading max temp file'
+                        IF (ios < 0) TAHIGH(1:NM) = 10.0d0
+                     END IF
+
+                     IF (ISTA) THEN
+                        READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
+                        IF (ios > 0) STOP 'Error reading min temp file'
+                        IF (ios < 0) TALOW(1:NM) = 10.0d0
+                     END IF
+
+                     PEIN(1:NM) = PEIN(1:NM) / dtmet3
+                     EPLAST = EPTIME
+                     EPTIME = EPTIME + dtmet3
+
+                     IF (.NOT. (BHOTRD .AND. EPTIME < BHOTTI)) EXIT hotstart_epd_loop
+                  END IF
+               END DO hotstart_epd_loop
+            END IF
+            ! end of check for hotstarted run
+
+            ! calculate average PE value over computational timestep
+            TEND = MIN(UZNOW + UZNEXT, EPTIME)
+            PETOT(1:NM) = (TEND - UZNOW) * PEIN(1:NM)
+
+            ! POT. EVAP and TEMPERATURE DATA READ PART 2
+            ! check if it is time to read in PET data
+            IF (EPTIME < UZNOW + UZNEXT) THEN
+               pet_read_loop: DO
+                  ! epd and temperature files have dates
+                  IF (BMETDATES) THEN
+                     READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
+
+                     IF (ios > 0) STOP 'Error reading PET file'
+
+                     IF (ios < 0) THEN
+                        IF (FIRSTNOEPD2) THEN
+                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           FIRSTNOEPD2 = .FALSE.
+                        END IF
+                        PEIN(1:NM) = ZERO
+                     ELSE
+                        epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
+                        READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
+                        IF (ios > 0) STOP 'Error parsing PET values'
+                     END IF
+
+                     IF (ISTA) THEN
+                        READ(TAH, 9000, IOSTAT=ios) tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
+                        IF (ios > 0) STOP 'Error reading max temp file'
+                        IF (ios < 0) TAHIGH(1:NM) = 10.0d0
+
+                        IF (ios == 0) THEN
+                           READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
+                           IF (ios > 0) STOP 'Error parsing max temp values'
+                           tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
+                        END IF
+                     END IF
+
+                     IF (ISTA) THEN
+                        READ(TAL, 9000, IOSTAT=ios) talyear, talmonth, talday, talhour, talminute, talsecond, tmp
+                        IF (ios > 0) STOP 'Error reading min temp file'
+                        IF (ios < 0) TALOW(1:NM) = 10.0d0
+
+                        IF (ios == 0) THEN
+                           READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
+                           IF (ios > 0) STOP 'Error parsing min temp values'
+                           taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
+                        END IF
+                     END IF
+
+                     PEIN(1:NM) = PEIN(1:NM) / dtmet3
+                     EPLAST = EPTIME
+                     EPTIME = EPTIME + dtmet3
+                     TEND = MIN(UZNOW + UZNEXT, EPTIME)
+                     PETOT(1:NM) = PETOT(1:NM) + (TEND - EPLAST) * PEIN(1:NM)
+
+                     IF (.NOT. (EPTIME < UZNOW + UZNEXT)) EXIT pet_read_loop
+
+                  ! epd and temperature files DO NOT have dates
+                  ELSE
+                     READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
+                     IF (ios > 0) STOP 'Error reading PET file'
+
+                     IF (ios < 0) THEN
+                        IF (FIRSTNOEPD2) THEN
+                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           FIRSTNOEPD2 = .FALSE.
+                        END IF
+                        PEIN(1:NM) = ZERO
+                     END IF
+
+                     IF (ISTA) THEN
+                        READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
+                        IF (ios > 0) STOP 'Error reading max temp file'
+                        IF (ios < 0) TAHIGH(1:NM) = 10.0d0
+                     END IF
+
+                     IF (ISTA) THEN
+                        READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
+                        IF (ios > 0) STOP 'Error reading min temp file'
+                        IF (ios < 0) TALOW(1:NM) = 10.0d0
+                     END IF
+
+                     PEIN(1:NM) = PEIN(1:NM) / dtmet3
+                     EPLAST = EPTIME
+                     EPTIME = EPTIME + dtmet3
+                     TEND = MIN(UZNOW + UZNEXT, EPTIME)
+                     PETOT(1:NM) = PETOT(1:NM) + (TEND - EPLAST) * PEIN(1:NM)
+
+                     IF (.NOT. (EPTIME < UZNOW + UZNEXT)) EXIT pet_read_loop
+                  END IF
+               END DO pet_read_loop
+            END IF
+
+            OBSPE(1:NM) = PETOT(1:NM) / UZNEXT / 3600.0d0
+            ! for simplicity the temperature used is the value at the end of the timestep
+            TA(1:NM) = (TAHIGH(1:NM) + TALOW(1:NM)) / 2.0d0
+
+         END IF
+
+         ! PRINT OUT INPUT DATA
+         IF (BMETP) THEN
+            WRITE(PPPRI, 9130) METIME
+            DO I = 1, NM
+               WRITE(PPPRI, 9140) I, PINP(I), PEIN(I)
+            END DO
+         END IF
+
+      ELSE
+         ! READ ALL MET. DATA IN FIXED TIME INTERVAL (USUALLY HOURLY) FORMAT
+         !------------------------------------------------------------------
+         IF (IFLAG == 2) RETURN
+
+         IF (NRAIN == NM) THEN
+            !-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE EQUAL
+            IF (BMETP) WRITE(PPPRI, 9100)
+
+            !-----LOOP ON NUMBER OF MET SITES
+            read_equal_loop: DO
+               MELAST = METIME
+               METIME = METIME + DTMET
+
+               DO I = 1, NM
+                  READ (MED, 9030, IOSTAT=ios) ISITE, NN, PINP(I), RN(I), U(I), PA(I), TA(I), DEL(I), VPD(I), IDATA
 
                   IF (ios < 0) THEN
-                     IF (FIRSTNOEPD2) THEN
-                        WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                           'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
-                        FIRSTNOEPD2 = .FALSE.
+                     IF (FIRSTNOMET1) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        FIRSTNOMET1 = .FALSE.
                      END IF
-                     PEIN(1:NM) = ZERO
+                     ISITE = 1
+                     NN = 1
+                     PINP(I) = ZERO
+                     RN(I) = ZERO
+                     U(I) = ZERO
+                     PA(I) = ZERO
+                     TA(I) = 10.0d0
+                     DEL(I) = ONE
+                     VPD(I) = 3.0d0
+                     IDATA = 1000
                   END IF
 
-                  IF (ISTA) THEN
-                     READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
-                     IF (ios > 0) STOP 'Error reading max temp file'
-                     IF (ios < 0) TAHIGH(1:NM) = 10.0d0
+                  IF (BMETP) WRITE(PPPRI, 9040) ISITE, METIME, PINP(I), RN(I), U(I), TA(I), DEL(I), VPD(I)
+
+                  IF (MEASPE(I) == 0) CYCLE
+
+                  ! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
+                  READ (MED, 9050, IOSTAT=ios) OBSPE(I)
+                  IF (ios < 0) THEN
+                     IF (FIRSTNOMET2) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        FIRSTNOMET2 = .FALSE.
+                     END IF
+                     OBSPE(I) = 0.0d0
                   END IF
 
-                  IF (ISTA) THEN
-                     READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
-                     IF (ios > 0) STOP 'Error reading min temp file'
-                     IF (ios < 0) TALOW(1:NM) = 10.0d0
+                  ! CONVERT TO MM/S
+                  OBSPE(I) = OBSPE(I) / 3600.0d0
+               END DO
+
+               ! READ TO START SIMULATION TIME, IF HOTSTART
+               IF (.NOT. (BHOTRD .AND. METIME < BHOTTI)) EXIT read_equal_loop
+            END DO read_equal_loop
+
+         ELSE
+            !-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE UNEQUAL
+            IF (BMETP) WRITE(PPPRI, 9110)
+
+            !-----LOOP ON NUMBER OF MET SITES
+            read_unequal_loop: DO
+               MELAST = METIME
+               METIME = METIME + DTMET
+
+               DO I = 1, NM
+                  READ (MED, 9060, IOSTAT=ios) ISITE, NN, RN(I), U(I), PA(I), TA(I), DEL(I), VPD(I), IDATA
+
+                  IF (ios < 0) THEN
+                     IF (FIRSTNOMET3) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        FIRSTNOMET3 = .FALSE.
+                     END IF
+                     ISITE = 1
+                     NN = 1
+                     RN(I) = ZERO
+                     U(I) = ZERO
+                     PA(I) = ZERO
+                     TA(I) = 10.0d0
+                     DEL(I) = ONE
+                     VPD(I) = 3.0d0
+                     IDATA = 1000
                   END IF
 
-                  PEIN(1:NM) = PEIN(1:NM) / dtmet3
-                  EPLAST = EPTIME
-                  EPTIME = EPTIME + dtmet3
-                  TEND = MIN(UZNOW + UZNEXT, EPTIME)
-                  PETOT(1:NM) = PETOT(1:NM) + (TEND - EPLAST) * PEIN(1:NM)
+                  IF (BMETP) WRITE(PPPRI, 9070) ISITE, METIME, RN(I), U(I), TA(I), DEL(I), VPD(I)
 
-                  IF (.NOT. (EPTIME < UZNOW + UZNEXT)) EXIT pet_read_loop
-               END IF
-            END DO pet_read_loop
+                  IF (MEASPE(I) == 0) CYCLE
+
+                  ! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
+                  READ (MED, 9050, IOSTAT=ios) OBSPE(I)
+                  IF (ios < 0) THEN
+                     IF (FIRSTNOMET4) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        FIRSTNOMET4 = .FALSE.
+                     END IF
+                     OBSPE(I) = 0.0d0
+                  END IF
+
+                  ! CONVERT TO MM/S
+                  OBSPE(I) = OBSPE(I) / 3600.0d0
+               END DO
+
+               IF (BMETP) WRITE(PPPRI, 9120)
+
+               !-----LOOP ON NUMBER OF RAIN SITES
+               DO I = 1, NRAIN
+                  READ (MED, 9080, IOSTAT=ios) ISITE, NN, PINP(I), IDATA
+                  IF (ios < 0) THEN
+                     IF (FIRSTNOMET5) THEN
+                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        FIRSTNOMET5 = .FALSE.
+                     END IF
+                     PINP(I) = 0.0d0
+                  END IF
+
+                  IF (BMETP) WRITE(PPPRI, 9090) ISITE, METIME, PINP(I)
+               END DO
+
+               ! READ TO SIMULATION START TIME, IF HOTSTART
+               IF (.NOT. (BHOTRD .AND. METIME < BHOTTI)) EXIT read_unequal_loop
+            END DO read_unequal_loop
+
          END IF
-
-         OBSPE(1:NM) = PETOT(1:NM) / UZNEXT / 3600.0d0
-         ! for simplicity the temperature used is the value at the end of the timestep
-         TA(1:NM) = (TAHIGH(1:NM) + TALOW(1:NM)) / 2.0d0
-
       END IF
 
-! PRINT OUT INPUT DATA
-      IF (BMETP) THEN
-         WRITE(PPPRI, "(/,/, 1X, 'MET DATA -  TIME :', F8.2, /, ' STATION           RAINFALL      POT. EVAP.(MM/HR)')") METIME
-         DO I = 1, NM
-            WRITE(PPPRI, "(4X,I2,9X,F10.3,9X,F10.3)") I, PINP(I), PEIN(I)
-         END DO
-      END IF
-
-      GOTO 190
-
-! READ ALL MET. DATA IN FIXED TIME INTERVAL (USUALLY HOURLY) FORMAT
-!------------------------------------------------------------------
-40    IF (IFLAG == 2) RETURN
-
-      IF (NRAIN /= NM) GOTO 100
-
-!-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE EQUAL
-      IF (BMETP) WRITE(PPPRI, "(/,/,1X, 'MET DATA - SITE    TIME      RAINFALL    NET RADN', 4X, " // &
-         "'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')")
-
-!-----LOOP ON NUMBER OF MET SITES
-55    MELAST = METIME
-      METIME = METIME + DTMET
-
-      DO I = 1, NM
-         READ (MED, "(2I6, 4G12.6, /, 12X, 3G12.6, I12)", IOSTAT=ios) &
-            ISITE, NN, PINP(I), RN(I), U(I), PA(I), TA(I), DEL(I), VPD(I), IDATA
-
-         IF (ios < 0) THEN
-            IF (FIRSTNOMET1) THEN
-               WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                  'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
-               FIRSTNOMET1 = .FALSE.
-            END IF
-            ISITE = 1
-            NN = 1
-            PINP(I) = ZERO
-            RN(I) = ZERO
-            U(I) = ZERO
-            PA(I) = ZERO
-            TA(I) = 10.0d0
-            DEL(I) = ONE
-            VPD(I) = 3.0d0
-            IDATA = 1000
-         END IF
-
-         IF (BMETP) WRITE(PPPRI, "('0', 8X, I6, F8.2, 5X, 2(3F12.6,'  NOT_USED  '))") &
-            ISITE, METIME, PINP(I), RN(I), U(I), TA(I), DEL(I), VPD(I)
-
-         IF (MEASPE(I) == 0) CYCLE
-
-! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
-         READ (MED, "(12X, G12.6)", IOSTAT=ios) OBSPE(I)
-         IF (ios < 0) THEN
-            IF (FIRSTNOMET2) THEN
-               WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                  'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
-               FIRSTNOMET2 = .FALSE.
-            END IF
-            OBSPE(I) = 0.0d0
-         END IF
-
-! CONVERT TO MM/S
-         OBSPE(I) = OBSPE(I) / 3600.0d0
-      END DO
-
-! READ TO START SIMULATION TIME, IF HOTSTART
-      IF (BHOTRD .AND. METIME < BHOTTI) GOTO 55
-      GOTO 190
-
-!-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE UNEQUAL
-100   IF (BMETP) WRITE(PPPRI, "(/,/, 1X, 'MET DATA - SITE    TIME      NET RADN', 4X, " // &
-         "'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')")
-
-!-----LOOP ON NUMBER OF MET SITES
-115   MELAST = METIME
-      METIME = METIME + DTMET
-
-      DO I = 1, NM
-         READ (MED, "(2I6, 12X, 3G12.6, /, 12X, 3G12.6, I12)", IOSTAT=ios) &
-            ISITE, NN, RN(I), U(I), PA(I), TA(I), DEL(I), VPD(I), IDATA
-
-         IF (ios < 0) THEN
-            IF (FIRSTNOMET3) THEN
-               WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                  'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
-               FIRSTNOMET3 = .FALSE.
-            END IF
-            ISITE = 1
-            NN = 1
-            RN(I) = ZERO
-            U(I) = ZERO
-            PA(I) = ZERO
-            TA(I) = 10.0d0
-            DEL(I) = ONE
-            VPD(I) = 3.0d0
-            IDATA = 1000
-         END IF
-
-         IF (BMETP) WRITE(PPPRI, "('0', 8X, I6, F8.2, 5X, 2(2F12.6,'  NOT_USED  ':F12.6))") &
-            ISITE, METIME, RN(I), U(I), TA(I), DEL(I), VPD(I)
-
-         IF (MEASPE(I) == 0) CYCLE
-
-! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
-         READ (MED, "(12X, G12.6)", IOSTAT=ios) OBSPE(I)
-         IF (ios < 0) THEN
-            IF (FIRSTNOMET4) THEN
-               WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                  'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
-               FIRSTNOMET4 = .FALSE.
-            END IF
-            OBSPE(I) = 0.0d0
-         END IF
-
-! CONVERT TO MM/S
-         OBSPE(I) = OBSPE(I) / 3600.0d0
-      END DO
-
-      IF (BMETP) WRITE(PPPRI, "(/,/, 1X, 'RAIN DATA - SITE    TIME      RAINFALL         IDATA')")
-
-!-----LOOP ON NUMBER OF RAIN SITES
-      DO I = 1, NRAIN
-         READ (MED, "(2I6, G12.6, 24X, I12)", IOSTAT=ios) ISITE, NN, PINP(I), IDATA
-         IF (ios < 0) THEN
-            IF (FIRSTNOMET5) THEN
-               WRITE(PPPRI, "(/,/,/, A6,g12.4,a8, /, A18, /, A33, /,/,/)") &
-                  'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
-               FIRSTNOMET5 = .FALSE.
-            END IF
-            PINP(I) = 0.0d0
-         END IF
-
-         IF (BMETP) WRITE(PPPRI, "('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')") ISITE, METIME, PINP(I)
-      END DO
-
-! READ TO SIMULATION START TIME, IF HOTSTART
-      IF (BHOTRD .AND. METIME < BHOTTI) GOTO 115
-
-!--------------------------------------------
-!     CHECK TIME-VARYING MODEL PARAMETERS
-!--------------------------------------------
-190   TCURR = TIMEUZ
+      !--------------------------------------------
+      !     CHECK TIME-VARYING MODEL PARAMETERS
+      !--------------------------------------------
+      TCURR = TIMEUZ
       DO K = 1, NV
          ! sb 04032025 for dynamically allocated arrays use NV not NVEE
          IF (MODECS(K) /= 0) CALL TERPO1(CSTCAP, TCURR, RELCST, TIMCST, NCTCST, CSTCA1, NV, K)
@@ -751,6 +741,27 @@ SUBROUTINE BALWAT
       END DO
 
       RETURN
+
+      ! FORMAT STATEMENTS
+9000  FORMAT (I4,1X,I2,1X,I2,1X,I2,1X,I2,1X,I2,1X,A)
+9010  FORMAT (///, A6, G12.4, A8, /, A18, /, A33, ///)
+9020  FORMAT (A, I0, A)
+9021  FORMAT ('paused, type [enter] to continue')
+9022  FORMAT (A)
+9030  FORMAT (2I6, 4G12.6, /, 12X, 3G12.6, I12)
+9040  FORMAT ('0', 8X, I6, F8.2, 5X, 2(3F12.6,'  NOT_USED  '))
+9050  FORMAT (12X, G12.6)
+9060  FORMAT (2I6, 12X, 3G12.6, /, 12X, 3G12.6, I12)
+9070  FORMAT ('0', 8X, I6, F8.2, 5X, 2(2F12.6,'  NOT_USED  ':F12.6))
+9080  FORMAT (2I6, G12.6, 24X, I12)
+9090  FORMAT ('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')
+9100  FORMAT (//, 1X, 'MET DATA - SITE    TIME      RAINFALL    NET RADN', 4X, &
+              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+9110  FORMAT (//, 1X, 'MET DATA - SITE    TIME      NET RADN', 4X, &
+              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+9120  FORMAT (//, 1X, 'RAIN DATA - SITE    TIME      RAINFALL         IDATA')
+9130  FORMAT (//, 1X, 'MET DATA -  TIME :', F8.2, /, ' STATION           RAINFALL      POT. EVAP.(MM/HR)')
+9140  FORMAT (4X, I2, 9X, F10.3, 9X, F10.3)
 
    END SUBROUTINE METIN
 

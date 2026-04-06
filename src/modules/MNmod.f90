@@ -25,164 +25,150 @@ module MNmod
 CONTAINS
 
 
-   subroutine mnamm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,gnn,kplamm,kuamm, &
-      mncref,kddsol,dtuz,vsthe,vstheo,isbotc)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the concentration of ammonium nitrogen per unit volume of,
-      ! solution at timestep n+1
-      ! failure of iteration loop to converge produces error no 3018
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      ! externals
-      !use sglobal, only : error
-      !       external      error
+   !--------------------------------------------------------------------*
+   !
+   ! calculates the concentration of ammonium nitrogen per unit volume of,
+   ! solution at timestep n+1
+   ! failure of iteration loop to converge produces error no 3018
+   !
+   !--------------------------------------------------------------------*
+   ! version:                   notes:
+   ! module: mn                 program: shetran
+   ! modifications
+   !--------------------------------------------------------------------*
+   SUBROUTINE mnamm (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, nlyree, ns, ncolmb, nlyr, nlyrbt, ntsoil, gnn, kplamm, kuamm, &
+                     mncref, kddsol, dtuz, vsthe, vstheo, isbotc)
+
+      ! Assumed external module dependencies providing global variables:
+      ! gam, miner, imamm, namm, namm1, knit, ent, enph, ntrf, kvol, emt,
+      ! vol, plup, pphi, ndnit, ndsnt, naamm, plamm, ERROR
+
+      IMPLICIT NONE
+
       ! input arguments
-      integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns
-      integer ncolmb(nelee),nlyr(nelee)
-      integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-      double precision gnn,kplamm,kuamm,mncref
-      double precision kddsol(ns)
-      double precision dtuz
-      !double precision emt(nelee,llee),enph(nelee,llee)
-      !double precision ent(nelee,llee)
-      !double precision gam(nelee,llee)
-      !double precision knit(nelee,llee),kvol(nelee,llee)
-      !double precision naamm(nelee,llee)
-      !double precision namm(nelee,llee)
-      !double precision ndnit(nelee,llee),ndsnt(nelee,llee)
-      !double precision plup(nelee,llee)
-      !double precision pphi(nelee,llee)
-      double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-      logical isbotc
-      !
-      ! output arguments
-      !double precision imamm(nelee,llee),miner(nelee,llee)
-      !double precision namm1(nelee,llee)
-      !double precision ntrf(nelee,llee),plamm(nelee,llee)
-      !double precision vol(nelee,llee)
+      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf, nlyree, ns
+      INTEGER, INTENT(IN) :: ncolmb(nelee), nlyr(nelee)
+      INTEGER, INTENT(IN) :: nlyrbt(nel, nlyree), ntsoil(nel, nlyree)
+      DOUBLE PRECISION, INTENT(IN) :: gnn, kplamm, kuamm, mncref
+      DOUBLE PRECISION, INTENT(IN) :: kddsol(ns)
+      DOUBLE PRECISION, INTENT(IN) :: dtuz
+      DOUBLE PRECISION, INTENT(IN) :: vsthe(ncetop, nel), vstheo(nel, ncetop + 1)
+      LOGICAL, INTENT(IN) :: isbotc
+
       ! locals
-      integer          jsoil,jlyr,nbotm,ncebot,ncl,nelm,niters,ntime
-      integer          warn
-      !
-      double precision dum,dum1,dum2,errtol,namm1o
-      double precision nammh,retamm,retamm1,ttheth,werr1,wer1sq
-      !
-      character        msg*132
-      !
-      !      * parameters for the iteration loop within the subroutine
-      !      * niters is the maximum number of accepteble interations
-      !      * and errtol is the squared error below which the interation
-      !      * will stop before niters is reached
-      parameter ( niters = 20, warn = 3)
-      parameter ( errtol = 1.0d-12)
-      !
+      INTEGER :: jsoil, jlyr, nbotm, ncebot, ncl, nelm, niters, ntime
+      INTEGER :: warn
+      DOUBLE PRECISION :: dum, dum1, dum2, errtol, namm1o
+      DOUBLE PRECISION :: nammh, retamm, retamm1, ttheth, werr1, wer1sq
+      CHARACTER(LEN=132) :: msg
+
+      ! * parameters for the iteration loop within the subroutine
+      PARAMETER (niters = 20, warn = 3)
+      PARAMETER (errtol = 1.0d-12)
+
       !-------------------------------------------------------------------*
-      !
-      do nelm = nlf+1,nel
-         if (isbotc) then
+
+      DO nelm = nlf + 1, nel
+         IF (isbotc) THEN
             nbotm = nbotce
-         else
+         ELSE
             nbotm = ncolmb(nelm)
-         endif
+         END IF
+         
          ncebot = nbotm
-         do jlyr = 1,nlyr(nelm)
-            jsoil = ntsoil(nelm,jlyr)
-            do 150 ncl =max(ncebot,nlyrbt(nelm,jlyr)),nlyrbt(nelm,jlyr+1)-1
-               !
-               !           * initialise local variables
-               nammh = namm(nelm,ncl)
+         
+         DO jlyr = 1, nlyr(nelm)
+            jsoil = ntsoil(nelm, jlyr)
+            
+            layer_loop: DO ncl = MAX(ncebot, nlyrbt(nelm, jlyr)), nlyrbt(nelm, jlyr + 1) - 1
+
+               ! * initialise local variables
+               nammh = namm(nelm, ncl)
                namm1o = 0.0d0
-               !           * old retardation factor for ammonium adsorption
-               retamm = 1.0 +(kddsol(jsoil)*(namm(nelm,ncl)/mncref)**(gnn-1))/vstheo(nelm,ncl)
-               !
-               ttheth = (vsthe(ncl,nelm) + vstheo(nelm,ncl))/2.0d0
-               !
-               !           *  iteration loop to calcalate the new ammonium nitrogen
-               !           *  concentrations in the soil water
-               do ntime = 1,niters
-                  !
-                  !              * new retardation factor for ammonium adsorption
-                  retamm1 = 1.0 +(kddsol(jsoil)*(namm1(nelm,ncl)/mncref)**(gnn-1))/vsthe(ncl,nelm)
-                  !
-                  !              * calculation of both the mineralisation rate and the
-                  !              * immobilisation rate of ammonium
-                  if (gam(nelm,ncl)>=0.0d0) then
-                     miner(nelm,ncl) = gam(nelm,ncl)
-                     imamm(nelm,ncl) = 0.0d0
-                  else
-                     miner(nelm,ncl) = 0.0d0
-                     imamm(nelm,ncl) =min( -gam(nelm,ncl) , kuamm*nammh )
-                  endif
-                  !
-                  !              * calculation of the nitrification rate
-                  ntrf(nelm,ncl)= ttheth * knit(nelm,ncl) * ent(nelm,ncl)* enph(nelm,ncl) * nammh
-                  !
-                  !              * calculation of the ammonia volatilisation rate
-                  vol(nelm,ncl) = ttheth * kvol(nelm,ncl) * emt(nelm,ncl)* nammh
-                  !
-                  !              * calculation of the plant uptake rate of ammonium
-                  if (nammh>0.0d0) then
-                     dum1 = plup(nelm,ncl) *(pphi(nelm,ncl)*nammh/(ndnit(nelm,ncl)+nammh)+ (1-pphi(nelm,ncl))* &
-                        nammh/(ndsnt(nelm,ncl)+nammh))
-                  else
+               
+               ! * old retardation factor for ammonium adsorption
+               retamm = 1.0d0 + (kddsol(jsoil) * (namm(nelm, ncl) / mncref)**(gnn - 1.0d0)) / vstheo(nelm, ncl)
+
+               ttheth = (vsthe(ncl, nelm) + vstheo(nelm, ncl)) / 2.0d0
+
+               ! * iteration loop to calculate the new ammonium nitrogen
+               ! * concentrations in the soil water
+               iteration_loop: DO ntime = 1, niters
+
+                  ! * new retardation factor for ammonium adsorption
+                  retamm1 = 1.0d0 + (kddsol(jsoil) * (namm1(nelm, ncl) / mncref)**(gnn - 1.0d0)) / vsthe(ncl, nelm)
+
+                  ! * calculation of both the mineralisation rate and the
+                  ! * immobilisation rate of ammonium
+                  IF (gam(nelm, ncl) >= 0.0d0) THEN
+                     miner(nelm, ncl) = gam(nelm, ncl)
+                     imamm(nelm, ncl) = 0.0d0
+                  ELSE
+                     miner(nelm, ncl) = 0.0d0
+                     imamm(nelm, ncl) = MIN(-gam(nelm, ncl), kuamm * nammh)
+                  END IF
+
+                  ! * calculation of the nitrification rate
+                  ntrf(nelm, ncl) = ttheth * knit(nelm, ncl) * ent(nelm, ncl) * enph(nelm, ncl) * nammh
+
+                  ! * calculation of the ammonia volatilisation rate
+                  vol(nelm, ncl) = ttheth * kvol(nelm, ncl) * emt(nelm, ncl) * nammh
+
+                  ! * calculation of the plant uptake rate of ammonium
+                  IF (nammh > 0.0d0) THEN
+                     dum1 = plup(nelm, ncl) * (pphi(nelm, ncl) * nammh / (ndnit(nelm, ncl) + nammh) + &
+                            (1.0d0 - pphi(nelm, ncl)) * nammh / (ndsnt(nelm, ncl) + nammh))
+                  ELSE
                      dum1 = 0.0d0
-                  endif
-                  dum2 = vsthe(ncl,nelm) * kplamm * nammh
-                  plamm(nelm,ncl) = min (dum1,dum2)
-                  !
-                  !
-                  !              * calculation of the concentration of ammonium in solutn
-                  !              * at timestep n + 1
-                  dum = -plamm(nelm,ncl) +miner(nelm,ncl) -imamm(nelm,ncl)- ntrf(nelm,ncl) - vol(nelm,ncl) + &
-                     naamm(nelm,ncl)
-                  namm1(nelm,ncl) = 1/(vsthe(ncl,nelm)*retamm1)*(vstheo(nelm,ncl)*namm(nelm,ncl)*retamm + dtuz*dum)
-                  !
-                  !              *  ammonium conc at timestep n +1/2 is calculated for use
-                  !              *  in the new calculation of the ammonium
-                  nammh = (namm1(nelm,ncl)+namm(nelm,ncl))/ 2.0d0
-                  !
-                  !
-                  !              *  relative error between iterations to see if the
-                  !              *  iteration is converging.
-                  if (namm1(nelm,ncl)/=0.0d0) then
-                     werr1 = (namm1(nelm,ncl) - namm1o) / namm1(nelm,ncl)
-                  elseif (namm1o==0.0d0) then
+                  END IF
+                  dum2 = vsthe(ncl, nelm) * kplamm * nammh
+                  plamm(nelm, ncl) = MIN(dum1, dum2)
+
+                  ! * calculation of the concentration of ammonium in solution
+                  ! * at timestep n + 1
+                  dum = -plamm(nelm, ncl) + miner(nelm, ncl) - imamm(nelm, ncl) - ntrf(nelm, ncl) - vol(nelm, ncl) + naamm(nelm, ncl)
+                  namm1(nelm, ncl) = 1.0d0 / (vsthe(ncl, nelm) * retamm1) * (vstheo(nelm, ncl) * namm(nelm, ncl) * retamm + dtuz * dum)
+
+                  ! * ammonium conc at timestep n + 1/2 is calculated for use
+                  ! * in the new calculation of the ammonium
+                  nammh = (namm1(nelm, ncl) + namm(nelm, ncl)) / 2.0d0
+
+                  ! * relative error between iterations to see if the
+                  ! * iteration is converging.
+                  IF (namm1(nelm, ncl) /= 0.0d0) THEN
+                     werr1 = (namm1(nelm, ncl) - namm1o) / namm1(nelm, ncl)
+                  ELSE IF (namm1o == 0.0d0) THEN
                      werr1 = 0.0d0
-                  else
+                  ELSE
                      werr1 = 1.0d0
-                  endif
-                  !
-                  !              * square of the errors, in order to make them positive
-                  wer1sq = werr1*werr1
-                  !
-                  namm1o = namm1(nelm,ncl)
-                  !
-                  !              *  break out of loop if the error in the iteration
-                  !              *  is less than the error tolerence
-                  if (wer1sq<errtol) goto 150
-                  !                                    ********
-                  !
-               enddo
-               !
-               !          *  the do loop has continued to niters and has thus
-               !          *  failed to converge
-               write (msg,9000) wer1sq
-               call error( warn, 3018, mnpr, 0, 0, msg )
-               !
-               !
-150         continue
-         enddo
-      enddo
-      !
-9000  format('iteration loop in mnamm failed to converge with error = ',g15.7)
-      !
-   end subroutine mnamm
+                  END IF
+
+                  ! * square of the errors, in order to make them positive
+                  wer1sq = werr1 * werr1
+                  namm1o = namm1(nelm, ncl)
+
+                  ! * break out of loop if the error in the iteration
+                  ! * is less than the error tolerance
+                  IF (wer1sq < errtol) EXIT iteration_loop
+
+               END DO iteration_loop
+
+               ! * If the DO loop ran all the way through to niters without 
+               ! * exiting early, it has failed to converge
+               IF (ntime > niters) THEN
+                  ! PERF FIX: Restored external format label
+                  WRITE (msg, 9000) wer1sq
+                  CALL ERROR(warn, 3018, mnpr, 0, 0, msg)
+               END IF
+
+            END DO layer_loop
+         END DO
+      END DO
+
+9000  FORMAT('iteration loop in mnamm failed to converge with error = ', g15.7)
+
+   END SUBROUTINE mnamm
+
 
 
    subroutine mnco2 (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,isbotc)
@@ -2367,288 +2353,261 @@ CONTAINS
       !
    end subroutine mnint2
 
-   subroutine mnlthm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,dtuz,isbotc)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the concentration in the carbon litter and
-      !  humus pools at timestep n+1
-      ! failure of iteration loop to converge produces error no 3016
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      ! externals
-      !use sglobal, only : error
-      !       external     error
-      !
+
+
+   !--------------------------------------------------------------------*
+   !
+   ! calculates the concentration in the carbon litter and
+   !  humus pools at timestep n+1
+   ! failure of iteration loop to converge produces error no 3016
+   !
+   !--------------------------------------------------------------------*
+   ! version:                   notes:
+   ! module: mn                 program: shetran
+   ! modifications
+   !--------------------------------------------------------------------*
+   SUBROUTINE mnlthm (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, ncolmb, fe, fh, dtuz, isbotc)
+
+      ! Assumed external module dependencies providing global variables:
+      ! clit, chum, cman, cman1, isimtf, kman, klit, emt, emph, khum, 
+      ! calit, clit1, cahum, chum1, ERROR
+
+      IMPLICIT NONE
+
       ! input arguments
-      integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision fe,fh
-      double precision dtuz
-      !double precision cahum(nelee,llee),calit(nelee,llee)
-      !double precision chum(nelee,llee),clit(nelee,llee)
-      !double precision cman(nelee,llee),cman1(nelee,llee)
-      !double precision emph(nelee,llee),emt(nelee,llee)
-      !double precision khum(nelee,llee),klit(nelee,llee)
-      !double precision kman(nelee,llee)
-      logical isbotc
-      !logical isimtf(nelee,llee)
-      ! output arguments
-      !double precision chum1(nelee,llee)
-      !double precision clit1(nelee,llee)
+      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf
+      INTEGER, INTENT(IN) :: ncolmb(nelee)
+      DOUBLE PRECISION, INTENT(IN) :: fe, fh, dtuz
+      LOGICAL, INTENT(IN) :: isbotc
+
       ! locals
-      integer    nbotm,ncl,nelm,niters,ntime
-      integer    warn
-      !
-      double precision chum1o,chumh,clit1o,clith,cmanh,dum,errtol,erf
-      double precision klittp,kmantp
-      double precision werr1,wer1sq,werr2,wer2sq
-      !
-      character        msg*132
-      !
-      !      * parameters for the iteration loop within the subroutine
-      !      * niters is the maximum number of accepteble interations
-      !      * and errtol is the squared error below which the interation
-      !      * will stop before niters is reached
-      parameter ( niters = 20, warn = 3)
-      parameter ( errtol = 1.0d-12)
-      !
-      !
-      !
+      INTEGER :: nbotm, ncl, nelm, niters, ntime, warn
+      DOUBLE PRECISION :: chum1o, chumh, clit1o, clith, cmanh, dum, errtol, erf
+      DOUBLE PRECISION :: klittp, kmantp, werr1, wer1sq, werr2, wer2sq
+      CHARACTER(LEN=132) :: msg
+
+      ! * parameters for the iteration loop within the subroutine
+      PARAMETER (niters = 20, warn = 3)
+      PARAMETER (errtol = 1.0d-12)
+
       !-------------------------------------------------------------------*
-      !
-      do nelm = nlf+1,nel
-         if (isbotc) then
+
+      DO nelm = nlf + 1, nel
+         IF (isbotc) THEN
             nbotm = nbotce
-         else
+         ELSE
             nbotm = ncolmb(nelm)
-         endif
-         do 100 ncl = nbotm,ncetop
-            !
-            !           * initialise local variables
-            clith = clit(nelm,ncl)
-            chumh = chum(nelm,ncl)
+         END IF
+         
+         layer_loop: DO ncl = nbotm, ncetop
+            
+            ! * initialise local variables
+            clith = clit(nelm, ncl)
+            chumh = chum(nelm, ncl)
             chum1o = 0.0d0
             clit1o = 0.0d0
-            cmanh = (cman(nelm,ncl) + cman1(nelm,ncl)) / 2.0d0
-            !
-            !           * if immobilisation is not equal to the potential
-            !           * immobilisation then the decomposition of the litter and
-            !           * and manure pools are temporarily stopped
-            if (isimtf(nelm,ncl)) then
-               kmantp=0.0d0
-               klittp=0.0d0
-            else
-               kmantp=kman(nelm,ncl)
-               klittp=klit(nelm,ncl)
-            endif
-            !
-            erf = emt(nelm,ncl)*emph(nelm,ncl)
-            !           *  iteration loop to calcalate the new carbon litter
-            !           *  and humus concentrations
-            do ntime = 1,niters
-               !
-               !
-               dum = klittp*erf*clith*(fe-1)+ fe*erf*khum(nelm,ncl)*chumh
-               dum = dum + fe*erf*kmantp*cmanh+ calit(nelm,ncl)
-               clit1(nelm,ncl) = clit(nelm,ncl) + dtuz * dum
-               !
-               !              *  litter conc at timestep n +1/2 is calculated for use
-               !              *  in the new calculation of the humus
-               clith = (clit1(nelm,ncl)+clit(nelm,ncl))/ 2.0d0
-               !
-               dum = (1-fe)*fh*klittp*erf*clith- khum(nelm,ncl)*erf*chumh + cahum(nelm,ncl)
-               chum1(nelm,ncl) = chum(nelm,ncl) + dtuz * dum
-               !
-               !              *  humus conc. at timestep n+1/2 is calculated. this is
-               !              *  for use in the new calculation of the litter at the
-               !              *  next iteration
-               chumh = (chum1(nelm,ncl)+chum(nelm,ncl) )/2.0d0
-               !
-               !              *  relative error between iterations in both litter and
-               !              *  humus pools in order to check the iteration
-               !              *  is converging.
-               if (clit1(nelm,ncl)/=0.0d0) then
-                  werr1 = (clit1(nelm,ncl) - clit1o) / clit1(nelm,ncl)
-               elseif (clit1o==0.0d0) then
+            cmanh = (cman(nelm, ncl) + cman1(nelm, ncl)) / 2.0d0
+            
+            ! * if immobilisation is not equal to the potential
+            ! * immobilisation then the decomposition of the litter and
+            ! * and manure pools are temporarily stopped
+            IF (isimtf(nelm, ncl)) THEN
+               kmantp = 0.0d0
+               klittp = 0.0d0
+            ELSE
+               kmantp = kman(nelm, ncl)
+               klittp = klit(nelm, ncl)
+            END IF
+            
+            erf = emt(nelm, ncl) * emph(nelm, ncl)
+            
+            ! * iteration loop to calculate the new carbon litter
+            ! * and humus concentrations
+            iteration_loop: DO ntime = 1, niters
+               
+               dum = klittp * erf * clith * (fe - 1.0d0) + fe * erf * khum(nelm, ncl) * chumh
+               dum = dum + fe * erf * kmantp * cmanh + calit(nelm, ncl)
+               clit1(nelm, ncl) = clit(nelm, ncl) + dtuz * dum
+               
+               ! * litter conc at timestep n +1/2 is calculated for use
+               ! * in the new calculation of the humus
+               clith = (clit1(nelm, ncl) + clit(nelm, ncl)) / 2.0d0
+               
+               dum = (1.0d0 - fe) * fh * klittp * erf * clith - khum(nelm, ncl) * erf * chumh + cahum(nelm, ncl)
+               chum1(nelm, ncl) = chum(nelm, ncl) + dtuz * dum
+               
+               ! * humus conc. at timestep n+1/2 is calculated. this is
+               ! * for use in the new calculation of the litter at the
+               ! * next iteration
+               chumh = (chum1(nelm, ncl) + chum(nelm, ncl)) / 2.0d0
+               
+               ! * relative error between iterations in both litter and
+               ! * humus pools in order to check the iteration is converging.
+               IF (clit1(nelm, ncl) /= 0.0d0) THEN
+                  werr1 = (clit1(nelm, ncl) - clit1o) / clit1(nelm, ncl)
+               ELSE IF (clit1o == 0.0d0) THEN
                   werr1 = 0.0d0
-               else
+               ELSE
                   werr1 = 1.0d0
-               endif
-               !
-               if (chum1(nelm,ncl)/=0.0d0) then
-                  werr2 = (chum1(nelm,ncl) - chum1o) / chum1(nelm,ncl)
-               elseif (chum1o==0.0d0) then
+               END IF
+               
+               IF (chum1(nelm, ncl) /= 0.0d0) THEN
+                  werr2 = (chum1(nelm, ncl) - chum1o) / chum1(nelm, ncl)
+               ELSE IF (chum1o == 0.0d0) THEN
                   werr2 = 0.0d0
-               else
+               ELSE
                   werr2 = 1.0d0
-               endif
-               !
-               !              * square of the errors, in order to make them positive
-               wer1sq = werr1*werr1
-               wer2sq = werr2*werr2
-               !
-               clit1o = clit1(nelm,ncl)
-               chum1o = chum1(nelm,ncl)
-               !
-               !              *  break out of loop if the error in both iterations
-               !              *  is less than the error tolerence
-               if ((wer1sq<errtol).and.(wer2sq<errtol))goto 100
-               !                                                            ********
-               !
-            enddo
-            !
-            !          *  the do loop has continued to niters and has thus
-            !          *  failed to converge
-            write (msg,9000) wer1sq,wer2sq
-            call error( warn, 3016, mnpr, 0, 0, msg )
-            !
-            !
-100      continue
-      enddo
-      !
-9000  format('iteration loop in mnlthm failed to converge with error = ',g15.7,g15.7)
-      !
-   end subroutine mnlthm
+               END IF
+               
+               ! * square of the errors, in order to make them positive
+               wer1sq = werr1 * werr1
+               wer2sq = werr2 * werr2
+               
+               clit1o = clit1(nelm, ncl)
+               chum1o = chum1(nelm, ncl)
+               
+               ! * break out of loop if the error in both iterations
+               ! * is less than the error tolerance
+               IF ((wer1sq < errtol) .AND. (wer2sq < errtol)) EXIT iteration_loop
+               
+            END DO iteration_loop
+            
+            ! * the do loop has continued to niters and has thus
+            ! * failed to converge
+            IF (ntime > niters) THEN
+               ! PERF FIX: Restored external format label
+               WRITE (msg, 9000) wer1sq, wer2sq
+               CALL ERROR(warn, 3016, mnpr, 0, 0, msg)
+            END IF
+            
+         END DO layer_loop
+      END DO
 
-   subroutine mnltn (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrbio,fe,fh,dtuz,cnralt,isbotc)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the concentration in the nitrogen litter
-      ! pool at timestep n+1
-      ! failure of iteration loop to converge produces error no 3017
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      ! externals
-      !use sglobal, only : error
-      !       external     error
-      !
+9000  FORMAT('iteration loop in mnlthm failed to converge with error = ', g15.7, g15.7)
+
+   END SUBROUTINE mnlthm
+
+
+
+   !--------------------------------------------------------------------*
+   !
+   ! calculates the concentration in the nitrogen litter
+   ! pool at timestep n+1
+   ! failure of iteration loop to converge produces error no 3017
+   !
+   !--------------------------------------------------------------------*
+   ! version:                   notes:
+   ! module: mn                 program: shetran
+   ! modifications
+   !--------------------------------------------------------------------*
+   SUBROUTINE mnltn (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, ncolmb, cnrbio, fe, fh, dtuz, cnralt, isbotc)
+
+      ! Assumed external module dependencies providing global variables:
+      ! chum, chum1, clit, clit1, cman, cman1, nlit, nlit1, isimtf,
+      ! klit, kman, emt, emph, khum, calit, ERROR
+
+      IMPLICIT NONE
+
       ! input arguments
-      integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision cnrbio,fe,fh
-      double precision dtuz
-      !double precision calit(nelee,llee),chum(nelee,llee)
-      !double precision chum1(nelee,llee),clit(nelee,llee)
-      !double precision clit1(nelee,llee),cman(nelee,llee)
-      !double precision cman1(nelee,llee)
-      double precision cnralt(nelee)
-      !double precision emph(nelee,llee),emt(nelee,llee)
-      !double precision khum(nelee,llee),klit(nelee,llee)
-      !double precision kman(nelee,llee)
-      !double precision nlit(nelee,llee)
-      logical isbotc
-      !logical isimtf(nelee,llee)
-      ! output arguments
-      !double precision nlit1(nelee,llee)
+      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf
+      INTEGER, INTENT(IN) :: ncolmb(nelee)
+      DOUBLE PRECISION, INTENT(IN) :: cnrbio, fe, fh
+      DOUBLE PRECISION, INTENT(IN) :: dtuz
+      DOUBLE PRECISION, INTENT(IN) :: cnralt(nelee)
+      LOGICAL, INTENT(IN) :: isbotc
+
       ! locals
-      integer   nbotm,ncl,nelm,niters,ntime
-      integer   warn
-      !
-      double precision chumh,clith,cmanh,dum,errtol,erf
-      double precision klittp,kmantp,nlith
-      double precision nlit1o, werr1, wer1sq
-      !
-      character        msg*132
-      !
-      !      * parameters for the iteration loop within the subroutine
-      !      * niters is the maximum number of accepteble interations
-      !      * and errtol is the squared error below which the interation
-      !      * will stop before niters is reached
-      parameter ( niters = 20, warn = 3)
-      parameter ( errtol = 1.0d-12)
-      !
-      !
+      INTEGER :: nbotm, ncl, nelm, niters, ntime, warn
+      DOUBLE PRECISION :: chumh, clith, cmanh, dum, errtol, erf
+      DOUBLE PRECISION :: klittp, kmantp, nlith
+      DOUBLE PRECISION :: nlit1o, werr1, wer1sq
+      CHARACTER(LEN=132) :: msg
+
+      ! * parameters for the iteration loop within the subroutine
+      PARAMETER (niters = 20, warn = 3)
+      PARAMETER (errtol = 1.0d-12)
+
       !-------------------------------------------------------------------*
-      !
-      do nelm = nlf+1,nel
-         if (isbotc) then
+
+      DO nelm = nlf + 1, nel
+         IF (isbotc) THEN
             nbotm = nbotce
-         else
+         ELSE
             nbotm = ncolmb(nelm)
-         endif
-         do 100 ncl = nbotm,ncetop
-            !          * initialise local variables
-            chumh = ( chum(nelm,ncl) + chum1(nelm,ncl) )/2.0d0
-            clith = ( clit(nelm,ncl) + clit1(nelm,ncl) )/2.0d0
-            cmanh = ( cman(nelm,ncl) + cman1(nelm,ncl) )/2.0d0
-            nlith = nlit(nelm,ncl)
+         END IF
+         
+         layer_loop: DO ncl = nbotm, ncetop
+            
+            ! * initialise local variables
+            chumh = (chum(nelm, ncl) + chum1(nelm, ncl)) / 2.0d0
+            clith = (clit(nelm, ncl) + clit1(nelm, ncl)) / 2.0d0
+            cmanh = (cman(nelm, ncl) + cman1(nelm, ncl)) / 2.0d0
+            nlith = nlit(nelm, ncl)
             nlit1o = 0.0d0
-            !
-            !
-            !          * if immobilisation is not equal to the potential
-            !          * immobilisation then the decomposition of the litter pool
-            !          * and the manure pool are temporarily stopped
-            if (isimtf(nelm,ncl)) then
-               klittp=0.0d0
-               kmantp=0.0d0
-            else
-               klittp=klit(nelm,ncl)
-               kmantp=kman(nelm,ncl)
-            endif
-            !
-            erf = emt(nelm,ncl)*emph(nelm,ncl)
-            !
-            !          *  iteration loop to calcalate the new nitrogen litter
-            !          *  concentrations
-            do ntime = 1,niters
-               !
-               !
-               dum = -klittp*erf*nlith+ fe*klittp*erf*clith/cnrbio
-               dum = dum + fe*khum(nelm,ncl)*erf*chumh/cnrbio+ calit(nelm,ncl)/cnralt(nelm)
-               dum = dum + fe*kmantp*erf*cmanh /cnrbio
-               !
-               !
-               nlit1(nelm,ncl) = nlit(nelm,ncl) + dtuz * dum
-               !
-               !            *  litter conc at timestep n +1/2 is calculated for use
-               !            *  in the new calculation of the litter
-               nlith = (nlit1(nelm,ncl) + nlit(nelm,ncl))/ 2.0d0
-               !
-               !
-               !            *  relative error between iterations to see if the
-               !            *  iteration is converging.
-               if (nlit1(nelm,ncl)/=0.0d0) then
-                  werr1 = (nlit1(nelm,ncl) - nlit1o) / nlit1(nelm,ncl)
-               elseif (nlit1o==0.0d0) then
+            
+            ! * if immobilisation is not equal to the potential
+            ! * immobilisation then the decomposition of the litter pool
+            ! * and the manure pool are temporarily stopped
+            IF (isimtf(nelm, ncl)) THEN
+               klittp = 0.0d0
+               kmantp = 0.0d0
+            ELSE
+               klittp = klit(nelm, ncl)
+               kmantp = kman(nelm, ncl)
+            END IF
+            
+            erf = emt(nelm, ncl) * emph(nelm, ncl)
+            
+            ! * iteration loop to calculate the new nitrogen litter
+            ! * concentrations
+            iteration_loop: DO ntime = 1, niters
+               
+               dum = -klittp * erf * nlith + fe * klittp * erf * clith / cnrbio
+               dum = dum + fe * khum(nelm, ncl) * erf * chumh / cnrbio + calit(nelm, ncl) / cnralt(nelm)
+               dum = dum + fe * kmantp * erf * cmanh / cnrbio
+               
+               nlit1(nelm, ncl) = nlit(nelm, ncl) + dtuz * dum
+               
+               ! * litter conc at timestep n +1/2 is calculated for use
+               ! * in the new calculation of the litter
+               nlith = (nlit1(nelm, ncl) + nlit(nelm, ncl)) / 2.0d0
+               
+               ! * relative error between iterations to see if the
+               ! * iteration is converging.
+               IF (nlit1(nelm, ncl) /= 0.0d0) THEN
+                  werr1 = (nlit1(nelm, ncl) - nlit1o) / nlit1(nelm, ncl)
+               ELSE IF (nlit1o == 0.0d0) THEN
                   werr1 = 0.0d0
-               else
+               ELSE
                   werr1 = 1.0d0
-               endif
-               !
-               !            * square of the errors, in order to make them positive
-               wer1sq = werr1*werr1
-               !
-               nlit1o = nlit1(nelm,ncl)
-               !
-               !            *  break out of loop if the error in the iteration
-               !            *  is less than the error tolerence
-               if (wer1sq<errtol) goto 100
-               !                                  ********
-               !
-            enddo
-            !
-            !          *  the do loop has continued to niters and has thus
-            !          *  failed to converge
-            write (msg,9000) wer1sq
-            call error( warn, 3017, mnpr, 0, 0, msg )
-            !
-            !
-100      continue
-      enddo
-      !
-9000  format('iteration loop in mnltn failed to converge with error = ',g15.7)
-      !
-   end subroutine mnltn
+               END IF
+               
+               ! * square of the errors, in order to make them positive
+               wer1sq = werr1 * werr1
+               
+               nlit1o = nlit1(nelm, ncl)
+               
+               ! * break out of loop if the error in the iteration
+               ! * is less than the error tolerance
+               IF (wer1sq < errtol) EXIT iteration_loop
+               
+            END DO iteration_loop
+            
+            ! * the do loop has continued to niters and has thus
+            ! * failed to converge
+            IF (ntime > niters) THEN
+               ! PERF FIX: Restored external format label
+               WRITE (msg, 9000) wer1sq
+               CALL ERROR(warn, 3017, mnpr, 0, 0, msg)
+            END IF
+            
+         END DO layer_loop
+      END DO
+
+9000  FORMAT('iteration loop in mnltn failed to converge with error = ', g15.7)
+
+   END SUBROUTINE mnltn
+
 
 
    subroutine mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref,icmxy,ncolmb,nlyr &
@@ -2944,139 +2903,132 @@ CONTAINS
       !
    end subroutine mnmain
 
-   subroutine mnman (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,dtuz,cnramn,isbotc)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the concentration in the carbon and nitrogen
-      !  manure pools at timestep n+1
-      ! failure of iteration loop to converge produces error no 3015
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      ! externals
-      !use sglobal, only : error
-      !       external     error
-      !
+
+
+   !--------------------------------------------------------------------*
+   !
+   ! calculates the concentration in the carbon and nitrogen
+   !  manure pools at timestep n+1
+   ! failure of iteration loop to converge produces error no 3015
+   !
+   !--------------------------------------------------------------------*
+   ! version:                   notes:
+   ! module: mn                 program: shetran
+   ! modifications
+   !--------------------------------------------------------------------*
+   SUBROUTINE mnman (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, ncolmb, dtuz, cnramn, isbotc)
+
+      ! Assumed external module dependencies providing global variables:
+      ! cman, cman1, nman, nman1, isimtf, kman, emt, emph, caman, ERROR
+
+      IMPLICIT NONE
+
       ! input arguments
-      integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision dtuz
-      !double precision caman(nelee,llee),cman(nelee,llee)
-      double precision cnramn(nelee)
-      !double precision emph(nelee,llee)
-      !double precision emt(nelee,llee),kman(nelee,llee)
-      !double precision nman(nelee,llee)
-      logical isbotc
-      !double precision isimtf(nelee,llee)
-      !
-      ! output arguments
-      !double precision cman1(nelee,llee)
-      !double precision nman1(nelee,llee)
-      !
+      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf
+      INTEGER, INTENT(IN) :: ncolmb(nelee)
+      DOUBLE PRECISION, INTENT(IN) :: dtuz
+      DOUBLE PRECISION, INTENT(IN) :: cnramn(nelee)
+      LOGICAL, INTENT(IN) :: isbotc
+
       ! locals
-      integer          nbotm,ncl,nelm,niters,ntime
-      integer          warn
-      !
-      double precision cman1o,cmanh,dum,errtol,erf
-      double precision kmantp,nman1o,nmanh
-      double precision wer1sq,werr1,wer2sq,werr2
-      !
-      character        msg*132
-      !
-      !      * parameters for the iteration loop within the subroutine
-      !      * niters is the maximum number of accepteble interations
-      !      * and errtol is the squared error below which the interation
-      !      * will stop before niters is reached
-      parameter ( niters = 20, warn = 3)
-      parameter ( errtol = 1.0d-12)
-      !
-      !
-      !
+      INTEGER :: nbotm, ncl, nelm, niters, ntime, warn
+      DOUBLE PRECISION :: cman1o, cmanh, dum, errtol, erf
+      DOUBLE PRECISION :: kmantp, nman1o, nmanh
+      DOUBLE PRECISION :: wer1sq, werr1, wer2sq, werr2
+      CHARACTER(LEN=132) :: msg
+
+      ! * parameters for the iteration loop within the subroutine
+      ! * niters is the maximum number of acceptable iterations
+      ! * and errtol is the squared error below which the iteration
+      ! * will stop before niters is reached
+      PARAMETER (niters = 20, warn = 3)
+      PARAMETER (errtol = 1.0d-12)
+
       !-------------------------------------------------------------------*
-      !
-      !      *  main loop which goes through every cell in the soil column
-      do nelm = nlf+1,nel
-         if (isbotc) then
+
+      ! * main loop which goes through every cell in the soil column
+      DO nelm = nlf + 1, nel
+         IF (isbotc) THEN
             nbotm = nbotce
-         else
+         ELSE
             nbotm = ncolmb(nelm)
-         endif
-         do 100 ncl = nbotm,ncetop
-            !            * initialise local variables
-            cmanh = cman(nelm,ncl)
-            nmanh = nman(nelm,ncl)
+         END IF
+         
+         layer_loop: DO ncl = nbotm, ncetop
+            
+            ! * initialise local variables
+            cmanh = cman(nelm, ncl)
+            nmanh = nman(nelm, ncl)
             cman1o = 0.0d0
             nman1o = 0.0d0
-            !
-            !           * if immobilisation is not equal to the potential
-            !           * immobilisation then the decomposition of the manure pool
-            !           * is temporarily stopped
-            if (isimtf(nelm,ncl)) then
-               kmantp=0.0d0
-            else
-               kmantp=kman(nelm,ncl)
-            endif
-            !
-            erf = emt(nelm,ncl)*emph(nelm,ncl)
-            !
-            !           * iteration loop to calcalate the new manure concentrations
-            do ntime = 1,niters
-               !
-               dum = -kmantp*erf*cmanh + caman(nelm,ncl)
-               cman1(nelm,ncl) = cman(nelm,ncl) + dtuz * dum
-               !
-               dum = -kmantp*erf*nmanh+ caman(nelm,ncl) / cnramn(nelm)
-               nman1(nelm,ncl) = nman(nelm,ncl) + dtuz * dum
-               !
-               !             * calcultes the relative error in the iteration
-               if (cman1(nelm,ncl)/=0.0d0) then
-                  werr1 = (cman1(nelm,ncl) - cman1o) / cman1(nelm,ncl)
-               elseif (cman1o==0.0d0) then
+            
+            ! * if immobilisation is not equal to the potential
+            ! * immobilisation then the decomposition of the manure pool
+            ! * is temporarily stopped
+            IF (isimtf(nelm, ncl)) THEN
+               kmantp = 0.0d0
+            ELSE
+               kmantp = kman(nelm, ncl)
+            END IF
+            
+            erf = emt(nelm, ncl) * emph(nelm, ncl)
+            
+            ! * iteration loop to calculate the new manure concentrations
+            iteration_loop: DO ntime = 1, niters
+               
+               dum = -kmantp * erf * cmanh + caman(nelm, ncl)
+               cman1(nelm, ncl) = cman(nelm, ncl) + dtuz * dum
+               
+               dum = -kmantp * erf * nmanh + caman(nelm, ncl) / cnramn(nelm)
+               nman1(nelm, ncl) = nman(nelm, ncl) + dtuz * dum
+               
+               ! * calculates the relative error in the iteration
+               IF (cman1(nelm, ncl) /= 0.0d0) THEN
+                  werr1 = (cman1(nelm, ncl) - cman1o) / cman1(nelm, ncl)
+               ELSE IF (cman1o == 0.0d0) THEN
                   werr1 = 0.0d0
-               else
+               ELSE
                   werr1 = 1.0d0
-               endif
-               !
-               if (nman1(nelm,ncl)/=0.0d0) then
-                  werr2 = (nman1(nelm,ncl) - nman1o) / nman1(nelm,ncl)
-               elseif (nman1o==0.0d0) then
+               END IF
+               
+               IF (nman1(nelm, ncl) /= 0.0d0) THEN
+                  werr2 = (nman1(nelm, ncl) - nman1o) / nman1(nelm, ncl)
+               ELSE IF (nman1o == 0.0d0) THEN
                   werr2 = 0.0d0
-               else
+               ELSE
                   werr2 = 1.0d0
-               endif
-               !
-               !             * calculates the squred error, so that they are positive
-               wer1sq = werr1*werr1
-               wer2sq = werr2*werr2
-               !
-               !             * updates the conc. at timestep n + 1/2 and the old conc.
-               cmanh = (cman1(nelm,ncl)+cman(nelm,ncl)) /2.0d0
-               cman1o = cman1(nelm,ncl)
-               nmanh = (nman1(nelm,ncl)+nman(nelm,ncl)) /2.0d0
-               nman1o = nman1(nelm,ncl)
-               !
-               !             * break out of loop if error in both iterations is
-               !             * less than the error tolerance
-               if ((wer1sq<errtol).and.(wer2sq<errtol)) goto 100
-               !                                                            ********
-            enddo
-            !
-            !          *  the do loop has continued to niters and has thus
-            !          *  failed to converge
-            write (msg,9000) wer1sq,wer2sq
-            call error( warn, 3015, mnpr, 0, 0, msg )
-            !
-            !
-100      continue
-      enddo
-      !
-9000  format('iteration loop in mnman failed to converge with error = ',g15.7,g15.7)
-      !
-   end subroutine mnman
+               END IF
+               
+               ! * calculates the squared error, so that they are positive
+               wer1sq = werr1 * werr1
+               wer2sq = werr2 * werr2
+               
+               ! * updates the conc. at timestep n + 1/2 and the old conc.
+               cmanh = (cman1(nelm, ncl) + cman(nelm, ncl)) / 2.0d0
+               cman1o = cman1(nelm, ncl)
+               nmanh = (nman1(nelm, ncl) + nman(nelm, ncl)) / 2.0d0
+               nman1o = nman1(nelm, ncl)
+               
+               ! * break out of loop if error in both iterations is
+               ! * less than the error tolerance
+               IF ((wer1sq < errtol) .AND. (wer2sq < errtol)) EXIT iteration_loop
+               
+            END DO iteration_loop
+            
+            ! * the do loop has continued to niters and has thus
+            ! * failed to converge
+            IF (ntime > niters) THEN
+               WRITE (msg, 9000) wer1sq, wer2sq
+               CALL ERROR(warn, 3015, mnpr, 0, 0, msg)
+            END IF
+            
+         END DO layer_loop
+      END DO
+
+9000  FORMAT('iteration loop in mnman failed to converge with error = ', g15.7, g15.7)
+
+   END SUBROUTINE mnman
+
 
 
    subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref,z2,dtuz,vsthe,vstheo,isbotc,sss1,sss2)
@@ -3471,9 +3423,10 @@ CONTAINS
    end subroutine mnout
 
 
-   subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dxqq,dyqq,deltaz,plai,rdf,dtuz, &
-      uznow,clai)
-      !--------------------------------------------------------------------*
+   !--------------------------------------------------------------------*
+   SUBROUTINE mnplant (mnpl, mnoutpl, ncetop, nel, nlf, nv, ncolmb, nrd, nvc, rhopl, delone, dxqq, dyqq, deltaz, plai, rdf, dtuz, &
+                       uznow, clai)
+   !--------------------------------------------------------------------*
       !
       ! subroutine used to calculate the potential nitrogen uptake by plants
       ! this is calculted from the canopy leaf area index of the plants
@@ -3500,74 +3453,59 @@ CONTAINS
       ! module: mn                 program: shetran
       ! modifications
       !--------------------------------------------------------------------*
-      !
-      ! commons and distributed constants
-      !      include  'al.p.mn'
-      !use sglobal, only : llee, nelee, npelee, npltee, nvee
-      !use mod_load_filedata , only : alredf,alredi,alred2,alalli,alredl,alredc
-      ! externals
-      !       external alredc,alredf,alredl,alred2,error,alalli
-      !
-      !
-      ! constants referenced
-      !     al.p:  llee nelee npelee npltee nvee
-      !
+      
+      ! Assumed external module dependencies providing global variables:
+      ! llee, nelee, npelee, npltee, nvee, plup, alredf, alredi, alred2, 
+      ! alalli, alredl, alredc
+
+      IMPLICIT NONE
+
       ! input arguments
       !     * static
-      integer mnpl,mnoutpl,ncetop,nel,nlf,nv
-      integer ncolmb(nelee)
-      integer nrd(nv),nvc(nelee)
-      double precision rhopl
-      double precision delone(npltee),dxqq(nelee),dyqq(nelee)
-      double precision deltaz(llee,nel),plai(nv)
-      double precision rdf(nv,llee)
+      INTEGER, INTENT(IN) :: mnpl, mnoutpl, ncetop, nel, nlf, nv
+      INTEGER, INTENT(IN) :: ncolmb(nelee)
+      INTEGER, INTENT(IN) :: nrd(nv), nvc(nelee)
+      DOUBLE PRECISION, INTENT(IN) :: rhopl
+      DOUBLE PRECISION, INTENT(IN) :: delone(npltee), dxqq(nelee), dyqq(nelee)
+      DOUBLE PRECISION, INTENT(IN) :: deltaz(llee, nel), plai(nv)
+      DOUBLE PRECISION, INTENT(IN) :: rdf(nv, llee)
+      
       !     * time dependent
-      double precision dtuz,uznow
-      double precision clai(nv)
-      !
-      ! output arguments
-      !double precision plup(nelee,llee)
-      !
+      DOUBLE PRECISION, INTENT(IN) :: dtuz, uznow
+      DOUBLE PRECISION, INTENT(IN) :: clai(nv)
+      
       ! locals
-      !
       !     * maximum number of values in the input data for canopy density
-      integer nvalee
-      parameter (nvalee=30)
-      !
+      INTEGER, PARAMETER :: nvalee = 30
+      
       !     * those saved
-      integer nvalue(npltee),pass
-      integer npl(nelee),npltyp(nelee,npelee)
-      double precision cdi(npltee,nvalee),cdit(npltee,nvalee)
-      double precision claimx(npltee)
-      double precision croptm(nelee,npelee)
-      double precision gmcpbb(nelee,npelee)
-      double precision massb(nelee,npelee)
-      double precision pfone(nelee,npelee)
-      logical iscrop(nelee,npelee)
+      INTEGER, SAVE :: nvalue(npltee), pass = 0
+      INTEGER, SAVE :: npl(nelee), npltyp(nelee, npelee)
+      DOUBLE PRECISION, SAVE :: cdi(npltee, nvalee), cdit(npltee, nvalee)
+      DOUBLE PRECISION, SAVE :: claimx(npltee)
+      DOUBLE PRECISION, SAVE :: croptm(nelee, npelee)
+      DOUBLE PRECISION, SAVE :: gmcpbb(nelee, npelee)
+      DOUBLE PRECISION, SAVE :: massb(nelee, npelee)
+      DOUBLE PRECISION, SAVE :: pfone(nelee, npelee)
+      LOGICAL, SAVE :: iscrop(nelee, npelee)
+      
       !     * those not saved
-      integer jplty,ndata,nelm,nplant,nrbot,ntb
-      integer i, nce, ndum
-      integer idum(1)
-      double precision cdfnc,chgmas,fn,massbo,tmsncr
-      double precision dum,dum2
-      double precision dummy(nvalee*2)
+      INTEGER :: jplty, ndata, nelm, nplant, nrbot, ntb
+      INTEGER :: i, nce, ndum
+      INTEGER :: idum(1)
+      DOUBLE PRECISION :: cdfnc, chgmas, fn, massbo, tmsncr
+      DOUBLE PRECISION :: dum, dum2
+      DOUBLE PRECISION :: dummy(nvalee * 2)
+      
       !      * temporary variable to test this subroutine
-      character(len=32) :: msg
-      character(len=200) :: cdum(1)
-      !
-      save nvalue,pass
-      save npl,npltyp
-      save cdi,cdit
-      save claimx,croptm,gmcpbb,massb,pfone
-      save iscrop
-      !
-      data pass/ 0 /
-      !
+      CHARACTER(LEN=32) :: msg
+      CHARACTER(LEN=200) :: cdum(1)
+
       !----------------------------------------------------------------------*
-      !
+      
       pass = pass + 1
-      if (pass==1) then
-         !
+      
+      IF (pass == 1) THEN
          !----------------------------------------------------------------------*
          !     initialising step
          !----------------------------------------------------------------------*
@@ -3577,160 +3515,129 @@ CONTAINS
          !        plant uptake of nitrogen is more accurate
          !
          !        * check status of data file
-         call alred2(0,mnpl,mnoutpl,'mnptin')
-         !
+         CALL alred2(0, mnpl, mnoutpl, 'mnptin')
+         
          !        * print title for data file
-         call alredc(0,mnpl,mnoutpl,':MNP1',1,1,cdum)
-         write (mnoutpl, '(/1x,a/)') cdum
-         !
-         do i = 1,nv
-            call alredi ( 0,mnpl,mnoutpl,':MNP10',1,1,idum )
+         CALL alredc(0, mnpl, mnoutpl, ':MNP1', 1, 1, cdum)
+         WRITE (mnoutpl, '(/1x,A/)') cdum
+         
+         DO i = 1, nv
+            CALL alredi (0, mnpl, mnoutpl, ':MNP10', 1, 1, idum)
             nvalue(i) = idum(1)
-            ndata = idum(1)*2
-            call alredf(0,mnpl,mnoutpl,':MNP11',ndata,1,dummy)
-            do ntb = 1,idum(1)
-               cdi(nv,ntb) = dummy(2*ntb-1)
-               cdit(nv,ntb) = dummy(2*ntb)
-            enddo
-         enddo
-         close (mnpl)
-         close (mnoutpl)
-         do nelm = nlf+1,nel
-            !
+            ndata = idum(1) * 2
+            CALL alredf(0, mnpl, mnoutpl, ':MNP11', ndata, 1, dummy)
+            
+            DO ntb = 1, idum(1)
+               cdi(nv, ntb) = dummy(2 * ntb - 1)
+               cdit(nv, ntb) = dummy(2 * ntb)
+            END DO
+         END DO
+         
+         CLOSE (mnpl)
+         CLOSE (mnoutpl)
+         
+         DO nelm = nlf + 1, nel
             ! **************** temporary
-            !               hard code the maximum leaf area index
-            do i = 1,npltee
+            !                hard code the maximum leaf area index
+            DO i = 1, npltee
                claimx(i) = 2.0d0
-            enddo
-            !
+            END DO
+            
             ! *************** temporary
             !                 set number of plant types on each column
             !                 temporarily, only two plant types are allowed on each
             !                 column and the total plai is one
             !                 second plant type number is set in block data
-            !
-            npltyp(nelm,1) = nvc(nelm)
-            pfone(nelm,1) = plai(npltyp(nelm,1))
-            if ( pfone(nelm,1) >= 0.99 ) then
+            
+            npltyp(nelm, 1) = nvc(nelm)
+            pfone(nelm, 1) = plai(npltyp(nelm, 1))
+            
+            IF (pfone(nelm, 1) >= 0.99d0) THEN
                npl(nelm) = 1
-            else
-               pfone(nelm,2) = 1.0d0 - pfone(nelm,1)
+            ELSE
+               pfone(nelm, 2) = 1.0d0 - pfone(nelm, 1)
                npl(nelm) = 2
-            endif
+            END IF
+            
             !* sb 5/3/01 add data from pldat.f
             !* all second plant types on a grid square are equal to 1i=1,nel
-            do I=1,nel
-               NPLTYP(i,2)= 1
-            enddo
+            DO i = 1, nel
+               npltyp(i, 2) = 1
+            END DO
 
+            DO nplant = 1, npl(nelm)
+               ! plant type number
+               jplty = npltyp(nelm, nplant)
+               gmcpbb(nelm, nplant) = clai(jplty) * delone(jplty) / claimx(jplty)
+               ! initialise for mass in compartment b
+               massb(nelm, nplant) = gmcpbb(nelm, nplant) * pfone(nelm, nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
+               croptm(nelm, nplant) = 0.0d0
+            END DO
+         END DO
 
-            do nplant=1,npl(nelm)
-               !                 plant type number
-               jplty = npltyp(nelm,nplant)
-               gmcpbb(nelm,nplant) = clai(jplty) * delone(jplty)/ claimx(jplty)
-               !                 initialise for mass in compartment b
-               massb(nelm,nplant) = gmcpbb(nelm,nplant)* pfone(nelm,nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
-               croptm(nelm,nplant) = 0d0
-            enddo
-            !
-         enddo
-         !
-         !      * temporary output to test this subroutine
-         !       i = 0
-         !       do 787 nelm = 1,1
-         !          do 788 ncl = 69,64,-5
-         !              i = i + 1
-         !              write (msg,9000) nelm,ncl
-         !              open(120+i,file = msg)
-         !              write (120+i,'(2a13)') 'time','pot-plant-up'
-         !  788  continue
-         !  787  continue
-         !
-         ! 9000  format ( '../cep2.',i3,'.',i2)
-         !      * end of temporary code
-         !
-         !----------------------------------------------------------------------*
-         !     simulation step
-         !----------------------------------------------------------------------*
-         !
-      else
-         do nelm = nlf+1,nel
-            do nce = ncolmb(nelm),ncetop
-               plup(nelm,nce) = 0d0
-            enddo
-         enddo
-         !
-         do nelm = nlf+1,nel
-            do nplant = 1,npl(nelm)
-               !              plant type number
-               jplty = npltyp(nelm,nplant)
-               !             linear interpolation to calculate the canopy density
-               !             function at this particular time
-               do i = 2,nvalue(jplty)
-                  if ((uznow/24.0)<cdit(jplty,i)) then
-                     dum = (cdi(jplty,i)-cdi(jplty,i-1))/ (cdit(jplty,i) -  cdit(jplty,i-1))
-                     dum2 = uznow/24.0 - cdit(jplty,i-1)
-                     cdfnc = cdi(jplty,i-1) + dum*dum2
-                     goto 460
-                     !                   ********
-                  endif
-               enddo
-               !
-               !             if the time is greater than any specified in the file
-               !             then cdfnc is set to 1.0
-               cdfnc = 1.0
-               !                 number of bottom rooted cell
-460            nrbot = ncetop - nrd(jplty)
-               !
-               gmcpbb(nelm,nplant) = clai(jplty)*delone(jplty)*cdfnc/ claimx(jplty)
-               massbo = massb(nelm,nplant)
-               massb(nelm,nplant) = gmcpbb(nelm,nplant)* pfone(nelm,nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
-               chgmas = (massb(nelm,nplant)-massbo) /dtuz
-               !
-               !              * there has been cropping
-               if (chgmas<0d0) then
-                  iscrop(nelm,nplant) = .true.
-                  !
-                  !              * plant uptake only if plants are growing
-               elseif (clai(jplty)>0d0) then
-                  !
-                  !                 * first emergence of the crop since cropping
-                  if (iscrop(nelm,nplant)) then
-                     croptm(nelm,nplant) = uznow
-                     iscrop(nelm,nplant) = .false.
-                  endif
-                  !
-                  tmsncr = uznow - croptm(nelm,nplant)
-                  !                 * proportion of nitrate depends on the age of crop
-                  if (tmsncr<360)  then
-                     fn = 0.022
-                  elseif (tmsncr<720) then
-                     fn = 0.017
-                  elseif (tmsncr<1080) then
-                     fn = 0.015
-                  else
-                     fn = 0.012
-                  endif
-                  !
-                  do nce = nrbot,ncetop
+      ELSE
+         DO nelm = nlf + 1, nel
+            DO nce = ncolmb(nelm), ncetop
+               plup(nelm, nce) = 0.0d0
+            END DO
+         END DO
+         
+         DO nelm = nlf + 1, nel
+            DO nplant = 1, npl(nelm)
+               jplty = npltyp(nelm, nplant)
+               
+               age_search_loop: DO i = 2, nvalue(jplty)
+                  IF ((uznow / 24.0d0) < cdit(jplty, i)) THEN
+                     dum = (cdi(jplty, i) - cdi(jplty, i - 1)) / (cdit(jplty, i) - cdit(jplty, i - 1))
+                     dum2 = uznow / 24.0d0 - cdit(jplty, i - 1)
+                     cdfnc = cdi(jplty, i - 1) + dum * dum2
+                     EXIT age_search_loop
+                  END IF
+               END DO age_search_loop
+               
+               ! PERF FIX: Only assign 1.0d0 if the loop completed without exiting early.
+               ! This exactly mimics the old GOTO 460 bypass with zero pipeline stalls.
+               IF (i > nvalue(jplty)) cdfnc = 1.0d0
+               
+               nrbot = ncetop - nrd(jplty)
+               gmcpbb(nelm, nplant) = clai(jplty) * delone(jplty) * cdfnc / claimx(jplty)
+               massbo = massb(nelm, nplant)
+               massb(nelm, nplant) = gmcpbb(nelm, nplant) * pfone(nelm, nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
+               chgmas = (massb(nelm, nplant) - massbo) / dtuz
+               
+               IF (chgmas < 0.0d0) THEN
+                  iscrop(nelm, nplant) = .TRUE.
+               ELSE IF (clai(jplty) > 0.0d0) THEN
+                  IF (iscrop(nelm, nplant)) THEN
+                     croptm(nelm, nplant) = uznow
+                     iscrop(nelm, nplant) = .FALSE.
+                  END IF
+                  
+                  tmsncr = uznow - croptm(nelm, nplant)
+                  
+                  ! Calculate uptake fraction based on crop age
+                  IF (tmsncr < 360.0d0) THEN
+                     fn = 0.022d0
+                  ELSE IF (tmsncr < 720.0d0) THEN
+                     fn = 0.017d0
+                  ELSE IF (tmsncr < 1080.0d0) THEN
+                     fn = 0.015d0
+                  ELSE
+                     fn = 0.012d0
+                  END IF
+                  
+                  ! Distribute the mass uptake across the root zone layers
+                  DO nce = nrbot, ncetop
                      ndum = ncetop - nce + 1
-                     plup(nelm,nce) = plup(nelm,nce)+ chgmas * fn * rdf(jplty,ndum)/(deltaz(nce,nelm) * &
-                        dxqq(nelm) * dyqq(nelm))
-                  enddo
-               endif
-            enddo
-         enddo
-         !      * temporary output to test this subroutine
-         !         i = 0
-         !         do 987 nelm = 1,1
-         !            do 988 ncl = 69,64,-5
-         !               i = i + 1
-         !               write (120+i,'(g12.5,1x,g12.5)') uznow,plup(nelm,ncl)
-         !  988    continue
-         !  987    continue
-         !      * end of temporary code
-      endif
-   end subroutine mnplant
+                     plup(nelm, nce) = plup(nelm, nce) + chgmas * fn * rdf(jplty, ndum) / (deltaz(nce, nelm) * dxqq(nelm) * dyqq(nelm))
+                  END DO
+               END IF
+            END DO
+         END DO
+      END IF
+   END SUBROUTINE mnplant
+
+
 
    subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk,icmref,icmxy,bexbk,linkns,nbotce &
       ,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem, &
@@ -4363,127 +4270,130 @@ CONTAINS
    end subroutine mnred2
 
 
-   subroutine mntemp (llee,ncetop,nel,nelee,nlf,nv,ncolmb,z2,deltaz,zvsnod,dtuz,ta)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the temperature in every cell
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      use utilsmod, only: tridag
-      !      * input arguments
-      !     * static
-      integer llee,ncetop,nel,nelee,nlf,nv
-      integer ncolmb(nelee)
-      double precision z2
-      double precision deltaz(llee,nel),zvsnod(llee,nel)
-      !
-      !     * varying
-      double precision dtuz,ta(nv)
-      !
-      ! output arguments
-      !double precision temp(nelee,llee)
-      !
+   !--------------------------------------------------------------------*
+   !
+   ! calculates the temperature in every cell
+   !
+   !--------------------------------------------------------------------*
+   ! version:                   notes:
+   ! module: mn                 program: shetran
+   ! modifications
+   !--------------------------------------------------------------------*
+   SUBROUTINE mntemp (llee, ncetop, nel, nelee, nlf, nv, ncolmb, z2, deltaz, zvsnod, dtuz, ta)
+      
+      USE utilsmod, ONLY: tridag
+
+      ! Assumed external module dependencies providing global variables:
+      ! temp
+
+      IMPLICIT NONE
+
+      ! * input arguments
+      ! * static
+      INTEGER, INTENT(IN) :: llee, ncetop, nel, nelee, nlf, nv
+      INTEGER, INTENT(IN) :: ncolmb(nelee)
+      DOUBLE PRECISION, INTENT(IN) :: z2
+      DOUBLE PRECISION, INTENT(IN) :: deltaz(llee, nel), zvsnod(llee, nel)
+      
+      ! * varying
+      DOUBLE PRECISION, INTENT(IN) :: dtuz, ta(nv)
+
       ! locals etc
-      !
-      integer iel,nce,ncebot,ncells,nnum,nserch,num
-      parameter (num = 11)
-      !
-      double precision celldp,cellfc,depthc
-      double precision diff,diffga,kfct,grdtem
-      double precision amat(num),bmat(num),cmat(num),depth(num)
-      double precision rhs(num),ome(num), tempr(num), tempr1(num)
-      parameter (depthc = 10)
-      parameter (diff = 2.0d-5)
-      parameter (diffga = 2.0d0)
-      !
-      save tempr
-      !
-      data tempr / num*12.0 /
-      !
+      INTEGER :: iel, nce, ncebot, ncells, nnum, nserch
+      INTEGER, PARAMETER :: num = 11
+      
+      DOUBLE PRECISION :: celldp, cellfc, kfct, grdtem
+      DOUBLE PRECISION :: amat(num), bmat(num), cmat(num), depth(num)
+      DOUBLE PRECISION :: rhs(num), ome(num), tempr1(num)
+      
+      DOUBLE PRECISION, PARAMETER :: depthc = 10.0d0
+      DOUBLE PRECISION, PARAMETER :: diff = 2.0d-5
+      DOUBLE PRECISION, PARAMETER :: diffga = 2.0d0
+      
+      ! Saved state initialization replacing legacy DATA statement
+      DOUBLE PRECISION, SAVE :: tempr(num) = [ (12.0d0, nnum = 1, num) ]
+
       !--------------------------------------------------------------------*
-      kfct = diff * ((num-1)/z2) * ((num-1)/z2)
-      !
-      !     * ground temperature is equal to the air temperature plus a
-      !     * constant value
+      
+      kfct = diff * ((num - 1.0d0) / z2) * ((num - 1.0d0) / z2)
+      
+      ! * ground temperature is equal to the air temperature plus a
+      ! * constant value
       grdtem = ta(1) + diffga
       tempr1(1) = grdtem
-      !
-      !     * position in the matrix are one lower than in the column,
-      !     * this is because the ground surface value is known
-      rhs(1) = kfct*grdtem  + kfct*(-2*tempr(2)+tempr(3))
-      rhs(num-1) = (tempr(num-1)-tempr(num))*kfct
-      amat(1) = 0
-      bmat(1) = 1 + 2*kfct*dtuz
-      cmat(1) = -kfct*dtuz
-      amat(num-1) = -kfct*dtuz
-      bmat(num-1) = 1 + kfct*dtuz
-      cmat(num-1) = 0
-      do nce = 2,num-2
-         amat(nce) = -kfct*dtuz
-         bmat(nce) = 1 + 2*kfct*dtuz
-         cmat(nce) = -kfct*dtuz
-         rhs(nce) = kfct* (tempr(nce)-2*tempr(nce+1)+tempr(nce+2))
-      enddo
-      !
-      call tridag(amat,bmat,cmat,rhs,ome,num-1)
-      !
-      !
-      !     * new temperature at each node
-      do nce = 2,num
-         tempr1(nce) = tempr(nce) + ome(nce-1)*dtuz
-      enddo
-      !
-      !     * depth of each node
-      depth(1) = 0
-      do nnum = 2,num
-         depth(nnum) = depthc / (num-1) + depth(nnum - 1)
-      enddo
-      do 500 iel = nlf+1,nel
+      
+      ! * position in the matrix are one lower than in the column,
+      ! * this is because the ground surface value is known
+      rhs(1) = kfct * grdtem + kfct * (-2.0d0 * tempr(2) + tempr(3))
+      rhs(num - 1) = (tempr(num - 1) - tempr(num)) * kfct
+      
+      amat(1) = 0.0d0
+      bmat(1) = 1.0d0 + 2.0d0 * kfct * dtuz
+      cmat(1) = -kfct * dtuz
+      
+      amat(num - 1) = -kfct * dtuz
+      bmat(num - 1) = 1.0d0 + kfct * dtuz
+      cmat(num - 1) = 0.0d0
+      
+      DO nce = 2, num - 2
+         amat(nce) = -kfct * dtuz
+         bmat(nce) = 1.0d0 + 2.0d0 * kfct * dtuz
+         cmat(nce) = -kfct * dtuz
+         rhs(nce) = kfct * (tempr(nce) - 2.0d0 * tempr(nce + 1) + tempr(nce + 2))
+      END DO
+      
+      CALL tridag(amat, bmat, cmat, rhs, ome, num - 1)
+      
+      ! * new temperature at each node
+      DO nce = 2, num
+         tempr1(nce) = tempr(nce) + ome(nce - 1) * dtuz
+      END DO
+      
+      ! * depth of each node
+      depth(1) = 0.0d0
+      DO nnum = 2, num
+         depth(nnum) = depthc / DBLE(num - 1) + depth(nnum - 1)
+      END DO
+      
+      element_loop: DO iel = nlf + 1, nel
          ncebot = ncolmb(iel)
          nserch = 2
-         do nce = ncetop,ncebot,-1
-            !           * calculation of the depth of the cell
-            if (nce==ncetop) then
-               celldp = 0.5 * deltaz(nce,iel)
-            else
-               celldp = (zvsnod(nce+1,iel) - zvsnod(nce,iel)) + celldp
-            endif
-            !
-            if (celldp>=depth(num)) then
-               do ncells = nce,ncebot,-1
-                  temp(iel,ncells) = tempr1(num)
-               enddo
-               goto 500
-               !              ********
-            endif
-            !
-            !           * which two temperature nodes is the cell between ?
-            do nnum = nserch,num
-               if (celldp<=depth(nnum)) goto 800
-               !                                         ********
-            enddo
-            !
-800         nserch = nnum
-            !
-            !           * linear interpolation between the temperature nodes
-            cellfc = (celldp-depth(nnum-1))/(depth(nnum)-depth(nnum-1))
-            temp(iel,nce) = (1-cellfc) * tempr1(nnum-1)+  cellfc * tempr1(nnum)
-         enddo
-500   continue
-      !
-      do nce = 1,num
-         tempr(nce) = tempr1(nce)
-      enddo
-      !
-      !
-   end subroutine mntemp
+         
+         cell_loop: DO nce = ncetop, ncebot, -1
+            ! * calculation of the depth of the cell
+            IF (nce == ncetop) THEN
+               celldp = 0.5d0 * deltaz(nce, iel)
+            ELSE
+               celldp = (zvsnod(nce + 1, iel) - zvsnod(nce, iel)) + celldp
+            END IF
+            
+            IF (celldp >= depth(num)) THEN
+               DO ncells = nce, ncebot, -1
+                  temp(iel, ncells) = tempr1(num)
+               END DO
+               EXIT cell_loop
+            END IF
+            
+            ! * which two temperature nodes is the cell between ?
+            search_loop: DO nnum = nserch, num
+               IF (celldp <= depth(nnum)) THEN
+                  nserch = nnum
+                  EXIT search_loop
+               END IF
+            END DO search_loop
+            
+            ! * linear interpolation between the temperature nodes
+            cellfc = (celldp - depth(nserch - 1)) / (depth(nserch) - depth(nserch - 1))
+            temp(iel, nce) = (1.0d0 - cellfc) * tempr1(nserch - 1) + cellfc * tempr1(nserch)
+         END DO cell_loop
+      END DO element_loop
 
+      ! Update the saved temperature state for the next timestep
+      DO nce = 1, num
+         tempr(nce) = tempr1(nce)
+      END DO
+
+   END SUBROUTINE mntemp
 
 END MODULE MNmod
 
