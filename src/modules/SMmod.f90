@@ -148,7 +148,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: IEL
       
       ! Locals
-      INTEGER :: mr, ms, n, nnc, kl, kk, ncc
+      INTEGER :: mr, ms, n, nnc, kkk, kl, kk, ncc
       DOUBLE PRECISION :: e, dn, rich, esat, po, q, esata, ea, qa, ts2, ee, tsm
       DOUBLE PRECISION :: hfc, hfr, hfe, hft
       DOUBLE PRECISION :: EFFDEP, TEMP_RATIO
@@ -344,10 +344,14 @@ CONTAINS
             NSMC(IEL) = NSMC(IEL) - NCC
             KK = NSMC(IEL)
             
-            ! High-Performance Fix: Utilize native Fortran array slicing for instant memory shift
+            ! Performance Reversion: Explicit DO loop is faster for micro-arrays
+            ! than building F90 array-slice dope vectors.
             IF (KK > 0) THEN
-               tmelt(1:KK, IEL) = tmelt(1+NCC:KK+NCC, IEL)
-               SMELT(1:KK, IEL) = SMELT(1+NCC:KK+NCC, IEL)
+               DO KL = 1, KK
+                  KKK = KL + NCC
+                  tmelt(KL, IEL) = tmelt(KKK, IEL)
+                  SMELT(KL, IEL) = SMELT(KKK, IEL)
+               END DO
             END IF
          END IF
       END IF

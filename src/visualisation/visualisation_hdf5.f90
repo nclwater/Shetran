@@ -326,25 +326,52 @@ CONTAINS
       ENDIF
    END SUBROUTINE write_mn
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+
+
+   !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE create_time_attributes(mn)
+      
+      ! Assumed module variables available via host association:
+      ! error, t_dataset
+      ! H5T_NATIVE_CHARACTER
+      
+      IMPLICIT NONE
+
+      ! Input arguments
       INTEGER, INTENT(IN)                     :: mn
-!INTEGER(HSIZE_T)                        :: arank
-      INTEGER                        :: arank
-      INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-      INTEGER(HID_T)                          :: atype
-      INTEGER(HID_T)                          :: attribute, a_dataspace
-!units
+
+      ! Locals
+      INTEGER                                 :: arank
+      INTEGER(HID_T)                          :: atype, attribute, a_dataspace
+      
+      ! Strictly typed HDF5 dimension array
+      INTEGER(HSIZE_T)                        :: dims1(1)
+      
+      ! Safe character string to replace the inline array constructor
+      CHARACTER(5)                            :: units_str = 'hours'
+
+   !----------------------------------------------------------------------*
+      
+      ! ---------------------------------------------------------
+      ! units
+      ! ---------------------------------------------------------
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-      CALL H5TSET_SIZE_F(atype, 5, error)
-      arank  = 1
-      tsz    = 0
-      tsz(1) = 1
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
+      
+      ! Explicit SIZE_T cast to fix gfortran Type Mismatch error
+      CALL H5TSET_SIZE_F(atype, INT(5, KIND=SIZE_T), error)
+      
+      arank    = 1
+      dims1(1) = 1
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(t_dataset(mn), 'units', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, (/'hours'/), tsz, error)
+      CALL H5AWRITE_F(attribute, atype, units_str, dims1, error)
+      
+      ! Cleanup to prevent HDF5 ID leaks
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
+      CALL H5TCLOSE_F(atype, error)
+      
    END SUBROUTINE create_time_attributes
 
 

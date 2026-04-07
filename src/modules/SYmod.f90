@@ -8,16 +8,6 @@ MODULE SYmod
    IMPLICIT NONE
 
    LOGICAL         :: FIRST_syackw=.TRUE.
-   DOUBLEPRECISION :: K2_syackw, DGRMAX_syackw, ROOT32_syackw
-
-   LOGICAL         :: FIRST_sycltr=.TRUE.
-   DOUBLEPRECISION :: k1_sycltr
-
-   LOGICAL          :: FIRST_sycrit=.TRUE.
-   DOUBLEPRECISION  :: K1_sycrit, K2_sycrit, K3_sycrit
-
-   LOGICAL         :: FIRST_syengh=.TRUE.
-   DOUBLEPRECISION :: KG_syengh
 
    LOGICAL         :: FIRST_syfine=.TRUE.
    DOUBLEPRECISION :: WSED_syfine
@@ -75,7 +65,10 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: F16 = 0.16D0, F50 = 0.5D0, F56 = 0.56D0, F84 = 0.84D0
       DOUBLE PRECISION, PARAMETER :: THIRD = 1.0D0 / 3.0D0
       
-      DOUBLE PRECISION :: KRHO
+      DOUBLE PRECISION, PARAMETER :: KRHO = RHOSED / RHOWAT - 1.0D0
+      DOUBLE PRECISION, PARAMETER :: K2_syackw = (GRAVTY * KRHO / VISCOS**2)**THIRD
+      DOUBLE PRECISION, PARAMETER :: DGRMAX_syackw = 10.0D0**(ONE / F56) + DGRSML
+      DOUBLE PRECISION, PARAMETER :: ROOT32_syackw = SQRT(32.0D0)
       DOUBLE PRECISION :: AAW, ARXLE, CAW, DAAA, DBED16, DBED50, DBED84, DGR
       DOUBLE PRECISION :: DSED, DWAT1E, FGR, G, H10, LGR, MAW
       DOUBLE PRECISION :: NAW, QK, UGR, USTR, UK, BASE
@@ -84,15 +77,11 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Initialization
-      KRHO = RHOSED / RHOWAT - 1.0D0
       NNF = NSED - NFINE
       NFP1 = NFINE + 1
 
       IF (FIRST_syackw) THEN
          FIRST_syackw = .FALSE.
-         K2_syackw = (GRAVTY * KRHO / VISCOS**2)**THIRD
-         DGRMAX_syackw = 10.0D0**(ONE / F56) + DGRSML
-         ROOT32_syackw = SQRT (32.0D0)
          
          DO SED = NFP1, NSED
             DGR = FDGR (DRSED (SED))
@@ -433,6 +422,7 @@ CONTAINS
 
       ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: ZZ5 = 0.05D0
+      DOUBLE PRECISION, PARAMETER :: k1_sycltr = 8.5D0 / SQRT (RHOWAT)
 
       INTEGER :: FACE, IEND, ISIDE, LINK, NFP1, NSDWAT, SED, SGN
       DOUBLE PRECISION :: CONCID, DCSUM, DUM, FDSUM, FRACT, KQ, QK
@@ -444,14 +434,6 @@ CONTAINS
       ! LOGICAL :: GTZERO, ISZERO
 
       !----------------------------------------------------------------------*
-
-      ! Initialization
-      ! --------------
-      !
-      IF (FIRST_sycltr) THEN
-         FIRST_sycltr = .FALSE.
-         K1_sycltr = 8.5D0 / SQRT (RHOWAT)
-      END IF
       
       NFP1 = NFINE + 1
       
@@ -805,12 +787,7 @@ CONTAINS
    !  RAH 15.07.94  Version 3.4.1 by AB/RAH. File created 05.10.93
    !----------------------------------------------------------------------*
    
-      ! Commons and distributed constants
       USE CONST_SY
-
-      ! Constants referenced from CONST.SY:
-      ! GRAVTY, RHOSED, RHOWAT, VISCOS, FIRST_sycrit, K1_sycrit, K2_sycrit, K3_sycrit
-      
       IMPLICIT NONE
 
       ! Input arguments
@@ -824,46 +801,34 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: R0 = 3.0D-2, R1 = 1.0D0
       DOUBLE PRECISION, PARAMETER :: R2 = 6.0D0, R3 = 30.0D0, R4 = 135.0D0, R5 = 400.0D0
       
-      ! Modern array constructors replacing legacy DATA statements
       DOUBLE PRECISION, PARAMETER :: AEC(5) = [0.1D0, 0.1D0, 0.033D0, 0.013D0, 0.03D0]
       DOUBLE PRECISION, PARAMETER :: BEC(5) = [-0.3D0, -0.62D0, 0.0D0, 0.28D0, 0.1D0]
 
+      ! High-Performance Fix: Compile-time evaluation of constants 
+      ! (Completely replaces the runtime FIRST_sycrit block)
+      DOUBLE PRECISION, PARAMETER :: K1_sycrit = 1.0D0 / (SQRT(RHOWAT) * VISCOS)
+      DOUBLE PRECISION, PARAMETER :: K2_sycrit = (RHOSED - RHOWAT) * GRAVTY
+      DOUBLE PRECISION, PARAMETER :: K3_sycrit = 1.83D0 * LOG(10.0D0)
+
       INTEGER :: IS
       DOUBLE PRECISION :: RSTR
+      
+      ! Legacy branchless statement function
+      DOUBLE PRECISION :: SF, RSTR_DUM, R_DUM
+      SF(RSTR_DUM, R_DUM) = HALF - SIGN(HALF, R_DUM - RSTR_DUM)
 
    !----------------------------------------------------------------------*
 
-      ! Calculate constants during first call to this routine
-      IF (FIRST_sycrit) THEN
-         K1_sycrit = 1.0D0 / (SQRT(RHOWAT) * VISCOS)
-         K2_sycrit = (RHOSED - RHOWAT) * GRAVTY
-         K3_sycrit = 1.83D0 * LOG(10.0D0)
-         FIRST_sycrit = .FALSE.
-      END IF
-
-      ! Choose method of calculating TAUEC
       IF (FLAG == 1) THEN
          ! Quick method
          TAUEC = 0.493D0 * EXP(K3_sycrit * FPCLAE)
       ELSE
          ! Shields method
-         ! Calculate Particle Reynolds Number
          RSTR = MAX(R0, MIN(DRX50 * SQRT(TAUX) * K1_sycrit, R5))
 
-         ! High-performance branch predictor chain replacing legacy SF statement function
-         IF (RSTR <= R1) THEN
-            IS = 1
-         ELSE IF (RSTR <= R2) THEN
-            IS = 2
-         ELSE IF (RSTR <= R3) THEN
-            IS = 3
-         ELSE IF (RSTR <= R4) THEN
-            IS = 4
-         ELSE
-            IS = 5
-         END IF
+         ! Performance Reversion: Branchless execution 
+         IS = NINT(ONE + SF(RSTR, R1) + SF(RSTR, R2) + SF(RSTR, R3) + SF(RSTR, R4))
 
-         ! Calculate Critical Shear Stress
          TAUEC = AEC(IS) * K2_sycrit * DRX50 * (RSTR**BEC(IS))
       END IF
 
@@ -1001,18 +966,14 @@ CONTAINS
       ! Locals, etc
       INTEGER          :: FACE, IEND, LINK, NFP1, SED, SGN
       DOUBLE PRECISION :: DWAT1E, GD, QK
+      DOUBLE PRECISION, PARAMETER :: KG_syengh = 0.05D0 / (SQRT (GRAVTY) * (RHOSED / RHOWAT - 1.0D0)**2)
 
       ! External/Module functions implicitly referenced
       ! LOGICAL :: GTZERO
 
       !----------------------------------------------------------------------*
 
-      ! * Initialization
-      IF (FIRST_syengh) THEN
-         FIRST_syengh = .FALSE.
-         KG_syengh = 0.05D0 / (SQRT (GRAVTY) * (RHOSED / RHOWAT - 1.0D0)**2)
-      END IF
-      
+      ! * Initialization      
       NFP1 = NFINE + 1
       
       ! Replaced ALINIT with a whole-array slice assignment
@@ -2762,7 +2723,7 @@ CONTAINS
    !
       IMPLICIT NONE
 
-   ! Input arguments
+   ! Input/Output arguments
       INTEGER, INTENT(IN) :: ISTEC, NEL, NLF, NS, NV
       INTEGER, INTENT(IN) :: NTSOTP (NLF + 1:NEL), NVC (NLF + 1:NEL)
       DOUBLE PRECISION, INTENT(IN) :: FCC (NV), LRAIN (NLF + 1:NEL), XDRIP (NV)
@@ -2771,102 +2732,68 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL)
       DOUBLE PRECISION, INTENT(IN) :: DRSO50 (NS), TAUK (NLF + 1:NEL), FPCLAY (NS)
       DOUBLE PRECISION, INTENT(IN) :: GKF (NS), RHOSO (NS), DLS (NEL), DLSMAX
-
-   ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: GNU (NLF + 1:NEL)
-
-   ! Workspace arguments
       DOUBLE PRECISION, INTENT(OUT) :: TGMD (NV)
 
    ! Locals
       DOUBLE PRECISION, PARAMETER :: X1 = 7.5D0, D1 = 3.3D-3, L1 = 2.78D-6, L2 = 1.39D-5
       DOUBLE PRECISION, PARAMETER :: PI = 3.14159265358979323846D0
+      DOUBLE PRECISION, PARAMETER :: CLALIM = 1.0D0 / L2
 
       INTEGER :: ISCD, IEL, ISGMR, ISOIL, NVEG
       DOUBLE PRECISION :: CD, FCROCE, DRDRPE, DR, DF
       DOUBLE PRECISION :: LRAINE, GMD, GMR, PRSGOS, TAUEC, TAUKE, XDRIPE
 
-      ! Modern Array Constructors
       DOUBLE PRECISION, PARAMETER :: AD(4)  = [3214.9D0, 583.4D0, 133.1D0, 29.9D0]
       DOUBLE PRECISION, PARAMETER :: BD(4)  = [1.6896D0, 1.5545D0, 1.4242D0, 1.2821D0]
       DOUBLE PRECISION, PARAMETER :: ADD(4) = [0.0D0, 0.0D0, 1.93D0, 5.14D0]
       DOUBLE PRECISION, PARAMETER :: BDD(4) = [2200.0D0, 2200.0D0, 1640.0D0, 660.0D0]
 
+      ! Legacy branchless statement function
+      DOUBLE PRECISION :: SF2, SX, SY
+      SF2(SX, SY) = HALF + SIGN(HALF, SX - SY)
+
    !----------------------------------------------------------------------*
 
-      ! Initialize constant
       PRSGOS = PI * RHOWAT * RHOWAT * GRAVTY / 6.0D0
 
-      ! Partial evaluation of GMD for each vegetation type
       DO NVEG = 1, NV
          XDRIPE = XDRIP(NVEG)
          DRDRPE = DRDRIP(NVEG)
          
-         ! High-performance branch predictor chain replacing legacy SF2 function
-         IF (DRDRPE < D1) THEN
-            IF (XDRIPE < X1) THEN
-               ISCD = 1
-            ELSE
-               ISCD = 2
-            END IF
-         ELSE
-            IF (XDRIPE < X1) THEN
-               ISCD = 3
-            ELSE
-               ISCD = 4
-            END IF
-         END IF
+         ! Performance Reversion: Branchless execution
+         ISCD = 1 + NINT(SF2(XDRIPE, X1) + 2.0D0 * SF2(DRDRPE, D1))
 
          CD = ADD(ISCD) + DRDRPE * BDD(ISCD)
-         
-         ! Need precondition on DRDRIP to ensure CD>0
          TGMD(NVEG) = PRSGOS * CD * (ONE - EXP(-2.0D0 * XDRIPE / CD)) * (DRDRPE**3) * FDRIP(NVEG)
       END DO
 
-      ! Loop over all column elements
-      element_loop: DO IEL = NLF + 1, NEL
+      DO IEL = NLF + 1, NEL
          ISOIL = NTSOTP(IEL)
          NVEG = NVC(IEL)
          LRAINE = LRAIN(IEL)
          FCROCE = FCROCK(IEL)
          TAUKE = TAUK(IEL)
 
-         ! Select coefficient pair for GMR equation using clear branching
-         IF (LRAINE < L1) THEN
-            ISGMR = 1
-         ELSE IF (LRAINE < L2) THEN
-            ISGMR = 2
-         ELSE IF (LRAINE < 2.0D0 * L2) THEN
-            ISGMR = 3
-         ELSE
-            ISGMR = 4
-         END IF
+         ! Performance Reversion: Branchless execution
+         ISGMR = MIN(4, 1 + NINT(SF2(LRAINE, L1)) + INT(LRAINE * CLALIM))
 
-         ! Evaluate sq momentum of rain drops
          GMR = (ONE - FCC(NVEG)) * AD(ISGMR) * (LRAINE**BD(ISGMR))
-
-         ! Evaluate sq momentum of leaf drips
          GMD = TGMD(NVEG) * DRAINA(IEL)
 
-         ! Evaluate soil detachment rate due to drips and drops
-         ! DIMJE replaced with MAX intrinsic
          DR = GKR(ISOIL) * EXP(-MAX(ZERO, (DWAT1(IEL) / DRDROP(IEL)) - ONE)) * &
               (ONE - FCG(IEL) - FCROCE) * (GMR + GMD)
 
-         ! Obtain critical shear stress for current element
          CALL SYCRIT (ISTEC, DRSO50(ISOIL), TAUKE, FPCLAY(ISOIL), TAUEC)
 
-         ! Evaluate soil detachment rate due to overland flow
          DF = GKF(ISOIL) * (ONE - FCROCE) * MAX(ZERO, TAUKE - TAUEC) / TAUEC
 
-         ! Evaluate rate of erosion of ground surface
          IF (DLS(IEL) < DLSMAX) THEN
             GNU(IEL) = (DR + DF) / RHOSO(ISOIL)
          ELSE
             GNU(IEL) = ZERO
          END IF
-
-      END DO element_loop
+      END DO
 
    END SUBROUTINE SYOVER
 
