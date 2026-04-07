@@ -3709,306 +3709,249 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSSOIL ()
    SUBROUTINE VSSOIL ()
-!
-!----------------------------------------------------------------------*
-! Sets up soil property tables for VSS
-!----------------------------------------------------------------------*
-! Module:        VSS (0.0)
-! Program:       SHETRAN (4.0)
-! Callers:       VSIN
-! Modifications:
-!  GP  20.07.94  written
-!----------------------------------------------------------------------*
-      INTEGER :: I, IS, NTBPOS (NSEE), NDUM
-      DOUBLEPRECISION RVSSOL, PSI, EDUM, EEDUM, DDDUM
-      DOUBLEPRECISION DDTSAT, DDTRES, DDA, DDN, DDM, DD1M1, DDTSMR, &
-         DDAP, DDAPN, DDAPN1, DDAPM, DDAPM1, DDAPM2, DDTCAP, DDTC, DDTCM, &
-         DDTCM1, DDTCM2, DDDTCP
+   !
+   !----------------------------------------------------------------------*
+   ! Sets up soil property tables for VSS
+   !----------------------------------------------------------------------*
+   ! Module:        VSS (0.0)
+   ! Program:       SHETRAN (4.0)
+   ! Callers:       VSIN
+   ! Modifications:
+   !  GP  20.07.94  written
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION PLOG, PLOGLO, PLOGHI, ADUM, BDUM, HDUM, rkrdum
+      ! Assumed external module dependencies providing global variables:
+      ! NSEE, NSOLEE, BFAST, NVSSOL, VSPPSI, NS, IVSFLG, VSPOR, VSTRES, 
+      ! VSALPH, VSVGN, VSPTHE, VSPDTH, VSPKR, VSPDKR, VSPETA, VSPDET, VSPSS, 
+      ! TBPSI, TBTHE, TBTHEC, TBKR, TBKRC, BSOILP, PPPRI, zero, one, two, three
 
-      PARAMETER (EDUM = 2.718281828D0)
+      IMPLICIT NONE
 
+      ! Locals
+      INTEGER :: I, IS, NDUM
+      INTEGER :: NTBPOS(NSEE) = 1
+      DOUBLE PRECISION :: RVSSOL, PSI, DDDUM
+      DOUBLE PRECISION :: DDTSAT, DDTRES, DDA, DDN, DDM, DD1M1, DDTSMR
+      DOUBLE PRECISION :: DDAP, DDAPN, DDAPN1, DDAPM, DDAPM1, DDAPM2, DDTCAP
+      DOUBLE PRECISION :: DDTC, DDTCM, DDTCM1, DDTCM2, DDDTCP
+      DOUBLE PRECISION :: PLOG, PLOGLO, PLOGHI, ADUM, BDUM, HDUM, RKRDUM
 
-      DATA NTBPOS / NSEE * 1 /
-!----------------------------------------------------------------------*
-! soil flags:
-!       1       van Genuchten
-!       2       tabulated theta(psi) and Kr(psi)
-!       3       exponential
-!       4       tabulated theta(psi), Averjanov Kr (compatible with V3.4
-!----------------------------------------------------------------------*
-!
-! set up size of internal look-up tables
+   !----------------------------------------------------------------------*
+   ! soil flags:
+   !       1       van Genuchten
+   !       2       tabulated theta(psi) and Kr(psi)
+   !       3       exponential
+   !       4       tabulated theta(psi), Averjanov Kr (compatible with V3.4
+   !----------------------------------------------------------------------*
+
+      ! set up size of internal look-up tables
       IF (BFAST) THEN
-         NVSSOL = MIN0 (100, NSOLEE)
+         NVSSOL = MIN (100, NSOLEE)
       ELSE
-         NVSSOL = MIN0 (500, NSOLEE)
-      ENDIF
+         NVSSOL = MIN (500, NSOLEE)
+      END IF
 
+      RVSSOL = DBLE(NVSSOL)
 
-      RVSSOL = DBLE (NVSSOL)
-! loop over NVSSOL divisions of the soil property tables
-! (NB. low values of I correspond to wet soils)
-! psi ranges from -(10**-2) to -(10**4)
+      ! loop over NVSSOL divisions of the soil property tables
+      ! (NB. low values of I correspond to wet soils)
+      ! psi ranges from -(10**-2) to -(10**4)
+      psi_loop: DO I = 5, NVSSOL - 1
+         
+         PSI = -(10.0D0**(-two + 6.0D0 * DBLE(I - 5) / RVSSOL))
+         VSPPSI(I) = PSI
 
-      DO 500 I = 5, NVSSOL - 1
-         PSI = - 10.D0** ( - two + DBLE (6 * (I - 5) ) / RVSSOL)
-
-
-         VSPPSI (I) = PSI
-! set up property data for each soil type, using method ...
-
-
-         DO 400 IS = 1, NS
-! ... 1 (Van Genuchten)
-
-            IF (IVSFLG (IS) .EQ.1) THEN
-               DDTSAT = VSPOR (IS)
-               DDTRES = VSTRES (IS)
-               DDA = VSALPH (IS) * 100.0d0
-
-               DDN = VSVGN (IS)
+         ! set up property data for each soil type
+         soil_loop: DO IS = 1, NS
+            
+            ! ... 1 (Van Genuchten)
+            IF (IVSFLG(IS) == 1) THEN
+               DDTSAT = VSPOR(IS)
+               DDTRES = VSTRES(IS)
+               DDA = VSALPH(IS) * 100.0D0
+               DDN = VSVGN(IS)
                DDM = one - (one / DDN)
-
                DD1M1 = (one / DDM) - one
-
                DDTSMR = DDTSAT - DDTRES
-               DDAP = - DDA * PSI
+               DDAP = -DDA * PSI
                DDAPN = DDAP**DDN
-               DDAPN1 = DDAP** (DDN - one)
-               DDAPM = (one + DDAPN) **DDM
-               DDAPM1 = (one + DDAPN) ** (DDM + one)
-
-               DDAPM2 = (one + DDAPN) ** (DDM + two)
-
+               DDAPN1 = DDAP**(DDN - one)
+               DDAPM = (one + DDAPN)**DDM
+               DDAPM1 = (one + DDAPN)**(DDM + one)
+               DDAPM2 = (one + DDAPN)**(DDM + two)
                DDDTCP = DDA * DDM * DDN * DDAPN1 / DDAPM1
 
-               VSPTHE (I, IS) = DDTRES + DDTSMR / DDAPM
-
-               VSPDTH (I, IS) = DDTSMR * DDDTCP
-               DDTCAP = MAX (1.0d-10, (VSPTHE (I, IS) - DDTRES) &
-                  / DDTSMR)
-               DDTC = one - (DDTCAP** (one / DDM) )
+               VSPTHE(I, IS) = DDTRES + DDTSMR / DDAPM
+               VSPDTH(I, IS) = DDTSMR * DDDTCP
+               
+               DDTCAP = MAX(1.0D-10, (VSPTHE(I, IS) - DDTRES) / DDTSMR)
+               DDTC = one - (DDTCAP**(one / DDM))
                DDTCM = DDTC**DDM
-               DDTCM1 = DDTC** (DDM - one)
+               DDTCM1 = DDTC**(DDM - one)
+               DDTCM2 = (one - DDTCM)**two
 
-               DDTCM2 = (one - DDTCM) **two
+               VSPKR(I, IS) = SQRT(DDTCAP) * DDTCM2
+               
+               ! Commented out legacy derivative code maintained for reference
+               ! VSPDKR(I,IS) = DSQRT(DDTCAP)*(one-DDTCM)*
+               !  (half*(one-DDTCM)/DDTCAP + two*DDTCM1*DDTCAP**DD1M1) * DDDTCP
 
+               DDDUM = (DDA * DDA * DDM * DDN * DDTSMR * DDAPN1 / DDAPM2) * &
+                       ((DDN - one) * (one + DDAPN) + (DDM + one) * DDN * DDAPN1)
+               VSPETA(I, IS) = VSPTHE(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS)
 
-               VSPKR (I, IS) = DSQRT (DDTCAP) * DDTCM2
-!            VSPDKR(I,IS) = DSQRT(DDTCAP)*(one-DDTCM)*
-!     -        (half*(one-DDTCM)/DDTCAP +
-!     -         two*DDTCM1*DDTCAP**DD1M1) * DDDTCP
+               ! VSPDET(I,IS) = VSPDTH(I,IS)*VSPSS(IS)/VSPOR(IS) + DDDUM
+               VSPDET(I, IS) = zero
 
-               DDDUM = (DDA * DDA * DDM * DDN * DDTSMR * DDAPN1 / &
-                  DDAPM2) * ( (DDN - one) * (one + DDAPN) + (DDM + &
-                  one) * DDN * DDAPN1)
-               VSPETA (I, IS) = VSPTHE (I, IS) * VSPSS (IS) / VSPOR (IS) &
-                  + VSPDTH (I, IS)
-!cc            VSPDET(I,IS) = VSPDTH(I,IS)*VSPSS(IS)/VSPOR(IS) +
-!cc     -                     DDDUM
+            ! ... 2 (tabulated theta and Kr)
+            ELSE IF (IVSFLG(IS) == 2) THEN
+               
+               ! check for correct location in input table
+               ! Safely bounds check using DO WHILE instead of simple IF
+               DO WHILE (PSI < TBPSI(NTBPOS(IS) + 1, IS))
+                  NTBPOS(IS) = NTBPOS(IS) + 1
+               END DO
 
-
-               vspdet (i, is) = zero
-! ... 2 (tabulated theta and Kr)
-
-
-            ELSEIF (IVSFLG (IS) .EQ.2) THEN
-!               check for correct location in input table
-!               (interpolate between positions NTBPOS(IS) and NTBPOS(IS+
-               IF (PSI.LT.TBPSI (NTBPOS (IS) + 1, IS) ) NTBPOS (IS) &
-                  = NTBPOS (IS) + 1
-
-
-               NDUM = NTBPOS (IS)
-!               evaluate cubic spline polynomial for theta and Kr
-               PLOG = DLOG10 ( - PSI)
-               PLOGHI = DLOG10 ( - TBPSI (NDUM + 1, IS) )
-               PLOGLO = DLOG10 ( - TBPSI (NDUM, IS) )
+               NDUM = NTBPOS(IS)
+               
+               ! evaluate cubic spline polynomial for theta and Kr
+               PLOG = LOG10(-PSI)
+               PLOGHI = LOG10(-TBPSI(NDUM + 1, IS))
+               PLOGLO = LOG10(-TBPSI(NDUM, IS))
                HDUM = PLOGHI - PLOGLO
                ADUM = (PLOGHI - PLOG) / HDUM
-
                BDUM = (PLOG - PLOGLO) / HDUM
-               VSPTHE (I, IS) = ADUM * TBTHE (NDUM, IS) + BDUM * TBTHE ( &
-                  NDUM + 1, IS) + ( (ADUM**three - ADUM) * TBTHEC (NDUM, &
-                  IS) + (BDUM**three - BDUM) * TBTHEC (NDUM + 1, IS) ) &
-                  * (HDUM**two) / 6.0D0
+               
+               VSPTHE(I, IS) = ADUM * TBTHE(NDUM, IS) + BDUM * TBTHE(NDUM + 1, IS) + &
+                               ((ADUM**three - ADUM) * TBTHEC(NDUM, IS) + &
+                               (BDUM**three - BDUM) * TBTHEC(NDUM + 1, IS)) * &
+                               (HDUM**two) / 6.0D0
+                               
+               VSPTHE(I, IS) = VSPOR(IS) * VSPTHE(I, IS)
 
-               VSPTHE (I, IS) = VSPOR (IS) * VSPTHE (I, IS)
+               VSPKR(I, IS) = ADUM * TBKR(NDUM, IS) + BDUM * TBKR(NDUM + 1, IS) + &
+                              ((ADUM**three - ADUM) * TBKRC(NDUM, IS) + &
+                              (BDUM**three - BDUM) * TBKRC(NDUM + 1, IS)) * &
+                              (HDUM**two) / 6.0D0
 
+            ! ... 3 (exponential)
+            ELSE IF (IVSFLG(IS) == 3) THEN
+               
+               ! Replaced EDUM**(VSALPH * PSI) hack with precise EXP intrinsic
+               DDDUM = EXP(VSALPH(IS) * PSI)
+               VSPTHE(I, IS) = VSTRES(IS) + (VSPOR(IS) - VSTRES(IS)) * DDDUM
+               VSPDTH(I, IS) = (VSPOR(IS) - VSTRES(IS)) * VSALPH(IS) * DDDUM
+               
+               VSPKR(I, IS)  = DDDUM
+               VSPDKR(I, IS) = VSALPH(IS) * DDDUM
+               
+               VSPETA(I, IS) = VSPTHE(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS)
+               VSPDET(I, IS) = VSPDTH(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS) * VSALPH(IS)
 
-               VSPKR (I, IS) = ADUM * TBKR (NDUM, IS) + BDUM * TBKR ( &
-                  NDUM + 1, IS) + ( (ADUM**three - ADUM) * TBKRC (NDUM, IS) &
-                  + (BDUM**three - BDUM) * TBKRC (NDUM + 1, IS) ) * &
-                  (HDUM**two) / 6.0D0
-! ... 3 (exponential)
+            ! ... 4 (tabulated theta and Averjanov Kr)
+            ELSE IF (IVSFLG(IS) == 4) THEN
+               STOP 'UNFINISHED code for soil properties type 4'
+            END IF
 
-            ELSEIF (IVSFLG (IS) .EQ.3) THEN
+         END DO soil_loop
+      END DO psi_loop
 
-               EEDUM = EDUM** (VSALPH (IS) * PSI)
-               VSPTHE (I, IS) = VSTRES (IS) + (VSPOR (IS) - VSTRES (IS) &
-                  ) * EEDUM
-               VSPDTH (I, IS) = (VSPOR (IS) - VSTRES (IS) ) * VSALPH ( &
-                  IS) * EEDUM
-               DDDUM = VSPDTH (I, IS) * VSALPH (IS)
-               VSPKR (I, IS) = EEDUM
+      ! set up property data for extreme dry conditions
+      VSPPSI(NVSSOL) = -1.0D6
+      DO IS = 1, NS
+         VSPTHE(NVSSOL, IS) = VSTRES(IS)
+         VSPKR(NVSSOL, IS)  = zero
+         VSPETA(NVSSOL, IS) = zero
+         VSPDTH(NVSSOL, IS) = zero
+         VSPDKR(NVSSOL, IS) = zero
+         VSPDET(NVSSOL, IS) = zero
+      END DO
 
-               VSPDKR (I, IS) = VSALPH (IS) * EEDUM
-               VSPETA (I, IS) = VSPTHE (I, IS) * VSPSS (IS) / VSPOR (IS) &
-                  + VSPDTH (I, IS)
+      ! set up storage term for tabulated data
+      DO I = 5, NVSSOL - 1
+         DO IS = 1, NS
+            IF (IVSFLG(IS) == 2 .OR. IVSFLG(IS) == 4) THEN
+               VSPDTH(I, IS) = (VSPTHE(I + 1, IS) - VSPTHE(I, IS)) / (VSPPSI(I + 1) - VSPPSI(I))
+               VSPETA(I, IS) = VSPTHE(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS)
+            END IF
+         END DO
+      END DO
 
+      DO I = 5, NVSSOL - 1
+         DO IS = 1, NS
+            IF (IVSFLG(IS) == 2 .OR. IVSFLG(IS) == 4) THEN
+               VSPDET(I, IS) = VSPDTH(I, IS) * VSPSS(IS) / VSPOR(IS) + &
+                               (VSPDTH(I + 1, IS) - VSPDTH(I, IS)) / (VSPPSI(I + 1) - VSPPSI(I))
+            END IF
+         END DO
+      END DO
 
-               VSPDET (I, IS) = VSPDTH (I, IS) * VSPSS (IS) / VSPOR (IS) &
-                  + DDDUM
-! ... 2/4 (tabulated theta and Kr / tabulated theta and Averjanov Kr)
+      ! set up property data for extreme wet conditions
+      VSPPSI(4) = zero
+      VSPPSI(3) = 2.5D-1
+      VSPPSI(2) = 5.0D-1
+      VSPPSI(1) = 1.0D6
 
-            ELSEIF (IVSFLG (IS) .EQ.4) THEN
+      wet_conditions_loop: DO IS = 1, NS
+         
+         ! Converted line-by-line assignments into high-performance array slices
+         VSPKR(1:4, IS) = one
+         VSPETA(3:4, IS) = VSPETA(5, IS)
+         VSPETA(1:2, IS) = VSPSS(IS)
+         VSPDTH(4, IS) = VSPDTH(5, IS)
+         
+         VSPTHE(3:4, IS) = VSPOR(IS)
+         VSPTHE(2, IS) = VSPTHE(3, IS) + VSPETA(3, IS) * (VSPPSI(2) - VSPPSI(3))
+         VSPTHE(1, IS) = VSPTHE(2, IS) + VSPSS(IS) * (VSPPSI(1) - VSPPSI(2))
+         
+         VSPDTH(1:3, IS) = zero
+         VSPDKR(4, IS) = VSPDKR(5, IS)
+         VSPDKR(1:3, IS) = zero
+         VSPDET(1:4, IS) = zero
 
-               stop 'UNFINISHED code for soil properties type 4'
+      END DO wet_conditions_loop
 
-            ENDIF
+      ! DSATG-specific code - adjust relative conductivity curves so that
+      ! Kr approaches unity at saturation (for values of VG-n less than 2,
+      ! the value of Kr drops rapidly and unphysically less than one near satu...)
+      dsatg_loop: DO IS = 1, NS
+         RKRDUM = VSPOR(IS) - VSTRES(IS)
+         ! Replace inner loop with high-performance array operation
+         VSPKR(5:NVSSOL, IS) = ((VSPTHE(5:NVSSOL, IS) - VSTRES(IS)) / RKRDUM)**two
+      END DO dsatg_loop
 
-400      END DO
-
-
-500   END DO
-! set up property data for extreme dry conditions
-
-      VSPPSI (NVSSOL) = - 1.0D6
-      DO 700 IS = 1, NS
-         VSPTHE (NVSSOL, IS) = VSTRES (IS)
-         VSPKR (NVSSOL, IS) = zero
-         VSPETA (NVSSOL, IS) = zero
-         VSPDTH (NVSSOL, IS) = zero
-         VSPDKR (NVSSOL, IS) = zero
-         VSPDET (NVSSOL, IS) = zero
-
-
-700   END DO
-! set up storage term for tabulated data
-      DO 540 I = 5, NVSSOL - 1
-         DO 520 IS = 1, NS
-            IF (IVSFLG (IS) .EQ.2.OR.IVSFLG (IS) .EQ.4) VSPDTH (I, IS) &
-               = (VSPTHE (I + 1, IS) - VSPTHE (I, IS) ) / (VSPPSI (I + 1) &
-               - VSPPSI (I) )
-            VSPETA (I, IS) = VSPTHE (I, IS) * VSPSS (IS) / VSPOR (IS) &
-               + VSPDTH (I, IS)
-520      END DO
-
-540   END DO
-      DO 560 I = 5, NVSSOL - 1
-         DO 550 IS = 1, NS
-            IF (IVSFLG (IS) .EQ.2.OR.IVSFLG (IS) .EQ.4) VSPDET (I, IS) &
-               = VSPDTH (I, IS) * VSPSS (IS) / VSPOR (IS) + (VSPDTH (I + 1, &
-               IS) - VSPDTH (I, IS) ) / (VSPPSI (I + 1) - VSPPSI (I) )
-550      END DO
-560   END DO
-! set up property data for extreme wet conditions
-      VSPPSI (4) = zero
-      VSPPSI (3) = 2.5d-1
-      VSPPSI (2) = 5.0D-1
-
-      VSPPSI (1) = 1.0D6
-      DO 600 IS = 1, NS
-         VSPKR (4, IS) = one
-         VSPKR (3, IS) = one
-         VSPKR (2, IS) = one
-         VSPKR (1, IS) = one
-         VSPETA (4, IS) = vspeta (5, is)
-         VSPETA (3, IS) = vspeta (4, is)
-         VSPETA (2, IS) = VSPSS (IS)
-         VSPETA (1, IS) = VSPSS (IS)
-         VSPDTH (4, IS) = vspdth (5, is)
-         VSPTHE (4, IS) = vspor (is)
-         VSPTHE (3, IS) = vspor (is) + vspeta (4, is) * (vsppsi (3) &
-            - vsppsi (4) )
-         VSPTHE (2, IS) = vspthe (3, is) + vspeta (3, is) * (vsppsi (2) &
-            - vsppsi (3) )
-         VSPTHE (1, IS) = vspthe (2, is) + vspss (is) * (vsppsi (1) &
-            - vsppsi (2) )
-         VSPDTH (3, IS) = zero
-         VSPDTH (2, IS) = zero
-         VSPDTH (1, IS) = zero
-         VSPDKR (4, IS) = vspdkr (5, is)
-         VSPDKR (3, IS) = zero
-         VSPDKR (2, IS) = zero
-         VSPDKR (1, IS) = zero
-!        VSPDET(3,IS) = vspdet(4,is)
-         VSPDET (4, IS) = zero
-         VSPDET (3, IS) = zero
-         VSPDET (2, IS) = zero
-         VSPDET (1, IS) = zero
-
-
-600   END DO
-! adjust theta for specific storage in the unsaturated zone
-!      delpsi=0.0
-!      do 610 i=nvssol-1,3,-1
-!        delpsi = delpsi+vspthe(i,is)*(vsppsi(i)-vsppsi(i+1))
-!        do 605 is=1,ns
-!          vspthe(i,is) = vspthe(i,is) *
-!     -      (one + vspss(is)*delpsi/vspor(is))
-! 605    continue
-! 610  continue
-! add increment to eta, for stability near water table
-!      DO 660 IS=1,NS
-!        ETAMAX = 0.0D0
-!        DO 620 I=1,NVSSOL
-!          ETAMAX = MAX(ETAMAX,VSPETA(I,IS))
-! 620    CONTINUE
-!        DO 640 I=1,NVSSOL
-!          VSPETA(I,IS) = VSPETA(I,IS) +
-!     -      0.1d0*ETAMAX*MAX( (1.0D0-DABS(VSPPSI(I))), 0.0D0)
-! 640    CONTINUE
-! 660  CONTINUE
-! DSATG-specific code - adjust relative conductivity curves so that
-! Kr approaches unity at saturation (for values of VG-n less than 2,
-! the value of Kr drops rapidly and unphysically less than one near satu
-      do 680 is = 1, ns
-         rkrdum = vspor (is) - vstres (is)
-         do 670 i = 5, nvssol
-            vspkr (i, is) = ( (vspthe (i, is) - vstres (is) ) / rkrdum) &
-               **two
-670      end do
-
-
-
-680   end do
-! write soil property tables to PRI file
-
+      ! write soil property tables to PRI file
       IF (BSOILP) THEN
-
          WRITE(PPPRI, 905) NS, NVSSOL
-         DO 800 IS = 1, NS
+         DO IS = 1, NS
             WRITE(PPPRI, 910) IS
-            DO 820 I = 1, NVSSOL
-               WRITE(PPPRI, 920) I, VSPPSI (I), VSPTHE (I, IS), VSPETA ( &
-                  I, IS), VSPKR (I, IS), VSPDTH (I, IS), VSPDET (I, IS), &
-                  VSPDKR (I, IS)
-820         END DO
+            DO I = 1, NVSSOL
+               WRITE(PPPRI, 920) I, VSPPSI(I), VSPTHE(I, IS), VSPETA(I, IS), VSPKR(I, IS), &
+                                 VSPDTH(I, IS), VSPDET(I, IS), VSPDKR(I, IS)
+            END DO
+         END DO
+      END IF
 
-800      END DO
+      RETURN
 
-      ENDIF
-
+      ! FORMAT STATEMENTS
 905   FORMAT(/ 'VSS physical soil/lithology property data' / &
-      &         '=========================================' / &
-      &         I3, ' soils' / &
-      &         I3, ' values in soil property tables' )
+             '=========================================' / &
+             I3, ' soils' / &
+             I3, ' values in soil property tables' )
 
 910   FORMAT(/ &
-      & 3X,'  Soil property tables for soil/lithology type: ',I3 / &
-      & 3X,'  -------------------------------------------------' // &
-      & 3X,'      psi         theta          eta            Kr      ', &
-      & ' d(the)/d(psi) d(eta)/d(psi)  d(Kr)/d(psi)' / &
-      & 3X,'   (VSPPSI)      (VSPTHE)      (VSPETA)       (VSPKR)   ', &
-      & '   (VSPDTH)      (VSPDET)       (VSPDKR)  ' / &
-      & 3X,'  ------------  ------------  ------------  ------------', &
-      & '  ------------  ------------  ------------' )
+             3X,'  Soil property tables for soil/lithology type: ',I3 / &
+             3X,'  -------------------------------------------------' // &
+             3X,'      psi         theta          eta            Kr      ', &
+             ' d(the)/d(psi) d(eta)/d(psi)  d(Kr)/d(psi)' / &
+             3X,'   (VSPPSI)      (VSPTHE)      (VSPETA)       (VSPKR)   ', &
+             '   (VSPDTH)      (VSPDET)       (VSPDKR)  ' / &
+             3X,'  ------------  ------------  ------------  ------------', &
+             '  ------------  ------------  ------------' )
 
 920   FORMAT(I3,7(2X,G14.6))
-      RETURN
+
    END SUBROUTINE VSSOIL
 
 

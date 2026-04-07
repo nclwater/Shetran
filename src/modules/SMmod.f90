@@ -148,18 +148,18 @@ CONTAINS
       INTEGER, INTENT(IN) :: IEL
       
       ! Locals
-      INTEGER :: mr, ms, n, nnc, kl, kk, kkk, ncc
+      INTEGER :: mr, ms, n, nnc, kl, kk, ncc
       DOUBLE PRECISION :: e, dn, rich, esat, po, q, esata, ea, qa, ts2, ee, tsm
       DOUBLE PRECISION :: hfc, hfr, hfe, hft
-      DOUBLE PRECISION :: EFFDEP
+      DOUBLE PRECISION :: EFFDEP, TEMP_RATIO
 
-      !----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
 
       EFFDEP = 0.0D0
 
-      MR = NRAINC (IEL)
-      MS = NMC (IEL)
-      N = NVC (IEL)
+      MR = NRAINC(IEL)
+      MS = NMC(IEL)
+      N = NVC(IEL)
 
       ! CALCULATE NET PRECIPITATION FALLING ON SNOWPACK (MM OF SNOW)
       SF(IEL) = pnsnow / RHOS
@@ -181,8 +181,8 @@ CONTAINS
          ! DEGREE DAY METHOD
          ! -----------------
          ! calculates melt rate directly. SPA, 05/11/92
-         USM = ddf * (ta(ms) - two) * dtuz
-         IF (ta(ms) < two) USM = zero
+         USM = ddf * (TA(MS) - two) * dtuz
+         IF (TA(MS) < two) USM = zero
          ! set evaporation to zero
          e = 0.0d0
       ELSE
@@ -190,8 +190,8 @@ CONTAINS
          ! ENERGY BUDGET METHOD
          ! --------------------
          ! CALCULATE HEAT GAINED BY CONVECTION
-         ! EFFDEP (snowpack depth at anemometer site) removed from calcu-
-         ! lation of DN to prevent ln of 0 or negative no. SPA, 05/11/92.
+         ! EFFDEP (snowpack depth at anemometer site) removed from calculation of DN
+         ! to prevent ln of 0 or negative no. SPA, 05/11/92.
          DN = ((0.4d0 / DLOG((ZUS - ZDS) / ZOS))**2) * U(MS)
 
          ! CORRECT DN USING RICHARDSON NUMBER (SD - MM; ZUS,ZDS,ZOS - M)
@@ -217,20 +217,15 @@ CONTAINS
          HFR = RHOW * SF(IEL) * RHOS * HFR / 1000.0d0
 
          ! CALCULATE HEAT FROM WATER PHASE CHANGE
-         !   ESAT=SATURATED VAPOUR PRESSURE AT SNOW TEMPERATURE
-         !   QA=SPECIFIC HUMIDITY
-         !   Q=SATURATED SPECIFIC HUMIDITY AT SNOW TEMPERATURE
-         !   PO=STANDARD PRESSURE AT GROUND ELEVATION
-         ESAT = (17.044d0 + (TS(IEL) / five - three) * (5.487d0 + (TS(IEL) &
-              / five - three) * (0.776d0 + (TS(IEL) / five - three) * (0.1063d0 + &
-              (TS(IEL) / five - three) * 0.003d0))))
+         ! High-Performance Fix: Pre-calculate the temperature ratio to avoid repeated division/subtraction
+         TEMP_RATIO = (TS(IEL) / five) - three
+         ESAT = (17.044d0 + TEMP_RATIO * (5.487d0 + TEMP_RATIO * (0.776d0 + TEMP_RATIO * (0.1063d0 + TEMP_RATIO * 0.003d0))))
          
          PO = 1012.0d0 * (one - 0.0065d0 * ZGRUND(IEL) / 288.0d0) * 100.0d0
          Q = (0.62197d0 * ESAT) / ((PO / 1.0045d0) - (0.37803d0 * ESAT))
          
-         ESATA = (17.044d0 + (TA(MS) / five - three) * (5.487d0 + (TA(MS) &
-               / five - three) * (0.776d0 + (TA(MS) / five - three) * (0.1063d0 + (TA(MS) &
-               / five - three) * 0.003d0))))
+         TEMP_RATIO = (TA(MS) / five) - three
+         ESATA = (17.044d0 + TEMP_RATIO * (5.487d0 + TEMP_RATIO * (0.776d0 + TEMP_RATIO * (0.1063d0 + TEMP_RATIO * 0.003d0))))
          
          EA = ESATA - VPD(MS)
          QA = (0.62197d0 * EA) / ((PO / 1.0045d0) - (0.37803d0 * EA))
@@ -304,6 +299,7 @@ CONTAINS
       NSMC(IEL) = NSMC(IEL) + 1
       NNC = NSMC(IEL)
       
+      ! Note: Consider replacing STOP with an ERROR flag to allow the host to shut down gracefully
       IF (NSMC(IEL) > max_no_snowmelt_slugs) THEN
          WRITE (6, 30) NSMC(IEL), IEL
          STOP
@@ -347,13 +343,11 @@ CONTAINS
          IF (NCC > 0) THEN
             NSMC(IEL) = NSMC(IEL) - NCC
             KK = NSMC(IEL)
-            ! IF KK = 0 THERE ARE NO MELTWATER SLUGS IN SNOWPACK
+            
+            ! High-Performance Fix: Utilize native Fortran array slicing for instant memory shift
             IF (KK > 0) THEN
-               DO KL = 1, KK
-                  KKK = KL + NCC
-                  tmelt(KL, IEL) = tmelt(KKK, IEL)
-                  SMELT(KL, IEL) = SMELT(KKK, IEL)
-               END DO
+               tmelt(1:KK, IEL) = tmelt(1+NCC:KK+NCC, IEL)
+               SMELT(1:KK, IEL) = SMELT(1+NCC:KK+NCC, IEL)
             END IF
          END IF
       END IF

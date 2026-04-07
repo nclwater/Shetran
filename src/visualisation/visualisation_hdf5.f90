@@ -347,87 +347,133 @@ CONTAINS
       CALL H5SCLOSE_F(a_dataspace, error)
    END SUBROUTINE create_time_attributes
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+
+
+   
+   !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE create_variables_attributes(mn)
+      
+      ! Assumed module variables available via host association:
+      ! error, dataset, csz, G_H5_C, G_H5_I, ndim
+      ! H5T_NATIVE_CHARACTER, H5T_NATIVE_INTEGER
+
+      IMPLICIT NONE
+
+      ! Input arguments
       INTEGER, INTENT(IN)                     :: mn
+      
+      ! Locals
       INTEGER                                 :: dd, ii, jj, no_dimensions
-!INTEGER(HSIZE_T)                        :: arank
-      INTEGER                        :: arank
-      INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-      INTEGER(HID_T)                          :: atype
-      INTEGER(HID_T)                          :: attribute, a_dataspace
+      INTEGER                                 :: arank
+      INTEGER(HID_T)                          :: atype, attribute, a_dataspace
       INTEGER                                 :: i
       INTEGER, DIMENSION(:,:), ALLOCATABLE    :: pairs
       CHARACTER(2)                            :: typ
       CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nme, nmed
-!title
+
+      ! Strictly typed HDF5 dimension arrays
+      INTEGER(HSIZE_T)                        :: dims1(1)
+      INTEGER(HSIZE_T)                        :: dims2(2)
+
+      !----------------------------------------------------------------------*
+
+      ! ---------------------------------------------------------
+      ! title
+      ! ---------------------------------------------------------
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-      CALL H5TSET_SIZE_F(atype, csz, error)
-      arank  = 1
-      tsz    = 0
-      tsz(1) = 1
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
+      CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
+      
+      arank    = 1
+      dims1(1) = 1
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'title', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn,'title'), tsz, error)
-      CALL H5ACLOSE_F(attribute, error)
-      CALL H5SCLOSE_F(a_dataspace, error)
-!units
-      CALL H5TSET_SIZE_F(atype, 8, error)
-      tsz(1) = 1
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-      CALL H5ACREATE_F(dataset(mn), 'units', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn,'units'), tsz, error)
-      CALL H5ACLOSE_F(attribute, error)
-      CALL H5SCLOSE_F(a_dataspace, error)
-!basis
-      CALL H5TSET_SIZE_F(atype, 12, error)
-      tsz(1) = 1
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-      CALL H5ACREATE_F(dataset(mn), 'basis', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn,'basis'), tsz, error)
-      CALL H5ACLOSE_F(attribute, error)
-      CALL H5SCLOSE_F(a_dataspace, error)
-!scope
-      CALL H5TSET_SIZE_F(atype, 7, error)
-      tsz(1) = 1
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-      CALL H5ACREATE_F(dataset(mn), 'scope', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn,'scope'), tsz, error)
-      CALL H5ACLOSE_F(attribute, error)
-      CALL H5SCLOSE_F(a_dataspace, error)
-!names of dimensions
-      CALL H5TSET_SIZE_F(atype, 6, error)
-      no_dimensions = G_H5_I(mn,'no_dimensions')
-      tsz(1)        = no_dimensions
-      ALLOCATE(nmed(tsz(1)))
-      ii = 0
-      DO jj=1,ndim
-         IF(G_H5_I(mn,'dimensions',jj)/=0) THEN ; ii=ii+1 ; nmed(ii)=G_H5_C(mn,'names_of_dimensions',jj) ; ENDIF
-      ENDDO
-      nmed = nmed(tsz(1):1:-1)
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error) !create attribute dataspac
-      CALL H5ACREATE_F(dataset(mn), 'names of dimensions', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, nmed, tsz, error)
+      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'title'), dims1, error)
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      DO dd=1,no_dimensions
-         CALL DIMENSION_ATTRIBUTES(nmed(dd))
-      ENDDO
-      DEALLOCATE(nmed)
-!database type
-!title
-      CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-      CALL H5TSET_SIZE_F(atype, 1, error)
-      arank  = 1
-      tsz    = 0
-      tsz(1) = 1
-      typ    = G_H5_C(mn,'typ')
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-      CALL H5ACREATE_F(dataset(mn), 'database type', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, typ(1:1), tsz, error)
+      ! ---------------------------------------------------------
+      ! units
+      ! ---------------------------------------------------------
+      CALL H5TSET_SIZE_F(atype, INT(8, SIZE_T), error)
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+      CALL H5ACREATE_F(dataset(mn), 'units', atype, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'units'), dims1, error)
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! ---------------------------------------------------------
+      ! basis
+      ! ---------------------------------------------------------
+      CALL H5TSET_SIZE_F(atype, INT(12, SIZE_T), error)
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+      CALL H5ACREATE_F(dataset(mn), 'basis', atype, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'basis'), dims1, error)
+      CALL H5ACLOSE_F(attribute, error)
+      CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! ---------------------------------------------------------
+      ! scope
+      ! ---------------------------------------------------------
+      CALL H5TSET_SIZE_F(atype, INT(7, SIZE_T), error)
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+      CALL H5ACREATE_F(dataset(mn), 'scope', atype, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'scope'), dims1, error)
+      CALL H5ACLOSE_F(attribute, error)
+      CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! ---------------------------------------------------------
+      ! names of dimensions
+      ! ---------------------------------------------------------
+      CALL H5TSET_SIZE_F(atype, INT(6, SIZE_T), error)
+      
+      no_dimensions = G_H5_I(mn, 'no_dimensions')
+      dims1(1)      = INT(no_dimensions, HSIZE_T)
+      
+      ALLOCATE(nmed(no_dimensions))
+      ii = 0
+      DO jj = 1, ndim
+         IF (G_H5_I(mn, 'dimensions', jj) /= 0) THEN 
+            ii = ii + 1 
+            nmed(ii) = G_H5_C(mn, 'names_of_dimensions', jj)
+         END IF
+      END DO
+      
+      nmed = nmed(no_dimensions:1:-1) ! Reverse array
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+      CALL H5ACREATE_F(dataset(mn), 'names of dimensions', atype, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, atype, nmed, dims1, error)
+      CALL H5ACLOSE_F(attribute, error)
+      CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! Process specific dimension attributes
+      DO dd = 1, no_dimensions
+         CALL DIMENSION_ATTRIBUTES(nmed(dd))
+      END DO
+      
+      DEALLOCATE(nmed)
+
+      ! ---------------------------------------------------------
+      ! database type
+      ! ---------------------------------------------------------
+      CALL H5TSET_SIZE_F(atype, INT(1, SIZE_T), error)
+      
+      arank    = 1
+      dims1(1) = 1
+      typ      = G_H5_C(mn, 'typ')
+      
+      CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+      CALL H5ACREATE_F(dataset(mn), 'database type', atype, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, atype, typ(1:1), dims1, error)
+      CALL H5ACLOSE_F(attribute, error)
+      CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! Prevent HDF5 Identifier Memory Leak
+      CALL H5TCLOSE_F(atype, error)
 
    CONTAINS
 
@@ -435,95 +481,98 @@ CONTAINS
       SUBROUTINE dimension_attributes(name)
          CHARACTER(*), INTENT(IN) :: name
          CHARACTER(csz)           :: dum(1)
-
+         INTEGER(HID_T)           :: local_atype
 
          SELECT CASE(name)
 
           CASE('time')
-            arank  = 1
-            tsz(1) = 1
-            dum    = 'has its own dataset'
-            CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-            !CALL H5TSET_SIZE_F(atype, LEN_TRIM(dum(1)), error)
-            CALL H5TSET_SIZE_F(atype, INT(LEN_TRIM(dum(1)),KIND=SIZE_T), error)  !160913
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-            CALL H5ACREATE_F(dataset(mn), 'time', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, dum, tsz, error)
+            arank    = 1
+            dims1(1) = 1
+            dum(1)   = 'has its own dataset'
+            
+            ! Use a local datatype ID to avoid leaking or overwriting the host's `atype`
+            CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
+            CALL H5TSET_SIZE_F(local_atype, INT(LEN_TRIM(dum(1)), SIZE_T), error)
+            
+            CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+            CALL H5ACREATE_F(dataset(mn), 'time', local_atype, a_dataspace, attribute, error)
+            CALL H5AWRITE_F(attribute, local_atype, dum, dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
+            CALL H5TCLOSE_F(local_atype, error) ! Cleanup
 
           CASE('column')
-            arank  = 1
-            tsz(1) = 2
-            atype  = H5T_NATIVE_INTEGER
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-            CALL H5ACREATE_F(dataset(mn), 'column limits', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, (/G_H5_I(mn,'ilow'),G_H5_I(mn,'ihigh')/), tsz, error)
+            arank    = 1
+            dims1(1) = 2
+            
+            CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+            CALL H5ACREATE_F(dataset(mn), 'column limits', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
+            CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, [G_H5_I(mn,'ilow'), G_H5_I(mn,'ihigh')], dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
 
           CASE('row')
-            arank  = 1
-            tsz(1) = 2
-            atype  = H5T_NATIVE_INTEGER
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-            CALL H5ACREATE_F(dataset(mn), 'row limits', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, (/G_H5_I(mn,'jlow'),G_H5_I(mn,'jhigh')/), tsz, error)
+            arank    = 1
+            dims1(1) = 2
+            
+            CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+            CALL H5ACREATE_F(dataset(mn), 'row limits', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
+            CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, [G_H5_I(mn,'jlow'), G_H5_I(mn,'jhigh')], dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
 
           CASE('el-lst')
             arank    = 2
-            tsz(1:2) = (/2,G_H5_I(mn,'sz')/)
-            atype    = H5T_NATIVE_INTEGER
-            ALLOCATE(pairs(tsz(1),tsz(2)))
-            pairs(1,:) = (/(i,i=1,tsz(2))/)
-            pairs(2,:) = G_H5_I(mn,'list',(/(jj,jj=1,tsz(2))/))  !hh%list
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-            CALL H5ACREATE_F(dataset(mn), 'element nos.', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, pairs, tsz, error)
+            dims2(1) = 2
+            dims2(2) = INT(G_H5_I(mn, 'sz'), HSIZE_T)
+            
+            ALLOCATE(pairs(dims2(1), dims2(2)))
+            pairs(1,:) = [ (i, i = 1, INT(dims2(2))) ]
+            pairs(2,:) = G_H5_I(mn, 'list', [ (jj, jj = 1, INT(dims2(2))) ])
+            
+            CALL H5SCREATE_SIMPLE_F(arank, dims2, a_dataspace, error)
+            CALL H5ACREATE_F(dataset(mn), 'element nos.', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
+            CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, pairs, dims2, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
             DEALLOCATE(pairs)
-            tsz(2) = 0
 
           CASE('el_typ')
-            arank  = 1
-            tsz(1) = G_H5_I(mn, 'no_mbr')
-            CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-            CALL H5TSET_SIZE_F(atype, 6, error)
-            ALLOCATE(nme(tsz(1)))
-            nme = G_H5_C(mn,'el-typ',(/(jj,jj=1,tsz(1))/))
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-            CALL H5ACREATE_F(dataset(mn), 'element types', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, nme, tsz, error)
+            arank    = 1
+            dims1(1) = INT(G_H5_I(mn, 'no_mbr'), HSIZE_T)
+            
+            CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
+            CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
+            
+            ALLOCATE(nme(dims1(1)))
+            nme = G_H5_C(mn, 'el-typ', [ (jj, jj = 1, INT(dims1(1))) ])
+            
+            CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+            CALL H5ACREATE_F(dataset(mn), 'element types', local_atype, a_dataspace, attribute, error)
+            CALL H5AWRITE_F(attribute, local_atype, nme, dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
+            CALL H5TCLOSE_F(local_atype, error) ! Cleanup
             DEALLOCATE(nme)
-
-          CASE('layer')
-            arank  = 1
-            tsz(1) = 2
-            atype  = H5T_NATIVE_INTEGER
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-            CALL H5ACREATE_F(dataset(mn), 'layer limits', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, (/G_H5_I(mn,'klow'),G_H5_I(mn,'khigh')/), tsz, error)
-            CALL H5ACLOSE_F(attribute, error)
-            CALL H5SCLOSE_F(a_dataspace, error)
 
           CASE('extra')
-            arank = 1
-            tsz(1) = G_H5_I(mn,'no_extra_dimensions') !SIZE(hh%names_of_extra_dimensions,DIM=1)
-            CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-            CALL H5TSET_SIZE_F(atype, 6, error)
-            ALLOCATE(nme(tsz(1)))
-            nme = G_H5_C(mn, 'names_of_extra_dimensions', (/(jj,jj=1,tsz(1))/))
-            CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error) !create attribute dataspac
-            CALL H5ACREATE_F(dataset(mn), 'extra', atype, a_dataspace, attribute, error)
-            CALL H5AWRITE_F(attribute, atype, nme, tsz, error)
+            arank    = 1
+            dims1(1) = INT(G_H5_I(mn, 'no_extra_dimensions'), HSIZE_T)
+            
+            CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
+            CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
+            
+            ALLOCATE(nme(dims1(1)))
+            nme = G_H5_C(mn, 'names_of_extra_dimensions', [ (jj, jj = 1, INT(dims1(1))) ])
+            
+            CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
+            CALL H5ACREATE_F(dataset(mn), 'extra', local_atype, a_dataspace, attribute, error)
+            CALL H5AWRITE_F(attribute, local_atype, nme, dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
+            CALL H5TCLOSE_F(local_atype, error) ! Cleanup
             DEALLOCATE(nme)
+
          END SELECT
 
       END SUBROUTINE dimension_attributes
@@ -635,55 +684,87 @@ CONTAINS
 
    END SUBROUTINE make_tidy_image_8
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+
+
+   !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE add_magnified_integer_spreadsheet_to_group(mn, nme, magnif, magarr)
+      
+      ! Assumed module variables available via host association:
+      ! file, group_magnified_integer, error, ver, csz, dataset_compress_property
+      ! H5T_NATIVE_INTEGER, H5T_NATIVE_CHARACTER
+
+      IMPLICIT NONE
+
+      ! Input arguments
       INTEGER, INTENT(IN)                     :: mn, magnif, magarr(:,:)
-      INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset
-      INTEGER                                 :: arank
-      INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-      TYPE(ssz)                               :: aszz
       CHARACTER(*), INTENT(IN)                :: nme
+
+      ! HDF5 Identifiers
+      INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset
+      
+      ! Dimension arrays (strictly typed for HDF5 C-interoperability)
+      INTEGER                                 :: arank
+      INTEGER(HSIZE_T)                        :: dims(2)   ! For the 2D dataset
+      INTEGER(HSIZE_T)                        :: adims(1)  ! Replaces the 7-element tsz hack
+
+      ! Locals
       CHARACTER(csz)                          :: title, name
       LOGICAL, SAVE                           :: first = .TRUE.
 
-      IF(first) THEN
+   !----------------------------------------------------------------------*
+
+      IF (first) THEN
          first = .FALSE.
          CALL H5GCREATE_F(file, 'CATCHMENT_SPREADSHEETS', group_magnified_integer, error)
-      ENDIF
+      END IF
 
-      WRITE(name, '(A,I1,A)') 'SV', ver, '_'//TRIM(nme)
+      ! Use I0 instead of I1 to prevent format overflow if 'ver' ever exceeds 9
+      WRITE(name, '(A,I0,A)') 'SV', ver, '_' // TRIM(nme)
       title = name
-      arank = 2
-      ALLOCATE(aszz%a(2))
-      aszz%a = SHAPE(magarr)
-      CALL H5SCREATE_SIMPLE_F(arank, aszz%a, dataspace, error)
-      CALL H5PSET_CHUNK_F    (dataset_compress_property, 2, aszz%a, error)
-!CALL H5DCREATE_F       (group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, dataset, error, creation_prp=dataset_compress_property)
-      CALL H5DCREATE_F       (group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, dataset, error, dcpl_id=dataset_compress_property)
-      CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-      CALL H5TSET_SIZE_F(atype, csz, error)
-      arank  = 1
-      tsz    = 0
-      tsz(1) = 1
-!name attribute
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-      CALL H5ACREATE_F(dataset, 'title', atype, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, atype, title, tsz, error)
-      CALL H5ACLOSE_F(attribute, error)
-      CALL H5SCLOSE_F(a_dataspace, error)
-!maginfication attribute
-      CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-      CALL H5ACREATE_F(dataset, 'magnification', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-      CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, magnif, tsz, error)
-      CALL H5ACLOSE_F(attribute, error)
-      CALL H5SCLOSE_F(a_dataspace, error)
-      CALL H5DWRITE_F(dataset, H5T_NATIVE_INTEGER, magarr, aszz%a, error)  !write to file
 
+      ! Define dataset dimensions safely with explicit HSIZE_T casting
+      arank = 2
+      dims(1) = INT(SIZE(magarr, 1), HSIZE_T)
+      dims(2) = INT(SIZE(magarr, 2), HSIZE_T)
+
+      CALL H5SCREATE_SIMPLE_F(arank, dims, dataspace, error)
+      CALL H5PSET_CHUNK_F(dataset_compress_property, arank, dims, error)
+
+      CALL H5DCREATE_F(group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, &
+                       dataset, error, dcpl_id=dataset_compress_property)
+
+      ! Set up string datatype for the title attribute
+      CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
+      CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
+
+      ! Setup 1D attribute dimensions safely
+      arank = 1
+      adims(1) = 1
+
+      ! --- Write 'title' attribute ---
+      CALL H5SCREATE_SIMPLE_F(arank, adims, a_dataspace, error)
+      CALL H5ACREATE_F(dataset, 'title', atype, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, atype, title, adims, error)
+      CALL H5ACLOSE_F(attribute, error)
+      CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! --- Write 'magnification' attribute ---
+      CALL H5SCREATE_SIMPLE_F(arank, adims, a_dataspace, error)
+      CALL H5ACREATE_F(dataset, 'magnification', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
+      CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, magnif, adims, error)
+      CALL H5ACLOSE_F(attribute, error)
+      CALL H5SCLOSE_F(a_dataspace, error)
+
+      ! --- Write Core Dataset ---
+      CALL H5DWRITE_F(dataset, H5T_NATIVE_INTEGER, magarr, dims, error)
+
+      ! Cleanup
       CALL H5DCLOSE_F(dataset, error)
       CALL H5SCLOSE_F(dataspace, error)
+
    END SUBROUTINE add_magnified_integer_spreadsheet_to_group
 
-END MODULE visualisation_hdf5
+
 
 ! KEEP KEEP KEEP KEEP KEEP KEEP ************ USES COMPRESSION USES COMPRESSION
 !IF(PRESENT(pic_int)) THEN
@@ -904,3 +985,4 @@ END MODULE visualisation_hdf5
 !DEALLOCATE(pic)
 !
 !END SUBROUTINE save_numbers_as_map
+END MODULE visualisation_hdf5

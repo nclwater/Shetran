@@ -345,65 +345,70 @@ CONTAINS
    end subroutine mncont
 
 
-   subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,vsthe,vspor,isbotc )
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the moisture environmental reduction factor
-      ! for denitrification
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns
-      integer ncolmb(nelee),nlyr(nelee)
-      integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-      double precision vsthe(ncetop,nel),vspor(ns)
-      logical isbotc
-      !
-      !
-      ! output arguments
-      !double precision edeth(nelee,llee)
-      !
-      ! locals etc.
-      integer jlyr,jsoil,nbotm,nce,ncebot,nelm
-      double precision relsat
-      !
-      !-------------------------------------------------------------------*
-      !
-      do nelm = nlf+1,nel
-         if (isbotc) then
+   !SSSSSS SUBROUTINE mnedth
+   SUBROUTINE mnedth (llee, nbotce, ncetop, nel, nelee, nlf, nlyree, ns, &
+         ncolmb, nlyr, nlyrbt, ntsoil, vsthe, vspor, isbotc)
+   !--------------------------------------------------------------------*
+   ! Calculates the moisture environmental reduction factor
+   ! for denitrification
+   !--------------------------------------------------------------------*
+   ! version:                   notes:
+   ! module: mn                 program: shetran
+   ! modifications
+   !--------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables:
+      ! edeth (nelee, llee)
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN) :: llee, nbotce, ncetop, nel, nelee, nlf, nlyree, ns
+      INTEGER, INTENT(IN) :: ncolmb(nelee), nlyr(nelee)
+      INTEGER, INTENT(IN) :: nlyrbt(nel, nlyree), ntsoil(nel, nlyree)
+      DOUBLE PRECISION, INTENT(IN) :: vsthe(ncetop, nel), vspor(ns)
+      LOGICAL, INTENT(IN) :: isbotc
+      
+      ! Locals
+      INTEGER :: jlyr, jsoil, nbotm, nce, ncebot, nelm
+      DOUBLE PRECISION :: relsat
+
+   !-------------------------------------------------------------------*
+
+      element_loop: DO nelm = nlf + 1, nel
+         
+         IF (isbotc) THEN
             nbotm = nbotce
-         else
+         ELSE
             nbotm = ncolmb(nelm)
-         endif
+         END IF
+         
          ncebot = nbotm
-         do jlyr = 1,nlyr(nelm)
-            jsoil = ntsoil(nelm,jlyr)
-            do nce =max0(ncebot,nlyrbt(nelm,jlyr)),nlyrbt(nelm,jlyr+1)-1
-               !
-               !              * a segmented relationship is being used with the
-               !              * relative saturation falling into one of four bands
-               relsat = vsthe(nce,nelm) / vspor(jsoil)
-               if (relsat>1.0d0) then
-                  edeth(nelm,nce) = 1.0d0
-               elseif (relsat>0.9d0) then
-                  edeth(nelm,nce) = -7.0d0 + 8.0d0 * relsat
-               elseif (relsat>0.8d0) then
-                  edeth(nelm,nce) = -1.6d0 + 2.0d0 * relsat
-               else
-                  edeth(nelm,nce) = 0.0d0
-               endif
-               !
-            enddo
-         enddo
-      enddo
-      !
-   end subroutine mnedth
+         
+         layer_loop: DO jlyr = 1, nlyr(nelm)
+            jsoil = ntsoil(nelm, jlyr)
+            
+            cell_loop: DO nce = MAX(ncebot, nlyrbt(nelm, jlyr)), nlyrbt(nelm, jlyr + 1) - 1
+               
+               ! A segmented relationship is being used with the
+               ! relative saturation falling into one of four bands
+               relsat = vsthe(nce, nelm) / vspor(jsoil)
+               
+               IF (relsat > 1.0d0) THEN
+                  edeth(nelm, nce) = 1.0d0
+               ELSE IF (relsat > 0.9d0) THEN
+                  edeth(nelm, nce) = -7.0d0 + 8.0d0 * relsat
+               ELSE IF (relsat > 0.8d0) THEN
+                  edeth(nelm, nce) = -1.6d0 + 2.0d0 * relsat
+               ELSE
+                  edeth(nelm, nce) = 0.0d0
+               END IF
+               
+            END DO cell_loop
+         END DO layer_loop
+      END DO element_loop
+
+   END SUBROUTINE mnedth
 
 
 

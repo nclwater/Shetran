@@ -2719,116 +2719,126 @@ CONTAINS
 
 
 
-
-
-
-
-
-
-
-
-!SSSSSS SUBROUTINE SNL3 (A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
+!SSSSSS SUBROUTINE SNL3
    SUBROUTINE SNL3 (A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
-      Q, S, X1, X2, X3, AY, AYS)
-!                             SOLVES THE COUPLED NON-LINEAR STREAM
-!                             DIFFERENCE EQUATIONS:
-!
-!                 (A+AS.X1) X1 - (B+BS.X2) X2       - ( C ) X3 = P
-!                -(D+DS.X1) X1 + (E+ES.X2) X2   - (F+FS.X3) X3 = Q
-!                              - (H+HS.X2) X2 + (AY+AYS.X3) X3 = S
-!
-!      IMPLICIT DOUBLEPRECISION(A-H,O-Z)
-!                             FIND ROOTS USING ITERATION METHOD
-      INTEGER :: nj, njtest
-      DOUBLEPRECISION :: A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
-         Q, S, X1, X2, X3, AY, AYS
-      DOUBLEPRECISION :: x1min, x2min, x3min, x1old, x2old, x3old, xref, perr, qerr, serr
+         Q, S, X1, X2, X3, AY, AYS)
+   !----------------------------------------------------------------------*
+   ! SOLVES THE COUPLED NON-LINEAR STREAM DIFFERENCE EQUATIONS:
+   !
+   !      (A+AS.X1) X1 - (B+BS.X2) X2       - ( C ) X3 = P
+   !     -(D+DS.X1) X1 + (E+ES.X2) X2   - (F+FS.X3) X3 = Q
+   !                   - (H+HS.X2) X2 + (AY+AYS.X3) X3 = S
+   !
+   ! FIND ROOTS USING ITERATION METHOD
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing global variables:
+      ! ISZERO, NOTZERO, zero, two
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      DOUBLE PRECISION, INTENT(IN) :: A, AS, B, BS, C, D, DS, E, ES, F, FS
+      DOUBLE PRECISION, INTENT(IN) :: H, HS, P, Q, S, AY, AYS
+
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: X1, X2, X3
+
+      ! Locals
+      INTEGER :: NJ, NJTEST
+      DOUBLE PRECISION :: X1MIN, X2MIN, X3MIN, X1OLD, X2OLD, X3OLD
+      DOUBLE PRECISION :: XREF, PERR, QERR, SERR
+      
+      ! Persistent warning counter (replaces undeclared implicit 'count')
+      INTEGER, SAVE :: COUNT = 0
+
+   !----------------------------------------------------------------------*
+
       X1 = zero
       X2 = zero
       X3 = zero
-      DO 1 NJ = 1, 100
-         X1 = (P + (B + BS * X2) * X2 + C * X3) / (A + AS * X1)
-         X2 = (Q + (D+DS * X1) * X1 + (F + FS * X3) * X3) / (E+ES * X2)
-         X3 = (S + (H + HS * X2) * X2) / (AY + AYS * X3)
 
-1     END DO
-!                             CHECK SOLUTION IS WITHIN THE CONVERGENCE
-!                             REGION
+      ! Find roots using fixed iteration
+      iteration_loop: DO NJ = 1, 100
+         X1 = (P + (B + BS * X2) * X2 + C * X3) / (A + AS * X1)
+         X2 = (Q + (D + DS * X1) * X1 + (F + FS * X3) * X3) / (E + ES * X2)
+         X3 = (S + (H + HS * X2) * X2) / (AY + AYS * X3)
+      END DO iteration_loop
+
+      ! CHECK SOLUTION IS WITHIN THE CONVERGENCE REGION
       IF (ISZERO(AS)) THEN
          X1MIN = X1
       ELSE
-         X1MIN = ( - A + DABS (B + two * BS * X2) + C) / (two * AS)
-      ENDIF
+         X1MIN = (-A + ABS(B + two * BS * X2) + C) / (two * AS)
+      END IF
+      
       IF (ISZERO(ES)) THEN
          X2MIN = X2
       ELSE
-         X2MIN = ( - E+DABS (D+two * DS * X1) + DABS (F + two * FS * &
-            X3) ) / (two * ES)
-      ENDIF
+         X2MIN = (-E + ABS(D + two * DS * X1) + ABS(F + two * FS * X3)) / (two * ES)
+      END IF
+      
       IF (ISZERO(AYS)) THEN
          X3MIN = X3
       ELSE
-         X3MIN = ( - AY + DABS (H + two * HS * X2) ) / (two * AYS)
-      ENDIF
-      IF ( (X1.LT.X1MIN) .OR. (X2.LT.X2MIN) .OR. (X3.LT.X3MIN) ) THEN
+         X3MIN = (-AY + ABS(H + two * HS * X2)) / (two * AYS)
+      END IF
+      
+      IF ((X1 < X1MIN) .OR. (X2 < X2MIN) .OR. (X3 < X3MIN)) THEN
          PRINT '(A40)', ' LINK: FATAL CONVERGENCE ERROR 1 IN SNL3'
          PRINT '(A33)', '       ^^^^^^^^^^^^^^^^^^^^^^^^^'
+      END IF
 
-
-      ENDIF
-!                             RUN THREE FURTHER ITERATION STEPS TO SEE
-!                             IF THE SOLUTION IS STABLE
+      ! RUN THREE FURTHER ITERATION STEPS TO SEE IF THE SOLUTION IS STABLE
       X1OLD = X1
       X2OLD = X2
       X3OLD = X3
-      DO 2 NJTEST = 1, 3
+      
+      stability_loop: DO NJTEST = 1, 3
          X1 = (P + (B + BS * X2) * X2 + C * X3) / (A + AS * X1)
-         X2 = (Q + (D+DS * X1) * X1 + (F + FS * X3) * X3) / (E+ES * X2)
-
+         X2 = (Q + (D + DS * X1) * X1 + (F + FS * X3) * X3) / (E + ES * X2)
          X3 = (S + (H + HS * X2) * X2) / (AY + AYS * X3)
-         XREF = ABS (X1) + ABS (X2) + ABS (X3)
-         if (NOTZERO(xref)) then
-            IF (ABS (X1 - X1OLD) + ABS (X2 - X2OLD) + ABS (X3 - X3OLD) &
-               / XREF.GT.1.0D-2) THEN
+         
+         XREF = ABS(X1) + ABS(X2) + ABS(X3)
+         
+         IF (NOTZERO(XREF)) THEN
+            IF ((ABS(X1 - X1OLD) + ABS(X2 - X2OLD) + ABS(X3 - X3OLD)) / XREF > 1.0D-2) THEN
                PRINT '(A40)', ' LINK: FATAL CONVERGENCE ERROR 2 IN SNL3'
                PRINT '(A33)', '       ^^^^^^^^^^^^^^^^^^^^^^^^^'
-            ENDIF
-         endif
+            END IF
+         END IF
+      END DO stability_loop
 
-2     END DO
-!                             CHECK THE SOLUTION IS ACCURATE
+      ! CHECK THE SOLUTION IS ACCURATE (Residual calculation)
       IF (ISZERO(P)) THEN
          PERR = zero
       ELSE
-         PERR = ( (A + AS * X1) * X1 - (B + BS * X2) * X2 - C * X3 - P) &
-            / P
-      ENDIF
+         PERR = ((A + AS * X1) * X1 - (B + BS * X2) * X2 - C * X3 - P) / P
+      END IF
+      
       IF (ISZERO(Q)) THEN
          QERR = zero
       ELSE
-         QERR = ( - (D+DS * X1) * X1 + (E+ES * X2) * X2 - (F + FS * X3) &
-            * X3 - Q) / Q
-      ENDIF
+         QERR = (-(D + DS * X1) * X1 + (E + ES * X2) * X2 - (F + FS * X3) * X3 - Q) / Q
+      END IF
+      
       IF (ISZERO(S)) THEN
          SERR = zero
       ELSE
-         SERR = ( - (H + HS * X2) * X2 + (AY + AYS * X3) * X3 - S) &
-            / S
-      ENDIF
-      IF ( (ABS (PERR) + ABS (QERR) + ABS (SERR) ) .GE.1.0D-2) THEN
-         count = count + 1
-         IF (count<10) THEN
+         SERR = (-(H + HS * X2) * X2 + (AY + AYS * X3) * X3 - S) / S
+      END IF
+      
+      ! Check combined fractional error
+      IF ((ABS(PERR) + ABS(QERR) + ABS(SERR)) >= 1.0D-2) THEN
+         COUNT = COUNT + 1
+         IF (COUNT < 10) THEN
             PRINT '(A35)', ' LINK: CONVERGENCE ERROR 3 IN SNL3'
-!              PRINT '(A27)' , '       ^^^^^^^^^^^^^^^^^^^'
-         ELSEif (COUNT == 10) then
+         ELSE IF (COUNT == 10) THEN
             PRINT '(A)', ' LINK: CONVERGENCE ERROR 3 IN SNL3 - MESSAGES NOW SUPPRESSED'
-         ENDIF
+         END IF
+      END IF
 
-      ENDIF
-      RETURN
-   END subroutine SNL3
-
-! 12/8/94
+   END SUBROUTINE SNL3
 
 
 

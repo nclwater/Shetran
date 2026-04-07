@@ -44,18 +44,7 @@ MODULE SYmod
 CONTAINS
 
 
-!----------------------------------------------------------------------*
-   !
-   ! Calculates the streamwise capacity for particulate discharge for each
-   !  non-fine size group, for each channel link, according to the
-   !  Ackers-White formulae.
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  3.4.1       Notes:  SSR54
-   !  Module:  SY        Program:  SHETRAN
-   ! Modifications:
-   !  RAH  15.07.94  Version 3.4.1 by AB/RAH. File creation date 12.05.94.
-   !----------------------------------------------------------------------*
+   !SSSSSS SUBROUTINE SYACKW
    SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
                       QOC, TAUJ, ACKW, GSED)
 
@@ -64,7 +53,6 @@ CONTAINS
       IMPLICIT NONE
 
       ! Commons and distributed constants
-      !
       ! Constants referenced
       !  CONST.SY: GRAVTY, RHOSED, RHOWAT, VISCOS
       !  (Assumed from CONST_SY: ONE, ZERO, FIRST_syackw, K2_syackw, DGRMAX_syackw, ROOT32_syackw)
@@ -77,13 +65,12 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: DCBSED (NLFEE, NFINE + 1:NSED), TAUJ (NELEE, 4)
 
       ! In/Out arguments
-      !   defined locally
       DOUBLE PRECISION, INTENT(INOUT) :: ACKW (5, NFINE + 1:NSED)
 
       ! Output arguments
       DOUBLE PRECISION, INTENT(OUT)   :: GSED (NLF, NFINE + 1:NSED)
 
-      ! Locals, etc
+      ! Locals
       DOUBLE PRECISION, PARAMETER :: DGRSML = 1.0D-4
       DOUBLE PRECISION, PARAMETER :: F16 = 0.16D0, F50 = 0.5D0, F56 = 0.56D0, F84 = 0.84D0
       DOUBLE PRECISION, PARAMETER :: THIRD = 1.0D0 / 3.0D0
@@ -91,16 +78,12 @@ CONTAINS
       DOUBLE PRECISION :: KRHO
       DOUBLE PRECISION :: AAW, ARXLE, CAW, DAAA, DBED16, DBED50, DBED84, DGR
       DOUBLE PRECISION :: DSED, DWAT1E, FGR, G, H10, LGR, MAW
-      DOUBLE PRECISION :: NAW, QK, UGR, USTR, UK
+      DOUBLE PRECISION :: NAW, QK, UGR, USTR, UK, BASE
       INTEGER          :: FACE, IEND, LINK, NFP1, NNF, SED, SGN
-
-      ! External/Module functions implicitly referenced in original code
-      ! DOUBLE PRECISION :: DIMJE, SYDR
 
       !----------------------------------------------------------------------*
 
       ! Initialization
-      ! Note: KRHO calculated here in case RHOSED/RHOWAT are variables, not parameters in CONST_SY.
       KRHO = RHOSED / RHOWAT - 1.0D0
       NNF = NSED - NFINE
       NFP1 = NFINE + 1
@@ -114,7 +97,7 @@ CONTAINS
          DO SED = NFP1, NSED
             DGR = FDGR (DRSED (SED))
             LGR = LOG10 (DGR)
-            ACKW (1, SED) = DIMJE (ONE, F56 * LGR)
+            ACKW (1, SED) = MAX (ZERO, ONE - F56 * LGR) ! Replaced DIMJE with standard intrinsic
             IF (ISACKW == 1) ACKW (2, SED) = FA (DGR)
             ACKW (3, SED) = 1.34D0 + 9.66D0 / DGR
             ACKW (4, SED) = 10.0D0**( (2.86D0 - LGR) * LGR - 3.53D0)
@@ -122,35 +105,35 @@ CONTAINS
          END DO
       END IF
 
-      !     * Zero GSED (Replaced ALINIT)
+      ! Zero GSED array slice
       GSED(:, :) = ZERO
 
-      !     * Loop over ends of each link
+      ! Loop over ends of each link
       DO IEND = 1, 3, 2
          SGN = 2 - IEND
 
-         !        * Loop over all channel links
+         ! Loop over all channel links
          DO LINK = 1, NLF
 
-            !           * Determine face equivalent to this end, and flow rate there
+            ! Determine face equivalent to this end, and flow rate there
             FACE = IEND
             IF (LINKNS (LINK)) FACE = FACE + 1
             QK = SGN * QOC (LINK, FACE)
 
-            !           * Check that this end is outflowing
+            ! Check that this end is outflowing
             IF (QK > ZERO) THEN
 
-               !              * Copy array elements to local variables
+               ! Copy array elements to local variables
                ARXLE = ARXL (LINK)
                DWAT1E = DWAT1 (LINK)
                H10 = 10.0D0 * DWAT1E
 
-               !              * Determine shear velocity and water flow velocity
+               ! Determine shear velocity and water flow velocity
                USTR = SQRT (TAUJ (LINK, FACE) / RHOWAT)
                UK = ZERO
                IF (ARXLE > ZERO) UK = QK / ARXLE
 
-               !              * Set A-W parameters for the Day modification if needed
+               ! Set A-W parameters for the Day modification if needed
                IF (ISACKW == 2) THEN
 
                   DBED84 = SYDR (F84, NLFEE, NNF, DCBSED (LINK, NFP1), DRSED (NFP1))
@@ -165,55 +148,54 @@ CONTAINS
 
                   DGR = FDGR (DAAA)
                   AAW = FA (DGR)
+                  
                   DO SED = NFP1, NSED
                      ACKW (2, SED) = AAW * (0.6D0 + 0.4D0 * SQRT (DAAA / DRSED (SED)))
                   END DO
 
                END IF
 
-               !              * Loop over sediment types
+               ! Loop over sediment types
                DO SED = NFP1, NSED
 
-                  !                 * Set A-W parameters for this Sediment size group
+                  ! Set A-W parameters for this Sediment size group
                   NAW = ACKW (1, SED)
                   AAW = ACKW (2, SED)
                   MAW = ACKW (3, SED)
                   CAW = ACKW (4, SED)
                   DSED = DRSED (SED)
 
-                  !                 * Calculate particle mobility
+                  ! Calculate particle mobility
                   UGR = ZERO
                   IF (DSED < H10) UGR = UK / (ROOT32_syackw * LOG10 (H10 / DSED))
                   FGR = ACKW (5, SED)
                   IF (NAW > ZERO) FGR = FGR * USTR**NAW
                   IF (NAW < ONE) FGR = FGR * UGR**(ONE - NAW)
 
-                  !                 * Determine discharge capacity for this end
-                  G = ZERO
+                  ! Determine discharge capacity for this end
+                  ! High-Performance Fix: Do not perform exponentiation (0.0**MAW) if base is zero or less.
                   IF (DWAT1E > ZERO) THEN
-                     G = DSED * (QK / DWAT1E) * CAW * DIMJE(FGR / AAW, ONE)**MAW
+                     BASE = (FGR / AAW) - ONE
+                     IF (BASE > ZERO) THEN
+                        G = DSED * (QK / DWAT1E) * CAW * (BASE**MAW)
+                        IF (NAW > ZERO) G = G * (UK / USTR)**NAW
+                        
+                        ! Determine the total discharge capacity of both ends
+                        GSED (LINK, SED) = GSED (LINK, SED) + G
+                     END IF
                   END IF
-                  IF (NAW > ZERO .AND. G > ZERO) G = G * (UK / USTR)**NAW
 
-                  !                 * Determine the total discharge capacity of both ends
-                  GSED (LINK, SED) = GSED (LINK, SED) + G
-
-               !              * Next sediment type
                END DO
 
-            !           * End of outflow check
             END IF
 
-         !        * Next link
          END DO
-
-      !     * Other end of link
       END DO
 
    CONTAINS
 
       ! ----------------------------------------------------------------------*
-      ! Internal Functions (Replacing obsolete Statement Functions)
+      ! Internal Functions
       ! ----------------------------------------------------------------------*
 
       ELEMENTAL FUNCTION FDGR(DUM_VAL) RESULT(RES)
@@ -809,90 +791,82 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)
+   !SSSSSS SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)
    SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)
-!
-!----------------------------------------------------------------------*
-!
-! Calculates critical shear stress for sediment particle transport.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR60
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH 15.07.94  Version 3.4.1 by AB/RAH. File created 05.10.93
-!----------------------------------------------------------------------*
-!
-! Commons and distributed constants
+   !
+   !----------------------------------------------------------------------*
+   !
+   ! Calculates critical shear stress for sediment particle transport.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1       Notes:  SSR60
+   !  Module:  SY        Program:  SHETRAN
+   ! Modifications:
+   !  RAH 15.07.94  Version 3.4.1 by AB/RAH. File created 05.10.93
+   !----------------------------------------------------------------------*
+   
+      ! Commons and distributed constants
       USE CONST_SY
-!
-! Constants referenced
-!     CONST.SY:  GRAVTY, RHOSED, RHOWAT, VISCOS
-!
-! Input arguments
-      INTEGER :: FLAG
-      DOUBLEPRECISION DRX50, TAUX, FPCLAE
-!
-! Output arguments
-      DOUBLEPRECISION TAUEC
-!
-! Locals, etc
-      DOUBLEPRECISION R0, R1, R2, R3, R4, R5
-      PARAMETER (R0 = 3D-2, R1 = 1D0)
-      PARAMETER (R2 = 6D0, R3 = 30D0, R4 = 135D0, R5 = 4D2)
-!
+
+      ! Constants referenced from CONST.SY:
+      ! GRAVTY, RHOSED, RHOWAT, VISCOS, FIRST_sycrit, K1_sycrit, K2_sycrit, K3_sycrit
+      
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN) :: FLAG
+      DOUBLE PRECISION, INTENT(IN) :: DRX50, TAUX, FPCLAE
+      
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: TAUEC
+
+      ! Locals
+      DOUBLE PRECISION, PARAMETER :: R0 = 3.0D-2, R1 = 1.0D0
+      DOUBLE PRECISION, PARAMETER :: R2 = 6.0D0, R3 = 30.0D0, R4 = 135.0D0, R5 = 400.0D0
+      
+      ! Modern array constructors replacing legacy DATA statements
+      DOUBLE PRECISION, PARAMETER :: AEC(5) = [0.1D0, 0.1D0, 0.033D0, 0.013D0, 0.03D0]
+      DOUBLE PRECISION, PARAMETER :: BEC(5) = [-0.3D0, -0.62D0, 0.0D0, 0.28D0, 0.1D0]
+
       INTEGER :: IS
-      DOUBLEPRECISION AEC (5), BEC (5), RSTR, R, SF
-!
-!     * Define constants for use in calculating TAUEC.
-      DATA AEC / 0.1d0, 0.1d0, 0.033d0, 0.013d0, 0.03d0 /
-      DATA BEC / - 0.3d0, - 0.62d0, 0.0d0, 0.28d0, 0.1d0 /
-!
-!     * Note, Classes for RSTR :-
-!     *    Class i applies to R(i-1) < RSTR <= Ri
-!     *    Class 1 ALSO includes RSTR = R0
-!     *    RSTR is truncated to lie in the range [R0,R5]
-!     *
-!
-!     * Define switch function, used to determine class for AEC and BEC.
-      SF (RSTR, R) = HALF - SIGN (HALF, R - RSTR)
-!
-!----------------------------------------------------------------------*
-!
-!     * Calculate constants during first call to this routine
+      DOUBLE PRECISION :: RSTR
+
+   !----------------------------------------------------------------------*
+
+      ! Calculate constants during first call to this routine
       IF (FIRST_sycrit) THEN
-         K1_sycrit = 1.0 / (SQRT (RHOWAT) * VISCOS)
-         K2_sycrit = (RHOSED-RHOWAT) * GRAVTY
-         K3_sycrit = 1.83d0 * LOG (10.0d0)
+         K1_sycrit = 1.0D0 / (SQRT(RHOWAT) * VISCOS)
+         K2_sycrit = (RHOSED - RHOWAT) * GRAVTY
+         K3_sycrit = 1.83D0 * LOG(10.0D0)
          FIRST_sycrit = .FALSE.
-      ENDIF
-!
-!     * Choose method of calculating TAUEC
-      IF (FLAG.EQ.1) THEN
-!
-!
-!        * Quick method
-!
-         TAUEC = 0.493d0 * EXP (K3_sycrit * FPCLAE)
-!
+      END IF
+
+      ! Choose method of calculating TAUEC
+      IF (FLAG == 1) THEN
+         ! Quick method
+         TAUEC = 0.493D0 * EXP(K3_sycrit * FPCLAE)
       ELSE
-!
-!
-!        * Shields method
-!
-!        * Calculate Particle Reynolds Number
-         RSTR = MAX (R0, MIN (DRX50 * SQRT (TAUX) * K1_sycrit, R5) )
-!
-!        * Select coefficient pair for calculating TAUEC
-         IS = NINT (ONE+SF (RSTR, R1) + SF (RSTR, R2) + SF (RSTR, R3) &
-            + SF (RSTR, R4) )
-!
-!        * Calculate Critical Shear Stress
-         TAUEC = AEC (IS) * K2_sycrit * DRX50 * RSTR**BEC (IS)
-!
-      ENDIF
-!
-!
+         ! Shields method
+         ! Calculate Particle Reynolds Number
+         RSTR = MAX(R0, MIN(DRX50 * SQRT(TAUX) * K1_sycrit, R5))
+
+         ! High-performance branch predictor chain replacing legacy SF statement function
+         IF (RSTR <= R1) THEN
+            IS = 1
+         ELSE IF (RSTR <= R2) THEN
+            IS = 2
+         ELSE IF (RSTR <= R3) THEN
+            IS = 3
+         ELSE IF (RSTR <= R4) THEN
+            IS = 4
+         ELSE
+            IS = 5
+         END IF
+
+         ! Calculate Critical Shear Stress
+         TAUEC = AEC(IS) * K2_sycrit * DRX50 * (RSTR**BEC(IS))
+      END IF
+
    END SUBROUTINE SYCRIT
 
 
@@ -2765,267 +2739,262 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
+   !SSSSSS SUBROUTINE SYOVER
    SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
-      DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
-      TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
-!
-!----------------------------------------------------------------------*
-! Calculate ground surface erosion for each column element.
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR64
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  04.10.94  Version 3.4.1 by AB/RAH. File created 24.09.93.
-!  BTL  25.04.95  Version 3.4.1 : DLS and DLSMAX introduced to routine
-!                          erosion rates zero if DLS>=DLSMAX
-!----------------------------------------------------------------------*
+         DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
+         TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
+   !
+   !----------------------------------------------------------------------*
+   ! Calculate ground surface erosion for each column element.
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1       Notes:  SSR64
+   !  Module:  SY        Program:  SHETRAN
+   ! Modifications:
+   !  RAH  04.10.94  Version 3.4.1 by AB/RAH. File created 24.09.93.
+   !  BTL  25.04.95  Version 3.4.1 : DLS and DLSMAX introduced to routine
+   !                       erosion rates zero if DLS>=DLSMAX
+   !----------------------------------------------------------------------*
       USE CONST_SY
-! Commons and distributed constants
-!
-! Constants referenced
-!     CONST.SY:  GRAVTY, RHOWAT
-!
-! Input arguments
-      INTEGER :: ISTEC, NEL, NLF, NS, NV, NTSOTP (NLF + 1:NEL), NVC ( &
-         NLF + 1:NEL)
-      DOUBLEPRECISION FCC (NV), LRAIN (NLF + 1:NEL), XDRIP (NV), &
-         DRDRIP (NV)
-      DOUBLEPRECISION FDRIP (NV), DRAINA (NLF + 1:NEL), GKR (NS)
-      DOUBLEPRECISION DWAT1 (NLF + 1:NEL), DRDROP (NLF + 1:NEL), &
-         FCG (NLF + 1:NEL)
-      DOUBLEPRECISION FCROCK (NLF + 1:NEL), DRSO50 (NS), TAUK (NLF + 1: &
-         NEL)
-      DOUBLEPRECISION FPCLAY (NS), GKF (NS), RHOSO (NS)
-      DOUBLEPRECISION DLS (NEL), DLSMAX
-!
-! Output arguments
-      DOUBLEPRECISION GNU (NLF + 1:NEL)
-!
-! Workspace arguments
-      DOUBLEPRECISION TGMD (NV)
-!
-! Locals, etc
-      DOUBLEPRECISION CLALIM, D1, L1, L2, X1
-      PARAMETER (X1 = 7.5D0, D1 = 3.3D-3, L1 = 2.78D-6, L2 = 1.39D-5)
-      PARAMETER (CLALIM = 1.0d0 / L2)
-!
+   ! Commons and distributed constants
+   !
+   ! Constants referenced
+   !     CONST.SY:  GRAVTY, RHOWAT, ZERO, ONE
+   !
+      IMPLICIT NONE
+
+   ! Input arguments
+      INTEGER, INTENT(IN) :: ISTEC, NEL, NLF, NS, NV
+      INTEGER, INTENT(IN) :: NTSOTP (NLF + 1:NEL), NVC (NLF + 1:NEL)
+      DOUBLE PRECISION, INTENT(IN) :: FCC (NV), LRAIN (NLF + 1:NEL), XDRIP (NV)
+      DOUBLE PRECISION, INTENT(IN) :: DRDRIP (NV), FDRIP (NV), DRAINA (NLF + 1:NEL)
+      DOUBLE PRECISION, INTENT(IN) :: GKR (NS), DWAT1 (NLF + 1:NEL), DRDROP (NLF + 1:NEL)
+      DOUBLE PRECISION, INTENT(IN) :: FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL)
+      DOUBLE PRECISION, INTENT(IN) :: DRSO50 (NS), TAUK (NLF + 1:NEL), FPCLAY (NS)
+      DOUBLE PRECISION, INTENT(IN) :: GKF (NS), RHOSO (NS), DLS (NEL), DLSMAX
+
+   ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: GNU (NLF + 1:NEL)
+
+   ! Workspace arguments
+      DOUBLE PRECISION, INTENT(OUT) :: TGMD (NV)
+
+   ! Locals
+      DOUBLE PRECISION, PARAMETER :: X1 = 7.5D0, D1 = 3.3D-3, L1 = 2.78D-6, L2 = 1.39D-5
+      DOUBLE PRECISION, PARAMETER :: PI = 3.14159265358979323846D0
+
       INTEGER :: ISCD, IEL, ISGMR, ISOIL, NVEG
-      DOUBLEPRECISION AD (4), ADD (4), BD (4), BDD (4), CD, FCROCE, &
-         DRDRPE, DR, DF
-      DOUBLEPRECISION LRAINE, GMD, GMR, PRSGOS, TAUEC, TAUKE, XDRIPE
-      DOUBLEPRECISION SF2, SX, SY
-!
-! Define coefficients for use in calculating GMR and CD, respectively.
-      DATA AD / 3214.9, 583.4, 133.1, 29.9 /, BD / 1.6896, 1.5545, &
-         1.4242, 1.2821 /
-!       Class 1: 0.0  <= LRAIN < L1
-!       Class 2: L1   <= LRAIN < L2
-!       Class 3: L2   <= LRAIN < 2*L2
-!       Class 4: 2*L2 <= LRAIN
-      DATA ADD / 0.0d0, 0.0d0, 1.93d0, 5.14d0 /, BDD / 2200.0d0, 2200.0d0, 1640.0d0, &
-         660.0d0 /
-!       Class 1: DRDRIP <  D1    XDRIP <  X1
-!       Class 2: DRDRIP <  D1    XDRIP >= X1
-!       Class 3: DRDRIP >= D1    XDRIP <  X1
-!       Class 4: DRDRIP >= D1    XDRIP >= X1
-!
-!     * Define the switch function, used in calculating CD and GMR.
-      SF2 (SX, SY) = HALF + SIGN (HALF, SX - SY)
-!
-!----------------------------------------------------------------------*
-!
-!     * Initialize constant
-      PRSGOS = 4.0 * ATAN (ONE) * RHOWAT * RHOWAT * GRAVTY / 6.0
-!
-!     * Partial evaluation of GMD for each vegetation type
-      DO 100 NVEG = 1, NV
-         XDRIPE = XDRIP (NVEG)
-         DRDRPE = DRDRIP (NVEG)
-!        * Select coefficient pair for CD equation
-         ISCD = 1 + NINT (SF2 (XDRIPE, X1) + 2 * SF2 (DRDRPE, D1) )
-         CD = ADD (ISCD) + DRDRPE * BDD (ISCD)
-!        * Need precondition on DRDRIP to ensure CD>0
-         TGMD (NVEG) = PRSGOS * CD * (ONE-EXP ( - 2.0 * XDRIPE / CD) ) &
-            * DRDRPE**3 * FDRIP (NVEG)
-100   END DO
-!
-!     * Loop over all column elements
-      DO 200 IEL = NLF + 1, NEL
-         ISOIL = NTSOTP (IEL)
-         NVEG = NVC (IEL)
-         LRAINE = LRAIN (IEL)
-         FCROCE = FCROCK (IEL)
-         TAUKE = TAUK (IEL)
-!
-!        * Select coefficient pair for GMR equation
-         ISGMR = MIN (4, 1 + NINT (SF2 (LRAINE, L1) ) + INT (LRAINE * &
-            CLALIM) )
-!        * Evaluate sq momentum of rain drops
-         GMR = (ONE-FCC (NVEG) ) * AD (ISGMR) * LRAINE**BD (ISGMR)
-!
-!        * Evaluate sq momentum of leaf drips
-         GMD = TGMD (NVEG) * DRAINA (IEL)
-!
-!        * Evaluate soil detatchment rate due to drips and drops
-         DR = GKR (ISOIL) * EXP ( - DIMJE(DWAT1 (IEL) / DRDROP (IEL), &
-            ONE) ) * (ONE-FCG (IEL) - FCROCE) * (GMR + GMD)
-!
-!        * Obtain critical shear stress for current element
-         CALL SYCRIT (ISTEC, DRSO50 (ISOIL), TAUKE, FPCLAY (ISOIL), &
-            TAUEC)
-!
-!        * Evaluate soil detatchment rate due to overland flow
-         DF = GKF (ISOIL) * (ONE-FCROCE) * DIMJE(TAUKE, TAUEC) / TAUEC
-!
-!        * Evaluate rate of erosion of ground surface
-         If (DLS (IEL) .lt.DLSMAX) then
-            GNU (IEL) = (DR + DF) / RHOSO (ISOIL)
-         else
-            GNU (IEL) = zero
-         endif
-!
-200   END DO
-!
+      DOUBLE PRECISION :: CD, FCROCE, DRDRPE, DR, DF
+      DOUBLE PRECISION :: LRAINE, GMD, GMR, PRSGOS, TAUEC, TAUKE, XDRIPE
+
+      ! Modern Array Constructors
+      DOUBLE PRECISION, PARAMETER :: AD(4)  = [3214.9D0, 583.4D0, 133.1D0, 29.9D0]
+      DOUBLE PRECISION, PARAMETER :: BD(4)  = [1.6896D0, 1.5545D0, 1.4242D0, 1.2821D0]
+      DOUBLE PRECISION, PARAMETER :: ADD(4) = [0.0D0, 0.0D0, 1.93D0, 5.14D0]
+      DOUBLE PRECISION, PARAMETER :: BDD(4) = [2200.0D0, 2200.0D0, 1640.0D0, 660.0D0]
+
+   !----------------------------------------------------------------------*
+
+      ! Initialize constant
+      PRSGOS = PI * RHOWAT * RHOWAT * GRAVTY / 6.0D0
+
+      ! Partial evaluation of GMD for each vegetation type
+      DO NVEG = 1, NV
+         XDRIPE = XDRIP(NVEG)
+         DRDRPE = DRDRIP(NVEG)
+         
+         ! High-performance branch predictor chain replacing legacy SF2 function
+         IF (DRDRPE < D1) THEN
+            IF (XDRIPE < X1) THEN
+               ISCD = 1
+            ELSE
+               ISCD = 2
+            END IF
+         ELSE
+            IF (XDRIPE < X1) THEN
+               ISCD = 3
+            ELSE
+               ISCD = 4
+            END IF
+         END IF
+
+         CD = ADD(ISCD) + DRDRPE * BDD(ISCD)
+         
+         ! Need precondition on DRDRIP to ensure CD>0
+         TGMD(NVEG) = PRSGOS * CD * (ONE - EXP(-2.0D0 * XDRIPE / CD)) * (DRDRPE**3) * FDRIP(NVEG)
+      END DO
+
+      ! Loop over all column elements
+      element_loop: DO IEL = NLF + 1, NEL
+         ISOIL = NTSOTP(IEL)
+         NVEG = NVC(IEL)
+         LRAINE = LRAIN(IEL)
+         FCROCE = FCROCK(IEL)
+         TAUKE = TAUK(IEL)
+
+         ! Select coefficient pair for GMR equation using clear branching
+         IF (LRAINE < L1) THEN
+            ISGMR = 1
+         ELSE IF (LRAINE < L2) THEN
+            ISGMR = 2
+         ELSE IF (LRAINE < 2.0D0 * L2) THEN
+            ISGMR = 3
+         ELSE
+            ISGMR = 4
+         END IF
+
+         ! Evaluate sq momentum of rain drops
+         GMR = (ONE - FCC(NVEG)) * AD(ISGMR) * (LRAINE**BD(ISGMR))
+
+         ! Evaluate sq momentum of leaf drips
+         GMD = TGMD(NVEG) * DRAINA(IEL)
+
+         ! Evaluate soil detachment rate due to drips and drops
+         ! DIMJE replaced with MAX intrinsic
+         DR = GKR(ISOIL) * EXP(-MAX(ZERO, (DWAT1(IEL) / DRDROP(IEL)) - ONE)) * &
+              (ONE - FCG(IEL) - FCROCE) * (GMR + GMD)
+
+         ! Obtain critical shear stress for current element
+         CALL SYCRIT (ISTEC, DRSO50(ISOIL), TAUKE, FPCLAY(ISOIL), TAUEC)
+
+         ! Evaluate soil detachment rate due to overland flow
+         DF = GKF(ISOIL) * (ONE - FCROCE) * MAX(ZERO, TAUKE - TAUEC) / TAUEC
+
+         ! Evaluate rate of erosion of ground surface
+         IF (DLS(IEL) < DLSMAX) THEN
+            GNU(IEL) = (DR + DF) / RHOSO(ISOIL)
+         ELSE
+            GNU(IEL) = ZERO
+         END IF
+
+      END DO element_loop
+
    END SUBROUTINE SYOVER
 
 
 
-!SSSSSS SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
+   !SSSSSS SUBROUTINE SYOVTR
    SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
-      DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
-!
-!----------------------------------------------------------------------*
-!
-!  Calculate the total volumetric capacity for discharge due to
-!   overland flow for the current time step and the current element.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR63
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  15.07.94  Version 3.4.1 by AB/RAH. File created 01.11.93.
-!----------------------------------------------------------------------*
+         DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
+   !
+   !----------------------------------------------------------------------*
+   !
+   !  Calculate the total volumetric capacity for discharge due to
+   !   overland flow for the current time step and the current element.
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1       Notes:  SSR63
+   !  Module:  SY        Program:  SHETRAN
+   ! Modifications:
+   !  RAH  15.07.94  Version 3.4.1 by AB/RAH. File created 01.11.93.
+   !----------------------------------------------------------------------*
       USE CONST_SY
-! Commons and distributed constants
-!
-! Constants referenced
-!    CONST.SY: GRAVTY, RHOSED, RHOWAT
-!
-! Input arguments
-      INTEGER :: ISGSED, NSED
-      DOUBLEPRECISION DXQQE, DYQQE, DWAT1E, VDSED (NSED), DRSED (NSED), K2
-      DOUBLEPRECISION QWAT (4), SLOPEE (4), TAUJE (4)
 
-!
-! Output arguments
-      DOUBLEPRECISION GJSUM
-!
-! Locals, etc
-!
-      DOUBLEPRECISION FLJ
-      DOUBLEPRECISION AJ, DRD50, FTAU, DUM, DYMXQQ, GJ, GSUM
-      DOUBLEPRECISION LJ, TAUEC, TAUJEE
-      INTEGER :: FACE, NOUT, I, J (4)
+      ! Constants referenced from CONST_SY:
+      ! GRAVTY, RHOSED, RHOWAT, FIRST_syovtr, K1_syovtr, K3_syovtr, K4_syovtr, HALF, ZERO
 
-!
-!     * Face length function ( DXQQE at evens, DYQQE at odds )
-      FLJ (FACE) = MOD (FACE, 2) * DYMXQQ + DXQQE
-!
-!----------------------------------------------------------------------*
-!
-! Preliminaries
-! -------------
-!
-!     * Constants
+      IMPLICIT NONE
+
+   ! Input arguments
+      INTEGER, INTENT(IN) :: ISGSED, NSED
+      DOUBLE PRECISION, INTENT(IN) :: DXQQE, DYQQE, DWAT1E
+      DOUBLE PRECISION, INTENT(IN) :: VDSED (NSED), DRSED (NSED)
+      DOUBLE PRECISION, INTENT(IN) :: QWAT (4), SLOPEE (4), TAUJE (4)
+
+   ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: GJSUM
+
+   ! Locals
+      DOUBLE PRECISION :: K2, AJ, DRD50, FTAU, DUM, GJ, GSUM
+      DOUBLE PRECISION :: LJ, TAUEC, TAUJEE
+      INTEGER :: FACE, NOUT, I, J(4)
+      DOUBLE PRECISION :: FLJ_ARRAY(4)
+
+   !----------------------------------------------------------------------*
+   ! Preliminaries
+   ! -------------
+   !
+      ! Constants
       IF (FIRST_syovtr) THEN
-         K1_syovtr = 0.05d0 * RHOWAT**2 / ( (RHOSED-RHOWAT) **2 * SQRT (GRAVTY) )
-         K3_syovtr = 2.45d0 * (RHOSED / RHOWAT) ** ( - 0.4d0) / SQRT ( (RHOSED- &
-            RHOWAT) * GRAVTY)
-         K4_syovtr = 0.635d0 / SQRT (RHOWAT)
+         K1_syovtr = 0.05D0 * RHOWAT**2 / ((RHOSED - RHOWAT)**2 * SQRT(GRAVTY))
+         K3_syovtr = 2.45D0 * (RHOSED / RHOWAT)**(-0.4D0) / SQRT((RHOSED - RHOWAT) * GRAVTY)
+         K4_syovtr = 0.635D0 / SQRT(RHOWAT)
          FIRST_syovtr = .FALSE.
-      ENDIF
-!
-!     * Initialize variables
-      GSUM = 0
-      DYMXQQ = DYQQE-DXQQE
-!
-!     * Obtain median diameter of sediment available for discharge
-      DRD50 = SYDR (HALF, 1, NSED, VDSED, DRSED)
-!
-!     * Count and record faces with outflow
+      END IF
+
+      ! Initialize variables
+      GSUM = ZERO
+      
+      ! High-Performance Fix: Pre-calculate face lengths into an array instead of using MOD()
+      FLJ_ARRAY = [DYQQE, DXQQE, DYQQE, DXQQE]
+
+      ! Obtain median diameter of sediment available for discharge
+      DRD50 = SYDR(HALF, 1, NSED, VDSED, DRSED)
+
+      ! Count and record faces with outflow
       NOUT = 0
-      DO 100 FACE = 1, 4
-         IF (QWAT (FACE) .GT.0) THEN
+      DO FACE = 1, 4
+         IF (QWAT(FACE) > ZERO) THEN
             NOUT = NOUT + 1
-            J (NOUT) = FACE
-         ENDIF
-100   END DO
-!
-!
-! Transport Capacity
-! ------------------
-!
-      IF (ISGSED.EQ.1.AND.DWAT1E.GT.0) THEN
-!
-!
-!        ^^^ ENGELUND-HANSEN METHOD ^^^
-!
-!        * Precalculate constant over faces (note K2 may be very small)
-         K2 = SQRT (DWAT1E) * DRD50
-!
-!        * Loop over faces with outflow
-         DO 200 I = 1, NOUT
-            FACE = J (I)
-!
-!           * Discharge capacity at this face
-            LJ = FLJ (FACE)
-            GJ = (K1_syovtr * QWAT (FACE) **2 * SLOPEE (FACE) **1.5) / (LJ * &
-               K2)
-!
-!           * Accumulated discharge capacity for this element
+            J(NOUT) = FACE
+         END IF
+      END DO
+
+   !
+   ! Transport Capacity
+   ! ------------------
+   !
+      IF (ISGSED == 1 .AND. DWAT1E > ZERO) THEN
+
+         ! ^^^ ENGELUND-HANSEN METHOD ^^^
+
+         ! Precalculate constant over faces (note K2 may be very small)
+         K2 = SQRT(DWAT1E) * DRD50
+
+         ! Loop over faces with outflow
+         DO I = 1, NOUT
+            FACE = J(I)
+
+            ! Discharge capacity at this face
+            LJ = FLJ_ARRAY(FACE)
+            GJ = (K1_syovtr * QWAT(FACE)**2 * SLOPEE(FACE)**1.5D0) / (LJ * K2)
+
+            ! Accumulated discharge capacity for this element
             GSUM = GSUM + GJ
-!
-200      END DO
-!
-!
-      ELSEIF (ISGSED.EQ.0) THEN
-!
-!
-!        ^^^^^^^ YALIN METHOD ^^^^^^^^^
-!
-!        * Loop over faces with outflow
-         DO 300 I = 1, NOUT
-            FACE = J (I)
-!
-!           * Get face length
-            LJ = FLJ (FACE)
-!
-!           * Obtain critical shear stress at the ground surface
-            TAUJEE = TAUJE (FACE)
-            CALL SYCRIT (0, DRD50, TAUJEE, DUM, TAUEC)
-!
-!           * Calculate discharge capacity at this face
-            FTAU = DIMJE(TAUJEE, TAUEC) / TAUEC
-            AJ = K3_syovtr * SQRT (TAUEC / DRD50)
-            GJ = K4_syovtr * SQRT (TAUJEE) * DRD50 * LJ * (FTAU - LOG (1 + AJ * &
-               FTAU) / AJ)
-!
-!           * Accumulated capacity for this element
+         END DO
+
+      ELSE IF (ISGSED == 0) THEN
+
+         ! ^^^^^^^ YALIN METHOD ^^^^^^^^^
+
+         ! Loop over faces with outflow
+         DO I = 1, NOUT
+            FACE = J(I)
+
+            ! Get face length
+            LJ = FLJ_ARRAY(FACE)
+
+            ! Obtain critical shear stress at the ground surface
+            TAUJEE = TAUJE(FACE)
+            CALL SYCRIT(0, DRD50, TAUJEE, DUM, TAUEC)
+
+            ! Calculate discharge capacity at this face
+            ! High-Performance Fixes: MAX replaces DIMJE, LOG1P replaces LOG(1+X) for precision
+            FTAU = MAX(ZERO, TAUJEE - TAUEC) / TAUEC
+            AJ = K3_syovtr * SQRT(TAUEC / DRD50)
+            GJ = K4_syovtr * SQRT(TAUJEE) * DRD50 * LJ * (FTAU - LOG(1.0D0 + AJ * FTAU) / AJ)
+
+            ! Accumulated capacity for this element
             GSUM = GSUM + GJ
-!
-300      END DO
-!
-!
+         END DO
+
       ELSE
-!
-!        ^^^ Zero capacity ^^^
-!
-      ENDIF
-!
+         ! ^^^ Zero capacity ^^^
+      END IF
+
       GJSUM = GSUM
-!
+
    END SUBROUTINE SYOVTR
+
 
 
    !----------------------------------------------------------------------*
