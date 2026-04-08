@@ -10,11 +10,12 @@ sudo apt install g++
 
 Install Intel compilers
 ***********************
-download linux version e.g. l_BaseKit_p_2021.4.0.3422_offline.sh and l_HPCKit_p_2021.4.0.3347_offline.sh
-Install I installed to /opt/intel/oneapi (so needed sudo sh ./l_BaseKit_p_2021.4.0.3422_offline.sh and sudo sh ./l_HPCKit_p_2021.4.0.3347_offline.sh)
-I needed to add the following lines to the .bash_login file
-source /opt/intel/bin/ifortvars.sh intel64
-source /opt/intel/bin/compilervars.sh intel64
+download linux version e.g. intel-oneapi-hpc-toolkit-2025.3.1.55_offline.sh
+made it executable e.g chmod +x intel-oneapi-hpc-toolkit-2025.3.1.55_offline.sh
+run the installer e.g sudo ./intel-oneapi-hpc-toolkit-2025.3.1.55_offline.sh
+installed to /opt/intel/oneapi so after installation ran "source /opt/intel/oneapi/setvars.sh". Might need the --force option if installed previous version
+To  make it permanent add to ~/.bashrc e.g. "echo "source /opt/intel/oneapi/setvars.sh" >> ~/.bashrc"
+Test "ifx --version" or "which ifx"
 
 
 Build hdf libraries and include files using Intel compiler
