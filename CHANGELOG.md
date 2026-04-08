@@ -1,5 +1,10 @@
 # Changelog
 
+## 080426
+
+update to Intel IFX compiler. This required minor updates to the visulisation code (in the folder src/visualisation.
+Running of the test catchments produced very minor changes to the text output (8th significant figure)
+
 ## 300326
 
 Update to version 4.6.1

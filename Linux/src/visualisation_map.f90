@@ -1,6 +1,6 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_map
-!DEC$ REAL:4
+
 USE VISUALISATION_PASS,     ONLY : BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK
 USE VISUALISATION_METADATA, ONLY : G_L=>GET_METADATA_L
 
@@ -18,25 +18,30 @@ CONTAINS
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 PURE FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
-INTEGER, DIMENSION(:,:), POINTER     :: r
+INTEGER, DIMENSION(:,:), ALLOCATABLE :: r
 INTEGER, INTENT(IN)                  :: mag, mn  !magnification
 INTEGER, DIMENSION(:),INTENT(IN)     :: sz
 REAL, DIMENSION(:,:,:), INTENT(IN)   :: dat
-REAL, DIMENSION(:,:), POINTER        :: rreal
+REAL, DIMENSION(:,:), ALLOCATABLE    :: rreal
 REAL                                 :: minr, maxr
+INTEGER                              :: i, j
 
-rreal => GET_MAGNIFIED_REAL(sz, dat, mag, mn, mark_river=.TRUE.)
+rreal = GET_MAGNIFIED_REAL(sz, dat, mag, mn, mark_river=.TRUE.)
 minr  =  MINVAL(rreal, MASK=(rreal/=river .AND. rreal/=background))
 maxr  =  MAXVAL(rreal, MASK=(rreal/=river .AND. rreal/=background))
 
 ALLOCATE(r(mag*sz(1),mag*sz(2)))
-WHERE(rreal==river)
-    r = i_river
-ELSEWHERE(rreal==background)
-    r = i_background
-ELSEWHERE
-    r = 15 + (mmax-17) * (rreal-minr)/(maxr-minr)  !scaling
-ENDWHERE
+DO j = 1, mag*sz(2)
+    DO i = 1, mag*sz(1)
+        IF (rreal(i,j) == river) THEN
+            r(i,j) = i_river
+        ELSE IF (rreal(i,j) == background) THEN
+            r(i,j) = i_background
+        ELSE
+            r(i,j) = 15 + (mmax-17) * (rreal(i,j)-minr)/(maxr-minr)  !scaling
+        END IF
+    END DO
+END DO
 
 DEALLOCATE(rreal)
 END FUNCTION get_real_image_index
@@ -47,7 +52,7 @@ INTEGER, INTENT(IN)                 :: mag, mn  !magnification
 INTEGER                             :: i, j, im, jm, ilow, ihigh, jlow, jhigh, SU
 INTEGER, DIMENSION(:),INTENT(IN)    :: sz
 REAL, DIMENSION(:,:,:), INTENT(IN)  :: dat
-REAL, DIMENSION(:,:), POINTER       :: r
+REAL, DIMENSION(:,:), ALLOCATABLE   :: r
 LOGICAL, INTENT(IN)                 :: mark_river
 
 ALLOCATE(r(mag*sz(1),mag*sz(2)))
@@ -114,9 +119,9 @@ PURE FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
 INTEGER, INTENT(IN)                 :: mag, mn  !magnification
 INTEGER                             :: i
 INTEGER, DIMENSION(:),INTENT(IN)    :: sz
-INTEGER, DIMENSION(:,:), POINTER    :: su
-LOGICAL, DIMENSION(:,:), POINTER    :: r
-su => GET_MAGNIFIED_SU_ARR(sz, mag, mn)
+INTEGER, DIMENSION(:,:), ALLOCATABLE:: su
+LOGICAL, DIMENSION(:,:), ALLOCATABLE:: r
+su = GET_MAGNIFIED_SU_ARR(sz, mag, mn)
 ALLOCATE(r(mag*sz(1),mag*sz(2)))
 DO i=1,mag*sz(1)
     r(i,:) = IS_LINK(su(i,:))
@@ -129,7 +134,7 @@ END FUNCTION get_is_link_magnified
 PURE FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
 INTEGER, INTENT(IN)                 :: mag, mn  !magnification
 INTEGER, DIMENSION(:),INTENT(IN)    :: sz
-INTEGER, DIMENSION(:,:), POINTER    :: r
+INTEGER, DIMENSION(:,:), ALLOCATABLE:: r
 INTEGER, DIMENSION(mag,mag)         :: el
 INTEGER                             :: i, j, im, jm, ilow, ihigh, jlow, jhigh, su
 

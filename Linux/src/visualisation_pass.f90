@@ -7,11 +7,9 @@ INTEGER                              :: north, east, south, west, grid_nx, grid_
 INTEGER, DIMENSION(:,:), ALLOCATABLE :: SU_NUMBER, BANK_NO, RIVER_NO
 LOGICAL, DIMENSION(:),   ALLOCATABLE :: IS_SQUARE, IS_BANK, IS_LINK
 CHARACTER(256)                        :: DIRQQ, ROOTDIR, hdf5filename, planfile, checkfile
-!DEC$ DEFINE ISKEY=0
-!DEC$ IF(ISKEY==0)
-    INTEGER, PARAMETER                    :: freelimit=360000, szlimit=360000
-    CHARACTER(256)                        :: dumtext
-!DEC$ ENDIF
+
+INTEGER, PARAMETER                    :: freelimit=360000, szlimit=360000
+CHARACTER(256)                        :: dumtext
 
 PRIVATE
 PUBLIC ::     north,     east,     south,    west, &
@@ -33,7 +31,6 @@ END FUNCTION exists
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
-!DEC$ ATTRIBUTES DLLEXPORT :: send_p
 integer, save :: coun=0
 INTEGER, INTENT(IN)                            :: da, db
 INTEGER,                 INTENT(IN),  OPTIONAL :: ii
@@ -47,10 +44,6 @@ CASE('north')      ; north    = ii
 CASE('east')       ; east     = ii
 CASE('south')      ; south    = ii
 CASE('west')       ; west     = ii
-!DEC$ IF(ISKEY==1)
-    CASE('grid_nx')    ; grid_nx  = ii
-    CASE('grid_ny')    ; grid_ny  = ii
-!DEC$ ELSE
     CASE('grid_nx')
         IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
         IF(ii>szlimit) THEN
@@ -69,7 +62,7 @@ CASE('west')       ; west     = ii
         ELSE
             grid_ny  = ii
         ENDIF
-!DEC$ ENDIF
+
 CASE('top_cell')   ; top_cell = ii
 CASE('nel')        ; nel      = ii
 CASE('dirqq')      ; dirqq    = cc

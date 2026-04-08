@@ -1,6 +1,8 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_interface_right
-!DEC$ REAL:4
+
+USE ISO_C_BINDING, ONLY: C_PTR
+
 !JE for SHEGRAPH Version 2.0 Created July 2004
 USE VISUALISATION_INTERFACE_CENTRE,    ONLY : BANK_NO, ELEMENT, GRID_NX, GRID_NY, RIVER_NO, TOP_CELL, &
                                               IS_SQUARE, IS_BANK, IS_LINK,                            &
@@ -8,7 +10,7 @@ USE VISUALISATION_INTERFACE_CENTRE,    ONLY : BANK_NO, ELEMENT, GRID_NX, GRID_NY
                                               SHETRAN_INTEGER_DATA, SHETRAN_REAL_DATA, OUTPUT_TYPE, GET_OUTPUT_TYPE, &
                                               NO_SED, NO_CON, VERSION, ROOTDIR, SHETRAN_LAYER,                       &
                                               hdf5filename, planfile, checkfile
-USE VISUALISATION_INTERFACE_FAR_RIGHT, ONLY : G_C, G_L, G_I, S_I, G_I_F,                              &
+USE VISUALISATION_INTERFACE_FAR_RIGHT, ONLY : G_C, G_L, G_I, S_PTR, G_PTR,                            &
                                               TIME_TO_RECORD,                                         &
                                               REGISTER_STATIC_VISUALISATION_METADATA,                 &
                                               REGISTER_DYNAMIC_VISUALISATION_METADATA,                &
@@ -33,7 +35,7 @@ CONTAINS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE record_visualisation_data(time, text)
 INTEGER                                  :: i, j, jj, k, mn, nn, su, ilow, ihigh, jlow, jhigh, klow, khigh, sz, ext, nsed, ncon, n
-INTEGER(INT_PTR_KIND())                               :: first, latest
+TYPE(C_PTR)                              :: first, latest
 LOGICAL                                  :: isgrid
 REAL, INTENT(IN)                         :: time
 INTEGER, DIMENSION(4)                    :: ee
@@ -91,13 +93,13 @@ MM: DO mn=1,G_I(0,'no_items')
             ee = normal_order
         ENDIF
     ENDIF
-    first  = G_I_F(mn,'first')
-    latest = G_I_F(mn,'latest')
+    first = G_PTR(mn,'first')
+    latest = G_PTR(mn,'latest')
     nsed   = G_I(mn,'nsed')
     ncon   = G_I(mn,'ncon')
     CALL FOR_NEW_TIME(typ, time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-    CALL S_I(mn,'first', first)
-    CALL S_I(mn,'latest', latest)
+    CALL S_PTR(mn,'first', first)
+    CALL S_PTR(mn,'latest', latest)
     IF(.NOT.isgrid) THEN
         sz = G_I(mn,'sz')
         DO nn=1,sz
@@ -128,7 +130,7 @@ END SUBROUTINE record_visualisation_data
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE fill_select(name, typ, a, b, bb, su, klow, khigh, silay, ee, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 CHARACTER(*), INTENT(IN)          :: name, typ
 SELECT CASE(typ)
@@ -147,7 +149,7 @@ END SUBROUTINE fill_select
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE fill_b(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, banks(4)
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -166,7 +168,7 @@ END SUBROUTINE fill_b
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE fill_e(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, banks(4)
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -184,7 +186,7 @@ END SUBROUTINE fill_e
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE fill_f(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, rivers(4)
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -202,7 +204,7 @@ END SUBROUTINE fill_f
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE  fill_g(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, banks(4), rivers(4)
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -231,7 +233,7 @@ END SUBROUTINE fill_g
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE  fill_i(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, n
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -244,7 +246,7 @@ END SUBROUTINE fill_i
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE fill_L(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, rivers(4)
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -262,7 +264,7 @@ END SUBROUTINE fill_L
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE  fill_m(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, n
 CHARACTER(*), INTENT(IN)          :: name, typ
@@ -275,7 +277,7 @@ END SUBROUTINE fill_m
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE  fill_n(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
 INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
 INTEGER                           :: d, e, banks(4), rivers(4)
 CHARACTER(*), INTENT(IN)          :: name, typ

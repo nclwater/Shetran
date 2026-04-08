@@ -1,13 +1,17 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_metadata
-!DEC$ REAL:4
+
 !JE for SHEGRAPH Version 2.0 Created July 2004
+
+USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR
 USE VISUALISATION_PASS,      ONLY : SU_NUMBER, BANK_NO, RIVER_NO, EXISTS, nel, &
                                     IS_SQUARE, IS_BANK, IS_LINK, TOP_CELL, DIRQQ, nsed, ncon, &
                                     planfile, checkfile
 USE VISUALISATION_READ,      ONLY : vp_in, vp_out, mess, mess2, mess3, ERROR, R_C, R_I, R_R, COPY
 USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
+
 IMPLICIT NONE
+
 INTEGER, PARAMETER                    :: ndim=6 !max no of dimensions in HDF5 file
 REAL, DIMENSION(:), ALLOCATABLE, SAVE :: previous_time, next_time
 LOGICAL, PARAMETER                    :: T=.TRUE., F=.FALSE.
@@ -42,9 +46,10 @@ TYPE(MASK), POINTER               :: whole_grid=>NULL()
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TYPE item
 PRIVATE
-    INTEGER              :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
-                            sediment_no=0, contaminant_no=0
-    INTEGER(INT_PTR_KIND())           :: first=0, latest=0
+    INTEGER :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
+    sediment_no=0, contaminant_no=0
+    ! REPLACED INTEGER(INT_PTR_KIND()) WITH TYPE(C_PTR)
+    TYPE(C_PTR) :: first = C_NULL_PTR, latest = C_NULL_PTR
     CHARACTER(8)         :: name=''
     CHARACTER(2)         :: typ=''
     CHARACTER(csz)       :: title='*S' !for plots and printouts
@@ -120,8 +125,7 @@ PRIVATE
 PUBLIC :: REGISTER_STATIC_VISUALISATION_METADATA,         &
           REGISTER_DYNAMIC_VISUALISATION_METADATA,        &
           GET_METADATA_C, GET_METADATA_L, GET_METADATA_I, &
-          GET_METADATA_I_FIRST,                           &
-          SET_METADATA_I,                                 &
+          GET_METADATA_PTR, SET_METADATA_PTR,             &
           TIME_TO_RECORD,                                 &
           HDF5_ITEM, HDF5_ITEMS, ndim,                    &
           GET_METADATA_HDF5_I, GET_METADATA_HDF5_L, GET_METADATA_HDF5_C, &
@@ -139,7 +143,6 @@ END SUBROUTINE INCREMENT_HDF5_TSTEP_NO
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: time_to_record
 INTEGER, INTENT(IN)                   :: n
 INTEGER                               :: i
 REAL, INTENT(IN)                      :: time  !hours
@@ -176,7 +179,6 @@ END FUNCTION get_next_time
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 PURE FUNCTION get_metadata_c(i, text) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_c
 INTEGER, INTENT(IN)      :: i
 CHARACTER(*), INTENT(IN) :: text
 CHARACTER(csz)           :: r
@@ -214,7 +216,6 @@ END FUNCTION get_metadata_HDF5_c
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_i
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: su
 CHARACTER(*), INTENT(IN)      :: text
@@ -238,17 +239,17 @@ END SELECT
 END FUNCTION get_metadata_i
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-ELEMENTAL INTEGER(INT_PTR_KIND()) FUNCTION get_metadata_i_first(i, text, su) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_i_first
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: su
-CHARACTER(*), INTENT(IN)      :: text
-SELECT CASE(text)
-CASE('first')    ; r=items(i)%first
-CASE('latest')   ; r=items(i)%latest
-CASE DEFAULT     ; r=HUGE(1_8)
-END SELECT
-END FUNCTION get_metadata_i_first
+ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(IN), OPTIONAL :: su
+    CHARACTER(*), INTENT(IN) :: text
+    TYPE(C_PTR) :: r
+    SELECT CASE(text)
+        CASE('first') ; r=items(i)%first
+        CASE('latest') ; r=items(i)%latest
+        CASE DEFAULT ; r=C_NULL_PTR
+    END SELECT
+END FUNCTION get_metadata_ptr
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 ELEMENTAL INTEGER FUNCTION get_metadata_hdf5_i(i, text, e) RESULT(r)
@@ -280,20 +281,18 @@ END SELECT
 END FUNCTION get_metadata_hdf5_i
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SUBROUTINE set_metadata_i(i, text, a)
-!DEC$ ATTRIBUTES DLLEXPORT :: set_metadata_i
-INTEGER, INTENT(IN)           :: i
-INTEGER(INT_PTR_KIND()), INTENT(IN)        :: a
-CHARACTER(*), INTENT(IN)      :: text
-SELECT CASE(text)
-CASE('first')  ; items(i)%first  = a
-CASE('latest') ; items(i)%latest = a
-END SELECT
-END SUBROUTINE set_metadata_i
+SUBROUTINE set_metadata_ptr(i, text, a)
+    INTEGER, INTENT(IN) :: i
+    TYPE(C_PTR), INTENT(IN) :: a
+    CHARACTER(*), INTENT(IN) :: text
+    SELECT CASE(text)
+        CASE('first') ; items(i)%first = a
+        CASE('latest') ; items(i)%latest = a
+    END SELECT
+END SUBROUTINE set_metadata_ptr
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
-!DEC$ ATTRIBUTES DLLEXPORT :: get_metadata_L
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: a,b
 CHARACTER(*), INTENT(IN)      :: text
@@ -363,7 +362,6 @@ END SUBROUTINE read_dynamic_visualisation_metadata
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
-!DEC$ ATTRIBUTES DLLEXPORT :: register_static_visualisation_metadata
 INTEGER, INTENT(IN)      :: szi, szj
 CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
 CHARACTER, INTENT(IN)    :: typ
@@ -444,7 +442,6 @@ END FUNCTION v_elev
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
            extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
-!DEC$ ATTRIBUTES DLLEXPORT :: register_dynamic_visualisation_metadata
 INTEGER                                  :: i
 INTEGER, INTENT(IN)                      :: jj
 CHARACTER(*), INTENT(IN)                 :: name, units, title, extra_dimensions
@@ -1148,27 +1145,41 @@ ENDDO
 
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'mask read'
 
-CALL MASK_WRITE('mask as read', 'T', 'F')
+CALL mask_write('mask as read', m%ma, 'T', 'F')
 
 DO j=m%jlow,m%jhigh
     DO i=m%ilow,m%ihigh
         m%ma(i,j) = m%ma(i,j) .AND. EXISTS(SU_NUMBER(i,j))  !effective mask
     ENDDO
 ENDDO
-CALL MASK_WRITE('effective mask', 'T', '.')
-
-CONTAINS
-
-    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
-    SUBROUTINE mask_write(txt, tr, fa)
-    CHARACTER(*), INTENT(IN) :: txt
-    CHARACTER, INTENT(IN) :: tr, fa
-    CHARACTER, DIMENSION(SIZE(m%ma,DIM=1),SIZE(m%ma,DIM=2)) :: cc
-    WRITE(vp_out,'(50X,A)') txt   
-    WHERE(m%ma) ; cc=tr ; ELSEWHERE ; cc = fa ; ENDWHERE
-    WRITE(vp_out, '(<SIZE(cc,DIM=1)>A)') cc
-    END SUBROUTINE mask_write
+CALL mask_write('effective mask', m%ma, 'T', '.')
 END SUBROUTINE read_mask
+
+!cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+SUBROUTINE mask_write(txt, ma, tr, fa)
+    CHARACTER(*), INTENT(IN) :: txt
+    LOGICAL, INTENT(IN)      :: ma(:,:)
+    CHARACTER(1), INTENT(IN) :: tr, fa
+
+    CHARACTER(1), ALLOCATABLE :: cc(:,:)
+    CHARACTER(20)             :: fmt_str
+
+    IF (SIZE(ma, 1) == 0 .OR. SIZE(ma, 2) == 0) RETURN
+
+    ALLOCATE(cc(SIZE(ma, 1), SIZE(ma, 2)))
+    WHERE(ma)
+        cc = tr
+    ELSEWHERE
+        cc = fa
+    END WHERE
+
+    WRITE(vp_out,'(50X,A)') txt
+    ! Dynamically build format string to replace Intel-specific <SIZE> extension
+    WRITE(fmt_str, '("(",I0,"A)")') SIZE(cc, 1)
+    WRITE(vp_out, fmt_str) cc
+
+    DEALLOCATE(cc)
+END SUBROUTINE mask_write
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS

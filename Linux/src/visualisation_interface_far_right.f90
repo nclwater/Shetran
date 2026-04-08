@@ -1,8 +1,7 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE VISUALISATION_INTERFACE_FAR_RIGHT
-USE VISUALISATION_METADATA,         ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, G_I=>GET_METADATA_I, &
-                                           G_I_F=>GET_METADATA_I_FIRST,                                     &
-                                           S_I=>SET_METADATA_I,                                           &
+USE VISUALISATION_METADATA,         ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, G_I=>GET_METADATA_I,   &
+                                           G_PTR=>GET_METADATA_PTR, S_PTR=>SET_METADATA_PTR,                &
                                            TIME_TO_RECORD,                                                &
                                            REGISTER_STATIC_VISUALISATION_METADATA,                        &
                                            REGISTER_DYNAMIC_VISUALISATION_METADATA
@@ -14,7 +13,7 @@ USE VISUALISATION_PASS,             ONLY : SEND_P
 IMPLICIT NONE
 
 PRIVATE
-PUBLIC :: G_C, G_L, G_I, S_I, G_I_F,                              &
+PUBLIC :: G_C, G_L, G_I, S_PTR, G_PTR,                            &
           TIME_TO_RECORD,                                         &
           REGISTER_STATIC_VISUALISATION_METADATA,                 &
           REGISTER_DYNAMIC_VISUALISATION_METADATA,                &
@@ -22,11 +21,4 @@ PUBLIC :: G_C, G_L, G_I, S_I, G_I_F,                              &
           SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP, &
           SEND_P
 
-!DEC ATTRIBUTES DLLEXPORT :: G_C, G_L, G_I, S_I
-!DEC ATTRIBUTES DLLEXPORT :: TIME_TO_RECORD
-!DEC ATTRIBUTES DLLEXPORT :: REGISTER_STATIC_VISUALISATION_METADATA
-!DEC ATTRIBUTES DLLEXPORT :: REGISTER_DYNAMIC_VISUALISATION_METADATA
-!DEC ATTRIBUTES DLLEXPORT :: FOR_NEW_TIME, SAVE_ITEMS_WORTH
-!DEC ATTRIBUTES DLLEXPORT :: SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP
-!DEC ATTRIBUTES DLLEXPORT :: SEND_P
 END MODULE VISUALISATION_INTERFACE_FAR_RIGHT

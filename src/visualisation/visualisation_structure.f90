@@ -1,6 +1,8 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_structure
-!DEC$ REAL:4
+
+USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
+
 !JE for SHEGRAPH Version 2.0 Created July 2004
 IMPLICIT NONE
 
@@ -80,7 +82,7 @@ TYPE(INTEGER_MIDDLE_AND_EDGES), PARAMETER :: &
         dfime                            = default_integer_middle_and_edges
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TYPE real_middle_and_edges !for middle of cell and edges
-sequence
+! sequence
 REAL :: m    = rundef, &  !middle
         b(4) = rundef, &  !bank N, E, S, W
         r(4) = rundef     !river N, E, S, W
@@ -132,7 +134,7 @@ END TYPE FS
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
 TYPE GS
 PRIVATE
-sequence
+! sequence
 REAL                                                     :: time=zero
 TYPE(REAL_MIDDLE_AND_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(GS), POINTER                                        :: previous=>NULL(), next=>NULL()
@@ -167,16 +169,6 @@ TYPE(NS), POINTER                                           :: previous=>NULL(),
 END TYPE NS
 
 
-INTEGER(INT_PTR_KIND())       :: llistend
-TYPE(BS), TARGET :: llistend_b ; POINTER(llistend, llistend_b)
-TYPE(ES), TARGET :: llistend_e ; POINTER(llistend, llistend_e)
-TYPE(FS), TARGET :: llistend_f ; POINTER(llistend, llistend_f)
-TYPE(GS), TARGET :: llistend_g ; POINTER(llistend, llistend_g)
-TYPE(IS), TARGET :: llistend_i ; POINTER(llistend, llistend_i)
-TYPE(LS), TARGET :: llistend_l ; POINTER(llistend, llistend_l)
-TYPE(MS), TARGET :: llistend_m ; POINTER(llistend, llistend_m)
-TYPE(NS), TARGET :: llistend_n ; POINTER(llistend, llistend_n)
-
 INTERFACE SAVE_ITEMS_WORTH ; MODULE PROCEDURE SAVE_ITEMS_WORTH_I, SAVE_ITEMS_WORTH_R ; ENDINTERFACE
 
 PRIVATE
@@ -188,54 +180,55 @@ CONTAINS
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 REAL FUNCTION get_hdf5_time(typ, first) RESULT(r)
-INTEGER(INT_PTR_KIND()), INTENT(IN)      :: first
-CHARACTER(*), INTENT(IN) :: typ
-TYPE(BS), POINTER        :: pb
-TYPE(ES), POINTER        :: pe
-TYPE(FS), POINTER        :: pf
-TYPE(GS), POINTER        :: pg
-TYPE(IS), POINTER        :: pi
-TYPE(LS), POINTER        :: pl
-TYPE(MS), POINTER        :: pm
-TYPE(NS), POINTER        :: pn
-llistend = first
+
+TYPE(C_PTR), INTENT(INOUT) :: first
+CHARACTER(*), INTENT(IN)   :: typ
+TYPE(BS), POINTER          :: pb
+TYPE(ES), POINTER          :: pe
+TYPE(FS), POINTER          :: pf
+TYPE(GS), POINTER          :: pg
+TYPE(IS), POINTER          :: pi
+TYPE(LS), POINTER          :: pl
+TYPE(MS), POINTER          :: pm
+TYPE(NS), POINTER          :: pn
+
 SELECT CASE(typ)
-CASE('BS') ; pb => llistend_b ; r = pb%time
-CASE('ES') ; pe => llistend_e ; r = pe%time
-CASE('FS') ; pf => llistend_f ; r = pf%time
-CASE('GS') ; pg => llistend_g ; r = pg%time
-CASE('IS') ; pi => llistend_i ; r = pf%time
-CASE('LS') ; pl => llistend_l ; r = pl%time
-CASE('MS') ; pm => llistend_m ; r = pm%time
-CASE('NS') ; pn => llistend_n ; r = pn%time
+    CASE('BS') ; CALL C_F_POINTER(first, pb) ; r = pb%time
+    CASE('ES') ; CALL C_F_POINTER(first, pe) ; r = pe%time
+    CASE('FS') ; CALL C_F_POINTER(first, pf) ; r = pf%time
+    CASE('GS') ; CALL C_F_POINTER(first, pg) ; r = pg%time
+    CASE('IS') ; CALL C_F_POINTER(first, pi) ; r = pi%time
+    CASE('LS') ; CALL C_F_POINTER(first, pl) ; r = pl%time
+    CASE('MS') ; CALL C_F_POINTER(first, pm) ; r = pm%time
+    CASE('NS') ; CALL C_F_POINTER(first, pn) ; r = pn%time
 END SELECT
 END FUNCTION get_hdf5_time
 
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-FUNCTION get_hdf5_i(typ, sz, szo, first, ilow, jlow, klow) RESULT(r)
+SUBROUTINE get_hdf5_i(typ, sz, szo, first, ilow, jlow, klow, r)
 INTEGER, INTENT(IN)                                     :: ilow, jlow, klow
-INTEGER(INT_PTR_KIND()), INTENT(INOUT)                                  :: first
+TYPE(C_PTR), INTENT(INOUT)                              :: first
 INTEGER, DIMENSION(6), INTENT(IN)                       :: sz, szo
-INTEGER, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)) :: r
+INTEGER, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)), INTENT(OUT) :: r
 CHARACTER(*), INTENT(IN)                                :: typ
 CALL GET_HDF5(typ, sz, szo, first, ilow, jlow, klow, rint=r)
-END FUNCTION get_hdf5_i
+END SUBROUTINE get_hdf5_i
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-FUNCTION get_hdf5_r(typ, sz, szo, first, ilow, jlow, klow) RESULT(r)
+SUBROUTINE get_hdf5_r(typ, sz, szo, first, ilow, jlow, klow, r)
 INTEGER, INTENT(IN)                                     :: ilow, jlow, klow
-INTEGER(INT_PTR_KIND()), INTENT(INOUT)                                  :: first
+TYPE(C_PTR), INTENT(INOUT)                              :: first
 INTEGER, DIMENSION(6), INTENT(IN)                       :: sz, szo
-REAL, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6))    :: r
+REAL, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)), INTENT(OUT)    :: r
 CHARACTER(*), INTENT(IN)                                :: typ
 CALL GET_HDF5(typ, sz, szo, first, ilow, jlow, klow, rreal=r)
-END FUNCTION get_hdf5_r
+END SUBROUTINE get_hdf5_r
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE get_hdf5(typ, sz, szo, first, ilow, jlow, klow, rint, rreal)
 INTEGER, INTENT(IN)                     :: ilow, jlow, klow
-INTEGER(INT_PTR_KIND()), INTENT(INOUT)               :: first
+TYPE(C_PTR), INTENT(INOUT)              :: first
 !INTEGER(INT_PTR_KIND())                 :: dum1, dum2, dum3
 INTEGER, DIMENSION(6), INTENT(IN)       :: sz, szo
 INTEGER                                 :: szii, szjj, szkk, szcc, szee, sztt, ii, jj, kk
@@ -267,56 +260,48 @@ szee = sz(szo(5)) ; d(szo(5))%a=>ee
 sztt = sz(szo(6)) ; d(szo(6))%a=>tt
 IF(PRESENT(rint)) THEN ; rint = 0 ; ELSEIF(PRESENT(rreal)) THEN ; rreal=zero ; ENDIF
 tt       = 1
-llistend = first
+
 SELECT CASE(TYP)
 CASE('BS')  !real banks
-    pb => llistend_b
+    CALL C_F_POINTER(first, pb)
     CALL MAIN_LOOP('BS')
-    IF(ASSOCIATED(pb%next)) THEN ; first = LOC(pb%next) ; ELSE ; first=0 ; ENDIF ; CALL DEALL_PB(pb)
+    IF(ASSOCIATED(pb%next)) THEN ; first = C_LOC(pb%next) ; ELSE ; first = C_NULL_PTR ; ENDIF
+    CALL DEALL_PB(pb)
 CASE('ES')  !integer banks
-    pe => llistend_e
+    CALL C_F_POINTER(first, pe)
     CALL MAIN_LOOP('ES')
-    IF(ASSOCIATED(pe%next)) THEN ; first = LOC(pe%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PE(pe)
+    IF(ASSOCIATED(pe%next)) THEN ; first = C_LOC(pe%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PE(pe)
 CASE('FS')  !integer rivers
-    pf => llistend_f
+    CALL C_F_POINTER(first, pf)
     CALL MAIN_LOOP('FS')
-    IF(ASSOCIATED(pf%next)) THEN ; first = LOC(pf%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PF(pf)
+    IF(ASSOCIATED(pf%next)) THEN ; first = C_LOC(pf%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PF(pf)
 CASE('GS')  !real middle and edges
-    !!!!!!!!!!!!IF(.NOT.ASSOCIATED(llistend_g%s)) then
-    !!!!!!!!!!!!    print*, 'failed LLLLLLLLLLLLLLL'
-    !!!!!!!!!!!!    stop
-    !!!!!!!!!!!!else
-    !!!!!!!!!!!!    print*, size(llistend_g%s,dim=1)
-    !!!!!!!!!!!!endif
-    !!!!!!!!!!!!fred => llistend_g
-    pg => llistend_g
-    !    dumpg=>pg
-    !dum1 = loc(pg)
-    !dum2 = loc(llistend_g)
-    !dum3 = loc(dumpg)
-    !print*, dum1, dum2, dum3
-    !!!!!!!!!!!!IF(.NOT.ASSOCIATED(pg%s)) then
-    !!!!!!!!!!!!    print*, 'failed HHHHHHHHHHHHHHH'
-    !!!!!!!!!!!!    stop
-    !!!!!!!!!!!!endif
+    CALL C_F_POINTER(first, pg)
     CALL MAIN_LOOP('GS')
-    IF(ASSOCIATED(pg%next)) THEN ; first = LOC(pg%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PG(pg)
+    IF(ASSOCIATED(pg%next)) THEN ; first = C_LOC(pg%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PG(pg)
 CASE('IS')  !integer middle
-    pi => llistend_i
+    CALL C_F_POINTER(first, pi)
     CALL MAIN_LOOP('IS')
-    IF(ASSOCIATED(pi%next)) THEN ; first = LOC(pi%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PI(pi)
+    IF(ASSOCIATED(pi%next)) THEN ; first = C_LOC(pi%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PI(pi)
 CASE('LS')  !real banks
-    pl => llistend_l
+    CALL C_F_POINTER(first, pl)
     CALL MAIN_LOOP('LS')
-    IF(ASSOCIATED(pl%next)) THEN ; first = LOC(pl%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PL(pl)
+    IF(ASSOCIATED(pl%next)) THEN ; first = C_LOC(pl%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PL(pl)
 CASE('MS')  !real middle
-    pm => llistend_m
+    CALL C_F_POINTER(first, pm)
     CALL MAIN_LOOP('MS')
-    IF(ASSOCIATED(pm%next)) THEN ; first = LOC(pm%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PM(pm)
+    IF(ASSOCIATED(pm%next)) THEN ; first = C_LOC(pm%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PM(pm)
 CASE('NS')  !integer middle and edges
-    pn => llistend_n
+    CALL C_F_POINTER(first, pn)
     CALL MAIN_LOOP('NS')
-    IF(ASSOCIATED(pn%next)) THEN ; first = LOC(pn%next) ;  ELSE ; first=0 ; ENDIF ; CALL DEALL_PN(pn)
+    IF(ASSOCIATED(pn%next)) THEN ; first = C_LOC(pn%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+    CALL DEALL_PN(pn)
 END SELECT
 
 
@@ -459,7 +444,7 @@ END FUNCTION get_mbr
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 INTEGER FUNCTION TIME_COUNT(typ, first) RESULT(r)
-INTEGER(INT_PTR_KIND()), INTENT(IN)      :: first
+TYPE(C_PTR), INTENT(INOUT) :: first
 CHARACTER(*), INTENT(IN) :: typ
 TYPE(BS), POINTER        :: pb
 TYPE(ES), POINTER        :: pe
@@ -470,16 +455,15 @@ TYPE(LS), POINTER        :: pl
 TYPE(MS), POINTER        :: pm
 TYPE(NS), POINTER        :: pn
 r = 1
-llistend = first
 SELECT CASE(typ)
-CASE('BS') ; pb => llistend_b ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pb => pb%next ; ENDDO
-CASE('ES') ; pe => llistend_e ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pe => pe%next ; ENDDO
-CASE('FS') ; pf => llistend_f ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pf => pf%next ; ENDDO
-CASE('GS') ; pg => llistend_g ; DO WHILE(ASSOCIATED(pg%next)) ; r=r+1 ; pg => pg%next ; ENDDO
-CASE('IS') ; pi => llistend_i ; DO WHILE(ASSOCIATED(pi%next)) ; r=r+1 ; pi => pi%next ; ENDDO
-CASE('LS') ; pl => llistend_l ; DO WHILE(ASSOCIATED(pl%next)) ; r=r+1 ; pl => pl%next ; ENDDO
-CASE('MS') ; pm => llistend_m ; DO WHILE(ASSOCIATED(pm%next)) ; r=r+1 ; pm => pm%next ; ENDDO
-CASE('NS') ; pn => llistend_n ; DO WHILE(ASSOCIATED(pn%next)) ; r=r+1 ; pn => pn%next ; ENDDO
+CASE('BS') ; CALL C_F_POINTER(first, pb) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pb => pb%next ; ENDDO
+CASE('ES') ; CALL C_F_POINTER(first, pe) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pe => pe%next ; ENDDO
+CASE('FS') ; CALL C_F_POINTER(first, pf) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pf => pf%next ; ENDDO
+CASE('GS') ; CALL C_F_POINTER(first, pg) ; DO WHILE(ASSOCIATED(pg%next)) ; r=r+1 ; pg => pg%next ; ENDDO
+CASE('IS') ; CALL C_F_POINTER(first, pi) ; DO WHILE(ASSOCIATED(pi%next)) ; r=r+1 ; pi => pi%next ; ENDDO
+CASE('LS') ; CALL C_F_POINTER(first, pl) ; DO WHILE(ASSOCIATED(pl%next)) ; r=r+1 ; pl => pl%next ; ENDDO
+CASE('MS') ; CALL C_F_POINTER(first, pm) ; DO WHILE(ASSOCIATED(pm%next)) ; r=r+1 ; pm => pm%next ; ENDDO
+CASE('NS') ; CALL C_F_POINTER(first, pn) ; DO WHILE(ASSOCIATED(pn%next)) ; r=r+1 ; pn => pn%next ; ENDDO
 END SELECT
 END FUNCTION TIME_COUNT
 
@@ -501,33 +485,39 @@ END FUNCTION mbr_count
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE save_items_worth_i(c, typ, a, b, klow, khigh, e, d, save_this, latest)
-!DEC$ ATTRIBUTES DLLEXPORT :: save_items_worth_i
 INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
-INTEGER(INT_PTR_KIND()), INTENT(IN)            :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
+TYPE(ES), POINTER                 :: ptr_e
+TYPE(FS), POINTER                 :: ptr_f
+TYPE(IS), POINTER                 :: ptr_i
+TYPE(NS), POINTER                 :: ptr_n
 INTEGER, DIMENSION(khigh-klow+1), INTENT(IN) :: save_this  !23/0108  CVF IVF incompatibility
 CHARACTER, INTENT(IN)             :: c
 CHARACTER(*), INTENT(IN)          :: typ
 SELECT CASE(typ)
-    CASE('ES') ; llistend=latest ; CALL SAVE_ES(llistend_e, a, b, klow, khigh, e, d, save_this, c)
-    CASE('FS') ; llistend=latest ; CALL SAVE_FS(llistend_f, a, b, klow, khigh, e, d, save_this, c)
-    CASE('IS') ; llistend=latest ; CALL SAVE_IS(llistend_i, a, b, klow, khigh, e, d, save_this, c)
-    CASE('NS') ; llistend=latest ; CALL SAVE_NS(llistend_n, a, b, klow, khigh, e, d, save_this, c)
+    CASE('ES') ; CALL C_F_POINTER(latest, ptr_e) ; CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this, c)
+    CASE('FS') ; CALL C_F_POINTER(latest, ptr_f) ; CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this, c)
+    CASE('IS') ; CALL C_F_POINTER(latest, ptr_i) ; CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, d, save_this, c)
+    CASE('NS') ; CALL C_F_POINTER(latest, ptr_n) ; CALL SAVE_NS(ptr_n, a, b, klow, khigh, e, d, save_this, c)
 END SELECT
 END SUBROUTINE save_items_worth_i
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE save_items_worth_r(c, typ, a, b, klow, khigh, e, d, save_this, latest)
-!DEC$ ATTRIBUTES DLLEXPORT :: save_items_worth_r
 INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
-INTEGER(INT_PTR_KIND()), INTENT(IN)         :: latest
+TYPE(C_PTR), INTENT(IN)           :: latest
+TYPE(BS), POINTER                 :: ptr_b
+TYPE(GS), POINTER                 :: ptr_g
+TYPE(LS), POINTER                 :: ptr_l
+TYPE(MS), POINTER                 :: ptr_m
 REAL, DIMENSION(khigh-klow+1), INTENT(IN) :: save_this
 CHARACTER, INTENT(IN)          :: c
 CHARACTER(*), INTENT(IN)       :: typ
 SELECT CASE(typ)
-    CASE('BS') ; llistend=latest ; CALL SAVE_BS(llistend_b, a, b, klow, khigh, e, d, save_this,c)
-    CASE('GS') ; llistend=latest ; CALL SAVE_GS(llistend_g, a, b, klow, khigh, e, d, save_this,c)
-    CASE('LS') ; llistend=latest ; CALL SAVE_LS(llistend_l, a, b, klow, khigh, e, d, save_this,c)
-    CASE('MS') ; llistend=latest ; CALL SAVE_MS(llistend_m, a, b, klow, khigh, e, d, save_this,c)
+    CASE('BS') ; CALL C_F_POINTER(latest, ptr_b) ; CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this,c)
+    CASE('GS') ; CALL C_F_POINTER(latest, ptr_g) ; CALL SAVE_GS(ptr_g, a, b, klow, khigh, e, d, save_this,c)
+    CASE('LS') ; CALL C_F_POINTER(latest, ptr_l) ; CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this,c)
+    CASE('MS') ; CALL C_F_POINTER(latest, ptr_m) ; CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, d, save_this,c)
 END SELECT
 END SUBROUTINE save_items_worth_r
 
@@ -607,9 +597,8 @@ END SUBROUTINE save_ns
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME(typ, time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-!DEC$ ATTRIBUTES DLLEXPORT :: FOR_NEW_TIME
 INTEGER, INTENT(IN)      :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT)   :: first, latest
+TYPE(C_PTR), INTENT(INOUT)   :: first, latest
 REAL, INTENT(IN)         :: time
 CHARACTER(*), INTENT(IN) :: typ
 SELECT CASE(typ)
@@ -626,154 +615,161 @@ END SUBROUTINE FOR_NEW_TIME
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    ::  ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(BS), POINTER      :: r
+TYPE(BS), POINTER      :: r, prev_node
 ALLOCATE(r)
 r%time =  time
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_real_edges
-IF(first==0) THEN
-    first = LOC(r)
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_b
-    llistend_b%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_BS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(ES), POINTER      :: r
+TYPE(ES), POINTER      :: r, prev_node
 ALLOCATE(r)
 r%time =  time
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_integer_edges
-IF(first==0) THEN
-    first = LOC(r)
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_e
-    llistend_e%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_ES
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_FS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(FS), POINTER      :: r
+TYPE(FS), POINTER      :: r, prev_node
+
 ALLOCATE(r)
 r%time =  time
+
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_integer_edges
-IF(first==0) THEN
-    first = LOC(r)
+
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_f
-    llistend_f%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_FS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
-REAL, INTENT(IN)       :: time
-TYPE(GS), POINTER      :: r
-ALLOCATE(r)
-r%time =  time
-ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
-r%s = default_real_middle_and_edges
-IF(first==0) THEN
-    first = LOC(r)
-ELSE
-    llistend        =  latest
-    r%previous      => llistend_g
-    llistend_g%next => r
-ENDIF
-latest = LOC(r)
+    INTEGER, INTENT(IN) :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
+    TYPE(C_PTR), INTENT(INOUT) :: first, latest
+    REAL, INTENT(IN) :: time
+    TYPE(GS), POINTER :: r, prev_node
+    
+    ALLOCATE(r)
+    r%time = time
+    
+    ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+    r%s = default_real_middle_and_edges
+    
+    IF (.NOT. C_ASSOCIATED(first)) THEN
+        first = C_LOC(r)
+    ELSE
+    ! Safely convert the 'latest' generic pointer back to a GS pointer
+        CALL C_F_POINTER(latest, prev_node)
+        r%previous => prev_node
+        prev_node%next => r
+    ENDIF
+    latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_GS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(IS), POINTER      :: r
+TYPE(IS), POINTER      :: r, prev_node
 ALLOCATE(r)
 r%time =  time
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_integer_middle
-IF(first==0) THEN
-    first = LOC(r)
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_i
-    llistend_i%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_IS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(LS), POINTER      :: r
+TYPE(LS), POINTER      :: r, prev_node
 ALLOCATE(r)
 r%time =  time
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_real_edges
-IF(first==0) THEN
-    first = LOC(r)
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_l
-    llistend_l%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_LS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(MS), POINTER      :: r
+TYPE(MS), POINTER      :: r, prev_node
 ALLOCATE(r)
 r%time =  time
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_real_middle
-IF(first==0) THEN
-    first = LOC(r)
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_m
-    llistend_m%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_MS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SUBROUTINE FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-INTEGER(INT_PTR_KIND()), INTENT(INOUT) :: first, latest
+TYPE(C_PTR), INTENT(INOUT) :: first, latest
 REAL, INTENT(IN)       :: time
-TYPE(NS), POINTER      :: r
+TYPE(NS), POINTER      :: r, prev_node
 ALLOCATE(r)
 r%time =  time
 ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
 r%s = default_integer_middle_and_edges
-IF(first==0) THEN
-    first = LOC(r)
+IF(.NOT. C_ASSOCIATED(first)) THEN
+    first = C_LOC(r)
 ELSE
-    llistend        =  latest
-    r%previous      => llistend_n
-    llistend_n%next => r
+    CALL c_f_pointer(latest, prev_node)
+    r%previous      => prev_node
+    prev_node%next => r
 ENDIF
-latest = LOC(r)
+latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_NS
 END MODULE visualisation_structure
 
