@@ -310,7 +310,7 @@ CONTAINS
 
 
 !FFFFFF FUNCTION fstr
-   FUNCTION fstr(jel,face) RESULT(r)
+   PURE FUNCTION fstr(jel,face) RESULT(r)
       INTEGER, INTENT(IN) :: jel, face
       DOUBLEPRECISION     :: r
 !mult = DBLE(MOD(face, 2))
@@ -324,7 +324,7 @@ CONTAINS
 
 
 !FFFFFF FUNCTION fdqq
-   FUNCTION fdqq(jel, face) RESULT(r)
+   PURE FUNCTION fdqq(jel, face) RESULT(r)
       INTEGER, INTENT(IN) :: jel, face
       DOUBLEPRECISION     :: r
 !mult = DBLE(MOD(face,2))
