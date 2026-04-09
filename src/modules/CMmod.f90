@@ -41,7 +41,7 @@ CONTAINS
 
 
 
-!----------------------------------------------------------------------*
+   !----------------------------------------------------------------------*
    !
    !  Read CM data input file
    !
@@ -495,21 +495,22 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE CMSIM (ISSDON)
+   !SSSSSS SUBROUTINE CMSIM (ISSDON)
    SUBROUTINE CMSIM (ISSDON)
-!----------------------------------------------------------------------*
-!                             ENTRY POINT TO THE CONTAMINANT COMPONENTS
-!                             WHEN UPDATING THE CONTAMINANT
-!                             CONCENTRATIONS FOR THE WHOLE CATCHMENT
-!                             FOR ONE TIME STEP
-!----------------------------------------------------------------------*
-! Version:  /SHETRAN/MUZ/CMSIM/4.1
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-! RAH  950322  4.0  New VSS: replace RSZWEL with QVSWEL.
-! RAH  970313  4.1  Explicit typing.
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !                             ENTRY POINT TO THE CONTAMINANT COMPONENTS
+   !                             WHEN UPDATING THE CONTAMINANT
+   !                             CONCENTRATIONS FOR THE WHOLE CATCHMENT
+   !                             FOR ONE TIME STEP
+   !----------------------------------------------------------------------*
+   ! Version:  /SHETRAN/MUZ/CMSIM/4.1
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+   ! RAH  950322  4.0  New VSS: replace RSZWEL with QVSWEL.
+   ! RAH  970313  4.1  Explicit typing.
+   !----------------------------------------------------------------------*
+   
+      ! Commons and constants
       USE SED_CS
       USE CONT_CC
       USE COLM_C1
@@ -517,98 +518,90 @@ CONTAINS
       USE COLM_CG
       USE LINK_CW
       USE PLANT_CC
-      USE SGLOBAL, ONLY       : uznow
-      USE AL_D, ONLY       : TA
-!                             INCLUDE THE PARAMETER STATEMENTS
-!                             AND THE WATER/CONTAMINANT INTERFACE
-!                             COMMON BLOCKS
-!
-! Input arguments
-      LOGICAL :: ISSDON
-!                             ANSWER TO: IS SEDIMENT CODE ACTIVE?
-!
-! Locals, etc
+      USE SGLOBAL, ONLY : uznow
+      USE AL_D, ONLY    : TA
 
+      IMPLICIT NONE
+
+      ! Input arguments
+      LOGICAL, INTENT(IN) :: ISSDON
+
+      ! Locals
       INTEGER :: NLINK, NDUM, NELM, NCONT, NCE
-!
-!----------------------------------------------------------------------*
-!
-      IF (.NOT.ISSDON) THEN
-         DO 100 NLINK = 1, NLF
-            IF (LINKNS (NLINK) ) THEN
-               QLINK (NLINK, 1) = - QOC (NLINK, 2)
-               QLINK (NLINK, 2) = QOC (NLINK, 4)
+      
+   !----------------------------------------------------------------------*
+
+   ! IF THE SEDIMENT CODE IS NOT RUNNING, SET UP FLOWS INTO LINKS
+      IF (.NOT. ISSDON) THEN
+         link_flow_loop: DO NLINK = 1, NLF
+            IF (LINKNS(NLINK)) THEN
+               QLINK(NLINK, 1) = -QOC(NLINK, 2)
+               QLINK(NLINK, 2) =  QOC(NLINK, 4)
             ELSE
-               QLINK (NLINK, 1) = - QOC (NLINK, 1)
-               QLINK (NLINK, 2) = QOC (NLINK, 3)
-            ENDIF
-100      END DO
+               QLINK(NLINK, 1) = -QOC(NLINK, 1)
+               QLINK(NLINK, 2) =  QOC(NLINK, 3)
+            END IF
+         END DO link_flow_loop
+      END IF
 
-
-
-      ENDIF
-!                             IF THE SEDIMENT CODE IS NOT RUNNING, SET
-!                             UP FLOWS INTO LINKS
-
+   ! SET NON-DIMENSIONED TIME STEP
       TSE = D0 * DTUZ / Z2SQ
-!                            SET NON-DIMENSIONED TIME STEP
 
-!SB 230925 call nitrate component
-      IF (ismn) then
-         CALL MNCONT(MND,MNFC,MNFN,MNPL,MNPR,MNOUT1,MNOUT2,MNOUTPL,NCETOP,NCON,NEL,NLF, &
-            NS,NV,NX,NY, &
-            ICMBK,ICMREF(1,5),ICMXY, &
-            NCOLMB,NLYR,NRD,NVC,NLYRBT,NTSOIL, &
-            D0,TIH,RHOPL,Z2, &
-            DELONE,DXQQ,DYQQ,VSPOR, &
-            DELTAZ,PLAI,RDF,ZVSNOD, &
-            BEXBK,LINKNS, &
-            DTUZ,UZNOW, &
-            CLAI,CCCC,PNETTO,SSSS,TA,VSPSI,VSTHE,VSTHEO, &
-            SSS1,SSS2 )
-      endif
+   ! SB 230925 call nitrate component
+      IF (ismn) THEN
+         ! Modern Fix: Replaced 'ICMREF(1,5)' with explicit array slice 'ICMREF(1:NEL, 5)' 
+         ! to prevent rank-mismatch and AD aliasing compiler crashes.
+         CALL MNCONT(MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, NCETOP, NCON, NEL, NLF, &
+                     NS, NV, NX, NY, &
+                     ICMBK, ICMREF(1:NEL, 5), ICMXY, &
+                     NCOLMB, NLYR, NRD, NVC, NLYRBT, NTSOIL, &
+                     D0, TIH, RHOPL, Z2, &
+                     DELONE, DXQQ, DYQQ, VSPOR, &
+                     DELTAZ, PLAI, RDF, ZVSNOD, &
+                     BEXBK, LINKNS, &
+                     DTUZ, uznow, &
+                     CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
+                     SSS1, SSS2)
+      END IF
 
-
+   ! Prepare for plant uptake calculations
       IF (ISPLT) CALL PLPREP
-!                            Prepare for plant uptake calculations
-      DO 1 NDUM = 1, NEL
-         NELM = ISORT (NDUM)
-         IF (NELM.GT.NLF) THEN
+
+   ! STEP THROUGH COLUMNS AND LINKS UPDATING THE CONCENTRATIONS IN THE
+   ! CATCHMENT ARRAYS CCCC AND SSSS
+      update_loop: DO NDUM = 1, NEL
+         NELM = ISORT(NDUM)
+         IF (NELM > NLF) THEN
             CALL COLMW (NELM)
             CALL COLMSM (NELM)
          ELSE
             CALL LINKW (NELM)
             CALL LINKSM (NELM)
-         ENDIF
+         END IF
+      END DO update_loop
 
+   ! SAVE THE NEW CONCENTRATIONS, FOR THE ENTIRE CATCHMENT, FOR USE AT THE NEXT TIME LEVEL
+   ! High-Performance Fix: Replaced inner 'DO 12/14 NCE' loops with vectorized array slices
+      contaminant_loop: DO NCONT = 1, NCON
+         
+         link_save_loop: DO NELM = 1, NLF
+            DO NCE = NCETOP - 2, NCETOP
+               CCCCO(NELM, NCE, NCONT) = CCCC(NELM, NCE, NCONT)
+            END DO
+         END DO link_save_loop
 
-1     END DO
-!                             STEP THROUGH COLUMNS AND LINKS
-!                             UPDATING THE CONCENTRATIONS IN THE
-!                             CATCHMENT ARRAYS CCCC AND SSSS
-      DO 10 NCONT = 1, NCON
-         DO 11 NELM = 1, NLF
-            DO 12 NCE = NCETOP - 2, NCETOP
-               CCCCO (NELM, NCE, NCONT) = CCCC (NELM, NCE, NCONT)
-12          END DO
+         column_save_loop: DO NELM = NLF + 1, NEL
+            ! Put here temporarily after introduction of irrigation
+            RSZWLO(NELM) = QVSWEL(NELM)
+            
+            DO NCE = NLYRBT(NELM, 1), NCETOP
+               CCCCO(NELM, NCE, NCONT) = CCCC(NELM, NCE, NCONT)
+               SSSSO(NELM, NCE, NCONT) = SSSS(NELM, NCE, NCONT)
+            END DO
+         END DO column_save_loop
+         
+      END DO contaminant_loop
 
-11       END DO
-         DO 13 NELM = NLF + 1, NEL
-!#######################################################################
-            RSZWLO (NELM) = QVSWEL (NELM)
-!                               put here temporarily after introduction
-!                                of irrigation
-!#######################################################################
-            DO 14 NCE = NLYRBT (NELM, 1), NCETOP
-               CCCCO (NELM, NCE, NCONT) = CCCC (NELM, NCE, NCONT)
-               SSSSO (NELM, NCE, NCONT) = SSSS (NELM, NCE, NCONT)
-14          END DO
-13       END DO
-
-10    END DO
-!                             SAVE THE NEW CONCENTRATIONS, FOR THE
-!                             ENTIRE CATCHMENT, FOR USE AT THE NEXT
-!                             TIME LEVEL
    END SUBROUTINE CMSIM
 
 
