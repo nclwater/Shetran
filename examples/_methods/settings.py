@@ -85,6 +85,7 @@ list_table_files_indicators = [
     "_discharge_sim_everytimestep.",
     "_discharge_sim_regulartimestep.",
     "_mb.water_table_depth.",
+    "_mb.txt",
 ]
 
 # Tolerances for comparisons

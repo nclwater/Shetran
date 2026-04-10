@@ -3900,7 +3900,8 @@ CONTAINS
          VSPETA(1:2, IS) = VSPSS(IS)
          VSPDTH(4, IS) = VSPDTH(5, IS)
          
-         VSPTHE(3:4, IS) = VSPOR(IS)
+         VSPTHE(4, IS) = VSPOR(IS)
+         VSPTHE(3, IS) = VSPTHE(4, IS) + VSPETA(4, IS) * (VSPPSI(3) - VSPPSI(4))
          VSPTHE(2, IS) = VSPTHE(3, IS) + VSPETA(3, IS) * (VSPPSI(2) - VSPPSI(3))
          VSPTHE(1, IS) = VSPTHE(2, IS) + VSPSS(IS) * (VSPPSI(1) - VSPPSI(2))
          
