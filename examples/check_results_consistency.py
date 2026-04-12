@@ -208,8 +208,10 @@ def do_comparison(
         # extract whether there were differences in any of the files
         res_model["any_differences"] = df["data_differs"].any()
 
-        # get maximum percentage metrics from table columns only
-        table_rows = df[(df["file_type"] == "table") & (df["data_item"] != "")]
+        # get maximum percentage metrics from table columns that actually differ
+        table_rows = df[(df["file_type"] == "table")
+                & (df["data_item"] != "")
+                & (df["data_differs"] == True)]
 
         if not table_rows.empty and table_rows["perc_max_difference"].notna(
         ).any():
