@@ -18,6 +18,7 @@ Shetran-4.4.7
 docs/ford/*
 *test_compute*
 *.xlsx
+scripts/*.csv
 
 # Sample compute specific stuff
 examples/*.csv
