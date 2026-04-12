@@ -265,11 +265,12 @@ CONTAINS
    !--------------------------------------------------------------------*
 
       ! Assumed module dependencies providing global allocatable arrays:
-      ! cahum, calit, caman, cdort, chum, chum1, clit, clit1, cman, cman1,
-      ! denit, dummy4, dummy6, edeth, emph, emt, enph, ent, gam, gamtmp,
-      ! imamm, imdiff, imnit, isimtf, kd1, kd2, khum, klit, kman, knit,
-      ! kvol, miner, naamm, namm, namm1, nanit, ndnit, ndsnt, nlit, nlit1,
-      ! nman, nman1, ntrf, plamm, plnit, plup, pphi, snit, temp, vol
+      ! USE MN_MODULE, ONLY : cahum, calit, caman, cdort, chum, chum1, clit, clit1, &
+      !                       cman, cman1, denit, dummy4, dummy6, edeth, emph, emt, &
+      !                       enph, ent, gam, gamtmp, imamm, imdiff, imnit, isimtf, &
+      !                       kd1, kd2, khum, klit, kman, knit, kvol, miner, naamm, &
+      !                       namm, namm1, nanit, ndnit, ndsnt, nlit, nlit1, nman, &
+      !                       nman1, ntrf, plamm, plnit, plup, pphi, snit, temp, vol
 
       IMPLICIT NONE
 
@@ -278,31 +279,29 @@ CONTAINS
       INTEGER, INTENT(IN) :: MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL
       INTEGER, INTENT(IN) :: NCETOP, NCON, NEL, NLF, NS, NV, NX, NY
       INTEGER, INTENT(IN) :: ICMBK(NLF, 2), ICMREF(NEL, 4, 2:2), ICMXY(NX, NY)
-      INTEGER, INTENT(IN) :: NCOLMB(NEL), NLYR(NEL)
-      INTEGER, INTENT(IN) :: NRD(NV), NVC(NEL)
       INTEGER, INTENT(IN) :: NLYRBT(NEL, *), NTSOIL(NEL, *)
       
       DOUBLE PRECISION, INTENT(IN) :: D0, TIH, RHOPL, Z2
-      DOUBLE PRECISION, INTENT(IN) :: DELONE(*)
-      DOUBLE PRECISION, INTENT(IN) :: DXQQ(NEL), DYQQ(NEL)
-      DOUBLE PRECISION, INTENT(IN) :: VSPOR(NS)
-      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(*), PLAI(NV)
-      DOUBLE PRECISION, INTENT(IN) :: RDF(NV, *), ZVSNOD(*)
-      
       LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLF)
       
       ! Varying
       DOUBLE PRECISION, INTENT(IN)    :: DTUZ, UZNOW
-      DOUBLE PRECISION, INTENT(IN)    :: CLAI(NV)
       DOUBLE PRECISION, INTENT(IN)    :: CCCC(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN)    :: PNETTO(NEL)
       DOUBLE PRECISION, INTENT(IN)    :: SSSS(NEL, NCETOP + 1)
       DOUBLE PRECISION, INTENT(IN)    :: VSPSI(NCETOP, NEL)
       DOUBLE PRECISION, INTENT(IN)    :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
 
-      ! --- In/Out arguments ---
-      ! Modified by temporary code, must be INOUT
-      DOUBLE PRECISION, INTENT(INOUT) :: TA(NV) 
+      ! --- In/Out arguments (Propagated up from MNMAIN / MNPLANT strict architectures) ---
+      INTEGER, INTENT(INOUT) :: NCOLMB(NEL), NLYR(NEL)
+      INTEGER, INTENT(INOUT) :: NRD(NV), NVC(NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: DELONE(*)
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NEL), DYQQ(NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(*), PLAI(NV)
+      DOUBLE PRECISION, INTENT(INOUT) :: RDF(NV, *), ZVSNOD(*)
+      DOUBLE PRECISION, INTENT(INOUT) :: CLAI(NV)
+      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: TA(NV) ! Modified by temporary code
 
       ! --- Output arguments ---
       DOUBLE PRECISION, INTENT(OUT)   :: SSS1(NEL, NCETOP + 1), SSS2(NEL, NCETOP + 1)
@@ -700,11 +699,14 @@ CONTAINS
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
       
-      INTEGER :: IUNDEF, NERR
+      ! Modernization Fix: Lock IUNDEF to prevent uninitialized memory passing
+      INTEGER, PARAMETER :: IUNDEF = 0
+      
+      INTEGER :: NERR
       INTEGER :: IDUMS(1), IDUMO(1)
       LOGICAL :: LDUM1(1)
 
-      ! Modernization Fix: Replaced implicitly-saved DATA blocks with proper PARAMETER arrays
+      ! Replaced implicitly-saved DATA blocks with proper PARAMETER arrays
       INTEGER, PARAMETER :: IZERO(1) = [0]
       INTEGER, PARAMETER :: IONE(1)  = [1]
 
@@ -712,9 +714,8 @@ CONTAINS
 
    ! 0. preliminaries
    ! ----------------
-   ! initialize local counter and undefined integer
+   ! initialize local counter
       NERR = 0
-      IUNDEF = 0
 
    ! 1. array sizes
    ! --------------
@@ -832,11 +833,11 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: D0, TIH, Z2
       LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
 
-      ! Input arguments passed to ALCHK/ALCHKI (Must omit INTENT(IN) to satisfy INOUT dummy arguments)
-      INTEGER :: NCOLMB(NELEE), NLYR(NELEE)
-      DOUBLE PRECISION :: DXQQ(NELEE), DYQQ(NELEE)
-      DOUBLE PRECISION :: VSPOR(NS)
-      DOUBLE PRECISION :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
+      ! Input/Output Arrays (Tested by ALCHK/ALCHKI; subject to internal data reset)
+      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE), NLYR(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE), DYQQ(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
 
       ! Workspace arguments (INTENT(INOUT) as they are used for scratch space)
       INTEGER, INTENT(INOUT) :: DUMMY2(NLYREE, NELEE), DUMMY3(NLYREE)
@@ -846,24 +847,24 @@ CONTAINS
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
       INTEGER :: BANK, BOTLYR, COUNT, FACE
-      INTEGER :: IADJ, ICOL1, IEL, IUNDEF, IX, IY
+      INTEGER :: IADJ, ICOL1, IEL, IX, IY
       INTEGER :: LINK, NCE, NCEBOT, NCOL, NELP
       INTEGER :: NERR, NLAYER, TOPLYR
       INTEGER :: IDUM1(2)
       DOUBLE PRECISION :: DUMS(1)
       LOGICAL :: BKXYOK
 
-      ! Modernization Fix: Separate Array parameters (for OBJ) and Scalar parameters (for TOL)
+      ! Modernization Fix: Strict array/scalar parameters for shape matching in ALCHK
       INTEGER, PARAMETER :: IZERO_ARR(1) = [0], IONE_ARR(1) = [1]
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
+      INTEGER, PARAMETER :: IUNDEF = 0
 
    !-------------------------------------------------------------------*
 
    ! 0. preliminaries
    ! ----------------
       NERR = 0
-      IUNDEF = 0
       ICOL1 = NLF + 1
       NELP  = NEL + 1
 
@@ -881,7 +882,6 @@ CONTAINS
          IDUM1X(IEL) = 0
       END DO
 
-      ! count active grid elements and mark them
       DO IY = 1, NY
          DO IX = 1, NX
             IEL = MAX(0, MIN(ICMXY(IX, IY), NELP))
@@ -890,7 +890,6 @@ CONTAINS
          END DO
       END DO
 
-      ! similarly for bank elements (if present all must be active)
       IF (BEXBK .AND. NLF > 0) THEN
          NCOL = NCOL + 2 * NLF
          DO BANK = 1, 2
@@ -901,11 +900,9 @@ CONTAINS
          END DO
       END IF
 
-      ! watch out for gate-crashers
       IDUM1(1)  = NEL - NLF
       IDUM1X(0) = NCOL
       
-      ! ALCHKI does not take a TOL argument
       CALL ALCHKI(ERR, 2075, MNPR, 1, 1, IUNDEF, IUNDEF, '#_column_elements', 'EQ', IDUM1, IDUM1X(0:0), NERR, LDUM)
       CALL ALCHKI(ERR, 2076, MNPR, 1, NEL, IUNDEF, IUNDEF, 'element_count(iel)', 'EQ', IONE_ARR, IDUM1X(1:NEL), NERR, LDUM)
       
@@ -954,11 +951,13 @@ CONTAINS
       DUMS(1) = Z2
       CALL ALCHK(ERR, 3036, MNPR, 1, 1, IUNDEF, IUNDEF, 'z2', 'GT', ZERO_ARR, ZERO_VAL, DUMS, NERR, LDUM)
 
+
    ! 3. soil properties
    ! ------------------
    ! vspor
       CALL ALCHK(ERR, 3037, MNPR, 1, NS, IUNDEF, IUNDEF, 'vspor(soil)', 'LE', ONE_ARR, ZERO_VAL, VSPOR, NERR, LDUM)
       CALL ALCHK(ERR, 3037, MNPR, 1, NS, IUNDEF, IUNDEF, 'vspor(soil)', 'GT', ZERO_ARR, ZERO_VAL, VSPOR, NERR, LDUM)
+
 
    ! 4. column properties
    ! --------------------
@@ -993,7 +992,8 @@ CONTAINS
             CALL ALCHKI(ERR, 3042, MNPR, BOTLYR, TOPLYR + 1, IEL, IUNDEF, 'nlyrbt[nlyr,iel]', 'GTa', DUMMY3(BOTLYR:TOPLYR+1), &
                         DUMMY2(BOTLYR:TOPLYR+1, IEL), NERR, LDUM2)
                         
-            CALL ALCHKI(ERR, 3042, MNPR, TOPLYR, TOPLYR, IEL, IUNDEF, 'nlyrbt[toplyr,iel]', 'EQ', [NCETOP + 1], DUMMY2(TOPLYR+1:TOPLYR+1, IEL), NERR, LDUM2)
+            IDUM1(1) = NCETOP + 1
+            CALL ALCHKI(ERR, 3042, MNPR, TOPLYR, TOPLYR, IEL, IUNDEF, 'nlyrbt[toplyr,iel]', 'EQ', IDUM1(1:1), DUMMY2(TOPLYR+1:TOPLYR+1, IEL), NERR, LDUM2)
          END DO
       END IF
 
@@ -1031,7 +1031,6 @@ CONTAINS
       DO IEL = ICOL1, NEL
          DO NCE = NCOLMB(IEL), NCETOP - 1
             DUMS(1) = ZVSNOD(NCE, IEL)
-            ! Modernization Fix: Uses temporary DUMMY4 block instead of directly passing read-only ZVSNOD to INOUT
             DUMMY4(NCE+1, IEL) = ZVSNOD(NCE+1, IEL)
             CALL ALCHK(ERR, 3045, MNPR, NCE + 1, NCE + 1, IEL, IUNDEF, 'zvsnod', 'GT', DUMS(1:1), ZERO_VAL, DUMMY4(NCE+1:NCE+1, IEL), NERR, LDUM2)
          END DO
@@ -1042,6 +1041,7 @@ CONTAINS
    ! tih
       DUMS(1) = TIH
       CALL ALCHK(ERR, 3046, MNPR, 1, 1, IUNDEF, IUNDEF, 'tih', 'GE', ZERO_ARR, ZERO_VAL, DUMS, NERR, LDUM)
+
 
    ! 6. epilogue
    ! -----------
@@ -1086,47 +1086,47 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: MNCREF, NITDDR, NITWDR, Q10M, Q10N
       LOGICAL, INTENT(IN) :: ISICCD, ISIAMD
       
-      ! Arguments tested by ALCHK/ALCHKI (Must omit INTENT(IN) to satisfy INOUT dummy arguments)
-      INTEGER :: CELEM(NLF+1:NEL), KD1ELM(NLF+1:NEL), KD2ELM(NLF+1:NEL)
-      INTEGER :: KHELEM(NLF+1:NEL), KLELEM(NLF+1:NEL), KMELEM(NLF+1:NEL)
-      INTEGER :: KNELEM(NLF+1:NEL), KVELEM(NLF+1:NEL)
-      INTEGER :: NAELEM(NLF+1:NEL)
-      DOUBLE PRECISION :: CCONC(NMNEEE,NMNTEE), CDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: CTOTTP(NLF+1:NEL), DAMHLF(NLF+1:NEL)
-      DOUBLE PRECISION :: DCHLF(NLF+1:NEL)
-      DOUBLE PRECISION :: KD1CNC(NMNEEE,NMNTEE), KD1DTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: KD2CNC(NMNEEE,NMNTEE), KD2DTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: KDDSOL(NS)
-      DOUBLE PRECISION :: KHCONC(NMNEEE,NMNTEE), KHDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: KLCONC(NMNEEE,NMNTEE), KLDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: KMCONC(NMNEEE,NMNTEE), KMDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: KNCONC(NMNEEE,NMNTEE), KNDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: KVCONC(NMNEEE,NMNTEE), KVDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: NACONC(NMNEEE,NMNTEE), NADPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION :: NAMTOP(NLF+1:NEL)
+      ! Arguments tested by ALCHK/ALCHKI (Strict INTENT(INOUT) to satisfy dummy arguments)
+      INTEGER, INTENT(INOUT) :: CELEM(NLF+1:NEL), KD1ELM(NLF+1:NEL), KD2ELM(NLF+1:NEL)
+      INTEGER, INTENT(INOUT) :: KHELEM(NLF+1:NEL), KLELEM(NLF+1:NEL), KMELEM(NLF+1:NEL)
+      INTEGER, INTENT(INOUT) :: KNELEM(NLF+1:NEL), KVELEM(NLF+1:NEL)
+      INTEGER, INTENT(INOUT) :: NAELEM(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: CCONC(NMNEEE,NMNTEE), CDPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: CTOTTP(NLF+1:NEL), DAMHLF(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: DCHLF(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: KD1CNC(NMNEEE,NMNTEE), KD1DTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: KD2CNC(NMNEEE,NMNTEE), KD2DTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: KDDSOL(NS)
+      DOUBLE PRECISION, INTENT(INOUT) :: KHCONC(NMNEEE,NMNTEE), KHDPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: KLCONC(NMNEEE,NMNTEE), KLDPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: KMCONC(NMNEEE,NMNTEE), KMDPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: KNCONC(NMNEEE,NMNTEE), KNDPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: KVCONC(NMNEEE,NMNTEE), KVDPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: NACONC(NMNEEE,NMNTEE), NADPTH(NMNEEE,NMNTEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: NAMTOP(NLF+1:NEL)
       
       ! Workspace arguments
       LOGICAL, INTENT(INOUT) :: LDUM(NELEE)
       
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2, WARN = 3
-      INTEGER :: ICOL1, IUNDEF, NELMTY, NERR, NTAB
+      INTEGER :: ICOL1, NELMTY, NERR, NTAB
       
       ! Safe scalar passing arrays
       INTEGER :: IDUMS(1), IDUMO(1)
       DOUBLE PRECISION :: PREVDP_ARR(1), DUMS_ARR(1)
       
-      ! Modernization Fix: Separate Array parameters (for OBJ) and Scalar parameters (for TOL)
+      ! Modernization Fix: Strict parameter shapes and locked IUNDEF
       INTEGER, PARAMETER :: IZERO_ARR(1) = [0]
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
+      INTEGER, PARAMETER :: IUNDEF = 0
 
    !-------------------------------------------------------------------*
 
    ! 0. preliminaries
    ! ----------------
       NERR = 0
-      IUNDEF = 0
       ICOL1 = NLF + 1
 
    ! 1. spatially constant decomposition parameters
@@ -1197,12 +1197,12 @@ CONTAINS
          END DO
       END IF
 
-   !   * carbon litter fraction and carbon/nitrogen ratio
-   !   clitfr
+   !  * carbon litter fraction and carbon/nitrogen ratio
+   !  clitfr
       DUMS_ARR(1) = CLITFR
       CALL ALCHK(ERR, 3062, MNPR, 1, 1, IUNDEF, IUNDEF, 'clitfr', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
       CALL ALCHK(ERR, 3062, MNPR, 1, 1, IUNDEF, IUNDEF, 'clitfr', 'LE', ONE_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
-   !   cnrlit
+   !  cnrlit
       DUMS_ARR(1) = CNRLIT
       CALL ALCHK(ERR, 3063, MNPR, 1, 1, IUNDEF, IUNDEF, 'cnrlit', 'GT', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
@@ -1393,15 +1393,15 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)
       DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
 
-      ! Arguments tested directly by ALCHK (Must omit INTENT(IN))
-      DOUBLE PRECISION :: PNETTO(NELEE)
+      ! Arguments tested directly by ALCHK (Must be INTENT(INOUT) to satisfy dummy arguments)
+      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NELEE)
 
       ! Workspace arguments (INTENT(INOUT) because they act as scratch space)
       LOGICAL, INTENT(INOUT) :: LDUM(NELEE), LDUM2(LLEE)
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
-      INTEGER :: ICOL1, IEL, IUNDEF, NCEBOT, NERR, NCE
+      INTEGER :: ICOL1, IEL, NCEBOT, NERR, NCE
       DOUBLE PRECISION :: DUMMY4(NCETOP, NEL)
       DOUBLE PRECISION :: DUMS_ARR(1)
 
@@ -1409,16 +1409,16 @@ CONTAINS
       INTEGER, SAVE :: PASS = 0
       DOUBLE PRECISION, SAVE :: UZPREV(1) = [0.0D0]
 
-      ! Modernization Fix: Separate Array parameters (for OBJ) and Scalar parameters (for TOL)
+      ! Modernization Fix: Strict parameter shapes and locked IUNDEF
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0], THIRTY_ARR(1) = [30.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
+      INTEGER, PARAMETER :: IUNDEF = 0
 
    !-------------------------------------------------------------------*
 
    ! 0. preliminaries
    ! ----------------
       NERR = 0
-      IUNDEF = 0
       ICOL1 = NLF + 1
       PASS = PASS + 1
 
@@ -1593,8 +1593,8 @@ CONTAINS
 
 
    !SSSSSS SUBROUTINE MNERR4
-   SUBROUTINE MNERR4 (MNPR, NEL, NELEE, NLF, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, &
-                      DUMMY, LDUM)
+   SUBROUTINE MNERR4(MNPR, NEL, NELEE, NLF, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, &
+                     DUMMY, LDUM)
    !--------------------------------------------------------------------*
    !
    !  checks time varying dependent data read in mnred2
@@ -1612,12 +1612,12 @@ CONTAINS
       INTEGER, INTENT(IN) :: MNPR, NEL, NELEE, NLF
       LOGICAL, INTENT(IN) :: ISADDC, ISADDN
 
-      ! Arguments tested directly by ALCHK (Must omit INTENT(IN) to satisfy INOUT dummy arguments)
-      DOUBLE PRECISION :: CDPTHB(NLF+1:NEL), CLTFCT(NLF+1:NEL)
-      DOUBLE PRECISION :: CMNFCT(NLF+1:NEL), CNRAL(NLF+1:NEL)
-      DOUBLE PRECISION :: CNRAM(NLF+1:NEL), CTOT(NLF+1:NEL)
-      DOUBLE PRECISION :: NAMFCT(NLF+1:NEL), NDPTHB(NLF+1:NEL)
-      DOUBLE PRECISION :: NTOT(NLF+1:NEL)
+      ! Arguments tested directly by ALCHK (Must be INTENT(INOUT) to satisfy dummy arguments)
+      DOUBLE PRECISION, INTENT(INOUT) :: CDPTHB(NLF+1:NEL), CLTFCT(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: CMNFCT(NLF+1:NEL), CNRAL(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: CNRAM(NLF+1:NEL), CTOT(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: NAMFCT(NLF+1:NEL), NDPTHB(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: NTOT(NLF+1:NEL)
 
       ! Workspace arguments (INTENT(INOUT) because they act as scratch space)
       DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)
@@ -1625,11 +1625,12 @@ CONTAINS
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
-      INTEGER :: ICOL1, IEL, IUNDEF, NERR
+      INTEGER :: ICOL1, IEL, NERR
       
       ! Modernization Fix: Separate Array parameters (for OBJ) and Scalar parameters (for TOL)
       DOUBLE PRECISION, PARAMETER :: ONE_ARR(1) = [1.0D0], ZERO_ARR(1) = [0.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
+      INTEGER, PARAMETER :: IUNDEF = 0
 
    !-------------------------------------------------------------------*
 
@@ -1637,7 +1638,6 @@ CONTAINS
    ! ----------------
    
       NERR = 0
-      IUNDEF = 0
       ICOL1 = NLF + 1
 
    ! 1. inorganic fertilizer
@@ -2485,21 +2485,23 @@ CONTAINS
       INTEGER, INTENT(IN) :: MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2
       INTEGER, INTENT(IN) :: NCETOP, NCON, NEL, NLF, NS, NV, NX, NY
       INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
-      INTEGER, INTENT(IN) :: NCOLMB(NELEE), NLYR(NELEE)
       INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE), NTSOIL(NEL, NLYREE)
       DOUBLE PRECISION, INTENT(IN) :: D0, TIH, Z2
-      DOUBLE PRECISION, INTENT(IN) :: DXQQ(NELEE), DYQQ(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: VSPOR(NS)
-      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
       LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
       
       ! * varying
       DOUBLE PRECISION, INTENT(IN) :: DTUZ, UZNOW
       DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NELEE)
       DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)
       DOUBLE PRECISION, INTENT(IN) :: TA(NV), VSPSI(NCETOP, NEL)
       DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
+
+      ! Input/Output arguments (Propagated up from MNERR1, MNERR3 requirements)
+      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE), NLYR(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE), DYQQ(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NELEE)
 
       ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP + 1), SSS2(NEL, NCETOP + 1)
@@ -2547,7 +2549,7 @@ CONTAINS
       DOUBLE PRECISION :: KVCONC(NMNEEE, NMNTEE), KVDPTH(NMNEEE, NMNTEE)
       DOUBLE PRECISION :: NACONC(NMNEEE, NMNTEE), NADPTH(NMNEEE, NMNTEE)
       DOUBLE PRECISION :: DUMMY(NELEE)
-
+      
       LOGICAL :: ISADDC, ISADDN, ISICCD, ISIAMD
       LOGICAL :: LDUM(NELEE), LDUM2(LLEE)
 
