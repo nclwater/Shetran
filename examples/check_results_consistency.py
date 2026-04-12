@@ -31,6 +31,130 @@ def _get_all_models() -> list[str]:
                       settings.list_long_running))
 
 
+def _build_comparison_results_rows(res_files: dict) -> list[dict]:
+    rows = []
+    for filename, file_res in res_files.items():
+        file_type = file_res.get("file_type")
+        status = file_res.get("status")
+        files_different = file_res.get("files_different")
+        if status == "missing":
+            files_different = True
+        same_row_count = file_res.get("same_row_count")
+
+        if file_type == "table":
+            col_metrics = file_res.get("table_column_metrics", [])
+            if col_metrics:
+                for col_res in col_metrics:
+                    rows.append({
+                        "file":
+                        filename,
+                        "data_item":
+                        col_res.get("col_name"),
+                        "file_type":
+                        file_type,
+                        "data_differs":
+                        col_res.get("data_differs", files_different),
+                        "same_row_count":
+                        same_row_count,
+                        "abs_max_difference":
+                        col_res.get("abs_max_difference"),
+                        "perc_max_difference":
+                        col_res.get("perc_max_difference"),
+                        "abs_mean_difference":
+                        col_res.get("abs_mean_difference"),
+                        "perc_mean_difference":
+                        col_res.get("perc_mean_difference"),
+                        "MSE":
+                        col_res.get("MSE"),
+                        "MAE":
+                        col_res.get("MAE"),
+                        "MAPE":
+                        col_res.get("MAPE"),
+                        "NSE":
+                        col_res.get("NSE"),
+                        "R²":
+                        col_res.get("R²"),
+                    })
+            else:
+                rows.append({
+                    "file": filename,
+                    "data_item": "",
+                    "file_type": file_type,
+                    "data_differs": files_different,
+                    "same_row_count": same_row_count,
+                    "abs_max_difference": pd.NA,
+                    "perc_max_difference": pd.NA,
+                    "abs_mean_difference": pd.NA,
+                    "perc_mean_difference": pd.NA,
+                    "MSE": pd.NA,
+                    "MAE": pd.NA,
+                    "MAPE": pd.NA,
+                    "NSE": pd.NA,
+                    "R²": pd.NA,
+                })
+        elif file_type == "hdf5":
+            dataset_metrics = file_res.get("hdf5_dataset_metrics", [])
+            if dataset_metrics:
+                for dataset_res in dataset_metrics:
+                    rows.append({
+                        "file": filename,
+                        "data_item": dataset_res.get("data_item", ""),
+                        "file_type": file_type,
+                        "data_differs": dataset_res.get(
+                            "data_differs", files_different),
+                        "same_row_count": dataset_res.get("same_row_count"),
+                        "abs_max_difference": dataset_res.get(
+                            "abs_max_difference"),
+                        "perc_max_difference": dataset_res.get(
+                            "perc_max_difference"),
+                        "abs_mean_difference": dataset_res.get(
+                            "abs_mean_difference"),
+                        "perc_mean_difference": dataset_res.get(
+                            "perc_mean_difference"),
+                        "MSE": dataset_res.get("MSE"),
+                        "MAE": dataset_res.get("MAE"),
+                        "MAPE": dataset_res.get("MAPE"),
+                        "NSE": dataset_res.get("NSE"),
+                        "R²": dataset_res.get("R²"),
+                    })
+            else:
+                rows.append({
+                    "file": filename,
+                    "data_item": "",
+                    "file_type": file_type,
+                    "data_differs": files_different,
+                    "same_row_count": same_row_count,
+                    "abs_max_difference": pd.NA,
+                    "perc_max_difference": pd.NA,
+                    "abs_mean_difference": pd.NA,
+                    "perc_mean_difference": pd.NA,
+                    "MSE": pd.NA,
+                    "MAE": pd.NA,
+                    "MAPE": pd.NA,
+                    "NSE": pd.NA,
+                    "R²": pd.NA,
+                })
+        else:
+            rows.append({
+                "file": filename,
+                "data_item": "",
+                "file_type": file_type,
+                "data_differs": files_different,
+                "same_row_count": same_row_count,
+                "abs_max_difference": pd.NA,
+                "perc_max_difference": pd.NA,
+                "abs_mean_difference": pd.NA,
+                "perc_mean_difference": pd.NA,
+                "MSE": pd.NA,
+                "MAE": pd.NA,
+                "MAPE": pd.NA,
+                "NSE": pd.NA,
+                "R²": pd.NA,
+            })
+
+    return rows
+
+
 def do_comparison(
     dir_main: str,
     fn_shetran: str,
@@ -74,33 +198,44 @@ def do_comparison(
         differing_files_str = ";".join(differing_files)
         too_large_files_str = ";".join(too_large_files)
 
-        # aggregate the results
-        df = pd.DataFrame.from_dict(res_files, orient="index")
-
-        # remove non-useful columns for the overview
-        df.to_csv(os.path.join(dir_main, "comparison_results.csv"))
+        # aggregate the results in a row-based format for easier filtering and
+        # post-processing (one row per file/column for table files).
+        comparison_rows = _build_comparison_results_rows(res_files)
+        df = pd.DataFrame(comparison_rows)
+        df.to_csv(os.path.join(dir_main, "comparison_results.csv"),
+                  index=False)
 
         # extract whether there were differences in any of the files
-        res_model["any_differences"] = df["files_different"].any()
+        res_model["any_differences"] = df["data_differs"].any()
 
         # get maximum percentage metrics from table columns only
-        diff_cols_max = df.filter(regex="^perc_diff_max_col_").max()
-        diff_cols_mean = df.filter(regex="^perc_diff_mean_col_").max()
-        diff_cols_sum_abs = df.filter(regex="^perc_diff_sum_abs_col_").max()
+        table_rows = df[(df["file_type"] == "table") & (df["data_item"] != "")]
 
-        res_model["max_perc_diff_any"] = diff_cols_max.max()
-        res_model["max_perc_diff_col"] = (diff_cols_max.idxmax() if pd.notna(
-            diff_cols_max.max()) else None)
+        if not table_rows.empty and table_rows["perc_max_difference"].notna(
+        ).any():
+            idx_max = table_rows["perc_max_difference"].idxmax()
+            res_model["max_perc_diff_any"] = table_rows.loc[
+                idx_max, "perc_max_difference"]
+            res_model["max_perc_diff_col"] = table_rows.loc[idx_max,
+                                                            "data_item"]
+        else:
+            res_model["max_perc_diff_any"] = None
+            res_model["max_perc_diff_col"] = None
 
-        res_model["max_perc_diff_mean_any"] = diff_cols_mean.max()
-        res_model["max_perc_diff_mean_col"] = (diff_cols_mean.idxmax() if
-                                               pd.notna(diff_cols_mean.max())
-                                               else None)
+        if not table_rows.empty and table_rows["perc_mean_difference"].notna(
+        ).any():
+            idx_mean_max = table_rows["perc_mean_difference"].idxmax()
+            res_model["max_perc_diff_mean_any"] = table_rows.loc[
+                idx_mean_max, "perc_mean_difference"]
+            res_model["max_perc_diff_mean_col"] = table_rows.loc[idx_mean_max,
+                                                                 "data_item"]
+        else:
+            res_model["max_perc_diff_mean_any"] = None
+            res_model["max_perc_diff_mean_col"] = None
 
-        res_model["max_perc_diff_sum_abs_any"] = diff_cols_sum_abs.max()
-        res_model["max_perc_diff_sum_abs_col"] = (
-            diff_cols_sum_abs.idxmax()
-            if pd.notna(diff_cols_sum_abs.max()) else None)
+        # No sum-abs percentage metric is exported anymore in the per-column output.
+        res_model["max_perc_diff_sum_abs_any"] = None
+        res_model["max_perc_diff_sum_abs_col"] = None
 
         # add the file-information columns to the overview metrics
         res_model["num_files_with_different_contents"] = len(differing_files)
