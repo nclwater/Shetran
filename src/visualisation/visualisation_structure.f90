@@ -24,51 +24,32 @@ MODULE visualisation_structure
    END TYPE aord
 
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-   TYPE CYPHER
-      CHARACTER      :: nemonic
-      CHARACTER(CSZ) :: typ
-   END TYPE CYPHER
-   TYPE(CYPHER), PARAMETER :: cyph(no_types)=        &
-      (/cypher('B', 'real_banks'),                &
-      cypher('E', 'integer_banks'),             &
-      cypher('F', 'integer_rivers'),            &
-      cypher('G', 'real_middle_and_edges'),     &
-      cypher('I', 'integer_middle'),            &
-      cypher('L', 'real_rivers'),               &
-      cypher('M', 'real_middle'),               &
-      cypher('N', 'integer_middle_and_edges')/)
-
 !EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE integer_edges !for middle of cell and edges
       INTEGER :: e(4) = iundef    !edge N, E, S, W
    END TYPE integer_edges
    TYPE(INTEGER_EDGES), PARAMETER :: &
-      default_integer_edges = INTEGER_EDGES(defi4), &
-      dfie                  = default_integer_edges
+      default_integer_edges = INTEGER_EDGES(defi4)
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE real_edges !for middle of cell and edges
       REAL :: e(4) = rundef  !edges N, E, S, W
    END TYPE real_edges
    TYPE(REAL_EDGES), PARAMETER :: &
-      default_real_edges = REAL_EDGES(defr4), &
-      dfre               = default_real_edges
+      default_real_edges = REAL_EDGES(defr4)
 !MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE integer_middle !for middle of cell
       INTEGER :: m = rundef  !middle
    END TYPE integer_middle
    TYPE(INTEGER_MIDDLE), PARAMETER :: &
-      default_integer_middle = INTEGER_MIDDLE(r_not_exist), &
-      dfim                   = default_integer_middle
+      default_integer_middle = INTEGER_MIDDLE(r_not_exist)
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE real_middle !for middle of cell
       REAL :: m    = rundef  !middle
    END TYPE real_middle
    TYPE(REAL_MIDDLE), PARAMETER :: &
-      default_real_middle = REAL_MIDDLE(r_not_exist), &
-      dfrm                = default_real_middle
+      default_real_middle = REAL_MIDDLE(r_not_exist)
 !MIDDLE AND EDGES MIDDLE AND EDGES MIDDLE AND EDGES MIDDLE AND EDGES MIDDLE AND EDGES
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE integer_middle_and_edges !for middle of cell and edges
@@ -78,8 +59,7 @@ MODULE visualisation_structure
          r(4) = iundef     !river N, E, S, W
    END TYPE integer_middle_and_edges
    TYPE(INTEGER_MIDDLE_AND_EDGES), PARAMETER :: &
-      default_integer_middle_and_edges = INTEGER_MIDDLE_AND_EDGES(i_not_exist, defi4, defi4), &
-      dfime                            = default_integer_middle_and_edges
+      default_integer_middle_and_edges = INTEGER_MIDDLE_AND_EDGES(i_not_exist, defi4, defi4)
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE real_middle_and_edges !for middle of cell and edges
 ! sequence
@@ -88,26 +68,7 @@ MODULE visualisation_structure
          r(4) = rundef     !river N, E, S, W
    END TYPE real_middle_and_edges
    TYPE(REAL_MIDDLE_AND_EDGES), PARAMETER :: &
-      default_real_middle_and_edges = REAL_MIDDLE_AND_EDGES(r_not_exist, defr4, defr4), &
-      dfrme                         = default_real_middle_and_edges
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-   TYPE integer_radial !for middle of cell and edges
-      INTEGER :: m(4) = iundef, &  !middle
-         b(4) = iundef, &  !bank N, E, S, W
-         r(4) = iundef     !river N, E, S, W
-   END TYPE integer_radial
-   TYPE(INTEGER_RADIAL), PARAMETER :: &
-      default_integer_radial = INTEGER_RADIAL(i_not_exist, defi4, defi4), &
-      dfir                  = default_integer_radial
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-   TYPE real_radial !for middle of cell and edges
-      REAL :: m(4) = rundef, &  !middle
-         b(4) = rundef, &  !bank N, E, S, W
-         r(4) = rundef     !river N, E, S, W
-   END TYPE real_radial
-   TYPE(REAL_RADIAL), PARAMETER :: &
-      default_real_radial = REAL_radial(r_not_exist, defr4, defr4), &
-      dfrr                = default_real_radial
+      default_real_middle_and_edges = REAL_MIDDLE_AND_EDGES(r_not_exist, defr4, defr4)
 
 
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
@@ -240,7 +201,7 @@ CONTAINS
       TYPE(BS), POINTER        :: pb
       TYPE(ES), POINTER        :: pe
       TYPE(FS), POINTER        :: pf
-      TYPE(GS), POINTER        :: pg, dumpg
+      TYPE(GS), POINTER        :: pg
       TYPE(IS), POINTER        :: pi
       TYPE(LS), POINTER        :: pl
       TYPE(MS), POINTER        :: pm
@@ -457,8 +418,8 @@ CONTAINS
       r = 1
       SELECT CASE(typ)
        CASE('BS') ; CALL C_F_POINTER(first, pb) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pb => pb%next ; ENDDO
-       CASE('ES') ; CALL C_F_POINTER(first, pe) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pe => pe%next ; ENDDO
-       CASE('FS') ; CALL C_F_POINTER(first, pf) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pf => pf%next ; ENDDO
+       CASE('ES') ; CALL C_F_POINTER(first, pe) ; DO WHILE(ASSOCIATED(pe%next)) ; r=r+1 ; pe => pe%next ; ENDDO
+       CASE('FS') ; CALL C_F_POINTER(first, pf) ; DO WHILE(ASSOCIATED(pf%next)) ; r=r+1 ; pf => pf%next ; ENDDO
        CASE('GS') ; CALL C_F_POINTER(first, pg) ; DO WHILE(ASSOCIATED(pg%next)) ; r=r+1 ; pg => pg%next ; ENDDO
        CASE('IS') ; CALL C_F_POINTER(first, pi) ; DO WHILE(ASSOCIATED(pi%next)) ; r=r+1 ; pi => pi%next ; ENDDO
        CASE('LS') ; CALL C_F_POINTER(first, pl) ; DO WHILE(ASSOCIATED(pl%next)) ; r=r+1 ; pl => pl%next ; ENDDO
@@ -495,9 +456,9 @@ CONTAINS
       CHARACTER, INTENT(IN)             :: c
       CHARACTER(*), INTENT(IN)          :: typ
       SELECT CASE(typ)
-       CASE('ES') ; CALL C_F_POINTER(latest, ptr_e) ; CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this, c)
-       CASE('FS') ; CALL C_F_POINTER(latest, ptr_f) ; CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this, c)
-       CASE('IS') ; CALL C_F_POINTER(latest, ptr_i) ; CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, d, save_this, c)
+       CASE('ES') ; CALL C_F_POINTER(latest, ptr_e) ; CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this)
+       CASE('FS') ; CALL C_F_POINTER(latest, ptr_f) ; CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this)
+       CASE('IS') ; CALL C_F_POINTER(latest, ptr_i) ; CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, save_this)
        CASE('NS') ; CALL C_F_POINTER(latest, ptr_n) ; CALL SAVE_NS(ptr_n, a, b, klow, khigh, e, d, save_this, c)
       END SELECT
    END SUBROUTINE save_items_worth_i
@@ -514,34 +475,31 @@ CONTAINS
       CHARACTER, INTENT(IN)          :: c
       CHARACTER(*), INTENT(IN)       :: typ
       SELECT CASE(typ)
-       CASE('BS') ; CALL C_F_POINTER(latest, ptr_b) ; CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this,c)
+       CASE('BS') ; CALL C_F_POINTER(latest, ptr_b) ; CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this)
        CASE('GS') ; CALL C_F_POINTER(latest, ptr_g) ; CALL SAVE_GS(ptr_g, a, b, klow, khigh, e, d, save_this,c)
-       CASE('LS') ; CALL C_F_POINTER(latest, ptr_l) ; CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this,c)
-       CASE('MS') ; CALL C_F_POINTER(latest, ptr_m) ; CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, d, save_this,c)
+       CASE('LS') ; CALL C_F_POINTER(latest, ptr_l) ; CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this)
+       CASE('MS') ; CALL C_F_POINTER(latest, ptr_m) ; CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, save_this)
       END SELECT
    END SUBROUTINE save_items_worth_r
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   PURE SUBROUTINE save_bs(r, a, b, klow, khigh, e, d, save_this, c)
+   PURE SUBROUTINE save_bs(r, a, b, klow, khigh, e, d, save_this)
       INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
       REAL, DIMENSION(:), INTENT(IN) :: save_this
-      CHARACTER, INTENT(IN)          :: c
       TYPE(BS), INTENT(INOUT)        :: r
       r%s(a,b,klow:khigh,e)%e(d) = save_this
    END SUBROUTINE save_bs
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   PURE SUBROUTINE save_es(r, a, b, klow, khigh, e, d, save_this, c)
+   PURE SUBROUTINE save_es(r, a, b, klow, khigh, e, d, save_this)
       INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this
-      CHARACTER, INTENT(IN)             :: c
       TYPE(ES), INTENT(INOUT)           :: r
       r%s(a,b,klow:khigh,e)%e(d) = save_this
    END SUBROUTINE save_es
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   PURE SUBROUTINE save_fs(r, a, b, klow, khigh, e, d, save_this, c)
+   PURE SUBROUTINE save_fs(r, a, b, klow, khigh, e, d, save_this)
       INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this
-      CHARACTER, INTENT(IN)             :: c
       TYPE(FS), INTENT(INOUT)           :: r
       r%s(a,b,klow:khigh,e)%e(d) = save_this
    END SUBROUTINE save_fs
@@ -558,26 +516,23 @@ CONTAINS
       END SELECT
    END SUBROUTINE save_gs
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   PURE SUBROUTINE save_is(r, a, b, klow, khigh, e, d, save_this, c)
-      INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
+   PURE SUBROUTINE save_is(r, a, b, klow, khigh, e, save_this)
+      INTEGER, INTENT(IN)               :: a, b, klow, khigh, e
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this
-      CHARACTER, INTENT(IN)             :: c
       TYPE(IS), INTENT(INOUT)           :: r
       r%s(a,b,klow:khigh,e)%m = save_this
    END SUBROUTINE save_is
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   PURE SUBROUTINE save_ls(r, a, b, klow, khigh, e, d, save_this, c)
+   PURE SUBROUTINE save_ls(r, a, b, klow, khigh, e, d, save_this)
       INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
       REAL, DIMENSION(:), INTENT(IN) :: save_this
-      CHARACTER, INTENT(IN)          :: c
       TYPE(LS), INTENT(INOUT)        :: r
       r%s(a,b,klow:khigh,e)%e(d) = save_this
    END SUBROUTINE save_ls
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   PURE SUBROUTINE save_ms(r, a, b, klow, khigh, e, d, save_this, c)
-      INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
+   PURE SUBROUTINE save_ms(r, a, b, klow, khigh, e, save_this)
+      INTEGER, INTENT(IN)            :: a, b, klow, khigh, e
       REAL, DIMENSION(:), INTENT(IN) :: save_this
-      CHARACTER, INTENT(IN)          :: c
       TYPE(MS), INTENT(INOUT)        :: r
       r%s(a,b,klow:khigh,e)%m = save_this
    END SUBROUTINE save_ms
@@ -651,27 +606,27 @@ CONTAINS
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_ES
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   SUBROUTINE FOR_NEW_TIME_FS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
-      TYPE(C_PTR), INTENT(INOUT) :: first, latest
-      REAL, INTENT(IN)       :: time
-      TYPE(FS), POINTER      :: r, prev_node
+   ! SUBROUTINE FOR_NEW_TIME_FS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+   !    INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
+   !    TYPE(C_PTR), INTENT(INOUT) :: first, latest
+   !    REAL, INTENT(IN)       :: time
+   !    TYPE(FS), POINTER      :: r, prev_node
 
-      ALLOCATE(r)
-      r%time =  time
+   !    ALLOCATE(r)
+   !    r%time =  time
 
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
-      r%s = default_integer_edges
+   !    ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+   !    r%s = default_integer_edges
 
-      IF(.NOT. C_ASSOCIATED(first)) THEN
-         first = C_LOC(r)
-      ELSE
-         CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
-         prev_node%next => r
-      ENDIF
-      latest = C_LOC(r)
-   END SUBROUTINE FOR_NEW_TIME_FS
+   !    IF(.NOT. C_ASSOCIATED(first)) THEN
+   !       first = C_LOC(r)
+   !    ELSE
+   !       CALL c_f_pointer(latest, prev_node)
+   !       r%previous      => prev_node
+   !       prev_node%next => r
+   !    ENDIF
+   !    latest = C_LOC(r)
+   ! END SUBROUTINE FOR_NEW_TIME_FS
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow, ihigh, jlow, jhigh, klow, khigh, ext

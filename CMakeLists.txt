@@ -149,9 +149,15 @@ else()
         "Please place hdf5-1.14.6.tar.gz in external/tarballs/")
 endif()
 
-# HDF5 appends _D to library names in Debug builds by default
+# HDF5 debug static libraries are platform-specific:
+# - Windows builds typically use _D
+# - Linux/macOS builds use _debug
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(HDF5_LIB_POSTFIX "_D")
+    if(WIN32)
+        set(HDF5_LIB_POSTFIX "_D")
+    else()
+        set(HDF5_LIB_POSTFIX "_debug")
+    endif()
     set(HDF5_CMAKE_BUILD_TYPE "Debug")
 else()
     set(HDF5_LIB_POSTFIX "")

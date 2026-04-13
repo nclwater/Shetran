@@ -33,11 +33,8 @@ CONTAINS
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE r_c(text, r)
-      INTEGER                   :: i
-      LOGICAL                   :: eor
       CHARACTER(*), INTENT(IN)  :: text
       CHARACTER(*), INTENT(OUT) :: r
-      CHARACTER                 :: c
       CALL READ_A_LINE(text, r)
    END SUBROUTINE r_c
 
@@ -53,10 +50,10 @@ CONTAINS
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SUBROUTINE r_ii(text, r)
+   SUBROUTINE r_ii(text, r)
       ! Read an integer
       ! Note: Assuming vp_in, mess, and di are made available via host association/modules
-      IMPLICIT NONE 
+      IMPLICIT NONE
 
       INTEGER, PARAMETER       :: szb = 8
       INTEGER, INTENT(OUT)     :: r
@@ -71,7 +68,7 @@ SUBROUTINE r_ii(text, r)
       i = 0
 
       read_loop: DO WHILE (c /= ' ')
-         
+
          ! Check for non-digit characters OR buffer overflow (replacing GOTO 95)
          IF (.NOT. ANY(c == di) .OR. i >= szb) THEN
             ! Safely append the bad character only if we have room
@@ -111,7 +108,7 @@ SUBROUTINE r_ii(text, r)
 
       ! Assumed external module dependencies providing global variables:
       ! vp_in, mess, ERROR
-      
+
       IMPLICIT NONE
 
       CHARACTER, INTENT(OUT)                        :: c
@@ -124,7 +121,7 @@ SUBROUTINE r_ii(text, r)
       !----------------------------------------------------------------------*
 
       read_loop: DO
-         
+
          ! Single READ statement handling all iterations using IOSTAT
          READ(vp_in, '(A1)', IOSTAT=ios, ADVANCE='NO') c
 
@@ -133,7 +130,7 @@ SUBROUTINE r_ii(text, r)
             WRITE(mess,*) 'Error when trying to read integer' // TRIM(text)
             CALL ERROR()
             RETURN
-            
+
          ELSE IF (ios < 0) THEN
             ! End of Record (EOR) or End of File (EOF) (replacing EOR=92)
             CALL find_first_character(text, c, d, exclude)
@@ -146,7 +143,7 @@ SUBROUTINE r_ii(text, r)
          ELSE IF (PRESENT(exclude)) THEN
             IF (c /= exclude) EXIT read_loop
          END IF
-         
+
       END DO read_loop
 
    END SUBROUTINE find_first_character
@@ -154,7 +151,7 @@ SUBROUTINE r_ii(text, r)
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SUBROUTINE r_rr(text, r)
+   SUBROUTINE r_rr(text, r)
       ! Read a real
       ! Assumed external module dependencies providing global variables:
       ! vp_in, mess, dr, ERROR
@@ -163,7 +160,7 @@ SUBROUTINE r_rr(text, r)
       INTEGER, PARAMETER       :: szb = 20
       REAL, INTENT(OUT)        :: r
       CHARACTER(*), INTENT(IN) :: text
-      
+
       INTEGER                  :: i, ios
       CHARACTER                :: c
       CHARACTER(szb)           :: b
@@ -175,7 +172,7 @@ SUBROUTINE r_rr(text, r)
       i = 0
 
       read_loop: DO WHILE (c /= ' ')
-         
+
          ! Check for non-valid characters OR buffer overflow (replacing GOTO 95)
          IF (.NOT. ANY(c == dr) .OR. i >= szb) THEN
             WRITE(mess,*) TRIM(text) // ' - Expecting real, but read ' // TRIM(b)
@@ -290,7 +287,7 @@ SUBROUTINE r_rr(text, r)
       ! JE 12/99 Strips informative text from data files
       ! Works line by line - removes delimiter and all following text
       ! Writes stripped file to "newfile"
-      
+
       ! Assumed external module dependencies providing global variables:
       ! mess, mess2, mess3, ERROR
       IMPLICIT NONE
@@ -321,9 +318,9 @@ SUBROUTINE r_rr(text, r)
          tempfile = tf
       END IF
 
-      INQUIRE(UNIT=u, OPENED=opened) 
+      INQUIRE(UNIT=u, OPENED=opened)
       IF (opened) CLOSE(UNIT=u, STATUS='keep')
-      
+
       ! Open file with IOSTAT instead of ERR jump label
       OPEN(UNIT=u, FILE=file, STATUS='OLD', IOSTAT=io)
       IF (io /= 0) THEN
@@ -331,7 +328,7 @@ SUBROUTINE r_rr(text, r)
          CALL ERROR()
          RETURN
       END IF
-      
+
       READ(u, *, IOSTAT=io) dum
       IF (io /= 0 .OR. dum /= checktitle) THEN
          mess = 'wrong key in ' // TRIM(file)
@@ -340,21 +337,21 @@ SUBROUTINE r_rr(text, r)
          RETURN
       END IF
 
-      INQUIRE(UNIT=nunit, OPENED=opened) 
+      INQUIRE(UNIT=nunit, OPENED=opened)
       IF (opened) CLOSE(UNIT=nunit, STATUS='keep')
-      
+
       OPEN(UNIT=nunit, FILE=TRIM(tempfile), STATUS='REPLACE')
 
       io = 0
       lineno = 1
       ALLOCATE (store(llen))
-      
+
       ! Use IOSTAT_END instead of hardcoded -1 for EOF checking
       read_lines: DO WHILE (io /= IOSTAT_END .AND. io /= -1)
          lineno = lineno + 1
          i = 0
          READ(u, '(A1)', IOSTAT=io, ADVANCE='NO') ch
-         
+
          ! Catch EOF or Hard Read Errors immediately
          IF (io == IOSTAT_END .OR. io == -1 .OR. io > 0) EXIT read_lines
 
@@ -365,7 +362,7 @@ SUBROUTINE r_rr(text, r)
                CALL ERROR()
                RETURN
             END IF
-            
+
             ichar = IACHAR(ch)
             IF (ichar < 32 .OR. ichar > 126) THEN
                WRITE(mess, '(A,I3)') TRIM(file) // ' contains ASCII character number ', ichar
@@ -374,13 +371,13 @@ SUBROUTINE r_rr(text, r)
                CALL ERROR()
                RETURN
             END IF
-            
+
             store(i) = ch
             READ(u, '(A1)', IOSTAT=io, ADVANCE='NO') ch
          END DO parse_chars
-         
+
          IF (io == 0) READ(u, '(A1)', IOSTAT=io, ADVANCE='YES')  ! to item up for next input line
-         
+
          j = i
          IF (j > 0) THEN  !.NETT  090805
             DO WHILE (j > 0 .AND. store(j) == ' ')  ! strip off trailing blanks
@@ -388,7 +385,7 @@ SUBROUTINE r_rr(text, r)
                IF (j == 0) EXIT  !.NETT  090805
             END DO
          END IF
-         
+
          i = 1
          DO WHILE (i < j .AND. store(i) == ' ')  ! strip off leading blanks
             i = i + 1
@@ -399,24 +396,24 @@ SUBROUTINE r_rr(text, r)
             DO WHILE (ALL(store(k) /= separator) .AND. k <= j)  ! find line breaks
                k = k + 1
             END DO
-            
+
             ! Replaced FORMAT label 99 with inline standard Fortran format string
             IF (k > i) WRITE(nunit, '(*(A))') store(i:k-1)
-            
+
             k = k + 1
             DO WHILE (k < j .AND. store(k) == ' ')  ! strip off leading blanks
                k = k + 1
             END DO
             i = k
          END DO
-         
+
       END DO read_lines
-      
-      CLOSE (UNIT=u, STATUS='keep') 
+
+      CLOSE (UNIT=u, STATUS='keep')
       CLOSE (UNIT=nunit)
       OPEN(UNIT=u, FILE=TRIM(tempfile))
       DEALLOCATE (store)
-      
+
    END SUBROUTINE strip
 
 END MODULE visualisation_read
