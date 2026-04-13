@@ -192,7 +192,7 @@ CONTAINS
          ! CALCULATE HEAT GAINED BY CONVECTION
          ! EFFDEP (snowpack depth at anemometer site) removed from calculation of DN
          ! to prevent ln of 0 or negative no. SPA, 05/11/92.
-         DN = ((0.4d0 / DLOG((ZUS - ZDS) / ZOS))**2) * U(MS)
+         DN = ((0.4d0 / LOG((ZUS - ZDS) / ZOS))**2) * U(MS)
 
          ! CORRECT DN USING RICHARDSON NUMBER (SD - MM; ZUS,ZDS,ZOS - M)
          RICH = 9.81d0 * (ZUS - EFFDEP / 1000.0d0 - ZDS) * (TA(MS) - TS(IEL)) &

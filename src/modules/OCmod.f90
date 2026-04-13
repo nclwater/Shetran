@@ -1493,7 +1493,7 @@ CONTAINS
       IF (ISZERO(CDRS)) THEN
          IF (NCATR > NOCTAB .OR. NCATR < 0) THEN
             WRITE (MSG, '("Number of roughness categories NCATR =",I4,2X, &
-                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
+&                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
             CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
          END IF
 

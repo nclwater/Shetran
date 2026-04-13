@@ -116,354 +116,303 @@ MODULE FRmod
    PUBLIC :: FROPEN, FRINIT, FRSORT, FROUTPUT, FRMB, FRRESP, FRIND, FRLTL, INCM, & !REST NEEDED FOR AD ONLY
       qoctot, uzold, bsoft, tsh, tch, bstore, btime, next_hour, icounter2, DATE_FROM_HOUR, &
       sedtot,sedfinetot,contamtot
-CONTAINS
+
+   CONTAINS
 
 
-!SSSSSS SUBROUTINE FRDIM (BINFRP)
-   SUBROUTINE FRDIM (BINFRP)
-!----------------------------------------------------------------------*
-!
-! SET UP ELEMENT DIMENSIONS AND AREAS, AND TOTAL CATCHMENT AREA
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/FRDIM/4.1
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-! RAH  970223  4.1  Explicit typing.
-!----------------------------------------------------------------------*
-! Commons and constants
-!
-! Imported constants
-!     SPEC.AL:         NELEE,NLFEE,NXEE,NYEE
-!
-! Input common
-!     SPEC.AL:         NEL,NX,NXM1,NY,NYM1,PRI,ICMREF(NELEE,8)
-!                      CWIDTH(NLFEE),DXIN(NXM1),DY(NYM1)
-!                      LINKNS(NLFEE)
-!
-! Output common
-!     SPEC.AL:         CAREA,AREA(NEL),DHF(NELEE,4),DXQQ(NEL),DYQQ(NEL)
-!                      BWIDTH
-!
-! Input arguments
-      LOGICAL :: BINFRP
-!
-! Locals, etc
-      INTEGER :: I1, I2, IEL, IFACE, IL, IL1, IL2, INEXT1, INEXT2, &
-         ITYPE
+   !SSSSSS SUBROUTINE FRDIM
+   SUBROUTINE FRDIM(BINFRP)
+   !----------------------------------------------------------------------*
+   !
+   ! SET UP ELEMENT DIMENSIONS AND AREAS, AND TOTAL CATCHMENT AREA
+   !
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/FR/FRDIM/4.1
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+   ! RAH  970223  4.1  Explicit typing.
+   !----------------------------------------------------------------------*
+      
+      ! Assumed global variables provided via host module(s) (e.g., SPEC.AL):
+      ! NXEE, NYEE, NX, NXM1, NY, NYM1, total_no_elements, PPPRI
+      ! DXIN, DYIN, ICMREF, LINKNS, CWIDTH, CLENTH, DXQQ, DYQQ, CAREA, cellarea, DHF
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      LOGICAL, INTENT(IN) :: BINFRP
+
+      ! Locals, etc
+      INTEGER :: I1, I2, IEL, IFACE, IL, IL1, IL2, INEXT1, INEXT2, ITYPE
       INTEGER :: IX, IY, J, JEL, JL, JTYPE, K
-      DOUBLEPRECISION CATEST, DIFF, DX (NXEE), DY (NYEE)
-!
-!----------------------------------------------------------------------*
-!
-! SET VALUE FOR BANK ELEMENT WIDTH
-! (CURRENTLY HARD-CODED AS A FIXED WIDTH)
-!
-      BWIDTH = 10.0
-!
-! --- CALCULATE DX AND DY FROM DXIN AND DYIN
-!
-      DX (1) = DXIN (1)
-      DX (NX) = DXIN (NXM1)
+      DOUBLE PRECISION :: CATEST, DIFF, DX(NXEE), DY(NYEE)
+
+   !----------------------------------------------------------------------*
+
+      ! SET VALUE FOR BANK ELEMENT WIDTH
+      ! (CURRENTLY HARD-CODED AS A FIXED WIDTH)
+      BWIDTH = 10.0D0
+
+      ! --- CALCULATE DX AND DY FROM DXIN AND DYIN
+      DX(1)  = DXIN(1)
+      DX(NX) = DXIN(NXM1)
       DO J = 2, NXM1
-         DX (J) = (DXIN (J - 1) + DXIN (J) ) * 0.5
+         DX(J) = (DXIN(J - 1) + DXIN(J)) * 0.5D0
       END DO
-      DY (1) = DYIN (1)
-      DY (NY) = DYIN (NYM1)
+      
+      DY(1)  = DYIN(1)
+      DY(NY) = DYIN(NYM1)
       DO K = 2, NYM1
-         DY (K) = (DYIN (K - 1) + DYIN (K) ) * 0.5
+         DY(K) = (DYIN(K - 1) + DYIN(K)) * 0.5D0
       END DO
-!
-! --- SET UP BASIC DIMENSIONS OF EACH ELEMENT
-!
-      DO 900 IEL = 1,total_no_elements
-!
-         ITYPE = ICMREF (IEL, 1)
-         IX = ICMREF (IEL, 2)
-         IY = ICMREF (IEL, 3)
-         IL = ICMREF (IEL, 4)
-!
-         IF (ITYPE.EQ.0) THEN
-            DXQQ (IEL) = DX (IX)
-            DYQQ (IEL) = DY (IY)
-         ELSEIF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-            IF (LINKNS (IL) ) THEN
-               DXQQ (IEL) = BWIDTH
-               DYQQ (IEL) = DY (IY)
+
+      ! --- SET UP BASIC DIMENSIONS OF EACH ELEMENT
+      dim_loop: DO IEL = 1, total_no_elements
+         ITYPE = ICMREF(IEL, 1)
+         IX    = ICMREF(IEL, 2)
+         IY    = ICMREF(IEL, 3)
+         IL    = ICMREF(IEL, 4)
+
+         IF (ITYPE == 0) THEN
+            DXQQ(IEL) = DX(IX)
+            DYQQ(IEL) = DY(IY)
+         ELSE IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+            IF (LINKNS(IL)) THEN
+               DXQQ(IEL) = BWIDTH
+               DYQQ(IEL) = DY(IY)
             ELSE
-               DXQQ (IEL) = DX (IX)
-               DYQQ (IEL) = BWIDTH
-            ENDIF
-         ELSEIF (ITYPE.EQ.3) THEN
-            IF (LINKNS (IEL) ) THEN
-               DXQQ (IEL) = CWIDTH (IL)
-               DYQQ (IEL) = DY (IY)
-               CLENTH (IL) = DY (IY)
+               DXQQ(IEL) = DX(IX)
+               DYQQ(IEL) = BWIDTH
+            END IF
+         ELSE IF (ITYPE == 3) THEN
+            IF (LINKNS(IEL)) THEN
+               DXQQ(IEL)  = CWIDTH(IL)
+               DYQQ(IEL)  = DY(IY)
+               CLENTH(IL) = DY(IY)
             ELSE
-               DXQQ (IEL) = DX (IX)
-               DYQQ (IEL) = CWIDTH (IL)
-               CLENTH (IL) = DX (IX)
-            ENDIF
-         ENDIF
-900   END DO
-!
-! --- CORRECT FOR OVERLAPPING ELEMENTS (NB: CHANNEL LINK OVERLAPS NOT IN
-! --- AND CALCULATE ELEMENT AND CATCHMENT AREA
-!
-      CAREA = zero
-      CATEST = zero
-!
-      DO 950 IEL = 1, total_no_elements
-!
-         ITYPE = ICMREF (IEL, 1)
-         IX = ICMREF (IEL, 2)
-         IY = ICMREF (IEL, 3)
-         IL = ICMREF (IEL, 4)
-!
-         IF (ITYPE.EQ.0) THEN
-!
-            DO 920 I1 = 5, 8
-!
-! GRID ELEMENTS (REMOVE WIDTHS OF CHANNEL LINKS, AND POSSIBLY BANK ELEME
-!
-               INEXT1 = ICMREF (IEL, I1)
-               IF (INEXT1.GT.0) THEN
-                  DIFF = zero
-                  IF (ICMREF (INEXT1, 1) .GT.0) THEN
-                     IL = ICMREF (INEXT1, 4)
-                     DIFF = DIFF + 0.5 * CWIDTH (IL)
-                     IF (ICMREF (INEXT1, 1) .LT.3) DIFF = DIFF + BWIDTH
-                  ENDIF
-                  IF (I1.EQ.5.OR.I1.EQ.7) DXQQ (IEL) = DXQQ (IEL) &
-                     - DIFF
-                  IF (I1.EQ.6.OR.I1.EQ.8) DYQQ (IEL) = DYQQ (IEL) &
-                     - DIFF
-               ENDIF
-!
-! BANK ELEMENTS (REMOVE OVERLAP OF BANKS/BANKS AND BANK/CHANNEL FOR EACH
-! CORNER OF EACH GRID ELEMENT)
-!
+               DXQQ(IEL)  = DX(IX)
+               DYQQ(IEL)  = CWIDTH(IL)
+               CLENTH(IL) = DX(IX)
+            END IF
+         END IF
+      END DO dim_loop
+
+      ! --- CORRECT FOR OVERLAPPING ELEMENTS (NB: CHANNEL LINK OVERLAPS NOT IN)
+      ! --- AND CALCULATE ELEMENT AND CATCHMENT AREA
+
+      CAREA  = ZERO
+      CATEST = ZERO
+
+      overlap_loop: DO IEL = 1, total_no_elements
+         ITYPE = ICMREF(IEL, 1)
+         IX    = ICMREF(IEL, 2)
+         IY    = ICMREF(IEL, 3)
+         IL    = ICMREF(IEL, 4)
+
+         IF (ITYPE == 0) THEN
+            corner_loop: DO I1 = 5, 8
+               ! GRID ELEMENTS (REMOVE WIDTHS OF CHANNEL LINKS, AND POSSIBLY BANK ELEME)
+               INEXT1 = ICMREF(IEL, I1)
+               
+               IF (INEXT1 > 0) THEN
+                  DIFF = ZERO
+                  IF (ICMREF(INEXT1, 1) > 0) THEN
+                     IL = ICMREF(INEXT1, 4)
+                     DIFF = DIFF + 0.5D0 * CWIDTH(IL)
+                     IF (ICMREF(INEXT1, 1) < 3) DIFF = DIFF + BWIDTH
+                  END IF
+                  IF (I1 == 5 .OR. I1 == 7) DXQQ(IEL) = DXQQ(IEL) - DIFF
+                  IF (I1 == 6 .OR. I1 == 8) DYQQ(IEL) = DYQQ(IEL) - DIFF
+               END IF
+
+               ! BANK ELEMENTS (REMOVE OVERLAP OF BANKS/BANKS AND BANK/CHANNEL FOR EACH
+               ! CORNER OF EACH GRID ELEMENT)
                I2 = I1 + 1
-               IF (I2.EQ.9) I2 = 5
-               INEXT2 = ICMREF (IEL, I2)
-               IF (INEXT1.GT.0.AND.INEXT2.GT.0) THEN
-                  IF ( (ICMREF (INEXT1, 1) .EQ.1.OR.ICMREF (INEXT1, 1) &
-                     .EQ.2) .AND. (ICMREF (INEXT2, 1) .EQ.1.OR.ICMREF ( &
-                     INEXT2, 1) .EQ.2) ) THEN
-                     IL1 = ICMREF (INEXT1, 4)
-                     IL2 = ICMREF (INEXT2, 4)
-                     IF (LINKNS (IL1) ) THEN
-                        DYQQ (INEXT1) = DYQQ (INEXT1) - BWIDTH - 0.5 * &
-                           CWIDTH (IL2)
+               IF (I2 == 9) I2 = 5
+               INEXT2 = ICMREF(IEL, I2)
+               
+               IF (INEXT1 > 0 .AND. INEXT2 > 0) THEN
+                  IF ((ICMREF(INEXT1, 1) == 1 .OR. ICMREF(INEXT1, 1) == 2) .AND. &
+                      (ICMREF(INEXT2, 1) == 1 .OR. ICMREF(INEXT2, 1) == 2)) THEN
+                      
+                     IL1 = ICMREF(INEXT1, 4)
+                     IL2 = ICMREF(INEXT2, 4)
+                     
+                     IF (LINKNS(IL1)) THEN
+                        DYQQ(INEXT1) = DYQQ(INEXT1) - BWIDTH - 0.5D0 * CWIDTH(IL2)
                      ELSE
-                        DXQQ (INEXT1) = DXQQ (INEXT1) - BWIDTH - 0.5 * &
-                           CWIDTH (IL2)
-                     ENDIF
-                     IF (LINKNS (IL2) ) THEN
-                        DYQQ (INEXT2) = DYQQ (INEXT2) - BWIDTH - 0.5 * &
-                           CWIDTH (IL1)
+                        DXQQ(INEXT1) = DXQQ(INEXT1) - BWIDTH - 0.5D0 * CWIDTH(IL2)
+                     END IF
+                     
+                     IF (LINKNS(IL2)) THEN
+                        DYQQ(INEXT2) = DYQQ(INEXT2) - BWIDTH - 0.5D0 * CWIDTH(IL1)
                      ELSE
-                        DXQQ (INEXT2) = DXQQ (INEXT2) - BWIDTH - 0.5 * &
-                           CWIDTH (IL1)
-                     ENDIF
-                  ENDIF
-               ENDIF
-!
-920         END DO
-!
-         ENDIF
-!
-! CALCULATE CATCHMENT AREA BY asumMING ALL BASIC GRID SIZES
-! AND CATCHMENT AREA OBTAINED BY asumMING ALL ELEMENT AREAS (INCLUDES OVE
-!
-         IF (ITYPE.EQ.0) CATEST = CATEST + DX (IX) * DY (IY)
-!
-950   END DO
-!
-! --- CALCULATE AREA OF EACH ELEMENT
-!
-      DO 955 IEL = 1, total_no_elements
-         cellarea (IEL) = DXQQ (IEL) * DYQQ (IEL)
-         CAREA = CAREA + cellarea (IEL)
-955   END DO
-!
-! --- PRINT OUT ELEMENT AREA, TOTAL CATCHMENT AREA, AND PERCENTAGE ERROR
-!
+                        DXQQ(INEXT2) = DXQQ(INEXT2) - BWIDTH - 0.5D0 * CWIDTH(IL1)
+                     END IF
+                  END IF
+               END IF
+            END DO corner_loop
+         END IF
+
+         ! CALCULATE CATCHMENT AREA BY SUMMING ALL BASIC GRID SIZES
+         ! AND CATCHMENT AREA OBTAINED BY SUMMING ALL ELEMENT AREAS (INCLUDES OVERLAP)
+         IF (ITYPE == 0) CATEST = CATEST + DX(IX) * DY(IY)
+         
+      END DO overlap_loop
+
+      ! --- CALCULATE AREA OF EACH ELEMENT
+      area_loop: DO IEL = 1, total_no_elements
+         cellarea(IEL) = DXQQ(IEL) * DYQQ(IEL)
+         CAREA = CAREA + cellarea(IEL)
+      END DO area_loop
+
+      ! --- PRINT OUT ELEMENT AREA, TOTAL CATCHMENT AREA, AND PERCENTAGE ERROR
       IF (BINFRP) THEN
          WRITE(PPPRI, 1500)
-         DO 960 IEL = 1, total_no_elements
-            WRITE(PPPRI, 1600) IEL, DXQQ (IEL), DYQQ (IEL), cellarea (IEL)
-960      END DO
-!
-         DIFF = (CAREA - CATEST) * 100.0d0 / CAREA
-         IF (CAREA.LT.1.0D6) THEN
+         DO IEL = 1, total_no_elements
+            WRITE(PPPRI, 1600) IEL, DXQQ(IEL), DYQQ(IEL), cellarea(IEL)
+         END DO
+         
+         DIFF = (CAREA - CATEST) * 100.0D0 / CAREA
+         IF (CAREA < 1.0D6) THEN
             WRITE(PPPRI, 1700) CAREA, CATEST, DIFF
          ELSE
             WRITE(PPPRI, 1750) CAREA / 1.0D6, CATEST / 1.0D6, DIFF
-         ENDIF
-      ENDIF
-!
-! ----- SET UP SPACINGS DHF BETWEEN COMPUTATIONAL NODES AND EDGE OF ELEM
-!
-      DO 980 IEL = 1, total_no_elements
-         ITYPE = ICMREF (IEL, 1)
-         IX = ICMREF (IEL, 2)
-         IY = ICMREF (IEL, 3)
-         IL = ICMREF (IEL, 4)
-!
-! WEST FACE (FACE 3)
-!
+         END IF
+      END IF
+
+      ! ----- SET UP SPACINGS DHF BETWEEN COMPUTATIONAL NODES AND EDGE OF ELEM
+      node_space_loop: DO IEL = 1, total_no_elements
+         ITYPE = ICMREF(IEL, 1)
+         IX    = ICMREF(IEL, 2)
+         IY    = ICMREF(IEL, 3)
+         IL    = ICMREF(IEL, 4)
+
+         ! WEST FACE (FACE 3)
          IFACE = 3
-         JEL = ICMREF (IEL, IFACE+4)
-!
-         IF (JEL.EQ.0) THEN
-            IF (ITYPE.EQ.0) THEN
-               DHF (IEL, IFACE) = 0.5 * DXIN (IX - 1)
-            ELSEIF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-               DHF (IEL, IFACE) = 0.5 * BWIDTH
+         JEL   = ICMREF(IEL, IFACE + 4)
+
+         IF (JEL == 0) THEN
+            IF (ITYPE == 0) THEN
+               DHF(IEL, IFACE) = 0.5D0 * DXIN(IX - 1)
+            ELSE IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+               DHF(IEL, IFACE) = 0.5D0 * BWIDTH
             ELSE
-               IF (LINKNS (IEL) ) THEN
-                  DHF (IEL, IFACE) = 0.5 * CWIDTH (IEL)
+               IF (LINKNS(IEL)) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * CWIDTH(IEL)
                ELSE
-                  DHF (IEL, IFACE) = 0.5 * DXIN (IX - 1)
-               ENDIF
-            ENDIF
-!
-         ELSEIF (JEL.GT.0) THEN
-            JTYPE = ICMREF (JEL, 1)
-            JL = ICMREF (JEL, 4)
-!
-            IF (ITYPE.EQ.0) THEN
-               IF (JTYPE.EQ.0) THEN
-                  DHF (IEL, IFACE) = 0.5 * DXIN (IX - 1)
-               ELSEIF (JTYPE.EQ.1) THEN
-                  DHF (IEL, IFACE) = 0.5 * (DXIN (IX - 1) - 2 * BWIDTH - &
-                     CWIDTH (JL) )
-               ELSEIF (JTYPE.EQ.3) THEN
-                  DHF (IEL, IFACE) = 0.5 * (DXIN (IX - 1) - CWIDTH (JL) &
-                     )
-               ENDIF
-!
-            ELSEIF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-               IF (JTYPE.EQ.0) THEN
-                  DHF (IEL, IFACE) = 0.5 * BWIDTH
-               ELSEIF (JTYPE.EQ.1.OR.JTYPE.EQ.2) THEN
-                  DHF (IEL, IFACE) = 0.5 * DXQQ (IEL)
+                  DHF(IEL, IFACE) = 0.5D0 * DXIN(IX - 1)
+               END IF
+            END IF
+         ELSE IF (JEL > 0) THEN
+            JTYPE = ICMREF(JEL, 1)
+            JL    = ICMREF(JEL, 4)
+
+            IF (ITYPE == 0) THEN
+               IF (JTYPE == 0) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * DXIN(IX - 1)
+               ELSE IF (JTYPE == 1) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * (DXIN(IX - 1) - 2.0D0 * BWIDTH - CWIDTH(JL))
+               ELSE IF (JTYPE == 3) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * (DXIN(IX - 1) - CWIDTH(JL))
+               END IF
+            ELSE IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+               IF (JTYPE == 0) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * BWIDTH
+               ELSE IF (JTYPE == 1 .OR. JTYPE == 2) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * DXQQ(IEL)
                ELSE
-                  DHF (IEL, IFACE) = 0.5 * BWIDTH
-               ENDIF
-!
+                  DHF(IEL, IFACE) = 0.5D0 * BWIDTH
+               END IF
             ELSE
-               IF (LINKNS (IEL) ) THEN
-                  DHF (IEL, IFACE) = 0.5 * CWIDTH (IEL)
+               IF (LINKNS(IEL)) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * CWIDTH(IEL)
                ELSE
-                  DHF (IEL, IFACE) = 0.5 * DXIN (IX - 1)
-               ENDIF
-!
-            ENDIF
-!
-         ELSEIF (JEL.LT.0) THEN
-            IF (LINKNS (IEL) ) THEN
-               DHF (IEL, IFACE) = 0.5 * CWIDTH (IEL)
+                  DHF(IEL, IFACE) = 0.5D0 * DXIN(IX - 1)
+               END IF
+            END IF
+         ELSE IF (JEL < 0) THEN
+            IF (LINKNS(IEL)) THEN
+               DHF(IEL, IFACE) = 0.5D0 * CWIDTH(IEL)
             ELSE
-               DHF (IEL, IFACE) = 0.5 * DXIN (IX - 1)
-            ENDIF
-!
-         ENDIF
-!
-! SOUTH FACE (FACE 4)
-!
+               DHF(IEL, IFACE) = 0.5D0 * DXIN(IX - 1)
+            END IF
+         END IF
+
+         ! SOUTH FACE (FACE 4)
          IFACE = 4
-         JEL = ICMREF (IEL, IFACE+4)
-!
-         IF (JEL.EQ.0) THEN
-            IF (ITYPE.EQ.0) THEN
-               DHF (IEL, IFACE) = 0.5 * DYIN (IY - 1)
-            ELSEIF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-               DHF (IEL, IFACE) = 0.5 * BWIDTH
+         JEL   = ICMREF(IEL, IFACE + 4)
+
+         IF (JEL == 0) THEN
+            IF (ITYPE == 0) THEN
+               DHF(IEL, IFACE) = 0.5D0 * DYIN(IY - 1)
+            ELSE IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+               DHF(IEL, IFACE) = 0.5D0 * BWIDTH
             ELSE
-               IF (LINKNS (IEL) ) THEN
-                  DHF (IEL, IFACE) = 0.5 * DYIN (IY - 1)
+               IF (LINKNS(IEL)) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * DYIN(IY - 1)
                ELSE
-                  DHF (IEL, IFACE) = 0.5 * CWIDTH (IEL)
-               ENDIF
-            ENDIF
-!
-         ELSEIF (JEL.GT.0) THEN
-            JTYPE = ICMREF (JEL, 1)
-            JL = ICMREF (JEL, 4)
-!
-            IF (ITYPE.EQ.0) THEN
-               IF (JTYPE.EQ.0) THEN
-                  DHF (IEL, IFACE) = 0.5 * DYIN (IY - 1)
-               ELSEIF (JTYPE.EQ.1) THEN
-                  DHF (IEL, IFACE) = 0.5 * (DYIN (IY - 1) - 2 * BWIDTH - &
-                     CWIDTH (JL) )
-               ELSEIF (JTYPE.EQ.3) THEN
-                  DHF (IEL, IFACE) = 0.5 * (DYIN (IY - 1) - CWIDTH (JL) &
-                     )
-               ENDIF
-!
-            ELSEIF (ITYPE.EQ.1.OR.ITYPE.EQ.2) THEN
-               IF (JTYPE.EQ.0) THEN
-                  DHF (IEL, IFACE) = 0.5 * BWIDTH
-               ELSEIF (JTYPE.EQ.1.OR.JTYPE.EQ.2) THEN
-                  DHF (IEL, IFACE) = 0.5 * DYQQ (IEL)
+                  DHF(IEL, IFACE) = 0.5D0 * CWIDTH(IEL)
+               END IF
+            END IF
+         ELSE IF (JEL > 0) THEN
+            JTYPE = ICMREF(JEL, 1)
+            JL    = ICMREF(JEL, 4)
+
+            IF (ITYPE == 0) THEN
+               IF (JTYPE == 0) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * DYIN(IY - 1)
+               ELSE IF (JTYPE == 1) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * (DYIN(IY - 1) - 2.0D0 * BWIDTH - CWIDTH(JL))
+               ELSE IF (JTYPE == 3) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * (DYIN(IY - 1) - CWIDTH(JL))
+               END IF
+            ELSE IF (ITYPE == 1 .OR. ITYPE == 2) THEN
+               IF (JTYPE == 0) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * BWIDTH
+               ELSE IF (JTYPE == 1 .OR. JTYPE == 2) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * DYQQ(IEL)
                ELSE
-                  DHF (IEL, IFACE) = 0.5 * BWIDTH
-               ENDIF
-!
+                  DHF(IEL, IFACE) = 0.5D0 * BWIDTH
+               END IF
             ELSE
-               IF (LINKNS (IEL) ) THEN
-                  DHF (IEL, IFACE) = 0.5 * DYIN (IY - 1)
+               IF (LINKNS(IEL)) THEN
+                  DHF(IEL, IFACE) = 0.5D0 * DYIN(IY - 1)
                ELSE
-                  DHF (IEL, IFACE) = 0.5 * CWIDTH (IEL)
-               ENDIF
-!
-            ENDIF
-!
-         ELSEIF (JEL.LT.0) THEN
-            IF (LINKNS (IEL) ) THEN
-               DHF (IEL, IFACE) = 0.5 * DYIN (IY - 1)
+                  DHF(IEL, IFACE) = 0.5D0 * CWIDTH(IEL)
+               END IF
+            END IF
+         ELSE IF (JEL < 0) THEN
+            IF (LINKNS(IEL)) THEN
+               DHF(IEL, IFACE) = 0.5D0 * DYIN(IY - 1)
             ELSE
-               DHF (IEL, IFACE) = 0.5 * CWIDTH (IEL)
-            ENDIF
-!
-         ENDIF
-!
-! EAST FACE (FACE 1)
-!
+               DHF(IEL, IFACE) = 0.5D0 * CWIDTH(IEL)
+            END IF
+         END IF
+
+         ! EAST FACE (FACE 1)
          IFACE = 1
-         DHF (IEL, IFACE) = DXQQ (IEL) - DHF (IEL, 3)
-!
-! NORTH FACE (FACE 2)
-!
+         DHF(IEL, IFACE) = DXQQ(IEL) - DHF(IEL, 3)
+
+         ! NORTH FACE (FACE 2)
          IFACE = 2
-         DHF (IEL, IFACE) = DYQQ (IEL) - DHF (IEL, 4)
-!
-980   END DO
-!
-      RETURN
-!
-! ^^^^^^^^^^^^ FORMAT STATEMENTS
-!
+         DHF(IEL, IFACE) = DYQQ(IEL) - DHF(IEL, 4)
+
+      END DO node_space_loop
+
+   ! ^^^^^^^^^^^^ FORMAT STATEMENTS
 1500  FORMAT(/ '   INDEX   DXQQ (M)   DYQQ (M)     AREA (M^^2)' /)
-!
 1600  FORMAT(' ',4X,I6,4X,F7.2,4X,F7.2,4X,F12.2)
-!
 1700  FORMAT(/ ' TOTAL CATCHMENT AREA = ',F12.3,' SQ. METRES. ' / &
-      &         ' BASIC CATCHMENT AREA = ',F12.3,' SQ. METRES. ' / &
-      &   ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
-      &   F12.3,' %' /)
-!
+      &        ' BASIC CATCHMENT AREA = ',F12.3,' SQ. METRES. ' / &
+      &  ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
+      &  F12.3,' %' /)
 1750  FORMAT(/ ' TOTAL CATCHMENT AREA = ',F12.3,' SQ. KM. ' / &
-      &         ' BASIC CATCHMENT AREA = ',F12.3,' SQ. KM. ' / &
-      &   ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
-      &   F12.3,' %' /)
-!
+      &        ' BASIC CATCHMENT AREA = ',F12.3,' SQ. KM. ' / &
+      &  ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
+      &  F12.3,' %' /)
 
    END SUBROUTINE FRDIM
-
 
 
 
@@ -1822,378 +1771,452 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE FROUTPUT
+   !SSSSSS SUBROUTINE FROUTPUT
    SUBROUTINE FROUTPUT(SIMPOS)
-      integer :: L, iface,disextrapoints,pslextrapoints,ifile
-      CHARACTER (LEN=20) :: disextratext,pslextratext,celem
-      CHARACTER (LEN=5) :: SIMPOS
-      CHARACTER(256)     :: filnam
-      CHARACTER(128)    :: dum
-      integer, parameter :: SEDALLUNIT = 681
-      integer, parameter :: SEDFINEUNIT = 682
-      integer, parameter :: PSLFILEUNIT = 683
-      integer, parameter :: CONTAMUNIT = 684
-      INTEGER, DIMENSION(:), ALLOCATABLE               :: pslextraelement
-      INTEGER, DIMENSION(:), ALLOCATABLE               :: disextraelement,disextraface
-      DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE               :: qocavextra
+   !----------------------------------------------------------------------*
+   ! Generates output files for discharge, sediment, contaminants,
+   ! water tables, and mass balances at various simulation stages.
+   !----------------------------------------------------------------------*
+      
+      ! Assumed global variables provided via host module(s):
+      ! ISextradis, disextra, total_no_links, ISextrapsl, pslextra,
+      ! total_no_elements, DIRQQ, cnam, dis2, mas, dis, toutput,
+      ! ICMREF, NOCBCC, NOCBCD, uznow, BHOTRD, bhotti, bexsy, bexcm,
+      ! QSED, RHOSED, CCCC, top_cell_no, qoc, tih, icounter2, balanc,
+      ! carea, zgrund, zvspsl, vse, bexbk, VSPSI, nlyrbt, FFFATAL, PPPRI
 
-      DOUBLEPRECISION qocav, qocold
-      DOUBLEPRECISION sedav,sedfineav,contamav
-      save disextrapoints,disextraelement,disextraface,pslextrapoints,pslextraelement,qocavextra
+      IMPLICIT NONE
 
-      INTEGER :: nminel, i, j, iel, ios
-      INTEGER  :: c(6)
+      ! Dummy arguments
+      CHARACTER(LEN=5), INTENT(IN) :: SIMPOS
 
-1000  format(i7)            !PUT HERE FOR AD PROBLEM
-1100  format(10(1x,f9.3))
-      IF (SIMPOS.EQ.'start') THEN
+      ! Parameters
+      INTEGER, PARAMETER :: SEDALLUNIT  = 681
+      INTEGER, PARAMETER :: SEDFINEUNIT = 682
+      INTEGER, PARAMETER :: PSLFILEUNIT = 683
+      INTEGER, PARAMETER :: CONTAMUNIT  = 684
 
-         if (ISextradis) then
-            read(disextra,*,err=580,end=580)
-            read(disextra,*,err=580,end=580) disextratext,disextrapoints
-            allocate   (disextraelement(disextrapoints))
-            allocate   (disextraface(disextrapoints))
-            allocate   (qocavextra(disextrapoints))
-            allocate   (qoctotextra(disextrapoints))
-            disextraelement=0
-            disextraface=0
-            qocavextra=0.0d0
-            qoctotextra=0.0d0
-            j=0
-            do i=1,disextrapoints
-               j=j+1
-               read(disextra,*,err=580,end=580) disextraelement(j),disextraface(j)
-               !remove the output if the element number is too big
-               if (disextraelement(j) .GT. total_no_links) then
-                  disextraelement(j)=0
-                  disextraface(j)=0
-                  j=j-1
-               endif
-            enddo
-            disextrapoints=j
+      ! Locals (Strings)
+      CHARACTER(LEN=20)  :: disextratext, pslextratext, celem
+      CHARACTER(LEN=256) :: filnam
+      CHARACTER(LEN=128) :: dum
 
-         endif
+      ! Locals (Scalars)
+      INTEGER :: L, iface, ifile, nminel, i, j, iel, ios
+      INTEGER :: c(6), hour_now
+      DOUBLE PRECISION :: qocav, qocold, sedav, sedfineav, contamav
+      DOUBLE PRECISION :: uznowt
 
-!sb 110324 extra water table output
-         if (ISextrapsl) then
-            read(pslextra,*,err=581,end=581)
-            read(pslextra,*,err=581,end=581) pslextratext,pslextrapoints
-            allocate   (pslextraelement(pslextrapoints))
-            pslextraelement=0
-            j=0
-            do i=1,pslextrapoints
-               j=j+1
-               read(pslextra,*,err=581,end=581) pslextraelement(j)
-               !remove the output if the element number is too big
-               if (pslextraelement(j) .GT. total_no_elements) then
-                  pslextraelement(j)=0
-                  j=j-1
-               endif
-!         print*,disextraelement(i),disextraface(i)
-            enddo
-            pslextrapoints=j
-!         write (celem,'(I)') pslextraelement(i)
-            FILNAM = TRIM (DIRQQ) //'output_'//trim(cnam)//'_water_table_depth.csv'
-            open(PSLFILEUNIT, FILE = FILNAM, ERR = 581)
-            write(PSLFILEUNIT,'(A)') 'Water_Table_depth(m_below_ground). A negative number means there is surface water with the absolute value the depth of surface water'
-            write(PSLFILEUNIT,'(A,*(A,I0))') 'Time(hours)', (', Element-',pslextraelement(j),j=1,pslextrapoints)
+      ! State Variables (Must be SAVED to persist between calls)
+      INTEGER, SAVE :: disextrapoints = 0, pslextrapoints = 0
+      DOUBLE PRECISION, SAVE :: uzold, next_hour
+      DOUBLE PRECISION, SAVE :: qoctot = 0.0D0, sedtot = 0.0D0
+      DOUBLE PRECISION, SAVE :: sedfinetot = 0.0D0, contamtot = 0.0D0
 
-         endif
+      ! Allocatable State Arrays
+      INTEGER, DIMENSION(:), ALLOCATABLE, SAVE :: pslextraelement
+      INTEGER, DIMENSION(:), ALLOCATABLE, SAVE :: disextraelement, disextraface
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE, SAVE :: qocavextra
 
+   !----------------------------------------------------------------------*
 
-         !^^^^^^ sb 08/03/06
-         write (dis2, '(A)',iostat=ios ) 'Simulated discharge at the outlet at every model timestep.'
-         if (ios/=0) then
-            write(*,'(A)') 'Error writing to the  discharge every timestep at the catchment outlet file  (unit 41 in the rundata file)'
-            write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
-            write(*,'(''paused, type [enter] to continue'')')
-            read (*,*)
-            stop
-         endif
-         write (dis2, '(A)',iostat=ios ) 'Date_yyyy-mm-dd_hours(iso8601format),Time(hours),Outlet_Discharge(m3/s)'
-         write (mas, '(A60)',iostat=ios ) 'Spatially Averaged Totals (mm) over the simulation'
-         if (ios/=0) then
-            write(*,'(A)') 'Error writing to the the mass balance data file  (units 43 in the rundata file)'
-            write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
-            write(*,'(''paused, type [enter] to continue'')')
-            read (*,*)
-            stop
-         endif
-         write (mas, '(12(a16,1a))') 'Time(Hours)', ',', &
-            'Cum Prec.', ',', &
-            'Cum. Can. Evap.', ',', &
-            'Cum. Soil Evap.', ',', &
-            'Cum. Trans', ',', &
-            'Cum. Aqu. Flow', ',', &
-            'Cum. Discharge', ',', &
-            'Canopy Storage', ',', &
-            'Snow Storage', ',', &
-            'Subsurface Stor.', ',', &
-            'Land Surf Stor.', ',', &
-            'Channel Stor.'
-         write (dis,'(A,f8.2,A)',iostat=ios ) 'Simulated discharge(m3/s) at the outlet - regular timestep', toutput, ' hours. Simulated discharge is the mean value over the timestep with the date at the end of the timestep'
-         if (ios/=0) then
-            write(*,'(A)') 'Error writing to the regular discharge at the catchment outlet file (unit 44 in the rundata file)'
-            write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
-            write(*,'(''paused, type [enter] to continue'')')
-            read (*,*)
-            stop
-         endif
-         !^^^^^ SB 25/01/05 find outlet link when no res files - mass balnce outp
-         !sb 120514 oulet must be a weir
+      IF (SIMPOS == 'start') THEN
+
+         IF (ISextradis) THEN
+            READ(disextra, *, IOSTAT=ios)
+            IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
+                                     'no or incorrect data in extra discharge points file')
+            
+            READ(disextra, *, IOSTAT=ios) disextratext, disextrapoints
+            IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
+                                     'no or incorrect data in extra discharge points file')
+
+            ALLOCATE(disextraelement(disextrapoints))
+            ALLOCATE(disextraface(disextrapoints))
+            ALLOCATE(qocavextra(disextrapoints))
+            ALLOCATE(qoctotextra(disextrapoints))
+            
+            disextraelement = 0
+            disextraface    = 0
+            qocavextra      = 0.0D0
+            qoctotextra     = 0.0D0
+            
+            j = 0
+            DO i = 1, disextrapoints
+               j = j + 1
+               READ(disextra, *, IOSTAT=ios) disextraelement(j), disextraface(j)
+               IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
+                                        'no or incorrect data in extra discharge points file')
+               
+               ! remove the output if the element number is too big
+               IF (disextraelement(j) > total_no_links) THEN
+                  disextraelement(j) = 0
+                  disextraface(j)    = 0
+                  j = j - 1
+               END IF
+            END DO
+            disextrapoints = j
+         END IF
+
+         ! extra water table output
+         IF (ISextrapsl) THEN
+            READ(pslextra, *, IOSTAT=ios)
+            IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
+                                     'no or incorrect data in input_CATCH_water_table_depth file')
+            
+            READ(pslextra, *, IOSTAT=ios) pslextratext, pslextrapoints
+            IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
+                                     'no or incorrect data in input_CATCH_water_table_depth file')
+
+            ALLOCATE(pslextraelement(pslextrapoints))
+            pslextraelement = 0
+            
+            j = 0
+            DO i = 1, pslextrapoints
+               j = j + 1
+               READ(pslextra, *, IOSTAT=ios) pslextraelement(j)
+               IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
+                                        'no or incorrect data in input_CATCH_water_table_depth file')
+               
+               ! remove the output if the element number is too big
+               IF (pslextraelement(j) > total_no_elements) THEN
+                  pslextraelement(j) = 0
+                  j = j - 1
+               END IF
+            END DO
+            pslextrapoints = j
+
+            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
+            OPEN(PSLFILEUNIT, FILE=FILNAM, IOSTAT=ios)
+            IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, 'Error opening water table depth file')
+            
+            WRITE(PSLFILEUNIT, '(A)') 'Water_Table_depth(m_below_ground). A negative number ' // &
+                                      'means there is surface water with the absolute value ' // &
+                                      'the depth of surface water'
+            WRITE(PSLFILEUNIT, '(A,*(A,I0))') 'Time(hours)', &
+                                              (', Element-', pslextraelement(j), j=1, pslextrapoints)
+         END IF
+
+         WRITE(dis2, '(A)', IOSTAT=ios) 'Simulated discharge at the outlet at every model timestep.'
+         IF (ios /= 0) THEN
+            WRITE(*, '(A)') 'Error writing to the discharge every timestep at the catchment outlet ' // &
+                            'file (unit 41 in the rundata file)'
+            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+            WRITE(*, '(''paused, type [enter] to continue'')')
+            READ(*, *)
+            STOP
+         END IF
+         
+         WRITE(dis2, '(A)', IOSTAT=ios) 'Date_yyyy-mm-dd_hours(iso8601format),Time(hours),' // &
+                                        'Outlet_Discharge(m3/s)'
+                                        
+         WRITE(mas, '(A60)', IOSTAT=ios) 'Spatially Averaged Totals (mm) over the simulation'
+         IF (ios /= 0) THEN
+            WRITE(*, '(A)') 'Error writing to the the mass balance data file (units 43 in the rundata file)'
+            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+            WRITE(*, '(''paused, type [enter] to continue'')')
+            READ(*, *)
+            STOP
+         END IF
+         
+         WRITE(mas, '(12(a16,1a))') 'Time(Hours)', ',', 'Cum Prec.', ',', 'Cum. Can. Evap.', ',', &
+                                    'Cum. Soil Evap.', ',', 'Cum. Trans', ',', 'Cum. Aqu. Flow', ',', &
+                                    'Cum. Discharge', ',', 'Canopy Storage', ',', 'Snow Storage', ',', &
+                                    'Subsurface Stor.', ',', 'Land Surf Stor.', ',', 'Channel Stor.'
+                                    
+         WRITE(dis, '(A,f8.2,A)', IOSTAT=ios) 'Simulated discharge(m3/s) at the outlet - regular ' // &
+                                              'timestep', toutput, ' hours. Simulated discharge is ' // &
+                                              'the mean value over the timestep with the date at the ' // &
+                                              'end of the timestep'
+         IF (ios /= 0) THEN
+            WRITE(*, '(A)') 'Error writing to the regular discharge at the catchment outlet file ' // &
+                            '(unit 44 in the rundata file)'
+            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+            WRITE(*, '(''paused, type [enter] to continue'')')
+            READ(*, *)
+            STOP
+         END IF
+
+         ! find outlet link when no res files - mass balance output
+         ! outlet must be a weir
+         mblink = 0
+         mbface = 0
          DO L = 1, total_no_links
-            DO IFACE = 1, 4
-               IF (ICMREF (L, 4 + IFACE) .EQ.0.AND.NOCBCC (L) .GT.0) THEN
-                  IF (NOCBCD(NOCBCC(L),3).EQ.7) THEN
+            DO iface = 1, 4
+               IF (ICMREF(L, 4 + iface) == 0 .AND. NOCBCC(L) > 0) THEN
+                  IF (NOCBCD(NOCBCC(L), 3) == 7) THEN
                      ! if boundary conditions has type7 which is a weir
-                     MBLINK = L
-                     MBFACE = NOCBCD (NOCBCC (L), 2)
-                  ENDIF
-               ENDIF
-            ENDDO
-         ENDDO
+                     mblink = L
+                     mbface = NOCBCD(NOCBCC(L), 2)
+                  END IF
+               END IF
+            END DO
+         END DO
 
-         if (ISextradis) then
-            WRITE(dis,'(*(A,I0))') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-',mblink,(',Channel-',disextraelement(j),j=1,disextrapoints)
-         else
-            WRITE(dis,'(A)')  'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge'
-         endif
-         uznowt=uznow*(1/TOUTPUT)
-         next_hour = INT(uznowt) + 1.0
-! sb hotstart first time is correct
-         if (BHOTRD) uzold=int(bhotti/TOUTPUT)
-
-         if (bexsy) then
-
-            FILNAM = TRIM (DIRQQ) //'output_'//trim(cnam)//'_sediment_all.csv'
-            open (SEDALLUNIT, file=FILNAM)
-            FILNAM = TRIM (DIRQQ) //'output_'//trim(cnam)//'_sediment_fine.csv'
-            open (SEDFINEUNIT, file=FILNAM)
-            write (SEDALLUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - All Sediments'
-            if (ios/=0) then
-               write(*,'(A)') 'Error writing to the sed-all-daily-output.csv file'
-               write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
-               write(*,'(''paused, type [enter] to continue'')')
-               read (*,*)
-               stop
-            endif
-            write (SEDALLUNIT,'(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge(kg/s)'
-            write (SEDFINEUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - Fine Sediments'
-            if (ios/=0) then
-               write(*,'(A)') 'Error writing to the sed-fine-daily-output.csv file'
-               write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
-               write(*,'(''paused, type [enter] to continue'')')
-               read (*,*)
-               stop
-            endif
-            write (SEDFINEUNIT,'(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge(kg/s)'
-            sedav=0.0
-         endif
-
-         if (bexcm) then
-
-            FILNAM = TRIM (DIRQQ) //'output_'//trim(cnam)//'_contaminant.csv'
-            open (CONTAMUNIT, file=FILNAM)
-            write (CONTAMUNIT,'(A)',iostat=ios) 'Contaminant Relative Concentration (contaminant 1) at the outlet'
-            if (ios/=0) then
-               write(*,'(A)') 'Error writing to the contaminant.csv file'
-               write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
-               write(*,'(''paused, type [enter] to continue'')')
-               read (*,*)
-               stop
-            endif
-            write (CONTAMUNIT,'(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Relative_concentration'
-         endif
-
-
-      ELSEIF (SIMPOS (1:4) .EQ.'main') THEN
-
-         if (bexsy) then
-
-!*** 1d simulations
-            do i=1,nsed
-               if ((mblink.eq.0).and.(mbface.eq.0)) then
-                  sedav=0
-               else
-                  sedav=sedav+QSED(mblink,i,mbface)*RHOSED
-               endif
-            enddo
-            if ((mblink.eq.0).and.(mbface.eq.0)) then
-               sedfineav=0
-            else
-               sedfineav=QSED(mblink,1,mbface)*RHOSED
-            endif
-         endif
-         if (bexcm) then
-            if ((mblink.eq.0).and.(mbface.eq.0)) then
-               contamav=0
-            else
-               contamav=CCCC(mblink,top_cell_no,1)
-            endif
-         endif
-
-         !sb 02/05/07 outlet discharge sent to discharge.txt file
-         ! asasume the average discharge over a timestep is QOC
-         uznowt=uznow*(1/TOUTPUT)
-
-!***  1d simulations
-         if ((mblink.eq.0).and.(mbface.eq.0)) then
-            qocav=0
-         else
-            qocav     = qoc (mblink, mbface)
-         endif
-         if (ISextradis) then
-            do i=1,disextrapoints
-               qocavextra(i)= qoc(disextraelement(i),disextraface(i))
-            enddo
-         endif
-         hour_now  = INT(uznowt)
-
-         IF(hour_now<next_hour) THEN  ! not new hour
-            qoctot = qoctot + qocav*(uznowt-uzold)
-            if (bexsy) then
-               sedtot = sedtot + sedav*(uznowt-uzold)
-               sedfinetot = sedfinetot + sedfineav*(uznowt-uzold)
-            endif
-            if (bexcm) then
-               contamtot = contamtot + contamav*(uznowt-uzold)
-            endif
-            if (ISextradis) then
-               do i=1,disextrapoints
-                  qoctotextra(i) = qoctotextra(i) + qocavextra(i)*(uznowt-uzold)
-               enddo
-            endif
+         IF (ISextradis) THEN
+            WRITE(dis, '(*(A,I0))') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-', &
+                                    mblink, (',Channel-', disextraelement(j), j=1, disextrapoints)
          ELSE
-            qoctot = qoctot + qocav*(next_hour-uzold)
-            if (bexsy) then
-               sedtot = sedtot + sedav*(next_hour-uzold)
-               sedfinetot = sedfinetot + sedfineav*(next_hour-uzold)
-            endif
-            if (bexcm) then
-               contamtot = contamtot + contamav*(next_hour-uzold)
-            endif
+            WRITE(dis, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge'
+         END IF
+         
+         uznowt    = uznow * (1.0D0 / TOUTPUT)
+         next_hour = DBLE(INT(uznowt)) + 1.0D0
+         
+         ! hotstart first time is correct
+         IF (BHOTRD) uzold = DBLE(INT(bhotti / TOUTPUT))
 
-            if (ISextradis) then
-               do i=1,disextrapoints
-                  qoctotextra(i) = qoctotextra(i) + qocavextra(i)*(next_hour-uzold)
-               enddo
-            endif
+         IF (bexsy) THEN
+            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
+            OPEN(SEDALLUNIT, FILE=FILNAM)
+            
+            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
+            OPEN(SEDFINEUNIT, FILE=FILNAM)
+            
+            WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - All Sediments'
+            IF (ios /= 0) THEN
+               WRITE(*, '(A)') 'Error writing to the sed-all-daily-output.csv file'
+               WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+               WRITE(*, '(''paused, type [enter] to continue'')')
+               READ(*, *)
+               STOP
+            END IF
+            WRITE(SEDALLUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
+                                     'Outlet-Discharge(kg/s)'
+            
+            WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - Fine Sediments'
+            IF (ios /= 0) THEN
+               WRITE(*, '(A)') 'Error writing to the sed-fine-daily-output.csv file'
+               WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+               WRITE(*, '(''paused, type [enter] to continue'')')
+               READ(*, *)
+               STOP
+            END IF
+            WRITE(SEDFINEUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
+                                      'Outlet-Discharge(kg/s)'
+            sedav = 0.0D0
+         END IF
 
-            c = DATE_FROM_HOUR(tih+next_hour*TOUTPUT)
-            WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
-            if (ISextradis) then
-               !           WRITE(dis,'(A,A1,F16.2,*(A1,F20.8))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot),(',',abs(qoctotextra(j)),j=1,disextrapoints)
-               WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot),(',',abs(qoctotextra(j)),j=1,disextrapoints)
-            else
-               !           WRITE(dis,'(A,A1,F16.2,*(A1,F20.8))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot)
-               WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot)
-            endif
-            if (bexsy) then
-               write(SEDALLUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',', sedtot
-               write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',', sedfinetot
-            endif
-            if (bexcm) then
-               write(CONTAMUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',', contamtot
-            endif
-            DO i = next_hour+1, hour_now
-               next_hour = i
-               c = DATE_FROM_HOUR(tih+next_hour*TOUTPUT)
-               WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
-               if (ISextradis) then
-                  WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot),(',',abs(qocavextra(j)),j=1,disextrapoints)
-               else
-                  WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qocav)
-               endif
-               if (bexsy) then
-                  write(SEDALLUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',sedav
-                  write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',sedfineav
-               endif
-               if (bexcm) then
-                  write(CONTAMUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',contamav
-               endif
-            ENDDO
-            qoctot    = qocav * (uznowt-next_hour)
-            if (bexsy) then
-               sedtot    = sedav * (uznowt-next_hour)
-               sedfinetot    = sedfineav * (uznowt-next_hour)
-            endif
-            if (bexcm) then
-               contamtot    = contamav * (uznowt-next_hour)
-            endif
-            if (ISextradis) then
-               do i=1,disextrapoints
-                  qoctotextra(i) = qocavextra(i) * (uznowt-next_hour)
-               enddo
-            endif
+         IF (bexcm) THEN
+            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
+            OPEN(CONTAMUNIT, FILE=FILNAM)
+            WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) 'Contaminant Relative Concentration ' // &
+                                                 '(contaminant 1) at the outlet'
+            IF (ios /= 0) THEN
+               WRITE(*, '(A)') 'Error writing to the contaminant.csv file'
+               WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+               WRITE(*, '(''paused, type [enter] to continue'')')
+               READ(*, *)
+               STOP
+            END IF
+            WRITE(CONTAMUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
+                                     'Relative_concentration'
+         END IF
 
-            next_hour = next_hour + 1.0
-         ENDIF
+
+      ELSE IF (SIMPOS(1:4) == 'main') THEN
+
+         IF (bexsy) THEN
+            ! 1d simulations
+            sedav = 0.0D0
+            DO i = 1, nsed
+               IF (mblink == 0 .AND. mbface == 0) THEN
+                  ! DO nothing
+               ELSE
+                  sedav = sedav + QSED(mblink, i, mbface) * RHOSED
+               END IF
+            END DO
+            
+            IF (mblink == 0 .AND. mbface == 0) THEN
+               sedfineav = 0.0D0
+            ELSE
+               sedfineav = QSED(mblink, 1, mbface) * RHOSED
+            END IF
+         END IF
+         
+         IF (bexcm) THEN
+            IF (mblink == 0 .AND. mbface == 0) THEN
+               contamav = 0.0D0
+            ELSE
+               contamav = CCCC(mblink, top_cell_no, 1)
+            END IF
+         END IF
+
+         ! outlet discharge sent to discharge.txt file
+         ! assume the average discharge over a timestep is QOC
+         uznowt = uznow * (1.0D0 / TOUTPUT)
+
+         ! 1d simulations
+         IF (mblink == 0 .AND. mbface == 0) THEN
+            qocav = 0.0D0
+         ELSE
+            qocav = qoc(mblink, mbface)
+         END IF
+         
+         IF (ISextradis) THEN
+            DO i = 1, disextrapoints
+               qocavextra(i) = qoc(disextraelement(i), disextraface(i))
+            END DO
+         END IF
+         
+         hour_now = INT(uznowt)
+
+         IF (hour_now < INT(next_hour)) THEN  
+            ! not new hour
+            qoctot = qoctot + qocav * (uznowt - uzold)
+            IF (bexsy) THEN
+               sedtot = sedtot + sedav * (uznowt - uzold)
+               sedfinetot = sedfinetot + sedfineav * (uznowt - uzold)
+            END IF
+            IF (bexcm) contamtot = contamtot + contamav * (uznowt - uzold)
+            
+            IF (ISextradis) THEN
+               DO i = 1, disextrapoints
+                  qoctotextra(i) = qoctotextra(i) + qocavextra(i) * (uznowt - uzold)
+               END DO
+            END IF
+            
+         ELSE
+            qoctot = qoctot + qocav * (next_hour - uzold)
+            IF (bexsy) THEN
+               sedtot = sedtot + sedav * (next_hour - uzold)
+               sedfinetot = sedfinetot + sedfineav * (next_hour - uzold)
+            END IF
+            IF (bexcm) contamtot = contamtot + contamav * (next_hour - uzold)
+
+            IF (ISextradis) THEN
+               DO i = 1, disextrapoints
+                  qoctotextra(i) = qoctotextra(i) + qocavextra(i) * (next_hour - uzold)
+               END DO
+            END IF
+
+            c = DATE_FROM_HOUR(tih + next_hour * TOUTPUT)
+            WRITE(dum, '(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
+                  c(1), '-', c(2), '-', c(3), 'T', c(4), ':', c(5), ':', c(6)
+            
+            IF (ISextradis) THEN
+               WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
+                     ABS(qoctot), (',', ABS(qoctotextra(j)), j=1, disextrapoints)
+            ELSE
+               WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', ABS(qoctot)
+            END IF
+            
+            IF (bexsy) THEN
+               WRITE(SEDALLUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
+                     sedtot
+               WRITE(SEDFINEUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
+                     sedfinetot
+            END IF
+            
+            IF (bexcm) THEN
+               WRITE(CONTAMUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
+                     contamtot
+            END IF
+            
+            DO i = INT(next_hour) + 1, hour_now
+               next_hour = DBLE(i)
+               c = DATE_FROM_HOUR(tih + next_hour * TOUTPUT)
+               WRITE(dum, '(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
+                     c(1), '-', c(2), '-', c(3), 'T', c(4), ':', c(5), ':', c(6)
+               
+               IF (ISextradis) THEN
+                  WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
+                        ABS(qoctot), (',', ABS(qocavextra(j)), j=1, disextrapoints)
+               ELSE
+                  WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', ABS(qocav)
+               END IF
+               
+               IF (bexsy) THEN
+                  WRITE(SEDALLUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', &
+                        next_hour * TOUTPUT, ',', sedav
+                  WRITE(SEDFINEUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', &
+                        next_hour * TOUTPUT, ',', sedfineav
+               END IF
+               
+               IF (bexcm) THEN
+                  WRITE(CONTAMUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', &
+                        next_hour * TOUTPUT, ',', contamav
+               END IF
+            END DO
+            
+            qoctot = qocav * (uznowt - next_hour)
+            IF (bexsy) THEN
+               sedtot     = sedav * (uznowt - next_hour)
+               sedfinetot = sedfineav * (uznowt - next_hour)
+            END IF
+            IF (bexcm) contamtot = contamav * (uznowt - next_hour)
+            
+            IF (ISextradis) THEN
+               DO i = 1, disextrapoints
+                  qoctotextra(i) = qocavextra(i) * (uznowt - next_hour)
+               END DO
+            END IF
+
+            next_hour = next_hour + 1.0D0
+         END IF
+         
          CALL WRITE_DIS2(mbface, qocav, uznow)
-         !write (494,'(4(f10.6))') (qsed(mblink,1,i), i=1,4)
 
-
-         IF(uznow > icounter2) then
-            write (mas, '(12(f16.3,1a))') uznow, ',', &
-               balanc (7) * 1000 / carea, ',', &
-               balanc (8) * 1000 / carea, ',', &
-               balanc (9) * 1000 / carea, ',', &
-               balanc (10) * 1000 / carea, ',', &
-               balanc (11) * 1000 / carea, ',', &
-               balanc (12) * 1000 / carea, ',', &
-               balanc (13) * 1000 / carea, ',', &
-               balanc (14) * 1000 / carea, ',', &
-               balanc (15) * 1000 / carea, ',', &
-               balanc (16) * 1000 / carea, ',', &
-               balanc (17) * 1000 / carea
-            icounter2 = icounter2 + 24
-            if (ISextrapsl) then
-               write(PSLFILEUNIT,'(f10.2,*(1a,f10.2))') uznow,  (',', zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), i=1, pslextrapoints)
-            endif
-         endif
+         IF (uznow > icounter2) THEN
+            WRITE(mas, '(12(f16.3,1a))') uznow, ',', &
+                 balanc(7) * 1000.0D0 / carea, ',', &
+                 balanc(8) * 1000.0D0 / carea, ',', &
+                 balanc(9) * 1000.0D0 / carea, ',', &
+                 balanc(10) * 1000.0D0 / carea, ',', &
+                 balanc(11) * 1000.0D0 / carea, ',', &
+                 balanc(12) * 1000.0D0 / carea, ',', &
+                 balanc(13) * 1000.0D0 / carea, ',', &
+                 balanc(14) * 1000.0D0 / carea, ',', &
+                 balanc(15) * 1000.0D0 / carea, ',', &
+                 balanc(16) * 1000.0D0 / carea, ',', &
+                 balanc(17) * 1000.0D0 / carea
+                 
+            icounter2 = icounter2 + 24.0D0
+            
+            IF (ISextrapsl) THEN
+               WRITE(PSLFILEUNIT, '(f10.2,*(1a,f10.2))') uznow, (',', &
+                     zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), i=1, pslextrapoints)
+            END IF
+         END IF
+         
          uzold = uznowt
 
+         ! temp sb 250925 for when doing 1d simulations
+         IF (mblink == 0 .AND. mbface == 0) THEN
+            qocav = 0.0D0
+         ELSE
+            qocold = qoc(mblink, mbface)
+         END IF
 
-!*** temp sb 250925 for when doing 1d simulations
-         if ((mblink.eq.0).and.(mbface.eq.0)) then
-            qocav=0
-         else
-            qocold     = qoc (mblink, mbface)
-         endif
-
-         ! end of sb
       ELSE
-         write (vse,  * ) 'Output at end of simulation for use as', ' initial conditions in vsi file'
-         write (vse, * ) 'This output is by element number'
-         write (vse, * )
-         write (vse, * ) 'phreatic surface level '
-         if (bexbk) then
+         WRITE(vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
+         WRITE(vse, *) 'This output is by element number'
+         WRITE(vse, *)
+         WRITE(vse, *) 'phreatic surface level '
+         
+         IF (bexbk) THEN
             nminel = 1
-         else
+         ELSE
             nminel = total_no_links + 1
-         endif
-         write (vse, 1100) (zvspsl (j), j = nminel, total_no_elements)
-         write (vse, * )
-         write (vse, * ) 'Heads at end of simulation'
-         do iel = 1, total_no_elements
-            if (bexbk.or.iel.gt.total_no_links) then
-               write (vse, 1000) iel
-               write (vse, 1100) (VSPSI (J, IEL), j = nlyrbt (iel, 1), &
-                  top_cell_no)
-            endif
-         enddo
-      ENDIF
-
-      RETURN
-
-580   CALL ERROR(FFFATAL,1068,PPPRI,0,0,   'no or incorrect data in extra discharge points file')
-581   CALL ERROR(FFFATAL,1069,PPPRI,0,0,   'no or incorrect data in input_CATCH_water_table_depth file')
-
+         END IF
+         
+         WRITE(vse, '(10(1X,F9.3))') (zvspsl(j), j = nminel, total_no_elements)
+         WRITE(vse, *)
+         WRITE(vse, *) 'Heads at end of simulation'
+         
+         DO iel = 1, total_no_elements
+            IF (bexbk .OR. iel > total_no_links) THEN
+               WRITE(vse, '(I7)') iel
+               WRITE(vse, '(10(1X,F9.3))') (VSPSI(j, iel), j = nlyrbt(iel, 1), top_cell_no)
+            END IF
+         END DO
+      END IF
 
    END SUBROUTINE FROUTPUT
 
 
 
-!SSSSSS SUBROUTINE write_dis
+   !SSSSSS SUBROUTINE write_dis
    SUBROUTINE write_dis(mbface, qoo)
       INTEGER, INTENT(IN)            :: mbface
       DOUBLEPRECISION, INTENT(IN)    :: qoo
@@ -2208,7 +2231,7 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE write_dis2
+   !SSSSSS SUBROUTINE write_dis2
    SUBROUTINE write_dis2(mbface, qoo, tme)
       INTEGER, INTENT(IN)            :: mbface
       INTEGER                        :: c(6)
@@ -2225,7 +2248,6 @@ CONTAINS
 !WRITE(dum,'(2(I2.2,A),I4.4,3(A,I2.2))') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
       WRITE(dis2,'(A,A1,F0.5,A1,F0.5)') TRIM(dum), ',',tme, ',',qd
    END SUBROUTINE write_dis2
-
 
 
 
@@ -3237,7 +3259,7 @@ CONTAINS
       DOUBLE PRECISION :: TABLE_WATER_DEPTH (NOCTAB, NOCTAB, NCONEE)
       DOUBLE PRECISION :: DUMMYCONC(total_no_elements, top_cell_no)
 
-      LOGICAL :: LDUM1, ISCNSV (NCONEE)
+      LOGICAL :: LDUM1(1), ISCNSV (NCONEE)
 
       !----------------------------------------------------------------------*
       ! New by SB 18/11/04
@@ -3735,375 +3757,304 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE INET
+   !SSSSSS SUBROUTINE INET
    SUBROUTINE INET
-!----------------------------------------------------------------------*
-!
-!  THIS SUBROUTINE READS IN PARAMETERS REQUIRED FOR THE ET COMPONENT
-!  AND CARRIES OUT INITIALISATION CALCULATIONS
-!  IT IS ASasumED THAT MET SITE CODES AND VEGETATION CODES HAVE BEEN
-!  READ IN THE GLOBAL INITIALISATION ROUTINES
-!  VARAIBLE NAMES ARE AS SPECIFIED IN IH SHE REPORT 8, MAY 1978
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/ET/INET/4.2
-! Modifications since v3.3:
-!  GP          3.4  Don't call METIN (see TMSTEP).
-! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-! RAH  970516  4.1  Scrap WEP,WETEX,WETOCE,WEXET,WSET,WSETER,WSETI
-!                   (AL.D), DWETER (SPEC.ET) & AKKEP,AKKEA,AKKP (local).
-!                   Bring HEAD,ZU,ZD,ZO from SPEC.ET.
-!                   HEAD is type CHAR (was DBLE).  Explicit typing.
-!                   Scrap SPEC.ET output arrays NUMCST,NUMPLA,NUMCLA,
-!                   NUMVHT: use local JJJ.
-! RAH  981021  4.2  Scrap AL.D outputs CSTOLD,EPOTR.
-!                   Replace VK^^2 with constant VKSQ.
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     SPEC.AL          NUZTAB,NVBP,NVEE
-! Input common
-!     SPEC.AL          EPD,ETD,MED,NEL,NGDBGN,NM,NRAIN,NV,PRD,PRI
-!                      BHOTRD
-! Output common
-!     SPEC.AL          NRD(NV)
-!                      DTMET,EPTIME,METIME,TIMEUZ
-!                      CLAI(NV),RDL(NV),   P(NRAIN),CSTORE(NGDBGN:NEL)
-!                      PLAI(NV),VHT(NV),PINP(NRAIN),RDF(NVEE,LLEE)
-!     SPEC.ET          MEASPE(NM),MODE(NVEE),NF(NV)
-!                      MODECS(NV),MODEPL(NV),MODECL(NV),MODEVH(NV)
-!                      NCTCST(NV),NCTPLA(NV),NCTCLA(NV),NCTVHT(NV)
-!                      CB(NV),CSTCA1(NV),  RA(NV),PLAI1(NV),VHT1(NV)
-!                      CK(NV),CSTCAP(NVEE),RC(NVEE),CLAI1(NV),RTOP(NV)
-!                      FET(NVEE,NUZTAB),PS1(NVEE,NUZTAB)
-!                      RCF(NVEE,NUZTAB)
-!                      RELCST(NVEE,NVBP),TIMCST(NVEE,NVBP)
-!                      RELPLA(NVEE,NVBP),TIMPLA(NVEE,NVBP)
-!                      RELCLA(NVEE,NVBP),TIMCLA(NVEE,NVBP)
-!                      RELVHT(NVEE,NVBP),TIMVHT(NVEE,NVBP)
-!                      BINETP,BMETAL,BMETP,BAR(NVEE)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!     VARIABLE AND UNIT SPECIFICATION
-!
-!     RA    - AERODYNAMIC RESISTANCE                  SEC/M
-!     RC    - STOMATAL RESISTANCE                     SEC/M
-!     CSTCAP- CANOPY STORAGE CAPACITY                 MM
-!     CSTORE- CANPOY STORAGE                          MM
-!     CK    - DRAINAGE PARAMETER                      MM/SEC
-!     CB    - DRAINAGE PARAMETER                      1/MM
-!     ZO    - ZERO PLANE DISPLACEMENT                 M
-!     ZD    - ROUGHNESS HEIGHT                        M
-!     ZU    - HEIGHT OF ANEMOMETER                    M
-!     PS1   - AVERAGE TENSION                         M
-!     RCF   - CORRESPONDING RC                        SEC/M
-!     FET   -       -       EA/EP                     NON-DIM
-!     RDF   - ROOT DISTRIBUTION FUNCTION              NON-DIM
-!     PLAI  - GROUND COVER INDEX                      NON-DIM
-!     CPLAI - CANOPY LEAF AREA INDEX                  NON-DIM
-!     VHT   - CANOPY HEIGHT                           M
-!     MEASPE- = 0 IF POTENTIAL EVAP NOT MEASURED
-!             = 1 IF POTENTIAL EVAP IS MEASURED
-!     DTMET - TIMESTEP FOR INPUT OF MED DATA          HR
-!     DTMET2 - TIMESTEP FOR INPUT OF PRD DATA         HR
-!     DTMET3 - TIMESTEP FOR INPUT OF EPD DATA         HR
-!
-!     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-! Locals, etc
-!INTRINSIC LOG
-      DOUBLEPRECISION VKSQ
-      PARAMETER (VKSQ = .41D0**2)
-      INTEGER :: I, IEL, IIMEAS, J, JJ, JJJ, N1, N2, c5(5), c6(6), spinup, length, hours
-      DOUBLEPRECISION DEPTH, asum, ZU (NVEE), ZD (NVEE), ZO (NVEE), step, dum, fred(100)
+   !----------------------------------------------------------------------*
+   ! THIS SUBROUTINE READS IN PARAMETERS REQUIRED FOR THE ET COMPONENT
+   ! AND CARRIES OUT INITIALISATION CALCULATIONS
+   ! IT IS ASSUMED THAT MET SITE CODES AND VEGETATION CODES HAVE BEEN
+   ! READ IN THE GLOBAL INITIALISATION ROUTINES
+   ! VARIABLE NAMES ARE AS SPECIFIED IN IH SHE REPORT 8, MAY 1978
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/ET/INET/4.2
+   ! Modifications since v3.3:
+   !  GP       3.4  Don't call METIN (see TMSTEP).
+   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
+   ! RAH  970516  4.1  Scrap WEP,WETEX,WETOCE,WEXET,WSET,WSETER,WSETI
+   !                   (AL.D), DWETER (SPEC.ET) & AKKEP,AKKEA,AKKP (local).
+   !                   Bring HEAD,ZU,ZD,ZO from SPEC.ET.
+   !                   HEAD is type CHAR (was DBLE).  Explicit typing.
+   !                   Scrap SPEC.ET output arrays NUMCST,NUMPLA,NUMCLA,
+   !                   NUMVHT: use local JJJ.
+   ! RAH  981021  4.2  Scrap AL.D outputs CSTOLD,EPOTR.
+   !                   Replace VK^2 with constant VKSQ.
+   !----------------------------------------------------------------------*
 
-      CHARACTER (LEN=80) :: HEAD, cdum
-      CHARACTER(256)     :: msg2
-!----------------------------------------------------------------------*
-!
-!  INITIAL VALUES
-!
-!DO 10 I = 1, NVEE
-      DO I = 1, NV
-         CSTCAP (I) = 0.
-         RC (I) = 0.
-         BAR (I) = .FALSE.
-         MODE (I) = 0
-      END DO
-!
-!     CHECK IF HOTSTART
-!
-      IF (.NOT.BHOTRD) THEN
-         DO IEL = NGDBGN, total_no_elements
-            CSTORE (IEL) = 0.
-         END DO
+      ! Assumed global variables provided via host module(s):
+      ! NV, BHOTRD, NGDBGN, total_no_elements, NRAIN, ETD, PPPRI, NM
+      ! PRD, EPD, MED, TAH, TAL, ISTA, FFFATAL
+      ! CSTCAP, RC, BAR, MODE, CSTORE, precip_m_per_s, TIMEUZ, BMETDATES
+      ! BMETP, BINETP, BMETAL, DTMET, DTMET2, DTMET3, MEASPE, RA, ZU, ZD, ZO
+      ! NF, PLAI, CK, CB, NRD, CLAI, VHT, RDL, MODECS, MODEPL, MODECL, MODEVH
+      ! NCTCST, CSTCA1, RELCST, TIMCST, NCTPLA, PLAI1, RELPLA, TIMPLA
+      ! NCTCLA, CLAI1, RELCLA, TIMCLA, NCTVHT, VHT1, RELVHT, TIMVHT
+      ! PS1, RCF, FET, RDF, RTOP
+
+      IMPLICIT NONE
+      
+      ! --- LOCAL VARIABLES ---
+      
+      ! Scalars
+      INTEGER          :: I, IEL, IIMEAS, J, JJ, JJJ, N1, N2, ios, N
+      DOUBLE PRECISION :: DEPTH, ASUM
+      CHARACTER(LEN=80):: HEAD
+
+      ! Missing local arrays used for Energy Budget calculations
+      ! Defined with NVEE size as per the common block logic
+      DOUBLE PRECISION :: ZU(NVEE), ZD(NVEE), ZO(NVEE)
+      
+      ! Constants
+      DOUBLE PRECISION, PARAMETER :: VKSQ = 0.1681D0 ! (0.41^2)
+
+   !----------------------------------------------------------------------*
+
+      ! INITIAL VALUES
+      init_veg_loop: DO I = 1, NV
+         CSTCAP(I) = 0.0D0
+         RC(I)     = 0.0D0
+         BAR(I)    = .FALSE.
+         MODE(I)   = 0
+      END DO init_veg_loop
+
+      ! CHECK IF HOTSTART
+      IF (.NOT. BHOTRD) THEN
+         init_store_loop: DO IEL = NGDBGN, total_no_elements
+            CSTORE(IEL) = 0.0D0
+         END DO init_store_loop
       END IF
-!
-      DO I = 1, NRAIN
-         !PINP (I) = 0.
-      END DO !precip_m_per_s(I) = 0.
 
-      precip_m_per_s = 0.
-      TIMEUZ = 0.
-!
-!-----READ PRINTCONTROL PARAMETERS
-!:ET1
-      READ (ETD, 100) HEAD
+      precip_m_per_s = 0.0D0
+      TIMEUZ = 0.0D0
 
-!new code 10202026 BMETDATES added
-! if true then the prd, epd and temperature files contain dates in the first column
-! for backwards compatibility the default is false and BMETDATES will not be opresent in line ET1
-      BMETDATES=.False.
-      READ (ETD, 60) BMETP, BINETP, BMETAL, BMETDATES
-60    FORMAT (4L7)
-!
-!-----READ TIMESTEP FOR INPUT OF MET AND RAINDATA,
-!          TIMECONSTANT FOR RAINFALL DISTRIBUTION
-!:ET3
-      READ (ETD, 100) HEAD
-!      READ (ETD,70) DTMET,DTMET2,DTMET3
-!   70 FORMAT (F7.1)
-! sb 300407 convert breakpoint data to regularly spaced data
-      READ (ETD, * ) DTMET, DTMET2, DTMET3
-!
-!-----READ WHETHER POTENTIAL EVAP IS MEASURED AND THEREFORE TO
-!        BE READ IN DIRECTLY FOR EACH MET STATION IN TURN.
-!        MEASPE = 0 : POTENTIAL EVAP NOT MEASURED
-!               = 1 : POTENTIAL EVAP MEASURED
-!:ET5
-      READ (ETD, 100) HEAD
-      READ (ETD, 80) (MEASPE (IIMEAS), IIMEAS = 1, NM)
-80    FORMAT (10I7)
-!
-!---------------------------------
-!  LOOP ON VEGETATION TYPES....
-!---------------------------------
-!
-      DO 430 I = 1, NV
-!
-         IF (BINETP) WRITE(PPPRI, 90) I
-90       FORMAT   ('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))
-!:ET7
-         READ (ETD, 100) HEAD
-100      FORMAT   (A)
-         IF (BINETP) WRITE(PPPRI, 110) HEAD
-110      FORMAT   ('0'//1X, A)
-!-------------------------------------
-!  READ PARAMETER DATA
-!-------------------------------------
-         READ (ETD, 120) BAR (I), RA (I), ZU (I), ZD (I), ZO (I), &
-            RC (I), MODE (I), NF (I), PLAI (I), CSTCAP (I), CK (I), &
-            CB (I), NRD (I), CLAI (I), VHT (I), RDL (I)
-120      FORMAT   (L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)
-         IF (BINETP) WRITE(PPPRI, 130) MODE (I)
-130      FORMAT   ('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')
-!
-!-----WRITE PARAMETER DATA
-         IF (BINETP) WRITE(PPPRI, 140) PLAI (I), CSTCAP (I), CK (I), &
-            CB (I), CLAI (I), VHT (I), RDL (I)
-140      FORMAT   ('0', 'PARAMETERS'/1X, 10('*')//10X, 'PLAI', F15.8/10X, &
-         &         'CSTCAP', F13.8/10X, 'CK', F17.8/10X, 'CB', F17.8/10X, &
-         &         'CLAI', F15.8/10X, 'VHT', F16.8/10X, 'RDL', F16.8)
-150      IF (BAR (I) .AND.BINETP) WRITE(PPPRI, 160) ZO (I), ZD (I), &
-            ZU (I)
-160      FORMAT   (' ', 10X, 'VARIABLE RA WITH'/10X, 'ZO', F17.4/10X, 'ZD', &
-         &         F18.4/10X, 'ZU', F17.4)
-         IF (.NOT.BAR (I) .AND.BINETP) WRITE(PPPRI, 170) RA (I)
-170      FORMAT   (' ', 10X, 'CONSTANT RA =', F10.4)
-!--------------------------------------------------------
-!     READ TABULAR VARIATION OF TIME-VARYING PARAMETERS
-!--------------------------------------------------------
-!:ET9
-         READ (ETD, 100) HEAD
-!
-!-----READ MODE: 0=CONSTANT; 1=TIME-VARYING
-         READ (ETD, 180) MODECS (I), MODEPL (I), MODECL (I), MODEVH (I)
-180      FORMAT   (4I7)
-!
-!-----CHECK MODE FOR TIME-VARYING CSTCAP
-         IF (BINETP) WRITE(PPPRI, 190) I, MODECS (I)
-190      FORMAT   ('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', &
-         &         I3, 3X, ' (0=CONSTANT; 1=TIME-VARYING)')
-         IF (MODECS (I) .NE.0) THEN
-            NCTCST (I) = 1
-            CSTCA1 (I) = CSTCAP (I)
-!-----READ NUMBER OF VALUES IN CSTCAP VARIATION TABLE
-!:ET11(1/4)
-            READ (ETD, 100) HEAD
-            READ (ETD, 200) JJJ
-200         FORMAT        (I7)
-!:ET13(1/4)
-            READ (ETD, 100) HEAD
-            IF (BINETP) WRITE(PPPRI, 110) HEAD
-!-----READ TIME-VARYING CSTCAP VALUES
-            DO 230 JJ = 1, JJJ
-!         READ (ETD, 210) RELCST (I, JJ), TIMCST (I, JJ)
-!  210 FORMAT           (2G7.3)
-               READ (ETD, *) RELCST (I, JJ), TIMCST (I, JJ)
-               IF (BINETP) WRITE(PPPRI, 220) RELCST (I, JJ), TIMCST (I, &
-                  JJ)
-220            FORMAT           (2G10.3)
-230         END DO
-         ENDIF
-!
-!-----CHECK MODE FOR TIME-VARYING PLAI
-         IF (BINETP) WRITE(PPPRI, 250) I, MODEPL (I)
-250      FORMAT   ('0', 1X, 'MODE FOR PLAI FOR VEGETATION', I3, ' IS', I3, &
-         &         3X, ' (0=CONSTANT; 1=TIME-VARYING)')
-         IF (MODEPL (I) .NE.0) THEN
-            NCTPLA (I) = 1
-            PLAI1 (I) = PLAI (I)
-!
-!-----READ NUMBER OF VALUES IN PLAI VARIATION TABLE
-!:ET11(2/4)
-            READ (ETD, 100) HEAD
-            READ (ETD, 200) JJJ
-!:ET13(2/4)
-            READ (ETD, 100) HEAD
-            IF (BINETP) WRITE(PPPRI, 110) HEAD
-!
-!-----READ TIME-VARYING PLAI VALUES
-            DO 260 JJ = 1, JJJ
-!         READ (ETD, 210) RELPLA (I, JJ), TIMPLA (I, JJ)
-               READ (ETD, *) RELPLA (I, JJ), TIMPLA (I, JJ)
-               IF (BINETP) WRITE(PPPRI, 220) RELPLA (I, JJ), TIMPLA (I, &
-                  JJ)
-260         END DO
-         ENDIF
-!
-!-----CHECK MODE FOR TIME-VARYING CLAI
-         IF (BINETP) WRITE(PPPRI, 280) I, MODECL (I)
-280      FORMAT   ('0', 1X, 'MODE FOR CLAI FOR VEGETATION', I3, ' IS', I3, &
-         &         3X, ' (0=CONSTANT; 1=TIME-VARYING)')
-         IF (MODECL (I) .NE.0) THEN
-            NCTCLA (I) = 1
-            CLAI1 (I) = CLAI (I)
-!
-!-----READ NUMBER OF VALUES IN CLAI VARIATION TABLE
-!:ET11(3/4)
-            READ (ETD, 100) HEAD
-            READ (ETD, 200) JJJ
-!:ET13(3/4)
-            READ (ETD, 100) HEAD
-            IF (BINETP) WRITE(PPPRI, 110) HEAD
-!
-!-----READ TIME-VARYING CLAI VALUES
-            DO 290 JJ = 1, JJJ
-!         READ (ETD, 210) RELCLA (I, JJ), TIMCLA (I, JJ)
-               READ (ETD, *) RELCLA (I, JJ), TIMCLA (I, JJ)
-               IF (BINETP) WRITE(PPPRI, 220) RELCLA (I, JJ), TIMCLA (I, &
-                  JJ)
-290         END DO
-         ENDIF
-!
-!-----CHECK MODE FOR TIME-VARYING VHT
-         IF (BINETP) WRITE(PPPRI, 310) I, MODEVH (I)
-310      FORMAT   ('0', 1X, 'MODE FOR VHT FOR VEGETATION', I3, ' IS', I3, &
-         &         3X, ' (0=CONSTANT; 1=TIME-VARYING)')
-         IF (MODEVH (I) .NE.0) THEN
-            NCTVHT (I) = 1
-            VHT1 (I) = VHT (I)
-!
-!-----READ NUMBER OF VALUES IN VHT VARIATION TABLE
-!:ET11(4/4)
-            READ (ETD, 100) HEAD
-            READ (ETD, 200) JJJ
-!:ET13(4/4)
-            READ (ETD, 100) HEAD
-            IF (BINETP) WRITE(PPPRI, 110) HEAD
-!
-!-----READ TIME-VARYING VHT VALUES
-            DO 320 JJ = 1, JJJ
-!         READ (ETD, 210) RELVHT (I, JJ), TIMVHT (I, JJ)
-               READ (ETD, *) RELVHT (I, JJ), TIMVHT (I, JJ)
-               IF (BINETP) WRITE(PPPRI, 220) RELVHT (I, JJ), TIMVHT (I, &
-                  JJ)
-320         END DO
+      !-----READ PRINTCONTROL PARAMETERS
+      !:ET1
+      READ(ETD, '(A)') HEAD
 
+      ! new code 10202026 BMETDATES added
+      ! if true then the prd, epd and temperature files contain dates in the first column
+      ! for backwards compatibility the default is false and BMETDATES will not be present in line ET1
+      BMETDATES = .FALSE.
+      READ(ETD, '(4L7)') BMETP, BINETP, BMETAL, BMETDATES
 
-         ENDIF
-!--------------------------------------------------
-!     END OF READING TIME-VARYING PARAMETERS
-!--------------------------------------------------
-!
-!-----CHECK MODE FOR EVAPOTRANSPIRATION CALCULATIONS
+      !-----READ TIMESTEP FOR INPUT OF MET AND RAINDATA,
+      !     TIMECONSTANT FOR RAINFALL DISTRIBUTION
+      !:ET3
+      READ(ETD, '(A)') HEAD
+      ! sb 300407 convert breakpoint data to regularly spaced data
+      READ(ETD, *) DTMET, DTMET2, DTMET3
 
-         IF (MODE (I) .NE.1.AND.MODE (I) .NE.4) THEN
-!---------------------------------------------
-!     READ AND WRITE PSI/RCF/FET FUNCTION DATA.
-!---------------------------------------------
-!:ET15
-            READ (ETD, 100) HEAD
-            N1 = NF (I)
-            READ (ETD, 340) (PS1 (I, J), RCF (I, J), FET (I, J), &
-               J = 1, N1)
-340         FORMAT        (3F7.2)
-            IF (BINETP) WRITE(PPPRI, 110) HEAD
-            IF (BINETP) WRITE(PPPRI, 350) (PS1 (I, J), RCF (I, J), &
-               FET (I, J), J = 1, N1)
-350         FORMAT        (' ', 3F10.2)
+      !-----READ WHETHER POTENTIAL EVAP IS MEASURED AND THEREFORE TO
+      !     BE READ IN DIRECTLY FOR EACH MET STATION IN TURN.
+      !     MEASPE = 0 : POTENTIAL EVAP NOT MEASURED
+      !            = 1 : POTENTIAL EVAP MEASURED
+      !:ET5
+      READ(ETD, '(A)') HEAD
+      READ(ETD, '(10I7)') (MEASPE(IIMEAS), IIMEAS = 1, NM)
+
+      !---------------------------------
+      !  LOOP ON VEGETATION TYPES....
+      !---------------------------------
+      veg_type_loop: DO I = 1, NV
+
+         IF (BINETP) WRITE(PPPRI, "('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))") I
+         
+         !:ET7
+         READ(ETD, '(A)') HEAD
+         IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+
+         !-------------------------------------
+         !  READ PARAMETER DATA
+         !-------------------------------------
+         READ(ETD, '(L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)') &
+              BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
+              PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
+              
+         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')") MODE(I)
+
+         !-----WRITE PARAMETER DATA
+         IF (BINETP) WRITE(PPPRI, "('0', 'PARAMETERS'/1X, 10('*')//10X, 'PLAI', F15.8/10X, " // &
+                                  "'CSTCAP', F13.8/10X, 'CK', F17.8/10X, 'CB', F17.8/10X, " // &
+                                  "'CLAI', F15.8/10X, 'VHT', F16.8/10X, 'RDL', F16.8)") &
+                                  PLAI(I), CSTCAP(I), CK(I), CB(I), CLAI(I), VHT(I), RDL(I)
+                                  
+         IF (BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'VARIABLE RA WITH'/10X, 'ZO', F17.4/10X, " // &
+                                               "'ZD', F18.4/10X, 'ZU', F17.4)") ZO(I), ZD(I), ZU(I)
+                                               
+         IF (.NOT. BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'CONSTANT RA =', F10.4)") RA(I)
+
+         !--------------------------------------------------------
+         !    READ TABULAR VARIATION OF TIME-VARYING PARAMETERS
+         !--------------------------------------------------------
+         !:ET9
+         READ(ETD, '(A)') HEAD
+
+         !-----READ MODE: 0=CONSTANT; 1=TIME-VARYING
+         READ(ETD, '(4I7)') MODECS(I), MODEPL(I), MODECL(I), MODEVH(I)
+
+         !-----CHECK MODE FOR TIME-VARYING CSTCAP
+         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECS(I)
+                                  
+         IF (MODECS(I) /= 0) THEN
+            NCTCST(I) = 1
+            CSTCA1(I) = CSTCAP(I)
+            
+            !-----READ NUMBER OF VALUES IN CSTCAP VARIATION TABLE
+            !:ET11(1/4)
+            READ(ETD, '(A)') HEAD
+            READ(ETD, '(I7)') JJJ
+            !:ET13(1/4)
+            READ(ETD, '(A)') HEAD
+            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            
+            !-----READ TIME-VARYING CSTCAP VALUES
+            cstcap_loop: DO JJ = 1, JJJ
+               READ(ETD, *) RELCST(I, JJ), TIMCST(I, JJ)
+               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELCST(I, JJ), TIMCST(I, JJ)
+            END DO cstcap_loop
+         END IF
+
+         !-----CHECK MODE FOR TIME-VARYING PLAI
+         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR PLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEPL(I)
+                                  
+         IF (MODEPL(I) /= 0) THEN
+            NCTPLA(I) = 1
+            PLAI1(I)  = PLAI(I)
+            
+            !-----READ NUMBER OF VALUES IN PLAI VARIATION TABLE
+            !:ET11(2/4)
+            READ(ETD, '(A)') HEAD
+            READ(ETD, '(I7)') JJJ
+            !:ET13(2/4)
+            READ(ETD, '(A)') HEAD
+            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            
+            !-----READ TIME-VARYING PLAI VALUES
+            plai_loop: DO JJ = 1, JJJ
+               READ(ETD, *) RELPLA(I, JJ), TIMPLA(I, JJ)
+               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELPLA(I, JJ), TIMPLA(I, JJ)
+            END DO plai_loop
+         END IF
+
+         !-----CHECK MODE FOR TIME-VARYING CLAI
+         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECL(I)
+                                  
+         IF (MODECL(I) /= 0) THEN
+            NCTCLA(I) = 1
+            CLAI1(I)  = CLAI(I)
+            
+            !-----READ NUMBER OF VALUES IN CLAI VARIATION TABLE
+            !:ET11(3/4)
+            READ(ETD, '(A)') HEAD
+            READ(ETD, '(I7)') JJJ
+            !:ET13(3/4)
+            READ(ETD, '(A)') HEAD
+            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            
+            !-----READ TIME-VARYING CLAI VALUES
+            clai_loop: DO JJ = 1, JJJ
+               READ(ETD, *) RELCLA(I, JJ), TIMCLA(I, JJ)
+               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELCLA(I, JJ), TIMCLA(I, JJ)
+            END DO clai_loop
+         END IF
+
+         !-----CHECK MODE FOR TIME-VARYING VHT
+         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR VHT FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEVH(I)
+                                  
+         IF (MODEVH(I) /= 0) THEN
+            NCTVHT(I) = 1
+            VHT1(I)   = VHT(I)
+            
+            !-----READ NUMBER OF VALUES IN VHT VARIATION TABLE
+            !:ET11(4/4)
+            READ(ETD, '(A)') HEAD
+            READ(ETD, '(I7)') JJJ
+            !:ET13(4/4)
+            READ(ETD, '(A)') HEAD
+            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            
+            !-----READ TIME-VARYING VHT VALUES
+            vht_loop: DO JJ = 1, JJJ
+               READ(ETD, *) RELVHT(I, JJ), TIMVHT(I, JJ)
+               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELVHT(I, JJ), TIMVHT(I, JJ)
+            END DO vht_loop
+         END IF
+
+         !--------------------------------------------------
+         !    END OF READING TIME-VARYING PARAMETERS
+         !--------------------------------------------------
+
+         !-----CHECK MODE FOR EVAPOTRANSPIRATION CALCULATIONS
+         IF (MODE(I) /= 1 .AND. MODE(I) /= 4) THEN
+            !---------------------------------------------
+            !  READ AND WRITE PSI/RCF/FET FUNCTION DATA.
+            !---------------------------------------------
+            !:ET15
+            READ(ETD, '(A)') HEAD
+            N1 = NF(I)
+            READ(ETD, '(3F7.2)') (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
+            
+            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            IF (BINETP) WRITE(PPPRI, "(' ', 3F10.2)") (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
          ELSE
-            WRITE(PPPRI, 370) RC (I)
-370         FORMAT        (' ', 10X, 'CONSTANT RC =', F10.4)
-         ENDIF
-!
-!-----READ AND WRITE ROOT DENSITY FUNCTION DATA
-!:ET17
-         READ (ETD, 100) HEAD
-! --------------------------------------------------------
-!  NOTE THAT IT IS ASasumED HERE THAT DEPTHS CORRESPOND
-!  TO THE NODE DEPTHS FOR THE UZ SOLUTION, SO THAT
-!  EACH NODE IN THE ROOT ZONE HAS A CORRESPONDING RDF
-!  VALUE.  THE VALUES SHOULD BE INPUT FROM THE SURFACE
-!  DOWNWARDS.
-!---------------------------------------------------------
-         IF (BINETP) WRITE(PPPRI, 110) HEAD
-         asum = 0.
-         N2 = NRD (I)
-         DO 400 J = 1, N2
-            READ (ETD, 390) DEPTH, RDF (I, J)
-390         FORMAT     (2F7.4)
-            IF (BINETP) WRITE(PPPRI, 410) DEPTH, RDF (I, J)
-            asum = asum + RDF (I, J)
-400      END DO
-         IF (BINETP) WRITE(PPPRI, 420) asum
-410      FORMAT   (' ', 2F15.6)
-420      FORMAT   ('0', 1X, 'asum OF RDF VALUES IS', F10.4)
-         IF (BAR (I) ) RTOP (I) = LOG ( (ZU (I) - ZD (I) ) / ZO (I) ) ** &
-            2 / VKSQ
-!
-!-----END OF VEGETATION LOOP
-!
+            WRITE(PPPRI, "(' ', 10X, 'CONSTANT RC =', F10.4)") RC(I)
+         END IF
 
+         !-----READ AND WRITE ROOT DENSITY FUNCTION DATA
+         !:ET17
+         READ(ETD, '(A)') HEAD
+         ! --------------------------------------------------------
+         !  NOTE THAT IT IS ASSUMED HERE THAT DEPTHS CORRESPOND
+         !  TO THE NODE DEPTHS FOR THE UZ SOLUTION, SO THAT
+         !  EACH NODE IN THE ROOT ZONE HAS A CORRESPONDING RDF
+         !  VALUE.  THE VALUES SHOULD BE INPUT FROM THE SURFACE
+         !  DOWNWARDS.
+         !---------------------------------------------------------
+         IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+         
+         ASUM = 0.0D0
+         N2 = NRD(I)
+         
+         rdf_loop: DO J = 1, N2
+            READ(ETD, '(2F7.4)') DEPTH, RDF(I, J)
+            IF (BINETP) WRITE(PPPRI, "(' ', 2F15.6)") DEPTH, RDF(I, J)
+            ASUM = ASUM + RDF(I, J)
+         END DO rdf_loop
+         
+         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'SUM OF RDF VALUES IS', F10.4)") ASUM
+         
+         IF (BAR(I)) RTOP(I) = LOG((ZU(I) - ZD(I)) / ZO(I))**2 / VKSQ
 
-430   END DO
-!-----------------------------------
-!     READ IN METEOROLOGICAL DATA
-!-----------------------------------
+      END DO veg_type_loop
+      !-----END OF VEGETATION LOOP
+
+      !-----------------------------------
+      !    READ IN METEOROLOGICAL DATA
+      !-----------------------------------
       IF (BMETAL) THEN
-         READ (PRD,*,err=567,end=567)
-         READ (EPD,*,err=568,end=568)
+         ! Modernization Fix: Replaced GOTO traps with strict IOSTAT handling
+         READ(PRD, *, IOSTAT=ios)
+         IF (ios /= 0) CALL ERROR(FFFATAL, 1063, PPPRI, 0, 0, 'no data in prd file')
+         
+         READ(EPD, *, IOSTAT=ios)
+         IF (ios /= 0) CALL ERROR(FFFATAL, 1064, PPPRI, 0, 0, 'no data in epd file')
       ELSE
-         READ (MED,*,err=569,end=569)
-      ENDIF
-      !METIME = 0.0
-      !EPTIME = 0.0
-      if (ISTA) then
-         READ (TAH,*,err=570,end=570)
-         READ (TAL,*,err=571,end=571)
-      endif
+         READ(MED, *, IOSTAT=ios)
+         IF (ios /= 0) CALL ERROR(FFFATAL, 1065, PPPRI, 0, 0, 'no data in med file')
+      END IF
 
+      IF (ISTA) THEN
+         READ(TAH, *, IOSTAT=ios)
+         IF (ios /= 0) CALL ERROR(FFFATAL, 1066, PPPRI, 0, 0, 'no data in air temp - high file')
+         
+         READ(TAL, *, IOSTAT=ios)
+         IF (ios /= 0) CALL ERROR(FFFATAL, 1067, PPPRI, 0, 0, 'no data in air temp - low file')
+      END IF
 
-      RETURN
-
-567   CALL ERROR(FFFATAL,1063,PPPRI,0,0,  'no data in prd file')
-568   CALL ERROR(FFFATAL,1064,PPPRI,0,0,  'no data in epd file')
-569   CALL ERROR(FFFATAL,1065,PPPRI,0,0,   'no data in med file')
-570   CALL ERROR(FFFATAL,1066,PPPRI,0,0,   'no data in air temp - high file')
-571   CALL ERROR(FFFATAL,1067,PPPRI,0,0,   'no data in air temp - low file')
    END SUBROUTINE INET
-! 17/7/96
-!
-!-------------------------
 
 
 
@@ -4463,429 +4414,375 @@ CONTAINS
 
 
 
-   ! ######################################################################
-   ! #                                                                    #
-   ! #                                S                                   #
-   ! # EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN #
-   ! #                                S                                   #
-   ! #                                                                    #
-   ! #                            SHETRAN-UK                              #
-   ! #           PLANT COMTAMINANT MIGRATION COMPONENT (MPL)              #
-   ! #                                                                    #
-   ! ######################################################################
-   !
-   !
-   !----------------PROGRAM AMENDMENT HISTORY----------------------------
-   !
-   ! AMENDED BY   DATE   VERSION   REASON FOR AMENDMENT
-   ! ----------  ------  -------   --------------------
-   !    JE       18/3/93  3.4      IMPLEMENTATION
-   !---------------------------------------------------------------------
-   !
    !SSSSSS SUBROUTINE INPL
    SUBROUTINE INPL
-!                 Initialisation subroutine for contaminant plant uptake
+   !----------------------------------------------------------------------*
+   !           Initialisation subroutine for contaminant plant uptake
+   !----------------------------------------------------------------------*
+      
+      ! Assumed global variables provided via host module(s):
+      ! NPLT, NV, pmass, pf2max, pkmax, total_no_links, total_no_elements
+      ! NPLTYP, NVC, PFONE, PLAI, NPL, NCETOP, PDZF3, RDF, DELONE
+      ! CLAI, GMCBBO
+      USE PLANT_CC
+      USE COLM_C1
 
-      INTEGER :: ncl, jplant, jplty, nce, ndum
-      DOUBLEPRECISION :: d1dum, rdum
-!                 Include parameter statements, water/contaminant
-!                 interface COMMON blocks, and plant COMMON blocks
+      IMPLICIT NONE
+
+      ! Locals
+      INTEGER :: NCL, JPLANT, JPLTY, NCE, NDUM
+      DOUBLE PRECISION :: D1DUM, RDUM
+
+   !----------------------------------------------------------------------*
+
       NPLT = NV
-!                 Number of top cell in column, and number of plant
-!                 types
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ gp 30/3/93
-      pmass (1) = two
-      pmass (2) = 3.0d0
-      pmass (3) = 20.0d0
-      pf2max (1) = two
-      pf2max (2) = 6.0d0
-      pf2max (3) = 10.0d0
-      pkmax (1, 1) = 1.5d-8
-      pkmax (2, 1) = 3.0d-8
+      ! Number of top cell in column, and number of plant types
+      
+      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ gp 30/3/93
+      pmass(1) = TWO
+      pmass(2) = 3.0D0
+      pmass(3) = 20.0D0
+      
+      pf2max(1) = TWO
+      pf2max(2) = 6.0D0
+      pf2max(3) = 10.0D0
+      
+      pkmax(1, 1) = 1.5D-8
+      pkmax(2, 1) = 3.0D-8
+      pkmax(3, 1) = 3.0D-8
+      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ temp. for dsatd2
 
-
-      pkmax (3, 1) = 3.0d-8
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ temp. for dsatd2
-
-
-      DO 100 NCL = total_no_links + 1, total_no_elements
-         NPLTYP (NCL, 1) = NVC (NCL)
-         PFONE (NCL, 1) = PLAI (NPLTYP (NCL, 1) )
-         IF (PFONE (NCL, 1) .GE.0.99) THEN
-            NPL (NCL) = 1
+      column_loop: DO NCL = total_no_links + 1, total_no_elements
+         
+         NPLTYP(NCL, 1) = NVC(NCL)
+         PFONE(NCL, 1)  = PLAI(NPLTYP(NCL, 1))
+         
+         IF (PFONE(NCL, 1) >= 0.99D0) THEN
+            NPL(NCL) = 1
          ELSE
-            PFONE (NCL, 2) = one - PFONE (NCL, 1)
-            NPL (NCL) = 2
+            PFONE(NCL, 2) = ONE - PFONE(NCL, 1)
+            NPL(NCL) = 2
+         END IF
+         
+         ! ^^^^^^^^^^^^^^^ TEMPORARY
+         ! Set number of plant types on each column
+         ! Temporarily, only two plant types are allowed on each
+         ! column and the total PLAI is one
+         ! Second plant type number is set in BLOCK DATA
+         
+         plant_loop: DO JPLANT = 1, NPL(NCL)
+            
+            JPLTY = NPLTYP(NCL, JPLANT)
+            ! Plant type number
+            
+            root_density_loop: DO NCE = NCETOP, 2, -1
+               NDUM = NCETOP - NCE + 1
+               PDZF3(NCL, NCE, JPLANT) = RDF(JPLTY, NDUM)
+            END DO root_density_loop
+            ! Set root density function
+            
+            D1DUM = DELONE(JPLTY)
+            RDUM  = CLAI(JPLTY) / PF2MAX(JPLTY)
+            
+            GMCBBO(NCL, JPLANT) = RDUM * D1DUM
+            ! Initialise old value for mass in compartment b
+            
+         END DO plant_loop
 
+      END DO column_loop
 
-         ENDIF
-! ^^^^^^^^^^^^^^^ TEMPORARY
-!                 Set number of plant types on each column
-!                 Temporarily, only two plant types are allowed on each
-!                 column and the total PLAI is one
-!                 Second plant type number is set in BLOCK DATA
-         DO 200 JPLANT = 1, NPL (NCL)
-
-            JPLTY = NPLTYP (NCL, JPLANT)
-!                 Plant type number
-            DO 210 NCE = NCETOP, 2, - 1
-               NDUM = NCETOP - NCE+1
-               PDZF3 (NCL, NCE, JPLANT) = RDF (JPLTY, NDUM)
-
-210         END DO
-!                 Set root density function
-            D1DUM = DELONE (JPLTY)
-            RDUM = CLAI (JPLTY) / PF2MAX (JPLTY)
-
-
-
-            GMCBBO (NCL, JPLANT) = RDUM * D1DUM
-!                 Initialise old value for mass in compartment b
-
-200      END DO
-
-100   END DO
-      RETURN
    END SUBROUTINE INPL
-
-
-! 30/1/96
-! ######################################################################
-! #
-! #                                 E
-! # EUROPEAN HYDROLOGIC SYSTEM   S  H  E   SYSTEME HYDROLOGIQUE EUROPEEN
-! #                                 S
-! #
-! #                             SHETRAN-UK
-! #                       SNOWMELT COMPONENT (SM)
-! #
-! ######################################################################
-!
-!     CREATED:  MARCH 1981 BY JCB
-!
-!----------------PROGRAM AMENDMENT HISTORY----------------------------
-!
-! AMENDED BY   DATE   VERSION   REASON FOR AMENDMENT
-! ----------  ------  -------   --------------------
-!   GP        SEP 89    2.1     'SHE88' IMPLEMENTATION ON NEWCASTLE AMDA
-!   GP        JUN 90    2.2     AMENDMENTS FOR VARIABLE SNOWPACK
-!                               + CORRECTION FOR LOW TEMPS. AND SHALLOW
-!                               + REMOVE NAMELISTS
-!                               + SHETRAN AMENDMENTS
-!   SPA       NOV 92    3.?     1) REMOVE INCORRECT SNOWPACK TEMPERATURE
-!                               CONTROL WHEN USING DEGREE DAY METHOD
-!                               2) FURTHER CORRECTION FOR LOW TEMPS. AND
-!                               SHALLOW PACK
-!                               3) REMOVAL OF SNOWPACK DEPTH FROM CALC O
-!                               PROFILE TO PREVENT LN OF ZERO OR -VE NO.
-!
-!---------------------------------------------------------------------
-!
-!
 
 
 
    !SSSSSS SUBROUTINE INSM
    SUBROUTINE INSM
-   !
-   !  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
+   !----------------------------------------------------------------------*
    !  THIS SUBROUTINE READS IN THE PARAMETERS REQUIRED FOR THE
    !  SNOWMELT COMPONENT AND CARRIES OUT INITIALISATION
    !  CALCULATIONS.
-   !
-   !  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
+   !----------------------------------------------------------------------*
+   !  VARIABLE AND UNIT SPECIFICATION
+   !  UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
+   !  SD    - SNOWDEPTH (MM OF SNOW)                      MM
+   !  DDF   - DEGREE DAY FACTOR                           MM/S/C
+   !  RHOS  - SPECIFIC GRAVITY OF SNOW                    --
+   !  TSIN  - INITIAL TEMPERATURE OF SNOW                 C
+   !  TS    - TEMPERATURE OF SNOW                         C
+   !  NSMC  - COUNTER USED IN ROUTING MELTWATER
+   !          THROUGH SNOWPACK. EQUALS NUMBER OF
+   !          SLUGS OF MELTWATER MOVING THROUGH SNOWPACK  --
+   !  MSM   - EQUALS 1 FOR DEGREE DAY
+   !                 2 FOR ENERGY BUDGET                  --
+   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! SMD, BINSMP, PPPRI, HEAD, DDF, RHOS, NSD, MSM, RHODEF, zero,
-      ! ZOS, ZDS, ZUS, NM, IMET, ngdbgn, total_no_elements, rhosar,
-      ! SD, NSMC, TS, SF, AREADR
+      ! SMD, BINSMP, PPPRI, HEAD, DDF, RHOS, NSD, MSM, RHODEF
+      ! ZOS, ZDS, ZUS, NM, IMET, ngdbgn, total_no_elements, rhosar
+      ! SD, NSMC, TS, SF
 
       IMPLICIT NONE
 
-      ! Locals, etc
-      INTEGER :: n, iel, i
-      DOUBLE PRECISION :: tsin, unifsd
+      ! Locals
+      INTEGER :: N, IEL, I
+      DOUBLE PRECISION :: TSIN, UNIFSD
       
-      !
-      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      !
-      !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      !
-      !     VARIABLE AND UNIT SPECIFICATION
-      !     UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
-      !     SD    - SNOWDEPTH (MM OF SNOW)                      MM
-      !     DDF   - DEGREE DAY FACTOR                           MM/S/C
-      !     RHOS  - SPECIFIC GRAVITY OF SNOW                    --
-      !     TSIN  - INITIAL TEMPERATURE OF SNOW                 C
-      !     TS    - TEMPERATURE OF SNOW                         C
-      !     NSMC  - COUNTER USED IN ROUTING MELTWATER
-      !               THROUGH SNOWPACK. EQUALS NUMBER OF
-      !               SLUGS OF MELTWATER MOVING THROUGH SNOWPACK--
-      !     MSM   - EQUALS 1 FOR DEGREE DAY
-      !                    2 FOR ENERGY BUDGET                  --
-      !
-      !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      !
-      !
+   !----------------------------------------------------------------------*
+
       ! READ PRINT CONTROL PARAMETERS
-      READ (SMD, '(20A4)') HEAD
-      READ (SMD, '(L7)') BINSMP
+      READ(SMD, '(20A4)') HEAD
+      READ(SMD, '(L7)') BINSMP
       IF (BINSMP) WRITE(PPPRI, '(///1X, 20A4)') HEAD
 
       ! READ SNOWMELT DATA
-      READ (SMD, '(20A4)') HEAD
-      READ (SMD, '(2F7.5,F7.2,2I7)') DDF, RHOS, TSIN, NSD, MSM
+      READ(SMD, '(20A4)') HEAD
+      READ(SMD, '(2F7.5,F7.2,2I7)') DDF, RHOS, TSIN, NSD, MSM
       RHODEF = RHOS
       
       ! Added by spa, 05/11/92.  Snowpack temp no longer needed
       ! for degree day method.  Therefore if msm=1, tsin=0.
-      IF (MSM == 1) tsin = zero
+      IF (MSM == 1) TSIN = ZERO
       
-      IF (BINSMP) THEN
-         WRITE(PPPRI, 801) DDF, RHOS, TSIN, MSM
-801      FORMAT(/, 'DEGREE DAY FACTOR DDF =', F7.5, 1X, 'MM/S/C', &
-                5X, 'SNOW SPECIFIC GRAVITY RHOS =', F7.5 / &
-                5X, 'INITIAL SNOW TEMPERATURE =', F7.2, 1X, 'C' / &
-                5X, 'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
-                ' AND BY ENERGY BUDGET IF MSM IS 2', 5X, 'MSM =', I3)
-      END IF
+      IF (BINSMP) WRITE(PPPRI, 801) DDF, RHOS, TSIN, MSM
 
       ! Execute Energy Budget specific reads if MSM > 1
       IF (MSM /= 1) THEN
          ! READ ENERGY BUDGET DATA
-         READ (SMD, '(20A4)') HEAD
-         READ (SMD, '(3F7.5)') ZOS, ZDS, ZUS
+         READ(SMD, '(20A4)') HEAD
+         READ(SMD, '(3F7.5)') ZOS, ZDS, ZUS
          
-         IF (BINSMP) THEN
-            WRITE(PPPRI, 803) ZOS, ZDS, ZUS
-803         FORMAT(/, 'ENERGY BUDGET DATA', 3X, 'ROUGHNESS ZOS =', F7.5, 1X, 'M' / &
-                   21X, 'ZERO PLANE DISPLACEMENT ZDS =', F7.5, 1X, 'M' / &
-                   21X, 'HEIGHT OF ANEMOMETER ZUS =', F7.5, 1X, 'M')
-         END IF
+         IF (BINSMP) WRITE(PPPRI, 803) ZOS, ZDS, ZUS
 
          ! METEOROLOGICAL (WINDSPEED) DATA LOCATION
-         READ (SMD, '(20A4)') HEAD
-         READ (SMD, '(10I7)') (IMET (N), N = 1, NM)
+         READ(SMD, '(20A4)') HEAD
+         READ(SMD, '(10I7)') (IMET(N), N = 1, NM)
          
          IF (BINSMP) THEN
             WRITE(PPPRI, 715)
-715         FORMAT (/' LOCATION OF MET. STATIONS: ' / &
-                     ' STATION NO.    ELEMENT NO.')
-            DO N = 1, NM
-               WRITE(PPPRI, '(3X, I4, 10X, I4)') N, IMET (N)
-            END DO
+            station_loop: DO N = 1, NM
+               WRITE(PPPRI, '(3X, I4, 10X, I4)') N, IMET(N)
+            END DO station_loop
          END IF
       END IF
 
       ! IS SNOWDEPTH UNIFORM?
       IF (NSD == 0) THEN
-         DO iel = ngdbgn, total_no_elements
-            rhosar(iel) = rhodef
-         END DO
+         uniform_rho_loop: DO IEL = ngdbgn, total_no_elements
+            rhosar(IEL) = RHODEF
+         END DO uniform_rho_loop
          
          ! UNIFORM SNOWDEPTH (MM OF SNOW)
-         READ (SMD, '(20A4)') HEAD
-         READ (SMD, '(F7.1)') UNIFSD
+         READ(SMD, '(20A4)') HEAD
+         READ(SMD, '(F7.1)') UNIFSD
          
-         DO IEL = NGDBGN, total_no_elements
+         uniform_sd_loop: DO IEL = ngdbgn, total_no_elements
             SD(IEL) = UNIFSD
-         END DO
+         END DO uniform_sd_loop
          
-         ! This adds a blank line then prints the text
          IF (BINSMP) WRITE(PPPRI, '(/, 1X, "INITIAL SNOWPACK HAS UNIFORM THICKNESS =", F7.1, 1X, "MM")') UNIFSD
-
       ELSE
          ! NONUNIFORM SNOWDEPTH (MM OF SNOW)
          I = 0
          IF (BINSMP) I = 1
-         CALL AREADR (SD, I, SMD, PPPRI)
-         CALL AREADR (rhosar, I, SMD, PPPRI)
+         CALL AREADR(SD, I, SMD, PPPRI)
+         CALL AREADR(rhosar, I, SMD, PPPRI)
       END IF
 
       ! Epilogue Element Processing
-      DO IEL = NGDBGN, total_no_elements
+      epilogue_loop: DO IEL = ngdbgn, total_no_elements
          ! SET COUNTER FOR SNOWMELT ROUTINE
-         NSMC (IEL) = 0
+         NSMC(IEL) = 0
          ! SET SNOW TEMPERATURES
-         TS (IEL) = TSIN
+         TS(IEL) = TSIN
          ! SET SNOWFALL
-         SF (IEL) = zero
-      END DO
+         SF(IEL) = ZERO
+      END DO epilogue_loop
+
+   !----------------------------------------------------------------------*
+   ! FORMAT STATEMENTS
+   !----------------------------------------------------------------------*
+
+801   FORMAT(/, 'DEGREE DAY FACTOR DDF =', F7.5, 1X, 'MM/S/C', &
+             5X, 'SNOW SPECIFIC GRAVITY RHOS =', F7.5 / &
+             5X, 'INITIAL SNOW TEMPERATURE =', F7.2, 1X, 'C' / &
+             5X, 'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
+             ' AND BY ENERGY BUDGET IF MSM IS 2', 5X, 'MSM =', I3)
+
+803   FORMAT(/, 'ENERGY BUDGET DATA', 3X, 'ROUGHNESS ZOS =', F7.5, 1X, 'M' / &
+             21X, 'ZERO PLANE DISPLACEMENT ZDS =', F7.5, 1X, 'M' / &
+             21X, 'HEIGHT OF ANEMOMETER ZUS =', F7.5, 1X, 'M')
+
+715   FORMAT(/' LOCATION OF MET. STATIONS: ' / &
+              ' STATION NO.   ELEMENT NO.')
 
    END SUBROUTINE INSM
 
 
 
-!SSSSSS SUBROUTINE DINET
+   !SSSSSS SUBROUTINE DINET
    SUBROUTINE DINET
-!
-!
-      WRITE ( *, 1)
-1     FORMAT(// 'ENTER DINET')
+   !----------------------------------------------------------------------*
+   ! DUMMY COMPONENT INITIALISATION (ET)
+   !----------------------------------------------------------------------*
+      
+      ! Assumed global variable provided via host module:
+      ! BMETAL
+
+      IMPLICIT NONE
+
+   !----------------------------------------------------------------------*
+
+      WRITE(*, '(/, /, "ENTER DINET")')
       BMETAL = .TRUE.
-!     PNET=0.0003
-!     PE=0.0
-!     EINT=0.0
-!     ERZ=0.0
-!     DRAIN=0.0
-!     ESOIL=0.0
-      RETURN
+      
+      ! PNET=0.0003
+      ! PE=0.0
+      ! EINT=0.0
+      ! ERZ=0.0
+      ! DRAIN=0.0
+      ! ESOIL=0.0
+
    END SUBROUTINE DINET
-! ######################################################################
-! #
-! #                                 S
-! # EUROPEAN HYDROLOGIC SYSTEM   S  H  E   SYSTEME HYDROLOGIQUE EUROPEEN
-! #                                 E
-! #
-! #                             SHETRAN-UK
-! #                        DUMMY COMPONENTS (DUM)
-! #
-! ######################################################################
-!
-!  CONTAINS DUMMY VERSIONS OF OC-ET-UZ-SZ-EXSZOC  (NOT CURRENTLY USED)
-!
-!----------------PROGRAM AMENDMENT HISTORY----------------------------
-!
-! AMENDED BY   DATE   VERSION   REASON FOR AMENDMENT
-! ----------  ------  -------   --------------------
-!   GP        JUN 89    0.1     USE WITH V-CATCHMENT TESTS
-!   GP        DEC 91    0.2     MINIMAL VERSIONS (NOT CURRENTLY USED)
-!
-!---------------------------------------------------------------------
-!
 
 
 
-!SSSSSS SUBROUTINE DINOC
+   !SSSSSS SUBROUTINE DINOC
    SUBROUTINE DINOC
-!
+   !----------------------------------------------------------------------*
+   ! DUMMY COMPONENT INITIALISATION (OC)
+   !----------------------------------------------------------------------*
 
-!
-      WRITE ( *, 1)
-1     FORMAT(// 'ENTER DINOC')
-      RETURN
+      IMPLICIT NONE
+
+   !----------------------------------------------------------------------*
+
+      WRITE(*, '(/, /, "ENTER DINOC")')
+
    END SUBROUTINE DINOC
-!
 
 
 
-!SSSSSS SUBROUTINE DOCIN
-   SUBROUTINE DOCIN
-!
+   !SSSSSS SUBROUTINE DOCIN
+   PURE SUBROUTINE DOCIN
+   !----------------------------------------------------------------------*
+   ! DUMMY COMPONENT (OC)
+   !----------------------------------------------------------------------*
 
-!
-      RETURN
+      IMPLICIT NONE
+
    END SUBROUTINE DOCIN
 
 
 
+   !SSSSSS SUBROUTINE MUERR2
+   SUBROUTINE MUERR2(CPR, total_no_elements, NELEE, total_no_links, MAX_NUM_CATEGORY_TYPES, &
+                     MAX_NUM_DATA_PAIRS, NCON, NCONEE, NUM_CATEGORIES_TYPES, NTAB, NCATTY,  &
+                     ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM)
+   !--------------------------------------------------------------------*
+   ! Checks data that is used to calculate the spatially variable
+   ! contaminant concentrations for grid and bank elements
+   !--------------------------------------------------------------------*
+   ! Version: 4.2                 Notes:
+   ! Module: CM                 Program: SHETRAN
+   ! Modifications
+   ! Notes: The checking works. However, it is done in a poor way.
+   ! In future this should be changed
+   !--------------------------------------------------------------------*
+      
+      ! Assumed global variables provided via host module(s):
+      ! EEERR, FFFATAL
 
-!SSSSSS SUBROUTINE MUERR2 (CPR, NEL, NELEE, NLF, MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCON, &
-   SUBROUTINE MUERR2 (CPR, total_no_elements, NELEE, total_no_links,      &
-      MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCON, NCONEE, NUM_CATEGORIES_TYPES,  NTAB, NCATTY, ISCNSV,          &
-      TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM)
-!
-!--------------------------------------------------------------------*
-!
-! Checks data that is used to calculate the spatially variable
-! contaminant concentrations for grid and bank elements
-!
-!--------------------------------------------------------------------*
-! Version: 4.2                   Notes:
-! Module: CM                 Program: SHETRAN
-! Modifications
-! Notes: The checking works. However, it is done in a poor way.
-! In future this should be changed
-!--------------------------------------------------------------------*
-!
-      INTEGER :: CPR, total_no_elements, NELEE, total_no_links
-      INTEGER :: MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS
-      INTEGER :: NCON, NCONEE
-      INTEGER :: NUM_CATEGORIES_TYPES (NCONEE), NTAB (MAX_NUM_CATEGORY_TYPES, NCONEE)
-      INTEGER :: NCATTY (NELEE, NCONEE)
-      LOGICAL :: ISCNSV (NCONEE)
-      DOUBLEPRECISION TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)
+      IMPLICIT NONE
 
-      DOUBLEPRECISION TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)
-! WORKSPACE ARGUMENTS
+      ! --- Dummy Arguments ---
+      INTEGER, INTENT(IN) :: CPR, total_no_elements, NELEE, total_no_links
+      INTEGER, INTENT(IN) :: MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS
+      INTEGER, INTENT(IN) :: NCON, NCONEE
+      
+      INTEGER, INTENT(IN) :: NUM_CATEGORIES_TYPES(NCONEE)
+      INTEGER, INTENT(IN) :: NTAB(MAX_NUM_CATEGORY_TYPES, NCONEE)
+      INTEGER, INTENT(INOUT) :: NCATTY(NELEE, NCONEE)
+      LOGICAL, INTENT(IN) :: ISCNSV(NCONEE)
+      
+      DOUBLE PRECISION, INTENT(INOUT) :: TABLE_CONCENTRATION(MAX_NUM_CATEGORY_TYPES, &
+                                  MAX_NUM_DATA_PAIRS, NCONEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: TABLE_WATER_DEPTH(MAX_NUM_CATEGORY_TYPES, &
+                                   MAX_NUM_DATA_PAIRS, NCONEE)
+      
+      LOGICAL, INTENT(INOUT) :: LDUM(1)  !! Workspace/Flag
 
-      LOGICAL :: LDUM
-!
-! LOCALS ETC.
-      INTEGER :: ICOL1, IUNDEF, NERR, NELMTY, NTBL, I, J
-      INTEGER :: IZERO (1)
-      DOUBLEPRECISION PREVDP
-!
-
-      DATA IZERO / 0 /
-!
-!
-! 0. Preliminaries
-! ----------------
-!
-!  Initialize local counter
-      NERR = 0
-!  Position of 1st column element
+      ! --- Local Variables ---
+      INTEGER :: ICOL1, NERR, NELMTY, NTBL, I, J
+      INTEGER :: IUNDEF            !! Standard undefined integer flag
+      DOUBLE PRECISION :: PREVDP    !! Previous depth for monotonicity check
+      
+      ! Constant arrays required by ALCHKI/ALCHK interfaces
+      INTEGER :: IZERO(1)
+      DOUBLE PRECISION :: ZERO1(1)
 
 
-      ICOL1 = total_no_links + 1
-! 1. Check the data used to calculate the spatially variable
-! contamianant concentrations
-! -------------------------------------------------------
-!
+   !--------------------------------------------------------------------*
 
-      DO 100 I = 1, NCON
+      ! 0. Preliminaries
+      ! --- Data Initialisation ---
+      IZERO  = (/ 0 /)
+      ! ZERO1  = (/ 0.0D0 /)
+      ! IUNDEF = -999
+      NERR   = 0
+      ICOL1  = total_no_links + 1
 
-         IF (ISCNSV (I) ) THEN
-            DO 110 J = ICOL1, total_no_elements
-!       *NCATTY
+      ! 1. Check the data used to calculate the spatially variable
+      ! contaminant concentrations
+      ! -------------------------------------------------------
+
+      contam_loop: DO I = 1, NCON
+
+         IF (ISCNSV(I)) THEN
+            
+            ! *NCATTY
+            ncatty_loop: DO J = ICOL1, total_no_elements
                CALL ALCHKI(EEERR, 2103, CPR, J, J, IUNDEF, IUNDEF, &
-                  'NCATTY(iel)', 'GT', IZERO, NCATTY (J, I) , NERR, LDUM)
-110         END DO
-!
-!       *TABLE_WATER_DEPTH
-!       The table of depths must have a first depth equal to zero,
-!       thereafter the depth must increase
-!
-            DO 160 NELMTY = 1, NUM_CATEGORIES_TYPES (I)
+                           'NCATTY(iel)', 'GT', IZERO, NCATTY(J:J, I), NERR, LDUM(1:1))
+            END DO ncatty_loop
+
+            ! *TABLE_WATER_DEPTH
+            ! The table of depths must have a first depth equal to zero,
+            ! thereafter the depth must increase
+            category_loop1: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
+               
                CALL ALCHK(EEERR, 2104, CPR, NELMTY, NELMTY, 1, IUNDEF, &
-                  'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,1]', 'EQ', ZERO1, ZERO , TABLE_WATER_DEPTH (NELMTY, 1, &
-                  I) , NERR, LDUM)
-               DO 170 NTBL = 2, NTAB (NELMTY, I)
-                  PREVDP = TABLE_WATER_DEPTH (NELMTY, NTBL - 1, I)
-                  CALL ALCHK(EEERR, 2105, CPR, NELMTY, NELMTY, NTBL, &
-                     IUNDEF, 'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,ntab]', 'GT', (/PREVDP/) , &
-                     ZERO , TABLE_WATER_DEPTH (NELMTY, NTBL, I) , NERR, LDUM)
-170            END DO
-160         END DO
-!
-!       *TABLE_CONCENTRATION
-!       Each value in the table of concentrations must be >= 0
-!
-            DO 260 NELMTY = 1, NUM_CATEGORIES_TYPES (I)
-               DO 270 NTBL = 1, NTAB (NELMTY, I)
-                  CALL ALCHK(EEERR, 2106, CPR, NELMTY, NELMTY, NTBL, &
-                     IUNDEF, 'TABLE_CONCENTRATION[nmne,ntab]', 'GE', zero1, zero , &
-                     TABLE_CONCENTRATION (NELMTY, NTBL, I) , NERR, LDUM)
-270            END DO
+                          'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,1]', 'EQ', ZERO1, ZERO, &
+                          TABLE_WATER_DEPTH(NELMTY:NELMTY, 1, I), NERR, LDUM(1:1))
+                          
+               table_depth_loop: DO NTBL = 2, NTAB(NELMTY, I)
+                  PREVDP = TABLE_WATER_DEPTH(NELMTY, NTBL - 1, I)
+                  CALL ALCHK(EEERR, 2105, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
+                             'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,ntab]', 'GT', (/PREVDP/), &
+                             ZERO, TABLE_WATER_DEPTH(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
+               END DO table_depth_loop
+               
+            END DO category_loop1
 
-260         END DO
-         ENDIF
-!
+            ! *TABLE_CONCENTRATION
+            ! Each value in the table of concentrations must be >= 0
+            category_loop2: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
+               table_conc_loop: DO NTBL = 1, NTAB(NELMTY, I)
+                  CALL ALCHK(EEERR, 2106, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
+                             'TABLE_CONCENTRATION[nmne,ntab]', 'GE', ZERO1, ZERO, &
+                             TABLE_CONCENTRATION(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
+               END DO table_conc_loop
+            END DO category_loop2
+            
+         END IF
 
-100   END DO
-! 2. Epilogue
-! -----------
-!
-      IF (NERR.GT.0) CALL ERROR(FFFATAL, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
-!
+      END DO contam_loop
 
-
-
-
-
+      ! 2. Epilogue
+      ! -----------
+      IF (NERR > 0) THEN
+         CALL ERROR(FFFATAL, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
+      END IF
 
    END SUBROUTINE MUERR2
+
 END MODULE FRmod

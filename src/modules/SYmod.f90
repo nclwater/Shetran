@@ -201,7 +201,7 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYBC
+   !SSSSSS SUBROUTINE SYBC
    SUBROUTINE SYBC
 !!!!STOP ' FATAL ERROR!!  Sediment boundary flows not yet implemented'
    END SUBROUTINE SYBC
@@ -2119,170 +2119,167 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
-   SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
-      ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
-      DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
-      DDIPRE, GINFDE, GINFSE)
-!
-!----------------------------------------------------------------------*
-!
-! To solve the transport equation for sediment in channel flow, for a
-!  given link element.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR69
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  AB   24.5.94  Version 3.4.1 by AB/RAH. File creation date 30.3.94.
-!----------------------------------------------------------------------*
-!
-! Input arguments
-      INTEGER :: NFINE, NSED, NSEDEE
-      LOGICAL :: BARME
-      DOUBLEPRECISION DTSY, AREAE, ARXLOE, ARXLE, CLENTE, EPSBE, PBSEDE
-      DOUBLEPRECISION CONCIE (NSED), DCBSEE (NSED), DDBSEE (NSED), &
-         QWAT (4)
-      DOUBLEPRECISION QSDWAE (NSEDEE, 4), SOSDFE (NSED), VCFMAE, VINFME
-!
-! Input/output arguments
-      DOUBLEPRECISION FDELE (NSED), QSEDE (NSEDEE, 4)
-!
-! Output arguments
-      DOUBLEPRECISION DCIPRE (NSED), DDIPRE (NSED), GINFDE (NSED)
-      DOUBLEPRECISION GINFSE (NSED)
-!
-! Locals, etc
-      INTEGER :: FACE, J (4), JI, K (4), KI, NIN, NOUT, SED
-      DOUBLEPRECISION AREAEI, DCBEEE, DCIPEE, DTSYI, FDC, FDELEE, GINF
-      DOUBLEPRECISION OMPB, OMPBI, QSEDIN, SUM, SUMN, SUMP
-      DOUBLEPRECISION VCFS, VCARM, VDMAX, VDSEDS, VDSED, VDWAT, VINF, &
-         VSTRAN
-!
-!
-!----------------------------------------------------------------------*
-!
-!
-! Initialization
-! --------------
-!
-!     * Make lists of outflow and inflow faces
+   !SSSSSS SUBROUTINE SYLINK
+   !----------------------------------------------------------------------*
+   ! To solve the transport equation for sediment in channel flow, for a
+   !  given link element.
+   !----------------------------------------------------------------------*
+   PURE SUBROUTINE SYLINK(NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
+                          ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
+                          DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
+                          DDIPRE, GINFDE, GINFSE)
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1       Notes:  SSR69
+   !  Module:  SY        Program:  SHETRAN
+   ! Modifications:
+   !  AB   24.5.94  Version 3.4.1 by AB/RAH. File creation date 30.3.94.
+   !----------------------------------------------------------------------*
+
+      ! Assumed external module dependencies providing functions:
+      ! USE UTILSMOD, ONLY : DIMJE
+
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NFINE, NSED, NSEDEE
+      LOGICAL, INTENT(IN) :: BARME
+      DOUBLE PRECISION, INTENT(IN) :: DTSY, AREAE, ARXLOE, ARXLE, CLENTE, EPSBE, PBSEDE
+      DOUBLE PRECISION, INTENT(IN) :: CONCIE(NSED), DCBSEE(NSED), DDBSEE(NSED)
+      DOUBLE PRECISION, INTENT(IN) :: QWAT(4)
+      DOUBLE PRECISION, INTENT(IN) :: QSDWAE(NSEDEE, 4), SOSDFE(NSED), VCFMAE, VINFME
+
+      ! Input/output arguments
+      ! Note: QSEDE must remain INOUT as it reads inflow faces and writes outflow faces
+      DOUBLE PRECISION, INTENT(INOUT) :: FDELE(NSED), QSEDE(NSEDEE, 4)
+
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: DCIPRE(NSED), DDIPRE(NSED)
+      DOUBLE PRECISION, INTENT(OUT) :: GINFDE(NSED), GINFSE(NSED)
+
+      ! Locals, etc
+      INTEGER :: FACE, J(4), JI, K(4), KI, NIN, NOUT, SED
+      DOUBLE PRECISION :: AREAEI, DCBEEE, DCIPEE, DTSYI, FDC, FDELEE, GINF
+      DOUBLE PRECISION :: OMPB, OMPBI, QSEDIN, SUM, SUMN, SUMP
+      DOUBLE PRECISION :: VCFS, VCARM, VDMAX, VDSEDS, VDSED, VDWAT, VINF, VSTRAN
+
+      ! Explicit interfaces
+      ! EXTERNAL :: DIMJE
+
+   !----------------------------------------------------------------------*
+
+   ! Initialization
+   ! --------------
+
+      ! * Make lists of outflow and inflow faces
       NIN = 0
       NOUT = 0
-      DO 100 FACE = 1, 4
-         IF (QWAT (FACE) .GT.0) THEN
+      face_loop: DO FACE = 1, 4
+         IF (QWAT(FACE) > 0.0D0) THEN
             NOUT = NOUT + 1
-            J (NOUT) = FACE
+            J(NOUT) = FACE
          ELSE
             NIN = NIN + 1
-            K (NIN) = FACE
-         ENDIF
-100   END DO
-!
-      SUMP = 0
-      SUMN = 0
-      OMPB = 1 - PBSEDE
-      OMPBI = 1 / OMPB
-      DTSYI = 1 / DTSY
-      AREAEI = 1 / AREAE
-!
-!
-! Loop over size groups ( largest to smallest )
-! ---------------------------------------------
-!
-!     * Loop over sediment types ( largest to smallest )
-      DO 500 SED = NSED, 1, - 1
-         DCBEEE = DCBSEE (SED)
-!
-!
-!        Water and sediment budgets
-!        --------------------------
-!
-!        * Calculate sediment inflow rate
-         SUM = 0
-         DO 200 KI = 1, NIN
-            SUM = SUM + QSEDE (SED, K (KI) )
-200      END DO
-         QSEDIN = - SUM * OMPBI
-!
-!        * Volume of water remaining + advective water discharge
-         SUM = 0
-         DO 300 JI = 1, NOUT
-            SUM = SUM + QSDWAE (SED, J (JI) )
-300      END DO
-         VDWAT = ARXLE * CLENTE+SUM * DTSY
-!
-!        * Sediment available for resuspension/transport/infiltration
-!        *   /armouring
-         VDMAX = FDELE (SED) * ARXLOE * CLENTE+DCBEEE * AREAE+ (QSEDIN + &
-            EPSBE * SOSDFE (SED) ) * DTSY
-!
-!
-!        Infiltration and Armouring
-!        --------------------------
-!
-!        * Sediment volumes subject to infiltration & armouring resp.
-         IF (SED.GT.NFINE) THEN
-!           * Non-fines
-            VINF = 0
-            VCARM = 0
+            K(NIN) = FACE
+         END IF
+      END DO face_loop
+
+      SUMP = 0.0D0
+      SUMN = 0.0D0
+      OMPB = 1.0D0 - PBSEDE
+      OMPBI = 1.0D0 / OMPB
+      DTSYI = 1.0D0 / DTSY
+      AREAEI = 1.0D0 / AREAE
+
+   ! Loop over size groups ( largest to smallest )
+   ! ---------------------------------------------
+
+      ! * Loop over sediment types ( largest to smallest )
+      sed_loop: DO SED = NSED, 1, -1
+         DCBEEE = DCBSEE(SED)
+
+         ! Water and sediment budgets
+         ! --------------------------
+
+         ! * Calculate sediment inflow rate
+         SUM = 0.0D0
+         inflow_loop: DO KI = 1, NIN
+            SUM = SUM + QSEDE(SED, K(KI))
+         END DO inflow_loop
+         QSEDIN = -SUM * OMPBI
+
+         ! * Volume of water remaining + advective water discharge
+         SUM = 0.0D0
+         outflow_loop: DO JI = 1, NOUT
+            SUM = SUM + QSDWAE(SED, J(JI))
+         END DO outflow_loop
+         VDWAT = ARXLE * CLENTE + SUM * DTSY
+
+         ! * Sediment available for resuspension/transport/infiltration
+         ! * /armouring
+         VDMAX = FDELE(SED) * ARXLOE * CLENTE + DCBEEE * AREAE + &
+                 (QSEDIN + EPSBE * SOSDFE(SED)) * DTSY
+
+         ! Infiltration and Armouring
+         ! --------------------------
+
+         ! * Sediment volumes subject to infiltration & armouring resp.
+         IF (SED > NFINE) THEN
+            ! * Non-fines
+            VINF = 0.0D0
+            VCARM = 0.0D0
          ELSE
-!           * Fines
-            VCFS = MIN (VCFMAE, VDMAX)
-            VINF = MIN (VINFME, VCFS)
-!           * ( SUMN/SUMP calculated below, summed over earlier passes )
-            FDC = 0
-            IF (BARME.AND.0.LT.SUMN) FDC = MIN (SUMN, SUMP) / SUMN
+            ! * Fines
+            VCFS = MIN(VCFMAE, VDMAX)
+            VINF = MIN(VINFME, VCFS)
+            ! * ( SUMN/SUMP calculated below, summed over earlier passes )
+            FDC = 0.0D0
+            IF (BARME .AND. SUMN > 0.0D0) FDC = MIN(SUMN, SUMP) / SUMN
             VCARM = FDC * DIMJE(VCFS, VINF)
-         ENDIF
-!
-!        * Volume in and above top layer after infiltration ...
+         END IF
+
+         ! * Volume in and above top layer after infiltration ...
          VDSEDS = DIMJE(VDMAX, VINF)
-!        * ... minus armoured volume ( = SUPPLY limit for transport )
+         ! * ... minus armoured volume ( = SUPPLY limit for transport )
          VDSED = DIMJE(VDSEDS, VCARM)
-!
-!        * Infiltration rates for each layer
+
+         ! * Infiltration rates for each layer
          GINF = VINF * DTSYI
-         GINFDE (SED) = GINF
-         GINFSE (SED) = GINF
-!
-!
-!        Other output variables
-!        ----------------------
-!
-!        * Sediment remaining in suspension + sediment discharged
-!        * - limited by either SUPPLY or CAPACITY
-         VSTRAN = MIN (VDSED, CONCIE (SED) * OMPBI * VDWAT)
-!
-!        * Concentration in suspension ('relative density')
-         FDELEE = 0
-         IF (VDWAT.GT.0) FDELEE = VSTRAN / VDWAT
-         FDELE (SED) = FDELEE
-!
-!        * Interim layer depths
+         GINFDE(SED) = GINF
+         GINFSE(SED) = GINF
+
+         ! Other output variables
+         ! ----------------------
+
+         ! * Sediment remaining in suspension + sediment discharged
+         ! * - limited by either SUPPLY or CAPACITY
+         VSTRAN = MIN(VDSED, CONCIE(SED) * OMPBI * VDWAT)
+
+         ! * Concentration in suspension ('relative density')
+         FDELEE = 0.0D0
+         IF (VDWAT > 0.0D0) FDELEE = VSTRAN / VDWAT
+         FDELE(SED) = FDELEE
+
+         ! * Interim layer depths
          DCIPEE = DIMJE(VDSEDS, VSTRAN) * AREAEI
-         DCIPRE (SED) = DCIPEE
-         DDIPRE (SED) = DDBSEE (SED) + VINF * AREAEI
-!
-!        * Particulate discharge rates at outflow faces
-         DO 400 JI = 1, NOUT
-            QSEDE (SED, J (JI) ) = QSDWAE (SED, J (JI) ) * FDELEE * &
-               OMPB
-400      END DO
-!
-!
-!        Epilogue
-!        --------
-!
-!        * Depth of non-fines in interim and old top layers
-!        *  ( used above on final pass: definition point must be later )
-!        *  ( than reference point                                     )
+         DCIPRE(SED) = DCIPEE
+         DDIPRE(SED) = DDBSEE(SED) + VINF * AREAEI
+
+         ! * Particulate discharge rates at outflow faces
+         discharge_loop: DO JI = 1, NOUT
+            QSEDE(SED, J(JI)) = QSDWAE(SED, J(JI)) * FDELEE * OMPB
+         END DO discharge_loop
+
+         ! Epilogue
+         ! --------
+
+         ! * Depth of non-fines in interim and old top layers
+         ! * ( used above on final pass: definition point must be later )
+         ! * ( than reference point                                     )
          SUMP = SUMP + DCIPEE
          SUMN = SUMN + DCBEEE
-!
-!     * Next sediment type
-500   END DO
-!
+
+      END DO sed_loop
+
    END SUBROUTINE SYLINK
 
 
@@ -3186,32 +3183,29 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
-   SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
-      DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
-      PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
-      TAUK)
-!
-!----------------------------------------------------------------------*
-!
-!  Calculate variables required by the SY module which are functions
-!  solely of the water flow and related quantities.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1      Notes:    SSR53
-! Module:   SY         Program:  SHETRAN
-! Modifications:
-!  RAH  04.10.94  Version 3.4.1 by AB/RAH.  File created 23.11.93.
-!----------------------------------------------------------------------*
-!
-!
-! Constants referenced
-!     CONST.SY:  GRAVTY  RHOWAT
-!
+   !SSSSSS SUBROUTINE SYWAT
+   !----------------------------------------------------------------------*
+   !  Calculate variables required by the SY module which are functions
+   !  solely of the water flow and related quantities.
+   !----------------------------------------------------------------------*
+   ! Version:  3.4.1      Notes:   SSR53
+   ! Module:   SY         Program:  SHETRAN
+   ! Modifications:
+   !  RAH  04.10.94  Version 3.4.1 by AB/RAH.  File created 23.11.93.
+   !----------------------------------------------------------------------*
+   PURE SUBROUTINE SYWAT(NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
+                         DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
+                         PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
+                         TAUK)
+
+      ! Assumed module dependencies providing global variables/functions:
+      ! USE CONST_SY, ONLY : GRAVTY, RHOWAT
+      ! USE UTILSMOD, ONLY : ZERO, ONE, DIMJE, ISZERO
+
       IMPLICIT NONE
 
-! Input arguments
-! NB: Don't use NLF as array size: it may be zero
+      ! Input arguments
+      ! NB: Don't use NLF as array size: it may be zero
       INTEGER, INTENT(IN) :: NEL, NELEE, NLF, NLFEE, NV
       INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:3), ICMRF2(NLFEE, 3, 2)
       INTEGER, INTENT(IN) :: NVC(NLF + 1 : NEL)
@@ -3219,15 +3213,15 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: DRDRIP(NV), HRF(NEL), PLAI(NV), PNETTO(NLF + 1 : NEL)
       DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4), ZBFULL(NLFEE), ZGRUND(NEL)
       LOGICAL, INTENT(IN) :: LINKNS(NLFEE)
-!
-! Output arguments
+
+      ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: DRDROP(NLF + 1 : NEL), DWAT1(NEL), FCC(NV)
       DOUBLE PRECISION, INTENT(OUT) :: FQCONF(NLFEE, 3), LRAIN(NLF + 1 : NEL)
       DOUBLE PRECISION, INTENT(OUT) :: SLOPEJ(NELEE, 4), TAUJ(NELEE, 4), TAUK(NEL)
-! NB: FQCONF defined only for branches flowing INTO a node;
-!     SLOPEJ & TAUJ not defined at side faces of links.
-!
-! Locals, etc
+      ! NB: FQCONF defined only for branches flowing INTO a node;
+      !     SLOPEJ & TAUJ not defined at side faces of links.
+
+      ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: DRDMIN = 1.0D-4
 
       DOUBLE PRECISION :: DRAINE, DWAT1E, FCCE, HRFE, PNETTE, SLOPEE, TAUJE
@@ -3236,205 +3230,201 @@ CONTAINS
       INTEGER :: FACE, IADJ, IBR, ICOL, IEL, IELP
       INTEGER :: KADJ, KEL, KELP, LINK, P, PADJ, PIN, POUT, VEG
       LOGICAL :: BSIDE
-!
-!----------------------------------------------------------------------*
 
-! Loop over Vegetation Types
-! --------------------------
-!
-!     * Calculate ground fraction sheltered from rain by canopy
-      ! Replaced DO 100 loop with array slicing
-      FCC(1:NV) = PLAI(1:NV) * MIN(CLAI(1:NV), ONE)
+   !----------------------------------------------------------------------*
 
-!
-! Loop over Column Elements
-! -------------------------
-!
+      ! Modernization Fix: Fully initialize INTENT(OUT) arrays to prevent garbage memory 
+      ! on elements skipped by the internal logic (like side faces)
+      SLOPEJ = 0.0D0
+      TAUJ   = 0.0D0
+      FQCONF = 0.0D0
+      LRAIN  = 0.0D0
+      DRDROP = 0.0D0
+
+   ! Loop over Vegetation Types
+   ! --------------------------
+   !
+   !     * Calculate ground fraction sheltered from rain by canopy
+      FCC(1:NV) = PLAI(1:NV) * MIN(CLAI(1:NV), 1.0D0)
+
+   ! Loop over Column Elements
+   ! -------------------------
+   !
       column_loop: DO ICOL = NLF + 1, NEL
-!
-!        * Avoid multiple array references
+         ! * Avoid multiple array references
          DRAINE = DRAINA(ICOL)
          PNETTE = PNETTO(ICOL)
          VEG = NVC(ICOL)
          FCCE = FCC(VEG)
-!
-!        * Calculate median raindrop/leaf-drip diameter
+
+         ! * Calculate median raindrop/leaf-drip diameter
          D = DRDMIN
-         IF (PNETTE > ZERO) THEN
-            D = MAX(D, DRDRIP(VEG) * (DRAINE / PNETTE), 0.01935d0 * PNETTE**0.182d0)
+         IF (PNETTE > 0.0D0) THEN
+            D = MAX(D, DRDRIP(VEG) * (DRAINE / PNETTE), 0.01935D0 * PNETTE**0.182D0)
          END IF
          DRDROP(ICOL) = D
-!
-!        * Calculate rainfall rate
-         L = ZERO
-         IF (FCCE < ONE) L = DIMJE(PNETTE, DRAINE) / (ONE - FCCE)
+
+         ! * Calculate rainfall rate
+         L = 0.0D0
+         IF (FCCE < 1.0D0) L = DIMJE(PNETTE, DRAINE) / (1.0D0 - FCCE)
          LRAIN(ICOL) = L
-!
       END DO column_loop
 
-!
-! Loop over All Elements
-! ----------------------
-!
+   ! Loop over All Elements
+   ! ----------------------
+   !
       element_loop: DO IEL = 1, NEL
-!
-!        * Avoid multiple array references
+         ! * Avoid multiple array references
          HRFE = HRF(IEL)
-!
-!        * Calculate (& store) surface water depth
+
+         ! * Calculate (& store) surface water depth
          DWAT1E = DIMJE(HRFE, ZGRUND(IEL))
          DWAT1(IEL) = DWAT1E
-!
-!        * Initialize maximum flow & shear stress
-         QMAX = ZERO
-         TAUMAX = ZERO
-!
-!        Loop over Faces ...
-!        -------------------
-!
-!        ... of this element, in order to set FQCONF, SLOPEJ and TAUJ,
-!        and to find a value for TAUK
-!
+
+         ! * Initialize maximum flow & shear stress
+         QMAX = 0.0D0
+         TAUMAX = 0.0D0
+
+         ! Loop over Faces ...
+         ! -------------------
+         ! ... of this element, in order to set FQCONF, SLOPEJ and TAUJ,
+         ! and to find a value for TAUK
+         !
          face_loop: DO FACE = 1, 4
-!
-!           * Not interested in link element side faces
+
+            ! * Not interested in link element side faces
             BSIDE = IEL <= NLF
             IF (BSIDE) BSIDE = (MOD(FACE, 2) == 1) .EQV. LINKNS(IEL)
-
-            ! Replaced GOTO 350 with modern CYCLE
             IF (BSIDE) CYCLE face_loop
-!
-!           * Discharge rate
-            QOUT = FQOUT(IEL, FACE)
-!
-!           * No-flow faces are special case
-            IF (ISZERO(QOUT)) THEN
-!              * (consider weirs and branch nodes for example)
-               SLOPEJ(IEL, FACE) = ZERO
-               TAUJ(IEL, FACE) = ZERO
 
-               ! Replaced GOTO 350 with modern CYCLE
+            ! * Discharge rate
+            QOUT = FQOUT(IEL, FACE)
+
+            ! * No-flow faces are special case
+            IF (ISZERO(QOUT)) THEN
+               ! * (consider weirs and branch nodes for example)
+               SLOPEJ(IEL, FACE) = 0.0D0
+               TAUJ(IEL, FACE) = 0.0D0
                CYCLE face_loop
             END IF
-!
-!           * Find neighbouring element, & its face (also set FQCONF)
+
+            ! * Find neighbouring element, & its face (also set FQCONF)
             KEL = FACE
             IADJ = ICMREF(IEL, KEL, 2)
             IF (IADJ == 0) THEN
-!              * This is a boundary face; extrapolate from behind ...
+               ! * This is a boundary face; extrapolate from behind ...
                KEL = 1 + MOD(FACE + 1, 4)
                IADJ = ICMREF(IEL, KEL, 2)
             END IF
 
             IF (IADJ == 0) THEN
-!              * ... unless that's a boundary too; then go for slope=0
+               ! * ... unless that's a boundary too; then go for slope=0
                IADJ = IEL
                KADJ = KEL
-            ELSEIF (IADJ > 0) THEN
-!              * Neighbour is a regular element
+            ELSE IF (IADJ > 0) THEN
+               ! * Neighbour is a regular element
                KADJ = ICMREF(IEL, KEL, 3)
             ELSE
-!
-!              * Extra things to do if neighbour is a confluence node
-!
-!              * Branch index
+               ! * Extra things to do if neighbour is a confluence node
+               ! * Branch index
                IBR = -IADJ
-!
-!              * Initialize locals for prospect-loop:
-!              - gross discharge from the node
-               QSUM = ZERO
-!              - prospects with maximal inflow/outflow
+
+               ! * Initialize locals for prospect-loop:
+               ! - gross discharge from the node
+               QSUM = 0.0D0
+               ! - prospects with maximal inflow/outflow
                PIN = 0
                POUT = 0
-!              - discharge from node (let this branch be prospect 0)
+               ! - discharge from node (let this branch be prospect 0)
                QOUTX(0) = -FQOUT(IEL, KEL)
-!
-!              * Loop over Prospects
+
+               ! * Loop over Prospects
                DO P = 1, 3
                   IELP = ICMRF2(IBR, P, 1)
                   IF (IELP > 0) THEN
                      KELP = ICMRF2(IBR, P, 2)
                      Q = -FQOUT(IELP, KELP)
-                     QSUM = QSUM + MAX(ZERO, Q)
+                     QSUM = QSUM + MAX(0.0D0, Q)
                      IF (Q < QOUTX(PIN)) PIN = P
                      IF (Q > QOUTX(POUT)) POUT = P
                   ELSE
-                     Q = ZERO
+                     Q = 0.0D0
                   END IF
                   QOUTX(P) = Q
                END DO
-!
-!              * Redefine neighbour as link with maximal outflow ...
+
+               ! * Redefine neighbour as link with maximal outflow ...
                PADJ = POUT
-!              * ... unless node is at inflow face for this element
-               IF (QOUTX(0) > ZERO) PADJ = PIN
+               ! * ... unless node is at inflow face for this element
+               IF (QOUTX(0) > 0.0D0) PADJ = PIN
 
                IF (PADJ > 0) THEN
                   IADJ = ICMRF2(IBR, PADJ, 1)
                   KADJ = ICMRF2(IBR, PADJ, 2)
                ELSE
-!                  * (no obvious candidate: go for slope=0)
+                  ! * (no obvious candidate: go for slope=0)
                   IADJ = IEL
                   KADJ = KEL
                END IF
-!
-!              * Calculate node outflow fractions if appropriate
-               IF (QOUT > ZERO .AND. KEL == FACE) THEN
-!                  * NB: Need precondition on QOC to ensure QSUM.GT.0
+
+               ! * Calculate node outflow fractions if appropriate
+               IF (QOUT > 0.0D0 .AND. KEL == FACE) THEN
+                  ! * NB: Need precondition on QOC to ensure QSUM.GT.0
                   DO P = 1, 3
-                     FQCONF(IBR, P) = MAX(ZERO, QOUTX(P)) / QSUM
+                     FQCONF(IBR, P) = MAX(0.0D0, QOUTX(P)) / QSUM
                   END DO
                END IF
-!
+
             END IF
-!
-!           * Calculate water surface slope
+
+            ! * Calculate water surface slope
             HE = HRFE
             HA = HRF(IADJ)
             DE = DHF(IEL, KEL)
             DA = DHF(IADJ, KADJ)
 
             IF ((IEL <= NLF) .NEQV. (IADJ <= NLF)) THEN
-!              * this is a bank face; use bank-full elevation as cut-off
+               ! * this is a bank face; use bank-full elevation as cut-off
                LINK = MIN(IEL, IADJ)
                ZBF = ZBFULL(LINK)
                IF (HE <= ZBF) THEN
                   HE = ZBF
-                  DE = ZERO
+                  DE = 0.0D0
                END IF
                IF (HA <= ZBF) THEN
                   HA = ZBF
-                  IF (DE > ZERO) DA = ZERO
+                  IF (DE > 0.0D0) DA = 0.0D0
                END IF
             END IF
 
             SLOPEE = ABS(HE - HA) / (DE + DA)
             SLOPEJ(IEL, FACE) = SLOPEE
-!
-!           * Calculate flow shear stress at the ground surface
+
+            ! * Calculate flow shear stress at the ground surface
             TAUJE = RHOWAT * GRAVTY * DWAT1E * SLOPEE
             TAUJ(IEL, FACE) = TAUJE
-!
-!           * Find maximum flow rate so far and TAUJ for that face
+
+            ! * Find maximum flow rate so far and TAUJ for that face
             QABS = ABS(QOUT)
             IF (QABS > QMAX) THEN
                QMAX = QABS
                TAUMAX = TAUJE
             END IF
-!
-!        * Next face
+
+         ! * Next face
          END DO face_loop
-!
-!        * Set representative shear stress equal to maximum over faces
+
+         ! * Set representative shear stress equal to maximum over faces
          TAUK(IEL) = TAUMAX
-!
-!     * Next element
+
+      ! * Next element
       END DO element_loop
 
    CONTAINS
 
       ! Modern internal function replacing the obsolescent statement function
-      DOUBLE PRECISION FUNCTION FQOUT(IEL, FACE)
+      ! Must be PURE to maintain purity of host subroutine
+      PURE DOUBLE PRECISION FUNCTION FQOUT(IEL, FACE)
          INTEGER, INTENT(IN) :: IEL, FACE
          FQOUT = SIGN(1, 2 - FACE) * QOC(IEL, FACE)
       END FUNCTION FQOUT

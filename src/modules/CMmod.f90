@@ -606,303 +606,298 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE COLM
+   !SSSSSS SUBROUTINE COLM
    SUBROUTINE COLM
-!----------------------------------------------------------------------*
-!                            UPDATES CONCENTRATION FOR ONE
-!                            CONTAMINANT IN ONE COLUMN (BETWEEN
-!                            CELLS NCEBOT AND NCETOP): RETURNS
-!                            CCAP AND SCAP VECTORS
-!----------------------------------------------------------------------*
-! Version:  /SHETRAN/MUZ/COLM/4.0
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-! RAH  950509  4.0  Incorporate KSP into expressions for OCAPP & OCAPP1.
-! RAH  970313  4.1  Explicit typing.  Generic intrinsics.
-!----------------------------------------------------------------------*
-! Commons and constants
+   !----------------------------------------------------------------------*
+   !                            UPDATES CONCENTRATION FOR ONE
+   !                            CONTAMINANT IN ONE COLUMN (BETWEEN
+   !                            CELLS NCEBOT AND NCETOP): RETURNS
+   !                            CCAP AND SCAP VECTORS
+   !----------------------------------------------------------------------*
+   ! Version:  /SHETRAN/MUZ/COLM/4.0
+   ! Modifications:
+   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+   ! RAH  950509  4.0  Incorporate KSP into expressions for OCAPP & OCAPP1.
+   ! RAH  970313  4.1  Explicit typing.  Generic intrinsics.
+   !----------------------------------------------------------------------*
+      
+      ! Commons and constants
       USE COLM_C1
       USE COLM_C2
       USE COLM_CC
       USE COLM_CC1
-!
-! Locals, etc
-!INTRINSIC ABS, SIGN
+
+      IMPLICIT NONE
+
+      ! Locals, etc
       INTEGER :: NC, J, NCADJ, NDUM
-      DOUBLEPRECISION TTHT, TTHT1, PPHITH, PPHIT1, PPHTHP, PPHTP1
-      DOUBLEPRECISION KKD, MCAP, MCAPC, MCAPT, WORKA (LLEE), WORKB ( &
-         LLEE)
-      DOUBLEPRECISION FFKD, GGNMON, AALPH
-      DOUBLEPRECISION SUM1, SUM2, SUM3, CBCAPC, OMCBCC, CBCAP, CBCAPT
-      DOUBLEPRECISION ANCAP, ANCAPT, ANCAPS, BCAP, BCAP1, BCAPSG
-      DOUBLEPRECISION FCAP, FCAPT, FCAPC
-      DOUBLEPRECISION GCAP, GCAPT, GCAPS, GMCAP, GMCAP1, GMCPSG
-      DOUBLEPRECISION OCAPM, OCAPP, OCAPM1, OCAPP1
-      DOUBLEPRECISION PCAPM, PCAPP, PCAPM1, PCAPP1
-      DOUBLEPRECISION BPGSG, BMGSG, DUMMY
-      DOUBLEPRECISION ALT, ALT1, HLT, HLT1, BLT, BLT1, ALTSG, HLTSG, &
-         BLTSG
-      DOUBLEPRECISION VCAP, VCAP1
-      DOUBLEPRECISION CBSWC, OMCBSC, CBSW, CBSWT, RRRB, RRRBT, RRRBC
-      DOUBLEPRECISION CCPRFC, OMCRFC, CBRF, CBRFT
-!
-!----------------------------------------------------------------------*
-!
-      OCAPP = zero
+      DOUBLE PRECISION :: TTHT, TTHT1, PPHITH, PPHIT1, PPHTHP, PPHTP1
+      DOUBLE PRECISION :: KKD, MCAP, MCAPC, MCAPT, WORKA(LLEE), WORKB(LLEE)
+      DOUBLE PRECISION :: FFKD, GGNMON, AALPH
+      DOUBLE PRECISION :: SUM1, SUM2, SUM3, CBCAPC, OMCBCC, CBCAP, CBCAPT
+      DOUBLE PRECISION :: ANCAP, ANCAPT, ANCAPS, BCAP, BCAP1, BCAPSG
+      DOUBLE PRECISION :: FCAP, FCAPT, FCAPC
+      DOUBLE PRECISION :: GCAP, GCAPT, GCAPS, GMCAP, GMCAP1, GMCPSG
+      DOUBLE PRECISION :: OCAPM, OCAPP, OCAPM1, OCAPP1
+      DOUBLE PRECISION :: PCAPM, PCAPP, PCAPM1, PCAPP1
+      DOUBLE PRECISION :: BPGSG, BMGSG, DUMMY
+      DOUBLE PRECISION :: ALT, ALT1, HLT, HLT1, BLT, BLT1, ALTSG, HLTSG, BLTSG
+      DOUBLE PRECISION :: VCAP, VCAP1
+      DOUBLE PRECISION :: CBSWC, OMCBSC, CBSW, CBSWT, RRRB, RRRBT, RRRBC
+      DOUBLE PRECISION :: CCPRFC, OMCRFC, CBRF, CBRFT
+
+   !----------------------------------------------------------------------*
+
+      OCAPP  = zero
       OCAPP1 = zero
-      PCAPP = zero
+      PCAPP  = zero
       PCAPP1 = zero
-      DO 1 NC = NCEBOT, NCETOP
-!     ^^^^^^^^^^^^^^^^^^^^^^ MAIN LOOP - SETS ELEMENTS, FOR ALL
-!                                        CELLS, FOR VECTORS FOR
-!                                        DIFFERENCE EQUATIONS
-         TTHT = TTHET (NC)
-         TTHT1 = TTHET1 (NC)
-         PPHITH = PPHI (NC) * TTHT
-         PPHIT1 = PPHI1 (NC) * TTHT1
-         PPHTHP = PPHI (NC + 1) * TTHET (NC + 1)
-         PPHTP1 = PPHI1 (NC + 1) * TTHET1 (NC + 1)
-         KKD = KKDSO (NC)
-         FFKD = FFSO (NC) * KKD
-         GGNMON = GGNNSO (NC) - one
 
+      ! MAIN LOOP - SETS ELEMENTS, FOR ALL CELLS, FOR VECTORS FOR DIFFERENCE EQUATIONS
+      main_loop: DO NC = NCEBOT, NCETOP
+         
+         TTHT   = TTHET(NC)
+         TTHT1  = TTHET1(NC)
+         PPHITH = PPHI(NC) * TTHT
+         PPHIT1 = PPHI1(NC) * TTHT1
+         PPHTHP = PPHI(NC + 1) * TTHET(NC + 1)
+         PPHTP1 = PPHI1(NC + 1) * TTHET1(NC + 1)
+         KKD    = KKDSO(NC)
+         FFKD   = FFSO(NC) * KKD
+         GGNMON = GGNNSO(NC) - one
+         AALPH  = AALPSO(NC)
 
-         AALPH = AALPSO (NC)
-!                            SET DEPTH AND SOIL DEPENDENT
-!                            VARIABLES
+         ! SET DEPTH AND SOIL DEPENDENT VARIABLES
          SUM1 = zero
          SUM2 = zero
          SUM3 = zero
-         IF (NC.LE. (NCEPSF + 1) ) THEN
-            DO 2 J = 1, 4
-               CBCAPC = half - SIGN (half, QQ (NC, J) )
+         
+         IF (NC <= (NCEPSF + 1)) THEN
+            face_loop: DO J = 1, 4
+               CBCAPC = half - SIGN(half, QQ(NC, J))
                OMCBCC = one - CBCAPC
-               CBCAP = OMCBCC * CCAPA (NC, J) + CBCAPC * COLCAP (NC)
-               CBCAPT = OMCBCC * CCAPAT (NC, J)
-               SUM1 = SUM1 + QQ (NC, J) * CBCAP
-               SUM2 = SUM2 + (QQ1 (NC, J) / ZONE1 - QQ (NC, J) / ZONE) &
-                  * CBCAP + TSE * QQ (NC, J) * CBCAPT / ZONE
-               SUM3 = SUM3 + QQ (NC, J) * CBCAPC
-2           END DO
-         ENDIF
-!                            SUM CONVECTION TERMS OVER FOUR FACES
-         MCAP = GNERD (NC) - EDCAP (NC) + CST1 * SUM1
-         MCAPT = GND2 (NC) - EDCAPT (NC) + CST1 * SUM2 * ZONE / TSE
-         MCAPC = - EDCAPC (NC) + CST1 * SUM3
-         ANCAP = GNDSE (NC) - ESCAP (NC)
-         ANCAPT = GNDSE2 (NC) - ESCAPT (NC)
-         ANCAPS = - ESCAPS (NC)
-         BCAP = Z2SQOD * (AALPH + half * ABS (GGAMM (NC) ) )
-         BCAP1 = Z2SQOD * (AALPH + half * ABS (GGAMM1 (NC) ) )
+               CBCAP  = OMCBCC * CCAPA(NC, J) + CBCAPC * COLCAP(NC)
+               CBCAPT = OMCBCC * CCAPAT(NC, J)
+               SUM1   = SUM1 + QQ(NC, J) * CBCAP
+               SUM2   = SUM2 + (QQ1(NC, J) / ZONE1 - QQ(NC, J) / ZONE) * CBCAP + &
+                        TSE * QQ(NC, J) * CBCAPT / ZONE
+               SUM3   = SUM3 + QQ(NC, J) * CBCAPC
+            END DO face_loop
+         END IF
+
+         ! SUM CONVECTION TERMS OVER FOUR FACES
+         MCAP   = GNERD(NC) - EDCAP(NC) + CST1 * SUM1
+         MCAPT  = GND2(NC) - EDCAPT(NC) + CST1 * SUM2 * ZONE / TSE
+         MCAPC  = -EDCAPC(NC) + CST1 * SUM3
+         
+         ANCAP  = GNDSE(NC) - ESCAP(NC)
+         ANCAPT = GNDSE2(NC) - ESCAPT(NC)
+         ANCAPS = -ESCAPS(NC)
+         
+         BCAP   = Z2SQOD * (AALPH + half * ABS(GGAMM(NC)))
+         BCAP1  = Z2SQOD * (AALPH + half * ABS(GGAMM1(NC)))
          BCAPSG = OMSGMA * BCAP + SGMA * BCAP1
-         FCAP = PPHITH + FFKD * COLCAP (NC) **GGNMON
-         FCAPT = (PPHIT1 - PPHITH) / TSE
-         FCAPC = GGNMON * (FCAP - PPHITH) / COLCAP (NC)
-         GND2 (NC) = GCAPLA * FCAPT * COLCAP (NC)
-         GNERD (NC) = GCAPLA * COLCAP (NC) * FCAP + SGTSE * GND2 (NC)
-         WORKA (NC) = GCAPLA * FCAP * SGTSE
-!                            SET GENERATION TERMS FOR DYNAMIC REGION
-!                            A FURTHER TERM WILL BE ADDED TO GENRD LATER
-         GCAP = TTHT - PPHITH + (KKD-FFKD) * SOLCAP (NC) **GGNMON
-         GCAPT = (TTHT1 - PPHIT1 - TTHT + PPHITH) / TSE
-         GCAPS = GGNMON * (GCAP - TTHT + PPHITH) / SOLCAP (NC)
-         GNDSE2 (NC) = GCAPLA * GCAPT * SOLCAP (NC)
-         GNDSE (NC) = GCAPLA * SOLCAP (NC) * GCAP + SGTSE * GNDSE2 (NC)
-         WORKB (NC) = GCAPLA * GCAP * SGTSE
-!                            SET GENERATION TERMS FOR DEAD SPACE
-!                            A FURTHER TERM WILL BE ADDED TO GNDSE LATER
-         GMCAP = Z2SQOD * GGAMM (NC) / two
-         GMCAP1 = Z2SQOD * GGAMM1 (NC) / two
+         
+         FCAP   = PPHITH + FFKD * COLCAP(NC)**GGNMON
+         FCAPT  = (PPHIT1 - PPHITH) / TSE
+         FCAPC  = GGNMON * (FCAP - PPHITH) / COLCAP(NC)
+         
+         GND2(NC)  = GCAPLA * FCAPT * COLCAP(NC)
+         GNERD(NC) = GCAPLA * COLCAP(NC) * FCAP + SGTSE * GND2(NC)
+         WORKA(NC) = GCAPLA * FCAP * SGTSE
+
+         ! SET GENERATION TERMS FOR DYNAMIC REGION
+         ! A FURTHER TERM WILL BE ADDED TO GENRD LATER
+         GCAP   = TTHT - PPHITH + (KKD - FFKD) * SOLCAP(NC)**GGNMON
+         GCAPT  = (TTHT1 - PPHIT1 - TTHT + PPHITH) / TSE
+         GCAPS  = GGNMON * (GCAP - TTHT + PPHITH) / SOLCAP(NC)
+         
+         GNDSE2(NC) = GCAPLA * GCAPT * SOLCAP(NC)
+         GNDSE(NC)  = GCAPLA * SOLCAP(NC) * GCAP + SGTSE * GNDSE2(NC)
+         WORKB(NC)  = GCAPLA * GCAP * SGTSE
+
+         ! SET GENERATION TERMS FOR DEAD SPACE
+         ! A FURTHER TERM WILL BE ADDED TO GNDSE LATER
+         GMCAP  = Z2SQOD * GGAMM(NC) / two
+         GMCAP1 = Z2SQOD * GGAMM1(NC) / two
          GMCPSG = OMSGMA * GMCAP + SGMA * GMCAP1
-         OCAPM = OCAPP
-         OCAPP = two * PPHITH * DDOD (NC) * PPHTHP * DDOD (NC + 1) &
-            * KSP (NC) * KSP (NC + 1) / (PPHITH * DDOD (NC) * KSP (NC + 1) &
-            + PPHTHP * DDOD (NC + 1) * KSP (NC) )
-!                            WEIGHTED HARMONIC MEAN
+         
+         OCAPM  = OCAPP
+         ! WEIGHTED HARMONIC MEAN
+         OCAPP  = two * PPHITH * DDOD(NC) * PPHTHP * DDOD(NC + 1) * &
+                  KSP(NC) * KSP(NC + 1) / (PPHITH * DDOD(NC) * KSP(NC + 1) + &
+                  PPHTHP * DDOD(NC + 1) * KSP(NC))
+                  
          OCAPM1 = OCAPP1
-         OCAPP1 = two * PPHIT1 * DDOD1 (NC) * PPHTP1 * DDOD1 (NC + 1) &
-            * KSP (NC) * KSP (NC + 1) / (PPHIT1 * DDOD1 (NC) * KSP (NC + 1) &
-            + PPHTP1 * DDOD1 (NC + 1) * KSP (NC) )
-         PCAPM = PCAPP
-         PCAPP = Z2OD * UUAJP (NC)
+         OCAPP1 = two * PPHIT1 * DDOD1(NC) * PPHTP1 * DDOD1(NC + 1) * &
+                  KSP(NC) * KSP(NC + 1) / (PPHIT1 * DDOD1(NC) * KSP(NC + 1) + &
+                  PPHTP1 * DDOD1(NC + 1) * KSP(NC))
+                  
+         PCAPM  = PCAPP
+         PCAPP  = Z2OD * UUAJP(NC)
          PCAPM1 = PCAPP1
+         PCAPP1 = Z2OD * UUAJP1(NC)
 
-
-         PCAPP1 = Z2OD * UUAJP1 (NC)
-!                            SET VALUES FOR NON-DIMENSIONED
-!                            VARIABLES
-         BPGSG = BCAPSG + GMCPSG
-         BMGSG = BCAPSG - GMCPSG
-         DUMMY = one / KSP (NC)
-         ALT = DUMMY * MAX (zero, OCAPP / KSPP (NC) - half * PCAPP, &
-            - PCAPP)
-         ALT1 = DUMMY * MAX (zero, OCAPP1 / KSPP (NC) - half * &
-            PCAPP1, - PCAPP1)
-         HLT = DUMMY * MAX (zero, OCAPM / KSPP (NC - 1) + half * &
-            PCAPM, PCAPM)
-         HLT1 = DUMMY * MAX (zero, OCAPM1 / KSPP (NC - 1) + half * &
-            PCAPM1, PCAPM1)
-         BLT = - ALT - HLT - DUMMY * (PCAPP - PCAPM)
-         BLT1 = - ALT1 - HLT1 - DUMMY * (PCAPP1 - PCAPM1)
+         ! SET VALUES FOR NON-DIMENSIONED VARIABLES
+         BPGSG  = BCAPSG + GMCPSG
+         BMGSG  = BCAPSG - GMCPSG
+         DUMMY  = one / KSP(NC)
+         
+         ALT  = DUMMY * MAX(zero, OCAPP / KSPP(NC) - half * PCAPP, -PCAPP)
+         ALT1 = DUMMY * MAX(zero, OCAPP1 / KSPP(NC) - half * PCAPP1, -PCAPP1)
+         HLT  = DUMMY * MAX(zero, OCAPM / KSPP(NC - 1) + half * PCAPM, PCAPM)
+         HLT1 = DUMMY * MAX(zero, OCAPM1 / KSPP(NC - 1) + half * PCAPM1, PCAPM1)
+         
+         BLT   = -ALT - HLT - DUMMY * (PCAPP - PCAPM)
+         BLT1  = -ALT1 - HLT1 - DUMMY * (PCAPP1 - PCAPM1)
          ALTSG = OMSGMA * ALT + SGMA * ALT1
          HLTSG = OMSGMA * HLT + SGMA * HLT1
-
-
          BLTSG = OMSGMA * BLT + SGMA * BLT1
-!                            SET WORKING VALUES, AND
-!                            COEFFICIENTS (A, B, AND H) FOR COMBINED
-!                            CONVECTION AND DDERSION TERM
 
+         ! SET WORKING VALUES, AND COEFFICIENTS (A, B, AND H) FOR COMBINED
+         ! CONVECTION AND DISPERSION TERM
 
          NCADJ = NC - NCEBOT + 1
-!                            ADJUST CELL NUMBERS SO THE COEFFICIENTS
-!                            BELOW ARE SET FOR NCADJ=1,2,3 ETC
-         DLT (NCADJ) = - SGTSE * ALTSG
-         ELT (NCADJ) = SGTSE * ( - BLTSG + BPGSG) + OPSGL * (FCAP + &
-            FCAPC * COLCAP (NC) ) + OPSGSL * TSE * FCAPT - SGTSE * MCAPC
-         ELTSTR (NCADJ) = OPSGSL * TSE * FCAPC
-         FLT (NCADJ) = - SGTSE * HLTSG
-         GLT (NCADJ) = SGTSE * BMGSG
-         PLT (NCADJ) = SGTSE * BMGSG + OPSGL * (GCAP + GCAPS * SOLCAP ( &
-            NC) ) + OPSGSL * TSE * GCAPT - SGTSE * ANCAPS
-         PLTSTR (NCADJ) = OPSGSL * TSE * GCAPS
-         QLT (NCADJ) = - (GCAPLA * GCAP + BMGSG + OPSGL * GCAPT) &
-            * SOLCAP (NC) + BPGSG * COLCAP (NC) + ANCAP + SGTSE * ANCAPT
-         SLT (NCADJ) = ALTSG * COLCAP (NC + 1) + (BLTSG - BPGSG - &
-            GCAPLA * FCAP - OPSGL * FCAPT) * COLCAP (NC) + HLTSG * COLCAP ( &
-            NC - 1) + BMGSG * SOLCAP (NC) + MCAP + SGTSE * MCAPT
+         
+         ! ADJUST CELL NUMBERS SO THE COEFFICIENTS BELOW ARE SET FOR NCADJ=1,2,3 ETC
+         DLT(NCADJ)    = -SGTSE * ALTSG
+         ELT(NCADJ)    = SGTSE * (-BLTSG + BPGSG) + OPSGL * (FCAP + FCAPC * COLCAP(NC)) + &
+                         OPSGSL * TSE * FCAPT - SGTSE * MCAPC
+         ELTSTR(NCADJ) = OPSGSL * TSE * FCAPC
+         FLT(NCADJ)    = -SGTSE * HLTSG
+         GLT(NCADJ)    = SGTSE * BMGSG
+         PLT(NCADJ)    = SGTSE * BMGSG + OPSGL * (GCAP + GCAPS * SOLCAP(NC)) + &
+                         OPSGSL * TSE * GCAPT - SGTSE * ANCAPS
+         PLTSTR(NCADJ) = OPSGSL * TSE * GCAPS
+         QLT(NCADJ)    = -(GCAPLA * GCAP + BMGSG + OPSGL * GCAPT) * SOLCAP(NC) + &
+                         BPGSG * COLCAP(NC) + ANCAP + SGTSE * ANCAPT
+         SLT(NCADJ)    = ALTSG * COLCAP(NC + 1) + (BLTSG - BPGSG - GCAPLA * FCAP - &
+                         OPSGL * FCAPT) * COLCAP(NC) + HLTSG * COLCAP(NC - 1) + &
+                         BMGSG * SOLCAP(NC) + MCAP + SGTSE * MCAPT
+         TLT(NCADJ)    = SGTSE * BPGSG
 
+         ! SET ELEMENTS, FOR INTERNAL CELLS, OF THE VECTORS FOR THE DIFFERENCE EQUATIONS
 
-         TLT (NCADJ) = SGTSE * BPGSG
-!                            SET ELEMENTS, FOR INTERNAL CELLS,
-!                            OF THE VECTORS FOR THE DIFFERENCE
-!                            EQUATIONS
+      END DO main_loop
+      ! END OF MAIN LOOP
 
-
-
-1     END DO
-!     ^^^^^^^^^^^^^^^^^^^^^^ END OF MAIN LOOP
-      NC = NCETOP
-      VCAP = GGGNU * Z2OD
+      NC    = NCETOP
+      VCAP  = GGGNU * Z2OD
       VCAP1 = GGGNU1 * Z2OD
-      SUM1 = zero
-      SUM2 = zero
-      SUM3 = zero
-      DO 3 J = 1, 4
-         CBSWC = half - SIGN (half, QQQSW (J) )
+      SUM1  = zero
+      SUM2  = zero
+      SUM3  = zero
+      
+      top_face_loop: DO J = 1, 4
+         CBSWC  = half - SIGN(half, QQQSW(J))
          OMCBSC = one - CBSWC
-         CBSW = OMCBSC * CSWA (J) + CBSWC * COLCAP (NCETOP)
-         CBSWT = OMCBSC * CSWAT (J)
-         RRRB = OMCBSC * RRRSWA (J) + CBSWC * RRRSW
-         RRRBT = OMCBSC * RRRSAT (J) + CBSWC * RRRSWT
-         RRRBC = CBSWC * RRRSWC
-         SUM1 = SUM1 + QQQSW (J) * RRRB * CBSW
-         SUM2 = SUM2 + (QQQSW1 (J) - QQQSW (J) ) * RRRB * CBSW + QQQSW ( &
-            J) * TSE * (RRRB * CBSWT + RRRBT * CBSW)
-         SUM3 = SUM3 + QQQSW (J) * (RRRB * CBSWC + RRRBC * CBSW)
-3     END DO
-!                            SUM CONVECTION TERMS OVER FOUR FACES
-      MCAP = MCAP + (VCAP * (FCAP * COLCAP (NC) + GCAP * SOLCAP (NC) ) &
-         - ESSCAP - ICAP - QCAP + CST2 * SUM1) / KSP (NC)
-!                            THE GENERATION TERM FOR SOIL,
-!                            SURFACE WATER, AND SEDIMENTS IS INCLUDED
-!                            IN MCAP AS SET IN THE MAIN LOOP
-      MCAPT = MCAPT + ( (VCAP1 - VCAP) * (FCAP * COLCAP (NC) + GCAP * &
-         SOLCAP (NC) ) / TSE+VCAP * (FCAPT * COLCAP (NC) + GCAPT * SOLCAP ( &
-         NC) ) - ESSCPT - ICAPT - QCAPT + CST2 * SUM2 / TSE) / KSP (NC)
-      MCAPC = MCAPC + (VCAP * (FCAPC * COLCAP (NC) + FCAP) - ESSCPC - &
-         ICAPC - QCAPC + CST2 * SUM3) / KSP (NC)
-!                            THE FOLLOWING CODE MUST COME AFTER
-!                            MCAP IS OVERWRITTEN
-      FCAP = FCAP + (DDDSW * RRRSW + DDDLS * TTTLSE * RRRLS) / (Z2 * &
-         KSP (NC) )
-      FCAPT = FCAPT + (RRRSW * (DDDSW1 - DDDSW) + TTTLSE * RRRLS * &
-         (DDDLS1 - DDDLS) + TSE * (DDDSW * RRRSWT + DDDLS * TTTLSE * &
-         RRRLST) ) / (TSE * KSP (NC) * Z2)
-      FCAPC = FCAPC + (DDDSW * RRRSWC + DDDLS * TTTLSE * RRRLSC) &
-         / (KSP (NC) * Z2)
-!                            ADD EFFECT OF SURFACE WATER AND SED. TO F
-      GND2 (NC) = GCAPLA * FCAPT * COLCAP (NC)
-      GNERD (NC) = GCAPLA * COLCAP (NC) * FCAP + SGTSE * GND2 (NC)
-      WORKA (NC) = GCAPLA * FCAP * SGTSE
-      BLT = - HLT + DUMMY * PCAPM
-      BLT1 = - HLT1 + DUMMY * PCAPM1
+         CBSW   = OMCBSC * CSWA(J) + CBSWC * COLCAP(NCETOP)
+         CBSWT  = OMCBSC * CSWAT(J)
+         RRRB   = OMCBSC * RRRSWA(J) + CBSWC * RRRSW
+         RRRBT  = OMCBSC * RRRSAT(J) + CBSWC * RRRSWT
+         RRRBC  = CBSWC * RRRSWC
+         
+         SUM1 = SUM1 + QQQSW(J) * RRRB * CBSW
+         SUM2 = SUM2 + (QQQSW1(J) - QQQSW(J)) * RRRB * CBSW + QQQSW(J) * &
+                TSE * (RRRB * CBSWT + RRRBT * CBSW)
+         SUM3 = SUM3 + QQQSW(J) * (RRRB * CBSWC + RRRBC * CBSW)
+      END DO top_face_loop
+
+      ! SUM CONVECTION TERMS OVER FOUR FACES
+      MCAP = MCAP + (VCAP * (FCAP * COLCAP(NC) + GCAP * SOLCAP(NC)) - &
+             ESSCAP - ICAP - QCAP + CST2 * SUM1) / KSP(NC)
+
+      ! THE GENERATION TERM FOR SOIL, SURFACE WATER, AND SEDIMENTS IS INCLUDED
+      ! IN MCAP AS SET IN THE MAIN LOOP
+      MCAPT = MCAPT + ((VCAP1 - VCAP) * (FCAP * COLCAP(NC) + GCAP * SOLCAP(NC)) / TSE + &
+              VCAP * (FCAPT * COLCAP(NC) + GCAPT * SOLCAP(NC)) - ESSCPT - ICAPT - &
+              QCAPT + CST2 * SUM2 / TSE) / KSP(NC)
+              
+      MCAPC = MCAPC + (VCAP * (FCAPC * COLCAP(NC) + FCAP) - ESSCPC - ICAPC - &
+              QCAPC + CST2 * SUM3) / KSP(NC)
+
+      ! THE FOLLOWING CODE MUST COME AFTER MCAP IS OVERWRITTEN
+      FCAP  = FCAP + (DDDSW * RRRSW + DDDLS * TTTLSE * RRRLS) / (Z2 * KSP(NC))
+      FCAPT = FCAPT + (RRRSW * (DDDSW1 - DDDSW) + TTTLSE * RRRLS * (DDDLS1 - DDDLS) + &
+              TSE * (DDDSW * RRRSWT + DDDLS * TTTLSE * RRRLST)) / (TSE * KSP(NC) * Z2)
+      FCAPC = FCAPC + (DDDSW * RRRSWC + DDDLS * TTTLSE * RRRLSC) / (KSP(NC) * Z2)
+
+      ! ADD EFFECT OF SURFACE WATER AND SED. TO F
+      GND2(NC)   = GCAPLA * FCAPT * COLCAP(NC)
+      GNERD(NC)  = GCAPLA * COLCAP(NC) * FCAP + SGTSE * GND2(NC)
+      WORKA(NC)  = GCAPLA * FCAP * SGTSE
+      
+      BLT   = -HLT + DUMMY * PCAPM
+      BLT1  = -HLT1 + DUMMY * PCAPM1
       BLTSG = OMSGMA * BLT + SGMA * BLT1
       NCADJ = NC - NCEBOT + 1
-      DLT (NCADJ) = zero
-      ELT (NCADJ) = SGTSE * ( - BLTSG + BPGSG) + OPSGL * (FCAP + FCAPC * &
-         COLCAP (NC) ) + OPSGSL * TSE * FCAPT - SGTSE * MCAPC
-      ELTSTR (NCADJ) = OPSGSL * TSE * FCAPC
+      
+      DLT(NCADJ)    = zero
+      ELT(NCADJ)    = SGTSE * (-BLTSG + BPGSG) + OPSGL * (FCAP + FCAPC * COLCAP(NC)) + &
+                      OPSGSL * TSE * FCAPT - SGTSE * MCAPC
+      ELTSTR(NCADJ) = OPSGSL * TSE * FCAPC
+      SLT(NCADJ)    = (BLTSG - BPGSG - GCAPLA * FCAP - OPSGL * FCAPT) * COLCAP(NC) + &
+                      HLTSG * COLCAP(NC - 1) + BMGSG * SOLCAP(NC) + MCAP + SGTSE * MCAPT
 
-
-      SLT (NCADJ) = (BLTSG - BPGSG - GCAPLA * FCAP - OPSGL * FCAPT) &
-         * COLCAP (NC) + HLTSG * COLCAP (NC - 1) + BMGSG * SOLCAP (NC) &
-         + MCAP + SGTSE * MCAPT
-!                            OVERWRITE VECTOR ELEMENTS
-!                            FOR THE TOP CELL
+      ! OVERWRITE VECTOR ELEMENTS FOR THE TOP CELL
       NC = NCEBOT
       IF (ISFLXB) THEN
-         CCPRFC = half - SIGN (half, QQRF)
-         OMCRFC = one - CCPRFC
-         CBRF = OMCRFC * CCPRF + CCPRFC * COLCAP (NC)
-         CBRFT = OMCRFC * CCPRFT
-         ELT (1) = ELT (1) - CST3 * SGTSE * QQRF * CCPRFC
-         SLT (1) = SLT (1) + CST3 * QQRF * CBRF
-         SLT (1) = SLT (1) + CST3 * SGTSE * ( (QQRF1 - QQRF) * CBRF + &
-            TSE * QQRF * CBRFT) / TSE
+         CCPRFC  = half - SIGN(half, QQRF)
+         OMCRFC  = one - CCPRFC
+         CBRF    = OMCRFC * CCPRF + CCPRFC * COLCAP(NC)
+         CBRFT   = OMCRFC * CCPRFT
+         ELT(1)  = ELT(1) - CST3 * SGTSE * QQRF * CCPRFC
+         SLT(1)  = SLT(1) + CST3 * QQRF * CBRF
+         SLT(1)  = SLT(1) + CST3 * SGTSE * ((QQRF1 - QQRF) * CBRF + TSE * QQRF * CBRFT) / TSE
       ELSE
-         DLT (1) = zero
-         ELT (1) = one
-         ELTSTR (1) = zero
-         FLT (1) = zero
-         GLT (1) = zero
-         SLT (1) = (CCAP (NCEBOT) - COLCAP (NCEBOT) ) / TSE
+         DLT(1)    = zero
+         ELT(1)    = one
+         ELTSTR(1) = zero
+         FLT(1)    = zero
+         GLT(1)    = zero
+         SLT(1)    = (CCAP(NCEBOT) - COLCAP(NCEBOT)) / TSE
+      END IF
 
-
-      ENDIF
-!                            OVERWRITE VECTOR ELEMENTS
-!                            FOR THE BOTTOM CELL
+      ! OVERWRITE VECTOR ELEMENTS FOR THE BOTTOM CELL
       NDUM = NCETOP - NCEBOT + 1
 
+      ! SOLVE THE DIFFERENCE EQUATIONS FOR THE EPSILON AND OMEGA VECTORS
+      CALL SLVCLM(NDUM)
+      
+      update_loop: DO NC = NCEBOT, NCETOP
+         NCADJ      = NC - NCEBOT + 1
+         CCAP(NC)   = COLCAP(NC) + OME(NCADJ) * TSE
+         SCAP(NC)   = SOLCAP(NC) + EPS(NCADJ) * TSE
+         GNERD(NC)  = GNERD(NC) + WORKA(NC) * OME(NCADJ)
+         GNDSE(NC)  = GNDSE(NC) + WORKB(NC) * EPS(NCADJ)
+      END DO update_loop
+      ! SET ELEMENTS OF CONCENTRATION VECTORS AND GENERATION VECTORS
 
-
-      CALL SLVCLM (NDUM)
-!                            SOLVE THE DIFFERENCE EQUATIONS
-!                            FOR THE EPSILON AND OMEGA VECTORS
-      DO 4 NC = NCEBOT, NCETOP
-         NCADJ = NC - NCEBOT + 1
-         CCAP (NC) = COLCAP (NC) + OME (NCADJ) * TSE
-         SCAP (NC) = SOLCAP (NC) + EPS (NCADJ) * TSE
-         GNERD (NC) = GNERD (NC) + WORKA (NC) * OME (NCADJ)
-         GNDSE (NC) = GNDSE (NC) + WORKB (NC) * EPS (NCADJ)
-
-4     END DO
-!                            SET ELEMENTS OF CONCENTRATION VECTORS
-!                            AND GENERATION VECTORS
    END SUBROUTINE COLM
 
 
 
-!SSSSSS SUBROUTINE COLMSM (NCL)
-   SUBROUTINE COLMSM (NCL)
-!----------------------------------------------------------------------*
-!                            UPDATES THE CONCENTRATIONS OF EACH
-!                            CONTAMINANT IN COLUMN NCL
-!----------------------------------------------------------------------*
-! Version:  /SHETRAN/MUZ/COLMSM/4.1
-! Modifications:
-! GP   930930  3.4  Initialize EDCAP* & ESCAP* (case .not.ISPLT).
-! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-! GP   960717  4.0  Add to /WTOC/: JFACEA,QQQWEL,QQQWL1,NCWELL  (COLMW).
-!                   Loop 14: replace JSUMQ,JKZCOL with SUMQ,QQ1 (COLMW);
-!                   and test NOLBT>0.  Also set CCAPA=0 if SUMQ=0.
-!                   Add loop 19 (to calculate CCAPA beneath channel).
-!                   Incorporate QQQW* into calculation of QCAP & QCAPT.
-! RAH  970314  4.1  Explicit typing.  Split mixed-type /WTOC/ (COLMW).
-!                   Generic intrinsics.
-!      970521       Remove JFACEA,NAQU,TRAN (redundant in /WTOC/).
-!----------------------------------------------------------------------*
-! Commons and constants
+   !SSSSSS SUBROUTINE COLMSM
+   SUBROUTINE COLMSM(NCL)
+   !----------------------------------------------------------------------*
+   !                            UPDATES THE CONCENTRATIONS OF EACH
+   !                            CONTAMINANT IN COLUMN NCL
+   !----------------------------------------------------------------------*
+   ! Version:  /SHETRAN/MUZ/COLMSM/4.1
+   ! Modifications:
+   ! GP   930930  3.4  Initialize EDCAP* & ESCAP* (case .not.ISPLT).
+   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+   ! GP   960717  4.0  Add to /WTOC/: JFACEA,QQQWEL,QQQWL1,NCWELL  (COLMW).
+   !                   Loop 14: replace JSUMQ,JKZCOL with SUMQ,QQ1 (COLMW);
+   !                   and test NOLBT>0.  Also set CCAPA=0 if SUMQ=0.
+   !                   Add loop 19 (to calculate CCAPA beneath channel).
+   !                   Incorporate QQQW* into calculation of QCAP & QCAPT.
+   ! RAH  970314  4.1  Explicit typing.  Split mixed-type /WTOC/ (COLMW).
+   !                   Generic intrinsics.
+   !      970521       Remove JFACEA,NAQU,TRAN (redundant in /WTOC/).
+   !----------------------------------------------------------------------*
+      
+      ! Commons and constants
       USE SED_CS
       USE CONT_CC
       USE COLM_C1
@@ -911,384 +906,336 @@ CONTAINS
       USE COLM_CG
       USE BK_CW
       USE SED_CO
+      
+      ! Input common
+      ! INTEGER :: JBK, JFLINK, JSOL (LLEE), NWORK (4), NLINKA, NCWELL
+      ! DOUBLE PRECISION VELDUM (LLEE), QQQWEL, QQQWL1, QQRV (LLEE), &
+      !  ROH (LLEE)
+      ! LOGICAL :: ISBDY (4)
+      ! COMMON / WTOCI / JBK, JFLINK, JSOL, NWORK, NLINKA, NCWELL
+      ! COMMON / WTOC / VELDUM, QQQWEL, QQQWL1, QQRV, ROH
+      ! COMMON / WTOCL / ISBDY
+      ! VARIABLES USED ONLY IN COLMW AND COLMSM
 
-      USE PLANT_CC
-!! Input common
-!INTEGER :: JBK, JFLINK, JSOL (LLEE), NWORK (4), NLINKA, NCWELL
-!DOUBLEPRECISION VELDUM (LLEE), QQQWEL, QQQWL1, QQRV (LLEE), &
-! ROH (LLEE)
-!LOGICAL :: ISBDY (4)
-!COMMON / WTOCI / JBK, JFLINK, JSOL, NWORK, NLINKA, NCWELL
-!COMMON / WTOC / VELDUM, QQQWEL, QQQWL1, QQRV, ROH
+      IMPLICIT NONE
 
-!COMMON / WTOCL / ISBDY
-!                             VARIABLES USED ONLY IN COLMW AND COLMSM
-! Input arguments
-
-      INTEGER :: NCL
-! Locals, etc
-!INTRINSIC ABS, MAX, MIN
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NCL
+      
+      ! Locals, etc
       INTEGER :: NCONT, NCE, JA, NDUM, NOLDUM, NOLP, JCEA, JSED
-      DOUBLEPRECISION CCBT, SUM, SUMQ, SUMQC, SUMW
-      DOUBLEPRECISION :: DUM, DUM0, DUM1, DUM2, DUM3, DUMBED, CDUM=0.0d0
-      DOUBLEPRECISION GNDUM, QDUM, QCDUM, QCDUM1, UDUMP, UDUMM, UCDUMP, &
-         UCDUMM
+      DOUBLE PRECISION :: CCBT, SUM, SUMQ, SUMQC, SUMW
+      DOUBLE PRECISION :: DUM, DUM0, DUM1, DUM2, DUM3, DUMBED, CDUM = 0.0D0
+      DOUBLE PRECISION :: GNDUM, QDUM, QCDUM, QCDUM1, UDUMP, UDUMM, UCDUMP, UCDUMM
+      DOUBLE PRECISION :: FBO(NSEDEE), FB(NSEDEE), FDLO(NSEDEE), FDL(NSEDEE), KDDUM(NSEDEE)
 
-      DOUBLEPRECISION FBO (NSEDEE), FB (NSEDEE), FDLO (NSEDEE), FDL ( &
-         NSEDEE), KDDUM (NSEDEE)
-!----------------------------------------------------------------------*
-!
-      DO 1 NCE = 1, LLEE
-         GNERD (NCE) = zero
-         GNDSE (NCE) = zero
-         GND2 (NCE) = zero
-         GNDSE2 (NCE) = zero
+   !----------------------------------------------------------------------*
 
+      ! SET GENERATION VARIABLES TO ZERO IN PREPARATION FOR THE 1ST PASS OF THE CONTAMINANT LOOP
+      init_loop: DO NCE = 1, LLEE
+         GNERD(NCE)  = zero
+         GNDSE(NCE)  = zero
+         GND2(NCE)   = zero
+         GNDSE2(NCE) = zero
+      END DO init_loop
 
+      ! +++++ MAIN LOOP FOR UPDATING CONCS ++++++
+      cont_loop: DO NCONT = 1, NCON
 
-1     END DO
-!                             SET GENERATION VARIABLES TO ZERO IN
-!                             PREPARATION FOR THE 1ST PASS OF DO LOOP 5
+         ! SET OLD CONCENTRATION VECTORS
+         old_conc_loop: DO NCE = NCEBOT - 1, NCETOP + 1
+            COLCAP(NCE) = CCCCO(NCL, NCE, NCONT)
+            SOLCAP(NCE) = SSSSO(NCL, NCE, NCONT)
+         END DO old_conc_loop
 
-      DO 5 NCONT = 1, NCON
-!                             +++++ MAIN LOOP FOR UPDATING CONCS ++++++
-         DO 6 NCE = NCEBOT - 1, NCETOP + 1
-            COLCAP (NCE) = CCCCO (NCL, NCE, NCONT)
-            SOLCAP (NCE) = SSSSO (NCL, NCE, NCONT)
+         GCAPLA = GCPLA(NCONT)
+         
+         ! SET THE EFFECTIVE DISPERSION COEFFICIENTS AND OTHER SOIL PROPERTIES
+         disp_loop: DO NCE = NCEBOT, NCETOP
+            DDOD(NCE)   = OODO * DISP(NCONT, JSOL(NCE), TTHET(NCE), UUAJP(NCE-1), UUAJP(NCE))
+            DDOD1(NCE)  = OODO * DISP(NCONT, JSOL(NCE), TTHET1(NCE), UUAJP1(NCE-1), UUAJP1(NCE))
+            AALPSO(NCE) = ALPHA(JSOL(NCE), NCONT)
+            FFSO(NCE)   = FADS(JSOL(NCE), NCONT)
+            GGNNSO(NCE) = GNN(NCONT)
+            KKDSO(NCE)  = KDDSOL(JSOL(NCE), NCONT)
+         END DO disp_loop
+         
+         DDOD(NCETOP + 1)  = zero
+         DDOD1(NCETOP + 1) = zero
 
-6        END DO
-!                             SET OLD CONCENTRATION VECTORS
+         face_loop: DO JA = 1, 4
 
-         GCAPLA = GCPLA (NCONT)
-         DO 11 NCE = NCEBOT, NCETOP
-            DDOD (NCE) = OODO * DISP (NCONT, JSOL (NCE), TTHET (NCE), &
-               UUAJP (NCE-1), UUAJP (NCE) )
-            DDOD1 (NCE) = OODO * DISP (NCONT, JSOL (NCE), TTHET1 (NCE), &
-               UUAJP1 (NCE-1), UUAJP1 (NCE) )
-            AALPSO (NCE) = ALPHA (JSOL (NCE), NCONT)
-            FFSO (NCE) = FADS (JSOL (NCE), NCONT)
-            GGNNSO (NCE) = GNN (NCONT)
-            KKDSO (NCE) = KDDSOL (JSOL (NCE), NCONT)
-11       END DO
-         DDOD (NCETOP + 1) = zero
-
-         DDOD1 (NCETOP + 1) = zero
-!                            SET THE EFFECTIVE DISPERSION COEFFICIENTS
-!                            AND OTHER SOIL PROPERTIES
-
-         DO 12 JA = 1, 4
-
-            IF (.NOT.ISBDY (JA) .AND. (JA.NE.JFLINK) ) THEN
-!                             IS NOT FACE AT CATCHMENT BOUNDARY OR THE
-!                             EXPOSED FACE OF A BANK
+            IF (.NOT. ISBDY(JA) .AND. (JA /= JFLINK)) THEN
+               ! IS NOT FACE AT CATCHMENT BOUNDARY OR THE EXPOSED FACE OF A BANK
                NDUM = NCEPSF + 1
-               DO 13 NCE = NCEBOT, MIN (NDUM, NCETOP)
-                  SUMQ = zero
+               
+               ! EXPLICIT (IN C) LATERAL COUPLING IN SUBSURFACE
+               subsurf_loop: DO NCE = NCEBOT, MIN(NDUM, NCETOP)
+                  SUMQ  = zero
                   SUMQC = zero
-                  NOLDUM = MAX (1, NOLBT (NCL, NCE, JA) )
-                  DO 14 NOLP = NOLDUM, NOLBT (NCL, NCE+1, JA) - 1
-                     JCEA = NOLCEA (NCL, NOLP, JA)
-                     QDUM = QQ1 (NCE, JA)
-                     SUMQ = SUMQ + QDUM
-                     SUMQC = SUMQC + QDUM * CCCCO (NWORK (JA), JCEA, &
-                        NCONT)
-14                END DO
+                  NOLDUM = MAX(1, NOLBT(NCL, NCE, JA))
+                  
+                  layer_loop: DO NOLP = NOLDUM, NOLBT(NCL, NCE+1, JA) - 1
+                     JCEA  = NOLCEA(NCL, NOLP, JA)
+                     QDUM  = QQ1(NCE, JA)
+                     SUMQ  = SUMQ + QDUM
+                     SUMQC = SUMQC + QDUM * CCCCO(NWORK(JA), JCEA, NCONT)
+                  END DO layer_loop
+                  
                   IF (NOTZERO(SUMQ)) SUMQ = SUMQC / SUMQ
-                  CCAPA (NCE, JA) = SUMQ
-                  CCAPAT (NCE, JA) = zero
-13             END DO
-!                             EXPLICIT (IN C) LATERAL COUPLING IN
-!                             SUBSURFACE
-               CSWA (JA) = CCCCO (NWORK (JA), NCETOP, NCONT)
-               CSWAT (JA) = (CCCC (NWORK (JA), NCETOP, NCONT) - CSWA ( &
-                  JA) ) / TSE
-               RRRSWA (JA) = RSW (NWORK (JA), NCONT)
+                  CCAPA(NCE, JA)  = SUMQ
+                  CCAPAT(NCE, JA) = zero
+               END DO subsurf_loop
 
-               RRRSAT (JA) = RSWT (NWORK (JA), NCONT) + RSWC (NWORK (JA) &
-                  , NCONT) * CSWAT (JA)
-!                             IMPLICIT (IN C) LATERAL COUPLING IN SURF.
-!                             NB: TIME DERIVATIVE OF R IN ADJACENT
-!                             COLUMN INCLUDES THE EFFECT OF THE CHANGING
-!                             CONC. IN THAT COLUMN
+               CSWA(JA)   = CCCCO(NWORK(JA), NCETOP, NCONT)
+               CSWAT(JA)  = (CCCC(NWORK(JA), NCETOP, NCONT) - CSWA(JA)) / TSE
+               RRRSWA(JA) = RSW(NWORK(JA), NCONT)
+               RRRSAT(JA) = RSWT(NWORK(JA), NCONT) + RSWC(NWORK(JA), NCONT) * CSWAT(JA)
+               
+               ! IMPLICIT (IN C) LATERAL COUPLING IN SURF.
+               ! NB: TIME DERIVATIVE OF R IN ADJACENT COLUMN INCLUDES THE EFFECT OF 
+               ! THE CHANGING CONC. IN THAT COLUMN
 
-            ELSEIF (ISBDY (JA) ) THEN
-!                             IF ADJACENT COLUMN IS OUTSIDE BOUNDARY
-               DO 16 NCE = NCEBOT, NCEPSF + 1
-                  CCAPA (NCE, JA) = CCAPE (NCL, NCONT)
-                  CCAPAT (NCE, JA) = zero
-16             END DO
-               CSWA (JA) = CCAPE (NCL, NCONT)
-               CSWAT (JA) = zero
-               RRRSWA (JA) = one
-!                             NB: NO SEDIMENT WITH FLOWS OVER BOUNDARY
-
-               RRRSAT (JA) = zero
+            ELSE IF (ISBDY(JA)) THEN
+               ! IF ADJACENT COLUMN IS OUTSIDE BOUNDARY
+               bdy_loop: DO NCE = NCEBOT, NCEPSF + 1
+                  CCAPA(NCE, JA)  = CCAPE(NCL, NCONT)
+                  CCAPAT(NCE, JA) = zero
+               END DO bdy_loop
+               
+               CSWA(JA)   = CCAPE(NCL, NCONT)
+               CSWAT(JA)  = zero
+               RRRSWA(JA) = one
+               RRRSAT(JA) = zero
+               ! NB: NO SEDIMENT FLOWS OVER BOUNDARY
 
             ELSE
-!                             IS THE EXPOSED FACE OF A BANK COLUMN
-               DO 19 NCE = NCEBOT, NHBED (NLINKA, JBK)
-                  CCAPA (NCE, JA) = CCCCO (NWORK (JA), NCE, NCONT)
-                  CCAPAT (NCE, JA) = zero
-19             END DO
-!                             EXPLICIT (IN C) LATERAL COUPLING IN
-!                             SUBSURFACE
-               DO 17 NCE = NHBED (NLINKA, JBK) + 1, NCETOP
-                  CCAPA (NCE, JA) = CCCCO (NLINKA, NCETOP, NCONT)
-                  CCAPAT (NCE, JA) = (CCCC (NLINKA, NCETOP, NCONT) &
-                     - CCAPA (NCE, JA) ) / TSE
-!                             IMPLICIT COUPLING WITH STREAM WATER FOR
-!                             SUBSURFACE EXPOSED BANK CELLS
-17             END DO
-               CSWA (JA) = CCAPA (NCETOP, JA)
-               CSWAT (JA) = CCAPAT (NCETOP, JA)
-               RRRSWA (JA) = FSF (NLINKA, NCONT)
-               RRRSAT (JA) = FSFT (NLINKA, NCONT) + FSFC (NLINKA, NCONT) &
-                  * CSWAT (JA)
-!                             NB: TIME DERIVATIVE OF F IN ADJACENT
-!                             LINK INCLUDES THE EFFECT OF THE CHANGING
-!                             CONC. IN THAT LINK
+               ! IS THE EXPOSED FACE OF A BANK COLUMN
+               bank_loop: DO NCE = NCEBOT, NHBED(NLINKA, JBK)
+                  CCAPA(NCE, JA)  = CCCCO(NWORK(JA), NCE, NCONT)
+                  CCAPAT(NCE, JA) = zero
+               END DO bank_loop
+               
+               ! EXPLICIT (IN C) LATERAL COUPLING IN SUBSURFACE
+               imp_bank_loop: DO NCE = NHBED(NLINKA, JBK) + 1, NCETOP
+                  CCAPA(NCE, JA)  = CCCCO(NLINKA, NCETOP, NCONT)
+                  CCAPAT(NCE, JA) = (CCCC(NLINKA, NCETOP, NCONT) - CCAPA(NCE, JA)) / TSE
+               END DO imp_bank_loop
+               ! IMPLICIT COUPLING WITH STREAM WATER FOR SUBSURFACE EXPOSED BANK CELLS
 
-            ENDIF
+               CSWA(JA)   = CCAPA(NCETOP, JA)
+               CSWAT(JA)  = CCAPAT(NCETOP, JA)
+               RRRSWA(JA) = FSF(NLINKA, NCONT)
+               RRRSAT(JA) = FSFT(NLINKA, NCONT) + FSFC(NLINKA, NCONT) * CSWAT(JA)
+               ! NB: TIME DERIVATIVE OF F IN ADJACENT LINK INCLUDES THE EFFECT OF THE CHANGING CONC.
+            END IF
 
+         END DO face_loop
 
-12       END DO
-!                             SET CONCENTRATIONS AND RETARDATION FACTORS
-!                             IN ADJACENT COLUMN
-         IF (.NOT.ISFLXB) THEN
-            CCBT = CCAPB (NCL, NCONT)
-            CCAP (NCEBOT) = CCBT
-!                             NB: CCAP(NCEBOT) IS USED AS THE BOUNDARY
-!                             CONCENTRATION IN SUBROUTINE COLM
-            CCPRF = zero
+         ! SET CONCENTRATIONS AND RETARDATION FACTORS IN ADJACENT COLUMN
+         IF (.NOT. ISFLXB) THEN
+            CCBT = CCAPB(NCL, NCONT)
+            CCAP(NCEBOT) = CCBT
+            ! NB: CCAP(NCEBOT) IS USED AS THE BOUNDARY CONCENTRATION IN SUBROUTINE COLM
+            CCPRF  = zero
             CCPRFT = zero
          ELSE
-            CCPRF = CCAPR (NCL, NCONT)
+            CCPRF  = CCAPR(NCL, NCONT)
             CCPRFT = zero
-            CCBT = CCPRF
-         ENDIF
-         DO 20 NCE = 1, NCEBOT - 1
-            COLCAP (NCE) = CCBT
-            CCAP (NCE) = CCBT
-            SCAP (NCE) = CCBT
+            CCBT   = CCPRF
+         END IF
+         
+         ! SET BOTTOM CELL VARIABLES
+         bot_cell_loop: DO NCE = 1, NCEBOT - 1
+            COLCAP(NCE) = CCBT
+            CCAP(NCE)   = CCBT
+            SCAP(NCE)   = CCBT
+         END DO bot_cell_loop
 
+         ! SET UP ARRAYS FOR USE IN CALLS TO FUNCTION RET
+         ret_setup_loop: DO JSED = 1, NSED
+            KDDUM(JSED) = KDDLS(JSED, NCONT)
+            FBO(JSED)   = FBETAO(NCL, JSED)
+            FB(JSED)    = FBETA(NCL, JSED)
+            FBETAO(NCL, JSED) = FB(JSED)
+            FDLO(JSED)  = FDELO(NCL, JSED)
+            FDL(JSED)   = FDEL(NCL, JSED)
+            FDELO(NCL, JSED)  = FDL(JSED)
+         END DO ret_setup_loop
 
+         ! SET LOOSE SEDIMENT RETARDATION VARIABLES
+         CALL RET(COLCAP(NCETOP), GNN(NCONT), TTTLSE, TTTLSE, FBO, FB, &
+                  KDDUM, RRRLS, RRRLSC, RRRLST, TSE, NSED, ISADNL)
 
-20       END DO
-!                            SET BOTTOM CELL VARIABLES
-         DO 22 JSED = 1, NSED
-            KDDUM (JSED) = KDDLS (JSED, NCONT)
-            FBO (JSED) = FBETAO (NCL, JSED)
-            FB (JSED) = FBETA (NCL, JSED)
-            FBETAO (NCL, JSED) = FB (JSED)
-            FDLO (JSED) = FDELO (NCL, JSED)
-            FDL (JSED) = FDEL (NCL, JSED)
-            FDELO (NCL, JSED) = FDL (JSED)
+         ! SET SURFACE WATER RETARDATION VARIABLES
+         CALL RET(COLCAP(NCETOP), GNN(NCONT), one, one, FDLO, FDL, &
+                  KDDUM, RRRSW, RRRSWC, RRRSWT, TSE, NSED, ISADNL)
+                  
+         RSW(NCL, NCONT)  = RRRSW
+         RSWC(NCL, NCONT) = RRRSWC
+         RSWT(NCL, NCONT) = RRRSWT
+         ! SAVE SURFACE WATER RETARDATION VALUES FOR USE IN CALCULATING LATERAL CONVECTION RATES
 
-22       END DO
-!                             SET UP ARRAYS FOR USE IN CALLS TO FUNCTION
-!                             RET
-
-         CALL RET (COLCAP (NCETOP), GNN (NCONT), TTTLSE, TTTLSE, FBO, &
-            FB, KDDUM, RRRLS, RRRLSC, RRRLST, TSE, NSED, ISADNL)
-!                             SET LOOSE SEDIMENT REATRDATION VARIABLES
-
-         CALL RET (COLCAP (NCETOP), GNN (NCONT), one, one, FDLO, &
-            FDL, KDDUM, RRRSW, RRRSWC, RRRSWT, TSE, NSED, ISADNL)
-!                             SET SURFACE WATER RETARDATION VARIABLES
-         RSW (NCL, NCONT) = RRRSW
-         RSWC (NCL, NCONT) = RRRSWC
-
-
-         RSWT (NCL, NCONT) = RRRSWT
-!                             SAVE SURFACE WATER REATRDATION VALUES
-!                             FOR USE IN CALCULATING LATERAL CONVECTION
-!                             RATES
-         ICAP = - Z2OD * IIICFO (NCONT)
-         IIICFO (NCONT) = IIICF (NCONT)
+         ! SET SURFACE INPUT VARIABLES
+         ICAP  = -Z2OD * IIICFO(NCONT)
+         IIICFO(NCONT) = IIICF(NCONT)
          ICAPT = zero
          ICAPC = zero
-         DUM = Z2OD / (DDA * DDB)
-         QCDUM = (QI - QQQWEL) * CCAPIO (NCONT)
-         QCDUM1 = (QI1 - QQQWL1) * CCAPI (NCONT)
-         IF (NCWELL.GT.0) THEN
-            QCDUM = QCDUM + QQQWEL * CCCCW (NCWELL, NCONT)
-            QCDUM1 = QCDUM1 + QQQWL1 * CCCCW (NCWELL, NCONT)
-         ENDIF
-         QCAP = DUM * QCDUM
+         DUM   = Z2OD / (DDA * DDB)
+         
+         QCDUM  = (QI - QQQWEL) * CCAPIO(NCONT)
+         QCDUM1 = (QI1 - QQQWL1) * CCAPI(NCONT)
+         
+         IF (NCWELL > 0) THEN
+            QCDUM  = QCDUM + QQQWEL * CCCCW(NCWELL, NCONT)
+            QCDUM1 = QCDUM1 + QQQWL1 * CCCCW(NCWELL, NCONT)
+         END IF
+         
+         QCAP  = DUM * QCDUM
          QCAPT = (DUM * QCDUM1 - QCAP) / TSE
-
-         CCAPIO (NCONT) = CCAPI (NCONT)
-
-
-
+         CCAPIO(NCONT) = CCAPI(NCONT)
          QCAPC = zero
-!                            SET SURFACE INPUT VARIABLES
-         DO 30 NCE = NCEBOT, NCETOP
-            DUMMY (NCE) = zero
-30       END DO
+
+         dummy_loop: DO NCE = NCEBOT, NCETOP
+            DUMMY(NCE) = zero
+         END DO dummy_loop
 
          IF (ISBK) THEN
-            SUM = zero
+            SUM  = zero
             SUMQ = zero
-            DUM0 = Z2OD / AREA (NCL)
-            DO 32 NCE = NCEAB (NLINKA, JBK), NHBED (NLINKA, JBK) &
-               + 1
-               SUMQ = SUMQ + QQRV (NCE)
-               DUM1 = ABS (QQRV (NCE) )
-               DUM2 = half * (QQRV (NCE) + DUM1)
-               DUM3 = half * (QQRV (NCE) - DUM1)
-               QCDUM = DUM2 * CCCC (NLINKA, NCETOP - 2, NCONT) + DUM3 * &
-                  CCCCO (NCL, NCE, NCONT)
-!                             IMPLICIT COUPLING TO DEEP BED CONC.
-               SUM = SUM + QCDUM
-               DUMMY (NCE) = DUMMY (NCE) + ROH (NCE) * QCDUM * DUM0 / &
-                  KSP (NCE)
+            DUM0 = Z2OD / AREA(NCL)
+            
+            ! SET SOURCE FOR CONVECTION INTO STREAM FROM BANK
+            bank_src_loop: DO NCE = NCEAB(NLINKA, JBK), NHBED(NLINKA, JBK) + 1
+               SUMQ  = SUMQ + QQRV(NCE)
+               DUM1  = ABS(QQRV(NCE))
+               DUM2  = half * (QQRV(NCE) + DUM1)
+               DUM3  = half * (QQRV(NCE) - DUM1)
+               QCDUM = DUM2 * CCCC(NLINKA, NCETOP - 2, NCONT) + DUM3 * CCCCO(NCL, NCE, NCONT)
+               ! IMPLICIT COUPLING TO DEEP BED CONC.
+               SUM   = SUM + QCDUM
+               DUMMY(NCE) = DUMMY(NCE) + ROH(NCE) * QCDUM * DUM0 / KSP(NCE)
+            END DO bank_src_loop
 
-32          END DO
-!                             SET SOURCE FOR CONVECTION INTO STREAM FROM
-!                             BANK
             IF (NOTZERO(SUMQ)) SUMQ = SUM / SUMQ
             CDUM = SUMQ
-!                             SET EFFECTIVE CONCENTRATION IN WATER FLOW
-!                             INTO STREAM FROM BANK
-            NCE = NCEBD (NLINKA, JBK) + 1
-            UDUMP = UUAJP1 (NCE)
-            UDUMM = UUAJP1 (NCE-1)
-            UCDUMP = MAX (zero, UDUMP * COLCAP (NCE) ) - MAX (zero, &
-               - UDUMP * COLCAP (NCE+1) )
-            UCDUMM = MAX (zero, UDUMM * COLCAP (NCE-1) ) - MAX (zero, &
-               - UDUMM * COLCAP (NCE) )
-            DUMBED = (ROH (NCE) * VELDUM (NCE-1) - one) * UCDUMM - &
-               (ROH (NCE) * VELDUM (NCE) - one) * UCDUMP
+            ! SET EFFECTIVE CONCENTRATION IN WATER FLOW INTO STREAM FROM BANK
 
-            DUMBED = Z2OD * DUMBED / KSP (NCE)
+            NCE    = NCEBD(NLINKA, JBK) + 1
+            UDUMP  = UUAJP1(NCE)
+            UDUMM  = UUAJP1(NCE - 1)
+            UCDUMP = MAX(zero, UDUMP * COLCAP(NCE)) - MAX(zero, -UDUMP * COLCAP(NCE + 1))
+            UCDUMM = MAX(zero, UDUMM * COLCAP(NCE - 1)) - MAX(zero, -UDUMM * COLCAP(NCE))
+            DUMBED = (ROH(NCE) * VELDUM(NCE - 1) - one) * UCDUMM - (ROH(NCE) * VELDUM(NCE) - one) * UCDUMP
+            DUMBED = Z2OD * DUMBED / KSP(NCE)
 
          ELSE
-
             DUMBED = zero
+         END IF
 
-         ENDIF
          IF (ISPLT) THEN
-            CALL PLCOLM (NCL, NCONT)
+            CALL PLCOLM(NCL, NCONT)
          ELSE
-            DO 33 NCE = NCEBOT, NCETOP
-               EDCAP (NCE) = zero
-               EDCAPC (NCE) = zero
-               EDCAPT (NCE) = zero
-               ESCAP (NCE) = zero
-               ESCAPS (NCE) = zero
-               ESCAPT (NCE) = zero
-33          END DO
+            zero_edcap_loop: DO NCE = NCEBOT, NCETOP
+               EDCAP(NCE)  = zero
+               EDCAPC(NCE) = zero
+               EDCAPT(NCE) = zero
+               ESCAP(NCE)  = zero
+               ESCAPS(NCE) = zero
+               ESCAPT(NCE) = zero
+            END DO zero_edcap_loop
+         END IF
 
-         ENDIF
+         ! SB 230925 change source terms if nitrate component being used
+         IF (ISMN) THEN
+            mn_loop: DO NCE = NCEBOT, NCETOP
+               EDCAP(NCE)  = SSS1(NCL, NCE, NCONT)
+               ESCAP(NCE)  = SSS2(NCL, NCE, NCONT)
+               EDCAPT(NCE) = zero
+               EDCAPC(NCE) = zero
+               ESCAPT(NCE) = zero
+               ESCAPS(NCE) = zero
+            END DO mn_loop
 
-! SB 230925 change source terms if nitrate component being used
-         if (ISMN) then
-            DO NCE = NCEBOT,NCETOP
-               EDCAP(NCE) = SSS1(NCL,NCE,NCONT)
-               ESCAP(NCE) = SSS2(NCL,NCE,NCONT)
-               EDCAPT(NCE) = 0.0D0
-               EDCAPC(NCE) = 0.0D0
-               ESCAPT(NCE) = 0.0D0
-               ESCAPS(NCE) = 0.0D0
-            END DO
-!
-!       *  The first contaminant is nitrate and surface additions
-!       *  are considered in the MN component
-            IF (NCONT.EQ.1) THEN
-               ICAP = 0.0D0
-               QCAP = 0.0D0
-               QCAPT = 0.0D0
-            ENDIF
-         ENDIF
+            ! The first contaminant is nitrate and surface additions are considered in the MN component
+            IF (NCONT == 1) THEN
+               ICAP  = zero
+               QCAP  = zero
+               QCAPT = zero
+            END IF
+         END IF
 
-
-!                 Call contaminant plant uptake routine
-!                  Sets EDCAP, ESCAP etc
-         SUM = zero
+         ! Call contaminant plant uptake routine Sets EDCAP, ESCAP etc
+         SUM  = zero
          SUMW = zero
 
-         DO 34 NCE = NCEBOT, NCETOP
-
-            EDCAP (NCE) = EDCAP (NCE) - DUMMY (NCE) + WELDRA (NCE) &
-               * Z2OD * COLCAP (NCE) / KSP (NCE)
-!                         Add  stream and well uptake to plant uptake
-            SUM = SUM + WELDRA (NCE) * COLCAP (NCE)
-            SUMW = SUMW + WELDRA (NCE)
-34       END DO
+         uptake_loop: DO NCE = NCEBOT, NCETOP
+            EDCAP(NCE) = EDCAP(NCE) - DUMMY(NCE) + WELDRA(NCE) * Z2OD * COLCAP(NCE) / KSP(NCE)
+            ! Add stream and well uptake to plant uptake
+            SUM  = SUM + WELDRA(NCE) * COLCAP(NCE)
+            SUMW = SUMW + WELDRA(NCE)
+         END DO uptake_loop
+         
          IF (ISBK) THEN
-            NCE = NCEBD (NLINKA, JBK) + 1
-            EDCAP (NCE) = EDCAP (NCE) - DUMBED
-
-         ENDIF
-!                       Add  uptake to dry streams to plant and
-!                       well uptake
+            NCE = NCEBD(NLINKA, JBK) + 1
+            EDCAP(NCE) = EDCAP(NCE) - DUMBED
+         END IF
+         
+         ! Add uptake to dry streams to plant and well uptake
          IF (NOTZERO(SUMW)) THEN
-            CCCCW (NCL, NCONT) = SUM / SUMW
+            CCCCW(NCL, NCONT) = SUM / SUMW
          ELSE
-            CCCCW (NCL, NCONT) = zero
+            CCCCW(NCL, NCONT) = zero
+         END IF
 
+         ! SET PLANT WELL AND STREAM UPTAKE VARIABLES; AND SET THE MIXED WELL WATER
+         ! CONCENTRATION FOR USE IN PRINTOUTS. NB: WELL UPTAKE AND LOSS TO STREAM 
+         ! VIA BED INCLUDED IN EDCAP
 
-
-         ENDIF
-!                             SET PLANT WELL AND STREAM UPTAKE
-!                             VARIABLES; AND SET THE MIXED WELL WATER
-!                             CONCENTRATION FOR USE IN PRINTOUTS
-!                             NB: WELL UPTAKE AND LOSS TO STREAM VIA BED
-!                             INCLUDED IN EDCAP
-         OPSGL = one + SGTSE * GCAPLA
-
+         OPSGL  = one + SGTSE * GCAPLA
          OPSGSL = one + SGSTSE * GCAPLA
-!                            SET FACTORS AND TERMS DEPENDING ON SIGMA
+         ! SET FACTORS AND TERMS DEPENDING ON SIGMA
 
          CALL COLM
-!                            RETURNS UPDATED CONCENTRATIONS
-!                            IN THE VECTORS CCAP AND SCAP
-         CCCCO (NCL, 1, NCONT) = CDUM
-         CCCC (NCL, 1, NCONT) = CDUM
-!                             FLOW RATE AVERAGED CONC. IN WATER FLOW
-!                             FROM BANK TO STREAM STORED AS ELEMENT 1
-!                             IN GLOBAL CONTAMINANT ARRAYS
-         DO 40 NCE = 1, NCETOP
-!    ##########################temporary MAX######################
-            CCCC (NCL, NCE, NCONT) = MAX (1D-16, CCAP (NCE) )
-            SSSS (NCL, NCE, NCONT) = MAX (1D-16, SCAP (NCE) )
-!    ##############################################################
+         ! RETURNS UPDATED CONCENTRATIONS IN THE VECTORS CCAP AND SCAP
 
+         ! FLOW RATE AVERAGED CONC. IN WATER FLOW FROM BANK TO STREAM STORED AS ELEMENT 1
+         ! IN GLOBAL CONTAMINANT ARRAYS
+         CCCCO(NCL, 1, NCONT) = CDUM
+         CCCC(NCL, 1, NCONT)  = CDUM
+         
+         ! SAVE THE UPDATED CONCENTRATIONS
+         save_conc_loop: DO NCE = 1, NCETOP
+            ! ##########################temporary MAX######################
+            CCCC(NCL, NCE, NCONT) = MAX(1.0D-16, CCAP(NCE))
+            SSSS(NCL, NCE, NCONT) = MAX(1.0D-16, SCAP(NCE))
+            ! ##############################################################
+         END DO save_conc_loop
 
-40       END DO
-!                             SAVE THE UPDATED CONCENTRATIONS
-         IF (ISBK.AND. (.NOT.ISADNL) ) THEN
-            DO 42 NCE = NHBED (NLINKA, JBK) + 1, NCETOP
-               FCPBKO (NLINKA, JBK, NCE, NCONT) = PPHI (NCE) * TTHET ( &
-                  NCE) + FFSO (NCE) * KKDSO (NCE)
-               GCPBKO (NLINKA, JBK, NCE, NCONT) = (one - PPHI (NCE) ) &
-                  * TTHET (NCE) + (one - FFSO (NCE) ) * KKDSO (NCE)
-42          END DO
-         ELSEIF (ISBK.AND.ISADNL) THEN
-            GNDUM = GNN (NCONT) - one
-            DO 44 NCE = NHBED (NLINKA, JBK) + 1, NCETOP
-               FCPBKO (NLINKA, JBK, NCE, NCONT) = PPHI (NCE) * TTHET ( &
-                  NCE) + FFSO (NCE) * KKDSO (NCE) * COLCAP (NCE) **GNDUM
-               GCPBKO (NLINKA, JBK, NCE, NCONT) = (one - PPHI (NCE) ) &
-                  * TTHET (NCE) + (one - FFSO (NCE) ) * KKDSO (NCE) &
-                  * SOLCAP (NCE) **GNDUM
-44          END DO
+         ! FCPBK AND GCPBK ARE USED IN THE BANK EROSION CALCULATIONS IN LINK
+         IF (ISBK .AND. (.NOT. ISADNL)) THEN
+            fcpbk_loop1: DO NCE = NHBED(NLINKA, JBK) + 1, NCETOP
+               FCPBKO(NLINKA, JBK, NCE, NCONT) = PPHI(NCE) * TTHET(NCE) + FFSO(NCE) * KKDSO(NCE)
+               GCPBKO(NLINKA, JBK, NCE, NCONT) = (one - PPHI(NCE)) * TTHET(NCE) + (one - FFSO(NCE)) * KKDSO(NCE)
+            END DO fcpbk_loop1
+         ELSE IF (ISBK .AND. ISADNL) THEN
+            GNDUM = GNN(NCONT) - one
+            fcpbk_loop2: DO NCE = NHBED(NLINKA, JBK) + 1, NCETOP
+               FCPBKO(NLINKA, JBK, NCE, NCONT) = PPHI(NCE) * TTHET(NCE) + FFSO(NCE) * KKDSO(NCE) * COLCAP(NCE)**GNDUM
+               GCPBKO(NLINKA, JBK, NCE, NCONT) = (one - PPHI(NCE)) * TTHET(NCE) + (one - FFSO(NCE)) * KKDSO(NCE) * SOLCAP(NCE)**GNDUM
+            END DO fcpbk_loop2
+         END IF
 
+      END DO cont_loop
+      ! ++++++++++++ END OF MAIN LOOP +++++++++++
 
-         ENDIF
-!                             FCPBK AND GCPBK ARE USED IN THE BANK
-!                             EROSION CALCULATIONS IN LINK
-
-5     END DO
-!                             ++++++++++++ END OF MAIN LOOP +++++++++++
    END SUBROUTINE COLMSM
 
 
 
 
 
-!SSSSSS SUBROUTINE COLMW (NCL)
+   !SSSSSS SUBROUTINE COLMW (NCL)
    SUBROUTINE COLMW (NCL)
 !----------------------------------------------------------------------*
 !                             SETS UP THE WATER FLOW DATA FOR USE IN
@@ -1685,1034 +1632,1036 @@ CONTAINS
 
 
 
+!FFFFFF DOUBLE PRECISION FUNCTION DISP
+   PURE FUNCTION DISP(NCONT, JSOIL, THETA, UM, UP) RESULT(res)
+   !----------------------------------------------------------------------*
+   ! (VERTICAL) EFFECTIVE LONGITUDINAL DISPERSION COEFFICIENT FOR SOIL
+   !----------------------------------------------------------------------*
+      
+      IMPLICIT NONE
 
-!FFFFFF DOUBLEPRECISION FUNCTION DISP
-   DOUBLEPRECISION FUNCTION DISP (NCONT, JSOIL, THETA, UM, UP)
-!                             (VERTICAL) EFFECTIVE LONGITUDINAL
-!                             DISPERSION COEFFICIENT FOR SOIL
-      INTEGER :: NCONT, JSOIL
-      DOUBLEPRECISION :: THETA, UM, UP
-      DISP = 3.0D-8
-!                             ########## SOIL INFO NEEDED HERE #########
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: NCONT, JSOIL
+      DOUBLE PRECISION, INTENT(IN) :: THETA, UM, UP
 
+      ! Return variable
+      DOUBLE PRECISION :: res
 
-
-
+   !----------------------------------------------------------------------*
+      
+      ! ########## SOIL INFO NEEDED HERE #########
+      res = 3.0D-8
 
    END FUNCTION DISP
 
 
 
-!SSSSSS SUBROUTINE LINKSM (NLINK)
-   SUBROUTINE LINKSM (NLINK)
-!                             UPDATES THE CONCENTRATION OF EACH
-!                             CONTAMINANT IN LINK NLINK
+   !SSSSSS SUBROUTINE LINKSM
+   SUBROUTINE LINKSM(NLINK)
+   !----------------------------------------------------------------------*
+   !                            UPDATES THE CONCENTRATION OF EACH
+   !                            CONTAMINANT IN LINK NLINK
+   !----------------------------------------------------------------------*
+      
       USE CONT_CC
       USE SED_CS
-      USE CONT_CC
+      ! USE CONT_CC ! (Duplicate removed)
       USE COLM_C1
       USE LINK_CC
       USE LINK_CW
       USE SED_CO
       USE PLANT_CC
 
-!                             INCLUDE ALL THE PARAMETER STATEMENTS
-!                             AND COMMON BLOCKS NEEDED
-!COMMON / LK1 / ISLK (2), LWORK (6), NBK (2), qqqdum, QQQSL1
-!common / temp / nwell
-!##### nwell and qqqdum used in temporary irrigation code###########
-!LOGICAL :: ISLK
-!                             VARIABLES USED ONLY IN LINKW AND LINKSM
+      IMPLICIT NONE
 
-      INTEGER :: nlink, ncont, nce, jlend, jdum, jla, jsed, na, lfone, ldum, la
-      DOUBLEPRECISION FBTAD (NSEDEE), FBTAS (NSEDEE), KDDUM (NSEDEE), &
-         SSBED1 (NSEDEE), SSBED (NSEDEE), SSD1 (NSEDEE), SSD (NSEDEE), &
-         SSF1 (NSEDEE), SSF (NSEDEE)
-      DOUBLEPRECISION :: ccpbd, ccpbs, qcdum, sumd, sums, dddsum, pb, fdum, fdumc, &
-         fdumt, dum, arl, arp, ccpsf, dddum, dsdum, ccpbd1, ccpbs1, ccpsf1, &
-         dumx
-      CCBD1Q = zero
-      CCBS1Q = zero
-      CCSF1Q = zero
-      FCBD1Q = zero
-      FCBS1Q = zero
-      FCSF1Q = zero
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NLINK
 
+      ! Locals, etc
+      INTEGER :: NCONT, NCE, JLEND, JDUM, JLA, JSED, NA, LFONE, LDUM, LA, JBK
+      
+      DOUBLE PRECISION :: FBTAD(NSEDEE), FBTAS(NSEDEE), KDDUM(NSEDEE)
+      DOUBLE PRECISION :: SSBED1(NSEDEE), SSBED(NSEDEE), SSD1(NSEDEE), SSD(NSEDEE)
+      DOUBLE PRECISION :: SSF1(NSEDEE), SSF(NSEDEE)
+      
+      DOUBLE PRECISION :: CCPBD, CCPBS, QCDUM, SUMD, SUMS, DDDSUM, PB, FDUM, FDUMC
+      DOUBLE PRECISION :: FDUMT, DUM, ARL, ARP, CCPSF, DDDUM, DSDUM, CCPBD1, CCPBS1
+      DOUBLE PRECISION :: CCPSF1, DUMX
 
-      GCPLAQ = zero
-!                             SET PARENT CONCENTRATIONS AND RETARDATION
-!                             VARIABLES TO O FOR 1ST PASS OF DO LOOP 100
-      DO 100 NCONT = 1, NCON
-         DO 102 JBK = 1, 2
-            CCPBK (JBK, 1) = CCCCO (NBK (JBK), 1, NCONT)
-!                             THIS ELEMENT OF ARRAY CCCCO IS USED TO
-!                             HOLD THE EFFECTIVE CONCENTRATION IN
-!                             THE FLOW ENTERING THE STREAM VIA THE
-!                             STREAM BED
-            DO 104 NCE = NCEBK (JBK), NCETOP
-               CCPBK (JBK, NCE) = CCCCO (NBK (JBK), NCE, NCONT)
-               SCPBK (JBK, NCE) = SSSSO (NBK (JBK), NCE, NCONT)
-104         END DO
-            CCPGS1 (JBK) = CCCC (NBK (JBK), NCETOP, NCONT)
-102      END DO
-         CCPBD = CCCCO (NLINK, NCETOP - 2, NCONT)
-         CCPBS = CCCCO (NLINK, NCETOP - 1, NCONT)
-         IF (USCP.GT.half) THEN
-            CCPSF = CCCCO (NLINK, NCETOP, NCONT)
+   !----------------------------------------------------------------------*
+
+      CCBD1Q = ZERO
+      CCBS1Q = ZERO
+      CCSF1Q = ZERO
+      FCBD1Q = ZERO
+      FCBS1Q = ZERO
+      FCSF1Q = ZERO
+      GCPLAQ = ZERO
+
+      ! SET PARENT CONCENTRATIONS AND RETARDATION
+      ! VARIABLES TO O FOR 1ST PASS OF THE CONTAMINANT LOOP
+      cont_loop: DO NCONT = 1, NCON
+         
+         bank_loop: DO JBK = 1, 2
+            CCPBK(JBK, 1) = CCCCO(NBK(JBK), 1, NCONT)
+            ! THIS ELEMENT OF ARRAY CCCCO IS USED TO HOLD THE EFFECTIVE 
+            ! CONCENTRATION IN THE FLOW ENTERING THE STREAM VIA THE STREAM BED
+            
+            cell_loop: DO NCE = NCEBK(JBK), NCETOP
+               CCPBK(JBK, NCE) = CCCCO(NBK(JBK), NCE, NCONT)
+               SCPBK(JBK, NCE) = SSSSO(NBK(JBK), NCE, NCONT)
+            END DO cell_loop
+            
+            CCPGS1(JBK) = CCCC(NBK(JBK), NCETOP, NCONT)
+         END DO bank_loop
+
+         CCPBD = CCCCO(NLINK, NCETOP - 2, NCONT)
+         CCPBS = CCCCO(NLINK, NCETOP - 1, NCONT)
+         
+         IF (USCP > HALF) THEN
+            CCPSF = CCCCO(NLINK, NCETOP, NCONT)
          ELSE
-            CCPSF = ccapin (ncont)
-!                             IF THERE IS NO WATER IN LINK
+            ! IF THERE IS NO WATER IN LINK
+            CCPSF = CCAPIN(NCONT)
+         END IF
 
-
-         ENDIF
-         DO 110 JLEND = 1, 2
-            IF (ISLK (JLEND) ) THEN
-!                             THERE ARE OTHER LINKS ASSOCIATED WITH END
-!                             JLEND OF THE CURRENT LINK
-               DO 112 JDUM = 1, 3
-                  JLA = (JLEND-1) * 3 + JDUM
-                  LA = LWORK (JLA)
-                  IF (LA.NE.0) THEN
-                     CCSFA1 (JLA) = CCCC (LA, NCETOP, NCONT)
-                     FCSFA1 (JLA) = FSF (LA, NCONT) + FSFT (LA, NCONT) &
-                        * TSE+FSFC (LA, NCONT) * (CCSFA1 (JLA) - CCCCO (LA, &
-                        NCETOP, NCONT) )
+         end_loop: DO JLEND = 1, 2
+            IF (ISLK(JLEND)) THEN
+               ! THERE ARE OTHER LINKS ASSOCIATED WITH END JLEND OF THE CURRENT LINK
+               adj_loop: DO JDUM = 1, 3
+                  JLA = (JLEND - 1) * 3 + JDUM
+                  LA = LWORK(JLA)
+                  IF (LA /= 0) THEN
+                     CCSFA1(JLA) = CCCC(LA, NCETOP, NCONT)
+                     FCSFA1(JLA) = FSF(LA, NCONT) + FSFT(LA, NCONT) * TSE + &
+                                   FSFC(LA, NCONT) * (CCSFA1(JLA) - CCCCO(LA, NCETOP, NCONT))
                   ELSE
-                     CCSFA1 (JLA) = zero
-                     FCSFA1 (JLA) = zero
-                  ENDIF
-
-112            END DO
+                     CCSFA1(JLA) = ZERO
+                     FCSFA1(JLA) = ZERO
+                  END IF
+               END DO adj_loop
             ELSE
-!                             END JLEND OF LINK IS AT CATCHMENT BOUNDARY
-!                             THE HEAD OF A STREAM, OR A SPRING
-               JLA = (JLEND-1) * 3 + 1
-               CCSFA1 (JLA) = CCAPE (NLINK, NCONT)
-               FCSFA1 (JLA) = one
-!                             FOR FLOW INTO CATCHMENT OR SPRING
-               DO 114 JDUM = 2, 3
-                  JLA = (JLEND-1) * 3 + JDUM
-                  CCSFA1 (JLA) = zero
-                  FCSFA1 (JLA) = zero
-114            END DO
-            ENDIF
+               ! END JLEND OF LINK IS AT CATCHMENT BOUNDARY
+               ! THE HEAD OF A STREAM, OR A SPRING
+               JLA = (JLEND - 1) * 3 + 1
+               CCSFA1(JLA) = CCAPE(NLINK, NCONT)
+               FCSFA1(JLA) = ONE
+               ! FOR FLOW INTO CATCHMENT OR SPRING
+               adj_zero_loop: DO JDUM = 2, 3
+                  JLA = (JLEND - 1) * 3 + JDUM
+                  CCSFA1(JLA) = ZERO
+                  FCSFA1(JLA) = ZERO
+               END DO adj_zero_loop
+            END IF
+         END DO end_loop
 
+         ! SET LINK AND BANK CONCENTRATIONS.
+         ! NB: IF THE STREAM IS DRY, THE STREAM WATER CONCENTRATION 
+         ! SET TO THE CONCENTRATION IN RAIN WATER
+         ICP1 = -IIICF(NCONT) * AREA(NLINK) / (D0 * CLENTH(NLINK))
 
+         !#######################################################################
+         QCDUM = (QQQSL1 - QQQDUM) * CCAPI(NCONT)
+         IF (NWELL /= 0) QCDUM = QCDUM + QQQDUM * CCCCW(NWELL, NCONT)
 
-110      END DO
-!                             SET LINK AND BANK CONCENTRATIONS.
-!                             NB: IF THE STREAM IS DRY, THE STREAM WATER
-!                             CONCENTRATION SET TO THE CONCENTRATION IN
-!                             RAIN WATER
-         ICP1 = - IIICF (NCONT) * AREA (NLINK) / (D0 * CLENTH (NLINK) )
-!#######################################################################
-         qcdum = (qqqsl1 - qqqdum) * ccapi (ncont)
-         if (nwell.ne.0) qcdum = qcdum + qqqdum * ccccw (nwell, ncont)
+         QCP1 = QCDUM / (D0 * Z2 * KS)
+         ! QCP1 = QQQSL1*CCAPI(NCONT)/(D0*Z2*KS)
 
+         ! SET VARIABLES FOR WET AND DRY INPUT OF CONTAMINANT FROM ABOVE
+         !######## temporary code for inclusion of irrigation water in rain water
+         SUMD = ZERO
+         SUMS = ZERO
+         
+         sum_loop: DO JSED = 1, NSED
+            SUMD = SUMD + GINFD(NLINK, JSED)
+            SUMS = SUMS + GINFS(NLINK, JSED)
+            KDDUM(JSED) = KDDLS(JSED, NCONT)
+         END DO sum_loop
+         
+         IF (ISZERO(SUMD)) THEN
+            DDDUM = ONE
+         ELSE
+            DDDUM = SUMD
+         END IF
+         
+         IF (ISZERO(SUMS)) THEN
+            DSDUM = ONE
+         ELSE
+            DSDUM = SUMS
+         END IF
+         
+         scale_loop: DO JSED = 1, NSED
+            FBTAD(JSED) = GINFD(NLINK, JSED) / DDDUM
+            FBTAS(JSED) = GINFS(NLINK, JSED) / DSDUM
+         END DO scale_loop
+         
+         ! SCALE RATES OF INFLITRATION TO GIVE THE FRACTIONS IN EACH GROUP OF 
+         ! AN EFFECTIVE SOIL. THE EFFECTIVE SOIL IS THAT WHICH IF ERODED AT A 
+         ! RATE EQUAL TO THE TOTAL RATE OF INFILTRATION WOULD RELEASE THE CORRECT
+         ! AMOUNT OF SEDIMENTS FOR INFILTRATION
 
-         QCP1 = qcdum / (D0 * Z2 * KS)
-!       QCP1 = QQQSL1*CCAPI(NCONT)/(D0*Z2*KS)
-!                             SET VARIABLES FOR WET AND DRY INPUT OF
-!                             CONTAMINANT FROM ABOVE
-!######## temporary code for inclusion of irrigation water in rain water
-         SUMD = zero
-         SUMS = zero
-         DO 150 JSED = 1, NSED
-            SUMD = SUMD+GINFD (NLINK, JSED)
-            SUMS = SUMS + GINFS (NLINK, JSED)
-            KDDUM (JSED) = KDDLS (JSED, NCONT)
-150      END DO
-         IF (ISZERO(SUMD)) then
-            dddum = one
-         else
-            dddum = sumd
-         endif
-         IF (ISZERO(SUMS)) then
-            dsdum = one
-         else
-            dsdum = sums
-         endif
-         DO 152 JSED = 1, NSED
-            FBTAD (JSED) = GINFD (NLINK, JSED) / dddum
-            FBTAS (JSED) = GINFS (NLINK, JSED) / dsdum
-
-152      END DO
-!                             SCALE RATES OF INFLITRATION TO GIVE THE
-!                             FRACTIONS IN EACH GROUP OF AN EFFECTIVE
-!                             SOIL. THE EFFECTIVE SOIL IS THAT WHICH IF
-!                             ERODED AT A RATE EQUAL TO THE TOTAL RATE
-!                             OF INFILTRATION WOULD RELEASE THE CORRECT
-!                             AMOUNT OF SEDIMENTS FOR INFILTRATION
-
-         PB = PBSED (NLINK)
-         FDUM = zero
-         FDUMC = zero
-         FDUMT = zero
-         CALL FRET (CCPBS, GNN (NCONT), PB, PB, FBTAD, FBTAD, KDDUM, PB, &
-            PB, PB, FDUM, FDUMC, FDUMT, TSE, NSED, ISADNL)
-         DUM = SUMD * CCPBS / CLENTH (NLINK)
+         PB = PBSED(NLINK)
+         FDUM  = ZERO
+         FDUMC = ZERO
+         FDUMT = ZERO
+         
+         CALL FRET(CCPBS, GNN(NCONT), PB, PB, FBTAD, FBTAD, KDDUM, PB, PB, PB, &
+                   FDUM, FDUMC, FDUMT, TSE, NSED, ISADNL)
+                   
+         DUM = SUMD * CCPBS / CLENTH(NLINK)
          ICPSBD = (FDUM - PB) * DUM
          ICSBDC = FDUMC * DUM + ICPSBD
          ICSBDT = FDUMT * DUM
-!                             SET INFILTRATION VARIABLES FOR BED DEEP
-!                             LAYER
-         IF (USCP.LT.half) THEN
-!                             THERE IS NO WATER IN LINK
-            ICPSBS = zero
-            ICSBSC = zero
-            ICSBST = zero
+         
+         ! SET INFILTRATION VARIABLES FOR BED DEEP LAYER
+         IF (USCP < HALF) THEN
+            ! THERE IS NO WATER IN LINK
+            ICPSBS = ZERO
+            ICSBSC = ZERO
+            ICSBST = ZERO
          ELSE
-            CALL FRET (CCPSF, GNN (NCONT), one, one, FBTAS, FBTAS, &
-               KDDUM, zero, zero, zero, FDUM, FDUMC, FDUMT, TSE, NSED, &
-               ISADNL)
-            DUM = SUMD * CCPSF / CLENTH (NLINK)
+            CALL FRET(CCPSF, GNN(NCONT), ONE, ONE, FBTAS, FBTAS, KDDUM, ZERO, ZERO, ZERO, &
+                      FDUM, FDUMC, FDUMT, TSE, NSED, ISADNL)
+            DUM = SUMD * CCPSF / CLENTH(NLINK)
             ICPSBS = (FDUM - PB) * DUM
             ICSBSC = FDUMC * DUM + ICPSBS
             ICSBST = FDUMT * DUM
+         END IF
 
-
-         ENDIF
-!                             SET INFILTRATION VARIABLES FOR BED SURFACE
-!                             LAYER
-         ARL = DLS (NLINK) * CWIDTH (NLINK)
-!                             X-SECIONAL AREA OF LOOSE SEDIMENTS IN BED
+         ! SET INFILTRATION VARIABLES FOR BED SURFACE LAYER
+         ARL = DLS(NLINK) * CWIDTH(NLINK)
+         ! X-SECIONAL AREA OF LOOSE SEDIMENTS IN BED
          ARP = (ACPBD1 - ACPBS) * Z2SQ
-!                             X-SECTIONAL AREA OF NON-ERODED PARENT
-!                             MATERIAL WITHIN BED DEEP LAYER
-         DUM = one / (ARL + ARP)
-         DO 200 JSED = 1, NSED
-            SSBED1 (JSED) = DUM * (ARL * FBETA (NLINK, JSED) + ARP * &
-               SOSDFN (NSOBED (NLINK), JSED) )
-            SSBED (JSED) = FBBEDO (NLINK, JSED)
-            FBBEDO (NLINK, JSED) = SSBED1 (JSED)
-            SSF1 (JSED) = FDEL (NLINK, JSED)
-            SSF (JSED) = FDELO (NLINK, JSED)
-            FDELO (NLINK, JSED) = SSF1 (JSED)
-            SSD1 (JSED) = FBTSD (NLINK, JSED)
-            SSD (JSED) = FBTSDO (NLINK, JSED)
-            FBTSDO (NLINK, JSED) = SSD1 (JSED)
+         ! X-SECTIONAL AREA OF NON-ERODED PARENT MATERIAL WITHIN BED DEEP LAYER
+         
+         DUM = ONE / (ARL + ARP)
+         
+         bed_loop: DO JSED = 1, NSED
+            SSBED1(JSED) = DUM * (ARL * FBETA(NLINK, JSED) + ARP * SOSDFN(NSOBED(NLINK), JSED))
+            SSBED(JSED)  = FBBEDO(NLINK, JSED)
+            FBBEDO(NLINK, JSED) = SSBED1(JSED)
+            
+            SSF1(JSED) = FDEL(NLINK, JSED)
+            SSF(JSED)  = FDELO(NLINK, JSED)
+            FDELO(NLINK, JSED) = SSF1(JSED)
+            
+            SSD1(JSED) = FBTSD(NLINK, JSED)
+            SSD(JSED)  = FBTSDO(NLINK, JSED)
+            FBTSDO(NLINK, JSED) = SSD1(JSED)
+         END DO bed_loop
 
-200      END DO
+         CALL FRET(CCPBD, GNN(NCONT), THBEDO(NLINK), THBED(NLINK), SSBED, SSBED1, &
+                   KDDUM, PB, PB, PB, FCPBD, FCPBDC, FCPBDT, TSE, NSED, ISADNL)
 
-         CALL FRET (CCPBD, GNN (NCONT), THBEDO (NLINK), THBED (NLINK), &
-            SSBED, SSBED1, KDDUM, PB, PB, PB, FCPBD, FCPBDC, FCPBDT, TSE, &
-            NSED, ISADNL)
+         CALL FRET(CCPBS, GNN(NCONT), THBEDO(NLINK), THBED(NLINK), SSBED, SSBED1, &
+                   KDDUM, PB, PB, PB, FCPBS, FCPBSC, FCPBST, TSE, NSED, ISADNL)
+                   
+         CALL FRET(CCPSF, GNN(NCONT), ONE, ONE, SSF, SSF1, KDDUM, ZERO, ZERO, ZERO, &
+                   FCPSF, FCPSFC, FCPSFT, TSE, NSED, ISADNL)
+                   
+         FSF(NLINK, NCONT)  = FCPSF
+         FSFC(NLINK, NCONT) = FCPSFC
+         FSFT(NLINK, NCONT) = FCPSFT
+         ! save retardation factors for con
 
-         CALL FRET (CCPBS, GNN (NCONT), THBEDO (NLINK), THBED (NLINK), &
-            SSBED, SSBED1, KDDUM, PB, PB, PB, FCPBS, FCPBSC, FCPBST, TSE, &
-            NSED, ISADNL)
-         CALL FRET (CCPSF, GNN (NCONT), one, one, SSF, SSF1, KDDUM, &
-            zero, zero, zero, FCPSF, FCPSFC, FCPSFT, TSE, NSED, ISADNL)
-         fsf (nlink, ncont) = fcpsf
-         fsfc (nlink, ncont) = fcpsfc
+         CALL FRET(CCPSF, GNN(NCONT), ONE, ONE, SSD, SSD1, KDDUM, ZERO, ZERO, ZERO, &
+                   FCPSD, FCPSDC, FCPSDT, TSE, NSED, ISADNL)
+                   
+         ! SET REATRDATION VARIABLES FOR THE BED DEEP LAYER, BED SURFACE LAYER, 
+         ! STREAM WATER, AND NEWLY DEPOSITED SEDIMENTS
+         
+         ret_bank_loop: DO JBK = 1, 2
+            NA = NBK(JBK)
+            FCPSW1(JBK) = RSW(NA, NCONT) + RSWT(NA, NCONT) * TSE + &
+                          RSWC(NA, NCONT) * (CCCC(NA, NCETOP, NCONT) - CCPBK(JBK, NCONT))
+                          
+            ret_cell_loop: DO NCE = NCEBK(JBK), NCETOP
+               FCPBK(JBK, NCE) = FCPBKO(NLINK, JBK, NCE, NCONT)
+               GCPBK(JBK, NCE) = GCPBKO(NLINK, JBK, NCE, NCONT)
+            END DO ret_cell_loop
+            ! NB: FCPBKO AND GCPBKO CALCULATED IN COLMSM
+         END DO ret_bank_loop
 
-         fsft (nlink, ncont) = fcpsft
-!                                       save retardation factors for con
+         ! SET RETRDATION VARIABLES FOR THE DYNAMIC AND DEAD SPACE REGIONS OF THE ERODING BANK SOIL
+         ECPBD  = ZERO
+         ECPBDC = ZERO
+         ECPBDT = ZERO
+         ECPBS  = ZERO
+         ECPBSC = ZERO
+         ECPBST = ZERO
+         ECPSF  = ZERO
+         ECPSFC = ZERO
+         ECPSFT = ZERO
 
+         ! SET RATES OF PLANT UPTAKE
+         DUM    = CWIDTH(NLINK) / D0
+         ACSBD1 = DUM * ALPHBD(NCONT)
+         ACSBS1 = DUM * ALPHBS(NCONT)
+         GCPLAL = GCPLA(NCONT)
+         
+         ! SET CONTAMINANT INFILTRATION RATE WITH SEDIMENT; AND CONTAMINANT DECAY RATE
+         CCPBD1 = ZERO
+         CCPBS1 = ZERO
+         CCPSF1 = ZERO
 
-         CALL FRET (CCPSF, GNN (NCONT), one, one, SSD, SSD1, KDDUM, &
-            zero, zero, zero, FCPSD, FCPSDC, FCPSDT, TSE, NSED, ISADNL)
-!                             SET REATRDATION VARIABLES FOR THE BED DEEP
-!                             LAYER, BED SURFACE LAYER, STREAM WATER,
-!                             AND NEWLY DEPOSITED SEDIMENTS
-         DO 250 JBK = 1, 2
-            NA = NBK (JBK)
-            FCPSW1 (JBK) = RSW (NA, NCONT) + RSWT (NA, NCONT) * TSE+ &
-               RSWC (NA, NCONT) * (CCCC (NA, NCETOP, NCONT) - CCPBK (JBK, &
-               NCONT) )
-            DO 252 NCE = NCEBK (JBK), NCETOP
-               FCPBK (JBK, NCE) = FCPBKO (NLINK, JBK, NCE, NCONT)
-               GCPBK (JBK, NCE) = GCPBKO (NLINK, JBK, NCE, NCONT)
-252         END DO
-!                             NB: FCPBKO AND GCPBKO CALCULATED IN COLMSM
+         ! CALCULATES AND RETURNS UPDATED CONCENTRATIONS
+         CALL LINK(CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, NCETOP)
 
-
-250      END DO
-!                             SET RETRDATION VARIABLES FOR THE DYNAMIC
-!                             AND DEAD SPACE REGIONS OF THE ERODING
-!                             BANK SOIL
-         ECPBD = zero
-         ECPBDC = zero
-         ECPBDT = zero
-         ECPBS = zero
-         ECPBSC = zero
-         ECPBST = zero
-         ECPSF = zero
-         ECPSFC = zero
-
-         ECPSFT = zero
-!                             SET RATES OF PLANT UPTAKE
-         DUM = CWIDTH (NLINK) / D0
-         ACSBD1 = DUM * ALPHBD (NCONT)
-         ACSBS1 = DUM * ALPHBS (NCONT)
-
-         GCPLAL = GCPLA (NCONT)
-!                             SET CONTAMINANT INFILTRATION RATE WITH
-!                             SEDIMENT; AND CONTAMINANT DECAY RATE
-         CCPBD1 = zero
-         CCPBS1 = zero
-         CCPSF1 = zero
-
-
-         CALL LINK (CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
-            NCETOP)
-!                             CALCULATES AND RETURNS UPDATED
-!                             CONCENTRATIONS
-         CCCC (NLINK, NCETOP - 2, NCONT) = CCPBD1
-         CCCC (NLINK, NCETOP - 1, NCONT) = CCPBS1
-
-
-         CCCC (NLINK, NCETOP, NCONT) = CCPSF1
-!                             SAVE UPDATED CONCENTRATIONS IN THE GLOBAL
-!                             ARRAYS
+         CCCC(NLINK, NCETOP - 2, NCONT) = CCPBD1
+         CCCC(NLINK, NCETOP - 1, NCONT) = CCPBS1
+         CCCC(NLINK, NCETOP, NCONT)     = CCPSF1
+         
+         ! SAVE UPDATED CONCENTRATIONS IN THE GLOBAL ARRAYS
          CCBD1Q = CCPBD1
          CCBS1Q = CCPBS1
          CCSF1Q = CCPSF1
-         FCBD1Q = FCPBD+FCPBDT * TSE+FCPBDC * (CCPBD1 - CCPBD)
-         FCBS1Q = FCPBS + FCPBST * TSE+FCPBSC * (CCPBS1 - CCPBS)
-         FCSF1Q = FCPSF + FCPSFT * TSE+FCPSFC * (CCPSF1 - CCPSF)
-
-
+         FCBD1Q = FCPBD + FCPBDT * TSE + FCPBDC * (CCPBD1 - CCPBD)
+         FCBS1Q = FCPBS + FCPBST * TSE + FCPBSC * (CCPBS1 - CCPBS)
+         FCSF1Q = FCPSF + FCPSFT * TSE + FCPSFC * (CCPSF1 - CCPSF)
          GCPLAQ = GCPLAL
-!                             SET CONCENTRATIONS, RETARDATION, AND DECAY
-!                             VARIABLES FOR PARENT CONTAMINANT FOR NEXT
-!                             PASS OF DO LOOP 100
+         
+         ! SET CONCENTRATIONS, RETARDATION, AND DECAY VARIABLES FOR PARENT 
+         ! CONTAMINANT FOR NEXT PASS OF CONTAMINANT LOOP
 
-100   END DO
-      RETURN
+      END DO cont_loop
+
    END SUBROUTINE LINKSM
 
 
 
-!SSSSSS SUBROUTINE LINKW (NLINK)
-   SUBROUTINE LINKW (NLINK)
-!
-!----------------------------------------------------------------------*
-!                             SETS UP THE WATER FLOW DATA FOR USE IN
-!                             SUBROUTINE LINKSM AND LINK
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/MOC/LINKW/4.1
-! Modifications:
-! RAH  970218  4.1  Swap subscripts: QVSH,DELTAZ,VSTHE (see AL.C).
-!----------------------------------------------------------------------*
-!
+   !SSSSSS SUBROUTINE LINKW
+   SUBROUTINE LINKW(NLINK)
+   !----------------------------------------------------------------------*
+   !                             SETS UP THE WATER FLOW DATA FOR USE IN
+   !                             SUBROUTINE LINKSM AND LINK
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/MOC/LINKW/4.1
+   ! Modifications:
+   ! RAH  970218  4.1  Swap subscripts: QVSH,DELTAZ,VSTHE (see AL.C).
+   !----------------------------------------------------------------------*
+
       USE SED_CS
       USE COLM_C1
       USE COLM_CG
-
       USE COLM_CO
-!####################temporary, for irrigation
+      !####################temporary, for irrigation
       USE LINK_CC
       USE LINK_CW
       USE BK_CW
-
       USE PLANT_CC
-!                             INCLUDE ALL THE PARAMETER STATEMENTS
-!                             AND COMMON BLOCKS NEEDED
-!COMMON / LK1 / ISLK (2), LWORK (6), NBK (2), qqqdum, QQQSL1
-!common / temp / nwell
-!##### nwell and qqqdum used in temporary irrigation code###########
-!LOGICAL :: ISLK
-      INTEGER :: nlink, jlend, jdum, lfone, ldum, jla, jfdum, jfdumb, nce, jvegbk, &
-         ndum, la
-      DOUBLEPRECISION :: dumx, dum, duma, dmult, sumk, sum, dumk
-!                             VARIABLES USED ONLY IN LINKW AND LINKSM
-      IF (LINKNS (NLINK) ) THEN
-         LENDA (1) = 2
-         LENDA (2) = 2
-         LENDA (3) = 1
-         LENDA (4) = 1
-         LENDA (5) = 1
-         LENDA (6) = 2
-      ELSE
-         LENDA (1) = 1
-         LENDA (2) = 2
-         LENDA (3) = 2
-         LENDA (4) = 2
-         LENDA (5) = 1
-         LENDA (6) = 1
 
-      ENDIF
-!                       SET POINTERS FOR THE END OF THE LINKS WHICH
-!                       CAN BE ATTACHED TO A GIVEN LINK
-      ACPBD1 = ACPBI (NLINK) + ARBDEP (NLINK) / Z2SQ
-      ACPBS = ACPBSG (NLINK)
-      ACPSF1 = ARXL (NLINK) / Z2SQ
-      IF (ACPSF1.LT.1.0D-20) THEN
-         USCP = zero
-         ACPBDT = zero
-         ACPSFT = zero
-         QBKB (NLINK, 1) = zero
-         QBKB (NLINK, 2) = zero
-!                             ENSURES BED LAYER CALCULATIONS ARE
-!                             CORRECT IF THERE IS NO WATER IN LINK
+      IMPLICIT NONE
+
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NLINK
+
+      ! Locals
+      INTEGER :: JLEND, JDUM, LFONE, LDUM, JLA, JFDUM, JFDUMB, NCE, JVEGBK
+      INTEGER :: NDUM, LA, JBK
+      
+      ! Temporary variables for irrigation logic
+      INTEGER :: NWELL
+      DOUBLE PRECISION :: QQQDUM
+
+      DOUBLE PRECISION :: DUMX, DUM, DUMA, DMULT, SUMK, SUM, DUMK
+      
+   !----------------------------------------------------------------------*
+
+      IF (LINKNS(NLINK)) THEN
+         LENDA(1) = 2
+         LENDA(2) = 2
+         LENDA(3) = 1
+         LENDA(4) = 1
+         LENDA(5) = 1
+         LENDA(6) = 2
       ELSE
-         USCP = one
-         ACPBDT = (ACPBD1 - ACPBDO (NLINK) ) / TSE
-         ACPSFT = (ACPSF1 - ACPSFO (NLINK) ) / TSE
-      ENDIF
-      ACPBDO (NLINK) = ACPBD1
-      ACPSFO (NLINK) = ACPSF1
+         LENDA(1) = 1
+         LENDA(2) = 2
+         LENDA(3) = 2
+         LENDA(4) = 2
+         LENDA(5) = 1
+         LENDA(6) = 1
+      END IF
+      
+      ! SET POINTERS FOR THE END OF THE LINKS WHICH CAN BE ATTACHED TO A GIVEN LINK
+      
+      ACPBD1 = ACPBI(NLINK) + ARBDEP(NLINK) / Z2SQ
+      ACPBS  = ACPBSG(NLINK)
+      ACPSF1 = ARXL(NLINK) / Z2SQ
+      
+      IF (ACPSF1 < 1.0D-20) THEN
+         USCP   = ZERO
+         ACPBDT = ZERO
+         ACPSFT = ZERO
+         QBKB(NLINK, 1) = ZERO
+         QBKB(NLINK, 2) = ZERO
+         ! ENSURES BED LAYER CALCULATIONS ARE CORRECT IF THERE IS NO WATER IN LINK
+      ELSE
+         USCP   = ONE
+         ACPBDT = (ACPBD1 - ACPBDO(NLINK)) / TSE
+         ACPSFT = (ACPSF1 - ACPSFO(NLINK)) / TSE
+      END IF
+      
+      ACPBDO(NLINK) = ACPBD1
+      ACPSFO(NLINK) = ACPSF1
       WCPBD1 = Z2SQOD * ACPBDT / ACPBD1
-
-      VCPBK1 = Z2OD * GNUBK (NLINK)
-!                             SET SCALED VARIABLES FOR AREA AND EROSION
-      NBK (1) = NBANK (NLINK, 1)
-      NBK (2) = NBANK (NLINK, 2)
-      NCEBK (1) = NHBED (NLINK, 1) + 1
-
-
-      NCEBK (2) = NHBED (NLINK, 2) + 1
-!                             SET LOCAL BANK NUMBERS AND NUMBERS FOR THE
-!                             BOTTOM CELLS FOR THE EXPOSED PART OF THE
-!                             BANK SOIL COLUMNS
-      IF (LINKNS (NLINK) ) THEN
+      VCPBK1 = Z2OD * GNUBK(NLINK)
+      
+      ! SET SCALED VARIABLES FOR AREA AND EROSION
+      NBK(1)   = NBANK(NLINK, 1)
+      NBK(2)   = NBANK(NLINK, 2)
+      NCEBK(1) = NHBED(NLINK, 1) + 1
+      NCEBK(2) = NHBED(NLINK, 2) + 1
+      
+      ! SET LOCAL BANK NUMBERS AND NUMBERS FOR THE BOTTOM CELLS FOR THE 
+      ! EXPOSED PART OF THE BANK SOIL COLUMNS
+      
+      IF (LINKNS(NLINK)) THEN
          LFONE = 2
       ELSE
          LFONE = 1
-
-      ENDIF
-!                             SET NUMBER FOR THE FACE OF THE LINK WHICH
-!                             IS AT END ONE OF THE LINK
-      LDUM = ICMREF (NLINK, LFONE+4)
-      IF (LDUM.GT.0) THEN
-!                             THERE IS ONLY ONE OTHER LINK ASSOCIATED
-!                             WITH END ONE OF THE CURRENT LINK
-         ISLK (1) = .TRUE.
-         LWORK (1) = 0
-         LWORK (2) = 0
-         LWORK (3) = 0
-         if (linkns (nlink) ) then
-            if (icmref (nlink, 10) .eq.3) lwork (1) = ldum
-            if (icmref (nlink, 10) .eq.4) lwork (2) = ldum
-            if (icmref (nlink, 10) .eq.1) lwork (3) = ldum
-         else
-            if (icmref (nlink, 9) .eq.2) lwork (1) = ldum
-            if (icmref (nlink, 9) .eq.3) lwork (2) = ldum
-            if (icmref (nlink, 9) .eq.4) lwork (3) = ldum
-         endif
-!                             LWORK HOLDS THE NUMBERS OF THE LINKS
-!                             ASSOCIATED WITH THE CURRENT LINK
-      ELSEIF (LDUM.LT.0) THEN
-!                             THERE IS MORE THAN ONE LINK ASSOCIATED
-!                             WITH END ONE OF THE CURRENT LINK
-         ISLK (1) = .TRUE.
-         LWORK (1) = ICMRF2 ( - LDUM, 3)
-         LWORK (2) = ICMRF2 ( - LDUM, 2)
-         LWORK (3) = ICMRF2 ( - LDUM, 1)
-      ELSE
-!                             THERE IS NO LINKS ASSOCIATED WITH END ONE
-!                             OF THE CURRENT LINK
-         ISLK (1) = .FALSE.
-         LWORK (1) = 0
-         LWORK (2) = 0
-         LWORK (3) = 0
-
-
-      ENDIF
-      LDUM = ICMREF (NLINK, LFONE+6)
-      IF (LDUM.GT.0) THEN
-!                             THERE IS ONLY ONE OTHER LINK ASSOCIATED
-!                             WITH END TWONE OF THE CURRENT LINK
-         ISLK (2) = .TRUE.
-         LWORK (4) = 0
-         LWORK (5) = 0
-         LWORK (6) = 0
-         if (linkns (nlink) ) then
-            if (icmref (nlink, 12) .eq.1) lwork (4) = ldum
-            if (icmref (nlink, 12) .eq.2) lwork (5) = ldum
-            if (icmref (nlink, 12) .eq.3) lwork (6) = ldum
-         else
-            if (icmref (nlink, 11) .eq.4) lwork (4) = ldum
-            if (icmref (nlink, 11) .eq.1) lwork (5) = ldum
-            if (icmref (nlink, 11) .eq.2) lwork (6) = ldum
-         endif
-!                             LWORK HOLDS THE NUMBERS OF THE LINKS
-!                             ASSOCIATED WITH THE CURRENT LINK
-      ELSEIF (LDUM.LT.0) THEN
-!                             THERE IS MORE THAN ONE LINK ASSOCIATED
-!                             WITH END TWO OF THE CURRENT LINK
-         ISLK (2) = .TRUE.
-         LWORK (4) = ICMRF2 ( - LDUM, 3)
-         LWORK (5) = ICMRF2 ( - LDUM, 2)
-         LWORK (6) = ICMRF2 ( - LDUM, 1)
-      ELSE
-!                             THERE IS NO LINKS ASSOCIATED WITH END TWO
-!                             OF THE CURRENT LINK
-         ISLK (2) = .FALSE.
-         LWORK (4) = 0
-         LWORK (5) = 0
-         LWORK (6) = 0
-
-      ENDIF
-!                             SET LWORK, THE ARRAY HOLDING THE NUMBERS
-!                             THE LINKS ASSOCIATED WITH THE CURRENT LINK
-      DUMX = one / (D0 * Z2)
-      DO 100 JLEND = 1, 2
-         IF (ISLK (JLEND) ) THEN
-!                             THERE ARE OTHER LINKS ASSOCIATED WITH END
-!                             JLEND OF THE CURRENT LINK
-            DO 102 JDUM = 1, 3
-               JLA = (JLEND-1) * 3 + JDUM
-               LA = LWORK (JLA)
-               IF (LA.NE.0) THEN
-                  ACSFA1 (JLA) = MAX (1.0d-6, ACPSFO (LA) )
-                  DUM = zero
-                  PCSFA1 (JLA) = DUMX * ( - QLINK (LA, LENDA (JLA) ) &
-                     - QDEFF (LA, LENDA (JLA) ) * DUM) / ACSFA1 (JLA)
-!                             NB: CONVECTION WITH DISPERSED SEDIMENTS
-!                             NEGLECTED
-               ELSE
-                  ACSFA1 (JLA) = zero
-                  PCSFA1 (JLA) = zero
-               ENDIF
-
-102         END DO
+      END IF
+      
+      ! SET NUMBER FOR THE FACE OF THE LINK WHICH IS AT END ONE OF THE LINK
+      
+      LDUM = ICMREF(NLINK, LFONE + 4)
+      IF (LDUM > 0) THEN
+         ! THERE IS ONLY ONE OTHER LINK ASSOCIATED WITH END ONE OF THE CURRENT LINK
+         ISLK(1)  = .TRUE.
+         LWORK(1) = 0
+         LWORK(2) = 0
+         LWORK(3) = 0
+         
+         IF (LINKNS(NLINK)) THEN
+            IF (ICMREF(NLINK, 10) == 3) LWORK(1) = LDUM
+            IF (ICMREF(NLINK, 10) == 4) LWORK(2) = LDUM
+            IF (ICMREF(NLINK, 10) == 1) LWORK(3) = LDUM
          ELSE
-!                             END JLEND OF LINK IS AT CATCHMENT BOUNDARY
-!                             THE HEAD OF A STREAM, OR A SPRING
-            JLA = (JLEND-1) * 3 + 1
-            ACSFA1 (JLA) = MAX (1.0d-6, ACPSFO (NLINK) )
-            PCSFA1 (JLA) = DUMX * QLINK (NLINK, JLEND) / ACSFA1 (JLA)
-!                             FOR FLOW INTO CATCHMENT OR FROM SPRING
-            DO 104 JDUM = 2, 3
-               JLa = (JLEND-1) * 3 + JDUM
-               ACSFA1 (JLA) = zero
-               PCSFA1 (JLA) = zero
-104         END DO
-         ENDIF
-100   END DO
-      IF (USCP.LT.half) THEN
-         PCSFM1 = zero
-         PCSFP1 = zero
+            IF (ICMREF(NLINK, 9) == 2) LWORK(1) = LDUM
+            IF (ICMREF(NLINK, 9) == 3) LWORK(2) = LDUM
+            IF (ICMREF(NLINK, 9) == 4) LWORK(3) = LDUM
+         END IF
+         ! LWORK HOLDS THE NUMBERS OF THE LINKS ASSOCIATED WITH THE CURRENT LINK
+         
+      ELSE IF (LDUM < 0) THEN
+         ! THERE IS MORE THAN ONE LINK ASSOCIATED WITH END ONE OF THE CURRENT LINK
+         ISLK(1)  = .TRUE.
+         LWORK(1) = ICMRF2(-LDUM, 3)
+         LWORK(2) = ICMRF2(-LDUM, 2)
+         LWORK(3) = ICMRF2(-LDUM, 1)
       ELSE
-         DUM = DUMX / ACPSF1
-         DUMA = zero
-         PCSFM1 = DUM * (QLINK (NLINK, 1) + DUMA * QDEFF (NLINK, 1) )
-         PCSFP1 = DUM * (QLINK (NLINK, 2) + DUMA * QDEFF (NLINK, 2) )
+         ! THERE ARE NO LINKS ASSOCIATED WITH END ONE OF THE CURRENT LINK
+         ISLK(1)  = .FALSE.
+         LWORK(1) = 0
+         LWORK(2) = 0
+         LWORK(3) = 0
+      END IF
+      
+      LDUM = ICMREF(NLINK, LFONE + 6)
+      IF (LDUM > 0) THEN
+         ! THERE IS ONLY ONE OTHER LINK ASSOCIATED WITH END TWO OF THE CURRENT LINK
+         ISLK(2)  = .TRUE.
+         LWORK(4) = 0
+         LWORK(5) = 0
+         LWORK(6) = 0
+         
+         IF (LINKNS(NLINK)) THEN
+            IF (ICMREF(NLINK, 12) == 1) LWORK(4) = LDUM
+            IF (ICMREF(NLINK, 12) == 2) LWORK(5) = LDUM
+            IF (ICMREF(NLINK, 12) == 3) LWORK(6) = LDUM
+         ELSE
+            IF (ICMREF(NLINK, 11) == 4) LWORK(4) = LDUM
+            IF (ICMREF(NLINK, 11) == 1) LWORK(5) = LDUM
+            IF (ICMREF(NLINK, 11) == 2) LWORK(6) = LDUM
+         END IF
+         ! LWORK HOLDS THE NUMBERS OF THE LINKS ASSOCIATED WITH THE CURRENT LINK
+         
+      ELSE IF (LDUM < 0) THEN
+         ! THERE IS MORE THAN ONE LINK ASSOCIATED WITH END TWO OF THE CURRENT LINK
+         ISLK(2)  = .TRUE.
+         LWORK(4) = ICMRF2(-LDUM, 3)
+         LWORK(5) = ICMRF2(-LDUM, 2)
+         LWORK(6) = ICMRF2(-LDUM, 1)
+      ELSE
+         ! THERE ARE NO LINKS ASSOCIATED WITH END TWO OF THE CURRENT LINK
+         ISLK(2)  = .FALSE.
+         LWORK(4) = 0
+         LWORK(5) = 0
+         LWORK(6) = 0
+      END IF
+      
+      ! SET LWORK, THE ARRAY HOLDING THE NUMBERS OF THE LINKS ASSOCIATED WITH THE CURRENT LINK
+      
+      DUMX = ONE / (D0 * Z2)
+      
+      end_links_loop: DO JLEND = 1, 2
+         IF (ISLK(JLEND)) THEN
+            ! THERE ARE OTHER LINKS ASSOCIATED WITH END JLEND OF THE CURRENT LINK
+            adj_links_loop: DO JDUM = 1, 3
+               JLA = (JLEND - 1) * 3 + JDUM
+               LA  = LWORK(JLA)
+               IF (LA /= 0) THEN
+                  ACSFA1(JLA) = MAX(1.0D-6, ACPSFO(LA))
+                  DUM = ZERO
+                  PCSFA1(JLA) = DUMX * (-QLINK(LA, LENDA(JLA)) - QDEFF(LA, LENDA(JLA)) * DUM) / ACSFA1(JLA)
+                  ! NB: CONVECTION WITH DISPERSED SEDIMENTS NEGLECTED
+               ELSE
+                  ACSFA1(JLA) = ZERO
+                  PCSFA1(JLA) = ZERO
+               END IF
+            END DO adj_links_loop
+         ELSE
+            ! END JLEND OF LINK IS AT CATCHMENT BOUNDARY THE HEAD OF A STREAM, OR A SPRING
+            JLA = (JLEND - 1) * 3 + 1
+            ACSFA1(JLA) = MAX(1.0D-6, ACPSFO(NLINK))
+            PCSFA1(JLA) = DUMX * QLINK(NLINK, JLEND) / ACSFA1(JLA)
+            ! FOR FLOW INTO CATCHMENT OR FROM SPRING
+            
+            boundary_links_loop: DO JDUM = 2, 3
+               JLA = (JLEND - 1) * 3 + JDUM
+               ACSFA1(JLA) = ZERO
+               PCSFA1(JLA) = ZERO
+            END DO boundary_links_loop
+         END IF
+      END DO end_links_loop
 
+      IF (USCP < HALF) THEN
+         PCSFM1 = ZERO
+         PCSFP1 = ZERO
+      ELSE
+         DUM  = DUMX / ACPSF1
+         DUMA = ZERO
+         PCSFM1 = DUM * (QLINK(NLINK, 1) + DUMA * QDEFF(NLINK, 1))
+         PCSFP1 = DUM * (QLINK(NLINK, 2) + DUMA * QDEFF(NLINK, 2))
+      END IF
+      
+      ! SET AREA AND PECLET NUMBER FOR THE LINKS ASSOCIATED WITH THE CURRENT LINKS
+      
+      QQQSL1 = -PNETTO(NLINK) * AREA(NLINK)
+      ! -VE RATE OF RAIN ARRIVAL AT LINK (+VE UPWARDS TO CONFORM TO CONVENTION)
 
-      ENDIF
-!                             SET AREA AND PECLET NUMBER FOR THE LINKS
-!                             ASSOCIATED WITH THE CURRENT LINKS
-      QQQSL1 = - PNETTO (NLINK) * AREA (NLINK)
-!                             -VE RATE OF RAIN ARRIVAL AT LINK
-!                             (+VE UPWARDS TO CONFORM TO CONVENTION)
-!#######################################################################
-      nwell = NVSWLT (nlink)
-      if (nwell.ne.0) then
-         qqqdum = - rszwlo (nwell) * area (nwell)
-      else
-         qqqdum = zero
+      !#######################################################################
+      NWELL = NVSWLT(NLINK)
+      IF (NWELL /= 0) THEN
+         QQQDUM = -RSZWLO(NWELL) * AREA(NWELL)
+      ELSE
+         QQQDUM = ZERO
+      END IF
+      !###########temporary, qqqdum is rate of input of well water to stream##
 
-
-      endif
-!###########temporary, qqqdum is rate of input of well water to stream##
-
-      KS = CLENTH (NLINK) / Z2
-!                             SET SCALED LENGTH OF LINK
+      KS  = CLENTH(NLINK) / Z2
+      ! SET SCALED LENGTH OF LINK
       DUM = DUMX / KS
-      DO 150 JBK = 1, 2
-         JFDUM = 2 * JBK - LFONE+1
-!                             FACE NUMBER FOR LINK, ACROSS WHICH WATER
-!                             ENTERS FROM BANK JBK
 
-         JFDUMB = ICMREF (NLINK, JFDUM + 8)
-!                               FACE NUMBER FOR BANK, POINTING TOWARDS L
-         DO 152 NCE = NCEBK (JBK), NCETOP
-            PCPBK1 (JBK, NCE) = - DUM * QVSH (JFDUMB, NCE, NBK (JBK) )
-152      END DO
-         PCPSB1 (JBK) = - DUM * QBKB (NLINK, JBK)
-         DMULT = DBLE (2 * JBK - 3)
-!                             MULTIPLIER USED TO OBTAIN CORRECT SIGN FOR
-!                             FLOWS INTO THE LINK
-         PCPSW1 (JBK) = DMULT * DUM * QOC (NLINK, JFDUM)
-         JVEGBK = NVC (NBK (JBK) )
-         NDUM = NCEBD (NLINK, JBK) + 1
-!                             k IS ONLY USED FOR THE CELLS AT OR ABOVE
-!                             THE LEVEL OF THE BOTTOM OF THE BED DEEP
-!                             LAYER
-         DO 154 NCE = NDUM, NCETOP
-            KSPBK (JBK, NCE) = DELTAZ (NCE, NBK (JBK) ) / z2
-154      END DO
+      banks_loop: DO JBK = 1, 2
+         JFDUM = 2 * JBK - LFONE + 1
+         ! FACE NUMBER FOR LINK, ACROSS WHICH WATER ENTERS FROM BANK JBK
+         JFDUMB = ICMREF(NLINK, JFDUM + 8)
+         ! FACE NUMBER FOR BANK, POINTING TOWARDS L
 
+         bank_cells_loop: DO NCE = NCEBK(JBK), NCETOP
+            PCPBK1(JBK, NCE) = -DUM * QVSH(JFDUMB, NCE, NBK(JBK))
+         END DO bank_cells_loop
 
+         PCPSB1(JBK) = -DUM * QBKB(NLINK, JBK)
+         DMULT = DBLE(2 * JBK - 3)
+         ! MULTIPLIER USED TO OBTAIN CORRECT SIGN FOR FLOWS INTO THE LINK
+         
+         PCPSW1(JBK) = DMULT * DUM * QOC(NLINK, JFDUM)
+         JVEGBK = NVC(NBK(JBK))
+         NDUM   = NCEBD(NLINK, JBK) + 1
+         
+         ! KSPBK IS ONLY USED FOR THE CELLS AT OR ABOVE THE LEVEL OF THE BOTTOM OF THE BED DEEP LAYER
+         kspbk_loop: DO NCE = NDUM, NCETOP
+            KSPBK(JBK, NCE) = DELTAZ(NCE, NBK(JBK)) / Z2
+         END DO kspbk_loop
 
-150   END DO
-!                             SET VALUES OF VARIABLES ASSOCIATED WITH
-!                             THE ADJACENT STREAM BANKS
-      SUMK = zero
-      SUM = zero
-      DO 160 JBK = 1, 2
-         NCE = NDUM
-         DUMK = (one - FNCEBD (NLINK, JBK) ) * KSPBK (JBK, NCE)
+      END DO banks_loop
+
+      ! SET VALUES OF VARIABLES ASSOCIATED WITH THE ADJACENT STREAM BANKS
+      
+      SUMK = ZERO
+      SUM  = ZERO
+      
+      bed_cells_loop: DO JBK = 1, 2
+         NCE  = NDUM
+         DUMK = (ONE - FNCEBD(NLINK, JBK)) * KSPBK(JBK, NCE)
          SUMK = SUMK + DUMK
-         SUM = SUM + VSTHE (NCE, NBK (JBK) ) * DUMK
-         DO 162 NCE = NDUM + 1, NHBED (NLINK, JBK)
-            DUMK = KSPBK (JBK, NCE)
+         SUM  = SUM + VSTHE(NCE, NBK(JBK)) * DUMK
+         
+         inner_bed_loop: DO NCE = NDUM + 1, NHBED(NLINK, JBK)
+            DUMK = KSPBK(JBK, NCE)
             SUMK = SUMK + DUMK
-            SUM = SUM + VSTHE (NCE, NBK (JBK) ) * DUMK
-162      END DO
-         NCE = NHBED (NLINK, JBK) + 1
-         DUMK = FHBED (NLINK, JBK) * KSPBK (JBK, NCE)
+            SUM  = SUM + VSTHE(NCE, NBK(JBK)) * DUMK
+         END DO inner_bed_loop
+         
+         NCE  = NHBED(NLINK, JBK) + 1
+         DUMK = FHBED(NLINK, JBK) * KSPBK(JBK, NCE)
          SUMK = SUMK + DUMK
-         SUM = SUM + VSTHE (NCE, NBK (JBK) ) * DUMK
-160   END DO
-      THBEDO (NLINK) = THBED (NLINK)
+         SUM  = SUM + VSTHE(NCE, NBK(JBK)) * DUMK
+      END DO bed_cells_loop
 
-
-
-      THBED (NLINK) = MIN(PBSED (NLINK), SUM / SUMK)
-!                             SET MOISTURE CONTENT IN STREAM BED, AS THE
-!                             WEIGHTED AVERAGE FOR THE CELLS, OF BOTH
-!                             BANKS, LYING WITHIN THE BED SURFACE AND
-!                             BED DEEP LAYERS
-      RETURN
-
-
+      THBEDO(NLINK) = THBED(NLINK)
+      THBED(NLINK)  = MIN(PBSED(NLINK), SUM / SUMK)
+      
+      ! SET MOISTURE CONTENT IN STREAM BED, AS THE WEIGHTED AVERAGE FOR THE CELLS,
+      ! OF BOTH BANKS, LYING WITHIN THE BED SURFACE AND BED DEEP LAYERS
 
    END SUBROUTINE LINKW
-! 15/1/96
-!                             4/9/91
 
 
 
-!SSSSSS SUBROUTINE LINK (CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
-   SUBROUTINE LINK (CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
-      NCETOP)
-!
-!                             SETS UP AND SOLVES THE STREAM
-!                             LINK DIFFERENCE EQUATIONS
-!                             ** FULLY IMPLICIT COUPLING TO BANKS **
-!
+   !SSSSSS SUBROUTINE LINK
+   SUBROUTINE LINK(CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, NCETOP)
+   !----------------------------------------------------------------------*
+   !                             SETS UP AND SOLVES THE STREAM
+   !                             LINK DIFFERENCE EQUATIONS
+   !                             ** FULLY IMPLICIT COUPLING TO BANKS **
+   !----------------------------------------------------------------------*
+      
       USE LINK_CC
-
       USE LINK_CC1
-      INTEGER :: NCETOP, nc, nk, njda
-      DOUBLEPRECISION :: CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
-         duma1, duma2, duma3, duma4, duma5, duma6, duma7, dump5, dump6, &
-         dumb1, dumb2, dumb3, dumb3a, dumb3b, &
-         dump1, dump2, dump3, dump4, dump7, dsum, sum, &
-         sum1, sum2, sum3, sum4, sum5, alt, altstr, &
-         blt, bltstr, dlt, dltstr, elt, eltstr, eltda, dltda, dumf1, &
-         flt, fltstr, fltda, hlt, hltstr, hltda, &
-         plt, dumq1, qlt, qltda, slt, sltda, gylt, gyltda, gyltsr, &
-         wmesf, wmebs, wmebd
-      DUMA1 = (MAX (zero, - PCSFP1) + MAX (zero, - PCSFM1) ) &
-         / KS
+
+      IMPLICIT NONE
+
+      ! Dummy Arguments
+      INTEGER, INTENT(IN) :: NCETOP
+      DOUBLE PRECISION, INTENT(IN)  :: CCPBD, CCPBS, CCPSF, TSE
+      DOUBLE PRECISION, INTENT(OUT) :: CCPBD1, CCPBS1, CCPSF1
+
+      ! Locals
+      INTEGER :: NC, NK, NJDA
+      DOUBLE PRECISION :: DUMA1, DUMA2, DUMA3, DUMA4, DUMA5, DUMA6, DUMA7
+      DOUBLE PRECISION :: DUMP5, DUMP6, DUMB1, DUMB2, DUMB3, DUMB3A, DUMB3B
+      DOUBLE PRECISION :: DUMP1, DUMP2, DUMP3, DUMP4, DUMP7, DSUM, SUM
+      DOUBLE PRECISION :: SUM1, SUM2, SUM3, SUM4, SUM5
+      DOUBLE PRECISION :: ALT, ALTSTR, BLT, BLTSTR, DLT, DLTSTR, ELT, ELTSTR, ELTDA, DLTDA
+      DOUBLE PRECISION :: DUMF1, FLT, FLTSTR, FLTDA, HLT, HLTSTR, HLTDA
+      DOUBLE PRECISION :: PLT, DUMQ1, QLT, QLTDA, SLT, SLTDA
+      DOUBLE PRECISION :: GYLT, GYLTDA, GYLTSR, WMESF, WMEBS, WMEBD
+
+   !----------------------------------------------------------------------*
+
+      DUMA1 = (MAX(ZERO, -PCSFP1) + MAX(ZERO, -PCSFM1)) / KS
       DUMA2 = FCPSF + TSE * FCPSFT + FCPSFC * CCPSF
-      DUMA3 = MAX (zero, WCPBD1)
-      DUMA4 = FCPSD+TSE * FCPSDT + FCPSDC * CCPSF
-      SUM3 = zero
-      SUM4 = zero
-      SUM5 = zero
-      DO 1 NK = 1, 2
-         SUM1 = zero
-         SUM2 = zero
-         DO 2 NC = NCEBK (NK), NCETOP
-            SUM1 = SUM1 + MAX (zero, - PCPBK1 (NK, NC) )
-            SUM2 = SUM2 + MAX (zero, PCPBK1 (NK, NC) ) * CCPBK (NK, &
-               NC)
-            SUM3 = SUM3 + (FCPBK (NK, NC) * CCPBK (NK, NC) + GCPBK (NK, &
-               NC) * SCPBK (NK, NC) ) * KSPBK (NK, NC)
-2        END DO
+      DUMA3 = MAX(ZERO, WCPBD1)
+      DUMA4 = FCPSD + TSE * FCPSDT + FCPSDC * CCPSF
+      
+      SUM3 = ZERO
+      SUM4 = ZERO
+      SUM5 = ZERO
+      
+      bank_loop: DO NK = 1, 2
+         SUM1 = ZERO
+         SUM2 = ZERO
+         
+         cell_loop: DO NC = NCEBK(NK), NCETOP
+            SUM1 = SUM1 + MAX(ZERO, -PCPBK1(NK, NC))
+            SUM2 = SUM2 + MAX(ZERO, PCPBK1(NK, NC)) * CCPBK(NK, NC)
+            SUM3 = SUM3 + (FCPBK(NK, NC) * CCPBK(NK, NC) + GCPBK(NK, NC) * SCPBK(NK, NC)) * KSPBK(NK, NC)
+         END DO cell_loop
+         
          SUM4 = SUM4 + SUM1
          SUM5 = SUM5 + SUM2
-1     END DO
+      END DO bank_loop
+      
       DUMA5 = SUM4
       DUMP5 = VCPBK1 * SUM3
       DUMP6 = SUM5
-      DUMA6 = MAX (zero, - PCPSW1 (1) ) + MAX (zero, - PCPSW1 (2) &
-         )
-      DUMA7 = MAX (zero, - PCPSB1 (1) ) + MAX (zero, - PCPSB1 (2) &
-         )
-      ALT = ACPSF1 * (one + TSE * (DUMA1 + GCPLAL) ) * DUMA2 + TSE * &
-         (DUMA3 * ACPBD1 * DUMA4 + ICSBSC + ECPSFC) + TSE * (DUMA5 + DUMA6 &
-         * DUMA2 + DUMA7)
+      DUMA6 = MAX(ZERO, -PCPSW1(1)) + MAX(ZERO, -PCPSW1(2))
+      DUMA7 = MAX(ZERO, -PCPSB1(1)) + MAX(ZERO, -PCPSB1(2))
+      
+      ALT = ACPSF1 * (ONE + TSE * (DUMA1 + GCPLAL)) * DUMA2 + TSE * &
+            (DUMA3 * ACPBD1 * DUMA4 + ICSBSC + ECPSFC) + TSE * (DUMA5 + DUMA6 * DUMA2 + DUMA7)
 
+      ALTSTR = TSE * ((ACPSF1 * (ONE + TSE * (DUMA1 + GCPLAL)) + TSE * DUMA6) * &
+               FCPSFC + TSE * DUMA3 * ACPBD1 * FCPSDC)
+      ! SET a AND a*
 
-      ALTSTR = TSE * ( (ACPSF1 * (one + TSE * (DUMA1 + GCPLAL) ) &
-         + TSE * DUMA6) * FCPSFC + TSE * DUMA3 * ACPBD1 * FCPSDC)
-!                             SET a AND a*
-      DUMB1 = MAX (zero, - WCPBD1)
-      DUMB2 = FCPBS + TSE * FCPBST + FCPBSC * CCPBS
-      DUMB3A = MAX (zero, PCPSB1 (1) )
-      DUMB3B = MAX (zero, PCPSB1 (2) )
-      DUMB3 = DUMB3A + DUMB3B
-      BLT = - TSE * (DUMB1 * ACPBD1 * DUMB2 + DUMB3)
+      DUMB1  = MAX(ZERO, -WCPBD1)
+      DUMB2  = FCPBS + TSE * FCPBST + FCPBSC * CCPBS
+      DUMB3A = MAX(ZERO, PCPSB1(1))
+      DUMB3B = MAX(ZERO, PCPSB1(2))
+      DUMB3  = DUMB3A + DUMB3B
+      
+      BLT    = -TSE * (DUMB1 * ACPBD1 * DUMB2 + DUMB3)
+      BLTSTR = -TSE * TSE * DUMB1 * ACPBD1 * FCPBSC
+      ! SET b AND b*
 
+      DLT    = -TSE * (DUMA3 * ACPBD1 * DUMA4 + ICSBSC + DUMA7)
+      DLTSTR = -TSE * TSE * DUMA3 * ACPBD1 * FCPSDC
+      DLTDA  = -TSE * USCP * ACSBS1
+      ! SET d, d*, AND d'
 
-      BLTSTR = - TSE * TSE * DUMB1 * ACPBD1 * FCPBSC
-!                             SET b AND b*
-      DLT = - TSE * (DUMA3 * ACPBD1 * DUMA4 + ICSBSC + DUMA7)
-      DLTSTR = - TSE * TSE * DUMA3 * ACPBD1 * FCPSDC
+      ELT    = (ACPBS + TSE * (GCPLAL * ACPBS + (DUMA3 + DUMB1) * ACPBD1)) * &
+               DUMB2 + TSE * (ICSBDC + ECPBSC + DUMA7 + DUMB3)
+      ELTSTR = TSE * (ACPBS + TSE * (GCPLAL * ACPBS + (DUMA3 + DUMB1) * ACPBD1)) * FCPBSC
+      ELTDA  = TSE * (USCP * ACSBS1 + ACSBD1)
+      ! SET e, e*, AND e'
 
+      DUMF1  = FCPBD + TSE * FCPBDT + FCPBDC * CCPBD
+      FLT    = -TSE * (DUMB1 * ACPBD1 * DUMF1 + DUMB3)
+      FLTSTR = -TSE * TSE * DUMB1 * ACPBD1 * FCPBDC
+      FLTDA  = -TSE * ACSBD1
+      ! SET f, f*, AND f'
 
-      DLTDA = - TSE * USCP * ACSBS1
-!                             SET d, d*, AND d'
-      ELT = (ACPBS + TSE * (GCPLAL * ACPBS + (DUMA3 + DUMB1) * ACPBD1) ) &
-         * DUMB2 + TSE * (ICSBDC + ECPBSC + DUMA7 + DUMB3)
-      ELTSTR = TSE * (ACPBS + TSE * (GCPLAL * ACPBS + (DUMA3 + DUMB1) &
-         * ACPBD1) ) * FCPBSC
+      HLT    = -TSE * (DUMA3 * ACPBD1 * DUMB2 + DUMA7 + ICSBDC)
+      HLTSTR = -TSE * TSE * DUMA3 * ACPBD1 * FCPBSC
+      HLTDA  = -TSE * ACSBD1
+      ! SET h, h*, AND h'
 
-
-      ELTDA = TSE * (USCP * ACSBS1 + ACSBD1)
-!                             SET e, e*, AND e'
-      DUMF1 = FCPBD+TSE * FCPBDT + FCPBDC * CCPBD
-      FLT = - TSE * (DUMB1 * ACPBD1 * DUMF1 + DUMB3)
-      FLTSTR = - TSE * TSE * DUMB1 * ACPBD1 * FCPBDC
-
-      FLTDA = - TSE * ACSBD1
-!                             SET f, f*, AND f'
-      HLT = - TSE * (DUMA3 * ACPBD1 * DUMB2 + DUMA7 + ICSBDC)
-      HLTSTR = - TSE * TSE * DUMA3 * ACPBD1 * FCPBSC
-
-
-      HLTDA = - TSE * ACSBD1
-!                             SET h, h*, AND h'
       DUMP1 = (FCPSF + TSE * FCPSFT) * CCPSF
-      DUMP2 = (FCPSD+TSE * FCPSDT) * CCPSF
+      DUMP2 = (FCPSD + TSE * FCPSDT) * CCPSF
       DUMP3 = (FCPBS + TSE * FCPBST) * CCPBS
-      DSUM = zero
-      SUM = zero
-      SUM1 = zero
-      IF (PCSFM1.GT.0) THEN
-         DO 3 NJDA = 1, 3
-            SUM = SUM + ACSFA1 (NJDA) * MAX (zero, PCSFA1 (NJDA) ) &
-               * FCSFA1 (NJDA) * CCSFA1 (NJDA)
-            SUM1 = SUM1 + ACSFA1 (NJDA) * PCSFA1 (NJDA)
-3        END DO
+      DSUM  = ZERO
+      SUM   = ZERO
+      SUM1  = ZERO
+      
+      IF (PCSFM1 > ZERO) THEN
+         upstream_loop: DO NJDA = 1, 3
+            SUM  = SUM + ACSFA1(NJDA) * MAX(ZERO, PCSFA1(NJDA)) * FCSFA1(NJDA) * CCSFA1(NJDA)
+            SUM1 = SUM1 + ACSFA1(NJDA) * PCSFA1(NJDA)
+         END DO upstream_loop
          IF (NOTZERO(SUM1)) DSUM = ACPSF1 * PCSFM1 * SUM / SUM1
-      ENDIF
-      SUM = zero
-      SUM1 = zero
-      IF (PCSFP1.GT.0) THEN
-         DO 5 NJDA = 4, 6
-            SUM = SUM + ACSFA1 (NJDA) * MAX (zero, PCSFA1 (NJDA) ) &
-               * FCSFA1 (NJDA) * CCSFA1 (NJDA)
-            SUM1 = SUM1 + ACSFA1 (NJDA) * PCSFA1 (NJDA)
-5        END DO
+      END IF
+      
+      SUM  = ZERO
+      SUM1 = ZERO
+      
+      IF (PCSFP1 > ZERO) THEN
+         downstream_loop: DO NJDA = 4, 6
+            SUM  = SUM + ACSFA1(NJDA) * MAX(ZERO, PCSFA1(NJDA)) * FCSFA1(NJDA) * CCSFA1(NJDA)
+            SUM1 = SUM1 + ACSFA1(NJDA) * PCSFA1(NJDA)
+         END DO downstream_loop
          IF (NOTZERO(SUM1)) DSUM = DSUM + ACPSF1 * PCSFP1 * SUM / SUM1
-      ENDIF
+      END IF
+      
       DUMP4 = DSUM / KS
-      SUM = zero
-      DO 4 NK = 1, 2
-         SUM = SUM + MAX (zero, PCPSW1 (NK) ) * FCPSW1 (NK) * CCPGS1 &
-            (NK)
-4     END DO
+      SUM   = ZERO
+      
+      bank_sum_loop: DO NK = 1, 2
+         SUM = SUM + MAX(ZERO, PCPSW1(NK)) * FCPSW1(NK) * CCPGS1(NK)
+      END DO bank_sum_loop
       DUMP7 = SUM
 
+      PLT = -(ACPSF1 * FCPSFT + ACPSFT * FCPSF) * CCPSF - ACPSF1 * (DUMA1 + GCPLAL) * DUMP1 + &
+            DUMP4 + DUMP5 - DUMA3 * ACPBD1 * DUMP2 + DUMB1 * ACPBD1 * DUMP3 - USCP * (QCP1 + ICP1) - &
+            ICPSBS - TSE * ICSBST + GCPLAQ * ACPSF1 * FCSF1Q * CCSF1Q - ECPSF - TSE * ECPSFT + &
+            DUMP6 - DUMA5 * CCPSF + DUMP7 - DUMA6 * DUMP1 + DUMB3 * CCPBS - DUMA7 * CCPSF
+      ! SET p
 
-      PLT = - (ACPSF1 * FCPSFT + ACPSFT * FCPSF) * CCPSF - ACPSF1 * &
-         (DUMA1 + GCPLAL) * DUMP1 + DUMP4 + DUMP5 - DUMA3 * ACPBD1 * DUMP2 &
-         + DUMB1 * ACPBD1 * DUMP3 - USCP * (QCP1 + ICP1) - ICPSBS - TSE * &
-         ICSBST + GCPLAQ * ACPSF1 * FCSF1Q * CCSF1Q - ECPSF - TSE * ECPSFT &
-         + DUMP6 - DUMA5 * CCPSF + DUMP7 - DUMA6 * DUMP1 + DUMB3 * CCPBS - &
-         DUMA7 * CCPSF
-!                                       SET p
-      DUMQ1 = (FCPBD+TSE * FCPBDT) * CCPBD
-      QLT = - ACPBS * FCPBST * CCPBS - (GCPLAL * ACPBS + (DUMA3 + DUMB1) &
-         * ACPBD1) * DUMP3 + DUMA3 * ACPBD1 * DUMP2 + DUMB1 * ACPBD1 * &
-         DUMQ1 - (one - USCP) * (QCP1 + ICP1) + ICPSBS - ICPSBD-ECPBS + &
-         TSE * (ICSBST - ICSBDT - ECPBST) + GCPLAQ * ACPBS * FCBS1Q * &
-         CCBS1Q + DUMB3 * (CCPBD-CCPBS) - DUMA7 * (CCPBS - CCPSF)
-
-
+      DUMQ1 = (FCPBD + TSE * FCPBDT) * CCPBD
+      QLT   = -ACPBS * FCPBST * CCPBS - (GCPLAL * ACPBS + (DUMA3 + DUMB1) * ACPBD1) * DUMP3 + &
+              DUMA3 * ACPBD1 * DUMP2 + DUMB1 * ACPBD1 * DUMQ1 - (ONE - USCP) * (QCP1 + ICP1) + &
+              ICPSBS - ICPSBD - ECPBS + TSE * (ICSBST - ICSBDT - ECPBST) + GCPLAQ * ACPBS * &
+              FCBS1Q * CCBS1Q + DUMB3 * (CCPBD - CCPBS) - DUMA7 * (CCPBS - CCPSF)
       QLTDA = USCP * ACSBS1 * (CCPSF - CCPBS) - ACSBD1 * (CCPBS - CCPBD)
-!                                       SET q ANS q'
-      SLT = - (ACPBD1 * FCPBDT + ACPBDT * FCPBD) * CCPBD- ( (GCPLAL + &
-         DUMB1) * DUMQ1 - DUMA3 * DUMP3) * ACPBD1 + ICPSBD-ECPBD+TSE * &
-         (ICSBDT - ECPBDT) + GCPLAQ * ACPBD1 * FCBD1Q * CCBD1Q + DUMB3A * &
-         (CCPBK (1, 1) - CCPBD) + DUMB3B * (CCPBK (2, 1) - CCPBD) - DUMA7 * &
-         (CCPBD-CCPBS)
+      ! SET q AND q'
 
-
+      SLT   = -(ACPBD1 * FCPBDT + ACPBDT * FCPBD) * CCPBD - ((GCPLAL + DUMB1) * DUMQ1 - DUMA3 * DUMP3) * &
+              ACPBD1 + ICPSBD - ECPBD + TSE * (ICSBDT - ECPBDT) + GCPLAQ * ACPBD1 * FCBD1Q * CCBD1Q + &
+              DUMB3A * (CCPBK(1, 1) - CCPBD) + DUMB3B * (CCPBK(2, 1) - CCPBD) - DUMA7 * (CCPBD - CCPBS)
       SLTDA = ACSBD1 * (CCPBS - CCPBD)
-!                                       SET s AND s'
-      GYLT = ACPBD1 * (one + TSE * (GCPLAL + DUMB1) ) * DUMF1 + TSE * &
-         (ECPBDC + DUMA7 + DUMB3)
-      GYLTSR = TSE * ACPBD1 * (one + TSE * (GCPLAL + DUMB1) ) * &
-         FCPBDC
+      ! SET s AND s'
 
-
+      GYLT   = ACPBD1 * (ONE + TSE * (GCPLAL + DUMB1)) * DUMF1 + TSE * (ECPBDC + DUMA7 + DUMB3)
+      GYLTSR = TSE * ACPBD1 * (ONE + TSE * (GCPLAL + DUMB1)) * FCPBDC
       GYLTDA = TSE * ACSBD1
-!                             SET y, y*, AND Y'
-      IF (USCP.LT.half) THEN
-         CALL SNL3 (one, zero, zero, zero, zero, - DLT - DLTDA, &
-            - DLTSTR, ELT + ELTDA, ELTSTR, - FLT - FLTDA, - FLTSTR, &
-            - HLT - HLTDA, - HLTSTR, zero, QLT + QLTDA, SLT + SLTDA, &
-            WMESF, WMEBS, WMEBD, GYLT + GYLTDA, GYLTSR)
-!                             SPECIAL CASE: NO WATER IN LINK
+      ! SET y, y*, AND Y'
+
+      IF (USCP < HALF) THEN
+         ! SPECIAL CASE: NO WATER IN LINK
+         CALL SNL3(ONE, ZERO, ZERO, ZERO, ZERO, -DLT - DLTDA, -DLTSTR, &
+                   ELT + ELTDA, ELTSTR, -FLT - FLTDA, -FLTSTR, -HLT - HLTDA, -HLTSTR, &
+                   ZERO, QLT + QLTDA, SLT + SLTDA, WMESF, WMEBS, WMEBD, GYLT + GYLTDA, GYLTSR)
       ELSE
-         CALL SNL3 (ALT - DLTDA, ALTSTR, - BLT + ELTDA + HLTDA, - &
-            BLTSTR, zero, - DLT - DLTDA, - DLTSTR, ELT + ELTDA, ELTSTR, &
-            - FLT - FLTDA, - FLTSTR, - HLT - HLTDA, - HLTSTR, PLT - QLTDA - &
-            SLTDA, QLT + QLTDA, SLT + SLTDA, WMESF, WMEBS, WMEBD, GYLT + &
-            GYLTDA, GYLTSR)
-      ENDIF
-      CCPBD1 = CCPBD+TSE * WMEBD
+         CALL SNL3(ALT - DLTDA, ALTSTR, -BLT + ELTDA + HLTDA, -BLTSTR, ZERO, &
+                   -DLT - DLTDA, -DLTSTR, ELT + ELTDA, ELTSTR, -FLT - FLTDA, -FLTSTR, &
+                   -HLT - HLTDA, -HLTSTR, PLT - QLTDA - SLTDA, QLT + QLTDA, SLT + SLTDA, &
+                   WMESF, WMEBS, WMEBD, GYLT + GYLTDA, GYLTSR)
+      END IF
+
+      ! SOLVE THE DIFFERENCE EQUATIONS AND UPDATE THE CONCENTRATIONS
+      CCPBD1 = CCPBD + TSE * WMEBD
       CCPBS1 = CCPBS + TSE * WMEBS
-
       CCPSF1 = CCPSF + TSE * WMESF
-!                             SOLVE THE DIFFERENCE EQUATIONS
-!                             AND UPDATE THE CONCENTRATIONS
-      RETURN
+
    END SUBROUTINE LINK
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-
-! 12/8/94
 
 
 
+   !FFFFFF DOUBLE PRECISION FUNCTION PHI
+   PURE FUNCTION PHI(JSOIL, THETA) RESULT(res)
+   !----------------------------------------------------------------------*
+   ! FRACTION OF SOIL WATER WHICH IS MOBILE
+   !----------------------------------------------------------------------*
+      
+      IMPLICIT NONE
 
-!FFFFFF DOUBLEPRECISION FUNCTION PHI
-   DOUBLEPRECISION FUNCTION PHI (JSOIL, THETA)
-!                             FRACTION OF SOIL WATER WHICH IS MOBILE
-      INTEGER :: JSOIL
-      DOUBLEPRECISION THETA
-      PHI = half
-!                             ########## SOIL INFO NEEDED HERE #########
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: JSOIL
+      DOUBLE PRECISION, INTENT(IN) :: THETA
 
+      ! Return variable
+      DOUBLE PRECISION :: res
+      
+      ! Modernization Fix: Native declaration of numeric constant
+      DOUBLE PRECISION, PARAMETER :: HALF = 0.5D0
 
+   !----------------------------------------------------------------------*
 
-
-
+      ! ########## SOIL INFO NEEDED HERE #########
+      res = HALF
 
    END FUNCTION PHI
 
 
 
-!SSSSSS SUBROUTINE PLCOLM (NCL, NCONT)
-   SUBROUTINE PLCOLM (NCL, NCONT)
-!                 Updates the plant compartment concentrations for
-!                 for one column for one timestep for one contaminant
+   !SSSSSS SUBROUTINE PLCOLM
+   SUBROUTINE PLCOLM(NCL, NCONT)
+   !----------------------------------------------------------------------*
+   !                Updates the plant compartment concentrations for
+   !                for one column for one timestep for one contaminant
+   !----------------------------------------------------------------------*
+      
       USE CONT_CC
       USE COLM_C1
-!                 NB COLM.C1 includes AL.P
+      ! NB COLM.C1 includes AL.P
       USE COLM_C2
-
       USE COLM_CC
-
       USE PLANT_CC
-!                 Include parameter statements, water/contaminant
-!                 interface COMMON blocks, and plant COMMON blocks
-!                 called just before routine COLM
-      INTEGER :: NCL, NCONT, jplant, nce, jplty, nrbot
-      DOUBLEPRECISION :: d1dum, d2dum, d3dum, d4dum, o2dum, f1dum, f2dum, pkdum, &
-         pmdum, sum, z2dum, xdum, cdum, sdum, tdum, dum, eddum, qdum, bcdum, dum1, dum3, bcpaa1, bcpbb1
-      IF (NCONT.EQ.1) THEN
-         DO 100 JPLANT = 1, NPL (NCL)
-            GENAA (JPLANT) = zero
-            GENBB (JPLANT) = zero
-100      END DO
+      
+      ! Include parameter statements, water/contaminant
+      ! interface COMMON blocks, and plant COMMON blocks
+      ! called just before routine COLM
 
-      ENDIF
-!                 Set generation variables to zero if call is for first
-!                 contaminant
-      DO 900 NCE = 1, NCETOP
-         EDCAP (NCE) = zero
-         EDCAPC (NCE) = zero
-         EDCAPT (NCE) = zero
-         ESCAP (NCE) = zero
-         ESCAPS (NCE) = zero
-         ESCAPT (NCE) = zero
+      IMPLICIT NONE
 
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: NCL, NCONT
 
+      ! Locals
+      INTEGER :: JPLANT, NCE, JPLTY, NRBOT
+      DOUBLE PRECISION :: D1DUM, D2DUM, D3DUM, D4DUM, O2DUM, F1DUM, F2DUM, PKDUM
+      DOUBLE PRECISION :: PMDUM, SUM, Z2DUM, XDUM, CDUM, SDUM, TDUM, DUM, EDDUM
+      DOUBLE PRECISION :: QDUM, BCDUM, DUM1, DUM3, BCPAA1, BCPBB1
 
-900   END DO
-!                 Set uptake variables to zero in preparation for
-!                 summing net uptake over all plant types on
-!                 column NCL
-!                 Main calculation loops
-      DO 1000 JPLANT = 1, NPL (NCL)
-!                 For each plant type on soil column NCL
-         JPLTY = NPLTYP (NCL, JPLANT)
-!                 Plant type number
+   !----------------------------------------------------------------------*
 
-         NRBOT = NCETOP - NRD (JPLTY)
-!                 Number of bottom rooted cell
-         D1DUM = DELONE (JPLTY)
-         D2DUM = DELTWO (JPLTY)
-         D3DUM = DELTHR (JPLTY)
-         D4DUM = DELFOU (JPLTY)
-         O2DUM = one - D2DUM
-         F1DUM = PFONE (NCL, JPLANT)
-         F2DUM = PFTWO (JPLTY) / PF2MAX (JPLTY)
-         PKDUM = PKMAX (JPLTY, NCONT)
+      IF (NCONT == 1) THEN
+         ! Set generation variables to zero if call is for first contaminant
+         init_gen_loop: DO JPLANT = 1, NPL(NCL)
+            GENAA(JPLANT) = ZERO
+            GENBB(JPLANT) = ZERO
+         END DO init_gen_loop
+      END IF
+      
+      ! Set uptake variables to zero in preparation for summing net uptake 
+      ! over all plant types on column NCL
+      init_uptake_loop: DO NCE = 1, NCETOP
+         EDCAP(NCE)  = ZERO
+         EDCAPC(NCE) = ZERO
+         EDCAPT(NCE) = ZERO
+         ESCAP(NCE)  = ZERO
+         ESCAPS(NCE) = ZERO
+         ESCAPT(NCE) = ZERO
+      END DO init_uptake_loop
+      
+      ! Main calculation loops
+      plant_type_loop: DO JPLANT = 1, NPL(NCL)
+         ! For each plant type on soil column NCL
+         
+         JPLTY = NPLTYP(NCL, JPLANT)
+         ! Plant type number
 
-         PMDUM = PMASS (JPLTY)
-         GCPL = GCPLA (NCONT)
-!                 Non dimensioned decay variable, set up in MUZ
-         GMCPAA = (one - D1DUM)
-
+         NRBOT = NCETOP - NRD(JPLTY)
+         ! Number of bottom rooted cell
+         
+         D1DUM = DELONE(JPLTY)
+         D2DUM = DELTWO(JPLTY)
+         D3DUM = DELTHR(JPLTY)
+         D4DUM = DELFOU(JPLTY)
+         O2DUM = ONE - D2DUM
+         F1DUM = PFONE(NCL, JPLANT)
+         F2DUM = PFTWO(JPLTY) / PF2MAX(JPLTY)
+         PKDUM = PKMAX(JPLTY, NCONT)
+         PMDUM = PMASS(JPLTY)
+         
+         GCPL = GCPLA(NCONT)
+         ! Non dimensioned decay variable, set up in MUZ
+         
+         GMCPAA = (ONE - D1DUM)
          GMCPBB = F2DUM * D1DUM
-         SUM = zero
-         Z2DUM = Z2SQOD * F2DUM * PKDUM
-         DO 1610 NCE = NRBOT, NCETOP
-            XDUM = XXI * PPHI (NCE)
-            CDUM = XDUM * COLCAP (NCE)
-            SDUM = (one - XDUM) * SOLCAP (NCE)
+         SUM    = ZERO
+         Z2DUM  = Z2SQOD * F2DUM * PKDUM
+         
+         rooted_cell_loop: DO NCE = NRBOT, NCETOP
+            XDUM = XXI * PPHI(NCE)
+            CDUM = XDUM * COLCAP(NCE)
+            SDUM = (ONE - XDUM) * SOLCAP(NCE)
             TDUM = CDUM + SDUM
-            DUM = Z2DUM * PDZF3 (NCL, NCE, JPLANT) * TDUM
-            SUM = SUM + DUM
-            EDDUM = DUM * F1DUM / (TDUM * (Z2 * KSP (NCE) ) )
-            EDCAP (NCE) = EDCAP (NCE) + CDUM * EDDUM
-            ESCAP (NCE) = ESCAP (NCE) + SDUM * EDDUM
-!                  Set net scaled uptake rates for use in routine COLM
-!            ----- NB sums up over all plant types
-!            ----- NB THE RECYLING TERMS FOR EDCAP AND ESCAP ARE
-!                    ADDED BELOW
-1610     END DO
-         QDUM = SUM / (PMDUM * (GMCPAA + (D3DUM * GMCPBB) ) )
+            DUM  = Z2DUM * PDZF3(NCL, NCE, JPLANT) * TDUM
+            SUM  = SUM + DUM
+            
+            EDDUM = DUM * F1DUM / (TDUM * (Z2 * KSP(NCE)))
+            EDCAP(NCE) = EDCAP(NCE) + CDUM * EDDUM
+            ESCAP(NCE) = ESCAP(NCE) + SDUM * EDDUM
+            
+            ! Set net scaled uptake rates for use in routine COLM
+            ! ----- NB sums up over all plant types
+            ! ----- NB THE RECYLING TERMS FOR EDCAP AND ESCAP ARE ADDED BELOW
+         END DO rooted_cell_loop
+         
+         QDUM  = SUM / (PMDUM * (GMCPAA + (D3DUM * GMCPBB)))
          QCPAA = GMCPAA * QDUM
-
          QCPBB = D3DUM * GMCPBB * QDUM
-!                 Evaluate scaled values for Qa and Qb using
-!                 equations in section 3 of WRSRU/TR/9107/12
-         GMCBBD = (GMCPBB - GMCBBO (NCL, JPLANT) ) / TSE
-         GMCBBO (NCL, JPLANT) = GMCPBB
+         
+         ! Evaluate scaled values for Qa and Qb using equations in section 3 of WRSRU/TR/9107/12
+         GMCBBD = (GMCPBB - GMCBBO(NCL, JPLANT)) / TSE
+         GMCBBO(NCL, JPLANT) = GMCPBB
+         
          IF (LTZERO(GMCBBD)) THEN
-            BCDUM = BCPBB (NCL, JPLANT, NCONT)
-            DUM1 = F1DUM * D4DUM * BCDUM * GMCBBD
-            DUM3 = O2DUM * PDZF3 (NCL, NCETOP, JPLANT)
-            EDCAP (NCETOP) = EDCAP (NCETOP) + DUM1 * (D2DUM + DUM3) &
-               / (Z2 * KSP (NCETOP) * RHOPL)
-            DO 1630 NCE = NRBOT, NCETOP - 1
-               EDCAP (NCE) = EDCAP (NCE) + DUM1 * DUM3 / (Z2 * KSP (NCE) &
-                  * RHOPL)
-1630        END DO
+            BCDUM = BCPBB(NCL, JPLANT, NCONT)
+            DUM1  = F1DUM * D4DUM * BCDUM * GMCBBD
+            DUM3  = O2DUM * PDZF3(NCL, NCETOP, JPLANT)
+            
+            EDCAP(NCETOP) = EDCAP(NCETOP) + DUM1 * (D2DUM + DUM3) / (Z2 * KSP(NCETOP) * RHOPL)
+            
+            recycling_loop: DO NCE = NRBOT, NCETOP - 1
+               EDCAP(NCE) = EDCAP(NCE) + DUM1 * DUM3 / (Z2 * KSP(NCE) * RHOPL)
+            END DO recycling_loop
+         END IF
+         
+         ! Call solve routine and update concentrations
+         CALL PLANT(JPLANT, BCPAA(NCL, JPLANT, NCONT), BCPAA1, &
+                    BCPBB(NCL, JPLANT, NCONT), BCPBB1, TSE)
+                    
+         BCPAA(NCL, JPLANT, NCONT) = BCPAA1
+         BCPBB(NCL, JPLANT, NCONT) = BCPBB1
 
-         ENDIF
-         CALL PLANT (JPLANT, BCPAA (NCL, JPLANT, NCONT), BCPAA1, BCPBB ( &
-            NCL, JPLANT, NCONT), BCPBB1, TSE)
-         BCPAA (NCL, JPLANT, NCONT) = BCPAA1
-
-         BCPBB (NCL, JPLANT, NCONT) = BCPBB1
-!                 Call solve routine and update concentrations
-
-1000  END DO
-      RETURN
-
-
-
-
-
-
-
-
-
+      END DO plant_type_loop
 
    END SUBROUTINE PLCOLM
 
 
 
-
-!SSSSSS SUBROUTINE SLVCLM (N)
-   SUBROUTINE SLVCLM (N)
-!                            SOLVES THE DIFFERENCE EQUATIONS
-!                            FOR ONE CONTAMINANT AT ONE COLUMN
-!                            FOR ONE TIME STEP
+   !SSSSSS SUBROUTINE SLVCLM
+   SUBROUTINE SLVCLM(n)
+   !----------------------------------------------------------------------*
+   !                            SOLVES THE DIFFERENCE EQUATIONS
+   !                            FOR ONE CONTAMINANT AT ONE COLUMN
+   !                            FOR ONE TIME STEP
+   !----------------------------------------------------------------------*
+      
       USE COLM_CC1
-      INTEGER :: n, na, loop
-      DOUBLEPRECISION ELTE (LLEE), PLTE (LLEE), RHTD (LLEE)
-!                            ALLOCATE WORKSPACE
-      DO 1 NA = 1, N
-         ELTE (NA) = ELT (NA) - GLT (NA) * TLT (NA) / PLT (NA)
-         RHTD (NA) = SLT (NA) + GLT (NA) * QLT (NA) / PLT (NA)
-1     END DO
-      CALL TRIDAG (FLT, ELTE, DLT, RHTD, OME, N)
-      DO 2 NA = 1, N
-         EPS (NA) = (QLT (NA) + TLT (NA) * OME (NA) ) / PLT (NA)
 
-2     END DO
-!                            ESTIMATE OMEGA AND EPSILON VECTORS
+      IMPLICIT NONE
+
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: n
+
+      ! Locals
+      INTEGER :: loop
+      DOUBLE PRECISION :: ELTE(LLEE), PLTE(LLEE), RHTD(LLEE)
+
+   !----------------------------------------------------------------------*
+   
+      ! ALLOCATE WORKSPACE
+      ! Modernization Fix: Replaced DO 1 loop with high-performance array slices
+      ELTE(1:n) = ELT(1:n) - GLT(1:n) * TLT(1:n) / PLT(1:n)
+      RHTD(1:n) = SLT(1:n) + GLT(1:n) * QLT(1:n) / PLT(1:n)
+
+      CALL TRIDAG(FLT, ELTE, DLT, RHTD, OME, n)
+
+      ! ESTIMATE OMEGA AND EPSILON VECTORS
+      ! Modernization Fix: Replaced DO 2 loop with array slice
+      EPS(1:n) = (QLT(1:n) + TLT(1:n) * OME(1:n)) / PLT(1:n)
+
       IF (ISADNL) THEN
-!                            GO ROUND LOOP 3 ONLY IF
-!                            THERE IS NONLINEAR ADSORPTION
-         DO 3 LOOP = 1, 10
-            DO 4 NA = 1, N
-               PLTE (NA) = PLT (NA) + PLTSTR (NA) * EPS (NA)
-               ELTE (NA) = ELT (NA) + ELTSTR (NA) * OME (NA) - GLT (NA) &
-                  * TLT (NA) / PLTE (NA)
-               RHTD (NA) = SLT (NA) + GLT (NA) * QLT (NA) / PLTE (NA)
+         ! GO ROUND LOOP ONLY IF THERE IS NONLINEAR ADSORPTION
+         picard_iteration_loop: DO loop = 1, 10
+            
+            ! SET 'NON-LINEAR' COEFFICIENTS
+            ! Modernization Fix: Replaced DO 4 loop with array slices
+            PLTE(1:n) = PLT(1:n) + PLTSTR(1:n) * EPS(1:n)
+            ELTE(1:n) = ELT(1:n) + ELTSTR(1:n) * OME(1:n) - GLT(1:n) * TLT(1:n) / PLTE(1:n)
+            RHTD(1:n) = SLT(1:n) + GLT(1:n) * QLT(1:n) / PLTE(1:n)
 
+            ! ESTIMATE OMEGA VECTOR
+            CALL TRIDAG(FLT, ELTE, DLT, RHTD, OME, n)
 
-4           END DO
-!                            SET 'NON-LINEAR' COEFFICIENTS
-
-
-            CALL TRIDAG (FLT, ELTE, DLT, RHTD, OME, N)
-!                            ESTIMATE OMEGA VECTOR
-            DO 5 NA = 1, N
-               EPS (NA) = (QLT (NA) + TLT (NA) * OME (NA) ) / PLTE (NA)
-5           END DO
-!                            ESTIMATE EPSILON VECTOR
-
-3        END DO
-      ELSE
-         RETURN
-
-      ENDIF
-      RETURN
+            ! ESTIMATE EPSILON VECTOR
+            ! Modernization Fix: Replaced DO 5 loop with array slice
+            EPS(1:n) = (QLT(1:n) + TLT(1:n) * OME(1:n)) / PLTE(1:n)
+            
+         END DO picard_iteration_loop
+      END IF
 
    END SUBROUTINE SLVCLM
-! 12/8/94
 
 
 
-!SSSSSS subroutine RET (C, GN, THO, TH, FRNO, FRN, KDREF, R, RC, RT, DT, &
-   subroutine RET (C, GN, THO, TH, FRNO, FRN, KDREF, R, RC, RT, DT, &
-      NSED, ISNL)
-!                             CALCULATES THE GROUND SURFACE RETARDATION
-!                             FACTOR, R,
-!                             ITS CONCENTRATION DERIVATIVE ,RC,
-!                             AND ITS TIME DERIVATIVE ,RT,
-!                             DEPENDING ON THE CONCENTRATION IN THE
-!                             SURFACE WATER ,C,
-!                             PARTICLE SIZE FRACTIONS, FRNO AND FRN,
-!                             FREUNDLICH POWER, GN,
-!                             OLD AND NEW MOISTURE CONTENTS, THO AND TH,
-!                             REFERENCE Kd, KDREF,
-!                             SCALED TIME STEP, DT,
-!                             NUMBER OF SEDIMENT FRACTIONS, NSED,
-!                             AND THE 'NON-LINEAR ADSORPTION' FLAG, ISNL
-!
-!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-      DOUBLEPRECISION :: C, GN, THO, TH, R, RC, RT, DT
-      DOUBLEPRECISION FRNO ( * ), FRN ( * ), KDREF ( * )
-      INTEGER :: NSED, jsed, nj
-      DOUBLEPRECISION :: dumo, dum, sumo, sum, cdum, dumko, dumk, x1min
+   !SSSSSS subroutine RET
+   PURE SUBROUTINE RET(C, GN, THO, TH, FRNO, FRN, KDREF, R, RC, RT, DT, NSED, ISNL)
+   !----------------------------------------------------------------------*
+   ! CALCULATES THE GROUND SURFACE RETARDATION FACTOR, R,
+   ! ITS CONCENTRATION DERIVATIVE ,RC,
+   ! AND ITS TIME DERIVATIVE ,RT,
+   ! DEPENDING ON THE CONCENTRATION IN THE SURFACE WATER ,C,
+   ! PARTICLE SIZE FRACTIONS, FRNO AND FRN,
+   ! FREUNDLICH POWER, GN,
+   ! OLD AND NEW MOISTURE CONTENTS, THO AND TH,
+   ! REFERENCE Kd, KDREF,
+   ! SCALED TIME STEP, DT,
+   ! NUMBER OF SEDIMENT FRACTIONS, NSED,
+   ! AND THE 'NON-LINEAR ADSORPTION' FLAG, ISNL
+   !----------------------------------------------------------------------*
 
-      LOGICAL :: ISNL
-      DUMO = one / THO
-      DUM = one / TH
-      SUMO = zero
-      SUM = zero
-      DO 1 JSED = 1, NSED
-         SUMO = SUMO + FRNO (JSED) * KDREF (JSED)
-         SUM = SUM + FRN (JSED) * KDREF (JSED)
-1     END DO
-      IF (.NOT.ISNL) THEN
-!                             IS LINEAR ADSORPTION
-         R = one + SUMO * DUMO
-         RT = (SUM * DUM - SUMO * DUMO) / DT
-         RC = zero
+      IMPLICIT NONE
+
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: NSED
+      LOGICAL, INTENT(IN) :: ISNL
+      DOUBLE PRECISION, INTENT(IN)  :: C, GN, THO, TH, DT
+      
+      ! Modernization Fix: Changed (*) to (NSED) to allow vector operations
+      DOUBLE PRECISION, INTENT(IN)  :: FRNO(NSED), FRN(NSED), KDREF(NSED)
+      
+      DOUBLE PRECISION, INTENT(OUT) :: R, RC, RT
+
+      ! Locals
+      DOUBLE PRECISION :: DUMO, DUM, SUMO, SUMN, CDUM, DUMKO, DUMK
+
+   !----------------------------------------------------------------------*
+
+      DUMO = ONE / THO
+      DUM  = ONE / TH
+
+      ! Modernization Fix: Replaced DO loop with highly optimized DOT_PRODUCT
+      SUMO = DOT_PRODUCT(FRNO(1:NSED), KDREF(1:NSED))
+      SUMN = DOT_PRODUCT(FRN(1:NSED), KDREF(1:NSED))
+
+      IF (.NOT. ISNL) THEN
+         ! IS LINEAR ADSORPTION
+         R  = ONE + SUMO * DUMO
+         RT = (SUMN * DUM - SUMO * DUMO) / DT
+         RC = ZERO
       ELSE
-         CDUM = C** (GN - two)
+         ! NON-LINEAR ADSORPTION
+         CDUM  = C**(GN - TWO)
          DUMKO = SUMO * DUMO * CDUM
-         DUMK = SUM * DUM * CDUM
-         R = one + DUMKO * C
+         DUMK  = SUMN * DUM * CDUM
+         
+         R  = ONE + DUMKO * C
          RT = (DUMK - DUMKO) * C / DT
-         RC = (GN - one) * DUMKO
-      ENDIF
-      return
-   end subroutine RET
+         RC = (GN - ONE) * DUMKO
+      END IF
+
+   END SUBROUTINE RET
 
 
 
-!SSSSSS SUBROUTINE SNL3
+   !SSSSSS SUBROUTINE SNL3
    SUBROUTINE SNL3 (A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
          Q, S, X1, X2, X3, AY, AYS)
    !----------------------------------------------------------------------*
@@ -2835,149 +2784,173 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE FRET (C, GN, THO, TH, FRNO, FRN, KDREF, PO, P, PREF, F, &
-   SUBROUTINE FRET (C, GN, THO, TH, FRNO, FRN, KDREF, PO, P, PREF, F, &
-      FC, FT, DT, NSED, ISNL)
-!                             CALCULATES THE LINK RETARDATION
-!                             FACTOR, F,
-!                             ITS CONCENTRATION DERIVATIVE ,FC,
-!                             AND ITS TIME DERIVATIVE ,FT,
-!                             DEPENDING ON THE CONCENTRATION, C, IN THE
-!                             APPROPRIATE LINK CELL,
-!                             FREUNDLICH POWER, GN,
-!                             OLD AND NEW MOISTURE CONTENTS, THO AND TH,
-!                             OLD AND NEW FRACTION OF EACH PARTICLE
-!                             SIZE, HELD ,IN ARRAY FRNO AND FRN,
-!                             REFERENCE KdFOR EACH PARTICLE SIZE, HELD
-!                             IN ARRAY KDREF,
-!                             OLD AND NEW POROSITIES, PO AND P,
-!                             REFERENCE POROSITY, PREF,
-!                             SCALED TIME STEP, DT,
-!                             NUMBER OF SEDIMENT FRACTIONS, NSED,
-!                             AND THE 'NON-LINEAR ADSORPTION' FLAG, ISNL
-!
-!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-      DOUBLEPRECISION :: C, GN, THO, TH, PO, P, PREF, F, &
-         FC, FT, DT
-      DOUBLEPRECISION FRNO ( * ), FRN ( * ), KDREF ( * )
-      INTEGER :: NSED, jsed
-      DOUBLEPRECISION :: duma, dumo, dum, sumo, sum, dumjo, dumj, cdum, dumko, dumk
+   !SSSSSS SUBROUTINE FRET
+   PURE SUBROUTINE FRET(C, GN, THO, TH, FRNO, FRN, KDREF, PO, P, PREF, F, &
+                        FC, FT, DT, NSED, ISNL)
+   !----------------------------------------------------------------------*
+   ! CALCULATES THE LINK RETARDATION FACTOR, F,
+   ! ITS CONCENTRATION DERIVATIVE ,FC,
+   ! AND ITS TIME DERIVATIVE ,FT,
+   ! DEPENDING ON THE CONCENTRATION, C, IN THE APPROPRIATE LINK CELL,
+   ! FREUNDLICH POWER, GN,
+   ! OLD AND NEW MOISTURE CONTENTS, THO AND TH,
+   ! OLD AND NEW FRACTION OF EACH PARTICLE SIZE, HELD ,IN ARRAY FRNO AND FRN,
+   ! REFERENCE KdFOR EACH PARTICLE SIZE, HELD IN ARRAY KDREF,
+   ! OLD AND NEW POROSITIES, PO AND P,
+   ! REFERENCE POROSITY, PREF,
+   ! SCALED TIME STEP, DT,
+   ! NUMBER OF SEDIMENT FRACTIONS, NSED,
+   ! AND THE 'NON-LINEAR ADSORPTION' FLAG, ISNL
+   !----------------------------------------------------------------------*
 
-      LOGICAL :: ISNL
+      IMPLICIT NONE
+
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: NSED
+      LOGICAL, INTENT(IN) :: ISNL
+      DOUBLE PRECISION, INTENT(IN)  :: C, GN, THO, TH, PO, P, PREF, DT
+      
+      ! Modernization Fix: Changed (*) to explicit shape (NSED) for vector math
+      DOUBLE PRECISION, INTENT(IN)  :: FRNO(NSED), FRN(NSED), KDREF(NSED)
+      
+      DOUBLE PRECISION, INTENT(OUT) :: F, FC, FT
+
+      ! Locals
+      DOUBLE PRECISION :: DUMA, DUMO, DUM, SUMO, SUM, DUMJO, DUMJ, CDUM, DUMKO, DUMK
+
+   !----------------------------------------------------------------------*
+
       IF (ISZERO(C)) THEN
-         F = THO
-         FC = zero
+         F  = THO
+         FC = ZERO
          FT = (TH - THO) / DT
       ELSE
-         DUMA = one / (one - PREF)
-         DUMO = (one - PO) * DUMA
-         DUM = (one - P) * DUMA
-         SUMO = zero
-         SUM = zero
-         DO 1 JSED = 1, NSED
-            SUMO = SUMO + FRNO (JSED) * KDREF (JSED)
-            SUM = SUM + FRN (JSED) * KDREF (JSED)
-1        END DO
+         DUMA = ONE / (ONE - PREF)
+         DUMO = (ONE - PO) * DUMA
+         DUM  = (ONE - P) * DUMA
+
+         ! Modernization Fix: Replaced DO loop with highly optimized DOT_PRODUCT
+         SUMO = DOT_PRODUCT(FRNO(1:NSED), KDREF(1:NSED))
+         SUM  = DOT_PRODUCT(FRN(1:NSED), KDREF(1:NSED))
+
          DUMJO = DUMO * SUMO
-         DUMJ = DUM * SUM
-         IF (.NOT.ISNL) THEN
-!                             IS LINEAR ADSORPTION
-            F = THO + DUMJO
-            FC = zero
+         DUMJ  = DUM * SUM
+
+         IF (.NOT. ISNL) THEN
+            ! IS LINEAR ADSORPTION
+            F  = THO + DUMJO
+            FC = ZERO
             FT = (TH - THO + DUMJ - DUMJO) / DT
          ELSE
-            CDUM = C** (GN - two)
+            ! IS NON-LINEAR ADSORPTION
+            CDUM  = C**(GN - TWO)
             DUMKO = DUMJO * CDUM
-            DUMK = DUMJ * CDUM
-            F = TH + DUMKO * C
-            FC = (GN - one) * DUMKO
+            DUMK  = DUMJ * CDUM
+            
+            F  = TH + DUMKO * C
+            FC = (GN - ONE) * DUMKO
             FT = (TH - THO + (DUMK - DUMKO) * C) / DT
-         ENDIF
-      ENDIF
-      RETURN
+         END IF
+      END IF
+
    END SUBROUTINE FRET
 
 
 
-
-!SSSSSS SUBROUTINE PLANT (JPLANT, BCAA, BCAA1, BCBB, BCBB1, TSE)
-   SUBROUTINE PLANT (JPLANT, BCAA, BCAA1, BCBB, BCBB1, TSE)
-!
-!                       SETS UP AND SOLVES THE PLANT DIFFERENCE
-!                       DIFFERENCE EQUATIONS IN
-!                       WRSRU/TR/9107/12 SECTION 4
-!                       RETURNS THE UPDATED CONCENTRATIONS IN THE
-!                       PLANT COMPARTMENTS: BCAA1 AND BCBB1
-!
+   !SSSSSS SUBROUTINE PLANT
+   SUBROUTINE PLANT(JPLANT, BCAA, BCAA1, BCBB, BCBB1, TSE)
+   !----------------------------------------------------------------------*
+   !                       SETS UP AND SOLVES THE PLANT DIFFERENCE
+   !                       DIFFERENCE EQUATIONS IN
+   !                       WRSRU/TR/9107/12 SECTION 4
+   !                       RETURNS THE UPDATED CONCENTRATIONS IN THE
+   !                       PLANT COMPARTMENTS: BCAA1 AND BCBB1
+   !----------------------------------------------------------------------*
+      
       USE PLANT_CC
-      INTEGER :: JPLANT
-      DOUBLEPRECISION :: BCAA, BCAA1, BCBB, BCBB1, TSE
-      DOUBLEPRECISION :: gdum, wcpaa, topdum, botdum, wcpbb
 
-      GDUM = one + GCPL * TSE
+      IMPLICIT NONE
+
+      ! Dummy arguments
+      INTEGER, INTENT(IN) :: JPLANT
+      DOUBLE PRECISION, INTENT(IN)  :: BCAA, BCBB, TSE
+      DOUBLE PRECISION, INTENT(OUT) :: BCAA1, BCBB1
+
+      ! Locals
+      DOUBLE PRECISION :: GDUM, WCPAA, TOPDUM, BOTDUM, WCPBB
+
+   !----------------------------------------------------------------------*
+
+      GDUM = ONE + GCPL * TSE
+      
       IF (GTZERO(GMCPAA)) THEN
-         WCPAA = (RHOPL * QCPAA + GMCPAA * (GENAA (JPLANT) - GCPL * &
-            BCAA) ) / (GMCPAA * GDUM)
+         WCPAA = (RHOPL * QCPAA + GMCPAA * (GENAA(JPLANT) - GCPL * BCAA)) / (GMCPAA * GDUM)
          BCAA1 = BCAA + WCPAA * TSE
       ELSE
-!                             No plant mass in compartment A
-         BCAA1 = zero
+         ! No plant mass in compartment A
+         BCAA1 = ZERO
+      END IF
 
-      ENDIF
       IF (GTZERO(GMCPBB)) THEN
-         TOPDUM = RHOPL * QCPBB + GMCPBB * (GENBB (JPLANT) - GCPL * &
-            BCBB)
+         TOPDUM = RHOPL * QCPBB + GMCPBB * (GENBB(JPLANT) - GCPL * BCBB)
          BOTDUM = GMCPBB * GDUM
+         
          IF (GEZERO(GMCBBD)) THEN
             TOPDUM = TOPDUM - BCBB * GMCBBD
          ELSE
             BOTDUM = BOTDUM - GMCBBD * TSE
-         ENDIF
+         END IF
+         
          IF (NOTZERO(BOTDUM)) THEN
             WCPBB = TOPDUM / BOTDUM
             BCBB1 = BCBB + WCPBB * TSE
          ELSE
-            BCBB1 = zero
-         ENDIF
+            BCBB1 = ZERO
+         END IF
       ELSE
-         BCBB1 = zero
-!                 No mass in compartment B
+         ! No mass in compartment B
+         BCBB1 = ZERO
+      END IF
 
-      ENDIF
-      GENAA (JPLANT) = GCPL * BCAA
-
-      GENBB (JPLANT) = GCPL * BCBB
-!                 Decay generation values to be used for next
-!                 contaminant
-      RETURN
-
-
-
-
+      ! Decay generation values to be used for next contaminant
+      GENAA(JPLANT) = GCPL * BCAA
+      GENBB(JPLANT) = GCPL * BCBB
 
    END SUBROUTINE PLANT
 
 
 
-
-!SSSSSS SUBROUTINE PLPREP
+   !SSSSSS SUBROUTINE PLPREP
    SUBROUTINE PLPREP
-!                 Preparatory routine for plant uptake called once
-!                 every timestep
+   !----------------------------------------------------------------------*
+   !                 Preparatory routine for plant uptake called once
+   !                 every timestep
+   !----------------------------------------------------------------------*
+      
       USE PLANT_CC
-!                 Include parameter statements, water/contaminant
-!                 interface COMMON blocks, and plant COMMON blocks
-      INTEGER :: jplty
-      DO 100 JPLTY = 1, NPLT
-         PFTWO (JPLTY) = CLAI (JPLTY)
-         IF (NOTZERO(PFTWO (JPLTY))) THEN
-            DELFOU (JPLTY) = one
-         ELSE
-            DELFOU (JPLTY) = FLEFT (JPLTY)
-         ENDIF
+      ! Include parameter statements, water/contaminant
+      ! interface COMMON blocks, and plant COMMON blocks
 
-100   END DO
-!                 Set f2 delta4 for each plant type
-      RETURN
+      IMPLICIT NONE
+
+      ! Locals
+      INTEGER :: JPLTY
+
+   !----------------------------------------------------------------------*
+
+      ! Set f2 delta4 for each plant type
+      plant_type_loop: DO JPLTY = 1, NPLT
+         
+         PFTWO(JPLTY) = CLAI(JPLTY)
+         
+         IF (NOTZERO(PFTWO(JPLTY))) THEN
+            DELFOU(JPLTY) = ONE
+         ELSE
+            DELFOU(JPLTY) = FLEFT(JPLTY)
+         END IF
+         
+      END DO plant_type_loop
+
    END SUBROUTINE PLPREP
+
 end MODULE CMmod

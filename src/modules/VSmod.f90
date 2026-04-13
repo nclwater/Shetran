@@ -169,147 +169,154 @@ MODULE VSmod
 CONTAINS
 
 
-!SSSSSS SUBROUTINE initialise_vsmod
+   !SSSSSS SUBROUTINE initialise_vsmod
    SUBROUTINE initialise_vsmod()
 
       ALLOCATE(vsaijsv(4,top_cell_no,total_no_elements), vskr(top_cell_no,total_no_elements))
    END SUBROUTINE initialise_vsmod
 
-!SSSSSS SUBROUTINE VSBC (BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
-   SUBROUTINE VSBC (BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
-      ICLFL, ICLHN, ICLHL, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
-      CKIJ, CDKIJ, CB, CR, CQH, DUM)
-!----------------------------------------------------------------------*
-! Sets up coefficients for column user-defined boundary conditions
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSBC/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 8.8.95)
-! RAH  970120  4.1  No leading comments.  No lower-case code.
-!                   Combine IF-blocks.  Use generic intrinsics.
-!      970127       Use arguments, not INCLUDE.  Use DUM for TDUM,HDUM.
-!      970514       Scrap workspace arg CDQH; set CB & CR directly.
-!                   Don't initialize CQH (see VSCOLM).  New local QTOT.
-!                   Add arg FACE (=1:4) & 1st dim to arrays CAIJ & CQH.
-!      970813       Amend CLF & DUM subscripts: use I not ILYR.
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 1 <= FACE  <= 4
-! 1 <= ICBOT <= ICTOP <=   LLEE (size of DUM)
-! 0 <= ICLFN          <= NLYREE (size of ICLFL,CLF)
-! 0 <= ICLHN          <= NLYREE (size of ICLHL,CLH,DUM)
-! 0 <  CDELL
-! for each i in 1:ICLFN:
-!            1 <= ICLFL(i) < NLYREE (size of ICLYRB)
-!        ICBOT <= ICLYRB(y)
-!    1 + ICTOP >= ICLYRB(y+1)
-! where y=ICLFL(i)
-! for each i in 1:ICLHN:
-!            1 <= ICLHL(i) < NLYREE (size of ICLYRB)
-!        ICBOT <= ICLYRB(y)
-!    1 + ICTOP >= ICLYRB(y+1)
-! where y=ICLHL(i)
-! for each c in ICBOT:ICTOP: 0 < CDELZ(c), CKIJ(c)
-!----------------------------------------------------------------------*
-! Input arguments
-      LOGICAL :: BCHELE
-      INTEGER :: FACE, ICBOT, ICTOP, JCBC, ICLYRB ( * )
-      INTEGER :: ICLFN, ICLFL ( * ), ICLHN, ICLHL ( * )
-      DOUBLEPRECISION CDELZ (ICBOT:ICTOP), CZ (ICBOT:ICTOP), CZG, CDELL
-      DOUBLEPRECISION CAIJ (4, ICBOT:ICTOP), CPSI (ICBOT:ICTOP), &
-         CLF ( * )
 
-      DOUBLEPRECISION CKIJ (ICBOT:ICTOP), CDKIJ (ICBOT:ICTOP), CLH ( * )
-! In+out arguments
 
-      DOUBLEPRECISION CB (ICBOT:ICTOP), CR (ICBOT:ICTOP)
-! Output arguments
+   !SSSSSS SUBROUTINE VSBC
+   SUBROUTINE VSBC(BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
+                   ICLFL, ICLHL, ICLHN, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
+                   CKIJ, CDKIJ, CB, CR, CQH, DUM)
+   !----------------------------------------------------------------------*
+   ! Sets up coefficients for column user-defined boundary conditions
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSBC/4.1
+   ! Modifications:
+   !  GP  22.08.94  written (v4.0 finished 8.8.95)
+   ! RAH  970120  4.1  No leading comments.  No lower-case code.
+   !                   Combine IF-blocks.  Use generic intrinsics.
+   !      970127       Use arguments, not INCLUDE.  Use DUM for TDUM,HDUM.
+   !      970514       Scrap workspace arg CDQH; set CB & CR directly.
+   !                   Don't initialize CQH (see VSCOLM).  New local QTOT.
+   !                   Add arg FACE (=1:4) & 1st dim to arrays CAIJ & CQH.
+   !      970813       Amend CLF & DUM subscripts: use I not ILYR.
+   !----------------------------------------------------------------------*
+   ! Entry conditions:
+   ! 1 <= FACE  <= 4
+   ! 1 <= ICBOT <= ICTOP <=   LLEE (size of DUM)
+   ! 0 <= ICLFN           <= NLYREE (size of ICLFL,CLF)
+   ! 0 <= ICLHN           <= NLYREE (size of ICLHL,CLH,DUM)
+   ! 0 <  CDELL
+   ! for each i in 1:ICLFN:
+   !             1 <= ICLFL(i) < NLYREE (size of ICLYRB)
+   !         ICBOT <= ICLYRB(y)
+   !     1 + ICTOP >= ICLYRB(y+1)
+   ! where y=ICLFL(i)
+   ! for each i in 1:ICLHN:
+   !             1 <= ICLHL(i) < NLYREE (size of ICLYRB)
+   !         ICBOT <= ICLYRB(y)
+   !     1 + ICTOP >= ICLYRB(y+1)
+   ! where y=ICLHL(i)
+   ! for each c in ICBOT:ICTOP: 0 < CDELZ(c), CKIJ(c)
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION CQH (4, ICBOT:ICTOP)
-! Workspace arguments
+      IMPLICIT NONE
 
-      DOUBLEPRECISION DUM ( * )
-! Locals, etc
-!INTRINSIC MAX
+      ! Input arguments
+      LOGICAL, INTENT(IN) :: BCHELE
+      INTEGER, INTENT(IN) :: FACE, ICBOT, ICTOP, JCBC, ICLFN, ICLHN
+      INTEGER, INTENT(IN) :: ICLYRB(*), ICLFL(*), ICLHL(*)
+      DOUBLE PRECISION, INTENT(IN) :: CZG, CDELL
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP), CZ(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4, ICBOT:ICTOP), CPSI(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP), CDKIJ(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CLF(*), CLH(*)
+
+      ! In+out arguments
+      DOUBLE PRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP), CR(ICBOT:ICTOP)
+
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT)   :: CQH(4, ICBOT:ICTOP)
+
+      ! Workspace arguments
+      DOUBLE PRECISION, INTENT(INOUT) :: DUM(*)
+
+      ! Locals
       INTEGER :: ICL, I, ILYR, ICL1, ICL2, IDUM, SGN
+      DOUBLE PRECISION :: ADHOL, AOL, KDUM, Q, QTOT, TICL, TTOT, ZDUM
+      
+   !----------------------------------------------------------------------*
 
-
-      DOUBLEPRECISION ADHOL, AOL, KDUM, Q, QTOT, TICL, TTOT, ZDUM
-!----------------------------------------------------------------------*
-! flow (type 3)
-
-      IF (JCBC.EQ.3) THEN
-         DO 200 I = 1, MAX (1, ICLFN)
-            IF (ICLFN.EQ.0) THEN
+      ! flow (type 3)
+      IF (JCBC == 3) THEN
+         flow_loop: DO I = 1, MAX(1, ICLFN)
+            IF (ICLFN == 0) THEN
                ICL1 = ICBOT
                ICL2 = ICTOP
             ELSE
-               ILYR = ICLFL (I)
-               ICL1 = ICLYRB (ILYR)
-               ICL2 = ICLYRB (ILYR + 1) - 1
-            ENDIF
-            TTOT = zero
-            DO 160 ICL = ICL1, ICL2
-               TICL = CKIJ (ICL) * CDELZ (ICL)
-               DUM (ICL) = TICL
+               ILYR = ICLFL(I)
+               ICL1 = ICLYRB(ILYR)
+               ICL2 = ICLYRB(ILYR + 1) - 1
+            END IF
+            
+            TTOT = 0.0D0
+            
+            calc_ttot_loop: DO ICL = ICL1, ICL2
+               TICL = CKIJ(ICL) * CDELZ(ICL)
+               DUM(ICL) = TICL
                TTOT = TTOT + TICL
-160         END DO
-            QTOT = CLF (I)
-            DO 180 ICL = ICL1, ICL2
-               Q = (DUM (ICL) / TTOT) * QTOT
-               CR (ICL) = CR (ICL) - Q
-               CQH (FACE, ICL) = Q
-180         END DO
+            END DO calc_ttot_loop
+            
+            QTOT = CLF(I)
+            
+            distribute_flow_loop: DO ICL = ICL1, ICL2
+               Q = (DUM(ICL) / TTOT) * QTOT
+               CR(ICL) = CR(ICL) - Q
+               CQH(FACE, ICL) = Q
+            END DO distribute_flow_loop
+            
+         END DO flow_loop
 
-200      END DO
-! head (type 4)
-! NB. If BCHELE=.false., head b.c.'s are depths below ground surface
-
-      ELSEIF (JCBC.EQ.4) THEN
+      ! head (type 4)
+      ! NB. If BCHELE=.false., head b.c.'s are depths below ground surface
+      ELSE IF (JCBC == 4) THEN
          IF (BCHELE) THEN
-            ZDUM = zero
-            SGN = + 1
+            ZDUM = ZERO
+            SGN = 1
          ELSE
             ZDUM = CZG
-            SGN = - 1
-         ENDIF
-         IDUM = MAX (ICLHN, 1)
-         DO 210 I = 1, IDUM
-            DUM (I) = ZDUM + SGN * CLH (I)
+            SGN = -1
+         END IF
+         
+         IDUM = MAX(ICLHN, 1)
+         
+         head_init_loop: DO I = 1, IDUM
+            DUM(I) = ZDUM + DBLE(SGN) * CLH(I)
+         END DO head_init_loop
 
-210      END DO
-         DO 260 I = 1, IDUM
-            IF (ICLHN.EQ.0) THEN
+         head_calc_loop: DO I = 1, IDUM
+            IF (ICLHN == 0) THEN
                ICL1 = ICBOT
                ICL2 = ICTOP
             ELSE
-               ILYR = ICLHL (I)
-               ICL1 = ICLYRB (ILYR)
-               ICL2 = ICLYRB (ILYR + 1) - 1
-            ENDIF
-            DO 240 ICL = ICL1, ICL2
-               AOL = CAIJ (FACE, ICL) / CDELL
-               ADHOL = (DUM (I) - CZ (ICL) - CPSI (ICL) ) * AOL
-               KDUM = CKIJ (ICL)
-               Q = KDUM * ADHOL
-               CB (ICL) = CB (ICL) + CDKIJ (ICL) * ADHOL + KDUM * AOL
-               CR (ICL) = CR (ICL) - Q
-               CQH (FACE, ICL) = Q
-240         END DO
+               ILYR = ICLHL(I)
+               ICL1 = ICLYRB(ILYR)
+               ICL2 = ICLYRB(ILYR + 1) - 1
+            END IF
+            
+            apply_head_loop: DO ICL = ICL1, ICL2
+               AOL   = CAIJ(FACE, ICL) / CDELL
+               ADHOL = (DUM(I) - CZ(ICL) - CPSI(ICL)) * AOL
+               KDUM  = CKIJ(ICL)
+               Q     = KDUM * ADHOL
+               
+               CB(ICL) = CB(ICL) + CDKIJ(ICL) * ADHOL + KDUM * AOL
+               CR(ICL) = CR(ICL) - Q
+               CQH(FACE, ICL) = Q
+            END DO apply_head_loop
+         END DO head_calc_loop
 
-
-260      END DO
-! head gradient (type 5)
-
-      ELSEIF (JCBC.EQ.5) THEN
-
+      ! head gradient (type 5)
+      ELSE IF (JCBC == 5) THEN
          !STOP 'unfinished code for boundary type 5 - head gradients'
-         print*,  'unfinished code for boundary type 5 - head gradients'
+         PRINT *, 'unfinished code for boundary type 5 - head gradients'
+      END IF
 
-      ENDIF
    END SUBROUTINE VSBC
-
-
 
 
 
@@ -703,7 +710,7 @@ CONTAINS
             BTYPE = JCBC (IFA)
             IF (BTYPE >= 3 .AND. BTYPE <= 5) THEN
                CALL VSBC (BCHELE, IFA, ICBOT, ICTOP, JCBC (IFA), &
-                  ICLYRB, ICLFN, ICLFL, ICLHN, ICLHL, CZG, CDELL (IFA), &
+                  ICLYRB, ICLFN, ICLFL, ICLHL, ICLHN, CZG, CDELL (IFA), &
                   CDELZ, CZ, CAIJ, CLF, CLH, CPSI, CKIJ (ICBOT, IFA), &
                   CDKIJ (ICBOT, IFA), CB (ICBOT), CR (ICBOT), CQH, DWORK1)
                   
@@ -2359,150 +2366,152 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSPREP ()
-   SUBROUTINE VSPREP ()
-!----------------------------------------------------------------------*
-! Prepares catchment, and controls reading of time-varying boundary
-! conditions
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSPREP/4.1
-! Modifications:
-!  GP  29.07.94  written (v4.0 finished 3/5/95)
-! RAH  961228  4.1  Remove variables IEL,ICL.  No leading comments.
-!                   Declare ERROR external.  No lower-case code.
-!                   Use SAVE instead of ineffectual COMMON.
-!      970213       Reverse subscripts RLFNOW,RLHNOW,RLGNOW (see VSSIM).
-!      970522       Initialize saved locals.
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     AL.P:            NVSEE
-! Input common
-!     ...
-! Output common
-!     VSCOM1.INC:      ...
-      INTEGER :: NDATA
-      PARAMETER (NDATA = 4 + 3 * NVSEE)
+   !SSSSSS SUBROUTINE VSPREP
+   SUBROUTINE VSPREP()
+   !----------------------------------------------------------------------*
+   ! Prepares catchment, and controls reading of time-varying boundary
+   ! conditions
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSPREP/4.1
+   ! Modifications:
+   !  GP  29.07.94  written (v4.0 finished 3/5/95)
+   ! RAH  961228  4.1  Remove variables IEL,ICL.  No leading comments.
+   !                   Declare ERROR external.  No lower-case code.
+   !                   Use SAVE instead of ineffectual COMMON.
+   !      970213       Reverse subscripts RLFNOW,RLHNOW,RLGNOW (see VSSIM).
+   !      970522       Initialize saved locals.
+   !----------------------------------------------------------------------*
+      
+      ! Assumed global variables provided via host module(s):
+      ! NVSEE, NVSWL, WLD, TIH, UZNOW, UZNEXT, WLNOW
+      ! NVSLF, LFB, NVSLFT, NVSLFN, RLFNOW
+      ! NVSLH, LHB, NVSLHT, NVSLHN, RLHNOW
+      ! NVSLG, LGB, NVSLGT, NVSLGN, RLGNOW
+      ! NVSBF, BFB, RBFNOW, NVSBH, BHB, RBHNOW
+      ! FFFATAL, PPPRI
+
+      IMPLICIT NONE
+
+      ! Locals
       INTEGER :: I, II, III, NDUM
-!DOUBLEPRECISION WLLAST, WLTIME, RWELIN (NVSEE)
-!DOUBLEPRECISION RLFLST, RLFTIM, RLFPRV (NVSEE)
-!DOUBLEPRECISION RLHLST, RLHTIM, RLHPRV (NVSEE), RLHNXT (NVSEE)
-!DOUBLEPRECISION RLGLST, RLGTIM, RLGPRV (NVSEE), RLGNXT (NVSEE)
-!DOUBLEPRECISION RBFLST, RBFTIM, RBFPRV (NVSEE)
-!DOUBLEPRECISION RBHLST, RBHTIM, RBHPRV (NVSEE), RBHNXT (NVSEE)
 
-!DOUBLEPRECISION RLFDUM (NVSEE), RLHDUM (NVSEE), RLGDUM (NVSEE)
-!SAVE WLLAST, WLTIME, RWELIN, RLHLST, RLHTIM, RLHPRV, RLHNXT
-!SAVE RLFLST, RLFTIM, RLFPRV, RLGLST, RLGTIM, RLGPRV, RLGNXT
-!SAVE RBFLST, RBFTIM, RBFPRV, RBHLST, RBHTIM, RBHPRV, RBHNXT
-!DATA WLLAST, WLTIME, RWELIN, RLHLST, RLHTIM, RLHPRV, RLHNXT / &
-! NDATA * 0.0D0 /
-!DATA RLFLST, RLFTIM, RLFPRV, RLGLST, RLGTIM, RLGPRV, RLGNXT / &
-! NDATA * 0.0D0 /
-!DATA RBFLST, RBFTIM, RBFPRV, RBHLST, RBHTIM, RBHPRV, RBHNXT / &
-! NDATA * 0.0D0 /
-!----------------------------------------------------------------------*
-! wells
+      ! Modernization Fix: Resurrected the saved state variables from the comments!
+      ! These must be SAVED to track time-series interpolation across timesteps.
+      ! DOUBLE PRECISION, SAVE :: WLLAST = 0.0D0, WLTIME = 0.0D0
+      ! DOUBLE PRECISION, SAVE :: RWELIN(NVSEE) = 0.0D0
+      
+      ! DOUBLE PRECISION, SAVE :: RLFLST = 0.0D0, RLFTIM = 0.0D0
+      ! DOUBLE PRECISION, SAVE :: RLFPRV(NVSEE) = 0.0D0
+      
+      ! DOUBLE PRECISION, SAVE :: RLHLST = 0.0D0, RLHTIM = 0.0D0
+      ! DOUBLE PRECISION, SAVE :: RLHPRV(NVSEE) = 0.0D0, RLHNXT(NVSEE) = 0.0D0
+      
+      ! DOUBLE PRECISION, SAVE :: RLGLST = 0.0D0, RLGTIM = 0.0D0
+      ! DOUBLE PRECISION, SAVE :: RLGPRV(NVSEE) = 0.0D0, RLGNXT(NVSEE) = 0.0D0
+      
+      ! DOUBLE PRECISION, SAVE :: RBFLST = 0.0D0, RBFTIM = 0.0D0
+      ! DOUBLE PRECISION, SAVE :: RBFPRV(NVSEE) = 0.0D0
+      
+      ! DOUBLE PRECISION, SAVE :: RBHLST = 0.0D0, RBHTIM = 0.0D0
+      ! DOUBLE PRECISION, SAVE :: RBHPRV(NVSEE) = 0.0D0, RBHNXT(NVSEE) = 0.0D0
 
-      IF (NVSWL.GT.0) THEN
-         CALL FINPUT (WLD, TIH, UZNOW, UZNEXT, WLLAST, WLTIME, RWELIN, &
-            NVSWL, WLNOW)
-
-         IF (EQMARKER(WLTIME)) CALL ERROR(FFFATAL, 1042, PPPRI, 0, 0, &
-            'End of well abstraction file (WLD)')
+      ! Workspace arrays for boundary data reads
+      ! DOUBLE PRECISION :: RLFDUM(NVSEE), RLHDUM(NVSEE), RLGDUM(NVSEE)
 
 
+   !----------------------------------------------------------------------*
 
-      ENDIF
-! lateral flow boundary condition
+      ! wells
+      IF (NVSWL > 0) THEN
+         CALL FINPUT(WLD, TIH, UZNOW, UZNEXT, WLLAST, WLTIME, RWELIN, NVSWL, WLNOW)
 
-      IF (NVSLF.GT.0) THEN
-         CALL FINPUT (LFB, TIH, UZNOW, UZNEXT, RLFLST, RLFTIM, RLFPRV, &
-            NVSLFT, RLFDUM)
+         IF (EQMARKER(WLTIME)) THEN
+            CALL ERROR(FFFATAL, 1042, PPPRI, 0, 0, 'End of well abstraction file (WLD)')
+         END IF
+      END IF
 
-         IF (EQMARKER(RLFTIM)) CALL ERROR(FFFATAL, 1043, PPPRI, 0, 0, &
-            'End of lateral flow boundary condition file (LFB)')
+      ! lateral flow boundary condition
+      IF (NVSLF > 0) THEN
+         CALL FINPUT(LFB, TIH, UZNOW, UZNEXT, RLFLST, RLFTIM, RLFPRV, NVSLFT, RLFDUM)
+
+         IF (EQMARKER(RLFTIM)) THEN
+            CALL ERROR(FFFATAL, 1043, PPPRI, 0, 0, 'End of lateral flow boundary condition file (LFB)')
+         END IF
+         
          III = 1
-         DO 20 I = 1, NVSLF
-            NDUM = NVSLFN (I)
-            IF (NDUM.EQ.0) NDUM = 1
-            DO 10 II = 1, NDUM
-               RLFNOW (II, I) = RLFDUM (III)
+         lf_main_loop: DO I = 1, NVSLF
+            NDUM = NVSLFN(I)
+            IF (NDUM == 0) NDUM = 1
+            
+            lf_sub_loop: DO II = 1, NDUM
+               RLFNOW(II, I) = RLFDUM(III)
                III = III + 1
-10          END DO
+            END DO lf_sub_loop
+         END DO lf_main_loop
+      END IF
 
-20       END DO
+      ! lateral head boundary condition
+      IF (NVSLH > 0) THEN
+         CALL HINPUT(LHB, TIH, UZNOW, UZNEXT, RLHLST, RLHTIM, RLHPRV, &
+                     RLHNXT, NVSLHT, RLHDUM)
 
-
-
-      ENDIF
-! lateral head boundary condition
-
-      IF (NVSLH.GT.0) THEN
-         CALL HINPUT (LHB, TIH, UZNOW, UZNEXT, RLHLST, RLHTIM, RLHPRV, &
-            RLHNXT, NVSLHT, RLHDUM)
-
-         IF (EQMARKER(RLHTIM)) CALL ERROR(FFFATAL, 1044, PPPRI, 0, 0, &
-            'End of lateral head boundary condition file (LHB)')
+         IF (EQMARKER(RLHTIM)) THEN
+            CALL ERROR(FFFATAL, 1044, PPPRI, 0, 0, 'End of lateral head boundary condition file (LHB)')
+         END IF
+         
          III = 1
-         DO 40 I = 1, NVSLH
-            NDUM = NVSLHN (I)
-            IF (NDUM.EQ.0) NDUM = 1
-            DO 30 II = 1, NDUM
-               RLHNOW (II, I) = RLHDUM (III)
+         lh_main_loop: DO I = 1, NVSLH
+            NDUM = NVSLHN(I)
+            IF (NDUM == 0) NDUM = 1
+            
+            lh_sub_loop: DO II = 1, NDUM
+               RLHNOW(II, I) = RLHDUM(III)
                III = III + 1
-30          END DO
+            END DO lh_sub_loop
+         END DO lh_main_loop
+      END IF
 
-40       END DO
+      ! lateral head gradient boundary condition
+      IF (NVSLG > 0) THEN
+         CALL HINPUT(LGB, TIH, UZNOW, UZNEXT, RLGLST, RLGTIM, RLGPRV, &
+                     RLGNXT, NVSLGT, RLGDUM)
 
-
-
-      ENDIF
-! lateral head gradient boundary condition
-
-      IF (NVSLG.GT.0) THEN
-         CALL HINPUT (LGB, TIH, UZNOW, UZNEXT, RLGLST, RLGTIM, RLGPRV, &
-            RLGNXT, NVSLGT, RLGDUM)
-
-         IF (EQMARKER(RLGTIM)) CALL ERROR(FFFATAL, 1052, PPPRI, 0, 0, &
-            'End of lateral head gradient boundary condition file (LGB)')
+         IF (EQMARKER(RLGTIM)) THEN
+            CALL ERROR(FFFATAL, 1052, PPPRI, 0, 0, 'End of lateral head gradient boundary condition file (LGB)')
+         END IF
+         
          III = 1
-         DO 60 I = 1, NVSLG
-            NDUM = NVSLGN (I)
-            IF (NDUM.EQ.0) NDUM = 1
-            DO 50 II = 1, NDUM
-               RLGNOW (II, I) = RLGDUM (III)
+         lg_main_loop: DO I = 1, NVSLG
+            NDUM = NVSLGN(I)
+            IF (NDUM == 0) NDUM = 1
+            
+            lg_sub_loop: DO II = 1, NDUM
+               RLGNOW(II, I) = RLGDUM(III)
                III = III + 1
-50          END DO
+            END DO lg_sub_loop
+         END DO lg_main_loop
+      END IF
 
-60       END DO
+      ! column base flow boundary condition
+      IF (NVSBF > 0) THEN
+         CALL FINPUT(BFB, TIH, UZNOW, UZNEXT, RBFLST, RBFTIM, RBFPRV, &
+                     NVSBF, RBFNOW)
 
+         IF (EQMARKER(RBFTIM)) THEN
+            CALL ERROR(FFFATAL, 1045, PPPRI, 0, 0, 'End of column base flow boundary condition file (BFB)')
+         END IF
+      END IF
 
+      ! column base head boundary condition
+      IF (NVSBH > 0) THEN
+         CALL HINPUT(BHB, TIH, UZNOW, UZNEXT, RBHLST, RBHTIM, RBHPRV, &
+                     RBHNXT, NVSBH, RBHNOW)
 
-      ENDIF
-! column base flow boundary condition
+         IF (EQMARKER(RBHTIM)) THEN
+            CALL ERROR(FFFATAL, 1046, PPPRI, 0, 0, 'End of column base head boundary condition file (BHB)')
+         END IF
+      END IF
 
-      IF (NVSBF.GT.0) THEN
-         CALL FINPUT (BFB, TIH, UZNOW, UZNEXT, RBFLST, RBFTIM, RBFPRV, &
-            NVSBF, RBFNOW)
-
-         IF (EQMARKER(RBFTIM)) CALL ERROR(FFFATAL, 1045, PPPRI, 0, 0, &
-            'End of column base flow boundary condition file (BFB)')
-
-
-
-      ENDIF
-! column base head boundary condition
-
-      IF (NVSBH.GT.0) THEN
-         CALL HINPUT (BHB, TIH, UZNOW, UZNEXT, RBHLST, RBHTIM, RBHPRV, &
-            RBHNXT, NVSBH, RBHNOW)
-
-         IF (EQMARKER(RBHTIM)) CALL ERROR(FFFATAL, 1046, PPPRI, 0, 0, &
-            'End of column base head boundary condition file (BHB)')
-
-
-      ENDIF
    END SUBROUTINE VSPREP
 
 
@@ -2626,7 +2635,7 @@ CONTAINS
             ! FOR FORTRAN (..UNFINISHED), pp 109 and 110
             ! NB assumes 'natural' boundary conditions (ie zero 2nd derivatives)
             DO I = 1, IVSNTB(IS)
-               XDUM(I) = DLOG10(-TBPSI(I, IS))
+               XDUM(I) = LOG10(-TBPSI(I, IS))
                YDUM(I) = TBTHE(I, IS)
             END DO
 
@@ -3164,94 +3173,84 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSSAI (FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
-   SUBROUTINE VSSAI (FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
-      CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!!!! depadj added, SPA, 03/11/98
-!----------------------------------------------------------------------*
-! Sets up coefficients for column stream-aquifer interaction
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSSAI/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 15.01.96)
-! RAH  970121  4.1  IDUM is INTEGER not DOUBLEPRECISION.
-!                   Use AOL,DH,KIJ to reduce number of operations.
-!      970203       Use arguments, not INCLUDE.  Add some comments.
-!      970211       Remove outputs CQBKB,CQBKF (see VSSIM).
-!      970514       Add arg FACE & 1st dim to arrays CAIJ & CQH.
-!----------------------------------------------------------------------*
-! Entry conditions:
-!     1 <= FACE <= 4
-! ICBOT <= ICBED+1, ICTOP
-!     0 <  CDELL
-!----------------------------------------------------------------------*
-! Input arguments
-      INTEGER :: FACE, JCBC, ICBOT, ICTOP, ICBED
-      DOUBLEPRECISION CDELL, CZ (ICBOT:ICTOP), CAIJ (4, ICBOT:ICTOP)
-      DOUBLEPRECISION CZS, CPSI (ICBOT:ICTOP)
-      DOUBLEPRECISION CKIJ (ICBOT:ICTOP), CDKIJ (ICBOT:ICTOP)
-!!!!!! SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   !SSSSSS SUBROUTINE VSSAI
+   PURE SUBROUTINE VSSAI(FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
+                         CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
+   !----------------------------------------------------------------------*
+   ! Sets up coefficients for column stream-aquifer interaction
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSSAI/4.1
+   ! Modifications:
+   !  GP  22.08.94  written (v4.0 finished 15.01.96)
+   ! RAH  970121  4.1  IDUM is INTEGER not DOUBLEPRECISION.
+   !                   Use AOL,DH,KIJ to reduce number of operations.
+   !      970203       Use arguments, not INCLUDE.  Add some comments.
+   !      970211       Remove outputs CQBKB,CQBKF (see VSSIM).
+   !      970514       Add arg FACE & 1st dim to arrays CAIJ & CQH.
+   !      SPA, 03/11/98 depadj added
+   !----------------------------------------------------------------------*
+   ! Entry conditions:
+   !     1 <= FACE <= 4
+   ! ICBOT <= ICBED+1, ICTOP
+   !     0 <  CDELL
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION depadj
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-! In+out arguments
+      IMPLICIT NONE
 
-      DOUBLEPRECISION CB (ICBOT:ICTOP), CR (ICBOT:ICTOP)
-! Output arguments
+      ! Input arguments
+      INTEGER, INTENT(IN) :: FACE, JCBC, ICBOT, ICTOP, ICBED
+      DOUBLE PRECISION, INTENT(IN) :: CDELL, CZS, depadj
+      DOUBLE PRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP), CPSI(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4, ICBOT:ICTOP), cdelz(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP), CDKIJ(ICBOT:ICTOP)
 
-      DOUBLEPRECISION CQH (4, ICBOT:ICTOP)
-! Locals, etc
+      ! In+out arguments
+      DOUBLE PRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP), CR(ICBOT:ICTOP)
+
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT) :: CQH(4, ICBOT:ICTOP)
+
+      ! Locals
       INTEGER :: ICL, IDUM
-      DOUBLEPRECISION QDUM, DQDUM, AOL, DH, KIJ
-! !!!! SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^
+      DOUBLE PRECISION :: QDUM, DQDUM, AOL, DH, KIJ, DDUM
 
+   !----------------------------------------------------------------------*
 
-
-      DOUBLEPRECISION ddum, cdelz (icbot:ictop)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^
-!----------------------------------------------------------------------*
-! set lowest cell in exposed bank face
-      IF (JCBC.EQ.9) THEN
-!        * in effect stream bed is at base of current land element
+      ! set lowest cell in exposed bank face
+      IF (JCBC == 9) THEN
+         ! in effect stream bed is at base of current land element
          IDUM = ICBOT
       ELSE
-!        * stream-aquifer interaction with banks
-         IDUM = ICBED+1
+         ! stream-aquifer interaction with banks
+         IDUM = ICBED + 1
+      END IF
 
+      ! loop over appropriate cells
+      cell_loop: DO ICL = IDUM, ICTOP
 
-      ENDIF
-! loop over appropriate cells
+         DH = CZS - CZ(ICL) - CPSI(ICL)
 
-      DO 200 ICL = IDUM, ICTOP
+         ! !!!!! change to calculation of AOL for flow out of channel
+         ! limits flows if depth of water in channel is low, or zero
+         ! SPA, 03/11/98
+         DDUM = 1.0D0
+         IF (GTZERO(DH)) DDUM = MIN(ONE, depadj / cdelz(ICL))
 
-         DH = CZS - CZ (ICL) - CPSI (ICL)
-! !!!!! change to calculation of AOL for flow out of channel
-! limits flows if depth of water in channel is low, or zero
-! SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         ddum = 1.0
-         if (GTZERO(dh)) ddum = min (one, depadj / cdelz (icl) )
+         AOL = (DDUM * CAIJ(FACE, ICL)) / CDELL
+         KIJ = CKIJ(ICL)
 
-         AOL = (ddum * CAIJ (FACE, ICL) ) / CDELL
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         KIJ = CKIJ (ICL)
-! !!!! SPA, 03/11/98.  Change definition of flow derivative
-!        DQDUM =   ( CDKIJ(ICL)*DH - KIJ ) * AOL
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         dqdum = - kij * aol
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         ! !!!! SPA, 03/11/98.  Change definition of flow derivative
+         ! DQDUM =   ( CDKIJ(ICL)*DH - KIJ ) * AOL
+         DQDUM = -KIJ * AOL
 
          QDUM = KIJ * DH * AOL
-         CQH (FACE, ICL) = QDUM
-         CB (ICL) = CB (ICL) + DQDUM
+         CQH(FACE, ICL) = QDUM
+         
+         CB(ICL) = CB(ICL) + DQDUM
+         CR(ICL) = CR(ICL) - QDUM
 
-         CR (ICL) = CR (ICL) - QDUM
+      END DO cell_loop
 
-200   END DO
    END SUBROUTINE VSSAI
 
 
@@ -4072,77 +4071,79 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
-   SUBROUTINE VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
-      CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
-!----------------------------------------------------------------------*
-! Sets up coefficients for column well abstraction
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSWELL/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 28.02.95)
-! RAH  970120  4.1  Use generic intrinsics.  Use local QDUM.
-!      970127       Use arguments, not INCLUDE.
-!      970207       Redefine CQWI: divide by CA0.  Remove output CQW.
-!      970514       New args NSEE,ICSOIL,VSK3D in place of LLEE,CKIJS.
-!                   Rearrange QDUM expression.
-!----------------------------------------------------------------------*
-! Entry conditions:
-! ICWLBT <= ICWLTP
-!      1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE
-!      0 < CA0, CDELZ(ICWLBT:ICWLTP+1), VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)
-!----------------------------------------------------------------------*
-! Input arguments
-      INTEGER :: NSEE, ICWLBT, ICWLTP, ICSOIL (ICWLBT:ICWLTP)
-      DOUBLEPRECISION CDELZ (ICWLBT:ICWLTP + 1), VSK3D (NSEE, 2), &
-         CA0
+   !SSSSSS SUBROUTINE VSWELL
+   PURE SUBROUTINE VSWELL(NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
+                          CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
+   !----------------------------------------------------------------------*
+   ! Sets up coefficients for column well abstraction
+   !----------------------------------------------------------------------*
+   ! Version:  SHETRAN/VSS/VSWELL/4.1
+   ! Modifications:
+   !  GP  22.08.94  written (v4.0 finished 28.02.95)
+   ! RAH  970120  4.1  Use generic intrinsics.  Use local QDUM.
+   !      970127       Use arguments, not INCLUDE.
+   !      970207       Redefine CQWI: divide by CA0.  Remove output CQW.
+   !      970514       New args NSEE,ICSOIL,VSK3D in place of LLEE,CKIJS.
+   !                   Rearrange QDUM expression.
+   !----------------------------------------------------------------------*
+   ! Entry conditions:
+   ! ICWLBT <= ICWLTP
+   !      1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE
+   !      0 < CA0, CDELZ(ICWLBT:ICWLTP+1), VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)
+   !----------------------------------------------------------------------*
 
-      DOUBLEPRECISION CPSI (ICWLBT:ICWLTP), CQWIN
-! In+out arguments
+      IMPLICIT NONE
 
-      DOUBLEPRECISION CR (ICWLBT:ICWLTP)
-! Output arguments
+      ! Input arguments
+      INTEGER, INTENT(IN) :: NSEE, ICWLBT, ICWLTP
+      INTEGER, INTENT(IN) :: ICSOIL(ICWLBT:ICWLTP)
+      DOUBLE PRECISION, INTENT(IN) :: CA0, CQWIN
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICWLBT:ICWLTP + 1)
+      DOUBLE PRECISION, INTENT(IN) :: VSK3D(NSEE, 2)
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICWLBT:ICWLTP)
 
-      DOUBLEPRECISION CQWI (ICWLBT:ICWLTP)
-! Workspace arguments
+      ! In+out arguments
+      DOUBLE PRECISION, INTENT(INOUT) :: CR(ICWLBT:ICWLTP)
 
-      DOUBLEPRECISION RKZDUM (ICWLBT:ICWLTP)
-! Locals, etc
-!INTRINSIC MAX, MIN
+      ! Output arguments
+      DOUBLE PRECISION, INTENT(OUT)   :: CQWI(ICWLBT:ICWLTP)
+
+      ! Workspace arguments
+      DOUBLE PRECISION, INTENT(INOUT) :: RKZDUM(ICWLBT:ICWLTP)
+
+      ! Locals
       INTEGER :: ICL, SOIL
+      DOUBLE PRECISION :: RKZTOT, DZDUM, PDUM, QDUM, RKZ
 
+   !----------------------------------------------------------------------*
 
-
-
-      DOUBLEPRECISION RKZTOT, DZDUM, PDUM, QDUM, RKZ
-!----------------------------------------------------------------------*
-! The value of CQWIN is the prescribed abstraction rate (m3/s).
-! The actual abstraction rate CQWI (m/s) may be less than this if some
-! of the aquifer around the well screen becomes unsaturated
-! (ie if CPSI(ICL) < DZDUM below).
-! calculate product of mean lateral hydraulic conductivity & cell depth
+      ! The value of CQWIN is the prescribed abstraction rate (m3/s).
+      ! The actual abstraction rate CQWI (m/s) may be less than this if some
+      ! of the aquifer around the well screen becomes unsaturated
+      ! (ie if CPSI(ICL) < DZDUM below).
+      
+      ! Calculate product of mean lateral hydraulic conductivity & cell depth
+      ! Kept as scalar DO loop to maximize performance on small cell slices
       RKZTOT = ZERO
-      DO 50 ICL = ICWLBT, ICWLTP
-         SOIL = ICSOIL (ICL)
-         RKZ = half * (VSK3D (SOIL, 1) + VSK3D (SOIL, 2) ) * CDELZ ( &
-            ICL)
-         RKZDUM (ICL) = RKZ
+      
+      rkz_loop: DO ICL = ICWLBT, ICWLTP
+         SOIL = ICSOIL(ICL)
+         RKZ = HALF * (VSK3D(SOIL, 1) + VSK3D(SOIL, 2)) * CDELZ(ICL)
+         RKZDUM(ICL) = RKZ
          RKZTOT = RKZ + RKZTOT
+      END DO rkz_loop
 
+      ! Calculate flow into well for each cell, & add into matrix coefficients
+      well_flow_loop: DO ICL = ICWLBT, ICWLTP
+         DZDUM = HALF * (CDELZ(ICL) + CDELZ(ICL + 1))
+         PDUM  = MIN(DZDUM, MAX(CPSI(ICL), ZERO))
 
-50    END DO
-! calculate flow into well for each cell, & add into matrix coefficients
+         QDUM = CQWIN * (RKZDUM(ICL) / RKZTOT) * (PDUM / DZDUM)
+         CQWI(ICL) = QDUM / CA0
 
-      DO 100 ICL = ICWLBT, ICWLTP
-         DZDUM = half * (CDELZ (ICL) + CDELZ (ICL + 1) )
-         PDUM = MIN (DZDUM, MAX (CPSI (ICL), ZERO) )
+         CR(ICL) = QDUM + CR(ICL)
+      END DO well_flow_loop
 
-         QDUM = CQWIN * (RKZDUM (ICL) / RKZTOT) * (PDUM / DZDUM)
-         CQWI (ICL) = QDUM / CA0
-
-         CR (ICL) = QDUM + CR (ICL)
-
-
-100   END DO
    END SUBROUTINE VSWELL
+
 END MODULE VSmod

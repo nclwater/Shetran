@@ -147,11 +147,34 @@ CONTAINS
       CALL SPLIT_PATH_PORTABLE(cli_argument, dirqq, fn_part)
 
       fn = TRIM(fn_part)
-      catch = ''  ! Catchment info not used in modern version
+
+      ! Restore legacy naming behavior for output files by deriving CNAM from
+      ! the rundata filename (e.g., rundata_38014.txt -> 38014).
+      catch = derive_catch_from_filename(fn)
 
       RETURN
 
    CONTAINS
+
+      FUNCTION derive_catch_from_filename(filename) RESULT(catch_name)
+         CHARACTER(LEN=*), INTENT(IN) :: filename
+         CHARACTER(LEN=LENGTH_FILEPATH) :: catch_name
+         CHARACTER(LEN=LENGTH_FILEPATH) :: stem
+         INTEGER :: dot_pos
+
+         stem = TRIM(filename)
+         dot_pos = INDEX(stem, '.', BACK=.TRUE.)
+         IF (dot_pos > 1) stem = stem(1:dot_pos - 1)
+
+         IF (LEN_TRIM(stem) > 8) THEN
+            IF (stem(1:8) == 'rundata_') THEN
+               catch_name = TRIM(stem(9:))
+               RETURN
+            END IF
+         END IF
+
+         catch_name = TRIM(stem)
+      END FUNCTION derive_catch_from_filename
 
       ! Replaces the old 1000 GOTO block
       SUBROUTINE print_usage_and_stop(err_msg)

@@ -282,6 +282,8 @@ CONTAINS
       ENDIF
    END FUNCTION dimje
 
+
+
    !> summary: Prints an error message, updates error counters, and optionally stops the program.
    !> author: R. A. Heath, Newcastle University
    !>
@@ -296,169 +298,182 @@ CONTAINS
    !> | 1994-10-08 | RAH | v3.4.1: Created from v3.4. replace common counter arrays with local ERRC; extend ERRNUM range below 1000; introduce ETYPE=0; print IEL, CELL only if non-zero; print help files along with final asummary; declare everything; no INTEGER*2; test subscript ranges; tidy comments; call ALSTOP to stop; use local IFATAL etc instead of common FATAL etc; 1024 no longer uses EARRAY. |
    !> | 1997-08-04 | RAH | v4.1: Use EARRAY for error 1024. |
    !> | 1997-08-11 | RAH | Added EXTERNAL after INCLUDE. |
-   SUBROUTINE ERROR (ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
+   SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
+      
+      ! Assumed global variables provided via host module:
+      ! I_P, FFFATAL, EEERR, WWWARN, UZNOW, ERRTOT, ERRC, ERRNEE,
+      ! EARRAY, ISERROR, ISERROR2, rootdir, helppath, dirqq
+
       IMPLICIT NONE
 
       ! IO-related parameters and variables
-      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
+      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE  !! The type of error (FFFATAL, EEERR, WWWARN). A value of -999 triggers a help path check.
       INTEGER(KIND=I_P), INTENT(IN) :: ERRNUM !! The unique error number code.
-      INTEGER(KIND=I_P), INTENT(IN) :: OUT !! The output file unit for the message.
-      INTEGER(KIND=I_P), INTENT(IN) :: IEL !! The element number where the error occurred (optional).
-      INTEGER(KIND=I_P), INTENT(IN) :: CELL !! The cell number where the error occurred (optional).
-      CHARACTER (LEN=*), INTENT(IN) :: TEXT !! The descriptive error text.
+      INTEGER(KIND=I_P), INTENT(IN) :: OUT    !! The output file unit for the message.
+      INTEGER(KIND=I_P), INTENT(IN) :: IEL    !! The element number where the error occurred (optional).
+      INTEGER(KIND=I_P), INTENT(IN) :: CELL   !! The cell number where the error occurred (optional).
+      CHARACTER(LEN=*),  INTENT(IN) :: TEXT   !! The descriptive error text.
 
       INTEGER(KIND=I_P), PARAMETER :: NONE = 0
-      INTEGER(KIND=I_P), PARAMETER :: ERRCEE = (1 + ERRNEE) * 4
+      ! Assumes ERRNEE is accessible from host module
+      INTEGER(KIND=I_P), PARAMETER :: ERRCEE = (1 + ERRNEE) * 4 
       INTEGER(KIND=I_P), PARAMETER :: HLP = 8
 
       ! Local variables
-      CHARACTER (LEN=*) :: PATH1
-      PARAMETER (PATH1 = '/shetran/')
-      INTEGER(KIND=I_P) :: COUNT
-      INTEGER(KIND=I_P) :: ERRN
-      INTEGER(KIND=I_P) :: AMODL
-      CHARACTER (11) :: CTYPE (3)
-      CHARACTER(256) :: FIL
-      CHARACTER(80)  :: HLPMSG
-      LOGICAL :: VALID
+      CHARACTER(LEN=*), PARAMETER :: PATH1 = '/shetran/'
+      CHARACTER(LEN=256) :: FIL
+      CHARACTER(LEN=80)  :: HLPMSG
+      CHARACTER(LEN=1)   :: cc
+      CHARACTER(LEN=1), PARAMETER :: slash = '/'
+      
+      INTEGER(KIND=I_P) :: COUNT, ERRN, AMODL
       INTEGER(KIND=I_P) :: IO_STATUS
       INTEGER(KIND=I_P) :: helpcheck !! Status from checking for help directory.
-      CHARACTER :: cc
-      CHARACTER, PARAMETER :: slash = '/'
-      LOGICAL :: present
+      
+      LOGICAL :: VALID, present
+   
+      ! Modernization Fix: Replaced legacy DATA statement with a strict PARAMETER array
+      CHARACTER(LEN=11), PARAMETER :: CTYPE(3) = ['FATAL ERROR', '      ERROR', '    WARNING']
 
-      DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /
+   !-------------------------------------------------------------------*
 
       helppath = '/helpmessages'
 
       !**SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      ISERROR = .FALSE.
+      ISERROR  = .FALSE.
       ISERROR2 = .FALSE.
 
-      IF (ETYPE == - 999) THEN
-         present = .TRUE.;
-         !helppath = ''
-         !nett 09080
-         !""helpcheck = FULLPATHQQ ('helpmessages', helppath)
+      IF (ETYPE == -999) THEN
+         present = .TRUE.
          helpcheck = 60
-         ! IF(helpcheck/=0) INQUIRE(FILE=helppath, EXIST=present)
-         !IF(.NOT.present) THEN
-         !nett 090805
+         
          IF (helpcheck == 0) THEN
-            PRINT * , "Failedtofindthe'helpmessages'directory"
-            PRINT * , '  (which contains the help message files)'
-            PRINT * , "Itsnamemustbe'helpmessages'"
+            PRINT *, "Failed to find the 'helpmessages' directory"
+            PRINT *, "  (which contains the help message files)"
+            PRINT *, "Its name must be 'helpmessages'"
+            
             !""helpcheck = GETDRIVEDIRQQ (helppath)
             IF (helpcheck /= 0) THEN
-               !!PRINT *, "anditmustbein"//TRIM (helppath)
-            ENDIF
-            PRINT * , "Type's'tostopor'c'tocontinue"
-            !""cc = GETCHARQQ ()
+               !!PRINT *, "and it must be in "//TRIM(helppath)
+            END IF
+            
+            PRINT *, "Type 's' to stop or 'c' to continue"
+            
+            ! Intentional bypass by setting cc='c' before the loop
             cc = 'c'
-            DO WHILE (cc /= 'c'.AND.cc /= 's'.AND.cc /= 'C'.AND.cc /= 'S')
+            bypass_loop: DO WHILE (cc /= 'c' .AND. cc /= 's' .AND. cc /= 'C' .AND. cc /= 'S')
                !""cc = GETCHARQQ ()
-            ENDDO
-            IF (cc == 's'.OR.cc == 'S') STOP
-         ENDIF
+            END DO bypass_loop
+            
+            IF (cc == 's' .OR. cc == 'S') STOP
+         END IF
          RETURN
-      ENDIF
-! Write general error message
-! ---------------------------
-      IF (ETYPE.GE.1.AND.ETYPE.LE.3) THEN
-         IF (ETYPE.EQ.FFFATAL) WRITE (OUT, '(//)')
-         IF (IEL.EQ.0) THEN
-            WRITE (OUT, 9100) CTYPE (ETYPE), ERRNUM, UZNOW
-         ELSEIF (CELL.EQ.0) THEN
-            WRITE (OUT, 9100) CTYPE (ETYPE), ERRNUM, UZNOW, IEL
-         ELSE
-            WRITE (OUT, 9100) CTYPE (ETYPE), ERRNUM, UZNOW, IEL, CELL
-         ENDIF
-      ENDIF
+      END IF
 
-      WRITE (OUT, '(8X,A)') TEXT
+      ! Write general error message
+      ! ---------------------------
+      IF (ETYPE >= 1 .AND. ETYPE <= 3) THEN
+         IF (ETYPE == FFFATAL) WRITE(OUT, '(//)')
+         
+         IF (IEL == 0) THEN
+            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW
+         ELSE IF (CELL == 0) THEN
+            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL
+         ELSE
+            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL, CELL
+         END IF
+      END IF
+
+      WRITE(OUT, '(8X,A)') TEXT
+      
       ! Decompose ERRNUM and update counters
       ! ------------------------------------
-      IF (ETYPE.NE.NONE) THEN
+      IF (ETYPE /= NONE) THEN
          ERRTOT = ERRTOT + 1
-         AMODL = ERRNUM / 1000
-         ERRN = MOD (ERRNUM, 1000)
-         VALID = &
-            AMODL.GE.0.AND.AMODL.LE.3.AND.ERRN.GE.0.AND.ERRN.LE.ERRNEE
-         IF (VALID) ERRC (ERRN, AMODL) = ERRC (ERRN, AMODL) + 1
-      ENDIF
+         AMODL  = ERRNUM / 1000
+         ERRN   = MOD(ERRNUM, 1000)
+         
+         VALID  = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERRNEE)
+         IF (VALID) ERRC(ERRN, AMODL) = ERRC(ERRN, AMODL) + 1
+      END IF
 
       ! Write specific error messages
       ! -----------------------------
-      IF (ERRNUM.EQ.1003) THEN
-         WRITE (OUT, 91003) EARRAY (1)
+      IF (ERRNUM == 1003) THEN
+         WRITE(OUT, 91003) EARRAY(1)
          !*970804
-      ELSEIF (ERRNUM.EQ.1024) THEN
-         WRITE (OUT, 91024) EARRAY (1)
+      ELSE IF (ERRNUM == 1024) THEN
+         WRITE(OUT, 91024) EARRAY(1)
          !*
-      ENDIF
+      END IF
 
       !**SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      IF ((ERRNUM.EQ.1024).OR.(ERRNUM.EQ.1030)) THEN
-         ISERROR=.TRUE.
-      ENDIF
-      IF (ERRNUM.EQ.1060) THEN
-         ISERROR2=.TRUE.
-      ENDIF
+      IF (ERRNUM == 1024 .OR. ERRNUM == 1030) THEN
+         ISERROR = .TRUE.
+      END IF
+      IF (ERRNUM == 1060) THEN
+         ISERROR2 = .TRUE.
+      END IF
 
-      ! Write asummary
+      ! Write summary
       ! -------------
-      IF (ETYPE.EQ.FFFATAL.OR.ERRNUM.EQ.0) THEN
-         WRITE ( * , '(//A/A/)') ' ### Error asummary and Advice ###', '  ------------------------'
+      IF (ETYPE == FFFATAL .OR. ERRNUM == 0) THEN
+         WRITE(*, '(//A/A/)') ' ### Error summary and Advice ###', '  ------------------------'
 
-         IF (ERRTOT.GT.0) WRITE ( * , '(A/)') ' ==> Check printed output files for more details <=='
-         DO 50 AMODL = 0, 3
-            DO 10 ERRN = 0, ERRNEE
-               COUNT = ERRC (ERRN, AMODL)
+         IF (ERRTOT > 0) WRITE(*, '(A/)') ' ==> Check printed output files for more details <=='
+         
+         module_loop: DO AMODL = 0, 3
+            error_loop: DO ERRN = 0, ERRNEE
+               COUNT = ERRC(ERRN, AMODL)
 
-               IF (COUNT.GT.0) THEN
-
+               IF (COUNT > 0) THEN
                   !* Print number of occurrences
-                  WRITE ( *, 9500) ERRN + AMODL * 1000, COUNT
+                  WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
+                  
                   !* Print contents of help file (if any)
-                  WRITE (FIL, 9200) trim(rootdir)//TRIM (helppath) //'\', AMODL, ERRN
-                  print*,dirqq,rootdir
-                  print*,fil
+                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '\', AMODL, ERRN
+                  PRINT *, dirqq, rootdir
+                  PRINT *, FIL
+                  
                   WRITE(*, '(A)', ADVANCE='NO') 'Press Enter to continue...'
-                  READ(*,*)
-                  OPEN (HLP, FILE = FIL, STATUS = 'OLD', IOSTAT = IO_STATUS)
+                  READ(*, *)
+                  
+                  OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
                   IF (IO_STATUS == 0) THEN
-                     DO
-                        READ (HLP, '(A)', IOSTAT = IO_STATUS) HLPMSG
-                        IF (IO_STATUS /= 0) EXIT
-                        WRITE ( * , '(A)') HLPMSG
-                     END DO
-                     CLOSE (HLP)
-                  ENDIF
+                     read_help: DO
+                        READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
+                        IF (IO_STATUS /= 0) EXIT read_help
+                        WRITE(*, '(A)') HLPMSG
+                     END DO read_help
+                     CLOSE(HLP)
+                  END IF
 
-                  WRITE ( *, * )
-               ENDIF
-10          END DO
-50       END DO
+                  WRITE(*, *)
+               END IF
+            END DO error_loop
+         END DO module_loop
 
-         WRITE ( *, 9600) ERRTOT
-      ENDIF
+         WRITE(*, 9600) ERRTOT
+      END IF
 
       ! Stop?
       ! -----
-      IF (ETYPE.EQ.FFFATAL) CALL ALSTOP (1)
+      IF (ETYPE == FFFATAL) CALL ALSTOP(1)
 
       ! String format statements
       ! ------------------------
 9100  FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-      &         ', iel =', I5:', cell =', I5 )
+      &        ', iel =', I5:', cell =', I5 )
 9200  FORMAT(A,I1,I3.3)
 9500  FORMAT(' No. of occurrences of error number',I5.4,' is',I6)
-9600  FORMAT(/' ### End of asummary: recorded error count is',I7,' ###'/)
+9600  FORMAT(/' ### End of summary: recorded error count is',I7,' ###'/)
 91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G12.6,' METRES')
 !*970804
 91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')
 !*
    END SUBROUTINE ERROR
+
+
 
    !> summary: Performs system-level tasks and terminates the program.
    !> author: R. A. Heath, Newcastle University
