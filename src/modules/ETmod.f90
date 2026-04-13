@@ -13,7 +13,6 @@ MODULE ETmod
       NSMT, S, TIMEUZ, BWIDTH, &
       sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
    USE mod_load_filedata,    ONLY : ALCHK
-   USE mod_load_filedata,    ONLY : ERRC, ERRNEE, ERRTOT !HELPPATH !AD NEEDS THIS
    USE UTILSMOD, ONLY : DCOPY
    USE SMmod,    ONLY : SMIN, &
       smelt, tmelt !THESE NEEDED ONLY FOR AD
@@ -164,53 +163,53 @@ CONTAINS
 
 !SSSSSS SUBROUTINE ET
    SUBROUTINE ET (IEL)
-   !----------------------------------------------------------------------*
-   !
-   !        INTERCEPTION AND EVAPOTRANSPIRATION CALCULATIONS
-   !        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
-   !  THIS SUBROUTINE REPRESENTS THE MAJOR PART OF THE EVAPOTRANSPIRATION
-   !  COMPONENT, AND SHOULD BE CALLED FOR EACH ELEMENT IEL.
-   !  THREE MODES OF OPERATION ARE CURRENTLY INCORPORATED FOR THE
-   !  CALCULATION OF ACTUAL EVAPOTRANSPIRATION :
-   !
-   !    MODE 1 : POTENTIAL AND ACTUAL EVAPOTRANSPIRATION CALCULATED
-   !             BY THE PENMAN-MONTEITH EQUATION WITH CONSTANT RC
-   !    MODE 2 : AS MODE 1 BUT WITH A VARIABLE RC DEPENDENT ON THE
-   !             SUPPLIED VALUE OF PSI4
-   !    MODE 3 : POTENTIAL EVAPOTRANSPIRATION CALCULATED BY THE
-   !             PENMAN-MONTEITH EQUATION (WITH RC=0.), ACTUAL
-   !             EVAPOTRANSPIRATION CALCULATED FROM THE RATIO AE/PE
-   !             AS DEPENDENT ON THE SUPPLIED VALUE OF PSI4
-   !
-   !  IN ADDITION POTENTIAL EVAPORATION CAN EITHER BE CALCULATED USING
-   !  THE PENMAN EQUATION OR BE READ IN DIRECTLY AS A MEASURED QUANTITY.
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/ET/4.2
-   ! Modifications since v3.3:
-   !  JE  920908  3.4  Set ERUZ 4 times instead of once (fixes error).
-   !      920928       Replace (.eq.)0 with (.lt.)ZGRUND+1D-8 in HRF tests.
-   !  GP  921211       Move dry soil code & setting of S(LL) to ETIN.
-   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-   !  GP  950713  4.0  Remove "MODE 4" calculations (AE/PE=f(moisture)), &
-   !                   calculation of QBKI (see VSSIM). Use DELTAZ for DDZ.
-   ! RAH  970515  4.1  Swap DELTAZ indices.Explicit typing.Amend comments.
-   ! RAH  981021  4.2  Use block-IFs instead of GOTOs.
-   !                   Replace DLOG with generic LOG.
-   !                   Scrap output EPOTR (see AL.D).
-   !                   More MAX,ONE,ZERO,CSTOLD.  Bring FE from SPEC.ET.
-   !      981027       New locals BOTTOM,RABIG.  GAMMA units were wrong.
-   !                   Don't use EINT as intermediate variable.
-   !      981103       Don't set ERUZ(IEL,LL+1); and use 1 for local RDLINK
-   !                   (both used NHSAT, which has no defined value!).
-   !                   Scrap locals NEX (use MAX) & M2 (redundant), & hence
-   !                   also NSOIL (AL.D).
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !        INTERCEPTION AND EVAPOTRANSPIRATION CALCULATIONS
+      !        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
+      !  THIS SUBROUTINE REPRESENTS THE MAJOR PART OF THE EVAPOTRANSPIRATION
+      !  COMPONENT, AND SHOULD BE CALLED FOR EACH ELEMENT IEL.
+      !  THREE MODES OF OPERATION ARE CURRENTLY INCORPORATED FOR THE
+      !  CALCULATION OF ACTUAL EVAPOTRANSPIRATION :
+      !
+      !    MODE 1 : POTENTIAL AND ACTUAL EVAPOTRANSPIRATION CALCULATED
+      !             BY THE PENMAN-MONTEITH EQUATION WITH CONSTANT RC
+      !    MODE 2 : AS MODE 1 BUT WITH A VARIABLE RC DEPENDENT ON THE
+      !             SUPPLIED VALUE OF PSI4
+      !    MODE 3 : POTENTIAL EVAPOTRANSPIRATION CALCULATED BY THE
+      !             PENMAN-MONTEITH EQUATION (WITH RC=0.), ACTUAL
+      !             EVAPOTRANSPIRATION CALCULATED FROM THE RATIO AE/PE
+      !             AS DEPENDENT ON THE SUPPLIED VALUE OF PSI4
+      !
+      !  IN ADDITION POTENTIAL EVAPORATION CAN EITHER BE CALCULATED USING
+      !  THE PENMAN EQUATION OR BE READ IN DIRECTLY AS A MEASURED QUANTITY.
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/ET/ET/4.2
+      ! Modifications since v3.3:
+      !  JE  920908  3.4  Set ERUZ 4 times instead of once (fixes error).
+      !      920928       Replace (.eq.)0 with (.lt.)ZGRUND+1D-8 in HRF tests.
+      !  GP  921211       Move dry soil code & setting of S(LL) to ETIN.
+      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
+      !  GP  950713  4.0  Remove "MODE 4" calculations (AE/PE=f(moisture)), &
+      !                   calculation of QBKI (see VSSIM). Use DELTAZ for DDZ.
+      ! RAH  970515  4.1  Swap DELTAZ indices.Explicit typing.Amend comments.
+      ! RAH  981021  4.2  Use block-IFs instead of GOTOs.
+      !                   Replace DLOG with generic LOG.
+      !                   Scrap output EPOTR (see AL.D).
+      !                   More MAX,ONE,ZERO,CSTOLD.  Bring FE from SPEC.ET.
+      !      981027       New locals BOTTOM,RABIG.  GAMMA units were wrong.
+      !                   Don't use EINT as intermediate variable.
+      !      981103       Don't set ERUZ(IEL,LL+1); and use 1 for local RDLINK
+      !                   (both used NHSAT, which has no defined value!).
+      !                   Scrap locals NEX (use MAX) & M2 (redundant), & hence
+      !                   also NSOIL (AL.D).
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NMC, NRAINC, NVC, BAR, U, RA, RTOP, LAMDA, DEL, GAMMA, MEASPE, PE,
-      ! OBSPE, RN, RHO, CP, VPD, precip_m_per_s, CPLAI, DTUZ, PNET, EINT, 
+      ! OBSPE, RN, RHO, CP, VPD, precip_m_per_s, CPLAI, DTUZ, PNET, EINT,
       ! CSTORE, CSTCAP, CB, CK, DRAIN, AE, MODE, NRD, ERZ, ICMREF, top_cell_no,
       ! NHBED, msg, WWWARN, pppri, ERROR, PSI4, RC, RCF, PS1, NF, FET, RDF,
       ! UZALFA, ERUZ, S, DELTAZ, HRUZ, ESOIL, ZERO, ONE, LEZERO, NOTZERO
@@ -264,18 +263,18 @@ CONTAINS
       !--------------------------------------
       !-----NET RAIN NOT FALLING ON VEGETATION (mm)
       PNET = precip_m_per_s(IEL) * 1000.0D0 * (ONE - CPLAI) * DTUZ
-      
+
       !-----EVAPORATION OF INTERCEPTED RAIN (mm)
       EINT = PE * CPLAI * DTUZ
-      
+
       !-----NET SUPPLY TO CANOPY (mm/s)
       Q = CPLAI * (precip_m_per_s(IEL) * 1000.0D0 - PE)
-      
+
       !-----Update storage of, & calculate drainage from, canopy
       !! sb 4/9/07 note that the canopy storage is often greater than canopy s
       !! hence with very small cstcap, canopy evap. is often quite large
       CSTOLD = CSTORE (IEL)
-      
+
       !sb 4/9/07 changed GE to GT to stop error if cstcap=0
       IF (CSTOLD > CSTCAP (N)) THEN
          F1 = ONE
@@ -307,7 +306,7 @@ CONTAINS
          !--CASE OF CSTORE<CSTCAP
          CT1 = CSTOLD + DTUZ * CPLAI * precip_m_per_s(IEL) * 1000.0D0
          F1 = MIN (CT1 / CSTCAP (N), ONE)
-         
+
          !sb 4/9/07
          IF (LEZERO(CSTCAP(N))) THEN
             IF (LEZERO(CT1)) THEN
@@ -317,10 +316,10 @@ CONTAINS
             END IF
          END IF
          !end of sb 4/9/07
-         
+
          EINT = EINT * F1
          CT1 = CT1 - EINT
-         
+
          IF (CT1 > CSTCAP (N)) THEN
             XPSTOR = EXP (-CB (N) * (CT1 - CSTCAP (N)))
             CALC = LOG (DTUZ * CB (N) * CK (N) + XPSTOR)
@@ -411,7 +410,7 @@ CONTAINS
                   END IF
                END DO
             END IF
-            
+
             AE = TOP / (LAMDA * (DEL (MS) + GAMMA * (ONE + RC (N) / RA (N))))
 
          ELSE IF (M1 == 3) THEN
@@ -438,7 +437,7 @@ CONTAINS
                   END IF
                END DO
             END IF
-            
+
             AE = PE * FE
 
          END IF
@@ -447,11 +446,11 @@ CONTAINS
          !-----AE IS IN MM/S AND S IS IN M/S
          DUM = ZERO
          IF (HRUZ <= ZERO) DUM = AE * CPLAI * (ONE - F1) * RDF (N, KK) / (ONE + UZALFA (II))
-         
+
          ERZ = ERZ + DUM
          DUM = DUM * 1.0D-3
          ERUZ (IEL, II) = DUM
-         
+
          IF (NOTZERO(DUM)) THEN
             S (II) = DUM / DELTAZ (II, IEL)
          ELSE
@@ -514,21 +513,21 @@ CONTAINS
 
    !SSSSSS SUBROUTINE ETIN (IEL)
    SUBROUTINE ETIN (IEL)
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/ETIN/4.1
-   ! Modifications:
-   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-   !  GP  950118  4.0  Scrap call to PRIET.  Replace IRRC, RSZWEL & DDZ
-   !                   with NVSWLT, QVSWEL & DELTAZ.
-   ! RAH  970516  4.1  Swap DELTAZ indices.  Explicit typing.  Local WEL.
-   !                   Scrap AL.D outputs DWETOC, DWETEX & DWEXET, and
-   !                   SPEC.ET outputs DWETER & WSET.  Amend comments.
-   !                   Use MIN for CPLAI.  Remove redundant setting of N.
-   !----------------------------------------------------------------------*
-   ! Commons and constants
-   ! Output common
-   !     SPEC.AL:         NSMT
-   !                      CPLAI,HRUZ,PE,PNET,...
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/ET/ETIN/4.1
+      ! Modifications:
+      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
+      !  GP  950118  4.0  Scrap call to PRIET.  Replace IRRC, RSZWEL & DDZ
+      !                   with NVSWLT, QVSWEL & DELTAZ.
+      ! RAH  970516  4.1  Swap DELTAZ indices.  Explicit typing.  Local WEL.
+      !                   Scrap AL.D outputs DWETOC, DWETEX & DWEXET, and
+      !                   SPEC.ET outputs DWETER & WSET.  Amend comments.
+      !                   Use MIN for CPLAI.  Remove redundant setting of N.
+      !----------------------------------------------------------------------*
+      ! Commons and constants
+      ! Output common
+      !     SPEC.AL:         NSMT
+      !                      CPLAI,HRUZ,PE,PNET,...
 
       ! Assumed external module dependencies providing global variables:
       ! NMC, NRAINC, NVC, CLAI, ONE, PLAI, NSMT, BEXSM, SMIN, ET, PE, EINT,
@@ -557,7 +556,7 @@ CONTAINS
       ! NSMT IS AUTOMATICALLY SET TO 1 IF ET-CALCS FOR TEMP > 0 ARE NEEDED
       NSMT = 0
       IF (BEXSM) CALL SMIN (IEL)
-      
+
       ! Modernized logic to eliminate GOTO 10
       IF (NSMT /= 0 .OR. .NOT. BEXSM) THEN
          CALL ET (IEL)
@@ -593,17 +592,17 @@ CONTAINS
       ! initially exists GP 11/12/92
       IF (GTZERO(HRUZ)) THEN
          HRUZ = getHRF(IEL) - ZGRUND (IEL) + (PNETTO (IEL) - EPOT (IEL)) * DTUZ
-         
+
          IF (LTZERO(HRUZ)) THEN
             EDUM = -HRUZ / DTUZ
             ESWA (IEL) = EPOT (IEL) - EDUM
-            
+
             IF (PSI4 (top_cell_no) < -150.0D0) THEN
                ESOILA (IEL) = zero
             ELSE
                ESOILA (IEL) = EDUM
             END IF
-            
+
             HRUZ = zero
             PNET = zero
          ELSE
@@ -613,7 +612,7 @@ CONTAINS
       ELSE
          ESWA (IEL) = zero
       END IF
-      
+
       EEVAP (IEL) = ESWA (IEL) + ESOILA (IEL)
 
       S (top_cell_no) = S (top_cell_no) + ESOILA (IEL) / DELTAZ (top_cell_no, IEL)
@@ -637,7 +636,7 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! DTUZ, UZNEXT, TIMEUZ, NGDBGN, total_no_elements, ICMREF, CWIDTH,
-      ! BWIDTH, NHBED, UZALFA, FHBED, top_cell_no, ZERO, HRUZ, getHRF, 
+      ! BWIDTH, NHBED, UZALFA, FHBED, top_cell_no, ZERO, HRUZ, getHRF,
       ! ZGRUND, NLYRBT, VSPSI, PSI4, ETIN
 
       IMPLICIT NONE
@@ -655,12 +654,12 @@ CONTAINS
       ! Loop over land-elements
       DO IEL = NGDBGN, total_no_elements
          ITYPE = ICMREF (IEL, 1)
-         
+
          IF (ITYPE == 1 .OR. ITYPE == 2) THEN
             IL = ICMREF (IEL, 4)
             ALFA = 0.5D0 * CWIDTH (IL) / BWIDTH
             ICE = NHBED (IL, ITYPE) + 2
-            
+
             ! Replaced ALINIT with array slice
             UZALFA (1 : ICE - 2) = ALFA
             UZALFA (ICE - 1) = ALFA * FHBED (IL, ITYPE)
