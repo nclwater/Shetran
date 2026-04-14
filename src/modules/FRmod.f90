@@ -3834,7 +3834,12 @@ MODULE FRmod
       ! if true then the prd, epd and temperature files contain dates in the first column
       ! for backwards compatibility the default is false and BMETDATES will not be present in line ET1
       BMETDATES = .FALSE.
-      READ(ETD, '(4L7)') BMETP, BINETP, BMETAL, BMETDATES
+      READ(ETD, '(A)') HEAD
+      READ(HEAD, '(4L7)', IOSTAT=ios) BMETP, BINETP, BMETAL, BMETDATES
+      IF (ios /= 0) THEN
+         READ(HEAD, '(3L7)', IOSTAT=ios) BMETP, BINETP, BMETAL
+         BMETDATES = .FALSE.
+      END IF
 
       !-----READ TIMESTEP FOR INPUT OF MET AND RAINDATA,
       !     TIMECONSTANT FOR RAINFALL DISTRIBUTION
