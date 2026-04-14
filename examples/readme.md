@@ -1,71 +1,159 @@
-# Example & Test Models
+# Example and Test Models
 
-This directory contains a series of models which, overall cover most functionality offered by SHETRAN.
-It can also be used for change testing between different SHETRAN versions.
+This directory contains SHETRAN example models that are used for:
 
-## Structure
+- Functional coverage of model features.
+- Regression testing between SHETRAN versions/builds.
 
-Each model is in it's own directory beneath this one.
-By default there are two subdirectories, "backup_input" and "output_should".
-These contain, as named, the model input data for running it and the expected output.
-This structure exists so that the comparison script can more easily run and compare all of the models.
+The expected output files are not stored in Git because they are usually large.
+You generate them locally and then compare fresh runs against them.
 
-## Models
+## Directory Layout Per Model
 
-Still to fill in what is special about each model.
-There is a shorter readme with specifics in most model directories as well.
+Each model has its own subdirectory (for example, `Cobres/`), containing:
 
-## Workflow
+- `model/`: input files used to run SHETRAN.
+- `compute/`: simulation run directory created/refreshed by scripts.
+- `output_should/`: expected output baseline.
+- `diff_delta/`: detailed comparison output for detected differences.
 
-The example output files are generally too large to store in Git.
-Because of that, the expected ("correct") output files must be created locally first.
+Only `model/` is expected to exist initially.
 
-Recommended sequence:
+## Prerequisites
 
-1. Generate baseline expected outputs with `setup_results_check.py`.
-2. Run `check_results_consistency.py` to compare new runs against those expected outputs.
+Run commands from this `examples/` directory.
 
-## CLI Usage
+- A built SHETRAN executable (`shetran` on Linux/macOS, `shetran.exe` on Windows).
+- Python 3 with required packages used by these scripts:
+  - `pandas`, `numpy`, `h5py`, `matplotlib`, `tqdm`
 
-### setup_results_check.py
+Example install:
 
-Creates/refreshes the expected output files in each model `output_should` directory.
+```bash
+pip install pandas numpy h5py matplotlib tqdm
+```
 
-- `-m`, `--model <name>`: Select a model explicitly. Repeatable.
-  If used, this overrides `-l`.
-- `-l`, `--list {all,long,medium,short}`: Select a predefined model set.
-  Default is `short`.
+## Recommended Workflow
+
+1. Create or refresh baseline outputs:
+
+   ```bash
+   python setup_results_check.py --use-release-exe
+   ```
+
+2. Run consistency checks against that baseline:
+
+   ```bash
+   python check_results_consistency.py
+   ```
+
+3. If needed, clean generated data:
+
+   ```bash
+   python cleanup.py
+   ```
+
+## Script Overview
+
+### `setup_results_check.py`
+
+Runs selected models and copies `output_*` files from `compute/` to `output_should/`.
+
+Important behavior:
+
+- Requires exactly one executable selection:
+  - `-e/--exe <path>` or
+  - `--use-release-exe` (uses `_methods/settings.py` default).
+- `-m/--model` can be repeated and overrides `-l/--list`.
+- Model list defaults to `short`.
+- Writes runtime summary to `setup_overview.csv`.
+
+CLI options:
+
+- `-m`, `--model <name>`: Select model(s) explicitly (repeatable).
+- `-l`, `--list {all,long,medium,short}`: Predefined model set (default: `short`).
 - `-e`, `--exe <path>`: Path to SHETRAN executable.
-- `--use-release-exe`: Use `settings.default_shetran_exe`.
-  Overridden by `-e` if both are given.
+- `--use-release-exe`: Use default executable from settings.
 
 Examples:
 
-- `python setup_results_check.py --use-release-exe`
-- `python setup_results_check.py -l medium --use-release-exe`
-- `python setup_results_check.py -m Cobres -m dunsop -e ..\\build\\release\\bin\\shetran.exe`
+```bash
+python setup_results_check.py --use-release-exe
+python setup_results_check.py -l medium --use-release-exe
+python setup_results_check.py -m Cobres -m dunsop -e ../build/release/bin/shetran
+```
 
-### check_results_consistency.py
+### `check_results_consistency.py`
 
-Runs simulations and/or compares produced outputs against `output_should`.
+Runs simulations and/or compares `compute/` outputs with `output_should/`.
 
-- `-m`, `--model <name>`: Select a model explicitly. Repeatable.
-  If used, this overrides `-l`.
-- `-l`, `--list {all,long,medium,short}`: Select a predefined model set.
-  Default is `short`.
+Important behavior:
+
+- `-m/--model` can be repeated and overrides `-l/--list`.
+- Default model list is `short`.
+- By default does both simulation and comparison.
+- `--skip-simulation` performs comparison only.
+- `--skip-comparison` performs simulation only.
+- Writes per-model summary to `<model>/comparison_results.csv`.
+- Writes overall summary to `comparison_overview.csv`.
+
+CLI options:
+
+- `-m`, `--model <name>`: Select model(s) explicitly (repeatable).
+- `-l`, `--list {all,long,medium,short}`: Predefined model set (default: `short`).
+- `--shetran-exe <path>`: Path to SHETRAN executable (default from settings).
+- `--skip-simulation`: Skip running SHETRAN.
+- `--skip-comparison`: Skip file comparison.
+
+Generated comparison details in `<model>/diff_delta/`:
+
+- Table files: per-column delta CSV and plots.
+- Text files: unified diff text output.
+- HDF5 files: dataset-level delta tables and plots (where applicable).
+
+### `update_should_results.py`
+
+Copies current `compute/` outputs into `output_should/` for selected models.
+Use this only when you intentionally accept new outputs as the new baseline.
+
+Important behavior:
+
+- Can optionally run simulations first with `--run-simulation`.
+- If simulations are run, a runtime overview `update_results_overview.csv` is written.
+
+CLI options:
+
+- `-m`, `--model <name>`: Select model(s) explicitly (repeatable).
+- `-l`, `--list {all,long,medium,short}`: Predefined model set (default: `short`).
+- `--run-simulation`: Re-run selected models before copying.
 - `--shetran-exe <path>`: Path to SHETRAN executable.
-  Default is `settings.default_shetran_exe`.
-- `--skip-simulation`: Do only comparisons.
-- `--skip-comparison`: Do only simulations.
 
-Per-model differences are written to `<model>/diff_delta/`.
-Each model also gets `comparison_results.csv`, and an overall summary is written to `comparison_overview.csv`.
+### `cleanup.py`
 
-The difference directory contains:
+Removes generated directories and generated overview files.
 
-- If it is a table, a csv file for each table column including differences.
-  Also a graphic with both timeseries and the absolute as well as percentage delta.
-- If it is a text-file, a git diff style file containing all differences between both of them.
-- For an HDF5 file, a file containing the delta for each entry.
+Default behavior:
 
-Currently, files larger than 10 MB are not compared.
+- Removes `compute/` and `diff_delta/` for selected models.
+- Keeps `output_should/` unless explicitly requested.
+
+CLI options:
+
+- `-m`, `--model <name>`: Select model(s) explicitly (repeatable).
+- `-l`, `--list {all,long,medium,short}`: Predefined model set (default: `all`).
+- `--remove-expected-results`: Also remove `output_should/`.
+
+## Model Selection Lists
+
+The `short`, `medium`, and `long` sets are defined in `_methods/settings.py`.
+Those lists are currently curated manually and can be adjusted depending on runtime expectations.
+
+## Comparison Tolerances and Limits
+
+In `_methods/settings.py`:
+
+- `tolerance_numeric`: tolerance for numeric/HDF5 comparisons.
+- `tolerance_table`: tolerance for table comparisons.
+- `files_too_large_threshold_*`: skip thresholds to avoid expensive comparisons for very large files.
+
+If a file exceeds size thresholds, it is marked as too large to compare in summary outputs.
