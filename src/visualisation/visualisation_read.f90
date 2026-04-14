@@ -19,7 +19,7 @@ MODULE visualisation_read
 
 
    PRIVATE
-   PUBLIC :: vp_in, vp_out, mess, mess2, mess3, ERROR, R_C, R_I, R_R, COPY
+   PUBLIC :: vp_in, vp_out, mess, mess2, mess3, error_visualisation, R_C, R_I, R_R, COPY
 
 CONTAINS
 
@@ -74,7 +74,7 @@ CONTAINS
             ! Safely append the bad character only if we have room
             IF (i < szb) b(i + 1 : i + 1) = c
             WRITE(mess,*) TRIM(text) // ' - Expecting integer, but read ' // TRIM(b)
-            CALL ERROR()
+            CALL error_visualisation()
             RETURN
          END IF
 
@@ -87,7 +87,7 @@ CONTAINS
          IF (ios > 0) THEN
             ! Hard Read Error (replacing ERR=90)
             WRITE(mess,*) 'Error when trying to read integer ' // TRIM(text)
-            CALL ERROR()
+            CALL error_visualisation()
             RETURN
          ELSE IF (ios < 0) THEN
             ! End of Record (EOR) or End of File (EOF) (replacing EOR=80)
@@ -128,7 +128,7 @@ CONTAINS
          IF (ios > 0) THEN
             ! Hard Read Error (replacing ERR=90 & GOTO 100)
             WRITE(mess,*) 'Error when trying to read integer' // TRIM(text)
-            CALL ERROR()
+            CALL error_visualisation()
             RETURN
 
          ELSE IF (ios < 0) THEN
@@ -176,7 +176,7 @@ CONTAINS
          ! Check for non-valid characters OR buffer overflow (replacing GOTO 95)
          IF (.NOT. ANY(c == dr) .OR. i >= szb) THEN
             WRITE(mess,*) TRIM(text) // ' - Expecting real, but read ' // TRIM(b)
-            CALL ERROR()
+            CALL error_visualisation()
             RETURN
          END IF
 
@@ -189,7 +189,7 @@ CONTAINS
          IF (ios > 0) THEN
             ! Hard Read Error (replacing ERR=90)
             WRITE(mess,*) 'Error when trying to read real' // TRIM(text)
-            CALL ERROR()
+            CALL error_visualisation()
             RETURN
          ELSE IF (ios < 0) THEN
             ! End of Record (EOR) or End of File (EOF) (replacing EOR=80)
@@ -266,7 +266,7 @@ CONTAINS
    END SUBROUTINE r_r_1
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   SUBROUTINE error()
+   SUBROUTINE error_visualisation()
       CHARACTER(27), PARAMETER :: mm='*** VISUALISATION ERROR ***'
       WRITE(vp_out,'(/A)') mm
       WRITE(vp_out,88) TRIM(mess)
@@ -278,7 +278,7 @@ CONTAINS
       IF(mess3/='') PRINT 88, TRIM(mess3)
       STOP
 88    FORMAT(A)
-   END SUBROUTINE error
+   END SUBROUTINE error_visualisation
 
 
 
@@ -325,7 +325,7 @@ CONTAINS
       OPEN(UNIT=u, FILE=file, STATUS='OLD', IOSTAT=io)
       IF (io /= 0) THEN
          mess = ' failed to open ' // TRIM(file)
-         CALL ERROR()
+         CALL error_visualisation()
          RETURN
       END IF
 
@@ -333,7 +333,7 @@ CONTAINS
       IF (io /= 0 .OR. dum /= checktitle) THEN
          mess = 'wrong key in ' // TRIM(file)
          mess2 = ' Read ' // TRIM(dum) // ' expecting ' // TRIM(checktitle)
-         CALL ERROR()
+         CALL error_visualisation()
          RETURN
       END IF
 
@@ -359,7 +359,7 @@ CONTAINS
             i = i + 1
             IF (i > llen) THEN
                mess = 'System message: input data line too long in STRIP'
-               CALL ERROR()
+               CALL error_visualisation()
                RETURN
             END IF
 
@@ -368,7 +368,7 @@ CONTAINS
                WRITE(mess, '(A,I3)') TRIM(file) // ' contains ASCII character number ', ichar
                WRITE(mess2, '(A,I3,A,I4)') 'At character position ', i, ' in line ', lineno
                IF (ichar == 9) WRITE(mess3, '(A)') 'This is probably a tab character - removed or replace with spaces'
-               CALL ERROR()
+               CALL error_visualisation()
                RETURN
             END IF
 

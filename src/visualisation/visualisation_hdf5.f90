@@ -80,6 +80,7 @@ CONTAINS
       INTEGER(HID_T)           :: gp
       INTEGER(HID_T), DIMENSION(:), ALLOCATABLE, SAVE   :: gp_var
       INTEGER(HSIZE_T), DIMENSION(ndim)                 :: maxdims
+      INTEGER(HSIZE_T), DIMENSION(1)                    :: t_maxdims
       INTEGER(HSIZE_T), PARAMETER                       :: one=1
 !integer :: error
 !integer :: majnum, minnum, relnum
@@ -107,12 +108,19 @@ CONTAINS
 
       CALL H5GCREATE_F(file, 'CONSTANTS', group_static, error)
       CALL H5GCREATE_F(file, 'VARIABLES', group_dynamic, error)
+      t_maxdims(1) = H5S_UNLIMITED_F
+      CALL H5SCREATE_SIMPLE_F(1, (/one/), orig_t_dataspace, error, maxdims=t_maxdims)
 
       DO mn=1,ni
          hhdim = G_H5_I(mn, 'dimensions', jndim)
-         rank(mn) = COUNT(hhdim/=0)
+         rank(mn) = COUNT(hhdim>0)
+         IF(rank(mn)==0) rank(mn) = 1
          ALLOCATE(szz(mn)%a(rank(mn)), newsz(mn)%a(rank(mn)))
-         szz(mn)%a = PACK(hhdim, hhdim>0)
+         IF(COUNT(hhdim>0)>0) THEN
+            szz(mn)%a = PACK(hhdim, hhdim>0)
+         ELSE
+            szz(mn)%a = 1
+         ENDIF
 
          maxdims(2:rank(mn)) = szz(mn)%a(2:rank(mn))  !fixed dimensions
          istimeseries = G_H5_L(mn, 'istimeseries')
@@ -135,7 +143,6 @@ CONTAINS
          CALL H5SCREATE_SIMPLE_F(rank(mn), szz(mn)%a, orig_dataspace(mn), error, maxdims=maxdims(1:rank(mn)))
          CALL H5SCOPY_F(orig_dataspace(mn),dataspace(mn), error)
 
-         CALL H5SCREATE_SIMPLE_F(1, (/one/), orig_t_dataspace, error, maxdims=maxdims(1:rank(mn)))
          CALL H5SCOPY_F(orig_t_dataspace, t_dataspace(mn), error)
 
          CALL H5PSET_CHUNK_F(dataset_compress_property, rank(mn), szz(mn)%a, error)
@@ -160,7 +167,7 @@ CONTAINS
 
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-   CHARACTER(12) FUNCTION combination_name(mn) RESULT(r)
+   CHARACTER(csz) FUNCTION combination_name(mn) RESULT(r)
       INTEGER, INTENT(IN) :: mn
       CHARACTER(8)        :: dum
       WRITE(r,'(I3)')G_H5_I(mn,'users_number')
@@ -184,7 +191,9 @@ CONTAINS
          IF(istimeseries) CALL H5DCLOSE_F(t_dataset(mn), error)
          CALL H5SCLOSE_F(dataspace(mn), error)
          CALL H5SCLOSE_F(orig_dataspace(mn), error)
+         CALL H5SCLOSE_F(t_dataspace(mn), error)
       ENDDO
+      CALL H5SCLOSE_F(orig_t_dataspace, error)
       CALL H5GCLOSE_F(group_static, error)
       CALL H5GCLOSE_F(group_dynamic, error)
       CALL H5GCLOSE_F(group_images, error)
@@ -509,6 +518,7 @@ CONTAINS
          CHARACTER(*), INTENT(IN) :: name
          CHARACTER(csz)           :: dum(1)
          INTEGER(HID_T)           :: local_atype
+         INTEGER                  :: nvals
 
          SELECT CASE(name)
 
@@ -551,11 +561,17 @@ CONTAINS
           CASE('el-lst')
             arank    = 2
             dims2(1) = 2
-            dims2(2) = INT(G_H5_I(mn, 'sz'), HSIZE_T)
+            nvals    = MAX(0, G_H5_I(mn, 'sz'))
+            dims2(2) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
             
             ALLOCATE(pairs(dims2(1), dims2(2)))
+            pairs = 0
             pairs(1,:) = [ (i, i = 1, INT(dims2(2))) ]
-            pairs(2,:) = G_H5_I(mn, 'list', [ (jj, jj = 1, INT(dims2(2))) ])
+            IF(nvals>0) THEN
+               DO jj = 1, nvals
+                  pairs(2, jj) = G_H5_I(mn, 'list', jj)
+               ENDDO
+            ENDIF
             
             CALL H5SCREATE_SIMPLE_F(arank, dims2, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'element nos.', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
@@ -566,13 +582,19 @@ CONTAINS
 
           CASE('el_typ')
             arank    = 1
-            dims1(1) = INT(G_H5_I(mn, 'no_mbr'), HSIZE_T)
+            nvals    = MAX(0, G_H5_I(mn, 'no_mbr'))
+            dims1(1) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
             
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
             
             ALLOCATE(nme(dims1(1)))
-            nme = G_H5_C(mn, 'el-typ', [ (jj, jj = 1, INT(dims1(1))) ])
+            nme = ''
+            IF(nvals>0) THEN
+               DO jj = 1, nvals
+                  nme(jj) = G_H5_C(mn, 'el-typ', jj)
+               ENDDO
+            ENDIF
             
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'element types', local_atype, a_dataspace, attribute, error)
@@ -584,13 +606,19 @@ CONTAINS
 
           CASE('extra')
             arank    = 1
-            dims1(1) = INT(G_H5_I(mn, 'no_extra_dimensions'), HSIZE_T)
+            nvals    = MAX(0, G_H5_I(mn, 'no_extra_dimensions'))
+            dims1(1) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
             
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
             
             ALLOCATE(nme(dims1(1)))
-            nme = G_H5_C(mn, 'names_of_extra_dimensions', [ (jj, jj = 1, INT(dims1(1))) ])
+            nme = ''
+            IF(nvals>0) THEN
+               DO jj = 1, nvals
+                  nme(jj) = G_H5_C(mn, 'names_of_extra_dimensions', jj)
+               ENDDO
+            ENDIF
             
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'extra', local_atype, a_dataspace, attribute, error)

@@ -441,6 +441,7 @@ CONTAINS
        CASE('LS') ; r = 4
        CASE('MS') ; r = 1
        CASE('NS') ; r = 9
+       CASE DEFAULT ; r = 0
       END SELECT
    END FUNCTION mbr_count
 

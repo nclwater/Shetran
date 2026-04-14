@@ -7,7 +7,7 @@ MODULE visualisation_metadata
    USE VISUALISATION_PASS,      ONLY : SU_NUMBER, BANK_NO, RIVER_NO, EXISTS, nel, &
       IS_SQUARE, IS_BANK, IS_LINK, TOP_CELL, DIRQQ, nsed, ncon, &
       planfile, checkfile
-   USE VISUALISATION_READ,      ONLY : vp_in, vp_out, mess, mess2, mess3, ERROR, R_C, R_I, R_R, COPY
+   USE VISUALISATION_READ,      ONLY : vp_in, vp_out, mess, mess2, mess3, error_visualisation, R_C, R_I, R_R, COPY
    USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
    IMPLICIT NONE
@@ -478,12 +478,12 @@ CONTAINS
          DO i=no_static_items+1, no_items
             IF(.NOT.found(i)) THEN
                WRITE(mess,*) TRIM(items(i)%name)//' not recognised as dynamic variable'
-               CALL ERROR()
+               CALL error_visualisation()
             ELSEIF(.NOT.items(i)%implemented) THEN
                WRITE(mess,*) TRIM(items(i)%name)//' is listed in documentation'
                WRITE(mess2,*)'but has not yet been implemented '
                WRITE(mess3,*)'see the variable variables list in check_visualisation_plan.txt'
-               CALL ERROR()
+               CALL error_visualisation()
             ENDIF
             ii  =>items(i)
             CALL CHECK_ITEM(ii)
@@ -599,7 +599,7 @@ CONTAINS
       CHARACTER, INTENT(IN)     :: typ
       TYPE(ITEM), INTENT(INOUT) :: ii
       IF(typ=='W') THEN
-         WRITE(mess,*) 'cannot handle type W data' ; CALL ERROR()
+         WRITE(mess,*) 'cannot handle type W data' ; CALL error_visualisation()
          ii%typ = 'W*'
          RETURN
       ENDIF
@@ -774,7 +774,7 @@ CONTAINS
       ENDDO
       IF(.NOT.ASSOCIATED(r)) THEN
          WRITE(mess,'(A,I3)') 'Failed to find mask ',users_no_for_link_or_mask
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
    END FUNCTION point_to_mask
 
@@ -795,7 +795,7 @@ CONTAINS
          ENDDO
          IF(j==0) THEN
             WRITE(mess,'(A,I3)') 'Failed to find mask ',users_no_for_link_or_mask
-            CALL ERROR()
+            CALL error_visualisation()
          ENDIF
          r => lists(masks(i)%listno+EXTRA(scope))
       ELSE
@@ -807,7 +807,7 @@ CONTAINS
          ENDDO
          IF(j==0) THEN
             WRITE(mess,'(A,I3)') 'Failed to find list ',users_no_for_link_or_mask
-            CALL ERROR()
+            CALL error_visualisation()
          ENDIF
          r =>lists(j+EXTRA(scope))
       ENDIF
@@ -828,7 +828,7 @@ CONTAINS
       ENDDO
       IF(.NOT.ASSOCIATED(r)) THEN
          WRITE(mess,'(A,I3)') 'Failed to find times data set ',users_no_for_times
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
    END FUNCTION point_to_time
 
@@ -897,7 +897,7 @@ CONTAINS
 !            s%group_with   = no_items-1
           CASE DEFAULT
             WRITE(mess,'(A,I4)') TRIM(dum)//'  Unrecognised heading in item number',s%users_number
-            CALL ERROR()
+            CALL error_visualisation()
          END SELECT
       ENDDO
    END SUBROUTINE read_item
@@ -911,35 +911,35 @@ CONTAINS
       IF (ALL(a%basis/=basis)) THEN
          WRITE(mess,'(2A)') a%basis,'  BASIS NOT RECOGNISED'
          WRITE(mess2,'(A,10A14)') ' SHOULD BE ONE OF: ',basis
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
       IF (ALL(a%scope/=scope)) THEN
          WRITE(mess,'(2A)')  a%scope,'SCOPE NOT RECOGNISED'
          WRITE(mess2,'(A,10A8)') 'SHOULD BE ONE OF: ',scope
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
       IF (ALL(a%extra_dimensions/=extra_dimensions)) THEN
          WRITE(mess,'(2A)')  a%extra_dimensions,'EXTRA_DIMENSION NOT RECOGNISED'
          WRITE(mess2,'(A,10A8)') 'SHOULD BE ONE OF: ',extra_dimensions
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
       IF(a%varies_with_sediment) THEN
          IF(a%sediment_no<1 .OR. a%sediment_no>nsed) THEN
             WRITE(mess,'(A,I4,A,I4,A)')  'IN ITEM ', a%users_number, ' SEDIMENT No ',a%sediment_no, ' DOES NOT EXIST'
-            CALL ERROR()
+            CALL error_visualisation()
          ENDIF
       ELSEIF(a%sediment_no/=0) THEN
          WRITE(mess,'(A,I4,A,I4,A)')  'IN ITEM ', a%users_number, ' SEDIMENT No ',a%sediment_no, ' SHOULD NOT BE SPECIFIED'
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
       IF(a%varies_with_contaminant) THEN
          IF(a%contaminant_no<1 .OR. a%contaminant_no>ncon) THEN
             WRITE(mess,'(A,I4,A,I4,A)')  'IN ITEM ',a%users_number, ' CONTAMINANT No ',a%contaminant_no, ' DOES NOT EXIST'
-            CALL ERROR()
+            CALL error_visualisation()
          ENDIF
       ELSEIF(a%contaminant_no/=0) THEN
          WRITE(mess,'(A,I4,A,I4,A)')  'IN ITEM ', a%users_number, ' SEDIMENT No ',a%contaminant_no, ' SHOULD NOT BE SPECIFIED'
-         CALL ERROR()
+         CALL error_visualisation()
       ENDIF
 
    END SUBROUTINE check_item
@@ -962,7 +962,7 @@ CONTAINS
             cnt = cnt + 1
          ENDIF
       ENDDO
-      IF(cnt>0) CALL ERROR()
+      IF(cnt>0) CALL error_visualisation()
    END SUBROUTINE final_check_of_item
 
 
@@ -1012,7 +1012,7 @@ CONTAINS
             cnt = cnt + 1
          ENDIF
       ENDDO
-      IF(cnt>0) CALL ERROR()
+      IF(cnt>0) CALL error_visualisation()
    END SUBROUTINE read_list
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -1250,6 +1250,7 @@ CONTAINS
        CASE('faces')       ; r = 4
        CASE('left_right')  ; r = 2
        CASE('X_Y')         ; r = 2
+       CASE DEFAULT        ; r = 1
       END SELECT
    END FUNCTION no_extra_dimensions
 
