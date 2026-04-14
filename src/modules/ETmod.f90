@@ -246,14 +246,14 @@ CONTAINS
 
       !-----Potential evapotranspiration & Penman equation numerator
       !! sb 20/6/07 has del been defined here? I think not
-      BOTTOM = LAMDA * (DEL (MS) + GAMMA)
-      IF (MEASPE (MS) /= 0) THEN
+      BOTTOM = LAMDA * (DEL (N) + GAMMA)
+      IF (MEASPE (N) /= 0) THEN
          !---------PE ALREADY KNOWN AS A MEASURED QUANTITY
          PE = OBSPE (MS)
          TOP = PE * BOTTOM
       ELSE
          !---------PE MUST BE CALCULATED USING PENMAN EQUATION
-         TOP = MAX (ZERO, RN (MS) * DEL (MS) + RHO * CP * VPD (MS) / RA (N))
+         TOP = MAX (ZERO, RN (MS) * DEL (N) + RHO * CP * VPD (MS) / RA (N))
          !         TOP = TOP * 1D3 / densityOfWater   is implied!
          PE = TOP / BOTTOM
       END IF
@@ -382,7 +382,7 @@ CONTAINS
             IF (PSI4 (II) >= ZERO) THEN
                AE = PE
             ELSE
-               AE = TOP / (LAMDA * (DEL (MS) + GAMMA * (ONE + RC (N) / RA (N))))
+               AE = TOP / (LAMDA * (DEL (N) + GAMMA * (ONE + RC (N) / RA (N))))
             END IF
 
          ELSE IF (M1 == 2) THEN
@@ -411,7 +411,7 @@ CONTAINS
                END DO
             END IF
 
-            AE = TOP / (LAMDA * (DEL (MS) + GAMMA * (ONE + RC (N) / RA (N))))
+            AE = TOP / (LAMDA * (DEL (N) + GAMMA * (ONE + RC (N) / RA (N))))
 
          ELSE IF (M1 == 3) THEN
             !--------------------------------
