@@ -175,19 +175,6 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     # compare the contents column-by-column and expose per-column metrics.
     # This powers the expanded comparison_results.csv output (one row per column).
     if res["identical_columns"]:
-
-        # combine the two numeric columns into a single column with
-        # the values from both
-        df_combined = pd.concat([df_should[col], df_is[col]],
-                                axis=1,
-                                keys=["should", "is"])
-
-        # do a linear value interpolation to fill in any missing values
-        df_combined["should"] = df_combined["should"].interpolate(
-            method="linear", limit_direction="both")
-        df_combined["is"] = df_combined["is"].interpolate(
-            method="linear", limit_direction="both")
-
         for idx, col in enumerate(df_should.columns):
             # remove & replace special characters for legacy per-column flags
             col_save = col.replace(" ", "_").replace("/",
@@ -195,10 +182,25 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
             col_save = "".join(filter(None, col_save.split("_")))
             col_save = "".join(filter(None, col_save.split(".")))
 
+            should_col_name = f"{col}_should"
+            is_col_name = f"{col}_is"
+
+            # Outer alignment makes shared index values land in the same row,
+            # and keeps index values that exist only in one file as NaN on the other side.
+            df_combined = pd.concat(
+                [
+                    df_should[col].rename(should_col_name),
+                    df_is[col].rename(is_col_name),
+                ],
+                axis=1,
+                join="outer",
+            )
+
             is_numeric = pd.api.types.is_numeric_dtype(df_should[col])
             if idx in date_time_should or not is_numeric:
                 # Keep non-numeric/date columns in the overview with NaN metrics.
-                data_differs = not df_should[col].equals(df_is[col])
+                data_differs = not df_combined[should_col_name].equals(
+                    df_combined[is_col_name])
                 if data_differs:
                     flag_diff = True
                     res[f"non_numeric_column_{col_save}"] = False
@@ -221,24 +223,35 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 continue
 
             # add difference columns, both percentage and absolute
-            df_combined["diff_abs"] = df_combined["should"] - df_combined["is"]
-            df_combined["diff_pct"] = df_combined["diff_abs"] / df_combined[
-                "should"].replace(0, pd.NA)
+            df_combined["diff_abs"] = (df_combined[should_col_name] -
+                                       df_combined[is_col_name])
+            df_combined["diff_pct"] = (
+                df_combined["diff_abs"] /
+                df_combined[should_col_name].replace(0, pd.NA))
 
             abs_max_difference = df_combined["diff_abs"].abs().max()
             perc_max_difference = df_combined["diff_pct"].abs().max()
             abs_mean_difference = df_combined["diff_abs"].abs().mean()
             perc_mean_difference = df_combined["diff_pct"].abs().mean()
 
+            # Metrics and plots continue to use canonical names.
+            df_analysis = df_combined.rename(columns={
+                should_col_name: "should",
+                is_col_name: "is",
+            })
+
             # record legacy percentage difference key for backwards compatibility
             res[f"perc_diff_max_col_{col_save}"] = perc_max_difference
 
-            metrics = _get_similarity_metrics(df_combined)
+            metrics = _get_similarity_metrics(df_analysis)
 
             # check if the differences are within the tolerance
             within_tolerance = (df_combined["diff_abs"].abs().dropna().le(
                 settings.tolerance_numeric).all())
-            data_differs = not within_tolerance
+            missing_counterpart_values = df_combined[[
+                should_col_name, is_col_name
+            ]].isna().any(axis=1).any()
+            data_differs = missing_counterpart_values or not within_tolerance
 
             table_column_metrics.append({
                 "col_name": col.strip(),
@@ -254,7 +267,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 "R²": metrics["R²"],
             })
 
-            if not within_tolerance:
+            if data_differs:
                 # write to file, putting in an extension with the column name
                 safe_col = (col.replace(" ",
                                         "_").replace("/",
@@ -279,7 +292,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
 
                 # generate column difference plots
                 fn_figure = os.path.splitext(fn_col)[0] + ".png"
-                compare_plots.plot_col_differences(df_combined, col, fn_figure,
+                compare_plots.plot_col_differences(df_analysis, col, fn_figure,
                                                    metrics)
 
                 flag_diff = True
