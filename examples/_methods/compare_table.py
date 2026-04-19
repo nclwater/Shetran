@@ -196,6 +196,12 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 join="outer",
             )
 
+            # make certain the index is sorted
+            df_combined.sort_index(inplace=True)
+
+            # interpolate all "missing" entries using linear interpolation
+            df_combined.interpolate(method="linear", inplace=True)
+
             is_numeric = pd.api.types.is_numeric_dtype(df_should[col])
             if idx in date_time_should or not is_numeric:
                 # Keep non-numeric/date columns in the overview with NaN metrics.
@@ -228,6 +234,11 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
             df_combined["diff_pct"] = (
                 df_combined["diff_abs"] /
                 df_combined[should_col_name].replace(0, pd.NA))
+
+            both_zero_mask = ((df_combined[should_col_name] == 0) &
+                              (df_combined[is_col_name] == 0))
+            df_combined.loc[both_zero_mask, "diff_abs"] = 0
+            df_combined.loc[both_zero_mask, "diff_pct"] = 0
 
             abs_max_difference = df_combined["diff_abs"].abs().max()
             perc_max_difference = df_combined["diff_pct"].abs().max()
