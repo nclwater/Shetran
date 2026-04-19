@@ -142,9 +142,52 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     else:
         res["same_non_numeric_columns"] = True
 
+    # check that there is only one date-time column
+    if len(date_time_should) > 1:
+        flag_diff = True
+        res["too_many_date_time_columns"] = True
+    else:
+        res["too_many_date_time_columns"] = False
+
+    # set index to a date-time column (if present) and compare index values.
+    # Some tables have no explicit date-time column, so avoid set_index([]).
+    if len(date_time_should) == 1 and len(date_time_is) == 1:
+        df_should.set_index(df_should.columns[date_time_should[0]],
+                            inplace=True)
+        df_is.set_index(df_is.columns[date_time_is[0]], inplace=True)
+        if not df_should.index.equals(df_is.index):
+            flag_diff = True
+            res["identical_date_time_index"] = False
+        else:
+            res["identical_date_time_index"] = True
+    elif len(date_time_should) == 0 and len(date_time_is) == 0:
+        # No explicit date-time column in either file: compare row-order index.
+        if not df_should.index.equals(df_is.index):
+            flag_diff = True
+            res["identical_date_time_index"] = False
+        else:
+            res["identical_date_time_index"] = True
+    else:
+        # Mismatched date-time columns were already detected above.
+        flag_diff = True
+        res["identical_date_time_index"] = False
+
     # compare the contents column-by-column and expose per-column metrics.
     # This powers the expanded comparison_results.csv output (one row per column).
     if res["identical_columns"]:
+
+        # combine the two numeric columns into a single column with
+        # the values from both
+        df_combined = pd.concat([df_should[col], df_is[col]],
+                                axis=1,
+                                keys=["should", "is"])
+
+        # do a linear value interpolation to fill in any missing values
+        df_combined["should"] = df_combined["should"].interpolate(
+            method="linear", limit_direction="both")
+        df_combined["is"] = df_combined["is"].interpolate(
+            method="linear", limit_direction="both")
+
         for idx, col in enumerate(df_should.columns):
             # remove & replace special characters for legacy per-column flags
             col_save = col.replace(" ", "_").replace("/",
@@ -176,12 +219,6 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     "R²": np.nan,
                 })
                 continue
-
-            # combine the two numeric columns into a single column with
-            # the values from both
-            df_combined = pd.concat([df_should[col], df_is[col]],
-                                    axis=1,
-                                    keys=["should", "is"])
 
             # add difference columns, both percentage and absolute
             df_combined["diff_abs"] = df_combined["should"] - df_combined["is"]
