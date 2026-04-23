@@ -1,5 +1,9 @@
 # Changelog
 
+## 230426
+
+Changes dates to allow "T" or not. Updates output to command prompt
+
 ## 080426
 
 update to Intel IFX compiler. This required minor updates to the visulisation code (in the folder src/visualisation.
