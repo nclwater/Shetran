@@ -81,6 +81,7 @@ DOUBLEPRECISION, DIMENSION(nelee)             :: hrf
 INTEGER, SAVE                                 :: icounter3 = 0
 INTEGER  :: c(6)
 CHARACTER(128)    :: dum
+real :: start_time, current_time, elapsed_time
 
 
 !-----------------------------------------------------------------
@@ -99,14 +100,25 @@ IF (.NOT.BHOTRD) UZNEXT = TMAX
 CALL FROUTPUT ('start')  !^^^^^^ sb 08/03/06
 
 c = DATE_FROM_HOUR(tih)
-WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
 write(6,'(A,A)') ' Simulation Start Date = ',trim(dum)
 c = DATE_FROM_HOUR(tth)
-WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
 write(6,'(A,A)') ' Simulation End Date = ',trim(dum)
 
 write(6,*) 
 write(6,9750) TTH - TIH
+
+write(6,'(A)') ' SHETRAN file folder = '
+write(6,'(1X,A)') DIRQQ 
+write(6,'(A)') ' SHETRAN rundata name = '
+write(6,'(A)') ' rundata_'//trim(cnam)//'.txt'
+write(6,*) 
+write(6,*) 
+write(6,*) 
+
+call cpu_time(start_time)
+
 
 !------------------------------------------------------------------
 !                     MAIN SIMULATION LOOP
@@ -252,7 +264,9 @@ DO
     CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND=4))  !VISVISVIS
     CALL FROUTPUT('main ')  !sb 02/05/07 additional output
     IF(uznow > icounter3) then  
-        write(6,9751) uznow, min(100*uznow/(TTH - TIH),100.00)
+        call cpu_time(current_time)
+        write(6,9751,advance="no") achar(13), uznow, min(100*uznow/(TTH - TIH),100.00),int(current_time - start_time), int((current_time - start_time)/(uznow/(TTH - TIH))-(current_time - start_time))
+        call flush(6) 
         icounter3 = icounter3 + 24  
     endif  
     IF (UZNOW>=(TTH - TIH) ) EXIT
@@ -260,7 +274,7 @@ ENDDO
 
 
 9750 FORMAT (' Length of Simulation =',F12.2,' hours '//)  
-9751 FORMAT ('+','Simulation Timestep =',F12.2,' hours   % Completed = ', f6.2)  
+9751 FORMAT (A,'Simulation Time = ',F0.2,' hours, % Completed = ', f0.2,', Elapsed Time = ', I0, ' seconds, Remaining Time = ', I0, ' seconds  ')  
 9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)  
 9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)
 END SUBROUTINE simulation

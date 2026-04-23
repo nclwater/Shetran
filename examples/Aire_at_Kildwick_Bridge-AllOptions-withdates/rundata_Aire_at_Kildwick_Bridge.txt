@@ -38,7 +38,7 @@ output_Aire_at_Kildwick_Bridge_cpr.txt
 28: hostart file			-------INITIAL CONDITIONS                                    
  
 29: VSS initial conditions                                                      
-input_Aire_at_Kildwick_Bridge_vsi.txt                                           
+ 
 30: No longer used -----TIME-SERIES DATA                                        
  
 31: well extraction (WLD)                                                       
@@ -66,7 +66,7 @@ output_Aire_at_Kildwick_Bridge_discharge_sim_regulartimestep.csv
 42: vsi data for initial conditions                                             
 output_Aire_at_Kildwick_Bridge_vsi.txt                                          
 43: mass balance data                                                           
-output_Aire_at_Kildwick_Bridge_mb.csv                                           
+output_Aire_at_Kildwick_Bridge_mass_balance.csv                                 
 44: discharge at the outlet                                                     
 output_Aire_at_Kildwick_Bridge_discharge_sim_everytimestep.csv                  
 45: maximum air temperature                                                     

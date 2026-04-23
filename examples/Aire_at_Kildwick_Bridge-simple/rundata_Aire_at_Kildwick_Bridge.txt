@@ -20,9 +20,9 @@ input_Aire_at_Kildwick_Bridge_etd.txt
 19: hourly met. data			---------- MET. DATA                                     
  
 20: precipitation data                                                          
-input_sample_prd.txt                                                            
+TimeSeries_Precipitation_sample.txt                                             
 21: potential evaporation data                                                  
-input_sample_epd.txt                                                            
+TimeSeries_PET_sample.txt                                                       
 22: time counter file			---------- OUTPUT DATA                                  
 output_Aire_at_Kildwick_Bridge_tim.txt                                          
 23: water flow print output                                                     
@@ -66,7 +66,7 @@ output_Aire_at_Kildwick_Bridge_discharge_sim_regulartimestep.csv
 42: vsi data for initial conditions                                             
 output_Aire_at_Kildwick_Bridge_vsi.txt                                          
 43: mass balance data                                                           
-output_Aire_at_Kildwick_Bridge_mb.csv                                           
+output_Aire_at_Kildwick_Bridge_mass_balance.csv                                 
 44: discharge at the outlet                                                     
 output_Aire_at_Kildwick_Bridge_discharge_sim_everytimestep.csv                  
 45: maximum air temperature                                                     

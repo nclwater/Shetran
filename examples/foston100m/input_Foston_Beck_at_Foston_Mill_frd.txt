@@ -4,7 +4,7 @@
 :FR4 - START TIME OF WATER FLOW COMPONENT SIMULATION                            
    1980      1      1      0      0
 :FR6 - END TIME OF WATER FLOW COMPONENT SIMULATION                              
-   1981      1      1      0      0
+   1980      3      1      0      0
 :FR7a - START TIME OF SEDIMENT TRANPORT COMPONENT SIMULATION                    
    1980      1      1      0      0
 :FR7c - START TIME OF CONTAMINANT MIGRATION COMPONENT SIMULATION                
