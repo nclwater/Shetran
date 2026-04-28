@@ -272,9 +272,12 @@ DO
     IF (UZNOW>=(TTH - TIH) ) EXIT
 ENDDO
 
+! this line is to clear the progress line after the simulation has finished
+WRITE (6,'(A)') '                                                                                                                                '
+
 
 9750 FORMAT (' Length of Simulation =',F12.2,' hours '//)  
-9751 FORMAT (A,'Simulation Time = ',F0.2,' hours, % Completed = ', f0.2,', Elapsed Time = ', I0, ' seconds, Remaining Time = ', I0, ' seconds  ')  
+9751 FORMAT (A,'Simulation = ',F0.1,' hrs, % Compl. = ', f0.2,', Elapsed/Remaining = ', I0, ' / ', I0, ' sec. ')  
 9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)  
 9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)
 END SUBROUTINE simulation

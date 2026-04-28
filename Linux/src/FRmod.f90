@@ -1,11 +1,16 @@
 MODULE FRmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the FR .F files
-!***ZQ Module 200520 new variables iszq,zqd
+! SB  MAY 20  4.5   ZQ Module new variables iszq,zqd
+! SB  Mar 26  4.6  Allocate using following subroutines: INITIALISE_AL_C3 and INITIALISE_ETMOD
+!                  Add BMETDATES so met data has the option of including dates
+!                  Produce text files of time series of sediment and containants at the outlet if these components are being used
+!                  Produce text files for water table depths and virtual discharge stations
+!                  Error messages improved a bit
+!                  ouptut hardcoded array sizes to the pri file
+!
 USE SGLOBAL
 USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
-!USE SGLOBAL, ONLY :     NELEE, nlfee, noctab, NXEE, NYEE, NVEE, BDEVER, SHEVER, BANNER, FILNAM, DIRQQ, &
-!                     VISUALISATION_PLAN_FILENAME, VISUALISATION_CHECK_FILENAME, HDF5FILENAME, CNAM, NCONEE, LLEE, NSEE
 USE AL_G, ONLY :     NX, NY, ICMREF, ICMXY, NGDBGN
 USE AL_C, ONLY :     ARXL, BEXBK, BFB, BHB, BUG, CWIDTH, CLENTH, CMD, CMP, CMT, CMB,  clai, &
                      DELTAZ, DRAINA, dhf, DUMMY, DTUZ, EEVAP, ESOILA, &
@@ -31,7 +36,6 @@ USE mod_load_filedata,    ONLY : ALINIT, ALINTP, ALCHK, ALCHKI
 USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
 USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
                      MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
-!                     PS1, PLAI1, RELPLA, RELCST, RA, RC, RCF, RELCLA, RELVHT, RTOP, TIMCST, TIMPLA, TIMVHT, TIMCLA,  VHT1
                      PS1, PLAI1, RELPLA, RELCST, RA, RC, RCF, RELCLA, RELVHT, RTOP, TIMCST, TIMPLA, TIMVHT, TIMCLA,  VHT1, &
                      INITIALISE_ETMOD
 USE VSmod,    ONLY : VSIN, VSPTHE, NVSSOL, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, VSPPSI
@@ -74,6 +78,8 @@ IMPLICIT NONE
 !                   N1,T,QOCFT,DUMH,BCAL,B1,BIBDE (redundant).
 ! RAH  980308  4.2  Remove BUZCAL,BSZCAL,BOCCAL,BEXCAL.
 ! JE  12/08   4.3.5F90  Convert to FORTRAN90
+! SB  Mar 26  4.6  Allocate the following arrays:
+!                  ADD BMETDATES so met data has the option of including dates
 !----------------------------------------------------------------------*
 !
 ! ^^^ INTEGER VARIABLES.
@@ -1666,6 +1672,8 @@ BTIME = .FALSE.
    16 FORMAT (// 'SHETRAN', F4.1 , ' ' )  
    15 FORMAT (// 'SHETRAN', F4.1 )  
 !
+Write (*,*) 
+Write (*,*) '**************************'
 WRITE ( *, * ) BANNER  
 Write (*,*) '**************************'
 
@@ -1702,7 +1710,7 @@ ismn=.true.
 
 OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = io)  
 !      ENDDO
-filnam2=TRIM (DIRQQ) //'output_'//trim(cnam)//'_log.txt'
+filnam2=TRIM (DIRQQ) //'info_'//trim(cnam)//'_SHETRAN_log.txt'
 OPEN (61, FILE = FILNAM2, ERR = 400)  
 
 
@@ -1891,9 +1899,14 @@ DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE               :: qocavextra
 DOUBLEPRECISION qocav, qocold
 DOUBLEPRECISION sedav,sedfineav,contamav
 save disextrapoints,disextraelement,disextraface,pslextrapoints,pslextraelement,qocavextra
+DOUBLEPRECISION outputhour
  
 INTEGER :: nminel, i, j, iel, ios
 INTEGER  :: c(6)
+character(len=32), DIMENSION(:),allocatable :: buf
+character(len=32) :: bufmb(17)
+character(len=32) :: bufdis
+save buf
 
 1000 format(i7)            !PUT HERE FOR AD PROBLEM
 1100 format(10(x,f9.3))
@@ -1906,10 +1919,13 @@ IF (SIMPOS.EQ.'start') THEN
       allocate   (disextraface(disextrapoints))
       allocate   (qocavextra(disextrapoints))
       allocate   (qoctotextra(disextrapoints))
+      allocate   (buf(disextrapoints))
       disextraelement=0
       disextraface=0
       qocavextra=0.0d0
       qoctotextra=0.0d0
+      buf = ''
+
       j=0
       do i=1,disextrapoints
          j=j+1
@@ -1962,27 +1978,28 @@ IF (SIMPOS.EQ.'start') THEN
                 stop   
     endif
    write (dis2, '(A)',iostat=ios ) 'Date_yyyy-mm-dd_hours(iso8601format),Time(hours),Outlet_Discharge(m3/s)'
-   write (mas, '(A60)',iostat=ios ) 'Spatially Averaged Totals (mm) over the simulation'
+   write (mas, '(A)',iostat=ios ) 'Spatially Averaged Totals (mm) over the simulation'
     if (ios/=0) then
-        write(*,'(A)') 'Error writing to the the mass balance data file  (units 43 in the rundata file)'
+        write(*,'(A)') 'Error writing to the the mass balance data file  (unit 43 in the rundata file)'
         write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
                write(*,'(''paused, type [enter] to continue'')')
                read (*,*)
                 stop   
     endif
-    write (mas, '(12(a16,1a))') 'Time(Hours)', ',', &
-                                 'Cum Prec.', ',', &
-                                 'Cum. Can. Evap.', ',', &
-                                 'Cum. Soil Evap.', ',', &
-                                 'Cum. Trans', ',', &
-                                 'Cum. Aqu. Flow', ',', &
-                                 'Cum. Discharge', ',', &
-                                 'Canopy Storage', ',', &
-                                 'Snow Storage', ',', &
-                                 'Subsurface Stor.', ',', &
-                                 'Land Surf Stor.', ',', &
-                                 'Channel Stor.'
-    write (dis,'(A,f8.2,A)',iostat=ios ) 'Simulated discharge(m3/s) at the outlet - regular timestep', toutput, ' hours. Simulated discharge is the mean value over the timestep with the date at the end of the timestep'
+    write (mas, '(12(A,1A))') 'Time(Hours)', ',', &
+                                 'Cumulative_Precipitation', ',', &
+                                 'Cumulative_Canopy_Evaporation', ',', &
+                                 'Cumulative_Soil_Evaporation', ',', &
+                                 'Cumulative_Transpiration', ',', &
+                                 'Cumulative_Aquifer_Flow', ',', &
+                                 'Cumulative_Discharge', ',', &
+                                 'Canopy_Storage', ',', &
+                                 'Snow_Storage', ',', &
+                                 'Subsurface_Storage', ',', &
+                                 'Land_Surface_Storage', ',', &
+                                 'Channel_Storage'
+!    write (dis,'(A,f8.2,A)',iostat=ios ) 'Simulated discharge(m3/s) at the outlet - regular timestep', toutput, ' hours. Simulated discharge is the mean value over the timestep with the date at the end of the timestep'
+    write (dis,'(A,f8.2,A)',iostat=ios ) 'Simulated discharge(m3/s) at the outlet - regular timestep', toutput, ' hours. Simulated discharge is the mean value over the timestep with the date at the start of the timestep'
     if (ios/=0) then
         write(*,'(A)') 'Error writing to the regular discharge at the catchment outlet file (unit 44 in the rundata file)'
         write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -2020,7 +2037,7 @@ IF (SIMPOS.EQ.'start') THEN
         open (SEDALLUNIT, file=FILNAM)
         FILNAM = TRIM (DIRQQ) //'output_'//trim(cnam)//'_sediment_fine.csv'
         open (SEDFINEUNIT, file=FILNAM)
-        write (SEDALLUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - All Sediments'
+        write (SEDALLUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - All Sediments. This is the mean value over the timestep with the date at the start of the timestep'
         if (ios/=0) then
             write(*,'(A)') 'Error writing to the sed-all-daily-output.csv file'
             write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -2029,7 +2046,7 @@ IF (SIMPOS.EQ.'start') THEN
                     stop   
         endif
         write (SEDALLUNIT,'(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge(kg/s)'
-	    write (SEDFINEUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - Fine Sediments'
+	    write (SEDFINEUNIT,'(A)',iostat=ios) 'Sediment discharge at the outlet - Fine Sediments. This is the mean value over the timestep with the date at the start of the timestep'
         if (ios/=0) then
             write(*,'(A)') 'Error writing to the sed-fine-daily-output.csv file'
             write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -2045,7 +2062,7 @@ IF (SIMPOS.EQ.'start') THEN
 
         FILNAM = TRIM (DIRQQ) //'output_'//trim(cnam)//'_contaminant.csv'
         open (CONTAMUNIT, file=FILNAM)
-        write (CONTAMUNIT,'(A)',iostat=ios) 'Contaminant Relative Concentration (contaminant 1) at the outlet'
+        write (CONTAMUNIT,'(A)',iostat=ios) 'Contaminant Relative Concentration (contaminant 1) at the outlet. This is the mean value over the timestep with the date at the start of the timestep'
         if (ios/=0) then
             write(*,'(A)') 'Error writing to the contaminant.csv file'
             write(*,'(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -2130,37 +2147,64 @@ ELSEIF (SIMPOS (1:4) .EQ.'main') THEN
             enddo
         endif
 
-        c = DATE_FROM_HOUR(tih+next_hour*TOUTPUT)
-        WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+        ! if outputhour = next_hour-1.0 it is the mean value over the timestep with the date at the start of the timestep. 
+        ! if outputhour = next_hour it is the mean value over the timestep with the date at the end of the timestep.
+        outputhour = next_hour-1.0        
+
+        c = DATE_FROM_HOUR(tih+outputhour*TOUTPUT)
+        WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
+        write(bufdis,'(F20.5)') abs(qoctot)
+        bufdis = adjustl(bufdis)
         if (ISextradis) then
-            !           WRITE(dis,'(A,A1,F16.2,*(A1,F20.8))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot),(',',abs(qoctotextra(j)),j=1,disextrapoints)
-            WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot),(',',abs(qoctotextra(j)),j=1,disextrapoints)
+            do j=1,disextrapoints
+                write(buf(j),'(F20.5)') abs(qoctotextra(j))
+                buf(j) = adjustl(buf(j))
+            enddo
+            WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
         else
-            !           WRITE(dis,'(A,A1,F16.2,*(A1,F20.8))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot)
-            WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot)
+            WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
         endif
         if (bexsy) then
-            write(SEDALLUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',', sedtot
-            write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',', sedfinetot
+                write(bufdis,'(F20.5)') sedtot
+             bufdis = adjustl(bufdis)
+            write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
+                write(bufdis,'(F20.5)') sedfinetot
+             bufdis = adjustl(bufdis)
+            write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
         endif
-         if (bexcm) then
-            write(CONTAMUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',', contamtot
+        if (bexcm) then
+                 write(bufdis,'(F20.5)') contamtot
+             bufdis = adjustl(bufdis)
+           write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
         endif
         DO i = next_hour+1, hour_now
             next_hour = i
-            c = DATE_FROM_HOUR(tih+next_hour*TOUTPUT)
-            WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+           outputhour = next_hour-1        
+           c = DATE_FROM_HOUR(tih+outputhour*TOUTPUT)
+            WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
+            write(bufdis,'(F20.5)') abs(qocav)
+            bufdis = adjustl(bufdis)
             if (ISextradis) then
-                WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qoctot),(',',abs(qocavextra(j)),j=1,disextrapoints)
+                do j=1,disextrapoints
+                    write(buf(j),'(F20.5)') abs(qocavextra(j))
+                    buf(j) = adjustl(buf(j))
+                enddo
+                WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
             else
-                WRITE(dis,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',abs(qocav)
+                WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
             endif
             if (bexsy) then
-                write(SEDALLUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',sedav
-                write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',sedfineav
+                write(bufdis,'(F20.5)') sedav
+                bufdis = adjustl(bufdis)
+                write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
+                write(bufdis,'(F20.5)') sedfineav
+                bufdis = adjustl(bufdis)
+                write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
             endif
             if (bexcm) then
-                write(CONTAMUNIT,'(A,A1,F0.3,*(A1,F0.5))') trim(dum),',',next_hour*TOUTPUT,',',contamav
+                write(bufdis,'(F20.5)') contamav
+                bufdis = adjustl(bufdis)
+                write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
             endif
         ENDDO
         qoctot    = qocav * (uznowt-next_hour)
@@ -2183,25 +2227,21 @@ ELSEIF (SIMPOS (1:4) .EQ.'main') THEN
    	!write (494,'(4(f10.6))') (qsed(mblink,1,i), i=1,4)
  
       
-    IF(uznow > icounter2) then  
-        write (mas, '(12(f16.3,1a))') uznow, ',', &
-                                      balanc (7) * 1000 / carea, ',', &
-                                      balanc (8) * 1000 / carea, ',', &
-                                      balanc (9) * 1000 / carea, ',', &
-                                      balanc (10) * 1000 / carea, ',', &
-                                      balanc (11) * 1000 / carea, ',', &
-                                      balanc (12) * 1000 / carea, ',', &
-                                      balanc (13) * 1000 / carea, ',', &
-                                      balanc (14) * 1000 / carea, ',', &
-                                      balanc (15) * 1000 / carea, ',', &
-                                      balanc (16) * 1000 / carea, ',', &
-                                      balanc (17) * 1000 / carea
-        icounter2 = icounter2 + 24  
-        if (ISextrapsl) then 
-            write(PSLFILEUNIT,'(f10.2,*(1a,f10.2))') uznow,  (',', zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), i=1, pslextrapoints) 
+    IF(uznow > icounter2) then
+        ! quite complicated so it outputs nicely.
+        write(bufmb(6),'(F12.3)') uznow
+        bufmb(6) = adjustl(bufmb(6))
+        do i=7,17
+            write(bufmb(I),'(F12.3)') balanc(I)* 1000 / carea
+            bufmb(I) = adjustl(bufmb(I))
+        enddo
+        write (mas, '(11(A,1a),A)') (trim(bufmb(i)), ',', i=6,16),trim(bufmb(17))
+        icounter2 = icounter2 + 24
+        if (ISextrapsl) then
+            write(PSLFILEUNIT,'(f10.2,*(1a,f10.2))') uznow,  (',', zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), i=1, pslextrapoints)
         endif
-    endif  
-    uzold = uznowt 
+    endif
+    uzold = uznowt
 
 
 !*** temp sb 250925 for when doing 1d simulations    
@@ -2266,15 +2306,19 @@ INTEGER                        :: c(6)
 DOUBLEPRECISION, INTENT(IN)    :: qoo, tme
 DOUBLEPRECISION                :: qd
 CHARACTER(128)                 :: dum
+character(len=32) :: bufdis2
+
 IF((mbface==1) .OR. (mbface==2)) THEN
     qd = qoo
 ELSE
     qd = -qoo
 ENDIF
 c = DATE_FROM_HOUR(tih + tme)
-WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
 !WRITE(dum,'(2(I2.2,A),I4.4,3(A,I2.2))') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
-WRITE(dis2,'(A,A1,F0.5,A1,F0.5)') TRIM(dum), ',',tme, ',',qd 
+write(bufdis2,'(F20.5)') qd
+bufdis2 = adjustl(bufdis2)
+WRITE(dis2,'(A,A1,F0.5,A1,A)') TRIM(dum), ',',tme, ',',TRIM(bufdis2)
 END SUBROUTINE write_dis2
 
 
@@ -4496,14 +4540,54 @@ ENDIF
 &        ' ' )
    15 FORMAT (/  'SHETRAN VERSION NUMBER: ', F5.1 )  
 WRITE(PPPRI, 17) BANNER  
-   17 FORMAT(/A80/)  
+17 FORMAT(/A80/)  
+   
+write(PPPRI,*) 
+write(PPPRI,*) 
+write(PPPRI,'(A)') ' SHETRAN file folder = '
+write(PPPRI,'(1X,A)') DIRQQ 
+write(PPPRI,'(A)') ' SHETRAN rundata name = '
+write(PPPRI,'(A)') ' rundata_'//trim(cnam)//'.txt'
+write(PPPRI,*) 
+write(PPPRI,*) 
+write(PPPRI,*) 
+   
 !
 !     READ AND PRINT JOB TITLE.
 !:FR1
-READ (FRD, 30) TITLE  
+WRITE(PPPRI,'(A)') 'Catchment Name '
+WRITE(PPPRI,'(A)') '************** '   
+READ (FRD,'(A)') TITLE  
    30 FORMAT (20A4)  
-WRITE(PPPRI, 40) TITLE  
-   40 FORMAT (/  20A4, //, 100('='))  
+WRITE(PPPRI,'(A)') TITLE  
+40 FORMAT (/  20A4, //, 100('='))  
+   
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Fixed array sizes in this version of SHETRAN '
+WRITE(PPPRI,'(A)') '******************************************** '
+WRITE(PPPRI,'(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
+WRITE(PPPRI,'(4(A,I0))') ' NXEE = ',nxee, '  NYEE = ', nyee, '  NLFEE = ',nlfee, '  NELEE = ',nelee
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Grid points in vertical'
+WRITE(PPPRI,'(1(A,I0))') ' LLEE = ',llee
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Vegetation types, soil typess (NVEE also used for number of precipitation and pet stations)'
+WRITE(PPPRI,'(2(A,I0))') ' NVEE = ',nvee, '  NSEE = ', nsee
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers' 
+WRITE(PPPRI,'(4(A,I0))') ' NVSEE = ',NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ',NUZTAB, '  NLYREE = ',NLYREE
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'  
+WRITE(PPPRI,'(3(A,I0))') ' NXOCEE = ',NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ',NSEDEE
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants' 
+WRITE(PPPRI,'(4(A,I0))') ' NCONEE = ',NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ',NPLTEE, '  NPELEE = ',NPELEE
+WRITE(PPPRI,*)   
+WRITE(PPPRI,'(A)') 'Number of snow meltwater slugs, Size of internal tables for channel conveyance' 
+WRITE(PPPRI,'(2(A,I0))') ' max_no_snowmelt_slugs = ',max_no_snowmelt_slugs, '  NXSCEE = ', NXSCEE
+WRITE(PPPRI,*)   
+
+
 !
 WRITE(PPPRI, 20)  
    20 FORMAT (/ ' ^^^ ENTER INFR ^^^')  

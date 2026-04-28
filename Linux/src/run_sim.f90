@@ -2,6 +2,10 @@ MODULE run_sim
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       This is the comutational core - it runs the simulation, timestep by timestep
 !                       Code was extracted from shetrn.f and modifed to create this module
+! sb  Mar 26    4.6     Added DATE_FROM_HOUR so simulated start and end time visible when running model
+!                       call initialise_cont_cc, initialise_colm_cg, initialise_colm_co, deallocate_colm_cg
+!                       
+    
 USE SGLOBAL
 USE SED_CS,   ONLY : nsed,pbsed,pls,sosdfn,arbdep,dls,fbeta,fdel,&
                      ginfd,ginfs,gnu,gnubk,qsed,dcbed,dcbsed 
@@ -22,7 +26,7 @@ USE VSmod,    ONLY : VSSIM, &
                      RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
 USE CMmod,    ONLY : CMSIM  !"JE"
 USE ETmod,    ONLY : ETSIM, &
-                     psi4, uzalfa !TH,ESE NEEDED ONLY FOR AD
+                     psi4, uzalfa !THESE NEEDED ONLY FOR AD
 USE rest,     ONLY : BALWAT, TMSTEP, &
                      metime, melast, eptime, pinp
                      !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
@@ -77,6 +81,7 @@ DOUBLEPRECISION, DIMENSION(nelee)             :: hrf
 INTEGER, SAVE                                 :: icounter3 = 0
 INTEGER  :: c(6)
 CHARACTER(128)    :: dum
+real :: start_time, current_time, elapsed_time
 
 
 !-----------------------------------------------------------------
@@ -95,14 +100,25 @@ IF (.NOT.BHOTRD) UZNEXT = TMAX
 CALL FROUTPUT ('start')  !^^^^^^ sb 08/03/06
 
 c = DATE_FROM_HOUR(tih)
-WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
 write(6,'(A,A)') ' Simulation Start Date = ',trim(dum)
 c = DATE_FROM_HOUR(tth)
-WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
 write(6,'(A,A)') ' Simulation End Date = ',trim(dum)
 
 write(6,*) 
 write(6,9750) TTH - TIH
+
+write(6,'(A)') ' SHETRAN file folder = '
+write(6,'(1X,A)') DIRQQ 
+write(6,'(A)') ' SHETRAN rundata name = '
+write(6,'(A)') ' rundata_'//trim(cnam)//'.txt'
+write(6,*) 
+write(6,*) 
+write(6,*) 
+
+call cpu_time(start_time)
+
 
 !------------------------------------------------------------------
 !                     MAIN SIMULATION LOOP
@@ -248,7 +264,9 @@ DO
     CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND=4))  !VISVISVIS
     CALL FROUTPUT('main ')  !sb 02/05/07 additional output
     IF(uznow > icounter3) then  
-        write(6,9751) uznow, min(100*uznow/(TTH - TIH),100.00)
+        call cpu_time(current_time)
+        write(6,9751,advance="no") achar(13), uznow, min(100*uznow/(TTH - TIH),100.00),int(current_time - start_time), int((current_time - start_time)/(uznow/(TTH - TIH))-(current_time - start_time))
+        call flush(6) 
         icounter3 = icounter3 + 24  
     endif  
     IF (UZNOW>=(TTH - TIH) ) EXIT
@@ -256,7 +274,7 @@ ENDDO
 
 
 9750 FORMAT (' Length of Simulation =',F12.2,' hours '//)  
-9751 FORMAT ('+','Simulation Timestep =',F12.2,' hours   % Completed = ', f6.2)  
+9751 FORMAT (A,'Simulation Time = ',F0.2,' hours, % Completed = ', f0.2,', Elapsed Time = ', I0, ' seconds, Remaining Time = ', I0, ' seconds  ')  
 9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)  
 9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)
 END SUBROUTINE simulation

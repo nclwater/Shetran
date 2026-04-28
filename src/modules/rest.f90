@@ -55,9 +55,9 @@ WRITE(PPPRI, 1600)
 WRITE(PPPRI, '(////)')  
 WRITE(PPPRI, 9900) UZNOW, NSTEP  
 !
-WRITE ( *, * )  
+WRITE (6,'(A)') ' ' 
 
-WRITE ( *, *) 'Normal completion of SHETRAN run'  
+WRITE (6,*) 'Normal completion of SHETRAN run'  
 !^^^^^sb 250105 mass balnce output
 WRITE(PPPRI, '(////)')  
 WRITE(PPPRI,  * ) ' Spatially Averaged Totals (mm) over the simulation'
