@@ -1,0 +1,60 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build with runtime checks and symbols",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_Fortran_COMPILER": "ifx"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimized release build",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_Fortran_COMPILER": "ifx"
+      }
+    },
+    {
+      "name": "release-native",
+      "displayName": "ReleaseNative",
+      "description": "Maximum optimization for the local CPU (may be non-portable)",
+      "binaryDir": "${sourceDir}/build/release-native",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "ReleaseNative",
+        "CMAKE_Fortran_COMPILER": "ifx"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "displayName": "Build Debug",
+      "description": "Build debug version"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "displayName": "Build Release",
+      "description": "Build release version"
+    },
+    {
+      "name": "release-native",
+      "configurePreset": "release-native",
+      "displayName": "Build ReleaseNative",
+      "description": "Build maximum local optimization version"
+    }
+  ]
+}
