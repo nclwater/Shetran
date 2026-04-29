@@ -1,15 +1,15 @@
 # Changelog
 
-## 230426
+## 20260426
 
 Changes dates to allow "T" or not. Updates output to command prompt
 
-## 080426
+## 20260408
 
 update to Intel IFX compiler. This required minor updates to the visulisation code (in the folder src/visualisation.
 Running of the test catchments produced very minor changes to the text output (8th significant figure)
 
-## 300326
+## 20260330
 
 Update to version 4.6.1
 Made most 2D arrays allocatable
@@ -18,9 +18,11 @@ Add the option of dates to meteorological time series input data and added dates
 Specific changes are highlighted below
 
 ### mnmod.f90 
+
 change arrays as now allocatable in the core SHETRAN code. Capitailize mncont so it works in Linux
 
 ### frmod.f90 
+
 Allocate using following subroutines: INITIALISE_AL_C3 and INITIALISE_ETMOD
 Add BMETDATES so met data has the option of including dates
 Produce text files of time series of sediment and containants at the outlet if these components are being used
@@ -29,35 +31,44 @@ Error messages improved a bit
 ouptut hardcoded array sizes to the pri file
 
 ### utilsmod.f90 
+
 Error traping of dates
 
 ### vsmod.f90
+
 Allocate using following subroutines: INITIALISE_AL_C2
 
 ### rest.f90
+
 Added dates to met files. precipitation (prd), Potential evaporation (epd) and max and min temperatrue
 
-###etmod.f90
+### etmod.f90
+
 read if dates included in met data (BMETDATES)
 allocatable arrays for RA,RC,RTOP, CSTCAP,CK,CB,DEL, PSI4,UZALFA, CSTCA1,PLAI1, CLAI1,VHT1
 PS1,FET,RCF,RELCST,TIMCST,RELPLA,TIMPLA,RELCLA,TIMCLA,RELVHT,TIMVHT
 allocated in new subroutine INITIALISE_ETMOD
 
 ### run_sim.f90
+
 Added DATE_FROM_HOUR so simulated start and end time visible when running model
 call initialise_cont_cc, initialise_colm_cg, initialise_colm_co, deallocate_colm_cg
 
 ### OCmod.f90
+
 Make following arrays allocatable: AA, DD, FF, BB, GG, CC, EE, TM1, TM, TV1,TV2, inhrf, GGGETHRF, inqsa, GGGETQSA, ijedum, ijedum2
 
 ### SYmod.f90
-Change dimensions of NTSOIL    
+
+Change dimensions of NTSOIL.   
 
 ### sglobal.f90
+
 Increase array sizes now all the 2 and 3D arrays are allocatable
 NXOCEE=4*nxee
 
 ### COLM_CG
+
 comment out KSPE and KSPPE as no longer used
 comment out JKZCOB as no longer used
 comment out JKZWEL and JKZWCE as no longer used
@@ -65,24 +76,26 @@ make the following arrays allocatable: JKZCOL,JOLFN,NOL, NOLBT,NOLCE, NOLCEA
 added initialise_colm_cg and deallocate_colm_cg subroutines
 
 ### COLM_CO
+
 Make the following arrays allocatable: DSWO, QIO, QQRFO, RSZWLO, ZONEO, GGAMMO,QQQSWO, QQO, UUAJPO,VSTHEO
 Add subroutine initialise_colm_co
 
 ### AL_C.f90
+
 Make the following variables ALLOCATABLE :: JVSACN,JVSDEL,DELTAZ, ZVSNOD, RDF, NLYRBT,NTSOIL,ZLYRBT
 Some are allocated in initialise_al_c and some in the new SUBROUTINE initialise_al_c2() and SUBROUTINE initialise_al_c3()_
 
 ### CONT_CC
+
 added total_no_elements,top_cell_no,total_no_links to subroutine
 make the following allocatable CCCC, CCCCO, SSSS, SSSSO, SSS1, SSS2, FCPBKO, GCPBKO
 Add initialise_cont_cc() where these arrays are allocated
 
 ### visualisation_metadata.f90
+
 delete temporary.txt file
 
-
-
-## 071025
+## 20251007
 
 Added nitrate component - version is now 4.5.3.
 
@@ -90,7 +103,7 @@ Added nitrate component - version is now 4.5.3.
 
 New file containing the nitrate compute module.
 
-### cmmod 
+### cmmod
 
 ```fortran
 add USE MNMOD, only : MNCONT
@@ -154,7 +167,7 @@ CONT_CC add
 !                           SOURCE/SINK TERMS FOR PLANT UPTAKE AND NITRATE
 ```
 
-### IS_CC.f90 
+### IS_CC.f90
 
 Added ISMN.
 
@@ -162,36 +175,35 @@ Added ISMN.
 
 Change error message in ALALLI. Correct error in ALREAD and ALRED2 for number of characters in ALINTP chage so the cacultion only uses dynamic cells.
 
-## 230922
+## 20220923
 
 Reduced maximum allowed number of grid sizes in x and y directions and allow more raingauges.
 Allows negative Strickler for additional storage.
 
-## 070920
+## 20200907
 
 Add all the visulaisation.f90 files and up to date include and library files. Remove shegraph dll.
 
-## 090720
+## 20200709
 
-Add Reservoir ZQ component. 
-Version is now 4.5.0. 
+Add Reservoir ZQ component.
+Version is now 4.5.0.
 See [ZQ module.md](<docs/module_docs/ZQ module.md>) for details.
 
-
-## 080720
+## 20200708
 
 Sort out problem with 1024,1030 and 1060 errors.
 There is now a reduction in timestep length if one of the above errors occurs.
 
-## 220420
+## 20200422
 
 Renaming of variables in contaminant code. See [Rename_Overview.md](docs/Rename_Overview.md).
 Update compiler, minor changes needed.
 Minor bug in writing of syd file (Dano example).
 Heading for writing of every timestep discharge.
 
+## 20150924
 
-## 240915
 Changed NLYREE from 10 to 20
 
 ```fortran
@@ -199,7 +211,7 @@ Changed NLYREE from 10 to 20
           INTEGER, PARAMETER :: NLYREE=20
 ```
 
-## 270515
+## 20150527
 
 ### etmod.f90
 
@@ -208,18 +220,17 @@ Changed NLYREE from 10 to 20
         IF (II.EQ.top_cell_no) ESOIL = 0.5 * AE * (1 - CPLAI)  
 ```
 
-## 200515
+## 20150520
 
 Put needed dll's in program file.
 
-## 220415
+## 20150422
 
 Optional Extra discharge points. 
 Read in rundata number 47 and output the data in regular discharge output.
 Changes to al_D.f90 and frmod.f90 mostly froutput.f90.
 
-
-## 210415
+## 20150421
 
 For big catchments change formating from 200 to 500 in the following lines:
 
@@ -227,25 +238,21 @@ For big catchments change formating from 200 to 500 in the following lines:
 - ocmod.f90: L1020,L1042
 - utilsmod.f90: L646,L648,L661,L739
 
-
-## 060415
+## 20150406
 
 Reduced value of invalid timestep.
 
-
-## 260215
+## 20150226
 
 Tidy up output. Needs new shegrpah2.3.dll.
 
-
-## 240215
+## 20150224
 
 - Change write sta to remove ```*****``` in pri file.
 - Change cobres example so it only needs 50 cells.
 - improve output to the screen.
 
-
-## 130215
+## 20150213
 
 Time varying output step (in fr52)
 
@@ -281,11 +288,11 @@ Time varying output step (in fr52)
     READ (FRD, *) TOUTPUT
 ```
 
-## 130215
+## 20150213
 
 Add spatially distributed temperature.
 
-### frmod.f90:
+### frmod.f90
 
 ```fortran
     1673 ista=.true.
@@ -345,13 +352,13 @@ L488
           ta (I) = (tahigh (I) +  talow (I) )/2.0
 ```
 
-### AL.D:
+### AL.D
 
 ```fortran
     ISTA
 ```
 
-## 051214
+## 20141204
 
 In utilsmod.f90 change the following to be compatible with prepare-xml.exe
 
@@ -362,7 +369,7 @@ In utilsmod.f90 change the following to be compatible with prepare-xml.exe
 ```
 
 
-## 120914
+## 20140912
 
 Compiled with vs2012 and cvf2013. Changed location of "incl_mod_shegraph" directory in the following two places
 
@@ -372,17 +379,16 @@ Compiled with vs2012 and cvf2013. Changed location of "incl_mod_shegraph" direct
 ```
 
 
-## 120514
+## 20140512
 
 Outlet link and face now calculated correctly. Check it is type 7 (weir).
 
-Lateral flow input not working: 
+Lateral flow input not working because 
 
+```fortran
+    CALL OCEXT  
 ```
-    CALL OCEXT  was commented out, now included
-```
-
-and
+was commented out, is now included. Also,
 
 ```fortran
     READ (OCD, * ) NOCHB,NOCFB,NOCPB  
@@ -399,13 +405,11 @@ As 4.4.1 except the following bug fixes
 
 4.4.1 As 4.4.0 except uses start.exe not sv4.4.0.exe
 
-
-## 211112
+## 20121121
 
 ```fortran
     nxscee=20000
 ```
-
 
 ## Error in smmod.f90
 
