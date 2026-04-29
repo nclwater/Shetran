@@ -1,0 +1,16 @@
+,any_differences,max_perc_diff_any,max_perc_diff_col,max_perc_diff_mean_any,max_perc_diff_mean_col,max_perc_diff_sum_abs_any,max_perc_diff_sum_abs_col,num_files_with_different_contents,num_files_too_large_to_compare,files_with_different_contents,files_too_large_to_compare
+38014-100m-SurfaceErrors,True,,,,,,,1,0,output_38014_shegraph.h5,
+Aire_at_Kildwick_Bridge-AllOptions-withdates,True,,,,,,,1,1,output_Aire_at_Kildwick_Bridge_shegraph.h5,output_Aire_at_Kildwick_Bridge_spr.txt
+Aire_at_Kildwick_Bridge-simple,True,,,,,,,1,0,output_Aire_at_Kildwick_Bridge_shegraph.h5,
+Cobres,True,,,,,,,1,0,output_cob_shegraph.h5,
+Cobres-ExtraOutputDischargePoints,True,,,,,,,1,0,output_cob_shegraph.h5,
+Cobres-ExtraOutputWaterTable,True,,,,,,,1,0,output_cob_shegraph.h5,
+Cobres1D,True,,,,,,,1,0,output_cob_shegraph.h5,
+Slapton,True,,,,,,,2,0,output_slap-shegraph.h5;output_slap_pri.txt,
+Slapton-1D-1year-nitrate,True,,,,,,,1,0,output_slap-shegraph.h5,
+Slapton-3D-1year-nitrate,True,,,,,,,0,1,,output_slap-shegraph.h5
+dunsop,True,,,,,,,1,0,output_dunsop_shegraph.h5,
+dunsop-hot1,True,,,,,,,1,0,output_dunsop_shegraph.h5,
+dunsop-hot2,True,,,,,,,1,0,output_dunsop_shegraph.h5,
+foston100m,True,,,,,,,1,0,output_Foston_Beck_at_Foston_Mill_shegraph.h5,
+reservoir-ZQmodule-example,True,,,,,,,1,0,output_cockeratscalehill-500m_shegraph.h5,
