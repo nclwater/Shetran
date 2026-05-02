@@ -33,7 +33,8 @@
 !> | 1998-02-20 | RAH | v4.2: Update SHEVER, BANNER. Remove NWELEE, NSZBOU, NPSITH. |
 !> | 2004-07 | JE | Converted to Fortran 95 as part of SHEGRAPH Version 2 integration. |
 !> | 2009-01-01 | JE | v4.3.5F90: Created `sglobal` module from legacy include files (e.g. al_p). |
-!> | 2024-09-05 | AI | Added KIND parameters and FORD docs. |
+!> | 2024-09-05 | SvB | Added KIND parameters and FORD docs. |
+!> | 2026-03 | SB |  Increase array sizes now all the 2 and 3D arrays are allocatable, NXOCEE=4*nxee |
 MODULE sglobal
 
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
@@ -57,7 +58,7 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! System Version and Banners
    ! --------------------------------------------------------------------
-   REAL(KIND=R8P), PARAMETER :: SHEVER = 4.5_R8P !! SHETRAN version number (Major.Minor format).
+   REAL(KIND=R8P), PARAMETER :: SHEVER = 4.6_R8P !! SHETRAN version number (Major.Minor format).
    LOGICAL, PARAMETER :: BDEVER = .TRUE. !! Development version flag. `.TRUE.` for development, `.FALSE.` for release.
    CHARACTER(*), PARAMETER :: BANNER = 'SHETRAN Hydrological Model' !! Banner for local implementation.
    CHARACTER(*), PARAMETER :: RUNFIL = 'rundata_' !! Base filename for run data files.
@@ -67,10 +68,10 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! Default 'large' settings. Alternative configurations for specific
    ! catchments are provided below in commented blocks.
-   INTEGER(KIND=I_P), PARAMETER :: nxee = 250 !! Max grid points in x-direction.
-   INTEGER(KIND=I_P), PARAMETER :: nyee = 250 !! Max grid points in y-direction.
-   INTEGER(KIND=I_P), PARAMETER :: nlfee = 10000 !! Max number of river links.
-   INTEGER(KIND=I_P), PARAMETER :: nelee = 30000 !! Max number of grid elements.
+   INTEGER(KIND=I_P), PARAMETER :: nxee = 1000 !! Max grid points in x-direction.
+   INTEGER(KIND=I_P), PARAMETER :: nyee = 1000 !! Max grid points in y-direction.
+   INTEGER(KIND=I_P), PARAMETER :: nlfee = 20000 !! Max number of river links.
+   INTEGER(KIND=I_P), PARAMETER :: nelee = 250000 !! Max number of grid elements.
    INTEGER(KIND=I_P), PARAMETER :: LLEE = 50 !! Max grid points in vertical direction plus one.
    !
    ! Alternative settings for sv4 large

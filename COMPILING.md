@@ -1,5 +1,9 @@
 # Compiling SHETRAN
 
+## Windows update 23042026
+Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
+
+
 ## Windows
 
 The easiest way to build SHETRAN on Windows is by using the provided `build.bat` script, which automates the CMake configuration and NMake build process.

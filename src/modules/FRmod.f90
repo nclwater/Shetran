@@ -75,6 +75,8 @@ MODULE FRmod
 !                   N1,T,QOCFT,DUMH,BCAL,B1,BIBDE (redundant).
 ! RAH  980308  4.2  Remove BUZCAL,BSZCAL,BOCCAL,BEXCAL.
 ! JE  12/08   4.3.5F90  Convert to FORTRAN90
+! SB  Mar 26  4.6  Allocate the following arrays:
+!                  ADD BMETDATES so met data has the option of including dates
 !----------------------------------------------------------------------*
 !
 ! ^^^ INTEGER VARIABLES.
@@ -132,7 +134,7 @@ MODULE FRmod
    ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
    ! RAH  970223  4.1  Explicit typing.
    !----------------------------------------------------------------------*
-      
+
       ! Assumed global variables provided via host module(s) (e.g., SPEC.AL):
       ! NXEE, NYEE, NX, NXM1, NY, NYM1, total_no_elements, PPPRI
       ! DXIN, DYIN, ICMREF, LINKNS, CWIDTH, CLENTH, DXQQ, DYQQ, CAREA, cellarea, DHF
@@ -159,7 +161,7 @@ MODULE FRmod
       DO J = 2, NXM1
          DX(J) = (DXIN(J - 1) + DXIN(J)) * 0.5D0
       END DO
-      
+
       DY(1)  = DYIN(1)
       DY(NY) = DYIN(NYM1)
       DO K = 2, NYM1
@@ -213,7 +215,7 @@ MODULE FRmod
             corner_loop: DO I1 = 5, 8
                ! GRID ELEMENTS (REMOVE WIDTHS OF CHANNEL LINKS, AND POSSIBLY BANK ELEME)
                INEXT1 = ICMREF(IEL, I1)
-               
+
                IF (INEXT1 > 0) THEN
                   DIFF = ZERO
                   IF (ICMREF(INEXT1, 1) > 0) THEN
@@ -230,20 +232,20 @@ MODULE FRmod
                I2 = I1 + 1
                IF (I2 == 9) I2 = 5
                INEXT2 = ICMREF(IEL, I2)
-               
+
                IF (INEXT1 > 0 .AND. INEXT2 > 0) THEN
                   IF ((ICMREF(INEXT1, 1) == 1 .OR. ICMREF(INEXT1, 1) == 2) .AND. &
                       (ICMREF(INEXT2, 1) == 1 .OR. ICMREF(INEXT2, 1) == 2)) THEN
-                      
+
                      IL1 = ICMREF(INEXT1, 4)
                      IL2 = ICMREF(INEXT2, 4)
-                     
+
                      IF (LINKNS(IL1)) THEN
                         DYQQ(INEXT1) = DYQQ(INEXT1) - BWIDTH - 0.5D0 * CWIDTH(IL2)
                      ELSE
                         DXQQ(INEXT1) = DXQQ(INEXT1) - BWIDTH - 0.5D0 * CWIDTH(IL2)
                      END IF
-                     
+
                      IF (LINKNS(IL2)) THEN
                         DYQQ(INEXT2) = DYQQ(INEXT2) - BWIDTH - 0.5D0 * CWIDTH(IL1)
                      ELSE
@@ -257,7 +259,7 @@ MODULE FRmod
          ! CALCULATE CATCHMENT AREA BY SUMMING ALL BASIC GRID SIZES
          ! AND CATCHMENT AREA OBTAINED BY SUMMING ALL ELEMENT AREAS (INCLUDES OVERLAP)
          IF (ITYPE == 0) CATEST = CATEST + DX(IX) * DY(IY)
-         
+
       END DO overlap_loop
 
       ! --- CALCULATE AREA OF EACH ELEMENT
@@ -272,7 +274,7 @@ MODULE FRmod
          DO IEL = 1, total_no_elements
             WRITE(PPPRI, 1600) IEL, DXQQ(IEL), DYQQ(IEL), cellarea(IEL)
          END DO
-         
+
          DIFF = (CAREA - CATEST) * 100.0D0 / CAREA
          IF (CAREA < 1.0D6) THEN
             WRITE(PPPRI, 1700) CAREA, CATEST, DIFF
@@ -434,7 +436,7 @@ MODULE FRmod
    ! Commons and constants
 
    ! Assumed external module dependencies providing global variables:
-   ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF, 
+   ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF,
    ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, PPPRI,
    ! total_no_links, total_no_elements
 
@@ -614,13 +616,13 @@ MODULE FRmod
                IF (LCODEX (I + 1, J) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEY (I + 1, J) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEX (I + 1, J - 1) >= 4) ICOUNT = ICOUNT + 1
-               
+
                IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
                   ICMREF (INDEX, 5) = -INDEX2
                END IF
-               
+
                IF (LCODEX (I + 1, J) >= 4) THEN
                   L1 = LINKNO (IP1, J, NSOUTH)
                   IF (SINGLE) THEN
@@ -629,7 +631,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 1) = L1
                   END IF
                END IF
-               
+
                IF (LCODEY (I + 1, J) >= 4) THEN
                   L1 = LINKNO (IP1, J, EWEST)
                   IF (SINGLE) THEN
@@ -638,7 +640,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 2) = L1
                   END IF
                END IF
-               
+
                IF (LCODEX (I + 1, J - 1) >= 4) THEN
                   L1 = LINKNO (IP1, JM1, NSOUTH)
                   IF (SINGLE) THEN
@@ -662,13 +664,13 @@ MODULE FRmod
                IF (LCODEY (I - 1, J + 1) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEX (I, J + 1) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEY (I, J + 1) >= 4) ICOUNT = ICOUNT + 1
-               
+
                IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
                   ICMREF (INDEX, 6) = -INDEX2
                END IF
-               
+
                IF (LCODEY (I - 1, J + 1) >= 4) THEN
                   L1 = LINKNO (IM1, JP1, EWEST)
                   IF (SINGLE) THEN
@@ -677,7 +679,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 1) = L1
                   END IF
                END IF
-               
+
                IF (LCODEX (I, J + 1) >= 4) THEN
                   L1 = LINKNO (I, JP1, NSOUTH)
                   IF (SINGLE) THEN
@@ -686,7 +688,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 2) = L1
                   END IF
                END IF
-               
+
                IF (LCODEY (I, J + 1) >= 4) THEN
                   L1 = LINKNO (I, JP1, EWEST)
                   IF (SINGLE) THEN
@@ -710,13 +712,13 @@ MODULE FRmod
                IF (LCODEX (I, J - 1) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEY (I - 1, J) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEX (I, J) >= 4) ICOUNT = ICOUNT + 1
-               
+
                IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
                   ICMREF (INDEX, 7) = -INDEX2
                END IF
-               
+
                IF (LCODEX (I, J - 1) >= 4) THEN
                   L1 = LINKNO (I, JM1, NSOUTH)
                   IF (SINGLE) THEN
@@ -725,7 +727,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 1) = L1
                   END IF
                END IF
-               
+
                IF (LCODEY (I - 1, J) >= 4) THEN
                   L1 = LINKNO (IM1, J, EWEST)
                   IF (SINGLE) THEN
@@ -734,7 +736,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 2) = L1
                   END IF
                END IF
-               
+
                IF (LCODEX (I, J) >= 4) THEN
                   L1 = LINKNO (I, J, NSOUTH)
                   IF (SINGLE) THEN
@@ -758,13 +760,13 @@ MODULE FRmod
                IF (LCODEY (I, J) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEX (I, J - 1) >= 4) ICOUNT = ICOUNT + 1
                IF (LCODEY (I - 1, J) >= 4) ICOUNT = ICOUNT + 1
-               
+
                IF (ICOUNT > 1) THEN
                   SINGLE = .FALSE.
                   INDEX2 = INDEX2 + 1
                   ICMREF (INDEX, 8) = -INDEX2
                END IF
-               
+
                IF (LCODEY (I, J) >= 4) THEN
                   L1 = LINKNO (I, J, EWEST)
                   IF (SINGLE) THEN
@@ -773,7 +775,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 1) = L1
                   END IF
                END IF
-               
+
                IF (LCODEX (I, J - 1) >= 4) THEN
                   L1 = LINKNO (I, JM1, NSOUTH)
                   IF (SINGLE) THEN
@@ -782,7 +784,7 @@ MODULE FRmod
                      ICMRF2 (INDEX2, 2) = L1
                   END IF
                END IF
-               
+
                IF (LCODEY (I - 1, J) >= 4) THEN
                   L1 = LINKNO (IM1, J, EWEST)
                   IF (SINGLE) THEN
@@ -949,7 +951,7 @@ MODULE FRmod
       element_check: DO INDEX = 1, total_no_elements
          face_loop: DO I = 1, 4
             INEXT1 = ICMREF (INDEX, I + 4)
-            
+
             IF (INEXT1 > 0) THEN
                DO J = 1, 4
                   IF (ICMREF (INEXT1, J + 4) == INDEX) THEN
@@ -959,14 +961,14 @@ MODULE FRmod
                END DO
                WRITE(PPPRI, 1100) INDEX, I
                ICOUNT = ICOUNT + 1
-               
+
             ELSE IF (INEXT1 < 0) THEN
                IF (ICMRF2 (-INEXT1, 1) == 0 .OR. ICMRF2 (-INEXT1, 2) == 0 .OR. ICMRF2 (-INEXT1, 3) == 0) THEN
                   NNODE3 = NNODE3 + 1
                ELSE
                   NNODE4 = NNODE4 + 1
                END IF
-               
+
                branch_loop: DO J1 = 1, 3
                   IN1 = ICMRF2 (-INEXT1, J1)
                   IF (IN1 > 0) THEN
@@ -986,7 +988,7 @@ MODULE FRmod
                      ICOUNT = ICOUNT + 1
                   END IF
                END DO branch_loop
-               
+
             ELSE
                ICMREF (INDEX, I + 8) = I
                IF (ITYPE < 3 .AND. NBFACE (INDEX) == 0) NBFACE (INDEX) = I
@@ -1087,10 +1089,10 @@ MODULE FRmod
    !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! NELEE, BEXET, BEXSM, MSM, BEXOC, BEXBK, BINFRP, total_no_links, NMC, 
-      ! NRAINC, ICMREF, iszq, FRD, VSD, OCD, ETD, SMD, BKD, VSI, PPD, HOTIME, 
-      ! zero, BHOTRD, HOT, UZNEXT, top_cell_no, CSTORE, NGDBGN, total_no_elements, 
-      ! QOC, DQ0ST, DQIST, DQIST2, SD, TS, NSMC, SMELT, tmelt, VSPSI, BHOTTI, 
+      ! NELEE, BEXET, BEXSM, MSM, BEXOC, BEXBK, BINFRP, total_no_links, NMC,
+      ! NRAINC, ICMREF, iszq, FRD, VSD, OCD, ETD, SMD, BKD, VSI, PPD, HOTIME,
+      ! zero, BHOTRD, HOT, UZNEXT, top_cell_no, CSTORE, NGDBGN, total_no_elements,
+      ! QOC, DQ0ST, DQIST, DQIST2, SD, TS, NSMC, SMELT, tmelt, VSPSI, BHOTTI,
       ! PPPRI, ALLOUT, DTAO, UZNOW, OCNOW, UZVAL, TIMEUZ
 
       IMPLICIT NONE
@@ -1136,7 +1138,7 @@ MODULE FRmod
       link_loop: DO IEL = 1, total_no_links
          NMC (IEL) = 1
          NRAINC (IEL) = 1
-         
+
          DO IFACE = 1, 4
             JEL = ICMREF (IEL, 4 + IFACE)
             IF (JEL > 0) THEN
@@ -1184,7 +1186,7 @@ MODULE FRmod
                   ((SMELT (K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
                   ((tmelt(K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
                   ((VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
-            
+
             ! Gracefully exit if end of hotstart file is reached
             IF (ios /= 0) THEN
                WRITE(PPPRI, '(/ A)') ' WARNING: END OF HOTSTART FILE REACHED'
@@ -1197,10 +1199,10 @@ MODULE FRmod
                   CALL SETQSA(IEL, K, rddq(IEL, K))
                END DO
             END DO
-            
+
             ! Keep reading lines if HOTIME is less than the target BHOTTI
             IF (HOTIME >= BHOTTI) EXIT hotstart_read
-            
+
          END DO hotstart_read
 
          WRITE(PPPRI, '(// A, F10.2, A /)') ' ^^^ HOTSTART OF SIMULATION AT TIME ', HOTIME, ' ^^^'
@@ -1260,7 +1262,7 @@ MODULE FRmod
       INTEGER :: I, J, K, L, M
       ! CHARACTER(LEN=80) :: TITLE
       CHARACTER(LEN=1)  :: A1LINE (200)
-      
+
       ! Modern array constructor replacing the legacy DATA statement
       CHARACTER(LEN=1), PARAMETER :: NMERIC(9) = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
@@ -1282,7 +1284,7 @@ MODULE FRmod
             IF (BPCNTL) WRITE (IOF, '("   ^^^   INCORRECT COORDINATE")')
             STOP 1
          END IF
-         
+
          I = I - 1
 
          outer_loop: DO L = 1, NNX
@@ -1368,10 +1370,10 @@ MODULE FRmod
 
       INTEGER, PARAMETER :: MBHOUR = 0, MBMIN = 0
       DOUBLE PRECISION, PARAMETER :: MPMM = 1.0D-3
-      
+
       ! Modernized DATA statement into parameter array initialization
       INTEGER, PARAMETER :: MONEND (12) = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-      
+
       INTEGER :: IEL, IPSTN, ICBOTM, IL, I, ICL, LYEAR
       DOUBLE PRECISION :: AT, QBK, AREAE, AREAEM
       DOUBLE PRECISION :: PRECM, CEVAPM, SEVAPM, TRANSM, AQFLXM, DISCHM, BFLOW
@@ -1394,7 +1396,7 @@ MODULE FRmod
       ! 18   aquifer-channel flow (through channel bed and sides)
       ! 19   cumulative aquifer-channel flow
       !----------------------------------------------------------------------*
-      
+
       ! Initialization
       ! Replaced ALINIT with array slice
       IF (FIRST_frmb) BALANC(1:19) = ZERO
@@ -1407,7 +1409,7 @@ MODULE FRmod
       SEVAPM = ZERO
       TRANSM = ZERO
       AQFLXM = ZERO
-      
+
       DO IEL = 1, total_no_elements
          IPSTN = NRAINC (IEL)
          ICBOTM = NLYRBT (IEL, 1) - 1
@@ -1448,14 +1450,14 @@ MODULE FRmod
       ! Calculate water volumes based on storage
       ! Replaced ALINIT with array slice (13 through 17 is 5 elements)
       BALANC(13:17) = ZERO
-      
+
       DO IEL = total_no_links + 1, total_no_elements
          AREAE = cellarea (IEL)
          AREAEM = AREAE * MPMM
          BALANC (13) = BALANC (13) + CSTORE (IEL) * AREAEM
          BALANC (14) = BALANC (14) + SD (IEL) * RHOSAR (IEL) * AREAEM
          BALANC (16) = BALANC (16) + (GETHRF (IEL) - ZGRUND (IEL)) * AREAE
-         
+
          DO ICL = NLYRBT (IEL, 1), top_cell_no
             BALANC (15) = BALANC (15) + VSTHE (ICL, IEL) * DELTAZ (ICL, IEL) * AREAE
          END DO
@@ -1525,7 +1527,7 @@ MODULE FRmod
    ! Commons and constants
 
       ! Assumed external module dependencies providing global variables:
-      ! BTIME, BANNER, DIRQQ, FILNAM, CNAM, ista, isextradis, iszq, 
+      ! BTIME, BANNER, DIRQQ, FILNAM, CNAM, ista, isextradis, iszq,
       ! isextrapsl, ismn, visualisation_plan_filename, visualisation_check_filename,
       ! hdf5filename, RESFIL, TIM
 
@@ -1559,8 +1561,8 @@ MODULE FRmod
       OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = ios)
       IF (ios /= 0) CALL stop_rundata_error(CNAM)
 
-      FILNAM2 = TRIM(DIRQQ) // 'output_' // TRIM(CNAM) // '_log.txt'
-      
+      FILNAM2 = TRIM(DIRQQ) // 'info_' // TRIM(CNAM) // '_SHETRAN_log.txt'
+
       OPEN (61, FILE = FILNAM2, IOSTAT = ios)
       IF (ios /= 0) CALL stop_open_error(FILNAM2)
 
@@ -1572,11 +1574,11 @@ MODULE FRmod
       !***nitrate 230925 change log file to unit 61 and read DO 100 I = 10, 60 (was 50). see extra lines at the end
       WRITE (61, '(A)') FILNAM
       WRITE (61, *)
-      
+
       ! Main file reading loop
       DO I = 10, 50
          READ (2, '(A)', IOSTAT = ios) FILNAM
-         
+
          IF (ios < 0) THEN
             IF (I < 14) CALL stop_eof_error(CNAM)
             iszq = .FALSE.
@@ -1585,10 +1587,10 @@ MODULE FRmod
             CLOSE (2)
             RETURN
          END IF
-         
+
          WRITE (61, '(A)') FILNAM
          READ (2, '(A)', IOSTAT = ios) FILNAM
-         
+
          IF (ios < 0) THEN
             IF (I < 14) CALL stop_eof_error(CNAM)
             iszq = .FALSE.
@@ -1618,7 +1620,7 @@ MODULE FRmod
                hdf5filename = FILNAM
             ELSE
                WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') I, FILNAM
-               
+
                OPEN (I, FILE = FILNAM, IOSTAT = ios)
                IF (ios /= 0) THEN
                   WRITE (*,'(A,A)') ' Error opening the file ', TRIM(FILNAM)
@@ -1646,10 +1648,10 @@ MODULE FRmod
          CLOSE (2)
          RETURN
       END IF
-      
+
       WRITE (61, '(A)') FILNAM
       READ (2, '(A)', IOSTAT = ios) FILNAM
-      
+
       IF (ios < 0) THEN
          iszq = .FALSE.
          isextrapsl = .FALSE.
@@ -1657,7 +1659,7 @@ MODULE FRmod
          CLOSE (2)
          RETURN
       END IF
-      
+
       IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
          iszq = .FALSE.
          WRITE (61, '("- NOT USED")')
@@ -1675,10 +1677,10 @@ MODULE FRmod
          CLOSE (2)
          RETURN
       END IF
-      
+
       WRITE (61, '(A)') FILNAM
       READ (2, '(A)', IOSTAT = ios) FILNAM
-      
+
       IF (ios < 0) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
@@ -1703,10 +1705,10 @@ MODULE FRmod
          CLOSE (2)
          RETURN
       END IF
-      
+
       WRITE (61, '(A)') FILNAM
       READ (2, '(A)', IOSTAT = ios) FILNAM
-      
+
       IF (ios < 0) THEN
          ismn = .FALSE.
          CLOSE (2)
@@ -1722,16 +1724,16 @@ MODULE FRmod
          IF (ios /= 0) CALL stop_open_error(FILNAM)
          WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') 53, FILNAM
       END IF
-      
+
       ! Remaining nitrate files
       DO I = 54, 60
          READ (2, '(A)', IOSTAT = ios) FILNAM
-         IF (ios < 0) EXIT 
-         
+         IF (ios < 0) EXIT
+
          WRITE (61, '(A)') FILNAM
          READ (2, '(A)', IOSTAT = ios) FILNAM
          IF (ios < 0) EXIT
-         
+
          IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
             WRITE (61, '("- NOT USED")')
          ELSE
@@ -1777,7 +1779,7 @@ MODULE FRmod
    ! Generates output files for discharge, sediment, contaminants,
    ! water tables, and mass balances at various simulation stages.
    !----------------------------------------------------------------------*
-      
+
       ! Assumed global variables provided via host module(s):
       ! ISextradis, disextra, total_no_links, ISextrapsl, pslextra,
       ! total_no_elements, DIRQQ, cnam, dis2, mas, dis, toutput,
@@ -1806,6 +1808,10 @@ MODULE FRmod
       INTEGER :: c(6), hour_now
       DOUBLE PRECISION :: qocav, qocold, sedav, sedfineav, contamav
       DOUBLE PRECISION :: uznowt
+      DOUBLE PRECISION :: outputhour
+      character(len=32), DIMENSION(:),allocatable, SAVE :: buf
+      character(len=32) :: bufmb(17)
+      character(len=32) :: bufdis
 
       ! State Variables (Must be SAVED to persist between calls)
       INTEGER, SAVE :: disextrapoints = 0, pslextrapoints = 0
@@ -1826,7 +1832,7 @@ MODULE FRmod
             READ(disextra, *, IOSTAT=ios)
             IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
                                      'no or incorrect data in extra discharge points file')
-            
+
             READ(disextra, *, IOSTAT=ios) disextratext, disextrapoints
             IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
                                      'no or incorrect data in extra discharge points file')
@@ -1835,19 +1841,20 @@ MODULE FRmod
             ALLOCATE(disextraface(disextrapoints))
             ALLOCATE(qocavextra(disextrapoints))
             ALLOCATE(qoctotextra(disextrapoints))
-            
+            ALLOCATE(buf(disextrapoints))
+
             disextraelement = 0
             disextraface    = 0
             qocavextra      = 0.0D0
             qoctotextra     = 0.0D0
-            
+
             j = 0
             DO i = 1, disextrapoints
                j = j + 1
                READ(disextra, *, IOSTAT=ios) disextraelement(j), disextraface(j)
                IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
                                         'no or incorrect data in extra discharge points file')
-               
+
                ! remove the output if the element number is too big
                IF (disextraelement(j) > total_no_links) THEN
                   disextraelement(j) = 0
@@ -1863,21 +1870,21 @@ MODULE FRmod
             READ(pslextra, *, IOSTAT=ios)
             IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
                                      'no or incorrect data in input_CATCH_water_table_depth file')
-            
+
             READ(pslextra, *, IOSTAT=ios) pslextratext, pslextrapoints
             IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
                                      'no or incorrect data in input_CATCH_water_table_depth file')
 
             ALLOCATE(pslextraelement(pslextrapoints))
             pslextraelement = 0
-            
+
             j = 0
             DO i = 1, pslextrapoints
                j = j + 1
                READ(pslextra, *, IOSTAT=ios) pslextraelement(j)
                IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
                                         'no or incorrect data in input_CATCH_water_table_depth file')
-               
+
                ! remove the output if the element number is too big
                IF (pslextraelement(j) > total_no_elements) THEN
                   pslextraelement(j) = 0
@@ -1889,7 +1896,7 @@ MODULE FRmod
             FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
             OPEN(PSLFILEUNIT, FILE=FILNAM, IOSTAT=ios)
             IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, 'Error opening water table depth file')
-            
+
             WRITE(PSLFILEUNIT, '(A)') 'Water_Table_depth(m_below_ground). A negative number ' // &
                                       'means there is surface water with the absolute value ' // &
                                       'the depth of surface water'
@@ -1906,28 +1913,36 @@ MODULE FRmod
             READ(*, *)
             STOP
          END IF
-         
+
          WRITE(dis2, '(A)', IOSTAT=ios) 'Date_yyyy-mm-dd_hours(iso8601format),Time(hours),' // &
                                         'Outlet_Discharge(m3/s)'
-                                        
-         WRITE(mas, '(A60)', IOSTAT=ios) 'Spatially Averaged Totals (mm) over the simulation'
+
+         WRITE(mas, '(A)', IOSTAT=ios) 'Spatially Averaged Totals (mm) over the simulation'
          IF (ios /= 0) THEN
-            WRITE(*, '(A)') 'Error writing to the the mass balance data file (units 43 in the rundata file)'
+            WRITE(*, '(A)') 'Error writing to the the mass balance data file (unit 43 in the rundata file)'
             WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
             WRITE(*, '(''paused, type [enter] to continue'')')
             READ(*, *)
             STOP
          END IF
-         
-         WRITE(mas, '(12(a16,1a))') 'Time(Hours)', ',', 'Cum Prec.', ',', 'Cum. Can. Evap.', ',', &
-                                    'Cum. Soil Evap.', ',', 'Cum. Trans', ',', 'Cum. Aqu. Flow', ',', &
-                                    'Cum. Discharge', ',', 'Canopy Storage', ',', 'Snow Storage', ',', &
-                                    'Subsurface Stor.', ',', 'Land Surf Stor.', ',', 'Channel Stor.'
-                                    
+
+         WRITE (mas, '(12(A,1A))') 'Time(Hours)', ',', &
+                                      'Cumulative_Precipitation', ',', &
+                                      'Cumulative_Canopy_Evaporation', ',', &
+                                      'Cumulative_Soil_Evaporation', ',', &
+                                      'Cumulative_Transpiration', ',', &
+                                      'Cumulative_Aquifer_Flow', ',', &
+                                      'Cumulative_Discharge', ',', &
+                                      'Canopy_Storage', ',', &
+                                      'Snow_Storage', ',', &
+                                      'Subsurface_Storage', ',', &
+                                      'Land_Surface_Storage', ',', &
+                                      'Channel_Storage'
+
          WRITE(dis, '(A,f8.2,A)', IOSTAT=ios) 'Simulated discharge(m3/s) at the outlet - regular ' // &
                                               'timestep', toutput, ' hours. Simulated discharge is ' // &
                                               'the mean value over the timestep with the date at the ' // &
-                                              'end of the timestep'
+                                              'start of the timestep'
          IF (ios /= 0) THEN
             WRITE(*, '(A)') 'Error writing to the regular discharge at the catchment outlet file ' // &
                             '(unit 44 in the rundata file)'
@@ -1959,21 +1974,21 @@ MODULE FRmod
          ELSE
             WRITE(dis, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge'
          END IF
-         
+
          uznowt    = uznow * (1.0D0 / TOUTPUT)
          next_hour = DBLE(INT(uznowt)) + 1.0D0
-         
+
          ! hotstart first time is correct
          IF (BHOTRD) uzold = DBLE(INT(bhotti / TOUTPUT))
 
          IF (bexsy) THEN
             FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
             OPEN(SEDALLUNIT, FILE=FILNAM)
-            
+
             FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
             OPEN(SEDFINEUNIT, FILE=FILNAM)
-            
-            WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - All Sediments'
+
+            WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - All Sediments This is the mean value over the timestep with the date at the start of the timestep'
             IF (ios /= 0) THEN
                WRITE(*, '(A)') 'Error writing to the sed-all-daily-output.csv file'
                WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -1983,8 +1998,8 @@ MODULE FRmod
             END IF
             WRITE(SEDALLUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
                                      'Outlet-Discharge(kg/s)'
-            
-            WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - Fine Sediments'
+
+            WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - Fine Sediments. This is the mean value over the timestep with the date at the start of the timestep'
             IF (ios /= 0) THEN
                WRITE(*, '(A)') 'Error writing to the sed-fine-daily-output.csv file'
                WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -2001,7 +2016,7 @@ MODULE FRmod
             FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
             OPEN(CONTAMUNIT, FILE=FILNAM)
             WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) 'Contaminant Relative Concentration ' // &
-                                                 '(contaminant 1) at the outlet'
+                                                 '(contaminant 1) at the outlet. This is the mean value over the timestep with the date at the start of the timestep.'
             IF (ios /= 0) THEN
                WRITE(*, '(A)') 'Error writing to the contaminant.csv file'
                WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
@@ -2026,14 +2041,14 @@ MODULE FRmod
                   sedav = sedav + QSED(mblink, i, mbface) * RHOSED
                END IF
             END DO
-            
+
             IF (mblink == 0 .AND. mbface == 0) THEN
                sedfineav = 0.0D0
             ELSE
                sedfineav = QSED(mblink, 1, mbface) * RHOSED
             END IF
          END IF
-         
+
          IF (bexcm) THEN
             IF (mblink == 0 .AND. mbface == 0) THEN
                contamav = 0.0D0
@@ -2052,16 +2067,16 @@ MODULE FRmod
          ELSE
             qocav = qoc(mblink, mbface)
          END IF
-         
+
          IF (ISextradis) THEN
             DO i = 1, disextrapoints
                qocavextra(i) = qoc(disextraelement(i), disextraface(i))
             END DO
          END IF
-         
+
          hour_now = INT(uznowt)
 
-         IF (hour_now < INT(next_hour)) THEN  
+         IF (hour_now < INT(next_hour)) THEN
             ! not new hour
             qoctot = qoctot + qocav * (uznowt - uzold)
             IF (bexsy) THEN
@@ -2069,13 +2084,13 @@ MODULE FRmod
                sedfinetot = sedfinetot + sedfineav * (uznowt - uzold)
             END IF
             IF (bexcm) contamtot = contamtot + contamav * (uznowt - uzold)
-            
+
             IF (ISextradis) THEN
                DO i = 1, disextrapoints
                   qoctotextra(i) = qoctotextra(i) + qocavextra(i) * (uznowt - uzold)
                END DO
             END IF
-            
+
          ELSE
             qoctot = qoctot + qocav * (next_hour - uzold)
             IF (bexsy) THEN
@@ -2090,71 +2105,83 @@ MODULE FRmod
                END DO
             END IF
 
-            c = DATE_FROM_HOUR(tih + next_hour * TOUTPUT)
-            WRITE(dum, '(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
-                  c(1), '-', c(2), '-', c(3), 'T', c(4), ':', c(5), ':', c(6)
-            
-            IF (ISextradis) THEN
-               WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
-                     ABS(qoctot), (',', ABS(qoctotextra(j)), j=1, disextrapoints)
-            ELSE
-               WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', ABS(qoctot)
-            END IF
-            
-            IF (bexsy) THEN
-               WRITE(SEDALLUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
-                     sedtot
-               WRITE(SEDFINEUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
-                     sedfinetot
-            END IF
-            
-            IF (bexcm) THEN
-               WRITE(CONTAMUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
-                     contamtot
-            END IF
-            
-            DO i = INT(next_hour) + 1, hour_now
-               next_hour = DBLE(i)
-               c = DATE_FROM_HOUR(tih + next_hour * TOUTPUT)
-               WRITE(dum, '(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
-                     c(1), '-', c(2), '-', c(3), 'T', c(4), ':', c(5), ':', c(6)
-               
-               IF (ISextradis) THEN
-                  WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', &
-                        ABS(qoctot), (',', ABS(qocavextra(j)), j=1, disextrapoints)
-               ELSE
-                  WRITE(dis, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', next_hour * TOUTPUT, ',', ABS(qocav)
-               END IF
-               
-               IF (bexsy) THEN
-                  WRITE(SEDALLUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', &
-                        next_hour * TOUTPUT, ',', sedav
-                  WRITE(SEDFINEUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', &
-                        next_hour * TOUTPUT, ',', sedfineav
-               END IF
-               
-               IF (bexcm) THEN
-                  WRITE(CONTAMUNIT, '(A,A1,F0.3,*(A1,F0.5))') TRIM(dum), ',', &
-                        next_hour * TOUTPUT, ',', contamav
-               END IF
-            END DO
-            
-            qoctot = qocav * (uznowt - next_hour)
-            IF (bexsy) THEN
-               sedtot     = sedav * (uznowt - next_hour)
-               sedfinetot = sedfineav * (uznowt - next_hour)
-            END IF
-            IF (bexcm) contamtot = contamav * (uznowt - next_hour)
-            
-            IF (ISextradis) THEN
-               DO i = 1, disextrapoints
-                  qoctotextra(i) = qocavextra(i) * (uznowt - next_hour)
-               END DO
-            END IF
+            ! if outputhour = next_hour-1.0 it is the mean value over the timestep with the date at the start of the timestep.
+                    ! if outputhour = next_hour it is the mean value over the timestep with the date at the end of the timestep.
+                    outputhour = next_hour-1.0
+
+                    c = DATE_FROM_HOUR(tih+outputhour*TOUTPUT)
+                    WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
+                    write(bufdis,'(F20.5)') abs(qoctot)
+                    bufdis = adjustl(bufdis)
+                    if (ISextradis) then
+                        do j=1,disextrapoints
+                            write(buf(j),'(F20.5)') abs(qoctotextra(j))
+                            buf(j) = adjustl(buf(j))
+                        enddo
+                        WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
+                    else
+                        WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
+                    endif
+                    if (bexsy) then
+                            write(bufdis,'(F20.5)') sedtot
+                         bufdis = adjustl(bufdis)
+                        write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
+                            write(bufdis,'(F20.5)') sedfinetot
+                         bufdis = adjustl(bufdis)
+                        write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
+                    endif
+                    if (bexcm) then
+                             write(bufdis,'(F20.5)') contamtot
+                         bufdis = adjustl(bufdis)
+                       write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
+                    endif
+                    DO i = next_hour+1, hour_now
+                        next_hour = i
+                       outputhour = next_hour-1
+                       c = DATE_FROM_HOUR(tih+outputhour*TOUTPUT)
+                        WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
+                        write(bufdis,'(F20.5)') abs(qocav)
+                        bufdis = adjustl(bufdis)
+                        if (ISextradis) then
+                            do j=1,disextrapoints
+                                write(buf(j),'(F20.5)') abs(qocavextra(j))
+                                buf(j) = adjustl(buf(j))
+                            enddo
+                            WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
+                        else
+                            WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
+                        endif
+                        if (bexsy) then
+                            write(bufdis,'(F20.5)') sedav
+                            bufdis = adjustl(bufdis)
+                            write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
+                            write(bufdis,'(F20.5)') sedfineav
+                            bufdis = adjustl(bufdis)
+                            write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
+                        endif
+                        if (bexcm) then
+                            write(bufdis,'(F20.5)') contamav
+                            bufdis = adjustl(bufdis)
+                            write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
+                        endif
+                    ENDDO
+                    qoctot    = qocav * (uznowt-next_hour)
+                    if (bexsy) then
+                        sedtot    = sedav * (uznowt-next_hour)
+                        sedfinetot    = sedfineav * (uznowt-next_hour)
+                    endif
+                    if (bexcm) then
+                        contamtot    = contamav * (uznowt-next_hour)
+                    endif
+                    if (ISextradis) then
+                        do i=1,disextrapoints
+                            qoctotextra(i) = qocavextra(i) * (uznowt-next_hour)
+                        enddo
+                    endif
 
             next_hour = next_hour + 1.0D0
          END IF
-         
+
          CALL WRITE_DIS2(mbface, qocav, uznow)
 
          IF (uznow > icounter2) THEN
@@ -2170,15 +2197,15 @@ MODULE FRmod
                  balanc(15) * 1000.0D0 / carea, ',', &
                  balanc(16) * 1000.0D0 / carea, ',', &
                  balanc(17) * 1000.0D0 / carea
-                 
+
             icounter2 = icounter2 + 24.0D0
-            
+
             IF (ISextrapsl) THEN
                WRITE(PSLFILEUNIT, '(f10.2,*(1a,f10.2))') uznow, (',', &
                      zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), i=1, pslextrapoints)
             END IF
          END IF
-         
+
          uzold = uznowt
 
          ! temp sb 250925 for when doing 1d simulations
@@ -2193,17 +2220,17 @@ MODULE FRmod
          WRITE(vse, *) 'This output is by element number'
          WRITE(vse, *)
          WRITE(vse, *) 'phreatic surface level '
-         
+
          IF (bexbk) THEN
             nminel = 1
          ELSE
             nminel = total_no_links + 1
          END IF
-         
+
          WRITE(vse, '(10(1X,F9.3))') (zvspsl(j), j = nminel, total_no_elements)
          WRITE(vse, *)
          WRITE(vse, *) 'Heads at end of simulation'
-         
+
          DO iel = 1, total_no_elements
             IF (bexbk .OR. iel > total_no_links) THEN
                WRITE(vse, '(I7)') iel
@@ -2307,7 +2334,7 @@ MODULE FRmod
       INTEGER, PARAMETER :: IDUM0 = 0
       DOUBLE PRECISION, PARAMETER :: FDUM0 = 0.0D0
       LOGICAL, PARAMETER :: LDUM0 = .TRUE.
-      
+
       INTEGER :: I, ICHAR, ISET, J, K, L
       CHARACTER(2) :: ANUM
       CHARACTER(128) :: fname
@@ -2447,7 +2474,7 @@ MODULE FRmod
       IF (NSET > 0) THEN
          ! Modernized: Find the actual length of the filename string
          ICHAR = LEN_TRIM(RESFIL)
-         
+
          DO ISET = 1, NSET
             IORES (ISET) = 50 + ISET
             WRITE (ANUM, '(I2.2)') ISET
@@ -2481,7 +2508,7 @@ MODULE FRmod
       ! IOTIME, IOEND, IODATA, IOELEM, ICLNUM, IOCORS, NSED, ICLIST, PNETTO,
       ! EPOT, ERZA, ESOILA, EINTA, DRAINA, CSTORE, QH, IORES, QVSV, top_cell_no,
       ! SD, TS, ZVSPSL, ZGRUND, QVSH, QOC, GETHRF, QBKB, QBKF, QVSSPR, VSPSI,
-      ! VSTHE, FBETA, FDEL, RHOSED, PLS, GINFD, GINFS, GNUBK, QSED, DCBED, 
+      ! VSTHE, FBETA, FDEL, RHOSED, PLS, GINFD, GINFS, GNUBK, QSED, DCBED,
       ! DCBSED, ZERO, ARBDEP, CCCC, SSSS, NCOLMB, CCCCW, QVSWEL, cellarea,
       ! NVSWLI, QVSWLI, WBERR, BALANC, CAREA, NELEE, LLEE
 
@@ -2750,7 +2777,7 @@ MODULE FRmod
       !----------------------------------------------------------------------*
 
       IF (total_no_elements == 1) RETURN
-      
+
       NS1 = 0
       NS2 = 0
 
@@ -2762,7 +2789,7 @@ MODULE FRmod
 
          IEL = ISORT (I)
          ITYPE = ICMREF (IEL, 1)
-         
+
          IF (ITYPE == 3) THEN
             HSZ1 = zero
             HSZ2 = zero
@@ -2790,7 +2817,7 @@ MODULE FRmod
             ELEV (NS2, 2) = ZVSPSL (IEL)
             ISTEMP (NS2, 2) = IEL
          END IF
-         
+
       END DO
 
       NSORT (1) = NS1
@@ -2800,7 +2827,7 @@ MODULE FRmod
       !
       column_loop: DO L = 1, 2
          NDUM = NSORT (L)
-         
+
          ! - CHECK FOR START AND END OF ARRAY TO BE SORTED
          !
          ! PASS ONE (HIGHEST TO LOWEST)
@@ -2812,16 +2839,16 @@ MODULE FRmod
                EXIT
             END IF
          END DO
-         
+
          ! - IF NO INCREASING ELEVATIONS FOUND, THE ARRAY IS ALREADY SORTED
          IF (NSTART == 0) CYCLE column_loop
-         
+
          ! - FIND HIGHEST POINT IN REST OF ARRAY
          ZHIGH = zero
          DO I = NSTART + 1, NSORT (L)
             IF (ELEV (I, L) > ZHIGH) ZHIGH = ELEV (I, L)
          END DO
-         
+
          ! - FIND POSITION IN SORTED SECTION OF ARRAY OF ELEVATION 'HIGH'
          DO I = 1, NSTART
             IF (ELEV (I, L) < ZHIGH) THEN
@@ -2829,7 +2856,7 @@ MODULE FRmod
                EXIT
             END IF
          END DO
-         
+
          ! PASS TWO (LOWEST TO HIGHEST)
          ! - FIND FIRST POINT (IF ANY) WHERE ELEVATIONS START DECREASING
          NEND = 0
@@ -2839,16 +2866,16 @@ MODULE FRmod
                EXIT
             END IF
          END DO
-         
+
          ! - IF NO DECREASING ELEVATIONS FOUND, THE ARRAY IS ALREADY SORTED
          IF (NEND == 0) CYCLE column_loop
-         
+
          ! - FIND LOWEST POINT IN REST OF ARRAY
          ZLOW = 1.0E10
          DO I = NEND - 1, 1, -1
             IF (ELEV (I, L) < ZLOW) ZLOW = ELEV (I, L)
          END DO
-         
+
          ! - FIND POSITION IN SORTED SECTION OF ARRAY OF ELEVATION 'ZLOW'
          DO I = NDUM, NEND, -1
             IF (ELEV (I, L) > ZLOW) THEN
@@ -2856,17 +2883,17 @@ MODULE FRmod
                EXIT
             END IF
          END DO
-         
+
          ! --- SORT ON ARRAY BETWEEN NSTART AND NEND (Shell Sort)
          JUMP = NEND - NSTART + 1
-         
+
          gap_loop: DO
             JUMP = JUMP / 2
             IF (JUMP == 0) EXIT gap_loop
-            
+
             DO M = NSTART, NEND - JUMP
                K = M
-               
+
                inner_sort_loop: DO
                   N = K + JUMP
                   IF (ELEV (K, L) < ELEV (N, L)) THEN
@@ -2874,18 +2901,18 @@ MODULE FRmod
                      ITEMP = ISTEMP (K, L)
                      ISTEMP (K, L) = ISTEMP (N, L)
                      ISTEMP (N, L) = ITEMP
-                     
+
                      ! Swap elevations
                      TEMP = ELEV (K, L)
                      ELEV (K, L) = ELEV (N, L)
                      ELEV (N, L) = TEMP
-                     
+
                      K = K - JUMP
                      IF (K > 0) CYCLE inner_sort_loop
                   END IF
                   EXIT inner_sort_loop
                END DO inner_sort_loop
-               
+
             END DO
          END DO gap_loop
 
@@ -2993,7 +3020,7 @@ MODULE FRmod
       ! :BK1
       READ (BKD, '(A)') TITLE
       READ (BKD, '(L7)') BINBKD
-      
+
       ! ----- LOOP OVER INPUT DATA TYPES
       !
       out500: DO IDATA = 1, 13
@@ -3002,13 +3029,13 @@ MODULE FRmod
             IDUM (IEL) = 0
             DUMMY (IEL) = zero
          END DO
-         
+
          ! READ TITLE, INPUT METHOD, NUMBER OF FOLLOWING VALUES
          ! :BK3
          READ (BKD, '(A)') TITLE
          IF (BINBKD) WRITE(PPPRI, '(A)') TITLE
          READ (BKD, '(10I7)') INTYPE, NVALUE
-         
+
          !
          ! TYPE 1: SET VALUE = VALUE AT ADJACENT GRID
          ! ++++++++++++++++++++++++++++++++++++++++++
@@ -3024,10 +3051,10 @@ MODULE FRmod
                out90: DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
                   IF (ITYPE /= 1 .AND. ITYPE /= 2) CYCLE out90
-                  
+
                   ! * find adjacent element
                   found_adjacent = .FALSE.
-                  
+
                   out60: DO J = 1, 4
                      JEL = ICMREF (IEL, 4 + J)
                      IF (JEL > 0) THEN
@@ -3037,7 +3064,7 @@ MODULE FRmod
                         END IF
                      END IF
                   END DO out60
-                  
+
                   IF (.NOT. found_adjacent) THEN
                      out65: DO J = 1, 4
                         JEL = ICMREF (IEL, J + 4)
@@ -3049,10 +3076,10 @@ MODULE FRmod
                         END IF
                      END DO out65
                   END IF
-                  
+
                   ! * set value
                   DZG = ZGRUND (IEL) - ZGRUND (JEL)
-                  
+
                   SELECT CASE (IDATA)
                   CASE (1)
                      IL = ICMREF (IEL, 4)
@@ -3078,7 +3105,7 @@ MODULE FRmod
                   END SELECT
                END DO out90
             END DO out95
-            
+
             CYCLE out500
             !
             ! TYPE 2: READ SINGLE DEFAULT VALUE
@@ -3089,7 +3116,7 @@ MODULE FRmod
             IF (INTEGR (IDATA)) THEN
                READ (BKD, '(10I7)') IFAULT
                IF (BINBKD) WRITE(PPPRI, 1300) IFAULT
-               
+
                DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
                   IF (ITYPE == 1 .OR. ITYPE == 2) IDUM (IEL) = IFAULT
@@ -3098,7 +3125,7 @@ MODULE FRmod
             ELSE
                READ (BKD, '(10F7.0)') DFAULT
                IF (BINBKD) WRITE(PPPRI, 1500) DFAULT
-               
+
                DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
                   ! amended by GP 18/7/94 to be consistent with DSATE code
@@ -3112,13 +3139,13 @@ MODULE FRmod
                   END IF
                END DO
             END IF
-            
+
             ! TYPE 3: READ PAIRS OF (DATA CLASS, VALUE)
             ! +++++++++++++++++++++++++++++++++++++++++
          ELSE IF (INTYPE == 3) THEN
             ! :BK7-8
             CALL ERROR(FFFATAL, 1061, PPPRI, 0, 0, 'BKD input type 3 (data class, value) not supported')
-            
+
             ! TYPE 4: READ PAIRS OF (BANK ELEMENT NUMBER, VALUE)
             ! ++++++++++++++++++++++++++++++++++++++++++++++++++
          ELSE IF (INTYPE == 4) THEN
@@ -3128,7 +3155,7 @@ MODULE FRmod
                READ (BKD, '(10I7)') (IELEM (I), IVALUE (I), I = 1, NVALUE)
                IF (BINBKD) WRITE(PPPRI, 2000)
                IF (BINBKD) WRITE(PPPRI, 2050) (IELEM (I), IVALUE (I), I = 1, NVALUE)
-               
+
                DO I = 1, NVALUE
                   IEL = IELEM (I)
                   ITYPE = ICMREF (IEL, 1)
@@ -3138,7 +3165,7 @@ MODULE FRmod
                READ (BKD, '(5(I7,F7.0))') (IELEM (I), VALUE (I), I = 1, NVALUE)
                IF (BINBKD) WRITE(PPPRI, 2100)
                IF (BINBKD) WRITE(PPPRI, 2150) (IELEM (I), VALUE (I), I = 1, NVALUE)
-               
+
                DO I = 1, NVALUE
                   IEL = IELEM (I)
                   ITYPE = ICMREF (IEL, 1)
@@ -3146,7 +3173,7 @@ MODULE FRmod
                END DO
             END IF
          END IF
-         
+
          ! MOVE DATA FROM DUMMY ARRAYS INTO ACTUAL DATA ARRAYS
          DO IEL = NGDBGN, total_no_elements
             ITYPE = ICMREF (IEL, 1)
@@ -3175,7 +3202,7 @@ MODULE FRmod
                END SELECT
             END IF
          END DO
-         
+
       END DO out500
 
       ! FORMAT STATEMENTS
@@ -3280,12 +3307,12 @@ MODULE FRmod
       ! ----------------------------
       ! Modified by SB
 
-      CALL CMRD (CMD, CMP, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, & 
+      CALL CMRD (CMD, CMP, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, &
          NS, NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY, NLYRBT (total_no_links + 1, 1), &
          ICMXY, ICMBK, ICMREF (1, 5), BEXBK, LINKNS, NUM_CATEGORIES_TYPES, NCATTY, NCON, &
          NCOLMB (total_no_links + 1), NTAB, DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB, &
          TABLE_CONCENTRATION, TABLE_WATER_DEPTH, IIICF, SOFN, GNN, GGLMSO, ALPHBD, ALPHBS, KDDLS, &
-         ALPHA, FADS, ISCNSV, IDUM, DUMMY) 
+         ALPHA, FADS, ISCNSV, IDUM, DUMMY)
          ! Checks the data used to calculate spatially variable
          ! concentrations in the grid and bank elements is OK
 
@@ -3304,13 +3331,13 @@ MODULE FRmod
             ARBDEP (NLINK) = zero
             DLS (NLINK) = zero
             DLSO (NLINK) = zero
-            
+
             FBETA (NLINK, 1:3) = [one, zero, zero]
             FBTSD (NLINK, 1:3) = [one, zero, zero]
             FDEL (NLINK, 1:3)  = [zero, zero, zero]
             GINFD (NLINK, 1:3) = [zero, zero, zero]
             GINFS (NLINK, 1:3) = [zero, zero, zero]
-            
+
             GNUBK (NLINK) = zero
             QDEFF (NLINK, 1:2) = zero
 
@@ -3325,16 +3352,16 @@ MODULE FRmod
                   END IF
                END IF
             END DO
-            
+
             JLYR = 0
             search_lyr_loop: DO
                JLYR = JLYR + 1
                IF (NLYRBT (NBK (1), JLYR) >= NHBED (NLINK, 1)) EXIT search_lyr_loop
             END DO search_lyr_loop
-            
+
             NSOBED (NLINK) = NTSOIL (NBK (1), JLYR - 1)
             PBSED (NLINK) = VSPOR (NSOBED (NLINK))
-            ! SET BED SOIL TYPE AND POROSITY, BASED ON THE SOIL AT THE 
+            ! SET BED SOIL TYPE AND POROSITY, BASED ON THE SOIL AT THE
             ! BOTTOM OF THE EXPOSED FACE OF BANK 1
          END DO
 
@@ -3355,7 +3382,7 @@ MODULE FRmod
       END IF
       ! IF THE SEDIMENT CODE IS NOT ACTIVE, THE SEDIMENT VARIABLES ARE SET TO APPROPRIATE VALUES
       ! ccccccccccccc SET CONSTANTS cccccccccccccc
-      
+
       SCL = one / 32500.0D0
       OODO = one / D0
 
@@ -3376,7 +3403,7 @@ MODULE FRmod
          ! SET CONSTANTS WHICH DEPEND ON CONTAMINANT NUMBER
          GCPLA (NCONT) = GGLMSO (NCONT) * Z2SQOD
          ! SET DECAY CONSTANTS FOR CONTAMINANTS
-         
+
          DO JSOIL = 1, NS
             asum = SUM(SOSDFN (JSOIL, 1:NSED) * KDDLS (1:NSED, NCONT))
             KDDSOL (JSOIL, NCONT) = asum
@@ -3389,7 +3416,7 @@ MODULE FRmod
          ZCOLMB (NCL) = ZVSNOD (NCOLMB (NCL), NCL)
       END DO
       ! SET ELEVATION OF BOTTOM CELLS IN SOIL COLUMNS
-      
+
       ! set up temporary array for use until full vss coding completed
       DO NCL = 1, total_no_elements
          DO NCE = NLYRBT (NCL, 1), top_cell_no
@@ -3413,19 +3440,19 @@ MODULE FRmod
             ELSE IF (ICMREF (JEL, 1) == 3) THEN
                JEL = ICMREF (JEL, IFA + 4)
             END IF
-            
+
             NOLP = 0
             DO ICL = NLYRBT (IEL, 1), top_cell_no
                IF (JVSACN (IFA, ICL, IEL) > 0) THEN
                   JCL = JVSACN (IFA, ICL, IEL)
                   IDEL = JVSDEL (IFA, ICL, IEL)
                   JDEL = JVSDEL (JFA, JCL, JEL)
-                  
+
                   NOLP = NOLP + 1
                   NOLCE (IEL, NOLP, IFA) = ICL
                   NOLCEA (IEL, NOLP, IFA) = JCL
                   NOLBT (IEL, ICL, IFA) = NOLP
-                  
+
                   IF (IDEL == 1) THEN
                      JOLFN (IEL, NOLP, IFA) = INT (32500.0D0 * DELTAZ (ICL, IEL) / (DELTAZ (ICL, IEL) + DELTAZ (ICL + 1, IEL)))
                      NOLP = NOLP + 1
@@ -3441,7 +3468,7 @@ MODULE FRmod
                   END IF
                END IF
             END DO
-            
+
             NOL (IEL, IFA) = NOLP
             NOLBT (IEL, top_cell_no + 1, IFA) = NOLP + 1
          END DO
@@ -3461,40 +3488,40 @@ MODULE FRmod
                   ! USED ONLY IN THIS ROUTINE
                   NBANK (NLINK, JBK) = NDUMA
                   ! SAVED FOR USE IN OTHER SUBROUTINES
-                  
+
                   asum = FHBED (NLINK, JBK) * KSPDUM (NBK (JBK), NHBED (NLINK, JBK) + 1)
                   IF (asum >= DKBED) THEN
                      NCEDUM (JBK) = NHBED (NLINK, JBK)
                      FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), NHBED (NLINK, JBK) + 1)
                   ELSE
                      NCE = NHBED (NLINK, JBK)
-                     
+
                      bed_depth_loop: DO
                         NCE = NCE - 1
                         asum = asum + KSPDUM (NBK (JBK), NCE + 1)
                         IF (asum > DKBED) EXIT bed_depth_loop
                      END DO bed_depth_loop
-                     
+
                      NCEDUM (JBK) = NCE
                      FNDUM (JBK) = (asum - DKBED) / KSPDUM (NBK (JBK), NCE + 1)
                   END IF
-                  
+
                   ! NCEDUM AND FNDUM ARE THE 1ST ESTIMATES FOR NCEBD AND FNCEBD.
-                  ! THEY ARE THE CORRECT VALUES FOR A TOTAL BED THICKNESS OF DBDI METRES. 
-                  ! CHANGES ARE MADE LATER SO THAT A SINGLE OVERLAP NUMBER AND FRACTION 
+                  ! THEY ARE THE CORRECT VALUES FOR A TOTAL BED THICKNESS OF DBDI METRES.
+                  ! CHANGES ARE MADE LATER SO THAT A SINGLE OVERLAP NUMBER AND FRACTION
                   ! (NOLBD AND FNOLBD) CAN BE ASSOCIATED WITH THE REGION BELOW THE DEEP BED.
-                  
+
                   asum = zero
                   JFCE(JBK) = JA + SIGN(2, 2 - JA)
                   NOLP = NOLBT (NBK (JBK), NCEDUM (JBK) + 1, JFCE (JBK)) - 1
-                  
+
                   fraction_loop: DO
                      NOLP = NOLP + 1
                      DUM1 = SCL * JOLFN (NBK (JBK), NOLP, JFCE (JBK))
                      asum = asum + DUM1
                      IF (asum > FNDUM (JBK)) EXIT fraction_loop
                   END DO fraction_loop
-                  
+
                   JOLDUM (JBK) = NOLP - 1
                   FOLDUM (JBK) = (FNDUM (JBK) - asum + DUM1) / DUM1
                   ! OVERLAP NUMBERS AND FRACTIONS ASSOCIATED WITH THE 1ST ESTIMATES
@@ -3521,10 +3548,10 @@ MODULE FRmod
          NCDUM = NOLCE (NBK (LDUM), NOLBD, JFCE (LDUM))
          NOLDUM = NOLBT (NBK (LDUM), NCDUM + 1, JFCE (LDUM)) - 1
          ! HIGHEST OVERLAP ASSOC. WITH NCDUM
-         
+
          DUM3 = FNOLBD * SCL * DBLE (JOLFN (NBK (LDUM), NOLBD + 1, JFCE (LDUM)))
          ! FRACTION OF NEXT HIGHEST CELL COVERED BY FRACTION OF OVERLAP
-         
+
          IF (NOLDUM == NOLBD) THEN
             NCEBD (NLINK, LDUM) = NCDUM
             FNCEBD (NLINK, LDUM) = DUM3
@@ -3536,10 +3563,10 @@ MODULE FRmod
             END DO
             FNCEBD (NLINK, LDUM) = asum
          END IF
-         ! SET FINAL VALUES FOR THE OVERLAP NUMBERS NOLBD AND FRACTIONS FNOLBD 
-         ! FOR THE REGION BELOW THE DEEP BED; AND SET THE CELL NUMBERS NCEBD 
+         ! SET FINAL VALUES FOR THE OVERLAP NUMBERS NOLBD AND FRACTIONS FNOLBD
+         ! FOR THE REGION BELOW THE DEEP BED; AND SET THE CELL NUMBERS NCEBD
          ! AND FRACTIONS FNCEBD ACCORDINGLY
-         
+
          asum = zero
          DO JBK = 1, 2
             DO NCE = NCEBD (NLINK, JBK) + 1, NHBED (NLINK, JBK) + 1
@@ -3548,7 +3575,7 @@ MODULE FRmod
             asum = asum - FNCEBD (NLINK, JBK) * KSPDUM (NBK (JBK), NCEBD (NLINK, JBK) + 1)
             asum = asum - (one - FHBED (NLINK, JBK)) * KSPDUM (NBK (JBK), NHBED (NLINK, JBK) + 1)
          END DO
-         
+
          ACPBSG (NLINK) = DBS * CWIDTH (NLINK) / Z2SQ
          ACPBI (NLINK) = (half * asum * CWIDTH (NLINK) / Z2) - ACPBSG (NLINK)
          ! SET BED SURFACE LAYER THICKNESS TO DBS METRES, AND THE COMBINED AREA OF THE
@@ -3567,22 +3594,22 @@ MODULE FRmod
                      NOL1 = NOLBT (NBK (JBK), NCE1 + 1, JA) - 1
                      NBKU = NDUMA
                      NLINKU = ICMREF (NBKU, 4)
-                     
+
                      IF (ICMBK (NLINKU, 1) == NBKU) THEN
                         JBKU = 1
                      ELSE
                         JBKU = 2
                      END IF
-                     
+
                      NCE2 = NHBED (NLINKU, JBKU)
                      NOL2 = NOLBT (NBKU, NCE2 + 1, ICMREF (NBK (JBK), JA + 8)) - 1
                      ! USE ICMREF SO CORRECT FACE IS FOUND EVEN IF THE UPSTREAM OR DOWNSTREAM BANK IS ROUND A CORNER
-                     
+
                      NOLX = MIN (NOL1, NOL2)
                      DUM1 = cellarea (NBK (JBK)) / CLENTH (NLINK) + cellarea (NBKU) / CLENTH (NLINKU)
                      DUM2 = half * (cellarea (NLINK) / CLENTH (NLINK) + cellarea (NLINKU) / CLENTH (NLINKU))
                      DMULT = DUM1 / (DUM1 + DUM2)
-                     
+
                      DO NOLP = NOLX + 1, NOL (NBK (JBK), JA)
                         JKZCOL (NBK (JBK), NOLP, JA) = MAX (1, INT (DMULT * JKZCOL (NBK (JBK), NOLP, JA)))
                      END DO
@@ -3607,7 +3634,7 @@ MODULE FRmod
          ! ooooooo INITIALISE LINK VARIABLES oooooooo
          ACPSFO (NLINK) = ARXL (NLINK) / Z2SQ
          ACPBDO (NLINK) = ACPBI (NLINK)
-         
+
          DO NCONT = 1, NCON
             CCCCO (NLINK, NCETOP - 2:NCETOP, NCONT) = CCAPIN (NCONT)
             CCCC (NLINK, NCETOP - 2:NCETOP, NCONT)  = CCAPIN (NCONT)
@@ -3621,26 +3648,26 @@ MODULE FRmod
             DUMK = (one - FNCEBD (NLINK, JBK)) * KSPDUM (ICMBK (NLINK, JBK), NCE)
             asumK = asumK + DUMK
             asum = asum + VSTHE (NCE, NBK (JBK)) * DUMK
-            
+
             DO NCE = NDUM + 1, NHBED (NLINK, JBK)
                DUMK = KSPDUM (ICMBK (NLINK, JBK), NCE)
                asumK = asumK + DUMK
                asum = asum + VSTHE (NCE, NBK (JBK)) * DUMK
             END DO
-            
+
             NCE = NHBED (NLINK, JBK) + 1
             DUMK = FHBED (NLINK, JBK) * KSPDUM (ICMBK (NLINK, JBK), NCE)
             asumK = asumK + DUMK
             asum = asum + VSTHE (NCE, NBK (JBK)) * DUMK
          END DO
-         
+
          THBEDO (NLINK) = MIN (PBSED (NLINK), asum / asumK)
          THBED (NLINK) = THBEDO (NLINK)
 
          ARL = DLS (NLINK) * CWIDTH (NLINK)
          ARP = (ACPBI (NLINK) - ACPBSG (NLINK)) * Z2SQ
          DUM = one / (ARL + ARP)
-         
+
          DO JSED = 1, NSED
             ! sb temp fix 09022026: NSOBED fallback
             IF (NSOBED (NLINK) == 0) NSOBED (NLINK) = 1
@@ -3660,7 +3687,7 @@ MODULE FRmod
          QQRFO (NCL) = QVSV (NCOLMB (NCL), NCL) * cellarea (NCL)
          RSZWLO (NCL) = zero
          ZONEO (NCL) = (ZGRUND (NCL) - ZCOLMB (NCL)) / Z2
-         
+
          DO JDUM = 1, 2
             QQQSWO (NCL, JDUM) = -QOC (NCL, JDUM)
             QQQSWO (NCL, JDUM + 2) = QOC (NCL, JDUM + 2)
@@ -3672,23 +3699,23 @@ MODULE FRmod
             JBK = ITYPE
             NLINKA = ICMREF (NCL, 4)
             JAL = 0
-            
+
             link_face_loop: DO
                JAL = JAL + 1
                IF (ICMREF (NLINKA, JAL + 4) == NCL) EXIT link_face_loop
             END DO link_face_loop
-            
+
             JFLINK = ICMREF (NLINKA, JAL + 8)
             DBK = cellarea (NCL) / CLENTH (NLINKA)
             DMULT = DBK / (DBK + half * CWIDTH (NLINKA))
-            
+
             DO NCE = NLYRBT (NCL, 1) - 1, NCEBD (NLINKA, JBK)
                ROH (NCE) = DMULT
             END DO
-            
+
             NCE = NCEBD (NLINKA, JBK) + 1
             ROH (NCE) = one - (one - DMULT) * FNCEBD (NLINKA, JBK)
-            
+
             DO NCE = NCEBD (NLINKA, JBK) + 2, LLEE
                ROH (NCE) = one
             END DO
@@ -3699,7 +3726,7 @@ MODULE FRmod
             DO JA = 1, 4
                QQO (NCL, NCE, JA) = QVSH (JA, NCE, NCL)
             END DO
-            
+
             DO NCONT = 1, NCON
                CCCCO (NCL, NCE, NCONT) = CCAPIN (NCONT)
                SSSSO (NCL, NCE, NCONT) = CCAPIN (NCONT)
@@ -3737,7 +3764,7 @@ MODULE FRmod
                MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY (total_no_links + 1, NCONT), NCOLMB (total_no_links + 1), &
                NTAB (1, NCONT), TABLE_CONCENTRATION (1, 1, NCONT), TABLE_WATER_DEPTH (1, 1, NCONT), &
                DELTAZ, ZVSNOD, DUMMYCONC)
-               
+
             DO NCL = total_no_links + 1, total_no_elements
                DO NCE = NCOLMB (NCL), NCETOP
                   CCCC (NCL, NCE, NCONT) = DUMMYCONC (NCL, NCE)
@@ -3791,9 +3818,9 @@ MODULE FRmod
       ! PS1, RCF, FET, RDF, RTOP
 
       IMPLICIT NONE
-      
+
       ! --- LOCAL VARIABLES ---
-      
+
       ! Scalars
       INTEGER          :: I, IEL, IIMEAS, J, JJ, JJJ, N1, N2, ios, N
       DOUBLE PRECISION :: DEPTH, ASUM
@@ -3802,7 +3829,7 @@ MODULE FRmod
       ! Missing local arrays used for Energy Budget calculations
       ! Defined with NVEE size as per the common block logic
       DOUBLE PRECISION :: ZU(NVEE), ZD(NVEE), ZO(NVEE)
-      
+
       ! Constants
       DOUBLE PRECISION, PARAMETER :: VKSQ = 0.1681D0 ! (0.41^2)
 
@@ -3862,7 +3889,7 @@ MODULE FRmod
       veg_type_loop: DO I = 1, NV
 
          IF (BINETP) WRITE(PPPRI, "('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))") I
-         
+
          !:ET7
          READ(ETD, '(A)') HEAD
          IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
@@ -3873,7 +3900,7 @@ MODULE FRmod
          READ(ETD, '(L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)') &
               BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
               PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
-              
+
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')") MODE(I)
 
          !-----WRITE PARAMETER DATA
@@ -3881,10 +3908,10 @@ MODULE FRmod
                                   "'CSTCAP', F13.8/10X, 'CK', F17.8/10X, 'CB', F17.8/10X, " // &
                                   "'CLAI', F15.8/10X, 'VHT', F16.8/10X, 'RDL', F16.8)") &
                                   PLAI(I), CSTCAP(I), CK(I), CB(I), CLAI(I), VHT(I), RDL(I)
-                                  
+
          IF (BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'VARIABLE RA WITH'/10X, 'ZO', F17.4/10X, " // &
                                                "'ZD', F18.4/10X, 'ZU', F17.4)") ZO(I), ZD(I), ZU(I)
-                                               
+
          IF (.NOT. BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'CONSTANT RA =', F10.4)") RA(I)
 
          !--------------------------------------------------------
@@ -3899,11 +3926,11 @@ MODULE FRmod
          !-----CHECK MODE FOR TIME-VARYING CSTCAP
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', I3, 3X, " // &
                                   "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECS(I)
-                                  
+
          IF (MODECS(I) /= 0) THEN
             NCTCST(I) = 1
             CSTCA1(I) = CSTCAP(I)
-            
+
             !-----READ NUMBER OF VALUES IN CSTCAP VARIATION TABLE
             !:ET11(1/4)
             READ(ETD, '(A)') HEAD
@@ -3911,7 +3938,7 @@ MODULE FRmod
             !:ET13(1/4)
             READ(ETD, '(A)') HEAD
             IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
-            
+
             !-----READ TIME-VARYING CSTCAP VALUES
             cstcap_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELCST(I, JJ), TIMCST(I, JJ)
@@ -3922,11 +3949,11 @@ MODULE FRmod
          !-----CHECK MODE FOR TIME-VARYING PLAI
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR PLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
                                   "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEPL(I)
-                                  
+
          IF (MODEPL(I) /= 0) THEN
             NCTPLA(I) = 1
             PLAI1(I)  = PLAI(I)
-            
+
             !-----READ NUMBER OF VALUES IN PLAI VARIATION TABLE
             !:ET11(2/4)
             READ(ETD, '(A)') HEAD
@@ -3934,7 +3961,7 @@ MODULE FRmod
             !:ET13(2/4)
             READ(ETD, '(A)') HEAD
             IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
-            
+
             !-----READ TIME-VARYING PLAI VALUES
             plai_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELPLA(I, JJ), TIMPLA(I, JJ)
@@ -3945,11 +3972,11 @@ MODULE FRmod
          !-----CHECK MODE FOR TIME-VARYING CLAI
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
                                   "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECL(I)
-                                  
+
          IF (MODECL(I) /= 0) THEN
             NCTCLA(I) = 1
             CLAI1(I)  = CLAI(I)
-            
+
             !-----READ NUMBER OF VALUES IN CLAI VARIATION TABLE
             !:ET11(3/4)
             READ(ETD, '(A)') HEAD
@@ -3957,7 +3984,7 @@ MODULE FRmod
             !:ET13(3/4)
             READ(ETD, '(A)') HEAD
             IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
-            
+
             !-----READ TIME-VARYING CLAI VALUES
             clai_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELCLA(I, JJ), TIMCLA(I, JJ)
@@ -3968,11 +3995,11 @@ MODULE FRmod
          !-----CHECK MODE FOR TIME-VARYING VHT
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR VHT FOR VEGETATION', I3, ' IS', I3, 3X, " // &
                                   "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEVH(I)
-                                  
+
          IF (MODEVH(I) /= 0) THEN
             NCTVHT(I) = 1
             VHT1(I)   = VHT(I)
-            
+
             !-----READ NUMBER OF VALUES IN VHT VARIATION TABLE
             !:ET11(4/4)
             READ(ETD, '(A)') HEAD
@@ -3980,7 +4007,7 @@ MODULE FRmod
             !:ET13(4/4)
             READ(ETD, '(A)') HEAD
             IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
-            
+
             !-----READ TIME-VARYING VHT VALUES
             vht_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELVHT(I, JJ), TIMVHT(I, JJ)
@@ -4001,7 +4028,7 @@ MODULE FRmod
             READ(ETD, '(A)') HEAD
             N1 = NF(I)
             READ(ETD, '(3F7.2)') (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
-            
+
             IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
             IF (BINETP) WRITE(PPPRI, "(' ', 3F10.2)") (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
          ELSE
@@ -4019,18 +4046,18 @@ MODULE FRmod
          !  DOWNWARDS.
          !---------------------------------------------------------
          IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
-         
+
          ASUM = 0.0D0
          N2 = NRD(I)
-         
+
          rdf_loop: DO J = 1, N2
             READ(ETD, '(2F7.4)') DEPTH, RDF(I, J)
             IF (BINETP) WRITE(PPPRI, "(' ', 2F15.6)") DEPTH, RDF(I, J)
             ASUM = ASUM + RDF(I, J)
          END DO rdf_loop
-         
+
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'SUM OF RDF VALUES IS', F10.4)") ASUM
-         
+
          IF (BAR(I)) RTOP(I) = LOG((ZU(I) - ZD(I)) / ZO(I))**2 / VKSQ
 
       END DO veg_type_loop
@@ -4043,7 +4070,7 @@ MODULE FRmod
          ! Modernization Fix: Replaced GOTO traps with strict IOSTAT handling
          READ(PRD, *, IOSTAT=ios)
          IF (ios /= 0) CALL ERROR(FFFATAL, 1063, PPPRI, 0, 0, 'no data in prd file')
-         
+
          READ(EPD, *, IOSTAT=ios)
          IF (ios /= 0) CALL ERROR(FFFATAL, 1064, PPPRI, 0, 0, 'no data in epd file')
       ELSE
@@ -4054,7 +4081,7 @@ MODULE FRmod
       IF (ISTA) THEN
          READ(TAH, *, IOSTAT=ios)
          IF (ios /= 0) CALL ERROR(FFFATAL, 1066, PPPRI, 0, 0, 'no data in air temp - high file')
-         
+
          READ(TAL, *, IOSTAT=ios)
          IF (ios /= 0) CALL ERROR(FFFATAL, 1067, PPPRI, 0, 0, 'no data in air temp - low file')
       END IF
@@ -4136,7 +4163,7 @@ MODULE FRmod
       END IF
 16    FORMAT (/ 'SHETRAN VERSION NUMBER: ', F5.1, ' ')
 15    FORMAT (/ 'SHETRAN VERSION NUMBER: ', F5.1)
-      
+
       WRITE(PPPRI, 17) BANNER
 17    FORMAT(/A80/)
 
@@ -4145,7 +4172,7 @@ MODULE FRmod
       WRITE(PPPRI, '(A)') 'Catchment Name '
       WRITE(PPPRI, '(A)') '************** '
       READ (FRD, '(A)') TITLE
-      
+
       WRITE(PPPRI, '(A)') TITLE
       WRITE(PPPRI, '(/ 20A4, //, 100("="))') TITLE
 
@@ -4196,7 +4223,7 @@ MODULE FRmod
       ! :FR7a
       READ (FRD, *)
       READ (FRD, *) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN
-      
+
       ! :FR7c
       READ (FRD, *)
       READ (FRD, *) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN
@@ -4209,7 +4236,7 @@ MODULE FRmod
       ! :FR8
       READ (FRD, '(20A4)') TITLE
       READ (FRD, '(10F7.0)') (DXIN (J), J = 1, NXM1)
-      
+
       ! :FR10
       READ (FRD, '(20A4)') TITLE
       READ (FRD, '(10F7.0)') (DYIN (K), K = 1, NYM1)
@@ -4267,7 +4294,7 @@ MODULE FRmod
       TIH = HOUR_FROM_DATE(ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN)
       TTH = HOUR_FROM_DATE(IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN)
       TTHX = TTH - TIH
-      
+
       WRITE(PPPRI, 210) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN, IEYEAR, &
          IEMTH, IEDAY, IEHOUR, IEMIN, TTHX
 210   FORMAT ('0'//, ' START OF SIMULATION  : ', 5I6, /, &
@@ -4278,14 +4305,14 @@ MODULE FRmod
       mbyear = isyear
       mbmon = ismth
       mbday = isday
-      
+
       IF (BEXSY) THEN
          TSH = HOUR_FROM_DATE(JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN)
          WRITE(PPPRI, 211) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN, (TSH - TIH)
 211      FORMAT (// ' START OF SEDIMENT SIMULATION  : ', 5I6, / &
                   '           AT SIMULATION HOUR  : ', F8.2)
       END IF
-      
+
       IF (BEXCM) THEN
          TCH = HOUR_FROM_DATE(JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN)
          WRITE(PPPRI, 212) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN, (TCH - TIH)
@@ -4348,7 +4375,7 @@ MODULE FRmod
          K = NY + 1 - I1
          READ (FRD, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
          IF (BINFRP) WRITE(PPPRI, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
-         
+
          ! Catchment array definition check
          IF (I2 /= K) THEN
             WRITE(PPPRI, 314) TITLE, I2
@@ -4398,7 +4425,7 @@ MODULE FRmod
       ! :FR52
       READ (FRD, '(20A4)', IOSTAT = ios) TITLE
       IF (ios == 0) READ (FRD, *, IOSTAT = ios) TOUTPUT
-      
+
       ! Check if the optional outputs read successfully
       IF (ios /= 0) TOUTPUT = 24.0D0
 
@@ -4424,7 +4451,7 @@ MODULE FRmod
    !----------------------------------------------------------------------*
    !           Initialisation subroutine for contaminant plant uptake
    !----------------------------------------------------------------------*
-      
+
       ! Assumed global variables provided via host module(s):
       ! NPLT, NV, pmass, pf2max, pkmax, total_no_links, total_no_elements
       ! NPLTYP, NVC, PFONE, PLAI, NPL, NCETOP, PDZF3, RDF, DELONE
@@ -4442,56 +4469,56 @@ MODULE FRmod
 
       NPLT = NV
       ! Number of top cell in column, and number of plant types
-      
+
       !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ gp 30/3/93
       pmass(1) = TWO
       pmass(2) = 3.0D0
       pmass(3) = 20.0D0
-      
+
       pf2max(1) = TWO
       pf2max(2) = 6.0D0
       pf2max(3) = 10.0D0
-      
+
       pkmax(1, 1) = 1.5D-8
       pkmax(2, 1) = 3.0D-8
       pkmax(3, 1) = 3.0D-8
       !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ temp. for dsatd2
 
       column_loop: DO NCL = total_no_links + 1, total_no_elements
-         
+
          NPLTYP(NCL, 1) = NVC(NCL)
          PFONE(NCL, 1)  = PLAI(NPLTYP(NCL, 1))
-         
+
          IF (PFONE(NCL, 1) >= 0.99D0) THEN
             NPL(NCL) = 1
          ELSE
             PFONE(NCL, 2) = ONE - PFONE(NCL, 1)
             NPL(NCL) = 2
          END IF
-         
+
          ! ^^^^^^^^^^^^^^^ TEMPORARY
          ! Set number of plant types on each column
          ! Temporarily, only two plant types are allowed on each
          ! column and the total PLAI is one
          ! Second plant type number is set in BLOCK DATA
-         
+
          plant_loop: DO JPLANT = 1, NPL(NCL)
-            
+
             JPLTY = NPLTYP(NCL, JPLANT)
             ! Plant type number
-            
+
             root_density_loop: DO NCE = NCETOP, 2, -1
                NDUM = NCETOP - NCE + 1
                PDZF3(NCL, NCE, JPLANT) = RDF(JPLTY, NDUM)
             END DO root_density_loop
             ! Set root density function
-            
+
             D1DUM = DELONE(JPLTY)
             RDUM  = CLAI(JPLTY) / PF2MAX(JPLTY)
-            
+
             GMCBBO(NCL, JPLANT) = RDUM * D1DUM
             ! Initialise old value for mass in compartment b
-            
+
          END DO plant_loop
 
       END DO column_loop
@@ -4531,7 +4558,7 @@ MODULE FRmod
       ! Locals
       INTEGER :: N, IEL, I
       DOUBLE PRECISION :: TSIN, UNIFSD
-      
+
    !----------------------------------------------------------------------*
 
       ! READ PRINT CONTROL PARAMETERS
@@ -4543,11 +4570,11 @@ MODULE FRmod
       READ(SMD, '(20A4)') HEAD
       READ(SMD, '(2F7.5,F7.2,2I7)') DDF, RHOS, TSIN, NSD, MSM
       RHODEF = RHOS
-      
+
       ! Added by spa, 05/11/92.  Snowpack temp no longer needed
       ! for degree day method.  Therefore if msm=1, tsin=0.
       IF (MSM == 1) TSIN = ZERO
-      
+
       IF (BINSMP) WRITE(PPPRI, 801) DDF, RHOS, TSIN, MSM
 
       ! Execute Energy Budget specific reads if MSM > 1
@@ -4555,13 +4582,13 @@ MODULE FRmod
          ! READ ENERGY BUDGET DATA
          READ(SMD, '(20A4)') HEAD
          READ(SMD, '(3F7.5)') ZOS, ZDS, ZUS
-         
+
          IF (BINSMP) WRITE(PPPRI, 803) ZOS, ZDS, ZUS
 
          ! METEOROLOGICAL (WINDSPEED) DATA LOCATION
          READ(SMD, '(20A4)') HEAD
          READ(SMD, '(10I7)') (IMET(N), N = 1, NM)
-         
+
          IF (BINSMP) THEN
             WRITE(PPPRI, 715)
             station_loop: DO N = 1, NM
@@ -4575,15 +4602,15 @@ MODULE FRmod
          uniform_rho_loop: DO IEL = ngdbgn, total_no_elements
             rhosar(IEL) = RHODEF
          END DO uniform_rho_loop
-         
+
          ! UNIFORM SNOWDEPTH (MM OF SNOW)
          READ(SMD, '(20A4)') HEAD
          READ(SMD, '(F7.1)') UNIFSD
-         
+
          uniform_sd_loop: DO IEL = ngdbgn, total_no_elements
             SD(IEL) = UNIFSD
          END DO uniform_sd_loop
-         
+
          IF (BINSMP) WRITE(PPPRI, '(/, 1X, "INITIAL SNOWPACK HAS UNIFORM THICKNESS =", F7.1, 1X, "MM")') UNIFSD
       ELSE
          ! NONUNIFORM SNOWDEPTH (MM OF SNOW)
@@ -4629,7 +4656,7 @@ MODULE FRmod
    !----------------------------------------------------------------------*
    ! DUMMY COMPONENT INITIALISATION (ET)
    !----------------------------------------------------------------------*
-      
+
       ! Assumed global variable provided via host module:
       ! BMETAL
 
@@ -4639,7 +4666,7 @@ MODULE FRmod
 
       WRITE(*, '(/, /, "ENTER DINET")')
       BMETAL = .TRUE.
-      
+
       ! PNET=0.0003
       ! PE=0.0
       ! EINT=0.0
@@ -4693,7 +4720,7 @@ MODULE FRmod
    ! Notes: The checking works. However, it is done in a poor way.
    ! In future this should be changed
    !--------------------------------------------------------------------*
-      
+
       ! Assumed global variables provided via host module(s):
       ! EEERR, FFFATAL
 
@@ -4703,24 +4730,24 @@ MODULE FRmod
       INTEGER, INTENT(IN) :: CPR, total_no_elements, NELEE, total_no_links
       INTEGER, INTENT(IN) :: MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS
       INTEGER, INTENT(IN) :: NCON, NCONEE
-      
+
       INTEGER, INTENT(IN) :: NUM_CATEGORIES_TYPES(NCONEE)
       INTEGER, INTENT(IN) :: NTAB(MAX_NUM_CATEGORY_TYPES, NCONEE)
       INTEGER, INTENT(INOUT) :: NCATTY(NELEE, NCONEE)
       LOGICAL, INTENT(IN) :: ISCNSV(NCONEE)
-      
+
       DOUBLE PRECISION, INTENT(INOUT) :: TABLE_CONCENTRATION(MAX_NUM_CATEGORY_TYPES, &
                                   MAX_NUM_DATA_PAIRS, NCONEE)
       DOUBLE PRECISION, INTENT(INOUT) :: TABLE_WATER_DEPTH(MAX_NUM_CATEGORY_TYPES, &
                                    MAX_NUM_DATA_PAIRS, NCONEE)
-      
+
       LOGICAL, INTENT(INOUT) :: LDUM(1)  !! Workspace/Flag
 
       ! --- Local Variables ---
       INTEGER :: ICOL1, NERR, NELMTY, NTBL, I, J
       INTEGER :: IUNDEF            !! Standard undefined integer flag
       DOUBLE PRECISION :: PREVDP    !! Previous depth for monotonicity check
-      
+
       ! Constant arrays required by ALCHKI/ALCHK interfaces
       INTEGER :: IZERO(1)
       DOUBLE PRECISION :: ZERO1(1)
@@ -4743,7 +4770,7 @@ MODULE FRmod
       contam_loop: DO I = 1, NCON
 
          IF (ISCNSV(I)) THEN
-            
+
             ! *NCATTY
             ncatty_loop: DO J = ICOL1, total_no_elements
                CALL ALCHKI(EEERR, 2103, CPR, J, J, IUNDEF, IUNDEF, &
@@ -4754,18 +4781,18 @@ MODULE FRmod
             ! The table of depths must have a first depth equal to zero,
             ! thereafter the depth must increase
             category_loop1: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
-               
+
                CALL ALCHK(EEERR, 2104, CPR, NELMTY, NELMTY, 1, IUNDEF, &
                           'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,1]', 'EQ', ZERO1, ZERO, &
                           TABLE_WATER_DEPTH(NELMTY:NELMTY, 1, I), NERR, LDUM(1:1))
-                          
+
                table_depth_loop: DO NTBL = 2, NTAB(NELMTY, I)
                   PREVDP = TABLE_WATER_DEPTH(NELMTY, NTBL - 1, I)
                   CALL ALCHK(EEERR, 2105, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
                              'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,ntab]', 'GT', (/PREVDP/), &
                              ZERO, TABLE_WATER_DEPTH(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
                END DO table_depth_loop
-               
+
             END DO category_loop1
 
             ! *TABLE_CONCENTRATION
@@ -4777,7 +4804,7 @@ MODULE FRmod
                              TABLE_CONCENTRATION(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
                END DO table_conc_loop
             END DO category_loop2
-            
+
          END IF
 
       END DO contam_loop

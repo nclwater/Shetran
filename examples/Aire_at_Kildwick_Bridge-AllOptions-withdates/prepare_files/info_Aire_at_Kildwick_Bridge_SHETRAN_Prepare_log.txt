@@ -1,0 +1,37 @@
+ XML Filename = Aire_at_Kildwick_BridgeLibraryFile_AllOptions.xml
+ 
+ Catchment Mask Filename = Map_Mask_Aire_at_Kildwick_Bridge.asc
+ DEM Mean Filname = Map_Dem_Aire_at_Kildwick_Bridge.asc
+ DEM Minimum Filname = Map_MinDem_Aire_at_Kildwick_Bridge.asc
+ Land Use Distribution Filname = Map_LandCover_Aire_at_Kildwick_Bridge.asc
+ Soil Category Distribution Filname = Map_SoilCateogory_Aire_at_Kildwick_Bridge.asc
+ Lake Distribution Filname = Map_Lake_Aire_at_Kildwick_Bridge.asc
+ Precipitation Distribution Filname = Map_RainDist_Aire_at_Kildwick_Bridge.asc
+ Potential Evaporation Distribution Filname = Map_PETDist_Aire_at_Kildwick_Bridge.asc
+ Maximum Temperature Time Series File Name = TimeSeries_MaxTemp_Aire_at_Kildwick_Bridge.csv
+ Minimum Temperature Time Series File Name = TimeSeries_MinTemp_Aire_at_Kildwick_Bridge.csv
+ The file output_Aire_at_Kildwick_Bridge_vsi.txt has not been opened and so spatially variable iniitial water table depths will not be applied
+ 
+ Precipitation Time Series File Name = TimeSeries_Rain_Aire_at_Kildwick_Bridge.csv
+ The precipitation time series file should have a single header line and then at least 24 values (this is the maximum value in the PrecMap file) on each line
+ 
+ Potential Evaporation Time Series File name = TimeSeries_PET_Aire_at_Kildwick_Bridge.csv
+ The potential evaporation time series file should have a single header line and then at least 24 values (this is the maximum value in the PEMap file) on each line
+ 
+ 
+ Iteration process for removing sinks
+ ************************************
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            2
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            1
+ Number of river chanel sinks =            0
+ 
+ Number of land element sinks =            8
+ Number of land element sinks =            0

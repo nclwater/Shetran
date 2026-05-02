@@ -230,7 +230,7 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! cmd, nnncon, FFFATAL, PPPRI, ERROR
-      
+
       IMPLICIT NONE
 
       CHARACTER(4)  :: dd
@@ -240,31 +240,31 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       scan_loop: DO
-         
+
          ! Read the line, capturing both EOF and read errors into 'ios'
          READ(cmd, '(A)', IOSTAT=ios) dd
-         
+
          IF (ios /= 0) THEN
             mess = 'failed to find line :CM3 in contaminant data file'
             mess = 'GET_NCON_EARLY ' // TRIM(mess)
             CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
             RETURN
          END IF
-         
+
          IF (dd(2:4) == 'CM3') THEN
             ! Read the variable nnncon, checking for format errors
             READ(cmd, *, IOSTAT=ios) nnncon
-            
+
             IF (ios /= 0) THEN
                mess = 'failed to read NCON '
                mess = 'GET_NCON_EARLY ' // TRIM(mess)
                CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
                RETURN
             END IF
-            
+
             EXIT scan_loop
          END IF
-         
+
       END DO scan_loop
 
       REWIND(cmd)
@@ -278,7 +278,7 @@ SUBROUTINE get_nsed_early()
 
       ! Assumed external module dependencies providing global variables:
       ! syd, nnnsed, FFFATAL, PPPRI, ERROR
-      
+
       IMPLICIT NONE
 
       CHARACTER(5)  :: dd
@@ -288,31 +288,31 @@ SUBROUTINE get_nsed_early()
       !----------------------------------------------------------------------*
 
       scan_loop: DO
-         
+
          ! Read the line, capturing both EOF and read errors into 'ios'
          READ(syd, '(A)', IOSTAT=ios) dd
-         
+
          IF (ios /= 0) THEN
             mess = 'failed to find line :SY11 in sediment data file'
             mess = 'GET_NSED_EARLY ' // TRIM(mess)
             CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
             RETURN
          END IF
-         
+
          IF (dd(2:5) == 'SY11') THEN
             ! Read the variable nnnsed, checking for format errors
             READ(syd, *, IOSTAT=ios) nnnsed
-            
+
             IF (ios /= 0) THEN
                mess = 'failed to read NSED '
                mess = 'GET_NSED_EARLY ' // TRIM(mess)
                CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
                RETURN
             END IF
-            
+
             EXIT scan_loop
          END IF
-         
+
       END DO scan_loop
 
       REWIND(syd)

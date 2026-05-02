@@ -15,6 +15,11 @@ MODULE COLM_CG
 ! RAH  970224  4.1  Explicit typing.
 !                   Separate /WELPRI/ from mixed-type /WELPRO/.
 ! JE  12/08   4.3.5F90  Convert to FORTRAN90
+! SB Mar 26     4.6     comment out KSPE and KSPPE as no longer used
+!                       comment out JKZCOB as no longer used
+!                       comment out JKZWEL and JKZWCE as no longer used
+!                       make the following arrays allocatable: JKZCOL,JOLFN,NOL, NOLBT,NOLCE, NOLCEA
+!                       added initialise_colm_cg and deallocate_colm_cg subroutines
 !----------------------------------------------------------------------*
 ! Imported constants
 !                      LLEE,NELEE,NOLEE,NVEE

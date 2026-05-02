@@ -1,4 +1,4 @@
-:FR1 - TEST CATCHMENT- FR COMPONENT DATA SET                                    
+Aire_at_Kildwick_Bridge                                                         
 :FR2 - GRID SQUARES IN THE X Y DIRECTIONS                                       
      20     29
 :FR4 - START TIME OF WATER FLOW COMPONENT SIMULATION                            

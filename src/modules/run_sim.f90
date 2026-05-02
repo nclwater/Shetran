@@ -107,197 +107,186 @@ CONTAINS
       ! Format and print the simulation start date
       c = DATE_FROM_HOUR(tih)
       WRITE(dum, '(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
-         c(1), '-', c(2), '-', c(3), 'T', c(4), ':', c(5), ':', c(6)
+         c(1), '-', c(2), '-', c(3), ' ', c(4), ':', c(5), ':', c(6)
       WRITE(OUTPUT_UNIT, '(A,A)') ' Simulation Start Date = ', TRIM(dum)
 
       ! Format and print the simulation end date
       c = DATE_FROM_HOUR(tth)
       WRITE(dum, '(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
-         c(1), '-', c(2), '-', c(3), 'T', c(4), ':', c(5), ':', c(6)
+         c(1), '-', c(2), '-', c(3), ' ', c(4), ':', c(5), ':', c(6)
       WRITE(OUTPUT_UNIT, '(A,A)') ' Simulation End Date   = ', TRIM(dum)
 
-      WRITE(OUTPUT_UNIT, *)
-      WRITE(OUTPUT_UNIT, 9750) TTH - TIH
+      write(OUTPUT_UNIT,'(A)') ' SHETRAN file folder = '
+      write(OUTPUT_UNIT,'(1X,A)') DIRQQ
+      write(OUTPUT_UNIT,'(A)') ' SHETRAN rundata name = '
+      write(OUTPUT_UNIT,'(A)') ' rundata_'//trim(cnam)//'.txt'
+      write(OUTPUT_UNIT,*)
+      write(OUTPUT_UNIT,*)
+      write(OUTPUT_UNIT,*)
+
+      call cpu_time(start_time)
+
 
       !------------------------------------------------------------------
-      !                    MAIN SIMULATION LOOP
+      !                     MAIN SIMULATION LOOP
       !------------------------------------------------------------------
-      IF (bexsy) CALL GET_NSED_EARLY()  ! Visualisation data
-      IF (bexcm) THEN
-         CALL GET_NCON_EARLY()          ! Visualisation data
-         CALL initialise_cont_cc()      ! Dynamically allocate contaminant transport arrays
-         CALL initialise_colm_cg()      ! Dynamically allocate face overlap and lateral transmissivity values
-         CALL initialise_colm_co()      ! Dynamically allocate water variables for SUBROUTINE COLM
-      END IF
+      IF (bexsy) CALL GET_NSED_EARLY ()     !VISVISVIS
+      IF (bexcm) then
+          CALL GET_NCON_EARLY ()     !VISVISVIS
+          call initialise_cont_cc()  !dynamically allocate contaminnant tranport arrays
+          call initialise_colm_cg()  ! dynamically allocate FACE OVERLAP AND LATERALTRANSMISIVITY VALUES
+          call initialise_colm_co()  ! dynamically allocate WATER VARIABLES USED IN  THE PREPARATION FOR RUNNING SUBROUTINE COLM
+          endif
+      CALL RECORD_VISUALISATION_DATA (rzero)!VISVISVIS
 
-      CALL RECORD_VISUALISATION_DATA(rzero) ! Visualisation data record
-
-      ! Main loop iterates until UZNOW reaches the total simulation time (TTH - TIH)
       DO
-         CALL TMSTEP   ! Set timestep
+          CALL TMSTEP   !set timestep
+          !print'(F14.2)', uznow
+          NSTEP = NSTEP + 1
+          OCNEXT = UZNEXT
+          !-----------------------------------
+          !         ET COMPONENT
+          !-----------------------------------
+          CALL ETSIM
+          !-----------------------------------
+          !         VSS COMPONENT
+          !-----------------------------------
+          CALL VSSIM
+          UZNOW = UZNOW + UZNEXT
+          ! post-processing
+          ! CALCULATE RAINFALL INTO THE CHANNEL, INCLUDING ANY CONJUNCTIVE USE
+          ! TRANSFER OF WATER FROM WELLS
+          DO IEL = 1, total_no_links
+              EPOT (IEL) = OBSPE (NMC (IEL) ) / 1000.
+              !PNETTO (IEL) = precip_m_per_s(NMC (IEL) )
+              PNETTO (IEL) = precip_m_per_s(iel)
+              !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              ESWA (IEL) = MIN (EPOT (IEL), ARXL (IEL) / (cellarea (IEL) * DTUZ))
+              EEVAP (IEL) = ESWA (IEL)
+              !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              IF (NVSWLT (IEL) .NE.0) PNETTO (IEL) = PNETTO (IEL) + QVSWEL ( &
+                  NVSWLT (IEL) ) * cellarea (NVSWLT (IEL) ) / cellarea (IEL)
+              ENDDO
+          !-----------------------------------
+          !         OC COMPONENT
+          !-----------------------------------
+          CALL OCSIM
+          OCNOW = UZNOW
+          !-----------------------------------
+          !         SY/CM COMPONENTS
+          !-----------------------------------
+          BSY = BEXSY.AND.UZNOW.GE. (TSH - TIH)
+          BCM = BEXCM.AND.UZNOW.GE. (TCH - TIH)
+          ! Call sort routine, if required
+          !970616      IF ( BSY .OR. BCM ) CALL FRSORT
+          CALL FRSORT
+          !^^^^^^
+          ! CALL SEDIMENT AND CONTAMINANT ROUTINES, IF REQUESTED
+          IF (BSY) THEN
+              do iel = 1,total_no_elements
+                  hrf(iel) = gethrf(iel)
+                  enddo
+              CALL SYMAIN (total_no_elements, total_no_links, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF (1, 5), &
+              ICMRF2, ICMXY, NBFACE, NLYR (total_no_links + 1), NTSOIL, NVC (total_no_links + 1), cellarea, CLENTH, CWIDTH, &
+              DHF, DXQQ (total_no_links + 1), DYQQ (total_no_links + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, &
+              DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA (total_no_links + 1), HRF, PLAI, PNETTO (total_no_links + 1), QOC, &
+              NSED, PBSED, PLS (total_no_links + 1),SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU (total_no_links + 1), &
+              GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+              !        CALL SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF (1, 5), &
+              !        ICMRF2, ICMXY, NBFACE, NLYR (NLF + 1), NTSOIL, NVC (NLF + 1), AREA, CLENTH, CWIDTH, &
+              !        DHF, DXQQ (NLF + 1), DYQQ (NLF + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, &
+              !        DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA (NLF + 1), HRF, PLAI, PNETTO (NLF + 1), QOC, &
+              !        NSED, PBSED, PLS (NLF + 1),SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU (NLF + 1), &
+              !        GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+              ENDIF
+          IF (BCM) THEN
+              IF (BEXSY.AND. (.NOT.BSY) ) CALL ERROR(FFFATAL, 1041, CMP, 0, 0, &
+                  'Start-time for sediment is later than for contaminants')
+              IF (CMFRST) THEN
+                  CALL INCM (BEXSY)
+                  CMFRST = .FALSE.
+                  AIOSTO = '00000000000000000000000000000001111111111'
+                  IF (BSTORE) CALL FRRESP (AIOSTO, ZERO, .FALSE.)
+                  call deallocate_colm_cg()
+                  ELSE
+                  CALL CMSIM (BEXSY)
+                  ENDIF
+              ENDIF
+          !-----------------------------------
+          !         RESULTS OUTPUT
+          !-----------------------------------
+          ! mass balance errors
+          CALL BALWAT
+          ! sb 8/3/06 make mass balance output called daily
+          mbflag = 1
+          CALL FRMB
+          IF (BSY) CALL BALSED    !"JE"
+          ! unformatted 'RES' file output
+          ! !testcc temporary code to NOT output data type 46 here
+          ! sb 990128 incorporate sediment output
+          !      AIOSTO = '1111111111111111111111111111111111111111111111111'
+          !      AIOSTO = '1111111111111111111100000000000111111111111111111'
+          !      AIOSTO = '1111111111111111111100000000000111111111111011111'
+          ! sb 990128
+          AIOSTO = '1111111111111111111111111111111111111111111111111'
+          ! !testcc end of temporary code
+          ! dsat specific - for contaminant averaging
+          IF (BSTORE) CALL FRRESP (AIOSTO, UZNOW, .FALSE.)
+          ! hotstart output
+          IF (BHOTPR) THEN
+              IF (UZNOW.GE.HOTIME) THEN
+                  ! uznow=current time (hours)
+                  ! uznext-= next time(hours)
+                  ! cstore = canopy storage (mm)
+                  ! gethrf = surface water elevation(m)
+                  ! QSAzz = overland flow?
+                  ! QOC = overland flow
+                  ! DQ0ST = flow derivatives
+                  ! DQIST = flow derivatives
+                  ! DQIST2 = flow derivatives
+                  ! SD = snow pack depth
+                  ! TS = snow temperature
+                  ! NSMC = COUNTER USED IN ROUTING MELTWATER THROUGH SNOWPACK
+                  ! SMELT = water in meltwater slug?
+                  ! TMELT = temperature of eltwater slug?
+                  ! vspsi = soil water potentials
+                  WRITE (HOT,*) "time= ",UZNOW, UZNEXT, top_cell_no,"cstore= ", (CSTORE (IEL), IEL = NGDBGN, &
+                  total_no_elements),"HRF= ", (getHRF (IEL), IEL = 1, total_no_elements),"QSA= ", ( (QSAzz (IEL, K), IEL = 1, &
+                  total_no_elements), K = 1, 4),"QOC= ", ( (QOC (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
+                  "DQ0ST= ",( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),"DQIST= ", ( (DQIST (IEL, &
+                  K), IEL = 1, total_no_elements), K = 1, 4),"DQIST2= ", ( (DQIST2 (IEL, K), IEL = 1, &
+                  NGDBGN - 1), K = 1, 3),"SD= ", (SD (IEL), IEL = NGDBGN, total_no_elements), &
+                  "TS= ", (TS (IEL), IEL = NGDBGN, total_no_elements),"NSMC= ", (NSMC (IEL), IEL = NGDBGN, &
+                  total_no_elements),"SMELT= ", ( (SMELT (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
+                  total_no_elements),"TMELT= ", ( (TMelt (K, IEL), K = 1, NSMC (IEL) ), IEL = NGDBGN, &
+                  total_no_elements),"vspsi= ", ( (VSPSI (j, iel), j = 1, top_cell_no), IEL = 1, total_no_elements)
+                  HOTIME = HOTIME+BHOTST
+                  ENDIF
+              ENDIF
+          ! time-couter file
+          IF (BTIME) THEN
+              REWIND (TIM)
+              WRITE (TIM, 9800) UZNOW, NSTEP
+              ENDIF
+          CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND=4))  !VISVISVIS
+          CALL FROUTPUT('main ')  !sb 02/05/07 additional output
+          IF(uznow > icounter3) then
+              call cpu_time(current_time)
+              write(OUTPUT_UNIT,9751,advance="no") achar(13), uznow, min(100*uznow/(TTH - TIH),100.00),int(current_time - start_time), int((current_time - start_time)/(uznow/(TTH - TIH))-(current_time - start_time))
+              call flush(OUTPUT_UNIT)
+              icounter3 = icounter3 + 24
+              endif
+          IF (UZNOW>=(TTH - TIH) ) EXIT
+          ENDDO
 
-         NSTEP = NSTEP + 1
-         OCNEXT = UZNEXT
+      ! this line is to clear the progress line after the simulation has finished
+      WRITE (OUTPUT_UNIT,'(A)') '                                                                                                                                '
 
-         !-----------------------------------
-         !         ET COMPONENT
-         !-----------------------------------
-         CALL ETSIM
 
-         !-----------------------------------
-         !         VSS COMPONENT
-         !-----------------------------------
-         CALL VSSIM
-         UZNOW = UZNOW + UZNEXT
-
-         ! Post-processing
-         ! Calculate rainfall into the channel, including any conjunctive use
-         ! transfer of water from wells
-         DO IEL = 1, total_no_links
-            EPOT(IEL) = OBSPE(NMC(IEL)) / 1000.0d0
-            PNETTO(IEL) = precip_m_per_s(iel)
-
-            ESWA(IEL) = MIN(EPOT(IEL), ARXL(IEL) / (cellarea(IEL) * DTUZ))
-            EEVAP(IEL) = ESWA(IEL)
-
-            IF (NVSWLT(IEL) /= 0) THEN
-               PNETTO(IEL) = PNETTO(IEL) + QVSWEL(NVSWLT(IEL)) * cellarea(NVSWLT(IEL)) / cellarea(IEL)
-            END IF
-         END DO
-
-         !-----------------------------------
-         !         OC COMPONENT
-         !-----------------------------------
-         CALL OCSIM
-         OCNOW = UZNOW
-
-         !-----------------------------------
-         !         SY/CM COMPONENTS
-         !-----------------------------------
-         bsy = bexsy .AND. (UZNOW >= (TSH - TIH))
-         bcm = bexcm .AND. (UZNOW >= (TCH - TIH))
-
-         ! Call sort routine to re-evaluate elevations
-         CALL FRSORT
-
-         ! Call sediment and contaminant routines, if requested
-         IF (bsy) THEN
-            DO iel = 1, total_no_elements
-               hrf(iel) = gethrf(iel)
-            END DO
-
-            CALL SYMAIN(total_no_elements, total_no_links, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, &
-               ICMREF(1, 5), ICMRF2, ICMXY, NBFACE, NLYR(total_no_links + 1), NTSOIL, &
-               NVC(total_no_links + 1), cellarea, CLENTH, CWIDTH, DHF, DXQQ(total_no_links + 1), &
-               DYQQ(total_no_links + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, DTUZ, &
-               TIH, UZNOW, ARXL, CLAI, DRAINA(total_no_links + 1), hrf, PLAI, &
-               PNETTO(total_no_links + 1), QOC, NSED, PBSED, PLS(total_no_links + 1), SOSDFN, &
-               ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU(total_no_links + 1), GNUBK, QSED, &
-               DCBED, DCBSED, IDUM, DUMMY)
-
-            ! Legacy commented-out call preserved
-            ! CALL SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF (1, 5), &
-            ! ICMRF2, ICMXY, NBFACE, NLYR (NLF + 1), NTSOIL, NVC (NLF + 1), AREA, CLENTH, CWIDTH, &
-            ! DHF, DXQQ (NLF + 1), DYQQ (NLF + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, &
-            ! DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA (NLF + 1), HRF, PLAI, PNETTO (NLF + 1), QOC, &
-            ! NSED, PBSED, PLS (NLF + 1),SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU (NLF + 1), &
-            ! GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
-         END IF
-
-         IF (bcm) THEN
-            IF (bexsy .AND. (.NOT. bsy)) THEN
-               CALL ERROR(FFFATAL, 1041, CMP, 0, 0, 'Start-time for sediment is later than for contaminants')
-            END IF
-            IF (cmfrst) THEN
-               CALL INCM(bexsy)
-               cmfrst = .FALSE.
-               aiosto = '00000000000000000000000000000001111111111'
-               IF (BSTORE) CALL FRRESP(aiosto, ZERO, .FALSE.)
-               CALL deallocate_colm_cg()
-            ELSE
-               CALL CMSIM(bexsy)
-            END IF
-         END IF
-
-         !-----------------------------------
-         !         RESULTS OUTPUT
-         !-----------------------------------
-         ! Mass balance errors
-         CALL BALWAT
-
-         ! Make mass balance output called daily (sb 8/3/06)
-         mbflag = 1
-         CALL FRMB
-
-         ! Unformatted 'RES' file output
-         aiosto = '1111111111111111111111111111111111111111111111111'
-
-         ! dsat specific - for contaminant averaging
-         IF (BSTORE) CALL FRRESP(aiosto, UZNOW, .FALSE.)
-
-         ! Hotstart output
-         IF (BHOTPR) THEN
-            IF (UZNOW >= HOTIME) THEN
-               ! uznow=current time (hours)
-               ! uznext-= next time(hours)
-               ! cstore = canopy storage (mm)
-               ! gethrf = surface water elevation(m)
-               ! QSAzz = overland flow?
-               ! QOC = overland flow
-               ! DQ0ST = flow derivatives
-               ! DQIST = flow derivatives
-               ! DQIST2 = flow derivatives
-               ! SD = snow pack depth
-               ! TS = snow temperature
-               ! NSMC = COUNTER USED IN ROUTING MELTWATER THROUGH SNOWPACK
-               ! SMELT = water in meltwater slug?
-               ! TMELT = temperature of eltwater slug?
-               ! vspsi = soil water potentials
-               WRITE(HOT, *) "time= ", UZNOW, UZNEXT, top_cell_no, &
-                  "cstore= ", (CSTORE(IEL), IEL = NGDBGN, total_no_elements), &
-                  "HRF= ", (getHRF(IEL), IEL = 1, total_no_elements), &
-                  "QSA= ", ((QSAzz(IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-                  "QOC= ", ((QOC(IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-                  "DQ0ST= ", ((DQ0ST(IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-                  "DQIST= ", ((DQIST(IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
-                  "DQIST2= ", ((DQIST2(IEL, K), IEL = 1, NGDBGN - 1), K = 1, 3), &
-                  "SD= ", (SD(IEL), IEL = NGDBGN, total_no_elements), &
-                  "TS= ", (TS(IEL), IEL = NGDBGN, total_no_elements), &
-                  "NSMC= ", (NSMC(IEL), IEL = NGDBGN, total_no_elements), &
-                  "SMELT= ", ((SMELT(K, IEL), K = 1, NSMC(IEL)), IEL = NGDBGN, total_no_elements), &
-                  "TMELT= ", ((TMelt(K, IEL), K = 1, NSMC(IEL)), IEL = NGDBGN, total_no_elements), &
-                  "vspsi= ", ((VSPSI(j, iel), j = 1, top_cell_no), IEL = 1, total_no_elements)
-               HOTIME = HOTIME + BHOTST
-            END IF
-         END IF
-
-         ! Time-counter file
-         IF (BTIME) THEN
-            REWIND(TIM)
-            WRITE(TIM, 9800) UZNOW, NSTEP
-         END IF
-
-         CALL RECORD_VISUALISATION_DATA(REAL(uznow, KIND=4))
-         CALL FROUTPUT('main ')
-
-         IF (uznow > icounter3) THEN
-            ! Replaces the old '+' carriage control by writing ACHAR(13) to return to start of line,
-            ! and ADVANCE='NO' to prevent jumping down a line.
-            WRITE(OUTPUT_UNIT, 9751, ADVANCE='NO') ACHAR(13), uznow, MIN(100.0d0 * uznow / (TTH - TIH), 100.0d0)
-            FLUSH(OUTPUT_UNIT)
-            icounter3 = icounter3 + 24
-         END IF
-
-         IF (UZNOW >= (TTH - TIH)) EXIT
-      END DO
-
-      WRITE(OUTPUT_UNIT, *) ! Advance line cleanly when simulation completes
-
-9750  FORMAT(' Length of Simulation =', F12.2, ' hours '//)
-9751  FORMAT(A, 'Simulation Timestep =', F12.2, ' hours   % Completed = ', F6.2)
-9800  FORMAT('Current time = ', F10.2, ' hours. Number of steps = ', I7 /)
-9900  FORMAT('Normal completion of SHETRAN run: ', F10.2, ' hours, ', I7, ' steps.' /)
-
-   END SUBROUTINE SIMULATION
+      9750 FORMAT (' Length of Simulation =',F12.2,' hours '//)
+      9751 FORMAT (A,'Simulation = ',F0.1,' hrs, % Compl. = ', f0.2,', Elapsed/Remaining = ', I0, ' / ', I0, ' sec. ')
+      9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)
+      9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)
+   END SUBROUTINE simulation
 
 END MODULE run_sim

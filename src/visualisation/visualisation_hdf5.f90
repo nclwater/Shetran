@@ -1,17 +1,17 @@
 !MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MODULE visualisation_hdf5
 
-   USE ISO_C_BINDING, ONLY: C_PTR
+USE ISO_C_BINDING, ONLY: C_PTR
 
-   USE VISUALISATION_PASS,      ONLY : DIRQQ, ver, rootdir, hdf5filename
-   USE VISUALISATION_METADATA,  ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, &
-      G_I=>GET_METADATA_I, S_PTR=>SET_METADATA_PTR, &
-      G_PTR=>GET_METADATA_PTR,                  &
-      ndim,                                     &
-      G_H5_I=>GET_METADATA_HDF5_I, G_H5_L=>GET_METADATA_HDF5_L, &
-      G_H5_C=>GET_METADATA_HDF5_C, INCREMENT_HDF5_TSTEP_NO
-   USE VISUALISATION_STRUCTURE, ONLY : TIME_COUNT, GET_HDF5_I, GET_HDF5_R, GET_HDF5_TIME
-   USE VISUALISATION_MAP,       ONLY : GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
+USE VISUALISATION_PASS,      ONLY : DIRQQ, ver, rootdir, hdf5filename
+USE VISUALISATION_METADATA,  ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, &
+                                    G_I=>GET_METADATA_I, S_PTR=>SET_METADATA_PTR, &
+                                    G_PTR=>GET_METADATA_PTR,                  &
+                                    ndim,                                     &
+                                    G_H5_I=>GET_METADATA_HDF5_I, G_H5_L=>GET_METADATA_HDF5_L, &
+                                    G_H5_C=>GET_METADATA_HDF5_C, INCREMENT_HDF5_TSTEP_NO
+USE VISUALISATION_STRUCTURE, ONLY : TIME_COUNT, GET_HDF5_I, GET_HDF5_R, GET_HDF5_TIME
+USE VISUALISATION_MAP,       ONLY : GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
 !USE HDF5,                    ONLY : H5OPEN_F,         &
 !                                    H5PSET_DEFLATE_F, &
 !                                    H5SCOPY_F,        &
@@ -339,11 +339,11 @@ CONTAINS
 
    !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE create_time_attributes(mn)
-      
+
       ! Assumed module variables available via host association:
       ! error, t_dataset
       ! H5T_NATIVE_CHARACTER
-      
+
       IMPLICIT NONE
 
       ! Input arguments
@@ -352,43 +352,43 @@ CONTAINS
       ! Locals
       INTEGER                                 :: arank
       INTEGER(HID_T)                          :: atype, attribute, a_dataspace
-      
+
       ! Strictly typed HDF5 dimension array
       INTEGER(HSIZE_T)                        :: dims1(1)
-      
+
       ! Safe character string to replace the inline array constructor
       CHARACTER(5)                            :: units_str = 'hours'
 
    !----------------------------------------------------------------------*
-      
+
       ! ---------------------------------------------------------
       ! units
       ! ---------------------------------------------------------
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-      
+
       ! Explicit SIZE_T cast to fix gfortran Type Mismatch error
       CALL H5TSET_SIZE_F(atype, INT(5, KIND=SIZE_T), error)
-      
+
       arank    = 1
       dims1(1) = 1
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(t_dataset(mn), 'units', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, units_str, dims1, error)
-      
+
       ! Cleanup to prevent HDF5 ID leaks
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
       CALL H5TCLOSE_F(atype, error)
-      
+
    END SUBROUTINE create_time_attributes
 
 
 
-   
+
    !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE create_variables_attributes(mn)
-      
+
       ! Assumed module variables available via host association:
       ! error, dataset, csz, G_H5_C, G_H5_I, ndim
       ! H5T_NATIVE_CHARACTER, H5T_NATIVE_INTEGER
@@ -397,7 +397,7 @@ CONTAINS
 
       ! Input arguments
       INTEGER, INTENT(IN)                     :: mn
-      
+
       ! Locals
       INTEGER                                 :: dd, ii, jj, no_dimensions
       INTEGER                                 :: arank
@@ -418,10 +418,10 @@ CONTAINS
       ! ---------------------------------------------------------
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
       CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
-      
+
       arank    = 1
       dims1(1) = 1
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'title', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'title'), dims1, error)
@@ -432,7 +432,7 @@ CONTAINS
       ! units
       ! ---------------------------------------------------------
       CALL H5TSET_SIZE_F(atype, INT(8, SIZE_T), error)
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'units', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'units'), dims1, error)
@@ -443,7 +443,7 @@ CONTAINS
       ! basis
       ! ---------------------------------------------------------
       CALL H5TSET_SIZE_F(atype, INT(12, SIZE_T), error)
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'basis', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'basis'), dims1, error)
@@ -454,7 +454,7 @@ CONTAINS
       ! scope
       ! ---------------------------------------------------------
       CALL H5TSET_SIZE_F(atype, INT(7, SIZE_T), error)
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'scope', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, G_H5_C(mn, 'scope'), dims1, error)
@@ -465,21 +465,21 @@ CONTAINS
       ! names of dimensions
       ! ---------------------------------------------------------
       CALL H5TSET_SIZE_F(atype, INT(6, SIZE_T), error)
-      
+
       no_dimensions = G_H5_I(mn, 'no_dimensions')
       dims1(1)      = INT(no_dimensions, HSIZE_T)
-      
+
       ALLOCATE(nmed(no_dimensions))
       ii = 0
       DO jj = 1, ndim
-         IF (G_H5_I(mn, 'dimensions', jj) /= 0) THEN 
-            ii = ii + 1 
+         IF (G_H5_I(mn, 'dimensions', jj) /= 0) THEN
+            ii = ii + 1
             nmed(ii) = G_H5_C(mn, 'names_of_dimensions', jj)
          END IF
       END DO
-      
+
       nmed = nmed(no_dimensions:1:-1) ! Reverse array
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'names of dimensions', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, nmed, dims1, error)
@@ -490,18 +490,18 @@ CONTAINS
       DO dd = 1, no_dimensions
          CALL DIMENSION_ATTRIBUTES(nmed(dd))
       END DO
-      
+
       DEALLOCATE(nmed)
 
       ! ---------------------------------------------------------
       ! database type
       ! ---------------------------------------------------------
       CALL H5TSET_SIZE_F(atype, INT(1, SIZE_T), error)
-      
+
       arank    = 1
       dims1(1) = 1
       typ      = G_H5_C(mn, 'typ')
-      
+
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'database type', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, typ(1:1), dims1, error)
@@ -526,11 +526,11 @@ CONTAINS
             arank    = 1
             dims1(1) = 1
             dum(1)   = 'has its own dataset'
-            
+
             ! Use a local datatype ID to avoid leaking or overwriting the host's `atype`
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(LEN_TRIM(dum(1)), SIZE_T), error)
-            
+
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'time', local_atype, a_dataspace, attribute, error)
             CALL H5AWRITE_F(attribute, local_atype, dum, dims1, error)
@@ -541,7 +541,7 @@ CONTAINS
           CASE('column')
             arank    = 1
             dims1(1) = 2
-            
+
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'column limits', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
             CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, [G_H5_I(mn,'ilow'), G_H5_I(mn,'ihigh')], dims1, error)
@@ -551,7 +551,7 @@ CONTAINS
           CASE('row')
             arank    = 1
             dims1(1) = 2
-            
+
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'row limits', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
             CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, [G_H5_I(mn,'jlow'), G_H5_I(mn,'jhigh')], dims1, error)
@@ -563,7 +563,7 @@ CONTAINS
             dims2(1) = 2
             nvals    = MAX(0, G_H5_I(mn, 'sz'))
             dims2(2) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
-            
+
             ALLOCATE(pairs(dims2(1), dims2(2)))
             pairs = 0
             pairs(1,:) = [ (i, i = 1, INT(dims2(2))) ]
@@ -572,7 +572,7 @@ CONTAINS
                   pairs(2, jj) = G_H5_I(mn, 'list', jj)
                ENDDO
             ENDIF
-            
+
             CALL H5SCREATE_SIMPLE_F(arank, dims2, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'element nos.', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
             CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, pairs, dims2, error)
@@ -584,10 +584,10 @@ CONTAINS
             arank    = 1
             nvals    = MAX(0, G_H5_I(mn, 'no_mbr'))
             dims1(1) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
-            
+
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
-            
+
             ALLOCATE(nme(dims1(1)))
             nme = ''
             IF(nvals>0) THEN
@@ -595,7 +595,7 @@ CONTAINS
                   nme(jj) = G_H5_C(mn, 'el-typ', jj)
                ENDDO
             ENDIF
-            
+
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'element types', local_atype, a_dataspace, attribute, error)
             CALL H5AWRITE_F(attribute, local_atype, nme, dims1, error)
@@ -608,10 +608,10 @@ CONTAINS
             arank    = 1
             nvals    = MAX(0, G_H5_I(mn, 'no_extra_dimensions'))
             dims1(1) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
-            
+
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
-            
+
             ALLOCATE(nme(dims1(1)))
             nme = ''
             IF(nvals>0) THEN
@@ -619,7 +619,7 @@ CONTAINS
                   nme(jj) = G_H5_C(mn, 'names_of_extra_dimensions', jj)
                ENDDO
             ENDIF
-            
+
             CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
             CALL H5ACREATE_F(dataset(mn), 'extra', local_atype, a_dataspace, attribute, error)
             CALL H5AWRITE_F(attribute, local_atype, nme, dims1, error)
@@ -743,7 +743,7 @@ CONTAINS
 
    !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE add_magnified_integer_spreadsheet_to_group(mn, nme, magnif, magarr)
-      
+
       ! Assumed module variables available via host association:
       ! file, group_magnified_integer, error, ver, csz, dataset_compress_property
       ! H5T_NATIVE_INTEGER, H5T_NATIVE_CHARACTER
@@ -756,7 +756,7 @@ CONTAINS
 
       ! HDF5 Identifiers
       INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset
-      
+
       ! Dimension arrays (strictly typed for HDF5 C-interoperability)
       INTEGER                                 :: arank
       INTEGER(HSIZE_T)                        :: dims(2)   ! For the 2D dataset

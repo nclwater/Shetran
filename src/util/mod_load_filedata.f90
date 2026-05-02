@@ -174,13 +174,13 @@ CONTAINS
 
                DO IEL = 1, NLF
                   ICAT = IDUM (IEL)
-                  
+
                   ! error if out of bounds
                   IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                      WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
                      CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
                   END IF
-                  
+
                   DO I2 = 1, N2
                      AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
                   END DO
@@ -203,7 +203,7 @@ CONTAINS
                         WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
                         CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
                      END IF
-                     
+
                      DO I2 = 1, N2
                         AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
                      END DO
@@ -287,19 +287,19 @@ CONTAINS
 
       ! Read the category type for each element
       CALL ALREDI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NX, NY, IDUM)
-      
+
       DO Y = 1, NY
          XY0 = (Y - 1) * NX
          DO X = 1, NX
             IEL = ICMXY (X, Y)
             IF (IEL > 0) THEN
                ICAT = IDUM (XY0 + X)
-               
+
                IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                   CALL ERROR (FFFATAL, 3090, OUNIT, 0, 0, &
                               'Error in ALALLI -reading spatially distributed category types')
                END IF
-               
+
                CATTYP (IEL) = ICAT
             END IF
          END DO
@@ -337,7 +337,7 @@ CONTAINS
             ! from the grid to its corresponding bank
             CATTYP (BANK1) = CATTYP (GRID1)
             CATTYP (BANK2) = CATTYP (GRID2)
-            
+
          END DO
       END IF
 
@@ -471,7 +471,7 @@ CONTAINS
       SLEN = LEN (SNAME)
       POS1 = 0
       POS2 = INDEX (SNAME, '(')
-      
+
       dim_loop: DO NDIM = 0, 2
          IF (POS2 > POS1 .AND. POS2 < SLEN) THEN
             IF (NDIM == 1) IX (2) = IX2
@@ -492,7 +492,7 @@ CONTAINS
       OP2    = OP (2:2)
       SGN    = +1
       IF (OP1 == 'G') SGN = -1
-      
+
       INCOBJ = 0
       IF (OP (LEN (OP) :) == 'a') INCOBJ = 1
 
@@ -500,7 +500,7 @@ CONTAINS
       ! ---------------------------------------------
       ! Note:  i Code is replicated to enable vectorization of loops.
       !       ii "Requirements" are approximate if TOL>0.
-      
+
       IOBJ = N0
 
       IF (OP2 == 'T') THEN
@@ -534,7 +534,7 @@ CONTAINS
       ! Count the non-conformances and fix them if required
       ! ---------------------------------------------------
       ! Note: Non-vectorizing loop: keep it short
-      
+
       COUNT0 = COUNT
       IOBJ   = N0 + INCOBJ * (N1 - N0)
 
@@ -633,7 +633,7 @@ CONTAINS
       SLEN = LEN (SNAME)
       POS1 = 0
       POS2 = INDEX (SNAME, '(')
-      
+
       dim_loop: DO NDIM = 0, 2
          IF (POS2 > POS1 .AND. POS2 < SLEN) THEN
             IF (NDIM == 1) IX (2) = IX2
@@ -654,16 +654,16 @@ CONTAINS
       OP2    = OP (2:2)
       SGN    = +1
       IF (OP1 == 'G') SGN = -1
-      
+
       INCOBJ = 0
       IF (OP (LEN (OP) :) == 'a') INCOBJ = 1
 
       ! Store test results in logical workspace array
       ! ---------------------------------------------
       ! Note:  i Code is replicated to enable vectorization of loops.
-      
+
       IOBJ = N0
-      
+
       IF (OP2 == 'T') THEN
          ! require SUBJ < OBJ or SUBJ > OBJ (depending on SGN)
          DO I = N0, N1
@@ -695,7 +695,7 @@ CONTAINS
       ! Count the non-conformances and fix them if required
       ! ---------------------------------------------------
       ! Note: Non-vectorizing loop: keep it short
-      
+
       COUNT0 = COUNT
       IOBJ   = N0 + INCOBJ * (N1 - N0)
 
@@ -775,7 +775,7 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: MAX_NUM_DATA_PAIRS     !< maximum number of data pairs
       INTEGER(kind=I_P), INTENT(IN) :: NCATTY (NLF + 1:NEL), NCOLMB (NLF + 1:NEL)
       INTEGER(kind=I_P), INTENT(IN) :: NTAB (NUM_CATEGORIES_TYPES)
-      
+
       REAL(kind=R8P), INTENT(IN)    :: TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) !< table of concentrations
       REAL(kind=R8P), INTENT(IN)    :: TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS)   !< table of water depths
       REAL(kind=R8P), INTENT(IN)    :: DELTAZ (LLEE, NELEE), ZVSNOD (LLEE, NELEE)
@@ -801,11 +801,11 @@ CONTAINS
          CELL_CONCENTRATION (NELM, NCETOP) = TABLE_CONCENTRATION (NCATG, 1)
          DEPTH  = DELTAZ (NCETOP, NELM) / two
          NTHRTB = 2
-         
+
          cell_loop: DO NCL = NCETOP - 1, NCOLMB (NELM), -1
 
             DEPTH = DEPTH + (ZVSNOD (NCL + 1, NELM) - ZVSNOD (NCL, NELM))
-            
+
             ! The depth of the cell is greater than the lowest depth in
             ! the table and the cell takes the value of the concentration
             ! at the lowest specified depth
@@ -869,8 +869,8 @@ CONTAINS
 
       ! Locals, etc
       CHARACTER (LEN=80)  :: HEAD
-      CHARACTER (LEN=140) :: MSG 
-      CHARACTER (LEN=48)  :: FILNAM 
+      CHARACTER (LEN=140) :: MSG
+      CHARACTER (LEN=48)  :: FILNAM
       CHARACTER (LEN=17)  :: FORM
       INTEGER(kind=I_P)   :: IX, IY, KY, IDUM1, IDUM2, ICOUNT, I, ios
       LOGICAL             :: BOPEN, BNAMED
@@ -884,12 +884,12 @@ CONTAINS
       IF (FLAG > 0) THEN
          ! Check data header against what the caller expects to find
          READ (IUNIT, '(A)', IOSTAT=ios) HEAD
-         
+
          IF (ios /= 0) THEN
             WRITE (MSG, 9801) LINE, HEAD0_alread
             CALL throw_fatal(3, MSG)
          END IF
-         
+
          IF (INDEX (HEAD, LINE) == 0) THEN
             WRITE (MSG, 9002) LINE, HEAD
             CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
@@ -904,7 +904,7 @@ CONTAINS
       ! Take Specified Action
       ! ---------------------
       SELECT CASE (FLAG)
-      
+
       ! Check that input file is open
       CASE (0)
          IF (.NOT. BOPEN) THEN
@@ -984,7 +984,7 @@ CONTAINS
             READ (IUNIT, *, IOSTAT=ios) IDUM1, IDUM2
             IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (IDATA (IDUM1, I), I = 1, IDUM2)
             IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (RDATA (IDUM1, I), I = 1, IDUM2)
-            
+
             IF (ios /= 0) THEN
                WRITE (MSG, 9600) IDUM1, HEAD
                CALL throw_fatal(16, MSG)
@@ -1001,7 +1001,7 @@ CONTAINS
                ! Trigger the error format if the IDs don't match
                ios = 1
             END IF
-            
+
             IF (ios /= 0) THEN
                WRITE (MSG, 9700) ICOUNT, HEAD
                CALL throw_fatal(14, MSG)
@@ -1034,12 +1034,12 @@ CONTAINS
 
 
    CONTAINS
-   
+
       ! Helper routine to cleanly handle the repetitive ERROR/RETURN jumping
       SUBROUTINE throw_fatal(err_id, err_msg)
          INTEGER(kind=I_P), INTENT(IN) :: err_id
          CHARACTER(LEN=*), INTENT(IN)  :: err_msg
-         
+
          CALL ERROR(FFFATAL, err_id, OUNIT, 0, 0, err_msg)
       END SUBROUTINE throw_fatal
 
@@ -1099,7 +1099,7 @@ CONTAINS
             CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
             RETURN
          END IF
-         
+
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
 
       ELSE
@@ -1232,14 +1232,14 @@ CONTAINS
       ! Code =================================================================
 
       READ (IUNIT, '(A)', IOSTAT=ios) HEAD
-      
+
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredf
          CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
-      
+
       IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
          CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
@@ -1250,7 +1250,7 @@ CONTAINS
       IF (FLAG == 0) THEN
          ! Simple array
          READ (IUNIT, *, IOSTAT=ios) FDATA
-         
+
          IF (ios /= 0) THEN
             ! Real data error
             WRITE (MSG, 9810) 'floating-point', HEAD
@@ -1262,7 +1262,7 @@ CONTAINS
          ! Grid-based array: read indexed rows, North to South
          DO IY = N2, 1, -1
             READ (IUNIT, *, IOSTAT=ios) KY, (FDATA (IX, IY), IX = 1, N1)
-            
+
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Real grid error (or index mismatch)
                WRITE (MSG, 9842) 'floating-point', IY, HEAD
@@ -1328,14 +1328,14 @@ CONTAINS
       ! Code -----------------------------------------------------------------
 
       READ (IUNIT, '(A)', IOSTAT=ios) HEAD
-      
+
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredi
          CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
-      
+
       IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
          CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
@@ -1346,7 +1346,7 @@ CONTAINS
       IF (FLAG == 0) THEN
          ! Simple array
          READ (IUNIT, *, IOSTAT=ios) IDATA
-         
+
          IF (ios /= 0) THEN
             ! Integer data error
             WRITE (MSG, 9810) 'integer', HEAD
@@ -1358,14 +1358,14 @@ CONTAINS
          ! Grid-based array: read indexed rows, North to South
          ! (using single digit integers if possible)
          IF (FLAG < 10) WRITE (FORM, 9410) N1
-         
+
          DO IY = N2, 1, -1
             IF (FLAG < 10) THEN
                READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
             ELSE
                READ (IUNIT, *, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
             END IF
-            
+
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Integer grid error
                WRITE (MSG, 9842) 'integer', IY, HEAD

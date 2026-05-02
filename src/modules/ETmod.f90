@@ -1,7 +1,12 @@
 MODULE ETmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the ET .F files
-   USE SGLOBAL
+! SB mar 26     4.6     read if dates included in met data (BMETDATES)
+!                       allocatable arrays for RA,RC,RTOP, CSTCAP,CK,CB,DEL, PSI4,UZALFA, CSTCA1,PLAI1, CLAI1,VHT1
+!                       PS1,FET,RCF,RELCST,TIMCST,RELPLA,TIMPLA,RELCLA,TIMCLA,RELVHT,TIMVHT
+!                       allocated in new subroutine INITIALISE_ETMOD
+
+USE SGLOBAL
 !USE SGLOBAL,     ONLY : NVEE, NUZTAB, NVBP, LLEE, &
 !                     nelee  !NEEDED ONLY FOR AD
    USE AL_G,     ONLY : ICMREF, NGDBGN, ICMREF

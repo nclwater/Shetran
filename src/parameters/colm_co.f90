@@ -15,6 +15,8 @@ MODULE COLM_CO
 ! RAH  980308  4.2  Remove WELDRO.
 !      981103       Remove ERUZO (see INCM,COLMW).
 ! JE  12/08   4.3.5F90  Convert to FORTRAN90
+! SB Mar26  4.6     Make the following arrays allocatable: DSWO, QIO, QQRFO, RSZWLO, ZONEO, GGAMMO,QQQSWO, QQO, UUAJPO,VSTHEO
+!                   Add subroutine initialise_colm_co
 !----------------------------------------------------------------------*
 
 ! Imported constants

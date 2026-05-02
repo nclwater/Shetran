@@ -47,6 +47,8 @@ MODULE AL_C
 ! RAH  980302  4.2  Remove ZOCMLN (see OCQMLN), VSSTMP, FHSAT.
 !      980307       (Amend line above.)
 !  JE  JULY 04 ---- Convert to FORTRAN 95
+!   SB  Mar26  4.6     Make the following variables ALLOCATABLE :: JVSACN,JVSDEL,DELTAZ, ZVSNOD, RDF, NLYRBT,NTSOIL,ZLYRBT
+!                    Some are allocated in initialise_al_c and some in the new SUBROUTINE initialise_al_c2() and SUBROUTINE initialise_al_c3()_
 !----------------------------------------------------------------------*
 
 !

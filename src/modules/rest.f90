@@ -1,6 +1,8 @@
 MODULE rest
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Mops up .F files that do not have a natural home in any other module
+! SB  mar 26   4.6      Added dates to met files. precipitation (prd), Potential evaporation (epd) and max and min temperatrue
+!
    USE SGLOBAL
 !USE SGLOBAL,    ONLY : NELEE, NVEE
    USE AL_G,    ONLY : icmref
@@ -23,19 +25,12 @@ MODULE rest
    LOGICAL :: FIRST_balwat=.TRUE.
    DOUBLEPRECISION :: STORW_balwat(NELEE)=zero, pinp(nvee+10)=zero, METIME=zero, MELAST=zero, EPTIME=zero
 
-
-!INTEGER, PARAMETER :: mx_cnt_rain=1400
-!INTEGER         :: cnt_rain = 0
-!DOUBLEPRECISION :: start_impact_window, end_impact_window
-!DOUBLEPRECISION :: per_rain(nvee, mx_cnt_rain)  !rain perturbations
-!           Depths of water stored
-!           For columns and stream links
-
-
    PRIVATE
+
    PUBLIC :: BALWAT, TMSTEP, EXTRA_OUTPUT, &
       metime, melast, eptime, pinp
-!          start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here for AD only
+
+
 CONTAINS
 
 !SSSSSS SUBROUTINE extra_output
@@ -61,9 +56,15 @@ CONTAINS
       WRITE(PPPRI, '(////)')
       WRITE(PPPRI, 9900) UZNOW, NSTEP
 !
+<<<<<<< HEAD
       WRITE ( *, * )
 
       WRITE ( *, *) 'Normal completion of SHETRAN run'
+=======
+WRITE (6,'(A)') ' '
+
+WRITE (6,*) 'Normal completion of SHETRAN run'
+>>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 !^^^^^sb 250105 mass balnce output
       WRITE(PPPRI, '(////)')
       WRITE(PPPRI,  * ) ' Spatially Averaged Totals (mm) over the simulation'
@@ -168,20 +169,20 @@ SUBROUTINE BALWAT
          END DO
 
          DEPTHS = asum
-         
+
          ! * net increase this timestep
          DELSTO = DEPTHS - STORW_balwat (IEL)
-         
+
          ! * save new value for use next timestep
          STORW_balwat (IEL) = DEPTHS
 
          ! Calculate net depth of water supplied over the previous step
          ! ------------------------------------------------------------
          ! * ... but only if we have a bona fide value for DELSTO
-         
+
          ! GOTO 400 removed and replaced with a logical IF block
          IF (.NOT. FIRST_balwat) THEN
-         
+
             ! * sources and sinks
             asum = PNETTO (IEL) - EEVAP (IEL) + QVSBF (IEL) - QVSWEL (IEL)
             DO CELL = NLYRBT (IEL, 1), top_cell_no
@@ -203,10 +204,10 @@ SUBROUTINE BALWAT
             END DO
 
             asum = asum + asumQ / cellarea (IEL)
-            
+
             ! * convert from rate to depth
             DEPTHI = asum * DTUZ
-            
+
             ! Update the cumulative water balance error as a depth
             ! ----------------------------------------------------
             WBERR (IEL) = WBERR (IEL) + DELSTO - DEPTHI
@@ -219,7 +220,231 @@ SUBROUTINE BALWAT
       ! --------
       FIRST_balwat = .FALSE.
 
+<<<<<<< HEAD
    END SUBROUTINE BALWAT
+=======
+ENDIF
+!
+! PRINT OUT INPUT DATA
+!
+IF (BMETP) THEN
+   WRITE(PPPRI, 30) METIME
+   30 FORMAT   (//1X, 'MET DATA -  TIME :',F8.2 / &
+&   ' STATION           RAINFALL      POT. EVAP.(MM/HR)')
+   DO 35 I = 1, NM
+      WRITE(PPPRI, 32) I, PINP (I), PEIN (I)
+   32 FORMAT    (4X,I2,9X,F10.3,9X,F10.3)
+   35    END DO
+ENDIF
+!
+GOTO 190
+!
+! READ ALL MET. DATA IN FIXED TIME INTERVAL (USUALLY HOURLY) FORMAT
+!------------------------------------------------------------------
+!
+!^^^^^^^^^              GP 29/9/92
+   40 IF (IFLAG.EQ.2) RETURN
+!^^^^^^^^^
+IF (NRAIN.NE.NM) GOTO 100
+!
+!-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE EQUAL
+!
+IF (BMETP) WRITE(PPPRI, 50)
+   50 FORMAT (//1X, 'MET DATA - SITE    TIME      RAINFALL    NET RADN', &
+&       4X, &
+& &
+&'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+!
+!-----LOOP ON NUMBER OF MET SITES
+!
+   55 MELAST = METIME
+
+METIME = METIME+DTMET
+DO 90 I = 1, NM
+   READ (MED, 60, END = 287) ISITE, NN, PINP (I), RN (I), U (I), &
+    PA (I), TA (I), DEL (I), VPD (I), IDATA
+
+   goto 288
+  287    if (firstnomet1) then
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+      WRITE(PPPRI, '(A18)') 'Finish of met data'
+      WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      firstnomet1 = .false.
+   endif
+   isite = 1
+   nn = 1
+   pinp (i) = zero
+   rn (i) = zero
+   u (i) = zero
+   pa (i) = zero
+   ta (i) = 10.0d0
+   del (i) = one
+   vpd (i) = three
+
+   idata = 1000
+  288    IF (BMETP) WRITE(PPPRI, 70) ISITE, METIME, PINP (I), RN (I), &
+    U (I), TA (I), DEL (I), VPD (I)
+   60 FORMAT   (2I6, 4G12.6, /, 12X, 3G12.6, I12)
+   70 FORMAT   ('0', 8X, I6, F8.2, 5X, 2(3F12.6,'  NOT_USED  '))
+   IF (MEASPE (I) .EQ.0) GOTO 90
+!
+! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
+!
+   READ (MED, 80, END = 289) OBSPE (I)
+   80 FORMAT   (12X, G12.6)
+
+   goto 290
+  289    if (firstnomet2) then
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+      WRITE(PPPRI, '(A18)') 'Finish of met data'
+      WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      firstnomet2 = .false.
+   endif
+
+
+   obspe (i) = 0.0
+!
+! CONVERT TO MM/S
+!
+  290    OBSPE (I) = OBSPE (I) / 3600.
+   90 END DO
+!
+! READ TO START SIMULATION TIME, IF HOTSTART
+!
+IF (BHOTRD.AND.METIME.LT.BHOTTI) GOTO 55
+!
+GOTO 190
+!
+!-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE UNEQUAL
+!
+  100 IF (BMETP) WRITE(PPPRI, 110)
+  110 FORMAT (//1X, 'MET DATA - SITE    TIME      NET RADN', 4X, &
+& &
+&'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+!
+!-----LOOP ON NUMBER OF MET SITES
+!
+  115 MELAST = METIME
+METIME = METIME+DTMET
+DO 140 I = 1, NM
+   READ (MED, 120, END = 291) ISITE, NN, RN (I), U (I), PA (I), &
+    TA (I), DEL (I), VPD (I), IDATA
+
+   goto 292
+  291    if (firstnomet3) then
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+      WRITE(PPPRI, '(A18)') 'Finish of met data'
+      WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      firstnomet3 = .false.
+   endif
+   isite = 1
+   nn = 1
+   rn (i) = zero
+   u (i) = zero
+   pa (i) = zero
+   ta (i) = 10.0d0
+   del (i) = one
+   vpd (i) = three
+
+   idata = 1000
+  292    IF (BMETP) WRITE(PPPRI, 130) ISITE, METIME, RN (I), U (I), &
+    TA (I), DEL (I), VPD (I)
+  120 FORMAT   (2I6, 12X, 3G12.6, /, 12X, 3G12.6, I12)
+  130 FORMAT   ('0', 8X, I6, F8.2, 5X, 2(2F12.6,'  NOT_USED  ':F12.6))
+   IF (MEASPE (I) .EQ.0) GOTO 140
+!
+! READ MEASURED POTENTIAL EVAPORATION IN MM/HR
+!
+   READ (MED, 80, END = 293) OBSPE (I)
+
+   goto 294
+  293    if (firstnomet4) then
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+      WRITE(PPPRI, '(A18)') 'Finish of met data'
+      WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      firstnomet4 = .false.
+   endif
+
+   obspe (i) = 0.0
+!
+! CONVERT TO MM/S
+!
+  294    OBSPE (I) = OBSPE (I) / 3600.
+  140 END DO
+IF (BMETP) WRITE(PPPRI, 150)
+
+  150 FORMAT (//1X, 'RAIN DATA - SITE    TIME      RAINFALL         IDATA')
+!
+!-----LOOP ON NUMBER OF RAIN SITES
+!
+DO 180 I = 1, NRAIN
+   READ (MED, 160, END = 295) ISITE, NN, PINP (I), IDATA
+
+   goto 296
+  295    if (firstnomet5) then
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, '(A6,g12.4,a8)') 'Time = ', uznow, ' Hours.'
+      WRITE(PPPRI, '(A18)') 'Finish of met data'
+      WRITE(PPPRI, '(A33)') 'All remaining values will be zero'
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      WRITE(PPPRI, * )
+      firstnomet5 = .false.
+   endif
+
+   pinp (i) = 0.0
+  296    IF (BMETP) WRITE(PPPRI, 170) ISITE, METIME, PINP (I)
+  160 FORMAT   (2I6, G12.6, 24X, I12)
+  170 FORMAT   ('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')
+  180 END DO
+!
+! READ TO SIMULATION START TIME, IF HOTSTART
+!
+IF (BHOTRD.AND.METIME.LT.BHOTTI) GOTO 115
+!
+!--------------------------------------------
+!     CHECK TIME-VARYING MODEL PARAMETERS
+!--------------------------------------------
+!
+  190 TCURR = TIMEUZ
+DO 270 K = 1, NV
+! sb 04032025 for dynamically allocated arrays use NV not NVEE
+   IF (MODECS (K) .NE.0) CALL TERPO1 (CSTCAP, TCURR, RELCST, TIMCST, NCTCST, CSTCA1, NV, K)
+   IF (MODEPL (K) .NE.0) CALL TERPO1 (PLAI, TCURR, RELPLA, TIMPLA, NCTPLA, PLAI1, NV, K)
+   IF (MODECL (K) .NE.0) CALL TERPO1 (CLAI, TCURR, RELCLA, TIMCLA, NCTCLA, CLAI1, NV, K)
+   IF (MODEVH (K) .NE.0) CALL TERPO1 (VHT, TCURR, RELVHT, TIMVHT,  NCTVHT, VHT1, NV, K)
+  270 END DO
+!
+RETURN
+STOP
+END SUBROUTINE METIN
+>>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
 
 
@@ -289,10 +514,10 @@ SUBROUTINE BALWAT
       ! Assumed external module dependencies providing global variables:
       ! BMETAL, BMETDATES, prd, NRAIN, PPPRI, uznow, PINP, ZERO, dtmet2, MELAST,
       ! METIME, BHOTRD, BHOTTI, EPTIME, epd, NM, PEIN, ISTA, TAH, TAHIGH, TAL,
-      ! TALOW, dtmet3, EPLAST, UZNEXT, PETOT, OBSPE, TA, BMETP, DTMET, MED, RN, 
-      ! U, PA, DEL, VPD, MEASPE, TIMEUZ, NV, MODECS, CSTCAP, RELCST, TIMCST, 
-      ! NCTCST, CSTCA1, MODEPL, PLAI, RELPLA, TIMPLA, NCTPLA, PLAI1, MODECL, 
-      ! CLAI, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, VHT, RELVHT, TIMVHT, 
+      ! TALOW, dtmet3, EPLAST, UZNEXT, PETOT, OBSPE, TA, BMETP, DTMET, MED, RN,
+      ! U, PA, DEL, VPD, MEASPE, TIMEUZ, NV, MODECS, CSTCAP, RELCST, TIMCST,
+      ! NCTCST, CSTCA1, MODEPL, PLAI, RELPLA, TIMPLA, NCTPLA, PLAI1, MODECL,
+      ! CLAI, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, VHT, RELVHT, TIMVHT,
       ! NCTVHT, VHT1, ONE, HOUR_FROM_DATE, TERPO1
 
       IMPLICIT NONE

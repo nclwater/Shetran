@@ -1,12 +1,12 @@
-# Test for Error-Fixes 1024, 1030 and 1060
+# Readme 
 
-This catchment had 1024,1030 and 1060 errors.
-Previously it crashed after about 828 hours.
+This catchment has 1024,1030 and 1060 errors. Previously it crashed after about 828 hours. 
 There is now a reduction in timestep length if one of the above errors occurs and it runs OK.
 
-Code Changes:
+## Code Changes
 
-## sglobal.f90
+
+### sglobal.f90 
 
 L 147
 
@@ -37,8 +37,7 @@ IF (ERRNUM.EQ.1060) THEN
 ENDIF
 ```
 
-
-## rest.f90
+### rest.f90
 
 L797
 
@@ -53,7 +52,7 @@ ISERROR2 = .FALSE.
 ISERROR = .FALSE.
 ```
 
-## OCmod2.f90
+### OCmod2.f90
 
 L1125
 

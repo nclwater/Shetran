@@ -1,6 +1,7 @@
 MODULE SYmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SY .F files
+! SB  Mar26 4.6         Change dimensions of NTSOIL
    USE SGLOBAL
 !USE AL_P
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD  !, HELPPATH
@@ -66,7 +67,7 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: DGRSML = 1.0D-4
       DOUBLE PRECISION, PARAMETER :: F16 = 0.16D0, F50 = 0.5D0, F56 = 0.56D0, F84 = 0.84D0
       DOUBLE PRECISION, PARAMETER :: THIRD = 1.0D0 / 3.0D0
-      
+
       DOUBLE PRECISION, PARAMETER :: KRHO = RHOSED / RHOWAT - 1.0D0
       DOUBLE PRECISION, PARAMETER :: K2_syackw = (GRAVTY * KRHO / VISCOS**2)**THIRD
       DOUBLE PRECISION, PARAMETER :: DGRMAX_syackw = 10.0D0**(ONE / F56) + DGRSML
@@ -135,7 +136,7 @@ CONTAINS
 
                   DGR = FDGR (DAAA)
                   AAW = FA (DGR)
-                  
+
                   DO SED = NFP1, NSED
                      ACKW (2, SED) = AAW * (0.6D0 + 0.4D0 * SQRT (DAAA / DRSED (SED)))
                   END DO
@@ -166,7 +167,7 @@ CONTAINS
                      IF (BASE > ZERO) THEN
                         G = DSED * (QK / DWAT1E) * CAW * (BASE**MAW)
                         IF (NAW > ZERO) G = G * (UK / USTR)**NAW
-                        
+
                         ! Determine the total discharge capacity of both ends
                         GSED (LINK, SED) = GSED (LINK, SED) + G
                      END IF
@@ -220,7 +221,7 @@ CONTAINS
    ! Modifications:
    !  RAH  23.5.94  Version 3.4.1 by AB/RAH. File creation date 5.4.94.
    !----------------------------------------------------------------------*
-   
+
       IMPLICIT NONE
 
       ! Input arguments
@@ -250,7 +251,7 @@ CONTAINS
          ! * Calculate interim bed layer thicknesses
          DCBEDZ = 0.0D0
          DDBEDZ = 0.0D0
-         
+
          sum_loop: DO SED = 1, NSED
             DCBEDZ = DCBEDZ + DCIPRM(LINK, SED)
             DDBEDZ = DDBEDZ + DDIPRM(LINK, SED)
@@ -260,7 +261,7 @@ CONTAINS
          DLSOLD = DLS(LINK)
          DLSNEW = DCBEDZ + DDBEDZ
          DLS(LINK) = DLSNEW
-         
+
          ARBDEP(LINK) = ARBDEP(LINK) + CWIDTH(LINK) * (DLSNEW - DLSOLD)
          DCNEW = MIN(DLSNEW, DCBEDO)
          DCBED(LINK) = DCNEW
@@ -271,7 +272,7 @@ CONTAINS
          DCC = MIN(DCBEDZ, DCNEW)
          AC = 0.0D0
          AD = 0.0D0
-         
+
          IF (DCBEDZ > 0.0D0) AC = DCC / DCBEDZ
          IF (DDBEDZ > 0.0D0) AD = (DCNEW - DCC) / DDBEDZ
 
@@ -315,7 +316,7 @@ CONTAINS
    ! Modifications:
    !  RAH  16.06.94  Version 3.4.1 by AB/RAH. File creation date 28.3.94.
    !----------------------------------------------------------------------*
-   
+
       ! Assumed external module dependencies providing global variables/functions:
       ! USE UTILSMOD, ONLY : DIMJE
       ! USE OC_MODULE, ONLY : ONE, TWO
@@ -335,7 +336,7 @@ CONTAINS
       ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: A1 = 0.05D0, B1 = 0.41D0, B2 = 0.22D0, B3 = 0.035D0
       DOUBLE PRECISION, PARAMETER :: QUART = 1.0D0 / 4.0D0
-      
+
       INTEGER :: BKSOIL, LINK
       DOUBLE PRECISION :: DWAT1E, GNUBKE, K, TAUEC, TAUKE, X
 
@@ -343,7 +344,7 @@ CONTAINS
 
       ! * Loop over channel links
       link_loop: DO LINK = 1, NLF
-         
+
          BKSOIL = NTSOBK(LINK)
          DWAT1E = DWAT1(LINK)
          TAUKE  = TAUK(LINK)
@@ -427,9 +428,9 @@ CONTAINS
       ! LOGICAL :: GTZERO, ISZERO
 
       !----------------------------------------------------------------------*
-      
+
       NFP1 = NFINE + 1
-      
+
       ! Replaced ALINIT with array slice operation
       QSWSUM(1:NLF, 1:NSED) = ZERO
 
@@ -453,7 +454,7 @@ CONTAINS
       !
       NSDWAT = NFINE
       IF (ISUSED == 0) NSDWAT = NSED
-      
+
       IF (NSDWAT > 0) THEN
          ! * All faces (both ends and sides)
          DO FACE = 1, 4
@@ -499,7 +500,7 @@ CONTAINS
                FACE = IEND
                IF (LINKNS (LINK)) FACE = FACE + 1
                QK = SGN * QOC (LINK, FACE)
-               
+
                IF (GTZERO(QK)) THEN
 
                   TAUD = TAUJ (LINK, FACE)
@@ -540,7 +541,7 @@ CONTAINS
             FDSUM = FDSUM + FDEL (LINK, SED)
          END DO
          IF (ISZERO(FDSUM)) FDSUM = ONE
-         
+
          DCSUM = DCBED (LINK)
          IF (ISZERO(DCSUM)) DCSUM = ONE
 
@@ -578,7 +579,7 @@ CONTAINS
                FACE = ISIDE
                IF (LINKNS (LINK)) FACE = ISIDE - 1
                QK = SGN * QOC (LINK, FACE)
-               
+
                IF (GTZERO(QK)) THEN
 
                   ! * Loop over non-fine size groups
@@ -637,7 +638,7 @@ CONTAINS
       INTEGER :: FACE, J (4), JLC, NOUT, SED
       DOUBLE PRECISION :: A1, A2, A3, B1, B2, DBETA, DDLS, FD, FLS, G
       DOUBLE PRECISION :: GJSUM, GSUM, QK, QWSUM, VD, VDSUM, VDWAT
-      
+
       ! ! Functions
       ! LOGICAL :: GTZERO
 
@@ -649,7 +650,7 @@ CONTAINS
       QWSUM = ZERO
       VDSUM = ZERO
       FLS = ONE - PLSE
-      
+
       ! Replaced ALINIT with Fortran array slice
       Q(1:NSED) = ZERO
 
@@ -752,7 +753,7 @@ CONTAINS
          FD = (A1 * VD) / B1
          FDELE (SED) = FD
          FBETAE (SED) = A2 * VD / B2 + A3 * SOSDFE (SED)
-         
+
          DO JLC = 1, NOUT
             FACE = J (JLC)
             QSEDE (SED, FACE) = FLS * QWAT (FACE) * FD
@@ -776,24 +777,24 @@ CONTAINS
    ! Modifications:
    !  RAH 15.07.94  Version 3.4.1 by AB/RAH. File created 05.10.93
    !----------------------------------------------------------------------*
-   
+
       IMPLICIT NONE
 
       ! Input arguments
       INTEGER, INTENT(IN) :: FLAG
       DOUBLE PRECISION, INTENT(IN) :: DRX50, TAUX, FPCLAE
-      
+
       ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: TAUEC
 
       ! Locals
       DOUBLE PRECISION, PARAMETER :: R0 = 3.0D-2, R1 = 1.0D0
       DOUBLE PRECISION, PARAMETER :: R2 = 6.0D0, R3 = 30.0D0, R4 = 135.0D0, R5 = 400.0D0
-      
+
       DOUBLE PRECISION, PARAMETER :: AEC(5) = [0.1D0, 0.1D0, 0.033D0, 0.013D0, 0.03D0]
       DOUBLE PRECISION, PARAMETER :: BEC(5) = [-0.3D0, -0.62D0, 0.0D0, 0.28D0, 0.1D0]
 
-      ! High-Performance Fix: Compile-time evaluation of constants 
+      ! High-Performance Fix: Compile-time evaluation of constants
       ! (Completely replaces the runtime FIRST_sycrit block)
       DOUBLE PRECISION, PARAMETER :: K1_sycrit = 1.0D0 / (SQRT(RHOWAT) * VISCOS)
       DOUBLE PRECISION, PARAMETER :: K2_sycrit = (RHOSED - RHOWAT) * GRAVTY
@@ -801,7 +802,7 @@ CONTAINS
 
       INTEGER :: IS
       DOUBLE PRECISION :: RSTR
-      
+
       ! Legacy branchless statement function
       DOUBLE PRECISION :: SF, RSTR_DUM, R_DUM
       SF(RSTR_DUM, R_DUM) = HALF - SIGN(HALF, R_DUM - RSTR_DUM)
@@ -815,7 +816,7 @@ CONTAINS
          ! Shields method
          RSTR = MAX(R0, MIN(DRX50 * SQRT(TAUX) * K1_sycrit, R5))
 
-         ! Performance Reversion: Branchless execution 
+         ! Performance Reversion: Branchless execution
          IS = NINT(ONE + SF(RSTR, R1) + SF(RSTR, R2) + SF(RSTR, R3) + SF(RSTR, R4))
 
          TAUEC = AEC(IS) * K2_sycrit * DRX50 * (RSTR**BEC(IS))
@@ -844,7 +845,7 @@ CONTAINS
    ! Modifications:
    !  RAH  21.5.94  Version 3.4.1 by AB/RAH. File creation date 01.11.93.
    !----------------------------------------------------------------------*
-   
+
       ! Assumed external module dependencies providing global variables:
       ! ISZERO
 
@@ -874,20 +875,20 @@ CONTAINS
          FTOT = FTOT + F(FRPTR)
          FRPTR = FRPTR + INCF
       END DO
-      
+
       F02 = 2.0d0 * FSED * FTOT
 
       IF (ISZERO(F02)) THEN
          ! * Zeroth percentile or null distribution
          DR = 0.0d0
-         
+
       ELSE
          ! * Reset fraction pointer
          FRPTR = 1
 
          ! * Loop over sediment types until target percentile surpassed
          search_loop: DO SED = 1, N
-            
+
             ! * Calculate midpoint of cumulative fraction (doubled)
             FLO = FHI
             DRLO = DRHI
@@ -901,7 +902,7 @@ CONTAINS
 
             ! * Increment fraction pointer
             FRPTR = FRPTR + INCF
-            
+
          END DO search_loop
 
          ! * Interpolate between last two Fraction/Diameter pairs to find
@@ -909,7 +910,7 @@ CONTAINS
          ! * Note :- Combination of precondition FSED<1 and use of ALMOST
          ! * should ensure (FLO+FHI) > 0
          DR = DRHI - (DRHI - DRLO) * (FSUM2 - F02) / (FLO + FHI)
-         
+
       END IF
 
       SYDR = DR
@@ -960,9 +961,9 @@ CONTAINS
 
       !----------------------------------------------------------------------*
 
-      ! * Initialization      
+      ! * Initialization
       NFP1 = NFINE + 1
-      
+
       ! Replaced ALINIT with a whole-array slice assignment
       GSED(:, :) = ZERO
 
@@ -984,7 +985,7 @@ CONTAINS
 
                ! * Loop invariant
                GD = QK**2 * SLOPEJ (LINK, FACE)**1.5D0 * KG_syengh / (CWIDTH (LINK) * SQRT (DWAT1E))
-               
+
                ! * All sediment types
                DO SED = NFP1, NSED
                   GSED (LINK, SED) = GD / DRSED (SED) + GSED (LINK, SED)
@@ -1024,12 +1025,12 @@ CONTAINS
 
       ! Locals, etc
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
-      
+
       ! Modernization Fix: Added IZERO_ARR to replace the undeclared IZERO1
       ! and made IUNDEF a parameter to prevent passing uninitialized memory.
       INTEGER, PARAMETER :: IZERO_ARR(1) = [0]
       INTEGER, PARAMETER :: IUNDEF = 0
-      
+
       INTEGER :: NERR, JEDUMDUM
       INTEGER :: IDUMS(1), IDUMO(1)
       LOGICAL :: LDUM1(1)
@@ -1038,7 +1039,7 @@ CONTAINS
 
    ! 0. Preliminaries
    ! ----------------
-   
+
       ! * Initialize local counters
       NERR = 0
 
@@ -1049,31 +1050,31 @@ CONTAINS
       IDUMS(1) = NELEE
       IDUMO(1) = MAX(NEL, NV, NX * NY)
       CALL ALCHKI(ERR, 2054, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-      
+
    ! NLFEE
       IDUMS(1) = NLFEE
       IDUMO(1) = MAX(1, NLF)
       CALL ALCHKI(ERR, 2055, SPR, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-      
+
    ! NLYREE, NSEDEE
       IDUMS(1) = MIN(NLYREE, NSEDEE)
       CALL ALCHKI(ERR, 2056, SPR, 1, 1, IUNDEF, IUNDEF, '[ NLYREE, NSEDEE ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
-      
+
    ! NSEE
       IDUMS(1) = NSEE
       IDUMO(1) = NS
       CALL ALCHKI(ERR, 2057, SPR, 1, 1, IUNDEF, IUNDEF, 'NSEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-      
+
    ! NVEE
       IDUMS(1) = NVEE
       IDUMO(1) = NV
       CALL ALCHKI(ERR, 2058, SPR, 1, 1, IUNDEF, IUNDEF, 'NVEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-      
+
    ! NXEE
       IDUMS(1) = NXEE
       IDUMO(1) = NX
       CALL ALCHKI(ERR, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-      
+
       IDUMO(1) = 9999
       CALL ALCHKI(ERR, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'LE', IDUMO, IDUMS, NERR, LDUM1)
 
@@ -1092,7 +1093,7 @@ CONTAINS
       IDUMO(1) = NEL
       CALL ALCHKI(ERR, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
       CALL ALCHKI(ERR, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
-      
+
    ! NS, NV, NX, NY
       JEDUMDUM = MIN(NS, NV)
       IDUMS(1) = MIN(JEDUMDUM, NX, NY)
@@ -1128,7 +1129,7 @@ CONTAINS
       ! Input arguments (Strictly Read-Only)
       INTEGER, INTENT(IN) :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, SPR
       LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
-      
+
       ! Read-Only Arrays (Used for reference or copied to scratchpads)
       INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMXY(NXEE, NY), ICMRF2(NLFEE, 3, 2)
       INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE)
@@ -1150,12 +1151,12 @@ CONTAINS
 
       ! Locals, etc
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
-      
+
       ! Strict array/scalar parameters for shape matching in ALCHK
       INTEGER, PARAMETER          :: IZERO_ARR(1) = [0], IONE_ARR(1) = [1]
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
-      
+
       INTEGER :: BANK, COUNT, FACE, FADJ, FEL
       INTEGER :: IADJ, IBR, IBRADJ, ICOL1, IEL, IELP, ILYR, IUNDEF, IX, IY
       INTEGER :: LINK, NCOL, NELP, NERR, P, PADJ
@@ -1177,15 +1178,15 @@ CONTAINS
    ! ICMBK, ICMXY
       COUNT = NERR
       NCOL = 0
-      
+
       DO IEL = 0, NLF
          IDUM1X(IEL) = 1
       END DO
-      
+
       DO IEL = ICOL1, NELP
          IDUM1X(IEL) = 0
       END DO
-      
+
       DO IY = 1, NY
          DO IX = 1, NX
             IEL = MAX(0, MIN(ICMXY(IX, IY), NELP))
@@ -1193,7 +1194,7 @@ CONTAINS
             NCOL = NCOL + MIN(IEL, 1)
          END DO
       END DO
-      
+
       IF (BEXBK .AND. NLF > 0) THEN
          NCOL = NCOL + 2 * NLF
          DO BANK = 1, 2
@@ -1203,26 +1204,26 @@ CONTAINS
             END DO
          END DO
       END IF
-      
+
       IDUM1(1) = NEL - NLF
       IDUM1X(0) = NCOL
-      
+
       CALL ALCHKI(ERR, 2075, SPR, 1, 1, IUNDEF, IUNDEF, '#_column_elements', 'EQ', IDUM1, IDUM1X(0:), NERR, LDUM)
       CALL ALCHKI(ERR, 2076, SPR, 1, NEL, IUNDEF, IUNDEF, 'element_count(iel)', 'EQ', IONE_ARR, IDUM1X(1:), NERR, LDUM)
-      
+
       BKXYOK = COUNT == NERR
 
    ! ICMREF part 1
       IDUM1(1) = NEL
       IDUM1(2) = -NLFEE
       REFOK = .TRUE.
-      
+
       DO FACE = 1, 4
          COUNT = NERR
-         
+
          CALL ALCHKI(ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'LE', IDUM1(1:1), ICMREF(1:, FACE, 2), NERR, LDUM)
          CALL ALCHKI(ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'GE', IDUM1(2:2), ICMREF(1:, FACE, 2), NERR, LDUM)
-         
+
          IF (COUNT == NERR) THEN
             DO IEL = 1, NEL
                IADJ = ICMREF(IEL, FACE, 2)
@@ -1251,22 +1252,22 @@ CONTAINS
       IF (NLF > 0 .AND. BEXBK .AND. BKXYOK .AND. REFOK) THEN
          IDUM1X(-1) = -2
          IDUM1X(0) = 0
-         
+
          DO IEL = 1, NEL
             IDUM1X(IEL) = -2
          END DO
-         
+
          DO IY = 1, NY
             DO IX = 1, NX
                IEL = MAX(0, ICMXY(IX, IY))
                IDUM1X(IEL) = MIN(IEL, 1)
             END DO
          END DO
-         
+
          DO LINK = 1, NLF
             IDUM(LINK) = 0
          END DO
-         
+
          DO BANK = 1, 2
             DO LINK = 1, NLF
                IEL = ICMBK(LINK, BANK)
@@ -1276,7 +1277,7 @@ CONTAINS
                IDUM(LINK) = IDUM(LINK) + IDUM1X(IADJ)
             END DO
          END DO
-         
+
          CALL ALCHKI(ERR, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
@@ -1285,7 +1286,7 @@ CONTAINS
          DO IBR = 1, NLFEE
             IDUM(IBR) = -1
          END DO
-         
+
          DO FACE = 1, 4
             DO IEL = 1, NEL
                IADJ = ICMREF(IEL, FACE, 2)
@@ -1295,7 +1296,7 @@ CONTAINS
                      IDUM(IBR) = IDUM(IBR) + 1
                   ELSE
                      IDUM(IBR) = 0
-                     
+
                      DO P = 1, 3
                         IADJ = ICMRF2(IBR, P, 1)
                         IF (IADJ > NEL) THEN
@@ -1309,7 +1310,7 @@ CONTAINS
                               IF (IBRADJ < 1 .OR. IBRADJ > NLFEE) THEN
                                  IDUM(IBR) = IDUM(IBR) + P * 1000
                               ELSE
-                                 
+
                                  search_padj: DO PADJ = 1, 3
                                     IELP = ICMRF2(IBRADJ, PADJ, 1)
                                     IF (IELP == IEL) THEN
@@ -1317,9 +1318,9 @@ CONTAINS
                                        IF (FEL == FACE) EXIT search_padj
                                     END IF
                                  END DO search_padj
-                                 
+
                                  IF (PADJ > 3) IDUM(IBR) = IDUM(IBR) + P * 10000
-                                 
+
                               END IF
                            END IF
                         END IF
@@ -1328,7 +1329,7 @@ CONTAINS
                END IF
             END DO
          END DO
-         
+
          CALL ALCHKI(ERR, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
@@ -1350,12 +1351,12 @@ CONTAINS
       CALL ALCHK(ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:), NERR, LDUM)
       CALL ALCHK(ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:), NERR, LDUM)
       CALL ALCHK(ERR, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', 'GEa', ZGRUND(ICOL1:), ZERO_VAL, HRF(ICOL1:), NERR, LDUM)
-      
+
       COUNT = NERR
       IDUM1(1) = NLYREE
       CALL ALCHKI(ERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'GT', IZERO_ARR, NLYR(ICOL1:), NERR, LDUM)
       CALL ALCHKI(ERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'LE', IDUM1(1:1), NLYR(ICOL1:), NERR, LDUM)
-      
+
       IF (COUNT == NERR) THEN
          DO IEL = ICOL1, NEL
             ILYR = NLYR(IEL)
@@ -1365,7 +1366,7 @@ CONTAINS
          CALL ALCHKI(ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO_ARR, IDUM(ICOL1:), NERR, LDUM)
          CALL ALCHKI(ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'LE', IDUM1(1:1), IDUM(ICOL1:), NERR, LDUM)
       END IF
-      
+
       COUNT = NERR
       IDUM1(1) = NV
       CALL ALCHKI(ERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'GT', IZERO_ARR, NVC(ICOL1:), NERR, LDUM)
@@ -1438,7 +1439,7 @@ CONTAINS
       INTEGER :: SED, SOIL, jedumdum
       INTEGER :: IDUM1 (1)
       DOUBLE PRECISION :: RDUM (NXEE*NYEE)
-      
+
       ! Assumed external constants/functions from module/global
       ! ZERO1, ONE1, IZERO1, IONE1, IDIMJE
 
@@ -1500,7 +1501,7 @@ CONTAINS
       jedumdum = IDIMJE(NSED, NFINE)
       jedumdum = jedumdum * NLF
       IDUM1(1) = MAX(NSED, jedumdum)
-      
+
       ! * (including local workspace requirements)
       IDUM1 (1) = MAX (IDUM1 (1), NS, NSYB * 2)
       CALL ALCHKI (ERR, 2018, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUM1, IDUM, NERR, LDUM)
@@ -1528,7 +1529,7 @@ CONTAINS
          CALL ALCHK (ERR, 2021, SPR, 1, NS, IUNDEF, IUNDEF, 'GKF(soil)', 'GE', ZERO1, ZERO1 (1), GKF, NERR, LDUM)
          ! RHOSO
          CALL ALCHK (ERR, 2022, SPR, 1, NS, IUNDEF, IUNDEF, 'RHOSO(soil)', 'GT', ZERO1, ZERO1 (1), RHOSO, NERR, LDUM)
-         
+
          ! BKB
          IF (NLF > 0) THEN
             CALL ALCHK (ERR, 2023, SPR, 1, NS, IUNDEF, IUNDEF, 'BKB(soil)', 'GE', ZERO1, ZERO1 (1), BKB, NERR, LDUM)
@@ -1543,7 +1544,7 @@ CONTAINS
             CALL ALCHK (ERR, 2024, SPR, 1, NS, SED, IUNDEF, 'SOSDFN(soil,sed)', 'GE', ZERO1, ZERO1 (1), SOSDFN (1, SED), NERR, LDUM)
          END DO
          CALL ALCHK (ERR, 2024, SPR, 1, NS, IUNDEF, IUNDEF, 'SOSDFN[*][sum_over_sed](soil)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
-         
+
          ! XDRIP
          CALL ALCHK (ERR, 2025, SPR, 1, NV, IUNDEF, IUNDEF, 'XDRIP(veg)', 'GE', ZERO1, ZERO1 (1), XDRIP, NERR, LDUM)
          ! DRDRIP
@@ -1573,13 +1574,13 @@ CONTAINS
       !
       ! FCROCK
       CALL ALCHK (ERR, 2030, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCROCK(iel)', 'LE', ONE1, ZERO1 (1), FCROCK, NERR, LDUM)
-      
+
       ! FCG
       DO IEL = NLF + 1, NEL
          DUMMY (IEL) = ONE1 (1) - FCROCK (IEL)
       END DO
       CALL ALCHK (ERR, 2031, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCG(iel)', 'LEa', DUMMY (NLF + 1), ZERO1 (1), FCG, NERR, LDUM)
-      
+
       ! PLS
       CALL ALCHK (ERR, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'GE', ZERO1, ZERO1 (1), PLS, NERR, LDUM)
       CALL ALCHK (ERR, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'LT', ONE1, ZERO1 (1), PLS, NERR, LDUM)
@@ -1590,7 +1591,7 @@ CONTAINS
       !
       ! DLS
       CALL ALCHK (ERR, 2033, SPR, 1, NEL, IUNDEF, IUNDEF, 'DLS(iel)', 'GE', ZERO1, ZERO1 (1), DLS, NERR, LDUM)
-      
+
       ! FBETA
       DUMMY(1:NEL) = ZERO1 (1)
       DO SED = 1, NSED
@@ -1600,7 +1601,7 @@ CONTAINS
          CALL ALCHK (ERR, 2034, SPR, 1, NEL, SED, IUNDEF, 'FBETA(iel,sed)', 'GE', ZERO1, ZERO1 (1), FBETA (1, SED), NERR, LDUM)
       END DO
       CALL ALCHK (ERR, 2034, SPR, 1, NEL, IUNDEF, IUNDEF, 'FBETA[*][sum_over_sed](iel)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
-      
+
       ! FDEL
       DO SED = 1, NSED
          CALL ALCHK (ERR, 2035, SPR, 1, NEL, SED, IUNDEF, 'FDEL(iel,sed)', 'GE', ZERO1, ZERO1 (1), FDEL (1, SED), NERR, LDUM)
@@ -1612,18 +1613,18 @@ CONTAINS
       !
       IF (NSYB > 0) THEN
          IF (NELEE >= NSYB * 2) THEN
-            
+
             ! NSYCEE
             IDUM (1) = NSYCEE
             IDUM1 (1) = MAX (NSYC (1) + NSYC (2), NSYC (3) + NSYC (4))
             CALL ALCHKI (ERR, 2036, SPR, 1, 1, IUNDEF, IUNDEF, 'NSYCEE', 'GE', IDUM1, IDUM, NERR, LDUM)
-            
+
             ! NSYBCD(BB,1)
             COUNT = NERR
             IDUM1 (1) = NEL
             CALL ALCHKI (ERR, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'GE', IONE1, NSYBCD, NERR, LDUM)
             CALL ALCHKI (ERR, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'LE', IDUM1, NSYBCD, NERR, LDUM)
-            
+
             ! NBFACE
             IF (COUNT == NERR) THEN
                DO BB = 1, NSYB
@@ -1634,7 +1635,7 @@ CONTAINS
                CALL ALCHKI (ERR, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'GE', IONE1, IDUM, NERR, LDUM)
                CALL ALCHKI (ERR, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'LE', IDUM1, IDUM, NERR, LDUM)
             END IF
-            
+
             ! ICMREF
             IF (COUNT == NERR) THEN
                DO BB = 1, NSYB
@@ -1644,7 +1645,7 @@ CONTAINS
                END DO
                CALL ALCHKI (ERR, 2039, SPR, 1, NSYB, IUNDEF, IUNDEF, 'ICMREF[NSYBCD[*][1]][NBFACE][2](bdry)', 'EQ', IZERO1, IDUM, NERR, LDUM)
             END IF
-            
+
             ! NSYBCD(BB,3)
             DO BB = 1, NSYB
                ITYPE = NSYBCD (BB, 2)
@@ -1654,28 +1655,28 @@ CONTAINS
             END DO
             CALL ALCHKI (ERR, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'GE', IDUM, NSYBCD (1, 3), NERR, LDUM)
             CALL ALCHKI (ERR, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'LE', IDUM (NSYB + 1), NSYBCD (1, 3), NERR, LDUM)
-            
+
             ! GBC
             DO ICAT = 1, NSYC (1)
                CALL ALCHK (ERR, 2041, SPR, 1, NSED, ICAT, IUNDEF, 'GBC(sed,icat)', 'GE', ZERO1, ZERO1 (1), GBC (1, ICAT), NERR, LDUM)
             END DO
-            
+
             ! ABC
             DO ICAT = 1, NSYC (3)
                CALL ALCHK (ERR, 2042, SPR, 1, NSED, ICAT, IUNDEF, 'ABC(sed,icat)', 'GE', ZERO1, ZERO1 (1), ABC (1, ICAT), NERR, LDUM)
             END DO
-            
+
             ! BBC
             DO ICAT = 1, NSYC (3)
                CALL ALCHK (ERR, 2043, SPR, 1, NSED, ICAT, IUNDEF, 'BBC(sed,icat)', 'GT', ZERO1, ZERO1 (1), BBC (1, ICAT), NERR, LDUM)
             END DO
-            
+
             ! SFB
             IF (NSYC (2) > 0) THEN
                IDUM (1) = SFB
                CALL ALCHKI (ERR, 2044, SPR, 1, 1, IUNDEF, IUNDEF, 'SFB', 'GE', IZERO1, IDUM, NERR, LDUM)
             END IF
-            
+
             ! SRB
             IF (NSYC (2) > 0) THEN
                IDUM (1) = SRB
@@ -1807,28 +1808,28 @@ CONTAINS
       DO J = 0, NELP
          JSORT (J) = NELP
       END DO
-      
+
       DO I = 1, NEL
          IEL = ISORT (I)
          J = MAX (0, MIN (IEL, NELP))
          JSORT (J) = I
          JMIN (I) = NELP
       END DO
-      
+
    !     * At this point any element not listed in ISORT has a JSORT
    !       value of NELP, which is guaranteed to fail the test below
    !     * Update JMIN (used as object of JSORT test) & set QOC status IQ
       DO FACE = 1, 4
-         
+
          element_loop: DO IEL = 1, NEL
    !          * innocent until proven guilty
             IQ (IEL) = 0
-            
+
    !          * non-discharge faces are ok (Cycle directly replaces GOTO 640)
             IF (FNQOUT(IEL, FACE) <= ZERO1 (1)) CYCLE element_loop
-            
+
             IADJ = ICMREF (IEL, FACE, 2)
-            
+
             IF (IADJ > 0) THEN
                FADJ = ICMREF (IEL, FACE, 3)
                QADJ = FNQOUT(IADJ, FADJ)
@@ -1836,11 +1837,11 @@ CONTAINS
                IF (QADJ > ZERO1 (1)) IQ (IEL) = 1
    !             * IEL must precede IADJ in the ISORT list
                JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
-               
+
             ELSE IF (IADJ < 0) THEN
                IBR = - IADJ
                QMIN = ONE1 (1)
-               
+
                DO P = 1, 3
                   IADJ = ICMRF2 (IBR, P, 1)
                   IF (IADJ > 0) THEN
@@ -1853,18 +1854,18 @@ CONTAINS
                      END IF
                   END IF
                END DO
-               
+
    !             * discharge from IEL has nowhere to go?
                IF (QMIN >= zero1 (1)) IQ (IEL) = 2
             END IF
          END DO element_loop
-         
+
    !        * Check QOC status at this FACE for all elements
          CALL ALCHKI (ERR, 2052, SPR, 1, NEL, FACE, IUNDEF, &
             'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
-            
+
       END DO
-      
+
    !     * Check that each donor element listed in ISORT occurs before
    !       each of its receptors, and that all elements are listed
       CALL ALCHKI (ERR, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
@@ -1886,7 +1887,7 @@ CONTAINS
          WRITE (SPR, 9100) 'ZGRUND[iel=1,...,NEL]', ZGRUND
          WRITE (SPR, 9200) 'ISORT[iel=1,...,NEL]', ISORT
          WRITE (SPR, 9200) 'position_in_ISORT[iel=1,...,NEL]', (JSORT (IEL), IEL = 1, NEL)
-         
+
          DO FACE = 1, 4
             WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC (IEL, FACE), IEL = 1, NEL)
          END DO
@@ -1967,7 +1968,7 @@ CONTAINS
 
          ! * Calculate critical shear stress for fines
          ! Modernization Fix: Initialize DUM to prevent passing uninitialized memory to SYCRIT INTENT(IN)
-         ! DUM = 0.0D0 
+         ! DUM = 0.0D0
          CALL SYCRIT(0, DRSEDF, TAUKL, DUM, TAUEC)
 
          ! * Calculate potential fines in upper layer
@@ -2013,7 +2014,7 @@ CONTAINS
 
       ! Commons and constants implicitly expected from USE or context
       ! (e.g. ZERO, HALF, DIMJE, SYDR)
-      
+
       ! Input arguments
       INTEGER, INTENT(IN)          :: NEL, NELEE, NLF, NLFEE, NS, NSED, NSEE, NSEDEE
       INTEGER, INTENT(IN)          :: NTSOBK (NLFEE), NTSOTP (NLF + 1:NEL)
@@ -2430,7 +2431,7 @@ CONTAINS
          ! * Check time-varying input variables
          DOUBT = ISSYOK_symain > 0
          IF (DOUBT) DOUBT = MOD (PASS_symain - 2, ISSYOK_symain) == 0
-         
+
          IF (DOUBT) THEN
             CALL SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, ICMRF2, ISORT, DTUZ, CLAI,    &
                          PLAI, ARXL, DRAINA, PNETTO, HRF, ZGRUND, QOC, IDUM, IDUM1A, IDUM1X,    &
@@ -2475,7 +2476,7 @@ CONTAINS
 
             ! Boundary Conditions
             ! -------------------
-            
+
             IF (NSYB_symain > 0) THEN
 
                ! * Gather water "outflow" rates (should be negative)
@@ -2580,14 +2581,14 @@ CONTAINS
                   ! ... and propagate sediment flow rates at outflow faces
                   IF (QWAT (FACE) > ZERO) THEN
                      IADJ = ICMREF (IEL, FACE, 2)
-                     
+
                      IF (IADJ > 0) THEN
                         ! * regular neighbour
                         FADJ = ICMREF (IEL, FACE, 3)
                         DO SED = 1, NSED
                            QSED (IADJ, SED, FADJ) = -QSEDE (SED, FACE)
                         END DO
-                        
+
                      ELSE IF (IADJ < 0) THEN
                         ! * neighbour is a confluence node
                         IBR = -IADJ
@@ -2603,7 +2604,7 @@ CONTAINS
                            END IF
                         END DO
                      END IF
-                     
+
                   END IF
                END DO
 
@@ -2620,7 +2621,7 @@ CONTAINS
             ! ------------------------------------
             CALL DCOPY (NEL - NLF, DWAT1 (NLF + 1), 1, DWATOL_symain (NLF + 1), 1)
             IF (NLF > 0) CALL DCOPY (NLF, ARXL, 1, ARXLOL_symain, 1)
-            
+
             SYNOW_symain = SYNOW_symain + DTSY / 3600.0D0
 
          END DO
@@ -2696,7 +2697,7 @@ CONTAINS
       DO NVEG = 1, NV
          XDRIPE = XDRIP(NVEG)
          DRDRPE = DRDRIP(NVEG)
-         
+
          ! Performance Reversion: Branchless execution
          ISCD = 1 + NINT(SF2(XDRIPE, X1) + 2.0D0 * SF2(DRDRPE, D1))
 
@@ -2778,7 +2779,7 @@ CONTAINS
 
       ! Initialize variables
       GSUM = ZERO
-      
+
       ! High-Performance Fix: Pre-calculate face lengths into an array instead of using MOD()
       FLJ_ARRAY = [DYQQE, DXQQE, DYQQE, DXQQE]
 
@@ -2890,7 +2891,7 @@ CONTAINS
       DOUBLE PRECISION, INTENT(OUT) :: FBIC, FDRIP (NV), FICRIT, FPCLAY (NS), FPCRIT
       DOUBLE PRECISION, INTENT(OUT) :: GBC (NSEDEE, NSYCEE), GKF (NS), GKR (NS), PBSED (NLFEE)
       DOUBLE PRECISION, INTENT(OUT) :: RHOSO (NS), SOSDFN (NSEE, NSEDEE), XDRIP (NV), DLSMAX
-      
+
       ! INOUT Output Arrays (modified via ALALLF slices/subroutines)
       DOUBLE PRECISION, INTENT(INOUT) :: DLS (NEL), FBETA (NELEE, NSEDEE), FCG (NLF + 1:NEL)
       DOUBLE PRECISION, INTENT(INOUT) :: FCROCK (NLF + 1:NEL), FDEL (NELEE, NSEDEE)
@@ -2923,7 +2924,7 @@ CONTAINS
 
       !     * Check & print version number
       CALL ALREAD (1, SYD, SPR, ':SY02', 1, 1, IDUM0, SYDVER, IDUM, DUMMY)
-      
+
       !     * [miss off last character to allow eg '3.4.1' is ok in '3.4.1a' ]
       IF (INDEX (SYDVER, SYVER (:LEN (SYVER) - 1) ) == 0) THEN
          WRITE (MSG, 9011) SYVER, SYDVER
@@ -2952,13 +2953,13 @@ CONTAINS
       ISTEC = IDUM (3)
       ISSYOK = IDUM (4)
       NEPS = IDUM (5)
-      
+
       IF (NLF > 0) THEN
          ISACKW = IDUM (6)
          ISUSED = IDUM (7)
          NFINE = IDUM (8)
       END IF
-      
+
       IF (NSED < 1 .OR. NSED > NSEDEE) THEN
          WRITE (MSG, 9006) NSED, NSEDEE
          CALL ERROR (FATAL, 2006, SPR, 0, 0, MSG)
@@ -2970,7 +2971,7 @@ CONTAINS
       CALL ALREAD (3, SYD, SPR, ':SY12', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
       FPCRIT = DUMMY (1)
       DLSMAX = DUMMY (2)
-      
+
       IF (NLF > 0) THEN
          ALPHA = DUMMY (3)
          CONCOB = DUMMY (4)
@@ -3003,7 +3004,7 @@ CONTAINS
 
       !     * Soil composition
       CALL ALREAD (3, SYD, SPR, ':SY23', NSED, NS, IDUM0, CDUM, IDUM, DUMMY)
-      
+
       DO SED = 1, NSED
          CALL DCOPY (NS, DUMMY (SED), NSED, SOSDFN (1, SED), 1)
       END DO
@@ -3060,7 +3061,7 @@ CONTAINS
             SOIL = NTSOBK (IEL)
             CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), NELEE)
          END DO
-         
+
          DO IEL = NLF + 1, NEL
             SOIL = NTSOTP (IEL)
             CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), NELEE)
@@ -3098,17 +3099,17 @@ CONTAINS
          ! * Integer boundary data
          CALL ALREAD (2, SYD, SPR, ':SY62', 3, NSYB, IDUM0, CDUM, IDUM, DUMMY)
          I0 = 0
-         
+
          DO BB = 1, NSYB
             IEL = IDUM (I0 + 1)
             ITYPE = IDUM (I0 + 2)
             ICAT = IDUM (I0 + 3)
-            
+
             IF (ITYPE < 1 .OR. ITYPE > 4) THEN
                WRITE (MSG, 9008) BB, ITYPE
                CALL ERROR (FATAL, 2008, SPR, 0, 0, MSG)
             END IF
-            
+
             ! * condense 4 into 2 by adding cats 2 & 4 to lists for 1 & 3
             IF (MOD (ITYPE, 2) == 0) ICAT = ICAT + NSYC (ITYPE - 1)
             NSYBCD (BB, 1) = IEL
@@ -3124,7 +3125,7 @@ CONTAINS
                WRITE (MSG, 9009) NSYC (1), NSYCEE
                CALL ERROR (FATAL, 2009, SPR, 0, 0, MSG)
             END IF
-            
+
             CALL ALREAD (3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, IDUM, DUMMY)
             DO SED = 1, NSED
                CALL DCOPY (NC, DUMMY (SED), NSED, GBC (SED, 1), NSEDEE)
@@ -3138,7 +3139,7 @@ CONTAINS
                WRITE (MSG, 9010) NSYC (3), NSYCEE
                CALL ERROR (FATAL, 2010, SPR, 0, 0, MSG)
             END IF
-            
+
             CALL ALREAD (3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, CDUM, IDUM, DUMMY)
             DO SED = 1, NSED
                CALL DCOPY (NC, DUMMY (2 * SED - 1), 2 * NSED, ABC (SED, 1), NSEDEE)
@@ -3233,7 +3234,7 @@ CONTAINS
 
    !----------------------------------------------------------------------*
 
-      ! Modernization Fix: Fully initialize INTENT(OUT) arrays to prevent garbage memory 
+      ! Modernization Fix: Fully initialize INTENT(OUT) arrays to prevent garbage memory
       ! on elements skipped by the internal logic (like side faces)
       SLOPEJ = 0.0D0
       TAUJ   = 0.0D0

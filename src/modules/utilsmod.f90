@@ -1,6 +1,8 @@
 MODULE utilsmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the utility .F files
+! SB Mar 26  4.6       Error traping for dates
+!
    USE SGLOBAL
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
@@ -14,65 +16,24 @@ MODULE utilsmod
       JEMATMUL_VM, JEMATMUL_MM, INVERTMAT, DATE_FROM_HOUR, RAN2 !OPEN_FILE !GET_START_END_IMPACT
 CONTAINS
 
-!SSSSSS SUBROUTINE get_start_end_impact
-!SUBROUTINE get_start_end_impact(iu, s, e)
-!INTEGER, INTENT(IN)          :: iu
-!INTEGER                      :: st(5), et(5)
-!DOUBLEPRECISION, INTENT(OUT) :: s, e
-!CHARACTER(256)               :: fname, msg
-!fname   = TRIM(dirqq)//TRIM(cnam)//'_'//'impact_time_window.txt'
-!CALL OPEN_FILE(iu, fname, 'READ', 'FORMATTED')
-!READ(iu,*, err=99, end=99) st
-!READ(iu,*, err=99, end=99) et
-!s = HOUR_FROM_DATE(st(1), st(2), st(3), st(4), st(5))
-!e = HOUR_FROM_DATE(et(1), et(2), et(3), et(4), et(5))
-!CLOSE(iu)
-!RETURN
-!99 WRITE(msg, *) 'Error or end of file reading file: '//TRIM(fname)
-!CALL ERROR(fffatal, 3009, pppri, 0, 0, msg)
-!END SUBROUTINE get_start_end_impact
-
-
-!SSSSSS  SUBROUTINE open_file
-!SUBROUTINE open_file(iu, fn, act, form, access)
-!INTEGER, INTENT(IN)      :: iu
-!LOGICAL                   :: ex
-!CHARACTER(*), INTENT(IN) :: fn, act, form
-!CHARACTER(*), INTENT(IN), OPTIONAL :: access
-!CHARACTER(28)                      :: ac
-!IF(act=='READ') THEN
-!    INQUIRE(file=TRIM(fn), EXIST=ex)
-!    IF(.NOT.ex) THEN
-!        PRINT*, 'Failed to find '// TRIM(fn)
-!        RETURN
-!    ENDIF
-!ENDIF
-!IF(PRESENT(access)) THEN
-!    ac = access
-!ELSE
-!    ac = 'SEQUENTIAL'
-!ENDIF
-!OPEN(iu, FILE=fn, ACTION=act, FORM=form, ACCESS=ac)
-!PRINT '(3A)', 'OPENED  '//TRIM(fn)//'  '//TRIM(act)//'  '//TRIM(form)
-!END SUBROUTINE OPEN_FILE
 
    !SSSSSS subroutine dcopy (n, dx, incx, dy, incy)
    PURE SUBROUTINE dcopy(n, dx, incx, dy, incy)
    !----------------------------------------------------------------------*
    !     copies vector x to vector y
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
 
       ! Input arguments
       INTEGER, INTENT(IN) :: n, incx, incy ! size and increments
       DOUBLE PRECISION, DIMENSION(*), INTENT(IN) :: dx
-      
+
       ! Input/Output arguments
-      ! Modernization Fix: MUST be INOUT. If incy > 1, an OUT declaration 
+      ! Modernization Fix: MUST be INOUT. If incy > 1, an OUT declaration
       ! would destroy the interleaved elements that are skipped by the stride!
       DOUBLE PRECISION, DIMENSION(*), INTENT(INOUT) :: dy
-      
+
       ! Locals
       INTEGER :: i, ix, iy
 
@@ -88,14 +49,14 @@ CONTAINS
          iy = 1
          IF (incx < 0) ix = (-n + 1) * incx + 1
          IF (incy < 0) iy = (-n + 1) * incy + 1
-         
+
          DO i = 1, n
             dy(iy) = dx(ix)
             ix     = ix + incx
             iy     = iy + incy
          END DO
       END IF
-      
+
    END SUBROUTINE dcopy
 
 
@@ -132,7 +93,7 @@ CONTAINS
       ! Local Variables
       INTEGER                         :: TIME(5), read_stat
       DOUBLE PRECISION                :: SIMEND
-      
+
    !----------------------------------------------------------------------
 
       SIMEND = SIMNOW + SIMSTP
@@ -210,7 +171,7 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! HOUR_FROM_DATE, marker999
-      
+
       IMPLICIT NONE
 
       ! Arguments
@@ -230,37 +191,37 @@ CONTAINS
       SIMMID = SIMNOW + 0.5D0 * SIMSTP
 
       time_loop: DO
-         
+
          ! IF MID-POINT OF TIMESTEP PASSED, INTERPOLATE DATA
          IF (INTIME >= SIMMID .AND. INLAST < SIMMID) THEN
             ! Replaced DO loop 20 with native array slice assignment
             ARRAY(1:NINP) = HLAST(1:NINP) + (HNEXT(1:NINP) - HLAST(1:NINP)) * &
                             ((SIMMID - INLAST) / (INTIME - INLAST))
          END IF
-         
+
          ! READ DATA UNTIL END OF SIMULATION TIMESTEP
          IF (INTIME < SIMEND) THEN
-            
+
             ! Replaced DO loop 30 with native array slice assignment
             HLAST(1:NINP) = HNEXT(1:NINP)
-            
+
             ! Read using IOSTAT to gracefully catch End-of-File
             READ (IIN, *, IOSTAT=ios) TIME(1:5), HNEXT(1:NINP)
-            
+
             IF (ios /= 0) THEN
                ! End of file or read error reached
                INTIME = marker999
                EXIT time_loop
             END IF
-            
+
             INLAST = INTIME
             INTIME = HOUR_FROM_DATE(TIME(1), TIME(2), TIME(3), TIME(4), TIME(5)) - TIH
-            
+
          ELSE
             ! INTIME >= SIMEND, loop termination condition met natively
             EXIT time_loop
          END IF
-         
+
       END DO time_loop
 
    END SUBROUTINE HINPUT
@@ -283,17 +244,17 @@ CONTAINS
    !  KYEAR.ge.1949    KMTH.ge.1    KMTH.le.12
 
       ! Assumed external module dependencies providing functions:
-      ! (If DATE_FROM_HOUR, DAYS_IN_YEARS_SINCE_1950, etc., are in modules, 
+      ! (If DATE_FROM_HOUR, DAYS_IN_YEARS_SINCE_1950, etc., are in modules,
       !  USE them here instead of the explicit interfaces below)
 
       IMPLICIT NONE
 
       ! Dummy arguments
       INTEGER, INTENT(IN) :: kyear, kmth, kday, khour, kmin
-      
+
       ! Return variable
       DOUBLE PRECISION :: r
-      
+
       ! Locals
       INTEGER :: d, check(6)
 
@@ -301,21 +262,21 @@ CONTAINS
 
       d = DAYS_IN_YEARS_SINCE_1950(kyear) + DAYS_TO_START_MONTH(kmth, kyear) + kday
       r = DBLE(d * 24 + khour) + DBLE(kmin) / 6.0D1
-      
+
       ! Modernization Fix: Added D0 suffix to prevent single-precision truncation
       r = r + 0.0000028D0  ! add 1/100 of a second to sort out round error with mins
-      
+
       check = DATE_FROM_HOUR(r)
-      
+
       IF (check(1) /= kyear .OR. check(2) /= kmth .OR. check(3) /= kday .OR. &
           check(4) /= khour .OR. check(5) /= kmin) THEN
-          
+
          WRITE (*, '(A)') ' There is a problem with a date that has been entered'
          WRITE (*, '(A,5(1x,I0))') 'The Year, month,day,hour,minute values entered are: ', kyear, kmth, kday, khour, kmin
          WRITE (*, '(''paused, type [enter] to continue'')')
          READ (*, *)
          STOP
-         
+
       END IF
 
    END FUNCTION hour_from_date
@@ -335,10 +296,10 @@ CONTAINS
 
       ! Dummy arguments
       INTEGER, INTENT(IN) :: y
-      
+
       ! Return variable
       INTEGER :: r
-      
+
       ! Locals
       INTEGER :: i
 
@@ -349,7 +310,7 @@ CONTAINS
    !----------------------------------------------------------------------*
 
       r = (y - 1950) * 365
-      
+
       ! Loop steps by 4 (starting from the first leap year after 1950)
       leap_loop: DO i = 1952, y - 1, 4
          IF (IS_LEAP(i)) r = r + 1
@@ -363,15 +324,15 @@ CONTAINS
    PURE FUNCTION is_leap(y) RESULT(r)
    !----------------------------------------------------------------------*
    ! A year will be a leap year if it is divisible by 4 but not by 100.
-   ! If a year is divisible by 4 and by 100, it is not a leap year unless 
+   ! If a year is divisible by 4 and by 100, it is not a leap year unless
    ! it is also divisible by 400.
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
-      
+
       INTEGER, INTENT(IN) :: y
       LOGICAL :: r
-      
+
       IF (MOD(y, 4) == 0) THEN
          IF (MOD(y, 100) == 0) THEN
             r = (MOD(y, 400) == 0)
@@ -381,7 +342,7 @@ CONTAINS
       ELSE
          r = .FALSE.
       END IF
-      
+
    END FUNCTION is_leap
 
 
@@ -389,24 +350,24 @@ CONTAINS
    !FFFFFF FUNCTION days_to_start_month
    FUNCTION days_to_start_month(m, y) RESULT(r)
    !----------------------------------------------------------------------*
-      
+
       ! Assumed global variables from host module: FFFATAL, pppri
-      
+
       IMPLICIT NONE
-      
+
       INTEGER, INTENT(IN) :: m, y
       INTEGER :: r
-      
+
       INTEGER, PARAMETER :: sd(12) = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
-      
+
       IF (m < 1) THEN
          WRITE(MSG, *) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
          CALL ERROR(FFFATAL, 4820, pppri, 0, 0, MSG)
       END IF
-      
+
       r = sd(m)
       IF (IS_LEAP(y) .AND. m > 2) r = r + 1
-      
+
    END FUNCTION days_to_start_month
 
 
@@ -414,29 +375,29 @@ CONTAINS
    !FFFFFF FUNCTION date_from_hour
    FUNCTION date_from_hour(h) RESULT(r)
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
-      
+
       DOUBLE PRECISION, INTENT(IN) :: h
       INTEGER :: r(6) ! year, month, day, hour, min, sec
-      
+
       INTEGER :: hours, days, year, month, mthdays, mins, sec
       DOUBLE PRECISION :: rmins
-      
+
       hours = INT(h)
       rmins = 60.0D0 * (h - DBLE(hours))
       mins  = INT(rmins)
       sec   = INT(60.0D0 * (rmins - DBLE(mins)))
       days  = hours / 24
       year  = 1950 + days / 366  ! note, 366 is correct (to underpredict)
-      
+
       DO WHILE(days > DAYS_IN_YEARS_SINCE_1950(year + 1))
          year = year + 1
       END DO
 
       mthdays = days - DAYS_IN_YEARS_SINCE_1950(year)
       month   = 1 + mthdays / 32 ! note, 32 is correct (to underpredict)
-      
+
       IF (month < 12) THEN       ! avoid month+1=13 in test (dont combine tests)
          IF (mthdays > DAYS_TO_START_MONTH(month + 1, year)) month = month + 1
       END IF
@@ -447,12 +408,12 @@ CONTAINS
       r(4) = hours - 24 * days                          ! hours
       r(5) = mins                                       ! minutes
       r(6) = sec
-      
+
       IF (r(3) == 0) THEN
          PRINT *, ' date trap -DAY'
          STOP
       END IF
-      
+
    END FUNCTION date_from_hour
 
 
@@ -461,15 +422,15 @@ CONTAINS
    !----------------------------------------------------------------------*
    ! A = B * C  (Note: Indexing implies A(i,j) = sum(B(k,j)*C(i,k)))
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
-      
+
       INTEGER, INTENT(IN) :: n1, n2, n3
       DOUBLE PRECISION, INTENT(IN) :: b(n2, n1), c(n3, n2)
       DOUBLE PRECISION :: a(n3, n1)
-      
+
       INTEGER :: i, j, k
-      
+
       ! Modernization Fix: ZERO was undeclared
       DOUBLE PRECISION, PARAMETER :: ZERO = 0.0D0
 
@@ -481,7 +442,7 @@ CONTAINS
             END DO
          END DO
       END DO
-      
+
    END FUNCTION jematmul_mm
 
 
@@ -490,22 +451,22 @@ CONTAINS
    !----------------------------------------------------------------------*
    ! A = B * C
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
-      
+
       INTEGER, INTENT(IN) :: n1, n2
       DOUBLE PRECISION, INTENT(IN) :: b(n2, n1), c(n2)
       DOUBLE PRECISION :: a(n1)
-      
+
       INTEGER :: i, k
-      
+
       DO i = 1, n1
          a(i) = ZERO
          DO k = 1, n2
             a(i) = a(i) + b(k, i) * c(k)
          END DO
       END DO
-      
+
    END FUNCTION jematmul_vm
 
 
@@ -533,7 +494,7 @@ CONTAINS
    ! RAH  970516  4.1  Explicit typing.  *TAB assumed size (were 20).
    !                   Scrap redundant arg ITAB "SIZE OF TABULATED ARRAYS".
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
 
       ! Input arguments
@@ -551,19 +512,19 @@ CONTAINS
       DOUBLE PRECISION :: DIFFA, DIFFB, DIFFC, YREL
 
    !----------------------------------------------------------------------*
-      
+
       NCTERP = NCT(I)
-      
+
       ! Calculate interval jump (time is in hours, TTAB is in days)
       ITERP = INT((TCURR / 24.0D0 - TTAB(I, NCTERP)) / &
                   (TTAB(I, NCTERP + 1) - TTAB(I, NCTERP)))
       NCTERP = NCTERP + ITERP
-      
+
       ! Interpolate
       DIFFA = YTAB(I, NCTERP + 1) - YTAB(I, NCTERP)
       DIFFB = (TTAB(I, NCTERP + 1) - TTAB(I, NCTERP)) * 24.0D0
       DIFFC = TCURR - TTAB(I, NCTERP) * 24.0D0
-      
+
       YREL = YTAB(I, NCTERP) + DIFFC * DIFFA / DIFFB
       YCURR(I) = YREL * YINIT(I)
 
@@ -618,49 +579,49 @@ CONTAINS
    ! Inverts a square matrix 'a' of size 'n' using LU decomposition.
    ! Returns icod = 0 (success) or icod = 1 (singular/failure).
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
 
       ! Input arguments
       INTEGER, INTENT(IN) :: n
-      
+
       ! Output arguments
       INTEGER, INTENT(OUT) :: icod
-      
+
       ! Input/Output arguments
       DOUBLE PRECISION, DIMENSION(n,n), INTENT(INOUT) :: a
-      
+
       ! Locals
       INTEGER :: i, j
       INTEGER :: indx(n)
       DOUBLE PRECISION, DIMENSION(n,n) :: y
       DOUBLE PRECISION :: d
       LOGICAL :: issing
-      
+
    !----------------------------------------------------------------------*
 
       icod = 0
-      
+
       IF (n < 1) THEN
          icod = 1
-         
+
       ELSE IF (n == 1) THEN
          IF (ABS(a(1,1)) <= EPS) THEN
             icod = 1
          ELSE
             a(1,1) = ONE / a(1,1)
          END IF
-         
+
       ELSE
          ! Initialize 'y' as the identity matrix
          y = ZERO
          DO i = 1, n
             y(i,i) = ONE
          END DO
-         
+
          ! Perform LU Decomposition
          CALL LUDCMP(a, n, indx, d, issing)
-         
+
          IF (issing) THEN
             icod = 1
          ELSE
@@ -668,13 +629,13 @@ CONTAINS
             DO j = 1, n
                CALL LUBKSB(a, n, indx, y(:, j))
             END DO
-            
+
             ! The array 'y' now contains the inverse; copy it back to 'a'
             a = y
          END IF
-         
+
       END IF
-      
+
    END SUBROUTINE invertmat
 
 
@@ -688,7 +649,7 @@ CONTAINS
    ! 'b' is the right-hand side vector on input, and contains the
    !     solution vector 'x' on output.
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
 
       ! Dummy Arguments
@@ -745,7 +706,7 @@ CONTAINS
    ! 'd' outputs +1 or -1 depending on whether row swaps were even or odd.
    ! 'issing' is flagged .TRUE. if the matrix is singular.
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
 
       ! Dummy Arguments
@@ -759,7 +720,7 @@ CONTAINS
       INTEGER                         :: i, imax, j
       DOUBLE PRECISION                :: aamax, dum, vv(n), dum_row(n)
       DOUBLE PRECISION, PARAMETER     :: TINY = 1.0D-20
-      
+
    !----------------------------------------------------------------------*
 
       issing = .FALSE.
@@ -1130,13 +1091,13 @@ CONTAINS
    ! Call with idum a negative integer to initialize; thereafter, do not
    ! alter idum between successive deviates in a sequence.
    !----------------------------------------------------------------------*
-      
+
       IMPLICIT NONE
 
       ! Dummy argument MUST be INOUT because the seed updates.
       ! This side-effect strictly prevents the function from being PURE.
       INTEGER, INTENT(INOUT) :: idum
-      
+
       ! Return type (Explicitly Single Precision as per standard NR)
       REAL :: ran2
 
@@ -1172,7 +1133,7 @@ CONTAINS
       IF (idum <= 0) THEN
          idum = MAX(-idum, 1)
          idum2 = idum
-         
+
          ! Load the shuffle table (after 8 warm-up passes)
          DO j = NTAB + 8, 1, -1
             k = idum / IQ1
@@ -1188,7 +1149,7 @@ CONTAINS
       k = idum / IQ1
       idum = IA1 * (idum - k * IQ1) - k * IR1
       IF (idum < 0) idum = idum + IM1
-      
+
       ! Second LCG
       k = idum2 / IQ2
       idum2 = IA2 * (idum2 - k * IQ2) - k * IR2
@@ -1198,7 +1159,7 @@ CONTAINS
       j = 1 + iy / NDIV
       iy = iv(j) - idum2
       iv(j) = idum
-      
+
       IF (iy < 1) iy = iy + IMM1
 
       ! Return the generated value, preventing exact endpoint bounds

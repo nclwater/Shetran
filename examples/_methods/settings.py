@@ -30,7 +30,7 @@ list_long_running = [
     # "Cobres-ExtraOutputDischargePoints",
     # "Cobres-ExtraOutputWaterTable",
     # "Cobres1D",
-    "dano100m",  # very slow, suspected >10h runtime
+    # "dano100m",  # very slow, suspected >10h runtime
     # "dunsop",
     # "dunsop-hot1",
     # "dunsop-hot2",
@@ -63,8 +63,8 @@ list_short_runtime = [
     "Aire_at_Kildwick_Bridge-AllOptions-withdates",
     "Aire_at_Kildwick_Bridge-simple",
     "Cobres",
-    "Cobres-ExtraOutputDischargePoints",
-    "Cobres-ExtraOutputWaterTable",
+    # "Cobres-ExtraOutputDischargePoints",
+    # "Cobres-ExtraOutputWaterTable",
     "Cobres1D",
     # "dano100m",
     "dunsop",

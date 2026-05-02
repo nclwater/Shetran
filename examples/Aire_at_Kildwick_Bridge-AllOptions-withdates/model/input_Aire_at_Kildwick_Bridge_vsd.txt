@@ -3,7 +3,7 @@
 :VS02 logical flags: BFAST,BSOILP,BHELEV                                        
       F      T      F
 :VS03 integer variables NS,NCSZON,NCRBED,INITYP                                 
-      4     35      0      3
+      4     35      0      1
 :VS04 real variables VSIPSD,VSZMIN,VSZMAX,VSWV,VSWL                             
     0.0      0      0    1.0    1.0
 :VS05 physical property data (IS,IVSFLG,IVSNTB / KX,KY,KZ,THSAT,THRES,SS,N,ALF) 
@@ -77,7 +77,7 @@
 :VS10 user defined connectivities                                               
       0
 :VS11 no. of categories for boundary conditions                                 
-      0      0      0      0      0      1      0      0
+      0      0      0      0      0      5      0      0
 :VS17 - grid types of boundary conditions                                       
 107*1                                                                           
 :VS17 - grid types of boundary conditions                                       

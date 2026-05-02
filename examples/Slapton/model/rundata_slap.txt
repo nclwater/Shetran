@@ -66,7 +66,7 @@ output_slap_discharge_sim_hourly.txt
 42: vsi data for initial conditions                                             
 output_slap_vsi.txt                                                               
 43: mass balance data                                                           
-output_slap_mb.txt                                                                
+output_slap_mb.csv                                                                
 44: discharge at the outlet
 output_slap_discharge_sim_everytimestep.txt                                                     
 45: not used

@@ -13,6 +13,9 @@ MODULE CONT_CC
 !*                           JE     18/6/91   3.1     BLOCK WELC ADDED
 !* RAH  970224  4.1  Explicit typing.
 !  JE  NOV 04 ---- Convert to FORTRAN 95
+! SB    Mar26   4.6 added total_no_elements,top_cell_no,total_no_links to subroutine
+!                    make the following allocatable CCCC, CCCCO, SSSS, SSSSO, SSS1, SSS2, FCPBKO, GCPBKO
+!                    Add initialise_cont_cc() where these arrays are allocated
 !*----------------------------------------------------------------------*
 !* Imported constants
 !*                      LLEE,NCONEE,NELEE,NLFEE,NSEE
@@ -64,6 +67,7 @@ MODULE CONT_CC
 !*                             NUMBER OF CONTAMINANTS
 
 
+<<<<<<< HEAD
    DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO
    DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO
 !      DOUBLEPRECISION FCPBKO(NLFEE,2,LLEE,NCONEE)
@@ -71,6 +75,13 @@ MODULE CONT_CC
    DOUBLEPRECISION    FSF(NLFEE,NCONEE),       FSFC(NLFEE,NCONEE)
    DOUBLEPRECISION   FSFT(NLFEE,NCONEE),        RSW(NELEE,NCONEE)
    DOUBLEPRECISION   RSWC(NELEE,NCONEE),       RSWT(NELEE,NCONEE)
+=======
+      DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO
+      DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO
+      DOUBLEPRECISION    FSF(NLFEE,NCONEE),       FSFC(NLFEE,NCONEE)
+      DOUBLEPRECISION   FSFT(NLFEE,NCONEE),        RSW(NELEE,NCONEE)
+      DOUBLEPRECISION   RSWC(NELEE,NCONEE),       RSWT(NELEE,NCONEE)
+>>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 !      COMMON/  RETN   /FCPBKO,GCPBKO,FSF,FSFC,FSFT,RSW,RSWC,RSWT
 !*                             RETARDATION VARIABLES USED IN THE
 !*                             CALCULATIONS FOR IMPLICIT LATERAL
