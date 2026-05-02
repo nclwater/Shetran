@@ -34,7 +34,7 @@ MODULE SYmod
 
    PRIVATE
 
-   PUBLIC :: SYMAIN, issyok_symain
+   PUBLIC :: SYMAIN, issyok_symain, balsed
 
 CONTAINS
 
@@ -3431,5 +3431,11 @@ CONTAINS
       END FUNCTION FQOUT
 
    END SUBROUTINE SYWAT
+
+
+
+   !SSSSSS SUBROUTINE BALSED
+   SUBROUTINE BALSED
+   end subroutine BALSED
 
 END MODULE SYmod

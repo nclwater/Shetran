@@ -44,7 +44,6 @@ MODULE visualisation_metadata
    TYPE(MASK), DIMENSION(:), POINTER :: masks=>NULL()
    TYPE(MASK), POINTER               :: whole_grid=>NULL()
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-<<<<<<< HEAD
    TYPE item
       PRIVATE
       INTEGER :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
@@ -69,32 +68,6 @@ MODULE visualisation_metadata
       TYPE(TTIME), POINTER :: atime=>NULL()
    END TYPE item
    TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
-=======
-TYPE item
-PRIVATE
-    INTEGER :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
-    sediment_no=0, contaminant_no=0
-    ! REPLACED INTEGER(INT_PTR_KIND()) WITH TYPE(C_PTR)
-    TYPE(C_PTR) :: first = C_NULL_PTR, latest = C_NULL_PTR
-    CHARACTER(8)         :: name=''
-    CHARACTER(2)         :: typ=''
-    CHARACTER(csz)       :: title='*S' !for plots and printouts
-    CHARACTER(8)         :: units=''
-    CHARACTER(12)        :: basis='grid_as_grid'  !'grid_as_grid', 'grid_as_list' or 'list'
-    CHARACTER(7)         :: scope='all'          !'all', 'squares', 'banks', 'rivers'
-    CHARACTER(11)        :: extra_dimensions = '-'
-    LOGICAL              :: isgrid = F,                &
-                            istimeseries = F,          &
-                            varies_with_sediment=F,    &
-                            varies_with_contaminant=F, &
-                            implemented=F
-    INTEGER              :: layers(2)=(/0,0/)  !bottom and top layers
-    TYPE(MASK), POINTER  :: amask=>NULL()
-    TYPE(LLIST), POINTER :: alist=>NULL()
-    TYPE(TTIME), POINTER :: atime=>NULL()
-END TYPE item
-TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
 !TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
    TYPE hdf5_item
@@ -148,7 +121,6 @@ TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
    LOGICAL                  :: diagnostics=F
 
 
-<<<<<<< HEAD
    PRIVATE
    PUBLIC :: REGISTER_STATIC_VISUALISATION_METADATA,         &
       REGISTER_DYNAMIC_VISUALISATION_METADATA,        &
@@ -158,17 +130,6 @@ TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
       HDF5_ITEM, HDF5_ITEMS, ndim,                    &
       GET_METADATA_HDF5_I, GET_METADATA_HDF5_L, GET_METADATA_HDF5_C, &
       INCREMENT_HDF5_TSTEP_NO, csz
-=======
-PRIVATE
-PUBLIC :: REGISTER_STATIC_VISUALISATION_METADATA,         &
-          REGISTER_DYNAMIC_VISUALISATION_METADATA,        &
-          GET_METADATA_C, GET_METADATA_L, GET_METADATA_I, &
-          GET_METADATA_PTR, SET_METADATA_PTR,             &
-          TIME_TO_RECORD,                                 &
-          HDF5_ITEM, HDF5_ITEMS, ndim,                    &
-          GET_METADATA_HDF5_I, GET_METADATA_HDF5_L, GET_METADATA_HDF5_C, &
-          INCREMENT_HDF5_TSTEP_NO, csz
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
 CONTAINS
 
@@ -181,7 +142,6 @@ CONTAINS
 
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-<<<<<<< HEAD
    LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
       INTEGER, INTENT(IN)                   :: n
       INTEGER                               :: i
@@ -203,29 +163,8 @@ CONTAINS
          r = F
       ENDIF
    END FUNCTION time_to_record
-=======
-LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
-INTEGER, INTENT(IN)                   :: n
-INTEGER                               :: i
-REAL, INTENT(IN)                      :: time  !hours
-LOGICAL, SAVE :: first = T
-IF(first) THEN
-    first = F
-    ALLOCATE(previous_time(no_items), next_time(no_items))
-    previous_time = zero
-    next_time     = GET_NEXT_TIME( (/(i,i=1,no_items)/) )
-ENDIF
-    IF(time==0.0) THEN
-    r = T
-ELSEIF(time>=next_time(n)-small) THEN
-    r = T
-    previous_time(n) = next_time(n)
-    next_time(n)    = GET_NEXT_TIME(n)
-ELSE
-    r = F
-ENDIF
-END FUNCTION time_to_record
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL REAL FUNCTION get_next_time(n) RESULT(r)
@@ -241,7 +180,6 @@ END FUNCTION time_to_record
 
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-<<<<<<< HEAD
    PURE FUNCTION get_metadata_c(i, text) RESULT(r)
       INTEGER, INTENT(IN)      :: i
       CHARACTER(*), INTENT(IN) :: text
@@ -257,23 +195,8 @@ END FUNCTION time_to_record
        CASE DEFAULT ; r='failed ito find '//TRIM(text)//' in get_metadata_c'
       END SELECT
    END FUNCTION get_metadata_c
-=======
-PURE FUNCTION get_metadata_c(i, text) RESULT(r)
-INTEGER, INTENT(IN)      :: i
-CHARACTER(*), INTENT(IN) :: text
-CHARACTER(csz)           :: r
-SELECT CASE(text)
-CASE('basis') ; r=items(i)%basis
-CASE('name')  ; r=items(i)%name
-CASE('title') ; r=items(i)%title
-CASE('typ')   ; r=items(i)%typ
-CASE('units') ; r=items(i)%units
-CASE('scope') ; r=items(i)%scope
-CASE('extra_dimensions') ; r = items(i)%extra_dimensions
-CASE DEFAULT ; r='failed ito find '//TRIM(text)//' in get_metadata_c'
-END SELECT
-END FUNCTION get_metadata_c
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL FUNCTION get_metadata_HDF5_c(i, text, e) RESULT(r)
@@ -295,22 +218,16 @@ END FUNCTION get_metadata_c
       END SELECT
    END FUNCTION get_metadata_HDF5_c
 
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-<<<<<<< HEAD
    ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
       INTEGER, INTENT(IN)           :: i
       INTEGER, INTENT(IN), OPTIONAL :: su
       CHARACTER(*), INTENT(IN)      :: text
       SELECT CASE(text)
        CASE('ext')      ; r=NO_EXTRA_DIMENSIONS(items(i)%extra_dimensions)
-=======
-ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: su
-CHARACTER(*), INTENT(IN)      :: text
-SELECT CASE(text)
-CASE('ext')      ; r=NO_EXTRA_DIMENSIONS(items(i)%extra_dimensions)
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
+
 !!CASE('first')    ; r=items(i)%first
        CASE('ilow')     ; IF(items(i)%isgrid) THEN ; r=items(i)%amask%ilow  ; ELSE ; r=1                 ; ENDIF
        CASE('ihigh')    ; IF(items(i)%isgrid) THEN ; r=items(i)%amask%ihigh ; ELSE ; r=items(i)%alist%sz ; ENDIF
@@ -328,8 +245,9 @@ CASE('ext')      ; r=NO_EXTRA_DIMENSIONS(items(i)%extra_dimensions)
       END SELECT
    END FUNCTION get_metadata_i
 
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-<<<<<<< HEAD
    ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
       INTEGER, INTENT(IN) :: i
       INTEGER, INTENT(IN), OPTIONAL :: su
@@ -341,19 +259,8 @@ CASE('ext')      ; r=NO_EXTRA_DIMENSIONS(items(i)%extra_dimensions)
        CASE DEFAULT ; r=C_NULL_PTR
       END SELECT
    END FUNCTION get_metadata_ptr
-=======
-ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
-    INTEGER, INTENT(IN) :: i
-    INTEGER, INTENT(IN), OPTIONAL :: su
-    CHARACTER(*), INTENT(IN) :: text
-    TYPE(C_PTR) :: r
-    SELECT CASE(text)
-        CASE('first') ; r=items(i)%first
-        CASE('latest') ; r=items(i)%latest
-        CASE DEFAULT ; r=C_NULL_PTR
-    END SELECT
-END FUNCTION get_metadata_ptr
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL INTEGER FUNCTION get_metadata_hdf5_i(i, text, e) RESULT(r)
@@ -384,8 +291,9 @@ END FUNCTION get_metadata_ptr
       END SELECT
    END FUNCTION get_metadata_hdf5_i
 
+
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-<<<<<<< HEAD
    SUBROUTINE set_metadata_ptr(i, text, a)
       INTEGER, INTENT(IN) :: i
       TYPE(C_PTR), INTENT(IN) :: a
@@ -395,6 +303,8 @@ END FUNCTION get_metadata_ptr
        CASE('latest') ; items(i)%latest = a
       END SELECT
    END SUBROUTINE set_metadata_ptr
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
@@ -411,33 +321,7 @@ END FUNCTION get_metadata_ptr
        CASE DEFAULT         ; r = F
       END SELECT
    END FUNCTION get_metadata_L
-=======
-SUBROUTINE set_metadata_ptr(i, text, a)
-    INTEGER, INTENT(IN) :: i
-    TYPE(C_PTR), INTENT(IN) :: a
-    CHARACTER(*), INTENT(IN) :: text
-    SELECT CASE(text)
-        CASE('first') ; items(i)%first = a
-        CASE('latest') ; items(i)%latest = a
-    END SELECT
-END SUBROUTINE set_metadata_ptr
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: a,b
-CHARACTER(*), INTENT(IN)      :: text
-SELECT CASE(text)
-CASE('on')           ; r=items(i)%amask%ma(a,b)
-CASE('isgrid')       ; r=items(i)%isgrid
-CASE('istimeseries') ; r=items(i)%istimeseries
-CASE('isreal')          ; r = ANY(items(i)%typ(1:1)==(/'B','G','L','M'/))
-CASE('varies_with_sediment')    ; r=items(i)%varies_with_sediment
-CASE('varies_with_contaminant') ; r=items(i)%varies_with_contaminant
-CASE DEFAULT         ; r = F
-END SELECT
-END FUNCTION get_metadata_L
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -492,8 +376,8 @@ END FUNCTION get_metadata_L
    END SUBROUTINE read_dynamic_visualisation_metadata
 
 
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-<<<<<<< HEAD
    SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
       INTEGER, INTENT(IN)      :: szi, szj
       CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
@@ -517,31 +401,6 @@ END FUNCTION get_metadata_L
       ii%amask  => POINT_TO_WHOLE_GRID(szi,szj)
       ii%atime  => POINT_TO_STATIC()
    END SUBROUTINE register_static_visualisation_metadata
-=======
-SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
-INTEGER, INTENT(IN)      :: szi, szj
-CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
-CHARACTER, INTENT(IN)    :: typ
-LOGICAL, INTENT(IN)      :: varies_with_elevation
-TYPE(ITEM), POINTER      :: ii
-CALL WRITE_STA_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation)
-CALL INCREMENT_item(items,1)
-no_static_items = no_static_items + 1
-ii                  => items(no_items)
-ii%name             =  name
-ii%istimeseries     = F
-ii%typ              =  typ//'S'  !s for static
-ii%title            =  title
-ii%units            =  units
-ii%basis            =  'grid_as_grid'
-ii%scope            =  'all'
-ii%extra_dimensions = extra_dimensions
-ii%isgrid           =  T
-IF(varies_with_elevation) THEN ; ii%layers =(/1,TOP_CELL/) ; ELSE ; ii%layers=(/0,0/) ; ENDIF
-ii%amask  => POINT_TO_WHOLE_GRID(szi,szj)
-ii%atime  => POINT_TO_STATIC()
-END SUBROUTINE register_static_visualisation_metadata
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
@@ -561,6 +420,9 @@ END SUBROUTINE register_static_visualisation_metadata
       ENDIF
       WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_ELEV(varies_with_elev), units, ed, title
    END SUBROUTINE write_sta_variable
+
+
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE write_dyn_variable(name, units, title, extra_dimensions, varies_with_elev, varies_with_sed, varies_with_con)
       CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
@@ -577,6 +439,9 @@ END SUBROUTINE register_static_visualisation_metadata
       ENDIF
       WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_E_SED_CON(varies_with_elev,varies_with_sed,varies_with_con), units, extra_dimensions, title
    END SUBROUTINE write_dyn_variable
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE CHARACTER(7) FUNCTION v_e_sed_con(v,s,c) RESULT(r)
       INTEGER             :: p
@@ -587,6 +452,9 @@ END SUBROUTINE register_static_visualisation_metadata
       IF(s) THEN ; r(p:p)='S' ; p=p+2 ; ENDIF
       IF(c) r(p:p)='C'
    END FUNCTION v_e_sed_con
+
+
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE CHARACTER(5) FUNCTION v_elev(v) RESULT(r)
       INTEGER             :: p
@@ -597,8 +465,8 @@ END SUBROUTINE register_static_visualisation_metadata
    END FUNCTION v_elev
 
 
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-<<<<<<< HEAD
    SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
       extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
       INTEGER                                  :: i
@@ -659,73 +527,12 @@ END SUBROUTINE register_static_visualisation_metadata
                '  SEDIMENT_NO: ',      ii%sediment_no,               &
                '  CONTAMINANT_NO: ',   ii%contaminant_no
          ENDDO
-=======
-SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
-           extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
-INTEGER                                  :: i
-INTEGER, INTENT(IN)                      :: jj
-CHARACTER(*), INTENT(IN)                 :: name, units, title, extra_dimensions
-CHARACTER, INTENT(IN)                    :: typ
-LOGICAL, INTENT(IN)                      :: final, & !is final call to this routine
-                                            varies_with_elevation, varies_with_sed, varies_with_con, implemented
-LOGICAL, DIMENSION(:), ALLOCATABLE, SAVE :: found
-TYPE(ITEM), POINTER                      :: ii=>NULL()
-LOGICAL, SAVE                            :: first=T
-IF(jj==1) THEN
-    IF(implemented) CALL WRITE_DYN_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con)
-    RETURN
-ENDIF
-IF(first) THEN
-    first= F
-    CALL READ_DYNAMIC_VISUALISATION_METADATA()
-    ALLOCATE(found(NO_static_items+1:no_items))
-    found = F
-ENDIF
-DO i=no_static_items+1, no_items
-    IF(items(i)%name /= name) CYCLE
-        found(i)                   = T
-        ii                         =>items(i)
-        ii%istimeseries            = T
-        ii%varies_with_sediment    = varies_with_sed
-        ii%varies_with_contaminant = varies_with_con
-        ii%implemented             = implemented
-        ii%units                   = units
-        ii%title                   = title
-        ii%extra_dimensions        = extra_dimensions
-        ii%typ = ALTER_DYNAMIC_TYPE(typ, ii)//'S'  !match up defined types and user's request
-ENDDO
-IF(final) THEN
-    DO i=no_static_items+1, no_items
-        IF(.NOT.found(i)) THEN
-            WRITE(mess,*) TRIM(items(i)%name)//' not recognised as dynamic variable'
-            CALL ERROR()
-        ELSEIF(.NOT.items(i)%implemented) THEN
-            WRITE(mess,*) TRIM(items(i)%name)//' is listed in documentation'
-            WRITE(mess2,*)'but has not yet been implemented '
-            WRITE(mess3,*)'see the variable variables list in check_visualisation_plan.txt'
-            CALL ERROR()
-        ENDIF
-        ii  =>items(i)
-        CALL CHECK_ITEM(ii)
-        IF(diagnostics) WRITE(vp_out,'(50X,A)') 'read item'
-        WRITE(vp_out,'(A,I3,9A,I3,A,I3,A,2I3, 2(A,I3))')    &
-                     'ITEM:',                ii%users_number,              &
-                     '  NAME:',              ii%name,                      &
-                     '  BASIS: ',            ii%basis,                     &
-                     '  SCOPE:',             ii%scope,                     &
-                     '  EXTRA_DIMENSIONS: ', ii%extra_dimensions,          &
-                     '  GRID/LIST NUMBER: ', ii%users_no_for_link_or_mask, &
-                     '  TIMES NUMBER:',      ii%users_no_for_times,        &
-                     '  LAYERS: ',           ii%layers,                    &
-                     '  SEDIMENT_NO: ',      ii%sediment_no,               &
-                     '  CONTAMINANT_NO: ',   ii%contaminant_no
-    ENDDO
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
          CALL CREATE_HDF5_METADATA()
       ENDIF
-
    END SUBROUTINE register_dynamic_visualisation_metadata
+
+
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE create_hdf5_metadata()
@@ -801,6 +608,7 @@ IF(final) THEN
    END SUBROUTINE GET_SZ_CR
 
 
+
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION calc_rank(h) RESULT(r)
       INTEGER                  :: mbr
@@ -813,6 +621,7 @@ IF(final) THEN
       IF(h%no_extra_dimensions>1) r=r+1
       IF(h%istimeseries)          r=r+1
    END FUNCTION calc_rank
+
 
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -1302,7 +1111,6 @@ IF(final) THEN
          WRITE(vp_out, '(50X, A)') 'created list'
       END IF
 
-<<<<<<< HEAD
       WRITE(vp_out, '(*(I5))') r%a
 
    CONTAINS
@@ -1325,44 +1133,6 @@ IF(final) THEN
              CASE('rivers')
                IF (IS_LINK(su)) iss = .TRUE.
             END SELECT
-=======
-CALL mask_write('mask as read', m%ma, 'T', 'F')
-
-DO j=m%jlow,m%jhigh
-    DO i=m%ilow,m%ihigh
-        m%ma(i,j) = m%ma(i,j) .AND. EXISTS(SU_NUMBER(i,j))  !effective mask
-    ENDDO
-ENDDO
-CALL mask_write('effective mask', m%ma, 'T', '.')
-END SUBROUTINE read_mask
-
-!cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
-SUBROUTINE mask_write(txt, ma, tr, fa)
-    CHARACTER(*), INTENT(IN) :: txt
-    LOGICAL, INTENT(IN)      :: ma(:,:)
-    CHARACTER(1), INTENT(IN) :: tr, fa
-
-    CHARACTER(1), ALLOCATABLE :: cc(:,:)
-    CHARACTER(20)             :: fmt_str
-
-    IF (SIZE(ma, 1) == 0 .OR. SIZE(ma, 2) == 0) RETURN
-
-    ALLOCATE(cc(SIZE(ma, 1), SIZE(ma, 2)))
-    WHERE(ma)
-        cc = tr
-    ELSEWHERE
-        cc = fa
-    END WHERE
-
-    WRITE(vp_out,'(50X,A)') txt
-    ! Dynamically build format string to replace Intel-specific <SIZE> extension
-    WRITE(fmt_str, '("(",I0,"A)")') SIZE(cc, 1)
-    WRITE(vp_out, fmt_str) cc
-
-    DEALLOCATE(cc)
-END SUBROUTINE mask_write
-
->>>>>>> 08f5db2c06d27ba1583117178dc681485ed0f215
 
             IF (iss) THEN
                r%a(c) = su
@@ -1372,6 +1142,8 @@ END SUBROUTINE mask_write
       END SUBROUTINE filter_list_items
 
    END FUNCTION make_list_from_list
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE INTEGER FUNCTION get_num(txt) RESULT(r)
@@ -1383,6 +1155,7 @@ END SUBROUTINE mask_write
        CASE('rivers')  ; r=4
       END SELECT
    END FUNCTION get_num
+
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
@@ -1412,6 +1185,8 @@ END SUBROUTINE mask_write
       ENDDO
 
    END SUBROUTINE sort
+
+
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE read_mask(m, off)
@@ -1447,6 +1222,8 @@ END SUBROUTINE mask_write
       CALL mask_write('effective mask', m%ma, 'T', '.')
    END SUBROUTINE read_mask
 
+
+
 !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
    SUBROUTINE mask_write(txt, ma, tr, fa)
       CHARACTER(*), INTENT(IN) :: txt
@@ -1481,12 +1258,16 @@ END SUBROUTINE mask_write
       no_items   = no_items + 1
    END SUBROUTINE INCREMENT_item
 
+
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE INCREMENT_LIST(s,n)
       TYPE(LLIST), DIMENSION(:), POINTER :: s,old=>NULL()
       INCLUDE 'include_increment.f90'
       no_lists   = no_lists + 1
    END SUBROUTINE INCREMENT_LIST
+
+
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE INCREMENT_MASK(s,n)
@@ -1495,12 +1276,16 @@ END SUBROUTINE mask_write
       no_masks  = no_masks + 1
    END SUBROUTINE INCREMENT_MASK
 
+
+
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    SUBROUTINE INCREMENT_TIME(s,n)
       TYPE(TTIME), DIMENSION(:), POINTER :: s,old=>NULL()
       INCLUDE 'include_increment.f90'
       no_times  = no_times + 1
    END SUBROUTINE INCREMENT_TIME
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    ELEMENTAL INTEGER FUNCTION no_extra_dimensions(e_d) RESULT(r)
@@ -1513,6 +1298,8 @@ END SUBROUTINE mask_write
        CASE DEFAULT        ; r = 1
       END SELECT
    END FUNCTION no_extra_dimensions
+
+
 
 !FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
    PURE FUNCTION names_of_extra_dimensions(n, e_d) RESULT(r)

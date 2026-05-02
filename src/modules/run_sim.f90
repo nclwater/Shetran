@@ -33,7 +33,7 @@ MODULE run_sim
    USE OCmod2,   ONLY : GETHRF, &
       HRFZZ !HRFZZ NEEDED ONLY FOR AD
    USE FRmod,    ONLY : FRSORT, FROUTPUT, FRMB, FRRESP, DATE_FROM_HOUR
-   USE SYmod,    ONLY : SYMAIN  !"JE"
+   USE SYmod,    ONLY : SYMAIN, BALSED  !"JE"
    USE VISUALISATION_INTERFACE_RIGHT, ONLY : RECORD_VISUALISATION_DATA         !VISVISVIS
    USE VISUALISATION_INTERFACE_LEFT,  ONLY : GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
 !NEEDED ONLY FOR AD
@@ -87,6 +87,7 @@ CONTAINS
       INTEGER, SAVE :: icounter3 = 0
       INTEGER :: c(6)
       CHARACTER(LEN=128) :: dum
+      REAL :: start_time, current_time, elapsed_time
 
       !-----------------------------------------------------------------
       !                     INITIALISATION
