@@ -500,7 +500,8 @@ CONTAINS
 ! Locals, etc
       INTEGER :: FATAL, ERR
       PARAMETER (FATAL = 1, ERR = 2)
-      INTEGER :: IUNDEF, NERR
+      INTEGER, PARAMETER :: IUNDEF = 0
+      INTEGER :: NERR
       DATA NERR / 0 /
 !----------------------------------------------------------------------*
 ! 1. Vegetation Properties

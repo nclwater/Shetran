@@ -1158,8 +1158,9 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
 
       INTEGER :: BANK, COUNT, FACE, FADJ, FEL
-      INTEGER :: IADJ, IBR, IBRADJ, ICOL1, IEL, IELP, ILYR, IUNDEF, IX, IY
+      INTEGER :: IADJ, IBR, IBRADJ, ICOL1, IEL, IELP, ILYR, IX, IY
       INTEGER :: LINK, NCOL, NELP, NERR, P, PADJ
+      INTEGER, PARAMETER :: IUNDEF = 0
       INTEGER :: IDUM1(2)
       LOGICAL :: BKXYOK, REFOK
 
@@ -1168,7 +1169,6 @@ CONTAINS
    ! 0. Preliminaries
    ! ----------------
       NERR = 0
-      ! IUNDEF = 0
       ICOL1 = NLF + 1
       NELP = NEL + 1
 
@@ -1435,7 +1435,8 @@ CONTAINS
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
       DOUBLE PRECISION, PARAMETER :: TOL = 1.0D-10
 
-      INTEGER :: BB, COUNT, FACE, ICAT, IUNDEF, IEL, ITYPE, NERR
+      INTEGER :: BB, COUNT, FACE, ICAT, IEL, ITYPE, NERR
+      INTEGER, PARAMETER :: IUNDEF = 0
       INTEGER :: SED, SOIL, jedumdum
       INTEGER :: IDUM1 (1)
       DOUBLE PRECISION :: RDUM (NXEE*NYEE)
@@ -1449,7 +1450,6 @@ CONTAINS
       ! ----------------
       !     * Local counter
       NERR = 0
-      ! IUNDEF = 0 ! Or however IUNDEF is defined in your environment
 
       ! 1. Static Variables
       ! -------------------
@@ -1734,7 +1734,8 @@ CONTAINS
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
       DOUBLE PRECISION, PARAMETER :: TOL = 1.0D-7
    !
-      INTEGER :: FACE, FADJ, I, IADJ, IBR, IEL, IUNDEF, J, NELP, NERR, P
+      INTEGER :: FACE, FADJ, I, IADJ, IBR, IEL, J, NELP, NERR, P
+      INTEGER, PARAMETER :: IUNDEF = 0
       DOUBLE PRECISION :: QADJ, QMIN
       DOUBLE PRECISION :: DUM1 (1)
 

@@ -577,7 +577,8 @@ CONTAINS
    !      980206       NELEE.ge.NOCTAB*NOCTAB.
    ! JE Jan 2009       Above restriction removed
    !----------------------------------------------------------------------*
-      INTEGER       :: ERRNUM, I, IUNDEF, IUNIT, NERR, OUNIT
+      INTEGER       :: ERRNUM, I, IUNIT, NERR, OUNIT
+      INTEGER, PARAMETER :: IUNDEF = 0
       INTEGER       :: IDUMS (1), IDUMO (1)
       LOGICAL       :: BOPEN, LDUM1 (1)
       CHARACTER(47) :: MSG

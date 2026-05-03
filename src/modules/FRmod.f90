@@ -119,21 +119,21 @@ MODULE FRmod
       qoctot, uzold, bsoft, tsh, tch, bstore, btime, next_hour, icounter2, DATE_FROM_HOUR, &
       sedtot,sedfinetot,contamtot
 
-   CONTAINS
+CONTAINS
 
 
    !SSSSSS SUBROUTINE FRDIM
    SUBROUTINE FRDIM(BINFRP)
-   !----------------------------------------------------------------------*
-   !
-   ! SET UP ELEMENT DIMENSIONS AND AREAS, AND TOTAL CATCHMENT AREA
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRDIM/4.1
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-   ! RAH  970223  4.1  Explicit typing.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      ! SET UP ELEMENT DIMENSIONS AND AREAS, AND TOTAL CATCHMENT AREA
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FRDIM/4.1
+      ! Modifications:
+      ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+      ! RAH  970223  4.1  Explicit typing.
+      !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s) (e.g., SPEC.AL):
       ! NXEE, NYEE, NX, NXM1, NY, NYM1, total_no_elements, PPPRI
@@ -149,7 +149,7 @@ MODULE FRmod
       INTEGER :: IX, IY, J, JEL, JL, JTYPE, K
       DOUBLE PRECISION :: CATEST, DIFF, DX(NXEE), DY(NYEE)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! SET VALUE FOR BANK ELEMENT WIDTH
       ! (CURRENTLY HARD-CODED AS A FIXED WIDTH)
@@ -235,7 +235,7 @@ MODULE FRmod
 
                IF (INEXT1 > 0 .AND. INEXT2 > 0) THEN
                   IF ((ICMREF(INEXT1, 1) == 1 .OR. ICMREF(INEXT1, 1) == 2) .AND. &
-                      (ICMREF(INEXT2, 1) == 1 .OR. ICMREF(INEXT2, 1) == 2)) THEN
+                     (ICMREF(INEXT2, 1) == 1 .OR. ICMREF(INEXT2, 1) == 2)) THEN
 
                      IL1 = ICMREF(INEXT1, 4)
                      IL2 = ICMREF(INEXT2, 4)
@@ -402,7 +402,7 @@ MODULE FRmod
 
       END DO node_space_loop
 
-   ! ^^^^^^^^^^^^ FORMAT STATEMENTS
+      ! ^^^^^^^^^^^^ FORMAT STATEMENTS
 1500  FORMAT(/ '   INDEX   DXQQ (M)   DYQQ (M)     AREA (M^^2)' /)
 1600  FORMAT(' ',4X,I6,4X,F7.2,4X,F7.2,4X,F12.2)
 1700  FORMAT(/ ' TOTAL CATCHMENT AREA = ',F12.3,' SQ. METRES. ' / &
@@ -420,25 +420,25 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE FRIND (BINFRP)
    SUBROUTINE FRIND (BINFRP)
-   !----------------------------------------------------------------------*
-   !
-   ! SUBROUTINE TO SET UP INDEX ARRAY FOR CONTAMINANT MIGRATION
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRIND/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-   ! RAH  970223  4.1  Explicit typing.
-   !      970523       Amend header.
-   ! RAH  980713  4.2  Don't INCLUDE SPEC.OC.
-   !      980717       (Amend Version.)
-   !----------------------------------------------------------------------*
-   ! Commons and constants
+      !----------------------------------------------------------------------*
+      !
+      ! SUBROUTINE TO SET UP INDEX ARRAY FOR CONTAMINANT MIGRATION
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FRIND/4.2
+      ! Modifications:
+      ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
+      ! RAH  970223  4.1  Explicit typing.
+      !      970523       Amend header.
+      ! RAH  980713  4.2  Don't INCLUDE SPEC.OC.
+      !      980717       (Amend Version.)
+      !----------------------------------------------------------------------*
+      ! Commons and constants
 
-   ! Assumed external module dependencies providing global variables:
-   ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF,
-   ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, PPPRI,
-   ! total_no_links, total_no_elements
+      ! Assumed external module dependencies providing global variables:
+      ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF,
+      ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, PPPRI,
+      ! total_no_links, total_no_elements
 
       IMPLICIT NONE
 
@@ -600,7 +600,7 @@ MODULE FRmod
                IF (INGRID (I, J - 1) >= 0) ICMREF (INDEX, 8) = ICMXY (I, J - 1)
             END IF
 
-         ! --- CHANNEL LINK
+            ! --- CHANNEL LINK
          ELSE IF (ITYPE == 3) THEN
 
             ! FACE 1 (EAST)
@@ -795,7 +795,7 @@ MODULE FRmod
                END IF
             END IF
 
-         ! --- BANK ELEMENT
+            ! --- BANK ELEMENT
          ELSE
 
             ! FACE 1 (EAST)
@@ -1033,17 +1033,17 @@ MODULE FRmod
 1100  FORMAT(' INCONSISTENCY FOUND AT INDEX:', I4, ' FACE:', I2)
 1200  FORMAT(/ I4, ' INCONSISTENCIES FOUND IN INDEX ARRAY' /)
 1300  FORMAT(' ', / 'INDEX ARRAY: NO. OF ELEMENTS = ', I6, // &
-             ' ', '     INDEX      TYPE         X         Y      LINK   ', &
-             '  FACE1     FACE2     FACE3     FACE4' / &
-             ' ', '     -----      ----         -         -      ----   ', &
-             '  -----     -----     -----     -----' )
+         ' ', '     INDEX      TYPE         X         Y      LINK   ', &
+         '  FACE1     FACE2     FACE3     FACE4' / &
+         ' ', '     -----      ----         -         -      ----   ', &
+         '  -----     -----     -----     -----' )
 1400  FORMAT(' ', 5(4X, I6), 1X, A2, 1X, I6, 3(4X, I6))
 1500  FORMAT(' '/'AUXILIARY INDEX ARRAY FOR CHANNEL NODES: ', / &
-             'NO. OF NODES WITH 3 BRANCHES = ', I4, / &
-             'NO. OF NODES WITH 4 BRANCHES = ', I4, / &
-             'TOTAL NO. OF INDICES         = ', I4 // &
-             ' ', '   INDEX  LINK 1  LINK 2  LINK 3' / &
-             ' ', '   -----  ------  ------  ------' )
+         'NO. OF NODES WITH 3 BRANCHES = ', I4, / &
+         'NO. OF NODES WITH 4 BRANCHES = ', I4, / &
+         'TOTAL NO. OF INDICES         = ', I4 // &
+         ' ', '   INDEX  LINK 1  LINK 2  LINK 3' / &
+         ' ', '   -----  ------  ------  ------' )
 1600  FORMAT(' ', 5(4X, I4))
 
    END SUBROUTINE FRIND
@@ -1052,41 +1052,41 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE FRINIT
    SUBROUTINE FRINIT()
-   !----------------------------------------------------------------------*
-   !
-   ! INITIALISATION PHASE
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRINIT/4.2
-   ! Modifications:
-   !  GP         3.4  Set CMT,CMP,CMB.  Special treatment for DBOT(LL).
-   !                  Replace L1 with L1+1 in assignment of NLYRBT,ZLYRBT.
-   !                  Print table of soil horizon depths.
-   !                  Hot-start: initialize HOTIME; read HOT file;
-   !                  set TIMEUZ,BHOTTI; call FRRESP.
-   ! RAH  941005 3.4.1 Bring IMPLICIT from AL.P.  Pass UZNOW to FRRESP.
-   !                  Call ERROR if NLYRBT can't be set.
-   !  GP  960724  4.0  New module VSS replaces UZ,SZ,EX ...
-   !                  Reassign unit nos; replace UZD,SZD,AQD,SZB,HBD with
-   !                  VSD,VSI,LFB,LHB,LGB,BFB,BHB; scrap CPR (keep CMP).
-   !                  Call VSIN, instead of INUZ,INSZ,INUZ2 (or DINUZ,
-   !                  DINSZ), and after INBK, not before.
-   !                  Move adjustment of ZLYRBT & setting of
-   !                  NLYRBT,NTSOIL,NHBED,FHBED to VSREAD,VSCONC.
-   !                  Scrap ZBED (see INCM), RSZ,QUZR,QSZR (see SHETRN)
-   !                  and EPSZA,QSZOC,QSZO,WSI.  Add FRRESP arg .FALSE..
-   !                  Close FR,WAT input (except boundary data) files.
-   !                  Remove PSI3,PSI33,HSZ,EPS,QSZUZ,WATC3 from HOT read.
-   ! RAH  970223  4.1  Explicit typing.  Scrap BUZCAL,BSZCAL,BOCCAL,BEXCAL,
-   !                  DTSTOC,DTSTSZ,DTSTUZ,EXNEXT,EXNOW,EXVAL,OCUNT,OCVAL,
-   !                  PNETOC,POC,SZNOW,SZUNT,SZVAL,TSTOOC,TSTOSZ,TSTOUZ,
-   !                  UZUNT,WSUZI,WSSZI,WSOCI,WOCLI (AL.D), FINC,NUMBER.
-   !      970524      AIOSTO size 20 (was 50); & use DATA.
-   !      970525      Pass BINFRP to INRES.
-   !      970530      (Amend DATA statement.)
-   ! RAH  980317  4.2  (Amend specification comments below.)
-   ! SB   010307  4g-pc changed data statement for AIOSTO
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      ! INITIALISATION PHASE
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FRINIT/4.2
+      ! Modifications:
+      !  GP         3.4  Set CMT,CMP,CMB.  Special treatment for DBOT(LL).
+      !                  Replace L1 with L1+1 in assignment of NLYRBT,ZLYRBT.
+      !                  Print table of soil horizon depths.
+      !                  Hot-start: initialize HOTIME; read HOT file;
+      !                  set TIMEUZ,BHOTTI; call FRRESP.
+      ! RAH  941005 3.4.1 Bring IMPLICIT from AL.P.  Pass UZNOW to FRRESP.
+      !                  Call ERROR if NLYRBT can't be set.
+      !  GP  960724  4.0  New module VSS replaces UZ,SZ,EX ...
+      !                  Reassign unit nos; replace UZD,SZD,AQD,SZB,HBD with
+      !                  VSD,VSI,LFB,LHB,LGB,BFB,BHB; scrap CPR (keep CMP).
+      !                  Call VSIN, instead of INUZ,INSZ,INUZ2 (or DINUZ,
+      !                  DINSZ), and after INBK, not before.
+      !                  Move adjustment of ZLYRBT & setting of
+      !                  NLYRBT,NTSOIL,NHBED,FHBED to VSREAD,VSCONC.
+      !                  Scrap ZBED (see INCM), RSZ,QUZR,QSZR (see SHETRN)
+      !                  and EPSZA,QSZOC,QSZO,WSI.  Add FRRESP arg .FALSE..
+      !                  Close FR,WAT input (except boundary data) files.
+      !                  Remove PSI3,PSI33,HSZ,EPS,QSZUZ,WATC3 from HOT read.
+      ! RAH  970223  4.1  Explicit typing.  Scrap BUZCAL,BSZCAL,BOCCAL,BEXCAL,
+      !                  DTSTOC,DTSTSZ,DTSTUZ,EXNEXT,EXNOW,EXVAL,OCUNT,OCVAL,
+      !                  PNETOC,POC,SZNOW,SZUNT,SZVAL,TSTOOC,TSTOSZ,TSTOUZ,
+      !                  UZUNT,WSUZI,WSSZI,WSOCI,WOCLI (AL.D), FINC,NUMBER.
+      !      970524      AIOSTO size 20 (was 50); & use DATA.
+      !      970525      Pass BINFRP to INRES.
+      !      970530      (Amend DATA statement.)
+      ! RAH  980317  4.2  (Amend specification comments below.)
+      ! SB   010307  4g-pc changed data statement for AIOSTO
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NELEE, BEXET, BEXSM, MSM, BEXOC, BEXBK, BINFRP, total_no_links, NMC,
@@ -1173,19 +1173,19 @@ MODULE FRmod
 
          hotstart_read: DO
             READ (HOT, *, IOSTAT=ios) atemp, HOTIME, UZNEXT, top_cell_no, atemp, &
-                  (CSTORE (IEL), IEL = NGDBGN, total_no_elements), atemp, &
-                  (rdd(IEL), IEL = 1, total_no_elements), atemp, &
-                  ((rddq (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
-                  ((QOC (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
-                  ((DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
-                  ((DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
-                  ((DQIST2 (IEL, K), IEL = 1, NGDBGN - 1), K = 1, 3), atemp, &
-                  (SD (IEL), IEL = NGDBGN, total_no_elements), atemp, &
-                  (TS (IEL), IEL = NGDBGN, total_no_elements), atemp, &
-                  (NSMC (IEL), IEL = NGDBGN, total_no_elements), atemp, &
-                  ((SMELT (K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
-                  ((tmelt(K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
-                  ((VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
+               (CSTORE (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+               (rdd(IEL), IEL = 1, total_no_elements), atemp, &
+               ((rddq (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+               ((QOC (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+               ((DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+               ((DQIST (IEL, K), IEL = 1, total_no_elements), K = 1, 4), atemp, &
+               ((DQIST2 (IEL, K), IEL = 1, NGDBGN - 1), K = 1, 3), atemp, &
+               (SD (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+               (TS (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+               (NSMC (IEL), IEL = NGDBGN, total_no_elements), atemp, &
+               ((SMELT (K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
+               ((tmelt(K, IEL), K = 1, NSMC (IEL)), IEL = NGDBGN, total_no_elements), atemp, &
+               ((VSPSI (k, iel), k = 1, top_cell_no), IEL = 1, total_no_elements)
 
             ! Gracefully exit if end of hotstart file is reached
             IF (ios /= 0) THEN
@@ -1225,29 +1225,29 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
    SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-   !----------------------------------------------------------------------*
-   !
-   ! READ IN ARRAY OF NUMERIC CODES (FOR OUTPUT CLASS DEFINITION)
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRLTL/4.0
-   ! Modifications:
-   ! RAH  941002 3.4.1 Remove IMPLICIT INTEGER*2.  IARR INTEGER (was *2).
-   ! RAH  970223  4.1  Explicit typing.
-   !----------------------------------------------------------------------*
-   ! INPUT PARAMETERS:
-   !   NNX     X DIMENSION OF GRID
-   !   NNY     Y DIMENSION OF GRID
-   !   NXE     X DIMENSION OF ARRAY
-   !   NYE     Y DIMENSION OF ARRAY
-   !   INF     INOUT FILE UNIT NUMBER
-   !   IOF     OUTPUT FILE UNIT NUMBER
-   !   BPCNTL  LOGICAL PRINT CONTROL
-   !
-   ! OUTPUT PARAMETERS:
-   !   IARR    ARRAY OF CODES READ IN FROM FILE
-   !
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      ! READ IN ARRAY OF NUMERIC CODES (FOR OUTPUT CLASS DEFINITION)
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FRLTL/4.0
+      ! Modifications:
+      ! RAH  941002 3.4.1 Remove IMPLICIT INTEGER*2.  IARR INTEGER (was *2).
+      ! RAH  970223  4.1  Explicit typing.
+      !----------------------------------------------------------------------*
+      ! INPUT PARAMETERS:
+      !   NNX     X DIMENSION OF GRID
+      !   NNY     Y DIMENSION OF GRID
+      !   NXE     X DIMENSION OF ARRAY
+      !   NYE     Y DIMENSION OF ARRAY
+      !   INF     INOUT FILE UNIT NUMBER
+      !   IOF     OUTPUT FILE UNIT NUMBER
+      !   BPCNTL  LOGICAL PRINT CONTROL
+      !
+      ! OUTPUT PARAMETERS:
+      !   IARR    ARRAY OF CODES READ IN FROM FILE
+      !
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -1513,18 +1513,18 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE FROPEN
    SUBROUTINE FROPEN
-   !----------------------------------------------------------------------*
-   !
-   ! OPEN I/O DATA FILES
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FROPEN/4.0
-   ! Modifications:
-   ! RAH  941003 3.4.1 Amend writes 1030,1050: append CNAM to RUNFIL.
-   ! RAH  970223  4.0  Specify STATUS on OPEN(2).  Write to, & rewind, TIM.
-   !                   Units 27,28,22,14 were 18,19,36,18 (see FRINIT).
-   !----------------------------------------------------------------------*
-   ! Commons and constants
+      !----------------------------------------------------------------------*
+      !
+      ! OPEN I/O DATA FILES
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FROPEN/4.0
+      ! Modifications:
+      ! RAH  941003 3.4.1 Amend writes 1030,1050: append CNAM to RUNFIL.
+      ! RAH  970223  4.0  Specify STATUS on OPEN(2).  Write to, & rewind, TIM.
+      !                   Units 27,28,22,14 were 18,19,36,18 (see FRINIT).
+      !----------------------------------------------------------------------*
+      ! Commons and constants
 
       ! Assumed external module dependencies providing global variables:
       ! BTIME, BANNER, DIRQQ, FILNAM, CNAM, ista, isextradis, iszq,
@@ -1774,7 +1774,7 @@ MODULE FRmod
 
 
    !SSSSSS SUBROUTINE FROUTPUT
-      SUBROUTINE FROUTPUT(SIMPOS)
+   SUBROUTINE FROUTPUT(SIMPOS)
       !----------------------------------------------------------------------*
       ! Generates output files for discharge, sediment, contaminants,
       ! water tables, and mass balances at various simulation stages.
@@ -1791,283 +1791,283 @@ MODULE FRmod
       ! carea, zgrund, zvspsl, vse, bexbk, VSPSI, nlyrbt, FFFATAL, PPPRI
       !----------------------------------------------------------------------*
 
-         IMPLICIT NONE
+      IMPLICIT NONE
 
-         ! Dummy arguments
-         CHARACTER(LEN=5), INTENT(IN) :: SIMPOS
+      ! Dummy arguments
+      CHARACTER(LEN=5), INTENT(IN) :: SIMPOS
 
-         ! Parameters
-         INTEGER, PARAMETER :: SEDALLUNIT  = 681
-         INTEGER, PARAMETER :: SEDFINEUNIT = 682
-         INTEGER, PARAMETER :: PSLFILEUNIT = 683
-         INTEGER, PARAMETER :: CONTAMUNIT  = 684
+      ! Parameters
+      INTEGER, PARAMETER :: SEDALLUNIT  = 681
+      INTEGER, PARAMETER :: SEDFINEUNIT = 682
+      INTEGER, PARAMETER :: PSLFILEUNIT = 683
+      INTEGER, PARAMETER :: CONTAMUNIT  = 684
 
-         DOUBLE PRECISION, PARAMETER :: ZERO = 0.0D0
-         DOUBLE PRECISION, PARAMETER :: ONE  = 1.0D0
+      DOUBLE PRECISION, PARAMETER :: ZERO = 0.0D0
+      DOUBLE PRECISION, PARAMETER :: ONE  = 1.0D0
 
-         ! Locals: strings
-         CHARACTER(LEN=20)  :: disextratext, pslextratext
-         CHARACTER(LEN=256) :: filnam
+      ! Locals: strings
+      CHARACTER(LEN=20)  :: disextratext, pslextratext
+      CHARACTER(LEN=256) :: filnam
 
-         ! Locals: scalars
-         INTEGER :: L, iface, nminel, i, j, iel, ios
-         INTEGER :: hour_now
-         DOUBLE PRECISION :: qocav, qocold
-         DOUBLE PRECISION :: sedav, sedfineav, contamav
-         DOUBLE PRECISION :: uznowt
+      ! Locals: scalars
+      INTEGER :: L, iface, nminel, i, j, iel, ios
+      INTEGER :: hour_now
+      DOUBLE PRECISION :: qocav, qocold
+      DOUBLE PRECISION :: sedav, sedfineav, contamav
+      DOUBLE PRECISION :: uznowt
 
-         ! Persistent state between calls
-         INTEGER, SAVE :: disextrapoints = 0
-         INTEGER, SAVE :: pslextrapoints = 0
-         DOUBLE PRECISION, SAVE :: uzold = ZERO
-         DOUBLE PRECISION, SAVE :: next_hour = ZERO
-         DOUBLE PRECISION, SAVE :: qoctot = ZERO
-         DOUBLE PRECISION, SAVE :: sedtot = ZERO
-         DOUBLE PRECISION, SAVE :: sedfinetot = ZERO
-         DOUBLE PRECISION, SAVE :: contamtot = ZERO
+      ! Persistent state between calls
+      INTEGER, SAVE :: disextrapoints = 0
+      INTEGER, SAVE :: pslextrapoints = 0
+      DOUBLE PRECISION, SAVE :: uzold = ZERO
+      DOUBLE PRECISION, SAVE :: next_hour = ZERO
+      DOUBLE PRECISION, SAVE :: qoctot = ZERO
+      DOUBLE PRECISION, SAVE :: sedtot = ZERO
+      DOUBLE PRECISION, SAVE :: sedfinetot = ZERO
+      DOUBLE PRECISION, SAVE :: contamtot = ZERO
 
-         ! Persistent optional-output metadata/state
-         INTEGER, ALLOCATABLE, SAVE :: pslextraelement(:)
-         INTEGER, ALLOCATABLE, SAVE :: disextraelement(:), disextraface(:)
-         DOUBLE PRECISION, ALLOCATABLE, SAVE :: qocavextra(:)
+      ! Persistent optional-output metadata/state
+      INTEGER, ALLOCATABLE, SAVE :: pslextraelement(:)
+      INTEGER, ALLOCATABLE, SAVE :: disextraelement(:), disextraface(:)
+      DOUBLE PRECISION, ALLOCATABLE, SAVE :: qocavextra(:)
 
       !----------------------------------------------------------------------*
 
-         SELECT CASE (SIMPOS)
+      SELECT CASE (SIMPOS)
 
-         CASE ('start')
-            CALL initialise_output()
+       CASE ('start')
+         CALL initialise_output()
 
-         CASE DEFAULT
-            IF (SIMPOS(1:4) == 'main') THEN
-               CALL write_main_output()
-            ELSE
-               CALL write_final_state()
-            END IF
+       CASE DEFAULT
+         IF (SIMPOS(1:4) == 'main') THEN
+            CALL write_main_output()
+         ELSE
+            CALL write_final_state()
+         END IF
 
-         END SELECT
+      END SELECT
 
-      CONTAINS
+   CONTAINS
 
 
-         SUBROUTINE initialise_output()
+      SUBROUTINE initialise_output()
          !----------------------------------------------------------------------*
          ! Initialise regular and optional output streams.  The optional point
          ! lists are compacted in-place: invalid element/link IDs are skipped and
          ! the retained count is written back to disextrapoints/pslextrapoints.
          !----------------------------------------------------------------------*
 
-            IF (ISextradis) CALL initialise_extra_discharge_points()
-            IF (ISextrapsl) CALL initialise_extra_water_table_output()
+         IF (ISextradis) CALL initialise_extra_discharge_points()
+         IF (ISextrapsl) CALL initialise_extra_water_table_output()
 
-            CALL write_checked(dis2, &
-                 'Simulated discharge at the outlet at every model timestep.', &
-                 'Error writing to the discharge every timestep at the catchment outlet file ' // &
-                 '(unit 41 in the rundata file)')
+         CALL write_checked(dis2, &
+            'Simulated discharge at the outlet at every model timestep.', &
+            'Error writing to the discharge every timestep at the catchment outlet file ' // &
+            '(unit 41 in the rundata file)')
 
-            WRITE(dis2, '(A)', IOSTAT=ios) &
-                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet_Discharge(m3/s)'
+         WRITE(dis2, '(A)', IOSTAT=ios) &
+            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet_Discharge(m3/s)'
 
-            CALL write_checked(mas, &
-                 'Spatially Averaged Totals (mm) over the simulation', &
-                 'Error writing to the the mass balance data file (unit 43 in the rundata file)')
+         CALL write_checked(mas, &
+            'Spatially Averaged Totals (mm) over the simulation', &
+            'Error writing to the the mass balance data file (unit 43 in the rundata file)')
 
-            WRITE(mas, '(A)') &
-                 'Time(Hours),' // &
-                 'Cumulative_Precipitation,' // &
-                 'Cumulative_Canopy_Evaporation,' // &
-                 'Cumulative_Soil_Evaporation,' // &
-                 'Cumulative_Transpiration,' // &
-                 'Cumulative_Aquifer_Flow,' // &
-                 'Cumulative_Discharge,' // &
-                 'Canopy_Storage,' // &
-                 'Snow_Storage,' // &
-                 'Subsurface_Storage,' // &
-                 'Land_Surface_Storage,' // &
-                 'Channel_Storage'
+         WRITE(mas, '(A)') &
+            'Time(Hours),' // &
+            'Cumulative_Precipitation,' // &
+            'Cumulative_Canopy_Evaporation,' // &
+            'Cumulative_Soil_Evaporation,' // &
+            'Cumulative_Transpiration,' // &
+            'Cumulative_Aquifer_Flow,' // &
+            'Cumulative_Discharge,' // &
+            'Canopy_Storage,' // &
+            'Snow_Storage,' // &
+            'Subsurface_Storage,' // &
+            'Land_Surface_Storage,' // &
+            'Channel_Storage'
 
-            WRITE(dis, '(A,F8.2,A)', IOSTAT=ios) &
-                 'Simulated discharge(m3/s) at the outlet - regular timestep ', &
-                 TOUTPUT, &
-                 ' hours. Simulated discharge is the mean value over the timestep ' // &
-                 'with the date at the start of the timestep'
-            CALL stop_on_io_error(ios, &
-                 'Error writing to the regular discharge at the catchment outlet file ' // &
-                 '(unit 44 in the rundata file)')
+         WRITE(dis, '(A,F8.2,A)', IOSTAT=ios) &
+            'Simulated discharge(m3/s) at the outlet - regular timestep ', &
+            TOUTPUT, &
+            ' hours. Simulated discharge is the mean value over the timestep ' // &
+            'with the date at the start of the timestep'
+         CALL stop_on_io_error(ios, &
+            'Error writing to the regular discharge at the catchment outlet file ' // &
+            '(unit 44 in the rundata file)')
 
-            CALL find_mass_balance_outlet()
-            CALL write_discharge_header()
+         CALL find_mass_balance_outlet()
+         CALL write_discharge_header()
 
-            uznowt    = uznow / TOUTPUT
-            next_hour = DBLE(INT(uznowt)) + ONE
+         uznowt    = uznow / TOUTPUT
+         next_hour = DBLE(INT(uznowt)) + ONE
 
-            ! Hotstart first time is correct.
-            IF (BHOTRD) uzold = DBLE(INT(bhotti / TOUTPUT))
+         ! Hotstart first time is correct.
+         IF (BHOTRD) uzold = DBLE(INT(bhotti / TOUTPUT))
 
-            IF (bexsy) CALL initialise_sediment_output()
-            IF (bexcm) CALL initialise_contaminant_output()
+         IF (bexsy) CALL initialise_sediment_output()
+         IF (bexcm) CALL initialise_contaminant_output()
 
-         END SUBROUTINE initialise_output
+      END SUBROUTINE initialise_output
 
 
-         SUBROUTINE initialise_extra_discharge_points()
-            READ(disextra, *, IOSTAT=ios)
+      SUBROUTINE initialise_extra_discharge_points()
+         READ(disextra, *, IOSTAT=ios)
+         CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
+
+         READ(disextra, *, IOSTAT=ios) disextratext, disextrapoints
+         CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
+
+         CALL allocate_extra_discharge(disextrapoints)
+
+         j = 0
+         DO i = 1, disextrapoints
+            READ(disextra, *, IOSTAT=ios) L, iface
             CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
 
-            READ(disextra, *, IOSTAT=ios) disextratext, disextrapoints
-            CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
+            ! Silently ignore discharge requests beyond the link range, matching
+            ! the original behaviour while keeping the retained list compact.
+            IF (L <= total_no_links) THEN
+               j = j + 1
+               disextraelement(j) = L
+               disextraface(j)    = iface
+            END IF
+         END DO
 
-            CALL allocate_extra_discharge(disextrapoints)
-
-            j = 0
-            DO i = 1, disextrapoints
-               READ(disextra, *, IOSTAT=ios) L, iface
-               CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
-
-               ! Silently ignore discharge requests beyond the link range, matching
-               ! the original behaviour while keeping the retained list compact.
-               IF (L <= total_no_links) THEN
-                  j = j + 1
-                  disextraelement(j) = L
-                  disextraface(j)    = iface
-               END IF
-            END DO
-
-            disextrapoints = j
-         END SUBROUTINE initialise_extra_discharge_points
+         disextrapoints = j
+      END SUBROUTINE initialise_extra_discharge_points
 
 
-         SUBROUTINE allocate_extra_discharge(n)
-            INTEGER, INTENT(IN) :: n
+      SUBROUTINE allocate_extra_discharge(n)
+         INTEGER, INTENT(IN) :: n
 
-            IF (ALLOCATED(disextraelement)) DEALLOCATE(disextraelement)
-            IF (ALLOCATED(disextraface))    DEALLOCATE(disextraface)
-            IF (ALLOCATED(qocavextra))      DEALLOCATE(qocavextra)
-            IF (ALLOCATED(qoctotextra))     DEALLOCATE(qoctotextra)
+         IF (ALLOCATED(disextraelement)) DEALLOCATE(disextraelement)
+         IF (ALLOCATED(disextraface))    DEALLOCATE(disextraface)
+         IF (ALLOCATED(qocavextra))      DEALLOCATE(qocavextra)
+         IF (ALLOCATED(qoctotextra))     DEALLOCATE(qoctotextra)
 
-            ALLOCATE(disextraelement(n), disextraface(n), qocavextra(n), qoctotextra(n))
+         ALLOCATE(disextraelement(n), disextraface(n), qocavextra(n), qoctotextra(n))
 
-            disextraelement = 0
-            disextraface    = 0
-            qocavextra      = ZERO
-            qoctotextra     = ZERO
-         END SUBROUTINE allocate_extra_discharge
+         disextraelement = 0
+         disextraface    = 0
+         qocavextra      = ZERO
+         qoctotextra     = ZERO
+      END SUBROUTINE allocate_extra_discharge
 
 
-         SUBROUTINE initialise_extra_water_table_output()
-            READ(pslextra, *, IOSTAT=ios)
+      SUBROUTINE initialise_extra_water_table_output()
+         READ(pslextra, *, IOSTAT=ios)
+         CALL fatal_on_io_error(ios, 1069, &
+            'no or incorrect data in input_CATCH_water_table_depth file')
+
+         READ(pslextra, *, IOSTAT=ios) pslextratext, pslextrapoints
+         CALL fatal_on_io_error(ios, 1069, &
+            'no or incorrect data in input_CATCH_water_table_depth file')
+
+         IF (ALLOCATED(pslextraelement)) DEALLOCATE(pslextraelement)
+         ALLOCATE(pslextraelement(pslextrapoints))
+         pslextraelement = 0
+
+         j = 0
+         DO i = 1, pslextrapoints
+            READ(pslextra, *, IOSTAT=ios) iel
             CALL fatal_on_io_error(ios, 1069, &
-                 'no or incorrect data in input_CATCH_water_table_depth file')
+               'no or incorrect data in input_CATCH_water_table_depth file')
 
-            READ(pslextra, *, IOSTAT=ios) pslextratext, pslextrapoints
-            CALL fatal_on_io_error(ios, 1069, &
-                 'no or incorrect data in input_CATCH_water_table_depth file')
+            ! Silently ignore water-table requests beyond the element range,
+            ! preserving the original compaction behaviour.
+            IF (iel <= total_no_elements) THEN
+               j = j + 1
+               pslextraelement(j) = iel
+            END IF
+         END DO
 
-            IF (ALLOCATED(pslextraelement)) DEALLOCATE(pslextraelement)
-            ALLOCATE(pslextraelement(pslextrapoints))
-            pslextraelement = 0
+         pslextrapoints = j
 
-            j = 0
-            DO i = 1, pslextrapoints
-               READ(pslextra, *, IOSTAT=ios) iel
-               CALL fatal_on_io_error(ios, 1069, &
-                    'no or incorrect data in input_CATCH_water_table_depth file')
+         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
+         OPEN(PSLFILEUNIT, FILE=filnam, IOSTAT=ios)
+         CALL fatal_on_io_error(ios, 1069, 'Error opening water table depth file')
 
-               ! Silently ignore water-table requests beyond the element range,
-               ! preserving the original compaction behaviour.
-               IF (iel <= total_no_elements) THEN
-                  j = j + 1
-                  pslextraelement(j) = iel
-               END IF
-            END DO
-
-            pslextrapoints = j
-
-            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
-            OPEN(PSLFILEUNIT, FILE=filnam, IOSTAT=ios)
-            CALL fatal_on_io_error(ios, 1069, 'Error opening water table depth file')
-
-            WRITE(PSLFILEUNIT, '(A)') &
-                 'Water_Table_depth(m_below_ground). A negative number ' // &
-                 'means there is surface water with the absolute value ' // &
-                 'the depth of surface water'
-            WRITE(PSLFILEUNIT, '(A,*(A,I0))') 'Time(hours)', &
-                 (', Element-', pslextraelement(j), j = 1, pslextrapoints)
-         END SUBROUTINE initialise_extra_water_table_output
+         WRITE(PSLFILEUNIT, '(A)') &
+            'Water_Table_depth(m_below_ground). A negative number ' // &
+            'means there is surface water with the absolute value ' // &
+            'the depth of surface water'
+         WRITE(PSLFILEUNIT, '(A,*(A,I0))') 'Time(hours)', &
+            (', Element-', pslextraelement(j), j = 1, pslextrapoints)
+      END SUBROUTINE initialise_extra_water_table_output
 
 
-         SUBROUTINE find_mass_balance_outlet()
+      SUBROUTINE find_mass_balance_outlet()
          !----------------------------------------------------------------------*
          ! Find outlet link for mass-balance output when no reservoir files exist.
          ! The outlet must be a weir boundary condition, type 7.
          !----------------------------------------------------------------------*
-            mblink = 0
-            mbface = 0
+         mblink = 0
+         mbface = 0
 
-            DO L = 1, total_no_links
-               DO iface = 1, 4
-                  IF (ICMREF(L, 4 + iface) == 0 .AND. NOCBCC(L) > 0) THEN
-                     IF (NOCBCD(NOCBCC(L), 3) == 7) THEN
-                        mblink = L
-                        mbface = NOCBCD(NOCBCC(L), 2)
-                     END IF
+         DO L = 1, total_no_links
+            DO iface = 1, 4
+               IF (ICMREF(L, 4 + iface) == 0 .AND. NOCBCC(L) > 0) THEN
+                  IF (NOCBCD(NOCBCC(L), 3) == 7) THEN
+                     mblink = L
+                     mbface = NOCBCD(NOCBCC(L), 2)
                   END IF
-               END DO
+               END IF
             END DO
-         END SUBROUTINE find_mass_balance_outlet
+         END DO
+      END SUBROUTINE find_mass_balance_outlet
 
 
-         SUBROUTINE write_discharge_header()
-            IF (ISextradis) THEN
-               WRITE(dis, '(*(A,I0))') &
-                    'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-', &
-                    mblink, (',Channel-', disextraelement(j), j = 1, disextrapoints)
-            ELSE
-               WRITE(dis, '(A)') &
-                    'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-Discharge'
-            END IF
-         END SUBROUTINE write_discharge_header
+      SUBROUTINE write_discharge_header()
+         IF (ISextradis) THEN
+            WRITE(dis, '(*(A,I0))') &
+               'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-', &
+               mblink, (',Channel-', disextraelement(j), j = 1, disextrapoints)
+         ELSE
+            WRITE(dis, '(A)') &
+               'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge'
+         END IF
+      END SUBROUTINE write_discharge_header
 
 
-         SUBROUTINE initialise_sediment_output()
-            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
-            OPEN(SEDALLUNIT, FILE=filnam)
+      SUBROUTINE initialise_sediment_output()
+         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
+         OPEN(SEDALLUNIT, FILE=filnam)
 
-            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
-            OPEN(SEDFINEUNIT, FILE=filnam)
+         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
+         OPEN(SEDFINEUNIT, FILE=filnam)
 
-            WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) &
-                 'Sediment discharge at the outlet - All Sediments. ' // &
-                 'This is the mean value over the timestep with the date at the start of the timestep'
-            CALL stop_on_io_error(ios, 'Error writing to the sed-all-daily-output.csv file')
-            WRITE(SEDALLUNIT, '(A)') &
-                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
+         WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) &
+            'Sediment discharge at the outlet - All Sediments. ' // &
+            'This is the mean value over the timestep with the date at the start of the timestep'
+         CALL stop_on_io_error(ios, 'Error writing to the sed-all-daily-output.csv file')
+         WRITE(SEDALLUNIT, '(A)') &
+            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
 
-            WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) &
-                 'Sediment discharge at the outlet - Fine Sediments. ' // &
-                 'This is the mean value over the timestep with the date at the start of the timestep'
-            CALL stop_on_io_error(ios, 'Error writing to the sed-fine-daily-output.csv file')
-            WRITE(SEDFINEUNIT, '(A)') &
-                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
+         WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) &
+            'Sediment discharge at the outlet - Fine Sediments. ' // &
+            'This is the mean value over the timestep with the date at the start of the timestep'
+         CALL stop_on_io_error(ios, 'Error writing to the sed-fine-daily-output.csv file')
+         WRITE(SEDFINEUNIT, '(A)') &
+            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
 
-            sedav = ZERO
-         END SUBROUTINE initialise_sediment_output
-
-
-         SUBROUTINE initialise_contaminant_output()
-            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
-            OPEN(CONTAMUNIT, FILE=filnam)
-
-            WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) &
-                 'Contaminant Relative Concentration (contaminant 1) at the outlet. ' // &
-                 'This is the mean value over the timestep with the date at the start of the timestep.'
-            CALL stop_on_io_error(ios, 'Error writing to the contaminant.csv file')
-            WRITE(CONTAMUNIT, '(A)') &
-                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Relative_concentration'
-         END SUBROUTINE initialise_contaminant_output
+         sedav = ZERO
+      END SUBROUTINE initialise_sediment_output
 
 
-         SUBROUTINE write_main_output()
+      SUBROUTINE initialise_contaminant_output()
+         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
+         OPEN(CONTAMUNIT, FILE=filnam)
+
+         WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) &
+            'Contaminant Relative Concentration (contaminant 1) at the outlet. ' // &
+            'This is the mean value over the timestep with the date at the start of the timestep.'
+         CALL stop_on_io_error(ios, 'Error writing to the contaminant.csv file')
+         WRITE(CONTAMUNIT, '(A)') &
+            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Relative_concentration'
+      END SUBROUTINE initialise_contaminant_output
+
+
+      SUBROUTINE write_main_output()
          !----------------------------------------------------------------------*
          ! Accumulate mean values in normalised output-time units.  When the
          ! current model time crosses one or more regular output boundaries, write
@@ -2075,285 +2075,285 @@ MODULE FRmod
          ! intervals with the current timestep average.
          !----------------------------------------------------------------------*
 
-            CALL sample_current_values(qocav, sedav, sedfineav, contamav)
+         CALL sample_current_values(qocav, sedav, sedfineav, contamav)
 
-            uznowt   = uznow / TOUTPUT
-            hour_now = INT(uznowt)
+         uznowt   = uznow / TOUTPUT
+         hour_now = INT(uznowt)
 
-            IF (hour_now < INT(next_hour)) THEN
-               CALL accumulate_interval(uznowt - uzold, qocav, sedav, sedfineav, contamav)
+         IF (hour_now < INT(next_hour)) THEN
+            CALL accumulate_interval(uznowt - uzold, qocav, sedav, sedfineav, contamav)
+         ELSE
+            CALL accumulate_interval(next_hour - uzold, qocav, sedav, sedfineav, contamav)
+            CALL write_completed_regular_outputs(hour_now, qocav, sedav, sedfineav, contamav)
+            CALL restart_accumulators(uznowt - next_hour, qocav, sedav, sedfineav, contamav)
+
+            next_hour = next_hour + ONE
+         END IF
+
+         CALL WRITE_DIS2(mbface, qocav, uznow)
+         CALL write_periodic_mass_balance()
+
+         uzold = uznowt
+
+         ! temp sb 250925 for when doing 1d simulations
+         IF (mblink == 0 .AND. mbface == 0) THEN
+            qocav = ZERO
+         ELSE
+            qocold = qoc(mblink, mbface)
+         END IF
+
+      END SUBROUTINE write_main_output
+
+
+      SUBROUTINE sample_current_values(q_out, sed_out, sedfine_out, contam_out)
+         DOUBLE PRECISION, INTENT(OUT) :: q_out
+         DOUBLE PRECISION, INTENT(OUT) :: sed_out
+         DOUBLE PRECISION, INTENT(OUT) :: sedfine_out
+         DOUBLE PRECISION, INTENT(OUT) :: contam_out
+
+         IF (mblink == 0 .AND. mbface == 0) THEN
+            q_out       = ZERO
+            sed_out     = ZERO
+            sedfine_out = ZERO
+            contam_out  = ZERO
+         ELSE
+            q_out = qoc(mblink, mbface)
+
+            IF (bexsy) THEN
+               sed_out = ZERO
+               DO i = 1, nsed
+                  sed_out = sed_out + QSED(mblink, i, mbface) * RHOSED
+               END DO
+               sedfine_out = QSED(mblink, 1, mbface) * RHOSED
             ELSE
-               CALL accumulate_interval(next_hour - uzold, qocav, sedav, sedfineav, contamav)
-               CALL write_completed_regular_outputs(hour_now, qocav, sedav, sedfineav, contamav)
-               CALL restart_accumulators(uznowt - next_hour, qocav, sedav, sedfineav, contamav)
-
-               next_hour = next_hour + ONE
-            END IF
-
-            CALL WRITE_DIS2(mbface, qocav, uznow)
-            CALL write_periodic_mass_balance()
-
-            uzold = uznowt
-
-            ! temp sb 250925 for when doing 1d simulations
-            IF (mblink == 0 .AND. mbface == 0) THEN
-               qocav = ZERO
-            ELSE
-               qocold = qoc(mblink, mbface)
-            END IF
-
-         END SUBROUTINE write_main_output
-
-
-         SUBROUTINE sample_current_values(q_out, sed_out, sedfine_out, contam_out)
-            DOUBLE PRECISION, INTENT(OUT) :: q_out
-            DOUBLE PRECISION, INTENT(OUT) :: sed_out
-            DOUBLE PRECISION, INTENT(OUT) :: sedfine_out
-            DOUBLE PRECISION, INTENT(OUT) :: contam_out
-
-            IF (mblink == 0 .AND. mbface == 0) THEN
-               q_out       = ZERO
                sed_out     = ZERO
                sedfine_out = ZERO
-               contam_out  = ZERO
-            ELSE
-               q_out = qoc(mblink, mbface)
-
-               IF (bexsy) THEN
-                  sed_out = ZERO
-                  DO i = 1, nsed
-                     sed_out = sed_out + QSED(mblink, i, mbface) * RHOSED
-                  END DO
-                  sedfine_out = QSED(mblink, 1, mbface) * RHOSED
-               ELSE
-                  sed_out     = ZERO
-                  sedfine_out = ZERO
-               END IF
-
-               IF (bexcm) THEN
-                  contam_out = CCCC(mblink, top_cell_no, 1)
-               ELSE
-                  contam_out = ZERO
-               END IF
-            END IF
-
-            IF (ISextradis) THEN
-               DO i = 1, disextrapoints
-                  qocavextra(i) = qoc(disextraelement(i), disextraface(i))
-               END DO
-            END IF
-         END SUBROUTINE sample_current_values
-
-
-         SUBROUTINE accumulate_interval(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
-            DOUBLE PRECISION, INTENT(IN) :: dt
-            DOUBLE PRECISION, INTENT(IN) :: q_mean
-            DOUBLE PRECISION, INTENT(IN) :: sed_mean
-            DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
-            DOUBLE PRECISION, INTENT(IN) :: contam_mean
-
-            qoctot = qoctot + q_mean * dt
-
-            IF (bexsy) THEN
-               sedtot     = sedtot     + sed_mean     * dt
-               sedfinetot = sedfinetot + sedfine_mean * dt
-            END IF
-
-            IF (bexcm) contamtot = contamtot + contam_mean * dt
-
-            IF (ISextradis) THEN
-               do i = 1, disextrapoints
-                   qoctotextra(i) = qoctotextra(i) + qocavextra(i) * dt
-               end do
-            END IF
-         END SUBROUTINE accumulate_interval
-
-
-         SUBROUTINE write_completed_regular_outputs(hour_now, q_mean, sed_mean, sedfine_mean, contam_mean)
-            INTEGER, INTENT(IN) :: hour_now
-            DOUBLE PRECISION, INTENT(IN) :: q_mean
-            DOUBLE PRECISION, INTENT(IN) :: sed_mean
-            DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
-            DOUBLE PRECISION, INTENT(IN) :: contam_mean
-
-            DOUBLE PRECISION :: output_hour
-
-            ! output_hour = next_hour - 1.0D0:
-            !     mean value over the regular timestep, timestamped at the start
-            !     of the timestep.
-            ! output_hour = next_hour:
-            !     equivalent mean value timestamped at the end of the timestep.
-            output_hour = next_hour - ONE
-
-            CALL write_regular_outputs(output_hour, ABS(qoctot), qoctotextra, &
-                                       sedtot, sedfinetot, contamtot)
-
-            DO i = INT(next_hour) + 1, hour_now
-               next_hour   = DBLE(i)
-               output_hour = next_hour - ONE
-
-               CALL write_regular_outputs(output_hour, ABS(q_mean), qocavextra, &
-                                          sed_mean, sedfine_mean, contam_mean)
-            END DO
-         END SUBROUTINE write_completed_regular_outputs
-
-
-         SUBROUTINE restart_accumulators(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
-            DOUBLE PRECISION, INTENT(IN) :: dt
-            DOUBLE PRECISION, INTENT(IN) :: q_mean
-            DOUBLE PRECISION, INTENT(IN) :: sed_mean
-            DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
-            DOUBLE PRECISION, INTENT(IN) :: contam_mean
-
-            qoctot = q_mean * dt
-
-            IF (bexsy) THEN
-               sedtot     = sed_mean     * dt
-               sedfinetot = sedfine_mean * dt
-            END IF
-
-            IF (bexcm) contamtot = contam_mean * dt
-
-            IF (ISextradis) THEN
-               qoctotextra(1:disextrapoints) = qocavextra(1:disextrapoints) * dt
-               do i = 1, disextrapoints
-                   qoctotextra(i) = qocavextra(i) * dt
-               end do
-            END IF
-         END SUBROUTINE restart_accumulators
-
-
-         SUBROUTINE write_regular_outputs(output_hour, discharge, discharge_extra, sediment, sediment_fine, contaminant)
-            DOUBLE PRECISION, INTENT(IN) :: output_hour
-            DOUBLE PRECISION, INTENT(IN) :: discharge
-            DOUBLE PRECISION, INTENT(IN) :: discharge_extra(:)
-            DOUBLE PRECISION, INTENT(IN) :: sediment
-            DOUBLE PRECISION, INTENT(IN) :: sediment_fine
-            DOUBLE PRECISION, INTENT(IN) :: contaminant
-
-            CHARACTER(LEN=32) :: stamp
-            DOUBLE PRECISION  :: elapsed
-
-            elapsed = output_hour * TOUTPUT
-            stamp   = timestamp_from_output_hour(output_hour)
-
-            IF (ISextradis) THEN
-               WRITE(dis, '(A,'','',F0.3,'','',F0.5,*( '','',F0.5 ))') &
-                    TRIM(stamp), elapsed, discharge, &
-                    (ABS(discharge_extra(j)), j = 1, disextrapoints)
-            ELSE
-               WRITE(dis, '(A,'','',F0.3,'','',F0.5)') &
-                    TRIM(stamp), elapsed, discharge
-            END IF
-
-            IF (bexsy) THEN
-               WRITE(SEDALLUNIT,  '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment
-               WRITE(SEDFINEUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment_fine
             END IF
 
             IF (bexcm) THEN
-               WRITE(CONTAMUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, contaminant
-            END IF
-         END SUBROUTINE write_regular_outputs
-
-
-         FUNCTION timestamp_from_output_hour(output_hour) RESULT(stamp)
-            DOUBLE PRECISION, INTENT(IN) :: output_hour
-            CHARACTER(LEN=32) :: stamp
-            INTEGER :: c(6)
-
-            c = DATE_FROM_HOUR(tih + output_hour * TOUTPUT)
-
-            WRITE(stamp, '(I4.4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2)') &
-                 c(1), c(2), c(3), c(4), c(5), c(6)
-         END FUNCTION timestamp_from_output_hour
-
-
-         SUBROUTINE write_periodic_mass_balance()
-            IF (uznow <= icounter2) RETURN
-
-            WRITE(mas, '(F16.3,11('','',F16.3))') uznow, &
-                 balanc(7)  * 1000.0D0 / carea, &
-                 balanc(8)  * 1000.0D0 / carea, &
-                 balanc(9)  * 1000.0D0 / carea, &
-                 balanc(10) * 1000.0D0 / carea, &
-                 balanc(11) * 1000.0D0 / carea, &
-                 balanc(12) * 1000.0D0 / carea, &
-                 balanc(13) * 1000.0D0 / carea, &
-                 balanc(14) * 1000.0D0 / carea, &
-                 balanc(15) * 1000.0D0 / carea, &
-                 balanc(16) * 1000.0D0 / carea, &
-                 balanc(17) * 1000.0D0 / carea
-
-            icounter2 = icounter2 + 24.0D0
-
-            IF (ISextrapsl) THEN
-               WRITE(PSLFILEUNIT, '(F10.2,*(1A,F10.2))') uznow, &
-                    (',', zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), &
-                     i = 1, pslextrapoints)
-            END IF
-         END SUBROUTINE write_periodic_mass_balance
-
-
-         SUBROUTINE write_final_state()
-            WRITE(vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
-            WRITE(vse, *) 'This output is by element number'
-            WRITE(vse, *)
-            WRITE(vse, *) 'phreatic surface level '
-
-            IF (bexbk) THEN
-               nminel = 1
+               contam_out = CCCC(mblink, top_cell_no, 1)
             ELSE
-               nminel = total_no_links + 1
+               contam_out = ZERO
             END IF
+         END IF
 
-            WRITE(vse, '(10(1X,F9.3))') (zvspsl(j), j = nminel, total_no_elements)
-            WRITE(vse, *)
-            WRITE(vse, *) 'Heads at end of simulation'
-
-            DO iel = 1, total_no_elements
-               IF (bexbk .OR. iel > total_no_links) THEN
-                  WRITE(vse, '(I7)') iel
-                  WRITE(vse, '(10(1X,F9.3))') &
-                       (VSPSI(j, iel), j = nlyrbt(iel, 1), top_cell_no)
-               END IF
+         IF (ISextradis) THEN
+            DO i = 1, disextrapoints
+               qocavextra(i) = qoc(disextraelement(i), disextraface(i))
             END DO
-         END SUBROUTINE write_final_state
+         END IF
+      END SUBROUTINE sample_current_values
 
 
-         SUBROUTINE write_checked(unit, line, error_message)
-            INTEGER,          INTENT(IN) :: unit
-            CHARACTER(LEN=*), INTENT(IN) :: line
-            CHARACTER(LEN=*), INTENT(IN) :: error_message
+      SUBROUTINE accumulate_interval(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
+         DOUBLE PRECISION, INTENT(IN) :: dt
+         DOUBLE PRECISION, INTENT(IN) :: q_mean
+         DOUBLE PRECISION, INTENT(IN) :: sed_mean
+         DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
+         DOUBLE PRECISION, INTENT(IN) :: contam_mean
 
-            WRITE(unit, '(A)', IOSTAT=ios) line
-            CALL stop_on_io_error(ios, error_message)
-         END SUBROUTINE write_checked
+         qoctot = qoctot + q_mean * dt
+
+         IF (bexsy) THEN
+            sedtot     = sedtot     + sed_mean     * dt
+            sedfinetot = sedfinetot + sedfine_mean * dt
+         END IF
+
+         IF (bexcm) contamtot = contamtot + contam_mean * dt
+
+         IF (ISextradis) THEN
+            do i = 1, disextrapoints
+               qoctotextra(i) = qoctotextra(i) + qocavextra(i) * dt
+            end do
+         END IF
+      END SUBROUTINE accumulate_interval
 
 
-         SUBROUTINE stop_on_io_error(io_status, message)
-            INTEGER,          INTENT(IN) :: io_status
-            CHARACTER(LEN=*), INTENT(IN) :: message
+      SUBROUTINE write_completed_regular_outputs(hour_now, q_mean, sed_mean, sedfine_mean, contam_mean)
+         INTEGER, INTENT(IN) :: hour_now
+         DOUBLE PRECISION, INTENT(IN) :: q_mean
+         DOUBLE PRECISION, INTENT(IN) :: sed_mean
+         DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
+         DOUBLE PRECISION, INTENT(IN) :: contam_mean
 
-            IF (io_status == 0) RETURN
+         DOUBLE PRECISION :: output_hour
 
-            WRITE(*, '(A)') message
-            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-            WRITE(*, '(''paused, type [enter] to continue'')')
-            READ(*, *)
-            STOP
-         END SUBROUTINE stop_on_io_error
+         ! output_hour = next_hour - 1.0D0:
+         !     mean value over the regular timestep, timestamped at the start
+         !     of the timestep.
+         ! output_hour = next_hour:
+         !     equivalent mean value timestamped at the end of the timestep.
+         output_hour = next_hour - ONE
+
+         CALL write_regular_outputs(output_hour, ABS(qoctot), qoctotextra, &
+            sedtot, sedfinetot, contamtot)
+
+         DO i = INT(next_hour) + 1, hour_now
+            next_hour   = DBLE(i)
+            output_hour = next_hour - ONE
+
+            CALL write_regular_outputs(output_hour, ABS(q_mean), qocavextra, &
+               sed_mean, sedfine_mean, contam_mean)
+         END DO
+      END SUBROUTINE write_completed_regular_outputs
 
 
-         SUBROUTINE fatal_on_io_error(io_status, error_code, message)
-            INTEGER,          INTENT(IN) :: io_status
-            INTEGER,          INTENT(IN) :: error_code
-            CHARACTER(LEN=*), INTENT(IN) :: message
+      SUBROUTINE restart_accumulators(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
+         DOUBLE PRECISION, INTENT(IN) :: dt
+         DOUBLE PRECISION, INTENT(IN) :: q_mean
+         DOUBLE PRECISION, INTENT(IN) :: sed_mean
+         DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
+         DOUBLE PRECISION, INTENT(IN) :: contam_mean
 
-            IF (io_status /= 0) CALL ERROR(FFFATAL, error_code, PPPRI, 0, 0, message)
-         END SUBROUTINE fatal_on_io_error
+         qoctot = q_mean * dt
 
-      END SUBROUTINE FROUTPUT
+         IF (bexsy) THEN
+            sedtot     = sed_mean     * dt
+            sedfinetot = sedfine_mean * dt
+         END IF
+
+         IF (bexcm) contamtot = contam_mean * dt
+
+         IF (ISextradis) THEN
+            qoctotextra(1:disextrapoints) = qocavextra(1:disextrapoints) * dt
+            do i = 1, disextrapoints
+               qoctotextra(i) = qocavextra(i) * dt
+            end do
+         END IF
+      END SUBROUTINE restart_accumulators
+
+
+      SUBROUTINE write_regular_outputs(output_hour, discharge, discharge_extra, sediment, sediment_fine, contaminant)
+         DOUBLE PRECISION, INTENT(IN) :: output_hour
+         DOUBLE PRECISION, INTENT(IN) :: discharge
+         DOUBLE PRECISION, INTENT(IN) :: discharge_extra(:)
+         DOUBLE PRECISION, INTENT(IN) :: sediment
+         DOUBLE PRECISION, INTENT(IN) :: sediment_fine
+         DOUBLE PRECISION, INTENT(IN) :: contaminant
+
+         CHARACTER(LEN=32) :: stamp
+         DOUBLE PRECISION  :: elapsed
+
+         elapsed = output_hour * TOUTPUT
+         stamp   = timestamp_from_output_hour(output_hour)
+
+         IF (ISextradis) THEN
+            WRITE(dis, '(A,'','',F0.3,'','',F0.5,*( '','',F0.5 ))') &
+               TRIM(stamp), elapsed, discharge, &
+               (ABS(discharge_extra(j)), j = 1, disextrapoints)
+         ELSE
+            WRITE(dis, '(A,'','',F0.3,'','',F0.5)') &
+               TRIM(stamp), elapsed, discharge
+         END IF
+
+         IF (bexsy) THEN
+            WRITE(SEDALLUNIT,  '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment
+            WRITE(SEDFINEUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment_fine
+         END IF
+
+         IF (bexcm) THEN
+            WRITE(CONTAMUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, contaminant
+         END IF
+      END SUBROUTINE write_regular_outputs
+
+
+      FUNCTION timestamp_from_output_hour(output_hour) RESULT(stamp)
+         DOUBLE PRECISION, INTENT(IN) :: output_hour
+         CHARACTER(LEN=32) :: stamp
+         INTEGER :: c(6)
+
+         c = DATE_FROM_HOUR(tih + output_hour * TOUTPUT)
+
+         WRITE(stamp, '(I4.4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2)') &
+            c(1), c(2), c(3), c(4), c(5), c(6)
+      END FUNCTION timestamp_from_output_hour
+
+
+      SUBROUTINE write_periodic_mass_balance()
+         IF (uznow <= icounter2) RETURN
+
+         WRITE(mas, '(F16.3,11('','',F16.3))') uznow, &
+            balanc(7)  * 1000.0D0 / carea, &
+            balanc(8)  * 1000.0D0 / carea, &
+            balanc(9)  * 1000.0D0 / carea, &
+            balanc(10) * 1000.0D0 / carea, &
+            balanc(11) * 1000.0D0 / carea, &
+            balanc(12) * 1000.0D0 / carea, &
+            balanc(13) * 1000.0D0 / carea, &
+            balanc(14) * 1000.0D0 / carea, &
+            balanc(15) * 1000.0D0 / carea, &
+            balanc(16) * 1000.0D0 / carea, &
+            balanc(17) * 1000.0D0 / carea
+
+         icounter2 = icounter2 + 24.0D0
+
+         IF (ISextrapsl) THEN
+            WRITE(PSLFILEUNIT, '(F10.2,*(1A,F10.2))') uznow, &
+               (',', zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), &
+               i = 1, pslextrapoints)
+         END IF
+      END SUBROUTINE write_periodic_mass_balance
+
+
+      SUBROUTINE write_final_state()
+         WRITE(vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
+         WRITE(vse, *) 'This output is by element number'
+         WRITE(vse, *)
+         WRITE(vse, *) 'phreatic surface level '
+
+         IF (bexbk) THEN
+            nminel = 1
+         ELSE
+            nminel = total_no_links + 1
+         END IF
+
+         WRITE(vse, '(10(1X,F9.3))') (zvspsl(j), j = nminel, total_no_elements)
+         WRITE(vse, *)
+         WRITE(vse, *) 'Heads at end of simulation'
+
+         DO iel = 1, total_no_elements
+            IF (bexbk .OR. iel > total_no_links) THEN
+               WRITE(vse, '(I7)') iel
+               WRITE(vse, '(10(1X,F9.3))') &
+                  (VSPSI(j, iel), j = nlyrbt(iel, 1), top_cell_no)
+            END IF
+         END DO
+      END SUBROUTINE write_final_state
+
+
+      SUBROUTINE write_checked(unit, line, error_message)
+         INTEGER,          INTENT(IN) :: unit
+         CHARACTER(LEN=*), INTENT(IN) :: line
+         CHARACTER(LEN=*), INTENT(IN) :: error_message
+
+         WRITE(unit, '(A)', IOSTAT=ios) line
+         CALL stop_on_io_error(ios, error_message)
+      END SUBROUTINE write_checked
+
+
+      SUBROUTINE stop_on_io_error(io_status, message)
+         INTEGER,          INTENT(IN) :: io_status
+         CHARACTER(LEN=*), INTENT(IN) :: message
+
+         IF (io_status == 0) RETURN
+
+         WRITE(*, '(A)') message
+         WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+         WRITE(*, '(''paused, type [enter] to continue'')')
+         READ(*, *)
+         STOP
+      END SUBROUTINE stop_on_io_error
+
+
+      SUBROUTINE fatal_on_io_error(io_status, error_code, message)
+         INTEGER,          INTENT(IN) :: io_status
+         INTEGER,          INTENT(IN) :: error_code
+         CHARACTER(LEN=*), INTENT(IN) :: message
+
+         IF (io_status /= 0) CALL ERROR(FFFATAL, error_code, PPPRI, 0, 0, message)
+      END SUBROUTINE fatal_on_io_error
+
+   END SUBROUTINE FROUTPUT
 
 
 
@@ -2394,37 +2394,37 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE FRRESC
    SUBROUTINE FRRESC
-   !----------------------------------------------------------------------*
-   !
-   ! OUTPUT CONTROL (HEADER) DATA TO UNFORMATTED 'RES' FILE.
-   ! OPEN UNFORMATTED RESULTS FILES TO HOLD ACTUAL DATA.
-   !
-   ! NOTE: THE ORDER OF ARRAYS DOESN'T NECESSARILY MATCH THAT OF THE COMMON
-   ! BLOCKS, SINCE THE ORDER OF READING THE DATA IS IMPORTANT IN SOME CASES
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRRESC/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Explicit typing.
-   ! RAH  970223  4.0  Combine DFILE with CFILE (& replace CPR with CMP).
-   !                   Add sections IVEG,VEG,ALCB1A.
-   !                   Replace NWC,DCONX,DCONY,DDZ,THSAT,NW,CCB,DB,BLOWP,
-   !                   CATUZ,NLYRC,EFFSAT,THFC,THWILT with JVS*,NVS*,
-   !                   DELTAZ,RDL,VSP*,ZBFULL,ZVSNOD.  See also AL.C,AL.D.
-   !                   Amend NLYRBT,NTSOIL loops (J inside, not I).
-   !                   Size of ICL* is 14 (was 13).
-   ! RAH  970223  4.1  Swap indices: DELTAZ,JVS*,ZVSNOD (see AL.C).
-   ! RAH  980713  4.2  Replace [I,N]CATUZ (redundant) with 0.
-   !      980722       ICL[IST,NUM] size NCLASS was 14 (see AL.D).
-   !                   Replace BEX[UZ,EX,SZ,TS1] with LDUM0 (see AL.D).
-   !                   Repace NGRID,NEXPO (also 0) with IDUM0 (see AL.D).
-   !                   Replace WIDTF,ZBED,HFLBED,ZFBED,DZFBED,LROOT,HFLBNK,
-   !                   PSTART with FDUM0 (see AL.D).  Use I2.2 for ANUM.
-   !                   Replace IORES with IDUM0 (was written while unset).
-   !                   Rewrite loop 280, & use intrinsic LEN & FORMAT 9300.
-   !                   Scrap local FILNAM (then no length limit).
-   !----------------------------------------------------------------------*
-   ! Commons and constants
+      !----------------------------------------------------------------------*
+      !
+      ! OUTPUT CONTROL (HEADER) DATA TO UNFORMATTED 'RES' FILE.
+      ! OPEN UNFORMATTED RESULTS FILES TO HOLD ACTUAL DATA.
+      !
+      ! NOTE: THE ORDER OF ARRAYS DOESN'T NECESSARILY MATCH THAT OF THE COMMON
+      ! BLOCKS, SINCE THE ORDER OF READING THE DATA IS IMPORTANT IN SOME CASES
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FRRESC/4.2
+      ! Modifications:
+      ! RAH  941003 3.4.1 Explicit typing.
+      ! RAH  970223  4.0  Combine DFILE with CFILE (& replace CPR with CMP).
+      !                   Add sections IVEG,VEG,ALCB1A.
+      !                   Replace NWC,DCONX,DCONY,DDZ,THSAT,NW,CCB,DB,BLOWP,
+      !                   CATUZ,NLYRC,EFFSAT,THFC,THWILT with JVS*,NVS*,
+      !                   DELTAZ,RDL,VSP*,ZBFULL,ZVSNOD.  See also AL.C,AL.D.
+      !                   Amend NLYRBT,NTSOIL loops (J inside, not I).
+      !                   Size of ICL* is 14 (was 13).
+      ! RAH  970223  4.1  Swap indices: DELTAZ,JVS*,ZVSNOD (see AL.C).
+      ! RAH  980713  4.2  Replace [I,N]CATUZ (redundant) with 0.
+      !      980722       ICL[IST,NUM] size NCLASS was 14 (see AL.D).
+      !                   Replace BEX[UZ,EX,SZ,TS1] with LDUM0 (see AL.D).
+      !                   Repace NGRID,NEXPO (also 0) with IDUM0 (see AL.D).
+      !                   Replace WIDTF,ZBED,HFLBED,ZFBED,DZFBED,LROOT,HFLBNK,
+      !                   PSTART with FDUM0 (see AL.D).  Use I2.2 for ANUM.
+      !                   Replace IORES with IDUM0 (was written while unset).
+      !                   Rewrite loop 280, & use intrinsic LEN & FORMAT 9300.
+      !                   Scrap local FILNAM (then no length limit).
+      !----------------------------------------------------------------------*
+      ! Commons and constants
 
       ! Assumed external module dependencies providing global variables:
       ! SHEVER, RES, NX, NY, NGDBGN, total_no_elements, ICMREF, ICMXY,
@@ -2604,18 +2604,18 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
    SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
-   !----------------------------------------------------------------------*
-   !
-   ! WRITE DATA TO UNFORMATTED RESULT FILES.
-   !
-   ! DATA IS ONLY WRITTEN (ON A PARTICULAR CALL TO THIS SUBROUTINE) FOR THE
-   !   DATA TYPES INDICATED BY A '1' IN ARGUMENT AIOSTO. THIS ROUTINE CAN
-   !   THEREFORE BE CALLED SELECTIVELY FROM DIFFERENT PARTS OF SHETRAN.
-   !
-   ! DATA OUTPUT IS DETERMINED BY USER-DEFINED OUTPUT SETS & DATA CLASSES.
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRRESP/4.2
+      !----------------------------------------------------------------------*
+      !
+      ! WRITE DATA TO UNFORMATTED RESULT FILES.
+      !
+      ! DATA IS ONLY WRITTEN (ON A PARTICULAR CALL TO THIS SUBROUTINE) FOR THE
+      !   DATA TYPES INDICATED BY A '1' IN ARGUMENT AIOSTO. THIS ROUTINE CAN
+      !   THEREFORE BE CALLED SELECTIVELY FROM DIFFERENT PARTS OF SHETRAN.
+      !
+      ! DATA OUTPUT IS DETERMINED BY USER-DEFINED OUTPUT SETS & DATA CLASSES.
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/FR/FRRESP/4.2
 
       ! Assumed external module dependencies providing global variables:
       ! SEDSRT, total_no_elements, DLS, DLSSRT, GNUCUM, GNU, PREVTM, NSET,
@@ -2696,74 +2696,74 @@ MODULE FRmod
             END IF
 
             SELECT CASE (IODATA(ISET))
-            CASE (1)
+             CASE (1)
                BUFFER(J) = PNETTO(IEL) * 3600000.0D0
-            CASE (2)
+             CASE (2)
                BUFFER(J) = EPOT(IEL) * 3600000.0D0
-            CASE (3)
+             CASE (3)
                BUFFER(J) = ERZA(IEL) * 3600000.0D0
-            CASE (4)
+             CASE (4)
                BUFFER(J) = ESOILA(IEL) * 3600000.0D0
-            CASE (5)
+             CASE (5)
                BUFFER(J) = EINTA(IEL) * 3600000.0D0
-            CASE (6)
+             CASE (6)
                BUFFER(J) = DRAINA(IEL) * 3600000.0D0
-            CASE (7)
+             CASE (7)
                BUFFER(J) = CSTORE(IEL)
-            CASE (8)
+             CASE (8)
                BUFFER(J) = QH(IEL) * 3600000.0D0
-            CASE (9)
+             CASE (9)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (QVSV(K, IEL), K = 1, top_cell_no)
-            CASE (10)
+             CASE (10)
                BUFFER(J) = SD(IEL)
-            CASE (11)
+             CASE (11)
                BUFFER(J) = TS(IEL)
-            CASE (12)
+             CASE (12)
                BUFFER(J) = ZVSPSL(IEL) - ZGRUND(IEL)
-            CASE (13)
+             CASE (13)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (((QVSH(KK, K, IEL)), K = 1, top_cell_no), KK = 1, 4)
-            CASE (14)
+             CASE (14)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (QOC(IEL, K), K = 1, 4)
-            CASE (15)
+             CASE (15)
                BUFFER(J) = GETHRF(IEL) - ZGRUND(IEL)
-            CASE (16)
+             CASE (16)
                BUFFER(J) = UNDEF
-            CASE (17)
+             CASE (17)
                IF (IEL <= total_no_links) THEN
                   BUFFER(J) = QBKB(IEL, 1) + QBKB(IEL, 2) + QBKF(IEL, 1) + QBKF(IEL, 2)
                ELSE
                   BUFFER(J) = UNDEF
                END IF
-            CASE (18)
+             CASE (18)
                BUFFER(J) = QVSSPR(IEL)
-            CASE (19)
+             CASE (19)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (VSPSI(K, IEL), K = 1, top_cell_no)
-            CASE (20)
+             CASE (20)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (VSTHE(K, IEL), K = 1, top_cell_no)
-            CASE (21)
+             CASE (21)
                DUM0 = DLS(IEL)
                IF (ICORS > 0) DUM0 = DUM0 * FBETA(IEL, ICORS)
                BUFFER(J) = 1.0D3 * DUM0
-            CASE (22)
+             CASE (22)
                DUM0 = 0.0D0
                DO SED = SFSED1, SFSED2
                   DUM0 = DUM0 + FDEL(IEL, SED)
                END DO
                BUFFER(J) = 1.0D3 * RHOSED * (1.0D0 - PLS(IEL)) * DUM0
-            CASE (23)
+             CASE (23)
                BUFFER(J) = GINFD(IEL, ICORS)
-            CASE (24)
+             CASE (24)
                BUFFER(J) = GINFS(IEL, ICORS)
-            CASE (25)
+             CASE (25)
                BUFFER(J) = 1000.0D0 * 24.0D0 * 3600.0D0 * GNU(IEL)
-            CASE (26)
+             CASE (26)
                BUFFER(J) = 1000.0D0 * 24.0D0 * 3600.0D0 * GNUBK(IEL)
-            CASE (27)
+             CASE (27)
                COLUMN = .TRUE.
                DO K = 1, 4
                   DUM0 = 0.0D0
@@ -2773,20 +2773,20 @@ MODULE FRmod
                   DUM1(K) = DUM0 * RHOSED
                END DO
                WRITE (IORES(ISET)) RESNOW, DUM1
-            CASE (28)
+             CASE (28)
                DUM0 = 0.0D0
                DO SED = SFSED1, SFSED2
                   DUM0 = DUM0 + QSED(IEL, SED, 1) + QSED(IEL, SED, 2) + &
-                                QSED(IEL, SED, 3) + QSED(IEL, SED, 4)
+                     QSED(IEL, SED, 3) + QSED(IEL, SED, 4)
                END DO
                BUFFER(J) = DUM0 * RHOSED
-            CASE (29)
+             CASE (29)
                IF (DCBED(IEL) > 0.0D0) THEN
                   BUFFER(J) = DCBSED(IEL, ICORS) / DCBED(IEL)
                ELSE
                   BUFFER(J) = ZERO
                END IF
-            CASE (30)
+             CASE (30)
                COLUMN = .TRUE.
                DO K = 1, 4
                   DUM0 = 0.0D0
@@ -2800,29 +2800,29 @@ MODULE FRmod
                   DUM1(K) = 1.0D3 * DUM0 * RHOSED
                END DO
                WRITE (IORES(ISET)) RESNOW, (DUM1(K), K = 1, 4)
-            CASE (31)
+             CASE (31)
                BUFFER(J) = ARBDEP(IEL)
-            CASE (32)
+             CASE (32)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (CCCC(IEL, K, ICORS), K = 1, top_cell_no)
-            CASE (33)
+             CASE (33)
                COLUMN = .TRUE.
                WRITE (IORES(ISET)) RESNOW, (SSSS(IEL, K, ICORS), K = 1, top_cell_no)
-            CASE (34)
+             CASE (34)
                BUFFER(J) = CCCC(IEL, top_cell_no, ICORS)
-            CASE (35)
+             CASE (35)
                BUFFER(J) = CCCC(IEL, top_cell_no - 1, ICORS)
-            CASE (36)
+             CASE (36)
                BUFFER(J) = CCCC(IEL, top_cell_no - 2, ICORS)
-            CASE (37)
+             CASE (37)
                BUFFER(J) = CCCC(IEL, NCOLMB(IEL), ICORS)
-            CASE (38)
+             CASE (38)
                BUFFER(J) = CCCCW(IEL, ICORS)
-            CASE (39:40)
+             CASE (39:40)
                BUFFER(J) = UNDEF
-            CASE (41)
+             CASE (41)
                BUFFER(J) = QVSWEL(IEL) * cellarea(IEL)
-            CASE (42)
+             CASE (42)
                COLUMN = .TRUE.
                IW = NVSWLI(IEL)
                IF (IW > 0) THEN
@@ -2835,13 +2835,13 @@ MODULE FRmod
                   END DO
                END IF
                WRITE (IORES(ISET)) RESNOW, (COLBUF(K), K = 1, top_cell_no)
-            CASE (43)
+             CASE (43)
                BUFFER(J) = WBERR(IEL)
-            CASE (44)
+             CASE (44)
                BUFFER(J) = GNUCUM(IEL) - (DLS(IEL) - DLSSRT(IEL)) * 1000.0D0
-            CASE (45:49)
+             CASE (45:49)
                BUFFER(J) = UNDEF
-            CASE (50)
+             CASE (50)
                BUFFER(J) = BALANC(J) * 1000.0D0 / CAREA
             END SELECT
 
@@ -2863,17 +2863,17 @@ MODULE FRmod
    !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    !SSSSSS SUBROUTINE FRSORT
    SUBROUTINE FRSORT
-   !
-   ! SORT OF ALL ELEMENTS ON WATER ELEVATION (HIGHEST ELEVATION FIRST)
-   ! OR WATER TABLE ELEVATION IF NO SURFACE WATER IS PRESENT IN A GRID SQUARE
-   !   BANK ELEMENT
-   ! OR CHANNEL BED ELEVATION IF NO SURFACE WATER IS PRESENT IN A CHANNEL LINK
-   !
-   ! SURFACE WATER ELEVATIONS AND INDICES STORED IN COLUMN 1 OF ELEV AND ISTEMP
-   ! WATER TABLE ELEVATIONS AND INDICES STORED IN COLUMN 2 OF ELEV AND ISTEMP
-   !
-   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
+      !
+      ! SORT OF ALL ELEMENTS ON WATER ELEVATION (HIGHEST ELEVATION FIRST)
+      ! OR WATER TABLE ELEVATION IF NO SURFACE WATER IS PRESENT IN A GRID SQUARE
+      !   BANK ELEMENT
+      ! OR CHANNEL BED ELEVATION IF NO SURFACE WATER IS PRESENT IN A CHANNEL LINK
+      !
+      ! SURFACE WATER ELEVATIONS AND INDICES STORED IN COLUMN 1 OF ELEV AND ISTEMP
+      ! WATER TABLE ELEVATIONS AND INDICES STORED IN COLUMN 2 OF ELEV AND ISTEMP
+      !
+      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
 
       ! Assumed external module dependencies providing global variables:
       ! NELEE, total_no_elements, ISORT, ICMREF, LINKNS, ZVSPSL, GETHRF,
@@ -2885,7 +2885,7 @@ MODULE FRmod
       DOUBLE PRECISION :: ELEV (NELEE, 2)
       INTEGER :: ISTEMP (NELEE, 2), NSORT (2)
       INTEGER :: NS1, NS2, I, IEL, ITYPE, JEL, IL, L, NDUM, NSTART, NEND, &
-                 JUMP, M, K, N, ITEMP, I1, I2, IS
+         JUMP, M, K, N, ITEMP, I1, I2, IS
       DOUBLE PRECISION :: HSZ1, HSZ2, ZHIGH, ZLOW, TEMP
 
       !----------------------------------------------------------------------*
@@ -3073,7 +3073,7 @@ MODULE FRmod
 
       ! FORMAT STATEMENTS
 1000  FORMAT(' total_no_elements= ', I4, '  NS1= ', I4, ' NS2= ', I4, ' SFCMAX(*)= ', F7.1, &
-             ' sfcmin=', f7.1, ' SZMAX(+)= ', F7.1, ' szmin=', f7.1)
+         ' sfcmin=', f7.1, ' SZMAX(+)= ', F7.1, ' szmin=', f7.1)
 1010  FORMAT(' ', I4, ' ', I4, ' |', A68)
 
    END SUBROUTINE FRSORT
@@ -3083,32 +3083,32 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE INBK
    SUBROUTINE INBK
-   !----------------------------------------------------------------------*
-   !
-   ! SUBROUTINE TO READ IN INPUT DATA FOR BANK COMPONENT
-   !
-   ! INPUT METHODS ARE:
-   !  1  SET VALUE = ADJACENT GRID VALUE
-   !                 (OR ADJACENT BANK-FULL ELEV. FOR G. LEVEL)
-   !  2  SET VALUE = GIVEN DEFAULT VALUE
-   !  3  VALUE GIVEN FOR EACH DATA CLASS (SEE OUTPUT DEFINITION FILE)
-   !  4  VALUE GIVEN FOR EACH BANK ELEMENT
-   !
-   ! Note that bank widths are not set here.
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/BK/INBK/4.2
-   ! Modifications:
-   ! RAH  941001 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL (AL.P).
-   !  GP  940816  4.0  Don't set NLYRC,I/CATUZ (see AL.D,FRRESC), N/ICTUZR
-   !                   (see AL.D), NLYR,NTSOIL,ZLYRBT (see VSREAD,VSCONC).
-   !                   Replace HSZ with ZVSPSL (see AL.C).
-   ! RAH  980713  4.2  Explicit typing.
-   !      980730       Don't support INTYPE=3 (was incorrect - see BR/__).
-   !                   New local DZG.
-   ! JE   JAN 2009     Loop restructure for AD
-   !----------------------------------------------------------------------*
-   ! Commons and constants
+      !----------------------------------------------------------------------*
+      !
+      ! SUBROUTINE TO READ IN INPUT DATA FOR BANK COMPONENT
+      !
+      ! INPUT METHODS ARE:
+      !  1  SET VALUE = ADJACENT GRID VALUE
+      !                 (OR ADJACENT BANK-FULL ELEV. FOR G. LEVEL)
+      !  2  SET VALUE = GIVEN DEFAULT VALUE
+      !  3  VALUE GIVEN FOR EACH DATA CLASS (SEE OUTPUT DEFINITION FILE)
+      !  4  VALUE GIVEN FOR EACH BANK ELEMENT
+      !
+      ! Note that bank widths are not set here.
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/BK/INBK/4.2
+      ! Modifications:
+      ! RAH  941001 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL (AL.P).
+      !  GP  940816  4.0  Don't set NLYRC,I/CATUZ (see AL.D,FRRESC), N/ICTUZR
+      !                   (see AL.D), NLYR,NTSOIL,ZLYRBT (see VSREAD,VSCONC).
+      !                   Replace HSZ with ZVSPSL (see AL.C).
+      ! RAH  980713  4.2  Explicit typing.
+      !      980730       Don't support INTYPE=3 (was incorrect - see BR/__).
+      !                   New local DZG.
+      ! JE   JAN 2009     Loop restructure for AD
+      !----------------------------------------------------------------------*
+      ! Commons and constants
 
       ! Assumed external module dependencies providing global variables:
       ! BKD, TITLE, PPPRI, NGDBGN, total_no_elements, IDUM, DUMMY, zero,
@@ -3195,26 +3195,26 @@ MODULE FRmod
                   DZG = ZGRUND (IEL) - ZGRUND (JEL)
 
                   SELECT CASE (IDATA)
-                  CASE (1)
+                   CASE (1)
                      IL = ICMREF (IEL, 4)
                      ZGRUND (IEL) = ZBFULL (IL)
-                  CASE (2)
+                   CASE (2)
                      NMC (IEL) = NMC (JEL)
-                  CASE (3)
+                   CASE (3)
                      NRAINC (IEL) = NRAINC (JEL)
-                  CASE (4)
+                   CASE (4)
                      NVC (IEL) = NVC (JEL)
-                  CASE (6)
+                   CASE (6)
                      STRXX (IEL) = STRXX (JEL)
-                  CASE (7)
+                   CASE (7)
                      STRYY (IEL) = STRYY (JEL)
-                  CASE (10)
+                   CASE (10)
                      SD (IEL) = SD (JEL)
-                  CASE (11)
+                   CASE (11)
                      RHOSAR (IEL) = RHOSAR (JEL)
-                  CASE (12)
+                   CASE (12)
                      ZVSPSL (IEL) = ZVSPSL (JEL) + DZG
-                  CASE (13)
+                   CASE (13)
                      CALL SETHRF(IEL, GETHRF (JEL) + DZG)
                   END SELECT
                END DO out90
@@ -3293,25 +3293,25 @@ MODULE FRmod
             ITYPE = ICMREF (IEL, 1)
             IF (ITYPE == 1 .OR. ITYPE == 2) THEN
                SELECT CASE (IDATA)
-               CASE (1)
+                CASE (1)
                   ZGRUND (IEL) = DUMMY (IEL)
-               CASE (2)
+                CASE (2)
                   NMC (IEL) = IDUM (IEL)
-               CASE (3)
+                CASE (3)
                   NRAINC (IEL) = IDUM (IEL)
-               CASE (4)
+                CASE (4)
                   NVC (IEL) = IDUM (IEL)
-               CASE (6)
+                CASE (6)
                   STRXX (IEL) = DUMMY (IEL)
-               CASE (7)
+                CASE (7)
                   STRYY(IEL) = DUMMY (IEL)
-               CASE (10)
+                CASE (10)
                   SD (IEL) = DUMMY (IEL)
-               CASE (11)
+                CASE (11)
                   RHOSAR (IEL) = DUMMY (IEL)
-               CASE (12)
+                CASE (12)
                   ZVSPSL (IEL) = ZGRUND (IEL) - DUMMY (IEL)
-               CASE (13)
+                CASE (13)
                   CALL SETHRF(IEL, ZGRUND (IEL) + DUMMY (IEL))
                END SELECT
             END IF
@@ -3334,29 +3334,29 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE INCM
    SUBROUTINE INCM (ISSDON)
-   !----------------------------------------------------------------------*
-   !
-   !  INITIALISATION SUBROUTINE FOR CONTAMINANT COMPONENT
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/MUZ/INCM/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.  No INTEGER*2.
-   !  GP  960124  4.0  Scrap local variables K1,K2 & arrays JAQBT,JFACE,
-   !                   JSOOL,JSOOLA,NWORK,DOL,TDUMMY,ZDEL,ZHATP; add ROH.
-   !                   Replace: THSAT with VSPOR; KSPPE,KSPE with KSPDUM.
-   !                   Set ZCOLMB from ZVSNOD (was ZGRUND & DDZ).
-   !                   ...
-   ! RAH  970108  4.1  No long lines or non-std chars.  Generic intrinsics.
-   !      970218       Swap subscripts: QVSH,DELTAZ,JVSACN,JVSDEL,ZVSNOD,
-   !                   QVSV,VSTHE (see AL.C).
-   !      970521       Scrap outputs PLS,PSD (SED.CS), JBTLYR (COLM.CG) &
-   !                   WELDRO (COLM.CO).  Explicit typing.
-   !                   Don't admit BEXBK=F (setting JEL in loop 24).
-   ! RAH  980308  4.2  Scrap output OLBD (BK.CW).
-   !      981103       Scrap output ERUZO (COLM.CO).
-   !----------------------------------------------------------------------*
-   ! Commons and constants
+      !----------------------------------------------------------------------*
+      !
+      !  INITIALISATION SUBROUTINE FOR CONTAMINANT COMPONENT
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/MUZ/INCM/4.2
+      ! Modifications:
+      ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.  No INTEGER*2.
+      !  GP  960124  4.0  Scrap local variables K1,K2 & arrays JAQBT,JFACE,
+      !                   JSOOL,JSOOLA,NWORK,DOL,TDUMMY,ZDEL,ZHATP; add ROH.
+      !                   Replace: THSAT with VSPOR; KSPPE,KSPE with KSPDUM.
+      !                   Set ZCOLMB from ZVSNOD (was ZGRUND & DDZ).
+      !                   ...
+      ! RAH  970108  4.1  No long lines or non-std chars.  Generic intrinsics.
+      !      970218       Swap subscripts: QVSH,DELTAZ,JVSACN,JVSDEL,ZVSNOD,
+      !                   QVSV,VSTHE (see AL.C).
+      !      970521       Scrap outputs PLS,PSD (SED.CS), JBTLYR (COLM.CG) &
+      !                   WELDRO (COLM.CO).  Explicit typing.
+      !                   Don't admit BEXBK=F (setting JEL in loop 24).
+      ! RAH  980308  4.2  Scrap output OLBD (BK.CW).
+      !      981103       Scrap output ERUZO (COLM.CO).
+      !----------------------------------------------------------------------*
+      ! Commons and constants
 
       USE CMmod, ONLY: CMRD   !"JE"
 
@@ -3432,8 +3432,8 @@ MODULE FRmod
          NCOLMB (total_no_links + 1), NTAB, DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB, &
          TABLE_CONCENTRATION, TABLE_WATER_DEPTH, IIICF, SOFN, GNN, GGLMSO, ALPHBD, ALPHBS, KDDLS, &
          ALPHA, FADS, ISCNSV, IDUM, DUMMY)
-         ! Checks the data used to calculate spatially variable
-         ! concentrations in the grid and bank elements is OK
+      ! Checks the data used to calculate spatially variable
+      ! concentrations in the grid and bank elements is OK
 
       CALL MUERR2 (CMP, total_no_elements, NELEE, total_no_links, MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCON, NCONEE, &
          NUM_CATEGORIES_TYPES, NTAB, NCATTY, ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM1)
@@ -3905,26 +3905,26 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE INET
    SUBROUTINE INET
-   !----------------------------------------------------------------------*
-   ! THIS SUBROUTINE READS IN PARAMETERS REQUIRED FOR THE ET COMPONENT
-   ! AND CARRIES OUT INITIALISATION CALCULATIONS
-   ! IT IS ASSUMED THAT MET SITE CODES AND VEGETATION CODES HAVE BEEN
-   ! READ IN THE GLOBAL INITIALISATION ROUTINES
-   ! VARIABLE NAMES ARE AS SPECIFIED IN IH SHE REPORT 8, MAY 1978
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/INET/4.2
-   ! Modifications since v3.3:
-   !  GP       3.4  Don't call METIN (see TMSTEP).
-   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-   ! RAH  970516  4.1  Scrap WEP,WETEX,WETOCE,WEXET,WSET,WSETER,WSETI
-   !                   (AL.D), DWETER (SPEC.ET) & AKKEP,AKKEA,AKKP (local).
-   !                   Bring HEAD,ZU,ZD,ZO from SPEC.ET.
-   !                   HEAD is type CHAR (was DBLE).  Explicit typing.
-   !                   Scrap SPEC.ET output arrays NUMCST,NUMPLA,NUMCLA,
-   !                   NUMVHT: use local JJJ.
-   ! RAH  981021  4.2  Scrap AL.D outputs CSTOLD,EPOTR.
-   !                   Replace VK^2 with constant VKSQ.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! THIS SUBROUTINE READS IN PARAMETERS REQUIRED FOR THE ET COMPONENT
+      ! AND CARRIES OUT INITIALISATION CALCULATIONS
+      ! IT IS ASSUMED THAT MET SITE CODES AND VEGETATION CODES HAVE BEEN
+      ! READ IN THE GLOBAL INITIALISATION ROUTINES
+      ! VARIABLE NAMES ARE AS SPECIFIED IN IH SHE REPORT 8, MAY 1978
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/ET/INET/4.2
+      ! Modifications since v3.3:
+      !  GP       3.4  Don't call METIN (see TMSTEP).
+      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
+      ! RAH  970516  4.1  Scrap WEP,WETEX,WETOCE,WEXET,WSET,WSETER,WSETI
+      !                   (AL.D), DWETER (SPEC.ET) & AKKEP,AKKEA,AKKP (local).
+      !                   Bring HEAD,ZU,ZD,ZO from SPEC.ET.
+      !                   HEAD is type CHAR (was DBLE).  Explicit typing.
+      !                   Scrap SPEC.ET output arrays NUMCST,NUMPLA,NUMCLA,
+      !                   NUMVHT: use local JJJ.
+      ! RAH  981021  4.2  Scrap AL.D outputs CSTOLD,EPOTR.
+      !                   Replace VK^2 with constant VKSQ.
+      !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
       ! NV, BHOTRD, NGDBGN, total_no_elements, NRAIN, ETD, PPPRI, NM
@@ -3952,7 +3952,7 @@ MODULE FRmod
       ! Constants
       DOUBLE PRECISION, PARAMETER :: VKSQ = 0.1681D0 ! (0.41^2)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! INITIAL VALUES
       init_veg_loop: DO I = 1, NV
@@ -4017,19 +4017,19 @@ MODULE FRmod
          !  READ PARAMETER DATA
          !-------------------------------------
          READ(ETD, '(L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)') &
-              BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
-              PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
+            BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
+            PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
 
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')") MODE(I)
 
          !-----WRITE PARAMETER DATA
          IF (BINETP) WRITE(PPPRI, "('0', 'PARAMETERS'/1X, 10('*')//10X, 'PLAI', F15.8/10X, " // &
-                                  "'CSTCAP', F13.8/10X, 'CK', F17.8/10X, 'CB', F17.8/10X, " // &
-                                  "'CLAI', F15.8/10X, 'VHT', F16.8/10X, 'RDL', F16.8)") &
-                                  PLAI(I), CSTCAP(I), CK(I), CB(I), CLAI(I), VHT(I), RDL(I)
+            "'CSTCAP', F13.8/10X, 'CK', F17.8/10X, 'CB', F17.8/10X, " // &
+            "'CLAI', F15.8/10X, 'VHT', F16.8/10X, 'RDL', F16.8)") &
+            PLAI(I), CSTCAP(I), CK(I), CB(I), CLAI(I), VHT(I), RDL(I)
 
          IF (BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'VARIABLE RA WITH'/10X, 'ZO', F17.4/10X, " // &
-                                               "'ZD', F18.4/10X, 'ZU', F17.4)") ZO(I), ZD(I), ZU(I)
+            "'ZD', F18.4/10X, 'ZU', F17.4)") ZO(I), ZD(I), ZU(I)
 
          IF (.NOT. BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'CONSTANT RA =', F10.4)") RA(I)
 
@@ -4044,7 +4044,7 @@ MODULE FRmod
 
          !-----CHECK MODE FOR TIME-VARYING CSTCAP
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', I3, 3X, " // &
-                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECS(I)
+            "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECS(I)
 
          IF (MODECS(I) /= 0) THEN
             NCTCST(I) = 1
@@ -4067,7 +4067,7 @@ MODULE FRmod
 
          !-----CHECK MODE FOR TIME-VARYING PLAI
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR PLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
-                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEPL(I)
+            "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEPL(I)
 
          IF (MODEPL(I) /= 0) THEN
             NCTPLA(I) = 1
@@ -4090,7 +4090,7 @@ MODULE FRmod
 
          !-----CHECK MODE FOR TIME-VARYING CLAI
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
-                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECL(I)
+            "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECL(I)
 
          IF (MODECL(I) /= 0) THEN
             NCTCLA(I) = 1
@@ -4113,7 +4113,7 @@ MODULE FRmod
 
          !-----CHECK MODE FOR TIME-VARYING VHT
          IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR VHT FOR VEGETATION', I3, ' IS', I3, 3X, " // &
-                                  "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEVH(I)
+            "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEVH(I)
 
          IF (MODEVH(I) /= 0) THEN
             NCTVHT(I) = 1
@@ -4211,41 +4211,41 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE INFR
    SUBROUTINE INFR
-   !-------------------------
-   !
-   !
-   !     READ AND INITIALIZE DATA WHICH IS COMMON TO TWO OR MORE COMPONENTS
-   !         - ORGANISATION AND FILE NOS.        FRD,MED,ETD,UZD,OCD,SZD,
-   !                                             SMD,PRI,RES,HOT,SED
-   !         - JOB TITLE.
-   !         - MODEL SIZE.                       NX,NY
-   !          - START TIME OF SIMULATION
-   ! ISYEAR,ISMTH,ISDAY,ISHOUR,ISMIN
-   !          - END   TIME OF SIMULATION
-   ! IEYEAR,IEMTH,IEDAY,IEHOUR,IEMIN
-   !         - H-H GRID SIZES IN X-DIRECTION.    DXIN
-   !         - H-H GRID SIZES IN Y-DIRECTION.    DYIN
-   !         - PRINTING CONTROL.                 DTAO,IAOUT,BINFRP,
-   !                                             BFRTS1,BFRTS2,BSTORE
-   !         - CONTROLS FOR SELECTION OF         BPPNET,BPEPOT,BPQOC,
-   !             RESULTS TO BE PRINTED           BPDEP,BPQF,BPQH,BPQSZ,
-   !                                             BPHSZ,BPBAL
-   !         - COMPONENT EXECUTION CONTROL.      BEXET,BEXUZ,BEXOC,BEXSZ,
-   !                                             BEXSM
-   !         - NO. OF METEOROLOGICAL SITES,
-   !             RAINFALL STATIONS,
-   !             VEGETATION TYPES AND SOIL
-   !             TYPES.                          NM,NRAIN,NV,NS
-   !         - RIVER LINING PARAMETERS.          BLOWP,DB,CCB
-   !         - DEFAULT MET- VEG- AND SOILCODES   IDMC,IDRA,IDVE,IDS1,IDS2
-   !         - GROUND SURFACE LEVEL.             ZGRUND
-   !         - IMPERMEABLE BED LEVEL.            ZBED
-   !         - METEOROLOGICAL SITE CODES.        NMC
-   !         - RAINFALL STATION CODES.           NRAINC
-   !         - VEGETATION CODES.                 NVC
-   !         - SOIL CODES - UNDER ROOT ZONE.     NSC1
-   !         - SOIL CODES - ROOT ZONE.           NSC2
-   !         - GRID CODE FOR UZ, SZ AND FRAME    INGRID
+      !-------------------------
+      !
+      !
+      !     READ AND INITIALIZE DATA WHICH IS COMMON TO TWO OR MORE COMPONENTS
+      !         - ORGANISATION AND FILE NOS.        FRD,MED,ETD,UZD,OCD,SZD,
+      !                                             SMD,PRI,RES,HOT,SED
+      !         - JOB TITLE.
+      !         - MODEL SIZE.                       NX,NY
+      !          - START TIME OF SIMULATION
+      ! ISYEAR,ISMTH,ISDAY,ISHOUR,ISMIN
+      !          - END   TIME OF SIMULATION
+      ! IEYEAR,IEMTH,IEDAY,IEHOUR,IEMIN
+      !         - H-H GRID SIZES IN X-DIRECTION.    DXIN
+      !         - H-H GRID SIZES IN Y-DIRECTION.    DYIN
+      !         - PRINTING CONTROL.                 DTAO,IAOUT,BINFRP,
+      !                                             BFRTS1,BFRTS2,BSTORE
+      !         - CONTROLS FOR SELECTION OF         BPPNET,BPEPOT,BPQOC,
+      !             RESULTS TO BE PRINTED           BPDEP,BPQF,BPQH,BPQSZ,
+      !                                             BPHSZ,BPBAL
+      !         - COMPONENT EXECUTION CONTROL.      BEXET,BEXUZ,BEXOC,BEXSZ,
+      !                                             BEXSM
+      !         - NO. OF METEOROLOGICAL SITES,
+      !             RAINFALL STATIONS,
+      !             VEGETATION TYPES AND SOIL
+      !             TYPES.                          NM,NRAIN,NV,NS
+      !         - RIVER LINING PARAMETERS.          BLOWP,DB,CCB
+      !         - DEFAULT MET- VEG- AND SOILCODES   IDMC,IDRA,IDVE,IDS1,IDS2
+      !         - GROUND SURFACE LEVEL.             ZGRUND
+      !         - IMPERMEABLE BED LEVEL.            ZBED
+      !         - METEOROLOGICAL SITE CODES.        NMC
+      !         - RAINFALL STATION CODES.           NRAINC
+      !         - VEGETATION CODES.                 NVC
+      !         - SOIL CODES - UNDER ROOT ZONE.     NSC1
+      !         - SOIL CODES - ROOT ZONE.           NSC2
+      !         - GRID CODE FOR UZ, SZ AND FRAME    INGRID
 
       ! Assumed external module dependencies providing global variables:
       ! PPPRI, BDEVER, SHEVER, BANNER, FRD, TITLE, nxee, nyee, nlfee, nelee,
@@ -4271,8 +4271,8 @@ MODULE FRmod
 
       WRITE(PPPRI, 10)
 10    FORMAT ('1', // T10, '                                E'/T10, &
-              ' EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN'/T10, &
-              '                                S' /)
+         ' EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN'/T10, &
+         '                                S' /)
 
       ! PRINT THE CURRENT VERSION NUMBER
       IF (BDEVER) THEN
@@ -4417,8 +4417,8 @@ MODULE FRmod
       WRITE(PPPRI, 210) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN, IEYEAR, &
          IEMTH, IEDAY, IEHOUR, IEMIN, TTHX
 210   FORMAT ('0'//, ' START OF SIMULATION  : ', 5I6, /, &
-              ' END OF SIMULATION    : ', 5I6, /, &
-              ' LENGTH OF SIMULATION : ', F10.2, ' HOURS.')
+         ' END OF SIMULATION    : ', 5I6, /, &
+         ' LENGTH OF SIMULATION : ', F10.2, ' HOURS.')
 
       ! store start time for mass balance
       mbyear = isyear
@@ -4429,14 +4429,14 @@ MODULE FRmod
          TSH = HOUR_FROM_DATE(JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN)
          WRITE(PPPRI, 211) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN, (TSH - TIH)
 211      FORMAT (// ' START OF SEDIMENT SIMULATION  : ', 5I6, / &
-                  '           AT SIMULATION HOUR  : ', F8.2)
+            '           AT SIMULATION HOUR  : ', F8.2)
       END IF
 
       IF (BEXCM) THEN
          TCH = HOUR_FROM_DATE(JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN)
          WRITE(PPPRI, 212) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN, (TCH - TIH)
 212      FORMAT (// ' START OF CONTAMINANT SIMULATION  : ', 5I6, / &
-                  '               AT SIMULATION HOUR  : ', F8.2)
+            '               AT SIMULATION HOUR  : ', F8.2)
       END IF
 
       WRITE(PPPRI, 215) TMAX
@@ -4444,7 +4444,7 @@ MODULE FRmod
 
       WRITE(PPPRI, 220) DTAO
 220   FORMAT ('0'//, ' PRINTING CONTROL - ALL RESULTS PRINTED AT', &
-              ' INTERVALS OF DTAO = ', F7.2, ' HOURS.')
+         ' INTERVALS OF DTAO = ', F7.2, ' HOURS.')
 
       IF (.NOT. BSTORE) WRITE(PPPRI, 230)
 230   FORMAT ('0'//, ' RESULTS NOT REQUIRED ON FILE STORE.')
@@ -4458,10 +4458,10 @@ MODULE FRmod
       READ (FRD, '(5I7)') NM, NRAIN, NV, NS, NLYRCT
       WRITE(PPPRI, 260) NM, NRAIN, NV, NS, NLYRCT
 260   FORMAT ('0'//, ' NO. OF METEOROLOGICAL SITES = ', I3, /, &
-              ' NO. OF RAINFALL STATIONS = ', I3, /, &
-              ' NO. OF VEGETATION TYPES = ', I3, /, &
-              ' NO. OF SOIL TYPES = ', I3, /, &
-              ' NO. OF SOIL HORIZON CATEGORIES = ', I3)
+         ' NO. OF RAINFALL STATIONS = ', I3, /, &
+         ' NO. OF VEGETATION TYPES = ', I3, /, &
+         ' NO. OF SOIL TYPES = ', I3, /, &
+         ' NO. OF SOIL HORIZON CATEGORIES = ', I3)
 
       ! READ RIVER LINING PARAMETERS.  BLOWP,DB,CCB,BEXTS1
       ! :FR30
@@ -4478,9 +4478,9 @@ MODULE FRmod
       READ (FRD, '(6I7)') IDMC, IDRA, IDVE, IDLYR
       WRITE(PPPRI, 300) IDMC, IDRA, IDVE, IDLYR
 300   FORMAT ('0', /, ' DEFAULT METEOROLOGICAL STATION CODE =', I3, /, &
-              1X, 'DEFAULT RAINFALL STATION CODE       =', I3, /, &
-              1X, 'DEFAULT VEGETATION GRID CODE        =', I3, /, &
-              1X, 'DEFAULT SOIL HORIZON CATEGORY CODE  =', I3)
+         1X, 'DEFAULT RAINFALL STATION CODE       =', I3, /, &
+         1X, 'DEFAULT VEGETATION GRID CODE        =', I3, /, &
+         1X, 'DEFAULT SOIL HORIZON CATEGORY CODE  =', I3)
 
       ! READ IN MAIN CATCHMENT DEFINITION ARRAY, INGRID
       ! (NB. THIS IS NOT READ IN USING AREAD ROUTINES, AS THE
@@ -4499,7 +4499,7 @@ MODULE FRmod
          IF (I2 /= K) THEN
             WRITE(PPPRI, 314) TITLE, I2
 314         FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
-                    'LINE K= ', I5)
+               'LINE K= ', I5)
             STOP
          END IF
       END DO
@@ -4567,9 +4567,9 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE INPL
    SUBROUTINE INPL
-   !----------------------------------------------------------------------*
-   !           Initialisation subroutine for contaminant plant uptake
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !           Initialisation subroutine for contaminant plant uptake
+      !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
       ! NPLT, NV, pmass, pf2max, pkmax, total_no_links, total_no_elements
@@ -4584,7 +4584,7 @@ MODULE FRmod
       INTEGER :: NCL, JPLANT, JPLTY, NCE, NDUM
       DOUBLE PRECISION :: D1DUM, RDUM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       NPLT = NV
       ! Number of top cell in column, and number of plant types
@@ -4648,24 +4648,24 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE INSM
    SUBROUTINE INSM
-   !----------------------------------------------------------------------*
-   !  THIS SUBROUTINE READS IN THE PARAMETERS REQUIRED FOR THE
-   !  SNOWMELT COMPONENT AND CARRIES OUT INITIALISATION
-   !  CALCULATIONS.
-   !----------------------------------------------------------------------*
-   !  VARIABLE AND UNIT SPECIFICATION
-   !  UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
-   !  SD    - SNOWDEPTH (MM OF SNOW)                      MM
-   !  DDF   - DEGREE DAY FACTOR                           MM/S/C
-   !  RHOS  - SPECIFIC GRAVITY OF SNOW                    --
-   !  TSIN  - INITIAL TEMPERATURE OF SNOW                 C
-   !  TS    - TEMPERATURE OF SNOW                         C
-   !  NSMC  - COUNTER USED IN ROUTING MELTWATER
-   !          THROUGH SNOWPACK. EQUALS NUMBER OF
-   !          SLUGS OF MELTWATER MOVING THROUGH SNOWPACK  --
-   !  MSM   - EQUALS 1 FOR DEGREE DAY
-   !                 2 FOR ENERGY BUDGET                  --
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !  THIS SUBROUTINE READS IN THE PARAMETERS REQUIRED FOR THE
+      !  SNOWMELT COMPONENT AND CARRIES OUT INITIALISATION
+      !  CALCULATIONS.
+      !----------------------------------------------------------------------*
+      !  VARIABLE AND UNIT SPECIFICATION
+      !  UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
+      !  SD    - SNOWDEPTH (MM OF SNOW)                      MM
+      !  DDF   - DEGREE DAY FACTOR                           MM/S/C
+      !  RHOS  - SPECIFIC GRAVITY OF SNOW                    --
+      !  TSIN  - INITIAL TEMPERATURE OF SNOW                 C
+      !  TS    - TEMPERATURE OF SNOW                         C
+      !  NSMC  - COUNTER USED IN ROUTING MELTWATER
+      !          THROUGH SNOWPACK. EQUALS NUMBER OF
+      !          SLUGS OF MELTWATER MOVING THROUGH SNOWPACK  --
+      !  MSM   - EQUALS 1 FOR DEGREE DAY
+      !                 2 FOR ENERGY BUDGET                  --
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! SMD, BINSMP, PPPRI, HEAD, DDF, RHOS, NSD, MSM, RHODEF
@@ -4678,7 +4678,7 @@ MODULE FRmod
       INTEGER :: N, IEL, I
       DOUBLE PRECISION :: TSIN, UNIFSD
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! READ PRINT CONTROL PARAMETERS
       READ(SMD, '(20A4)') HEAD
@@ -4749,22 +4749,22 @@ MODULE FRmod
          SF(IEL) = ZERO
       END DO epilogue_loop
 
-   !----------------------------------------------------------------------*
-   ! FORMAT STATEMENTS
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! FORMAT STATEMENTS
+      !----------------------------------------------------------------------*
 
 801   FORMAT(/, 'DEGREE DAY FACTOR DDF =', F7.5, 1X, 'MM/S/C', &
-             5X, 'SNOW SPECIFIC GRAVITY RHOS =', F7.5 / &
-             5X, 'INITIAL SNOW TEMPERATURE =', F7.2, 1X, 'C' / &
-             5X, 'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
-             ' AND BY ENERGY BUDGET IF MSM IS 2', 5X, 'MSM =', I3)
+         5X, 'SNOW SPECIFIC GRAVITY RHOS =', F7.5 / &
+         5X, 'INITIAL SNOW TEMPERATURE =', F7.2, 1X, 'C' / &
+         5X, 'SNOWMELT CALCULATED BY DEGREE DAY IF MSM IS 1', &
+         ' AND BY ENERGY BUDGET IF MSM IS 2', 5X, 'MSM =', I3)
 
 803   FORMAT(/, 'ENERGY BUDGET DATA', 3X, 'ROUGHNESS ZOS =', F7.5, 1X, 'M' / &
-             21X, 'ZERO PLANE DISPLACEMENT ZDS =', F7.5, 1X, 'M' / &
-             21X, 'HEIGHT OF ANEMOMETER ZUS =', F7.5, 1X, 'M')
+         21X, 'ZERO PLANE DISPLACEMENT ZDS =', F7.5, 1X, 'M' / &
+         21X, 'HEIGHT OF ANEMOMETER ZUS =', F7.5, 1X, 'M')
 
 715   FORMAT(/' LOCATION OF MET. STATIONS: ' / &
-              ' STATION NO.   ELEMENT NO.')
+         ' STATION NO.   ELEMENT NO.')
 
    END SUBROUTINE INSM
 
@@ -4772,16 +4772,16 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE DINET
    SUBROUTINE DINET
-   !----------------------------------------------------------------------*
-   ! DUMMY COMPONENT INITIALISATION (ET)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! DUMMY COMPONENT INITIALISATION (ET)
+      !----------------------------------------------------------------------*
 
       ! Assumed global variable provided via host module:
       ! BMETAL
 
       IMPLICIT NONE
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       WRITE(*, '(/, /, "ENTER DINET")')
       BMETAL = .TRUE.
@@ -4799,13 +4799,13 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE DINOC
    SUBROUTINE DINOC
-   !----------------------------------------------------------------------*
-   ! DUMMY COMPONENT INITIALISATION (OC)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! DUMMY COMPONENT INITIALISATION (OC)
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       WRITE(*, '(/, /, "ENTER DINOC")')
 
@@ -4815,9 +4815,9 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE DOCIN
    PURE SUBROUTINE DOCIN
-   !----------------------------------------------------------------------*
-   ! DUMMY COMPONENT (OC)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! DUMMY COMPONENT (OC)
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -4827,18 +4827,18 @@ MODULE FRmod
 
    !SSSSSS SUBROUTINE MUERR2
    SUBROUTINE MUERR2(CPR, total_no_elements, NELEE, total_no_links, MAX_NUM_CATEGORY_TYPES, &
-                     MAX_NUM_DATA_PAIRS, NCON, NCONEE, NUM_CATEGORIES_TYPES, NTAB, NCATTY,  &
-                     ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM)
-   !--------------------------------------------------------------------*
-   ! Checks data that is used to calculate the spatially variable
-   ! contaminant concentrations for grid and bank elements
-   !--------------------------------------------------------------------*
-   ! Version: 4.2                 Notes:
-   ! Module: CM                 Program: SHETRAN
-   ! Modifications
-   ! Notes: The checking works. However, it is done in a poor way.
-   ! In future this should be changed
-   !--------------------------------------------------------------------*
+      MAX_NUM_DATA_PAIRS, NCON, NCONEE, NUM_CATEGORIES_TYPES, NTAB, NCATTY,  &
+      ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM)
+      !--------------------------------------------------------------------*
+      ! Checks data that is used to calculate the spatially variable
+      ! contaminant concentrations for grid and bank elements
+      !--------------------------------------------------------------------*
+      ! Version: 4.2                 Notes:
+      ! Module: CM                 Program: SHETRAN
+      ! Modifications
+      ! Notes: The checking works. However, it is done in a poor way.
+      ! In future this should be changed
+      !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
       ! EEERR, FFFATAL
@@ -4856,29 +4856,26 @@ MODULE FRmod
       LOGICAL, INTENT(IN) :: ISCNSV(NCONEE)
 
       DOUBLE PRECISION, INTENT(INOUT) :: TABLE_CONCENTRATION(MAX_NUM_CATEGORY_TYPES, &
-                                  MAX_NUM_DATA_PAIRS, NCONEE)
+         MAX_NUM_DATA_PAIRS, NCONEE)
       DOUBLE PRECISION, INTENT(INOUT) :: TABLE_WATER_DEPTH(MAX_NUM_CATEGORY_TYPES, &
-                                   MAX_NUM_DATA_PAIRS, NCONEE)
+         MAX_NUM_DATA_PAIRS, NCONEE)
 
       LOGICAL, INTENT(INOUT) :: LDUM(1)  !! Workspace/Flag
 
       ! --- Local Variables ---
       INTEGER :: ICOL1, NERR, NELMTY, NTBL, I, J
-      INTEGER :: IUNDEF            !! Standard undefined integer flag
+      INTEGER, PARAMETER :: IUNDEF = 0   !! Unused subscript marker for ALCHK diagnostics
       DOUBLE PRECISION :: PREVDP    !! Previous depth for monotonicity check
 
       ! Constant arrays required by ALCHKI/ALCHK interfaces
       INTEGER :: IZERO(1)
-      DOUBLE PRECISION :: ZERO1(1)
 
 
-   !--------------------------------------------------------------------*
+      !--------------------------------------------------------------------*
 
       ! 0. Preliminaries
       ! --- Data Initialisation ---
       IZERO  = (/ 0 /)
-      ! ZERO1  = (/ 0.0D0 /)
-      ! IUNDEF = -999
       NERR   = 0
       ICOL1  = total_no_links + 1
 
@@ -4893,7 +4890,7 @@ MODULE FRmod
             ! *NCATTY
             ncatty_loop: DO J = ICOL1, total_no_elements
                CALL ALCHKI(EEERR, 2103, CPR, J, J, IUNDEF, IUNDEF, &
-                           'NCATTY(iel)', 'GT', IZERO, NCATTY(J:J, I), NERR, LDUM(1:1))
+                  'NCATTY(iel)', 'GT', IZERO, NCATTY(J:J, I), NERR, LDUM(1:1))
             END DO ncatty_loop
 
             ! *TABLE_WATER_DEPTH
@@ -4902,14 +4899,14 @@ MODULE FRmod
             category_loop1: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
 
                CALL ALCHK(EEERR, 2104, CPR, NELMTY, NELMTY, 1, IUNDEF, &
-                          'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,1]', 'EQ', ZERO1, ZERO, &
-                          TABLE_WATER_DEPTH(NELMTY:NELMTY, 1, I), NERR, LDUM(1:1))
+                  'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,1]', 'EQ', ZERO1, ZERO, &
+                  TABLE_WATER_DEPTH(NELMTY:NELMTY, 1, I), NERR, LDUM(1:1))
 
                table_depth_loop: DO NTBL = 2, NTAB(NELMTY, I)
                   PREVDP = TABLE_WATER_DEPTH(NELMTY, NTBL - 1, I)
                   CALL ALCHK(EEERR, 2105, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
-                             'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,ntab]', 'GT', (/PREVDP/), &
-                             ZERO, TABLE_WATER_DEPTH(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
+                     'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,ntab]', 'GT', (/PREVDP/), &
+                     ZERO, TABLE_WATER_DEPTH(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
                END DO table_depth_loop
 
             END DO category_loop1
@@ -4919,8 +4916,8 @@ MODULE FRmod
             category_loop2: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
                table_conc_loop: DO NTBL = 1, NTAB(NELMTY, I)
                   CALL ALCHK(EEERR, 2106, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
-                             'TABLE_CONCENTRATION[nmne,ntab]', 'GE', ZERO1, ZERO, &
-                             TABLE_CONCENTRATION(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
+                     'TABLE_CONCENTRATION[nmne,ntab]', 'GE', ZERO1, ZERO, &
+                     TABLE_CONCENTRATION(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
                END DO table_conc_loop
             END DO category_loop2
 
