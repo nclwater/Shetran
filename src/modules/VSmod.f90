@@ -22,6 +22,12 @@ MODULE VSmod
    INTEGER         :: ICSOILsv(LLEE,NELEE), JCBCsv(0:5,NELEE)
 !DOUBLEPRECISION :: VSAIJsv(4,LLEE,NELEE)
    DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: VSAIJsv
+   INTEGER, DIMENSION(:,:), ALLOCATABLE :: IVSDUM_VSREAD
+   INTEGER, DIMENSION(:), ALLOCATABLE :: IVSCAT_VSREAD
+   INTEGER, DIMENSION(:,:), ALLOCATABLE :: ISDUM_VSREAD
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RVSDUM_VSREAD
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RSDUM_VSREAD
+   LOGICAL, DIMENSION(:), ALLOCATABLE :: BDONE_VSREAD
 
    DOUBLEPRECISION :: WLLAST=zero, WLTIME=zero, RWELIN(NVSEE)=zero
    DOUBLEPRECISION :: RLFLST=zero, RLFTIM=zero, RLFPRV(NVSEE)=zero
@@ -174,6 +180,23 @@ CONTAINS
 
       ALLOCATE(vsaijsv(4,top_cell_no,total_no_elements), vskr(top_cell_no,total_no_elements))
    END SUBROUTINE initialise_vsmod
+
+
+   !SSSSSS SUBROUTINE initialise_vsread_buffers
+   SUBROUTINE initialise_vsread_buffers()
+
+      IF (.NOT. ALLOCATED(IVSDUM_VSREAD)) THEN
+         ALLOCATE(IVSDUM_VSREAD(NELEE, NLYREE), IVSCAT_VSREAD(NELEE), ISDUM_VSREAD(NSEE, 8))
+         ALLOCATE(RVSDUM_VSREAD(NELEE, NLYREE), RSDUM_VSREAD(NSEE, 8), BDONE_VSREAD(NELEE))
+      END IF
+
+      IVSDUM_VSREAD = 0
+      IVSCAT_VSREAD = 0
+      ISDUM_VSREAD = 0
+      RVSDUM_VSREAD = zero
+      RSDUM_VSREAD = zero
+      BDONE_VSREAD = .FALSE.
+   END SUBROUTINE initialise_vsread_buffers
 
 
 
@@ -2555,18 +2578,18 @@ CONTAINS
       ! Locals
       INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, IXY0, IY
       INTEGER :: ICOUNT, LCOUNT
-      INTEGER :: IVSDUM(NELEE, NLYREE), IVSCAT(NELEE), ISDUM(NSEE, 8)
       INTEGER :: NUM_CATEGORIES_TYPES, NELEM, NCOUNT, NDUM, NSP, NW
       INTEGER :: ILB, NLB, ITYP, NLDUM, ISDUM1, IDUM1(1)
-      DOUBLE PRECISION :: RVSDUM(NELEE, NLYREE), RSDUM(NSEE, 8), DCSDUM(0:LLEE)
+      DOUBLE PRECISION :: DCSDUM(0:LLEE)
       DOUBLE PRECISION :: DCSNOD(LLEE), DCRDUM(0:LLEE), DCRNOD(LLEE), SIG, PDUM
       DOUBLE PRECISION :: XDUM(NVSEE), YDUM(NVSEE), Y2DUM(NVSEE), UDUM(NVSEE)
       CHARACTER(LEN=80)  :: CDUM
       CHARACTER(LEN=132) :: MSG
-      LOGICAL :: BDONE(NELEE) = .FALSE.
 
    !----------------------------------------------------------------------*
-   ! Initialization
+      ! Initialization
+
+      CALL initialise_vsread_buffers()
 
       DO IEL = 1, total_no_elements
          NVSWLI(IEL) = 0
@@ -2601,19 +2624,19 @@ CONTAINS
       VSWL   = DUMMY(5)
 
       ! VS05 ----- physical property data
-      CALL ALREAD (7, VSD, PPPRI, ':VS05', NSEE, 8, NS, CDUM, ISDUM, RSDUM)
+      CALL ALREAD (7, VSD, PPPRI, ':VS05', NSEE, 8, NS, CDUM, ISDUM_VSREAD, RSDUM_VSREAD)
 
       DO IS = 1, NS
-         IVSFLG(IS) = ISDUM(IS, 2)
-         IVSNTB(IS) = ISDUM(IS, 3)
-         VSK3D(IS, 1) = RSDUM(IS, 1) / (3600.0D0 * 24.0D0)
-         VSK3D(IS, 2) = RSDUM(IS, 2) / (3600.0D0 * 24.0D0)
-         VSK3D(IS, 3) = RSDUM(IS, 3) / (3600.0D0 * 24.0D0)
-         VSPOR(IS) = RSDUM(IS, 4)
-         VSTRES(IS) = RSDUM(IS, 5)
-         VSPSS(IS) = RSDUM(IS, 6)
-         VSVGN(IS) = RSDUM(IS, 7)
-         VSALPH(IS) = RSDUM(IS, 8)
+         IVSFLG(IS) = ISDUM_VSREAD(IS, 2)
+         IVSNTB(IS) = ISDUM_VSREAD(IS, 3)
+         VSK3D(IS, 1) = RSDUM_VSREAD(IS, 1) / (3600.0D0 * 24.0D0)
+         VSK3D(IS, 2) = RSDUM_VSREAD(IS, 2) / (3600.0D0 * 24.0D0)
+         VSK3D(IS, 3) = RSDUM_VSREAD(IS, 3) / (3600.0D0 * 24.0D0)
+         VSPOR(IS) = RSDUM_VSREAD(IS, 4)
+         VSTRES(IS) = RSDUM_VSREAD(IS, 5)
+         VSPSS(IS) = RSDUM_VSREAD(IS, 6)
+         VSVGN(IS) = RSDUM_VSREAD(IS, 7)
+         VSALPH(IS) = RSDUM_VSREAD(IS, 8)
          VSPPOR(IS) = VSPOR(IS)
       END DO
 
@@ -2746,24 +2769,24 @@ CONTAINS
          ! initialise arrays
          DO IEL = 1, NELEE
             DO ILYR = 1, NLYREE
-               IVSDUM(IEL, ILYR) = 0
-               RVSDUM(IEL, ILYR) = zero
+               IVSDUM_VSREAD(IEL, ILYR) = 0
+               RVSDUM_VSREAD(IEL, ILYR) = zero
             END DO
          END DO
 
          ! read layer data
-         CALL ALREAD (6, VSD, PPPRI, ':VS08a', NELEE, NLYREE, NUM_CATEGORIES_TYPES, CDUM, IVSDUM, RVSDUM)
+         CALL ALREAD (6, VSD, PPPRI, ':VS08a', NELEE, NLYREE, NUM_CATEGORIES_TYPES, CDUM, IVSDUM_VSREAD, RVSDUM_VSREAD)
 
          ! for NUM_CATEGORIES_TYPES = 1, set all elements = category 1
          IF (NUM_CATEGORIES_TYPES == 1) THEN
             DO IEL = 1, total_no_elements
-               IVSCAT(IEL) = 1
+               IVSCAT_VSREAD(IEL) = 1
             END DO
 
          ! for > 1 category read in categories for links (if required) and grids
          ELSE
             IF (BEXBK .AND. total_no_links > 0) THEN
-               CALL ALREAD (2, VSD, PPPRI, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES, CDUM, IVSCAT, DUMMY)
+               CALL ALREAD (2, VSD, PPPRI, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES, CDUM, IVSCAT_VSREAD, DUMMY)
             END IF
 
             CALL ALREAD (4, VSD, PPPRI, ':VS08c', NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
@@ -2772,7 +2795,7 @@ CONTAINS
                IXY0 = (IY - 1) * NX
                DO IX = 1, NX
                   IEL = ICMXY(IX, IY)
-                  IF (IEL /= 0) IVSCAT(IEL) = IDUM(IXY0 + IX)
+                  IF (IEL /= 0) IVSCAT_VSREAD(IEL) = IDUM(IXY0 + IX)
                END DO
             END DO
          END IF
@@ -2783,15 +2806,15 @@ CONTAINS
             IF (ICMREF(IEL, 1) == 1 .OR. ICMREF(IEL, 1) == 2 .OR. &
                (.NOT. BEXBK .AND. ICMREF(IEL, 1) == 3)) CYCLE element_category_loop
 
-            IF (IVSCAT(IEL) == 0) THEN
+            IF (IVSCAT_VSREAD(IEL) == 0) THEN
                NCOUNT = NCOUNT + 1
             ELSE
-               BDONE(IEL) = .TRUE.
-               ICAT = IVSCAT(IEL)
+               BDONE_VSREAD(IEL) = .TRUE.
+               ICAT = IVSCAT_VSREAD(IEL)
                ICOUNT = 0
 
                ! Modern DO WHILE replacing GOTO 350 / 355
-               DO WHILE (IVSDUM(ICAT, ICOUNT + 1) /= 0)
+               DO WHILE (IVSDUM_VSREAD(ICAT, ICOUNT + 1) /= 0)
                   ICOUNT = ICOUNT + 1
                END DO
 
@@ -2799,19 +2822,19 @@ CONTAINS
                IF (ICMREF(IEL, 1) == 0) THEN
                   NLYR(IEL) = ICOUNT
                   DO ILYR = 1, NLYR(IEL)
-                     NTSOIL(IEL, ILYR) = IVSDUM(ICAT, ILYR)
-                     ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM(ICAT, ILYR)
+                     NTSOIL(IEL, ILYR) = IVSDUM_VSREAD(ICAT, ILYR)
+                     ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM_VSREAD(ICAT, ILYR)
                   END DO
 
                ! ...banks
                ELSE
                   DO I = 1, 2
                      IBK = ICMBK(IEL, I)
-                     BDONE(IBK) = .TRUE.
+                     BDONE_VSREAD(IBK) = .TRUE.
                      NLYR(IBK) = ICOUNT
                      DO ILYR = 1, NLYR(IBK)
-                        NTSOIL(IBK, ILYR) = IVSDUM(ICAT, ILYR)
-                        ZLYRBT(IBK, ILYR) = ZGRUND(IBK) - RVSDUM(ICAT, ILYR)
+                        NTSOIL(IBK, ILYR) = IVSDUM_VSREAD(ICAT, ILYR)
+                        ZLYRBT(IBK, ILYR) = ZGRUND(IBK) - RVSDUM_VSREAD(ICAT, ILYR)
                      END DO
                   END DO
 
@@ -2819,7 +2842,7 @@ CONTAINS
                   LCOUNT = 0
 
                   ! Modern DO WHILE replacing GOTO 390 / 395
-                  DO WHILE (RVSDUM(ICAT, LCOUNT + 1) >= ZGRUND(IBK) - ZBEFF(IEL) + VSZMIN)
+                  DO WHILE (RVSDUM_VSREAD(ICAT, LCOUNT + 1) >= ZGRUND(IBK) - ZBEFF(IEL) + VSZMIN)
                      LCOUNT = LCOUNT + 1
                   END DO
 
@@ -2844,23 +2867,23 @@ CONTAINS
          ! initialise variables
          DO IEL = 1, NELEE
             DO ILYR = 1, NLYREE
-               IVSDUM(IEL, ILYR) = 0
-               RVSDUM(IEL, ILYR) = zero
+               IVSDUM_VSREAD(IEL, ILYR) = 0
+               RVSDUM_VSREAD(IEL, ILYR) = zero
             END DO
          END DO
 
          ! read layer data
-         CALL ALREAD (6, VSD, PPPRI, ':VS08d', NELEE, NLYREE, NELEM, CDUM, IVSDUM, RVSDUM)
+         CALL ALREAD (6, VSD, PPPRI, ':VS08d', NELEE, NLYREE, NELEM, CDUM, IVSDUM_VSREAD, RVSDUM_VSREAD)
 
          element_data_loop: DO IEL = 1, total_no_elements
             ! ignore banks, links (if no banks), and elements already processed
-            IF (BDONE(IEL) .OR. ICMREF(IEL, 1) == 1 .OR. ICMREF(IEL, 1) == 2 .OR. &
+            IF (BDONE_VSREAD(IEL) .OR. ICMREF(IEL, 1) == 1 .OR. ICMREF(IEL, 1) == 2 .OR. &
                (.NOT. BEXBK .AND. ICMREF(IEL, 1) == 3)) CYCLE element_data_loop
 
-            BDONE(IEL) = .TRUE.
+            BDONE_VSREAD(IEL) = .TRUE.
             ICOUNT = 0
 
-            DO WHILE (IVSDUM(IEL, ICOUNT + 1) /= 0)
+            DO WHILE (IVSDUM_VSREAD(IEL, ICOUNT + 1) /= 0)
                ICOUNT = ICOUNT + 1
             END DO
 
@@ -2868,25 +2891,25 @@ CONTAINS
             IF (ICMREF(IEL, 1) == 0) THEN
                NLYR(IEL) = ICOUNT
                DO ILYR = 1, NLYR(IEL)
-                  NTSOIL(IEL, ILYR) = IVSDUM(IEL, ILYR)
-                  ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM(IEL, ILYR)
+                  NTSOIL(IEL, ILYR) = IVSDUM_VSREAD(IEL, ILYR)
+                  ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM_VSREAD(IEL, ILYR)
                END DO
 
             ! ...banks
             ELSE
                DO I = 1, 2
                   IBK = ICMBK(IEL, I)
-                  BDONE(IBK) = .TRUE.
+                  BDONE_VSREAD(IBK) = .TRUE.
                   NLYR(IBK) = ICOUNT
                   DO ILYR = 1, NLYR(IBK)
-                     NTSOIL(IBK, ILYR) = IVSDUM(IEL, ILYR)
-                     ZLYRBT(IBK, ILYR) = ZGRUND(IBK) - RVSDUM(IEL, ILYR)
+                     NTSOIL(IBK, ILYR) = IVSDUM_VSREAD(IEL, ILYR)
+                     ZLYRBT(IBK, ILYR) = ZGRUND(IBK) - RVSDUM_VSREAD(IEL, ILYR)
                   END DO
                END DO
 
                ! ...links
                LCOUNT = 0
-               DO WHILE (RVSDUM(IEL, LCOUNT + 1) >= ZGRUND(IBK) - ZBEFF(IEL) + VSZMIN)
+               DO WHILE (RVSDUM_VSREAD(IEL, LCOUNT + 1) >= ZGRUND(IBK) - ZBEFF(IEL) + VSZMIN)
                   LCOUNT = LCOUNT + 1
                END DO
 
@@ -2928,7 +2951,7 @@ CONTAINS
       ! check that all elements have been set up
       check_done_loop: DO IEL = 1, total_no_elements
          IF (.NOT. BEXBK .AND. ICMREF(IEL, 1) /= 0) CYCLE check_done_loop
-         IF (.NOT. BDONE(IEL)) THEN
+          IF (.NOT. BDONE_VSREAD(IEL)) THEN
             WRITE (MSG, 9020) IEL
             CALL ERROR (EEERR, 1033, PPPRI, 0, 0, MSG)
          END IF

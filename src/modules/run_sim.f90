@@ -83,7 +83,7 @@ CONTAINS
       INTEGER, PARAMETER :: niosto = 50
       LOGICAL :: bsy, bcm, cmfrst, syfrst
       CHARACTER(LEN=niosto) :: aiosto
-      DOUBLE PRECISION, DIMENSION(nelee) :: hrf
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: hrf
       INTEGER, SAVE :: icounter3 = 0
       INTEGER :: c(6)
       CHARACTER(LEN=128) :: dum
@@ -131,7 +131,10 @@ CONTAINS
       !------------------------------------------------------------------
       !                     MAIN SIMULATION LOOP
       !------------------------------------------------------------------
-      IF (bexsy) CALL GET_NSED_EARLY ()     !VISVISVIS
+      IF (bexsy) THEN
+          ALLOCATE(hrf(total_no_elements))
+          CALL GET_NSED_EARLY ()     !VISVISVIS
+          ENDIF
       IF (bexcm) then
           CALL GET_NCON_EARLY ()     !VISVISVIS
           call initialise_cont_cc()  !dynamically allocate contaminnant tranport arrays

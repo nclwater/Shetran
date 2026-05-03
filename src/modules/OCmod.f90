@@ -1374,9 +1374,11 @@ CONTAINS
 !  PRI.ge.0        PRI open for F output
 !----------------------------------------------------------------------*
       DOUBLEPRECISION, INTENT(IN) :: OCNOW, ARXL(:), QOC(NELEE, 4)
-      DOUBLEPRECISION             :: ghrf(total_no_links)
+      DOUBLEPRECISION, ALLOCATABLE :: ghrf(:)
       INTEGER                     :: FACE, ielmm
 !----------------------------------------------------------------------*
+      ALLOCATE(ghrf(total_no_links))
+
       WRITE(PPPRI, 9100) 'AFTER', OCNOW, ' HOURS ----'
       WRITE(PPPRI, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE = 1, 4) , 'HRF', 'ARXL'
       DO ielmm=1,total_no_links
