@@ -22,7 +22,9 @@ def _is_datetime_header(column_name: str) -> bool:
     return "date" in header or "iso8601" in header
 
 
-def _parse_table_datetime(value: str) -> pd.Timestamp:
+def _parse_table_datetime(
+    value: str, *, filename: str | None = None, column: str | None = None
+) -> pd.Timestamp:
     """Parse supported table datetime values or raise an explicit format error."""
     valid_formats = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
     value = str(value)
@@ -32,8 +34,15 @@ def _parse_table_datetime(value: str) -> pd.Timestamp:
         except ValueError:
             pass
 
+    context = []
+    if filename is not None:
+        context.append(f"file {filename!r}")
+    if column is not None:
+        context.append(f"column {column!r}")
+    context_text = f" in {', '.join(context)}" if context else ""
+
     raise ValueError(
-        f"Unsupported datetime value {value!r}. Expected format "
+        f"Unsupported datetime value {value!r}{context_text}. Expected format "
         "'YYYY-MM-DDTHH:MM:SS' or 'YYYY-MM-DD HH:MM:SS'."
     )
 
@@ -42,7 +51,14 @@ def _read_table_csv(fn_table: str) -> pd.DataFrame:
     """Read table data and only parse explicitly date-like columns as datetimes."""
     header_df = pd.read_csv(fn_table, skiprows=1, nrows=0)
     date_columns = [col for col in header_df.columns if _is_datetime_header(col)]
-    converters = {col: _parse_table_datetime for col in date_columns}
+    converters = {
+        col: (
+            lambda value, column=col: _parse_table_datetime(
+                value, filename=fn_table, column=column
+            )
+        )
+        for col in date_columns
+    }
 
     return pd.read_csv(
         fn_table,
