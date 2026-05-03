@@ -382,8 +382,8 @@ if(WIN32)
         $<$<CONFIG:Debug>:/debug:full>
         $<$<CONFIG:Debug>:/traceback>
         $<$<CONFIG:Debug>:/check:bounds>
-        $<$<CONFIG:Debug>:/stand> 
-        $<$<CONFIG:Debug>:/warn:all> 
+        $<$<CONFIG:Debug>:/stand>
+        $<$<CONFIG:Debug>:/warn:all>
         $<$<CONFIG:Debug>:/fp:precise>
 
         # Release: safer numerics, portable across CPU generations
@@ -392,7 +392,7 @@ if(WIN32)
 
         # ReleaseNative: maximum local performance, non-portable ISA tuning
         # (intentionally no interprocedural optimization flags such as /Qipo)
-        # because they break the build 
+        # because they break the build
         $<$<CONFIG:ReleaseNative>:/O3>
         $<$<CONFIG:ReleaseNative>:/QxHost>
         $<$<CONFIG:ReleaseNative>:/fp:precise>
