@@ -1774,472 +1774,586 @@ MODULE FRmod
 
 
    !SSSSSS SUBROUTINE FROUTPUT
-   SUBROUTINE FROUTPUT(SIMPOS)
-   !----------------------------------------------------------------------*
-   ! Generates output files for discharge, sediment, contaminants,
-   ! water tables, and mass balances at various simulation stages.
-   !----------------------------------------------------------------------*
-
+      SUBROUTINE FROUTPUT(SIMPOS)
+      !----------------------------------------------------------------------*
+      ! Generates output files for discharge, sediment, contaminants,
+      ! water tables, and mass balances at various simulation stages.
+      !
+      ! SIMPOS == 'start' : initialise output files and persistent state
+      ! SIMPOS == 'main*' : accumulate and write timestep/hourly outputs
+      ! otherwise         : write final-state output for restart/initialisation
+      !
       ! Assumed global variables provided via host module(s):
       ! ISextradis, disextra, total_no_links, ISextrapsl, pslextra,
       ! total_no_elements, DIRQQ, cnam, dis2, mas, dis, toutput,
       ! ICMREF, NOCBCC, NOCBCD, uznow, BHOTRD, bhotti, bexsy, bexcm,
       ! QSED, RHOSED, CCCC, top_cell_no, qoc, tih, icounter2, balanc,
       ! carea, zgrund, zvspsl, vse, bexbk, VSPSI, nlyrbt, FFFATAL, PPPRI
+      !----------------------------------------------------------------------*
 
-      IMPLICIT NONE
+         IMPLICIT NONE
 
-      ! Dummy arguments
-      CHARACTER(LEN=5), INTENT(IN) :: SIMPOS
+         ! Dummy arguments
+         CHARACTER(LEN=5), INTENT(IN) :: SIMPOS
 
-      ! Parameters
-      INTEGER, PARAMETER :: SEDALLUNIT  = 681
-      INTEGER, PARAMETER :: SEDFINEUNIT = 682
-      INTEGER, PARAMETER :: PSLFILEUNIT = 683
-      INTEGER, PARAMETER :: CONTAMUNIT  = 684
+         ! Parameters
+         INTEGER, PARAMETER :: SEDALLUNIT  = 681
+         INTEGER, PARAMETER :: SEDFINEUNIT = 682
+         INTEGER, PARAMETER :: PSLFILEUNIT = 683
+         INTEGER, PARAMETER :: CONTAMUNIT  = 684
 
-      ! Locals (Strings)
-      CHARACTER(LEN=20)  :: disextratext, pslextratext, celem
-      CHARACTER(LEN=256) :: filnam
-      CHARACTER(LEN=128) :: dum
+         DOUBLE PRECISION, PARAMETER :: ZERO = 0.0D0
+         DOUBLE PRECISION, PARAMETER :: ONE  = 1.0D0
 
-      ! Locals (Scalars)
-      INTEGER :: L, iface, ifile, nminel, i, j, iel, ios
-      INTEGER :: c(6), hour_now
-      DOUBLE PRECISION :: qocav, qocold, sedav, sedfineav, contamav
-      DOUBLE PRECISION :: uznowt
-      DOUBLE PRECISION :: outputhour
-      character(len=32), DIMENSION(:),allocatable, SAVE :: buf
-      character(len=32) :: bufmb(17)
-      character(len=32) :: bufdis
+         ! Locals: strings
+         CHARACTER(LEN=20)  :: disextratext, pslextratext
+         CHARACTER(LEN=256) :: filnam
 
-      ! State Variables (Must be SAVED to persist between calls)
-      INTEGER, SAVE :: disextrapoints = 0, pslextrapoints = 0
-      DOUBLE PRECISION, SAVE :: uzold, next_hour
-      DOUBLE PRECISION, SAVE :: qoctot = 0.0D0, sedtot = 0.0D0
-      DOUBLE PRECISION, SAVE :: sedfinetot = 0.0D0, contamtot = 0.0D0
+         ! Locals: scalars
+         INTEGER :: L, iface, nminel, i, j, iel, ios
+         INTEGER :: hour_now
+         DOUBLE PRECISION :: qocav, qocold
+         DOUBLE PRECISION :: sedav, sedfineav, contamav
+         DOUBLE PRECISION :: uznowt
 
-      ! Allocatable State Arrays
-      INTEGER, DIMENSION(:), ALLOCATABLE, SAVE :: pslextraelement
-      INTEGER, DIMENSION(:), ALLOCATABLE, SAVE :: disextraelement, disextraface
-      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE, SAVE :: qocavextra
+         ! Persistent state between calls
+         INTEGER, SAVE :: disextrapoints = 0
+         INTEGER, SAVE :: pslextrapoints = 0
+         DOUBLE PRECISION, SAVE :: uzold = ZERO
+         DOUBLE PRECISION, SAVE :: next_hour = ZERO
+         DOUBLE PRECISION, SAVE :: qoctot = ZERO
+         DOUBLE PRECISION, SAVE :: sedtot = ZERO
+         DOUBLE PRECISION, SAVE :: sedfinetot = ZERO
+         DOUBLE PRECISION, SAVE :: contamtot = ZERO
 
-   !----------------------------------------------------------------------*
+         ! Persistent optional-output metadata/state
+         INTEGER, ALLOCATABLE, SAVE :: pslextraelement(:)
+         INTEGER, ALLOCATABLE, SAVE :: disextraelement(:), disextraface(:)
+         DOUBLE PRECISION, ALLOCATABLE, SAVE :: qocavextra(:)
 
-      IF (SIMPOS == 'start') THEN
+      !----------------------------------------------------------------------*
 
-         IF (ISextradis) THEN
+         SELECT CASE (SIMPOS)
+
+         CASE ('start')
+            CALL initialise_output()
+
+         CASE DEFAULT
+            IF (SIMPOS(1:4) == 'main') THEN
+               CALL write_main_output()
+            ELSE
+               CALL write_final_state()
+            END IF
+
+         END SELECT
+
+      CONTAINS
+
+
+         SUBROUTINE initialise_output()
+         !----------------------------------------------------------------------*
+         ! Initialise regular and optional output streams.  The optional point
+         ! lists are compacted in-place: invalid element/link IDs are skipped and
+         ! the retained count is written back to disextrapoints/pslextrapoints.
+         !----------------------------------------------------------------------*
+
+            IF (ISextradis) CALL initialise_extra_discharge_points()
+            IF (ISextrapsl) CALL initialise_extra_water_table_output()
+
+            CALL write_checked(dis2, &
+                 'Simulated discharge at the outlet at every model timestep.', &
+                 'Error writing to the discharge every timestep at the catchment outlet file ' // &
+                 '(unit 41 in the rundata file)')
+
+            WRITE(dis2, '(A)', IOSTAT=ios) &
+                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet_Discharge(m3/s)'
+
+            CALL write_checked(mas, &
+                 'Spatially Averaged Totals (mm) over the simulation', &
+                 'Error writing to the the mass balance data file (unit 43 in the rundata file)')
+
+            WRITE(mas, '(A)') &
+                 'Time(Hours),' // &
+                 'Cumulative_Precipitation,' // &
+                 'Cumulative_Canopy_Evaporation,' // &
+                 'Cumulative_Soil_Evaporation,' // &
+                 'Cumulative_Transpiration,' // &
+                 'Cumulative_Aquifer_Flow,' // &
+                 'Cumulative_Discharge,' // &
+                 'Canopy_Storage,' // &
+                 'Snow_Storage,' // &
+                 'Subsurface_Storage,' // &
+                 'Land_Surface_Storage,' // &
+                 'Channel_Storage'
+
+            WRITE(dis, '(A,F8.2,A)', IOSTAT=ios) &
+                 'Simulated discharge(m3/s) at the outlet - regular timestep ', &
+                 TOUTPUT, &
+                 ' hours. Simulated discharge is the mean value over the timestep ' // &
+                 'with the date at the start of the timestep'
+            CALL stop_on_io_error(ios, &
+                 'Error writing to the regular discharge at the catchment outlet file ' // &
+                 '(unit 44 in the rundata file)')
+
+            CALL find_mass_balance_outlet()
+            CALL write_discharge_header()
+
+            uznowt    = uznow / TOUTPUT
+            next_hour = DBLE(INT(uznowt)) + ONE
+
+            ! Hotstart first time is correct.
+            IF (BHOTRD) uzold = DBLE(INT(bhotti / TOUTPUT))
+
+            IF (bexsy) CALL initialise_sediment_output()
+            IF (bexcm) CALL initialise_contaminant_output()
+
+         END SUBROUTINE initialise_output
+
+
+         SUBROUTINE initialise_extra_discharge_points()
             READ(disextra, *, IOSTAT=ios)
-            IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
-                                     'no or incorrect data in extra discharge points file')
+            CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
 
             READ(disextra, *, IOSTAT=ios) disextratext, disextrapoints
-            IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
-                                     'no or incorrect data in extra discharge points file')
+            CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
 
-            ALLOCATE(disextraelement(disextrapoints))
-            ALLOCATE(disextraface(disextrapoints))
-            ALLOCATE(qocavextra(disextrapoints))
-            ALLOCATE(qoctotextra(disextrapoints))
-            ALLOCATE(buf(disextrapoints))
-
-            disextraelement = 0
-            disextraface    = 0
-            qocavextra      = 0.0D0
-            qoctotextra     = 0.0D0
+            CALL allocate_extra_discharge(disextrapoints)
 
             j = 0
             DO i = 1, disextrapoints
-               j = j + 1
-               READ(disextra, *, IOSTAT=ios) disextraelement(j), disextraface(j)
-               IF (ios /= 0) CALL ERROR(FFFATAL, 1068, PPPRI, 0, 0, &
-                                        'no or incorrect data in extra discharge points file')
+               READ(disextra, *, IOSTAT=ios) L, iface
+               CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
 
-               ! remove the output if the element number is too big
-               IF (disextraelement(j) > total_no_links) THEN
-                  disextraelement(j) = 0
-                  disextraface(j)    = 0
-                  j = j - 1
+               ! Silently ignore discharge requests beyond the link range, matching
+               ! the original behaviour while keeping the retained list compact.
+               IF (L <= total_no_links) THEN
+                  j = j + 1
+                  disextraelement(j) = L
+                  disextraface(j)    = iface
                END IF
             END DO
-            disextrapoints = j
-         END IF
 
-         ! extra water table output
-         IF (ISextrapsl) THEN
+            disextrapoints = j
+         END SUBROUTINE initialise_extra_discharge_points
+
+
+         SUBROUTINE allocate_extra_discharge(n)
+            INTEGER, INTENT(IN) :: n
+
+            IF (ALLOCATED(disextraelement)) DEALLOCATE(disextraelement)
+            IF (ALLOCATED(disextraface))    DEALLOCATE(disextraface)
+            IF (ALLOCATED(qocavextra))      DEALLOCATE(qocavextra)
+            IF (ALLOCATED(qoctotextra))     DEALLOCATE(qoctotextra)
+
+            ALLOCATE(disextraelement(n), disextraface(n), qocavextra(n), qoctotextra(n))
+
+            disextraelement = 0
+            disextraface    = 0
+            qocavextra      = ZERO
+            qoctotextra     = ZERO
+         END SUBROUTINE allocate_extra_discharge
+
+
+         SUBROUTINE initialise_extra_water_table_output()
             READ(pslextra, *, IOSTAT=ios)
-            IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
-                                     'no or incorrect data in input_CATCH_water_table_depth file')
+            CALL fatal_on_io_error(ios, 1069, &
+                 'no or incorrect data in input_CATCH_water_table_depth file')
 
             READ(pslextra, *, IOSTAT=ios) pslextratext, pslextrapoints
-            IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
-                                     'no or incorrect data in input_CATCH_water_table_depth file')
+            CALL fatal_on_io_error(ios, 1069, &
+                 'no or incorrect data in input_CATCH_water_table_depth file')
 
+            IF (ALLOCATED(pslextraelement)) DEALLOCATE(pslextraelement)
             ALLOCATE(pslextraelement(pslextrapoints))
             pslextraelement = 0
 
             j = 0
             DO i = 1, pslextrapoints
-               j = j + 1
-               READ(pslextra, *, IOSTAT=ios) pslextraelement(j)
-               IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, &
-                                        'no or incorrect data in input_CATCH_water_table_depth file')
+               READ(pslextra, *, IOSTAT=ios) iel
+               CALL fatal_on_io_error(ios, 1069, &
+                    'no or incorrect data in input_CATCH_water_table_depth file')
 
-               ! remove the output if the element number is too big
-               IF (pslextraelement(j) > total_no_elements) THEN
-                  pslextraelement(j) = 0
-                  j = j - 1
+               ! Silently ignore water-table requests beyond the element range,
+               ! preserving the original compaction behaviour.
+               IF (iel <= total_no_elements) THEN
+                  j = j + 1
+                  pslextraelement(j) = iel
                END IF
             END DO
+
             pslextrapoints = j
 
-            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
-            OPEN(PSLFILEUNIT, FILE=FILNAM, IOSTAT=ios)
-            IF (ios /= 0) CALL ERROR(FFFATAL, 1069, PPPRI, 0, 0, 'Error opening water table depth file')
+            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
+            OPEN(PSLFILEUNIT, FILE=filnam, IOSTAT=ios)
+            CALL fatal_on_io_error(ios, 1069, 'Error opening water table depth file')
 
-            WRITE(PSLFILEUNIT, '(A)') 'Water_Table_depth(m_below_ground). A negative number ' // &
-                                      'means there is surface water with the absolute value ' // &
-                                      'the depth of surface water'
+            WRITE(PSLFILEUNIT, '(A)') &
+                 'Water_Table_depth(m_below_ground). A negative number ' // &
+                 'means there is surface water with the absolute value ' // &
+                 'the depth of surface water'
             WRITE(PSLFILEUNIT, '(A,*(A,I0))') 'Time(hours)', &
-                                              (', Element-', pslextraelement(j), j=1, pslextrapoints)
-         END IF
+                 (', Element-', pslextraelement(j), j = 1, pslextrapoints)
+         END SUBROUTINE initialise_extra_water_table_output
 
-         WRITE(dis2, '(A)', IOSTAT=ios) 'Simulated discharge at the outlet at every model timestep.'
-         IF (ios /= 0) THEN
-            WRITE(*, '(A)') 'Error writing to the discharge every timestep at the catchment outlet ' // &
-                            'file (unit 41 in the rundata file)'
-            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-            WRITE(*, '(''paused, type [enter] to continue'')')
-            READ(*, *)
-            STOP
-         END IF
 
-         WRITE(dis2, '(A)', IOSTAT=ios) 'Date_yyyy-mm-dd_hours(iso8601format),Time(hours),' // &
-                                        'Outlet_Discharge(m3/s)'
+         SUBROUTINE find_mass_balance_outlet()
+         !----------------------------------------------------------------------*
+         ! Find outlet link for mass-balance output when no reservoir files exist.
+         ! The outlet must be a weir boundary condition, type 7.
+         !----------------------------------------------------------------------*
+            mblink = 0
+            mbface = 0
 
-         WRITE(mas, '(A)', IOSTAT=ios) 'Spatially Averaged Totals (mm) over the simulation'
-         IF (ios /= 0) THEN
-            WRITE(*, '(A)') 'Error writing to the the mass balance data file (unit 43 in the rundata file)'
-            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-            WRITE(*, '(''paused, type [enter] to continue'')')
-            READ(*, *)
-            STOP
-         END IF
-
-         WRITE (mas, '(12(A,1A))') 'Time(Hours)', ',', &
-                                      'Cumulative_Precipitation', ',', &
-                                      'Cumulative_Canopy_Evaporation', ',', &
-                                      'Cumulative_Soil_Evaporation', ',', &
-                                      'Cumulative_Transpiration', ',', &
-                                      'Cumulative_Aquifer_Flow', ',', &
-                                      'Cumulative_Discharge', ',', &
-                                      'Canopy_Storage', ',', &
-                                      'Snow_Storage', ',', &
-                                      'Subsurface_Storage', ',', &
-                                      'Land_Surface_Storage', ',', &
-                                      'Channel_Storage'
-
-         WRITE(dis, '(A,f8.2,A)', IOSTAT=ios) 'Simulated discharge(m3/s) at the outlet - regular ' // &
-                                              'timestep', toutput, ' hours. Simulated discharge is ' // &
-                                              'the mean value over the timestep with the date at the ' // &
-                                              'start of the timestep'
-         IF (ios /= 0) THEN
-            WRITE(*, '(A)') 'Error writing to the regular discharge at the catchment outlet file ' // &
-                            '(unit 44 in the rundata file)'
-            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-            WRITE(*, '(''paused, type [enter] to continue'')')
-            READ(*, *)
-            STOP
-         END IF
-
-         ! find outlet link when no res files - mass balance output
-         ! outlet must be a weir
-         mblink = 0
-         mbface = 0
-         DO L = 1, total_no_links
-            DO iface = 1, 4
-               IF (ICMREF(L, 4 + iface) == 0 .AND. NOCBCC(L) > 0) THEN
-                  IF (NOCBCD(NOCBCC(L), 3) == 7) THEN
-                     ! if boundary conditions has type7 which is a weir
-                     mblink = L
-                     mbface = NOCBCD(NOCBCC(L), 2)
+            DO L = 1, total_no_links
+               DO iface = 1, 4
+                  IF (ICMREF(L, 4 + iface) == 0 .AND. NOCBCC(L) > 0) THEN
+                     IF (NOCBCD(NOCBCC(L), 3) == 7) THEN
+                        mblink = L
+                        mbface = NOCBCD(NOCBCC(L), 2)
+                     END IF
                   END IF
-               END IF
+               END DO
             END DO
-         END DO
+         END SUBROUTINE find_mass_balance_outlet
 
-         IF (ISextradis) THEN
-            WRITE(dis, '(*(A,I0))') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-', &
-                                    mblink, (',Channel-', disextraelement(j), j=1, disextrapoints)
-         ELSE
-            WRITE(dis, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),Outlet-Discharge'
-         END IF
 
-         uznowt    = uznow * (1.0D0 / TOUTPUT)
-         next_hour = DBLE(INT(uznowt)) + 1.0D0
-
-         ! hotstart first time is correct
-         IF (BHOTRD) uzold = DBLE(INT(bhotti / TOUTPUT))
-
-         IF (bexsy) THEN
-            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
-            OPEN(SEDALLUNIT, FILE=FILNAM)
-
-            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
-            OPEN(SEDFINEUNIT, FILE=FILNAM)
-
-            WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - All Sediments This is the mean value over the timestep with the date at the start of the timestep'
-            IF (ios /= 0) THEN
-               WRITE(*, '(A)') 'Error writing to the sed-all-daily-output.csv file'
-               WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-               WRITE(*, '(''paused, type [enter] to continue'')')
-               READ(*, *)
-               STOP
+         SUBROUTINE write_discharge_header()
+            IF (ISextradis) THEN
+               WRITE(dis, '(*(A,I0))') &
+                    'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-', &
+                    mblink, (',Channel-', disextraelement(j), j = 1, disextrapoints)
+            ELSE
+               WRITE(dis, '(A)') &
+                    'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-Discharge'
             END IF
-            WRITE(SEDALLUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
-                                     'Outlet-Discharge(kg/s)'
+         END SUBROUTINE write_discharge_header
 
-            WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) 'Sediment discharge at the outlet - Fine Sediments. This is the mean value over the timestep with the date at the start of the timestep'
-            IF (ios /= 0) THEN
-               WRITE(*, '(A)') 'Error writing to the sed-fine-daily-output.csv file'
-               WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-               WRITE(*, '(''paused, type [enter] to continue'')')
-               READ(*, *)
-               STOP
+
+         SUBROUTINE initialise_sediment_output()
+            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
+            OPEN(SEDALLUNIT, FILE=filnam)
+
+            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
+            OPEN(SEDFINEUNIT, FILE=filnam)
+
+            WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) &
+                 'Sediment discharge at the outlet - All Sediments. ' // &
+                 'This is the mean value over the timestep with the date at the start of the timestep'
+            CALL stop_on_io_error(ios, 'Error writing to the sed-all-daily-output.csv file')
+            WRITE(SEDALLUNIT, '(A)') &
+                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
+
+            WRITE(SEDFINEUNIT, '(A)', IOSTAT=ios) &
+                 'Sediment discharge at the outlet - Fine Sediments. ' // &
+                 'This is the mean value over the timestep with the date at the start of the timestep'
+            CALL stop_on_io_error(ios, 'Error writing to the sed-fine-daily-output.csv file')
+            WRITE(SEDFINEUNIT, '(A)') &
+                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
+
+            sedav = ZERO
+         END SUBROUTINE initialise_sediment_output
+
+
+         SUBROUTINE initialise_contaminant_output()
+            filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
+            OPEN(CONTAMUNIT, FILE=filnam)
+
+            WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) &
+                 'Contaminant Relative Concentration (contaminant 1) at the outlet. ' // &
+                 'This is the mean value over the timestep with the date at the start of the timestep.'
+            CALL stop_on_io_error(ios, 'Error writing to the contaminant.csv file')
+            WRITE(CONTAMUNIT, '(A)') &
+                 'Date_yyyy-mm-dd HH:MM:SS,Time(hours),Relative_concentration'
+         END SUBROUTINE initialise_contaminant_output
+
+
+         SUBROUTINE write_main_output()
+         !----------------------------------------------------------------------*
+         ! Accumulate mean values in normalised output-time units.  When the
+         ! current model time crosses one or more regular output boundaries, write
+         ! one row for the just-completed interval and fill any skipped regular
+         ! intervals with the current timestep average.
+         !----------------------------------------------------------------------*
+
+            CALL sample_current_values(qocav, sedav, sedfineav, contamav)
+
+            uznowt   = uznow / TOUTPUT
+            hour_now = INT(uznowt)
+
+            IF (hour_now < INT(next_hour)) THEN
+               CALL accumulate_interval(uznowt - uzold, qocav, sedav, sedfineav, contamav)
+            ELSE
+               CALL accumulate_interval(next_hour - uzold, qocav, sedav, sedfineav, contamav)
+               CALL write_completed_regular_outputs(hour_now, qocav, sedav, sedfineav, contamav)
+               CALL restart_accumulators(uznowt - next_hour, qocav, sedav, sedfineav, contamav)
+
+               next_hour = next_hour + ONE
             END IF
-            WRITE(SEDFINEUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
-                                      'Outlet-Discharge(kg/s)'
-            sedav = 0.0D0
-         END IF
 
-         IF (bexcm) THEN
-            FILNAM = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
-            OPEN(CONTAMUNIT, FILE=FILNAM)
-            WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) 'Contaminant Relative Concentration ' // &
-                                                 '(contaminant 1) at the outlet. This is the mean value over the timestep with the date at the start of the timestep.'
-            IF (ios /= 0) THEN
-               WRITE(*, '(A)') 'Error writing to the contaminant.csv file'
-               WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-               WRITE(*, '(''paused, type [enter] to continue'')')
-               READ(*, *)
-               STOP
+            CALL WRITE_DIS2(mbface, qocav, uznow)
+            CALL write_periodic_mass_balance()
+
+            uzold = uznowt
+
+            ! temp sb 250925 for when doing 1d simulations
+            IF (mblink == 0 .AND. mbface == 0) THEN
+               qocav = ZERO
+            ELSE
+               qocold = qoc(mblink, mbface)
             END IF
-            WRITE(CONTAMUNIT, '(A)') 'Date_yyyy/mm/dd_hours(iso8601format),Time(hours),' // &
-                                     'Relative_concentration'
-         END IF
+
+         END SUBROUTINE write_main_output
 
 
-      ELSE IF (SIMPOS(1:4) == 'main') THEN
+         SUBROUTINE sample_current_values(q_out, sed_out, sedfine_out, contam_out)
+            DOUBLE PRECISION, INTENT(OUT) :: q_out
+            DOUBLE PRECISION, INTENT(OUT) :: sed_out
+            DOUBLE PRECISION, INTENT(OUT) :: sedfine_out
+            DOUBLE PRECISION, INTENT(OUT) :: contam_out
 
-         IF (bexsy) THEN
-            ! 1d simulations
-            sedav = 0.0D0
-            DO i = 1, nsed
-               IF (mblink == 0 .AND. mbface == 0) THEN
-                  ! DO nothing
+            IF (mblink == 0 .AND. mbface == 0) THEN
+               q_out       = ZERO
+               sed_out     = ZERO
+               sedfine_out = ZERO
+               contam_out  = ZERO
+            ELSE
+               q_out = qoc(mblink, mbface)
+
+               IF (bexsy) THEN
+                  sed_out = ZERO
+                  DO i = 1, nsed
+                     sed_out = sed_out + QSED(mblink, i, mbface) * RHOSED
+                  END DO
+                  sedfine_out = QSED(mblink, 1, mbface) * RHOSED
                ELSE
-                  sedav = sedav + QSED(mblink, i, mbface) * RHOSED
+                  sed_out     = ZERO
+                  sedfine_out = ZERO
                END IF
-            END DO
 
-            IF (mblink == 0 .AND. mbface == 0) THEN
-               sedfineav = 0.0D0
-            ELSE
-               sedfineav = QSED(mblink, 1, mbface) * RHOSED
+               IF (bexcm) THEN
+                  contam_out = CCCC(mblink, top_cell_no, 1)
+               ELSE
+                  contam_out = ZERO
+               END IF
             END IF
-         END IF
-
-         IF (bexcm) THEN
-            IF (mblink == 0 .AND. mbface == 0) THEN
-               contamav = 0.0D0
-            ELSE
-               contamav = CCCC(mblink, top_cell_no, 1)
-            END IF
-         END IF
-
-         ! outlet discharge sent to discharge.txt file
-         ! assume the average discharge over a timestep is QOC
-         uznowt = uznow * (1.0D0 / TOUTPUT)
-
-         ! 1d simulations
-         IF (mblink == 0 .AND. mbface == 0) THEN
-            qocav = 0.0D0
-         ELSE
-            qocav = qoc(mblink, mbface)
-         END IF
-
-         IF (ISextradis) THEN
-            DO i = 1, disextrapoints
-               qocavextra(i) = qoc(disextraelement(i), disextraface(i))
-            END DO
-         END IF
-
-         hour_now = INT(uznowt)
-
-         IF (hour_now < INT(next_hour)) THEN
-            ! not new hour
-            qoctot = qoctot + qocav * (uznowt - uzold)
-            IF (bexsy) THEN
-               sedtot = sedtot + sedav * (uznowt - uzold)
-               sedfinetot = sedfinetot + sedfineav * (uznowt - uzold)
-            END IF
-            IF (bexcm) contamtot = contamtot + contamav * (uznowt - uzold)
 
             IF (ISextradis) THEN
                DO i = 1, disextrapoints
-                  qoctotextra(i) = qoctotextra(i) + qocavextra(i) * (uznowt - uzold)
+                  qocavextra(i) = qoc(disextraelement(i), disextraface(i))
                END DO
             END IF
+         END SUBROUTINE sample_current_values
 
-         ELSE
-            qoctot = qoctot + qocav * (next_hour - uzold)
+
+         SUBROUTINE accumulate_interval(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
+            DOUBLE PRECISION, INTENT(IN) :: dt
+            DOUBLE PRECISION, INTENT(IN) :: q_mean
+            DOUBLE PRECISION, INTENT(IN) :: sed_mean
+            DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
+            DOUBLE PRECISION, INTENT(IN) :: contam_mean
+
+            qoctot = qoctot + q_mean * dt
+
             IF (bexsy) THEN
-               sedtot = sedtot + sedav * (next_hour - uzold)
-               sedfinetot = sedfinetot + sedfineav * (next_hour - uzold)
+               sedtot     = sedtot     + sed_mean     * dt
+               sedfinetot = sedfinetot + sedfine_mean * dt
             END IF
-            IF (bexcm) contamtot = contamtot + contamav * (next_hour - uzold)
+
+            IF (bexcm) contamtot = contamtot + contam_mean * dt
 
             IF (ISextradis) THEN
-               DO i = 1, disextrapoints
-                  qoctotextra(i) = qoctotextra(i) + qocavextra(i) * (next_hour - uzold)
-               END DO
+               do i = 1, disextrapoints
+                   qoctotextra(i) = qoctotextra(i) + qocavextra(i) * dt
+               end do
+            END IF
+         END SUBROUTINE accumulate_interval
+
+
+         SUBROUTINE write_completed_regular_outputs(hour_now, q_mean, sed_mean, sedfine_mean, contam_mean)
+            INTEGER, INTENT(IN) :: hour_now
+            DOUBLE PRECISION, INTENT(IN) :: q_mean
+            DOUBLE PRECISION, INTENT(IN) :: sed_mean
+            DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
+            DOUBLE PRECISION, INTENT(IN) :: contam_mean
+
+            DOUBLE PRECISION :: output_hour
+
+            ! output_hour = next_hour - 1.0D0:
+            !     mean value over the regular timestep, timestamped at the start
+            !     of the timestep.
+            ! output_hour = next_hour:
+            !     equivalent mean value timestamped at the end of the timestep.
+            output_hour = next_hour - ONE
+
+            CALL write_regular_outputs(output_hour, ABS(qoctot), qoctotextra, &
+                                       sedtot, sedfinetot, contamtot)
+
+            DO i = INT(next_hour) + 1, hour_now
+               next_hour   = DBLE(i)
+               output_hour = next_hour - ONE
+
+               CALL write_regular_outputs(output_hour, ABS(q_mean), qocavextra, &
+                                          sed_mean, sedfine_mean, contam_mean)
+            END DO
+         END SUBROUTINE write_completed_regular_outputs
+
+
+         SUBROUTINE restart_accumulators(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
+            DOUBLE PRECISION, INTENT(IN) :: dt
+            DOUBLE PRECISION, INTENT(IN) :: q_mean
+            DOUBLE PRECISION, INTENT(IN) :: sed_mean
+            DOUBLE PRECISION, INTENT(IN) :: sedfine_mean
+            DOUBLE PRECISION, INTENT(IN) :: contam_mean
+
+            qoctot = q_mean * dt
+
+            IF (bexsy) THEN
+               sedtot     = sed_mean     * dt
+               sedfinetot = sedfine_mean * dt
             END IF
 
-            ! if outputhour = next_hour-1.0 it is the mean value over the timestep with the date at the start of the timestep.
-                    ! if outputhour = next_hour it is the mean value over the timestep with the date at the end of the timestep.
-                    outputhour = next_hour-1.0
+            IF (bexcm) contamtot = contam_mean * dt
 
-                    c = DATE_FROM_HOUR(tih+outputhour*TOUTPUT)
-                    WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
-                    write(bufdis,'(F20.5)') abs(qoctot)
-                    bufdis = adjustl(bufdis)
-                    if (ISextradis) then
-                        do j=1,disextrapoints
-                            write(buf(j),'(F20.5)') abs(qoctotextra(j))
-                            buf(j) = adjustl(buf(j))
-                        enddo
-                        WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
-                    else
-                        WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
-                    endif
-                    if (bexsy) then
-                            write(bufdis,'(F20.5)') sedtot
-                         bufdis = adjustl(bufdis)
-                        write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
-                            write(bufdis,'(F20.5)') sedfinetot
-                         bufdis = adjustl(bufdis)
-                        write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
-                    endif
-                    if (bexcm) then
-                             write(bufdis,'(F20.5)') contamtot
-                         bufdis = adjustl(bufdis)
-                       write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',', trim(bufdis)
-                    endif
-                    DO i = next_hour+1, hour_now
-                        next_hour = i
-                       outputhour = next_hour-1
-                       c = DATE_FROM_HOUR(tih+outputhour*TOUTPUT)
-                        WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
-                        write(bufdis,'(F20.5)') abs(qocav)
-                        bufdis = adjustl(bufdis)
-                        if (ISextradis) then
-                            do j=1,disextrapoints
-                                write(buf(j),'(F20.5)') abs(qocavextra(j))
-                                buf(j) = adjustl(buf(j))
-                            enddo
-                            WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
-                        else
-                            WRITE(dis,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
-                        endif
-                        if (bexsy) then
-                            write(bufdis,'(F20.5)') sedav
-                            bufdis = adjustl(bufdis)
-                            write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
-                            write(bufdis,'(F20.5)') sedfineav
-                            bufdis = adjustl(bufdis)
-                            write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
-                        endif
-                        if (bexcm) then
-                            write(bufdis,'(F20.5)') contamav
-                            bufdis = adjustl(bufdis)
-                            write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') trim(dum),',',outputhour*TOUTPUT,',',trim(bufdis)
-                        endif
-                    ENDDO
-                    qoctot    = qocav * (uznowt-next_hour)
-                    if (bexsy) then
-                        sedtot    = sedav * (uznowt-next_hour)
-                        sedfinetot    = sedfineav * (uznowt-next_hour)
-                    endif
-                    if (bexcm) then
-                        contamtot    = contamav * (uznowt-next_hour)
-                    endif
-                    if (ISextradis) then
-                        do i=1,disextrapoints
-                            qoctotextra(i) = qocavextra(i) * (uznowt-next_hour)
-                        enddo
-                    endif
+            IF (ISextradis) THEN
+               qoctotextra(1:disextrapoints) = qocavextra(1:disextrapoints) * dt
+               do i = 1, disextrapoints
+                   qoctotextra(i) = qocavextra(i) * dt
+               end do
+            END IF
+         END SUBROUTINE restart_accumulators
 
-            next_hour = next_hour + 1.0D0
-         END IF
 
-         CALL WRITE_DIS2(mbface, qocav, uznow)
+         SUBROUTINE write_regular_outputs(output_hour, discharge, discharge_extra, sediment, sediment_fine, contaminant)
+            DOUBLE PRECISION, INTENT(IN) :: output_hour
+            DOUBLE PRECISION, INTENT(IN) :: discharge
+            DOUBLE PRECISION, INTENT(IN) :: discharge_extra(:)
+            DOUBLE PRECISION, INTENT(IN) :: sediment
+            DOUBLE PRECISION, INTENT(IN) :: sediment_fine
+            DOUBLE PRECISION, INTENT(IN) :: contaminant
 
-         IF (uznow > icounter2) THEN
-            WRITE(mas, '(12(f16.3,1a))') uznow, ',', &
-                 balanc(7) * 1000.0D0 / carea, ',', &
-                 balanc(8) * 1000.0D0 / carea, ',', &
-                 balanc(9) * 1000.0D0 / carea, ',', &
-                 balanc(10) * 1000.0D0 / carea, ',', &
-                 balanc(11) * 1000.0D0 / carea, ',', &
-                 balanc(12) * 1000.0D0 / carea, ',', &
-                 balanc(13) * 1000.0D0 / carea, ',', &
-                 balanc(14) * 1000.0D0 / carea, ',', &
-                 balanc(15) * 1000.0D0 / carea, ',', &
-                 balanc(16) * 1000.0D0 / carea, ',', &
+            CHARACTER(LEN=32) :: stamp
+            DOUBLE PRECISION  :: elapsed
+
+            elapsed = output_hour * TOUTPUT
+            stamp   = timestamp_from_output_hour(output_hour)
+
+            IF (ISextradis) THEN
+               WRITE(dis, '(A,'','',F0.3,'','',F0.5,*( '','',F0.5 ))') &
+                    TRIM(stamp), elapsed, discharge, &
+                    (ABS(discharge_extra(j)), j = 1, disextrapoints)
+            ELSE
+               WRITE(dis, '(A,'','',F0.3,'','',F0.5)') &
+                    TRIM(stamp), elapsed, discharge
+            END IF
+
+            IF (bexsy) THEN
+               WRITE(SEDALLUNIT,  '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment
+               WRITE(SEDFINEUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment_fine
+            END IF
+
+            IF (bexcm) THEN
+               WRITE(CONTAMUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, contaminant
+            END IF
+         END SUBROUTINE write_regular_outputs
+
+
+         FUNCTION timestamp_from_output_hour(output_hour) RESULT(stamp)
+            DOUBLE PRECISION, INTENT(IN) :: output_hour
+            CHARACTER(LEN=32) :: stamp
+            INTEGER :: c(6)
+
+            c = DATE_FROM_HOUR(tih + output_hour * TOUTPUT)
+
+            WRITE(stamp, '(I4.4,"-",I2.2,"-",I2.2," ",I2.2,":",I2.2,":",I2.2)') &
+                 c(1), c(2), c(3), c(4), c(5), c(6)
+         END FUNCTION timestamp_from_output_hour
+
+
+         SUBROUTINE write_periodic_mass_balance()
+            IF (uznow <= icounter2) RETURN
+
+            WRITE(mas, '(F16.3,11('','',F16.3))') uznow, &
+                 balanc(7)  * 1000.0D0 / carea, &
+                 balanc(8)  * 1000.0D0 / carea, &
+                 balanc(9)  * 1000.0D0 / carea, &
+                 balanc(10) * 1000.0D0 / carea, &
+                 balanc(11) * 1000.0D0 / carea, &
+                 balanc(12) * 1000.0D0 / carea, &
+                 balanc(13) * 1000.0D0 / carea, &
+                 balanc(14) * 1000.0D0 / carea, &
+                 balanc(15) * 1000.0D0 / carea, &
+                 balanc(16) * 1000.0D0 / carea, &
                  balanc(17) * 1000.0D0 / carea
 
             icounter2 = icounter2 + 24.0D0
 
             IF (ISextrapsl) THEN
-               WRITE(PSLFILEUNIT, '(f10.2,*(1a,f10.2))') uznow, (',', &
-                     zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), i=1, pslextrapoints)
+               WRITE(PSLFILEUNIT, '(F10.2,*(1A,F10.2))') uznow, &
+                    (',', zgrund(pslextraelement(i)) - zvspsl(pslextraelement(i)), &
+                     i = 1, pslextrapoints)
             END IF
-         END IF
+         END SUBROUTINE write_periodic_mass_balance
 
-         uzold = uznowt
 
-         ! temp sb 250925 for when doing 1d simulations
-         IF (mblink == 0 .AND. mbface == 0) THEN
-            qocav = 0.0D0
-         ELSE
-            qocold = qoc(mblink, mbface)
-         END IF
+         SUBROUTINE write_final_state()
+            WRITE(vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
+            WRITE(vse, *) 'This output is by element number'
+            WRITE(vse, *)
+            WRITE(vse, *) 'phreatic surface level '
 
-      ELSE
-         WRITE(vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
-         WRITE(vse, *) 'This output is by element number'
-         WRITE(vse, *)
-         WRITE(vse, *) 'phreatic surface level '
-
-         IF (bexbk) THEN
-            nminel = 1
-         ELSE
-            nminel = total_no_links + 1
-         END IF
-
-         WRITE(vse, '(10(1X,F9.3))') (zvspsl(j), j = nminel, total_no_elements)
-         WRITE(vse, *)
-         WRITE(vse, *) 'Heads at end of simulation'
-
-         DO iel = 1, total_no_elements
-            IF (bexbk .OR. iel > total_no_links) THEN
-               WRITE(vse, '(I7)') iel
-               WRITE(vse, '(10(1X,F9.3))') (VSPSI(j, iel), j = nlyrbt(iel, 1), top_cell_no)
+            IF (bexbk) THEN
+               nminel = 1
+            ELSE
+               nminel = total_no_links + 1
             END IF
-         END DO
-      END IF
 
-   END SUBROUTINE FROUTPUT
+            WRITE(vse, '(10(1X,F9.3))') (zvspsl(j), j = nminel, total_no_elements)
+            WRITE(vse, *)
+            WRITE(vse, *) 'Heads at end of simulation'
+
+            DO iel = 1, total_no_elements
+               IF (bexbk .OR. iel > total_no_links) THEN
+                  WRITE(vse, '(I7)') iel
+                  WRITE(vse, '(10(1X,F9.3))') &
+                       (VSPSI(j, iel), j = nlyrbt(iel, 1), top_cell_no)
+               END IF
+            END DO
+         END SUBROUTINE write_final_state
+
+
+         SUBROUTINE write_checked(unit, line, error_message)
+            INTEGER,          INTENT(IN) :: unit
+            CHARACTER(LEN=*), INTENT(IN) :: line
+            CHARACTER(LEN=*), INTENT(IN) :: error_message
+
+            WRITE(unit, '(A)', IOSTAT=ios) line
+            CALL stop_on_io_error(ios, error_message)
+         END SUBROUTINE write_checked
+
+
+         SUBROUTINE stop_on_io_error(io_status, message)
+            INTEGER,          INTENT(IN) :: io_status
+            CHARACTER(LEN=*), INTENT(IN) :: message
+
+            IF (io_status == 0) RETURN
+
+            WRITE(*, '(A)') message
+            WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
+            WRITE(*, '(''paused, type [enter] to continue'')')
+            READ(*, *)
+            STOP
+         END SUBROUTINE stop_on_io_error
+
+
+         SUBROUTINE fatal_on_io_error(io_status, error_code, message)
+            INTEGER,          INTENT(IN) :: io_status
+            INTEGER,          INTENT(IN) :: error_code
+            CHARACTER(LEN=*), INTENT(IN) :: message
+
+            IF (io_status /= 0) CALL ERROR(FFFATAL, error_code, PPPRI, 0, 0, message)
+         END SUBROUTINE fatal_on_io_error
+
+      END SUBROUTINE FROUTPUT
 
 
 
@@ -2271,8 +2385,8 @@ MODULE FRmod
          qd = -qoo
       ENDIF
       c = DATE_FROM_HOUR(tih + tme)
-      WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
-!WRITE(dum,'(2(I2.2,A),I4.4,3(A,I2.2))') c(1),'-',c(2),'-',c(3),'T', c(4),':',c(5),':',c(6)
+      WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
+!WRITE(dum,'(2(I2.2,A),I4.4,3(A,I2.2))') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
       WRITE(dis2,'(A,A1,F0.5,A1,F0.5)') TRIM(dum), ',',tme, ',',qd
    END SUBROUTINE write_dis2
 
@@ -3276,15 +3390,16 @@ MODULE FRmod
       DOUBLE PRECISION :: ARL, ARP, DBK, DKBED, DMULT, DUM, DUM1, DUM2, DUM3, DUMK
       DOUBLE PRECISION :: FNOLBD, asum, asumK
 
-      DOUBLE PRECISION :: FNDUM (2), FOLDUM (2), KSPDUM (total_no_elements, top_cell_no + 1), ROH (LLEE)
+      DOUBLE PRECISION :: FNDUM (2), FOLDUM (2), ROH (LLEE)
+      DOUBLE PRECISION, ALLOCATABLE :: KSPDUM(:, :)
 
       ! Added by SB
       INTEGER :: MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS
       INTEGER :: NUM_CATEGORIES_TYPES (NCONEE), NTAB (NOCTAB, NCONEE)
-      INTEGER :: NCATTY (NELEE, NCONEE)
-      DOUBLE PRECISION :: TABLE_CONCENTRATION (NOCTAB, NOCTAB, NCONEE)
-      DOUBLE PRECISION :: TABLE_WATER_DEPTH (NOCTAB, NOCTAB, NCONEE)
-      DOUBLE PRECISION :: DUMMYCONC(total_no_elements, top_cell_no)
+      INTEGER, ALLOCATABLE :: NCATTY(:, :)
+      DOUBLE PRECISION, ALLOCATABLE :: TABLE_CONCENTRATION(:, :, :)
+      DOUBLE PRECISION, ALLOCATABLE :: TABLE_WATER_DEPTH(:, :, :)
+      DOUBLE PRECISION, ALLOCATABLE :: DUMMYCONC(:, :)
 
       LOGICAL :: LDUM1(1), ISCNSV (NCONEE)
 
@@ -3302,6 +3417,10 @@ MODULE FRmod
       !
       MAX_NUM_CATEGORY_TYPES = NOCTAB
       MAX_NUM_DATA_PAIRS = NOCTAB
+
+      ALLOCATE(KSPDUM(total_no_elements, top_cell_no + 1), DUMMYCONC(total_no_elements, top_cell_no))
+      ALLOCATE(NCATTY(NELEE, NCONEE))
+      ALLOCATE(TABLE_CONCENTRATION(NOCTAB, NOCTAB, NCONEE), TABLE_WATER_DEPTH(NOCTAB, NOCTAB, NCONEE))
 
       ! Read main CM input data file
       ! ----------------------------
