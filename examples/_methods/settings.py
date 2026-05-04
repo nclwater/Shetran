@@ -82,6 +82,7 @@ list_short_runtime = [
 list_table_files_indicators = [
     "_sim_daily.",
     "_sim_hourly.",
+    "_discharge_everytimestep.",
     "_discharge_sim_everytimestep.",
     "_discharge_sim_regulartimestep.",
     "_mb.water_table_depth.",
