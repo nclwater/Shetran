@@ -64,7 +64,7 @@ def _read_table_csv(fn_table: str) -> pd.DataFrame:
         fn_table,
         skiprows=1,
         converters=converters,
-        index_col=0,
+        index_col=False,
     )
 
 
@@ -154,12 +154,8 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
         res["same_row_count"] = True
 
     # only explicitly date-like columns are allowed to be non-numeric
-    date_time_should = [
-        idx for idx, h in enumerate(df_should.columns) if _is_datetime_header(h)
-    ]
-    date_time_is = [
-        idx for idx, h in enumerate(df_is.columns) if _is_datetime_header(h)
-    ]
+    date_time_should = [col for col in df_should.columns if _is_datetime_header(col)]
+    date_time_is = [col for col in df_is.columns if _is_datetime_header(col)]
     if date_time_should != date_time_is:
         flag_diff = True
         res["same_date_time_columns"] = False
@@ -169,8 +165,8 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     # now check if those rows are the only ones that are allowed to be non-numeric
     non_numeric_should = []
     non_numeric_is = []
-    for idx, col in enumerate(df_should.columns):
-        if idx not in date_time_should:
+    for col in df_should.columns:
+        if col not in date_time_should:
             if not pd.api.types.is_numeric_dtype(df_should[col]):
                 non_numeric_should.append(col)
             if not pd.api.types.is_numeric_dtype(df_is[col]):
@@ -191,8 +187,8 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     # set index to a date-time column (if present) and compare index values.
     # Some tables have no explicit date-time column, so avoid set_index([]).
     if len(date_time_should) == 1 and len(date_time_is) == 1:
-        df_should.set_index(df_should.columns[date_time_should[0]], inplace=True)
-        df_is.set_index(df_is.columns[date_time_is[0]], inplace=True)
+        df_should.set_index(date_time_should[0], inplace=True)
+        df_is.set_index(date_time_is[0], inplace=True)
         if not df_should.index.equals(df_is.index):
             flag_diff = True
             res["identical_date_time_index"] = False
@@ -213,7 +209,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
     # compare the contents column-by-column and expose per-column metrics.
     # This powers the expanded comparison_results.csv output (one row per column).
     if res["identical_columns"]:
-        for idx, col in enumerate(df_should.columns):
+        for col in df_should.columns:
             # remove & replace special characters for legacy per-column flags
             col_save = col.replace(" ", "_").replace("/", "_").replace("\\", "_")
             col_save = "".join(filter(None, col_save.split("_")))
@@ -240,7 +236,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
             df_combined.interpolate(method="linear", inplace=True)
 
             is_numeric = pd.api.types.is_numeric_dtype(df_should[col])
-            if idx in date_time_should or not is_numeric:
+            if col in date_time_should or not is_numeric:
                 # Keep non-numeric/date columns in the overview with NaN metrics.
                 data_differs = not df_combined[should_col_name].equals(
                     df_combined[is_col_name]
