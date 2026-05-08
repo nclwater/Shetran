@@ -15,7 +15,8 @@ shetran-*
 *.zip
 Shetran-4.4.7
 *.mod
-
+readme-compare-model-results.txt
+settings - steve.py
 
 
 *.rsuser
