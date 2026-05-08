@@ -2,6 +2,7 @@ MODULE sglobal
 ! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the al_p etc
 !USE BUFF_DISK
+   USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
 IMPLICIT NONE
 !MODULE AL_P
 !IMPLICIT NONE
@@ -40,6 +41,9 @@ IMPLICIT NONE
 !      970220       Restore history.
 ! RAH  980220  4.2  Update SHEVER,BANNER.  Remove NWELEE,NSZBOU,NPSITH.
 !  JE  JULY 04 ---  Convert to FORTRAN 95, as part of integration of SHEGRAPH Version 2
+! SB Mar 26  4.6   Increase array sizes now all the 2 and 3D arrays are allocatable
+!                   NXOCEE=4*nxee
+
 !----------------------------------------------------------------------*
 
 !*970218 TEMPORARY!  REMOVED TO temporary.f90 je 170704
@@ -50,7 +54,7 @@ IMPLICIT NONE
 
 !     (MUST BE IN FORMAT XX.Y WHERE XX = MAJOR PART OF VERSION NUMBER,
 !                                    Y = MINOR PART )
-      DOUBLEPRECISION, PARAMETER :: SHEVER=4.5
+      DOUBLEPRECISION, PARAMETER :: SHEVER=4.6
 !
 !------------ DEVELOPMENT VERSION FLAG
 
@@ -73,23 +77,15 @@ IMPLICIT NONE
 !30 Sep 94  NB  NELEE is also used as size of workspace arrays.
 !Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
       INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
-!      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
+!      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.6
 !      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=2000, nelee=80000  !sv4.5
-     
- !     INTEGER, PARAMETER :: nxee=250, nyee=250, nlfee=10000, nelee=30000  !sv4.5
-!      INTEGER, PARAMETER :: nxee=200, nyee=200, nlfee=10000, nelee=40000  !sv4 large
-      !INTEGER, PARAMETER :: nxee=150, nyee=150, nlfee=5000, nelee=20000  !sv4 large
-      !INTEGER, PARAMETER :: nxee=35, nyee=40, nlfee=240, nelee=900  !Dunsop200
-      !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=132, NELEE=320  !Cobres
-      !INTEGER, PARAMETER :: NXEE=12, NYEE=12, NLFEE=4, NELEE=30
-      !INTEGER, PARAMETER :: NXEE=40, NYEE=40, NLFEE=40, NELEE=800  !slapton
       INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
                             ran2monte1=-1, ran2monte2=-1, pcmonte=-1
       INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec
       
 ! --- GRID POINTS IN VERTICAL PLUS ONE
       !INTEGER, PARAMETER :: LLEE=50
-      INTEGER, PARAMETER :: LLEE=50  !Cobres
+      INTEGER, PARAMETER :: LLEE=50  
 
 ! --- VEGETATION TYPES, SOIL TYPES (NVEE also used for number of precipitation and pet stations)
       INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
@@ -132,7 +128,6 @@ IMPLICIT NONE
       CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
       
 
-!      INTEGER, PARAMETER :: NXSCEE=100000
       INTEGER, PARAMETER :: NXSCEE=100000
 !END MODULE AL_P
 INTEGER, PARAMETER :: ERRNEE = 100
@@ -150,6 +145,7 @@ INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
 CHARACTER(128)     :: helppath
 LOGICAL :: ISERROR
 LOGICAL :: ISERROR2
+LOGICAL :: error_mode
 
 DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
                                      DXQQ, DYQQ, &  !face lengths
@@ -273,221 +269,185 @@ ENDIF
 END FUNCTION dimje
 
 !SSSSSS SUBROUTINE ERROR 
-SUBROUTINE ERROR (ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)  
+SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
-!""USE DFLIB, ONLY:FULLPATHQQ, GETDRIVEDIRQQ, GETCHARQQ  
-!----------------------------------------------------------------------*
+      ! Assumed global variables provided via host module:
+      ! I_P, FFFATAL, EEERR, WWWARN, UZNOW, ERRTOT, ERRC, ERRNEE,
+      ! EARRAY, ISERROR, ISERROR2, rootdir, helppath, dirqq
+
+      IMPLICIT NONE
+
+      ! IO-related parameters and variables
+      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE  !! The type of error (FFFATAL, EEERR, WWWARN). -999 triggers a help path check.
+      INTEGER(KIND=I_P), INTENT(IN) :: ERRNUM !! The unique error number code.
+      INTEGER(KIND=I_P), INTENT(IN) :: OUT    !! The output file unit for the message.
+      INTEGER(KIND=I_P), INTENT(IN) :: IEL    !! The element number where the error occurred (optional).
+      INTEGER(KIND=I_P), INTENT(IN) :: CELL   !! The cell number where the error occurred (optional).
+      CHARACTER(LEN=*),  INTENT(IN) :: TEXT   !! The descriptive error text.
+
+      INTEGER(KIND=I_P), PARAMETER :: NONE = 0
+      ! Assumes ERRNEE is accessible from host module
+      INTEGER(KIND=I_P), PARAMETER :: ERRCEE = (1 + ERRNEE) * 4
+      INTEGER(KIND=I_P), PARAMETER :: HLP = 8
+
+      ! Local variables
+      CHARACTER(LEN=*), PARAMETER :: PATH1 = '/shetran/'
+      CHARACTER(LEN=256) :: FIL,fname
+      CHARACTER(LEN=256)  :: HLPMSG
+      CHARACTER(LEN=1)   :: cc
+      CHARACTER(LEN=1), PARAMETER :: slash = '/'
+
+      INTEGER(KIND=I_P) :: COUNT, ERRN, AMODL
+      INTEGER(KIND=I_P) :: IO_STATUS
+      INTEGER(KIND=I_P) :: helpcheck !! Status from checking for help directory.
+
+      LOGICAL :: VALID, present
+
+      ! Modernization Fix: Replaced legacy DATA statement with a strict PARAMETER array
+      CHARACTER(LEN=11), PARAMETER :: CTYPE(3) = ['FATAL ERROR', '      ERROR', '    WARNING']
+
+      !-------------------------------------------------------------------*
+
+      helppath = '/helpmessages'
+
+      ! SB 07072020 potentially reduce timestep if there are errors 1024,1030,1060
+      ISERROR  = .FALSE.
+      ISERROR2 = .FALSE.
+
+
+      ! Write general error message
+      ! ---------------------------
+      IF (ETYPE >= 1 .AND. ETYPE <= 3) THEN
+         IF (ETYPE == FFFATAL) WRITE(OUT, '(//)')
+
+         IF (IEL == 0) THEN
+            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW
+         ELSE IF (CELL == 0) THEN
+            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL
+         ELSE
+            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL, CELL
+         END IF
+      END IF
+
+      WRITE(OUT, '(8X,A)') TEXT
+
+      ! Decompose ERRNUM and update counters
+      ! ------------------------------------
+      IF (ETYPE /= NONE) THEN
+         ERRTOT = ERRTOT + 1
+         AMODL  = ERRNUM / 1000
+         ERRN   = MOD(ERRNUM, 1000)
+
+         VALID  = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERRNEE)
+         IF (VALID) ERRC(ERRN, AMODL) = ERRC(ERRN, AMODL) + 1
+      END IF
+
+      ! Write specific error messages
+      ! -----------------------------
+      IF (ERRNUM == 1003) THEN
+         WRITE(OUT, 91003) EARRAY(1)
+         ! 970804
+      ELSE IF (ERRNUM == 1024) THEN
+         WRITE(OUT, 91024) EARRAY(1)
+         !
+      END IF
+
+      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
+      IF (ERRNUM == 1024 .OR. ERRNUM == 1030) THEN
+         ISERROR = .TRUE.
+      END IF
+      IF (ERRNUM == 1060) THEN
+         ISERROR2 = .TRUE.
+      END IF
+
+      ! Write summary
+      ! -------------
+      IF (ETYPE == FFFATAL .OR. ERRNUM == 0) THEN
+          WRITE(*,'(/,A,/,A,/)') &
+              ' ### Error Summary and Advice ###', &
+              '     ------------------------' 
+          WRITE(OUT,'(/,A,/,A,/)') &
+              ' ### Error Summary and Advice ###', &
+              '     ------------------------'
+          inquire(out,name=fname)
+
+         IF (ERRTOT > 0) WRITE(*, '(A,A,A/)') ' ==> Check the pri file: "', trim(fname), '" for more details <=='
+
+         module_loop: DO AMODL = 0, 3
+            error_loop: DO ERRN = 0, ERRNEE
+               COUNT = ERRC(ERRN, AMODL)
+
+               IF (COUNT > 0) THEN
+                  ! Print number of occurrences
+                  WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
+                  WRITE(OUT, 9500) ERRN + AMODL * 1000, COUNT
+                  WRITE(*, *) 
+                  WRITE(OUT, *) 
+
+
+                  ! Print contents of help file (if any)
+                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '/', AMODL, ERRN, '.txt'
+                  OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
+                  IF (IO_STATUS == 0) THEN
+                      read_help: DO
+                          READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
+                          IF (IO_STATUS /= 0) EXIT read_help
+                          WRITE(*, '(A)') trim(HLPMSG)
+                          WRITE(OUT, '(A)') trim(HLPMSG)
+                      END DO read_help
+                      CLOSE(HLP)
+                  END IF
+
+                  WRITE(*, *)
+                  WRITE(OUT, *)
+               END IF
+            END DO error_loop
+         END DO module_loop
+
+         WRITE(*, 9600) ERRTOT
+
+      END IF
+
+      ! Stop?
+      ! -----
+      IF (ETYPE == FFFATAL) CALL ALSTOP(1)
+
+      ! String format statements
+      ! ------------------------
+9100  FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
+      &        ', iel =', I6:', cell =', I5 )
+9200  FORMAT(A,I1,I3.3,A)
+9500  FORMAT(' No. of occurrences of error number',I5.4,' is',I6)
+9600  FORMAT(/' ### End of summary: recorded error count is',I7,' ###'/)
+91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G12.6,' METRES')
+! 970804
+91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')
 !
-! Print a message or error asummary (and optionally stop the program)
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR72
-!  Module:  AL        Program:  SHETRAN
-! Modifications:
-!  RAH  08.10.94  Version 3.4.1 by AB/RAH from version 3.4:
-!                  replace common counter arrays with local ERRC;
-!                  extend ERRNUM range below 1000; introduce ETYPE=0;
-!                  print IEL, CELL only if non-zero; print help files
-!                  along with final asummary; declare everything;
-!                  no INTEGER*2; test subscript ranges; tidy comments;
-!                  call ALSTOP to stop; use local IFATAL etc instead
-!                  of common FATAL etc; 1024 no longer uses EARRAY.
-! RAH  970804  4.1  (Use EARRAY for 1024.)
-! RAH  970811       (EXTERNAL after INCLUDE.)
-!----------------------------------------------------------------------*
-! Commons and constants
-IMPLICIT NONE
-! Imported constants
-!   AL.P : SHEVER
-! Input common
-!   AL.C : UZNOW, EARRAY(1)
-! Input arguments
-INTEGER :: ERRNUM  
-INTEGER :: ETYPE, OUT, IEL, CELL  
-
-CHARACTER (LEN=*) :: TEXT  
-! Locals, etc
-INTEGER :: NONE, ERRCEE, HLP  
-PARAMETER (NONE = 0, ERRCEE = (1 + ERRNEE) * 4)  
-PARAMETER (HLP = 8)  
-CHARACTER (LEN=*) :: PATH1  
-PARAMETER (PATH1 = '/shetran/')  
-INTEGER :: COUNT, ERRN, AMODL  
-CHARACTER (11) :: CTYPE (3)
-CHARACTER(256) :: FIL
-CHARACTER(80)  :: HLPMSG  
-LOGICAL :: VALID  
-
-DATA CTYPE / 'FATAL ERROR', '      ERROR', '    WARNING' /  
-!----------------------------------------------------------------------*
-INTEGER :: helpcheck  
-CHARACTER :: cc
-character, parameter :: slash='/'
- 
-LOGICAL :: present  
-
-helppath = '\helpmessages'  
-
-!**SB 07072020 reduce timestep if there are errors 1024,1030,1060
-ISERROR = .FALSE.
-ISERROR2 = .FALSE.
-
-IF (ETYPE == - 999) THEN  
-   present = .TRUE.;
-   !helppath = ''  
-                                                             !nett 09080
-   !""helpcheck = FULLPATHQQ ('helpmessages', helppath)
-helpcheck = 60
-          ! IF(helpcheck/=0) INQUIRE(FILE=helppath, EXIST=present)
-          !IF(.NOT.present) THEN
-                                 !nett 090805
-   IF (helpcheck == 0) THEN  
-      PRINT * , "Failedtofindthe'helpmessages'directory"  
-    PRINT * , '  (which contains the help message files)'  
-      PRINT * , "Itsnamemustbe'helpmessages'"  
-      !""helpcheck = GETDRIVEDIRQQ (helppath)  
-      IF (helpcheck /= 0) THEN  
-         !!PRINT *, "anditmustbein"//TRIM (helppath)  
-      ENDIF  
-      PRINT * , "Type's'tostopor'c'tocontinue"  
-      !""cc = GETCHARQQ ()
-      cc = 'c'
-      DO WHILE (cc /= 'c'.AND.cc /= 's'.AND.cc /= 'C'.AND.cc /= 'S')
-      !""cc = GETCHARQQ ()  
-      ENDDO  
-      IF (cc == 's'.OR.cc == 'S') STOP  
-   ENDIF  
-   RETURN  
+   END SUBROUTINE ERROR
 
 
-ENDIF  
-! Write general error message
-! ---------------------------
-IF (ETYPE.GE.1.AND.ETYPE.LE.3) THEN  
-   IF (ETYPE.EQ.FFFATAL) WRITE (OUT, '(//)')  
-   IF (IEL.EQ.0) THEN  
-      WRITE (OUT, 9100) CTYPE (ETYPE), ERRNUM, UZNOW  
-   ELSEIF (CELL.EQ.0) THEN  
-      WRITE (OUT, 9100) CTYPE (ETYPE), ERRNUM, UZNOW, IEL  
-   ELSE  
-      WRITE (OUT, 9100) CTYPE (ETYPE), ERRNUM, UZNOW, IEL, CELL  
-   ENDIF  
-ENDIF  
+   !> This subroutine is called to stop the program, typically after a fatal
+   !> error. It provides a final message to the user before termination.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:----:|:------:|-------------|
+   !> | 1994-09-17 | RAH | v3.4.1: File created. |
+   !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
+   SUBROUTINE ALSTOP (FLAG)
+      INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
+      ! if error_mode is true then there is no need to press enter to continue
 
-
-
-WRITE (OUT, '(8X,A)') TEXT  
-! Decompose ERRNUM and update counters
-! ------------------------------------
-IF (ETYPE.NE.NONE) THEN  
-   ERRTOT = ERRTOT + 1  
-   AMODL = ERRNUM / 1000  
-   ERRN = MOD (ERRNUM, 1000)  
-   VALID = &
-    AMODL.GE.0.AND.AMODL.LE.3.AND.ERRN.GE.0.AND.ERRN.LE.ERRNEE
-   IF (VALID) ERRC (ERRN, AMODL) = ERRC (ERRN, AMODL) + 1  
-
-
-
-ENDIF  
-! Write specific error messages
-! -----------------------------
-IF (ERRNUM.EQ.1003) THEN  
-   WRITE (OUT, 91003) EARRAY (1)  
-!*970804
-ELSEIF (ERRNUM.EQ.1024) THEN  
-   WRITE (OUT, 91024) EARRAY (1)  
-!*
-
-
-
-ENDIF  
-
-
-!**SB 07072020 reduce timestep if there are errors 1024,1030,1060
-IF ((ERRNUM.EQ.1024).OR.(ERRNUM.EQ.1030)) THEN
-    ISERROR=.TRUE.
-ENDIF
-IF (ERRNUM.EQ.1060) THEN
-    ISERROR2=.TRUE.
-ENDIF
-! Write asummary
-! -------------
-
-IF (ETYPE.EQ.FFFATAL.OR.ERRNUM.EQ.0) THEN  
-WRITE ( * , '(//A/A/)') ' ### Error asummary and Advice ###', '  ------------------------'
-
-IF (ERRTOT.GT.0) WRITE ( * , '(A/)') ' ==> Check printed output files for more details <=='
-   DO 50 AMODL = 0, 3  
-      DO 10 ERRN = 0, ERRNEE  
-         COUNT = ERRC (ERRN, AMODL)  
-
-         IF (COUNT.GT.0) THEN  
-!             * Print number of occurrences
-
-            WRITE ( *, 9500) ERRN + AMODL * 1000, COUNT  
-!             * Print contents of help file (if any)
-            WRITE (FIL, 9200) trim(rootdir)//TRIM (helppath) //'\', AMODL, ERRN  
-            print*,dirqq,rootdir
-            print*,fil
-            pause
-            OPEN (HLP, FILE = FIL, STATUS = 'OLD', ERR = 7)  
-    5             READ (HLP, '(A)', ERR = 7, END = 7) HLPMSG  
-            WRITE ( * , '(A)') HLPMSG  
-            GOTO 5  
-    7             CLOSE (HLP)  
-
-            WRITE ( *, * )  
-         ENDIF  
-   10       END DO  
-   50    END DO  
-
-   WRITE ( *, 9600) ERRTOT  
-
-
-
-ENDIF  
-! Stop?
-! -----
-
-IF (ETYPE.EQ.FFFATAL) CALL ALSTOP (1)  
- 9100 FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-&         ', iel =', I5:', cell =', I5 )
- 9200 FORMAT(A,I1,I3.3)  
- 9500 FORMAT(' No. of occurrences of error number',I5.4,' is',I6)  
- 9600 FORMAT(/' ### End of asummary: recorded error count is',I7,' ###'/)  
-91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G14.6,' METRES')  
-!*970804
-91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G14.6,' METRES')  
-!*
-END SUBROUTINE ERROR
-
-!SSSSSS SUBROUTINE ALSTOP (FLAG)  
-SUBROUTINE ALSTOP (FLAG)  
-!
-!----------------------------------------------------------------------*
-!
-! Perform any system-level tasks and terminate the program.
-!
-!----------------------------------------------------------------------*
-! Version:  3.4.1 (sol/sun)    Notes:  SSR80
-!  Module:  AL               Program:  SHETRAN
-! Modifications:
-!  RAH  30.09.94  Version 3.4.1.  File created 17.09.94.
-!  SB 7/3/00 Version 4g-pc remove ieee calls
-!----------------------------------------------------------------------*
-!
-! Input arguments
-INTEGER :: FLAG  
-!
-!
-!      CALL IEEE_FLAGS( 'clear', 'exception', 'all', OUT )
-!
-IF (FLAG.GT.0) THEN  
-   PAUSE  
-   STOP 'Program terminating due to fatal error'  
-ENDIF  
-!!!STOP  
-!
-END SUBROUTINE ALSTOP
+      IF (FLAG.GT.0) THEN
+          if (error_mode) then
+              STOP 'Program terminating due to fatal error'
+          else
+              WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+              READ(*,*)
+              STOP 'Program terminating due to fatal error'
+          endif
+      ENDIF
+   END SUBROUTINE ALSTOP
+    
+    
 END MODULE sglobal
