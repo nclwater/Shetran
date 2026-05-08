@@ -5,7 +5,6 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
 
 
 ## Windows
-Tested using Intel Fortran Compiler with Visual Studio. Intel ifort compiler 2022 and VS2019
 
 1. Create a Visual Fortran empty console application. File|New|Project search Fortran and select "Empty Project" ("A project for creating a command-line application"?)
 
@@ -37,6 +36,8 @@ Tested using Intel Fortran Compiler with Visual Studio. Intel ifort compiler 202
 
 5. In 	Project|Properties|Configuration Properties|Fortran|Libraries change runtime Library to "Multithreaded"
 
-6. In 	Project|Properties|Configuration Properties|Fortran|Optimization change Optimization to "Minimum Size (/O1)"
+6. In 	Project|Properties|Configuration Properties|Fortran|Optimization change Optimization to "Maximum Speed (/O2)"
 
-7. Build the project using Build|Build Solution(either the debug or the release versions)
+7. In 	Project|Properties|Configuration Properties|Fortran|Floating Point change Floating Point Model to "fp:prcise"
+
+8. Build the project using Build|Build Solution(either the debug or the release versions)
