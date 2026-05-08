@@ -4470,9 +4470,9 @@ DO 430 I = 1, NV
 
       RETURN
 
- 567  CALL ERROR(FFFATAL,1063,PPPRI,0,0,  'no data in prd file')
- 568  CALL ERROR(FFFATAL,1064,PPPRI,0,0,  'no data in epd file')
- 569  CALL ERROR(FFFATAL,1065,PPPRI,0,0,   'no data in med file')
+ 567  CALL ERROR(FFFATAL,1063,PPPRI,0,0,  'no data in precipitation time series (prd) file')
+ 568  CALL ERROR(FFFATAL,1064,PPPRI,0,0,  'no data in potential evaporation time series (epd) file')
+ 569  CALL ERROR(FFFATAL,1065,PPPRI,0,0,   'no data in met data time series (med)1060 file')
  570  CALL ERROR(FFFATAL,1066,PPPRI,0,0,   'no data in air temp - high file')
  571  CALL ERROR(FFFATAL,1067,PPPRI,0,0,   'no data in air temp - low file')
 END SUBROUTINE INET
