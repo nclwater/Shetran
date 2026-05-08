@@ -265,8 +265,12 @@ DO
     CALL FROUTPUT('main ')  !sb 02/05/07 additional output
     IF(uznow > icounter3) then  
         call cpu_time(current_time)
-        write(6,9751,advance="no") achar(13), uznow, min(100*uznow/(TTH - TIH),100.00),int(current_time - start_time), int((current_time - start_time)/(uznow/(TTH - TIH))-(current_time - start_time))
-        call flush(6) 
+        write(6,9752) uznow, min(100*uznow/(TTH - TIH),100.00),int(current_time - start_time), int((current_time - start_time)/(uznow/(TTH - TIH))-(current_time - start_time))
+
+        ! This code should work but it can produce garbage output so I reverted to using the '+' in the format statement     
+        !write(6,'(A)',advance='no') achar(13)
+        !write(6,9751,advance='no') uznow, min(100*uznow/(TTH - TIH),100.00),int(current_time - start_time), int((current_time - start_time)/(uznow/(TTH - TIH))-(current_time - start_time))
+        !call flush(6) 
         icounter3 = icounter3 + 24  
     endif  
     IF (UZNOW>=(TTH - TIH) ) EXIT
@@ -277,7 +281,8 @@ WRITE (6,'(A)') '                                                               
 
 
 9750 FORMAT (' Length of Simulation =',F12.2,' hours '//)  
-9751 FORMAT (A,'Simulation = ',F0.1,' hrs, % Compl. = ', f0.2,', Elapsed/Remaining = ', I0, ' / ', I0, ' sec. ')  
+!9751 FORMAT ('Simulation = ',F0.1,' hrs, % Compl. = ', f0.2,', Elapsed/Remaining = ', I0, ' / ', I0, ' sec. ')  
+9752 FORMAT ('+','Simulation = ',F0.1,' hrs, % Compl. = ', f0.2,', Elapsed/Remaining = ', I0, ' / ', I0, ' sec. ')  
 9800 FORMAT ('Current time = ',F10.2,' hours. Number of steps = ',I7 /)  
 9900 FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', I7,' steps.' /)
 END SUBROUTINE simulation
