@@ -29,7 +29,6 @@ PROGRAM SHETRAN
     
     IMPLICIT NONE
     
-    CALL ERROR ( - 999, 0, 0, 0, 0, 'Initialise error messages')  
     CALL GET_DIR_AND_CATCH (runfil, filnam, cnam, dirqq, rootdir)
     
     CALL ALTRAP

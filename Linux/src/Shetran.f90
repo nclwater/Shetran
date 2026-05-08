@@ -29,7 +29,6 @@ PROGRAM SHETRAN
     
     IMPLICIT NONE
     
-    CALL ERROR ( - 999, 0, 0, 0, 0, 'Initialise error messages')  
     CALL GET_DIR_AND_CATCH (runfil, filnam, cnam, dirqq, rootdir)
     
     CALL ALTRAP
@@ -42,6 +41,6 @@ PROGRAM SHETRAN
     CALL EXTRA_OUTPUT()
     CALL RECORD_VISUALISATION_DATA (REAL(uznow, KIND = 4) , 'end')  
     
-    CALL sleepqq(500)
+    CALL sleepqq(5000)
 
 END PROGRAM SHETRAN
