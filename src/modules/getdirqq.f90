@@ -15,6 +15,7 @@
 MODULE GETDIRQQ
 
     use mod_parameters
+    use sglobal, only : error_mode
 
     USE IFWIN
     USE IFPORT, ONLY : SPLITPATHQQ, SYSTEMQQ, GETDRIVEDIRQQ
@@ -71,14 +72,16 @@ MODULE GETDIRQQ
         
         ! Code =================================================================
         idum = GETDRIVEDIRQQ(rootdir)
-
+        error_mode = .FALSE.
+        !the number of arguments includes the executable name
         na = NARGS()
+        ! argument 0 is the executable name, argument 1 is the command line option
         IF(na>1) THEN
             CALL GETARG(INT(1,KIND=2), code)
         ELSE
             code = '-a'  !treat as default filname
         ENDIF
-
+        
         message=''
         SELECT CASE(code)
         CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results') !use popup
@@ -106,10 +109,10 @@ MODULE GETDIRQQ
             opn%LPTEMPLATENAME    = NULL 
             bRET                  = GETOPENFILENAME(opn)
             CALL COMDLGER(IERROR)
-
+        
         CASE('-f') !treat as filename
             CALL GETARG(INT(2,KIND=2), filename)
-
+        
         CASE('-c')  !treat as catchment name
             IF (na<3) THEN
                 filename = 'default'
@@ -125,15 +128,26 @@ MODULE GETDIRQQ
                         IF(dum1==filename) EXIT
                     ENDDO
                 filename=dum2
-
+        
             ELSE
                 message='Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
             ENDIF
-
+        
         CASE DEFAULT
             message = 'Unrecognised command line argument ' // TRIM(code) // ' Recognise only -a, -c and -f'
         END SELECT
+        !
+        ! addtional -error option at the end of the command line argument
+        ! if this is present when an error message is produced the smiluation does not require a manual enter command to continue
+        IF (na==4) THEN
+            CALL GETARG(INT(3,KIND=2), code)
+            SELECT CASE(code)
+            CASE('-error')
+                error_mode = .TRUE.
+            END SELECT
+        ENDIF
 
+        
         IF(message/='') GOTO 1000
 
         INQUIRE(FILE=filename, EXIST=ex)

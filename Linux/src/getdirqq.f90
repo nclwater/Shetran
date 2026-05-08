@@ -15,6 +15,7 @@
 MODULE GETDIRQQ
 
     use mod_parameters
+    use sglobal, only : error_mode
 
 !    USE IFWIN
     USE IFPORT, ONLY : SPLITPATHQQ, SYSTEMQQ, GETDRIVEDIRQQ
@@ -71,8 +72,10 @@ MODULE GETDIRQQ
         
         ! Code =================================================================
         idum = GETDRIVEDIRQQ(rootdir)
-
+        error_mode = .FALSE.
+        !the number of arguments includes the executable name
         na = NARGS()
+        ! argument 0 is the executable name, argument 1 is the command line option
         IF(na>1) THEN
             CALL GETARG(INT(1,KIND=2), code)
         ELSE
@@ -108,6 +111,16 @@ MODULE GETDIRQQ
         CASE DEFAULT
             message = 'Unrecognised command line argument ' // TRIM(code) // ' Recognise only -a, -c and -f'
         END SELECT
+        !
+        ! addtional -error option at the end of the command line argument
+        ! if this is present when an error message is produced the smiluation does not require a manual enter command to continue
+        IF (na==4) THEN
+            CALL GETARG(INT(3,KIND=2), code)
+            SELECT CASE(code)
+            CASE('-error')
+                error_mode = .TRUE.
+            END SELECT
+        ENDIF
 
         IF(message/='') GOTO 1000
 
