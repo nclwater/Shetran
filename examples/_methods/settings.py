@@ -98,7 +98,7 @@ default_shetran_exe = fn_shetran = os.path.join(_REPO_ROOT_DIR, "build",
                                                 "release", "bin",
                                                 shetran_executable_name)
 fn_model_analysis = "model_analysis.csv"
-fn_overall_analysis = "overall_analysis.csv"
+fn_overall_analysis = "comparison_overview.csv"
 fn_setup_overview = "setup_overview.csv"
 
 # Other Settings

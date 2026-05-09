@@ -97,25 +97,34 @@ def _build_comparison_results_rows(res_files: dict) -> list[dict]:
             if dataset_metrics:
                 for dataset_res in dataset_metrics:
                     rows.append({
-                        "file": filename,
-                        "data_item": dataset_res.get("data_item", ""),
-                        "file_type": file_type,
-                        "data_differs": dataset_res.get(
-                            "data_differs", files_different),
-                        "same_row_count": dataset_res.get("same_row_count"),
-                        "abs_max_difference": dataset_res.get(
-                            "abs_max_difference"),
-                        "perc_max_difference": dataset_res.get(
-                            "perc_max_difference"),
-                        "abs_mean_difference": dataset_res.get(
-                            "abs_mean_difference"),
-                        "perc_mean_difference": dataset_res.get(
-                            "perc_mean_difference"),
-                        "MSE": dataset_res.get("MSE"),
-                        "MAE": dataset_res.get("MAE"),
-                        "MAPE": dataset_res.get("MAPE"),
-                        "NSE": dataset_res.get("NSE"),
-                        "R²": dataset_res.get("R²"),
+                        "file":
+                        filename,
+                        "data_item":
+                        dataset_res.get("data_item", ""),
+                        "file_type":
+                        file_type,
+                        "data_differs":
+                        dataset_res.get("data_differs", files_different),
+                        "same_row_count":
+                        dataset_res.get("same_row_count"),
+                        "abs_max_difference":
+                        dataset_res.get("abs_max_difference"),
+                        "perc_max_difference":
+                        dataset_res.get("perc_max_difference"),
+                        "abs_mean_difference":
+                        dataset_res.get("abs_mean_difference"),
+                        "perc_mean_difference":
+                        dataset_res.get("perc_mean_difference"),
+                        "MSE":
+                        dataset_res.get("MSE"),
+                        "MAE":
+                        dataset_res.get("MAE"),
+                        "MAPE":
+                        dataset_res.get("MAPE"),
+                        "NSE":
+                        dataset_res.get("NSE"),
+                        "R²":
+                        dataset_res.get("R²"),
                     })
             else:
                 rows.append({
@@ -210,8 +219,8 @@ def do_comparison(
 
         # get maximum percentage metrics from table columns that actually differ
         table_rows = df[(df["file_type"] == "table")
-                & (df["data_item"] != "")
-                & (df["data_differs"] == True)]
+                        & (df["data_item"] != "")
+                        & (df["data_differs"] == True)]
 
         if not table_rows.empty and table_rows["perc_max_difference"].notna(
         ).any():
@@ -329,7 +338,7 @@ def main() -> None:
 
     if overview:
         df_overview = pd.DataFrame.from_dict(overview, orient="index")
-        df_overview.to_csv("comparison_overview.csv")
+        df_overview.to_csv(settings.fn_overall_analysis)
 
 
 if __name__ == "__main__":

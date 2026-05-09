@@ -3,11 +3,15 @@
 # directories for the models as well. Additionally the generated overview
 # output files are removed also.
 #
+# (C) 2026, S.Berendsen
+#
+# 20260509 - SvB - made the overview files optionally deletable. Default: True
+#
 
 # General Imports
 import argparse
 import os
-import shutil
+# import shutil
 
 # Local Imports
 from _methods import settings as settings
@@ -40,6 +44,12 @@ def main():
         "--remove-expected-results",
         action="store_true",
         help="Also remove the expected results directories (output_should).",
+    )
+    parser.add_argument(
+        "--clean-overviews",
+        action="store_true",
+        default=True,
+        help="Also remove the generated csv overview files.",
     )
     args = parser.parse_args()
 
@@ -79,10 +89,11 @@ def main():
             os.remove(fn_model_analysis)
 
     # remove the generated overview files if they exist
-    if os.path.exists(settings.fn_setup_overview):
-        os.remove(settings.fn_setup_overview)
-    if os.path.exists(settings.fn_overall_analysis):
-        os.remove(settings.fn_overall_analysis)
+    if args.clean_overviews:
+        if os.path.exists(settings.fn_setup_overview):
+            os.remove(settings.fn_setup_overview)
+        if os.path.exists(settings.fn_overall_analysis):
+            os.remove(settings.fn_overall_analysis)
 
 
 if __name__ == "__main__":
