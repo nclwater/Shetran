@@ -1624,9 +1624,7 @@ CONTAINS
                OPEN (I, FILE = FILNAM, IOSTAT = ios)
                IF (ios /= 0) THEN
                   WRITE (*,'(A,A)') ' Error opening the file ', TRIM(FILNAM)
-                  WRITE (*,'("paused, type [enter] to continue")')
-                  READ (*,*)
-                  STOP
+                  ERROR STOP
                END IF
 
                IF (I == 27) RESFIL = FILNAM
@@ -2339,9 +2337,7 @@ CONTAINS
 
          WRITE(*, '(A)') message
          WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-         WRITE(*, '(''paused, type [enter] to continue'')')
-         READ(*, *)
-         STOP
+         ERROR STOP
       END SUBROUTINE stop_on_io_error
 
 

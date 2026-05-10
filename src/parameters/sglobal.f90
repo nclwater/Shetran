@@ -451,9 +451,6 @@ CONTAINS
                   PRINT *, dirqq, rootdir
                   PRINT *, FIL
 
-                  WRITE(*, '(A)', ADVANCE='NO') 'Press Enter to continue...'
-                  READ(*, *)
-
                   OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
                   IF (IO_STATUS == 0) THEN
                      read_help: DO
@@ -506,9 +503,8 @@ CONTAINS
       INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
 
       IF (FLAG.GT.0) THEN
-         WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
-         READ(*,*)
-         STOP 'Program terminating due to fatal error'
+         WRITE(*, '(A)') 'FATAL ERROR: Program will terminate.'
+         ERROR STOP 'Program terminating due to fatal error'
       ENDIF
    END SUBROUTINE ALSTOP
 

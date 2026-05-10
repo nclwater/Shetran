@@ -326,12 +326,10 @@ SUBROUTINE BALWAT
                   READ(prd, 9000, IOSTAT=ios) prdyear, prdmonth, prdday, prdhour, prdminute, prdsecond, tmp
 
                   IF (ios > 0) THEN
-                     WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
-                        'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
-                        NRAIN, ' values on each row'
-                     WRITE(*, 9021)
-                     READ (*, *)
-                     STOP
+                      WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                         'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
+                         NRAIN, ' values on each row'
+                      ERROR STOP
                   END IF
 
                   IF (ios < 0) THEN
@@ -345,11 +343,9 @@ SUBROUTINE BALWAT
                      READ (tmp, *, IOSTAT=ios) PINP(1:NRAIN)
 
                      IF (ios > 0) THEN
-                        WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
-                           'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
-                        WRITE(*, 9021)
-                        READ (*, *)
-                        STOP
+                         WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                            'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
+                         ERROR STOP
                      END IF
                   END IF
 
@@ -357,11 +353,9 @@ SUBROUTINE BALWAT
                   READ (PRD, *, IOSTAT=ios) PINP(1:NRAIN)
 
                   IF (ios > 0) THEN
-                     WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
-                        NRAIN, ' values on each row with no dates in the first column (see ET1)'
-                     WRITE(*, 9021)
-                     READ (*, *)
-                     STOP
+                      WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
+                         NRAIN, ' values on each row with no dates in the first column (see ET1)'
+                      ERROR STOP
                   END IF
 
                   IF (ios < 0) THEN
@@ -391,11 +385,9 @@ SUBROUTINE BALWAT
                      READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
 
                      IF (ios > 0) THEN
-                        WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
-                           'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
-                        WRITE(*, 9021)
-                        READ (*, *)
-                        STOP
+                         WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
+                            'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
+                         ERROR STOP
                      END IF
 
                      IF (ios < 0) THEN
@@ -407,12 +399,10 @@ SUBROUTINE BALWAT
                      ELSE
                         epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
                         READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
-                        IF (ios > 0) THEN
-                           WRITE (*, 9022) ' Error reading potential evap data values from line.'
-                           WRITE(*, 9021)
-                           READ (*, *)
-                           STOP
-                        END IF
+                         IF (ios > 0) THEN
+                            WRITE (*, 9022) ' Error reading potential evap data values from line.'
+                            ERROR STOP
+                         END IF
                      END IF
 
                      IF (ISTA) THEN
@@ -741,7 +731,6 @@ SUBROUTINE BALWAT
 9000  FORMAT (I4,1X,I2,1X,I2,1X,I2,1X,I2,1X,I2,1X,A)
 9010  FORMAT (///, A6, G12.4, A8, /, A18, /, A33, ///)
 9020  FORMAT (A, I0, A)
-9021  FORMAT ('paused, type [enter] to continue')
 9022  FORMAT (A)
 9030  FORMAT (2I6, 4G12.6, /, 12X, 3G12.6, I12)
 9040  FORMAT ('0', 8X, I6, F8.2, 5X, 2(3F12.6,'  NOT_USED  '))
@@ -871,9 +860,7 @@ SUBROUTINE BALWAT
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the precipitation time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
 
          BACKSPACE(prd)
@@ -885,9 +872,7 @@ SUBROUTINE BALWAT
          IF (tih + dtmet2 + 0.01d0 < prddate) THEN
             WRITE (*, '(A)') ' The precipitation data starts after the simulation start date. ' // &
                'Check the precipitation data dates and the start time of the simulation'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
       END IF
 
@@ -899,9 +884,7 @@ SUBROUTINE BALWAT
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the potential evaporation time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
 
          BACKSPACE(epd)
@@ -910,9 +893,7 @@ SUBROUTINE BALWAT
          IF (tih + dtmet3 + 0.01d0 < epddate) THEN
             WRITE (*, '(A)') ' The potential evaporation data starts after the simulation start date. ' // &
                'Check the potential evaporation data dates and the start time of the simulation'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
       END IF
 
@@ -924,9 +905,7 @@ SUBROUTINE BALWAT
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the maximum temperature time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
 
          BACKSPACE(tah)
@@ -935,9 +914,7 @@ SUBROUTINE BALWAT
          IF (tih + dtmet3 + 0.01d0 < tahdate) THEN
             WRITE (*, '(A)') ' The maximum temperature data starts after the simulation start date. ' // &
                'Check the maximum temperature dates and the start time of the simulation'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
       END IF
 
@@ -949,9 +926,7 @@ SUBROUTINE BALWAT
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the minimum temperature time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
 
          BACKSPACE(tal)
@@ -960,9 +935,7 @@ SUBROUTINE BALWAT
          IF (tih + dtmet3 + 0.01d0 < taldate) THEN
             WRITE (*, '(A)') ' The minimum temperature data starts after the simulation start date. ' // &
                'Check the minimum temperature dates and the start time of the simulation'
-            WRITE(*, "('paused, type [enter] to continue')")
-            READ (*, *)
-            STOP
+            ERROR STOP
          END IF
       END IF
 
@@ -980,9 +953,7 @@ SUBROUTINE BALWAT
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
                WRITE (*, '(A)') ' Check the format of the precipitation time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               WRITE(*, "('paused, type [enter] to continue')")
-               READ (*, *)
-               STOP
+               ERROR STOP
             END IF
 
             prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
@@ -1006,9 +977,7 @@ SUBROUTINE BALWAT
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
                WRITE (*, '(A)') ' Check the format of the potential evaporation time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               WRITE(*, "('paused, type [enter] to continue')")
-               READ (*, *)
-               STOP
+               ERROR STOP
             END IF
 
             epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
@@ -1030,9 +999,7 @@ SUBROUTINE BALWAT
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
                WRITE (*, '(A)') ' Check the format of the maximum daily temperature time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               WRITE(*, "('paused, type [enter] to continue')")
-               READ (*, *)
-               STOP
+               ERROR STOP
             END IF
 
             tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
@@ -1054,9 +1021,7 @@ SUBROUTINE BALWAT
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
                WRITE (*, '(A)') ' Check the format of the minimum daily temperature time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               WRITE(*, "('paused, type [enter] to continue')")
-               READ (*, *)
-               STOP
+               ERROR STOP
             END IF
 
             taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)

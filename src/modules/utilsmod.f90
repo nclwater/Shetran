@@ -273,9 +273,7 @@ CONTAINS
 
          WRITE (*, '(A)') ' There is a problem with a date that has been entered'
          WRITE (*, '(A,5(1x,I0))') 'The Year, month,day,hour,minute values entered are: ', kyear, kmth, kday, khour, kmin
-         WRITE (*, '(''paused, type [enter] to continue'')')
-         READ (*, *)
-         STOP
+         ERROR STOP
 
       END IF
 
