@@ -28,6 +28,19 @@ MODULE SYmod
    DOUBLEPRECISION  :: FCROCK_symain(NELEE), FDRIP_symain(NVEE), FETA_symain(NELEE), FPCLAY_symain(NSEE)
    DOUBLEPRECISION  :: GBC_symain(NSEDEE, NSYCEE), GKF_symain(NSEE), GKR_symain(NSEE), RHOSO_symain(NSEE), XDRIP_symain(NVEE)
 
+   INTEGER, ALLOCATABLE :: IDUM1A (:), IDUM1X (:)
+   DOUBLE PRECISION, ALLOCATABLE :: CONCI (:, :)
+   DOUBLE PRECISION, ALLOCATABLE :: DCIPRM (:, :)
+   DOUBLE PRECISION, ALLOCATABLE :: DDIPRM (:, :)
+   DOUBLE PRECISION, ALLOCATABLE :: DRDROP (:), DUMSED (:), DWAT1 (:)
+   DOUBLE PRECISION, ALLOCATABLE :: EPSB (:)
+   DOUBLE PRECISION, ALLOCATABLE :: FQCONF (:, :)
+   DOUBLE PRECISION, ALLOCATABLE :: LRAIN (:)
+   DOUBLE PRECISION, ALLOCATABLE :: QSDWAT (:, :, :), QSEDB (:, :), QWATB (:)
+   DOUBLE PRECISION, ALLOCATABLE :: SLOPEJ (:, :), TAUJ (:, :), TAUK (:)
+   DOUBLE PRECISION, ALLOCATABLE :: VCFMAX (:), VINFMX (:)
+   LOGICAL, ALLOCATABLE :: BARM (:), LDUM (:)
+
    DOUBLE PRECISION, PARAMETER :: K1_syovtr = 0.05D0 * RHOWAT**2 / ((RHOSED - RHOWAT)**2 * SQRT(GRAVTY))
    DOUBLE PRECISION, PARAMETER :: K3_syovtr = 2.45D0 * (RHOSED / RHOWAT)**(-0.4D0) / SQRT((RHOSED - RHOWAT) * GRAVTY)
    DOUBLE PRECISION, PARAMETER :: K4_syovtr = 0.635D0 / SQRT(RHOWAT)
@@ -37,6 +50,35 @@ MODULE SYmod
    PUBLIC :: SYMAIN, issyok_symain, balsed
 
 CONTAINS
+
+   !SSSSSS SUBROUTINE INITIALISE_SYMAIN_WORKSPACE
+   !----------------------------------------------------------------------*
+   ! Allocate SYMAIN work arrays once on the first SYMAIN call.
+   !
+   ! SYMAIN is the controlling routine for the sediment yield module and has
+   ! no separate SYINI-style initialisation entry point.  Its first call,
+   ! identified by PASS_symain == 1, performs the sediment checks, input read
+   ! and static initialisation.  These arrays are needed during that first-pass
+   ! work and during later timestep calls.
+   !
+   ! The arrays used to be local allocatables in SYMAIN.  They are kept as
+   ! module work arrays so they live on the heap without paying the allocation
+   ! cost on every sediment timestep.  SYMAIN overwrites or clears the arrays
+   ! as needed before use.
+   !----------------------------------------------------------------------*
+   SUBROUTINE INITIALISE_SYMAIN_WORKSPACE()
+      IMPLICIT NONE
+
+      IF (.NOT. ALLOCATED(BARM)) THEN
+         ALLOCATE (BARM (NLFEE), CONCI (NLFEE, NSEDEE), DCIPRM (NLFEE, NSEDEE), &
+                   DDIPRM (NLFEE, NSEDEE), DRDROP (NELEE), DUMSED (NLFEE * NSEDEE), &
+                   DWAT1 (NELEE), EPSB (NLFEE), FQCONF (NLFEE, 3), IDUM1A (NELEE), &
+                   IDUM1X (NELEE + 3), LDUM (NELEE), LRAIN (NELEE), QSDWAT (NLFEE, NSEDEE, 4), &
+                   QSEDB (NSEDEE, NSYBEE), QWATB (NSYBEE), SLOPEJ (NELEE, 4), &
+                   TAUJ (NELEE, 4), TAUK (NELEE), VCFMAX (NLFEE), VINFMX (NLFEE))
+      END IF
+
+   END SUBROUTINE INITIALISE_SYMAIN_WORKSPACE
 
 
    !SSSSSS SUBROUTINE SYACKW
@@ -2350,46 +2392,29 @@ CONTAINS
       CHARACTER (LEN=*), PARAMETER :: SYVER = '4.2.7'
 
       INTEGER :: FACE, FADJ, I, IADJ, IB, IBR, IEL, N, P, SED, SOIL
-      INTEGER, ALLOCATABLE :: IDUM1A (:), IDUM1X (:)
 
       DOUBLE PRECISION :: DTSY
-      DOUBLE PRECISION, ALLOCATABLE :: CONCI (:, :)
       DOUBLE PRECISION :: CONCIE (NSEDEE)
       DOUBLE PRECISION :: DCBSEE (NSEDEE), DCIPRE (NSEDEE)
-      DOUBLE PRECISION, ALLOCATABLE :: DCIPRM (:, :)
       DOUBLE PRECISION :: DDBSEE (NSEDEE)
       DOUBLE PRECISION :: DDIPRE (NSEDEE)
-      DOUBLE PRECISION, ALLOCATABLE :: DDIPRM (:, :)
-      DOUBLE PRECISION, ALLOCATABLE :: DRDROP (:), DUMSED (:), DWAT1 (:)
-      DOUBLE PRECISION, ALLOCATABLE :: EPSB (:)
       DOUBLE PRECISION :: FBETAE (NSEDEE), FCC (NVEE), FDELE (NSEDEE)
-      DOUBLE PRECISION, ALLOCATABLE :: FQCONF (:, :)
       DOUBLE PRECISION :: GINFDE (NSEDEE), GINFSE (NSEDEE)
-      DOUBLE PRECISION, ALLOCATABLE :: LRAIN (:)
       DOUBLE PRECISION :: QSDWAE (NSEDEE, 4), QSEDE (NSEDEE, 4)
-      DOUBLE PRECISION, ALLOCATABLE :: QSDWAT (:, :, :), QSEDB (:, :), QWATB (:)
       DOUBLE PRECISION :: QWAT (4)
       DOUBLE PRECISION :: SLOPEE (4), SOSDFE (NSEDEE)
-      DOUBLE PRECISION, ALLOCATABLE :: SLOPEJ (:, :), TAUJ (:, :), TAUK (:)
       DOUBLE PRECISION :: TAUJE (4)
-      DOUBLE PRECISION, ALLOCATABLE :: VCFMAX (:), VINFMX (:)
 
       LOGICAL :: DOUBT
-      LOGICAL, ALLOCATABLE :: BARM (:), LDUM (:)
 
       !----------------------------------------------------------------------*
-
-      ALLOCATE (BARM (NLFEE), CONCI (NLFEE, NSEDEE), DCIPRM (NLFEE, NSEDEE), &
-                DDIPRM (NLFEE, NSEDEE), DRDROP (NELEE), DUMSED (NLFEE * NSEDEE), &
-                DWAT1 (NELEE), EPSB (NLFEE), FQCONF (NLFEE, 3), IDUM1A (NELEE), &
-                IDUM1X (NELEE + 3), LDUM (NELEE), LRAIN (NELEE), QSDWAT (NLFEE, NSEDEE, 4), &
-                QSEDB (NSEDEE, NSYBEE), QWATB (NSYBEE), SLOPEJ (NELEE, 4), &
-                TAUJ (NELEE, 4), TAUK (NELEE), VCFMAX (NLFEE), VINFMX (NLFEE))
 
       PASS_symain = PASS_symain + 1
       IF (PASS_symain == 1) THEN
 
          ! --------------------- Initialization step ----------------------------*
+
+         CALL INITIALISE_SYMAIN_WORKSPACE()
 
          ! * Check array bounds & input variables
          CALL SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE, NV, NVEE, NX, NXEE, NY, &

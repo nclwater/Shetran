@@ -67,6 +67,10 @@ MODULE OCmod
    DOUBLEPRECISION    :: XINW (NLFEE, NOCTAB)
    DOUBLEPRECISION    :: XAREA (NLFEE, NOCTAB)
    DOUBLEPRECISION     :: dtoc
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum, ijedum2
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: AA, DD, BB, GG, CC, TM1, TM2, inqsa, GGGETQSA
+   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: FF, TV1, TV2, inhrf, GGGETHRF
+   DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE
 
    PRIVATE
 
@@ -138,6 +142,7 @@ CONTAINS
       IF (NOCFB > 0) READ (OFB, *)
 
       CALL INITIALISE_OCMOD()
+      CALL INITIALISE_OCSIM_WORKSPACE()
 
       ! Cross-section tables & effective bed elevations
       IF (total_no_links > 0) THEN
@@ -154,6 +159,42 @@ CONTAINS
 9100  FORMAT (/5X, 'Size of internal tables for channel conveyance, etc', '  NXSCEE =', I6)
 
    END SUBROUTINE OCINI
+
+
+   !SSSSSS SUBROUTINE INITIALISE_OCSIM_WORKSPACE
+   !----------------------------------------------------------------------*
+   ! Allocate OCSIM work arrays once during OC initialisation.
+   !
+   ! These arrays used to be automatic local arrays in OCSIM.  They are too
+   ! large for the stack on some compilers/runs, but allocating them on every
+   ! OCSIM call is expensive because OCSIM is called every timestep.  Keeping
+   ! them as module work arrays preserves heap storage without repeated
+   ! allocation in the timestep loop.
+   !
+   ! This routine is called from OCINI, after NX, NY, total_no_elements, NELEE
+   ! and NLFEE have been established.  OCSIM still clears the arrays on each
+   ! call before use.
+   !----------------------------------------------------------------------*
+   SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
+      IMPLICIT NONE
+
+      IF (.NOT. ALLOCATED(ijedum)) THEN
+         ! needs to be nelee and nlfee here as it reads from arrays that are still set to these sizes
+         ALLOCATE (ijedum(nelee, 4, 2:3), ijedum2(nlfee, 3, 2))
+         ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
+         ALLOCATE (FF(NX*4))
+         ALLOCATE (BB(NX*4, NX*4), GG(NX*4, NY))
+         ALLOCATE (CC(NX*4, NX*4))
+         ALLOCATE (EE(NX*4, NX*4, NY))
+         ALLOCATE (TM1(NX*4, NX*4), TM2(NX*4, NX*4))
+         ALLOCATE (TV1(NX*4), TV2(NX*4))
+         ALLOCATE (inhrf(total_no_elements))
+         ALLOCATE (GGGETHRF(total_no_elements))
+         ALLOCATE (inqsa(total_no_elements, 4))
+         ALLOCATE (GGGETQSA(total_no_elements, 4))
+      END IF
+
+   END SUBROUTINE INITIALISE_OCSIM_WORKSPACE
 
 
 
@@ -1676,13 +1717,7 @@ CONTAINS
       INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV, face
       INTEGER :: kk, ll, vv
 
-      INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum, ijedum2
-
       DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
-
-      DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: AA, DD, BB, GG, CC, TM1, TM2, inqsa, GGGETQSA
-      DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: FF, TV1, TV2, inhrf, GGGETHRF
-      DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE
 
       LOGICAL :: first = .TRUE., found_level, channel_blowup
       CHARACTER(36) :: MSG
@@ -1690,26 +1725,11 @@ CONTAINS
       !----------------------------------------------------------------------*
       !
       ! ----- Initialize
-      ! needs to be nelee and nlfee here as it reads from arrays that are still set to these sizes
-      ALLOCATE (ijedum(nelee, 4, 2:3), ijedum2(nlfee, 3, 2))
       ijedum  = 0
       ijedum2 = 0
 
-      ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
-      ALLOCATE (FF(NX*4))
-      ALLOCATE (BB(NX*4, NX*4), GG(NX*4, NY))
-      ALLOCATE (CC(NX*4, NX*4))
-      ALLOCATE (EE(NX*4, NX*4, NY))
-      ALLOCATE (TM1(NX*4, NX*4), TM2(NX*4, NX*4))
-      ALLOCATE (TV1(NX*4), TV2(NX*4))
-
       AA = 0.0D0; DD = 0.0D0; FF = 0.0D0; BB = 0.0D0; GG = 0.0D0
       CC = 0.0D0; EE = 0.0D0; TM1 = 0.0D0; TM2 = 0.0D0; TV1 = 0.0D0; TV2 = 0.0D0
-
-      ALLOCATE (inhrf(total_no_elements))
-      ALLOCATE (GGGETHRF(total_no_elements))
-      ALLOCATE (inqsa(total_no_elements, 4))
-      ALLOCATE (GGGETQSA(total_no_elements, 4))
 
       inhrf = 0.0D0; GGGETHRF = 0.0D0; inqsa = 0.0D0; GGGETQSA = 0.0D0
 
