@@ -1709,7 +1709,12 @@ ismn=.true.
 
 
 OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = io)  
-!      ENDDO
+if (io /= 0) then
+    write (*,'(A,A)') ' Error opening the rundata file ',trim(FILNAM)
+    write(*,'(''paused, type [enter] to continue'')')
+    read (*,*)
+    stop
+endif 
 filnam2=TRIM (DIRQQ) //'info_'//trim(cnam)//'_SHETRAN_log.txt'
 OPEN (61, FILE = FILNAM2, ERR = 400)  
 
