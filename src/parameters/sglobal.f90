@@ -36,53 +36,6 @@
 !> | 2024-09-05 | SvB | Added KIND parameters and FORD docs. |
 !> | 2026-03 | SB |  Increase array sizes now all the 2 and 3D arrays are allocatable, NXOCEE=4*nxee |
 MODULE sglobal
-<<<<<<< HEAD
-=======
-! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the al_p etc
-!USE BUFF_DISK
-   USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
-IMPLICIT NONE
-!MODULE AL_P
-!IMPLICIT NONE
-!-------------------- START OF AL.P -----------------------------------*
-!
-!     Distributed constants for all components (mainly array sizes)
-!
-!       THIS FILE CAN BE TAILORED TO SUIT A PARTICULAR CATCHMENT
-!
-!----------------------------------------------------------------------*
-! Version:  AL_P.F95/4.30
-! Modifications:
-!   GP  FEB 89  2.0     'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!   GP  MAR 89  2.1     ADD NREFE8 FOR NEW SZ DRAIN VARIABLES
-!                       + ADD DIMENSION NSZBOU (NO. OF SZ BNDRY PNTS)
-!                       + ADD DERIVED DIMN. NSZB40
-!   GP  APR 89  2.2     INTEGRATE SED. YIELD
-!                       + ADD OVERALL VERSION NUMBER
-!   GP  MAR 90  3.0     ADD DEVELOPMENT VERSION FLAG
-!                       + FURTHER DIMENSION VARIABLES
-!   GP  JAN 92  3.3     ADD NVBP AND CHANGE DEFINITIONS OF NUZTAB/NOCTAB
-!   GP          3.4     Add NPLTEE,NPELEE.  Update SHEVER,BANNER,
-!                       NELEE,NLFEE,LLEE,NVEE,NSEE,NLYREE,NUZTAB.
-!  RAH  30.09.94  Version 3.4.1 by AB/RAH, adapted from version 3.4:
-!                  no INTEGER*2; declare all types; amend BANNER,
-!                  BDEVER,NXEE,NYEE,NLFEE,LLEE,NSEE,NXOCEE,NSEDEE;
-!                  standard header; move amendment history to separate
-!                  file; set NELEE=NXEE*NYEE; alter comments;
-!                  characters size (*); no IMPLICIT statements.
-!  GP  961024  4.0  Alter NELEE,NXEE,NYEE,NLFEE,LLEE,NVEE,NSEE,NVBP,
-!                   NUZTAB,NLYREE,NSETEE,NXOCEE,NSEDEE,NCONEE.
-!                   Add NRDEE,NVSEE for new VSS module.
-!                   NUZTAB is now for ET only (was UZ too).
-! RAH  970117       Update SHEVER,BDEVER,BANNER.
-! RAH  970218  4.1  Remove NRDEE (redundant).  Set SHEVER,BDEVER,BANNER.
-!      970220       Restore history.
-! RAH  980220  4.2  Update SHEVER,BANNER.  Remove NWELEE,NSZBOU,NPSITH.
-!  JE  JULY 04 ---  Convert to FORTRAN 95, as part of integration of SHEGRAPH Version 2
-! SB Mar 26  4.6   Increase array sizes now all the 2 and 3D arrays are allocatable
-!                   NXOCEE=4*nxee
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
 
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
 
@@ -100,7 +53,7 @@ IMPLICIT NONE
    PUBLIC :: EARRAY, text32
    PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, i_iszero_a2, notzero, isone, notone
    PUBLIC :: idimje, dimje
-   PUBLIC :: ERROR, ALSTOP
+   PUBLIC :: ERROR, ALSTOP, error_mode
 
    ! --------------------------------------------------------------------
    ! System Version and Banners
@@ -187,6 +140,7 @@ IMPLICIT NONE
    CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Path to help message files (use LENGTH_FILEPATH for portability)
    LOGICAL :: ISERROR !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
    LOGICAL :: ISERROR2 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
+   LOGICAL :: error_mode
 
    ! --------------------------------------------------------------------
    ! Mathematical and Numerical Constants
@@ -213,82 +167,8 @@ IMPLICIT NONE
    REAL(KIND=R8P) :: EARRAY(1) !! A temporary array for passing values to the ERROR subroutine.
    CHARACTER(32) :: text32 !! A temporary 32-character string variable.
 
-<<<<<<< HEAD
-=======
-! --- VEGETATION TYPES, SOIL TYPES (NVEE also used for number of precipitation and pet stations)
-      INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
-
-! --- TABLES USED IN VSS COMPONENT
-      INTEGER, PARAMETER :: NVSEE=20
-
-! --- TIME VARYING VEG BREAKPOINTS
-      INTEGER, PARAMETER  :: NVBP=140
-
-! --- TABLES USED IN ET COMPONENT (MAX. NO. OF PSI/RCF/FET VALUES)
-      INTEGER, PARAMETER :: NUZTAB=20
-
-! --- MAXIMUM NUMBER OF SOIL LAYERS + 1
-      INTEGER, PARAMETER :: NLYREE=20
-
-! --- OUTPUT SETS (FOR 'RES' FILE OUTPUT)
-      INTEGER, PARAMETER :: NSETEE=45
-
-! --- MAXIMUM NUMBER OF ELEMENTS (GRIDS, BANKS AND LINKS) IN A ROW
-!      INTEGER, PARAMETER :: NXOCEE=2000
-      INTEGER, PARAMETER :: NXOCEE=4*nxee
-      
-! --- TABLES USED IN OC COMPONENT (MAX. OF NO. OF ROUGHNESS CATEGORIES,
-!      NO. OF CHANNEL X-SECTION CATEGORIES, NO. OF OC BOUNDARY ELEMENTS)
-      INTEGER, PARAMETER :: NOCTAB=20
-
-! --- SEDIMENT SIZE FRACTIONS
-      INTEGER, PARAMETER :: NSEDEE=7
-
-! --- NUMBER OF CONTAMINANTS, NUMBER OF OVERLAPS
-      INTEGER, PARAMETER :: NCONEE=3, NOLEE=2*LLEE
-
-! --- NO. OF PLANTS IN AN ELEMENT, TOTAL NO. OF PLANTS, FOR CONTAMINANTS
-      INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
-      
-      INTEGER, PARAMETER :: max_no_snowmelt_slugs=400
-
-      CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
-      CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
-      
-
-      INTEGER, PARAMETER :: NXSCEE=100000
-!END MODULE AL_P
-INTEGER, PARAMETER :: ERRNEE = 100
-INTEGER, PARAMETER ::   FFFATAL = 1, &  
-                        EEERR = 2, &
-                        WWWARN = 3, &
-                        pppri  = 23
-DOUBLEPRECISION :: UZNOW 
-DOUBLEPRECISION, PARAMETER :: marker999=999999.9D0
-INTEGER, PARAMETER         :: izero=0, izero1(1)=0, ione=1, ione1(1)=1, imarker=INT(marker999)
-DOUBLEPRECISION, PARAMETER :: zero=0.0d0, zero1(1)=0.0d0, half=0.5d0, one=1.0d0, one1(1)=1.0d0, &
-                              two=2.0d0, three=3.0d0, five=5.0d0, vsmall=1.0d-20
-DOUBLEPRECISION EARRAY(1)
-INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
-CHARACTER(128)     :: helppath
-LOGICAL :: ISERROR
-LOGICAL :: ISERROR2
-LOGICAL :: error_mode
-
-DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
-                                     DXQQ, DYQQ, &  !face lengths
-                                     ZGRUND         !surface elevation
-                                     
-CHARACTER(32) :: text32
-!PRIVATE
-!PUBLIC :: izero, izero1, ione, ione1, zero, zero1, half, one, one1, two, three, five, marker999, &
-!          IDIMJE, DIMJE, &
-!          ISZERO, ISZERO_A, LTZERO, LEZERO, GEZERO, GTZERO, NOTZERO, ISONE, NOTONE, &
-!          EQMARKER, I_ISZERO_A2, fatal, err, warn, pri, &
-!          ERROR, ERRC, ERRNEE, HELPPATH, ERRTOT, UZNOW, &
-!          cellarea, DXQQ, DYQQ, ZGRUND
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
 CONTAINS
+
 
 
    !> summary: Checks if a double precision value is equal to the global marker.
@@ -299,11 +179,15 @@ CONTAINS
       eqmarker = INT(a)==imarker
    END FUNCTION eqmarker
 
+
+
    !> summary: Checks if a double precision value is greater than zero.
    ELEMENTAL LOGICAL FUNCTION gtzero(a)
       REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       gtzero = a>zero
    END FUNCTION gtzero
+
+
 
    !> summary: Checks if a double precision value is greater than or equal to zero.
    !>
@@ -313,11 +197,15 @@ CONTAINS
       gezero = ISZERO(a) .OR. a>zero
    END FUNCTION gezero
 
+
+
    !> summary: Checks if a double precision value is less than zero.
    ELEMENTAL LOGICAL FUNCTION ltzero(a)
       REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       ltzero = a<zero
    END FUNCTION ltzero
+
+
 
    !> summary: Checks if a double precision value is less than or equal to zero.
    !>
@@ -327,6 +215,8 @@ CONTAINS
       lezero = ISZERO(a) .OR. a<zero
    END FUNCTION lezero
 
+
+
    !> summary: Checks if a double precision value is effectively zero.
    !>
    !> Compares the absolute value of the input against a small tolerance (`vsmall`).
@@ -334,6 +224,8 @@ CONTAINS
       REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       iszero = ABS(a)<vsmall
    END FUNCTION iszero
+
+
 
    !> summary: Checks if all elements in a 1D double precision array are zero.
    PURE LOGICAL FUNCTION iszero_a(a)
@@ -345,6 +237,8 @@ CONTAINS
          iszero_a = iszero(a(i))
       ENDDO
    END FUNCTION iszero_a
+
+
 
    !> summary: Checks if all elements in a 2D integer array are zero.
    PURE LOGICAL FUNCTION i_iszero_a2(a)
@@ -360,11 +254,14 @@ CONTAINS
    END FUNCTION i_iszero_a2
 
 
+
    !> summary: Checks if a double precision value is not zero.
    ELEMENTAL LOGICAL FUNCTION notzero(a)
       REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       notzero = .NOT.ISZERO(a)
    END FUNCTION notzero
+
+
 
    !> summary: Checks if a double precision value is effectively one.
    !>
@@ -374,11 +271,14 @@ CONTAINS
       isone = ABS(a-one)<vsmall
    END FUNCTION isone
 
+
+
    !> summary: Checks if a double precision value is not one.
    ELEMENTAL LOGICAL FUNCTION notone(a)
       REAL(KIND=R8P), INTENT(IN) :: a !! The value to check.
       notone = .NOT.ISONE(a)
    END FUNCTION notone
+
 
 
    !> summary: Integer positive difference function (equivalent to `MAX(x-y, 0)`).
@@ -392,6 +292,8 @@ CONTAINS
       ENDIF
    END FUNCTION idimje
 
+
+
    !> summary: Double precision positive difference function (equivalent to `MAX(x-y, 0.0)`).
    ELEMENTAL FUNCTION dimje(x,y)
       REAL(KIND=R8P) :: dimje
@@ -404,7 +306,6 @@ CONTAINS
       ENDIF
    END FUNCTION dimje
 
-<<<<<<< HEAD
 
 
    !> Prints an error message, updates error counters, and optionally stops the program.
@@ -439,11 +340,6 @@ CONTAINS
    !> - 1024 no longer uses EARRAY
    SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
-=======
-!SSSSSS SUBROUTINE ERROR 
-SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
-
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
       ! Assumed global variables provided via host module:
       ! I_P, FFFATAL, EEERR, WWWARN, UZNOW, ERRTOT, ERRC, ERRNEE,
       ! EARRAY, ISERROR, ISERROR2, rootdir, helppath, dirqq
@@ -465,13 +361,8 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       ! Local variables
       CHARACTER(LEN=*), PARAMETER :: PATH1 = '/shetran/'
-<<<<<<< HEAD
-      CHARACTER(LEN=256) :: FIL
+      CHARACTER(LEN=256) :: FIL, fname
       CHARACTER(LEN=80)  :: HLPMSG
-=======
-      CHARACTER(LEN=256) :: FIL,fname
-      CHARACTER(LEN=256)  :: HLPMSG
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
       CHARACTER(LEN=1)   :: cc
       CHARACTER(LEN=1), PARAMETER :: slash = '/'
 
@@ -488,7 +379,6 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       helppath = '/helpmessages'
 
-<<<<<<< HEAD
       ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
       ISERROR  = .FALSE.
       ISERROR2 = .FALSE.
@@ -519,12 +409,6 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
          END IF
          RETURN
       END IF
-=======
-      ! SB 07072020 potentially reduce timestep if there are errors 1024,1030,1060
-      ISERROR  = .FALSE.
-      ISERROR2 = .FALSE.
-
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
 
       ! Write general error message
       ! ---------------------------
@@ -574,21 +458,15 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
       ! Write summary
       ! -------------
       IF (ETYPE == FFFATAL .OR. ERRNUM == 0) THEN
-<<<<<<< HEAD
-         WRITE(*, '(//A/A/)') ' ### Error summary and Advice ###', '  ------------------------'
-
-         IF (ERRTOT > 0) WRITE(*, '(A/)') ' ==> Check printed output files for more details <=='
-=======
           WRITE(*,'(/,A,/,A,/)') &
-              ' ### Error Summary and Advice ###', &
-              '     ------------------------' 
+                        ' ### Error Summary and Advice ###', &
+                        '     ------------------------'
           WRITE(OUT,'(/,A,/,A,/)') &
-              ' ### Error Summary and Advice ###', &
-              '     ------------------------'
-          inquire(out,name=fname)
+                        ' ### Error Summary and Advice ###', &
+                        '     ------------------------'
+          INQUIRE(OUT, NAME=fname)
 
-         IF (ERRTOT > 0) WRITE(*, '(A,A,A/)') ' ==> Check the pri file: "', trim(fname), '" for more details <=='
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
+          IF (ERRTOT > 0) WRITE(*, '(A,A,A/)') ' ==> Check the pri file: "', trim(fname), '" for more details <=='
 
          module_loop: DO AMODL = 0, 3
             error_loop: DO ERRN = 0, ERRNEE
@@ -597,7 +475,6 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
                IF (COUNT > 0) THEN
                   ! Print number of occurrences
                   WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
-<<<<<<< HEAD
 
                   ! Print contents of help file (if any)
                   WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '\', AMODL, ERRN
@@ -615,37 +492,12 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
                   END IF
 
                   WRITE(*, *)
-=======
-                  WRITE(OUT, 9500) ERRN + AMODL * 1000, COUNT
-                  WRITE(*, *) 
-                  WRITE(OUT, *) 
 
-
-                  ! Print contents of help file (if any)
-                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '/', AMODL, ERRN, '.txt'
-                  OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
-                  IF (IO_STATUS == 0) THEN
-                      read_help: DO
-                          READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
-                          IF (IO_STATUS /= 0) EXIT read_help
-                          WRITE(*, '(A)') trim(HLPMSG)
-                          WRITE(OUT, '(A)') trim(HLPMSG)
-                      END DO read_help
-                      CLOSE(HLP)
-                  END IF
-
-                  WRITE(*, *)
-                  WRITE(OUT, *)
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
                END IF
             END DO error_loop
          END DO module_loop
 
          WRITE(*, 9600) ERRTOT
-<<<<<<< HEAD
-=======
-
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
       END IF
 
       ! Stop?
@@ -655,13 +507,9 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
       ! String format statements
       ! ------------------------
 9100  FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-<<<<<<< HEAD
       &        ', iel =', I5:', cell =', I5 )
 9200  FORMAT(A,I1,I3.3)
-=======
-      &        ', iel =', I6:', cell =', I5 )
-9200  FORMAT(A,I1,I3.3,A)
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e
+
 9500  FORMAT(' No. of occurrences of error number',I5.4,' is',I6)
 9600  FORMAT(/' ### End of summary: recorded error count is',I7,' ###'/)
 91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G12.6,' METRES')
@@ -669,7 +517,6 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')
 !
    END SUBROUTINE ERROR
-<<<<<<< HEAD
 
 
 
@@ -694,32 +541,3 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
    END SUBROUTINE ALSTOP
 
 END MODULE sglobal
-=======
-
-
-   !> This subroutine is called to stop the program, typically after a fatal
-   !> error. It provides a final message to the user before termination.
-   !>
-   !> @history
-   !> | Date | Author | Description |
-   !> |:----:|:------:|-------------|
-   !> | 1994-09-17 | RAH | v3.4.1: File created. |
-   !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
-   SUBROUTINE ALSTOP (FLAG)
-      INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
-      ! if error_mode is true then there is no need to press enter to continue
-
-      IF (FLAG.GT.0) THEN
-          if (error_mode) then
-              STOP 'Program terminating due to fatal error'
-          else
-              WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
-              READ(*,*)
-              STOP 'Program terminating due to fatal error'
-          endif
-      ENDIF
-   END SUBROUTINE ALSTOP
-    
-    
-END MODULE sglobal
->>>>>>> 60278de3856fc217b66dc25476627c2f17e5542e

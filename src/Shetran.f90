@@ -58,6 +58,10 @@ PROGRAM SHETRAN
    ! Main data arrays and simulation parameters
    USE AL_D, ONLY: nstep  !< Current simulation time step number
 
+   ! Testing trap of floating point exceptions
+   ! Is it still necessary? Default is _off_
+   USE mod_load_filedata, ONLY : ALTRAP
+
    ! Cross-platform command line and directory utilities
    USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH  !< Parse command line arguments
 

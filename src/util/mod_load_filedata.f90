@@ -42,7 +42,7 @@ MODULE mod_load_filedata
 
    ! --------------------------------------------------------------------------
    ! Public methods
-   PUBLIC :: ALREAD, ALALLF, ALCHKI, ALCHK, ALSPRD,            &
+   PUBLIC :: ALREAD, ALALLF, ALCHKI, ALCHK, ALSPRD, ALTRAP,            &
       ALINTP, ALREDL, ALREDF, ALALLI, ALRED2, ALREDC, ALREDI
 
 
@@ -1515,5 +1515,36 @@ CONTAINS
          DEL = (N - NE-1) / MM
       ENDIF
    END SUBROUTINE ALSPRD
+
+
+    !---------------------------------------------------------------------------
+    !> @author ?
+    !
+    !> @brief
+    !! Set traps for floating-point exceptions
+    !
+    ! Note: SSR79
+    !
+    ! REVISION HISTORY:
+    ! ?        - ?       - Initial version
+    ! 19940930 - RAH     - Version 3.4.1 created.
+    ! 20000307 - StevenB - Version 4g-pc remove ieee calls
+    !---------------------------------------------------------------------------
+    SUBROUTINE ALTRAP ()
+
+        ! Locals, etc
+        INTEGER(kind=I_P), parameter :: OUT = 0
+
+        INTEGER(kind=I_P) :: I
+
+        ! Code -----------------------------------------------------------------
+
+        !   I = IEEE_HANDLER( 'set', 'common', ABORT )
+        I = 0
+        IF (I .NE. 0) CALL ERROR(WWWARN, 13, OUT, 0, 0,                         &
+                           'Could not set traps for floating-point exceptions')
+
+        RETURN
+    END SUBROUTINE ALTRAP
 
 END MODULE mod_load_filedata
