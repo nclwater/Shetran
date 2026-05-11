@@ -21,6 +21,6 @@ Additionally, in-code-documentation can be generated using [FORD](https://forddo
 Generating the documentation is done as follows:
 
 1. Install FORD into a Python environment, by running ```pip install ford```.
-2. Generate the documentation itself by running ```ford -o docs/ford``` from the project root.
+2. Generate the documentation itself by running ```ford -o docs/ford ford_project.md``` from the project root.
 
 The generated documentation can then be found in the ``docs/ford`` folder.
