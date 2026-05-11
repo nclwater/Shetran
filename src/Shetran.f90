@@ -93,7 +93,9 @@ PROGRAM SHETRAN
    ! Note: Uses cross-platform implementation for Linux/Windows compatibility
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
 
-   ! Initialize data loading and preprocessing system
+   ! Testing trap of floating point exceptions
+   ! Is it still necessary? Default is _off_
+   CALL ALTRAP
 
    ! Initialize simulation state variables
    ! Set initial conditions for time stepping and model state
@@ -129,5 +131,6 @@ PROGRAM SHETRAN
    ! ============================================================================
 
    ! The program now terminates cleanly
+   CALL sleepqq(5000)
 
 END PROGRAM SHETRAN

@@ -1,6 +1,8 @@
-# Shetran Hydrological Model
+# SHETRAN
 
-An up to date manual and more can be found on the [homepage](https://research.ncl.ac.uk/shetran/).
+This is the repository for the **SHETRAN Hydrological Model**.
+
+Details of features and the history of the program itself can be found on the [webpage](https://research.ncl.ac.uk/shetran/).
 
 ## Installation
 

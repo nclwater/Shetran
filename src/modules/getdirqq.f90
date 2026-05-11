@@ -14,9 +14,8 @@
 !> | 2025-08-11 | AI | Ported to standard Fortran, removed Windows dependencies |
 MODULE GETDIRQQ
 
-   use mod_parameters
-   ! Removed Windows-specific modules:
-   ! USE IFWIN, USE IFPORT, USE IFQWIN - replaced with standard Fortran
+    use mod_parameters
+    use sglobal, only : error_mode
 
    IMPLICIT NONE
 
@@ -89,31 +88,31 @@ CONTAINS
          ELSE
             CALL GET_COMMAND_ARGUMENT(2, cli_argument)
          END IF
-         
+
          INQUIRE(FILE=catchment_file, EXIST=ex)
          IF (ex) THEN
             OPEN(UNIT=875, FILE=catchment_file, STATUS='OLD', IOSTAT=ios)
             IF (ios /= 0) CALL print_usage_and_stop('Error reading catchment file')
-            
+
             found_catchment = .FALSE.
-            
+
             read_catchment: DO
                ! Standardized '(A,a)' format typo to '(A)'
                READ(875, '(A)', IOSTAT=ios) dum1
                IF (ios /= 0) EXIT read_catchment
-               
+
                READ(875, *, IOSTAT=ios) dum2
                IF (ios /= 0) EXIT read_catchment
-               
+
                IF (TRIM(dum1) == TRIM(cli_argument)) THEN
                   cli_argument = dum2
                   found_catchment = .TRUE.
                   EXIT read_catchment
                END IF
             END DO read_catchment
-            
+
             CLOSE(875)
-            
+
             ! If we hit EOF without a match, it mirrors the old END=999 behavior
             IF (.NOT. found_catchment) THEN
                CALL print_usage_and_stop('Error reading catchment file')
@@ -179,7 +178,7 @@ CONTAINS
       ! Replaces the old 1000 GOTO block
       SUBROUTINE print_usage_and_stop(err_msg)
          CHARACTER(LEN=*), INTENT(IN) :: err_msg
-         
+
          WRITE(*,'(A)') 'ERROR: ' // TRIM(err_msg)
          WRITE(*,'(A)') 'Usage: shetran -f rundata_file.txt'
          WRITE(*,'(A)') '   or: shetran -c catchment_name'

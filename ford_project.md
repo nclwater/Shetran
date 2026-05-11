@@ -1,6 +1,6 @@
 ---
 project: SHETRAN
-version: 4.5.3
+version: 4.6.2
 license: GPL-3.0-or-later
 author: Newcastle University Water Group
 author_description: Hydrological modeling research group
@@ -78,6 +78,7 @@ The SHETRAN codebase is organized into focused modules:
 - **Sediment**: Erosion and transport processes
 - **Evapotranspiration**: ET calculations and plant processes
 - **Snow Model**: Snow accumulation and melt dynamics
+- **Plant and Contaminant Model**: Simulates contaminant and nutrient transport as well as plant growth.
 - **I/O Systems**: Data input/output and file management
 
 ## Development Standards

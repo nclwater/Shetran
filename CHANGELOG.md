@@ -1,5 +1,12 @@
 # Changelog
 
+## 080526
+
+- add percentage completion and other improved output to command prompt during simulation
+- improved error messages and their output to the command prompt and pri file
+- add -error option to command prompt options
+
+
 ## 230426
 
 Changes dates to allow "T" or not. Updates output to command prompt
