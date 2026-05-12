@@ -11,6 +11,6 @@ MODULE const_sy
 !  JE  NOV 04 ---- Convert to FORTRAN 95
 !----------------------------------------------------------------------*
 !
-IMPLICIT NONE
-DOUBLEPRECISION, PARAMETER :: GRAVTY = 9.80665d0, RHOSED = 2650.0d0, RHOWAT = 998.0d0  , VISCOS = 1.0D-6
+   IMPLICIT NONE
+   DOUBLEPRECISION, PARAMETER :: GRAVTY = 9.80665d0, RHOSED = 2650.0d0, RHOWAT = 998.0d0  , VISCOS = 1.0D-6
 END MODULE const_sy
