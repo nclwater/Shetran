@@ -3,6 +3,7 @@ MODULE VSmod
 !                       Replaces the VS .F files
    USE SGLOBAL
    USE mod_load_filedata, ONLY : ALSPRD, ALREAD
+   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
 !USE SGLOBAL,  ONLY :
    USE AL_G, ONLY : ICMREF, NX, NY, ICMXY, NGDBGN
    USE AL_C, ONLY : BHB, BFB, bexbk, DTUZ, deltaz, dummy, DHF, ESOILA, ERUZ, EEVAP, &
@@ -202,40 +203,40 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSBC
    SUBROUTINE VSBC(BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
-                   ICLFL, ICLHL, ICLHN, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
-                   CKIJ, CDKIJ, CB, CR, CQH, DUM)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column user-defined boundary conditions
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSBC/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 8.8.95)
-   ! RAH  970120  4.1  No leading comments.  No lower-case code.
-   !                   Combine IF-blocks.  Use generic intrinsics.
-   !      970127       Use arguments, not INCLUDE.  Use DUM for TDUM,HDUM.
-   !      970514       Scrap workspace arg CDQH; set CB & CR directly.
-   !                   Don't initialize CQH (see VSCOLM).  New local QTOT.
-   !                   Add arg FACE (=1:4) & 1st dim to arrays CAIJ & CQH.
-   !      970813       Amend CLF & DUM subscripts: use I not ILYR.
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <= FACE  <= 4
-   ! 1 <= ICBOT <= ICTOP <=   LLEE (size of DUM)
-   ! 0 <= ICLFN           <= NLYREE (size of ICLFL,CLF)
-   ! 0 <= ICLHN           <= NLYREE (size of ICLHL,CLH,DUM)
-   ! 0 <  CDELL
-   ! for each i in 1:ICLFN:
-   !             1 <= ICLFL(i) < NLYREE (size of ICLYRB)
-   !         ICBOT <= ICLYRB(y)
-   !     1 + ICTOP >= ICLYRB(y+1)
-   ! where y=ICLFL(i)
-   ! for each i in 1:ICLHN:
-   !             1 <= ICLHL(i) < NLYREE (size of ICLYRB)
-   !         ICBOT <= ICLYRB(y)
-   !     1 + ICTOP >= ICLYRB(y+1)
-   ! where y=ICLHL(i)
-   ! for each c in ICBOT:ICTOP: 0 < CDELZ(c), CKIJ(c)
-   !----------------------------------------------------------------------*
+      ICLFL, ICLHL, ICLHN, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
+      CKIJ, CDKIJ, CB, CR, CQH, DUM)
+      !----------------------------------------------------------------------*
+      ! Sets up coefficients for column user-defined boundary conditions
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSBC/4.1
+      ! Modifications:
+      !  GP  22.08.94  written (v4.0 finished 8.8.95)
+      ! RAH  970120  4.1  No leading comments.  No lower-case code.
+      !                   Combine IF-blocks.  Use generic intrinsics.
+      !      970127       Use arguments, not INCLUDE.  Use DUM for TDUM,HDUM.
+      !      970514       Scrap workspace arg CDQH; set CB & CR directly.
+      !                   Don't initialize CQH (see VSCOLM).  New local QTOT.
+      !                   Add arg FACE (=1:4) & 1st dim to arrays CAIJ & CQH.
+      !      970813       Amend CLF & DUM subscripts: use I not ILYR.
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      ! 1 <= FACE  <= 4
+      ! 1 <= ICBOT <= ICTOP <=   LLEE (size of DUM)
+      ! 0 <= ICLFN           <= NLYREE (size of ICLFL,CLF)
+      ! 0 <= ICLHN           <= NLYREE (size of ICLHL,CLH,DUM)
+      ! 0 <  CDELL
+      ! for each i in 1:ICLFN:
+      !             1 <= ICLFL(i) < NLYREE (size of ICLYRB)
+      !         ICBOT <= ICLYRB(y)
+      !     1 + ICTOP >= ICLYRB(y+1)
+      ! where y=ICLFL(i)
+      ! for each i in 1:ICLHN:
+      !             1 <= ICLHL(i) < NLYREE (size of ICLYRB)
+      !         ICBOT <= ICLYRB(y)
+      !     1 + ICTOP >= ICLYRB(y+1)
+      ! where y=ICLHL(i)
+      ! for each c in ICBOT:ICTOP: 0 < CDELZ(c), CKIJ(c)
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -262,7 +263,7 @@ CONTAINS
       INTEGER :: ICL, I, ILYR, ICL1, ICL2, IDUM, SGN
       DOUBLE PRECISION :: ADHOL, AOL, KDUM, Q, QTOT, TICL, TTOT, ZDUM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! flow (type 3)
       IF (JCBC == 3) THEN
@@ -294,8 +295,8 @@ CONTAINS
 
          END DO flow_loop
 
-      ! head (type 4)
-      ! NB. If BCHELE=.false., head b.c.'s are depths below ground surface
+         ! head (type 4)
+         ! NB. If BCHELE=.false., head b.c.'s are depths below ground surface
       ELSE IF (JCBC == 4) THEN
          IF (BCHELE) THEN
             ZDUM = ZERO
@@ -333,7 +334,7 @@ CONTAINS
             END DO apply_head_loop
          END DO head_calc_loop
 
-      ! head gradient (type 5)
+         ! head gradient (type 5)
       ELSE IF (JCBC == 5) THEN
          !STOP 'unfinished code for boundary type 5 - head gradients'
          PRINT *, 'unfinished code for boundary type 5 - head gradients'
@@ -345,41 +346,41 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSCOEF
    SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
-         JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
-         CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
-         CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column internal cells
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSCOEF/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 20.12.95)
-   ! RAH  961228  4.1  No leading comments.  Remove arguments IEL & NIT.
-   !                   Add arguments CWV,CWL (were in VSCOLM.INC).
-   !      970115       Dispense with VSCOLM.INC arrays CKZ,CDKZ.
-   !                   Rewrite "vertical" sections: use fewer operations;
-   !                   use DCOPY; don't overwrite CDELZ.
-   !      970116       Rewrite "lateral" sections similarly, and fix error
-   !                   in CDGAM* when CWL.NE.1.  No lower-case code.
-   !      970122       Use arguments, not COMMON.
-   !      970123       Scrap output CBETP,CDBETP,CDBTPP,CDFM,CDFP,CG,CDG.
-   !      970513       Swap indices: JCACN, JCDEL & CAIJ. Rename local DUM.
-   !                   New args NSEE,ICSOIL,VSK3D in place of CKZS,CKIJS.
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <= ICBOT <= ICTOP <= LLEE
-   ! 0 <  CWL, CA0, NSEE
-   ! for each i in ICBOT:ICTOP:
-   !    1 <= ICSOIL(i) <= NSEE
-   !    0 <   CDELZ(i), CKR(i), VSK3D(ICSOIL(i),1:3)
-   !    for each j in 1:4 such that
-   !                       JELDUM(j)>0 and JCACN(j,i).ne.0 and JCBC(j).ne.9:
-   !       1 <= k, k1 <= LLEE
-   !       1 >= |JCDEL(j,i)|, |JCDEL1(k,j)|
-   !       0 <  CAIJ(j,i), CAIJ1(k,j), CAIJ1(k1,j), CKIJ1(k,j), CKIJ1(k1,j)
-   !    where k=JCACN(j,i), and k1=k+JCDEL1(k,j)
-   ! for each j in 1:4: 0 < CDELL(j) + CDELL1(j)
-   !----------------------------------------------------------------------*
+      JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
+      CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
+      CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
+      !----------------------------------------------------------------------*
+      ! Sets up coefficients for column internal cells
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSCOEF/4.1
+      ! Modifications:
+      !  GP  22.08.94  written (v4.0 finished 20.12.95)
+      ! RAH  961228  4.1  No leading comments.  Remove arguments IEL & NIT.
+      !                   Add arguments CWV,CWL (were in VSCOLM.INC).
+      !      970115       Dispense with VSCOLM.INC arrays CKZ,CDKZ.
+      !                   Rewrite "vertical" sections: use fewer operations;
+      !                   use DCOPY; don't overwrite CDELZ.
+      !      970116       Rewrite "lateral" sections similarly, and fix error
+      !                   in CDGAM* when CWL.NE.1.  No lower-case code.
+      !      970122       Use arguments, not COMMON.
+      !      970123       Scrap output CBETP,CDBETP,CDBTPP,CDFM,CDFP,CG,CDG.
+      !      970513       Swap indices: JCACN, JCDEL & CAIJ. Rename local DUM.
+      !                   New args NSEE,ICSOIL,VSK3D in place of CKZS,CKIJS.
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      ! 1 <= ICBOT <= ICTOP <= LLEE
+      ! 0 <  CWL, CA0, NSEE
+      ! for each i in ICBOT:ICTOP:
+      !    1 <= ICSOIL(i) <= NSEE
+      !    0 <   CDELZ(i), CKR(i), VSK3D(ICSOIL(i),1:3)
+      !    for each j in 1:4 such that
+      !                       JELDUM(j)>0 and JCACN(j,i).ne.0 and JCBC(j).ne.9:
+      !       1 <= k, k1 <= LLEE
+      !       1 >= |JCDEL(j,i)|, |JCDEL1(k,j)|
+      !       0 <  CAIJ(j,i), CAIJ1(k,j), CAIJ1(k1,j), CKIJ1(k,j), CKIJ1(k1,j)
+      !    where k=JCACN(j,i), and k1=k+JCDEL1(k,j)
+      ! for each j in 1:4: 0 < CDELL(j) + CDELL1(j)
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! zero, one, half, ISZERO, ISONE, NOTONE
@@ -413,7 +414,7 @@ CONTAINS
       DOUBLE PRECISION :: KIJ, DKIJ, GAM1, GAM2, DGAM1, DGAM2, CKIJS, CKZS
       LOGICAL :: TEST
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! vertical conductivity terms (CBETM,CDB*)
       CBETM(ICBOT) = zero
@@ -567,70 +568,70 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSCOLM
    SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
-         IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
-         JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
-         ICLGN, ICLGL, CA0, CZG, CZSP, CCS, CDELZ, CZ, CDELL, CAIJ, CAIJ1, &
-         CDELL1, CZ1, DT, CDNET, CPSIN, CQ, CZS, CPSI1, CPSIN1, CKIJ1, &
-         CQWIN, CLF, CLH, CLG, CBF, CBH, ICSTOR, CPSI, CKR, CTHETA, CQH, &
-         CQV, CQWI, CQSP, CPSL, depadj)
-   !!!!!!! extra variable depadj passed for mods to vssai.f
-   ! SPA, 03/11.98
-   !----------------------------------------------------------------------*
-   ! Solves flow equations for a single colm
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSCOLM/4.2
-   ! Modifications:
-   !  GP  29.07.94  written (v4.0 finished 17.07.96)
-   ! RAH  961220  4.1  Remove commented lines.
-   !      961228       Arguments: add CWV,CWL; remove BUG.  IFA is local.
-   !                   Remove common CCCOLM, and CETAO, CKRO lines.
-   !                   VSCOEF arguments: remove IEL,NIT; add CWV,CWL.
-   !      970121       CEPSMX,NITMAX are constants.  Use DO 500 not GOTO.
-   !                   Use generic intrinsics.  Remove redundant ICPSL.
-   !                   Extend arg-list (& remove redundancies) for VSFUNC.
-   !      970122       Extend VSCOEF argument list.
-   !      970123       Make VSCOEF output arguments, and CETA,CDETA,CDKR,
-   !                   local; also eliminate some arguments (see VSCOEF),
-   !                   including CBETP (use CBETM(ICL+1) instead).
-   !      970126       Full argument list for VSINTC, and make CA,CC local.
-   !      970127       Full argument lists for VSUPPR,VSWELL,VSSPR,VSBC.
-   !      970131       Full argument list for VSLOWR, & unconditional call.
-   !                   Remove redundant I1.  Amend some comments.
-   !      970203       Full argument list for VSSAI, and reposition call.
-   !                   Replace input CV with CA0,CDELZ.  CDPSI,CB,CR local.
-   !                   Replace output CQINF with CQV(ICTOP).
-   !                   Pass CA0 to VSWELL (see VSWELL). Simplify CPSL code.
-   !                   Add CGAM2 term to CQH unconditionally.
-   !      970207       Remove VSWELL output CQW.
-   !      970210       Remove output argument NITC and common CQBK*.
-   !                   Move inputs BCHELE,CA0,CZG,DT,CPSIN and outputs
-   !                   CQSP,CPSL from VSCOLM.INC to argument list.
-   !                   Move input SIGMA to VSINTC.  Initialize CQH.
-   !      970513       Use VSK3D(ICSOIL(ICL),?) for CKIJS(ICL,?),CKZS(ICL).
-   !                   Swap indices: CAIJ, CQH, JCACN, & JCDEL.
-   !                   Use arguments in place of VSCOLM.INC.
-   !      970514       VSBC args: remove DWORK2; add IFA - also to VSSAI.
-   !                   VSUPPR args: replace CDW,CEW,CQP with CDNET.
-   !                   VSWELL args: reorder.  Don't initialize CQH.
-   !                   New local DPSI.  No block-IF in setting CPSL.
-   !      970515       Re-order arguments.
-   ! RAH  980402  4.2  Replace local ERR with new arg ELEVEL (see VSSIM).
-   ! JE   JAN 2009      Loop restructure for AD
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE
-   !      ICWLBT <= ICWLTP
-   ! for each j in 1:4: JCBC(j)  =   0,3,4,5,9 or 10
-   !              3 <= JCBC(j) <= 5  ==>  JELDUM(j) = 0
-   !                   JCBC(j)  = 9  ==>  JCACN(j,ICBOT:ICTOP) = 0
-   !                   JCBC(j)  = 10 ==>  JCACN(j,ICBED+1:ICTOP) = 0
-   ! the following are static functions of IEL:
-   !     ICBED,ICBOT,ICLFL,ICLFN,ICLHL,ICLHN,ICLYRB,ICTOP,JCACN,JCBC,JELDUM
-   !----------------------------------------------------------------------*
-   ! Limited ranges:
-   !              CQWI, CQWIN: only if JCBC(5)=1
-   ! ICSPCE, CCS, CQSP,  CZSP: only if JCBC(5)=2
-   !----------------------------------------------------------------------*
+      IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
+      JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
+      ICLGN, ICLGL, CA0, CZG, CZSP, CCS, CDELZ, CZ, CDELL, CAIJ, CAIJ1, &
+      CDELL1, CZ1, DT, CDNET, CPSIN, CQ, CZS, CPSI1, CPSIN1, CKIJ1, &
+      CQWIN, CLF, CLH, CLG, CBF, CBH, ICSTOR, CPSI, CKR, CTHETA, CQH, &
+      CQV, CQWI, CQSP, CPSL, depadj)
+      !!!!!!! extra variable depadj passed for mods to vssai.f
+      ! SPA, 03/11.98
+      !----------------------------------------------------------------------*
+      ! Solves flow equations for a single colm
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSCOLM/4.2
+      ! Modifications:
+      !  GP  29.07.94  written (v4.0 finished 17.07.96)
+      ! RAH  961220  4.1  Remove commented lines.
+      !      961228       Arguments: add CWV,CWL; remove BUG.  IFA is local.
+      !                   Remove common CCCOLM, and CETAO, CKRO lines.
+      !                   VSCOEF arguments: remove IEL,NIT; add CWV,CWL.
+      !      970121       CEPSMX,NITMAX are constants.  Use DO 500 not GOTO.
+      !                   Use generic intrinsics.  Remove redundant ICPSL.
+      !                   Extend arg-list (& remove redundancies) for VSFUNC.
+      !      970122       Extend VSCOEF argument list.
+      !      970123       Make VSCOEF output arguments, and CETA,CDETA,CDKR,
+      !                   local; also eliminate some arguments (see VSCOEF),
+      !                   including CBETP (use CBETM(ICL+1) instead).
+      !      970126       Full argument list for VSINTC, and make CA,CC local.
+      !      970127       Full argument lists for VSUPPR,VSWELL,VSSPR,VSBC.
+      !      970131       Full argument list for VSLOWR, & unconditional call.
+      !                   Remove redundant I1.  Amend some comments.
+      !      970203       Full argument list for VSSAI, and reposition call.
+      !                   Replace input CV with CA0,CDELZ.  CDPSI,CB,CR local.
+      !                   Replace output CQINF with CQV(ICTOP).
+      !                   Pass CA0 to VSWELL (see VSWELL). Simplify CPSL code.
+      !                   Add CGAM2 term to CQH unconditionally.
+      !      970207       Remove VSWELL output CQW.
+      !      970210       Remove output argument NITC and common CQBK*.
+      !                   Move inputs BCHELE,CA0,CZG,DT,CPSIN and outputs
+      !                   CQSP,CPSL from VSCOLM.INC to argument list.
+      !                   Move input SIGMA to VSINTC.  Initialize CQH.
+      !      970513       Use VSK3D(ICSOIL(ICL),?) for CKIJS(ICL,?),CKZS(ICL).
+      !                   Swap indices: CAIJ, CQH, JCACN, & JCDEL.
+      !                   Use arguments in place of VSCOLM.INC.
+      !      970514       VSBC args: remove DWORK2; add IFA - also to VSSAI.
+      !                   VSUPPR args: replace CDW,CEW,CQP with CDNET.
+      !                   VSWELL args: reorder.  Don't initialize CQH.
+      !                   New local DPSI.  No block-IF in setting CPSL.
+      !      970515       Re-order arguments.
+      ! RAH  980402  4.2  Replace local ERR with new arg ELEVEL (see VSSIM).
+      ! JE   JAN 2009      Loop restructure for AD
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      ! 1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE
+      !      ICWLBT <= ICWLTP
+      ! for each j in 1:4: JCBC(j)  =   0,3,4,5,9 or 10
+      !              3 <= JCBC(j) <= 5  ==>  JELDUM(j) = 0
+      !                   JCBC(j)  = 9  ==>  JCACN(j,ICBOT:ICTOP) = 0
+      !                   JCBC(j)  = 10 ==>  JCACN(j,ICBED+1:ICTOP) = 0
+      ! the following are static functions of IEL:
+      !     ICBED,ICBOT,ICLFL,ICLFN,ICLHL,ICLHN,ICLYRB,ICTOP,JCACN,JCBC,JELDUM
+      !----------------------------------------------------------------------*
+      ! Limited ranges:
+      !              CQWI, CQWIN: only if JCBC(5)=1
+      ! ICSPCE, CCS, CQSP,  CZSP: only if JCBC(5)=2
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NLYREE, NSEE, NSOLEE, NVSSOL, VSPPSI, VSPTHE, VSPKR, VSPETA,
@@ -680,14 +681,14 @@ CONTAINS
 
       INTEGER, SAVE :: errorcount = 0
 
-   !----------------------------------------------------------------------*
-   ! Initialization
-   !________________*
+      !----------------------------------------------------------------------*
+      ! Initialization
+      !________________*
 
       NDUM = ICTOP - ICBOT + 1
 
-   ! Main iteration loop (calculations within depend upon CPSI)
-   !____________________________________________________________*
+      ! Main iteration loop (calculations within depend upon CPSI)
+      !____________________________________________________________*
 
       OUT500 : DO NIT = 1, NITMAX
 
@@ -722,7 +723,7 @@ CONTAINS
             CALL VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL (ICWLBT), &
                CA0, CDELZ (ICWLBT), CQWIN, CPSI (ICWLBT), CR (ICWLBT), &
                CQWI, DWORK1)
-         ! add spring discharge (type 2)
+            ! add spring discharge (type 2)
          ELSE IF (BTYPE == 2) THEN
             CALL VSSPR (CZ (ICSPCE), CZSP, CCS, CPSI (ICSPCE), CKR ( &
                ICSPCE), CDKR (ICSPCE), CB (ICSPCE), CR (ICSPCE), CQSP)
@@ -737,7 +738,7 @@ CONTAINS
                   CDELZ, CZ, CAIJ, CLF, CLH, CPSI, CKIJ (ICBOT, IFA), &
                   CDKIJ (ICBOT, IFA), CB (ICBOT), CR (ICBOT), CQH, DWORK1)
 
-            ! add stream-aquifer interaction (types 9 and 10)
+               ! add stream-aquifer interaction (types 9 and 10)
             ELSE IF (BTYPE == 9 .OR. BTYPE == 10) THEN
                CALL VSSAI (IFA, JCBC (IFA), ICBOT, ICTOP, ICBED, CDELL ( &
                   IFA), CZ, CAIJ, CZS (IFA), CPSI, CKIJ (ICBOT, IFA), &
@@ -778,9 +779,9 @@ CONTAINS
          END IF
       END IF
 
-   ! Calculate final values of output variables
-   !____________________________________________*
-   ! flows
+      ! Calculate final values of output variables
+      !____________________________________________*
+      ! flows
       DO ICL = ICBOT, ICTOP - 1
          PCL = ICL + 1
          CQV (ICL) = CBETM (PCL) * (CZ (ICL) + CPSI (ICL) - CZ (PCL) - CPSI (PCL)) / CA0
@@ -802,7 +803,7 @@ CONTAINS
          END DO cell_loop
       END DO face_loop
 
-   ! phreatic surface level
+      ! phreatic surface level
       CPSMIN = CZ (ICBOT) - half * CDELZ (ICBOT)
 
       search_loop: DO ICL = ICBOT, ICTOP
@@ -820,55 +821,55 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSCONC ()
    SUBROUTINE VSCONC ()
-   !----------------------------------------------------------------------*
-   ! Sets up cell sizes and connectivity matrix
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSCONC/4.1
-   ! Modifications:
-   !  GP  20.07.94  written (4.0 completed 960117)
-   ! RAH  970326  4.1  Generic intrinsics.  Move ERROR calls to the end.
-   !                   New locals ZAQTOP,ZLBOT,ZNODE,ICOL1,ICL0,NCL.
-   !                   Scrap local ZDUM1.  Automatic type conversion.
-   !                   Rename locals NDUM,ZDUM2,ZDUM3,Zasum,Zasum1.
-   !                   Scrap label & GOTO 970 (use MAX(ZERO,VSZMIN)).
-   !                   Swap subscripts: DELTAZ,ZVSNOD (AL.C).  Move IBANK2.
-   !                   Move block-IF outside loop 974; execute always.
-   !                   Labels in order.  Define DELTAZ,ZVSNOD for ICL=1.
-   !                   Do loop 1100 only if ICL0>0, call ALINIT, & rm loop
-   !                   1170 (zero sub-cells).  Initialize NRENUM in DATA.
-   !                   Start at ICL0+1 in search for NLYRBT & don't test
-   !                   DELTAZ>0.
-   !      970402       Start at ICOL1 in loop 1600 (instead of GOTO).
-   !                   Rationalize tests in loop 1500.  Swap subscripts:
-   !                   JVSACN,JVSDEL, & initialize to 0 (was IUNDEF first).
-   !                   Declare NCELL,NACELL,ZDIFF.
-   !      970422       Initialize LRENUM to 0 (was IUNDEF) & test NCLYR<=0.
-   !      970423       Start at NLF+1 (was test type=3) in loop 1000.
-   !                   Rename ZAQTOP ZSZBOT.
-   !      970522       Remove "unfinished code" message.  Simplify test.
-   !      970523       Set ZVSNOD(1,IEL) less than ZLYRBT(IEL,1).
-   !      970612       Simplify loop 1120.  (Cancel above: 2 mods.)
-   !      970718       ZAQBOT was ZLBOT.  Labels in order.
-   !                   Use IEL.LE.NLF etc for ITYPE.EQ.3.
-   !                   GOTO 1585 instead of ELSE.  Fix error in setting of
-   !                   ITOP, JTOP for links (was LL-NCSZON).
-   !                   Use NMOD instead of 100, & merge layer IF-blocks.
-   !                   Rationalize tests for skipping loop 1590.  Rename
-   !                   I|JALDUM J|IRANGE.  Scrap inconsistency error 1049.
-   !                   Fix error in aquifer zone: skip if EITHER, not BOTH.
-   !      970728       Scrap local IUNDEF & arrays LIDUM,LJDUM. Fix errors:
-   !                   in message 1037 print I|J not LI|JDUM(I|J) (=1); at
-   !                   top of aquifer zone goto 1585 not 1590 (for BDONE).
-   !      970730       Refine split cell treatment: don't straddle null
-   !                   cells.  Flag warnings 1037 & 1053 once only.
-   !                   Scrap inconsistency error 1050.  Complete IEL loop
-   !                   before renumbering (don't jump out straightaway).
-   !      970801       Complete split cells: spread foregone splits
-   !                   (was ill-specified). Reduce MSG size. Simplify test.
-   !                   Don't connect (ends of) river bed cells.
-   !      970806       Add some entry conditions.
-   !      970811       (Amend PAIR logic: use MISS.)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Sets up cell sizes and connectivity matrix
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSCONC/4.1
+      ! Modifications:
+      !  GP  20.07.94  written (4.0 completed 960117)
+      ! RAH  970326  4.1  Generic intrinsics.  Move ERROR calls to the end.
+      !                   New locals ZAQTOP,ZLBOT,ZNODE,ICOL1,ICL0,NCL.
+      !                   Scrap local ZDUM1.  Automatic type conversion.
+      !                   Rename locals NDUM,ZDUM2,ZDUM3,Zasum,Zasum1.
+      !                   Scrap label & GOTO 970 (use MAX(ZERO,VSZMIN)).
+      !                   Swap subscripts: DELTAZ,ZVSNOD (AL.C).  Move IBANK2.
+      !                   Move block-IF outside loop 974; execute always.
+      !                   Labels in order.  Define DELTAZ,ZVSNOD for ICL=1.
+      !                   Do loop 1100 only if ICL0>0, call ALINIT, & rm loop
+      !                   1170 (zero sub-cells).  Initialize NRENUM in DATA.
+      !                   Start at ICL0+1 in search for NLYRBT & don't test
+      !                   DELTAZ>0.
+      !      970402       Start at ICOL1 in loop 1600 (instead of GOTO).
+      !                   Rationalize tests in loop 1500.  Swap subscripts:
+      !                   JVSACN,JVSDEL, & initialize to 0 (was IUNDEF first).
+      !                   Declare NCELL,NACELL,ZDIFF.
+      !      970422       Initialize LRENUM to 0 (was IUNDEF) & test NCLYR<=0.
+      !      970423       Start at NLF+1 (was test type=3) in loop 1000.
+      !                   Rename ZAQTOP ZSZBOT.
+      !      970522       Remove "unfinished code" message.  Simplify test.
+      !      970523       Set ZVSNOD(1,IEL) less than ZLYRBT(IEL,1).
+      !      970612       Simplify loop 1120.  (Cancel above: 2 mods.)
+      !      970718       ZAQBOT was ZLBOT.  Labels in order.
+      !                   Use IEL.LE.NLF etc for ITYPE.EQ.3.
+      !                   GOTO 1585 instead of ELSE.  Fix error in setting of
+      !                   ITOP, JTOP for links (was LL-NCSZON).
+      !                   Use NMOD instead of 100, & merge layer IF-blocks.
+      !                   Rationalize tests for skipping loop 1590.  Rename
+      !                   I|JALDUM J|IRANGE.  Scrap inconsistency error 1049.
+      !                   Fix error in aquifer zone: skip if EITHER, not BOTH.
+      !      970728       Scrap local IUNDEF & arrays LIDUM,LJDUM. Fix errors:
+      !                   in message 1037 print I|J not LI|JDUM(I|J) (=1); at
+      !                   top of aquifer zone goto 1585 not 1590 (for BDONE).
+      !      970730       Refine split cell treatment: don't straddle null
+      !                   cells.  Flag warnings 1037 & 1053 once only.
+      !                   Scrap inconsistency error 1050.  Complete IEL loop
+      !                   before renumbering (don't jump out straightaway).
+      !      970801       Complete split cells: spread foregone splits
+      !                   (was ill-specified). Reduce MSG size. Simplify test.
+      !                   Don't connect (ends of) river bed cells.
+      !      970806       Add some entry conditions.
+      !      970811       (Amend PAIR logic: use MISS.)
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NELEE, NLYREE, LLEE, NLFEE, total_no_links, total_no_elements,
@@ -900,7 +901,7 @@ CONTAINS
       INTEGER :: LRENUM(NELEE, NLYREE) = 0
       INTEGER, SAVE :: NRENUM = 0
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       NMOD = NLYREE + 1
 
@@ -1316,8 +1317,8 @@ CONTAINS
 
       END DO renumbering_loop
 
-   ! Finish off
-   !____________*
+      ! Finish off
+      !____________*
       WRITE (PPPRI, 9000) top_cell_no
 
       finish_loop: DO IEL = ICOL1, total_no_links
@@ -1664,8 +1665,8 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSFUNC
    SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
-         VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
-         CTHETA, CETA, CKR, CDETA, CDKR)
+      VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
+      CTHETA, CETA, CKR, CDETA, CDKR)
       !
       !----------------------------------------------------------------------*
       ! Calculates moisture content, storage coefficient, and relative
@@ -1728,7 +1729,7 @@ CONTAINS
       INTEGER :: ICL, INC, JHI, JLO, JM, IS, DRY
       LOGICAL :: IS_ERROR
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IS_ERROR = .FALSE.
 
@@ -1763,7 +1764,7 @@ CONTAINS
                   END IF
                END DO hunt_up
 
-            ! hunt down the table
+               ! hunt down the table
             ELSE
                JHI = JLO
                hunt_down: DO WHILE (.TRUE.)
@@ -1825,18 +1826,18 @@ CONTAINS
 
       END DO OUT100
 
-   !----------------------------------------------------------------------*
-   ! Exit conditions:
-   ! for each c in ICBOT:ICTOP:
-   !             0 <  ICSTOR(c) <  NVSSOL
-   !    VSPPSI(j)  <=   CPSI(c) <= VSPPSI(j+1)
-   !    VSPTHE(j,s)<= CTHETA(c) <= VSPTHE(j+1,s)
-   !    VSPETA(j,s)<=   CETA(c) <= VSPETA(j+1,s)
-   !     VSPKR(j,s)<=    CKR(c) <=  VSPKR(j+1,s)
-   !    VSPDET(j,s)<=  CDETA(c) <= VSPDET(j+1,s)
-   !    VSPDKR(j,s)<=   CDKR(c) <= VSPDKR(j+1,s)
-   ! where j=ICSTOR(c) and s=ICSOIL(c)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Exit conditions:
+      ! for each c in ICBOT:ICTOP:
+      !             0 <  ICSTOR(c) <  NVSSOL
+      !    VSPPSI(j)  <=   CPSI(c) <= VSPPSI(j+1)
+      !    VSPTHE(j,s)<= CTHETA(c) <= VSPTHE(j+1,s)
+      !    VSPETA(j,s)<=   CETA(c) <= VSPETA(j+1,s)
+      !     VSPKR(j,s)<=    CKR(c) <=  VSPKR(j+1,s)
+      !    VSPDET(j,s)<=  CDETA(c) <= VSPDET(j+1,s)
+      !    VSPDKR(j,s)<=   CDKR(c) <= VSPDKR(j+1,s)
+      ! where j=ICSTOR(c) and s=ICSOIL(c)
+      !----------------------------------------------------------------------*
 
       IF (IS_ERROR) THEN
          DRY = NINT(MAX(ZERO, MIN(PDUM, ONE)))
@@ -1849,26 +1850,26 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSIN ()
    SUBROUTINE VSIN ()
-   !----------------------------------------------------------------------*
-   ! Controls initialisation of VSS component data
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSIN/4.1
-   ! Modifications:
-   !  GP  20.07.94  written (v4.0 finished 21/10/96)
-   ! RAH  970122  4.1  No long/leading comments or lower-case code.
-   !                   Amend externals list.  Extend VSFUNC argument list.
-   !      970512       Swap IVSSTO & VSKR indices (VSCOM1.INC), and scrap
-   !                   local arrays ICSDUM & CKRDUM.  Similarly, swap
-   !                   DELTAZ, ZVSNOD & VSPSI (AL.C), and scrap CPSDUM.
-   !                   Scrap outputs VSETAN & VSKRN (VSCOM1.INC).
-   !                   Rationalize loops 800 & 950, and initialize.
-   !                   Generic intrinsics.  Use ISTART more.  Order labels.
-   !      970522       NWELTP default 1.
-   !                   Use GOTO for errors; fix error in message 1041.
-   !      970630       Bring NAQCON,IAQCON from VSINIT.INC; swap indices;
-   !                   pass to VSREAD,VSCONL.  Use format 9010 for 9020.
-   !                   Replace NGDBGN with NLF+1.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Controls initialisation of VSS component data
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSIN/4.1
+      ! Modifications:
+      !  GP  20.07.94  written (v4.0 finished 21/10/96)
+      ! RAH  970122  4.1  No long/leading comments or lower-case code.
+      !                   Amend externals list.  Extend VSFUNC argument list.
+      !      970512       Swap IVSSTO & VSKR indices (VSCOM1.INC), and scrap
+      !                   local arrays ICSDUM & CKRDUM.  Similarly, swap
+      !                   DELTAZ, ZVSNOD & VSPSI (AL.C), and scrap CPSDUM.
+      !                   Scrap outputs VSETAN & VSKRN (VSCOM1.INC).
+      !                   Rationalize loops 800 & 950, and initialize.
+      !                   Generic intrinsics.  Use ISTART more.  Order labels.
+      !      970522       NWELTP default 1.
+      !                   Use GOTO for errors; fix error in message 1041.
+      !      970630       Bring NAQCON,IAQCON from VSINIT.INC; swap indices;
+      !                   pass to VSREAD,VSCONL.  Use format 9010 for 9020.
+      !                   Replace NGDBGN with NLF+1.
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NVSEE, total_no_elements, total_no_links, top_cell_no, BEXBK,
@@ -1888,7 +1889,7 @@ CONTAINS
       DOUBLE PRECISION :: DZ, RDUM, ZGI, ZMIN
       DOUBLE PRECISION :: CDUM1(LLEE), CDUM2(LLEE), CDUM3(LLEE), CDUM4(LLEE)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! top_cell_no is unknown at this point. But the code to caculate top_cell_no
       ! uses DELTAZ and ZVSNOD so these use llee
@@ -1977,12 +1978,12 @@ CONTAINS
             ZVSPSL(IEL) = MAX(ZLYRBT(IEL, 1), ZGRUND(IEL) - VSIPSD)
          END DO
 
-      ! type 2 - varying phreatic surface level, equilibrium psi profile
+         ! type 2 - varying phreatic surface level, equilibrium psi profile
       ELSE IF (INITYP == 2) THEN
          READ (VSI, '(A)')
          READ (VSI, *) (ZVSPSL(IEL), IEL = ISTART, total_no_elements)
 
-      ! type 3 - 3-dimensional field of psi values (+ init. psl for output)
+         ! type 3 - 3-dimensional field of psi values (+ init. psl for output)
       ELSE
          READ (VSI, '(A)')
 
@@ -2069,9 +2070,9 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSINTC
    PURE SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
-         JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
-         CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
-         CDGAM2, CA, CB, CC, CR, H)
+      JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
+      CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
+      CDGAM2, CA, CB, CC, CR, H)
       !----------------------------------------------------------------------*
       ! Sets up coefficients for column internal cells
       !----------------------------------------------------------------------*
@@ -2126,7 +2127,7 @@ CONTAINS
       DOUBLE PRECISION :: CBETMI, CBETPI, CDBETP, CDBMMI, CDBTPP, CDFM, CDFP, CDG
       DOUBLE PRECISION :: CFI, CGI, DPSI, HI, HK, HK1, HM, HP, VODT
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! Prepare effective hydraulic heads
       I = ICBOT - 1
@@ -2161,7 +2162,7 @@ CONTAINS
          CA(I) = SIGMA * CBETMI - HI * CDFM + HM * CDBMMI
          CC(I) = SIGMA * CBETPI - HI * CDFP + HP * CDBTPP
          CB(I) = HM * CDBETM(I) - HI * CDF(I) + HP * CDBETP - &
-                 (SIGMA * CFI + DPSI * CDG + CGI)
+            (SIGMA * CFI + DPSI * CDG + CGI)
          CR(I) = - (HM * CBETMI - HI * CFI + HP * CBETPI - DPSI * CGI + CQ(I))
       END DO
 
@@ -2251,23 +2252,23 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSMB (VSTHEN)
    SUBROUTINE VSMB (VSTHEN)
-   !
-   !----------------------------------------------------------------------*
-   ! Updates flows to ensure mass conservation
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSMB/4.1
-   ! Modifications:
-   !  GP  08.03.95  written (v4.0 finished 17.07.96)
-   ! RAH  961228  4.1  Remove variable ILINK.  No leading comments.
-   !      970214       Reverse DELTAZ,QVSH indices (AL.C). Declare JCL,JFA.
-   !                   mv VSTHEN from VSCOM1.INC to arg list, reverse subs.
-   !      970118       Swap subscripts: JVSACN,QVSV,QVSWLI,VSTHE (AL.C);
-   !                   also fix error in QVSWLI index: use IW not IEL.
-   !                   Remove temporary code (to set VSSTMP).  DBLE locals.
-   !                   Don't include VSCOM1.INC.
-   !      970509       Scrap output QVSBF (set in VSSIM).  Order labels.
-   !                   Remove redundant local BDONE.  Trap JVSDEL.ne.0.
-   !----------------------------------------------------------------------*
+      !
+      !----------------------------------------------------------------------*
+      ! Updates flows to ensure mass conservation
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSMB/4.1
+      ! Modifications:
+      !  GP  08.03.95  written (v4.0 finished 17.07.96)
+      ! RAH  961228  4.1  Remove variable ILINK.  No leading comments.
+      !      970214       Reverse DELTAZ,QVSH indices (AL.C). Declare JCL,JFA.
+      !                   mv VSTHEN from VSCOM1.INC to arg list, reverse subs.
+      !      970118       Swap subscripts: JVSACN,QVSV,QVSWLI,VSTHE (AL.C);
+      !                   also fix error in QVSWLI index: use IW not IEL.
+      !                   Remove temporary code (to set VSSTMP).  DBLE locals.
+      !                   Don't include VSCOM1.INC.
+      !      970509       Scrap output QVSBF (set in VSSIM).  Order labels.
+      !                   Remove redundant local BDONE.  Trap JVSDEL.ne.0.
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, total_no_elements, ICMREF, LINKNS, NVSWLI, cellarea, top_cell_no,
@@ -2284,7 +2285,7 @@ CONTAINS
       INTEGER :: IEL, J, ITYPE, IFA, JEL, ICL, JFA, JCL, IW, MCL
       DOUBLE PRECISION :: AREAE, CMBE, F, Qasum
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! --- loop over all elements
       element_loop: DO IEL = 1, total_no_elements
@@ -2332,7 +2333,7 @@ CONTAINS
                ! calculate mass balance error (m**3/s)
                MCL = ICL - 1
                CMBE = -QVSV(MCL, IEL) + QVSV(ICL, IEL) + ERUZ(IEL, ICL) + &
-                      DELTAZ(ICL, IEL) * (VSTHE(ICL, IEL) - VSTHEN(ICL, IEL)) / DTUZ
+                  DELTAZ(ICL, IEL) * (VSTHE(ICL, IEL) - VSTHEN(ICL, IEL)) / DTUZ
 
                IF (IW > 0) CMBE = CMBE + QVSWLI(ICL, IW)
                IF (ICL == top_cell_no) CMBE = CMBE + ESOILA(IEL)
@@ -2391,19 +2392,19 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSPREP
    SUBROUTINE VSPREP()
-   !----------------------------------------------------------------------*
-   ! Prepares catchment, and controls reading of time-varying boundary
-   ! conditions
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSPREP/4.1
-   ! Modifications:
-   !  GP  29.07.94  written (v4.0 finished 3/5/95)
-   ! RAH  961228  4.1  Remove variables IEL,ICL.  No leading comments.
-   !                   Declare ERROR external.  No lower-case code.
-   !                   Use SAVE instead of ineffectual COMMON.
-   !      970213       Reverse subscripts RLFNOW,RLHNOW,RLGNOW (see VSSIM).
-   !      970522       Initialize saved locals.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Prepares catchment, and controls reading of time-varying boundary
+      ! conditions
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSPREP/4.1
+      ! Modifications:
+      !  GP  29.07.94  written (v4.0 finished 3/5/95)
+      ! RAH  961228  4.1  Remove variables IEL,ICL.  No leading comments.
+      !                   Declare ERROR external.  No lower-case code.
+      !                   Use SAVE instead of ineffectual COMMON.
+      !      970213       Reverse subscripts RLFNOW,RLHNOW,RLGNOW (see VSSIM).
+      !      970522       Initialize saved locals.
+      !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
       ! NVSEE, NVSWL, WLD, TIH, UZNOW, UZNEXT, WLNOW
@@ -2442,7 +2443,7 @@ CONTAINS
       ! DOUBLE PRECISION :: RLFDUM(NVSEE), RLHDUM(NVSEE), RLGDUM(NVSEE)
 
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! wells
       IF (NVSWL > 0) THEN
@@ -2476,7 +2477,7 @@ CONTAINS
       ! lateral head boundary condition
       IF (NVSLH > 0) THEN
          CALL HINPUT(LHB, TIH, UZNOW, UZNEXT, RLHLST, RLHTIM, RLHPRV, &
-                     RLHNXT, NVSLHT, RLHDUM)
+            RLHNXT, NVSLHT, RLHDUM)
 
          IF (EQMARKER(RLHTIM)) THEN
             CALL ERROR(FFFATAL, 1044, PPPRI, 0, 0, 'End of lateral head boundary condition file (LHB)')
@@ -2497,7 +2498,7 @@ CONTAINS
       ! lateral head gradient boundary condition
       IF (NVSLG > 0) THEN
          CALL HINPUT(LGB, TIH, UZNOW, UZNEXT, RLGLST, RLGTIM, RLGPRV, &
-                     RLGNXT, NVSLGT, RLGDUM)
+            RLGNXT, NVSLGT, RLGDUM)
 
          IF (EQMARKER(RLGTIM)) THEN
             CALL ERROR(FFFATAL, 1052, PPPRI, 0, 0, 'End of lateral head gradient boundary condition file (LGB)')
@@ -2518,7 +2519,7 @@ CONTAINS
       ! column base flow boundary condition
       IF (NVSBF > 0) THEN
          CALL FINPUT(BFB, TIH, UZNOW, UZNEXT, RBFLST, RBFTIM, RBFPRV, &
-                     NVSBF, RBFNOW)
+            NVSBF, RBFNOW)
 
          IF (EQMARKER(RBFTIM)) THEN
             CALL ERROR(FFFATAL, 1045, PPPRI, 0, 0, 'End of column base flow boundary condition file (BFB)')
@@ -2528,7 +2529,7 @@ CONTAINS
       ! column base head boundary condition
       IF (NVSBH > 0) THEN
          CALL HINPUT(BHB, TIH, UZNOW, UZNEXT, RBHLST, RBHTIM, RBHPRV, &
-                     RBHNXT, NVSBH, RBHNOW)
+            RBHNXT, NVSBH, RBHNOW)
 
          IF (EQMARKER(RBHTIM)) THEN
             CALL ERROR(FFFATAL, 1046, PPPRI, 0, 0, 'End of column base head boundary condition file (BHB)')
@@ -2541,21 +2542,21 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSREAD (NAQCON, IAQCON)
    SUBROUTINE VSREAD (NAQCON, IAQCON)
-   !----------------------------------------------------------------------*
-   ! Reads in all data from VSS input data file
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSREAD/4.1
-   ! Modifications:
-   !  GP  20.07.94  written (v4.0 finished 31/1/96)
-   ! RAH  970213  4.1  Initialize NLBTYP,NLBCAT,NVSWLC,NBBTYP,NBBCAT.
-   !                   Reverse subscripts NVSLFL,NVSLHL,NVSLGL (see VSSIM).
-   !      970522       Initialize NVSWLI.  Fix errors: use TBKR not TBTHE
-   !                   in loop 21 (IVSFLG=2); add -1 to NVSLHT & NVSLGT.
-   !      970630       Bring NAQCON,IAQCON from VSINIT.INC to arg-list, &
-   !                   swap indices to fix error in ALREAD call.
-   !                   Fix ALREAD call VS08b: only if NLF>0.
-   !      970805       Ensure {NLBCAT,NBBCAT,NVSWLC}.ge.1.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Reads in all data from VSS input data file
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSREAD/4.1
+      ! Modifications:
+      !  GP  20.07.94  written (v4.0 finished 31/1/96)
+      ! RAH  970213  4.1  Initialize NLBTYP,NLBCAT,NVSWLC,NBBTYP,NBBCAT.
+      !                   Reverse subscripts NVSLFL,NVSLHL,NVSLGL (see VSSIM).
+      !      970522       Initialize NVSWLI.  Fix errors: use TBKR not TBTHE
+      !                   in loop 21 (IVSFLG=2); add -1 to NVSLHT & NVSLGT.
+      !      970630       Bring NAQCON,IAQCON from VSINIT.INC to arg-list, &
+      !                   swap indices to fix error in ALREAD call.
+      !                   Fix ALREAD call VS08b: only if NLF>0.
+      !      970805       Ensure {NLBCAT,NBBCAT,NVSWLC}.ge.1.
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NELEE, NLYREE, NSEE, NVSEE, total_no_elements, NVSWLI, NLBTYP,
@@ -2586,7 +2587,7 @@ CONTAINS
       CHARACTER(LEN=80)  :: CDUM
       CHARACTER(LEN=132) :: MSG
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
       ! Initialization
 
       CALL initialise_vsread_buffers()
@@ -2783,7 +2784,7 @@ CONTAINS
                IVSCAT_VSREAD(IEL) = 1
             END DO
 
-         ! for > 1 category read in categories for links (if required) and grids
+            ! for > 1 category read in categories for links (if required) and grids
          ELSE
             IF (BEXBK .AND. total_no_links > 0) THEN
                CALL ALREAD (2, VSD, PPPRI, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES, CDUM, IVSCAT_VSREAD, DUMMY)
@@ -2826,7 +2827,7 @@ CONTAINS
                      ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM_VSREAD(ICAT, ILYR)
                   END DO
 
-               ! ...banks
+                  ! ...banks
                ELSE
                   DO I = 1, 2
                      IBK = ICMBK(IEL, I)
@@ -2895,7 +2896,7 @@ CONTAINS
                   ZLYRBT(IEL, ILYR) = ZGRUND(IEL) - RVSDUM_VSREAD(IEL, ILYR)
                END DO
 
-            ! ...banks
+               ! ...banks
             ELSE
                DO I = 1, 2
                   IBK = ICMBK(IEL, I)
@@ -2951,7 +2952,7 @@ CONTAINS
       ! check that all elements have been set up
       check_done_loop: DO IEL = 1, total_no_elements
          IF (.NOT. BEXBK .AND. ICMREF(IEL, 1) /= 0) CYCLE check_done_loop
-          IF (.NOT. BDONE_VSREAD(IEL)) THEN
+         IF (.NOT. BDONE_VSREAD(IEL)) THEN
             WRITE (MSG, 9020) IEL
             CALL ERROR (EEERR, 1033, PPPRI, 0, 0, MSG)
          END IF
@@ -3198,25 +3199,25 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSSAI
    PURE SUBROUTINE VSSAI(FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
-                         CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column stream-aquifer interaction
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSSAI/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 15.01.96)
-   ! RAH  970121  4.1  IDUM is INTEGER not DOUBLEPRECISION.
-   !                   Use AOL,DH,KIJ to reduce number of operations.
-   !      970203       Use arguments, not INCLUDE.  Add some comments.
-   !      970211       Remove outputs CQBKB,CQBKF (see VSSIM).
-   !      970514       Add arg FACE & 1st dim to arrays CAIJ & CQH.
-   !      SPA, 03/11/98 depadj added
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   !     1 <= FACE <= 4
-   ! ICBOT <= ICBED+1, ICTOP
-   !     0 <  CDELL
-   !----------------------------------------------------------------------*
+      CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
+      !----------------------------------------------------------------------*
+      ! Sets up coefficients for column stream-aquifer interaction
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSSAI/4.1
+      ! Modifications:
+      !  GP  22.08.94  written (v4.0 finished 15.01.96)
+      ! RAH  970121  4.1  IDUM is INTEGER not DOUBLEPRECISION.
+      !                   Use AOL,DH,KIJ to reduce number of operations.
+      !      970203       Use arguments, not INCLUDE.  Add some comments.
+      !      970211       Remove outputs CQBKB,CQBKF (see VSSIM).
+      !      970514       Add arg FACE & 1st dim to arrays CAIJ & CQH.
+      !      SPA, 03/11/98 depadj added
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      !     1 <= FACE <= 4
+      ! ICBOT <= ICBED+1, ICTOP
+      !     0 <  CDELL
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -3237,7 +3238,7 @@ CONTAINS
       INTEGER :: ICL, IDUM
       DOUBLE PRECISION :: QDUM, DQDUM, AOL, DH, KIJ, DDUM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! set lowest cell in exposed bank face
       IF (JCBC == 9) THEN
@@ -3612,19 +3613,19 @@ CONTAINS
 
             ! calculate new potentials and flow rates
             CALL VSCOLM (NSEE, VSWV, VSWL, VSK3D, BHELEV, ELEVEL, IEL, ICBOT, ICTOP, ICBED,       &
-                         ICLYRB, ICSOILsv (ICBOT, IEL), JCBCsv (0, IEL), JCDEL1, JELDUM,          &
-                         JVSACN (1, ICBOT, IEL), JVSDEL (1, ICBOT, IEL), NVSSPC (IEL),            &
-                         NVSLFN (ICLBCT), NVSLFL (1, ICLBCT), NWELBT (IEL), NVSLHN (ICLBCT),      &
-                         NVSLHL (1, ICLBCT), NWELTP (IEL), NVSLGN (ICLBCT), NVSLGL (1, ICLBCT),   &
-                         cellarea (IEL), ZGRUND (IEL), VSSPZ (IEL), VSSPCO (IEL),                 &
-                         DELTAZ (ICBOT, IEL), ZVSNOD (ICBOT, IEL), CDELL, VSAIJsv (1, ICBOT, IEL),&
-                         CAIJ1, CDELL1, CZ1, DTUZ, CDNET (IEL), VSPSIN (ICBOT, IEL),              &
-                         CQ (ICBOT, IEL), CZS, CPSI1, CPSIN1, CKIJ1, WLNOW (ICWCAT),              &
-                         RLFNOW (1, ICLBCT), RLHNOW (1, ICLBCT), RLGNOW (1, ICLBCT),              &
-                         RBFNOW (ICBBCT), RBHNOW (ICBBCT), IVSSTO (ICBOT, IEL),                   &
-                         VSPSI (ICBOT, IEL), VSKR (ICBOT, IEL), VSTHE (ICBOT, IEL),               &
-                         QVSH (1, ICBOT, IEL), QVSV (ICBOT - 1, IEL), QVSWLI (ICWLBT, IW),        &
-                         QVSSPR (IEL), ZVSPSL (IEL), depadj)
+               ICLYRB, ICSOILsv (ICBOT, IEL), JCBCsv (0, IEL), JCDEL1, JELDUM,          &
+               JVSACN (1, ICBOT, IEL), JVSDEL (1, ICBOT, IEL), NVSSPC (IEL),            &
+               NVSLFN (ICLBCT), NVSLFL (1, ICLBCT), NWELBT (IEL), NVSLHN (ICLBCT),      &
+               NVSLHL (1, ICLBCT), NWELTP (IEL), NVSLGN (ICLBCT), NVSLGL (1, ICLBCT),   &
+               cellarea (IEL), ZGRUND (IEL), VSSPZ (IEL), VSSPCO (IEL),                 &
+               DELTAZ (ICBOT, IEL), ZVSNOD (ICBOT, IEL), CDELL, VSAIJsv (1, ICBOT, IEL),&
+               CAIJ1, CDELL1, CZ1, DTUZ, CDNET (IEL), VSPSIN (ICBOT, IEL),              &
+               CQ (ICBOT, IEL), CZS, CPSI1, CPSIN1, CKIJ1, WLNOW (ICWCAT),              &
+               RLFNOW (1, ICLBCT), RLHNOW (1, ICLBCT), RLGNOW (1, ICLBCT),              &
+               RBFNOW (ICBBCT), RBHNOW (ICBBCT), IVSSTO (ICBOT, IEL),                   &
+               VSPSI (ICBOT, IEL), VSKR (ICBOT, IEL), VSTHE (ICBOT, IEL),               &
+               QVSH (1, ICBOT, IEL), QVSV (ICBOT - 1, IEL), QVSWLI (ICWLBT, IW),        &
+               QVSSPR (IEL), ZVSPSL (IEL), depadj)
 
             !!!!!! extra argument depadj added for channel-aquifer flows fix
             ! SPA, 03/11/98
@@ -3638,7 +3639,7 @@ CONTAINS
             DELTAP (IEL) = DPSIEL
             DPSIMX = MAX (DPSIMX, DPSIEL)
 
-         ! end of element loop: check for convergence or maximum iterations
+            ! end of element loop: check for convergence or maximum iterations
          END DO
 
          ! 970214  At present the criterion on DPSIMX overrides that on NIT
@@ -3658,7 +3659,7 @@ CONTAINS
             END DO
          END IF
 
-      ! end of iteration loop
+         ! end of iteration loop
       END DO
 
       IF (.NOT. g670) THEN
@@ -3731,16 +3732,16 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSSOIL ()
    SUBROUTINE VSSOIL ()
-   !
-   !----------------------------------------------------------------------*
-   ! Sets up soil property tables for VSS
-   !----------------------------------------------------------------------*
-   ! Module:        VSS (0.0)
-   ! Program:       SHETRAN (4.0)
-   ! Callers:       VSIN
-   ! Modifications:
-   !  GP  20.07.94  written
-   !----------------------------------------------------------------------*
+      !
+      !----------------------------------------------------------------------*
+      ! Sets up soil property tables for VSS
+      !----------------------------------------------------------------------*
+      ! Module:        VSS (0.0)
+      ! Program:       SHETRAN (4.0)
+      ! Callers:       VSIN
+      ! Modifications:
+      !  GP  20.07.94  written
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NSEE, NSOLEE, BFAST, NVSSOL, VSPPSI, NS, IVSFLG, VSPOR, VSTRES,
@@ -3758,13 +3759,13 @@ CONTAINS
       DOUBLE PRECISION :: DDTC, DDTCM, DDTCM1, DDTCM2, DDDTCP
       DOUBLE PRECISION :: PLOG, PLOGLO, PLOGHI, ADUM, BDUM, HDUM, RKRDUM
 
-   !----------------------------------------------------------------------*
-   ! soil flags:
-   !       1       van Genuchten
-   !       2       tabulated theta(psi) and Kr(psi)
-   !       3       exponential
-   !       4       tabulated theta(psi), Averjanov Kr (compatible with V3.4
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! soil flags:
+      !       1       van Genuchten
+      !       2       tabulated theta(psi) and Kr(psi)
+      !       3       exponential
+      !       4       tabulated theta(psi), Averjanov Kr (compatible with V3.4
+      !----------------------------------------------------------------------*
 
       ! set up size of internal look-up tables
       IF (BFAST) THEN
@@ -3819,13 +3820,13 @@ CONTAINS
                !  (half*(one-DDTCM)/DDTCAP + two*DDTCM1*DDTCAP**DD1M1) * DDDTCP
 
                DDDUM = (DDA * DDA * DDM * DDN * DDTSMR * DDAPN1 / DDAPM2) * &
-                       ((DDN - one) * (one + DDAPN) + (DDM + one) * DDN * DDAPN1)
+                  ((DDN - one) * (one + DDAPN) + (DDM + one) * DDN * DDAPN1)
                VSPETA(I, IS) = VSPTHE(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS)
 
                ! VSPDET(I,IS) = VSPDTH(I,IS)*VSPSS(IS)/VSPOR(IS) + DDDUM
                VSPDET(I, IS) = zero
 
-            ! ... 2 (tabulated theta and Kr)
+               ! ... 2 (tabulated theta and Kr)
             ELSE IF (IVSFLG(IS) == 2) THEN
 
                ! check for correct location in input table
@@ -3845,18 +3846,18 @@ CONTAINS
                BDUM = (PLOG - PLOGLO) / HDUM
 
                VSPTHE(I, IS) = ADUM * TBTHE(NDUM, IS) + BDUM * TBTHE(NDUM + 1, IS) + &
-                               ((ADUM**three - ADUM) * TBTHEC(NDUM, IS) + &
-                               (BDUM**three - BDUM) * TBTHEC(NDUM + 1, IS)) * &
-                               (HDUM**two) / 6.0D0
+                  ((ADUM**three - ADUM) * TBTHEC(NDUM, IS) + &
+                  (BDUM**three - BDUM) * TBTHEC(NDUM + 1, IS)) * &
+                  (HDUM**two) / 6.0D0
 
                VSPTHE(I, IS) = VSPOR(IS) * VSPTHE(I, IS)
 
                VSPKR(I, IS) = ADUM * TBKR(NDUM, IS) + BDUM * TBKR(NDUM + 1, IS) + &
-                              ((ADUM**three - ADUM) * TBKRC(NDUM, IS) + &
-                              (BDUM**three - BDUM) * TBKRC(NDUM + 1, IS)) * &
-                              (HDUM**two) / 6.0D0
+                  ((ADUM**three - ADUM) * TBKRC(NDUM, IS) + &
+                  (BDUM**three - BDUM) * TBKRC(NDUM + 1, IS)) * &
+                  (HDUM**two) / 6.0D0
 
-            ! ... 3 (exponential)
+               ! ... 3 (exponential)
             ELSE IF (IVSFLG(IS) == 3) THEN
 
                ! Replaced EDUM**(VSALPH * PSI) hack with precise EXP intrinsic
@@ -3870,7 +3871,7 @@ CONTAINS
                VSPETA(I, IS) = VSPTHE(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS)
                VSPDET(I, IS) = VSPDTH(I, IS) * VSPSS(IS) / VSPOR(IS) + VSPDTH(I, IS) * VSALPH(IS)
 
-            ! ... 4 (tabulated theta and Averjanov Kr)
+               ! ... 4 (tabulated theta and Averjanov Kr)
             ELSE IF (IVSFLG(IS) == 4) THEN
                STOP 'UNFINISHED code for soil properties type 4'
             END IF
@@ -3903,7 +3904,7 @@ CONTAINS
          DO IS = 1, NS
             IF (IVSFLG(IS) == 2 .OR. IVSFLG(IS) == 4) THEN
                VSPDET(I, IS) = VSPDTH(I, IS) * VSPSS(IS) / VSPOR(IS) + &
-                               (VSPDTH(I + 1, IS) - VSPDTH(I, IS)) / (VSPPSI(I + 1) - VSPPSI(I))
+                  (VSPDTH(I + 1, IS) - VSPDTH(I, IS)) / (VSPPSI(I + 1) - VSPPSI(I))
             END IF
          END DO
       END DO
@@ -3950,7 +3951,7 @@ CONTAINS
             WRITE(PPPRI, 910) IS
             DO I = 1, NVSSOL
                WRITE(PPPRI, 920) I, VSPPSI(I), VSPTHE(I, IS), VSPETA(I, IS), VSPKR(I, IS), &
-                                 VSPDTH(I, IS), VSPDET(I, IS), VSPDKR(I, IS)
+                  VSPDTH(I, IS), VSPDET(I, IS), VSPDKR(I, IS)
             END DO
          END DO
       END IF
@@ -3959,19 +3960,19 @@ CONTAINS
 
       ! FORMAT STATEMENTS
 905   FORMAT(/ 'VSS physical soil/lithology property data' / &
-             '=========================================' / &
-             I3, ' soils' / &
-             I3, ' values in soil property tables' )
+         '=========================================' / &
+         I3, ' soils' / &
+         I3, ' values in soil property tables' )
 
 910   FORMAT(/ &
-             3X,'  Soil property tables for soil/lithology type: ',I3 / &
-             3X,'  -------------------------------------------------' // &
-             3X,'      psi         theta          eta            Kr      ', &
-             ' d(the)/d(psi) d(eta)/d(psi)  d(Kr)/d(psi)' / &
-             3X,'   (VSPPSI)      (VSPTHE)      (VSPETA)       (VSPKR)   ', &
-             '   (VSPDTH)      (VSPDET)       (VSPDKR)  ' / &
-             3X,'  ------------  ------------  ------------  ------------', &
-             '  ------------  ------------  ------------' )
+         3X,'  Soil property tables for soil/lithology type: ',I3 / &
+         3X,'  -------------------------------------------------' // &
+         3X,'      psi         theta          eta            Kr      ', &
+         ' d(the)/d(psi) d(eta)/d(psi)  d(Kr)/d(psi)' / &
+         3X,'   (VSPPSI)      (VSPTHE)      (VSPETA)       (VSPKR)   ', &
+         '   (VSPDTH)      (VSPDET)       (VSPDKR)  ' / &
+         3X,'  ------------  ------------  ------------  ------------', &
+         '  ------------  ------------  ------------' )
 
 920   FORMAT(I3,7(2X,G14.6))
 
@@ -4096,24 +4097,24 @@ CONTAINS
 
    !SSSSSS SUBROUTINE VSWELL
    PURE SUBROUTINE VSWELL(NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
-                          CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column well abstraction
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSWELL/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 28.02.95)
-   ! RAH  970120  4.1  Use generic intrinsics.  Use local QDUM.
-   !      970127       Use arguments, not INCLUDE.
-   !      970207       Redefine CQWI: divide by CA0.  Remove output CQW.
-   !      970514       New args NSEE,ICSOIL,VSK3D in place of LLEE,CKIJS.
-   !                   Rearrange QDUM expression.
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! ICWLBT <= ICWLTP
-   !      1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE
-   !      0 < CA0, CDELZ(ICWLBT:ICWLTP+1), VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)
-   !----------------------------------------------------------------------*
+      CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
+      !----------------------------------------------------------------------*
+      ! Sets up coefficients for column well abstraction
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/VSS/VSWELL/4.1
+      ! Modifications:
+      !  GP  22.08.94  written (v4.0 finished 28.02.95)
+      ! RAH  970120  4.1  Use generic intrinsics.  Use local QDUM.
+      !      970127       Use arguments, not INCLUDE.
+      !      970207       Redefine CQWI: divide by CA0.  Remove output CQW.
+      !      970514       New args NSEE,ICSOIL,VSK3D in place of LLEE,CKIJS.
+      !                   Rearrange QDUM expression.
+      !----------------------------------------------------------------------*
+      ! Entry conditions:
+      ! ICWLBT <= ICWLTP
+      !      1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE
+      !      0 < CA0, CDELZ(ICWLBT:ICWLTP+1), VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -4138,7 +4139,7 @@ CONTAINS
       INTEGER :: ICL, SOIL
       DOUBLE PRECISION :: RKZTOT, DZDUM, PDUM, QDUM, RKZ
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! The value of CQWIN is the prescribed abstraction rate (m3/s).
       ! The actual abstraction rate CQWI (m/s) may be less than this if some

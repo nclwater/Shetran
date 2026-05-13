@@ -15,7 +15,8 @@ MODULE visualisation_interface_left
 !2. Do not remove any variables and functions functions from the PUBLIC list.
 !3. Add new variables or functions to the PUBLIC list if they are needed in VISUALISATION_INTERFACE_CENTRE
 !2. Keep this module PRIVATE.
-   USE SGLOBAL, ONLY    : fffatal, pppri, ERROR, dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf=>total_no_links
+   USE SGLOBAL, ONLY    : dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf=>total_no_links
+   USE mod_error, ONLY    : ERROR, FFFATAL, pppri
    USE AL_C, ONLY       : cmd,                &  !file unit for contaminants
       draina,             & !drainage from intercepted canopy water (m/s)
    !dxqq, dyqq, cwidth, & !element x,y widths and river width
@@ -274,7 +275,7 @@ CONTAINS
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SUBROUTINE get_nsed_early()
+   SUBROUTINE get_nsed_early()
 
       ! Assumed external module dependencies providing global variables:
       ! syd, nnnsed, FFFATAL, PPPRI, ERROR

@@ -55,6 +55,9 @@ PROGRAM SHETRAN
    ! Global constants and shared variables
    USE SGLOBAL
 
+   ! Error handling system
+   USE mod_error, ONLY: ERROR
+
    ! Main data arrays and simulation parameters
    USE AL_D, ONLY: nstep  !< Current simulation time step number
 

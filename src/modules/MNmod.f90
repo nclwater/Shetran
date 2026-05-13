@@ -11,9 +11,10 @@ module MNmod
 !----------------------------------------------------------------------*
 
 
-    use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee, error
-    use mod_load_filedata,    only : alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
-    use utilsmod, only: hour_from_date, tridag
+   use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee
+   use mod_load_filedata,    only : alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
+   use mod_error,    only : ERROR, FFFATAL, WWWARN, pppri
+   use utilsmod, only: hour_from_date, tridag
 
 
    IMPLICIT NONE
@@ -49,7 +50,7 @@ CONTAINS
    ! modifications
    !--------------------------------------------------------------------*
    SUBROUTINE mnamm (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, nlyree, ns, ncolmb, nlyr, nlyrbt, ntsoil, gnn, kplamm, kuamm, &
-                     mncref, kddsol, dtuz, vsthe, vstheo, isbotc)
+      mncref, kddsol, dtuz, vsthe, vstheo, isbotc)
 
       ! Assumed external module dependencies providing global variables:
       ! gam, miner, imamm, namm, namm1, knit, ent, enph, ntrf, kvol, emt,
@@ -129,7 +130,7 @@ CONTAINS
                   ! * calculation of the plant uptake rate of ammonium
                   IF (nammh > 0.0d0) THEN
                      dum1 = plup(nelm, ncl) * (pphi(nelm, ncl) * nammh / (ndnit(nelm, ncl) + nammh) + &
-                            (1.0d0 - pphi(nelm, ncl)) * nammh / (ndsnt(nelm, ncl) + nammh))
+                        (1.0d0 - pphi(nelm, ncl)) * nammh / (ndsnt(nelm, ncl) + nammh))
                   ELSE
                      dum1 = 0.0d0
                   END IF
@@ -170,7 +171,7 @@ CONTAINS
                IF (ntime > niters) THEN
                   ! PERF FIX: Restored external format label
                   WRITE (msg, 9000) wer1sq
-                  CALL ERROR(warn, 3018, mnpr, 0, 0, msg)
+                  CALL ERROR(WWWARN, 3018, mnpr, 0, 0, msg)
                END IF
 
             END DO layer_loop
@@ -261,20 +262,20 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNCONT
    SUBROUTINE MNCONT(MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, &
-                     ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NRD, NVC, NLYRBT, NTSOIL, &
-                     D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, PLAI, RDF, ZVSNOD, BEXBK, &
-                     LINKNS, DTUZ, UZNOW, CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, SSS1, SSS2)
-   !--------------------------------------------------------------------*
-   ! controlling mn subroutine from the other main ones are called
-   ! mnplant is very poorly written and there is no checking of data, it
-   ! is based on mpl component of shetran with only the relevant lines
-   ! included
-   !
-   ! mnmain everything is checked
-   !--------------------------------------------------------------------*
-   ! version: 4.2             notes:
-   ! module: mn               program: shetran
-   !--------------------------------------------------------------------*
+      ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NRD, NVC, NLYRBT, NTSOIL, &
+      D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, PLAI, RDF, ZVSNOD, BEXBK, &
+      LINKNS, DTUZ, UZNOW, CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, SSS1, SSS2)
+      !--------------------------------------------------------------------*
+      ! controlling mn subroutine from the other main ones are called
+      ! mnplant is very poorly written and there is no checking of data, it
+      ! is based on mpl component of shetran with only the relevant lines
+      ! included
+      !
+      ! mnmain everything is checked
+      !--------------------------------------------------------------------*
+      ! version: 4.2             notes:
+      ! module: mn               program: shetran
+      !--------------------------------------------------------------------*
 
       ! Assumed module dependencies providing global allocatable arrays:
       ! USE MN_MODULE, ONLY : cahum, calit, caman, cdort, chum, chum1, clit, clit1, &
@@ -321,48 +322,48 @@ CONTAINS
       ! --- Local variables ---
       INTEGER :: I
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! Modernization Fix: Replaced legacy PASS counter with robust ALLOCATED check
       IF (.NOT. ALLOCATED(cahum)) THEN
          ALLOCATE(cahum(nel,ncetop), calit(nel,ncetop), caman(nel,ncetop), cdort(nel,ncetop), &
-                  chum(nel,ncetop), chum1(nel,ncetop), clit(nel,ncetop), clit1(nel,ncetop), &
-                  cman(nel,ncetop), cman1(nel,ncetop))
+            chum(nel,ncetop), chum1(nel,ncetop), clit(nel,ncetop), clit1(nel,ncetop), &
+            cman(nel,ncetop), cman1(nel,ncetop))
 
          ALLOCATE(denit(nel,ncetop), dummy4(ncetop,nel), dummy6(nel,ncetop))
 
          ALLOCATE(edeth(nel,ncetop), emph(nel,ncetop), emt(nel,ncetop), enph(nel,ncetop), ent(nel,ncetop))
 
          ALLOCATE(gam(nel,ncetop), gamtmp(nel,ncetop), imamm(nel,ncetop), imdiff(nel,ncetop), &
-                  imnit(nel,ncetop), isimtf(nel,ncetop))
+            imnit(nel,ncetop), isimtf(nel,ncetop))
 
          ALLOCATE(kd1(nel,ncetop), kd2(nel,ncetop), khum(nel,ncetop), klit(nel,ncetop), &
-                  kman(nel,ncetop), knit(nel,ncetop), kvol(nel,ncetop))
+            kman(nel,ncetop), knit(nel,ncetop), kvol(nel,ncetop))
 
          ALLOCATE(miner(nel,ncetop))
 
          ALLOCATE(naamm(nel,ncetop), namm(nel,ncetop), namm1(nel,ncetop), nanit(nel,ncetop), &
-                  ndnit(nel,ncetop), ndsnt(nel,ncetop), nlit(nel,ncetop), nlit1(nel,ncetop), &
-                  nman(nel,ncetop), nman1(nel,ncetop), ntrf(nel,ncetop))
+            ndnit(nel,ncetop), ndsnt(nel,ncetop), nlit(nel,ncetop), nlit1(nel,ncetop), &
+            nman(nel,ncetop), nman1(nel,ncetop), ntrf(nel,ncetop))
 
          ALLOCATE(plamm(nel,ncetop), plnit(nel,ncetop), plup(nel,ncetop), pphi(nel,ncetop))
 
          ALLOCATE(snit(nel,ncetop), temp(nel,ncetop), vol(nel,ncetop))
       END IF
 
-   !----------------------------------------------------------------------*
-   ! temp code    (sb 1/3/01)
+      !----------------------------------------------------------------------*
+      ! temp code    (sb 1/3/01)
       DO I = 1, NV
          TA(I) = 10.0D0
       END DO
 
       CALL MNPLANT(MNPL, MNOUTPL, NCETOP, NEL, NLF, NV, NCOLMB, NRD, NVC, RHOPL, DELONE, DXQQ, DYQQ, &
-                   DELTAZ, PLAI, RDF, DTUZ, UZNOW, CLAI)
+         DELTAZ, PLAI, RDF, DTUZ, UZNOW, CLAI)
 
       CALL MNMAIN(MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, ICMBK, &
-                  ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
-                  ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
-                  SSS1, SSS2)
+         ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
+         ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
+         SSS1, SSS2)
 
    END SUBROUTINE MNCONT
 
@@ -370,15 +371,15 @@ CONTAINS
 
    !SSSSSS SUBROUTINE mnedth
    SUBROUTINE mnedth (llee, nbotce, ncetop, nel, nelee, nlf, nlyree, ns, &
-         ncolmb, nlyr, nlyrbt, ntsoil, vsthe, vspor, isbotc)
-   !--------------------------------------------------------------------*
-   ! Calculates the moisture environmental reduction factor
-   ! for denitrification
-   !--------------------------------------------------------------------*
-   ! version:                   notes:
-   ! module: mn                 program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      ncolmb, nlyr, nlyrbt, ntsoil, vsthe, vspor, isbotc)
+      !--------------------------------------------------------------------*
+      ! Calculates the moisture environmental reduction factor
+      ! for denitrification
+      !--------------------------------------------------------------------*
+      ! version:                   notes:
+      ! module: mn                 program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! edeth (nelee, llee)
@@ -396,7 +397,7 @@ CONTAINS
       INTEGER :: jlyr, jsoil, nbotm, nce, ncebot, nelm
       DOUBLE PRECISION :: relsat
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
       element_loop: DO nelm = nlf + 1, nel
 
@@ -690,16 +691,16 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNERR0
    SUBROUTINE MNERR0(LLEE, MND, MNFC, MNFN, MNPR, NCETOP, NCON, NCONEE, NEL, NELEE, NLF, NLFEE, NLYREE, NMNEEE, NMNTEE, NS, NSEE, NV, NVEE, NX, NXEE, NY)
-   !--------------------------------------------------------------------*
-   !
-   ! checks array dimensions
-   ! error numbers 3010,3020-3034
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      !--------------------------------------------------------------------*
+      !
+      ! checks array dimensions
+      ! error numbers 3010,3020-3034
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -722,98 +723,98 @@ CONTAINS
       INTEGER, PARAMETER :: IZERO(1) = [0]
       INTEGER, PARAMETER :: IONE(1)  = [1]
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! 0. preliminaries
-   ! ----------------
-   ! initialize local counter
+      ! 0. preliminaries
+      ! ----------------
+      ! initialize local counter
       NERR = 0
 
-   ! 1. array sizes
-   ! --------------
+      ! 1. array sizes
+      ! --------------
 
-   ! llee
+      ! llee
       IDUMS(1) = LLEE
       IDUMO(1) = NCETOP
       CALL ALCHKI(ERR, 3020, MNPR, 1, 1, IUNDEF, IUNDEF, 'llee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nconee
+      ! nconee
       IDUMS(1) = NCONEE
       IDUMO(1) = NCON
       CALL ALCHKI(ERR, 3021, MNPR, 1, 1, IUNDEF, IUNDEF, 'nconee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nelee
+      ! nelee
       IDUMS(1) = NELEE
       IDUMO(1) = NEL
       CALL ALCHKI(ERR, 3022, MNPR, 1, 1, IUNDEF, IUNDEF, 'nelee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nlfee
+      ! nlfee
       IDUMS(1) = NLFEE
       IDUMO(1) = MAX(1, NLF)
       CALL ALCHKI(ERR, 3023, MNPR, 1, 1, IUNDEF, IUNDEF, 'nlfee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nlyree
+      ! nlyree
       IDUMS(1) = NLYREE
       CALL ALCHKI(ERR, 3024, MNPR, 1, 1, IUNDEF, IUNDEF, 'nlyree', 'GT', IZERO, IDUMS, NERR, LDUM1)
 
-   ! nsee
+      ! nsee
       IDUMS(1) = NSEE
       IDUMO(1) = NS
       CALL ALCHKI(ERR, 3025, MNPR, 1, 1, IUNDEF, IUNDEF, 'nsee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nvee
+      ! nvee
       IDUMS(1) = NVEE
       IDUMO(1) = NV
       CALL ALCHKI(ERR, 3026, MNPR, 1, 1, IUNDEF, IUNDEF, 'nvee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nxee
+      ! nxee
       IDUMS(1) = NXEE
       IDUMO(1) = NX
       CALL ALCHKI(ERR, 3027, MNPR, 1, 1, IUNDEF, IUNDEF, 'nxee', 'GE', IDUMO, IDUMS, NERR, LDUM1)
       IDUMO(1) = 9999
       CALL ALCHKI(ERR, 3027, MNPR, 1, 1, IUNDEF, IUNDEF, 'nxee', 'LE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! nmneee
+      ! nmneee
       IDUMS(1) = NMNEEE
       CALL ALCHKI(ERR, 3028, MNPR, 1, 1, IUNDEF, IUNDEF, 'nmneee', 'GT', IZERO, IDUMS, NERR, LDUM1)
 
-   ! nmntee
+      ! nmntee
       IDUMS(1) = NMNTEE
       CALL ALCHKI(ERR, 3028, MNPR, 1, 1, IUNDEF, IUNDEF, 'nmntee', 'GT', IZERO, IDUMS, NERR, LDUM1)
 
 
-   ! 2. number of entities
-   ! ---------------------
+      ! 2. number of entities
+      ! ---------------------
 
-   ! nlf
+      ! nlf
       IDUMS(1) = NLF
       IDUMO(1) = NEL
       CALL ALCHKI(ERR, 3029, MNPR, 1, 1, IUNDEF, IUNDEF, 'nlf', 'GE', IZERO, IDUMS, NERR, LDUM1)
       CALL ALCHKI(ERR, 3029, MNPR, 1, 1, IUNDEF, IUNDEF, 'nlf', 'LT', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! ncetop,ns,nv
+      ! ncetop,ns,nv
       IDUMS(1) = MIN(NCETOP, NS, NV)
       CALL ALCHKI(ERR, 3030, MNPR, 1, 1, IUNDEF, IUNDEF, '[ncetop,ns,nv]', 'GT', IZERO, IDUMS, NERR, LDUM1)
 
-   ! nx, ny
+      ! nx, ny
       IDUMS(1) = MIN(NX, NY)
       CALL ALCHKI(ERR, 3031, MNPR, 1, 1, IUNDEF, IUNDEF, '[ nx, ny ]', 'GT', IZERO, IDUMS, NERR, LDUM1)
 
-   ! ncon
+      ! ncon
       IDUMS(1) = NCON
       CALL ALCHKI(ERR, 3032, MNPR, 1, 1, IUNDEF, IUNDEF, 'ncon', 'EQ', IONE, IDUMS, NERR, LDUM1)
 
-   ! 3. unit numbers
-   ! ---------------
+      ! 3. unit numbers
+      ! ---------------
 
-   ! mnd,mnfc,mnfn,mnpr
+      ! mnd,mnfc,mnfn,mnpr
       IDUMS(1) = MIN(MND, MNFC, MNFN, MNPR)
       CALL ALCHKI(ERR, 3033, MNPR, 1, 1, IUNDEF, IUNDEF, '[mnd,mnpr]', 'GE', IZERO, IDUMS, NERR, LDUM1)
 
-   ! 4. epilogue
-   ! -----------
+      ! 4. epilogue
+      ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FATAL, 3010, MNPR, 0, 0, 'error(s) detected while checking cm-mn interface variables')
+         CALL ERROR(FFFATAL, 3010, MNPR, 0, 0, 'error(s) detected while checking cm-mn interface variables')
       END IF
 
    END SUBROUTINE MNERR0
@@ -822,18 +823,18 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNERR1
    SUBROUTINE MNERR1(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NLFEE, NLYREE, NS, NX, NXEE, NY, ICMBK, ICMREF, &
-                     ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, &
-                     BEXBK, LINKNS, DUMMY2, DUMMY3, IDUM, IDUM1X, LDUM, LDUM2)
-   !--------------------------------------------------------------------*
-   !
-   ! checks static input variables from cm -mn interface
-   ! error numbers 3011,3035-3047 and 2075-2079 for index arrays
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, &
+      BEXBK, LINKNS, DUMMY2, DUMMY3, IDUM, IDUM1X, LDUM, LDUM2)
+      !--------------------------------------------------------------------*
+      !
+      ! checks static input variables from cm -mn interface
+      ! error numbers 3011,3035-3047 and 2075-2079 for index arrays
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -872,18 +873,18 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
       INTEGER, PARAMETER :: IUNDEF = 0
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! 0. preliminaries
-   ! ----------------
+      ! 0. preliminaries
+      ! ----------------
       NERR = 0
       ICOL1 = NLF + 1
       NELP  = NEL + 1
 
-   ! 1. index arrays
-   ! ---------------
+      ! 1. index arrays
+      ! ---------------
 
-   ! icmbk, icmxy
+      ! icmbk, icmxy
       COUNT = NERR
       NCOL = 0
 
@@ -920,7 +921,7 @@ CONTAINS
 
       BKXYOK = (COUNT == NERR)
 
-   ! icmref (bank element neighbours)
+      ! icmref (bank element neighbours)
       IF (NLF > 0 .AND. BEXBK .AND. BKXYOK) THEN
          IDUM1X(-1) = -2
          IDUM1X(0)  = 0
@@ -952,41 +953,41 @@ CONTAINS
       END IF
 
 
-   ! 2. contaminant reference values
-   ! -------------------------------
+      ! 2. contaminant reference values
+      ! -------------------------------
 
-   ! d0
+      ! d0
       DUMS(1) = D0
       CALL ALCHK(ERR, 3035, MNPR, 1, 1, IUNDEF, IUNDEF, 'd0', 'GT', ZERO_ARR, ZERO_VAL, DUMS, NERR, LDUM)
 
-   ! z2
+      ! z2
       DUMS(1) = Z2
       CALL ALCHK(ERR, 3036, MNPR, 1, 1, IUNDEF, IUNDEF, 'z2', 'GT', ZERO_ARR, ZERO_VAL, DUMS, NERR, LDUM)
 
 
-   ! 3. soil properties
-   ! ------------------
-   ! vspor
+      ! 3. soil properties
+      ! ------------------
+      ! vspor
       CALL ALCHK(ERR, 3037, MNPR, 1, NS, IUNDEF, IUNDEF, 'vspor(soil)', 'LE', ONE_ARR, ZERO_VAL, VSPOR, NERR, LDUM)
       CALL ALCHK(ERR, 3037, MNPR, 1, NS, IUNDEF, IUNDEF, 'vspor(soil)', 'GT', ZERO_ARR, ZERO_VAL, VSPOR, NERR, LDUM)
 
 
-   ! 4. column properties
-   ! --------------------
+      ! 4. column properties
+      ! --------------------
 
-   ! dxqq
+      ! dxqq
       CALL ALCHK(ERR, 3039, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'dxqq(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:NEL), NERR, LDUM)
-   ! dyqq
+      ! dyqq
       CALL ALCHK(ERR, 3039, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'dyqq(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:NEL), NERR, LDUM)
 
-   ! nlyr
+      ! nlyr
       COUNT = NERR
       IDUM1(1) = 1
       CALL ALCHKI(ERR, 3041, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'nlyr(iel)', 'GE', IDUM1, NLYR(ICOL1:NEL), NERR, LDUM)
       IDUM1(1) = NLYREE
       CALL ALCHKI(ERR, 3041, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'nlyr(iel)', 'LE', IDUM1, NLYR(ICOL1:NEL), NERR, LDUM)
 
-   ! nlyrbt
+      ! nlyrbt
       IF (COUNT == NERR) THEN
          DO NLAYER = 1, NLYREE
             DO IEL = 1, NEL
@@ -1002,14 +1003,14 @@ CONTAINS
             END DO
 
             CALL ALCHKI(ERR, 3042, MNPR, BOTLYR, TOPLYR + 1, IEL, IUNDEF, 'nlyrbt[nlyr,iel]', 'GTa', DUMMY3(BOTLYR:TOPLYR+1), &
-                        DUMMY2(BOTLYR:TOPLYR+1, IEL), NERR, LDUM2)
+               DUMMY2(BOTLYR:TOPLYR+1, IEL), NERR, LDUM2)
 
             IDUM1(1) = NCETOP + 1
             CALL ALCHKI(ERR, 3042, MNPR, TOPLYR, TOPLYR, IEL, IUNDEF, 'nlyrbt[toplyr,iel]', 'EQ', IDUM1(1:1), DUMMY2(TOPLYR+1:TOPLYR+1, IEL), NERR, LDUM2)
          END DO
       END IF
 
-   ! ntsoil
+      ! ntsoil
       IF (COUNT == NERR) THEN
          DO NLAYER = 1, NLYREE
             DO IEL = 1, NEL
@@ -1025,12 +1026,12 @@ CONTAINS
          END DO
       END IF
 
-   ! ncolmb
+      ! ncolmb
       IDUM1(1) = NCETOP
       CALL ALCHKI(ERR, 3044, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'ncolmb(iel)', 'GT', IZERO_ARR, NCOLMB(ICOL1:NEL), NERR, LDUM)
       CALL ALCHKI(ERR, 3044, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'ncolmb(iel)', 'LE', IDUM1, NCOLMB(ICOL1:NEL), NERR, LDUM)
 
-   ! deltz,zvsnod
+      ! deltz,zvsnod
       DO IEL = ICOL1, NEL
          DO NCE = NCOLMB(IEL), NCETOP
             DUMMY4(NCE, IEL) = DELTAZ(NCE, IEL)
@@ -1048,17 +1049,17 @@ CONTAINS
          END DO
       END DO
 
-   ! 5. time properties
-   ! ------------------
-   ! tih
+      ! 5. time properties
+      ! ------------------
+      ! tih
       DUMS(1) = TIH
       CALL ALCHK(ERR, 3046, MNPR, 1, 1, IUNDEF, IUNDEF, 'tih', 'GE', ZERO_ARR, ZERO_VAL, DUMS, NERR, LDUM)
 
 
-   ! 6. epilogue
-   ! -----------
+      ! 6. epilogue
+      ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FATAL, 3011, MNPR, 0, 0, 'error(s) detected while checking static/initial interface')
+         CALL ERROR(FFFATAL, 3011, MNPR, 0, 0, 'error(s) detected while checking static/initial interface')
       END IF
 
    END SUBROUTINE MNERR1
@@ -1067,20 +1068,20 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNERR2
    SUBROUTINE MNERR2(MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
-                     NMNEEE, NMNTEE, NS, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, KMELEM, KNELEM, KVELEM, NAELEM, NMN15T, NMN17T, NMN19T, NMN21T, &
-                     NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, &
-                     MNCREF, NITDDR, NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, &
-                     KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, LDUM)
-   !--------------------------------------------------------------------*
-   !
-   ! checks static input data read in from mnred1 subroutine
-   ! error numbers 3012,3048-3064
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      NMNEEE, NMNTEE, NS, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, KMELEM, KNELEM, KVELEM, NAELEM, NMN15T, NMN17T, NMN19T, NMN21T, &
+      NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, &
+      MNCREF, NITDDR, NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, &
+      KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, LDUM)
+      !--------------------------------------------------------------------*
+      !
+      ! checks static input data read in from mnred1 subroutine
+      ! error numbers 3012,3048-3064
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -1134,55 +1135,55 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
       INTEGER, PARAMETER :: IUNDEF = 0
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! 0. preliminaries
-   ! ----------------
+      ! 0. preliminaries
+      ! ----------------
       NERR = 0
       ICOL1 = NLF + 1
 
-   ! 1. spatially constant decomposition parameters
-   ! ---------------------------
-   ! kuamm,kplamm
+      ! 1. spatially constant decomposition parameters
+      ! ---------------------------
+      ! kuamm,kplamm
       DUMS_ARR(1) = MIN(KUAMM, KPLAMM)
       CALL ALCHK(ERR, 3050, MNPR, 1, 1, IUNDEF, IUNDEF, '[ kuamm,kplamm ]', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! kunit,kplnit
+      ! kunit,kplnit
       DUMS_ARR(1) = MIN(KUNIT, KPLNIT)
       CALL ALCHK(ERR, 3050, MNPR, 1, 1, IUNDEF, IUNDEF, '[ kunit,kplnit ]', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! 2. other parameters
-   ! -------------------
-   ! fe, fh
+      ! 2. other parameters
+      ! -------------------
+      ! fe, fh
       DUMS_ARR(1) = MIN(FE, FH)
       CALL ALCHK(ERR, 3055, MNPR, 1, 1, IUNDEF, IUNDEF, '[ fe,fh ]', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
       DUMS_ARR(1) = MAX(FE, FH)
       CALL ALCHK(ERR, 3055, MNPR, 1, 1, IUNDEF, IUNDEF, '[ fe,fh ]', 'LE', ONE_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! cnrbio,cnrhum
+      ! cnrbio,cnrhum
       DUMS_ARR(1) = MIN(CNRBIO, CNRHUM)
       CALL ALCHK(ERR, 3056, MNPR, 1, 1, IUNDEF, IUNDEF, '[ cnrbio,cnrhum ]', 'GT', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! q10m, q10n
+      ! q10m, q10n
       DUMS_ARR(1) = MIN(Q10M, Q10N)
       CALL ALCHK(ERR, 3057, MNPR, 1, 1, IUNDEF, IUNDEF, '[ q10m, q10n ]', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! ammddr, ammwdr
+      ! ammddr, ammwdr
       DUMS_ARR(1) = MIN(AMMDDR, AMMWDR)
       CALL ALCHK(ERR, 3058, MNPR, 1, 1, IUNDEF, IUNDEF, '[ ammddr,ammwdr ]', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! nitddr, nitwdr
+      ! nitddr, nitwdr
       DUMS_ARR(1) = MIN(NITDDR, NITWDR)
       CALL ALCHK(ERR, 3058, MNPR, 1, 1, IUNDEF, IUNDEF, '[ nitddr, nitwdr ]', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! mncref
+      ! mncref
       DUMS_ARR(1) = MNCREF
       CALL ALCHK(ERR, 3059, MNPR, 1, 1, IUNDEF, IUNDEF, 'mncref', 'GT', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! 3. initial concentrations
-   ! -------------------------
-   !    * carbon pool
-   !    * -----------
+      ! 3. initial concentrations
+      ! -------------------------
+      !    * carbon pool
+      !    * -----------
       IF (ISICCD) THEN
          ! *ctottp
          CALL ALCHK(ERR, 3060, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'ctottp(iel)', 'GE', ZERO_ARR, ZERO_VAL, CTOTTP, NERR, LDUM)
@@ -1209,18 +1210,18 @@ CONTAINS
          END DO
       END IF
 
-   !  * carbon litter fraction and carbon/nitrogen ratio
-   !  clitfr
+      !  * carbon litter fraction and carbon/nitrogen ratio
+      !  clitfr
       DUMS_ARR(1) = CLITFR
       CALL ALCHK(ERR, 3062, MNPR, 1, 1, IUNDEF, IUNDEF, 'clitfr', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
       CALL ALCHK(ERR, 3062, MNPR, 1, 1, IUNDEF, IUNDEF, 'clitfr', 'LE', ONE_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
-   !  cnrlit
+      !  cnrlit
       DUMS_ARR(1) = CNRLIT
       CALL ALCHK(ERR, 3063, MNPR, 1, 1, IUNDEF, IUNDEF, 'cnrlit', 'GT', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
 
-   !    * ammonium pool
-   !    * -------------
+      !    * ammonium pool
+      !    * -------------
       IF (ISIAMD) THEN
          ! * namtop
          CALL ALCHK(ERR, 3060, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'namtop(iel)', 'GE', ZERO_ARR, ZERO_VAL, NAMTOP, NERR, LDUM)
@@ -1247,10 +1248,10 @@ CONTAINS
          END DO
       END IF
 
-   ! 4. spatially varying parameters
-   ! -------------------------------
+      ! 4. spatially varying parameters
+      ! -------------------------------
 
-   ! 4.1 kh
+      ! 4.1 kh
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'khelem(iel)', 'GT', IZERO_ARR, KHELEM, NERR, LDUM)
       DO NELMTY = 1, NMN15E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'khdpth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KHDPTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1265,7 +1266,7 @@ CONTAINS
          END DO
       END DO
 
-   ! 4.2 kl
+      ! 4.2 kl
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'klelem(iel)', 'GT', IZERO_ARR, KLELEM, NERR, LDUM)
       DO NELMTY = 1, NMN17E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'kldpth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KLDPTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1280,7 +1281,7 @@ CONTAINS
          END DO
       END DO
 
-   ! 4.3 km
+      ! 4.3 km
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'kmelem(iel)', 'GT', IZERO_ARR, KMELEM, NERR, LDUM)
       DO NELMTY = 1, NMN19E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'kmdpth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KMDPTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1295,7 +1296,7 @@ CONTAINS
          END DO
       END DO
 
-   ! 4.4 kn
+      ! 4.4 kn
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'knelem(iel)', 'GT', IZERO_ARR, KNELEM, NERR, LDUM)
       DO NELMTY = 1, NMN21E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'kndpth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KNDPTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1310,7 +1311,7 @@ CONTAINS
          END DO
       END DO
 
-   ! 4.5 kv
+      ! 4.5 kv
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'kvelem(iel)', 'GT', IZERO_ARR, KVELEM, NERR, LDUM)
       DO NELMTY = 1, NMN23E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'kvdpth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KVDPTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1325,7 +1326,7 @@ CONTAINS
          END DO
       END DO
 
-   ! 4.6 kd1
+      ! 4.6 kd1
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'kd1elm(iel)', 'GT', IZERO_ARR, KD1ELM, NERR, LDUM)
       DO NELMTY = 1, NMN25E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'kd1dth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KD1DTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1340,7 +1341,7 @@ CONTAINS
          END DO
       END DO
 
-   ! 4.7 kd2
+      ! 4.7 kd2
       CALL ALCHKI(ERR, 3064, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'kd2elm(iel)', 'GT', IZERO_ARR, KD2ELM, NERR, LDUM)
       DO NELMTY = 1, NMN27E
          CALL ALCHK(ERR, 3064, MNPR, NELMTY, NELMTY, 1, IUNDEF, 'kd2dth[nmne,1]', 'EQ', ZERO_ARR, ZERO_VAL, KD2DTH(NELMTY:NELMTY, 1), NERR, LDUM)
@@ -1355,22 +1356,22 @@ CONTAINS
          END DO
       END DO
 
-   ! 5. ammonium adsorption parameters
-   ! ---------------------------------
-   !    * kddsol
+      ! 5. ammonium adsorption parameters
+      ! ---------------------------------
+      !    * kddsol
       CALL ALCHK(ERR, 3048, MNPR, 1, NS, IUNDEF, IUNDEF, 'kddsol(ns)', 'GE', ZERO_ARR, ZERO_VAL, KDDSOL, NERR, LDUM)
 
-   ! 6. bottom cell for nitrogen transformations
-   ! -------------------------------------------
-   !    * nbotce
+      ! 6. bottom cell for nitrogen transformations
+      ! -------------------------------------------
+      !    * nbotce
       IDUMO(1) = NCETOP
       IDUMS(1) = NBOTCE
       CALL ALCHKI(ERR, 3049, MNPR, 1, 1, IUNDEF, IUNDEF, 'nbotce', 'LT', IDUMO, IDUMS, NERR, LDUM)
 
-   ! 7. epilogue
-   ! -----------
+      ! 7. epilogue
+      ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FATAL, 3012, MNPR, 0, 0, 'error(s) detected whilst checking the static input data')
+         CALL ERROR(FFFATAL, 3012, MNPR, 0, 0, 'error(s) detected whilst checking the static input data')
       END IF
 
    END SUBROUTINE MNERR2
@@ -1379,18 +1380,18 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNERR3
    SUBROUTINE MNERR3(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NCOLMB, DTUZ, UZNOW, CCCC, &
-                     PNETTO, SSSS, VSTHE, VSTHEO, LDUM, LDUM2)
-   !--------------------------------------------------------------------*
-   !
-   ! checks time dependent input variables from cm -mn interface and the
-   ! concentrations calculated in this component are positive
-   ! error numbers 3013 and 3065-3079
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      PNETTO, SSSS, VSTHE, VSTHEO, LDUM, LDUM2)
+      !--------------------------------------------------------------------*
+      !
+      ! checks time dependent input variables from cm -mn interface and the
+      ! concentrations calculated in this component are positive
+      ! error numbers 3013 and 3065-3079
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module:
       ! USE MN_MODULE, ONLY: chum1, clit1, cman1, namm1, nlit1, nman1, plup
@@ -1426,22 +1427,22 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
       INTEGER, PARAMETER :: IUNDEF = 0
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! 0. preliminaries
-   ! ----------------
+      ! 0. preliminaries
+      ! ----------------
       NERR = 0
       ICOL1 = NLF + 1
       PASS = PASS + 1
 
-   ! 1. variables
-   ! ------------
+      ! 1. variables
+      ! ------------
 
-   ! dtuz
+      ! dtuz
       DUMS_ARR(1) = DTUZ
       CALL ALCHK(ERR, 3065, MNPR, 1, 1, IUNDEF, IUNDEF, 'dtuz', 'GT', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
 
-   ! uznow
+      ! uznow
       IF (PASS == 1) THEN
          DUMS_ARR(1) = UZNOW
          CALL ALCHK(ERR, 3066, MNPR, 1, 1, IUNDEF, IUNDEF, 'uznow', 'GE', ZERO_ARR, ZERO_VAL, DUMS_ARR, NERR, LDUM)
@@ -1453,10 +1454,10 @@ CONTAINS
          UZPREV(1) = UZNOW
       END IF
 
-   ! 2. nitrate concentrations
-   ! -------------------------
+      ! 2. nitrate concentrations
+      ! -------------------------
 
-   ! cccc, ssss
+      ! cccc, ssss
       DO IEL = 1, NEL
          DO NCE = 1, NCETOP
             DUMMY4(NCE, IEL) = CCCC(IEL, NCE)
@@ -1479,8 +1480,8 @@ CONTAINS
          CALL ALCHK(ERR, 3067, MNPR, NCEBOT, NCETOP, IEL, IUNDEF, 'ssss[iel,ncl]', 'GE', ZERO_ARR, ZERO_VAL, DUMMY4(NCEBOT:NCETOP, IEL), NERR, LDUM2)
       END DO
 
-   ! 3. organic and inorganic pools
-   ! ------------------------------
+      ! 3. organic and inorganic pools
+      ! ------------------------------
 
       ! chum1
       DO IEL = 1, NEL
@@ -1548,10 +1549,10 @@ CONTAINS
          CALL ALCHK(ERR, 3069, MNPR, NCEBOT, NCETOP, IEL, IUNDEF, 'namm1[ncl,iel]', 'GE', ZERO_ARR, ZERO_VAL, DUMMY4(NCEBOT:NCETOP, IEL), NERR, LDUM2)
       END DO
 
-   ! 4. soil conditions
-   ! ------------------
+      ! 4. soil conditions
+      ! ------------------
 
-   ! vsthe
+      ! vsthe
       DO IEL = 1, NEL
          DO NCE = 1, NCETOP
             DUMMY4(NCE, IEL) = VSTHE(NCE, IEL)
@@ -1564,7 +1565,7 @@ CONTAINS
          CALL ALCHK(ERR, 3070, MNPR, NCEBOT, NCETOP, IEL, IUNDEF, 'vsthe[ncl,iel]', 'LE', ONE_ARR, ZERO_VAL, DUMMY4(NCEBOT:NCETOP, IEL), NERR, LDUM2)
       END DO
 
-   ! vstheo
+      ! vstheo
       DO IEL = 1, NEL
          DO NCE = 1, NCETOP
             DUMMY4(NCE, IEL) = VSTHEO(IEL, NCE)
@@ -1577,7 +1578,7 @@ CONTAINS
          CALL ALCHK(ERR, 3070, MNPR, NCEBOT, NCETOP, IEL, IUNDEF, 'vstheo[ncl,iel]', 'LE', ONE_ARR, ZERO_VAL, DUMMY4(NCEBOT:NCETOP, IEL), NERR, LDUM2)
       END DO
 
-   ! plup
+      ! plup
       DO IEL = 1, NEL
          DO NCE = 1, NCETOP
             DUMMY4(NCE, IEL) = PLUP(IEL, NCE)
@@ -1588,16 +1589,16 @@ CONTAINS
          CALL ALCHK(ERR, 3071, MNPR, NCEBOT, NCETOP, IEL, IUNDEF, 'plup[ncl,iel]', 'GE', ZERO_ARR, ZERO_VAL, DUMMY4(NCEBOT:NCETOP, IEL), NERR, LDUM2)
       END DO
 
-   ! 5. envoironmental conditions
-   ! ----------------------------
+      ! 5. envoironmental conditions
+      ! ----------------------------
 
-   ! pnetto
+      ! pnetto
       CALL ALCHK(ERR, 3072, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'pnetto(iel)', 'GE', ZERO_ARR, ZERO_VAL, PNETTO(ICOL1:NEL), NERR, LDUM)
 
-   ! 6. epilogue
-   ! -----------
+      ! 6. epilogue
+      ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FATAL, 3013, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' variables from cm -mn interface')
+         CALL ERROR(FFFATAL, 3013, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' variables from cm -mn interface')
       END IF
 
    END SUBROUTINE MNERR3
@@ -1606,17 +1607,17 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNERR4
    SUBROUTINE MNERR4(MNPR, NEL, NELEE, NLF, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, &
-                     DUMMY, LDUM)
-   !--------------------------------------------------------------------*
-   !
-   !  checks time varying dependent data read in mnred2
-   !  error numbers 3014 and 3080-3089
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      DUMMY, LDUM)
+      !--------------------------------------------------------------------*
+      !
+      !  checks time varying dependent data read in mnred2
+      !  error numbers 3014 and 3080-3089
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -1644,16 +1645,16 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
       INTEGER, PARAMETER :: IUNDEF = 0
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! 0. preliminaries
-   ! ----------------
+      ! 0. preliminaries
+      ! ----------------
 
       NERR = 0
       ICOL1 = NLF + 1
 
-   ! 1. inorganic fertilizer
-   ! -----------------------
+      ! 1. inorganic fertilizer
+      ! -----------------------
       IF (ISADDN) THEN
          ! ntot
          CALL ALCHK(ERR, 3080, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'ntot(iel)', 'GE', ZERO_ARR, ZERO_VAL, NTOT, NERR, LDUM)
@@ -1666,8 +1667,8 @@ CONTAINS
          CALL ALCHK(ERR, 3082, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'ndpthb(iel)', 'GE', ZERO_ARR, ZERO_VAL, NDPTHB, NERR, LDUM)
       END IF
 
-   ! 2. organic fertilizer
-   ! -----------------------
+      ! 2. organic fertilizer
+      ! -----------------------
       IF (ISADDC) THEN
          ! ctot
          CALL ALCHK(ERR, 3083, MNPR, ICOL1, NEL, IUNDEF, IUNDEF, 'ctot(iel)', 'GE', ZERO_ARR, ZERO_VAL, CTOT, NERR, LDUM)
@@ -1697,10 +1698,10 @@ CONTAINS
          END DO
       END IF
 
-   ! 3. epilogue
-   ! -----------
+      ! 3. epilogue
+      ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FATAL, 3014, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' fertilizer input variables')
+         CALL ERROR(FFFATAL, 3014, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' fertilizer input variables')
       END IF
 
    END SUBROUTINE MNERR4
@@ -1709,17 +1710,17 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNGAM
    SUBROUTINE MNGAM(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, CNRHUM, CNRBIO, FE, FH, DTUZ, ISBOTC)
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the mineralisation/immobilisation rate. if mngam is
-   ! positive then this is the mineralisation rate. if mngam is negative
-   ! then this is the immobilisation rate
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      !--------------------------------------------------------------------*
+      !
+      ! calculates the mineralisation/immobilisation rate. if mngam is
+      ! positive then this is the mineralisation rate. if mngam is negative
+      ! then this is the immobilisation rate
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module:
       ! USE MN_MODULE, ONLY: chum, chum1, clit, clit1, cman, cman1, nlit, &
@@ -1741,7 +1742,7 @@ CONTAINS
       DOUBLE PRECISION :: CHUMH, CLITH, CMANH, DUM, DUM1, ERF
       DOUBLE PRECISION :: KLITTP, KMANTP, NLITH, NMANH
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
       column_loop: DO NELM = NLF + 1, NEL
 
@@ -1805,19 +1806,19 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNINIT
    SUBROUTINE MNINIT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
-                     NMNEEE, NMNTEE, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, KMELEM, KNELEM, KVELEM, NAELEM, NCOLMB, NMN15T, NMN17T, NMN19T, NMN21T, &
-                     NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, DELTAZ, KD1CNC, KD1DTH, KD2CNC, &
-                     KD2DTH, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ZVSNOD, ISICCD, &
-                     ISIAMD, SSS1, SSS2, ISBOTC)
-   !--------------------------------------------------------------------*
-   !
-   ! initialises the global variables
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      NMNEEE, NMNTEE, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, KMELEM, KNELEM, KVELEM, NAELEM, NCOLMB, NMN15T, NMN17T, NMN19T, NMN21T, &
+      NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, DELTAZ, KD1CNC, KD1DTH, KD2CNC, &
+      KD2DTH, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ZVSNOD, ISICCD, &
+      ISIAMD, SSS1, SSS2, ISBOTC)
+      !--------------------------------------------------------------------*
+      !
+      ! initialises the global variables
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module:
       ! USE MN_MODULE, ONLY: chum1, clit1, cman1, imdiff, kd1, kd2, khum,
@@ -1866,9 +1867,9 @@ CONTAINS
       INTEGER :: NCL, NELM
       DOUBLE PRECISION :: CTOT, DEPTH
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! Initialize control arrays
+      ! Initialize control arrays
       init_loop: DO NELM = NLF + 1, NEL
          DO NCL = NCOLMB(NELM), NCETOP
             IMDIFF(NELM, NCL) = 0.0D0
@@ -1876,8 +1877,8 @@ CONTAINS
          END DO
       END DO init_loop
 
-   ! * calculation of the initial conc. in the carbon pools
-   ! * ----------------------------------------------------
+      ! * calculation of the initial conc. in the carbon pools
+      ! * ----------------------------------------------------
       IF (ISICCD) THEN
          ! * an exponential decay rate down the column is used
          decay_c_loop: DO NELM = NLF + 1, NEL
@@ -1901,7 +1902,7 @@ CONTAINS
          ! * typical columns are used with linear interpolation between table values
          ! Modern Fix: Passed NCOLMB array slice instead of scalar memory address
          CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN43E, NMNEEE, NMNTEE, CELEM, NCOLMB(NLF+1:NEL), NMN43T, &
-                     CCONC, CDPTH, DELTAZ, ZVSNOD, DUMMY6)
+            CCONC, CDPTH, DELTAZ, ZVSNOD, DUMMY6)
 
          interp_c_loop: DO NELM = NLF + 1, NEL
             DO NCL = NCOLMB(NELM), NCETOP
@@ -1914,8 +1915,8 @@ CONTAINS
          END DO interp_c_loop
       END IF
 
-   ! * calculation of the initial conc. in the ammonium pool
-   ! * ----------------------------------------------------
+      ! * calculation of the initial conc. in the ammonium pool
+      ! * ----------------------------------------------------
       IF (ISIAMD) THEN
          ! * exponential decay
          decay_n_loop: DO NELM = NLF + 1, NEL
@@ -1931,43 +1932,43 @@ CONTAINS
       ELSE
          ! * typical columns are used with linear interpolation between table values
          CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN53E, NMNEEE, NMNTEE, NAELEM, NCOLMB(NLF+1:NEL), NMN53T, &
-                     NACONC, NADPTH, DELTAZ, ZVSNOD, NAMM1)
+            NACONC, NADPTH, DELTAZ, ZVSNOD, NAMM1)
       END IF
 
-   ! * calculation of the initial values for the decomposition params
-   ! * --------------------------------------------------------------
+      ! * calculation of the initial values for the decomposition params
+      ! * --------------------------------------------------------------
 
       ! * khum
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN15E, NMNEEE, NMNTEE, KHELEM, NCOLMB(NLF+1:NEL), NMN15T, &
-                  KHCONC, KHDPTH, DELTAZ, ZVSNOD, KHUM)
+         KHCONC, KHDPTH, DELTAZ, ZVSNOD, KHUM)
 
       ! * klit
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN17E, NMNEEE, NMNTEE, KLELEM, NCOLMB(NLF+1:NEL), NMN17T, &
-                  KLCONC, KLDPTH, DELTAZ, ZVSNOD, KLIT)
+         KLCONC, KLDPTH, DELTAZ, ZVSNOD, KLIT)
 
       ! * kman
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN19E, NMNEEE, NMNTEE, KMELEM, NCOLMB(NLF+1:NEL), NMN19T, &
-                  KMCONC, KMDPTH, DELTAZ, ZVSNOD, KMAN)
+         KMCONC, KMDPTH, DELTAZ, ZVSNOD, KMAN)
 
       ! * knit
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN21E, NMNEEE, NMNTEE, KNELEM, NCOLMB(NLF+1:NEL), NMN21T, &
-                  KNCONC, KNDPTH, DELTAZ, ZVSNOD, KNIT)
+         KNCONC, KNDPTH, DELTAZ, ZVSNOD, KNIT)
 
       ! * kvol
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN23E, NMNEEE, NMNTEE, KVELEM, NCOLMB(NLF+1:NEL), NMN23T, &
-                  KVCONC, KVDPTH, DELTAZ, ZVSNOD, KVOL)
+         KVCONC, KVDPTH, DELTAZ, ZVSNOD, KVOL)
 
       ! * kd1
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN25E, NMNEEE, NMNTEE, KD1ELM, NCOLMB(NLF+1:NEL), NMN25T, &
-                  KD1CNC, KD1DTH, DELTAZ, ZVSNOD, KD1)
+         KD1CNC, KD1DTH, DELTAZ, ZVSNOD, KD1)
 
       ! * kd2
       CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN27E, NMNEEE, NMNTEE, KD2ELM, NCOLMB(NLF+1:NEL), NMN27T, &
-                  KD2CNC, KD2DTH, DELTAZ, ZVSNOD, KD2)
+         KD2CNC, KD2DTH, DELTAZ, ZVSNOD, KD2)
 
-   ! * calculation of whether the specified bottom cell is greater
-   ! * than the bottom cell in any of the soil columns. if this is
-   ! * the case isbotc is true
+      ! * calculation of whether the specified bottom cell is greater
+      ! * than the bottom cell in any of the soil columns. if this is
+      ! * the case isbotc is true
       ISBOTC = .TRUE.
       DO NELM = NLF + 1, NEL
          IF (NBOTCE < NCOLMB(NELM)) THEN
@@ -1975,7 +1976,7 @@ CONTAINS
          END IF
       END DO
 
-   ! * set the source/sink terms to zero
+      ! * set the source/sink terms to zero
       sink_zero_loop: DO NELM = NLF + 1, NEL
          DO NCL = NCOLMB(NELM), NCETOP
             SSS1(NELM, NCL) = 0.0D0
@@ -1989,18 +1990,18 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNINT2
    SUBROUTINE MNINT2(LLEE, NCETOP, NEL, NELEE, NLF, NLYREE, NCOLMB, NLYR, NLYRBT, NTSOIL, AMMDDR, AMMWDR, MNCREF, NITDDR, NITWDR, &
-                     DELTAZ, DTUZ, CCCC, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, &
-                     PNETTO, SSSS, VSTHE, ISADDC, ISADDN, CNRALT, CNRAMN, DUMMY)
-   !--------------------------------------------------------------------*
-   !
-   !  modifies the time varying input variables into suitable units
-   !  for the rest of the program
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      DELTAZ, DTUZ, CCCC, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, &
+      PNETTO, SSSS, VSTHE, ISADDC, ISADDN, CNRALT, CNRAMN, DUMMY)
+      !--------------------------------------------------------------------*
+      !
+      !  modifies the time varying input variables into suitable units
+      !  for the rest of the program
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module:
       ! USE MN_MODULE, ONLY: cman, cman1, nman, nman1, clit, clit1, chum,
@@ -2043,10 +2044,10 @@ CONTAINS
       INTEGER :: JLYR, JSOIL, NCEBOT, NCE, NCL, NELM
       DOUBLE PRECISION :: FRACDP, KSPTOT
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! 1. set old concentrations to new values
-   ! ---------------------------------------
+      ! 1. set old concentrations to new values
+      ! ---------------------------------------
       col_init_loop: DO NELM = NLF + 1, NEL
 
          DO NCL = NCOLMB(NELM), NCETOP
@@ -2058,19 +2059,19 @@ CONTAINS
             NAMM(NELM, NCL) = NAMM1(NELM, NCL)
          END DO
 
-   ! 2. calculate the effective rain on the ground surface in mm s-1
-   ! ----------------------------------------------------------------
+         ! 2. calculate the effective rain on the ground surface in mm s-1
+         ! ----------------------------------------------------------------
          DUMMY(NELM) = PNETTO(NELM) * 1.0D3
 
-   ! 3. convert nitrate concentrations from non dimensional units
-   ! ------------------------------------------------------------
+         ! 3. convert nitrate concentrations from non dimensional units
+         ! ------------------------------------------------------------
          DO NCL = NCOLMB(NELM), NCETOP
             NDNIT(NELM, NCL) = CCCC(NELM, NCL) * MNCREF
             NDSNT(NELM, NCL) = SSSS(NELM, NCL) * MNCREF
          END DO
 
-   ! 4. calculation of the mobile fraction for every element in every cell
-   ! ---------------------------------------------------------------------
+         ! 4. calculation of the mobile fraction for every element in every cell
+         ! ---------------------------------------------------------------------
          NCEBOT = NCOLMB(NELM)
          DO JLYR = 1, NLYR(NELM)
             JSOIL = NTSOIL(NELM, JLYR)
@@ -2082,8 +2083,8 @@ CONTAINS
 
       END DO col_init_loop
 
-   ! 5. addition of nitrate and ammonium for each element in each cell
-   ! -----------------------------------------------------------------
+      ! 5. addition of nitrate and ammonium for each element in each cell
+      ! -----------------------------------------------------------------
       IF (ISADDN) THEN
          col_nitrate_loop: DO NELM = NLF + 1, NEL
 
@@ -2099,7 +2100,7 @@ CONTAINS
                      NANIT(NELM, NCE) = 0.0D0
                   END DO
 
-               ! * there is banding of the input
+                  ! * there is banding of the input
                ELSE
                   KSPTOT = 0.0D0
                   DO NCE = NCETOP, NCOLMB(NELM), -1
@@ -2108,12 +2109,12 @@ CONTAINS
                      IF (KSPTOT <= NDPTHB(NELM)) THEN
                         NAAMM(NELM, NCE) = NTOT(NELM) * NAMFCT(NELM) / (NDPTHB(NELM) * DTUZ)
                         NANIT(NELM, NCE) = NTOT(NELM) * (1.0D0 - NAMFCT(NELM)) / (NDPTHB(NELM) * DTUZ)
-                     ! * the banding depth is to within this element
+                        ! * the banding depth is to within this element
                      ELSE IF ((KSPTOT - DELTAZ(NCE, NELM)) <= NDPTHB(NELM)) THEN
                         FRACDP = (NDPTHB(NELM) - KSPTOT + DELTAZ(NCE, NELM)) / NDPTHB(NELM)
                         NAAMM(NELM, NCE) = NTOT(NELM) * NAMFCT(NELM) * FRACDP / (DELTAZ(NCE, NELM) * DTUZ)
                         NANIT(NELM, NCE) = NTOT(NELM) * (1.0D0 - NAMFCT(NELM)) * FRACDP / (DELTAZ(NCE, NELM) * DTUZ)
-                     ! * the depth of the element is below the banding depth
+                        ! * the depth of the element is below the banding depth
                      ELSE
                         NAAMM(NELM, NCE) = 0.0D0
                         NANIT(NELM, NCE) = 0.0D0
@@ -2137,8 +2138,8 @@ CONTAINS
          END DO zero_nitrate_loop
       END IF
 
-   ! 6. addition of organic matter for each element in each cell
-   ! -----------------------------------------------------------
+      ! 6. addition of organic matter for each element in each cell
+      ! -----------------------------------------------------------
       IF (ISADDC) THEN
          col_organic_loop: DO NELM = NLF + 1, NEL
 
@@ -2157,7 +2158,7 @@ CONTAINS
                      CAHUM(NELM, NCE) = 0.0D0
                   END DO
 
-               ! * there is banding of the input
+                  ! * there is banding of the input
                ELSE
                   KSPTOT = 0.0D0
                   DO NCE = NCETOP, NCOLMB(NELM), -1
@@ -2167,13 +2168,13 @@ CONTAINS
                         CALIT(NELM, NCE) = CTOT(NELM) * CLTFCT(NELM) / (CDPTHB(NELM) * DTUZ)
                         CAMAN(NELM, NCE) = CTOT(NELM) * CMNFCT(NELM) / (CDPTHB(NELM) * DTUZ)
                         CAHUM(NELM, NCE) = CTOT(NELM) * (1.0D0 - CLTFCT(NELM) - CMNFCT(NELM)) / (CDPTHB(NELM) * DTUZ)
-                     ! * the banding depth is to within this element
+                        ! * the banding depth is to within this element
                      ELSE IF ((KSPTOT - DELTAZ(NCE, NELM)) <= CDPTHB(NELM)) THEN
                         FRACDP = (CDPTHB(NELM) - (KSPTOT - DELTAZ(NCE, NELM))) / CDPTHB(NELM)
                         CALIT(NELM, NCE) = CTOT(NELM) * CLTFCT(NELM) * FRACDP / (DELTAZ(NCE, NELM) * DTUZ)
                         CAMAN(NELM, NCE) = CTOT(NELM) * CMNFCT(NELM) * FRACDP / (DELTAZ(NCE, NELM) * DTUZ)
                         CAHUM(NELM, NCE) = CTOT(NELM) * (1.0D0 - CLTFCT(NELM) - CMNFCT(NELM)) * FRACDP / (DELTAZ(NCE, NELM) * DTUZ)
-                     ! * the depth of the element is below the banding depth
+                        ! * the depth of the element is below the banding depth
                      ELSE
                         CALIT(NELM, NCE) = 0.0D0
                         CAMAN(NELM, NCE) = 0.0D0
@@ -2207,8 +2208,8 @@ CONTAINS
          END DO zero_organic_loop
       END IF
 
-   ! 7. addition of wet and dry deposition on fertilizer rate
-   ! --------------------------------------------------------
+      ! 7. addition of wet and dry deposition on fertilizer rate
+      ! --------------------------------------------------------
       depo_loop: DO NELM = NLF + 1, NEL
          NAAMM(NELM, NCETOP) = NAAMM(NELM, NCETOP) + AMMDDR / DELTAZ(NCETOP, NELM) + AMMWDR * DUMMY(NELM) / DELTAZ(NCETOP, NELM)
          NANIT(NELM, NCETOP) = NANIT(NELM, NCETOP) + NITDDR / DELTAZ(NCETOP, NELM) + NITWDR * DUMMY(NELM) / DELTAZ(NCETOP, NELM)
@@ -2340,7 +2341,7 @@ CONTAINS
             IF (ntime > niters) THEN
                ! PERF FIX: Restored external format label
                WRITE (msg, 9000) wer1sq, wer2sq
-               CALL ERROR(warn, 3016, mnpr, 0, 0, msg)
+               CALL ERROR(WWWARN, 3016, mnpr, 0, 0, msg)
             END IF
 
          END DO layer_loop
@@ -2461,7 +2462,7 @@ CONTAINS
             IF (ntime > niters) THEN
                ! PERF FIX: Restored external format label
                WRITE (msg, 9000) wer1sq
-               CALL ERROR(warn, 3017, mnpr, 0, 0, msg)
+               CALL ERROR(WWWARN, 3017, mnpr, 0, 0, msg)
             END IF
 
          END DO layer_loop
@@ -2475,18 +2476,18 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNMAIN
    SUBROUTINE MNMAIN(MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, ICMBK, &
-                     ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
-                     ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
-                     SSS1, SSS2)
-   !--------------------------------------------------------------------*
-   !
-   ! main mn subroutine from which all the others are called
-   !
-   !--------------------------------------------------------------------*
-   ! version: 4.2             notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
+      ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
+      SSS1, SSS2)
+      !--------------------------------------------------------------------*
+      !
+      ! main mn subroutine from which all the others are called
+      !
+      !--------------------------------------------------------------------*
+      ! version: 4.2             notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! USE SGLOBAL, ONLY : llee, nelee, nlfee, nlyree, nxee, nsee, nvee, nconee
 
@@ -2566,14 +2567,14 @@ CONTAINS
       LOGICAL, ALLOCATABLE :: LDUM(:)
       LOGICAL :: LDUM2(LLEE)
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
       ALLOCATE(CELEM(NELEE), KD1ELM(NELEE), KD2ELM(NELEE), KHELEM(NELEE), KLELEM(NELEE), &
-               KMELEM(NELEE), KNELEM(NELEE), KVELEM(NELEE), NAELEM(NELEE))
+         KMELEM(NELEE), KNELEM(NELEE), KVELEM(NELEE), NAELEM(NELEE))
       ALLOCATE(DUMMY2(NLYREE, NELEE), IDUM(NELEE), IDUM1X(NELEE + 3), DUMMY(NELEE), LDUM(NELEE))
       ALLOCATE(CDPTHB(NELEE), CLTFCT(NELEE), CMNFCT(NELEE), CNRAL(NELEE), CNRALT(NELEE), &
-               CNRAM(NELEE), CNRAMN(NELEE), CTOT(NELEE), CTOTTP(NELEE), DAMHLF(NELEE), &
-               DCHLF(NELEE), NAMFCT(NELEE), NAMTOP(NELEE), NDPTHB(NELEE), NTOT(NELEE))
+         CNRAM(NELEE), CNRAMN(NELEE), CTOT(NELEE), CTOTTP(NELEE), DAMHLF(NELEE), &
+         DCHLF(NELEE), NAMFCT(NELEE), NAMTOP(NELEE), NDPTHB(NELEE), NTOT(NELEE))
 
       PASS = PASS + 1
 
@@ -2582,39 +2583,39 @@ CONTAINS
 
          ! * check array dimensions
          CALL MNERR0(LLEE, MND, MNFC, MNFN, MNPR, NCETOP, NCON, NCONEE, NEL, NELEE, NLF, NLFEE, NLYREE, NMNEEE, NMNTEE, NS, NSEE, NV, &
-                     NVEE, NX, NXEE, NY)
+            NVEE, NX, NXEE, NY)
 
          ! * checks static input variables from cm - mn interface
          CALL MNERR1(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NLFEE, NLYREE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, &
-                     NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, BEXBK, LINKNS, DUMMY2, DUMMY3, IDUM, IDUM1X, LDUM, LDUM2)
+            NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, BEXBK, LINKNS, DUMMY2, DUMMY3, IDUM, IDUM1X, LDUM, LDUM2)
 
          ! * read the input data files
          CALL MNRED1(MND, MNPR, NEL, NELEE, NLF, NLFEE, NMNEEE, NMNTEE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, BEXBK, LINKNS, NBOTCE, &
-                     NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), &
-                     KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), &
-                     KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, &
-                     AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, &
-                     NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, &
-                     KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, &
-                     NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
+            NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), &
+            KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), &
+            KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, &
+            AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, &
+            NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, &
+            KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, &
+            NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
 
          ! * checks static input data read in mnred1
          CALL MNERR2(MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
-                     NMNEEE, NMNTEE, NS, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
-                     KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, &
-                     NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, &
-                     FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), &
-                     DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
-                     KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, LDUM)
+            NMNEEE, NMNTEE, NS, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
+            KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, &
+            NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, &
+            FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), &
+            DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
+            KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, LDUM)
 
          ! * initialises variables
          CALL MNINIT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
-                     NMNEEE, NMNTEE, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
-                     KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NCOLMB, &
-                     NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, &
-                     CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), DELTAZ, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KHCONC, &
-                     KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), &
-                     ZVSNOD, ISICCD, ISIAMD, SSS1, SSS2, ISBOTC)
+            NMNEEE, NMNTEE, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
+            KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NCOLMB, &
+            NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, &
+            CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), DELTAZ, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KHCONC, &
+            KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), &
+            ZVSNOD, ISICCD, ISIAMD, SSS1, SSS2, ISBOTC)
 
          !----------------------- end of initialization step------------------*
 
@@ -2626,19 +2627,19 @@ CONTAINS
 
          ! * reads time varying input data
          CALL MNRED2(MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, DTUZ, TIH, UZNOW, BEXBK, LINKNS, &
-                     CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), CNRAM(NLF + 1:NEL), &
-                     CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), ISADDC, ISADDN, IDUM, DUMMY)
+            CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), CNRAM(NLF + 1:NEL), &
+            CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), ISADDC, ISADDN, IDUM, DUMMY)
 
          ! * checks time dependent input data read in mnred2
          CALL MNERR4(MNPR, NEL, NELEE, NLF, CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), &
-                     CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), ISADDC, &
-                     ISADDN, DUMMY, LDUM)
+            CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), ISADDC, &
+            ISADDN, DUMMY, LDUM)
 
          ! * modifies data read in mnred2 into suitable units and form for the rest of the program
          CALL MNINT2(LLEE, NCETOP, NEL, NELEE, NLF, NLYREE, NCOLMB, NLYR, NLYRBT, NTSOIL, AMMDDR, AMMWDR, MNCREF, NITDDR, NITWDR, &
-                     DELTAZ, DTUZ, CCCC, CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), &
-                     CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), PNETTO, &
-                     SSSS, VSTHE, ISADDC, ISADDN, CNRALT, CNRAMN, DUMMY)
+            DELTAZ, DTUZ, CCCC, CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), &
+            CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), PNETTO, &
+            SSSS, VSTHE, ISADDC, ISADDN, CNRALT, CNRAMN, DUMMY)
 
          ! * environmental reduction factors are calculated
          CALL MNTEMP(LLEE, NCETOP, NEL, NELEE, NLF, NV, NCOLMB, Z2, DELTAZ, ZVSNOD, DTUZ, TA)
@@ -2665,15 +2666,15 @@ CONTAINS
 
          ! * new concentration of ammonium
          CALL MNAMM(LLEE, MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NLYREE, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, GNN, KPLAMM, KUAMM, &
-                    MNCREF, KDDSOL, DTUZ, VSTHE, VSTHEO, ISBOTC)
+            MNCREF, KDDSOL, DTUZ, VSTHE, VSTHEO, ISBOTC)
 
          ! * new nitrate concentration in dynamic and dead space regions
          CALL MNNIT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, D0, KPLNIT, KUNIT, MNCREF, Z2, DTUZ, VSTHE, VSTHEO, ISBOTC, &
-                    SSS1, SSS2)
+            SSS1, SSS2)
 
          ! * extra output that may be required that is printed in this subroutine
          CALL MNOUT(MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, CNRHUM, GNN, MNCREF, DELTAZ, &
-                    KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
+            KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
 
          !------------------------end of simulation step---------------------*
       END IF
@@ -2796,7 +2797,7 @@ CONTAINS
             ! * failed to converge
             IF (ntime > niters) THEN
                WRITE (msg, 9000) wer1sq, wer2sq
-               CALL ERROR(warn, 3015, mnpr, 0, 0, msg)
+               CALL ERROR(WWWARN, 3015, mnpr, 0, 0, msg)
             END IF
 
          END DO layer_loop
@@ -2955,16 +2956,16 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNOUT
    SUBROUTINE MNOUT(MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, CNRHUM, GNN, MNCREF, DELTAZ, &
-                    KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
-   !--------------------------------------------------------------------*
-   !
-   ! calculates total inputs and outputs and writes output to files
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
+      !--------------------------------------------------------------------*
+      !
+      ! calculates total inputs and outputs and writes output to files
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module:
       ! USE MN_MODULE, ONLY: llee, nelee, nlyree, namm, nlit, nman, chum,
@@ -3009,11 +3010,11 @@ CONTAINS
       ! INTEGER :: noutel(nout) = [457, 457, 457, 457, 457, 457, 457, 457, 457]
       ! INTEGER :: noutce(nout) = [10, 20, 30, 32, 35, 38, 40, 41, 42]
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
       PASS = PASS + 1
 
-   ! * if it is the first pass the initial concentrations are printed
+      ! * if it is the first pass the initial concentrations are printed
       IF (PASS == 1) THEN
 
          ALLOCATE(ADAMMT(NEL, NCETOP), ADDCT(NEL, NCETOP), ADNITT(NEL, NCETOP), ADORNT(NEL, NCETOP), CDOTOT(NEL, NCETOP), DETOT(NEL, NCETOP))
@@ -3056,7 +3057,7 @@ CONTAINS
                   RETAMM = 1.0D0 + (KDDSOL(JSOIL) * (NAMM(NELM, NCL) / MNCREF)**(GNN - 1.0D0)) / VSTHEO(NELM, NCL)
 
                   TOTN = TOTN + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (NAMM(NELM, NCL) * VSTHEO(NELM, NCL) * RETAMM + &
-                         NLIT(NELM, NCL) + NMAN(NELM, NCL) + CHUM(NELM, NCL) / CNRHUM)
+                     NLIT(NELM, NCL) + NMAN(NELM, NCL) + CHUM(NELM, NCL) / CNRHUM)
 
                   TOTC = TOTC + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (CMAN(NELM, NCL) + CLIT(NELM, NCL) + CHUM(NELM, NCL))
                END DO
@@ -3069,7 +3070,7 @@ CONTAINS
          WRITE(MNOUT1, '(/A28,G16.8)') 'initial carbon (kg c m-2) = ', TOTC / TAREA
       END IF
 
-   ! Main simulation timestep updates
+      ! Main simulation timestep updates
       DO NELM = NLF + 1, NEL
          IF (ISBOTC) THEN
             NBOTM = NBOTCE
@@ -3103,7 +3104,7 @@ CONTAINS
       TOTC   = 0.0D0
       TOTCO2 = 0.0D0
 
-   ! Progressive sum logic restored exactly as provided
+      ! Progressive sum logic restored exactly as provided
       DO NELM = NLF + 1, NEL
          IF (ISBOTC) THEN
             NBOTM = NBOTCE
@@ -3124,7 +3125,7 @@ CONTAINS
                TOTADC = TOTADC + DXQQ(NELM) * DYQQ(NELM) * ADDCT(NELM, NCL)
 
                TOTN = TOTN + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (NAMM1(NELM, NCL) * VSTHE(NCL, NELM) * RETAMM + &
-                      NLIT1(NELM, NCL) + NMAN1(NELM, NCL) + CHUM1(NELM, NCL) / CNRHUM)
+                  NLIT1(NELM, NCL) + NMAN1(NELM, NCL) + CHUM1(NELM, NCL) / CNRHUM)
 
                TOTC = TOTC + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (CMAN1(NELM, NCL) + CLIT1(NELM, NCL) + CHUM1(NELM, NCL))
                TOTCO2 = TOTCO2 + DXQQ(NELM) * DYQQ(NELM) * CDOTOT(NELM, NCL)
@@ -3132,7 +3133,7 @@ CONTAINS
          END DO
       END DO
 
-   ! Output reporting block
+      ! Output reporting block
       IF (UZNOW >= HRPRNT * NPRNT + MNSTRT) THEN
 
          NPRNT = NPRNT + 1
@@ -3153,8 +3154,8 @@ CONTAINS
 
    !--------------------------------------------------------------------*
    SUBROUTINE mnplant (mnpl, mnoutpl, ncetop, nel, nlf, nv, ncolmb, nrd, nvc, rhopl, delone, dxqq, dyqq, deltaz, plai, rdf, dtuz, &
-                       uznow, clai)
-   !--------------------------------------------------------------------*
+      uznow, clai)
+      !--------------------------------------------------------------------*
       !
       ! subroutine used to calculate the potential nitrogen uptake by plants
       ! this is calculted from the canopy leaf area index of the plants
@@ -3369,20 +3370,20 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNRED1
    SUBROUTINE MNRED1(MND, MNPR, NEL, NELEE, NLF, NLFEE, NMNEEE, NMNTEE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, BEXBK, LINKNS, NBOTCE, &
-                     NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, &
-                     KMELEM, KNELEM, KVELEM, NAELEM, NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, &
-                     AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR, Q10M, &
-                     Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
-                     KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
-   !--------------------------------------------------------------------*
-   !
-   ! reads input from files
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, &
+      KMELEM, KNELEM, KVELEM, NAELEM, NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, &
+      AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR, Q10M, &
+      Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
+      KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
+      !--------------------------------------------------------------------*
+      !
+      ! reads input from files
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Modernization Fix: Restored required global variable for ALALLF interface
       USE SGLOBAL, ONLY : nyee
@@ -3437,72 +3438,72 @@ CONTAINS
       CHARACTER(LEN=200) :: CDUM(1)
       LOGICAL :: LDUM(1)
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
-   ! preliminaries
-   ! -------------
-   ! * check status of data file
+      ! preliminaries
+      ! -------------
+      ! * check status of data file
       CALL ALRED2(0, MND, MNPR, 'MND')
 
-   ! * print title for nitrate simulation
+      ! * print title for nitrate simulation
       CALL ALREDC(0, MND, MNPR, ':MN01', 1, 1, CDUM)
       WRITE(MNPR, '(/1X,A/)') CDUM(1)
 
 
-   ! decomposition parameter rates
-   ! -----------------------------
-   ! * decomposition parameters for ammonium immobilisation,
-   ! * plant uptake of ammonium,immobilisation of nitrate
-   ! * and plant uptake of nitrate
+      ! decomposition parameter rates
+      ! -----------------------------
+      ! * decomposition parameters for ammonium immobilisation,
+      ! * plant uptake of ammonium,immobilisation of nitrate
+      ! * and plant uptake of nitrate
       CALL ALREDF(0, MND, MNPR, ':MN11', 4, 1, DUMMY)
       KUAMM  = DUMMY(1)
       KPLAMM = DUMMY(2)
       KUNIT  = DUMMY(3)
       KPLNIT = DUMMY(4)
 
-   ! further parameters
-   ! ------------------
-   ! * organic matter effeciency fraction and humification fraction
-   ! * and carbon to nitrogen ratio in the biomass and humus
+      ! further parameters
+      ! ------------------
+      ! * organic matter effeciency fraction and humification fraction
+      ! * and carbon to nitrogen ratio in the biomass and humus
       CALL ALREDF(0, MND, MNPR, ':MN12', 4, 1, DUMMY)
       FE     = DUMMY(1)
       FH     = DUMMY(2)
       CNRBIO = DUMMY(3)
       CNRHUM = DUMMY(4)
 
-   ! * dry and wet deposition rates of ammonium and nitrate
+      ! * dry and wet deposition rates of ammonium and nitrate
       CALL ALREDF(0, MND, MNPR, ':MN13', 4, 1, DUMMY)
       AMMDDR = DUMMY(1)
       AMMWDR = DUMMY(2)
       NITDDR = DUMMY(3)
       NITWDR = DUMMY(4)
 
-   ! * reference contaminant concentration
+      ! * reference contaminant concentration
       CALL ALREDF(0, MND, MNPR, ':MN14', 1, 1, DUMMY)
       MNCREF = DUMMY(1)
 
 
-   ! spatially varying decomposition parameter rates
-   ! -----------------------------------------------
+      ! spatially varying decomposition parameter rates
+      ! -----------------------------------------------
 
-   ! khum
-   ! ----
-   ! * find out how many typical element catagories
+      ! khum
+      ! ----
+      ! * find out how many typical element catagories
       CALL ALREDI(0, MND, MNPR, ':MN15a', 1, 1, IDUM)
       NMN15E = IDUM(1)
       IF ((NMN15E > NMNEEE) .OR. (NMN15E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn15 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn15 in mn data file')
       END IF
 
-   ! * read the catagory type for each element into the element number
+      ! * read the catagory type for each element into the element number
       CALL ALALLI(NMN15E, MND, MNPR, ':MN15b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KHELEM, IDUM)
 
-   ! * table of values for each typical element
+      ! * table of values for each typical element
       DO NC = 1, NMN15E
          CALL ALREDI(0, MND, MNPR, ':MN16a', 1, 1, NMNT)
          NMN15T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn16a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn16a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3513,12 +3514,12 @@ CONTAINS
          END DO
       END DO
 
-   ! klit
-   ! ----
+      ! klit
+      ! ----
       CALL ALREDI(0, MND, MNPR, ':MN17a', 1, 1, IDUM)
       NMN17E = IDUM(1)
       IF ((NMN17E > NMNEEE) .OR. (NMN17E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn17 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn17 in mn data file')
       END IF
 
       CALL ALALLI(NMN17E, MND, MNPR, ':MN17b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KLELEM, IDUM)
@@ -3527,7 +3528,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN18a', 1, 1, NMNT)
          NMN17T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn18a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn18a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3538,12 +3539,12 @@ CONTAINS
          END DO
       END DO
 
-   ! kman
-   ! ----
+      ! kman
+      ! ----
       CALL ALREDI(0, MND, MNPR, ':MN19a', 1, 1, IDUM)
       NMN19E = IDUM(1)
       IF ((NMN19E > NMNEEE) .OR. (NMN19E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn19 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn19 in mn data file')
       END IF
 
       CALL ALALLI(NMN19E, MND, MNPR, ':MN19b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KMELEM, IDUM)
@@ -3552,7 +3553,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN20a', 1, 1, NMNT)
          NMN19T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn20a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn20a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3563,12 +3564,12 @@ CONTAINS
          END DO
       END DO
 
-   ! knit
-   ! ----
+      ! knit
+      ! ----
       CALL ALREDI(0, MND, MNPR, ':MN21a', 1, 1, IDUM)
       NMN21E = IDUM(1)
       IF ((NMN21E > NMNEEE) .OR. (NMN21E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn21 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn21 in mn data file')
       END IF
 
       CALL ALALLI(NMN21E, MND, MNPR, ':MN21b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KNELEM, IDUM)
@@ -3577,7 +3578,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN22a', 1, 1, NMNT)
          NMN21T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn22a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn22a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3588,12 +3589,12 @@ CONTAINS
          END DO
       END DO
 
-   ! kvol
-   ! ----
+      ! kvol
+      ! ----
       CALL ALREDI(0, MND, MNPR, ':MN23a', 1, 1, IDUM)
       NMN23E = IDUM(1)
       IF ((NMN23E > NMNEEE) .OR. (NMN23E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn23 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn23 in mn data file')
       END IF
 
       CALL ALALLI(NMN23E, MND, MNPR, ':MN23b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KVELEM, IDUM)
@@ -3602,7 +3603,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN24a', 1, 1, NMNT)
          NMN23T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn24a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn24a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3613,12 +3614,12 @@ CONTAINS
          END DO
       END DO
 
-   ! kd1
-   ! ----
+      ! kd1
+      ! ----
       CALL ALREDI(0, MND, MNPR, ':MN25a', 1, 1, IDUM)
       NMN25E = IDUM(1)
       IF ((NMN25E > NMNEEE) .OR. (NMN25E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn25 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn25 in mn data file')
       END IF
 
       CALL ALALLI(NMN25E, MND, MNPR, ':MN25b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KD1ELM, IDUM)
@@ -3627,7 +3628,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN26a', 1, 1, NMNT)
          NMN25T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn26a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn26a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3638,12 +3639,12 @@ CONTAINS
          END DO
       END DO
 
-   ! kd2
-   ! ----
+      ! kd2
+      ! ----
       CALL ALREDI(0, MND, MNPR, ':MN27a', 1, 1, IDUM)
       NMN27E = IDUM(1)
       IF ((NMN27E > NMNEEE) .OR. (NMN27E <= 0)) THEN
-         CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn27 in mn data file')
+         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn27 in mn data file')
       END IF
 
       CALL ALALLI(NMN27E, MND, MNPR, ':MN27b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KD2ELM, IDUM)
@@ -3652,7 +3653,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN28a', 1, 1, NMNT)
          NMN27T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn28a in mn data file')
+            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn28a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3663,18 +3664,18 @@ CONTAINS
          END DO
       END DO
 
-   ! ammonium adsorption
-   ! -------------------
-   ! * kd parameter
+      ! ammonium adsorption
+      ! -------------------
+      ! * kd parameter
       CALL ALREDF(0, MND, MNPR, ':MN30', NS, 1, KDDSOL)
-   ! * power parameter n
+      ! * power parameter n
       CALL ALREDF(0, MND, MNPR, ':MN31', 1, 1, DUMMY)
       GNN = DUMMY(1)
 
-   ! temperature effect within the soil
-   ! ----------------------------------
-   ! * for the environmental reduction factor for temperature is a q10
-   ! * function being used ? if it is the q10 factors are needed
+      ! temperature effect within the soil
+      ! ----------------------------------
+      ! * for the environmental reduction factor for temperature is a q10
+      ! * function being used ? if it is the q10 factors are needed
       CALL ALREDL(0, MND, MNPR, ':MN35', 1, 1, LDUM)
       ISQ10 = LDUM(1)
       IF (ISQ10) THEN
@@ -3683,10 +3684,10 @@ CONTAINS
          Q10N = DUMMY(2)
       END IF
 
-   ! values used to calculate the initial concentrations in the organic pls
-   ! ----------------------------------------------------------------------
-   ! * for the initial conditions of the carbon litter pool either
-   ! * a decay function for each element or an typical elem. is defined
+      ! values used to calculate the initial concentrations in the organic pls
+      ! ----------------------------------------------------------------------
+      ! * for the initial conditions of the carbon litter pool either
+      ! * a decay function for each element or an typical elem. is defined
       CALL ALREDL(0, MND, MNPR, ':MN40', 1, 1, LDUM)
       ISICCD = LDUM(1)
 
@@ -3700,7 +3701,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN43a', 1, 1, IDUM)
          NMN43E = IDUM(1)
          IF ((NMN43E > NMNEEE) .OR. (NMN43E <= 0)) THEN
-            CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn43 in mn data file')
+            CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn43 in mn data file')
          END IF
 
          ! * read the catagory type for each element into the element number
@@ -3711,7 +3712,7 @@ CONTAINS
             CALL ALREDI(0, MND, MNPR, ':MN44a', 1, 1, NMNT)
             NMN43T(NC) = NMNT(1)
             IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-               CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn44a in mn data file')
+               CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn44a in mn data file')
             END IF
 
             NDATA = NMNT(1) * 2
@@ -3723,16 +3724,16 @@ CONTAINS
          END DO
       END IF
 
-   ! * proportion of the carbon in the litter and biomass pool
+      ! * proportion of the carbon in the litter and biomass pool
       CALL ALREDF(0, MND, MNPR, ':MN45', 1, 1, DUMMY)
       CLITFR = DUMMY(1)
 
-   ! * carbon to nitrgen ratio in the litter fraction
+      ! * carbon to nitrgen ratio in the litter fraction
       CALL ALREDF(0, MND, MNPR, ':MN46', 1, 1, DUMMY)
       CNRLIT = DUMMY(1)
 
-   ! values used to calculate the initial concentrations in the ammoniumpool
-   ! ----------------------------------------------------------------------
+      ! values used to calculate the initial concentrations in the ammoniumpool
+      ! ----------------------------------------------------------------------
       CALL ALREDL(0, MND, MNPR, ':MN50', 1, 1, LDUM)
       ISIAMD = LDUM(1)
 
@@ -3746,7 +3747,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN53a', 1, 1, IDUM)
          NMN53E = IDUM(1)
          IF ((NMN53E > NMNEEE) .OR. (NMN53E <= 0)) THEN
-            CALL ERROR(FATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn53 in mn data file')
+            CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn53 in mn data file')
          END IF
 
          ! * read the catagory type for each element into the element number
@@ -3757,7 +3758,7 @@ CONTAINS
             CALL ALREDI(0, MND, MNPR, ':MN54a', 1, 1, NMNT)
             NMN53T(NC) = NMNT(1)
             IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-               CALL ERROR(FATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn54a in mn data file')
+               CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn54a in mn data file')
             END IF
 
             NDATA = NMNT(1) * 2
@@ -3769,14 +3770,14 @@ CONTAINS
          END DO
       END IF
 
-   ! cell below which no nitrogen transformations are considered
-   ! -----------------------------------------------------------
+      ! cell below which no nitrogen transformations are considered
+      ! -----------------------------------------------------------
       ! Modern Fix: Wrapped scalar in size-1 array to satisfy ALREDI
       CALL ALREDI(0, MND, MNPR, ':MN60', 1, 1, IDUMS)
       NBOTCE = IDUMS(1)
 
-   ! epilogue
-   ! --------
+      ! epilogue
+      ! --------
       CALL ALRED2(1, MND, MNPR, 'MND')
 
    END SUBROUTINE MNRED1
@@ -3785,21 +3786,21 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNRED2
    SUBROUTINE MNRED2(MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, DTUZ, TIH, UZNOW, BEXBK, LINKNS, &
-                     CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, IDUM, DUMMY)
-   !--------------------------------------------------------------------*
-   !
-   ! reads input from time dependent files
-   ! it is assumed for simplicity that there is never more than one
-   ! fertilizer addition in a timestep (this should be a valid assumption
-   ! because farmers do not add fertilizer more than once a day and there
-   ! is a maximum timestep of two hours). if there is more than one
-   ! fertilizer addition the remainder are read in following timesteps.
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, IDUM, DUMMY)
+      !--------------------------------------------------------------------*
+      !
+      ! reads input from time dependent files
+      ! it is assumed for simplicity that there is never more than one
+      ! fertilizer addition in a timestep (this should be a valid assumption
+      ! because farmers do not add fertilizer more than once a day and there
+      ! is a maximum timestep of two hours). if there is more than one
+      ! fertilizer addition the remainder are read in following timesteps.
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       ! Modernization Fix: Restored required modules for interfaces and time calculation
       USE UTILSMOD, ONLY : hour_from_date
@@ -3833,12 +3834,12 @@ CONTAINS
       INTEGER, SAVE :: INTIMC, INTIMN
       INTEGER, SAVE :: PASS = 0
 
-   !-------------------------------------------------------------------*
+      !-------------------------------------------------------------------*
 
       PASS = PASS + 1
 
-   ! 1. check data files are open and read first input times
-   ! -------------------------------------------------------
+      ! 1. check data files are open and read first input times
+      ! -------------------------------------------------------
       IF (PASS == 1) THEN
          ! * check status of nitrogen fertilizer data file
          CALL ALRED2(0, MNFN, MNPR, 'MNFM')
@@ -3856,22 +3857,22 @@ CONTAINS
       END IF
 
 
-   ! 2. read nitrogen data file if fertilization occurs in this timestep
-   ! -------------------------------------------------------------------
+      ! 2. read nitrogen data file if fertilization occurs in this timestep
+      ! -------------------------------------------------------------------
       IF ((UZNOW + DTUZ / 3.6D3) > INTIMN) THEN
          ISADDN = .TRUE.
 
          ! * total nitrogen fertilizer in each element (kg n m-2)
          CALL ALALLF(1, 1, 0, MNFN, MNPR, ':MNFN11', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, NTOT, IDUM, DUMMY)
+            NCAT, NTOT, IDUM, DUMMY)
 
          ! * depth the fertilizer is banded over (m)
          CALL ALALLF(1, 1, 0, MNFN, MNPR, ':MNFN21', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, NDPTHB, IDUM, DUMMY)
+            NCAT, NDPTHB, IDUM, DUMMY)
 
          ! * ammonium fraction (the remainder is nitrate )
          CALL ALALLF(1, 1, 0, MNFN, MNPR, ':MNFN31', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, NAMFCT, IDUM, DUMMY)
+            NCAT, NAMFCT, IDUM, DUMMY)
 
          ! * time of next nitrogen fertilizer addition
          CALL ALREDI(0, MNFN, MNPR, ':MNFN01', 5, 1, TIME)
@@ -3882,34 +3883,34 @@ CONTAINS
       END IF
 
 
-   ! 3. read carbon data file if fertilization occurs in this timestep
-   ! -----------------------------------------------------------------
+      ! 3. read carbon data file if fertilization occurs in this timestep
+      ! -----------------------------------------------------------------
       IF ((UZNOW + DTUZ / 3.6D3) > INTIMC) THEN
          ISADDC = .TRUE.
 
          ! * total carbon fertilizer in each element (kg n m-2)
          CALL ALALLF(1, 1, 0, MNFC, MNPR, ':MNFC11', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, CTOT, IDUM, DUMMY)
+            NCAT, CTOT, IDUM, DUMMY)
 
          ! * depth the fertilizer is banded over (m)
          CALL ALALLF(1, 1, 0, MNFC, MNPR, ':MNFC21', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, CDPTHB, IDUM, DUMMY)
+            NCAT, CDPTHB, IDUM, DUMMY)
 
          ! * litter fraction
          CALL ALALLF(1, 1, 0, MNFC, MNPR, ':MNFC31', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, CLTFCT, IDUM, DUMMY)
+            NCAT, CLTFCT, IDUM, DUMMY)
 
          ! * carbon/nitrogen ratio of the litter
          CALL ALALLF(1, 1, 0, MNFC, MNPR, ':MNFC32', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, CNRAL, IDUM, DUMMY)
+            NCAT, CNRAL, IDUM, DUMMY)
 
          ! * manure fraction (the remainder from the litter and manure is humus)
          CALL ALALLF(1, 1, 0, MNFC, MNPR, ':MNFC41', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, CMNFCT, IDUM, DUMMY)
+            NCAT, CMNFCT, IDUM, DUMMY)
 
          ! * carbon/nitrogen ratio of the manure
          CALL ALALLF(1, 1, 0, MNFC, MNPR, ':MNFC42', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, &
-                     NCAT, CNRAM, IDUM, DUMMY)
+            NCAT, CNRAM, IDUM, DUMMY)
 
          ! * time of next carbon fertilizer addition
          CALL ALREDI(0, MNFC, MNPR, ':MNFC01', 5, 1, TIME)
@@ -3924,15 +3925,15 @@ CONTAINS
 
    !SSSSSS SUBROUTINE MNTEMP
    SUBROUTINE MNTEMP(LLEE, NCETOP, NEL, NELEE, NLF, NV, NCOLMB, Z2, DELTAZ, ZVSNOD, DTUZ, TA)
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the temperature in every cell
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+      !--------------------------------------------------------------------*
+      !
+      ! calculates the temperature in every cell
+      !
+      !--------------------------------------------------------------------*
+      ! version:                 notes:
+      ! module: mn               program: shetran
+      ! modifications
+      !--------------------------------------------------------------------*
 
       USE UTILSMOD, ONLY: TRIDAG
 
@@ -3967,7 +3968,7 @@ CONTAINS
       ! Modern Fix: Scalar broadcast initialization is safer than array constructor looping
       DOUBLE PRECISION, SAVE :: TEMPR(NUM) = 12.0D0
 
-   !--------------------------------------------------------------------*
+      !--------------------------------------------------------------------*
 
       KFCT = DIFF * ((NUM - 1.0D0) / Z2) * ((NUM - 1.0D0) / Z2)
 

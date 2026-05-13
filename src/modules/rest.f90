@@ -18,6 +18,7 @@ MODULE rest
       VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod,    ONLY : BSOFT
    USE UTILSMOD, ONLY : HOUR_FROM_DATE, TERPO1
+   use mod_error, ONLY : ERROR, FFFATAL, WWWARN, pppri
    USE OCmod2,   ONLY : GETHRF
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE
@@ -96,7 +97,7 @@ CONTAINS
 
 
 
-SUBROUTINE BALWAT
+   SUBROUTINE BALWAT
       !----------------------------------------------------------------------*
       !          Returns WBERR(column or link no.)
       !          the balance error for water depth. This is the
@@ -220,67 +221,67 @@ SUBROUTINE BALWAT
 
    !SSSSSS SUBROUTINE METIN
    SUBROUTINE METIN (IFLAG)
-   !----------------------------------------------------------------------*
-   !
-   !  THIS SUBROUTINE READS IN THE MET DATA AS REQUIRED FOR THE
-   !  PENMAN-MONTEITH EQUATION, INTERCEPTION (AND SNOW MELT)
-   !  CALCULATIONS.  IT IS ASSUMED THAT A MET DATA PREPROGRAM
-   !  WILL HAVE CARRIED OUT VALIDATION CHECKS.
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/METIN/4.1
-   ! Modifications:
-   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-   ! RAH  961228  4.1  Initialize PELAST (was undefined). No long comments.
-   !      970516       Bring IDATA & PA from SPEC.ET; don't print values.
-   !                   Also bring EPLAST & PEIN.  Explicit typing.
-   !                   Generic intrinsics.  "PINP" not "P" in list below.
-   !                   Remove local TSTART (redundant), and
-   !                   TERPO1 redundant 7th arg (SPEC.ET arrays NUM*).
-   !----------------------------------------------------------------------*
-   ! Commons and constants
-   !
-   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
-   !     VARIABLE AND UNIT SPEFICATION
-   !
-   !     ISITE - SITE IDENTIFIER                         NON-DIM
-   !     METIME- VALIDITY TIME OF CURRENT MET. DATA      HR
-   !     DTMET - TIMESTEP FOR INPUT OF MET. DATA         HR
-   !     PINP  - PRECIPITATION
-   !                   INPUT                             MM/HR
-   !                   IN THE CALCULATIONS               M/SEC
-   !     OBSPE - MEASURED POTENTIAL EVAPORATION
-   !                   INPUT                             MM/HR
-   !                   IN THE CALCULATIONS               MM/S
-   !     RN    - NET RADIATION                           W/M/M
-   !     U     - WIND SPEED                              M/S
-   !     TA    - AIR TEMPERATURE                         C
-   !     DEL   - SLOPE                                   MB/C
-   !     VPD   - VAPOUR PRESSURE DEFICIT                 MB
-   !970516  The following are read but not used:
-   !     PA    - ATM. PRESSURE                           MB.
-   !     IDATA - DATA QUALITY INDICATOR                  NON-DIM
-   !
-   !
-   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !     FOR BMETAL = .FALSE. :
-   !     IF THE NUMBER OF RAINFALL STATIONS AND THE NUMBER OF METEOROL-
-   !     OGICAL STATIONS ARE THE SAME, THE STATIONS ARE ASSUMED TO HAVE
-   !     THE SAME GRID-DISTRIBUTION CODE. METEOROLOGICAL AND RAINFALL
-   !     DATA ARE THEN GIVEN TOGETHER IN THE DATA FILE. IF THE NUMBERS
-   !     OF THE STATIONS ARE NOT THE SAME, RAINFALL AND METEOROLOGICAL
-   !     DATA ARE DISTRIBUTED BY SEPERATE GRID-CODES AND ARE READ FROM
-   !     SEPERATE LINES IN THE DATA FILE.
-   !
-   !     FOR BMETAL = .TRUE. :
-   !     EVAPOTR. DATA AND RAINFALL DATA ARE READ FROM TWO SEPARATE FILES.
-   !
-   !     NOTE: THE PRECIPITATION DATA IS AVERAGED OVER A COMPUTATIONAL
-   !           TIMESTEP ELSEWHERE
-   !
-   !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
+      !----------------------------------------------------------------------*
+      !
+      !  THIS SUBROUTINE READS IN THE MET DATA AS REQUIRED FOR THE
+      !  PENMAN-MONTEITH EQUATION, INTERCEPTION (AND SNOW MELT)
+      !  CALCULATIONS.  IT IS ASSUMED THAT A MET DATA PREPROGRAM
+      !  WILL HAVE CARRIED OUT VALIDATION CHECKS.
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/ET/METIN/4.1
+      ! Modifications:
+      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
+      ! RAH  961228  4.1  Initialize PELAST (was undefined). No long comments.
+      !      970516       Bring IDATA & PA from SPEC.ET; don't print values.
+      !                   Also bring EPLAST & PEIN.  Explicit typing.
+      !                   Generic intrinsics.  "PINP" not "P" in list below.
+      !                   Remove local TSTART (redundant), and
+      !                   TERPO1 redundant 7th arg (SPEC.ET arrays NUM*).
+      !----------------------------------------------------------------------*
+      ! Commons and constants
+      !
+      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
+      !     VARIABLE AND UNIT SPEFICATION
+      !
+      !     ISITE - SITE IDENTIFIER                         NON-DIM
+      !     METIME- VALIDITY TIME OF CURRENT MET. DATA      HR
+      !     DTMET - TIMESTEP FOR INPUT OF MET. DATA         HR
+      !     PINP  - PRECIPITATION
+      !                   INPUT                             MM/HR
+      !                   IN THE CALCULATIONS               M/SEC
+      !     OBSPE - MEASURED POTENTIAL EVAPORATION
+      !                   INPUT                             MM/HR
+      !                   IN THE CALCULATIONS               MM/S
+      !     RN    - NET RADIATION                           W/M/M
+      !     U     - WIND SPEED                              M/S
+      !     TA    - AIR TEMPERATURE                         C
+      !     DEL   - SLOPE                                   MB/C
+      !     VPD   - VAPOUR PRESSURE DEFICIT                 MB
+      !970516  The following are read but not used:
+      !     PA    - ATM. PRESSURE                           MB.
+      !     IDATA - DATA QUALITY INDICATOR                  NON-DIM
+      !
+      !
+      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !     FOR BMETAL = .FALSE. :
+      !     IF THE NUMBER OF RAINFALL STATIONS AND THE NUMBER OF METEOROL-
+      !     OGICAL STATIONS ARE THE SAME, THE STATIONS ARE ASSUMED TO HAVE
+      !     THE SAME GRID-DISTRIBUTION CODE. METEOROLOGICAL AND RAINFALL
+      !     DATA ARE THEN GIVEN TOGETHER IN THE DATA FILE. IF THE NUMBERS
+      !     OF THE STATIONS ARE NOT THE SAME, RAINFALL AND METEOROLOGICAL
+      !     DATA ARE DISTRIBUTED BY SEPERATE GRID-CODES AND ARE READ FROM
+      !     SEPERATE LINES IN THE DATA FILE.
+      !
+      !     FOR BMETAL = .TRUE. :
+      !     EVAPOTR. DATA AND RAINFALL DATA ARE READ FROM TWO SEPARATE FILES.
+      !
+      !     NOTE: THE PRECIPITATION DATA IS AVERAGED OVER A COMPUTATIONAL
+      !           TIMESTEP ELSEWHERE
+      !
+      !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      !
       ! Assumed external module dependencies providing global variables:
       ! BMETAL, BMETDATES, prd, NRAIN, PPPRI, uznow, PINP, ZERO, dtmet2, MELAST,
       ! METIME, BHOTRD, BHOTTI, EPTIME, epd, NM, PEIN, ISTA, TAH, TAHIGH, TAL,
@@ -310,7 +311,7 @@ SUBROUTINE BALWAT
       CHARACTER(LEN=100000) :: tmp
       INTEGER             :: ios
       DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IF (BMETAL) THEN
 
@@ -326,10 +327,10 @@ SUBROUTINE BALWAT
                   READ(prd, 9000, IOSTAT=ios) prdyear, prdmonth, prdday, prdhour, prdminute, prdsecond, tmp
 
                   IF (ios > 0) THEN
-                      WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
-                         'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
-                         NRAIN, ' values on each row'
-                      ERROR STOP
+                     WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                        'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
+                        NRAIN, ' values on each row'
+                     ERROR STOP
                   END IF
 
                   IF (ios < 0) THEN
@@ -343,9 +344,9 @@ SUBROUTINE BALWAT
                      READ (tmp, *, IOSTAT=ios) PINP(1:NRAIN)
 
                      IF (ios > 0) THEN
-                         WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
-                            'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
-                         ERROR STOP
+                        WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                           'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
+                        ERROR STOP
                      END IF
                   END IF
 
@@ -353,9 +354,9 @@ SUBROUTINE BALWAT
                   READ (PRD, *, IOSTAT=ios) PINP(1:NRAIN)
 
                   IF (ios > 0) THEN
-                      WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
-                         NRAIN, ' values on each row with no dates in the first column (see ET1)'
-                      ERROR STOP
+                     WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
+                        NRAIN, ' values on each row with no dates in the first column (see ET1)'
+                     ERROR STOP
                   END IF
 
                   IF (ios < 0) THEN
@@ -385,9 +386,9 @@ SUBROUTINE BALWAT
                      READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
 
                      IF (ios > 0) THEN
-                         WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
-                            'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
-                         ERROR STOP
+                        WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
+                           'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
+                        ERROR STOP
                      END IF
 
                      IF (ios < 0) THEN
@@ -399,10 +400,10 @@ SUBROUTINE BALWAT
                      ELSE
                         epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
                         READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
-                         IF (ios > 0) THEN
-                            WRITE (*, 9022) ' Error reading potential evap data values from line.'
-                            ERROR STOP
-                         END IF
+                        IF (ios > 0) THEN
+                           WRITE (*, 9022) ' Error reading potential evap data values from line.'
+                           ERROR STOP
+                        END IF
                      END IF
 
                      IF (ISTA) THEN
@@ -441,7 +442,7 @@ SUBROUTINE BALWAT
 
                      IF (.NOT. (BHOTRD .AND. EPTIME < BHOTTI)) EXIT hotstart_epd_loop
 
-                  ! epd and temperature files DO NOT have dates
+                     ! epd and temperature files DO NOT have dates
                   ELSE
                      READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
                      IF (ios > 0) THEN
@@ -538,7 +539,7 @@ SUBROUTINE BALWAT
 
                      IF (.NOT. (EPTIME < UZNOW + UZNEXT)) EXIT pet_read_loop
 
-                  ! epd and temperature files DO NOT have dates
+                     ! epd and temperature files DO NOT have dates
                   ELSE
                      READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
                      IF (ios > 0) STOP 'Error reading PET file'
@@ -740,9 +741,9 @@ SUBROUTINE BALWAT
 9080  FORMAT (2I6, G12.6, 24X, I12)
 9090  FORMAT ('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')
 9100  FORMAT (//, 1X, 'MET DATA - SITE    TIME      RAINFALL    NET RADN', 4X, &
-              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+         'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
 9110  FORMAT (//, 1X, 'MET DATA - SITE    TIME      NET RADN', 4X, &
-              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+         'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
 9120  FORMAT (//, 1X, 'RAIN DATA - SITE    TIME      RAINFALL         IDATA')
 9130  FORMAT (//, 1X, 'MET DATA -  TIME :', F8.2, /, ' STATION           RAINFALL      POT. EVAP.(MM/HR)')
 9140  FORMAT (4X, I2, 9X, F10.3, 9X, F10.3)

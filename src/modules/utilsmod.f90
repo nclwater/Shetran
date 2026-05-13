@@ -4,6 +4,7 @@ MODULE utilsmod
 ! SB Mar 26  4.6       Error traping for dates
 !
    USE SGLOBAL
+   USE mod_error, ONLY : ERROR, FFFATAL, pppri
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
    IMPLICIT NONE
@@ -19,9 +20,9 @@ CONTAINS
 
    !SSSSSS subroutine dcopy (n, dx, incx, dy, incy)
    PURE SUBROUTINE dcopy(n, dx, incx, dy, incy)
-   !----------------------------------------------------------------------*
-   !     copies vector x to vector y
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !     copies vector x to vector y
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -37,7 +38,7 @@ CONTAINS
       ! Locals
       INTEGER :: i, ix, iy
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! Modernization Fix: Corrected strange 'n<-0' syntax to standard <= 0
       IF (n <= 0) THEN
@@ -63,24 +64,24 @@ CONTAINS
 
    !SSSSSS SUBROUTINE FINPUT
    SUBROUTINE FINPUT(IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
-                     FNEXT, NINP, ARRAY)
-   !----------------------------------------------------------------------
-   !
-   ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF FLUX DATA.
-   ! DATA ARE AVERAGED OVER A SIMULATION TIMESTEP.
-   !
-   ! PARAMETERS:
-   !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-   !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-   !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-   !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-   ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-   ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-   ! (INPUT/OUTPUT)  FNEXT   CURRENT VALUE VALID UP TO TIME 'INTIME'
-   !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-   !       (OUTPUT)  ARRAY   ARRAY OF DATA ITEMS
-   !
-   !----------------------------------------------------------------------
+      FNEXT, NINP, ARRAY)
+      !----------------------------------------------------------------------
+      !
+      ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF FLUX DATA.
+      ! DATA ARE AVERAGED OVER A SIMULATION TIMESTEP.
+      !
+      ! PARAMETERS:
+      !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
+      !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
+      !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
+      !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
+      ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
+      ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
+      ! (INPUT/OUTPUT)  FNEXT   CURRENT VALUE VALID UP TO TIME 'INTIME'
+      !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
+      !       (OUTPUT)  ARRAY   ARRAY OF DATA ITEMS
+      !
+      !----------------------------------------------------------------------
       IMPLICIT NONE
 
       ! Dummy Arguments
@@ -94,7 +95,7 @@ CONTAINS
       INTEGER                         :: TIME(5), read_stat
       DOUBLE PRECISION                :: SIMEND
 
-   !----------------------------------------------------------------------
+      !----------------------------------------------------------------------
 
       SIMEND = SIMNOW + SIMSTP
 
@@ -150,24 +151,24 @@ CONTAINS
 
    !SSSSSS SUBROUTINE HINPUT
    SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, HLAST, HNEXT, NINP, ARRAY)
-   !----------------------------------------------------------------------
-   !
-   ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF HEAD DATA.
-   ! HEAD DATA ARE INTERPOLATED ONTO THE MID-POINT OF THE SIMULATION TIMESTEP
-   !
-   ! PARAMETERS:
-   !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-   !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-   !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-   !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-   ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-   ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-   ! (INPUT/OUTPUT)  HLAST   LAST VALUE READ FROM INPUT FILE AT TIME 'INLAST'
-   ! (INPUT/OUTPUT)  HNEXT   NEXT VALUE READ FROM INPUT FILE AT TIME 'INTIME'
-   !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-   !       (OUTPUT)  ARRAY   ARRAY OF INTERPOLATED DATA ITEMS
-   !
-   !----------------------------------------------------------------------
+      !----------------------------------------------------------------------
+      !
+      ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF HEAD DATA.
+      ! HEAD DATA ARE INTERPOLATED ONTO THE MID-POINT OF THE SIMULATION TIMESTEP
+      !
+      ! PARAMETERS:
+      !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
+      !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
+      !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
+      !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
+      ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
+      ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
+      ! (INPUT/OUTPUT)  HLAST   LAST VALUE READ FROM INPUT FILE AT TIME 'INLAST'
+      ! (INPUT/OUTPUT)  HNEXT   NEXT VALUE READ FROM INPUT FILE AT TIME 'INTIME'
+      !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
+      !       (OUTPUT)  ARRAY   ARRAY OF INTERPOLATED DATA ITEMS
+      !
+      !----------------------------------------------------------------------
 
       ! Assumed external module dependencies providing global variables:
       ! HOUR_FROM_DATE, marker999
@@ -196,7 +197,7 @@ CONTAINS
          IF (INTIME >= SIMMID .AND. INLAST < SIMMID) THEN
             ! Replaced DO loop 20 with native array slice assignment
             ARRAY(1:NINP) = HLAST(1:NINP) + (HNEXT(1:NINP) - HLAST(1:NINP)) * &
-                            ((SIMMID - INLAST) / (INTIME - INLAST))
+               ((SIMMID - INLAST) / (INTIME - INLAST))
          END IF
 
          ! READ DATA UNTIL END OF SIMULATION TIMESTEP
@@ -230,18 +231,18 @@ CONTAINS
 
    !SSSSSS DOUBLE PRECISION FUNCTION hour_from_date
    FUNCTION hour_from_date(kyear, kmth, kday, khour, kmin) RESULT(r)
-   !----------------------------------------------------------------------*
-   !  THIS FUNCTION CALCULATES HOURS SINCE 1.JANUARY YEAR 1950 AT 0 HOUR
-   !  LEAP YEARS ARE TAKEN INTO ACCOUNT
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/AL/HOUR/4.2
-   ! Modifications:
-   ! RAH  09.12.93  3.4.1  Remove IMPLICIT INTEGER*2 (I-N).
-   ! RAH  980611  4.2 !Replace 60. with 6D1 to eliminate rounding error.
-   !                  Explicit typing.
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  KYEAR.ge.1949    KMTH.ge.1    KMTH.le.12
+      !----------------------------------------------------------------------*
+      !  THIS FUNCTION CALCULATES HOURS SINCE 1.JANUARY YEAR 1950 AT 0 HOUR
+      !  LEAP YEARS ARE TAKEN INTO ACCOUNT
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/AL/HOUR/4.2
+      ! Modifications:
+      ! RAH  09.12.93  3.4.1  Remove IMPLICIT INTEGER*2 (I-N).
+      ! RAH  980611  4.2 !Replace 60. with 6D1 to eliminate rounding error.
+      !                  Explicit typing.
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  KYEAR.ge.1949    KMTH.ge.1    KMTH.le.12
 
       ! Assumed external module dependencies providing functions:
       ! (If DATE_FROM_HOUR, DAYS_IN_YEARS_SINCE_1950, etc., are in modules,
@@ -258,7 +259,7 @@ CONTAINS
       ! Locals
       INTEGER :: d, check(6)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       d = DAYS_IN_YEARS_SINCE_1950(kyear) + DAYS_TO_START_MONTH(kmth, kyear) + kday
       r = DBLE(d * 24 + khour) + DBLE(kmin) / 6.0D1
@@ -269,7 +270,7 @@ CONTAINS
       check = DATE_FROM_HOUR(r)
 
       IF (check(1) /= kyear .OR. check(2) /= kmth .OR. check(3) /= kday .OR. &
-          check(4) /= khour .OR. check(5) /= kmin) THEN
+         check(4) /= khour .OR. check(5) /= kmin) THEN
 
          WRITE (*, '(A)') ' There is a problem with a date that has been entered'
          WRITE (*, '(A,5(1x,I0))') 'The Year, month,day,hour,minute values entered are: ', kyear, kmth, kday, khour, kmin
@@ -283,9 +284,9 @@ CONTAINS
 
 !FFFFFF FUNCTION days_in_years_since_1950
    PURE FUNCTION days_in_years_since_1950(y) RESULT(r)
-   !----------------------------------------------------------------------*
-   ! Calculates the total days in whole years elapsed since 1950.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Calculates the total days in whole years elapsed since 1950.
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies:
       ! USE TIME_UTILS, ONLY : IS_LEAP
@@ -305,7 +306,7 @@ CONTAINS
       ! Note: IS_LEAP MUST be PURE for this function to be PURE
       ! PURE LOGICAL, EXTERNAL :: IS_LEAP
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       r = (y - 1950) * 365
 
@@ -320,11 +321,11 @@ CONTAINS
 
    !FFFFFF FUNCTION is_leap
    PURE FUNCTION is_leap(y) RESULT(r)
-   !----------------------------------------------------------------------*
-   ! A year will be a leap year if it is divisible by 4 but not by 100.
-   ! If a year is divisible by 4 and by 100, it is not a leap year unless
-   ! it is also divisible by 400.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! A year will be a leap year if it is divisible by 4 but not by 100.
+      ! If a year is divisible by 4 and by 100, it is not a leap year unless
+      ! it is also divisible by 400.
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -347,7 +348,7 @@ CONTAINS
 
    !FFFFFF FUNCTION days_to_start_month
    FUNCTION days_to_start_month(m, y) RESULT(r)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! Assumed global variables from host module: FFFATAL, pppri
 
@@ -372,7 +373,7 @@ CONTAINS
 
    !FFFFFF FUNCTION date_from_hour
    FUNCTION date_from_hour(h) RESULT(r)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -417,9 +418,9 @@ CONTAINS
 
    !FFFFFF FUNCTION jematmul_mm
    PURE FUNCTION jematmul_mm(b, c, n1, n2, n3) RESULT(a)
-   !----------------------------------------------------------------------*
-   ! A = B * C  (Note: Indexing implies A(i,j) = sum(B(k,j)*C(i,k)))
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! A = B * C  (Note: Indexing implies A(i,j) = sum(B(k,j)*C(i,k)))
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -446,9 +447,9 @@ CONTAINS
 
    !FFFFFF FUNCTION jematmul_vm
    PURE FUNCTION jematmul_vm(b, c, n1, n2) RESULT(a)
-   !----------------------------------------------------------------------*
-   ! A = B * C
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! A = B * C
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -471,27 +472,27 @@ CONTAINS
 
    !SSSSSS SUBROUTINE TERPO1
    PURE SUBROUTINE TERPO1(YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)
-   !----------------------------------------------------------------------*
-   !
-   !     SERVICE SUBROUTINE TO INTERPOLATE VALUES FOR ONE-DIMENSIONAL
-   !                   TIME-VARYING PARAMETERS
-   !        VARIABLE LISTING:
-   !        YCURR = CURRENT VALUE OF PARAMETER
-   !        YTAB  = TABULATED RELATIVE VALUES OF PARAMETER
-   !        YINIT = INITIAL OR REFERENCE VALUE OF PARAMETER
-   !        TCURR = CURRENT TIME (HOURS)
-   !        TTAB  = TABULATED VALUES OF TIME (DAYS)
-   !        NCT   = COUNTER FOR POSITION IN TABULATED ARRAYS
-   !        NPAR  = SIZE OF PARAMETER ARRAY
-   !        I     = POSITION IN PARAMETER ARRAY
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/TERPO1/4.1
-   ! Modifications:
-   ! RAH  941005 3.4.1 Remove IMPLICIT INTEGER*2.
-   ! RAH  970516  4.1  Explicit typing.  *TAB assumed size (were 20).
-   !                   Scrap redundant arg ITAB "SIZE OF TABULATED ARRAYS".
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !     SERVICE SUBROUTINE TO INTERPOLATE VALUES FOR ONE-DIMENSIONAL
+      !                   TIME-VARYING PARAMETERS
+      !        VARIABLE LISTING:
+      !        YCURR = CURRENT VALUE OF PARAMETER
+      !        YTAB  = TABULATED RELATIVE VALUES OF PARAMETER
+      !        YINIT = INITIAL OR REFERENCE VALUE OF PARAMETER
+      !        TCURR = CURRENT TIME (HOURS)
+      !        TTAB  = TABULATED VALUES OF TIME (DAYS)
+      !        NCT   = COUNTER FOR POSITION IN TABULATED ARRAYS
+      !        NPAR  = SIZE OF PARAMETER ARRAY
+      !        I     = POSITION IN PARAMETER ARRAY
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/ET/TERPO1/4.1
+      ! Modifications:
+      ! RAH  941005 3.4.1 Remove IMPLICIT INTEGER*2.
+      ! RAH  970516  4.1  Explicit typing.  *TAB assumed size (were 20).
+      !                   Scrap redundant arg ITAB "SIZE OF TABULATED ARRAYS".
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -509,13 +510,13 @@ CONTAINS
       INTEGER :: ITERP, NCTERP
       DOUBLE PRECISION :: DIFFA, DIFFB, DIFFC, YREL
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       NCTERP = NCT(I)
 
       ! Calculate interval jump (time is in hours, TTAB is in days)
       ITERP = INT((TCURR / 24.0D0 - TTAB(I, NCTERP)) / &
-                  (TTAB(I, NCTERP + 1) - TTAB(I, NCTERP)))
+         (TTAB(I, NCTERP + 1) - TTAB(I, NCTERP)))
       NCTERP = NCTERP + ITERP
 
       ! Interpolate
@@ -534,11 +535,11 @@ CONTAINS
 
    !SSSSSS SUBROUTINE TRIDAG (A, B, C, R, U, N)
    PURE SUBROUTINE TRIDAG (A, B, C, R, U, N)
-   !----------------------------------------------------------------------*
-   !                            SOLVES FOR VECTOR U OF LENGTH N
-   !                            THE TRIDIAGONAL SET A,B,C WHERE
-   !                            R IS THE R.H.S.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !                            SOLVES FOR VECTOR U OF LENGTH N
+      !                            THE TRIDIAGONAL SET A,B,C WHERE
+      !                            R IS THE R.H.S.
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -573,10 +574,10 @@ CONTAINS
 
    !SSSSSS SUBROUTINE invertmat
    PURE SUBROUTINE invertmat(a, n, icod)
-   !----------------------------------------------------------------------*
-   ! Inverts a square matrix 'a' of size 'n' using LU decomposition.
-   ! Returns icod = 0 (success) or icod = 1 (singular/failure).
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Inverts a square matrix 'a' of size 'n' using LU decomposition.
+      ! Returns icod = 0 (success) or icod = 1 (singular/failure).
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -596,7 +597,7 @@ CONTAINS
       DOUBLE PRECISION :: d
       LOGICAL :: issing
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       icod = 0
 
@@ -640,13 +641,13 @@ CONTAINS
 
    !SSSSSS SUBROUTINE lubksb(a, n, indx, b)
    PURE SUBROUTINE lubksb(a, n, indx, b)
-   !----------------------------------------------------------------------*
-   ! Solves the linear system A*x = b using LU Decomposition.
-   ! 'a' is the LU-decomposed matrix output from 'ludcmp'.
-   ! 'indx' is the row permutation vector output from 'ludcmp'.
-   ! 'b' is the right-hand side vector on input, and contains the
-   !     solution vector 'x' on output.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Solves the linear system A*x = b using LU Decomposition.
+      ! 'a' is the LU-decomposed matrix output from 'ludcmp'.
+      ! 'indx' is the row permutation vector output from 'ludcmp'.
+      ! 'b' is the right-hand side vector on input, and contains the
+      !     solution vector 'x' on output.
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -660,7 +661,7 @@ CONTAINS
       INTEGER                         :: i, ii, ll
       DOUBLE PRECISION                :: asum
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ii = 0
 
@@ -697,13 +698,13 @@ CONTAINS
 
    !SSSSSS SUBROUTINE ludcmp(a, n, indx, d, issing)
    PURE SUBROUTINE ludcmp(a, n, indx, d, issing)
-   !----------------------------------------------------------------------*
-   ! Performs LU Decomposition on matrix 'a' using partial pivoting.
-   ! 'a' is replaced by its LU decomposition.
-   ! 'indx' records the row permutations.
-   ! 'd' outputs +1 or -1 depending on whether row swaps were even or odd.
-   ! 'issing' is flagged .TRUE. if the matrix is singular.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Performs LU Decomposition on matrix 'a' using partial pivoting.
+      ! 'a' is replaced by its LU decomposition.
+      ! 'indx' records the row permutations.
+      ! 'd' outputs +1 or -1 depending on whether row swaps were even or odd.
+      ! 'issing' is flagged .TRUE. if the matrix is singular.
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -719,7 +720,7 @@ CONTAINS
       DOUBLE PRECISION                :: aamax, dum, vv(n), dum_row(n)
       DOUBLE PRECISION, PARAMETER     :: TINY = 1.0D-20
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       issing = .FALSE.
       d = 1.0D0
@@ -1082,13 +1083,13 @@ CONTAINS
 
    !FFFFFF FUNCTION ran2
    FUNCTION ran2(idum)
-   !----------------------------------------------------------------------*
-   ! Long period (> 2 x 10^18) random number generator of L'Ecuyer with
-   ! Bays-Durham shuffle and added safeguards.
-   ! Returns a uniform random deviate between 0.0 and 1.0 (exclusive).
-   ! Call with idum a negative integer to initialize; thereafter, do not
-   ! alter idum between successive deviates in a sequence.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! Long period (> 2 x 10^18) random number generator of L'Ecuyer with
+      ! Bays-Durham shuffle and added safeguards.
+      ! Returns a uniform random deviate between 0.0 and 1.0 (exclusive).
+      ! Call with idum a negative integer to initialize; thereafter, do not
+      ! alter idum between successive deviates in a sequence.
+      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -1125,7 +1126,7 @@ CONTAINS
       ! Locals
       INTEGER :: j, k
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! Initialization block
       IF (idum <= 0) THEN

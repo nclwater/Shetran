@@ -14,8 +14,7 @@
 !> | 2025-08-11 | AI | Ported to standard Fortran, removed Windows dependencies |
 MODULE GETDIRQQ
 
-    use mod_parameters
-    use sglobal, only : error_mode
+   use mod_parameters
 
    IMPLICIT NONE
 
@@ -76,13 +75,13 @@ CONTAINS
 
       message = ''
       SELECT CASE(code)
-      CASE ('-f') ! treat as filename - main portable mode
+       CASE ('-f') ! treat as filename - main portable mode
          IF (na < 2) THEN
             CALL print_usage_and_stop('Missing filename. Usage: shetran -f filename.txt')
          END IF
          CALL GET_COMMAND_ARGUMENT(2, cli_argument)
 
-      CASE ('-c')  ! treat as catchment name (kept for compatibility)
+       CASE ('-c')  ! treat as catchment name (kept for compatibility)
          IF (na < 2) THEN
             cli_argument = 'default'
          ELSE
@@ -121,13 +120,13 @@ CONTAINS
             message = 'Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
          END IF
 
-      CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
+       CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
          ! Windows GUI modes not supported in portable version
          CALL print_usage_and_stop('Interactive file selection not supported in portable version. Use: shetran -f filename.txt')
 
-      CASE DEFAULT
+       CASE DEFAULT
          message = 'Unrecognised command line argument ' // TRIM(code) // &
-                   '. Portable version supports: -f filename, -c catchment'
+            '. Portable version supports: -f filename, -c catchment'
       END SELECT
 
       IF (message /= '') CALL print_usage_and_stop(message)

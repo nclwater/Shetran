@@ -10,6 +10,7 @@ MODULE OCmod
    USE AL_G ,     ONLY : NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI
+   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
    USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
@@ -83,35 +84,35 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCINI
    SUBROUTINE OCINI()
-   !----------------------------------------------------------------------*
-   !  Control OC initialization
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCINI/4.2
-   ! Modifications:
-   !  GP       3.4  Don't set OCNOW,OCVAL,OCNEXT (see also FRINIT,SHE).
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   ! RAH  961228  4.1  Remove variables T & TF.
-   ! RAH  980119  4.2  Explicit typing.
-   !                   Scrap SPEC.AL variables WSOC,WSOCI,WSOCER, SPEC.OC
-   !                   arrays PT,TEMPS, & local variables DT,IDT,TITRE,VTP.
-   !      980120       Use SQRT not DSQRT.
-   !                   Bring KONT from SPEC.OC & pass to OCREAD.
-   !      980130       Call OCCHK0 (new).  Move read section to OCREAD.
-   !      980202       Write NXSCEE.  Bring OCIND call from OCREAD.
-   !      980203       Pass NGDBGN to OCCHK0, but not OHB,OFB.
-   !                   Call OCCHK1, OCCHK2 and OCXS (new).
-   !                   Bring OHB,OFB initial read from OCBC.
-   !      980205       Pass LDUM1 to OCCHK1. Full argument list for OCREAD.
-   !      980210       Full argument list for OCIND.
-   !      980212       Move WLMIN (SPEC.OC) to OCQMLN.
-   !      980218       (Remove NGDBGN from OCREAD argument list.)
-   !      980226       Get TDC,TFC from OCREAD.
-   !      980408       Move ROOT2G (SPEC.OC) to OCQBNK.
-   !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (SPEC.OC).
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  [NELEE,NLFEE,NXEE,NY,NOCTAB ].ge.1    NXSCEE.ge.2    NEL.ge.NGDBGN
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !  Control OC initialization
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCINI/4.2
+      ! Modifications:
+      !  GP       3.4  Don't set OCNOW,OCVAL,OCNEXT (see also FRINIT,SHE).
+      ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+      ! RAH  961228  4.1  Remove variables T & TF.
+      ! RAH  980119  4.2  Explicit typing.
+      !                   Scrap SPEC.AL variables WSOC,WSOCI,WSOCER, SPEC.OC
+      !                   arrays PT,TEMPS, & local variables DT,IDT,TITRE,VTP.
+      !      980120       Use SQRT not DSQRT.
+      !                   Bring KONT from SPEC.OC & pass to OCREAD.
+      !      980130       Call OCCHK0 (new).  Move read section to OCREAD.
+      !      980202       Write NXSCEE.  Bring OCIND call from OCREAD.
+      !      980203       Pass NGDBGN to OCCHK0, but not OHB,OFB.
+      !                   Call OCCHK1, OCCHK2 and OCXS (new).
+      !                   Bring OHB,OFB initial read from OCBC.
+      !      980205       Pass LDUM1 to OCCHK1. Full argument list for OCREAD.
+      !      980210       Full argument list for OCIND.
+      !      980212       Move WLMIN (SPEC.OC) to OCQMLN.
+      !      980218       (Remove NGDBGN from OCREAD argument list.)
+      !      980226       Get TDC,TFC from OCREAD.
+      !      980408       Move ROOT2G (SPEC.OC) to OCQBNK.
+      !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (SPEC.OC).
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  [NELEE,NLFEE,NXEE,NY,NOCTAB ].ge.1    NXSCEE.ge.2    NEL.ge.NGDBGN
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NOCTAB, NELEE, total_no_links, NXSCEE, PPPRI, BEXBK, NROWF, NROWL,
@@ -125,7 +126,7 @@ CONTAINS
       DOUBLE PRECISION :: TDC, TFC
       LOGICAL :: LDUM1 (NELEE)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       CALL OCCHK0()
 
@@ -200,31 +201,31 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCABC
    SUBROUTINE OCABC(IND, IROW, IELZ, NSV, NCR, NPR, IBC, N, AREAE, &
-         ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
-   !----------------------------------------------------------------------*
-   ! CALCULATION OF MATRIX COEFFICIENTS, GIVEN FLOWS AND DERIVATIVES
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCABC/4.2
-   ! Modifications:
-   ! GP   930326  3.4  Don't set EEVAP(IEL) (see ETIN).
-   !                   Replace PNETTO(IEL)-EPDUM (part of FF(IND)) with
-   !                   PDUM-ESWA(IEL).
-   !                   Don't subtract QBKI(IEL,IBK) from BKDUM.
-   ! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
-   ! GP   960115  4.0  Replace QUZR(IEL)+QSZR(IEL) (part of FF) with QHDUM.
-   ! RAH  980107  4.2  Explicit typing.  Amend description in header.
-   !                   Add arguments IND,IEL,N,AREAE,CL,ZBF,ZG,Z;
-   !                   remove ICOUNT; also, move AA,BB,CC,FF from SPEC.OC
-   !                   to arg-list & reduce dimensions by one (see OCSIM).
-   !                   Ensure AR defined (for links) when Z=ZBF.
-   !                   New locals HI,HM,IM,WI,WM.
-   !      980108       Scrap JFACE2.  New local IBR.  Use BLINK not ITYPE.
-   !                   Initialize AA,BB,CC,FF here, not in OCSIM.
-   !                   Unroll loop, and use ELSE, for BKDUM and QHDUM.
-   !                   Add arguments NSV,NCR,NPR,PNETT,QHE,ESWAE.
-   !      980115       Set head boundaries (were in OCSIM, after solver).
-   !      980226       Move DTOC from SPEC.OC to arg-list (see OCSIM).
-   !----------------------------------------------------------------------*
+      ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
+      !----------------------------------------------------------------------*
+      ! CALCULATION OF MATRIX COEFFICIENTS, GIVEN FLOWS AND DERIVATIVES
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCABC/4.2
+      ! Modifications:
+      ! GP   930326  3.4  Don't set EEVAP(IEL) (see ETIN).
+      !                   Replace PNETTO(IEL)-EPDUM (part of FF(IND)) with
+      !                   PDUM-ESWA(IEL).
+      !                   Don't subtract QBKI(IEL,IBK) from BKDUM.
+      ! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
+      ! GP   960115  4.0  Replace QUZR(IEL)+QSZR(IEL) (part of FF) with QHDUM.
+      ! RAH  980107  4.2  Explicit typing.  Amend description in header.
+      !                   Add arguments IND,IEL,N,AREAE,CL,ZBF,ZG,Z;
+      !                   remove ICOUNT; also, move AA,BB,CC,FF from SPEC.OC
+      !                   to arg-list & reduce dimensions by one (see OCSIM).
+      !                   Ensure AR defined (for links) when Z=ZBF.
+      !                   New locals HI,HM,IM,WI,WM.
+      !      980108       Scrap JFACE2.  New local IBR.  Use BLINK not ITYPE.
+      !                   Initialize AA,BB,CC,FF here, not in OCSIM.
+      !                   Unroll loop, and use ELSE, for BKDUM and QHDUM.
+      !                   Add arguments NSV,NCR,NPR,PNETT,QHE,ESWAE.
+      !      980115       Set head boundaries (were in OCSIM, after solver).
+      !      980226       Move DTOC from SPEC.OC to arg-list (see OCSIM).
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NXOCEE, DTOC, ZERO, ONE, ICMREF, ICMRF2, DQ0ST, DQIST2, QBKB, DQIST,
@@ -243,9 +244,9 @@ CONTAINS
       DOUBLE PRECISION             :: QHDUM, WI, WM
       LOGICAL                      :: BLINK, TEST
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! ----- INITIALIZE OUTPUT ARRAYS & GET WATER DEPTH
+      ! ----- INITIALIZE OUTPUT ARRAYS & GET WATER DEPTH
       ! Performance Rollback: Explicit DO loops bypass dope-vector overhead for micro-arrays
       IF (NSV > 0) THEN
          DO I = 1, NSV
@@ -265,17 +266,17 @@ CONTAINS
 
       H = Z - ZG
 
-   ! ----- HEAD BOUNDARY
+      ! ----- HEAD BOUNDARY
       IF (IBC == 3 .OR. IBC == 9) THEN
          BB(IND) = ONE
          FF = HNOW - H
          RETURN
       END IF
 
-   ! ----- IS THE CURRENT ELEMENT A LINK?
+      ! ----- IS THE CURRENT ELEMENT A LINK?
       BLINK = (ICMREF(IELZ, 1) == 3)
 
-   ! ----- PUT STORAGE TERM INTO CENTRAL COEFFICIENT FOR CURRENT ELEMENT
+      ! ----- PUT STORAGE TERM INTO CENTRAL COEFFICIENT FOR CURRENT ELEMENT
       TEST = BLINK
       IF (TEST) TEST = (Z < ZBF)
 
@@ -298,7 +299,7 @@ CONTAINS
 
       BB(IND) = -AR / DTOC
 
-   ! ----- PUT PRECIPITATION, EVAPORATION AND EXCHANGE FLOWS INTO RHS
+      ! ----- PUT PRECIPITATION, EVAPORATION AND EXCHANGE FLOWS INTO RHS
       PDUM = PNETT
       IF (BLINK) THEN
          IF (H < 1.0D-8) PDUM = ZERO
@@ -311,31 +312,31 @@ CONTAINS
 
       FF = -AREAE * (PDUM + QHDUM - ESWAE) + BKDUM
 
-   ! ----- LOOP OVER ADJACENT ELEMENTS
+      ! ----- LOOP OVER ADJACENT ELEMENTS
       face_loop: DO IFACE = 1, 4
          JEL = ICMREF(IELZ, IFACE + 4)
          JFACE = ICMREF(IELZ, IFACE + 8)
 
-   ! --- GET FLOW AND DERIVATIVE (+VE INTO ELEMENT)
+         ! --- GET FLOW AND DERIVATIVE (+VE INTO ELEMENT)
          Q = GETQSA (ielz, IFACE)
          DQ0 = DQ0ST(IELZ, IFACE)
 
-   ! --- ADD INTO COEFFICIENTS FOR CURRENT ELEMENT
+         ! --- ADD INTO COEFFICIENTS FOR CURRENT ELEMENT
          BB(IND) = BB(IND) + DQ0
          FF = FF - Q
 
-   ! --- TEST FOR SINGLE ADJACENT ELEMENT
+         ! --- TEST FOR SINGLE ADJACENT ELEMENT
          IF (JEL > 0) THEN
             JROW = ICMREF(JEL, 3)
             JND = NELIND(JEL)
             DQI = DQIST(IELZ, IFACE)
 
-   !        ADD DERIVATIVE TO COEFFICIENT FOR ADJACENT ELEMENT
+            !        ADD DERIVATIVE TO COEFFICIENT FOR ADJACENT ELEMENT
             IF (JROW == IROW) BB(JND) = BB(JND) + DQI
             IF (JROW > IROW)  AA(JND) = AA(JND) + DQI
             IF (JROW < IROW)  CC(JND) = CC(JND) + DQI
 
-   ! --- SIMILARLY FOR MULTIPLE ADJACENT LINKS
+            ! --- SIMILARLY FOR MULTIPLE ADJACENT LINKS
          ELSE IF (JEL < 0) THEN
             IBR = -JEL
             DO J = 1, 3
@@ -359,32 +360,32 @@ CONTAINS
 
    !SSSSSS SUBROUTINE JEOCBC
    SUBROUTINE JEOCBC(IXER, NOCBC)
-   !----------------------------------------------------------------------*
-   !
-   !  Set up boundary data (except for some channel link details to follow)
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCBC/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
-   ! GP   970207  4.2  Add missing code for polynomial coeffs (see BR/50).
-   ! RAH  971218       Explicit typing.  List-directed reads.
-   !                   Initialize NOCBCC, but not NOCBCD(link) (use OCPLF).
-   !                   Use local TYPE.  Loop 90 instead of duplicate.
-   !                   Fix error in use of IBANK (using new loop 107).
-   !      980115       Trap ICAT<0 and NOCBC>NOCTAB.  Pass IEL to ERROR.
-   !                   Update IXER.  Replace ADUM,...,EDUM with ADUM(5).
-   !                   Amend COCBCD index, & replace STOP with call ERROR.
-   !                   Use IEL,TYPE for L,LC.
-   !      980121       Ensure NOCBCD(*,4).ge.1.  Use locals MSG,TEST.
-   !                   Bring NOCBC,NOCPB from SPEC.OC.
-   !      980203       Move OHB,OFB initial read to OCINI.
-   !      980204       Full argument list (no INCLUDEs) (see OCREAD);
-   !                   ERR local.  Move NOCBC to argument list.
-   !      980206       Check for elements with multiple BCs.
-   !      980218       (Fix error in loop 120 start value).
-   !      980225       Swap COCBCD subscripts (see SPEC.OC)
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !  Set up boundary data (except for some channel link details to follow)
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCBC/4.2
+      ! Modifications:
+      ! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
+      ! GP   970207  4.2  Add missing code for polynomial coeffs (see BR/50).
+      ! RAH  971218       Explicit typing.  List-directed reads.
+      !                   Initialize NOCBCC, but not NOCBCD(link) (use OCPLF).
+      !                   Use local TYPE.  Loop 90 instead of duplicate.
+      !                   Fix error in use of IBANK (using new loop 107).
+      !      980115       Trap ICAT<0 and NOCBC>NOCTAB.  Pass IEL to ERROR.
+      !                   Update IXER.  Replace ADUM,...,EDUM with ADUM(5).
+      !                   Amend COCBCD index, & replace STOP with call ERROR.
+      !                   Use IEL,TYPE for L,LC.
+      !      980121       Ensure NOCBCD(*,4).ge.1.  Use locals MSG,TEST.
+      !                   Bring NOCBC,NOCPB from SPEC.OC.
+      !      980203       Move OHB,OFB initial read to OCINI.
+      !      980204       Full argument list (no INCLUDEs) (see OCREAD);
+      !                   ERR local.  Move NOCBC to argument list.
+      !      980206       Check for elements with multiple BCs.
+      !      980218       (Fix error in loop 120 start value).
+      !      980225       Swap COCBCD subscripts (see SPEC.OC)
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! OCD, NOCHB, NOCFB, total_no_elements, NOCBCC, PPPRI, EEERR, NOCTAB,
@@ -405,19 +406,19 @@ CONTAINS
       LOGICAL                      :: TEST
       CHARACTER(LEN=77)            :: MSG
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! NUMBER OF CATEGORIES FOR EACH TYPE
+      ! NUMBER OF CATEGORIES FOR EACH TYPE
       READ (OCD, *)
       READ (OCD, *) NOCHB, NOCFB, NOCPB
 
-   ! INITIALIZATION
+      ! INITIALIZATION
       NOCBC = 0
 
       ! Vectorized zeroing for large array
       NOCBCC(1:total_no_elements) = 0
 
-   ! HEAD BOUNDARY (TYPE 3)
+      ! HEAD BOUNDARY (TYPE 3)
       IF (NOCHB > 0) THEN
          MSG = 'ERROR IN OC HEAD BOUNDARY GRID'
          CALL AREADI(IDUM, 0, OCD, PPPRI, NOCHB)
@@ -439,7 +440,7 @@ CONTAINS
          END DO
       END IF
 
-   ! FLUX BOUNDARY (TYPE 4)
+      ! FLUX BOUNDARY (TYPE 4)
       IF (NOCFB > 0) THEN
          MSG = 'ERROR IN OC FLUX BOUNDARY GRID'
          CALL AREADI(IDUM, 0, OCD, PPPRI, NOCFB)
@@ -461,7 +462,7 @@ CONTAINS
          END DO
       END IF
 
-   ! POLYNOMIAL FUNCTION BOUNDARY (TYPE 5)
+      ! POLYNOMIAL FUNCTION BOUNDARY (TYPE 5)
       IF (NOCPB > 0) THEN
          IBC0 = NOCBC
          MSG = 'ERROR IN OC POLYNOMIAL FUNCTION BOUNDARY GRID'
@@ -500,7 +501,7 @@ CONTAINS
          END DO
       END IF
 
-   ! SET CHANNEL LINK BOUNDARY TYPES (other data will follow)
+      ! SET CHANNEL LINK BOUNDARY TYPES (other data will follow)
       x_link_loop: DO I = 1, NX
          y_link_loop: DO J = 1, NY
             DO K = 0, 1
@@ -520,8 +521,8 @@ CONTAINS
          END DO y_link_loop
       END DO x_link_loop
 
-   ! SET INTERNAL IMPERMEABLE GRID BOUNDARY CONDITIONS (TYPE 1)
-   ! NB Impermeability extended across ends of any adjacent bank elements
+      ! SET INTERNAL IMPERMEABLE GRID BOUNDARY CONDITIONS (TYPE 1)
+      ! NB Impermeability extended across ends of any adjacent bank elements
       IBC0 = NOCBC
       x_grid_loop: DO I = 1, NX
          y_grid_loop: DO J = 1, NY
@@ -582,7 +583,7 @@ CONTAINS
          NOCBCD(IBC0 + 1 : MIN(NOCBC, NOCTAB), 4) = 1
       END IF
 
-   ! CHECK
+      ! CHECK
       IF (NOCBC > NOCTAB) THEN
          IXER = IXER + 1
          WRITE (MSG, "('Number of OC boundary conditions NOCBC =',I4,2X,'exceeds array size NOCTAB =',I4)") NOCBC, NOCTAB
@@ -605,19 +606,19 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCCHK0
    SUBROUTINE OCCHK0()
-   !----------------------------------------------------------------------*
-   !
-   !  Check static variables & constants input to the OC
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCCHK0/4.2
-   ! Modifications:
-   ! RAH  980130  4.2  New.
-   !      980203       Add argument NGDBGN; remove OHB,OFB.  NELEE.ge.NX.
-   !                   INQUIRE first, and use OUNIT for messages.
-   !      980206       NELEE.ge.NOCTAB*NOCTAB.
-   ! JE Jan 2009       Above restriction removed
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !  Check static variables & constants input to the OC
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCCHK0/4.2
+      ! Modifications:
+      ! RAH  980130  4.2  New.
+      !      980203       Add argument NGDBGN; remove OHB,OFB.  NELEE.ge.NX.
+      !                   INQUIRE first, and use OUNIT for messages.
+      !      980206       NELEE.ge.NOCTAB*NOCTAB.
+      ! JE Jan 2009       Above restriction removed
+      !----------------------------------------------------------------------*
       INTEGER       :: ERRNUM, I, IUNIT, NERR, OUNIT
       INTEGER, PARAMETER :: IUNDEF = 0
       INTEGER       :: IDUMS (1), IDUMO (1)
@@ -626,10 +627,10 @@ CONTAINS
       CHARACTER(11) :: FORM
       CHARACTER(3)  :: NAME
       NERR = 0
-   !----------------------------------------------------------------------*
-   ! 1. Unit Numbers
-   ! ---------------
-   ! PRI, OCD
+      !----------------------------------------------------------------------*
+      ! 1. Unit Numbers
+      ! ---------------
+      ! PRI, OCD
       OUNIT = PPPRI
       IUNIT = PPPRI
       NAME = 'PRI'
@@ -660,46 +661,46 @@ CONTAINS
 
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ PRI, OCD ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
 
-   ! 2. Array Sizes
-   ! --------------
-   ! NELEE
+      ! 2. Array Sizes
+      ! --------------
+      ! NELEE
       IDUMS (1) = NELEE
       IDUMO (1) = MAX (NX, total_no_elements)! , NOCTAB*NOCTAB)
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-   ! NLFEE
+      ! NLFEE
       IDUMS (1) = NLFEE
       IDUMO (1) = MAX (1, total_no_links)
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-   ! NXEE
+      ! NXEE
       IDUMS (1) = NXEE
       IDUMO (1) = NX
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-   ! NOCTAB
+      ! NOCTAB
       IDUMS (1) = NOCTAB
       CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NOCTAB', 'GE', IONE1, IDUMS, NERR, LDUM1)
-   ! NXSCEE
+      ! NXSCEE
       IDUMS (1) = NXSCEE
 
       CALL ALCHKI (EEERR, 1002, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXSCEE', 'GT', IONE1, IDUMS, NERR, LDUM1)
 
-   ! 3. Number of Entities
-   ! ---------------------
-   ! NLF
+      ! 3. Number of Entities
+      ! ---------------------
+      ! NLF
       IDUMS (1) = total_no_links
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO1, IDUMS, NERR, LDUM1)
       IDUMO (1) = total_no_elements
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
-   ! NX, NY
+      ! NX, NY
       IDUMS (1) = MIN (NX, NY)
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ NX, NY ]', 'GE', IONE1, IDUMS, NERR, LDUM1)
-   ! NGDBGN
+      ! NGDBGN
       IDUMS (1) = NGDBGN
       IDUMO (1) = total_no_links + 1
 
       CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NGDBGN', 'EQ', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! 4. Finish
-   ! ---------
+      ! 4. Finish
+      ! ---------
       IF (NERR > 0) THEN
          CALL ERROR(FFFATAL, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
       END IF
@@ -710,20 +711,20 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCCHK1
    SUBROUTINE OCCHK1(SZLOG, LDUM1)
-   !----------------------------------------------------------------------*
-   !
-   !  Check static OC input arrays
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCCHK1/4.2
-   ! Modifications:
-   ! RAH  980203  4.2  New.
-   !      980205       Add argument LDUM1.
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  [ NEL, NX, NY ].ge.1     NELEE.ge.NEL    NXEE.ge.NX
-   !  PRI open for F output    size_of_LDUM1.ge.[NX,NEL]
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !  Check static OC input arrays
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCCHK1/4.2
+      ! Modifications:
+      ! RAH  980203  4.2  New.
+      !      980205       Add argument LDUM1.
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  [ NEL, NX, NY ].ge.1     NELEE.ge.NEL    NXEE.ge.NX
+      !  PRI open for F output    size_of_LDUM1.ge.[NX,NEL]
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! total_no_elements, EEERR, PPPRI, NX, NY, NGDBGN, ICMREF, ICMXY,
@@ -743,33 +744,33 @@ CONTAINS
       CHARACTER(LEN=23) :: NAME
       CHARACTER, PARAMETER :: XY(0:1) = ['X', 'Y']
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Initialize local variables in the executable block to avoid implicit SAVE bugs
+      ! Initialize local variables in the executable block to avoid implicit SAVE bugs
       NERR = 0
       IUNDEF = 0
       NAME = 'validity_of_LCODE?(x,y)'
 
-   ! 1. Index Arrays
-   ! ---------------
+      ! 1. Index Arrays
+      ! ---------------
       IDUMO(1) = total_no_elements
 
-   ! ICMREF
+      ! ICMREF
       face_loop: DO FACE = 1, 4
          CALL ALCHKI (EEERR, 1057, PPPRI, 1, total_no_elements, FACE, 2, 'ICMREF(iel,face,2)', &
-                      'LE', IDUMO, ICMREF(1:total_no_elements, 4+FACE), NERR, LDUM1(1:total_no_elements))
+            'LE', IDUMO, ICMREF(1:total_no_elements, 4+FACE), NERR, LDUM1(1:total_no_elements))
       END DO face_loop
 
-   ! ICMXY
+      ! ICMXY
       y_icmxy_loop: DO Y = 1, NY
          ! Modernized: Passing explicit array slice ICMXY(1:NX, Y) instead of scalar start point
          CALL ALCHKI (EEERR, 1057, PPPRI, 1, NX, Y, IUNDEF, 'ICMXY(x,y)', &
-                      'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
+            'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
       END DO y_icmxy_loop
 
-   ! 2. Channel Definition Arrays
-   ! ----------------------------
-   ! LCODEX, LCODEY
+      ! 2. Channel Definition Arrays
+      ! ----------------------------
+      ! LCODEX, LCODEY
       xy_loop: DO I = 0, 1
 
          ! Inject 'X' or 'Y' into the 18th character of the string
@@ -790,13 +791,13 @@ CONTAINS
 
             ! Modernized: Explicit array slice for IDUM
             CALL ALCHKI (EEERR, 1058, PPPRI, 1, NX, Y, IUNDEF, NAME, 'EQ', &
-                         IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
+               IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
          END DO y_lcode_loop
 
       END DO xy_loop
 
-   ! 3. Finish
-   ! ---------
+      ! 3. Finish
+      ! ---------
       IF (NERR > 0) THEN
          CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking static OC input arrays')
       END IF
@@ -807,20 +808,20 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCCHK2
    SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
-   !----------------------------------------------------------------------*
-   !
-   !  Check OC input data
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCCHK2/4.2
-   ! Modifications:
-   ! RAH  980203  4.2  New: partly from part of OCPLF.
-   !      980206       Check unit numbers.
-   !      980218       Don't check units if NONEED.
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !  Check OC input data
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCCHK2/4.2
+      ! Modifications:
+      ! RAH  980203  4.2  New: partly from part of OCPLF.
+      !      980206       Check unit numbers.
+      !      980218       Don't check units if NONEED.
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
+      !----------------------------------------------------------------------*
 
       USE CONST_SY ! Assuming this provides global variables like total_no_links, etc.
 
@@ -918,7 +919,7 @@ CONTAINS
          END DO
 
          CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
-                     DDUM1A, NERR, LDUM1)
+            DDUM1A, NERR, LDUM1)
       END IF
 
       IF (NERR > 0) THEN
@@ -938,9 +939,9 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCEXT
    SUBROUTINE OCEXT
-   !----------------------------------------------------------------------*
-   ! READ IN TIME-VARYING BOUNDARY CONDITION DATA
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! READ IN TIME-VARYING BOUNDARY CONDITION DATA
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NOCHB, OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, HOCPRV, HOCNXV, HOCNOW
@@ -949,22 +950,22 @@ CONTAINS
 
       IMPLICIT NONE
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! --- HEAD BOUNDARY ---
+      ! --- HEAD BOUNDARY ---
       IF (NOCHB > 0) THEN
          CALL HINPUT (OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, &
-                      HOCPRV(1:NOCHB), HOCNXV(1:NOCHB), NOCHB, HOCNOW(1:NOCHB))
+            HOCPRV(1:NOCHB), HOCNXV(1:NOCHB), NOCHB, HOCNOW(1:NOCHB))
       END IF
 
       IF (EQMARKER(HOCNXT)) THEN
          CALL ERROR(FFFATAL, 1007, PPPRI, 0, 0, 'END OF OC HEAD BOUNDARY DATA')
       END IF
 
-   ! --- FLUX BOUNDARY ---
+      ! --- FLUX BOUNDARY ---
       IF (NOCFB > 0) THEN
          CALL FINPUT (OFB, TIH, OCNOW, OCNEXT, QFLAST, QFNEXT, &
-                      QOCFIN(1:NOCFB), NOCFB, QOCF(1:NOCFB))
+            QOCFIN(1:NOCFB), NOCFB, QOCF(1:NOCFB))
       END IF
 
       IF (EQMARKER(QFNEXT)) THEN
@@ -977,28 +978,28 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCIND
    SUBROUTINE OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
-   !----------------------------------------------------------------------*
-   !
-   ! SET UP INDEXING SYSTEM FOR THOMAS ALGORITHM
-   !
-   !   THE CATCHMENT IS SPLIT INTO A NUMBER OF ROWS, EACH INCLUDING ALL
-   !   THE ELEMENTS WITH THE SAME Y CO-ORDINATE (AS IN ICMXY(X,Y))
-   !   NOTE: E-W BANKS/LINKS ARE INCLUDED WITH THE ROW ABOVE.
-   !
-   !   NROWF         - NO. OF FIRST (LOWEST) ROW
-   !   NROWL         - NO. OF LAST (HIGHEST) ROW
-   !   NROWST(J)     - POINTER TO POSITION IN NROWEL OF START OF ROW J
-   !   NROWEL(1:NEL) - Contiguous list of elements in row order: thus,
-   !                   the number of the Ith element in row J is
-   !                       IEL = NROWEL(K) where K = NROWST(J)+I-1
-   !   NELIND(IEL)   - INDEX NO. (POSITION IN ROW) OF ELEMENT NO. IEL
-   !
-   !   NB. NELIND IS THE PARTIAL INVERSE OF NROWEL:
-   !                                  NELIND(NROWEL(NROWST(J)+I-1)) = I
-   !   NB. Row no. of element ICMXY(x,y) (also of any associated link/bank
-   !       elements) is y
-   !
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      ! SET UP INDEXING SYSTEM FOR THOMAS ALGORITHM
+      !
+      !   THE CATCHMENT IS SPLIT INTO A NUMBER OF ROWS, EACH INCLUDING ALL
+      !   THE ELEMENTS WITH THE SAME Y CO-ORDINATE (AS IN ICMXY(X,Y))
+      !   NOTE: E-W BANKS/LINKS ARE INCLUDED WITH THE ROW ABOVE.
+      !
+      !   NROWF         - NO. OF FIRST (LOWEST) ROW
+      !   NROWL         - NO. OF LAST (HIGHEST) ROW
+      !   NROWST(J)     - POINTER TO POSITION IN NROWEL OF START OF ROW J
+      !   NROWEL(1:NEL) - Contiguous list of elements in row order: thus,
+      !                   the number of the Ith element in row J is
+      !                       IEL = NROWEL(K) where K = NROWST(J)+I-1
+      !   NELIND(IEL)   - INDEX NO. (POSITION IN ROW) OF ELEMENT NO. IEL
+      !
+      !   NB. NELIND IS THE PARTIAL INVERSE OF NROWEL:
+      !                                  NELIND(NROWEL(NROWST(J)+I-1)) = I
+      !   NB. Row no. of element ICMXY(x,y) (also of any associated link/bank
+      !       elements) is y
+      !
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NY, NX, LINKNO, ICMBK, ICMXY, NXOCEE, FFFATAL, PPPRI
@@ -1012,28 +1013,28 @@ CONTAINS
       ! Locals
       INTEGER :: BANK, FACE, I, ICOUNT, IELv, J, K, LINK, NXOC
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Initialize counters
+      ! Initialize counters
       NXOC = 0
       K = 0
 
-   ! LOOP OVER BASIC GRID SYSTEM
-   ! - LOOP OVER EACH ROW
+      ! LOOP OVER BASIC GRID SYSTEM
+      ! - LOOP OVER EACH ROW
 
       row_loop: DO J = 1, NY
          NROWST(J) = K + 1
          IF (K == 0) NROWF = J
 
-   ! ---- LOOP OVER EACH GRID SQUARE IN ROW
+         ! ---- LOOP OVER EACH GRID SQUARE IN ROW
          ICOUNT = 0
 
          col_loop: DO I = 1, NX
 
-   ! ------- Loop over west & south faces
+            ! ------- Loop over west & south faces
             face_loop: DO FACE = 3, 4
 
-   ! ---------- Test for link at face of grid
+               ! ---------- Test for link at face of grid
                LINK = LINKNO(I, J, FACE == 3)
 
                IF (LINK > 0) THEN
@@ -1059,7 +1060,7 @@ CONTAINS
                   END IF
                END IF
 
-   ! ---------- Test for active grid square
+               ! ---------- Test for active grid square
                IF (FACE == 3) THEN
                   IELv = ICMXY(I, J)
                   IF (IELv > 0) THEN
@@ -1073,17 +1074,17 @@ CONTAINS
             END DO face_loop
          END DO col_loop
 
-   ! ---- Next row
+         ! ---- Next row
          NXOC = MAX(NXOC, K + 1 - NROWST(J))
          IF (ICOUNT > 0) NROWL = J
 
       END DO row_loop
 
-   ! - This marks the end of the last row (+1)
-   ! Modern Fix: Explicitly use NY + 1 instead of relying on the leaked loop variable 'J'
+      ! - This marks the end of the last row (+1)
+      ! Modern Fix: Explicitly use NY + 1 instead of relying on the leaked loop variable 'J'
       NROWST(NY + 1) = K + 1
 
-   ! CHECK ARRAY DIMENSIONS
+      ! CHECK ARRAY DIMENSIONS
       IF (NXOC > NXOCEE) THEN
          CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'ARRAY DIMENSION OF NXOC TOO SMALL')
       END IF
@@ -1169,49 +1170,49 @@ CONTAINS
 
 !SSSSSS SUBROUTINE OCPLF
    SUBROUTINE OCPLF(BOUT, IXER, fromNOCBCD, NXDEF, XDEFW)
-   !----------------------------------------------------------------------*
-   !
-   !  READ IN DATA FOR EACH CHANNEL LINK
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCPLF/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   !  GP  940808  4.0  Remove redundant array EXBETA (SPEC.AL).
-   ! RAH  980121  4.2  Fix error in COCBCD 2nd subscript (see BR/50).
-   !                   Explicit typing.
-   !                   List-directed input, & scrap local TITRE.  No FLOAT.
-   !                   Bring NDEFCT,NXDEF,XDEFH,XDEFW from SPEC.OC.
-   !                   Trap large NDEFCT.  Scrap EARRAY.  New local TEST.
-   !      980127       Use locals MSG,N more.  New local ZG.
-   !                   Test STR.le.0, not .eq.0.  Require IEL in order.
-   !                   Combine IDEFX tests.  Use IDEF: don't redfine IDEFX.
-   !                   Split expression for XAREA.  Use HJ for DPNOW.
-   !                   Rearrange loop 200.  Rename INDEX,ICODE as IBC,TYPE.
-   !                   Read NOCBCD,COCBCD directly, & set NOCBCD(IBC,2&4).
-   !      980128       Don't set XCONV or XDERIV for J=NXSCEE.  Trap N=1.
-   !                   Replace FATAL errors with ERR, & increase IXER.
-   !                   Require XDEFH,XINH strictly increasing, and
-   !                   XDEFW,XINW .gt.0 for J=N.
-   !      980129       Use IEL for loop variable ICT.  Trap NDEFCT<0.
-   !      980203       Move cross-section table set-up to OCXS (new).
-   !                   Move STRX,STRY,XINH,XINW checks to OCCHK2 (new).
-   !      980204       Full argument list (no INCLUDEs) (see OCREAD);
-   !                   ERR local.  Add argument BOUT: write to PRI if true.
-   !      980206       Call DCOPY for XINH,XINW.  More info in MSG.
-   !      980218       Adjust formats.
-   !      980220       Adjust formats.
-   !      980225       Swap COCBCD subscripts (see SPEC.OC)
-   ! JE   JAN 2009     Loop restructure for AD
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
-   !  OCD open for F input                 PRI open for F output
-   !----------------------------------------------------------------------*
-   ! Exit conditions:
-   ! IXER(out).ge.IXER(in)
-   ! IXER(out).eq.IXER(in) ==> 2.le.NXSECT(1:NLF).le.NOCTAB
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !  READ IN DATA FOR EACH CHANNEL LINK
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCPLF/4.2
+      ! Modifications:
+      ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+      !  GP  940808  4.0  Remove redundant array EXBETA (SPEC.AL).
+      ! RAH  980121  4.2  Fix error in COCBCD 2nd subscript (see BR/50).
+      !                   Explicit typing.
+      !                   List-directed input, & scrap local TITRE.  No FLOAT.
+      !                   Bring NDEFCT,NXDEF,XDEFH,XDEFW from SPEC.OC.
+      !                   Trap large NDEFCT.  Scrap EARRAY.  New local TEST.
+      !      980127       Use locals MSG,N more.  New local ZG.
+      !                   Test STR.le.0, not .eq.0.  Require IEL in order.
+      !                   Combine IDEFX tests.  Use IDEF: don't redfine IDEFX.
+      !                   Split expression for XAREA.  Use HJ for DPNOW.
+      !                   Rearrange loop 200.  Rename INDEX,ICODE as IBC,TYPE.
+      !                   Read NOCBCD,COCBCD directly, & set NOCBCD(IBC,2&4).
+      !      980128       Don't set XCONV or XDERIV for J=NXSCEE.  Trap N=1.
+      !                   Replace FATAL errors with ERR, & increase IXER.
+      !                   Require XDEFH,XINH strictly increasing, and
+      !                   XDEFW,XINW .gt.0 for J=N.
+      !      980129       Use IEL for loop variable ICT.  Trap NDEFCT<0.
+      !      980203       Move cross-section table set-up to OCXS (new).
+      !                   Move STRX,STRY,XINH,XINW checks to OCCHK2 (new).
+      !      980204       Full argument list (no INCLUDEs) (see OCREAD);
+      !                   ERR local.  Add argument BOUT: write to PRI if true.
+      !      980206       Call DCOPY for XINH,XINW.  More info in MSG.
+      !      980218       Adjust formats.
+      !      980220       Adjust formats.
+      !      980225       Swap COCBCD subscripts (see SPEC.OC)
+      ! JE   JAN 2009     Loop restructure for AD
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
+      !  OCD open for F input                 PRI open for F output
+      !----------------------------------------------------------------------*
+      ! Exit conditions:
+      ! IXER(out).ge.IXER(in)
+      ! IXER(out).eq.IXER(in) ==> 2.le.NXSECT(1:NLF).le.NOCTAB
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NOCTAB, XDEFH, OCD, EEERR, PPPRI, total_no_links, ZGRUND, SETHRF, STRXX
@@ -1375,10 +1376,10 @@ CONTAINS
 
       ! Format Statements
 9012  FORMAT ('Cross-section number IDEFX =', I4, ' lies outside ranges', &
-               ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
+         ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
 
 9013  FORMAT ('Expected element number,', I5, ', but found', I5, ', ', &
-               'while reading channel data')
+         'while reading channel data')
 
 9032  FORMAT (/5X, 'Default Channel Cross-sections:'//5X, 3A10/)
 
@@ -1389,10 +1390,10 @@ CONTAINS
 9037  FORMAT (5X, I11, 3F11.3, (T50, 2F11.3))
 
 9054  FORMAT ('Number of default channel cross-section categories ', &
-               'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
+         'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
 
 9055  FORMAT ('Number of width/elevation pairs NXDEF(', I3, ') =', I4, 2X, &
-               'lies outside range 2:NOCTAB = 2:', I4)
+         'lies outside range 2:NOCTAB = 2:', I4)
 
 9137  FORMAT (5X, I11, 3F11.3, 3X, 'default category', I3)
 
@@ -1442,44 +1443,44 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCREAD
    SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
-   !----------------------------------------------------------------------*
-   !  Control the reading of the OC input data file
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCREAD/4.2
-   ! Modifications:
-   !  GP          3.4  Call OCBC always, not only when NLF.ne.0.
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   ! RAH  980120  4.2  Explicit typing.  Remove local FINI.
-   !                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
-   !                   Move KONT from SPEC.OC to arg-list (see OCINI).
-   !                   Implement missing option NCATR.gt.0 (see BR/48).
-   !      980130       Bring (initial) read section from OCINI.
-   !                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
-   !                   Replace GOTOs with block-IFs.  List-directed input.
-   !                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
-   !                   Renumber labels, move FORMATs to end and tidy.
-   !                   Print CDRS only if non-zero.  Call ERROR on errors.
-   !                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
-   !      980202       KKON=0 if KONT even, not just 0.
-   !                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
-   !                   Use ALINIT for STRX,STRY.  Full output if BOUT.
-   !      980203       Use NGDBGN for NLF+1.
-   !      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
-   !      980205       Full argument list, no INCLUDEs (see OCINI).
-   !                   Bring IXER from SPEC.OC.  FATAL local.
-   !      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
-   !                   Call OCPLF only if IXER.eq.0.
-   !      980220       Spelling.
-   !      980225       Swap COCBCD subscripts (see SPEC.OC)
-   !      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
-   !                   Don't print KONT.
-   ! SvB  260402       Ran through G:Gemini for mondernization
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
-   !  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCREAD/4.2
+      !----------------------------------------------------------------------*
+      !  Control the reading of the OC input data file
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCREAD/4.2
+      ! Modifications:
+      !  GP          3.4  Call OCBC always, not only when NLF.ne.0.
+      ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
+      ! RAH  980120  4.2  Explicit typing.  Remove local FINI.
+      !                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
+      !                   Move KONT from SPEC.OC to arg-list (see OCINI).
+      !                   Implement missing option NCATR.gt.0 (see BR/48).
+      !      980130       Bring (initial) read section from OCINI.
+      !                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
+      !                   Replace GOTOs with block-IFs.  List-directed input.
+      !                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
+      !                   Renumber labels, move FORMATs to end and tidy.
+      !                   Print CDRS only if non-zero.  Call ERROR on errors.
+      !                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
+      !      980202       KKON=0 if KONT even, not just 0.
+      !                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
+      !                   Use ALINIT for STRX,STRY.  Full output if BOUT.
+      !      980203       Use NGDBGN for NLF+1.
+      !      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
+      !      980205       Full argument list, no INCLUDEs (see OCINI).
+      !                   Bring IXER from SPEC.OC.  FATAL local.
+      !      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
+      !                   Call OCPLF only if IXER.eq.0.
+      !      980220       Spelling.
+      !      980225       Swap COCBCD subscripts (see SPEC.OC)
+      !      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
+      !                   Don't print KONT.
+      ! SvB  260402       Ran through G:Gemini for mondernization
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
+      !  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCREAD/4.2
 
       ! Assumed external module dependencies providing global variables:
       ! NOCTAB, IDUM, total_no_elements, total_no_links, NGDBGN, OCD, PPPRI,
@@ -1537,7 +1538,7 @@ CONTAINS
       IF (ISZERO(CDRS)) THEN
          IF (NCATR > NOCTAB .OR. NCATR < 0) THEN
             WRITE (MSG, '("Number of roughness categories NCATR =",I4,2X, &
-&                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
+            &                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
             CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
          END IF
 
@@ -1633,21 +1634,21 @@ CONTAINS
 
       ! FORMAT STATEMENTS
 9080  FORMAT (///'---- OC MODULE ',A,'INPUT DATA PROCESSING ----'///: &
-              5X,'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
-                 ' CATEGORIES   NCATR = ',I4)
+         5X,'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
+         ' CATEGORIES   NCATR = ',I4)
 
 9082  FORMAT (/5X,'DEFAULT VALUE OF OVERLAND FLOW ROUGHNESS ', &
-                  'COEFFICIENT     CDRS = ', F8.2)
+         'COEFFICIENT     CDRS = ', F8.2)
 
 9084  FORMAT (/4X,' ROUGHNESS COEFFICIENTS  CATR  ATTACHED TO', &
-                  ' EACH OF THE NCATR CATEGORIES' / (10F10.2))
+         ' EACH OF THE NCATR CATEGORIES' / (10F10.2))
 
 9085  FORMAT (/5X,'Initial overland water depth is ',A)
 
 9412  FORMAT (I5,' ERROR(S) FOUND DURING OC INPUT DATA PROCESSING')
 
 9500  FORMAT (/5X,'Default OC B.C. is ',A,' at catchment boundaries ', &
-                  'and at channel/bank dead-ends')
+         'and at channel/bank dead-ends')
 
 9600  FORMAT (/5X,'OC Boundary Conditions:'//5X,3A8,A12,A10,A14)
 
@@ -1658,57 +1659,57 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCSIM
    SUBROUTINE OCSIM
-   !----------------------------------------------------------------------*
-   !
-   !  MAIN OVERLAND/CHANNEL SIMULATION ROUTINE
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCSIM/4.2
-   ! Modifications:
-   !  GP         3.4  Set HRF at head boundaries.  Disallow flow against
-   !                  surface gradient (except boundaries & confluences),
-   !                  and move trap for small depths & setting of ARXL to
-   !                  after this point; also, replace WLMIN with 1D-5.
-   !                  Trap large flows (ABS(QOC)>QMAX) in channels.
-   ! RAH  941008 3.4.1 Bring IMPLICIT from SPEC.AL.  Move traps (except
-   !                  QMAX) to new subroutine OCFIX (confluences too).
-   ! RAH  961228  4.1  Remove variables TF & LONT.
-   ! RAH  971215  4.2  Explicit typing.  Bring DD,EE,GG from SPEC.OC.
-   !                  Remove DOCEV,DLIOC,DETOCO,DOCUZO,DOCSZO.
-   !                  Set NCR,NPR,NSV (& NDUM) only where necessary.
-   !                  Merge OCQDQ loops.  Don't call OCMAS.
-   !      971216      Move first row initialization nearer to OCABC.
-   !                  Call OCQDQ always (not only 1st step) at the start,
-   !                  and not at the end of a step.  Scrap tests NLF.GT.0.
-   !                  Use IROW as subscript not NROWF; also use IRSV.
-   !                  Cut duplicate code in main loop over rows.
-   !      971217      Merge EE,GG code for first row into loop over rows.
-   !                  Initialize only useful elements of AA,BB,CC,FF.
-   !                  Separate treatment for DD of last row.
-   !      980106      Call ERROR if ICOD=1 after PMINVM.
-   !                  Next IROW if NCR=0 in main loop.  Scrap JFACE.
-   !                  Renumber labels 4,190,200 as 44,250,255.
-   !                  Amend head boundary implementation, & move to OCABC.
-   !                  New locals DDI,DH,DQ,DW,HI,HM,IBR,IM,WI,WM,Z.
-   !                  Use DCOPY & CHSGN to set QOC.  Use ABS not DABS.
-   !      980107      OCABC arguments: remove ICOUNT;
-   !                  add IEL,NXSECT,ZBFULL,ZGRUND,HRF,AA,BB,CC,FF.
-   !                  Bring AA,BB,CC,FF from SPEC.OC.
-   !      980108      OCABC arguments: add NSV,NCR,NPR,PNETTO,QH,ESWA.
-   !                  Move initialization of AA,BB,CC,FF to OCABC.
-   !      980109      OCABC arguments: add IBC,HOCNOW.
-   !      980212      Scrap NROWFN - use NROWST(IROW+1)-1.
-   !      980226      Call OCPRI.  Bring DTOC from SPEC.OC; pass to OCABC.
-   !                  Call OCQDQ once only, and pass COCBCD,QOCF.
-   !      980327      Pass XAFULL (new local) to OCQDQ.  Scrap local K.
-   !                  Pass OCTIME, not OCNOW, to OCPRI, & call before QMAX
-   !                  test, not after.
-   !      980331      Pass STRX,STRY to OCQDQ.
-   !      980409      Pass HOCNOW to OCQDQ.
-   !      980424      Pass NXSCEE,XSTAB to OCQDQ.
-   !      980427      Pass final local FWRK to OCQDQ.
-   ! JE   JAN 2009    Loop restructure for AD
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      !
+      !  MAIN OVERLAND/CHANNEL SIMULATION ROUTINE
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCSIM/4.2
+      ! Modifications:
+      !  GP         3.4  Set HRF at head boundaries.  Disallow flow against
+      !                  surface gradient (except boundaries & confluences),
+      !                  and move trap for small depths & setting of ARXL to
+      !                  after this point; also, replace WLMIN with 1D-5.
+      !                  Trap large flows (ABS(QOC)>QMAX) in channels.
+      ! RAH  941008 3.4.1 Bring IMPLICIT from SPEC.AL.  Move traps (except
+      !                  QMAX) to new subroutine OCFIX (confluences too).
+      ! RAH  961228  4.1  Remove variables TF & LONT.
+      ! RAH  971215  4.2  Explicit typing.  Bring DD,EE,GG from SPEC.OC.
+      !                  Remove DOCEV,DLIOC,DETOCO,DOCUZO,DOCSZO.
+      !                  Set NCR,NPR,NSV (& NDUM) only where necessary.
+      !                  Merge OCQDQ loops.  Don't call OCMAS.
+      !      971216      Move first row initialization nearer to OCABC.
+      !                  Call OCQDQ always (not only 1st step) at the start,
+      !                  and not at the end of a step.  Scrap tests NLF.GT.0.
+      !                  Use IROW as subscript not NROWF; also use IRSV.
+      !                  Cut duplicate code in main loop over rows.
+      !      971217      Merge EE,GG code for first row into loop over rows.
+      !                  Initialize only useful elements of AA,BB,CC,FF.
+      !                  Separate treatment for DD of last row.
+      !      980106      Call ERROR if ICOD=1 after PMINVM.
+      !                  Next IROW if NCR=0 in main loop.  Scrap JFACE.
+      !                  Renumber labels 4,190,200 as 44,250,255.
+      !                  Amend head boundary implementation, & move to OCABC.
+      !                  New locals DDI,DH,DQ,DW,HI,HM,IBR,IM,WI,WM,Z.
+      !                  Use DCOPY & CHSGN to set QOC.  Use ABS not DABS.
+      !      980107      OCABC arguments: remove ICOUNT;
+      !                  add IEL,NXSECT,ZBFULL,ZGRUND,HRF,AA,BB,CC,FF.
+      !                  Bring AA,BB,CC,FF from SPEC.OC.
+      !      980108      OCABC arguments: add NSV,NCR,NPR,PNETTO,QH,ESWA.
+      !                  Move initialization of AA,BB,CC,FF to OCABC.
+      !      980109      OCABC arguments: add IBC,HOCNOW.
+      !      980212      Scrap NROWFN - use NROWST(IROW+1)-1.
+      !      980226      Call OCPRI.  Bring DTOC from SPEC.OC; pass to OCABC.
+      !                  Call OCQDQ once only, and pass COCBCD,QOCF.
+      !      980327      Pass XAFULL (new local) to OCQDQ.  Scrap local K.
+      !                  Pass OCTIME, not OCNOW, to OCPRI, & call before QMAX
+      !                  test, not after.
+      !      980331      Pass STRX,STRY to OCQDQ.
+      !      980409      Pass HOCNOW to OCQDQ.
+      !      980424      Pass NXSCEE,XSTAB to OCQDQ.
+      !      980427      Pass final local FWRK to OCQDQ.
+      ! JE   JAN 2009    Loop restructure for AD
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables
       IMPLICIT NONE
@@ -1783,9 +1784,9 @@ CONTAINS
             END IF
 
             CALL OCABC (IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT (LINK), cellarea (iels), &
-                        ZGRUND (iels), CLENTH (LINK), ZBFULL (LINK), GETHRF (iels),          &
-                        PNETTO (iels), QH (iels), ESWA (iels), HOCNOW (IHB), AA(:,IND),      &
-                        BB (1:ncr,IND), CC(:,IND), FF (IND))
+               ZGRUND (iels), CLENTH (LINK), ZBFULL (LINK), GETHRF (iels),          &
+               PNETTO (iels), QH (iels), ESWA (iels), HOCNOW (IHB), AA(:,IND),      &
+               BB (1:ncr,IND), CC(:,IND), FF (IND))
          END DO
 
          ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
@@ -1965,31 +1966,31 @@ CONTAINS
 
    !SSSSSS SUBROUTINE OCXS
    SUBROUTINE OCXS ()
-   !----------------------------------------------------------------------*
-   !
-   !  Set up channel cross-section tables & effective bed elevations
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCXS/4.2
-   ! Modifications:
-   ! RAH  980203  4.2  New: taken from part of OCPLF.
-   !      980317      ! Fix inaccuracy in XAJ (was linear in H); set XDERIV
-   !                   to give continuous XCONV.  Use XAJ in loop 180.
-   !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (see SPEC.OC).
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NLFEE.ge.NLF    NLF.ge.1    NXSCEE.ge.2    CWIDTH(1:NLF).gt.0
-   !  NXSECT(1:NLF).le.size_of_[XINH,XINW,XAREA]
-   !  for iel in 1:NLF                XINH(iel,NXSECT(iel)).gt.0
-   !      for i in 1:NXSECT(iel)-1    XINH(iel,i).lt.XINH(iel,i+1)
-   ! Exit conditions:
-   !  ...
-   ! Note:
-   !       XSTAB(i,j,iel) is, for i=1,2,3: water depth, conveyance, and
-   !                                       derivative of conveyance, respectively
-   ! NB:
-   !       XSTAB(2:3,j,1:NLF) not defined for j=NXSCEE
-   !
+      !----------------------------------------------------------------------*
+      !
+      !  Set up channel cross-section tables & effective bed elevations
+      !
+      !----------------------------------------------------------------------*
+      ! Version:  SHETRAN/OC/OCXS/4.2
+      ! Modifications:
+      ! RAH  980203  4.2  New: taken from part of OCPLF.
+      !      980317      ! Fix inaccuracy in XAJ (was linear in H); set XDERIV
+      !                   to give continuous XCONV.  Use XAJ in loop 180.
+      !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (see SPEC.OC).
+      !----------------------------------------------------------------------*
+      ! Entry requirements:
+      !  NLFEE.ge.NLF    NLF.ge.1    NXSCEE.ge.2    CWIDTH(1:NLF).gt.0
+      !  NXSECT(1:NLF).le.size_of_[XINH,XINW,XAREA]
+      !  for iel in 1:NLF                XINH(iel,NXSECT(iel)).gt.0
+      !      for i in 1:NXSECT(iel)-1    XINH(iel,i).lt.XINH(iel,i+1)
+      ! Exit conditions:
+      !  ...
+      ! Note:
+      !       XSTAB(i,j,iel) is, for i=1,2,3: water depth, conveyance, and
+      !                                       derivative of conveyance, respectively
+      ! NB:
+      !       XSTAB(2:3,j,1:NLF) not defined for j=NXSCEE
+      !
       ! Assumed external module dependencies providing global variables:
       ! total_no_links, NXSECT, STRXX, XAREA, zero, XINW, XINH, half,
       ! ZBEFF, ZBFULL, CWIDTH, NXSCEE, XSTAB, CONVEYAN
@@ -1999,7 +2000,7 @@ CONTAINS
       INTEGER         :: I, IELr, J, N
       DOUBLE PRECISION :: ALPHA, DH, HI, HIP1, HJ, STEPH, STR, W2, XAJ, XCJ, XCJM1, adumy
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       link_loop: DO ielr = 1, total_no_links
          !
@@ -2070,9 +2071,9 @@ CONTAINS
 
    !FFFFFF INTEGER FUNCTION LINKNO
    PURE INTEGER FUNCTION LINKNO (I, J, NSOUTH)
-   !----------------------------------------------------------------------*
-   ! GET LINK NUMBER, GIVEN X, Y CO-ORDINATES AND ORIENTATION
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
+      ! GET LINK NUMBER, GIVEN X, Y CO-ORDINATES AND ORIENTATION
+      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! total_no_links, LINKNS, ICMREF
@@ -2086,7 +2087,7 @@ CONTAINS
       ! Locals
       INTEGER :: L
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       LINKNO = 0
 

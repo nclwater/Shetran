@@ -24,6 +24,7 @@
 MODULE mod_load_filedata
 
    USE SGLOBAL
+   USE mod_error, ONLY : ERROR, FFFATAL, WWWARN, pppri
    use mod_parameters
 
    IMPLICIT NONE
@@ -65,8 +66,8 @@ CONTAINS
    ! 19940919 - AB/RAH - v3.4.1
    !---------------------------------------------------------------------------
    SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, &
-                      NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, AEL, IDUM, &
-                      DUMMY)
+      NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, AEL, IDUM, &
+      DUMMY)
 
       IMPLICIT NONE
 
@@ -115,11 +116,11 @@ CONTAINS
          WRITE (MSG, 9001) NUM_CATEGORIES_TYPES, LINE
          CALL ERROR (FFFATAL, 1, OUNIT, 0, 0, MSG)
 
-      ! Special Case: Return to Caller
+         ! Special Case: Return to Caller
       ELSE IF (NUM_CATEGORIES_TYPES < 0) THEN
          RETURN
 
-      ! No Categories
+         ! No Categories
       ELSE IF (NUM_CATEGORIES_TYPES == 0) THEN
          ! Loop over output vectors
          DO I2 = 1, N2
@@ -144,7 +145,7 @@ CONTAINS
             END DO
          END DO
 
-      ! Use category codes
+         ! Use category codes
       ELSE IF (N2 * NUM_CATEGORIES_TYPES <= NELEE) THEN
 
          ! Get list of values for each category
@@ -212,7 +213,7 @@ CONTAINS
             END DO
          END IF
 
-      ! Insufficient Workspace
+         ! Insufficient Workspace
       ELSE
          WRITE (MSG, 9008) NUM_CATEGORIES_TYPES, LINE, N2 * NUM_CATEGORIES_TYPES
          CALL ERROR (FFFATAL, 8, OUNIT, 0, 0, MSG)
@@ -257,8 +258,8 @@ CONTAINS
    ! ?        - ?      - Initial version
    !---------------------------------------------------------------------------
    SUBROUTINE ALALLI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX,  &
-                      NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
-                      LINKNS, CATTYP, IDUM)
+      NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
+      LINKNS, CATTYP, IDUM)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, FFFATAL, ERROR, ALREDI
@@ -297,7 +298,7 @@ CONTAINS
 
                IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                   CALL ERROR (FFFATAL, 3090, OUNIT, 0, 0, &
-                              'Error in ALALLI -reading spatially distributed category types')
+                     'Error in ALALLI -reading spatially distributed category types')
                END IF
 
                CATTYP (IEL) = ICAT
@@ -436,7 +437,7 @@ CONTAINS
    ! 19940817 - AB/RAH - Version 3.4.1
    !---------------------------------------------------------------------------
    SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
-                     OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
+      OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, ERROR
@@ -571,9 +572,9 @@ CONTAINS
 
       ! Format Statements ----------------------------------------------------
 9000  FORMAT(A, 1X, A, ': expected .', A, '.', 1P, G15.7, ' but found', G15.7: &
-             ' at position', I5, 2(:, ',', I4))
+         ' at position', I5, 2(:, ',', I4))
 9010  FORMAT('... and similarly at', I4, &
-             ' other positions in the same vector')
+         ' other positions in the same vector')
 
    END SUBROUTINE ALCHK
 
@@ -598,7 +599,7 @@ CONTAINS
    ! 19940817 - AB/RAH - Version 3.4.1
    !---------------------------------------------------------------------------
    SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
-                      OP, OBJ, SUBJ, COUNT, NOTOK)
+      OP, OBJ, SUBJ, COUNT, NOTOK)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, ERROR
@@ -732,9 +733,9 @@ CONTAINS
 
       ! Format Statements ----------------------------------------------------
 9000  FORMAT(A, 1X, A, ': expected .', A, '.', I12, ' but found', I12: &
-             ' at position', I5, 2(:, ',', I4))
+         ' at position', I5, 2(:, ',', I4))
 9010  FORMAT('... and similarly at', I4, &
-             ' other positions in the same vector')
+         ' other positions in the same vector')
 
    END SUBROUTINE ALCHKI
 
@@ -759,9 +760,9 @@ CONTAINS
    ! ?        - ?      - Initial version
    !---------------------------------------------------------------------------
    SUBROUTINE ALINTP (LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES,     &
-                      MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
-                      NCOLMB, NTAB, TABLE_CONCENTRATION, TABLE_WATER_DEPTH,    &
-                      DELTAZ, ZVSNOD, CELL_CONCENTRATION)
+      MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
+      NCOLMB, NTAB, TABLE_CONCENTRATION, TABLE_WATER_DEPTH,    &
+      DELTAZ, ZVSNOD, CELL_CONCENTRATION)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, two
@@ -851,7 +852,7 @@ CONTAINS
    !                     Renumber error 13 as 16 (was unauthorized).
    !---------------------------------------------------------------------------
    SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
-                      CDATA, IDATA, RDATA)
+      CDATA, IDATA, RDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, WWWARN, FFFATAL, HEAD0_alread, ERROR
@@ -905,8 +906,8 @@ CONTAINS
       ! ---------------------
       SELECT CASE (FLAG)
 
-      ! Check that input file is open
-      CASE (0)
+         ! Check that input file is open
+       CASE (0)
          IF (.NOT. BOPEN) THEN
             WRITE (MSG, 9000) LINE, 'not open', IUNIT
             CALL throw_fatal(4, MSG)
@@ -916,40 +917,40 @@ CONTAINS
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
          WRITE (OUNIT, 9001) HEAD
 
-      ! Close input file
-      CASE (-1)
+         ! Close input file
+       CASE (-1)
          CLOSE (IUNIT)
 
          ! Write (and store) an informative message
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
          WRITE (OUNIT, 9001) HEAD
 
-      ! Read a character string
-      CASE (1)
+         ! Read a character string
+       CASE (1)
          READ (IUNIT, '(A)', IOSTAT=ios) CDATA
          IF (ios /= 0) THEN
             WRITE (MSG, 9810) 'character', HEAD
             CALL throw_fatal(5, MSG)
          END IF
 
-      ! Read an INTEGER(kind=I_P) array
-      CASE (2)
+         ! Read an INTEGER(kind=I_P) array
+       CASE (2)
          READ (IUNIT, *, IOSTAT=ios) IDATA
          IF (ios /= 0) THEN
             WRITE (MSG, 9810) 'integer', HEAD
             CALL throw_fatal(6, MSG)
          END IF
 
-      ! Read a floating-point array
-      CASE (3)
+         ! Read a floating-point array
+       CASE (3)
          READ (IUNIT, *, IOSTAT=ios) RDATA
          IF (ios /= 0) THEN
             WRITE (MSG, 9810) 'floating-point', HEAD
             CALL throw_fatal(7, MSG)
          END IF
 
-      ! Read an INTEGER(kind=I_P) grid array
-      CASE (4)
+         ! Read an INTEGER(kind=I_P) grid array
+       CASE (4)
          ! Set format string to read single digit integers if possible
          IF (NUM_CATEGORIES_TYPES < 10) WRITE (FORM, 9410) N1
 
@@ -967,8 +968,8 @@ CONTAINS
             END IF
          END DO
 
-      ! Read a floating point grid array
-      CASE (5)
+         ! Read a floating point grid array
+       CASE (5)
          ! All grid rows: North to South
          DO IY = N2, 1, -1
             READ (IUNIT, *, IOSTAT=ios) KY, (RDATA (IX, IY), IX = 1, N1)
@@ -978,8 +979,8 @@ CONTAINS
             END IF
          END DO
 
-      ! Read data in VSS format for each element
-      CASE (6)
+         ! Read data in VSS format for each element
+       CASE (6)
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
             READ (IUNIT, *, IOSTAT=ios) IDUM1, IDUM2
             IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (IDATA (IDUM1, I), I = 1, IDUM2)
@@ -991,8 +992,8 @@ CONTAINS
             END IF
          END DO
 
-      ! Read soil physical property data for VSS
-      CASE (7)
+         ! Read soil physical property data for VSS
+       CASE (7)
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
             READ (IUNIT, *, IOSTAT=ios) (IDATA (ICOUNT, I), I = 1, 3)
             IF (ios == 0 .AND. IDATA (ICOUNT, 1) == ICOUNT) THEN
@@ -1024,7 +1025,7 @@ CONTAINS
 9000  FORMAT ( A, ' data file ', A, ': unit', I3: '; ', A )
 9001  FORMAT ( 1X, A/ )
 9002  FORMAT ( 'Title line mismatch: expected "', A, &
-               '" but found "', A, '"' )
+         '" but found "', A, '"' )
 9410  FORMAT ( '(I7,1X,', I4, 'I1)' )
 9600  FORMAT ( 'Reading VSS data for item no. ', I4, ' under title: ', A )
 9700  FORMAT ( 'Reading soils data for soil no. ', I4, ' under title: ', A )
@@ -1517,34 +1518,34 @@ CONTAINS
    END SUBROUTINE ALSPRD
 
 
-    !---------------------------------------------------------------------------
-    !> @author ?
-    !
-    !> @brief
-    !! Set traps for floating-point exceptions
-    !
-    ! Note: SSR79
-    !
-    ! REVISION HISTORY:
-    ! ?        - ?       - Initial version
-    ! 19940930 - RAH     - Version 3.4.1 created.
-    ! 20000307 - StevenB - Version 4g-pc remove ieee calls
-    !---------------------------------------------------------------------------
-    SUBROUTINE ALTRAP ()
+   !---------------------------------------------------------------------------
+   !> @author ?
+   !
+   !> @brief
+   !! Set traps for floating-point exceptions
+   !
+   ! Note: SSR79
+   !
+   ! REVISION HISTORY:
+   ! ?        - ?       - Initial version
+   ! 19940930 - RAH     - Version 3.4.1 created.
+   ! 20000307 - StevenB - Version 4g-pc remove ieee calls
+   !---------------------------------------------------------------------------
+   SUBROUTINE ALTRAP ()
 
-        ! Locals, etc
-        INTEGER(kind=I_P), parameter :: OUT = 0
+      ! Locals, etc
+      INTEGER(kind=I_P), parameter :: OUT = 0
 
-        INTEGER(kind=I_P) :: I
+      INTEGER(kind=I_P) :: I
 
-        ! Code -----------------------------------------------------------------
+      ! Code -----------------------------------------------------------------
 
-        !   I = IEEE_HANDLER( 'set', 'common', ABORT )
-        I = 0
-        IF (I .NE. 0) CALL ERROR(WWWARN, 13, OUT, 0, 0,                         &
-                           'Could not set traps for floating-point exceptions')
+      !   I = IEEE_HANDLER( 'set', 'common', ABORT )
+      I = 0
+      IF (I .NE. 0) CALL ERROR(WWWARN, 13, OUT, 0, 0,                         &
+         'Could not set traps for floating-point exceptions')
 
-        RETURN
-    END SUBROUTINE ALTRAP
+      RETURN
+   END SUBROUTINE ALTRAP
 
 END MODULE mod_load_filedata

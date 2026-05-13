@@ -28,6 +28,7 @@ MODULE FRmod
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
+   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
