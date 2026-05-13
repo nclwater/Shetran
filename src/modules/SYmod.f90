@@ -5,7 +5,7 @@ MODULE SYmod
    USE SGLOBAL
 !USE AL_P
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD  !, HELPPATH
-   USE mod_error,    ONLY : ERROR, FFFATAL, WWWARN, pppri
+   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
    USE UTILSMOD, ONLY : DCOPY
    USE CONST_SY
 
@@ -1066,9 +1066,6 @@ CONTAINS
       INTEGER, INTENT(IN) :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE
       INTEGER, INTENT(IN) :: NV, NVEE, NX, NXEE, NY, SPR, SYD
 
-      ! Locals, etc
-      INTEGER, PARAMETER :: FATAL = 1, ERR = 2
-
       ! Modernization Fix: Added IZERO_ARR to replace the undeclared IZERO1
       ! and made IUNDEF a parameter to prevent passing uninitialized memory.
       INTEGER, PARAMETER :: IZERO_ARR(1) = [0]
@@ -1092,41 +1089,41 @@ CONTAINS
       ! NELEE
       IDUMS(1) = NELEE
       IDUMO(1) = MAX(NEL, NV, NX * NY)
-      CALL ALCHKI(ERR, 2054, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2054, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
       ! NLFEE
       IDUMS(1) = NLFEE
       IDUMO(1) = MAX(1, NLF)
-      CALL ALCHKI(ERR, 2055, SPR, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2055, SPR, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
       ! NLYREE, NSEDEE
       IDUMS(1) = MIN(NLYREE, NSEDEE)
-      CALL ALCHKI(ERR, 2056, SPR, 1, 1, IUNDEF, IUNDEF, '[ NLYREE, NSEDEE ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2056, SPR, 1, 1, IUNDEF, IUNDEF, '[ NLYREE, NSEDEE ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
 
       ! NSEE
       IDUMS(1) = NSEE
       IDUMO(1) = NS
-      CALL ALCHKI(ERR, 2057, SPR, 1, 1, IUNDEF, IUNDEF, 'NSEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2057, SPR, 1, 1, IUNDEF, IUNDEF, 'NSEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
       ! NVEE
       IDUMS(1) = NVEE
       IDUMO(1) = NV
-      CALL ALCHKI(ERR, 2058, SPR, 1, 1, IUNDEF, IUNDEF, 'NVEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2058, SPR, 1, 1, IUNDEF, IUNDEF, 'NVEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
       ! NXEE
       IDUMS(1) = NXEE
       IDUMO(1) = NX
-      CALL ALCHKI(ERR, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
       IDUMO(1) = 9999
-      CALL ALCHKI(ERR, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'LE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'LE', IDUMO, IDUMS, NERR, LDUM1)
 
       ! 2. Unit Numbers
       ! ---------------
 
       ! SPR, SYD
       IDUMS(1) = MIN(SPR, SYD)
-      CALL ALCHKI(ERR, 2060, SPR, 1, 1, IUNDEF, IUNDEF, '[ SPR, SYD ]', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2060, SPR, 1, 1, IUNDEF, IUNDEF, '[ SPR, SYD ]', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
 
       ! 3. Number of Entities
       ! ---------------------
@@ -1134,13 +1131,13 @@ CONTAINS
       ! NLF
       IDUMS(1) = NLF
       IDUMO(1) = NEL
-      CALL ALCHKI(ERR, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
-      CALL ALCHKI(ERR, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
 
       ! NS, NV, NX, NY
       JEDUMDUM = MIN(NS, NV)
       IDUMS(1) = MIN(JEDUMDUM, NX, NY)
-      CALL ALCHKI(ERR, 2062, SPR, 1, 1, IUNDEF, IUNDEF, '[ NS, NV, NX, NY ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 2062, SPR, 1, 1, IUNDEF, IUNDEF, '[ NS, NV, NX, NY ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
 
       ! 4. Epilogue
       ! -----------
@@ -1191,9 +1188,6 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: IDUM(NXEE * NYEE)
       INTEGER, INTENT(INOUT) :: IDUM1X(-1:NEL + 1)
       LOGICAL, INTENT(INOUT) :: LDUM(NELEE)
-
-      ! Local constants
-      INTEGER, PARAMETER :: FATAL = 1, ERR = 2
 
       ! Strict array/scalar parameters for shape matching in ALCHK
       INTEGER, PARAMETER          :: IZERO_ARR(1) = [0], IONE_ARR(1) = [1]
@@ -1251,8 +1245,8 @@ CONTAINS
       IDUM1(1) = NEL - NLF
       IDUM1X(0) = NCOL
 
-      CALL ALCHKI(ERR, 2075, SPR, 1, 1, IUNDEF, IUNDEF, '#_column_elements', 'EQ', IDUM1, IDUM1X(0:), NERR, LDUM)
-      CALL ALCHKI(ERR, 2076, SPR, 1, NEL, IUNDEF, IUNDEF, 'element_count(iel)', 'EQ', IONE_ARR, IDUM1X(1:), NERR, LDUM)
+      CALL ALCHKI(EEERR, 2075, SPR, 1, 1, IUNDEF, IUNDEF, '#_column_elements', 'EQ', IDUM1, IDUM1X(0:), NERR, LDUM)
+      CALL ALCHKI(EEERR, 2076, SPR, 1, NEL, IUNDEF, IUNDEF, 'element_count(iel)', 'EQ', IONE_ARR, IDUM1X(1:), NERR, LDUM)
 
       BKXYOK = COUNT == NERR
 
@@ -1264,8 +1258,8 @@ CONTAINS
       DO FACE = 1, 4
          COUNT = NERR
 
-         CALL ALCHKI(ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'LE', IDUM1(1:1), ICMREF(1:, FACE, 2), NERR, LDUM)
-         CALL ALCHKI(ERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'GE', IDUM1(2:2), ICMREF(1:, FACE, 2), NERR, LDUM)
+         CALL ALCHKI(EEERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'LE', IDUM1(1:1), ICMREF(1:, FACE, 2), NERR, LDUM)
+         CALL ALCHKI(EEERR, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'GE', IDUM1(2:2), ICMREF(1:, FACE, 2), NERR, LDUM)
 
          IF (COUNT == NERR) THEN
             DO IEL = 1, NEL
@@ -1286,7 +1280,7 @@ CONTAINS
                   END IF
                END IF
             END DO
-            CALL ALCHKI(ERR, 2078, SPR, 1, NEL, FACE, IUNDEF, 'status_of_ICMREF(iel,face)', 'EQ', IZERO_ARR, IDUM, NERR, LDUM)
+            CALL ALCHKI(EEERR, 2078, SPR, 1, NEL, FACE, IUNDEF, 'status_of_ICMREF(iel,face)', 'EQ', IZERO_ARR, IDUM, NERR, LDUM)
          END IF
          REFOK = REFOK .AND. COUNT == NERR
       END DO
@@ -1321,7 +1315,7 @@ CONTAINS
             END DO
          END DO
 
-         CALL ALCHKI(ERR, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO_ARR, IDUM, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
       ! ICMRF2
@@ -1373,32 +1367,32 @@ CONTAINS
             END DO
          END DO
 
-         CALL ALCHKI(ERR, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO_ARR, IDUM, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
       ! 2. Soil Properties
       ! ------------------
-      CALL ALCHK(ERR, 2063, SPR, 1, NS, IUNDEF, IUNDEF, 'THSAT(soil)', 'LE', ONE_ARR, ZERO_VAL, THSAT, NERR, LDUM)
+      CALL ALCHK(EEERR, 2063, SPR, 1, NS, IUNDEF, IUNDEF, 'THSAT(soil)', 'LE', ONE_ARR, ZERO_VAL, THSAT, NERR, LDUM)
 
       ! 3. Link Properties & Initial State
       ! ----------------------------------
       IF (NLF > 0) THEN
-         CALL ALCHK(ERR, 2064, SPR, 1, NLF, IUNDEF, IUNDEF, 'CLENTH(link)', 'GE', ZERO_ARR, ZERO_VAL, CLENTH, NERR, LDUM)
-         CALL ALCHK(ERR, 2065, SPR, 1, NLF, IUNDEF, IUNDEF, 'CWIDTH(link)', 'GT', ZERO_ARR, ZERO_VAL, CWIDTH, NERR, LDUM)
-         CALL ALCHK(ERR, 2066, SPR, 1, NLF, IUNDEF, IUNDEF, 'ZBFULL(link)', 'GEa', ZGRUND(1:), ZERO_VAL, ZBFULL, NERR, LDUM)
-         CALL ALCHK(ERR, 2067, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', 'GE', ZERO_ARR, ZERO_VAL, ARXL, NERR, LDUM)
+         CALL ALCHK(EEERR, 2064, SPR, 1, NLF, IUNDEF, IUNDEF, 'CLENTH(link)', 'GE', ZERO_ARR, ZERO_VAL, CLENTH, NERR, LDUM)
+         CALL ALCHK(EEERR, 2065, SPR, 1, NLF, IUNDEF, IUNDEF, 'CWIDTH(link)', 'GT', ZERO_ARR, ZERO_VAL, CWIDTH, NERR, LDUM)
+         CALL ALCHK(EEERR, 2066, SPR, 1, NLF, IUNDEF, IUNDEF, 'ZBFULL(link)', 'GEa', ZGRUND(1:), ZERO_VAL, ZBFULL, NERR, LDUM)
+         CALL ALCHK(EEERR, 2067, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', 'GE', ZERO_ARR, ZERO_VAL, ARXL, NERR, LDUM)
       END IF
 
       ! 4. Column Properties & Initial State
       ! ------------------------------------
-      CALL ALCHK(ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:), NERR, LDUM)
-      CALL ALCHK(ERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:), NERR, LDUM)
-      CALL ALCHK(ERR, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', 'GEa', ZGRUND(ICOL1:), ZERO_VAL, HRF(ICOL1:), NERR, LDUM)
+      CALL ALCHK(EEERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:), NERR, LDUM)
+      CALL ALCHK(EEERR, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:), NERR, LDUM)
+      CALL ALCHK(EEERR, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', 'GEa', ZGRUND(ICOL1:), ZERO_VAL, HRF(ICOL1:), NERR, LDUM)
 
       COUNT = NERR
       IDUM1(1) = NLYREE
-      CALL ALCHKI(ERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'GT', IZERO_ARR, NLYR(ICOL1:), NERR, LDUM)
-      CALL ALCHKI(ERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'LE', IDUM1(1:1), NLYR(ICOL1:), NERR, LDUM)
+      CALL ALCHKI(EEERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'GT', IZERO_ARR, NLYR(ICOL1:), NERR, LDUM)
+      CALL ALCHKI(EEERR, 2070, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NLYR(iel)', 'LE', IDUM1(1:1), NLYR(ICOL1:), NERR, LDUM)
 
       IF (COUNT == NERR) THEN
          DO IEL = ICOL1, NEL
@@ -1406,20 +1400,20 @@ CONTAINS
             IDUM(IEL) = NTSOIL(IEL, ILYR)
          END DO
          IDUM1(1) = NS
-         CALL ALCHKI(ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO_ARR, IDUM(ICOL1:), NERR, LDUM)
-         CALL ALCHKI(ERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'LE', IDUM1(1:1), IDUM(ICOL1:), NERR, LDUM)
+         CALL ALCHKI(EEERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO_ARR, IDUM(ICOL1:), NERR, LDUM)
+         CALL ALCHKI(EEERR, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'LE', IDUM1(1:1), IDUM(ICOL1:), NERR, LDUM)
       END IF
 
       COUNT = NERR
       IDUM1(1) = NV
-      CALL ALCHKI(ERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'GT', IZERO_ARR, NVC(ICOL1:), NERR, LDUM)
-      CALL ALCHKI(ERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'LE', IDUM1(1:1), NVC(ICOL1:), NERR, LDUM)
+      CALL ALCHKI(EEERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'GT', IZERO_ARR, NVC(ICOL1:), NERR, LDUM)
+      CALL ALCHKI(EEERR, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'LE', IDUM1(1:1), NVC(ICOL1:), NERR, LDUM)
 
       ! 5. Element Properties
       ! ---------------------
-      CALL ALCHK(ERR, 2073, SPR, 1, NEL, IUNDEF, IUNDEF, 'AREA(iel)', 'GT', ZERO_ARR, ZERO_VAL, AREA, NERR, LDUM)
+      CALL ALCHK(EEERR, 2073, SPR, 1, NEL, IUNDEF, IUNDEF, 'AREA(iel)', 'GT', ZERO_ARR, ZERO_VAL, AREA, NERR, LDUM)
       DO FACE = 1, 4
-         CALL ALCHK(ERR, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', 'GT', ZERO_ARR, ZERO_VAL, DHF(1:, FACE), NERR, LDUM)
+         CALL ALCHK(EEERR, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', 'GT', ZERO_ARR, ZERO_VAL, DHF(1:, FACE), NERR, LDUM)
       END DO
 
       ! 6. Epilogue
@@ -1475,7 +1469,6 @@ CONTAINS
       LOGICAL, DIMENSION(NELEE), INTENT(INOUT)          :: LDUM
 
       ! Locals, etc
-      INTEGER, PARAMETER :: FATAL = 1, ERR = 2
       DOUBLE PRECISION, PARAMETER :: TOL = 1.0D-10
 
       INTEGER :: BB, COUNT, FACE, ICAT, IEL, ITYPE, NERR
@@ -1501,43 +1494,43 @@ CONTAINS
 
       ! NEPS
       IDUM (1) = NEPS
-      CALL ALCHKI (ERR, 2012, SPR, 1, 1, IUNDEF, IUNDEF, 'NEPS', 'GE', IONE1, IDUM, NERR, LDUM)
+      CALL ALCHKI(EEERR, 2012, SPR, 1, 1, IUNDEF, IUNDEF, 'NEPS', 'GE', IONE1, IDUM, NERR, LDUM)
       NEPS = IDUM (1)
 
       ! FPCRIT
       DUMMY (1) = FPCRIT
-      CALL ALCHK (ERR, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'FPCRIT', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
+      CALL ALCHK(EEERR, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'FPCRIT', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
       FPCRIT = DUMMY (1)
 
       ! DLSMAX
       DUMMY (1) = DLSMAX
-      CALL ALCHK (ERR, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'DLSMAX', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
+      CALL ALCHK(EEERR, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'DLSMAX', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
       DLSMAX = DUMMY (1)
 
       IF (NLF > 0) THEN
          ! ISUSED
          IDUM (1) = ISUSED
-         CALL ALCHKI (ERR, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'GE', IZERO1, IDUM, NERR, LDUM)
-         CALL ALCHKI (ERR, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'LE', IONE1, IDUM, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'GE', IZERO1, IDUM, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'LE', IONE1, IDUM, NERR, LDUM)
          ISUSED = IDUM (1)
 
          ! NFINE
          IDUM (1) = NFINE
          IDUM1 (1) = MIN (1, NSED - 1)
-         CALL ALCHKI (ERR, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'GE', IZERO1, IDUM, NERR, LDUM)
-         CALL ALCHKI (ERR, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'LE', IDUM1, IDUM, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'GE', IZERO1, IDUM, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'LE', IDUM1, IDUM, NERR, LDUM)
          NFINE = IDUM (1)
 
          ! ALPHA
          IF (NFINE > 0) THEN
             DUMMY (1) = ALPHA
-            CALL ALCHK (ERR, 2016, SPR, 1, 1, IUNDEF, IUNDEF, 'ALPHA', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
+            CALL ALCHK(EEERR, 2016, SPR, 1, 1, IUNDEF, IUNDEF, 'ALPHA', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
             ALPHA = DUMMY (1)
          END IF
 
          ! DCBEDO
          DUMMY (1) = DCBEDO
-         CALL ALCHK (ERR, 2017, SPR, 1, 1, IUNDEF, IUNDEF, 'DCBEDO', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
+         CALL ALCHK(EEERR, 2017, SPR, 1, 1, IUNDEF, IUNDEF, 'DCBEDO', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
          DCBEDO = DUMMY (1)
       END IF
 
@@ -1549,7 +1542,7 @@ CONTAINS
 
       ! * (including local workspace requirements)
       IDUM1 (1) = MAX (IDUM1 (1), NS, NSYB * 2)
-      CALL ALCHKI (ERR, 2018, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUM1, IDUM, NERR, LDUM)
+      CALL ALCHKI(EEERR, 2018, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUM1, IDUM, NERR, LDUM)
 
 
       ! 2. Sediment, Soil & Vegetation Properties
@@ -1560,24 +1553,24 @@ CONTAINS
 
          ! DRSED
          COUNT = NERR
-         CALL ALCHK (ERR, 2019, SPR, 1, 1, IUNDEF, IUNDEF, 'DRSED(sed)', 'GT', ZERO1, ZERO1 (1), DRSED (1), NERR, LDUM)
+         CALL ALCHK(EEERR, 2019, SPR, 1, 1, IUNDEF, IUNDEF, 'DRSED(sed)', 'GT', ZERO1, ZERO1 (1), DRSED (1), NERR, LDUM)
 
          IF (NSED > 1 .AND. NERR == COUNT) THEN
             CALL DCOPY (NSED - 1, DRSED, 1, RDUM, 1)
             IDUM(1:NSED - 1) = INT (RDUM(1:NSED - 1))
-            CALL ALCHK (ERR, 2019, SPR, 2, NSED, IUNDEF, IUNDEF, 'DRSED(sed)', 'GEa', RDUM, ZERO1 (1), DRSED (2), NERR, LDUM)
+            CALL ALCHK(EEERR, 2019, SPR, 2, NSED, IUNDEF, IUNDEF, 'DRSED(sed)', 'GEa', RDUM, ZERO1 (1), DRSED (2), NERR, LDUM)
          END IF
 
          ! GKR
-         CALL ALCHK (ERR, 2020, SPR, 1, NS, IUNDEF, IUNDEF, 'GKR(soil)', 'GE', ZERO1, ZERO1 (1), GKR, NERR, LDUM)
+         CALL ALCHK(EEERR, 2020, SPR, 1, NS, IUNDEF, IUNDEF, 'GKR(soil)', 'GE', ZERO1, ZERO1 (1), GKR, NERR, LDUM)
          ! GKF
-         CALL ALCHK (ERR, 2021, SPR, 1, NS, IUNDEF, IUNDEF, 'GKF(soil)', 'GE', ZERO1, ZERO1 (1), GKF, NERR, LDUM)
+         CALL ALCHK(EEERR, 2021, SPR, 1, NS, IUNDEF, IUNDEF, 'GKF(soil)', 'GE', ZERO1, ZERO1 (1), GKF, NERR, LDUM)
          ! RHOSO
-         CALL ALCHK (ERR, 2022, SPR, 1, NS, IUNDEF, IUNDEF, 'RHOSO(soil)', 'GT', ZERO1, ZERO1 (1), RHOSO, NERR, LDUM)
+         CALL ALCHK(EEERR, 2022, SPR, 1, NS, IUNDEF, IUNDEF, 'RHOSO(soil)', 'GT', ZERO1, ZERO1 (1), RHOSO, NERR, LDUM)
 
          ! BKB
          IF (NLF > 0) THEN
-            CALL ALCHK (ERR, 2023, SPR, 1, NS, IUNDEF, IUNDEF, 'BKB(soil)', 'GE', ZERO1, ZERO1 (1), BKB, NERR, LDUM)
+            CALL ALCHK(EEERR, 2023, SPR, 1, NS, IUNDEF, IUNDEF, 'BKB(soil)', 'GE', ZERO1, ZERO1 (1), BKB, NERR, LDUM)
          END IF
 
          ! SOSDFN
@@ -1586,16 +1579,16 @@ CONTAINS
             DO SOIL = 1, NS
                DUMMY (SOIL) = DUMMY (SOIL) + SOSDFN (SOIL, SED)
             END DO
-            CALL ALCHK (ERR, 2024, SPR, 1, NS, SED, IUNDEF, 'SOSDFN(soil,sed)', 'GE', ZERO1, ZERO1 (1), SOSDFN (1, SED), NERR, LDUM)
+            CALL ALCHK(EEERR, 2024, SPR, 1, NS, SED, IUNDEF, 'SOSDFN(soil,sed)', 'GE', ZERO1, ZERO1 (1), SOSDFN (1, SED), NERR, LDUM)
          END DO
-         CALL ALCHK (ERR, 2024, SPR, 1, NS, IUNDEF, IUNDEF, 'SOSDFN[*][sum_over_sed](soil)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
+         CALL ALCHK(EEERR, 2024, SPR, 1, NS, IUNDEF, IUNDEF, 'SOSDFN[*][sum_over_sed](soil)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
 
          ! XDRIP
-         CALL ALCHK (ERR, 2025, SPR, 1, NV, IUNDEF, IUNDEF, 'XDRIP(veg)', 'GE', ZERO1, ZERO1 (1), XDRIP, NERR, LDUM)
+         CALL ALCHK(EEERR, 2025, SPR, 1, NV, IUNDEF, IUNDEF, 'XDRIP(veg)', 'GE', ZERO1, ZERO1 (1), XDRIP, NERR, LDUM)
          ! DRDRIP
-         CALL ALCHK (ERR, 2026, SPR, 1, NV, IUNDEF, IUNDEF, 'DRDRIP(veg)', 'GT', ZERO1, ZERO1 (1), DRDRIP, NERR, LDUM)
+         CALL ALCHK(EEERR, 2026, SPR, 1, NV, IUNDEF, IUNDEF, 'DRDRIP(veg)', 'GT', ZERO1, ZERO1 (1), DRDRIP, NERR, LDUM)
          ! FDRIP
-         CALL ALCHK (ERR, 2027, SPR, 1, NV, IUNDEF, IUNDEF, 'FDRIP(veg)', 'GE', ZERO1, ZERO1 (1), FDRIP, NERR, LDUM)
+         CALL ALCHK(EEERR, 2027, SPR, 1, NV, IUNDEF, IUNDEF, 'FDRIP(veg)', 'GE', ZERO1, ZERO1 (1), FDRIP, NERR, LDUM)
 
       END IF
 
@@ -1606,11 +1599,11 @@ CONTAINS
       IF (NLF > 0) THEN
          ! NTSOBK
          IDUM (1) = NS
-         CALL ALCHKI (ERR, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'GE', IONE1, NTSOBK, NERR, LDUM)
-         CALL ALCHKI (ERR, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'LE', IDUM, NTSOBK, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'GE', IONE1, NTSOBK, NERR, LDUM)
+         CALL ALCHKI(EEERR, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'LE', IDUM, NTSOBK, NERR, LDUM)
          ! PBSED
-         CALL ALCHK (ERR, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'GE', ZERO1, ZERO1 (1), PBSED, NERR, LDUM)
-         CALL ALCHK (ERR, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'LT', ONE1, ZERO1 (1), PBSED, NERR, LDUM)
+         CALL ALCHK(EEERR, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'GE', ZERO1, ZERO1 (1), PBSED, NERR, LDUM)
+         CALL ALCHK(EEERR, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'LT', ONE1, ZERO1 (1), PBSED, NERR, LDUM)
       END IF
 
 
@@ -1618,24 +1611,24 @@ CONTAINS
       ! ----------------------------
       !
       ! FCROCK
-      CALL ALCHK (ERR, 2030, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCROCK(iel)', 'LE', ONE1, ZERO1 (1), FCROCK, NERR, LDUM)
+      CALL ALCHK(EEERR, 2030, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCROCK(iel)', 'LE', ONE1, ZERO1 (1), FCROCK, NERR, LDUM)
 
       ! FCG
       DO IEL = NLF + 1, NEL
          DUMMY (IEL) = ONE1 (1) - FCROCK (IEL)
       END DO
-      CALL ALCHK (ERR, 2031, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCG(iel)', 'LEa', DUMMY (NLF + 1), ZERO1 (1), FCG, NERR, LDUM)
+      CALL ALCHK(EEERR, 2031, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCG(iel)', 'LEa', DUMMY (NLF + 1), ZERO1 (1), FCG, NERR, LDUM)
 
       ! PLS
-      CALL ALCHK (ERR, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'GE', ZERO1, ZERO1 (1), PLS, NERR, LDUM)
-      CALL ALCHK (ERR, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'LT', ONE1, ZERO1 (1), PLS, NERR, LDUM)
+      CALL ALCHK(EEERR, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'GE', ZERO1, ZERO1 (1), PLS, NERR, LDUM)
+      CALL ALCHK(EEERR, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'LT', ONE1, ZERO1 (1), PLS, NERR, LDUM)
 
 
       ! 5. All-element Initialization
       ! -----------------------------
       !
       ! DLS
-      CALL ALCHK (ERR, 2033, SPR, 1, NEL, IUNDEF, IUNDEF, 'DLS(iel)', 'GE', ZERO1, ZERO1 (1), DLS, NERR, LDUM)
+      CALL ALCHK(EEERR, 2033, SPR, 1, NEL, IUNDEF, IUNDEF, 'DLS(iel)', 'GE', ZERO1, ZERO1 (1), DLS, NERR, LDUM)
 
       ! FBETA
       DUMMY(1:NEL) = ZERO1 (1)
@@ -1643,13 +1636,13 @@ CONTAINS
          DO IEL = 1, NEL
             DUMMY (IEL) = DUMMY (IEL) + FBETA (IEL, SED)
          END DO
-         CALL ALCHK (ERR, 2034, SPR, 1, NEL, SED, IUNDEF, 'FBETA(iel,sed)', 'GE', ZERO1, ZERO1 (1), FBETA (1, SED), NERR, LDUM)
+         CALL ALCHK(EEERR, 2034, SPR, 1, NEL, SED, IUNDEF, 'FBETA(iel,sed)', 'GE', ZERO1, ZERO1 (1), FBETA (1, SED), NERR, LDUM)
       END DO
-      CALL ALCHK (ERR, 2034, SPR, 1, NEL, IUNDEF, IUNDEF, 'FBETA[*][sum_over_sed](iel)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
+      CALL ALCHK(EEERR, 2034, SPR, 1, NEL, IUNDEF, IUNDEF, 'FBETA[*][sum_over_sed](iel)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
 
       ! FDEL
       DO SED = 1, NSED
-         CALL ALCHK (ERR, 2035, SPR, 1, NEL, SED, IUNDEF, 'FDEL(iel,sed)', 'GE', ZERO1, ZERO1 (1), FDEL (1, SED), NERR, LDUM)
+         CALL ALCHK(EEERR, 2035, SPR, 1, NEL, SED, IUNDEF, 'FDEL(iel,sed)', 'GE', ZERO1, ZERO1 (1), FDEL (1, SED), NERR, LDUM)
       END DO
 
 
@@ -1662,13 +1655,13 @@ CONTAINS
             ! NSYCEE
             IDUM (1) = NSYCEE
             IDUM1 (1) = MAX (NSYC (1) + NSYC (2), NSYC (3) + NSYC (4))
-            CALL ALCHKI (ERR, 2036, SPR, 1, 1, IUNDEF, IUNDEF, 'NSYCEE', 'GE', IDUM1, IDUM, NERR, LDUM)
+            CALL ALCHKI(EEERR, 2036, SPR, 1, 1, IUNDEF, IUNDEF, 'NSYCEE', 'GE', IDUM1, IDUM, NERR, LDUM)
 
             ! NSYBCD(BB,1)
             COUNT = NERR
             IDUM1 (1) = NEL
-            CALL ALCHKI (ERR, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'GE', IONE1, NSYBCD, NERR, LDUM)
-            CALL ALCHKI (ERR, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'LE', IDUM1, NSYBCD, NERR, LDUM)
+            CALL ALCHKI(EEERR, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'GE', IONE1, NSYBCD, NERR, LDUM)
+            CALL ALCHKI(EEERR, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'LE', IDUM1, NSYBCD, NERR, LDUM)
 
             ! NBFACE
             IF (COUNT == NERR) THEN
@@ -1677,8 +1670,8 @@ CONTAINS
                   IDUM (BB) = NBFACE (IEL)
                END DO
                IDUM1 (1) = 4
-               CALL ALCHKI (ERR, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'GE', IONE1, IDUM, NERR, LDUM)
-               CALL ALCHKI (ERR, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'LE', IDUM1, IDUM, NERR, LDUM)
+               CALL ALCHKI(EEERR, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'GE', IONE1, IDUM, NERR, LDUM)
+               CALL ALCHKI(EEERR, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'LE', IDUM1, IDUM, NERR, LDUM)
             END IF
 
             ! ICMREF
@@ -1688,7 +1681,7 @@ CONTAINS
                   FACE = NBFACE (IEL)
                   IDUM (BB) = ICMREF (IEL, FACE, 2)
                END DO
-               CALL ALCHKI (ERR, 2039, SPR, 1, NSYB, IUNDEF, IUNDEF, 'ICMREF[NSYBCD[*][1]][NBFACE][2](bdry)', 'EQ', IZERO1, IDUM, NERR, LDUM)
+               CALL ALCHKI(EEERR, 2039, SPR, 1, NSYB, IUNDEF, IUNDEF, 'ICMREF[NSYBCD[*][1]][NBFACE][2](bdry)', 'EQ', IZERO1, IDUM, NERR, LDUM)
             END IF
 
             ! NSYBCD(BB,3)
@@ -1698,34 +1691,34 @@ CONTAINS
                IF (MOD (ITYPE, 2) == 0) IDUM (BB) = IDUM (BB) + NSYC (ITYPE - 1)
                IDUM (NSYB + BB) = IDUM (BB) + NSYC (ITYPE)
             END DO
-            CALL ALCHKI (ERR, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'GE', IDUM, NSYBCD (1, 3), NERR, LDUM)
-            CALL ALCHKI (ERR, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'LE', IDUM (NSYB + 1), NSYBCD (1, 3), NERR, LDUM)
+            CALL ALCHKI(EEERR, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'GE', IDUM, NSYBCD (1, 3), NERR, LDUM)
+            CALL ALCHKI(EEERR, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'LE', IDUM (NSYB + 1), NSYBCD (1, 3), NERR, LDUM)
 
             ! GBC
             DO ICAT = 1, NSYC (1)
-               CALL ALCHK (ERR, 2041, SPR, 1, NSED, ICAT, IUNDEF, 'GBC(sed,icat)', 'GE', ZERO1, ZERO1 (1), GBC (1, ICAT), NERR, LDUM)
+               CALL ALCHK(EEERR, 2041, SPR, 1, NSED, ICAT, IUNDEF, 'GBC(sed,icat)', 'GE', ZERO1, ZERO1 (1), GBC (1, ICAT), NERR, LDUM)
             END DO
 
             ! ABC
             DO ICAT = 1, NSYC (3)
-               CALL ALCHK (ERR, 2042, SPR, 1, NSED, ICAT, IUNDEF, 'ABC(sed,icat)', 'GE', ZERO1, ZERO1 (1), ABC (1, ICAT), NERR, LDUM)
+               CALL ALCHK(EEERR, 2042, SPR, 1, NSED, ICAT, IUNDEF, 'ABC(sed,icat)', 'GE', ZERO1, ZERO1 (1), ABC (1, ICAT), NERR, LDUM)
             END DO
 
             ! BBC
             DO ICAT = 1, NSYC (3)
-               CALL ALCHK (ERR, 2043, SPR, 1, NSED, ICAT, IUNDEF, 'BBC(sed,icat)', 'GT', ZERO1, ZERO1 (1), BBC (1, ICAT), NERR, LDUM)
+               CALL ALCHK(EEERR, 2043, SPR, 1, NSED, ICAT, IUNDEF, 'BBC(sed,icat)', 'GT', ZERO1, ZERO1 (1), BBC (1, ICAT), NERR, LDUM)
             END DO
 
             ! SFB
             IF (NSYC (2) > 0) THEN
                IDUM (1) = SFB
-               CALL ALCHKI (ERR, 2044, SPR, 1, 1, IUNDEF, IUNDEF, 'SFB', 'GE', IZERO1, IDUM, NERR, LDUM)
+               CALL ALCHKI(EEERR, 2044, SPR, 1, 1, IUNDEF, IUNDEF, 'SFB', 'GE', IZERO1, IDUM, NERR, LDUM)
             END IF
 
             ! SRB
             IF (NSYC (2) > 0) THEN
                IDUM (1) = SRB
-               CALL ALCHKI (ERR, 2045, SPR, 1, 1, IUNDEF, IUNDEF, 'SRB', 'GE', IZERO1, IDUM, NERR, LDUM)
+               CALL ALCHKI(EEERR, 2045, SPR, 1, 1, IUNDEF, IUNDEF, 'SRB', 'GE', IZERO1, IDUM, NERR, LDUM)
             END IF
          END IF
       END IF
@@ -1798,7 +1791,7 @@ CONTAINS
       !
       ! DTUZ
       DUM1 (1) = DTUZ
-      CALL ALCHK (ERR, 2046, SPR, 1, 1, IUNDEF, IUNDEF, 'DTUZ', 'GE', &
+      CALL ALCHK(EEERR, 2046, SPR, 1, 1, IUNDEF, IUNDEF, 'DTUZ', 'GE', &
          zero1, zero1 (1), DUM1, NERR, LDUM)
       !
       !
@@ -1806,12 +1799,12 @@ CONTAINS
       ! -------------------
       !
       ! CLAI
-      CALL ALCHK (ERR, 2047, SPR, 1, NV, IUNDEF, IUNDEF, 'CLAI(veg)', &
+      CALL ALCHK(EEERR, 2047, SPR, 1, NV, IUNDEF, IUNDEF, 'CLAI(veg)', &
          'GE', zero1, zero1 (1), CLAI, NERR, LDUM)
       ! PLAI
-      CALL ALCHK (ERR, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
+      CALL ALCHK(EEERR, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
          'GE', zero1, zero1 (1), PLAI, NERR, LDUM)
-      CALL ALCHK (ERR, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
+      CALL ALCHK(EEERR, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
          'LE', ONE1, ZERO1 (1), PLAI, NERR, LDUM)
       !
       !
@@ -1821,7 +1814,7 @@ CONTAINS
       IF (NLF > 0) THEN
          !
          ! ARXL
-         CALL ALCHK (ERR, 2049, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
+         CALL ALCHK(EEERR, 2049, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
             'GE', zero1, zero1 (1), ARXL, NERR, LDUM)
          !
       END IF
@@ -1831,16 +1824,16 @@ CONTAINS
       ! -----------------
       !
       ! DRAINA
-      CALL ALCHK (ERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1 (1), DRAINA, NERR, LDUM)
+      CALL ALCHK(EEERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1 (1), DRAINA, NERR, LDUM)
       ! 10.10.94  Ought to fix WAT module so that we don't need TOL
-      CALL ALCHK (ERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'LEa', PNETTO, TOL, DRAINA, NERR, LDUM)
+      CALL ALCHK(EEERR, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'LEa', PNETTO, TOL, DRAINA, NERR, LDUM)
       !
       !
       ! 5. Elemental State
       ! ------------------
       !
       ! HRF
-      CALL ALCHK (ERR, 2051, SPR, 1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', &
+      CALL ALCHK(EEERR, 2051, SPR, 1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', &
          'GEa', ZGRUND, ZERO1 (1), HRF, NERR, LDUM)
       !
       !
@@ -1907,14 +1900,14 @@ CONTAINS
          END DO element_loop
 
          !        * Check QOC status at this FACE for all elements
-         CALL ALCHKI (ERR, 2052, SPR, 1, NEL, FACE, IUNDEF, &
+         CALL ALCHKI(EEERR, 2052, SPR, 1, NEL, FACE, IUNDEF, &
             'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
 
       END DO
 
       !     * Check that each donor element listed in ISORT occurs before
       !       each of its receptors, and that all elements are listed
-      CALL ALCHKI (ERR, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
+      CALL ALCHKI(EEERR, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
          'position_in_ISORT(iel)', 'LTa', JMIN, JSORT (1), NERR, LDUM)
       !
       !
@@ -1938,7 +1931,7 @@ CONTAINS
             WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC (IEL, FACE), IEL = 1, NEL)
          END DO
          !
-         CALL ERROR (ERR, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
+         CALL ERROR (EEERR, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
          !
       END IF
 
