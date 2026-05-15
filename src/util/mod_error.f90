@@ -19,7 +19,7 @@
 !>
 module mod_error
 
-   use mod_parameters, only: I_P, LENGTH_FILEPATH
+   use mod_parameters, only: I_P, LENGTH_FILEPATH, LENGTH_LINE
    use sglobal, only: UZNOW, EARRAY, rootdir, dirqq, ISERROR, ISERROR2
 
    implicit none
@@ -121,7 +121,7 @@ contains
       ! Local variables
       CHARACTER(LEN=*), PARAMETER :: PATH1 = '/shetran/'
       CHARACTER(LEN=256) :: FIL
-      CHARACTER(LEN=80)  :: HLPMSG
+      CHARACTER(LEN=LENGTH_LINE)  :: HLPMSG
       CHARACTER(LEN=1)   :: cc
       CHARACTER(LEN=1), PARAMETER :: slash = '/'
 
