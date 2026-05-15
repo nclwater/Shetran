@@ -28,25 +28,44 @@ module mod_error
    private
 
 
-   ! --------------------------------------------------------------------
-   ! Error Handling Constants and Variables
-   ! --------------------------------------------------------------------
-   INTEGER(KIND=I_P), PARAMETER :: ERRNEE = 100 !! Max number of distinct error codes per module.
+   ! Error levels
    INTEGER(KIND=I_P), PARAMETER :: FFFATAL = 1 !! Error type for fatal errors.
    INTEGER(KIND=I_P), PARAMETER :: EEERR = 2 !! Error type for non-fatal errors.
    INTEGER(KIND=I_P), PARAMETER :: WWWARN = 3 !! Error type for warnings.
-   INTEGER(KIND=I_P), PARAMETER :: pppri = 23 !! File unit for primary output.
+
+   ! Error handling control
+   INTEGER(KIND=I_P), PARAMETER :: ERRNEE = 100 !! Max number of distinct error codes per module.
    INTEGER(KIND=I_P) :: ERRC(0:ERRNEE, 0:3) = 0 !! Counters for error occurrences.
    INTEGER(KIND=I_P) :: ERRTOT = 0 !! Total count of all errors and warnings.
+   LOGICAL :: flag_wait_on_exit = .FALSE. !! Flag to control waiting for user input before exiting on fatal error.
+
+   ! Error file information
+   INTEGER(KIND=I_P), PARAMETER :: pppri = 23 !! File unit for primary output.
    CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Path to help message files (use LENGTH_FILEPATH for portability)
 
 
-   public :: ERROR, ALSTOP
-   public :: FFFATAL, EEERR, WWWARN
+   PUBLIC :: ERROR, ALSTOP, err_set_wait_on_exit
+   PUBLIC :: FFFATAL, EEERR, WWWARN
    PUBLIC :: pppri
    PUBLIC :: ERRNEE
 
 contains
+
+   !> Sets whether the program should wait for user input before exiting on a fatal error.
+   !> @author S. Berendsen, Southampton University
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:----:|:------:|-------------|
+   !> | 2026-05-15 | SvB | Initial Version |
+   !>
+   SUBROUTINE err_set_wait_on_exit(wait)
+      LOGICAL, INTENT(IN) :: wait !! If .TRUE., the program will wait for user input before exiting on a fatal error.
+
+      flag_wait_on_exit = wait
+   END SUBROUTINE err_set_wait_on_exit
+
+
 
    !> Prints an error message, updates error counters, and optionally stops the program.
    !>
@@ -269,9 +288,11 @@ contains
    SUBROUTINE ALSTOP (FLAG)
       INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
 
-      IF (FLAG.GT.0) THEN
+      IF (FLAG > 0 .and. flag_wait_on_exit) THEN
          WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
          READ(*,*)
+         STOP 'Program terminating due to fatal error'
+      ELSE IF (FLAG > 0) THEN
          STOP 'Program terminating due to fatal error'
       ENDIF
    END SUBROUTINE ALSTOP
