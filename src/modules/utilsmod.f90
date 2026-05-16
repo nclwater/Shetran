@@ -4,7 +4,7 @@ MODULE utilsmod
 ! SB Mar 26  4.6       Error traping for dates
 !
    USE SGLOBAL
-   USE mod_error, ONLY : ERROR, FFFATAL, pppri, ALSTOP
+   USE mod_error, ONLY : ERROR, ERRLVL_fatal, FID_logfile, ALSTOP
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
    IMPLICIT NONE
@@ -350,7 +350,7 @@ CONTAINS
    FUNCTION days_to_start_month(m, y) RESULT(r)
       !----------------------------------------------------------------------*
 
-      ! Assumed global variables from host module: FFFATAL, pppri
+      ! Assumed global variables from host module: ERRLVL_fatal, FID_logfile
 
       IMPLICIT NONE
 
@@ -361,7 +361,7 @@ CONTAINS
 
       IF (m < 1) THEN
          WRITE(MSG, *) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
-         CALL ERROR(FFFATAL, 4820, pppri, 0, 0, MSG)
+         CALL ERROR(ERRLVL_fatal, 4820, FID_logfile, 0, 0, MSG)
       END IF
 
       r = sd(m)

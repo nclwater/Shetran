@@ -13,12 +13,12 @@ MODULE AL_D
 !   GP        FEB 92    3.3     SOIL LAYER ARRAYS ADDED
 !   GP        JUN 92    3.4 VARIABLES MOVED TO AL.C FOR HOTSTART
 !                           (TIH,UZNOW & array NRD).  Add arrays
-!                           NSMC,FLERRC,SYERRC,CMERRC,KSAT,QSA,DQ0ST,
+!                           NSMC,FLerror_counter,SYerror_counter,CMerror_counter,KSAT,QSA,DQ0ST,
 !                           DQIST,DQIST2,SMELT,TM,WATC3,ESWA,QEX,QEXDH.
 !                           Scrap constants NS801,NS501.  NSTEP I*4.
 ! RAH  28.09.94  Version 3.4.1 from version 3.4: standard header;
 !                declare everything; no INTEGER*2 (/DFILE/,/ALDCB2/);
-!                remove FLERRC, SYERRC, CMERRC from /ALDCB7/.
+!                remove FLerror_counter, SYerror_counter, CMerror_counter from /ALDCB7/.
 !  GP  960103  4.0  Move BEXBK,ESOILA,NBFACE,PRI,QH,UZNEXT,WLD to AL.C.
 !                   Move PSI4,UZALFA to SPEC.ET.
 !                   Remove DFRLYR,IFRLYR,NFRLYR,NLYRC (see INBK),
@@ -152,7 +152,7 @@ MODULE AL_D
    INTEGER          NSMC(NELEE)
 
 !970212 TEMPORARY!
-   INTEGER          FLERRC(0:100),SYERRC(0:100),CMERRC(0:100)
+   INTEGER          FLerror_counter(0:100),SYerror_counter(0:100),CMerror_counter(0:100)
 
 ! ----- Static floating-point arrays
 !

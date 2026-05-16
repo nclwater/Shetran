@@ -714,22 +714,22 @@ CONTAINS
       dims = [wid,hei]
       err  = 0
       CALL H5LTmake_dataset_int_f(loc_id, name, 2, dims, pic, err)
-!subroutine h5ltmake_dataset_int_f(loc_id, dset_name, rank, dims, buf, errcode)
+!subroutine h5ltmake_dataset_int_f(loc_id, dset_name, rank, dims, buf, error_counterode)
 !  integer(HID_T), intent(IN) :: loc_id           ! file or group identifier
 !  character(LEN=*), intent(IN) :: dset_name      ! name of the dataset
 !  integer, intent(IN) :: rank                    ! rank
 !  integer(HSIZE_T), dimension(*), intent(IN) :: dims ! size of the buffer buf
 !  integer, intent(IN), dimension(*) :: buf       ! data buffer
-!  integer :: errcode                             ! error code
+!  integer :: error_counterode                             ! error code
 !end subroutine h5ltmake_dataset_int_f
 
 
-!subroutine h5ltset_attribute_string_f(loc_id, dset_name, attr_name, buf, errcode )
+!subroutine h5ltset_attribute_string_f(loc_id, dset_name, attr_name, buf, error_counterode )
 !  implicit none
 !  integer(HID_T), intent(IN) :: loc_id           ! file or group identifier
 !  character(LEN=*), intent(IN) :: dset_name      ! name of the dataset
 !  character(LEN=*), intent(IN) :: attr_name      ! name of the attribute
-!  integer :: errcode                             ! error code
+!  integer :: error_counterode                             ! error code
 !  character(LEN=*), intent(IN) :: buf            ! data buffer
 !end subroutine h5ltset_attribute_string_f
 

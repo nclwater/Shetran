@@ -2,7 +2,7 @@ MODULE OCmod2
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC.F files
    USE SGLOBAL
-   USE mod_error, ONLY : ERROR, WWWARN, pppri
+   USE mod_error, ONLY : ERROR, ERRLVL_warn, FID_logfile
 !!***ZQ Module 200520
    USE ZQmod,     ONLY : get_ZQTable_value
    USE AL_D,      ONLY : ZQweirsill,ZQTableRef
@@ -235,9 +235,9 @@ CONTAINS
 
       ! IF(failed) THEN
       !    IF (ABS(FN) < SIGMAQ * 1.0D-1 .AND. ABS(B - A) < 5.0D-2) THEN
-      !       !CALL ERROR(WWWARN, 1027, PPPRI, iela, 0, 'maximum iterations exceeded for OC confluence')
+      !       !CALL ERROR(ERRLVL_warn, 1027, FID_logfile, iela, 0, 'maximum iterations exceeded for OC confluence')
       !    ELSE
-      !       !CALL ERROR(FFFATAL, 1028, PPPRI, iela, 0, 'iteration failure for OC confluence')
+      !       !CALL ERROR(ERRLVL_fatal, 1028, FID_logfile, iela, 0, 'iteration failure for OC confluence')
       !    ENDIF
       ! ENDIF
 
@@ -1171,7 +1171,7 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! NELEE, NLFEE, cellarea, DXQQ, DYQQ, ZGRUND, NOTZERO, ZERO, ONE,
-      ! DZMIN, WWWARN, PPPRI, ERROR
+      ! DZMIN, ERRLVL_warn, FID_logfile, ERROR
 
       IMPLICIT NONE
 
@@ -1321,7 +1321,7 @@ CONTAINS
 
                         ! PERF FIX: Unrolled the array slice rdum4(1:2)
                         WRITE (MSG, 91030) rdum4(1), rdum4(2), idum, rdum4(4)
-                        CALL ERROR(WWWARN, 1030, PPPRI, ielc, 0, MSG)
+                        CALL ERROR(ERRLVL_warn, 1030, FID_logfile, ielc, 0, MSG)
                      END IF
                   END IF
                END IF
@@ -1341,7 +1341,7 @@ CONTAINS
 
                   ! PERF FIX: Unrolled the array slice rdum4(1:3)
                   WRITE (MSG, 91024) rdum4(1), rdum4(2), rdum4(3)
-                  CALL ERROR(WWWARN, 1024, PPPRI, ielc, 0, MSG)
+                  CALL ERROR(ERRLVL_warn, 1024, FID_logfile, ielc, 0, MSG)
                END IF
             END IF
 
@@ -1353,7 +1353,7 @@ CONTAINS
 
       END DO pass_loop
 
-      IF (.NOT. AOK) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
+      IF (.NOT. AOK) CALL ERROR(ERRLVL_warn, 1060, FID_logfile, 0, 0, 'OC flow criteria could not be met')
 
       ! FORMAT STATEMENTS (Safely compiled exactly once)
 91024 FORMAT('Surface water depth adjusted from', SP, 1PG15.7, ' to zero', ': depth created =', 2G15.7)

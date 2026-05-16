@@ -11,7 +11,7 @@ MODULE OCmod
    USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI
    USE mod_error, ONLY: ALSTOP
-   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
+   USE mod_error,    ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
    USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
@@ -116,7 +116,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! NOCTAB, NELEE, total_no_links, NXSCEE, PPPRI, BEXBK, NROWF, NROWL,
+      ! NOCTAB, NELEE, total_no_links, NXSCEE, FID_logfile, BEXBK, NROWF, NROWL,
       ! NROWST, NELIND, NROWEL, NOCHB, OHB, NOCFB, OFB, DUMMY
 
       IMPLICIT NONE
@@ -148,7 +148,7 @@ CONTAINS
 
       ! Cross-section tables & effective bed elevations
       IF (total_no_links > 0) THEN
-         IF (MOD(KONT, 2) == 1) WRITE(PPPRI, 9100) NXSCEE
+         IF (MOD(KONT, 2) == 1) WRITE(FID_logfile, 9100) NXSCEE
          CALL OCXS()
       END IF
 
@@ -389,7 +389,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! OCD, NOCHB, NOCFB, total_no_elements, NOCBCC, PPPRI, EEERR, NOCTAB,
+      ! OCD, NOCHB, NOCFB, total_no_elements, NOCBCC, FID_logfile, ERRLVL_error, NOCTAB,
       ! NOCBCD, NBFACE, COCBCD, NX, NY, LCODEX, LCODEY, LINKNO, ICMXY, ICMREF
       ! *CRITICAL*: Ensure 'IDUM' is available via host module
 
@@ -422,13 +422,13 @@ CONTAINS
       ! HEAD BOUNDARY (TYPE 3)
       IF (NOCHB > 0) THEN
          MSG = 'ERROR IN OC HEAD BOUNDARY GRID'
-         CALL AREADI(IDUM, 0, OCD, PPPRI, NOCHB)
+         CALL AREADI(IDUM, 0, OCD, FID_logfile, NOCHB)
 
          DO IELY = NGDBGN, total_no_elements
             ICAT = IDUM(IELY)
             IF (ICAT < 0 .OR. ICAT > NOCHB) THEN
                IXER = IXER + 1
-               CALL ERROR(EEERR, 1020, PPPRI, IELY, 0, MSG)
+               CALL ERROR(ERRLVL_error, 1020, FID_logfile, IELY, 0, MSG)
             ELSE IF (ICAT > 0) THEN
                NOCBC = NOCBC + 1
                IF (NOCBC > NOCTAB) CYCLE
@@ -444,13 +444,13 @@ CONTAINS
       ! FLUX BOUNDARY (TYPE 4)
       IF (NOCFB > 0) THEN
          MSG = 'ERROR IN OC FLUX BOUNDARY GRID'
-         CALL AREADI(IDUM, 0, OCD, PPPRI, NOCFB)
+         CALL AREADI(IDUM, 0, OCD, FID_logfile, NOCFB)
 
          DO IELY = NGDBGN, total_no_elements
             ICAT = IDUM(IELY)
             IF (ICAT < 0 .OR. ICAT > NOCFB) THEN
                IXER = IXER + 1
-               CALL ERROR(EEERR, 1021, PPPRI, IELY, 0, MSG)
+               CALL ERROR(ERRLVL_error, 1021, FID_logfile, IELY, 0, MSG)
             ELSE IF (ICAT > 0) THEN
                NOCBC = NOCBC + 1
                IF (NOCBC > NOCTAB) CYCLE
@@ -467,13 +467,13 @@ CONTAINS
       IF (NOCPB > 0) THEN
          IBC0 = NOCBC
          MSG = 'ERROR IN OC POLYNOMIAL FUNCTION BOUNDARY GRID'
-         CALL AREADI(IDUM, 0, OCD, PPPRI, NOCPB)
+         CALL AREADI(IDUM, 0, OCD, FID_logfile, NOCPB)
 
          DO IELY = NGDBGN, total_no_elements
             ICAT = IDUM(IELY)
             IF (ICAT < 0 .OR. ICAT > NOCPB) THEN
                IXER = IXER + 1
-               CALL ERROR(EEERR, 1022, PPPRI, IELY, 0, MSG)
+               CALL ERROR(ERRLVL_error, 1022, FID_logfile, IELY, 0, MSG)
             ELSE IF (ICAT > 0) THEN
                NOCBC = NOCBC + 1
                IF (NOCBC > NOCTAB) CYCLE
@@ -492,7 +492,7 @@ CONTAINS
             READ (OCD, *) ICAT, ADUM
             IF (ICAT /= I) THEN
                IXER = IXER + 1
-               CALL ERROR(EEERR, 1031, PPPRI, IELY, 0, MSG)
+               CALL ERROR(ERRLVL_error, 1031, FID_logfile, IELY, 0, MSG)
             ELSE
                DO IBC = IBC0 + 1, MIN(NOCBC, NOCTAB)
                   TEST = (NOCBCD(IBC, 4) == I)
@@ -588,7 +588,7 @@ CONTAINS
       IF (NOCBC > NOCTAB) THEN
          IXER = IXER + 1
          WRITE (MSG, "('Number of OC boundary conditions NOCBC =',I4,2X,'exceeds array size NOCTAB =',I4)") NOCBC, NOCTAB
-         CALL ERROR(EEERR, 1050, PPPRI, 0, 0, MSG)
+         CALL ERROR(ERRLVL_error, 1050, FID_logfile, 0, 0, MSG)
       END IF
 
       DO IBC = 1, MIN(NOCBC, NOCTAB)
@@ -597,7 +597,7 @@ CONTAINS
          IF (JBC /= IBC) THEN
             IXER = IXER + 1
             WRITE (MSG, "('Element has multiple OC boundary conditions (types',I2,' and',I2,')')") NOCBCD(IBC, 3), NOCBCD(JBC, 3)
-            CALL ERROR(EEERR, 1059, PPPRI, IELY, 0, MSG)
+            CALL ERROR(ERRLVL_error, 1059, FID_logfile, IELY, 0, MSG)
          END IF
       END DO
 
@@ -632,8 +632,8 @@ CONTAINS
       ! 1. Unit Numbers
       ! ---------------
       ! PRI, OCD
-      OUNIT = PPPRI
-      IUNIT = PPPRI
+      OUNIT = FID_logfile
+      IUNIT = FID_logfile
       NAME = 'PRI'
 
       DO I = 0, 1
@@ -643,13 +643,13 @@ CONTAINS
             WRITE (MSG, '("File unit ",A," =",I4,1X,A)') NAME, IUNIT, 'is not connected to a file'
             ERRNUM = 1008
             IF (I == 0) OUNIT = 0
-            CALL ERROR(EEERR, ERRNUM, OUNIT, 0, 0, MSG)
+            CALL ERROR(ERRLVL_error, ERRNUM, OUNIT, 0, 0, MSG)
             NERR = NERR + 1
          ELSE IF (FORM /= 'FORMATTED') THEN
             WRITE (MSG, '("File unit ",A," =",I4,1X,A,1X,A)') NAME, IUNIT, 'has format type', FORM
             ERRNUM = 1009
             IF (I == 0) OUNIT = 0
-            CALL ERROR(EEERR, ERRNUM, OUNIT, 0, 0, MSG)
+            CALL ERROR(ERRLVL_error, ERRNUM, OUNIT, 0, 0, MSG)
             NERR = NERR + 1
          END IF
 
@@ -658,52 +658,52 @@ CONTAINS
          NAME = 'OCD'
       END DO
 
-      IDUMS (1) = MIN (PPPRI, OCD)
+      IDUMS (1) = MIN (FID_logfile, OCD)
 
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ PRI, OCD ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ PRI, OCD ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
 
       ! 2. Array Sizes
       ! --------------
       ! NELEE
       IDUMS (1) = NELEE
       IDUMO (1) = MAX (NX, total_no_elements)! , NOCTAB*NOCTAB)
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
       ! NLFEE
       IDUMS (1) = NLFEE
       IDUMO (1) = MAX (1, total_no_links)
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
       ! NXEE
       IDUMS (1) = NXEE
       IDUMO (1) = NX
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
       ! NOCTAB
       IDUMS (1) = NOCTAB
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NOCTAB', 'GE', IONE1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NOCTAB', 'GE', IONE1, IDUMS, NERR, LDUM1)
       ! NXSCEE
       IDUMS (1) = NXSCEE
 
-      CALL ALCHKI (EEERR, 1002, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXSCEE', 'GT', IONE1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1002, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXSCEE', 'GT', IONE1, IDUMS, NERR, LDUM1)
 
       ! 3. Number of Entities
       ! ---------------------
       ! NLF
       IDUMS (1) = total_no_links
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO1, IDUMS, NERR, LDUM1)
       IDUMO (1) = total_no_elements
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
       ! NX, NY
       IDUMS (1) = MIN (NX, NY)
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ NX, NY ]', 'GE', IONE1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ NX, NY ]', 'GE', IONE1, IDUMS, NERR, LDUM1)
       ! NGDBGN
       IDUMS (1) = NGDBGN
       IDUMO (1) = total_no_links + 1
 
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NGDBGN', 'EQ', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NGDBGN', 'EQ', IDUMO, IDUMS, NERR, LDUM1)
 
       ! 4. Finish
       ! ---------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
+         CALL ERROR(ERRLVL_fatal, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
       END IF
 
    END SUBROUTINE OCCHK0
@@ -728,8 +728,8 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! total_no_elements, EEERR, PPPRI, NX, NY, NGDBGN, ICMREF, ICMXY,
-      ! LCODEX, LCODEY, LINKNO, IDUM, IZERO1, FFFATAL
+      ! total_no_elements, ERRLVL_error, FID_logfile, NX, NY, NGDBGN, ICMREF, ICMXY,
+      ! LCODEX, LCODEY, LINKNO, IDUM, IZERO1, ERRLVL_fatal
 
       IMPLICIT NONE
 
@@ -758,14 +758,14 @@ CONTAINS
 
       ! ICMREF
       face_loop: DO FACE = 1, 4
-         CALL ALCHKI (EEERR, 1057, PPPRI, 1, total_no_elements, FACE, 2, 'ICMREF(iel,face,2)', &
+         CALL ALCHKI (ERRLVL_error, 1057, FID_logfile, 1, total_no_elements, FACE, 2, 'ICMREF(iel,face,2)', &
             'LE', IDUMO, ICMREF(1:total_no_elements, 4+FACE), NERR, LDUM1(1:total_no_elements))
       END DO face_loop
 
       ! ICMXY
       y_icmxy_loop: DO Y = 1, NY
          ! Modernized: Passing explicit array slice ICMXY(1:NX, Y) instead of scalar start point
-         CALL ALCHKI (EEERR, 1057, PPPRI, 1, NX, Y, IUNDEF, 'ICMXY(x,y)', &
+         CALL ALCHKI (ERRLVL_error, 1057, FID_logfile, 1, NX, Y, IUNDEF, 'ICMXY(x,y)', &
             'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
       END DO y_icmxy_loop
 
@@ -791,7 +791,7 @@ CONTAINS
             END DO x_lcode_loop
 
             ! Modernized: Explicit array slice for IDUM
-            CALL ALCHKI (EEERR, 1058, PPPRI, 1, NX, Y, IUNDEF, NAME, 'EQ', &
+            CALL ALCHKI (ERRLVL_error, 1058, FID_logfile, 1, NX, Y, IUNDEF, NAME, 'EQ', &
                IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
          END DO y_lcode_loop
 
@@ -800,7 +800,7 @@ CONTAINS
       ! 3. Finish
       ! ---------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking static OC input arrays')
+         CALL ERROR(ERRLVL_fatal, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking static OC input arrays')
       END IF
 
    END SUBROUTINE OCCHK1
@@ -843,8 +843,8 @@ CONTAINS
       CHARACTER(19)  :: SUBJ
 
       ! Assumed external module dependencies providing global variables:
-      ! OHB, OFB, NOCHB, NOCFB, EEERR, PPPRI, IZERO1, ZERO1, ZERO, STRXX, STRYY
-      ! total_no_elements, total_no_links, XINH, XINW, NXSECT, WWWARN
+      ! OHB, OFB, NOCHB, NOCFB, ERRLVL_error, FID_logfile, IZERO1, ZERO1, ZERO, STRXX, STRYY
+      ! total_no_elements, total_no_links, XINH, XINW, NXSECT, ERRLVL_warn
 
       !----------------------------------------------------------------------*
 
@@ -867,12 +867,12 @@ CONTAINS
             IF (.NOT. BOPEN) THEN
                WRITE (MSG, 9100) NAME, IUNIT, 'is not connected to a file'
                ERRNUM = 1008
-               CALL ERROR(EEERR, ERRNUM, PPPRI, 0, 0, MSG)
+               CALL ERROR(ERRLVL_error, ERRNUM, FID_logfile, 0, 0, MSG)
                NERR = NERR + 1
             ELSE IF (FORM /= 'FORMATTED') THEN
                WRITE (MSG, 9100) NAME, IUNIT, 'has format type', FORM
                ERRNUM = 1009
-               CALL ERROR(EEERR, ERRNUM, PPPRI, 0, 0, MSG)
+               CALL ERROR(ERRLVL_error, ERRNUM, FID_logfile, 0, 0, MSG)
                NERR = NERR + 1
             END IF
          END IF
@@ -883,14 +883,14 @@ CONTAINS
          NONEED = NOCFB == 0
       END DO
 
-      CALL ALCHKI (EEERR, 1003, PPPRI, 1, 1, IUNDEF, IUNDEF, '[ OHB, OFB ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI (ERRLVL_error, 1003, FID_logfile, 1, 1, IUNDEF, IUNDEF, '[ OHB, OFB ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
 
       ! 2. Element Properties
       ! ---------------------
       ! STRX
-      CALL ALCHK(EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRX(iel)', 'GT', ZERO1, ZERO, STRXX, NERR, LDUM1)
+      CALL ALCHK(ERRLVL_error, 1010, FID_logfile, 1, total_no_elements, IUNDEF, IUNDEF, 'STRX(iel)', 'GT', ZERO1, ZERO, STRXX, NERR, LDUM1)
       ! STRY
-      CALL ALCHK (EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRY(iel)', 'GT', ZERO1, ZERO, STRYY, NERR, LDUM1)
+      CALL ALCHK (ERRLVL_error, 1010, FID_logfile, 1, total_no_elements, IUNDEF, IUNDEF, 'STRY(iel)', 'GT', ZERO1, ZERO, STRYY, NERR, LDUM1)
 
 
       ! 3. Cross-section Tables
@@ -898,7 +898,7 @@ CONTAINS
       !
       IF (total_no_links > 0) THEN
          ! XINH
-         CALL ALCHK (EEERR, 1016, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINH(link)[j=1]', 'EQ', ZERO1, ZERO, XINH, NERR, LDUM1)
+         CALL ALCHK (ERRLVL_error, 1016, FID_logfile, 1, total_no_links, IUNDEF, IUNDEF, 'XINH(link)[j=1]', 'EQ', ZERO1, ZERO, XINH, NERR, LDUM1)
 
          DO IELw = 1, total_no_links
             N = NXSECT (IELw) - 1
@@ -906,27 +906,27 @@ CONTAINS
 
             DDUM1A(1:N) = XINH(IELw, 1:N)
             DDUM1B(1:N) = XINH(IELw, 2:N+1)
-            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GTa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
+            CALL ALCHK (ERRLVL_error, 1017, FID_logfile, 1, N, IUNDEF, IUNDEF, SUBJ, 'GTa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
 
             ! XINW
             SUBJ (4:4) = 'W'
             DDUM1A(1:N) = XINW(IELw, 1:N)
             DDUM1B(1:N) = XINW(IELw, 2:N+1)
-            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GEa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
+            CALL ALCHK (ERRLVL_error, 1017, FID_logfile, 1, N, IUNDEF, IUNDEF, SUBJ, 'GEa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
          END DO
 
          DO IELw = 1, total_no_links
             DDUM1A (IELw) = XINW (IELw, NXSECT (IELw))
          END DO
 
-         CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
+         CALL ALCHK (ERRLVL_error, 1056, FID_logfile, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
             DDUM1A, NERR, LDUM1)
       END IF
 
       IF (NERR > 0) THEN
          !!!! sb 190522 negative strickler for surface storage
-         CALL ERROR(WWWARN, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
-         ! CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
+         CALL ERROR(ERRLVL_warn, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking OC input data')
+         ! CALL ERROR(ERRLVL_fatal, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking OC input data')
       END IF
 
       ! Format Statements
@@ -947,7 +947,7 @@ CONTAINS
       ! Assumed external module dependencies providing global variables:
       ! NOCHB, OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, HOCPRV, HOCNXV, HOCNOW
       ! NOCFB, OFB, QFLAST, QFNEXT, QOCFIN, QOCF
-      ! FFFATAL, PPPRI
+      ! ERRLVL_fatal, FID_logfile
 
       IMPLICIT NONE
 
@@ -960,7 +960,7 @@ CONTAINS
       END IF
 
       IF (EQMARKER(HOCNXT)) THEN
-         CALL ERROR(FFFATAL, 1007, PPPRI, 0, 0, 'END OF OC HEAD BOUNDARY DATA')
+         CALL ERROR(ERRLVL_fatal, 1007, FID_logfile, 0, 0, 'END OF OC HEAD BOUNDARY DATA')
       END IF
 
       ! --- FLUX BOUNDARY ---
@@ -970,7 +970,7 @@ CONTAINS
       END IF
 
       IF (EQMARKER(QFNEXT)) THEN
-         CALL ERROR(FFFATAL, 1023, PPPRI, 0, 0, 'END OF OC FLUX BOUNDARY DATA')
+         CALL ERROR(ERRLVL_fatal, 1023, FID_logfile, 0, 0, 'END OF OC FLUX BOUNDARY DATA')
       END IF
 
    END SUBROUTINE OCEXT
@@ -1003,7 +1003,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! NY, NX, LINKNO, ICMBK, ICMXY, NXOCEE, FFFATAL, PPPRI
+      ! NY, NX, LINKNO, ICMBK, ICMXY, NXOCEE, ERRLVL_fatal, FID_logfile
 
       IMPLICIT NONE
 
@@ -1087,7 +1087,7 @@ CONTAINS
 
       ! CHECK ARRAY DIMENSIONS
       IF (NXOC > NXOCEE) THEN
-         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'ARRAY DIMENSION OF NXOC TOO SMALL')
+         CALL ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'ARRAY DIMENSION OF NXOC TOO SMALL')
       END IF
 
    END SUBROUTINE OCIND
@@ -1217,7 +1217,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! NOCTAB, XDEFH, OCD, EEERR, PPPRI, total_no_links, ZGRUND, SETHRF, STRXX
+      ! NOCTAB, XDEFH, OCD, ERRLVL_error, FID_logfile, total_no_links, ZGRUND, SETHRF, STRXX
       ! STRYY, XINW, XINH, NXSECT, CWIDTH, ZBFULL, NOCBCC, COCBCD, ERROR
 
       IMPLICIT NONE
@@ -1243,7 +1243,7 @@ CONTAINS
 
       IF ((NDEFCT > NOCTAB) .OR. (NDEFCT < 0)) THEN
          WRITE (MSG, 9054) NDEFCT, NOCTAB
-         CALL ERROR(EEERR, 1054, PPPRI, 0, 0, MSG)
+         CALL ERROR(ERRLVL_error, 1054, FID_logfile, 0, 0, MSG)
          IXER = IXER + 1
       END IF
 
@@ -1255,7 +1255,7 @@ CONTAINS
       ! :OC32
       IF (NDEFCT > 0) THEN
          READ (OCD, *)
-         IF (BOUT) WRITE(PPPRI, 9032) 'Category', 'Width', 'Height'
+         IF (BOUT) WRITE(FID_logfile, 9032) 'Category', 'Width', 'Height'
 
          out100: DO IDEF = 1, NDEFCT
             IF (g8055) CYCLE out100
@@ -1269,7 +1269,7 @@ CONTAINS
             NXDEF (IDEF) = N
             READ (OCD, *) (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
 
-            IF (BOUT) WRITE(PPPRI, 9034) IDEF, (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
+            IF (BOUT) WRITE(FID_logfile, 9034) IDEF, (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
          END DO out100
       END IF
 
@@ -1278,11 +1278,11 @@ CONTAINS
       ! :OC35
       IF (g8055) THEN
          WRITE (MSG, 9055) IDEF, N, NOCTAB
-         CALL ERROR(EEERR, 1055, PPPRI, 0, 0, MSG)
+         CALL ERROR(ERRLVL_error, 1055, FID_logfile, 0, 0, MSG)
          IXER = IXER + 1
       ELSE
          READ (OCD, *)
-         IF (BOUT) WRITE(PPPRI, 9035) 'Element', 'Elevation', 'Init.Depth', 'Strickler', 'Width', 'Height'
+         IF (BOUT) WRITE(FID_logfile, 9035) 'Element', 'Elevation', 'Init.Depth', 'Strickler', 'Width', 'Height'
 
          out500: DO ielm = 1, total_no_links
             IF (g8013 .OR. g8300 .OR. greturn) CYCLE out500
@@ -1310,7 +1310,7 @@ CONTAINS
 
             IF ((IDEFX == 0) .OR. (IDEFX < -NDEFCT) .OR. TEST) THEN
                WRITE (MSG, 9012) IDEFX, -NDEFCT, NOCTAB
-               CALL ERROR(EEERR, 1012, PPPRI, ielm, 0, MSG)
+               CALL ERROR(ERRLVL_error, 1012, FID_logfile, ielm, 0, MSG)
                IXER = IXER + 1
 
                IF (TEST) THEN
@@ -1322,14 +1322,14 @@ CONTAINS
                IF (IDEFX > 0) THEN
                   N = IDEFX
                   READ (OCD, *) (XINW (ielm, J), XINH (ielm, J), J = 1, N)
-                  IF (BOUT) WRITE(PPPRI, 9037) ielm, ZG, WDEPTH, STR, (XINW (ielm, J), XINH (ielm, J), J = 1, N)
+                  IF (BOUT) WRITE(FID_logfile, 9037) ielm, ZG, WDEPTH, STR, (XINW (ielm, J), XINH (ielm, J), J = 1, N)
                ELSE
                   IDEF = -IDEFX
                   N = NXDEF (IDEF)
                   ! Native Fortran array slice copying N elements
                   XINH(ielm, 1:N) = XDEFH(IDEF, 1:N)
                   XINW(ielm, 1:N) = XDEFW(IDEF, 1:N)
-                  IF (BOUT) WRITE(PPPRI, 9137) ielm, ZG, WDEPTH, STR, IDEF
+                  IF (BOUT) WRITE(FID_logfile, 9137) ielm, ZG, WDEPTH, STR, IDEF
                END IF
 
                NXSECT (ielm) = N
@@ -1368,11 +1368,11 @@ CONTAINS
          RETURN
       ELSE IF (g8013) THEN
          WRITE (MSG, 9013) ielm, I
-         CALL ERROR(EEERR, 1013, PPPRI, ielm, 0, MSG)
+         CALL ERROR(ERRLVL_error, 1013, FID_logfile, ielm, 0, MSG)
          IXER = IXER + 1
       ELSE IF (g8300) THEN
          MSG = 'Channel input data is missing or has incorrect format'
-         CALL ERROR(EEERR, 1019, PPPRI, ielm, 0, MSG)
+         CALL ERROR(ERRLVL_error, 1019, FID_logfile, ielm, 0, MSG)
          IXER = IXER + 1
       END IF
 
@@ -1424,17 +1424,17 @@ CONTAINS
 !----------------------------------------------------------------------*
       ALLOCATE(ghrf(total_no_links))
 
-      WRITE(PPPRI, 9100) 'AFTER', OCNOW, ' HOURS ----'
-      WRITE(PPPRI, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE = 1, 4) , 'HRF', 'ARXL'
+      WRITE(FID_logfile, 9100) 'AFTER', OCNOW, ' HOURS ----'
+      WRITE(FID_logfile, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE = 1, 4) , 'HRF', 'ARXL'
       DO ielmm=1,total_no_links
          ghrf(ielmm) = GETHRF(ielmm)
       ENDDO
-      WRITE(PPPRI, 9210) (ielmm, (QOC(ielmm,FACE), FACE=1,4), ghrf(ielmm), ARXL (ielmm), ielmm = 1, total_no_links)
+      WRITE(FID_logfile, 9210) (ielmm, (QOC(ielmm,FACE), FACE=1,4), ghrf(ielmm), ARXL (ielmm), ielmm = 1, total_no_links)
       DO ielmm = total_no_links + 1,total_no_elements
-         WRITE(PPPRI, 9210) ielmm, (QOC (ielmm, FACE), FACE = 1, 4), GETHRF (ielmm)
+         WRITE(FID_logfile, 9210) ielmm, (QOC (ielmm, FACE), FACE = 1, 4), GETHRF (ielmm)
       END DO
 
-      WRITE(PPPRI, 9100) 'END ----'
+      WRITE(FID_logfile, 9100) 'END ----'
 9100  FORMAT (//'---- OC MODULE  RESULTS ',A:F10.2,A//)
 9200  FORMAT (4X,A4,4(2X,A8,I1,A1),2A12/)
 
@@ -1485,9 +1485,9 @@ CONTAINS
       ! Version:  SHETRAN/OC/OCREAD/4.2
 
       ! Assumed external module dependencies providing global variables:
-      ! NOCTAB, IDUM, total_no_elements, total_no_links, NGDBGN, OCD, PPPRI,
+      ! NOCTAB, IDUM, total_no_elements, total_no_links, NGDBGN, OCD, FID_logfile,
       ! one, ISZERO, ZERO, DUMMY, ZGRUND, SETHRF, STRXX, STRYY, NOTZERO,
-      ! nelee, JEOCBC, OCPLF, NOCBCD, COCBCD, FFFATAL, ERROR, AREADR, AREADI
+      ! nelee, JEOCBC, OCPLF, NOCBCD, COCBCD, ERRLVL_fatal, ERROR, AREADR, AREADI
 
       IMPLICIT NONE
 
@@ -1522,7 +1522,7 @@ CONTAINS
       KKON = MOD(KONT, 2)
       BOUT = (KKON == 1)
 
-      IF (BOUT) WRITE(PPPRI, 9080) ' ', NCATR
+      IF (BOUT) WRITE(FID_logfile, 9080) ' ', NCATR
 
       !              OC time-step data
       ! :OC2
@@ -1541,31 +1541,31 @@ CONTAINS
          IF (NCATR > NOCTAB .OR. NCATR < 0) THEN
             WRITE (MSG, '("Number of roughness categories NCATR =",I4,2X, &
             &                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
-            CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
+            CALL ERROR(ERRLVL_fatal, 1047, FID_logfile, 0, 0, MSG)
          END IF
 
          IF (NCATR > 0) THEN
             ! PERF FIX: Implied DO loop instead of array slice
             READ (OCD, *) (CATR(I), I = 1, NCATR)
             IF (BOUT) THEN
-               WRITE(PPPRI, 9084) (CATR(I), I = 1, NCATR)
-               WRITE(PPPRI, *)
+               WRITE(FID_logfile, 9084) (CATR(I), I = 1, NCATR)
+               WRITE(FID_logfile, *)
             END IF
          END IF
       ELSE IF (BOUT) THEN
-         WRITE(PPPRI, 9082) CDRS
+         WRITE(FID_logfile, 9082) CDRS
       END IF
 
       !              INITIAL OVERLAND FLOW ELEVATIONS
       ! :OC5
       IF (BIOWAT) THEN
-         CALL AREADR(DUMMY, KKON, OCD, PPPRI)
+         CALL AREADR(DUMMY, KKON, OCD, FID_logfile)
       ELSE
          ! PERF FIX: Explicit DO loop instead of array slice assignment
          DO ielt = NGDBGN, total_no_elements
             DUMMY(ielt) = ZERO
          END DO
-         IF (BOUT) WRITE(PPPRI, 9085) 'zero'
+         IF (BOUT) WRITE(FID_logfile, 9085) 'zero'
       END IF
 
       elevation_loop: DO ielt = NGDBGN, total_no_elements
@@ -1582,18 +1582,18 @@ CONTAINS
             STRYY(ielt) = CDRS
          END DO
       ELSE IF (NCATR == 0) THEN
-         CALL AREADR(STRXX, KKON, OCD, PPPRI)
-         CALL AREADR(STRYY, KKON, OCD, PPPRI)
+         CALL AREADR(STRXX, KKON, OCD, FID_logfile)
+         CALL AREADR(STRYY, KKON, OCD, FID_logfile)
       ELSE
          ! Pass base memory address IDUM
-         CALL AREADI(IDUM, KKON, OCD, PPPRI, NCATR)
+         CALL AREADI(IDUM, KKON, OCD, FID_logfile, NCATR)
 
          roughness_x_loop: DO ielt = NGDBGN, total_no_elements
             ICAT = MAX(1, MIN(IDUM(ielt), NCATR))
             STRXX(ielt) = CATR(ICAT)
          END DO roughness_x_loop
 
-         CALL AREADI(IDUM, KKON, OCD, PPPRI, NCATR)
+         CALL AREADI(IDUM, KKON, OCD, FID_logfile, NCATR)
 
          roughness_y_loop: DO ielt = NGDBGN, total_no_elements
             ICAT = MAX(1, MIN(IDUM(ielt), NCATR))
@@ -1615,21 +1615,21 @@ CONTAINS
 
       IF (IXER /= 0) THEN
          WRITE (MSG, 9412) IXER
-         CALL ERROR(FFFATAL, 1049, PPPRI, 0, 0, MSG)
+         CALL ERROR(ERRLVL_fatal, 1049, FID_logfile, 0, 0, MSG)
       ELSE IF (BOUT) THEN
-         WRITE(PPPRI, 9500) 'no-flow'
-         IF (NOCBC > 0) WRITE(PPPRI, 9600) 'Index', 'Element', 'Face', &
+         WRITE(FID_logfile, 9500) 'no-flow'
+         IF (NOCBC > 0) WRITE(FID_logfile, 9600) 'Index', 'Element', 'Face', &
             'Type', 'Category', 'Coefficients'
 
          print_bc_loop: DO IBC = 1, NOCBC
             TYPEE = NOCBCD(IBC, 3)
 
             ! PERF FIX: Explicit indexing and Implied DO loop instead of slices
-            WRITE(PPPRI, 9610) IBC, NOCBCD(IBC, 1), NOCBCD(IBC, 2), CTYPE(TYPEE), &
+            WRITE(FID_logfile, 9610) IBC, NOCBCD(IBC, 1), NOCBCD(IBC, 2), CTYPE(TYPEE), &
                NOCBCD(IBC, 4), (COCBCD(I, IBC), I = 1, NC(TYPEE))
          END DO print_bc_loop
 
-         WRITE(PPPRI, 9080) ' END OF '
+         WRITE(FID_logfile, 9080) ' END OF '
       END IF
 
       RETURN
@@ -1809,7 +1809,7 @@ CONTAINS
          ! Catch singular matrix inversion failure
          IF (ICOD == 1) THEN
             WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
-            CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL(NROWST(IROW)), 0, MSG)
+            CALL ERROR(ERRLVL_fatal, 1018, FID_logfile, NROWEL(NROWST(IROW)), 0, MSG)
             RETURN
          END IF
 
@@ -1959,7 +1959,7 @@ CONTAINS
 
       IF (channel_blowup) THEN
          MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
-         CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
+         CALL ERROR(ERRLVL_fatal, 1029, FID_logfile, iels, 0, MSG)
       END IF
 
    END SUBROUTINE OCSIM

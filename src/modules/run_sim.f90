@@ -4,7 +4,7 @@ MODULE run_sim
 !                       This is the comutational core - it runs the simulation, timestep by timestep
 !                       Code was extracted from shetrn.f and modifed to create this module
    USE SGLOBAL
-   USE mod_error, ONLY: ERROR, FFFATAL
+   USE mod_error, ONLY: ERROR, ERRLVL_fatal
    USE SED_CS,   ONLY : nsed,pbsed,pls,sosdfn,arbdep,dls,fbeta,fdel,&
       ginfd,ginfs,gnu,gnubk,qsed,dcbed,dcbsed
 !USE SGLOBAL, ONLY : nxee, nyee, nlfee, nvee, nelee, &
@@ -205,7 +205,7 @@ CONTAINS
             !        GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
          ENDIF
          IF (BCM) THEN
-            IF (BEXSY.AND. (.NOT.BSY) ) CALL ERROR(FFFATAL, 1041, CMP, 0, 0, &
+            IF (BEXSY.AND. (.NOT.BSY) ) CALL ERROR(ERRLVL_fatal, 1041, CMP, 0, 0, &
                'Start-time for sediment is later than for contaminants')
             IF (CMFRST) THEN
                CALL INCM (BEXSY)

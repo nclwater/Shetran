@@ -28,7 +28,7 @@ MODULE FRmod
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
-   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri, ALSTOP
+   USE mod_error,    ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ALSTOP
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
@@ -137,7 +137,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s) (e.g., SPEC.AL):
-      ! NXEE, NYEE, NX, NXM1, NY, NYM1, total_no_elements, PPPRI
+      ! NXEE, NYEE, NX, NXM1, NY, NYM1, total_no_elements, FID_logfile
       ! DXIN, DYIN, ICMREF, LINKNS, CWIDTH, CLENTH, DXQQ, DYQQ, CAREA, cellarea, DHF
 
       IMPLICIT NONE
@@ -271,16 +271,16 @@ CONTAINS
 
       ! --- PRINT OUT ELEMENT AREA, TOTAL CATCHMENT AREA, AND PERCENTAGE ERROR
       IF (BINFRP) THEN
-         WRITE(PPPRI, 1500)
+         WRITE(FID_logfile, 1500)
          DO IEL = 1, total_no_elements
-            WRITE(PPPRI, 1600) IEL, DXQQ(IEL), DYQQ(IEL), cellarea(IEL)
+            WRITE(FID_logfile, 1600) IEL, DXQQ(IEL), DYQQ(IEL), cellarea(IEL)
          END DO
 
          DIFF = (CAREA - CATEST) * 100.0D0 / CAREA
          IF (CAREA < 1.0D6) THEN
-            WRITE(PPPRI, 1700) CAREA, CATEST, DIFF
+            WRITE(FID_logfile, 1700) CAREA, CATEST, DIFF
          ELSE
-            WRITE(PPPRI, 1750) CAREA / 1.0D6, CATEST / 1.0D6, DIFF
+            WRITE(FID_logfile, 1750) CAREA / 1.0D6, CATEST / 1.0D6, DIFF
          END IF
       END IF
 
@@ -438,7 +438,7 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF,
-      ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, PPPRI,
+      ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, FID_logfile,
       ! total_no_links, total_no_elements
 
       IMPLICIT NONE
@@ -960,7 +960,7 @@ CONTAINS
                      CYCLE face_loop
                   END IF
                END DO
-               WRITE(PPPRI, 1100) INDEX, I
+               WRITE(FID_logfile, 1100) INDEX, I
                ICOUNT = ICOUNT + 1
 
             ELSE IF (INEXT1 < 0) THEN
@@ -985,7 +985,7 @@ CONTAINS
                            END DO
                         END IF
                      END DO
-                     WRITE(PPPRI, 1100) INDEX, I
+                     WRITE(FID_logfile, 1100) INDEX, I
                      ICOUNT = ICOUNT + 1
                   END IF
                END DO branch_loop
@@ -997,14 +997,14 @@ CONTAINS
          END DO face_loop
       END DO element_check
 
-      IF (ICOUNT > 0) WRITE(PPPRI, 1200) ICOUNT
+      IF (ICOUNT > 0) WRITE(FID_logfile, 1200) ICOUNT
 
       !
       ! ^^^^^^^^^^^^ WRITE OUT INDEX ARRAY, IF REQUIRED
       !
       IF (BINFRP) THEN
 
-         WRITE(PPPRI, 1300) total_no_elements
+         WRITE(FID_logfile, 1300) total_no_elements
          DO INDEX = 1, total_no_elements
             PDIRN = ' '
             ITYPE = ICMREF (INDEX, 1)
@@ -1016,14 +1016,14 @@ CONTAINS
                   PDIRN = 'EW'
                END IF
             END IF
-            WRITE(PPPRI, 1400) INDEX, (ICMREF (INDEX, K), K = 1, 4), &
+            WRITE(FID_logfile, 1400) INDEX, (ICMREF (INDEX, K), K = 1, 4), &
                PDIRN, (ICMREF (INDEX, K), K = 5, 8)
          END DO
 
          IF (NEL2 > 0) THEN
-            WRITE(PPPRI, 1500) NNODE3 / 3, NNODE4 / 4, NEL2
+            WRITE(FID_logfile, 1500) NNODE3 / 3, NNODE4 / 4, NEL2
             DO INDEX2 = 1, NEL2
-               WRITE(PPPRI, 1600) INDEX2, (ICMRF2 (INDEX2, I), I = 1, 3)
+               WRITE(FID_logfile, 1600) INDEX2, (ICMRF2 (INDEX2, I), I = 1, 3)
             END DO
          END IF
 
@@ -1094,7 +1094,7 @@ CONTAINS
       ! NRAINC, ICMREF, iszq, FRD, VSD, OCD, ETD, SMD, BKD, VSI, PPD, HOTIME,
       ! zero, BHOTRD, HOT, UZNEXT, top_cell_no, CSTORE, NGDBGN, total_no_elements,
       ! QOC, DQ0ST, DQIST, DQIST2, SD, TS, NSMC, SMELT, tmelt, VSPSI, BHOTTI,
-      ! PPPRI, ALLOUT, DTAO, UZNOW, OCNOW, UZVAL, TIMEUZ
+      ! FID_logfile, ALLOUT, DTAO, UZNOW, OCNOW, UZVAL, TIMEUZ
 
       IMPLICIT NONE
 
@@ -1190,7 +1190,7 @@ CONTAINS
 
             ! Gracefully exit if end of hotstart file is reached
             IF (ios /= 0) THEN
-               WRITE(PPPRI, '(/ A)') ' WARNING: END OF HOTSTART FILE REACHED'
+               WRITE(FID_logfile, '(/ A)') ' WARNING: END OF HOTSTART FILE REACHED'
                EXIT hotstart_read
             END IF
 
@@ -1206,7 +1206,7 @@ CONTAINS
 
          END DO hotstart_read
 
-         WRITE(PPPRI, '(// A, F10.2, A /)') ' ^^^ HOTSTART OF SIMULATION AT TIME ', HOTIME, ' ^^^'
+         WRITE(FID_logfile, '(// A, F10.2, A /)') ' ^^^ HOTSTART OF SIMULATION AT TIME ', HOTIME, ' ^^^'
 
          ALLOUT = HOTIME + DTAO
          UZNOW  = HOTIME
@@ -1793,7 +1793,7 @@ CONTAINS
       ! total_no_elements, DIRQQ, cnam, dis2, mas, dis, toutput,
       ! ICMREF, NOCBCC, NOCBCD, uznow, BHOTRD, bhotti, bexsy, bexcm,
       ! QSED, RHOSED, CCCC, top_cell_no, qoc, tih, icounter2, balanc,
-      ! carea, zgrund, zvspsl, vse, bexbk, VSPSI, nlyrbt, FFFATAL, PPPRI
+      ! carea, zgrund, zvspsl, vse, bexbk, VSPSI, nlyrbt, ERRLVL_fatal, FID_logfile
       !----------------------------------------------------------------------*
 
       IMPLICIT NONE
@@ -2353,7 +2353,7 @@ CONTAINS
          INTEGER,          INTENT(IN) :: error_code
          CHARACTER(LEN=*), INTENT(IN) :: message
 
-         IF (io_status /= 0) CALL ERROR(FFFATAL, error_code, PPPRI, 0, 0, message)
+         IF (io_status /= 0) CALL ERROR(ERRLVL_fatal, error_code, FID_logfile, 0, 0, message)
       END SUBROUTINE fatal_on_io_error
 
    END SUBROUTINE FROUTPUT
@@ -2432,9 +2432,9 @@ CONTAINS
       ! Assumed external module dependencies providing global variables:
       ! SHEVER, RES, NX, NY, NGDBGN, total_no_elements, ICMREF, ICMXY,
       ! FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, EPD, TIM,
-      ! PPPRI, SPR, CMP, BUG, HOT, VSI, VED, WLD, LFB, LHB, LGB, BFB, BHB,
-      ! OFB, OHB, CMT, CMB, top_cell_no, total_no_links, NS, NV, WWWARN,
-      ! EEERR, FFFATAL, NRD, RDF, CAREA, TIH, LINKNS, BEXBK, ICMBK, ICMRF2,
+      ! FID_logfile, SPR, CMP, BUG, HOT, VSI, VED, WLD, LFB, LHB, LGB, BFB, BHB,
+      ! OFB, OHB, CMT, CMB, top_cell_no, total_no_links, NS, NV, ERRLVL_warn,
+      ! ERRLVL_error, ERRLVL_fatal, NRD, RDF, CAREA, TIH, LINKNS, BEXBK, ICMBK, ICMRF2,
       ! JVSACN, JVSDEL, NLYR, NLYRBT, NBFACE, NHBED, NTSOIL, NVC, NVSSPC,
       ! NVSSPT, NVSWLI, NVSWLT, NWELBT, NWELTP, cellarea, CLENTH, CWIDTH,
       ! DELTAZ, DHF, DXQQ, DYQQ, FHBED, RDL, VSPOR, ZBEFF, ZBFULL, ZGRUND,
@@ -2474,12 +2474,12 @@ CONTAINS
       ! CFILE + DFILE (except SFB,SRB)
       !5
       WRITE (RES) FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, &
-         EPD, TIM, PPPRI, SPR, CMP, BUG, RES, HOT, VSI, VED, WLD, LFB, LHB, &
+         EPD, TIM, FID_logfile, SPR, CMP, BUG, RES, HOT, VSI, VED, WLD, LFB, LHB, &
          LGB, BFB, BHB, OFB, OHB, CMT, CMB
 
       ! ALCCB1
       !6
-      WRITE (RES) top_cell_no, total_no_links, NS, NV, WWWARN, EEERR, FFFATAL
+      WRITE (RES) top_cell_no, total_no_links, NS, NV, ERRLVL_warn, ERRLVL_error, ERRLVL_fatal
 
       ! IVEG
       !7
@@ -3114,9 +3114,9 @@ CONTAINS
       ! Commons and constants
 
       ! Assumed external module dependencies providing global variables:
-      ! BKD, TITLE, PPPRI, NGDBGN, total_no_elements, IDUM, DUMMY, zero,
+      ! BKD, TITLE, FID_logfile, NGDBGN, total_no_elements, IDUM, DUMMY, zero,
       ! ICMREF, ZGRUND, ZBFULL, NMC, NRAINC, NVC, STRXX, STRYY, SD,
-      ! RHOSAR, ZVSPSL, GETHRF, SETHRF, total_no_links, FFFATAL, ERROR
+      ! RHOSAR, ZVSPSL, GETHRF, SETHRF, total_no_links, ERRLVL_fatal, ERROR
 
       IMPLICIT NONE
 
@@ -3150,7 +3150,7 @@ CONTAINS
          ! READ TITLE, INPUT METHOD, NUMBER OF FOLLOWING VALUES
          ! :BK3
          READ (BKD, '(A)') TITLE
-         IF (BINBKD) WRITE(PPPRI, '(A)') TITLE
+         IF (BINBKD) WRITE(FID_logfile, '(A)') TITLE
          READ (BKD, '(10I7)') INTYPE, NVALUE
 
          !
@@ -3232,7 +3232,7 @@ CONTAINS
             ! :BK5
             IF (INTEGR (IDATA)) THEN
                READ (BKD, '(10I7)') IFAULT
-               IF (BINBKD) WRITE(PPPRI, 1300) IFAULT
+               IF (BINBKD) WRITE(FID_logfile, 1300) IFAULT
 
                DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
@@ -3241,7 +3241,7 @@ CONTAINS
                ! :BK6
             ELSE
                READ (BKD, '(10F7.0)') DFAULT
-               IF (BINBKD) WRITE(PPPRI, 1500) DFAULT
+               IF (BINBKD) WRITE(FID_logfile, 1500) DFAULT
 
                DO IEL = NGDBGN, total_no_elements
                   ITYPE = ICMREF (IEL, 1)
@@ -3261,7 +3261,7 @@ CONTAINS
             ! +++++++++++++++++++++++++++++++++++++++++
          ELSE IF (INTYPE == 3) THEN
             ! :BK7-8
-            CALL ERROR(FFFATAL, 1061, PPPRI, 0, 0, 'BKD input type 3 (data class, value) not supported')
+            CALL ERROR(ERRLVL_fatal, 1061, FID_logfile, 0, 0, 'BKD input type 3 (data class, value) not supported')
 
             ! TYPE 4: READ PAIRS OF (BANK ELEMENT NUMBER, VALUE)
             ! ++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -3270,8 +3270,8 @@ CONTAINS
             ! 980713
             IF (INTEGR (IDATA)) THEN
                READ (BKD, '(10I7)') (IELEM (I), IVALUE (I), I = 1, NVALUE)
-               IF (BINBKD) WRITE(PPPRI, 2000)
-               IF (BINBKD) WRITE(PPPRI, 2050) (IELEM (I), IVALUE (I), I = 1, NVALUE)
+               IF (BINBKD) WRITE(FID_logfile, 2000)
+               IF (BINBKD) WRITE(FID_logfile, 2050) (IELEM (I), IVALUE (I), I = 1, NVALUE)
 
                DO I = 1, NVALUE
                   IEL = IELEM (I)
@@ -3280,8 +3280,8 @@ CONTAINS
                END DO
             ELSE
                READ (BKD, '(5(I7,F7.0))') (IELEM (I), VALUE (I), I = 1, NVALUE)
-               IF (BINBKD) WRITE(PPPRI, 2100)
-               IF (BINBKD) WRITE(PPPRI, 2150) (IELEM (I), VALUE (I), I = 1, NVALUE)
+               IF (BINBKD) WRITE(FID_logfile, 2100)
+               IF (BINBKD) WRITE(FID_logfile, 2150) (IELEM (I), VALUE (I), I = 1, NVALUE)
 
                DO I = 1, NVALUE
                   IEL = IELEM (I)
@@ -3930,8 +3930,8 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
-      ! NV, BHOTRD, NGDBGN, total_no_elements, NRAIN, ETD, PPPRI, NM
-      ! PRD, EPD, MED, TAH, TAL, ISTA, FFFATAL
+      ! NV, BHOTRD, NGDBGN, total_no_elements, NRAIN, ETD, FID_logfile, NM
+      ! PRD, EPD, MED, TAH, TAL, ISTA, ERRLVL_fatal
       ! CSTCAP, RC, BAR, MODE, CSTORE, precip_m_per_s, TIMEUZ, BMETDATES
       ! BMETP, BINETP, BMETAL, DTMET, DTMET2, DTMET3, MEASPE, RA, ZU, ZD, ZO
       ! NF, PLAI, CK, CB, NRD, CLAI, VHT, RDL, MODECS, MODEPL, MODECL, MODEVH
@@ -4010,11 +4010,11 @@ CONTAINS
       !---------------------------------
       veg_type_loop: DO I = 1, NV
 
-         IF (BINETP) WRITE(PPPRI, "('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))") I
+         IF (BINETP) WRITE(FID_logfile, "('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))") I
 
          !:ET7
          READ(ETD, '(A)') HEAD
-         IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+         IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
          !-------------------------------------
          !  READ PARAMETER DATA
@@ -4023,18 +4023,18 @@ CONTAINS
             BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
             PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
 
-         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')") MODE(I)
+         IF (BINETP) WRITE(FID_logfile, "('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')") MODE(I)
 
          !-----WRITE PARAMETER DATA
-         IF (BINETP) WRITE(PPPRI, "('0', 'PARAMETERS'/1X, 10('*')//10X, 'PLAI', F15.8/10X, " // &
+         IF (BINETP) WRITE(FID_logfile, "('0', 'PARAMETERS'/1X, 10('*')//10X, 'PLAI', F15.8/10X, " // &
             "'CSTCAP', F13.8/10X, 'CK', F17.8/10X, 'CB', F17.8/10X, " // &
             "'CLAI', F15.8/10X, 'VHT', F16.8/10X, 'RDL', F16.8)") &
             PLAI(I), CSTCAP(I), CK(I), CB(I), CLAI(I), VHT(I), RDL(I)
 
-         IF (BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'VARIABLE RA WITH'/10X, 'ZO', F17.4/10X, " // &
+         IF (BAR(I) .AND. BINETP) WRITE(FID_logfile, "(' ', 10X, 'VARIABLE RA WITH'/10X, 'ZO', F17.4/10X, " // &
             "'ZD', F18.4/10X, 'ZU', F17.4)") ZO(I), ZD(I), ZU(I)
 
-         IF (.NOT. BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'CONSTANT RA =', F10.4)") RA(I)
+         IF (.NOT. BAR(I) .AND. BINETP) WRITE(FID_logfile, "(' ', 10X, 'CONSTANT RA =', F10.4)") RA(I)
 
          !--------------------------------------------------------
          !    READ TABULAR VARIATION OF TIME-VARYING PARAMETERS
@@ -4046,7 +4046,7 @@ CONTAINS
          READ(ETD, '(4I7)') MODECS(I), MODEPL(I), MODECL(I), MODEVH(I)
 
          !-----CHECK MODE FOR TIME-VARYING CSTCAP
-         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+         IF (BINETP) WRITE(FID_logfile, "('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', I3, 3X, " // &
             "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECS(I)
 
          IF (MODECS(I) /= 0) THEN
@@ -4059,17 +4059,17 @@ CONTAINS
             READ(ETD, '(I7)') JJJ
             !:ET13(1/4)
             READ(ETD, '(A)') HEAD
-            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING CSTCAP VALUES
             cstcap_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELCST(I, JJ), TIMCST(I, JJ)
-               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELCST(I, JJ), TIMCST(I, JJ)
+               IF (BINETP) WRITE(FID_logfile, "(2G10.3)") RELCST(I, JJ), TIMCST(I, JJ)
             END DO cstcap_loop
          END IF
 
          !-----CHECK MODE FOR TIME-VARYING PLAI
-         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR PLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+         IF (BINETP) WRITE(FID_logfile, "('0', 1X, 'MODE FOR PLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
             "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEPL(I)
 
          IF (MODEPL(I) /= 0) THEN
@@ -4082,17 +4082,17 @@ CONTAINS
             READ(ETD, '(I7)') JJJ
             !:ET13(2/4)
             READ(ETD, '(A)') HEAD
-            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING PLAI VALUES
             plai_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELPLA(I, JJ), TIMPLA(I, JJ)
-               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELPLA(I, JJ), TIMPLA(I, JJ)
+               IF (BINETP) WRITE(FID_logfile, "(2G10.3)") RELPLA(I, JJ), TIMPLA(I, JJ)
             END DO plai_loop
          END IF
 
          !-----CHECK MODE FOR TIME-VARYING CLAI
-         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR CLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+         IF (BINETP) WRITE(FID_logfile, "('0', 1X, 'MODE FOR CLAI FOR VEGETATION', I3, ' IS', I3, 3X, " // &
             "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODECL(I)
 
          IF (MODECL(I) /= 0) THEN
@@ -4105,17 +4105,17 @@ CONTAINS
             READ(ETD, '(I7)') JJJ
             !:ET13(3/4)
             READ(ETD, '(A)') HEAD
-            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING CLAI VALUES
             clai_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELCLA(I, JJ), TIMCLA(I, JJ)
-               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELCLA(I, JJ), TIMCLA(I, JJ)
+               IF (BINETP) WRITE(FID_logfile, "(2G10.3)") RELCLA(I, JJ), TIMCLA(I, JJ)
             END DO clai_loop
          END IF
 
          !-----CHECK MODE FOR TIME-VARYING VHT
-         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'MODE FOR VHT FOR VEGETATION', I3, ' IS', I3, 3X, " // &
+         IF (BINETP) WRITE(FID_logfile, "('0', 1X, 'MODE FOR VHT FOR VEGETATION', I3, ' IS', I3, 3X, " // &
             "'(0=CONSTANT; 1=TIME-VARYING)')") I, MODEVH(I)
 
          IF (MODEVH(I) /= 0) THEN
@@ -4128,12 +4128,12 @@ CONTAINS
             READ(ETD, '(I7)') JJJ
             !:ET13(4/4)
             READ(ETD, '(A)') HEAD
-            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+            IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING VHT VALUES
             vht_loop: DO JJ = 1, JJJ
                READ(ETD, *) RELVHT(I, JJ), TIMVHT(I, JJ)
-               IF (BINETP) WRITE(PPPRI, "(2G10.3)") RELVHT(I, JJ), TIMVHT(I, JJ)
+               IF (BINETP) WRITE(FID_logfile, "(2G10.3)") RELVHT(I, JJ), TIMVHT(I, JJ)
             END DO vht_loop
          END IF
 
@@ -4151,10 +4151,10 @@ CONTAINS
             N1 = NF(I)
             READ(ETD, '(3F7.2)') (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
 
-            IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
-            IF (BINETP) WRITE(PPPRI, "(' ', 3F10.2)") (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
+            IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
+            IF (BINETP) WRITE(FID_logfile, "(' ', 3F10.2)") (PS1(I, J), RCF(I, J), FET(I, J), J = 1, N1)
          ELSE
-            WRITE(PPPRI, "(' ', 10X, 'CONSTANT RC =', F10.4)") RC(I)
+            WRITE(FID_logfile, "(' ', 10X, 'CONSTANT RC =', F10.4)") RC(I)
          END IF
 
          !-----READ AND WRITE ROOT DENSITY FUNCTION DATA
@@ -4167,18 +4167,18 @@ CONTAINS
          !  VALUE.  THE VALUES SHOULD BE INPUT FROM THE SURFACE
          !  DOWNWARDS.
          !---------------------------------------------------------
-         IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
+         IF (BINETP) WRITE(FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
          ASUM = 0.0D0
          N2 = NRD(I)
 
          rdf_loop: DO J = 1, N2
             READ(ETD, '(2F7.4)') DEPTH, RDF(I, J)
-            IF (BINETP) WRITE(PPPRI, "(' ', 2F15.6)") DEPTH, RDF(I, J)
+            IF (BINETP) WRITE(FID_logfile, "(' ', 2F15.6)") DEPTH, RDF(I, J)
             ASUM = ASUM + RDF(I, J)
          END DO rdf_loop
 
-         IF (BINETP) WRITE(PPPRI, "('0', 1X, 'SUM OF RDF VALUES IS', F10.4)") ASUM
+         IF (BINETP) WRITE(FID_logfile, "('0', 1X, 'SUM OF RDF VALUES IS', F10.4)") ASUM
 
          IF (BAR(I)) RTOP(I) = LOG((ZU(I) - ZD(I)) / ZO(I))**2 / VKSQ
 
@@ -4191,21 +4191,21 @@ CONTAINS
       IF (BMETAL) THEN
          ! Modernization Fix: Replaced GOTO traps with strict IOSTAT handling
          READ(PRD, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(FFFATAL, 1063, PPPRI, 0, 0, 'no data in prd file')
+         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1063, FID_logfile, 0, 0, 'no data in prd file')
 
          READ(EPD, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(FFFATAL, 1064, PPPRI, 0, 0, 'no data in epd file')
+         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1064, FID_logfile, 0, 0, 'no data in epd file')
       ELSE
          READ(MED, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(FFFATAL, 1065, PPPRI, 0, 0, 'no data in med file')
+         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1065, FID_logfile, 0, 0, 'no data in med file')
       END IF
 
       IF (ISTA) THEN
          READ(TAH, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(FFFATAL, 1066, PPPRI, 0, 0, 'no data in air temp - high file')
+         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1066, FID_logfile, 0, 0, 'no data in air temp - high file')
 
          READ(TAL, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(FFFATAL, 1067, PPPRI, 0, 0, 'no data in air temp - low file')
+         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1067, FID_logfile, 0, 0, 'no data in air temp - low file')
       END IF
 
    END SUBROUTINE INET
@@ -4251,7 +4251,7 @@ CONTAINS
       !         - GRID CODE FOR UZ, SZ AND FRAME    INGRID
 
       ! Assumed external module dependencies providing global variables:
-      ! PPPRI, BDEVER, SHEVER, BANNER, FRD, TITLE, nxee, nyee, nlfee, nelee,
+      ! FID_logfile, BDEVER, SHEVER, BANNER, FRD, TITLE, nxee, nyee, nlfee, nelee,
       ! llee, nvee, nsee, NVSEE, NVBP, NUZTAB, NLYREE, NXOCEE, NOCTAB, NSEDEE,
       ! NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE, NX, NY,
       ! NXM1, NYM1, NXP1, NYP1, DXIN, DYIN, DTAO, IAOUT, BINFRP, BFRTS1,
@@ -4272,58 +4272,58 @@ CONTAINS
 
       !----------------------------------------------------------------------*
 
-      WRITE(PPPRI, 10)
+      WRITE(FID_logfile, 10)
 10    FORMAT ('1', // T10, '                                E'/T10, &
          ' EUROPEAN HYDROLOGIC SYSTEM  S  H  E  SYSTEME HYDROLOGIQUE EUROPEEN'/T10, &
          '                                S' /)
 
       ! PRINT THE CURRENT VERSION NUMBER
       IF (BDEVER) THEN
-         WRITE(PPPRI, 16) SHEVER
+         WRITE(FID_logfile, 16) SHEVER
       ELSE
-         WRITE(PPPRI, 15) SHEVER
+         WRITE(FID_logfile, 15) SHEVER
       END IF
 16    FORMAT (/ 'SHETRAN VERSION NUMBER: ', F5.1, ' ')
 15    FORMAT (/ 'SHETRAN VERSION NUMBER: ', F5.1)
 
-      WRITE(PPPRI, 17) BANNER
+      WRITE(FID_logfile, 17) BANNER
 17    FORMAT(/A80/)
 
       ! READ AND PRINT JOB TITLE.
       ! :FR1
-      WRITE(PPPRI, '(A)') 'Catchment Name '
-      WRITE(PPPRI, '(A)') '************** '
+      WRITE(FID_logfile, '(A)') 'Catchment Name '
+      WRITE(FID_logfile, '(A)') '************** '
       READ (FRD, '(A)') TITLE
 
-      WRITE(PPPRI, '(A)') TITLE
-      WRITE(PPPRI, '(/ 20A4, //, 100("="))') TITLE
+      WRITE(FID_logfile, '(A)') TITLE
+      WRITE(FID_logfile, '(/ 20A4, //, 100("="))') TITLE
 
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Fixed array sizes in this version of SHETRAN '
-      WRITE(PPPRI, '(A)') '******************************************** '
-      WRITE(PPPRI, '(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
-      WRITE(PPPRI, '(4(A,I0))') ' NXEE = ', nxee, '  NYEE = ', nyee, '  NLFEE = ', nlfee, '  NELEE = ', nelee
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Grid points in vertical'
-      WRITE(PPPRI, '(1(A,I0))') ' LLEE = ', llee
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Vegetation types, soil typess (NVEE also used for number of precipitation and pet stations)'
-      WRITE(PPPRI, '(2(A,I0))') ' NVEE = ', nvee, '  NSEE = ', nsee
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers'
-      WRITE(PPPRI, '(4(A,I0))') ' NVSEE = ', NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ', NUZTAB, '  NLYREE = ', NLYREE
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'
-      WRITE(PPPRI, '(3(A,I0))') ' NXOCEE = ', NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ', NSEDEE
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants'
-      WRITE(PPPRI, '(4(A,I0))') ' NCONEE = ', NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ', NPLTEE, '  NPELEE = ', NPELEE
-      WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Number of snow meltwater slugs, Size of internal tables for channel conveyance'
-      WRITE(PPPRI, '(2(A,I0))') ' max_no_snowmelt_slugs = ', max_no_snowmelt_slugs, '  NXSCEE = ', NXSCEE
-      WRITE(PPPRI, *)
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Fixed array sizes in this version of SHETRAN '
+      WRITE(FID_logfile, '(A)') '******************************************** '
+      WRITE(FID_logfile, '(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
+      WRITE(FID_logfile, '(4(A,I0))') ' NXEE = ', nxee, '  NYEE = ', nyee, '  NLFEE = ', nlfee, '  NELEE = ', nelee
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Grid points in vertical'
+      WRITE(FID_logfile, '(1(A,I0))') ' LLEE = ', llee
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Vegetation types, soil typess (NVEE also used for number of precipitation and pet stations)'
+      WRITE(FID_logfile, '(2(A,I0))') ' NVEE = ', nvee, '  NSEE = ', nsee
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers'
+      WRITE(FID_logfile, '(4(A,I0))') ' NVSEE = ', NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ', NUZTAB, '  NLYREE = ', NLYREE
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'
+      WRITE(FID_logfile, '(3(A,I0))') ' NXOCEE = ', NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ', NSEDEE
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants'
+      WRITE(FID_logfile, '(4(A,I0))') ' NCONEE = ', NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ', NPLTEE, '  NPELEE = ', NPELEE
+      WRITE(FID_logfile, *)
+      WRITE(FID_logfile, '(A)') 'Number of snow meltwater slugs, Size of internal tables for channel conveyance'
+      WRITE(FID_logfile, '(2(A,I0))') ' max_no_snowmelt_slugs = ', max_no_snowmelt_slugs, '  NXSCEE = ', NXSCEE
+      WRITE(FID_logfile, *)
 
-      WRITE(PPPRI, 20)
+      WRITE(FID_logfile, 20)
 20    FORMAT (/ ' ^^^ ENTER INFR ^^^')
 
       ! READ AND PRINT MODEL SIZE, TOTAL SIMULATION TIME, GRID SIZES AND
@@ -4374,7 +4374,7 @@ CONTAINS
       ! PMAX = one
       ! PALFA = 0.15D0
       IF (TMAX > 2.0D0) THEN
-         WRITE(PPPRI, *) '^^^ TIMESTEP LIMITED TO 2 HOURS ^^^'
+         WRITE(FID_logfile, *) '^^^ TIMESTEP LIMITED TO 2 HOURS ^^^'
          TMAX = 2.0D0
       END IF
 
@@ -4403,13 +4403,13 @@ CONTAINS
       READ (FRD, '(2L7, 2F7.2)') BHOTRD, BHOTPR, BHOTTI, BHOTST
 
       ! PRINT INITIALISATION DATA
-      WRITE(PPPRI, 150) NX, NY
+      WRITE(FID_logfile, 150) NX, NY
 150   FORMAT ('0'//, ' GRID SPECIFICATION'/80('*')//, ' NX = ', I4, 21X, 'NY = ', I4)
-      WRITE(PPPRI, 160) (DXIN (J), J = 1, NXM1)
+      WRITE(FID_logfile, 160) (DXIN (J), J = 1, NXM1)
 160   FORMAT ('0', 'H-H GRID SIZES (METERS) IN X-DIRECTION', /, (1X, 10G11.4))
-      WRITE(PPPRI, 170) (DYIN (K), K = 1, NYM1)
+      WRITE(FID_logfile, 170) (DYIN (K), K = 1, NYM1)
 170   FORMAT ('0', 'H-H GRID SIZES (METERS) IN Y-DIRECTION', /, (1X, 10G11.4))
-      WRITE(PPPRI, 200)
+      WRITE(FID_logfile, 200)
 200   FORMAT (' ', 80('*'))
 
       ! CONVERT STARTTIME AND ENDTIME TO HOURS.
@@ -4417,7 +4417,7 @@ CONTAINS
       TTH = HOUR_FROM_DATE(IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN)
       TTHX = TTH - TIH
 
-      WRITE(PPPRI, 210) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN, IEYEAR, &
+      WRITE(FID_logfile, 210) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN, IEYEAR, &
          IEMTH, IEDAY, IEHOUR, IEMIN, TTHX
 210   FORMAT ('0'//, ' START OF SIMULATION  : ', 5I6, /, &
          ' END OF SIMULATION    : ', 5I6, /, &
@@ -4430,36 +4430,36 @@ CONTAINS
 
       IF (BEXSY) THEN
          TSH = HOUR_FROM_DATE(JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN)
-         WRITE(PPPRI, 211) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN, (TSH - TIH)
+         WRITE(FID_logfile, 211) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN, (TSH - TIH)
 211      FORMAT (// ' START OF SEDIMENT SIMULATION  : ', 5I6, / &
             '           AT SIMULATION HOUR  : ', F8.2)
       END IF
 
       IF (BEXCM) THEN
          TCH = HOUR_FROM_DATE(JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN)
-         WRITE(PPPRI, 212) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN, (TCH - TIH)
+         WRITE(FID_logfile, 212) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN, (TCH - TIH)
 212      FORMAT (// ' START OF CONTAMINANT SIMULATION  : ', 5I6, / &
             '               AT SIMULATION HOUR  : ', F8.2)
       END IF
 
-      WRITE(PPPRI, 215) TMAX
+      WRITE(FID_logfile, 215) TMAX
 215   FORMAT ('0', //, ' BASIC TIMESTEP (HOURS) :', F8.3)
 
-      WRITE(PPPRI, 220) DTAO
+      WRITE(FID_logfile, 220) DTAO
 220   FORMAT ('0'//, ' PRINTING CONTROL - ALL RESULTS PRINTED AT', &
          ' INTERVALS OF DTAO = ', F7.2, ' HOURS.')
 
-      IF (.NOT. BSTORE) WRITE(PPPRI, 230)
+      IF (.NOT. BSTORE) WRITE(FID_logfile, 230)
 230   FORMAT ('0'//, ' RESULTS NOT REQUIRED ON FILE STORE.')
 
-      IF (BSTORE) WRITE(PPPRI, 240)
+      IF (BSTORE) WRITE(FID_logfile, 240)
 240   FORMAT ('0'//, ' RESULTS RECORDED ON FILE STORE.')
 
       ! READ AND PRINT NM,NRAIN,NV AND NS.
       ! :FR28
       READ (FRD, '(20A4)') TITLE
       READ (FRD, '(5I7)') NM, NRAIN, NV, NS, NLYRCT
-      WRITE(PPPRI, 260) NM, NRAIN, NV, NS, NLYRCT
+      WRITE(FID_logfile, 260) NM, NRAIN, NV, NS, NLYRCT
 260   FORMAT ('0'//, ' NO. OF METEOROLOGICAL SITES = ', I3, /, &
          ' NO. OF RAINFALL STATIONS = ', I3, /, &
          ' NO. OF VEGETATION TYPES = ', I3, /, &
@@ -4479,7 +4479,7 @@ CONTAINS
       ! :FR32
       READ (FRD, '(20A4)') TITLE
       READ (FRD, '(6I7)') IDMC, IDRA, IDVE, IDLYR
-      WRITE(PPPRI, 300) IDMC, IDRA, IDVE, IDLYR
+      WRITE(FID_logfile, 300) IDMC, IDRA, IDVE, IDLYR
 300   FORMAT ('0', /, ' DEFAULT METEOROLOGICAL STATION CODE =', I3, /, &
          1X, 'DEFAULT RAINFALL STATION CODE       =', I3, /, &
          1X, 'DEFAULT VEGETATION GRID CODE        =', I3, /, &
@@ -4491,16 +4491,16 @@ CONTAINS
       !
       ! :FR34
       READ (FRD, '(20A4)') TITLE
-      IF (BINFRP) WRITE(PPPRI, '( / 20A4)') TITLE
+      IF (BINFRP) WRITE(FID_logfile, '( / 20A4)') TITLE
 
       DO I1 = 1, NY
          K = NY + 1 - I1
          READ (FRD, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
-         IF (BINFRP) WRITE(PPPRI, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
+         IF (BINFRP) WRITE(FID_logfile, '(I7, 1X, 500I1)') I2, (INGRID (J, K), J = 1, NX)
 
          ! Catchment array definition check
          IF (I2 /= K) THEN
-            WRITE(PPPRI, 314) TITLE, I2
+            WRITE(FID_logfile, 314) TITLE, I2
 314         FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
                'LINE K= ', I5)
             STOP
@@ -4520,9 +4520,9 @@ CONTAINS
 
       ! READ THE CODES FOR OVERLAND/CHANNEL FLOW GRID BOUNDARIES
       ! :FR35a
-      CALL OCLTL (NXP1, NY, LCODEX, NXE, NYE, FRD, PPPRI, BINFRP)
+      CALL OCLTL (NXP1, NY, LCODEX, NXE, NYE, FRD, FID_logfile, BINFRP)
       ! :FR35c
-      CALL OCLTL (NX, NYP1, LCODEY, NXE, NYE, FRD, PPPRI, BINFRP)
+      CALL OCLTL (NX, NYP1, LCODEY, NXE, NYE, FRD, FID_logfile, BINFRP)
 
       ! INITIALISE GLOBAL INDEX ARRAY
       CALL FRIND (BINFRP)
@@ -4531,18 +4531,18 @@ CONTAINS
       ! SET EQUAL TO DEFAULT VALUES IF THESE ARE TO BE USED.
       !
       ! :FR37
-      CALL AREADR (ZGRUND, IPR, FRD, PPPRI)
+      CALL AREADR (ZGRUND, IPR, FRD, FID_logfile)
 
       IPFLG = 3
       ! :FR43
-      IF (IDMC > 0) CALL AREADI (NMC, IPFLG, IDMC, PPPRI, NM)
-      IF (IDMC <= 0) CALL AREADI (NMC, IPR, FRD, PPPRI, NM)
+      IF (IDMC > 0) CALL AREADI (NMC, IPFLG, IDMC, FID_logfile, NM)
+      IF (IDMC <= 0) CALL AREADI (NMC, IPR, FRD, FID_logfile, NM)
       ! :FR46
-      IF (IDRA > 0) CALL AREADI (NRAINC, IPFLG, IDRA, PPPRI, NRAIN)
-      IF (IDRA <= 0) CALL AREADI (NRAINC, IPR, FRD, PPPRI, NRAIN)
+      IF (IDRA > 0) CALL AREADI (NRAINC, IPFLG, IDRA, FID_logfile, NRAIN)
+      IF (IDRA <= 0) CALL AREADI (NRAINC, IPR, FRD, FID_logfile, NRAIN)
       ! :FR49
-      IF (IDVE > 0) CALL AREADI (NVC, IPFLG, IDVE, PPPRI, NV)
-      IF (IDVE <= 0) CALL AREADI (NVC, IPR, FRD, PPPRI, NV)
+      IF (IDVE > 0) CALL AREADI (NVC, IPFLG, IDVE, FID_logfile, NV)
+      IF (IDVE <= 0) CALL AREADI (NVC, IPR, FRD, FID_logfile, NV)
 
       ! :FR52
       READ (FRD, '(20A4)', IOSTAT = ios) TITLE
@@ -4561,7 +4561,7 @@ CONTAINS
          ISORT (IEL) = IEL
       END DO
 
-      WRITE(PPPRI, 430)
+      WRITE(FID_logfile, 430)
 430   FORMAT ('0'//, ' EXIT INFR')
 
    END SUBROUTINE INFR
@@ -4671,7 +4671,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
-      ! SMD, BINSMP, PPPRI, HEAD, DDF, RHOS, NSD, MSM, RHODEF
+      ! SMD, BINSMP, FID_logfile, HEAD, DDF, RHOS, NSD, MSM, RHODEF
       ! ZOS, ZDS, ZUS, NM, IMET, ngdbgn, total_no_elements, rhosar
       ! SD, NSMC, TS, SF
 
@@ -4686,7 +4686,7 @@ CONTAINS
       ! READ PRINT CONTROL PARAMETERS
       READ(SMD, '(20A4)') HEAD
       READ(SMD, '(L7)') BINSMP
-      IF (BINSMP) WRITE(PPPRI, '(///1X, 20A4)') HEAD
+      IF (BINSMP) WRITE(FID_logfile, '(///1X, 20A4)') HEAD
 
       ! READ SNOWMELT DATA
       READ(SMD, '(20A4)') HEAD
@@ -4697,7 +4697,7 @@ CONTAINS
       ! for degree day method.  Therefore if msm=1, tsin=0.
       IF (MSM == 1) TSIN = ZERO
 
-      IF (BINSMP) WRITE(PPPRI, 801) DDF, RHOS, TSIN, MSM
+      IF (BINSMP) WRITE(FID_logfile, 801) DDF, RHOS, TSIN, MSM
 
       ! Execute Energy Budget specific reads if MSM > 1
       IF (MSM /= 1) THEN
@@ -4705,16 +4705,16 @@ CONTAINS
          READ(SMD, '(20A4)') HEAD
          READ(SMD, '(3F7.5)') ZOS, ZDS, ZUS
 
-         IF (BINSMP) WRITE(PPPRI, 803) ZOS, ZDS, ZUS
+         IF (BINSMP) WRITE(FID_logfile, 803) ZOS, ZDS, ZUS
 
          ! METEOROLOGICAL (WINDSPEED) DATA LOCATION
          READ(SMD, '(20A4)') HEAD
          READ(SMD, '(10I7)') (IMET(N), N = 1, NM)
 
          IF (BINSMP) THEN
-            WRITE(PPPRI, 715)
+            WRITE(FID_logfile, 715)
             station_loop: DO N = 1, NM
-               WRITE(PPPRI, '(3X, I4, 10X, I4)') N, IMET(N)
+               WRITE(FID_logfile, '(3X, I4, 10X, I4)') N, IMET(N)
             END DO station_loop
          END IF
       END IF
@@ -4733,13 +4733,13 @@ CONTAINS
             SD(IEL) = UNIFSD
          END DO uniform_sd_loop
 
-         IF (BINSMP) WRITE(PPPRI, '(/, 1X, "INITIAL SNOWPACK HAS UNIFORM THICKNESS =", F7.1, 1X, "MM")') UNIFSD
+         IF (BINSMP) WRITE(FID_logfile, '(/, 1X, "INITIAL SNOWPACK HAS UNIFORM THICKNESS =", F7.1, 1X, "MM")') UNIFSD
       ELSE
          ! NONUNIFORM SNOWDEPTH (MM OF SNOW)
          I = 0
          IF (BINSMP) I = 1
-         CALL AREADR(SD, I, SMD, PPPRI)
-         CALL AREADR(rhosar, I, SMD, PPPRI)
+         CALL AREADR(SD, I, SMD, FID_logfile)
+         CALL AREADR(rhosar, I, SMD, FID_logfile)
       END IF
 
       ! Epilogue Element Processing
@@ -4844,7 +4844,7 @@ CONTAINS
       !--------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
-      ! EEERR, FFFATAL
+      ! ERRLVL_error, ERRLVL_fatal
 
       IMPLICIT NONE
 
@@ -4892,7 +4892,7 @@ CONTAINS
 
             ! *NCATTY
             ncatty_loop: DO J = ICOL1, total_no_elements
-               CALL ALCHKI(EEERR, 2103, CPR, J, J, IUNDEF, IUNDEF, &
+               CALL ALCHKI(ERRLVL_error, 2103, CPR, J, J, IUNDEF, IUNDEF, &
                   'NCATTY(iel)', 'GT', IZERO, NCATTY(J:J, I), NERR, LDUM(1:1))
             END DO ncatty_loop
 
@@ -4901,13 +4901,13 @@ CONTAINS
             ! thereafter the depth must increase
             category_loop1: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
 
-               CALL ALCHK(EEERR, 2104, CPR, NELMTY, NELMTY, 1, IUNDEF, &
+               CALL ALCHK(ERRLVL_error, 2104, CPR, NELMTY, NELMTY, 1, IUNDEF, &
                   'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,1]', 'EQ', ZERO1, ZERO, &
                   TABLE_WATER_DEPTH(NELMTY:NELMTY, 1, I), NERR, LDUM(1:1))
 
                table_depth_loop: DO NTBL = 2, NTAB(NELMTY, I)
                   PREVDP = TABLE_WATER_DEPTH(NELMTY, NTBL - 1, I)
-                  CALL ALCHK(EEERR, 2105, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
+                  CALL ALCHK(ERRLVL_error, 2105, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
                      'TABLE_WATER_DEPTH[NUM_CATEGORIES_TYPES,ntab]', 'GT', (/PREVDP/), &
                      ZERO, TABLE_WATER_DEPTH(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
                END DO table_depth_loop
@@ -4918,7 +4918,7 @@ CONTAINS
             ! Each value in the table of concentrations must be >= 0
             category_loop2: DO NELMTY = 1, NUM_CATEGORIES_TYPES(I)
                table_conc_loop: DO NTBL = 1, NTAB(NELMTY, I)
-                  CALL ALCHK(EEERR, 2106, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
+                  CALL ALCHK(ERRLVL_error, 2106, CPR, NELMTY, NELMTY, NTBL, IUNDEF, &
                      'TABLE_CONCENTRATION[nmne,ntab]', 'GE', ZERO1, ZERO, &
                      TABLE_CONCENTRATION(NELMTY:NELMTY, NTBL, I), NERR, LDUM(1:1))
                END DO table_conc_loop
@@ -4931,7 +4931,7 @@ CONTAINS
       ! 2. Epilogue
       ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
+         CALL ERROR(ERRLVL_fatal, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
       END IF
 
    END SUBROUTINE MUERR2

@@ -15,8 +15,8 @@ MODULE CMmod
    USE UTILSMOD, ONLY : TRIDAG
    USE IS_CC
    USE mod_load_filedata, ONLY: ALALLI, ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
-!!!USE mod_load_filedata, ONLY:ERROR, ERRC, ERRNEE, ERRTOT !AD NEEDS THIS  , HELPPATH
-   USE mod_error, ONLY : ERROR, ERRNEE
+!!!USE mod_load_filedata, ONLY:ERROR, error_counter, ERR_limit_error_codes, error_counter_total !AD NEEDS THIS  , HELPPATH
+   USE mod_error, ONLY : ERROR, ERR_limit_error_codes
    USE UTILSMOD, ONLY : DCOPY
    USE MNMOD, only : MNCONT
    IMPLICIT NONE

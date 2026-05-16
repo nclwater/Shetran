@@ -13,7 +13,7 @@ module MNmod
 
    use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee
    use mod_load_filedata,    only : alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
-   use mod_error,    only : ERROR, FFFATAL, WWWARN, pppri
+   use mod_error,    only : ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
    use utilsmod, only: hour_from_date, tridag
 
 
@@ -171,7 +171,7 @@ CONTAINS
                IF (ntime > niters) THEN
                   ! PERF FIX: Restored external format label
                   WRITE (msg, 9000) wer1sq
-                  CALL ERROR(WWWARN, 3018, mnpr, 0, 0, msg)
+                  CALL ERROR(ERRLVL_warn, 3018, mnpr, 0, 0, msg)
                END IF
 
             END DO layer_loop
@@ -814,7 +814,7 @@ CONTAINS
       ! 4. epilogue
       ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 3010, MNPR, 0, 0, 'error(s) detected while checking cm-mn interface variables')
+         CALL ERROR(ERRLVL_fatal, 3010, MNPR, 0, 0, 'error(s) detected while checking cm-mn interface variables')
       END IF
 
    END SUBROUTINE MNERR0
@@ -1059,7 +1059,7 @@ CONTAINS
       ! 6. epilogue
       ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 3011, MNPR, 0, 0, 'error(s) detected while checking static/initial interface')
+         CALL ERROR(ERRLVL_fatal, 3011, MNPR, 0, 0, 'error(s) detected while checking static/initial interface')
       END IF
 
    END SUBROUTINE MNERR1
@@ -1371,7 +1371,7 @@ CONTAINS
       ! 7. epilogue
       ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 3012, MNPR, 0, 0, 'error(s) detected whilst checking the static input data')
+         CALL ERROR(ERRLVL_fatal, 3012, MNPR, 0, 0, 'error(s) detected whilst checking the static input data')
       END IF
 
    END SUBROUTINE MNERR2
@@ -1598,7 +1598,7 @@ CONTAINS
       ! 6. epilogue
       ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 3013, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' variables from cm -mn interface')
+         CALL ERROR(ERRLVL_fatal, 3013, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' variables from cm -mn interface')
       END IF
 
    END SUBROUTINE MNERR3
@@ -1701,7 +1701,7 @@ CONTAINS
       ! 3. epilogue
       ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(FFFATAL, 3014, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' fertilizer input variables')
+         CALL ERROR(ERRLVL_fatal, 3014, MNPR, 0, 0, 'error(s) detected whilst checking the time dependent' // ' fertilizer input variables')
       END IF
 
    END SUBROUTINE MNERR4
@@ -2341,7 +2341,7 @@ CONTAINS
             IF (ntime > niters) THEN
                ! PERF FIX: Restored external format label
                WRITE (msg, 9000) wer1sq, wer2sq
-               CALL ERROR(WWWARN, 3016, mnpr, 0, 0, msg)
+               CALL ERROR(ERRLVL_warn, 3016, mnpr, 0, 0, msg)
             END IF
 
          END DO layer_loop
@@ -2462,7 +2462,7 @@ CONTAINS
             IF (ntime > niters) THEN
                ! PERF FIX: Restored external format label
                WRITE (msg, 9000) wer1sq
-               CALL ERROR(WWWARN, 3017, mnpr, 0, 0, msg)
+               CALL ERROR(ERRLVL_warn, 3017, mnpr, 0, 0, msg)
             END IF
 
          END DO layer_loop
@@ -2797,7 +2797,7 @@ CONTAINS
             ! * failed to converge
             IF (ntime > niters) THEN
                WRITE (msg, 9000) wer1sq, wer2sq
-               CALL ERROR(WWWARN, 3015, mnpr, 0, 0, msg)
+               CALL ERROR(ERRLVL_warn, 3015, mnpr, 0, 0, msg)
             END IF
 
          END DO layer_loop
@@ -3492,7 +3492,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN15a', 1, 1, IDUM)
       NMN15E = IDUM(1)
       IF ((NMN15E > NMNEEE) .OR. (NMN15E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn15 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn15 in mn data file')
       END IF
 
       ! * read the catagory type for each element into the element number
@@ -3503,7 +3503,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN16a', 1, 1, NMNT)
          NMN15T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn16a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn16a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3519,7 +3519,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN17a', 1, 1, IDUM)
       NMN17E = IDUM(1)
       IF ((NMN17E > NMNEEE) .OR. (NMN17E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn17 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn17 in mn data file')
       END IF
 
       CALL ALALLI(NMN17E, MND, MNPR, ':MN17b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KLELEM, IDUM)
@@ -3528,7 +3528,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN18a', 1, 1, NMNT)
          NMN17T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn18a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn18a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3544,7 +3544,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN19a', 1, 1, IDUM)
       NMN19E = IDUM(1)
       IF ((NMN19E > NMNEEE) .OR. (NMN19E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn19 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn19 in mn data file')
       END IF
 
       CALL ALALLI(NMN19E, MND, MNPR, ':MN19b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KMELEM, IDUM)
@@ -3553,7 +3553,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN20a', 1, 1, NMNT)
          NMN19T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn20a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn20a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3569,7 +3569,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN21a', 1, 1, IDUM)
       NMN21E = IDUM(1)
       IF ((NMN21E > NMNEEE) .OR. (NMN21E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn21 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn21 in mn data file')
       END IF
 
       CALL ALALLI(NMN21E, MND, MNPR, ':MN21b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KNELEM, IDUM)
@@ -3578,7 +3578,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN22a', 1, 1, NMNT)
          NMN21T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn22a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn22a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3594,7 +3594,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN23a', 1, 1, IDUM)
       NMN23E = IDUM(1)
       IF ((NMN23E > NMNEEE) .OR. (NMN23E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn23 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn23 in mn data file')
       END IF
 
       CALL ALALLI(NMN23E, MND, MNPR, ':MN23b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KVELEM, IDUM)
@@ -3603,7 +3603,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN24a', 1, 1, NMNT)
          NMN23T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn24a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn24a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3619,7 +3619,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN25a', 1, 1, IDUM)
       NMN25E = IDUM(1)
       IF ((NMN25E > NMNEEE) .OR. (NMN25E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn25 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn25 in mn data file')
       END IF
 
       CALL ALALLI(NMN25E, MND, MNPR, ':MN25b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KD1ELM, IDUM)
@@ -3628,7 +3628,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN26a', 1, 1, NMNT)
          NMN25T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn26a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn26a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3644,7 +3644,7 @@ CONTAINS
       CALL ALREDI(0, MND, MNPR, ':MN27a', 1, 1, IDUM)
       NMN27E = IDUM(1)
       IF ((NMN27E > NMNEEE) .OR. (NMN27E <= 0)) THEN
-         CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn27 in mn data file')
+         CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn27 in mn data file')
       END IF
 
       CALL ALALLI(NMN27E, MND, MNPR, ':MN27b', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, KD2ELM, IDUM)
@@ -3653,7 +3653,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN28a', 1, 1, NMNT)
          NMN27T(NC) = NMNT(1)
          IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-            CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn28a in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn28a in mn data file')
          END IF
 
          NDATA = NMNT(1) * 2
@@ -3701,7 +3701,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN43a', 1, 1, IDUM)
          NMN43E = IDUM(1)
          IF ((NMN43E > NMNEEE) .OR. (NMN43E <= 0)) THEN
-            CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn43 in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn43 in mn data file')
          END IF
 
          ! * read the catagory type for each element into the element number
@@ -3712,7 +3712,7 @@ CONTAINS
             CALL ALREDI(0, MND, MNPR, ':MN44a', 1, 1, NMNT)
             NMN43T(NC) = NMNT(1)
             IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-               CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn44a in mn data file')
+               CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn44a in mn data file')
             END IF
 
             NDATA = NMNT(1) * 2
@@ -3747,7 +3747,7 @@ CONTAINS
          CALL ALREDI(0, MND, MNPR, ':MN53a', 1, 1, IDUM)
          NMN53E = IDUM(1)
          IF ((NMN53E > NMNEEE) .OR. (NMN53E <= 0)) THEN
-            CALL ERROR(FFFATAL, 3090, MNPR, 0, 0, 'error in ncat in :mn53 in mn data file')
+            CALL ERROR(ERRLVL_fatal, 3090, MNPR, 0, 0, 'error in ncat in :mn53 in mn data file')
          END IF
 
          ! * read the catagory type for each element into the element number
@@ -3758,7 +3758,7 @@ CONTAINS
             CALL ALREDI(0, MND, MNPR, ':MN54a', 1, 1, NMNT)
             NMN53T(NC) = NMNT(1)
             IF ((NMNT(1) > NMNTEE) .OR. (NMNT(1) <= 0)) THEN
-               CALL ERROR(FFFATAL, 3091, MNPR, 0, 0, 'error in nmnt in :mn54a in mn data file')
+               CALL ERROR(ERRLVL_fatal, 3091, MNPR, 0, 0, 'error in nmnt in :mn54a in mn data file')
             END IF
 
             NDATA = NMNT(1) * 2

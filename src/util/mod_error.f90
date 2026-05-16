@@ -15,12 +15,13 @@
 !> @note Currently, the interface for the error methods is still the same for easier integration,
 !> but it will be updated in the future to be more flexible and user-friendly.
 !>
-!> @todo - Figure a way to do ISERROR and ISERROR2 more elegantly - best might be with the general state tracker
+!> @todo Figure a way to do flag_runtime_reduction_errors and flag_runtime_reduction_e1060 more elegantly - best might be with the general state tracker
+!> @todo Split error message initialization and printing into separate methods for better modularity
 !>
 module mod_error
 
    use mod_parameters, only: I_P, LENGTH_FILEPATH, LENGTH_LINE
-   use sglobal, only: UZNOW, EARRAY, rootdir, dirqq, ISERROR, ISERROR2
+   use sglobal, only: UZNOW, EARRAY, rootdir, dirqq, flag_runtime_reduction_errors, flag_runtime_reduction_e1060
 
    implicit none
 
@@ -29,25 +30,26 @@ module mod_error
 
 
    ! Error levels
-   INTEGER(KIND=I_P), PARAMETER :: FFFATAL = 1 !! Error type for fatal errors.
-   INTEGER(KIND=I_P), PARAMETER :: EEERR = 2 !! Error type for non-fatal errors.
-   INTEGER(KIND=I_P), PARAMETER :: WWWARN = 3 !! Error type for warnings.
+   INTEGER(KIND=I_P), PARAMETER :: ERRLVL_init = -999 !! Initialization message, not an actual error level.
+   INTEGER(KIND=I_P), PARAMETER :: ERRLVL_fatal = 1 !! Error level for fatal errors.
+   INTEGER(KIND=I_P), PARAMETER :: ERRLVL_error = 2 !! Error level for non-fatal errors.
+   INTEGER(KIND=I_P), PARAMETER :: ERRLVL_warn = 3 !! Error level for warnings.
 
    ! Error handling control
-   INTEGER(KIND=I_P), PARAMETER :: ERRNEE = 100 !! Max number of distinct error codes per module.
-   INTEGER(KIND=I_P) :: ERRC(0:ERRNEE, 0:3) = 0 !! Counters for error occurrences.
-   INTEGER(KIND=I_P) :: ERRTOT = 0 !! Total count of all errors and warnings.
+   INTEGER(KIND=I_P), PARAMETER :: ERR_limit_error_codes = 100 !! Max number of distinct error codes per module.
+   INTEGER(KIND=I_P) :: error_counter(0:ERR_limit_error_codes, 0:3) = 0 !! Counters for error occurrences.
+   INTEGER(KIND=I_P) :: error_counter_total = 0 !! Total count of all errors and warnings.
    LOGICAL :: flag_wait_on_exit = .FALSE. !! Flag to control waiting for user input before exiting on fatal error.
 
    ! Error file information
-   INTEGER(KIND=I_P), PARAMETER :: pppri = 23 !! File unit for primary output.
-   CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Path to help message files (use LENGTH_FILEPATH for portability)
+   INTEGER(KIND=I_P), PARAMETER :: FID_logfile = 23 !! File unit for primary logging output.
+   CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Path to help message files
 
 
    PUBLIC :: ERROR, ALSTOP, err_set_wait_on_exit
-   PUBLIC :: FFFATAL, EEERR, WWWARN
-   PUBLIC :: pppri
-   PUBLIC :: ERRNEE
+   PUBLIC :: ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
+   PUBLIC :: FID_logfile
+   PUBLIC :: ERR_limit_error_codes
 
 contains
 
@@ -85,7 +87,7 @@ contains
    !>
    !> Changes in v3.4.1 (from v3.4):
    !>
-   !> - replace common counter arrays with local ERRC
+   !> - replace common counter arrays with local error_counter
    !> - extend ERRNUM range below 1000
    !> - introduce ETYPE=0
    !> - print IEL, CELL only if non-zero
@@ -100,13 +102,13 @@ contains
    SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       ! Assumed global variables provided via host module:
-      ! I_P, FFFATAL, EEERR, WWWARN, UZNOW, ERRTOT, ERRC, ERRNEE,
-      ! EARRAY, ISERROR, ISERROR2, rootdir, helppath, dirqq
+      ! I_P, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, UZNOW, error_counter_total, error_counter, ERR_limit_error_codes,
+      ! EARRAY, flag_runtime_reduction_errors, flag_runtime_reduction_e1060, rootdir, helppath, dirqq
 
       IMPLICIT NONE
 
       ! IO-related parameters and variables
-      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE  !! The type of error (FFFATAL, EEERR, WWWARN). -999 triggers a help path check.
+      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE  !! The type of error (ERRLVL_fatal, ERRLVL_error, ERRLVL_warn). -999 triggers a help path check.
       INTEGER(KIND=I_P), INTENT(IN) :: ERRNUM !! The unique error number code.
       INTEGER(KIND=I_P), INTENT(IN) :: OUT    !! The output file unit for the message.
       INTEGER(KIND=I_P), INTENT(IN) :: IEL    !! The element number where the error occurred (optional).
@@ -114,8 +116,8 @@ contains
       CHARACTER(LEN=*),  INTENT(IN) :: TEXT   !! The descriptive error text.
 
       INTEGER(KIND=I_P), PARAMETER :: NONE = 0
-      ! Assumes ERRNEE is accessible from host module
-      INTEGER(KIND=I_P), PARAMETER :: ERRCEE = (1 + ERRNEE) * 4
+      ! Assumes ERR_limit_error_codes is accessible from host module
+      INTEGER(KIND=I_P), PARAMETER :: error_counterEE = (1 + ERR_limit_error_codes) * 4
       INTEGER(KIND=I_P), PARAMETER :: HLP = 8
 
       ! Local variables
@@ -139,8 +141,8 @@ contains
       helppath = '/helpmessages'
 
       ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      ISERROR  = .FALSE.
-      ISERROR2 = .FALSE.
+      flag_runtime_reduction_errors  = .FALSE.
+      flag_runtime_reduction_e1060 = .FALSE.
 
       IF (ETYPE == -999) THEN
          present = .TRUE.
@@ -172,7 +174,7 @@ contains
       ! Write general error message
       ! ---------------------------
       IF (ETYPE >= 1 .AND. ETYPE <= 3) THEN
-         IF (ETYPE == FFFATAL) WRITE(OUT, '(//)')
+         IF (ETYPE == ERRLVL_fatal) WRITE(OUT, '(//)')
 
          IF (IEL == 0) THEN
             WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW
@@ -188,12 +190,12 @@ contains
       ! Decompose ERRNUM and update counters
       ! ------------------------------------
       IF (ETYPE /= NONE) THEN
-         ERRTOT = ERRTOT + 1
+         error_counter_total = error_counter_total + 1
          AMODL  = ERRNUM / 1000
          ERRN   = MOD(ERRNUM, 1000)
 
-         VALID  = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERRNEE)
-         IF (VALID) ERRC(ERRN, AMODL) = ERRC(ERRN, AMODL) + 1
+         VALID  = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERR_limit_error_codes)
+         IF (VALID) error_counter(ERRN, AMODL) = error_counter(ERRN, AMODL) + 1
       END IF
 
       ! Write specific error messages
@@ -208,22 +210,22 @@ contains
 
       ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
       IF (ERRNUM == 1024 .OR. ERRNUM == 1030) THEN
-         ISERROR = .TRUE.
+         flag_runtime_reduction_errors = .TRUE.
       END IF
       IF (ERRNUM == 1060) THEN
-         ISERROR2 = .TRUE.
+         flag_runtime_reduction_e1060 = .TRUE.
       END IF
 
       ! Write summary
       ! -------------
-      IF (ETYPE == FFFATAL .OR. ERRNUM == 0) THEN
+      IF (ETYPE == ERRLVL_fatal .OR. ERRNUM == 0) THEN
          WRITE(*, '(//A/A/)') ' ### Error summary and Advice ###', '  ------------------------'
 
-         IF (ERRTOT > 0) WRITE(*, '(A/)') ' ==> Check printed output files for more details <=='
+         IF (error_counter_total > 0) WRITE(*, '(A/)') ' ==> Check printed output files for more details <=='
 
          module_loop: DO AMODL = 0, 3
-            error_loop: DO ERRN = 0, ERRNEE
-               COUNT = ERRC(ERRN, AMODL)
+            error_loop: DO ERRN = 0, ERR_limit_error_codes
+               COUNT = error_counter(ERRN, AMODL)
 
                IF (COUNT > 0) THEN
                   ! Print number of occurrences
@@ -252,12 +254,12 @@ contains
             END DO error_loop
          END DO module_loop
 
-         WRITE(*, 9600) ERRTOT
+         WRITE(*, 9600) error_counter_total
       END IF
 
       ! Stop?
       ! -----
-      IF (ETYPE == FFFATAL) CALL ALSTOP(1)
+      IF (ETYPE == ERRLVL_fatal) CALL ALSTOP(1)
 
       ! String format statements
       ! ------------------------

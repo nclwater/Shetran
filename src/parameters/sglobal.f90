@@ -52,7 +52,7 @@ MODULE sglobal
    PUBLIC :: EARRAY, text32
    PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, i_iszero_a2, notzero, isone, notone
    PUBLIC :: idimje, dimje
-   PUBLIC :: ISERROR, ISERROR2
+   PUBLIC :: flag_runtime_reduction_errors, flag_runtime_reduction_e1060
 
    ! --------------------------------------------------------------------
    ! System Version and Banners
@@ -131,8 +131,8 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! Model Timestep Control Flags
    ! --------------------------------------------------------------------
-   LOGICAL :: ISERROR !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
-   LOGICAL :: ISERROR2 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
+   LOGICAL :: flag_runtime_reduction_errors !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
+   LOGICAL :: flag_runtime_reduction_e1060 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
 
 
    ! --------------------------------------------------------------------

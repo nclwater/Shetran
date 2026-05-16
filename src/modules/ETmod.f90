@@ -18,7 +18,7 @@ MODULE ETmod
       NSMT, S, TIMEUZ, BWIDTH, &
       sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
    USE mod_load_filedata,    ONLY : ALCHK
-   USE mod_error,    ONLY : ERROR, FFFATAL, WWWARN, pppri
+   USE mod_error,    ONLY : ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
    USE UTILSMOD, ONLY : DCOPY
    USE SMmod,    ONLY : SMIN, &
       smelt, tmelt !THESE NEEDED ONLY FOR AD
@@ -217,7 +217,7 @@ CONTAINS
       ! NMC, NRAINC, NVC, BAR, U, RA, RTOP, LAMDA, DEL, GAMMA, MEASPE, PE,
       ! OBSPE, RN, RHO, CP, VPD, precip_m_per_s, CPLAI, DTUZ, PNET, EINT,
       ! CSTORE, CSTCAP, CB, CK, DRAIN, AE, MODE, NRD, ERZ, ICMREF, top_cell_no,
-      ! NHBED, msg, WWWARN, pppri, ERROR, PSI4, RC, RCF, PS1, NF, FET, RDF,
+      ! NHBED, msg, ERRLVL_warn, FID_logfile, ERROR, PSI4, RC, RCF, PS1, NF, FET, RDF,
       ! UZALFA, ERUZ, S, DELTAZ, HRUZ, ESOIL, ZERO, ONE, LEZERO, NOTZERO
 
       IMPLICIT NONE
@@ -261,7 +261,7 @@ CONTAINS
          !---------PE MUST BE CALCULATED USING PENMAN EQUATION
          IF (RA (N) <= ZERO) THEN
             WRITE(msg, '(A,I0,A,I0,A,ES24.16E3)') 'invalid aerodynamic resistance in ET: IEL=', IEL, ' N=', N, ' RA=', RA(N)
-            CALL ERROR(FFFATAL, 4998, pppri, IEL, 0, msg)
+            CALL ERROR(ERRLVL_fatal, 4998, FID_logfile, IEL, 0, msg)
          END IF
          TOP = MAX (ZERO, RN (MS) * DEL (MS) + RHO * CP * VPD (MS) / RA (N))
          !         TOP = TOP * 1D3 / densityOfWater   is implied!
@@ -375,7 +375,7 @@ CONTAINS
          K = top_cell_no
          WRITE(msg,'(A)') 'root zone extends below aquifer bed. Values below aquifer bed are ignored'
          IF (first) THEN
-            CALL ERROR(WWWARN, 4999, pppri, 0, 0, msg)
+            CALL ERROR(ERRLVL_warn, 4999, FID_logfile, 0, 0, msg)
             first = .FALSE.
          END IF
       END IF
@@ -517,7 +517,7 @@ CONTAINS
 ! ---------
 !
 
-      IF (NERR.GT.0) CALL ERROR(FFFATAL, 1000, PRI, 0, 0, 'Error(s) detected while checking ET input data')
+      IF (NERR.GT.0) CALL ERROR(ERRLVL_fatal, 1000, PRI, 0, 0, 'Error(s) detected while checking ET input data')
    END SUBROUTINE ETCHK2
 
 

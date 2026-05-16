@@ -16,7 +16,7 @@ MODULE visualisation_interface_left
 !3. Add new variables or functions to the PUBLIC list if they are needed in VISUALISATION_INTERFACE_CENTRE
 !2. Keep this module PRIVATE.
    USE SGLOBAL, ONLY    : dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf=>total_no_links
-   USE mod_error, ONLY    : ERROR, FFFATAL, pppri
+   USE mod_error, ONLY    : ERROR, ERRLVL_fatal, FID_logfile
    USE AL_C, ONLY       : cmd,                &  !file unit for contaminants
       draina,             & !drainage from intercepted canopy water (m/s)
    !dxqq, dyqq, cwidth, & !element x,y widths and river width
@@ -230,7 +230,7 @@ CONTAINS
    SUBROUTINE get_ncon_early()
 
       ! Assumed external module dependencies providing global variables:
-      ! cmd, nnncon, FFFATAL, PPPRI, ERROR
+      ! cmd, nnncon, ERRLVL_fatal, FID_logfile, ERROR
 
       IMPLICIT NONE
 
@@ -248,7 +248,7 @@ CONTAINS
          IF (ios /= 0) THEN
             mess = 'failed to find line :CM3 in contaminant data file'
             mess = 'GET_NCON_EARLY ' // TRIM(mess)
-            CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+            CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
             RETURN
          END IF
 
@@ -259,7 +259,7 @@ CONTAINS
             IF (ios /= 0) THEN
                mess = 'failed to read NCON '
                mess = 'GET_NCON_EARLY ' // TRIM(mess)
-               CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+               CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
                RETURN
             END IF
 
@@ -278,7 +278,7 @@ CONTAINS
    SUBROUTINE get_nsed_early()
 
       ! Assumed external module dependencies providing global variables:
-      ! syd, nnnsed, FFFATAL, PPPRI, ERROR
+      ! syd, nnnsed, ERRLVL_fatal, FID_logfile, ERROR
 
       IMPLICIT NONE
 
@@ -296,7 +296,7 @@ CONTAINS
          IF (ios /= 0) THEN
             mess = 'failed to find line :SY11 in sediment data file'
             mess = 'GET_NSED_EARLY ' // TRIM(mess)
-            CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+            CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
             RETURN
          END IF
 
@@ -307,7 +307,7 @@ CONTAINS
             IF (ios /= 0) THEN
                mess = 'failed to read NSED '
                mess = 'GET_NSED_EARLY ' // TRIM(mess)
-               CALL ERROR(FFFATAL, 1, PPPRI, 0, 0, mess)
+               CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
                RETURN
             END IF
 
