@@ -298,8 +298,7 @@ contains
          ELSE
             STOP 'Program terminating'
          END IF
-         ENDIF
-      else if (flag_wait_on_exit) THEN
+      ELSE IF (flag_wait_on_exit) THEN
          WRITE(*, '(A)') 'Program will terminate. Press Enter to exit...'
          READ(*,*)
          STOP 'Program terminating'

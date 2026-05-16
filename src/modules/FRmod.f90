@@ -28,7 +28,7 @@ MODULE FRmod
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
-   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
+   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri, ALSTOP
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
@@ -1560,7 +1560,7 @@ CONTAINS
       ismn = .TRUE.
 
       OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = ios)
-      IF (ios /= 0) CALL stop_rundata_error(CNAM)
+      IF (ios /= 0) CALL stop_rundata_open_error(FILNAM)
 
       FILNAM2 = TRIM(DIRQQ) // 'info_' // TRIM(CNAM) // '_SHETRAN_log.txt'
 
@@ -1753,19 +1753,25 @@ CONTAINS
       SUBROUTINE stop_eof_error(c_name)
          CHARACTER(LEN=*), INTENT(IN) :: c_name
          WRITE (*, '("UNEXPECTED -EOF- ON FILE ",A)') c_name
-         STOP 'ABNORMAL END'
+         CALL ALSTOP(255)
       END SUBROUTINE stop_eof_error
+
+      SUBROUTINE stop_rundata_open_error(f_name)
+         CHARACTER(LEN=*), INTENT(IN) :: f_name
+         WRITE (*, '("Error opening the rundata file ",A)') TRIM(f_name)
+         CALL ALSTOP(255)
+      END SUBROUTINE stop_rundata_open_error
 
       SUBROUTINE stop_rundata_error(c_name)
          CHARACTER(LEN=*), INTENT(IN) :: c_name
          WRITE (*, '("ERROR OPENING RUNDATA FILE ",A)') c_name
-         STOP 'ABNORMAL END'
+         CALL ALSTOP(255)
       END SUBROUTINE stop_rundata_error
 
       SUBROUTINE stop_open_error(f_name)
          CHARACTER(LEN=*), INTENT(IN) :: f_name
          WRITE (*, '("ERROR OPENING FILE ",A)') f_name
-         STOP 'ABNORMAL END'
+         CALL ALSTOP(255)
       END SUBROUTINE stop_open_error
 
    END SUBROUTINE FROPEN
