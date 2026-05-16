@@ -10,6 +10,7 @@ MODULE OCmod
    USE AL_G ,     ONLY : NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI
+   USE mod_error, ONLY: ALSTOP
    USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
    USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
@@ -1147,7 +1148,8 @@ CONTAINS
          ! 5. Handled the error immediately instead of using the iscycle40 flag
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, "('  ^^^   INCORRECT COORDINATE')")
-            STOP 'INCORRECT COORDINATE'
+            write(*, '(a)') 'INCORRECT COORDINATE'
+            call ALSTOP(255)
          END IF
 
          I = I - 1

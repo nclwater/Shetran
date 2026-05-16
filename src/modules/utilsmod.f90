@@ -4,7 +4,7 @@ MODULE utilsmod
 ! SB Mar 26  4.6       Error traping for dates
 !
    USE SGLOBAL
-   USE mod_error, ONLY : ERROR, FFFATAL, pppri
+   USE mod_error, ONLY : ERROR, FFFATAL, pppri, ALSTOP
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
    IMPLICIT NONE
@@ -274,7 +274,7 @@ CONTAINS
 
          WRITE (*, '(A)') ' There is a problem with a date that has been entered'
          WRITE (*, '(A,5(1x,I0))') 'The Year, month,day,hour,minute values entered are: ', kyear, kmth, kday, khour, kmin
-         ERROR STOP
+         CALL ALSTOP(255)
 
       END IF
 
@@ -410,7 +410,7 @@ CONTAINS
 
       IF (r(3) == 0) THEN
          PRINT *, ' date trap -DAY'
-         STOP
+         CALL ALSTOP(255)
       END IF
 
    END FUNCTION date_from_hour
@@ -847,7 +847,7 @@ CONTAINS
 !
       IF ((INUM > 0 .AND. INUM < 10) .AND. NX > 500) THEN
          WRITE (IOF, "(' ', 'NX greater than 500. Change I/O formats in AREADI', /, 'Program aborted.')")
-         STOP
+         CALL ALSTOP(255)
       END IF
 
       IF (KON == 0 .OR. KON == 1) THEN
@@ -860,13 +860,13 @@ CONTAINS
                READ (INF, '(I7, 1X, 500I1)') I2, IA(1:NX, K)
                IF (I2 /= K) THEN
                   WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
-                  STOP
+                  CALL ALSTOP(255)
                END IF
             ELSE
                READ (INF, '(I7)') I2
                IF (I2 /= K) THEN
                   WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
-                  STOP
+                  CALL ALSTOP(255)
                END IF
                ! Note: Used list-directed read (*) as per your original commented-out line 30
                READ (INF, *) IA(1:NX, K)
@@ -998,7 +998,7 @@ CONTAINS
 
             IF (I2 /= K) THEN
                WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
-               STOP
+               CALL ALSTOP(255)
             END IF
 
             ! 1. Replaced implied DO loop with array slicing

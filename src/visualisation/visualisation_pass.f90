@@ -49,7 +49,7 @@ CONTAINS
          IF(ii>szlimit) THEN
             WRITE(dumtext,'(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ',szlimit,' by ',szlimit,' cells'
             PRINT*, TRIM(dumtext)
-            STOP
+            ERROR STOP
          ELSE
             grid_nx  = ii
          ENDIF
@@ -58,7 +58,7 @@ CONTAINS
          IF(ii>szlimit) THEN
             WRITE(dumtext,'(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ',szlimit,' by ',szlimit,' cells'
             PRINT*, TRIM(dumtext)
-            STOP
+            ERROR STOP
          ELSE
             grid_ny  = ii
          ENDIF

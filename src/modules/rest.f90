@@ -18,7 +18,7 @@ MODULE rest
       VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod,    ONLY : BSOFT
    USE UTILSMOD, ONLY : HOUR_FROM_DATE, TERPO1
-   use mod_error, ONLY : ERROR, FFFATAL, WWWARN, pppri
+   use mod_error, ONLY : ERROR, FFFATAL, WWWARN, pppri, ALSTOP
    USE OCmod2,   ONLY : GETHRF
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE
@@ -330,7 +330,7 @@ CONTAINS
                      WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
                         'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
                         NRAIN, ' values on each row'
-                     ERROR STOP
+                     CALL ALSTOP(255)
                   END IF
 
                   IF (ios < 0) THEN
@@ -346,7 +346,7 @@ CONTAINS
                      IF (ios > 0) THEN
                         WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
                            'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
-                        ERROR STOP
+                        CALL ALSTOP(255)
                      END IF
                   END IF
 
@@ -356,7 +356,7 @@ CONTAINS
                   IF (ios > 0) THEN
                      WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
                         NRAIN, ' values on each row with no dates in the first column (see ET1)'
-                     ERROR STOP
+                     CALL ALSTOP(255)
                   END IF
 
                   IF (ios < 0) THEN
@@ -388,7 +388,7 @@ CONTAINS
                      IF (ios > 0) THEN
                         WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
                            'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
-                        ERROR STOP
+                        CALL ALSTOP(255)
                      END IF
 
                      IF (ios < 0) THEN
@@ -402,7 +402,7 @@ CONTAINS
                         READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
                         IF (ios > 0) THEN
                            WRITE (*, 9022) ' Error reading potential evap data values from line.'
-                           ERROR STOP
+                           CALL ALSTOP(255)
                         END IF
                      END IF
 
@@ -410,13 +410,16 @@ CONTAINS
                         READ(TAH, 9000, IOSTAT=ios) tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
                         IF (ios > 0) THEN
                            WRITE (*, 9022) ' Error reading max temp time series file.'
-                           STOP
+                           CALL ALSTOP(255)
                         END IF
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
 
                         IF (ios == 0) THEN
                            READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
-                           IF (ios > 0) STOP 'Error parsing max temperature line'
+                           IF (ios > 0) then 
+                              WRITE (*, 9022) ' Error reading max temp values from line.'
+                              CALL ALSTOP(255)
+                           END IF
                            tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
                         END IF
                      END IF
@@ -425,13 +428,16 @@ CONTAINS
                         READ(TAL, 9000, IOSTAT=ios) talyear, talmonth, talday, talhour, talminute, talsecond, tmp
                         IF (ios > 0) THEN
                            WRITE (*, 9022) ' Error reading min temp time series file.'
-                           STOP
+                           CALL ALSTOP(255)
                         END IF
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
 
                         IF (ios == 0) THEN
                            READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
-                           IF (ios > 0) STOP 'Error parsing min temperature line'
+                           IF (ios > 0) then 
+                              WRITE (*, 9022) ' Error reading min temp values from line.'
+                              CALL ALSTOP(255)
+                           END IF
                            taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
                         END IF
                      END IF
@@ -448,7 +454,7 @@ CONTAINS
                      IF (ios > 0) THEN
                         WRITE (*, 9020) ' Error reading the potential evaporation time series file. This should have ', &
                            NM, ' values on each row with no dates in the first column'
-                        STOP
+                        CALL ALSTOP(255)
                      END IF
 
                      IF (ios < 0) THEN
@@ -461,13 +467,19 @@ CONTAINS
 
                      IF (ISTA) THEN
                         READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
-                        IF (ios > 0) STOP 'Error reading max temp file'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error reading max temp file.'
+                           CALL ALSTOP(255)
+                        END IF
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
                      END IF
 
                      IF (ISTA) THEN
                         READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
-                        IF (ios > 0) STOP 'Error reading min temp file'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error reading min temp file.'
+                           CALL ALSTOP(255)
+                        END IF
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
                      END IF
 
@@ -493,7 +505,10 @@ CONTAINS
                   IF (BMETDATES) THEN
                      READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
 
-                     IF (ios > 0) STOP 'Error reading PET file'
+                     IF (ios > 0) then 
+                        WRITE (*, 9022) ' Error reading PET file.'
+                        CALL ALSTOP(255)
+                     END IF
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
@@ -504,29 +519,44 @@ CONTAINS
                      ELSE
                         epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
                         READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
-                        IF (ios > 0) STOP 'Error parsing PET values'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error parsing PET values from line.'
+                           CALL ALSTOP(255)
+                        END IF
                      END IF
 
                      IF (ISTA) THEN
                         READ(TAH, 9000, IOSTAT=ios) tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
-                        IF (ios > 0) STOP 'Error reading max temp file'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error reading max temp file.'
+                           CALL ALSTOP(255)
+                        END IF
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
 
                         IF (ios == 0) THEN
                            READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
-                           IF (ios > 0) STOP 'Error parsing max temp values'
+                           IF (ios > 0) then 
+                              WRITE (*, 9022) ' Error parsing max temp values from line.'
+                              CALL ALSTOP(255)
+                           END IF
                            tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
                         END IF
                      END IF
 
                      IF (ISTA) THEN
                         READ(TAL, 9000, IOSTAT=ios) talyear, talmonth, talday, talhour, talminute, talsecond, tmp
-                        IF (ios > 0) STOP 'Error reading min temp file'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error reading min temp file.'
+                           CALL ALSTOP(255)
+                        END IF
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
 
                         IF (ios == 0) THEN
                            READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
-                           IF (ios > 0) STOP 'Error parsing min temp values'
+                           IF (ios > 0) then 
+                              WRITE (*, 9022) ' Error parsing min temp values from line.'
+                              CALL ALSTOP(255)
+                           END IF
                            taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
                         END IF
                      END IF
@@ -542,7 +572,10 @@ CONTAINS
                      ! epd and temperature files DO NOT have dates
                   ELSE
                      READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
-                     IF (ios > 0) STOP 'Error reading PET file'
+                     IF (ios > 0) then 
+                        WRITE (*, 9022) ' Error reading PET file.'
+                        CALL ALSTOP(255)
+                     END IF
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
@@ -554,13 +587,19 @@ CONTAINS
 
                      IF (ISTA) THEN
                         READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
-                        IF (ios > 0) STOP 'Error reading max temp file'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error reading max temp file.'
+                           CALL ALSTOP(255)
+                        END IF
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
                      END IF
 
                      IF (ISTA) THEN
                         READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
-                        IF (ios > 0) STOP 'Error reading min temp file'
+                        IF (ios > 0) then 
+                           WRITE (*, 9022) ' Error reading min temp file.'
+                           CALL ALSTOP(255)
+                        END IF
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
                      END IF
 
@@ -861,7 +900,7 @@ CONTAINS
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the precipitation time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
 
          BACKSPACE(prd)
@@ -873,7 +912,7 @@ CONTAINS
          IF (tih + dtmet2 + 0.01d0 < prddate) THEN
             WRITE (*, '(A)') ' The precipitation data starts after the simulation start date. ' // &
                'Check the precipitation data dates and the start time of the simulation'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
       END IF
 
@@ -885,7 +924,7 @@ CONTAINS
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the potential evaporation time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
 
          BACKSPACE(epd)
@@ -894,7 +933,7 @@ CONTAINS
          IF (tih + dtmet3 + 0.01d0 < epddate) THEN
             WRITE (*, '(A)') ' The potential evaporation data starts after the simulation start date. ' // &
                'Check the potential evaporation data dates and the start time of the simulation'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
       END IF
 
@@ -906,7 +945,7 @@ CONTAINS
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the maximum temperature time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
 
          BACKSPACE(tah)
@@ -915,7 +954,7 @@ CONTAINS
          IF (tih + dtmet3 + 0.01d0 < tahdate) THEN
             WRITE (*, '(A)') ' The maximum temperature data starts after the simulation start date. ' // &
                'Check the maximum temperature dates and the start time of the simulation'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
       END IF
 
@@ -927,7 +966,7 @@ CONTAINS
          IF (ios /= 0) THEN
             WRITE (*, '(A)') ' Error reading the minimum temperature time series file. ' // &
                'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
 
          BACKSPACE(tal)
@@ -936,7 +975,7 @@ CONTAINS
          IF (tih + dtmet3 + 0.01d0 < taldate) THEN
             WRITE (*, '(A)') ' The minimum temperature data starts after the simulation start date. ' // &
                'Check the minimum temperature dates and the start time of the simulation'
-            ERROR STOP
+            CALL ALSTOP(255)
          END IF
       END IF
 
@@ -954,7 +993,7 @@ CONTAINS
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
                WRITE (*, '(A)') ' Check the format of the precipitation time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               ERROR STOP
+               CALL ALSTOP(255)
             END IF
 
             prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
@@ -978,7 +1017,7 @@ CONTAINS
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
                WRITE (*, '(A)') ' Check the format of the potential evaporation time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               ERROR STOP
+               CALL ALSTOP(255)
             END IF
 
             epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
@@ -1000,7 +1039,7 @@ CONTAINS
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
                WRITE (*, '(A)') ' Check the format of the maximum daily temperature time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               ERROR STOP
+               CALL ALSTOP(255)
             END IF
 
             tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
@@ -1022,7 +1061,7 @@ CONTAINS
                   'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
                WRITE (*, '(A)') ' Check the format of the minimum daily temperature time series file ' // &
                   'and the end date is not before the start date of the simulation'
-               ERROR STOP
+               CALL ALSTOP(255)
             END IF
 
             taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)

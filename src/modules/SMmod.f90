@@ -2,6 +2,7 @@ MODULE SMmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SM.F files
    USE SGLOBAL
+   USE mod_error, ONLY: ALSTOP
 !USE SGLOBAL, ONLY : NVEE
    USE AL_C, ONLY : nvc, dtuz, ispack, nrd
    USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
@@ -302,7 +303,7 @@ CONTAINS
       ! Note: Consider replacing STOP with an ERROR flag to allow the host to shut down gracefully
       IF (NSMC(IEL) > max_no_snowmelt_slugs) THEN
          WRITE (6, 30) NSMC(IEL), IEL
-         STOP
+         CALL ALSTOP(255)
       END IF
 
       ! ADD ANY RAINFALL TO SNOWMELT AND CONVERT TOTAL TO MM OF WATER

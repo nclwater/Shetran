@@ -276,7 +276,7 @@ CONTAINS
       PRINT 88, TRIM(mess)
       IF(mess2/='') PRINT 88, TRIM(mess2)
       IF(mess3/='') PRINT 88, TRIM(mess3)
-      STOP
+      ERROR STOP
 88    FORMAT(A)
    END SUBROUTINE error_visualisation
 

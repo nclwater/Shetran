@@ -3,7 +3,7 @@ MODULE VSmod
 !                       Replaces the VS .F files
    USE SGLOBAL
    USE mod_load_filedata, ONLY : ALSPRD, ALREAD
-   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri
+   USE mod_error,    ONLY : ERROR, FFFATAL, EEERR, WWWARN, pppri, ALSTOP
 !USE SGLOBAL,  ONLY :
    USE AL_G, ONLY : ICMREF, NX, NY, ICMXY, NGDBGN
    USE AL_C, ONLY : BHB, BFB, bexbk, DTUZ, deltaz, dummy, DHF, ESOILA, ERUZ, EEVAP, &
@@ -2373,7 +2373,8 @@ CONTAINS
                   ! 970509 (catch JEL next time around)
                   ! Immediately crash if split cells are encountered (Replacing GOTO 8820)
                   IF (JVSDEL(IFA, ICL, IEL) /= 0) THEN
-                     STOP 'UNFINISHED CODE FOR SPLIT CELLS IN SUBROUTINE VSMB!'
+                     write(*,'(a)') "ERROR: Unfinished code for split cells in subroutine VSMB. Please contact the developers."
+                     CALL ALSTOP(255)
                   END IF
 
                   JCL = JVSACN(IFA, ICL, IEL)
@@ -3873,7 +3874,8 @@ CONTAINS
 
                ! ... 4 (tabulated theta and Averjanov Kr)
             ELSE IF (IVSFLG(IS) == 4) THEN
-               STOP 'UNFINISHED code for soil properties type 4'
+               write(*, *) 'UNFINISHED code for soil properties type 4'
+               CALL ALSTOP(255)
             END IF
 
          END DO soil_loop
