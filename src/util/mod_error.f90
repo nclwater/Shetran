@@ -285,16 +285,28 @@ contains
    !> |:----:|:------:|-------------|
    !> | 1994-09-17 | RAH | v3.4.1: File created. |
    !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
-   SUBROUTINE ALSTOP (FLAG)
-      INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
+   SUBROUTINE ALSTOP (error_number)
+      INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
 
-      IF (FLAG > 0 .and. flag_wait_on_exit) THEN
-         WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+      if (PRESENT(error_number)) THEN
+         IF (error_number > 0 .and. flag_wait_on_exit) THEN
+            WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+            READ(*,*)
+            ERROR STOP 'Program terminating due to fatal error'
+         ELSE IF (error_number > 0) THEN
+            ERROR STOP 'Program terminating due to fatal error'
+         ELSE
+            STOP 'Program terminating'
+         END IF
+         ENDIF
+      else if (flag_wait_on_exit) THEN
+         WRITE(*, '(A)') 'Program will terminate. Press Enter to exit...'
          READ(*,*)
-         STOP 'Program terminating due to fatal error'
-      ELSE IF (FLAG > 0) THEN
-         STOP 'Program terminating due to fatal error'
-      ENDIF
+         STOP 'Program terminating'
+       ELSE
+         STOP 'Program terminating'
+      END IF
+
    END SUBROUTINE ALSTOP
 
 end module mod_error
