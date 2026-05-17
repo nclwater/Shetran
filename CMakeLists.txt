@@ -135,7 +135,7 @@ if(ENABLE_FORD_DOCS)
 endif()
 
 # =============================================================================
-# HDF5 from source
+# External dependencies from local archives
 # =============================================================================
 include(ExternalProject)
 
@@ -147,6 +147,26 @@ else()
     message(FATAL_ERROR
         "HDF5 tarball not found at: ${HDF5_LOCAL_TARBALL}\n"
         "Please place hdf5-1.14.6.tar.gz in external/tarballs/")
+endif()
+
+set(STDLIB_LOCAL_TARBALL "${CMAKE_SOURCE_DIR}/external/tarballs/stdlib-0.8.1.tar.gz")
+if(EXISTS ${STDLIB_LOCAL_TARBALL})
+    set(STDLIB_URL "file://${STDLIB_LOCAL_TARBALL}")
+    message(STATUS "Using local Fortran stdlib tarball: ${STDLIB_LOCAL_TARBALL}")
+else()
+    message(FATAL_ERROR
+        "Fortran stdlib tarball not found at: ${STDLIB_LOCAL_TARBALL}\n"
+        "Please place stdlib-0.8.1.tar.gz in external/tarballs/")
+endif()
+
+set(FORTRAN_YAML_LOCAL_ARCHIVE "${CMAKE_SOURCE_DIR}/external/archives/fortran-yaml-master.zip")
+if(EXISTS ${FORTRAN_YAML_LOCAL_ARCHIVE})
+    set(FORTRAN_YAML_URL "file://${FORTRAN_YAML_LOCAL_ARCHIVE}")
+    message(STATUS "Using local fortran-yaml archive: ${FORTRAN_YAML_LOCAL_ARCHIVE}")
+else()
+    message(FATAL_ERROR
+        "fortran-yaml archive not found at: ${FORTRAN_YAML_LOCAL_ARCHIVE}\n"
+        "Please place fortran-yaml-master.zip in external/archives/")
 endif()
 
 # HDF5 debug static libraries are platform-specific:
@@ -165,14 +185,28 @@ else()
     set(HDF5_CMAKE_BUILD_TYPE "Release")
 endif()
 
+# Third-party libraries use standard CMake build types; keep ReleaseNative local to SHETRAN.
+set(EXTERNAL_FORTRAN_CMAKE_BUILD_TYPE "${HDF5_CMAKE_BUILD_TYPE}")
+
 if(WIN32)
     set(HDF5_STATIC_EXT ".lib")
+    set(FORTRAN_STATIC_EXT ".lib")
 else()
     set(HDF5_STATIC_EXT ".a")
+    set(FORTRAN_STATIC_EXT ".a")
+endif()
+
+if(WIN32)
+    set(FORTRAN_STATIC_PREFIX "")
+else()
+    set(FORTRAN_STATIC_PREFIX "lib")
 endif()
 
 # Always stage HDF5 into the project build tree; never rely on system install paths.
 set(HDF5_STAGE_DIR "${CMAKE_BINARY_DIR}/hdf5-install")
+set(STDLIB_STAGE_DIR "${CMAKE_BINARY_DIR}/stdlib-install")
+set(FORTRAN_YAML_STAGE_DIR "${CMAKE_BINARY_DIR}/fortran-yaml-install")
+set(FORTRAN_YAML_BUILD_DIR "${CMAKE_BINARY_DIR}/fortran-yaml-build")
 
 set(HDF5_CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=${HDF5_CMAKE_BUILD_TYPE}
@@ -221,8 +255,70 @@ ExternalProject_Add(HDF5_external
         ${HDF5_STAGE_DIR}/lib/libhdf5_hl_fortran${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
 )
 
+set(STDLIB_CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${EXTERNAL_FORTRAN_CMAKE_BUILD_TYPE}
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
+    -DBUILD_SHARED_LIBS=OFF
+    -DBUILD_TESTING=OFF
+    -DFIND_BLAS=OFF
+)
+
+if(WIN32)
+    list(APPEND STDLIB_CMAKE_ARGS -DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})
+endif()
+
+ExternalProject_Add(STDLIB_external
+    URL ${STDLIB_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    INSTALL_DIR ${STDLIB_STAGE_DIR}
+    CMAKE_CACHE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DCMAKE_INSTALL_LIBDIR:PATH=lib
+        -DCMAKE_INSTALL_BINDIR:PATH=bin
+        -DCMAKE_INSTALL_INCLUDEDIR:PATH=include
+        -DCMAKE_INSTALL_MODULEDIR:PATH=include
+    CMAKE_ARGS
+        ${STDLIB_CMAKE_ARGS}
+    INSTALL_COMMAND
+        ${CMAKE_COMMAND} --install <BINARY_DIR> --prefix <INSTALL_DIR>
+    BUILD_BYPRODUCTS
+        ${STDLIB_STAGE_DIR}/lib/${FORTRAN_STATIC_PREFIX}fortran_stdlib${FORTRAN_STATIC_EXT}
+)
+
+set(FORTRAN_YAML_CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${EXTERNAL_FORTRAN_CMAKE_BUILD_TYPE}
+    -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
+    -DBUILD_SHARED_LIBS=OFF
+)
+
+if(WIN32)
+    list(APPEND FORTRAN_YAML_CMAKE_ARGS -DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})
+endif()
+
+ExternalProject_Add(FORTRAN_YAML_external
+    URL ${FORTRAN_YAML_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    BINARY_DIR ${FORTRAN_YAML_BUILD_DIR}
+    INSTALL_DIR ${FORTRAN_YAML_STAGE_DIR}
+    CMAKE_CACHE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DCMAKE_INSTALL_LIBDIR:PATH=lib
+        -DCMAKE_INSTALL_BINDIR:PATH=bin
+        -DCMAKE_INSTALL_INCLUDEDIR:PATH=include
+    CMAKE_ARGS
+        ${FORTRAN_YAML_CMAKE_ARGS}
+    INSTALL_COMMAND ""
+    BUILD_BYPRODUCTS
+        ${FORTRAN_YAML_BUILD_DIR}/${FORTRAN_STATIC_PREFIX}yaml${FORTRAN_STATIC_EXT}
+)
+
 set(HDF5_INCLUDE_DIRS "${HDF5_STAGE_DIR}/include")
 set(HDF5_LIB_DIR "${HDF5_STAGE_DIR}/lib")
+set(STDLIB_INCLUDE_DIRS "${STDLIB_STAGE_DIR}/include")
+set(STDLIB_LIB_DIR "${STDLIB_STAGE_DIR}/lib")
+set(FORTRAN_YAML_INCLUDE_DIRS "${FORTRAN_YAML_BUILD_DIR}/modules")
+set(FORTRAN_YAML_LIB_DIR "${FORTRAN_YAML_BUILD_DIR}")
 
 # Create IMPORTED targets for each HDF5 library so that nmake does not try to
 # treat the .lib file paths as makefile targets to build.
@@ -253,6 +349,21 @@ set(HDF5_LIBRARIES
 if(WIN32)
     list(APPEND HDF5_LIBRARIES shlwapi)
 endif()
+
+add_library(fortran_stdlib::fortran_stdlib STATIC IMPORTED)
+set_target_properties(fortran_stdlib::fortran_stdlib PROPERTIES
+    IMPORTED_LOCATION "${STDLIB_LIB_DIR}/${FORTRAN_STATIC_PREFIX}fortran_stdlib${FORTRAN_STATIC_EXT}"
+)
+
+add_library(fortran_yaml::yaml STATIC IMPORTED)
+set_target_properties(fortran_yaml::yaml PROPERTIES
+    IMPORTED_LOCATION "${FORTRAN_YAML_LIB_DIR}/${FORTRAN_STATIC_PREFIX}yaml${FORTRAN_STATIC_EXT}"
+)
+
+set(FORTRAN_DEPENDENCY_LIBRARIES
+    fortran_stdlib::fortran_stdlib
+    fortran_yaml::yaml
+)
 
 # =============================================================================
 # Include Fortran dependency analysis
@@ -346,7 +457,11 @@ message(STATUS "Total sources found: ${SOURCES_COUNT}")
 # =============================================================================
 add_executable(SHETRAN ${SHETRAN_SOURCES})
 
-add_dependencies(SHETRAN HDF5_external)
+add_dependencies(SHETRAN
+    HDF5_external
+    STDLIB_external
+    FORTRAN_YAML_external
+)
 
 set_target_properties(SHETRAN PROPERTIES
     OUTPUT_NAME "shetran"
@@ -358,13 +473,18 @@ set_target_properties(SHETRAN PROPERTIES
 # =============================================================================
 target_include_directories(SHETRAN PRIVATE
     ${HDF5_INCLUDE_DIRS}
+    ${STDLIB_INCLUDE_DIRS}
+    ${FORTRAN_YAML_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # =============================================================================
 # Link libraries
 # =============================================================================
-target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
+target_link_libraries(SHETRAN PRIVATE
+    ${HDF5_LIBRARIES}
+    ${FORTRAN_DEPENDENCY_LIBRARIES}
+)
 
 # =============================================================================
 # Compiler flags

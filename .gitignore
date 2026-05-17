@@ -8,6 +8,8 @@
 *.vfproj
 *.xlsx
 *.zip
+!external/tarballs/*.zip
+!external/archives/*.zip
 *test_compute*
 docs/ford/*
 examples-test

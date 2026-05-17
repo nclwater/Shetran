@@ -14,6 +14,7 @@ The easiest way to build SHETRAN on Windows is by using the provided `build.bat`
 
 * **CMake** (version 3.20 or higher) added to your system PATH.
 * **Intel oneAPI HPC Toolkit** installed (specifically providing the `ifx` Fortran compiler).
+* **fypp** available on PATH. This is required by the bundled Fortran stdlib build. Install it into an active Python environment, for example with `pip install fypp` or `conda install -c conda-forge fypp`.
 * The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
 
 #### Using `build.bat`
@@ -147,6 +148,7 @@ SHETRAN currently only cleanly compiles on Linux with Intel `ifx`.
 * A supported Fortran compiler:
    * **Intel oneAPI HPC Toolkit** (`ifx`, recommended and most reliable).
    * **gfortran** (supported, but currently considered experimental in this project).
+* **fypp** available on PATH. This is required by the bundled Fortran stdlib build. Install it into an active Python environment, for example with `python -m pip install fypp` or `conda install -c conda-forge fypp`.
 * Standard build tools (for example GNU Make) installed.
 * The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in `external/tarballs/`.
 
