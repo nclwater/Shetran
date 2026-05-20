@@ -1,25 +1,24 @@
+!> summary: Contaminant component state arrays and properties.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> This module replaces the legacy `CONT.CC` common blocks. It stores
+!> contaminant concentrations, boundary conditions, decay and adsorption
+!> parameters, retardation variables, and exchange coefficients used by the
+!> contaminant transport component.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.1 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Completed. |
+!> | 1991-06-18 | JE | 3.1 | Added `WELC` block. |
+!> | 1997-02-24 | RAH | 4.1 | Added explicit typing. |
+!> | 2004-11 | JE | - | Converted to Fortran 95. |
+!> | 2026-03 | SB | 4.6 | Made major concentration/source arrays allocatable and added `initialise_cont_cc`. |
+!> @endhistory
 MODULE CONT_CC
 USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements,top_cell_no,total_no_links
 IMPLICIT NONE
-!*------------------------------ Start of CONT.CC ----------------------*
-!*
-!*                       INCLUDE FILE FOR CONTAMIANT VARIABLES AND DATA
-!*
-!*----------------------------------------------------------------------*
-!* Version:  SHETRAN/INCLUDE/CONT.CC/4.1
-!* Modifications:
-!*                           JE     26/4/91   3.1     WRITTEN
-!*                           JE     13/6/91   3.1     COMPLETED
-!*                           JE     18/6/91   3.1     BLOCK WELC ADDED
-!* RAH  970224  4.1  Explicit typing.
-!  JE  NOV 04 ---- Convert to FORTRAN 95
-! SB    Mar26   4.6 added total_no_elements,top_cell_no,total_no_links to subroutine
-!                    make the following allocatable CCCC, CCCCO, SSSS, SSSSO, SSS1, SSS2, FCPBKO, GCPBKO
-!                    Add initialise_cont_cc() where these arrays are allocated
-!*----------------------------------------------------------------------*
-!* Imported constants
-!*                      LLEE,NCONEE,NELEE,NLFEE,NSEE
-!* Commons
       DOUBLEPRECISION CCAPB(NELEE,NCONEE),CCPBO(NELEE,NCONEE)
       DOUBLEPRECISION CCAPE(NELEE,NCONEE)
       DOUBLEPRECISION CCAPI(NCONEE),      CCAPIO(NCONEE)
@@ -83,7 +82,16 @@ IMPLICIT NONE
 !PRIVATE :: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE
       
 CONTAINS
-      
+
+!> Allocates and zero-initializes contaminant concentration and retardation arrays.
+!>
+!> The allocation uses the active model dimensions and the configured number of
+!> contaminants (`NCON`) instead of the fixed maximum dimensions used by the
+!> original common-block implementation.
+!>
+!> @note This routine has no dummy arguments and mutates allocatable module
+!> arrays in `CONT_CC`.
+!> @endnote
 SUBROUTINE initialise_cont_cc()
 
    allocate   (cccc(total_no_elements,top_cell_no+1,ncon),cccco(total_no_elements,top_cell_no+1,ncon))

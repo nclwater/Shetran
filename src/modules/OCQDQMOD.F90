@@ -1,8 +1,27 @@
-!MMMMMM MODULE ocqdqmod
+!> summary: Overland/channel face flow and derivative controller.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> `OCQDQMOD` controls calculation of overland and channel flows, together with
+!> derivatives used by the overland/channel solver, at element faces. It handles
+!> external boundaries, single adjacent faces, multi-way branch faces, bank
+!> exchanges, land-grid exchanges, link-link exchanges, and ZQ reservoir-table
+!> routing hooks.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit declarations from `SPEC.AL`. |
+!> | 1998-02-24 | RAH | 4.2 | Reworked face arguments and loop structure; added explicit typing. |
+!> | 1998-02-25 | RAH | 4.2 | Called face-flow routines on lowest element and restructured boundary handling. |
+!> | 1998-02-26 | RAH | 4.2 | Replaced multi-call interface with one element loop. |
+!> | 1998-03-27 | RAH | 4.2 | Added `XAFULL` input argument. |
+!> | 1998-03-31 | RAH | 4.2 | Reworked `OCQGRD` arguments and derivative arrays. |
+!> | 1998-04 | RAH | 4.2 | Reworked bank, link, and boundary-condition calls. |
+!> | 1998-08-07 | RAH | 4.2 | Added local `LINK` to avoid out-of-bounds access. |
+!> | 2009-01 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2020-05-20 | SB | - | Added ZQ table routing support. |
+!> @endhistory
 MODULE ocqdqmod
-! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
-!***ZQ Module 200520
-! new variables     NoZQTables,ZQTableRef,ZQTableLink,ZQTableFace
 USE SGLOBAL
 USE AL_C ,     ONLY : ICMRF2, CWIDTH, DHF, ZBFULL, CLENTH
 USE AL_G ,     ONLY : ICMREF, ICMXY
@@ -21,48 +40,23 @@ PUBLIC :: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD ! , firstocqdq
 
 CONTAINS
 
-!SSSSSS SUBROUTINE OCQDQ
+!> Calculates overland/channel face flows and flow derivatives.
+!>
+!> The routine loops over every element face, dispatching to the appropriate
+!> hydraulic calculation for external boundary conditions, land-land faces,
+!> link-link faces, link-bank faces, and multi-link junctions. It scatters
+!> resulting flows into the global face-flow arrays and stores derivative terms
+!> for the solver.
+!>
+!> @note This routine has no dummy arguments. It uses shared grid, boundary,
+!> geometry, water-level, and ZQ-table state from `SGLOBAL`, `AL_C`, `AL_D`,
+!> `AL_G`, and `OCmod2`.
+!> @endnote
 SUBROUTINE OCQDQ ()
 !----------------------------------------------------------------------*
 !
 !  CONTROL CALCULATION OF FLOWS AND DERIVATIVES AT ELEMENT FACES
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCQDQ/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980224  4.2  Bring JEL2,JFACE2,ZI,ZGI from OCQMLN, and pass
-!                   as arguments - along with PRI,LI - in place of
-!                   locals IFACE,JEL,FIRST,DDDZ2.  Also: set only JEL2
-!                   at null branches; call on lowest IEL, not IROW,IND;
-!                   rewrite loop 260.  Explicit typing.
-!      980225       Call OCQBNK,OCQGRD,OCQLNK on lowest IEL.  Don't
-!                   initialize Q,DQ0,DQI.  Use IEL.le.NLF for ITYPE=3.
-!                   Rename INDEX I/JBC, & set IBC once only; also use
-!                   new local NBC.  Set JFACE only if JEL.GT.IEL.
-!                   Restructure IF-blocks to avoid unnecessary steps.
-!                   Don't pass JFACE2 to OCQMLN.  Full args for OCQBC.
-!      980226       One call; loop over IEL; scrap args ICOUNT,IROW.
-!                   Move COCBCD,QOCF to arg list; don't INCLUDE SPEC.OC.
-!      980327       New input argument XAFULL (see OCSIM).
-!      980331       OCQGRD: remove input args I/JEL,I/JFACE,INDEX & add
-!                   W (new local),LI,ZGI,STR,ZI; replace output vars
-!                   Q,DQ0,DQI with arrays QJ,DQ; remove output DDDZ.
-!                   New statement functions FSTR,FDQQ & args STRX,STRY.
-!      980406       OCQLNK: remove input args I/JFACE,NBC & add
-!                   LI,ZGI,COCBCD,ZI; outputs as OCQGRD above.
-!      980408       OCQBNK: remove input args I/JEL,I/JFACE & add
-!                   CLENTH,LI,ZGI,STR,ZI; outputs as OCQGRD above.
-!                   Replace remaining Q,DQ0,DQI with QJ,DQ.
-!      980409       OCQBC args: remove output DQ(0,1) & set to zero; add
-!                   inputs W,STR, & HOCNOW (new, see OCSIM) & re-order.
-!      980424       Add arguments NXSCEE,XSTAB (see OCSIM).
-!                   Pass NXSCEE,STR,CW,XA to OCQMLN,OCQLNK.
-!                   OCQLNK args also: remove IEL,JEL; move NTYPE.
-!      980427       Pass new work arg XS (see OCSIM) to OCQMLN,OCQLNK.
-!                   OCQBC args: add NXSCEE,XAFULL,XSTAB; rm IEL,IFACE.
-!                   Reorder OCQGRD arguments.
-!      980807       New local LINK (else, strictly, get out-of-bounds).
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !   NELEE.ge.NEL    [NEL,NXSCEE].ge.1    NLFEE.ge.[1,-ICMREF(1:NEL,5:8)]
@@ -272,10 +266,13 @@ out600 : DO ielu = 1, total_no_elements
 END SUBROUTINE OCQDQ
 
  
-!FFFFFF FUNCTION fstr
+!> Returns the Strickler/roughness value for a face direction.
+!>
+!> Faces 1 and 3 use `STRXX`; faces 2 and 4 use `STRYY`.
 FUNCTION fstr(jel,face) RESULT(r)
-INTEGER, INTENT(IN) :: jel, face
-DOUBLEPRECISION     :: r
+INTEGER, INTENT(IN) :: jel  !! Element index.
+INTEGER, INTENT(IN) :: face !! Face number.
+DOUBLEPRECISION     :: r    !! Roughness/Strickler value for the requested face.
 !mult = DBLE(MOD(face, 2))
 !r    = mult * strxx(jel) + (one-mult) * stryy(jel)
 IF(face==1 .OR. face==3) THEN
@@ -286,10 +283,13 @@ ENDIF
 END FUNCTION fstr
 
 
-!FFFFFF FUNCTION fdqq
+!> Returns the grid length normal to a face direction.
+!>
+!> Faces 1 and 3 use `DYQQ`; faces 2 and 4 use `DXQQ`.
 FUNCTION fdqq(jel, face) RESULT(r)
-INTEGER, INTENT(IN) :: jel, face
-DOUBLEPRECISION     :: r
+INTEGER, INTENT(IN) :: jel  !! Element index.
+INTEGER, INTENT(IN) :: face !! Face number.
+DOUBLEPRECISION     :: r    !! Grid length associated with the requested face.
 !mult = DBLE(MOD(face,2))
 !r    = mult * dyqq(jel) + (one-mult) * dxqq(jel)
 IF(face==1 .OR. face==3) THEN

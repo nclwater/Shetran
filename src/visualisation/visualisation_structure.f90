@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: In-memory visualisation time-buffer structures.
+!>
+!> This module stores visualisation values between the model accessor layer and
+!> the HDF5 writer. Each supported visualisation storage type has a linked list
+!> of time nodes. The module allocates new nodes for output times, saves scalar
+!> or vector values into the correct member locations, and later extracts and
+!> deallocates buffered values in HDF5 dimension order.
 MODULE visualisation_structure
 
 USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
@@ -18,13 +24,13 @@ LOGICAL, PARAMETER :: t=.TRUE., f=.FALSE.
 
 INTEGER, PARAMETER :: no_types=8
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Pointer wrapper used to hold one integer index in dimension-order mappings.
 TYPE aord
 INTEGER, POINTER :: a
 END TYPE aord
 
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Mapping between a one-letter visualisation type code and a storage type name.
 TYPE CYPHER
 CHARACTER      :: nemonic
 CHARACTER(CSZ) :: typ
@@ -39,38 +45,35 @@ TYPE(CYPHER), PARAMETER :: cyph(no_types)=        &
         cypher('M', 'real_middle'),               &
         cypher('N', 'integer_middle_and_edges')/)
 
-!EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE EDGE
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Integer values for the four bank or river edge members of a cell.
 TYPE integer_edges !for middle of cell and edges
 INTEGER :: e(4) = iundef    !edge N, E, S, W
 END TYPE integer_edges
 TYPE(INTEGER_EDGES), PARAMETER :: &
         default_integer_edges = INTEGER_EDGES(defi4), &
         dfie                  = default_integer_edges
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Real values for the four bank or river edge members of a cell.
 TYPE real_edges !for middle of cell and edges
 REAL :: e(4) = rundef  !edges N, E, S, W
 END TYPE real_edges
 TYPE(REAL_EDGES), PARAMETER :: &
         default_real_edges = REAL_EDGES(defr4), &
         dfre               = default_real_edges
-!MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE MIDDLE
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Integer value for the middle member of a cell.
 TYPE integer_middle !for middle of cell
 INTEGER :: m = rundef  !middle
 END TYPE integer_middle
 TYPE(INTEGER_MIDDLE), PARAMETER :: &
         default_integer_middle = INTEGER_MIDDLE(r_not_exist), &
         dfim                   = default_integer_middle
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Real value for the middle member of a cell.
 TYPE real_middle !for middle of cell
 REAL :: m    = rundef  !middle
 END TYPE real_middle
 TYPE(REAL_MIDDLE), PARAMETER :: &
         default_real_middle = REAL_MIDDLE(r_not_exist), &
         dfrm                = default_real_middle
-!MIDDLE AND EDGES MIDDLE AND EDGES MIDDLE AND EDGES MIDDLE AND EDGES MIDDLE AND EDGES 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Integer values for one middle member plus bank and river edge members.
 TYPE integer_middle_and_edges !for middle of cell and edges
 PRIVATE
 INTEGER :: m    = iundef, &  !middle
@@ -80,7 +83,7 @@ END TYPE integer_middle_and_edges
 TYPE(INTEGER_MIDDLE_AND_EDGES), PARAMETER :: &
         default_integer_middle_and_edges = INTEGER_MIDDLE_AND_EDGES(i_not_exist, defi4, defi4), &
         dfime                            = default_integer_middle_and_edges
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Real values for one middle member plus bank and river edge members.
 TYPE real_middle_and_edges !for middle of cell and edges
 ! sequence
 REAL :: m    = rundef, &  !middle
@@ -90,7 +93,7 @@ END TYPE real_middle_and_edges
 TYPE(REAL_MIDDLE_AND_EDGES), PARAMETER :: &
         default_real_middle_and_edges = REAL_MIDDLE_AND_EDGES(r_not_exist, defr4, defr4), &
         dfrme                         = default_real_middle_and_edges
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Integer values for one middle member plus radial bank and river members.
 TYPE integer_radial !for middle of cell and edges
 INTEGER :: m(4) = iundef, &  !middle
            b(4) = iundef, &  !bank N, E, S, W
@@ -99,7 +102,7 @@ END TYPE integer_radial
 TYPE(INTEGER_RADIAL), PARAMETER :: &
         default_integer_radial = INTEGER_RADIAL(i_not_exist, defi4, defi4), &
         dfir                  = default_integer_radial
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Real values for one middle member plus radial bank and river members.
 TYPE real_radial !for middle of cell and edges
 REAL :: m(4) = rundef, &  !middle
         b(4) = rundef, &  !bank N, E, S, W
@@ -110,28 +113,28 @@ TYPE(REAL_RADIAL), PARAMETER :: &
         dfrr                = default_real_radial
 
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for real bank-edge data.
 TYPE BS
 PRIVATE
 REAL                                          :: time=zero
 TYPE(REAL_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(BS), POINTER                             :: previous=>NULL(), next=>NULL()
 END TYPE BS
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for integer bank-edge data.
 TYPE ES
 PRIVATE
 REAL                                             :: time=zero
 TYPE(INTEGER_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(ES), POINTER                                :: previous=>NULL(), next=>NULL()
 END TYPE ES
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for integer river-edge data.
 TYPE FS
 PRIVATE
 REAL                                             :: time=zero
 TYPE(INTEGER_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(FS), POINTER                                :: previous=>NULL(), next=>NULL()
 END TYPE FS
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for real middle, bank, and river data.
 TYPE GS
 PRIVATE
 ! sequence
@@ -139,28 +142,28 @@ REAL                                                     :: time=zero
 TYPE(REAL_MIDDLE_AND_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(GS), POINTER                                        :: previous=>NULL(), next=>NULL()
 END TYPE GS
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for integer middle data.
 TYPE IS
 PRIVATE
 REAL                                              :: time=zero
 TYPE(INTEGER_MIDDLE), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(IS), POINTER                                 :: previous=>NULL(), next=>NULL()
 END TYPE IS
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for real river-edge data.
 TYPE LS
 PRIVATE
 REAL                                          :: time=zero
 TYPE(REAL_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 TYPE(LS), POINTER                             :: previous=>NULL(), next=>NULL()
 END TYPE LS
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for real middle data.
 TYPE MS
 PRIVATE
 REAL                                           :: time=zero
 TYPE(MS), POINTER                              :: previous=>NULL(), next=>NULL()
 TYPE(REAL_MIDDLE), DIMENSION(:,:,:,:), POINTER :: s=>NULL()  !i,j,k,d
 END TYPE MS
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Time-buffer node for integer middle, bank, and river data.
 TYPE NS
 PRIVATE
 REAL                                                       :: time=zero
@@ -178,7 +181,7 @@ PUBLIC :: FOR_NEW_TIME, SAVE_ITEMS_WORTH, TIME_COUNT, MBR_COUNT, GET_MBR, GET_HD
 
 CONTAINS
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the simulation time stored in the first HDF5 buffer node.
 REAL FUNCTION get_hdf5_time(typ, first) RESULT(r)
 
 TYPE(C_PTR), INTENT(INOUT) :: first
@@ -205,7 +208,7 @@ END SELECT
 END FUNCTION get_hdf5_time
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Extracts integer-valued buffered data into an HDF5-shaped array.
 SUBROUTINE get_hdf5_i(typ, sz, szo, first, ilow, jlow, klow, r)
 INTEGER, INTENT(IN)                                     :: ilow, jlow, klow
 TYPE(C_PTR), INTENT(INOUT)                              :: first
@@ -215,7 +218,7 @@ CHARACTER(*), INTENT(IN)                                :: typ
 CALL GET_HDF5(typ, sz, szo, first, ilow, jlow, klow, rint=r)
 END SUBROUTINE get_hdf5_i
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Extracts real-valued buffered data into an HDF5-shaped array.
 SUBROUTINE get_hdf5_r(typ, sz, szo, first, ilow, jlow, klow, r)
 INTEGER, INTENT(IN)                                     :: ilow, jlow, klow
 TYPE(C_PTR), INTENT(INOUT)                              :: first
@@ -225,7 +228,7 @@ CHARACTER(*), INTENT(IN)                                :: typ
 CALL GET_HDF5(typ, sz, szo, first, ilow, jlow, klow, rreal=r)
 END SUBROUTINE get_hdf5_r
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Extracts one buffered time node and advances the linked-list pointer.
 SUBROUTINE get_hdf5(typ, sz, szo, first, ilow, jlow, klow, rint, rreal)
 INTEGER, INTENT(IN)                     :: ilow, jlow, klow
 TYPE(C_PTR), INTENT(INOUT)              :: first
@@ -307,7 +310,7 @@ END SELECT
 
 CONTAINS
 
-    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+    !> Copies data from the selected node into the requested HDF5 dimension order.
     SUBROUTINE main_loop(text)  !there is a similar routine in get_hdf5_r
     INTEGER                  :: idum
     REAL                     :: rdum
@@ -340,7 +343,7 @@ CONTAINS
         ENDDO
     ENDDO
     END SUBROUTINE main_loop
-        !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+    !> Returns one integer middle/bank/river member from a compound node.
     PURE INTEGER FUNCTION FNS()
     IF(cc==1) THEN
         fns = pn%s(ii, jj, kk, ee)%m
@@ -350,7 +353,7 @@ CONTAINS
         fns = pn%s(ii, jj, kk, ee)%r(cc-5)
     ENDIF
     END FUNCTION FNS
-    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+    !> Returns one real middle/bank/river member from a compound node.
     PURE REAL FUNCTION FGS()
     IF(cc==1) THEN
         fgs = pg%s(ii, jj, kk, ee)%m
@@ -362,57 +365,57 @@ CONTAINS
     END FUNCTION FGS
 END SUBROUTINE get_hdf5
 
-!140805  following routines added to fix a memory leak (p%s was not being deallocated)
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! 140805: following routines added to fix a memory leak (p%s was not being deallocated).
+!> Deallocates a real bank-edge buffer node.
 SUBROUTINE deall_pb(p)
 TYPE(BS), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pb
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates an integer bank-edge buffer node.
 SUBROUTINE deall_pe(p)
 TYPE(ES), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pe
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates an integer river-edge buffer node.
 SUBROUTINE deall_pf(p)
 TYPE(FS), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pf
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates a real middle/bank/river buffer node.
 SUBROUTINE deall_pg(p)
 TYPE(GS), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pg
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates an integer middle buffer node.
 SUBROUTINE deall_pi(p)
 TYPE(IS), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pi
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates a real river-edge buffer node.
 SUBROUTINE deall_pl(p)
 TYPE(LS), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pl
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates a real middle buffer node.
 SUBROUTINE deall_pm(p)
 TYPE(MS), POINTER :: p
 DEALLOCATE(p%s)
 NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pm
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Deallocates an integer middle/bank/river buffer node.
 SUBROUTINE deall_pn(p)
 TYPE(NS), POINTER :: p
 DEALLOCATE(p%s)
@@ -420,7 +423,7 @@ NULLIFY(p%previous, p%next)
 DEALLOCATE(p)
 END SUBROUTINE deall_pn
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns element-member labels for a visualisation storage type.
 FUNCTION get_mbr(typ) RESULT(r)
 INTEGER                             :: n
 CHARACTER(2), INTENT(IN)            :: typ
@@ -442,7 +445,7 @@ CASE('NS') ; r = (/sq,bk,rv/)
 END SELECT
 END FUNCTION get_mbr
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Counts buffered time nodes for one item.
 INTEGER FUNCTION TIME_COUNT(typ, first) RESULT(r)
 TYPE(C_PTR), INTENT(INOUT) :: first
 CHARACTER(*), INTENT(IN) :: typ
@@ -467,7 +470,7 @@ CASE('NS') ; CALL C_F_POINTER(first, pn) ; DO WHILE(ASSOCIATED(pn%next)) ; r=r+1
 END SELECT
 END FUNCTION TIME_COUNT
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of element members represented by a storage type.
 PURE INTEGER FUNCTION mbr_count(typ) RESULT(r)
 !no of members
 CHARACTER(*), INTENT(IN) :: typ
@@ -483,7 +486,7 @@ CASE('NS') ; r = 9
 END SELECT
 END FUNCTION mbr_count
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves integer values into the latest buffer node for one item.
 SUBROUTINE save_items_worth_i(c, typ, a, b, klow, khigh, e, d, save_this, latest)
 INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -502,7 +505,7 @@ SELECT CASE(typ)
 END SELECT
 END SUBROUTINE save_items_worth_i
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves real values into the latest buffer node for one item.
 SUBROUTINE save_items_worth_r(c, typ, a, b, klow, khigh, e, d, save_this, latest)
 INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -521,7 +524,7 @@ SELECT CASE(typ)
 END SELECT
 END SUBROUTINE save_items_worth_r
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves real bank-edge values into a `BS` node.
 PURE SUBROUTINE save_bs(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
 REAL, DIMENSION(:), INTENT(IN) :: save_this
@@ -529,7 +532,7 @@ CHARACTER, INTENT(IN)          :: c
 TYPE(BS), INTENT(INOUT)        :: r
 r%s(a,b,klow:khigh,e)%e(d) = save_this
 END SUBROUTINE save_bs
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves integer bank-edge values into an `ES` node.
 PURE SUBROUTINE save_es(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
 INTEGER, DIMENSION(:), INTENT(IN) :: save_this
@@ -537,7 +540,7 @@ CHARACTER, INTENT(IN)             :: c
 TYPE(ES), INTENT(INOUT)           :: r
 r%s(a,b,klow:khigh,e)%e(d) = save_this
 END SUBROUTINE save_es
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves integer river-edge values into an `FS` node.
 PURE SUBROUTINE save_fs(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
 INTEGER, DIMENSION(:), INTENT(IN) :: save_this
@@ -545,7 +548,7 @@ CHARACTER, INTENT(IN)             :: c
 TYPE(FS), INTENT(INOUT)           :: r
 r%s(a,b,klow:khigh,e)%e(d) = save_this
 END SUBROUTINE save_fs
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves real middle, bank, or river values into a `GS` node.
 PURE SUBROUTINE save_gs(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
 REAL, DIMENSION(:), INTENT(IN) :: save_this
@@ -557,7 +560,7 @@ CASE('b') ; r%s(a,b,klow:khigh,e)%b(d) = save_this
 CASE('r') ; r%s(a,b,klow:khigh,e)%r(d) = save_this
 END SELECT
 END SUBROUTINE save_gs
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves integer middle values into an `IS` node.
 PURE SUBROUTINE save_is(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
 INTEGER, DIMENSION(:), INTENT(IN) :: save_this
@@ -565,7 +568,7 @@ CHARACTER, INTENT(IN)             :: c
 TYPE(IS), INTENT(INOUT)           :: r
 r%s(a,b,klow:khigh,e)%m = save_this
 END SUBROUTINE save_is
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves real river-edge values into an `LS` node.
 PURE SUBROUTINE save_ls(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
 REAL, DIMENSION(:), INTENT(IN) :: save_this
@@ -573,7 +576,7 @@ CHARACTER, INTENT(IN)          :: c
 TYPE(LS), INTENT(INOUT)        :: r
 r%s(a,b,klow:khigh,e)%e(d) = save_this
 END SUBROUTINE save_ls
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves real middle values into an `MS` node.
 PURE SUBROUTINE save_ms(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)            :: a, b, klow, khigh, d, e
 REAL, DIMENSION(:), INTENT(IN) :: save_this
@@ -581,7 +584,7 @@ CHARACTER, INTENT(IN)          :: c
 TYPE(MS), INTENT(INOUT)        :: r
 r%s(a,b,klow:khigh,e)%m = save_this
 END SUBROUTINE save_ms
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves integer middle, bank, or river values into an `NS` node.
 PURE SUBROUTINE save_ns(r, a, b, klow, khigh, e, d, save_this, c)
 INTEGER, INTENT(IN)               :: a, b, klow, khigh, d, e
 INTEGER, DIMENSION(:), INTENT(IN) :: save_this
@@ -595,7 +598,7 @@ END SELECT
 END SUBROUTINE save_ns
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates a new buffer node for a visualisation item and output time.
 SUBROUTINE FOR_NEW_TIME(typ, time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)      :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT)   :: first, latest
@@ -612,7 +615,7 @@ CASE('NS') ; CALL FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, e
 END SELECT
 END SUBROUTINE FOR_NEW_TIME
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates a `BS` real bank-edge time node.
 SUBROUTINE FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    ::  ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -631,7 +634,7 @@ ELSE
 ENDIF
 latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_BS
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates an `ES` integer bank-edge time node.
 SUBROUTINE FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -650,7 +653,7 @@ ELSE
 ENDIF
 latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_ES
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates an `FS` integer river-edge time node.
 SUBROUTINE FOR_NEW_TIME_FS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -672,7 +675,7 @@ ELSE
 ENDIF
 latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_FS
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates a `GS` real middle/bank/river time node.
 SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
     INTEGER, INTENT(IN) :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
     TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -695,7 +698,7 @@ SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, fir
     ENDIF
     latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_GS
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates an `IS` integer middle time node.
 SUBROUTINE FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -714,7 +717,7 @@ ELSE
 ENDIF
 latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_IS
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates an `LS` real river-edge time node.
 SUBROUTINE FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -733,7 +736,7 @@ ELSE
 ENDIF
 latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_LS
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates an `MS` real middle time node.
 SUBROUTINE FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -752,7 +755,7 @@ ELSE
 ENDIF
 latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_MS
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Allocates an `NS` integer middle/bank/river time node.
 SUBROUTINE FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
 INTEGER, INTENT(IN)    :: ilow, ihigh, jlow, jhigh, klow, khigh, ext
 TYPE(C_PTR), INTENT(INOUT) :: first, latest
@@ -773,7 +776,7 @@ latest = C_LOC(r)
 END SUBROUTINE FOR_NEW_TIME_NS
 END MODULE visualisation_structure
 
-!!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+! Legacy real-only HDF5 extraction routine retained as commented reference.
 !FUNCTION get_hdf5_r(typ, sz, szo, first, ilow, jlow, klow) RESULT(r)
 !INTEGER, INTENT(IN)                                  :: ilow, jlow, klow
 !INTEGER, INTENT(INOUT)                               :: first
@@ -824,7 +827,7 @@ END MODULE visualisation_structure
 !
 !CONTAINS
 !
-!    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+!    ! Legacy loop helper for the old real-only extraction path.
 !    SUBROUTINE main_loop(text)  !there is a similar routine in get_hdf5_i
 !    REAL                     :: dum
 !    CHARACTER(*), INTENT(IN) :: text
@@ -846,11 +849,11 @@ END MODULE visualisation_structure
 !        ENDDO
 !    ENDDO
 !    END SUBROUTINE main_loop
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real bank extraction path.
 !    PURE REAL FUNCTION FBS()
 !        fbs = pb%s(ii, jj, kk, ee)%e(cc)
 !    END FUNCTION FBS
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real compound extraction path.
 !    PURE REAL FUNCTION FGS()
 !    IF(cc==1) THEN
 !        fgs = pg%s(ii, jj, kk, ee)%m
@@ -860,18 +863,18 @@ END MODULE visualisation_structure
 !        fgs = pg%s(ii, jj, kk, ee)%r(cc-5)
 !    ENDIF
 !    END FUNCTION FGS
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real river extraction path.
 !    PURE REAL FUNCTION FLS()
 !        fls = pl%s(ii, jj, kk, ee)%e(cc)
 !    END FUNCTION FLS
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real middle extraction path.
 !    PURE REAL FUNCTION FMS()
 !        fms = pm%s(ii, jj, kk, ee)%m
 !    END FUNCTION FMS
 !
 !END FUNCTION get_hdf5_r
 
-!!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! Legacy debug dump routine retained as commented reference.
 !SUBROUTINE dump(name, typ, i, time, first, isgrid)
 !INTEGER, INTENT(IN)      :: i, first
 !INTEGER, PARAMETER       :: ii=7, jj=12

@@ -1,6 +1,38 @@
+!> summary: Snow accumulation and melt calculations.
+!> author: JCB; EMM; GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University
+!>
+!> `SMmod` implements the SHETRAN snow model. It updates snowpack depth,
+!> snowpack temperature, evaporation/sublimation losses, and meltwater delivery
+!> to the ground surface. The main routine supports both a degree-day method and
+!> an energy-budget method selected by `MSM`.
+!>
+!> The degree-day option estimates melt directly from air temperature and a
+!> degree-day factor. The energy-budget option computes heat fluxes from
+!> atmospheric convection, rainfall or snowfall, phase change, ground heat flux,
+!> and net radiation.
+!>
+!> Snow depth `SD`, snowfall `SF`, and routed meltwater `SMELT` are stored in
+!> millimetres in the legacy snow calculations. `SM` replaces `PNET` with the
+!> meltwater delivery from the bottom of the snowpack, so downstream ET/VSS/OC
+!> calculations receive liquid-water input rather than raw snowfall.
+!>
+!> @note In the degree-day branch the implemented melt threshold is `TA >= 2 C`,
+!> not simply air temperature above freezing.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1981-04 | JCB/EMM | - | Original snowmelt subroutine created. |
+!> | 1989-02 | GP | 2.0 | SHE88 implementation on Newcastle AMDAHL. |
+!> | 1990-06 | GP | 2.2 | Added variable snowpack amendments and standardized Fortran 77. |
+!> | 1991-02 | GP | 3.0 | SHETRAN amendments. |
+!> | 1992-06 | GP | 3.4 | Moved selected variables to `AL_D` for hotstart and added `PNSNOW`. |
+!> | 1996-12-28 | RAH | 4.1 | Initialized `EFFDEP`. |
+!> | 1998-03-08 | RAH | 4.2 | Removed redundant time constants and added explicit typing. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90 and replaced the `SM.F` files. |
+!> @endhistory
 MODULE SMmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the SM.F files
 USE SGLOBAL
 !USE SGLOBAL, ONLY : NVEE
 USE AL_C, ONLY : nvc, dtuz, ispack, nrd
@@ -10,20 +42,6 @@ USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
 IMPLICIT NONE
 DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: smelt, tmelt
 
-!TAKEN FROM SPEC_SM
-!MODULE SPEC_SM
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/SPEC.SM/4.2
-! Modifications:
-!  GP       FEB 89    2.0     'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!  GP       JUN 90    2.2     AMENDMENTS FOR VARIABLE SNOWPACK
-!                             + STANDARDISE F77
-!  GP       FEB 91    3.0     SHETRAN AMENDMENTS
-!  GP       JUN 92    3.4     VARIABLES MOVED TO AL.D FOR HOTSTART
-!                             (arrays NSMC,TM,SMELT).  PNSNOW added.
-! RAH  980308  4.2  Remove DTDAYS,DTHRS,DTMIN,DTSEC.  Explicit typing.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
 DOUBLEPRECISION :: USM, DDF, RHOS, ESM, HFC, HFR, HFE, HFT, ZUS, ZDS, ZOS
 DOUBLEPRECISION :: RHODEF, TOPNET, PNSNOW  
 LOGICAL         :: BINSMP  
@@ -55,7 +73,10 @@ PUBLIC :: SMIN, rhos, head, binsmp, ddf, zos, zds, zus, nsd, rhodef, imet, smelt
 CONTAINS
 
 
-!SSSSSS SUBROUTINE initialise_smmod
+!> Allocates snowmelt slug storage arrays.
+!>
+!> The routine allocates `TMELT` and `SMELT` once, using the maximum configured
+!> number of snowmelt slugs and active element count.
 SUBROUTINE initialise_smmod
 LOGICAL         :: first=.TRUE.
 if (FIRST) then
@@ -65,7 +86,21 @@ if (FIRST) then
 endif
 END SUBROUTINE initialise_smmod
 
-!SSSSSS SUBROUTINE SM
+!> Updates snowpack and meltwater delivery for one element.
+!>
+!> `SM` is called for each element with an existing snowpack or snowfall input.
+!> It converts net precipitation into snowfall or rainfall, updates snow depth,
+!> computes melt by either degree-day or energy-budget logic, routes meltwater
+!> slugs through the snowpack, and writes the resulting water delivery to
+!> `PNET`.
+!>
+!> Most internal snow amounts are in millimetres. `SD` is snowpack depth, `SF`
+!> is snowfall expressed as snow depth, and `PNET` is overwritten with liquid
+!> water delivery from the snowpack.
+!>
+!> @note The routine operates mainly through module/global state imported from
+!> `SGLOBAL`, `AL_C`, and `AL_D`; its only dummy argument is the element index.
+!> @endnote
 SUBROUTINE SM (IEL)  
 !
 !----------------------------------------------------------------------*
@@ -90,11 +125,6 @@ SUBROUTINE SM (IEL)
 !
 !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/SM/SM/4.1
-! Modifications:
-! RAH  961228  4.1  Initialize EFFDEP (was undefined).
-!                   No leading comments.
 !----------------------------------------------------------------------*
 !
 ! Commons and distributed constants
@@ -135,7 +165,8 @@ SUBROUTINE SM (IEL)
 !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 !
 ! Input arguments
-INTEGER         :: IEL, mr, ms, n, nnc, kl, kk, kkk, ncc
+INTEGER         :: IEL !! Element index for which snowpack and melt are updated.
+INTEGER         :: mr, ms, n, nnc, kl, kk, kkk, ncc
 DOUBLEPRECISION :: e, dn, rich, esat, po, q, esata, ea, qa, ts2, ee, tsm
 !
 ! Locals, etc
@@ -373,6 +404,11 @@ END SUBROUTINE SM
 
 
 !SSSSSS SUBROUTINE SMET  
+!> Applies evapotranspiration losses to an existing snowpack for one element.
+!>
+!> `SMET` reduces snowpack depth for evaporation or sublimation, updates snow
+!> temperature in the energy-budget case, and identifies any excess rainfall or
+!> evaporation demand that must still be handled by the normal ET calculation.
 SUBROUTINE SMET (IEL)  
 INTEGER, INTENT(IN) :: iel
 INTEGER :: ms, mr, n, k, kk
@@ -479,6 +515,12 @@ END SUBROUTINE SMET
 
 
 !SSSSSS SUBROUTINE SMIN
+!> Snow wrapper called from ET/interception processing for one element.
+!>
+!> `SMIN` decides whether snow processing is needed, converts the current net
+!> precipitation to snowpack input, calls [[sm]] when snowfall or snowpack is
+!> present, or calls [[smet]] when only snowpack evaporation/sublimation is
+!> required.
 SUBROUTINE SMIN (IEL)  
 INTEGER, INTENT(IN) :: iel
 INTEGER :: ms

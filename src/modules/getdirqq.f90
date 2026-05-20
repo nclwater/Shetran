@@ -1,17 +1,17 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-!-------------------------------------------------------------------------------
-!
-!> @file GETDIRQQ.f90 
-! 
-!> @author Stephen Birkinshaw, Newcastle University
-! 
-!> @brief Gets the input filename(s).
-!
-! REVISION HISTORY:
-! ?        - ?     - ?
-! 20200305 - SvenB - formatting & cleanup
-! 
-!-------------------------------------------------------------------------------
+!> summary: Resolve SHETRAN run-data file, catchment name, and directories.
+!> author: Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
+!>
+!> This module handles the Windows-specific run-data file selection workflow.
+!> It can obtain a filename from the command line, a catchment lookup file, or
+!> the native file-open dialog, then derives the catchment name, input
+!> directory, and root directory needed by the rest of SHETRAN.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | - | - | - | Initial version. |
+!> | 2020-03-05 | SvenB | - | Formatting and cleanup. |
+!> @endhistory
 MODULE GETDIRQQ
 
     use mod_parameters
@@ -39,25 +39,27 @@ MODULE GETDIRQQ
 
     CONTAINS
   
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Obtains input directory and catches errors.
-    ! 
-    ! REVISION HISTORY:
-    ! ?        - ?     - ?
-    ! 20200305 - SvenB - formatting & cleanup
-    !
-    !> @param[in]     runfil
-    !> @param[out]    fn, catch, dirqq, rootdir
-    !--------------------------------------------------------------------------- 
+    !> Resolves the run-data filename and derived catchment paths.
+    !>
+    !> The routine reads command-line options, optionally opens the Windows file
+    !> selection dialog, validates that the selected file exists, checks that it
+    !> follows the `rundata_name.txt` naming convention, and returns the full
+    !> filename, catchment name, input directory, and root directory.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | - | - | - | Initial version. |
+    !> | 2020-03-05 | SvenB | - | Formatting and cleanup. |
+    !> @endhistory
     SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
         ! IO-vars
-        CHARACTER(len=*), INTENT(IN)    :: runfil
-        CHARACTER(len=*), INTENT(OUT)   :: fn, catch, dirqq
-        CHARACTER(len=*), INTENT(OUT)   :: rootdir
+        CHARACTER(len=*), INTENT(IN)    :: runfil  !! Prefix for SHETRAN run-data files.
+        CHARACTER(len=*), INTENT(OUT)   :: fn      !! Full selected run-data filename.
+        CHARACTER(len=*), INTENT(OUT)   :: catch   !! Catchment name parsed from the run-data filename.
+        CHARACTER(len=*), INTENT(OUT)   :: dirqq   !! Directory containing the selected run-data file.
+        CHARACTER(len=*), INTENT(OUT)   :: rootdir !! Current drive/root directory returned by `GETDRIVEDIRQQ`.
 
         ! Other vars
         INTEGER(kind=I_P)               :: length, IERROR, iret, i, idum, na, j, k
@@ -197,20 +199,21 @@ MODULE GETDIRQQ
 
     END SUBROUTINE get_dir_and_catch
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Error handling for common dialog errors..
-    ! 
-    ! REVISION HISTORY:
-    ! ?        - ?     - ?
-    ! 20200305 - SvenB - formatting & cleanup
-    !--------------------------------------------------------------------------- 
+    !> Reports errors from the Windows common file-open dialog.
+    !>
+    !> The routine calls `COMMDLGEXTENDEDERROR`, maps known common-dialog error
+    !> codes to a diagnostic message, and stops the program if an error occurred.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | - | - | - | Initial version. |
+    !> | 2020-03-05 | SvenB | - | Formatting and cleanup. |
+    !> @endhistory
     SUBROUTINE comdlger(IRET)
         
         ! IO-Vars
-        INTEGER(KIND=I_P)   :: IRET
+        INTEGER(KIND=I_P)   :: IRET !! Windows common-dialog extended error code.
 
         ! Other vars
         CHARACTER(30)       :: MSG1

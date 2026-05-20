@@ -1,55 +1,29 @@
+!> summary: Shared integrated flow, sediment, and contaminant state.
+!> author: GP, Newcastle University; RJL, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University
+!>
+!> `AL_C` stores common state used across the integrated SHETRAN flow,
+!> sediment, and contaminant components. It includes file-unit constants,
+!> static element/link/soil/vegetation metadata, time-dependent hydrological
+!> state, and allocatable arrays for VSS, soil layering, and root-density data.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-03 | GP | 3.0 | Original version written. |
+!> | 1991-07 | GP | 3.1 | Moved variables from `AL_D`. |
+!> | 1991-10 | GP | 3.2 | Added `IRRC`. |
+!> | 1992-02 | RJL | 3.4 | Added `CMT` and `CMB`; moved `UZNOW` and `TIH` from `AL_D`. |
+!> | 1993-07 | GP | 3.4 | Moved `NRD` from `AL_D` and `RDF` from `SPEC.ET`; added `ISPACK`, `SBERR`, and `WBERR`. |
+!> | 1994-09-30 | RAH | 3.4.1 | Declared variables, removed `INTEGER*2`, tidied comments, and reorganized common blocks. |
+!> | 1995-05-04 | GP | 4.0 | Added VSS variables and moved selected variables from `AL_D`. |
+!> | 1997-02 | RAH | 4.1 | Retained `THSAT`, removed redundant variables, and swapped several array subscript conventions. |
+!> | 1998-03 | RAH | 4.2 | Removed redundant VSS/OC variables. |
+!> | 2004-07 | JE | - | Converted to Fortran 95. |
+!> | 2026-03 | SB | 4.6 | Made selected VSS, soil-layer, and root-density arrays allocatable and added initializer routines. |
+!> @endhistory
 MODULE AL_C
 USE SGLOBAL, ONLY : NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
 IMPLICIT NONE
-!-------------------- START OF AL.C -----------------------------------*
-!
-! Include file for common variables for integrated flow, sediment and
-!  contaminant components
-!
-!----------------------------------------------------------------------*
-! Version:  AL_C.F95/4.3
-! Modifications:
-!   GP        MAR 91    3.0     WRITTEN
-!   GP        JUL 91    3.1     VARIABLES MOVED FROM AL.D
-!   GP        OCT 91    3.2     ADDED IRRC
-!   RJL       FEB 92    3.4     ADDED CMT,CMB
-!   RJL       FEB 92    3.4     VARIABLES UZNOW,TIH MOVED FROM AL.D
-!  GP  Jul 93  3.4  Moved: NRD from AL.D; RDF from SPEC.ET.
-!                   Added: ISPACK,ZOCMLN,SBERR,WBERR.
-! RAH  30.09.94  Version 3.4.1 by AB/RAH from version 3.4:
-!                 declare all variables; no INTEGER*2; tidy comments;
-!                 standard header; reposition /IVEG/, /VEG/ & /SNOW/;
-!                 move amendment history to separate file;
-!                 add SFB, SRB to /CFILE/; reduce EARRAY size to 1.
-!  GP  950504  4.0  Bring from AL.D: BEXBK (for VSS,MUZ), and ESOILA,
-!                   NBFACE,PRI,QH,UZNEXT,WLD (for VSS).
-!                   New VSS variables & arrays: VS*,LFB,LHB,LGB,BFB,BHB,
-!                   JVS*,NVSSPC,NVSSPT,NVSWLI,NVSWLT,NVSCIT,DELTAZ,ZVS*,
-!                   QVS*.  Replace CPR with CMP.  TIH is static.
-!                   Remove DCONX,DCONY (EX,SZ,MUZ), DDZ (FR,ET,SZ,UZ,
-!                   MUZ), HSZ (FR,BK,EX,SZ,UZ,MUZ), IRRC (FR,ET,SZ,MOC),
-!                   NWC (SZ,MUZ), QHSZ (FR,EX,SZ,MUZ), RSZAQ (FR,SZ,MUZ)
-!                   RSZWEL (FR,ET,SZ,MUZ), TH3 (FR,ET,UZ,MOC,MUZ), THSAT
-!                   (UZ,SY,MUZ) and VUZ (MUZ).
-! RAH  970212  4.1  Retain THSAT for SY.  Remove BPRNOW (redundant).
-!      970213       Remove NVSCIT (see VSSIM).
-!      970214       Swap subscripts: QVSH (BALWAT,FRRESP,VSMB,VSSIM,
-!                   LINKW,COLMW,INCM), DELTAZ (BALWAT,FRRESC,MB,ET,ETIN,
-!                   VSCONC,VSIN,VSMB,VSSIM,LINKW,COLMW,INCM).
-!      970217       Swap subscripts: JVSACN (FRRESC,VSCONC,VSMB,VSSIM,
-!                   INCM), JVSDEL (FRRESC,VSCONC,VSSIM,INCM), ZVSNOD
-!                   (FRRESC,VSCONC,VSIN,VSSIM,COLMW,INCM), QVSV (FRRESP,
-!                   MB,VSMB,VSSIM,COLMW,INCM), QVSWLI (FRRESP,VSMB,
-!                   VSSIM,COLMW), VSPSI (FRRESP,ETSIM,VSIN,VSSIM), VSTHE
-!                   (BALWAT,FRRESP,MB,VSMB,VSSIM,LINKW,COLMW,INCM).
-!                   Remove QVSL (redundant).
-!      970220       Restore history.
-! RAH  980302  4.2  Remove ZOCMLN (see OCQMLN), VSSTMP, FHSAT.
-!      980307       (Amend line above.)
-!  JE  JULY 04 ---- Convert to FORTRAN 95
-!   SB  Mar26  4.6     Make the following variables ALLOCATABLE :: JVSACN,JVSDEL,DELTAZ, ZVSNOD, RDF, NLYRBT,NTSOIL,ZLYRBT
-!                    Some are allocated in initialise_al_c and some in the new SUBROUTINE initialise_al_c2() and SUBROUTINE initialise_al_c3()_
-!----------------------------------------------------------------------*
 
 !
 
@@ -195,7 +169,10 @@ MNOUTPL = 60
 
 CONTAINS
 
-!SSSSSS SUBROUTINE initialise_al_c
+!> Allocates and zero-initializes VSS state arrays.
+!>
+!> The allocation uses `top_cell_no` and `total_no_elements` for the active
+!> model dimensions.
 SUBROUTINE initialise_al_c()
 
 ALLOCATE(qvsh(4,top_cell_no,total_no_elements), qvsv(top_cell_no,total_no_elements), &
@@ -214,6 +191,10 @@ ALLOCATE (JVSACN(4,top_cell_no,total_no_elements), JVSDEL(4,top_cell_no,total_no
 
 END SUBROUTINE initialise_al_c
 
+!> Allocates and zero-initializes soil-layer geometry arrays.
+!>
+!> This routine allocates cell thicknesses, VSS node elevations, bottom-cell
+!> indices, soil-type indices, and soil-layer bottom elevations.
 SUBROUTINE initialise_al_c2()
 
 ALLOCATE (DELTAZ(LLEE,total_no_elements), ZVSNOD(LLEE,total_no_elements)) 
@@ -228,6 +209,9 @@ ALLOCATE (ZLYRBT(total_no_elements,NLYREE))
 
 END SUBROUTINE initialise_al_c2
 
+!> Allocates and zero-initializes the vegetation root-density function array.
+!>
+!> The first dimension uses the configured number of vegetation types, `NV`.
 SUBROUTINE initialise_al_c3()
 
 ALLOCATE (RDF(NV,LLEE))

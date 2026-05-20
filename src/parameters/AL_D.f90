@@ -1,60 +1,29 @@
+!> summary: Shared flow-component state and file-unit constants.
+!> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University
+!>
+!> `AL_D` stores common state used primarily by the SHETRAN flow components.
+!> It includes file-unit constants, model-size and timing controls, process
+!> activation flags, input/output scheduling arrays, hotstart state, snow state,
+!> overland/channel flow storage, meteorological forcing arrays, and reservoir
+!> ZQ-table metadata.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-03 | GP | 3.0 | Original version written. |
+!> | 1991-06 | GP | 3.1 | Added new variables including `NEXPO`. |
+!> | 1992-02 | GP | 3.3 | Added soil-layer arrays. |
+!> | 1992-06 | GP | 3.4 | Moved selected variables to `AL_C`, added flow/snow/storage arrays, and removed obsolete constants. |
+!> | 1994-09-28 | RAH | 3.4.1 | Applied standard header, declared variables, and removed `INTEGER*2`. |
+!> | 1996-01-03 | GP | 4.0 | Moved selected VSS variables to `AL_C`, removed redundant SZ/UZ/EX variables, and added mass-balance arrays. |
+!> | 1997-02 | RAH | 4.1 | Removed redundant derived dimensions and obsolete state variables. |
+!> | 1998-01-19 | RAH | 4.2 | Removed obsolete OC and storage variables; defined `NCLASS`. |
+!> | 2004-07 | JE | - | Converted to Fortran 95. |
+!> | 2020-05-20 | SB | - | Added ZQ table file unit and reservoir table metadata variables. |
+!> @endhistory
 MODULE AL_D
 USE SGLOBAL, ONLY : NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
 IMPLICIT NONE
-!-------------------- START OF AL.D -----------------------------------!
-!
-! INCLUDE FILE FOR COMMON VARIABLES FOR FLOW COMPONENTS ONLY
-!
-!----------------------------------------------------------------------!
-! Version:  AL_D.F95/4.3
-! Modifications:
-!   GP        MAR 91    3.0     WRITTEN
-!   GP        JUN 91    3.1     NEW VARIABLES ADDED (NEXPO)
-!   GP        FEB 92    3.3     SOIL LAYER ARRAYS ADDED
-!   GP        JUN 92    3.4 VARIABLES MOVED TO AL.C FOR HOTSTART
-!                           (TIH,UZNOW & array NRD).  Add arrays
-!                           NSMC,FLERRC,SYERRC,CMERRC,KSAT,QSA,DQ0ST,
-!                           DQIST,DQIST2,SMELT,TM,WATC3,ESWA,QEX,QEXDH.
-!                           Scrap constants NS801,NS501.  NSTEP I*4.
-! RAH  28.09.94  Version 3.4.1 from version 3.4: standard header;
-!                declare everything; no INTEGER*2 (/DFILE/,/ALDCB2/);
-!                remove FLERRC, SYERRC, CMERRC from /ALDCB7/.
-!  GP  960103  4.0  Move BEXBK,ESOILA,NBFACE,PRI,QH,UZNEXT,WLD to AL.C.
-!                   Move PSI4,UZALFA to SPEC.ET.
-!                   Remove DFRLYR,IFRLYR,NFRLYR,NLYRC (see INBK),
-!                   EXBETA (see OCPLF), QSZO,QSZR,QUZR (see SHETRN),
-!                   and THWILT (see ET).  Also remove
-!                   AQD,CONX,CONY,HBD,NW,SZB,SZD (SZ), DNPRUZ,EFFSAT,
-!                   EPS,EPSZA,HPSI0,PSI3,PSI33,TH1,TH33,UZD,WATC3 (UZ),
-!                   BLOWP,CCB,DB (EX), QSZUZ (SZ,UZ), KSAT (EX,UZ),
-!                   QSZOC,RSZ (FR,SZ), THUZ (FR,UZ), CATUZ (BK,UZ),
-!                   PRUZN,THFC (ET,UZ), and QBOU,THBOT (FR,SZ,UZ).
-!                   Increase size of ICLNUM,ICLIST to 14 (see INRES).
-!                   Bring NOCBC* from SPEC.OC (for INRES).
-!                   New variables MB* (for INRES,MB), and arrays
-!                   BALANC,*STOR,*MEAN (for FRRESP,MB).
-!                   Bring TIM from SPEC.FR (for FRRESC).
-! RAH  970212  4.1  Remove "derived dimensions" (redundant).
-!      970213       Remove WSZEX,WSSZER,WSZR,WOCSZS,WUZSZS (SZ),
-!                   EPSZ,WSUZ,WUZEV,WUZTR,WUZSZU,WSUZER,WSUZT,WSUZTI,
-!                   WOCUZU (UZ), NCTUZR,ICTUZR (BK,UZ), SZNEXT (FR,SZ),
-!                   WSSZ (SZ,UZ), QEX,QEXDH (EX,SZ), DRYH (EX,SZ,UZ),
-!                   and EXUNT,QSZL,WOCSZO,WOCUZO (redundant).
-! RAH  980119  4.2  Remove WSOC,WSOCI,WSOCER (see OCINI) and
-!                   WOCEV,WOCLI,WOCR (redundant).
-!      980306       Remove EXNOW,EXVAL,EXNEXT,UZUNT,OCVAL,OCUNT,SZNOW,
-!                   SZVAL,SZUNT,WSETI,WSET,WEXET,WETEX,WETOCE,WSETER,
-!                   DWEXET,DWETEX,DWETOC,WEP,DWEP,DWSET,WSSZI,WSEPS,
-!                   TSTOUZ,TSTOOC,TSTOSZ,DTSTUZ,DTSTSZ,DTSTOC,PNETOC,
-!                   POC,CCSTOR,CSSTOR,HFL,HFI,VOCX,VOCY,EPOTOC.
-!                   RHOSAR is static.
-!      980307       Reduce size of NOCBCD from 5 to 4.
-!      980713       Remove I/NCATUZ (see FRRESC).
-!      980716       Define NCLASS (see INRES,FRRESC).
-!      981103       Remove NSOIL (see ETSIM,ET).
-!  JE  JULY 04 ---- Convert to FORTRAN 95
-!***ZQ Module 200520
-! new variables     zqd,NoZQTables,ZQTableRef,iszq,ZQTableLink,ZQTableFace,ZQweirSill!----------------------------------------------------------------------*
 
 ! ----- Constants
 

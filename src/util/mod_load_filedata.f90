@@ -1,13 +1,20 @@
-!-------------------------------------------------------------------------------
-!
-!> @file mod_load_filedata.f90 
-! 
-!> @author AB / RAH, Newcastle University
-!> @author JE, Newcastle University
-!> @author Stephen Birkinshaw, Newcastle University
-! 
-!> @brief Gets the input filename(s) and methdos for reading data from files.
-!
+!> summary: Shared SHETRAN input-file reading and validation utilities.
+!> author: AB / RAH, Newcastle University; JE, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
+!>
+!> This module contains the legacy `AL*` input helpers used throughout SHETRAN
+!> to read scalar, array, category-table, and interpolated data from model input
+!> files. The routines also provide common validation checks, default-value
+!> handling, bank-element value propagation, and simple floating-point exception
+!> trap setup.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | - | AB/RAH | - | Original `AL*.F` routines. |
+!> | 2012-08 | JE | - | Fortran 90 conversion replacing the `AL*.F` files. |
+!> | 2020-03-05 | SvenB | - | Formatting and documentation cleanup; renamed `NCAT`, `NTABEE`, `CCELL`, `NCATEE`, `CTAB`, and `DTAB`. |
+!> @endhistory
+!>
 !> @todo figure out for each method what the variable intents are.
 !> @todo replace the GOTO-jumps to outisde a loop with EXIT
 !> @todo replace the _set var_ then _overwrite, if_ if _if_ or _case_ statements
@@ -15,14 +22,6 @@
 !> @todo combine / clean ALREAD, ALRED2, ALREDI, ALREDF, ALREDL, ALREDC
 !> @todo use DIMENSION in variable def
 !> @todo is ALTRAP still necessary?
-!
-! REVISION HISTORY:
-! ?        - ?     - ?
-! 201208?? - JE    - F90-conversion: replaces the AL*.F files
-! 20200305 - SvenB - formatting & some doc-strings
-!                  - renamed NCAT, NTABEE, CCELL, NCATEE, CTAB, DTAB
-! 
-!-------------------------------------------------------------------------------
 MODULE mod_load_filedata
 
     USE SGLOBAL
@@ -53,19 +52,17 @@ MODULE mod_load_filedata
     CONTAINS
 
   
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Set a floating-point array for all elements (FLAG=0) or all
-    !! column elements (FLAG=1), by reading from an input data file.
-    ! 
-    ! Notes: can be found in SSR74
-    !
-    ! REVISION HISTORY:
-    ! 19940527 - ?      - Initial version
-    ! 19940919 - AB/RAH - v3.4.1
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19940527 | ? | - | Initial version |
+      !> | 19940919 | AB/RAH | - | v3.4.1 |
+      !> @endhistory
+    !> Reads a floating-point distributed data array for elements or columns.
+    !>
+    !> `ALALLF` reads category/grid/list-style input from `IUNIT`, expands the
+    !> values to active SHETRAN elements, handles bank-element propagation when
+    !> `BEXBK` is enabled, and returns the resulting floating-point array in `AEL`.
     SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF,          &
                        NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF,  &
                        BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  AEL, IDUM, DUMMY)
@@ -251,19 +248,16 @@ MODULE mod_load_filedata
     END SUBROUTINE ALALLF
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Reads the catagory type for each grid, bank elements take the
-    !! same category type as the adjacent grid element
-    !! There must be nine or fewer category types
-    ! 
-    ! Note: Version 4.2
-    !
-    ! REVISION HISTORY:
-    ! ?        - ?      - Initial version
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | ? | ? | - | Initial version |
+      !> @endhistory
+    !> Reads category identifiers for each active grid and bank element.
+    !>
+    !> `ALALLI` expands the category map from the input file into element order.
+    !> Bank elements inherit the category of the adjacent grid element, matching
+    !> the manual rule that distributed category data are supplied by grid cell.
     SUBROUTINE ALALLI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX,  &
                        NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
                        LINKNS, CATTYP, IDUM)
@@ -351,22 +345,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALALLI
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Assign values to the bank elements of an array by copying values
-    !! associated with neighboring grid elements in the same array
-    ! 
-    ! Note: SSR51
-    !
-    ! REVISION HISTORY:
-    ! 19940422 - ?      - Initial version
-    ! 19940523 - AB/RAH - Version 3.4.1
-    !
-    !> @param[in]     NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF
-    !> @param[inout]  A
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19940422 | ? | - | Initial version |
+      !> | 19940523 | AB/RAH | - | Version 3.4.1 |
+      !> @endhistory
+    !> Copies adjacent grid-cell values onto bank elements.
+    !>
+    !> `ALBANK` fills the bank portions of an element array from the neighbouring
+    !> square elements identified by `ICMBK`, `LINKNS`, and `ICMREF`. It is used
+    !> after gridded distributed data have been read so that bank elements carry
+    !> the same parameter value as their adjacent land element.
     SUBROUTINE ALBANK (NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, A)
         
         ! Input arguments
@@ -423,25 +413,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALBANK
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Check that a given relation holds between subject and object
-    !! arrays, and take corrective action and/or raise an error in the
-    !! event of a failure.
-    ! 
-    ! Note: SSR62
-    !
-    !---------------------------------------------------------------------------
-    !  CAUTION!  Source code for ALCHKI is generated from ALCHK using make:
-    !  ''''''''  check the makefile before modifying this subroutine.
-    !---------------------------------------------------------------------------
-    !
-    ! REVISION HISTORY:
-    ! 19940722 - ?      - Initial version
-    ! 19940817 - AB/RAH - Version 3.4.1
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19940722 | ? | - | Initial version |
+      !> | 19940817 | AB/RAH | - | Version 3.4.1 |
+      !> @endhistory
+    !> Checks real-valued input data against a named validation rule.
+    !>
+    !> `ALCHK` compares observed values in `OBJ` with one or more subject values
+    !> in `SUBJ` using the operator named by `OP`, with tolerance `TOL`. It
+    !> reports invalid input through `ERROR` according to `ACTION`, increments
+    !> `COUNT`, and flags individual failures in `NOTOK`.
     SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME,           &
                       OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
                       
@@ -586,25 +569,17 @@ MODULE mod_load_filedata
     END SUBROUTINE ALCHK
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !!  Check that a given relation holds between subject and object
-    !!  arrays, and take corrective action and/or raise an error in the
-    !!  event of a failure.
-    ! 
-    ! Note: SSR62
-    !
-    !---------------------------------------------------------------------------
-    !  CAUTION!  Source code for ALCHKI is generated from ALCHK using make:
-    !  ''''''''  check the makefile before modifying this subroutine.
-    !---------------------------------------------------------------------------
-    !
-    ! REVISION HISTORY:
-    ! 19940722 - ?      - Initial version
-    ! 19940817 - AB/RAH - Version 3.4.1
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19940722 | ? | - | Initial version |
+      !> | 19940817 | AB/RAH | - | Version 3.4.1 |
+      !> @endhistory
+    !> Checks integer input data against a named validation rule.
+    !>
+    !> `ALCHKI` is the integer counterpart of [[ALCHK]]. It applies the operator
+    !> named by `OP` to `OBJ` and `SUBJ`, reports invalid input through `ERROR`
+    !> according to `ACTION`, increments `COUNT`, and marks failures in `NOTOK`.
     SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME,          &
                        OP, OBJ, SUBJ, COUNT, NOTOK)
      
@@ -752,18 +727,16 @@ MODULE mod_load_filedata
     END SUBROUTINE ALCHKI
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Initialize an array with a given value
-    ! 
-    ! Note: SSR67
-    !
-    ! REVISION HISTORY:
-    ! 19931208 - ?      - Initial version
-    ! 19940523 - AB/RAH - Version 3.4.1
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931208 | ? | - | Initial version |
+      !> | 19940523 | AB/RAH | - | Version 3.4.1 |
+      !> @endhistory
+    !> Initialises every entry of an array to one real value.
+    !>
+    !> `ALINIT` sets `X(1:N)` to `ALPHA`. It is a small legacy helper used where
+    !> distributed arrays must be reset before reading or expansion.
     SUBROUTINE ALINIT (ALPHA, N, X)  
         
         ! Input arguments
@@ -785,25 +758,17 @@ MODULE mod_load_filedata
     END SUBROUTINE ALINIT
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! For each category type, a table of values is known. This contains
-    !! the depth (TABLE_WATER_DEPTH) and the concentration (TABLE_CONCENTRATION) 
-    !! at each depth. The concentrationin each cell (CELL_CONCENTRATION) is 
-    !! calculated by linear interpolation.
-    !! NUM_CATEGORIES_TYPES is the number of category types. 
-    !! MAX_NUM_CATEGORY_TYPES is the maximum number of category types. 
-    !! MAX_NUM_DATA_PAIRS is the maximum number of pairs of data in each table.
-    !!
-    !! The depths in the table must start at zero and increase.
-    ! 
-    ! Note: SSR51
-    !
-    ! REVISION HISTORY:
-    ! ?        - ?      - Initial version
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | ? | ? | - | Initial version |
+      !> @endhistory
+    !> Interpolates initial contaminant concentrations from water-depth tables.
+    !>
+    !> `ALINTP` uses each element's category and nodal water depths to interpolate
+    !> concentration values from the supplied depth/concentration tables. Table
+    !> depths must start at zero and increase monotonically, as required by the
+    !> contaminant input format.
     SUBROUTINE ALINTP (LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES,     &
                        MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
                        NCOLMB, NTAB,TABLE_CONCENTRATION, TABLE_WATER_DEPTH,     &
@@ -876,21 +841,20 @@ MODULE mod_load_filedata
                        
                        
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Utility routine to handle an input data file (CHAR, INT, REAL)
-    !
-    !> @todo replace ID numbers with named parameter values for better legibility
-    !
-    ! REVISION HISTORY:
-    ! 19931210 - ?      - Initial version
-    ! 19940912 - GP     - 4.0  Add VSS options (FLAG=) 6 & 7.
-    ! 19940916 - AB/RAH - Version 3.4.1
-    ! 19970804 - RAH    - 4.1  Add END specifiers to READs in options 6 & 7.
-    !                     Renumber error 13 as 16 (was unauthorized).
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931210 | ? | - | Initial version |
+      !> | 19940912 | GP | - | 4.0  Add VSS options (FLAG=) 6 & 7. |
+      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+      !> | 19970804 | RAH | - | 4.1  Add END specifiers to READs in options 6 & 7. |
+      !> @endhistory
+    !> Reads one legacy AL input record for character, integer, or real data.
+    !>
+    !> `ALREAD` interprets the numeric input `FLAG`, reads the requested data
+    !> form from `IUNIT`, echoes diagnostics to `OUNIT`, and returns values in
+    !> the matching output array. It covers the original mixed-format input cases
+    !> used by distributed SHETRAN parameters.
     SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES,  &
                        CDATA, IDATA, RDATA)
                        
@@ -1079,24 +1043,19 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREAD
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Utility routine to handle an input data file
-    !!    
-    !! !!!  NB  This subroutine contains ENTRY statements  !!!
-    !
-    ! REVISION HISTORY:
-    ! 19931210 - ?      - Initial version
-    ! 19940916 - AB/RAH - Version 3.4.1
-    ! 19950322 - RAH    - New header.
-    !                     Remove arguments N1,...,RDATA & create ENTRY
-    !                     points ALRDI, etc, including new option ALRDL
-    !                     (note: arg NUM_CATEGORIES_TYPES removed; 
-    !                     CDATA now an array;
-    !                     RDATA renamed FDATA).
-    !---------------------------------------------------------------------------
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931210 | ? | - | Initial version |
+      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+      !> | 19950322 | RAH | - | New header. |
+      !> @endhistory
+    !> Reads and checks an AL input section header.
+    !>
+    !> `ALRED2` handles the shared part of the refactored AL reader family before
+    !> type-specific records are read by [[ALREDC]], [[ALREDF]], [[ALREDI]], or
+    !> [[ALREDL]]. The `FLAG` selects the legacy input option described in the
+    !> manual's distributed-data formats.
     SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)  
 
         ! Input arguments
@@ -1155,21 +1114,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALRED2
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Utility routine to handle an input data file (CHAR)´.
-    !
-    ! REVISION HISTORY:
-    ! 19931210 - ?      - Initial version
-    ! 19940916 - AB/RAH - Version 3.4.1
-    ! 19950322 - RAH    - New header.
-    !                     Remove arguments N1,...,RDATA & create ENTRY
-    !                     points ALRDI, etc, including new option ALRDL
-    !                     (note: arg NUM_CATEGORIES_TYPES removed; CDATA now an array;
-    !                     RDATA renamed FDATA).
-    !---------------------------------------------------------------------------  
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931210 | ? | - | Initial version |
+      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+      !> | 19950322 | RAH | - | New header. |
+      !> @endhistory
+    !> Reads character data for a legacy AL input option.
+    !>
+    !> `ALREDC` is the character-valued member of the `ALRED*` reader family. It
+    !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
+    !> `OUNIT` as required, and stores values in `CDATA`.
     SUBROUTINE ALREDC (FLAG, IUNIT, OUNIT, LINE, N1, N2, CDATA)  
         
         ! Input arguments
@@ -1225,22 +1181,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDC
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Utility routine to handle an input data file (REAL).
-    !
-    ! REVISION HISTORY:
-    ! 19931210 - ?      - Initial version
-    ! 19940916 - AB/RAH - Version 3.4.1
-    ! 19950322 - RAH    - New header.
-    !                     Remove arguments N1,...,RDATA & create ENTRY
-    !                     points ALRDI, etc, including new option ALRDL
-    !                     (note: arg NUM_CATEGORIES_TYPES removed; 
-    !                     CDATA now an array;
-    !                     RDATA renamed FDATA).
-    !---------------------------------------------------------------------------
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931210 | ? | - | Initial version |
+      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+      !> | 19950322 | RAH | - | New header. |
+      !> @endhistory
+    !> Reads real data for a legacy AL input option.
+    !>
+    !> `ALREDF` is the floating-point member of the `ALRED*` reader family. It
+    !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
+    !> `OUNIT` as required, and stores values in `FDATA`.
     SUBROUTINE ALREDF (FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)  
 
         ! Input arguments
@@ -1312,21 +1264,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDF
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Utility routine to handle an input data file
-    !
-    ! REVISION HISTORY:
-    ! 19931210 - ?      - Initial version
-    ! 19940916 - AB/RAH - Version 3.4.1
-    ! 19950322 - RAH    - New header.
-    !                     Remove arguments N1,...,RDATA & create ENTRY
-    !                     points ALRDI, etc, including new option ALRDL
-    !                     (note: arg NUM_CATEGORIES_TYPES removed; CDATA now an array;
-    !                     RDATA renamed FDATA).
-    !---------------------------------------------------------------------------
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931210 | ? | - | Initial version |
+      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+      !> | 19950322 | RAH | - | New header. |
+      !> @endhistory
+    !> Reads integer data for a legacy AL input option.
+    !>
+    !> `ALREDI` is the integer-valued member of the `ALRED*` reader family. It
+    !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
+    !> `OUNIT` as required, and stores values in `IDATA`.
     SUBROUTINE ALREDI (FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
 
         ! Input arguments
@@ -1410,21 +1359,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDI
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Utility routine to handle an input data file
-    !
-    ! REVISION HISTORY:
-    ! 19931210 - ?      - Initial version
-    ! 19940916 - AB/RAH - Version 3.4.1
-    ! 19950322 - RAH    - New header.
-    !                     Remove arguments N1,...,RDATA & create ENTRY
-    !                     points ALRDI, etc, including new option ALRDL
-    !                     (note: arg NUM_CATEGORIES_TYPES removed; CDATA now an array;
-    !                     RDATA renamed FDATA).
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | 19931210 | ? | - | Initial version |
+      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+      !> | 19950322 | RAH | - | New header. |
+      !> @endhistory
+    !> Reads logical data for a legacy AL input option.
+    !>
+    !> `ALREDL` is the logical-valued member of the `ALRED*` reader family. It
+    !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
+    !> `OUNIT` as required, and stores values in `LDATA`.
     SUBROUTINE ALREDL (FLAG, IUNIT, OUNIT, LINE, N1, N2, LDATA)
 
         ! Input arguments
@@ -1478,17 +1424,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDL
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Choose a sub-sequence of M items from a sequence of N items:
-    !! N1 is the starting index;  DEL is the stride
-    !
-    ! REVISION HISTORY:
-    ! ?        - ?      - Initial version
-    ! 19970805 - RAH    - 4.1  Create.
-    !---------------------------------------------------------------------------
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | ? | ? | - | Initial version |
+      !> | 19970805 | RAH | - | 4.1  Create. |
+      !> @endhistory
+    !> Chooses an approximately even subsequence from a longer sequence.
+    !>
+    !> For `M` requested items from `N` available items, `ALSPRD` returns the
+    !> first index `N1` and stride `DEL` for a representative subsequence. The
+    !> routine is used by AL input/output helpers when only a subset of entries
+    !> should be printed.
     SUBROUTINE ALSPRD (M, N, N1, DEL) 
     
         ! Input arguments
@@ -1533,19 +1480,18 @@ MODULE mod_load_filedata
     END SUBROUTINE ALSPRD
 
 
-    !---------------------------------------------------------------------------  
-    !> @author ?
-    ! 
-    !> @brief
-    !! Set traps for floating-point exceptions
-    !
-    ! Note: SSR79
-    !
-    ! REVISION HISTORY:
-    ! ?        - ?       - Initial version
-    ! 19940930 - RAH     - Version 3.4.1 created.
-    ! 20000307 - StevenB - Version 4g-pc remove ieee calls
-    !--------------------------------------------------------------------------- 
+      !> @history
+      !> | Date | Author | Version | Description |
+      !> |:-----|:-------|:--------|:------------|
+      !> | ? | ? | - | Initial version |
+      !> | 19940930 | RAH | - | Version 3.4.1 created. |
+      !> | 20000307 | StevenB | - | Version 4g-pc remove ieee calls |
+      !> @endhistory
+    !> Initialises legacy floating-point exception handling.
+    !>
+    !> `ALTRAP` is retained as the AL-layer hook for enabling floating-point
+    !> traps. In the current PC-oriented code path the original IEEE setup calls
+    !> have been removed, so the routine only preserves the historical interface.
     SUBROUTINE ALTRAP ()  
 
         ! Locals, etc

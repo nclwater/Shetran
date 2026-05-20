@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Near-SHETRAN visualisation accessor interface.
+!>
+!> This module is the left-hand side of the SHETRAN/SHEGRAPH visualisation
+!> interface. It reads model state from the core SHETRAN modules using native
+!> element, face, layer, and grid numbering, converts selected fluxes to
+!> plotting units, and exposes small accessor functions for the central
+!> visualisation translation layer.
 MODULE visualisation_interface_left
 
 !JE for SHEGRAPH Version 2.0 Created July 2004
@@ -89,7 +95,7 @@ PUBLIC :: BAL_ERR,         BANK_NO,       BANK_WIDTH,                           
 PUBLIC :: DIRQQ, ROOTDIR, north, east, south, west, hdf5filename, planfile, checkfile, etype, ADJACENT_ELEMENT
 
 CONTAINS
-!!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+! Legacy perturbation accessor retained here as commented reference.
 !ELEMENTAL REAL FUNCTION space_time1(iel) RESULT(r)
 !INTEGER, INTENT(IN) :: iel
 !INTEGER :: i
@@ -97,24 +103,27 @@ CONTAINS
 !r = spacetime1(iel,i)
 !END FUNCTION space_time1
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the neighbouring element across a SHETRAN face.
 ELEMENTAL INTEGER FUNCTION adjacent_element(iel, face) RESULT(r)
-INTEGER, INTENT(IN) :: iel, face
+INTEGER, INTENT(IN) :: iel !! Source element number.
+INTEGER, INTENT(IN) :: face !! SHETRAN face number.
 r = ICMREF(iel, face + 4)
 END FUNCTION adjacent_element
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the opposite face number for the neighbouring element.
 ELEMENTAL INTEGER FUNCTION adjacent_face(iel, face) RESULT(r)
-INTEGER, INTENT(IN) :: iel, face
+INTEGER, INTENT(IN) :: iel !! Source element number.
+INTEGER, INTENT(IN) :: face !! SHETRAN face number.
 r = ICMREF(iel, face + 8)
 END FUNCTION adjacent_face
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the water-balance error for an element.
 ELEMENTAL REAL FUNCTION bal_err(iel) RESULT(r)
-INTEGER, INTENT(IN) :: iel  !element
+INTEGER, INTENT(IN) :: iel  !! Element number.
 r = wberr(iel)
 END FUNCTION bal_err
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the bank element adjacent to a subunit face, or `i_not_exist`.
 ELEMENTAL INTEGER FUNCTION bank_no(su, face) RESULT(r)
-INTEGER, INTENT(IN) :: su, face
+INTEGER, INTENT(IN) :: su !! Subunit element number.
+INTEGER, INTENT(IN) :: face !! SHETRAN face number.
 INTEGER             :: adj
 IF(.NOT.IS_SQUARE(su)) THEN
     r = i_not_exist
@@ -127,9 +136,10 @@ ELSE
     ENDIF
 ENDIF
 END FUNCTION bank_no
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the visualisation width assigned to a bank face.
 ELEMENTAL REAL FUNCTION bank_width(bk, face) RESULT(r)
-INTEGER, INTENT(IN) :: bk, face
+INTEGER, INTENT(IN) :: bk !! Bank element number.
+INTEGER, INTENT(IN) :: face !! SHETRAN face number.
 IF(EXISTS(bk)) THEN
     IF(ANY(face==(/east,west/))) THEN
         r = dxqq(bk)
@@ -138,24 +148,25 @@ IF(EXISTS(bk)) THEN
     ENDIF
 ENDIF
 END FUNCTION bank_width
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns canopy storage for an element.
 ELEMENTAL REAL FUNCTION can_stor(iel) RESULT(r)
-INTEGER, INTENT(IN) :: iel  !element no
+INTEGER, INTENT(IN) :: iel  !! Element number.
 r = cstore(iel)
 END FUNCTION can_stor
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns contaminant concentration in the soil dynamic region.
 ELEMENTAL REAL FUNCTION c_c_dr(iel, ilay, ncon) RESULT(r)
-INTEGER, INTENT(IN) :: iel, ilay, ncon  !element, layer and contaminant group no
+INTEGER, INTENT(IN) :: iel, ilay, ncon  !! Element, cell layer, and contaminant group numbers.
 r = cccc(iel, ilay, ncon)
 END FUNCTION c_c_dr
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns contaminant concentration in the soil dead-space region.
 ELEMENTAL REAL FUNCTION c_c_ds(iel, ilay, ncon) RESULT(r)
-INTEGER, INTENT(IN) :: iel, ilay, ncon  !element, layer and contaminant group no
+INTEGER, INTENT(IN) :: iel, ilay, ncon  !! Element, cell layer, and contaminant group numbers.
 r = ssss(iel, ilay, ncon)
 END FUNCTION c_c_ds
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns vertical cell thickness for an element and SHETRAN cell layer.
 ELEMENTAL REAL FUNCTION cell_thickness(iel, j) RESULT(r)
-INTEGER, INTENT(IN) :: iel, j
+INTEGER, INTENT(IN) :: iel !! Element number.
+INTEGER, INTENT(IN) :: j !! Cell-layer number.
 !INTEGER             :: kk !nett 090805
 IF(EXISTS(iel)) THEN
     r = DELTAZ(j,iel)
@@ -163,12 +174,12 @@ ELSE
     r=r_not_exist
 ENDIF
 END FUNCTION cell_thickness
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns canopy drainage converted to millimetres per hour.
 ELEMENTAL REAL FUNCTION drainage(iel) RESULT(r)
-INTEGER, INTENT(IN) :: iel  !element no
+INTEGER, INTENT(IN) :: iel  !! Element number.
 r = mps_to_mmph*draina(iel)
 END FUNCTION drainage
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns east-west grid-cell width from internode spacings.
 ELEMENTAL REAL FUNCTION dxx(i) RESULT(r)
 !grid cell widths E-W
 INTEGER, INTENT(IN) :: i
@@ -180,7 +191,7 @@ ELSE
     r = (dxin(i-1) + dxin(i)) * 0.5
 ENDIF
 END FUNCTION dxx
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns north-south grid-cell width from internode spacings.
 ELEMENTAL REAL FUNCTION dyy(i) RESULT(r)
 !grid cell widths N-S
 INTEGER, INTENT(IN) :: i
@@ -192,22 +203,22 @@ ELSE
     r = (dyin(i-1) + dyin(i)) * 0.5
 ENDIF
 END FUNCTION dyy
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the SHETRAN element number at grid coordinates.
 ELEMENTAL INTEGER FUNCTION element(i,j) RESULT(r)
 INTEGER, INTENT(IN) :: i,j
 r = icmxy(i,j)
 END FUNCTION element
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns element width in the x direction.
 ELEMENTAL REAL FUNCTION element_dx(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 r = dxqq(iel)
 END FUNCTION element_dx
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns element width in the y direction.
 ELEMENTAL REAL FUNCTION element_dy(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 r = dyqq(iel)
 END FUNCTION element_dy
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the SHETRAN element type code used by the visualisation interface.
 ELEMENTAL INTEGER FUNCTION etype(iel) RESULT(r)
 !element type: 999 gridsquare ;  1,2 bank ; 3 link
 INTEGER, INTENT(IN) :: iel
@@ -217,12 +228,12 @@ ELSE
     r = 0
 ENDIF
 END FUNCTION etype
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns whether an element or index exists.
 ELEMENTAL LOGICAL FUNCTION exists(i) RESULT(r)
 INTEGER, INTENT(IN) :: i
 r = i>0
 END FUNCTION exists
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads the contaminant count early from the contaminant input file.
 SUBROUTINE get_ncon_early()
 CHARACTER(4)  :: dd
 CHARACTER(64) :: mess
@@ -240,7 +251,7 @@ RETURN
 1000 mess = 'GET_NCON_EARLY '//TRIM(mess)
 CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  mess)
 END SUBROUTINE get_ncon_early
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads the sediment-size count early from the sediment input file.
 SUBROUTINE get_nsed_early()
 CHARACTER(5)  :: dd
 CHARACTER(64) :: mess
@@ -258,89 +269,89 @@ RETURN
 1000 mess = 'GET_NSED_EARLY '//TRIM(mess)
 CALL ERROR(FFFATAL, 1, PPPRI, 0, 0,  mess)
 END SUBROUTINE get_nsed_early
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns grid-cell width in the x direction.
 ELEMENTAL REAL FUNCTION grid_dx(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 r = DXX(iel)
 END FUNCTION grid_dx
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns grid-cell width in the y direction.
 ELEMENTAL REAL FUNCTION grid_dy(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 r = DYY(iel)
 END FUNCTION grid_dy
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of grid cells in the x direction.
 PURE INTEGER FUNCTION grid_nx() RESULT(r)
 r = nx
 END FUNCTION grid_nx
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of grid cells in the y direction.
 PURE INTEGER FUNCTION grid_ny() RESULT(r)
 r = ny
 END FUNCTION grid_ny
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns intercepted-canopy evaporation converted to millimetres per hour.
 ELEMENTAL REAL FUNCTION int_evap(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = mps_to_mmph*einta(iel)
 END FUNCTION int_evap
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns whether an element is a bank element.
 ELEMENTAL LOGICAL FUNCTION is_bank(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 INTEGER             :: typ
 typ = ETYPE(iel)
 r   = typ==1 .OR. typ==2
 END FUNCTION is_bank
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns whether an element is a river-link element.
 ELEMENTAL LOGICAL FUNCTION is_link(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 INTEGER             :: typ
 typ = ETYPE(iel)
 r   = typ==3
 END FUNCTION is_link
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns whether an element is a grid-square subunit.
 ELEMENTAL LOGICAL FUNCTION is_square(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel
 INTEGER             :: typ
 typ = ETYPE(iel)
 r   = typ==0
 END FUNCTION is_square
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns net rainfall converted to millimetres per hour.
 ELEMENTAL REAL FUNCTION net_rain(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = mps_to_mmph*pnetto(iel)
 END FUNCTION net_rain
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of contaminants available for visualisation.
 PURE INTEGER FUNCTION no_con() RESULT(r)
 r = nnncon
 END FUNCTION no_con
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the total number of SHETRAN elements.
 INTEGER FUNCTION no_el() RESULT(r)
 r = total_no_elements
 END FUNCTION no_el
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of sediment fractions available for visualisation.
 PURE INTEGER FUNCTION no_sed() RESULT(r)
 r = nnnsed
 END FUNCTION no_sed
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns overland flow on an element face.
 ELEMENTAL REAL FUNCTION ovr_flow(iel, face) RESULT(r)
 INTEGER, INTENT(IN) :: iel, face  !element no and face no
 r = qoc(iel,face)
 END FUNCTION ovr_flow
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns phreatic depth below ground surface.
 ELEMENTAL REAL FUNCTION ph_depth(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = zgrund(iel)-zvspsl(iel)
 END FUNCTION ph_depth
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns potential evapotranspiration converted to millimetres per hour.
 ELEMENTAL REAL FUNCTION pot_evap(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = mps_to_mmph*epot(iel)
 END FUNCTION pot_evap
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns soil-water pressure head for an element and cell layer.
 ELEMENTAL REAL FUNCTION psi(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no.
 r = r_not_exist
 r = vspsi(ilay,iel)
 END FUNCTION psi
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the river-link element adjacent to a subunit face, or `i_not_exist`.
 ELEMENTAL INTEGER FUNCTION river_no(su, face) RESULT(r)
 INTEGER, INTENT(IN) :: su, face
 INTEGER             :: adj
@@ -357,7 +368,7 @@ ELSE
     ENDIF
 ENDIF
 END FUNCTION river_no
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the visualisation width assigned to a river link.
 ELEMENTAL REAL FUNCTION river_width(ir) RESULT(r)
 INTEGER, INTENT(IN) :: ir
 IF(EXISTS(ir)) THEN
@@ -366,12 +377,12 @@ ELSE
     r = i_not_exist
 ENDIF
 END FUNCTION river_width
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns sediment discharge for an element face and sediment fraction.
 ELEMENTAL REAL FUNCTION s_dis(iel, face, nsed) RESULT(r)
 INTEGER, INTENT(IN) :: iel, face, nsed  !element, face and sediment group no
 r = rhosed*qsed(iel, nsed,face)
 END FUNCTION s_dis
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns ground-surface elevation for an element.
 ELEMENTAL REAL FUNCTION s_elevation(iel) RESULT(r)
 !surface elavation
 INTEGER, INTENT(IN) :: iel
@@ -381,12 +392,12 @@ ELSE
     r = r_not_exist
 ENDIF
 END FUNCTION s_elevation
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns snowpack depth for an element.
 ELEMENTAL REAL FUNCTION snow_dep(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = sd(iel)
 END FUNCTION snow_dep
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the soil type at an element and cell layer.
 ELEMENTAL INTEGER FUNCTION soil_type(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no. (NB - NOT SOIL LAYER NO)
 INTEGER             :: j
@@ -402,46 +413,46 @@ ELSE
     r = 0
 ENDIF
 END FUNCTION soil_type
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns surface-water depth above ground surface.
 ELEMENTAL REAL FUNCTION srf_dep(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 !r = GEThrf(iel)-zgrund(iel)  !eliminate ELEMENTAL in GETHRF
 r = hrfzz(iel)-zgrund(iel)
 END FUNCTION srf_dep
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns soil-surface evaporation converted to millimetres per hour.
 ELEMENTAL REAL FUNCTION srf_evap(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = mps_to_mmph*esoila(iel)
 END FUNCTION srf_evap
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns total sediment depth converted to millimetres.
 ELEMENTAL REAL FUNCTION s_t_dp(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = m_to_mm*dls(iel)
 END FUNCTION s_t_dp
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns ground-surface erosion rate converted to millimetres per day.
 ELEMENTAL REAL FUNCTION s_v_er(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = mps_to_mmpd*gnu(iel)  !note is mm per day
 END FUNCTION s_v_er
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns volumetric soil-water content for an element and cell layer.
 ELEMENTAL REAL FUNCTION theta(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no, cell layer no.
 r = vsthe(ilay,iel)
 END FUNCTION theta
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the top active SHETRAN cell layer number.
 PURE INTEGER FUNCTION top_cell() RESULT(r)
 r = top_cell_no
 END FUNCTION top_cell
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns transpiration converted to millimetres per hour.
 ELEMENTAL REAL FUNCTION trnsp(iel) RESULT(r)
 INTEGER, INTENT(IN) :: iel  !element no
 r = mps_to_mmph*erza(iel)
 END FUNCTION trnsp
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the integer SHETRAN version number.
 PURE INTEGER FUNCTION version() RESULT(r)
 r = INT(shever)
 END FUNCTION version
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns vertical subsurface flow for an element and cell layer.
 ELEMENTAL REAL FUNCTION v_flow(iel, ilay) RESULT(r)
 INTEGER, INTENT(IN) :: iel, ilay  !element no and layer no
 r = qvsv(ilay, iel)

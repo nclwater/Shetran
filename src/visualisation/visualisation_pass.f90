@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Shared visualisation metadata pass-through state.
+!>
+!> This module stores geometry, element classification, filenames, and output
+!> dimensions passed from SHETRAN into the visualisation layer. The [[send_p]]
+!> routine receives typed values by keyword and updates or allocates the module
+!> state used later by the HDF5/visualisation output routines.
 MODULE visualisation_pass
 IMPLICIT NONE
 
@@ -23,21 +28,27 @@ PUBLIC ::     north,     east,     south,    west, &
 
 CONTAINS
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns whether an integer index refers to an existing item.
 ELEMENTAL LOGICAL FUNCTION exists(i) RESULT(r)
-INTEGER, INTENT(IN) :: i
+INTEGER, INTENT(IN) :: i !! Index or element number to test.
 r = i>0
 END FUNCTION exists
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Stores a named visualisation value or allocates a named visualisation array.
+!>
+!> The caller supplies `text` as the key and provides the matching optional
+!> scalar, logical array, integer array, or character value. This preserves the
+!> legacy pass-through interface between the core model and the visualisation
+!> modules while keeping the state in one module.
 SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
 integer, save :: coun=0
-INTEGER, INTENT(IN)                            :: da, db
-INTEGER,                 INTENT(IN),  OPTIONAL :: ii
-INTEGER, DIMENSION(da,db), INTENT(IN),  OPTIONAL :: d2
-LOGICAL, DIMENSION(da),   INTENT(IN),  OPTIONAL :: L1
-CHARACTER(*),            INTENT(IN)            :: text
-CHARACTER(*),            INTENT(IN), OPTIONAL  :: cc
+INTEGER, INTENT(IN)                            :: da !! First dimension for optional array arguments.
+INTEGER, INTENT(IN)                            :: db !! Second dimension for optional two-dimensional integer arrays.
+INTEGER,                 INTENT(IN),  OPTIONAL :: ii !! Integer scalar value associated with `text`.
+INTEGER, DIMENSION(da,db), INTENT(IN),  OPTIONAL :: d2 !! Integer array value associated with `text`.
+LOGICAL, DIMENSION(da),   INTENT(IN),  OPTIONAL :: L1 !! Logical array value associated with `text`.
+CHARACTER(*),            INTENT(IN)            :: text !! Name of the visualisation state item to set.
+CHARACTER(*),            INTENT(IN), OPTIONAL  :: cc !! Character value associated with `text`.
 coun = coun + 1
 SELECT CASE(text)
 CASE('north')      ; north    = ii

@@ -1,8 +1,19 @@
+!> summary: General numerical, date/time, and input helper routines.
+!> author: JE, Newcastle University; SB, Newcastle University
+!>
+!> `utilsmod` contains shared utility routines used across SHETRAN. These
+!> include vector copying, breakpoint time-series reading, date/hour conversion,
+!> one-dimensional interpolation, tridiagonal linear solves, matrix products,
+!> matrix inversion helpers, integer/real array readers, and a random-number
+!> generator.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2008-12 | JE | 4.3.5F90 | Created during conversion to Fortran 90, replacing utility `.F` files. |
+!> | 2026-03 | SB | 4.6 | Added date error trapping. |
+!> @endhistory
 MODULE utilsmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the utility .F files
-! SB Mar 26  4.6       Error traping for dates
-!
     
 USE SGLOBAL
 USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
@@ -18,12 +29,17 @@ PUBLIC :: TRIDAG, DCOPY, HOUR_FROM_DATE, TERPO1, FINPUT, HINPUT, AREADI, AREADR,
 CONTAINS
 
 
-!SSSSSS subroutine dcopy (n, dx, incx, dy, incy)  
+!> Copies a double-precision vector into another vector.
+!>
+!> This is the BLAS `dcopy` operation implemented locally, including support
+!> for non-unit and negative increments.
 subroutine dcopy (n, dx, incx, dy, incy)  
 !     copies vector x to vector y
-INTEGER, INTENT(IN)                        :: n, incx, incy !size and increments
-DOUBLEPRECISION, DIMENSION(*), INTENT(IN)  :: dx
-DOUBLEPRECISION, DIMENSION(*), INTENT(OUT) :: dy  
+INTEGER, INTENT(IN)                        :: n    !! Number of values to copy.
+INTEGER, INTENT(IN)                        :: incx !! Increment between values in `dx`.
+INTEGER, INTENT(IN)                        :: incy !! Increment between values in `dy`.
+DOUBLEPRECISION, DIMENSION(*), INTENT(IN)  :: dx   !! Source vector.
+DOUBLEPRECISION, DIMENSION(*), INTENT(OUT) :: dy   !! Destination vector.
 INTEGER                                    :: i, ix, iy 
 IF(n<-0) THEN
     RETURN
@@ -43,7 +59,10 @@ ENDIF
 END SUBROUTINE dcopy
 
 
-!SSSSSS SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
+!> Reads breakpoint flux time-series data and averages over a timestep.
+!>
+!> The routine accumulates piecewise-constant flux values over the current
+!> simulation timestep and returns timestep-average values.
 SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  FNEXT, NINP, ARRAY)
 !----------------------------------------------------------------------
@@ -125,7 +144,10 @@ END SUBROUTINE FINPUT
 
 
 
-!SSSSSS SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
+!> Reads breakpoint head time-series data and interpolates to timestep midpoint.
+!>
+!> The routine advances through input records until it can interpolate head data
+!> at the midpoint of the current simulation timestep.
 SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  HLAST, HNEXT, NINP, ARRAY)
 !----------------------------------------------------------------------
@@ -189,17 +211,14 @@ ENDDO
 END SUBROUTINE HINPUT
 
 
-!FFFFFF DOUBLEPRECISION FUNCTION hour_from_date
+!> Converts a calendar date/time to simulation hours since 1950-01-01 00:00.
+!>
+!> Leap years are accounted for. The function checks the round trip through
+!> `DATE_FROM_HOUR` and stops with a diagnostic if the supplied date is invalid.
  FUNCTION hour_from_date(KYEAR, KMTH, KDAY, KHOUR, KMIN)  RESULT(r)
 !----------------------------------------------------------------------*
 !  THIS FUNCTION CALCULATES HOURS SINCE 1.JANUARY YEAR 1950 AT 0 HOUR
 !  LEAP YEARS ARE TAKEN INTO ACCOUNT
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/HOUR/4.2
-! Modifications:
-! RAH  09.12.93  3.4.1  Remove IMPLICIT INTEGER*2 (I-N).
-! RAH  980611  4.2 !Replace 60. with 6D1 to eliminate rounding error.
-!                   Explicit typing.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  KYEAR.ge.1949    KMTH.ge.1    KMTH.le.12
@@ -225,7 +244,7 @@ ENDIF
     !IF (MOD (KYEAR,4) .EQ.0.AND.KMTH.GT.2) mmday = mmday + 1
 END FUNCTION hour_from_date
 
-!FFFFFF FUNCTION days_in_years_since_1950
+!> Returns the number of days in complete years since 1950-01-01.
 FUNCTION days_in_years_since_1950(y) RESULT(r)
 INTEGER, INTENT(IN) :: y
 INTEGER             :: i, r
@@ -236,7 +255,7 @@ ENDDO
 END FUNCTION days_in_years_since_1950
 
 
-!FFFFFF FUNCTION is_leap
+!> Returns whether a year is a leap year in the Gregorian calendar.
 FUNCTION is_leap(y) RESULT(r)
 !A year will be a leap year if it is divisible by 4 but not by 100. 
 !If a year is divisible by 4 and by 100, it is not a leap year unless it is also divisible by 400.
@@ -254,7 +273,7 @@ ENDIF
 END FUNCTION is_leap
 
 
-!FFFFFF FUNCTION days_to_start_month
+!> Returns the day offset to the start of a month in a given year.
 FUNCTION days_to_start_month(m, y) RESULT(r)
 INTEGER, INTENT(IN) :: m, y
 INTEGER, PARAMETER  ::  sd(12)=[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
@@ -267,7 +286,7 @@ r = sd(m)
 IF(IS_LEAP(y).AND. m>2) r = r + 1
 END FUNCTION days_to_start_month
 
-!FFFFFF FUNCTION date_from_hour
+!> Converts simulation hours since 1950-01-01 00:00 to date components.
 FUNCTION date_from_hour(h) RESULT(r)
 INTEGER                     :: r(6) !year, month, day, hour, min, sec
 INTEGER                     :: hours, days, year, month, mthdays, mins, sec
@@ -302,7 +321,7 @@ IF(r(3)==0) THEN
 ENDIF
 END FUNCTION date_from_hour
 
-!FFFFFF FUNCTION jematmul_mm
+!> Multiplies two dense matrices using explicit loops.
 FUNCTION jematmul_mm(b, c, n1, n2, n3) RESULT(a)
 ! A = B * C
 INTEGER, INTENT(IN)          :: n1, n2, n3
@@ -320,7 +339,7 @@ ENDDO
 END FUNCTION jematmul_mm
 
 
-!FFFFFF FUNCTION jematmul_vm
+!> Multiplies a dense matrix by a vector using explicit loops.
 FUNCTION jematmul_vm(b, c, n1, n2)  RESULT(a)
 ! A = B * C
 INTEGER, INTENT(IN)          :: n1, n2
@@ -338,7 +357,10 @@ END FUNCTION jematmul_vm
 
 
 
-!SSSSSS SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)  
+!> Interpolates a one-dimensional time-varying parameter.
+!>
+!> The routine updates one parameter value from a table of relative values and
+!> tabulated times, using the current simulation time in hours.
 SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)  
 !----------------------------------------------------------------------*
 !
@@ -354,12 +376,6 @@ SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)
 !        NPAR  = SIZE OF PARAMETER ARRAY
 !        I     = POSITION IN PARAMETER ARRAY
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/ET/TERPO1/4.1
-! Modifications:
-! RAH  941005 3.4.1 Remove IMPLICIT INTEGER*2.
-! RAH  970516  4.1  Explicit typing.  *TAB asasumed size (were 20).
-!                   Scrap redundant arg ITAB "SIZE OF TABULATED ARRAYS".
 !----------------------------------------------------------------------*
 ! Input arguments
 INTEGER :: NPAR, I  
@@ -394,7 +410,10 @@ END SUBROUTINE TERPO1
 ! 18/8/94
 
 
-!SSSSSS SUBROUTINE TRIDAG (A, B, C, R, U, N)  
+!> Solves a tridiagonal linear system.
+!>
+!> This is the Thomas algorithm for a tridiagonal matrix with lower diagonal
+!> `A`, diagonal `B`, upper diagonal `C`, right-hand side `R`, and solution `U`.
 SUBROUTINE TRIDAG (A, B, C, R, U, N)  
 !                            SOLVES FOR VECTOR U OF LENGTH N
 !                            THE TRIDIAGONAL SET A,B,C WHERE
@@ -421,7 +440,7 @@ END SUBROUTINE TRIDAG
 
 
 
-!SSSSSS SUBROUTINE  invertmat
+!> Inverts a dense matrix in place using LU decomposition.
 SUBROUTINE invertmat(a,n,icod)
 INTEGER, INTENT(IN)                            :: n
 INTEGER, INTENT(OUT)                           :: icod
@@ -459,6 +478,11 @@ ELSE
 ENDIF
 END SUBROUTINE invertmat
 
+!> Solves an LU-decomposed linear system by back substitution.
+!>
+!> `lubksb` applies the row permutation stored in `indx` and overwrites `b` with
+!> the solution vector for the matrix factors produced by [[ludcmp]]. This is
+!> the Numerical Recipes LU back-substitution algorithm used by [[invertmat]].
       SUBROUTINE lubksb(a,n,indx,b)
       INTEGER         :: n, indx(n)
       doubleprecision :: a(n,n), b(n)
@@ -487,6 +511,12 @@ END SUBROUTINE invertmat
 14    continue
       END SUBROUTINE lubksb
       
+!> Performs LU decomposition with partial pivoting.
+!>
+!> `ludcmp` factors `a` in place, records pivot rows in `indx`, returns the
+!> parity factor `d`, and sets `issing` when the matrix is singular or has a
+!> zero scaling row. The factorisation is used by [[invertmat]] before
+!> [[lubksb]] solves each right-hand side.
       SUBROUTINE ludcmp(a,n,indx,d, issing)
       INTEGER              :: n,indx(n)
       doubleprecision      :: d,a(n,n),TINY
@@ -551,17 +581,17 @@ END SUBROUTINE invertmat
       END SUBROUTINE ludcmp
       
       !SSSSSS SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
+!> Reads and optionally echoes an integer grid/element array.
+!>
+!> `AREADI` implements the legacy `KON` control modes for integer AL input:
+!> read a grid and convert it to element order, convert an existing element
+!> array back to a grid, or read and print a grid without conversion. The
+!> resulting integer element array is returned in `IAOUT`.
 SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
 !----------------------------------------------------------------------*
 !
 !      SERVICE SUBROUTINE TO READ AND PRINT AN INTEGER ARRAY
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/AREADI/4.1
-! Modifications:
-! RAH  940928 3.4.1 Add IMPLICIT (was in AL.P).
-! GP  24/7/95  4.0  Initialize IAOUT (if KON = 0 or 1).
-! RAH  970804  4.1  Explicit typing (note TITLE was implicit double).
 !----------------------------------------------------------------------*
 !
 !    PARAMETER LIST :
@@ -726,17 +756,17 @@ END SUBROUTINE AREADI
 
 
 !SSSSSS SUBROUTINE AREADR (AOUT, KON, INF, IOF)  
+!> Reads and optionally echoes a double-precision grid/element array.
+!>
+!> `AREADR` mirrors [[AREADI]] for floating-point input. Depending on `KON`, it
+!> reads grid values and converts them to SHETRAN element order, converts an
+!> existing element array for reporting, or reads and prints a grid directly.
 SUBROUTINE AREADR (AOUT, KON, INF, IOF)  
 !----------------------------------------------------------------------*
 !
 !      SERVICE SUBROUTINE TO READ AND PRINT A DOUBLEPRECISION,TWO-DIMENSIONAL ARRAY
 !      (IN DOUBLEPRECISION)
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/AREADR/4.1
-! Modifications:
-! RAH  940928 3.4.1 Add IMPLICIT (was in AL.P).
-! RAH  970804  4.1  Explicit typing (note TITLE was implicit double).
 !----------------------------------------------------------------------*
 !
 !     PARAMETER LIST :
@@ -879,6 +909,11 @@ END SUBROUTINE AREADR
 
 
 !FFFFFF FUNCTION ran2
+!> Returns a pseudo-random number from the legacy `ran2` generator.
+!>
+!> The generator updates `idum` in place and returns a uniform variate in
+!> `(0,1)`. This is the combined multiplicative generator used in legacy
+!> Numerical Recipes code, retained for reproducibility of existing workflows.
  FUNCTION ran2(idum)
  INTEGER, PARAMETER     :: IM1=2147483563,IM2=2147483399,IMM1=IM1-1, &
                            IA1=40014,IA2=40692,IQ1=53668,IQ2=52774,IR1=12211,IR2=3791, &

@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Right-hand visualisation data recorder.
+!>
+!> This module coordinates visualisation output at run time. It sends static
+!> geometry and file metadata to the far-right/output modules, registers
+!> available variables, allocates new time slices when output is due, fills the
+!> requested data from the central SHETRAN accessor layer, and asks the HDF5
+!> writer to persist each item.
 MODULE visualisation_interface_right
 
 USE ISO_C_BINDING, ONLY: C_PTR
@@ -32,7 +38,10 @@ PUBLIC :: RECORD_VISUALISATION_DATA, north_order
 CONTAINS
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Records visualisation data for the current simulation time.
+!>
+!> The first calls initialise metadata and static output; later calls populate
+!> each scheduled dynamic item whose recording interval includes `time`.
 SUBROUTINE record_visualisation_data(time, text)
 INTEGER                                  :: i, j, jj, k, mn, nn, su, ilow, ihigh, jlow, jhigh, klow, khigh, sz, ext, nsed, ncon, n
 TYPE(C_PTR)                              :: first, latest
@@ -127,7 +136,7 @@ IF(PRESENT(text)) THEN
 ENDIF
 END SUBROUTINE record_visualisation_data
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Dispatches a visualisation item to the appropriate filler for its data type.
 SUBROUTINE fill_select(name, typ, a, b, bb, su, klow, khigh, silay, ee, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -146,7 +155,7 @@ END SELECT
 END SUBROUTINE fill_select
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills real-valued bank data for an output item.
 SUBROUTINE fill_b(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -165,7 +174,7 @@ ENDDO
 END SUBROUTINE fill_b
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills integer-valued bank data for an output item.
 SUBROUTINE fill_e(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -183,7 +192,7 @@ DO d=1,4
 ENDDO
 END SUBROUTINE fill_e
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills integer-valued river-link data for an output item.
 SUBROUTINE fill_f(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -201,7 +210,7 @@ DO d=1,4
 ENDDO
 END SUBROUTINE fill_f
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills compound real data for a subunit and its adjacent banks and rivers.
 SUBROUTINE  fill_g(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -230,7 +239,7 @@ DO d=1,4
 ENDDO
 END SUBROUTINE fill_g
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills integer-valued grid-square data for an output item.
 SUBROUTINE  fill_i(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -243,7 +252,7 @@ DO e=1,SIZE(ee)
 ENDDO
 END SUBROUTINE fill_i
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills real-valued river-link data for an output item.
 SUBROUTINE fill_L(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -261,7 +270,7 @@ DO d=1,4
 ENDDO
 END SUBROUTINE fill_L
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills real-valued grid-square data for an output item.
 SUBROUTINE  fill_m(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -274,7 +283,7 @@ DO e=1,SIZE(ee)
 ENDDO
 END SUBROUTINE fill_m
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Fills compound integer data for a subunit and its adjacent banks and rivers.
 SUBROUTINE  fill_n(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
 INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
 TYPE(C_PTR), INTENT(IN)           :: latest
@@ -303,7 +312,7 @@ DO d=1,4
 ENDDO
 END SUBROUTINE fill_n
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Sends setup metadata and geometry arrays to the far-right visualisation layer.
 SUBROUTINE send_pass(jj)
 INTEGER                              :: i, j, nx, ny, total_no_elements
 INTEGER, INTENT(IN)                  :: jj
@@ -354,13 +363,13 @@ CASE(2)
 END SELECT
 END SUBROUTINE send_pass
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the subunit number at HDF5 visualisation grid coordinates.
 ELEMENTAL INTEGER FUNCTION su_number(i,j) RESULT(r)
 INTEGER, INTENT(IN) :: i,j  !HDF5 indices
 r = ELEMENT(i,SHETRAN_J(j))  !SHETRAN grid is upside down
 END FUNCTION su_number
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Converts an HDF5/SHEGRAPH y-index to the SHETRAN y-index.
 ELEMENTAL INTEGER FUNCTION shetran_j(sgv2j) RESULT(r) !grid y coordinate
 INTEGER, INTENT(IN) :: sgv2j
 r = GRID_NY() - sgv2j + 1

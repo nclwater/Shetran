@@ -1,8 +1,36 @@
+!> summary: Overland/channel hydraulic flux helper routines.
+!>
+!> This module contains the hydraulic calculation kernels used by the
+!> overland/channel flow component. It stores water-surface elevation and
+!> face-discharge arrays behind small accessor routines, builds channel
+!> conveyance lookup tables, evaluates grid-grid, link-link, grid-link,
+!> bank-link, boundary, confluence, and weir exchange flows, and applies final
+!> flow/depth corrections after a timestep.
+!>
+!> Most open-channel and overland exchange routines use a conveyance relation of
+!> the Gauckler-Manning-Strickler form, with Strickler roughness and a `h**(2/3)`
+!> hydraulic-depth factor. The HEC-HMS channel-flow documentation gives the
+!> same class of empirical resistance formulation:
+!> https://www.hec.usace.army.mil/confluence/hmsdocs/hmstrm/channel-flow/channel-flow-basic-concepts-equations-and-solution-techniques.
+!> Weir routines use horizontal-crest weir equations with drowned and undrowned
+!> branches; for context on submerged weir behaviour see the HEC-RAS hydraulic
+!> reference:
+!> https://www.hec.usace.army.mil/confluence/rasdocs/ras1dtechref/6.5/modeling-gated-spillways-weirs-and-drop-structures/uncontrolled-overflow-weirs/submerged-weir-flow.
+!>
+!> Reservoir/channel links may instead obtain discharge from [[zqmod]] rating
+!> tables through `get_ZQTable_value`, so those cases are tabulated
+!> stage-discharge lookups rather than direct conveyance or weir formulae.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-1998 | GP/RAH | 3.4.1-4.2 | Reworked OC hydraulic routines, boundary types, confluences, weir handling, and derivative outputs. |
+!> | 1999-02 | SB | 4.27 | Adjusted confluence mass conservation and small adverse-flow correction behaviour. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted part of the OC `.F` files into this Fortran 90 helper module. |
+!> | 2020-05 | SB | - | Added ZQ-table reservoir/channel link support. |
 MODULE OCmod2
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces part of the OC.F files
 USE SGLOBAL
-!!***ZQ Module 200520 
 USE ZQmod,     ONLY : get_ZQTable_value
 USE AL_D,      ONLY : ZQweirsill,ZQTableRef
 IMPLICIT NONE
@@ -25,13 +53,13 @@ PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, GETQSA_ALL, CONVEYAN, OCQBC, OCQMLN, O
           hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
 CONTAINS
 
-!FFFFFF DOUBLEPRECISION FUNCTION gethrf
+!> Returns the stored water-surface elevation for an element.
 DOUBLEPRECISION FUNCTION gethrf(i)
 INTEGER, INTENT(IN) :: i
 gethrf = hrfzz(i)
 END FUNCTION gethrf
 
-!SSSSSS SUBROUTINE sethrf
+!> Stores the water-surface elevation for an element.
 SUBROUTINE sethrf(i,v)
 INTEGER, INTENT(IN)         :: i
 DOUBLEPRECISION, INTENT(IN) :: v
@@ -39,13 +67,13 @@ hrfzz(i) = v
 END SUBROUTINE sethrf
 
 
-!FFFFFFR DOUBLEPRECISION FUNCTION getqsa
+!> Returns the stored face discharge for an element and face.
 DOUBLEPRECISION FUNCTION getqsa(i,j)
 INTEGER, INTENT(IN) :: i, j
 getqsa = qsazz(i,j)
 END FUNCTION getqsa
 
-!SSSSSS SUBROUTINE setQSA
+!> Stores the face discharge for an element and face.
 SUBROUTINE setqsa(i,j, v)
 INTEGER, INTENT(IN)         :: i, j
 DOUBLEPRECISION, INTENT(IN) :: v
@@ -53,14 +81,14 @@ qsazz(i,j) = v
 END SUBROUTINE setqsa
 
 
-!FFFFFFR DOUBLEPRECISION FUNCTION getqsa_all
+!> Returns the stored face-discharge array for the first `n` elements.
 FUNCTION getqsa_all(n)
 INTEGER, INTENT(IN)             :: n
 DOUBLEPRECISION, DIMENSION(n,4) :: getqsa_all
 getqsa_all = qsazz(1:n,:)
 END FUNCTION getqsa_all
 
-!SSSSSS SUBROUTINE initialise_ocmod
+!> Allocates channel cross-section conveyance lookup tables.
 SUBROUTINE initialise_ocmod()
 !print*,nxscee,total_no_links
 ALLOCATE(xstab(3,nxscee,total_no_links))
@@ -69,27 +97,15 @@ END SUBROUTINE initialise_ocmod
 
 
 
-!SSSSSS SUBROUTINE OCNODE
+!> Solves a multi-link confluence so branch flows sum to zero.
+!>
+!> `OCNODE` finds the junction water level by bracketing and false-position
+!> iteration, using [[fnode]] to evaluate the net flow leaving the node. After
+!> convergence, the largest branch flow is adjusted by the small residual to
+!> enforce local mass conservation at the confluence.
 SUBROUTINE OCNODE (iela, ZI, CI, DI, ROOTLI, QJ)  
 !----------------------------------------------------------------------*
 ! CALCULATES FLOWS OUT OF NODE AS FUNCTION OF ADJACENT WATER ELEVATIONS
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCNODE/4.27
-! Modifications:
-!  GP          3.4  Call ERROR & terminate iterations if nc.eq.50.
-!                   Add argument ZNODE (see OCQMLN).
-! RAH  980212  4.2  Supply missing PRI,FATAL,WARN, to pass to ERROR;
-!                   also remove argument ZNODE (see OCQMLN).
-!                   Explicit typing.  Locals: scrap TESTZ; add TEST.
-!                   Generic intrinsics.  Description: OUT OF, not INTO.
-!                   RETURN immediately if FA=0 (don't overwrite QJ).
-!                   Test NC BEFORE updating A or B.
-!                   Set QJ at absent branches (was in OCQMLN).
-!      980220       Add argument IEL to pass to ERROR (see OCQMLN).
-!      980318       Add argument DI to pass to FNODE (see OCQMLN).
-! SB   990204 4.27  Problem with conserving mass at junctions
-!                   Adjust QJ so the largest absolute value at a
-!                   junction is modified so that the asum = 0
 !----------------------------------------------------------------------*
 
 INTEGER, INTENT(IN)         :: IELa  
@@ -174,20 +190,15 @@ DO nc=1,50
 ENDIF
 END SUBROUTINE OCNODE
 
-!SSSSSS SUBROUTINE FNODE
+!> Evaluates net flow leaving a confluence for a trial node elevation.
+!>
+!> The branch relation is `Q = sign(dz) * C * sqrt(abs(dz)) / sqrt(length)`,
+!> with `C` updated linearly from the branch conveyance derivative for positive
+!> head differences.
 SUBROUTINE FNODE (ZNODE, DI, CI, ZI, ROOTLI, QJ, resfnode)  
 !----------------------------------------------------------------------*
 ! CALCULATES THE FUNCTION FNODE(ZNODE) = sum OF FLOWS OUT OF A NODE
 ! NB. ROOTLI IS USED AS A FLAG FOR NON-EXISTENT LINKS
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/FNODE/4.2
-! Modifications:
-! RAH  980211  4.2  Explicit typing.
-!                   Generic intrinsics.  Replace ci2 array with CMAX.
-!                   Integer DELTA.  New locals CJ,DJ,Q,Qasum.
-!      980212       Scrap local array CI3.  Extend IF block in loop 100.
-!      980318       Set downstream CJ using ZNODE (had (CI(J)+CMAX)/2);
-!                   add argument DI (see OCNODE).
 !----------------------------------------------------------------------*
 DOUBLEPRECISION, INTENT(IN) ::  ZNODE, DI (0:3), CI (0:3), ZI (0:3), ROOTLI (0:3)  
 DOUBLEPRECISION, INTENT(OUT) ::  QJ (0:3), resfnode 
@@ -211,22 +222,15 @@ ENDDO
 resfnode = Qasum  
 END SUBROUTINE FNODE
 
-!SSSSSS SUBROUTINE OCCODE
+!> Calculates channel-link conveyance and derivative at a water elevation.
+!>
+!> Below bank-full the routine interpolates precomputed cross-section tables.
+!> Above the table range it extends the cross-sectional area with top width and
+!> evaluates the Gauckler-Manning-Strickler-style conveyance through
+!> [[conveyan]].
 SUBROUTINE OCCODE(ZG, STR, afromCWIDTH, afromXAFULL, afromXStypes, Z, CONV, DERIV)
 !----------------------------------------------------------------------*
 !  CALCULATE CONVEYANCE AND DERIVATIVE FOR A CHANNEL LINK.
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCODE/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980423  4.2  Explicit typing.  Argument ZG before Z.
-!                   New input args STR (was local), XAFULL, XS replace
-!                   IEL & common STRX, XAREA/NXSECT, XSECT/XCONV/XDERIV.
-!                   Move NXSCEE, CWIDTH from SPEC.OC/AL to arg-list.
-!                   (See callers OCQBC, OCQLNK, OCQMLN.)
-!                   Replace: Z-ZBFULL(IEL) with H-XS(1,NXSCEE); GOTO
-!                   with IF; search for I (DO-loop) with direct calc.
-!                   Rearrange expressions for CONV,DERIV (I.ge.NXSCEE).
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  Z.ge.ZG    [STR,CWIDTH,XAFULL,XS(1,NXSCEE)].gt.0    NXSCEE.ge.1
@@ -259,38 +263,17 @@ ELSE
 ENDIF  
 END SUBROUTINE OCCODE
 
-!SSSSSS SUBROUTINE OCQBC
 !SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, afromXSTAB, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
+!> Calculates flow and derivative at an external overland/channel boundary.
+!>
+!> Boundary types include prescribed head, prescribed flow, normal/resistance
+!> flow, and weir control. The routine returns both the boundary flux and its
+!> derivative with respect to the local water level for the OC Newton system.
 SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, link, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
 !----------------------------------------------------------------------*
 !
 !  CALCULATE FLOW AND DERIVATIVE AT AN EXTERNAL BOUNDARY
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCQBC/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980225  4.2  Replace INCLUDEs with arguments (see OCQDQ);
-!                   also scrap INDEX,NCODE and redundant DDDZ,
-!                   and reduce COCBCD dimension by 1 (see SPEC.OC).
-!                   Explicit typing.  Merge types 10 & 4.
-!                   Set DQ* to zero if not defined.  Generic intrinsics.
-!                   Rewrite polynomial expressions without ^^.
-!                   Merge type 8 into 7.or.8, and scrap HU.
-!      980226       Array COEFF, & don't initialize Q,DQU/L (see QWEIR).
-!                   Use AH for A*H.
-!                   Define PARAMETER RDZMIN.  Zero outputs by default.
-!      980409       Arguments (see OCQDQ): scrap output DQI; add inputs
-!                   W,STR,HOCNOW & re-order.  Rename CONV,DERIV,DHF,ZG,
-!                   ZU,DQ0,ZL CONVM,DERIVM,LI,ZGI,ZI,DQ,ZX.
-!                 ! Add NTYPE 3/9 (prescribed head).  4th root RDZMIN.
-!                 ! Fix error in sign of Q,DQ for MTYPE=5 & NTYPE=8.
-!                 ! Use CONVMM in DUM; & use ROOTDZ in 1st DQ term.
-!      980416       Allow ZI.lt.ZX in call to QWEIR.
-!      980427       Input arguments (see OCQDQ): remove IEL,IFACE;
-!                   add NXSCEE,XAFULL,XSTAB.  OCCODE args: remove IEL;
-!                   add NXSCEE,STR,W,XAFULL,XSTAB; move ZI.
-!      980730       Protect against 0^^F23.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NXSCEE.ge.2    LI.gt.0    if {7.le.NTYPE.le.8} COCBCD(1:2).ge.0
@@ -391,41 +374,15 @@ ENDIF
 END SUBROUTINE OCQBC
 
 
-!SSSSSS SUBROUTINE OCQBNK
+!> Calculates exchange flow and derivatives between a channel link and a bank element.
+!>
+!> Depending on bank-full and ground elevations, the exchange is represented by
+!> a resistance relation or by weir-like overflow across the bank crest.
 SUBROUTINE OCQBNK (W, LI, ZBG, STR, ZI, Q, DQ)  
 !----------------------------------------------------------------------*
 !
 !  CALCULATE FLOW AND DERIVATIVES AT A BANK OF A CHANNEL LINK
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCQBNK/4.2
-! Modifications:
-!  GP  Jun 92  3.4  Fix error: zero DQU/L not DQ0/I in "NO-FLOW CASE".
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980406  4.2  Remove local ALPHA: code implicit value 1.
-!                   New input args CLEN,DHH,ZBG,STR,ZI replace old
-!                   INCLUDEs+locals CLENTH/CLEN,DHF/DHH,ZBFULL/ZGRUND,
-!                   STRX/Y,HRF/Z0/ZI & old input args I/JEL,I/JFACE;
-!                   also replace output vars Q,DQ0,DQI with arrays Q,DQ
-!                   (see OCQDQ).  Alphanumeric names.
-!                   Scrap redundant output DDDZ.  Generic intrinsics.
-!                   Replace local DEBIT(*ROOTL) with new local STRW.
-!                   Explicit typing.  Define local constants.
-!                   Resistance: merge cases overflow & not, & introduce
-!                   locals CONVM,DERIVM,DUM; case no overflow - don't
-!                 ! zero DUM contribution to DQ(LO,HI), & replace DZL
-!                 ! limit 0 with -DZMIN; case overflow - scrap special
-!                 ! case DZ.lt.1D-3.  Replace 1D-6 with RDZMIN(=1D-1.5).
-!                   Bring ROOT2G from OCINI/SPEC.OC.  Amend comments.
-!                 ! Replace weir code with call to QWEIR; this fixes
-!                   errors in DQ(LO,LO) drowned, & Q(LO) undrowned - see
-!                   BR/__.  Eliminate locals HI,H0,HL,HU,ZA,ZC, and use
-!                   new locals HI,LO instead of block-IFs.
-!      980408       To conform with OCQGRD: rename CLEN W, replace arg
-!                   DHH - now local - with LI, array STR, local SIG,
-!                   reorder statments.  Eliminate locals ROOTDM,ZU,ZL.
-!                 ! Use H23MIN in DERIVM, CONVMM in DUM.  New local DZL.
-!      980730       Protect against 0^^F23.
 !----------------------------------------------------------------------*
 ! Entry requirements:    W.ge.0    LI(0)+LI(1).gt.0
 !----------------------------------------------------------------------*
@@ -494,33 +451,16 @@ DQ (HI, HI) = - DQ (LO, HI)
 DQ (HI, LO) = - DQ (LO, LO)  
 END SUBROUTINE OCQBNK
 
-!SSSSSS SUBROUTINE OCQGRD  
+!> Calculates overland flow and derivatives between two land elements.
+!>
+!> The routine applies no-flow handling for impermeable boundaries and otherwise
+!> uses the local water-surface gradient, effective width, flow length, and
+!> Strickler roughness to compute paired conservative face fluxes.
 SUBROUTINE OCQGRD (NTYPE, LI, ZGI, STR, W, ZI, Q, DQ)  
 !----------------------------------------------------------------------*
 !
 !  CALCULATE FLOW AND DERIVATIVES BETWEEN TWO LAND ELEMENTS
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCQGRD/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980331  4.2  Scrap local ALPHA - use implicit value 1 (upstream).
-!                   New input args W,LI,ZGI,STR,ZI replace old args
-!                   I/JEL,I/JFACE + common DX/YQQ,DHF,ZGRUND,STRX/Y,HRF,
-!                   making use of new locals SIG,HI,LO; scrap redundant
-!                   arg INDEX & output arg DDDZ; replace output vars
-!                   Q,DQ0,DQI with arrays Q,DQ.  (See caller OCQDQ.)
-!                   Locals: scrap Z0,ZI,H0,HI,ROOTDM,HM_53,STRI/J,DEBIT;
-!                   rename HM_23 HM23; W,STR now args (see above); add
-!                   SIG,HI,LO,STRM,CONVM/M,DERIVM,DUM.  Explicit typing.
-!                   Don't INCLUDE SPEC.AL/OC.  Generic intrinsics.
-!                  !Replace 1D-6 with RDZMIN=SQRT(1D-3) (ie 1D-1.5).
-!                  !Scrap block-IF (DZ.LT.0.001) (had DZ/ROOTDM in Q,
-!                  !with DQ=Q/DZ).  Use MAX in DERIVM.
-!                  !Replace CONVM with CONVMM in DUM.
-!      980427       Reorder args (see OCQDQ).
-!                   Replace local STRM with STRW=STRM*W.
-!      980730       Protect against 0^^F23.
 !----------------------------------------------------------------------*
 ! Entry requirements:                     W.gt.0
 !  for i in 0:1    ZI(i).ge.ZGI(i)    LI(i).gt.0    STR(i).ge.0
@@ -592,35 +532,16 @@ DQ (HI, LO) = - DQ (LO, LO)
 END SUBROUTINE OCQGRD
 
 
-!SSSSSS SUBROUTINE OCQLNK
+!> Calculates flow and derivatives between two channel links.
+!>
+!> Link-link exchange can be controlled by an internal weir, by a ZQ
+!> stage-discharge table, or by channel conveyance of the upstream link. The
+!> returned `Q` and `DQ` arrays are antisymmetric for the two connected links.
 SUBROUTINE OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, jXSwork, afromCOCBCD, ZI, Q, DQ)
 !----------------------------------------------------------------------*
 !
 !  CALCULATE FLOW AND DERIVATIVES BETWEEN TWO CHANNEL LINKS
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCQLNK/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980225  4.2  Swap COCBCD subscripts (see SPEC.OC).
-!      980226       Array COEFF (see QWEIR).
-!      980403       Remove local ALPHA: code implicit value 1.
-!                   New input args LI,ZGI,COCBCD,ZI replace old args +
-!                   INCLUDEs DHF/IFACE/JFACE,ZGRUND,COCBCD/INDEX,HRF;
-!                   also replace output vars Q,DQ0,DQI with arrays Q,DQ
-!                   (see OCQDQ).  New locals DUM,DZ,SIG.
-!                 ! Replace ROOTDM with ROOTDZ in DQ(LO,HI).
-!                   Scrap redundant output DDDZ and locals CONVL,DERIVL,
-!                   H0,HI,HU,HL,Z0,ZI.  Eliminate locals CONV0/I/U,
-!                   DERIV0/I,ROOTDM, & replace DERIVU with DERIVM.
-!                   Call OCCODE once not twice.  Generic intrinsics.
-!                 ! Replace 1D-6 with RDZMIN(=1D-1.5).
-!                   Skip conveyance calcs if NTYPE=7.  New locals
-!                   HI,LO,UEL instead of ZU,ZL,DQU,DQL + block-IFs.
-!                 ! Replace CONVM with new local CONVMM in DUM.
-!      980424       Input arguments: remove IEL,JEL; move NTYPE; add
-!                   NXSCEE,STR,CW,XA,XS (see OCQDQ).
-!                   OCCODE args: scrap UEL; add new args above; move ZI.
 !----------------------------------------------------------------------*
 ! Input arguments
 INTEGER, INTENT(IN)          :: NTYPE  
@@ -633,7 +554,7 @@ INTEGER                      :: HI, LO
 DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ  
 DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, SUBRIO, ZSILL  
 DOUBLEPRECISION              :: COEFF (2), rdum
-!!***ZQ Module 200520 
+! ZQ Module 200520
 DOUBLEPRECISION              :: dzu
 DOUBLEPRECISION              :: weirsill
 !----------------------------------------------------------------------*
@@ -656,7 +577,7 @@ IF (NTYPE.EQ.7) THEN
    COEFF (2) = COEFF (1)  
    CALL QWEIR(ZI(HI), ZSILL, ZI(LO), COEFF, SUBRIO, Q(LO), DQ(LO,HI), rdum) !AD ailising
     DQ(LO,LO)=rdum
-!!***ZQ Module 200520 
+! ZQ Module 200520
 ELSEIF (NTYPE.EQ.12) THEN
     !print*,ZQTableRef,zi(hi)
     Q(LO)     = get_ZQTable_value(ZQTableRef,ZI(HI))
@@ -665,7 +586,7 @@ ELSEIF (NTYPE.EQ.12) THEN
     DQ(LO,HI) = 50.0*1.5*sqrt(dzu)                            ! This works for Crummock. Stability during step changes should be tested e.g. for a small area reservoir
     DQ(LO,LO) = 0
     !write(779,*) zi(hi),Q(lo),dq(lo,hi)
-!!***ZQ Module 200520 end
+! ZQ Module 200520 end
 ELSE
     !
     ! Set up local variables - part 2
@@ -694,39 +615,16 @@ END SUBROUTINE OCQLNK
 
 
 
-!SSSSSS SUBROUTINE OCQMLN
+!> Calculates confluence flows and derivatives for a multi-link junction.
+!>
+!> For each active branch the routine evaluates conveyance and derivative,
+!> solves the junction balance with [[ocnode]], and perturbs branch levels to
+!> populate the derivative matrix used by the OC flow solver.
 SUBROUTINE OCQMLN(ielb, JEL2, LI, ZGI, STR, CW, XA,  ZI, QJ, DQIJ, JXSwork)
 !----------------------------------------------------------------------*
 !
 ! CALCULATE FLOW AND DERIVATIVES BETWEEN MULTIPLE CHANNEL LINKS
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCQMLN/4.2
-! Modifications:
-!  GP  Jul 93  3.4  Add argument ZNODE to OCNODE, & use to set ZOCMLN.
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980212  4.2  Bring WLMIN from SPEC.OC & set here (was in OCINI).
-!                   Remove argument ZNODE from OCNODE, & scrap ZOCMLN.
-!                   Explicit typing.  Remove unnecessary initialization.
-!                   Don't initialize QJ,QDUM1,QDUM2 (see OCNODE).
-!                   Locals: scrap C,H,Z,ZG; add JELJ.
-!                   Generic intrinsics.  Merge loop 200 with 100.
-!                   Recalculate CI,QDUM1 (for DQIJ) only if necessary.
-!      980220       OCNODE arguments: add PRI,IEL.
-!      980224       Arguments (see OCQDQ): scrap output array DDDZ2;
-!                   add PRI (from SPEC.AL), ZGI,ZI (were local), and LI
-!                   (replaces DHF from SPEC.AL); replace input variables
-!                   IFACE,JEL with arrays JEL2,JFACE2 (were local);
-!                   scrap output variable FIRST (& locals I/JROW,I/JND).
-!                   Don't set CI at null branches.  No INCLUDEs.
-!      980225       Remove redundant input JFACE2 (see OCQDQ).
-!                   Don't alter ZI: use local ZJ.
-!      980318       Get DI (new local) from OCCODE & pass it to OCNODE.
-!      980424       Add arguments NXSCEE,STR,CW,XA,XS (see OCQDQ).
-!                   OCCODE input args: scrap JELJ; add new args above;
-!                   move ZI.  Add constant ONEPC for MAX.
-!                 ! Scrap recalculation of CI for WDEPTH.lt.WLMIN.
-!                 ! Scrap treatment (QJ=0) for case single wet branch.
 !----------------------------------------------------------------------*
 ! Let active_j={j in 0:3|JEL2(j).gt.0}
 ! Entry requirements:
@@ -799,7 +697,11 @@ DO J = 0, 3
 ENDDO  
 END SUBROUTINE OCQMLN
 
-!SSSSSS SUBROUTINE conveyan
+!> Evaluates conveyance and derivative for OC resistance-flow formulae.
+!>
+!> `ty=0` and `ty=1` handle area-based and depth-width forms with a near-zero
+!> smooth polynomial branch for AD stability. `ty=2` handles channel
+!> cross-section extension above the tabulated range.
 SUBROUTINE conveyan(str, h, conv, deriv, ty, xa, extra)
 !to bring this all to one place (its messy!)
 INTEGER, INTENT(IN)         :: ty
@@ -857,7 +759,12 @@ ENDIF
 !ELSE
 END SUBROUTINE conveyan
 
-!SSSSSS SUBROUTINE QWEIR 
+!> Calculates horizontal-crest weir flow and derivatives.
+!>
+!> The routine switches between no-flow, drowned, and undrowned conditions using
+!> upstream level, sill elevation, downstream level, coefficients, and the
+!> submergence ratio. Derivatives are returned for the upstream and downstream
+!> levels.
 SUBROUTINE QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, Q, DQU, DQL)  
 !----------------------------------------------------------------------*
 !
@@ -871,17 +778,6 @@ SUBROUTINE QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, Q, DQU, DQL)
 !                      1=DROWNED, 2=UNDROWNED
 !           SUBRIO   - SUBMERGENCE RATIO
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/QWEIR/4.2
-! Modifications:
-! RAH  980226  4.2  Make COEFF an array, size 2 (was simple variable)
-!                   (also in callers OCQBC,OCQLNK).  Explicit typing.
-!                   Zero outputs if no flow.  Generic intrinsics.
-!                  !Add missing term CR to DQL (drowned).
-!                   Locals: add DZU,DZL,RDZMIN,CR; scrap ROOTDM.
-!      980730      !Use MAX to ensure DQU.gt.0 (except "no flow" case).
-!                  !New locals DZMIN,DML.  SQRT(DZMIN) was 1D-6.
-!                  !Subtract DZMIN from ZSILL in "no flow" criterion.
 !----------------------------------------------------------------------*
 ! Entry requirements:    [SUBRIO,COEFF(1:2)].ge.0    ZU.ge.ZL
 ! Exit conditions:                   [Q,DQU].ge.0
@@ -916,7 +812,11 @@ ELSE
 ENDIF  
 END SUBROUTINE QWEIR
 
-!SSSSSS SUBROUTINE OCFIX
+!> Applies final OC flow and depth consistency corrections after a timestep.
+!>
+!> `OCFIX` reduces small inconsistent flows, prevents flow against a
+!> non-negative water-surface gradient, and adjusts elevations conservatively
+!> where water depths fall below configured thresholds.
 SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
 !----------------------------------------------------------------------*
 !
@@ -930,31 +830,6 @@ SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GG
 !  Treatment comprises a reduction of existing flow rates, with
 !  corresponding (ie conservative) adjustments to surface elevations.
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCFIX/4.27
-! Modifications:
-! RAH  08.10.94  Version 3.4.1. Created 03.10.94 from part of OCSIM.
-!                  !Repeat IEL loop up to NPASS times.  UHCRIT was 0.
-!                  !HRF adjustment (corresponding to flow correction)
-!                   had "*DTOC" missing.
-!                  !Adjust confluence flows too (were disregarded).
-! RAH  980115  4.2  Add !INTRINSIC.
-!      980617      !Treat cases i & ii (above) for discharges only.
-!                  !Replace "positive" with "non-negative" in case i.
-!                  !New test criteria at confluences (were unreliable).
-!                  !Less severe flow adjustments (were just set to 0).
-!      980618       Give details, in MSG, of any mass created or lost.
-!      980623      !Merge flow & depth loops, with depth as priority.
-!      980624      !Make depth adjustments conservative.
-!                  !Scrap locals KEL,KFACE (KEL wasn't set when JEL=0).
-!                   Swap sign of HERROR; use in ERROR call criteria.
-!      980625      !Adjust HRF(IEL) once only: use ZE in the interim.
-!      980729      !NPASS 50 was 4; also introduce new error 1060.
-!                   Replace statement function FNDXY with array DXY.
-! SB   990204 4.27  Problem with small flows from a lower to a higher
-!                   element. Modify DQE0
-! SB   990208 4.27  Problem with small flows from a lower to a higher
-!                   element. Add AOK = FALSE in final depth adjustment
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NEL.ge.1    NELEE.ge.NEL         DTOC.gt.0

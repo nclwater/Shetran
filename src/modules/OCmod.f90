@@ -1,9 +1,27 @@
+!> summary: Overland and channel flow routing.
+!>
+!> This module implements the SHETRAN overland/channel flow (OC) component. It
+!> reads OC input, builds channel link geometry and boundary-condition tables,
+!> computes channel cross-section lookup tables, sets up row-wise indexing for
+!> the implicit solver, and advances free-surface elevations and inter-element
+!> flows during the simulation.
+!>
+!> The timestep solve is a row-swept implicit finite-difference system. Each
+!> active row is assembled as a block tridiagonal coupling to the previous,
+!> current, and next rows, inverted row by row, and then back-substituted in a
+!> downward sweep. Channel conveyance is derived from the OC input-file
+!> width/depth cross-section tables and Strickler roughness coefficients through
+!> [[ocmod2:conveyan]]. Boundary categories, channel geometry, and roughness
+!> controls correspond to the manual's Overland/Channel Module section.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
+!> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
+!> | 2026-03 | SB | 4.6 | Moved large OC solver, water-surface, discharge, and index work arrays to allocatable storage. |
 MODULE OCmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces part of the OC .F files
-!  SB   Mar 26  4.6     Make following arrays allocatable: AA, DD, FF, BB, GG, CC, EE, TM1, TM, TV1,TV2
-!                       inhrf, GGGETHRF, inqsa, GGGETQSA, ijedum, ijedum2
-!    
 USE SGLOBAL
 USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
                      DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
@@ -17,48 +35,8 @@ USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFI
                       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
 USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
  !                     firstocqdq
-!FROM SPEC_OC
-!-------------------------- Start of SPEC.OC --------------------------*, 
-!
-! ^^^ COMMON FILE OF SPECIFICATIONS OF OC COMPONENT VARIABLES.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/SPEC.OC/4.2
-! Modifications:
-!   GP        FEB 89    2.0   'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!   GP        AUG 89    2.1     ADD LOGICAL BIOWAT
-!   GP        NOV 89    2.2     ADD VARIABLES FOR NEW IMPLICIT OC
-!   GP        APR 91    3.0     SHETRAN REWRITE
-!                               + INCLUDING IMPLICIT SCHEME AND BANKS
-!   GP        JAN 92    3.2     ADD WLMIN, DQIST2(NLFEE,3)
-!   GP        JUN 92    3.4     VARIABLES MOVED TO AL.D FOR HOTSTART
-!                               (arrays QSA,DQ0ST,DQIST,DQIST2).
-!  GP  960103  4.0  Move NOCBCC,NOCBCD to AL.D.
-! RAH  970221  4.1  Correct spelling: NCATR was NACTR.  Explicit typing.
-!                   Remove CFDEB,SURFS,SURFZ,DDDZST (redundant).
-! RAH  971215  4.2  Remove LONT (see OCSIM).  Move DD,EE,GG to OCSIM.
-!      980107       Move AA,BB,CC,FF to OCSIM (see also OCABC).
-!      980119       Amend mod note above (3.4 was 3.3).
-!                   Remove PT,TEMPS (see OCINI).  Move DET to OCINI.
-!      980120       Remove NCATRE (see OCINI,OCBLOC - deleted).
-!                   Move KONT,NCATR,CDRS,CATR,BIOWAT to OCINI.
-!      980121       Move NOCBC,NOCPB to OCBC.
-!                   Move NDEFCT,NXDEF,XDEFH,XDEFW to OCPLF.
-!      980205       Move IXER to OCREAD.
-!      980210       Move NXOC to OCIND.
-!      980212       Remove NROWFN (see OCSIM,OCIND). Mv WLMIN to OCQMLN.
-!                   Increase NROWST size by 1, reduce XCONV,XDERIV by 1.
-!      980225       Swap COCBCD subscripts - also in
-!                   OCINI,OCREAD,OCBC,OCPLF,OCQLNK,OCQBC.
-!      980226       Move DTOC to OCSIM.  Add TDC,TFC (see OCINI,OCSIM).
-!      980408       Move ROOT2G to OCQBNK.
-!      980424       Merge XSECTH,XCONV,XDERIV into XSTAB
-!                   (see OCINI,OCXS,OCSIM).
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-! Requirements:
-!  NXSCEE.ge.2
-!----------------------------------------------------------------------*
+! Legacy SPEC.OC component variables retained as module state.
+! Requires NXSCEE >= 2 for channel cross-section lookup tables.
 IMPLICIT NONE
 INTEGER            :: NELIND (NELEE)  
 INTEGER            :: NROWF, NROWL, NOCHB, NOCFB
@@ -77,35 +55,18 @@ PRIVATE
 
 CONTAINS
 
-!SSSSSS SUBROUTINE OCINI  
+! Legacy routine marker: OCINI.
+!> Controls OC component initialisation.
+!>
+!> `OCINI` checks static dimensions and topology, reads the OC input file,
+!> validates roughness and cross-section data, opens boundary files, initialises
+!> OC state held in [[OCmod2]], builds channel cross-section tables through
+!> [[OCXS]], and prepares row indices through [[OCIND]].
 SUBROUTINE OCINI()
 !----------------------------------------------------------------------*
 !
 !  Control OC initialization
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCINI/4.2
-! Modifications:
-!  GP          3.4  Don't set OCNOW,OCVAL,OCNEXT (see also FRINIT,SHE).
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  961228  4.1  Remove variables T & TF.
-! RAH  980119  4.2  Explicit typing.
-!                   Scrap SPEC.AL variables WSOC,WSOCI,WSOCER, SPEC.OC
-!                   arrays PT,TEMPS, & local variables DT,IDT,TITRE,VTP.
-!      980120       Use SQRT not DSQRT.
-!                   Bring KONT from SPEC.OC & pass to OCREAD.
-!      980130       Call OCCHK0 (new).  Move read section to OCREAD.
-!      980202       Write NXSCEE.  Bring OCIND call from OCREAD.
-!      980203       Pass NGDBGN to OCCHK0, but not OHB,OFB.
-!                   Call OCCHK1, OCCHK2 and OCXS (new).
-!                   Bring OHB,OFB initial read from OCBC.
-!      980205       Pass LDUM1 to OCCHK1. Full argument list for OCREAD.
-!      980210       Full argument list for OCIND.
-!      980212       Move WLMIN (SPEC.OC) to OCQMLN.
-!      980218       (Remove NGDBGN from OCREAD argument list.)
-!      980226       Get TDC,TFC from OCREAD.
-!      980408       Move ROOT2G (SPEC.OC) to OCQBNK.
-!      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (SPEC.OC).
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  [NELEE,NLFEE,NXEE,NY,NOCTAB ].ge.1    NXSCEE.ge.2    NEL.ge.NGDBGN
@@ -174,32 +135,17 @@ CALL OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
 END SUBROUTINE OCINI
 
 
-!SSSSSS SUBROUTINE OCABC
+! Legacy routine marker: OCABC.
+!> Assembles one element row of the implicit OC matrix.
+!>
+!> Given the current element, boundary type, water level, storage area, rainfall,
+!> evaporation, exchange flow, and previously calculated flow derivatives,
+!> `OCABC` fills the lower, central, upper, and right-hand-side coefficients
+!> used by the row-wise implicit solver in [[OCSIM]].
 SUBROUTINE OCABC(IND, IROW, ielz, NSV, NCR, NPR, IBC, N, AREAE, &
  ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
 !----------------------------------------------------------------------*
 ! CALCULATION OF MATRIX COEFFICIENTS, GIVEN FLOWS AND DERIVATIVES
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCABC/4.2
-! Modifications:
-! GP   930326  3.4  Don't set EEVAP(IEL) (see ETIN).
-!                   Replace PNETTO(IEL)-EPDUM (part of FF(IND)) with
-!                   PDUM-ESWA(IEL).
-!                   Don't subtract QBKI(IEL,IBK) from BKDUM.
-! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
-! GP   960115  4.0  Replace QUZR(IEL)+QSZR(IEL) (part of FF) with QHDUM.
-! RAH  980107  4.2  Explicit typing.  Amend description in header.
-!                   Add arguments IND,IEL,N,AREAE,CL,ZBF,ZG,Z;
-!                   remove ICOUNT; also, move AA,BB,CC,FF from SPEC.OC
-!                   to arg-list & reduce dimensions by one (see OCSIM).
-!                   Ensure AR defined (for links) when Z=ZBF.
-!                   New locals HI,HM,IM,WI,WM.
-!      980108       Scrap JFACE2.  New local IBR.  Use BLINK not ITYPE.
-!                   Initialize AA,BB,CC,FF here, not in OCSIM.
-!                   Unroll loop, and use ELSE, for BKDUM and QHDUM.
-!                   Add arguments NSV,NCR,NPR,PNETT,QHE,ESWAE.
-!      980115       Set head boundaries (were in OCSIM, after solver).
-!      980226       Move DTOC from SPEC.OC to arg-list (see OCSIM).
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Imported constants
@@ -327,33 +273,17 @@ DO 500 IFACE = 1, 4
   500 END DO  
 END SUBROUTINE OCABC
 
-!SSSSSS SUBROUTINE OCBC
+! Legacy routine marker: OCBC.
+!> Reads and builds OC boundary-condition metadata.
+!>
+!> `JEOCBC` maps gridded head, flux, polynomial, channel-link, and impermeable
+!> boundary-condition definitions onto `NOCBCD` and `NOCBCC`, including extra
+!> bank elements where bank flow is represented.
 SUBROUTINE JEOCBC(IXER, NOCBC)
 !----------------------------------------------------------------------*
 !
 !  Set up boundary data (except for some channel link details to follow)
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCBC/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
-! GP   970207  4.2  Add missing code for polynomial coeffs (see BR/50).
-! RAH  971218       Explicit typing.  List-directed reads.
-!                   Initialize NOCBCC, but not NOCBCD(link) (use OCPLF).
-!                   Use local TYPE.  Loop 90 instead of duplicate.
-!                   Fix error in use of IBANK (using new loop 107).
-!      980115       Trap ICAT<0 and NOCBC>NOCTAB.  Pass IEL to ERROR.
-!                   Update IXER.  Replace ADUM,...,EDUM with ADUM(5).
-!                   Amend COCBCD index, & replace STOP with call ERROR.
-!                   Use IEL,TYPE for L,LC.
-!      980121       Ensure NOCBCD(*,4).ge.1.  Use locals MSG,TEST.
-!                   Bring NOCBC,NOCPB from SPEC.OC.
-!      980203       Move OHB,OFB initial read to OCINI.
-!      980204       Full argument list (no INCLUDEs) (see OCREAD);
-!                   ERR local.  Move NOCBC to argument list.
-!      980206       Check for elements with multiple BCs.
-!      980218       (Fix error in loop 120 start value).
-!      980225       Swap COCBCD subscripts (see SPEC.OC)
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NELEE.ge.NEL    NXEE.ge.[ NX, 1 ]    [ NY, NGDBGN, NOCTAB ].ge.1
@@ -577,20 +507,17 @@ END SUBROUTINE JEOCBC
 
 
 
-!SSSSSS SUBROUTINE OCCHK0
+! Legacy routine marker: OCCHK0.
+!> Checks OC file units, array bounds, and global entity counts.
+!>
+!> This is the first OC validation pass and ensures the output/input units are
+!> usable and that compiled dimensions are large enough for the current grid,
+!> channel-link, cross-section, and boundary-condition counts.
 SUBROUTINE OCCHK0()
 !----------------------------------------------------------------------*
 !
 !  Check static variables & constants input to the OC
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCHK0/4.2
-! Modifications:
-! RAH  980130  4.2  New.
-!      980203       Add argument NGDBGN; remove OHB,OFB.  NELEE.ge.NX.
-!                   INQUIRE first, and use OUNIT for messages.
-!      980206       NELEE.ge.NOCTAB*NOCTAB.
-!JE Jan 2009        Above restriction removed
 !----------------------------------------------------------------------*
 INTEGER       :: ERRNUM, I, IUNDEF, IUNIT, NERR, OUNIT  
 INTEGER       :: IDUMS (1), IDUMO (1)  
@@ -672,18 +599,17 @@ ENDIF
 END SUBROUTINE OCCHK0
 
 
-!SSSSSS SUBROUTINE OCCHK1
+! Legacy routine marker: OCCHK1.
 !SUBROUTINE OCCHK1(afromICMREF, SZLOG, LDUM1)
+!> Checks static OC topology and channel-definition arrays.
+!>
+!> `OCCHK1` verifies neighbour references, active-grid indexing, and the
+!> link-code grids used to locate north-south and east-west channel links.
 SUBROUTINE OCCHK1(SZLOG, LDUM1)
 !----------------------------------------------------------------------*
 !
 !  Check static OC input arrays
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCHK1/4.2
-! Modifications:
-! RAH  980203  4.2  New.
-!      980205       Add argument LDUM1.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  [ NEL, NX, NY ].ge.1     NELEE.ge.NEL    NXEE.ge.NX
@@ -740,18 +666,17 @@ IF (NERR.GT.0) CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while c
 END SUBROUTINE OCCHK1
 
 
-!SSSSSS SUBROUTINE OCCHK2
+! Legacy routine marker: OCCHK2.
+!> Checks OC input values after [[OCREAD]].
+!>
+!> The checks cover boundary file units, overland/channel roughness values, and
+!> channel cross-section tables, including monotonic level coordinates and
+!> positive final widths.
 SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
 !----------------------------------------------------------------------*
 !
 !  Check OC input data
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCCHK2/4.2
-! Modifications:
-! RAH  980203  4.2  New: partly from part of OCPLF.
-!      980206       Check unit numbers.
-!      980218       Don't check units if NONEED.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
@@ -837,7 +762,7 @@ CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NX
 ENDIF  
 
 IF (NERR.GT.0) then
-!!!! sb 190522 negative strickler for surface storage    
+! sb 190522 negative strickler for surface storage
     CALL ERROR(WWWARN, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
 !    CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
 ENDIF
@@ -847,7 +772,12 @@ ENDIF
 END SUBROUTINE OCCHK2
 
 
-!SSSSSS SUBROUTINE OCEXT  
+! Legacy routine marker: OCEXT.
+!> Reads time-varying head and flux boundary values for the current OC step.
+!>
+!> Boundary time series are advanced from the head-boundary and flux-boundary
+!> files into `HOCNOW` and `QOCF`; end-of-file markers are treated as fatal
+!> input errors.
 SUBROUTINE OCEXT  
 !----------------------------------------------------------------------
 !
@@ -868,7 +798,13 @@ RETURN
 END SUBROUTINE OCEXT
 
 
-!SSSSSS SUBROUTINE OCIND
+! Legacy routine marker: OCIND.
+!> Builds row-order indexing for the implicit OC solver.
+!>
+!> The catchment is split into y-coordinate rows, with west/south channel links
+!> and optional bank elements inserted beside the grid elements. The resulting
+!> `NROWST`, `NROWEL`, and `NELIND` arrays define the block rows used by
+!> [[OCSIM]].
 SUBROUTINE OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
 !----------------------------------------------------------------------*
 !
@@ -891,16 +827,6 @@ SUBROUTINE OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
 !   NB. Row no. of element ICMXY(x,y) (also of any associated link/bank
 !       elements) is y
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCIND/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980210  4.2  Scrap SPEC.OC output NROWFN (see OCSIM).
-!                   Restructure/clarify: 1 line each for NROWF,NROWL;
-!                   2 lines for NROWST; loop 5 for N-S & E-W links;
-!                   local LINK; MAX for NXOC.  Scrap EARRAY (SPEC.AL).
-!                   Explicit typing.  Bring NXOC from SPEC.OC.
-!                   Full argument list (no INCLUDEs).  Local FATAL.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NLFEE.ge.[nlf,1]    NXEE.ge.[NX,1]    NY.ge.1
@@ -1004,7 +930,11 @@ END SUBROUTINE OCIND
 
 
 ! 12/8/94
-!SSSSSS SUBROUTINE OCLTL
+! Legacy routine marker: OCLTL.
+!> Reads an alphanumeric channel-definition grid.
+!>
+!> `OCLTL` decodes the legacy one-character OC map into integer link and
+!> boundary codes, preserving row-number checks and optional echo printing.
 SUBROUTINE OCLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)  
 !
 ! READ IN ARRAY OF ALPHANUMERIC CODES FOR CHANNEL DEFINITION
@@ -1074,42 +1004,17 @@ STOP
 END SUBROUTINE OCLTL
 
 
-!SSSSSS SUBROUTINE OCPLF
+! Legacy routine marker: OCPLF.
+!> Reads per-link channel geometry and link boundary data.
+!>
+!> `OCPLF` reads default and explicit cross-section definitions, link bed
+!> elevations, initial water depths, Strickler roughness coefficients, and
+!> boundary-condition parameters for river-link boundary types.
 SUBROUTINE OCPLF(BOUT, IXER, fromNOCBCD, NXDEF, XDEFW)
 !----------------------------------------------------------------------*
 !
 !  READ IN DATA FOR EACH CHANNEL LINK
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCPLF/4.2
-! Modifications:
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-!  GP  940808  4.0  Remove redundant array EXBETA (SPEC.AL).
-! RAH  980121  4.2  Fix error in COCBCD 2nd subscript (see BR/50).
-!                   Explicit typing.
-!                   List-directed input, & scrap local TITRE.  No FLOAT.
-!                   Bring NDEFCT,NXDEF,XDEFH,XDEFW from SPEC.OC.
-!                   Trap large NDEFCT.  Scrap EARRAY.  New local TEST.
-!      980127       Use locals MSG,N more.  New local ZG.
-!                   Test STR.le.0, not .eq.0.  Require IEL in order.
-!                   Combine IDEFX tests.  Use IDEF: don't redfine IDEFX.
-!                   Split expression for XAREA.  Use HJ for DPNOW.
-!                   Rearrange loop 200.  Rename INDEX,ICODE as IBC,TYPE.
-!                   Read NOCBCD,COCBCD directly, & set NOCBCD(IBC,2&4).
-!      980128       Don't set XCONV or XDERIV for J=NXSCEE.  Trap N=1.
-!                   Replace FATAL errors with ERR, & increase IXER.
-!                   Require XDEFH,XINH strictly increasing, and
-!                   XDEFW,XINW .gt.0 for J=N.
-!      980129       Use IEL for loop variable ICT.  Trap NDEFCT<0.
-!      980203       Move cross-section table set-up to OCXS (new).
-!                   Move STRX,STRY,XINH,XINW checks to OCCHK2 (new).
-!      980204       Full argument list (no INCLUDEs) (see OCREAD);
-!                   ERR local.  Add argument BOUT: write to PRI if true.
-!      980206       Call DCOPY for XINH,XINW.  More info in MSG.
-!      980218       Adjust formats.
-!      980220       Adjust formats.
-!      980225       Swap COCBCD subscripts (see SPEC.OC)
-!JE    JAN 2009     Loop restructure for AD
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
@@ -1277,16 +1182,13 @@ ENDIF
 END SUBROUTINE OCPLF
 
 
-!SSSSSS SUBROUTINE OCPRI
+! Legacy routine marker: OCPRI.
+!> Prints OC water levels, flows, and channel wetted areas.
 SUBROUTINE OCPRI (OCNOW, ARXL, QOC)  
 !----------------------------------------------------------------------*
 !
 !  Print results of OC simulation
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCPRI/4.2
-! Modifications:
-! RAH  980226  4.2  New.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NELEE.ge.NEL    NEL.ge.[1,NLF]    NLF.ge.0    NLF.le.size_of_ARXL
@@ -1317,39 +1219,15 @@ END SUBROUTINE OCPRI
 
 
 
-!SSSSSS SUBROUTINE OCREAD
+! Legacy routine marker: OCREAD.
+!> Reads and dispatches the static OC input file.
+!>
+!> `OCREAD` loads timestep/output controls, roughness parameters, initial
+!> overland water depths, boundary-condition definitions, and channel-link data.
+!> It delegates boundary parsing to [[JEOCBC]] and link geometry to [[OCPLF]].
 SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
 !----------------------------------------------------------------------*
 !  Control the reading of the OC input data file
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCREAD/4.2
-! Modifications:
-!  GP          3.4  Call OCBC always, not only when NLF.ne.0.
-! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-! RAH  980120  4.2  Explicit typing.  Remove local FINI.
-!                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
-!                   Move KONT from SPEC.OC to arg-list (see OCINI).
-!                   Implement missing option NCATR.gt.0 (see BR/48).
-!      980130       Bring (initial) read section from OCINI.
-!                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
-!                   Replace GOTOs with block-IFs.  List-directed input.
-!                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
-!                   Renumber labels, move FORMATs to end and tidy.
-!                   Print CDRS only if non-zero.  Call ERROR on errors.
-!                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
-!      980202       KKON=0 if KONT even, not just 0.
-!                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
-!                   Use ALINIT for STRX,STRY.  Full output if BOUT.
-!      980203       Use NGDBGN for NLF+1.
-!      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
-!      980205       Full argument list, no INCLUDEs (see OCINI).
-!                   Bring IXER from SPEC.OC.  FATAL local.
-!      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
-!                   Call OCPLF only if IXER.eq.0.
-!      980220       Spelling.
-!      980225       Swap COCBCD subscripts (see SPEC.OC)
-!      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
-!                   Don't print KONT.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
@@ -1501,58 +1379,20 @@ CALL ERROR(FFFATAL, 1047, PPPRI, 0, 0, MSG)
 END SUBROUTINE OCREAD
 
 
-!SSSSSS SUBROUTINE OCSIM  
+! Legacy routine marker: OCSIM.
+!> Advances the overland/channel flow solution by one OC timestep.
+!>
+!> `OCSIM` reads current boundary values, calls [[OCQDQ]] for nonlinear flow and
+!> derivative terms, assembles the row-wise implicit matrix with [[OCABC]], solves
+!> the block tridiagonal system by forward row elimination and backward
+!> substitution, updates water levels and inter-element flows, applies [[OCFIX]]
+!> to remove spurious negative internal flows, computes channel wetted area, and
+!> optionally prints OC diagnostics.
 SUBROUTINE OCSIM  
 !----------------------------------------------------------------------*
 !
 !  MAIN OVERLAND/CHANNEL SIMULATION ROUTINE
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCSIM/4.2
-! Modifications:
-!  GP          3.4  Set HRF at head boundaries.  Disallow flow against
-!                   surface gradient (except boundaries & confluences),
-!                   and move trap for small depths & setting of ARXL to
-!                   after this point; also, replace WLMIN with 1D-5.
-!                   Trap large flows (ABS(QOC)>QMAX) in channels.
-! RAH  941008 3.4.1 Bring IMPLICIT from SPEC.AL.  Move traps (except
-!                   QMAX) to new subroutine OCFIX (confluences too).
-! RAH  961228  4.1  Remove variables TF & LONT.
-! RAH  971215  4.2  Explicit typing.  Bring DD,EE,GG from SPEC.OC.
-!                   Remove DOCEV,DLIOC,DETOCO,DOCUZO,DOCSZO.
-!                   Set NCR,NPR,NSV (& NDUM) only where necessary.
-!                   Merge OCQDQ loops.  Don't call OCMAS.
-!      971216       Move first row initialization nearer to OCABC.
-!                   Call OCQDQ always (not only 1st step) at the start,
-!                   and not at the end of a step.  Scrap tests NLF.GT.0.
-!                   Use IROW as subscript not NROWF; also use IRSV.
-!                   Cut duplicate code in main loop over rows.
-!      971217       Merge EE,GG code for first row into loop over rows.
-!                   Initialize only useful elements of AA,BB,CC,FF.
-!                   Separate treatment for DD of last row.
-!      980106       Call ERROR if ICOD=1 after PMINVM.
-!                   Next IROW if NCR=0 in main loop.  Scrap JFACE.
-!                   Renumber labels 4,190,200 as 44,250,255.
-!                   Amend head boundary implementation, & move to OCABC.
-!                   New locals DDI,DH,DQ,DW,HI,HM,IBR,IM,WI,WM,Z.
-!                   Use DCOPY & CHSGN to set QOC.  Use ABS not DABS.
-!      980107       OCABC arguments: remove ICOUNT;
-!                   add IEL,NXSECT,ZBFULL,ZGRUND,HRF,AA,BB,CC,FF.
-!                   Bring AA,BB,CC,FF from SPEC.OC.
-!      980108       OCABC arguments: add NSV,NCR,NPR,PNETTO,QH,ESWA.
-!                   Move initialization of AA,BB,CC,FF to OCABC.
-!      980109       OCABC arguments: add IBC,HOCNOW.
-!      980212       Scrap NROWFN - use NROWST(IROW+1)-1.
-!      980226       Call OCPRI.  Bring DTOC from SPEC.OC; pass to OCABC.
-!                   Call OCQDQ once only, and pass COCBCD,QOCF.
-!      980327       Pass XAFULL (new local) to OCQDQ.  Scrap local K.
-!                   Pass OCTIME, not OCNOW, to OCPRI, & call before QMAX
-!                   test, not after.
-!      980331       Pass STRX,STRY to OCQDQ.
-!      980409       Pass HOCNOW to OCQDQ.
-!      980424       Pass NXSCEE,XSTAB to OCQDQ.
-!      980427       Pass new local FWRK to OCQDQ.
-!JE    JAN 2009     Loop restructure for AD
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Imported constants
@@ -1748,7 +1588,7 @@ out44 : DO IROW = NROWF, NROWL
     ENDIF  
     !
     ! CALCULATE VECTOR GG(IROW+1)
-    !!
+    !
     !CALL MULMV (GG (1, IRSV), TM2, TV2, NCR, NCR, NXOCEE)
     gg(1:ncr,irsv) = JEMATMUL_VM(tm2(1:ncr,1:ncr), tv2(1:ncr), ncr, ncr)
     !
@@ -1908,19 +1748,18 @@ IF(g8029) THEN
 ENDIF
 END SUBROUTINE OCSIM
 
-!SSSSSS SUBROUTINE OCXS
+! Legacy routine marker: OCXS.
+!> Builds channel cross-section area and conveyance lookup tables.
+!>
+!> `OCXS` integrates tabulated width-depth pairs to water area, derives an
+!> effective bed elevation for full-bank storage, and fills `XSTAB` with
+!> uniformly spaced depth, conveyance, and conveyance-derivative values used by
+!> the OC flow calculation.
 SUBROUTINE OCXS ()
 !----------------------------------------------------------------------*
 !
 !  Set up channel cross-section tables & effective bed elevations
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCXS/4.2
-! Modifications:
-! RAH  980203  4.2  New: taken from part of OCPLF.
-!      980317     ! Fix inaccuracy in XAJ (was linear in H); set XDERIV
-!                   to give continuous XCONV.  Use XAJ in loop 180.
-!      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (see SPEC.OC).
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NLFEE.ge.NLF    NLF.ge.1    NXSCEE.ge.2    CWIDTH(1:NLF).gt.0
@@ -2029,7 +1868,11 @@ END SUBROUTINE OCXS
 
 
 
-!FFFFFF INTEGER FUNCTION LINKNO
+! Legacy routine marker: LINKNO.
+!> Returns the channel link number at a grid coordinate and orientation.
+!>
+!> `LINKNO` searches the link reference table for a north-south or east-west
+!> link whose stored grid coordinate matches the requested `(I,J)` location.
 INTEGER FUNCTION LINKNO (I, J, NSOUTH)  
 ! GET LINK NUMBER, GIVEN X, Y CO-ORDINATES AND ORIENTATION
 LOGICAL, INTENT(IN) :: NSOUTH

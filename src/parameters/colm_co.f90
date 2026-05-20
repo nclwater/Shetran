@@ -1,28 +1,24 @@
+!> summary: Allocatable column water-state arrays used before running `COLM`.
+!> author: JE, Newcastle University; GP, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> `COLM_CO` replaces the legacy `COLM.CO` common blocks. It stores water-flow
+!> variables used while preparing to run the column routine `COLM`, but not used
+!> directly inside `COLM` itself. Recent versions allocate these arrays to the
+!> active model size rather than using the fixed maximum dimensions.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.1 | Original version written. |
+!> | 1991-06-16 | JE | 3.1 | Completed. |
+!> | 1994-08-08 | GP | 4.0 | Replaced `TH3O` with `VSTHEO`. |
+!> | 1997-02-20 | RAH | 4.1 | Added explicit typing. |
+!> | 1998-03-08 | RAH | 4.2 | Removed `WELDRO`. |
+!> | 1998-11-03 | RAH | - | Removed `ERUZO`. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2026-03 | SB | 4.6 | Made column preparation arrays allocatable and added `initialise_colm_co`. |
+!> @endhistory
 MODULE COLM_CO
-!-------------------------- Start of COLM.CO --------------------------*
-!
-!         CM-COMPONENT INCLUDE-FILE FOR WATER VARIABLES USED IN
-!                      THE PREPARATION FOR RUNNING SUBROUTINE COLM
-!                      BUT NOT USED IN COLM ITSELF
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/COLM.CO/4.2
-! Modifications:
-!                          JE     26/4/91   3.1     WRITTEN
-!                          JE     16/6/91   3.1     COMPLETED
-!  GP  940808  4.0  Replace TH3O with VSTHEO (see INCM,COLMW).
-! RAH  970220  4.1  Explicit typing.
-! RAH  980308  4.2  Remove WELDRO.
-!      981103       Remove ERUZO (see INCM,COLMW).
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-! SB Mar26  4.6     Make the following arrays allocatable: DSWO, QIO, QQRFO, RSZWLO, ZONEO, GGAMMO,QQQSWO, QQO, UUAJPO,VSTHEO
-!                   Add subroutine initialise_colm_co
-!----------------------------------------------------------------------*
-
-! Imported constants
-!                             NELEE,LLEE
-
-! Commons
 USE SGLOBAL, ONLY : NELEE, LLEE, total_no_elements, top_cell_no
 IMPLICIT NONE
 !DOUBLEPRECISION DSWO (NELEE), GGAMMO (NELEE, LLEE)  
@@ -40,7 +36,16 @@ DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: UUAJPO,VSTHEO
 
 
 CONTAINS
-      
+
+!> Allocates and zero-initializes column preparation arrays.
+!>
+!> The allocation uses the active model size from `total_no_elements` and
+!> `top_cell_no`, avoiding the fixed maximum dimensions that were previously
+!> used for these legacy common-block arrays.
+!>
+!> @note This routine has no dummy arguments and mutates module allocatable
+!> arrays in `COLM_CO`.
+!> @endnote
 SUBROUTINE initialise_colm_co()
 
 !                             FACE OVERLAP AND LATERAL

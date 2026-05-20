@@ -1,13 +1,45 @@
+!> summary: Mineral nitrogen cycling and plant uptake.
+!>
+!> This module implements the optional SHETRAN mineral nitrogen component called
+!> from the contaminant model. It simulates ammonium and nitrate concentrations
+!> in soil water, carbon and nitrogen turnover in humus/litter/manure pools,
+!> mineralisation and immobilisation, nitrification, denitrification, ammonia
+!> volatilisation, plant uptake, environmental temperature/moisture/pH
+!> reduction factors, input checking, interpolation of spatially varying
+!> parameters, and nitrogen output reporting.
+!>
+!> The implementation follows the common process-based soil nitrogen modelling
+!> structure in which mineralisation, nitrification, denitrification and plant
+!> uptake are modified by soil temperature and moisture response factors. Q10
+!> temperature response options are provided for mineralisation and
+!> nitrification; Q10-style temperature sensitivity is widely used in soil N
+!> mineralisation models, for example as discussed by Sierra (2010):
+!> https://doi.org/10.1016/j.geoderma.2010.04.009. The code is nevertheless a
+!> SHETRAN-specific formulation with tabulated depth/element parameters and
+!> legacy segmented environmental response functions.
+!>
+!> The component is coupled through [[cmmod]] rather than run independently.
+!> Nitrate concentrations are transported by the contaminant solver; this module
+!> supplies ammonium/nitrate reaction, uptake, deposition, and source/sink terms
+!> for the dynamic and dead-space soil-water regions. At present [[mnerr0]]
+!> expects the contaminant interface to provide the configured single nitrogen
+!> contaminant species.
+!>
+!> @warning Plant uptake is calculated by [[mnplant]] before the main nitrogen
+!> update. The legacy source comments state that this routine has weak input
+!> checking, so changes to plant uptake parameters should be reviewed against
+!> the nitrate plant-uptake input section of the manual and tested carefully.
+!> @endwarning
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03 | SB | 4.6 | Capitalised `MNCONT` for Linux builds and moved several arrays to allocatable storage. |
 module MNmod
 
     
-!-------------------------- Start of MNmod --------------------------*
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/4.6
-! Modifications:
-!   SB        Mar 26    4.6   Capitalize MNCONT so it works in Linux
-!                              change the following as now allocatable 
-!                              vstheo, nlyrbt, ntsoil, deltaz, rdf, zvsnod, cccc, ssss, sss1, sss2
+! Legacy MNmod history follows.
 !----------------------------------------------------------------------*
     
     
@@ -35,6 +67,12 @@ module MNmod
     CONTAINS
 
 
+!> Updates dissolved ammonium concentration for all active soil cells.
+!>
+!> `mnamm` iterates the ammonium mass balance with adsorption retardation,
+!> mineralisation/immobilisation, nitrification, volatilisation, plant uptake,
+!> and external ammonium input. Non-convergence of the cell iteration reports
+!> error 3018.
 subroutine mnamm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,gnn,kplamm,kuamm, &
     mncref,kddsol,dtuz,vsthe,vstheo,isbotc)
     !
@@ -44,10 +82,6 @@ subroutine mnamm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nl
     ! solution at timestep n+1
     ! failure of iteration loop to converge produces error no 3018
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     ! externals
     !use sglobal, only : error
@@ -195,6 +229,11 @@ subroutine mnamm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nl
 end subroutine mnamm
 
 
+!> Calculates cumulative carbon dioxide production from organic matter turnover.
+!>
+!> The calculation combines humus, litter, and manure carbon pools with
+!> temperature and matric-potential modifiers and suppresses litter/manure
+!> decomposition where immobilisation is limiting.
 subroutine mnco2 (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,isbotc)
     !
     !
@@ -203,10 +242,6 @@ subroutine mnco2 (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,isbotc)
     ! calculates the concentration of carbon dioxide produced
     ! upto timestep n+1
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -271,6 +306,23 @@ end subroutine mnco2
 
 
 
+!> Controls the mineral nitrogen component from the contaminant timestep.
+!>
+!> `MNCONT` is called by [[cmmod:cmsim]] when the mineral nitrogen option is
+!> active. It allocates MN work arrays on the first call, computes potential
+!> plant nitrogen uptake with [[mnplant]], then calls [[mnmain]] to read or
+!> update mineral nitrogen state and to fill the contaminant source/sink arrays
+!> `sss1` and `sss2` used by the CM transport equations.
+!>
+!> The dissolved nitrate concentration fields are supplied through the CM arrays
+!> `cccc` and `ssss`; ammonium, litter, humus, manure, and process-rate pools are
+!> held internally by `MNmod`. Rates and pools are evaluated over land columns
+!> from `NLF+1:NEL`; channel links are not treated as nitrogen soil columns.
+!>
+!> @warning The legacy source comments note that [[mnplant]] has limited input
+!> checking. The main nitrogen update path performs more extensive validation in
+!> [[mnerr0]], [[mnerr1]], [[mnerr2]], [[mnerr3]], and [[mnerr4]].
+!> @endwarning
 subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref, &
     icmxy,ncolmb,nlyr,nrd,nvc,nlyrbt,ntsoil,d0,tih,rhopl,z2,delone,dxqq,dyqq,vspor,deltaz,plai,rdf,zvsnod,bexbk, &
     linkns,dtuz,uznow,clai,cccc,pnetto,ssss,ta,vspsi,vsthe,vstheo,sss1,sss2 )
@@ -283,10 +335,6 @@ subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
     !
     ! mnmain everything is checked
     !
-    !--------------------------------------------------------------------*
-    ! version: 4.2               notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     !
@@ -368,6 +416,7 @@ subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
 end subroutine MNCONT
 
 	
+!> Calculates the water-content reduction factor for denitrification.
 subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,vsthe,vspor,isbotc )
     !
     !--------------------------------------------------------------------*
@@ -375,10 +424,6 @@ subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt
     ! calculates the moisture environmental reduction factor
     ! for denitrification
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -430,6 +475,7 @@ end subroutine mnedth
 	
 	
 	
+!> Calculates the matric-potential reduction factor for mineralisation.
 subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -437,10 +483,6 @@ subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     ! calculates the matric potential environmental reduction factor
     ! for mineralization
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -487,6 +529,10 @@ end	subroutine mnemph
 	
 	
 	
+!> Calculates the temperature reduction factor for mineralisation.
+!>
+!> The factor can be computed either with a Q10 relationship or with the legacy
+!> segmented temperature response.
 subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
     !
     !--------------------------------------------------------------------*
@@ -494,10 +540,6 @@ subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
     ! calculates the temperature environmental reduction factor
     ! for mineralization
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -552,6 +594,7 @@ subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
 end subroutine mnemt	
 	
 	
+!> Calculates the matric-potential reduction factor for nitrification.
 subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -559,10 +602,6 @@ subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
     ! calculates the matric potential environmental reduction factor
     ! for mineralization
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -617,6 +656,10 @@ subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
 end subroutine mnenph
 	
 	
+!> Calculates the temperature reduction factor for nitrification.
+!>
+!> The factor can be computed either with a Q10 relationship or with the legacy
+!> segmented temperature response.
 subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
     !
     !--------------------------------------------------------------------*
@@ -624,10 +667,6 @@ subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
     ! calculates the temperature environmental reduction factor
     ! for nitrification
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -681,6 +720,11 @@ subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
     !
 end subroutine mnent	
 	
+!> Checks fixed MN array dimensions, entity counts, and file-unit values.
+!>
+!> `mnerr0` validates compile-time or module-level limits against the current
+!> model dimensions before any MN arrays are used. It also checks that the
+!> component is being run with the expected single contaminant species.
 subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee,nlyree,nmneee,nmntee,ns,nsee,nv, &
     nvee,nx,nxee,ny )
     !
@@ -689,10 +733,6 @@ subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee
     ! checks array dimensions
     ! error numbers 3010,3020-3034
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -816,6 +856,11 @@ subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee
 end subroutine mnerr0
 
 
+!> Checks the static contaminant-to-MN interface variables.
+!>
+!> This routine verifies grid and bank indexing, column geometry, soil layer
+!> definitions, porosity, cell spacing, vertical node ordering, and simulation
+!> start time before MN initialisation proceeds.
 subroutine mnerr1(llee,mnpr,ncetop,nel,nelee,nlf,nlfee,nlyree,ns,nx,nxee,ny,icmbk,icmref,icmxy,ncolmb,nlyr,nlyrbt &
     ,ntsoil,d0,tih,z2,dxqq,dyqq,vspor,deltaz,zvsnod,bexbk,linkns,dummy2,dummy3,idum,idum1x,ldum,ldum2)
     !
@@ -824,10 +869,6 @@ subroutine mnerr1(llee,mnpr,ncetop,nel,nelee,nlf,nlfee,nlyree,ns,nx,nxee,ny,icmb
     ! checks static input variables from cm -mn interface
     ! error numbers 3011,3035-3047 and 2075-2079 for index arrays
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -1075,6 +1116,11 @@ subroutine mnerr1(llee,mnpr,ncetop,nel,nelee,nlf,nlfee,nlyree,ns,nx,nxee,ny,icmb
 end subroutine mnerr1
 
 
+!> Checks static mineral nitrogen input read by [[mnred1]].
+!>
+!> `mnerr2` validates decomposition, uptake, deposition, reference
+!> concentration, Q10, adsorption, and depth-table inputs. It also checks that
+!> all tabulated depth coordinates start at zero and increase down-profile.
 subroutine mnerr2(mnpr,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e &
     ,nmneee,nmntee,ns,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem,kvelem,naelem,nmn15t,nmn17t,nmn19t,nmn21t, &
     nmn23t,nmn25t,nmn27t,nmn43t,nmn53t,ammddr,ammwdr,clitfr,cnrbio,cnrhum,cnrlit,fe,fh,gnn,kplamm,kplnit,kuamm,kunit, &
@@ -1085,10 +1131,6 @@ subroutine mnerr2(mnpr,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,n
     ! checks static input data read in from mnred1 subroutine
     ! error numbers 3012,3048-3064
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -1464,6 +1506,11 @@ subroutine mnerr2(mnpr,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,n
 end subroutine mnerr2
 
 
+!> Checks time-dependent MN inputs and updated state variables.
+!>
+!> The checks cover the timestep, simulation time, contaminant concentrations,
+!> organic and mineral nitrogen pools, soil water contents, plant uptake, and
+!> effective rainfall supplied by the wider SHETRAN model.
 subroutine mnerr3(llee,mnpr,ncetop,nel,nelee,nlf,ncolmb,dtuz,uznow,cccc, &
     pnetto,ssss,vsthe,vstheo,ldum,ldum2 )
     !
@@ -1473,10 +1520,6 @@ subroutine mnerr3(llee,mnpr,ncetop,nel,nelee,nlf,ncolmb,dtuz,uznow,cccc, &
     ! concentrations calculated in this component are positive
     ! error numbers 3013 and 3065-3079
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -1710,6 +1753,11 @@ subroutine mnerr3(llee,mnpr,ncetop,nel,nelee,nlf,ncolmb,dtuz,uznow,cccc, &
     !
 end subroutine mnerr3
 
+!> Checks time-varying fertiliser and organic addition data from [[mnred2]].
+!>
+!> The routine validates nitrogen and carbon addition rates, banding depths,
+!> ammonium and organic matter fractions, and litter/manure C:N ratios whenever
+!> a scheduled addition is active in the current timestep.
 subroutine mnerr4 ( mnpr,nel,nelee,nlf,cdpthb,cltfct,cmnfct,cnral,cnram,ctot,namfct,ndpthb,ntot,isaddc,isaddn, &
     dummy,ldum )
     !
@@ -1718,10 +1766,6 @@ subroutine mnerr4 ( mnpr,nel,nelee,nlf,cdpthb,cltfct,cmnfct,cnral,cnram,ctot,nam
     !  checks time varying dependent data read in mnred2
     !  error numbers 3014 and 3080-3089
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -1822,6 +1866,12 @@ subroutine mnerr4 ( mnpr,nel,nelee,nlf,cdpthb,cltfct,cmnfct,cnral,cnram,ctot,nam
 end subroutine mnerr4
 
 
+!> Calculates net mineralisation or immobilisation for each active soil cell.
+!>
+!> Positive `gam` values represent net mineralisation and negative values
+!> represent immobilisation demand. If immobilisation previously exceeded
+!> available mineral nitrogen, litter and manure decomposition are temporarily
+!> suppressed until mineralisation has repaid the stored deficit.
 subroutine mngam (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrhum,cnrbio,fe,fh,dtuz, &
     isbotc )
     !
@@ -1831,10 +1881,6 @@ subroutine mngam (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrhum,cnrbio,fe,fh,dt
     ! positive then this is the mineralisation rate. if mngam is negative
     ! then this is the immobilisation rate
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -1914,6 +1960,12 @@ subroutine mngam (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrhum,cnrbio,fe,fh,dt
     enddo
 end subroutine mngam
 
+!> Initialises MN pools, parameters, and source terms.
+!>
+!> Organic carbon and ammonium initial conditions are assigned either from
+!> exponential depth profiles or by interpolating typical-element depth tables.
+!> The same table interpolation is used for decomposition, nitrification,
+!> volatilisation, denitrification, and adsorption parameters.
 subroutine mninit(llee,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e &
     ,nmneee,nmntee,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem,kvelem,naelem,ncolmb,nmn15t,nmn17t,nmn19t,nmn21t, &
     nmn23t,nmn25t,nmn27t,nmn43t,nmn53t,clitfr,cnrlit,cconc,cdpth,ctottp,damhlf,dchlf,deltaz,kd1cnc,kd1dth,kd2cnc, &
@@ -1924,10 +1976,6 @@ subroutine mninit(llee,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,n
     !
     ! initialises the global variables
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -2117,6 +2165,12 @@ subroutine mninit(llee,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,n
     !
 end subroutine mninit
 
+!> Converts time-varying MN inputs into cell-based process rates.
+!>
+!> `mnint2` carries forward previous pool values, dimensionalises nitrate
+!> concentrations, assigns mobile fractions, distributes mineral and organic
+!> additions over the specified banding depth, and adds wet/dry deposition to
+!> the top active cell.
 subroutine mnint2 ( llee,ncetop,nel,nelee,nlf,nlyree,ncolmb,nlyr,nlyrbt,ntsoil,ammddr,ammwdr,mncref,nitddr,nitwdr &
     ,deltaz,dtuz,cccc,cdpthb,cltfct,cmnfct,cnral,cnram,ctot,namfct,ndpthb,ntot, &
     pnetto,ssss,vsthe,isaddc,isaddn,cnralt,cnramn, &
@@ -2127,10 +2181,6 @@ subroutine mnint2 ( llee,ncetop,nel,nelee,nlf,nlyree,ncolmb,nlyr,nlyrbt,ntsoil,a
     !  modifies the time varying input variables into suitable units
     !  for the rest of the program
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -2376,6 +2426,11 @@ subroutine mnint2 ( llee,ncetop,nel,nelee,nlf,nlyree,ncolmb,nlyr,nlyrbt,ntsoil,a
     !
 end subroutine mnint2
 
+!> Updates litter and humus carbon pools.
+!>
+!> The routine solves the coupled litter-humus carbon balance with a fixed-point
+!> iteration using mid-timestep pool estimates. Non-convergence within the
+!> iteration limit is reported as warning 3016.
 subroutine mnlthm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,dtuz,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -2384,10 +2439,6 @@ subroutine mnlthm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,dtuz,isbot
     !  humus pools at timestep n+1
     ! failure of iteration loop to converge produces error no 3016
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     ! externals
     !use sglobal, only : error
@@ -2524,6 +2575,11 @@ subroutine mnlthm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,dtuz,isbot
     !
 end subroutine mnlthm
 
+!> Updates the litter nitrogen pool.
+!>
+!> Litter nitrogen is advanced with the same environmental reduction terms used
+!> for carbon turnover, including immobilisation-limited suppression of
+!> litter/manure decomposition. Non-convergence is reported as warning 3017.
 subroutine mnltn (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrbio,fe,fh,dtuz,cnralt,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -2532,10 +2588,6 @@ subroutine mnltn (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrbio,fe,fh,dtuz
     ! pool at timestep n+1
     ! failure of iteration loop to converge produces error no 3017
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     ! externals
     !use sglobal, only : error
@@ -2660,6 +2712,13 @@ subroutine mnltn (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrbio,fe,fh,dtuz
 end subroutine mnltn
 
 
+!> Main mineral nitrogen setup and timestep driver.
+!>
+!> On the first call `mnmain` checks dimensions and interface data, reads the
+!> static MN file with [[mnred1]], validates it with [[mnerr2]], and initialises
+!> state through [[mninit]]. Later calls read fertiliser schedules, convert inputs
+!> to rates, update soil temperature and environmental factors, run all carbon
+!> and nitrogen process equations, and write requested MN outputs.
 subroutine mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref,icmxy,ncolmb,nlyr &
     ,nlyrbt,ntsoil,d0,tih,z2,dxqq,dyqq,vspor,deltaz,zvsnod,bexbk,linkns,dtuz,uznow,cccc,pnetto,ssss,ta,vspsi, &
     vsthe,vstheo,sss1,sss2 )
@@ -2667,10 +2726,6 @@ subroutine mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,
     !
     ! main mn subroutine from which all the others are called
     !
-    !--------------------------------------------------------------------*
-    ! version: 4.2               notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     !
@@ -2953,6 +3008,11 @@ subroutine mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,
     !
 end subroutine mnmain
 
+!> Updates manure carbon and nitrogen pools.
+!>
+!> Manure pools are integrated with a mid-timestep iteration, using the
+!> temperature and matric-potential reduction factors and the scheduled manure
+!> addition rate. Non-convergence is reported as warning 3015.
 subroutine mnman (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,dtuz,cnramn,isbotc)
     !
     !--------------------------------------------------------------------*
@@ -2961,10 +3021,6 @@ subroutine mnman (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,dtuz,cnramn,isbot
     !  manure pools at timestep n+1
     ! failure of iteration loop to converge produces error no 3015
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     ! externals
     !use sglobal, only : error
@@ -3088,6 +3144,13 @@ subroutine mnman (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,dtuz,cnramn,isbot
 end subroutine mnman
 
 
+!> Calculates nitrate source/sink terms for dynamic and dead-space water.
+!>
+!> The nitrate balance combines immobilisation, denitrification, plant uptake,
+!> nitrification input from ammonium, fertiliser input, and the mobile/immobile
+!> partitioning factor. The resulting rates are converted to the
+!> non-dimensional `sss1` and `sss2` source terms used by the contaminant
+!> transport solver.
 subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref,z2,dtuz,vsthe,vstheo,isbotc,sss1,sss2)
     !
     !--------------------------------------------------------------------*
@@ -3095,10 +3158,6 @@ subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref
     ! calculates the concentration of dynamic nitrate concentration per
     ! unit volume of solution at timestep n+1
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! input arguments
@@ -3231,6 +3290,11 @@ subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref
     enddo
 end subroutine mnnit
 
+!> Accumulates and writes mineral nitrogen and carbon budget outputs.
+!>
+!> `mnout` records initial stores, accumulates process fluxes over time, and
+!> writes daily-style summaries of total nitrogen, nitrogen additions/losses,
+!> total carbon, carbon additions, and carbon dioxide losses.
 subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntsoil,cnrhum,gnn,mncref,deltaz, &
     kddsol,pphi,dtuz,uznow,dxqq,dyqq,cnralt,cnramn,vsthe,vstheo,isbotc)
     !
@@ -3238,10 +3302,6 @@ subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntso
     !
     ! calculates total inputs and outputs and writes output to files
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! commons and distributed constants
@@ -3315,7 +3375,7 @@ subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntso
     !    write (msg,9000)noutl
     !    open (102+noutl,file=msg)
     !enddo
-    !!
+    !
     !9000  format ( i1,'.dat')
     !
     !-------------------------------------------------------------------*
@@ -3378,7 +3438,7 @@ subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntso
         write (mnout2,'(/a30,g16.8)') 'initial nitrogen (kg n m-2) = ',totn/tarea
         write (mnout1,'(/a28,g16.8)') 'initial carbon (kg c m-2) = ',totc/tarea
         !
-        !!        output for specific cells
+        !        output for specific cells
         !do noutl = 1,nout
         !    write (102+noutl,'(a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13,a13)') 'time','humus', &
         !    'litter','manure','ammonium','addamm','addnit','addcarbon','addorgn','mineral','nitrif','plantnit', &
@@ -3480,6 +3540,12 @@ subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntso
 end subroutine mnout
 
 
+!> Calculates potential plant nitrogen uptake by rooted cell.
+!>
+!> Plant uptake is based on canopy leaf area, canopy-density correction,
+!> changing plant biomass, rooting depth, and root density fractions. The
+!> routine is adapted from the SHETRAN plant component and preserves its
+!> simplified assumptions for mixed vegetation in a grid cell.
 subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dxqq,dyqq,deltaz,plai,rdf,dtuz, &
     uznow,clai)
     !--------------------------------------------------------------------*
@@ -3504,10 +3570,6 @@ subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dx
     ! additionally there is an extra data file used here which gives data
     ! on the canopy density. this modifies the calculation of the mass of
     ! the plants (the canopy leaf area index is not sufficient)
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! commons and distributed constants
@@ -3741,6 +3803,12 @@ subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dx
     endif
 end subroutine mnplant
 
+!> Reads static mineral nitrogen input data.
+!>
+!> `mnred1` reads MN parameters from the MND file, including process rates,
+!> organic matter parameters, deposition rates, reference concentration,
+!> depth-tabulated spatial parameter fields, ammonium adsorption, optional Q10
+!> factors, initial carbon/ammonium profiles, and the lower transformation cell.
 subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk,icmref,icmxy,bexbk,linkns,nbotce &
     ,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem, &
     kvelem,naelem,nmn15t,nmn17t,nmn19t,nmn21t,nmn23t,nmn25t,nmn27t,nmn43t,nmn53t,ammddr,ammwdr,clitfr,cnrbio,cnrhum, &
@@ -3751,10 +3819,6 @@ subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk
     !
     ! reads input from files
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -4224,6 +4288,12 @@ subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk
     !
 end subroutine mnred1
 
+!> Reads scheduled nitrogen and carbon additions for the current timestep.
+!>
+!> The routine maintains the next addition time for the mineral and organic
+!> fertiliser files. When an addition falls within the current timestep it reads
+!> the element-wise amount, banding depth, fractions, and C:N ratios, then
+!> advances to the next scheduled time.
 subroutine mnred2 ( mnfc,mnfn,mnpr,nel,nelee,nlf,nlfee,nx,nxee,ny,icmbk,icmref,icmxy,dtuz,tih,uznow,bexbk,linkns, &
     cdpthb,cltfct,cmnfct,cnral,cnram,ctot,namfct,ndpthb,ntot,isaddc,isaddn,idum,dummy)
     !--------------------------------------------------------------------*
@@ -4235,10 +4305,6 @@ subroutine mnred2 ( mnfc,mnfn,mnpr,nel,nelee,nlf,nlfee,nx,nxee,ny,icmbk,icmref,i
     ! is a maximum timestep of two hours). if there is more than one
     ! fertilizer addition the remainder are read in following timesteps.
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     ! externals
@@ -4372,16 +4438,17 @@ subroutine mnred2 ( mnfc,mnfn,mnpr,nel,nelee,nlf,nlfee,nx,nxee,ny,icmbk,icmref,i
 end subroutine mnred2
 
 
+!> Updates soil temperature for the MN environmental response factors.
+!>
+!> `mntemp` solves a one-dimensional heat-diffusion profile with prescribed
+!> surface air temperature and a fixed deep boundary temperature, then maps the
+!> solved profile onto each active SHETRAN soil cell.
 subroutine mntemp (llee,ncetop,nel,nelee,nlf,nv,ncolmb,z2,deltaz,zvsnod,dtuz,ta)
     !
     !--------------------------------------------------------------------*
     !
     ! calculates the temperature in every cell
     !
-    !--------------------------------------------------------------------*
-    ! version:                   notes:
-    ! module: mn                 program: shetran
-    ! modifications
     !--------------------------------------------------------------------*
     !
     use utilsmod, only: tridag
@@ -4493,7 +4560,4 @@ subroutine mntemp (llee,ncetop,nel,nelee,nlf,nv,ncolmb,z2,deltaz,zvsnod,dtuz,ta)
     !
 end subroutine mntemp
 
-	
 END MODULE MNmod
-	
-	

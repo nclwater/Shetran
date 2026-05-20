@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Mapping utilities for visualisation rasters.
+!>
+!> This module converts SHETRAN subunit, bank, and link values onto magnified
+!> image grids for visualisation output. The routines expand each active model
+!> cell into a `mag` by `mag` block, reserving edge strips for river and bank
+!> elements so that raster outputs can distinguish cell interiors from channel
+!> faces.
 MODULE visualisation_map
 
 USE VISUALISATION_PASS,     ONLY : BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK
@@ -16,12 +22,17 @@ PUBLIC :: GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
 CONTAINS
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Converts a real visualisation field to an indexed image grid.
+!>
+!> Active model values are magnified, river and background cells are assigned
+!> fixed palette indices, and the remaining values are linearly scaled over the
+!> available colour range.
 PURE FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
 INTEGER, DIMENSION(:,:), ALLOCATABLE :: r
-INTEGER, INTENT(IN)                  :: mag, mn  !magnification
-INTEGER, DIMENSION(:),INTENT(IN)     :: sz
-REAL, DIMENSION(:,:,:), INTENT(IN)   :: dat
+INTEGER, INTENT(IN)                  :: mag !! Magnification factor for each model cell.
+INTEGER, INTENT(IN)                  :: mn !! Visualisation metadata item number used for active-cell masking.
+INTEGER, DIMENSION(:),INTENT(IN)     :: sz !! Two-element source grid size.
+REAL, DIMENSION(:,:,:), INTENT(IN)   :: dat !! Real values indexed by component and source grid location.
 REAL, DIMENSION(:,:), ALLOCATABLE    :: rreal
 REAL                                 :: minr, maxr
 INTEGER                              :: i, j
@@ -46,14 +57,15 @@ END DO
 DEALLOCATE(rreal)
 END FUNCTION get_real_image_index
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Magnifies a real-valued visualisation field onto an output image grid.
 PURE FUNCTION get_magnified_real(sz, dat, mag, mn, mark_river) RESULT(r)
-INTEGER, INTENT(IN)                 :: mag, mn  !magnification
+INTEGER, INTENT(IN)                 :: mag !! Magnification factor for each model cell.
+INTEGER, INTENT(IN)                 :: mn !! Visualisation metadata item number used for active-cell masking.
 INTEGER                             :: i, j, im, jm, ilow, ihigh, jlow, jhigh, SU
-INTEGER, DIMENSION(:),INTENT(IN)    :: sz
-REAL, DIMENSION(:,:,:), INTENT(IN)  :: dat
+INTEGER, DIMENSION(:),INTENT(IN)    :: sz !! Two-element source grid size.
+REAL, DIMENSION(:,:,:), INTENT(IN)  :: dat !! Real values indexed by component and source grid location.
 REAL, DIMENSION(:,:), ALLOCATABLE   :: r
-LOGICAL, INTENT(IN)                 :: mark_river
+LOGICAL, INTENT(IN)                 :: mark_river !! If true, river strips are marked with the river sentinel value.
 
 ALLOCATE(r(mag*sz(1),mag*sz(2)))
 
@@ -77,14 +89,15 @@ ENDDO
 
 END FUNCTION get_magnified_real
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Builds one magnified cell block from subunit, bank, and river component values.
 PURE FUNCTION get_dat_r(d9, su, mag, mark_river)RESULT(r)
-INTEGER, INTENT(IN)            :: su, mag
+INTEGER, INTENT(IN)            :: su !! Subunit number for the model cell.
+INTEGER, INTENT(IN)            :: mag !! Magnification factor for each model cell.
 REAL, DIMENSION(mag,mag)       :: r
 INTEGER                        :: j, b
-REAL, DIMENSION(9), INTENT(IN) :: d9
+REAL, DIMENSION(9), INTENT(IN) :: d9 !! Cell, bank, and river values for the magnified block.
 REAL                           :: dum
-LOGICAL, INTENT(IN)            :: mark_river
+LOGICAL, INTENT(IN)            :: mark_river !! If true, river strips are marked with the river sentinel value.
 r        = d9(1)
 r(:,1)   = 0
 r(:,mag) = 0
@@ -114,11 +127,12 @@ ENDDO
 END FUNCTION get_dat_r
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Builds a magnified logical mask showing river-link cells.
 PURE FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
-INTEGER, INTENT(IN)                 :: mag, mn  !magnification
+INTEGER, INTENT(IN)                 :: mag !! Magnification factor for each model cell.
+INTEGER, INTENT(IN)                 :: mn !! Visualisation metadata item number used for active-cell masking.
 INTEGER                             :: i
-INTEGER, DIMENSION(:),INTENT(IN)    :: sz
+INTEGER, DIMENSION(:),INTENT(IN)    :: sz !! Two-element source grid size.
 INTEGER, DIMENSION(:,:), ALLOCATABLE:: su
 LOGICAL, DIMENSION(:,:), ALLOCATABLE:: r
 su = GET_MAGNIFIED_SU_ARR(sz, mag, mn)
@@ -130,10 +144,11 @@ DEALLOCATE(su)
 END FUNCTION get_is_link_magnified
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Magnifies the subunit-number array onto an output image grid.
 PURE FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
-INTEGER, INTENT(IN)                 :: mag, mn  !magnification
-INTEGER, DIMENSION(:),INTENT(IN)    :: sz
+INTEGER, INTENT(IN)                 :: mag !! Magnification factor for each model cell.
+INTEGER, INTENT(IN)                 :: mn !! Visualisation metadata item number used for active-cell masking.
+INTEGER, DIMENSION(:),INTENT(IN)    :: sz !! Two-element source grid size.
 INTEGER, DIMENSION(:,:), ALLOCATABLE:: r
 INTEGER, DIMENSION(mag,mag)         :: el
 INTEGER                             :: i, j, im, jm, ilow, ihigh, jlow, jhigh, su
@@ -159,9 +174,10 @@ ENDDO
 END FUNCTION get_magnified_su_arr
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the magnified element-number block for one subunit.
 PURE FUNCTION get_el(su, mag)RESULT(r)
-INTEGER, INTENT(IN)         :: su, mag
+INTEGER, INTENT(IN)         :: su !! Subunit number for the model cell.
+INTEGER, INTENT(IN)         :: mag !! Magnification factor for each model cell.
 INTEGER, DIMENSION(mag,mag) :: r
 INTEGER                     :: j
 r = su

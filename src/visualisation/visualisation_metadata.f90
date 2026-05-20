@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Visualisation metadata catalogue and plan parser.
+!>
+!> This module owns the runtime catalogue of visualisation items requested for
+!> HDF5 output. It registers static model variables, reads user-requested dynamic
+!> items from the visualisation plan file, resolves masks/lists/timing blocks,
+!> validates item dimensions, and creates the derived metadata consumed by the
+!> HDF5 writer.
 MODULE visualisation_metadata
 
 !JE for SHEGRAPH Version 2.0 Created July 2004
@@ -17,7 +23,7 @@ REAL, DIMENSION(:), ALLOCATABLE, SAVE :: previous_time, next_time
 LOGICAL, PARAMETER                    :: T=.TRUE., F=.FALSE.
 REAL, PARAMETER                       :: zero = 0.0
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Output timing definition from a `time` block in the visualisation plan.
 TYPE ttime
 PRIVATE
     INTEGER :: number, sz
@@ -25,7 +31,7 @@ PRIVATE
 END TYPE ttime
 TYPE(ttime), DIMENSION(:), POINTER :: times
 TYPE(ttime), POINTER               :: sstatic
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Element list definition, including derived scope-specific lists.
 TYPE llist
 PRIVATE
     INTEGER                        :: number, sz=0, indx=0 !number, size, and index
@@ -34,7 +40,7 @@ PRIVATE
     INTEGER, DIMENSION(:), POINTER :: a
 END TYPE llist
 TYPE(LLIST), DIMENSION(:), POINTER :: lists=>NULL()
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Grid mask definition and its associated derived list index.
 TYPE mask
 PRIVATE
     INTEGER                          :: number, ilow, ihigh, jlow, jhigh, &
@@ -43,7 +49,7 @@ PRIVATE
 END TYPE mask
 TYPE(MASK), DIMENSION(:), POINTER :: masks=>NULL()
 TYPE(MASK), POINTER               :: whole_grid=>NULL()
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> User-facing visualisation item before conversion to HDF5 dimensions.
 TYPE item
 PRIVATE
     INTEGER :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
@@ -69,7 +75,7 @@ PRIVATE
 END TYPE item
 TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> HDF5-ready visualisation item metadata.
 TYPE hdf5_item
     INTEGER              :: users_number = 0,              &
                             users_no_for_link_or_mask = 0, &
@@ -134,14 +140,14 @@ PUBLIC :: REGISTER_STATIC_VISUALISATION_METADATA,         &
 CONTAINS
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Advances the HDF5 time-step counter for one metadata item.
 SUBROUTINE INCREMENT_HDF5_TSTEP_NO(mn)
 INTEGER, INTENT(IN) :: mn
 hdf5_items(mn)%tstep_no = hdf5_items(mn)%tstep_no + 1
 END SUBROUTINE INCREMENT_HDF5_TSTEP_NO
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns whether item `n` should be recorded at the current simulation time.
 LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
 INTEGER, INTENT(IN)                   :: n
 INTEGER                               :: i
@@ -164,7 +170,7 @@ ELSE
 ENDIF
 END FUNCTION time_to_record
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the next scheduled output time for an item.
 ELEMENTAL REAL FUNCTION get_next_time(n) RESULT(r)
 INTEGER, INTENT(IN) :: n
 INTEGER             :: j
@@ -177,7 +183,7 @@ r = MIN(items(n)%atime%tstop(j), previous_time(n) + items(n)%atime%tstep(j))
 END FUNCTION get_next_time
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns character metadata for a visualisation item.
 PURE FUNCTION get_metadata_c(i, text) RESULT(r)
 INTEGER, INTENT(IN)      :: i
 CHARACTER(*), INTENT(IN) :: text
@@ -194,7 +200,7 @@ CASE DEFAULT ; r='failed ito find '//TRIM(text)//' in get_metadata_c'
 END SELECT
 END FUNCTION get_metadata_c
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns character metadata for an HDF5-ready item.
 ELEMENTAL FUNCTION get_metadata_HDF5_c(i, text, e) RESULT(r)
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: e
@@ -214,7 +220,7 @@ CASE DEFAULT ; r='failed ito find '//TRIM(text)//' in get_hdf5_metadata_c'
 END SELECT
 END FUNCTION get_metadata_HDF5_c
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns integer metadata for a visualisation item.
 ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: su
@@ -238,7 +244,7 @@ CASE DEFAULT     ; r=HUGE(1)
 END SELECT
 END FUNCTION get_metadata_i
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns a stored C pointer for an item's time-buffer chain.
 ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
     INTEGER, INTENT(IN) :: i
     INTEGER, INTENT(IN), OPTIONAL :: su
@@ -251,7 +257,7 @@ ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
     END SELECT
 END FUNCTION get_metadata_ptr
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns integer metadata for an HDF5-ready item.
 ELEMENTAL INTEGER FUNCTION get_metadata_hdf5_i(i, text, e) RESULT(r)
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: e
@@ -280,7 +286,7 @@ CASE DEFAULT                ; r=HUGE(1)
 END SELECT
 END FUNCTION get_metadata_hdf5_i
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Stores a C pointer for an item's first or latest time-buffer node.
 SUBROUTINE set_metadata_ptr(i, text, a)
     INTEGER, INTENT(IN) :: i
     TYPE(C_PTR), INTENT(IN) :: a
@@ -291,7 +297,7 @@ SUBROUTINE set_metadata_ptr(i, text, a)
     END SELECT
 END SUBROUTINE set_metadata_ptr
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns logical metadata for a visualisation item.
 PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
 INTEGER, INTENT(IN)           :: i
 INTEGER, INTENT(IN), OPTIONAL :: a,b
@@ -308,7 +314,7 @@ END SELECT
 END FUNCTION get_metadata_L
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns logical metadata for an HDF5-ready item.
 PURE LOGICAL FUNCTION get_metadata_HDF5_L(I, text) RESULT(r)
 INTEGER, INTENT(IN)           :: i
 CHARACTER(*), INTENT(IN)      :: text
@@ -323,7 +329,7 @@ END SELECT
 END FUNCTION get_metadata_HDF5_L
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads dynamic visualisation requests from the visualisation plan file.
 SUBROUTINE read_dynamic_visualisation_metadata()
 INTEGER              :: i
 CHARACTER(4)         :: now
@@ -360,7 +366,7 @@ CLOSE (UNIT=vp_in,status="delete")
 END SUBROUTINE read_dynamic_visualisation_metadata
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Registers one static visualisation variable supplied by the model interface.
 SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
 INTEGER, INTENT(IN)      :: szi, szj
 CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
@@ -386,7 +392,7 @@ ii%atime  => POINT_TO_STATIC()
 END SUBROUTINE register_static_visualisation_metadata
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes one static variable entry to the visualisation check file.
 SUBROUTINE write_sta_variable(name, units, title, extra_dimensions, varies_with_elev)
 CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
 LOGICAL, INTENT(IN)              :: varies_with_elev
@@ -403,7 +409,7 @@ IF(first) THEN
 ENDIF
 WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_ELEV(varies_with_elev), units, ed, title
 END SUBROUTINE write_sta_variable
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes one dynamic variable entry to the visualisation check file.
 SUBROUTINE write_dyn_variable(name, units, title, extra_dimensions, varies_with_elev, varies_with_sed, varies_with_con)
 CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
 LOGICAL, INTENT(IN)              :: varies_with_elev, varies_with_sed, varies_with_con
@@ -419,7 +425,7 @@ IF(first) THEN
 ENDIF
 WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_E_SED_CON(varies_with_elev,varies_with_sed,varies_with_con), units, extra_dimensions, title
 END SUBROUTINE write_dyn_variable
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Encodes elevation, sediment, and contaminant variability for the check file.
 PURE CHARACTER(7) FUNCTION v_e_sed_con(v,s,c) RESULT(r)
 INTEGER             :: p
 LOGICAL, INTENT(IN) :: v,s,c
@@ -429,7 +435,7 @@ IF(v) THEN ; r(p:p)='E' ; p=p+2 ; ENDIF
 IF(s) THEN ; r(p:p)='S' ; p=p+2 ; ENDIF
 IF(c) r(p:p)='C'
 END FUNCTION v_e_sed_con
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Encodes elevation variability for a static check-file entry.
 PURE CHARACTER(5) FUNCTION v_elev(v) RESULT(r)
 INTEGER             :: p
 LOGICAL, INTENT(IN) :: v
@@ -439,7 +445,7 @@ IF(v) r(p:p)='E'
 END FUNCTION v_elev
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Registers and validates dynamic visualisation variables.
 SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
            extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
 INTEGER                                  :: i
@@ -506,7 +512,7 @@ ENDIF
 
 END SUBROUTINE register_dynamic_visualisation_metadata
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Converts internal item metadata to the HDF5-ready metadata table.
 SUBROUTINE create_hdf5_metadata()
 INTEGER                  :: mn, nex
 TYPE(ITEM), POINTER      :: ii
@@ -554,7 +560,7 @@ ENDDO
 END SUBROUTINE create_hdf5_metadata
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Calculates HDF5 dimension sizes and dimension ordering for one item.
 SUBROUTINE GET_SZ_CR(h)
 INTEGER                  :: r, mbr, nextra
 TYPE(HDF5_ITEM), POINTER :: h
@@ -580,7 +586,7 @@ r=1 ; h%names_of_dimensions(r)='time'   ; IF(h%istimeseries) THEN ; h%dimensions
 END SUBROUTINE GET_SZ_CR
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Calculates the nominal HDF5 rank for an item.
 PURE INTEGER FUNCTION calc_rank(h) RESULT(r)
 INTEGER                  :: mbr
 TYPE(HDF5_ITEM), POINTER :: h
@@ -594,7 +600,7 @@ IF(h%istimeseries)          r=r+1
 END FUNCTION calc_rank
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Maps a model data type and requested scope to a visualisation storage type.
 CHARACTER FUNCTION alter_dynamic_type(typ, ii) RESULT(r)
 CHARACTER, INTENT(IN)     :: typ
 TYPE(ITEM), INTENT(INOUT) :: ii
@@ -645,7 +651,7 @@ END FUNCTION alter_dynamic_type
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Dispatches one visualisation plan keyword block to its reader.
 SUBROUTINE HANDLE(now)
 INTEGER                  :: orig
 CHARACTER(4), INTENT(IN) :: now
@@ -690,7 +696,7 @@ CASE('diag')
 END SELECT
 END SUBROUTINE HANDLE
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Links user numbers in an item to the resolved mask/list/time metadata.
 SUBROUTINE link_users_numbers_to_indexes(it)
 INTEGER                   :: uun
 TYPE(ITEM), INTENT(INOUT) :: it
@@ -709,7 +715,7 @@ END SUBROUTINE link_users_numbers_to_indexes
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the static-output timing sentinel.
 FUNCTION point_to_static() RESULT(r)
 TYPE(TTIME), POINTER :: r
 LOGICAL, SAVE        :: first=T
@@ -727,7 +733,7 @@ r => sstatic
 END FUNCTION point_to_static
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns a mask covering the whole model grid.
 FUNCTION point_to_whole_grid(i,j) RESULT(r)
 TYPE(MASK), POINTER :: r
 INTEGER, INTENT(IN) :: i,j
@@ -749,7 +755,7 @@ END FUNCTION point_to_whole_grid
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the list offset associated with an item scope.
 ELEMENTAL INTEGER FUNCTION extra(s) RESULT(r)
 CHARACTER(*), INTENT(IN) :: s
 SELECT CASE(s)
@@ -760,7 +766,7 @@ CASE('rivers')  ; r=3
 END SELECT
 END FUNCTION extra
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the mask matching a user mask number.
 FUNCTION point_to_mask(users_no_for_link_or_mask) RESULT(r)
 INTEGER, INTENT(IN) :: users_no_for_link_or_mask
 INTEGER             :: I
@@ -778,7 +784,7 @@ IF(.NOT.ASSOCIATED(r)) THEN
 ENDIF
 END FUNCTION point_to_mask
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the list matching a user list/mask number, basis, and scope.
 FUNCTION point_to_list(users_no_for_link_or_mask, basis, scope) RESULT(r)
 INTEGER                  :: i, j
 INTEGER, INTENT(IN)      :: users_no_for_link_or_mask
@@ -814,7 +820,7 @@ ENDIF
 
 END FUNCTION point_to_list
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the timing block matching a user time number.
 FUNCTION point_to_time(users_no_for_times) RESULT(r)
 INTEGER, INTENT(IN)  :: users_no_for_times
 INTEGER              :: I
@@ -832,14 +838,14 @@ IF(.NOT.ASSOCIATED(r)) THEN
 ENDIF
 END FUNCTION point_to_time
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns a copy of one internal visualisation item.
 TYPE(ITEM) FUNCTION get_item(i) RESULT(r)
 INTEGER, INTENT(IN) :: i
 r = items(i)
 END FUNCTION get_item
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of registered visualisation items.
 PURE INTEGER FUNCTION no_of_items(text) RESULT(r)
 CHARACTER(*), INTENT(IN), OPTIONAL :: text
 IF(PRESENT(text)) THEN
@@ -854,7 +860,7 @@ END FUNCTION no_of_items
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Reads plan-file tokens until a recognised keyword is found.
 CHARACTER(4) FUNCTION cycle_till_keyword() RESULT(r)
 WRITE(vp_out,*)
 IF(diagnostics) WRITE(vp_out,'(50X,A)') 'looking for keyword'
@@ -867,7 +873,7 @@ RETURN
 r = 'stop'
 END FUNCTION cycle_till_keyword
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads one requested visualisation item from the plan file.
 SUBROUTINE read_item(s)
 INTEGER                   :: number
 CHARACTER(csz)            :: dum, name
@@ -905,7 +911,7 @@ END SUBROUTINE read_item
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Validates one requested visualisation item.
 SUBROUTINE check_item(a)
 TYPE(ITEM), INTENT(IN) :: a
 IF (ALL(a%basis/=basis)) THEN
@@ -944,7 +950,7 @@ ENDIF
 
 END SUBROUTINE check_item
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Performs cross-item validation after all requested items are linked.
 SUBROUTINE final_check_of_item()
 INTEGER             :: i, cnt
 TYPE(ITEM), POINTER :: a
@@ -966,7 +972,7 @@ IF(cnt>0) CALL ERROR()
 END SUBROUTINE final_check_of_item
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads one output timing block from the plan file.
 SUBROUTINE read_time(t)
 INTEGER                    :: i
 TYPE(TTIME), INTENT(INOUT) :: t
@@ -987,7 +993,7 @@ t%tstop(t%sz+1) = HUGE(1.0)
 END SUBROUTINE read_time
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads one explicit element list from the plan file.
 SUBROUTINE read_list(L)
 INTEGER                    :: i, cnt
 TYPE(LLIST), INTENT(INOUT) :: L
@@ -1011,7 +1017,7 @@ ENDDO
 IF(cnt>0) CALL ERROR()
 END SUBROUTINE read_list
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Builds a scoped element list from a mask.
 TYPE(LLIST) FUNCTION make_list_from_mask(m, txt) RESULT(r)
 INTEGER                  :: num
 CHARACTER(*), INTENT(IN) :: txt
@@ -1028,7 +1034,7 @@ WRITE(vp_out,'(<20>I5)') r%a
 
 CONTAINS
 
-    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+    !> Expands active masked cells into subunit, bank, and river element numbers.
     SUBROUTINE loops()
     INTEGER :: c, i, j, su
     c = 1
@@ -1046,7 +1052,7 @@ CONTAINS
 
 END FUNCTION make_list_from_mask
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Builds a scoped element list from an explicit element list.
 TYPE(LLIST) FUNCTION make_list_from_list(L, txt) RESULT(r)
 INTEGER                  :: num
 CHARACTER(*), INTENT(IN) :: txt
@@ -1063,7 +1069,7 @@ WRITE(vp_out,'(<20>I5)') r%a
 
 CONTAINS
 
-    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+    !> Filters the source list down to elements matching the requested scope.
     SUBROUTINE lists()
     INTEGER :: c, i, j, su
     LOGICAL :: iss
@@ -1081,7 +1087,7 @@ CONTAINS
     END SUBROUTINE lists
 END FUNCTION make_list_from_list
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of element slots contributed by a scope.
 PURE INTEGER FUNCTION get_num(txt) RESULT(r)
 CHARACTER(*), INTENT(IN) :: txt
 SELECT CASE(txt)
@@ -1093,7 +1099,7 @@ END SELECT
 END FUNCTION get_num
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Removes zeros and duplicates from an element list and sorts it ascending.
 SUBROUTINE sort(sza, a)
 INTEGER, INTENT(INOUT)             :: sza
 INTEGER                            :: i, j, szd
@@ -1121,7 +1127,7 @@ ENDDO
 
 END SUBROUTINE sort
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads one grid mask from the plan file and removes cells outside the catchment.
 SUBROUTINE read_mask(m, off)
 INTEGER                              :: i, j
 CHARACTER, DIMENSION(:), INTENT(IN)  :: off
@@ -1155,7 +1161,7 @@ ENDDO
 CALL mask_write('effective mask', m%ma, 'T', '.')
 END SUBROUTINE read_mask
 
-!cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+!> Writes a logical mask to the visualisation check file.
 SUBROUTINE mask_write(txt, ma, tr, fa)
     CHARACTER(*), INTENT(IN) :: txt
     LOGICAL, INTENT(IN)      :: ma(:,:)
@@ -1182,33 +1188,33 @@ SUBROUTINE mask_write(txt, ma, tr, fa)
 END SUBROUTINE mask_write
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Extends the internal visualisation item table.
 SUBROUTINE INCREMENT_item(s,n)
 TYPE(ITEM), DIMENSION(:), POINTER :: s,old=>NULL()
 INCLUDE 'include_increment.f90'
 no_items   = no_items + 1
 END SUBROUTINE INCREMENT_item
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Extends the internal list table.
 SUBROUTINE INCREMENT_LIST(s,n)
 TYPE(LLIST), DIMENSION(:), POINTER :: s,old=>NULL()
 INCLUDE 'include_increment.f90'
 no_lists   = no_lists + 1
 END SUBROUTINE INCREMENT_LIST
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Extends the internal mask table.
 SUBROUTINE INCREMENT_MASK(s,n)
 TYPE(MASK), DIMENSION(:), POINTER :: s,old=>NULL()
 INCLUDE 'include_increment.f90'
 no_masks  = no_masks + 1
 END SUBROUTINE INCREMENT_MASK
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Extends the internal timing-block table.
 SUBROUTINE INCREMENT_TIME(s,n)
 TYPE(TTIME), DIMENSION(:), POINTER :: s,old=>NULL()
 INCLUDE 'include_increment.f90'
 no_times  = no_times + 1
 END SUBROUTINE INCREMENT_TIME
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the number of entries in an extra-dimension selector.
 ELEMENTAL INTEGER FUNCTION no_extra_dimensions(e_d) RESULT(r)
 CHARACTER(*), INTENT(IN) :: e_d
 SELECT CASE(e_d)
@@ -1219,7 +1225,7 @@ CASE('X_Y')         ; r = 2
 END SELECT
 END FUNCTION no_extra_dimensions
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns labels for an extra-dimension selector.
 FUNCTION names_of_extra_dimensions(n,e_d) RESULT(r)
 INTEGER, INTENT(IN)        :: n
 CHARACTER(*), INTENT(IN)   :: e_d

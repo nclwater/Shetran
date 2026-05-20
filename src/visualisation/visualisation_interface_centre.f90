@@ -1,4 +1,15 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Central translation layer for visualisation output variables.
+!>
+!> This module defines the visualisation output catalogue and translates named
+!> visualisation variables into SHETRAN integer or real values. Static output
+!> types have non-positive type numbers, dynamic output types have positive
+!> numbers, and the catalogue records whether each variable varies by elevation,
+!> sediment fraction, contaminant, or extra face/direction dimension.
+!>
+!> The visualisation plan and HDF5 metadata use compass-order face dimensions
+!> (`N`, `E`, `S`, `W`) as described in the manual. The SHETRAN core uses its
+!> internal face numbering in the accessors below, and the right-hand
+!> visualisation interface remaps between the two orders before data are stored.
 MODULE visualisation_interface_centre
 
 !JE 2.0 190704 Created
@@ -48,7 +59,7 @@ LOGICAL, PARAMETER :: T=.TRUE., F=.FALSE.
 !N - integer for compounds
 !A compound is a grouping of a gridsquare and all the banks and rivers segments asociasted with it
 !  so a compound has (potentially) 9 parts - one gridsquare, 4 banks and 4 river segments
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Metadata for one visualisation output variable.
 TYPE output_type
 INTEGER        :: number
 CHARACTER(8)   :: name                       !as used in the visualisation input file (called the visualisation plan)
@@ -82,7 +93,7 @@ TYPE(OUTPUT_TYPE), DIMENSION(first_type:last_type), PARAMETER :: outtype = &
     OUTPUT_TYPE(7,  'can_stor', 'Canopy storage                                               ', 'mm      ', 'G', '-   ', F, F, F, T), &
     OUTPUT_TYPE(8,  'infilt  ', 'Infiltration                                                 ', 'mm/hour ', 'G', '-   ', F, F, F, F), &
     OUTPUT_TYPE(9,  'v_flow  ', 'Vertical flows                                               ', 'm/s     ', 'G', '-   ', T, F, F, T), &
-    OUTPUT_TYPE(10, 'snow_dep', 'Snow pack depth                                              ', 'm       ', 'G', '-   ', F, F, F, T), &
+    OUTPUT_TYPE(10, 'snow_dep', 'Snow pack depth                                              ', 'mm      ', 'G', '-   ', F, F, F, T), &
     OUTPUT_TYPE(11, 'snow_tmp', 'Temperature of snow pack                                     ', 'deg C   ', 'G', '-   ', F, F, F, F), &
     OUTPUT_TYPE(12, 'ph_depth', 'Phreatic depth below surface                                 ', 'm       ', 'G', '-   ', F, F, F, T), &
     OUTPUT_TYPE(13, 'lat_flow', 'Lateral flows                                                ', 'm3/s    ', 'G', 'faces',T, F, F, F), &
@@ -131,15 +142,18 @@ CONTAINS
 
 
 
-!Evaluate variables for use in SHEGRAPH Version2
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Evaluates an integer-valued SHETRAN visualisation variable.
+!>
+!> The optional indices identify either element/grid position, vertical layer,
+!> extra face or direction, sediment fraction, and contaminant number depending
+!> on the variable metadata.
 ELEMENTAL INTEGER FUNCTION shetran_integer_data(name, iel, ix, iy, ilay, ext, nsed, ncon) RESULT(r)
 !will be passed element no (i.e. iel) or grid coordinates (ix,iy)
 INTEGER, INTENT(IN), OPTIONAL :: iel,  &  !SHETRAN element no. (numbering: 1 - NEL)
                                  ix,   &  !x coordinate on grid (grid is NX by NY)
                                  iy,   &  !y coordinate on grid (grid is NX by NY)ilay,
                                  ilay, &  !layer no. (top layer is LL)
-                                 ext,  &  !for 'faces'       FACES ARE:       1-E, 2-N, 3-W, 4-S
+                                 ext,  &  !internal SHETRAN order: faces 1-E, 2-N, 3-W, 4-S
                                           !for 'X_Y',        DIRECTIONS ARE:  1-E/W, 2-N/S
                                           !for 'left_right', DIRECTIONS ARE:  1-left, 2-right
                                  nsed, ncon
@@ -154,13 +168,16 @@ SELECT CASE(name)
 END SELECT
 END FUNCTION shetran_integer_data
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Evaluates a real-valued SHETRAN visualisation variable.
+!>
+!> The dispatch is controlled by `name`, which is matched against the
+!> visualisation output catalogue. Units are those advertised in `outtype`.
 ELEMENTAL REAL FUNCTION shetran_real_data(name, iel, ix, iy, ilay, ext, nsed, ncon) RESULT(r)
 INTEGER, INTENT(IN), OPTIONAL :: iel,  &  !SHETRAN element no. (numbering: 1 - NEL)
                                  ix,   &  !x coordinate on grid (grid is NX by NY)
                                  iy,   &  !y coordinate on grid (grid is NX by NY)
                                  ilay, &  !layer no. (top layer is LL)
-                                 ext,  &  !for 'faces'       FACES ARE:       1-E, 2-N, 3-W, 4-S
+                                 ext,  &  !internal SHETRAN order: faces 1-E, 2-N, 3-W, 4-S
                                           !for 'X_Y',        DIRECTIONS ARE:  1-E/W, 2-N/S
                                           !for 'left_right', DIRECTIONS ARE:  1-left, 2-right
                                  nsed, ncon
@@ -226,8 +243,7 @@ END SELECT
 END FUNCTION shetran_real_data
 
 
-!DON'T CHANGE THIS
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Returns the static or dynamic subset of the visualisation output catalogue.
 FUNCTION get_output_type(text)  RESULT(r)
 TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: r
 CHARACTER(*), INTENT(IN)                 :: text
@@ -241,7 +257,7 @@ CASE('dynamic')
 END SELECT
 END FUNCTION get_output_type
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Converts a SHEGRAPH vertical layer number to a SHETRAN cell-layer number.
 ELEMENTAL INTEGER FUNCTION shetran_layer(sgv2layer) RESULT(r) !vertical layering
 INTEGER, INTENT(IN) :: sgv2layer
 r = TOP_CELL() - sgv2layer + 1

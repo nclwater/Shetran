@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Visualisation plan-file reading utilities.
+!>
+!> This module provides the small parser used by the visualisation metadata
+!> layer. It strips comments and separators from the visualisation plan file,
+!> then exposes typed readers for character, integer, and real values while
+!> collecting consistent diagnostic messages for malformed input.
 MODULE visualisation_read
 
 !JE for SHEGRAPH Version 2.0 Created July 2004
@@ -21,14 +26,15 @@ PUBLIC :: vp_in, vp_out, mess, mess2, mess3, ERROR, R_C, R_I, R_R, COPY
 CONTAINS
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Opens and strips the visualisation plan file into the parser input stream.
 SUBROUTINE copy(dirqq, filename)
-CHARACTER(*), INTENT(IN) :: dirqq, filename
+CHARACTER(*), INTENT(IN) :: dirqq !! Catchment directory used for temporary parser files.
+CHARACTER(*), INTENT(IN) :: filename !! Visualisation plan filename to read.
 !CALL STRIP(file=TRIM(dirqq)//'input/visualisation_plan.txt', u=vp_in, checktitle='visualisation plan', delimiter='!', separator=(/':','^'/), DIR=dirqq)
 CALL STRIP(file=filename, u=vp_in, checktitle='visualisation plan', delimiter='!', separator=(/':','^'/), DIR=dirqq)
 END SUBROUTINE copy
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads a character token from the stripped visualisation plan stream.
 SUBROUTINE r_c(text, r)
 INTEGER                   :: i
 LOGICAL                   :: eor
@@ -38,7 +44,7 @@ CHARACTER                 :: c
 CALL READ_A_LINE(text, r)
 END SUBROUTINE r_c
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads a nonblank character and then the remainder of a character value.
 SUBROUTINE read_a_line(text, r)
 CHARACTER(*), INTENT(IN)  :: text
 CHARACTER(*), INTENT(OUT) :: r
@@ -49,7 +55,7 @@ IF(LEN(r)>1) READ(vp_in,*) r(2:)
 END SUBROUTINE read_a_line
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads one integer token from the stripped visualisation plan stream.
 SUBROUTINE r_ii(text, r)
 !Read an integer
 INTEGER, PARAMETER             :: szb = 8
@@ -78,7 +84,7 @@ WRITE(mess,*) TRIM(text)//' - Expecting integer, but read '//b ; GOTO 100
 100 CALL ERROR()
 END SUBROUTINE r_ii
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Advances the parser to the next accepted character.
 RECURSIVE SUBROUTINE find_first_character(text, c, d, exclude)
 CHARACTER, INTENT(OUT)                        :: c
 CHARACTER, DIMENSION(:), INTENT(IN), OPTIONAL :: d
@@ -102,7 +108,7 @@ END SUBROUTINE find_first_character
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reads one real token from the stripped visualisation plan stream.
 SUBROUTINE r_rr(text,r)
 !Read a read
 INTEGER, PARAMETER             :: szb = 20
@@ -129,14 +135,14 @@ RETURN
 100 CALL ERROR()
 END SUBROUTINE r_rr
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Interface wrapper for reading a scalar integer.
 SUBROUTINE r_i_0(text, r)
 INTEGER, INTENT(OUT)     :: r
 CHARACTER(*), INTENT(IN) :: text
 CALL R_II(text, r)
 END SUBROUTINE r_i_0
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Interface wrapper for reading two to five scalar integers.
 SUBROUTINE r_i_m(text, i1, i2, i3, i4, i5)
 INTEGER, INTENT(OUT)           :: i1, i2
 INTEGER, INTENT(OUT), OPTIONAL :: i3, i4, i5
@@ -148,7 +154,7 @@ IF(PRESENT(i4)) CALL R_I(text, i4)
 IF(PRESENT(i5)) CALL R_I(text, i5)
 END SUBROUTINE r_i_m
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Interface wrapper for reading an integer vector.
 SUBROUTINE r_i_1(text, sz, r)
 INTEGER, INTENT(IN)                 :: sz
 INTEGER, DIMENSION(sz), INTENT(OUT) :: r
@@ -159,14 +165,14 @@ DO i=1,sz
 ENDDO
 END SUBROUTINE r_i_1
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Interface wrapper for reading a scalar real.
 SUBROUTINE r_r_0(text, r)
 REAL, INTENT(OUT)     :: r
 CHARACTER(*), INTENT(IN) :: text
 CALL R_RR(text, r)
 END SUBROUTINE r_r_0
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Interface wrapper for reading two to five scalar reals.
 SUBROUTINE r_r_m(text, r1, r2, r3, r4, r5)
 REAL, INTENT(OUT)           :: r1, r2
 REAL, INTENT(OUT), OPTIONAL :: r3, r4, r5
@@ -178,7 +184,7 @@ CHARACTER(*), INTENT(IN)    :: text
     IF(PRESENT(r5)) CALL R_R(text, r5)
 END SUBROUTINE r_r_m
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Interface wrapper for reading a real vector.
 SUBROUTINE r_r_1(text, sz, r)
 INTEGER, INTENT(IN)                 :: sz
 REAL, DIMENSION(sz), INTENT(OUT) :: r
@@ -189,7 +195,7 @@ DO i=1,sz
 ENDDO
 END SUBROUTINE r_r_1
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Reports a visualisation parser error and stops the program.
 SUBROUTINE error()
 CHARACTER(27), PARAMETER :: mm='*** VISUALISATION ERROR ***'
 WRITE(vp_out,'(/A)') mm
@@ -204,7 +210,10 @@ STOP
 88 FORMAT(A)
 END SUBROUTINE error
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Strips comments, line separators, and leading/trailing blanks from an input file.
+!>
+!> The stripped content is written to a temporary file and reopened on unit `u`
+!> so the typed readers can consume a compact token stream.
 SUBROUTINE strip(file, u, checktitle, delimiter, separator, dir)
 !JE 12/99 Strips informative text from data files
 !Works line by line - removes delimiter and all following text

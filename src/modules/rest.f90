@@ -1,10 +1,18 @@
+!> summary: Miscellaneous run-control, meteorological input, and water-balance routines.
+!>
+!> This module collects legacy routines that do not naturally belong to one of
+!> the process-specific modules. It writes final summary output, maintains the
+!> column/link water-balance diagnostic, reads meteorological forcing as the run
+!> advances, and computes the next model timestep subject to soft-start,
+!> snowmelt, meteorological data boundaries, and runtime error-reduction flags.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2008-12 | JE | 4.3.5F90 | Created during Fortran 90 conversion to collect `.F` routines without another natural module home. |
+!> | 2026-03 | SB | 4.6 | Added date-aware meteorological files for precipitation, potential evaporation, and max/min temperature. |
+!> @endhistory
 MODULE rest
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Mops up .F files that do not have a natural home in any other module
-! SB  mar 26   4.6      Added dates to met files. precipitation (prd), Potential evaporation (epd) and max and min temperatrue
-    
-    
-    
 USE SGLOBAL
 !USE SGLOBAL,    ONLY : NELEE, NVEE
 USE AL_G,    ONLY : icmref
@@ -35,7 +43,7 @@ PUBLIC :: BALWAT, TMSTEP, EXTRA_OUTPUT, &
 !          start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here for AD only
 CONTAINS
 
-!SSSSSS SUBROUTINE extra_output
+!> Writes end-of-run error and spatially averaged water-balance summaries.
 SUBROUTINE extra_output()
 INTEGER :: i
 DOUBLEPRECISION    :: car
@@ -94,27 +102,27 @@ WRITE(PPPRI, '(A20,F10.2)') 'Channel Stor = ', balanc (17) * 1000 / &
 
 
 
-!SSSSSS SUBROUTINE BALWAT  
+!> Updates the cumulative water-balance error for each column or link.
+!>
+!> The routine computes the change in stored surface/subsurface water since the
+!> previous call and compares it with net supplied depth over the last timestep:
+!> precipitation, evaporation, subsurface exchange, well flow, overland flow, and
+!> lateral subsurface advection. The residual is accumulated in `WBERR` as a
+!> diagnostic depth in metres.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Standard header, explicit declarations, extra comments, and first-pass storage initialisation. |
+!> | 1995-02-20 | GP | 4.0 | Updated for the VSS module and revised subsurface flow variables. |
+!> | 1997-02-17 | RAH | 4.1 | Swapped array subscripts for `QVSH`, `DELTAZ`, and `VSTHE`; renamed local counters. |
+!> @endhistory
 SUBROUTINE BALWAT  
 !----------------------------------------------------------------------*
 !           Returns WBERR(column or link no.)
 !           the balance error for water depth. This is the
 !           extra depth, in metres, of water created during the
 !           timestep.
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/BALWAT/4.1
-! Modifications:
-!  RAH  03.10.94  Version 3.4.1 from version 3.4 Aug 94: std header;
-!                  declare everything; extra comments.
-!                 Initialize STORW; set WBERR=0 on first pass.
-!  GP  20.02.95  updated for SHETRAN V4.0 (finished 15/1/96)
-!                   Mods for new VSS module: one loop for all elements;
-!                   scrap AMULT,JBK,NLINKA,NLKSA; asumQ for advection;
-!                   replace DDZ,TH3,RSZAQ,RSZWEL,QHSZ with DELTAZ,
-!                   VSTHE,QVSBF,QVSWEL,QVSH (note change in sign); QBK*
-!                   implicit in QVSH (except QBKF for link elements).
-! RAH  970217  4.1  Swap subscripts: QVSH,DELTAZ,VSTHE (see AL.C).
-!      970606       Rename locals NCE,NCL as CELL,IEL.
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Imported constants
@@ -211,7 +219,22 @@ END subroutine BALWAT
 
 
 
-!SSSSSS SUBROUTINE METIN
+!> Reads or interpolates meteorological forcing required by ET, interception, and snowmelt.
+!>
+!> `METIN` advances precipitation, potential evaporation, radiation, wind,
+!> temperature, vapour pressure deficit, and time-varying vegetation/canopy
+!> parameters as needed for the current simulation time. In date-aware mode it
+!> verifies that the first forcing record does not start after the model start
+!> date, then converts ISO-like date fields to SHETRAN hours using the
+!> `hour_from_date` utility.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-01 | RAH | 3.4.1 | Added legacy double-precision typing. |
+!> | 1996-12-28 | RAH | 4.1 | Initialised `PELAST`; moved data from `SPEC.ET`; removed redundant interpolation argument. |
+!> | 2026-03 | SB | 4.6 | Added optional date-aware meteorological input handling. |
 SUBROUTINE METIN (IFLAG)  
 !----------------------------------------------------------------------*
 !
@@ -220,16 +243,6 @@ SUBROUTINE METIN (IFLAG)
 !  CALCULATIONS.  IT IS ASasumED THAT A MET DATA PREPROGRAM
 !  WILL HAVE CARRIED OUT VALIDATION CHECKS.
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/ET/METIN/4.1
-! Modifications:
-! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-! RAH  961228  4.1  Initialize PELAST (was undefined). No long comments.
-!      970516       Bring IDATA & PA from SPEC.ET; don't print values.
-!                   Also bring EPLAST & PEIN.  Explicit typing.
-!                   Generic intrinsics.  "PINP" not "P" in list below.
-!                   Remove local TSTART (redundant), and
-!                   TERPO1 redundant 7th arg (SPEC.ET arrays NUM*).
 !----------------------------------------------------------------------*
 ! Commons and constants
 !
@@ -938,29 +951,29 @@ END SUBROUTINE METIN
 
 
 
-!SSSSSS SUBROUTINE TMSTEP  
+!> Computes the next simulation timestep and reads any required meteorological data.
+!>
+!> The timestep is limited by soft-start growth, snowmelt conditions, forcing-data
+!> record boundaries, maximum timestep controls, and runtime reductions triggered
+!> by selected flow errors. This routine is the main point where meteorological
+!> file timing and hydrological stability controls meet before the next model
+!> step is taken.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-07 | GP | 3.4 | Reworked `UZNEXT` algorithm and added soft-start controls. |
+!> | 1994-10-03 | RAH | 3.4.1 | Added legacy double-precision typing. |
+!> | 1996-07-17 | GP | 4.0 | Limited timestep during snowmelt. |
+!> | 1998-10-20 | RAH | 4.2 | Reworked control flow and initialisation. |
+!> | 2020-07-07 | SB | - | Added timestep reduction after selected runtime errors. |
+!> | 2026-03 | SB | 4.6 | Added date-aware checks for meteorological forcing files. |
+!> @endhistory
 SUBROUTINE TMSTEP  
 !----------------------------------------------------------------------*
 !
 !  COMPUTE THE NEXT TiMeSTEP AND READ METEOROLOGICAL DATA.
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/TMSTEP/4.2
-! Modifications since v3.3:
-!  GP Jul 93  3.4  Rewrite UZNEXT algorithm: scrap inputs PINMAX,PMAX,
-!                  PREST; new inputs NSTEP,BSOFT; new locals EXIT,
-!                  TSOFT,TSTART,TEND; many diffs.
-!                  Call ERROR if UZNEXT too small.
-!                  Call METIN twice, and pass arg IFLAG (see METIN).
-! RAH 941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL(AL.P).
-!  GP 960717  4.0  Constrain UZNEXT.le.TSNOW (new local, also SMFLAG,
-!                  IEL); uses new inputs BEXSM,NM,TA,NLF,NEL,SD.
-! RAH 981020  4.2  Explicit typing.  Generic intrinsics.
-!                  Remove needless FLOAT setting TSOFT.
-!                  Replace loop 22, etc with IF (EXIT) GOTO ...
-!                  Remove redundant TSTART.  Move label 8 inside block.
-!                  Move initializations of EXIT,TOFT,TSNOW.
-!                  Label 45 was 1000.  Test UZNEXT BEFORE loop 50.
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Input common
@@ -1024,7 +1037,7 @@ ENDIF
 ! SET TIMESTEP LENGTH
 UZNEXT = MIN (UZNEXT * (1.0 + PALFA), TSOFT, TSNOW)  
 
-!**SB 07072020 reduce timestep if there are errors 1024,1030,1060
+! SB 07072020 reduce timestep if there are errors 1024,1030,1060.
 IF (ISERROR2) THEN
     UZNEXT = max(0.0003,uznext/10.0)
 ELSEIF (ISERROR) THEN

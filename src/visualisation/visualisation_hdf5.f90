@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: HDF5 writer for SHETRAN visualisation output.
+!>
+!> This module creates the visualisation HDF5 file, registers datasets and
+!> attributes from the metadata layer, writes static and dynamic time-series
+!> variables, and adds derived catchment-map products such as indexed surface
+!> elevation images and magnified element-number grids.
 MODULE visualisation_hdf5
 
 USE ISO_C_BINDING, ONLY: C_PTR
@@ -52,7 +57,7 @@ REAL, PARAMETER         :: zero=0.0
 LOGICAL, PARAMETER      :: T=.TRUE., F=.FALSE.
 
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Pointer wrapper for HDF5 dimension-size arrays.
 TYPE ssz
     INTEGER(HSIZE_T), DIMENSION(:), POINTER :: a
 END TYPE ssz
@@ -71,7 +76,7 @@ PUBLIC :: SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP
 
 CONTAINS
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Creates the HDF5 file, groups, datasets, dataspaces, and compression properties.
 SUBROUTINE initialise()
 INTEGER                  :: ni, mn, jj
 INTEGER, DIMENSION(ndim) :: hhdim
@@ -159,7 +164,7 @@ ENDDO
 END SUBROUTINE initialise
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Builds an HDF5 group name for one visualisation item and optional fraction number.
 CHARACTER(12) FUNCTION combination_name(mn) RESULT(r)
 INTEGER, INTENT(IN) :: mn
 CHARACTER(8)        :: dum
@@ -173,7 +178,7 @@ ENDIF
 r  = TRIM(r)//' '//TRIM(dum)
 END FUNCTION combination_name
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Closes all open HDF5 datasets, groups, dataspaces, the file, and the HDF5 library.
 SUBROUTINE visualisation_tidy_up()
 INTEGER :: ni, mn
 LOGICAL :: istimeseries
@@ -194,7 +199,7 @@ CALL H5CLOSE_F(error)
 END SUBROUTINE visualisation_tidy_up
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes one visualisation metadata item to disk when its output is due.
 SUBROUTINE save_visualisation_data_to_disk(mn, time)
 INTEGER, INTENT(IN) :: mn
 INTEGER, PARAMETER  :: buffer_length_for_storage=1
@@ -235,7 +240,10 @@ END SUBROUTINE save_visualisation_data_to_disk
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Copies buffered visualisation values into an HDF5 dataset.
+!>
+!> Time-series items are appended by selecting hyperslabs in the extended HDF5
+!> dataset. Static values are written once at simulation time zero.
 SUBROUTINE write_mn(mn, amount, firstwrites, tstep, isreal, szorder, ilow, jlow, klow)
 INTEGER, INTENT(IN)                                :: mn, tstep, ilow, jlow, klow, amount !how many to copy to disk
 INTEGER, DIMENSION(:), INTENT(IN)                  :: szorder
@@ -326,7 +334,7 @@ IF(name=='surf_elv') THEN
 ENDIF
 END SUBROUTINE write_mn
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds units metadata to a time dataset.
 SUBROUTINE create_time_attributes(mn)
 INTEGER, INTENT(IN)                     :: mn
 !INTEGER(HSIZE_T)                        :: arank
@@ -347,7 +355,7 @@ INTEGER(HID_T)                          :: attribute, a_dataspace
     CALL H5SCLOSE_F(a_dataspace, error)
 END SUBROUTINE create_time_attributes
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds descriptive and dimension metadata attributes to a value dataset.
 SUBROUTINE create_variables_attributes(mn)
 INTEGER, INTENT(IN)                     :: mn
 INTEGER                                 :: dd, ii, jj, no_dimensions
@@ -431,7 +439,7 @@ CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nme, nmed
 
 CONTAINS
 
-    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+    !> Adds per-dimension limit or membership attributes to a value dataset.
     SUBROUTINE dimension_attributes(name)
     CHARACTER(*), INTENT(IN) :: name
     CHARACTER(csz)           :: dum(1)
@@ -531,10 +539,7 @@ END SUBROUTINE create_variables_attributes
 
 
 
-!MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF
-!MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF
-!MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves surface elevation as an indexed catchment-map image.
 SUBROUTINE save_surf_elev_as_map(mn, dat, magnif)
 INTEGER, INTENT(IN)                :: mn, magnif
 INTEGER                            :: sz(2)
@@ -549,7 +554,7 @@ CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic=temp_pic)
 DEALLOCATE(temp_pic)
 END SUBROUTINE save_surf_elev_as_map
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Saves magnified element numbers as an HDF5 spreadsheet-style dataset.
 SUBROUTINE save_numbers_as_spreadsheet(mn)
 INTEGER, INTENT(IN) :: mn
 INTEGER, PARAMETER  :: magnif=20
@@ -562,7 +567,7 @@ DEALLOCATE(temp_magarr)
 END SUBROUTINE save_numbers_as_spreadsheet
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds an indexed catchment-map image and colour palette to the HDF5 file.
 SUBROUTINE add_an_image_to_group(name, title, magnif, pic)
 INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic
 INTEGER, INTENT(IN)                           :: magnif
@@ -597,7 +602,7 @@ CALL h5IMmake_palette_F(group_images, pal_name, pal_dims, pal_data_in, error)
 CALL H5IMlink_palette_f(group_images, name, pal_name, error)
 END SUBROUTINE add_an_image_to_group
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes an 8-bit indexed image dataset with HDF5 image attributes.
 SUBROUTINE make_tidy_image_8(loc_id, name, wid, hei, pic, err)
 INTEGER, PARAMETER                            :: rank=2
 INTEGER, INTENT(OUT)                          :: err
@@ -635,7 +640,7 @@ CALL H5LTset_attribute_string_f(loc_id, name, "IMAGE_SUBCLASS", "IMAGE_INDEXED",
 
 END SUBROUTINE make_tidy_image_8
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds a magnified integer grid dataset to the spreadsheet group.
 SUBROUTINE add_magnified_integer_spreadsheet_to_group(mn, nme, magnif, magarr)
 INTEGER, INTENT(IN)                     :: mn, magnif, magarr(:,:)
 INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset
@@ -793,7 +798,7 @@ END MODULE visualisation_hdf5
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! Legacy greyscale element-number map writer retained as commented reference.
 !SUBROUTINE save_numbers_as_map_old(mn, file, dataset_compress_property)
 !INTEGER, INTENT(IN)                     :: mn
 !INTEGER, PARAMETER                      :: magnif=20, mmax=255  !built-in magnification
@@ -887,7 +892,7 @@ END MODULE visualisation_hdf5
 !CALL H5GCLOSE_F(group_plans, error)
 !END SUBROUTINE save_numbers_as_map_old
 
-!!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! Legacy river-map writer retained as commented reference.
 !SUBROUTINE save_numbers_as_map(mn, magnif)
 !INTEGER, INTENT(IN)                     :: mn, magnif
 !INTEGER                                 :: sz(2)

@@ -1,8 +1,42 @@
+!> summary: Variably saturated subsurface flow.
+!>
+!> This module implements SHETRAN's VSS component: reading variably saturated
+!> subsurface input, constructing layer and cell connectivity, preparing
+!> time-varying boundary conditions, assembling each one-dimensional column
+!> problem, solving pressure head changes, and returning groundwater/surface
+!> exchange, spring, well, lateral, and vertical fluxes to the shared model
+!> arrays.
+!>
+!> The numerical formulation is a finite-volume/finite-difference column
+!> solution of variably saturated flow, coupled laterally through element and
+!> layer connectivity. Hydrologically this is the Richards-equation problem for
+!> water movement in unsaturated/saturated porous media; see Richards (1931),
+!> "Capillary Conduction of Liquids through Porous Mediums",
+!> https://doi.org/10.1063/1.1745010. Soil hydraulic properties may be generated
+!> from a van Genuchten option, tabulated directly, or generated from the legacy
+!> exponential option; the van Genuchten option corresponds to
+!> van Genuchten (1980), https://doi.org/10.2136/sssaj1980.03615995004400050002x.
+!>
+!> The column solver assembles a tridiagonal system for pressure-head updates and
+!> uses `TRIDAG` from `utilsmod`. Boundary-condition helper routines add upper
+!> infiltration/exfiltration, lower boundary, stream-aquifer, spring, well, and
+!> user-defined lateral head/flow terms into that same column system.
+!>
+!> @warning Soil hydraulic option `IVSFLG=4` is listed in the legacy/manual
+!> input format as tabulated water content with Averjanov-style conductivity,
+!> but the current implementation stops if that option is selected in
+!> [[vssoil]]. Split-cell mass-balance correction in [[vsmb]] is also marked
+!> unfinished and stops if reached.
+!> @endwarning
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-1998 | GP/RAH | 4.0-4.2 | Developed and reorganised the VSS common state, soil tables, initialisation state, connectivity, boundary handling, and column solver. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the VSS `.F` files and include blocks into this Fortran 90 module. |
+!> | 2026-03 | SB | 4.6 | Moved saved arrays into allocatable module storage through `INITIALISE_AL_C2` for AD/current builds. |
 MODULE VSmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the VS .F files
-! SB Mar 26  4.6       Make arrays allocatable by using INITIALISE_AL_C2 
-    
 USE SGLOBAL
 USE mod_load_filedata, ONLY : ALINIT, ALSPRD, ALREAD
 !USE SGLOBAL,  ONLY : 
@@ -35,29 +69,7 @@ DOUBLEPRECISION :: RLFDUM(NVSEE)=zero, RLHDUM(NVSEE)=zero, RLGDUM(NVSEE)=zero
 LOGICAL :: FIRSTvssim=.TRUE.
 integer,parameter :: errcntallowed=1000
 
-!IMPORTED FROM  MODULE vscom1_inc
-!MODULE vscom1_inc
-!------------------- Start of VSCOM1.INC ------------------------------*
-!
-!  common block for global VSS variables
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/VSCOM1.INC/4.2
-! Modifications:
-!  GP  15.04.94  Created.  v4.0 completed 950808.
-! RAH  970210  4.1  Remove VSPSIN,VSTHEN (VSSIM).
-!      970213       Reverse subscripts: NVSLFL,NVSLHL,NVSLGL,RLFNOW,
-!                   RLHNOW,RLGNOW (see VSSIM; also VSPREP,VSREAD).
-!      970218       Swap IVSSTO,VSKR subscripts, and remove VSETAN,VSKRN
-!                   (see VSIN,VSSIM).
-! RAH  980308  4.2  Amend history.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-
-! Imported constants
-!                      LLEE,NELEE,NLFEE,NLYREE,NSEE,NVSEE
-
-! logical variables, initialisation
+! Legacy VSCOM1.INC global VSS variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !IMPLICIT NONE
 LOGICAL :: BLOWP, BHELEV  
@@ -96,20 +108,7 @@ DOUBLEPRECISION WLNOW (NVSEE), RLFNOW (NLYREE, &
 !PRIVATE :: NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !end MODULE vscom1_inc
 
-!IMPORTED FROM MODULE vssoil_inc
-!MODULE vssoil_inc 
-! 19/9/94
-!------------------- Start of VSSOIL.INC ------------------------------*
-! common block for soil parameter tables
-!----------------------------------------------------------------------*
-! Modules:       VSS (0.0)
-! Program:       SHETRAN (4.0)
-! Includers:     ??
-! Modifications:
-!  GP  15.04.94  Created
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-!
+! Legacy VSSOIL.INC soil-parameter tables retained as module state.
 !USE SGLOBAL, ONLY : NSEE
 !IMPLICIT NONE
 INTEGER :: NSOLEE  
@@ -126,19 +125,7 @@ INTEGER :: NVSSOL
 !PRIVATE :: NSEE
 !END MODULE vssoil_inc
 
-!IMPORTED FROM MODULE VSINIT_INC
-!MODULE VSINIT_INC
-!------------------- Start of VSINIT.INC ------------------------------*
-! common block for VSS variables used in initialisation only
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/VSINIT.INC/4.1
-! Modifications:
-!  GP  12.09.94  Created (v4.0 finished 9/8/95)
-! RAH  970630  4.1  Move NAQCON,IAQCON to VSIN; see also VSREAD,VSCONL.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-
-! logical variables
+! Legacy VSINIT.INC initialisation variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NSEE, NVSEE
 !IMPLICIT NONE
 
@@ -171,29 +158,33 @@ PUBLIC :: VSIN, VSSIM, & !REST ARE PUBLIC ONLY FOR AD
 CONTAINS
 
 
-!SSSSSS SUBROUTINE initialise_vsmod
+!> Allocates run-size VSS work arrays.
+!>
+!> `vsaijsv` stores lateral inter-cell conductance terms by face, cell, and
+!> element, while `vskr` stores relative hydraulic conductivity by cell and
+!> element. Both depend on mesh dimensions read earlier in the setup sequence.
 SUBROUTINE initialise_vsmod()
 
 ALLOCATE(vsaijsv(4,top_cell_no,total_no_elements), vskr(top_cell_no,total_no_elements))
 END SUBROUTINE initialise_vsmod
 
-!SSSSSS SUBROUTINE VSBC (BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
+!> Adds user-defined lateral boundary-condition terms to a column system.
+!>
+!> The routine inspects the boundary category for one face and folds prescribed
+!> lateral flow/head conditions into the tridiagonal right-hand side and
+!> diagonal coefficient arrays. It is called from [[vscolm]] after the internal
+!> cell coefficients have been assembled.
+!>
+!> Key arguments: `FACE` is the active face; `ICBOT` and `ICTOP` bound the column
+!> cells; `JCBC` selects the boundary condition type; `ICLF*` and `ICLH*` map
+!> layer boundary records to cells; `CPSI`, `CKIJ`, and `CDKIJ` are the current
+!> pressure head and conductance terms; `CB`, `CR`, and `CQH` receive the matrix
+!> and flux contributions.
 SUBROUTINE VSBC (BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
  ICLFL, ICLHN, ICLHL, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
  CKIJ, CDKIJ, CB, CR, CQH, DUM)
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column user-defined boundary conditions
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSBC/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 8.8.95)
-! RAH  970120  4.1  No leading comments.  No lower-case code.
-!                   Combine IF-blocks.  Use generic intrinsics.
-!      970127       Use arguments, not INCLUDE.  Use DUM for TDUM,HDUM.
-!      970514       Scrap workspace arg CDQH; set CB & CR directly.
-!                   Don't initialize CQH (see VSCOLM).  New local QTOT.
-!                   Add arg FACE (=1:4) & 1st dim to arrays CAIJ & CQH.
-!      970813       Amend CLF & DUM subscripts: use I not ILYR.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 1 <= FACE  <= 4
@@ -315,28 +306,25 @@ END SUBROUTINE VSBC
 
 
 
-!SSSSSS SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
+!> Assembles internal vertical and lateral coefficients for a VSS column.
+!>
+!> `VSCOEF` builds the diagonal, off-diagonal, and right-hand-side coefficients
+!> used by [[vscolm]]. It combines storage terms, vertical conductance between
+!> cells, lateral conductance to adjacent columns, relative hydraulic
+!> conductivity, and the Newton/Picard linearisation derivatives supplied by
+!> [[vsfunc]].
+!>
+!> Key arguments: `CWV`/`CWL` weight vertical and lateral conductance; `VSK3D`
+!> contains saturated conductivities; `ICBOT`/`ICTOP` bound the active cells;
+!> `JCACN`/`JCDEL` describe adjacent-cell connectivity; `CKR`/`CDKR` are
+!> relative conductivity and derivative; `C`, `D`, and coefficient work arrays
+!> are populated for the tridiagonal solve.
 SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
  JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
  CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
  CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column internal cells
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCOEF/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 20.12.95)
-! RAH  961228  4.1  No leading comments.  Remove arguments IEL & NIT.
-!                   Add arguments CWV,CWL (were in VSCOLM.INC).
-!      970115       Dispense with VSCOLM.INC arrays CKZ,CDKZ.
-!                   Rewrite "vertical" sections: use fewer operations;
-!                   use DCOPY; don't overwrite CDELZ.
-!      970116       Rewrite "lateral" sections similarly, and fix error
-!                   in CDGAM* when CWL.NE.1.  No lower-case code.
-!      970122       Use arguments, not COMMON.
-!      970123       Scrap output CBETP,CDBETP,CDBTPP,CDFM,CDFP,CG,CDG.
-!      970513       Swap indices: JCACN, JCDEL & CAIJ. Rename local DUM.
-!                   New args NSEE,ICSOIL,VSK3D in place of CKZS,CKIJS.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 1 <= ICBOT <= ICTOP <= LLEE
@@ -539,7 +527,18 @@ END SUBROUTINE VSCOEF
 
 
 
-!SSSSSS SUBROUTINE VSCOLM
+!> Solves the variably saturated flow equations for one element column.
+!>
+!> This is the local nonlinear column solve used by [[vssim]]. For the current
+!> element it evaluates hydraulic functions, assembles internal coefficients,
+!> adds interface and boundary-condition terms, solves the tridiagonal pressure
+!> correction system, and iterates until the pressure-head change is within the
+!> column tolerance or the iteration limit is reached.
+!>
+!> Boundary helpers called here include [[vsintc]], [[vsuppr]], [[vswell]],
+!> [[vsspr]], [[vsbc]], [[vssai]], and [[vslowr]]. The solved pressure and flux
+!> fields are returned through the long argument list rather than via the old
+!> include-common workspace.
 SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
  IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
  JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
@@ -551,45 +550,6 @@ SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
 ! SPA, 03/11.98
 !----------------------------------------------------------------------*
 ! Solves flow equations for a single colm
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCOLM/4.2
-! Modifications:
-!  GP  29.07.94  written (v4.0 finished 17.07.96)
-! RAH  961220  4.1  Remove commented lines.
-!      961228       Arguments: add CWV,CWL; remove BUG.  IFA is local.
-!                   Remove common CCCOLM, and CETAO, CKRO lines.
-!                   VSCOEF arguments: remove IEL,NIT; add CWV,CWL.
-!      970121       CEPSMX,NITMAX are constants.  Use DO 500 not GOTO.
-!                   Use generic intrinsics.  Remove redundant ICPSL.
-!                   Extend arg-list (& remove redundancies) for VSFUNC.
-!      970122       Extend VSCOEF argument list.
-!      970123       Make VSCOEF output arguments, and CETA,CDETA,CDKR,
-!                   local; also eliminate some arguments (see VSCOEF),
-!                   including CBETP (use CBETM(ICL+1) instead).
-!      970126       Full argument list for VSINTC, and make CA,CC local.
-!      970127       Full argument lists for VSUPPR,VSWELL,VSSPR,VSBC.
-!      970131       Full argument list for VSLOWR, & unconditional call.
-!                   Remove redundant I1.  Amend some comments.
-!      970203       Full argument list for VSSAI, and reposition call.
-!                   Replace input CV with CA0,CDELZ.  CDPSI,CB,CR local.
-!                   Replace output CQINF with CQV(ICTOP).
-!                   Pass CA0 to VSWELL (see VSWELL). Simplify CPSL code.
-!                   Add CGAM2 term to CQH unconditionally.
-!      970207       Remove VSWELL output CQW.
-!      970210       Remove output argument NITC and common CQBK*.
-!                   Move inputs BCHELE,CA0,CZG,DT,CPSIN and outputs
-!                   CQSP,CPSL from VSCOLM.INC to argument list.
-!                   Move input SIGMA to VSINTC.  Initialize CQH.
-!      970513       Use VSK3D(ICSOIL(ICL),?) for CKIJS(ICL,?),CKZS(ICL).
-!                   Swap indices: CAIJ, CQH, JCACN, & JCDEL.
-!                   Use arguments in place of VSCOLM.INC.
-!      970514       VSBC args: remove DWORK2; add IFA - also to VSSAI.
-!                   VSUPPR args: replace CDW,CEW,CQP with CDNET.
-!                   VSWELL args: reorder.  Don't initialize CQH.
-!                   New local DPSI.  No block-IF in setting CPSL.
-!      970515       Re-order arguments.
-! RAH  980402  4.2  Replace local ERR with new arg ELEVEL (see VSSIM).
-!JE   JAN 2009      Loop restructure for AD
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE
@@ -828,56 +788,15 @@ END SUBROUTINE VSCOLM
 
 
 
-!SSSSSS SUBROUTINE VSCONC ()  
+!> Builds VSS cell thicknesses, node elevations, and cell connectivity.
+!>
+!> `VSCONC` translates the catchment layers, aquifer zones, stream-bank geometry,
+!> and link/catchment topology into computational cells. It sets `DELTAZ`,
+!> `ZVSNOD`, `NLYRBT`, `JVSACN`, `JVSDEL`, and related arrays, including the
+!> renumbering needed where split cells are created around channel banks.
 SUBROUTINE VSCONC ()  
 !----------------------------------------------------------------------*
 ! Sets up cell sizes and connectivity matrix
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCONC/4.1
-! Modifications:
-!  GP  20.07.94  written (4.0 completed 960117)
-! RAH  970326  4.1  Generic intrinsics.  Move ERROR calls to the end.
-!                   New locals ZAQTOP,ZLBOT,ZNODE,ICOL1,ICL0,NCL.
-!                   Scrap local ZDUM1.  Automatic type conversion.
-!                   Rename locals NDUM,ZDUM2,ZDUM3,Zasum,Zasum1.
-!                   Scrap label & GOTO 970 (use MAX(ZERO,VSZMIN)).
-!                   Swap subscripts: DELTAZ,ZVSNOD (AL.C).  Move IBANK2.
-!                   Move block-IF outside loop 974; execute always.
-!                   Labels in order.  Define DELTAZ,ZVSNOD for ICL=1.
-!                   Do loop 1100 only if ICL0>0, call ALINIT, & rm loop
-!                   1170 (zero sub-cells).  Initialize NRENUM in DATA.
-!                   Start at ICL0+1 in search for NLYRBT & don't test
-!                   DELTAZ>0.
-!      970402       Start at ICOL1 in loop 1600 (instead of GOTO).
-!                   Rationalize tests in loop 1500.  Swap subscripts:
-!                   JVSACN,JVSDEL, & initialize to 0 (was IUNDEF first).
-!                   Declare NCELL,NACELL,ZDIFF.
-!      970422       Initialize LRENUM to 0 (was IUNDEF) & test NCLYR<=0.
-!      970423       Start at NLF+1 (was test type=3) in loop 1000.
-!                   Rename ZAQTOP ZSZBOT.
-!      970522       Remove "unfinished code" message.  Simplify test.
-!      970523       Set ZVSNOD(1,IEL) less than ZLYRBT(IEL,1).
-!      970612       Simplify loop 1120.  (Cancel above: 2 mods.)
-!      970718       ZAQBOT was ZLBOT.  Labels in order.
-!                   Use IEL.LE.NLF etc for ITYPE.EQ.3.
-!                   GOTO 1585 instead of ELSE.  Fix error in setting of
-!                   ITOP, JTOP for links (was LL-NCSZON).
-!                   Use NMOD instead of 100, & merge layer IF-blocks.
-!                   Rationalize tests for skipping loop 1590.  Rename
-!                   I|JALDUM J|IRANGE.  Scrap inconsistency error 1049.
-!                   Fix error in aquifer zone: skip if EITHER, not BOTH.
-!      970728       Scrap local IUNDEF & arrays LIDUM,LJDUM. Fix errors:
-!                   in message 1037 print I|J not LI|JDUM(I|J) (=1); at
-!                   top of aquifer zone goto 1585 not 1590 (for BDONE).
-!      970730       Refine split cell treatment: don't straddle null
-!                   cells.  Flag warnings 1037 & 1053 once only.
-!                   Scrap inconsistency error 1050.  Complete IEL loop
-!                   before renumbering (don't jump out straightaway).
-!      970801       Complete split cells: spread foregone splits
-!                   (was ill-specified). Reduce MSG size. Simplify test.
-!                   Don't connect (ends of) river bed cells.
-!      970806       Add some entry conditions.
-!      970811       (Amend PAIR logic: use MISS.)
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! {   LLEE, NLYREE, VSZMAX } >  0              LLEE >= NCSZON
@@ -936,9 +855,9 @@ DATA LRENUM / JVSDUM * 0 /, NRENUM / 0 /
 !FNCELL (I, IEL, ITOP) = IDIMJE(MIN (NLYRBT (IEL, I + 1), ITOP + 1), & !statement function replaced
 ! NLYRBT (IEL, I) )
 !----------------------------------------------------------------------*
-!>>> return to here if cells have to be re-numbered
+! >>> return to here if cells have to be re-numbered
   210 NRENUM = NRENUM + 1  
-!>>>
+! >>>
 IF (NRENUM.GT.NELEE) GOTO 8048  
 BWARN = NRENUM.EQ.NELEE  
 
@@ -1042,7 +961,7 @@ DO 1000 IEL = total_no_links + 1, total_no_elements
 
 
   974    END DO  
-!>         < this point won't be traversed unless bank is below bed.
+!          < this point won't be traversed unless bank is below bed.
 !           cell just below link bed: smaller than bank, unless ...
   976    ZDEPTH = ZBDBOT - ZCBOT  
    IF (ZDEPTH.LT.VSZMIN) THEN  
@@ -1450,7 +1369,7 @@ RETURN
 &       ' layer ',I2)
 END SUBROUTINE VSCONC
 
-!FFFFFF INTEGER FUNCTION fncell
+!> Returns the number of VSS cells spanned by one model layer interval.
 INTEGER FUNCTION fncell(I, IEL, ITOP)
 INTEGER, INTENT(IN) :: I, IEL, ITOP
 fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
@@ -1458,38 +1377,16 @@ fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
 
 
 
-!SSSSSS SUBROUTINE VSCONL (NAQCON, IAQCON)  
+!> Builds the layer-to-layer lateral connectivity matrix.
+!>
+!> The routine determines which layers on neighbouring elements exchange
+!> lateral subsurface flow. It combines default layer matching with
+!> user-defined aquifer connectivity records and stores compact face/layer
+!> connectivity in `JVSALN` for later cell-level assembly by [[vsconc]] and
+!> [[vssim]].
 SUBROUTINE VSCONL (NAQCON, IAQCON)  
 !----------------------------------------------------------------------*
 ! Sets up layer connectivity matrix
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCONL/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 8/8/95)
-! RAH  970508  4.1  New locals ICOL1, JTYPE, LYR, NLYRI.
-!                   Simplify test & amend comment for null connectivity.
-!                   Generic intrinsics.  No illegal DATA for JVSALN.
-!      970522       Fix error setting JLMAX: use JLMIN not ILMIN.
-!                   Scrap "null connectivity" message (error 1047).
-!      970630       Move NAQCON,IAQCON from VSINIT.INC to arg-list, &
-!                   swap indices (see VSREAD).
-!      970703       Initialize to 0 (was IUNDEF), once & for all, but
-!                   only for active iel, & only up to NLYR(iel)+1.
-!      970710       Redefine IUNDEF (was 9999).  Use NMOD, not 100.
-!                   More detail in ERROR MSG.  Labels in order.
-!                   Rewrite loop 110, & fix error: multiply JLYR by
-!                   NMOD+1 on first assignment; also trap invalid JLYR.
-!      970711       Local ZSMALL.  Rewrite loop 200, & fix errors: set
-!                   JVSALN BOTH sides for user-defined; correct express-
-!                   ions for ILMIN, etc; also generalize/amend default
-!                   strategy (was: check/set single embedded layer -
-!                   although some were missed; else connect matching
-!                   soils; else move down a layer).  Use -1 for IUNDEF.
-!      970714       Leave bank-link faces at zero (never used anyway).
-!                   Criterion for loop 200 at start (was at end).
-!                   Set ISOILP=0 for ILYR=NLYRI; also use JSOILP.
-!      970721       JVSALN=0 or NMOD*imin+imax always.
-!      970813       Don't give up on face if no match for I|JLYR.
 !----------------------------------------------------------------------*
 ! Entry conditions:  not more than 1 call per run
 ! NAQCON <= nvsee (size of IAQCON)
@@ -1791,7 +1688,13 @@ END SUBROUTINE VSCONL
 
 
 
-!SSSSSS SUBROUTINE VSFUNC
+!> Interpolates soil hydraulic functions for a column.
+!>
+!> For each active cell, `VSFUNC` finds the interval in the monotonic pressure
+!> head table and linearly interpolates water content, storage coefficient,
+!> relative hydraulic conductivity, and their derivatives. The interval search
+!> is based on the `HUNT` approach from Press et al., Numerical Recipes in
+!> Fortran, and operates on the property tables prepared by [[vssoil]].
 SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
  VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
  CTHETA, CETA, CKR, CDETA, CDKR)
@@ -1799,17 +1702,6 @@ SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
 !----------------------------------------------------------------------*
 ! Calculates moisture content, storage coefficient, and relative
 ! hydraulic conductivity for a column, given soil water potentials
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSFUNC/4.1
-! Modifications:
-!  GP  18.8.94  written
-! RAH  961220  4.1  No long/leading comments.  Declare externals.
-!                   Explicit sizes where possible.  ICSTOR is in+out.
-!                   No redundant execution or lower-case code.
-!      970121       Use arguments, not COMMON.  Allow end-point cases.
-!                   Remove redundant arguments and commented code.
-!      970122       Amend entry conditions.  Use branch for ERROR call.
-!JE  JAN 2009       Loop restructure for AD
 !----------------------------------------------------------------------*
 ! Returns:
 !         moisture content (CTHETA),
@@ -1965,27 +1857,15 @@ END SUBROUTINE VSFUNC
 
 
 
-!SSSSSS SUBROUTINE VSIN ()  
+!> Initialises the VSS component.
+!>
+!> `VSIN` allocates shared arrays, reads the VSS input file, constructs layer
+!> and cell connectivity, initialises soil hydraulic property tables, and checks
+!> the supplied initial pressure heads against those tables before the first
+!> timestep is run.
 SUBROUTINE VSIN ()  
 !----------------------------------------------------------------------*
 ! Controls initialisation of VSS component data
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSIN/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 21/10/96)
-! RAH  970122  4.1  No long/leading comments or lower-case code.
-!                   Amend externals list.  Extend VSFUNC argument list.
-!      970512       Swap IVSSTO & VSKR indices (VSCOM1.INC), and scrap
-!                   local arrays ICSDUM & CKRDUM.  Similarly, swap
-!                   DELTAZ, ZVSNOD & VSPSI (AL.C), and scrap CPSDUM.
-!                   Scrap outputs VSETAN & VSKRN (VSCOM1.INC).
-!                   Rationalize loops 800 & 950, and initialize.
-!                   Generic intrinsics.  Use ISTART more.  Order labels.
-!      970522       NWELTP default 1.
-!                   Use GOTO for errors; fix error in message 1041.
-!      970630       Bring NAQCON,IAQCON from VSINIT.INC; swap indices;
-!                   pass to VSREAD,VSCONL.  Use format 9010 for 9020.
-!                   Replace NGDBGN with NLF+1.
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Imported constants
@@ -2200,25 +2080,17 @@ END SUBROUTINE VSIN
 
 
 
-!SSSSSS SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
+!> Adds inter-column exchange coefficients to the column system.
+!>
+!> This routine transfers already assembled lateral exchange fluxes and
+!> neighbour pressure-head terms into the right-hand side for the current
+!> column, respecting boundary-condition flags and adjacent-cell connectivity.
 SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
  JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
  CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
  CDGAM2, CA, CB, CC, CR, H)
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column internal cells
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSINTC/4.1
-! Modifications:
-!  GP  20.08.94  written (v4.0 finished 22.06.95)
-! RAH  970120  4.1  Rewrite with fewer operations, and without
-!                   overwriting input arrays.
-!      970126       Dispense with input IEL,CB*P,CD*P,CDFM,C*G.
-!                   Use arguments, not COMMON.
-!      970203       Replace input CV with CA0,CDELZ.
-!      970210       Make input SIGMA local.
-!      970514       CQ is now pre-multiplied by CA0*CDELZ (see VSSIM).
-!                   Swap JCACN indices.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 1 <= ICBOT <= ICTOP <= LLEE
@@ -2327,19 +2199,17 @@ END SUBROUTINE VSINTC
 
 
 
-!SSSSSS SUBROUTINE VSLOWR (JCBC, CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, &
+!> Adds lower boundary-condition terms to the bottom VSS cell.
+!>
+!> Depending on `JCBC`, the lower boundary may represent no-flow, prescribed
+!> flow, prescribed head, or conductance-controlled leakage. The contribution is
+!> inserted into the bottom-cell matrix coefficients and returned as `CQBF` and
+!> `CQBH`.
 SUBROUTINE VSLOWR (JCBC, CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, &
  CKR, CDKR, CB, CR, CQV)
 !
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column lower boundary condition
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSLOWR/4.1
-! Modifications:
-!  GP  22.08.94  written
-! RAH  970120  4.1  No leading comments.  No lower-case code.
-!                   Combine IF-blocks.  Use local CQVDUM.
-!      970131       Use arguments, not INCLUDE.  CDQDUM DBLE, not DOUBLEPRECISION.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 0 < CDELZ
@@ -2388,24 +2258,20 @@ END SUBROUTINE VSLOWR
 
 
 
-!SSSSSS SUBROUTINE VSMB (VSTHEN)  
+!> Applies a post-solve mass-balance correction to VSS flux arrays.
+!>
+!> The routine compares the change in stored water with vertical, lateral,
+!> surface, well, and evaporation fluxes, then adjusts inter-cell flow terms so
+!> the reported flux fields are consistent with the solved water-content change.
+!>
+!> @warning The split-cell branch is not implemented. If `JVSDEL` indicates a
+!> split-cell lateral connection, this routine stops with `UNFINISHED CODE FOR
+!> SPLIT CELLS IN SUBROUTINE VSMB`.
+!> @endwarning
 SUBROUTINE VSMB (VSTHEN)  
 !
 !----------------------------------------------------------------------*
 ! Updates flows to ensure mass conservation
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSMB/4.1
-! Modifications:
-!  GP  08.03.95  written (v4.0 finished 17.07.96)
-! RAH  961228  4.1  Remove variable ILINK.  No leading comments.
-!      970214       Reverse DELTAZ,QVSH indices (AL.C). Declare JCL,JFA.
-!                   mv VSTHEN from VSCOM1.INC to arg list, reverse subs.
-!      970118       Swap subscripts: JVSACN,QVSV,QVSWLI,VSTHE (AL.C);
-!                   also fix error in QVSWLI index: use IW not IEL.
-!                   Remove temporary code (to set VSSTMP).  DBLE locals.
-!                   Don't include VSCOM1.INC.
-!      970509       Scrap output QVSBF (set in VSSIM).  Order labels.
-!                   Remove redundant local BDONE.  Trap JVSDEL.ne.0.
 !----------------------------------------------------------------------*
 ! Commons and distributed constants
 ! Imported constants
@@ -2522,20 +2388,15 @@ END SUBROUTINE VSMB
 
 
 
-!SSSSSS SUBROUTINE VSPREP ()  
+!> Reads and interpolates time-varying VSS boundary-condition series.
+!>
+!> `VSPREP` advances well, link-flow, link-head, grid-head, bank-flow, and
+!> bank-head boundary inputs to the current model time using `FINPUT` and
+!> `HINPUT`. Missing markers are escalated through the central error handler.
 SUBROUTINE VSPREP ()  
 !----------------------------------------------------------------------*
 ! Prepares catchment, and controls reading of time-varying boundary
 ! conditions
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSPREP/4.1
-! Modifications:
-!  GP  29.07.94  written (v4.0 finished 3/5/95)
-! RAH  961228  4.1  Remove variables IEL,ICL.  No leading comments.
-!                   Declare ERROR external.  No lower-case code.
-!                   Use SAVE instead of ineffectual COMMON.
-!      970213       Reverse subscripts RLFNOW,RLHNOW,RLGNOW (see VSSIM).
-!      970522       Initialize saved locals.
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Imported constants
@@ -2672,22 +2533,15 @@ END SUBROUTINE VSPREP
 
 
 
-!SSSSSS SUBROUTINE VSREAD (NAQCON, IAQCON)  
+!> Reads static VSS data from the subsurface input file.
+!>
+!> The reader loads soil parameters, computational-zone settings, boundary
+!> categories, aquifer connections, wells, springs, and map/table based
+!> assignments. The loaded data populate the module arrays used by [[vsconl]],
+!> [[vsconc]], [[vssoil]], and the timestep solver.
 SUBROUTINE VSREAD (NAQCON, IAQCON)  
 !----------------------------------------------------------------------*
 ! Reads in all data from VSS input data file
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSREAD/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 31/1/96)
-! RAH  970213  4.1  Initialize NLBTYP,NLBCAT,NVSWLC,NBBTYP,NBBCAT.
-!                   Reverse subscripts NVSLFL,NVSLHL,NVSLGL (see VSSIM).
-!      970522       Initialize NVSWLI.  Fix errors: use TBKR not TBTHE
-!                   in loop 21 (IVSFLG=2); add -1 to NVSLHT & NVSLGT.
-!      970630       Bring NAQCON,IAQCON from VSINIT.INC to arg-list, &
-!                   swap indices to fix error in ALREAD call.
-!                   Fix ALREAD call VS08b: only if NLF>0.
-!      970805       Ensure {NLBCAT,NBBCAT,NVSWLC}.ge.1.
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Imported constants
@@ -3432,7 +3286,11 @@ END SUBROUTINE VSREAD
 
 
 
-!SSSSSS SUBROUTINE VSSAI (FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
+!> Adds stream-aquifer interaction terms for one column face.
+!>
+!> Where a channel/bank boundary intersects the VSS column, `VSSAI` computes the
+!> exchange conductance between channel stage and adjacent subsurface cells and
+!> adds the resulting flux and derivative terms to the column matrix.
 SUBROUTINE VSSAI (FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
  CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
 !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3440,15 +3298,6 @@ SUBROUTINE VSSAI (FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
 !!!! depadj added, SPA, 03/11/98
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column stream-aquifer interaction
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSSAI/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 15.01.96)
-! RAH  970121  4.1  IDUM is INTEGER not DOUBLEPRECISION.
-!                   Use AOL,DH,KIJ to reduce number of operations.
-!      970203       Use arguments, not INCLUDE.  Add some comments.
-!      970211       Remove outputs CQBKB,CQBKF (see VSSIM).
-!      970514       Add arg FACE & 1st dim to arrays CAIJ & CQH.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 !     1 <= FACE <= 4
@@ -3525,53 +3374,16 @@ END SUBROUTINE VSSAI
 
 
 
-!SSSSSS SUBROUTINE VSSIM ()  
+!> Runs the VSS solver for one model timestep.
+!>
+!> `VSSIM` prepares boundary values, copies previous pressure/water-content
+!> state, loops over active land elements, calls [[vscolm]] for each column,
+!> tests global convergence, updates shared pressure, water-content, relative
+!> conductivity and flux arrays, and finishes with the mass-balance correction
+!> in [[vsmb]].
 SUBROUTINE VSSIM ()  
 !----------------------------------------------------------------------*
 ! VSS Controlling routine for a single timestep
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSSIM/4.2
-! Modifications:
-!  GP  29.07.94  written (v4.0 finished 17.07.96)
-! RAH  961228  4.1  Remove temporary debug code.  DPSIEL,DPSIMX >=0.
-!                   Bring CWV,CWL from VSCOLM.INC, and pass to VSCOLM.
-!      970207       Dispense with CNOW,CTHEN,CV,CWV,CWL,VSPOR1,VSSTMP.
-!                   Replace CQINF with CQV(ICTOP).  Use DO 660 not GOTO.
-!                   CQWI is redefined - see VSWELL.  asum QVSWEL locally.
-!                   Use OK to simplify convergence test.
-!      970210       Remove CETAN,CKRN.CPSIM,NVSCIT. Make PSIM 1D not 2D.
-!                   Dispense with BCHELE,CA0,CPSIN,CPSL,CQSP,CZG,DT.
-!                   Use ALINIT and DCOPY.  Bring VSPSIN,VSTHEN from
-!                   VSCOM1.INC and reverse indices.  If JEL.le.0 set
-!                   JCACN=0, and don't set JCDEL* or C*IJ1,CZ1,CPSI*1.
-!                   Move CQH initialization to VSCOLM.  Move SIGMA from
-!                   VSCOLM.INC to VSINTC.  Set ICTOP,QH,QVSBF,QBK* once.
-!      970211       Replace CES,CDW,CEW,CQP with CDNET, bring CQ from
-!                   VSCOLM.INC (with ICBED,ICLYRB,ICSOIL), add dim, set
-!                   once. Scrap ICWL*,ICSP*,CZSP,CCS.Initialize QH,QVSH.
-!      970213       VSCOLM.INC: bring JCBC,ICWCAT,ICLBCT,ICBBCT,CZS, and
-!                   scrap CQWIN,CLF,ICLFL,ICLFN,CLH,ICLHL,ICLHN,CLG,
-!                   ICLGL,ICLGN,CBF,CBH. Include VSSOIL.INC. rm NVSSPT,
-!                   NVSWLT (AL.C).  JCBC: add dimension; define once.
-!                   Swap subscripts on NVSL*L,RL*NOW (in VSCOM1.INC).
-!      970214       Bring from VSCOLM.INC: CDELL,CDELL1,CAIJ,CAIJ1.
-!                   Replace CAIJ with VSAIJ: set once; use for CAIJ1.
-!                   Reverse DELTAZ,QVSH subscripts (in AL.C); pass to
-!                   VSCOLM; scrap CDELZ,CQH.
-!      970217       Swap subscripts: JVSACN,JVSDEL,ZVSNOD,QVSV,QVSWLI,
-!                   VSPSI,VSTHE (see AL.C), & IVSSTO,VSKR (VSCOM1.INC)
-!                   (also fixes error whereby ICSTOR not initialized).
-!                   VSCOLM.INC: scrap JCACN,JCDEL,CZ,CQV,CQWI,CPSI,
-!                   ICSTOR,CTHETA,CKR; bring remainder (CPSI1,CPSIN1,
-!                   CZ1,CKIJ1,JCDEL1).  Add dimension to ICSOIL: set
-!                   once; scrap CKZS,CKIJS (use VSK3D); use for CKIJ1.
-!                   Redefine CQ: multiply by AREA*DELTAZ (see VSINTC).
-!                   Move QVSWEL outside loop.  VSMB straight after loop.
-!      970515       Re-order VSCOLM arguments.
-!      970522       Don't need MAX for ICWLBT,etc.
-!      970618       Don't call VSCOLP.  DO 285 if JEL.GE.ISTART (was 1).
-! RAH  980402  4.2  Pass new local ELEVEL to VSCOLM.
-!JE   JAN 2009      Loop restructure for AD
 !----------------------------------------------------------------------*
 ! Entry conditions:
 !   1 <= LLEE,  NEL,   NLFEE
@@ -4012,7 +3824,21 @@ END SUBROUTINE VSSIM
 
 
 
-!SSSSSS SUBROUTINE VSSOIL ()  
+!> Builds internal soil hydraulic property lookup tables.
+!>
+!> The tables cover pressure head, water content, storage coefficient, relative
+!> hydraulic conductivity, and derivatives used by [[vsfunc]]. Implemented
+!> options are van Genuchten (`IVSFLG=1`), direct tabulation (`IVSFLG=2`), and
+!> exponential behaviour (`IVSFLG=3`).
+!>
+!> The van Genuchten option follows the closed-form water-retention and
+!> conductivity model published by van Genuchten (1980):
+!> https://doi.org/10.2136/sssaj1980.03615995004400050002x.
+!>
+!> @warning `IVSFLG=4` is parsed as a legacy option for tabulated water content
+!> with Averjanov-style relative conductivity, but this code path is unfinished
+!> and stops the run.
+!> @endwarning
 SUBROUTINE VSSOIL ()  
 !
 !----------------------------------------------------------------------*
@@ -4021,9 +3847,6 @@ SUBROUTINE VSSOIL ()
 ! Module:        VSS (0.0)
 ! Program:       SHETRAN (4.0)
 ! Callers:       VSIN
-! Modifications:
-!  GP  20.07.94  written
-!----------------------------------------------------------------------*
 INTEGER :: I, IS, NTBPOS (NSEE), NDUM  
 DOUBLEPRECISION RVSSOL, PSI, EDUM, EEDUM, DDDUM  
 DOUBLEPRECISION DDTSAT, DDTRES, DDA, DDN, DDM, DD1M1, DDTSMR, &
@@ -4323,17 +4146,15 @@ END SUBROUTINE VSSOIL
 
 
 
-!SSSSSS SUBROUTINE VSSPR (CZ, CZSP, CCS, CPSI, CKR, CDKR, CB, CR, CQSP)  
+!> Adds spring discharge terms to one VSS cell.
+!>
+!> The spring is active only when hydraulic head exceeds the spring elevation.
+!> The routine returns the spring flux and adds the linearised conductance
+!> contribution to the column coefficients.
 SUBROUTINE VSSPR (CZ, CZSP, CCS, CPSI, CKR, CDKR, CB, CR, CQSP)  
 !
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column spring discharge
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSSPR/4.1
-! Modifications:
-!  GP  22.08.94  written
-! RAH  970120  4.1  No leading comments.  Use local DHDUM.
-!      970127       Use arguments, not INCLUDE.
 !----------------------------------------------------------------------*
 !
 ! Input arguments
@@ -4371,21 +4192,16 @@ END SUBROUTINE VSSPR
 
 
 
-!SSSSSS SUBROUTINE VSUPPR (CA0, CDELZ, CKZS, DT, CDNET, CPSI, CB, CR, &
+!> Adds the upper infiltration/exfiltration boundary to the top VSS cell.
+!>
+!> The routine compares available surface water over the timestep with the
+!> hydraulic capacity of the top cell. It limits infiltration by available water
+!> or soil transport capacity and returns `CQINF` using the model convention that
+!> positive flux is upward.
 SUBROUTINE VSUPPR (CA0, CDELZ, CKZS, DT, CDNET, CPSI, CB, CR, &
  CQINF)
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column upper boundary condition
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSUPPR/4.2
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 20.12.95)
-! RAH  970120  4.1  No leading or long comments.  No lower-case code.
-!                   Use MAX not MAX.  Rearrange expressions.
-!                   Don't INCLUDE AL.G.
-!      970127       Use arguments, not COMMON.
-!      970514       Replace CDW + (CQP - CEW)*DT with CDNET (see VSSIM).
-! RAH  981104  4.2  Rename locals DUM? as QIN,etc.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 0 < CDELZ, DT
@@ -4439,20 +4255,15 @@ END SUBROUTINE VSUPPR
 
 
 
-!SSSSSS SUBROUTINE VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
+!> Distributes a prescribed well abstraction over screened VSS cells.
+!>
+!> The abstraction is apportioned by the saturated lateral-conductivity-depth
+!> product of the screened cells and reduced where cells are not sufficiently
+!> saturated. The resulting cell fluxes are added to the column right-hand side.
 SUBROUTINE VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
  CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column well abstraction
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSWELL/4.1
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 28.02.95)
-! RAH  970120  4.1  Use generic intrinsics.  Use local QDUM.
-!      970127       Use arguments, not INCLUDE.
-!      970207       Redefine CQWI: divide by CA0.  Remove output CQW.
-!      970514       New args NSEE,ICSOIL,VSK3D in place of LLEE,CKIJS.
-!                   Rearrange QDUM expression.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! ICWLBT <= ICWLTP

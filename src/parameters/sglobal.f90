@@ -1,52 +1,33 @@
+!> summary: Legacy global constants, run state, and error helpers.
+!>
+!> This module contains SHETRAN-wide size limits, version information, run
+!> filenames, catchment paths, global time, geometry arrays, numeric comparison
+!> helpers, and the legacy error-reporting interface. It is a Fortran 90
+!> consolidation of earlier COMMON-block include files and remains widely used
+!> by the older model components.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-02 | GP | 2.0 | SHE88 implementation on Newcastle AMDAHL. |
+!> | 1989-03 | GP | 2.1 | Added SZ drain boundary dimensions. |
+!> | 1989-04 | GP | 2.2 | Integrated sediment-yield dimensions and overall version number. |
+!> | 1990-03 | GP | 3.0 | Added development version flag and further dimension variables. |
+!> | 1992-01 | GP | 3.3 | Updated vegetation breakpoint and ET table dimensions. |
+!> | 1994-09-30 | RAH | 3.4.1 | Standardised declarations, headers, dimensions, and comments. |
+!> | 1996-10-24 | GP | 4.0 | Altered model dimensions and added VSS module dimensions. |
+!> | 1997-02-18 | RAH | 4.1 | Removed redundant dimensions and updated version/banner metadata. |
+!> | 1998-02-20 | RAH | 4.2 | Updated version/banner and removed unused dimensions. |
+!> | 2004-07 | JE | - | Converted to Fortran 95 during SHEGRAPH v2 integration. |
+!> | 2009-01 | JE | 4.3.5F90 | Created module form as part of Fortran 90 conversion, replacing `AL_P` and related global include files. |
+!> | 2026-03 | SB | 4.6 | Increased array sizes after 2-D and 3-D arrays became allocatable, including `NXOCEE=4*NXEE`. |
+!> @endhistory
 MODULE sglobal
-! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the al_p etc
 !USE BUFF_DISK
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
 IMPLICIT NONE
-!MODULE AL_P
-!IMPLICIT NONE
-!-------------------- START OF AL.P -----------------------------------*
-!
-!     Distributed constants for all components (mainly array sizes)
-!
-!       THIS FILE CAN BE TAILORED TO SUIT A PARTICULAR CATCHMENT
-!
-!----------------------------------------------------------------------*
-! Version:  AL_P.F95/4.30
-! Modifications:
-!   GP  FEB 89  2.0     'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!   GP  MAR 89  2.1     ADD NREFE8 FOR NEW SZ DRAIN VARIABLES
-!                       + ADD DIMENSION NSZBOU (NO. OF SZ BNDRY PNTS)
-!                       + ADD DERIVED DIMN. NSZB40
-!   GP  APR 89  2.2     INTEGRATE SED. YIELD
-!                       + ADD OVERALL VERSION NUMBER
-!   GP  MAR 90  3.0     ADD DEVELOPMENT VERSION FLAG
-!                       + FURTHER DIMENSION VARIABLES
-!   GP  JAN 92  3.3     ADD NVBP AND CHANGE DEFINITIONS OF NUZTAB/NOCTAB
-!   GP          3.4     Add NPLTEE,NPELEE.  Update SHEVER,BANNER,
-!                       NELEE,NLFEE,LLEE,NVEE,NSEE,NLYREE,NUZTAB.
-!  RAH  30.09.94  Version 3.4.1 by AB/RAH, adapted from version 3.4:
-!                  no INTEGER*2; declare all types; amend BANNER,
-!                  BDEVER,NXEE,NYEE,NLFEE,LLEE,NSEE,NXOCEE,NSEDEE;
-!                  standard header; move amendment history to separate
-!                  file; set NELEE=NXEE*NYEE; alter comments;
-!                  characters size (*); no IMPLICIT statements.
-!  GP  961024  4.0  Alter NELEE,NXEE,NYEE,NLFEE,LLEE,NVEE,NSEE,NVBP,
-!                   NUZTAB,NLYREE,NSETEE,NXOCEE,NSEDEE,NCONEE.
-!                   Add NRDEE,NVSEE for new VSS module.
-!                   NUZTAB is now for ET only (was UZ too).
-! RAH  970117       Update SHEVER,BDEVER,BANNER.
-! RAH  970218  4.1  Remove NRDEE (redundant).  Set SHEVER,BDEVER,BANNER.
-!      970220       Restore history.
-! RAH  980220  4.2  Update SHEVER,BANNER.  Remove NWELEE,NSZBOU,NPSITH.
-!  JE  JULY 04 ---  Convert to FORTRAN 95, as part of integration of SHEGRAPH Version 2
-! SB Mar 26  4.6   Increase array sizes now all the 2 and 3D arrays are allocatable
-!                   NXOCEE=4*nxee
-
-!----------------------------------------------------------------------*
-
-!*970218 TEMPORARY!  REMOVED TO temporary.f90 je 170704
+! Legacy AL_P distributed constants and global state.
+! 970218 temporary block removed to temporary.f90, JE 170704.
 !      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
 !      IMPLICIT INTEGER (I-N)
 
@@ -162,49 +143,49 @@ CHARACTER(32) :: text32
 CONTAINS
 
 
-!SSSSSS LOGICAL FUNCTION eqmarker
+!> Returns whether a double-precision value matches the integer missing-value marker.
 LOGICAL FUNCTION eqmarker(a) !needed for ad
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to compare with `marker999`.
 eqmarker = INT(a)==imarker
 END FUNCTION eqmarker
 
-!SSSSSS LOGICAL FUNCTION gtzero
+!> Returns whether a value is greater than zero.
 LOGICAL FUNCTION gtzero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 gtzero = a>zero
 END FUNCTION gtzero
 
-!SSSSSS LOGICAL FUNCTION gezero
+!> Returns whether a value is zero within tolerance or greater than zero.
 LOGICAL FUNCTION gezero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 !r = a>=zero
 gezero = ISZERO(a) .OR. a>zero
 END FUNCTION gezero
 
-!SSSSSS LOGICAL FUNCTION ltzero
+!> Returns whether a value is less than zero.
 LOGICAL FUNCTION ltzero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 ltzero = a<zero
 END FUNCTION ltzero
 
-!SSSSSS LOGICAL FUNCTION lezero
+!> Returns whether a value is zero within tolerance or less than zero.
 LOGICAL FUNCTION lezero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 !r = a<=zero
 lezero = ISZERO(a) .OR. a<zero
 END FUNCTION lezero
 
-!SSSSSS LOGICAL FUNCTION iszero
+!> Returns whether a value is numerically zero using `vsmall`.
 LOGICAL FUNCTION iszero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 !r = a==zero
 iszero = ABS(a)<vsmall
 END FUNCTION iszero
 
-!SSSSSS LOGICAL FUNCTION iszero_a
+!> Returns whether all values in a vector are numerically zero.
 LOGICAL FUNCTION iszero_a(a)
 INTEGER :: i
-DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a
+DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a !! Values to test.
 iszero_a=.TRUE.
 DO i=1,SIZE(a)
     IF(.NOT.iszero_a) CYCLE     !FOR AD
@@ -212,10 +193,10 @@ DO i=1,SIZE(a)
 ENDDO
 END FUNCTION iszero_a
 
-!SSSSSS LOGICAL FUNCTION i_iszero_a2
+!> Returns whether all values in an integer matrix are zero.
 LOGICAL FUNCTION i_iszero_a2(a)
 INTEGER                             :: i, j
-INTEGER, DIMENSION(:,:), INTENT(IN) :: a
+INTEGER, DIMENSION(:,:), INTENT(IN) :: a !! Integer values to test.
 i_iszero_a2=.TRUE.
 DO i=1,SIZE(a, DIM=1)
     DO j=1,SIZE(a, DIM=2)
@@ -226,31 +207,32 @@ ENDDO
 END FUNCTION i_iszero_a2
 
 
-!SSSSSS LOGICAL FUNCTION notzero
+!> Returns whether a value is not numerically zero.
 LOGICAL FUNCTION notzero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 !r = a/=zero
 notzero = .NOT.ISZERO(a)
 END FUNCTION notzero
 
-!SSSSSS LOGICAL FUNCTION isone
+!> Returns whether a value is numerically one using `vsmall`.
 LOGICAL FUNCTION isone(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 !r = a==one
 isone = ABS(a-one)<vsmall
 END FUNCTION isone
 
-!SSSSSS LOGICAL FUNCTION notone
+!> Returns whether a value is not numerically one.
 LOGICAL FUNCTION notone(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+DOUBLEPRECISION, INTENT(IN) :: a !! Value to test.
 !r = a/=one
 notone = .NOT.ISONE(a)
 END FUNCTION notone
 
 
-!FFFFFF INTEGER FUNCTION IDIMJE(a,b)
+!> Returns `max(x-y,0)` for integer values.
 INTEGER FUNCTION idimje(x,y)  !AD PROBLEM
-INTEGER, INTENT(IN) :: x, y
+INTEGER, INTENT(IN) :: x !! Left-hand value.
+INTEGER, INTENT(IN) :: y !! Right-hand value.
 IF(x>y) THEN
     idimje = x-y
 ELSE
@@ -258,9 +240,10 @@ ELSE
 ENDIF
 END FUNCTION idimje
 
-!FFFFFF DOUBLEPRECISION FUNCTION dimje(a,b)
+!> Returns `max(x-y,0)` for double-precision values.
 DOUBLEPRECISION FUNCTION dimje(x,y) !AD PROBLEM
-DOUBLEPRECISION, INTENT(IN) :: x, y
+DOUBLEPRECISION, INTENT(IN) :: x !! Left-hand value.
+DOUBLEPRECISION, INTENT(IN) :: y !! Right-hand value.
 IF(x>y) THEN
     dimje = x-y
 ELSE
@@ -268,7 +251,12 @@ ELSE
 ENDIF
 END FUNCTION dimje
 
-!SSSSSS SUBROUTINE ERROR 
+!> Reports a SHETRAN error or warning, updates counters, and may stop the run.
+!>
+!> This is the legacy error-reporting routine used by older components. It
+!> formats the message with simulation time and optional element/cell context,
+!> records per-module error counts, prints available help-message files in the
+!> final summary, and sets timestep-reduction flags for selected flow errors.
 SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       ! Assumed global variables provided via host module:
@@ -426,6 +414,8 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
    END SUBROUTINE ERROR
 
 
+   !> Stops the program, typically after a fatal error.
+   !>
    !> This subroutine is called to stop the program, typically after a fatal
    !> error. It provides a final message to the user before termination.
    !>

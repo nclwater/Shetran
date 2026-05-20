@@ -1,8 +1,42 @@
+!> summary: Sediment yield, erosion, deposition, and transport calculations.
+!>
+!> This module implements the SHETRAN sediment yield component. It reads and
+!> checks sediment input data, initialises bed/loose/suspended sediment state,
+!> derives water-flow quantities needed by the sediment routines, calculates
+!> ground and bank erosion, evaluates sediment transport capacity in overland
+!> and channel flow, routes suspended and bed material fractions, and updates
+!> bed, loose-sediment, and model output arrays.
+!>
+!> Channel transport capacity is selected between Ackers-White and
+!> Engelund-Hansen style formulae for non-fine material. The code's
+!> Ackers-White branch follows the dimensionless total-load formulation
+!> developed by Ackers and White (1973); a concise implementation reference is
+!> available from Flood Modeller:
+!> https://help.floodmodeller.com/docs/ackers-white-1973-total-load-equation.
+!> The Engelund-Hansen branch is a stream-power total-load relation; see the
+!> HEC-RAS sediment technical reference:
+!> https://www.hec.usace.army.mil/confluence/rasdocs/d2sd/ras2dsedtr/6.3/model-description/transport-potential-formulas/engelund-hansen.
+!>
+!> Critical shear stress is calculated through a Shields-curve-style
+!> relationship, and overland transport includes Engelund-Hansen and Yalin-style
+!> alternatives depending on `ISGSED`. The implementation also contains
+!> SHETRAN-specific bookkeeping for fine sediment, infiltration, armouring, and
+!> exchange between loose bed material, suspended load, and deposited material.
+!>
+!> @warning The manual describes sediment boundary data (`SY61`-`SY64`) but
+!> notes that sediment boundary-condition routines have not yet been implemented.
+!> This matches the current empty [[sybc]] routine. Sediment mass-balance output
+!> is also a placeholder in [[balsed]].
+!> @endwarning
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-1995 | AB/RAH/BTL | 3.4.1 | Created sediment yield routines and later corrections, including `DLSMAX`. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the SY `.F` files into this Fortran 90 module. |
+!> | 2026-03 | SB | 4.6 | Updated `NTSOIL` dimensions for current array layout. |
 MODULE SYmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the SY .F files
-! SB  Mar26 4.6         Change dimensions of NTSOIL    
-    
 USE SGLOBAL
 !USE AL_P
 USE mod_load_filedata, ONLY : ALINIT, ALCHKI, ALCHK, ALALLF, ALREAD  !, HELPPATH
@@ -46,7 +80,12 @@ PUBLIC :: SYMAIN, BALSED, & !REST NEEDED ONLY FOR AD
           issyok_symain
 CONTAINS
 
-!SSSSSS SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, &
+!> Calculates Ackers-White channel transport capacity for non-fine sediment.
+!>
+!> For each channel link and active link end, the routine computes bed-material
+!> percentiles, dimensionless grain size, mobility, and total-load capacity for
+!> each non-fine size class. It fills `GSED`, the streamwise particulate
+!> discharge capacity used by [[sycltr]].
 SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, &
  DRSED, ARXL, DCBSED, DWAT1, QOC, TAUJ, ACKW, GSED)
 !
@@ -56,11 +95,6 @@ SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, &
 !  non-fine size group, for each channel link, according to the
 !  Ackers-White formulae.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR54
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  15.07.94  Version 3.4.1 by AB/RAH. File creation date 12.05.94.
 !----------------------------------------------------------------------*
 USE CONST_SY  
 !
@@ -228,14 +262,23 @@ END SUBROUTINE SYACKW
 
 
 
-!SSSSSS SUBROUTINE SYBC  
+!> Placeholder for time-varying sediment boundary flows.
+!>
+!> The current implementation is intentionally empty; boundary sediment fluxes
+!> are instead handled through existing arrays and setup pathways in [[symain]].
+!> The manual's `SY61`-`SY64` boundary records are therefore validated/read as
+!> metadata, but no time-varying sediment boundary flux is applied here.
 SUBROUTINE SYBC  
 !!!!STOP ' FATAL ERROR!!  Sediment boundary flows not yet implemented'  
 END SUBROUTINE SYBC
 
 
 
-!SSSSSS SUBROUTINE SYBED (DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
+!> Updates stream-bed depth and composition after channel sediment routing.
+!>
+!> `SYBED` combines old bed storage with deposition and removal terms for each
+!> link and size fraction, enforces non-negative bed depth, and updates bed
+!> fraction arrays for the next sediment timestep.
 SUBROUTINE SYBED (DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
  DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
 !
@@ -243,11 +286,6 @@ SUBROUTINE SYBED (DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
 !
 ! Update stream-bed state variables for each link.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR65
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  23.5.94  Version 3.4.1 by AB/RAH. File creation date 5.4.94.
 !----------------------------------------------------------------------*
 ! Input arguments
 INTEGER :: NELEE, NLF, NLFEE, NSED
@@ -334,7 +372,11 @@ END SUBROUTINE SYBED
 
 
 
-!SSSSSS SUBROUTINE SYBKER (ISTEC, NLF, NS, FPCLAY, RHOSO, DRSO50, TAUK, &
+!> Calculates lateral channel-bank erosion rates.
+!>
+!> Bank erosion is driven by excess bank shear stress above the critical value
+!> returned by [[sycrit]], with soil erodibility and bank geometry controlling
+!> the released sediment volume and `GNUBK` source term.
 SUBROUTINE SYBKER (ISTEC, NLF, NS, FPCLAY, RHOSO, DRSO50, TAUK, &
  CWIDTH, DWAT1, BKB, NTSOBK, FETA, CLENTH, DBFULL, EPSB, GNUBK)
 !
@@ -342,11 +384,6 @@ SUBROUTINE SYBKER (ISTEC, NLF, NS, FPCLAY, RHOSO, DRSO50, TAUK, &
 !
 ! Calculate the rate of lateral erosion of stream banks for each link.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR66
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  16.06.94  Version 3.4.1 by AB/RAH. File creation date 28.3.94.
 !----------------------------------------------------------------------*
 ! Input arguments
 INTEGER :: ISTEC, NLF, NS, NTSOBK (NLF)  
@@ -400,7 +437,12 @@ END SUBROUTINE SYBKER
 
 
 
-!SSSSSS SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, &
+!> Determines channel sediment transport capacity and advection coefficients.
+!>
+!> Depending on `ISACKW`, non-fine capacity is obtained from [[syackw]] or
+!> [[syengh]]. The routine combines bed composition, flow, concentration limits,
+!> and critical shear checks to populate suspended concentration, waterborne
+!> sediment flux, and channel transport-capacity arrays.
 SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, &
  NLF, NLFEE, NSED, NSEDEE, DRSED, ARXL, CWIDTH, DCBED, LINKNS, &
  DWAT1, QOC, SLOPEJ, DCBSED, FDEL, TAUJ, ACKW, CONCI, QSDWAT, GSED, &
@@ -411,12 +453,6 @@ SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, &
 ! To determine the sediment transport capacity of flow in channels, and
 !  set the sediment advection coefficients.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR59
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  15.07.94  Version 3.4.1 by AB/RAH. File creation date 1.4.94.
-!  BTL  25.04.95  Version 3.4.1 correction in calculation of QSW
 !----------------------------------------------------------------------*
 USE CONST_SY  
 ! Commons and distributed constants
@@ -640,7 +676,13 @@ END SUBROUTINE SYCLTR
 
 
 
-!SSSSSS SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, &
+!> Routes sediment in overland flow for one column element.
+!>
+!> This routine solves the local sediment mass balance for surface water on a
+!> land element. It evaluates overland transport capacity with [[syovtr]],
+!> deposits or entrains loose material subject to available sediment and water,
+!> updates loose-sediment depth/composition, and assigns outgoing sediment fluxes
+!> by face.
 SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, &
  FETAE, GNUE, ISGSED, NSED, FPCRIT, PLSE, NSEDEE, DRSED, QWAT, &
  SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE, FDELE, QSEDE, Q, VDSED)
@@ -650,11 +692,6 @@ SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, &
 ! Solve the transport equation for a given column element, for
 !  sediment in overland flow.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR68
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  23.5.94  Version 3.4.1 by AB/RAH. File creation date 22.11.93.
 !----------------------------------------------------------------------*
 ! Input arguments
 INTEGER :: ISGSED, NSED, NSEDEE  
@@ -798,18 +835,18 @@ END SUBROUTINE SYCOLM
 
 
 
-!SSSSSS SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)  
+!> Calculates critical shear stress for incipient sediment motion.
+!>
+!> `SYCRIT` uses a Shields-curve-style relationship to convert representative
+!> grain diameter and material properties into a critical bed shear stress. For
+!> cohesive or clay-rich material it applies the legacy SHETRAN adjustment
+!> selected by `FLAG`.
 SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)  
 !
 !----------------------------------------------------------------------*
 !
 ! Calculates critical shear stress for sediment particle transport.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR60
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH 15.07.94  Version 3.4.1 by AB/RAH. File created 05.10.93
 !----------------------------------------------------------------------*
 !
 ! Commons and distributed constants
@@ -884,7 +921,11 @@ ENDIF
 !
 END SUBROUTINE SYCRIT
 
-!FFFFFF DOUBLEPRECISION FUNCTION SYDR
+!> Returns a percentile grain diameter from a discrete size distribution.
+!>
+!> The function integrates the supplied sediment fractions until the target
+!> cumulative fraction `FSED` is reached, then linearly interpolates between the
+!> bracketing diameters.
 DOUBLEPRECISION FUNCTION SYDR (FSED, INCF, N, F, D)  
 !
 !----------------------------------------------------------------------*
@@ -897,11 +938,6 @@ DOUBLEPRECISION FUNCTION SYDR (FSED, INCF, N, F, D)
 !        paired in order with all elements of D to define the input
 !        distribution.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR57
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  21.5.94  Version 3.4.1 by AB/RAH. File creation date 01.11.93.
 !----------------------------------------------------------------------*
 !
 ! Input arguments
@@ -977,7 +1013,11 @@ END FUNCTION SYDR
 
 
 
-!SSSSSS SUBROUTINE SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, &
+!> Calculates Engelund-Hansen channel transport capacity.
+!>
+!> The Engelund-Hansen option estimates total-load transport capacity for each
+!> non-fine sediment size class from channel discharge, hydraulic radius/depth,
+!> slope, and sediment density contrast.
 SUBROUTINE SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, &
  QOC, LINKNS, SLOPEJ, GSED)
 !
@@ -987,11 +1027,6 @@ SUBROUTINE SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, &
 !  non-fine size group, for each link, according to the Engelund-Hansen
 !  formula.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR58
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  15.07.94  Version 3.4.1 by AB/RAH. File creation date 12.4.94.
 !----------------------------------------------------------------------*
 USE CONST_SY  
 
@@ -1062,7 +1097,7 @@ END SUBROUTINE SYENGH
 
 
 
-!SSSSSS SUBROUTINE SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, &
+!> Checks scalar dimensions and file units passed through the water-sediment interface.
 SUBROUTINE SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, &
  NSEE, NV, NVEE, NX, NXEE, NY, SPR, SYD)
 !
@@ -1070,11 +1105,6 @@ SUBROUTINE SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, &
 !
 ! Check static variables & constants in the WAT-SY interface.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR82
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  23.09.94  Version 3.4.1 created.
 !----------------------------------------------------------------------*
 !
 INTEGER :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE  
@@ -1170,7 +1200,7 @@ END SUBROUTINE SYERR0
 
 
 
-!SSSSSS SUBROUTINE SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
+!> Checks static water-flow arrays required by the sediment component.
 SUBROUTINE SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
  NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
  NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
@@ -1180,11 +1210,6 @@ SUBROUTINE SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
 !
 ! Check static & initializing arrays in the WAT-SY interface.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR83
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  26.09.94  Version 3.4.1.  File created 25.09.94.
 !----------------------------------------------------------------------*
 !
 INTEGER :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, &
@@ -1487,7 +1512,11 @@ END SUBROUTINE SYERR1
 
 
 
-!SSSSSS SUBROUTINE SYERR2 (NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
+!> Checks sediment input arrays and category assignments.
+!>
+!> This routine validates particle-size definitions, soil and vegetation
+!> erodibility inputs, bed/loose sediment fractions, boundary categories, and
+!> related sediment-control flags before the simulation proceeds.
 SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
  NV, NSYB, NSYBEE, NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, &
  SFB, SRB, ALPHA, DCBEDO, FPCRIT, DLSMAX, NTSOBK, NSYBCD, NBFACE, &
@@ -1499,12 +1528,6 @@ SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
 !
 ! Check for errors in the SY input data.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR43
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  04.10.94  Version 3.4.1 by AB/RAH. File created 3.2.94.
-!  BTL  25.05.95  Version 3.4.1 : add DLSMAX
 !----------------------------------------------------------------------*
 INTEGER :: NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV  
 INTEGER :: NSYB, NSYBEE, NSYC (4), NSYCEE, SPR  
@@ -1568,9 +1591,9 @@ DUMMY (1) = DLSMAX
 CALL ALCHK (ERR, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'DLSMAX', 'GE', &
  ZERO1, ZERO1 (1) , DUMMY, NERR, LDUM)
 DLSMAX = DUMMY (1)  
-!>>
+! >>
 IF (NLF.GT.0) THEN  
-!>>
+! >>
 !ISUSED
    IDUM (1) = ISUSED  
    CALL ALCHKI (ERR, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', &
@@ -1820,7 +1843,7 @@ END SUBROUTINE SYERR2
 
 
 
-!SSSSSS SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
+!> Checks time-dependent water-flow values before a sediment timestep.
 SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
  ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
  ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
@@ -1829,11 +1852,6 @@ SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
 !
 ! Check for time-dependent errors in the WAT-SY interface.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR81
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  10.10.94  Version 3.4.1. File created 20.09.94.
 !----------------------------------------------------------------------*
 !
 INTEGER :: NEL, NELEE, NLF, NLFEE, NV, SPR  
@@ -2020,7 +2038,12 @@ END SUBROUTINE SYERR3
 
 
 
-!SSSSSS SUBROUTINE SYFINE (DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
+!> Evaluates fine-sediment settling, infiltration, and armouring limits.
+!>
+!> Fine sediment behaviour is controlled by settling velocity, infiltration
+!> capacity, critical shear, bed concentration, and armouring flags. Outputs
+!> limit the amount of fine material that can be carried into or removed from
+!> channel water during [[sylink]].
 SUBROUTINE SYFINE (DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
  DCBF, FBETAF, FDELF, PBSED, TAUK, VCFMAX, VINFMX, BARM)
 !
@@ -2029,11 +2052,6 @@ SUBROUTINE SYFINE (DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
 ! Evaluate quantities specific to fine sediment particles, associated
 !  with settling, infiltration and armouring.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR70
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  15.07.94  Version 3.4.1 by AB/RAH. File created 28.3.94.
 !----------------------------------------------------------------------*
 USE CONST_SY  
 !
@@ -2100,7 +2118,11 @@ END SUBROUTINE SYFINE
 
 
 
-!SSSSSS SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
+!> Initialises sediment state arrays on the first SY pass.
+!>
+!> The routine zeros source/sink arrays, copies initial channel geometry, derives
+!> representative soil particle diameters, sets bed and loose-sediment depths,
+!> and initialises sediment flow-rate arrays.
 SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
  NTSOBK, ARXL, DCBEDO, DLS, FBETA, DRSED, HRF, PBSED, PLS, SOSDFN, &
  THSAT, ZGRUND, NTSOTP, ZBFULL, ARBDEP, ARXLOL, DCBED, DCBSED, &
@@ -2112,11 +2134,6 @@ SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
 !  To initialize/define, on the first SY pass, output, saved and static
 !   variables.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR61
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  24.5.94  Version 3.4.1 by AB/RAH. File creation date 23.11.93.
 !----------------------------------------------------------------------*
 INTEGER :: NEL, NELEE, NLF, NLFEE, NS, NSED, NSEE, NSEDEE  
 INTEGER :: NTSOBK (NLFEE), NTSOTP (NLF + 1:NEL)
@@ -2237,7 +2254,12 @@ END SUBROUTINE SYINIT
 
 
 
-!SSSSSS SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
+!> Routes sediment through one channel link.
+!>
+!> `SYLINK` balances incoming sediment, existing suspended concentration, bed
+!> material, infiltration/deposition, and transport capacity for each sediment
+!> fraction. It updates suspended outflow, bed deposition/removal, and
+!> infiltration source terms for the link.
 SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
  ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
  DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
@@ -2248,11 +2270,6 @@ SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
 ! To solve the transport equation for sediment in channel flow, for a
 !  given link element.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR69
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  AB   24.5.94  Version 3.4.1 by AB/RAH. File creation date 30.3.94.
 !----------------------------------------------------------------------*
 !
 ! Input arguments
@@ -2405,7 +2422,13 @@ END SUBROUTINE SYLINK
 
 
 
-!SSSSSS SUBROUTINE SYMAIN
+!> Controls the sediment-yield component for setup and timestep execution.
+!>
+!> On the first call it checks water/sediment interfaces, reads sediment input,
+!> validates data, and initialises state. On subsequent calls it derives
+!> water-dependent sediment variables, calculates erosion, routes channel and
+!> overland sediment, updates bed state, and stores water levels for the next
+!> sediment timestep.
 SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, &
  ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NLYR, NTSOIL, NVC, AREA, &
  CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT, ZBFULL, ZGRUND, BEXBK, &
@@ -2417,11 +2440,6 @@ SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, &
 !
 ! Controlling routine for the Sediment Yield module.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1          Notes:  SSR76
-!  Module:  SY           Program:  SHETRAN
-! Modifications:
-!  RAH  04.10.94  Version 3.4.1. File created 23.12.93.
 !----------------------------------------------------------------------*
 ! Commons and distributed constants
 ! Constants referenced
@@ -2811,24 +2829,22 @@ END SUBROUTINE SYMAIN
 
 
 
-!SSSSSS SUBROUTINE SYOVER
+! Surface erosion routine.
 
 
 
-!SSSSSS SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
+!> Calculates ground-surface erosion for land elements.
+!>
+!> The routine combines raindrop impact, canopy/drip effects, surface runoff
+!> shear, soil erodibility, clay fraction, rock cover, and saturation controls to
+!> compute detachment rate `GNU`. Erosion is suppressed when loose sediment
+!> depth exceeds the configured maximum.
 SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
  DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
  TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
 !
 !----------------------------------------------------------------------*
 ! Calculate ground surface erosion for each column element.
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR64
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  04.10.94  Version 3.4.1 by AB/RAH. File created 24.09.93.
-!  BTL  25.04.95  Version 3.4.1 : DLS and DLSMAX introduced to routine
-!                          erosion rates zero if DLS>=DLSMAX
 !----------------------------------------------------------------------*
 USE CONST_SY  
 ! Commons and distributed constants
@@ -2941,7 +2957,11 @@ END SUBROUTINE SYOVER
 
 
 
-!SSSSSS SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
+!> Calculates overland-flow sediment transport capacity for one element.
+!>
+!> Depending on `ISGSED`, this routine applies the available overland transport
+!> method to the currently mobile sediment mix, using outgoing face flow,
+!> hydraulic depth, slope, and representative particle diameter.
 SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
  DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
 !
@@ -2950,11 +2970,6 @@ SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
 !  Calculate the total volumetric capacity for discharge due to
 !   overland flow for the current time step and the current element.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1       Notes:  SSR63
-!  Module:  SY        Program:  SHETRAN
-! Modifications:
-!  RAH  15.07.94  Version 3.4.1 by AB/RAH. File created 01.11.93.
 !----------------------------------------------------------------------*
 USE CONST_SY  
 ! Commons and distributed constants
@@ -3079,7 +3094,11 @@ END SUBROUTINE SYOVTR
 
 
 
-!SSSSSS SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
+!> Reads sediment-yield input data.
+!>
+!> `SYREAD` loads model flags, particle sizes, soil erodibility, vegetation drip
+!> parameters, channel-bank and bed properties, initial loose/bed sediment
+!> states, suspended concentrations, and sediment boundary categories.
 SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
  NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, NSYCEE, NTSOTP, NV, &
  NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA, BBC, BKB, CONCOB, &
@@ -3093,12 +3112,6 @@ SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
 !
 !  Read SY data input file
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1         Notes:  SSR75
-!  Module:  SY          Program:  SHETRAN
-! Modifications:
-!  RAH  08.06.94  Version 3.4.1 by AB/RAH. File created 09.12.93.
-!  BTL  25.04.95  Version 3.4.1 : read in DLSMAX as second item in SY12
 !----------------------------------------------------------------------*
 !
 ! NB: Don't dimension arrays with NSED (undefined) or NLF (may be 0).
@@ -3440,7 +3453,10 @@ END SUBROUTINE SYREAD
 
 
 
-!SSSSSS SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
+!> Derives sediment-driver variables from water-flow state.
+!>
+!> The routine calculates rainfall/drip forcing, water depths, available surface
+!> water, slopes, and shear stresses used by erosion and transport routines.
 SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
  DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
  PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
@@ -3451,11 +3467,6 @@ SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
 !  Calculate variables required by the SY module which are functions
 !  solely of the water flow and related quantities.
 !
-!----------------------------------------------------------------------*
-! Version:  3.4.1      Notes:    SSR53
-! Module:   SY         Program:  SHETRAN
-! Modifications:
-!  RAH  04.10.94  Version 3.4.1 by AB/RAH.  File created 23.11.93.
 !----------------------------------------------------------------------*
 !
 ! Commons and distributed constants
@@ -3692,7 +3703,11 @@ END SUBROUTINE SYWAT
 
 
 
-!SSSSSS SUBROUTINE BALSED  
+!> Placeholder for sediment mass-balance output.
+!>
+!> Sediment process state is updated by [[symain]], but this routine currently
+!> performs no accumulation or reporting. It is called from the main simulation
+!> loop only to preserve the historical component interface.
 SUBROUTINE BALSED  
 end subroutine BALSED
 
