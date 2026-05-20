@@ -1,3 +1,37 @@
+!> summary: Snow accumulation and melt calculations.
+!> author: JCB; EMM; GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University
+!>
+!> `SMmod` implements the SHETRAN snow model. It updates snowpack depth,
+!> snowpack temperature, evaporation/sublimation losses, and meltwater delivery
+!> to the ground surface. The main routine supports both a degree-day method and
+!> an energy-budget method selected by `MSM`.
+!>
+!> The degree-day option estimates melt directly from air temperature and a
+!> degree-day factor. The energy-budget option computes heat fluxes from
+!> atmospheric convection, rainfall or snowfall, phase change, ground heat flux,
+!> and net radiation.
+!>
+!> Snow depth `SD`, snowfall `SF`, and routed meltwater `SMELT` are stored in
+!> millimetres in the legacy snow calculations. `SM` replaces `PNET` with the
+!> meltwater delivery from the bottom of the snowpack, so downstream ET/VSS/OC
+!> calculations receive liquid-water input rather than raw snowfall.
+!>
+!> @note In the degree-day branch the implemented melt threshold is `TA >= 2 C`,
+!> not simply air temperature above freezing.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1981-04 | JCB/EMM | - | Original snowmelt subroutine created. |
+!> | 1989-02 | GP | 2.0 | SHE88 implementation on Newcastle AMDAHL. |
+!> | 1990-06 | GP | 2.2 | Added variable snowpack amendments and standardized Fortran 77. |
+!> | 1991-02 | GP | 3.0 | SHETRAN amendments. |
+!> | 1992-06 | GP | 3.4 | Moved selected variables to `AL_D` for hotstart and added `PNSNOW`. |
+!> | 1996-12-28 | RAH | 4.1 | Initialized `EFFDEP`. |
+!> | 1998-03-08 | RAH | 4.2 | Removed redundant time constants and added explicit typing. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90 and replaced the `SM.F` files. |
+!> @endhistory
 MODULE SMmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SM.F files

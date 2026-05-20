@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Public facade for the far-right visualisation interface.
+!>
+!> This module re-exports the visualisation metadata, structure, HDF5 output, and
+!> pass-through routines used by the main SHETRAN model. It keeps the calling
+!> code insulated from the internal split between metadata registration, time-step
+!> output selection, file writing, and shared setup state.
 MODULE VISUALISATION_INTERFACE_FAR_RIGHT
    USE VISUALISATION_METADATA,         ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, G_I=>GET_METADATA_I,   &
       G_PTR=>GET_METADATA_PTR, S_PTR=>SET_METADATA_PTR,                &

@@ -1,3 +1,37 @@
+!> summary: Evapotranspiration, interception, and vegetation-control calculations.
+!>
+!> This module implements the SHETRAN evapotranspiration component. It stores
+!> vegetation and meteorological control tables, allocates ET work arrays after
+!> run dimensions are known, computes canopy interception and actual/potential
+!> evapotranspiration for each land element, checks ET input data, and writes
+!> ET results back into the shared flow arrays used by the rest of the model.
+!>
+!> The user manual describes this component in the
+!> Evapotranspiration/Interception Module input section. The relevant controls
+!> are the ET records for meteorological-printing and alternate meteorological
+!> files (`BMETP`, `BINETP`, `BMETAL`, `BMETDATES`), measured-versus-calculated
+!> potential evaporation (`MEASPE`), vegetation/aerodynamic parameters (`BAR`,
+!> `RA`, `ZU`, `ZD`, `ZO`, `RC`, `MODE`, `NF`), canopy and root parameters
+!> (`PLAI`, `CSTCAP`, `CK`, `CB`, `NRD`, `CLAI`, `VHT`, `RDL`), time-varying
+!> vegetation parameters, and the `PS1`/`RCF`/`FET` soil-moisture-tension tables.
+!>
+!> Fluxes are converted between the legacy millimetre-per-second ET calculation
+!> variables and SHETRAN's shared metre-per-second water-flow arrays in
+!> [[etin]]. Canopy storage capacity, drainage coefficients, time-varying canopy
+!> and vegetation parameters, root-density functions, and measured-versus-
+!> calculated potential evaporation are controlled by the ET input-file records
+!> described in the manual's Evapotranspiration/Interception Module section.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-02 | GP | 2.0 | SHE88 implementation of the combined ET component. |
+!> | 1989-04 to 1994-08 | GP | 2.1-4.0 | Removed obsolete storage-depth state, standardised to Fortran 77, amended table dimensions, added `EPLAST`/`PEIN`, and moved `PSI4`/`UZALFA` from `AL_D`. |
+!> | 1997-05-16 | RAH | 4.1 | Moved ET input/meteorological variables and removed redundant outputs. |
+!> | 1998-10-21 | RAH | 4.2 | Moved `FE` into the ET component. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted ET `.F` files into this Fortran 90 module. |
+!> | 2026-03 | SB | 4.6 | Added date-aware meteorological input through `BMETDATES` and allocated ET meteorological/control arrays in [[initialise_etmod]]. |
 MODULE ETmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the ET .F files

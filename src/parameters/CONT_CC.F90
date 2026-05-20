@@ -1,3 +1,21 @@
+!> summary: Contaminant component state arrays and properties.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> This module replaces the legacy `CONT.CC` common blocks. It stores
+!> contaminant concentrations, boundary conditions, decay and adsorption
+!> parameters, retardation variables, and exchange coefficients used by the
+!> contaminant transport component.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.1 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Completed. |
+!> | 1991-06-18 | JE | 3.1 | Added `WELC` block. |
+!> | 1997-02-24 | RAH | 4.1 | Added explicit typing. |
+!> | 2004-11 | JE | - | Converted to Fortran 95. |
+!> | 2026-03 | SB | 4.6 | Made major concentration/source arrays allocatable and added `initialise_cont_cc`. |
+!> @endhistory
 MODULE CONT_CC
    USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements,top_cell_no,total_no_links
    IMPLICIT NONE

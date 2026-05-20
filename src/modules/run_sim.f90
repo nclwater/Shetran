@@ -1,3 +1,31 @@
+!> summary: Main SHETRAN simulation time-step driver.
+!> author: JE, Newcastle University; Stephen Birkinshaw, Newcastle University
+!>
+!> This module contains the central simulation driver for SHETRAN. It
+!> initializes the framework state, records initial visualisation output, then
+!> advances the coupled hydrological, sediment, contaminant, snow, vegetation,
+!> and output components through the model time window.
+!>
+!> The driver coordinates the component sequence rather than implementing a
+!> single numerical method itself. Its main responsibilities are to select the
+!> current time step, call the evapotranspiration and variably saturated
+!> subsurface components, update simulation time, route overland/channel flow,
+!> conditionally run sediment and contaminant components, maintain water and
+!> sediment balances, write hotstart/state output, and report progress.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2008-12 | JE | 4.3.5F90 | Created during the Fortran 90 conversion by extracting the computational core from `shetrn.f`. |
+!> | 2026-03 | SB | 4.6 | Added `DATE_FROM_HOUR` reporting and calls for contaminant/column allocation setup and cleanup. |
+!> @endhistory
+!>
+!> @note The module has a large dependency surface because it orchestrates most
+!> SHETRAN process modules and shared state arrays. Changes here should be
+!> checked against component ordering, mass-balance output, hotstart output, and
+!> visualisation side effects.
+!> @endnote
+!>
 MODULE run_sim
 
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90

@@ -1,3 +1,20 @@
+!> summary: Plant contaminant uptake data and crop property arrays.
+!> author: JE, Newcastle University; RAH, Newcastle University
+!>
+!> This module replaces the legacy `PLANT.CC` common blocks and the associated
+!> `PLDAT` block-data initialization. It stores plant contaminant concentrations,
+!> crop property factors, plant type indices, uptake coefficients, plant mass,
+!> and root-distribution factors used by contaminant plant uptake routines.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04 | JE | 3.0 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Checked, no changes. |
+!> | 1993-03-16 | JE | 3.4 | Full implementation. |
+!> | 1997-02-24 | RAH | 4.1 | Added explicit typing. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> @endhistory
 MODULE PLANT_CC
 !------------------------------ Start of PLANT.CC ---------------------*
 !

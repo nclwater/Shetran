@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: HDF5 writer for SHETRAN visualisation output.
+!>
+!> This module creates the visualisation HDF5 file, registers datasets and
+!> attributes from the metadata layer, writes static and dynamic time-series
+!> variables, and adds derived catchment-map products such as indexed surface
+!> elevation images and magnified element-number grids.
 MODULE visualisation_hdf5
 
 USE ISO_C_BINDING, ONLY: C_PTR
@@ -929,7 +934,7 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! Legacy greyscale element-number map writer retained as commented reference.
 !SUBROUTINE save_numbers_as_map_old(mn, file, dataset_compress_property)
 !INTEGER, INTENT(IN)                     :: mn
 !INTEGER, PARAMETER                      :: magnif=20, mmax=255  !built-in magnification
@@ -1023,7 +1028,7 @@ CONTAINS
 !CALL H5GCLOSE_F(group_plans, error)
 !END SUBROUTINE save_numbers_as_map_old
 
-!!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! Legacy river-map writer retained as commented reference.
 !SUBROUTINE save_numbers_as_map(mn, magnif)
 !INTEGER, INTENT(IN)                     :: mn, magnif
 !INTEGER                                 :: sz(2)

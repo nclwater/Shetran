@@ -1,4 +1,15 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Central translation layer for visualisation output variables.
+!>
+!> This module defines the visualisation output catalogue and translates named
+!> visualisation variables into SHETRAN integer or real values. Static output
+!> types have non-positive type numbers, dynamic output types have positive
+!> numbers, and the catalogue records whether each variable varies by elevation,
+!> sediment fraction, contaminant, or extra face/direction dimension.
+!>
+!> The visualisation plan and HDF5 metadata use compass-order face dimensions
+!> (`N`, `E`, `S`, `W`) as described in the manual. The SHETRAN core uses its
+!> internal face numbering in the accessors below, and the right-hand
+!> visualisation interface remaps between the two orders before data are stored.
 MODULE visualisation_interface_centre
 
 !JE 2.0 190704 Created

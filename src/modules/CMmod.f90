@@ -1,3 +1,48 @@
+!> summary: Contaminant transport in columns, links, sediment, and plants.
+!>
+!> This module implements SHETRAN's legacy contaminant component. It reads
+!> contaminant input, updates contaminant concentrations over one timestep,
+!> prepares water-flow and storage terms for land columns and channel links,
+!> solves column and link transport equations, applies linear or nonlinear
+!> sorption/retardation, exchanges contaminant with sediment compartments, and
+!> updates plant uptake and plant-compartment concentrations.
+!>
+!> The transport formulation is an advection-dispersion-reaction style mass
+!> balance with storage, decay/generation, plant uptake, sediment exchange, and
+!> source/sink terms. The nonlinear sorption branches use the Freundlich-type
+!> power-law exponent `GNN` read from the CM input file. The CM input format is
+!> described in the manual's Contaminant Migration Components section.
+!>
+!> Soil-column transport is split into a mobile/dynamic region and a dead-space
+!> region. [[colm]] assembles the column transport problem, [[colmw]] prepares
+!> water-flow and storage terms, [[colmsm]] prepares source/sink and sorption
+!> terms, and [[slvclm]] solves the resulting tridiagonal system. Channel-link
+!> transport is handled by [[linkw]], [[linksm]], and [[link]], with sediment
+!> exchange active when the sediment component is present. Plant uptake is
+!> prepared through [[plprep]], [[plcolm]], and [[plant]] when the plant option is
+!> active.
+!>
+!> `CMSIM` calls [[mnmod:mncont]] before contaminant transport when the mineral
+!> nitrogen option is enabled. In that case nitrate process source/sink terms
+!> are supplied through the contaminant equation rather than being solved as an
+!> independent transport component.
+!>
+!> @warning The manual includes soil/contaminant input fields for mobile-water
+!> fraction and dispersion (`CM57`, `CM59`, and `CM61`). The current routines
+!> [[phi]] and [[disp]] do not yet use those tables: `PHI` returns `0.5` and
+!> `DISP` returns `3.0D-8`.
+!> @endwarning
+!>
+!> `CMSIM` also delegates to [[mnmod]] when the mineral-nitrogen option is
+!> active, so nitrate/mineral nitrogen behaviour is handled outside this module.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-1998 | GP/RAH/SB | 3.4-4.2 | Developed and reorganised MUZ/MOC contaminant column, link, plant, and retardation routines. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the CM `COLM` and `LINK` `.F` files into this Fortran 90 module. |
+!> | 2020-03-05 | SvenB | - | Removed the complete `SGLOBAL` include in favour of selected imports. |
 MODULE CMmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the CM COLM and LINK .F files

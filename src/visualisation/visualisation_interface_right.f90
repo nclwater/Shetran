@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Right-hand visualisation data recorder.
+!>
+!> This module coordinates visualisation output at run time. It sends static
+!> geometry and file metadata to the far-right/output modules, registers
+!> available variables, allocates new time slices when output is due, fills the
+!> requested data from the central SHETRAN accessor layer, and asks the HDF5
+!> writer to persist each item.
 MODULE visualisation_interface_right
 
    USE ISO_C_BINDING, ONLY: C_PTR

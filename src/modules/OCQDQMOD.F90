@@ -1,4 +1,26 @@
-!MMMMMM MODULE ocqdqmod
+!> summary: Overland/channel face flow and derivative controller.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> `OCQDQMOD` controls calculation of overland and channel flows, together with
+!> derivatives used by the overland/channel solver, at element faces. It handles
+!> external boundaries, single adjacent faces, multi-way branch faces, bank
+!> exchanges, land-grid exchanges, link-link exchanges, and ZQ reservoir-table
+!> routing hooks.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit declarations from `SPEC.AL`. |
+!> | 1998-02-24 | RAH | 4.2 | Reworked face arguments and loop structure; added explicit typing. |
+!> | 1998-02-25 | RAH | 4.2 | Called face-flow routines on lowest element and restructured boundary handling. |
+!> | 1998-02-26 | RAH | 4.2 | Replaced multi-call interface with one element loop. |
+!> | 1998-03-27 | RAH | 4.2 | Added `XAFULL` input argument. |
+!> | 1998-03-31 | RAH | 4.2 | Reworked `OCQGRD` arguments and derivative arrays. |
+!> | 1998-04 | RAH | 4.2 | Reworked bank, link, and boundary-condition calls. |
+!> | 1998-08-07 | RAH | 4.2 | Added local `LINK` to avoid out-of-bounds access. |
+!> | 2009-01 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2020-05-20 | SB | - | Added ZQ table routing support. |
+!> @endhistory
 MODULE ocqdqmod
 ! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
 !***ZQ Module 200520

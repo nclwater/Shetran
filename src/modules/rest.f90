@@ -1,3 +1,17 @@
+!> summary: Miscellaneous run-control, meteorological input, and water-balance routines.
+!>
+!> This module collects legacy routines that do not naturally belong to one of
+!> the process-specific modules. It writes final summary output, maintains the
+!> column/link water-balance diagnostic, reads meteorological forcing as the run
+!> advances, and computes the next model timestep subject to soft-start,
+!> snowmelt, meteorological data boundaries, and runtime error-reduction flags.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2008-12 | JE | 4.3.5F90 | Created during Fortran 90 conversion to collect `.F` routines without another natural module home. |
+!> | 2026-03 | SB | 4.6 | Added date-aware meteorological files for precipitation, potential evaporation, and max/min temperature. |
+!> @endhistory
 MODULE rest
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Mops up .F files that do not have a natural home in any other module
@@ -757,23 +771,6 @@ SUBROUTINE BALWAT
 !
 !  COMPUTE THE NEXT TiMeSTEP AND READ METEOROLOGICAL DATA.
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/TMSTEP/4.2
-! Modifications since v3.3:
-!  GP Jul 93  3.4  Rewrite UZNEXT algorithm: scrap inputs PINMAX,PMAX,
-!                  PREST; new inputs NSTEP,BSOFT; new locals EXIT,
-!                  TSOFT,TSTART,TEND; many diffs.
-!                  Call ERROR if UZNEXT too small.
-!                  Call METIN twice, and pass arg IFLAG (see METIN).
-! RAH 941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL(AL.P).
-!  GP 960717  4.0  Constrain UZNEXT.le.TSNOW (new local, also SMFLAG,
-!                  IEL); uses new inputs BEXSM,NM,TA,NLF,NEL,SD.
-! RAH 981020  4.2  Explicit typing.  Generic intrinsics.
-!                  Remove needless FLOAT setting TSOFT.
-!                  Replace loop 22, etc with IF (EXIT) GOTO ...
-!                  Remove redundant TSTART.  Move label 8 inside block.
-!                  Move initializations of EXIT,TOFT,TSNOW.
-!                  Label 45 was 1000.  Test UZNEXT BEFORE loop 50.
 !----------------------------------------------------------------------*
 ! Commons and constants
 ! Input common

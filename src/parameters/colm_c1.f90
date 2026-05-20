@@ -1,3 +1,21 @@
+!> summary: Column water-flow scaling and numbering variables.
+!> author: JE, Newcastle University; RAH, Newcastle University
+!>
+!> This module replaces the legacy `COLM.C1` common blocks. It stores scale
+!> references, finite-difference constants, and column-numbering values used by
+!> the `COLM` water and contaminant column calculations.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.1 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Completed. |
+!> | 1991-06-16 | JE | 3.1 | Removed references to `LNCONT` and `LNSOIL`. |
+!> | 1991-07-17 | JE | 3.1 | Reordered names in `CLNUM`. |
+!> | 1991-08-26 | JE | 3.1 | Moved parameter `NCETOP` to `BLOCKCLNUM`. |
+!> | 1997-03-13 | RAH | 4.1 | Added explicit typing and split mixed-type `CLNUM`. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> @endhistory
 MODULE COLM_C1
 !---------------------------- Start of COLM.C1 ------------------------*
 !

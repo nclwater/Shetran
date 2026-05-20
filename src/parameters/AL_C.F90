@@ -1,3 +1,26 @@
+!> summary: Shared integrated flow, sediment, and contaminant state.
+!> author: GP, Newcastle University; RJL, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University
+!>
+!> `AL_C` stores common state used across the integrated SHETRAN flow,
+!> sediment, and contaminant components. It includes file-unit constants,
+!> static element/link/soil/vegetation metadata, time-dependent hydrological
+!> state, and allocatable arrays for VSS, soil layering, and root-density data.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-03 | GP | 3.0 | Original version written. |
+!> | 1991-07 | GP | 3.1 | Moved variables from `AL_D`. |
+!> | 1991-10 | GP | 3.2 | Added `IRRC`. |
+!> | 1992-02 | RJL | 3.4 | Added `CMT` and `CMB`; moved `UZNOW` and `TIH` from `AL_D`. |
+!> | 1993-07 | GP | 3.4 | Moved `NRD` from `AL_D` and `RDF` from `SPEC.ET`; added `ISPACK`, `SBERR`, and `WBERR`. |
+!> | 1994-09-30 | RAH | 3.4.1 | Declared variables, removed `INTEGER*2`, tidied comments, and reorganized common blocks. |
+!> | 1995-05-04 | GP | 4.0 | Added VSS variables and moved selected variables from `AL_D`. |
+!> | 1997-02 | RAH | 4.1 | Retained `THSAT`, removed redundant variables, and swapped several array subscript conventions. |
+!> | 1998-03 | RAH | 4.2 | Removed redundant VSS/OC variables. |
+!> | 2004-07 | JE | - | Converted to Fortran 95. |
+!> | 2026-03 | SB | 4.6 | Made selected VSS, soil-layer, and root-density arrays allocatable and added initializer routines. |
+!> @endhistory
 MODULE AL_C
    USE SGLOBAL, ONLY : NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
    IMPLICIT NONE

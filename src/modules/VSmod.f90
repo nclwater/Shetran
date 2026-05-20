@@ -1,3 +1,41 @@
+!> summary: Variably saturated subsurface flow.
+!>
+!> This module implements SHETRAN's VSS component: reading variably saturated
+!> subsurface input, constructing layer and cell connectivity, preparing
+!> time-varying boundary conditions, assembling each one-dimensional column
+!> problem, solving pressure head changes, and returning groundwater/surface
+!> exchange, spring, well, lateral, and vertical fluxes to the shared model
+!> arrays.
+!>
+!> The numerical formulation is a finite-volume/finite-difference column
+!> solution of variably saturated flow, coupled laterally through element and
+!> layer connectivity. Hydrologically this is the Richards-equation problem for
+!> water movement in unsaturated/saturated porous media; see Richards (1931),
+!> "Capillary Conduction of Liquids through Porous Mediums",
+!> https://doi.org/10.1063/1.1745010. Soil hydraulic properties may be generated
+!> from a van Genuchten option, tabulated directly, or generated from the legacy
+!> exponential option; the van Genuchten option corresponds to
+!> van Genuchten (1980), https://doi.org/10.2136/sssaj1980.03615995004400050002x.
+!>
+!> The column solver assembles a tridiagonal system for pressure-head updates and
+!> uses `TRIDAG` from `utilsmod`. Boundary-condition helper routines add upper
+!> infiltration/exfiltration, lower boundary, stream-aquifer, spring, well, and
+!> user-defined lateral head/flow terms into that same column system.
+!>
+!> @warning Soil hydraulic option `IVSFLG=4` is listed in the legacy/manual
+!> input format as tabulated water content with Averjanov-style conductivity,
+!> but the current implementation stops if that option is selected in
+!> [[vssoil]]. Split-cell mass-balance correction in [[vsmb]] is also marked
+!> unfinished and stops if reached.
+!> @endwarning
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-1998 | GP/RAH | 4.0-4.2 | Developed and reorganised the VSS common state, soil tables, initialisation state, connectivity, boundary handling, and column solver. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the VSS `.F` files and include blocks into this Fortran 90 module. |
+!> | 2026-03 | SB | 4.6 | Moved saved arrays into allocatable module storage through `INITIALISE_AL_C2` for AD/current builds. |
 MODULE VSmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the VS .F files
@@ -39,29 +77,7 @@ MODULE VSmod
    LOGICAL :: FIRSTvssim=.TRUE.
    integer,parameter :: errcntallowed=1000
 
-!IMPORTED FROM  MODULE vscom1_inc
-!MODULE vscom1_inc
-!------------------- Start of VSCOM1.INC ------------------------------*
-!
-!  common block for global VSS variables
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/VSCOM1.INC/4.2
-! Modifications:
-!  GP  15.04.94  Created.  v4.0 completed 950808.
-! RAH  970210  4.1  Remove VSPSIN,VSTHEN (VSSIM).
-!      970213       Reverse subscripts: NVSLFL,NVSLHL,NVSLGL,RLFNOW,
-!                   RLHNOW,RLGNOW (see VSSIM; also VSPREP,VSREAD).
-!      970218       Swap IVSSTO,VSKR subscripts, and remove VSETAN,VSKRN
-!                   (see VSIN,VSSIM).
-! RAH  980308  4.2  Amend history.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-
-! Imported constants
-!                      LLEE,NELEE,NLFEE,NLYREE,NSEE,NVSEE
-
-! logical variables, initialisation
+! Legacy VSCOM1.INC global VSS variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !IMPLICIT NONE
    LOGICAL :: BLOWP, BHELEV
@@ -130,19 +146,7 @@ MODULE VSmod
 !PRIVATE :: NSEE
 !END MODULE vssoil_inc
 
-!IMPORTED FROM MODULE VSINIT_INC
-!MODULE VSINIT_INC
-!------------------- Start of VSINIT.INC ------------------------------*
-! common block for VSS variables used in initialisation only
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/VSINIT.INC/4.1
-! Modifications:
-!  GP  12.09.94  Created (v4.0 finished 9/8/95)
-! RAH  970630  4.1  Move NAQCON,IAQCON to VSIN; see also VSREAD,VSCONL.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-
-! logical variables
+! Legacy VSINIT.INC initialisation variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NSEE, NVSEE
 !IMPLICIT NONE
 
@@ -1371,34 +1375,6 @@ CONTAINS
 !----------------------------------------------------------------------*
 ! Sets up layer connectivity matrix
 !----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCONL/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 8/8/95)
-! RAH  970508  4.1  New locals ICOL1, JTYPE, LYR, NLYRI.
-!                   Simplify test & amend comment for null connectivity.
-!                   Generic intrinsics.  No illegal DATA for JVSALN.
-!      970522       Fix error setting JLMAX: use JLMIN not ILMIN.
-!                   Scrap "null connectivity" message (error 1047).
-!      970630       Move NAQCON,IAQCON from VSINIT.INC to arg-list, &
-!                   swap indices (see VSREAD).
-!      970703       Initialize to 0 (was IUNDEF), once & for all, but
-!                   only for active iel, & only up to NLYR(iel)+1.
-!      970710       Redefine IUNDEF (was 9999).  Use NMOD, not 100.
-!                   More detail in ERROR MSG.  Labels in order.
-!                   Rewrite loop 110, & fix error: multiply JLYR by
-!                   NMOD+1 on first assignment; also trap invalid JLYR.
-!      970711       Local ZSMALL.  Rewrite loop 200, & fix errors: set
-!                   JVSALN BOTH sides for user-defined; correct express-
-!                   ions for ILMIN, etc; also generalize/amend default
-!                   strategy (was: check/set single embedded layer -
-!                   although some were missed; else connect matching
-!                   soils; else move down a layer).  Use -1 for IUNDEF.
-!      970714       Leave bank-link faces at zero (never used anyway).
-!                   Criterion for loop 200 at start (was at end).
-!                   Set ISOILP=0 for ILYR=NLYRI; also use JSOILP.
-!      970721       JVSALN=0 or NMOD*imin+imax always.
-!      970813       Don't give up on face if no match for I|JLYR.
-!----------------------------------------------------------------------*
 ! Entry conditions:  not more than 1 call per run
 ! NAQCON <= nvsee (size of IAQCON)
 ! NELEE >= NEL >= 1 ;  NLF >= 0 ;  NLYREE >= 1, NLYR(1:NEL)
@@ -2195,13 +2171,6 @@ CONTAINS
 !
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column lower boundary condition
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSLOWR/4.1
-! Modifications:
-!  GP  22.08.94  written
-! RAH  970120  4.1  No leading comments.  No lower-case code.
-!                   Combine IF-blocks.  Use local CQVDUM.
-!      970131       Use arguments, not INCLUDE.  CDQDUM DBLE, not DOUBLEPRECISION.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 0 < CDELZ
@@ -3985,12 +3954,6 @@ CONTAINS
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column spring discharge
 !----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSSPR/4.1
-! Modifications:
-!  GP  22.08.94  written
-! RAH  970120  4.1  No leading comments.  Use local DHDUM.
-!      970127       Use arguments, not INCLUDE.
-!----------------------------------------------------------------------*
 !
 ! Input arguments
       DOUBLEPRECISION CZ, CZSP, CCS, CPSI, CKR, CDKR
@@ -4031,16 +3994,6 @@ CONTAINS
       CQINF)
 !----------------------------------------------------------------------*
 ! Sets up coefficients for column upper boundary condition
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSUPPR/4.2
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 20.12.95)
-! RAH  970120  4.1  No leading or long comments.  No lower-case code.
-!                   Use MAX not MAX.  Rearrange expressions.
-!                   Don't INCLUDE AL.G.
-!      970127       Use arguments, not COMMON.
-!      970514       Replace CDW + (CQP - CEW)*DT with CDNET (see VSSIM).
-! RAH  981104  4.2  Rename locals DUM? as QIN,etc.
 !----------------------------------------------------------------------*
 ! Entry conditions:
 ! 0 < CDELZ, DT

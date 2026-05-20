@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: In-memory visualisation time-buffer structures.
+!>
+!> This module stores visualisation values between the model accessor layer and
+!> the HDF5 writer. Each supported visualisation storage type has a linked list
+!> of time nodes. The module allocates new nodes for output times, saves scalar
+!> or vector values into the correct member locations, and later extracts and
+!> deallocates buffered values in HDF5 dimension order.
 MODULE visualisation_structure
 
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
@@ -729,7 +735,7 @@ CONTAINS
    END SUBROUTINE FOR_NEW_TIME_NS
 END MODULE visualisation_structure
 
-!!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+! Legacy real-only HDF5 extraction routine retained as commented reference.
 !FUNCTION get_hdf5_r(typ, sz, szo, first, ilow, jlow, klow) RESULT(r)
 !INTEGER, INTENT(IN)                                  :: ilow, jlow, klow
 !INTEGER, INTENT(INOUT)                               :: first
@@ -780,7 +786,7 @@ END MODULE visualisation_structure
 !
 !CONTAINS
 !
-!    !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+!    ! Legacy loop helper for the old real-only extraction path.
 !    SUBROUTINE main_loop(text)  !there is a similar routine in get_hdf5_i
 !    REAL                     :: dum
 !    CHARACTER(*), INTENT(IN) :: text
@@ -802,11 +808,11 @@ END MODULE visualisation_structure
 !        ENDDO
 !    ENDDO
 !    END SUBROUTINE main_loop
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real bank extraction path.
 !    PURE REAL FUNCTION FBS()
 !        fbs = pb%s(ii, jj, kk, ee)%e(cc)
 !    END FUNCTION FBS
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real compound extraction path.
 !    PURE REAL FUNCTION FGS()
 !    IF(cc==1) THEN
 !        fgs = pg%s(ii, jj, kk, ee)%m
@@ -816,18 +822,18 @@ END MODULE visualisation_structure
 !        fgs = pg%s(ii, jj, kk, ee)%r(cc-5)
 !    ENDIF
 !    END FUNCTION FGS
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real river extraction path.
 !    PURE REAL FUNCTION FLS()
 !        fls = pl%s(ii, jj, kk, ee)%e(cc)
 !    END FUNCTION FLS
-!    !cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfc
+!    ! Legacy helper for the old real middle extraction path.
 !    PURE REAL FUNCTION FMS()
 !        fms = pm%s(ii, jj, kk, ee)%m
 !    END FUNCTION FMS
 !
 !END FUNCTION get_hdf5_r
 
-!!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+! Legacy debug dump routine retained as commented reference.
 !SUBROUTINE dump(name, typ, i, time, first, isgrid)
 !INTEGER, INTENT(IN)      :: i, first
 !INTEGER, PARAMETER       :: ii=7, jj=12

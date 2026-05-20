@@ -1,3 +1,21 @@
+!> summary: Column geometry and face-overlap arrays used before running `COLM`.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> `COLM_CG` stores column geometry, overlap, lateral-transmissivity, and well
+!> withdrawal state used during preparation for the column routine `COLM`. The
+!> largest overlap arrays are allocated to the active model size during
+!> initialization and can be released after contaminant setup.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.0 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Checked and tidied text. |
+!> | 1991-07-16 | JE | 3.1 | Reordered names in `WELPRO`. |
+!> | 1997-02-24 | RAH | 4.1 | Added explicit typing and separated `WELPRI` from mixed-type `WELPRO`. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2026-03 | SB | 4.6 | Removed unused legacy arrays, made overlap arrays allocatable, and added allocation/deallocation routines. |
+!> @endhistory
 MODULE COLM_CG
 !---------------------------- Start of COLM.CG ------------------------*
 !

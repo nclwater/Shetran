@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Visualisation plan-file reading utilities.
+!>
+!> This module provides the small parser used by the visualisation metadata
+!> layer. It strips comments and separators from the visualisation plan file,
+!> then exposes typed readers for character, integer, and real values while
+!> collecting consistent diagnostic messages for malformed input.
 MODULE visualisation_read
 
    USE visualisation_read_parser, ONLY: visualisation_token_reader, transform_visualisation_record, &

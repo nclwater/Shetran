@@ -1,3 +1,20 @@
+!> summary: Link contaminant transport work variables.
+!> author: JE, Newcastle University
+!>
+!> This module replaces the legacy `LINK.CC` common blocks. It stores
+!> cross-sectional areas, adjacent-column concentrations, erosion rates, fluxes,
+!> retardation variables, Peclet numbers, plant uptake rates, and transfer
+!> coefficients used by contaminant calculations in the `LINK` routine.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-05-20 | JE | 3.0 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Completed. |
+!> | 1991-07-16 | JE | 3.1 | Removed `AL.P` include and `NCETOP` definition; replaced `FCPBK1`/`GCPBK1` with `FCPBK`/`GCPBK`. |
+!> | 1991-07-16 | JE | 3.1 | Renamed `CONC` to `CONCL` to avoid a name clash. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> @endhistory
 MODULE LINK_CC
 !                                         LINK.CC
 !

@@ -1,3 +1,41 @@
+!> summary: Sediment yield, erosion, deposition, and transport calculations.
+!>
+!> This module implements the SHETRAN sediment yield component. It reads and
+!> checks sediment input data, initialises bed/loose/suspended sediment state,
+!> derives water-flow quantities needed by the sediment routines, calculates
+!> ground and bank erosion, evaluates sediment transport capacity in overland
+!> and channel flow, routes suspended and bed material fractions, and updates
+!> bed, loose-sediment, and model output arrays.
+!>
+!> Channel transport capacity is selected between Ackers-White and
+!> Engelund-Hansen style formulae for non-fine material. The code's
+!> Ackers-White branch follows the dimensionless total-load formulation
+!> developed by Ackers and White (1973); a concise implementation reference is
+!> available from Flood Modeller:
+!> https://help.floodmodeller.com/docs/ackers-white-1973-total-load-equation.
+!> The Engelund-Hansen branch is a stream-power total-load relation; see the
+!> HEC-RAS sediment technical reference:
+!> https://www.hec.usace.army.mil/confluence/rasdocs/d2sd/ras2dsedtr/6.3/model-description/transport-potential-formulas/engelund-hansen.
+!>
+!> Critical shear stress is calculated through a Shields-curve-style
+!> relationship, and overland transport includes Engelund-Hansen and Yalin-style
+!> alternatives depending on `ISGSED`. The implementation also contains
+!> SHETRAN-specific bookkeeping for fine sediment, infiltration, armouring, and
+!> exchange between loose bed material, suspended load, and deposited material.
+!>
+!> @warning The manual describes sediment boundary data (`SY61`-`SY64`) but
+!> notes that sediment boundary-condition routines have not yet been implemented.
+!> This matches the current empty [[sybc]] routine. Sediment mass-balance output
+!> is also a placeholder in [[balsed]].
+!> @endwarning
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-1995 | AB/RAH/BTL | 3.4.1 | Created sediment yield routines and later corrections, including `DLSMAX`. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the SY `.F` files into this Fortran 90 module. |
+!> | 2026-03 | SB | 4.6 | Updated `NTSOIL` dimensions for current array layout. |
 MODULE SYmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SY .F files

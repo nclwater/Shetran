@@ -1,3 +1,18 @@
+!> summary: General numerical, date/time, and input helper routines.
+!> author: JE, Newcastle University; SB, Newcastle University
+!>
+!> `utilsmod` contains shared utility routines used across SHETRAN. These
+!> include vector copying, breakpoint time-series reading, date/hour conversion,
+!> one-dimensional interpolation, tridiagonal linear solves, matrix products,
+!> matrix inversion helpers, integer/real array readers, and a random-number
+!> generator.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2008-12 | JE | 4.3.5F90 | Created during conversion to Fortran 90, replacing utility `.F` files. |
+!> | 2026-03 | SB | 4.6 | Added date error trapping. |
+!> @endhistory
 MODULE utilsmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the utility .F files
@@ -792,12 +807,6 @@ CONTAINS
 !      SERVICE SUBROUTINE TO READ AND PRINT AN INTEGER ARRAY
 !
 !----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/AREADI/4.1
-! Modifications:
-! RAH  940928 3.4.1 Add IMPLICIT (was in AL.P).
-! GP  24/7/95  4.0  Initialize IAOUT (if KON = 0 or 1).
-! RAH  970804  4.1  Explicit typing (note TITLE was implicit double).
-!----------------------------------------------------------------------*
 !
 !    PARAMETER LIST :
 !    IA   : ARRAY TO BE READ
@@ -948,11 +957,6 @@ CONTAINS
 !      SERVICE SUBROUTINE TO READ AND PRINT A DOUBLEPRECISION,TWO-DIMENSIONAL ARRAY
 !      (IN DOUBLEPRECISION)
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/AREADR/4.1
-! Modifications:
-! RAH  940928 3.4.1 Add IMPLICIT (was in AL.P).
-! RAH  970804  4.1  Explicit typing (note TITLE was implicit double).
 !----------------------------------------------------------------------*
 !
 !     PARAMETER LIST :

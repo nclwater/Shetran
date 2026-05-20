@@ -1,4 +1,9 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Shared visualisation metadata pass-through state.
+!>
+!> This module stores geometry, element classification, filenames, and output
+!> dimensions passed from SHETRAN into the visualisation layer. The [[send_p]]
+!> routine receives typed values by keyword and updates or allocates the module
+!> state used later by the HDF5/visualisation output routines.
 MODULE visualisation_pass
    IMPLICIT NONE
 

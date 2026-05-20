@@ -1,4 +1,8 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Auxiliary visualisation arrays for dynamically sized sediment output.
+!>
+!> This module stores auxiliary pointer arrays used by the visualisation output
+!> path. `react` either allocates the arrays for the first use or extends them
+!> when additional sediment/output columns are required.
 MODULE VISUALISATION_EXTRAS
    IMPLICIT NONE
 

@@ -1,13 +1,9 @@
-!> SHETRAN - Main Program
+!> summary: SHETRAN main program.
+!> author: Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University; Newcastle University Water Group
 !>
-!> Main program entry point for the SHETRAN hydrological modeling system.
-!> This program coordinates the initialization, execution, and finalization
-!> of all SHETRAN simulation components.
-!>
-!> ### Authors:
-!> - **Stephen Birkinshaw**, Newcastle University (Original development)
-!> - **Sven Berendsen**, Newcastle University (Modernization)
-!> - **Newcastle University Water Group** (Ongoing development)
+!> Main program entry point for the SHETRAN hydrological modelling system.
+!> This program coordinates command-line/file selection, input opening,
+!> initialization, simulation execution, final output, and visualisation output.
 !>
 !> ### Program Responsibilities:
 !> - Parse command line arguments and configuration
@@ -22,30 +18,35 @@
 !> 4. **Finalization**: Write final outputs and cleanup
 !>
 !> ### Related Components:
-!> This program uses the following SHETRAN modules:
+!> The executable coordinates the SHETRAN components described in the user
+!> manual:
 !>
-!> - **ETmod**: Evapotranspiration processes
-!> - **FRmod**: Framework for file operations and mass balance
-!> - **Mnmod**: Nitrate transport module.
-!> - **OCmod**: Overland channel flow calculations
-!> - **SMmod**: Snow model calculations
-!> - **SYmod**: Sediment yield and transport
-!> - **RUN_SIM**: Main simulation execution controller
-!> - **simulation_output**: Additional output utilities
-!> - **GETDIRQQ**: Cross-platform directory utilities
+!> - **FRmod**: frame setup, input/output control, indexing, bank setup, and mass balance.
+!> - **ETmod**: evapotranspiration, interception, and vegetation controls.
+!> - **OCmod/OCmod2**: overland and channel flow routing.
+!> - **VSmod**: variably saturated subsurface flow.
+!> - **SMmod**: optional snowmelt calculations.
+!> - **SYmod**: optional sediment erosion and transport.
+!> - **CMmod**: optional contaminant transport; requires bank elements when enabled.
+!> - **MNmod**: optional mineral nitrogen/nitrate calculations called through the contaminant component.
+!> - **ZQmod**: optional reservoir stage-discharge table support.
+!> - **RUN_SIM**: main simulation time-step driver.
+!> - **REST**: meteorological input, timestep control, extra output, and water-balance utilities.
+!> - **GETDIRQQ**: cross-platform command-line and directory handling.
 !>
 !> @note This is the main entry point for all SHETRAN simulations
+!> @endnote
 !>
 !> @warning Ensure all input files are properly formatted and accessible
+!> @endwarning
 !>
 !> @history
-!> | Version | Date | Author | Description |
-!> |---------|------|--------|-------------|
-!> | v4.4.6 | 2019-12-10 | SteveB | Added Hotstart ability |
-!> | v4.4.7 | 2020-03-05 | SvenB | Code cleanups and modernization |
-!> | v4.5.3 | 2026-03-19 | SteveB | Datum in time series, allocatable arrays and nitrate module |
-!>
-!-------------------------------------------------------------------------------
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2019-12-10 | SteveB | 4.4.6 | Added hotstart capability. |
+!> | 2020-03-05 | SvenB | 4.4.7 | Code cleanups and modernization. |
+!> | 2026-03-19 | SteveB | 4.5.3 | Added datum in time series, allocatable arrays, and nitrate module. |
+!> @endhistory
 PROGRAM SHETRAN
 
    ! ============================================================================

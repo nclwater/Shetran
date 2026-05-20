@@ -1,3 +1,26 @@
+!> summary: Overland and channel flow routing.
+!>
+!> This module implements the SHETRAN overland/channel flow (OC) component. It
+!> reads OC input, builds channel link geometry and boundary-condition tables,
+!> computes channel cross-section lookup tables, sets up row-wise indexing for
+!> the implicit solver, and advances free-surface elevations and inter-element
+!> flows during the simulation.
+!>
+!> The timestep solve is a row-swept implicit finite-difference system. Each
+!> active row is assembled as a block tridiagonal coupling to the previous,
+!> current, and next rows, inverted row by row, and then back-substituted in a
+!> downward sweep. Channel conveyance is derived from the OC input-file
+!> width/depth cross-section tables and Strickler roughness coefficients through
+!> [[ocmod2:conveyan]]. Boundary categories, channel geometry, and roughness
+!> controls correspond to the manual's Overland/Channel Module section.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
+!> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
+!> | 2026-03 | SB | 4.6 | Moved large OC solver, water-surface, discharge, and index work arrays to allocatable storage. |
 MODULE OCmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC .F files
@@ -1406,10 +1429,6 @@ CONTAINS
 !
 !  Print results of OC simulation
 !
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCPRI/4.2
-! Modifications:
-! RAH  980226  4.2  New.
 !----------------------------------------------------------------------*
 ! Entry requirements:
 !  NELEE.ge.NEL    NEL.ge.[1,NLF]    NLF.ge.0    NLF.le.size_of_ARXL

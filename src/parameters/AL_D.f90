@@ -1,3 +1,26 @@
+!> summary: Shared flow-component state and file-unit constants.
+!> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University
+!>
+!> `AL_D` stores common state used primarily by the SHETRAN flow components.
+!> It includes file-unit constants, model-size and timing controls, process
+!> activation flags, input/output scheduling arrays, hotstart state, snow state,
+!> overland/channel flow storage, meteorological forcing arrays, and reservoir
+!> ZQ-table metadata.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-03 | GP | 3.0 | Original version written. |
+!> | 1991-06 | GP | 3.1 | Added new variables including `NEXPO`. |
+!> | 1992-02 | GP | 3.3 | Added soil-layer arrays. |
+!> | 1992-06 | GP | 3.4 | Moved selected variables to `AL_C`, added flow/snow/storage arrays, and removed obsolete constants. |
+!> | 1994-09-28 | RAH | 3.4.1 | Applied standard header, declared variables, and removed `INTEGER*2`. |
+!> | 1996-01-03 | GP | 4.0 | Moved selected VSS variables to `AL_C`, removed redundant SZ/UZ/EX variables, and added mass-balance arrays. |
+!> | 1997-02 | RAH | 4.1 | Removed redundant derived dimensions and obsolete state variables. |
+!> | 1998-01-19 | RAH | 4.2 | Removed obsolete OC and storage variables; defined `NCLASS`. |
+!> | 2004-07 | JE | - | Converted to Fortran 95. |
+!> | 2020-05-20 | SB | - | Added ZQ table file unit and reservoir table metadata variables. |
+!> @endhistory
 MODULE AL_D
    USE SGLOBAL, ONLY : NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
    IMPLICIT NONE

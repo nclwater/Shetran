@@ -1,3 +1,34 @@
+!> summary: Overland/channel hydraulic flux helper routines.
+!>
+!> This module contains the hydraulic calculation kernels used by the
+!> overland/channel flow component. It stores water-surface elevation and
+!> face-discharge arrays behind small accessor routines, builds channel
+!> conveyance lookup tables, evaluates grid-grid, link-link, grid-link,
+!> bank-link, boundary, confluence, and weir exchange flows, and applies final
+!> flow/depth corrections after a timestep.
+!>
+!> Most open-channel and overland exchange routines use a conveyance relation of
+!> the Gauckler-Manning-Strickler form, with Strickler roughness and a `h**(2/3)`
+!> hydraulic-depth factor. The HEC-HMS channel-flow documentation gives the
+!> same class of empirical resistance formulation:
+!> https://www.hec.usace.army.mil/confluence/hmsdocs/hmstrm/channel-flow/channel-flow-basic-concepts-equations-and-solution-techniques.
+!> Weir routines use horizontal-crest weir equations with drowned and undrowned
+!> branches; for context on submerged weir behaviour see the HEC-RAS hydraulic
+!> reference:
+!> https://www.hec.usace.army.mil/confluence/rasdocs/ras1dtechref/6.5/modeling-gated-spillways-weirs-and-drop-structures/uncontrolled-overflow-weirs/submerged-weir-flow.
+!>
+!> Reservoir/channel links may instead obtain discharge from [[zqmod]] rating
+!> tables through `get_ZQTable_value`, so those cases are tabulated
+!> stage-discharge lookups rather than direct conveyance or weir formulae.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-1998 | GP/RAH | 3.4.1-4.2 | Reworked OC hydraulic routines, boundary types, confluences, weir handling, and derivative outputs. |
+!> | 1999-02 | SB | 4.27 | Adjusted confluence mass conservation and small adverse-flow correction behaviour. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted part of the OC `.F` files into this Fortran 90 helper module. |
+!> | 2020-05 | SB | - | Added ZQ-table reservoir/channel link support. |
 MODULE OCmod2
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC.F files

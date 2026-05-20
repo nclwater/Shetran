@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Mapping utilities for visualisation rasters.
+!>
+!> This module converts SHETRAN subunit, bank, and link values onto magnified
+!> image grids for visualisation output. The routines expand each active model
+!> cell into a `mag` by `mag` block, reserving edge strips for river and bank
+!> elements so that raster outputs can distinguish cell interiors from channel
+!> faces.
 MODULE visualisation_map
 
    USE VISUALISATION_PASS,     ONLY : BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK

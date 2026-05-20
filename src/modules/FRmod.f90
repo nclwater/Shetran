@@ -1,3 +1,27 @@
+!> summary: SHETRAN frame initialisation, file I/O, output, and component setup.
+!>
+!> This module contains the legacy FR "frame" routines that connect SHETRAN's
+!> component models to run data, mesh indexing, output control, hot-start/restart
+!> files, and component initialisation. It reads the global frame input, opens
+!> data files, constructs element/link/bank indexing, calculates element areas
+!> and face lengths, initialises ET, snow, overland/channel, VSS, bank, sediment,
+!> contaminant, plant, and ZQ-table options, and writes both legacy result output
+!> and newer text time series.
+!>
+!> The routines here are primarily orchestration and data-marshalling code rather
+!> than a separate hydrological process formulation. They provide the common
+!> bookkeeping that allows the water-flow, sediment, contaminant, snow, ET, and
+!> reservoir table modules to share geometry, file units, time controls, and
+!> output definitions.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed and standardised the FR frame, including impermeable-bed defaults, `BSOFT`, `TIM` migration to `AL_D`, result output, and hot-start/rescue handling. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the FR `.F` files into this Fortran 90 module. |
+!> | 2020-05 | SB | 4.5 | Added ZQ-module variables and support. |
+!> | 2026-03 | SB | 4.6 | Added allocation-based initialisation through `INITIALISE_AL_C3` and `INITIALISE_ETMOD`, date-aware meteorological input through `BMETDATES`, outlet sediment/contaminant text series, water-table and virtual-discharge text output, improved diagnostics, and `.pri` reporting of hard-coded array sizes. |
 MODULE FRmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the FR .F files
@@ -100,8 +124,6 @@ MODULE FRmod
 
    CHARACTER (LEN=80) :: TITLE
    CHARACTER(256)     :: msg
-
-
 
 !SAVEd variables put here for AD
    INTEGER, SAVE   :: next_hour = 1, icounter2 = 0

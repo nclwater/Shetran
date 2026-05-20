@@ -1,3 +1,20 @@
+!> summary: Column contaminant transport state.
+!> author: JE, Newcastle University; RAH, Newcastle University
+!>
+!> This module replaces the legacy `COLM.CC` common blocks. It stores
+!> contaminant concentration, lateral convection, uptake, dispersion,
+!> generation, and soil-property arrays used by the `COLM` column contaminant
+!> calculations.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.0 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Checked, no changes. |
+!> | 1991-06-16 | JE | 3.1 | Removed references to `CCPRV`. |
+!> | 1997-03-13 | RAH | 4.1 | Added explicit typing. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> @endhistory
 MODULE COLM_CC
 !------------------------------- Start of COLM.CC ---------------------*
 !                      INCLUDE FILE FOR CONTAMINANT VARIABLES USED IN

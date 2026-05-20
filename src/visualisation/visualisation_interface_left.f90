@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Near-SHETRAN visualisation accessor interface.
+!>
+!> This module is the left-hand side of the SHETRAN/SHEGRAPH visualisation
+!> interface. It reads model state from the core SHETRAN modules using native
+!> element, face, layer, and grid numbering, converts selected fluxes to
+!> plotting units, and exposes small accessor functions for the central
+!> visualisation translation layer.
 MODULE visualisation_interface_left
 
 !JE for SHEGRAPH Version 2.0 Created July 2004
@@ -89,7 +95,7 @@ MODULE visualisation_interface_left
    PUBLIC :: DIRQQ, ROOTDIR, north, east, south, west, hdf5filename, planfile, checkfile, etype, ADJACENT_ELEMENT
 
 CONTAINS
-!!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+! Legacy perturbation accessor retained here as commented reference.
 !ELEMENTAL REAL FUNCTION space_time1(iel) RESULT(r)
 !INTEGER, INTENT(IN) :: iel
 !INTEGER :: i

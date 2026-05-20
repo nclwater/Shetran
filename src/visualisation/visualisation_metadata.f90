@@ -1,4 +1,10 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> summary: Visualisation metadata catalogue and plan parser.
+!>
+!> This module owns the runtime catalogue of visualisation items requested for
+!> HDF5 output. It registers static model variables, reads user-requested dynamic
+!> items from the visualisation plan file, resolves masks/lists/timing blocks,
+!> validates item dimensions, and creates the derived metadata consumed by the
+!> HDF5 writer.
 MODULE visualisation_metadata
 
 !JE for SHEGRAPH Version 2.0 Created July 2004

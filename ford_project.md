@@ -19,6 +19,8 @@ preprocess: false
 css: docs/ford_config/stylesheets/ford-dark.css
 exclude_dir: src/legacy
             src/backup
+exclude: **/include_increment.f90
+         **/include_extend_s.f90
 extra_mods: iso_fortran_env:https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fFORTRAN_005fENV.html
            iso_c_binding:https://gcc.gnu.org/onlinedocs/gfortran/ISO_005fC_005fBINDING.html
 copy_subdir: examples

@@ -1,3 +1,41 @@
+!> summary: Mineral nitrogen cycling and plant uptake.
+!>
+!> This module implements the optional SHETRAN mineral nitrogen component called
+!> from the contaminant model. It simulates ammonium and nitrate concentrations
+!> in soil water, carbon and nitrogen turnover in humus/litter/manure pools,
+!> mineralisation and immobilisation, nitrification, denitrification, ammonia
+!> volatilisation, plant uptake, environmental temperature/moisture/pH
+!> reduction factors, input checking, interpolation of spatially varying
+!> parameters, and nitrogen output reporting.
+!>
+!> The implementation follows the common process-based soil nitrogen modelling
+!> structure in which mineralisation, nitrification, denitrification and plant
+!> uptake are modified by soil temperature and moisture response factors. Q10
+!> temperature response options are provided for mineralisation and
+!> nitrification; Q10-style temperature sensitivity is widely used in soil N
+!> mineralisation models, for example as discussed by Sierra (2010):
+!> https://doi.org/10.1016/j.geoderma.2010.04.009. The code is nevertheless a
+!> SHETRAN-specific formulation with tabulated depth/element parameters and
+!> legacy segmented environmental response functions.
+!>
+!> The component is coupled through [[cmmod]] rather than run independently.
+!> Nitrate concentrations are transported by the contaminant solver; this module
+!> supplies ammonium/nitrate reaction, uptake, deposition, and source/sink terms
+!> for the dynamic and dead-space soil-water regions. At present [[mnerr0]]
+!> expects the contaminant interface to provide the configured single nitrogen
+!> contaminant species.
+!>
+!> @warning Plant uptake is calculated by [[mnplant]] before the main nitrogen
+!> update. The legacy source comments state that this routine has weak input
+!> checking, so changes to plant uptake parameters should be reviewed against
+!> the nitrate plant-uptake input section of the manual and tested carefully.
+!> @endwarning
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03 | SB | 4.6 | Capitalised `MNCONT` for Linux builds and moved several arrays to allocatable storage. |
 module MNmod
 
 
