@@ -90,6 +90,7 @@ SUBROUTINE OCNODE (iela, ZI, CI, DI, ROOTLI, QJ)
 ! SB   990204 4.27  Problem with conserving mass at junctions
 !                   Adjust QJ so the largest absolute value at a
 !                   junction is modified so that the asum = 0
+! SB   260521 4.6   Change convergence criteria at channel junctions.
 !----------------------------------------------------------------------*
 
 INTEGER, INTENT(IN)         :: IELa  
@@ -132,44 +133,57 @@ NC = 0
 failed =.FALSE.
 iscycle=.FALSE.
 !     * Start of iteration loop: set new point WN and calculate FN
-DO nc=1,50
-    IF(iscycle) CYCLE
-    WN   = (A*FB - B*FA) / (FB-FA)  
-    FNM1 = FN  
-    CALL FNODE(WN, DI, CI, ZI, ROOTLI, QJ, FN)  
-    IF (ISZERO(FN)) THEN   !        * Test for convergence (either exact or approximate)
-        failed =.TRUE.
-        iscycle=.TRUE.
-        CYCLE
-    ENDIF
+! changes by sb 20260521
+! increase max iterations to 200 to allow for more difficult junctions
+! exit the do loop if iscycle is true, which is set to true if convergence criteria are met
+! reduce convergence criteria to 1.0D-3 of flow and 1.0D-4 of head difference to allow for more difficult junctions
+DO nc=1,200
+    IF(iscycle) EXIT
+    WN   = (A*FB - B*FA) / (FB-FA)
+    FNM1 = FN
+    CALL FNODE(WN, DI, CI, ZI, ROOTLI, QJ, FN)
+
     SIGMAQ = ABS(QJ(0) ) + ABS(QJ(1) ) + ABS(QJ(2) ) + ABS(QJ(3) )
-    IF (ABS(FN) .LE. SIGMAQ*1.0D-2 .AND. ABS(B-A) .LE. 1.0D-3) THEN
-       JMAJOR = 0  
-        DO J = 1, 3  
+    ! previous convergence IF (ABS(FN) .LE. SIGMAQ*1.0D-2 .AND. ABS(B-A) .LE. 1.0D-3) THEN
+    IF (ABS(FN) .LE. SIGMAQ*1.0D-3 .AND. ABS(B-A) .LE. 1.0D-4) THEN
+        JMAJOR = 0
+        DO J = 1, 3
             IF (ABS(QJ(J)) .GT. ABS(QJ(JMAJOR))) JMAJOR = J
-        ENDDO 
+        ENDDO
         QJ(JMAJOR) = QJ(JMAJOR) - FN
         iscycle=.TRUE.
-        CYCLE
-     ENDIF
+        failed =.false.
+        EXIT
+
+    else
+        failed =.TRUE.
+    ENDIF
     !            * ... carry on: replace either A or B with WN; and
     !            * adjust interpolation factor if sign of F didn't change
     TEST = GTZERO(FN * FNM1)  !TAKE CARE - PRECEDENCE
-    IF (FN * FA.GE.0D0) THEN  
-        A = WN  
-        FA = FN  
-        IF (TEST) FB = FB * half  
-    ELSE  
-        B = WN  
-        FB = FN  
-        IF (TEST) FA = FA * half  
-    ENDIF  
- ENDDO
- IF(failed) THEN
-    IF (ABS (FN) .LT.SIGMAQ * 1D-1.AND.ABS (B - A) .LT.5D-2) THEN  
-        !CALL ERROR(WWWARN, 1027, PPPRI, iela, 0, 'maximum iterations exceeded for OC confluence')
-    ELSE  
-        !CALL ERROR(FFFATAL, 1028, PPPRI, iela, 0, 'iteration failure for OC confluence')
+    IF (FN * FA.GE.0D0) THEN
+        A = WN
+        FA = FN
+        IF (TEST) FB = FB * half
+    ELSE
+        B = WN
+        FB = FN
+        IF (TEST) FA = FA * half
+    ENDIF
+ENDDO
+IF(failed) THEN
+    !write(672,*) 'iela', iela
+    !write(672,*) 'fn', FN
+    !write(672,*) 'b,a,b-a', B, A, B-A
+    !write(672,*) 'ZI', (zi(j),j=0,3)
+    !write(672,*) 'CI', (ci(j),j=0,3)
+    !write(672,*) 'DI', (di(j),j=0,3)
+    !write(672,*) 'ROOTLI', (ROOTLI(j),j=0,3)
+    !write(672,*) 'QJ', (QJ(j),j=0,3)
+
+    CALL ERROR(WWWARN, 1027, PPPRI, iela, 0, 'maximum iterations exceeded for OC confluence')
+    IF (ABS (FN) .GT.SIGMAQ * 1.0D-2.OR.ABS (B - A) .GT.1.0D-3) THEN
+        CALL ERROR(WWWARN, 1028, PPPRI, iela, 0, 'Bad iteration failure for OC confluence')
     ENDIF
 ENDIF
 END SUBROUTINE OCNODE
