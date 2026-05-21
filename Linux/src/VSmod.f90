@@ -1,6 +1,8 @@
 MODULE VSmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the VS .F files
+! SB Mar 26  4.6       Make arrays allocatable by using INITIALISE_AL_C2 
+    
 USE SGLOBAL
 USE mod_load_filedata, ONLY : ALINIT, ALSPRD, ALREAD
 !USE SGLOBAL,  ONLY : 
@@ -773,9 +775,9 @@ ENDDO out500
     IF (ELEVEL.GT.0) then 
     errorcount=errorcount+1
     if (errorcount.lt.errcntallowed) then    
-      CALL ERROR (ELEVEL, 1036, PPPRI, IEL, 0, 'Maximum iterations in VSS column solver')
+      CALL ERROR (WWWARN, 1036, PPPRI, IEL, 0, 'Maximum iterations in VSS column solver')
     elseif (errorcount.eq.errcntallowed) then
-      CALL ERROR (ELEVEL, 1036, PPPRI, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
+      CALL ERROR (WWWARN, 1036, PPPRI, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
     endif    
 endif
     
@@ -927,7 +929,6 @@ DOUBLEPRECISION DZLYR, ZCBOT, ZDEPTH, ZBDBOT, ZCTOP, ZDUM
 DOUBLEPRECISION ZAQBOT, ZSZBOT, ZDIFF, ZLBOT, ZNODE  
 LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE (NELEE, 4)  
 CHARACTER (LEN=57) :: MSG  
-integer :: nlyrmax
 
 DATA LRENUM / JVSDUM * 0 /, NRENUM / 0 /  
 
@@ -3940,9 +3941,9 @@ ENDDO out660
 IF(.NOT.g670) then
     errorcount2=errorcount2+1
     if (errorcount2.lt.errcntallowed) then    
-      CALL ERROR(EEERR, 1039, PPPRI, 0, 0, 'Maximum iterations in VSS global solver')
+      CALL ERROR(WWWARN, 1039, PPPRI, 0, 0, 'Maximum iterations in VSS global solver')
     elseif (errorcount2.eq.errcntallowed) then
-      CALL ERROR (EEERR, 1039, PPPRI, 0, 0, '**** Last printout of the error message - maximum iterations in VSS global solver *****')
+      CALL ERROR (WWWARN, 1039, PPPRI, 0, 0, '**** Last printout of the error message - maximum iterations in VSS global solver *****')
     endif    
 endif
 
