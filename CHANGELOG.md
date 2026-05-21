@@ -3,6 +3,7 @@
 ## 210526
 
 - improved channel junction convergence
+- VSS error messages turned to warnings
 
 ## 080526
 
