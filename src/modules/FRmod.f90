@@ -118,6 +118,69 @@ CONTAINS
 !> `SPEC.AL` state: `NEL`, `NX`, `NY`, `NXM1`, `NYM1`, `ICMREF`, `CWIDTH`,
 !> `DXIN`, `DYIN`, and `LINKNS`. Outputs are `CAREA`, `AREA`, `DHF`, `DXQQ`,
 !> `DYQQ`, and the fixed bank-element width `BWIDTH`.
+!>
+!> The routine first converts half-grid spacings to full cell dimensions:
+!>
+!> \[
+!> DX_1=DXIN_1,\qquad DX_{NX}=DXIN_{NX-1},\qquad
+!> DX_i=\frac{DXIN_{i-1}+DXIN_i}{2},
+!> \]
+!>
+!> with the same construction for `DY`. The bank width is currently fixed as
+!> `BWIDTH = 10 m`.
+!>
+!> Initial element dimensions are assigned from element type `ICMREF(IEL,1)`.
+!> Grid elements use the full grid dimensions,
+!>
+!> \[
+!> DXQQ=DX(IX),\qquad DYQQ=DY(IY).
+!> \]
+!>
+!> Bank elements use `BWIDTH` across the bank and the grid spacing along the
+!> associated link: north-south links use `DXQQ=BWIDTH`, `DYQQ=DY(IY)`;
+!> east-west links use `DXQQ=DX(IX)`, `DYQQ=BWIDTH`. Channel links use channel
+!> width across the channel and grid spacing along the link:
+!>
+!> \[
+!> \begin{array}{ll}
+!> DXQQ=CWIDTH,\ DYQQ=DY,\ CLENTH=DY, & \text{north-south link},\\
+!> DXQQ=DX,\ DYQQ=CWIDTH,\ CLENTH=DX, & \text{east-west link}.
+!> \end{array}
+!> \]
+!>
+!> The dimensions of grid and bank elements are then reduced to remove overlap
+!> with adjacent channels and banks. For a grid face adjacent to a channel or
+!> bank, the removed width is
+!>
+!> \[
+!> \Delta = 0.5\,CWIDTH + \begin{cases}
+!> BWIDTH, & \text{adjacent element is a bank},\\
+!> 0, & \text{adjacent element is a channel link}.
+!> \end{cases}
+!> \]
+!>
+!> Bank-bank corner overlaps are also removed by subtracting
+!> `BWIDTH + 0.5*CWIDTH` from the along-bank dimension of the paired bank
+!> elements. The final element area and total catchment area are then
+!>
+!> \[
+!> AREA_i = DXQQ_i\,DYQQ_i,\qquad CAREA=\sum_i AREA_i.
+!> \]
+!>
+!> `CATEST` is the uncorrected sum of basic grid-square areas,
+!> \(\sum DX(IX)DY(IY)\), used only for optional printed diagnostics comparing
+!> the basic catchment area with the element-area sum after channel and bank
+!> corrections.
+!>
+!> Finally, `DHF(IEL,face)` stores the distance from the element computational
+!> node to each face. West and south distances are calculated from the neighbour
+!> element type and local overlap corrections; east and north distances are the
+!> remaining parts of the corrected element dimensions:
+!>
+!> \[
+!> DHF_{east}=DXQQ-DHF_{west},\qquad
+!> DHF_{north}=DYQQ-DHF_{south}.
+!> \]
 SUBROUTINE FRDIM (BINFRP)
 ! Input arguments
 LOGICAL :: BINFRP
@@ -438,10 +501,6 @@ END SUBROUTINE FRDIM
 
 
 
-
-
-
-
 !> Builds element, bank, link, grid, and neighbour index arrays.
 !>
 !> The routine converts grid/link/bank code maps into compact SHETRAN element
@@ -451,6 +510,53 @@ END SUBROUTINE FRDIM
 !> `NGDBGN`, and `NLF`, and fills `ICMREF`, `ICMRF2`, `ICMBK`, `ICMXY`,
 !> `NBFACE`, `NGRID`, and `LINKNS`, defining the topology later used by OC,
 !> VSS, sediment, and contaminant routines.
+!>
+!> Element numbers are assigned in a fixed order. Channel links are created
+!> first from the link-code grids: `LCODEY >= 4` creates east-west links
+!> (`LINKNS=.FALSE.`), then `LCODEX >= 4` creates north-south links
+!> (`LINKNS=.TRUE.`). Each link has `ICMREF(:,1)=3`, stores its grid location in
+!> `ICMREF(:,2:3)`, and stores its own link number in `ICMREF(:,4)`.
+!> `total_no_links` is the last link index.
+!>
+!> If the bank component is active, two bank elements are then created for each
+!> link. Bank element type is `1` or `2`, `ICMREF(:,4)` points back to the
+!> associated link, and `ICMBK(link,bank)` maps from a link and bank side to the
+!> bank element number. Grid elements are added last for every non-negative
+!> `INGRID` cell; `ICMXY(i,j)` maps a grid coordinate back to the grid-element
+!> number. Consequently
+!>
+!> \[
+!> NGDBGN = total\_no\_links + 1,
+!> \]
+!>
+!> so active land/bank/grid elements begin immediately after the channel links.
+!>
+!> `ICMREF` columns 5:8 hold the neighbours across faces 1:4
+!> (east, north, west, south). For grid elements the neighbour is either the
+!> adjacent grid cell, an intervening bank element when banks are enabled, or
+!> the channel link itself when OC links exist without banks. In the latter case
+!> `ICMREF(:,4)=9999` marks that the grid element is adjacent to a channel
+!> system rather than an ordinary soil-only element.
+!>
+!> Channel-link faces either point to their adjacent banks/grid cells or to
+!> other channel links at link nodes. A single connected link is stored directly
+!> in `ICMREF(:,5:8)`. If a node has multiple connected links, `FRIND` creates an
+!> auxiliary `ICMRF2` entry, stores the connected link numbers in
+!> `ICMRF2(idx,1:3)`, and stores `-idx` in the relevant `ICMREF` face column.
+!> This negative pointer is used later by routing and contaminant routines to
+!> expand multi-link junctions.
+!>
+!> Bank-element face neighbours are assigned according to the associated link
+!> orientation and bank side: one face connects to the channel link, one or more
+!> faces may connect to neighbouring bank elements around junctions, and the
+!> outer face connects to the adjacent grid cell where present.
+!>
+!> After all forward neighbours are assigned, `FRIND` checks that each neighbour
+!> points back to the current element. For ordinary neighbours it records the
+!> reciprocal face in `ICMREF(:,9:12)`. For multi-link nodes it records the
+!> reciprocal faces in `ICMRF2(:,4:6)`. Boundary faces keep their own face index
+!> in `ICMREF(:,9:12)` and the first boundary face for non-link elements is
+!> stored in `NBFACE`.
 SUBROUTINE FRIND (BINFRP)
 ! Input arguments
 
@@ -1323,8 +1429,6 @@ END SUBROUTINE FRLTL
 
 
 
-
-
 !> Calculates and writes monthly water-balance accumulators.
 !>
 !> `FRMB` accumulates precipitation, evapotranspiration, discharge, storage,
@@ -1351,6 +1455,94 @@ END SUBROUTINE FRLTL
 !> `QBKB`, `QBKF`, `QVSV`, rainfall and ET terms `P`, `EINTA`, `EEVAP`, and time
 !> controls `TIH` and `DTUZ`. It updates `MBDAY`, `MBMON`, `MBYEAR`, and the
 !> `BALANC(19)` accumulator.
+!>
+!> `BALANC` stores both short-period and cumulative water-balance terms:
+!>
+!> | Index | Meaning |
+!> |:------|:--------|
+!> | 1:6 | Current reporting-period precipitation, canopy evaporation, soil/surface-water evaporation, transpiration, regional aquifer flux through the model base, and outlet discharge. |
+!> | 7:12 | Cumulative totals of the same six flow terms. |
+!> | 13 | Canopy storage. |
+!> | 14 | Snowpack water-equivalent storage. |
+!> | 15 | Subsurface water storage. |
+!> | 16 | Surface-water storage on land elements. |
+!> | 17 | Channel water storage. |
+!> | 18 | Current reporting-period aquifer-channel exchange through channel bed and sides. |
+!> | 19 | Cumulative aquifer-channel exchange. |
+!>
+!> On each timestep, rates are converted to volumes with
+!>
+!> \[
+!> A_t(e)=AREA_e\,DTUZ.
+!> \]
+!>
+!> The timestep contributions are
+!>
+!> \[
+!> P_m = \sum_e precip_e A_t(e),\qquad
+!> E_{can,m} = \sum_e EINTA_e A_t(e),
+!> \]
+!>
+!> \[
+!> E_{soil,m} = \sum_e EEVAP_e A_t(e),\qquad
+!> T_m = \sum_e ERZA_e A_t(e),
+!> \]
+!>
+!> \[
+!> Q_{base,m} = \sum_e QVSV_{NLYRBT(e,1)-1,e} A_t(e).
+!> \]
+!>
+!> Outlet discharge is taken from the configured monthly-balance link and face:
+!>
+!> \[
+!> Q_{out,m} =
+!> \begin{cases}
+!> |QOC(MBLINK,MBFACE)|\,DTUZ, & MBLINK \ne 0,\\
+!> 0, & MBLINK = 0.
+!> \end{cases}
+!> \]
+!>
+!> Aquifer-channel exchange is accumulated over all links from bank-bed and
+!> bank-face flows:
+!>
+!> \[
+!> Q_{bank,m} =
+!> \sum_l \left(QBKB_{l,1}+QBKB_{l,2}+QBKF_{l,1}+QBKF_{l,2}\right)DTUZ.
+!> \]
+!>
+!> These timestep values are added to both `BALANC(1:6)` and `BALANC(7:12)`,
+!> while `Q_bank,m` is added to `BALANC(18)` and `BALANC(19)`.
+!>
+!> Storage terms are recomputed only when output is due (`UZNOW >= TIMB`).
+!> Canopy and snow storages convert millimetres over element area to cubic
+!> metres with `MPMM = 1D-3`:
+!>
+!> \[
+!> BALANC_{13}=\sum_e CSTORE_e\,AREA_e\,10^{-3},
+!> \]
+!>
+!> \[
+!> BALANC_{14}=\sum_e SD_e\,RHOSAR_e\,AREA_e\,10^{-3}.
+!> \]
+!>
+!> Subsurface, land-surface, and channel storages are
+!>
+!> \[
+!> BALANC_{15}=\sum_e\sum_{k=NLYRBT(e,1)}^{top}
+!> VSTHE_{k,e}\,DELTAZ_{k,e}\,AREA_e,
+!> \]
+!>
+!> \[
+!> BALANC_{16}=\sum_e (HRF_e-ZGRUND_e)AREA_e,\qquad
+!> BALANC_{17}=\sum_l ARXL_l\,CLENTH_l.
+!> \]
+!>
+!> The routine writes these values through [[frresp]] using output-data selector
+!> 50. It then advances the next reporting date by one day when `MBFLAG=1`, or
+!> to the first day of the next month otherwise, including Gregorian leap-year
+!> handling for February. After output, the short-period flow terms
+!> `BALANC(1:6)` and `BALANC(18)` are reset to zero; cumulative totals are
+!> retained.
 SUBROUTINE FRMB
 ! Locals, etc
 !INTRINSIC ABS, MOD
@@ -1502,13 +1694,8 @@ END SUBROUTINE FRMB
 !> names and unit assignments, and prepares legacy output streams used by
 !> initialisation and runtime reporting.
 SUBROUTINE FROPEN
-!----------------------------------------------------------------------*
-!
-! OPEN I/O DATA FILES
-!
-!----------------------------------------------------------------------*
-! Commons and constants
 
+! Commons and constants
 INTEGER :: i, io
 integer :: ios
 CHARACTER (LEN=200) :: FILNAM2
@@ -1685,12 +1872,7 @@ DO  I = 54, 60
    endif
 enddo
 
-
-
 CLOSE (2)
-
-
-
 
 GOTO 900
 !
@@ -2187,7 +2369,6 @@ END SUBROUTINE write_dis2
 
 
 
-
 !> Writes result-file control headers and opens unformatted result datasets.
 !>
 !> `FRRESC` serialises output class definitions and common model metadata to the
@@ -2373,8 +2554,6 @@ ENDIF
  9300 FORMAT(' OPENING FILE UNIT',I3,' TO FILE ',2A)
 !
 END SUBROUTINE FRRESC
-
-
 
 
 
@@ -2902,7 +3081,6 @@ END SUBROUTINE FRSORT
 
 
 
-
 !> Reads and initialises bank water-level/depth data.
 !>
 !> `INBK` reads bank-component input data and sets bank water-surface elevations
@@ -3138,14 +3316,131 @@ END SUBROUTINE INBK
 
 
 
-
-
 !> Initialises the contaminant component and contaminant interface arrays.
 !>
 !> The routine reads contaminant data via [[cmmod:cmrd]], checks tabulated
 !> spatially variable concentrations, builds column/link geometry terms, sets
 !> contaminant storage coefficients, interpolates initial column concentrations,
 !> and initialises plant uptake data when enabled.
+!>
+!> `INCM` sets contaminant scaling constants before any solve-time coefficients
+!> are assembled:
+!>
+!> \[
+!> Z2 = 50,\qquad D0 = 10^{-3},\qquad OODO=1/D0,
+!> \]
+!>
+!> \[
+!> Z2SQ=Z2^2,\qquad Z2OD=Z2/D0,\qquad Z2SQOD=Z2^2/D0.
+!> \]
+!>
+!> The finite-difference weighting is initialised as fully implicit through
+!> `SGMA=1`, `SGSQ=SGMA**2`, and `OMSGMA=1-SGMA`. Contaminant decay is scaled
+!> for the solver as
+!>
+!> \[
+!> GCPLA_c = GGLMSO_c\,Z2SQOD.
+!> \]
+!>
+!> For each soil type and contaminant, the soil reference distribution
+!> coefficient is reconstructed from sediment particle fractions and
+!> particle-size distribution coefficients:
+!>
+!> \[
+!> KDDSOL_{s,c} = \sum_j SOSDFN_{s,j}\,KDDLS_{j,c}.
+!> \]
+!>
+!> If the sediment component is inactive, `INCM` creates a neutral sediment
+!> interface: three sediment fractions, no loose/deposited sediment mass, first
+!> fraction equal to one, zero sediment fluxes, and bed soil/porosity inferred
+!> from the bank soil at the exposed channel bed. This gives the contaminant
+!> component consistent sediment arrays without running sediment transport.
+!>
+!> Column geometry is prepared from VSS layering. `NCOLMB` is set to each
+!> column's bottom active layer, `ZCOLMB` stores the corresponding node
+!> elevation, and the scaled cell thickness workspace is
+!>
+!> \[
+!> KSP_{e,k}=DELTAZ_{e,k}/Z2.
+!> \]
+!>
+!> Lateral overlap arrays `NOL`, `NOLBT`, `NOLCE`, `NOLCEA`, and `JOLFN` are
+!> built from `JVSACN`, `JVSDEL`, and `DELTAZ`. Where an overlap spans two
+!> cells, `JOLFN` stores the fractional contribution on the legacy integer scale
+!> 32500, for example
+!>
+!> \[
+!> JOLFN =
+!> \left\lfloor
+!> 32500\,\frac{DELTAZ_k}{DELTAZ_k+DELTAZ_{k+1}}
+!> \right\rfloor .
+!> \]
+!>
+!> For each channel link, the routine derives the bed-deep cell numbers and
+!> fractional coverage (`NCEBD`, `FNCEBD`) on both adjacent banks from the
+!> specified deep-bed thickness `DBDI/Z2` and reconciles the two bank overlap
+!> systems so all bank soil below the channel is accounted for. It then sets the
+!> bed-surface and bed-deep storage coefficients:
+!>
+!> \[
+!> ACPBSG_l = DBS\,CWIDTH_l/Z2^2,
+!> \]
+!>
+!> \[
+!> ACPBI_l =
+!> \frac{1}{2}\left(\sum \Delta z^\*_{bank}\right)CWIDTH_l/Z2
+!> - ACPBSG_l,
+!> \]
+!>
+!> where the summed scaled bank thickness excludes the parts outside the
+!> bed-surface/deep-bed region.
+!>
+!> Link initial concentrations are set to the incoming concentration `CCAPIN`
+!> in the deep-bed, bed-surface, and stream-water cells. Initial stream-bed
+!> moisture is the thickness-weighted average over the two adjacent bank regions
+!> participating in the bed layers, capped by bed porosity:
+!>
+!> \[
+!> THBED_l =
+!> \min\left(PBSED_l,\frac{\sum_k VSTHE_k w_k}{\sum_k w_k}\right).
+!> \]
+!>
+!> Initial bed particle fractions combine loose sediment and parent bed
+!> material:
+!>
+!> \[
+!> FBBEDO_{l,j} =
+!> \frac{DLS_l\,CWIDTH_l\,FBETA_{l,j}
+!>       +(ACPBI_l-ACPBSG_l)Z2^2\,SOSDFN_{NSOBED_l,j}}
+!>      {DLS_l\,CWIDTH_l +(ACPBI_l-ACPBSG_l)Z2^2}.
+!> \]
+!>
+!> For soil and bank columns, old-state flow and concentration arrays are
+!> initialised from current water-flow state. Surface input and bottom flux use
+!>
+!> \[
+!> QIO_e=-PNETTO_e\,AREA_e,\qquad
+!> QQRFO_e=QVSV_{NCOLMB(e),e}\,AREA_e,
+!> \]
+!>
+!> and surface-water depth is stored as `DSWO = HRF - ZGRUND`. Bank columns use
+!> an L-shaped correction factor
+!>
+!> \[
+!> \rho = \frac{AREA_{bank}/CLENTH_l}
+!>             {AREA_{bank}/CLENTH_l + 0.5\,CWIDTH_l},
+!> \]
+!>
+!> to blend bank and associated-link water contents and vertical velocities
+!> where the contaminant column represents both bank soil and channel-underflow
+!> geometry.
+!>
+!> If `CMRD` marked an initial concentration as spatially variable, `INCM`
+!> calls `ALINTP` to interpolate the category-specific concentration/depth table
+!> onto every active column cell and copies the result into both current and old
+!> mobile/dead-space concentration arrays (`CCCC`, `SSSS`, `CCCCO`, `SSSSO`).
+!> Finally, plant uptake data are initialised through [[inpl]] when `ISPLT` is
+!> enabled.
 SUBROUTINE INCM (ISSDON)
 !----------------------------------------------------------------------*
 !
@@ -3829,8 +4124,6 @@ IF (ISPLT) CALL INPL
 !                       Initialise plant uptake routines
 !                                   iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 END SUBROUTINE INCM
-
-
 
 
 
@@ -4557,7 +4850,6 @@ END SUBROUTINE INFR
 
 
 
-
 !> Initialises contaminant plant-uptake arrays.
 !>
 !> `INPL` initialises the SHETRAN-UK plant contaminant migration component
@@ -4635,13 +4927,7 @@ RETURN
 END SUBROUTINE INPL
 
 
-! 30/1/96
-! ######################################################################
-! #
-! #                                 E
-! # EUROPEAN HYDROLOGIC SYSTEM   S  H  E   SYSTEME HYDROLOGIQUE EUROPEEN
-! #                                 S
-! #
+
 !> Reads snowmelt component input and initialises snowpack state.
 !>
 !> Key snowmelt variables and units are:
@@ -4766,7 +5052,6 @@ END SUBROUTINE INSM
 
 
 
-
 !> Dummy ET initialisation used when the ET component is disabled.
 SUBROUTINE DINET
 !
@@ -4805,7 +5090,6 @@ WRITE ( *, 1)
     1 FORMAT(// 'ENTER DINOC')
 RETURN
 END SUBROUTINE DINOC
-!
 
 
 
@@ -4816,7 +5100,6 @@ SUBROUTINE DOCIN
 !
 RETURN
 END SUBROUTINE DOCIN
-
 
 
 

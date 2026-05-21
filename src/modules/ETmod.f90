@@ -209,7 +209,123 @@ END SUBROUTINE INITIALISE_ETMOD
 !> | `ESOIL` | Evaporation from soil. | mm/s |
 !> | `EINT` | Evaporation from canopy storage during the timestep. | mm |
 !> | `DRAIN` | Drainage from canopy storage during the timestep. | mm |
-!> | `CSTOLD` | Canopy storage at the start of the timestep. | m^3 |
+!> | `CSTOLD` | Canopy storage depth at the start of the timestep. | mm |
+!>
+!> When aerodynamic resistance is variable, the routine uses the precomputed
+!> invariant `RTOP = RA U` and evaluates
+!>
+!> \[
+!> RA =
+!> \begin{cases}
+!> RTOP/U, & U > 0,\\
+!> RABIG, & U \le 0,
+!> \end{cases}
+!> \]
+!>
+!> where `RABIG = 1D10` represents the calm-wind limit. If measured potential
+!> evaporation is supplied, `PE = OBSPE`. Otherwise the Penman numerator and
+!> denominator used by the code are
+!>
+!> \[
+!> TOP = \max\left(0,\ RN\,DEL + \frac{RHO\,CP\,VPD}{RA}\right),
+!> \]
+!>
+!> \[
+!> BOTTOM = LAMDA(DEL+GAMMA),\qquad PE = TOP/BOTTOM.
+!> \]
+!>
+!> Canopy interception is evaluated over the timestep in millimetres. Rainfall
+!> that does not hit the canopy is
+!>
+!> \[
+!> PNET_0 = 1000\,P_r(1-CPLAI)\,\Delta t,
+!> \]
+!>
+!> canopy evaporation before storage limitation is
+!>
+!> \[
+!> EINT_0 = PE\,CPLAI\,\Delta t,
+!> \]
+!>
+!> and the net canopy supply rate is
+!>
+!> \[
+!> Q = CPLAI(1000\,P_r-PE).
+!> \]
+!>
+!> The canopy store `CSTORE` is updated from `CSTOLD` with capacity `CSTCAP`
+!> and drainage parameters `CK` and `CB`. Above capacity the drainage law
+!> integrated by the branch formulas is
+!>
+!> \[
+!> D_c = CK\exp\left(CB(CSTORE-CSTCAP)\right),
+!> \]
+!>
+!> and the reported drainage is always recovered from the timestep mass balance,
+!>
+!> \[
+!> DRAIN = CSTOLD + Q\Delta t - CSTORE^{n+1}.
+!> \]
+!>
+!> Below capacity, canopy evaporation is reduced by the wet-canopy fraction
+!>
+!> \[
+!> F_1 = \min\left(\frac{CSTOLD + 1000\,P_r\,CPLAI\,\Delta t}{CSTCAP},1\right),
+!> \]
+!>
+!> with special handling for zero capacity, and `EINT = F_1 EINT_0`. Total
+!> throughfall/net precipitation returned by the routine is then
+!>
+!> \[
+!> PNET = (PNET_0 + DRAIN)/\Delta t.
+!> \]
+!>
+!> Actual evapotranspiration is computed separately for each rooted cell. In
+!> modes 1 and 2 the Penman-Monteith form is
+!>
+!> \[
+!> AE =
+!> \frac{TOP}
+!> {LAMDA\left(DEL+GAMMA(1+RC/RA)\right)},
+!> \]
+!>
+!> except that saturated/non-stressed cells with `PSI4 >= 0` use `AE = PE` in
+!> mode 1. In mode 2, `RC` is linearly interpolated from the `PS1`/`RCF` table:
+!>
+!> \[
+!> RC = RCF_{k-1}
+!> + \frac{PSI4-PS1_{k-1}}{PS1_k-PS1_{k-1}}
+!>   (RCF_k-RCF_{k-1}).
+!> \]
+!>
+!> In mode 3, the actual/potential ratio `FE` is interpolated from `PS1`/`FET`
+!> in the same way and
+!>
+!> \[
+!> AE = PE\,FE.
+!> \]
+!>
+!> Cell transpiration extraction is assigned from the canopy-controlled actual
+!> ET, root-density function, and unsaturated-zone scaling:
+!>
+!> \[
+!> ERZ_k =
+!> AE\,CPLAI(1-F_1)\,\frac{RDF_k}{1+UZALFA_k},
+!> \]
+!>
+!> when `HRUZ <= 0`; otherwise extraction is zero. The value stored for the
+!> contaminant/water-flow coupling is converted to metres per second,
+!> `ERUZ = 10^{-3} ERZ`, and the cell sink is
+!>
+!> \[
+!> S_k = ERUZ_k/DELTAZ_k.
+!> \]
+!>
+!> The top-cell soil evaporation is calculated as
+!>
+!> \[
+!> ESOIL = 0.5\,AE(1-CPLAI).
+!> \]
 !>
 !> Plant uptake is distributed vertically using the root-density function and
 !> written to `ERUZ` and `S`. The routine updates `RA`, `RC`, `PE`, `AE`, `PNET`,
@@ -525,8 +641,6 @@ DATA NERR / 0 /
 ! ------------------------
 !RDL
 
-
-
 CALL ALCHK (ERR, 1062, PRI, 1, NV, IUNDEF, IUNDEF, 'RDL(veg)', &
  'EQ', ZERO1, ZERO , RDL, NERR, LDUM1)
 ! 2. Finish
@@ -535,8 +649,6 @@ CALL ALCHK (ERR, 1062, PRI, 1, NV, IUNDEF, IUNDEF, 'RDL(veg)', &
 
 IF (NERR.GT.0) CALL ERROR(FFFATAL, 1000, PRI, 0, 0, 'Error(s) detected while checking ET input data')
 END SUBROUTINE ETCHK2
-
-
 
 
 
@@ -640,12 +752,56 @@ END SUBROUTINE ETIN
 
 
 
-
 !> Controls evapotranspiration and interception calculations for all land elements.
 !>
 !> `ETSIM` converts the next model timestep to seconds, advances ET time, builds
 !> bank/link root-access weighting factors where needed, copies current soil
 !> pressure heads into `PSI4`, and calls [[etin]] for each active land element.
+!>
+!> The timestep used by [[et]] and [[etin]] is converted from the model's
+!> hour-based upper-zone step:
+!>
+!> \[
+!> DTUZ = 3600\,UZNEXT,\qquad TIMEUZ \leftarrow TIMEUZ + UZNEXT.
+!> \]
+!>
+!> The routine then loops over active land elements `NGDBGN:total_no_elements`.
+!> For bank elements (`ICMREF(IEL,1) = 1` or `2`) it constructs the
+!> bank/channel root-access factor used later in [[et]]:
+!>
+!> \[
+!> \alpha = \frac{0.5\,CWIDTH(IL)}{BWIDTH},
+!> \]
+!>
+!> where `IL = ICMREF(IEL,4)` is the associated channel link. Cells below the
+!> exposed bed interface are assigned `UZALFA = alpha`, and the partly exposed
+!> interface cell receives
+!>
+!> \[
+!> UZALFA(ICE-1) = \alpha\,FHBED(IL,ITYPE),
+!> \qquad ICE = NHBED(IL,ITYPE)+2.
+!> \]
+!>
+!> Remaining cells from `ICE` to `top_cell_no` are reset to zero. For non-bank
+!> land elements `ICE=1`, so all active `UZALFA` entries are zero.
+!>
+!> Before calling [[etin]], the current surface-water depth over the ground is
+!> made available as
+!>
+!> \[
+!> HRUZ = HRF(IEL)-ZGRUND(IEL),
+!> \]
+!>
+!> through `getHRF(IEL)`, and the active variably saturated pressure-head
+!> profile is copied into the ET work array:
+!>
+!> \[
+!> PSI4_k = VSPSI(k,IEL),\qquad
+!> k=NLYRBT(IEL,1),\ldots,top\_cell\_no.
+!> \]
+!>
+!> `ETIN` then applies snowmelt/ET/interception processing and writes the flux
+!> arrays used by the water-flow, sediment, and contaminant components.
 !>
 !> History:
 !>

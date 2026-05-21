@@ -746,6 +746,116 @@ END SUBROUTINE CMSIM
 !> advection, dispersion, sorption, decay, plant uptake, stream/well/source
 !> interactions, and lateral exchange, then solves the coupled column system
 !> through [[slvclm]].
+!>
+!> The manual's contaminant fields define the main reaction/partition controls:
+!> nonlinear adsorption (`CM13`), Freundlich power `GNN` (`CM43`), decay
+!> constant `GGLMSO` (`CM45`), soil-region exchange coefficient `ALPHA`
+!> (`CM53`), dynamic adsorption-site fraction `FADS` (`CM55`), mobile-water
+!> fraction `PHIDAT` (`CM57`), diffusion coefficient (`CM59`), and dispersivity
+!> (`CM61`). `COLM` uses the corresponding prepared coefficients together with
+!> the current water contents, velocities, dispersion, lateral fluxes,
+!> source/sink terms, surface-water terms, and boundary conditions.
+!>
+!> Each cell has a dynamic/mobile concentration \(C_i\) and a
+!> dead-space/storage concentration \(S_i\). The storage factors linearised in
+!> the coefficient assembly are
+!>
+!> \[
+!> F_C(C_i) = \phi_i\theta_i + f_iK_{d,i}C_i^{n_F-1},
+!> \qquad
+!> F_S(S_i) = (1-\phi_i)\theta_i + (1-f_i)K_{d,i}S_i^{n_F-1},
+!> \]
+!>
+!> where \(\theta\) is water content, \(\phi\) is the mobile-water fraction,
+!> \(f\) is the dynamic adsorption-site fraction, \(K_d\) is the reference
+!> distribution coefficient, and \(n_F\) is the Freundlich power. Thus
+!> \(C_iF_C\) and \(S_iF_S\) represent dissolved plus sorbed storage in the
+!> dynamic and dead-space regions. The derivatives of these factors are stored
+!> in `FCAPC` and `GCAPS` and are used when nonlinear adsorption is active.
+!>
+!> In balance form, the assembled finite-difference equations represent the
+!> dynamic-region storage change as transport plus exchange and external/source
+!> terms, and the dead-space storage change as exchange plus reaction/storage
+!> terms:
+!>
+!> \[
+!> \frac{d(C_iF_C)}{dt}
+!> = T_i(C) + X_i(S-C) + M_i(C) + B_i(C),
+!> \]
+!>
+!> \[
+!> \frac{d(S_iF_S)}{dt}
+!> = -X_i(S-C) + A_i(S) + R_i(S),
+!> \]
+!>
+!> where \(T_i\) collects vertical advection and dispersion, \(X_i\) is exchange
+!> between dynamic and dead-space regions, \(M_i\) contains lateral flow,
+!> rainfall/source/sink, surface-water and sediment terms, \(B_i\) represents
+!> boundary terms, and \(A_i\), \(R_i\) include dead-space exchange, decay, and
+!> reaction/source terms. `COLM` expands these balances into the coefficient
+!> arrays `DLT`, `ELT`, `FLT`, `GLT`, `PLT`, `QLT`, `SLT`, and `TLT`.
+!>
+!> For each adjusted active-cell index \(i = NC-NCEBOT+1\), [[slvclm]] solves
+!> for the timestep rates `OME(i)` and `EPS(i)`:
+!>
+!> \[
+!> \Omega_i = \frac{dC_i}{dt},\qquad \epsilon_i = \frac{dS_i}{dt}.
+!> \]
+!>
+!> The assembled linearised system has the block-tridiagonal form
+!>
+!> \[
+!> FLT_i\Omega_{i-1} + ELT_i\Omega_i + DLT_i\Omega_{i+1}
+!>      - GLT_i\epsilon_i = SLT_i,
+!> \]
+!>
+!> \[
+!> PLT_i\epsilon_i - TLT_i\Omega_i = QLT_i.
+!> \]
+!>
+!> `SLVCLM` eliminates \(\epsilon_i\) from the second equation using
+!>
+!> \[
+!> \epsilon_i = \frac{QLT_i + TLT_i\Omega_i}{PLT_i}
+!> \]
+!>
+!> and solves the resulting tridiagonal system
+!>
+!> \[
+!> FLT_i\Omega_{i-1}
+!> + \left(ELT_i-\frac{GLT_iTLT_i}{PLT_i}\right)\Omega_i
+!> + DLT_i\Omega_{i+1}
+!> = SLT_i+\frac{GLT_iQLT_i}{PLT_i}.
+!> \]
+!>
+!> When nonlinear adsorption is enabled, `ELTSTR` and `PLTSTR` add the
+!> concentration-derivative terms. `SLVCLM` performs ten Picard-style
+!> coefficient updates with
+!>
+!> \[
+!> ELT_i^\* = ELT_i + ELTSTR_i\Omega_i,\qquad
+!> PLT_i^\* = PLT_i + PLTSTR_i\epsilon_i,
+!> \]
+!>
+!> then repeats the same elimination and tridiagonal solve. After the solve,
+!> `COLM` maps the adjusted solver index back to the physical column cell `NC`
+!> and writes the end-of-timestep concentrations:
+!>
+!> \[
+!> CCAP_{NC} = COLCAP_{NC} + TSE\,OME_i,\qquad
+!> SCAP_{NC} = SOLCAP_{NC} + TSE\,EPS_i.
+!> \]
+!>
+!> The linearised storage/generation terms are then corrected with the solved
+!> rates:
+!>
+!> \[
+!> GNERD_{NC} \leftarrow GNERD_{NC} + WORKA_{NC}\,OME_i,\qquad
+!> GNDSE_{NC} \leftarrow GNDSE_{NC} + WORKB_{NC}\,EPS_i.
+!> \]
+!>
+!> These corrections complete the linearisation used when the storage terms
+!> depend on the updated mobile or dead-space concentration.
 SUBROUTINE COLM
 ! Commons and constants
 USE COLM_C1
@@ -992,10 +1102,25 @@ ENDIF
 NDUM = NCETOP - NCEBOT + 1
 
 
-
+!> The final post-solve update maps the adjusted solver index for omega/epsilon
+!> \(i = NC-NCEBOT+1\) back to the physical column cell `NC`:
+!>
+!> \[
+!> CCAP_{NC} = COLCAP_{NC} + TSE\,OME_i,\qquad
+!> SCAP_{NC} = SOLCAP_{NC} + TSE\,EPS_i.
+!> \]
+!>
+!> The linearised storage/generation terms are then corrected with the solved
+!> rates:
+!>
+!> \[
+!> GNERD_{NC} \leftarrow GNERD_{NC} + WORKA_{NC}\,OME_i,\qquad
+!> GNDSE_{NC} \leftarrow GNDSE_{NC} + WORKB_{NC}\,EPS_i.
+!> \]
+!>
+!> These corrections complete the linearisation used when the storage terms
+!> depend on the updated mobile or dead-space concentration.
 CALL SLVCLM (NDUM)
-!                            SOLVE THE DIFFERENCE EQUATIONS
-!                            FOR THE EPSILON AND OMEGA VECTORS
 DO 4 NC = NCEBOT, NCETOP
    NCADJ = NC - NCEBOT + 1
    CCAP (NC) = COLCAP (NC) + OME (NCADJ) * TSE
@@ -1016,11 +1141,72 @@ END SUBROUTINE COLM
 !> state for column `NCL`, prepares retardation and exchange terms for each
 !> contaminant, invokes [[plcolm]] and [[colm]], and writes updated dissolved,
 !> sorbed, sediment, and plant-related concentrations back to shared arrays.
+!>
+!> For each contaminant, the routine copies the previous mobile and dead-space
+!> column concentrations from `CCCCO` and `SSSSO` into `COLCAP` and `SOLCAP`.
+!> It then prepares the cell-wise soil transport and partition controls used by
+!> [[colm]]:
+!>
+!> \[
+!> D_i = OODO\,DISP(NCONT,JSOL_i,\theta_i,U_{i-1},U_i),
+!> \]
+!>
+!> together with the soil exchange coefficient `ALPHA`, adsorption-site
+!> fraction `FADS`, Freundlich power `GNN`, and soil distribution coefficient
+!> `KDDSOL`.
+!>
+!> Lateral coupling is prepared face by face. Internal faces use a flow-weighted
+!> adjacent-column concentration,
+!>
+!> \[
+!> C_{adj} =
+!> \frac{\sum q_{adj} C_{adj}}{\sum q_{adj}},
+!> \]
+!>
+!> when the summed flow is nonzero; catchment-boundary faces use the external
+!> boundary concentration `CCAPE`; exposed bank faces use bank or stream
+!> concentrations depending on depth. The surface concentration derivative terms
+!> are also prepared here for implicit lateral coupling.
+!>
+!> Ground-surface and surface-water retardation factors are calculated with
+!> [[ret]] from sediment fractions and `KDDLS`. These provide `RRRLS` for loose
+!> sediment and `RRRSW` for surface water, plus their concentration and time
+!> derivatives. Surface contaminant input is assembled from rainfall, wells, and
+!> optional boundary/reservoir terms:
+!>
+!> \[
+!> QCAP = \frac{Z2}{DDA\,DDB}\left[(QI-QQQWEL)C_I
+!>        + QQQWEL\,C_{well}\right],
+!> \]
+!>
+!> with the corresponding time derivative stored in `QCAPT`.
+!>
+!> If the plant component is active, [[plcolm]] supplies plant/source terms
+!> (`EDCAP`, `ESCAP`, and derivatives). If the nitrate component is active,
+!> these source terms are replaced by the MN dynamic/dead-space source arrays
+!> `SSS1` and `SSS2`; for the nitrate contaminant, direct surface additions are
+!> suppressed because they are already represented in MN.
+!>
+!> After [[colm]] solves the column equations, `COLMSM` writes the updated
+!> concentrations back to the shared arrays with a small positive floor:
+!>
+!> \[
+!> CCCC(NCL,i,NCONT)=\max(10^{-16},CCAP_i),\qquad
+!> SSSS(NCL,i,NCONT)=\max(10^{-16},SCAP_i).
+!> \]
+!>
+!> For bank columns it also stores dynamic and dead-space storage factors for
+!> later bank/link erosion calculations. With nonlinear adsorption disabled,
+!>
+!> \[
+!> F_{bk}=\phi\theta+fK_d,\qquad
+!> G_{bk}=(1-\phi)\theta+(1-f)K_d,
+!> \]
+!>
+!> and with nonlinear adsorption enabled the adsorption terms are multiplied by
+!> `COLCAP**(GNN-1)` and `SOLCAP**(GNN-1)`, respectively.
 SUBROUTINE COLMSM (NCL)
-!----------------------------------------------------------------------*
-!                            UPDATES THE CONCENTRATIONS OF EACH
-!                            CONTAMINANT IN COLUMN NCL
-!----------------------------------------------------------------------*
+
 ! Commons and constants
 USE SED_CS
 USE CONT_CC
@@ -1413,11 +1599,92 @@ END SUBROUTINE COLMSM
 !> quantities onto the local column arrays used by [[colmsm]] and [[colm]],
 !> including mobile-water fractions, old/new water contents, velocity terms, and
 !> face boundary flags.
+!>
+!> It imports the column geometry, layer/soil mappings, old/new VSS water
+!> contents and vertical flows, lateral subsurface and surface-water flows,
+!> rainfall, ET, wells, bank/link geometry, sediment depths, erosion rates, and
+!> plant water uptake from the shared `COLM`, `AL`, `BK`, `SED`, and `PLANT`
+!> state. It updates the saved old-state arrays (`VSTHEO`, `UUAJPO`,
+!> `GGAMMO`, `QQO`, `QQQSWO`, `QIO`, `QQRFO`, `DSWO`, `ZONEO`, `DLSO`,
+!> `GNUO`) and fills the local arrays consumed by [[colmsm]] and [[colm]]:
+!> `KSP`, `KSPP`, `TTHET`, `TTHET1`, `UUAJP`, `UUAJP1`, `PPHI`, `PPHI1`,
+!> `GGAMM`, `GGAMM1`, `QQ`, `QQ1`, `QQQSW`, `QQQSW1`, `WELDRA`, `ISBDY`,
+!> and `NWORK`.
+!>
+!> The sigma-time constants used in the later finite-difference assembly are
+!>
+!> \[
+!> SGTSE = SGMA\,TSE,\qquad SGSTSE = SGSQ\,TSE .
+!> \]
+!>
+!> Cell geometry is non-dimensionalised with the reference depth `Z2`:
+!>
+!> \[
+!> KSP_i = \Delta z_i/Z2,\qquad
+!> KSPP_i = (z_{i+1}-z_i)/Z2,\qquad
+!> ZONE = (ZGRUND-ZCOLMB)/Z2 .
+!> \]
+!>
+!> For bank elements, the bank column width is adjusted relative to the adjacent
+!> stream half-width. With bank width \(D_{bk}=AREA/CLENTH\),
+!>
+!> \[
+!> ROH = \frac{D_{bk}}{D_{bk}+0.5\,CWIDTH},\qquad VELDUM = 1/ROH,
+!> \]
+!>
+!> with a partial-cell correction at the effective bed. Non-bank columns use
+!> `ROH = VELDUM = 1`.
+!>
+!> For ordinary grid cells, the new water content and vertical flow are copied
+!> from `VSTHE` and `QVSV`. For bank cells that overlap the adjacent link, the
+!> new values are width-weighted mixtures:
+!>
+!> \[
+!> \theta_i^{n+1} = (1-ROH_i)\theta_{link}^{n+1}
+!>                 + ROH_i\theta_{bank}^{n+1},
+!> \]
+!>
+!> with the same mixture for the vertical flow `UUAJP1`. The mobile-water
+!> fractions are `PPHI = PHI(JSOIL,TTHET)` and
+!> `PPHI1 = PHI(JSOIL,TTHET1)`. The dead-space water-change/source term is
+!>
+!> \[
+!> GGAMM1_i =
+!> \frac{(1-XXI\,\phi_i^{n+1})ROH_i\,ERUZ_i}{KSP_i Z2}
+!> + \frac{(1-\phi_i^{n+1})\theta_i^{n+1}
+!>       -(1-\phi_i^n)\theta_i^n}{DTUZ}.
+!> \]
+!>
+!> Lateral subsurface face flows are scaled into local column units as
+!>
+!> \[
+!> QQ1_{i,j} = Q1_{i,j}\,ZONE\,ROH_i/KSP_i,
+!> \]
+!>
+!> and surface-water face flows are copied from `QOC` with the sign convention
+!> used by the contaminant routines. Rain input and well/irrigation terms are
+!>
+!> \[
+!> QI1 = -PNETTO\,AREA,\qquad
+!> QQQWL1 = -QVSWEL\,AREA_{well}.
+!> \]
+!>
+!> The top vertical velocity is reconstructed from surface-water storage change,
+!> soil evaporation, rainfall, and surface outflow:
+!>
+!> \[
+!> U_{top}^{n+1} =
+!> \frac{DSW^{n+1}-DSW^n}{Z2SQOD\,TSE}
+!> + EEVAP + \frac{QI1-\sum_j QQQSW1_j}{AREA}.
+!> \]
+!>
+!> Down-column vertical velocities are then reconstructed by a water-balance
+!> recurrence including water-content change, well withdrawal, plant uptake,
+!> lateral flow, and the bank `VELDUM` correction; the legacy error-smoothing
+!> factor `EMULT` damps part of the correction in selected near-surface cells.
+!> The base flux exported to [[colmsm]] is `QQRF1 = AREA*UUAJP1(NCEBOT-1)`.
 SUBROUTINE COLMW (NCL)
-!----------------------------------------------------------------------*
-!                             SETS UP THE WATER FLOW DATA FOR USE IN
-!                             THE BANK AND GRID COLUMN SOLVER
-!----------------------------------------------------------------------*
+
 ! Commons and constants
 USE SED_CS
 USE COLM_C1
@@ -1427,50 +1694,6 @@ USE COLM_CG
 USE BK_CW
 USE SED_CO
 USE PLANT_CC
-! Imported constants
-!     COLM.C1:         LLEE,NELEE,NLFEE
-! Input common
-!     COLM.C1:         NCETOP
-!                      SGMA,TSE,SGSQ,Z2,D0,Z2SQOD,Z2OD
-!     COLM.CO:         RSZWLO(NVSWLT(NCL):NVSWLT(NCL))
-!     COLM.CG:         NCOLMB(NCL:NCL)
-!                      ZCOLMB(NCL:NCL)
-!        AL.C:         LL
-!                      NLYRBT(NELEE,*),NLYR(NCL:NCL),NTSOIL(NELEE,*)
-!                      NHBED(NLFEE,2),NVSWLT(NCL:NCL),NVSWLI(NCL:NCL)
-!                      NWELBT(NCL:NCL),NWELTP(NCL:NCL)
-!                      AREA(NEL),CLENTH(NLFEE),CWIDTH(NLFEE)
-!                      DELTAZ(NCOLMB(NCL):NCETOP,NCL:NCL)
-!                      ZVSNOD(NCOLMB(NCL):NCETOP+1,NCL:NCL)
-!                      DXQQ(NCL:NCL),DYQQ(NCL:NCL),ZGRUND(NCL:NCL)
-!                      DTUZ
-!                      ERUZ(NELEE,NLYRBT(NCL,1):NCETOP)
-!                      VSTHE(LLEE,NCL),QVSV(LLEE,NCL)
-!                      HRF(NCL:NCL),QVSH(4,LLEE,NCL),QOC(NELEE,4)
-!                      PNETTO(NCL:NCL),QVSWLI(LLEE,*),QBKB(NLFEE,2)
-!                      EEVAP(NCL:NCL)
-!        AL.G:         ICMREF(NELEE,12)
-!       BK.CW:          NCEBD(NLFEE,2),NCEAB(NLFEE,2)
-!                      FNCEBD(NLFEE,2)
-!      SED.CS:         DLS(NCL:NCL),GNU(NCL:NCL)
-!    PLANT.CC:         XXI
-! In+out common
-!     COLM.CO:         VSTHEO(NELEE,NCOLMB(NCL):NCETOP),UUAJPO(NELEE,LL)
-!                      GGAMMO(NELEE,LL),DSWO(NCL:NCL),ZONEO(NCL:NCL)
-!                      QQO(NELEE,LLEE,4),QQQSWO(NELEE,4),QIO(NCL:NCL)
-!                      QQRFO(NCL:NCL)
-!      SED.CO:         DLSO(NCL:NCL),GNUO(NCL:NCL)
-! Output common
-!     COLM.C1:         NCEBOT,NCEPSF
-!                      SGTSE,SGSTSE,CST2,CST1,CST3
-!     COLM.C2:         TTTLSE,DDA,DDB,DDDSW,DDDSW1,DDDLS,DDDLS1
-!                      GGGNU,GGGNU1,ZONE,ZONE1,QI,QI1,QQRF,QQRF1
-!                      KSP(LL+1),KSPP(LL),TTHET(LL),UUAJP(LL),TTHET1(LL)
-!                      UUAJP1(LL),PPHI(LL),PPHI1(LL),GGAMM(LL)
-!                      GGAMM1(LL),QQ(LL+1,4),QQ1(LL+1,4),QQQSW(4)
-!                      QQQSW1(4)
-!                      ISBK
-!     COLM.CG:         WELDRA(LL)
 !INTEGER :: JBK, JFLINK, JSOL (LLEE), NWORK (4), NLINKA, NCWELL
 !DOUBLEPRECISION VELDUM (LLEE), QQQWEL, QQQWL1, QQRV (LLEE), &
 ! ROH (LLEE)
@@ -1884,9 +2107,84 @@ END FUNCTION DISP
 !> bed/loose/suspended sediment state, bank exchange, plant uptake, and
 !> retardation factors for each contaminant, then calls [[link]] to solve the
 !> link water, bed, and sediment concentration equations.
+!>
+!> `LINKSM` prepares the three link compartments used by [[link]]: the deeper
+!> bed/deposited-material compartment `CCPBD`, the bed-surface compartment
+!> `CCPBS`, and the stream-water compartment `CCPSF`. If the link is dry
+!> (`USCP <= 0.5`) the stream-water concentration is reset to the incoming
+!> rainfall/boundary concentration `CCAPIN`; otherwise it is taken from the old
+!> link-water concentration.
+!>
+!> The manual's channel contaminant inputs supply the principal controls used
+!> here: Freundlich power `GNN` (`CM43`), decay constant `GGLMSO` (`CM45`),
+!> exchange between bed layers `ALPHBD` (`CM47`), exchange between stream water
+!> and bed surface `ALPHBS` (`CM49`), and particle-size reference distribution
+!> coefficients `KDDLS` (`CM51`). These are combined with current sediment
+!> fractions, link geometry, bank concentrations, upstream/downstream boundary
+!> concentrations, and wet/dry contaminant inputs.
+!>
+!> Deposited and suspended particle-size fractions are normalised from the
+!> current sediment masses before retardation factors are calculated:
+!>
+!> \[
+!> \beta^{d}_j =
+!> \begin{cases}
+!> GINFD_j / \sum_k GINFD_k, & \sum_k GINFD_k > 0,\\
+!> 0, & \sum_k GINFD_k = 0,
+!> \end{cases}
+!> \qquad
+!> \beta^{s}_j =
+!> \begin{cases}
+!> GINFS_j / \sum_k GINFS_k, & \sum_k GINFS_k > 0,\\
+!> 0, & \sum_k GINFS_k = 0.
+!> \end{cases}
+!> \]
+!>
+!> The effective new bed sediment composition mixes loose bed material and
+!> newly exposed original bed material:
+!>
+!> \[
+!> SSBED^{n+1}_j =
+!> \frac{DLS\,CWIDTH\,FBETA_j
+!>       + (ACPBD1-ACPBS)\,Z2SQ\,SOSDFN_j}
+!>      {DLS\,CWIDTH + (ACPBD1-ACPBS)\,Z2SQ}.
+!> \]
+!>
+!> `FRET` is then called for the bed, bed-surface, stream-water, and deposited
+!> sediment compartments to obtain retardation factors and their concentration
+!> and time derivatives. The stream input/source terms passed to [[link]] are
+!>
+!> \[
+!> ICP1 = -IIICF\,AREA /(D0\,CLENTH),
+!> \]
+!>
+!> for wet/dry contaminant loading, and
+!>
+!> \[
+!> QCP1 =
+!> \frac{(QQQSL1-QQQDUM)\,CCAPI + QQQDUM\,C_{well}}
+!>      {D0\,Z2\,KS},
+!> \]
+!>
+!> with the well term omitted when no irrigation well is active. The exchange
+!> coefficients are scaled to the link cross-section as
+!>
+!> \[
+!> ACSBD1 = CWIDTH\,ALPHBD/D0,\qquad
+!> ACSBS1 = CWIDTH\,ALPHBS/D0.
+!> \]
+!>
+!> After [[link]] returns updated concentrations, `LINKSM` writes the new
+!> bed, bed-surface, and stream-water concentrations back to `CCCC`. It also
+!> stores the updated concentration and retardation of the current contaminant
+!> in `CCBD1Q`, `CCBS1Q`, `CCSF1Q`, `FCBD1Q`, `FCBS1Q`, and `FCSF1Q` so the
+!> next contaminant in a decay/generation chain can use them as parent terms:
+!>
+!> \[
+!> F^{n+1} = F^n + F_t\,\Delta t + F_c\,(C^{n+1}-C^n).
+!> \]
 SUBROUTINE LINKSM (NLINK)
-!                             UPDATES THE CONCENTRATION OF EACH
-!                             CONTAMINANT IN LINK NLINK
+
 USE CONT_CC
 USE SED_CS
 USE CONT_CC
@@ -2169,13 +2467,99 @@ END SUBROUTINE LINKSM
 !> `LINKW` determines link orientation, connected links, boundary/adjacent-link
 !> flows, surface-water storage, bed storage, bank exchange, sediment-driven
 !> bed changes, and scaled Peclet/source terms used by [[linksm]] and [[link]].
+!>
+!> The routine first maps the physical link orientation onto the local
+!> upstream/downstream end and face arrays. `LENDA` identifies which face of
+!> each adjacent link is connected to the current link, `ISLK` records whether
+!> each link end is connected to other links or to a boundary/spring/headwater,
+!> and `LWORK(1:6)` stores up to three connected links at each end.
+!>
+!> Link storage terms are converted to the scaled quantities used by [[link]]:
+!>
+!> \[
+!> ACPBD1 = ACPBI + ARBDEP/Z2SQ,\qquad
+!> ACPBS = ACPBSG,\qquad
+!> ACPSF1 = ARXL/Z2SQ.
+!> \]
+!>
+!> If `ACPSF1` is effectively zero the link is treated as dry (`USCP = 0`) and
+!> the surface-water and bed-storage time derivatives are set to zero. For wet
+!> links,
+!>
+!> \[
+!> ACPBDT = (ACPBD1-ACPBDO)/TSE,\qquad
+!> ACPSFT = (ACPSF1-ACPSFO)/TSE,
+!> \]
+!>
+!> and the scaled bed-storage change is
+!>
+!> \[
+!> WCPBD1 = Z2SQOD\,ACPBDT/ACPBD1.
+!> \]
+!>
+!> Adjacent-link and boundary flow terms are normalised by the active
+!> surface-water storage using
+!>
+!> \[
+!> PCSFA1_a =
+!> \frac{-QLINK_a - QDEFF_a\,C_{sed}}{D0\,Z2\,ACSFA1_a},
+!> \]
+!>
+!> where the current implementation sets the dispersed-sediment concentration
+!> contribution `C_{sed}` to zero. Boundary/headwater/spring inflow uses the
+!> same scaling with the current link flow:
+!>
+!> \[
+!> PCSFA1 = QLINK /(D0\,Z2\,ACSFA1).
+!> \]
+!>
+!> For the current link, the two end-flow terms passed to [[link]] are
+!>
+!> \[
+!> PCSFM1 = \frac{QLINK_1}{D0\,Z2\,ACPSF1},\qquad
+!> PCSFP1 = \frac{QLINK_2}{D0\,Z2\,ACPSF1},
+!> \]
+!>
+!> with both set to zero for dry links. The rainfall/effective input to the
+!> stream is stored as
+!>
+!> \[
+!> QQQSL1 = -PNETTO\,AREA,
+!> \]
+!>
+!> using the contaminant convention that upward flow is positive; `QQQDUM`
+!> similarly stores irrigation-well input when one is connected.
+!>
+!> Bank and stream-bank exchange terms are scaled by the half-link length
+!> \(KS = CLENTH/Z2\). For bank `b` and exposed bank cell `k`,
+!>
+!> \[
+!> PCPBK1_{b,k} =
+!> -\frac{QVSH_{b,k}}{D0\,Z2\,KS},\qquad
+!> PCPSB1_b =
+!> -\frac{QBKB_b}{D0\,Z2\,KS},
+!> \]
+!>
+!> while overland/channel face exchange is signed by bank side:
+!>
+!> \[
+!> PCPSW1_b =
+!> s_b\,\frac{QOC_b}{D0\,Z2\,KS},\qquad s_b = 2b-3.
+!> \]
+!>
+!> Finally, `LINKW` updates the stream-bed moisture content used in link
+!> retardation. It forms a thickness-weighted average over the two adjacent
+!> bank soil columns between the bed-deep and bed-surface limits, including
+!> fractional bottom/top cells from `FNCEBD` and `FHBED`, and caps the result at
+!> the bed porosity:
+!>
+!> \[
+!> THBED = \min\left(PBSED,\,
+!> \frac{\sum_k VSTHE_k\,w_k}{\sum_k w_k}\right),
+!> \qquad w_k = DELTAZ_k/Z2 \text{ with fractional end-cell weights.}
+!> \]
 SUBROUTINE LINKW (NLINK)
-!
-!----------------------------------------------------------------------*
-!                             SETS UP THE WATER FLOW DATA FOR USE IN
-!                             SUBROUTINE LINKSM AND LINK
-!----------------------------------------------------------------------*
-!
+
 USE SED_CS
 USE COLM_C1
 USE COLM_CG
@@ -2464,6 +2848,85 @@ END SUBROUTINE LINKW
 !> material, bed-surface material, and surface-water concentration compartments.
 !> Nonlinear terms are solved with [[snl3]], including special handling for
 !> dry/no-water cases.
+!>
+!> The unknowns are timestep concentration rates for the stream-water,
+!> bed-surface, and deeper-bed compartments:
+!>
+!> \[
+!> X_1 = WMESF,\qquad X_2 = WMEBS,\qquad X_3 = WMEBD,
+!> \]
+!>
+!> which are applied after the solve as
+!>
+!> \[
+!> CCPSF^{n+1} = CCPSF^n + TSE\,X_1,\quad
+!> CCPBS^{n+1} = CCPBS^n + TSE\,X_2,\quad
+!> CCPBD^{n+1} = CCPBD^n + TSE\,X_3.
+!> \]
+!>
+!> The coefficient assembly uses upwind signs from the scaled flow terms
+!> prepared by [[linkw]]. For example, the stream end outflow rate is
+!>
+!> \[
+!> DUMA1 = \frac{\max(0,-PCSFP1)+\max(0,-PCSFM1)}{KS},
+!> \]
+!>
+!> bank-column outflow and inflow contributions are
+!>
+!> \[
+!> DUMA5 = \sum_{b,k}\max(0,-PCPBK1_{b,k}),\qquad
+!> DUMP6 = \sum_{b,k}\max(0,PCPBK1_{b,k})\,CCPBK_{b,k},
+!> \]
+!>
+!> and bank storage entering the link is accumulated as
+!>
+!> \[
+!> DUMP5 =
+!> VCPBK1 \sum_{b,k}
+!> \left(FCPBK_{b,k}CCPBK_{b,k}
+!>      + GCPBK_{b,k}SCPBK_{b,k}\right)KSPBK_{b,k}.
+!> \]
+!>
+!> The current concentrations and retardation linearisations are folded into
+!> coefficient groups `ALT`, `BLT`, `DLT`, `ELT`, `FLT`, `HLT`, and `GYLT`.
+!> Their starred forms (`ALTSTR`, `BLTSTR`, etc.) are the nonlinear adsorption
+!> derivatives, and the `...DA` terms are the fully implicit exchange terms
+!> between stream water, bed surface, and deeper bed. In the wet-link case the
+!> assembled system passed to [[snl3]] is
+!>
+!> \[
+!> \begin{aligned}
+!> (A + A_s X_1)X_1 - (B + B_s X_2)X_2 &= P,\\
+!> -(D + D_s X_1)X_1 + (E + E_s X_2)X_2
+!>      - (F + F_s X_3)X_3 &= Q,\\
+!> -(H + H_s X_2)X_2 + (Y + Y_s X_3)X_3 &= S,
+!> \end{aligned}
+!> \]
+!>
+!> with the code mapping
+!>
+!> \[
+!> \begin{array}{lll}
+!> A=ALT-DLTDA, & A_s=ALTSTR, & P=PLT-QLTDA-SLTDA,\\
+!> B=-BLT+ELTDA+HLTDA, & B_s=-BLTSTR, & \\
+!> D=-DLT-DLTDA, & D_s=-DLTSTR, & Q=QLT+QLTDA,\\
+!> E=ELT+ELTDA, & E_s=ELTSTR, & \\
+!> F=-FLT-FLTDA, & F_s=-FLTSTR, & \\
+!> H=-HLT-HLTDA, & H_s=-HLTSTR, & S=SLT+SLTDA,\\
+!> Y=GYLT+GYLTDA, & Y_s=GYLTSR. &
+!> \end{array}
+!> \]
+!>
+!> `PLT`, `QLT`, and `SLT` are the right-hand-side residuals for the stream,
+!> bed-surface, and deeper-bed balances. They include old storage,
+!> parent-contaminant generation, decay, rainfall/well input (`QCP1`, `ICP1`),
+!> adjacent-link inflow, bank and ground-surface exchange, erosion/deposition,
+!> plant terms, and sediment/adsorption storage terms assembled in [[linksm]].
+!>
+!> When the link is dry, `LINK` removes the stream-water equation by calling
+!> [[snl3]] with \(A=1\), \(P=0\), and all stream coupling in the first equation
+!> set to zero. This forces \(WMESF=0\) while still solving the coupled
+!> bed-surface and deeper-bed equations.
 SUBROUTINE LINK (CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
  NCETOP)
 USE LINK_CC
@@ -2674,9 +3137,71 @@ END FUNCTION PHI
 !> `PLCOLM` distributes uptake over rooted cells using plant/root fractions,
 !> accumulates dissolved and sorbed uptake source terms for [[colm]], and calls
 !> [[plant]] to update the two plant compartments for each plant type.
+!>
+!> For the first contaminant in a chain, plant generation terms `GENAA` and
+!> `GENBB` are reset before uptake is accumulated. For every plant type present
+!> in column `NCL`, the rooted interval is
+!>
+!> \[
+!> NCE = NCETOP-NRD(JPLTY),\ldots,NCETOP.
+!> \]
+!>
+!> In each rooted cell the mobile and immobile concentration contributions used
+!> for uptake are split with the mobile-water fraction `PPHI` and plant uptake
+!> weighting `XXI`:
+!>
+!> \[
+!> C_d = XXI\,PPHI\,COLCAP,\qquad
+!> C_s = (1-XXI\,PPHI)\,SOLCAP,\qquad
+!> C_t = C_d + C_s.
+!> \]
+!>
+!> The potential cell uptake contribution for plant `p` is
+!>
+!> \[
+!> U_{k,p} =
+!> Z2SQOD\,
+!> \frac{PFTWO(JPLTY)}{PF2MAX(JPLTY)}\,
+!> PKMAX(JPLTY,NCONT)\,
+!> PDZF3(NCL,k,p)\,C_t,
+!> \]
+!>
+!> where `PDZF3` is the rooted-cell distribution and `PKMAX` is the maximum
+!> uptake parameter for the contaminant and plant type. The dissolved and
+!> sorbed uptake terms supplied to [[colm]] are accumulated over all plant
+!> types as
+!>
+!> \[
+!> EDCAP_k \mathrel{+}= C_d\,
+!> \frac{U_{k,p}\,PFONE(NCL,p)}
+!>      {C_t\,Z2\,KSP_k},\qquad
+!> ESCAP_k \mathrel{+}= C_s\,
+!> \frac{U_{k,p}\,PFONE(NCL,p)}
+!>      {C_t\,Z2\,KSP_k}.
+!> \]
+!>
+!> The total plant uptake is partitioned between the two plant compartments
+!> using the legacy plant parameters
+!> `DELONE`, `DELTWO`, `DELTHR`, and `DELFOU`:
+!>
+!> \[
+!> Q =
+!> \frac{\sum_k U_{k,p}}
+!>      {PMASS\left((1-DELONE) + DELTHR\,DELONE\,PFTWO/PF2MAX\right)},
+!> \]
+!>
+!> \[
+!> QCPAA = (1-DELONE)Q,\qquad
+!> QCPBB = DELTHR\,DELONE\,\frac{PFTWO}{PF2MAX}\,Q.
+!> \]
+!>
+!> If plant compartment-B mass decreases during the timestep, `PLCOLM` returns
+!> that released contaminant to the soil uptake/source term, weighted by
+!> `DELTWO` and the root distribution. The two-compartment plant balance itself
+!> is then solved by [[plant]], and the updated `BCPAA` and `BCPBB`
+!> concentrations are stored for the column, plant type, and contaminant.
 SUBROUTINE PLCOLM (NCL, NCONT)
-!                 Updates the plant compartment concentrations for
-!                 for one column for one timestep for one contaminant
+
 USE CONT_CC
 USE COLM_C1
 !                 NB COLM.C1 includes AL.P
@@ -2784,15 +3309,6 @@ DO 1000 JPLANT = 1, NPL (NCL)
  1000 END DO
 RETURN
 
-
-
-
-
-
-
-
-
-
 END SUBROUTINE PLCOLM
 
 
@@ -2803,10 +3319,63 @@ END SUBROUTINE PLCOLM
 !> `SLVCLM` reduces the coupled mobile/immobile column equations to a
 !> tridiagonal system, solves it with `TRIDAG`, and iterates coefficient updates
 !> when nonlinear adsorption is active.
+!>
+!> For each column cell \(i\), [[colm]] has assembled two coupled equations for
+!> the mobile-region rate \(\Omega_i\) and immobile/dead-space rate
+!> \(\epsilon_i\):
+!>
+!> \[
+!> FLT_i\Omega_{i-1} + ELT_i\Omega_i + DLT_i\Omega_{i+1}
+!>      - GLT_i\epsilon_i = SLT_i,
+!> \]
+!>
+!> \[
+!> PLT_i\epsilon_i - TLT_i\Omega_i = QLT_i.
+!> \]
+!>
+!> `SLVCLM` eliminates the immobile-rate unknown with
+!>
+!> \[
+!> \epsilon_i = \frac{QLT_i + TLT_i\Omega_i}{PLT_i}
+!> \]
+!>
+!> and therefore solves the reduced tridiagonal mobile-rate system
+!>
+!> \[
+!> FLT_i\Omega_{i-1}
+!> + \left(ELT_i-\frac{GLT_iTLT_i}{PLT_i}\right)\Omega_i
+!> + DLT_i\Omega_{i+1}
+!> =
+!> SLT_i+\frac{GLT_iQLT_i}{PLT_i}.
+!> \]
+!>
+!> The reduced diagonal and right-hand side are stored in local work arrays as
+!>
+!> \[
+!> ELTE_i = ELT_i-GLT_iTLT_i/PLT_i,\qquad
+!> RHTD_i = SLT_i+GLT_iQLT_i/PLT_i.
+!> \]
+!>
+!> `TRIDAG` returns \(\Omega\), after which \(\epsilon\) is reconstructed from
+!> the eliminated equation. If nonlinear adsorption is active (`ISADNL`), the
+!> routine performs ten Picard-style coefficient updates using the current
+!> rates:
+!>
+!> \[
+!> PLTE_i = PLT_i + PLTSTR_i\epsilon_i,
+!> \]
+!>
+!> \[
+!> ELTE_i = ELT_i + ELTSTR_i\Omega_i
+!>          - \frac{GLT_iTLT_i}{PLTE_i},\qquad
+!> RHTD_i = SLT_i + \frac{GLT_iQLT_i}{PLTE_i}.
+!> \]
+!>
+!> Each update repeats the tridiagonal solve for \(\Omega\) and reconstructs
+!> \(\epsilon_i=(QLT_i+TLT_i\Omega_i)/PLTE_i\). Convergence is not tested here;
+!> the fixed ten iterations reproduce the legacy nonlinear adsorption solve.
 SUBROUTINE SLVCLM (N)
-!                            SOLVES THE DIFFERENCE EQUATIONS
-!                            FOR ONE CONTAMINANT AT ONE COLUMN
-!                            FOR ONE TIME STEP
+
 USE COLM_CC1
 INTEGER :: n, na, loop
 DOUBLEPRECISION ELTE (LLEE), PLTE (LLEE), RHTD (LLEE)
@@ -2865,8 +3434,44 @@ END SUBROUTINE SLVCLM
 !> fractions `NSED`, and the nonlinear-adsorption flag `ISNL`. With nonlinear
 !> adsorption enabled, the concentration dependence follows the Freundlich-type
 !> exponent `GN`.
+!>
+!> The old and new particle-size-weighted distribution coefficients are
+!>
+!> \[
+!> K_o = \sum_j FRNO_j\,KDREF_j,\qquad
+!> K_n = \sum_j FRN_j\,KDREF_j.
+!> \]
+!>
+!> For linear adsorption (`ISNL = .FALSE.`), the retardation factor is evaluated
+!> from the old state and the time derivative is the finite-difference change
+!> from old to new sediment/moisture conditions:
+!>
+!> \[
+!> R = 1 + \frac{K_o}{THO},\qquad
+!> R_T = \frac{K_n/TH - K_o/THO}{DT},\qquad
+!> R_C = 0.
+!> \]
+!>
+!> For nonlinear Freundlich adsorption, the concentration dependence is
+!> linearised about the current concentration:
+!>
+!> \[
+!> D_o = \frac{K_o}{THO} C^{GN-2},\qquad
+!> D_n = \frac{K_n}{TH} C^{GN-2},
+!> \]
+!>
+!> \[
+!> R = 1 + D_o C,\qquad
+!> R_T = \frac{(D_n-D_o)C}{DT},\qquad
+!> R_C = (GN-1)D_o.
+!> \]
+!>
+!> These returned quantities are used by the column and surface/link assembly
+!> routines to include concentration- and time-dependent sorption storage in the
+!> implicit contaminant equations.
 subroutine RET (C, GN, THO, TH, FRNO, FRN, KDREF, R, RC, RT, DT, &
  NSED, ISNL)
+
 !      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
 DOUBLEPRECISION :: C, GN, THO, TH, R, RC, RT, DT
 DOUBLEPRECISION FRNO ( * ), FRN ( * ), KDREF ( * )
@@ -2900,14 +3505,6 @@ end subroutine RET
 
 
 
-
-
-
-
-
-
-
-
 !> Solves a three-variable nonlinear link concentration system by fixed-point iteration.
 !>
 !> `SNL3` is used by [[link]] for the coupled bed, bed-surface, and surface-water
@@ -2921,6 +3518,65 @@ end subroutine RET
 !> -(H + HS X_2)X_2 + (AY + AYS X_3)X_3 &= S.
 !> \end{aligned}
 !> \]
+!>
+!> The solver starts from \(X_1=X_2=X_3=0\) and applies 100 fixed-point
+!> iterations:
+!>
+!> \[
+!> X_1 \leftarrow
+!> \frac{P + (B+BSX_2)X_2 + C X_3}{A+ASX_1},
+!> \]
+!>
+!> \[
+!> X_2 \leftarrow
+!> \frac{Q + (D+DSX_1)X_1 + (F+FSX_3)X_3}{E+ESX_2},
+!> \]
+!>
+!> \[
+!> X_3 \leftarrow
+!> \frac{S + (H+HSX_2)X_2}{AY+AYSX_3}.
+!> \]
+!>
+!> After the main iteration, the routine checks that the solution lies inside
+!> the legacy convergence region. When nonlinear denominators are present, the
+!> lower bounds are
+!>
+!> \[
+!> X_{1,\min} =
+!> \frac{-A + |B+2BSX_2| + C}{2AS},
+!> \]
+!>
+!> \[
+!> X_{2,\min} =
+!> \frac{-E + |D+2DSX_1| + |F+2FSX_3|}{2ES},
+!> \]
+!>
+!> \[
+!> X_{3,\min} =
+!> \frac{-AY + |H+2HSX_2|}{2AYS}.
+!> \]
+!>
+!> If the corresponding nonlinear coefficient is zero, the current value is
+!> used as the bound. Values below these bounds produce the legacy
+!> `FATAL CONVERGENCE ERROR 1` diagnostic.
+!>
+!> The routine then performs three further fixed-point steps and compares the
+!> total change with
+!>
+!> \[
+!> X_{ref}=|X_1|+|X_2|+|X_3|.
+!> \]
+!>
+!> A relative change above \(10^{-2}\) produces `FATAL CONVERGENCE ERROR 2`.
+!> Finally, the three residuals of the original equations are recomputed and
+!> normalised by \(P\), \(Q\), and \(S\) when these are nonzero; if
+!>
+!> \[
+!> |P_{err}| + |Q_{err}| + |S_{err}| \ge 10^{-2},
+!> \]
+!>
+!> the routine prints `CONVERGENCE ERROR 3 IN SNL3`, suppressing repeated
+!> messages after the tenth occurrence.
 SUBROUTINE SNL3 (A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
  Q, S, X1, X2, X3, AY, AYS)
 INTEGER :: nj, njtest
@@ -3026,8 +3682,64 @@ END subroutine SNL3
 !> reference porosity `PREF`, scaled timestep `DT`, number of sediment fractions
 !> `NSED`, and the nonlinear-adsorption flag `ISNL`. Compared with [[ret]], it
 !> includes the porosity terms required for channel-link compartments.
+!>
+!> If the concentration is zero, the routine suppresses sorption terms and
+!> returns only the water-content storage contribution:
+!>
+!> \[
+!> F = THO,\qquad F_C = 0,\qquad F_T = (TH-THO)/DT.
+!> \]
+!>
+!> Otherwise the porosity correction scales old and new solids fractions to the
+!> reference porosity:
+!>
+!> \[
+!> \lambda_o = \frac{1-PO}{1-PREF},\qquad
+!> \lambda_n = \frac{1-P}{1-PREF},
+!> \]
+!>
+!> and the particle-size-weighted distribution coefficients are
+!>
+!> \[
+!> K_o = \sum_j FRNO_j\,KDREF_j,\qquad
+!> K_n = \sum_j FRN_j\,KDREF_j.
+!> \]
+!>
+!> The old and new sorption/storage multipliers are then
+!>
+!> \[
+!> J_o = \lambda_o K_o,\qquad J_n = \lambda_n K_n.
+!> \]
+!>
+!> For linear adsorption (`ISNL = .FALSE.`), `FRET` returns
+!>
+!> \[
+!> F = THO + J_o,\qquad
+!> F_C = 0,\qquad
+!> F_T = \frac{TH-THO+J_n-J_o}{DT}.
+!> \]
+!>
+!> For nonlinear Freundlich adsorption, the concentration dependence is
+!> linearised as
+!>
+!> \[
+!> D_o = J_o C^{GN-2},\qquad D_n = J_n C^{GN-2},
+!> \]
+!>
+!> giving
+!>
+!> \[
+!> F = TH + D_o C,\qquad
+!> F_C = (GN-1)D_o,\qquad
+!> F_T = \frac{TH-THO+(D_n-D_o)C}{DT}.
+!> \]
+!>
+!> The returned `F`, `FC`, and `FT` are used by [[linksm]] and [[link]] to
+!> linearise dissolved-plus-sorbed contaminant storage in bed, bed-surface,
+!> stream-water, and deposited-sediment link compartments.
 SUBROUTINE FRET (C, GN, THO, TH, FRNO, FRN, KDREF, PO, P, PREF, F, &
  FC, FT, DT, NSED, ISNL)
+
 DOUBLEPRECISION :: C, GN, THO, TH, PO, P, PREF, F, &
  FC, FT, DT
 DOUBLEPRECISION FRNO ( * ), FRN ( * ), KDREF ( * )
@@ -3078,7 +3790,71 @@ END SUBROUTINE FRET
 !> terms, returning the updated plant-compartment concentrations in `BCAA1` and
 !> `BCBB1`; generation from one contaminant is stored for use by the next
 !> contaminant in a chain.
+!>
+!> `GMCPAA` and `GMCPBB` are the current scaled plant masses for compartments A
+!> and B, `QCPAA` and `QCPBB` are the uptake rates supplied by [[plcolm]],
+!> `GCPL` is the non-dimensional first-order decay coefficient, and `RHOPL`
+!> converts uptake to plant concentration units. The common decay multiplier is
+!>
+!> \[
+!> G = 1 + GCPL\,TSE.
+!> \]
+!>
+!> If compartment A has positive mass, the routine solves for its concentration
+!> rate
+!>
+!> \[
+!> W_A =
+!> \frac{RHOPL\,QCPAA + GMCPAA\,(GENAA-GCPL\,BCAA)}
+!>      {GMCPAA\,G},
+!> \]
+!>
+!> and updates
+!>
+!> \[
+!> BCAA^{n+1} = BCAA^n + TSE\,W_A.
+!> \]
+!>
+!> If compartment A has no mass, `BCAA1` is set to zero. Compartment B uses the
+!> same decay/generation structure but also includes the rate of change of
+!> compartment-B mass, `GMCBBD`. Before solving,
+!>
+!> \[
+!> T_B = RHOPL\,QCPBB + GMCPBB\,(GENBB-GCPL\,BCBB),
+!> \qquad B_B = GMCPBB\,G.
+!> \]
+!>
+!> For increasing or steady B mass (`GMCBBD >= 0`), contaminant dilution/growth
+!> is included in the numerator:
+!>
+!> \[
+!> T_B \leftarrow T_B - BCBB\,GMCBBD.
+!> \]
+!>
+!> For decreasing B mass, the implicit denominator is adjusted instead:
+!>
+!> \[
+!> B_B \leftarrow B_B - GMCBBD\,TSE.
+!> \]
+!>
+!> The solved rate and update are
+!>
+!> \[
+!> W_B = T_B/B_B,\qquad BCBB^{n+1}=BCBB^n+TSE\,W_B,
+!> \]
+!>
+!> with `BCBB1` set to zero if the compartment has no mass or the denominator is
+!> zero. Finally,
+!>
+!> \[
+!> GENAA \leftarrow GCPL\,BCAA,\qquad
+!> GENBB \leftarrow GCPL\,BCBB,
+!> \]
+!>
+!> storing decay-generation terms from the current contaminant for the next
+!> contaminant in a chain.
 SUBROUTINE PLANT (JPLANT, BCAA, BCAA1, BCBB, BCBB1, TSE)
+
 USE PLANT_CC
 INTEGER :: JPLANT
 DOUBLEPRECISION :: BCAA, BCAA1, BCBB, BCBB1, TSE
@@ -3126,6 +3902,33 @@ END SUBROUTINE PLANT
 
 
 !> Prepares plant uptake factors for the current timestep.
+!>
+!> `PLPREP` updates the plant-type canopy factor used by [[plcolm]] before
+!> potential plant contaminant uptake is calculated. For each plant type, the
+!> current canopy leaf area index is copied into `PFTWO`:
+!>
+!> \[
+!> PFTWO_p = CLAI_p.
+!> \]
+!>
+!> `PFTWO/PF2MAX` is later used by [[plcolm]] as a canopy-development multiplier
+!> on uptake and plant compartment-B mass. The routine also sets `DELFOU`, the
+!> factor used when compartment-B mass decreases and contaminant is recycled
+!> back to the soil. If canopy is present, the full factor is used:
+!>
+!> \[
+!> DELFOU_p = 1 \qquad \text{when } CLAI_p \ne 0.
+!> \]
+!>
+!> If `CLAI` is zero, `DELFOU` falls back to the configured residual plant
+!> fraction:
+!>
+!> \[
+!> DELFOU_p = FLEFT_p \qquad \text{when } CLAI_p = 0.
+!> \]
+!>
+!> This preserves a residual return term for plant material left after canopy
+!> loss while allowing active canopy to use the full recycling factor.
 SUBROUTINE PLPREP
 
 USE PLANT_CC

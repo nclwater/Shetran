@@ -27,7 +27,7 @@ MODULE GETDIRQQ
     CHARACTER(len=40)              :: MyName
 
     ! --------------------------------------------------------------------------
-    ! Private by default 
+    ! Private by default
     PRIVATE
 
     ! --------------------------------------------------------------------------
@@ -38,7 +38,7 @@ MODULE GETDIRQQ
     ! Code =====================================================================
 
     CONTAINS
-  
+
     !> Resolves the run-data filename and derived catchment paths.
     !>
     !> The routine reads command-line options, optionally opens the Windows file
@@ -70,8 +70,8 @@ MODULE GETDIRQQ
         CHARACTER(len=60)               :: DLGTITLE, code
         CHARACTER(len=LENGTH_LINE)      :: message, dum1, dum2
         LOGICAL                         :: ex
-        TYPE(T_OPENFILENAME)            :: opn   
-        
+        TYPE(T_OPENFILENAME)            :: opn
+
         ! Code =================================================================
         idum = GETDRIVEDIRQQ(rootdir)
         error_mode = .FALSE.
@@ -83,7 +83,7 @@ MODULE GETDIRQQ
         ELSE
             code = '-a'  !treat as default filname
         ENDIF
-        
+
         message=''
         SELECT CASE(code)
         CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results') !use popup
@@ -96,25 +96,25 @@ MODULE GETDIRQQ
             opn%LPSTRCUSTOMFILTER = NULL
             opn%NMAXCUSTFILTER    = NULL
             opn%NFILTERINDEX      = 1
-            opn%LPSTRFILE         = LOC(FileName) 
-            opn%NMAXFILE          = LEN(FileName) 
-            opn%LPSTRFILETITLE    = NULL 
+            opn%LPSTRFILE         = LOC(FileName)
+            opn%NMAXFILE          = LEN(FileName)
+            opn%LPSTRFILETITLE    = NULL
             opn%NMAXFILETITLE     = NULL
             opn%LPSTRINITIALDIR   = NULL
             opn%LPSTRTITLE        = LOC(DLGTITLE)
-            opn%FLAGS             = NULL 
+            opn%FLAGS             = NULL
             opn%NFILEOFFSET       = NULL
             opn%NFILEEXTENSION    = NULL
             opn%LPSTRDEFEXT       = NULL
             opn%LCUSTDATA         = NULL
             opn%LPFNHOOK          = NULL
-            opn%LPTEMPLATENAME    = NULL 
+            opn%LPTEMPLATENAME    = NULL
             bRET                  = GETOPENFILENAME(opn)
             CALL COMDLGER(IERROR)
-        
+
         CASE('-f') !treat as filename
             CALL GETARG(INT(2,KIND=2), filename)
-        
+
         CASE('-c')  !treat as catchment name
             IF (na<3) THEN
                 filename = 'default'
@@ -130,11 +130,11 @@ MODULE GETDIRQQ
                         IF(dum1==filename) EXIT
                     ENDDO
                 filename=dum2
-        
+
             ELSE
                 message='Cannot find file ' // TRIM(catchment_file) // ' in executable directory'
             ENDIF
-        
+
         CASE DEFAULT
             message = 'Unrecognised command line argument ' // TRIM(code) // ' Recognise only -a, -c and -f'
         END SELECT
@@ -149,7 +149,7 @@ MODULE GETDIRQQ
             END SELECT
         ENDIF
 
-        
+
         IF(message/='') GOTO 1000
 
         INQUIRE(FILE=filename, EXIST=ex)
@@ -199,6 +199,8 @@ MODULE GETDIRQQ
 
     END SUBROUTINE get_dir_and_catch
 
+
+
     !> Reports errors from the Windows common file-open dialog.
     !>
     !> The routine calls `COMMDLGEXTENDEDERROR`, maps known common-dialog error
@@ -211,7 +213,7 @@ MODULE GETDIRQQ
     !> | 2020-03-05 | SvenB | - | Formatting and cleanup. |
     !> @endhistory
     SUBROUTINE comdlger(IRET)
-        
+
         ! IO-Vars
         INTEGER(KIND=I_P)   :: IRET !! Windows common-dialog extended error code.
 
@@ -223,7 +225,7 @@ MODULE GETDIRQQ
 
         IRET = COMMDLGEXTENDEDERROR()
         MSG1 = 'FILE OPEN DIALOG FAILURE'C
-        
+
         SELECT CASE(IRET)
 
         CASE (CDERR_FINDRESFAILURE)
