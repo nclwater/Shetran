@@ -14,7 +14,7 @@
 !> | 2026-03 | SB | 4.6 | Added date error trapping. |
 !> @endhistory
 MODULE utilsmod
-    
+
 USE SGLOBAL
 USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
 USE AL_C, ONLY : icmbk
@@ -33,114 +33,130 @@ CONTAINS
 !>
 !> This is the BLAS `dcopy` operation implemented locally, including support
 !> for non-unit and negative increments.
-subroutine dcopy (n, dx, incx, dy, incy)  
+subroutine dcopy (n, dx, incx, dy, incy)
 !     copies vector x to vector y
 INTEGER, INTENT(IN)                        :: n    !! Number of values to copy.
 INTEGER, INTENT(IN)                        :: incx !! Increment between values in `dx`.
 INTEGER, INTENT(IN)                        :: incy !! Increment between values in `dy`.
 DOUBLEPRECISION, DIMENSION(*), INTENT(IN)  :: dx   !! Source vector.
 DOUBLEPRECISION, DIMENSION(*), INTENT(OUT) :: dy   !! Destination vector.
-INTEGER                                    :: i, ix, iy 
+INTEGER                                    :: i, ix, iy
 IF(n<-0) THEN
     RETURN
 ELSEIF((incx==1).AND.(incy==1)) THEN
     dy(1:n) = dx(1:n)
 ELSE
-    ix = 1  
-    iy = 1  
-    IF(incx<0) ix=(-n + 1)*incx + 1  
-    IF(incy<0) iy=(-n + 1)*incy + 1  
-    DO i = 1, n  
-        dy(iy) = dx(ix)  
-        ix     = ix + incx  
-        iy     = iy + incy  
-    ENDDO  
-ENDIF 
+    ix = 1
+    iy = 1
+    IF(incx<0) ix=(-n + 1)*incx + 1
+    IF(incy<0) iy=(-n + 1)*incy + 1
+    DO i = 1, n
+        dy(iy) = dx(ix)
+        ix     = ix + incx
+        iy     = iy + incy
+    ENDDO
+ENDIF
 END SUBROUTINE dcopy
+
 
 
 !> Reads breakpoint flux time-series data and averages over a timestep.
 !>
 !> The routine accumulates piecewise-constant flux values over the current
 !> simulation timestep and returns timestep-average values.
+!>
+!> `FINPUT` is the general reader for breakpoint flux time series. Input records
+!> contain a date/time followed by `NINP` flux values. Each `FNEXT(j)` value is
+!> treated as constant until the next breakpoint time `INTIME`, and the returned
+!> `ARRAY(j)` is the average over the current simulation timestep
+!> `[SIMNOW, SIMNOW+SIMSTP]`.
+!>
+!> Parameters are:
+!>
+!> | Argument | Intent | Meaning |
+!> |:---------|:-------|:--------|
+!> | `IIN` | input | File unit number for reading data. |
+!> | `TIH` | input | Simulation start time since the reference date, in hours. |
+!> | `SIMNOW` | input | Start time of the current simulation timestep, in model hours. |
+!> | `SIMSTP` | input | Current simulation timestep length, in hours. |
+!> | `INLAST` | input/output | Last breakpoint time read, relative to `TIH`. |
+!> | `INTIME` | input/output | Current breakpoint time up to which `FNEXT` is valid. |
+!> | `FNEXT` | input/output | Current flux vector valid up to `INTIME`; overwritten when new records are read. |
+!> | `NINP` | input | Number of flux items to read from each record. |
+!> | `ARRAY` | output | Timestep-average flux vector. |
+!>
+!> If the existing breakpoint already extends beyond the timestep end,
+!> `ARRAY = FNEXT`. Otherwise the code integrates each piecewise-constant
+!> segment and divides by the timestep:
+!>
+!> \[
+!> ARRAY_j =
+!> \frac{1}{SIMSTP}
+!> \sum_m \Delta t_m\,F_{j,m},
+!> \]
+!>
+!> where each \(\Delta t_m\) is the overlap between the current simulation
+!> timestep and one breakpoint interval. Input dates are converted with
+!> [[hour_from_date]] and shifted by `TIH`. If end-of-file is reached before a
+!> complete timestep average can be formed, `INTIME` is set to `marker999`.
 SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  FNEXT, NINP, ARRAY)
-!----------------------------------------------------------------------
-!
-! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF FLUX DATA.
-! DATA ARE AVERAGED OVER A SIMULATION TIMESTEP.
-!
-! PARAMETERS:
-!        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-!        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-!        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-!        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-! (INPUT/OUTPUT)  FNEXT   CURRENT VALUE VALID UP TO TIME 'INTIME'
-!        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-!       (OUTPUT)  ARRAY   ARRAY OF DATA ITEMS
-!
-!----------------------------------------------------------------------
-!
-INTEGER :: IIN, NINP, TIME (5)  
+INTEGER :: IIN, NINP, TIME (5)
 DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, FNEXT (NINP), ARRAY (NINP)
 INTEGER :: i, j
 DOUBLEPRECISION :: SIMEND
 !
-SIMEND = SIMNOW + SIMSTP  
+SIMEND = SIMNOW + SIMSTP
 !
 ! CHECK IF ANY DATA NEEDS TO BE READ
 !
-IF (INTIME.GE.SIMEND) THEN  
-   DO 5 I = 1, NINP  
-    5    ARRAY (I) = FNEXT (I)  
-   GOTO 1000  
-ENDIF  
+IF (INTIME.GE.SIMEND) THEN
+   DO 5 I = 1, NINP
+    5    ARRAY (I) = FNEXT (I)
+   GOTO 1000
+ENDIF
 !
 ! SAVE CURRENT DATA IN OUTPUT ARRAY
 !
-DO 10 I = 1, NINP  
-   ARRAY (I) = (INTIME-SIMNOW) * FNEXT (I)  
-   10 END DO  
+DO 10 I = 1, NINP
+   ARRAY (I) = (INTIME-SIMNOW) * FNEXT (I)
+   10 END DO
 !
 ! READ DATA AND ADD INTO TOTALS UNTIL END OF SIMULATION TIMESTEP
 !
    20 READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (FNEXT (J), &
  J = 1, NINP)
-INLAST = INTIME  
+INLAST = INTIME
 INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), TIME (5) ) &
  - TIH
 !
-IF (INTIME.LT.SIMEND) THEN  
-   DO 30 I = 1, NINP  
-      ARRAY (I) = ARRAY (I) + ( (INTIME-INLAST) * FNEXT (I) )  
-   30    END DO  
-   GOTO 20  
-ELSE  
-   DO 40 I = 1, NINP  
-      ARRAY (I) = ARRAY (I) + ( (SIMEND-INLAST) * FNEXT (I) )  
-   40    END DO  
-ENDIF  
+IF (INTIME.LT.SIMEND) THEN
+   DO 30 I = 1, NINP
+      ARRAY (I) = ARRAY (I) + ( (INTIME-INLAST) * FNEXT (I) )
+   30    END DO
+   GOTO 20
+ELSE
+   DO 40 I = 1, NINP
+      ARRAY (I) = ARRAY (I) + ( (SIMEND-INLAST) * FNEXT (I) )
+   40    END DO
+ENDIF
 !
 ! CALCULATE AVERAGE OVER SIMULATION TIMESTEP
 !
-DO 50 I = 1, NINP  
-   ARRAY (I) = ARRAY (I) / SIMSTP  
-   50 END DO  
+DO 50 I = 1, NINP
+   ARRAY (I) = ARRAY (I) / SIMSTP
+   50 END DO
 !
 ! RETURN TO CALLING ROUTINE
 !
- 1000 RETURN  
+ 1000 RETURN
 !
 ! FATAL ERROR - END OF FILE REACHED - SET INTIME TO INDICATE ERROR
 !
- 9999 INTIME = marker999  
-RETURN  
+ 9999 INTIME = marker999
+RETURN
 !
 END SUBROUTINE FINPUT
-!
-!----------------------------------------------------------------------
 
 
 
@@ -148,55 +164,70 @@ END SUBROUTINE FINPUT
 !>
 !> The routine advances through input records until it can interpolate head data
 !> at the midpoint of the current simulation timestep.
+!>
+!> `HINPUT` is the general reader for breakpoint head time series. Unlike
+!> [[finput]], head values are not averaged as fluxes; they are linearly
+!> interpolated to the midpoint of the current timestep,
+!> `SIMMID = SIMNOW + 0.5*SIMSTP`.
+!>
+!> Parameters are:
+!>
+!> | Argument | Intent | Meaning |
+!> |:---------|:-------|:--------|
+!> | `IIN` | input | File unit number for reading data. |
+!> | `TIH` | input | Simulation start time since the reference date, in hours. |
+!> | `SIMNOW` | input | Start time of the current simulation timestep, in model hours. |
+!> | `SIMSTP` | input | Current simulation timestep length, in hours. |
+!> | `INLAST` | input/output | Previous breakpoint time, relative to `TIH`. |
+!> | `INTIME` | input/output | Next breakpoint time, relative to `TIH`. |
+!> | `HLAST` | input/output | Head vector read at `INLAST`. |
+!> | `HNEXT` | input/output | Head vector read at `INTIME`; overwritten when new records are read. |
+!> | `NINP` | input | Number of head values to read from each record. |
+!> | `ARRAY` | output | Head vector interpolated to the timestep midpoint. |
+!>
+!> Once the midpoint lies between the stored breakpoint times,
+!> \(INLAST < SIMMID \le INTIME\), the interpolation is
+!>
+!> \[
+!> ARRAY_j =
+!> HLAST_j + (HNEXT_j-HLAST_j)
+!> \frac{SIMMID-INLAST}{INTIME-INLAST}.
+!> \]
+!>
+!> The routine then continues reading records until the current timestep end is
+!> covered. Input dates are converted with [[hour_from_date]] and shifted by
+!> `TIH`. If end-of-file is reached unexpectedly, `INTIME` is set to
+!> `marker999`.
 SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  HLAST, HNEXT, NINP, ARRAY)
-!----------------------------------------------------------------------
-!
-! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF HEAD DATA.
-! HEAD DATA ARE INTERPOLATED ONTO THE MID-POINT OF THE SIMULATION TIMEST
-!
-! PARAMETERS:
-!        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-!        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-!        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-!        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-! (INPUT/OUTPUT)  HLAST   LAST VALUE READ FROM INPUT FILE AT TIME 'INLAS
-! (INPUT/OUTPUT)  HNEXT   NEXT VALUE READ FROM INPUT FILE AT TIME 'INTIM
-!        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-!       (OUTPUT)  ARRAY   ARRAY OF INTERPOLATED DATA ITEMS
-!
-!----------------------------------------------------------------------
-!
-INTEGER :: IIN, NINP, TIME (5) 
+INTEGER :: IIN, NINP, TIME (5)
 INTEGER :: i, j
 DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, ARRAY (NINP), &
  HLAST (NINP), HNEXT (NINP)
 DOUBLEPRECISION :: simend, simmid
 LOGICAL :: goto10, markertest
 !
-SIMEND = SIMNOW + SIMSTP  
-SIMMID = SIMNOW + 0.5 * SIMSTP  
+SIMEND = SIMNOW + SIMSTP
+SIMMID = SIMNOW + 0.5 * SIMSTP
 !
 ! IF MID-POINT OF TIMESTEP PASSED, INTERPOLATE DATA
 
 DO
-    10 IF (INTIME.GE.SIMMID.AND.INLAST.LT.SIMMID) THEN  
-        DO 20 I = 1, NINP  
+    10 IF (INTIME.GE.SIMMID.AND.INLAST.LT.SIMMID) THEN
+        DO 20 I = 1, NINP
             ARRAY (I) = HLAST (I) + (HNEXT (I) - HLAST (I) ) * ( (SIMMID-INLAST) / (INTIME-INLAST) )
-        20 ENDDO  
-    ENDIF  
+        20 ENDDO
+    ENDIF
     ! READ DATA UNTIL END OF SIMULATION TIMESTEP
     goto10 = .FALSE.
-    IF (INTIME.LT.SIMEND) THEN  
-        DO 30 I = 1, NINP  
-            HLAST (I) = HNEXT (I)  
-        30 ENDDO  
+    IF (INTIME.LT.SIMEND) THEN
+        DO 30 I = 1, NINP
+            HLAST (I) = HNEXT (I)
+        30 ENDDO
         READ (IIN, *, END = 9999) (TIME (I), I = 1, 5), (HNEXT (J), J = 1, NINP)
-        INLAST = INTIME  
+        INLAST = INTIME
         INTIME = HOUR_FROM_DATE(TIME (1), TIME (2), TIME (3), TIME (4), TIME (5)) - TIH
-        goto10 = .TRUE.  
+        goto10 = .TRUE.
     ENDIF
     markertest = .FALSE.
     GOTO 223
@@ -204,24 +235,31 @@ DO
         markertest=.TRUE.
     223 CONTINUE
     IF(.NOT.goto10 .OR. markertest) EXIT
-ENDDO  
-!RETURN  
+ENDDO
+!RETURN
 !! FATAL ERROR - END OF FILE REACHED
-! 9999 INTIME = marker999  
+! 9999 INTIME = marker999
 END SUBROUTINE HINPUT
+
 
 
 !> Converts a calendar date/time to simulation hours since 1950-01-01 00:00.
 !>
 !> Leap years are accounted for. The function checks the round trip through
 !> `DATE_FROM_HOUR` and stops with a diagnostic if the supplied date is invalid.
+!> Valid input requires `KYEAR >= 1949` and `1 <= KMTH <= 12`.
+!>
+!> The returned value is the number of hours since 1 January 1950 at 00:00:
+!>
+!> \[
+!> r = 24\left(D_y + D_m + KDAY\right) + KHOUR + \frac{KMIN}{60},
+!> \]
+!>
+!> where `D_y` is the number of days in complete years since 1950, including
+!> leap years, and `D_m` is the number of complete days before month `KMTH` in
+!> `KYEAR`. A small one-hundredth-second offset is added to avoid minute-level
+!> roundoff errors in the reverse conversion check.
  FUNCTION hour_from_date(KYEAR, KMTH, KDAY, KHOUR, KMIN)  RESULT(r)
-!----------------------------------------------------------------------*
-!  THIS FUNCTION CALCULATES HOURS SINCE 1.JANUARY YEAR 1950 AT 0 HOUR
-!  LEAP YEARS ARE TAKEN INTO ACCOUNT
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  KYEAR.ge.1949    KMTH.ge.1    KMTH.le.12
 INTEGER         :: kyear, kmth, kday, khour, kmin
 INTEGER         :: d, check(6)
 DOUBLEPRECISION :: r
@@ -237,9 +275,9 @@ IF(check(1)/=kyear .OR.check(2)/=kmth .OR. check(3)/=kday .or. check(4)/=khour .
     stop
 ENDIF
     !     * days arising from entire years (asasuming KYEAR.ge.1949) ...
-    !mmday = (kyear - 1950) * 365 + (kyear - 1949) / 4  
+    !mmday = (kyear - 1950) * 365 + (kyear - 1949) / 4
     !     * ... plus entire days this year (not including today) ...
-    !mmday = mmday + mdays(kmth) + kday - 1  
+    !mmday = mmday + mdays(kmth) + kday - 1
     !     * ... not forgetting that MDAYS is defined for non-leap years
     !IF (MOD (KYEAR,4) .EQ.0.AND.KMTH.GT.2) mmday = mmday + 1
 END FUNCTION hour_from_date
@@ -257,7 +295,7 @@ END FUNCTION days_in_years_since_1950
 
 !> Returns whether a year is a leap year in the Gregorian calendar.
 FUNCTION is_leap(y) RESULT(r)
-!A year will be a leap year if it is divisible by 4 but not by 100. 
+!A year will be a leap year if it is divisible by 4 but not by 100.
 !If a year is divisible by 4 and by 100, it is not a leap year unless it is also divisible by 400.
 INTEGER, INTENT(IN) :: y
 LOGICAL  :: r
@@ -273,6 +311,7 @@ ENDIF
 END FUNCTION is_leap
 
 
+
 !> Returns the day offset to the start of a month in a given year.
 FUNCTION days_to_start_month(m, y) RESULT(r)
 INTEGER, INTENT(IN) :: m, y
@@ -280,11 +319,13 @@ INTEGER, PARAMETER  ::  sd(12)=[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304
 INTEGER             :: r
 IF(M<1) THEN
     WRITE(MSG,*) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
-    CALL ERROR (FFFATAL, 4820, pppri, 0, 0, msg)  
+    CALL ERROR (FFFATAL, 4820, pppri, 0, 0, msg)
 ENDIF
 r = sd(m)
 IF(IS_LEAP(y).AND. m>2) r = r + 1
 END FUNCTION days_to_start_month
+
+
 
 !> Converts simulation hours since 1950-01-01 00:00 to date components.
 FUNCTION date_from_hour(h) RESULT(r)
@@ -306,7 +347,7 @@ ENDDO
 mthdays = days - DAYS_IN_YEARS_SINCE_1950(year)
 month   = 1 + mthdays/32             !note, 32 is correct (to underpredict)
 IF(month<12) THEN                    !avoid month+1=13 in test (dont combine tests)
-    IF(mthdays>DAYS_TO_START_MONTH(month+1, year)) month = month + 1 
+    IF(mthdays>DAYS_TO_START_MONTH(month+1, year)) month = month + 1
 ENDIF
 
 r(1) = year
@@ -321,6 +362,8 @@ IF(r(3)==0) THEN
 ENDIF
 END FUNCTION date_from_hour
 
+
+
 !> Multiplies two dense matrices using explicit loops.
 FUNCTION jematmul_mm(b, c, n1, n2, n3) RESULT(a)
 ! A = B * C
@@ -334,8 +377,8 @@ DO i=1,n3
         DO k=1,n2
             a(i,j) = a(i,j) + b(k,j)*c(i,k)
         ENDDO
-    ENDDO  
-ENDDO  
+    ENDDO
+ENDDO
 END FUNCTION jematmul_mm
 
 
@@ -350,10 +393,9 @@ DO i=1,n1
     a(i) = zero
     DO k=1,n2
         a(i) = a(i) + b(k,i) * c(k)
-    ENDDO  
-ENDDO  
+    ENDDO
+ENDDO
 END FUNCTION jematmul_vm
-
 
 
 
@@ -361,86 +403,126 @@ END FUNCTION jematmul_vm
 !>
 !> The routine updates one parameter value from a table of relative values and
 !> tabulated times, using the current simulation time in hours.
-SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)  
-!----------------------------------------------------------------------*
-!
-!     SERVICE SUBROUTINE TO INTERPOLATE VALUES FOR ONE-DIMENSIONAL
-!                     TIME-VARYING PARAMETERS
-!        VARIABLE LISTING:
-!        YCURR = CURRENT VALUE OF PARAMETER
-!        YTAB  = TABULATED RELATIVE VALUES OF PARAMETER
-!        YINIT = INITIAL OR REFERENCE VALUE OF PARAMETER
-!        TCURR = CURRENT TIME (HOURS)
-!        TTAB  = TABULATED VALUES OF TIME (DAYS)
-!        NCT   = COUNTER FOR POSITION IN TABULATED ARRAYS
-!        NPAR  = SIZE OF PARAMETER ARRAY
-!        I     = POSITION IN PARAMETER ARRAY
-!
-!----------------------------------------------------------------------*
+!>
+!> `TERPO1` is a service routine for time-varying parameters whose tabulated
+!> values are stored as relative multipliers. The arguments are:
+!>
+!> | Argument | Meaning |
+!> |:---------|:--------|
+!> | `YCURR` | Current parameter array to update. |
+!> | `YTAB` | Tabulated relative values of the parameter. |
+!> | `YINIT` | Initial or reference parameter values. |
+!> | `TCURR` | Current simulation time, in hours. |
+!> | `TTAB` | Tabulated times, in days. |
+!> | `NCT` | Current table-position counter for each parameter. |
+!> | `NPAR` | Size of the parameter array. |
+!> | `I` | Parameter-array position being updated. |
+!>
+!> The routine advances `NCT(I)` to the interval containing `TCURR/24`, then
+!> linearly interpolates the relative multiplier:
+!>
+!> \[
+!> Y_{rel} =
+!> YTAB_{I,k}
+!> + \frac{TCURR-24\,TTAB_{I,k}}
+!>        {24\,(TTAB_{I,k+1}-TTAB_{I,k})}
+!>   \left(YTAB_{I,k+1}-YTAB_{I,k}\right),
+!> \]
+!>
+!> where \(k=NCT(I)\) after the interval update. The absolute value returned to
+!> the model is
+!>
+!> \[
+!> YCURR_I = Y_{rel}\,YINIT_I.
+!> \]
+SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)
 ! Input arguments
-INTEGER :: NPAR, I  
-DOUBLEPRECISION TCURR  
+INTEGER :: NPAR, I
+DOUBLEPRECISION TCURR
 
-DOUBLEPRECISION YTAB (NPAR, * ), TTAB (NPAR, * ), YINIT (NPAR)  
+DOUBLEPRECISION YTAB (NPAR, * ), TTAB (NPAR, * ), YINIT (NPAR)
 ! In+out arguments
 
-INTEGER :: NCT (NPAR)  
+INTEGER :: NCT (NPAR)
 ! Output arguments
 
-DOUBLEPRECISION YCURR (NPAR)  
+DOUBLEPRECISION YCURR (NPAR)
 ! Locals, etc
-INTEGER :: ITERP, NCTERP  
+INTEGER :: ITERP, NCTERP
 
 
-DOUBLEPRECISION DIFFA, DIFFB, DIFFC, YREL  
+DOUBLEPRECISION DIFFA, DIFFB, DIFFC, YREL
 !----------------------------------------------------------------------*
-NCTERP = NCT (I)  
+NCTERP = NCT (I)
 ITERP = INT((TCURR / 24.0 - TTAB (I, NCTERP) ) / (TTAB (I, NCTERP + 1) &
  - TTAB (I, NCTERP) ))
-NCTERP = NCTERP + ITERP  
-DIFFA = YTAB (I, NCTERP + 1) - YTAB (I, NCTERP)  
-DIFFB = (TTAB (I, NCTERP + 1) - TTAB (I, NCTERP) ) * 24.0  
-DIFFC = TCURR - TTAB (I, NCTERP) * 24.0  
-YREL = YTAB (I, NCTERP) + DIFFC * DIFFA / DIFFB  
-YCURR (I) = YREL * YINIT (I)  
+NCTERP = NCTERP + ITERP
+DIFFA = YTAB (I, NCTERP + 1) - YTAB (I, NCTERP)
+DIFFB = (TTAB (I, NCTERP + 1) - TTAB (I, NCTERP) ) * 24.0
+DIFFC = TCURR - TTAB (I, NCTERP) * 24.0
+YREL = YTAB (I, NCTERP) + DIFFC * DIFFA / DIFFB
+YCURR (I) = YREL * YINIT (I)
 
-NCT (I) = NCTERP  
+NCT (I) = NCTERP
 
 END SUBROUTINE TERPO1
 ! 18/8/94
+
 
 
 !> Solves a tridiagonal linear system.
 !>
 !> This is the Thomas algorithm for a tridiagonal matrix with lower diagonal
 !> `A`, diagonal `B`, upper diagonal `C`, right-hand side `R`, and solution `U`.
-SUBROUTINE TRIDAG (A, B, C, R, U, N)  
-!                            SOLVES FOR VECTOR U OF LENGTH N
-!                            THE TRIDIAGONAL SET A,B,C WHERE
-!                            R IS THE R.H.S.
-!      IMPLICIT INTEGER (I-N)
-!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!                             TO BE COMPATIBLE WITH INCLUDE FILE AL.P
-INTEGER, INTENT(IN) :: N 
+!> It solves for the vector `U` of length `N` in
+!>
+!> \[
+!> A_i U_{i-1} + B_i U_i + C_i U_{i+1} = R_i,
+!> \qquad i=1,\ldots,N,
+!> \]
+!>
+!> with the usual endpoint interpretation that `A(1)` and `C(N)` are not used.
+!> The routine performs a forward elimination followed by back substitution,
+!> overwriting only the output vector `U` and local work array `GAM`.
+SUBROUTINE TRIDAG (A, B, C, R, U, N)
+INTEGER, INTENT(IN) :: N
 INTEGER             :: j
 DOUBLEPRECISION     :: A(:), B(:), C(:), R(:), U(:), GAM(n), bet, oobet
 BET  = B(1)
 oobet = one/bet
-U(1) = oobet * R(1) 
-DO J = 2, N  
+U(1) = oobet * R(1)
+DO J = 2, N
    GAM(J) = oobet*C(J-1)
    BET    = B(J) - A(J) * GAM(J)
-   oobet  = one/bet 
-   U(J)   = oobet*(R(J) - A(J) * U(J-1))  
-ENDDO  
-DO J = N-1,1,-1  
-   U(J) = U(J) - GAM(J+1) * U(J+1)  
-ENDDO  
+   oobet  = one/bet
+   U(J)   = oobet*(R(J) - A(J) * U(J-1))
+ENDDO
+DO J = N-1,1,-1
+   U(J) = U(J) - GAM(J+1) * U(J+1)
+ENDDO
 END SUBROUTINE TRIDAG
 
 
 
 !> Inverts a dense matrix in place using LU decomposition.
+!>
+!> `invertmat` replaces the input matrix `A` by `A^{-1}`. For `N=1` it returns
+!> the scalar reciprocal directly. For `N>1` it forms the identity matrix,
+!> factors `A` with [[ludcmp]], and solves
+!>
+!> \[
+!> A x_j = e_j,\qquad j=1,\ldots,N,
+!> \]
+!>
+!> with [[lubksb]] for each identity-column right-hand side \(e_j\). The solved
+!> columns \(x_j\) are then copied back into `A`, giving
+!>
+!> \[
+!> A^{-1} = [x_1\;x_2\;\cdots\;x_N].
+!> \]
+!>
+!> `ICOD=0` indicates success. `ICOD=1` indicates an invalid size, a zero
+!> scalar, or a singular matrix detected by the LU factorisation.
 SUBROUTINE invertmat(a,n,icod)
 INTEGER, INTENT(IN)                            :: n
 INTEGER, INTENT(OUT)                           :: icod
@@ -451,16 +533,16 @@ DOUBLEPRECISION                                :: d
 LOGICAL                                        :: issing, ret
 
 ret=.FALSE.
-icod = 0  
-IF(n<1) THEN  
-    icod = 1  
+icod = 0
+IF(n<1) THEN
+    icod = 1
 ELSEIF(n==1) THEN
-    ret=.TRUE.  
-    IF (ABS(A(1,1))<=eps) THEN  
-        icod = 1  
-    ELSE  
-        A(1,1) = one / A(1,1)  
-    ENDIF  
+    ret=.TRUE.
+    IF (ABS(A(1,1))<=eps) THEN
+        icod = 1
+    ELSE
+        A(1,1) = one / A(1,1)
+    ENDIF
 ELSE
     y = zero
     DO i=1,n
@@ -471,18 +553,38 @@ ELSE
         icod=1
      ELSE
         DO j=1,n
-            CALL LUBKSB(a, n, indx, y(:,j))       
+            CALL LUBKSB(a, n, indx, y(:,j))
         ENDDO
         a = y
     ENDIF
 ENDIF
 END SUBROUTINE invertmat
 
+
+
 !> Solves an LU-decomposed linear system by back substitution.
 !>
 !> `lubksb` applies the row permutation stored in `indx` and overwrites `b` with
 !> the solution vector for the matrix factors produced by [[ludcmp]]. This is
 !> the Numerical Recipes LU back-substitution algorithm used by [[invertmat]].
+!>
+!> After [[ludcmp]], the array `A` stores the combined lower and upper
+!> triangular factors of a pivoted decomposition
+!>
+!> \[
+!> P A_{orig} = L U,
+!> \]
+!>
+!> where `L` has an implicit unit diagonal and `U` is stored on and above the
+!> diagonal. `lubksb` solves
+!>
+!> \[
+!> L y = P b,\qquad U x = y,
+!> \]
+!>
+!> by forward substitution followed by back substitution, returning `x` in
+!> `b`. The `ii` marker skips leading zero terms in the permuted right-hand
+!> side, matching the Numerical Recipes implementation.
       SUBROUTINE lubksb(a,n,indx,b)
       INTEGER         :: n, indx(n)
       doubleprecision :: a(n,n), b(n)
@@ -510,13 +612,35 @@ END SUBROUTINE invertmat
         b(i)=asum/a(i,i)
 14    continue
       END SUBROUTINE lubksb
-      
+
+
+
 !> Performs LU decomposition with partial pivoting.
 !>
 !> `ludcmp` factors `a` in place, records pivot rows in `indx`, returns the
 !> parity factor `d`, and sets `issing` when the matrix is singular or has a
 !> zero scaling row. The factorisation is used by [[invertmat]] before
 !> [[lubksb]] solves each right-hand side.
+!>
+!> The decomposition is a scaled partial-pivoting LU factorisation. For each
+!> row, the scaling value
+!>
+!> \[
+!> v_i = \frac{1}{\max_j |a_{ij}|}
+!> \]
+!>
+!> is used to choose the pivot row that maximises \(v_i |a_{ij}|\) in the
+!> current column. Row swaps are recorded in `INDX`, and each swap changes the
+!> sign of `D`. On successful return, `A` stores `L` below the diagonal and `U`
+!> on and above the diagonal:
+!>
+!> \[
+!> P A_{orig} = L U.
+!> \]
+!>
+!> If a row has zero scale the matrix is singular and `ISSING` is set. If a
+!> selected pivot is exactly zero after elimination, the routine substitutes the
+!> small value `TINY=1.0d-20`, preserving the legacy Numerical Recipes behaviour.
       SUBROUTINE ludcmp(a,n,indx,d, issing)
       INTEGER              :: n,indx(n)
       doubleprecision      :: d,a(n,n),TINY
@@ -535,7 +659,7 @@ END SUBROUTINE invertmat
         IF (ISZERO(aamax)) THEN
             issing=.TRUE.  !pause 'singular matrix in ludcmp'
             CYCLE
-        ENDIF    
+        ENDIF
         vv(i)=1./aamax
 12    continue
       IF(issing) RETURN
@@ -579,333 +703,346 @@ END SUBROUTINE invertmat
         endif
 19    continue
       END SUBROUTINE ludcmp
-      
-      !SSSSSS SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
+
+
+
 !> Reads and optionally echoes an integer grid/element array.
 !>
 !> `AREADI` implements the legacy `KON` control modes for integer AL input:
 !> read a grid and convert it to element order, convert an existing element
 !> array back to a grid, or read and print a grid without conversion. The
 !> resulting integer element array is returned in `IAOUT`.
-SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)  
-!----------------------------------------------------------------------*
-!
-!      SERVICE SUBROUTINE TO READ AND PRINT AN INTEGER ARRAY
-!
-!----------------------------------------------------------------------*
-!
-!    PARAMETER LIST :
-!    IA   : ARRAY TO BE READ
-!    KON  : CONTROL PARAMETER : KON=0 : READ GRID ARRAY (IA)
-!                                       CONVERT TO ELEMENT ARRAY (IAOUT)
-!                                       NO PRINT
-!                               K0N=1 : READ GRID ARRAY (IA)
-!                                       CONVERT TO ELEMENT ARRAY (IAOUT)
-!                                       PRINT GRID ARRAY (IA)
-!                               KON=2 : NO READ;   CONVERT
-!                                       INPUT ARRAY (IAOUT) TO GRID (IA)
-!                                       PRINT GRID ARRAY (IA)
-!
-!    INF  : FILE UNIT NUMBER FOR READING FROM
-!    IOF  : FILE UNIT NUMBER FOR PRINTING TO
-!
-!    INUM : RANGE OF NUMBERS TO BE READ IN (EG. NO. OF MET. STATIONS)
-!            NB. IF SET TO ZERO, OLD FORMAT (20I4) WILL BE USED.
-!
-!    ALSO INCLUDES THE POSSIBILITY OF FILLING AN INTEGER ARRAY
-!    WITH DEFAULT VALUES IN WHICH CASE SHOULD HAVE
-!                               KON=3
-!                               INF=REQUIRED DEFAULT VALUE
-!
-!----------------------------------------------------------------------*
-INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM  
-INTEGER, INTENT(OUT) :: IAOUT(:)  
+!>
+!> Control modes are:
+!>
+!> | `KON` | Action |
+!> |:------|:-------|
+!> | 0 | Read grid array `IA`, convert it to element array `IAOUT`, and do not print. |
+!> | 1 | Read grid array `IA`, convert it to element array `IAOUT`, and print the grid array. |
+!> | 2 | Do not read; convert the input element array `IAOUT` back to grid array `IA` and print it. |
+!> | 3 | Fill `IAOUT(NGDBGN:total_no_elements)` with the default value supplied in `INF`; no file read is performed. |
+!>
+!> Parameters are:
+!>
+!> | Argument | Meaning |
+!> |:---------|:--------|
+!> | `IAOUT` | Integer element array returned by the routine, or input element array when `KON=2`. |
+!> | `KON` | Control parameter selecting read/convert/print/default-fill behaviour. |
+!> | `INF` | Input file unit for read modes; default integer value when `KON=3`. |
+!> | `IOF` | Output file unit used when printing the grid array. |
+!> | `INUM` | Expected range/count of integer codes, such as number of meteorological stations. If zero, the old `20I4` grid format is used. |
+!>
+!> For read modes, the grid-to-element mapping is
+!>
+!> \[
+!> IAOUT_{ICMXY(i,j)} = IA_{i,j}
+!> \quad\text{for each active grid cell } ICMXY(i,j)\ne0.
+!> \]
+!>
+!> For `KON=2`, the reverse reporting grid is assembled from grid elements using
+!>
+!> \[
+!> IA_{ICMREF(iel,2),ICMREF(iel,3)} = IAOUT_{iel}
+!> \quad\text{where } ICMREF(iel,1)=0.
+!> \]
+SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
+INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM
+INTEGER, INTENT(OUT) :: IAOUT(:)
 INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX, IA (NXEE,NYEE)
-CHARACTER(4)         :: TITLE (20)  
+CHARACTER(4)         :: TITLE (20)
 !----------------------------------------------------------------------*
 !
 !^^^^^^FILL IN SECTION
 !
-IF (KON.EQ.3) THEN  
-   DO 2 IEL = NGDBGN, total_no_elements  
-      IAOUT (IEL) = INF  
-    2    END DO  
-   RETURN  
+IF (KON.EQ.3) THEN
+   DO 2 IEL = NGDBGN, total_no_elements
+      IAOUT (IEL) = INF
+    2    END DO
+   RETURN
 
-ENDIF  
+ENDIF
 !
 !^^^^^^READ SECTION
 !
 ! CHECK I/O FORMATS OK FOR PRINTING ARRAY (LIMIT CURRENTLY SET TO 200)
 !
-IF ( (INUM.GT.0.AND.INUM.LT.10) .AND.NX.GT.500) THEN  
-   WRITE (IOF, 5)  
+IF ( (INUM.GT.0.AND.INUM.LT.10) .AND.NX.GT.500) THEN
+   WRITE (IOF, 5)
     5 FORMAT  (' ', 'NX greater than 500. Change I/O formats in AREADI' &
 &              / 'Program aborted.' )
-   STOP  
-ENDIF  
+   STOP
+ENDIF
 !
-IF (KON.EQ.0.OR.KON.EQ.1) THEN  
+IF (KON.EQ.0.OR.KON.EQ.1) THEN
 !
-    READ (INF, 10) TITLE  
-        10 FORMAT   (20A4)  
-    DO 40 I1 = 1, NY  
-        K = NY + 1 - I1  
-        IF (INUM.GT.0.AND.INUM.LT.10) THEN  
-            READ (INF, 15) I2, (IA (J, K), J = 1, NX)  
-                15 FORMAT      (I7, 1X, 500I1)  
-            IF (I2.NE.K) THEN  
-                WRITE (IOF, 18) TITLE, I2  
-                STOP  
-            ENDIF  
-        ELSE  
-            READ (INF, 20) I2  
-                20 FORMAT       (I7)  
-            IF (I2.NE.K) THEN  
-                WRITE (IOF, 18) TITLE, I2  
-                STOP  
-            ENDIF  
-  !          READ (INF, 30) (IA (J, K), J = 1, NX)  
-              READ (INF, *) (IA (J, K), J = 1, NX)  
-              30 FORMAT(20I4)  
-        ENDIF  
+    READ (INF, 10) TITLE
+        10 FORMAT   (20A4)
+    DO 40 I1 = 1, NY
+        K = NY + 1 - I1
+        IF (INUM.GT.0.AND.INUM.LT.10) THEN
+            READ (INF, 15) I2, (IA (J, K), J = 1, NX)
+                15 FORMAT      (I7, 1X, 500I1)
+            IF (I2.NE.K) THEN
+                WRITE (IOF, 18) TITLE, I2
+                STOP
+            ENDIF
+        ELSE
+            READ (INF, 20) I2
+                20 FORMAT       (I7)
+            IF (I2.NE.K) THEN
+                WRITE (IOF, 18) TITLE, I2
+                STOP
+            ENDIF
+  !          READ (INF, 30) (IA (J, K), J = 1, NX)
+              READ (INF, *) (IA (J, K), J = 1, NX)
+              30 FORMAT(20I4)
+        ENDIF
 
-    40 ENDDO  
+    40 ENDDO
 18 FORMAT(//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF LINE K=', I5)
 !^^^^^^CONVERT GRID ARRAY TO ELEMENT ARRAY ...
 !
-   DO 62 IEL = 1, total_no_elements  
-      IAOUT (IEL) = 0  
+   DO 62 IEL = 1, total_no_elements
+      IAOUT (IEL) = 0
 
-   62    END DO  
-   DO 64 I = 1, NX  
-      DO 64 J = 1, NY  
-         IEL = ICMXY (I, J)  
-         IF (IEL.NE.0) IAOUT (IEL) = IA (I, J)  
+   62    END DO
+   DO 64 I = 1, NX
+      DO 64 J = 1, NY
+         IEL = ICMXY (I, J)
+         IF (IEL.NE.0) IAOUT (IEL) = IA (I, J)
 
-   64    CONTINUE  
+   64    CONTINUE
 !
 !^^^^^^ ... OR CONVERT ELEMENT ARRAY TO GRID ARRAY
 !
-ELSE  
+ELSE
 !
-   DO 66 I = 1, NX  
-      DO 66 J = 1, NY  
-         IA (I, J) = 0 
-   66    CONTINUE  
-   DO 68 IEL = NGDBGN, total_no_elements  
-      IF (ICMREF (IEL, 1) .EQ.0) THEN  
-         I = ICMREF (IEL, 2)  
-         J = ICMREF (IEL, 3)  
-         IA (I, J) = IAOUT (IEL)  
-      ENDIF  
-   68    END DO  
+   DO 66 I = 1, NX
+      DO 66 J = 1, NY
+         IA (I, J) = 0
+   66    CONTINUE
+   DO 68 IEL = NGDBGN, total_no_elements
+      IF (ICMREF (IEL, 1) .EQ.0) THEN
+         I = ICMREF (IEL, 2)
+         J = ICMREF (IEL, 3)
+         IA (I, J) = IAOUT (IEL)
+      ENDIF
+   68    END DO
 !
 
-ENDIF  
+ENDIF
 !
 !^^^^^^PRINT SECTION
 !
-IF (KON.EQ.0) RETURN !GOTO 180  
+IF (KON.EQ.0) RETURN !GOTO 180
 !
-IF (KON.EQ.1) WRITE (IOF, 80) TITLE  
+IF (KON.EQ.1) WRITE (IOF, 80) TITLE
 
-   80 FORMAT (/ 20A4)  
+   80 FORMAT (/ 20A4)
 !
 ! CHECK FOR ALL ZEROES
 !
-!DO 110 I1 = 1, NX  
-!   DO 110 I2 = 1, NY  
-!      IF (IA (I1, I2) .EQ.0) GOTO 110  
-!      GOTO 130  
+!DO 110 I1 = 1, NX
+!   DO 110 I2 = 1, NY
+!      IF (IA (I1, I2) .EQ.0) GOTO 110
+!      GOTO 130
 !  110 CONTINUE
-IF(I_ISZERO_A2(ia(1:nx,1:ny))) THEN 
-    WRITE (IOF, 120)  
-    120 FORMAT (' ALL VALUES ZERO'/' ==============='/)  
+IF(I_ISZERO_A2(ia(1:nx,1:ny))) THEN
+    WRITE (IOF, 120)
+    120 FORMAT (' ALL VALUES ZERO'/' ==============='/)
     RETURN !GOTO 180
-ENDIF  
+ENDIF
 !
-130 NNX = (NX - 1) / 10 + 1  
+130 NNX = (NX - 1) / 10 + 1
 
-IF (INUM.GT.0.AND.INUM.LT.10) THEN  
-    DO 127 I1 = 1, NY  
-        K = NY + 1 - I1  
-        WRITE (IOF, 125) K, (IA (J, K), J = 1, NX)  
-        125 FORMAT    (' ', 'K=', I4, 1X, 500I1)  
-    127 END DO  
+IF (INUM.GT.0.AND.INUM.LT.10) THEN
+    DO 127 I1 = 1, NY
+        K = NY + 1 - I1
+        WRITE (IOF, 125) K, (IA (J, K), J = 1, NX)
+        125 FORMAT    (' ', 'K=', I4, 1X, 500I1)
+    127 END DO
 
-ELSE  
-    DO 170 L = 1, NNX  
-        LAL = L * 10  
-        LL1 = LAL - 9  
-        NXX = MIN0 (NX, LAL)  
-        WRITE (IOF, 140) (I, I = LL1, LAL)  
-        140 FORMAT     ('0', 9X, 10('J=',I3,6X), /)  
-        DO 150 I1 = 1, NY  
-            K = NY + 1 - I1  
-        150       WRITE (IOF, 160) K, (IA (J, K), J = LL1, NXX)  
-        160 FORMAT     (' ', 'K=', I4, 2X, 10(I6,5X))  
-    170 END DO  
-ENDIF  
-WRITE (IOF, 90)  
+ELSE
+    DO 170 L = 1, NNX
+        LAL = L * 10
+        LL1 = LAL - 9
+        NXX = MIN0 (NX, LAL)
+        WRITE (IOF, 140) (I, I = LL1, LAL)
+        140 FORMAT     ('0', 9X, 10('J=',I3,6X), /)
+        DO 150 I1 = 1, NY
+            K = NY + 1 - I1
+        150       WRITE (IOF, 160) K, (IA (J, K), J = LL1, NXX)
+        160 FORMAT     (' ', 'K=', I4, 2X, 10(I6,5X))
+    170 END DO
+ENDIF
+WRITE (IOF, 90)
 
-   90 FORMAT (//2X, 80('*'), //)  
+   90 FORMAT (//2X, 80('*'), //)
 
-  180 CONTINUE  
+  180 CONTINUE
 END SUBROUTINE AREADI
 
 
-!SSSSSS SUBROUTINE AREADR (AOUT, KON, INF, IOF)  
+
 !> Reads and optionally echoes a double-precision grid/element array.
 !>
 !> `AREADR` mirrors [[AREADI]] for floating-point input. Depending on `KON`, it
 !> reads grid values and converts them to SHETRAN element order, converts an
 !> existing element array for reporting, or reads and prints a grid directly.
-SUBROUTINE AREADR (AOUT, KON, INF, IOF)  
-!----------------------------------------------------------------------*
-!
-!      SERVICE SUBROUTINE TO READ AND PRINT A DOUBLEPRECISION,TWO-DIMENSIONAL ARRAY
-!      (IN DOUBLEPRECISION)
-!
-!----------------------------------------------------------------------*
-!
-!     PARAMETER LIST :
-!     A    : ARRAY TO BE READ
-!     KON  : CONTROL PARAMETER : KON=0 : READ GRID ARRAY (A)
-!                                        CONVERT TO ELEMENT ARRAY (AOUT)
-!                                        NO PRINT
-!                                K0N=1 : READ GRID ARRAY (A)
-!                                        CONVERT TO ELEMENT ARRAY (AOUT)
-!                                        PRINT GRID ARRAY (A)
-!                                KON=2 : NO READ;   CONVERT
-!                                        INPUT ARRAY (AOUT) TO GRID (A)
-!                                        PRINT GRID ARRAY (A)
-!
-!     INF  : FILE UNIT NUMBER FOR READING FROM
-!     IOF  : FILE UNIT NUMBER FOR PRINTING TO
-!
-!----------------------------------------------------------------------*
-! Commons and constants
-! Input arguments
-
-INTEGER :: KON, INF, IOF  
+!>
+!> Control modes are:
+!>
+!> | `KON` | Action |
+!> |:------|:-------|
+!> | 0 | Read double-precision grid array `A`, convert it to element array `AOUT`, and do not print. |
+!> | 1 | Read double-precision grid array `A`, convert it to element array `AOUT`, and print the grid array. |
+!> | 2 | Do not read; convert the input element array `AOUT` back to grid array `A` and print it. |
+!>
+!> Parameters are:
+!>
+!> | Argument | Meaning |
+!> |:---------|:--------|
+!> | `AOUT` | Double-precision element array returned by the routine, or input element array when `KON=2`. |
+!> | `KON` | Control parameter selecting read/convert/print behaviour. |
+!> | `INF` | Input file unit for read modes. |
+!> | `IOF` | Output file unit used when printing the grid and link/bank values. |
+!>
+!> For read modes, the grid-to-element mapping is
+!>
+!> \[
+!> AOUT_{ICMXY(i,j)} = A_{i,j}
+!> \quad\text{for each active grid cell } ICMXY(i,j)\ne0.
+!> \]
+!>
+!> For `KON=2`, the reverse reporting grid is assembled from grid elements using
+!>
+!> \[
+!> A_{ICMREF(iel,2),ICMREF(iel,3)} = AOUT_{iel}
+!> \quad\text{where } ICMREF(iel,1)=0.
+!> \]
+!>
+!> Printed output also includes link values and their associated bank-element
+!> values through `ICMBK`.
+SUBROUTINE AREADR (AOUT, KON, INF, IOF)
+INTEGER :: KON, INF, IOF
 ! In|out arguments
 
-DOUBLEPRECISION AOUT (NELEE)  
+DOUBLEPRECISION AOUT (NELEE)
 ! Locals, etc
 INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, &
  NXX
-DOUBLEPRECISION B1, B2, A (NXEE, NYEE)  
+DOUBLEPRECISION B1, B2, A (NXEE, NYEE)
 
 
-CHARACTER (LEN=4) :: TITLE (20)  
+CHARACTER (LEN=4) :: TITLE (20)
 !----------------------------------------------------------------------*
 !
 !^^^^^^READ SECTION
 !
-IF (KON.EQ.0.OR.KON.EQ.1) THEN  
+IF (KON.EQ.0.OR.KON.EQ.1) THEN
 !
-   READ (INF, 10) TITLE  
-   10 FORMAT   (20A4)  
-   DO 40 I1 = 1, NY  
-      READ (INF, 20) I2  
-   20 FORMAT     (I7)  
-      K = NY + 1 - I1  
-      IF (I2.NE.K) THEN  
-         WRITE (IOF, 25) TITLE, I2  
+   READ (INF, 10) TITLE
+   10 FORMAT   (20A4)
+   DO 40 I1 = 1, NY
+      READ (INF, 20) I2
+   20 FORMAT     (I7)
+      K = NY + 1 - I1
+      IF (I2.NE.K) THEN
+         WRITE (IOF, 25) TITLE, I2
    25 FORMAT       (//2X, 'ERROR IN DATA ', 20A4, //2X, &
 &        'IN THE VICINITY OF LINE K=', I5)
-         STOP  
-      ENDIF  
-      READ (INF, 30) (A (J, K), J = 1, NX)  
-   30 FORMAT     (10G7.0)  
-   40    END DO  
+         STOP
+      ENDIF
+      READ (INF, 30) (A (J, K), J = 1, NX)
+   30 FORMAT     (10G7.0)
+   40    END DO
 !
 !^^^^^^CONVERT GRID ARRAY TO ELEMENT ARRAY
 !
-   DO 64 I = 1, NX  
-      DO 64 J = 1, NY  
-         IEL = ICMXY (I, J)  
-         IF (IEL.NE.0) AOUT (IEL) = A (I, J)  
-   64    CONTINUE  
+   DO 64 I = 1, NX
+      DO 64 J = 1, NY
+         IEL = ICMXY (I, J)
+         IF (IEL.NE.0) AOUT (IEL) = A (I, J)
+   64    CONTINUE
 !
 !^^^^^^CONVERT ELEMENT ARRAY TO GRID ARRAY
 !
-ELSE  
+ELSE
 !
-   DO 66 I = 1, NX  
-      DO 66 J = 1, NY  
-         A (I, J) = zero  
-   66    CONTINUE  
-   DO 68 IEL = NGDBGN, total_no_elements  
-      IF (ICMREF (IEL, 1) .EQ.0) THEN  
-         I = ICMREF (IEL, 2)  
-         J = ICMREF (IEL, 3)  
-         A (I, J) = AOUT (IEL)  
-      ENDIF  
-   68    END DO  
+   DO 66 I = 1, NX
+      DO 66 J = 1, NY
+         A (I, J) = zero
+   66    CONTINUE
+   DO 68 IEL = NGDBGN, total_no_elements
+      IF (ICMREF (IEL, 1) .EQ.0) THEN
+         I = ICMREF (IEL, 2)
+         J = ICMREF (IEL, 3)
+         A (I, J) = AOUT (IEL)
+      ENDIF
+   68    END DO
 !
-ENDIF  
+ENDIF
 !
 !^^^^^^PRINT SECTION
 !
-IF (KON.EQ.0) RETURN !GOTO 180  
+IF (KON.EQ.0) RETURN !GOTO 180
 !
-IF (KON.EQ.1) WRITE (IOF, 80) TITLE  
-   80 FORMAT (/ 20A4)  
+IF (KON.EQ.1) WRITE (IOF, 80) TITLE
+   80 FORMAT (/ 20A4)
 !
 ! CHECK FOR ALL ZEROES
 !
-!DO 110 I = 1, NEL  
-!   IF (ISZERO(AOUT (I))) GOTO 110  
-!   GOTO 130  
-!  110 END DO  
-!WRITE (IOF, 120)  
-!  120 FORMAT (/ ' ALL VALUES ZERO'/' ==============='/)  
+!DO 110 I = 1, NEL
+!   IF (ISZERO(AOUT (I))) GOTO 110
+!   GOTO 130
+!  110 END DO
+!WRITE (IOF, 120)
+!  120 FORMAT (/ ' ALL VALUES ZERO'/' ==============='/)
 !GOTO 180
 
-IF(ISZERO_A(aout(1:total_no_elements))) THEN 
-    WRITE(IOF, 120)  
-    120 FORMAT (' ALL VALUES ZERO'/' ==============='/)  
+IF(ISZERO_A(aout(1:total_no_elements))) THEN
+    WRITE(IOF, 120)
+    120 FORMAT (' ALL VALUES ZERO'/' ==============='/)
     RETURN !GOTO 180
-ENDIF  
+ENDIF
 
-  
+
 !
 ! PRINT ARRAY
 !
-  130 NNX = (NX - 1) / 10 + 1  
-DO 170 L = 1, NNX  
-   LAL = L * 10  
-   LL1 = LAL - 9  
-   NXX = MIN0 (NX, LAL)  
-   WRITE (IOF, 140) (I, I = LL1, LAL)  
-  140 FORMAT   ('0', 9X, 10('J=',I3,6X), /)  
-   DO 150 I1 = 1, NY  
-      K = NY + 1 - I1  
-  150    WRITE (IOF, 160) K, (A (J, K), J = LL1, NXX)  
-  160 FORMAT   (' ', 'K=', I4, 2X, 10G11.4)  
-  170 END DO  
+  130 NNX = (NX - 1) / 10 + 1
+DO 170 L = 1, NNX
+   LAL = L * 10
+   LL1 = LAL - 9
+   NXX = MIN0 (NX, LAL)
+   WRITE (IOF, 140) (I, I = LL1, LAL)
+  140 FORMAT   ('0', 9X, 10('J=',I3,6X), /)
+   DO 150 I1 = 1, NY
+      K = NY + 1 - I1
+  150    WRITE (IOF, 160) K, (A (J, K), J = LL1, NXX)
+  160 FORMAT   (' ', 'K=', I4, 2X, 10G11.4)
+  170 END DO
 !
-WRITE (IOF, 200)  
-  200 FORMAT (/, 10X, 'LINK ', 6X, 'BANK1 ', 5X, 'BANK2 ', /)  
-DO 175 I = 1, total_no_links  
-   B1 = zero  
+WRITE (IOF, 200)
+  200 FORMAT (/, 10X, 'LINK ', 6X, 'BANK1 ', 5X, 'BANK2 ', /)
+DO 175 I = 1, total_no_links
+   B1 = zero
    B2 = zero
-   IEL1 = ICMBK (I, 1)  
-   IEL2 = ICMBK (I, 2)  
-   IF (IEL1.GT.0) B1 = AOUT (IEL1)  
-   IF (IEL2.GT.0) B2 = AOUT (IEL2)  
-   WRITE (IOF, 210) I, AOUT (I), B1, B2  
-  210 FORMAT   (1X, 'L= ', I4, 2X, 3G11.4)  
-  175 END DO  
+   IEL1 = ICMBK (I, 1)
+   IEL2 = ICMBK (I, 2)
+   IF (IEL1.GT.0) B1 = AOUT (IEL1)
+   IF (IEL2.GT.0) B2 = AOUT (IEL2)
+   WRITE (IOF, 210) I, AOUT (I), B1, B2
+  210 FORMAT   (1X, 'L= ', I4, 2X, 3G11.4)
+  175 END DO
 !
-WRITE (IOF, 90)  
-   90 FORMAT (//2X, 120('*'), //)  
+WRITE (IOF, 90)
+   90 FORMAT (//2X, 120('*'), //)
 !
-  180 CONTINUE  
+  180 CONTINUE
 END SUBROUTINE AREADR
 ! 12/8/94
+
 
 
 !FFFFFF FUNCTION ran2
@@ -949,8 +1086,9 @@ END FUNCTION ran2
 END MODULE utilsmod
 
 
-!!SSSSSS SUBROUTINE ADDMM (A, B, C, NL, NC, NASIZE)  
-!SUBROUTINE ADDMM (A, B, C, NL, NC, NASIZE)  
+
+!!SSSSSS SUBROUTINE ADDMM (A, B, C, NL, NC, NASIZE)
+!SUBROUTINE ADDMM (A, B, C, NL, NC, NASIZE)
 !!=======================================================================
 !!
 !!       UTILITAIRE - ADDITION DE MATRICES   A = B + C
@@ -964,11 +1102,11 @@ END MODULE utilsmod
 !DOUBLEPRECISION, INTENT(IN)  :: B(NASIZE,NASIZE), C(NASIZE,NASIZE)
 !DOUBLEPRECISION, INTENT(OUT) :: A(NASIZE,NASIZE)
 !!
-!DO 10, J = 1, NL  
-!   DO 11, I = 1, NC  
-!      A (I, J) = B (I, J) + C (I, J)  
-!   11    END DO  
-!   10 END DO  
+!DO 10, J = 1, NL
+!   DO 11, I = 1, NC
+!      A (I, J) = B (I, J) + C (I, J)
+!   11    END DO
+!   10 END DO
 !!
 !END subroutine ADDMM
 !! 12/8/94
@@ -977,8 +1115,8 @@ END MODULE utilsmod
 !
 !
 !
-!!SSSSSS SUBROUTINE ADDVV (A, B, C, N)  
-!SUBROUTINE ADDVV (A, B, C, N)  
+!!SSSSSS SUBROUTINE ADDVV (A, B, C, N)
+!SUBROUTINE ADDVV (A, B, C, N)
 !!=======================================================================
 !!
 !!       UTILITAIRE - ADDITION VECTORIELLE   A = B + C
@@ -991,14 +1129,14 @@ END MODULE utilsmod
 !DOUBLEPRECISION, INTENT(IN)  :: B(N), C(N)
 !DOUBLEPRECISION, INTENT(OUT) :: A(N)
 !!
-!DO 10, I = 1, N  
-!   A (I) = B (I) + C (I)  
-!   10 END DO  
+!DO 10, I = 1, N
+!   A (I) = B (I) + C (I)
+!   10 END DO
 !!
 !END SUBROUTINE ADDVV
 !
-!!SSSSSS SUBROUTINE CHSGN (A, NL, NC, NASIZE)  
-!SUBROUTINE CHSGN (A, NL, NC, NASIZE)  
+!!SSSSSS SUBROUTINE CHSGN (A, NL, NC, NASIZE)
+!SUBROUTINE CHSGN (A, NL, NC, NASIZE)
 !!=======================================================================
 !!
 !!       UTILITAIRE - CHAGEMENT DE SIGNE D'UNE MATRICE  A = -A
@@ -1009,20 +1147,20 @@ END MODULE utilsmod
 !!      IMPLICIT INTEGER (I-N)
 !INTEGER, INTENT(IN) :: nl, nc, nasize
 !INTEGER :: i, j
-!DOUBLEPRECISION :: A(NASIZE, NASIZE)  
+!DOUBLEPRECISION :: A(NASIZE, NASIZE)
 !!
-!DO 10, J = 1, NL  
-!   DO 11, I = 1, NC  
-!      A (I, J) = - A (I, J)  
-!   11    END DO  
-!   10 END DO  
+!DO 10, J = 1, NL
+!   DO 11, I = 1, NC
+!      A (I, J) = - A (I, J)
+!   11    END DO
+!   10 END DO
 !!
-!RETURN  
+!RETURN
 !END SUBROUTINE CHSGN
 !
 !
-!!SSSSSS SUBROUTINE DIFVV (A, B, C, N, NASIZE)  
-!SUBROUTINE DIFVV (A, B, C, N, NASIZE)  
+!!SSSSSS SUBROUTINE DIFVV (A, B, C, N, NASIZE)
+!SUBROUTINE DIFVV (A, B, C, N, NASIZE)
 !!=======================================================================
 !!
 !!       UTILITAIRE - SOUSTRACTION VECTORIELLE   A = B - C
@@ -1033,18 +1171,18 @@ END MODULE utilsmod
 !!      IMPLICIT INTEGER (I-N)
 !INTEGER, INTENT(IN) :: n, nasize
 !INTEGER :: i
-!DOUBLEPRECISION :: A(NASIZE), B(NASIZE), C(NASIZE)  
+!DOUBLEPRECISION :: A(NASIZE), B(NASIZE), C(NASIZE)
 !!
-!DO 10, I = 1, N  
-!   A (I) = B (I) - C (I)  
-!   10 END DO  
+!DO 10, I = 1, N
+!   A (I) = B (I) - C (I)
+!   10 END DO
 !!
 !END subroutine DIFVV
 !!
 !!----------------------------------------------------------------------
 !
 !!SSSSSS SUBROUTINE PMINVM
-!SUBROUTINE PMINVM(A, N, ICOD)  
+!SUBROUTINE PMINVM(A, N, ICOD)
 !!=======================================================================
 !!
 !!       UTILITAIRE - INVERSION MATRICIELLE   A = INVERSE DE A
@@ -1072,17 +1210,17 @@ END MODULE utilsmod
 !!cc       character*70 ooo
 !!
 !ret=.FALSE.
-!ICOD = 0  
-!IF (N.LE.0) THEN  
-!    ICOD = 1  
-!    ret=.TRUE.  
+!ICOD = 0
+!IF (N.LE.0) THEN
+!    ICOD = 1
+!    ret=.TRUE.
 !ELSEIF (N.EQ.1) THEN
-!    ret=.TRUE.  
-!    IF (ABS (A (1, 1) ) .LE.EPS) THEN  
-!        ICOD = 1  
-!    ELSE  
-!        A (1, 1) = one / A (1, 1)  
-!    ENDIF  
+!    ret=.TRUE.
+!    IF (ABS (A (1, 1) ) .LE.EPS) THEN
+!        ICOD = 1
+!    ELSE
+!        A (1, 1) = one / A (1, 1)
+!    ENDIF
 !ENDIF
 !IF(ret) RETURN
 !!
@@ -1104,41 +1242,41 @@ END MODULE utilsmod
 !!          endif
 !! 4      continue
 !!        write(*,*) ooo
-!diadom = .TRUE.  
+!diadom = .TRUE.
 !DO I = 1, N
-!    IF(.NOT.diadom) CYCLE 
+!    IF(.NOT.diadom) CYCLE
 !    DO J = 1, N
-!        IF(.NOT.diadom) CYCLE  
-!        IF (ABS (A (I, I) ) .LT.ABS (A (I, J) ) ) diadom = .FALSE.  
-!        IF (ABS (A (I, I) ) .LT.ABS (A (J, I) ) ) diadom = .FALSE.  
+!        IF(.NOT.diadom) CYCLE
+!        IF (ABS (A (I, I) ) .LT.ABS (A (I, J) ) ) diadom = .FALSE.
+!        IF (ABS (A (I, I) ) .LT.ABS (A (J, I) ) ) diadom = .FALSE.
 !    ENDDO
-!ENDDO  
+!ENDDO
 !
 !out10 : DO K = 1, N
-!    IF(icod==1) CYCLE out10 
+!    IF(icod==1) CYCLE out10
 !    !.... RECHERCHE DU PIVOT MAXIMUM (IPIV,JPIV)
 !    !     --------------------------------------
 !    !
-!    KM1 = K - 1  
-!    PIVOT = ZERO  
+!    KM1 = K - 1
+!    PIVOT = ZERO
 !    !
 !    ! CHECK ONLY DIAGONAL ELEMENTS IF DIAGONALLY DOMINANT
 !    !
-!    IF (DIADOM) THEN  
+!    IF (DIADOM) THEN
 !        out15 : DO IPIV = 1, N
 !            cycle15=.FALSE.
-!            IF (KM1.GT.0) THEN  
+!            IF (KM1.GT.0) THEN
 !                out17 : DO I = 1, KM1
 !                    IF(cycle15) CYCLE out17
-!                    IF (IPIV.EQ.LC (I, 1) ) cycle15=.TRUE. !GOTO 15  
-!                ENDDO out17 
+!                    IF (IPIV.EQ.LC (I, 1) ) cycle15=.TRUE. !GOTO 15
+!                ENDDO out17
 !            ENDIF
 !            IF(cycle15) CYCLE out15
-!            IF (ABS (A (IPIV, IPIV) ) .GT.ABS (PIVOT) ) THEN  
-!                PIVOT = A (IPIV, IPIV)  
-!                LC (K, 1) = IPIV  
-!                LC (K, 2) = IPIV  
-!            ENDIF  
+!            IF (ABS (A (IPIV, IPIV) ) .GT.ABS (PIVOT) ) THEN
+!                PIVOT = A (IPIV, IPIV)
+!                LC (K, 1) = IPIV
+!                LC (K, 2) = IPIV
+!            ENDIF
 !        ENDDO out15
 !    !
 !    ! OTHERWISE, CHECK ALL ELEMENTS
@@ -1149,69 +1287,69 @@ END MODULE utilsmod
 !            out21 : DO JPIV = 1, N
 !                IF(cycle20) CYCLE out21
 !                cycle21=.FALSE.
-!                IF (KM1.GT.0) THEN  
+!                IF (KM1.GT.0) THEN
 !                    out22 : DO I = 1, KM1
-!                        IF(cycle20.OR.cycle21) CYCLE out22  
-!                        IF (IPIV.EQ.LC (I, 1) ) cycle20=.TRUE.  
-!                        IF (JPIV.EQ.LC (I, 2) ) cycle21=.TRUE. 
+!                        IF(cycle20.OR.cycle21) CYCLE out22
+!                        IF (IPIV.EQ.LC (I, 1) ) cycle20=.TRUE.
+!                        IF (JPIV.EQ.LC (I, 2) ) cycle21=.TRUE.
 !                    ENDDO out22
 !                ENDIF
-!                IF(cycle20.OR.cycle21) CYCLE out21  
-!                IF (ABS (A (IPIV, JPIV) ) .GT.ABS (PIVOT) ) THEN  
-!                    PIVOT = A (IPIV, JPIV)  
-!                    LC (K, 1) = IPIV  
-!                    LC (K, 2) = JPIV  
-!                ENDIF  
-!            ENDDO out21  
-!        ENDDO out20  
-!   ENDIF  
+!                IF(cycle20.OR.cycle21) CYCLE out21
+!                IF (ABS (A (IPIV, JPIV) ) .GT.ABS (PIVOT) ) THEN
+!                    PIVOT = A (IPIV, JPIV)
+!                    LC (K, 1) = IPIV
+!                    LC (K, 2) = JPIV
+!                ENDIF
+!            ENDDO out21
+!        ENDDO out20
+!   ENDIF
 !    !
-!    IF (ABS (PIVOT) .LE.EPS) THEN  
-!        ICOD = 1  
-!        CYCLE out10 
-!    ENDIF  
+!    IF (ABS (PIVOT) .LE.EPS) THEN
+!        ICOD = 1
+!        CYCLE out10
+!    ENDIF
 !    !
 !    !.... INVERSION PROPREMENT DITE
 !    !     -------------------------
-!    IPIV = LC (K, 1)  
-!    JPIV = LC (K, 2)  
-!    PIVINV = one / PIVOT  
-!    DO J = 1, N  
-!        A (IPIV, J) = A (IPIV, J) * PIVINV  
-!    ENDDO  
-!    A (IPIV, JPIV) = PIVINV  
-!    DO I = 1, N  
-!        IF (I.NE.IPIV) THEN  
-!            AIJPIV = A (I, JPIV)  
-!            A (I, JPIV) = - AIJPIV * PIVINV  
-!            DO J = 1, N  
+!    IPIV = LC (K, 1)
+!    JPIV = LC (K, 2)
+!    PIVINV = one / PIVOT
+!    DO J = 1, N
+!        A (IPIV, J) = A (IPIV, J) * PIVINV
+!    ENDDO
+!    A (IPIV, JPIV) = PIVINV
+!    DO I = 1, N
+!        IF (I.NE.IPIV) THEN
+!            AIJPIV = A (I, JPIV)
+!            A (I, JPIV) = - AIJPIV * PIVINV
+!            DO J = 1, N
 !                IF (J.NE.JPIV) A (I, J) = A (I, J) - AIJPIV * A (IPIV, J)
 !            ENDDO
-!        ENDIF  
-!    ENDDO  
+!        ENDIF
+!    ENDDO
 !ENDDO out10
 !
-!IF(icod==1) RETURN  
+!IF(icod==1) RETURN
 !
 !!.... REMISE EN ORDRE
 !!     ---------------
-!DO J = 1, N  
-!    DO I = 1, N  
-!        IPIV = LC(I, 1)  
-!        JPIV = LC(I, 2)  
-!        TR (JPIV) = A(IPIV, J)  
-!    ENDDO  
-!    A (:,J) = TR  
-!ENDDO  
+!DO J = 1, N
+!    DO I = 1, N
+!        IPIV = LC(I, 1)
+!        JPIV = LC(I, 2)
+!        TR (JPIV) = A(IPIV, J)
+!    ENDDO
+!    A (:,J) = TR
+!ENDDO
 !!
-!DO I = 1, N  
-!    DO J = 1, N  
-!        IPIV = LC (J, 1)  
-!        JPIV = LC (J, 2)  
-!        TR (IPIV) = A (I, JPIV)  
-!    ENDDO  
-!    A(I,:) = TR  
-!ENDDO  
+!DO I = 1, N
+!    DO J = 1, N
+!        IPIV = LC (J, 1)
+!        JPIV = LC (J, 2)
+!        TR (IPIV) = A (I, JPIV)
+!    ENDDO
+!    A(I,:) = TR
+!ENDDO
 !!
 !!cccc      IF (DIADOM) THEN
 !!        WRITE(*,*) 'DIAGONALLY DOMINANT'
@@ -1221,8 +1359,8 @@ END MODULE utilsmod
 !!cccc      write(*,*) 'diag min, off max = ',dimin,omax
 !END SUBROUTINE PMINVM
 !
-!!SSSSSS SUBROUTINE MULMM (A, B, C, N1, N2, N3, NASIZE)  
-!SUBROUTINE MULMM (A, B, C, N1, N2, N3, NASIZE)  
+!!SSSSSS SUBROUTINE MULMM (A, B, C, N1, N2, N3, NASIZE)
+!SUBROUTINE MULMM (A, B, C, N1, N2, N3, NASIZE)
 !!=======================================================================
 !!
 !!       UTILITAIRE - MULTIPLICATION MATRICIELLE   A = B * C
@@ -1236,19 +1374,19 @@ END MODULE utilsmod
 !INTEGER, INTENT(IN) :: N1, N2, N3, NASIZE
 !INTEGER :: i, j, k
 !DOUBLEPRECISION ::  A(NASIZE, NASIZE), B(NASIZE, NASIZE), C(NASIZE,NASIZE)
-!DO 10, J = 1, N1  
-!   DO 11, I = 1, N3  
-!      A (I, J) = ZERO  
-!      DO 12, K = 1, N2  
-!         A (I, J) = A (I, J) + B (K, J) * C (I, K)  
-!   12       END DO  
-!   11    END DO  
-!   10 END DO  
+!DO 10, J = 1, N1
+!   DO 11, I = 1, N3
+!      A (I, J) = ZERO
+!      DO 12, K = 1, N2
+!         A (I, J) = A (I, J) + B (K, J) * C (I, K)
+!   12       END DO
+!   11    END DO
+!   10 END DO
 !!
 !END SUBROUTINE MULMM
 !
-!!SSSSSS SUBROUTINE MULMV (A, B, C, NL, NC, NASIZE)  
-!SUBROUTINE MULMV (A, B, C, NL, NC, NASIZE)  
+!!SSSSSS SUBROUTINE MULMV (A, B, C, NL, NC, NASIZE)
+!SUBROUTINE MULMV (A, B, C, NL, NC, NASIZE)
 !!=======================================================================
 !!
 !!       UTILITAIRE - MULTIPLICATION MATRICE-VECTEUR  A = B * C
@@ -1259,13 +1397,13 @@ END MODULE utilsmod
 !!      IMPLICIT INTEGER (I-N)
 !INTEGER, INTENT(IN) :: NL, NC, NASIZE
 !INTEGER :: i, k
-!DOUBLEPRECISION :: A(NASIZE), B(NASIZE, NASIZE), C(NASIZE)  
+!DOUBLEPRECISION :: A(NASIZE), B(NASIZE, NASIZE), C(NASIZE)
 !!
-!DO 10, I = 1, NL  
-!   A (I) = ZERO  
-!   DO 11, K = 1, NC  
-!      A (I) = A (I) + B (K, I) * C (K)  
-!   11    END DO  
-!   10 END DO  
+!DO 10, I = 1, NL
+!   A (I) = ZERO
+!   DO 11, K = 1, NC
+!      A (I) = A (I) + B (K, I) * C (K)
+!   11    END DO
+!   10 END DO
 !!
 !END SUBROUTINE MULMV
