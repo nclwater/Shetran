@@ -1,5 +1,9 @@
 # Changelog
 
+## 210526
+
+- improved channel junction convergence
+
 ## 080526
 
 - add percentage completion and other improved output to command prompt during simulation
