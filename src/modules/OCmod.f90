@@ -1939,11 +1939,21 @@ END SUBROUTINE OCSIM
 !> uniformly spaced depth, conveyance, and conveyance-derivative values used by
 !> the OC flow calculation.
 !>
-!> Entry requirements retained from the legacy routine are: at least one active
-!> link, `NXSCEE >= 2`, positive channel widths `CWIDTH(1:total_no_links)`,
-!> `NXSECT` values within the allocated `XINH`/`XINW`/`XAREA` table sizes, a
-!> positive maximum tabulated depth, and strictly increasing tabulated depths
-!> within each link.
+!> The SHETRAN User Guide and Data Input Manual defines the channel
+!> cross-section data in records `OC30`-`OC34`: each cross-section category is
+!> supplied as width/depth pairs (`XDEFW`, `XDEFH`), the first depth must be
+!> zero, and the final depth defines the bankfull depth. The manual also states
+!> that channel flow uses the user-supplied cross-section, while subsurface-flow
+!> exchange uses an effective rectangular channel with the same cross-sectional
+!> area.
+!>
+!> In the code these manual fields are stored per link as `XINW(link,j)` and
+!> `XINH(link,j)`, with `NXSECT(link)` width/depth pairs and roughness
+!> `STRXX(link)`. Entry requirements retained from the legacy routine are:
+!> at least one active link, `NXSCEE >= 2`, positive channel widths
+!> `CWIDTH(1:total_no_links)`, `NXSECT` values within the allocated
+!> `XINH`/`XINW`/`XAREA` table sizes, a positive final tabulated depth, and
+!> strictly increasing tabulated depths within each link.
 !>
 !> Input width-depth pairs are integrated by the trapezoidal rule. For tabulated
 !> level \(j\),
@@ -1954,15 +1964,16 @@ END SUBROUTINE OCSIM
 !>   \left(XINH_j-XINH_{j-1}\right),
 !> \]
 !>
-!> with `XAREA(:,1)=0`. The effective bed elevation preserves the same full-bank
-!> storage area when the channel is represented by a rectangular full-width
-!> extension above bankfull:
+!> with `XAREA(:,1)=0`. The manual's effective rectangular-channel statement is
+!> implemented by shifting the effective bed elevation so that a rectangle of
+!> width `CWIDTH` has the same bankfull area as the tabulated cross-section:
 !>
 !> \[
 !> ZBEFF = ZBFULL - XAREA_N/CWIDTH.
 !> \]
 !>
-!> The lookup table `XSTAB` has rows:
+!> The lookup table `XSTAB` supports the OC flow calculation without repeatedly
+!> integrating the irregular cross-section. It has rows:
 !>
 !> | `XSTAB` row | Meaning |
 !> |:------------|:--------|
@@ -1976,8 +1987,9 @@ END SUBROUTINE OCSIM
 !> \Delta h = XINH_N/(NXSCEE-1),\qquad h_j=(j-1)\Delta h.
 !> \]
 !>
-!> For each lookup depth \(h_j\), the enclosing input interval
-!> \(H_i \le h_j \le H_{i+1}\) is found, width is linearly interpolated through
+!> For each lookup depth \(h_j\), the enclosing manual input interval
+!> \(H_i \le h_j \le H_{i+1}\) is found. Width is treated as linearly varying
+!> between the two tabulated width/depth points:
 !>
 !> \[
 !> \alpha=\frac{h_j-H_i}{H_{i+1}-H_i},
@@ -1991,8 +2003,25 @@ END SUBROUTINE OCSIM
 !>   (h_j-H_i).
 !> \]
 !>
-!> `CONVEYAN` converts \(A_j\), depth, and roughness `STRXX` into conveyance
-!> \(C_j\). The stored derivative for interval `j-1` is
+!> `CONVEYAN` converts \(A_j\), depth, and roughness `STRXX` into conveyance.
+!> For `OCXS` it is called with `ty=0`, so the main branch used away from
+!> near-zero depth is the Gauckler-Manning-Strickler-style relation implemented
+!> in [[ocmod2:conveyan]]:
+!>
+!> \[
+!> C_j = STRXX\,A_j\,h_j^{2/3}.
+!> \]
+!>
+!> For \(10^{-9} \le h_j < 10^{-3}\) m, the code uses the smoothed polynomial
+!> branch in `CONVEYAN` for automatic-differentiation stability:
+!>
+!> \[
+!> C_j = STRXX\,A_j\,\frac{10}{3}\,h_j(4-1000h_j),
+!> \]
+!>
+!> and for smaller depths it returns zero conveyance. The stored derivative in
+!> `XSTAB` is not the derivative returned by `CONVEYAN`; `OCXS` stores the
+!> finite-difference slope for interval `j-1`:
 !>
 !> \[
 !> XSTAB_{3,j-1} = \frac{C_j-C_{j-1}}{\Delta h},
