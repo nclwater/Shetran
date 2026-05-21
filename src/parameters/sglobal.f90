@@ -76,7 +76,7 @@ IMPLICIT NONE
 !16 Sep 94  NB  INFR references elements LCODEX(NX+1) and LCODEY(NY+1)!
 !30 Sep 94  NB  NELEE is also used as size of workspace arrays.
 !Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
-      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
+      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  
 !      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.6
 !      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=2000, nelee=80000  !sv4.5
       INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
