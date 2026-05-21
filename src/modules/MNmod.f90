@@ -1,24 +1,32 @@
-!> summary: Mineral nitrogen cycling and plant uptake.
+!> summary: Nitrate/mineral nitrogen cycling and plant uptake.
 !>
-!> This module implements the optional SHETRAN mineral nitrogen component called
-!> from the contaminant model. It simulates ammonium and nitrate concentrations
-!> in soil water, carbon and nitrogen turnover in humus/litter/manure pools,
+!> This module implements the optional SHETRAN Nitrate Component described in
+!> the User Guide and Data Input Manual. The component requires the contaminant
+!> component and is coupled through [[cmmod]] rather than run as an independent
+!> transport solver. It updates ammonium and nitrate process terms in soil
+!> water, carbon and nitrogen turnover in humus/litter/manure pools,
 !> mineralisation and immobilisation, nitrification, denitrification, ammonia
-!> volatilisation, plant uptake, environmental temperature/moisture/pH
-!> reduction factors, input checking, interpolation of spatially varying
-!> parameters, and nitrogen output reporting.
+!> volatilisation, dry/wet deposition, plant uptake, environmental response
+!> factors, input checking, interpolation of spatially varying parameters, and
+!> nitrate/carbon/nitrogen output reporting.
 !>
-!> The implementation follows the common process-based soil nitrogen modelling
-!> structure in which mineralisation, nitrification, denitrification and plant
-!> uptake are modified by soil temperature and moisture response factors. Q10
-!> temperature response options are provided for mineralisation and
-!> nitrification; Q10-style temperature sensitivity is widely used in soil N
-!> mineralisation models, for example as discussed by Sierra (2010):
-!> https://doi.org/10.1016/j.geoderma.2010.04.009. The code is nevertheless a
-!> SHETRAN-specific formulation with tabulated depth/element parameters and
-!> legacy segmented environmental response functions.
+!> The manual's main nitrate input file (`MND`) supplies the nitrate title,
+!> decomposition and uptake constants for ammonium and nitrate (`MN11`),
+!> organic-matter efficiency and humification parameters (`MN12`), ammonium and
+!> nitrate deposition rates (`MN13`), reference concentration for nonlinear
+!> adsorption (`MN14`), category/depth tables for humus, litter, manure,
+!> nitrification, ammonia volatilisation, and denitrification (`MN15`-`MN28`),
+!> ammonium adsorption parameters (`MN30`, `MN31`), Q10 controls for
+!> mineralisation and nitrification (`MN35`, `MN35a`), initial carbon and
+!> ammonium conditions (`MN40`-`MN54`), and the lower cell limit for
+!> decomposition (`MN60`).
 !>
-!> The component is coupled through [[cmmod]] rather than run independently.
+!> Additional manual-defined files provide time-varying external carbon inputs
+!> (`MNFC`), external inorganic nitrogen/fertilizer inputs (`MNFN`), nitrogen
+!> plant-uptake parameters (`MNPL`), printed diagnostics (`MNPR`), extra carbon
+!> and nitrogen output (`MNOUT1`, `MNOUT2`), and plant nitrogen output
+!> (`MNOUTPL`).
+!>
 !> Nitrate concentrations are transported by the contaminant solver; this module
 !> supplies ammonium/nitrate reaction, uptake, deposition, and source/sink terms
 !> for the dynamic and dead-space soil-water regions. At present [[mnerr0]]
@@ -28,7 +36,7 @@
 !> @warning Plant uptake is calculated by [[mnplant]] before the main nitrogen
 !> update. The legacy source comments state that this routine has weak input
 !> checking, so changes to plant uptake parameters should be reviewed against
-!> the nitrate plant-uptake input section of the manual and tested carefully.
+!> the manual's nitrate plant-uptake input file (`MNPL`) and tested carefully.
 !> @endwarning
 !>
 !> History:
