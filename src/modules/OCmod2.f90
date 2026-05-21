@@ -7,19 +7,49 @@
 !> bank-link, boundary, confluence, and weir exchange flows, and applies final
 !> flow/depth corrections after a timestep.
 !>
-!> Most open-channel and overland exchange routines use a conveyance relation of
-!> the Gauckler-Manning-Strickler form, with Strickler roughness and a `h**(2/3)`
-!> hydraulic-depth factor. The HEC-HMS channel-flow documentation gives the
-!> same class of empirical resistance formulation:
-!> https://www.hec.usace.army.mil/confluence/hmsdocs/hmstrm/channel-flow/channel-flow-basic-concepts-equations-and-solution-techniques.
-!> Weir routines use horizontal-crest weir equations with drowned and undrowned
-!> branches; for context on submerged weir behaviour see the HEC-RAS hydraulic
-!> reference:
-!> https://www.hec.usace.army.mil/confluence/rasdocs/ras1dtechref/6.5/modeling-gated-spillways-weirs-and-drop-structures/uncontrolled-overflow-weirs/submerged-weir-flow.
+!> The SHETRAN User Guide and Data Input Manual supplies the OC hydraulic inputs:
+!> Strickler roughness through `OC3a`, `OC4`, `OC14`-`OC19`, channel-link
+!> cross-section and roughness through `OC30`-`OC36`, and weir or river-plus-weir
+!> boundary data through `OC38`-`OC41`. These records provide the coefficients
+!> used by the routines here; the formulas below describe the actual code paths.
 !>
-!> Reservoir/channel links may instead obtain discharge from [[zqmod]] rating
-!> tables through `get_ZQTable_value`, so those cases are tabulated
-!> stage-discharge lookups rather than direct conveyance or weir formulae.
+!> `CONVEYAN` evaluates the conveyance kernels used by overland, channel, bank,
+!> and boundary exchange. Away from the near-zero-depth smoothing branch, the
+!> area-based channel form used with `ty=0` is
+!>
+!> \[
+!> C = K\,A\,h^{2/3},
+!> \]
+!>
+!> where `K` is the relevant Strickler coefficient, `A` is flow area, and `h` is
+!> depth. The depth-width form used with `ty=1` is
+!>
+!> \[
+!> C = (K\,W)\,h^{5/3},
+!> \]
+!>
+!> where `W` has already been folded into the passed roughness-width factor.
+!> For \(10^{-9} \le h < 10^{-3}\) m, both forms use a smoothed polynomial
+!> branch to avoid singular derivatives near zero depth; below \(10^{-9}\) m
+!> conveyance and derivative are zero.
+!>
+!> Exchange routines then combine conveyance with the water-level difference
+!> \(\Delta z\) and flow-path length \(L\):
+!>
+!> \[
+!> Q = C\,\frac{\sqrt{\max(\Delta z,0)}}{\sqrt{L}},
+!> \]
+!>
+!> with signs chosen so paired face/link fluxes are conservative. Derivative
+!> arrays such as `DQ0ST`, `DQIST`, and `DQIST2` are the corresponding
+!> linearisations with respect to the upstream/downstream water levels.
+!>
+!> Weir routines use the manual's `OC38`-`OC41` weir coefficient, sill
+!> elevation, downstream water level, and submerged-flow ratio in the
+!> horizontal-crest weir solver [[qweir]]. Reservoir/channel links may instead
+!> obtain discharge from [[zqmod]] rating tables through `get_ZQTable_value`; in
+!> those cases discharge is a tabulated stage-discharge lookup rather than a
+!> direct conveyance or weir calculation.
 !>
 !> History:
 !>
