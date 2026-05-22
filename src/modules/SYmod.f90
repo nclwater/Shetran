@@ -1,32 +1,82 @@
-!> summary: Sediment yield, erosion, deposition, and transport calculations.
+!> summary: SHETRAN sediment erosion, transport, deposition, and bed updating.
 !>
-!> This module implements the SHETRAN sediment yield component. It reads and
-!> checks sediment input data, initialises bed/loose/suspended sediment state,
-!> derives water-flow quantities needed by the sediment routines, calculates
-!> ground and bank erosion, evaluates sediment transport capacity in overland
-!> and channel flow, routes suspended and bed material fractions, and updates
-!> bed, loose-sediment, and model output arrays.
+!> The `SY` component is the optional sediment module described in section 2.8
+!> of the SHETRAN User Guide and Data Input Manual. It reads the `SY01`-`SY64`
+!> data groups, checks their consistency, initialises loose hillslope sediment
+!> and the two channel-bed layers, derives hydraulic quantities from the water
+!> modules, calculates hillslope and bank erosion, evaluates transport capacity,
+!> routes each sediment size fraction, and updates mobile concentration,
+!> loose-sediment, bed-sediment, infiltration, and output arrays.
 !>
-!> Channel transport capacity is selected between Ackers-White and
-!> Engelund-Hansen style formulae for non-fine material. The code's
-!> Ackers-White branch follows the dimensionless total-load formulation
-!> developed by Ackers and White (1973); a concise implementation reference is
-!> available from Flood Modeller:
-!> https://help.floodmodeller.com/docs/ackers-white-1973-total-load-equation.
-!> The Engelund-Hansen branch is a stream-power total-load relation; see the
-!> HEC-RAS sediment technical reference:
-!> https://www.hec.usace.army.mil/confluence/rasdocs/d2sd/ras2dsedtr/6.3/model-description/transport-potential-formulas/engelund-hansen.
+!> The code uses the manual's non-dimensional mobile concentration `FDEL` rather
+!> than storing concentration directly. Appendix B defines, for size fraction
+!> \(i\),
 !>
-!> Critical shear stress is calculated through a Shields-curve-style
-!> relationship, and overland transport includes Engelund-Hansen and Yalin-style
-!> alternatives depending on `ISGSED`. The implementation also contains
-!> SHETRAN-specific bookkeeping for fine sediment, infiltration, armouring, and
-!> exchange between loose bed material, suspended load, and deposited material.
+!> \[
+!>   c_i = FDEL_i \rho
+!> \]
 !>
-!> @warning The manual describes sediment boundary data (`SY61`-`SY64`) but
-!> notes that sediment boundary-condition routines have not yet been implemented.
-!> This matches the current empty [[sybc]] routine. Sediment mass-balance output
-!> is also a placeholder in [[balsed]].
+!> where \(c_i\) is mass concentration in the water column and \(\rho\) is the
+!> bulk density of the material after hypothetical settling: channel bed
+!> sediment for links (`PBSED`) and loose hillslope sediment for land elements
+!> (`PLS`). In the code this convention appears in arrays such as `FDEL`,
+!> `FBETA`, `DLS`, `DCBSED`, and `DDBSED`.
+!>
+!> Important manual switches are implemented as follows:
+!>
+!> | Switch | Manual meaning | Implemented code path |
+!> |:-------|:---------------|:----------------------|
+!> | `ISGSED = 0` | Yalin overland-flow capacity | [[syovtr]] Yalin branch, using median available diameter and [[sycrit]]. |
+!> | `ISGSED = 1` | Engelund-Hansen overland-flow capacity | [[syovtr]] stream-power branch. |
+!> | other `ISGSED` | zero overland transport capacity | [[syovtr]] leaves capacity at zero. |
+!> | `ISTEC = 1` | critical shear from fractional clay content | [[sycrit]] quick clay-content relation. |
+!> | other `ISTEC` | Shields formula | [[sycrit]] piecewise Shields-style relation. |
+!> | `ISACKW = 0` | Engelund-Hansen channel capacity | [[syengh]] in [[sycltr]]. |
+!> | `ISACKW = 1` | Ackers-White channel capacity | [[syackw]] in [[sycltr]]. |
+!> | `ISACKW = 2` | Ackers-White-Day channel capacity | [[syackw]] with bed-percentile modification. |
+!> | `ISUSED = 0` | non-fines move at water speed | [[sycltr]] velocity assignment. |
+!> | `ISUSED = 1` | non-fines may move slower than water | [[sycltr]] shear-dependent velocity assignment. |
+!>
+!> Sediment is represented by `NSED` size groups in increasing diameter
+!> (`DRSED`). The manual restricts `NFINE` to 0 or 1; when `NFINE = 1`, the
+!> smallest size group is treated as fine material. Fine sediment is capacity
+!> limited in channels by `FPCRIT`, always travels at the water velocity, may
+!> infiltrate into the bed after settling, and may be protected from
+!> resuspension by armouring. Non-fine channel capacity is calculated by
+!> Ackers-White, Ackers-White-Day, or Engelund-Hansen as selected by `ISACKW`.
+!> Overland capacity uses the Yalin or Engelund-Hansen option selected by
+!> `ISGSED`; the manual notes that these formulae were derived for
+!> non-cohesive channel transport and their suitability for rainfall-driven
+!> overland flow is uncertain.
+!>
+!> Key state and limiting parameters follow the manual definitions:
+!>
+!> | Parameter | Role in this module |
+!> |:----------|:--------------------|
+!> | `FPCRIT` | Maximum `FDEL` for each channel size group and maximum total overland `FDEL`. |
+!> | `DLSMAX` | Hillslope loose-sediment depth at which underlying soil erosion is suppressed. |
+!> | `DCBEDO` | Active upper channel-bed thickness controlling exchange with the lower layer. |
+!> | `ALPHA` | Ratio of fine-sediment settling to resuspension critical shear stress. |
+!> | `FBIC`, `FICRIT` | Fine-sediment bed-fraction and concentration thresholds controlling infiltration. |
+!> | `CONCOB` | Mobile concentration threshold used for overbank sediment exchange. |
+!>
+!> Programmer's map:
+!>
+!> | Routine | Main responsibility |
+!> |:--------|:--------------------|
+!> | [[symain]] | Top-level time-step driver for reading, initialisation, erosion, transport, routing, and outputs. |
+!> | [[syread]] / [[syerr1]]-[[syerr3]] | Read and validate `SY` input data. |
+!> | [[syinit]] / [[sywat]] | Initialise sediment state and derive water-dependent geometry, slopes, flows, and shear stresses. |
+!> | [[syover]] / [[sybker]] | Calculate ground-surface and channel-bank erosion. |
+!> | [[sycolm]] / [[sylink]] | Route sediment through land elements and channel links. |
+!> | [[sycltr]], [[syackw]], [[syengh]], [[syovtr]], [[sycrit]] | Compute capacity, velocities, and critical shear stress. |
+!> | [[sybed]] / [[syfine]] | Update two-layer channel bed storage, fine-sediment settling, infiltration, and armouring limits. |
+!>
+!> @warning
+!> The manual defines sediment boundary-condition input groups `SY61`-`SY64`,
+!> but explicitly states that the sediment boundary-condition routines have not
+!> yet been implemented. This matches the current empty [[sybc]] routine.
+!> Sediment mass-balance output is also still a placeholder in [[balsed]].
 !> @endwarning
 !>
 !> History:

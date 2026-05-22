@@ -1,32 +1,70 @@
 !> summary: Variably saturated subsurface flow.
 !>
-!> This module implements SHETRAN's VSS component: reading variably saturated
-!> subsurface input, constructing layer and cell connectivity, preparing
-!> time-varying boundary conditions, assembling each one-dimensional column
-!> problem, solving pressure head changes, and returning groundwater/surface
-!> exchange, spring, well, lateral, and vertical fluxes to the shared model
-!> arrays.
+!> This module implements SHETRAN's `VS`/`VSS` component described in section
+!> 2.5 of the User Guide and Data Input Manual. It reads the variably saturated
+!> subsurface data file (`VSD`, `VS01`-`VS18`) and, when requested by `INITYP`,
+!> the initial-conditions file (`VSI`). It constructs soil, river-bed, and
+!> aquifer-zone cells; builds layer and cell connectivity; prepares
+!> time-varying subsurface boundary data; solves each coupled column problem;
+!> and returns surface exchange, spring, well, lateral, vertical, bank, and
+!> base-flow fluxes to the shared model arrays.
 !>
-!> The numerical formulation is a finite-volume/finite-difference column
-!> solution of variably saturated flow, coupled laterally through element and
-!> layer connectivity. Hydrologically this is the Richards-equation problem for
-!> water movement in unsaturated/saturated porous media; see Richards (1931),
-!> "Capillary Conduction of Liquids through Porous Mediums",
-!> https://doi.org/10.1063/1.1745010. Soil hydraulic properties may be generated
-!> from a van Genuchten option, tabulated directly, or generated from the legacy
-!> exponential option; the van Genuchten option corresponds to
-!> van Genuchten (1980), https://doi.org/10.2136/sssaj1980.03615995004400050002x.
+!> The solved state is pressure head/potential (`VSPSI`), water content
+!> (`VSTHE`), relative hydraulic conductivity (`VSKR`), and fluxes (`QVSV`,
+!> `QVSH`, `QVSBF`, `QVSSPR`, `QVSWEL`, `QBKB`, `QBKF`, `QBKI`). Numerically,
+!> each active element is treated as a one-dimensional vertical column with
+!> lateral coupling through the layer/cell connectivity arrays. [[vscolm]]
+!> assembles a tridiagonal pressure-head correction system and solves it with
+!> `TRIDAG` from `utilsmod`; [[vssim]] iterates columns in `ISORT` order until
+!> pressure-head changes converge or the iteration limit is reached.
 !>
-!> The column solver assembles a tridiagonal system for pressure-head updates and
-!> uses `TRIDAG` from `utilsmod`. Boundary-condition helper routines add upper
-!> infiltration/exfiltration, lower boundary, stream-aquifer, spring, well, and
-!> user-defined lateral head/flow terms into that same column system.
+!> Important manual controls are implemented as follows:
 !>
-!> @warning Soil hydraulic option `IVSFLG=4` is listed in the legacy/manual
-!> input format as tabulated water content with Averjanov-style conductivity,
-!> but the current implementation stops if that option is selected in
-!> [[vssoil]]. Split-cell mass-balance correction in [[vsmb]] is also marked
-!> unfinished and stops if reached.
+!> | Input | Meaning in this module |
+!> |:------|:-----------------------|
+!> | `BFAST` | Chooses 100 or `min(500,NSOLEE)` soil lookup entries in [[vssoil]]. |
+!> | `BSOILP` | Prints generated soil hydraulic lookup tables. |
+!> | `BHELEV` | Interprets boundary head data as elevations rather than depths below ground. |
+!> | `INITYP = 1` | Initialises an equilibrium profile from uniform phreatic-surface depth `VSIPSD`. |
+!> | `INITYP = 2` | Initialises equilibrium profiles from phreatic-surface elevations in `VSI`. |
+!> | `INITYP = 3` | Reads initial potentials for every cell from `VSI`. |
+!> | `VSWV`, `VSWL` | Control w-mean averaging of vertical and lateral hydraulic conductivity. |
+!>
+!> Soil/lithology hydraulic properties are stored as lookup tables over pressure
+!> head by [[vssoil]] and interpolated by [[vsfunc]]. The manual flags map to
+!> code paths as follows:
+!>
+!> | `IVSFLG` | Manual option | Implementation status |
+!> |:---------|:--------------|:----------------------|
+!> | 1 | van Genuchten water retention and conductivity parameters | Implemented. |
+!> | 2 | user tables for \(\theta(\psi)\) and \(K_r(\psi)\) | Implemented with spline interpolation over input tables. |
+!> | 3 | exponential functions | Implemented. |
+!> | 4 | user table for \(\theta(\psi)\) and Averjanov \(K(\theta)\) | Parsed as a legacy option, but stops in [[vssoil]]. |
+!>
+!> Boundary condition categories follow the manual `VS11`-`VS18` groups:
+!> pumping wells, springs, lateral flow/head/head-gradient boundaries, and
+!> bottom flow/head/free-drainage boundaries. Time-varying well and boundary
+!> files are advanced by [[vsprep]] using `FINPUT`/`HINPUT`. Their terms are
+!> folded into the column matrix by [[vswell]], [[vsspr]], [[vsbc]],
+!> [[vslowr]], [[vsuppr]], [[vsintc]], and [[vssai]].
+!>
+!> Programmer's map:
+!>
+!> | Routine | Main responsibility |
+!> |:--------|:--------------------|
+!> | [[vsin]] | Read VSS inputs, allocate arrays, build connectivity, initialise soil tables and pressure heads. |
+!> | [[vsread]] | Load `VSD` soil, zone, connectivity, well, spring, and boundary-category data. |
+!> | [[vsconl]] / [[vsconc]] | Build layer and cell connectivity, cell thicknesses, node elevations, and split-cell mappings. |
+!> | [[vssoil]] / [[vsfunc]] | Build and interpolate soil hydraulic property tables. |
+!> | [[vssim]] | Run one VSS timestep, iterate columns, update fluxes, and call mass-balance correction. |
+!> | [[vscolm]] / [[vscoef]] | Assemble and solve one nonlinear column system. |
+!> | [[vsmb]] | Reconcile reported fluxes with storage change after the solve. |
+!>
+!> @warning
+!> `IVSFLG = 4` is listed in the manual as tabulated water content with
+!> Averjanov-style conductivity, but the current implementation stops if that
+!> option is selected in [[vssoil]]. Split-cell mass-balance correction in
+!> [[vsmb]] is also marked unfinished and stops if reached.
 !> @endwarning
 !>
 !> History:
