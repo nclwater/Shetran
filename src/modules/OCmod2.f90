@@ -176,7 +176,7 @@ END SUBROUTINE initialise_ocmod
 !> F(z_n)=\sum_j Q_j.
 !> \]
 !>
-!> The routine applies up to 50 false-position iterations,
+!> The routine applies up to 200 false-position iterations,
 !>
 !> \[
 !> z_n^{new}=\frac{A F(B)-B F(A)}{F(B)-F(A)}.
@@ -187,8 +187,8 @@ END SUBROUTINE initialise_ocmod
 !> legacy damping used to avoid stagnation. The accepted convergence test is
 !>
 !> \[
-!> |F(z_n)| \le 10^{-2}\sum_j |Q_j|
-!> \quad\text{and}\quad |B-A|\le 10^{-3}\ \mathrm{m}.
+!> |F(z_n)| \le 10^{-3}\sum_j |Q_j|
+!> \quad\text{and}\quad |B-A|\le 10^{-4}\ \mathrm{m}.
 !> \]
 !>
 !> At convergence, the branch with the largest absolute flow is corrected by
@@ -199,10 +199,21 @@ END SUBROUTINE initialise_ocmod
 !> \]
 !>
 !> so that the returned branch flows sum exactly to zero to working precision.
-!> If the iteration limit is reached, the legacy code only treats it as
-!> acceptable when the residual is below ten percent of total absolute flow and
-!> the bracket is narrower than `5D-2`; the original warning/fatal calls are
-!> currently commented out.
+!> If the iteration limit is reached, warning `1027` is issued. Warning `1028`
+!> is also issued when the residual is greater than one percent of total
+!> absolute flow or the bracket is wider than `1D-3`.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | - | - | SHETRAN/OC/OCNODE/4.27 | Routine calculates flows out of a node as a function of adjacent water elevations. |
+!> | - | GP | 3.4 | Called `ERROR` and terminated iterations if `NC == 50`; added `ZNODE` argument for [[ocqmln]]. |
+!> | 1998-02-12 | RAH | 4.2 | Supplied missing `PRI`, `FATAL`, and `WARN` for `ERROR`; removed `ZNODE`; added explicit typing; removed local `TESTZ`; added `TEST`; clarified description as flow out of the node; returned immediately if `FA = 0`; tested `NC` before updating bracket endpoints; set `QJ` at absent branches. |
+!> | 1998-02-20 | RAH | 4.2 | Added `IEL` argument for `ERROR` handling from [[ocqmln]]. |
+!> | 1998-03-18 | RAH | 4.2 | Added `DI` argument passed to [[fnode]]. |
+!> | 1999-02-04 | SB | 4.27 | Fixed junction mass conservation by adjusting the largest absolute branch flow so the branch-flow sum is zero. |
+!> | 2026-05-21 | SB | 4.6 | Increased the iteration limit and tightened convergence criteria at channel junctions. |
 SUBROUTINE OCNODE (iela, ZI, CI, DI, ROOTLI, QJ)
 
 INTEGER, INTENT(IN)         :: IELa
@@ -338,6 +349,14 @@ END SUBROUTINE OCNODE
 !>
 !> Positive `QJ(j)` is flow leaving the trial node into branch `j`; negative
 !> values represent flow entering the node from that branch.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-02-11 | RAH | 4.2 | Added explicit typing, generic intrinsics, local flow/residual variables, integer direction handling, and replaced the old `CI2` array with scalar conveyance logic. |
+!> | 1998-02-12 | RAH | 4.2 | Removed local `CI3` and extended the active-branch loop logic. |
+!> | 1998-03-18 | RAH | 4.2 | Set downstream branch conveyance using `ZNODE` and added the `DI` argument passed from [[ocnode]]. |
 SUBROUTINE FNODE (ZNODE, DI, CI, ZI, ROOTLI, QJ, resfnode)
 DOUBLEPRECISION, INTENT(IN) ::  ZNODE, DI (0:3), CI (0:3), ZI (0:3), ROOTLI (0:3)
 DOUBLEPRECISION, INTENT(OUT) ::  QJ (0:3), resfnode
@@ -419,6 +438,13 @@ END SUBROUTINE FNODE
 !> \[
 !> DERIV=CONV\left(\frac{CWIDTH}{A}+\frac{2}{3H}\right).
 !> \]
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
+!> | 1998-04-23 | RAH | 4.2 | Added explicit typing; moved `ZG` before `Z`; replaced common-block inputs with arguments for roughness, full area, cross-section width, and lookup table; replaced loop search with direct interval calculation; rearranged above-bankfull conveyance/derivative expressions. |
 SUBROUTINE OCCODE(ZG, STR, afromCWIDTH, afromXAFULL, afromXStypes, Z, CONV, DERIV)
 DOUBLEPRECISION, INTENT(IN) ::  ZG, STR, afromCWIDTH, afromXAFULL, Z
 DOUBLEPRECISION, INTENT(IN) ::  afromXStypes(3, NXSCEE)
@@ -521,6 +547,18 @@ END SUBROUTINE OCCODE
 !>       -\frac{1}{2}C^\*/\max(\sqrt{DZMIN},\sqrt{|\Delta z|})}
 !>      {\sqrt{L}}.
 !> \]
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
+!> | 1998-02-25 | RAH | 4.2 | Replaced include-common data with arguments; removed `INDEX`, `NCODE`, and redundant derivative output; reduced `COCBCD` dimension; added explicit typing; merged boundary types `10` and `4`; zeroed undefined derivatives; rewrote polynomial expressions without exponentiation. |
+!> | 1998-02-26 | RAH | 4.2 | Changed weir coefficient to an array, avoided unnecessary initialisation before [[qweir]], used `AH` for `A*H`, defined local `RDZMIN`, and zeroed outputs by default. |
+!> | 1998-04-09 | RAH | 4.2 | Reordered/replaced arguments for `OCQDQ`; added prescribed-head types `3` and `9`; fixed signs for polynomial and river-plus-weir branches; used smoothed conveyance/gradient terms. |
+!> | 1998-04-16 | RAH | 4.2 | Allowed `ZI < ZX` in the call to [[qweir]]. |
+!> | 1998-04-27 | RAH | 4.2 | Removed element/face arguments, added cross-section table inputs, and updated [[occode]] argument order. |
+!> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
 SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, link, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
 ! Input arguments
 INTEGER, INTENT(IN)         :: NTYPE, LINK
@@ -683,6 +721,16 @@ END SUBROUTINE OCQBC
 !> DQ_{HI,HI}=-DQ_{LO,HI},\qquad
 !> DQ_{HI,LO}=-DQ_{LO,LO}.
 !> \]
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1992-06 | GP | 3.4 | Fixed the no-flow case to zero weir derivatives rather than unrelated derivative variables. |
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
+!> | 1998-04-06 | RAH | 4.2 | Removed local `ALPHA`; replaced common-block inputs with arguments; replaced scalar flow/derivative outputs with arrays; removed redundant `DDDZ`; introduced conservative `HI`/`LO` handling; replaced inlined weir code with [[qweir]], fixing drowned and undrowned derivative/flow errors. |
+!> | 1998-04-08 | RAH | 4.2 | Renamed channel length argument to `W`, made flow lengths an argument array, reordered statements, used `H23MIN`/`CONVMM`, and added `DZL`. |
+!> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
 SUBROUTINE OCQBNK (W, LI, ZBG, STR, ZI, Q, DQ)
 ! Note: Subscript 0 refers to the link, 1 to the land element
 DOUBLEPRECISION, INTENT(IN)  :: W, LI (0:1), ZBG (0:1), STR (0:1), ZI (0:1)
@@ -825,6 +873,15 @@ END SUBROUTINE OCQBNK
 !>
 !> and the higher-row derivatives are the negative of these values, so
 !> `Q(1)=-Q(0)` and `DQ(1,i)=-DQ(0,i)`.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
+!> | 1998-03-31 | RAH | 4.2 | Removed local `ALPHA`; replaced element/face/common inputs with explicit width, length, level, roughness, and elevation arguments; replaced scalar flow/derivative outputs with arrays; removed redundant arguments and locals; added `HI`/`LO` direction handling and generic intrinsics. |
+!> | 1998-04-27 | RAH | 4.2 | Reordered arguments for `OCQDQ` and replaced local roughness-width handling with `STRW = STRM*W`. |
+!> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
 SUBROUTINE OCQGRD (NTYPE, LI, ZGI, STR, W, ZI, Q, DQ)
 ! Input arguments
 INTEGER, INTENT(IN)          :: NTYPE
@@ -952,6 +1009,17 @@ END SUBROUTINE OCQGRD
 !> DQ_{HI,HI}=-DQ_{LO,HI},\qquad
 !> DQ_{HI,LO}=-DQ_{LO,LO}.
 !> \]
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
+!> | 1998-02-25 | RAH | 4.2 | Swapped `COCBCD` subscripts to match `SPEC.OC`. |
+!> | 1998-02-26 | RAH | 4.2 | Changed weir coefficient handling to an array through [[qweir]]. |
+!> | 1998-04-03 | RAH | 4.2 | Removed local `ALPHA`; replaced common-block inputs with arguments; replaced scalar outputs with arrays; simplified conveyance/derivative locals; skipped conveyance calculation for internal weirs; introduced `HI`/`LO` branch handling; used smoothed derivative terms. |
+!> | 1998-04-24 | RAH | 4.2 | Removed element arguments, added cross-section table/roughness/width/area inputs, and updated [[occode]] argument order. |
+!> | 2020-05-20 | SB | - | Added ZQ-table reservoir/channel link branch using `get_ZQTable_value`. |
 SUBROUTINE OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, jXSwork, afromCOCBCD, ZI, Q, DQ)
 
 ! Input arguments
@@ -1094,6 +1162,19 @@ END SUBROUTINE OCQLNK
 !> Flow direction also follows the water levels: if one returned branch flow is
 !> positive and another is negative, the positive-flow branch is connected to a
 !> lower water level than the negative-flow branch.
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-07 | GP | 3.4 | Added `ZNODE` argument to [[ocnode]] and used it to set the old `ZOCMLN` value. |
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
+!> | 1998-02-12 | RAH | 4.2 | Moved `WLMIN` into this routine, removed `ZNODE`/`ZOCMLN`, added explicit typing, removed unnecessary initialisation, merged loops, and recalculated branch conveyance only where needed for derivatives. |
+!> | 1998-02-20 | RAH | 4.2 | Updated [[ocnode]] call arguments for diagnostic element handling. |
+!> | 1998-02-24 | RAH | 4.2 | Replaced old element/face and common-block inputs with branch arrays, removed redundant outputs and locals, and stopped setting conveyance for null branches. |
+!> | 1998-02-25 | RAH | 4.2 | Removed redundant face input and used local `ZJ` so input `ZI` is not altered. |
+!> | 1998-03-18 | RAH | 4.2 | Obtained conveyance derivative `DI` from [[occode]] and passed it to [[ocnode]]. |
+!> | 1998-04-24 | RAH | 4.2 | Added roughness, width, area, and cross-section table arguments; updated [[occode]] arguments; added `ONEPC`; removed special single-wet-branch treatment. |
 SUBROUTINE OCQMLN(ielb, JEL2, LI, ZGI, STR, CW, XA,  ZI, QJ, DQIJ, JXSwork)
 INTEGER, INTENT(IN)          :: IELb, JEL2 (0:3)
 DOUBLEPRECISION, INTENT(IN)  :: LI (0:3), ZGI (0:3), STR (0:3)
@@ -1272,6 +1353,13 @@ END SUBROUTINE conveyan
 !> DQ_U = 1.5\,C_u\,\max(RDZMIN,\sqrt{H_U}),\qquad
 !> DQ_L = 0 .
 !> \]
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-02-26 | RAH | 4.2 | Made `COEFF` a two-entry array in [[qweir]] and callers; added explicit typing; zeroed outputs in no-flow cases; added generic intrinsics; added the missing drowned-flow downstream derivative term; replaced `ROOTDM` with `RDZMIN`/local terms. |
+!> | 1998-07-30 | RAH | 4.2 | Used `MAX` to keep `DQU` positive outside the no-flow case, added `DZMIN`/`DML`, and subtracted `DZMIN` from the sill in the no-flow criterion. |
 SUBROUTINE QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, Q, DQU, DQL)
 DOUBLEPRECISION, INTENT(IN) :: ZU, ZSILL, ZL, SUBRIO, COEFF (2)
 DOUBLEPRECISION, INTENT(OUT) ::  Q, DQU, DQL
@@ -1362,6 +1450,21 @@ END SUBROUTINE QWEIR
 !> | If `ICMREF(iel,iface,2) >= 1`, then `1 <= ICMREF(iel,iface,3) <= 4` | Regular neighbour face numbers must be valid. |
 !> | If `ICMREF(iel,iface,2) < 0`, with `ibr=-ICMREF(iel,iface,2)`, then `ibr <= NLFEE` | Confluence branch references must fit the link extent. |
 !> | For each confluence participant `pel=ICMRF2(ibr,p,1)` with `pel >= 1`, `pel <= NEL` and `1 <= ICMRF2(ibr,p,2) <= 4` | Confluence participant elements and faces must be valid, and at least one participant must exist. |
+!>
+!> History:
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-08 | RAH | 3.4.1 | Created from part of `OCSIM`; repeated element loop up to `NPASS`; changed zero critical velocity handling; fixed missing `DTOC` factor in water-level correction; included confluence-flow adjustments. |
+!> | 1998-01-15 | RAH | 4.2 | Added intrinsic declarations in the original source. |
+!> | 1998-06-17 | RAH | 4.2 | Restricted adverse-gradient and small-flow tests to discharges, clarified non-negative-gradient wording, replaced unreliable confluence tests, and made flow adjustments less severe. |
+!> | 1998-06-18 | RAH | 4.2 | Added diagnostic message details for any mass created or lost. |
+!> | 1998-06-23 | RAH | 4.2 | Merged flow and depth loops, with depth adjustment taking priority. |
+!> | 1998-06-24 | RAH | 4.2 | Made depth adjustments conservative, removed unset local references, swapped `HERROR` sign, and used it in error criteria. |
+!> | 1998-06-25 | RAH | 4.2 | Adjusted each `HRF(IEL)` once using an interim elevation array. |
+!> | 1998-07-29 | RAH | 4.2 | Increased `NPASS` from 50 to 100, introduced error `1060`, and replaced statement function `FNDXY` with array `DXY`. |
+!> | 1999-02-04 | SB | 4.27 | Modified `DQE0` to address small flows from lower to higher elements. |
+!> | 1999-02-08 | SB | 4.27 | Set `AOK = .FALSE.` in the final depth adjustment for the same small adverse-flow issue. |
 SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
 INTEGER, INTENT(IN) :: nel, afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
 DOUBLEPRECISION, INTENT(IN) :: dtoc
