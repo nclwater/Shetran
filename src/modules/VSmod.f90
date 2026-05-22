@@ -1832,6 +1832,20 @@ END SUBROUTINE VSCONL
 !> using `VSPTHE`, `VSPKR`, `VSPDKR`, and `VSPDET`, respectively. `CETA` is
 !> assigned from `VSPETA(j+1,soil)` as in the legacy implementation.
 !>
+!> On a successful return, for each cell `c` in `ICBOT:ICTOP`, with
+!> `j = ICSTOR(c)` and `s = ICSOIL(c)`, the stored interval and returned values
+!> satisfy:
+!>
+!> | Quantity | Exit condition |
+!> |:---------|:---------------|
+!> | `ICSTOR(c)` | `0 < j < NVSSOL` |
+!> | `CPSI(c)` | `VSPPSI(j) >= CPSI(c) >= VSPPSI(j+1)` because `VSPPSI` is strictly decreasing. |
+!> | `CTHETA(c)` | Bounded by the bracketing `VSPTHE(j,s)` and `VSPTHE(j+1,s)` values. |
+!> | `CETA(c)` | Taken from `VSPETA(j+1,s)`; for monotone table segments this lies between `VSPETA(j,s)` and `VSPETA(j+1,s)`. |
+!> | `CKR(c)` | Bounded by the bracketing `VSPKR(j,s)` and `VSPKR(j+1,s)` values. |
+!> | `CDETA(c)` | Bounded by the bracketing `VSPDET(j,s)` and `VSPDET(j+1,s)` values. |
+!> | `CDKR(c)` | Bounded by the bracketing `VSPDKR(j,s)` and `VSPDKR(j+1,s)` values. |
+!>
 !> If \(p\) falls outside `[0,1]`, the routine raises fatal error 1034 or 1035
 !> with a wet/dry diagnostic for the offending element and cell.
 SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
@@ -1951,18 +1965,6 @@ OUT100 : DO ICL = ICBOT, ICTOP
 
    CDETA (ICL) = (VSPDET (JHI, IS) - VLO) * PDUM + VLO
 ENDDO out100
-!----------------------------------------------------------------------*
-! Exit conditions:
-! for each c in ICBOT:ICTOP:
-!             0 <  ICSTOR(c) <  NVSSOL
-!    VSPPSI(j)  <=   CPSI(c) <= VSPPSI(j+1)
-!    VSPTHE(j,s)<= CTHETA(c) <= VSPTHE(j+1,s)
-!    VSPETA(j,s)<=   CETA(c) <= VSPETA(j+1,s)
-!     VSPKR(j,s)<=    CKR(c) <=  VSPKR(j+1,s)
-!    VSPDET(j,s)<=  CDETA(c) <= VSPDET(j+1,s)
-!    VSPDKR(j,s)<=   CDKR(c) <= VSPDKR(j+1,s)
-! where j=ICSTOR(c) and s=ICSOIL(c)
-!----------------------------------------------------------------------*
 !RETURN
 IF(g8100) THEN
     DRY = NINT (MAX (ZERO, MIN (PDUM, ONE) ) )  !8100
@@ -2796,8 +2798,16 @@ END SUBROUTINE VSPREP
 !> computational cell-depth sequences so later cell construction in [[vsconc]]
 !> is consistent with `DCSZON` and `DCRBED`.
 !>
-!> On exit, boundary type arrays are non-negative and boundary category arrays
-!> default to at least one (`NLBCAT`, `NBBCAT`, `NVSWLC >= 1`).
+!> On exit, for each element `e = 1:NEL`, the boundary type arrays are
+!> non-negative and the boundary category arrays have valid defaults:
+!>
+!> | Array | Exit condition |
+!> |:------|:---------------|
+!> | `NLBTYP(e)` | `0 <= NLBTYP(e)` |
+!> | `NBBTYP(e)` | `0 <= NBBTYP(e)` |
+!> | `NLBCAT(e)` | `1 <= NLBCAT(e)` |
+!> | `NBBCAT(e)` | `1 <= NBBCAT(e)` |
+!> | `NVSWLC(e)` | `1 <= NVSWLC(e)` |
 SUBROUTINE VSREAD (NAQCON, IAQCON)
 INTEGER :: NAQCON, IAQCON (4, NVSEE)
 ! Locals, etc
@@ -3530,11 +3540,6 @@ ENDIF
 
  9030 FORMAT('Soil type ',I4,' not expected for soil property tables.')
  9999 RETURN
-!----------------------------------------------------------------------*
-! Exit conditions:
-! for each e in 1:NEL: 0<= NLBTYP(e), NBBTYP(e)
-!                      1<= NLBCAT(e), NBBCAT(e), NVSWLC(e)
-!----------------------------------------------------------------------*
 END SUBROUTINE VSREAD
 
 
