@@ -14,6 +14,12 @@
 !> [[ocmod2:conveyan]]. Boundary categories, channel geometry, and roughness
 !> controls correspond to the manual's Overland/Channel Module section.
 !>
+!> `STRXX` and `STRYY` normally store the directional Strickler roughness read
+!> from the OC records. A negative `STRXX` value is allowed by the current
+!> checker as a surface-storage marker; [[ocqdqmod:ocqdq]] interprets its
+!> magnitude as a millimetre-scale threshold and substitutes fixed effective
+!> roughness values during face-flow calculation.
+!>
 !> History:
 !>
 !> | Date | Author | Version | Description |

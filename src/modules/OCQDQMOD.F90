@@ -7,6 +7,19 @@
 !> exchanges, land-grid exchanges, link-link exchanges, and ZQ reservoir-table
 !> routing hooks.
 !>
+!> `STRXX` and `STRYY` normally hold directional Strickler roughness values.
+!> For land or link participants passed through `OCQDQ`, a negative `STRXX`
+!> is used as a surface-storage marker rather than as a physical roughness:
+!>
+!> | Condition | Effective roughness passed to flow helper |
+!> |:----------|:------------------------------------------|
+!> | `STRXX(kel) >= 0` | Directional value from [[fstr]] |
+!> | `STRXX(kel) < 0` and `HRF-ZGRUND < -STRXX/1000` | `0.5` |
+!> | `STRXX(kel) < 0` and `HRF-ZGRUND >= -STRXX/1000` | `2.0` |
+!>
+!> The threshold depth is therefore stored in millimetres as `-STRXX`; the
+!> active hydraulic calculation receives the fixed effective values above.
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|

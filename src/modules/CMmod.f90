@@ -33,9 +33,6 @@
 !> `DISP` returns `3.0D-8`.
 !> @endwarning
 !>
-!> `CMSIM` also delegates to [[mnmod]] when the mineral-nitrogen option is
-!> active, so nitrate/mineral nitrogen behaviour is handled outside this module.
-!>
 !> History:
 !>
 !> | Date | Author | Version | Description |

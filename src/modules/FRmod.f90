@@ -14,6 +14,20 @@
 !> reservoir table modules to share geometry, file units, time controls, and
 !> output definitions.
 !>
+!> | Responsibility | Main routines |
+!> |:---------------|:--------------|
+!> | Run setup and file handling | [[fropen]], [[infr]], [[frinit]] |
+!> | Geometry and topology | [[frdim]], [[frltl]], [[frind]], [[frsort]] |
+!> | Optional component setup | [[inet]], [[insm]], [[inbk]], [[incm]], [[inpl]] |
+!> | Runtime frame bookkeeping | [[frmb]], [[froutput]] |
+!> | Result and restart output | [[frresc]], [[frresp]], [[write_dis]], [[write_dis2]] |
+!> | Legacy dummy/checking helpers | [[dinet]], [[dinoc]], [[docin]], [[muerr2]] |
+!>
+!> Only selected orchestration entry points and a small set of frame state
+!> variables are public. Most input readers and helper routines remain private
+!> module implementation details, even though they are documented here because
+!> they define important file-format and coupling behaviour.
+!>
 !> History:
 !>
 !> | Date | Author | Version | Description |

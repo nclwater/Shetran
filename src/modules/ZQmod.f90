@@ -25,7 +25,7 @@
 !> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
 !> @endhistory
 !>
-!> @note The table parser assumes space-delimited input and ascending discharge
+!> @note The table parser assumes space-delimited input and ascending stage
 !> threshold headers. The lookup returns the first table row where `Zu` is not
 !> greater than the stored stage value; it does not interpolate between rows.
 !> The active discharge column is selected from the `ZQ>threshold` headers only
