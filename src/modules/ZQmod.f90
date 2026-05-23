@@ -25,7 +25,7 @@
 !> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
 !> @endhistory
 !>
-!> @note The table parser assumes space-delimited input and ascending discharge
+!> @note The table parser assumes space-delimited input and ascending stage
 !> threshold headers. The lookup returns the first table row where `Zu` is not
 !> greater than the stored stage value; it does not interpolate between rows.
 !> The active discharge column is selected from the `ZQ>threshold` headers only
@@ -63,7 +63,7 @@ module ZQmod
     CONTAINS
 
 
-    !> author: Dary Hughes, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
+    !> author: Daryl Hughes, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
     !
     !> Reads the user-defined reservoir ZQ table file.
     !>
@@ -79,11 +79,24 @@ module ZQmod
     !> |:-----|:-------|:--------|:------------|
     !> | - | DH | - | Initial version. |
     !> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
+    !> @endhistory
+    !>
+    !> Expected table layout:
+    !>
+    !> | File item | Code use |
+    !> |:----------|:---------|
+    !> | Number of tables | Allocates per-table metadata and lookup arrays. |
+    !> | Table reference | Read into `ZQTableRef` while loading each table. |
+    !> | Link and face | Stored in `ZQTableLink` and `ZQTableFace` for [[ocqdq]] dispatch. |
+    !> | Operation hour | Stored in `ZQTableOpHour`; controls when the active discharge column is reconsidered. |
+    !> | Header row | First column is stage `Z`; later columns are `ZQ>stage_threshold` discharge columns. |
+    !> | Data rows | Stage in column 1 and discharges in the selected lookup columns. |
     !>
     !> @note This routine has no dummy arguments. It reads from the globally
     !> opened `zqd` unit, allocates module arrays, allocates ZQ metadata arrays
     !> from `AL_D`, writes `output_readZQTable.txt`, closes `zqd`, and stops the
     !> program with status 255 if the table cannot be read.
+    !> @endnote
     SUBROUTINE ReadZQTable()
 
         ! general variables
@@ -218,7 +231,7 @@ module ZQmod
     END SUBROUTINE ReadZQTable
 
 
-    !> author: Dary Hughes, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
+    !> author: Daryl Hughes, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
     !
     !> Returns downstream discharge from a reservoir ZQ lookup table.
     !>
@@ -239,11 +252,13 @@ module ZQmod
     !> |:-----|:-------|:--------|:------------|
     !> | - | DH | - | Initial version. |
     !> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
+    !> @endhistory
     !>
     !> @note This routine uses `UZNOW`, `UZNEXT`, `ZQTableOpHour`,
     !> `headerRealArray`, `nZQcols`, `nZQrows`, `zcol`, and `ZQ` from module or
     !> imported state. The stage-discharge lookup is table based and does not
     !> interpolate.
+    !> @endnote
     FUNCTION get_ZQTable_value(ZQref,zu) RESULT(qd)
 
         ! IO variables

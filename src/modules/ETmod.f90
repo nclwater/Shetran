@@ -119,6 +119,13 @@ CONTAINS
 !> The arrays depend on the run-time vegetation count `NV`, the global vertical
 !> layer limit `LLEE`, and the ET table dimensions `NUZTAB` and `NVBP`. This
 !> routine must be called after those dimensions have been read.
+!>
+!> | Arrays | Shape | Main purpose |
+!> |:-------|:------|:-------------|
+!> | `RA`, `RC`, `RTOP`, `CSTCAP`, `CK`, `CB`, `DEL`, `CSTCA1`, `PLAI1`, `CLAI1`, `VHT1` | `NV` | Per-vegetation or meteorological scalar controls. |
+!> | `PSI4`, `UZALFA` | `LLEE` | Active-column pressure head and bank/link root-access weighting. |
+!> | `PS1`, `FET`, `RCF` | `NV x NUZTAB` | Soil-tension lookup tables for modes 2 and 3. |
+!> | `REL*`, `TIM*` time-variation tables | `NV x NVBP` | Time-varying vegetation/canopy multipliers. |
 SUBROUTINE INITIALISE_ETMOD()
 
 ALLOCATE (RA(NV),RC(NV),RTOP(NV))
@@ -223,8 +230,9 @@ END SUBROUTINE INITIALISE_ETMOD
 !> \]
 !>
 !> where `RABIG = 1D10` represents the calm-wind limit. If measured potential
-!> evaporation is supplied, `PE = OBSPE`. Otherwise the Penman numerator and
-!> denominator used by the code are
+!> evaporation is supplied, `PE = OBSPE` and `TOP = PE*BOTTOM`; modes 1 and 2
+!> then still use that derived `TOP` in the Penman-Monteith actual-ET expression.
+!> Otherwise the Penman numerator and denominator used by the code are
 !>
 !> \[
 !> TOP = \max\left(0,\ RN\,DEL + \frac{RHO\,CP\,VPD}{RA}\right),
@@ -267,6 +275,13 @@ END SUBROUTINE INITIALISE_ETMOD
 !> DRAIN = CSTOLD + Q\Delta t - CSTORE^{n+1}.
 !> \]
 !>
+!> | Canopy-storage branch | Main calculation |
+!> |:----------------------|:-----------------|
+!> | `CSTOLD > CSTCAP`, `Q > 0` | Integrate exponential drainage while adding net canopy supply. |
+!> | `CSTOLD > CSTCAP`, `Q <= 0`, store falls below capacity | Set storage to `MAX(0,CSTOLD+Q*DTUZ)` and no drainage. |
+!> | `CSTOLD > CSTCAP`, `Q <= 0`, store remains above capacity | Continue exponential drainage from the above-capacity store. |
+!> | `CSTOLD <= CSTCAP` | Limit canopy evaporation by wet-canopy fraction `F1`, then drain only if the post-evaporation store exceeds capacity. |
+!>
 !> Below capacity, canopy evaporation is reduced by the wet-canopy fraction
 !>
 !> \[
@@ -305,6 +320,13 @@ END SUBROUTINE INITIALISE_ETMOD
 !> AE = PE\,FE.
 !> \]
 !>
+!> | `PSI4` range | Mode 2 `RC` | Mode 3 `FE` |
+!> |:-------------|:------------|:------------|
+!> | `PSI4 >= 0` | `RCF(N,NF)` | `1` |
+!> | Below first table row | `RCF(N,1)` | `FET(N,1)` |
+!> | Above last table row | `RCF(N,NF)` | `FET(N,NF)` |
+!> | Inside table | Linear interpolation in `PS1`. | Linear interpolation in `PS1`. |
+!>
 !> Cell transpiration extraction is assigned from the canopy-controlled actual
 !> ET, root-density function, and unsaturated-zone scaling:
 !>
@@ -327,10 +349,16 @@ END SUBROUTINE INITIALISE_ETMOD
 !> ESOIL = 0.5\,AE(1-CPLAI).
 !> \]
 !>
+!> For bank elements, the extraction loop is extended down to the exposed
+!> channel-bed cell if that is deeper than the vegetation root depth. If the
+!> resulting root-zone extent would pass below the aquifer bed, it is truncated
+!> to `top_cell_no` and a warning is emitted once.
+!>
 !> Plant uptake is distributed vertically using the root-density function and
 !> written to `ERUZ` and `S`. The routine updates `RA`, `RC`, `PE`, `AE`, `PNET`,
 !> `ERZ`, `ESOIL`, `EINT`, `DRAIN`, `CSTOLD`, and `CSTORE` for downstream use by
-!> [[etin]]. Entry requirements are `LL >= 1` and `NRD <= LL`.
+!> [[etin]]. Entry requirement: `LL >= 1`; excessive root depth is now truncated
+!> by the code rather than assumed valid.
 !>
 !> @note The mode definitions and input meanings above follow the SHETRAN User
 !> Guide and Data Input Manual records `ET6`, `ET8`, `ET16`, `ME2`/`ME3`, and
@@ -623,6 +651,11 @@ END SUBROUTINE ET
 !> `ETCHK2` currently validates the vegetation rooting depth array `RDL` for the
 !> `NV` vegetation types. Entry requirements are `NV >= 1` and `PRI` open for
 !> formatted diagnostic output.
+!>
+!> | Check | Consequence |
+!> |:------|:------------|
+!> | `RDL(veg) /= 0` | Counted as error 1062 by `ALCHK`; the current ET checker only accepts zero channel-root fraction. |
+!> | Any accumulated ET check errors | Calls fatal error 1000. |
 SUBROUTINE ETCHK2 (PRI, NV, RDL, LDUM1)
 INTEGER, INTENT(IN) :: PRI !! Output unit for check/error messages.
 INTEGER, INTENT(IN) :: NV !! Number of vegetation types to check.
@@ -665,6 +698,21 @@ END SUBROUTINE ETCHK2
 !> for canopy drainage, and `EPOT` for potential evaporation in water-flow
 !> units. It also updates shared ET/flow state including `NSMT`, `CPLAI`, `HRUZ`,
 !> `PE`, and `PNET`.
+!>
+!> | Step | Behaviour |
+!> |:-----|:----------|
+!> | Canopy area | `CPLAI = MIN(CLAI(N),1)*PLAI(N)`. |
+!> | Snowmelt coupling | `SMIN` may set `NSMT`; if snowmelt alone handles the element, `ET` is skipped. |
+!> | Unit conversion | `PNET`, `PE`, `EINT`, `DRAIN`, `ERZ`, and `ESOIL` are converted from mm-based ET values to m/s or m timestep rates for shared arrays. |
+!> | Irrigation well | `QVSWEL` is area-scaled into `PNETTO` when `NVSWLT(IEL)` is nonzero. |
+!> | Surface water present | Potential evaporation is partitioned between surface water `ESWA` and soil evaporation `ESOILA`; very dry top soil suppresses the soil term. |
+!>
+!> The potential evaporation exported to `EPOT` subtracts interception evaporation
+!> first:
+!>
+!> \[
+!> PE \leftarrow PE - EINT/DTUZ,\qquad EPOT = PE/1000.
+!> \]
 !>
 !> History:
 !>

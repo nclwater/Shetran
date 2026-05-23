@@ -14,6 +14,12 @@
 !> [[ocmod2:conveyan]]. Boundary categories, channel geometry, and roughness
 !> controls correspond to the manual's Overland/Channel Module section.
 !>
+!> `STRXX` and `STRYY` normally store the directional Strickler roughness read
+!> from the OC records. A negative `STRXX` value is allowed by the current
+!> checker as a surface-storage marker; [[ocqdqmod:ocqdq]] interprets its
+!> magnitude as a millimetre-scale threshold and substitutes fixed effective
+!> roughness values during face-flow calculation.
+!>
 !> History:
 !>
 !> | Date | Author | Version | Description |
@@ -75,7 +81,7 @@ CONTAINS
 !> Initialised shared outputs include boundary-condition counts and codes
 !> (`NOCHB`, `NOCFB`, `NOCBCC`, `NOCBCD`, `COCBCD`), hydraulic geometry
 !> (`HRF`, `CWIDTH`, `ZBEFF`, `ZBFULL`, `NXSECT`, `XINH`, `XINW`, `XAREA`,
-!> `XSTAB`), Strickler/roughness fields (`STRX`, `STRY`), timing controls
+!> `XSTAB`), Strickler/roughness fields (`STRXX`, `STRYY`), timing controls
 !> (`TDC`, `TFC`), and row-index arrays (`NELIND`, `NROWEL`, `NROWST`,
 !> `NROWF`, `NROWL`) used by the OC implicit row solver.
 SUBROUTINE OCINI()
@@ -370,12 +376,27 @@ END SUBROUTINE OCABC
 !> their values are 7:11. The corresponding link is found with `LINKNO`, a row
 !> is added with `NOCBCD(:,1)=link` and `NOCBCD(:,3)=type`, and type 9 and 10
 !> entries increment the head-boundary and flux-boundary counts respectively.
+!> Link-specific parameters for types 7:11 are filled later by [[OCPLF]].
 !>
 !> Internal impermeable grid boundaries use type 1. For each impermeable
 !> west/south grid boundary, `JEOCBC` creates reciprocal rows for the two
 !> adjacent elements and extends the impermeable condition across the ends of
 !> any adjacent bank elements. The reciprocal face is taken from `ICMREF(:,9:12)`
 !> so the table remains consistent with the topology built by [[frmod:frind]].
+!>
+!> Boundary type codes are:
+!>
+!> | Type | Meaning |
+!> |:-----|:--------|
+!> | 1 | Internal impermeable grid boundary. |
+!> | 3 | Time-varying grid head boundary. |
+!> | 4 | Time-varying grid flux boundary. |
+!> | 5 | Polynomial grid boundary. |
+!> | 7 | Channel weir boundary. |
+!> | 8 | Channel river/resistance plus weir boundary. |
+!> | 9 | Time-varying channel head boundary. |
+!> | 10 | Time-varying channel flow boundary. |
+!> | 11 | Polynomial channel boundary. |
 SUBROUTINE JEOCBC(IXER, NOCBC)
 INTEGER, INTENT(OUT)         :: IXER
 INTEGER, INTENT(OUT)         :: NOCBC
@@ -590,6 +611,20 @@ END SUBROUTINE JEOCBC
 !> This is the first OC validation pass and ensures the output/input units are
 !> usable and that compiled dimensions are large enough for the current grid,
 !> channel-link, cross-section, and boundary-condition counts.
+!>
+!> Checks performed:
+!>
+!> | Check | Requirement |
+!> |:------|:------------|
+!> | `PRI`, `OCD` | Open formatted diagnostic/input units. |
+!> | `NELEE` | At least `max(NX,total_no_elements)`. |
+!> | `NLFEE` | At least `max(1,total_no_links)`. |
+!> | `NXEE` | At least `NX`. |
+!> | `NOCTAB` | At least 1. |
+!> | `NXSCEE` | Greater than 1 for channel cross-section lookup tables. |
+!> | `total_no_links` | Non-negative and less than `total_no_elements`. |
+!> | `NX`, `NY` | Both at least 1. |
+!> | `NGDBGN` | Equal to `total_no_links + 1`. |
 SUBROUTINE OCCHK0()
 !----------------------------------------------------------------------*
 !
@@ -682,6 +717,10 @@ END SUBROUTINE OCCHK0
 !>
 !> `OCCHK1` verifies neighbour references, active-grid indexing, and the
 !> link-code grids used to locate north-south and east-west channel links.
+!> Positive neighbour and grid references must not exceed `total_no_elements`.
+!> Any `LCODEX` or `LCODEY` value in the channel-boundary range 7:11 must map
+!> through `LINKNO` to a valid channel-link element, i.e. an index greater than
+!> zero and less than `NGDBGN`.
 SUBROUTINE OCCHK1(SZLOG, LDUM1)
 !----------------------------------------------------------------------*
 !
@@ -749,6 +788,17 @@ END SUBROUTINE OCCHK1
 !> The checks cover boundary file units, overland/channel roughness values, and
 !> channel cross-section tables, including monotonic level coordinates and
 !> positive final widths.
+!>
+!> Boundary files `OHB` and `OFB` are checked only when their corresponding
+!> boundary counts are non-zero. Roughness checks still call `ALCHK` with a
+!> positive-roughness test for both `STRXX` and `STRYY`; however, the final
+!> response to accumulated errors is now a warning rather than a fatal error.
+!> This preserves the current surface-storage convention where negative
+!> `STRXX` values can be passed through to [[ocqdqmod:ocqdq]].
+!>
+!> Channel cross-section checks require the first depth to be zero, depth values
+!> to be strictly increasing, widths to be non-decreasing, and the final width
+!> for each active link to be positive.
 SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
 !----------------------------------------------------------------------*
 !
@@ -855,6 +905,11 @@ END SUBROUTINE OCCHK2
 !> Boundary time series are advanced from the head-boundary and flux-boundary
 !> files into `HOCNOW` and `QOCF`; end-of-file markers are treated as fatal
 !> input errors.
+!>
+!> `HINPUT` interpolates or advances head values for `NOCHB` categories using
+!> `TIH`, `OCNOW`, and `OCNEXT`. `FINPUT` does the same for `NOCFB` flux
+!> categories. The resulting `QOCF` values are prescribed inflow rates consumed
+!> by [[ocmod2:ocqbc]].
 SUBROUTINE OCEXT
 !----------------------------------------------------------------------
 !
@@ -1041,6 +1096,25 @@ END SUBROUTINE OCIND
 !>
 !> `OCLTL` decodes the legacy one-character OC map into integer link and
 !> boundary codes, preserving row-number checks and optional echo printing.
+!> Input rows must be supplied from `NNY` down to 1; an unexpected row number
+!> prints an "incorrect coordinate" marker when echo output is enabled and then
+!> stops the program.
+!>
+!> Character mapping:
+!>
+!> | Character | Code | Meaning in OC flow-code grids |
+!> |:----------|:-----|:-------------------------------|
+!> | `I` | 1 | Internal impermeable boundary. |
+!> | `.` | 2 | No special OC boundary/link code. |
+!> | `R` | 6 | River/channel link without boundary type. |
+!> | `W` | 7 | Channel weir boundary. |
+!> | `A` | 8 | Channel river/resistance plus weir boundary. |
+!> | `H` | 9 | Channel time-varying head boundary. |
+!> | `F` | 10 | Channel time-varying flow boundary. |
+!> | `P` | 11 | Channel polynomial boundary. |
+!>
+!> Characters not listed in `CODES` leave the target entry at its initial zero
+!> value.
 SUBROUTINE OCLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
 !
 ! READ IN ARRAY OF ALPHANUMERIC CODES FOR CHANNEL DEFINITION
@@ -1116,6 +1190,30 @@ END SUBROUTINE OCLTL
 !> `OCPLF` reads default and explicit cross-section definitions, link bed
 !> elevations, initial water depths, Strickler roughness coefficients, and
 !> boundary-condition parameters for river-link boundary types.
+!>
+!> Channel data follow the manual records `OC30`-`OC41`. The cross-section
+!> selector `IDEFX` on `OC36` is interpreted as:
+!>
+!> | `IDEFX` value | Meaning |
+!> |:--------------|:--------|
+!> | `< 0` | Use default cross-section category `-IDEFX` from records `OC32`-`OC34`. |
+!> | `> 0` and not 1 | Read `IDEFX` width/depth pairs from following record `OC37`. |
+!> | `0`, `1`, `< -NDEFCT`, or `> NOCTAB` | Invalid; increments `IXER`, and very large positive values stop further link processing. |
+!>
+!> For each link `iel`, `OCPLF` stores bed elevation in `ZGRUND(iel)`, initial
+!> water surface as `SETHRF(iel,ZGRUND+WDEPTH)`, link roughness in both
+!> `STRXX(iel)` and `STRYY(iel)`, the active cross-section count in
+!> `NXSECT(iel)`, bankfull width in `CWIDTH(iel)`, and bankfull elevation in
+!> `ZBFULL(iel)`.
+!>
+!> Boundary-specific records appended after each link are:
+!>
+!> | Type | Record | Stored values |
+!> |:-----|:-------|:--------------|
+!> | 7 or 8 | `OC38` | `IFACE`, `COEFF`, `SUBRIO`, `ZSILL`, `ZL`; category is set to 1. |
+!> | 9 | `OC39` | Time-varying head category; face is set to 0. |
+!> | 10 | `OC40` | Boundary face and time-varying flow category. |
+!> | 11 | `OC41` | Boundary face and five polynomial coefficients; category is set to 1. |
 SUBROUTINE OCPLF(BOUT, IXER, fromNOCBCD, NXDEF, XDEFW)
 !----------------------------------------------------------------------*
 !
@@ -1289,7 +1387,17 @@ END SUBROUTINE OCPLF
 
 
 
-!> Prints OC water levels, flows, and channel wetted areas.
+!> Prints one OC diagnostic block to the main print file.
+!>
+!> The report is written only when [[OCSIM]] calls this routine for an output
+!> time in the requested interval. It lists each element, the four `QOC` face
+!> flows after conversion to the model x/y sign convention, and the current
+!> water level `HRF`.
+!>
+!> | Element range | Extra field |
+!> |:--------------|:------------|
+!> | `1:total_no_links` | `ARXL`, the current channel wetted area. |
+!> | `total_no_links+1:total_no_elements` | No channel area is printed. |
 SUBROUTINE OCPRI (OCNOW, ARXL, QOC)
 !----------------------------------------------------------------------*
 !
@@ -1327,6 +1435,22 @@ END SUBROUTINE OCPRI
 !> `OCREAD` loads timestep/output controls, roughness parameters, initial
 !> overland water depths, boundary-condition definitions, and channel-link data.
 !> It delegates boundary parsing to [[JEOCBC]] and link geometry to [[OCPLF]].
+!>
+!> The routine follows the OC input record order used in the SHETRAN Data Input
+!> Manual:
+!>
+!> | Records | Action |
+!> |:--------|:-------|
+!> | `OC1` | Read `NT`, roughness-category count `NCATR`, print/output control `KONT`, and `BIOWAT`. Odd `KONT` values enable verbose input echoing. |
+!> | `OC2` | Skip the obsolete OC timestep pairs; the current code reads and discards this section. |
+!> | `OC3` | Read `SMIN`, default roughness `CDRS`, output interval `TDC:TFC`, and `DET`. If `KONT < 2`, output is disabled by setting `TDC > TFC`. |
+!> | `OC4` | If `CDRS=0` and `NCATR>0`, read the category roughness values `CATR`. |
+!> | `OC5` | Read initial overland water depth when `BIOWAT` is true; otherwise initialise it to zero. `HRF` is set to `ZGRUND + depth` for land elements. |
+!> | `OC14`/`OC17` | Populate `STRXX` and `STRYY` from `CDRS`, direct arrays, or category maps. |
+!> | Boundary records | Call [[JEOCBC]] for OC boundary metadata, then [[OCPLF]] for channel-link geometry and link-boundary details. |
+!>
+!> `OCD` is rewound, not closed, after the read. Any boundary or channel-link
+!> input errors collected during parsing are promoted to fatal error 1049.
 SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
 !----------------------------------------------------------------------*
 !  Control the reading of the OC input data file
@@ -1495,9 +1619,11 @@ END SUBROUTINE OCREAD
 !> `NOCBCD`, `AREA`, `CLENTH`, `DXQQ`, `DYQQ`, `DHF`, `ZGRUND`, `CWIDTH`,
 !> `ZBFULL`), forcing terms (`PNETTO`, `ESWA`, `QH`, `QOCF`, `HOCNOW`), OC
 !> row indices (`NROWF`, `NROWL`, `NROWST`, `NROWEL`, `NELIND`), cross-section
-!> and roughness tables (`NXSECT`, `XINH`, `XINW`, `XAREA`, `XSTAB`, `STRX`,
-!> `STRY`), and timing controls (`OCNOW`, `OCNEXT`, `TDC`, `TFC`). It updates
+!> and roughness tables (`NXSECT`, `XINH`, `XINW`, `XAREA`, `XSTAB`, `STRXX`,
+!> `STRYY`), and timing controls (`OCNOW`, `OCNEXT`, `TDC`, `TFC`). It updates
 !> `HRF` and writes `QSA`, `QOC`, `DQ0ST`, `DQIST`, `DQIST2`, and `ARXL`.
+!> On the first call it also caches each link's bankfull tabulated area in
+!> `XAFULL(link)=XAREA(link,NXSECT(link))` for [[OCQDQ]].
 !>
 !> The OC timestep is converted to seconds as
 !>
@@ -2129,6 +2255,9 @@ END SUBROUTINE OCXS
 !>
 !> `LINKNO` searches the link reference table for a north-south or east-west
 !> link whose stored grid coordinate matches the requested `(I,J)` location.
+!> The orientation argument is compared directly with `LINKNS`; no geometric
+!> inference is made here. If there are no links, or no matching link is found,
+!> the function returns zero.
 INTEGER FUNCTION LINKNO (I, J, NSOUTH)
 ! GET LINK NUMBER, GIVEN X, Y CO-ORDINATES AND ORIENTATION
 LOGICAL, INTENT(IN) :: NSOUTH

@@ -14,6 +14,20 @@
 !> reservoir table modules to share geometry, file units, time controls, and
 !> output definitions.
 !>
+!> | Responsibility | Main routines |
+!> |:---------------|:--------------|
+!> | Run setup and file handling | [[fropen]], [[infr]], [[frinit]] |
+!> | Geometry and topology | [[frdim]], [[frltl]], [[frind]], [[frsort]] |
+!> | Optional component setup | [[inet]], [[insm]], [[inbk]], [[incm]], [[inpl]] |
+!> | Runtime frame bookkeeping | [[frmb]], [[froutput]] |
+!> | Result and restart output | [[frresc]], [[frresp]], [[write_dis]], [[write_dis2]] |
+!> | Legacy dummy/checking helpers | [[dinet]], [[dinoc]], [[docin]], [[muerr2]] |
+!>
+!> Only selected orchestration entry points and a small set of frame state
+!> variables are public. Most input readers and helper routines remain private
+!> module implementation details, even though they are documented here because
+!> they define important file-format and coupling behaviour.
+!>
 !> History:
 !>
 !> | Date | Author | Version | Description |
@@ -131,6 +145,12 @@ CONTAINS
 !>
 !> Initial element dimensions are assigned from element type `ICMREF(IEL,1)`.
 !> Grid elements use the full grid dimensions,
+!>
+!> | `ICMREF(:,1)` | Element type | Initial dimensions |
+!> |:--------------|:-------------|:-------------------|
+!> | 0 | Land/grid element | `DXQQ=DX(IX)`, `DYQQ=DY(IY)`. |
+!> | 1 or 2 | Bank element | Width is `BWIDTH`; along-bank length follows the associated link orientation. |
+!> | 3 | Channel link | Width is `CWIDTH(link)`; length `CLENTH(link)` follows the link orientation. |
 !>
 !> \[
 !> DXQQ=DX(IX),\qquad DYQQ=DY(IY).
@@ -518,6 +538,13 @@ END SUBROUTINE FRDIM
 !> `ICMREF(:,2:3)`, and stores its own link number in `ICMREF(:,4)`.
 !> `total_no_links` is the last link index.
 !>
+!> | Element group | Creation order | Key indices |
+!> |:--------------|:---------------|:------------|
+!> | East-west channel links | First, from `LCODEY >= 4` | `ICMREF(:,1)=3`, `LINKNS=.FALSE.` |
+!> | North-south channel links | Second, from `LCODEX >= 4` | `ICMREF(:,1)=3`, `LINKNS=.TRUE.` |
+!> | Banks | Third, only when `BEXBK` and links exist | `ICMREF(:,1)=1,2`, `ICMREF(:,4)=link`, `ICMBK(link,side)=element` |
+!> | Grid elements | Last, for `INGRID >= 0` | `ICMREF(:,1)=0`, `ICMXY(i,j)=element` |
+!>
 !> If the bank component is active, two bank elements are then created for each
 !> link. Bank element type is `1` or `2`, `ICMREF(:,4)` points back to the
 !> associated link, and `ICMBK(link,bank)` maps from a link and bank side to the
@@ -538,6 +565,14 @@ END SUBROUTINE FRDIM
 !> `ICMREF(:,4)=9999` marks that the grid element is adjacent to a channel
 !> system rather than an ordinary soil-only element.
 !>
+!> | `ICMREF` columns | Meaning |
+!> |:-----------------|:--------|
+!> | 1 | Element type: 0 grid, 1/2 bank side, 3 channel link. |
+!> | 2:3 | Grid coordinate used to locate the element. |
+!> | 4 | Associated link for banks/links; `9999` for grid cells adjacent directly to OC links when banks are disabled. |
+!> | 5:8 | Neighbour across faces 1:4. Negative values point into `ICMRF2`. |
+!> | 9:12 | Reciprocal face number in the neighbour, or the boundary face itself. |
+!>
 !> Channel-link faces either point to their adjacent banks/grid cells or to
 !> other channel links at link nodes. A single connected link is stored directly
 !> in `ICMREF(:,5:8)`. If a node has multiple connected links, `FRIND` creates an
@@ -557,6 +592,12 @@ END SUBROUTINE FRDIM
 !> reciprocal faces in `ICMRF2(:,4:6)`. Boundary faces keep their own face index
 !> in `ICMREF(:,9:12)` and the first boundary face for non-link elements is
 !> stored in `NBFACE`.
+!>
+!> | Neighbour value | Interpretation |
+!> |:----------------|:---------------|
+!> | `> 0` | Direct neighbouring element number. |
+!> | `= 0` | External boundary face. |
+!> | `< 0` | Multi-link node reference: use `ICMRF2(-value,1:3)` for links and `ICMRF2(-value,4:6)` for reciprocal faces. |
 SUBROUTINE FRIND (BINFRP)
 ! Input arguments
 
@@ -1198,6 +1239,19 @@ END SUBROUTINE FRIND
 !> `PPD`, `PRD`, `PRI`, `RES`, `SMD`, `SPR`, `SYD`, `TIM`, `VED`, `VSD`, `VSI`,
 !> `WLD`), and initialises run state such as `BHOTTI`, `HOTIME`, `OCNOW`,
 !> `TIMEUZ`, `UZNEXT`, `UZNOW`, `MSM`, and `ALLOUT`.
+!>
+!> | Stage | Main calls/actions |
+!> |:------|:-------------------|
+!> | Frame input and allocation | [[infr]], `INITIALISE_AL_C3`, `INITIALISE_ETMOD`. |
+!> | Optional component input | [[inet]]/[[dinet]], [[insm]], [[ocmod:ocini]]/[[dinoc]]. |
+!> | Geometry and subsurface | [[frdim]], [[inbk]] when banks are active, then [[vsmod:vsin]]. |
+!> | Link forcing setup | Copy meteorological/rainfall station codes from the first adjacent non-link element to each channel link. |
+!> | Reservoir tables | [[zqmod:readzqtable]] when `ISZQ` is true. |
+!> | Hot-start | Scan `HOT` until `HOTIME >= BHOTTI`, restore water-flow arrays through `SETHRF`/`SETQSA`, and write restart output via [[frresp]]. |
+!>
+!> @note Input units are rewound rather than closed after reading. This preserves
+!> the legacy automatic-differentiation workflow noted by the in-line comments.
+!> @endnote
 SUBROUTINE FRINIT()
 ! Locals, etc
 INTEGER :: IEL, IFACE, JEL, K
@@ -1376,6 +1430,18 @@ END SUBROUTINE FRINIT
 !> `IOF` is the output/echo file unit, and `BPCNTL` controls whether the read
 !> code map is printed. The numeric codes read from `INF` are returned in
 !> `IARR`.
+!>
+!> The file section starts with an 80-character title, then reads `NNY` grid
+!> rows. Rows must be supplied from top to bottom: the first row label must be
+!> `NNY`, then `NNY-1`, and so on to 1. Each map character is interpreted as:
+!>
+!> | Character | Stored value |
+!> |:----------|:-------------|
+!> | `1`-`9` | Corresponding integer code. |
+!> | Any other character | 0. |
+!>
+!> @warning A row-label mismatch writes `INCORRECT COORDINATE` when echoing is
+!> enabled and then executes `STOP`.
 SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
 ! Input arguments
 INTEGER :: NNX, NNY, NXE, NYE, INF, IOF
@@ -1452,9 +1518,11 @@ END SUBROUTINE FRLTL
 !> Inputs include monthly-balance controls `MBFACE`, `MBFLAG`, `MBLINK`, model
 !> dimensions `LL`, `NEL`, `NLF`, geometry/storage arrays `AREA`, `CLENTH`,
 !> `DELTAZ`, `ZGRUND`, `ARXL`, `CSTORE`, `HRF`, `SD`, `VSTHE`, flow terms `QOC`,
-!> `QBKB`, `QBKF`, `QVSV`, rainfall and ET terms `P`, `EINTA`, `EEVAP`, and time
-!> controls `TIH` and `DTUZ`. It updates `MBDAY`, `MBMON`, `MBYEAR`, and the
-!> `BALANC(19)` accumulator.
+!> `QBKB`, `QBKF`, `QVSV`, rainfall and ET terms `precip_m_per_s`, `EINTA`,
+!> `EEVAP`, and time controls `TIH` and `DTUZ`. It updates `MBDAY`, `MBMON`,
+!> `MBYEAR`, and the `BALANC(19)` accumulator. `IPSTN=NRAINC(IEL)` is still set
+!> for the legacy rainfall-station pathway but is not used in the current
+!> precipitation accumulation.
 !>
 !> `BALANC` stores both short-period and cumulative water-balance terms:
 !>
@@ -1543,6 +1611,15 @@ END SUBROUTINE FRLTL
 !> handling for February. After output, the short-period flow terms
 !> `BALANC(1:6)` and `BALANC(18)` are reset to zero; cumulative totals are
 !> retained.
+!>
+!> | Condition after accumulation | Action |
+!> |:-----------------------------|:-------|
+!> | `UZNOW < TIMB` | Return after updating flow accumulators only. |
+!> | `UZNOW >= TIMB`, `MBFLAG=1` | Recompute storages, output, advance `MBDAY` by one calendar day. |
+!> | `UZNOW >= TIMB`, `MBFLAG/=1` | Recompute storages, output, advance to day 1 of the next month. |
+!>
+!> The output selector string passed to [[frresp]] is blank except for position
+!> 50, which requests the monthly-balance output block.
 SUBROUTINE FRMB
 ! Locals, etc
 !INTRINSIC ABS, MOD
@@ -1693,6 +1770,35 @@ END SUBROUTINE FRMB
 !> `FROPEN` prints the SHETRAN banner, opens the frame/run files, reads file
 !> names and unit assignments, and prepares legacy output streams used by
 !> initialisation and runtime reporting.
+!>
+!> The routine opens the rundata file `FILNAM` on unit 2 and a run log named
+!> `info_<catchment>_SHETRAN_log.txt` on unit 61. It then reads label/name pairs
+!> from the rundata file. Blank names and `0` mark optional files as unused;
+!> otherwise most names are prefixed with `DIRQQ` and opened on their numeric
+!> unit.
+!>
+!> | Units or entry | Behaviour |
+!> |:---------------|:----------|
+!> | 10:47 | Ordinary input/output files; missing unit 45 or 46 disables station output, missing unit 47 disables extra discharge output. |
+!> | 48 | Stored as `visualisation_plan_filename`; not opened here. |
+!> | 49 | Stored as `visualisation_check_filename`; not opened here. |
+!> | 50 | Stored as `hdf5filename`; not opened here. |
+!> | 51 | Optional ZQ-table file; missing or EOF disables ZQ and later optional outputs. |
+!> | 52 | Optional extra phreatic-surface-level output configuration, prefixed with `DIRQQ`. |
+!> | 53 | Optional nitrate configuration file, prefixed with `DIRQQ`. |
+!> | 54:60 | Additional optional nitrate files, prefixed with `DIRQQ`. |
+!>
+!> Special side effects:
+!>
+!> | Condition | Side effect |
+!> |:----------|:------------|
+!> | Routine entry | `ISTA`, `ISEXTRADIS`, `ISZQ`, `ISEXTRAPSL`, and `ISMN` are initially assumed true. |
+!> | Unit 22 opened | `BTIME=.TRUE.`, writes an initial message to `TIM`, then rewinds it. |
+!> | Unit 27 opened | `RESFIL` stores the resolved filename. |
+!> | Required early file list ends before unit 14 | Stops with `ABNORMAL END`. |
+!>
+!> @warning Optional ZQ unit 51 is opened using the filename exactly as read,
+!> unlike most other optional file entries that are prefixed with `DIRQQ`.
 SUBROUTINE FROPEN
 
 ! Commons and constants
@@ -1928,6 +2034,41 @@ END SUBROUTINE FROPEN
 !> extra discharge stations, water-table depth, sediment, fine sediment, and
 !> contaminant outlet series. It keeps running totals between calls and formats
 !> time using `DATE_FROM_HOUR`.
+!>
+!> `SIMPOS` selects the phase:
+!>
+!> | `SIMPOS` value | Behaviour |
+!> |:---------------|:----------|
+!> | `start` | Read optional extra-output control files, open CSV/text outputs, find the outlet link/face, initialise averaging counters. |
+!> | starts with `main` | Accumulate current timestep values, write regular output when a `TOUTPUT` interval boundary is crossed, write every-timestep discharge through [[write_dis2]], and write daily mass-balance/optional water-table rows. |
+!> | any other value | Write end-of-simulation phreatic-surface and pressure-head output to `VSE` for use as VSI-style initial conditions. |
+!>
+!> Opened or written outputs are:
+!>
+!> | Output | Unit/source | Contents |
+!> |:-------|:------------|:---------|
+!> | `DIS2` | rundata unit 41 | Every-model-timestep outlet discharge with absolute date/time. |
+!> | `MAS` | rundata unit 43 | Daily spatially averaged cumulative balance and storage terms in mm over `CAREA`. |
+!> | `DIS` | rundata unit 44 | Regular `TOUTPUT`-interval outlet discharge, with optional extra channels. |
+!> | `output_<catchment>_water_table_depth.csv` | local unit 683 when `ISEXTRAPSL` | Selected element water-table depth below ground; negative means surface-water depth. |
+!> | `output_<catchment>_sediment_all.csv` and `_sediment_fine.csv` | local units 681/682 when `BEXSY` | Outlet sediment discharge for all fractions and fraction 1. |
+!> | `output_<catchment>_contaminant.csv` | local unit 684 when `BEXCM` | Outlet relative concentration for contaminant 1. |
+!>
+!> Extra discharge points are read from `DISEXTRA` as `(element, face)` pairs and
+!> silently filtered when the element number exceeds `total_no_links`. Extra
+!> water-table output elements are read from `PSLEXTRA` and filtered when the
+!> element number exceeds `total_no_elements`.
+!>
+!> When result-file output has not provided `MBLINK`/`MBFACE`, the `start` phase
+!> scans channel links and selects the last external OC boundary with boundary
+!> type 7, i.e. a weir boundary. If no outlet is found, outlet discharge,
+!> sediment, and contaminant series use zero values.
+!>
+!> Regular discharge, sediment, and contaminant records are accumulated in
+!> normalised output time `UZNOW/TOUTPUT`. The value written for `outputhour =
+!> next_hour-1` is the mean over the preceding `TOUTPUT` interval and is dated at
+!> the interval start. If one model step crosses more than one output interval,
+!> intermediate intervals are filled with the current timestep value.
 SUBROUTINE FROUTPUT(SIMPOS)
 integer :: L, iface,disextrapoints,pslextrapoints,ifile
 CHARACTER (LEN=20) :: disextratext,pslextratext,celem
@@ -2331,6 +2472,9 @@ END SUBROUTINE FROUTPUT
 
 
 !> Writes one discharge value using the configured mass-balance face sign convention.
+!>
+!> Faces 1 and 2 preserve the sign of `qoo`; faces 3 and 4 reverse it before
+!> writing to the regular discharge unit `DIS`.
 SUBROUTINE write_dis(mbface, qoo)
 INTEGER, INTENT(IN)            :: mbface
 DOUBLEPRECISION, INTENT(IN)    :: qoo
@@ -2346,6 +2490,10 @@ END SUBROUTINE write_dis
 
 
 !> Writes one timestamped discharge record using the configured face sign convention.
+!>
+!> Faces 1 and 2 preserve the sign of `qoo`; faces 3 and 4 reverse it. The
+!> timestamp is `TIH + TME` converted with [[utilsmod:date_from_hour]], and the
+!> row is written to `DIS2` as date/time, simulation hour, and discharge.
 SUBROUTINE write_dis2(mbface, qoo, tme)
 INTEGER, INTENT(IN)            :: mbface
 INTEGER                        :: c(6)
@@ -2382,6 +2530,19 @@ END SUBROUTINE write_dis2
 !> order intentionally does not always follow the old COMMON-block ordering
 !> because some arrays must be read back in a specific order. `IORES` is filled
 !> with the unformatted result-file units opened for the selected output data.
+!>
+!> | Header section | Main contents |
+!> |:---------------|:--------------|
+!> | Version/dimensions/topology | `SHEVER`, `NX`, `NY`, `NGDBGN`, element count, `ICMREF`, `ICMXY`, file units. |
+!> | Vertical/element geometry | layer counts, cell depths, bank/link maps, faces, bed cells, vegetation/soil/well category maps. |
+!> | Physical geometry | element area, channel length/width, `DHF`, `DXQQ`, `DYQQ`, bank fractions, ground and VSS node elevations. |
+!> | Run/output controls | component flags, time-step controls, output classes, output data ids, output elements, link-code maps, output timing. |
+!> | Soil hydraulic tables | VSS table count and `VSPPSI`, `VSPTHE`, `VSPKR`, `VSPETA`, `VSPDTH`, `VSPDKR`, `VSPDET`. |
+!>
+!> After the header is written, `RES` is closed so the result header can be
+!> inspected before the simulation finishes. Each selected output set then opens
+!> one unformatted data file on unit `50+set`, named by appending the two-digit
+!> set number to the resolved `RESFIL` stem.
 SUBROUTINE FRRESC
 ! Locals, etc
 !INTRINSIC LEN
@@ -2571,22 +2732,36 @@ END SUBROUTINE FRRESC
 !> within element bounds, contaminant-oriented data types `21:38` and `44`
 !> using `1 <= IOCORS(set) <= NCON`, and each `IORES(set)` connected for
 !> unformatted output.
-!
-! Entry conditions:
-! 1       <= NELEE
-! 1, NSET <= NSETEE
-! for each set in 1:NSET:
-!       1 <= IODATA(set) <=  50 ( size_of_AIOSTO)
-!     NEL >= IOELEM(set) >= -14 (-size_of_ICLNUM)
-!     IOELEM(set) <= 0  ==>:
-!         IODATA(set)=50  ==>  ICLNUM(class) <= 20 (size_of_BALANC)
-!         IODATA(set)<50  ==>:
-!                         1 <= ICLNUM(class)   <= NELEE
-!              for each j in 1:ICLNUM(class):
-!                         1 <= ICLIST(j,class) <= NEL
-!     where class = -IOELEM(set)
-!     IODATA(set) in 21:38 or 44:44  ==>  1 <= IOCORS(set) <= NCON
-!      IORES(set) is connected for unformatted output
+!>
+!> | Output-id range | Data group | Notes |
+!> |:----------------|:-----------|:------|
+!> | 1:8 | ET, surface input, storage, and head rates | Fluxes in m/s are converted to mm/hour with `3600000`; canopy storage is written as stored. |
+!> | 9, 13, 14, 19, 20 | Column or face arrays | Written immediately as `(RESNOW, array)` records and bypass the scalar `BUFFER`. |
+!> | 10:12, 15, 17, 18 | Snow, phreatic/surface depth, channel exchange, springs | Undefined or non-applicable cases use `999.999`. |
+!> | 21:31, 44 | Sediment and erosion | `IOCORS=0` means all sediment fractions; positive `IOCORS` selects one fraction. |
+!> | 32:38 | Contaminant concentrations | `IOCORS` selects contaminant number; ids 32 and 33 write full vertical profiles. |
+!> | 39:43, 45:49 | Wells and placeholders | 39, 40, and 45:49 are undefined; 41/42 write well abstraction, 43 water-balance error. |
+!> | 50 | Water-balance summary | `BALANC(j)*1000/CAREA`, so volumes are reported as catchment-depth millimetres. |
+!>
+!> The selector string `AIOSTO` is a per-call mask: output id `IDATA` is ignored
+!> unless `AIOSTO(IDATA:IDATA) == '1'`. When `NOW=.FALSE.`, the routine also
+!> enforces `IOTIME`/`IOEND`; when `NOW=.TRUE.`, those timing checks are bypassed.
+!>
+!> Sediment fraction bounds are selected by two statement functions:
+!>
+!> \[
+!> SFSED1(c)=\max(1,c),\qquad SFSED2(c)=\max(NSED(1-c),c).
+!> \]
+!>
+!> Therefore `IOCORS=0` expands to fractions `1:NSED`, while `IOCORS>0` selects
+!> exactly that sediment fraction.
+!>
+!> Cumulative erosion output id 44 uses elapsed time since `PREVTM` to update
+!> `GNUCUM` in mm:
+!>
+!> \[
+!> GNUCUM \leftarrow GNUCUM + GNU(RESNOW-PREVTM)3600\,1000.
+!> \]
 SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
 ! Input arguments
 DOUBLEPRECISION RESNOW
@@ -2867,12 +3042,22 @@ END SUBROUTINE FRRESP
 
 !> Sorts active elements for component execution and output ordering.
 !>
-!> Elements are sorted by descending surface-water elevation. If no surface
-!> water is present in a grid square or bank element, the water-table elevation
-!> is used instead; if no surface water is present in a channel link, the channel
-!> bed elevation is used. Surface-water elevations and element indices are stored
-!> in column 1 of `ELEV` and `ISTEMP`; water-table elevations and indices are
-!> stored in column 2.
+!> Elements are sorted by descending surface-water elevation, with dry elements
+!> sorted by phreatic-surface elevation. For channel links, a dry-link ghost
+!> phreatic level is first set to the maximum adjacent non-link phreatic level on
+!> the two faces normal to the link direction.
+!>
+!> | Element state | Temporary list | Stored key |
+!> |:--------------|:---------------|:-----------|
+!> | Ponded, `GETHRF(IEL)-ZGRUND(IEL) > 1.0E-8` | Column 1 of `ELEV`/`ISTEMP` | `GETHRF(IEL)` |
+!> | Dry or non-ponded | Column 2 of `ELEV`/`ISTEMP` | `ZVSPSL(IEL)` |
+!> | Dry channel link | Column 2 after ghost update | `MAX(ZVSPSL(adjacent face A), ZVSPSL(adjacent face B))` |
+!>
+!> Each list is sorted from high to low. When the two lists are merged back into
+!> `ISORT`, the implemented comparison uses `ZVSPSL` for the next column-1
+!> element and the stored `ELEV(:,2)` key for the next column-2 element; this is
+!> the code behaviour, not a fresh comparison against the stored surface-water
+!> key.
 SUBROUTINE FRSORT
 
 !
@@ -3085,19 +3270,35 @@ END SUBROUTINE FRSORT
 !>
 !> `INBK` reads bank-component input data and sets bank water-surface elevations
 !> and related bank state used by OC, VSS, sediment, and contaminant routines.
-!> The `INTYPE` input methods are:
+!> The routine loops over 13 bank data records. The `INTYPE` input methods are:
 !>
 !> | `INTYPE` | Meaning |
 !> |:---------|:--------|
-!> | 1 | Set each value from the adjacent grid value, or from the adjacent bank-full elevation for ground level. |
-!> | 2 | Set all values from the supplied default value. |
-!> | 3 | Read one value for each data class defined in the output definition file. |
-!> | 4 | Read one value for each bank element. |
+!> | 1 | Copy from an adjacent grid element if possible, otherwise from the first adjacent bank element found on the second pass. Ground level is set from adjacent bank-full elevation. |
+!> | 2 | Set all bank elements from one supplied default value. For ground level, the value is an offset from `ZBFULL`. |
+!> | 3 | Unsupported; the routine raises fatal error 1061. |
+!> | 4 | Read explicit `(bank element, value)` pairs. The read `NVALUE` is ignored and replaced by `2*total_no_links`. |
 !>
-!> Bank widths are not set here. The routine uses bank input unit `BKD`, class
-!> lists `ICLIST`/`ICLNUM`, element references `ICMREF`, and bank-full elevations
-!> `ZBFULL`; it updates `NMC`, `NRAINC`, `NVC`, `RHOSAR`, `ZGRUND`, `HRF`, `SD`,
-!> and `ZVSPSL`, using `IDUM` and `DUMMY` as workspace.
+!> | `IDATA` | Target | Type and transform |
+!> |:--------|:-------|:-------------------|
+!> | 1 | `ZGRUND` | Real. `INTYPE=1` sets `ZBFULL(link)`; `INTYPE=2` stores `ZBFULL(link)+DFAULT`; `INTYPE=4` stores the explicit elevation. |
+!> | 2 | `NMC` | Integer meteorological category. |
+!> | 3 | `NRAINC` | Integer rainfall category. |
+!> | 4 | `NVC` | Integer vegetation category. |
+!> | 5 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
+!> | 6 | `STRXX` | Real east-west Strickler/roughness value. |
+!> | 7 | `STRYY` | Real north-south Strickler/roughness value. |
+!> | 8 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
+!> | 9 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
+!> | 10 | `SD` | Real storage/soil-depth value. |
+!> | 11 | `RHOSAR` | Real surface-retention parameter. |
+!> | 12 | `ZVSPSL` | Real. `INTYPE=1` copies adjacent phreatic elevation plus `ZGRUND(IEL)-ZGRUND(JEL)`; `INTYPE=2/4` interprets input as depth below bank ground and sets `ZGRUND-DUMMY`. |
+!> | 13 | `HRF` | Real. `INTYPE=1` copies adjacent water-surface elevation plus `ZGRUND(IEL)-ZGRUND(JEL)`; `INTYPE=2/4` interprets input as water depth above bank ground and sets `ZGRUND+DUMMY`. |
+!>
+!> Bank widths are not set here. `INTEGR` selects integer input for records 2,
+!> 3, 4, 5, 8, and 9; all other records are read as real values. The routine
+!> uses bank input unit `BKD`, element references `ICMREF`, and bank-full
+!> elevations `ZBFULL`, with `IDUM` and `DUMMY` as workspace.
 SUBROUTINE INBK
 ! Locals, etc
 INTEGER :: I, IEL, ICOUNT, IDATA, IFAULT, IL, INTYPE, ITYPE
@@ -3323,6 +3524,15 @@ END SUBROUTINE INBK
 !> contaminant storage coefficients, interpolates initial column concentrations,
 !> and initialises plant uptake data when enabled.
 !>
+!> | Phase | Main state prepared |
+!> |:------|:--------------------|
+!> | Input and checking | `CMRD` reads CM/CMP data; [[muerr2]] checks spatial concentration tables. |
+!> | Sediment interface | If `ISSDON` is false, neutral three-fraction sediment state is generated for contaminant coupling. |
+!> | Scaling and coefficients | Contaminant scaling constants, decay coefficients, and soil `KDDSOL` values are set. |
+!> | Column/link geometry | Column bottoms, lateral overlaps, bank/link bed layers, and stream-bed storage areas are derived. |
+!> | Old-state initialisation | Link, column, surface-flow, vertical-flow, moisture, and concentration old-state arrays are copied from the current hydraulic state. |
+!> | Optional spatial concentration | `ALINTP` maps depth-concentration tables onto active column cells. |
+!>
 !> `INCM` sets contaminant scaling constants before any solve-time coefficients
 !> are assembled:
 !>
@@ -3415,6 +3625,11 @@ END SUBROUTINE INBK
 !>      {DLS_l\,CWIDTH_l +(ACPBI_l-ACPBSG_l)Z2^2}.
 !> \]
 !>
+!> @note If `NSOBED(l)` is zero during this calculation, the current code sets it
+!> to soil type 1 before using `SOSDFN`. The in-line comment identifies this as
+!> a temporary fix for cases where sediment and solute components run together.
+!> @endnote
+!>
 !> For soil and bank columns, old-state flow and concentration arrays are
 !> initialised from current water-flow state. Surface input and bottom flux use
 !>
@@ -3434,6 +3649,14 @@ END SUBROUTINE INBK
 !> to blend bank and associated-link water contents and vertical velocities
 !> where the contaminant column represents both bank soil and channel-underflow
 !> geometry.
+!>
+!> Surface-flow old-state values are converted to the contaminant component's
+!> inward-positive convention as
+!>
+!> \[
+!> QQQSWO_{e,1:2}=-QOC_{e,1:2},\qquad
+!> QQQSWO_{e,3:4}= QOC_{e,3:4}.
+!> \]
 !>
 !> If `CMRD` marked an initial concentration as spatially variable, `INCM`
 !> calls `ALINTP` to interpolate the category-specific concentration/depth table
@@ -4130,12 +4353,19 @@ END SUBROUTINE INCM
 !> Reads evapotranspiration input and initialises ET state.
 !>
 !> `INET` reads meteorological/vegetation mode flags, canopy and aerodynamic
-!> parameters, time-varying vegetation/canopy/root-resistance tables, and root
-!> density functions used by [[etmod]].
+!> parameters, time-varying canopy/ground-cover/leaf-area/height tables, and
+!> root density functions used by [[etmod]].
 !>
 !> It assumes meteorological-site codes and vegetation codes have already been
 !> read by the global initialisation routines. Variable names follow the IH SHE
 !> Report 8 convention used by the legacy manual and code.
+!>
+!> | Phase | Main action |
+!> |:------|:------------|
+!> | Reset state | Clear vegetation defaults, reset `precip_m_per_s`, reset `TIMEUZ`, and clear `CSTORE` only when not reading a hot start. |
+!> | ET control records | Read print flags, `BMETAL`, optional `BMETDATES`, input timesteps, and measured-potential-evaporation flags. |
+!> | Vegetation loop | Read ET8 parameters, optional time-varying parameter tables, optional `PS1`/`RCF`/`FET` tables, and root-density values. |
+!> | Time-series priming | Read and discard the first row from `PRD`/`EPD` when `BMETAL` is true, otherwise from `MED`; also check `TAH`/`TAL` when station temperature output is active. |
 !>
 !> Shared inputs are:
 !>
@@ -4153,7 +4383,7 @@ END SUBROUTINE INCM
 !> | ET timing | `DTMET`, `EPTIME`, `METIME`, `TIMEUZ` |
 !> | Vegetation/root state | `NRD`, `CLAI`, `RDL`, `PLAI`, `VHT`, `RDF` |
 !> | Rainfall and canopy storage | `P`, `PINP`, `CSTORE` |
-!> | ET mode/control flags | `MEASPE`, `MODE`, `NF`, `BMETP`, `BINETP`, `BMETAL`, `BAR` |
+!> | ET mode/control flags | `MEASPE`, `MODE`, `NF`, `BMETP`, `BINETP`, `BMETAL`, `BMETDATES`, `BAR` |
 !> | Time-varying parameter controls | `MODECS`, `MODEPL`, `MODECL`, `MODEVH`, `NCTCST`, `NCTPLA`, `NCTCLA`, `NCTVHT` |
 !> | Canopy/aerodynamic/resistance tables | `CB`, `CK`, `CSTCAP`, `CSTCA1`, `RA`, `RC`, `RTOP`, `PLAI1`, `CLAI1`, `VHT1` |
 !> | Soil-moisture-tension tables | `PS1`, `RCF`, `FET` |
@@ -4180,9 +4410,19 @@ END SUBROUTINE INCM
 !> | `CPLAI` | Canopy leaf-area index. | nondimensional |
 !> | `VHT` | Canopy height. | m |
 !> | `MEASPE` | `0` if potential evaporation is not measured; `1` if measured. | flag |
+!> | `BMETDATES` | `TRUE` when PRD/EPD/temperature time-series records include a leading date column. | flag |
 !> | `DTMET` | Timestep for full meteorological-data input. | hr |
 !> | `DTMET2` | Timestep for precipitation-data input. | hr |
 !> | `DTMET3` | Timestep for potential-evaporation-data input. | hr |
+!>
+!> The `PS1`/`RCF`/`FET` table is read when `MODE` is neither 1 nor 4. For
+!> `MODE=1` and `MODE=4`, the table is skipped and the constant `RC` value is
+!> reported. When `BAR` is true, the top aerodynamic resistance term is computed
+!> as
+!>
+!> \[
+!> RTOP = \frac{\log^2((ZU-ZD)/ZO)}{0.41^2}.
+!> \]
 SUBROUTINE INET
 ! Locals, etc
 !INTRINSIC LOG
@@ -4487,24 +4727,47 @@ END SUBROUTINE INET
 !> levels, link maps, printing controls, extra output settings, and ZQ setup-file
 !> references.
 !>
+!> | Stage | Main records/actions |
+!> |:------|:---------------------|
+!> | Run identity and dimensions | Print version/banner, read catchment title, `NX`, `NY`, simulation start/end, and sediment/contaminant start dates. |
+!> | Grid and output timing | Read `DXIN`, `DYIN`, `DTAO`, `IAOUT`, `BINFRP`, `BFRTS1`, `BFRTS2`, `BSTORE`, and `PSTART`. |
+!> | Timestep controls | Read `PMAX`, `PALFA`, `QMAX`, `TMAX`, and `BSOFT`; cap `TMAX` at 2 h and set `PREST=1+PALFA`. |
+!> | Optional printed arrays | Read `BPPNET`, `BPEPOT`, `BPQOC`, `BPDEP`, `BPQF`, `BPQH`, `BPQSZ`, `BPHSZ`, `BPBAL`, and `BPSD` only when `IAOUT=2`. |
+!> | Component flags and hot start | Read optional-component flags `BEXSM`, `BEXBK`, `BEXSY`, `BEXCM`, then hot-start controls. |
+!> | Codes and geometry | Read station/type counts, discard obsolete river-lining record, read default codes, grid mask, OC link-code layouts, and call [[frind]]. |
+!> | Distributed arrays | Read `ZGRUND`; read or default `NMC`, `NRAINC`, and `NVC`; read optional `TOUTPUT`. |
+!>
 !> Common data read and initialised include:
 !>
 !> | Data group | Variables |
 !> |:-----------|:----------|
-!> | Organisation and file units | `FRD`, `MED`, `ETD`, `UZD`, `OCD`, `SZD`, `SMD`, `PRI`, `RES`, `HOT`, `SED` |
+!> | Organisation and file units | `FRD`, `MED`, `ETD`, `OCD`, `SMD`, `PRI`, `RES`, `HOT`, `SED` |
 !> | Job title | run title text |
 !> | Model size | `NX`, `NY` |
 !> | Simulation start time | `ISYEAR`, `ISMTH`, `ISDAY`, `ISHOUR`, `ISMIN` |
 !> | Simulation end time | `IEYEAR`, `IEMTH`, `IEDAY`, `IEHOUR`, `IEMIN` |
-!> | Half-grid spacing | `DXIN` in x direction, `DYIN` in y direction |
-!> | Printing control | `DTAO`, `IAOUT`, `BINFRP`, `BFRTS1`, `BFRTS2`, `BSTORE` |
-!> | Printed-result selection | `BPPNET`, `BPEPOT`, `BPQOC`, `BPDEP`, `BPQF`, `BPQH`, `BPQSZ`, `BPHSZ`, `BPBAL` |
-!> | Component execution control | `BEXET`, `BEXUZ`, `BEXOC`, `BEXSZ`, `BEXSM` |
-!> | Counts | `NM`, `NRAIN`, `NV`, `NS` |
-!> | River lining parameters | `BLOWP`, `DB`, `CCB` |
-!> | Default met/rain/vegetation/soil codes | `IDMC`, `IDRA`, `IDVE`, `IDS1`, `IDS2` |
-!> | Elevations | `ZGRUND`, `ZBED` |
-!> | Distributed codes | `NMC`, `NRAINC`, `NVC`, `NSC1`, `NSC2`, `INGRID` |
+!> | Sediment and contaminant start times | `JSYEAR`...`JSMIN`, `JCYEAR`...`JCMIN`; converted to `TSH`/`TCH` only when the component is enabled. |
+!> | Node spacing | `DXIN` in x direction, `DYIN` in y direction |
+!> | Printing/output control | `DTAO`, `IAOUT`, `BINFRP`, `BFRTS1`, `BFRTS2`, `BSTORE`, `PSTART`, `TOUTPUT` |
+!> | Printed-result selection | `BPPNET`, `BPEPOT`, `BPQOC`, `BPDEP`, `BPQF`, `BPQH`, `BPQSZ`, `BPHSZ`, `BPBAL`, `BPSD` |
+!> | Component execution control | `BEXSM`, `BEXBK`, `BEXSY`, `BEXCM`; `BEXET`, `BEXUZ`, `BEXOC`, `BEXSZ`, and `BEXEX` are forced true. |
+!> | Counts | `NM`, `NRAIN`, `NV`, `NS`, `NLYRCT` |
+!> | Default met/rain/vegetation codes | `IDMC`, `IDRA`, `IDVE`; `IDLYR` is read but not used here. |
+!> | Elevations and geometry | `ZGRUND`, `INGRID`, `LCODEX`, `LCODEY`, `ICMREF` |
+!> | Distributed codes | `NMC`, `NRAINC`, `NVC` |
+!>
+!> The main grid mask is read by row label from top to bottom (`K=NY...1`).
+!> Input value `1` is converted to internal catchment value `0`; every other
+!> value is converted to `-1`. The row label is checked and a mismatch stops the
+!> run immediately.
+!>
+!> @note The obsolete river-lining record `FR30/FR31` is still consumed from the
+!> input stream, but its values are not stored or converted by the active code.
+!> @endnote
+!>
+!> @note `TOUTPUT` is optional. If record `FR52/FR53` is absent or unreadable,
+!> the routine uses a 24 h averaging interval.
+!> @endnote
 SUBROUTINE INFR
 INTEGER :: nxplus, isyear, ismth, isday, ishour, ismin, ieyear, iemth, ieday, iehour, iemin, &
            jsyear, jsmth, jsday, jshour, jsmin, jcyear, jcmth, jcday, jchour, jcmin, j, k, &
@@ -4856,6 +5119,24 @@ END SUBROUTINE INFR
 !> (MPL). The current implementation maps vegetation classes to plant uptake
 !> compartments and root fractions, including legacy hard-coded plant parameters.
 !>
+!> | Plant type | `PMASS` | `PF2MAX` | `PKMAX(:,1)` |
+!> |:-----------|--------:|---------:|-------------:|
+!> | 1 | 2 | 2 | \(1.5\times10^{-8}\) |
+!> | 2 | 3 | 6 | \(3.0\times10^{-8}\) |
+!> | 3 | 20 | 10 | \(3.0\times10^{-8}\) |
+!>
+!> Each non-link element is assigned a primary plant type from `NVC`. The
+!> primary plant fraction is `PFONE(:,1)=PLAI(NVC)`. If that fraction is less
+!> than 0.99, the routine creates a second plant compartment with fraction
+!> `1-PFONE(:,1)`; the second plant type is assumed to have been set elsewhere
+!> in legacy block data. Root fractions are copied from `RDF` into `PDZF3` from
+!> the top contaminant cell downward, and the old plant compartment-B mass is
+!> initialised as
+!>
+!> \[
+!> GMCBBO = \frac{CLAI}{PF2MAX}\,DELONE .
+!> \]
+!>
 !> History:
 !>
 !> | Date | Author | Version | Description |
@@ -4942,6 +5223,18 @@ END SUBROUTINE INPL
 !> | `TS` | Snow temperature. | C |
 !> | `NSMC` | Number of meltwater slugs being routed through the snowpack. | - |
 !> | `MSM` | Snowmelt method flag: `1` degree-day, `2` energy budget. | - |
+!> | `ZOS`, `ZDS`, `ZUS` | Snow aerodynamic roughness, zero-plane displacement, and anemometer height for energy-budget snowmelt. | m |
+!> | `IMET` | Meteorological station element numbers for energy-budget windspeed correction. | element |
+!>
+!> | Branch | Input and initialisation |
+!> |:-------|:-------------------------|
+!> | `MSM=1` | Degree-day method; `TSIN` is forced to zero and energy-budget aerodynamic/location records are skipped. |
+!> | `MSM/=1` | Energy-budget method; reads `ZOS`, `ZDS`, `ZUS`, and `IMET(1:NM)`. |
+!> | `NSD=0` | Uniform initial snowpack; sets all `RHOSAR` to default `RHOS`, reads one `UNIFSD`, then sets all `SD` to that depth. |
+!> | `NSD/=0` | Spatial snowpack; reads distributed `SD` and `RHOSAR` arrays with `AREADR`. |
+!>
+!> After either snowpack branch, `NSMC` is reset to zero, `TS` is set to the
+!> effective `TSIN`, and snowfall `SF` is set to zero for every non-link element.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -5053,6 +5346,12 @@ END SUBROUTINE INSM
 
 
 !> Dummy ET initialisation used when the ET component is disabled.
+!>
+!> The routine only writes an `ENTER DINET` message and sets `BMETAL=.TRUE.`.
+!> The commented assignments to rainfall, evaporation, interception, root-zone
+!> evaporation, drainage, and soil evaporation are inactive. In the current frame
+!> initialisation, ET is forced active by [[infr]], so this dummy path is retained
+!> mainly for legacy component structure.
 SUBROUTINE DINET
 !
 !
@@ -5074,7 +5373,8 @@ END SUBROUTINE DINET
 !>
 !> This routine belongs to the legacy SHETRAN-UK dummy component set (DUM),
 !> which contains dummy versions of OC, ET, UZ, SZ, and EXSZOC routines. These
-!> minimal dummy components are not currently used.
+!> minimal dummy components are not currently used. `DINOC` only writes an
+!> `ENTER DINOC` message and returns.
 !>
 !> History:
 !>
@@ -5094,6 +5394,8 @@ END SUBROUTINE DINOC
 
 
 !> Dummy OC input hook retained for legacy component structure.
+!>
+!> `DOCIN` performs no work and has no side effects.
 SUBROUTINE DOCIN
 !
 
@@ -5108,6 +5410,18 @@ END SUBROUTINE DOCIN
 !> `MUERR2` verifies that category counts, table lengths, water-depth breakpoints,
 !> and concentration values are valid before the contaminant initialisation uses
 !> them to interpolate grid and bank concentrations.
+!>
+!> Checks are applied only for contaminants whose `ISCNSV` flag is true:
+!>
+!> | Data checked | Condition |
+!> |:-------------|:----------|
+!> | `NCATTY(J,I)` for non-link elements `J=total_no_links+1:total_no_elements` | Category type must be greater than zero. |
+!> | `TABLE_WATER_DEPTH(NELMTY,1,I)` | First depth breakpoint must equal zero. |
+!> | `TABLE_WATER_DEPTH(NELMTY,NTBL,I)`, `NTBL>=2` | Depth breakpoints must strictly increase. |
+!> | `TABLE_CONCENTRATION(NELMTY,NTBL,I)` | Concentrations must be non-negative. |
+!>
+!> Errors are accumulated through `ALCHKI`/`ALCHK` into `NERR`; any positive
+!> count triggers fatal error 2107 at the end of the routine.
 SUBROUTINE MUERR2 (CPR, total_no_elements, NELEE, total_no_links,      &
     MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCON, NCONEE, NUM_CATEGORIES_TYPES,  NTAB, NCATTY, ISCNSV,          &
     TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM)

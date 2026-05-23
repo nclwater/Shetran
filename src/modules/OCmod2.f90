@@ -86,49 +86,69 @@ CONTAINS
 
 
 !> Returns the stored water-surface elevation for an element.
+!>
+!> `HRFZZ` is the module-local storage used to abstract the OC water level
+!> array for automatic-differentiation and solver calls.
 DOUBLEPRECISION FUNCTION gethrf(i)
-INTEGER, INTENT(IN) :: i
+INTEGER, INTENT(IN) :: i !! Element index.
 gethrf = hrfzz(i)
 END FUNCTION gethrf
 
 
 
 !> Stores the water-surface elevation for an element.
+!>
+!> This is the write-side accessor for [[gethrf]].
 SUBROUTINE sethrf(i,v)
-INTEGER, INTENT(IN)         :: i
-DOUBLEPRECISION, INTENT(IN) :: v
+INTEGER, INTENT(IN)         :: i !! Element index.
+DOUBLEPRECISION, INTENT(IN) :: v !! Water-surface elevation to store.
 hrfzz(i) = v
 END SUBROUTINE sethrf
 
 
 
 !> Returns the stored face discharge for an element and face.
+!>
+!> `QSAZZ` follows the OC sign convention used by [[ocfix]]: positive discharge
+!> is into the indexed element.
 DOUBLEPRECISION FUNCTION getqsa(i,j)
-INTEGER, INTENT(IN) :: i, j
+INTEGER, INTENT(IN) :: i !! Element index.
+INTEGER, INTENT(IN) :: j !! Face number.
 getqsa = qsazz(i,j)
 END FUNCTION getqsa
 
 
 
 !> Stores the face discharge for an element and face.
+!>
+!> This is the write-side accessor for [[getqsa]].
 SUBROUTINE setqsa(i,j, v)
-INTEGER, INTENT(IN)         :: i, j
-DOUBLEPRECISION, INTENT(IN) :: v
+INTEGER, INTENT(IN)         :: i !! Element index.
+INTEGER, INTENT(IN)         :: j !! Face number.
+DOUBLEPRECISION, INTENT(IN) :: v !! Face discharge to store; positive into element `i`.
 qsazz(i,j) = v
 END SUBROUTINE setqsa
 
 
 
 !> Returns the stored face-discharge array for the first `n` elements.
+!>
+!> The returned array has shape `(n,4)` and is a value copy of
+!> `QSAZZ(1:n,:)`.
 FUNCTION getqsa_all(n)
-INTEGER, INTENT(IN)             :: n
-DOUBLEPRECISION, DIMENSION(n,4) :: getqsa_all
+INTEGER, INTENT(IN)             :: n          !! Number of leading elements to return.
+DOUBLEPRECISION, DIMENSION(n,4) :: getqsa_all !! Face-discharge copy for elements `1:n`.
 getqsa_all = qsazz(1:n,:)
 END FUNCTION getqsa_all
 
 
 
 !> Allocates channel cross-section conveyance lookup tables.
+!>
+!> `XSTAB(1:3,1:NXSCEE,1:total_no_links)` stores tabulated channel depth,
+!> conveyance, and conveyance slope for each channel link. The routine assumes
+!> `NXSCEE` and `total_no_links` have already been set by the frame/OC input
+!> processing.
 SUBROUTINE initialise_ocmod()
 !print*,nxscee,total_no_links
 ALLOCATE(xstab(3,nxscee,total_no_links))
@@ -498,7 +518,7 @@ END SUBROUTINE OCCODE
 !> | `MTYPE`/`NTYPE` | Boundary behaviour |
 !> |:----------------|:-------------------|
 !> | `MTYPE=3` | Prescribed time-varying head; sets `ZX=HOCNOW`, with no direct flux before the resistance-flow part. |
-!> | `MTYPE=4` | Prescribed time-varying inflow; `Q=QOCF`, `dQ/dZI=0`. |
+!> | `MTYPE=4` | Prescribed time-varying inflow; `Q=QOCF`, `dQ/dZI=0`. `QOCF` is already an inflow rate, not a discharge computed from local hydraulics. |
 !> | `MTYPE=5` | Polynomial function of local head. |
 !> | `NTYPE=7` | Weir only. |
 !> | `NTYPE=8` | River/resistance flow in parallel with a weir. |
@@ -837,6 +857,10 @@ END SUBROUTINE OCQBNK
 !> W\,\frac{STR_0LI_0+STR_1LI_1}{LI_0+LI_1}.
 !> \]
 !>
+!> Because roughness is length-averaged, the resulting conveyance is not a
+!> strictly upstream-only quantity even though the hydraulic depth is taken from
+!> the higher-side element.
+!>
 !> With \(L=LI_0+LI_1\), [[conveyan]] is called with `ty=1`; away from the
 !> near-zero smoothing branch this gives
 !>
@@ -980,6 +1004,13 @@ END SUBROUTINE OCQGRD
 !> DQ_{LO,HI}=50\cdot1.5\sqrt{\max(ZI_{HI}-ZQWeirSill,0)},\qquad
 !> DQ_{LO,LO}=0.
 !> \]
+!>
+!> @warning
+!> The ZQ derivative is not derived from the tabulated rating curve. The source
+!> comment notes that this approximation was suitable for the Crummock case and
+!> should be stability-tested during step changes, especially for small-area
+!> reservoirs.
+!> @endwarning
 !>
 !> All other link-link exchanges use upstream-link channel conveyance. With
 !> \(L=LI_0+LI_1\), [[occode]] supplies upstream conveyance \(C\) and derivative
@@ -1240,6 +1271,32 @@ END SUBROUTINE OCQMLN
 !> `ty=0` and `ty=1` handle area-based and depth-width forms with a near-zero
 !> smooth polynomial branch for AD stability. `ty=2` handles channel
 !> cross-section extension above the tabulated range.
+!>
+!> Implemented branches:
+!>
+!> | `ty` | Required inputs | Conveyance for ordinary depths \(h \ge 10^{-3}\) m | Returned derivative |
+!> |:-----|:----------------|:---------------------------------------------------|:--------------------|
+!> | `0` | `str`, `h`, `xa` | \(C=str\,xa\,h^{2/3}\) | \(str\,h^{2/3}\,5/3\) |
+!> | `1` | `str`, `h` where `str=K W` | \(C=str\,h^{5/3}\) | \(str\,h^{2/3}\,5/3\) |
+!> | `2` | `str`, `h`, `xa`, `extra` | \(C=str\,xa\,h^{2/3}\) | \(C(extra/xa+2/(3h))\) |
+!>
+!> For `ty=0` and `ty=1`, depths below \(10^{-9}\) m return zero conveyance
+!> and derivative. For \(10^{-9} \le h < 10^{-3}\) m the implementation uses
+!> the cubic smoothing polynomial
+!>
+!> \[
+!> p(h)=\frac{10}{3}h^2(4-1000h),\qquad
+!> p'(h)=\frac{10}{3}h(8-3000h).
+!> \]
+!>
+!> In that smoothed range, `ty=1` returns `conv=str*p(h)` and
+!> `deriv=str*p'(h)`. `ty=0` returns `conv=str*p(h)*xa/h`, while `deriv`
+!> remains `str*p'(h)` exactly as implemented.
+!>
+!> @warning
+!> `xa` is required for `ty=0` and `ty=2`, and `extra` is required for `ty=2`;
+!> the routine does not test `PRESENT()` before using them.
+!> @endwarning
 SUBROUTINE conveyan(str, h, conv, deriv, ty, xa, extra)
 !to bring this all to one place (its messy!)
 INTEGER, INTENT(IN)         :: ty
