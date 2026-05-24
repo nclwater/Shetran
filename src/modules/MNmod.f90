@@ -18,8 +18,8 @@
 !> nitrification, ammonia volatilisation, and denitrification (`MN15`-`MN28`),
 !> ammonium adsorption parameters (`MN30`, `MN31`), Q10 controls for
 !> mineralisation and nitrification (`MN35`, `MN35a`), initial carbon and
-!> ammonium conditions (`MN40`-`MN54`), and the lower cell limit for
-!> decomposition (`MN60`).
+!> ammonium conditions (`MN40`-`MN54`), and the lower cell limit for nitrogen
+!> transformations (`MN60`).
 !>
 !> Additional manual-defined files provide time-varying external carbon inputs
 !> (`MNFC`), external inorganic nitrogen/fertilizer inputs (`MNFN`), nitrogen
@@ -32,6 +32,18 @@
 !> for the dynamic and dead-space soil-water regions. At present [[mnerr0]]
 !> expects the contaminant interface to provide the configured single nitrogen
 !> contaminant species.
+!>
+!> The runtime path is split between first-call setup and later timesteps:
+!> [[MNCONT]] allocates state and calls [[mnplant]] then [[mnmain]]; [[mnmain]]
+!> reads static MND data only on its first call, while later calls read
+!> scheduled MNFC/MNFN additions, update environmental factors and process
+!> pools, form contaminant source/sink terms, and write cumulative MN outputs.
+!>
+!> @note Legacy implementation details that affect interpretation include
+!> [[MNCONT]] overwriting `TA(1:NV)` with `10.0`, [[mnint2]] hard-coding
+!> `PPHI=0.500`, and [[mnout]] reporting additions/losses cumulatively since its
+!> first call.
+!> @endnote
 !>
 !> @warning Plant uptake is calculated by [[mnplant]] before the main nitrogen
 !> update. The legacy source comments state that this routine has weak input

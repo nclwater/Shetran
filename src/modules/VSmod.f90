@@ -48,6 +48,16 @@
 !> folded into the column matrix by [[vswell]], [[vsspr]], [[vsbc]],
 !> [[vslowr]], [[vsuppr]], [[vsintc]], and [[vssai]].
 !>
+!> Important implementation caveats found in the current code:
+!>
+!> | Area | Current behaviour |
+!> |:-----|:------------------|
+!> | Setup lifetime | Several setup routines use retained local state, and [[vssim]] caches `JCBCsv`, `VSAIJsv`, and `ICSOILsv` behind `FIRSTvssim`; the module follows the original one-initialisation workflow. |
+!> | Manual boundary options | Lateral head-gradient boundaries (`JCBC=5`) are read/interpolated but not applied; bottom free drainage (`NBBTYP=8`) currently falls through to zero lower-boundary flux. |
+!> | Soil-table derivatives | [[vssoil]] finally overwrites `VSPKR` with a DSATG saturation-ratio curve without recomputing `VSPDKR`, so conductivity derivatives used by [[vsfunc]] can be stale or unset. |
+!> | Explicit source/sink linearisation | Spring and well terms use simplified or explicit pressure-dependent coefficients; see [[vsspr]] and [[vswell]] for the exact active forms. |
+!> | Unfinished paths | `IVSFLG=4`, split-cell mass-balance correction, and lateral head-gradient boundary application are legacy unfinished paths. |
+!>
 !> Programmer's map:
 !>
 !> | Routine | Main responsibility |
@@ -64,7 +74,10 @@
 !> `IVSFLG = 4` is listed in the manual as tabulated water content with
 !> Averjanov-style conductivity, but the current implementation stops if that
 !> option is selected in [[vssoil]]. Split-cell mass-balance correction in
-!> [[vsmb]] is also marked unfinished and stops if reached.
+!> [[vsmb]] is also marked unfinished and stops if reached. Lateral
+!> head-gradient boundary categories and bottom free-drainage categories are
+!> parsed from the manual inputs, but do not currently add their advertised
+!> physical boundary terms to the VSS matrix.
 !> @endwarning
 !>
 !> History:

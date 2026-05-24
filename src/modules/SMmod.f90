@@ -16,6 +16,16 @@
 !> meltwater delivery from the bottom of the snowpack, so downstream ET/VSS/OC
 !> calculations receive liquid-water input rather than raw snowfall.
 !>
+!> The manual's snowmelt input file supplies:
+!>
+!> | Records | Data |
+!> |:--------|:-----|
+!> | `SM2` | `BINSMP`, the snow-input print flag. |
+!> | `SM4` | Degree-day factor `DDF`, default snow specific gravity `RHOS`, initial snow temperature `TSIN`, spatial snowpack flag `NSD`, and method flag `MSM`. |
+!> | `SM6`/`SM6b` | Energy-budget aerodynamic parameters `ZOS`, `ZDS`, `ZUS`, and meteorological-station element locations `IMET`, required only for `MSM=2`. |
+!> | `SM8` | Uniform initial snow depth, used when `NSD=0`. |
+!> | `SM11`/`SM14` | Spatial initial snow depth `SD` and snow specific gravity `RHOSAR`, used when `NSD=1`. |
+!>
 !> @note In the degree-day branch the implemented melt threshold is `TA >= 2 C`,
 !> not simply air temperature above freezing.
 !> @endnote

@@ -79,13 +79,14 @@
 !> Sediment mass-balance output is also still a placeholder in [[balsed]].
 !> @endwarning
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1993-1995 | AB/RAH/BTL | 3.4.1 | Created sediment yield routines and later corrections, including `DLSMAX`. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the SY `.F` files into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Updated `NTSOIL` dimensions for current array layout. |
+!> @endhistory
 MODULE SYmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the SY .F files
