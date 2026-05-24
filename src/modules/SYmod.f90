@@ -79,13 +79,14 @@
 !> Sediment mass-balance output is also still a placeholder in [[balsed]].
 !> @endwarning
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1993-1995 | AB/RAH/BTL | 3.4.1 | Created sediment yield routines and later corrections, including `DLSMAX`. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the SY `.F` files into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Updated `NTSOIL` dimensions for current array layout. |
+!> @endhistory
 MODULE SYmod
 USE SGLOBAL
 !USE AL_P
@@ -186,6 +187,11 @@ CONTAINS
 !> `GSED(link,sed)` accumulates \(G\) over the outflowing ends of each link.
 !> Concentration caps, sediment velocity selection, and exchange with
 !> suspended and bed material are applied later in [[sycltr]] and [[sylink]].
+!>
+!> @note Link ends are mapped onto `QOC` faces 1 and 3 for east-west links, or
+!> faces 2 and 4 for north-south links. Only outflowing ends contribute to
+!> `GSED`; non-outflowing ends leave the accumulated capacity unchanged.
+!> @endnote
 SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, &
  DRSED, ARXL, DCBSED, DWAT1, QOC, TAUJ, ACKW, GSED)
 
@@ -401,6 +407,11 @@ END SUBROUTINE SYBC
 !> The routine also updates total bed depth `DLS`, accumulated bed-depth change
 !> `ARBDEP = ARBDEP + CWIDTH*(DLS_new-DLS_old)`, active-layer depth `DCBED`,
 !> and whole-bed composition `FBETA_s = (DCIPRM_s+DDIPRM_s)/DLS_new`.
+!>
+!> @note If the new total bed depth is zero, `FBETA` is not overwritten for that
+!> link; it retains its previous values even though `DLS` and `DCBED` become
+!> zero.
+!> @endnote
 SUBROUTINE SYBED (DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
  DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
 
@@ -642,6 +653,11 @@ END SUBROUTINE SYBKER
 !>     0, & CONCI_s = 0.
 !>   \end{cases}
 !> \]
+!>
+!> @note `QSDWAT` entries are assigned only for outflow faces handled by this
+!> routine. Callers should not interpret non-outflow entries as newly computed
+!> values unless they have been cleared before the call.
+!> @endnote
 SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, &
  NLF, NLFEE, NSED, NSEDEE, DRSED, ARXL, CWIDTH, DCBED, LINKNS, &
  DWAT1, QOC, SLOPEJ, DCBSED, FDEL, TAUJ, ACKW, CONCI, QSDWAT, GSED, &
@@ -942,6 +958,11 @@ END SUBROUTINE SYCLTR
 !>
 !> If no loose sediment remains, `FBETA` is reset to the surface-soil
 !> composition `SOSDF`; otherwise it is set from the remaining `V_s` mix.
+!>
+!> @note `QSEDE` is updated only for faces listed as outflows in this call.
+!> Inflow and no-flow faces are read as incoming fluxes but are not cleared or
+!> overwritten before return.
+!> @endnote
 SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, &
  FETAE, GNUE, ISGSED, NSED, FPCRIT, PLSE, NSEDEE, DRSED, QWAT, &
  SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE, FDELE, QSEDE, Q, VDSED)
@@ -1234,6 +1255,12 @@ END SUBROUTINE SYCRIT
 !>
 !> where \(S\) is the doubled cumulative midpoint sum at the selected interval.
 !> A zero requested fraction or null distribution returns zero.
+!>
+!> @note The routine assumes the supplied distribution weights are non-negative
+!> and ordered with increasing diameters. It does not normalise or validate the
+!> weights; upstream input checks are responsible for valid sediment
+!> distributions.
+!> @endnote
 DOUBLEPRECISION FUNCTION SYDR (FSED, INCF, N, F, D)
 !
 ! Input arguments
@@ -1333,6 +1360,11 @@ END FUNCTION SYDR
 !> `GSED(link,s)` is the sum of \(\Delta G_s\) over outflowing ends of that
 !> link. [[sycltr]] later converts this streamwise discharge capacity into a
 !> notional concentration capacity and applies `FPCRIT`.
+!>
+!> @note The implemented formula uses `SLOPEJ**1.5` directly for each outflowing
+!> end. It relies on the upstream water-interface calculations and validation to
+!> provide non-negative channel slopes for active outflows.
+!> @endnote
 SUBROUTINE SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, &
  QOC, LINKNS, SLOPEJ, GSED)
 
@@ -1542,6 +1574,11 @@ END SUBROUTINE SYERR0
 !> | Channel geometry | `CLENTH >= 0`, `CWIDTH > 0`, `ZBFULL >= ZGRUND`, and `ARXL >= 0` for each link. |
 !> | Column geometry/state | `DXQQ > 0`, `DYQQ > 0`, `HRF >= ZGRUND`, valid `NLYR`, valid top-layer soil type `NTSOIL(iel,NLYR)`, and valid vegetation type `NVC`. |
 !> | Element geometry | `AREA > 0` and all face distances `DHF > 0`. |
+!>
+!> @note Bank-neighbour checks use the bank face normal to the link:
+!> `FACE = 2*BANK`, decremented for north-south links, and require at least
+!> one active grid neighbour across the two banks of each channel link.
+!> @endnote
 !>
 !> Each failed relation is reported through `ALCHK` or `ALCHKI` on the sediment
 !> print unit `SPR`. If any failures are found, the routine raises fatal error
@@ -1876,6 +1913,12 @@ END SUBROUTINE SYERR1
 !> implemented; this routine still validates `SY61`-`SY64` metadata and rating
 !> coefficients so invalid input is caught consistently. If any failures are
 !> found, fatal error 2000 is raised before returning.
+!>
+!> @note The workspace check labelled `NELEE` compares the required sediment
+!> workspace with `NXEE*NYEE` stored in `IDUM`, not directly with the `NELEE`
+!> argument. Later guarded sections still use `NELEE` to avoid overrunning
+!> local arrays.
+!> @endnote
 SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
  NV, NSYB, NSYBEE, NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, &
  SFB, SRB, ALPHA, DCBEDO, FPCRIT, DLSMAX, NTSOBK, NSYBCD, NBFACE, &
@@ -2213,13 +2256,16 @@ END SUBROUTINE SYERR2
 !> | Link state | `ARXL >= 0` for active links. |
 !> | Column water inputs | `DRAINA >= 0` and `DRAINA <= PNETTO` within tolerance. |
 !> | Element water level | `HRF >= ZGRUND`. |
-!> | Flow consistency | Adjacent regular faces must not both discharge into each other, branch outflows must have a receiving neighbour, and donor elements must precede receptors in `ISORT`. |
+!> | Flow consistency | Adjacent regular faces must not both discharge into each other (`status=1`), branch outflows must have a receiving neighbour (`status=2`), and donor elements must precede receptors in `ISORT`. |
 !>
 !> Face outflow is interpreted as
 !>
 !> \[
 !>   Q_{out}(iel,face) = \operatorname{sign}(1,2-face)\,QOC(iel,face).
 !> \]
+!>
+!> With the implemented Fortran `SIGN` rule, positive `QOC` is outflow on faces
+!> 1 and 2, while negative `QOC` is outflow on faces 3 and 4.
 !>
 !> The routine builds `JSORT`, the inverse of `ISORT`, and `JMIN`, the earliest
 !> receptor position required by each donor. Any flow-order failure is reported
@@ -2464,6 +2510,11 @@ END SUBROUTINE SYERR3
 !> \]
 !>
 !> Otherwise `VINFMX` is zero.
+!>
+!> @note The settling velocity is saved after the first call. The caller must
+!> treat `DRSEDF` as fixed for the simulation, which matches the static
+!> sediment-size input.
+!> @endnote
 SUBROUTINE SYFINE (DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
  DCBF, FBETAF, FDELF, PBSED, TAUK, VCFMAX, VINFMX, BARM)
 
@@ -2529,9 +2580,45 @@ END SUBROUTINE SYFINE
 
 !> Initialises sediment state arrays on the first SY pass.
 !>
-!> The routine zeros source/sink arrays, copies initial channel geometry, derives
-!> representative soil particle diameters, sets bed and loose-sediment depths,
-!> and initialises sediment flow-rate arrays.
+!> `SYINIT` builds the saved sediment state used by the first sediment time
+!> step. It does not read input; it converts already checked SY and WAT arrays
+!> into active-layer depths, old-water storage, and per-soil representative
+!> sediment sizes.
+!>
+!> Initialisation groups:
+!>
+!> | Group | Action |
+!> |:------|:-------|
+!> | Erosion/source arrays | Zeros column surface erosion `GNU`, link bank erosion `GNUBK`, bed deposition accumulator `ARBDEP`, and infiltration accumulators `GINFD`/`GINFS`. |
+!> | Flow-memory arrays | Copies current channel cross-sectional area `ARXL` to `ARXLOL` and zeros every `QSED(:,sed,face)`. |
+!> | Channel bed state | Splits each initial bed depth `DLS(link)` into an active upper layer limited by `DCBEDO` and a lower layer containing the remainder. |
+!> | Land-column state | Stores initial surface-water depth `DWATOL = HRF - ZGRUND` for each non-channel element. |
+!> | Soil-size summary | Uses [[sydr]] at percentile `0.5` to derive the median representative diameter `DRSO50(soil)` from `SOSDFN` and `DRSED`. |
+!>
+!> For channel links, the active and lower bed depths are
+!>
+!> \[
+!>   DCBED = \min(DLS, DCBEDO),
+!>   \qquad
+!>   DDBED = \max(DLS-DCBED,0),
+!> \]
+!>
+!> and each class receives its initial share through
+!>
+!> \[
+!>   DCBSED_s = DCBED\,FBETA_s,
+!>   \qquad
+!>   DDBSED_s = DDBED\,FBETA_s .
+!> \]
+!>
+!> The conversion factor `FETA` maps eroded in-place soil solid volume to
+!> settled sediment volume. It uses bank soil porosity for links and top-layer
+!> soil porosity for land elements:
+!>
+!> \[
+!>   FETA_{link} = {1-THSAT(NTSOBK)\over 1-PBSED}, \qquad
+!>   FETA_{col} = {1-THSAT(NTSOTP)\over 1-PLS}.
+!> \]
 SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
  NTSOBK, ARXL, DCBEDO, DLS, FBETA, DRSED, HRF, PBSED, PLS, SOSDFN, &
  THSAT, ZGRUND, NTSOTP, ZBFULL, ARBDEP, ARXLOL, DCBED, DCBSED, &
@@ -2737,6 +2824,10 @@ END SUBROUTINE SYINIT
 !>
 !> `GINFD` and `GINFS` both receive the fine infiltration rate
 !> \(V_{inf}/\Delta t\); for non-fines this rate is zero.
+!>
+!> @note Only faces in the outflow list are overwritten in `QSEDE`. Inflow and
+!> no-flow faces are read as incoming sediment fluxes and are left unchanged.
+!> @endnote
 SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
  ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
  DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
@@ -2912,8 +3003,10 @@ END SUBROUTINE SYLINK
 !> | Initial state | [[syinit]] initialises bed layers, loose sediment, concentrations, rates, and saved old-time water geometry. |
 !>
 !> On later calls it performs one water-flow time step. Optional dynamic input
-!> checking is controlled by `ISSYOK`: when enabled, [[syerr3]] verifies the
-!> current water state and the `ISORT` donor-before-receptor routing order.
+!> checking is controlled by `ISSYOK`: values less than 1 disable checking;
+!> otherwise [[syerr3]] runs on the first non-initialisation call and then every
+!> `ISSYOK` water-flow calls. The check verifies the current water state and the
+!> `ISORT` donor-before-receptor routing order.
 !> [[sywat]] derives water-dependent depths, slopes, shear stresses, rainfall,
 !> and confluence weights; [[syover]] and [[sybker]] calculate hillslope and
 !> bank erosion.
@@ -2933,6 +3026,12 @@ END SUBROUTINE SYLINK
 !> `ICMRF2` and `FQCONF`. After all elements are routed, [[sybed]] updates the
 !> two channel-bed layers, old water depths/cross-sectional areas are saved, and
 !> the sediment clock is advanced before being reset exactly to `UZNOW`.
+!>
+!> @note The boundary-condition branch reflects the original intended structure,
+!> but [[sybc]] is currently an empty routine in this source file. The input
+!> metadata can be read and checked, but time-varying sediment boundary fluxes
+!> are not implemented here.
+!> @endnote
 SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, &
  ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NLYR, NTSOIL, NVC, AREA, &
  CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT, ZBFULL, ZGRUND, BEXBK, &
@@ -3377,6 +3476,11 @@ END SUBROUTINE SYMAIN
 !>
 !> otherwise the underlying soil is treated as protected and `GNU` is set to
 !> zero, matching the manual definition of `DLSMAX`.
+!>
+!> @note The internal class switch treats equality with a threshold as belonging
+!> to the higher class. The `DLSMAX` test is also a hard cutoff: `DLS < DLSMAX`
+!> permits erosion, while `DLS >= DLSMAX` sets `GNU` to zero.
+!> @endnote
 SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
  DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
  TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
@@ -3503,8 +3607,13 @@ END SUBROUTINE SYOVER
 !>   d_{50} = [[sydr]](0.5, VDSED, DRSED).
 !> \]
 !>
-!> Capacity is summed only over faces with positive `QWAT`. The face length is
-!> \(L_f=DXQQE\) for east/west faces and \(L_f=DYQQE\) for north/south faces.
+!> Capacity is summed only over faces with positive `QWAT`. The face length
+!> follows the OC face convention used by the code:
+!>
+!> | Faces | Length |
+!> |:------|:-------|
+!> | 1 and 3 | `DYQQE` |
+!> | 2 and 4 | `DXQQE` |
 !>
 !> For `ISGSED = 1`, the Engelund-Hansen-style branch uses water depth \(h\),
 !> face discharge \(Q_f\), and slope \(S_f\):
@@ -3532,6 +3641,12 @@ END SUBROUTINE SYOVER
 !>
 !> Any other `ISGSED` value gives zero capacity. The returned `GJSUM` is
 !> \(\sum_f G_f\) over outflowing faces.
+!>
+!> @note The Engelund-Hansen branch is skipped when `DWAT1E <= 0`, returning
+!> zero capacity. Both active formula branches use powers or square roots of
+!> slope/shear directly, so upstream hydraulic calculations are expected to
+!> provide non-negative active-face values.
+!> @endnote
 SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
  DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
 
@@ -3659,6 +3774,32 @@ END SUBROUTINE SYOVTR
 !> `SYREAD` loads model flags, particle sizes, soil erodibility, vegetation drip
 !> parameters, channel-bank and bed properties, initial loose/bed sediment
 !> states, suspended concentrations, and sediment boundary categories.
+!>
+!> Input record groups:
+!>
+!> | Records | Data read |
+!> |:--------|:----------|
+!> | `SY01`-`SY02` | Title and sediment-file version. A version mismatch raises warning 2011, not a fatal error. |
+!> | `SY11`-`SY12` | Sediment counts, formula switches, check/substep controls, and scalar concentration/bed/fine controls. Channel-only items are read only when `NLF > 0`. |
+!> | `SY21`-`SY24` | Representative particle diameters, soil erodibility/density/clay/bank parameters, soil sediment-size fractions, and vegetation drip parameters. |
+!> | `SY31`-`SY32` | Channel bank soil type and bed-sediment porosity, read only when channel links exist. |
+!> | `SY41`-`SY43` | Ground cover, rock cover, and loose-sediment porosity, distributed by `ALALLF` over land-column elements. |
+!> | `SY51`-`SY53` | Initial loose/bed depth, initial loose/bed composition, and initial mobile sediment concentrations for all elements. |
+!> | `SY61`-`SY64` | Sediment boundary counts, boundary definitions, steady flux categories, and steady rating-curve categories. |
+!>
+!> The distributed `SY52` read accepts the special negative-category option from
+!> `ALALLF`. When selected, the routine replaces the read `FBETA` values with
+!> the sediment-size fractions of each element's soil type: bank soil `NTSOBK`
+!> for links and top-column soil `NTSOTP` for land elements.
+!>
+!> Boundary types are stored in `NSYBCD(:,2)` as read, but the category index in
+!> `NSYBCD(:,3)` is condensed for storage: type 2 categories are appended after
+!> type 1 categories, and type 4 categories after type 3 categories. This matches
+!> the later validation and boundary metadata layout.
+!>
+!> Fatal setup errors are raised for insufficient `NELEE` workspace, `NSED`
+!> outside `1:NSEDEE`, too many boundary elements/categories, or a boundary type
+!> outside `1:4`.
 SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
  NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, NSYCEE, NTSOTP, NV, &
  NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA, BBC, BKB, CONCOB, &
@@ -4052,10 +4193,15 @@ END SUBROUTINE SYREAD
 !>   Q_{out}(iel,face)=\operatorname{sign}(1,2-face)\,QOC(iel,face).
 !> \]
 !>
+!> Link side faces are skipped; `SLOPEJ` and `TAUJ` are therefore not defined
+!> for those faces. No-flow faces are assigned zero slope and zero shear.
+!>
 !> Regular neighbours use `ICMREF`; confluence branches use `ICMRF2`. For
 !> confluence outflows, `FQCONF(branch,p)` stores the positive prospect-flow
-!> fraction used later to distribute sediment fluxes. Boundary faces extrapolate
-!> from the opposite face when possible, otherwise they use zero slope.
+!> fraction used later to distribute sediment fluxes. These fractions are only
+!> set for true outflow through the original confluence face and require a
+!> positive gross prospect outflow. Boundary faces extrapolate from the opposite
+!> face when possible, otherwise they use zero slope.
 !>
 !> Face slope and shear are then
 !>
@@ -4066,7 +4212,8 @@ END SUBROUTINE SYREAD
 !>
 !> Across channel-bank faces, water levels below bankfull are clipped to
 !> `ZBFULL` before the slope calculation. `TAUK(iel)` is set to the shear stress
-!> on the face with the largest absolute water flux.
+!> on the face with the largest absolute water flux; if no considered face has
+!> flow, `TAUK(iel)` remains zero.
 SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
  DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
  PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
@@ -4306,8 +4453,9 @@ END SUBROUTINE SYWAT
 !> Placeholder for sediment mass-balance output.
 !>
 !> Sediment process state is updated by [[symain]], but this routine currently
-!> performs no accumulation or reporting. It is called from the main simulation
-!> loop only to preserve the historical component interface.
+!> performs no accumulation, checking, state mutation, or reporting. It is
+!> called from the main simulation loop only to preserve the historical component
+!> interface for sediment balances.
 SUBROUTINE BALSED
 end subroutine BALSED
 

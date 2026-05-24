@@ -18,8 +18,8 @@
 !> nitrification, ammonia volatilisation, and denitrification (`MN15`-`MN28`),
 !> ammonium adsorption parameters (`MN30`, `MN31`), Q10 controls for
 !> mineralisation and nitrification (`MN35`, `MN35a`), initial carbon and
-!> ammonium conditions (`MN40`-`MN54`), and the lower cell limit for
-!> decomposition (`MN60`).
+!> ammonium conditions (`MN40`-`MN54`), and the lower cell limit for nitrogen
+!> transformations (`MN60`).
 !>
 !> Additional manual-defined files provide time-varying external carbon inputs
 !> (`MNFC`), external inorganic nitrogen/fertilizer inputs (`MNFN`), nitrogen
@@ -32,6 +32,18 @@
 !> for the dynamic and dead-space soil-water regions. At present [[mnerr0]]
 !> expects the contaminant interface to provide the configured single nitrogen
 !> contaminant species.
+!>
+!> The runtime path is split between first-call setup and later timesteps:
+!> [[MNCONT]] allocates state and calls [[mnplant]] then [[mnmain]]; [[mnmain]]
+!> reads static MND data only on its first call, while later calls read
+!> scheduled MNFC/MNFN additions, update environmental factors and process
+!> pools, form contaminant source/sink terms, and write cumulative MN outputs.
+!>
+!> @note Legacy implementation details that affect interpretation include
+!> [[MNCONT]] overwriting `TA(1:NV)` with `10.0`, [[mnint2]] hard-coding
+!> `PPHI=0.500`, and [[mnout]] reporting additions/losses cumulatively since its
+!> first call.
+!> @endnote
 !>
 !> @warning Plant uptake is calculated by [[mnplant]] before the main nitrogen
 !> update. The legacy source comments state that this routine has weak input
@@ -76,16 +88,41 @@ module MNmod
 !> mineralisation/immobilisation, nitrification, volatilisation, plant uptake,
 !> and external ammonium input. Non-convergence of the cell iteration reports
 !> error 3018.
+!>
+!> The active vertical range is `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`. Within each soil layer, the iteration solves for
+!> `NAMM1` using the nonlinear ammonium retardation factor
+!>
+!> \[
+!> R_\mathrm{amm}=1+
+!> \frac{KDDSOL_s\,(NAMM/MNCREF)^{GNN-1}}{\theta}.
+!> \]
+!>
+!> At each iteration the half-step concentration
+!> \(NAMM_h=(NAMM+NAMM1)/2\) drives the process terms:
+!>
+!> | Term | Implemented expression |
+!> |:-----|:-----------------------|
+!> | Mineralisation | `MINER=GAM` and `IMAMM=0` when `GAM>=0`. |
+!> | Immobilisation | `MINER=0`, `IMAMM=min(-GAM, KUAMM*NAMM_h)` when `GAM<0`. |
+!> | Nitrification | `NTRF=theta_h*KNIT*ENT*ENPH*NAMM_h`. |
+!> | Volatilisation | `VOL=theta_h*KVOL*EMT*NAMM_h`. |
+!> | Plant uptake | `PLAMM=min(PLUP*(PPHI*NAMM_h/(NDNIT+NAMM_h)+(1-PPHI)*NAMM_h/(NDSNT+NAMM_h)), VSTHE*KPLAMM*NAMM_h)`. |
+!>
+!> The new concentration is
+!>
+!> \[
+!> NAMM1 =
+!> \frac{\theta_o\,NAMM\,R_o
+!>       + DTUZ(-PLAMM+MINER-IMAMM-NTRF-VOL+NAAMM)}
+!>      {\theta\,R_1}.
+!> \]
+!>
+!> Up to 20 iterations are allowed per cell. Convergence uses the squared
+!> relative change in `NAMM1`; the tolerance is \(10^{-12}\).
 subroutine mnamm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,gnn,kplamm,kuamm, &
     mncref,kddsol,dtuz,vsthe,vstheo,isbotc)
-    !
-    !--------------------------------------------------------------------*
-    !
-    ! calculates the concentration of ammonium nitrogen per unit volume of,
-    ! solution at timestep n+1
-    ! failure of iteration loop to converge produces error no 3018
-    !
-    !--------------------------------------------------------------------*
+
     ! externals
     !use sglobal, only : error
     !       external      error
@@ -237,16 +274,27 @@ end subroutine mnamm
 !> The calculation combines humus, litter, and manure carbon pools with
 !> temperature and matric-potential modifiers and suppresses litter/manure
 !> decomposition where immobilisation is limiting.
+!>
+!> For each active land-column cell the routine uses average old/new carbon
+!> pools:
+!>
+!> \[
+!> C_h=\frac{CHUM+CHUM1}{2},\quad
+!> C_l=\frac{CLIT+CLIT1}{2},\quad
+!> C_m=\frac{CMAN+CMAN1}{2}.
+!> \]
+!>
+!> If `ISIMTF` is true, litter and manure decomposition rates are temporarily
+!> set to zero. Otherwise the stored `KLIT` and `KMAN` rates are used. Carbon
+!> dioxide production is then
+!>
+!> \[
+!> CDORT = (1-FE)(1-FH)K_{lit}EMT\,EMPH\,C_l
+!>       + (1-FE)KHUM\,EMT\,EMPH\,C_h
+!>       + (1-FE)K_{man}EMT\,EMPH\,C_m .
+!> \]
 subroutine mnco2 (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,isbotc)
-    !
-    !
-    !--------------------------------------------------------------------*
-    !
-    ! calculates the concentration of carbon dioxide produced
-    ! upto timestep n+1
-    !
-    !--------------------------------------------------------------------*
-    !
+
     ! input arguments
     integer llee,nbotce,ncetop,nel,nelee,nlf
     integer ncolmb(nelee)
@@ -317,10 +365,22 @@ end subroutine mnco2
 !> update mineral nitrogen state and to fill the contaminant source/sink arrays
 !> `sss1` and `sss2` used by the CM transport equations.
 !>
+!> | Phase | Main action |
+!> |:------|:------------|
+!> | First call only | Allocate all MN carbon, nitrogen, process-rate, environmental-factor, adsorption, plant-uptake, and workspace arrays with shape based on `NEL` and `NCETOP`. |
+!> | Temporary temperature setup | Set every vegetation air-temperature entry `TA(1:NV)` to 10.0 before plant uptake and the main nitrogen update. |
+!> | Plant uptake | Call [[mnplant]] to calculate nitrogen plant uptake demand and related plant output. |
+!> | Main MN update | Call [[mnmain]] to initialise/check/read inputs on the first pass and then update ammonium/nitrate source-sink terms. |
+!>
 !> The dissolved nitrate concentration fields are supplied through the CM arrays
 !> `cccc` and `ssss`; ammonium, litter, humus, manure, and process-rate pools are
 !> held internally by `MNmod`. Rates and pools are evaluated over land columns
 !> from `NLF+1:NEL`; channel links are not treated as nitrogen soil columns.
+!>
+!> @note The `TA=10.0` assignment is implemented as temporary code in the source.
+!> It overwrites the incoming `TA` values passed to `MNCONT` before [[mnplant]]
+!> and [[mnmain]] are called.
+!> @endnote
 !>
 !> @warning The legacy source comments note that [[mnplant]] has limited input
 !> checking. The main nitrogen update path performs more extensive validation in
@@ -329,29 +389,7 @@ end subroutine mnco2
 subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref, &
     icmxy,ncolmb,nlyr,nrd,nvc,nlyrbt,ntsoil,d0,tih,rhopl,z2,delone,dxqq,dyqq,vspor,deltaz,plai,rdf,zvsnod,bexbk, &
     linkns,dtuz,uznow,clai,cccc,pnetto,ssss,ta,vspsi,vsthe,vstheo,sss1,sss2 )
-    !--------------------------------------------------------------------*
-    !
-    ! controlling mn subroutine from the other main ones are called
-    ! mnplant is very poorly written and there is no checking of data, it
-    ! is based on mpl component of shetran with only the relevant lines
-    ! included
-    !
-    ! mnmain everything is checked
-    !
-    !--------------------------------------------------------------------*
-    !
-    !
-    ! commons and distributed constants
-    !      include  'al.p.mn'
-    !     al.p: llee nelee nlfee nlyree nxee
-    !
-    !     n.b. dont dimension with nlf it may be zero
-    ! externals
-    !external mnmain,mnplant
-    !
-    !
-    ! input arguments
-    !      * static
+
     integer mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl
     integer ncetop,ncon,nel,nlf,ns,nv,nx,ny
     integer icmbk(nlfee,2),icmref(nelee,4,2:2),icmxy(nxee,ny)
@@ -447,6 +485,10 @@ end subroutine MNCONT
 !> increases linearly to 0.2 between 80 and 90 percent saturation, increases
 !> linearly to 1.0 between 90 percent saturation and saturation, and remains
 !> capped at 1.0 above saturation.
+!>
+!> The active vertical range follows the module convention: `NBOTCE:NCETOP` when
+!> `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`, with lower bounds also
+!> clipped to the current soil-layer base in the layer loop.
 subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,vsthe,vspor,isbotc )
 
     ! input arguments
@@ -521,6 +563,9 @@ end subroutine mnedth
 !> The response is therefore reduced in very wet cells, reaches its maximum
 !> over the intermediate matric-potential range, and declines to zero under
 !> very dry conditions.
+!>
+!> The active vertical range is `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
 subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
 
     ! input arguments
@@ -590,6 +635,10 @@ end	subroutine mnemph
 !> 0.0, & T \le 0.
 !> \end{cases}
 !> \]
+!>
+!> The Q10 branch is used exactly as written and is not capped at 1.0 for
+!> temperatures above 30 degrees C. The active vertical range is `NBOTCE:NCETOP`
+!> when `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
 subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
 
     ! input arguments
@@ -667,6 +716,11 @@ end subroutine mnemt
 !> The active implementation therefore keeps nitrification partly active under
 !> very wet conditions, reaches its maximum over the intermediate matric-
 !> potential range, and declines to zero under very dry conditions.
+!>
+!> @note Older wet-condition formulae remain in comments in the source. The
+!> active code uses the 1996 temporary-change values shown above, so the very
+!> wet branch is `0.6` rather than zero.
+!> @endnote
 subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
 
     ! input arguments
@@ -744,6 +798,10 @@ end subroutine mnenph
 !> 0.0, & T \le 2.
 !> \end{cases}
 !> \]
+!>
+!> The Q10 branch is used exactly as written and is not capped at 1.0 for
+!> temperatures above 30 degrees C. The active vertical range is `NBOTCE:NCETOP`
+!> when `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
 subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
 
     ! input arguments
@@ -799,16 +857,19 @@ end subroutine mnent
 
 
 
-!> Checks fixed MN array dimensions, entity counts, and file-unit values.
+!> Checks fixed MN array dimensions, entity counts, and selected file units.
 !>
-!> `mnerr0` validates compile-time or module-level limits against the current
-!> model dimensions before any MN arrays are used. It also checks that the
-!> component is being run with the expected single contaminant species.
+!> `mnerr0` validates the static bounds needed before MN arrays are used.
 !>
-!> Checks reported through this routine use error `3010` as the fatal summary
-!> after one or more detailed checks fail. The detailed checks use error
-!> numbers `3020`-`3034` for array dimensions, entity counts, and MN file-unit
-!> values.
+!> | Group | Checks |
+!> | --- | --- |
+!> | Fixed array limits | `LLEE >= NCETOP`; `NCONEE >= NCON`; `NELEE >= NEL`; `NLFEE >= max(1, NLF)`; `NLYREE > 0`; `NSEE >= NS`; `NVEE >= NV`; `NXEE >= NX` and `NXEE <= 9999`; `NMNEEE > 0`; `NMNTEE > 0`. |
+!> | Entity counts | `0 <= NLF < NEL`; `min(NCETOP, NS, NV) > 0`; `min(NX, NY) > 0`. |
+!> | Contaminant contract | MN is coupled to exactly one contaminant species: `NCON == 1`. |
+!> | File units | Only `MND`, `MNFC`, `MNFN`, and `MNPR` are checked here, and all must be non-negative. |
+!>
+!> Detailed failures use errors `3020`-`3033`; any failure is followed by
+!> fatal summary error `3010`.
 subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee,nlyree,nmneee,nmntee,ns,nsee,nv, &
     nvee,nx,nxee,ny )
 
@@ -936,14 +997,20 @@ end subroutine mnerr0
 
 !> Checks the static contaminant-to-MN interface variables.
 !>
-!> This routine verifies grid and bank indexing, column geometry, soil layer
-!> definitions, porosity, cell spacing, vertical node ordering, and simulation
-!> start time before MN initialisation proceeds.
+!> `mnerr1` validates the spatial indexing and soil-column geometry handed to
+!> the mineral-nitrogen component before initialisation.
 !>
-!> Checks reported through this routine use error `3011` as the fatal summary
-!> after one or more detailed checks fail. Index-array checks use `2075`,
-!> `2076`, and `2079`; the static contaminant-to-MN interface checks use
-!> `3035`-`3047`.
+!> | Group | Checks |
+!> | --- | --- |
+!> | Grid and bank identities | Active grid entries in `ICMXY`, plus both bank elements for each link when `BEXBK` is true, must account for exactly `NEL-NLF` column elements (`2075`). Every model element must be represented once (`2076`). |
+!> | Bank neighbours | If the identity check passed and banks exist, each link must have at least one bank with an active grid neighbour (`2079`). The checked face is `2*bank`, decremented for north-south links, and the neighbour is read from `ICMREF(element,face,2)`. |
+!> | Reference values | `D0 > 0` and `Z2 > 0`. |
+!> | Soil properties | Soil porosity satisfies `0 < VSPOR(soil) <= 1`. |
+!> | Column geometry | Land-column `DXQQ` and `DYQQ` are positive; `1 <= NLYR <= NLYREE`; `NLYRBT` is strictly increasing and the top-layer boundary equals `NCETOP+1`; `NTSOIL` is in `1:NS`; `0 < NCOLMB <= NCETOP`; active `DELTAZ` values are positive; `ZVSNOD(nce+1,iel) > ZVSNOD(nce,iel)`. |
+!> | Time | Initial simulation time `TIH >= 0`. |
+!>
+!> Detailed interface failures use errors `3035`-`3046`; any failure is followed
+!> by fatal summary error `3011`.
 subroutine mnerr1(llee,mnpr,ncetop,nel,nelee,nlf,nlfee,nlyree,ns,nx,nxee,ny,icmbk,icmref,icmxy,ncolmb,nlyr,nlyrbt &
     ,ntsoil,d0,tih,z2,dxqq,dyqq,vspor,deltaz,zvsnod,bexbk,linkns,dummy2,dummy3,idum,idum1x,ldum,ldum2)
 
@@ -1193,15 +1260,28 @@ end subroutine mnerr1
 
 
 
-!> Checks static mineral nitrogen input read by [[mnred1]].
+!> Checks static mineral-nitrogen input read by [[mnred1]].
 !>
-!> `mnerr2` validates decomposition, uptake, deposition, reference
-!> concentration, Q10, adsorption, and depth-table inputs. It also checks that
-!> all tabulated depth coordinates start at zero and increase down-profile.
+!> `mnerr2` validates the nitrogen and carbon data file after [[mnred1]] has
+!> loaded it. Land-column checks run over elements `NLF+1:NEL`.
 !>
-!> Checks reported through this routine use error `3012` as the fatal summary
-!> after one or more detailed checks fail. The detailed static-input checks
-!> from [[mnred1]] use error numbers `3048`-`3064`.
+!> | Group | Checks |
+!> | --- | --- |
+!> | Uptake and immobilisation | `KUAMM`, `KPLAMM`, `KUNIT`, and `KPLNIT` are non-negative. |
+!> | Carbon cycling scalars | `0 <= FE <= 1`, `0 <= FH <= 1`, and `CNRBIO`, `CNRHUM`, and `CNRLIT` are positive. The initial-carbon litter fraction `CLITFR` must be in `0:1`. |
+!> | Temperature and deposition scalars | `Q10M` and `Q10N` are non-negative; ammonium and nitrate dry/wet deposition rates are non-negative; `MNCREF > 0`. |
+!> | Initial carbon | If `ISICCD` is true, decay-function inputs require `CTOTTP >= 0` and `DCHLF > 0`. Otherwise `CELEM > 0`, initial-carbon table depths start at zero and increase, and table concentrations are non-negative. |
+!> | Initial ammonium | If `ISIAMD` is true, decay-function inputs require `NAMTOP >= 0` and `DAMHLF > 0`. Otherwise `NAELEM > 0`, initial-ammonium table depths start at zero and increase, and table concentrations are non-negative. |
+!> | Depth-varying process tables | Category ids for `KHUM`, `KLIT`, `KMAN`, `KNIT`, `KVOL`, `KD1`, and `KD2` are positive. Their depth tables start at zero, subsequent depths increase, and table values are non-negative. |
+!> | Ammonium adsorption and active depth | `KDDSOL(soil) >= 0` and `NBOTCE < NCETOP`. |
+!>
+!> Detailed failures use errors `3048`-`3064`; any failure is followed by fatal
+!> summary error `3012`.
+!>
+!> @note As implemented, the monotonicity check for KD2 table depths validates
+!> the first `KD2DTH` entry but then references `KD1DTH` for later entries. The
+!> KD2 interpolation path elsewhere uses `KD2DTH`.
+!> @endnote
 subroutine mnerr2(mnpr,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e &
     ,nmneee,nmntee,ns,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem,kvelem,naelem,nmn15t,nmn17t,nmn19t,nmn21t, &
     nmn23t,nmn25t,nmn27t,nmn43t,nmn53t,ammddr,ammwdr,clitfr,cnrbio,cnrhum,cnrlit,fe,fh,gnn,kplamm,kplnit,kuamm,kunit, &
@@ -1584,13 +1664,20 @@ end subroutine mnerr2
 
 !> Checks time-dependent MN inputs and updated state variables.
 !>
-!> The checks cover the timestep, simulation time, contaminant concentrations,
-!> organic and mineral nitrogen pools, soil water contents, plant uptake, and
-!> effective rainfall supplied by the wider SHETRAN model.
+!> `mnerr3` validates the dynamic CM-MN interface over active land-column cells
+!> `NCOLMB(element):NCETOP` for elements `NLF+1:NEL`.
 !>
-!> Checks reported through this routine use error `3013` as the fatal summary
-!> after one or more detailed checks fail. The detailed time-dependent CM-MN
-!> interface and positivity checks use error numbers `3065`-`3079`.
+!> | Group | Checks |
+!> | --- | --- |
+!> | Time | `DTUZ > 0`. On the first call only, `UZNOW >= 0`; the later-call monotonic-time check is present in comments but not active. |
+!> | Nitrate concentrations | Dynamic-region concentration `CCCC` and dead-space concentration `SSSS` are non-negative. |
+!> | Organic pools | Updated humus carbon, litter carbon, manure carbon, litter nitrogen, and manure nitrogen pools are non-negative. |
+!> | Ammonium pool | Updated ammonium concentration `NAMM1` is non-negative. |
+!> | Soil water and uptake | Current and previous soil-water contents satisfy `0 < VSTHE <= 1` and `0 < VSTHEO <= 1`; plant uptake `PLUP >= 0`. |
+!> | Rainfall input | Net precipitation/effective rainfall `PNETTO >= 0` for land-column elements. |
+!>
+!> Detailed failures use errors `3065`-`3072`; any failure is followed by fatal
+!> summary error `3013`.
 subroutine mnerr3(llee,mnpr,ncetop,nel,nelee,nlf,ncolmb,dtuz,uznow,cccc, &
     pnetto,ssss,vsthe,vstheo,ldum,ldum2 )
 
@@ -1829,13 +1916,16 @@ end subroutine mnerr3
 
 !> Checks time-varying fertiliser and organic addition data from [[mnred2]].
 !>
-!> The routine validates nitrogen and carbon addition rates, banding depths,
-!> ammonium and organic matter fractions, and litter/manure C:N ratios whenever
-!> a scheduled addition is active in the current timestep.
+!> `mnerr4` validates only the scheduled additions that are active for the
+!> current timestep, over land-column elements `NLF+1:NEL`.
 !>
-!> Checks reported through this routine use error `3014` as the fatal summary
-!> after one or more detailed checks fail. The detailed time-varying addition
-!> checks from [[mnred2]] use error numbers `3080`-`3089`.
+!> | Active flag | Checked records | Bounds |
+!> | --- | --- | --- |
+!> | `ISADDN` | Total inorganic nitrogen `NTOT`, ammonium fraction `NAMFCT`, nitrogen banding depth `NDPTHB`. | `NTOT >= 0`, `0 <= NAMFCT <= 1`, `NDPTHB >= 0`. |
+!> | `ISADDC` | Total carbon `CTOT`, carbon banding depth `CDPTHB`, litter fraction `CLTFCT`, manure fraction `CMNFCT`, litter C:N ratio `CNRAL`, manure C:N ratio `CNRAM`. | `CTOT >= 0`, `CDPTHB >= 0`, `CLTFCT >= 0`, `CMNFCT >= 0`, `CLTFCT+CMNFCT <= 1`; when `CTOT > 0`, both C:N ratios must be positive. |
+!>
+!> Detailed failures use errors `3080`-`3087`; any failure is followed by fatal
+!> summary error `3014`.
 subroutine mnerr4 ( mnpr,nel,nelee,nlf,cdpthb,cltfct,cmnfct,cnral,cnram,ctot,namfct,ndpthb,ntot,isaddc,isaddn, &
     dummy,ldum )
 
@@ -1950,6 +2040,8 @@ end subroutine mnerr4
 !> `MN15`-`MN20`. For a cell, the routine first averages old and new pool
 !> values, for example \(\bar{C}_h = (C_h + C_h^1)/2\), and forms the
 !> environmental reduction factor
+!> over `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise over
+!> `NCOLMB(element):NCETOP`.
 !>
 !> \[
 !> E = E_T E_\psi.
@@ -2056,24 +2148,32 @@ end subroutine mngam
 
 
 
-!> Initialises MN pools, parameters, and source terms.
+!> Initialises MN pools, parameters, and source/sink terms.
 !>
-!> Organic carbon and ammonium initial conditions are assigned either from
-!> exponential depth profiles or by interpolating typical-element depth tables.
-!> The same table interpolation is used for decomposition, nitrification,
-!> volatilisation, denitrification, and adsorption parameters.
+!> `mninit` prepares the land-column MN state over `NLF+1:NEL` and
+!> `NCOLMB(element):NCETOP`. It first clears immobilisation-deficit state
+!> (`IMDIFF=0`, `ISIMTF=.false.`), then initialises carbon, ammonium, and
+!> depth-varying process parameters.
+!>
+!> | Quantity | Mode | Implemented calculation |
+!> | --- | --- | --- |
+!> | Initial organic carbon | `ISICCD` true | Exponential profile \(C=C_{top}\exp(-0.693\,z/D_{1/2})\), using `CTOTTP` and `DCHLF`; `CLIT1=CLITFR*C`, `CHUM1=(1-CLITFR)*C`, `NLIT1=CLIT1/CNRLIT`, and manure pools start at zero. |
+!> | Initial organic carbon | `ISICCD` false | Interpolate category/profile table `CELEM`, `CCONC`, `CDPTH` with `ALINTP`; split the interpolated total using `CLITFR`, derive `NLIT1`, and set manure pools to zero. |
+!> | Initial ammonium | `ISIAMD` true | Exponential profile \(N_{amm}=NAMTOP\exp(-0.693\,z/DAMHLF)\). |
+!> | Initial ammonium | `ISIAMD` false | Interpolate category/profile table `NAELEM`, `NACONC`, `NADPTH` with `ALINTP`. |
+!> | Process parameters | Always table-based | Interpolate `KHUM`, `KLIT`, `KMAN`, `KNIT`, `KVOL`, `KD1`, and `KD2` from their category/profile tables with `ALINTP`. |
+!>
+!> The profile depth `z` starts at half the top-cell thickness and then advances
+!> downward using adjacent `ZVSNOD` differences. After interpolation,
+!> `ISBOTC` is true only if the configured `NBOTCE` is at or below every land
+!> column bottom (`NBOTCE >= NCOLMB(element)` for all land elements), and the CM
+!> source/sink arrays `SSS1` and `SSS2` are reset to zero.
 subroutine mninit(llee,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e &
     ,nmneee,nmntee,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem,kvelem,naelem,ncolmb,nmn15t,nmn17t,nmn19t,nmn21t, &
     nmn23t,nmn25t,nmn27t,nmn43t,nmn53t,clitfr,cnrlit,cconc,cdpth,ctottp,damhlf,dchlf,deltaz,kd1cnc,kd1dth,kd2cnc, &
     kd2dth,khconc,khdpth,klconc,kldpth,kmconc,kmdpth,knconc,kndpth,kvconc,kvdpth,naconc,nadpth,namtop,zvsnod,isiccd, &
     isiamd,sss1,sss2,isbotc)
-    !
-    !--------------------------------------------------------------------*
-    !
-    ! initialises the global variables
-    !
-    !--------------------------------------------------------------------*
-    !
+
     ! externals
     !use mod_load_filedata ,    only : alintp
     !       external alintp
@@ -2280,6 +2380,10 @@ end subroutine mninit
 !> N_d = C\,MNCREF,\qquad N_s = S\,MNCREF.
 !> \]
 !>
+!> The mobile-water nitrate fraction `PPHI` is currently assigned a fixed value
+!> of `0.500` in every active cell; the previous call to the `PHI` function is
+!> still present only as a comment.
+!>
 !> For an inorganic nitrogen addition with total `NTOT`, ammonium fraction
 !> `NAMFCT`, banding depth `NDPTHB`, cell thickness `\Delta z`, and timestep
 !> `\Delta t`, the top-cell-only case (`NDPTHB = 0`) uses
@@ -2304,8 +2408,10 @@ end subroutine mninit
 !> \]
 !>
 !> where `D` is the top-cell thickness, the banding depth, or the partially
-!> overlapped cell thickness with the overlap fraction applied. Dry and wet
-!> deposition are finally added to the top cell as
+!> overlapped cell thickness with the overlap fraction applied. If no organic
+!> carbon is active for an element, `CNRALT` and `CNRAMN` are set to `999.0` and
+!> the carbon-addition rates are zeroed. Dry and wet deposition are finally
+!> added to the top cell as
 !>
 !> \[
 !> N_{amm}^{dep} = \frac{AMMDDR + AMMWDR\,Pnet_{mm}}{\Delta z_{top}},\qquad
@@ -2569,8 +2675,10 @@ end subroutine mnint2
 !> The manual supplies the organic-matter efficiency fraction `FE` and
 !> humification fraction `FH` in `MN12`, and the humus, litter, and manure
 !> decomposition parameters through `MN15`-`MN20`. For each active cell the
-!> routine uses \(E = E_T E_\psi\). `CALIT` and `CAHUM` are the cell-based
-!> external carbon additions prepared by [[mnint2]].
+!> routine uses \(E = E_T E_\psi\). The active vertical range is
+!> `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`. `CALIT` and `CAHUM` are the cell-based external
+!> carbon additions prepared by [[mnint2]].
 !>
 !> With \(K_l'\) and \(K_m'\) equal to `KLIT` and `KMAN` normally, but set to
 !> zero while an immobilisation deficit is being repaid, the fixed-point
@@ -2591,8 +2699,9 @@ end subroutine mnint2
 !> \(\bar{C}_l=(C_l^n+C_l^{n+1})/2\) and
 !> \(\bar{C}_h=(C_h^n+C_h^{n+1})/2\); manure uses
 !> \(\bar{C}_m=(C_m^n+C_m^{n+1})/2\). Iteration stops when the squared relative
-!> changes in both `CLIT1` and `CHUM1` are below `1D-12`, or after 20
-!> iterations with warning `3016`.
+!> changes in both `CLIT1` and `CHUM1` are below `1D-12`. If convergence is not
+!> reached after 20 iterations the routine reports warning `3016` and leaves the
+!> last iterate in place.
 subroutine mnlthm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,dtuz,isbotc)
     ! externals
     !use sglobal, only : error
@@ -2741,7 +2850,9 @@ end subroutine mnlthm
 !> `FE` in `MN12`; `CNRALT` is the litter C:N ratio from the active external
 !> carbon input (`MNFC32`) after [[mnint2]] has converted the addition to a
 !> cell-based rate. For each active cell the routine uses \(E = E_T E_\psi\)
-!> and midpoint carbon pools from the updated carbon calculation.
+!> and midpoint carbon pools from the updated carbon calculation. The active
+!> vertical range is `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
 !>
 !> With \(K_l'\) and \(K_m'\) equal to `KLIT` and `KMAN` normally, but set to
 !> zero while an immobilisation deficit is being repaid, the fixed-point
@@ -2757,8 +2868,13 @@ end subroutine mnlthm
 !>
 !> The midpoint nitrogen value is updated as
 !> \(\bar{N}_l=(N_l^n+N_l^{n+1})/2\). Iteration stops when the squared relative
-!> change in `NLIT1` is below `1D-12`, or after 20 iterations with warning
-!> `3017`.
+!> change in `NLIT1` is below `1D-12`. If convergence is not reached after 20
+!> iterations the routine reports warning `3017` and leaves the last iterate in
+!> place.
+!>
+!> @note `FH` is passed to this routine but is not used by the active
+!> calculation.
+!> @endnote
 subroutine mnltn (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrbio,fe,fh,dtuz,cnralt,isbotc)
 
     ! externals
@@ -2887,11 +3003,20 @@ end subroutine mnltn
 
 !> Main mineral nitrogen setup and timestep driver.
 !>
-!> On the first call `mnmain` checks dimensions and interface data, reads the
-!> static MN file with [[mnred1]], validates it with [[mnerr2]], and initialises
-!> state through [[mninit]]. Later calls read fertiliser schedules, convert inputs
-!> to rates, update soil temperature and environmental factors, run all carbon
-!> and nitrogen process equations, and write requested MN outputs.
+!> `mnmain` uses a saved call counter. The first call performs static checks,
+!> reads the MND file, and initialises state; subsequent calls run the timestep
+!> update and optional output.
+!>
+!> | Phase | Call order | Purpose |
+!> | --- | --- | --- |
+!> | First call | [[mnerr0]] -> [[mnerr1]] -> [[mnred1]] -> [[mnerr2]] -> [[mninit]] | Check array/interface consistency, read static nitrate data, validate it, interpolate initial pools and process parameters, and reset source/sink arrays. |
+!> | Later calls | [[mnerr3]] -> [[mnred2]] -> [[mnerr4]] -> [[mnint2]] | Check dynamic CM-MN state, read scheduled MNFC/MNFN additions, validate them, and convert concentrations/additions/deposition to cell-based rates. |
+!> | Environment | [[mntemp]] -> [[mnemt]] -> [[mnent]] -> [[mnemph]] -> [[mnenph]] -> [[mnedth]] | Update soil temperature and temperature, matric-potential, and saturation response factors. |
+!> | Carbon and nitrogen pools | [[mnman]] -> [[mnlthm]] -> [[mnltn]] -> [[mnco2]] -> [[mngam]] -> [[mnamm]] -> [[mnnit]] | Update manure, litter, humus, carbon dioxide production, mineralisation/immobilisation, ammonium, and nitrate source/sink terms. |
+!> | Output | [[mnout]] | Write requested detailed MN diagnostics. |
+!>
+!> Static parameters read by [[mnred1]], including deposition rates, Q10 values,
+!> reaction constants, `MNCREF`, and `ISBOTC`, are saved between calls.
 subroutine mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,ny,icmbk,icmref,icmxy,ncolmb,nlyr &
     ,nlyrbt,ntsoil,d0,tih,z2,dxqq,dyqq,vspor,deltaz,zvsnod,bexbk,linkns,dtuz,uznow,cccc,pnetto,ssss,ta,vspsi, &
     vsthe,vstheo,sss1,sss2 )
@@ -3179,7 +3304,8 @@ end subroutine mnmain
 !> `MN19`/`MN20`. Time-varying external carbon input supplies the manure carbon
 !> fraction (`MNFC41`) and manure C:N ratio (`MNFC42`), which [[mnint2]]
 !> converts to `CAMAN` and `CNRAMN`. For each active cell the routine uses
-!> \(E = E_T E_\psi\).
+!> \(E = E_T E_\psi\). The active vertical range is `NBOTCE:NCETOP` when
+!> `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
 !>
 !> With \(K_m'\) equal to `KMAN` normally, but set to zero while an
 !> immobilisation deficit is being repaid, the fixed-point iteration solves
@@ -3195,8 +3321,9 @@ end subroutine mnmain
 !> The midpoint values are updated as
 !> \(\bar{C}_m=(C_m^n+C_m^{n+1})/2\) and
 !> \(\bar{N}_m=(N_m^n+N_m^{n+1})/2\). Iteration stops when the squared relative
-!> changes in both `CMAN1` and `NMAN1` are below `1D-12`, or after 20
-!> iterations with warning `3015`.
+!> changes in both `CMAN1` and `NMAN1` are below `1D-12`. If convergence is not
+!> reached after 20 iterations the routine reports warning `3015` and leaves the
+!> last iterate in place.
 subroutine mnman (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,dtuz,cnramn,isbotc)
 
     ! externals
@@ -3335,7 +3462,9 @@ end subroutine mnman
 !> `KD2` through `MN25`-`MN28`. For each active cell the routine uses the
 !> average water content \(\bar{\theta}=(\theta^n+\theta^{n+1})/2\), average
 !> ammonium \(\bar{N}_{amm}\), dynamic nitrate \(N_d\), dead-space nitrate
-!> \(N_s\), and mobile fraction \(\phi_m\).
+!> \(N_s\), and mobile fraction \(\phi_m\). The active vertical range is
+!> `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
 !>
 !> If net mineralisation `GAM` is negative, nitrate immobilisation is limited by
 !> both the remaining immobilisation demand after ammonium immobilisation and
@@ -3382,6 +3511,9 @@ end subroutine mnman
 !> `IMNIT`. If total actual immobilisation remains less than the potential
 !> demand \(-GAM\), `ISIMTF` is set and `IMDIFF` stores the remaining deficit
 !> over the current timestep.
+!>
+!> When `ISBOTC` is true, source/sink terms below the real column bottom and
+!> above `NBOTCE` are explicitly zeroed after the active range is processed.
 subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref,z2,dtuz,vsthe,vstheo,isbotc,sss1,sss2)
 
     !
@@ -3519,9 +3651,20 @@ end subroutine mnnit
 
 !> Accumulates and writes mineral nitrogen and carbon budget outputs.
 !>
-!> `mnout` records initial stores, accumulates process fluxes over time, and
-!> writes daily-style summaries of total nitrogen, nitrogen additions/losses,
-!> total carbon, carbon additions, and carbon dioxide losses.
+!> `mnout` keeps saved cumulative arrays and writes area-normalised summaries to
+!> `MNOUT1` (carbon) and `MNOUT2` (nitrogen). Active cells follow the module
+!> convention: `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
+!>
+!> | Stage | Accounting |
+!> | --- | --- |
+!> | First call | Allocate saved cumulative flux arrays, zero them over active soil-layer cells, compute total land area, and write initial carbon and nitrogen stores. |
+!> | Every call | Accumulate cell-depth-integrated rates over the current timestep, including ammonium/nitrate additions, organic additions, CO2 production, denitrification, mineralisation, immobilisation, nitrification, plant uptake, source/sink totals, and volatilisation. |
+!> | Store totals | Recompute current nitrogen and carbon stores from updated pools. Ammonium storage uses the nonlinear retardation factor \(1 + KDDSOL(NAMM1/MNCREF)^{GNN-1}/VSTHE\). |
+!> | Periodic output | When `UZNOW >= MNSTRT + 24*NPRNT`, increment `NPRNT` and write current total/addition/loss summaries normalised by total land area. |
+!>
+!> The routine does not reset cumulative flux arrays after each write; reported
+!> additions and losses are cumulative since the initial `MNOUT` call.
 subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntsoil,cnrhum,gnn,mncref,deltaz, &
     kddsol,pphi,dtuz,uznow,dxqq,dyqq,cnralt,cnramn,vsthe,vstheo,isbotc)
 
@@ -3771,6 +3914,10 @@ end subroutine mnout
 !> pairs of density factor `CDI` and time `CDIT` in days from the simulation
 !> start. The routine linearly interpolates this table at `UZNOW/24`; if the
 !> current time is beyond the table, the canopy-density factor is set to 1.
+!> The first call only reads this file, writes the title to `MNOUTPL`, closes
+!> both units, and initialises saved plant-mixture and mass state. Potential
+!> uptake is calculated on later calls, after `PLUP` has been reset to zero over
+!> `NCOLMB(element):NCETOP`.
 !>
 !> Important plant-index variables retained from the legacy MPL-based logic are:
 !>
@@ -3825,6 +3972,10 @@ end subroutine mnout
 !> MPL-era simplifications: hard-coded `CLAIMX = 2`, at most two plant types per
 !> element, a hard-coded second plant type, saved state across calls, GOTO-based
 !> interpolation, and limited validation of the `MNPL` canopy-density table.
+!> As implemented, the canopy-density table read loop stores all table values in
+!> `CDI(NV,*)` and `CDIT(NV,*)` rather than `CDI(i,*)` and `CDIT(i,*)`, and the
+!> saved `ISCROP` flags are not explicitly initialised before their first
+!> possible use.
 !> Good cleanup targets are to move plant-mixture setup into input data, replace
 !> hard-coded constants with documented parameters, isolate interpolation in a
 !> small checked helper, and add tests for crop reset, table extrapolation, and
@@ -4056,22 +4207,34 @@ end subroutine mnplant
 
 !> Reads static mineral nitrogen input data.
 !>
-!> `mnred1` reads MN parameters from the MND file, including process rates,
-!> organic matter parameters, deposition rates, reference concentration,
-!> depth-tabulated spatial parameter fields, ammonium adsorption, optional Q10
-!> factors, initial carbon/ammonium profiles, and the lower transformation cell.
+!> `mnred1` reads the MND file once during [[mnmain]] initialisation, echoes the
+!> nitrate title to `MNPR`, and fills the static parameter arrays that are later
+!> validated by [[mnerr2]] and interpolated by [[mninit]].
+!>
+!> | Records | Data read |
+!> | --- | --- |
+!> | `MN11`-`MN14` | Ammonium/nitrate immobilisation and plant-uptake constants, organic-matter fractions and C:N ratios, dry/wet deposition rates, and `MNCREF`. |
+!> | `MN15`-`MN28` | Category assignments and depth/value tables for `KHUM`, `KLIT`, `KMAN`, `KNIT`, `KVOL`, `KD1`, and `KD2`. Each category count must be in `1:NMNEEE` and each table length in `1:MNMTEE`; failures are fatal errors `3090` and `3091`. |
+!> | `MN30`-`MN31` | Soil ammonium adsorption factor `KDDSOL(soil)` and power `GNN`. |
+!> | `MN35`-`MN35a` | Q10 temperature-response flag `ISQ10`; `Q10M` and `Q10N` are read only when `ISQ10` is true. |
+!> | `MN40`-`MN46` | Initial-carbon mode. If `ISICCD` is true, read decay-profile inputs `CTOTTP` and `DCHLF`; otherwise read category/profile tables `CELEM`, `CCONC`, and `CDPTH`. `CLITFR` and `CNRLIT` are always read. |
+!> | `MN50`-`MN54` | Initial-ammonium mode. If `ISIAMD` is true, read decay-profile inputs `NAMTOP` and `DAMHLF`; otherwise read category/profile tables `NAELEM`, `NACONC`, and `NADPTH`. |
+!> | `MN60` | Bottom cell `NBOTCE`, below which nitrogen transformations are not considered when it is valid for all columns. |
+!>
+!> Spatial category and profile fields are read with `ALALLI`/`ALALLF`, using the
+!> grid, bank, and neighbour maps passed from the frame setup. The routine calls
+!> `ALRED2` both before and after reading the MND file.
+!>
+!> @note `Q10M` and `Q10N` are not assigned here when `ISQ10` is false, although
+!> [[mnerr2]] still receives those variables.
+!> @endnote
 subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk,icmref,icmxy,bexbk,linkns,nbotce &
     ,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e,nmn27e,nmn43e,nmn53e,celem,kd1elm,kd2elm,khelem,klelem,kmelem,knelem, &
     kvelem,naelem,nmn15t,nmn17t,nmn19t,nmn21t,nmn23t,nmn25t,nmn27t,nmn43t,nmn53t,ammddr,ammwdr,clitfr,cnrbio,cnrhum, &
     cnrlit,fe,fh,gnn,kplamm,kplnit,kuamm,kunit,mncref,nitddr,nitwdr,q10m,q10n,cconc,cdpth,ctottp,damhlf,dchlf,kd1cnc, &
     kd1dth,kd2cnc,kd2dth,kddsol,khconc,khdpth,klconc,kldpth,kmconc,kmdpth,knconc,kndpth,kvconc,kvdpth,naconc,nadpth, &
     namtop,isiccd,isiamd,isq10,idum,dummy )
-    !--------------------------------------------------------------------*
-    !
-    ! reads input from files
-    !
-    !--------------------------------------------------------------------*
-    !
+
     ! externals
     ! nyee needed as alallf changed to require it
     !use sglobal, only : nyee, error
@@ -4543,22 +4706,26 @@ end subroutine mnred1
 
 !> Reads scheduled nitrogen and carbon additions for the current timestep.
 !>
-!> The routine maintains the next addition time for the mineral and organic
-!> fertiliser files. When an addition falls within the current timestep it reads
-!> the element-wise amount, banding depth, fractions, and C:N ratios, then
-!> advances to the next scheduled time.
+!> `mnred2` maintains saved next-event times for the external inorganic nitrogen
+!> (`MNFN`) and external carbon/organic nitrogen (`MNFC`) files. Times read from
+!> `MNFN01` and `MNFC01` are converted with [[utilsmod:hour_from_date]] and
+!> shifted by the simulation start hour `TIH`.
+!>
+!> | File | Activation test | Records read when active | Flag |
+!> | --- | --- | --- | --- |
+!> | `MNFN` | `UZNOW + DTUZ/3600 > INTIMN` | `MNFN11` total nitrogen, `MNFN21` banding depth, `MNFN31` ammonium fraction, then the next `MNFN01` time. | `ISADDN=.true.` |
+!> | `MNFC` | `UZNOW + DTUZ/3600 > INTIMC` | `MNFC11` total carbon, `MNFC21` banding depth, `MNFC31` litter fraction, `MNFC32` litter C:N, `MNFC41` manure fraction, `MNFC42` manure C:N, then the next `MNFC01` time. | `ISADDC=.true.` |
+!>
+!> If a file is not active in the current timestep, only its flag is set false;
+!> the previous data arrays are not overwritten. [[mnerr4]] and [[mnint2]] gate
+!> their use with `ISADDN` and `ISADDC`.
+!>
+!> The source assumes at most one nitrogen and one carbon event per timestep. If
+!> more are scheduled, only the first active event is read and the next event
+!> remains queued for a later call.
 subroutine mnred2 ( mnfc,mnfn,mnpr,nel,nelee,nlf,nlfee,nx,nxee,ny,icmbk,icmref,icmxy,dtuz,tih,uznow,bexbk,linkns, &
     cdpthb,cltfct,cmnfct,cnral,cnram,ctot,namfct,ndpthb,ntot,isaddc,isaddn,idum,dummy)
-    !--------------------------------------------------------------------*
-    !
-    ! reads input from time dependent files
-    ! it is assumed for simplicity that there is never more than one
-    ! fertilizer addition in a timestep (this should be a valid assumption
-    ! because farmers do not add fertilizer more than once a day and there
-    ! is a maximum timestep of two hours). if there is more than one
-    ! fertilizer addition the remainder are read in following timesteps.
-    !
-    !--------------------------------------------------------------------*
+
     !
     ! externals
     !       double precision                     hour
@@ -4737,6 +4904,11 @@ end subroutine mnred2
 !> linearly interpolates the solved profile to each SHETRAN cell-centre depth.
 !> Cells deeper than the deepest temperature node are assigned the deepest-node
 !> temperature.
+!>
+!> Cell depths are accumulated from the top cell downward over
+!> `NCOLMB(element):NCETOP`; this routine does not use `ISBOTC`/`NBOTCE`.
+!> After all columns are mapped, the saved temperature profile `TEMPR` is
+!> replaced by the newly solved profile for the next call.
 subroutine mntemp (llee,ncetop,nel,nelee,nlf,nv,ncolmb,z2,deltaz,zvsnod,dtuz,ta)
 
     use utilsmod, only: tridag

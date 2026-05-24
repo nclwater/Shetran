@@ -16,6 +16,16 @@
 !> meltwater delivery from the bottom of the snowpack, so downstream ET/VSS/OC
 !> calculations receive liquid-water input rather than raw snowfall.
 !>
+!> The manual's snowmelt input file supplies:
+!>
+!> | Records | Data |
+!> |:--------|:-----|
+!> | `SM2` | `BINSMP`, the snow-input print flag. |
+!> | `SM4` | Degree-day factor `DDF`, default snow specific gravity `RHOS`, initial snow temperature `TSIN`, spatial snowpack flag `NSD`, and method flag `MSM`. |
+!> | `SM6`/`SM6b` | Energy-budget aerodynamic parameters `ZOS`, `ZDS`, `ZUS`, and meteorological-station element locations `IMET`, required only for `MSM=2`. |
+!> | `SM8` | Uniform initial snow depth, used when `NSD=0`. |
+!> | `SM11`/`SM14` | Spatial initial snow depth `SD` and snow specific gravity `RHOSAR`, used when `NSD=1`. |
+!>
 !> @note In the degree-day branch the implemented melt threshold is `TA >= 2 C`,
 !> not simply air temperature above freezing.
 !> @endnote
@@ -196,6 +206,10 @@ END SUBROUTINE initialise_smmod
 !> \qquad TS \leftarrow 0.
 !> \]
 !>
+!> Two guards limit extreme energy-budget behaviour: if the pack is no deeper
+!> than 100 mm and `HFT` is negative, `HFT` is replaced by the heat needed to
+!> move the pack toward air temperature; and `TS2` is floored at -50 C.
+!>
 !> Snowpack depth is reduced by melt plus evaporation,
 !>
 !> \[
@@ -227,6 +241,10 @@ END SUBROUTINE initialise_smmod
 !> \[
 !> PNET = \frac{PNSNOW}{DTUZ}.
 !> \]
+!>
+!> At return, `SF` is converted from a timestep snow depth to a snow-depth rate
+!> in mm/hr, `ISPACK` records whether snow remains, and `PNET` is a liquid-water
+!> delivery rate in mm/s.
 !>
 !> @note The routine operates mainly through module/global state imported from
 !> `SGLOBAL`, `AL_C`, and `AL_D`; its only dummy argument is the element index.
@@ -502,6 +520,9 @@ END SUBROUTINE SM
 !>
 !> converting the current precipitation rate from m/s to a millimetre water
 !> depth over the timestep.
+!>
+!> When `NSD=1`, the active snow specific gravity is taken from `RHOSAR(IEL)`;
+!> if that value is zero, the default `RHODEF` is used.
 SUBROUTINE SMET (IEL)
 INTEGER, INTENT(IN) :: iel
 INTEGER :: ms, mr, n, k, kk
@@ -599,6 +620,13 @@ END SUBROUTINE SMET
 !> precipitation to snowpack input, calls [[sm]] when snowfall or snowpack is
 !> present, or calls [[smet]] when only snowpack evaporation/sublimation is
 !> required.
+!>
+!> | State | Action |
+!> |:------|:-------|
+!> | `NSMT /= 1`, snowpack exists, or `TA <= 0` | Call [[smet]] so snow/freezing-temperature ET and interception logic runs. |
+!> | `NSMT /= 1`, no snowpack, and `TA > 0` | Set `NSMT=1` and return so normal ET/interception can proceed. |
+!> | `NSMT == 1` and no snowpack remains | Return; normal ET has already handled the timestep. |
+!> | `NSMT == 1` and snowpack remains | Suppress soil evaporation, convert the ET-produced `PNET` rate to a depth with `PNSNOW=PNET*DTUZ`, and call [[sm]]. |
 SUBROUTINE SMIN (IEL)
 INTEGER, INTENT(IN) :: iel
 INTEGER :: ms

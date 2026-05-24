@@ -33,6 +33,11 @@ CONTAINS
 !>
 !> This is the BLAS `dcopy` operation implemented locally, including support
 !> for non-unit and negative increments.
+!>
+!> @note The routine follows the simple BLAS indexing convention but does not
+!> validate `incx` or `incy`. Zero increments and overlapping source/destination
+!> storage are therefore caller responsibilities.
+!> @endnote
 subroutine dcopy (n, dx, incx, dy, incy)
 !     copies vector x to vector y
 INTEGER, INTENT(IN)                        :: n    !! Number of values to copy.
@@ -99,6 +104,11 @@ END SUBROUTINE dcopy
 !> timestep and one breakpoint interval. Input dates are converted with
 !> [[hour_from_date]] and shifted by `TIH`. If end-of-file is reached before a
 !> complete timestep average can be formed, `INTIME` is set to `marker999`.
+!>
+!> @note A newly read record value is applied from its record time forward until
+!> the next record time. The caller is expected to maintain `FNEXT`, `INLAST`,
+!> and `INTIME` between calls.
+!> @endnote
 SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  FNEXT, NINP, ARRAY)
 INTEGER :: IIN, NINP, TIME (5)
@@ -198,6 +208,12 @@ END SUBROUTINE FINPUT
 !> covered. Input dates are converted with [[hour_from_date]] and shifted by
 !> `TIH`. If end-of-file is reached unexpectedly, `INTIME` is set to
 !> `marker999`.
+!>
+!> @note The interpolation assignment is made only when
+!> `INLAST < SIMMID <= INTIME`. The caller must carry `HLAST`, `HNEXT`,
+!> `INLAST`, and `INTIME` between calls so the timestep midpoint is bracketed,
+!> or can be bracketed by reading additional records.
+!> @endnote
 SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  HLAST, HNEXT, NINP, ARRAY)
 INTEGER :: IIN, NINP, TIME (5)
@@ -249,7 +265,10 @@ END SUBROUTINE HINPUT
 !> `DATE_FROM_HOUR` and stops with a diagnostic if the supplied date is invalid.
 !> Valid input requires `KYEAR >= 1949` and `1 <= KMTH <= 12`.
 !>
-!> The returned value is the number of hours since 1 January 1950 at 00:00:
+!> The legacy comments describe the returned value as hours since 1 January
+!> 1950 at 00:00. The implemented convention is the one used by the paired
+!> [[date_from_hour]] routine and includes the one-based calendar day in the
+!> accumulated day count:
 !>
 !> \[
 !> r = 24\left(D_y + D_m + KDAY\right) + KHOUR + \frac{KMIN}{60},
@@ -257,7 +276,8 @@ END SUBROUTINE HINPUT
 !>
 !> where `D_y` is the number of days in complete years since 1950, including
 !> leap years, and `D_m` is the number of complete days before month `KMTH` in
-!> `KYEAR`. A small one-hundredth-second offset is added to avoid minute-level
+!> `KYEAR`. Thus `1950-01-01 00:00` maps to 24 hours under this convention, not
+!> zero. A small one-hundredth-second offset is added to avoid minute-level
 !> roundoff errors in the reverse conversion check.
  FUNCTION hour_from_date(KYEAR, KMTH, KDAY, KHOUR, KMIN)  RESULT(r)
 INTEGER         :: kyear, kmth, kday, khour, kmin
@@ -283,6 +303,9 @@ ENDIF
 END FUNCTION hour_from_date
 
 !> Returns the number of days in complete years since 1950-01-01.
+!>
+!> Leap days are counted by iterating over candidate leap years from 1952 up to
+!> `y-1`, using [[is_leap]] for the Gregorian leap-year rule.
 FUNCTION days_in_years_since_1950(y) RESULT(r)
 INTEGER, INTENT(IN) :: y
 INTEGER             :: i, r
@@ -313,6 +336,10 @@ END FUNCTION is_leap
 
 
 !> Returns the day offset to the start of a month in a given year.
+!>
+!> Month offsets are zero-based (`January -> 0`). Leap years add one day for
+!> months after February. The routine traps `m < 1` through `ERROR`, but it does
+!> not explicitly guard `m > 12` before indexing the month table.
 FUNCTION days_to_start_month(m, y) RESULT(r)
 INTEGER, INTENT(IN) :: m, y
 INTEGER, PARAMETER  ::  sd(12)=[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
@@ -327,7 +354,12 @@ END FUNCTION days_to_start_month
 
 
 
-!> Converts simulation hours since 1950-01-01 00:00 to date components.
+!> Converts the model hour count used by [[hour_from_date]] to date components.
+!>
+!> The result array is `[year, month, day, hour, minute, second]`. The
+!> conversion uses deliberately low initial estimates (`days/366` for the year
+!> and `mthdays/32` for the month), then increments to the correct year/month.
+!> A day value of zero triggers a stop as a date-trapping guard.
 FUNCTION date_from_hour(h) RESULT(r)
 INTEGER                     :: r(6) !year, month, day, hour, min, sec
 INTEGER                     :: hours, days, year, month, mthdays, mins, sec
@@ -365,6 +397,15 @@ END FUNCTION date_from_hour
 
 
 !> Multiplies two dense matrices using explicit loops.
+!>
+!> With the declared storage, the returned array satisfies
+!>
+!> \[
+!>   A(i,j)=\sum_{k=1}^{n2} C(i,k)\,B(k,j),
+!> \]
+!>
+!> for `A(n3,n1)`, `B(n2,n1)`, and `C(n3,n2)`. In conventional matrix
+!> notation this is `A = C * B`, despite the old inline comment `A = B * C`.
 FUNCTION jematmul_mm(b, c, n1, n2, n3) RESULT(a)
 ! A = B * C
 INTEGER, INTENT(IN)          :: n1, n2, n3
@@ -383,6 +424,15 @@ END FUNCTION jematmul_mm
 
 
 !> Multiplies a dense matrix by a vector using explicit loops.
+!>
+!> The returned vector satisfies
+!>
+!> \[
+!>   A_i=\sum_{k=1}^{n2} B(k,i)\,C_k,
+!> \]
+!>
+!> so the declared `B(n2,n1)` is used as the transpose of the conventional
+!> `n1 x n2` matrix.
 FUNCTION jematmul_vm(b, c, n1, n2)  RESULT(a)
 ! A = B * C
 INTEGER, INTENT(IN)          :: n1, n2
@@ -435,6 +485,12 @@ END FUNCTION jematmul_vm
 !> \[
 !> YCURR_I = Y_{rel}\,YINIT_I.
 !> \]
+!>
+!> @note `NCT(I)` may jump by more than one interval because `ITERP` is computed
+!> with integer division of the time offset by the current interval length. The
+!> caller must provide increasing `TTAB` values and enough table entries for the
+!> updated `NCT(I)+1`; no bounds or zero-interval checks are made here.
+!> @endnote
 SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)
 ! Input arguments
 INTEGER :: NPAR, I
@@ -484,6 +540,10 @@ END SUBROUTINE TERPO1
 !> with the usual endpoint interpretation that `A(1)` and `C(N)` are not used.
 !> The routine performs a forward elimination followed by back substitution,
 !> overwriting only the output vector `U` and local work array `GAM`.
+!>
+!> @note No pivoting or zero-pivot protection is performed. `B(1)` and every
+!> subsequent reduced diagonal `BET` must be non-zero.
+!> @endnote
 SUBROUTINE TRIDAG (A, B, C, R, U, N)
 INTEGER, INTENT(IN) :: N
 INTEGER             :: j
@@ -523,6 +583,12 @@ END SUBROUTINE TRIDAG
 !>
 !> `ICOD=0` indicates success. `ICOD=1` indicates an invalid size, a zero
 !> scalar, or a singular matrix detected by the LU factorisation.
+!>
+!> @note For `N > 1`, the input matrix is passed directly to [[ludcmp]] and is
+!> overwritten by the LU factors before singularity status is known. If
+!> `ICOD=1` is returned after factorisation, `A` should not be assumed to retain
+!> the original matrix.
+!> @endnote
 SUBROUTINE invertmat(a,n,icod)
 INTEGER, INTENT(IN)                            :: n
 INTEGER, INTENT(OUT)                           :: icod
@@ -745,6 +811,11 @@ END SUBROUTINE invertmat
 !> IA_{ICMREF(iel,2),ICMREF(iel,3)} = IAOUT_{iel}
 !> \quad\text{where } ICMREF(iel,1)=0.
 !> \]
+!>
+!> @note Only `KON=0`, `1`, and `3` are tested explicitly. Any other value uses
+!> the `KON=2` convert-and-print path. The single-digit integer grid format
+!> (`0 < INUM < 10`) is hard-limited to `NX <= 500`.
+!> @endnote
 SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
 INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM
 INTEGER, INTENT(OUT) :: IAOUT(:)
@@ -923,6 +994,12 @@ END SUBROUTINE AREADI
 !>
 !> Printed output also includes link values and their associated bank-element
 !> values through `ICMBK`.
+!>
+!> @note Only `KON=0` and `KON=1` read from `INF`; any other value uses the
+!> convert-and-print path. The all-zero print shortcut tests the element array
+!> `AOUT(1:total_no_elements)`, then printed output includes the grid plus
+!> link/bank values.
+!> @endnote
 SUBROUTINE AREADR (AOUT, KON, INF, IOF)
 INTEGER :: KON, INF, IOF
 ! In|out arguments
@@ -1051,6 +1128,10 @@ END SUBROUTINE AREADR
 !> The generator updates `idum` in place and returns a uniform variate in
 !> `(0,1)`. This is the combined multiplicative generator used in legacy
 !> Numerical Recipes code, retained for reproducibility of existing workflows.
+!>
+!> Passing `idum <= 0` reinitialises the saved shuffle table and secondary seed.
+!> Subsequent calls use saved module-local generator state, so independent random
+!> streams require explicit reseeding and are not thread-independent.
  FUNCTION ran2(idum)
  INTEGER, PARAMETER     :: IM1=2147483563,IM2=2147483399,IMM1=IM1-1, &
                            IA1=40014,IA2=40692,IQ1=53668,IQ2=52774,IR1=12211,IR2=3791, &

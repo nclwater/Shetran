@@ -48,6 +48,16 @@
 !> folded into the column matrix by [[vswell]], [[vsspr]], [[vsbc]],
 !> [[vslowr]], [[vsuppr]], [[vsintc]], and [[vssai]].
 !>
+!> Important implementation caveats found in the current code:
+!>
+!> | Area | Current behaviour |
+!> |:-----|:------------------|
+!> | Setup lifetime | Several setup routines use retained local state, and [[vssim]] caches `JCBCsv`, `VSAIJsv`, and `ICSOILsv` behind `FIRSTvssim`; the module follows the original one-initialisation workflow. |
+!> | Manual boundary options | Lateral head-gradient boundaries (`JCBC=5`) are read/interpolated but not applied; bottom free drainage (`NBBTYP=8`) currently falls through to zero lower-boundary flux. |
+!> | Soil-table derivatives | [[vssoil]] finally overwrites `VSPKR` with a DSATG saturation-ratio curve without recomputing `VSPDKR`, so conductivity derivatives used by [[vsfunc]] can be stale or unset. |
+!> | Explicit source/sink linearisation | Spring and well terms use simplified or explicit pressure-dependent coefficients; see [[vsspr]] and [[vswell]] for the exact active forms. |
+!> | Unfinished paths | `IVSFLG=4`, split-cell mass-balance correction, and lateral head-gradient boundary application are legacy unfinished paths. |
+!>
 !> Programmer's map:
 !>
 !> | Routine | Main responsibility |
@@ -64,7 +74,10 @@
 !> `IVSFLG = 4` is listed in the manual as tabulated water content with
 !> Averjanov-style conductivity, but the current implementation stops if that
 !> option is selected in [[vssoil]]. Split-cell mass-balance correction in
-!> [[vsmb]] is also marked unfinished and stops if reached.
+!> [[vsmb]] is also marked unfinished and stops if reached. Lateral
+!> head-gradient boundary categories and bottom free-drainage categories are
+!> parsed from the manual inputs, but do not currently add their advertised
+!> physical boundary terms to the VSS matrix.
 !> @endwarning
 !>
 !> History:
@@ -201,6 +214,12 @@ CONTAINS
 !> `vsaijsv` stores lateral inter-cell conductance terms by face, cell, and
 !> element, while `vskr` stores relative hydraulic conductivity by cell and
 !> element. Both depend on mesh dimensions read earlier in the setup sequence.
+!>
+!> @note
+!> This routine allocates, but does not initialise, the arrays and does not
+!> guard against repeated allocation. It should therefore be called once after
+!> `top_cell_no` and `total_no_elements` have been established.
+!> @endnote
 SUBROUTINE initialise_vsmod()
 
 ALLOCATE(vsaijsv(4,top_cell_no,total_no_elements), vskr(top_cell_no,total_no_elements))
@@ -238,6 +257,12 @@ END SUBROUTINE initialise_vsmod
 !> The cell contribution is inserted as `CR(c) = CR(c) - Q_c` and stored in
 !> `CQH(FACE,c)`.
 !>
+!> @note
+!> The transmissive-thickness sum is used as a divisor without a zero check.
+!> Active type-3 boundary intervals must therefore include at least one cell
+!> with positive `CKIJ(c) * CDELZ(c)`.
+!> @endnote
+!>
 !> For a prescribed lateral head category (`JCBC = 4`), the boundary value
 !> `CLH(i)` is interpreted as an elevation when `BCHELE` is true, or as a depth
 !> below ground when false:
@@ -270,6 +295,11 @@ END SUBROUTINE initialise_vsmod
 !> \]
 !>
 !> `CQH(FACE,c)` stores the diagnostic lateral boundary flux.
+!>
+!> @warning
+!> `JCBC = 5` only prints `unfinished code for boundary type 5 - head
+!> gradients`; it does not add matrix terms, source terms, or diagnostic fluxes.
+!> @endwarning
 SUBROUTINE VSBC (BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
  ICLFL, ICLHN, ICLHL, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
  CKIJ, CDKIJ, CB, CR, CQH, DUM)
@@ -425,6 +455,22 @@ END SUBROUTINE VSBC
 !> `CDELL+CDELL1`, and the lateral w-mean `CWL`. These lateral conductances and
 !> their derivatives are added into `CF` and `CDF`; [[vscoef]] leaves the
 !> boundary-specific terms to [[vsbc]], [[vssai]], and [[vslowr]].
+!>
+!> The lateral split factors are:
+!>
+!> | Quantity | Definition | Effect |
+!> |:---------|:-----------|:-------|
+!> | `NIJ = abs(JCDEL(j,i)) + 1` | Number of current-column pieces represented by the neighbour area term. | Divides neighbour conductance-area products. |
+!> | `NKJ = abs(JCDEL1(k,j)) + 1` | Number of neighbour-column pieces represented by the current cell face. | Divides current face area. |
+!> | `CGAM1` | Conductance to neighbour cell `k`. | Always present for an active lateral connection. |
+!> | `CGAM2` | Conductance to neighbour cell `k + JCDEL1(k,j)`. | Zero by construction when `JCDEL1(k,j)=0`; otherwise represents the split-cell second neighbour. |
+!>
+!> @note
+!> `CKIJ` and `CDKIJ` are set for every local cell and face. `CGAM1/2` and
+!> `CDGAM1/2` are assigned only when `JCACN(j,i) /= 0`, `JELDUM(j) >= 1`, and
+!> `JCBC(j) /= 9`; callers should only use those arrays on the same active
+!> lateral-connection mask.
+!> @endnote
 SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
  JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
  CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
@@ -645,15 +691,23 @@ END SUBROUTINE VSCOEF
 !> | Lower boundary | [[vslowr]] adds bottom flow/head/free-drainage terms. |
 !> | Linear solve | `TRIDAG` solves for pressure-head increments `CDPSI`. |
 !>
-!> The iteration stops when
+!> A column is computationally converged when
 !>
 !> \[
 !>   \max_c |\Delta\psi_c| \le 10^{-4}
 !> \]
 !>
-!> or after 100 local iterations. If the caller has requested error reporting
-!> through `ELEVEL`, a non-converged column raises error 1036, with repeated
-!> messages limited by `errcntallowed`.
+!> within the 100 local iterations. In the present loop structure this sets an
+!> internal `g510` flag, so later loop passes are skipped rather than leaving
+!> the `DO` loop immediately.
+!>
+!> @warning
+!> The error-reporting block is gated only by `ELEVEL > 0`, not by the final
+!> convergence flag. It therefore calls error 1036 after the loop even for
+!> columns that set `g510` earlier; the severity argument passed to `ERROR` is
+!> `WWWARN`. Repeated messages are limited by the saved `errorcount` and
+!> `errcntallowed`.
+!> @endwarning
 !>
 !> After the pressure update, internal vertical fluxes are recomputed as
 !>
@@ -672,6 +726,15 @@ END SUBROUTINE VSCOEF
 !> where the \(\beta\) and \(\gamma\) conductances come from [[vscoef]]. The
 !> phreatic-surface level is taken from the highest cell whose pressure head is
 !> non-negative, bounded below by the bottom-cell base elevation.
+!>
+!> @note
+!> `EESN`, `ICLGN`, `ICLGL`, and `CLG` are not used in this routine. Manual
+!> lateral head-gradient boundary categories are therefore not applied here;
+!> `JCBC=5` reaches [[vsbc]], which only prints its unfinished-code message.
+!> `CQH` is not reset for all faces and cells; entries are assigned only by the
+!> active boundary/stream-aquifer calls or by the final active-neighbour flux
+!> loop.
+!> @endnote
 SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
  IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
  JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
@@ -928,6 +991,15 @@ END SUBROUTINE VSCOLM
 !> connections, `VSCONC` records extra layer subdivisions in `LRENUM` and
 !> rebuilds the mesh. If repeated rebuilding reaches the element-count limit,
 !> the routine exits through the existing fatal-error path.
+!>
+!> @note
+!> `LRENUM` and `NRENUM` are `DATA`-initialised local variables and therefore
+!> retain state between calls. The routine also calls [[initialise_vsmod]] and
+!> `INITIALISE_AL_C` after each mesh-construction pass, before the final
+!> `BRENUM` test can jump back for another pass. This matches the original
+!> one-call setup assumption; repeated calls, or a rebuild after allocation
+!> routines that do not tolerate repeated allocation, are not safe.
+!> @endnote
 SUBROUTINE VSCONC ()
 !INTRINSIC DIM, INT, MAX, MIN, MOD
 INTEGER :: JVSDUM, NMOD
@@ -1497,9 +1569,9 @@ fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
 !> \]
 !>
 !> For each neighbouring element pair, `IAQCON(:,i)` records are first checked
-!> for this pair. Layer numbers must be in range; a layer value of zero denotes
-!> an explicit null connection; and conflicting null/non-null records are
-!> reported as error 1038 and counted in `NVSERR`.
+!> for this pair. Layer numbers must be in range. Positive user records are
+!> accumulated into inclusive connected-layer ranges, while conflicting
+!> null/non-null records are reported as error 1038 and counted in `NVSERR`.
 !>
 !> Default matching starts immediately below the soil-zone depth
 !> \(ZGRUND-DCSTOT\), using a small tolerance to avoid roundoff at exact layer
@@ -1509,6 +1581,20 @@ fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
 !> compatible soil type or user-specified connection, trying to preserve
 !> continuity where possible. Boundary faces, branched channels, and link-flank
 !> faces receive null connectivity.
+!>
+!> @warning
+!> The legacy comments describe layer zero in `IAQCON` as an explicit null
+!> connection, but a new one-sided zero record is not stored as a simple null
+!> marker by the current range-building code. Use positive layer-pair records
+!> for user-defined connectivity and do not rely on one-sided zero records to
+!> block default matching.
+!> @endwarning
+!>
+!> @note
+!> The local `BDONE` array is `DATA`-initialised and retained between calls.
+!> This is another reason the routine follows the original one-call setup
+!> assumption.
+!> @endnote
 SUBROUTINE VSCONL (NAQCON, IAQCON)
 ! Input arguments
 
@@ -1834,7 +1920,7 @@ END SUBROUTINE VSCONL
 !>
 !> On a successful return, for each cell `c` in `ICBOT:ICTOP`, with
 !> `j = ICSTOR(c)` and `s = ICSOIL(c)`, the stored interval and returned values
-!> satisfy:
+!> satisfy the bracketing implied by the strictly decreasing `VSPPSI` table:
 !>
 !> | Quantity | Exit condition |
 !> |:---------|:---------------|
@@ -1848,6 +1934,13 @@ END SUBROUTINE VSCONL
 !>
 !> If \(p\) falls outside `[0,1]`, the routine raises fatal error 1034 or 1035
 !> with a wet/dry diagnostic for the offending element and cell.
+!>
+!> @note
+!> In the current restructured loop, an out-of-range cell sets `g8100` and
+!> skips interpolation for the remainder of the column before the fatal
+!> `ERROR` call is made after the loop. Output values after the offending cell
+!> should therefore be treated as undefined on this path.
+!> @endnote
 SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
  VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
  CTHETA, CETA, CKR, CDETA, CDKR)
@@ -2008,6 +2101,22 @@ END SUBROUTINE VSFUNC
 !> lookup interval state `IVSSTO`, and initial relative conductivity `VSKR`.
 !> Data-reading or initialisation errors accumulate in `NVSERR`; any non-zero
 !> count raises fatal error 1040.
+!>
+!> @note
+!> `ISTART` is `1` when explicit banks are present and `total_no_links+1`
+!> otherwise. `INITYP=2` and `INITYP=3` therefore read `VSI` data only for
+!> `ISTART:total_no_elements`, not necessarily for every manual element listed
+!> in the `VSI` table. For `INITYP=3`, each element record must appear in that
+!> exact increasing order; a mismatched `IEL` raises error 1041 and then the
+!> accumulated fatal error 1040.
+!> @endnote
+!>
+!> @warning
+!> Well-screen depths (`VS12b`) and spring source depths (`VS13b`) are assumed
+!> to fall inside the generated column cells. If a depth search fails, the code
+!> falls through with the loop index beyond the searched range rather than
+!> reporting a dedicated bounds error.
+!> @endwarning
 SUBROUTINE VSIN ()
 CHARACTER(132) :: MSG
 INTEGER :: IEL, ICL, ILYR, ICBOT, ICTOP, IW, IELIN, ISTART, &
@@ -2260,8 +2369,16 @@ END SUBROUTINE VSIN
 !> \]
 !>
 !> where `CGAM1/2` and `CDGAM1/2` are lateral conductances and derivatives from
-!> [[vscoef]]. Stream-aquifer faces are deliberately skipped here because
-!> [[vssai]] adds those terms separately.
+!> [[vscoef]]. Faces with `JCBC=9` are skipped here because [[vssai]] adds those
+!> stream-aquifer terms separately. Faces with `JCBC=10` are not skipped by this
+!> routine; any non-zero `JCACN` entries still contribute regular lateral terms,
+!> and [[vssai]] then adds the stream-aquifer contribution.
+!>
+!> @note
+!> `CQ` is already premultiplied by the cell volume factor in [[vssim]], matching
+!> the legacy `970514` change note. This routine treats it as an assembled
+!> residual/source term, not as a flux density to be scaled again.
+!> @endnote
 SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
  JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
  CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
@@ -2495,8 +2612,9 @@ END SUBROUTINE VSLOWR
 !> equal and opposite exchange.
 !>
 !> @warning The split-cell branch is not implemented. If `JVSDEL` indicates a
-!> split-cell lateral connection, this routine stops with `UNFINISHED CODE FOR
-!> SPLIT CELLS IN SUBROUTINE VSMB`.
+!> split-cell lateral connection, the restructured loop sets `iscycle`, skips
+!> remaining work guarded by that flag, and then stops after the outer loop with
+!> `UNFINISHED CODE FOR SPLIT CELLS IN SUBROUTINE VSMB`.
 !> @endwarning
 SUBROUTINE VSMB (VSTHEN)
 ! Input arguments
@@ -2632,6 +2750,13 @@ END SUBROUTINE VSMB
 !> If a boundary file reaches its missing/end marker before the required model
 !> time, `EQMARKER` triggers a fatal `ERROR` call (`1042`-`1046` or `1052`) so
 !> the solver cannot continue with stale boundary conditions.
+!>
+!> @note
+!> Lateral head-gradient data (`LGB`/`RLGNOW`) are still read and interpolated
+!> when `NVSLG > 0`, but the downstream `JCBC=5` implementation in [[vsbc]]
+!> only prints an unfinished-code message and does not apply those values to the
+!> matrix.
+!> @endnote
 SUBROUTINE VSPREP ()
 INTEGER :: NDATA
 PARAMETER (NDATA = 4 + 3 * NVSEE)
@@ -2786,6 +2911,8 @@ END SUBROUTINE VSPREP
 !> | `VS17`, `VS18` | bottom boundary type/category grids | `NBBTYP`, `NBBCAT`. |
 !>
 !> Conductivities from `VS05` are converted from m/day to m/s for the solver.
+!> `VSZMAX` from `VS04` is stored as the input value plus `1.0e-6`, matching
+!> the legacy tolerance used when deciding aquifer-zone cell subdivisions.
 !> For tabulated soil options (`IVSFLG = 2` or `4`), the routine reads
 !> \(\psi\), \(\theta\), and \(K_r\) tables and builds natural cubic-spline
 !> second-derivative coefficients in log10(-\(\psi\)) space. For `IVSFLG = 4`,
@@ -2798,6 +2925,13 @@ END SUBROUTINE VSPREP
 !> computational cell-depth sequences so later cell construction in [[vsconc]]
 !> is consistent with `DCSZON` and `DCRBED`.
 !>
+!> `VS13` itself is treated as a dummy record in this implementation: the number
+!> of spring records read from `VS13a`/`VS13b` is `NVSSP` from `VS11`. For `VS16`
+!> selected-layer boundary categories, a category with `NLDUM` selected layers
+!> contributes `NLDUM` time-series values, while an unlisted category contributes
+!> one full-column value; this is why `NVSLFT`, `NVSLHT`, and `NVSLGT` start at
+!> their category counts and add `NLDUM - 1` for each selected-layer record.
+!>
 !> On exit, for each element `e = 1:NEL`, the boundary type arrays are
 !> non-negative and the boundary category arrays have valid defaults:
 !>
@@ -2808,6 +2942,12 @@ END SUBROUTINE VSPREP
 !> | `NLBCAT(e)` | `1 <= NLBCAT(e)` |
 !> | `NBBCAT(e)` | `1 <= NBBCAT(e)` |
 !> | `NVSWLC(e)` | `1 <= NVSWLC(e)` |
+!>
+!> @note
+!> The local `BDONE` array is `DATA`-initialised and retained between calls.
+!> `VSREAD` follows the original one-call setup assumption, like [[vsconl]] and
+!> [[vsconc]].
+!> @endnote
 SUBROUTINE VSREAD (NAQCON, IAQCON)
 INTEGER :: NAQCON, IAQCON (4, NVSEE)
 ! Locals, etc
@@ -3579,9 +3719,22 @@ END SUBROUTINE VSREAD
 !>   Q_i = K_i\,\Delta h_i\,{f_i A_i \over L},
 !> \]
 !> using the local hydraulic conductivity `CKIJ(i)`. The routine linearises this
-!> contribution with \(dQ_i/d\psi_i = -K_i f_i A_i/L\), adding that derivative
-!> to `CB(i)` and subtracting \(Q_i\) from `CR(i)` for the tridiagonal column
-!> solve in [[vscolm]].
+!> contribution with
+!> \[
+!>   {dQ_i \over d\psi_i} = -K_i\,{f_i A_i \over L},
+!> \]
+!> adding that derivative to `CB(i)` and subtracting \(Q_i\) from `CR(i)` for
+!> the tridiagonal column solve in [[vscolm]]. Although `CDKIJ` is passed in and
+!> an older commented line shows a conductivity-derivative form, the active code
+!> does not use `CDKIJ` and does not differentiate the depth-limiting factor
+!> \(f_i\).
+!>
+!> @note
+!> For positive head difference the code reduces the contact area by
+!> `depadj/CDELZ(i)` but does not bound this factor below zero; `depadj` is
+!> assumed to be non-negative. For draining cells, where \(\Delta h_i \le 0\),
+!> the full face area is used.
+!> @endnote
 !>
 !> Entry conditions from the legacy block are: `1 <= FACE <= 4`,
 !> `ICBOT <= ICBED + 1`, `ICBOT <= ICTOP`, and `CDELL > 0`.
@@ -3674,12 +3827,25 @@ END SUBROUTINE VSSAI
 !> | Global nonlinear iteration | Visit elements in `ISORT`, assemble neighbour data, solve each active column with [[vscolm]], and track the largest pressure-head correction. | `VSPSI`, `VSTHE`, `VSKR`, `QVSH`, `QVSV` |
 !> | Flux correction/output | Apply mass-balance correction and derive VSS-to-OC/bank summary fluxes. | [[vsmb]], `QVSBF`, `QH`, `QVSWEL`, `QBKB`, `QBKF`, `QBKI` |
 !>
+!> The surface forcing depth passed into each active column is
+!> \[
+!>   CDNET_e = \left(PNETTO_e - (EEVAP_e-ESOILA_e)\right)DTUZ
+!>             + (h_{rf,e}-z_{g,e}),
+!> \]
+!> where `GETHRF(e)-ZGRUND(e)` is the current surface-water depth. Root uptake
+!> and soil evaporation are assembled as source terms in `CQ`: cells in the
+!> rooting zone receive \(-ERUZ(e,c)A_e\), and the top cell also receives
+!> \(-ESOILA(e)A_e\). When explicit bank elements are disabled, link `CDNET`
+!> values are set only to link water depth before active land columns are
+!> solved; rainfall and evaporation on channels are handled later in the main
+!> simulation sequence.
+!>
 !> The active element range starts at `ISTART = 1` when explicit bank elements
 !> are enabled (`BEXBK`), so links and banks are solved as VSS columns; otherwise
-!> it starts at `NLF + 1` and only land/grid columns are solved. Stream-aquifer
-!> interaction is still accounted for without explicit banks by assigning
-!> boundary type `9` on land faces adjacent to links; with banks it uses type
-!> `10` on link-bank faces.
+!> it starts at `total_no_links + 1` and only land/grid columns are solved.
+!> Stream-aquifer interaction is still accounted for without explicit banks by
+!> assigning boundary type `9` on land faces adjacent to links; with banks it
+!> uses type `10` on link-bank faces.
 !>
 !> The global iteration stops when
 !> \[
@@ -3688,8 +3854,9 @@ END SUBROUTINE VSSAI
 !> or after `NITMAX = 10` iterations. After `NITMIN = 2`, elements whose own
 !> pressure change and neighbouring pressure changes are below the tolerance are
 !> marked converged and skipped in later global iterations. If convergence is
-!> not reached, `ERROR(EEERR,1039,...)` is issued with rate-limited repeated
-!> reporting.
+!> not reached, warning 1039 is issued with rate-limited repeated reporting.
+!> On the final global iteration `ELEVEL` is passed to [[vscolm]] as `EEERR`,
+!> but the non-convergence `ERROR` call in this routine uses `WWWARN`.
 !>
 !> Boundary-condition flags used in the column solve:
 !>
@@ -3718,10 +3885,29 @@ END SUBROUTINE VSSAI
 !> | `NLBTYP(e) > 0` implies `NBFACE(e) > 0`; wells and springs are mutually exclusive on an element. | Column boundary setup assumes one lateral-boundary face and one vertical source type. |
 !> | Faces to elements earlier than `ISTART` have zero `JVSACN` connectivity. | Non-solved neighbours are represented through boundary/stream terms instead of lateral column coupling. |
 !>
+!> @note
+!> `FIRSTvssim` gates the setup of `JCBCsv`, `VSAIJsv`, and `ICSOILsv`. Changes
+!> to boundary-type arrays, layer soil types, element geometry, or explicit-bank
+!> mode after the first call are therefore not reflected in the cached column
+!> metadata. If an element were both a well and a spring, the spring flag would
+!> overwrite the well flag in `JCBCsv(5,e)`; valid input should avoid that case.
+!> @endnote
+!>
 !> Limited ranges: element/cell arrays are used over
 !> `NLYRBT(e,1):LL`; link arrays are used over `1:NLF`; and `VSKR` may be input
 !> from any neighbour already visited in `ISORT`, then overwritten for active
 !> elements after their column solve.
+!>
+!> Output summary terms after [[vsmb]]:
+!>
+!> | Array | Value assigned here |
+!> |:------|:--------------------|
+!> | `QVSBF(e)` | Bottom vertical flux `QVSV(ICBOT-1,e)`. |
+!> | `QH(e)` | Top vertical flux `QVSV(ICTOP,e)`. |
+!> | `QVSWEL(e)` | Sum of `QVSWLI` over the well screen when `NVSWLI(e)>0`. |
+!> | `QBKF(link,bank)` | Sum of lateral VSS fluxes from the bank/grid side above the channel bed. |
+!> | `QBKB(link,bank)` | Half-link surface exchange `-0.5*A_link*QH(link)` only with explicit banks and a wet link. |
+!> | `QBKI(link,bank)` | Same half-link exchange only with explicit banks and a dry link. |
 SUBROUTINE VSSIM ()
 INTEGER :: NITMAX, NITMIN
 DOUBLEPRECISION GEPSMX, DRYH
@@ -4118,6 +4304,14 @@ END SUBROUTINE VSSIM
 !> | `VSPKR` | Relative hydraulic conductivity \(K_r\). |
 !> | `VSPDKR` | \(dK_r/d\psi\), where available/implemented. |
 !>
+!> Derivative-table coverage is uneven in the active implementation:
+!>
+!> | Soil option | `VSPDTH`/`VSPETA` | `VSPDET` | `VSPDKR` before final DSATG adjustment |
+!> |:------------|:------------------|:---------|:--------------------------------------|
+!> | `IVSFLG=1` | Analytic van Genuchten water-content derivative and storage. | Set to zero in the main unsaturated range. | Analytic line is commented out, so the main-range values are not assigned here. |
+!> | `IVSFLG=2` | `VSPDTH` is a forward finite difference after spline interpolation of tabulated \(\theta\). | Forward finite difference of `VSPDTH`, plus the specific-storage term. | Not assigned here, although tabulated `K_r` itself is spline-interpolated before being overwritten below. |
+!> | `IVSFLG=3` | Analytic exponential derivative and storage. | Analytic exponential derivative of storage. | Analytic exponential derivative, but inconsistent with the final DSATG-adjusted `VSPKR`. |
+!>
 !> Implemented soil-property options:
 !>
 !> | `IVSFLG` | Manual option | Code path |
@@ -4144,7 +4338,13 @@ END SUBROUTINE VSSIM
 !> \]
 !> This means the final `VSPKR` values used by [[vsfunc]] do not retain the
 !> earlier method-specific conductivity curve in the main lookup range. The
-!> derivative table `VSPDKR` is not recomputed by this adjustment.
+!> derivative table `VSPDKR` is not recomputed by this adjustment, so `CDKR`
+!> from [[vsfunc]] should be treated as an approximate or stale derivative,
+!> depending on the soil option.
+!>
+!> The wet extension is also partly synthetic: `VSPKR(1:4,:) = 1`, `VSPTHE(4,:)`
+!> is porosity, `VSPTHE(3:1,:)` is extrapolated from storage terms, and
+!> `VSPDET(1:4,:)` is forced to zero.
 !>
 !> If `BSOILP` is enabled, the generated tables are written to `PPPRI`.
 !>
@@ -4475,6 +4675,15 @@ END SUBROUTINE VSSOIL
 !> same flux, and `CB` is updated with the implemented linearisation term
 !> `-CCS * CDKR`. For an inactive spring, `CQSP` is set to zero and the column
 !> coefficients are unchanged.
+!>
+!> @note
+!> This is not the full derivative of
+!> \(C_{\rm sp}K_r(z_i+\psi_i-z_{\rm sp})\) with respect to pressure head,
+!> which would include both the direct `CKR` term and the head-excess multiplier
+!> on `CDKR`. The active implementation uses only `-CCS * CDKR`. Because the
+!> activation test is `GEZERO`, a zero head excess gives zero spring flux but
+!> still applies this coefficient term.
+!> @endnote
 SUBROUTINE VSSPR (CZ, CZSP, CCS, CPSI, CKR, CDKR, CB, CR, CQSP)
 
 ! Input arguments
@@ -4537,6 +4746,15 @@ END SUBROUTINE VSSPR
 !> `CQINF = -q_in` and the derivative contribution is set to zero. Otherwise
 !> the boundary is hydraulic-capacity limited, or exfiltrating, and
 !> `CQINF = q_out` with derivative `CKZS/(CDELZ/2)`.
+!>
+!> @note
+!> `CKZS` is the saturated vertical conductivity passed from `VSK3D(SOIL,3)`;
+!> the upper-boundary capacity does not use the current relative conductivity
+!> `CKR` from [[vsfunc]]. Positive `CDNET` is treated as ponded depth in the
+!> hydraulic head term. Negative `CDNET` can limit upward extraction through
+!> `q_in = CDNET/DT`, but `MAX(CDNET,0)` means it does not impose a negative
+!> surface-water head in `q_out`.
+!> @endnote
 !>
 !> The column-system updates are
 !> \[
@@ -4628,9 +4846,18 @@ END SUBROUTINE VSUPPR
 !> corresponding areal rate \(Q_i/A\) in m/s, and `CR(i)` is increased by
 !> \(Q_i\) for the column right-hand side.
 !>
+!> @note
+!> The pressure-head reduction factor is evaluated explicitly. The routine does
+!> not add a diagonal coefficient for the dependence of \(f_i\) on `CPSI(i)`, so
+!> well abstraction changes affect the nonlinear iteration only through the next
+!> column assembly. The sign convention assumes positive `CQWIN` is abstraction
+!> from the VSS column.
+!> @endnote
+!>
 !> Entry conditions: `ICWLBT <= ICWLTP`;
 !> `1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE`; and positive `CA0`, screened-cell
-!> thicknesses, and lateral saturated conductivities
+!> thicknesses including `CDELZ(ICWLTP+1)`, and a positive total
+!> conductivity-depth weight \(W\) from
 !> `VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)`.
 SUBROUTINE VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
  CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)

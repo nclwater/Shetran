@@ -626,11 +626,7 @@ END SUBROUTINE JEOCBC
 !> | `NX`, `NY` | Both at least 1. |
 !> | `NGDBGN` | Equal to `total_no_links + 1`. |
 SUBROUTINE OCCHK0()
-!----------------------------------------------------------------------*
-!
-!  Check static variables & constants input to the OC
-!
-!----------------------------------------------------------------------*
+
 INTEGER       :: ERRNUM, I, IUNDEF, IUNIT, NERR, OUNIT
 INTEGER       :: IDUMS (1), IDUMO (1)
 LOGICAL       :: BOPEN, LDUM1 (1)
@@ -721,16 +717,17 @@ END SUBROUTINE OCCHK0
 !> Any `LCODEX` or `LCODEY` value in the channel-boundary range 7:11 must map
 !> through `LINKNO` to a valid channel-link element, i.e. an index greater than
 !> zero and less than `NGDBGN`.
+!>
+!> Entry requirements:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NEL >= 1`, `NX >= 1`, `NY >= 1` | The element and grid dimensions are populated. |
+!> | `NELEE >= NEL`, `NXEE >= NX` | Workspace leading dimensions cover the active model extent. |
+!> | `PRI` open for formatted output | Error reporting can write diagnostics. |
+!> | `size_of_LDUM1 >= max(NX,NEL)` | Logical workspace is large enough for the largest check in this routine. |
 SUBROUTINE OCCHK1(SZLOG, LDUM1)
-!----------------------------------------------------------------------*
-!
-!  Check static OC input arrays
-!
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  [ NEL, NX, NY ].ge.1     NELEE.ge.NEL    NXEE.ge.NX
-!  PRI open for F output    size_of_LDUM1.ge.[NX,NEL]
-!----------------------------------------------------------------------*
+
 INTEGER, INTENT(IN) :: szlog
 !INTEGER, INTENT(inout) :: afromICMREF(4)  !AD aliasing
 LOGICAL, INTENT(OUT):: LDUM1 (szlog)  !LDUM1 ( * )

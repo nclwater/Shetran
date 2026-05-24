@@ -6,6 +6,16 @@
 !> the native file-open dialog, then derives the catchment name, input
 !> directory, and root directory needed by the rest of SHETRAN.
 !>
+!> | Command option | Implemented action |
+!> |:---------------|:-------------------|
+!> | `-a`, `-m`, `-af`, `-sd`, `-pattern`, `-delinc`, `-results` or no argument | Open the Windows file-selection dialog. |
+!> | `-f <file>` | Use the second command-line argument as the rundata filename. |
+!> | `-c` | Look up a rundata filename in `catchments.txt`; when no second argument is present the lookup key is `default`. |
+!>
+!> The selected rundata filename must contain the legacy
+!> `rundata_<catchment>.txt` pattern. The text between `rundata_` and the final
+!> dot is returned as the catchment name.
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -44,7 +54,21 @@ MODULE GETDIRQQ
     !> The routine reads command-line options, optionally opens the Windows file
     !> selection dialog, validates that the selected file exists, checks that it
     !> follows the `rundata_name.txt` naming convention, and returns the full
-    !> filename, catchment name, input directory, and root directory.
+    !> filename, catchment name, input directory, and current drive directory.
+    !>
+    !> | Step | Details |
+    !> |:-----|:--------|
+    !> | Root directory | `GETDRIVEDIRQQ` populates `rootdir`; the returned status is not otherwise used. |
+    !> | Command mode | The first argument selects dialog, filename, or catchment lookup mode; no first argument is treated as `-a`. |
+    !> | Error mode | If the total argument count is four and argument 3 is `-error`, global `error_mode` is set true. This routine still prints its own message and stops on local errors. |
+    !> | File existence | `INQUIRE(FILE=FileName)` must succeed before path parsing. |
+    !> | Path parsing | `SPLITPATHQQ` supplies `dirqq`; the routine scans the full filename backward for the final dot and the `rundata_` prefix to derive `catch`. |
+    !>
+    !> @note The `runfil` argument is retained for the historical interface but
+    !> is not used by the current implementation. The `-c` branch also has the
+    !> `GETARG` call for a supplied catchment key commented out, so only the
+    !> no-second-argument `default` lookup path is explicit in the current code.
+    !> @endnote
     !>
     !> @history
     !> | Date | Author | Version | Description |
@@ -55,7 +79,7 @@ MODULE GETDIRQQ
     SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
         ! IO-vars
-        CHARACTER(len=*), INTENT(IN)    :: runfil  !! Prefix for SHETRAN run-data files.
+        CHARACTER(len=*), INTENT(IN)    :: runfil  !! Historical run-data prefix argument; currently unused.
         CHARACTER(len=*), INTENT(OUT)   :: fn      !! Full selected run-data filename.
         CHARACTER(len=*), INTENT(OUT)   :: catch   !! Catchment name parsed from the run-data filename.
         CHARACTER(len=*), INTENT(OUT)   :: dirqq   !! Directory containing the selected run-data file.
@@ -205,6 +229,17 @@ MODULE GETDIRQQ
     !>
     !> The routine calls `COMMDLGEXTENDEDERROR`, maps known common-dialog error
     !> codes to a diagnostic message, and stops the program if an error occurred.
+    !>
+    !> | Error-code group | Examples handled |
+    !> |:-----------------|:-----------------|
+    !> | Common-dialog resource/setup errors | `CDERR_FINDRESFAILURE`, `CDERR_INITIALIZATION`, `CDERR_LOADRESFAILURE`, `CDERR_STRUCTSIZE`. |
+    !> | Common-dialog memory/template/hook errors | `CDERR_MEMALLOCFAILURE`, `CDERR_MEMLOCKFAILURE`, `CDERR_NOHINSTANCE`, `CDERR_NOHOOK`, `CDERR_NOTEMPLATE`. |
+    !> | Filename-dialog errors | `FNERR_BUFFERTOOSMALL`, `FNERR_INVALIDFILENAME`, `FNERR_SUBCLASSFAILURE`. |
+    !> | Other nonzero code | Reported as `Unknown error number`. |
+    !>
+    !> If `COMMDLGEXTENDEDERROR()` returns zero, `comdlger` returns without
+    !> printing anything. Nonzero values print a fixed failure heading plus the
+    !> mapped message, then stop the program.
     !>
     !> @history
     !> | Date | Author | Version | Description |

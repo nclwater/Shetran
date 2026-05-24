@@ -259,10 +259,10 @@ END subroutine BALWAT
 !>
 !> `METIN` advances precipitation, potential evaporation, radiation, wind,
 !> temperature, vapour pressure deficit, and time-varying vegetation/canopy
-!> parameters as needed for the current simulation time. In date-aware mode it
-!> verifies that the first forcing record does not start after the model start
-!> date, then converts ISO-like date fields to SHETRAN hours using the
-!> `hour_from_date` utility.
+!> parameters as needed for the current simulation time. In date-aware mode,
+!> [[tmstep]] first checks and positions the dated forcing files; `METIN` then
+!> consumes the selected records and converts ISO-like date fields to SHETRAN
+!> hours using the `hour_from_date` utility.
 !>
 !> The routine reads the meteorological data needed for the Penman-Monteith
 !> evapotranspiration calculation, interception, and snowmelt. The manual
@@ -326,6 +326,11 @@ END subroutine BALWAT
 !> max/min temperatures default to 10 C. The legacy comment notes that
 !> precipitation is averaged over the computational timestep elsewhere; that
 !> averaging is performed by [[tmstep]].
+!>
+!> @note For dated PRD/EPD/TAH/TAL files the parsed dates are used for start-file
+!> checks and initial positioning in [[tmstep]]. Within this routine the active
+!> record windows are still advanced by `DTMET2` and `DTMET3`.
+!> @endnote
 !>
 !> @history
 !>
@@ -1007,6 +1012,38 @@ END SUBROUTINE METIN
 !> by selected flow errors. This routine is the main point where meteorological
 !> file timing and hydrological stability controls meet before the next model
 !> step is taken.
+!>
+!> The candidate timestep is first reduced by these controls:
+!>
+!> | Control | Code expression | Effect |
+!> |:--------|:----------------|:-------|
+!> | Growth from previous step | `UZNEXT*(1+PALFA)` | Prevents abrupt timestep expansion. |
+!> | Soft start | `TMAX*0.05*1.03**NSTEP` for the first 102 steps when `BSOFT` is true | Starts the run with smaller steps; disabled for hot starts. |
+!> | Snowmelt | `0.5` h when snow is present and any met station has `TA>0` | Limits melt-period steps. |
+!> | Runtime errors | `UZNEXT/10` or `UZNEXT/100`, lower-bounded by `0.0003` h | Retries after selected flow errors. |
+!>
+!> For date-aware forcing (`BMETDATES`) the first call checks that PRD, EPD, and
+!> optional TAH/TAL records do not start after the simulation start date. It also
+!> skips older records until the first record whose date is within about
+!> `0.01` h of `TIH` or later, then backspaces so `METIN` can read that record.
+!>
+!> Precipitation is accumulated over the candidate timestep by splitting at
+!> meteorological record boundaries:
+!>
+!> \[
+!> PTOT_i = \sum_m \Delta t_m\,PINP_{i,m}.
+!> \]
+!>
+!> If any accumulated station total would exceed `PMAX`, the timestep is reduced
+!> to the crossing time. The final element precipitation rate is then
+!>
+!> \[
+!> precip\_m\_per\_s(e) =
+!> \frac{PTOT_{NRAINC(e)}}{UZNEXT\,3.6\times10^6}.
+!> \]
+!>
+!> Finally `METIN(2)` reads or interpolates PE and time-varying vegetation/canopy
+!> parameters needed for the timestep.
 !>
 !> @history
 !> | Date | Author | Version | Description |

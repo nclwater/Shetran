@@ -13,6 +13,24 @@
 !> conditionally run sediment and contaminant components, maintain water and
 !> sediment balances, write hotstart/state output, and report progress.
 !>
+!> The main loop uses this high-level order:
+!>
+!> | Stage | Main calls/state updates |
+!> |:------|:-------------------------|
+!> | Timestep selection | [[rest:tmstep]], increment `NSTEP`, copy `UZNEXT` to `OCNEXT`. |
+!> | Land hydrology | [[etmod:etsim]], then [[vsmod:vssim]]. |
+!> | Time advance | `UZNOW = UZNOW + UZNEXT`; channel rainfall, evaporation, and well-transfer terms are updated for links. |
+!> | Surface routing | [[ocmod:ocsim]], then `OCNOW = UZNOW`. |
+!> | Optional sediment | [[symod:symain]] when `BEXSY` and `UZNOW >= TSH-TIH`. |
+!> | Optional contaminants | [[frmod:incm]] on the first active contaminant step, then [[cmmod:cmsim]] on later active steps. |
+!> | Output and balances | [[rest:balwat]], [[frmod:frmb]], optional [[symod:balsed]], result/hotstart/time-counter output, visualisation, and [[frmod:froutput]]. |
+!>
+!> @note Contaminant setup is intentionally split: contaminant and column helper
+!> arrays are allocated before the loop when `BEXCM` is true, but
+!> [[frmod:incm]] is called on the first active contaminant timestep and
+!> `CMSIM` is called only on subsequent active timesteps.
+!> @endnote
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -108,11 +126,13 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2008-12 | JE | 4.3.5F90 | Created as the timestep-by-timestep computational core. |
 !> | 2026-03 | SB | 4.6 | Added human-readable simulation dates and contaminant allocation setup/cleanup calls. |
+!> @endhistory
 !>
 !> @note Component ordering is hydrologically significant: ET and VSS are run
 !> before the model time is advanced; overland/channel flow is run after
 !> rainfall, evaporation, and well transfers are updated; sediment and
 !> contaminant calls are gated by their configured start times.
+!> @endnote
 !>
 SUBROUTINE SIMULATION
 INTEGER                                       :: ptub, j
