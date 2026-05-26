@@ -8,10 +8,8 @@
 !> module arrays used later by [[get_ZQTable_value]].
 !>
 !> The implementation is a tabulated stage-discharge relationship rather than a
-!> fitted hydraulic formula. This is the same hydrological concept as a rating
-!> curve, where discharge is obtained from water level using an established
-!> stage-discharge relation. See the USGS overview of rating curves:
-!> https://www.usgs.gov/faqs/how-a-rating-curve-used-convert-gage-height-streamflow
+!> fitted hydraulic formula: discharge is selected from the active column by the
+!> current upstream stage.
 !>
 !> The ZQ file may contain several tables, one per reservoir/channel link. Each
 !> table has a first column of stage values and one or more discharge columns
@@ -21,15 +19,15 @@
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | - | DH | - | Initial version. |
-!> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
+!> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
 !> @endhistory
 !>
-!> @note The table parser assumes space-delimited input and ascending stage
-!> threshold headers. The lookup returns the first table row where `Zu` is not
-!> greater than the stored stage value; it does not interpolate between rows.
-!> The active discharge column is selected from the `ZQ>threshold` headers only
-!> when the configured sluice operation hour crosses a new day.
+!> @note The table parser assumes space-delimited input, one trailing delimiter
+!> after each header token, and ascending `ZQ>threshold` headers. The lookup
+!> returns the first table row where `Zu` is not greater than the stored stage
+!> value; it does not interpolate between rows. The active discharge column is
+!> selected from the `ZQ>threshold` headers only when the configured sluice
+!> operation hour crosses a new day.
 !> @endnote
 !>
 !>

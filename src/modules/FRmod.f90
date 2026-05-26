@@ -28,7 +28,7 @@
 !> module implementation details, even though they are documented here because
 !> they define important file-format and coupling behaviour.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -36,6 +36,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted the FR `.F` files into this Fortran 90 module. |
 !> | 2020-05 | SB | 4.5 | Added ZQ-module variables and support. |
 !> | 2026-03 | SB | 4.6 | Added allocation-based initialisation through `INITIALISE_AL_C3` and `INITIALISE_ETMOD`, date-aware meteorological input through `BMETDATES`, outlet sediment/contaminant text series, water-table and virtual-discharge text output, improved diagnostics, and `.pri` reporting of hard-coded array sizes. |
+!> @endhistory
 MODULE FRmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the FR .F files

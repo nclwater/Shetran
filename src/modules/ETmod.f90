@@ -22,7 +22,7 @@
 !> calculated potential evaporation are controlled by the ET input-file records
 !> described in the manual's Evapotranspiration/Interception Module section.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -32,6 +32,7 @@
 !> | 1998-10-21 | RAH | 4.2 | Moved `FE` into the ET component. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted ET `.F` files into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Added date-aware meteorological input through `BMETDATES` and allocated ET meteorological/control arrays in [[initialise_etmod]]. |
+!> @endhistory
 MODULE ETmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the ET .F files

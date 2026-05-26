@@ -20,13 +20,14 @@
 !> magnitude as a millimetre-scale threshold and substitutes fixed effective
 !> roughness values during face-flow calculation.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
 !> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
 !> | 2026-03 | SB | 4.6 | Moved large OC solver, water-surface, discharge, and index work arrays to allocatable storage. |
+!> @endhistory
 MODULE OCmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC .F files

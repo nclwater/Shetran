@@ -32,6 +32,7 @@
 !> | 1998-04 | RAH | 4.2 | Reworked bank, link, and boundary-condition calls. |
 !> | 1998-08-07 | RAH | 4.2 | Added local `LINK` to avoid out-of-bounds access. |
 !> | 2009-01 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2019-05-22 | SB | - | Added negative-`STRXX` surface-storage switching. |
 !> | 2020-05-20 | SB | - | Added ZQ table routing support. |
 !> @endhistory
 MODULE ocqdqmod

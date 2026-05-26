@@ -33,13 +33,13 @@
 !> `DISP` returns `3.0D-8`.
 !> @endwarning
 !>
-!> History:
-!>
+!> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 1993-1998 | GP/RAH/SB | 3.4-4.2 | Developed and reorganised MUZ/MOC contaminant column, link, plant, and retardation routines. |
+!> | 1993-1998 | GP/RAH/SB | 3.4-4.2 | Developed and reorganised CM transport routines. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the CM `COLM` and `LINK` `.F` files into this Fortran 90 module. |
 !> | 2020-03-05 | SvenB | - | Removed the complete `SGLOBAL` include in favour of selected imports. |
+!> @endhistory
 MODULE CMmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the CM COLM and LINK .F files

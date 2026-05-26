@@ -51,11 +51,16 @@
 !> the manual's nitrate plant-uptake input file (`MNPL`) and tested carefully.
 !> @endwarning
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-03 | SB | 4.6 | Capitalised `MNCONT` for Linux builds and moved several arrays to allocatable storage. |
+!> | 2026-03 | SB | 4.6 | Capitalised `MNCONT` for Linux builds. |
+!> | 2026-03 | SB | 4.6 | Changed key interface/work arrays to allocatable storage. |
+!>
+!> The allocatable arrays in the March 2026 change include `VSTHEO`, `NLYRBT`,
+!> `NTSOIL`, `DELTAZ`, `RDF`, `ZVSNOD`, `CCCC`, `SSSS`, `SSS1`, and `SSS2`.
+!> @endhistory
 module MNmod
 
 

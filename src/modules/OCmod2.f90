@@ -51,7 +51,7 @@
 !> those cases discharge is a tabulated stage-discharge lookup rather than a
 !> direct conveyance or weir calculation.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -59,6 +59,7 @@
 !> | 1999-02 | SB | 4.27 | Adjusted confluence mass conservation and small adverse-flow correction behaviour. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted part of the OC `.F` files into this Fortran 90 helper module. |
 !> | 2020-05 | SB | - | Added ZQ-table reservoir/channel link support. |
+!> @endhistory
 MODULE OCmod2
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces part of the OC.F files
