@@ -80,13 +80,14 @@
 !> physical boundary terms to the VSS matrix.
 !> @endwarning
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-1998 | GP/RAH | 4.0-4.2 | Developed and reorganised the VSS common state, soil tables, initialisation state, connectivity, boundary handling, and column solver. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the VSS `.F` files and include blocks into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Moved saved arrays into allocatable module storage through `INITIALISE_AL_C2` for AD/current builds. |
+!> @endhistory
 MODULE VSmod
 USE SGLOBAL
 USE mod_load_filedata, ONLY : ALINIT, ALSPRD, ALREAD
@@ -105,74 +106,122 @@ USE AL_D, ONLY : TTH
 USE UTILSMOD, ONLY : TRIDAG, FINPUT, HINPUT, DCOPY
 USE OCmod2,   ONLY : GETHRF
 IMPLICIT NONE
-!ALL THESE WERE SAVE VARAIABLES - MOVED HERE FOR AD
-INTEGER         :: ICSOILsv(LLEE,NELEE), JCBCsv(0:5,NELEE)
-!DOUBLEPRECISION :: VSAIJsv(4,LLEE,NELEE)
-DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: VSAIJsv
+! Saved legacy state moved here for AD/current builds.
+INTEGER :: ICSOILsv(LLEE,NELEE) !! Cached VSS soil type by cell and element.
+INTEGER :: JCBCsv(0:5,NELEE)    !! Cached boundary-condition type/category metadata by face and element.
+DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: VSAIJsv !! Cached lateral face area/conductance terms.
 
-DOUBLEPRECISION :: WLLAST=zero, WLTIME=zero, RWELIN(NVSEE)=zero
-DOUBLEPRECISION :: RLFLST=zero, RLFTIM=zero, RLFPRV(NVSEE)=zero
-DOUBLEPRECISION :: RLHLST=zero, RLHTIM=zero, RLHPRV(NVSEE)=zero, RLHNXT(NVSEE)=zero
-DOUBLEPRECISION :: RLGLST=zero, RLGTIM=zero, RLGPRV(NVSEE)=zero, RLGNXT(NVSEE)=zero
-DOUBLEPRECISION :: RBFLST=zero, RBFTIM=zero, RBFPRV(NVSEE)=zero
-DOUBLEPRECISION :: RBHLST=zero, RBHTIM=zero, RBHPRV(NVSEE)=zero, RBHNXT(NVSEE)=zero
-DOUBLEPRECISION :: RLFDUM(NVSEE)=zero, RLHDUM(NVSEE)=zero, RLGDUM(NVSEE)=zero
-LOGICAL :: FIRSTvssim=.TRUE.
-integer,parameter :: errcntallowed=1000
+DOUBLEPRECISION :: WLLAST=zero        !! Previous well-input record time.
+DOUBLEPRECISION :: WLTIME=zero        !! Current/next well-input record time.
+DOUBLEPRECISION :: RWELIN(NVSEE)=zero !! Current well abstraction input values.
+DOUBLEPRECISION :: RLFLST=zero        !! Previous lateral-flow boundary record time.
+DOUBLEPRECISION :: RLFTIM=zero        !! Current/next lateral-flow boundary record time.
+DOUBLEPRECISION :: RLFPRV(NVSEE)=zero !! Previous lateral-flow boundary values.
+DOUBLEPRECISION :: RLHLST=zero        !! Previous lateral-head boundary record time.
+DOUBLEPRECISION :: RLHTIM=zero        !! Current/next lateral-head boundary record time.
+DOUBLEPRECISION :: RLHPRV(NVSEE)=zero !! Previous lateral-head boundary values.
+DOUBLEPRECISION :: RLHNXT(NVSEE)=zero !! Next lateral-head boundary values.
+DOUBLEPRECISION :: RLGLST=zero        !! Previous lateral-gradient boundary record time.
+DOUBLEPRECISION :: RLGTIM=zero        !! Current/next lateral-gradient boundary record time.
+DOUBLEPRECISION :: RLGPRV(NVSEE)=zero !! Previous lateral-gradient boundary values.
+DOUBLEPRECISION :: RLGNXT(NVSEE)=zero !! Next lateral-gradient boundary values.
+DOUBLEPRECISION :: RBFLST=zero        !! Previous base-flow boundary record time.
+DOUBLEPRECISION :: RBFTIM=zero        !! Current/next base-flow boundary record time.
+DOUBLEPRECISION :: RBFPRV(NVSEE)=zero !! Previous base-flow boundary values.
+DOUBLEPRECISION :: RBHLST=zero        !! Previous base-head boundary record time.
+DOUBLEPRECISION :: RBHTIM=zero        !! Current/next base-head boundary record time.
+DOUBLEPRECISION :: RBHPRV(NVSEE)=zero !! Previous base-head boundary values.
+DOUBLEPRECISION :: RBHNXT(NVSEE)=zero !! Next base-head boundary values.
+DOUBLEPRECISION :: RLFDUM(NVSEE)=zero !! Lateral-flow interpolation workspace.
+DOUBLEPRECISION :: RLHDUM(NVSEE)=zero !! Lateral-head interpolation workspace.
+DOUBLEPRECISION :: RLGDUM(NVSEE)=zero !! Lateral-gradient interpolation workspace.
+LOGICAL :: FIRSTvssim=.TRUE.          !! True until `VSSIM` has cached column metadata.
+integer,parameter :: errcntallowed=1000 !! Maximum repeated VSS convergence warnings.
 
 ! Legacy VSCOM1.INC global VSS variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !IMPLICIT NONE
-LOGICAL :: BLOWP, BHELEV
+LOGICAL :: BLOWP  !! Lower-boundary output print-control flag retained from legacy VSCOM1 state.
+LOGICAL :: BHELEV !! True when lateral boundary head inputs are elevations; false when they are depths below ground.
 
 !COMMON / VSC1LI / BLOWP, BHELEV
 ! integer variables, initialisation
-INTEGER :: NCSZON, NCRBED
-INTEGER :: JVSALN (NELEE, NLYREE, 4), ISRBED (NLFEE)
-INTEGER :: NVSWL, NVSSP, NVSLF, NVSLH, NVSLG, NVSBF, NVSBH, NVSBD
-INTEGER :: NVSWLC (NELEE), NLBTYP (NELEE)
-INTEGER :: NLBCAT (NELEE), NBBTYP (NELEE), NBBCAT (NELEE)
-INTEGER :: NVSLFT, NVSLFL (NLYREE, NVSEE), NVSLFN (NVSEE)
-INTEGER :: NVSLHT, NVSLHL (NLYREE, NVSEE), NVSLHN (NVSEE)
-INTEGER :: NVSLGT, NVSLGL (NLYREE, NVSEE), NVSLGN (NVSEE)
+INTEGER :: NCSZON                  !! Number of extra cells used to represent the soil-zone depth increments.
+INTEGER :: NCRBED                  !! Number of extra cells used to represent river-bed depth increments.
+INTEGER :: JVSALN(NELEE,NLYREE,4)  !! Aquifer-layer connectivity ranges packed as `NLYREE+1` multiples.
+INTEGER :: ISRBED(NLFEE)           !! River-bed soil type by link.
+INTEGER :: NVSWL                   !! Number of well boundary categories.
+INTEGER :: NVSSP                   !! Number of spring boundary categories.
+INTEGER :: NVSLF                   !! Number of lateral-flow boundary categories.
+INTEGER :: NVSLH                   !! Number of lateral-head boundary categories.
+INTEGER :: NVSLG                   !! Number of lateral head-gradient boundary categories.
+INTEGER :: NVSBF                   !! Number of bottom-flow boundary categories.
+INTEGER :: NVSBH                   !! Number of bottom-head boundary categories.
+INTEGER :: NVSBD                   !! Number of bottom-drainage boundary categories.
+INTEGER :: NVSWLC(NELEE)           !! Well category used by each element.
+INTEGER :: NLBTYP(NELEE)           !! Lateral boundary type by element.
+INTEGER :: NLBCAT(NELEE)           !! Lateral boundary category by element.
+INTEGER :: NBBTYP(NELEE)           !! Bottom boundary type by element.
+INTEGER :: NBBCAT(NELEE)           !! Bottom boundary category by element.
+INTEGER :: NVSLFT                  !! Expanded count of lateral-flow boundary values after selected-layer categories.
+INTEGER :: NVSLFL(NLYREE,NVSEE)    !! Selected model layers for lateral-flow categories.
+INTEGER :: NVSLFN(NVSEE)           !! Number of selected lateral-flow layers per category; zero means whole column.
+INTEGER :: NVSLHT                  !! Expanded count of lateral-head boundary values after selected-layer categories.
+INTEGER :: NVSLHL(NLYREE,NVSEE)    !! Selected model layers for lateral-head categories.
+INTEGER :: NVSLHN(NVSEE)           !! Number of selected lateral-head layers per category; zero means whole column.
+INTEGER :: NVSLGT                  !! Expanded count of lateral-gradient boundary values after selected-layer categories.
+INTEGER :: NVSLGL(NLYREE,NVSEE)    !! Selected model layers for lateral-gradient categories.
+INTEGER :: NVSLGN(NVSEE)           !! Number of selected lateral-gradient layers per category; zero means whole column.
 
 !COMMON / VSC1II / NCSZON, NCRBED, JVSALN, ISRBED, NVSWL, NVSSP, &
  !NVSLF, NVSLH, NVSLG, NVSBF, NVSBH, NVSBD, NVSWLC, NLBTYP, NLBCAT, &
  !NBBTYP, NBBCAT, NVSLFT, NVSLFL, NVSLFN, NVSLHT, NVSLHL, NVSLHN, &
  !NVSLGT, NVSLGL, NVSLGN
 ! integer variables, time-varying
-INTEGER :: IVSSTO (LLEE, NELEE)
+INTEGER :: IVSSTO(LLEE,NELEE) !! Stored soil lookup-table interval by VSS cell and element.
 
 !COMMON / VSC1IT / IVSSTO
 ! floating-point variables and arrays, initialisation
-DOUBLEPRECISION DCSZON (LLEE), DCRBED (LLEE), DCSTOT, DCRTOT, &
- VSZMIN, VSZMAX, VSK3D (NSEE, 3), DRBED (NLFEE), VSSPZ (NELEE), &
- VSSPCO (NELEE), VSWV, VSWL
+DOUBLEPRECISION :: DCSZON(LLEE)  !! Soil-zone cell-depth increments, ordered from the ground surface downward.
+DOUBLEPRECISION :: DCRBED(LLEE)  !! River-bed cell-depth increments, ordered from the bed surface downward.
+DOUBLEPRECISION :: DCSTOT        !! Total configured soil-zone depth.
+DOUBLEPRECISION :: DCRTOT        !! Total configured river-bed depth.
+DOUBLEPRECISION :: VSZMIN        !! Minimum VSS cell thickness.
+DOUBLEPRECISION :: VSZMAX        !! Maximum VSS cell thickness, stored with the legacy small tolerance.
+DOUBLEPRECISION :: VSK3D(NSEE,3) !! Saturated hydraulic conductivity by soil type and x/y/z direction.
+DOUBLEPRECISION :: DRBED(NLFEE)  !! River-bed depth by link.
+DOUBLEPRECISION :: VSSPZ(NELEE)  !! Spring discharge elevation by element.
+DOUBLEPRECISION :: VSSPCO(NELEE) !! Spring conductance coefficient by element.
+DOUBLEPRECISION :: VSWV          !! Vertical hydraulic-conductivity w-mean control.
+DOUBLEPRECISION :: VSWL          !! Lateral hydraulic-conductivity w-mean control.
 
 !COMMON / VSC1RI / DCSZON, DCRBED, DCSTOT, DCRTOT, VSZMIN, VSZMAX, &
  !VSK3D, DRBED, VSSPZ, VSSPCO, VSWV, VSWL
 ! floating-point arrays, time-varying
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSKR !(LLEE, NELEE)
-DOUBLEPRECISION WLNOW (NVSEE), RLFNOW (NLYREE, &
- NVSEE), RLHNOW (NLYREE, NVSEE), RLGNOW (NLYREE, NVSEE), RBFNOW ( &
- NVSEE), RBHNOW (NVSEE)
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSKR !! Relative hydraulic conductivity by VSS cell and element.
+DOUBLEPRECISION :: WLNOW(NVSEE)        !! Current well abstraction values.
+DOUBLEPRECISION :: RLFNOW(NLYREE,NVSEE) !! Current lateral-flow boundary values.
+DOUBLEPRECISION :: RLHNOW(NLYREE,NVSEE) !! Current lateral-head boundary values.
+DOUBLEPRECISION :: RLGNOW(NLYREE,NVSEE) !! Current lateral-gradient boundary values.
+DOUBLEPRECISION :: RBFNOW(NVSEE)       !! Current bottom-flow boundary values.
+DOUBLEPRECISION :: RBHNOW(NVSEE)       !! Current bottom-head boundary values.
 !PRIVATE :: NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !end MODULE vscom1_inc
 
 ! Legacy VSSOIL.INC soil-parameter tables retained as module state.
 !USE SGLOBAL, ONLY : NSEE
 !IMPLICIT NONE
-INTEGER :: NSOLEE
-
-PARAMETER (NSOLEE = 200)
-DOUBLEPRECISION VSPPSI (NSOLEE), VSPTHE (NSOLEE, NSEE), VSPKR ( &
- NSOLEE, NSEE), VSPETA (NSOLEE, NSEE)
-DOUBLEPRECISION VSPDTH (NSOLEE, NSEE), VSPDKR (NSOLEE, NSEE), &
- VSPDET (NSOLEE, NSEE)
-
-DOUBLEPRECISION VSPSS (NSEE), VSPPOR (NSEE)
-
-INTEGER :: NVSSOL
+INTEGER, PARAMETER :: NSOLEE = 200       !! Maximum number of generated soil lookup-table rows.
+DOUBLEPRECISION :: VSPPSI(NSOLEE)        !! Soil lookup pressure-head ordinates.
+DOUBLEPRECISION :: VSPTHE(NSOLEE,NSEE)   !! Soil lookup volumetric water content.
+DOUBLEPRECISION :: VSPKR(NSOLEE,NSEE)    !! Soil lookup relative hydraulic conductivity.
+DOUBLEPRECISION :: VSPETA(NSOLEE,NSEE)   !! Soil lookup storage coefficient.
+DOUBLEPRECISION :: VSPDTH(NSOLEE,NSEE)   !! Soil lookup derivative `d(theta)/d(psi)`.
+DOUBLEPRECISION :: VSPDKR(NSOLEE,NSEE)   !! Soil lookup derivative `d(K_r)/d(psi)`.
+DOUBLEPRECISION :: VSPDET(NSOLEE,NSEE)   !! Soil lookup derivative `d(eta)/d(psi)`.
+DOUBLEPRECISION :: VSPSS(NSEE)           !! Specific storage by soil type.
+DOUBLEPRECISION :: VSPPOR(NSEE)          !! Porosity copied from the wider soil parameter state.
+INTEGER :: NVSSOL                        !! Number of active soil lookup-table rows.
 !PRIVATE :: NSEE
 !END MODULE vssoil_inc
 
@@ -180,21 +229,33 @@ INTEGER :: NVSSOL
 !USE SGLOBAL, ONLY : NELEE, NSEE, NVSEE
 !IMPLICIT NONE
 
-LOGICAL :: BFAST, BSOILP
+LOGICAL :: BFAST  !! True to use the shorter generated soil lookup table.
+LOGICAL :: BSOILP !! True to print generated soil lookup tables.
 
 
 !COMMON / VSINIL / BFAST, BSOILP
 ! integer arrays & variables
-INTEGER :: IVSFLG (NSEE), IVSNTB (NSEE), NVSERR, INITYP
+INTEGER :: IVSFLG(NSEE) !! Soil hydraulic-property option by soil type.
+INTEGER :: IVSNTB(NSEE) !! Number of tabulated hydraulic-property rows by soil type.
+INTEGER :: NVSERR       !! Accumulated VSS input/setup error count.
+INTEGER :: INITYP       !! Initial pressure-head option from the VSS input file.
 
 
 !COMMON / VSINII / IVSFLG, IVSNTB, NVSERR, INITYP
 ! floating-point arrays & variables
 
-DOUBLEPRECISION VSTRES (NSEE), VSVGN (NSEE), VSALPH (NSEE), &
- VSIPSD, VSZWLB (NVSEE), VSZWLT (NVSEE), TBPSI (NVSEE, NSEE), &
- TBTHE (NVSEE, NSEE), TBKR (NVSEE, NSEE), TBTHEC (NVSEE, NSEE), &
- TBKRC (NVSEE, NSEE), VSSPD (NELEE)
+DOUBLEPRECISION :: VSTRES(NSEE)      !! Residual water content by soil type.
+DOUBLEPRECISION :: VSVGN(NSEE)       !! van Genuchten `n` parameter by soil type.
+DOUBLEPRECISION :: VSALPH(NSEE)      !! Retention-curve alpha parameter by soil type.
+DOUBLEPRECISION :: VSIPSD            !! Initial uniform phreatic-surface depth for `INITYP=1`.
+DOUBLEPRECISION :: VSZWLB(NVSEE)     !! Lower screen depth for well categories.
+DOUBLEPRECISION :: VSZWLT(NVSEE)     !! Upper screen depth for well categories.
+DOUBLEPRECISION :: TBPSI(NVSEE,NSEE) !! Tabulated pressure-head values by row and soil type.
+DOUBLEPRECISION :: TBTHE(NVSEE,NSEE) !! Tabulated water-content values by row and soil type.
+DOUBLEPRECISION :: TBKR(NVSEE,NSEE)  !! Tabulated relative-conductivity values by row and soil type.
+DOUBLEPRECISION :: TBTHEC(NVSEE,NSEE) !! Cubic-spline second derivatives for tabulated water content.
+DOUBLEPRECISION :: TBKRC(NVSEE,NSEE) !! Cubic-spline second derivatives for tabulated relative conductivity.
+DOUBLEPRECISION :: VSSPD(NELEE)      !! Spring depth below ground by element.
 !PRIVATE :: NELEE, NSEE, NVSEE
 !end MODULE VSINIT_INC
 
@@ -303,24 +364,30 @@ END SUBROUTINE initialise_vsmod
 SUBROUTINE VSBC (BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
  ICLFL, ICLHN, ICLHL, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
  CKIJ, CDKIJ, CB, CR, CQH, DUM)
-! Input arguments
-LOGICAL :: BCHELE
-INTEGER :: FACE, ICBOT, ICTOP, JCBC, ICLYRB ( * )
-INTEGER :: ICLFN, ICLFL ( * ), ICLHN, ICLHL ( * )
-DOUBLEPRECISION CDELZ (ICBOT:ICTOP), CZ (ICBOT:ICTOP), CZG, CDELL
-DOUBLEPRECISION CAIJ (4, ICBOT:ICTOP), CPSI (ICBOT:ICTOP), &
- CLF ( * )
-
-DOUBLEPRECISION CKIJ (ICBOT:ICTOP), CDKIJ (ICBOT:ICTOP), CLH ( * )
-! In+out arguments
-
-DOUBLEPRECISION CB (ICBOT:ICTOP), CR (ICBOT:ICTOP)
-! Output arguments
-
-DOUBLEPRECISION CQH (4, ICBOT:ICTOP)
-! Workspace arguments
-
-DOUBLEPRECISION DUM ( * )
+LOGICAL, INTENT(IN) :: BCHELE                    !! True when `CLH` values are elevations; false when they are depths below ground.
+INTEGER, INTENT(IN) :: FACE                      !! Boundary face number, in `1:4`.
+INTEGER, INTENT(IN) :: ICBOT                     !! Bottom active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICTOP                     !! Top active VSS cell in the column.
+INTEGER, INTENT(IN) :: JCBC                      !! Lateral boundary type for this face.
+INTEGER, INTENT(IN) :: ICLYRB(*)                 !! Bottom-cell bounds for model-layer intervals.
+INTEGER, INTENT(IN) :: ICLFN                     !! Number of selected lateral-flow layers; zero means full active column.
+INTEGER, INTENT(IN) :: ICLFL(*)                  !! Selected model layers for type-3 lateral-flow categories.
+INTEGER, INTENT(IN) :: ICLHN                     !! Number of selected lateral-head layers; zero means full active column.
+INTEGER, INTENT(IN) :: ICLHL(*)                  !! Selected model layers for type-4 lateral-head categories.
+DOUBLEPRECISION, INTENT(IN) :: CZG               !! Ground elevation used to convert depth-style head boundaries.
+DOUBLEPRECISION, INTENT(IN) :: CDELL             !! Distance scale normal to the boundary face.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Cell thicknesses.
+DOUBLEPRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP)   !! Cell-node elevations.
+DOUBLEPRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Face areas by face and cell.
+DOUBLEPRECISION, INTENT(IN) :: CLF(*)            !! Prescribed lateral-flow boundary values.
+DOUBLEPRECISION, INTENT(IN) :: CLH(*)            !! Prescribed lateral-head or depth boundary values.
+DOUBLEPRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Current pressure heads.
+DOUBLEPRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP) !! Current lateral hydraulic conductivity terms.
+DOUBLEPRECISION, INTENT(IN) :: CDKIJ(ICBOT:ICTOP) !! Derivatives of `CKIJ` with respect to pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP) !! Matrix diagonal terms updated with lateral boundary contributions.
+DOUBLEPRECISION, INTENT(INOUT) :: CR(ICBOT:ICTOP) !! Right-hand side terms updated with lateral boundary fluxes.
+DOUBLEPRECISION, INTENT(INOUT) :: CQH(4,ICBOT:ICTOP) !! Diagnostic lateral boundary fluxes for the selected face.
+DOUBLEPRECISION, INTENT(INOUT) :: DUM(*)         !! Workspace for transmissive-thickness weights or converted boundary heads.
 ! Locals, etc
 !INTRINSIC MAX
 INTEGER :: ICL, I, ILYR, ICL1, ICL2, IDUM, SGN
@@ -475,27 +542,41 @@ SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
  JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
  CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
  CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
-! Input arguments
-INTEGER :: LLEE, NSEE, ICBOT, ICTOP, JELDUM (4), JCBC (4)
-INTEGER :: ICSOIL (ICBOT:ICTOP), JCACN (4, ICBOT:ICTOP)
-INTEGER :: JCDEL1 (LLEE, 4), JCDEL (4, ICBOT:ICTOP)
-DOUBLEPRECISION CWV, CWL, VSK3D (NSEE, 3)
-DOUBLEPRECISION CA0, CDELL (4), CDELZ (ICBOT:ICTOP)
-DOUBLEPRECISION CDELL1 (4), CAIJ (4, ICBOT:ICTOP), CAIJ1 (LLEE, 4)
-
-DOUBLEPRECISION CKR (ICBOT:ICTOP), CDKR (ICBOT:ICTOP), CKIJ1 ( &
- LLEE, 4)
-! Output arguments
-DOUBLEPRECISION CBETM (ICBOT:ICTOP + 1)
-DOUBLEPRECISION CDBETM (ICBOT:ICTOP + 1), CDBTMM (ICBOT:ICTOP + 1)
-DOUBLEPRECISION CF (ICBOT:ICTOP), CDF (ICBOT:ICTOP)
-DOUBLEPRECISION CKIJ (LLEE, 4), CDKIJ (LLEE, 4), CGAM1 (LLEE, 4)
-
-DOUBLEPRECISION CDGAM1 (LLEE, 4), CGAM2 (LLEE, 4), CDGAM2 (LLEE, &
- 4)
-! Workspace arguments
-
-DOUBLEPRECISION C (ICBOT:ICTOP), D (ICBOT:ICTOP)
+INTEGER, INTENT(IN) :: LLEE                  !! Declared cell dimension for column and neighbour arrays.
+INTEGER, INTENT(IN) :: NSEE                  !! Declared soil-type dimension for conductivity arrays.
+INTEGER, INTENT(IN) :: ICBOT                 !! Bottom active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICTOP                 !! Top active VSS cell in the column.
+INTEGER, INTENT(IN) :: JELDUM(4)             !! Adjacent element id by face; values below 1 disable lateral coupling.
+INTEGER, INTENT(IN) :: JCBC(4)               !! Boundary type by face; type 9 is handled outside regular lateral coupling.
+INTEGER, INTENT(IN) :: ICSOIL(ICBOT:ICTOP)   !! Soil type by active cell.
+INTEGER, INTENT(IN) :: JCACN(4,ICBOT:ICTOP)  !! Adjacent-cell index by face and active cell; zero means no lateral connection.
+INTEGER, INTENT(IN) :: JCDEL1(LLEE,4)        !! Neighbour-column split offset used to find a second connected neighbour cell.
+INTEGER, INTENT(IN) :: JCDEL(4,ICBOT:ICTOP)  !! Current-column split indicator for lateral area weighting.
+DOUBLEPRECISION, INTENT(IN) :: CWV           !! Vertical hydraulic-conductivity w-mean control.
+DOUBLEPRECISION, INTENT(IN) :: CWL           !! Lateral hydraulic-conductivity w-mean control.
+DOUBLEPRECISION, INTENT(IN) :: VSK3D(NSEE,3) !! Saturated hydraulic conductivity by soil type and x/y/z direction.
+DOUBLEPRECISION, INTENT(IN) :: CA0           !! Plan area of the current element.
+DOUBLEPRECISION, INTENT(IN) :: CDELL(4)      !! Current-element lateral distance scale by face.
+DOUBLEPRECISION, INTENT(IN) :: CDELL1(4)     !! Adjacent-element lateral distance scale by face.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Active-cell thicknesses.
+DOUBLEPRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Current-element lateral face areas.
+DOUBLEPRECISION, INTENT(IN) :: CAIJ1(LLEE,4) !! Adjacent-element lateral face areas.
+DOUBLEPRECISION, INTENT(IN) :: CKR(ICBOT:ICTOP) !! Current relative hydraulic conductivity by active cell.
+DOUBLEPRECISION, INTENT(IN) :: CDKR(ICBOT:ICTOP) !! Derivative of `CKR` with respect to pressure head.
+DOUBLEPRECISION, INTENT(IN) :: CKIJ1(LLEE,4) !! Adjacent-cell lateral hydraulic conductivity terms.
+DOUBLEPRECISION, INTENT(OUT) :: CBETM(ICBOT:ICTOP+1) !! Vertical inter-cell conductance below each active cell.
+DOUBLEPRECISION, INTENT(OUT) :: CDBETM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the lower cell.
+DOUBLEPRECISION, INTENT(OUT) :: CDBTMM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the upper cell.
+DOUBLEPRECISION, INTENT(OUT) :: CF(ICBOT:ICTOP) !! Internal conductance contribution to the column diagonal.
+DOUBLEPRECISION, INTENT(OUT) :: CDF(ICBOT:ICTOP) !! Derivative of `CF` with respect to pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CKIJ(LLEE,4)  !! Current-cell lateral hydraulic conductivity terms.
+DOUBLEPRECISION, INTENT(INOUT) :: CDKIJ(LLEE,4) !! Derivatives of `CKIJ` with respect to pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CGAM1(LLEE,4) !! Primary lateral coupling conductance to adjacent cells.
+DOUBLEPRECISION, INTENT(INOUT) :: CGAM2(LLEE,4) !! Secondary split-cell lateral coupling conductance.
+DOUBLEPRECISION, INTENT(INOUT) :: CDGAM1(LLEE,4) !! Derivative of `CGAM1` with respect to local pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CDGAM2(LLEE,4) !! Derivative of `CGAM2` with respect to local pressure head.
+DOUBLEPRECISION, INTENT(OUT) :: C(ICBOT:ICTOP) !! Workspace for local conductivity products.
+DOUBLEPRECISION, INTENT(OUT) :: D(ICBOT:ICTOP) !! Workspace for local conductivity derivatives.
 ! Locals, etc
 !INTRINSIC ABS, MOD
 INTEGER :: DELKJ, I, J, K, K1, M, NIJ, NKJ, NKJM1, P
@@ -742,37 +823,67 @@ SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
  CDELL1, CZ1, DT, CDNET, CPSIN, CQ, CZS, CPSI1, CPSIN1, CKIJ1, &
  CQWIN, CLF, CLH, CLG, CBF, CBH, ICSTOR, CPSI, CKR, CTHETA, CQH, &
  CQV, CQWI, CQSP, CPSL, depadj)
-! Input arguments
-INTEGER :: EESN, ELEVEL, IEL, ICBOT, ICTOP, ICBED
-INTEGER :: ICSPCE, ICWLBT, ICWLTP, ICLFN, ICLHN, ICLGN
-INTEGER :: ICLYRB (NLYREE), ICSOIL (ICBOT:ICTOP), JCBC (0:5)
-INTEGER :: ICLFL (NLYREE), JCACN (4, ICBOT:ICTOP), JELDUM (4)
-INTEGER :: ICLHL (NLYREE), JCDEL (4, ICBOT:ICTOP)
-INTEGER :: ICLGL (NLYREE), JCDEL1 (LLEE, 4)
-DOUBLEPRECISION CWV, CWL, CA0, CZG, CZSP, CCS
-DOUBLEPRECISION VSK3D (NSEE, 3), CDELZ (ICBOT:ICTOP), CDELL (4)
-DOUBLEPRECISION CAIJ1 (LLEE, 4), CZ (ICBOT:ICTOP), CDELL1 (4)
-DOUBLEPRECISION CZ1 (LLEE, 4), CAIJ (4, ICBOT:ICTOP)
-DOUBLEPRECISION DT, CDNET, CQWIN, CBF, CBH
-DOUBLEPRECISION CPSI1 (LLEE, 4), CPSIN (ICBOT:ICTOP), CLF (NLYREE)
-DOUBLEPRECISION CPSIN1 (LLEE, 4), CQ (ICBOT:ICTOP), CLH (NLYREE)
-DOUBLEPRECISION CKIJ1 (LLEE, 4), CZS (4), CLG (NLYREE)
-!!!!! depadj for fix to vssai, SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-DOUBLEPRECISION depadj (4)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-LOGICAL :: BCHELE
-! In+out arguments
-INTEGER :: ICSTOR (ICBOT:ICTOP)
-
-DOUBLEPRECISION CPSI (ICBOT:ICTOP)
-! Output arguments
-DOUBLEPRECISION CTHETA (ICBOT:ICTOP), CQV (ICBOT - 1:ICTOP)
-DOUBLEPRECISION CKR (ICBOT:ICTOP), CQH (4, ICBOT:ICTOP)
-
-DOUBLEPRECISION CQWI (ICWLBT:ICWLTP), CQSP, CPSL
+INTEGER, INTENT(IN) :: EESN                  !! Unused legacy dimension argument; current calls pass `NSEE`.
+INTEGER, INTENT(IN) :: ELEVEL                !! Positive value enables column non-convergence reporting.
+INTEGER, INTENT(IN) :: IEL                   !! Element number for diagnostics and soil-function interpolation.
+INTEGER, INTENT(IN) :: ICBOT                 !! Bottom active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICTOP                 !! Top active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICBED                 !! River-bed cell index for stream-aquifer interaction.
+INTEGER, INTENT(IN) :: ICSPCE                !! Spring source cell; meaningful only for spring columns.
+INTEGER, INTENT(IN) :: ICWLBT                !! Bottom screened well cell; meaningful only for well columns.
+INTEGER, INTENT(IN) :: ICWLTP                !! Top screened well cell; meaningful only for well columns.
+INTEGER, INTENT(IN) :: ICLFN                 !! Number of selected lateral-flow layers; zero means full active column.
+INTEGER, INTENT(IN) :: ICLHN                 !! Number of selected lateral-head layers; zero means full active column.
+INTEGER, INTENT(IN) :: ICLGN                 !! Unused number of selected lateral-gradient layers.
+INTEGER, INTENT(IN) :: ICLYRB(NLYREE)        !! Bottom-cell bounds for model-layer intervals.
+INTEGER, INTENT(IN) :: ICSOIL(ICBOT:ICTOP)   !! Soil type by active cell.
+INTEGER, INTENT(IN) :: JCBC(0:5)             !! Boundary/source type by base, lateral face, and source slot.
+INTEGER, INTENT(IN) :: ICLFL(NLYREE)         !! Selected model layers for lateral-flow categories.
+INTEGER, INTENT(IN) :: JCACN(4,ICBOT:ICTOP)  !! Adjacent-cell index by face and active cell.
+INTEGER, INTENT(IN) :: JELDUM(4)             !! Adjacent element id by face; values below 1 disable regular lateral coupling.
+INTEGER, INTENT(IN) :: ICLHL(NLYREE)         !! Selected model layers for lateral-head categories.
+INTEGER, INTENT(IN) :: JCDEL(4,ICBOT:ICTOP)  !! Current-column split indicator for lateral coupling.
+INTEGER, INTENT(IN) :: ICLGL(NLYREE)         !! Unused selected model layers for lateral-gradient categories.
+INTEGER, INTENT(IN) :: JCDEL1(LLEE,4)        !! Neighbour-column split offset used for second connected cells.
+DOUBLEPRECISION, INTENT(IN) :: CWV           !! Vertical hydraulic-conductivity w-mean control.
+DOUBLEPRECISION, INTENT(IN) :: CWL           !! Lateral hydraulic-conductivity w-mean control.
+DOUBLEPRECISION, INTENT(IN) :: CA0           !! Plan area of the current element.
+DOUBLEPRECISION, INTENT(IN) :: CZG           !! Ground elevation used for depth-style lateral head boundaries.
+DOUBLEPRECISION, INTENT(IN) :: CZSP          !! Spring discharge elevation; meaningful only for spring columns.
+DOUBLEPRECISION, INTENT(IN) :: CCS           !! Spring coefficient; meaningful only for spring columns.
+DOUBLEPRECISION, INTENT(IN) :: VSK3D(NSEE,3) !! Saturated hydraulic conductivity by soil type and x/y/z direction.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Active-cell thicknesses.
+DOUBLEPRECISION, INTENT(IN) :: CDELL(4)      !! Current-element lateral distance scale by face.
+DOUBLEPRECISION, INTENT(IN) :: CAIJ1(LLEE,4) !! Adjacent-element lateral face areas.
+DOUBLEPRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP) !! Active-cell node elevations.
+DOUBLEPRECISION, INTENT(IN) :: CDELL1(4)     !! Adjacent-element lateral distance scale by face.
+DOUBLEPRECISION, INTENT(IN) :: CZ1(LLEE,4)   !! Adjacent-cell node elevations by cell and face.
+DOUBLEPRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Current-element lateral face areas.
+DOUBLEPRECISION, INTENT(IN) :: DT            !! Timestep length.
+DOUBLEPRECISION, INTENT(IN) :: CDNET         !! Net surface-water depth available for the upper boundary.
+DOUBLEPRECISION, INTENT(IN) :: CQWIN         !! Prescribed total well abstraction rate; meaningful only for well columns.
+DOUBLEPRECISION, INTENT(IN) :: CBF           !! Prescribed bottom-flow boundary value.
+DOUBLEPRECISION, INTENT(IN) :: CBH           !! Prescribed bottom-head boundary value.
+DOUBLEPRECISION, INTENT(IN) :: CPSI1(LLEE,4) !! Adjacent current pressure heads by cell and face.
+DOUBLEPRECISION, INTENT(IN) :: CPSIN(ICBOT:ICTOP) !! Previous-timestep pressure heads for the current column.
+DOUBLEPRECISION, INTENT(IN) :: CLF(NLYREE)   !! Prescribed lateral-flow boundary values.
+DOUBLEPRECISION, INTENT(IN) :: CPSIN1(LLEE,4) !! Adjacent previous-timestep pressure heads by cell and face.
+DOUBLEPRECISION, INTENT(IN) :: CQ(ICBOT:ICTOP) !! Cell source/sink terms already scaled for column assembly.
+DOUBLEPRECISION, INTENT(IN) :: CLH(NLYREE)   !! Prescribed lateral-head or depth boundary values.
+DOUBLEPRECISION, INTENT(IN) :: CKIJ1(LLEE,4) !! Adjacent-cell lateral hydraulic conductivity terms.
+DOUBLEPRECISION, INTENT(IN) :: CZS(4)        !! Adjacent channel water-surface elevations for stream-aquifer faces.
+DOUBLEPRECISION, INTENT(IN) :: CLG(NLYREE)   !! Unused prescribed lateral-gradient boundary values.
+DOUBLEPRECISION, INTENT(IN) :: depadj(4)     !! Depth adjustment for stream-aquifer contact-area limiting.
+LOGICAL, INTENT(IN) :: BCHELE                !! True when lateral head-boundary values are elevations.
+INTEGER, INTENT(INOUT) :: ICSTOR(ICBOT:ICTOP) !! Soil lookup interval cache updated by [[vsfunc]].
+DOUBLEPRECISION, INTENT(INOUT) :: CPSI(ICBOT:ICTOP) !! Current pressure heads updated by the nonlinear solve.
+DOUBLEPRECISION, INTENT(OUT) :: CTHETA(ICBOT:ICTOP) !! Final volumetric water content.
+DOUBLEPRECISION, INTENT(OUT) :: CQV(ICBOT-1:ICTOP) !! Final vertical fluxes, including lower and upper boundaries.
+DOUBLEPRECISION, INTENT(OUT) :: CKR(ICBOT:ICTOP) !! Final relative hydraulic conductivity.
+DOUBLEPRECISION, INTENT(INOUT) :: CQH(4,ICBOT:ICTOP) !! Lateral and stream-aquifer fluxes assigned on active faces.
+DOUBLEPRECISION, INTENT(OUT) :: CQWI(ICWLBT:ICWLTP) !! Well abstraction rate by screened cell; meaningful only for well columns.
+DOUBLEPRECISION, INTENT(OUT) :: CQSP          !! Spring discharge; meaningful only for spring columns.
+DOUBLEPRECISION, INTENT(OUT) :: CPSL          !! Final phreatic-surface elevation for the column.
 ! Locals, etc
 !INTRINSIC ABS, MAX
 INTEGER :: NITMAX
@@ -1540,7 +1651,9 @@ END SUBROUTINE VSCONC
 
 !> Returns the number of VSS cells spanned by one model layer interval.
 INTEGER FUNCTION fncell(I, IEL, ITOP)
-INTEGER, INTENT(IN) :: I, IEL, ITOP
+INTEGER, INTENT(IN) :: I    !! Model-layer index.
+INTEGER, INTENT(IN) :: IEL  !! Element number.
+INTEGER, INTENT(IN) :: ITOP !! Upper active cell bound used to clip the layer top.
 fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
  END FUNCTION fncell
 
@@ -1596,9 +1709,8 @@ fncell = IDIMJE(MIN(NLYRBT (IEL, I + 1), ITOP + 1), NLYRBT (IEL, I) )
 !> assumption.
 !> @endnote
 SUBROUTINE VSCONL (NAQCON, IAQCON)
-! Input arguments
-
-INTEGER :: NAQCON, IAQCON (4, * )
+INTEGER, INTENT(IN) :: NAQCON    !! Number of user-defined aquifer connectivity records.
+INTEGER, INTENT(IN) :: IAQCON(4,*) !! User aquifer connectivity records: element/layer pairs for adjacent columns.
 ! Locals, etc
 !INTRINSIC MAX, MIN, MOD
 INTEGER :: NMOD
@@ -1944,22 +2056,25 @@ END SUBROUTINE VSCONL
 SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
  VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
  CTHETA, CETA, CKR, CDETA, CDKR)
-! Input arguments
-INTEGER :: NVSSOL, NSOLEE
-DOUBLEPRECISION VSPPSI (NVSSOL), VSPTHE (NSOLEE, * )
-DOUBLEPRECISION VSPKR (NSOLEE, * ), VSPETA (NSOLEE, * )
-DOUBLEPRECISION VSPDKR (NSOLEE, * ), VSPDET (NSOLEE, * )
-INTEGER :: IEL, ICBOT, ICTOP, ICSOIL (ICBOT:ICTOP)
-DOUBLEPRECISION CPSI (ICBOT:ICTOP)
-!
-! In+out arguments
-INTEGER :: ICSTOR (ICBOT:ICTOP)
-!
-! Output arguments
-DOUBLEPRECISION CTHETA (ICBOT:ICTOP)
-DOUBLEPRECISION CETA (ICBOT:ICTOP), CKR (ICBOT:ICTOP)
-DOUBLEPRECISION CDETA (ICBOT:ICTOP), CDKR (ICBOT:ICTOP)
-!
+INTEGER, INTENT(IN) :: NVSSOL                   !! Number of active soil lookup-table rows.
+INTEGER, INTENT(IN) :: NSOLEE                   !! Declared first dimension of the soil lookup tables.
+DOUBLEPRECISION, INTENT(IN) :: VSPPSI(NVSSOL)   !! Strictly decreasing lookup pressure-head ordinates.
+DOUBLEPRECISION, INTENT(IN) :: VSPTHE(NSOLEE,*) !! Lookup volumetric water content by row and soil type.
+DOUBLEPRECISION, INTENT(IN) :: VSPKR(NSOLEE,*)  !! Lookup relative hydraulic conductivity by row and soil type.
+DOUBLEPRECISION, INTENT(IN) :: VSPETA(NSOLEE,*) !! Lookup storage coefficient by row and soil type.
+DOUBLEPRECISION, INTENT(IN) :: VSPDKR(NSOLEE,*) !! Lookup derivative `d(K_r)/d(psi)` by row and soil type.
+DOUBLEPRECISION, INTENT(IN) :: VSPDET(NSOLEE,*) !! Lookup derivative `d(eta)/d(psi)` by row and soil type.
+INTEGER, INTENT(IN) :: IEL                      !! Element number used in diagnostics.
+INTEGER, INTENT(IN) :: ICBOT                    !! Bottom active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICTOP                    !! Top active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICSOIL(ICBOT:ICTOP)      !! Soil type by active cell.
+DOUBLEPRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Pressure head/potential by active cell.
+INTEGER, INTENT(INOUT) :: ICSTOR(ICBOT:ICTOP)   !! Cached lower lookup-table interval by active cell.
+DOUBLEPRECISION, INTENT(OUT) :: CTHETA(ICBOT:ICTOP) !! Interpolated volumetric water content.
+DOUBLEPRECISION, INTENT(OUT) :: CETA(ICBOT:ICTOP) !! Interpolated storage coefficient.
+DOUBLEPRECISION, INTENT(OUT) :: CKR(ICBOT:ICTOP) !! Interpolated relative hydraulic conductivity.
+DOUBLEPRECISION, INTENT(OUT) :: CDETA(ICBOT:ICTOP) !! Interpolated derivative `d(eta)/d(psi)`.
+DOUBLEPRECISION, INTENT(OUT) :: CDKR(ICBOT:ICTOP) !! Interpolated derivative `d(K_r)/d(psi)`.
 ! Locals, etc
 !INTRINSIC MAX, MIN, NINT
 CHARACTER (LEN=5) :: WETDRY (0:1)
@@ -2383,28 +2498,39 @@ SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
  JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
  CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
  CDGAM2, CA, CB, CC, CR, H)
-! Input arguments
-INTEGER :: LLEE, ICBOT, ICTOP, JELDUM (4), JCBC (4)
-INTEGER :: JCACN (4, ICBOT:ICTOP), JCDEL1 (LLEE, 4)
-DOUBLEPRECISION CA0, CZ1 (LLEE, 4)
-DOUBLEPRECISION CDELZ (ICBOT:ICTOP), CZ (ICBOT:ICTOP)
-DOUBLEPRECISION CETA (ICBOT:ICTOP), DT, CDETA (ICBOT:ICTOP)
-DOUBLEPRECISION CPSI (ICBOT:ICTOP), CPSIN (ICBOT:ICTOP)
-DOUBLEPRECISION CF (ICBOT:ICTOP), CDF (ICBOT:ICTOP)
-DOUBLEPRECISION CQ (ICBOT:ICTOP), CBETM (ICBOT:ICTOP + 1)
-DOUBLEPRECISION CDBETM (ICBOT:ICTOP + 1), CDBTMM (ICBOT:ICTOP + 1)
-DOUBLEPRECISION CPSI1 (LLEE, 4), CPSIN1 (LLEE, 4), CGAM1 (LLEE, 4)
-
-DOUBLEPRECISION CDGAM1 (LLEE, 4), CDGAM2 (LLEE, 4), CGAM2 (LLEE, &
- 4)
-! Output arguments
-DOUBLEPRECISION CA (ICBOT:ICTOP), CB (ICBOT:ICTOP), CC (ICBOT: &
- ICTOP)
-
-DOUBLEPRECISION CR (ICBOT:ICTOP)
-! Workspace arguments
-
-DOUBLEPRECISION H (ICBOT - 1:ICTOP + 1)
+INTEGER, INTENT(IN) :: LLEE                  !! Declared cell dimension for neighbour arrays.
+INTEGER, INTENT(IN) :: ICBOT                 !! Bottom active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICTOP                 !! Top active VSS cell in the column.
+INTEGER, INTENT(IN) :: JELDUM(4)             !! Adjacent element id by face; values below 1 disable regular lateral coupling.
+INTEGER, INTENT(IN) :: JCBC(4)               !! Boundary type by face; type 9 is skipped here.
+INTEGER, INTENT(IN) :: JCACN(4,ICBOT:ICTOP)  !! Adjacent-cell index by face and active cell.
+INTEGER, INTENT(IN) :: JCDEL1(LLEE,4)        !! Neighbour-column split offset used for second connected cells.
+DOUBLEPRECISION, INTENT(IN) :: CA0           !! Plan area of the current element.
+DOUBLEPRECISION, INTENT(IN) :: CZ1(LLEE,4)   !! Adjacent-cell node elevations by cell and face.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Active-cell thicknesses.
+DOUBLEPRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP) !! Active-cell node elevations.
+DOUBLEPRECISION, INTENT(IN) :: CETA(ICBOT:ICTOP) !! Storage coefficient by active cell.
+DOUBLEPRECISION, INTENT(IN) :: DT            !! Timestep length.
+DOUBLEPRECISION, INTENT(IN) :: CDETA(ICBOT:ICTOP) !! Derivative of storage coefficient by active cell.
+DOUBLEPRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Current pressure heads.
+DOUBLEPRECISION, INTENT(IN) :: CPSIN(ICBOT:ICTOP) !! Previous-timestep pressure heads.
+DOUBLEPRECISION, INTENT(IN) :: CF(ICBOT:ICTOP) !! Internal conductance contribution to the diagonal.
+DOUBLEPRECISION, INTENT(IN) :: CDF(ICBOT:ICTOP) !! Derivative of `CF` with respect to pressure head.
+DOUBLEPRECISION, INTENT(IN) :: CQ(ICBOT:ICTOP) !! Assembled cell source/sink terms.
+DOUBLEPRECISION, INTENT(IN) :: CBETM(ICBOT:ICTOP+1) !! Vertical inter-cell conductance below each active cell.
+DOUBLEPRECISION, INTENT(IN) :: CDBETM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the lower cell.
+DOUBLEPRECISION, INTENT(IN) :: CDBTMM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the upper cell.
+DOUBLEPRECISION, INTENT(IN) :: CPSI1(LLEE,4) !! Adjacent current pressure heads by cell and face.
+DOUBLEPRECISION, INTENT(IN) :: CPSIN1(LLEE,4) !! Adjacent previous-timestep pressure heads by cell and face.
+DOUBLEPRECISION, INTENT(IN) :: CGAM1(LLEE,4) !! Primary lateral coupling conductance.
+DOUBLEPRECISION, INTENT(IN) :: CGAM2(LLEE,4) !! Secondary split-cell lateral coupling conductance.
+DOUBLEPRECISION, INTENT(IN) :: CDGAM1(LLEE,4) !! Derivative of `CGAM1` with respect to local pressure head.
+DOUBLEPRECISION, INTENT(IN) :: CDGAM2(LLEE,4) !! Derivative of `CGAM2` with respect to local pressure head.
+DOUBLEPRECISION, INTENT(OUT) :: CA(ICBOT:ICTOP) !! Lower diagonal for the tridiagonal column system.
+DOUBLEPRECISION, INTENT(OUT) :: CB(ICBOT:ICTOP) !! Diagonal for the tridiagonal column system.
+DOUBLEPRECISION, INTENT(OUT) :: CC(ICBOT:ICTOP) !! Upper diagonal for the tridiagonal column system.
+DOUBLEPRECISION, INTENT(OUT) :: CR(ICBOT:ICTOP) !! Right-hand side for the tridiagonal column system.
+DOUBLEPRECISION, INTENT(OUT) :: H(ICBOT-1:ICTOP+1) !! Workspace for effective hydraulic heads.
 ! Locals, etc
 DOUBLEPRECISION SIGMA, OMSIG
 PARAMETER (SIGMA = 1D0, OMSIG = 1D0 - SIGMA)
@@ -2527,16 +2653,19 @@ END SUBROUTINE VSINTC
 !> \]
 SUBROUTINE VSLOWR (JCBC, CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, &
  CKR, CDKR, CB, CR, CQV)
-! Input arguments
-INTEGER :: JCBC
-DOUBLEPRECISION CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, CKR, CDKR
-!
-! In+out arguments
-DOUBLEPRECISION CB, CR
-!
-! Output arguments
-DOUBLEPRECISION CQV
-!
+INTEGER, INTENT(IN) :: JCBC           !! Bottom boundary type: 6 flow, 7 head, otherwise no-flow/free-drainage fallback.
+DOUBLEPRECISION, INTENT(IN) :: CA0    !! Plan area of the current element.
+DOUBLEPRECISION, INTENT(IN) :: CZ     !! Bottom-cell node elevation.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ  !! Bottom-cell thickness.
+DOUBLEPRECISION, INTENT(IN) :: CKZS   !! Saturated vertical hydraulic conductivity for the bottom-cell soil.
+DOUBLEPRECISION, INTENT(IN) :: CBF    !! Prescribed bottom-flow boundary value.
+DOUBLEPRECISION, INTENT(IN) :: CBH    !! Prescribed bottom-head boundary value.
+DOUBLEPRECISION, INTENT(IN) :: CPSI   !! Bottom-cell pressure head.
+DOUBLEPRECISION, INTENT(IN) :: CKR    !! Bottom-cell relative hydraulic conductivity.
+DOUBLEPRECISION, INTENT(IN) :: CDKR   !! Derivative of `CKR` with respect to pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CB  !! Bottom-cell matrix diagonal term.
+DOUBLEPRECISION, INTENT(INOUT) :: CR  !! Bottom-cell right-hand side term.
+DOUBLEPRECISION, INTENT(OUT) :: CQV   !! Bottom vertical boundary flux.
 ! Locals, etc
 DOUBLEPRECISION CDQDUM, CQVDUM, DH, KSODZ
 !
@@ -2617,9 +2746,7 @@ END SUBROUTINE VSLOWR
 !> `UNFINISHED CODE FOR SPLIT CELLS IN SUBROUTINE VSMB`.
 !> @endwarning
 SUBROUTINE VSMB (VSTHEN)
-! Input arguments
-
-DOUBLEPRECISION VSTHEN (LLEE, total_no_elements)
+DOUBLEPRECISION, INTENT(IN) :: VSTHEN(LLEE,total_no_elements) !! Previous-timestep water content by cell and element.
 ! Locals, etc
 INTEGER :: NFACES, IFACES (4)
 INTEGER :: IEL, J, ITYPE, IFA, JEL, ICL, JFA, JCL, IW, MCL
@@ -3740,22 +3867,23 @@ END SUBROUTINE VSREAD
 !> `ICBOT <= ICBED + 1`, `ICBOT <= ICTOP`, and `CDELL > 0`.
 SUBROUTINE VSSAI (FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
  CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
-! Input arguments
-INTEGER :: FACE, JCBC, ICBOT, ICTOP, ICBED
-DOUBLEPRECISION CDELL, CZ (ICBOT:ICTOP), CAIJ (4, ICBOT:ICTOP)
-DOUBLEPRECISION CZS, CPSI (ICBOT:ICTOP)
-DOUBLEPRECISION CKIJ (ICBOT:ICTOP), CDKIJ (ICBOT:ICTOP)
-!!!!!! SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-DOUBLEPRECISION depadj
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-! In+out arguments
-
-DOUBLEPRECISION CB (ICBOT:ICTOP), CR (ICBOT:ICTOP)
-! Output arguments
-
-DOUBLEPRECISION CQH (4, ICBOT:ICTOP)
+INTEGER, INTENT(IN) :: FACE                      !! Boundary face number, in `1:4`.
+INTEGER, INTENT(IN) :: JCBC                      !! Stream-aquifer boundary type, normally 9 or 10.
+INTEGER, INTENT(IN) :: ICBOT                     !! Bottom active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICTOP                     !! Top active VSS cell in the column.
+INTEGER, INTENT(IN) :: ICBED                     !! River-bed cell index used for bank interaction.
+DOUBLEPRECISION, INTENT(IN) :: CDELL             !! Distance scale normal to the stream-aquifer face.
+DOUBLEPRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP)   !! Active-cell node elevations.
+DOUBLEPRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Face areas by face and active cell.
+DOUBLEPRECISION, INTENT(IN) :: CZS               !! Adjacent channel water-surface elevation.
+DOUBLEPRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Current pressure heads.
+DOUBLEPRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP) !! Lateral hydraulic conductivity terms on this face.
+DOUBLEPRECISION, INTENT(IN) :: CDKIJ(ICBOT:ICTOP) !! Unused conductivity derivatives retained for the legacy interface.
+DOUBLEPRECISION, INTENT(IN) :: depadj            !! Channel-depth adjustment for contact-area limiting.
+DOUBLEPRECISION, INTENT(IN) :: cdelz(ICBOT:ICTOP) !! Active-cell thicknesses used in the contact-area limit.
+DOUBLEPRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP) !! Matrix diagonal terms updated by stream-aquifer exchange.
+DOUBLEPRECISION, INTENT(INOUT) :: CR(ICBOT:ICTOP) !! Right-hand side terms updated by stream-aquifer exchange.
+DOUBLEPRECISION, INTENT(INOUT) :: CQH(4,ICBOT:ICTOP) !! Diagnostic lateral fluxes on the stream-aquifer face.
 ! Locals, etc
 INTEGER :: ICL, IDUM
 DOUBLEPRECISION QDUM, DQDUM, AOL, DH, KIJ
@@ -3764,7 +3892,7 @@ DOUBLEPRECISION QDUM, DQDUM, AOL, DH, KIJ
 
 
 
-DOUBLEPRECISION ddum, cdelz (icbot:ictop)
+DOUBLEPRECISION ddum
 !^^^^^^^^^^^^^^^^^^^^^^^^^^
 !----------------------------------------------------------------------*
 ! set lowest cell in exposed bank face
@@ -4685,16 +4813,15 @@ END SUBROUTINE VSSOIL
 !> still applies this coefficient term.
 !> @endnote
 SUBROUTINE VSSPR (CZ, CZSP, CCS, CPSI, CKR, CDKR, CB, CR, CQSP)
-
-! Input arguments
-DOUBLEPRECISION CZ, CZSP, CCS, CPSI, CKR, CDKR
-!
-! In+out arguments
-DOUBLEPRECISION CB, CR
-!
-! Output arguments
-DOUBLEPRECISION CQSP
-!
+DOUBLEPRECISION, INTENT(IN) :: CZ    !! Spring-cell node elevation.
+DOUBLEPRECISION, INTENT(IN) :: CZSP  !! Spring discharge elevation.
+DOUBLEPRECISION, INTENT(IN) :: CCS   !! Spring conductance coefficient.
+DOUBLEPRECISION, INTENT(IN) :: CPSI  !! Spring-cell pressure head.
+DOUBLEPRECISION, INTENT(IN) :: CKR   !! Spring-cell relative hydraulic conductivity.
+DOUBLEPRECISION, INTENT(IN) :: CDKR  !! Derivative of `CKR` with respect to pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CB !! Spring-cell matrix diagonal term.
+DOUBLEPRECISION, INTENT(INOUT) :: CR !! Spring-cell right-hand side term.
+DOUBLEPRECISION, INTENT(OUT) :: CQSP !! Spring discharge flux.
 ! Locals, etc
 DOUBLEPRECISION DHDUM
 !
@@ -4766,14 +4893,15 @@ END SUBROUTINE VSSPR
 !> Entry conditions: `CDELZ > 0` and `DT > 0`.
 SUBROUTINE VSUPPR (CA0, CDELZ, CKZS, DT, CDNET, CPSI, CB, CR, &
  CQINF)
-! Input arguments
-DOUBLEPRECISION CA0, CDELZ, CKZS, DT, CDNET, CPSI
-! In+out arguments
-
-DOUBLEPRECISION CB, CR
-! Output arguments
-
-DOUBLEPRECISION CQINF
+DOUBLEPRECISION, INTENT(IN) :: CA0    !! Plan area of the current element.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ  !! Top-cell thickness.
+DOUBLEPRECISION, INTENT(IN) :: CKZS   !! Saturated vertical hydraulic conductivity for the top-cell soil.
+DOUBLEPRECISION, INTENT(IN) :: DT     !! Timestep length.
+DOUBLEPRECISION, INTENT(IN) :: CDNET  !! Net available surface-water depth after evaporation.
+DOUBLEPRECISION, INTENT(IN) :: CPSI   !! Top-cell pressure head.
+DOUBLEPRECISION, INTENT(INOUT) :: CB  !! Top-cell matrix diagonal term.
+DOUBLEPRECISION, INTENT(INOUT) :: CR  !! Top-cell right-hand side term.
+DOUBLEPRECISION, INTENT(OUT) :: CQINF !! Calculated upward-positive infiltration/exfiltration rate.
 ! Locals, etc
 !INTRINSIC MAX
 
@@ -4861,21 +4989,18 @@ END SUBROUTINE VSUPPR
 !> `VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)`.
 SUBROUTINE VSWELL (NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
  CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
-! Input arguments
-INTEGER :: NSEE, ICWLBT, ICWLTP, ICSOIL (ICWLBT:ICWLTP)
-DOUBLEPRECISION CDELZ (ICWLBT:ICWLTP + 1), VSK3D (NSEE, 2), &
- CA0
-
-DOUBLEPRECISION CPSI (ICWLBT:ICWLTP), CQWIN
-! In+out arguments
-
-DOUBLEPRECISION CR (ICWLBT:ICWLTP)
-! Output arguments
-
-DOUBLEPRECISION CQWI (ICWLBT:ICWLTP)
-! Workspace arguments
-
-DOUBLEPRECISION RKZDUM (ICWLBT:ICWLTP)
+INTEGER, INTENT(IN) :: NSEE                    !! Declared soil-type dimension for conductivity arrays.
+INTEGER, INTENT(IN) :: ICWLBT                  !! Bottom screened well cell.
+INTEGER, INTENT(IN) :: ICWLTP                  !! Top screened well cell.
+INTEGER, INTENT(IN) :: ICSOIL(ICWLBT:ICWLTP)   !! Soil type by screened cell.
+DOUBLEPRECISION, INTENT(IN) :: CDELZ(ICWLBT:ICWLTP+1) !! Screened-cell thicknesses plus the cell above the screen top.
+DOUBLEPRECISION, INTENT(IN) :: VSK3D(NSEE,2)   !! Saturated x/y hydraulic conductivity by soil type.
+DOUBLEPRECISION, INTENT(IN) :: CA0             !! Plan area of the current element.
+DOUBLEPRECISION, INTENT(IN) :: CPSI(ICWLBT:ICWLTP) !! Current pressure heads in screened cells.
+DOUBLEPRECISION, INTENT(IN) :: CQWIN           !! Prescribed total well abstraction rate.
+DOUBLEPRECISION, INTENT(INOUT) :: CR(ICWLBT:ICWLTP) !! Right-hand side terms updated with realised abstraction.
+DOUBLEPRECISION, INTENT(OUT) :: CQWI(ICWLBT:ICWLTP) !! Realised well abstraction rate per cell area.
+DOUBLEPRECISION, INTENT(OUT) :: RKZDUM(ICWLBT:ICWLTP) !! Workspace for conductivity-depth weights.
 ! Locals, etc
 !INTRINSIC MAX, MIN
 INTEGER :: ICL, SOIL

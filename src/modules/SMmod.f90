@@ -50,31 +50,35 @@ USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
                  msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
                  timeuz, u, vpd, VHT
 IMPLICIT NONE
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: smelt, tmelt
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
 
-DOUBLEPRECISION :: USM, DDF, RHOS, ESM, HFC, HFR, HFE, HFT, ZUS, ZDS, ZOS
-DOUBLEPRECISION :: RHODEF, TOPNET, PNSNOW
-LOGICAL         :: BINSMP
-INTEGER         :: IMET (NVEE), NSD
-DOUBLEPRECISION :: HEAD (20)
-DOUBLEPRECISION, PARAMETER :: RHOA = 1.29d0, &
-                              RHOW = 1000.0d0, &
-                              CPA = 1003.0d0, &
-                              CPW = 4187.0d0, &
-                              CPI = 2093.0d0, &
-                              LWI = 334000.0d0, &
-                              LVW = 2500000.0d0, &
-                              HFG = 2.0d0
-                            !
-                            !     RHOA  - DENSITY OF AIR                              KG/M**3
-                            !     RHOW  - DENSITY OF WATER                            KG/M**3
-                            !     CPA   - SPECIFIC HEAT OF AIR AT CONSTANT PRESSURE   J/KG/C
-                            !     CPW   -    ''     ''  '' WATER ''   ''      ''      J/KG/C
-                            !     CPI   -    ''     ''  '' ICE ''     ''      ''      J/KG/C
-                            !     LWI   - LATENT HEAT OF FUSION                       J/KG
-                            !     LVW   - LATENT HEAT OF VAPORISATION                 J/KG
-                            !     HFG   - HEAT FLUX FROM GROUND              W/M**2 = J/S/M^^2
-                            !     THESE QUANTITIES ARE ASasumED TO BE CONSTANT
+DOUBLEPRECISION :: USM    !! Snowmelt during the current timestep (mm snow).
+DOUBLEPRECISION :: DDF    !! Degree-day melt factor (mm/s/C).
+DOUBLEPRECISION :: RHOS   !! Active snow specific gravity for the current element.
+DOUBLEPRECISION :: ESM    !! Snow depth lost to evaporation or sublimation (mm snow).
+DOUBLEPRECISION :: HFC    !! Atmospheric-convection heat flux over the timestep (J/m^2).
+DOUBLEPRECISION :: HFR    !! Heat supplied by rainfall or snowfall over the timestep (J/m^2).
+DOUBLEPRECISION :: HFE    !! Latent heat term for evaporation or condensation over the timestep (J/m^2).
+DOUBLEPRECISION :: HFT    !! Net heat flux available to the snowpack over the timestep (J/m^2).
+DOUBLEPRECISION :: ZUS    !! Anemometer height above ground for energy-budget snowmelt (m).
+DOUBLEPRECISION :: ZDS    !! Zero-plane displacement height for snow aerodynamic exchange (m).
+DOUBLEPRECISION :: ZOS    !! Snow-surface roughness height for aerodynamic exchange (m).
+DOUBLEPRECISION :: RHODEF !! Default snow specific gravity used when spatial `RHOSAR` is zero.
+DOUBLEPRECISION :: TOPNET !! Water input to the snowpack before routing (mm water).
+DOUBLEPRECISION :: PNSNOW !! Water depth passed into or released from the snowpack in the current step (mm water).
+LOGICAL         :: BINSMP !! Snow-input echo-print flag.
+INTEGER         :: IMET (NVEE) !! Meteorological-station element index for each vegetation type in energy-budget mode.
+INTEGER         :: NSD         !! Initial snowpack mode: uniform (`0`) or spatial (`1`).
+DOUBLEPRECISION :: HEAD (20)   !! Snow input title/header workspace retained for legacy I/O.
+DOUBLEPRECISION, PARAMETER :: RHOA = 1.29d0      !! Density of air (kg/m^3).
+DOUBLEPRECISION, PARAMETER :: RHOW = 1000.0d0    !! Density of water (kg/m^3).
+DOUBLEPRECISION, PARAMETER :: CPA = 1003.0d0     !! Specific heat of air at constant pressure (J/kg/C).
+DOUBLEPRECISION, PARAMETER :: CPW = 4187.0d0     !! Specific heat of water (J/kg/C).
+DOUBLEPRECISION, PARAMETER :: CPI = 2093.0d0     !! Specific heat of ice (J/kg/C).
+DOUBLEPRECISION, PARAMETER :: LWI = 334000.0d0   !! Latent heat of fusion (J/kg).
+DOUBLEPRECISION, PARAMETER :: LVW = 2500000.0d0  !! Latent heat of vaporisation (J/kg).
+DOUBLEPRECISION, PARAMETER :: HFG = 2.0d0        !! Ground heat flux to snow (W/m^2).
 !END MODULE SPEC_SM
 
 
@@ -249,9 +253,16 @@ END SUBROUTINE initialise_smmod
 !> @note The routine operates mainly through module/global state imported from
 !> `SGLOBAL`, `AL_C`, and `AL_D`; its only dummy argument is the element index.
 !> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1981-04 | JCB/EMM | - | Created the original snowmelt calculation. |
+!> | 1996-12-28 | RAH | 4.1 | Initialised `EFFDEP`, which was previously undefined. |
+!> @endhistory
 SUBROUTINE SM (IEL)
 ! Input arguments
-INTEGER         :: IEL !! Element index for which snowpack and melt are updated.
+INTEGER, INTENT(IN) :: IEL !! Element index for which snowpack and melt are updated.
 INTEGER         :: mr, ms, n, nnc, kl, kk, kkk, ncc
 DOUBLEPRECISION :: e, dn, rich, esat, po, q, esata, ea, qa, ts2, ee, tsm
 !

@@ -22,7 +22,7 @@
 !> calculated potential evaporation are controlled by the ET input-file records
 !> described in the manual's Evapotranspiration/Interception Module section.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -32,6 +32,7 @@
 !> | 1998-10-21 | RAH | 4.2 | Moved `FE` into the ET component. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted ET `.F` files into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Added date-aware meteorological input through `BMETDATES` and allocated ET meteorological/control arrays in [[initialise_etmod]]. |
+!> @endhistory
 MODULE ETmod
 
 USE SGLOBAL
@@ -64,19 +65,29 @@ IMPLICIT NONE
 !DOUBLEPRECISION LAMDA, GAMMA, RHO, CP
 !COMMON / ETCB6 / LAMDA, GAMMA, RHO, CP
 
-DOUBLEPRECISION, PARAMETER :: LAMDA=2465000., &
-GAMMA=0.659, &
-RHO=1.2, &
-CP=1003.
+DOUBLEPRECISION, PARAMETER :: LAMDA=2465000. !! Latent heat of vaporisation (J/kg).
+DOUBLEPRECISION, PARAMETER :: GAMMA=0.659   !! Psychrometric constant (mbar/C).
+DOUBLEPRECISION, PARAMETER :: RHO=1.2       !! Air density used in Penman calculations (kg/m^3).
+DOUBLEPRECISION, PARAMETER :: CP=1003.      !! Specific heat of air (J/kg/C).
 ! ET logical variables and arrays.
-LOGICAL :: BAR (NVEE), BMETP, BINETP, BMETAL, BMETDATES
+LOGICAL :: BAR (NVEE) !! ET8 flag: `.TRUE.` computes aerodynamic resistance from `ZU`, `ZD`, and `ZO`; `.FALSE.` uses constant `RA`.
+LOGICAL :: BMETP      !! ET2 flag enabling echo printing of meteorological input.
+LOGICAL :: BINETP     !! ET2 flag enabling echo printing of ET input.
+LOGICAL :: BMETAL     !! ET2 flag selecting separate PRD/EPD meteorological files; then only potential ET is available.
+LOGICAL :: BMETDATES  !! Optional ET2 flag indicating ISO8601 date columns in PRD and EPD files.
 !COMMON / ETCB3 / BAR, BMETP, BINETP, BMETAL
 ! ET integer control arrays.
-INTEGER :: MODE (NVEE), NF (NVEE), MEASPE (NVEE)
-INTEGER :: MODECS (NVEE), MODEPL (NVEE), MODECL (NVEE), MODEVH ( &
- NVEE)
-INTEGER :: NCTCST (NVEE), NCTPLA (NVEE), NCTCLA (NVEE), NCTVHT ( &
- NVEE)
+INTEGER :: MODE (NVEE)   !! ET8 actual-ET mode for each vegetation type.
+INTEGER :: NF (NVEE)     !! Number of `PS1`/`RCF`/`FET` table rows for each vegetation type.
+INTEGER :: MEASPE (NVEE) !! ET6 flag: `1` reads measured potential evaporation; `0` calculates it.
+INTEGER :: MODECS (NVEE) !! ET10 time-variation mode for canopy storage capacity.
+INTEGER :: MODEPL (NVEE) !! ET10 time-variation mode for ground-cover proportion.
+INTEGER :: MODECL (NVEE) !! ET10 time-variation mode for canopy leaf area index.
+INTEGER :: MODEVH (NVEE) !! ET10 time-variation mode for vegetation height.
+INTEGER :: NCTCST (NVEE) !! Number of canopy-storage time-variation records.
+INTEGER :: NCTPLA (NVEE) !! Number of ground-cover time-variation records.
+INTEGER :: NCTCLA (NVEE) !! Number of canopy-LAI time-variation records.
+INTEGER :: NCTVHT (NVEE) !! Number of vegetation-height time-variation records.
 !COMMON / ETCB4 / MODE, NF, MEASPE, MODECS, MODEPL, MODECL, MODEVH, &
  !NCTCST, NCTPLA, NCTCLA, NCTVHT
 ! ET floating-point work arrays.
@@ -91,18 +102,32 @@ INTEGER :: NCTCST (NVEE), NCTPLA (NVEE), NCTCLA (NVEE), NCTVHT ( &
 !DOUBLEPRECISION RELCLA (NVEE, NVBP), TIMCLA (NVEE, NVBP)
 !DOUBLEPRECISION RELVHT (NVEE, NVBP), TIMVHT (NVEE, NVBP)
 
-DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RA,RC,RTOP
-DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCAP,CK,CB,DEL
-DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PSI4,UZALFA
-DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCA1,PLAI1
-DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CLAI1,VHT1
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: PS1,FET,RCF
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCST,TIMCST
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELPLA,TIMPLA
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCLA,TIMCLA
-DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELVHT,TIMVHT
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RA     !! Aerodynamic resistance by vegetation type (s/m).
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RC     !! Canopy resistance by vegetation type (s/m), updated from `RCF` in mode 2.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RTOP   !! Invariant product `RA*U` for variable-aerodynamic-resistance cases.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCAP !! Canopy storage capacity by vegetation type (mm).
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CK     !! Canopy drainage coefficient by vegetation type (mm/s).
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CB     !! Canopy drainage exponent coefficient by vegetation type (1/mm).
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: DEL    !! Saturation vapour-pressure slope by meteorological station (mbar/C).
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PSI4   !! Active pressure-head profile copied from `VSPSI` for ET interpolation.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: UZALFA !! Bank/channel root-access weighting factor by active vertical cell.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCA1 !! Current canopy storage-capacity multiplier/value by vegetation type.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PLAI1  !! Current ground-cover multiplier/value by vegetation type.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CLAI1  !! Current canopy-LAI multiplier/value by vegetation type.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: VHT1   !! Current vegetation-height multiplier/value by vegetation type.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: PS1  !! Soil moisture tension table for modes 2 and 3 (m).
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: FET  !! `AE/PE` ratio table paired with `PS1` for mode 3.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RCF  !! Canopy-resistance table paired with `PS1` for mode 2 (s/m).
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCST !! Canopy-storage time-variation values.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMCST !! Canopy-storage time-variation times.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELPLA !! Ground-cover time-variation values.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMPLA !! Ground-cover time-variation times.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCLA !! Canopy-LAI time-variation values.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMCLA !! Canopy-LAI time-variation times.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELVHT !! Vegetation-height time-variation values.
+DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMVHT !! Vegetation-height time-variation times.
 
-CHARACTER(132) :: msg
+CHARACTER(132) :: msg !! Shared warning/error message buffer.
 !PRIVATE :: NVEE, NUZTAB, NVBP, LLEE
 !END MODULE SPEC_ET
 PRIVATE
@@ -357,8 +382,14 @@ END SUBROUTINE INITIALISE_ETMOD
 !> Plant uptake is distributed vertically using the root-density function and
 !> written to `ERUZ` and `S`. The routine updates `RA`, `RC`, `PE`, `AE`, `PNET`,
 !> `ERZ`, `ESOIL`, `EINT`, `DRAIN`, `CSTOLD`, and `CSTORE` for downstream use by
-!> [[etin]]. Entry requirement: `LL >= 1`; excessive root depth is now truncated
-!> by the code rather than assumed valid.
+!> [[etin]].
+!>
+!> Entry requirements inherited from the legacy ET component are:
+!>
+!> | Requirement | Current implementation |
+!> |:------------|:-----------------------|
+!> | `LL >= 1` | Still required through the active vertical-grid arrays. |
+!> | `NRD <= LL` | Root depth is truncated to `top_cell_no` with a once-only warning if it extends below the aquifer bed. |
 !>
 !> @note The mode definitions and input meanings above follow the SHETRAN User
 !> Guide and Data Input Manual records `ET6`, `ET8`, `ET16`, `ME2`/`ME3`, and
@@ -366,7 +397,7 @@ END SUBROUTINE INITIALISE_ETMOD
 !> so the manual requires `MODE=3`.
 !> @endnote
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -374,6 +405,9 @@ END SUBROUTINE INITIALISE_ETMOD
 !> | 1995-07-13 | GP | 4.0 | Removed mode 4 and updated subsurface-layer variables. |
 !> | 1997-05-15 | RAH | 4.1 | Swapped `DELTAZ` indices, explicitly typed variables, and amended comments. |
 !> | 1998-10-21 | RAH | 4.2 | Replaced GOTOs with block IFs, used generic intrinsics, and removed redundant outputs. |
+!> | 2007-09-04 | SB | - | Adjusted canopy-storage handling for zero or very small `CSTCAP`. |
+!> | 2015-05-27 | SB | - | Limited top-cell soil evaporation to half of `AE*(1-CPLAI)`. |
+!> @endhistory
 SUBROUTINE ET (IEL)
 INTEGER, INTENT(IN) :: IEL !! Element number for which ET and interception are computed.
 DOUBLEPRECISION RABIG
@@ -649,13 +683,26 @@ END SUBROUTINE ET
 !> Checks evapotranspiration input data for vegetation properties.
 !>
 !> `ETCHK2` currently validates the vegetation rooting depth array `RDL` for the
-!> `NV` vegetation types. Entry requirements are `NV >= 1` and `PRI` open for
-!> formatted diagnostic output.
+!> `NV` vegetation types.
+!>
+!> Entry requirements:
+!>
+!> | Requirement | Reason |
+!> |:------------|:-------|
+!> | `NV >= 1` | At least one vegetation type is checked. |
+!> | `PRI` open for formatted output | `ALCHK` and fatal error reporting write diagnostics to this unit. |
 !>
 !> | Check | Consequence |
 !> |:------|:------------|
 !> | `RDL(veg) /= 0` | Counted as error 1062 by `ALCHK`; the current ET checker only accepts zero channel-root fraction. |
 !> | Any accumulated ET check errors | Calls fatal error 1000. |
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-11-03 | RAH | 4.2 | Added from the overland/channel checking pattern. |
+!> @endhistory
 SUBROUTINE ETCHK2 (PRI, NV, RDL, LDUM1)
 INTEGER, INTENT(IN) :: PRI !! Output unit for check/error messages.
 INTEGER, INTENT(IN) :: NV !! Number of vegetation types to check.
@@ -714,13 +761,14 @@ END SUBROUTINE ETCHK2
 !> PE \leftarrow PE - EINT/DTUZ,\qquad EPOT = PE/1000.
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-10-01 | RAH | 3.4.1 | Added legacy double-precision typing. |
 !> | 1995-01-18 | GP | 4.0 | Replaced old wetting variables with `NVSWLT`, `QVSWEL`, and `DELTAZ`. |
 !> | 1997-05-16 | RAH | 4.1 | Swapped `DELTAZ` indices, removed redundant outputs, and used `MIN` for `CPLAI`. |
+!> @endhistory
 SUBROUTINE ETIN (IEL)
 INTEGER, INTENT(IN) :: IEL !! Element number to process.
 ! Locals, etc
@@ -851,13 +899,14 @@ END SUBROUTINE ETIN
 !> `ETIN` then applies snowmelt/ET/interception processing and writes the flux
 !> arrays used by the water-flow, sediment, and contaminant components.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-08-08 | GP | 4.0 | Written as the controlling ET/interception routine. |
 !> | 1997-05-16 | RAH | 4.1 | Swapped `VSPSI` indices and explicitly typed variables. |
 !> | 1998-11-03 | RAH | 4.2 | Removed redundant `NSOIL` output and replaced loops with `ALINIT`/`DCOPY`. |
+!> @endhistory
 SUBROUTINE ETSIM ()
 
 INTEGER :: ICE, IEL, IL, ITYPE

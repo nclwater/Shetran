@@ -28,7 +28,7 @@
 !> module implementation details, even though they are documented here because
 !> they define important file-format and coupling behaviour.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -36,6 +36,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted the FR `.F` files into this Fortran 90 module. |
 !> | 2020-05 | SB | 4.5 | Added ZQ-module variables and support. |
 !> | 2026-03 | SB | 4.6 | Added allocation-based initialisation through `INITIALISE_AL_C3` and `INITIALISE_ETMOD`, date-aware meteorological input through `BMETDATES`, outlet sediment/contaminant text series, water-table and virtual-discharge text output, improved diagnostics, and `.pri` reporting of hard-coded array sizes. |
+!> @endhistory
 MODULE FRmod
 USE SGLOBAL
 USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
@@ -87,31 +88,54 @@ USE ZQmod,    ONLY : ReadZQTable
 IMPLICIT NONE
 ! Legacy SPEC.FR frame variables retained as module state.
 !IMPLICIT NONE
-INTEGER :: IAOUT
+INTEGER :: IAOUT !! Current legacy frame output selector.
 !COMMON / FRCB1 / IAOUT
 ! Floating-point frame variables and arrays.
-DOUBLEPRECISION ALLOUT, DTAO, TSH, TCH !, TITLE (20)
+DOUBLEPRECISION :: ALLOUT !! Accumulated output-control time value.
+DOUBLEPRECISION :: DTAO   !! Output-control timestep value.
+DOUBLEPRECISION :: TSH    !! Simulation start hour for output/control.
+DOUBLEPRECISION :: TCH    !! Current hour used by frame timing logic.
 !COMMON / FRCB2 / ALLOUT, DTAO, TSH, TCH, TITLE
 ! Logical frame-control flags.
-LOGICAL :: BFRTS1, BFRTS2, BINFRP, BTIME, BSOFT
-LOGICAL :: BSTORE, BPPNET, BPEPOT
-LOGICAL :: BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD
+LOGICAL :: BFRTS1 !! Frame run-title/status flag retained from legacy common block.
+LOGICAL :: BFRTS2 !! Secondary frame run-title/status flag retained from legacy common block.
+LOGICAL :: BINFRP !! Echo frame input to the print file.
+LOGICAL :: BTIME  !! Enable time-series output handling.
+LOGICAL :: BSOFT  !! Soft/flexible output-control flag.
+LOGICAL :: BSTORE !! Enable store/restart-related frame output.
+LOGICAL :: BPPNET !! Enable net precipitation print/output flag.
+LOGICAL :: BPEPOT !! Enable potential-evaporation print/output flag.
+LOGICAL :: BPQOC  !! Enable OC discharge print/output flag.
+LOGICAL :: BPDEP  !! Enable surface-depth print/output flag.
+LOGICAL :: BPQF   !! Enable boundary-flow print/output flag.
+LOGICAL :: BPQH   !! Enable boundary-head print/output flag.
+LOGICAL :: BPQSZ  !! Enable subsurface-flow print/output flag.
+LOGICAL :: BPHSZ  !! Enable subsurface-head print/output flag.
+LOGICAL :: BPBAL  !! Enable balance print/output flag.
+LOGICAL :: BPSD   !! Enable snow-depth print/output flag.
 !END MODULE SPEC_FR
 
-CHARACTER (LEN=80) :: TITLE
-CHARACTER(256)     :: msg
+CHARACTER(LEN=80) :: TITLE !! Current input-record title or frame heading.
+CHARACTER(256)    :: MSG   !! Shared diagnostic message buffer.
 
 !SAVEd variables put here for AD
-INTEGER, SAVE   :: next_hour = 1, icounter2 = 0
-INTEGER         :: hour_now
-DOUBLEPRECISION :: qoctot = 0.0d0, uzold = 0.0d0, uznowt
-DOUBLEPRECISION :: sedtot = 0.0d0, sedfinetot = 0.0d0, contamtot = 0.0d0
-DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE               :: qoctotextra
-DOUBLEPRECISION :: PREVTM
-DOUBLEPRECISION :: TIMB=zero
-LOGICAL         :: FIRST_frmb=.TRUE.
-LOGICAL         :: SEDSRT=.FALSE.
-DOUBLEPRECISION :: GNUCUM (NELEE), DLSSRT (NELEE)
+INTEGER, SAVE   :: next_hour = 1     !! Next hourly text-output interval index.
+INTEGER, SAVE   :: icounter2 = 0     !! Auxiliary text-output counter retained across calls.
+INTEGER         :: hour_now          !! Current output hour.
+DOUBLEPRECISION :: qoctot = 0.0D0    !! Accumulated outlet OC discharge for text output.
+DOUBLEPRECISION :: uzold = 0.0D0     !! Previous unsaturated-zone time used by frame bookkeeping.
+DOUBLEPRECISION :: uznowt            !! Temporary current unsaturated-zone time.
+DOUBLEPRECISION :: sedtot = 0.0D0    !! Accumulated outlet sediment discharge.
+DOUBLEPRECISION :: sedfinetot = 0.0D0 !! Accumulated outlet fine-sediment discharge.
+DOUBLEPRECISION :: contamtot = 0.0D0 !! Accumulated outlet contaminant discharge.
+DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: qoctotextra
+    !! Accumulated discharge values for extra output points.
+DOUBLEPRECISION :: PREVTM            !! Previous monthly-balance reporting time.
+DOUBLEPRECISION :: TIMB = zero       !! Next monthly-balance output time.
+LOGICAL         :: FIRST_frmb=.TRUE. !! True until the first monthly-balance call is initialised.
+LOGICAL         :: SEDSRT=.FALSE.    !! Sediment-sort initialisation flag.
+DOUBLEPRECISION :: GNUCUM(NELEE)     !! Cumulative sediment-related coefficient workspace.
+DOUBLEPRECISION :: DLSSRT(NELEE)     !! Sorted sediment diameter workspace.
 
 PRIVATE
 
@@ -5137,11 +5161,12 @@ END SUBROUTINE INFR
 !> GMCBBO = \frac{CLAI}{PF2MAX}\,DELONE .
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1993-03-18 | JE | 3.4 | Implemented the MPL plant contaminant migration component initialisation. |
+!> @endhistory
 SUBROUTINE INPL
 !                 Initialisation subroutine for contaminant plant uptake
 
@@ -5376,12 +5401,13 @@ END SUBROUTINE DINET
 !> minimal dummy components are not currently used. `DINOC` only writes an
 !> `ENTER DINOC` message and returns.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-06 | GP | 0.1 | Added dummy components for use with V-catchment tests. |
 !> | 1991-12 | GP | 0.2 | Reduced to minimal versions, not currently used. |
+!> @endhistory
 SUBROUTINE DINOC
 !
 

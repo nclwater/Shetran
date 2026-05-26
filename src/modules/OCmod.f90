@@ -20,13 +20,14 @@
 !> magnitude as a millimetre-scale threshold and substitutes fixed effective
 !> roughness values during face-flow calculation.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
 !> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
 !> | 2026-03 | SB | 4.6 | Moved large OC solver, water-surface, discharge, and index work arrays to allocatable storage. |
+!> @endhistory
 MODULE OCmod
 USE SGLOBAL
 USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
@@ -44,15 +45,27 @@ USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !R
 ! Legacy SPEC.OC component variables retained as module state.
 ! Requires NXSCEE >= 2 for channel cross-section lookup tables.
 IMPLICIT NONE
-INTEGER            :: NELIND (NELEE)
-INTEGER            :: NROWF, NROWL, NOCHB, NOCFB
-INTEGER            :: NROWEL (NELEE), NROWST (NYEE+1), NXSECT (NLFEE)
-DOUBLEPRECISION    :: HOCLST, HOCNXT, QFLAST, QFNEXT, TDC, TFC
-DOUBLEPRECISION    :: HOCPRV (NOCTAB), QOCFIN (NOCTAB), HOCNXV (NOCTAB)
-DOUBLEPRECISION    :: XINH (NLFEE, NOCTAB)
-DOUBLEPRECISION    :: XINW (NLFEE, NOCTAB)
-DOUBLEPRECISION    :: XAREA (NLFEE, NOCTAB)
-DOUBLEPRECISION     :: dtoc
+INTEGER         :: NELIND(NELEE)        !! Position of each element within its implicit-solver row.
+INTEGER         :: NROWF                !! First non-empty OC solver row.
+INTEGER         :: NROWL                !! Last non-empty OC solver row.
+INTEGER         :: NOCHB                !! Number of OC head-boundary categories.
+INTEGER         :: NOCFB                !! Number of OC flow-boundary categories.
+INTEGER         :: NROWEL(NELEE)        !! Contiguous list of OC elements in row-solver order.
+INTEGER         :: NROWST(NYEE+1)       !! Row-start pointer into `NROWEL`.
+INTEGER         :: NXSECT(NLFEE)        !! Number of width-depth cross-section points for each channel link.
+DOUBLEPRECISION :: HOCLST               !! Previous time-varying OC head-boundary time.
+DOUBLEPRECISION :: HOCNXT               !! Next time-varying OC head-boundary time.
+DOUBLEPRECISION :: QFLAST               !! Previous time-varying OC flow-boundary time.
+DOUBLEPRECISION :: QFNEXT               !! Next time-varying OC flow-boundary time.
+DOUBLEPRECISION :: TDC                  !! First time for detailed OC diagnostic output.
+DOUBLEPRECISION :: TFC                  !! Last time for detailed OC diagnostic output.
+DOUBLEPRECISION :: HOCPRV(NOCTAB)       !! Previous head-boundary values by category.
+DOUBLEPRECISION :: QOCFIN(NOCTAB)       !! Previous flow-boundary values by category.
+DOUBLEPRECISION :: HOCNXV(NOCTAB)       !! Next head-boundary values by category.
+DOUBLEPRECISION :: XINH(NLFEE, NOCTAB)  !! Channel cross-section depths above bed.
+DOUBLEPRECISION :: XINW(NLFEE, NOCTAB)  !! Channel cross-section widths.
+DOUBLEPRECISION :: XAREA(NLFEE, NOCTAB) !! Integrated channel cross-section areas.
+DOUBLEPRECISION :: DTOC                 !! OC timestep in seconds.
 
 PRIVATE
 
@@ -796,15 +809,15 @@ END SUBROUTINE OCCHK1
 !> Channel cross-section checks require the first depth to be zero, depth values
 !> to be strictly increasing, widths to be non-decreasing, and the final width
 !> for each active link to be positive.
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `total_no_elements >= max(total_no_links,1)` | Active element range covers active links. |
+!> | `NLFEE >= max(total_no_links,1)` | Link-indexed arrays cover active links. |
+!> | `PRI` open for formatted output | Error reporting can write diagnostics. |
 SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
-!----------------------------------------------------------------------*
-!
-!  Check OC input data
-!
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
-!----------------------------------------------------------------------*
 INTEGER, INTENT(IN)           :: szlog
 DOUBLEPRECISION, INTENT(OUT) :: DDUM1A (:), DDUM1B(:)
 LOGICAL, INTENT(IN)          :: LDUM1(szlog)  !LDUM1 ( * )
@@ -1113,27 +1126,17 @@ END SUBROUTINE OCIND
 !> Characters not listed in `CODES` leave the target entry at its initial zero
 !> value.
 SUBROUTINE OCLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-!
-! READ IN ARRAY OF ALPHANUMERIC CODES FOR CHANNEL DEFINITION
-!
-! INPUT PARAMETERS:
-!   NNX     X DIMENSION OF GRID
-!   NNY     Y DIMENSION OF GRID
-!   NXE     X DIMENSION OF ARRAY
-!   NYE     Y DIMENSION OF ARRAY
-!   INF     INOUT FILE UNIT NUMBER
-!   IOF     OUTPUT FILE UNIT NUMBER
-!   BPCNTL  LOGICAL PRINT CONTROL
-!
-! OUTPUT PARAMETERS:
-!   IARR    ARRAY OF CODES READ IN FROM FILE
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 CHARACTER (LEN=80)  :: TITLE
 CHARACTER (LEN=1)   :: CODES (11), A1LINE (500)
-INTEGER, INTENT(IN) ::  NNX, NNY, NXE, NYE, INF, IOF
-INTEGER             :: IARR (NXE, NYE), i, j, k, L, m
-LOGICAL, INTENT(IN) :: BPCNTL
+INTEGER, INTENT(IN) :: NNX   !! Number of input grid columns to read.
+INTEGER, INTENT(IN) :: NNY   !! Number of input grid rows to read.
+INTEGER, INTENT(IN) :: NXE   !! First declared extent of `IARR`.
+INTEGER, INTENT(IN) :: NYE   !! Second declared extent of `IARR`.
+INTEGER, INTENT(IN) :: INF   !! Input file unit for the OC map records.
+INTEGER, INTENT(IN) :: IOF   !! Echo-output file unit.
+INTEGER             :: IARR (NXE, NYE) !! Decoded OC flow-code grid; entries within `1:NNX,1:NNY` are overwritten.
+INTEGER             :: i, j, k, L, m
+LOGICAL, INTENT(IN) :: BPCNTL !! Enables echo printing and coordinate-error output.
 LOGICAL             :: iscycle, iscycle40
 DATA CODES / 'I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P' /
 !
@@ -1211,20 +1214,23 @@ END SUBROUTINE OCLTL
 !> | 9 | `OC39` | Time-varying head category; face is set to 0. |
 !> | 10 | `OC40` | Boundary face and time-varying flow category. |
 !> | 11 | `OC41` | Boundary face and five polynomial coefficients; category is set to 1. |
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NLFEE >= total_no_links` and `total_no_links >= 1` | Link-indexed arrays cover active links. |
+!> | `NOCTAB >= 1` and `NOCBCC(1:total_no_links) <= NOCTAB` | Boundary indices fit the OC boundary table. |
+!> | `OCD` open for formatted input | Per-link channel data can be read. |
+!> | `PRI` open for formatted output | Diagnostics can be written. |
+!>
+!> Exit conditions retained from the legacy routine are:
+!>
+!> | Condition | Meaning |
+!> |:----------|:--------|
+!> | `IXER(out) >= IXER(in)` | Input-error count is monotonic. |
+!> | `IXER(out) == IXER(in)` implies `2 <= NXSECT(1:total_no_links) <= NOCTAB` | Each valid link has a usable cross-section table. |
 SUBROUTINE OCPLF(BOUT, IXER, fromNOCBCD, NXDEF, XDEFW)
-!----------------------------------------------------------------------*
-!
-!  READ IN DATA FOR EACH CHANNEL LINK
-!
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
-!  OCD open for F input                 PRI open for F output
-!----------------------------------------------------------------------*
-! Exit conditions:
-! IXER(out).ge.IXER(in)
-! IXER(out).eq.IXER(in) ==> 2.le.NXSECT(1:NLF).le.NOCTAB
-!----------------------------------------------------------------------*
 LOGICAL, INTENT(INOUT) :: BOUT
 INTEGER, INTENT(INOUT) :: IXER
 INTEGER, INTENT(INOUT) :: fromNOCBCD(NOCTAB, 2:4)
@@ -1395,16 +1401,15 @@ END SUBROUTINE OCPLF
 !> |:--------------|:------------|
 !> | `1:total_no_links` | `ARXL`, the current channel wetted area. |
 !> | `total_no_links+1:total_no_elements` | No channel area is printed. |
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NELEE >= total_no_elements` and `total_no_elements >= max(total_no_links,1)` | Element arrays cover active elements and links. |
+!> | `total_no_links >= 0` and `total_no_links <= size(ARXL)` | Channel area values are available for printed links. |
+!> | `PRI` open for formatted output | The report can be written. |
 SUBROUTINE OCPRI (OCNOW, ARXL, QOC)
-!----------------------------------------------------------------------*
-!
-!  Print results of OC simulation
-!
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NELEE.ge.NEL    NEL.ge.[1,NLF]    NLF.ge.0    NLF.le.size_of_ARXL
-!  PRI.ge.0        PRI open for F output
-!----------------------------------------------------------------------*
 DOUBLEPRECISION, INTENT(IN) :: OCNOW, ARXL(:), QOC(NELEE, 4)
 DOUBLEPRECISION             :: ghrf(total_no_links)
 INTEGER                     :: FACE, ielmm
@@ -1448,14 +1453,17 @@ END SUBROUTINE OCPRI
 !>
 !> `OCD` is rewound, not closed, after the read. Any boundary or channel-link
 !> input errors collected during parsing are promoted to fatal error 1049.
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NELEE >= max(total_no_elements, NOCTAB*NOCTAB)` | Element and temporary OC tables fit the compiled extent. |
+!> | `total_no_elements > total_no_links` and `total_no_links >= 0` | Land elements and optional links are consistently numbered. |
+!> | `NOCTAB >= 1` and `NLFEE >= total_no_links` | Boundary and link tables cover active data. |
+!> | `OCD` open for formatted input | OC input records can be read. |
+!> | `PRI` open for formatted output | Input echo and diagnostics can be written. |
 SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
-!----------------------------------------------------------------------*
-!  Control the reading of the OC input data file
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
-!  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
-!----------------------------------------------------------------------*
 INTEGER, INTENT(OUT) :: KONT
 DOUBLEPRECISION      :: TDC, TFC
 DOUBLEPRECISION      :: CATR (NOCTAB), DDUM2 (NOCTAB, NOCTAB)

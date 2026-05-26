@@ -95,36 +95,75 @@ USE mod_load_filedata, ONLY : ERROR, ERRC, ERRNEE, ERRTOT !AD NEEDS THIS
 USE UTILSMOD, ONLY : DCOPY
 IMPLICIT NONE
 
-LOGICAL         :: FIRST_syackw=.TRUE.
-DOUBLEPRECISION :: K2_syackw, DGRMAX_syackw, ROOT32_syackw
+LOGICAL         :: FIRST_syackw=.TRUE.  !! True until Ackers-White constants have been initialised.
+DOUBLEPRECISION :: K2_syackw            !! Ackers-White grain-size scaling constant.
+DOUBLEPRECISION :: DGRMAX_syackw        !! Upper bound for Ackers-White dimensionless grain size.
+DOUBLEPRECISION :: ROOT32_syackw        !! Cached `sqrt(32)` for Ackers-White velocity scaling.
 
-LOGICAL         :: FIRST_sycltr=.TRUE.
-DOUBLEPRECISION :: k1_sycltr
+LOGICAL         :: FIRST_sycltr=.TRUE.  !! True until channel-transport constants have been initialised.
+DOUBLEPRECISION :: k1_sycltr            !! Sediment settling/velocity conversion constant used by channel transport.
 
-LOGICAL          :: FIRST_sycrit=.TRUE.
-DOUBLEPRECISION  :: K1_sycrit, K2_sycrit, K3_sycrit
+LOGICAL          :: FIRST_sycrit=.TRUE. !! True until critical-shear constants have been initialised.
+DOUBLEPRECISION  :: K1_sycrit           !! Shields critical-shear coefficient for small particles.
+DOUBLEPRECISION  :: K2_sycrit           !! Shields critical-shear coefficient for transition particles.
+DOUBLEPRECISION  :: K3_sycrit           !! Shields critical-shear coefficient for large particles.
 
-LOGICAL         :: FIRST_syengh=.TRUE.
-DOUBLEPRECISION :: KG_syengh
+LOGICAL         :: FIRST_syengh=.TRUE.  !! True until Engelund-Hansen constants have been initialised.
+DOUBLEPRECISION :: KG_syengh            !! Engelund-Hansen transport coefficient.
 
-LOGICAL         :: FIRST_syfine=.TRUE.
-DOUBLEPRECISION :: WSED_syfine
+LOGICAL         :: FIRST_syfine=.TRUE.  !! True until fine-sediment constants have been initialised.
+DOUBLEPRECISION :: WSED_syfine          !! Fine-sediment settling velocity.
 
 
-INTEGER, PARAMETER  :: NSYBEE= 40, NSYCEE=10
-INTEGER          :: ISACKW_symain, ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, NEPS_symain
-INTEGER          :: NFINE_symain, NSYB_symain
-INTEGER          :: NSYBCD_symain(NSYBEE,3), NSYC_symain(4), NTSOBK_symain(NLFEE), PASS_symain=0, NTSOTP_symain(NELEE)
-DOUBLEPRECISION  :: ALPHA_symain, CONCOB_symain, DCBEDO_symain, FBIC_symain, FICRIT_symain, FPCRIT_symain, SYNOW_symain
-DOUBLEPRECISION  :: DLSMAX_symain, DDBSED_symain(NLFEE, NSEDEE)
-DOUBLEPRECISION  :: ABC_symain(NSEDEE, NSYCEE), ACKW_symain(5, NSEDEE), ARXLOL_symain(NLFEE), BBC_symain(NSEDEE, NSYCEE)
-DOUBLEPRECISION  :: BKB_symain(NSEE), DBFULL_symain(NLFEE)
-DOUBLEPRECISION  :: DRDRIP_symain(NVEE), DRSED_symain(NSEDEE), DRSO50_symain(NSEE), DWATOL_symain(NELEE), FCG_symain(NELEE)
-DOUBLEPRECISION  :: FCROCK_symain(NELEE), FDRIP_symain(NVEE), FETA_symain(NELEE), FPCLAY_symain(NSEE)
-DOUBLEPRECISION  :: GBC_symain(NSEDEE, NSYCEE), GKF_symain(NSEE), GKR_symain(NSEE), RHOSO_symain(NSEE), XDRIP_symain(NVEE)
+INTEGER, PARAMETER  :: NSYBEE= 40       !! Maximum number of sediment boundary entries.
+INTEGER, PARAMETER  :: NSYCEE=10        !! Maximum number of sediment boundary categories.
+INTEGER          :: ISACKW_symain       !! Channel transport-capacity option.
+INTEGER          :: ISGSED_symain       !! Overland transport-capacity option.
+INTEGER          :: ISSYOK_symain       !! Dynamic sediment input-check interval.
+INTEGER          :: ISTEC_symain        !! Critical-shear calculation option.
+INTEGER          :: ISUSED_symain       !! Sediment velocity option.
+INTEGER          :: NEPS_symain         !! Number of sediment substeps per water timestep.
+INTEGER          :: NFINE_symain        !! Number of fine sediment classes; manual allows 0 or 1.
+INTEGER          :: NSYB_symain         !! Number of sediment boundary entries.
+INTEGER          :: NSYBCD_symain(NSYBEE,3) !! Sediment boundary element, type, and category metadata.
+INTEGER          :: NSYC_symain(4)      !! Number of sediment boundary categories by boundary type.
+INTEGER          :: NTSOBK_symain(NLFEE) !! Bank soil type by channel link.
+INTEGER          :: PASS_symain=0       !! Saved call counter for sediment setup/timestep control.
+INTEGER          :: NTSOTP_symain(NELEE) !! Top soil type by element.
+DOUBLEPRECISION  :: ALPHA_symain        !! Fine-sediment settling/resuspension critical-shear ratio.
+DOUBLEPRECISION  :: CONCOB_symain       !! Mobile concentration threshold for overbank exchange.
+DOUBLEPRECISION  :: DCBEDO_symain       !! Active upper channel-bed layer thickness.
+DOUBLEPRECISION  :: FBIC_symain         !! Fine-bed fraction threshold for infiltration.
+DOUBLEPRECISION  :: FICRIT_symain       !! Fine-concentration threshold for infiltration.
+DOUBLEPRECISION  :: FPCRIT_symain       !! Maximum sediment concentration fraction.
+DOUBLEPRECISION  :: SYNOW_symain        !! Current sediment simulation time.
+DOUBLEPRECISION  :: DLSMAX_symain       !! Loose-sediment depth above which hillslope soil erosion is suppressed.
+DOUBLEPRECISION  :: DDBSED_symain(NLFEE, NSEDEE) !! Lower channel-bed sediment depth by link and size class.
+DOUBLEPRECISION  :: ABC_symain(NSEDEE, NSYCEE)   !! Boundary rating-curve coefficient `A` by sediment class/category.
+DOUBLEPRECISION  :: ACKW_symain(5, NSEDEE)       !! Ackers-White cached coefficients by sediment class.
+DOUBLEPRECISION  :: ARXLOL_symain(NLFEE)         !! Previous channel cross-sectional area by link.
+DOUBLEPRECISION  :: BBC_symain(NSEDEE, NSYCEE)   !! Boundary rating-curve coefficient `B` by sediment class/category.
+DOUBLEPRECISION  :: BKB_symain(NSEE)      !! Channel-bank erodibility by soil type.
+DOUBLEPRECISION  :: DBFULL_symain(NLFEE)  !! Bankfull depth by channel link.
+DOUBLEPRECISION  :: DRDRIP_symain(NVEE)   !! Canopy drip drop diameter by vegetation type.
+DOUBLEPRECISION  :: DRSED_symain(NSEDEE)  !! Representative sediment particle diameter by size class.
+DOUBLEPRECISION  :: DRSO50_symain(NSEE)   !! Median soil particle diameter by soil type.
+DOUBLEPRECISION  :: DWATOL_symain(NELEE)  !! Previous surface/channel water depth by element.
+DOUBLEPRECISION  :: FCG_symain(NELEE)     !! Ground-cover fraction by element.
+DOUBLEPRECISION  :: FCROCK_symain(NELEE)  !! Rock-cover fraction by element.
+DOUBLEPRECISION  :: FDRIP_symain(NVEE)    !! Canopy drip fraction by vegetation type.
+DOUBLEPRECISION  :: FETA_symain(NELEE)    !! Soil-to-sediment solid-volume conversion factor by element.
+DOUBLEPRECISION  :: FPCLAY_symain(NSEE)   !! Clay fraction by soil type.
+DOUBLEPRECISION  :: GBC_symain(NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
+DOUBLEPRECISION  :: GKF_symain(NSEE)      !! Flow detachment coefficient by soil type.
+DOUBLEPRECISION  :: GKR_symain(NSEE)      !! Rainfall detachment coefficient by soil type.
+DOUBLEPRECISION  :: RHOSO_symain(NSEE)    !! Soil bulk density by soil type.
+DOUBLEPRECISION  :: XDRIP_symain(NVEE)    !! Canopy drip fall height by vegetation type.
 
-LOGICAL         :: FIRST_syovtr= .TRUE.
-DOUBLEPRECISION :: K1_syovtr, K3_syovtr, K4_syovtr
+LOGICAL         :: FIRST_syovtr= .TRUE.  !! True until overland-transport constants have been initialised.
+DOUBLEPRECISION :: K1_syovtr             !! Engelund-Hansen overland-capacity coefficient.
+DOUBLEPRECISION :: K3_syovtr             !! Yalin overland-capacity coefficient.
+DOUBLEPRECISION :: K4_syovtr             !! Yalin overland-capacity coefficient.
 
 PRIVATE
 PUBLIC :: SYMAIN, BALSED, & !REST NEEDED ONLY FOR AD
@@ -197,20 +236,21 @@ SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, &
 
 USE CONST_SY
 
-! Input arguments
-INTEGER :: ISACKW, NFINE, NLF, NLFEE, NELEE, NSED
-DOUBLEPRECISION DRSED (NFINE+1:NSED), ARXL (NLF)
-DOUBLEPRECISION DWAT1 (NLF), QOC (NELEE, 4)
-DOUBLEPRECISION DCBSED (NLFEE, NFINE+1:NSED), TAUJ (NELEE, 4)
-
-LOGICAL :: LINKNS (NLF)
-!
-! In/Out arguments
-!   defined locally
-DOUBLEPRECISION ACKW (5, NFINE+1:NSED)
-!
-! Output arguments
-DOUBLEPRECISION GSED (NLF, NFINE+1:NSED)
+INTEGER :: ISACKW                  !! Ackers-White option: 1 standard, 2 Day bed-percentile modification.
+INTEGER :: NFINE                   !! Number of fine sediment classes excluded from this calculation.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NSED                    !! Number of sediment size classes.
+DOUBLEPRECISION DRSED (NFINE+1:NSED) !! Representative non-fine particle diameters.
+DOUBLEPRECISION ARXL (NLF)         !! Channel cross-sectional area by link.
+DOUBLEPRECISION DWAT1 (NLF)        !! Channel water depth by link.
+DOUBLEPRECISION QOC (NELEE, 4)     !! Face water fluxes.
+DOUBLEPRECISION DCBSED (NLFEE, NFINE+1:NSED) !! Active-bed sediment depth by link and non-fine class.
+DOUBLEPRECISION TAUJ (NELEE, 4)    !! Face shear stress.
+LOGICAL :: LINKNS (NLF)            !! True for north-south channel links.
+DOUBLEPRECISION ACKW (5, NFINE+1:NSED) !! Cached Ackers-White parameters by non-fine class.
+DOUBLEPRECISION GSED (NLF, NFINE+1:NSED) !! Channel transport capacity by link and non-fine class.
 !
 ! Locals, etc
 DOUBLEPRECISION DGRSML, F16, F50, F56, F84, KRHO, THIRD
@@ -415,18 +455,20 @@ END SUBROUTINE SYBC
 SUBROUTINE SYBED (DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
  DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
 
-! Input arguments
-INTEGER :: NELEE, NLF, NLFEE, NSED
-DOUBLEPRECISION DCBEDO, CWIDTH (NLF)
-DOUBLEPRECISION DCIPRM (NLFEE, NSED), DDIPRM (NLFEE, NSED)
-
-!
-! Input/output arguments
-DOUBLEPRECISION ARBDEP (NLF), DLS (NLF), FBETA (NELEE, NSED)
-!
-! Output arguments
-DOUBLEPRECISION DCBSED (NLFEE, NSED), DDBSED (NLFEE, NSED), &
- DCBED (NLF)
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NSED                    !! Number of sediment size classes.
+DOUBLEPRECISION DCBEDO             !! Target active upper channel-bed layer thickness.
+DOUBLEPRECISION CWIDTH (NLF)       !! Channel width by link.
+DOUBLEPRECISION DCIPRM (NLFEE, NSED) !! Interim upper-bed sediment depth by link and size class.
+DOUBLEPRECISION DDIPRM (NLFEE, NSED) !! Interim lower-bed sediment depth by link and size class.
+DOUBLEPRECISION ARBDEP (NLF)       !! Accumulated channel-bed elevation/depth change.
+DOUBLEPRECISION DLS (NLF)          !! Total channel-bed sediment depth.
+DOUBLEPRECISION FBETA (NELEE, NSED) !! Whole-bed sediment fraction by element/link and size class.
+DOUBLEPRECISION DCBSED (NLFEE, NSED) !! Updated upper-bed sediment depth by link and size class.
+DOUBLEPRECISION DDBSED (NLFEE, NSED) !! Updated lower-bed sediment depth by link and size class.
+DOUBLEPRECISION DCBED (NLF)        !! Updated active upper-bed layer depth by link.
 !
 ! Locals, etc
 DOUBLEPRECISION AC, AD, DCBEDZ, DCC, DCNEW, DDBEDZ, DLSNEW, &
@@ -541,14 +583,22 @@ END SUBROUTINE SYBED
 SUBROUTINE SYBKER (ISTEC, NLF, NS, FPCLAY, RHOSO, DRSO50, TAUK, &
  CWIDTH, DWAT1, BKB, NTSOBK, FETA, CLENTH, DBFULL, EPSB, GNUBK)
 
-! Input arguments
-INTEGER :: ISTEC, NLF, NS, NTSOBK (NLF)
-DOUBLEPRECISION FPCLAY (NS), RHOSO (NS), DRSO50 (NS), TAUK (NLF)
-DOUBLEPRECISION CWIDTH (NLF), DWAT1 (NLF), BKB (NS), FETA (NLF)
-DOUBLEPRECISION CLENTH (NLF), DBFULL (NLF)
-!
-! Output arguments
-DOUBLEPRECISION EPSB (NLF), GNUBK (NLF)
+INTEGER :: ISTEC                   !! Critical-shear calculation option.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NTSOBK (NLF)            !! Bank soil type by link.
+DOUBLEPRECISION FPCLAY (NS)        !! Clay fraction by soil type.
+DOUBLEPRECISION RHOSO (NS)         !! Soil bulk density by soil type.
+DOUBLEPRECISION DRSO50 (NS)        !! Median soil particle diameter by soil type.
+DOUBLEPRECISION TAUK (NLF)         !! Channel/link shear stress.
+DOUBLEPRECISION CWIDTH (NLF)       !! Channel width by link.
+DOUBLEPRECISION DWAT1 (NLF)        !! Channel water depth by link.
+DOUBLEPRECISION BKB (NS)           !! Bank erodibility by soil type.
+DOUBLEPRECISION FETA (NLF)         !! Soil-to-sediment solid-volume conversion factor by link.
+DOUBLEPRECISION CLENTH (NLF)       !! Channel-link length.
+DOUBLEPRECISION DBFULL (NLF)       !! Bankfull depth by link.
+DOUBLEPRECISION EPSB (NLF)         !! Bank erosion sediment source by link.
+DOUBLEPRECISION GNUBK (NLF)        !! Lateral bank erosion rate by link.
 !
 ! Locals, etc
 DOUBLEPRECISION A1, B1, B2, B3, QUART
@@ -665,24 +715,32 @@ SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, &
 
 USE CONST_SY
 
-! Input arguments
-INTEGER :: ISACKW, ISUSED, NELEE, NFINE, NLF, NLFEE, NSED, NSEDEE
-DOUBLEPRECISION CONCOB, FPCRIT, DRSED (NFINE+1:NSED), ARXL (NLF)
-DOUBLEPRECISION CWIDTH (NLF), DCBED (NLF), DWAT1 (NLF), QOC ( &
- NELEE, 4)
-DOUBLEPRECISION SLOPEJ (NELEE, 4), DCBSED (NLFEE, NFINE+1:NSED)
-DOUBLEPRECISION FDEL (NELEE, NFINE+1:NSED), TAUJ (NELEE, 4)
-LOGICAL :: LINKNS (NLF)
-!
-! Input/output arguments
-DOUBLEPRECISION ACKW (5, NFINE+1:NSED)
-!
-! Output arguments
-DOUBLEPRECISION CONCI (NLFEE, NSED), QSDWAT (NLFEE, NSEDEE, 4)
-!     NB:    QSDWAT defined for outflow faces only
-!
-! Workspace arguments
-DOUBLEPRECISION GSED (NLF, NFINE+1:NSED), QSWSUM (NLF, NSED)
+INTEGER :: ISACKW                  !! Channel transport-capacity option.
+INTEGER :: ISUSED                  !! Sediment velocity option.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NFINE                   !! Number of fine sediment classes.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NSEDEE                  !! Sediment-size array dimension.
+DOUBLEPRECISION CONCOB             !! Mobile concentration threshold for overbank exchange.
+DOUBLEPRECISION FPCRIT             !! Maximum sediment concentration fraction.
+DOUBLEPRECISION DRSED (NFINE+1:NSED) !! Representative non-fine particle diameters.
+DOUBLEPRECISION ARXL (NLF)         !! Channel cross-sectional area by link.
+DOUBLEPRECISION CWIDTH (NLF)       !! Channel width by link.
+DOUBLEPRECISION DCBED (NLF)        !! Active upper-bed layer depth by link.
+DOUBLEPRECISION DWAT1 (NLF)        !! Channel water depth by link.
+DOUBLEPRECISION QOC (NELEE, 4)     !! Face water fluxes.
+DOUBLEPRECISION SLOPEJ (NELEE, 4)  !! Face water-surface slopes.
+DOUBLEPRECISION DCBSED (NLFEE, NFINE+1:NSED) !! Active-bed sediment depth by link and non-fine class.
+DOUBLEPRECISION FDEL (NELEE, NFINE+1:NSED)   !! Mobile sediment concentration fraction by element and non-fine class.
+DOUBLEPRECISION TAUJ (NELEE, 4)    !! Face shear stress.
+LOGICAL :: LINKNS (NLF)            !! True for north-south channel links.
+DOUBLEPRECISION ACKW (5, NFINE+1:NSED) !! Cached Ackers-White parameters by non-fine class.
+DOUBLEPRECISION CONCI (NLFEE, NSED)    !! Capacity concentration by link and sediment class.
+DOUBLEPRECISION QSDWAT (NLFEE, NSEDEE, 4) !! Sediment advection coefficient for outflow faces only.
+DOUBLEPRECISION GSED (NLF, NFINE+1:NSED) !! Channel transport capacity workspace.
+DOUBLEPRECISION QSWSUM (NLF, NSED)      !! Sum of outflowing sediment advection coefficients by link/class.
 !
 ! Locals, etc
 DOUBLEPRECISION ZZ5
@@ -967,18 +1025,30 @@ SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, &
  FETAE, GNUE, ISGSED, NSED, FPCRIT, PLSE, NSEDEE, DRSED, QWAT, &
  SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE, FDELE, QSEDE, Q, VDSED)
 
-! Input arguments
-INTEGER :: ISGSED, NSED, NSEDEE
-DOUBLEPRECISION AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE
-DOUBLEPRECISION FETAE, GNUE, FPCRIT, PLSE, DRSED (NSED)
-DOUBLEPRECISION QWAT (4), SLOPEE (4), SOSDFE (NSED), TAUJE (4)
-!
-! Input/output arguments
-DOUBLEPRECISION DLSE, FBETAE (NSED), FDELE (NSED), QSEDE (NSEDEE, &
- 4)
-!
-! Workspace arguments
-DOUBLEPRECISION Q (NSED), VDSED (NSED)
+INTEGER :: ISGSED                  !! Overland transport-capacity option.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NSEDEE                  !! Sediment-size array dimension.
+DOUBLEPRECISION AREAE              !! Element plan area.
+DOUBLEPRECISION DTSY               !! Sediment substep duration.
+DOUBLEPRECISION DWAT1E             !! Current surface water depth.
+DOUBLEPRECISION DWATOE             !! Previous surface water depth.
+DOUBLEPRECISION DXQQE              !! Element width.
+DOUBLEPRECISION DYQQE              !! Element length.
+DOUBLEPRECISION FETAE              !! Soil-to-sediment solid-volume conversion factor.
+DOUBLEPRECISION GNUE               !! Hillslope erosion rate.
+DOUBLEPRECISION FPCRIT             !! Maximum sediment concentration fraction.
+DOUBLEPRECISION PLSE               !! Loose-sediment porosity.
+DOUBLEPRECISION DRSED (NSED)       !! Representative particle diameters by size class.
+DOUBLEPRECISION QWAT (4)           !! Outward water flux by face.
+DOUBLEPRECISION SLOPEE (4)         !! Water-surface slope by face.
+DOUBLEPRECISION SOSDFE (NSED)      !! Source soil sediment-size fraction.
+DOUBLEPRECISION TAUJE (4)          !! Face shear stress.
+DOUBLEPRECISION DLSE               !! Loose-sediment depth in the land element.
+DOUBLEPRECISION FBETAE (NSED)      !! Loose-sediment composition by size class.
+DOUBLEPRECISION FDELE (NSED)       !! Mobile sediment concentration fraction by size class.
+DOUBLEPRECISION QSEDE (NSEDEE, 4)  !! Sediment flux by size class and face.
+DOUBLEPRECISION Q (NSED)           !! Workspace for outgoing sediment flux by size class.
+DOUBLEPRECISION VDSED (NSED)       !! Workspace for available sediment volume by size class.
 !
 ! Locals, etc
 !
@@ -1156,12 +1226,11 @@ SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)
 ! Commons and distributed constants
 USE CONST_SY
 
-! Input arguments
-INTEGER :: FLAG
-DOUBLEPRECISION DRX50, TAUX, FPCLAE
-!
-! Output arguments
-DOUBLEPRECISION TAUEC
+INTEGER :: FLAG                    !! Critical-shear option: 1 clay relation, otherwise Shields relation.
+DOUBLEPRECISION DRX50              !! Median particle diameter.
+DOUBLEPRECISION TAUX               !! Current shear stress used to select Shields class.
+DOUBLEPRECISION FPCLAE             !! Clay fraction for the clay-content relation.
+DOUBLEPRECISION TAUEC              !! Returned critical shear stress.
 !
 ! Locals, etc
 DOUBLEPRECISION R0, R1, R2, R3, R4, R5
@@ -1263,9 +1332,11 @@ END SUBROUTINE SYCRIT
 !> @endnote
 DOUBLEPRECISION FUNCTION SYDR (FSED, INCF, N, F, D)
 !
-! Input arguments
-INTEGER :: INCF, N
-DOUBLEPRECISION FSED, F (1 + (N - 1) * INCF), D (N)
+INTEGER :: INCF                    !! Stride between distribution weights in `F`.
+INTEGER :: N                       !! Number of sediment size classes.
+DOUBLEPRECISION FSED               !! Target cumulative fraction.
+DOUBLEPRECISION F (1 + (N - 1) * INCF) !! Sediment distribution weights.
+DOUBLEPRECISION D (N)              !! Representative particle diameters.
 
 !
 ! Locals, etc
@@ -1372,15 +1443,17 @@ USE CONST_SY
 
 ! Commons and distributed constants
 
-! Input arguments
-INTEGER :: NFINE, NLF, NSED, NELEE
-DOUBLEPRECISION DRSED (NFINE+1:NSED), CWIDTH (NLF), DWAT1 (NLF)
-DOUBLEPRECISION QOC (NELEE, 4), SLOPEJ (NELEE, 4)
-LOGICAL :: LINKNS (NLF)
-!
-! Output arguments
-!   defined locally
-DOUBLEPRECISION GSED (NLF, NFINE+1:NSED)
+INTEGER :: NFINE                   !! Number of fine sediment classes excluded from this calculation.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NELEE                   !! Element-array dimension.
+DOUBLEPRECISION DRSED (NFINE+1:NSED) !! Representative non-fine particle diameters.
+DOUBLEPRECISION CWIDTH (NLF)       !! Channel width by link.
+DOUBLEPRECISION DWAT1 (NLF)        !! Channel water depth by link.
+DOUBLEPRECISION QOC (NELEE, 4)     !! Face water fluxes.
+DOUBLEPRECISION SLOPEJ (NELEE, 4)  !! Face water-surface slopes.
+LOGICAL :: LINKNS (NLF)            !! True for north-south channel links.
+DOUBLEPRECISION GSED (NLF, NFINE+1:NSED) !! Channel transport capacity by link and non-fine class.
 !
 ! Locals, etc
 INTEGER :: FACE, IEND, LINK, NFP1, SED, SGN
@@ -1588,24 +1661,41 @@ SUBROUTINE SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
  NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
  ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
 
-INTEGER :: NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, &
- SPR
-INTEGER :: ICMBK (NLFEE, 2), ICMXY (NXEE, NY), ICMREF (NELEE, 4, &
- 2:3)
-INTEGER :: ICMRF2 (NLFEE, 3, 2), NLYR (NLF + 1:NEL)
-INTEGER :: NTSOIL (NEL, NLYREE), NVC (NLF + 1:NEL)
-!INTEGER :: NTSOIL (NELEE, NLYREE), NVC (NLF + 1:NEL)
-DOUBLEPRECISION THSAT (NS)
-DOUBLEPRECISION CLENTH (NLFEE), CWIDTH (NLFEE), ZBFULL (NLFEE)
-DOUBLEPRECISION DXQQ (NLF + 1:NEL), DYQQ (NLF + 1:NEL)
-DOUBLEPRECISION AREA (NEL), DHF (NELEE, 4)
-DOUBLEPRECISION ARXL (NLFEE), HRF (NLF + 1:NEL), ZGRUND (NEL)
-LOGICAL :: BEXBK, LINKNS (NLFEE)
-!
-! Workspace arguments
-INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
-INTEGER :: IDUM1X ( - 1:NEL + 1)
-LOGICAL :: LDUM (NELEE)
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NLYREE                  !! Soil-layer array dimension.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: NX                      !! Number of grid columns.
+INTEGER :: NXEE                    !! Grid-column array dimension.
+INTEGER :: NYEE                    !! Grid-row workspace dimension.
+INTEGER :: NY                      !! Number of grid rows.
+INTEGER :: SPR                     !! Sediment diagnostic output unit.
+INTEGER :: ICMBK (NLFEE, 2)        !! Bank-element numbers for each channel link.
+INTEGER :: ICMXY (NXEE, NY)        !! Element number at each grid location.
+INTEGER :: ICMREF (NELEE, 4, 2:3)  !! Face-neighbour and reverse-face reference map.
+INTEGER :: ICMRF2 (NLFEE, 3, 2)    !! Confluence branch reference map.
+INTEGER :: NLYR (NLF + 1:NEL)      !! Number of soil layers in each land element.
+INTEGER :: NTSOIL (NEL, NLYREE)    !! Soil type index for each element layer.
+INTEGER :: NVC (NLF + 1:NEL)       !! Vegetation type by land element.
+DOUBLEPRECISION THSAT (NS)         !! Saturated water content by soil type.
+DOUBLEPRECISION CLENTH (NLFEE)     !! Channel-link length.
+DOUBLEPRECISION CWIDTH (NLFEE)     !! Channel width by link.
+DOUBLEPRECISION ZBFULL (NLFEE)     !! Bankfull elevation/depth by link.
+DOUBLEPRECISION DXQQ (NLF + 1:NEL) !! Land-element width.
+DOUBLEPRECISION DYQQ (NLF + 1:NEL) !! Land-element length.
+DOUBLEPRECISION AREA (NEL)         !! Element plan area.
+DOUBLEPRECISION DHF (NELEE, 4)     !! Face-to-face hydraulic distance.
+DOUBLEPRECISION ARXL (NLFEE)       !! Channel cross-sectional area by link.
+DOUBLEPRECISION HRF (NLF + 1:NEL)  !! Land-element water level/head.
+DOUBLEPRECISION ZGRUND (NEL)       !! Ground or bed elevation by element.
+LOGICAL :: BEXBK                   !! True when bank elements are represented.
+LOGICAL :: LINKNS (NLFEE)          !! True for north-south channel links.
+INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for identity checks.
+INTEGER :: IDUM1X ( - 1:NEL + 1)   !! Integer workspace for element identity checks.
+LOGICAL :: LDUM (NELEE)            !! Logical workspace for element checks.
 !
 ! Locals, etc
 INTEGER :: FATAL, ERR
@@ -1926,28 +2016,58 @@ SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, &
  FCG, FCROCK, PLS, DLS, FBETA, FDEL, ABC, BBC, GBC, IDUM, DUMMY, &
  LDUM)
 
-INTEGER :: NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV
-INTEGER :: NSYB, NSYBEE, NSYC (4), NSYCEE, SPR
-INTEGER :: ICMREF (NELEE, 4, 2:2)
-INTEGER :: ISUSED, NEPS, NFINE, SFB, SRB
-INTEGER :: NTSOBK (NLFEE), NSYBCD (NSYBEE, 3), NBFACE (NEL)
-DOUBLEPRECISION ALPHA, DCBEDO, FPCRIT
-DOUBLEPRECISION DRSED (NSED), BKB (NS), GKF (NS), GKR (NS), &
- RHOSO (NS)
-DOUBLEPRECISION SOSDFN (NSEE, NSED), DRDRIP (NV), FDRIP (NV), &
- XDRIP (NV)
-DOUBLEPRECISION PBSED (NLFEE)
-DOUBLEPRECISION FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL), PLS (NLF &
- + 1:NEL)
-DOUBLEPRECISION DLS (NEL), FBETA (NELEE, NSED), FDEL (NELEE, NSED)
-DOUBLEPRECISION ABC (NSEDEE, NSYCEE), BBC (NSEDEE, NSYCEE)
-DOUBLEPRECISION GBC (NSEDEE, NSYCEE)
-DOUBLEPRECISION DLSMAX, rdum(nxee*nyee)
-!
-! Workspace arguments
-INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
-DOUBLEPRECISION DUMMY (NELEE)
-LOGICAL :: LDUM (NELEE)
+INTEGER :: NXEE                    !! Grid-column array dimension.
+INTEGER :: NYEE                    !! Grid-row workspace dimension.
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NSEE                    !! Soil-type array dimension.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NSEDEE                  !! Sediment-size array dimension.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: NSYB                    !! Number of sediment boundary entries.
+INTEGER :: NSYBEE                  !! Sediment-boundary array dimension.
+INTEGER :: NSYC (4)                !! Number of sediment boundary categories by boundary type.
+INTEGER :: NSYCEE                  !! Sediment-boundary-category array dimension.
+INTEGER :: SPR                     !! Sediment diagnostic output unit.
+INTEGER :: ICMREF (NELEE, 4, 2:2)  !! Face-neighbour reference map.
+INTEGER :: ISUSED                  !! Sediment velocity option.
+INTEGER :: NEPS                    !! Number of sediment substeps per water timestep.
+INTEGER :: NFINE                   !! Number of fine sediment classes.
+INTEGER :: SFB                     !! Sediment boundary file unit.
+INTEGER :: SRB                     !! Sediment rating-boundary file unit.
+INTEGER :: NTSOBK (NLFEE)          !! Bank soil type by link.
+INTEGER :: NSYBCD (NSYBEE, 3)      !! Sediment boundary element, type, and category metadata.
+INTEGER :: NBFACE (NEL)            !! Number of boundary faces by element.
+DOUBLEPRECISION ALPHA              !! Fine-sediment settling/resuspension critical-shear ratio.
+DOUBLEPRECISION DCBEDO             !! Active upper channel-bed layer thickness.
+DOUBLEPRECISION FPCRIT             !! Maximum sediment concentration fraction.
+DOUBLEPRECISION DRSED (NSED)       !! Representative sediment particle diameters.
+DOUBLEPRECISION BKB (NS)           !! Bank erodibility by soil type.
+DOUBLEPRECISION GKF (NS)           !! Flow detachment coefficient by soil type.
+DOUBLEPRECISION GKR (NS)           !! Rainfall detachment coefficient by soil type.
+DOUBLEPRECISION RHOSO (NS)         !! Soil bulk density by soil type.
+DOUBLEPRECISION SOSDFN (NSEE, NSED) !! Soil sediment-size fractions by soil type.
+DOUBLEPRECISION DRDRIP (NV)        !! Canopy drip drop diameter by vegetation type.
+DOUBLEPRECISION FDRIP (NV)         !! Canopy drip fraction by vegetation type.
+DOUBLEPRECISION XDRIP (NV)         !! Canopy drip fall height by vegetation type.
+DOUBLEPRECISION PBSED (NLFEE)      !! Channel-bed sediment porosity by link.
+DOUBLEPRECISION FCG (NLF + 1:NEL)  !! Ground-cover fraction by land element.
+DOUBLEPRECISION FCROCK (NLF + 1:NEL) !! Rock-cover fraction by land element.
+DOUBLEPRECISION PLS (NLF + 1:NEL)  !! Loose-sediment porosity by land element.
+DOUBLEPRECISION DLS (NEL)          !! Loose/bed sediment depth by element.
+DOUBLEPRECISION FBETA (NELEE, NSED) !! Sediment composition fraction by element and size class.
+DOUBLEPRECISION FDEL (NELEE, NSED)  !! Mobile sediment concentration fraction by element and size class.
+DOUBLEPRECISION ABC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `A`.
+DOUBLEPRECISION BBC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `B`.
+DOUBLEPRECISION GBC (NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
+DOUBLEPRECISION DLSMAX             !! Loose-sediment depth above which hillslope soil erosion is suppressed.
+DOUBLEPRECISION rdum(nxee*nyee)    !! Floating-point workspace for global grid checks.
+INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for grid/category checks.
+DOUBLEPRECISION DUMMY (NELEE)      !! Floating-point workspace for element checks.
+LOGICAL :: LDUM (NELEE)            !! Logical workspace for element checks.
 !
 ! Locals, etc
 INTEGER :: FATAL, ERR
@@ -2275,17 +2395,29 @@ SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
  ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
  ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
 
-INTEGER :: NEL, NELEE, NLF, NLFEE, NV, SPR
-INTEGER :: ICMREF (NELEE, 4, 2:3), ICMRF2 (NLFEE, 3, 2)
-INTEGER :: ISORT (NEL)
-DOUBLEPRECISION DTUZ
-DOUBLEPRECISION CLAI (NV), PLAI (NV), ARXL (NLFEE)
-DOUBLEPRECISION DRAINA (NLF + 1:NEL), PNETTO (NLF + 1:NEL)
-DOUBLEPRECISION HRF (NEL), ZGRUND (NEL), QOC (NELEE, 4), rdum(nelee)
-!
-! Workspace arguments
-INTEGER :: IQ (NEL), JMIN (NEL), JSORT (0:NEL + 1)
-LOGICAL :: LDUM (NELEE)
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: SPR                     !! Sediment diagnostic output unit.
+INTEGER :: ICMREF (NELEE, 4, 2:3)  !! Face-neighbour and reverse-face reference map.
+INTEGER :: ICMRF2 (NLFEE, 3, 2)    !! Confluence branch reference map.
+INTEGER :: ISORT (NEL)             !! Donor-before-receptor element routing order.
+DOUBLEPRECISION DTUZ               !! Unsaturated-zone timestep in seconds.
+DOUBLEPRECISION CLAI (NV)          !! Current canopy leaf-area index by vegetation type.
+DOUBLEPRECISION PLAI (NV)          !! Potential/maximum leaf-area index by vegetation type.
+DOUBLEPRECISION ARXL (NLFEE)       !! Channel cross-sectional area by link.
+DOUBLEPRECISION DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+DOUBLEPRECISION PNETTO (NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
+DOUBLEPRECISION HRF (NEL)          !! Water level/head by element.
+DOUBLEPRECISION ZGRUND (NEL)       !! Ground or bed elevation by element.
+DOUBLEPRECISION QOC (NELEE, 4)     !! Face water fluxes.
+DOUBLEPRECISION rdum(nelee)        !! Floating-point workspace for reporting failed arrays.
+INTEGER :: IQ (NEL)                !! Workspace for routing-order checks.
+INTEGER :: JMIN (NEL)              !! Earliest required receptor position by donor.
+INTEGER :: JSORT (0:NEL + 1)       !! Inverse of `ISORT` with sentinel entries.
+LOGICAL :: LDUM (NELEE)            !! Logical workspace for element/face checks.
 !
 ! Locals, etc
 INTEGER :: FATAL, ERR
@@ -2520,15 +2652,21 @@ SUBROUTINE SYFINE (DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
 
 USE CONST_SY
 
-! Input arguments
-INTEGER :: NLF
-DOUBLEPRECISION DRSEDF, FBIC, FICRIT, ALPHA, DTSY, AREA (NLF), &
- DCBF (NLF)
-DOUBLEPRECISION PBSED (NLF), FBETAF (NLF), FDELF (NLF), TAUK (NLF)
-!
-! Output arguments
-DOUBLEPRECISION VCFMAX (NLF), VINFMX (NLF)
-LOGICAL :: BARM (NLF)
+INTEGER :: NLF                     !! Number of channel links.
+DOUBLEPRECISION DRSEDF             !! Representative fine-sediment particle diameter.
+DOUBLEPRECISION FBIC               !! Fine-bed fraction threshold for infiltration.
+DOUBLEPRECISION FICRIT             !! Fine-concentration threshold for infiltration.
+DOUBLEPRECISION ALPHA              !! Fine-sediment settling/resuspension critical-shear ratio.
+DOUBLEPRECISION DTSY               !! Sediment substep duration.
+DOUBLEPRECISION AREA (NLF)         !! Link bed/contact area used for fine exchange.
+DOUBLEPRECISION DCBF (NLF)         !! Active-bed fine sediment depth.
+DOUBLEPRECISION PBSED (NLF)        !! Channel-bed sediment porosity by link.
+DOUBLEPRECISION FBETAF (NLF)       !! Fine fraction in the active bed by link.
+DOUBLEPRECISION FDELF (NLF)        !! Mobile fine-sediment concentration fraction by link.
+DOUBLEPRECISION TAUK (NLF)         !! Channel/link shear stress.
+DOUBLEPRECISION VCFMAX (NLF)       !! Maximum fine volume available for settling/infiltration.
+DOUBLEPRECISION VINFMX (NLF)       !! Maximum fine infiltration volume.
+LOGICAL :: BARM (NLF)              !! True where fine sediment is protected by bed armouring.
 !
 ! Locals, etc
 DOUBLEPRECISION DUM, TAUEC, VMAX
@@ -2625,24 +2763,42 @@ SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, &
  DDBSED, DRSO50, DWATOL, FETA, GINFD, GINFS, GNU, GNUBK, QSED, &
  DBFULL)
 
-INTEGER :: NEL, NELEE, NLF, NLFEE, NS, NSED, NSEE, NSEDEE
-INTEGER :: NTSOBK (NLFEE), NTSOTP (NLF + 1:NEL)
-DOUBLEPRECISION ARXL (NLFEE), DCBEDO, DLS (NEL), DRSED (NSED)
-DOUBLEPRECISION FBETA (NELEE, NSED), HRF (NLF + 1:NEL), PBSED ( &
- NLFEE)
-DOUBLEPRECISION PLS (NLF + 1:NEL), SOSDFN (NSEE, NSED), THSAT (NS)
-DOUBLEPRECISION ZBFULL (NLFEE), ZGRUND (NEL)
-
-!
-! Output arguments
-DOUBLEPRECISION ARBDEP (NLFEE), ARXLOL (NLFEE), DBFULL (NLFEE)
-DOUBLEPRECISION DCBED (NLFEE), DCBSED (NLFEE, NSED)
-DOUBLEPRECISION DDBSED (NLFEE, NSED), DRSO50 (NS), DWATOL (NLF + &
- 1:NEL)
-DOUBLEPRECISION FETA (NEL), GINFD (NLFEE, NSED), GINFS (NLFEE, &
- NSED)
-DOUBLEPRECISION GNU (NLF + 1:NEL), GNUBK (NLFEE), QSED (NELEE, &
- NSEDEE, 4)
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NSEE                    !! Soil-type array dimension.
+INTEGER :: NSEDEE                  !! Sediment-size array dimension.
+INTEGER :: NTSOBK (NLFEE)          !! Bank soil type by link.
+INTEGER :: NTSOTP (NLF + 1:NEL)    !! Top soil type by land element.
+DOUBLEPRECISION ARXL (NLFEE)       !! Channel cross-sectional area by link.
+DOUBLEPRECISION DCBEDO             !! Active upper channel-bed layer thickness.
+DOUBLEPRECISION DLS (NEL)          !! Initial loose/bed sediment depth by element.
+DOUBLEPRECISION DRSED (NSED)       !! Representative sediment particle diameters.
+DOUBLEPRECISION FBETA (NELEE, NSED) !! Initial sediment composition by element and size class.
+DOUBLEPRECISION HRF (NLF + 1:NEL)  !! Initial land-element water level/head.
+DOUBLEPRECISION PBSED (NLFEE)      !! Channel-bed sediment porosity by link.
+DOUBLEPRECISION PLS (NLF + 1:NEL)  !! Loose-sediment porosity by land element.
+DOUBLEPRECISION SOSDFN (NSEE, NSED) !! Soil sediment-size fractions by soil type.
+DOUBLEPRECISION THSAT (NS)         !! Saturated water content by soil type.
+DOUBLEPRECISION ZBFULL (NLFEE)     !! Bankfull elevation/depth by link.
+DOUBLEPRECISION ZGRUND (NEL)       !! Ground or bed elevation by element.
+DOUBLEPRECISION ARBDEP (NLFEE)     !! Accumulated channel-bed elevation/depth change.
+DOUBLEPRECISION ARXLOL (NLFEE)     !! Previous channel cross-sectional area by link.
+DOUBLEPRECISION DBFULL (NLFEE)     !! Bankfull depth by link.
+DOUBLEPRECISION DCBED (NLFEE)      !! Active upper-bed layer depth by link.
+DOUBLEPRECISION DCBSED (NLFEE, NSED) !! Upper-bed sediment depth by link and size class.
+DOUBLEPRECISION DDBSED (NLFEE, NSED) !! Lower-bed sediment depth by link and size class.
+DOUBLEPRECISION DRSO50 (NS)        !! Median soil particle diameter by soil type.
+DOUBLEPRECISION DWATOL (NLF + 1:NEL) !! Previous water depth by land element.
+DOUBLEPRECISION FETA (NEL)         !! Soil-to-sediment solid-volume conversion factor by element.
+DOUBLEPRECISION GINFD (NLFEE, NSED) !! Fine infiltration diagnostic/source for deposited material.
+DOUBLEPRECISION GINFS (NLFEE, NSED) !! Fine infiltration diagnostic/source for suspended material.
+DOUBLEPRECISION GNU (NLF + 1:NEL)  !! Hillslope erosion rate by land element.
+DOUBLEPRECISION GNUBK (NLFEE)      !! Lateral bank erosion rate by link.
+DOUBLEPRECISION QSED (NELEE, NSEDEE, 4) !! Sediment flux by element, size class, and face.
 !
 ! Locals, etc
 !
@@ -2833,20 +2989,31 @@ SUBROUTINE SYLINK (NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
  DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
  DDIPRE, GINFDE, GINFSE)
 
-! Input arguments
-INTEGER :: NFINE, NSED, NSEDEE
-LOGICAL :: BARME
-DOUBLEPRECISION DTSY, AREAE, ARXLOE, ARXLE, CLENTE, EPSBE, PBSEDE
-DOUBLEPRECISION CONCIE (NSED), DCBSEE (NSED), DDBSEE (NSED), &
- QWAT (4)
-DOUBLEPRECISION QSDWAE (NSEDEE, 4), SOSDFE (NSED), VCFMAE, VINFME
-!
-! Input/output arguments
-DOUBLEPRECISION FDELE (NSED), QSEDE (NSEDEE, 4)
-!
-! Output arguments
-DOUBLEPRECISION DCIPRE (NSED), DDIPRE (NSED), GINFDE (NSED)
-DOUBLEPRECISION GINFSE (NSED)
+INTEGER :: NFINE                   !! Number of fine sediment classes.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NSEDEE                  !! Sediment-size array dimension.
+LOGICAL :: BARME                   !! True where fine sediment is protected by bed armouring.
+DOUBLEPRECISION DTSY               !! Sediment substep duration.
+DOUBLEPRECISION AREAE              !! Link bed/contact area.
+DOUBLEPRECISION ARXLOE             !! Previous channel cross-sectional area.
+DOUBLEPRECISION ARXLE              !! Current channel cross-sectional area.
+DOUBLEPRECISION CLENTE             !! Channel-link length.
+DOUBLEPRECISION EPSBE              !! Bank erosion sediment source for the link.
+DOUBLEPRECISION PBSEDE             !! Channel-bed sediment porosity.
+DOUBLEPRECISION CONCIE (NSED)      !! Capacity concentration by sediment class.
+DOUBLEPRECISION DCBSEE (NSED)      !! Current upper-bed sediment depth by size class.
+DOUBLEPRECISION DDBSEE (NSED)      !! Current lower-bed sediment depth by size class.
+DOUBLEPRECISION QWAT (4)           !! Outward water flux by face.
+DOUBLEPRECISION QSDWAE (NSEDEE, 4) !! Sediment advection coefficient by size class and face.
+DOUBLEPRECISION SOSDFE (NSED)      !! Bank/source sediment-size fraction.
+DOUBLEPRECISION VCFMAE             !! Maximum fine volume available for settling/infiltration.
+DOUBLEPRECISION VINFME             !! Maximum fine infiltration volume.
+DOUBLEPRECISION FDELE (NSED)       !! Mobile sediment concentration fraction by size class.
+DOUBLEPRECISION QSEDE (NSEDEE, 4)  !! Sediment flux by size class and face.
+DOUBLEPRECISION DCIPRE (NSED)      !! Interim upper-bed sediment depth for later bed update.
+DOUBLEPRECISION DDIPRE (NSED)      !! Interim lower-bed sediment depth for later bed update.
+DOUBLEPRECISION GINFDE (NSED)      !! Fine infiltration diagnostic/source for deposited material.
+DOUBLEPRECISION GINFSE (NSED)      !! Fine infiltration diagnostic/source for suspended material.
 !
 ! Locals, etc
 INTEGER :: FACE, J (4), JI, K (4), KI, NIN, NOUT, SED
@@ -3038,40 +3205,63 @@ SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, &
  LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, HRF, PLAI, &
  PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
  GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
-! Input arguments
-INTEGER :: NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD
-INTEGER :: ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:3), ICMRF2 ( &
- NLFEE, 3, 2)
-INTEGER :: ICMXY (NXEE, NY), NBFACE (NEL), NLYR (NLF + 1:NEL)
-!INTEGER :: NTSOIL (NELEE, NLYREE), NVC (NLF + 1:NEL)
-INTEGER :: NTSOIL (NEL, NLYREE), NVC (NLF + 1:NEL)
-INTEGER :: ISORT (NEL)
-DOUBLEPRECISION AREA (NEL), CLENTH (NLFEE), CWIDTH (NLFEE)
-DOUBLEPRECISION DHF (NELEE, 4), DXQQ (NLF + 1:NEL), DYQQ (NLF + 1: &
- NEL)
-DOUBLEPRECISION THSAT (NS), ZBFULL (NLFEE), ZGRUND (NEL)
-DOUBLEPRECISION DTUZ, TIH, UZNOW
-DOUBLEPRECISION ARXL (NLFEE), CLAI (NV), DRAINA (NLF + 1:NEL), &
- HRF (NEL)
-DOUBLEPRECISION PLAI (NV), PNETTO (NLF + 1:NEL), QOC (NELEE, 4)
-LOGICAL :: BEXBK, LINKNS (NLFEE)
-!
-! Input/output arguments
-INTEGER :: NSED
-DOUBLEPRECISION PBSED (NLFEE), PLS (NLF + 1:NEL), SOSDFN (NSEE, &
- NSEDEE)
-DOUBLEPRECISION ARBDEP (NLFEE), DLS (NEL)
-DOUBLEPRECISION DCBED (NLFEE), DCBSED (NLFEE, NSEDEE)
-DOUBLEPRECISION FBETA (NELEE, NSEDEE), FDEL (NELEE, NSEDEE)
-!
-! Output arguments
-DOUBLEPRECISION GINFD (NLFEE, NSEDEE), GINFS (NLFEE, NSEDEE)
-DOUBLEPRECISION GNU (NLF + 1:NEL), GNUBK (NLFEE), QSED (NELEE, &
- NSEDEE, 4)
-!
-! Workspace arguments
-INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
-DOUBLEPRECISION DUMMY (NELEE)
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: NX                      !! Number of grid columns.
+INTEGER :: NY                      !! Number of grid rows.
+INTEGER :: SFB                     !! Sediment boundary file unit.
+INTEGER :: SPR                     !! Sediment diagnostic output unit.
+INTEGER :: SRB                     !! Sediment rating-boundary file unit.
+INTEGER :: SYD                     !! Static sediment input unit.
+INTEGER :: ICMBK (NLFEE, 2)        !! Bank-element numbers for each channel link.
+INTEGER :: ICMREF (NELEE, 4, 2:3)  !! Face-neighbour and reverse-face reference map.
+INTEGER :: ICMRF2 (NLFEE, 3, 2)    !! Confluence branch reference map.
+INTEGER :: ICMXY (NXEE, NY)        !! Element number at each grid location.
+INTEGER :: NBFACE (NEL)            !! Number of boundary faces by element.
+INTEGER :: NLYR (NLF + 1:NEL)      !! Number of soil layers in each land element.
+INTEGER :: NTSOIL (NEL, NLYREE)    !! Soil type index for each element layer.
+INTEGER :: NVC (NLF + 1:NEL)       !! Vegetation type by land element.
+INTEGER :: ISORT (NEL)             !! Donor-before-receptor element routing order.
+DOUBLEPRECISION AREA (NEL)         !! Element plan area.
+DOUBLEPRECISION CLENTH (NLFEE)     !! Channel-link length.
+DOUBLEPRECISION CWIDTH (NLFEE)     !! Channel width by link.
+DOUBLEPRECISION DHF (NELEE, 4)     !! Face-to-face hydraulic distance.
+DOUBLEPRECISION DXQQ (NLF + 1:NEL) !! Land-element width.
+DOUBLEPRECISION DYQQ (NLF + 1:NEL) !! Land-element length.
+DOUBLEPRECISION THSAT (NS)         !! Saturated water content by soil type.
+DOUBLEPRECISION ZBFULL (NLFEE)     !! Bankfull elevation/depth by link.
+DOUBLEPRECISION ZGRUND (NEL)       !! Ground or bed elevation by element.
+DOUBLEPRECISION DTUZ               !! Unsaturated-zone timestep in seconds.
+DOUBLEPRECISION TIH                !! Initial simulation time in hours.
+DOUBLEPRECISION UZNOW              !! Current unsaturated-zone simulation time.
+DOUBLEPRECISION ARXL (NLFEE)       !! Channel cross-sectional area by link.
+DOUBLEPRECISION CLAI (NV)          !! Current canopy leaf-area index by vegetation type.
+DOUBLEPRECISION DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+DOUBLEPRECISION HRF (NEL)          !! Water level/head by element.
+DOUBLEPRECISION PLAI (NV)          !! Potential/maximum leaf-area index by vegetation type.
+DOUBLEPRECISION PNETTO (NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
+DOUBLEPRECISION QOC (NELEE, 4)     !! Face water fluxes.
+LOGICAL :: BEXBK                   !! True when bank elements are represented.
+LOGICAL :: LINKNS (NLFEE)          !! True for north-south channel links.
+INTEGER :: NSED                    !! Number of sediment size classes.
+DOUBLEPRECISION PBSED (NLFEE)      !! Channel-bed sediment porosity by link.
+DOUBLEPRECISION PLS (NLF + 1:NEL)  !! Loose-sediment porosity by land element.
+DOUBLEPRECISION SOSDFN (NSEE, NSEDEE) !! Soil sediment-size fractions by soil type.
+DOUBLEPRECISION ARBDEP (NLFEE)     !! Accumulated channel-bed elevation/depth change.
+DOUBLEPRECISION DLS (NEL)          !! Loose/bed sediment depth by element.
+DOUBLEPRECISION DCBED (NLFEE)      !! Active upper-bed layer depth by link.
+DOUBLEPRECISION DCBSED (NLFEE, NSEDEE) !! Upper-bed sediment depth by link and size class.
+DOUBLEPRECISION FBETA (NELEE, NSEDEE)  !! Sediment composition fraction by element and size class.
+DOUBLEPRECISION FDEL (NELEE, NSEDEE)   !! Mobile sediment concentration fraction by element and size class.
+DOUBLEPRECISION GINFD (NLFEE, NSEDEE)  !! Fine infiltration diagnostic/source for deposited material.
+DOUBLEPRECISION GINFS (NLFEE, NSEDEE)  !! Fine infiltration diagnostic/source for suspended material.
+DOUBLEPRECISION GNU (NLF + 1:NEL)      !! Hillslope erosion rate by land element.
+DOUBLEPRECISION GNUBK (NLFEE)          !! Lateral bank erosion rate by link.
+DOUBLEPRECISION QSED (NELEE, NSEDEE, 4) !! Sediment flux by element, size class, and face.
+INTEGER, DIMENSION(NXEE*NYEE) :: IDUM  !! Integer workspace for checks and reads.
+DOUBLEPRECISION DUMMY (NELEE)          !! Floating-point workspace for checks and reads.
 !
 ! Locals, etc
 !
@@ -3487,24 +3677,33 @@ SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
 
 USE CONST_SY
 
-! Input arguments
-INTEGER :: ISTEC, NEL, NLF, NS, NV, NTSOTP (NLF + 1:NEL), NVC ( &
- NLF + 1:NEL)
-DOUBLEPRECISION FCC (NV), LRAIN (NLF + 1:NEL), XDRIP (NV), &
- DRDRIP (NV)
-DOUBLEPRECISION FDRIP (NV), DRAINA (NLF + 1:NEL), GKR (NS)
-DOUBLEPRECISION DWAT1 (NLF + 1:NEL), DRDROP (NLF + 1:NEL), &
- FCG (NLF + 1:NEL)
-DOUBLEPRECISION FCROCK (NLF + 1:NEL), DRSO50 (NS), TAUK (NLF + 1: &
- NEL)
-DOUBLEPRECISION FPCLAY (NS), GKF (NS), RHOSO (NS)
-DOUBLEPRECISION DLS (NEL), DLSMAX
-!
-! Output arguments
-DOUBLEPRECISION GNU (NLF + 1:NEL)
-!
-! Workspace arguments
-DOUBLEPRECISION TGMD (NV)
+INTEGER :: ISTEC                   !! Critical-shear calculation option.
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: NTSOTP (NLF + 1:NEL)    !! Top soil type by land element.
+INTEGER :: NVC (NLF + 1:NEL)       !! Vegetation type by land element.
+DOUBLEPRECISION FCC (NV)           !! Canopy/ground sheltering fraction by vegetation type.
+DOUBLEPRECISION LRAIN (NLF + 1:NEL) !! Effective direct rainfall rate by land element.
+DOUBLEPRECISION XDRIP (NV)         !! Canopy drip fall height by vegetation type.
+DOUBLEPRECISION DRDRIP (NV)        !! Canopy drip drop diameter by vegetation type.
+DOUBLEPRECISION FDRIP (NV)         !! Canopy drip fraction by vegetation type.
+DOUBLEPRECISION DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+DOUBLEPRECISION GKR (NS)           !! Rainfall detachment coefficient by soil type.
+DOUBLEPRECISION DWAT1 (NLF + 1:NEL) !! Surface water depth by land element.
+DOUBLEPRECISION DRDROP (NLF + 1:NEL) !! Effective raindrop/drop diameter by land element.
+DOUBLEPRECISION FCG (NLF + 1:NEL)  !! Ground-cover fraction by land element.
+DOUBLEPRECISION FCROCK (NLF + 1:NEL) !! Rock-cover fraction by land element.
+DOUBLEPRECISION DRSO50 (NS)        !! Median soil particle diameter by soil type.
+DOUBLEPRECISION TAUK (NLF + 1:NEL) !! Overland-flow shear stress by land element.
+DOUBLEPRECISION FPCLAY (NS)        !! Clay fraction by soil type.
+DOUBLEPRECISION GKF (NS)           !! Flow detachment coefficient by soil type.
+DOUBLEPRECISION RHOSO (NS)         !! Soil bulk density by soil type.
+DOUBLEPRECISION DLS (NEL)          !! Loose-sediment depth by element.
+DOUBLEPRECISION DLSMAX             !! Loose-sediment depth above which soil erosion is suppressed.
+DOUBLEPRECISION GNU (NLF + 1:NEL)  !! Hillslope erosion rate by land element.
+DOUBLEPRECISION TGMD (NV)          !! Workspace for canopy-drip momentum by vegetation type.
 !
 ! Locals, etc
 DOUBLEPRECISION CLALIM, D1, L1, L2, X1
@@ -3652,14 +3851,18 @@ SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
 
 USE CONST_SY
 
-! Input arguments
-INTEGER :: ISGSED, NSED
-DOUBLEPRECISION DXQQE, DYQQE, DWAT1E, VDSED (NSED), DRSED (NSED), K2
-DOUBLEPRECISION QWAT (4), SLOPEE (4), TAUJE (4)
-
-!
-! Output arguments
-DOUBLEPRECISION GJSUM
+INTEGER :: ISGSED                  !! Overland transport-capacity option.
+INTEGER :: NSED                    !! Number of sediment size classes.
+DOUBLEPRECISION DXQQE              !! Element width.
+DOUBLEPRECISION DYQQE              !! Element length.
+DOUBLEPRECISION DWAT1E             !! Surface water depth.
+DOUBLEPRECISION VDSED (NSED)       !! Available sediment volume/fraction by size class.
+DOUBLEPRECISION DRSED (NSED)       !! Representative particle diameters by size class.
+DOUBLEPRECISION K2                 !! Yalin formula coefficient.
+DOUBLEPRECISION QWAT (4)           !! Outward water flux by face.
+DOUBLEPRECISION SLOPEE (4)         !! Water-surface slope by face.
+DOUBLEPRECISION TAUJE (4)          !! Face shear stress.
+DOUBLEPRECISION GJSUM              !! Total overland transport capacity over outflowing faces.
 !
 ! Locals, etc
 !
@@ -3812,34 +4015,71 @@ SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, &
 !
 ! NB: Don't dimension arrays with NSED (undefined) or NLF (may be 0).
 !
-! Input arguments
-INTEGER :: NEL, NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, NSYBEE, &
- NSYCEE
- INTEGER :: NTSOTP (NLF + 1:NEL), NV, NX, NXEE, NYEE, NY, SYD, SPR
- INTEGER :: ICMBK (NLFEE, 2), ICMREF (NELEE, 4, 2:2), ICMXY (NXEE, &
- NY)
-LOGICAL :: BEXBK, LINKNS (NLFEE)
-CHARACTER (LEN=*) :: SYVER
-!
-! Output arguments
-INTEGER :: ISACKW, ISGSED, ISSYOK, ISTEC, ISUSED, NEPS, NFINE
-INTEGER :: NSED, NSYB, NSYBCD (NSYBEE, 3), NSYC (4), NTSOBK ( &
- NLFEE)
-DOUBLEPRECISION ABC (NSEDEE, NSYCEE), ALPHA, BBC (NSEDEE, NSYCEE)
-DOUBLEPRECISION BKB (NS), CONCOB, DCBEDO, DLS (NEL), DRDRIP (NV)
-DOUBLEPRECISION DRSED (NSEDEE), FBETA (NELEE, NSEDEE), FBIC
-DOUBLEPRECISION FCG (NLF + 1:NEL), FCROCK (NLF + 1:NEL)
-DOUBLEPRECISION FDEL (NELEE, NSEDEE), FDRIP (NV), FICRIT
-DOUBLEPRECISION FPCLAY (NS), FPCRIT, GBC (NSEDEE, NSYCEE), &
- GKF (NS)
-DOUBLEPRECISION GKR (NS), PBSED (NLFEE), PLS (NLF + 1:NEL), &
- RHOSO (NS)
-DOUBLEPRECISION SOSDFN (NSEE, NSEDEE), XDRIP (NV)
-DOUBLEPRECISION DLSMAX
-!
-! Workspace arguments
-INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
-DOUBLEPRECISION DUMMY (NELEE), DUMSED (NLFEE * NSEDEE)
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NS                      !! Number of soil types.
+INTEGER :: NSEDEE                  !! Sediment-size array dimension.
+INTEGER :: NSEE                    !! Soil-type array dimension.
+INTEGER :: NSYBEE                  !! Sediment-boundary array dimension.
+INTEGER :: NSYCEE                  !! Sediment-boundary-category array dimension.
+INTEGER :: NTSOTP (NLF + 1:NEL)    !! Top soil type by land element.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: NX                      !! Number of grid columns.
+INTEGER :: NXEE                    !! Grid-column array dimension.
+INTEGER :: NYEE                    !! Grid-row workspace dimension.
+INTEGER :: NY                      !! Number of grid rows.
+INTEGER :: SYD                     !! Static sediment input unit.
+INTEGER :: SPR                     !! Sediment diagnostic output unit.
+INTEGER :: ICMBK (NLFEE, 2)        !! Bank-element numbers for each channel link.
+INTEGER :: ICMREF (NELEE, 4, 2:2)  !! Face-neighbour reference map.
+INTEGER :: ICMXY (NXEE, NY)        !! Element number at each grid location.
+LOGICAL :: BEXBK                   !! True when bank elements are represented.
+LOGICAL :: LINKNS (NLFEE)          !! True for north-south channel links.
+CHARACTER (LEN=*) :: SYVER         !! Expected sediment input-file version string.
+INTEGER :: ISACKW                  !! Channel transport-capacity option.
+INTEGER :: ISGSED                  !! Overland transport-capacity option.
+INTEGER :: ISSYOK                  !! Dynamic sediment input-check interval.
+INTEGER :: ISTEC                   !! Critical-shear calculation option.
+INTEGER :: ISUSED                  !! Sediment velocity option.
+INTEGER :: NEPS                    !! Number of sediment substeps per water timestep.
+INTEGER :: NFINE                   !! Number of fine sediment classes.
+INTEGER :: NSED                    !! Number of sediment size classes.
+INTEGER :: NSYB                    !! Number of sediment boundary entries.
+INTEGER :: NSYBCD (NSYBEE, 3)      !! Sediment boundary element, type, and category metadata.
+INTEGER :: NSYC (4)                !! Number of sediment boundary categories by boundary type.
+INTEGER :: NTSOBK (NLFEE)          !! Bank soil type by link.
+DOUBLEPRECISION ABC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `A`.
+DOUBLEPRECISION ALPHA              !! Fine-sediment settling/resuspension critical-shear ratio.
+DOUBLEPRECISION BBC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `B`.
+DOUBLEPRECISION BKB (NS)           !! Bank erodibility by soil type.
+DOUBLEPRECISION CONCOB             !! Mobile concentration threshold for overbank exchange.
+DOUBLEPRECISION DCBEDO             !! Active upper channel-bed layer thickness.
+DOUBLEPRECISION DLS (NEL)          !! Initial loose/bed sediment depth by element.
+DOUBLEPRECISION DRDRIP (NV)        !! Canopy drip drop diameter by vegetation type.
+DOUBLEPRECISION DRSED (NSEDEE)     !! Representative sediment particle diameters.
+DOUBLEPRECISION FBETA (NELEE, NSEDEE) !! Initial sediment composition by element and size class.
+DOUBLEPRECISION FBIC               !! Fine-bed fraction threshold for infiltration.
+DOUBLEPRECISION FCG (NLF + 1:NEL)  !! Ground-cover fraction by land element.
+DOUBLEPRECISION FCROCK (NLF + 1:NEL) !! Rock-cover fraction by land element.
+DOUBLEPRECISION FDEL (NELEE, NSEDEE) !! Initial mobile sediment concentration fraction.
+DOUBLEPRECISION FDRIP (NV)         !! Canopy drip fraction by vegetation type.
+DOUBLEPRECISION FICRIT             !! Fine-concentration threshold for infiltration.
+DOUBLEPRECISION FPCLAY (NS)        !! Clay fraction by soil type.
+DOUBLEPRECISION FPCRIT             !! Maximum sediment concentration fraction.
+DOUBLEPRECISION GBC (NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
+DOUBLEPRECISION GKF (NS)           !! Flow detachment coefficient by soil type.
+DOUBLEPRECISION GKR (NS)           !! Rainfall detachment coefficient by soil type.
+DOUBLEPRECISION PBSED (NLFEE)      !! Channel-bed sediment porosity by link.
+DOUBLEPRECISION PLS (NLF + 1:NEL)  !! Loose-sediment porosity by land element.
+DOUBLEPRECISION RHOSO (NS)         !! Soil bulk density by soil type.
+DOUBLEPRECISION SOSDFN (NSEE, NSEDEE) !! Soil sediment-size fractions by soil type.
+DOUBLEPRECISION XDRIP (NV)         !! Canopy drip fall height by vegetation type.
+DOUBLEPRECISION DLSMAX             !! Loose-sediment depth above which hillslope soil erosion is suppressed.
+INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for distributed reads.
+DOUBLEPRECISION DUMMY (NELEE)      !! Floating-point workspace for distributed reads.
+DOUBLEPRECISION DUMSED (NLFEE * NSEDEE) !! Flattened sediment-size workspace for distributed reads.
 !
 ! Locals, etc
 INTEGER :: FATAL, WARN
@@ -4222,23 +4462,34 @@ SUBROUTINE SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
 ! Commons and distributed constants
 USE CONST_SY
 
-! Input arguments
-! NB: Don't use NLF as array size: it may be zero
-INTEGER :: NEL, NELEE, NLF, NLFEE, NV
-INTEGER :: ICMREF (NELEE, 4, 2:3), ICMRF2 (NLFEE, 3, 2)
- INTEGER :: NVC (NLF + 1:NEL)
-DOUBLEPRECISION CLAI (NV), DHF (NELEE, 4), DRAINA (NLF + 1:NEL)
-DOUBLEPRECISION DRDRIP (NV), HRF (NEL), PLAI (NV), PNETTO (NLF + &
- 1:NEL)
-DOUBLEPRECISION QOC (NELEE, 4), ZBFULL (NLFEE), ZGRUND (NEL)
-
-
-LOGICAL :: LINKNS (NLFEE)
-!
-! Output arguments
-DOUBLEPRECISION DRDROP (NLF + 1:NEL), DWAT1 (NEL), FCC (NV)
-DOUBLEPRECISION FQCONF (NLFEE, 3), LRAIN (NLF + 1:NEL)
-DOUBLEPRECISION SLOPEJ (NELEE, 4), TAUJ (NELEE, 4), TAUK (NEL)
+! NB: Don't use NLF as array size: it may be zero.
+INTEGER :: NEL                     !! Number of elements.
+INTEGER :: NELEE                   !! Element-array dimension.
+INTEGER :: NLF                     !! Number of channel links.
+INTEGER :: NLFEE                   !! Link-array dimension.
+INTEGER :: NV                      !! Number of vegetation types.
+INTEGER :: ICMREF (NELEE, 4, 2:3)  !! Face-neighbour and reverse-face reference map.
+INTEGER :: ICMRF2 (NLFEE, 3, 2)    !! Confluence branch reference map.
+INTEGER :: NVC (NLF + 1:NEL)       !! Vegetation type by land element.
+DOUBLEPRECISION CLAI (NV)          !! Current canopy leaf-area index by vegetation type.
+DOUBLEPRECISION DHF (NELEE, 4)     !! Face-to-face hydraulic distance.
+DOUBLEPRECISION DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+DOUBLEPRECISION DRDRIP (NV)        !! Canopy drip drop diameter by vegetation type.
+DOUBLEPRECISION HRF (NEL)          !! Water level/head by element.
+DOUBLEPRECISION PLAI (NV)          !! Potential/maximum leaf-area index by vegetation type.
+DOUBLEPRECISION PNETTO (NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
+DOUBLEPRECISION QOC (NELEE, 4)     !! Face water fluxes.
+DOUBLEPRECISION ZBFULL (NLFEE)     !! Bankfull elevation/depth by link.
+DOUBLEPRECISION ZGRUND (NEL)       !! Ground or bed elevation by element.
+LOGICAL :: LINKNS (NLFEE)          !! True for north-south channel links.
+DOUBLEPRECISION DRDROP (NLF + 1:NEL) !! Effective raindrop/drop diameter by land element.
+DOUBLEPRECISION DWAT1 (NEL)        !! Surface/channel water depth by element.
+DOUBLEPRECISION FCC (NV)           !! Canopy/ground sheltering fraction by vegetation type.
+DOUBLEPRECISION FQCONF (NLFEE, 3)  !! Confluence outflow fractions for receiving branches.
+DOUBLEPRECISION LRAIN (NLF + 1:NEL) !! Effective direct rainfall rate by land element.
+DOUBLEPRECISION SLOPEJ (NELEE, 4)  !! Face water-surface slopes.
+DOUBLEPRECISION TAUJ (NELEE, 4)    !! Face shear stress.
+DOUBLEPRECISION TAUK (NEL)         !! Representative element/link shear stress.
 ! NB: FQCONF defined only for branches flowing INTO a node;
 !     SLOPEJ & TAUJ not defined at side faces of links.
 !

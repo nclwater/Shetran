@@ -32,6 +32,7 @@
 !> | 1998-04 | RAH | 4.2 | Reworked bank, link, and boundary-condition calls. |
 !> | 1998-08-07 | RAH | 4.2 | Added local `LINK` to avoid out-of-bounds access. |
 !> | 2009-01 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2019-05-22 | SB | - | Added negative-`STRXX` surface-storage switching. |
 !> | 2020-05-20 | SB | - | Added ZQ table routing support. |
 !> @endhistory
 MODULE ocqdqmod
@@ -42,9 +43,12 @@ USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, NOCBCC, NOCBCD, NoZQTables,ZQTableRe
 USE OCmod2 ,   ONLY : GETHRF, OCQMLN, SETQSA, OCQBNK, OCQGRD, OCQLNK, OCQBC
 
 IMPLICIT NONE
-DOUBLEPRECISION    :: XAFULL(NLFEE), COCBCD(5, NOCTAB)
-DOUBLEPRECISION    :: HOCNOW (NOCTAB), QOCF (NOCTAB)
-DOUBLEPRECISION    :: STRXX(NELEE), STRYY(NELEE)
+DOUBLEPRECISION    :: XAFULL(NLFEE)       !! Full-flow cross-sectional area for each channel link.
+DOUBLEPRECISION    :: COCBCD(5, NOCTAB)   !! Real-valued overland/channel boundary-condition coefficients.
+DOUBLEPRECISION    :: HOCNOW(NOCTAB)      !! Current boundary stage/head values by boundary category.
+DOUBLEPRECISION    :: QOCF(NOCTAB)        !! Current prescribed overland/channel boundary flow values by category.
+DOUBLEPRECISION    :: STRXX(NELEE)        !! X-direction Strickler roughness, or negative storage-depth marker.
+DOUBLEPRECISION    :: STRYY(NELEE)        !! Y-direction Strickler roughness.
 !LOGICAL            :: firstocqdq=.TRUE.
 
 
@@ -318,13 +322,13 @@ END FUNCTION fstr
 
 
 
-!> Returns the grid length normal to a face direction.
+!> Returns the transverse face length used in a face-flow calculation.
 !>
 !> Faces 1 and 3 use `DYQQ`; faces 2 and 4 use `DXQQ`.
 FUNCTION fdqq(jel, face) RESULT(r)
 INTEGER, INTENT(IN) :: jel  !! Element index.
 INTEGER, INTENT(IN) :: face !! Face number.
-DOUBLEPRECISION     :: r    !! Grid length associated with the requested face.
+DOUBLEPRECISION     :: r    !! Transverse face length associated with the requested face.
 !mult = DBLE(MOD(face,2))
 !r    = mult * dyqq(jel) + (one-mult) * dxqq(jel)
 IF(face==1 .OR. face==3) THEN

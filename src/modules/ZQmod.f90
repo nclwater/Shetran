@@ -8,10 +8,8 @@
 !> module arrays used later by [[get_ZQTable_value]].
 !>
 !> The implementation is a tabulated stage-discharge relationship rather than a
-!> fitted hydraulic formula. This is the same hydrological concept as a rating
-!> curve, where discharge is obtained from water level using an established
-!> stage-discharge relation. See the USGS overview of rating curves:
-!> https://www.usgs.gov/faqs/how-a-rating-curve-used-convert-gage-height-streamflow
+!> fitted hydraulic formula: discharge is selected from the active column by the
+!> current upstream stage.
 !>
 !> The ZQ file may contain several tables, one per reservoir/channel link. Each
 !> table has a first column of stage values and one or more discharge columns
@@ -21,15 +19,15 @@
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | - | DH | - | Initial version. |
-!> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
+!> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
 !> @endhistory
 !>
-!> @note The table parser assumes space-delimited input and ascending stage
-!> threshold headers. The lookup returns the first table row where `Zu` is not
-!> greater than the stored stage value; it does not interpolate between rows.
-!> The active discharge column is selected from the `ZQ>threshold` headers only
-!> when the configured sluice operation hour crosses a new day.
+!> @note The table parser assumes space-delimited input, one trailing delimiter
+!> after each header token, and ascending `ZQ>threshold` headers. The lookup
+!> returns the first table row where `Zu` is not greater than the stored stage
+!> value; it does not interpolate between rows. The active discharge column is
+!> selected from the `ZQ>threshold` headers only when the configured sluice
+!> operation hour crosses a new day.
 !> @endnote
 !>
 !>
@@ -49,13 +47,13 @@ module ZQmod
     PRIVATE
 
     ! module variables
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQcols                  !< use to dimension allocatable arrays
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQrows                  !< use to dimension allocatable arrays
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: zcol                     !< use to dimension allocatable arrays
-    REAL(kind=R8P), DIMENSION(:,:), ALLOCATABLE     :: headerRealArray          !< real array to store weirEq stage thresholds
-    REAL(kind=R8P), DIMENSION(:,:,:), ALLOCATABLE   :: ZQ                       !< ZQ = 2D array (nZQrows, nZQcols)
-    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: ZQTableOpHour            !< the hour at which sluices are operated
-    INTEGER(kind=I_P)                               :: ZQTableRef               !< the reference number of the ZQtable
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQcols                  !! Number of columns in each ZQ table.
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQrows                  !! Number of data rows in each ZQ table.
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: zcol                     !! Currently active discharge-column index for each ZQ table.
+    REAL(kind=R8P), DIMENSION(:,:), ALLOCATABLE     :: headerRealArray          !! Numeric stage thresholds parsed from `ZQ>threshold` headers.
+    REAL(kind=R8P), DIMENSION(:,:,:), ALLOCATABLE   :: ZQ                       !! Stage-discharge table values, indexed by row, column, and table.
+    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: ZQTableOpHour            !! Hour offset at which each reservoir's sluices are operated.
+    INTEGER(kind=I_P)                               :: ZQTableRef               !! Reference number read for the current ZQ table.
 
     ! what is public from this module?
     PUBLIC                                          :: ReadZQTable, get_ZQTable_value   ! subroutine names
@@ -77,8 +75,7 @@ module ZQmod
     !> @history
     !> | Date | Author | Version | Description |
     !> |:-----|:-------|:--------|:------------|
-    !> | - | DH | - | Initial version. |
-    !> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
+    !> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
     !> @endhistory
     !>
     !> Expected table layout:
@@ -92,6 +89,14 @@ module ZQmod
     !> | Header row | First column is stage `Z`; later columns are `ZQ>stage_threshold` discharge columns. |
     !> | Data rows | Stage in column 1 and discharges in the selected lookup columns. |
     !>
+    !> Input assumptions:
+    !>
+    !> | Assumption | Consequence in the code |
+    !> |:-----------|:------------------------|
+    !> | Header tokens are separated by spaces and retain a trailing space while parsed. | `INDEX(headerRaw," ")` is used to count and split columns. |
+    !> | `ZQ>threshold` columns are in ascending threshold order. | `ZQweirSill` is taken from column 2 and column selection scans from high to low. |
+    !> | Stage rows are in ascending stage order. | [[get_ZQTable_value]] returns the first row with `Zu <= ZQ(row,1,table)`. |
+    !>
     !> @note This routine has no dummy arguments. It reads from the globally
     !> opened `zqd` unit, allocates module arrays, allocates ZQ metadata arrays
     !> from `AL_D`, writes `output_readZQTable.txt`, closes `zqd`, and stops the
@@ -100,16 +105,22 @@ module ZQmod
     SUBROUTINE ReadZQTable()
 
         ! general variables
-        INTEGER(kind=I_P)                               :: i, j, k, printRow, printCol, pos     !< useful local integers
+        INTEGER(kind=I_P)                               :: i                  !! Table and row loop index.
+        INTEGER(kind=I_P)                               :: j                  !! Header, row, and column loop index.
+        INTEGER(kind=I_P)                               :: k                  !! Implied-DO column index while reading table values.
+        INTEGER(kind=I_P)                               :: printRow           !! Row index used when echoing a table to the log file.
+        INTEGER(kind=I_P)                               :: printCol           !! Column index used when echoing a table to the log file.
+        INTEGER(kind=I_P)                               :: pos                !! Position of the next space delimiter in `headerRaw`.
 
         ! specific variables
-        CHARACTER(LEN = 120)                            :: headerRaw                            !< stores the entire first line of the ZQtable file
-        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerRawArray                       !< character array to store ZQtable header names
-        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerCharArray                      !< character array to store trimmed ZQtable header names
-        INTEGER(kind=I_P)                               :: maxnumberRows, maxnumberCols         !< use to dimension allocatable arrays
-        LOGICAL                                         :: IsZQreadOK=.FALSE.                   !< sets initial value for error catching
+        CHARACTER(LEN = 120)                            :: headerRaw          !! Raw ZQ table header line while it is being split.
+        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerRawArray     !! Raw header tokens by column and table.
+        CHARACTER(LEN = 9), DIMENSION(:,:), ALLOCATABLE :: headerCharArray    !! Numeric part of each `ZQ>threshold` header as text.
+        INTEGER(kind=I_P)                               :: maxnumberRows      !! Maximum row count over all ZQ tables.
+        INTEGER(kind=I_P)                               :: maxnumberCols      !! Maximum column count over all ZQ tables.
+        LOGICAL                                         :: IsZQreadOK=.FALSE. !! Unused legacy read-status flag.
 
-        INTEGER(kind=I_P)                               :: fid_ZQ_log                           !< file-id of the ZQ-table-logfile
+        INTEGER(kind=I_P)                               :: fid_ZQ_log         !! Unit number for `output_readZQTable.txt`.
 
 
         ! Code -----------------------------------------------------------------
@@ -250,8 +261,7 @@ module ZQmod
     !> @history
     !> | Date | Author | Version | Description |
     !> |:-----|:-------|:--------|:------------|
-    !> | - | DH | - | Initial version. |
-    !> | - | SB | SHETRAN 4.4.6.Res2 | Reworked for inclusion in SHETRAN. |
+    !> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
     !> @endhistory
     !>
     !> @note This routine uses `UZNOW`, `UZNEXT`, `ZQTableOpHour`,
@@ -267,7 +277,7 @@ module ZQmod
         REAL(kind=R8P)                  :: Qd       !! Downstream discharge returned from the selected ZQ table column.
 
         ! general variables
-        INTEGER(kind=I_P)               :: i        !< loop counter
+        INTEGER(kind=I_P)               :: i        !! Row or column loop index.
 
         ! Code -----------------------------------------------------------------
 

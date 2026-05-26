@@ -51,7 +51,7 @@
 !> those cases discharge is a tabulated stage-discharge lookup rather than a
 !> direct conveyance or weir calculation.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -59,24 +59,26 @@
 !> | 1999-02 | SB | 4.27 | Adjusted confluence mass conservation and small adverse-flow correction behaviour. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted part of the OC `.F` files into this Fortran 90 helper module. |
 !> | 2020-05 | SB | - | Added ZQ-table reservoir/channel link support. |
+!> @endhistory
 MODULE OCmod2
 USE SGLOBAL
 USE ZQmod,     ONLY : get_ZQTable_value
 USE AL_D,      ONLY : ZQweirsill,ZQTableRef
 IMPLICIT NONE
 
-DOUBLEPRECISION, PARAMETER   :: F23=2.0D0/3.0D0,      &
-                                F53=5.0D0/3.0D0,      &
-                                DZMIN = 1.0D-3,       &
-                                RDZMIN=3.16227766d-2, & !(=sqrt(dzmin))
-                                H23MIN=1.0d-2,        & !(=DZMIN^^F23)
-                                ROOT2G = 4.42944d0      !=sqrt(2x9.81)
-DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !water surface elevation - here for data abstraction AD
-DOUBLEPRECISION, DIMENSION(NELEE,4)        :: qsazz    !discharge elevation - here for data abstraction AD
+DOUBLEPRECISION, PARAMETER   :: F23 = 2.0D0/3.0D0      !! Exponent \(2/3\) used in Strickler conveyance.
+DOUBLEPRECISION, PARAMETER   :: F53 = 5.0D0/3.0D0      !! Exponent factor \(5/3\) used by the implemented derivative branches.
+DOUBLEPRECISION, PARAMETER   :: DZMIN = 1.0D-3         !! Small depth/head-difference threshold, in metres.
+DOUBLEPRECISION, PARAMETER   :: RDZMIN = 3.16227766D-2 !! Square root of `DZMIN`.
+DOUBLEPRECISION, PARAMETER   :: H23MIN = 1.0D-2        !! `DZMIN**(2/3)`, retained for legacy comments and comparisons.
+DOUBLEPRECISION, PARAMETER   :: ROOT2G = 4.42944D0     !! Approximation to \(\sqrt{2g}\) for weir flow.
+DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !! Water-surface elevation by element; abstracted for AD and solver access.
+DOUBLEPRECISION, DIMENSION(NELEE,4)        :: QSAZZ    !! Face discharge by element and face; positive into the indexed element.
 
 ! sb 121212
 !DOUBLEPRECISION, DIMENSION(3,NXSCEE,NLFEE) :: xstab
-DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: xstab
+DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: XSTAB
+    !! Channel lookup table: depth, conveyance, and conveyance slope by row and link.
 
 PRIVATE
 PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, GETQSA_ALL, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
@@ -223,7 +225,7 @@ END SUBROUTINE initialise_ocmod
 !> is also issued when the residual is greater than one percent of total
 !> absolute flow or the bracket is wider than `1D-3`.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -234,15 +236,19 @@ END SUBROUTINE initialise_ocmod
 !> | 1998-03-18 | RAH | 4.2 | Added `DI` argument passed to [[fnode]]. |
 !> | 1999-02-04 | SB | 4.27 | Fixed junction mass conservation by adjusting the largest absolute branch flow so the branch-flow sum is zero. |
 !> | 2026-05-21 | SB | 4.6 | Increased the iteration limit and tightened convergence criteria at channel junctions. |
+!> @endhistory
 SUBROUTINE OCNODE (iela, ZI, CI, DI, ROOTLI, QJ)
 
-INTEGER, INTENT(IN)         :: IELa
-DOUBLEPRECISION, INTENT(IN) :: CI (0:3), DI (0:3), ZI (0:3), ROOTLI (0:3)
+INTEGER, INTENT(IN)         :: IELa       !! Element number used in confluence warning diagnostics.
+DOUBLEPRECISION, INTENT(IN) :: CI(0:3)    !! Branch conveyance at the current branch water level.
+DOUBLEPRECISION, INTENT(IN) :: DI(0:3)    !! Branch conveyance derivative with respect to water level.
+DOUBLEPRECISION, INTENT(IN) :: ZI(0:3)    !! Water-surface elevation at each branch.
+DOUBLEPRECISION, INTENT(IN) :: ROOTLI(0:3) !! Square root of branch flow length; zero marks an absent branch.
 ! NB:
 !         ROOTLI(J)   is zero for any absent branches J.gt.0
 !                     Note: branch J=0 is never absent.
 !   DI(J),CI(J),ZI(J) are undefined for absent branches
-DOUBLEPRECISION, INTENT(OUT) :: QJ (0:3)
+DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)   !! Flow from the solved node into each branch.
 INTEGER                      :: J, NC
 DOUBLEPRECISION              :: A, B, FA, FB, FN, FNM1, SIGMAQ, WN
 LOGICAL                      :: TEST
@@ -370,16 +376,22 @@ END SUBROUTINE OCNODE
 !> Positive `QJ(j)` is flow leaving the trial node into branch `j`; negative
 !> values represent flow entering the node from that branch.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1998-02-11 | RAH | 4.2 | Added explicit typing, generic intrinsics, local flow/residual variables, integer direction handling, and replaced the old `CI2` array with scalar conveyance logic. |
 !> | 1998-02-12 | RAH | 4.2 | Removed local `CI3` and extended the active-branch loop logic. |
 !> | 1998-03-18 | RAH | 4.2 | Set downstream branch conveyance using `ZNODE` and added the `DI` argument passed from [[ocnode]]. |
+!> @endhistory
 SUBROUTINE FNODE (ZNODE, DI, CI, ZI, ROOTLI, QJ, resfnode)
-DOUBLEPRECISION, INTENT(IN) ::  ZNODE, DI (0:3), CI (0:3), ZI (0:3), ROOTLI (0:3)
-DOUBLEPRECISION, INTENT(OUT) ::  QJ (0:3), resfnode
+DOUBLEPRECISION, INTENT(IN)  :: ZNODE      !! Trial node water-surface elevation.
+DOUBLEPRECISION, INTENT(IN)  :: DI(0:3)    !! Branch conveyance derivative with respect to water level.
+DOUBLEPRECISION, INTENT(IN)  :: CI(0:3)    !! Branch conveyance at the current branch water level.
+DOUBLEPRECISION, INTENT(IN)  :: ZI(0:3)    !! Water-surface elevation at each branch.
+DOUBLEPRECISION, INTENT(IN)  :: ROOTLI(0:3) !! Square root of branch flow length; zero marks an absent branch.
+DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)    !! Flow from the trial node into each branch.
+DOUBLEPRECISION, INTENT(OUT) :: resfnode   !! Sum of branch flows for the trial node elevation.
 ! NB:
 !         QJ(J) is output, but only for those J with ROOTLI(J).ne.0
 ! Locals, etc
@@ -459,16 +471,22 @@ END SUBROUTINE FNODE
 !> DERIV=CONV\left(\frac{CWIDTH}{A}+\frac{2}{3H}\right).
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
 !> | 1998-04-23 | RAH | 4.2 | Added explicit typing; moved `ZG` before `Z`; replaced common-block inputs with arguments for roughness, full area, cross-section width, and lookup table; replaced loop search with direct interval calculation; rearranged above-bankfull conveyance/derivative expressions. |
+!> @endhistory
 SUBROUTINE OCCODE(ZG, STR, afromCWIDTH, afromXAFULL, afromXStypes, Z, CONV, DERIV)
-DOUBLEPRECISION, INTENT(IN) ::  ZG, STR, afromCWIDTH, afromXAFULL, Z
-DOUBLEPRECISION, INTENT(IN) ::  afromXStypes(3, NXSCEE)
-DOUBLEPRECISION, INTENT(OUT) :: CONV, DERIV
+DOUBLEPRECISION, INTENT(IN)  :: ZG                 !! Channel-bed elevation.
+DOUBLEPRECISION, INTENT(IN)  :: STR                !! Channel Strickler roughness coefficient.
+DOUBLEPRECISION, INTENT(IN)  :: afromCWIDTH        !! Channel top width used above the tabulated cross-section.
+DOUBLEPRECISION, INTENT(IN)  :: afromXAFULL        !! Full-flow cross-sectional area at the top of the lookup table.
+DOUBLEPRECISION, INTENT(IN)  :: afromXStypes(3, NXSCEE) !! Cross-section lookup rows: depth, conveyance, and conveyance slope.
+DOUBLEPRECISION, INTENT(IN)  :: Z                  !! Water-surface elevation to evaluate.
+DOUBLEPRECISION, INTENT(OUT) :: CONV               !! Conveyance at `Z`.
+DOUBLEPRECISION, INTENT(OUT) :: DERIV              !! Implemented derivative term returned with `CONV`.
 INTEGER :: I
 DOUBLEPRECISION H, HFULL, XA
 !----------------------------------------------------------------------*asum1
@@ -568,7 +586,7 @@ END SUBROUTINE OCCODE
 !>      {\sqrt{L}}.
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -579,12 +597,22 @@ END SUBROUTINE OCCODE
 !> | 1998-04-16 | RAH | 4.2 | Allowed `ZI < ZX` in the call to [[qweir]]. |
 !> | 1998-04-27 | RAH | 4.2 | Removed element/face arguments, added cross-section table inputs, and updated [[occode]] argument order. |
 !> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
+!> @endhistory
 SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, link, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
 ! Input arguments
-INTEGER, INTENT(IN)         :: NTYPE, LINK
-DOUBLEPRECISION, INTENT(IN) ::  LI, ZGI, STR, W, afromXAFULL, ZI, afromHOCNOW, afromQOCF, &
-                                afromCOCBCD(5) !, afromXSTAB (3, NXSCEE)
-DOUBLEPRECISION, INTENT(OUT) :: fromQ, fromDQ
+INTEGER, INTENT(IN)          :: NTYPE          !! OC boundary type code.
+INTEGER, INTENT(IN)          :: LINK           !! Channel link used for `XSTAB` lookup in river-plus-weir branches.
+DOUBLEPRECISION, INTENT(IN)  :: LI             !! Boundary flow-path length.
+DOUBLEPRECISION, INTENT(IN)  :: ZGI            !! Ground or bed elevation at the boundary element.
+DOUBLEPRECISION, INTENT(IN)  :: STR            !! Strickler roughness coefficient.
+DOUBLEPRECISION, INTENT(IN)  :: W              !! Boundary face width or channel width.
+DOUBLEPRECISION, INTENT(IN)  :: afromXAFULL    !! Full-flow channel area for `LINK`.
+DOUBLEPRECISION, INTENT(IN)  :: ZI             !! Local water-surface elevation.
+DOUBLEPRECISION, INTENT(IN)  :: afromHOCNOW    !! Current prescribed boundary head.
+DOUBLEPRECISION, INTENT(IN)  :: afromQOCF      !! Current prescribed boundary inflow rate.
+DOUBLEPRECISION, INTENT(IN)  :: afromCOCBCD(5) !! Boundary coefficients for polynomial, weir, or river-plus-weir branches.
+DOUBLEPRECISION, INTENT(OUT) :: fromQ          !! Boundary flow; sign follows the OC face convention.
+DOUBLEPRECISION, INTENT(OUT) :: fromDQ         !! Derivative of `fromQ` with respect to `ZI`.
 INTEGER                      :: MTYPE
 DOUBLEPRECISION              :: AH, B, C, CONVM, CONVMM, D, DERIVM, DHH, DQU, DUM, DZ, E
 DOUBLEPRECISION              :: H, HM, ROOTDZ, ROOTL
@@ -742,7 +770,7 @@ END SUBROUTINE OCQBC
 !> DQ_{HI,LO}=-DQ_{LO,LO}.
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -751,10 +779,16 @@ END SUBROUTINE OCQBC
 !> | 1998-04-06 | RAH | 4.2 | Removed local `ALPHA`; replaced common-block inputs with arguments; replaced scalar flow/derivative outputs with arrays; removed redundant `DDDZ`; introduced conservative `HI`/`LO` handling; replaced inlined weir code with [[qweir]], fixing drowned and undrowned derivative/flow errors. |
 !> | 1998-04-08 | RAH | 4.2 | Renamed channel length argument to `W`, made flow lengths an argument array, reordered statements, used `H23MIN`/`CONVMM`, and added `DZL`. |
 !> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
+!> @endhistory
 SUBROUTINE OCQBNK (W, LI, ZBG, STR, ZI, Q, DQ)
 ! Note: Subscript 0 refers to the link, 1 to the land element
-DOUBLEPRECISION, INTENT(IN)  :: W, LI (0:1), ZBG (0:1), STR (0:1), ZI (0:1)
-DOUBLEPRECISION, INTENT(OUT) :: Q (0:1), DQ (0:1, 0:1)
+DOUBLEPRECISION, INTENT(IN)  :: W          !! Channel-bank exchange width or channel length used by the exchange formula.
+DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)    !! Link-side and land-side flow lengths.
+DOUBLEPRECISION, INTENT(IN)  :: ZBG(0:1)   !! Bed or ground elevations, with index 0 for link and 1 for land.
+DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)   !! Link-side and land-side Strickler roughness coefficients.
+DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)    !! Link-side and land-side water-surface elevations.
+DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)     !! Paired exchange flows.
+DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
 INTEGER                      :: HI, LO
 DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
 DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
@@ -898,7 +932,7 @@ END SUBROUTINE OCQBNK
 !> and the higher-row derivatives are the negative of these values, so
 !> `Q(1)=-Q(0)` and `DQ(1,i)=-DQ(0,i)`.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -906,11 +940,17 @@ END SUBROUTINE OCQBNK
 !> | 1998-03-31 | RAH | 4.2 | Removed local `ALPHA`; replaced element/face/common inputs with explicit width, length, level, roughness, and elevation arguments; replaced scalar flow/derivative outputs with arrays; removed redundant arguments and locals; added `HI`/`LO` direction handling and generic intrinsics. |
 !> | 1998-04-27 | RAH | 4.2 | Reordered arguments for `OCQDQ` and replaced local roughness-width handling with `STRW = STRM*W`. |
 !> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
+!> @endhistory
 SUBROUTINE OCQGRD (NTYPE, LI, ZGI, STR, W, ZI, Q, DQ)
 ! Input arguments
-INTEGER, INTENT(IN)          :: NTYPE
-DOUBLEPRECISION, INTENT(IN)  :: W, LI (0:1), ZGI (0:1), STR (0:1), ZI (0:1)
-DOUBLEPRECISION, INTENT(OUT) :: Q (0:1), DQ (0:1, 0:1)
+INTEGER, INTENT(IN)          :: NTYPE      !! Internal boundary type code.
+DOUBLEPRECISION, INTENT(IN)  :: W          !! Shared face width.
+DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)    !! Flow lengths for the two land elements.
+DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:1)   !! Ground elevations for the two land elements.
+DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)   !! Directional Strickler roughness values for the two land elements.
+DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)    !! Water-surface elevations for the two land elements.
+DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)     !! Paired land-land exchange flows.
+DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
 INTEGER                      :: HI, LO, I
 DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
 DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
@@ -1041,7 +1081,7 @@ END SUBROUTINE OCQGRD
 !> DQ_{HI,LO}=-DQ_{LO,LO}.
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -1051,15 +1091,22 @@ END SUBROUTINE OCQGRD
 !> | 1998-04-03 | RAH | 4.2 | Removed local `ALPHA`; replaced common-block inputs with arguments; replaced scalar outputs with arrays; simplified conveyance/derivative locals; skipped conveyance calculation for internal weirs; introduced `HI`/`LO` branch handling; used smoothed derivative terms. |
 !> | 1998-04-24 | RAH | 4.2 | Removed element arguments, added cross-section table/roughness/width/area inputs, and updated [[occode]] argument order. |
 !> | 2020-05-20 | SB | - | Added ZQ-table reservoir/channel link branch using `get_ZQTable_value`. |
+!> @endhistory
 SUBROUTINE OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, jXSwork, afromCOCBCD, ZI, Q, DQ)
 
 ! Input arguments
-INTEGER, INTENT(IN)          :: NTYPE
-DOUBLEPRECISION, INTENT(IN)  :: LI (0:1), ZGI (0:1), CW (0:1), afromCOCBCD(3)
-DOUBLEPRECISION, INTENT(IN)  ::  ZI (0:1), STR (0:1), XA (0:1)
+INTEGER, INTENT(IN)          :: NTYPE          !! Internal link-link boundary type code.
+DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)        !! Flow lengths for the two links.
+DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:1)       !! Bed elevations for the two links.
+DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)       !! Strickler roughness coefficients for the two links.
+DOUBLEPRECISION, INTENT(IN)  :: CW(0:1)        !! Channel widths for the two links.
+DOUBLEPRECISION, INTENT(IN)  :: XA(0:1)        !! Full-flow areas for the two links.
+DOUBLEPRECISION, INTENT(IN)  :: afromCOCBCD(3) !! Internal weir coefficients: coefficient, submergence ratio, and sill.
+DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)        !! Water-surface elevations for the two links.
 !DOUBLEPRECISION, INTENT(IN)  :: afromXSwork (3, NXSCEE, 0:1)
-INTEGER, INTENT(IN)          :: JXSWORK(0:3)
-DOUBLEPRECISION, INTENT(OUT) :: Q (0:1), DQ (0:1, 0:1)
+INTEGER, INTENT(IN)          :: JXSWORK(0:3)   !! Link indices used to select each participant's `XSTAB` table.
+DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)         !! Paired link-link exchange flows.
+DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1)   !! Derivatives of paired exchange flows with respect to water levels.
 INTEGER                      :: HI, LO
 DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ
 DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, SUBRIO, ZSILL
@@ -1093,7 +1140,9 @@ ELSEIF (NTYPE.EQ.12) THEN
     Q(LO)     = get_ZQTable_value(ZQTableRef,ZI(HI))
     weirsill  = ZQWeirSill(ZQTableRef)
     DZU       = DIMJE(ZI(HI), weirsill)
-    DQ(LO,HI) = 50.0*1.5*sqrt(dzu)                            ! This works for Crummock. Stability during step changes should be tested e.g. for a small area reservoir
+    DQ(LO,HI) = 50.0*1.5*sqrt(dzu)
+    ! This works for Crummock. Stability during step changes should be tested
+    ! e.g. for a small area reservoir.
     DQ(LO,LO) = 0
     !write(779,*) zi(hi),Q(lo),dq(lo,hi)
 ! ZQ Module 200520 end
@@ -1194,7 +1243,7 @@ END SUBROUTINE OCQLNK
 !> positive and another is negative, the positive-flow branch is connected to a
 !> lower water level than the negative-flow branch.
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -1206,13 +1255,20 @@ END SUBROUTINE OCQLNK
 !> | 1998-02-25 | RAH | 4.2 | Removed redundant face input and used local `ZJ` so input `ZI` is not altered. |
 !> | 1998-03-18 | RAH | 4.2 | Obtained conveyance derivative `DI` from [[occode]] and passed it to [[ocnode]]. |
 !> | 1998-04-24 | RAH | 4.2 | Added roughness, width, area, and cross-section table arguments; updated [[occode]] arguments; added `ONEPC`; removed special single-wet-branch treatment. |
+!> @endhistory
 SUBROUTINE OCQMLN(ielb, JEL2, LI, ZGI, STR, CW, XA,  ZI, QJ, DQIJ, JXSwork)
-INTEGER, INTENT(IN)          :: IELb, JEL2 (0:3)
-DOUBLEPRECISION, INTENT(IN)  :: LI (0:3), ZGI (0:3), STR (0:3)
-DOUBLEPRECISION, INTENT(IN)  ::  CW (0:3), XA (0:3), ZI (0:3)
+INTEGER, INTENT(IN)          :: IELb           !! Element number used in confluence diagnostics.
+INTEGER, INTENT(IN)          :: JEL2(0:3)      !! Participant element numbers; non-positive entries are inactive.
+DOUBLEPRECISION, INTENT(IN)  :: LI(0:3)        !! Flow lengths for participant branches.
+DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:3)       !! Bed elevations for participant branches.
+DOUBLEPRECISION, INTENT(IN)  :: STR(0:3)       !! Strickler roughness coefficients for participant branches.
+DOUBLEPRECISION, INTENT(IN)  :: CW(0:3)        !! Channel widths for participant branches.
+DOUBLEPRECISION, INTENT(IN)  :: XA(0:3)        !! Full-flow areas for participant branches.
+DOUBLEPRECISION, INTENT(IN)  :: ZI(0:3)        !! Water-surface elevations for participant branches.
 !DOUBLEPRECISION, INTENT(IN)  :: XSwork(3,NXSCEE,0:3)
-INTEGER, INTENT(IN)          :: jxswork(0:3)
-DOUBLEPRECISION, INTENT(OUT) ::  QJ (0:3), DQIJ (0:3, 0:3)
+INTEGER, INTENT(IN)          :: JXSWORK(0:3)   !! Link indices used to select participant `XSTAB` tables.
+DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)        !! Flow from the solved node into each branch.
+DOUBLEPRECISION, INTENT(OUT) :: DQIJ(0:3, 0:3) !! Finite-difference branch-flow derivative matrix.
 ! NB:
 !     DQIJ(i,j) is defined for active_j only
 !
@@ -1266,6 +1322,8 @@ DO J = 0, 3
 ENDDO
 END SUBROUTINE OCQMLN
 
+
+
 !> Evaluates conveyance and derivative for OC resistance-flow formulae.
 !>
 !> `ty=0` and `ty=1` handle area-based and depth-width forms with a near-zero
@@ -1276,7 +1334,7 @@ END SUBROUTINE OCQMLN
 !>
 !> | `ty` | Required inputs | Conveyance for ordinary depths \(h \ge 10^{-3}\) m | Returned derivative |
 !> |:-----|:----------------|:---------------------------------------------------|:--------------------|
-!> | `0` | `str`, `h`, `xa` | \(C=str\,xa\,h^{2/3}\) | \(str\,h^{2/3}\,5/3\) |
+!> | `0` | `str`, `h`, `xa` | \(C=str\,xa\,h^{2/3}\) | \(str\,h^{2/3}\,5/3\), as implemented |
 !> | `1` | `str`, `h` where `str=K W` | \(C=str\,h^{5/3}\) | \(str\,h^{2/3}\,5/3\) |
 !> | `2` | `str`, `h`, `xa`, `extra` | \(C=str\,xa\,h^{2/3}\) | \(C(extra/xa+2/(3h))\) |
 !>
@@ -1299,11 +1357,13 @@ END SUBROUTINE OCQMLN
 !> @endwarning
 SUBROUTINE conveyan(str, h, conv, deriv, ty, xa, extra)
 !to bring this all to one place (its messy!)
-INTEGER, INTENT(IN)         :: ty
-DOUBLEPRECISION, INTENT(IN) :: str, & !strickler or strickler*width
-                               h      ! depth
-DOUBLEPRECISION, INTENT(IN), OPTIONAL :: xa, extra  !!x-sect area
-DOUBLEPRECISION, INTENT(OUT)          :: conv, deriv
+INTEGER, INTENT(IN)         :: ty    !! Conveyance branch selector: 0 area based, 1 depth-width, 2 above-table channel.
+DOUBLEPRECISION, INTENT(IN) :: str   !! Strickler coefficient, or Strickler-width product for `ty=1`.
+DOUBLEPRECISION, INTENT(IN) :: h     !! Water depth.
+DOUBLEPRECISION, INTENT(IN), OPTIONAL :: xa    !! Cross-sectional flow area, required for `ty=0` and `ty=2`.
+DOUBLEPRECISION, INTENT(IN), OPTIONAL :: extra !! Channel top width, required for `ty=2`.
+DOUBLEPRECISION, INTENT(OUT)          :: conv  !! Returned conveyance.
+DOUBLEPRECISION, INTENT(OUT)          :: deriv !! Returned derivative term used by OC linearisations.
 DOUBLEPRECISION                       :: hm23
 DOUBLEPRECISION, PARAMETER            :: mul = 10.0d0/3.0d0
 IF(ty==0) THEN
@@ -1411,15 +1471,22 @@ END SUBROUTINE conveyan
 !> DQ_L = 0 .
 !> \]
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1998-02-26 | RAH | 4.2 | Made `COEFF` a two-entry array in [[qweir]] and callers; added explicit typing; zeroed outputs in no-flow cases; added generic intrinsics; added the missing drowned-flow downstream derivative term; replaced `ROOTDM` with `RDZMIN`/local terms. |
 !> | 1998-07-30 | RAH | 4.2 | Used `MAX` to keep `DQU` positive outside the no-flow case, added `DZMIN`/`DML`, and subtracted `DZMIN` from the sill in the no-flow criterion. |
+!> @endhistory
 SUBROUTINE QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, Q, DQU, DQL)
-DOUBLEPRECISION, INTENT(IN) :: ZU, ZSILL, ZL, SUBRIO, COEFF (2)
-DOUBLEPRECISION, INTENT(OUT) ::  Q, DQU, DQL
+DOUBLEPRECISION, INTENT(IN)  :: ZU       !! Upstream water level.
+DOUBLEPRECISION, INTENT(IN)  :: ZSILL    !! Weir sill elevation.
+DOUBLEPRECISION, INTENT(IN)  :: ZL       !! Downstream water level.
+DOUBLEPRECISION, INTENT(IN)  :: COEFF(2) !! Drowned and undrowned weir discharge coefficients.
+DOUBLEPRECISION, INTENT(IN)  :: SUBRIO   !! Submergence-ratio threshold for drowned flow.
+DOUBLEPRECISION, INTENT(OUT) :: Q        !! Weir discharge, non-negative when entry conditions hold.
+DOUBLEPRECISION, INTENT(OUT) :: DQU      !! Derivative of `Q` with respect to upstream level.
+DOUBLEPRECISION, INTENT(OUT) :: DQL      !! Derivative of `Q` with respect to downstream level.
 DOUBLEPRECISION CR, DML, DZU, DZL, ROOTDZ
 ! NO FLOW ACROSS WEIR
 IF (ZU.LT.ZSILL - DZMIN) THEN
@@ -1508,7 +1575,7 @@ END SUBROUTINE QWEIR
 !> | If `ICMREF(iel,iface,2) < 0`, with `ibr=-ICMREF(iel,iface,2)`, then `ibr <= NLFEE` | Confluence branch references must fit the link extent. |
 !> | For each confluence participant `pel=ICMRF2(ibr,p,1)` with `pel >= 1`, `pel <= NEL` and `1 <= ICMRF2(ibr,p,2) <= 4` | Confluence participant elements and faces must be valid, and at least one participant must exist. |
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -1522,9 +1589,12 @@ END SUBROUTINE QWEIR
 !> | 1998-07-29 | RAH | 4.2 | Increased `NPASS` from 50 to 100, introduced error `1060`, and replaced statement function `FNDXY` with array `DXY`. |
 !> | 1999-02-04 | SB | 4.27 | Modified `DQE0` to address small flows from lower to higher elements. |
 !> | 1999-02-08 | SB | 4.27 | Set `AOK = .FALSE.` in the final depth adjustment for the same small adverse-flow issue. |
+!> @endhistory
 SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
-INTEGER, INTENT(IN) :: nel, afromICMREF (NELEE, 4, 2:3), afromICMRF2 (NLFEE, 3, 2)
-DOUBLEPRECISION, INTENT(IN) :: dtoc
+INTEGER, INTENT(IN) :: nel                         !! Number of active elements to correct.
+INTEGER, INTENT(IN) :: afromICMREF(NELEE, 4, 2:3)  !! Regular neighbour element and face references.
+INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 3, 2)    !! Multi-link confluence participant references.
+DOUBLEPRECISION, INTENT(IN) :: dtoc                !! OC timestep in seconds.
 !     NB: QSA is positive in
 !     *  NPASS: maximum number of passes through the test loop
 !     * UHCRIT: minimum admissible flow rate [L^^2/T]
@@ -1534,10 +1604,10 @@ DOUBLEPRECISION, INTENT(IN) :: dtoc
 INTEGER         :: NPASS
 PARAMETER (NPASS = 100)
 DOUBLEPRECISION :: UHCRIT, HCRIT, HERROR
-DOUBLEPRECISION, DIMENSION(nel), INTENT(IN)    :: inhrf
-DOUBLEPRECISION, DIMENSION(nel), INTENT(OUT)   :: GGGETHRF
-DOUBLEPRECISION, DIMENSION(nel,4), INTENT(IN)  :: inqsa
-DOUBLEPRECISION, DIMENSION(nel,4), INTENT(OUT) :: GGGETQSA
+DOUBLEPRECISION, DIMENSION(nel), INTENT(IN)    :: inhrf    !! Input water-surface elevations.
+DOUBLEPRECISION, DIMENSION(nel), INTENT(OUT)   :: GGGETHRF !! Corrected water-surface elevations.
+DOUBLEPRECISION, DIMENSION(nel,4), INTENT(IN)  :: inqsa    !! Input face discharges; positive into each element.
+DOUBLEPRECISION, DIMENSION(nel,4), INTENT(OUT) :: GGGETQSA !! Corrected face discharges.
 PARAMETER (UHCRIT = 1D-7, HCRIT = 1D-7, HERROR = 1D-5)
 INTEGER          :: IELc, IFACE, IBR, idum
 INTEGER          :: JEL, JFACE, PPP, PASSS, PEL, PEL0, PFACE, PFACE0

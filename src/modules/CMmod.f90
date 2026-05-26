@@ -33,13 +33,13 @@
 !> `DISP` returns `3.0D-8`.
 !> @endwarning
 !>
-!> History:
-!>
+!> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 1993-1998 | GP/RAH/SB | 3.4-4.2 | Developed and reorganised MUZ/MOC contaminant column, link, plant, and retardation routines. |
+!> | 1993-1998 | GP/RAH/SB | 3.4-4.2 | Developed and reorganised CM transport routines. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the CM `COLM` and `LINK` `.F` files into this Fortran 90 module. |
 !> | 2020-03-05 | SvenB | - | Removed the complete `SGLOBAL` include in favour of selected imports. |
+!> @endhistory
 MODULE CMmod
 USE SGLOBAL, ONLY :                                                             &
   nlf=>total_no_links, area=>cellarea, NEL=>total_no_elements,                  &
@@ -106,10 +106,10 @@ END SUBROUTINE CMFIN
 !> |:--------|:---------------------|
 !> | `CM1`-`CM5` | Title, number of contaminants `NCON`, and base-boundary mode `ISFLXB`. |
 !> | `CM7`-`CM11` | Bottom contaminant cell per land column, stored in `NCOLMB`; `NCED=-1` uses the column base from `NLYRBE`. |
-!> | `CM13`-`CM23` | Nonlinear adsorption flag `ISADNL`, bed-layer depths `DBS`/`DBDI`, and numbers of contaminant, soil, and sediment data sets. |
-!> | `CM25`-`CM26e` | Initial concentration data. Non-spatial cases read one `CCAPIN` value; spatial cases read link initial concentration plus land-element category maps and depth-concentration tables. |
-!> | `CM27`-`CM39` | Rainfall concentration `CCAPI`, external-flow concentration `CCAPE`, base concentration or flux concentration `CCAPB`/`CCAPR`, and dry-deposition rate `IIICF`. |
-!> | `CM41`-`CM61` | Soil sediment fractions `SOFN`, Freundlich power `GNN`, decay `GGLMSO`, bed exchange `ALPHBD`/`ALPHBS`, sediment `KDDLS`, soil exchange `ALPHA`, adsorption-site fraction `FADS`, and currently unused mobile-water/dispersion tables. |
+!> | `CM13`-`CM23` | Adsorption flag, bed-layer depths, and contaminant/soil/sediment data-set counts. |
+!> | `CM25`-`CM26e` | Initial concentrations, including optional element maps and depth tables. |
+!> | `CM27`-`CM39` | Rainfall, external-flow, base, flux-boundary, and dry-deposition concentrations. |
+!> | `CM41`-`CM61` | Sorption, decay, exchange, sediment-fraction, and mobile-water/dispersion data. |
 !>
 !> `ISFLXB` controls where base-concentration records are stored:
 !>
@@ -122,6 +122,13 @@ END SUBROUTINE CMFIN
 !> dispersion tables, but the current transport helper functions [[phi]] and
 !> [[disp]] still return fixed constants.
 !> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1995-03-22 | RAH | 3.4.2 | Created from the 1995-02-01 CM reader. |
+!> | 1997-05-01 | SB | 4.2 | Updated CM input handling as noted in the legacy source. |
+!> @endhistory
 SUBROUTINE CMRD (CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, &
  NSEE, NS, NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY, NLYRBE, ICMXY, &
  ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  NCATTY, NCON, NCOLMB, NTAB, &
@@ -138,37 +145,59 @@ SUBROUTINE CMRD (CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFE
 !
 USE CONT_CC, ONLY:CCAPIN
 !
-! Input arguments
-INTEGER :: CMD, CPR, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, NEL, NLF, NLFEE, NSEE, &
- NS
-INTEGER :: NSEDEE, NSED, MAX_NUM_DATA_PAIRS, NX, NXEE, NYEE, NY
-INTEGER :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2), ICMREF (NELEE, 4, &
- 2:2)
-INTEGER :: NLYRBE (NLF + 1:NEL)
-LOGICAL :: BEXBK, LINKNS (NLFEE)
-!
-! Output arguments
-INTEGER :: NCON
-INTEGER :: NUM_CATEGORIES_TYPES (NCONEE), NCATTY (NELEE, NCONEE)
-INTEGER :: NCOLMB (NLF + 1:NEL), NTAB (MAX_NUM_CATEGORY_TYPES, NCONEE)
-DOUBLEPRECISION DBS, DBDI
-DOUBLEPRECISION CCAPI (NCONEE), CCAPE (NELEE, NCONEE)
-DOUBLEPRECISION CCAPR (NELEE, NCONEE), CCAPB (NELEE, NCONEE)
-DOUBLEPRECISION TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)
-DOUBLEPRECISION TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCONEE)
-DOUBLEPRECISION IIICF (NCONEE), SOFN (NSEE, 3)
-DOUBLEPRECISION GNN (NCONEE), GGLMSO (NCONEE)
-DOUBLEPRECISION ALPHBD (NCONEE), ALPHBS (NCONEE)
-DOUBLEPRECISION KDDLS (NSEDEE, NCONEE)
-DOUBLEPRECISION ALPHA (NSEE, NCONEE), FADS (NSEE, NCONEE)
+INTEGER, INTENT(IN) :: CMD                    !! CM input file unit.
+INTEGER, INTENT(IN) :: CPR                    !! CM print/output file unit.
+INTEGER, INTENT(IN) :: MAX_NUM_CATEGORY_TYPES !! Maximum number of category types in lookup tables.
+INTEGER, INTENT(IN) :: NCONEE                 !! Allocated contaminant-category dimension.
+INTEGER, INTENT(IN) :: NELEE                  !! Allocated element dimension.
+INTEGER, INTENT(IN) :: NEL                    !! Number of elements.
+INTEGER, INTENT(IN) :: NLF                    !! Number of channel links.
+INTEGER, INTENT(IN) :: NLFEE                  !! Allocated link dimension.
+INTEGER, INTENT(IN) :: NSEE                   !! Allocated soil/sediment data-set dimension.
+INTEGER, INTENT(IN) :: NS                     !! Number of soil data sets.
+INTEGER, INTENT(IN) :: NSEDEE                 !! Allocated sediment-size dimension.
+INTEGER, INTENT(IN) :: NSED                   !! Number of sediment size fractions.
+INTEGER, INTENT(IN) :: MAX_NUM_DATA_PAIRS     !! Maximum number of depth-concentration table pairs.
+INTEGER, INTENT(IN) :: NX                     !! Number of grid columns.
+INTEGER, INTENT(IN) :: NXEE                   !! Allocated grid-column dimension.
+INTEGER, INTENT(IN) :: NYEE                   !! Allocated grid-row dimension.
+INTEGER, INTENT(IN) :: NY                     !! Number of grid rows.
+INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)        !! Grid-to-element map.
+INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)        !! Link-bank element map.
+INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2)  !! Element reference map used by array readers.
+INTEGER, INTENT(IN) :: NLYRBE(NLF + 1:NEL)    !! Bottom VSS layer for each land element.
+LOGICAL, INTENT(IN) :: BEXBK                  !! Explicit-bank flag.
+LOGICAL, INTENT(IN) :: LINKNS(NLFEE)          !! Link-orientation flags.
+INTEGER, INTENT(OUT) :: NCON                  !! Number of contaminants read from `CM3`.
+INTEGER, INTENT(OUT) :: NUM_CATEGORIES_TYPES(NCONEE) !! Number of category types per contaminant.
+INTEGER, INTENT(OUT) :: NCATTY(NELEE, NCONEE) !! Category index assigned to each element and contaminant.
+INTEGER, INTENT(OUT) :: NCOLMB(NLF + 1:NEL)   !! Bottom contaminant cell for each land column.
+INTEGER, INTENT(OUT) :: NTAB(MAX_NUM_CATEGORY_TYPES, NCONEE) !! Table-pair counts by category and contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: DBS           !! Bed-surface layer depth.
+DOUBLEPRECISION, INTENT(OUT) :: DBDI          !! Initial deep-bed layer depth.
+DOUBLEPRECISION, INTENT(OUT) :: CCAPI(NCONEE) !! Rainfall concentration by contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: CCAPE(NELEE, NCONEE) !! External-flow concentration by element and contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: CCAPR(NELEE, NCONEE) !! Base flux concentration by element and contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: CCAPB(NELEE, NCONEE) !! Prescribed base-cell concentration by element/contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: TABLE_CONCENTRATION(MAX_NUM_CATEGORY_TYPES, &
+ MAX_NUM_DATA_PAIRS, NCONEE) !! Initial-concentration table values.
+DOUBLEPRECISION, INTENT(OUT) :: TABLE_WATER_DEPTH(MAX_NUM_CATEGORY_TYPES, &
+ MAX_NUM_DATA_PAIRS, NCONEE) !! Initial-concentration table depths.
+DOUBLEPRECISION, INTENT(OUT) :: IIICF(NCONEE) !! Dry-deposition rate by contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: SOFN(NSEE, 3) !! Soil sediment-fraction data.
+DOUBLEPRECISION, INTENT(OUT) :: GNN(NCONEE) !! Freundlich power by contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: GGLMSO(NCONEE) !! First-order decay/generation coefficient by contaminant.
+DOUBLEPRECISION, INTENT(OUT) :: ALPHBD(NCONEE) !! Exchange coefficient between channel bed layers.
+DOUBLEPRECISION, INTENT(OUT) :: ALPHBS(NCONEE) !! Exchange coefficient between stream water and bed surface.
+DOUBLEPRECISION, INTENT(OUT) :: KDDLS(NSEDEE, NCONEE) !! Link/sediment distribution coefficients.
+DOUBLEPRECISION, INTENT(OUT) :: ALPHA(NSEE, NCONEE) !! Soil dynamic/dead-space exchange coefficient.
+DOUBLEPRECISION, INTENT(OUT) :: FADS(NSEE, NCONEE) !! Dynamic adsorption-site fraction.
 DOUBLEPRECISION PHIDAT (NSEE), DIFDAT (NCONEE), DISPDT (NSEE, &
  NCONEE)
 ! LOGICAL :: ISFLXB, ISADNL
-LOGICAL :: ISCNSV (NCONEE)
-!
-! Workspace arguments
-INTEGER, DIMENSION(NXEE*NYEE) :: IDUM
-DOUBLEPRECISION DUMMY (NELEE)
+LOGICAL, INTENT(OUT) :: ISCNSV(NCONEE) !! Spatial initial-concentration flag by contaminant.
+INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM !! Integer workspace used by AL input readers.
+DOUBLEPRECISION, INTENT(INOUT) :: DUMMY(NELEE) !! Floating-point workspace used by AL input readers.
 !
 ! Locals, etc
 INTEGER :: FATAL, rubbish (1, 1), j
@@ -669,6 +698,14 @@ END SUBROUTINE CMRD
 !> end of the step, current concentrations are copied into `CCCCO`/`SSSSO` as
 !> previous-time-level state for the next call; `RSZWLO` similarly stores the
 !> current well/spring flux state for land elements.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought `IMPLICIT` declarations from `AL.P`. |
+!> | 1995-03-22 | RAH | 4.0 | Replaced `RSZWEL` with `QVSWEL` for the new VSS. |
+!> | 1997-03-13 | RAH | 4.1 | Added explicit typing. |
+!> @endhistory
 SUBROUTINE CMSIM (ISSDON)
 ! Commons and constants
 USE SED_CS
@@ -684,12 +721,7 @@ USE AL_D, ONLY       : TA
 !                             AND THE WATER/CONTAMINANT INTERFACE
 !                             COMMON BLOCKS
 !
-! Input arguments
-LOGICAL :: ISSDON
-!                             ANSWER TO: IS SEDIMENT CODE ACTIVE?
-!
-! Locals, etc
-
+LOGICAL, INTENT(IN) :: ISSDON !! True when the sediment component has already supplied link sediment-flow information.
 INTEGER :: NLINK, NDUM, NELM, NCONT, NCE
 !
 !----------------------------------------------------------------------*
@@ -892,6 +924,14 @@ END SUBROUTINE CMSIM
 !>
 !> These corrections complete the linearisation used when the storage terms
 !> depend on the updated mobile or dead-space concentration.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought `IMPLICIT` declarations from `AL.P`. |
+!> | 1995-05-09 | RAH | 4.0 | Incorporated `KSP` into expressions for `OCAPP` and `OCAPP1`. |
+!> | 1997-03-13 | RAH | 4.1 | Added explicit typing and generic intrinsics. |
+!> @endhistory
 SUBROUTINE COLM
 ! Commons and constants
 USE COLM_C1
@@ -1187,9 +1227,9 @@ END SUBROUTINE COLM
 !>
 !> | Face case | Subsurface concentration source | Surface concentration source |
 !> |:----------|:-------------------------------|:-----------------------------|
-!> | Internal land face | Flow-weighted old concentrations from `NWORK(face)`. | Adjacent column surface concentration and retardation (`RSW`, `RSWT`, `RSWC`). |
+!> | Internal land face | Flow-weighted old concentrations from `NWORK(face)`. | Adjacent surface concentration and `RSW` terms. |
 !> | Catchment boundary | External concentration `CCAPE(NCL,NCONT)`. | `CCAPE`; no sediment is carried over the boundary. |
-!> | Exposed bank face | Bank-column concentration below the bed; link-water concentration above the bed. | Adjacent link stream-water concentration and `FSF` retardation terms. |
+!> | Exposed bank face | Bank column below the bed; link water above it. | Adjacent stream concentration and `FSF` terms. |
 !>
 !> Ground-surface and surface-water retardation factors are calculated with
 !> [[ret]] from sediment fractions and `KDDLS`. These provide `RRRLS` for loose
@@ -1233,6 +1273,16 @@ END SUBROUTINE COLM
 !>
 !> and with nonlinear adsorption enabled the adsorption terms are multiplied by
 !> `COLCAP**(GNN-1)` and `SOLCAP**(GNN-1)`, respectively.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-09-30 | GP | 3.4 | Initialised `EDCAP*` and `ESCAP*` when the plant option is inactive. |
+!> | 1994-10-03 | RAH | 3.4.1 | Brought `IMPLICIT` declarations from `AL.P`. |
+!> | 1996-07-17 | GP | 4.0 | Revised lateral-flow averaging and incorporated well flow in `QCAP`/`QCAPT`. |
+!> | 1997-03-14 | RAH | 4.1 | Added explicit typing, split mixed-type `/WTOC/`, and used generic intrinsics. |
+!> | 1997-05-21 | RAH | 4.1 | Removed redundant `JFACEA`, `NAQU`, and `TRAN` workspace. |
+!> @endhistory
 SUBROUTINE COLMSM (NCL)
 
 ! Commons and constants
@@ -1256,9 +1306,7 @@ USE PLANT_CC
 
 !COMMON / WTOCL / ISBDY
 !                             VARIABLES USED ONLY IN COLMW AND COLMSM
-! Input arguments
-
-INTEGER :: NCL
+INTEGER, INTENT(IN) :: NCL !! Land-column element being updated.
 ! Locals, etc
 !INTRINSIC ABS, MAX, MIN
 INTEGER :: NCONT, NCE, JA, NDUM, NOLDUM, NOLP, JCEA, JSED
@@ -1725,6 +1773,15 @@ END SUBROUTINE COLMSM
 !> | Next 3 cells | 0.1 |
 !> | Next 12 cells | 0.5 |
 !> | Remaining cells to `NCEBOT` | 1 |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought `IMPLICIT` declarations from `AL.P`; removed `INTEGER*2`. |
+!> | 1996-07-17 | GP | 4.0 | Reworked bank/well/layer flow setup, bank weighting, irrigation handling, and correction damping. |
+!> | 1997-02-18 | RAH | 4.1 | Swapped `QVSH`, `DELTAZ`, `ZVSNOD`, `QVSV`, `QVSWLI`, and `VSTHE` subscripts. |
+!> | 1997-03 | RAH | 4.1 | Added explicit typing, split mixed-type `/WTOC/`, removed redundant locals, and condensed well code. |
+!> @endhistory
 SUBROUTINE COLMW (NCL)
 
 ! Commons and constants
@@ -1746,9 +1803,7 @@ USE PLANT_CC
 !                             VARIABLES USED ONLY IN COLMW AND COLMSM
 ! Workspace common
 !        AL.C:         DUMMY(LL)
-! Input arguments
-
-INTEGER :: NCL
+INTEGER, INTENT(IN) :: NCL !! Land-column element whose water-flow terms are prepared.
 ! Locals, etc
 !INTRINSIC MAX, MOD, SIGN
 INTEGER :: JAL, JSOIL, JDUM, IW, JA, JLYR, JB
@@ -2130,8 +2185,11 @@ END SUBROUTINE COLMW
 DOUBLEPRECISION FUNCTION DISP (NCONT, JSOIL, THETA, UM, UP)
 !                             (VERTICAL) EFFECTIVE LONGITUDINAL
 !                             DISPERSION COEFFICIENT FOR SOIL
-INTEGER :: NCONT, JSOIL
-DOUBLEPRECISION :: THETA, UM, UP
+INTEGER, INTENT(IN) :: NCONT !! Contaminant index.
+INTEGER, INTENT(IN) :: JSOIL !! Soil data-set index.
+DOUBLEPRECISION, INTENT(IN) :: THETA !! Soil water content.
+DOUBLEPRECISION, INTENT(IN) :: UM    !! Lower-interface velocity argument.
+DOUBLEPRECISION, INTENT(IN) :: UP    !! Upper-interface velocity argument.
 DISP = 3.0D-8
 !                             ########## SOIL INFO NEEDED HERE #########
 
@@ -2254,7 +2312,8 @@ USE PLANT_CC
 !LOGICAL :: ISLK
 !                             VARIABLES USED ONLY IN LINKW AND LINKSM
 
-INTEGER :: nlink, ncont, nce, jlend, jdum, jla, jsed, na, lfone, ldum, la
+INTEGER, INTENT(IN) :: nlink !! Channel-link element being updated.
+INTEGER :: ncont, nce, jlend, jdum, jla, jsed, na, lfone, ldum, la
 DOUBLEPRECISION FBTAD (NSEDEE), FBTAS (NSEDEE), KDDUM (NSEDEE), &
  SSBED1 (NSEDEE), SSBED (NSEDEE), SSD1 (NSEDEE), SSD (NSEDEE), &
  SSF1 (NSEDEE), SSF (NSEDEE)
@@ -2535,7 +2594,7 @@ END SUBROUTINE LINKSM
 !>
 !> | Topology reference | Meaning | Local storage |
 !> |:-------------------|:--------|:--------------|
-!> | Positive `ICMREF` reference | One linked neighbour. | Put in one of the three `LWORK` slots for that end, chosen from the reciprocal face code. |
+!> | Positive `ICMREF` reference | One linked neighbour. | Store in a `LWORK` slot chosen from the reciprocal face code. |
 !> | Negative `ICMREF` reference | Multi-link junction. | Fill the three slots from `ICMRF2(-ref,3:1)`. |
 !> | Zero reference | Boundary, spring, or headwater. | `ISLK(end)=.FALSE.` and all three slots are zero. |
 !>
@@ -2626,6 +2685,12 @@ END SUBROUTINE LINKSM
 !> \frac{\sum_k VSTHE_k\,w_k}{\sum_k w_k}\right),
 !> \qquad w_k = DELTAZ_k/Z2 \text{ with fractional end-cell weights.}
 !> \]
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1997-02-18 | RAH | 4.1 | Swapped `QVSH`, `DELTAZ`, and `VSTHE` subscripts. |
+!> @endhistory
 SUBROUTINE LINKW (NLINK)
 
 USE SED_CS
@@ -2645,7 +2710,8 @@ USE PLANT_CC
 !common / temp / nwell
 !##### nwell and qqqdum used in temporary irrigation code###########
 !LOGICAL :: ISLK
-INTEGER :: nlink, jlend, jdum, lfone, ldum, jla, jfdum, jfdumb, nce, jvegbk, &
+INTEGER, INTENT(IN) :: nlink !! Channel-link element whose water-flow terms are prepared.
+INTEGER :: jlend, jdum, lfone, ldum, jla, jfdum, jfdumb, nce, jvegbk, &
            ndum, la
 DOUBLEPRECISION :: dumx, dum, duma, dmult, sumk, sum, dumk
 !                             VARIABLES USED ONLY IN LINKW AND LINKSM
@@ -2999,22 +3065,29 @@ END SUBROUTINE LINKW
 !> | Link state | `SNL3` treatment | Updated concentration |
 !> |:-----------|:-----------------|:----------------------|
 !> | Wet (`USCP >= 0.5`) | Solve all three coupled rate equations. | `CCPSF`, `CCPBS`, and `CCPBD` are all advanced by `TSE*rate`. |
-!> | Dry (`USCP < 0.5`) | Replace the stream-water row with `WMESF=0`. | Stream concentration is unchanged; bed-surface and deeper-bed compartments still solve. |
+!> | Dry (`USCP < 0.5`) | Replace stream-water row with `WMESF=0`. | Bed-surface and deeper-bed compartments still solve. |
 SUBROUTINE LINK (CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
  NCETOP)
 USE LINK_CC
 
 USE LINK_CC1
-INTEGER :: NCETOP, nc, nk, njda
-DOUBLEPRECISION :: CCPBD, CCPBD1, CCPBS, CCPBS1, CCPSF, CCPSF1, TSE, &
-           duma1, duma2, duma3, duma4, duma5, duma6, duma7, dump5, dump6, &
-           dumb1, dumb2, dumb3, dumb3a, dumb3b, &
-           dump1, dump2, dump3, dump4, dump7, dsum, sum, &
-           sum1, sum2, sum3, sum4, sum5, alt, altstr, &
-           blt, bltstr, dlt, dltstr, elt, eltstr, eltda, dltda, dumf1, &
-           flt, fltstr, fltda, hlt, hltstr, hltda, &
-           plt, dumq1, qlt, qltda, slt, sltda, gylt, gyltda, gyltsr, &
-           wmesf, wmebs, wmebd
+INTEGER, INTENT(IN) :: NCETOP !! Top active contaminant cell in the link column.
+DOUBLEPRECISION, INTENT(IN) :: CCPBD  !! Old deeper-bed/deposited-material concentration.
+DOUBLEPRECISION, INTENT(OUT) :: CCPBD1 !! Updated deeper-bed/deposited-material concentration.
+DOUBLEPRECISION, INTENT(IN) :: CCPBS  !! Old bed-surface concentration.
+DOUBLEPRECISION, INTENT(OUT) :: CCPBS1 !! Updated bed-surface concentration.
+DOUBLEPRECISION, INTENT(IN) :: CCPSF  !! Old stream-water concentration.
+DOUBLEPRECISION, INTENT(OUT) :: CCPSF1 !! Updated stream-water concentration.
+DOUBLEPRECISION, INTENT(IN) :: TSE    !! Scaled contaminant timestep.
+INTEGER :: nc, nk, njda
+DOUBLEPRECISION :: duma1, duma2, duma3, duma4, duma5, duma6, duma7, dump5, dump6
+DOUBLEPRECISION :: dumb1, dumb2, dumb3, dumb3a, dumb3b
+DOUBLEPRECISION :: dump1, dump2, dump3, dump4, dump7, dsum, sum
+DOUBLEPRECISION :: sum1, sum2, sum3, sum4, sum5, alt, altstr
+DOUBLEPRECISION :: blt, bltstr, dlt, dltstr, elt, eltstr, eltda, dltda, dumf1
+DOUBLEPRECISION :: flt, fltstr, fltda, hlt, hltstr, hltda
+DOUBLEPRECISION :: plt, dumq1, qlt, qltda, slt, sltda, gylt, gyltda, gyltsr
+DOUBLEPRECISION :: wmesf, wmebs, wmebd
 DUMA1 = (MAX (zero, - PCSFP1) + MAX (zero, - PCSFM1) ) &
  / KS
 DUMA2 = FCPSF + TSE * FCPSFT + FCPSFC * CCPSF
@@ -3191,8 +3264,8 @@ END SUBROUTINE LINK
 !> table, those values are not yet used here.
 DOUBLEPRECISION FUNCTION PHI (JSOIL, THETA)
 !                             FRACTION OF SOIL WATER WHICH IS MOBILE
-INTEGER :: JSOIL
-DOUBLEPRECISION THETA
+INTEGER, INTENT(IN) :: JSOIL !! Soil data-set index.
+DOUBLEPRECISION, INTENT(IN) :: THETA !! Soil water content.
 PHI = half
 !                             ########## SOIL INFO NEEDED HERE #########
 
@@ -3296,7 +3369,9 @@ USE PLANT_CC
 !                 Include parameter statements, water/contaminant
 !                 interface COMMON blocks, and plant COMMON blocks
 !                 called just before routine COLM
-INTEGER :: NCL, NCONT, jplant, nce, jplty, nrbot
+INTEGER, INTENT(IN) :: NCL   !! Land-column element being updated.
+INTEGER, INTENT(IN) :: NCONT !! Contaminant index being updated.
+INTEGER :: jplant, nce, jplty, nrbot
 DOUBLEPRECISION :: d1dum, d2dum, d3dum, d4dum, o2dum, f1dum, f2dum, pkdum, &
            pmdum, sum, z2dum, xdum, cdum, sdum, tdum, dum, eddum, qdum, bcdum, dum1, dum3, bcpaa1, bcpbb1
 IF (NCONT.EQ.1) THEN
@@ -3465,7 +3540,8 @@ END SUBROUTINE PLCOLM
 SUBROUTINE SLVCLM (N)
 
 USE COLM_CC1
-INTEGER :: n, na, loop
+INTEGER, INTENT(IN) :: n !! Number of active column cells in the reduced system.
+INTEGER :: na, loop
 DOUBLEPRECISION ELTE (LLEE), PLTE (LLEE), RHTD (LLEE)
 !                            ALLOCATE WORKSPACE
 DO 1 NA = 1, N
@@ -3565,12 +3641,22 @@ subroutine RET (C, GN, THO, TH, FRNO, FRN, KDREF, R, RC, RT, DT, &
  NSED, ISNL)
 
 !      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-DOUBLEPRECISION :: C, GN, THO, TH, R, RC, RT, DT
-DOUBLEPRECISION FRNO ( * ), FRN ( * ), KDREF ( * )
-INTEGER :: NSED, jsed, nj
+DOUBLEPRECISION, INTENT(IN) :: C       !! Surface-water concentration.
+DOUBLEPRECISION, INTENT(IN) :: GN      !! Freundlich power.
+DOUBLEPRECISION, INTENT(IN) :: THO     !! Old moisture content.
+DOUBLEPRECISION, INTENT(IN) :: TH      !! New moisture content.
+DOUBLEPRECISION, INTENT(OUT) :: R      !! Retardation factor.
+DOUBLEPRECISION, INTENT(OUT) :: RC     !! Concentration derivative of `R`.
+DOUBLEPRECISION, INTENT(OUT) :: RT     !! Time derivative contribution for `R`.
+DOUBLEPRECISION, INTENT(IN) :: DT      !! Scaled timestep.
+DOUBLEPRECISION, INTENT(IN) :: FRNO(*) !! Old sediment particle-size fractions.
+DOUBLEPRECISION, INTENT(IN) :: FRN(*)  !! New sediment particle-size fractions.
+DOUBLEPRECISION, INTENT(IN) :: KDREF(*) !! Reference distribution coefficients.
+INTEGER, INTENT(IN) :: NSED !! Number of sediment size fractions.
+INTEGER :: jsed, nj
 DOUBLEPRECISION :: dumo, dum, sumo, sum, cdum, dumko, dumk, x1min
 
-LOGICAL :: ISNL
+LOGICAL, INTENT(IN) :: ISNL !! True for nonlinear adsorption.
 DUMO = one / THO
 DUM = one / TH
 SUMO = zero
@@ -3681,8 +3767,27 @@ end subroutine RET
 SUBROUTINE SNL3 (A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
  Q, S, X1, X2, X3, AY, AYS)
 INTEGER :: nj, njtest
-DOUBLEPRECISION :: A, AS, B, BS, C, D, DS, E, ES, F, FS, H, HS, P, &
-           Q, S, X1, X2, X3, AY, AYS
+DOUBLEPRECISION, INTENT(IN) :: A   !! Coefficient multiplying `X1` in equation 1.
+DOUBLEPRECISION, INTENT(IN) :: AS  !! Nonlinear coefficient multiplying `X1**2` in equation 1.
+DOUBLEPRECISION, INTENT(IN) :: B   !! Coefficient multiplying `X2` in equation 1.
+DOUBLEPRECISION, INTENT(IN) :: BS  !! Nonlinear coefficient multiplying `X2**2` in equation 1.
+DOUBLEPRECISION, INTENT(IN) :: C   !! Coefficient multiplying `X3` in equation 1.
+DOUBLEPRECISION, INTENT(IN) :: D   !! Coefficient multiplying `X1` in equation 2.
+DOUBLEPRECISION, INTENT(IN) :: DS  !! Nonlinear coefficient multiplying `X1**2` in equation 2.
+DOUBLEPRECISION, INTENT(IN) :: E   !! Coefficient multiplying `X2` in equation 2.
+DOUBLEPRECISION, INTENT(IN) :: ES  !! Nonlinear coefficient multiplying `X2**2` in equation 2.
+DOUBLEPRECISION, INTENT(IN) :: F   !! Coefficient multiplying `X3` in equation 2.
+DOUBLEPRECISION, INTENT(IN) :: FS  !! Nonlinear coefficient multiplying `X3**2` in equation 2.
+DOUBLEPRECISION, INTENT(IN) :: H   !! Coefficient multiplying `X2` in equation 3.
+DOUBLEPRECISION, INTENT(IN) :: HS  !! Nonlinear coefficient multiplying `X2**2` in equation 3.
+DOUBLEPRECISION, INTENT(IN) :: P   !! Right-hand side of equation 1.
+DOUBLEPRECISION, INTENT(IN) :: Q   !! Right-hand side of equation 2.
+DOUBLEPRECISION, INTENT(IN) :: S   !! Right-hand side of equation 3.
+DOUBLEPRECISION, INTENT(OUT) :: X1 !! Solved variable for equation 1.
+DOUBLEPRECISION, INTENT(OUT) :: X2 !! Solved variable for equation 2.
+DOUBLEPRECISION, INTENT(OUT) :: X3 !! Solved variable for equation 3.
+DOUBLEPRECISION, INTENT(IN) :: AY  !! Coefficient multiplying `X3` in equation 3.
+DOUBLEPRECISION, INTENT(IN) :: AYS !! Nonlinear coefficient multiplying `X3**2` in equation 3.
 DOUBLEPRECISION :: x1min, x2min, x3min, x1old, x2old, x3old, xref, perr, qerr, serr
 X1 = zero
 X2 = zero
@@ -3847,13 +3952,25 @@ END subroutine SNL3
 SUBROUTINE FRET (C, GN, THO, TH, FRNO, FRN, KDREF, PO, P, PREF, F, &
  FC, FT, DT, NSED, ISNL)
 
-DOUBLEPRECISION :: C, GN, THO, TH, PO, P, PREF, F, &
- FC, FT, DT
-DOUBLEPRECISION FRNO ( * ), FRN ( * ), KDREF ( * )
-INTEGER :: NSED, jsed
+DOUBLEPRECISION, INTENT(IN) :: C       !! Link-compartment concentration.
+DOUBLEPRECISION, INTENT(IN) :: GN      !! Freundlich power.
+DOUBLEPRECISION, INTENT(IN) :: THO     !! Old water content.
+DOUBLEPRECISION, INTENT(IN) :: TH      !! New water content.
+DOUBLEPRECISION, INTENT(IN) :: PO      !! Old porosity.
+DOUBLEPRECISION, INTENT(IN) :: P       !! New porosity.
+DOUBLEPRECISION, INTENT(IN) :: PREF    !! Reference porosity for solids scaling.
+DOUBLEPRECISION, INTENT(OUT) :: F      !! Retardation/storage factor.
+DOUBLEPRECISION, INTENT(OUT) :: FC     !! Concentration derivative of `F`.
+DOUBLEPRECISION, INTENT(OUT) :: FT     !! Time derivative contribution for `F`.
+DOUBLEPRECISION, INTENT(IN) :: DT      !! Scaled timestep.
+DOUBLEPRECISION, INTENT(IN) :: FRNO(*) !! Old sediment particle-size fractions.
+DOUBLEPRECISION, INTENT(IN) :: FRN(*)  !! New sediment particle-size fractions.
+DOUBLEPRECISION, INTENT(IN) :: KDREF(*) !! Reference distribution coefficients.
+INTEGER, INTENT(IN) :: NSED            !! Number of sediment size fractions.
+INTEGER :: jsed
 DOUBLEPRECISION :: duma, dumo, dum, sumo, sum, dumjo, dumj, cdum, dumko, dumk
 
-LOGICAL :: ISNL
+LOGICAL, INTENT(IN) :: ISNL !! True for nonlinear adsorption.
 IF (ISZERO(C)) THEN
    F = THO
    FC = zero
@@ -3970,8 +4087,12 @@ END SUBROUTINE FRET
 SUBROUTINE PLANT (JPLANT, BCAA, BCAA1, BCBB, BCBB1, TSE)
 
 USE PLANT_CC
-INTEGER :: JPLANT
-DOUBLEPRECISION :: BCAA, BCAA1, BCBB, BCBB1, TSE
+INTEGER, INTENT(IN) :: JPLANT !! Plant type index.
+DOUBLEPRECISION, INTENT(IN) :: BCAA   !! Old plant compartment-A concentration.
+DOUBLEPRECISION, INTENT(OUT) :: BCAA1 !! Updated plant compartment-A concentration.
+DOUBLEPRECISION, INTENT(IN) :: BCBB   !! Old plant compartment-B concentration.
+DOUBLEPRECISION, INTENT(OUT) :: BCBB1 !! Updated plant compartment-B concentration.
+DOUBLEPRECISION, INTENT(IN) :: TSE    !! Scaled contaminant timestep.
 DOUBLEPRECISION :: gdum, wcpaa, topdum, botdum, wcpbb
 
 GDUM = one + GCPL * TSE
@@ -4048,7 +4169,7 @@ SUBROUTINE PLPREP
 USE PLANT_CC
 !                 Include parameter statements, water/contaminant
 !                 interface COMMON blocks, and plant COMMON blocks
-INTEGER :: jplty
+INTEGER :: jplty !! Plant type index.
 DO 100 JPLTY = 1, NPLT
    PFTWO (JPLTY) = CLAI (JPLTY)
    IF (NOTZERO(PFTWO (JPLTY))) THEN

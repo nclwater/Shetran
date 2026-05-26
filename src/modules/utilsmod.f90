@@ -20,8 +20,8 @@ USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
 USE AL_C, ONLY : icmbk
 IMPLICIT NONE
 
-DOUBLEPRECISION, PARAMETER :: eps=1.0d-15
-CHARACTER(128)             :: msg
+DOUBLEPRECISION, PARAMETER :: eps=1.0d-15 !! Singularity/zero tolerance used by matrix inversion.
+CHARACTER(128)             :: msg         !! Error-message buffer passed to `ERROR`.
 
 PRIVATE
 PUBLIC :: TRIDAG, DCOPY, HOUR_FROM_DATE, TERPO1, FINPUT, HINPUT, AREADI, AREADR, &
@@ -71,9 +71,9 @@ END SUBROUTINE dcopy
 !> simulation timestep and returns timestep-average values.
 !>
 !> `FINPUT` is the general reader for breakpoint flux time series. Input records
-!> contain a date/time followed by `NINP` flux values. Each `FNEXT(j)` value is
-!> treated as constant until the next breakpoint time `INTIME`, and the returned
-!> `ARRAY(j)` is the average over the current simulation timestep
+!> contain a date/time followed by `NINP` flux values. Each flux value is treated
+!> as constant over the interval ending at its record time `INTIME`, and the
+!> returned `ARRAY(j)` is the average over the current simulation timestep
 !> `[SIMNOW, SIMNOW+SIMSTP]`.
 !>
 !> Parameters are:
@@ -86,7 +86,7 @@ END SUBROUTINE dcopy
 !> | `SIMSTP` | input | Current simulation timestep length, in hours. |
 !> | `INLAST` | input/output | Last breakpoint time read, relative to `TIH`. |
 !> | `INTIME` | input/output | Current breakpoint time up to which `FNEXT` is valid. |
-!> | `FNEXT` | input/output | Current flux vector valid up to `INTIME`; overwritten when new records are read. |
+!> | `FNEXT` | input/output | Current flux vector valid up to `INTIME`; overwritten by newly read interval values. |
 !> | `NINP` | input | Number of flux items to read from each record. |
 !> | `ARRAY` | output | Timestep-average flux vector. |
 !>
@@ -105,16 +105,24 @@ END SUBROUTINE dcopy
 !> [[hour_from_date]] and shifted by `TIH`. If end-of-file is reached before a
 !> complete timestep average can be formed, `INTIME` is set to `marker999`.
 !>
-!> @note A newly read record value is applied from its record time forward until
-!> the next record time. The caller is expected to maintain `FNEXT`, `INLAST`,
-!> and `INTIME` between calls.
+!> @note A newly read record value is applied over `(INLAST, INTIME]`, where
+!> `INTIME` is the record time just read. The caller is expected to maintain
+!> `FNEXT`, `INLAST`, and `INTIME` between calls.
 !> @endnote
 SUBROUTINE FINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  FNEXT, NINP, ARRAY)
-INTEGER :: IIN, NINP, TIME (5)
-DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, FNEXT (NINP), ARRAY (NINP)
-INTEGER :: i, j
-DOUBLEPRECISION :: SIMEND
+INTEGER, INTENT(IN)             :: IIN          !! File unit number for reading data.
+INTEGER, INTENT(IN)             :: NINP         !! Number of flux items to read from each record.
+DOUBLEPRECISION, INTENT(IN)     :: TIH          !! Simulation start time since the reference date, in hours.
+DOUBLEPRECISION, INTENT(IN)     :: SIMNOW       !! Start time of the current simulation timestep, in model hours.
+DOUBLEPRECISION, INTENT(IN)     :: SIMSTP       !! Current simulation timestep length, in hours.
+DOUBLEPRECISION, INTENT(INOUT)  :: INLAST       !! Last breakpoint time read, relative to `TIH`.
+DOUBLEPRECISION, INTENT(INOUT)  :: INTIME       !! Current breakpoint time up to which `FNEXT` is valid.
+DOUBLEPRECISION, INTENT(INOUT)  :: FNEXT(NINP)  !! Flux vector valid up to `INTIME`; overwritten by new records.
+DOUBLEPRECISION, INTENT(OUT)    :: ARRAY(NINP)  !! Timestep-average flux vector.
+INTEGER                         :: TIME(5)      !! Calendar date/time fields read from the input record.
+INTEGER                         :: i, j
+DOUBLEPRECISION                 :: SIMEND
 !
 SIMEND = SIMNOW + SIMSTP
 !
@@ -216,12 +224,20 @@ END SUBROUTINE FINPUT
 !> @endnote
 SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
  HLAST, HNEXT, NINP, ARRAY)
-INTEGER :: IIN, NINP, TIME (5)
-INTEGER :: i, j
-DOUBLEPRECISION TIH, SIMNOW, SIMSTP, INLAST, INTIME, ARRAY (NINP), &
- HLAST (NINP), HNEXT (NINP)
-DOUBLEPRECISION :: simend, simmid
-LOGICAL :: goto10, markertest
+INTEGER, INTENT(IN)             :: IIN          !! File unit number for reading data.
+INTEGER, INTENT(IN)             :: NINP         !! Number of head values to read from each record.
+DOUBLEPRECISION, INTENT(IN)     :: TIH          !! Simulation start time since the reference date, in hours.
+DOUBLEPRECISION, INTENT(IN)     :: SIMNOW       !! Start time of the current simulation timestep, in model hours.
+DOUBLEPRECISION, INTENT(IN)     :: SIMSTP       !! Current simulation timestep length, in hours.
+DOUBLEPRECISION, INTENT(INOUT)  :: INLAST       !! Previous breakpoint time, relative to `TIH`.
+DOUBLEPRECISION, INTENT(INOUT)  :: INTIME       !! Next breakpoint time, relative to `TIH`.
+DOUBLEPRECISION, INTENT(INOUT)  :: HLAST(NINP)  !! Head vector read at `INLAST`.
+DOUBLEPRECISION, INTENT(INOUT)  :: HNEXT(NINP)  !! Head vector read at `INTIME`; overwritten by new records.
+DOUBLEPRECISION, INTENT(OUT)    :: ARRAY(NINP)  !! Head vector interpolated to the timestep midpoint.
+INTEGER                         :: TIME(5)      !! Calendar date/time fields read from the input record.
+INTEGER                         :: i, j
+DOUBLEPRECISION                 :: simend, simmid
+LOGICAL                         :: goto10, markertest
 !
 SIMEND = SIMNOW + SIMSTP
 SIMMID = SIMNOW + 0.5 * SIMSTP
@@ -263,7 +279,13 @@ END SUBROUTINE HINPUT
 !>
 !> Leap years are accounted for. The function checks the round trip through
 !> `DATE_FROM_HOUR` and stops with a diagnostic if the supplied date is invalid.
-!> Valid input requires `KYEAR >= 1949` and `1 <= KMTH <= 12`.
+!>
+!> Entry requirements:
+!>
+!> | Requirement | Reason |
+!> |:------------|:-------|
+!> | `KYEAR >= 1949` | Required by the legacy year-offset calculation. |
+!> | `1 <= KMTH <= 12` | Required before indexing the month-offset table. |
 !>
 !> The legacy comments describe the returned value as hours since 1 January
 !> 1950 at 00:00. The implemented convention is the one used by the paired
@@ -279,10 +301,22 @@ END SUBROUTINE HINPUT
 !> `KYEAR`. Thus `1950-01-01 00:00` maps to 24 hours under this convention, not
 !> zero. A small one-hundredth-second offset is added to avoid minute-level
 !> roundoff errors in the reverse conversion check.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-12-09 | RAH | 3.4.1 | Removed `IMPLICIT INTEGER*2 (I-N)`. |
+!> | 1998-06-11 | RAH | 4.2 | Replaced `60.` with `6D1` to eliminate rounding error; added explicit typing. |
+!> @endhistory
  FUNCTION hour_from_date(KYEAR, KMTH, KDAY, KHOUR, KMIN)  RESULT(r)
-INTEGER         :: kyear, kmth, kday, khour, kmin
-INTEGER         :: d, check(6)
-DOUBLEPRECISION :: r
+INTEGER, INTENT(IN) :: kyear    !! Calendar year.
+INTEGER, INTENT(IN) :: kmth     !! Calendar month number.
+INTEGER, INTENT(IN) :: kday     !! Calendar day of month.
+INTEGER, INTENT(IN) :: khour    !! Hour of day.
+INTEGER, INTENT(IN) :: kmin     !! Minute of hour.
+INTEGER             :: d        !! One-based day count used by the implemented model-hour convention.
+INTEGER             :: check(6) !! Date returned by the round-trip validity check.
+DOUBLEPRECISION     :: r        !! Model hour count under the SHETRAN date convention.
 d = DAYS_IN_YEARS_SINCE_1950(kyear)+ DAYS_TO_START_MONTH(kmth, kyear) + kday
 r = DBLE(d*24 + khour) + DBLE(kmin) / 6d1
 r= r+ 0.0000028  !add 1/100 of a second to sort out round error with mins
@@ -307,8 +341,9 @@ END FUNCTION hour_from_date
 !> Leap days are counted by iterating over candidate leap years from 1952 up to
 !> `y-1`, using [[is_leap]] for the Gregorian leap-year rule.
 FUNCTION days_in_years_since_1950(y) RESULT(r)
-INTEGER, INTENT(IN) :: y
-INTEGER             :: i, r
+INTEGER, INTENT(IN) :: y !! Year at the end of the counted interval.
+INTEGER             :: i !! Candidate leap year.
+INTEGER             :: r !! Days in complete years from 1950-01-01 to year `y`.
 r = (y - 1950) * 365
 DO i=1952, y-1, 4
     IF(IS_LEAP(i)) r=r+1
@@ -320,8 +355,8 @@ END FUNCTION days_in_years_since_1950
 FUNCTION is_leap(y) RESULT(r)
 !A year will be a leap year if it is divisible by 4 but not by 100.
 !If a year is divisible by 4 and by 100, it is not a leap year unless it is also divisible by 400.
-INTEGER, INTENT(IN) :: y
-LOGICAL  :: r
+INTEGER, INTENT(IN) :: y !! Calendar year to test.
+LOGICAL             :: r !! True when `y` is a Gregorian leap year.
 IF(MOD(y,4)==0) THEN
     IF(MOD(y,100)==0) THEN
         r = MOD(y,400)==0
@@ -341,9 +376,10 @@ END FUNCTION is_leap
 !> months after February. The routine traps `m < 1` through `ERROR`, but it does
 !> not explicitly guard `m > 12` before indexing the month table.
 FUNCTION days_to_start_month(m, y) RESULT(r)
-INTEGER, INTENT(IN) :: m, y
-INTEGER, PARAMETER  ::  sd(12)=[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
-INTEGER             :: r
+INTEGER, INTENT(IN) :: m      !! Calendar month number.
+INTEGER, INTENT(IN) :: y      !! Calendar year used for leap-day adjustment.
+INTEGER, PARAMETER  :: sd(12)=[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334] !! Non-leap offsets.
+INTEGER             :: r      !! Day offset to the start of month `m`.
 IF(M<1) THEN
     WRITE(MSG,*) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
     CALL ERROR (FFFATAL, 4820, pppri, 0, 0, msg)
@@ -361,10 +397,16 @@ END FUNCTION days_to_start_month
 !> and `mthdays/32` for the month), then increments to the correct year/month.
 !> A day value of zero triggers a stop as a date-trapping guard.
 FUNCTION date_from_hour(h) RESULT(r)
-INTEGER                     :: r(6) !year, month, day, hour, min, sec
-INTEGER                     :: hours, days, year, month, mthdays, mins, sec
-DOUBLEPRECISION, INTENT(IN) :: h
-DOUBLEPRECISION             :: rmins
+DOUBLEPRECISION, INTENT(IN) :: h       !! Model hour count under the SHETRAN date convention.
+INTEGER                    :: r(6)    !! Date as `[year, month, day, hour, minute, second]`.
+INTEGER                    :: hours   !! Whole hours in `h`.
+INTEGER                    :: days    !! Whole days in `h`.
+INTEGER                    :: year    !! Calendar year estimate/refinement.
+INTEGER                    :: month   !! Calendar month estimate/refinement.
+INTEGER                    :: mthdays !! Days elapsed within the current year.
+INTEGER                    :: mins    !! Whole minutes in the fractional hour.
+INTEGER                    :: sec     !! Whole seconds in the fractional minute.
+DOUBLEPRECISION            :: rmins   !! Fractional-hour remainder converted to minutes.
 
 hours = INT(h)
 rmins = 60*(h-hours)
@@ -408,10 +450,13 @@ END FUNCTION date_from_hour
 !> notation this is `A = C * B`, despite the old inline comment `A = B * C`.
 FUNCTION jematmul_mm(b, c, n1, n2, n3) RESULT(a)
 ! A = B * C
-INTEGER, INTENT(IN)          :: n1, n2, n3
-DOUBLEPRECISION, INTENT(IN)  :: b(n2,n1), c(n3,n2)
-DOUBLEPRECISION              :: a(n3,n1)
-INTEGER                      :: i, j, k
+INTEGER, INTENT(IN)         :: n1       !! Number of columns in the returned matrix.
+INTEGER, INTENT(IN)         :: n2       !! Shared inner dimension.
+INTEGER, INTENT(IN)         :: n3       !! Number of rows in the returned matrix.
+DOUBLEPRECISION, INTENT(IN) :: b(n2,n1) !! Right-hand matrix in declared storage.
+DOUBLEPRECISION, INTENT(IN) :: c(n3,n2) !! Left-hand matrix in declared storage.
+DOUBLEPRECISION             :: a(n3,n1) !! Matrix product `C * B`.
+INTEGER                     :: i, j, k
 DO i=1,n3
     DO j=1,n1
         a(i,j) = zero
@@ -435,10 +480,12 @@ END FUNCTION jematmul_mm
 !> `n1 x n2` matrix.
 FUNCTION jematmul_vm(b, c, n1, n2)  RESULT(a)
 ! A = B * C
-INTEGER, INTENT(IN)          :: n1, n2
-DOUBLEPRECISION, INTENT(IN)  :: b(n2,n1),c(n2)
-DOUBLEPRECISION              :: a(n1)
-INTEGER                      :: i, k
+INTEGER, INTENT(IN)         :: n1      !! Length of the returned vector.
+INTEGER, INTENT(IN)         :: n2      !! Shared inner dimension.
+DOUBLEPRECISION, INTENT(IN) :: b(n2,n1) !! Matrix stored transposed relative to conventional notation.
+DOUBLEPRECISION, INTENT(IN) :: c(n2)   !! Input vector.
+DOUBLEPRECISION             :: a(n1)   !! Matrix-vector product.
+INTEGER                     :: i, k
 DO i=1,n1
     a(i) = zero
     DO k=1,n2
@@ -491,23 +538,24 @@ END FUNCTION jematmul_vm
 !> caller must provide increasing `TTAB` values and enough table entries for the
 !> updated `NCT(I)+1`; no bounds or zero-interval checks are made here.
 !> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-05 | RAH | 3.4.1 | Removed `IMPLICIT INTEGER*2`. |
+!> | 1997-05-16 | RAH | 4.1 | Added explicit typing; made `*TAB` assumed-size arrays; removed redundant `ITAB` argument. |
+!> @endhistory
 SUBROUTINE TERPO1 (YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)
-! Input arguments
-INTEGER :: NPAR, I
-DOUBLEPRECISION TCURR
-
-DOUBLEPRECISION YTAB (NPAR, * ), TTAB (NPAR, * ), YINIT (NPAR)
-! In+out arguments
-
-INTEGER :: NCT (NPAR)
-! Output arguments
-
-DOUBLEPRECISION YCURR (NPAR)
-! Locals, etc
-INTEGER :: ITERP, NCTERP
-
-
-DOUBLEPRECISION DIFFA, DIFFB, DIFFC, YREL
+INTEGER, INTENT(IN)             :: NPAR          !! Size of the parameter array.
+INTEGER, INTENT(IN)             :: I             !! Parameter-array position being updated.
+DOUBLEPRECISION, INTENT(IN)     :: TCURR         !! Current simulation time, in hours.
+DOUBLEPRECISION, INTENT(IN)     :: YTAB(NPAR,*)  !! Tabulated relative values of the parameter.
+DOUBLEPRECISION, INTENT(IN)     :: TTAB(NPAR,*)  !! Tabulated times, in days.
+DOUBLEPRECISION, INTENT(IN)     :: YINIT(NPAR)   !! Initial or reference parameter values.
+INTEGER, INTENT(INOUT)          :: NCT(NPAR)     !! Current table-position counter for each parameter.
+DOUBLEPRECISION, INTENT(INOUT)  :: YCURR(NPAR)   !! Current parameter array to update.
+INTEGER                         :: ITERP, NCTERP
+DOUBLEPRECISION                 :: DIFFA, DIFFB, DIFFC, YREL
 !----------------------------------------------------------------------*
 NCTERP = NCT (I)
 ITERP = INT((TCURR / 24.0 - TTAB (I, NCTERP) ) / (TTAB (I, NCTERP + 1) &
@@ -545,9 +593,14 @@ END SUBROUTINE TERPO1
 !> subsequent reduced diagonal `BET` must be non-zero.
 !> @endnote
 SUBROUTINE TRIDAG (A, B, C, R, U, N)
-INTEGER, INTENT(IN) :: N
-INTEGER             :: j
-DOUBLEPRECISION     :: A(:), B(:), C(:), R(:), U(:), GAM(n), bet, oobet
+INTEGER, INTENT(IN)             :: N      !! Number of equations.
+DOUBLEPRECISION, INTENT(IN)     :: A(:)   !! Lower diagonal; `A(1)` is not used.
+DOUBLEPRECISION, INTENT(IN)     :: B(:)   !! Main diagonal.
+DOUBLEPRECISION, INTENT(IN)     :: C(:)   !! Upper diagonal; `C(N)` is not used.
+DOUBLEPRECISION, INTENT(IN)     :: R(:)   !! Right-hand-side vector.
+DOUBLEPRECISION, INTENT(OUT)    :: U(:)   !! Solution vector.
+INTEGER                         :: j
+DOUBLEPRECISION                 :: GAM(n), bet, oobet
 BET  = B(1)
 oobet = one/bet
 U(1) = oobet * R(1)
@@ -590,10 +643,10 @@ END SUBROUTINE TRIDAG
 !> the original matrix.
 !> @endnote
 SUBROUTINE invertmat(a,n,icod)
-INTEGER, INTENT(IN)                            :: n
-INTEGER, INTENT(OUT)                           :: icod
+INTEGER, INTENT(IN)                            :: n    !! Matrix order.
+INTEGER, INTENT(OUT)                           :: icod !! Status code: `0` success, `1` failure.
 INTEGER                                        :: i, j, indx(n)
-DOUBLEPRECISION, DIMENSION(n,n), INTENT(INOUT) :: a
+DOUBLEPRECISION, DIMENSION(n,n), INTENT(INOUT) :: a    !! Matrix to replace with its inverse.
 DOUBLEPRECISION, DIMENSION(n,n)                :: y
 DOUBLEPRECISION                                :: d
 LOGICAL                                        :: issing, ret
@@ -652,8 +705,10 @@ END SUBROUTINE invertmat
 !> `b`. The `ii` marker skips leading zero terms in the permuted right-hand
 !> side, matching the Numerical Recipes implementation.
       SUBROUTINE lubksb(a,n,indx,b)
-      INTEGER         :: n, indx(n)
-      doubleprecision :: a(n,n), b(n)
+      INTEGER, INTENT(IN)         :: n       !! Matrix order.
+      INTEGER, INTENT(IN)         :: indx(n) !! Pivot-row indices from `ludcmp`.
+      doubleprecision, INTENT(IN) :: a(n,n)  !! Combined LU factors from `ludcmp`.
+      doubleprecision, INTENT(INOUT) :: b(n) !! Right-hand side on entry; solution on exit.
       INTEGER         :: i, ii, j, ll
       doubleprecision :: asum
       ii=0
@@ -708,12 +763,15 @@ END SUBROUTINE invertmat
 !> selected pivot is exactly zero after elimination, the routine substitutes the
 !> small value `TINY=1.0d-20`, preserving the legacy Numerical Recipes behaviour.
       SUBROUTINE ludcmp(a,n,indx,d, issing)
-      INTEGER              :: n,indx(n)
-      doubleprecision      :: d,a(n,n),TINY
+      INTEGER, INTENT(IN)       :: n       !! Matrix order.
+      INTEGER, INTENT(OUT)      :: indx(n) !! Pivot-row index for each column.
+      doubleprecision, INTENT(OUT) :: d    !! Pivot-parity factor.
+      doubleprecision, INTENT(INOUT) :: a(n,n) !! Matrix overwritten by combined LU factors.
+      doubleprecision      :: TINY
       PARAMETER (TINY=1.0d-20)
       INTEGER              :: i,imax,j,k
       doubleprecision      :: aamax,dum,asum,vv(n)
-      LOGICAL, INTENT(out) :: issing
+      LOGICAL, INTENT(out) :: issing !! True if a zero scaling row marks the matrix singular.
       issing=.FALSE.
       d=1.
       do 12 i=1,n
@@ -796,7 +854,7 @@ END SUBROUTINE invertmat
 !> | `KON` | Control parameter selecting read/convert/print/default-fill behaviour. |
 !> | `INF` | Input file unit for read modes; default integer value when `KON=3`. |
 !> | `IOF` | Output file unit used when printing the grid array. |
-!> | `INUM` | Expected range/count of integer codes, such as number of meteorological stations. If zero, the old `20I4` grid format is used. |
+!> | `INUM` | Expected range/count of integer codes; zero selects old `20I4` input. |
 !>
 !> For read modes, the grid-to-element mapping is
 !>
@@ -816,9 +874,20 @@ END SUBROUTINE invertmat
 !> the `KON=2` convert-and-print path. The single-digit integer grid format
 !> (`0 < INUM < 10`) is hard-limited to `NX <= 500`.
 !> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-09-28 | RAH | 3.4.1 | Added explicit `IMPLICIT` statement in the original source. |
+!> | 1995-07-24 | GP | 4.0 | Initialised `IAOUT` when `KON=0` or `KON=1`. |
+!> | 1997-08-04 | RAH | 4.1 | Added explicit typing; corrected `TITLE` from implicit double precision. |
+!> @endhistory
 SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
-INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM
-INTEGER, INTENT(OUT) :: IAOUT(:)
+INTEGER, INTENT(IN)    :: KON      !! Control parameter selecting read/convert/print/default-fill behaviour.
+INTEGER, INTENT(IN)    :: INF      !! Input file unit for read modes; default integer value when `KON=3`.
+INTEGER, INTENT(IN)    :: IOF      !! Output file unit used when printing the grid array.
+INTEGER, INTENT(IN)    :: INUM     !! Expected range/count of integer codes; zero selects old `20I4` input.
+INTEGER, INTENT(INOUT) :: IAOUT(:) !! Integer element array; also input when converting elements back to grid.
 INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX, IA (NXEE,NYEE)
 CHARACTER(4)         :: TITLE (20)
 !----------------------------------------------------------------------*
@@ -1000,12 +1069,18 @@ END SUBROUTINE AREADI
 !> `AOUT(1:total_no_elements)`, then printed output includes the grid plus
 !> link/bank values.
 !> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-09-28 | RAH | 3.4.1 | Added explicit `IMPLICIT` statement in the original source. |
+!> | 1997-08-04 | RAH | 4.1 | Added explicit typing; corrected `TITLE` from implicit double precision. |
+!> @endhistory
 SUBROUTINE AREADR (AOUT, KON, INF, IOF)
-INTEGER :: KON, INF, IOF
-! In|out arguments
-
-DOUBLEPRECISION AOUT (NELEE)
-! Locals, etc
+INTEGER, INTENT(IN)              :: KON        !! Control parameter selecting read/convert/print behaviour.
+INTEGER, INTENT(IN)              :: INF        !! Input file unit for read modes.
+INTEGER, INTENT(IN)              :: IOF        !! Output file unit used when printing the grid and link/bank values.
+DOUBLEPRECISION, INTENT(INOUT)   :: AOUT(NELEE) !! Double-precision element array; input when `KON` is not 0 or 1.
 INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, &
  NXX
 DOUBLEPRECISION B1, B2, A (NXEE, NYEE)
@@ -1136,10 +1211,10 @@ END SUBROUTINE AREADR
  INTEGER, PARAMETER     :: IM1=2147483563,IM2=2147483399,IMM1=IM1-1, &
                            IA1=40014,IA2=40692,IQ1=53668,IQ2=52774,IR1=12211,IR2=3791, &
                            NTAB=32,NDIV=1+IMM1/NTAB
- INTEGER, INTENT(INOUT) :: idum
+ INTEGER, INTENT(INOUT) :: idum !! Seed/state value; `idum <= 0` reinitialises the saved stream.
  INTEGER                :: j, k
  INTEGER, SAVE          :: IDUM2=123456789, iy=0, iv(NTAB)=0
- REAL                   :: ran2
+ REAL                   :: ran2 !! Uniform variate in `(0,1)`.
  REAL, PARAMETER        :: EPS=1.2e-7, RNMX=1.-EPS, AM=1./IM1
  IF(idum.le.0) THEN
     idum  = MAX(-idum,1)

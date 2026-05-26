@@ -33,8 +33,12 @@ USE OCmod2,   ONLY : GETHRF
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
 IMPLICIT NONE
 
-LOGICAL :: FIRST_balwat=.TRUE.
-DOUBLEPRECISION :: STORW_balwat(NELEE)=zero, pinp(nvee+10)=zero, METIME=zero, MELAST=zero, EPTIME=zero
+LOGICAL :: FIRST_balwat=.TRUE. !! `.TRUE.` until `BALWAT` has initialised previous-storage state.
+DOUBLEPRECISION :: STORW_balwat(NELEE)=zero !! Previous water storage depth for each element/link used by `BALWAT` (m).
+DOUBLEPRECISION :: pinp(nvee+10)=zero       !! Current precipitation input by rain station (mm/hr).
+DOUBLEPRECISION :: METIME=zero              !! End time of the current precipitation/full-meteorological record window (h).
+DOUBLEPRECISION :: MELAST=zero              !! Start time of the current precipitation/full-meteorological record window (h).
+DOUBLEPRECISION :: EPTIME=zero              !! End time of the current potential-evaporation record window (h).
 
 
 PRIVATE
@@ -44,6 +48,17 @@ PUBLIC :: BALWAT, TMSTEP, EXTRA_OUTPUT, &
 CONTAINS
 
 !> Writes end-of-run error and spatially averaged water-balance summaries.
+!>
+!> `extra_output` is called after the simulation loop has completed. It reports
+!> accumulated flow, sediment, and contaminant error counters, prints the normal
+!> completion line, and writes spatially averaged cumulative flux and final
+!> storage totals to the `.pri` output.
+!>
+!> | Output group | Source variables | Units |
+!> |:-------------|:-----------------|:------|
+!> | Error counts | `FLERRC`, `SYERRC`, `CMERRC` | count by error number |
+!> | Cumulative flux totals | `BALANC(7:12)` divided by `CAREA` | mm over catchment |
+!> | Final storage totals | `BALANC(13:17)` divided by `CAREA` | mm over catchment |
 SUBROUTINE extra_output()
 INTEGER :: i
 DOUBLEPRECISION    :: car
@@ -59,7 +74,7 @@ WRITE(PPPRI, 1600)
  1500 FORMAT('No. of occurences of error number ',I4,': ',I6)
 
  1600 FORMAT(/ 'End of error message asummary')
-!<<<
+!
 WRITE(PPPRI, '(////)')
 WRITE(PPPRI, 9900) UZNOW, NSTEP
 !
@@ -343,7 +358,7 @@ END subroutine BALWAT
 SUBROUTINE METIN (IFLAG)
 ! Input arguments
 
-INTEGER :: IFLAG
+INTEGER, INTENT(IN) :: IFLAG !! Read mode: `1` advances precipitation records; `2` advances potential evaporation and time-varying ET parameters.
 ! Locals, etc
 !INTRINSIC MIN
 INTEGER :: I, IDATA, ISITE, K, NN
@@ -1056,22 +1071,6 @@ END SUBROUTINE METIN
 !> | 2026-03 | SB | 4.6 | Added date-aware checks for meteorological forcing files. |
 !> @endhistory
 SUBROUTINE TMSTEP
-!----------------------------------------------------------------------*
-!
-!  COMPUTE THE NEXT TiMeSTEP AND READ METEOROLOGICAL DATA.
-!
-!----------------------------------------------------------------------*
-! Commons and constants
-! Input common
-!     SPEC.AL          FATAL,NEL,NLF,NM,NRAIN,NSTEP,PRI
-!                      PALFA,TMAX,MELAST,METIME,UZNOW
-!                      PINP(NRAIN),SD(NLF+1:NEL),TA(NM)
-!                      BEXSM
-!     SPEC.FR          BSOFT
-! In+out common
-!     SPEC.AL          UZNEXT
-! Output common
-!     SPEC.AL          P(NRAIN),PTOT(NRAIN)
 ! Locals, etc
 !INTRINSIC MIN
 INTEGER :: I, IEL, IFLAG

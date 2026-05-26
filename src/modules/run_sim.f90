@@ -121,6 +121,31 @@ CONTAINS
 !> `SYmod`, `CMmod`, `rest`, the visualisation interfaces, and supporting
 !> parameter modules.
 !>
+!> Main loop sequence:
+!>
+!> | Step | Action |
+!> |:-----|:-------|
+!> | Select timestep | `TMSTEP` sets `UZNEXT`; `NSTEP` increments and `OCNEXT=UZNEXT`. |
+!> | Land hydrology | `ETSIM` runs first, then `VSSIM`; only after both does `UZNOW` advance. |
+!> | Link forcing | Channel/link `EPOT`, `PNETTO`, `ESWA`, `EEVAP`, and well additions are updated. |
+!> | Surface routing | `OCSIM` advances overland/channel hydraulics, then `OCNOW=UZNOW`. |
+!> | Sediment and contaminants | `FRSORT` refreshes ordering; `SYMAIN` runs when sediment is active; `INCM` runs only on the first active contaminant step, with `CMSIM` on later active steps. |
+!> | Output | Water balance, monthly balance, optional sediment balance, result output, hot-start output, visualisation, progress, and `FROUTPUT('main ')` are written. |
+!>
+!> Hot-start output fields:
+!>
+!> | Field | Meaning |
+!> |:------|:--------|
+!> | `time` | Current time `UZNOW`, next step `UZNEXT`, and active top-cell number. |
+!> | `cstore` | Canopy storage for land/bank elements. |
+!> | `HRF` | Surface-water elevation from `getHRF`. |
+!> | `QSA` | Overland face flow from `QSAZZ`. |
+!> | `QOC` | Overland/channel face flow. |
+!> | `DQ0ST`, `DQIST`, `DQIST2` | Stored flow derivatives. |
+!> | `SD`, `TS` | Snowpack depth and snow temperature. |
+!> | `NSMC`, `SMELT`, `TMELT` | Snowmelt routing slug count, water amount, and release time. |
+!> | `VSPSI` | Variably saturated pressure-head profile. |
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -292,22 +317,7 @@ DO
     ! hotstart output
     IF (BHOTPR) THEN
         IF (UZNOW.GE.HOTIME) THEN
-    ! uznow=current time (hours)
-    ! uznext-= next time(hours)
-    ! cstore = canopy storage (mm)
-    ! gethrf = surface water elevation(m)
-    ! QSAzz = overland flow?
-    ! QOC = overland flow
-    ! DQ0ST = flow derivatives
-    ! DQIST = flow derivatives
-    ! DQIST2 = flow derivatives
-    ! SD = snow pack depth
-    ! TS = snow temperature
-    ! NSMC = COUNTER USED IN ROUTING MELTWATER THROUGH SNOWPACK
-    ! SMELT = water in meltwater slug?
-    ! TMELT = temperature of eltwater slug?
-    ! vspsi = soil water potentials
-         WRITE (HOT,*) "time= ",UZNOW, UZNEXT, top_cell_no,"cstore= ", (CSTORE (IEL), IEL = NGDBGN, &
+          WRITE (HOT,*) "time= ",UZNOW, UZNEXT, top_cell_no,"cstore= ", (CSTORE (IEL), IEL = NGDBGN, &
          total_no_elements),"HRF= ", (getHRF (IEL), IEL = 1, total_no_elements),"QSA= ", ( (QSAzz (IEL, K), IEL = 1, &
          total_no_elements), K = 1, 4),"QOC= ", ( (QOC (IEL, K), IEL = 1, total_no_elements), K = 1, 4), &
          "DQ0ST= ",( (DQ0ST (IEL, K), IEL = 1, total_no_elements), K = 1, 4),"DQIST= ", ( (DQIST (IEL, &

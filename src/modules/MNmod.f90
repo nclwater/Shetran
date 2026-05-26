@@ -51,11 +51,16 @@
 !> the manual's nitrate plant-uptake input file (`MNPL`) and tested carefully.
 !> @endwarning
 !>
-!> History:
+!> @history
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-03 | SB | 4.6 | Capitalised `MNCONT` for Linux builds and moved several arrays to allocatable storage. |
+!> | 2026-03 | SB | 4.6 | Capitalised `MNCONT` for Linux builds. |
+!> | 2026-03 | SB | 4.6 | Changed key interface/work arrays to allocatable storage. |
+!>
+!> The allocatable arrays in the March 2026 change include `VSTHEO`, `NLYRBT`,
+!> `NTSOIL`, `DELTAZ`, `RDF`, `ZVSNOD`, `CCCC`, `SSSS`, `SSS1`, and `SSS2`.
+!> @endhistory
 module MNmod
 
     use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee, error
@@ -68,16 +73,56 @@ module MNmod
 	PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp
 
 
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     cahum,calit,caman,cdort,chum,chum1,clit,clit1,cman,cman1
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     denit,dummy4,dummy6
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     edeth,emph,emt,enph,ent
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     gam,gamtmp,imamm,imdiff,imnit
-    LOGICAL, DIMENSION(:,:), ALLOCATABLE ::     isimtf
-	DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     kd1,kd2,khum,klit,kman,knit,kvol
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     miner
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     naamm,namm,namm1,nanit,ndnit,ndsnt,nlit,nlit1,nman,nman1,ntrf
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     plamm,plnit,plup,pphi
-    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     snit,temp,vol
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cahum  !! External carbon addition rate assigned to humus.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: calit  !! External carbon addition rate assigned to litter.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: caman  !! External carbon addition rate assigned to manure.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cdort  !! Carbon dioxide production rate from organic matter turnover.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: chum   !! Humus carbon at the start of the timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: chum1  !! Updated humus carbon.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: clit   !! Litter carbon at the start of the timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: clit1  !! Updated litter carbon.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cman   !! Manure carbon at the start of the timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cman1  !! Updated manure carbon.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: denit  !! Denitrification loss rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: dummy4 !! Floating-point workspace array for MN input checks.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: dummy6 !! Floating-point workspace array for MN input checks.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: edeth  !! Water-content reduction factor for denitrification.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: emph   !! Matric-potential reduction factor for mineralisation.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: emt    !! Temperature reduction factor for mineralisation.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: enph   !! Matric-potential reduction factor for nitrification.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ent    !! Temperature reduction factor for nitrification.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: gam    !! Net mineralisation rate after immobilisation constraints.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: gamtmp !! Net mineralisation rate before immobilisation-deficit adjustment.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: imamm  !! Ammonium immobilisation rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: imdiff !! Immobilisation demand that could not be met in the current timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: imnit  !! Nitrate immobilisation rate.
+    LOGICAL, DIMENSION(:,:), ALLOCATABLE :: isimtf        !! True where immobilisation shortage suppresses litter/manure turnover.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kd1    !! Denitrification carbon-demand coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kd2    !! Denitrification nitrate-availability coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: khum   !! Humus decomposition rate coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: klit   !! Litter decomposition rate coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kman   !! Manure decomposition rate coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: knit   !! Nitrification rate coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kvol   !! Ammonia volatilisation rate coefficient.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: miner  !! Gross mineralisation rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: naamm  !! Ammonium addition/deposition rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: namm   !! Ammonium concentration at the start of the timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: namm1  !! Updated ammonium concentration.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nanit  !! Nitrate addition/deposition rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ndnit  !! Nitrate half-saturation denominator for plant uptake partitioning.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ndsnt  !! Ammonium half-saturation denominator for plant uptake partitioning.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nlit   !! Litter nitrogen at the start of the timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nlit1  !! Updated litter nitrogen.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nman   !! Manure nitrogen at the start of the timestep.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nman1  !! Updated manure nitrogen.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ntrf   !! Nitrification rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: plamm  !! Actual ammonium plant uptake rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: plnit  !! Actual nitrate plant uptake rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: plup   !! Potential plant nitrogen uptake rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: pphi   !! Mobile-water partition factor for ammonium/nitrate uptake.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: snit   !! Total nitrate source/sink diagnostic rate.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: temp   !! Soil temperature used by MN response factors.
+    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: vol    !! Ammonia volatilisation loss rate.
 
     CONTAINS
 
@@ -126,30 +171,28 @@ subroutine mnamm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nl
     ! externals
     !use sglobal, only : error
     !       external      error
-    ! input arguments
-    integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf,nlyree,ns
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision gnn,kplamm,kuamm,mncref
-    double precision kddsol(ns)
-    double precision dtuz
-    !double precision emt(nelee,llee),enph(nelee,llee)
-    !double precision ent(nelee,llee)
-    !double precision gam(nelee,llee)
-    !double precision knit(nelee,llee),kvol(nelee,llee)
-    !double precision naamm(nelee,llee)
-    !double precision namm(nelee,llee)
-    !double precision ndnit(nelee,llee),ndsnt(nelee,llee)
-    !double precision plup(nelee,llee)
-    !double precision pphi(nelee,llee)
-    double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-    logical isbotc
-    !
-    ! output arguments
-    !double precision imamm(nelee,llee),miner(nelee,llee)
-    !double precision namm1(nelee,llee)
-    !double precision ntrf(nelee,llee),plamm(nelee,llee)
-    !double precision vol(nelee,llee)
+    integer llee                    !! Maximum soil-cell dimension.
+    integer mnpr                    !! MN diagnostic output unit used for warning messages.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer nlyree                  !! Soil-layer array dimension.
+    integer ns                      !! Number of soil types.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision gnn            !! Nonlinear ammonium adsorption exponent.
+    double precision kplamm         !! First-order ammonium plant-uptake limit.
+    double precision kuamm          !! First-order ammonium immobilisation limit.
+    double precision mncref         !! Reference nitrogen concentration.
+    double precision kddsol(ns)     !! Soil ammonium adsorption coefficient.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision vsthe(ncetop,nel)     !! Current volumetric water content.
+    double precision vstheo(nel,ncetop+1)  !! Previous volumetric water content.
+    logical isbotc                  !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer          jsoil,jlyr,nbotm,ncebot,ncl,nelm,niters,ntime
     integer          warn
@@ -295,23 +338,16 @@ end subroutine mnamm
 !> \]
 subroutine mnco2 (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,isbotc)
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision fe,fh
-    !double precision chum(nelee,llee)
-    !double precision chum1(nelee,llee),clit(nelee,llee)
-    !double precision clit1(nelee,llee),cman(nelee,llee)
-    !double precision cman1(nelee,llee)
-    !double precision emph(nelee,llee),emt(nelee,llee)
-    !double precision khum(nelee,llee),klit(nelee,llee)
-    !double precision kman(nelee,llee)
-    logical isbotc
-    !logical isimtf(nelee,llee)
-    !
-    ! output arguments
-    !double precision cdort(nelee,llee)
-    !
+    integer llee              !! Maximum soil-cell dimension.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision fe       !! Efficiency fraction for organic carbon turnover.
+    double precision fh       !! Humification fraction.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
     ! local variables
     integer nbotm,ncl,nelm
     double precision chumh,clith,cmanh,dum,erf,klittp,kmantp
@@ -390,34 +426,57 @@ subroutine MNCONT(mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl,ncetop,ncon,nel,
     icmxy,ncolmb,nlyr,nrd,nvc,nlyrbt,ntsoil,d0,tih,rhopl,z2,delone,dxqq,dyqq,vspor,deltaz,plai,rdf,zvsnod,bexbk, &
     linkns,dtuz,uznow,clai,cccc,pnetto,ssss,ta,vspsi,vsthe,vstheo,sss1,sss2 )
 
-    integer mnd,mnfc,mnfn,mnpl,mnpr,mnout1,mnout2,mnoutpl
-    integer ncetop,ncon,nel,nlf,ns,nv,nx,ny
-    integer icmbk(nlfee,2),icmref(nelee,4,2:2),icmxy(nxee,ny)
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nrd(nv),nvc(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision d0,tih,rhopl,z2
-    double precision delone(npltee)
-    double precision dxqq(nelee),dyqq(nelee)
-    double precision vspor(ns)
-    double precision deltaz(llee,nel),plai(nv)
-    double precision rdf(nv,llee),zvsnod(llee,nel)
-    logical bexbk,linkns(nlfee)
-    !      * varying
-    double precision dtuz,uznow
-    double precision clai(nv)
-    double precision cccc(nel,ncetop+1)
-    double precision pnetto(nelee)
-    double precision ssss(nel,ncetop+1)
-    double precision ta(nv),vspsi(ncetop,nel)
-    double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-    !
-    !
-    ! ouput arguments
-    double precision sss1(nel,ncetop+1),sss2(nel,ncetop+1)
-    !
-    ! local arguments
-    !double precision plup(nelee,llee)
+    integer mnd                     !! Static MND input unit.
+    integer mnfc                    !! Scheduled carbon-addition input unit.
+    integer mnfn                    !! Scheduled nitrogen-addition input unit.
+    integer mnpl                    !! Plant-uptake input unit.
+    integer mnpr                    !! MN diagnostic output unit.
+    integer mnout1                  !! Carbon budget output unit.
+    integer mnout2                  !! Nitrogen budget output unit.
+    integer mnoutpl                 !! Plant nitrogen output unit.
+    integer ncetop                  !! Top soil-cell index.
+    integer ncon                    !! Number of contaminant species coupled to MN.
+    integer nel                     !! Number of elements.
+    integer nlf                     !! Number of overland/channel links.
+    integer ns                      !! Number of soil types.
+    integer nv                      !! Number of vegetation/meteorological entries.
+    integer nx                      !! Number of grid columns.
+    integer ny                      !! Number of grid rows.
+    integer icmbk(nlfee,2)          !! Bank-element numbers for each channel link.
+    integer icmref(nelee,4,2:2)     !! Neighbour reference map.
+    integer icmxy(nxee,ny)          !! Element number at each grid location.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nrd(nv)                 !! Rooting depth in cell counts by vegetation type.
+    integer nvc(nelee)              !! Vegetation type index by element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision d0             !! Reference diffusion/dispersion scale used by CM.
+    double precision tih            !! Initial simulation time in hours.
+    double precision rhopl          !! Plant dry-matter density used by uptake calculation.
+    double precision z2             !! Vertical length scale used by CM and MN temperature diffusion.
+    double precision delone(npltee) !! Initial plant biomass/cover scaling by plant type.
+    double precision dxqq(nelee)    !! Element width.
+    double precision dyqq(nelee)    !! Element length.
+    double precision vspor(ns)      !! Soil porosity by soil type.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision plai(nv)       !! Plant leaf-area index by vegetation type.
+    double precision rdf(nv,llee)   !! Root density fraction by vegetation type and cell.
+    double precision zvsnod(llee,nel) !! Vertical node elevation/depth by cell and element.
+    logical bexbk                   !! True when bank elements are represented.
+    logical linkns(nlfee)           !! True for north-south channel links.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision uznow          !! Current unsaturated-zone simulation time.
+    double precision clai(nv)       !! Current canopy leaf-area index by vegetation type.
+    double precision cccc(nel,ncetop+1) !! Dynamic-region nitrate concentration.
+    double precision pnetto(nelee)  !! Net precipitation/effective rainfall by element.
+    double precision ssss(nel,ncetop+1) !! Dead-space nitrate concentration.
+    double precision ta(nv)         !! Air temperature by vegetation/meteorological entry.
+    double precision vspsi(ncetop,nel)  !! Matric potential/pressure head by cell and element.
+    double precision vsthe(ncetop,nel)  !! Current volumetric water content.
+    double precision vstheo(nel,ncetop+1) !! Previous volumetric water content.
+    double precision sss1(nel,ncetop+1)  !! Dynamic-region CM source/sink array.
+    double precision sss2(nel,ncetop+1)  !! Dead-space CM source/sink array.
     integer pass
 
     save pass
@@ -491,17 +550,21 @@ end subroutine MNCONT
 !> clipped to the current soil-layer base in the layer loop.
 subroutine mnedth (llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns,ncolmb,nlyr,nlyrbt,ntsoil,vsthe,vspor,isbotc )
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf,nlyree,ns
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision vsthe(ncetop,nel),vspor(ns)
-    logical isbotc
-    !
-    !
-    ! output arguments
-    !double precision edeth(nelee,llee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer nlyree                  !! Soil-layer array dimension.
+    integer ns                      !! Number of soil types.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision vsthe(ncetop,nel) !! Current volumetric water content.
+    double precision vspor(ns)      !! Soil porosity by soil type.
+    logical isbotc                  !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals etc.
     integer jlyr,jsoil,nbotm,nce,ncebot,nelm
     double precision relsat
@@ -568,16 +631,15 @@ end subroutine mnedth
 !> `NCOLMB(element):NCETOP`.
 subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision vspsi(ncetop,nel)
-    logical isbotc
-    !
-    !
-    ! output arguments
-    !double precision emph(nelee,llee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    double precision vspsi(ncetop,nel) !! Matric potential/pressure head by cell and element.
+    logical isbotc                  !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer nbotm,ncl,nelm
     !
@@ -641,16 +703,16 @@ end	subroutine mnemph
 !> when `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
 subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision q10m
-    !temp(nelee,llee)
-    logical isbotc,isq10
-    !
-    ! output arguments
-    !double precision emt(nelee,llee)
-    !
+    integer llee              !! Maximum soil-cell dimension.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision q10m     !! Q10 coefficient for mineralisation temperature response.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
+    logical isq10             !! True when Q10 temperature response is selected.
     ! locals
     integer nbotm,ncl,nelm
     !
@@ -723,16 +785,15 @@ end subroutine mnemt
 !> @endnote
 subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision vspsi(ncetop,nel)
-    logical isbotc
-    !
-    !
-    ! output arguments
-    !double precision enph(nelee,llee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    double precision vspsi(ncetop,nel) !! Matric potential/pressure head by cell and element.
+    logical isbotc                  !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer nbotm,ncl,nelm
     !
@@ -804,16 +865,16 @@ end subroutine mnenph
 !> when `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
 subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision q10n
-    !temp(nelee,llee)
-    logical isbotc,isq10
-    !
-    ! output arguments
-    !double precision ent(nelee,llee)
-    !
+    integer llee              !! Maximum soil-cell dimension.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision q10n     !! Q10 coefficient for nitrification temperature response.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
+    logical isq10             !! True when Q10 temperature response is selected.
     ! locals
     integer nbotm,ncl,nelm
     !
@@ -878,11 +939,28 @@ subroutine mnerr0(llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel,nelee,nlf,nlfee
     !use mod_load_filedata ,    only : alchki
     !       external      alchki,error
     !
-    ! input arguments
-    integer       llee,mnd,mnfc,mnfn,mnpr,ncetop,ncon,nconee,nel
-    integer       nelee,nlf,nlfee,nlyree,nmneee,nmntee,ns,nsee
-    integer       nx,nxee,nv,nvee,ny
-    !
+    integer       llee       !! Maximum soil-cell dimension.
+    integer       mnd        !! Static MND input unit.
+    integer       mnfc       !! Scheduled carbon-addition input unit.
+    integer       mnfn       !! Scheduled nitrogen-addition input unit.
+    integer       mnpr       !! MN diagnostic output unit.
+    integer       ncetop     !! Top soil-cell index.
+    integer       ncon       !! Number of contaminant species coupled to MN.
+    integer       nconee     !! Contaminant-species array dimension.
+    integer       nel        !! Number of elements.
+    integer       nelee      !! Element-array dimension.
+    integer       nlf        !! Number of overland/channel links.
+    integer       nlfee      !! Link-array dimension.
+    integer       nlyree     !! Soil-layer array dimension.
+    integer       nmneee     !! Maximum number of MN category entries.
+    integer       nmntee     !! Maximum number of MN table entries.
+    integer       ns         !! Number of soil types.
+    integer       nsee       !! Soil-type array dimension.
+    integer       nx         !! Number of grid columns.
+    integer       nxee       !! Grid-column array dimension.
+    integer       nv         !! Number of vegetation types.
+    integer       nvee       !! Vegetation-type array dimension.
+    integer       ny         !! Number of grid rows.
     ! locals etc.
     integer       fatal, err
     parameter     ( fatal = 1, err = 2 )
@@ -1020,24 +1098,41 @@ subroutine mnerr1(llee,mnpr,ncetop,nel,nelee,nlf,nlfee,nlyree,ns,nx,nxee,ny,icmb
     !use mod_load_filedata ,    only : alchk,alchki
     !       external      alchk,alchki,error
     !
-    ! input arguments
-    integer llee,mnpr,ncetop,nel,nelee,nlf,nlfee,nlyree,ns
-    integer nx,nxee,ny
-    integer icmbk(nlfee,2),icmref(nelee,4,2:2),icmxy(nxee,ny)
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision d0,tih,z2
-    double precision dxqq(nelee),dyqq(nelee)
-    double precision vspor(ns)
-    double precision deltaz(llee,nel),zvsnod(llee,nel)
-    logical bexbk,linkns(nlfee)
-    !
-    ! workspace arguments
-    integer           dummy2(nlyree,nelee),dummy3(nlyree)
-    integer           idum(nelee),idum1x(-1:nel+1)
-    !double precision  dummy4(llee,nelee)
-    logical           ldum(nelee),ldum2(llee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer mnpr                    !! MN diagnostic output unit.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links.
+    integer nlfee                   !! Link-array dimension.
+    integer nlyree                  !! Soil-layer array dimension.
+    integer ns                      !! Number of soil types.
+    integer nx                      !! Number of grid columns.
+    integer nxee                    !! Grid-column array dimension.
+    integer ny                      !! Number of grid rows.
+    integer icmbk(nlfee,2)          !! Bank-element numbers for each channel link.
+    integer icmref(nelee,4,2:2)     !! Neighbour reference map used to validate bank adjacency.
+    integer icmxy(nxee,ny)          !! Element number at each grid location.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision d0             !! Reference diffusion/dispersion scale used by CM.
+    double precision tih            !! Initial simulation time in hours.
+    double precision z2             !! Vertical length scale used by CM and MN temperature diffusion.
+    double precision dxqq(nelee)    !! Element width.
+    double precision dyqq(nelee)    !! Element length.
+    double precision vspor(ns)      !! Soil porosity by soil type.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision zvsnod(llee,nel) !! Vertical node elevation/depth by cell and element.
+    logical bexbk                   !! True when bank elements are represented.
+    logical linkns(nlfee)           !! True for north-south channel links.
+    integer dummy2(nlyree,nelee)    !! Integer workspace for layer membership checks.
+    integer dummy3(nlyree)          !! Integer workspace for layer checks.
+    integer idum(nelee)             !! Integer workspace for element accounting.
+    integer idum1x(-1:nel+1)        !! Integer workspace for element identity checks.
+    logical ldum(nelee)             !! Logical workspace for element accounting.
+    logical ldum2(llee)             !! Logical workspace for cell/layer checks.
     ! locals etc.
     integer           fatal, err
     parameter         ( fatal = 1, err = 2 )
@@ -1293,40 +1388,86 @@ subroutine mnerr2(mnpr,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,n
     !use mod_load_filedata ,    only : alchk,alchki
     !       external      alchk,error
     !
-    ! input arguments
-    integer mnpr,nbotce,ncetop,nel,nelee,nlf
-    integer nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e
-    integer nmn27e,nmn43e,nmn53e
-    integer nmneee,nmntee,ns
-    integer celem(nlf+1:nel),kd1elm(nlf+1:nel),kd2elm(nlf+1:nel)
-    integer khelem(nlf+1:nel),klelem(nlf+1:nel),kmelem(nlf+1:nel)
-    integer knelem(nlf+1:nel),kvelem(nlf+1:nel)
-    integer naelem(nlf+1:nel)
-    integer nmn15t(nmneee),nmn17t(nmneee),nmn19t(nmneee)
-    integer nmn21t(nmneee),nmn23t(nmneee),nmn25t(nmneee)
-    integer nmn27t(nmneee)
-    integer nmn43t(nmneee),nmn53t(nmneee)
-    double precision ammddr,ammwdr,clitfr,cnrbio,cnrhum,cnrlit
-    double precision fe,fh,gnn,kplamm,kplnit,kuamm,kunit
-    double precision mncref,nitddr,nitwdr,q10m,q10n
-    double precision cconc(nmneee,nmntee),cdpth(nmneee,nmntee)
-    double precision ctottp(nlf+1:nel),damhlf(nlf+1:nel)
-    double precision dchlf(nlf+1:nel)
-    double precision kd1cnc(nmneee,nmntee),kd1dth(nmneee,nmntee)
-    double precision kd2cnc(nmneee,nmntee),kd2dth(nmneee,nmntee)
-    double precision kddsol(ns)
-    double precision khconc(nmneee,nmntee),khdpth(nmneee,nmntee)
-    double precision klconc(nmneee,nmntee),kldpth(nmneee,nmntee)
-    double precision kmconc(nmneee,nmntee),kmdpth(nmneee,nmntee)
-    double precision knconc(nmneee,nmntee),kndpth(nmneee,nmntee)
-    double precision kvconc(nmneee,nmntee),kvdpth(nmneee,nmntee)
-    double precision naconc(nmneee,nmntee),nadpth(nmneee,nmntee)
-    double precision namtop(nlf+1:nel)
-    logical isiccd,isiamd
-    !
-    ! workspace arguments
-    logical           ldum(nelee)
-    !
+    integer mnpr                    !! MN diagnostic output unit.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column checks.
+    integer nmn15e                  !! Number of humus category entries.
+    integer nmn17e                  !! Number of litter category entries.
+    integer nmn19e                  !! Number of manure category entries.
+    integer nmn21e                  !! Number of nitrification category entries.
+    integer nmn23e                  !! Number of volatilisation category entries.
+    integer nmn25e                  !! Number of KD1 denitrification category entries.
+    integer nmn27e                  !! Number of KD2 denitrification category entries.
+    integer nmn43e                  !! Number of initial-carbon category entries.
+    integer nmn53e                  !! Number of initial-ammonium category entries.
+    integer nmneee                  !! Maximum number of MN category entries.
+    integer nmntee                  !! Maximum number of MN table entries.
+    integer ns                      !! Number of soil types.
+    integer celem(nlf+1:nel)        !! Initial-carbon category by element.
+    integer kd1elm(nlf+1:nel)       !! KD1 denitrification category by element.
+    integer kd2elm(nlf+1:nel)       !! KD2 denitrification category by element.
+    integer khelem(nlf+1:nel)       !! Humus decomposition category by element.
+    integer klelem(nlf+1:nel)       !! Litter decomposition category by element.
+    integer kmelem(nlf+1:nel)       !! Manure decomposition category by element.
+    integer knelem(nlf+1:nel)       !! Nitrification category by element.
+    integer kvelem(nlf+1:nel)       !! Volatilisation category by element.
+    integer naelem(nlf+1:nel)       !! Initial-ammonium category by element.
+    integer nmn15t(nmneee)          !! Humus table length by category.
+    integer nmn17t(nmneee)          !! Litter table length by category.
+    integer nmn19t(nmneee)          !! Manure table length by category.
+    integer nmn21t(nmneee)          !! Nitrification table length by category.
+    integer nmn23t(nmneee)          !! Volatilisation table length by category.
+    integer nmn25t(nmneee)          !! KD1 table length by category.
+    integer nmn27t(nmneee)          !! KD2 table length by category.
+    integer nmn43t(nmneee)          !! Initial-carbon table length by category.
+    integer nmn53t(nmneee)          !! Initial-ammonium table length by category.
+    double precision ammddr         !! Dry ammonium deposition rate.
+    double precision ammwdr         !! Wet ammonium deposition coefficient.
+    double precision clitfr         !! Fraction of initial organic carbon assigned to litter.
+    double precision cnrbio         !! Biomass carbon-to-nitrogen ratio.
+    double precision cnrhum         !! Humus carbon-to-nitrogen ratio.
+    double precision cnrlit         !! Litter carbon-to-nitrogen ratio.
+    double precision fe             !! Efficiency fraction for organic carbon turnover.
+    double precision fh             !! Humification fraction.
+    double precision gnn            !! Nonlinear ammonium adsorption exponent.
+    double precision kplamm         !! First-order ammonium plant-uptake limit.
+    double precision kplnit         !! First-order nitrate plant-uptake limit.
+    double precision kuamm          !! First-order ammonium immobilisation limit.
+    double precision kunit          !! First-order nitrate immobilisation limit.
+    double precision mncref         !! Reference nitrogen concentration.
+    double precision nitddr         !! Dry nitrate deposition rate.
+    double precision nitwdr         !! Wet nitrate deposition coefficient.
+    double precision q10m           !! Q10 coefficient for mineralisation.
+    double precision q10n           !! Q10 coefficient for nitrification.
+    double precision cconc(nmneee,nmntee)  !! Initial-carbon profile values.
+    double precision cdpth(nmneee,nmntee)  !! Initial-carbon profile depths.
+    double precision ctottp(nlf+1:nel)     !! Top total-carbon value for decay initialisation.
+    double precision damhlf(nlf+1:nel)     !! Ammonium decay half-depth by element.
+    double precision dchlf(nlf+1:nel)      !! Carbon decay half-depth by element.
+    double precision kd1cnc(nmneee,nmntee) !! KD1 denitrification profile values.
+    double precision kd1dth(nmneee,nmntee) !! KD1 denitrification profile depths.
+    double precision kd2cnc(nmneee,nmntee) !! KD2 denitrification profile values.
+    double precision kd2dth(nmneee,nmntee) !! KD2 denitrification profile depths.
+    double precision kddsol(ns)            !! Soil ammonium adsorption coefficient.
+    double precision khconc(nmneee,nmntee) !! Humus decomposition profile values.
+    double precision khdpth(nmneee,nmntee) !! Humus decomposition profile depths.
+    double precision klconc(nmneee,nmntee) !! Litter decomposition profile values.
+    double precision kldpth(nmneee,nmntee) !! Litter decomposition profile depths.
+    double precision kmconc(nmneee,nmntee) !! Manure decomposition profile values.
+    double precision kmdpth(nmneee,nmntee) !! Manure decomposition profile depths.
+    double precision knconc(nmneee,nmntee) !! Nitrification profile values.
+    double precision kndpth(nmneee,nmntee) !! Nitrification profile depths.
+    double precision kvconc(nmneee,nmntee) !! Volatilisation profile values.
+    double precision kvdpth(nmneee,nmntee) !! Volatilisation profile depths.
+    double precision naconc(nmneee,nmntee) !! Initial-ammonium profile values.
+    double precision nadpth(nmneee,nmntee) !! Initial-ammonium profile depths.
+    double precision namtop(nlf+1:nel)     !! Top ammonium value for decay initialisation.
+    logical isiccd                  !! True when initial carbon uses decay-function input.
+    logical isiamd                  !! True when initial ammonium uses decay-function input.
+    logical ldum(nelee)             !! Logical workspace for element checks.
     ! locals etc.
     integer          icol1,iundef,nelmty,nerr,ntab
     integer          fatal,err, warn
@@ -1686,24 +1827,22 @@ subroutine mnerr3(llee,mnpr,ncetop,nel,nelee,nlf,ncolmb,dtuz,uznow,cccc, &
     !use mod_load_filedata ,    only : alchk
     !       external      alchk,error
     !
-    ! input arguments
-    integer llee,mnpr,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision dtuz,uznow
-    double precision cccc(nel,ncetop+1)
-    !double precision chum1(nelee,llee),clit1(nelee,llee)
-    !double precision cman1(nelee,llee)
-    !double precision namm1(nelee,llee),nlit1(nelee,llee)
-    !double precision nman1(nelee,llee)
-    !double precision plup(nelee,llee)
-    double precision pnetto(nelee)
-    double precision ssss(nel,ncetop+1)
-    double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-    !
-    ! workspace arguments
-    !double precision  dummy4(llee,nelee)
-    logical           ldum(nelee),ldum2(llee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer mnpr                    !! MN diagnostic output unit.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column checks.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision uznow          !! Current unsaturated-zone simulation time.
+    double precision cccc(nel,ncetop+1) !! Dynamic-region nitrate concentration.
+    double precision pnetto(nelee)  !! Net precipitation/effective rainfall by element.
+    double precision ssss(nel,ncetop+1) !! Dead-space nitrate concentration.
+    double precision vsthe(ncetop,nel)  !! Current volumetric water content.
+    double precision vstheo(nel,ncetop+1) !! Previous volumetric water content.
+    logical ldum(nelee)             !! Logical workspace for element checks.
+    logical ldum2(llee)             !! Logical workspace for cell checks.
     ! locals etc.
     integer          fatal,err
     parameter (fatal = 1, err = 2 )
@@ -1935,19 +2074,23 @@ subroutine mnerr4 ( mnpr,nel,nelee,nlf,cdpthb,cltfct,cmnfct,cnral,cnram,ctot,nam
     !       external      alchk,error
     !
     !
-    ! input arguments
-    integer mnpr,nel,nelee,nlf
-    double precision cdpthb(nlf+1:nel),cltfct(nlf+1:nel)
-    double precision cmnfct(nlf+1:nel),cnral(nlf+1:nel)
-    double precision cnram(nlf+1:nel),ctot(nlf+1:nel)
-    double precision namfct(nlf+1:nel),ndpthb(nlf+1:nel)
-    double precision ntot(nlf+1:nel)
-    logical isaddc,isaddn
-    !
-    ! workspace arguments
-    double precision dummy(nelee)
-    logical          ldum(nelee)
-    !
+    integer mnpr                    !! MN diagnostic output unit.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column checks.
+    double precision cdpthb(nlf+1:nel) !! Carbon banding depth.
+    double precision cltfct(nlf+1:nel) !! Litter fraction of added carbon.
+    double precision cmnfct(nlf+1:nel) !! Manure fraction of added carbon.
+    double precision cnral(nlf+1:nel)  !! Carbon-to-nitrogen ratio for added litter.
+    double precision cnram(nlf+1:nel)  !! Carbon-to-nitrogen ratio for added manure.
+    double precision ctot(nlf+1:nel)   !! Total external carbon addition.
+    double precision namfct(nlf+1:nel) !! Ammonium fraction of added inorganic nitrogen.
+    double precision ndpthb(nlf+1:nel) !! Nitrogen banding depth.
+    double precision ntot(nlf+1:nel)   !! Total external inorganic nitrogen addition.
+    logical isaddc                  !! True when a carbon-addition event is active.
+    logical isaddn                  !! True when a nitrogen-addition event is active.
+    double precision dummy(nelee)   !! Floating-point workspace for range checks.
+    logical ldum(nelee)             !! Logical workspace for range checks.
     ! locals etc.
     integer          fatal,err
     parameter (fatal = 1, err = 2 )
@@ -2069,29 +2212,19 @@ end subroutine mnerr4
 subroutine mngam (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrhum,cnrbio,fe,fh,dtuz, &
     isbotc )
 
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision cnrbio,cnrhum
-    double precision fe,fh
-    double precision dtuz
-    !double precision chum(nelee,llee),chum1(nelee,llee)
-    !double precision clit(nelee,llee),clit1(nelee,llee)
-    !double precision cman(nelee,llee),cman1(nelee,llee)
-    !double precision emph(nelee,llee),emt(nelee,llee)
-    !double precision klit(nelee,llee),khum(nelee,llee)
-    !double precision kman(nelee,llee)
-    !double precision nlit(nelee,llee),nlit1(nelee,llee)
-    !double precision nman(nelee,llee),nman1(nelee,llee)
-    logical isbotc
-    !
-    ! input/output arguments
-    !double precision imdiff(nelee,llee)
-    !logical isimtf(nelee,llee)
-    !
-    ! output arguments
-    !double precision gam(nelee,llee),gamtmp(nelee,llee)
-    !
+    integer llee              !! Maximum soil-cell dimension.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision cnrbio   !! Biomass carbon-to-nitrogen ratio.
+    double precision cnrhum   !! Humus carbon-to-nitrogen ratio.
+    double precision fe       !! Efficiency fraction for organic carbon turnover.
+    double precision fh       !! Humification fraction.
+    double precision dtuz     !! Unsaturated-zone timestep in seconds.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer nbotm,nelm,ncl
     double precision chumh,clith,cmanh,dum,dum1,erf
@@ -2178,54 +2311,73 @@ subroutine mninit(llee,nbotce,ncetop,nel,nelee,nlf,nmn15e,nmn17e,nmn19e,nmn21e,n
     !use mod_load_filedata ,    only : alintp
     !       external alintp
     !
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e
-    integer nmn27e,nmn43e,nmn53e
-    integer nmneee,nmntee
-    integer celem(nlf+1:nel),kd1elm(nlf+1:nel),kd2elm(nlf+1:nel)
-    integer khelem(nlf+1:nel),klelem(nlf+1:nel),kmelem(nlf+1:nel)
-    integer knelem(nlf+1:nel),kvelem(nlf+1:nel)
-    integer naelem(nlf+1:nel),ncolmb(nelee)
-    integer nmn15t(nmneee),nmn17t(nmneee),nmn19t(nmneee)
-    integer nmn21t(nmneee),nmn23t(nmneee),nmn25t(nmneee)
-    integer nmn27t(nmneee)
-    integer nmn43t(nmneee),nmn53t(nmneee)
-    double precision clitfr,cnrlit
-    double precision cconc(nmneee,nmntee),cdpth(nmneee,nmntee)
-    double precision ctottp(nlf+1:nel),damhlf(nlf+1:nel)
-    double precision dchlf(nlf+1:nel)
-    double precision deltaz(llee,nel)
-    double precision kd1cnc(nmneee,nmntee),kd1dth(nmneee,nmntee)
-    double precision kd2cnc(nmneee,nmntee),kd2dth(nmneee,nmntee)
-    double precision khconc(nmneee,nmntee),khdpth(nmneee,nmntee)
-    double precision klconc(nmneee,nmntee),kldpth(nmneee,nmntee)
-    double precision kmconc(nmneee,nmntee),kmdpth(nmneee,nmntee)
-    double precision knconc(nmneee,nmntee),kndpth(nmneee,nmntee)
-    double precision kvconc(nmneee,nmntee),kvdpth(nmneee,nmntee)
-    double precision naconc(nmneee,nmntee),nadpth(nmneee,nmntee)
-    double precision namtop(nlf+1:nel)
-    double precision zvsnod(llee,nel)
-    logical isiccd,isiamd
-    !
-    ! output arguments
-    !double precision chum1(nelee,llee),clit1(nelee,llee)
-    !double precision clit1(nelee,llee)
-    !double precision cman1(nelee,llee)
-    !double precision imdiff(nelee,llee)
-    !double precision kd1(nelee,llee),kd2(nelee,llee)
-    !double precision khum(nelee,llee),klit(nelee,llee)
-    !double precision kman(nelee,llee),knit(nelee,llee)
-    !double precision kvol(nelee,llee)
-    !double precision namm1(nelee,llee),nlit1(nelee,llee)
-    !double precision nman1(nelee,llee)
-    double precision sss1(nel,ncetop+1),sss2(nel,ncetop+1)
-    logical isbotc
-    !double precision isimtf(nelee,llee)
-    !
-    ! workspace
-    !double precision dummy6(nelee,llee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer nbotce                  !! Requested lower active cell for nitrogen transformations.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer nmn15e                  !! Number of humus category entries.
+    integer nmn17e                  !! Number of litter category entries.
+    integer nmn19e                  !! Number of manure category entries.
+    integer nmn21e                  !! Number of nitrification category entries.
+    integer nmn23e                  !! Number of volatilisation category entries.
+    integer nmn25e                  !! Number of KD1 denitrification category entries.
+    integer nmn27e                  !! Number of KD2 denitrification category entries.
+    integer nmn43e                  !! Number of initial-carbon category entries.
+    integer nmn53e                  !! Number of initial-ammonium category entries.
+    integer nmneee                  !! Maximum number of MN category entries.
+    integer nmntee                  !! Maximum number of MN table entries.
+    integer celem(nlf+1:nel)        !! Initial-carbon category by element.
+    integer kd1elm(nlf+1:nel)       !! KD1 denitrification category by element.
+    integer kd2elm(nlf+1:nel)       !! KD2 denitrification category by element.
+    integer khelem(nlf+1:nel)       !! Humus decomposition category by element.
+    integer klelem(nlf+1:nel)       !! Litter decomposition category by element.
+    integer kmelem(nlf+1:nel)       !! Manure decomposition category by element.
+    integer knelem(nlf+1:nel)       !! Nitrification category by element.
+    integer kvelem(nlf+1:nel)       !! Volatilisation category by element.
+    integer naelem(nlf+1:nel)       !! Initial-ammonium category by element.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nmn15t(nmneee)          !! Humus table length by category.
+    integer nmn17t(nmneee)          !! Litter table length by category.
+    integer nmn19t(nmneee)          !! Manure table length by category.
+    integer nmn21t(nmneee)          !! Nitrification table length by category.
+    integer nmn23t(nmneee)          !! Volatilisation table length by category.
+    integer nmn25t(nmneee)          !! KD1 table length by category.
+    integer nmn27t(nmneee)          !! KD2 table length by category.
+    integer nmn43t(nmneee)          !! Initial-carbon table length by category.
+    integer nmn53t(nmneee)          !! Initial-ammonium table length by category.
+    double precision clitfr         !! Fraction of initial organic carbon assigned to litter.
+    double precision cnrlit         !! Initial litter carbon-to-nitrogen ratio.
+    double precision cconc(nmneee,nmntee)  !! Initial-carbon profile values.
+    double precision cdpth(nmneee,nmntee)  !! Initial-carbon profile depths.
+    double precision ctottp(nlf+1:nel)     !! Top total-carbon value for decay initialisation.
+    double precision damhlf(nlf+1:nel)     !! Ammonium decay half-depth by element.
+    double precision dchlf(nlf+1:nel)      !! Carbon decay half-depth by element.
+    double precision deltaz(llee,nel)      !! Cell thickness by cell and element.
+    double precision kd1cnc(nmneee,nmntee) !! KD1 denitrification profile values.
+    double precision kd1dth(nmneee,nmntee) !! KD1 denitrification profile depths.
+    double precision kd2cnc(nmneee,nmntee) !! KD2 denitrification profile values.
+    double precision kd2dth(nmneee,nmntee) !! KD2 denitrification profile depths.
+    double precision khconc(nmneee,nmntee) !! Humus decomposition profile values.
+    double precision khdpth(nmneee,nmntee) !! Humus decomposition profile depths.
+    double precision klconc(nmneee,nmntee) !! Litter decomposition profile values.
+    double precision kldpth(nmneee,nmntee) !! Litter decomposition profile depths.
+    double precision kmconc(nmneee,nmntee) !! Manure decomposition profile values.
+    double precision kmdpth(nmneee,nmntee) !! Manure decomposition profile depths.
+    double precision knconc(nmneee,nmntee) !! Nitrification profile values.
+    double precision kndpth(nmneee,nmntee) !! Nitrification profile depths.
+    double precision kvconc(nmneee,nmntee) !! Volatilisation profile values.
+    double precision kvdpth(nmneee,nmntee) !! Volatilisation profile depths.
+    double precision naconc(nmneee,nmntee) !! Initial-ammonium profile values.
+    double precision nadpth(nmneee,nmntee) !! Initial-ammonium profile depths.
+    double precision namtop(nlf+1:nel)     !! Top ammonium value for decay initialisation.
+    double precision zvsnod(llee,nel)      !! Vertical node elevation/depth by cell and element.
+    logical isiccd                  !! True when initial carbon uses decay-function input.
+    logical isiamd                  !! True when initial ammonium uses decay-function input.
+    double precision sss1(nel,ncetop+1) !! Dynamic-region CM source/sink array reset by this routine.
+    double precision sss2(nel,ncetop+1) !! Dead-space CM source/sink array reset by this routine.
+    logical isbotc                  !! True when `NBOTCE` is valid for all land columns.
     ! locals etc.
     integer ncl,nelm
     double precision ctot,depth
@@ -2423,49 +2575,41 @@ subroutine mnint2 ( llee,ncetop,nel,nelee,nlf,nlyree,ncolmb,nlyr,nlyrbt,ntsoil,a
     dummy)
     ! externals
     !       external         phi
-    ! input arguments
-    !      * stationary
-    integer llee,ncetop,nel,nelee,nlf,nlyree
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision ammddr,ammwdr
-    double precision mncref,nitddr,nitwdr
-    double precision deltaz(llee,nel)
-    !      * time dependent
-    double precision dtuz
-    double precision cccc(nel,ncetop+1)
-    double precision cdpthb(nlf+1:nel)
-    !double precision chum1(nelee,llee),clit1(nelee,llee)
-    double precision cltfct(nlf+1:nel)
-    !double precision cman1(nelee,llee)
-    double precision cmnfct(nlf+1:nel)
-    double precision cnral(nlf+1:nel),cnram(nlf+1:nel)
-    double precision ctot(nlf+1:nel)
-    double precision namfct(nlf+1:nel)
-    !double precision namm1(nelee,llee)
-    double precision ndpthb(nlf+1:nel)
-    !double precision nlit1(nelee,llee)
-    !double precision nman1(nelee,llee)
-    double precision  ntot(nlf+1:nel)
-    double precision pnetto(nelee)
-    double precision ssss(nel,ncetop+1),vsthe(ncetop,nel)
-    logical isaddc,isaddn
-    !
-    ! output arguments
-    !double precision cahum(nelee,llee),calit(nelee,llee)
-    !double precision caman(nelee,llee)
-    !double precision chum(nelee,llee)
-    !double precision clit(nelee,llee),cman(nelee,llee)
-    double precision cnralt(nelee),cnramn(nelee)
-    !double precision naamm(nelee,llee),namm(nelee,llee)
-    !double precision nanit(nelee,llee)
-    !double precision ndnit(nelee,llee),ndsnt(nelee,llee)
-    !double precision nlit(nelee,llee),nman(nelee,llee)
-    !double precision pphi(nelee,llee)
-    !
-    ! workspace
-    double precision dummy(nelee)
-    !
+    integer llee                    !! Maximum soil-cell dimension.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer nlyree                  !! Soil-layer array dimension.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision ammddr         !! Dry ammonium deposition rate.
+    double precision ammwdr         !! Wet ammonium deposition coefficient.
+    double precision mncref         !! Reference nitrogen concentration.
+    double precision nitddr         !! Dry nitrate deposition rate.
+    double precision nitwdr         !! Wet nitrate deposition coefficient.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision cccc(nel,ncetop+1) !! Dynamic-region nitrate concentration.
+    double precision cdpthb(nlf+1:nel) !! Carbon banding depth.
+    double precision cltfct(nlf+1:nel) !! Litter fraction of added carbon.
+    double precision cmnfct(nlf+1:nel) !! Manure fraction of added carbon.
+    double precision cnral(nlf+1:nel)  !! Carbon-to-nitrogen ratio for added litter.
+    double precision cnram(nlf+1:nel)  !! Carbon-to-nitrogen ratio for added manure.
+    double precision ctot(nlf+1:nel)   !! Total external carbon addition.
+    double precision namfct(nlf+1:nel) !! Ammonium fraction of added inorganic nitrogen.
+    double precision ndpthb(nlf+1:nel) !! Nitrogen banding depth.
+    double precision ntot(nlf+1:nel)   !! Total external inorganic nitrogen addition.
+    double precision pnetto(nelee)     !! Net precipitation/effective rainfall by element.
+    double precision ssss(nel,ncetop+1) !! Dead-space nitrate concentration.
+    double precision vsthe(ncetop,nel)  !! Current volumetric water content.
+    logical isaddc                  !! True when a carbon-addition event is active.
+    logical isaddn                  !! True when a nitrogen-addition event is active.
+    double precision cnralt(nelee)  !! Element litter C:N ratio for active additions.
+    double precision cnramn(nelee)  !! Element manure C:N ratio for active additions.
+    double precision dummy(nelee)   !! Floating-point workspace.
     ! locals etc.
     integer jlyr,jsoil,ncebot,nce,ncl,nelm
     double precision fracdp,ksptot
@@ -2707,22 +2851,18 @@ subroutine mnlthm (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,dtuz,isbot
     !use sglobal, only : error
     !       external     error
     !
-    ! input arguments
-    integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision fe,fh
-    double precision dtuz
-    !double precision cahum(nelee,llee),calit(nelee,llee)
-    !double precision chum(nelee,llee),clit(nelee,llee)
-    !double precision cman(nelee,llee),cman1(nelee,llee)
-    !double precision emph(nelee,llee),emt(nelee,llee)
-    !double precision khum(nelee,llee),klit(nelee,llee)
-    !double precision kman(nelee,llee)
-    logical isbotc
-    !logical isimtf(nelee,llee)
-    ! output arguments
-    !double precision chum1(nelee,llee)
-    !double precision clit1(nelee,llee)
+    integer llee              !! Maximum soil-cell dimension.
+    integer mnpr              !! MN diagnostic output unit used for warning messages.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision fe       !! Efficiency fraction for organic carbon turnover.
+    double precision fh       !! Humification fraction.
+    double precision dtuz     !! Unsaturated-zone timestep in seconds.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer    nbotm,ncl,nelm,niters,ntime
     integer    warn
@@ -2881,24 +3021,20 @@ subroutine mnltn (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,cnrbio,fe,fh,dtuz
     !use sglobal, only : error
     !       external     error
     !
-    ! input arguments
-    integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision cnrbio,fe,fh
-    double precision dtuz
-    !double precision calit(nelee,llee),chum(nelee,llee)
-    !double precision chum1(nelee,llee),clit(nelee,llee)
-    !double precision clit1(nelee,llee),cman(nelee,llee)
-    !double precision cman1(nelee,llee)
-    double precision cnralt(nelee)
-    !double precision emph(nelee,llee),emt(nelee,llee)
-    !double precision khum(nelee,llee),klit(nelee,llee)
-    !double precision kman(nelee,llee)
-    !double precision nlit(nelee,llee)
-    logical isbotc
-    !logical isimtf(nelee,llee)
-    ! output arguments
-    !double precision nlit1(nelee,llee)
+    integer llee              !! Maximum soil-cell dimension.
+    integer mnpr              !! MN diagnostic output unit used for warning messages.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision cnrbio   !! Biomass carbon-to-nitrogen ratio.
+    double precision fe       !! Efficiency fraction for organic carbon turnover.
+    double precision fh       !! Humification fraction; passed through but not used.
+    double precision dtuz     !! Unsaturated-zone timestep in seconds.
+    double precision cnralt(nelee) !! Element litter C:N ratio for active additions.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer   nbotm,ncl,nelm,niters,ntime
     integer   warn
@@ -3027,31 +3163,48 @@ subroutine mnmain(mnd,mnfc,mnfn,mnpr,mnout1,mnout2,ncetop,ncon,nel,nlf,ns,nv,nx,
     !external mnerr3,mnerr4,mngam,mninit,mnint2
     !external mnlthm,mnltn,mnman,mnnit,mnout,mnred1,mnred2
     !
-    ! input arguments
-    !      * static
-    integer mnd,mnfc,mnfn,mnpr,mnout1,mnout2
-    integer ncetop,ncon,nel,nlf,ns,nv,nx,ny
-    integer icmbk(nlfee,2),icmref(nelee,4,2:2),icmxy(nxee,ny)
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision d0,tih,z2
-    double precision dxqq(nelee),dyqq(nelee)
-    double precision vspor(ns)
-    double precision deltaz(llee,nel),zvsnod(llee,nel)
-    logical bexbk,linkns(nlfee)
-    !      * varying
-    double precision dtuz,uznow
-    double precision cccc(nel,ncetop+1)
-    !double precision plup(nelee,llee)
-    double precision pnetto(nelee)
-    double precision ssss(nel,ncetop+1)
-    double precision ta(nv),vspsi(ncetop,nel)
-    double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-    !
-    !
-    ! ouput arguments
-    double precision sss1(nel,ncetop+1),sss2(nel,ncetop+1)
-    !
+    integer mnd                     !! Static MND input unit.
+    integer mnfc                    !! Scheduled carbon-addition input unit.
+    integer mnfn                    !! Scheduled nitrogen-addition input unit.
+    integer mnpr                    !! MN diagnostic output unit.
+    integer mnout1                  !! Carbon budget output unit.
+    integer mnout2                  !! Nitrogen budget output unit.
+    integer ncetop                  !! Top soil-cell index.
+    integer ncon                    !! Number of contaminant species coupled to MN.
+    integer nel                     !! Number of elements.
+    integer nlf                     !! Number of overland/channel links.
+    integer ns                      !! Number of soil types.
+    integer nv                      !! Number of vegetation/meteorological entries.
+    integer nx                      !! Number of grid columns.
+    integer ny                      !! Number of grid rows.
+    integer icmbk(nlfee,2)          !! Bank-element numbers for each channel link.
+    integer icmref(nelee,4,2:2)     !! Neighbour reference map.
+    integer icmxy(nxee,ny)          !! Element number at each grid location.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision d0             !! Reference diffusion/dispersion scale used by CM.
+    double precision tih            !! Initial simulation time in hours.
+    double precision z2             !! Vertical length scale used by CM and MN temperature diffusion.
+    double precision dxqq(nelee)    !! Element width.
+    double precision dyqq(nelee)    !! Element length.
+    double precision vspor(ns)      !! Soil porosity by soil type.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision zvsnod(llee,nel) !! Vertical node elevation/depth by cell and element.
+    logical bexbk                   !! True when bank elements are represented.
+    logical linkns(nlfee)           !! True for north-south channel links.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision uznow          !! Current unsaturated-zone simulation time.
+    double precision cccc(nel,ncetop+1) !! Dynamic-region nitrate concentration.
+    double precision pnetto(nelee)  !! Net precipitation/effective rainfall by element.
+    double precision ssss(nel,ncetop+1) !! Dead-space nitrate concentration.
+    double precision ta(nv)         !! Air temperature by vegetation/meteorological entry.
+    double precision vspsi(ncetop,nel)  !! Matric potential/pressure head by cell and element.
+    double precision vsthe(ncetop,nel)  !! Current volumetric water content.
+    double precision vstheo(nel,ncetop+1) !! Previous volumetric water content.
+    double precision sss1(nel,ncetop+1)  !! Dynamic-region CM source/sink array.
+    double precision sss2(nel,ncetop+1)  !! Dead-space CM source/sink array.
     ! locals etc.
     !
     !
@@ -3330,22 +3483,17 @@ subroutine mnman (llee,mnpr,nbotce,ncetop,nel,nelee,nlf,ncolmb,dtuz,cnramn,isbot
     !use sglobal, only : error
     !       external     error
     !
-    ! input arguments
-    integer llee,mnpr,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision dtuz
-    !double precision caman(nelee,llee),cman(nelee,llee)
-    double precision cnramn(nelee)
-    !double precision emph(nelee,llee)
-    !double precision emt(nelee,llee),kman(nelee,llee)
-    !double precision nman(nelee,llee)
-    logical isbotc
-    !double precision isimtf(nelee,llee)
-    !
-    ! output arguments
-    !double precision cman1(nelee,llee)
-    !double precision nman1(nelee,llee)
-    !
+    integer llee              !! Maximum soil-cell dimension.
+    integer mnpr              !! MN diagnostic output unit used for warning messages.
+    integer nbotce            !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop            !! Top soil-cell index.
+    integer nel               !! Number of elements.
+    integer nelee             !! Element-array dimension.
+    integer nlf               !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)     !! Lowest active soil cell in each land-column element.
+    double precision dtuz     !! Unsaturated-zone timestep in seconds.
+    double precision cnramn(nelee) !! Element manure C:N ratio for active additions.
+    logical isbotc            !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals
     integer          nbotm,ncl,nelm,niters,ntime
     integer          warn
@@ -3516,34 +3664,24 @@ end subroutine mnman
 !> above `NBOTCE` are explicitly zeroed after the active range is processed.
 subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref,z2,dtuz,vsthe,vstheo,isbotc,sss1,sss2)
 
-    !
-    ! input arguments
-    integer llee,nbotce,ncetop,nel,nelee,nlf
-    integer ncolmb(nelee)
-    double precision d0,kplnit,kunit,mncref,z2
-    double precision dtuz
-    !double precision cdort(nelee,llee),edeth(nelee,llee)
-    !double precision emt(nelee,llee),gam(nelee,llee)
-    !double precision imamm(nelee,llee)
-    !double precision kd1(nelee,llee),kd2(nelee,llee)
-    !double precision namm(nelee,llee)
-    !double precision namm1(nelee,llee)
-    !double precision nanit(nelee,llee),ndnit(nelee,llee)
-    !double precision ndsnt(nelee,llee)
-    !double precision ntrf(nelee,llee),plup(nelee,llee)
-    !double precision pphi(nelee,llee)
-    double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-    logical isbotc
-    !
-    ! input/output arguments
-    !double precision imdiff(nelee,llee)
-    !logical isimtf(nelee,llee)
-    !
-    ! output arguments
-    !double precision denit(nelee,llee)
-    !double precision imnit(nelee,llee)
-    !double precision plnit(nelee,llee),snit(nelee,llee)
-    double precision sss1(nel,ncetop+1),sss2(nel,ncetop+1)
+    integer llee                    !! Maximum soil-cell dimension.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links excluded from land-column updates.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    double precision d0             !! Reference diffusion/dispersion scale used by CM.
+    double precision kplnit         !! First-order nitrate plant-uptake limit.
+    double precision kunit          !! First-order nitrate immobilisation limit.
+    double precision mncref         !! Reference nitrogen concentration.
+    double precision z2             !! Vertical length scale used by CM source conversion.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision vsthe(ncetop,nel) !! Current volumetric water content.
+    double precision vstheo(nel,ncetop+1) !! Previous volumetric water content.
+    logical isbotc                  !! True when the fixed lower active cell `NBOTCE` is used.
+    double precision sss1(nel,ncetop+1) !! Dynamic-region CM source/sink array.
+    double precision sss2(nel,ncetop+1) !! Dead-space CM source/sink array.
     ! locals
     integer nbotm,ncl,nelm
     double precision dednt,dedsnt,dum1,dum2,imdnt,imdsnt,imrat
@@ -3668,40 +3806,32 @@ end subroutine mnnit
 subroutine mnout (mnout1,mnout2,nbotce,ncetop,nel,nlf,ns,ncolmb,nlyr,nlyrbt,ntsoil,cnrhum,gnn,mncref,deltaz, &
     kddsol,pphi,dtuz,uznow,dxqq,dyqq,cnralt,cnramn,vsthe,vstheo,isbotc)
 
-    !
-    ! input arguments
-    integer mnout1,mnout2,nbotce,ncetop,nel,nlf,ns
-    integer ncolmb(nelee),nlyr(nelee)
-    integer nlyrbt(nel,nlyree),ntsoil(nel,nlyree)
-    double precision cnrhum,gnn,mncref
-    double precision deltaz(llee,nel),kddsol(ns)
-    double precision pphi(nelee,llee)
-    double precision dtuz,uznow
-    double precision dxqq(nelee),dyqq(nelee)
-    !double precision cahum(nelee,llee),calit(nelee,llee)
-    !double precision caman(nelee,llee),cdort(nelee,llee)
-    !double precision chum(nelee,llee),chum1(nelee,llee)
-    !double precision chum(nelee,llee)
-    !double precision clit(nelee,llee),clit1(nelee,llee)
-    !double precision cman(nelee,llee),cman1(nelee,llee)
-    double precision cnralt(nelee),cnramn(nelee)
-    !double precision denit(nelee,llee),gamtmp(nelee,llee)
-    !double precision imamm(nelee,llee),imnit(nelee,llee)
-    !double precision miner(nelee,llee),namm(nelee,llee)
-    !double precision namm1(nelee,llee)
-    !double precision naamm(nelee,llee),nanit(nelee,llee)
-    !double precision nlit(nelee,llee),nlit1(nelee,llee)
-    !double precision nman(nelee,llee)
-    !double precision nman1(nelee,llee)
-    !double precision ntrf(nelee,llee)
-    !double precision plamm(nelee,llee)
-    !double precision plnit(nelee,llee)
-    !double precision snit(nelee,llee)
-    double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-    !double precision vol(nelee,llee)
-    logical isbotc
-    !
-    !
+    integer mnout1                  !! Carbon budget output unit.
+    integer mnout2                  !! Nitrogen budget output unit.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nlf                     !! Number of overland/channel links excluded from land-column output.
+    integer ns                      !! Number of soil types.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nlyr(nelee)             !! Number of soil layers in each element.
+    integer nlyrbt(nel,nlyree)      !! Bottom cell index of each soil layer.
+    integer ntsoil(nel,nlyree)      !! Soil type index for each element layer.
+    double precision cnrhum         !! Humus carbon-to-nitrogen ratio.
+    double precision gnn            !! Nonlinear ammonium adsorption exponent.
+    double precision mncref         !! Reference nitrogen concentration.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision kddsol(ns)     !! Soil ammonium adsorption coefficient.
+    double precision pphi(nelee,llee) !! Mobile-water partition factor.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision uznow          !! Current unsaturated-zone simulation time.
+    double precision dxqq(nelee)    !! Element width.
+    double precision dyqq(nelee)    !! Element length.
+    double precision cnralt(nelee)  !! Element litter C:N ratio for active additions.
+    double precision cnramn(nelee)  !! Element manure C:N ratio for active additions.
+    double precision vsthe(ncetop,nel)  !! Current volumetric water content.
+    double precision vstheo(nel,ncetop+1) !! Previous volumetric water content.
+    logical isbotc                  !! True when the fixed lower active cell `NBOTCE` is used.
     ! locals etc.
     integer hrprnt
     parameter (hrprnt = 24)
@@ -3983,22 +4113,25 @@ end subroutine mnout
 !> @endnote
 subroutine mnplant(mnpl,mnoutpl,ncetop,nel,nlf,nv,ncolmb,nrd,nvc,rhopl,delone,dxqq,dyqq,deltaz,plai,rdf,dtuz, &
     uznow,clai)
-    ! input arguments
-    !     * static
-    integer mnpl,mnoutpl,ncetop,nel,nlf,nv
-    integer ncolmb(nelee)
-    integer nrd(nv),nvc(nelee)
-    double precision rhopl
-    double precision delone(npltee),dxqq(nelee),dyqq(nelee)
-    double precision deltaz(llee,nel),plai(nv)
-    double precision rdf(nv,llee)
-    !     * time dependent
-    double precision dtuz,uznow
-    double precision clai(nv)
-    !
-    ! output arguments
-    !double precision plup(nelee,llee)
-    !
+    integer mnpl                    !! Plant-uptake input unit.
+    integer mnoutpl                 !! Plant nitrogen output unit.
+    integer ncetop                  !! Top soil-cell index.
+    integer nel                     !! Number of elements.
+    integer nlf                     !! Number of overland/channel links excluded from land-column uptake.
+    integer nv                      !! Number of vegetation types.
+    integer ncolmb(nelee)           !! Lowest active soil cell in each land-column element.
+    integer nrd(nv)                 !! Rooting depth in cell counts by vegetation type.
+    integer nvc(nelee)              !! Vegetation type index by element.
+    double precision rhopl          !! Plant dry-matter density used by uptake calculation.
+    double precision delone(npltee) !! Initial plant biomass/cover scaling by plant type.
+    double precision dxqq(nelee)    !! Element width.
+    double precision dyqq(nelee)    !! Element length.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision plai(nv)       !! Plant leaf-area index by vegetation type.
+    double precision rdf(nv,llee)   !! Root density fraction by vegetation type and cell.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision uznow          !! Current unsaturated-zone simulation time.
+    double precision clai(nv)       !! Current canopy leaf-area index by vegetation type.
     ! locals
     !
     !     * maximum number of values in the input data for canopy density
@@ -4240,45 +4373,97 @@ subroutine mnred1(mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny,icmbk
     !use sglobal, only : nyee, error
     !use mod_load_filedata , only : alalli, alredc,alredl,alredf,alallf,alredi,alred2
     !       external alallf,alredc,alredf,alredl,alred2,error,alalli
-    ! input arguments
-    integer mnd,mnpr,nel,nelee,nlf,nlfee,nmneee,nmntee,ns,nx,nxee,ny
-    integer icmbk(nlfee,2),icmref(nelee,4,2:2),icmxy(nxee,ny)
-    logical bexbk,linkns(nlfee)
-    !
-    ! ouput arguments
-    integer nbotce,nmn15e,nmn17e,nmn19e,nmn21e,nmn23e,nmn25e
-    integer nmn27e,nmn43e,nmn53e
-    integer celem(nlf+1:nel),kd1elm(nlf+1:nel),kd2elm(nlf+1:nel)
-    integer khelem(nlf+1:nel),klelem(nlf+1:nel),kmelem(nlf+1:nel)
-    integer knelem(nlf+1:nel),kvelem(nlf+1:nel)
-    integer naelem(nlf+1:nel)
-    integer nmn15t(nmneee),nmn17t(nmneee),nmn19t(nmneee)
-    integer nmn21t(nmneee),nmn23t(nmneee),nmn25t(nmneee)
-    integer nmn27t(nmneee)
-    integer nmn43t(nmneee),nmn53t(nmneee)
-    double precision ammddr,ammwdr,clitfr,cnrbio,cnrhum,cnrlit
-    double precision fe,fh,gnn,kplamm,kplnit
-    double precision kuamm,kunit,mncref,nitddr,nitwdr
-    double precision q10m,q10n
-    double precision cconc(nmneee,nmntee),cdpth(nmneee,nmntee)
-    double precision ctottp(nlf+1:nel),damhlf(nlf+1:nel)
-    double precision dchlf(nlf+1:nel)
-    double precision kd1cnc(nmneee,nmntee),kd1dth(nmneee,nmntee)
-    double precision kd2cnc(nmneee,nmntee),kd2dth(nmneee,nmntee)
-    double precision kddsol(ns)
-    double precision khconc(nmneee,nmntee),khdpth(nmneee,nmntee)
-    double precision klconc(nmneee,nmntee),kldpth(nmneee,nmntee)
-    double precision kmconc(nmneee,nmntee),kmdpth(nmneee,nmntee)
-    double precision knconc(nmneee,nmntee),kndpth(nmneee,nmntee)
-    double precision kvconc(nmneee,nmntee),kvdpth(nmneee,nmntee)
-    double precision naconc(nmneee,nmntee),nadpth(nmneee,nmntee)
-    double precision namtop(nlf+1:nel)
-    logical isiccd,isiamd,isq10
-    !
-    ! workspace arguments
-    integer          idum (nelee)
-    double precision dummy(nelee)
-    !
+    integer mnd                     !! Static MND input unit.
+    integer mnpr                    !! MN diagnostic output unit.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links.
+    integer nlfee                   !! Link-array dimension.
+    integer nmneee                  !! Maximum number of MN category entries.
+    integer nmntee                  !! Maximum number of MN table entries.
+    integer ns                      !! Number of soil types.
+    integer nx                      !! Number of grid columns.
+    integer nxee                    !! Grid-column array dimension.
+    integer ny                      !! Number of grid rows.
+    integer icmbk(nlfee,2)          !! Bank-element numbers for each channel link.
+    integer icmref(nelee,4,2:2)     !! Neighbour reference map.
+    integer icmxy(nxee,ny)          !! Element number at each grid location.
+    logical bexbk                   !! True when bank elements are represented.
+    logical linkns(nlfee)           !! True for north-south channel links.
+    integer nbotce                  !! Lowest cell included when bottom-cell truncation is active.
+    integer nmn15e                  !! Number of humus category entries.
+    integer nmn17e                  !! Number of litter category entries.
+    integer nmn19e                  !! Number of manure category entries.
+    integer nmn21e                  !! Number of nitrification category entries.
+    integer nmn23e                  !! Number of volatilisation category entries.
+    integer nmn25e                  !! Number of KD1 denitrification category entries.
+    integer nmn27e                  !! Number of KD2 denitrification category entries.
+    integer nmn43e                  !! Number of initial-carbon category entries.
+    integer nmn53e                  !! Number of initial-ammonium category entries.
+    integer celem(nlf+1:nel)        !! Initial-carbon category by element.
+    integer kd1elm(nlf+1:nel)       !! KD1 denitrification category by element.
+    integer kd2elm(nlf+1:nel)       !! KD2 denitrification category by element.
+    integer khelem(nlf+1:nel)       !! Humus decomposition category by element.
+    integer klelem(nlf+1:nel)       !! Litter decomposition category by element.
+    integer kmelem(nlf+1:nel)       !! Manure decomposition category by element.
+    integer knelem(nlf+1:nel)       !! Nitrification category by element.
+    integer kvelem(nlf+1:nel)       !! Volatilisation category by element.
+    integer naelem(nlf+1:nel)       !! Initial-ammonium category by element.
+    integer nmn15t(nmneee)          !! Humus table length by category.
+    integer nmn17t(nmneee)          !! Litter table length by category.
+    integer nmn19t(nmneee)          !! Manure table length by category.
+    integer nmn21t(nmneee)          !! Nitrification table length by category.
+    integer nmn23t(nmneee)          !! Volatilisation table length by category.
+    integer nmn25t(nmneee)          !! KD1 table length by category.
+    integer nmn27t(nmneee)          !! KD2 table length by category.
+    integer nmn43t(nmneee)          !! Initial-carbon table length by category.
+    integer nmn53t(nmneee)          !! Initial-ammonium table length by category.
+    double precision ammddr         !! Dry ammonium deposition rate.
+    double precision ammwdr         !! Wet ammonium deposition coefficient.
+    double precision clitfr         !! Fraction of initial organic carbon assigned to litter.
+    double precision cnrbio         !! Biomass carbon-to-nitrogen ratio.
+    double precision cnrhum         !! Humus carbon-to-nitrogen ratio.
+    double precision cnrlit         !! Initial litter carbon-to-nitrogen ratio.
+    double precision fe             !! Efficiency fraction for organic carbon turnover.
+    double precision fh             !! Humification fraction.
+    double precision gnn            !! Nonlinear ammonium adsorption exponent.
+    double precision kplamm         !! First-order ammonium plant-uptake limit.
+    double precision kplnit         !! First-order nitrate plant-uptake limit.
+    double precision kuamm          !! First-order ammonium immobilisation limit.
+    double precision kunit          !! First-order nitrate immobilisation limit.
+    double precision mncref         !! Reference nitrogen concentration.
+    double precision nitddr         !! Dry nitrate deposition rate.
+    double precision nitwdr         !! Wet nitrate deposition coefficient.
+    double precision q10m           !! Q10 coefficient for mineralisation.
+    double precision q10n           !! Q10 coefficient for nitrification.
+    double precision cconc(nmneee,nmntee)  !! Initial-carbon profile values.
+    double precision cdpth(nmneee,nmntee)  !! Initial-carbon profile depths.
+    double precision ctottp(nlf+1:nel)     !! Top total-carbon value for decay initialisation.
+    double precision damhlf(nlf+1:nel)     !! Ammonium decay half-depth by element.
+    double precision dchlf(nlf+1:nel)      !! Carbon decay half-depth by element.
+    double precision kd1cnc(nmneee,nmntee) !! KD1 denitrification profile values.
+    double precision kd1dth(nmneee,nmntee) !! KD1 denitrification profile depths.
+    double precision kd2cnc(nmneee,nmntee) !! KD2 denitrification profile values.
+    double precision kd2dth(nmneee,nmntee) !! KD2 denitrification profile depths.
+    double precision kddsol(ns)            !! Soil ammonium adsorption coefficient.
+    double precision khconc(nmneee,nmntee) !! Humus decomposition profile values.
+    double precision khdpth(nmneee,nmntee) !! Humus decomposition profile depths.
+    double precision klconc(nmneee,nmntee) !! Litter decomposition profile values.
+    double precision kldpth(nmneee,nmntee) !! Litter decomposition profile depths.
+    double precision kmconc(nmneee,nmntee) !! Manure decomposition profile values.
+    double precision kmdpth(nmneee,nmntee) !! Manure decomposition profile depths.
+    double precision knconc(nmneee,nmntee) !! Nitrification profile values.
+    double precision kndpth(nmneee,nmntee) !! Nitrification profile depths.
+    double precision kvconc(nmneee,nmntee) !! Volatilisation profile values.
+    double precision kvdpth(nmneee,nmntee) !! Volatilisation profile depths.
+    double precision naconc(nmneee,nmntee) !! Initial-ammonium profile values.
+    double precision nadpth(nmneee,nmntee) !! Initial-ammonium profile depths.
+    double precision namtop(nlf+1:nel)     !! Top ammonium value for decay initialisation.
+    logical isiccd                  !! True when initial carbon uses decay-function input.
+    logical isiamd                  !! True when initial ammonium uses decay-function input.
+    logical isq10                   !! True when Q10 temperature response is selected.
+    integer idum(nelee)             !! Integer workspace for spatial reads.
+    double precision dummy(nelee)   !! Floating-point workspace for spatial reads.
     ! locals etc.
     !
     integer       fatal,nc,ncat,ndata,nmnt(1),ntb
@@ -4733,24 +4918,37 @@ subroutine mnred2 ( mnfc,mnfn,mnpr,nel,nelee,nlf,nlfee,nx,nxee,ny,icmbk,icmref,i
     !use sglobal, only : nyee
     !use mod_load_filedata , only : alred2,alredi,alallf
     !       external         alallf,alredi,alred2,hour
-    ! input arguments
-    integer mnfc,mnfn,mnpr,nel,nelee,nlf,nlfee,nx,nxee,ny
-    integer icmbk(nlfee,2),icmref(nelee,4,2:2),icmxy(nxee,ny)
-    double precision dtuz,tih,uznow
-    logical bexbk,linkns(nlfee)
-    !
-    ! ouput arguments
-    double precision cdpthb(nlf+1:nel),cltfct(nlf+1:nel)
-    double precision cmnfct(nlf+1:nel),cnral(nlf+1:nel)
-    double precision cnram(nlf+1:nel),ctot(nlf+1:nel)
-    double precision namfct(nlf+1:nel),ndpthb(nlf+1:nel)
-    double precision ntot(nlf+1:nel)
-    logical isaddc,isaddn
-    !
-    ! workspace arguments
-    integer          idum (nelee)
-    double precision dummy(nelee)
-    !
+    integer mnfc                    !! Scheduled carbon-addition input unit.
+    integer mnfn                    !! Scheduled nitrogen-addition input unit.
+    integer mnpr                    !! MN diagnostic output unit.
+    integer nel                     !! Number of elements.
+    integer nelee                   !! Element-array dimension.
+    integer nlf                     !! Number of overland/channel links.
+    integer nlfee                   !! Link-array dimension.
+    integer nx                      !! Number of grid columns.
+    integer nxee                    !! Grid-column array dimension.
+    integer ny                      !! Number of grid rows.
+    integer icmbk(nlfee,2)          !! Bank-element numbers for each channel link.
+    integer icmref(nelee,4,2:2)     !! Neighbour reference map.
+    integer icmxy(nxee,ny)          !! Element number at each grid location.
+    double precision dtuz           !! Unsaturated-zone timestep in seconds.
+    double precision tih            !! Initial simulation time in hours.
+    double precision uznow          !! Current unsaturated-zone simulation time.
+    logical bexbk                   !! True when bank elements are represented.
+    logical linkns(nlfee)           !! True for north-south channel links.
+    double precision cdpthb(nlf+1:nel) !! Carbon banding depth.
+    double precision cltfct(nlf+1:nel) !! Litter fraction of added carbon.
+    double precision cmnfct(nlf+1:nel) !! Manure fraction of added carbon.
+    double precision cnral(nlf+1:nel)  !! Carbon-to-nitrogen ratio for added litter.
+    double precision cnram(nlf+1:nel)  !! Carbon-to-nitrogen ratio for added manure.
+    double precision ctot(nlf+1:nel)   !! Total external carbon addition.
+    double precision namfct(nlf+1:nel) !! Ammonium fraction of added inorganic nitrogen.
+    double precision ndpthb(nlf+1:nel) !! Nitrogen banding depth.
+    double precision ntot(nlf+1:nel)   !! Total external inorganic nitrogen addition.
+    logical isaddc                  !! True when a carbon-addition event is active.
+    logical isaddn                  !! True when a nitrogen-addition event is active.
+    integer idum(nelee)             !! Integer workspace for spatial reads.
+    double precision dummy(nelee)   !! Floating-point workspace for spatial reads.
     ! locals etc.
     !
     integer       intimc,intimn,ncat,pass
@@ -4912,19 +5110,18 @@ end subroutine mnred2
 subroutine mntemp (llee,ncetop,nel,nelee,nlf,nv,ncolmb,z2,deltaz,zvsnod,dtuz,ta)
 
     use utilsmod, only: tridag
-    !      * input arguments
-    !     * static
-    integer llee,ncetop,nel,nelee,nlf,nv
-    integer ncolmb(nelee)
-    double precision z2
-    double precision deltaz(llee,nel),zvsnod(llee,nel)
-    !
-    !     * varying
-    double precision dtuz,ta(nv)
-    !
-    ! output arguments
-    !double precision temp(nelee,llee)
-    !
+    integer llee                 !! Maximum soil-cell dimension.
+    integer ncetop               !! Top soil-cell index.
+    integer nel                  !! Number of elements.
+    integer nelee                !! Element-array dimension.
+    integer nlf                  !! Number of overland/channel links excluded from land-column updates.
+    integer nv                   !! Number of vegetation/meteorological temperature entries.
+    integer ncolmb(nelee)        !! Lowest active soil cell in each land-column element.
+    double precision z2          !! Vertical length scale for the temperature diffusion calculation.
+    double precision deltaz(llee,nel) !! Cell thickness by cell and element.
+    double precision zvsnod(llee,nel) !! Vertical node elevation/depth by cell and element.
+    double precision dtuz        !! Unsaturated-zone timestep in seconds.
+    double precision ta(nv)      !! Air temperature input; only the first value is used.
     ! locals etc
     !
     integer iel,nce,ncebot,ncells,nnum,nserch,num

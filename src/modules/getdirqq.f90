@@ -10,11 +10,12 @@
 !> |:---------------|:-------------------|
 !> | `-a`, `-m`, `-af`, `-sd`, `-pattern`, `-delinc`, `-results` or no argument | Open the Windows file-selection dialog. |
 !> | `-f <file>` | Use the second command-line argument as the rundata filename. |
-!> | `-c` | Look up a rundata filename in `catchments.txt`; when no second argument is present the lookup key is `default`. |
+!> | `-c` | Look up a rundata filename in `catchments.txt`; when no second argument is present the lookup key is `default`. A supplied second argument is not currently copied into the lookup key because the `GETARG` call is commented out. |
 !>
 !> The selected rundata filename must contain the legacy
-!> `rundata_<catchment>.txt` pattern. The text between `rundata_` and the final
-!> dot is returned as the catchment name.
+!> `rundata_<catchment>.<extension>` pattern. The text between `rundata_` and
+!> the final dot is returned as the catchment name; the diagnostic still names
+!> `rundata_name.txt`.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -33,8 +34,8 @@ MODULE GETDIRQQ
 
     IMPLICIT NONE
 
-    CHARACTER(len=LENGTH_FILEPATH) :: FileName
-    CHARACTER(len=40)              :: MyName
+    CHARACTER(len=LENGTH_FILEPATH) :: FileName !! Selected run-data filename used by the dialog, command-line, and catchment lookup paths.
+    CHARACTER(len=40)              :: MyName   !! Base filename returned by `SPLITPATHQQ`.
 
     ! --------------------------------------------------------------------------
     ! Private by default
@@ -53,8 +54,9 @@ MODULE GETDIRQQ
     !>
     !> The routine reads command-line options, optionally opens the Windows file
     !> selection dialog, validates that the selected file exists, checks that it
-    !> follows the `rundata_name.txt` naming convention, and returns the full
-    !> filename, catchment name, input directory, and current drive directory.
+    !> follows the `rundata_<catchment>.<extension>` naming pattern, and returns
+    !> the full filename, catchment name, input directory, and current drive
+    !> directory.
     !>
     !> | Step | Details |
     !> |:-----|:--------|
@@ -62,12 +64,12 @@ MODULE GETDIRQQ
     !> | Command mode | The first argument selects dialog, filename, or catchment lookup mode; no first argument is treated as `-a`. |
     !> | Error mode | If the total argument count is four and argument 3 is `-error`, global `error_mode` is set true. This routine still prints its own message and stops on local errors. |
     !> | File existence | `INQUIRE(FILE=FileName)` must succeed before path parsing. |
-    !> | Path parsing | `SPLITPATHQQ` supplies `dirqq`; the routine scans the full filename backward for the final dot and the `rundata_` prefix to derive `catch`. |
+    !> | Path parsing | `SPLITPATHQQ` supplies `dirqq`; the routine scans the full filename backward for the final dot and the `rundata_` prefix to derive `catch`. The extension is not checked. |
     !>
     !> @note The `runfil` argument is retained for the historical interface but
     !> is not used by the current implementation. The `-c` branch also has the
-    !> `GETARG` call for a supplied catchment key commented out, so only the
-    !> no-second-argument `default` lookup path is explicit in the current code.
+    !> `GETARG` call for a supplied catchment key commented out, so a supplied
+    !> second argument is ignored by the active code.
     !> @endnote
     !>
     !> @history
@@ -250,7 +252,7 @@ MODULE GETDIRQQ
     SUBROUTINE comdlger(IRET)
 
         ! IO-Vars
-        INTEGER(KIND=I_P)   :: IRET !! Windows common-dialog extended error code.
+        INTEGER(KIND=I_P), INTENT(OUT) :: IRET !! Windows common-dialog extended error code.
 
         ! Other vars
         CHARACTER(30)       :: MSG1
