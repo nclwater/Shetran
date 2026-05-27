@@ -29,6 +29,18 @@
 !>
 !> Required input files are those named by the selected run-data file.
 !>
+!> This program uses the following SHETRAN modules:
+!>
+!> - **ETmod**: Evapotranspiration processes
+!> - **FRmod**: Framework for file operations and mass balance
+!> - **Mnmod**: Nitrate transport module.
+!> - **OCmod**: Overland channel flow calculations
+!> - **SMmod**: Snow model calculations
+!> - **SYmod**: Sediment yield and transport
+!> - **RUN_SIM**: Main simulation execution controller
+!> - **simulation_output**: Additional output utilities
+!> - **GETDIRQQ**: Cross-platform directory utilities
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
