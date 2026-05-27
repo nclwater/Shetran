@@ -1544,7 +1544,92 @@ CONTAINS
         IF (I .NE. 0) CALL ERROR(WWWARN, 13, OUT, 0, 0,                         &
                            'Could not set traps for floating-point exceptions')
 
-        RETURN
-    END SUBROUTINE ALTRAP
+9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
+
+   END SUBROUTINE ALREDL
+
+
+   !> Chooses an approximately even subsequence from a longer sequence.
+   !>
+   !> For `M` requested items from `N` available items, `ALSPRD` returns the
+   !> first index `N1` and stride `DEL` for a representative subsequence. The
+   !> routine is used by AL input/output helpers when only a subset of entries
+   !> should be printed.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | ? | ? | - | Initial version |
+   !> | 19970805 | RAH | - | 4.1  Create. |
+   !> @endhistory
+   SUBROUTINE ALSPRD (M, N, N1, DEL)
+      INTEGER(kind=I_P) :: M   !! Requested number of items in the printed subsequence.
+      INTEGER(kind=I_P) :: N   !! Number of available items in the full sequence.
+      INTEGER(kind=I_P) :: N1  !! First selected index.
+      INTEGER(kind=I_P) :: DEL !! Stride between selected indices.
+      INTEGER(kind=I_P) :: DNE   !! Candidate increment for the number of excluded items.
+      INTEGER(kind=I_P) :: MM    !! `M-1`, the number of printed intervals.
+      INTEGER(kind=I_P) :: NE    !! Number of excluded/outlying items.
+      INTEGER(kind=I_P) :: NEMAX !! Maximum useful excluded-item count adjustment.
+      INTEGER(kind=I_P) :: NF    !! Alternative excluded-item count.
+      LOGICAL           :: TEST  !! True when `NF` gives a more even spread.
+
+
+      ! Code -----------------------------------------------------------------
+
+      IF (M <= 1) THEN
+         N1  = N / (MAX (0, M) + 1) + 1
+         DEL = N
+
+      ELSE
+         ! set the number NE of out-lying items - even if possible
+         MM   = M - 1
+         NE   = MOD (N - 1, MM)
+         NF   = NE+MM
+         TEST = (MOD(NE, 2) == 1)  .AND.                                     &
+            (MOD(NF, 2)  == 0) .AND.                                     &
+            (NF <= N - M)
+
+         IF (TEST) NE = NF
+
+         ! add a few if it makes a more uniform spread
+         DNE   = MM * (1 + MOD (MM, 2) * (1 - MOD (NE, 2) ) )
+         NEMAX = 2 * (N - M) / (M + 1)
+
+         NE = NE+ (IDIMJE(NEMAX, NE) / DNE) * DNE
+         ! round up
+         N1 = 1 + (NE+1) / 2
+
+         DEL = (N - NE-1) / MM
+      ENDIF
+   END SUBROUTINE ALSPRD
+
+
+   !> Initialises legacy floating-point exception handling.
+   !>
+   !> `ALTRAP` is retained as the AL-layer hook for enabling floating-point
+   !> traps. In the current PC-oriented code path the original IEEE setup calls
+   !> have been removed, so the routine only preserves the historical interface.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | ? | ? | - | Initial version |
+   !> | 19940930 | RAH | - | Version 3.4.1 created. |
+   !> | 20000307 | StevenB | - | Version 4g-pc remove ieee calls |
+   !> @endhistory
+   SUBROUTINE ALTRAP ()
+      INTEGER(kind=I_P), parameter :: OUT = 0 !! Output unit used if trap setup fails.
+      INTEGER(kind=I_P) :: I !! Legacy trap setup status; currently forced to zero.
+
+      ! Code -----------------------------------------------------------------
+
+      !   I = IEEE_HANDLER( 'set', 'common', ABORT )
+      I = 0
+      IF (I .NE. 0) CALL ERROR(WWWARN, 13, OUT, 0, 0,                         &
+         'Could not set traps for floating-point exceptions')
+
+      RETURN
+   END SUBROUTINE ALTRAP
 
 END MODULE mod_load_filedata
