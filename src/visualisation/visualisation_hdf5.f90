@@ -941,7 +941,7 @@ CONTAINS
 !INTEGER(HID_T), INTENT(IN)              :: file, dataset_compress_property
 !INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset, group_plans
 !INTEGER(HSIZE_T)                        :: arank
-!INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
+!INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  ! Legacy compatibility workspace.
 !TYPE(ssz)                               :: aszz
 !CHARACTER(csz)                          :: name, title
 !INTEGER(HID_T)                          :: file2

@@ -6,6 +6,17 @@
 !> (`COLM`) and link calculations. These arrays carry loose-sediment, surface
 !> water, erosion, and sediment fraction state between component calls.
 !>
+!> State convention:
+!>
+!> | Symbol | Previous value stored |
+!> |:-------|:----------------------|
+!> | `DLSO` | Loose/bed sediment depth by element. |
+!> | `GNUO` | Unsaturated-zone erosion/source term by element. |
+!> | `FBETAO` | Loose/bed sediment composition fraction by element and size class. |
+!> | `FDELO` | Mobile sediment concentration fraction by element and size class. |
+!> | `FBBEDO` | Link bed sediment composition fraction by link and size class. |
+!> | `FBTSDO` | Link transported-sediment fraction by link and size class. |
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|

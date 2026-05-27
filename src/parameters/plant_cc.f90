@@ -6,6 +6,18 @@
 !> crop property factors, plant type indices, uptake coefficients, plant mass,
 !> and root-distribution factors used by contaminant plant uptake routines.
 !>
+!> Legacy `PLDAT` defaults and initialization notes:
+!>
+!> | Symbol | Default | Meaning |
+!> |:-------|:--------|:--------|
+!> | `BCPAA`, `BCPBB` | `0.0` | Initial plant relative concentrations. |
+!> | `DELONE` | `0.5` | Initial plant compartment-A/B partition factor. |
+!> | `DELTWO` | `0.9` | Initial root-zone uptake partition factor. |
+!> | `DELTHR` | `1.0` | Initial compartment-B active-mass scaling factor. |
+!> | `FLEFT` | `1.0` in legacy `PLDAT`; no current initializer | Residual plant fraction used when canopy leaf area is zero. |
+!> | `RHOPL` | `500.0` | Plant material density, used for scaling only. |
+!> | `NPLTYP(:,2)` | `1` | Initial second plant type on each soil column. |
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|

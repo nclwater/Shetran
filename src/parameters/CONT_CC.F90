@@ -84,6 +84,11 @@ MODULE CONT_CC
 !      COMMON/  NCONS  /NCON
 !*                             NUMBER OF CONTAMINANTS
 
+DOUBLEPRECISION :: ALPHA(NSEE, NCONEE)  !! Soil-region exchange coefficient by soil type and contaminant.
+DOUBLEPRECISION :: FADS(NSEE, NCONEE)   !! Equilibrium-adsorption fraction by soil type and contaminant.
+DOUBLEPRECISION :: GNN(NCONEE)          !! Freundlich exponent by contaminant.
+DOUBLEPRECISION :: KDDLS(NSEDEE, NCONEE) !! Loose-sediment distribution coefficient by sediment and contaminant.
+DOUBLEPRECISION :: KDDSOL(NSEE, NCONEE) !! Soil distribution coefficient by soil type and contaminant.
 
    DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO
    DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO

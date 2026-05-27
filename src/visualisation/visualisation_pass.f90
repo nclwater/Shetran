@@ -4,6 +4,24 @@
 !> dimensions passed from SHETRAN into the visualisation layer. The [[send_p]]
 !> routine receives typed values by keyword and updates or allocates the module
 !> state used later by the HDF5/visualisation output routines.
+!>
+!> `SEND_P` keys and payloads:
+!>
+!> | Key | Payload | Stored state |
+!> |:----|:--------|:-------------|
+!> | `north`, `east`, `south`, `west` | `ii` | Direction constants used by visualisation geometry. |
+!> | `grid_nx`, `grid_ny` | `ii` | HDF5 grid dimensions; values above `szlimit` stop the run. |
+!> | `top_cell`, `nel`, `nsed`, `ncon`, `ver` | `ii` | Model layer, element, sediment, contaminant, and version counts. |
+!> | `dirqq`, `rootdir`, `hdf5fname`, `planfile`, `checkfile` | `cc` | Output/input path strings. |
+!> | `is_square`, `is_bank`, `is_link` | `L1(da)` | Element classification arrays; `nel` must already be set. |
+!> | `su` | `d2(da,db)` | HDF5-grid subunit-number array; `grid_nx/grid_ny` must already be set. |
+!> | `bank_no`, `river_no` | `d2(da,db)` | Element-to-bank/link lookup arrays; `nel` must already be set. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 20080123 | ? | - | Added grid-size guard used by the SHEGRAPH DLL pass-through. |
+!> @endhistory
 MODULE visualisation_pass
    IMPLICIT NONE
 

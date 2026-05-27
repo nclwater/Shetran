@@ -5,6 +5,23 @@
 !> cell into a `mag` by `mag` block, reserving edge strips for river and bank
 !> elements so that raster outputs can distinguish cell interiors from channel
 !> faces.
+!>
+!> Magnified cell layout:
+!>
+!> | Source | Component in `d9` | Block position |
+!> |:-------|:------------------|:---------------|
+!> | Subunit interior | 1 | Main block interior. |
+!> | North bank | 2 | Rows `3:mag-2`, columns `3:4`. |
+!> | East bank | 3 | Rows `mag-3:mag-2`, columns `3:mag-2`. |
+!> | South bank | 4 | Rows `3:mag-2`, columns `mag-3:mag-2`. |
+!> | West bank | 5 | Rows `3:4`, columns `3:mag-2`. |
+!> | North river/link | 6 | Rows `3:mag-2`, columns `1:2`. |
+!> | East river/link | 7 | Rows `mag-1:mag`, columns `3:mag-2`. |
+!> | South river/link | 8 | Rows `3:mag-2`, columns `mag-1:mag`. |
+!> | West river/link | 9 | Rows `1:2`, columns `3:mag-2`. |
+!>
+!> The hard-coded strips assume `mag >= 6` if banks, rivers, and cell interior
+!> are to remain visually distinct.
 MODULE visualisation_map
 
    USE VISUALISATION_PASS,     ONLY : BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK

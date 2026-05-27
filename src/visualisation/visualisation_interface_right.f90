@@ -5,6 +5,30 @@
 !> available variables, allocates new time slices when output is due, fills the
 !> requested data from the central SHETRAN accessor layer, and asks the HDF5
 !> writer to persist each item.
+!>
+!> Runtime sequence:
+!>
+!> | Call | Action |
+!> |:-----|:-------|
+!> | First call | Send directory/file metadata, initialise the writer, and return. |
+!> | Second call | Send geometry metadata and register static and dynamic variables. |
+!> | Later calls | If `TIME_TO_RECORD` is true for an item, allocate a new slice, fill it, and write it. |
+!> | `text='end'` | Close visualisation output resources. |
+!>
+!> Coordinate and extra-dimension remapping:
+!>
+!> | Interface convention | SHETRAN convention used for accessor calls |
+!> |:---------------------|:------------------------------------------|
+!> | HDF5/SHEGRAPH face order `N,E,S,W` | `north_order = [north,east,south,west]`. |
+!> | Non-face extra dimensions | `normal_order = [1,2,3,4]`. |
+!> | HDF5/SHEGRAPH grid row `j` | `SHETRAN_J(j)=GRID_NY()-j+1`. |
+!> | HDF5/SHEGRAPH layer `k` | `SHETRAN_LAYER(k)` from [[visualisation_interface_centre]]. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 200407 | JE | 2.0 | Created for SHEGRAPH Version 2. |
+!> @endhistory
 MODULE visualisation_interface_right
 
    USE ISO_C_BINDING, ONLY: C_PTR

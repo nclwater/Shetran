@@ -16,6 +16,10 @@
 !> The plan is to split it into more focused modules as outlined in
 !> `docs/reports/refactor_parameters/plan_parameter_refactor.md`.
 !>
+!> Size parameters are compile-time maxima; the active problem size is held in
+!> `total_no_elements`, `total_no_links`, and related run-state variables after
+!> input has been read.
+!>
 !> @history
 !> | Date | Author | Description |
 !> |:----:|:------:|-------------|
@@ -372,7 +376,6 @@ CONTAINS
 
       LOGICAL :: VALID, present
 
-      ! Modernization Fix: Replaced legacy DATA statement with a strict PARAMETER array
       CHARACTER(LEN=11), PARAMETER :: CTYPE(3) = ['FATAL ERROR', '      ERROR', '    WARNING']
 
       !-------------------------------------------------------------------*
@@ -447,7 +450,6 @@ CONTAINS
          !
       END IF
 
-      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
       IF (ERRNUM == 1024 .OR. ERRNUM == 1030) THEN
          ISERROR = .TRUE.
       END IF
@@ -531,6 +533,7 @@ CONTAINS
    !> |:----:|:------:|-------------|
    !> | 1994-09-17 | RAH | v3.4.1: File created. |
    !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
+   !> @endhistory
    SUBROUTINE ALSTOP (FLAG)
       INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
 

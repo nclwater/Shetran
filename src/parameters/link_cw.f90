@@ -19,6 +19,10 @@
 !> | 1998-03-08 | RAH | 4.2 | Amended comments. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
+!>
+!> @note The manual requires `DBDI > DBS` and notes an implementation bug when
+!> `DBDI` equals `2*DBI`.
+!> @endnote
 
 MODULE LINK_CW
 !------------------------------- Start of LINK.CW ---------------------*

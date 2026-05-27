@@ -4,6 +4,27 @@
 !> layer. It strips comments and separators from the visualisation plan file,
 !> then exposes typed readers for character, integer, and real values while
 !> collecting consistent diagnostic messages for malformed input.
+!>
+!> Parser flow:
+!>
+!> | Stage | Behaviour |
+!> |:------|:----------|
+!> | `COPY` | Calls `STRIP` for the selected visualisation plan file and opens the stripped stream on `vp_in`. |
+!> | `STRIP` | Checks the first token, removes `!` comments, trims blanks, splits on `:` and `^`, and writes `temporary.txt`. |
+!> | `R_C` | Reads the next nonblank character plus the remaining character token. |
+!> | `R_I` / `R_R` | Read scalar, vector, or two-to-five-value integer/real sequences through generic interfaces. |
+!> | `ERROR` | Writes accumulated diagnostics to the check file and console, then stops. |
+!>
+!> `STRIP` accepts printable ASCII characters 32:126 only; tabs and other
+!> non-printing characters are treated as fatal input errors.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 199912 | JE | - | Created line-by-line stripping utility for informative text in data files. |
+!> | 200407 | JE | SHEGRAPH 2.0 | Created visualisation plan reader for SHEGRAPH. |
+!> | 20050809 | NETT | - | Preserved zero-length-line guards while trimming blanks in `STRIP`. |
+!> @endhistory
 MODULE visualisation_read
 
    USE visualisation_read_parser, ONLY: visualisation_token_reader, transform_visualisation_record, &

@@ -7,6 +7,15 @@
 !> parent-material soil type, sediment count, link flows, and particle flow
 !> rates.
 !>
+!> Main state groups:
+!>
+!> | Group | Symbols | Purpose |
+!> |:------|:--------|:--------|
+!> | Deposited and loose sediment | `ARBDEP`, `DLS`, `DCBED`, `DCBSED` | Link/element sediment stores and active bed layers. |
+!> | Generation/infiltration | `GNU`, `GNUBK`, `GINFD`, `GINFS` | Hillslope, bank, and link source/sink rates. |
+!> | Fractions/porosity | `FDEL`, `FBETA`, `FBTSD`, `PBSED`, `PLS`, `SOSDFN`, `SOFN` | Mobile, bed, and soil fractions. |
+!> | Routing | `QLINK`, `QDEFF`, `QSED` | Water-link and particle-flow rates used by sediment and contaminant transport. |
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|

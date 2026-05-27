@@ -1,8 +1,15 @@
 !> summary: Auxiliary visualisation arrays for dynamically sized sediment output.
 !>
-!> This module stores auxiliary pointer arrays used by the visualisation output
-!> path. `react` either allocates the arrays for the first use or extends them
-!> when additional sediment/output columns are required.
+!> This legacy helper owns two dynamically sized pointer buffers for
+!> visualisation sediment output. No current source file references this module,
+!> but it is retained as part of the visualisation support code.
+!>
+!> Buffer layout:
+!>
+!> | Symbol | Shape | Meaning |
+!> |:-------|:------|:--------|
+!> | `acol` | `(p)` | Active output-column indices. |
+!> | `vpsed` | `(j,2,p)` | Sediment values by row/item, side, and output column. |
 MODULE VISUALISATION_EXTRAS
    IMPLICIT NONE
 

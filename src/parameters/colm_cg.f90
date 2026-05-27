@@ -14,7 +14,7 @@
 !> | 1991-07-16 | JE | 3.1 | Reordered names in `WELPRO`. |
 !> | 1997-02-24 | RAH | 4.1 | Added explicit typing and separated `WELPRI` from mixed-type `WELPRO`. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
-!> | 2026-03 | SB | 4.6 | Removed unused legacy arrays, made overlap arrays allocatable, and added allocation/deallocation routines. |
+!> | 2026-03 | SB | 4.6 | Removed unused legacy arrays; made overlap arrays allocatable; added allocation helpers. |
 !> @endhistory
 MODULE COLM_CG
 !---------------------------- Start of COLM.CG ------------------------*

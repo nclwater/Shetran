@@ -5,6 +5,38 @@
 !> of time nodes. The module allocates new nodes for output times, saves scalar
 !> or vector values into the correct member locations, and later extracts and
 !> deallocates buffered values in HDF5 dimension order.
+!>
+!> Storage type codes:
+!>
+!> | Code | Value type | Members |
+!> |:-----|:-----------|:--------|
+!> | `BS` | real | Four bank edges: north, east, south, west. |
+!> | `ES` | integer | Four bank edges: north, east, south, west. |
+!> | `FS` | integer | Four river/link edges: north, east, south, west. |
+!> | `GS` | real | One square, four banks, and four river/link members. |
+!> | `IS` | integer | One square/member value. |
+!> | `LS` | real | Four river/link edges: north, east, south, west. |
+!> | `MS` | real | One square/member value. |
+!> | `NS` | integer | One square, four banks, and four river/link members. |
+!>
+!> Buffer lifecycle:
+!>
+!> | Stage | Routine family | Behaviour |
+!> |:------|:---------------|:----------|
+!> | Allocate | `FOR_NEW_TIME_*` | Allocate an output-time node, initialise missing values, and link it after `latest`. |
+!> | Save | `SAVE_ITEMS_WORTH_*` and `SAVE_*` | Store one vertical vector into the member selected by type code and `c`. |
+!> | Extract | `GET_HDF5_*` | Copy the first node into HDF5 dimension order, advance `first`, and deallocate the consumed node. |
+!>
+!> Compound member order is square first, then north/east/south/west banks, then
+!> north/east/south/west river links.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 200407 | JE | SHEGRAPH 2.0 | Created visualisation buffer structures for SHEGRAPH. |
+!> | 20050814 | ? | - | Added node deallocation routines to fix leaked `p%s` arrays. |
+!> | 20080123 | ? | - | Kept explicit-shape `save_this` dummy for CVF/IVF compatibility. |
+!> @endhistory
 MODULE visualisation_structure
 
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED

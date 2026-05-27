@@ -5,6 +5,30 @@
 !> element, face, layer, and grid numbering, converts selected fluxes to
 !> plotting units, and exposes small accessor functions for the central
 !> visualisation translation layer.
+!>
+!> Conventions:
+!>
+!> | Item | Convention |
+!> |:-----|:-----------|
+!> | Face order | SHETRAN native order: 1 east, 2 north, 3 west, 4 south. |
+!> | Element type | `ETYPE=0` grid square, `1:2` banks, `3` river/link. |
+!> | Missing integer | `i_not_exist = -1`. |
+!> | Missing real | `r_not_exist = -1.0`. |
+!> | Rates for plotting | Selected m/s fluxes are converted to mm/hour or mm/day. |
+!>
+!> Maintenance rules retained from the legacy interface:
+!>
+!> - Add accessor functions here when new variables need raw SHETRAN state.
+!> - Keep the module `PRIVATE`; extend only explicit `PUBLIC` lists.
+!> - Do not remove public accessors without updating dependent interfaces.
+!> - [[visualisation_interface_centre]] depends on this exported accessor contract.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 200407 | JE | 2.0 | Created for SHEGRAPH Version 2. |
+!> | 20041122 | JE | - | Made common to SHETRAN Versions 3 and 4. |
+!> @endhistory
 MODULE visualisation_interface_left
 
 !JE for SHEGRAPH Version 2.0 Created July 2004

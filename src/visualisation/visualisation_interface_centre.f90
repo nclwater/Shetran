@@ -10,6 +10,38 @@
 !> (`N`, `E`, `S`, `W`) as described in the manual. The SHETRAN core uses its
 !> internal face numbering in the accessors below, and the right-hand
 !> visualisation interface remaps between the two orders before data are stored.
+!>
+!> Catalogue maintenance:
+!>
+!> | Step | Requirement |
+!> |:-----|:------------|
+!> | Add or rename a variable | Amend `outtype`; non-positive `number` values are static and positive values are dynamic. |
+!> | Change catalogue bounds | Keep `first_type` and `last_type` aligned with the `outtype` constructor bounds. |
+!> | Add implemented data | Add the corresponding dispatch branch in [[shetran_integer_data]] or [[shetran_real_data]]. |
+!> | Access raw SHETRAN state | Route access through [[visualisation_interface_left]]. |
+!> | Preserve public contract | Keep this module private except for the explicit `PUBLIC` list; keep [[get_output_type]] stable. |
+!>
+!> `outtype%typ` identifies the spatial object and value kind:
+!>
+!> | Code | Values returned for |
+!> |:-----|:--------------------|
+!> | `B` | Real bank values. |
+!> | `E` | Integer bank values. |
+!> | `F` | Integer river/link values. |
+!> | `G` | Real compound values. |
+!> | `I` | Integer gridsquare values. |
+!> | `L` | Real river/link values. |
+!> | `M` | Real gridsquare values. |
+!> | `N` | Integer compound values. |
+!>
+!> A compound is one gridsquare plus, where present, its four banks and four
+!> river/link segments.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 20190704 | JE | 2.0 | Created central SHETRAN v4/SHEGRAPH v2 interface. |
+!> @endhistory
 MODULE visualisation_interface_centre
 
 !JE 2.0 190704 Created

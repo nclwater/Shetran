@@ -174,7 +174,36 @@ MODULE AL_C
 !                                        NTSOIL    !soil type in soil layer
 !    DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT    !elevatuion of bottom of soil layer
 
+! Soil and soil-layer state
+INTEGER :: NS                              !! Number of soil types.
+DOUBLEPRECISION, DIMENSION(NSEE) :: THSAT  !! Saturated moisture content by soil type.
+DOUBLEPRECISION, DIMENSION(NSEE) :: VSPOR  !! VSS porosity by soil type.
+INTEGER, ALLOCATABLE :: NLYRBT(:,:)        !! Bottom VSS cell number by element and soil layer.
+INTEGER, ALLOCATABLE :: NTSOIL(:,:)        !! Soil type by element and soil layer.
+DOUBLEPRECISION, ALLOCATABLE :: ZLYRBT(:,:) !! Bottom elevation by element and soil layer.
 
+! ----- Time-dependent stuff
+INTEGER, DIMENSION(NXEE*NYEE) :: IDUM      !! Integer workspace for spatial input and category reads.
+INTEGER, DIMENSION(NELEE) :: ISORT         !! Element solution/order list used by flow components.
+INTEGER, DIMENSION(NELEE) :: NHSAT         !! Legacy saturation-state array; currently not used.
+DOUBLEPRECISION, DIMENSION(NELEE) :: DRAINA !! Canopy-drip rainfall reaching the ground.
+DOUBLEPRECISION, DIMENSION(NELEE) :: DUMMY  !! Floating-point workspace for spatial input and checks.
+DOUBLEPRECISION, DIMENSION(NELEE) :: ESOILA !! Soil evaporation rate.
+DOUBLEPRECISION, DIMENSION(NELEE) :: EEVAP  !! Actual evapotranspiration rate.
+DOUBLEPRECISION, DIMENSION(NELEE) :: PNETTO !! Net precipitation/input rate available to the ground or surface water.
+DOUBLEPRECISION, DIMENSION(NELEE) :: QH     !! Top vertical VSS flux by element.
+DOUBLEPRECISION, DIMENSION(NELEE) :: WBERR  !! Cumulative water-balance error by element.
+DOUBLEPRECISION, DIMENSION(NELEE) :: ZVSPSL !! VSS phreatic-surface elevation by element.
+DOUBLEPRECISION, DIMENSION(NELEE) :: QVSBF  !! Bottom VSS flux by element.
+DOUBLEPRECISION, DIMENSION(NELEE) :: QVSSPR !! VSS spring discharge by element.
+DOUBLEPRECISION, DIMENSION(NELEE) :: QVSWEL !! VSS well abstraction or recharge by element.
+DOUBLEPRECISION, DIMENSION(NELEE,4) :: QOC  !! Overland/channel face flow by element and face.
+DOUBLEPRECISION, ALLOCATABLE :: QVSV(:,:)   !! Vertical VSS flux by cell and element.
+DOUBLEPRECISION, ALLOCATABLE :: VSPSI(:,:)  !! VSS pressure head by cell and element.
+DOUBLEPRECISION, ALLOCATABLE :: VSTHE(:,:)  !! VSS volumetric water content by cell and element.
+DOUBLEPRECISION, ALLOCATABLE :: QVSWLI(:,:) !! Well flux by VSS cell and well element.
+DOUBLEPRECISION, ALLOCATABLE :: ERUZ(:,:)   !! Root-zone extraction by element and VSS cell.
+DOUBLEPRECISION, ALLOCATABLE :: QVSH(:,:,:) !! Lateral VSS flux by face, cell, and element.
 
 !----- Time-dependent stuff
 !?????????

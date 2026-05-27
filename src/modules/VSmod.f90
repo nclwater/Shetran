@@ -85,6 +85,7 @@
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-1998 | GP/RAH | 4.0-4.2 | Developed and reorganised the VSS common state, soil tables, initialisation state, connectivity, boundary handling, and column solver. |
+!> | 1998-11 | SPA | - | Added the channel-aquifer flow correction: pass adjacent channel depth into [[vscolm]]/[[vssai]], limit channel-to-aquifer contact area for low channel water depth, simplify the stream-aquifer derivative, and align exchange-flow reporting with BALWAT. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the VSS `.F` files and include blocks into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Moved saved arrays into allocatable module storage through `INITIALISE_AL_C2` for AD/current builds. |
 !> @endhistory

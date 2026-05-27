@@ -5,6 +5,38 @@
 !> items from the visualisation plan file, resolves masks/lists/timing blocks,
 !> validates item dimensions, and creates the derived metadata consumed by the
 !> HDF5 writer.
+!>
+!> Visualisation plan blocks:
+!>
+!> | Keyword | Action |
+!> |:--------|:-------|
+!> | `item` | Read one requested output variable and its grid/list, timing, layer, sediment, and contaminant selectors. |
+!> | `list` | Read an explicit element list and derive square-only, bank-only, and river-only lists. |
+!> | `mask` | Read a grid mask, remove inactive catchment cells, and derive scoped element lists. |
+!> | `time` | Read output time-step and stop-time pairs for later `TIME_TO_RECORD` checks. |
+!> | `diag` | Enable verbose visualisation-plan diagnostics in the check file. |
+!> | `kill` | Stop after reading the plan so the check file can be inspected. |
+!> | `stop` | Finish plan reading and continue the simulation. |
+!>
+!> Selector values:
+!>
+!> | Selector | Values | Meaning |
+!> |:---------|:-------|:--------|
+!> | `basis` | `grid_as_grid`, `grid_as_list`, `list_as_list` | Grid output, mask-derived list, or explicit list. |
+!> | `scope` | `all`, `squares`, `banks`, `rivers` | Element classes retained in derived lists or gridded compound outputs. |
+!> | `extra_dimensions` | `-`, `faces`, `X_Y`, `left_right` | Optional non-spatial dimension appended to the HDF5 item metadata. |
+!>
+!> `faces` labels are stored in north, east, south, west order for the output
+!> file. Mask rows are read in the visualisation-plan order and then written
+!> unchanged to the check file; row-orientation conversion is handled by the
+!> interface layer that reads model data.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 200407 | JE | SHEGRAPH 2.0 | Created for SHEGRAPH visualisation metadata handling. |
+!> | ? | ? | - | Item time-buffer pointers use `TYPE(C_PTR)` rather than integer pointer kinds. |
+!> @endhistory
 MODULE visualisation_metadata
 
 !JE for SHEGRAPH Version 2.0 Created July 2004
