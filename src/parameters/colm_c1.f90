@@ -17,29 +17,29 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE COLM_C1
-IMPLICIT NONE
-DOUBLEPRECISION :: D0     !! Reference diffusion scale for contaminant column equations.
-DOUBLEPRECISION :: Z2     !! Reference column depth used to nondimensionalise vertical geometry.
-DOUBLEPRECISION :: Z2SQ   !! Squared reference depth, `Z2**2`.
-DOUBLEPRECISION :: Z2OD   !! Reference depth divided by the diffusion scale, `Z2/D0`.
-DOUBLEPRECISION :: Z2SQOD !! Squared reference depth divided by the diffusion scale, `Z2**2/D0`.
+   IMPLICIT NONE
+   DOUBLEPRECISION :: D0     !! Reference diffusion scale for contaminant column equations.
+   DOUBLEPRECISION :: Z2     !! Reference column depth used to nondimensionalise vertical geometry.
+   DOUBLEPRECISION :: Z2SQ   !! Squared reference depth, `Z2**2`.
+   DOUBLEPRECISION :: Z2OD   !! Reference depth divided by the diffusion scale, `Z2/D0`.
+   DOUBLEPRECISION :: Z2SQOD !! Squared reference depth divided by the diffusion scale, `Z2**2/D0`.
 
-DOUBLEPRECISION :: CST1   !! Column convection coefficient, `Z2/(AREA*D0*ZONE1)`.
-DOUBLEPRECISION :: CST2   !! Column area-scaling coefficient, `Z2/(AREA*D0)`.
-DOUBLEPRECISION :: CST3   !! Bottom-cell convection coefficient, `CST2/KSP(NCEBOT)`.
-DOUBLEPRECISION :: SGMA   !! Implicit finite-difference weighting factor.
-DOUBLEPRECISION :: SGSQ   !! Squared finite-difference weighting factor, `SGMA**2`.
-DOUBLEPRECISION :: SGTSE  !! Sigma-weighted scaled timestep, `SGMA*TSE`.
-DOUBLEPRECISION :: SGSTSE !! Squared-sigma weighted scaled timestep, `SGSQ*TSE`.
-DOUBLEPRECISION :: OMSGMA !! Explicit finite-difference weighting complement, `1-SGMA`.
-DOUBLEPRECISION :: OPSGL  !! Liquid-phase storage factor, `1+SGTSE*GCAPLA`.
-DOUBLEPRECISION :: OPSGSL !! Sorbed-phase storage factor, `1+SGSTSE*GCAPLA`.
-DOUBLEPRECISION :: TSE    !! Scaled contaminant timestep, `D0*DTUZ/Z2SQ`.
+   DOUBLEPRECISION :: CST1   !! Column convection coefficient, `Z2/(AREA*D0*ZONE1)`.
+   DOUBLEPRECISION :: CST2   !! Column area-scaling coefficient, `Z2/(AREA*D0)`.
+   DOUBLEPRECISION :: CST3   !! Bottom-cell convection coefficient, `CST2/KSP(NCEBOT)`.
+   DOUBLEPRECISION :: SGMA   !! Implicit finite-difference weighting factor.
+   DOUBLEPRECISION :: SGSQ   !! Squared finite-difference weighting factor, `SGMA**2`.
+   DOUBLEPRECISION :: SGTSE  !! Sigma-weighted scaled timestep, `SGMA*TSE`.
+   DOUBLEPRECISION :: SGSTSE !! Squared-sigma weighted scaled timestep, `SGSQ*TSE`.
+   DOUBLEPRECISION :: OMSGMA !! Explicit finite-difference weighting complement, `1-SGMA`.
+   DOUBLEPRECISION :: OPSGL  !! Liquid-phase storage factor, `1+SGTSE*GCAPLA`.
+   DOUBLEPRECISION :: OPSGSL !! Sorbed-phase storage factor, `1+SGSTSE*GCAPLA`.
+   DOUBLEPRECISION :: TSE    !! Scaled contaminant timestep, `D0*DTUZ/Z2SQ`.
 
-DOUBLEPRECISION :: FNCPSF !! Fraction of the highest cell below the phreatic surface.
+   DOUBLEPRECISION :: FNCPSF !! Fraction of the highest cell below the phreatic surface.
 
-INTEGER :: NCEBOT !! Bottom active column cell index.
-INTEGER :: NCETOP !! Top active column cell index.
-INTEGER :: NCEPSF !! Highest active cell treated as below the phreatic surface.
+   INTEGER :: NCEBOT !! Bottom active column cell index.
+   INTEGER :: NCETOP !! Top active column cell index.
+   INTEGER :: NCEPSF !! Highest active cell treated as below the phreatic surface.
 
 END MODULE COLM_C1

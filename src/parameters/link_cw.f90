@@ -25,21 +25,21 @@
 !> @endnote
 
 MODULE LINK_CW
-USE SGLOBAL, ONLY : NLFEE
-USE LINK_CC1
-IMPLICIT NONE
+   USE SGLOBAL, ONLY : NLFEE
+   USE LINK_CC1
+   IMPLICIT NONE
 
-DOUBLEPRECISION :: ACPBDO(NLFEE) !! Previous deeper-bed/deposited-material cross-sectional area.
-DOUBLEPRECISION :: ACPBSG(NLFEE) !! Bed-surface-layer cross-sectional area, `DBS*CWIDTH/Z2**2`.
-DOUBLEPRECISION :: ACPBI(NLFEE)  !! Initial deeper-bed/deposited-material cross-sectional area.
-DOUBLEPRECISION :: ACPSFO(NLFEE) !! Previous stream-water cross-sectional area, `ARXL/Z2**2`.
+   DOUBLEPRECISION :: ACPBDO(NLFEE) !! Previous deeper-bed/deposited-material cross-sectional area.
+   DOUBLEPRECISION :: ACPBSG(NLFEE) !! Bed-surface-layer cross-sectional area, `DBS*CWIDTH/Z2**2`.
+   DOUBLEPRECISION :: ACPBI(NLFEE)  !! Initial deeper-bed/deposited-material cross-sectional area.
+   DOUBLEPRECISION :: ACPSFO(NLFEE) !! Previous stream-water cross-sectional area, `ARXL/Z2**2`.
 
-DOUBLEPRECISION :: DBS  !! Bed surface-layer depth below the river bed.
-DOUBLEPRECISION :: DBDI !! Bed deep-layer depth below the river bed; must be greater than `DBS`.
+   DOUBLEPRECISION :: DBS  !! Bed surface-layer depth below the river bed.
+   DOUBLEPRECISION :: DBDI !! Bed deep-layer depth below the river bed; must be greater than `DBS`.
 
-INTEGER :: LENDA(6) !! Link-end pointer table for ends that can attach to a link.
+   INTEGER :: LENDA(6) !! Link-end pointer table for ends that can attach to a link.
 
-DOUBLEPRECISION :: THBED(NLFEE)  !! Current stream-bed moisture content by link.
-DOUBLEPRECISION :: THBEDO(NLFEE) !! Previous stream-bed moisture content by link.
+   DOUBLEPRECISION :: THBED(NLFEE)  !! Current stream-bed moisture content by link.
+   DOUBLEPRECISION :: THBEDO(NLFEE) !! Previous stream-bed moisture content by link.
 !PRIVATE :: NLFEE
 END MODULE LINK_CW

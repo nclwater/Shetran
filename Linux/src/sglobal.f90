@@ -3,7 +3,7 @@ MODULE sglobal
 !                       Replaces the al_p etc
 !USE BUFF_DISK
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
-IMPLICIT NONE
+   IMPLICIT NONE
 !MODULE AL_P
 !IMPLICIT NONE
 !-------------------- START OF AL.P -----------------------------------*
@@ -54,21 +54,21 @@ IMPLICIT NONE
 
 !     (MUST BE IN FORMAT XX.Y WHERE XX = MAJOR PART OF VERSION NUMBER,
 !                                    Y = MINOR PART )
-      DOUBLEPRECISION, PARAMETER :: SHEVER=4.6
+   DOUBLEPRECISION, PARAMETER :: SHEVER=4.6
 !
 !------------ DEVELOPMENT VERSION FLAG
 
 !     SET TO .TRUE. FOR DEVELOPMENT VERSION OF CODE
 !     SET TO .FALSE. FOR FINAL STATIC VERSION
-      LOGICAL, PARAMETER :: BDEVER=.TRUE.
+   LOGICAL, PARAMETER :: BDEVER=.TRUE.
 
 !------------ BANNER HEADER
 !     Description of local implementation: software, architecture, date
-      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Hydrological Model'
+   CHARACTER(*), PARAMETER ::BANNER='SHETRAN Hydrological Model'
 
 !------------ RUNDATA FILENAME (THE CATCHMENT NAME ENTERED AT THE START
 !     OF A SIMULATION RUN IS APPENDED TO THIS FILENAME)
-      CHARACTER(*), PARAMETER :: RUNFIL='rundata_'
+   CHARACTER(*), PARAMETER :: RUNFIL='rundata_'
 
 !------------ ARRAY SIZES (must be greater than zero!)
 
@@ -76,82 +76,82 @@ IMPLICIT NONE
 !16 Sep 94  NB  INFR references elements LCODEX(NX+1) and LCODEY(NY+1)!
 !30 Sep 94  NB  NELEE is also used as size of workspace arrays.
 !Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
-      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
+   INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.5
 !      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.6
 !      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=2000, nelee=80000  !sv4.5
-      INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
-                            ran2monte1=-1, ran2monte2=-1, pcmonte=-1
-      INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec
-      
+   INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
+      ran2monte1=-1, ran2monte2=-1, pcmonte=-1
+   INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec
+
 ! --- GRID POINTS IN VERTICAL PLUS ONE
-      !INTEGER, PARAMETER :: LLEE=50
-      INTEGER, PARAMETER :: LLEE=50  
+   !INTEGER, PARAMETER :: LLEE=50
+   INTEGER, PARAMETER :: LLEE=50
 
 ! --- VEGETATION TYPES, SOIL TYPES (NVEE also used for number of precipitation and pet stations)
-      INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
+   INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
 
 ! --- TABLES USED IN VSS COMPONENT
-      INTEGER, PARAMETER :: NVSEE=20
+   INTEGER, PARAMETER :: NVSEE=20
 
 ! --- TIME VARYING VEG BREAKPOINTS
-      INTEGER, PARAMETER  :: NVBP=140
+   INTEGER, PARAMETER  :: NVBP=140
 
 ! --- TABLES USED IN ET COMPONENT (MAX. NO. OF PSI/RCF/FET VALUES)
-      INTEGER, PARAMETER :: NUZTAB=20
+   INTEGER, PARAMETER :: NUZTAB=20
 
 ! --- MAXIMUM NUMBER OF SOIL LAYERS + 1
-      INTEGER, PARAMETER :: NLYREE=20
+   INTEGER, PARAMETER :: NLYREE=20
 
 ! --- OUTPUT SETS (FOR 'RES' FILE OUTPUT)
-      INTEGER, PARAMETER :: NSETEE=45
+   INTEGER, PARAMETER :: NSETEE=45
 
 ! --- MAXIMUM NUMBER OF ELEMENTS (GRIDS, BANKS AND LINKS) IN A ROW
 !      INTEGER, PARAMETER :: NXOCEE=2000
-      INTEGER, PARAMETER :: NXOCEE=4*nxee
-      
+   INTEGER, PARAMETER :: NXOCEE=4*nxee
+
 ! --- TABLES USED IN OC COMPONENT (MAX. OF NO. OF ROUGHNESS CATEGORIES,
 !      NO. OF CHANNEL X-SECTION CATEGORIES, NO. OF OC BOUNDARY ELEMENTS)
-      INTEGER, PARAMETER :: NOCTAB=20
+   INTEGER, PARAMETER :: NOCTAB=20
 
 ! --- SEDIMENT SIZE FRACTIONS
-      INTEGER, PARAMETER :: NSEDEE=7
+   INTEGER, PARAMETER :: NSEDEE=7
 
 ! --- NUMBER OF CONTAMINANTS, NUMBER OF OVERLAPS
-      INTEGER, PARAMETER :: NCONEE=3, NOLEE=2*LLEE
+   INTEGER, PARAMETER :: NCONEE=3, NOLEE=2*LLEE
 
 ! --- NO. OF PLANTS IN AN ELEMENT, TOTAL NO. OF PLANTS, FOR CONTAMINANTS
-      INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
-      
-      INTEGER, PARAMETER :: max_no_snowmelt_slugs=400
+   INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
 
-      CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
-      CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
-      
+   INTEGER, PARAMETER :: max_no_snowmelt_slugs=400
 
-      INTEGER, PARAMETER :: NXSCEE=100000
+   CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
+   CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
+
+
+   INTEGER, PARAMETER :: NXSCEE=100000
 !END MODULE AL_P
-INTEGER, PARAMETER :: ERRNEE = 100
-INTEGER, PARAMETER ::   FFFATAL = 1, &  
-                        EEERR = 2, &
-                        WWWARN = 3, &
-                        pppri  = 23
-DOUBLEPRECISION :: UZNOW 
-DOUBLEPRECISION, PARAMETER :: marker999=999999.9D0
-INTEGER, PARAMETER         :: izero=0, izero1(1)=0, ione=1, ione1(1)=1, imarker=INT(marker999)
-DOUBLEPRECISION, PARAMETER :: zero=0.0d0, zero1(1)=0.0d0, half=0.5d0, one=1.0d0, one1(1)=1.0d0, &
-                              two=2.0d0, three=3.0d0, five=5.0d0, vsmall=1.0d-20
-DOUBLEPRECISION EARRAY(1)
-INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
-CHARACTER(128)     :: helppath
-LOGICAL :: ISERROR
-LOGICAL :: ISERROR2
-LOGICAL :: error_mode
+   INTEGER, PARAMETER :: ERRNEE = 100
+   INTEGER, PARAMETER ::   FFFATAL = 1, &
+      EEERR = 2, &
+      WWWARN = 3, &
+      pppri  = 23
+   DOUBLEPRECISION :: UZNOW
+   DOUBLEPRECISION, PARAMETER :: marker999=999999.9D0
+   INTEGER, PARAMETER         :: izero=0, izero1(1)=0, ione=1, ione1(1)=1, imarker=INT(marker999)
+   DOUBLEPRECISION, PARAMETER :: zero=0.0d0, zero1(1)=0.0d0, half=0.5d0, one=1.0d0, one1(1)=1.0d0, &
+      two=2.0d0, three=3.0d0, five=5.0d0, vsmall=1.0d-20
+   DOUBLEPRECISION EARRAY(1)
+   INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
+   CHARACTER(128)     :: helppath
+   LOGICAL :: ISERROR
+   LOGICAL :: ISERROR2
+   LOGICAL :: error_mode
 
-DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
-                                     DXQQ, DYQQ, &  !face lengths
-                                     ZGRUND         !surface elevation
-                                     
-CHARACTER(32) :: text32
+   DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
+      DXQQ, DYQQ, &  !face lengths
+      ZGRUND         !surface elevation
+
+   CHARACTER(32) :: text32
 !PRIVATE
 !PUBLIC :: izero, izero1, ione, ione1, zero, zero1, half, one, one1, two, three, five, marker999, &
 !          IDIMJE, DIMJE, &
@@ -163,113 +163,113 @@ CONTAINS
 
 
 !SSSSSS LOGICAL FUNCTION eqmarker
-LOGICAL FUNCTION eqmarker(a) !needed for ad
-DOUBLEPRECISION, INTENT(IN) :: a
-eqmarker = INT(a)==imarker
-END FUNCTION eqmarker
+   LOGICAL FUNCTION eqmarker(a) !needed for ad
+      DOUBLEPRECISION, INTENT(IN) :: a
+      eqmarker = INT(a)==imarker
+   END FUNCTION eqmarker
 
 !SSSSSS LOGICAL FUNCTION gtzero
-LOGICAL FUNCTION gtzero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
-gtzero = a>zero
-END FUNCTION gtzero
+   LOGICAL FUNCTION gtzero(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
+      gtzero = a>zero
+   END FUNCTION gtzero
 
 !SSSSSS LOGICAL FUNCTION gezero
-LOGICAL FUNCTION gezero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+   LOGICAL FUNCTION gezero(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
 !r = a>=zero
-gezero = ISZERO(a) .OR. a>zero
-END FUNCTION gezero
+      gezero = ISZERO(a) .OR. a>zero
+   END FUNCTION gezero
 
 !SSSSSS LOGICAL FUNCTION ltzero
-LOGICAL FUNCTION ltzero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
-ltzero = a<zero
-END FUNCTION ltzero
+   LOGICAL FUNCTION ltzero(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
+      ltzero = a<zero
+   END FUNCTION ltzero
 
 !SSSSSS LOGICAL FUNCTION lezero
-LOGICAL FUNCTION lezero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+   LOGICAL FUNCTION lezero(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
 !r = a<=zero
-lezero = ISZERO(a) .OR. a<zero
-END FUNCTION lezero
+      lezero = ISZERO(a) .OR. a<zero
+   END FUNCTION lezero
 
 !SSSSSS LOGICAL FUNCTION iszero
-LOGICAL FUNCTION iszero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+   LOGICAL FUNCTION iszero(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
 !r = a==zero
-iszero = ABS(a)<vsmall
-END FUNCTION iszero
+      iszero = ABS(a)<vsmall
+   END FUNCTION iszero
 
 !SSSSSS LOGICAL FUNCTION iszero_a
-LOGICAL FUNCTION iszero_a(a)
-INTEGER :: i
-DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a
-iszero_a=.TRUE.
-DO i=1,SIZE(a)
-    IF(.NOT.iszero_a) CYCLE     !FOR AD
-    iszero_a = iszero(a(i))
-ENDDO
-END FUNCTION iszero_a
+   LOGICAL FUNCTION iszero_a(a)
+      INTEGER :: i
+      DOUBLEPRECISION, DIMENSION(:), INTENT(IN) :: a
+      iszero_a=.TRUE.
+      DO i=1,SIZE(a)
+         IF(.NOT.iszero_a) CYCLE     !FOR AD
+         iszero_a = iszero(a(i))
+      ENDDO
+   END FUNCTION iszero_a
 
 !SSSSSS LOGICAL FUNCTION i_iszero_a2
-LOGICAL FUNCTION i_iszero_a2(a)
-INTEGER                             :: i, j
-INTEGER, DIMENSION(:,:), INTENT(IN) :: a
-i_iszero_a2=.TRUE.
-DO i=1,SIZE(a, DIM=1)
-    DO j=1,SIZE(a, DIM=2)
-        IF(.NOT.i_iszero_a2) CYCLE     !FOR AD
-        i_iszero_a2 = a(i,j)==0
-    ENDDO
-ENDDO
-END FUNCTION i_iszero_a2
+   LOGICAL FUNCTION i_iszero_a2(a)
+      INTEGER                             :: i, j
+      INTEGER, DIMENSION(:,:), INTENT(IN) :: a
+      i_iszero_a2=.TRUE.
+      DO i=1,SIZE(a, DIM=1)
+         DO j=1,SIZE(a, DIM=2)
+            IF(.NOT.i_iszero_a2) CYCLE     !FOR AD
+            i_iszero_a2 = a(i,j)==0
+         ENDDO
+      ENDDO
+   END FUNCTION i_iszero_a2
 
 
 !SSSSSS LOGICAL FUNCTION notzero
-LOGICAL FUNCTION notzero(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+   LOGICAL FUNCTION notzero(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
 !r = a/=zero
-notzero = .NOT.ISZERO(a)
-END FUNCTION notzero
+      notzero = .NOT.ISZERO(a)
+   END FUNCTION notzero
 
 !SSSSSS LOGICAL FUNCTION isone
-LOGICAL FUNCTION isone(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+   LOGICAL FUNCTION isone(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
 !r = a==one
-isone = ABS(a-one)<vsmall
-END FUNCTION isone
+      isone = ABS(a-one)<vsmall
+   END FUNCTION isone
 
 !SSSSSS LOGICAL FUNCTION notone
-LOGICAL FUNCTION notone(a)
-DOUBLEPRECISION, INTENT(IN) :: a
+   LOGICAL FUNCTION notone(a)
+      DOUBLEPRECISION, INTENT(IN) :: a
 !r = a/=one
-notone = .NOT.ISONE(a)
-END FUNCTION notone
+      notone = .NOT.ISONE(a)
+   END FUNCTION notone
 
 
 !FFFFFF INTEGER FUNCTION IDIMJE(a,b)
-INTEGER FUNCTION idimje(x,y)  !AD PROBLEM
-INTEGER, INTENT(IN) :: x, y
-IF(x>y) THEN
-    idimje = x-y
-ELSE
-    idimje = 0
-ENDIF
-END FUNCTION idimje
+   INTEGER FUNCTION idimje(x,y)  !AD PROBLEM
+      INTEGER, INTENT(IN) :: x, y
+      IF(x>y) THEN
+         idimje = x-y
+      ELSE
+         idimje = 0
+      ENDIF
+   END FUNCTION idimje
 
 !FFFFFF DOUBLEPRECISION FUNCTION dimje(a,b)
-DOUBLEPRECISION FUNCTION dimje(x,y) !AD PROBLEM
-DOUBLEPRECISION, INTENT(IN) :: x, y
-IF(x>y) THEN
-    dimje = x-y
-ELSE
-    dimje = zero
-ENDIF
-END FUNCTION dimje
+   DOUBLEPRECISION FUNCTION dimje(x,y) !AD PROBLEM
+      DOUBLEPRECISION, INTENT(IN) :: x, y
+      IF(x>y) THEN
+         dimje = x-y
+      ELSE
+         dimje = zero
+      ENDIF
+   END FUNCTION dimje
 
-!SSSSSS SUBROUTINE ERROR 
-SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
+!SSSSSS SUBROUTINE ERROR
+   SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       ! Assumed global variables provided via host module:
       ! I_P, FFFATAL, EEERR, WWWARN, UZNOW, ERRTOT, ERRC, ERRNEE,
@@ -363,13 +363,13 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
       ! Write summary
       ! -------------
       IF (ETYPE == FFFATAL .OR. ERRNUM == 0) THEN
-          WRITE(*,'(/,A,/,A,/)') &
-              ' ### Error Summary and Advice ###', &
-              '     ------------------------' 
-          WRITE(OUT,'(/,A,/,A,/)') &
-              ' ### Error Summary and Advice ###', &
-              '     ------------------------'
-          inquire(out,name=fname)
+         WRITE(*,'(/,A,/,A,/)') &
+            ' ### Error Summary and Advice ###', &
+            '     ------------------------'
+         WRITE(OUT,'(/,A,/,A,/)') &
+            ' ### Error Summary and Advice ###', &
+            '     ------------------------'
+         inquire(out,name=fname)
 
          IF (ERRTOT > 0) WRITE(*, '(A,A,A/)') ' ==> Check the pri file: "', trim(fname), '" for more details <=='
 
@@ -381,21 +381,21 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
                   ! Print number of occurrences
                   WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
                   WRITE(OUT, 9500) ERRN + AMODL * 1000, COUNT
-                  WRITE(*, *) 
-                  WRITE(OUT, *) 
+                  WRITE(*, *)
+                  WRITE(OUT, *)
 
 
                   ! Print contents of help file (if any)
                   WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '/', AMODL, ERRN, '.txt'
                   OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
                   IF (IO_STATUS == 0) THEN
-                      read_help: DO
-                          READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
-                          IF (IO_STATUS /= 0) EXIT read_help
-                          WRITE(*, '(A)') trim(HLPMSG)
-                          WRITE(OUT, '(A)') trim(HLPMSG)
-                      END DO read_help
-                      CLOSE(HLP)
+                     read_help: DO
+                        READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
+                        IF (IO_STATUS /= 0) EXIT read_help
+                        WRITE(*, '(A)') trim(HLPMSG)
+                        WRITE(OUT, '(A)') trim(HLPMSG)
+                     END DO read_help
+                     CLOSE(HLP)
                   END IF
 
                   WRITE(*, *)
@@ -439,15 +439,15 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
       ! if error_mode is true then there is no need to press enter to continue
 
       IF (FLAG.GT.0) THEN
-          if (error_mode) then
-              STOP 'Program terminating due to fatal error'
-          else
-              WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
-              READ(*,*)
-              STOP 'Program terminating due to fatal error'
-          endif
+         if (error_mode) then
+            STOP 'Program terminating due to fatal error'
+         else
+            WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+            READ(*,*)
+            STOP 'Program terminating due to fatal error'
+         endif
       ENDIF
    END SUBROUTINE ALSTOP
-    
-    
+
+
 END MODULE sglobal

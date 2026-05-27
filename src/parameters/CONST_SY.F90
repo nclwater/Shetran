@@ -14,9 +14,9 @@
 !> | 2004-11 | JE | - | Converted to Fortran 95. |
 !> @endhistory
 MODULE const_sy
-IMPLICIT NONE
-DOUBLEPRECISION, PARAMETER :: GRAVTY = 9.80665d0 !! Gravitational acceleration in metres per second squared.
-DOUBLEPRECISION, PARAMETER :: RHOSED = 2650.0d0  !! Representative sediment particle density in kilograms per cubic metre.
-DOUBLEPRECISION, PARAMETER :: RHOWAT = 998.0d0   !! Representative water density in kilograms per cubic metre.
-DOUBLEPRECISION, PARAMETER :: VISCOS = 1.0D-6    !! Representative water kinematic viscosity in square metres per second.
+   IMPLICIT NONE
+   DOUBLEPRECISION, PARAMETER :: GRAVTY = 9.80665d0 !! Gravitational acceleration in metres per second squared.
+   DOUBLEPRECISION, PARAMETER :: RHOSED = 2650.0d0  !! Representative sediment particle density in kilograms per cubic metre.
+   DOUBLEPRECISION, PARAMETER :: RHOWAT = 998.0d0   !! Representative water density in kilograms per cubic metre.
+   DOUBLEPRECISION, PARAMETER :: VISCOS = 1.0D-6    !! Representative water kinematic viscosity in square metres per second.
 END MODULE const_sy

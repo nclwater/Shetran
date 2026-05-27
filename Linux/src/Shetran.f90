@@ -57,7 +57,7 @@ PROGRAM SHETRAN
 
    ! Main data arrays and simulation parameters
    USE AL_D, ONLY: nstep  !< Current simulation time step number
-   
+
    ! Testing trap of floating point exceptions
    ! Is it still necessary? Default is _off_
    USE mod_load_filedata, ONLY : ALTRAP
@@ -80,12 +80,12 @@ PROGRAM SHETRAN
    USE RUN_SIM, ONLY: SIMULATION  !< Execute main simulation loop   IMPLICIT NONE
 
    IMPLICIT NONE
-    
+
    ! Parse command line arguments and determine input files
    ! Processes command line to get rundata file and directory paths
    ! Note: Uses cross-platform implementation for Linux/Windows compatibility
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
-    
+
    ! Testing trap of floating point exceptions
    ! Is it still necessary? Default is _off_
    CALL ALTRAP
@@ -124,6 +124,6 @@ PROGRAM SHETRAN
    ! ============================================================================
 
    ! The program now terminates cleanly
-   CALL sleepqq(5000) 
+   CALL sleepqq(5000)
 
 END PROGRAM SHETRAN

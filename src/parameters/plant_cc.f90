@@ -28,67 +28,67 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE PLANT_CC
-USE SGLOBAL, ONLY : NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
-IMPLICIT NONE
+   USE SGLOBAL, ONLY : NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
+   IMPLICIT NONE
 
-INTEGER, PARAMETER :: NTEMP1=2*NELEE*NPELEE*NCONEE !! Former `PLDAT` initializer count for `BCPAA` and `BCPBB`.
-INTEGER, PARAMETER :: NTEMP2=NPLTEE*NCONEE        !! Former `PLDAT` initializer count for plant-type contaminant data.
+   INTEGER, PARAMETER :: NTEMP1=2*NELEE*NPELEE*NCONEE !! Former `PLDAT` initializer count for `BCPAA` and `BCPBB`.
+   INTEGER, PARAMETER :: NTEMP2=NPLTEE*NCONEE        !! Former `PLDAT` initializer count for plant-type contaminant data.
 
 
-DOUBLEPRECISION :: GENAA (NPELEE) !! Plant compartment-A generation/decay term by plant slot.
-DOUBLEPRECISION :: GENBB (NPELEE) !! Plant compartment-B generation/decay term by plant slot.
-DOUBLEPRECISION :: GCPL           !! Current contaminant decay/generation coefficient for plant uptake calculations.
-DOUBLEPRECISION :: GMCPAA         !! Current scaled plant mass for compartment A.
-DOUBLEPRECISION :: GMCPBB         !! Current scaled plant mass for compartment B.
-DOUBLEPRECISION :: GMCBBD         !! Time derivative of the scaled plant compartment-B mass.
-DOUBLEPRECISION :: QCPAA          !! Plant uptake rate assigned to compartment A.
-DOUBLEPRECISION :: QCPBB          !! Plant uptake rate assigned to compartment B.
-DOUBLEPRECISION :: RHOPL=500.0d0  !! Plant material density used for concentration scaling.
+   DOUBLEPRECISION :: GENAA (NPELEE) !! Plant compartment-A generation/decay term by plant slot.
+   DOUBLEPRECISION :: GENBB (NPELEE) !! Plant compartment-B generation/decay term by plant slot.
+   DOUBLEPRECISION :: GCPL           !! Current contaminant decay/generation coefficient for plant uptake calculations.
+   DOUBLEPRECISION :: GMCPAA         !! Current scaled plant mass for compartment A.
+   DOUBLEPRECISION :: GMCPBB         !! Current scaled plant mass for compartment B.
+   DOUBLEPRECISION :: GMCBBD         !! Time derivative of the scaled plant compartment-B mass.
+   DOUBLEPRECISION :: QCPAA          !! Plant uptake rate assigned to compartment A.
+   DOUBLEPRECISION :: QCPBB          !! Plant uptake rate assigned to compartment B.
+   DOUBLEPRECISION :: RHOPL=500.0d0  !! Plant material density used for concentration scaling.
 
-!COMMON / ALOCAL / GENAA, GENBB  
+!COMMON / ALOCAL / GENAA, GENBB
 
 !COMMON / VLOCAL / GCPL, GMCPAA, GMCPBB, GMCBBD, QCPAA, QCPBB, &
- !RHOPL
+   !RHOPL
 !                       Arrays and variables used only in plant routines
-DOUBLEPRECISION :: BCPAA (NELEE, NPELEE, NCONEE)=0.0d0 !! Relative concentration in plant compartment A.
-DOUBLEPRECISION :: BCPBB (NELEE, NPELEE, NCONEE)=0.0d0 !! Relative concentration in plant compartment B.
+   DOUBLEPRECISION :: BCPAA (NELEE, NPELEE, NCONEE)=0.0d0 !! Relative concentration in plant compartment A.
+   DOUBLEPRECISION :: BCPBB (NELEE, NPELEE, NCONEE)=0.0d0 !! Relative concentration in plant compartment B.
 
-!COMMON / BCON / BCPAA, BCPBB  
-DOUBLEPRECISION :: DELONE (NPLTEE)=0.5 !! Plant compartment-A/B partition factor by plant type.
-DOUBLEPRECISION :: DELTWO (NPLTEE)=0.9 !! Root-zone uptake partition factor by plant type.
-DOUBLEPRECISION :: DELTHR (NPLTEE)=1.0 !! Compartment-B active-mass scaling factor by plant type.
-DOUBLEPRECISION :: DELFOU (NPLTEE)=1.0 !! Current live/residual plant factor by plant type.
-DOUBLEPRECISION :: FLEFT (NPLTEE)      !! Residual plant factor used when canopy leaf area is zero.
-     
-!COMMON / DELTA / DELONE, DELTWO, DELTHR, DELFOU, FLEFT  
+!COMMON / BCON / BCPAA, BCPBB
+   DOUBLEPRECISION :: DELONE (NPLTEE)=0.5 !! Plant compartment-A/B partition factor by plant type.
+   DOUBLEPRECISION :: DELTWO (NPLTEE)=0.9 !! Root-zone uptake partition factor by plant type.
+   DOUBLEPRECISION :: DELTHR (NPLTEE)=1.0 !! Compartment-B active-mass scaling factor by plant type.
+   DOUBLEPRECISION :: DELFOU (NPLTEE)=1.0 !! Current live/residual plant factor by plant type.
+   DOUBLEPRECISION :: FLEFT (NPLTEE)      !! Residual plant factor used when canopy leaf area is zero.
+
+!COMMON / DELTA / DELONE, DELTWO, DELTHR, DELFOU, FLEFT
 !                 Plant and cropping property data
-DOUBLEPRECISION :: GMCBBO (NELEE, NPELEE) !! Previous time-step scaled mass for plant compartment B.
+   DOUBLEPRECISION :: GMCBBO (NELEE, NPELEE) !! Previous time-step scaled mass for plant compartment B.
 
-!COMMON / GMOLD / GMCBBO  
+!COMMON / GMOLD / GMCBBO
 !                 Old values for masses in compartment b
-INTEGER :: NPL (NELEE)             !! Number of plant slots active on each soil column.
-INTEGER :: NPLTYP (NELEE, NPELEE)=1 !! Plant type number for each soil-column plant slot.
-INTEGER :: NPLT                    !! Total number of plant types.
+   INTEGER :: NPL (NELEE)             !! Number of plant slots active on each soil column.
+   INTEGER :: NPLTYP (NELEE, NPELEE)=1 !! Plant type number for each soil-column plant slot.
+   INTEGER :: NPLT                    !! Total number of plant types.
 
-!COMMON / NUMPL / NPL, NPLTYP, NPLT  
+!COMMON / NUMPL / NPL, NPLTYP, NPLT
 !                 Total number of plants, and their type numbers, on
 !                 each soil column
-DOUBLEPRECISION :: PKMAX (NPLTEE, NCONEE) !! Maximum contaminant uptake coefficient by plant type and contaminant.
-DOUBLEPRECISION :: PMASS (NPLTEE)         !! Maximum plant material mass per unit area by plant type.
+   DOUBLEPRECISION :: PKMAX (NPLTEE, NCONEE) !! Maximum contaminant uptake coefficient by plant type and contaminant.
+   DOUBLEPRECISION :: PMASS (NPLTEE)         !! Maximum plant material mass per unit area by plant type.
 
-!COMMON / MASSP / PKMAX, PMASS  
+!COMMON / MASSP / PKMAX, PMASS
 !                 Contaminant uptake coefficient, and maximum mass of
 !                 plant material per unit area
-DOUBLEPRECISION :: PFONE (NELEE, NPELEE)       !! Soil-column plant area fraction by plant slot.
-DOUBLEPRECISION :: PFTWO (NPLTEE)              !! Current canopy leaf area index by plant type.
-DOUBLEPRECISION :: PF2MAX (NPLTEE)             !! Maximum canopy leaf area index by plant type.
-DOUBLEPRECISION :: PDZF3 (NELEE, NPELEE, LLEE) !! Root distribution fraction by soil column, plant slot, and layer.
+   DOUBLEPRECISION :: PFONE (NELEE, NPELEE)       !! Soil-column plant area fraction by plant slot.
+   DOUBLEPRECISION :: PFTWO (NPLTEE)              !! Current canopy leaf area index by plant type.
+   DOUBLEPRECISION :: PF2MAX (NPLTEE)             !! Maximum canopy leaf area index by plant type.
+   DOUBLEPRECISION :: PDZF3 (NELEE, NPELEE, LLEE) !! Root distribution fraction by soil column, plant slot, and layer.
 
-!COMMON / PF123 / PFONE, PFTWO, PF2MAX, PDZF3  
+!COMMON / PF123 / PFONE, PFTWO, PF2MAX, PDZF3
 !                 nb  PFTWO and PF2MAX are specified for each plant type
 !                 PLAI, CLAI, and RDF for use in contaminant plant
 !                 uptake routines
-DOUBLEPRECISION :: XXI !! Dissolved/solid uptake weighting factor used in plant contaminant uptake.
+   DOUBLEPRECISION :: XXI !! Dissolved/solid uptake weighting factor used in plant contaminant uptake.
 !PRIVATE :: NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
 end MODULE PLANT_CC
 
@@ -98,7 +98,7 @@ end MODULE PLANT_CC
 !      USE SGLOBAL
 !      USE AL_C
 !      USE COLM_CC
-!      
+!
 !      USE PLANT_CC
 !      PARAMETER(NTEMP1=2*NELEE*NPELEE*NCONEE, NTEMP2=NPLTEE*NCONEE)
 !

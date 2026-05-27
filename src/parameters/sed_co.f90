@@ -26,14 +26,14 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE SED_CO
-USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE
-IMPLICIT NONE
-DOUBLEPRECISION :: DLSO (NELEE)  !! Previous loose/bed sediment depth by element.
-DOUBLEPRECISION :: GNUO (NELEE)  !! Previous unsaturated-zone erosion/source term by element.
+   USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE
+   IMPLICIT NONE
+   DOUBLEPRECISION :: DLSO (NELEE)  !! Previous loose/bed sediment depth by element.
+   DOUBLEPRECISION :: GNUO (NELEE)  !! Previous unsaturated-zone erosion/source term by element.
 
-DOUBLEPRECISION :: FBETAO (NELEE, NSEDEE) !! Previous loose/bed sediment composition fraction by element and size class.
-DOUBLEPRECISION :: FDELO (NELEE, NSEDEE)  !! Previous mobile sediment concentration fraction by element and size class.
-DOUBLEPRECISION :: FBBEDO (NLFEE, NSEDEE) !! Previous link bed sediment composition fraction by link and size class.
-DOUBLEPRECISION :: FBTSDO (NLFEE, NSEDEE) !! Previous link transported-sediment fraction by link and size class.
+   DOUBLEPRECISION :: FBETAO (NELEE, NSEDEE) !! Previous loose/bed sediment composition fraction by element and size class.
+   DOUBLEPRECISION :: FDELO (NELEE, NSEDEE)  !! Previous mobile sediment concentration fraction by element and size class.
+   DOUBLEPRECISION :: FBBEDO (NLFEE, NSEDEE) !! Previous link bed sediment composition fraction by link and size class.
+   DOUBLEPRECISION :: FBTSDO (NLFEE, NSEDEE) !! Previous link transported-sediment fraction by link and size class.
 !PRIVATE :: NELEE, NLFEE, NSEDEE
 end MODULE SED_CO

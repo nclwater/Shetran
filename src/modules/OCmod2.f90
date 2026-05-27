@@ -61,28 +61,28 @@
 !> | 2020-05 | SB | - | Added ZQ-table reservoir/channel link support. |
 !> @endhistory
 MODULE OCmod2
-USE SGLOBAL
-USE ZQmod,     ONLY : get_ZQTable_value
-USE AL_D,      ONLY : ZQweirsill,ZQTableRef
-IMPLICIT NONE
+   USE SGLOBAL
+   USE ZQmod,     ONLY : get_ZQTable_value
+   USE AL_D,      ONLY : ZQweirsill,ZQTableRef
+   IMPLICIT NONE
 
-DOUBLEPRECISION, PARAMETER   :: F23 = 2.0D0/3.0D0      !! Exponent \(2/3\) used in Strickler conveyance.
-DOUBLEPRECISION, PARAMETER   :: F53 = 5.0D0/3.0D0      !! Exponent factor \(5/3\) used by the implemented derivative branches.
-DOUBLEPRECISION, PARAMETER   :: DZMIN = 1.0D-3         !! Small depth/head-difference threshold, in metres.
-DOUBLEPRECISION, PARAMETER   :: RDZMIN = 3.16227766D-2 !! Square root of `DZMIN`.
-DOUBLEPRECISION, PARAMETER   :: H23MIN = 1.0D-2        !! `DZMIN**(2/3)`, retained for legacy comments and comparisons.
-DOUBLEPRECISION, PARAMETER   :: ROOT2G = 4.42944D0     !! Approximation to \(\sqrt{2g}\) for weir flow.
-DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !! Water-surface elevation by element; abstracted for AD and solver access.
-DOUBLEPRECISION, DIMENSION(NELEE,4)        :: QSAZZ    !! Face discharge by element and face; positive into the indexed element.
+   DOUBLEPRECISION, PARAMETER   :: F23 = 2.0D0/3.0D0      !! Exponent \(2/3\) used in Strickler conveyance.
+   DOUBLEPRECISION, PARAMETER   :: F53 = 5.0D0/3.0D0      !! Exponent factor \(5/3\) used by the implemented derivative branches.
+   DOUBLEPRECISION, PARAMETER   :: DZMIN = 1.0D-3         !! Small depth/head-difference threshold, in metres.
+   DOUBLEPRECISION, PARAMETER   :: RDZMIN = 3.16227766D-2 !! Square root of `DZMIN`.
+   DOUBLEPRECISION, PARAMETER   :: H23MIN = 1.0D-2        !! `DZMIN**(2/3)`, retained for legacy comments and comparisons.
+   DOUBLEPRECISION, PARAMETER   :: ROOT2G = 4.42944D0     !! Approximation to \(\sqrt{2g}\) for weir flow.
+   DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !! Water-surface elevation by element; abstracted for AD and solver access.
+   DOUBLEPRECISION, DIMENSION(NELEE,4)        :: QSAZZ    !! Face discharge by element and face; positive into the indexed element.
 
 ! sb 121212
 !DOUBLEPRECISION, DIMENSION(3,NXSCEE,NLFEE) :: xstab
-DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: XSTAB
-    !! Channel lookup table: depth, conveyance, and conveyance slope by row and link.
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: XSTAB
+   !! Channel lookup table: depth, conveyance, and conveyance slope by row and link.
 
-PRIVATE
-PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, GETQSA_ALL, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
-          hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
+   PRIVATE
+   PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, GETQSA_ALL, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
+      hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
 CONTAINS
 
 
@@ -91,21 +91,21 @@ CONTAINS
 !>
 !> `HRFZZ` is the module-local storage used to abstract the OC water level
 !> array for automatic-differentiation and solver calls.
-DOUBLEPRECISION FUNCTION gethrf(i)
-INTEGER, INTENT(IN) :: i !! Element index.
-gethrf = hrfzz(i)
-END FUNCTION gethrf
+   DOUBLEPRECISION FUNCTION gethrf(i)
+      INTEGER, INTENT(IN) :: i !! Element index.
+      gethrf = hrfzz(i)
+   END FUNCTION gethrf
 
 
 
 !> Stores the water-surface elevation for an element.
 !>
 !> This is the write-side accessor for [[gethrf]].
-SUBROUTINE sethrf(i,v)
-INTEGER, INTENT(IN)         :: i !! Element index.
-DOUBLEPRECISION, INTENT(IN) :: v !! Water-surface elevation to store.
-hrfzz(i) = v
-END SUBROUTINE sethrf
+   SUBROUTINE sethrf(i,v)
+      INTEGER, INTENT(IN)         :: i !! Element index.
+      DOUBLEPRECISION, INTENT(IN) :: v !! Water-surface elevation to store.
+      hrfzz(i) = v
+   END SUBROUTINE sethrf
 
 
 
@@ -113,23 +113,23 @@ END SUBROUTINE sethrf
 !>
 !> `QSAZZ` follows the OC sign convention used by [[ocfix]]: positive discharge
 !> is into the indexed element.
-DOUBLEPRECISION FUNCTION getqsa(i,j)
-INTEGER, INTENT(IN) :: i !! Element index.
-INTEGER, INTENT(IN) :: j !! Face number.
-getqsa = qsazz(i,j)
-END FUNCTION getqsa
+   DOUBLEPRECISION FUNCTION getqsa(i,j)
+      INTEGER, INTENT(IN) :: i !! Element index.
+      INTEGER, INTENT(IN) :: j !! Face number.
+      getqsa = qsazz(i,j)
+   END FUNCTION getqsa
 
 
 
 !> Stores the face discharge for an element and face.
 !>
 !> This is the write-side accessor for [[getqsa]].
-SUBROUTINE setqsa(i,j, v)
-INTEGER, INTENT(IN)         :: i !! Element index.
-INTEGER, INTENT(IN)         :: j !! Face number.
-DOUBLEPRECISION, INTENT(IN) :: v !! Face discharge to store; positive into element `i`.
-qsazz(i,j) = v
-END SUBROUTINE setqsa
+   SUBROUTINE setqsa(i,j, v)
+      INTEGER, INTENT(IN)         :: i !! Element index.
+      INTEGER, INTENT(IN)         :: j !! Face number.
+      DOUBLEPRECISION, INTENT(IN) :: v !! Face discharge to store; positive into element `i`.
+      qsazz(i,j) = v
+   END SUBROUTINE setqsa
 
 
 
@@ -137,11 +137,11 @@ END SUBROUTINE setqsa
 !>
 !> The returned array has shape `(n,4)` and is a value copy of
 !> `QSAZZ(1:n,:)`.
-FUNCTION getqsa_all(n)
-INTEGER, INTENT(IN)             :: n          !! Number of leading elements to return.
-DOUBLEPRECISION, DIMENSION(n,4) :: getqsa_all !! Face-discharge copy for elements `1:n`.
-getqsa_all = qsazz(1:n,:)
-END FUNCTION getqsa_all
+   FUNCTION getqsa_all(n)
+      INTEGER, INTENT(IN)             :: n          !! Number of leading elements to return.
+      DOUBLEPRECISION, DIMENSION(n,4) :: getqsa_all !! Face-discharge copy for elements `1:n`.
+      getqsa_all = qsazz(1:n,:)
+   END FUNCTION getqsa_all
 
 
 
@@ -151,11 +151,11 @@ END FUNCTION getqsa_all
 !> conveyance, and conveyance slope for each channel link. The routine assumes
 !> `NXSCEE` and `total_no_links` have already been set by the frame/OC input
 !> processing.
-SUBROUTINE initialise_ocmod()
+   SUBROUTINE initialise_ocmod()
 !print*,nxscee,total_no_links
-ALLOCATE(xstab(3,nxscee,total_no_links))
+      ALLOCATE(xstab(3,nxscee,total_no_links))
 !print*,'here'
-END SUBROUTINE initialise_ocmod
+   END SUBROUTINE initialise_ocmod
 
 
 
@@ -237,105 +237,105 @@ END SUBROUTINE initialise_ocmod
 !> | 1999-02-04 | SB | 4.27 | Fixed junction mass conservation by adjusting the largest absolute branch flow so the branch-flow sum is zero. |
 !> | 2026-05-21 | SB | 4.6 | Increased the iteration limit and tightened convergence criteria at channel junctions. |
 !> @endhistory
-SUBROUTINE OCNODE (iela, ZI, CI, DI, ROOTLI, QJ)
+   SUBROUTINE OCNODE (iela, ZI, CI, DI, ROOTLI, QJ)
 
-INTEGER, INTENT(IN)         :: IELa       !! Element number used in confluence warning diagnostics.
-DOUBLEPRECISION, INTENT(IN) :: CI(0:3)    !! Branch conveyance at the current branch water level.
-DOUBLEPRECISION, INTENT(IN) :: DI(0:3)    !! Branch conveyance derivative with respect to water level.
-DOUBLEPRECISION, INTENT(IN) :: ZI(0:3)    !! Water-surface elevation at each branch.
-DOUBLEPRECISION, INTENT(IN) :: ROOTLI(0:3) !! Square root of branch flow length; zero marks an absent branch.
+      INTEGER, INTENT(IN)         :: IELa       !! Element number used in confluence warning diagnostics.
+      DOUBLEPRECISION, INTENT(IN) :: CI(0:3)    !! Branch conveyance at the current branch water level.
+      DOUBLEPRECISION, INTENT(IN) :: DI(0:3)    !! Branch conveyance derivative with respect to water level.
+      DOUBLEPRECISION, INTENT(IN) :: ZI(0:3)    !! Water-surface elevation at each branch.
+      DOUBLEPRECISION, INTENT(IN) :: ROOTLI(0:3) !! Square root of branch flow length; zero marks an absent branch.
 ! NB:
 !         ROOTLI(J)   is zero for any absent branches J.gt.0
 !                     Note: branch J=0 is never absent.
 !   DI(J),CI(J),ZI(J) are undefined for absent branches
-DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)   !! Flow from the solved node into each branch.
-INTEGER                      :: J, NC
-DOUBLEPRECISION              :: A, B, FA, FB, FN, FNM1, SIGMAQ, WN
-LOGICAL                      :: TEST
+      DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)   !! Flow from the solved node into each branch.
+      INTEGER                      :: J, NC
+      DOUBLEPRECISION              :: A, B, FA, FB, FN, FNM1, SIGMAQ, WN
+      LOGICAL                      :: TEST
 !^^^^RAH/SB 4/2/99 CONSERVE MASS AT JUNCTIONS ^^^^^^^^^^^^^
-INTEGER                      :: JMAJOR
-LOGICAL :: iscycle, failed
+      INTEGER                      :: JMAJOR
+      LOGICAL :: iscycle, failed
 !----------------------------------------------------------------------*
 !
 ! FIRST GUESSES (CHOOSE VALUES A,B SUCH THAT F(A)*F(B) .le. 0 )
 ! (USE MIN AND MAX OF VALID ELEVATIONS); also, set QJ at absent branches
 !
-A = ZI (0)
-B = A
-DO J = 1, 3
-    IF(ISZERO(ROOTLI(J))) THEN
-        QJ (J) = zero
-    ELSE
-        A = MIN (ZI (J), A)
-        B = MAX (ZI (J), B)
-    ENDIF
-ENDDO
-CALL FNODE(A, DI, CI, ZI, ROOTLI, QJ, FA)
-IF (ISZERO(FA)) RETURN
-CALL FNODE(B, DI, CI, ZI, ROOTLI, QJ, FB)
-IF (ISZERO(FB)) RETURN
+      A = ZI (0)
+      B = A
+      DO J = 1, 3
+         IF(ISZERO(ROOTLI(J))) THEN
+            QJ (J) = zero
+         ELSE
+            A = MIN (ZI (J), A)
+            B = MAX (ZI (J), B)
+         ENDIF
+      ENDDO
+      CALL FNODE(A, DI, CI, ZI, ROOTLI, QJ, FA)
+      IF (ISZERO(FA)) RETURN
+      CALL FNODE(B, DI, CI, ZI, ROOTLI, QJ, FB)
+      IF (ISZERO(FB)) RETURN
 !
 ! Iterate to convergence, using successive linear interpolation
 !
-FN = FA
-NC = 0
-failed =.FALSE.
-iscycle=.FALSE.
+      FN = FA
+      NC = 0
+      failed =.FALSE.
+      iscycle=.FALSE.
 !     * Start of iteration loop: set new point WN and calculate FN
 ! changes by sb 20260521
 ! increase max iterations to 200 to allow for more difficult junctions
 ! exit the do loop if iscycle is true, which is set to true if convergence criteria are met
 ! reduce convergence criteria to 1.0D-3 of flow and 1.0D-4 of head difference to allow for more difficult junctions
-DO nc=1,200
-    IF(iscycle) EXIT
-    WN   = (A*FB - B*FA) / (FB-FA)
-    FNM1 = FN
-    CALL FNODE(WN, DI, CI, ZI, ROOTLI, QJ, FN)
+      DO nc=1,200
+         IF(iscycle) EXIT
+         WN   = (A*FB - B*FA) / (FB-FA)
+         FNM1 = FN
+         CALL FNODE(WN, DI, CI, ZI, ROOTLI, QJ, FN)
 
-    SIGMAQ = ABS(QJ(0) ) + ABS(QJ(1) ) + ABS(QJ(2) ) + ABS(QJ(3) )
-    ! previous convergence IF (ABS(FN) .LE. SIGMAQ*1.0D-2 .AND. ABS(B-A) .LE. 1.0D-3) THEN
-    IF (ABS(FN) .LE. SIGMAQ*1.0D-3 .AND. ABS(B-A) .LE. 1.0D-4) THEN
-        JMAJOR = 0
-        DO J = 1, 3
-            IF (ABS(QJ(J)) .GT. ABS(QJ(JMAJOR))) JMAJOR = J
-        ENDDO
-        QJ(JMAJOR) = QJ(JMAJOR) - FN
-        iscycle=.TRUE.
-        failed =.false.
-        EXIT
+         SIGMAQ = ABS(QJ(0) ) + ABS(QJ(1) ) + ABS(QJ(2) ) + ABS(QJ(3) )
+         ! previous convergence IF (ABS(FN) .LE. SIGMAQ*1.0D-2 .AND. ABS(B-A) .LE. 1.0D-3) THEN
+         IF (ABS(FN) .LE. SIGMAQ*1.0D-3 .AND. ABS(B-A) .LE. 1.0D-4) THEN
+            JMAJOR = 0
+            DO J = 1, 3
+               IF (ABS(QJ(J)) .GT. ABS(QJ(JMAJOR))) JMAJOR = J
+            ENDDO
+            QJ(JMAJOR) = QJ(JMAJOR) - FN
+            iscycle=.TRUE.
+            failed =.false.
+            EXIT
 
-    else
-        failed =.TRUE.
-    ENDIF
-    !            * ... carry on: replace either A or B with WN; and
-    !            * adjust interpolation factor if sign of F didn't change
-    TEST = GTZERO(FN * FNM1)  !TAKE CARE - PRECEDENCE
-    IF (FN * FA.GE.0D0) THEN
-        A = WN
-        FA = FN
-        IF (TEST) FB = FB * half
-    ELSE
-        B = WN
-        FB = FN
-        IF (TEST) FA = FA * half
-    ENDIF
-ENDDO
-IF(failed) THEN
-    !write(672,*) 'iela', iela
-    !write(672,*) 'fn', FN
-    !write(672,*) 'b,a,b-a', B, A, B-A
-    !write(672,*) 'ZI', (zi(j),j=0,3)
-    !write(672,*) 'CI', (ci(j),j=0,3)
-    !write(672,*) 'DI', (di(j),j=0,3)
-    !write(672,*) 'ROOTLI', (ROOTLI(j),j=0,3)
-    !write(672,*) 'QJ', (QJ(j),j=0,3)
+         else
+            failed =.TRUE.
+         ENDIF
+         !            * ... carry on: replace either A or B with WN; and
+         !            * adjust interpolation factor if sign of F didn't change
+         TEST = GTZERO(FN * FNM1)  !TAKE CARE - PRECEDENCE
+         IF (FN * FA.GE.0D0) THEN
+            A = WN
+            FA = FN
+            IF (TEST) FB = FB * half
+         ELSE
+            B = WN
+            FB = FN
+            IF (TEST) FA = FA * half
+         ENDIF
+      ENDDO
+      IF(failed) THEN
+         !write(672,*) 'iela', iela
+         !write(672,*) 'fn', FN
+         !write(672,*) 'b,a,b-a', B, A, B-A
+         !write(672,*) 'ZI', (zi(j),j=0,3)
+         !write(672,*) 'CI', (ci(j),j=0,3)
+         !write(672,*) 'DI', (di(j),j=0,3)
+         !write(672,*) 'ROOTLI', (ROOTLI(j),j=0,3)
+         !write(672,*) 'QJ', (QJ(j),j=0,3)
 
-    CALL ERROR(WWWARN, 1027, PPPRI, iela, 0, 'maximum iterations exceeded for OC confluence')
-    IF (ABS (FN) .GT.SIGMAQ * 1.0D-2.OR.ABS (B - A) .GT.1.0D-3) THEN
-        CALL ERROR(WWWARN, 1028, PPPRI, iela, 0, 'Bad iteration failure for OC confluence')
-    ENDIF
-ENDIF
-END SUBROUTINE OCNODE
+         CALL ERROR(WWWARN, 1027, PPPRI, iela, 0, 'maximum iterations exceeded for OC confluence')
+         IF (ABS (FN) .GT.SIGMAQ * 1.0D-2.OR.ABS (B - A) .GT.1.0D-3) THEN
+            CALL ERROR(WWWARN, 1028, PPPRI, iela, 0, 'Bad iteration failure for OC confluence')
+         ENDIF
+      ENDIF
+   END SUBROUTINE OCNODE
 
 
 
@@ -384,33 +384,33 @@ END SUBROUTINE OCNODE
 !> | 1998-02-12 | RAH | 4.2 | Removed local `CI3` and extended the active-branch loop logic. |
 !> | 1998-03-18 | RAH | 4.2 | Set downstream branch conveyance using `ZNODE` and added the `DI` argument passed from [[ocnode]]. |
 !> @endhistory
-SUBROUTINE FNODE (ZNODE, DI, CI, ZI, ROOTLI, QJ, resfnode)
-DOUBLEPRECISION, INTENT(IN)  :: ZNODE      !! Trial node water-surface elevation.
-DOUBLEPRECISION, INTENT(IN)  :: DI(0:3)    !! Branch conveyance derivative with respect to water level.
-DOUBLEPRECISION, INTENT(IN)  :: CI(0:3)    !! Branch conveyance at the current branch water level.
-DOUBLEPRECISION, INTENT(IN)  :: ZI(0:3)    !! Water-surface elevation at each branch.
-DOUBLEPRECISION, INTENT(IN)  :: ROOTLI(0:3) !! Square root of branch flow length; zero marks an absent branch.
-DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)    !! Flow from the trial node into each branch.
-DOUBLEPRECISION, INTENT(OUT) :: resfnode   !! Sum of branch flows for the trial node elevation.
+   SUBROUTINE FNODE (ZNODE, DI, CI, ZI, ROOTLI, QJ, resfnode)
+      DOUBLEPRECISION, INTENT(IN)  :: ZNODE      !! Trial node water-surface elevation.
+      DOUBLEPRECISION, INTENT(IN)  :: DI(0:3)    !! Branch conveyance derivative with respect to water level.
+      DOUBLEPRECISION, INTENT(IN)  :: CI(0:3)    !! Branch conveyance at the current branch water level.
+      DOUBLEPRECISION, INTENT(IN)  :: ZI(0:3)    !! Water-surface elevation at each branch.
+      DOUBLEPRECISION, INTENT(IN)  :: ROOTLI(0:3) !! Square root of branch flow length; zero marks an absent branch.
+      DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)    !! Flow from the trial node into each branch.
+      DOUBLEPRECISION, INTENT(OUT) :: resfnode   !! Sum of branch flows for the trial node elevation.
 ! NB:
 !         QJ(J) is output, but only for those J with ROOTLI(J).ne.0
 ! Locals, etc
-INTEGER         :: J
-DOUBLEPRECISION :: CJ, DZ, Qasum, SIG
+      INTEGER         :: J
+      DOUBLEPRECISION :: CJ, DZ, Qasum, SIG
 !----------------------------------------------------------------------*
-Qasum = zero
-qj = zero
-DO J = 0, 3
-   IF (ISZERO(ROOTLI(J))) CYCLE
+      Qasum = zero
+      qj = zero
+      DO J = 0, 3
+         IF (ISZERO(ROOTLI(J))) CYCLE
 !                            >>>>>>>>
-   DZ = ZNODE-ZI (J)
-   SIG = SIGN (ONE, DZ)
-   CJ = CI (J) + DI (J) * MAX (ZERO, DZ)
-   QJ (J) = SIG * CJ * SQRT (SIG * DZ) / ROOTLI (J)
-   Qasum = QJ (J) + Qasum
-ENDDO
-resfnode = Qasum
-END SUBROUTINE FNODE
+         DZ = ZNODE-ZI (J)
+         SIG = SIGN (ONE, DZ)
+         CJ = CI (J) + DI (J) * MAX (ZERO, DZ)
+         QJ (J) = SIG * CJ * SQRT (SIG * DZ) / ROOTLI (J)
+         Qasum = QJ (J) + Qasum
+      ENDDO
+      resfnode = Qasum
+   END SUBROUTINE FNODE
 
 
 
@@ -478,36 +478,36 @@ END SUBROUTINE FNODE
 !> | 1994-10-03 | RAH | 3.4.1 | Brought implicit double-precision assumptions from `SPEC.AL` into the routine context. |
 !> | 1998-04-23 | RAH | 4.2 | Added explicit typing; moved `ZG` before `Z`; replaced common-block inputs with arguments for roughness, full area, cross-section width, and lookup table; replaced loop search with direct interval calculation; rearranged above-bankfull conveyance/derivative expressions. |
 !> @endhistory
-SUBROUTINE OCCODE(ZG, STR, afromCWIDTH, afromXAFULL, afromXStypes, Z, CONV, DERIV)
-DOUBLEPRECISION, INTENT(IN)  :: ZG                 !! Channel-bed elevation.
-DOUBLEPRECISION, INTENT(IN)  :: STR                !! Channel Strickler roughness coefficient.
-DOUBLEPRECISION, INTENT(IN)  :: afromCWIDTH        !! Channel top width used above the tabulated cross-section.
-DOUBLEPRECISION, INTENT(IN)  :: afromXAFULL        !! Full-flow cross-sectional area at the top of the lookup table.
-DOUBLEPRECISION, INTENT(IN)  :: afromXStypes(3, NXSCEE) !! Cross-section lookup rows: depth, conveyance, and conveyance slope.
-DOUBLEPRECISION, INTENT(IN)  :: Z                  !! Water-surface elevation to evaluate.
-DOUBLEPRECISION, INTENT(OUT) :: CONV               !! Conveyance at `Z`.
-DOUBLEPRECISION, INTENT(OUT) :: DERIV              !! Implemented derivative term returned with `CONV`.
-INTEGER :: I
-DOUBLEPRECISION H, HFULL, XA
+   SUBROUTINE OCCODE(ZG, STR, afromCWIDTH, afromXAFULL, afromXStypes, Z, CONV, DERIV)
+      DOUBLEPRECISION, INTENT(IN)  :: ZG                 !! Channel-bed elevation.
+      DOUBLEPRECISION, INTENT(IN)  :: STR                !! Channel Strickler roughness coefficient.
+      DOUBLEPRECISION, INTENT(IN)  :: afromCWIDTH        !! Channel top width used above the tabulated cross-section.
+      DOUBLEPRECISION, INTENT(IN)  :: afromXAFULL        !! Full-flow cross-sectional area at the top of the lookup table.
+      DOUBLEPRECISION, INTENT(IN)  :: afromXStypes(3, NXSCEE) !! Cross-section lookup rows: depth, conveyance, and conveyance slope.
+      DOUBLEPRECISION, INTENT(IN)  :: Z                  !! Water-surface elevation to evaluate.
+      DOUBLEPRECISION, INTENT(OUT) :: CONV               !! Conveyance at `Z`.
+      DOUBLEPRECISION, INTENT(OUT) :: DERIV              !! Implemented derivative term returned with `CONV`.
+      INTEGER :: I
+      DOUBLEPRECISION H, HFULL, XA
 !----------------------------------------------------------------------*asum1
-H = Z - ZG
-HFULL = afromXStypes (1, NXSCEE)
+      H = Z - ZG
+      HFULL = afromXStypes (1, NXSCEE)
 
-I = INT((H / HFULL) * DBLE(NXSCEE-1) + one)
+      I = INT((H / HFULL) * DBLE(NXSCEE-1) + one)
 !I = (H / HFULL) * (NXSCEE-1) + one
-IF (I.LT.NXSCEE) THEN
+      IF (I.LT.NXSCEE) THEN
 !         * use look-up tables
-   DERIV = afromXStypes (3, I)
-   CONV = afromXStypes (2, I) + DERIV * DIMJE(H, afromXStypes (1, I) )
-ELSE
+         DERIV = afromXStypes (3, I)
+         CONV = afromXStypes (2, I) + DERIV * DIMJE(H, afromXStypes (1, I) )
+      ELSE
 !         * calculate values directly
-   XA = afromXAFULL + afromCWIDTH * DIMJE(H, HFULL)
-   !CONV = STR * XA * H**F23
-   CALL CONVEYAN(str, h, conv, deriv, 2, xa, afromCWIDTH)
-   !DERIV = CONV * (afromCWIDTH / XA + F23 / H)
+         XA = afromXAFULL + afromCWIDTH * DIMJE(H, HFULL)
+         !CONV = STR * XA * H**F23
+         CALL CONVEYAN(str, h, conv, deriv, 2, xa, afromCWIDTH)
+         !DERIV = CONV * (afromCWIDTH / XA + F23 / H)
 
-ENDIF
-END SUBROUTINE OCCODE
+      ENDIF
+   END SUBROUTINE OCCODE
 
 
 
@@ -598,106 +598,106 @@ END SUBROUTINE OCCODE
 !> | 1998-04-27 | RAH | 4.2 | Removed element/face arguments, added cross-section table inputs, and updated [[occode]] argument order. |
 !> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
 !> @endhistory
-SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, link, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
+   SUBROUTINE OCQBC(NTYPE, LI, ZGI, STR, W, afromXAFULL, link, afromCOCBCD, ZI, afromHOCNOW, afromQOCF, fromQ, fromDQ)
 ! Input arguments
-INTEGER, INTENT(IN)          :: NTYPE          !! OC boundary type code.
-INTEGER, INTENT(IN)          :: LINK           !! Channel link used for `XSTAB` lookup in river-plus-weir branches.
-DOUBLEPRECISION, INTENT(IN)  :: LI             !! Boundary flow-path length.
-DOUBLEPRECISION, INTENT(IN)  :: ZGI            !! Ground or bed elevation at the boundary element.
-DOUBLEPRECISION, INTENT(IN)  :: STR            !! Strickler roughness coefficient.
-DOUBLEPRECISION, INTENT(IN)  :: W              !! Boundary face width or channel width.
-DOUBLEPRECISION, INTENT(IN)  :: afromXAFULL    !! Full-flow channel area for `LINK`.
-DOUBLEPRECISION, INTENT(IN)  :: ZI             !! Local water-surface elevation.
-DOUBLEPRECISION, INTENT(IN)  :: afromHOCNOW    !! Current prescribed boundary head.
-DOUBLEPRECISION, INTENT(IN)  :: afromQOCF      !! Current prescribed boundary inflow rate.
-DOUBLEPRECISION, INTENT(IN)  :: afromCOCBCD(5) !! Boundary coefficients for polynomial, weir, or river-plus-weir branches.
-DOUBLEPRECISION, INTENT(OUT) :: fromQ          !! Boundary flow; sign follows the OC face convention.
-DOUBLEPRECISION, INTENT(OUT) :: fromDQ         !! Derivative of `fromQ` with respect to `ZI`.
-INTEGER                      :: MTYPE
-DOUBLEPRECISION              :: AH, B, C, CONVM, CONVMM, D, DERIVM, DHH, DQU, DUM, DZ, E
-DOUBLEPRECISION              :: H, HM, ROOTDZ, ROOTL
-DOUBLEPRECISION              :: SIG, STRW, SUBRIO, ZSILL, ZL, ZU, ZX, COEFF (2)
+      INTEGER, INTENT(IN)          :: NTYPE          !! OC boundary type code.
+      INTEGER, INTENT(IN)          :: LINK           !! Channel link used for `XSTAB` lookup in river-plus-weir branches.
+      DOUBLEPRECISION, INTENT(IN)  :: LI             !! Boundary flow-path length.
+      DOUBLEPRECISION, INTENT(IN)  :: ZGI            !! Ground or bed elevation at the boundary element.
+      DOUBLEPRECISION, INTENT(IN)  :: STR            !! Strickler roughness coefficient.
+      DOUBLEPRECISION, INTENT(IN)  :: W              !! Boundary face width or channel width.
+      DOUBLEPRECISION, INTENT(IN)  :: afromXAFULL    !! Full-flow channel area for `LINK`.
+      DOUBLEPRECISION, INTENT(IN)  :: ZI             !! Local water-surface elevation.
+      DOUBLEPRECISION, INTENT(IN)  :: afromHOCNOW    !! Current prescribed boundary head.
+      DOUBLEPRECISION, INTENT(IN)  :: afromQOCF      !! Current prescribed boundary inflow rate.
+      DOUBLEPRECISION, INTENT(IN)  :: afromCOCBCD(5) !! Boundary coefficients for polynomial, weir, or river-plus-weir branches.
+      DOUBLEPRECISION, INTENT(OUT) :: fromQ          !! Boundary flow; sign follows the OC face convention.
+      DOUBLEPRECISION, INTENT(OUT) :: fromDQ         !! Derivative of `fromQ` with respect to `ZI`.
+      INTEGER                      :: MTYPE
+      DOUBLEPRECISION              :: AH, B, C, CONVM, CONVMM, D, DERIVM, DHH, DQU, DUM, DZ, E
+      DOUBLEPRECISION              :: H, HM, ROOTDZ, ROOTL
+      DOUBLEPRECISION              :: SIG, STRW, SUBRIO, ZSILL, ZL, ZU, ZX, COEFF (2)
 !----------------------------------------------------------------------*
 ! Prologue
 ! --------
-MTYPE = MOD (NTYPE, 6)
+      MTYPE = MOD (NTYPE, 6)
 ! Part 1
 ! ------
 ! Prescribed time-varying head - grid (3) or channel (9)
 !     NB: see Part 2
 
-IF (MTYPE.EQ.3) THEN
-   ZX = afromHOCNOW
-   fromQ = zero
-   fromDQ = zero
+      IF (MTYPE.EQ.3) THEN
+         ZX = afromHOCNOW
+         fromQ = zero
+         fromDQ = zero
 ! Prescribed time-varying flow - grid (4) or channel (10)
 !     NB: QOCF is rate of INFLOW, not discharge
 
-ELSEIF (MTYPE.EQ.4) THEN
-   fromQ = afromQOCF
-   fromDQ = zero
+      ELSEIF (MTYPE.EQ.4) THEN
+         fromQ = afromQOCF
+         fromDQ = zero
 ! Flow a polynomial function of head - grid (5) or channel (11)
 
-ELSEIF (MTYPE.EQ.5) THEN
-   H = ZI - ZGI
-   AH = afromCOCBCD (1) * H
-   B = afromCOCBCD (2)
-   C = afromCOCBCD (3)
-   D = afromCOCBCD (4)
-   E = afromCOCBCD (5)
-   fromQ = - ( ( ( (AH + B) * H + C) * H + D) * H + E)
-   fromDQ = - ( ( (4D0 * AH + 3D0 * B) * H + 2D0 * C) * H + D)
+      ELSEIF (MTYPE.EQ.5) THEN
+         H = ZI - ZGI
+         AH = afromCOCBCD (1) * H
+         B = afromCOCBCD (2)
+         C = afromCOCBCD (3)
+         D = afromCOCBCD (4)
+         E = afromCOCBCD (5)
+         fromQ = - ( ( ( (AH + B) * H + C) * H + D) * H + E)
+         fromDQ = - ( ( (4D0 * AH + 3D0 * B) * H + 2D0 * C) * H + D)
 ! Weir (7) ... with river in parallel (8) - see Part 2
 
-ELSEIF (NTYPE.EQ.7.OR.NTYPE.EQ.8) THEN
-   COEFF (1) = afromCOCBCD (1)
-   SUBRIO = afromCOCBCD (2)
-   ZSILL = afromCOCBCD (3)
-   ZX = afromCOCBCD (4)
-   COEFF (2) = COEFF (1)
-   ZU = MAX (ZX, ZI)
-   ZL = MIN (ZX, ZI)
-   CALL QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, fromQ, DQU, fromDQ)
-   IF (ZI.GE.ZX) THEN
-      fromQ = - fromQ
-      fromDQ = - DQU
-   ENDIF
-ENDIF
+      ELSEIF (NTYPE.EQ.7.OR.NTYPE.EQ.8) THEN
+         COEFF (1) = afromCOCBCD (1)
+         SUBRIO = afromCOCBCD (2)
+         ZSILL = afromCOCBCD (3)
+         ZX = afromCOCBCD (4)
+         COEFF (2) = COEFF (1)
+         ZU = MAX (ZX, ZI)
+         ZL = MIN (ZX, ZI)
+         CALL QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, fromQ, DQU, fromDQ)
+         IF (ZI.GE.ZX) THEN
+            fromQ = - fromQ
+            fromDQ = - DQU
+         ENDIF
+      ENDIF
 ! Part 2
 ! ------
 ! Head, or river-part of river+weir
 !     Note: river has fictitious d/s link, same size as u/s
 
-IF (MTYPE.EQ.3.OR.NTYPE.EQ.8) THEN
-   DZ = ZX - ZI
-   SIG = SIGN (ONE, DZ)
-   DZ = SIG * DZ
-   ROOTDZ = SQRT (DZ)
-   DHH = LI * DBLE(4 - MTYPE)
+      IF (MTYPE.EQ.3.OR.NTYPE.EQ.8) THEN
+         DZ = ZX - ZI
+         SIG = SIGN (ONE, DZ)
+         DZ = SIG * DZ
+         ROOTDZ = SQRT (DZ)
+         DHH = LI * DBLE(4 - MTYPE)
 
-   ROOTL = SQRT (DHH)
-   IF (NTYPE.EQ.3) THEN
-      HM = ZI - ZGI
-      !HM23 = zero
-      !IF (GTZERO(HM)) HM23 = HM**F23
-      STRW = STR * W
-      !CONVM = STRW * HM23 * HM
-      CALL CONVEYAN(strw, hm, convm, derivm, 1)
-      !DERIVM = STRW * MAX (H23MIN, HM23) * F53
-   ELSE
-      !CALL OCCODE (ZGI, STR, W, afromXAFULL, afromXSTAB, ZI, CONVM, DERIVM)
-      CALL OCCODE (ZGI, STR, W, afromXAFULL, XSTAB(:,:,link), ZI, CONVM, DERIVM)
+         ROOTL = SQRT (DHH)
+         IF (NTYPE.EQ.3) THEN
+            HM = ZI - ZGI
+            !HM23 = zero
+            !IF (GTZERO(HM)) HM23 = HM**F23
+            STRW = STR * W
+            !CONVM = STRW * HM23 * HM
+            CALL CONVEYAN(strw, hm, convm, derivm, 1)
+            !DERIVM = STRW * MAX (H23MIN, HM23) * F53
+         ELSE
+            !CALL OCCODE (ZGI, STR, W, afromXAFULL, afromXSTAB, ZI, CONVM, DERIVM)
+            CALL OCCODE (ZGI, STR, W, afromXAFULL, XSTAB(:,:,link), ZI, CONVM, DERIVM)
 
-   ENDIF
-   CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+         ENDIF
+         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
 
-   DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
-   fromQ = fromQ + SIG * CONVM * ROOTDZ / ROOTL
+         DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
+         fromQ = fromQ + SIG * CONVM * ROOTDZ / ROOTL
 
-   fromDQ = fromDQ + (SIG * DERIVM * ROOTDZ - DUM) / ROOTL
+         fromDQ = fromDQ + (SIG * DERIVM * ROOTDZ - DUM) / ROOTL
 
-ENDIF
-END SUBROUTINE OCQBC
+      ENDIF
+   END SUBROUTINE OCQBC
 
 
 
@@ -780,76 +780,76 @@ END SUBROUTINE OCQBC
 !> | 1998-04-08 | RAH | 4.2 | Renamed channel length argument to `W`, made flow lengths an argument array, reordered statements, used `H23MIN`/`CONVMM`, and added `DZL`. |
 !> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
 !> @endhistory
-SUBROUTINE OCQBNK (W, LI, ZBG, STR, ZI, Q, DQ)
+   SUBROUTINE OCQBNK (W, LI, ZBG, STR, ZI, Q, DQ)
 ! Note: Subscript 0 refers to the link, 1 to the land element
-DOUBLEPRECISION, INTENT(IN)  :: W          !! Channel-bank exchange width or channel length used by the exchange formula.
-DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)    !! Link-side and land-side flow lengths.
-DOUBLEPRECISION, INTENT(IN)  :: ZBG(0:1)   !! Bed or ground elevations, with index 0 for link and 1 for land.
-DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)   !! Link-side and land-side Strickler roughness coefficients.
-DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)    !! Link-side and land-side water-surface elevations.
-DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)     !! Paired exchange flows.
-DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
-INTEGER                      :: HI, LO
-DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
-DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
-DOUBLEPRECISION              :: DZL, ZB, ZG, COEFF (2), rdum
-DZ = ZI (1) - ZI (0)
-SIG = SIGN (ONE, DZ)
-HI = (1 + NINT (SIG) ) / 2
-LO = 1 - HI
-ZB = ZBG (0)
-ZG = ZBG (1)
+      DOUBLEPRECISION, INTENT(IN)  :: W          !! Channel-bank exchange width or channel length used by the exchange formula.
+      DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)    !! Link-side and land-side flow lengths.
+      DOUBLEPRECISION, INTENT(IN)  :: ZBG(0:1)   !! Bed or ground elevations, with index 0 for link and 1 for land.
+      DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)   !! Link-side and land-side Strickler roughness coefficients.
+      DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)    !! Link-side and land-side water-surface elevations.
+      DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)     !! Paired exchange flows.
+      DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
+      INTEGER                      :: HI, LO
+      DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
+      DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
+      DOUBLEPRECISION              :: DZL, ZB, ZG, COEFF (2), rdum
+      DZ = ZI (1) - ZI (0)
+      SIG = SIGN (ONE, DZ)
+      HI = (1 + NINT (SIG) ) / 2
+      LO = 1 - HI
+      ZB = ZBG (0)
+      ZG = ZBG (1)
 
-DZL = ZI (LO) - ZB
+      DZL = ZI (LO) - ZB
 !
 ! Channel bank-full lower than adjacent ground: resistance equation
 !
 !     NB: HM has an implicit upstream weighting factor, ie ALPHA=1
 
-IF (ZG.GE.ZB) THEN
-   DZ = SIG * DZ + MIN (DZL, ZERO)
-   ROOTDZ = SQRT (DZ)
-   HM = ZI (HI) - ZBG (HI)
-   !HM23 = ZERO
-   !IF (HM.GT.ZERO) HM23 = HM**F23
-   DHH = LI (0) + LI (1)
-   STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
+      IF (ZG.GE.ZB) THEN
+         DZ = SIG * DZ + MIN (DZL, ZERO)
+         ROOTDZ = SQRT (DZ)
+         HM = ZI (HI) - ZBG (HI)
+         !HM23 = ZERO
+         !IF (HM.GT.ZERO) HM23 = HM**F23
+         DHH = LI (0) + LI (1)
+         STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
 
-   ROOTL = SQRT (DHH)
-   !CONVM = STRW * HM23 * HM
-   CALL CONVEYAN(strw, hm, convm, derivm, 1)
-   !DERIVM = STRW * MAX (H23MIN, HM23) * F53
-   CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+         ROOTL = SQRT (DHH)
+         !CONVM = STRW * HM23 * HM
+         CALL CONVEYAN(strw, hm, convm, derivm, 1)
+         !DERIVM = STRW * MAX (H23MIN, HM23) * F53
+         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
 
-   DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
-   Q (LO) = CONVM * ROOTDZ / ROOTL
-   DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
-   IF (DZL.LT. - DZMIN) DUM = ZERO
+         DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
+         Q (LO) = CONVM * ROOTDZ / ROOTL
+         DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+         IF (DZL.LT. - DZMIN) DUM = ZERO
 
 
-   DQ (LO, LO) = - DUM / ROOTL
+         DQ (LO, LO) = - DUM / ROOTL
 !
 ! Channel bank-full higher than adjacent ground: flat-crested weir eqn
 !
 
-ELSE
-   COEFF (1) = ROOT2G * W
-   COEFF (2) = 386D-3 * COEFF (1)
+      ELSE
+         COEFF (1) = ROOT2G * W
+         COEFF (2) = 386D-3 * COEFF (1)
 
-   CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, F23, Q(LO), DQ(LO,HI), rdum)  !AD aliasing
-   DQ(LO,LO) = rdum
+         CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, F23, Q(LO), DQ(LO,HI), rdum)  !AD aliasing
+         DQ(LO,LO) = rdum
 
 
 
-ENDIF
+      ENDIF
 !
 ! Copy LO to HI
 !
-Q (HI) = - Q (LO)
-DQ (HI, HI) = - DQ (LO, HI)
+      Q (HI) = - Q (LO)
+      DQ (HI, HI) = - DQ (LO, HI)
 
-DQ (HI, LO) = - DQ (LO, LO)
-END SUBROUTINE OCQBNK
+      DQ (HI, LO) = - DQ (LO, LO)
+   END SUBROUTINE OCQBNK
 
 
 
@@ -941,51 +941,51 @@ END SUBROUTINE OCQBNK
 !> | 1998-04-27 | RAH | 4.2 | Reordered arguments for `OCQDQ` and replaced local roughness-width handling with `STRW = STRM*W`. |
 !> | 1998-07-30 | RAH | 4.2 | Protected against zero-depth exponentiation. |
 !> @endhistory
-SUBROUTINE OCQGRD (NTYPE, LI, ZGI, STR, W, ZI, Q, DQ)
+   SUBROUTINE OCQGRD (NTYPE, LI, ZGI, STR, W, ZI, Q, DQ)
 ! Input arguments
-INTEGER, INTENT(IN)          :: NTYPE      !! Internal boundary type code.
-DOUBLEPRECISION, INTENT(IN)  :: W          !! Shared face width.
-DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)    !! Flow lengths for the two land elements.
-DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:1)   !! Ground elevations for the two land elements.
-DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)   !! Directional Strickler roughness values for the two land elements.
-DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)    !! Water-surface elevations for the two land elements.
-DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)     !! Paired land-land exchange flows.
-DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
-INTEGER                      :: HI, LO, I
-DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
-DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
+      INTEGER, INTENT(IN)          :: NTYPE      !! Internal boundary type code.
+      DOUBLEPRECISION, INTENT(IN)  :: W          !! Shared face width.
+      DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)    !! Flow lengths for the two land elements.
+      DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:1)   !! Ground elevations for the two land elements.
+      DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)   !! Directional Strickler roughness values for the two land elements.
+      DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)    !! Water-surface elevations for the two land elements.
+      DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)     !! Paired land-land exchange flows.
+      DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
+      INTEGER                      :: HI, LO, I
+      DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
+      DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, STRW
 !----------------------------------------------------------------------*
 !
 ! INTERNAL IMPERMEABLE BOUNDARY
 !
 ! NB: NTYPE 3,4,5 not allowed internally
-IF (NTYPE.EQ.1) THEN
-   DO 10 I = 0, 1
-      Q (I) = zero
-      DQ (I, 0) = zero
-      DQ (I, 1) = zero
-   10    END DO
-   RETURN
+      IF (NTYPE.EQ.1) THEN
+         DO 10 I = 0, 1
+            Q (I) = zero
+            DQ (I, 0) = zero
+            DQ (I, 1) = zero
+10       END DO
+         RETURN
 !         ^^^^^^
-ENDIF
+      ENDIF
 !
 ! Set up local variables
 !
 !     NB: HM has an implicit upstream weighting factor, ie ALPHA=1; but
 !         note STR is averaged, so CONVM will NOT be strictly "upstream"
 !     Note: ZGI(LO) is not required
-DZ = ZI (1) - ZI (0)
-SIG = SIGN (ONE, DZ)
-HI = (1 + NINT (SIG) ) / 2
-LO = 1 - HI
-DZ = SIG * DZ
-ROOTDZ = SQRT (DZ)
-HM = ZI (HI) - ZGI (HI)
+      DZ = ZI (1) - ZI (0)
+      SIG = SIGN (ONE, DZ)
+      HI = (1 + NINT (SIG) ) / 2
+      LO = 1 - HI
+      DZ = SIG * DZ
+      ROOTDZ = SQRT (DZ)
+      HM = ZI (HI) - ZGI (HI)
 !HM23 = zero
 !IF (GTZERO(HM)) HM23 = HM**F23
-DHH = LI (0) + LI (1)
-STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
-ROOTL = SQRT (DHH)
+      DHH = LI (0) + LI (1)
+      STRW = W * (STR (0) * LI (0) + STR (1) * LI (1) ) / DHH
+      ROOTL = SQRT (DHH)
 !
 ! CALCULATE FLOW AND DERIVATIVES
 !
@@ -995,20 +995,20 @@ ROOTL = SQRT (DHH)
 !       ROOTDZ (no MAX) in DQ gives symmetric values when DZ is small
 !
 !CONVM = STRW * HM23 * HM
-CALL CONVEYAN(strw, hm, convm, derivm, 1)
+      CALL CONVEYAN(strw, hm, convm, derivm, 1)
 !DERIVM = STRW * MAX (H23MIN, HM23) * F53
-CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+      CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
 
-DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
-Q (LO) = CONVM * ROOTDZ / ROOTL
-DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+      DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
+      Q (LO) = CONVM * ROOTDZ / ROOTL
+      DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
 
-DQ (LO, LO) = - DUM / ROOTL
-Q (HI) = - Q (LO)
-DQ (HI, HI) = - DQ (LO, HI)
+      DQ (LO, LO) = - DUM / ROOTL
+      Q (HI) = - Q (LO)
+      DQ (HI, HI) = - DQ (LO, HI)
 
-DQ (HI, LO) = - DQ (LO, LO)
-END SUBROUTINE OCQGRD
+      DQ (HI, LO) = - DQ (LO, LO)
+   END SUBROUTINE OCQGRD
 
 
 
@@ -1092,85 +1092,85 @@ END SUBROUTINE OCQGRD
 !> | 1998-04-24 | RAH | 4.2 | Removed element arguments, added cross-section table/roughness/width/area inputs, and updated [[occode]] argument order. |
 !> | 2020-05-20 | SB | - | Added ZQ-table reservoir/channel link branch using `get_ZQTable_value`. |
 !> @endhistory
-SUBROUTINE OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, jXSwork, afromCOCBCD, ZI, Q, DQ)
+   SUBROUTINE OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, jXSwork, afromCOCBCD, ZI, Q, DQ)
 
 ! Input arguments
-INTEGER, INTENT(IN)          :: NTYPE          !! Internal link-link boundary type code.
-DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)        !! Flow lengths for the two links.
-DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:1)       !! Bed elevations for the two links.
-DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)       !! Strickler roughness coefficients for the two links.
-DOUBLEPRECISION, INTENT(IN)  :: CW(0:1)        !! Channel widths for the two links.
-DOUBLEPRECISION, INTENT(IN)  :: XA(0:1)        !! Full-flow areas for the two links.
-DOUBLEPRECISION, INTENT(IN)  :: afromCOCBCD(3) !! Internal weir coefficients: coefficient, submergence ratio, and sill.
-DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)        !! Water-surface elevations for the two links.
+      INTEGER, INTENT(IN)          :: NTYPE          !! Internal link-link boundary type code.
+      DOUBLEPRECISION, INTENT(IN)  :: LI(0:1)        !! Flow lengths for the two links.
+      DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:1)       !! Bed elevations for the two links.
+      DOUBLEPRECISION, INTENT(IN)  :: STR(0:1)       !! Strickler roughness coefficients for the two links.
+      DOUBLEPRECISION, INTENT(IN)  :: CW(0:1)        !! Channel widths for the two links.
+      DOUBLEPRECISION, INTENT(IN)  :: XA(0:1)        !! Full-flow areas for the two links.
+      DOUBLEPRECISION, INTENT(IN)  :: afromCOCBCD(3) !! Internal weir coefficients: coefficient, submergence ratio, and sill.
+      DOUBLEPRECISION, INTENT(IN)  :: ZI(0:1)        !! Water-surface elevations for the two links.
 !DOUBLEPRECISION, INTENT(IN)  :: afromXSwork (3, NXSCEE, 0:1)
-INTEGER, INTENT(IN)          :: JXSWORK(0:3)   !! Link indices used to select each participant's `XSTAB` table.
-DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)         !! Paired link-link exchange flows.
-DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1)   !! Derivatives of paired exchange flows with respect to water levels.
-INTEGER                      :: HI, LO
-DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ
-DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, SUBRIO, ZSILL
-DOUBLEPRECISION              :: COEFF (2), rdum
+      INTEGER, INTENT(IN)          :: JXSWORK(0:3)   !! Link indices used to select each participant's `XSTAB` table.
+      DOUBLEPRECISION, INTENT(OUT) :: Q(0:1)         !! Paired link-link exchange flows.
+      DOUBLEPRECISION, INTENT(OUT) :: DQ(0:1, 0:1)   !! Derivatives of paired exchange flows with respect to water levels.
+      INTEGER                      :: HI, LO
+      DOUBLEPRECISION              :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ
+      DOUBLEPRECISION              :: ROOTDZ, ROOTL, SIG, SUBRIO, ZSILL
+      DOUBLEPRECISION              :: COEFF (2), rdum
 ! ZQ Module 200520
-DOUBLEPRECISION              :: dzu
-DOUBLEPRECISION              :: weirsill
+      DOUBLEPRECISION              :: dzu
+      DOUBLEPRECISION              :: weirsill
 !----------------------------------------------------------------------*
 !
 ! Set up local variables - part 1
 !
-DZ = ZI (1) - ZI (0)
-SIG = SIGN (ONE, DZ)
-HI = (1 + NINT (SIG) ) / 2
-LO = 1 - HI
+      DZ = ZI (1) - ZI (0)
+      SIG = SIGN (ONE, DZ)
+      HI = (1 + NINT (SIG) ) / 2
+      LO = 1 - HI
 !
 ! Internal weir
 !
 ! NB: NTYPE 1,8,9,10,11 not allowed internally
 !
-IF (NTYPE.EQ.7) THEN
-   COEFF (1) = afromCOCBCD (1)
-   SUBRIO = afromCOCBCD (2)
-   ZSILL = afromCOCBCD (3)
-   COEFF (2) = COEFF (1)
-   CALL QWEIR(ZI(HI), ZSILL, ZI(LO), COEFF, SUBRIO, Q(LO), DQ(LO,HI), rdum) !AD ailising
-    DQ(LO,LO)=rdum
+      IF (NTYPE.EQ.7) THEN
+         COEFF (1) = afromCOCBCD (1)
+         SUBRIO = afromCOCBCD (2)
+         ZSILL = afromCOCBCD (3)
+         COEFF (2) = COEFF (1)
+         CALL QWEIR(ZI(HI), ZSILL, ZI(LO), COEFF, SUBRIO, Q(LO), DQ(LO,HI), rdum) !AD ailising
+         DQ(LO,LO)=rdum
 ! ZQ Module 200520
-ELSEIF (NTYPE.EQ.12) THEN
-    !print*,ZQTableRef,zi(hi)
-    Q(LO)     = get_ZQTable_value(ZQTableRef,ZI(HI))
-    weirsill  = ZQWeirSill(ZQTableRef)
-    DZU       = DIMJE(ZI(HI), weirsill)
-    DQ(LO,HI) = 50.0*1.5*sqrt(dzu)
-    ! This works for Crummock. Stability during step changes should be tested
-    ! e.g. for a small area reservoir.
-    DQ(LO,LO) = 0
-    !write(779,*) zi(hi),Q(lo),dq(lo,hi)
+      ELSEIF (NTYPE.EQ.12) THEN
+         !print*,ZQTableRef,zi(hi)
+         Q(LO)     = get_ZQTable_value(ZQTableRef,ZI(HI))
+         weirsill  = ZQWeirSill(ZQTableRef)
+         DZU       = DIMJE(ZI(HI), weirsill)
+         DQ(LO,HI) = 50.0*1.5*sqrt(dzu)
+         ! This works for Crummock. Stability during step changes should be tested
+         ! e.g. for a small area reservoir.
+         DQ(LO,LO) = 0
+         !write(779,*) zi(hi),Q(lo),dq(lo,hi)
 ! ZQ Module 200520 end
-ELSE
-    !
-    ! Set up local variables - part 2
-    !
-    DZ = SIG * DZ
-    ROOTDZ = SQRT (DZ)
-    DHH = LI (0) + LI (1)
-    ROOTL = SQRT (DHH)
-    !
-    ! CALCULATE FLOW AND DERIVATIVES
-    ! NB: CONVM has an implicit upstream weighting factor, ie ALPHA=1
-    !
-    !CALL OCCODE (ZGI (HI), STR (HI), CW (HI), XA (HI), afromXSwork (:, :, HI), ZI (HI), CONVM, DERIVM)
-    CALL OCCODE (ZGI(HI), STR(HI), CW(HI), XA(HI), XSTAB(:, :, jxswork(HI)), ZI(HI), CONVM, DERIVM)
-    CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
-    DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
-    !     * Note: ZGI(LO),etc are not required
-    Q (LO) = CONVM * ROOTDZ / ROOTL
-    DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
-    DQ (LO, LO) = - DUM / ROOTL
-ENDIF
-Q (HI) = - Q (LO)
-DQ (HI, HI) = - DQ (LO, HI)
-DQ (HI, LO) = - DQ (LO, LO)
-END SUBROUTINE OCQLNK
+      ELSE
+         !
+         ! Set up local variables - part 2
+         !
+         DZ = SIG * DZ
+         ROOTDZ = SQRT (DZ)
+         DHH = LI (0) + LI (1)
+         ROOTL = SQRT (DHH)
+         !
+         ! CALCULATE FLOW AND DERIVATIVES
+         ! NB: CONVM has an implicit upstream weighting factor, ie ALPHA=1
+         !
+         !CALL OCCODE (ZGI (HI), STR (HI), CW (HI), XA (HI), afromXSwork (:, :, HI), ZI (HI), CONVM, DERIVM)
+         CALL OCCODE (ZGI(HI), STR(HI), CW(HI), XA(HI), XSTAB(:, :, jxswork(HI)), ZI(HI), CONVM, DERIVM)
+         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
+         DUM = half * CONVMM / MAX (RDZMIN, ROOTDZ)
+         !     * Note: ZGI(LO),etc are not required
+         Q (LO) = CONVM * ROOTDZ / ROOTL
+         DQ (LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+         DQ (LO, LO) = - DUM / ROOTL
+      ENDIF
+      Q (HI) = - Q (LO)
+      DQ (HI, HI) = - DQ (LO, HI)
+      DQ (HI, LO) = - DQ (LO, LO)
+   END SUBROUTINE OCQLNK
 
 
 
@@ -1256,71 +1256,71 @@ END SUBROUTINE OCQLNK
 !> | 1998-03-18 | RAH | 4.2 | Obtained conveyance derivative `DI` from [[occode]] and passed it to [[ocnode]]. |
 !> | 1998-04-24 | RAH | 4.2 | Added roughness, width, area, and cross-section table arguments; updated [[occode]] arguments; added `ONEPC`; removed special single-wet-branch treatment. |
 !> @endhistory
-SUBROUTINE OCQMLN(ielb, JEL2, LI, ZGI, STR, CW, XA,  ZI, QJ, DQIJ, JXSwork)
-INTEGER, INTENT(IN)          :: IELb           !! Element number used in confluence diagnostics.
-INTEGER, INTENT(IN)          :: JEL2(0:3)      !! Participant element numbers; non-positive entries are inactive.
-DOUBLEPRECISION, INTENT(IN)  :: LI(0:3)        !! Flow lengths for participant branches.
-DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:3)       !! Bed elevations for participant branches.
-DOUBLEPRECISION, INTENT(IN)  :: STR(0:3)       !! Strickler roughness coefficients for participant branches.
-DOUBLEPRECISION, INTENT(IN)  :: CW(0:3)        !! Channel widths for participant branches.
-DOUBLEPRECISION, INTENT(IN)  :: XA(0:3)        !! Full-flow areas for participant branches.
-DOUBLEPRECISION, INTENT(IN)  :: ZI(0:3)        !! Water-surface elevations for participant branches.
+   SUBROUTINE OCQMLN(ielb, JEL2, LI, ZGI, STR, CW, XA,  ZI, QJ, DQIJ, JXSwork)
+      INTEGER, INTENT(IN)          :: IELb           !! Element number used in confluence diagnostics.
+      INTEGER, INTENT(IN)          :: JEL2(0:3)      !! Participant element numbers; non-positive entries are inactive.
+      DOUBLEPRECISION, INTENT(IN)  :: LI(0:3)        !! Flow lengths for participant branches.
+      DOUBLEPRECISION, INTENT(IN)  :: ZGI(0:3)       !! Bed elevations for participant branches.
+      DOUBLEPRECISION, INTENT(IN)  :: STR(0:3)       !! Strickler roughness coefficients for participant branches.
+      DOUBLEPRECISION, INTENT(IN)  :: CW(0:3)        !! Channel widths for participant branches.
+      DOUBLEPRECISION, INTENT(IN)  :: XA(0:3)        !! Full-flow areas for participant branches.
+      DOUBLEPRECISION, INTENT(IN)  :: ZI(0:3)        !! Water-surface elevations for participant branches.
 !DOUBLEPRECISION, INTENT(IN)  :: XSwork(3,NXSCEE,0:3)
-INTEGER, INTENT(IN)          :: JXSWORK(0:3)   !! Link indices used to select participant `XSTAB` tables.
-DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)        !! Flow from the solved node into each branch.
-DOUBLEPRECISION, INTENT(OUT) :: DQIJ(0:3, 0:3) !! Finite-difference branch-flow derivative matrix.
+      INTEGER, INTENT(IN)          :: JXSWORK(0:3)   !! Link indices used to select participant `XSTAB` tables.
+      DOUBLEPRECISION, INTENT(OUT) :: QJ(0:3)        !! Flow from the solved node into each branch.
+      DOUBLEPRECISION, INTENT(OUT) :: DQIJ(0:3, 0:3) !! Finite-difference branch-flow derivative matrix.
 ! NB:
 !     DQIJ(i,j) is defined for active_j only
 !
-DOUBLEPRECISION             :: ONEPC, WLMIN
-PARAMETER (ONEPC = 1D-2, WLMIN = 1D-3)
-INTEGER                     :: I, J
-DOUBLEPRECISION             :: CSAVE, DSAVE, CI (0:3), DI (0:3), QDUM2 (0:3)
-DOUBLEPRECISION             :: ZINC, ZSAVE, ROOTLI (0:3), ZJ (0:3)
+      DOUBLEPRECISION             :: ONEPC, WLMIN
+      PARAMETER (ONEPC = 1D-2, WLMIN = 1D-3)
+      INTEGER                     :: I, J
+      DOUBLEPRECISION             :: CSAVE, DSAVE, CI (0:3), DI (0:3), QDUM2 (0:3)
+      DOUBLEPRECISION             :: ZINC, ZSAVE, ROOTLI (0:3), ZJ (0:3)
 !----------------------------------------------------------------------*
 !
 ! Calculate conveyance & its derivative (both.ge.0), & set local arrays
 !
-DO J = 0, 3
-    IF (JEL2 (J) .LE.0) THEN
-        !            * OCNODE uses ROOTLI as a flag
-        ROOTLI (J) = zero
-    ELSE
-        ROOTLI (J) = SQRT (LI (J) )
-        ZJ (J) = ZI (J)
-        !CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSwork(:, :, J), ZJ(J), CI(J), DI(J))
-        CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSTAB(:, :, jxswork(J)), ZJ(J), CI(J), DI(J))
-    ENDIF
-ENDDO
+      DO J = 0, 3
+         IF (JEL2 (J) .LE.0) THEN
+            !            * OCNODE uses ROOTLI as a flag
+            ROOTLI (J) = zero
+         ELSE
+            ROOTLI (J) = SQRT (LI (J) )
+            ZJ (J) = ZI (J)
+            !CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSwork(:, :, J), ZJ(J), CI(J), DI(J))
+            CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSTAB(:, :, jxswork(J)), ZJ(J), CI(J), DI(J))
+         ENDIF
+      ENDDO
 !
 ! Find flows out of node
 !
-CALL OCNODE (ielb, ZI, CI, DI, ROOTLI, QJ)
+      CALL OCNODE (ielb, ZI, CI, DI, ROOTLI, QJ)
 !
 ! CALC. DQi/DHj
 !
-DO J = 0, 3
-   IF (JEL2 (J) .LE.0) CYCLE
-    !        * temporarily increase ZJ and recalculate CI,DI
-   ZSAVE  = ZJ(J)
-   CSAVE  = CI(J)
-   DSAVE  = DI(J)
-   ZINC   = MAX(WLMIN, (ZSAVE-ZGI(J))*ONEPC)  !zgi is ground elevation
-   ZJ (J) = ZSAVE+ZINC
-   !CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSwork(1, 1, J), ZJ(J), CI(J), DI(J) )
-   CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSTAB(1, 1, JXSWORK(J)), ZJ(J), CI(J), DI(J) )
-                                                                     !++++++++++++++out
-    !        * calculate resultant flows & evaluate derivative
-   CALL OCNODE (ielb, ZJ, CI, DI, ROOTLI, QDUM2)
-                                        !+++++out
-    DO I = 0, 3
-        DQIJ (I, J) = (QDUM2 (I) - QJ (I) ) / ZINC
-    ENDDO
-   ZJ(J) = ZSAVE
-   CI(J) = CSAVE
-   DI(J) = DSAVE
-ENDDO
-END SUBROUTINE OCQMLN
+      DO J = 0, 3
+         IF (JEL2 (J) .LE.0) CYCLE
+         !        * temporarily increase ZJ and recalculate CI,DI
+         ZSAVE  = ZJ(J)
+         CSAVE  = CI(J)
+         DSAVE  = DI(J)
+         ZINC   = MAX(WLMIN, (ZSAVE-ZGI(J))*ONEPC)  !zgi is ground elevation
+         ZJ (J) = ZSAVE+ZINC
+         !CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSwork(1, 1, J), ZJ(J), CI(J), DI(J) )
+         CALL OCCODE (ZGI(J), STR(J), CW(J), XA(J), XSTAB(1, 1, JXSWORK(J)), ZJ(J), CI(J), DI(J) )
+         !++++++++++++++out
+         !        * calculate resultant flows & evaluate derivative
+         CALL OCNODE (ielb, ZJ, CI, DI, ROOTLI, QDUM2)
+         !+++++out
+         DO I = 0, 3
+            DQIJ (I, J) = (QDUM2 (I) - QJ (I) ) / ZINC
+         ENDDO
+         ZJ(J) = ZSAVE
+         CI(J) = CSAVE
+         DI(J) = DSAVE
+      ENDDO
+   END SUBROUTINE OCQMLN
 
 
 
@@ -1355,51 +1355,51 @@ END SUBROUTINE OCQMLN
 !> `xa` is required for `ty=0` and `ty=2`, and `extra` is required for `ty=2`;
 !> the routine does not test `PRESENT()` before using them.
 !> @endwarning
-SUBROUTINE conveyan(str, h, conv, deriv, ty, xa, extra)
+   SUBROUTINE conveyan(str, h, conv, deriv, ty, xa, extra)
 !to bring this all to one place (its messy!)
-INTEGER, INTENT(IN)         :: ty    !! Conveyance branch selector: 0 area based, 1 depth-width, 2 above-table channel.
-DOUBLEPRECISION, INTENT(IN) :: str   !! Strickler coefficient, or Strickler-width product for `ty=1`.
-DOUBLEPRECISION, INTENT(IN) :: h     !! Water depth.
-DOUBLEPRECISION, INTENT(IN), OPTIONAL :: xa    !! Cross-sectional flow area, required for `ty=0` and `ty=2`.
-DOUBLEPRECISION, INTENT(IN), OPTIONAL :: extra !! Channel top width, required for `ty=2`.
-DOUBLEPRECISION, INTENT(OUT)          :: conv  !! Returned conveyance.
-DOUBLEPRECISION, INTENT(OUT)          :: deriv !! Returned derivative term used by OC linearisations.
-DOUBLEPRECISION                       :: hm23
-DOUBLEPRECISION, PARAMETER            :: mul = 10.0d0/3.0d0
-IF(ty==0) THEN
-    IF(h<1.0d-9) THEN
-        conv = 0.0d0
-        deriv = 0.0d0
-    ELSEIF(h<1.0d-3) THEN
-        !deriv = str * h23min * f23
-        !conv  = deriv * h           !LINEARIZE NEAR ZERO
-        conv  = str * mul * h * h * (4.0d0 - 1.0d3*h)  !TAKE CARE valid only for threshold of 1 mm
-        conv  = conv * xa / h
-        deriv = str * mul * h * (8.0d0 - 3.0d3*h)      !TAKE CARE valid only for threshold of 1 mm
-    ELSE
-        hm23 = h**f23
-        conv = str * xa * hm23      !NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
-        deriv = str * hm23 * f53
-    ENDIF
-ELSEIF(ty==1) THEN
-    iF(h<1.0d-9) THEN
-        conv = 0.0d0
-        deriv = 0.0d0
-    ELSEIF(h<1.0d-3) THEN
-        !deriv = str * h23min * f23
-        !conv  = deriv * h           !LINEARIZE NEAR ZERO
-        conv  = str * mul * h * h * (4.0d0 - 1.0d3*h)  !TAKE CARE valid only for threshold of 1 mm
-        deriv = str * mul * h * (8.0d0 - 3.0d3*h)      !TAKE CARE valid only for threshold of 1 mm
-    ELSE
-        hm23 = h**f23
-        conv = str * h * hm23       !NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
-        deriv = str * hm23 * f53
-    ENDIF
-ELSEIF(ty==2) THEN
-    hm23 = h**f23
-    conv = str * xa * hm23
-    deriv = conv * (extra / xa + f23 / h)  !is f23 correct here?
-ENDIF
+      INTEGER, INTENT(IN)         :: ty    !! Conveyance branch selector: 0 area based, 1 depth-width, 2 above-table channel.
+      DOUBLEPRECISION, INTENT(IN) :: str   !! Strickler coefficient, or Strickler-width product for `ty=1`.
+      DOUBLEPRECISION, INTENT(IN) :: h     !! Water depth.
+      DOUBLEPRECISION, INTENT(IN), OPTIONAL :: xa    !! Cross-sectional flow area, required for `ty=0` and `ty=2`.
+      DOUBLEPRECISION, INTENT(IN), OPTIONAL :: extra !! Channel top width, required for `ty=2`.
+      DOUBLEPRECISION, INTENT(OUT)          :: conv  !! Returned conveyance.
+      DOUBLEPRECISION, INTENT(OUT)          :: deriv !! Returned derivative term used by OC linearisations.
+      DOUBLEPRECISION                       :: hm23
+      DOUBLEPRECISION, PARAMETER            :: mul = 10.0d0/3.0d0
+      IF(ty==0) THEN
+         IF(h<1.0d-9) THEN
+            conv = 0.0d0
+            deriv = 0.0d0
+         ELSEIF(h<1.0d-3) THEN
+            !deriv = str * h23min * f23
+            !conv  = deriv * h           !LINEARIZE NEAR ZERO
+            conv  = str * mul * h * h * (4.0d0 - 1.0d3*h)  !TAKE CARE valid only for threshold of 1 mm
+            conv  = conv * xa / h
+            deriv = str * mul * h * (8.0d0 - 3.0d3*h)      !TAKE CARE valid only for threshold of 1 mm
+         ELSE
+            hm23 = h**f23
+            conv = str * xa * hm23      !NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
+            deriv = str * hm23 * f53
+         ENDIF
+      ELSEIF(ty==1) THEN
+         iF(h<1.0d-9) THEN
+            conv = 0.0d0
+            deriv = 0.0d0
+         ELSEIF(h<1.0d-3) THEN
+            !deriv = str * h23min * f23
+            !conv  = deriv * h           !LINEARIZE NEAR ZERO
+            conv  = str * mul * h * h * (4.0d0 - 1.0d3*h)  !TAKE CARE valid only for threshold of 1 mm
+            deriv = str * mul * h * (8.0d0 - 3.0d3*h)      !TAKE CARE valid only for threshold of 1 mm
+         ELSE
+            hm23 = h**f23
+            conv = str * h * hm23       !NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
+            deriv = str * hm23 * f53
+         ENDIF
+      ELSEIF(ty==2) THEN
+         hm23 = h**f23
+         conv = str * xa * hm23
+         deriv = conv * (extra / xa + f23 / h)  !is f23 correct here?
+      ENDIF
 
 !IF(ty<2) THEN
 !    IF(h<dzmin) THEN
@@ -1412,7 +1412,7 @@ ENDIF
 !        deriv = str * hm23 * f53  !str * MAX(h23min, hm23) * f53
 !    ENDIF
 !ELSE
-END SUBROUTINE conveyan
+   END SUBROUTINE conveyan
 
 
 
@@ -1478,42 +1478,42 @@ END SUBROUTINE conveyan
 !> | 1998-02-26 | RAH | 4.2 | Made `COEFF` a two-entry array in [[qweir]] and callers; added explicit typing; zeroed outputs in no-flow cases; added generic intrinsics; added the missing drowned-flow downstream derivative term; replaced `ROOTDM` with `RDZMIN`/local terms. |
 !> | 1998-07-30 | RAH | 4.2 | Used `MAX` to keep `DQU` positive outside the no-flow case, added `DZMIN`/`DML`, and subtracted `DZMIN` from the sill in the no-flow criterion. |
 !> @endhistory
-SUBROUTINE QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, Q, DQU, DQL)
-DOUBLEPRECISION, INTENT(IN)  :: ZU       !! Upstream water level.
-DOUBLEPRECISION, INTENT(IN)  :: ZSILL    !! Weir sill elevation.
-DOUBLEPRECISION, INTENT(IN)  :: ZL       !! Downstream water level.
-DOUBLEPRECISION, INTENT(IN)  :: COEFF(2) !! Drowned and undrowned weir discharge coefficients.
-DOUBLEPRECISION, INTENT(IN)  :: SUBRIO   !! Submergence-ratio threshold for drowned flow.
-DOUBLEPRECISION, INTENT(OUT) :: Q        !! Weir discharge, non-negative when entry conditions hold.
-DOUBLEPRECISION, INTENT(OUT) :: DQU      !! Derivative of `Q` with respect to upstream level.
-DOUBLEPRECISION, INTENT(OUT) :: DQL      !! Derivative of `Q` with respect to downstream level.
-DOUBLEPRECISION CR, DML, DZU, DZL, ROOTDZ
+   SUBROUTINE QWEIR (ZU, ZSILL, ZL, COEFF, SUBRIO, Q, DQU, DQL)
+      DOUBLEPRECISION, INTENT(IN)  :: ZU       !! Upstream water level.
+      DOUBLEPRECISION, INTENT(IN)  :: ZSILL    !! Weir sill elevation.
+      DOUBLEPRECISION, INTENT(IN)  :: ZL       !! Downstream water level.
+      DOUBLEPRECISION, INTENT(IN)  :: COEFF(2) !! Drowned and undrowned weir discharge coefficients.
+      DOUBLEPRECISION, INTENT(IN)  :: SUBRIO   !! Submergence-ratio threshold for drowned flow.
+      DOUBLEPRECISION, INTENT(OUT) :: Q        !! Weir discharge, non-negative when entry conditions hold.
+      DOUBLEPRECISION, INTENT(OUT) :: DQU      !! Derivative of `Q` with respect to upstream level.
+      DOUBLEPRECISION, INTENT(OUT) :: DQL      !! Derivative of `Q` with respect to downstream level.
+      DOUBLEPRECISION CR, DML, DZU, DZL, ROOTDZ
 ! NO FLOW ACROSS WEIR
-IF (ZU.LT.ZSILL - DZMIN) THEN
-   Q = zero
-   DQU = zero
-   DQL = zero
-ELSE
-   DZU = DIMJE(ZU, ZSILL)
+      IF (ZU.LT.ZSILL - DZMIN) THEN
+         Q = zero
+         DQU = zero
+         DQL = zero
+      ELSE
+         DZU = DIMJE(ZU, ZSILL)
 
-   DZL = ZL - ZSILL
+         DZL = ZL - ZSILL
 ! DROWNED WEIR
-   IF (DZL.GT.SUBRIO * DZU) THEN
-      ROOTDZ = SQRT (ZU - ZL)
-      DML = MAX (DZMIN, DZL)
-      CR = COEFF (1) * ROOTDZ
-      Q = CR * DZL
-      DQU = COEFF (1) * DML * half / MAX (RDZMIN, ROOTDZ)
-      DQL = CR - DQU
+         IF (DZL.GT.SUBRIO * DZU) THEN
+            ROOTDZ = SQRT (ZU - ZL)
+            DML = MAX (DZMIN, DZL)
+            CR = COEFF (1) * ROOTDZ
+            Q = CR * DZL
+            DQU = COEFF (1) * DML * half / MAX (RDZMIN, ROOTDZ)
+            DQL = CR - DQU
 ! UNDROWNED WEIR
-   ELSE
-      ROOTDZ = SQRT (DZU)
-      Q = COEFF (2) * DZU * ROOTDZ
-      DQU = COEFF (2) * 1.5D0 * MAX (RDZMIN, ROOTDZ)
-      DQL = zero
-   ENDIF
-ENDIF
-END SUBROUTINE QWEIR
+         ELSE
+            ROOTDZ = SQRT (DZU)
+            Q = COEFF (2) * DZU * ROOTDZ
+            DQU = COEFF (2) * 1.5D0 * MAX (RDZMIN, ROOTDZ)
+            DQL = zero
+         ENDIF
+      ENDIF
+   END SUBROUTINE QWEIR
 
 
 
@@ -1590,180 +1590,180 @@ END SUBROUTINE QWEIR
 !> | 1999-02-04 | SB | 4.27 | Modified `DQE0` to address small flows from lower to higher elements. |
 !> | 1999-02-08 | SB | 4.27 | Set `AOK = .FALSE.` in the final depth adjustment for the same small adverse-flow issue. |
 !> @endhistory
-SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
-INTEGER, INTENT(IN) :: nel                         !! Number of active elements to correct.
-INTEGER, INTENT(IN) :: afromICMREF(NELEE, 4, 2:3)  !! Regular neighbour element and face references.
-INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 3, 2)    !! Multi-link confluence participant references.
-DOUBLEPRECISION, INTENT(IN) :: dtoc                !! OC timestep in seconds.
+   SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
+      INTEGER, INTENT(IN) :: nel                         !! Number of active elements to correct.
+      INTEGER, INTENT(IN) :: afromICMREF(NELEE, 4, 2:3)  !! Regular neighbour element and face references.
+      INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 3, 2)    !! Multi-link confluence participant references.
+      DOUBLEPRECISION, INTENT(IN) :: dtoc                !! OC timestep in seconds.
 !     NB: QSA is positive in
 !     *  NPASS: maximum number of passes through the test loop
 !     * UHCRIT: minimum admissible flow rate [L^^2/T]
 !     *  HCRIT: minimum admissible surface water depth [L]
 !     * HERROR: minimum inoffensive negative surface water depth [L]
 !     *  DZMIN: target elevation difference in flow adjustments [L]
-INTEGER         :: NPASS
-PARAMETER (NPASS = 100)
-DOUBLEPRECISION :: UHCRIT, HCRIT, HERROR
-DOUBLEPRECISION, DIMENSION(nel), INTENT(IN)    :: inhrf    !! Input water-surface elevations.
-DOUBLEPRECISION, DIMENSION(nel), INTENT(OUT)   :: GGGETHRF !! Corrected water-surface elevations.
-DOUBLEPRECISION, DIMENSION(nel,4), INTENT(IN)  :: inqsa    !! Input face discharges; positive into each element.
-DOUBLEPRECISION, DIMENSION(nel,4), INTENT(OUT) :: GGGETQSA !! Corrected face discharges.
-PARAMETER (UHCRIT = 1D-7, HCRIT = 1D-7, HERROR = 1D-5)
-INTEGER          :: IELc, IFACE, IBR, idum
-INTEGER          :: JEL, JFACE, PPP, PASSS, PEL, PEL0, PFACE, PFACE0
-DOUBLEPRECISION  :: DQE, DZE, QE, ZE, DHQ, DHH, DDZ, DQE0, FDQE, H
-DOUBLEPRECISION  :: DQA, DZA, QA, ZA, QQ, QQMIN, Qasum, SGN, ZG, DXY (0:1), rdum4(4)
-LOGICAL          :: AOK, QSMALL, HSMALL, FAIL, FAILP, TEST, FLAG (4)
-CHARACTER(132)  :: MSG
+      INTEGER         :: NPASS
+      PARAMETER (NPASS = 100)
+      DOUBLEPRECISION :: UHCRIT, HCRIT, HERROR
+      DOUBLEPRECISION, DIMENSION(nel), INTENT(IN)    :: inhrf    !! Input water-surface elevations.
+      DOUBLEPRECISION, DIMENSION(nel), INTENT(OUT)   :: GGGETHRF !! Corrected water-surface elevations.
+      DOUBLEPRECISION, DIMENSION(nel,4), INTENT(IN)  :: inqsa    !! Input face discharges; positive into each element.
+      DOUBLEPRECISION, DIMENSION(nel,4), INTENT(OUT) :: GGGETQSA !! Corrected face discharges.
+      PARAMETER (UHCRIT = 1D-7, HCRIT = 1D-7, HERROR = 1D-5)
+      INTEGER          :: IELc, IFACE, IBR, idum
+      INTEGER          :: JEL, JFACE, PPP, PASSS, PEL, PEL0, PFACE, PFACE0
+      DOUBLEPRECISION  :: DQE, DZE, QE, ZE, DHQ, DHH, DDZ, DQE0, FDQE, H
+      DOUBLEPRECISION  :: DQA, DZA, QA, ZA, QQ, QQMIN, Qasum, SGN, ZG, DXY (0:1), rdum4(4)
+      LOGICAL          :: AOK, QSMALL, HSMALL, FAIL, FAILP, TEST, FLAG (4)
+      CHARACTER(132)  :: MSG
 !----------------------------------------------------------------------*
 ! Control Loop
 ! ------------
-GGGETHRF = inhrf
-GGGETQSA = inqsa
-aok = .FALSE.
-out900 : DO PASSS = 1, NPASS  !AP LOOP PROBLEMS
-    IF(aok) THEN
-        CYCLE out900  !AD Irreductible entry into loop problem
-    ELSE
-        AOK = .TRUE.
-    ENDIF
-    out400 : DO ielc = 1, NEL
-        ZE = GGGETHRF (ielc)
-        DZE = DTOC / cellarea (ielc)
-        DXY (0) = DXQQ (ielc)
-        DXY (1) = DYQQ (ielc)
-        !           Depth Criterion: flag outflow (D<0) or inflow (D>0) faces
-        !           ---------------------------------------------------------
-        ZG = ZGRUND (ielc)
-        H = ZE-ZG
-        HSMALL = (H.LT.HCRIT).AND.NOTZERO(H)
-        FDQE = ZERO
-        IF (HSMALL) THEN
-            DQE0 = - H / DZE
-            !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
-            SGN = SIGN (ONE, DQE0)
+      GGGETHRF = inhrf
+      GGGETQSA = inqsa
+      aok = .FALSE.
+      out900 : DO PASSS = 1, NPASS  !AP LOOP PROBLEMS
+         IF(aok) THEN
+            CYCLE out900  !AD Irreductible entry into loop problem
+         ELSE
+            AOK = .TRUE.
+         ENDIF
+         out400 : DO ielc = 1, NEL
+            ZE = GGGETHRF (ielc)
+            DZE = DTOC / cellarea (ielc)
+            DXY (0) = DXQQ (ielc)
+            DXY (1) = DYQQ (ielc)
+            !           Depth Criterion: flag outflow (D<0) or inflow (D>0) faces
+            !           ---------------------------------------------------------
+            ZG = ZGRUND (ielc)
+            H = ZE-ZG
+            HSMALL = (H.LT.HCRIT).AND.NOTZERO(H)
+            FDQE = ZERO
+            IF (HSMALL) THEN
+               DQE0 = - H / DZE
+               !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
+               SGN = SIGN (ONE, DQE0)
+               Qasum = ZERO
+               DO IFACE = 1, 4
+                  QE = GGGETQSA (ielc, IFACE)
+                  !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
+                  FLAG (IFACE) = QE * SGN.LT.ZERO
+                  !                   FLAG(IFACE) = QE*DQE0 .LT. ZERO
+                  IF (FLAG (IFACE) ) Qasum = Qasum + QE
+               ENDDO
+               IF (NOTZERO(Qasum)) FDQE = MAX ( - ONE, DQE0 / Qasum)
+            ENDIF
+            !           Face Loop
+            !           ---------
             Qasum = ZERO
-            DO IFACE = 1, 4
-                QE = GGGETQSA (ielc, IFACE)
-                !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
-                FLAG (IFACE) = QE * SGN.LT.ZERO
-                !                   FLAG(IFACE) = QE*DQE0 .LT. ZERO
-                IF (FLAG (IFACE) ) Qasum = Qasum + QE
-            ENDDO
-            IF (NOTZERO(Qasum)) FDQE = MAX ( - ONE, DQE0 / Qasum)
-        ENDIF
-        !           Face Loop
-        !           ---------
-        Qasum = ZERO
-        out300 : DO IFACE = 1, 4
-            QE = GGGETQSA (ielc, IFACE)
-            !              * apply flow criteria to discharges only
-            TEST = QE.LT.ZERO
-            IF (HSMALL) TEST = FLAG (IFACE)
-            IF (.NOT.TEST) CYCLE out300 !GOTO 300
-            !                             >>>>>>>>
-            QSMALL = - QE.LT.DXY (MOD (IFACE, 2) ) * UHCRIT
-            TEST = QSMALL.OR.HSMALL
-            !              Gradient Criterion & Neighbour Location
-            !              ---------------------------------------
-            JEL = afromICMREF (ielc, IFACE, 2)
-            IF (JEL.GT.0) THEN
-                !                  * regular face
-                JFACE = afromICMREF (ielc, IFACE, 3)
-                FAIL = GGGETHRF (JEL) .GE.ZE
-            ELSEIF (JEL.EQ.0) THEN
-                !                  * external boundary
-                FAIL = .FALSE.
-            ELSE
-                !                  * confluence: choose branch with largest flow
-                IBR = - JEL
-                QQMIN = ZERO
-                FAIL = .FALSE.
-                out200 : DO PPP = 1, 3  !200
-                    PEL = afromICMRF2 (IBR, PPP, 1)
-                    IF (PEL.LT.1) CYCLE out200 !GOTO 200
-                    PFACE = afromICMRF2 (IBR, PPP, 2)
-                    QQ = GGGETQSA (PEL, PFACE) * QE
-                    FAILP = (GGGETHRF (PEL) .GE.ZE).AND.(QQ.LT.ZERO)
-                    IF ( (FAILP.OR.TEST) .AND.QQ.LT.QQMIN) THEN
+            out300 : DO IFACE = 1, 4
+               QE = GGGETQSA (ielc, IFACE)
+               !              * apply flow criteria to discharges only
+               TEST = QE.LT.ZERO
+               IF (HSMALL) TEST = FLAG (IFACE)
+               IF (.NOT.TEST) CYCLE out300 !GOTO 300
+               !                             >>>>>>>>
+               QSMALL = - QE.LT.DXY (MOD (IFACE, 2) ) * UHCRIT
+               TEST = QSMALL.OR.HSMALL
+               !              Gradient Criterion & Neighbour Location
+               !              ---------------------------------------
+               JEL = afromICMREF (ielc, IFACE, 2)
+               IF (JEL.GT.0) THEN
+                  !                  * regular face
+                  JFACE = afromICMREF (ielc, IFACE, 3)
+                  FAIL = GGGETHRF (JEL) .GE.ZE
+               ELSEIF (JEL.EQ.0) THEN
+                  !                  * external boundary
+                  FAIL = .FALSE.
+               ELSE
+                  !                  * confluence: choose branch with largest flow
+                  IBR = - JEL
+                  QQMIN = ZERO
+                  FAIL = .FALSE.
+                  out200 : DO PPP = 1, 3  !200
+                     PEL = afromICMRF2 (IBR, PPP, 1)
+                     IF (PEL.LT.1) CYCLE out200 !GOTO 200
+                     PFACE = afromICMRF2 (IBR, PPP, 2)
+                     QQ = GGGETQSA (PEL, PFACE) * QE
+                     FAILP = (GGGETHRF (PEL) .GE.ZE).AND.(QQ.LT.ZERO)
+                     IF ( (FAILP.OR.TEST) .AND.QQ.LT.QQMIN) THEN
                         JEL = PEL
                         JFACE = PFACE
                         QQMIN = QQ
-                    ENDIF
-                    FAIL = FAIL.OR.FAILP
-                    PEL0 = PEL
-                    PFACE0 = PFACE
-                ENDDO out200 !200
-                IF (JEL.LT.0) THEN
-                    JEL = PEL0
-                    JFACE = PFACE0
-                ENDIF
-            ENDIF
-            !              Adjustments
-            !                 -----------
-            IF (FAIL.OR.TEST) THEN
-                AOK = .FALSE.
-                IF (JEL.GT.0) THEN
-                    DZA = DTOC / cellarea (JEL)
-                    ZA = GGGETHRF (JEL)
-                    QA = GGGETQSA (JEL, JFACE)
-                ENDIF
-                IF (HSMALL) THEN
-                    DQE = FDQE * QE
-                ELSEIF (QSMALL) THEN
-                    DQE = - QE
-                ELSE
-                    DDZ = DZMIN + ZA - ZE
-                    DQE = MIN ( + QA, - QE, DDZ / (DZA + DZE) )
-                ENDIF
-                Qasum = Qasum + DQE
-                !CALL SETQSA(ielc, IFACE, QE+DQE)
-                GGGETQSA(ielc, IFACE) = QE+DQE
-                ZE = ZE+DQE * DZE
-                IF (JEL.GT.0) THEN
-                    SGN = SIGN (ONE, DQE)
-                    DQA = - SGN * MIN (SGN * DQE, SGN * QA)
-                    Qasum = Qasum + DQA
-                    !CALL SETQSA(JEL, JFACE, QA + DQA)
-                    GGGETQSA(JEL, JFACE) = QA + DQA
-                    !CALL SETHRF(JEL, ZA + DQA * DZA)
-                    GGGETHRF(JEL) = ZA + DQA * DZA
-                ENDIF
-                IF (.NOT.HSMALL) THEN
-                    DHQ = Qasum * DZE
-                    Qasum = ZERO
-             ! sb 021009 Error message always produced if pass.eq.npass
-             IF ((ABS (DHQ) .GT.HERROR) .or.(passs.eq.npass)) THEN
-                    rdum4(1)= - QE ; rdum4(2)=- 1D2 * DQE / QE ; idum=IFACE ; rdum4(4)=DHQ !AD
+                     ENDIF
+                     FAIL = FAIL.OR.FAILP
+                     PEL0 = PEL
+                     PFACE0 = PFACE
+                  ENDDO out200 !200
+                  IF (JEL.LT.0) THEN
+                     JEL = PEL0
+                     JFACE = PFACE0
+                  ENDIF
+               ENDIF
+               !              Adjustments
+               !                 -----------
+               IF (FAIL.OR.TEST) THEN
+                  AOK = .FALSE.
+                  IF (JEL.GT.0) THEN
+                     DZA = DTOC / cellarea (JEL)
+                     ZA = GGGETHRF (JEL)
+                     QA = GGGETQSA (JEL, JFACE)
+                  ENDIF
+                  IF (HSMALL) THEN
+                     DQE = FDQE * QE
+                  ELSEIF (QSMALL) THEN
+                     DQE = - QE
+                  ELSE
+                     DDZ = DZMIN + ZA - ZE
+                     DQE = MIN ( + QA, - QE, DDZ / (DZA + DZE) )
+                  ENDIF
+                  Qasum = Qasum + DQE
+                  !CALL SETQSA(ielc, IFACE, QE+DQE)
+                  GGGETQSA(ielc, IFACE) = QE+DQE
+                  ZE = ZE+DQE * DZE
+                  IF (JEL.GT.0) THEN
+                     SGN = SIGN (ONE, DQE)
+                     DQA = - SGN * MIN (SGN * DQE, SGN * QA)
+                     Qasum = Qasum + DQA
+                     !CALL SETQSA(JEL, JFACE, QA + DQA)
+                     GGGETQSA(JEL, JFACE) = QA + DQA
+                     !CALL SETHRF(JEL, ZA + DQA * DZA)
+                     GGGETHRF(JEL) = ZA + DQA * DZA
+                  ENDIF
+                  IF (.NOT.HSMALL) THEN
+                     DHQ = Qasum * DZE
+                     Qasum = ZERO
+                     ! sb 021009 Error message always produced if pass.eq.npass
+                     IF ((ABS (DHQ) .GT.HERROR) .or.(passs.eq.npass)) THEN
+                        rdum4(1)= - QE ; rdum4(2)=- 1D2 * DQE / QE ; idum=IFACE ; rdum4(4)=DHQ !AD
                         WRITE (MSG, 91030) rdum4(1:2),idum,rdum4(4:4)
                         CALL ERROR(WWWARN, 1030, PPPRI, ielc, 0, MSG)
-                    ENDIF
-                ENDIF
+                     ENDIF
+                  ENDIF
+               ENDIF
+            ENDDO out300
+            !           Final Depth Adjustment
+            !           ----------------------
+            IF (HSMALL) THEN
+               !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
+               AOK = .FALSE.
+               DHQ = Qasum * DZE
+               DHH = ZG - ZE
+               ZE = ZG
+               ! sb 021009 Error message always produced if pass.eq.npass
+               IF ((ABS (DHQ) + ABS (DHH) .GT.HERROR) .or.(passs.eq.npass)) THEN
+                  rdum4(1)=H ; rdum4(2)=DHQ ; rdum4(3)=DHH  !AD
+                  WRITE (MSG, 91024) rdum4(1:3)
+                  CALL ERROR(WWWARN, 1024, PPPRI, ielc, 0, MSG)
+               ENDIF
             ENDIF
-        ENDDO out300
-        !           Final Depth Adjustment
-        !           ----------------------
-        IF (HSMALL) THEN
-            !^^^^ RAH/SB small flows ^^^^^^^^^^^^^^^^^^^
-            AOK = .FALSE.
-            DHQ = Qasum * DZE
-            DHH = ZG - ZE
-            ZE = ZG
-            ! sb 021009 Error message always produced if pass.eq.npass
-            IF ((ABS (DHQ) + ABS (DHH) .GT.HERROR) .or.(passs.eq.npass)) THEN
-            rdum4(1)=H ; rdum4(2)=DHQ ; rdum4(3)=DHH  !AD
-                WRITE (MSG, 91024) rdum4(1:3)
-                CALL ERROR(WWWARN, 1024, PPPRI, ielc, 0, MSG)
-            ENDIF
-        ENDIF
-        !CALL SETHRF(ielc, ZE)
-        GGGETHRF(ielc) =ZE
-        ! End of Control Loop
-        ! -------------------
-    ENDDO out400
-    !IF (AOK) EXIT out900 !GOTO 901
-ENDDO out900
-IF(.not.aok) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
+            !CALL SETHRF(ielc, ZE)
+            GGGETHRF(ielc) =ZE
+            ! End of Control Loop
+            ! -------------------
+         ENDDO out400
+         !IF (AOK) EXIT out900 !GOTO 901
+      ENDDO out900
+      IF(.not.aok) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
 
 !901 CONTINUE
 !33+15+8+17+30=103
@@ -1772,8 +1772,8 @@ IF(.not.aok) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not b
 !28+14+11+7+9+2+17+15=103
 
 91030 FORMAT( 'Surface water discharge rate',1PG14.7,' reduced by', &
-        0PF7.2,'% at face',I4,': depth created =',SP,1PG15.7 )
-END SUBROUTINE OCFIX
+         0PF7.2,'% at face',I4,': depth created =',SP,1PG15.7 )
+   END SUBROUTINE OCFIX
 
 
 END MODULE OCmod2

@@ -17,24 +17,24 @@
 !> | 2026-03 | SB | 4.6 | Removed unused legacy arrays; made overlap arrays allocatable; added allocation helpers. |
 !> @endhistory
 MODULE COLM_CG
-USE SGLOBAL, ONLY : NELEE, LLEE, total_no_elements, top_cell_no
-IMPLICIT NONE
+   USE SGLOBAL, ONLY : NELEE, LLEE, total_no_elements, top_cell_no
+   IMPLICIT NONE
 
-INTEGER :: JBTLYR(NELEE)  !! Legacy bottom soil-layer index for each element; currently retained but unused.
-INTEGER :: NCOLMB(NELEE)  !! Bottom active contaminant cell for each soil column.
+   INTEGER :: JBTLYR(NELEE)  !! Legacy bottom soil-layer index for each element; currently retained but unused.
+   INTEGER :: NCOLMB(NELEE)  !! Bottom active contaminant cell for each soil column.
 
-DOUBLEPRECISION :: ZCOLMB(NELEE) !! Elevation of the base node of each soil column.
-DOUBLEPRECISION :: SCL           !! Scale factor for the legacy 32500 overlap-fraction encoding.
-DOUBLEPRECISION :: OODO          !! Reciprocal reference diffusion scale, `1/D0`.
+   DOUBLEPRECISION :: ZCOLMB(NELEE) !! Elevation of the base node of each soil column.
+   DOUBLEPRECISION :: SCL           !! Scale factor for the legacy 32500 overlap-fraction encoding.
+   DOUBLEPRECISION :: OODO          !! Reciprocal reference diffusion scale, `1/D0`.
 
-INTEGER, ALLOCATABLE :: JKZCOL(:,:,:) !! Integer lateral-transmissivity adjustment by element, overlap, and face.
-INTEGER, ALLOCATABLE :: JOLFN(:,:,:)  !! Overlap fraction by element, overlap, and face on the 32500 scale.
-INTEGER, ALLOCATABLE :: NOL(:,:)      !! Number of lateral overlap records by element and face.
-INTEGER, ALLOCATABLE :: NOLBT(:,:,:)  !! First overlap record for each element, cell, and face.
-INTEGER, ALLOCATABLE :: NOLCE(:,:,:)  !! Local cell number for each overlap record.
-INTEGER, ALLOCATABLE :: NOLCEA(:,:,:) !! Adjacent cell number for each overlap record.
+   INTEGER, ALLOCATABLE :: JKZCOL(:,:,:) !! Integer lateral-transmissivity adjustment by element, overlap, and face.
+   INTEGER, ALLOCATABLE :: JOLFN(:,:,:)  !! Overlap fraction by element, overlap, and face on the 32500 scale.
+   INTEGER, ALLOCATABLE :: NOL(:,:)      !! Number of lateral overlap records by element and face.
+   INTEGER, ALLOCATABLE :: NOLBT(:,:,:)  !! First overlap record for each element, cell, and face.
+   INTEGER, ALLOCATABLE :: NOLCE(:,:,:)  !! Local cell number for each overlap record.
+   INTEGER, ALLOCATABLE :: NOLCEA(:,:,:) !! Adjacent cell number for each overlap record.
 
-DOUBLEPRECISION :: WELDRA(LLEE) !! Well withdrawal rate mapped to each active column cell.
+   DOUBLEPRECISION :: WELDRA(LLEE) !! Well withdrawal rate mapped to each active column cell.
 !PRIVATE :: NELEE, LLEE
 
 CONTAINS
@@ -54,22 +54,22 @@ CONTAINS
 !> @note This routine has no dummy arguments and mutates allocatable arrays in
 !> `COLM_CG`.
 !> @endnote
-SUBROUTINE initialise_colm_cg()
+   SUBROUTINE initialise_colm_cg()
 
-   allocate (JKZCOL(total_no_elements, 2*top_cell_no+1, 4))
-   allocate (JOLFN(total_no_elements, 2*top_cell_no+1, 4))
-   allocate (NOL(total_no_elements, 4))
-   allocate (NOLBT(total_no_elements, top_cell_no+1, 4))
-   allocate (NOLCE(total_no_elements, 2*top_cell_no+1, 4))
-   allocate (NOLCEA(total_no_elements, 2*top_cell_no+1, 4))
-   JKZCOL=0
-   JOLFN=0
-   NOL=0
-   NOLBT=0
-   NOLCE=0
-   NOLCEA=0
+      allocate (JKZCOL(total_no_elements, 2*top_cell_no+1, 4))
+      allocate (JOLFN(total_no_elements, 2*top_cell_no+1, 4))
+      allocate (NOL(total_no_elements, 4))
+      allocate (NOLBT(total_no_elements, top_cell_no+1, 4))
+      allocate (NOLCE(total_no_elements, 2*top_cell_no+1, 4))
+      allocate (NOLCEA(total_no_elements, 2*top_cell_no+1, 4))
+      JKZCOL=0
+      JOLFN=0
+      NOL=0
+      NOLBT=0
+      NOLCE=0
+      NOLCEA=0
 
-END SUBROUTINE initialise_colm_cg
+   END SUBROUTINE initialise_colm_cg
 
 !> Deallocates setup-only column overlap arrays.
 !>
@@ -81,14 +81,14 @@ END SUBROUTINE initialise_colm_cg
 !> | Assumption | Reason |
 !> |:-----------|:-------|
 !> | `initialise_colm_cg` has already allocated the setup-only arrays. | The routine deallocates unconditionally. |
-SUBROUTINE deallocate_colm_cg()
+   SUBROUTINE deallocate_colm_cg()
 
-   deallocate (JKZCOL)
-   deallocate (JOLFN)
-   deallocate (NOL)
-   deallocate (NOLCE)
+      deallocate (JKZCOL)
+      deallocate (JOLFN)
+      deallocate (NOL)
+      deallocate (NOLCE)
 
-END SUBROUTINE deallocate_colm_cg
+   END SUBROUTINE deallocate_colm_cg
 
 
 
