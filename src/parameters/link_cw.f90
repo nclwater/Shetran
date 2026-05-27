@@ -19,31 +19,27 @@
 !> | 1998-03-08 | RAH | 4.2 | Amended comments. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
+!>
+!> @note The manual requires `DBDI > DBS` and notes an implementation bug when
+!> `DBDI` equals `2*DBI`.
+!> @endnote
 
 MODULE LINK_CW
 USE SGLOBAL, ONLY : NLFEE
 USE LINK_CC1
 IMPLICIT NONE
-! Imported constants
-!     LINK.CC1:        NLFEE
-! Commons
-DOUBLEPRECISION ACPBDO (NLFEE), ACPBSG (NLFEE), ACPBI (NLFEE)  !! Link cross-sectional area state.
-DOUBLEPRECISION ACPSFO (NLFEE)  !! Link surface-flow cross-sectional area state.
 
-!COMMON / AREAO / ACPBDO, ACPBSG, ACPBI, ACPSFO  
-!                             X-SECTIONAL AREAS
-DOUBLEPRECISION DBS, DBDI  !! Bed surface-layer thickness and minimum combined bed-layer thickness.
+DOUBLEPRECISION :: ACPBDO(NLFEE) !! Previous deeper-bed/deposited-material cross-sectional area.
+DOUBLEPRECISION :: ACPBSG(NLFEE) !! Bed-surface-layer cross-sectional area, `DBS*CWIDTH/Z2**2`.
+DOUBLEPRECISION :: ACPBI(NLFEE)  !! Initial deeper-bed/deposited-material cross-sectional area.
+DOUBLEPRECISION :: ACPSFO(NLFEE) !! Previous stream-water cross-sectional area, `ARXL/Z2**2`.
 
-!COMMON / DBED / DBS, DBDI  
-!                             THICKNESS OF BED SURFACE LAYER, AND THE
-!                             MINIMUM ALLOWABLE THICKNESS OF THE
-!                             COMBINED BED SURFACE AND DEEP LAYERS
-INTEGER :: LENDA (6)  !! Pointers to link-end numbers that can be attached to a given link.
+DOUBLEPRECISION :: DBS  !! Bed surface-layer depth below the river bed.
+DOUBLEPRECISION :: DBDI !! Bed deep-layer depth below the river bed; must be greater than `DBS`.
 
-!COMMON / POINT / LENDA  
-!                             POINTERS FOR THE NUMBER FOR THE END OF THE
-!                             LINKS WHICH CAN BE ATTACHED TO A GIVEN
-!                             LINK
-DOUBLEPRECISION THBED (NLFEE), THBEDO (NLFEE)  !! Current and previous bed thickness values by link.
+INTEGER :: LENDA(6) !! Link-end pointer table for ends that can attach to a link.
+
+DOUBLEPRECISION :: THBED(NLFEE)  !! Current stream-bed moisture content by link.
+DOUBLEPRECISION :: THBEDO(NLFEE) !! Previous stream-bed moisture content by link.
 !PRIVATE :: NLFEE
 END MODULE LINK_CW

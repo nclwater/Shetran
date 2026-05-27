@@ -6,6 +6,17 @@
 !> (`COLM`) and link calculations. These arrays carry loose-sediment, surface
 !> water, erosion, and sediment fraction state between component calls.
 !>
+!> State convention:
+!>
+!> | Symbol | Previous value stored |
+!> |:-------|:----------------------|
+!> | `DLSO` | Loose/bed sediment depth by element. |
+!> | `GNUO` | Unsaturated-zone erosion/source term by element. |
+!> | `FBETAO` | Loose/bed sediment composition fraction by element and size class. |
+!> | `FDELO` | Mobile sediment concentration fraction by element and size class. |
+!> | `FBBEDO` | Link bed sediment composition fraction by link and size class. |
+!> | `FBTSDO` | Link transported-sediment fraction by link and size class. |
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -17,13 +28,12 @@
 MODULE SED_CO
 USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE
 IMPLICIT NONE
-DOUBLEPRECISION DLSO (NELEE), GNUO (NELEE)  !! Previous loose-sediment depth and surface-water/erosion state for elements.
+DOUBLEPRECISION :: DLSO (NELEE)  !! Previous loose/bed sediment depth by element.
+DOUBLEPRECISION :: GNUO (NELEE)  !! Previous unsaturated-zone erosion/source term by element.
 
-!COMMON / SDDEPO / DLSO, GNUO  
-!                             OLD VALUES OF DEPTH OF LOOSE SEDIMENT
-!                             AND SURFACE WATER, AND THE RATE OF EROSION
-!                             OF THE UNSATURATED ZONE
-DOUBLEPRECISION FBETAO (NELEE, NSEDEE), FDELO (NELEE, NSEDEE)  !! Previous element sediment fraction state.
-DOUBLEPRECISION FBBEDO (NLFEE, NSEDEE), FBTSDO (NLFEE, NSEDEE)  !! Previous link bed and transported sediment fraction state.
+DOUBLEPRECISION :: FBETAO (NELEE, NSEDEE) !! Previous loose/bed sediment composition fraction by element and size class.
+DOUBLEPRECISION :: FDELO (NELEE, NSEDEE)  !! Previous mobile sediment concentration fraction by element and size class.
+DOUBLEPRECISION :: FBBEDO (NLFEE, NSEDEE) !! Previous link bed sediment composition fraction by link and size class.
+DOUBLEPRECISION :: FBTSDO (NLFEE, NSEDEE) !! Previous link transported-sediment fraction by link and size class.
 !PRIVATE :: NELEE, NLFEE, NSEDEE
 end MODULE SED_CO

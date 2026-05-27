@@ -1,44 +1,33 @@
 !> summary: SHETRAN main program.
 !> author: Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University; Newcastle University Water Group
 !>
-!> Main program entry point for the SHETRAN hydrological modelling system.
-!> This program coordinates command-line/file selection, input opening,
-!> initialization, simulation execution, final output, and visualisation output.
+!> Main executable entry point for the SHETRAN hydrological modelling system.
 !>
-!> ### Program Responsibilities:
-!> - Parse command line arguments and configuration
-!> - Initialize all model components and data structures
-!> - Execute the main simulation time-stepping loop
-!> - Generate final outputs and cleanup resources
+!> `SHETRAN` resolves the run-data file and catchment paths, enables the optional
+!> floating-point trap, initializes the run clock, opens model files, runs the
+!> simulation driver, writes final framework and extra outputs, records the final
+!> visualisation state, and then pauses briefly before exit.
 !>
-!> ### Program Flow:
-!> 1. **Initialization**: Parse command line, read configuration
-!> 2. **Setup**: Initialize all model components and data structures
-!> 3. **Simulation**: Execute main time-stepping loop
-!> 4. **Finalization**: Write final outputs and cleanup
+!> Command-line selection is delegated to [[get_dir_and_catch]]:
 !>
-!> ### Related Components:
-!> The executable coordinates the SHETRAN components described in the user
-!> manual:
+!> | Mode | Effect |
+!> |:-----|:-------|
+!> | no argument or `-a` | Open a file-selection dialog for a run-data file. |
+!> | `-f <file>` | Use the supplied run-data filename directly. |
+!> | `-c` | Look up `default` in `catchments.txt`; named lookup is documented in [[get_dir_and_catch]]. |
+!> | trailing `-error` | Do not wait for Enter after fatal errors. |
 !>
-!> - **FRmod**: frame setup, input/output control, indexing, bank setup, and mass balance.
-!> - **ETmod**: evapotranspiration, interception, and vegetation controls.
-!> - **OCmod/OCmod2**: overland and channel flow routing.
-!> - **VSmod**: variably saturated subsurface flow.
-!> - **SMmod**: optional snowmelt calculations.
-!> - **SYmod**: optional sediment erosion and transport.
-!> - **CMmod**: optional contaminant transport; requires bank elements when enabled.
-!> - **MNmod**: optional mineral nitrogen/nitrate calculations called through the contaminant component.
-!> - **ZQmod**: optional reservoir stage-discharge table support.
-!> - **RUN_SIM**: main simulation time-step driver.
-!> - **REST**: meteorological input, timestep control, extra output, and water-balance utilities.
-!> - **GETDIRQQ**: cross-platform command-line and directory handling.
+!> Execution sequence:
 !>
-!> @note This is the main entry point for all SHETRAN simulations
-!> @endnote
+!> | Step | Call | Purpose |
+!> |:-----|:-----|:--------|
+!> | 1 | `GET_DIR_AND_CATCH` | Resolve run-data filename, catchment name, input directory, and root directory. |
+!> | 2 | `ALTRAP` | Enable the project's floating-point exception trap if configured. |
+!> | 3 | `FROPEN` | Open/read run-data-controlled input and output files. |
+!> | 4 | `SIMULATION` | Run the main timestep driver. |
+!> | 5 | `FROUTPUT`, `EXTRA_OUTPUT`, `RECORD_VISUALISATION_DATA` | Write final reports and visualisation data. |
 !>
-!> @warning Ensure all input files are properly formatted and accessible
-!> @endwarning
+!> Required input files are those named by the selected run-data file.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -78,53 +67,41 @@ PROGRAM SHETRAN
    USE REST, ONLY: extra_output  !< Generate extra output files
 
    ! Main simulation execution controller
-   USE RUN_SIM, ONLY: SIMULATION  !< Execute main simulation loop   IMPLICIT NONE
+   USE RUN_SIM, ONLY: SIMULATION  !< Execute main simulation loop.
 
    IMPLICIT NONE
     
-   ! Parse command line arguments and determine input files
-   ! Processes command line to get rundata file and directory paths
-   ! Note: Uses cross-platform implementation for Linux/Windows compatibility
+   ! Resolve run-data file, catchment name, input directory, and root directory.
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
     
    ! Testing trap of floating point exceptions
    ! Is it still necessary? Default is _off_
    CALL ALTRAP
 
-   ! Initialize simulation state variables
-   ! Set initial conditions for time stepping and model state
+   ! Initialize the timestep counter and model clock before file setup.
    nstep = 0        !< Initialize step counter
    uznow = zero     !< Initialize time variable
 
-   ! Open all input and output data files
-   ! Opens data files based on configuration and validates formats
-   ! Note: File handles are managed by the framework system
+   ! Open input and output files specified through the run-data file.
    CALL FROPEN
 
-   ! Execute main simulation time-stepping loop
-   ! This is the core computational engine that advances the simulation
-   ! through time, solving the governing equations at each time step
-   ! See RUN_SIM module for detailed simulation algorithm
+   ! Execute the main timestep loop.
    CALL SIMULATION
 
-   ! Generate final framework output and close files
-   ! Writes final mass balance, summary statistics, and closes file handles
+   ! Write final framework output and close framework-managed files.
    CALL FROUTPUT('end  ')
 
-   ! Generate additional output files
-   ! Creates supplementary output files for specialized analysis
+   ! Write supplementary output files.
    CALL EXTRA_OUTPUT()
 
-   ! Record final visualization data
-   ! Writes final state data for post-processing visualization
-   ! Note: Converts time to single precision for visualization system
+   ! Record final state for post-processing visualisation.
    CALL RECORD_VISUALISATION_DATA(REAL(uznow, KIND=4), 'end')
 
    ! ============================================================================
    ! Program completion
    ! ============================================================================
 
-   ! The program now terminates cleanly
+   ! Keep the console visible briefly for interactive Windows runs.
    CALL sleepqq(5000) 
 
 END PROGRAM SHETRAN

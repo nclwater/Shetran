@@ -85,6 +85,7 @@
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-1998 | GP/RAH | 4.0-4.2 | Developed and reorganised the VSS common state, soil tables, initialisation state, connectivity, boundary handling, and column solver. |
+!> | 1998-11 | SPA | - | Added the channel-aquifer flow correction: pass adjacent channel depth into [[vscolm]]/[[vssai]], limit channel-to-aquifer contact area for low channel water depth, simplify the stream-aquifer derivative, and align exchange-flow reporting with BALWAT. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted the VSS `.F` files and include blocks into this Fortran 90 module. |
 !> | 2026-03 | SB | 4.6 | Moved saved arrays into allocatable module storage through `INITIALISE_AL_C2` for AD/current builds. |
 !> @endhistory
@@ -973,9 +974,6 @@ OUT500 : DO NIT = 1, NITMAX
           IFA), CZ, CAIJ, CZS (IFA), CPSI, CKIJ (ICBOT, IFA), &
           CDKIJ (ICBOT, IFA), CB (ICBOT), CR (ICBOT), CQH, depadj ( &
           ifa), cdelz)
-!!!!!! added depadj to call to vssai, SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       ENDIF
 
 
@@ -3076,7 +3074,8 @@ END SUBROUTINE VSPREP
 !> [[vsconc]].
 !> @endnote
 SUBROUTINE VSREAD (NAQCON, IAQCON)
-INTEGER :: NAQCON, IAQCON (4, NVSEE)
+INTEGER, INTENT(OUT) :: NAQCON       !! Number of user-defined aquifer connectivity records read from `VS10`.
+INTEGER, INTENT(OUT) :: IAQCON(4,NVSEE) !! User-defined aquifer connectivity records read from `VS10a`.
 ! Locals, etc
 INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, &
  IXY0, IY
@@ -3887,13 +3886,7 @@ DOUBLEPRECISION, INTENT(INOUT) :: CQH(4,ICBOT:ICTOP) !! Diagnostic lateral fluxe
 ! Locals, etc
 INTEGER :: ICL, IDUM
 DOUBLEPRECISION QDUM, DQDUM, AOL, DH, KIJ
-! !!!! SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
-
 DOUBLEPRECISION ddum
-!^^^^^^^^^^^^^^^^^^^^^^^^^^
 !----------------------------------------------------------------------*
 ! set lowest cell in exposed bank face
 IF (JCBC.EQ.9) THEN
@@ -3910,21 +3903,15 @@ ENDIF
 DO 200 ICL = IDUM, ICTOP
 
    DH = CZS - CZ (ICL) - CPSI (ICL)
-! !!!!! change to calculation of AOL for flow out of channel
-! limits flows if depth of water in channel is low, or zero
-! SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+! Limit channel-to-aquifer contact area when channel water depth is low.
    ddum = 1.0
    if (GTZERO(dh)) ddum = min (one, depadj / cdelz (icl) )
 
    AOL = (ddum * CAIJ (FACE, ICL) ) / CDELL
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    KIJ = CKIJ (ICL)
-! !!!! SPA, 03/11/98.  Change definition of flow derivative
+! Active derivative excludes the conductivity derivative term.
 !        DQDUM =   ( CDKIJ(ICL)*DH - KIJ ) * AOL
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    dqdum = - kij * aol
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
    QDUM = KIJ * DH * AOL
    CQH (FACE, ICL) = QDUM
@@ -4036,6 +4023,14 @@ END SUBROUTINE VSSAI
 !> | `QBKF(link,bank)` | Sum of lateral VSS fluxes from the bank/grid side above the channel bed. |
 !> | `QBKB(link,bank)` | Half-link surface exchange `-0.5*A_link*QH(link)` only with explicit banks and a wet link. |
 !> | `QBKI(link,bank)` | Same half-link exchange only with explicit banks and a dry link. |
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-11-03 | SPA | - | Passed adjacent surface-water depth (`depadj`) to [[vscolm]], as well as the adjacent water-surface elevation, for the channel-aquifer flow correction. |
+!> | 1998-11-04 | SPA | - | Made reported bank exchange flows consistent with BALWAT. |
+!> @endhistory
 SUBROUTINE VSSIM ()
 INTEGER :: NITMAX, NITMIN
 DOUBLEPRECISION GEPSMX, DRYH
@@ -4057,11 +4052,8 @@ DOUBLEPRECISION PSIM (LLEE), VSPSIN (LLEE, NELEE), VSTHEN (LLEE, &
 DOUBLEPRECISION CPSI1 (LLEE, 4), CPSIN1 (LLEE, 4), CKIJ1 (LLEE, 4) &
  , CZS (4)
 integer,save :: errorcount2=0
-!!!!!! Extra array: depadj - depth of surface water for adjacent
-! elements - added for channel aquifer flows fix, SPA, 03/11/98
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+! Adjacent surface-water depth used by the channel-aquifer flow correction.
 DOUBLEPRECISION depadj (4)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 LOGICAL :: TEST, OK (NELEE), g670
 !----------------------------------------------------------------------*
 ! Initialization
@@ -4242,12 +4234,8 @@ out660 : DO NIT = 1, NITMAX
          ELSE
 
             CZS (IFA) = GETHRF (JEL)
-! !!!!! fix for channel aquifer flows, SPA, 03/11/98
-! Pass depth of water in adjacent elements to vscolm
-! as well as elevation of water surface
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+! Pass adjacent water depth as well as water-surface elevation.
             depadj (ifa) = cdnet (jel)
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             JFA = ICMREF (IEL, IFA + 8)
             DXYDUM = DHF (JEL, JFA)
          ENDIF
@@ -4298,8 +4286,6 @@ out660 : DO NIT = 1, NITMAX
        VSTHE (ICBOT, IEL), QVSH (1, ICBOT, IEL), QVSV (ICBOT - 1, &
        IEL), QVSWLI (ICWLBT, IW), QVSSPR (IEL), ZVSPSL (IEL), &
        depadj)
-!!!!!! extra argument depadj added for channel-aquifer flows fix
-! SPA, 03/11/98
 ! record largest change for this iteration
       DPSIEL = ZERO
       DO 400 ICL = ICBOT, ICTOP
@@ -4389,8 +4375,7 @@ DO 780 IBK = 1, 2
          QBK = QBK + QVSH (JFA, JCL, JEL)
 
   740       END DO
-! !!! mod.s to make definition of exchange flows consistent with balwat
-! SPA, 04/11/98
+! Keep exchange-flow definitions consistent with BALWAT.
       QBKF (IEL, IBK) = QBK
       QBKB (IEL, IBK) = QI * IBANK * WET
 
@@ -4400,9 +4385,6 @@ DO 780 IBK = 1, 2
   780 END DO
 
 END SUBROUTINE VSSIM
-! 26/1/96
-
-
 
 !> Builds internal soil hydraulic property lookup tables.
 !>
@@ -4475,6 +4457,13 @@ END SUBROUTINE VSSIM
 !> `VSPDET(1:4,:)` is forced to zero.
 !>
 !> If `BSOILP` is enabled, the generated tables are written to `PPPRI`.
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07 to 1996-01 | GP | 4.0 | Written as the VSS soil hydraulic property table generator. |
+!> @endhistory
 !>
 !> @warning `IVSFLG=4` is parsed as a legacy option for tabulated water content
 !> with Averjanov-style relative conductivity, but this code path is unfinished

@@ -18,24 +18,28 @@
 !> @endhistory
 MODULE COLM_C1
 IMPLICIT NONE
-!
-! Commons
-DOUBLEPRECISION D0, Z2, Z2SQ, Z2OD, Z2SQOD  !! Column scale references and derived scale factors.
+DOUBLEPRECISION :: D0     !! Reference diffusion scale for contaminant column equations.
+DOUBLEPRECISION :: Z2     !! Reference column depth used to nondimensionalise vertical geometry.
+DOUBLEPRECISION :: Z2SQ   !! Squared reference depth, `Z2**2`.
+DOUBLEPRECISION :: Z2OD   !! Reference depth divided by the diffusion scale, `Z2/D0`.
+DOUBLEPRECISION :: Z2SQOD !! Squared reference depth divided by the diffusion scale, `Z2**2/D0`.
 
-!COMMON / CLREF / D0, Z2, Z2SQ, Z2OD, Z2SQOD  
-!                            SCALE REFERENCES
-DOUBLEPRECISION CST1, CST2, CST3, SGMA, SGSQ, SGTSE, SGSTSE, &
- OMSGMA  !! Finite-difference and scaling constants.
-DOUBLEPRECISION OPSGL, OPSGSL, TSE  !! Finite-difference and time-scale constants.
+DOUBLEPRECISION :: CST1   !! Column convection coefficient, `Z2/(AREA*D0*ZONE1)`.
+DOUBLEPRECISION :: CST2   !! Column area-scaling coefficient, `Z2/(AREA*D0)`.
+DOUBLEPRECISION :: CST3   !! Bottom-cell convection coefficient, `CST2/KSP(NCEBOT)`.
+DOUBLEPRECISION :: SGMA   !! Implicit finite-difference weighting factor.
+DOUBLEPRECISION :: SGSQ   !! Squared finite-difference weighting factor, `SGMA**2`.
+DOUBLEPRECISION :: SGTSE  !! Sigma-weighted scaled timestep, `SGMA*TSE`.
+DOUBLEPRECISION :: SGSTSE !! Squared-sigma weighted scaled timestep, `SGSQ*TSE`.
+DOUBLEPRECISION :: OMSGMA !! Explicit finite-difference weighting complement, `1-SGMA`.
+DOUBLEPRECISION :: OPSGL  !! Liquid-phase storage factor, `1+SGTSE*GCAPLA`.
+DOUBLEPRECISION :: OPSGSL !! Sorbed-phase storage factor, `1+SGSTSE*GCAPLA`.
+DOUBLEPRECISION :: TSE    !! Scaled contaminant timestep, `D0*DTUZ/Z2SQ`.
 
-!COMMON / FD / CST1, CST2, CST3, SGMA, SGSQ, SGTSE, SGSTSE, OMSGMA, &
-! OPSGL, OPSGSL, TSE
-!                             FINITE DIFFERENCE AND SCALING CONSTANTS
-DOUBLEPRECISION FNCPSF  !! Fraction of the highest cell below the phreatic surface.
+DOUBLEPRECISION :: FNCPSF !! Fraction of the highest cell below the phreatic surface.
 
-!COMMON / CLNUM / FNCPSF  
-!                             CELL FRACTION FOR HIGHEST CELL BELOW
-!                             PHREATIC SURFACE
-INTEGER :: NCEBOT, NCETOP, NCEPSF  !! Bottom, top, and phreatic-surface column cell indices.
+INTEGER :: NCEBOT !! Bottom active column cell index.
+INTEGER :: NCETOP !! Top active column cell index.
+INTEGER :: NCEPSF !! Highest active cell treated as below the phreatic surface.
 
 END MODULE COLM_C1

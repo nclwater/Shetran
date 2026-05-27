@@ -18,46 +18,51 @@
 MODULE COLM_CC
 USE SGLOBAL, ONLY : LLEE
 IMPLICIT NONE
-DOUBLEPRECISION GCAPLA  !! General contaminant capacity scaling value.
+DOUBLEPRECISION :: GCAPLA       !! Scaled contaminant generation coefficient for the active contaminant.
 
-!COMMON / GENCAP / GCAPLA  
-DOUBLEPRECISION CSWA (4), CSWAT (4), RRRSWA (4), RRRSAT (4)  !! Lateral surface contaminant convection state.
-DOUBLEPRECISION RRRLS, RRRLSC, RRRLST, RRRSW, RRRSWC, RRRSWT  !! Lateral loose-sediment and surface-water contaminant terms.
+DOUBLEPRECISION :: CSWA(4)      !! Previous surface-water concentration used on each surface face.
+DOUBLEPRECISION :: CSWAT(4)     !! Time derivative of `CSWA`.
+DOUBLEPRECISION :: RRRSWA(4)    !! Previous surface-water retardation factor for each surface face.
+DOUBLEPRECISION :: RRRSAT(4)    !! Time derivative of `RRRSWA`.
+DOUBLEPRECISION :: RRRLS        !! Loose-sediment retardation factor.
+DOUBLEPRECISION :: RRRLSC       !! Concentration derivative of `RRRLS`.
+DOUBLEPRECISION :: RRRLST       !! Time derivative of `RRRLS`.
+DOUBLEPRECISION :: RRRSW        !! Surface-water retardation factor for the column.
+DOUBLEPRECISION :: RRRSWC       !! Concentration derivative of `RRRSW`.
+DOUBLEPRECISION :: RRRSWT       !! Time derivative of `RRRSW`.
 
-!COMMON / CLSURC / CSWA, CSWAT, RRRSWA, RRRSAT, RRRLS, RRRLSC, &
- !RRRLST, RRRSW, RRRSWC, RRRSWT
-!                            DATA FOR LATERAL CONVECTION AT SURFACE
-DOUBLEPRECISION CCAPA (LLEE, 4), CCAPAT (LLEE, 4)  !! Convection concentration arrays in the saturated zone.
+DOUBLEPRECISION :: CCAPA(LLEE,4)  !! Previous advective concentration for each cell face.
+DOUBLEPRECISION :: CCAPAT(LLEE,4) !! Time derivative of `CCAPA`.
 
-!COMMON / CLCOV / CCAPA, CCAPAT  
-!                            DATA FOR CONVECTION CONC. IN THE SAT. ZONE
-DOUBLEPRECISION CCAP (LLEE), COLCAP (LLEE), SCAP (LLEE), SOLCAP ( &
- LLEE)  !! Contaminant concentrations in the column.
+DOUBLEPRECISION :: CCAP(LLEE)   !! Solved mobile-water concentration for each column cell.
+DOUBLEPRECISION :: COLCAP(LLEE) !! Previous mobile-water concentration for each column cell.
+DOUBLEPRECISION :: SCAP(LLEE)   !! Solved sorbed/solid concentration for each column cell.
+DOUBLEPRECISION :: SOLCAP(LLEE) !! Previous sorbed/solid concentration for each column cell.
 
-!COMMON / CLCONC / CCAP, COLCAP, SCAP, SOLCAP  
-!                            CONCENTRATIONS IN COLUMN
-DOUBLEPRECISION EDCAP (LLEE), EDCAPC (LLEE), EDCAPT (LLEE)  !! Plant uptake terms from column cells.
-DOUBLEPRECISION ESCAP (LLEE), ESCAPS (LLEE), ESCAPT (LLEE)  !! Soil/solution uptake or exchange terms from column cells.
-DOUBLEPRECISION ESSCAP, ESSCPC, ESSCPT  !! Aggregate plant uptake or exchange terms.
+DOUBLEPRECISION :: EDCAP(LLEE)  !! Mobile-phase sink/source rate for each column cell.
+DOUBLEPRECISION :: EDCAPC(LLEE) !! Concentration derivative of `EDCAP`.
+DOUBLEPRECISION :: EDCAPT(LLEE) !! Time derivative of `EDCAP`.
+DOUBLEPRECISION :: ESCAP(LLEE)  !! Sorbed-phase sink/source rate for each column cell.
+DOUBLEPRECISION :: ESCAPS(LLEE) !! Sorbed-concentration derivative of `ESCAP`.
+DOUBLEPRECISION :: ESCAPT(LLEE) !! Time derivative of `ESCAP`.
+DOUBLEPRECISION :: ESSCAP       !! Aggregate surface-cell sink/source rate.
+DOUBLEPRECISION :: ESSCPC       !! Concentration derivative of `ESSCAP`.
+DOUBLEPRECISION :: ESSCPT       !! Time derivative of `ESSCAP`.
 
-!COMMON / CLPLT / EDCAP, EDCAPC, EDCAPT, ESCAP, ESCAPS, ESCAPT, &
- !ESSCAP, ESSCPC, ESSCPT
-!                            RATES OF PLANT UPTAKE FROM THE COLUMN
-DOUBLEPRECISION DDOD (LLEE), DDOD1 (LLEE)  !! Current and previous dispersion coefficients for the column.
+DOUBLEPRECISION :: DDOD(LLEE)   !! Previous scaled dispersion coefficient for each column cell.
+DOUBLEPRECISION :: DDOD1(LLEE)  !! Current scaled dispersion coefficient for each column cell.
 
-!COMMON / CLDSP / DDOD, DDOD1  
-!                            DISEPERSION COEFFICIENTS FOR COLUMN
-DOUBLEPRECISION GNERD (LLEE), GNDSE (LLEE), GND2 (LLEE), GNDSE2 ( &
- LLEE)  !! Generation data carried to daughter contaminants.
+DOUBLEPRECISION :: GNERD(LLEE)  !! Mobile-phase generation term passed to daughter contaminants.
+DOUBLEPRECISION :: GNDSE(LLEE)  !! Sorbed-phase generation term passed to daughter contaminants.
+DOUBLEPRECISION :: GND2(LLEE)   !! Time-derivative component of `GNERD`.
+DOUBLEPRECISION :: GNDSE2(LLEE) !! Time-derivative component of `GNDSE`.
 
-!COMMON / GENER / GNERD, GNDSE, GND2, GNDSE2  
-!                            GENERATION DATA TO BE CARRIED
-!                            TO DAUGHTER CONTAMINANT
-DOUBLEPRECISION AALPSO (LLEE), FFSO (LLEE), GGNNSO (LLEE), &
- KKDSO (LLEE)  !! Soil property data for contaminant calculations.
+DOUBLEPRECISION :: AALPSO(LLEE) !! Longitudinal dispersivity for each column cell.
+DOUBLEPRECISION :: FFSO(LLEE)   !! Fraction of sorption sites assigned to equilibrium adsorption.
+DOUBLEPRECISION :: GGNNSO(LLEE) !! Freundlich exponent for each column cell.
+DOUBLEPRECISION :: KKDSO(LLEE)  !! Distribution coefficient for each column cell.
 
-!COMMON / SOILD / AALPSO, FFSO, GGNNSO, KKDSO  
-!                            SOIL PROPERTY DATA
-DOUBLEPRECISION CCPRF, CCPRFT  !! Contaminant column reference/work values.
+DOUBLEPRECISION :: CCPRF        !! Lower-boundary reference concentration.
+DOUBLEPRECISION :: CCPRFT       !! Time derivative of `CCPRF`.
 !PRIVATE :: LLEE
 END MODULE COLM_CC

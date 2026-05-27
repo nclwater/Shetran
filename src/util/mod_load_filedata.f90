@@ -1,19 +1,12 @@
 !> summary: Shared SHETRAN input-file reading and validation utilities.
-!> author: AB / RAH, Newcastle University; JE, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
+!> author: AB / RAH, Newcastle University; JE, Newcastle University
+!> author: Stephen Birkinshaw, Newcastle University; Sven Berendsen, Newcastle University
 !>
 !> This module contains the legacy `AL*` input helpers used throughout SHETRAN
 !> to read scalar, array, category-table, and interpolated data from model input
 !> files. The routines also provide common validation checks, default-value
 !> handling, bank-element value propagation, and simple floating-point exception
 !> trap setup.
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | - | AB/RAH | - | Original `AL*.F` routines. |
-!> | 2012-08 | JE | - | Fortran 90 conversion replacing the `AL*.F` files. |
-!> | 2020-03-05 | SvenB | - | Formatting and documentation cleanup; renamed `NCAT`, `NTABEE`, `CCELL`, `NCATEE`, `CTAB`, and `DTAB`. |
-!> @endhistory
 !>
 !> @todo figure out for each method what the variable intents are.
 !> @todo replace the GOTO-jumps to outisde a loop with EXIT
@@ -22,6 +15,14 @@
 !> @todo combine / clean ALREAD, ALRED2, ALREDI, ALREDF, ALREDL, ALREDC
 !> @todo use DIMENSION in variable def
 !> @todo is ALTRAP still necessary?
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | - | AB/RAH | - | Original `AL*.F` routines. |
+!> | 2012-08 | JE | - | Fortran 90 conversion replacing the `AL*.F` files. |
+!> | 2020-03-05 | SvenB | - | Formatting/docs cleanup and selected variable renames. |
+!> @endhistory
 MODULE mod_load_filedata
 
     USE SGLOBAL
@@ -29,12 +30,12 @@ MODULE mod_load_filedata
 
     IMPLICIT NONE
 
-    CHARACTER(len=80)   :: HEAD0_alread='( nothing read yet )',                 &
-                           HEAD0_alredc='( nothing read yet )',                 &
-                           HEAD0_alredi='( nothing read yet )',                 &
-                           HEAD0_alred2='( nothing read yet )',                 &
-                           HEAD0_alredl='( nothing read yet )',                 &
-                           HEAD0_alredf='( nothing read yet )'
+    CHARACTER(len=80) :: HEAD0_alread='( nothing read yet )' !! Last heading seen by `ALREAD`.
+    CHARACTER(len=80) :: HEAD0_alredc='( nothing read yet )' !! Last heading seen by `ALREDC`.
+    CHARACTER(len=80) :: HEAD0_alredi='( nothing read yet )' !! Last heading seen by `ALREDI`.
+    CHARACTER(len=80) :: HEAD0_alred2='( nothing read yet )' !! Last file-management heading from `ALRED2`.
+    CHARACTER(len=80) :: HEAD0_alredl='( nothing read yet )' !! Last heading seen by `ALREDL`.
+    CHARACTER(len=80) :: HEAD0_alredf='( nothing read yet )' !! Last heading seen by `ALREDF`.
     
 
     ! --------------------------------------------------------------------------
@@ -52,43 +53,73 @@ MODULE mod_load_filedata
     CONTAINS
 
   
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19940527 | ? | - | Initial version |
-      !> | 19940919 | AB/RAH | - | v3.4.1 |
-      !> @endhistory
     !> Reads a floating-point distributed data array for elements or columns.
     !>
     !> `ALALLF` reads category/grid/list-style input from `IUNIT`, expands the
     !> values to active SHETRAN elements, handles bank-element propagation when
     !> `BEXBK` is enabled, and returns the resulting floating-point array in `AEL`.
+    !>
+    !> Input format selected by the first value read from `LINE`:
+    !>
+    !> | `NUM_CATEGORIES_TYPES` | Behaviour |
+    !> |:-----------------------|:----------|
+    !> | `< MINCAT` | Fatal invalid-option error. |
+    !> | `< 0` | Special sentinel; return without filling `AEL`. |
+    !> | `0` | Read explicit link values, when requested, then a gridded real array. |
+    !> | `1` | Read one category value per output vector and fill all target elements uniformly. |
+    !> | `> 1` | Read category values plus link/grid category maps, then expand to elements. |
+    !>
+    !> `FLAG=0` targets links plus land elements; non-zero `FLAG` targets land
+    !> columns only. `N2` is the number of values per element.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19940527 | ? | - | Initial version |
+    !> | 19940919 | AB/RAH | - | v3.4.1 |
+    !> @endhistory
     SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF,          &
                        NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, ICMBK, ICMREF,  &
                        BEXBK, LINKNS, NUM_CATEGORIES_TYPES,  AEL, IDUM, DUMMY)
-
-        ! IO-vars
-        INTEGER(kind=I_P)   :: FLAG, N2, MINCAT, IUNIT, OUNIT  
-        INTEGER(kind=I_P)   :: NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE  
-        INTEGER(kind=I_P)   :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2),              &
-                               ICMREF (NELEE, 4, 2:2)
-        LOGICAL             :: BEXBK, LINKNS (NLF)  
-        CHARACTER (LEN=*)   :: LINE  
-        !
-        ! Output arguments
-        INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES  
+        INTEGER(kind=I_P)   :: FLAG   !! Target selector: `0` includes links; non-zero reads land columns only.
+        INTEGER(kind=I_P)   :: N2     !! Number of values to read for each target element.
+        INTEGER(kind=I_P)   :: MINCAT !! Minimum allowed category-count option.
+        INTEGER(kind=I_P)   :: IUNIT  !! Input unit positioned before the distributed-data section.
+        INTEGER(kind=I_P)   :: OUNIT  !! Output/error unit used for echoes and diagnostics.
+        INTEGER(kind=I_P)   :: NEL    !! Number of active elements, including links and banks.
+        INTEGER(kind=I_P)   :: NLF    !! Number of active channel links.
+        INTEGER(kind=I_P)   :: NX     !! Number of active grid columns in the x direction.
+        INTEGER(kind=I_P)   :: NY     !! Number of active grid rows in the y direction.
+        INTEGER(kind=I_P)   :: NELEE  !! Allocated element dimension.
+        INTEGER(kind=I_P)   :: NLFEE  !! Allocated channel-link dimension.
+        INTEGER(kind=I_P)   :: NXEE   !! Allocated x-grid dimension.
+        INTEGER(kind=I_P)   :: NYEE   !! Allocated y-grid dimension.
+        INTEGER(kind=I_P)   :: ICMXY(NXEE, NY)      !! Grid-to-element reference map.
+        INTEGER(kind=I_P)   :: ICMBK(NLFEE, 2)      !! Bank element references for each link side.
+        INTEGER(kind=I_P)   :: ICMREF(NELEE, 4, 2:2) !! Adjacent element references by element and face.
+        LOGICAL             :: BEXBK       !! True when bank elements should inherit adjacent grid values.
+        LOGICAL             :: LINKNS(NLF) !! True when a channel link is north-south oriented.
+        CHARACTER (LEN=*)   :: LINE        !! Section title stem used to find and echo input records.
+        INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES !! Category option/count read from the input section.
         REAL(kind=R8P)      :: AEL (1 + NLF * (FLAG / N2) :                     &
-                                    NELEE- (NELEE-NEL) * (1 / N2), N2)
-        
-        ! Other vars
-        INTEGER(kind=I_P), DIMENSION(NXEE*NYEE) :: IDUM  
-        REAL(kind=R8P)      :: DUMMY (NELEE)  
-        
-        INTEGER(kind=I_P)   :: I1, I2, ICAT, IDUM0, IEL, LN, N, X, XY0, Y  
-        LOGICAL             :: BLINK  
-        CHARACTER           :: CDUM
-        CHARACTER(len=132)  :: MSG
-        CHARACTER(len=8)    :: NEXT  
+                                    NELEE- (NELEE-NEL) * (1 / N2), N2)           !! Expanded element values.
+        INTEGER(kind=I_P), DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for category maps.
+        REAL(kind=R8P)      :: DUMMY (NELEE)             !! Real workspace for gridded or category values.
+
+        INTEGER(kind=I_P)   :: I1    !! First element index for uniform-value assignment.
+        INTEGER(kind=I_P)   :: I2    !! Output-vector index.
+        INTEGER(kind=I_P)   :: ICAT  !! Category code for the current element.
+        INTEGER(kind=I_P)   :: IDUM0 !! Scalar integer scratch argument for `ALREAD`.
+        INTEGER(kind=I_P)   :: IEL   !! Element index being assigned or reported.
+        INTEGER(kind=I_P)   :: LN    !! Effective length of the generated title stem.
+        INTEGER(kind=I_P)   :: N     !! Number of elements assigned in the uniform-value branch.
+        INTEGER(kind=I_P)   :: X     !! Grid x-index.
+        INTEGER(kind=I_P)   :: XY0   !! Row offset into flattened grid workspace.
+        INTEGER(kind=I_P)   :: Y     !! Grid y-index.
+        LOGICAL             :: BLINK !! True when link values are read explicitly.
+        CHARACTER           :: CDUM  !! Scalar character scratch argument for `ALREAD`.
+        CHARACTER(len=132)  :: MSG   !! Error message buffer.
+        CHARACTER(len=8)    :: NEXT  !! Generated subsection title stem.
         
         ! Code =================================================================
 
@@ -248,41 +279,53 @@ MODULE mod_load_filedata
     END SUBROUTINE ALALLF
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | ? | ? | - | Initial version |
-      !> @endhistory
     !> Reads category identifiers for each active grid and bank element.
     !>
     !> `ALALLI` expands the category map from the input file into element order.
     !> Bank elements inherit the category of the adjacent grid element, matching
     !> the manual rule that distributed category data are supplied by grid cell.
+    !> Category identifiers outside `1:NUM_CATEGORIES_TYPES` are fatal.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | ? | ? | - | Initial version |
+    !> @endhistory
     SUBROUTINE ALALLI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX,  &
                        NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
                        LINKNS, CATTYP, IDUM)
-    
-        ! INPUT ARGUMENTS
-        INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES !< number of category types
-        INTEGER(kind=I_P)   :: IUNIT, OUNIT, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE
-        INTEGER(kind=I_P)   :: ICMXY (NXEE, NY), ICMBK (NLFEE, 2),              &
-                               ICMREF (NELEE, 4, 2:2)
-        LOGICAL             :: BEXBK, LINKNS (NLFEE)  
-        CHARACTER (LEN=*)   :: LINE  
-        
-        ! OUPUT ARGUMENTS
-        INTEGER(kind=I_P)   :: CATTYP (NLF + 1:NEL)  
-        
-        ! WORKSPACE ARGUMENTS
-        INTEGER, DIMENSION(:), INTENT(IN)   :: IDUM  
-        
-        ! LOCALS ETC.
-        !
-        ! integers from ALBANK
-        INTEGER(kind=I_P)   :: BANK1, BANK2, FACE1, FACE2, GRID1, GRID2, ISNS,  &
-                               LINK
-        ! integers from ALALLF
-        INTEGER(kind=I_P)   :: ICAT, IEL, X, XY0, Y  
+        INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES !! Number of valid category types.
+        INTEGER(kind=I_P)   :: IUNIT !! Input unit positioned before the category-grid section.
+        INTEGER(kind=I_P)   :: OUNIT !! Output/error unit used for diagnostics.
+        INTEGER(kind=I_P)   :: NEL   !! Number of active elements, including links and banks.
+        INTEGER(kind=I_P)   :: NLF   !! Number of active channel links.
+        INTEGER(kind=I_P)   :: NX    !! Number of active grid columns in the x direction.
+        INTEGER(kind=I_P)   :: NY    !! Number of active grid rows in the y direction.
+        INTEGER(kind=I_P)   :: NELEE !! Allocated element dimension.
+        INTEGER(kind=I_P)   :: NLFEE !! Allocated channel-link dimension.
+        INTEGER(kind=I_P)   :: NXEE  !! Allocated x-grid dimension.
+        INTEGER(kind=I_P)   :: ICMXY(NXEE, NY)       !! Grid-to-element reference map.
+        INTEGER(kind=I_P)   :: ICMBK(NLFEE, 2)       !! Bank element references for each link side.
+        INTEGER(kind=I_P)   :: ICMREF(NELEE, 4, 2:2) !! Adjacent element references by element and face.
+        LOGICAL             :: BEXBK         !! True when bank categories should be copied from grid cells.
+        LOGICAL             :: LINKNS(NLFEE) !! True when a channel link is north-south oriented.
+        CHARACTER (LEN=*)   :: LINE          !! Section title stem used to find and echo input records.
+        INTEGER(kind=I_P)   :: CATTYP (NLF + 1:NEL) !! Category type by land or bank element.
+        INTEGER, DIMENSION(:), INTENT(IN)   :: IDUM !! Integer workspace filled by `ALREDI`.
+
+        INTEGER(kind=I_P)   :: BANK1 !! First bank element adjacent to the current link.
+        INTEGER(kind=I_P)   :: BANK2 !! Second bank element adjacent to the current link.
+        INTEGER(kind=I_P)   :: FACE1 !! Face on `BANK1` opposite the current link.
+        INTEGER(kind=I_P)   :: FACE2 !! Face on `BANK2` opposite the current link.
+        INTEGER(kind=I_P)   :: GRID1 !! Grid element used as the category source for `BANK1`.
+        INTEGER(kind=I_P)   :: GRID2 !! Grid element used as the category source for `BANK2`.
+        INTEGER(kind=I_P)   :: ISNS  !! Orientation offset: 1 for north-south links, otherwise 0.
+        INTEGER(kind=I_P)   :: LINK  !! Channel-link index.
+        INTEGER(kind=I_P)   :: ICAT !! Category code for the current grid element.
+        INTEGER(kind=I_P)   :: IEL  !! Element index mapped from the current grid cell.
+        INTEGER(kind=I_P)   :: X    !! Grid x-index.
+        INTEGER(kind=I_P)   :: XY0  !! Row offset into flattened grid workspace.
+        INTEGER(kind=I_P)   :: Y    !! Grid y-index.
         
         ! Code =================================================================
 
@@ -345,34 +388,45 @@ MODULE mod_load_filedata
     END SUBROUTINE ALALLI
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19940422 | ? | - | Initial version |
-      !> | 19940523 | AB/RAH | - | Version 3.4.1 |
-      !> @endhistory
     !> Copies adjacent grid-cell values onto bank elements.
     !>
     !> `ALBANK` fills the bank portions of an element array from the neighbouring
     !> square elements identified by `ICMBK`, `LINKNS`, and `ICMREF`. It is used
     !> after gridded distributed data have been read so that bank elements carry
     !> the same parameter value as their adjacent land element.
+    !>
+    !> Entry assumptions:
+    !>
+    !> | Item | Requirement |
+    !> |:-----|:------------|
+    !> | `ICMBK(link,1:2)` | Valid bank-element references for every active link. |
+    !> | `ICMREF(bank,face,2)` | At least one of the two opposite-side grid references is non-zero. |
+    !> | `A` | Defined for all possible source grid elements before bank values are copied. |
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19940422 | ? | - | Initial version |
+    !> | 19940523 | AB/RAH | - | Version 3.4.1 |
+    !> @endhistory
     SUBROUTINE ALBANK (NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, A)
-        
-        ! Input arguments
-        INTEGER(kind=I_P), INTENT(IN)   :: NEL, NLF, NLFEE, NELEE,              &
-                                           ICMBK (NLFEE, 2),                    &
-                                           ICMREF (NELEE, 4, 2:2)
-        LOGICAL, INTENT(IN)             :: LINKNS (NLF)  
+        INTEGER(kind=I_P), INTENT(IN)   :: NEL   !! Number of active elements, including links and banks.
+        INTEGER(kind=I_P), INTENT(IN)   :: NLF   !! Number of active channel links.
+        INTEGER(kind=I_P), INTENT(IN)   :: NLFEE !! Allocated channel-link dimension.
+        INTEGER(kind=I_P), INTENT(IN)   :: NELEE !! Allocated element dimension.
+        INTEGER(kind=I_P), INTENT(IN)   :: ICMBK (NLFEE, 2)      !! Bank element references for each link side.
+        INTEGER(kind=I_P), INTENT(IN)   :: ICMREF (NELEE, 4, 2:2) !! Adjacent element references by element and face.
+        LOGICAL, INTENT(IN)             :: LINKNS (NLF) !! True when a channel link is north-south oriented.
+        REAL(kind=R8P), INTENT(INOUT)   :: A (NLF + 1:NEL) !! Element array whose bank entries are overwritten.
 
-        !
-        ! Input/output arguments
-        REAL(kind=R8P), INTENT(INOUT)   :: A (NLF + 1:NEL)  
-
-        !
-        ! Locals, etc
-        INTEGER(kind=I_P)   :: BANK1, BANK2, FACE1, FACE2, GRID1, GRID2, ISNS,  &
-                               LINK  
+        INTEGER(kind=I_P)   :: BANK1 !! First bank element adjacent to the current link.
+        INTEGER(kind=I_P)   :: BANK2 !! Second bank element adjacent to the current link.
+        INTEGER(kind=I_P)   :: FACE1 !! Face on `BANK1` opposite the current link.
+        INTEGER(kind=I_P)   :: FACE2 !! Face on `BANK2` opposite the current link.
+        INTEGER(kind=I_P)   :: GRID1 !! Grid element used as the value source for `BANK1`.
+        INTEGER(kind=I_P)   :: GRID2 !! Grid element used as the value source for `BANK2`.
+        INTEGER(kind=I_P)   :: ISNS  !! Orientation offset: 1 for north-south links, otherwise 0.
+        INTEGER(kind=I_P)   :: LINK  !! Channel-link index.
     
     
         ! Code =================================================================
@@ -413,41 +467,70 @@ MODULE mod_load_filedata
     END SUBROUTINE ALBANK
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19940722 | ? | - | Initial version |
-      !> | 19940817 | AB/RAH | - | Version 3.4.1 |
-      !> @endhistory
     !> Checks real-valued input data against a named validation rule.
     !>
     !> `ALCHK` compares observed values in `OBJ` with one or more subject values
     !> in `SUBJ` using the operator named by `OP`, with tolerance `TOL`. It
     !> reports invalid input through `ERROR` according to `ACTION`, increments
     !> `COUNT`, and flags individual failures in `NOTOK`.
+    !>
+    !> Validation controls:
+    !>
+    !> | Item | Meaning |
+    !> |:-----|:--------|
+    !> | `OP='LT'`/`'GT'` | Require `SUBJ < OBJ` or `SUBJ > OBJ`, using tolerance `TOL`. |
+    !> | `OP='LE'`/`'GE'` | Require `SUBJ <= OBJ` or `SUBJ >= OBJ`, using tolerance `TOL`. |
+    !> | Other `OP(2:2)` | Require approximate equality with tolerance `TOL`. |
+    !> | `OP` ending in `a` | Compare against `OBJ(i)` instead of a scalar `OBJ(N0)`. |
+    !> | `ACTION < 0` | Reset failing `SUBJ` values to `OBJ` before reporting. |
+    !>
+    !> @note The legacy source says `ALCHKI` was generated from `ALCHK` by
+    !> `make`; keep the real and integer routines behaviourally aligned.
+    !> @endnote
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19940722 | ? | - | Initial version |
+    !> | 19940817 | AB/RAH | - | Version 3.4.1 |
+    !> @endhistory
     SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME,           &
                       OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
-                      
-        ! Input arguments
-        INTEGER(kind=I_P)               :: ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3  
-        CHARACTER(LEN=*), INTENT(IN)    :: SNAME, OP  
-        REAL(kind=R8P)                  :: OBJ (N0: * ), TOL  
-        
-        ! Input/output arguments
-        REAL(kind=R8P)      :: SUBJ (N0:N1)  
-        INTEGER(kind=I_P)   :: COUNT
-        
-        ! Workspace arguments
-        LOGICAL             :: NOTOK (N0:N1)  
-        
-        ! Locals, etc
-        INTEGER(kind=I_P)   :: COUNT0, COUNT1, I, INCOBJ, IOBJ, IX (3), NDIM  
-        INTEGER(kind=I_P)   :: P, POS1, POS2, SGN, SLEN
-        REAL(kind=R8P)      :: SB, OB, rrr
-        LOGICAL             :: BRESET  
-        CHARACTER(len=9)    :: CACT
-        CHARACTER(len=132)  :: MSG
-        CHARACTER           :: OP1, OP2  
+        INTEGER(kind=I_P)            :: ACTION !! Error action; negative values also reset bad data.
+        INTEGER(kind=I_P)            :: ERRNUM !! Error number passed to `ERROR`.
+        INTEGER(kind=I_P)            :: OUNIT  !! Output/error unit used by `ERROR`.
+        INTEGER(kind=I_P)            :: N0     !! First vector index checked.
+        INTEGER(kind=I_P)            :: N1     !! Last vector index checked.
+        INTEGER(kind=I_P)            :: IX2    !! Optional second subscript printed in diagnostics.
+        INTEGER(kind=I_P)            :: IX3    !! Optional third subscript printed in diagnostics.
+        CHARACTER(LEN=*), INTENT(IN) :: SNAME  !! Subject name, optionally including subscript syntax.
+        CHARACTER(LEN=*), INTENT(IN) :: OP     !! Validation operator and optional array suffix.
+        REAL(kind=R8P)               :: OBJ(N0:*) !! Scalar or vector of comparison values.
+        REAL(kind=R8P)               :: TOL    !! Relative tolerance for real comparisons.
+        REAL(kind=R8P)               :: SUBJ(N0:N1) !! Subject values checked and optionally reset.
+        INTEGER(kind=I_P)            :: COUNT  !! Cumulative nonconformance count.
+        LOGICAL                      :: NOTOK(N0:N1) !! Workspace flags for failing positions.
+
+        INTEGER(kind=I_P)   :: COUNT0 !! `COUNT` value on entry.
+        INTEGER(kind=I_P)   :: COUNT1 !! Number of failures found by this call.
+        INTEGER(kind=I_P)   :: I      !! Vector index.
+        INTEGER(kind=I_P)   :: INCOBJ !! `OBJ` index increment: 0 for scalar, 1 for vector.
+        INTEGER(kind=I_P)   :: IOBJ   !! Current index into `OBJ`.
+        INTEGER(kind=I_P)   :: IX(3)  !! Subscripts printed for the first failing value.
+        INTEGER(kind=I_P)   :: NDIM   !! Number of subscripts detected in `SNAME`, capped at 3.
+        INTEGER(kind=I_P)   :: P      !! Diagnostic subscript loop index.
+        INTEGER(kind=I_P)   :: POS1   !! Previous delimiter position while parsing `SNAME`.
+        INTEGER(kind=I_P)   :: POS2   !! Current delimiter position while parsing `SNAME`.
+        INTEGER(kind=I_P)   :: SGN    !! Direction multiplier: `+1` for less-than, `-1` for greater-than.
+        INTEGER(kind=I_P)   :: SLEN   !! Length of `SNAME`.
+        REAL(kind=R8P)      :: SB     !! Subject value for the current or first failing position.
+        REAL(kind=R8P)      :: OB     !! Object value for the current or first failing position.
+        REAL(kind=R8P)      :: rrr    !! Real diagnostic copy of `SB`.
+        LOGICAL             :: BRESET !! True when failing values are reset to `OBJ`.
+        CHARACTER(len=9)    :: CACT   !! Diagnostic action text.
+        CHARACTER(len=132)  :: MSG    !! Error message buffer.
+        CHARACTER           :: OP1    !! First operator character, selects direction.
+        CHARACTER           :: OP2    !! Second operator character, selects strict/inclusive/equal test.
     
         ! Code =================================================================
 
@@ -569,40 +652,68 @@ MODULE mod_load_filedata
     END SUBROUTINE ALCHK
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19940722 | ? | - | Initial version |
-      !> | 19940817 | AB/RAH | - | Version 3.4.1 |
-      !> @endhistory
     !> Checks integer input data against a named validation rule.
     !>
     !> `ALCHKI` is the integer counterpart of [[ALCHK]]. It applies the operator
     !> named by `OP` to `OBJ` and `SUBJ`, reports invalid input through `ERROR`
     !> according to `ACTION`, increments `COUNT`, and marks failures in `NOTOK`.
+    !>
+    !> Validation controls:
+    !>
+    !> | Item | Meaning |
+    !> |:-----|:--------|
+    !> | `OP='LT'`/`'GT'` | Require `SUBJ < OBJ` or `SUBJ > OBJ`. |
+    !> | `OP='LE'`/`'GE'` | Require `SUBJ <= OBJ` or `SUBJ >= OBJ`. |
+    !> | Other `OP(2:2)` | Require exact integer equality. |
+    !> | `OP` ending in `a` | Compare against `OBJ(i)` instead of a scalar `OBJ(N0)`. |
+    !> | `ACTION < 0` | Reset failing `SUBJ` values to `OBJ` before reporting. |
+    !>
+    !> @note The legacy source says this routine was generated from `ALCHK` by
+    !> `make`; keep the integer and real routines behaviourally aligned.
+    !> @endnote
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19940722 | ? | - | Initial version |
+    !> | 19940817 | AB/RAH | - | Version 3.4.1 |
+    !> @endhistory
     SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME,          &
                        OP, OBJ, SUBJ, COUNT, NOTOK)
-     
-        ! Input arguments
-        INTEGER(kind=I_P)   :: ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3  
-        CHARACTER (LEN=*)   :: SNAME, OP  
-        INTEGER(kind=I_P)   :: OBJ (N0: * ) 
-        
-        ! Input/output arguments
-        INTEGER(kind=I_P)   :: SUBJ (N0:N1)  
-        INTEGER(kind=I_P)   :: COUNT  
-        
-        ! Workspace arguments
-        LOGICAL     :: NOTOK (N0:N1)  
-        
-        ! Locals, etc
-        INTEGER(kind=I_P)   :: COUNT0, COUNT1, I, INCOBJ, IOBJ, IX (3), NDIM  
-        INTEGER(kind=I_P)   :: P, POS1, POS2, SGN, SLEN  
-        INTEGER(kind=I_P)   :: SB, OB, iii  
-        LOGICAL             :: BRESET  
-        CHARACTER(len=9)    :: CACT
-        CHARACTER(len=132)  :: MSG
-        CHARACTER           :: OP1, OP2  
+        INTEGER(kind=I_P) :: ACTION !! Error action; negative values also reset bad data.
+        INTEGER(kind=I_P) :: ERRNUM !! Error number passed to `ERROR`.
+        INTEGER(kind=I_P) :: OUNIT  !! Output/error unit used by `ERROR`.
+        INTEGER(kind=I_P) :: N0     !! First vector index checked.
+        INTEGER(kind=I_P) :: N1     !! Last vector index checked.
+        INTEGER(kind=I_P) :: IX2    !! Optional second subscript printed in diagnostics.
+        INTEGER(kind=I_P) :: IX3    !! Optional third subscript printed in diagnostics.
+        CHARACTER(LEN=*)  :: SNAME  !! Subject name, optionally including subscript syntax.
+        CHARACTER(LEN=*)  :: OP     !! Validation operator and optional array suffix.
+        INTEGER(kind=I_P) :: OBJ(N0:*) !! Scalar or vector of comparison values.
+        INTEGER(kind=I_P) :: SUBJ(N0:N1) !! Subject values checked and optionally reset.
+        INTEGER(kind=I_P) :: COUNT  !! Cumulative nonconformance count.
+        LOGICAL           :: NOTOK(N0:N1) !! Workspace flags for failing positions.
+
+        INTEGER(kind=I_P)   :: COUNT0 !! `COUNT` value on entry.
+        INTEGER(kind=I_P)   :: COUNT1 !! Number of failures found by this call.
+        INTEGER(kind=I_P)   :: I      !! Vector index.
+        INTEGER(kind=I_P)   :: INCOBJ !! `OBJ` index increment: 0 for scalar, 1 for vector.
+        INTEGER(kind=I_P)   :: IOBJ   !! Current index into `OBJ`.
+        INTEGER(kind=I_P)   :: IX(3)  !! Subscripts printed for the first failing value.
+        INTEGER(kind=I_P)   :: NDIM   !! Number of subscripts detected in `SNAME`, capped at 3.
+        INTEGER(kind=I_P)   :: P      !! Diagnostic subscript loop index.
+        INTEGER(kind=I_P)   :: POS1   !! Previous delimiter position while parsing `SNAME`.
+        INTEGER(kind=I_P)   :: POS2   !! Current delimiter position while parsing `SNAME`.
+        INTEGER(kind=I_P)   :: SGN    !! Direction multiplier: `+1` for less-than, `-1` for greater-than.
+        INTEGER(kind=I_P)   :: SLEN   !! Length of `SNAME`.
+        INTEGER(kind=I_P)   :: SB     !! Subject value for the current or first failing position.
+        INTEGER(kind=I_P)   :: OB     !! Object value for the current or first failing position.
+        INTEGER(kind=I_P)   :: iii    !! Integer diagnostic copy of `SB`.
+        LOGICAL             :: BRESET !! True when failing values are reset to `OBJ`.
+        CHARACTER(len=9)    :: CACT   !! Diagnostic action text.
+        CHARACTER(len=132)  :: MSG    !! Error message buffer.
+        CHARACTER           :: OP1    !! First operator character, selects direction.
+        CHARACTER           :: OP2    !! Second operator character, selects strict/inclusive/equal test.
         
         
         ! Code =================================================================
@@ -727,27 +838,22 @@ MODULE mod_load_filedata
     END SUBROUTINE ALCHKI
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931208 | ? | - | Initial version |
-      !> | 19940523 | AB/RAH | - | Version 3.4.1 |
-      !> @endhistory
     !> Initialises every entry of an array to one real value.
     !>
     !> `ALINIT` sets `X(1:N)` to `ALPHA`. It is a small legacy helper used where
     !> distributed arrays must be reset before reading or expansion.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931208 | ? | - | Initial version |
+    !> | 19940523 | AB/RAH | - | Version 3.4.1 |
+    !> @endhistory
     SUBROUTINE ALINIT (ALPHA, N, X)  
-        
-        ! Input arguments
-        REAL(kind=R8P)      :: ALPHA  
-        INTEGER(kind=I_P)   :: N  
-        
-        ! Output arguments
-        REAL(kind=R8P)      :: X (N)  
-        
-        ! Locals, etc
-        INTEGER(kind=I_P)   :: I  
+        REAL(kind=R8P)      :: ALPHA !! Value assigned to every element of `X`.
+        INTEGER(kind=I_P)   :: N     !! Number of values to initialise.
+        REAL(kind=R8P)      :: X(N)  !! Output array filled with `ALPHA`.
+        INTEGER(kind=I_P)   :: I     !! Array index.
     
         ! Code =================================================================
         
@@ -758,41 +864,58 @@ MODULE mod_load_filedata
     END SUBROUTINE ALINIT
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | ? | ? | - | Initial version |
-      !> @endhistory
     !> Interpolates initial contaminant concentrations from water-depth tables.
     !>
     !> `ALINTP` uses each element's category and nodal water depths to interpolate
     !> concentration values from the supplied depth/concentration tables. Table
     !> depths must start at zero and increase monotonically, as required by the
     !> contaminant input format.
+    !>
+    !> For each land element and cell, the interpolation is:
+    !>
+    !> \[
+    !> C(z)=C_1+(C_2-C_1)\frac{z-z_1}{z_2-z_1}
+    !> \]
+    !>
+    !> where `z` is the cell-centre depth below the surface and `(z1,C1)` and
+    !> `(z2,C2)` are the bracketing table entries for the element category.
+    !> Cells deeper than the last table depth use the last table concentration.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | ? | ? | - | Initial version |
+    !> @endhistory
     SUBROUTINE ALINTP (LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES,     &
                        MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
                        NCOLMB, NTAB,TABLE_CONCENTRATION, TABLE_WATER_DEPTH,     &
                        DELTAZ, ZVSNOD, CELL_CONCENTRATION)
-     
-        ! INPUT ARGUMENTS
-        INTEGER(kind=I_P)   :: LLEE, NCETOP, NEL, NELEE, NLF
-        INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES     !< number of category types 
-        INTEGER(kind=I_P)   :: MAX_NUM_CATEGORY_TYPES   !< maximum number of category types
-        INTEGER(kind=I_P)   :: MAX_NUM_DATA_PAIRS       !< maximum number of data pairs
-        INTEGER(kind=I_P)   :: NCATTY (NLF + 1:NEL), NCOLMB (NLF + 1:NEL)  
-        INTEGER(kind=I_P)   :: NTAB (NUM_CATEGORIES_TYPES)  
-        REAL(kind=R8P)      :: TABLE_CONCENTRATION                              &
-                                (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS)    !< table of concentrations
-        REAL(kind=R8P)      :: TABLE_WATER_DEPTH                                &
-                                (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS)    !< table of water depths
-        REAL(kind=R8P)      :: DELTAZ (LLEE, NELEE), ZVSNOD (LLEE, NELEE)  
-        
-        ! OUTPUT ARGUMENTS
-        REAL(kind=R8P)      :: CELL_CONCENTRATION (NEL, NCETOP) !< concentration in each cell 
-        
-        ! LOCALS ETC.
-        INTEGER(kind=I_P)   :: NCL, NELM, NCATG, NINTB, NTABLE, NTHRTB  
-        REAL(kind=R8P)      :: DEPTH  
+        INTEGER(kind=I_P)   :: LLEE  !! Allocated vertical-cell dimension.
+        INTEGER(kind=I_P)   :: NCETOP !! Top active cell index.
+        INTEGER(kind=I_P)   :: NEL   !! Number of active elements, including links and banks.
+        INTEGER(kind=I_P)   :: NELEE !! Allocated element dimension.
+        INTEGER(kind=I_P)   :: NLF   !! Number of active channel links; interpolation starts at `NLF+1`.
+        INTEGER(kind=I_P)   :: NUM_CATEGORIES_TYPES !! Number of concentration categories.
+        INTEGER(kind=I_P)   :: MAX_NUM_CATEGORY_TYPES !! Allocated category-table dimension.
+        INTEGER(kind=I_P)   :: MAX_NUM_DATA_PAIRS !! Allocated depth/concentration-pair dimension.
+        INTEGER(kind=I_P)   :: NCATTY(NLF + 1:NEL) !! Concentration category by land element.
+        INTEGER(kind=I_P)   :: NCOLMB(NLF + 1:NEL) !! Bottom active contaminant cell by land element.
+        INTEGER(kind=I_P)   :: NTAB(NUM_CATEGORIES_TYPES) !! Number of table entries in each category.
+        REAL(kind=R8P), DIMENSION(MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) :: &
+            TABLE_CONCENTRATION !! Concentration table by category and depth entry.
+        REAL(kind=R8P), DIMENSION(MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) :: &
+            TABLE_WATER_DEPTH   !! Water-depth table by category and entry.
+        REAL(kind=R8P)      :: DELTAZ(LLEE, NELEE) !! Vertical cell thickness by cell and element.
+        REAL(kind=R8P)      :: ZVSNOD(LLEE, NELEE) !! Vertical node elevation by cell and element.
+        REAL(kind=R8P)      :: CELL_CONCENTRATION(NEL, NCETOP) !! Interpolated concentration by element and cell.
+
+        INTEGER(kind=I_P)   :: NCL    !! Cell index.
+        INTEGER(kind=I_P)   :: NELM   !! Land-element index.
+        INTEGER(kind=I_P)   :: NCATG  !! Category for `NELM`.
+        INTEGER(kind=I_P)   :: NINTB  !! Number of table entries for `NCATG`.
+        INTEGER(kind=I_P)   :: NTABLE !! Current bracketing table-entry index.
+        INTEGER(kind=I_P)   :: NTHRTB !! First candidate table-entry index for the next cell.
+        REAL(kind=R8P)      :: DEPTH  !! Cell-centre depth below the ground surface.
         
 
         ! Code =================================================================
@@ -841,37 +964,64 @@ MODULE mod_load_filedata
                        
                        
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931210 | ? | - | Initial version |
-      !> | 19940912 | GP | - | 4.0  Add VSS options (FLAG=) 6 & 7. |
-      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
-      !> | 19970804 | RAH | - | 4.1  Add END specifiers to READs in options 6 & 7. |
-      !> @endhistory
     !> Reads one legacy AL input record for character, integer, or real data.
     !>
     !> `ALREAD` interprets the numeric input `FLAG`, reads the requested data
     !> form from `IUNIT`, echoes diagnostics to `OUNIT`, and returns values in
     !> the matching output array. It covers the original mixed-format input cases
     !> used by distributed SHETRAN parameters.
+    !>
+    !> `FLAG` modes:
+    !>
+    !> | `FLAG` | Action |
+    !> |:-------|:-------|
+    !> | `-1` | Close `IUNIT` and echo the file status. |
+    !> | `0` | Check that `IUNIT` is open and echo the file status. |
+    !> | `1` | Read one character record into `CDATA`. |
+    !> | `2` | Read a free-format integer array into `IDATA`. |
+    !> | `3` | Read a free-format floating-point array into `RDATA`. |
+    !> | `4` | Read an indexed integer grid, rows `N2` down to 1. |
+    !> | `5` | Read an indexed floating-point grid, rows `N2` down to 1. |
+    !> | `6` | Read VSS per-category layer-number and real-value records. |
+    !> | `7` | Read VSS soil physical-property records. |
+    !>
+    !> For positive `FLAG`, the routine first reads and checks a title line
+    !> against `LINE`; mismatches are warnings, while read/data errors are fatal.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931210 | ? | - | Initial version |
+    !> | 19940912 | GP | - | 4.0  Add VSS options (FLAG=) 6 & 7. |
+    !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+    !> | 19970804 | RAH | - | 4.1  Add END specifiers to READs in options 6 and 7; renumber error 13 as 16. |
+    !> @endhistory
     SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES,  &
                        CDATA, IDATA, RDATA)
-                       
-        ! Input arguments
-        INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT, N1, N2, NUM_CATEGORIES_TYPES  
-        CHARACTER (LEN=*)   :: LINE  
+        INTEGER(kind=I_P) :: FLAG !! Reader action selector.
+        INTEGER(kind=I_P) :: IUNIT !! Input unit to inspect, read, or close.
+        INTEGER(kind=I_P) :: OUNIT !! Output/error unit used for echoes and diagnostics.
+        INTEGER(kind=I_P) :: N1    !! First data dimension or number of grid columns.
+        INTEGER(kind=I_P) :: N2    !! Second data dimension or number of grid rows.
+        INTEGER(kind=I_P) :: NUM_CATEGORIES_TYPES !! Category/record count, or grid integer-code limit.
+        CHARACTER(LEN=*)  :: LINE  !! Expected title line or file-status label.
+        CHARACTER(LEN=*)  :: CDATA !! Character output for `FLAG=1`.
+        INTEGER(kind=I_P) :: IDATA(N1, N2) !! Integer output/work array.
+        REAL(kind=R8P)    :: RDATA(N1, N2) !! Floating-point output/work array.
 
-        ! Output arguments
-        CHARACTER (LEN=*)   :: CDATA  
-        INTEGER(kind=I_P)   :: IDATA (N1, N2) 
-        REAL(kind=R8P)      :: RDATA (N1, N2)  
-
-        ! Locals, etc
-        ! sb 02102025 increased msg from 132 to 140
-        CHARACTER (LEN=80)  :: HEAD, MSG * 140, FILNAM * 48, FORM * 17
-        INTEGER(kind=I_P)   :: IX, IY, KY, IDUM1, IDUM2, ICOUNT, I  
-        LOGICAL             :: BOPEN, BNAMED  
+        CHARACTER(LEN=80)  :: HEAD  !! Current title or status message.
+        CHARACTER(LEN=140) :: MSG   !! Error message buffer.
+        CHARACTER(LEN=48)  :: FILNAM !! File name returned by `INQUIRE`.
+        CHARACTER(LEN=17)  :: FORM  !! Generated fixed-format integer-grid format.
+        INTEGER(kind=I_P)  :: IX     !! Grid x-index.
+        INTEGER(kind=I_P)  :: IY     !! Grid y-index.
+        INTEGER(kind=I_P)  :: KY     !! Row number read from an indexed grid row.
+        INTEGER(kind=I_P)  :: IDUM1  !! VSS item/category index read from input.
+        INTEGER(kind=I_P)  :: IDUM2  !! VSS item value count read from input.
+        INTEGER(kind=I_P)  :: ICOUNT !! Category/record loop index.
+        INTEGER(kind=I_P)  :: I      !! Implied-DO index.
+        LOGICAL            :: BOPEN  !! True when `IUNIT` is open.
+        LOGICAL            :: BNAMED !! True when `IUNIT` has an associated filename.
 
         ! Code =================================================================
 
@@ -1043,31 +1193,35 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREAD
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931210 | ? | - | Initial version |
-      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
-      !> | 19950322 | RAH | - | New header. |
-      !> @endhistory
     !> Reads and checks an AL input section header.
     !>
     !> `ALRED2` handles the shared part of the refactored AL reader family before
     !> type-specific records are read by [[ALREDC]], [[ALREDF]], [[ALREDI]], or
     !> [[ALREDL]]. The `FLAG` selects the legacy input option described in the
     !> manual's distributed-data formats.
+    !>
+    !> `FLAG=0` checks that the input file is open; any other value closes it.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931210 | ? | - | Initial version |
+    !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+    !> | 19950322 | RAH | - | New header; replaced former ENTRY-point interface with `ALRED*` routines. |
+    !> @endhistory
     SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)  
-
-        ! Input arguments
-        INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT  
-        CHARACTER (LEN=*)   :: LINE  
+        INTEGER(kind=I_P)   :: FLAG  !! File-management selector: `0` check open, otherwise close.
+        INTEGER(kind=I_P)   :: IUNIT !! Input unit to inspect or close.
+        INTEGER(kind=I_P)   :: OUNIT !! Output/error unit used for echoes and diagnostics.
+        CHARACTER (LEN=*)   :: LINE  !! File-status label written in diagnostics.
 !  sb change 011025     CHARACTER (80)      :: HEAD
 !        CHARACTER(48)       :: FILNAM
 !        CHARACTER(132)      :: MSG  
-        CHARACTER (152)      :: HEAD
-        CHARACTER(120)       :: FILNAM
-        CHARACTER(200)      :: MSG  
-        LOGICAL             :: BOPEN, BNAMED  
+        CHARACTER (152)      :: HEAD   !! Current file-status message.
+        CHARACTER(120)       :: FILNAM !! File name returned by `INQUIRE`.
+        CHARACTER(200)       :: MSG    !! Error message buffer.
+        LOGICAL              :: BOPEN  !! True when `IUNIT` is open.
+        LOGICAL              :: BNAMED !! True when `IUNIT` has an associated filename.
         
         ! Code -----------------------------------------------------------------
     
@@ -1114,32 +1268,35 @@ MODULE mod_load_filedata
     END SUBROUTINE ALRED2
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931210 | ? | - | Initial version |
-      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
-      !> | 19950322 | RAH | - | New header. |
-      !> @endhistory
     !> Reads character data for a legacy AL input option.
     !>
     !> `ALREDC` is the character-valued member of the `ALRED*` reader family. It
     !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
     !> `OUNIT` as required, and stores values in `CDATA`.
+    !>
+    !> `FLAG` is retained for interface consistency with the other `ALRED*`
+    !> routines but is not used by the current character reader.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931210 | ? | - | Initial version |
+    !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+    !> | 19950322 | RAH | - | New header; replaced former ENTRY-point interface with `ALRED*` routines. |
+    !> @endhistory
     SUBROUTINE ALREDC (FLAG, IUNIT, OUNIT, LINE, N1, N2, CDATA)  
-        
-        ! Input arguments
-        INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT  
-        INTEGER(kind=I_P)   :: N1, N2  
-        CHARACTER (LEN=*)   :: LINE  
-
-        ! Output arguments
-        CHARACTER(LEN=*)    :: CDATA (N1, N2)  
+        INTEGER(kind=I_P)   :: FLAG  !! Unused option selector retained for interface consistency.
+        INTEGER(kind=I_P)   :: IUNIT !! Input unit positioned before the title line.
+        INTEGER(kind=I_P)   :: OUNIT !! Output/error unit used for diagnostics.
+        INTEGER(kind=I_P)   :: N1    !! First output dimension.
+        INTEGER(kind=I_P)   :: N2    !! Second output dimension.
+        CHARACTER (LEN=*)   :: LINE  !! Expected title-line substring.
+        CHARACTER(LEN=*)    :: CDATA (N1, N2) !! Character data read from the next record.
 !        CHARACTER(len=80)   :: HEAD
 !        CHARACTER(len=132)  :: MSG  
 ! sb 011025
-        CHARACTER(len=150)   :: HEAD
-        CHARACTER(len=200)  :: MSG  
+        CHARACTER(len=150)   :: HEAD !! Title line read from `IUNIT`.
+        CHARACTER(len=200)   :: MSG  !! Error message buffer.
 
         ! Code -----------------------------------------------------------------
 
@@ -1181,33 +1338,35 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDC
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931210 | ? | - | Initial version |
-      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
-      !> | 19950322 | RAH | - | New header. |
-      !> @endhistory
     !> Reads real data for a legacy AL input option.
     !>
     !> `ALREDF` is the floating-point member of the `ALRED*` reader family. It
     !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
     !> `OUNIT` as required, and stores values in `FDATA`.
+    !>
+    !> `FLAG=0` reads a simple free-format array. Any other value reads an
+    !> indexed grid from row `N2` down to 1 and checks each row number.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931210 | ? | - | Initial version |
+    !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+    !> | 19950322 | RAH | - | New header; replaced former ENTRY-point interface with `ALRED*` routines. |
+    !> @endhistory
     SUBROUTINE ALREDF (FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)  
-
-        ! Input arguments
-        INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT  
-        INTEGER(kind=I_P)   :: N1, N2  
-        CHARACTER (LEN=*)   :: LINE  
-
-        ! Output arguments
-        REAL(kind=R8P)      :: FDATA (N1, N2)  
-
-        ! Locals, etc
-        INTEGER(kind=I_P)   :: iy, ky, ix
-
-        CHARACTER(len=80)   :: HEAD
-        CHARACTER(len=132)  :: MSG  
+        INTEGER(kind=I_P)   :: FLAG  !! `0` for simple array, non-zero for indexed grid.
+        INTEGER(kind=I_P)   :: IUNIT !! Input unit positioned before the title line.
+        INTEGER(kind=I_P)   :: OUNIT !! Output/error unit used for diagnostics.
+        INTEGER(kind=I_P)   :: N1    !! First output dimension or number of grid columns.
+        INTEGER(kind=I_P)   :: N2    !! Second output dimension or number of grid rows.
+        CHARACTER (LEN=*)   :: LINE  !! Expected title-line substring.
+        REAL(kind=R8P)      :: FDATA (N1, N2) !! Floating-point data read from the input file.
+        INTEGER(kind=I_P)   :: iy !! Grid row index, read from north to south.
+        INTEGER(kind=I_P)   :: ky !! Row number read from the input grid.
+        INTEGER(kind=I_P)   :: ix !! Grid column index.
+        CHARACTER(len=80)   :: HEAD !! Title line read from `IUNIT`.
+        CHARACTER(len=132)  :: MSG  !! Error message buffer.
 
         ! Code =================================================================
 
@@ -1264,33 +1423,37 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDF
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931210 | ? | - | Initial version |
-      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
-      !> | 19950322 | RAH | - | New header. |
-      !> @endhistory
     !> Reads integer data for a legacy AL input option.
     !>
     !> `ALREDI` is the integer-valued member of the `ALRED*` reader family. It
     !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
     !> `OUNIT` as required, and stores values in `IDATA`.
+    !>
+    !> `FLAG=0` reads a simple free-format array. Non-zero `FLAG` reads an
+    !> indexed grid from row `N2` down to 1; values use compact `I1` format when
+    !> `FLAG < 10`, otherwise list-directed input.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931210 | ? | - | Initial version |
+    !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+    !> | 19950322 | RAH | - | New header; replaced former ENTRY-point interface with `ALRED*` routines. |
+    !> @endhistory
     SUBROUTINE ALREDI (FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
-
-        ! Input arguments
-        INTEGER(kind=I_P)   :: FLAG, IUNIT, OUNIT  
-        INTEGER(kind=I_P)   :: N1, N2  
-        CHARACTER(LEN=*)    :: LINE  
-
-        ! Output arguments
-        INTEGER(kind=I_P)   :: IDATA (N1, N2)  
-
-        ! Locals, etc
-        INTEGER(kind=I_P)   :: iy, ky, ix
-        CHARACTER(len=80)   :: HEAD
-        CHARACTER(len=17)   :: FORM
-        CHARACTER(len=132)  :: MSG 
+        INTEGER(kind=I_P)   :: FLAG  !! `0` for simple array, non-zero for indexed grid.
+        INTEGER(kind=I_P)   :: IUNIT !! Input unit positioned before the title line.
+        INTEGER(kind=I_P)   :: OUNIT !! Output/error unit used for diagnostics.
+        INTEGER(kind=I_P)   :: N1    !! First output dimension or number of grid columns.
+        INTEGER(kind=I_P)   :: N2    !! Second output dimension or number of grid rows.
+        CHARACTER(LEN=*)    :: LINE  !! Expected title-line substring.
+        INTEGER(kind=I_P)   :: IDATA (N1, N2) !! Integer data read from the input file.
+        INTEGER(kind=I_P)   :: iy   !! Grid row index, read from north to south.
+        INTEGER(kind=I_P)   :: ky   !! Row number read from the input grid.
+        INTEGER(kind=I_P)   :: ix   !! Grid column index.
+        CHARACTER(len=80)   :: HEAD !! Title line read from `IUNIT`.
+        CHARACTER(len=17)   :: FORM !! Generated fixed-format integer-grid format.
+        CHARACTER(len=132)  :: MSG  !! Error message buffer.
         
         ! Code -----------------------------------------------------------------
 
@@ -1359,29 +1522,32 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDI
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | 19931210 | ? | - | Initial version |
-      !> | 19940916 | AB/RAH | - | Version 3.4.1 |
-      !> | 19950322 | RAH | - | New header. |
-      !> @endhistory
     !> Reads logical data for a legacy AL input option.
     !>
     !> `ALREDL` is the logical-valued member of the `ALRED*` reader family. It
     !> applies the option selected by `FLAG`, reads from `IUNIT`, echoes to
     !> `OUNIT` as required, and stores values in `LDATA`.
+    !>
+    !> `FLAG` is retained for interface consistency with the other `ALRED*`
+    !> routines but is not used by the current logical reader.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 19931210 | ? | - | Initial version |
+    !> | 19940916 | AB/RAH | - | Version 3.4.1 |
+    !> | 19950322 | RAH | - | New header; replaced former ENTRY-point interface with `ALRED*` routines. |
+    !> @endhistory
     SUBROUTINE ALREDL (FLAG, IUNIT, OUNIT, LINE, N1, N2, LDATA)
-
-        ! Input arguments
-        INTEGER(kind=I_P) :: FLAG, IUNIT, OUNIT  
-        INTEGER(kind=I_P) :: N1, N2  
-        CHARACTER (LEN=*) :: LINE  
-
-        ! Output arguments
-        LOGICAL :: LDATA (N1, N2)  
-        CHARACTER (80) :: HEAD
-        CHARACTER(132) :: MSG 
+        INTEGER(kind=I_P) :: FLAG  !! Unused option selector retained for interface consistency.
+        INTEGER(kind=I_P) :: IUNIT !! Input unit positioned before the title line.
+        INTEGER(kind=I_P) :: OUNIT !! Output/error unit used for diagnostics.
+        INTEGER(kind=I_P) :: N1    !! First output dimension.
+        INTEGER(kind=I_P) :: N2    !! Second output dimension.
+        CHARACTER (LEN=*) :: LINE  !! Expected title-line substring.
+        LOGICAL           :: LDATA (N1, N2) !! Logical data read from the input file.
+        CHARACTER (80)    :: HEAD !! Title line read from `IUNIT`.
+        CHARACTER(132)    :: MSG  !! Error message buffer.
 
         ! Code -----------------------------------------------------------------
 
@@ -1424,30 +1590,30 @@ MODULE mod_load_filedata
     END SUBROUTINE ALREDL
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | ? | ? | - | Initial version |
-      !> | 19970805 | RAH | - | 4.1  Create. |
-      !> @endhistory
     !> Chooses an approximately even subsequence from a longer sequence.
     !>
     !> For `M` requested items from `N` available items, `ALSPRD` returns the
     !> first index `N1` and stride `DEL` for a representative subsequence. The
     !> routine is used by AL input/output helpers when only a subset of entries
     !> should be printed.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | ? | ? | - | Initial version |
+    !> | 19970805 | RAH | - | 4.1  Create. |
+    !> @endhistory
     SUBROUTINE ALSPRD (M, N, N1, DEL) 
-    
-        ! Input arguments
-        INTEGER(kind=I_P) :: M, N  
-        
-        ! Output arguments
-        INTEGER(kind=I_P) :: N1, DEL  
-        
-        ! Locals, etc
-        INTEGER(kind=I_P) :: DNE, MM, NE, NEMAX, NF  
-
-        LOGICAL :: TEST  
+        INTEGER(kind=I_P) :: M   !! Requested number of items in the printed subsequence.
+        INTEGER(kind=I_P) :: N   !! Number of available items in the full sequence.
+        INTEGER(kind=I_P) :: N1  !! First selected index.
+        INTEGER(kind=I_P) :: DEL !! Stride between selected indices.
+        INTEGER(kind=I_P) :: DNE   !! Candidate increment for the number of excluded items.
+        INTEGER(kind=I_P) :: MM    !! `M-1`, the number of printed intervals.
+        INTEGER(kind=I_P) :: NE    !! Number of excluded/outlying items.
+        INTEGER(kind=I_P) :: NEMAX !! Maximum useful excluded-item count adjustment.
+        INTEGER(kind=I_P) :: NF    !! Alternative excluded-item count.
+        LOGICAL           :: TEST  !! True when `NF` gives a more even spread.
 
 
         ! Code -----------------------------------------------------------------
@@ -1480,24 +1646,22 @@ MODULE mod_load_filedata
     END SUBROUTINE ALSPRD
 
 
-      !> @history
-      !> | Date | Author | Version | Description |
-      !> |:-----|:-------|:--------|:------------|
-      !> | ? | ? | - | Initial version |
-      !> | 19940930 | RAH | - | Version 3.4.1 created. |
-      !> | 20000307 | StevenB | - | Version 4g-pc remove ieee calls |
-      !> @endhistory
     !> Initialises legacy floating-point exception handling.
     !>
     !> `ALTRAP` is retained as the AL-layer hook for enabling floating-point
     !> traps. In the current PC-oriented code path the original IEEE setup calls
     !> have been removed, so the routine only preserves the historical interface.
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | ? | ? | - | Initial version |
+    !> | 19940930 | RAH | - | Version 3.4.1 created. |
+    !> | 20000307 | StevenB | - | Version 4g-pc remove ieee calls |
+    !> @endhistory
     SUBROUTINE ALTRAP ()  
-
-        ! Locals, etc
-        INTEGER(kind=I_P), parameter :: OUT = 0
-
-        INTEGER(kind=I_P) :: I  
+        INTEGER(kind=I_P), parameter :: OUT = 0 !! Output unit used if trap setup fails.
+        INTEGER(kind=I_P) :: I !! Legacy trap setup status; currently forced to zero.
         
         ! Code -----------------------------------------------------------------
 

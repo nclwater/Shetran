@@ -19,12 +19,13 @@ USE SGLOBAL, ONLY : NELEE, NXEE, NYEE
 IMPLICIT NONE
 
 ! ----- INTEGER VARIABLES
-!
-      INTEGER ::  NX, NY, & !! Number of grid squares in the x and y directions.
-                  NGDBGN    !! Element number at which grid elements begin.
+
+INTEGER :: NX     !! Number of grid squares in the x direction.
+INTEGER :: NY     !! Number of grid squares in the y direction.
+INTEGER :: NGDBGN !! First grid-element number; elements before this are links and optional banks.
 ! ----- INTEGER ARRAYS
-!
-      INTEGER         ICMREF(NELEE,12), &
-                      ICMXY(NXEE,NYEE)  !! Grid-to-element lookup array.
+
+INTEGER :: ICMREF(NELEE,12) !! Element reference map: type/link metadata and neighbour references.
+INTEGER :: ICMXY(NXEE,NYEE) !! Grid-to-element lookup by x-y grid coordinate.
 !PRIVATE :: NELEE, NXEE, NYEE
 END MODULE AL_G

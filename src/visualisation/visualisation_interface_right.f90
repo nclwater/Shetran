@@ -5,11 +5,34 @@
 !> available variables, allocates new time slices when output is due, fills the
 !> requested data from the central SHETRAN accessor layer, and asks the HDF5
 !> writer to persist each item.
+!>
+!> Runtime sequence:
+!>
+!> | Call | Action |
+!> |:-----|:-------|
+!> | First call | Send directory/file metadata, initialise the writer, and return. |
+!> | Second call | Send geometry metadata and register static and dynamic variables. |
+!> | Later calls | If `TIME_TO_RECORD` is true for an item, allocate a new slice, fill it, and write it. |
+!> | `text='end'` | Close visualisation output resources. |
+!>
+!> Coordinate and extra-dimension remapping:
+!>
+!> | Interface convention | SHETRAN convention used for accessor calls |
+!> |:---------------------|:------------------------------------------|
+!> | HDF5/SHEGRAPH face order `N,E,S,W` | `north_order = [north,east,south,west]`. |
+!> | Non-face extra dimensions | `normal_order = [1,2,3,4]`. |
+!> | HDF5/SHEGRAPH grid row `j` | `SHETRAN_J(j)=GRID_NY()-j+1`. |
+!> | HDF5/SHEGRAPH layer `k` | `SHETRAN_LAYER(k)` from [[visualisation_interface_centre]]. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 200407 | JE | 2.0 | Created for SHEGRAPH Version 2. |
+!> @endhistory
 MODULE visualisation_interface_right
 
 USE ISO_C_BINDING, ONLY: C_PTR
 
-!JE for SHEGRAPH Version 2.0 Created July 2004
 USE VISUALISATION_INTERFACE_CENTRE,    ONLY : BANK_NO, ELEMENT, GRID_NX, GRID_NY, RIVER_NO, TOP_CELL, &
                                               IS_SQUARE, IS_BANK, IS_LINK,                            &
                                               north, east, south, west, EXISTS, NO_EL, csz, DIRQQ,    &
@@ -26,11 +49,12 @@ USE VISUALISATION_INTERFACE_FAR_RIGHT, ONLY : G_C, G_L, G_I, S_PTR, G_PTR,      
 
 IMPLICIT NONE
 
-INTEGER, DIMENSION(4), PARAMETER :: north_order = (/north, east, south, west/), & ! new face numbering
-                                    normal_order = (/1,2,3,4/)
-LOGICAL, PARAMETER    :: T=.TRUE., F=.FALSE.
+INTEGER, DIMENSION(4), PARAMETER :: north_order = (/north, east, south, west/) !! HDF5/SHEGRAPH face order as SHETRAN face numbers.
+INTEGER, DIMENSION(4), PARAMETER :: normal_order = (/1,2,3,4/) !! Natural order for non-face extra dimensions.
+LOGICAL, PARAMETER    :: T=.TRUE.  !! Short true value for saved startup flags.
+LOGICAL, PARAMETER    :: F=.FALSE. !! Short false value for saved startup flags.
 
-REAL, PARAMETER :: zero=0.0
+REAL, PARAMETER :: zero=0.0 !! Real zero constant.
 
 PRIVATE
 PUBLIC :: RECORD_VISUALISATION_DATA, north_order
@@ -43,17 +67,36 @@ CONTAINS
 !> The first calls initialise metadata and static output; later calls populate
 !> each scheduled dynamic item whose recording interval includes `time`.
 SUBROUTINE record_visualisation_data(time, text)
-INTEGER                                  :: i, j, jj, k, mn, nn, su, ilow, ihigh, jlow, jhigh, klow, khigh, sz, ext, nsed, ncon, n
-TYPE(C_PTR)                              :: first, latest
-LOGICAL                                  :: isgrid
-REAL, INTENT(IN)                         :: time
-INTEGER, DIMENSION(4)                    :: ee
-CHARACTER(*), INTENT(IN), OPTIONAL       :: text
-CHARACTER(2)                             :: typ
-CHARACTER(8)                             :: ext_dim
-CHARACTER(csz)                           :: name
-LOGICAL, SAVE                            :: one=T, two=F
-TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: oty
+REAL, INTENT(IN)                         :: time   !! Current simulation time.
+CHARACTER(*), INTENT(IN), OPTIONAL       :: text   !! Optional control text; `end` closes output resources.
+INTEGER                                  :: i      !! X/grid or catalogue loop index.
+INTEGER                                  :: j      !! HDF5/SHEGRAPH grid-row loop index.
+INTEGER                                  :: jj     !! SHETRAN grid-row index corresponding to `j`.
+INTEGER                                  :: k      !! Metadata-registration pass index.
+INTEGER                                  :: mn     !! Visualisation metadata item number.
+INTEGER                                  :: nn     !! Non-grid subunit-list index.
+INTEGER                                  :: su     !! SHETRAN subunit element number.
+INTEGER                                  :: ilow   !! Lower x/subunit index bound for the item.
+INTEGER                                  :: ihigh  !! Upper x/subunit index bound for the item.
+INTEGER                                  :: jlow   !! Lower HDF5/SHEGRAPH y-index bound.
+INTEGER                                  :: jhigh  !! Upper HDF5/SHEGRAPH y-index bound.
+INTEGER                                  :: klow   !! Lower SHEGRAPH layer index bound.
+INTEGER                                  :: khigh  !! Upper SHEGRAPH layer index bound.
+INTEGER                                  :: sz     !! Number of non-grid subunits in the item.
+INTEGER                                  :: ext    !! Number of extra-dimension entries.
+INTEGER                                  :: nsed   !! Sediment fraction number for the item.
+INTEGER                                  :: ncon   !! Contaminant number for the item.
+INTEGER                                  :: n      !! Implied-DO index for layer remapping.
+TYPE(C_PTR)                              :: first  !! Pointer to the first stored data slice.
+TYPE(C_PTR)                              :: latest !! Pointer to the latest stored data slice.
+LOGICAL                                  :: isgrid !! True when the item is laid out on the HDF5 grid.
+INTEGER, DIMENSION(4)                    :: ee     !! Extra-dimension values passed to SHETRAN accessors.
+CHARACTER(2)                             :: typ    !! Metadata type code plus static/dynamic suffix.
+CHARACTER(8)                             :: ext_dim !! Extra-dimension name for the item.
+CHARACTER(csz)                           :: name   !! Visualisation variable name.
+LOGICAL, SAVE                            :: one=T  !! First-call startup guard.
+LOGICAL, SAVE                            :: two=F  !! Second-call startup guard.
+TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: oty    !! Static or dynamic catalogue subset.
 IF(one) THEN
     one = F
     two = T
@@ -114,7 +157,8 @@ MM: DO mn=1,G_I(0,'no_items')
         DO nn=1,sz
             su = G_I(mn,'su',nn)
             IF(su==0) CYCLE  !not a subunit _ so leave values at defaults
-            CALL FILL_SELECT(name, typ, nn, 1, 1, su, klow, khigh, SHETRAN_LAYER((/(n,n=klow,khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
+            CALL FILL_SELECT(name, typ, nn, 1, 1, su, klow, khigh, &
+                SHETRAN_LAYER((/(n,n=klow,khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
         ENDDO
     ELSE
         DO i=ilow,ihigh
@@ -123,7 +167,8 @@ MM: DO mn=1,G_I(0,'no_items')
                 IF(.NOT.G_L(mn,'on', i, j)) CYCLE
                 su = SU_NUMBER(i,j)
                 IF(su==0) CYCLE  !not a subunit _ so leave values at defaults
-            CALL FILL_SELECT(name, typ, i, j, jj, su, klow, khigh, SHETRAN_LAYER((/(n,n=klow,khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
+            CALL FILL_SELECT(name, typ, i, j, jj, su, klow, khigh, &
+                SHETRAN_LAYER((/(n,n=klow,khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
             ENDDO
         ENDDO
     ENDIF
@@ -138,10 +183,19 @@ END SUBROUTINE record_visualisation_data
 
 !> Dispatches a visualisation item to the appropriate filler for its data type.
 SUBROUTINE fill_select(name, typ, a, b, bb, su, klow, khigh, silay, ee, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name   !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ    !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a      !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b      !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb     !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su     !! SHETRAN subunit element number.
+INTEGER, INTENT(IN)               :: klow   !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh  !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay  !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee     !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed   !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon   !! Contaminant number.
 SELECT CASE(typ)
     CASE('BS') ; CALL FILL_B(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
     CASE('ES') ; CALL FILL_E(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
@@ -157,11 +211,22 @@ END SUBROUTINE fill_select
 
 !> Fills real-valued bank data for an output item.
 SUBROUTINE fill_b(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, banks(4)
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name     !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ      !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a        !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b        !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb       !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su       !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow     !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh    !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay    !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee       !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest   !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed     !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon     !! Contaminant number.
+INTEGER                           :: d        !! HDF5/SHEGRAPH face slot, in `N,E,S,W` order.
+INTEGER                           :: e        !! Extra-dimension loop index.
+INTEGER                           :: banks(4) !! Bank element numbers around `su` in north-order slots.
 banks  = BANK_NO(su,north_order)
 DO d=1,4
     IF(EXISTS(banks(d))) THEN
@@ -176,11 +241,22 @@ END SUBROUTINE fill_b
 
 !> Fills integer-valued bank data for an output item.
 SUBROUTINE fill_e(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, banks(4)
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name     !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ      !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a        !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b        !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb       !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su       !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow     !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh    !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay    !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee       !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest   !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed     !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon     !! Contaminant number.
+INTEGER                           :: d        !! HDF5/SHEGRAPH face slot, in `N,E,S,W` order.
+INTEGER                           :: e        !! Extra-dimension loop index.
+INTEGER                           :: banks(4) !! Bank element numbers around `su` in north-order slots.
 banks  = BANK_NO(su,north_order)
 DO d=1,4
     IF(EXISTS(banks(d))) THEN
@@ -194,11 +270,22 @@ END SUBROUTINE fill_e
 
 !> Fills integer-valued river-link data for an output item.
 SUBROUTINE fill_f(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, rivers(4)
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name      !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ       !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a         !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b         !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb        !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su        !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow      !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh     !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay     !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee        !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest    !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed      !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon      !! Contaminant number.
+INTEGER                           :: d         !! HDF5/SHEGRAPH face slot, in `N,E,S,W` order.
+INTEGER                           :: e         !! Extra-dimension loop index.
+INTEGER                           :: rivers(4) !! River-link element numbers around `su`.
 rivers = RIVER_NO(su, north_order)
 DO d=1,4
     IF(EXISTS(rivers(d))) THEN
@@ -212,11 +299,23 @@ END SUBROUTINE fill_f
 
 !> Fills compound real data for a subunit and its adjacent banks and rivers.
 SUBROUTINE  fill_g(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, banks(4), rivers(4)
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name      !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ       !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a         !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b         !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb        !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su        !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow      !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh     !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay     !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee        !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest    !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed      !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon      !! Contaminant number.
+INTEGER                           :: d         !! HDF5/SHEGRAPH face slot, in `N,E,S,W` order.
+INTEGER                           :: e         !! Extra-dimension loop index.
+INTEGER                           :: banks(4)  !! Bank element numbers around `su`.
+INTEGER                           :: rivers(4) !! River-link element numbers around `su`.
 DO e=1,SIZE(ee)
     CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
     SHETRAN_REAL_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
@@ -241,11 +340,22 @@ END SUBROUTINE fill_g
 
 !> Fills integer-valued grid-square data for an output item.
 SUBROUTINE  fill_i(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, n
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name   !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ    !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a      !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b      !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb     !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su     !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow   !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh  !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay  !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee     !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed   !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon   !! Contaminant number.
+INTEGER                           :: d      !! Location slot passed through to `SAVE_ITEMS_WORTH`.
+INTEGER                           :: e      !! Extra-dimension loop index.
+INTEGER                           :: n      !! Retained local work index.
 DO e=1,SIZE(ee)
     CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
     SHETRAN_INTEGER_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
@@ -254,11 +364,22 @@ END SUBROUTINE fill_i
 
 !> Fills real-valued river-link data for an output item.
 SUBROUTINE fill_L(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, rivers(4)
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name      !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ       !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a         !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b         !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb        !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su        !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow      !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh     !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay     !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee        !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest    !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed      !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon      !! Contaminant number.
+INTEGER                           :: d         !! HDF5/SHEGRAPH face slot, in `N,E,S,W` order.
+INTEGER                           :: e         !! Extra-dimension loop index.
+INTEGER                           :: rivers(4) !! River-link element numbers around `su`.
 rivers = RIVER_NO(su, north_order)
 DO d=1,4
     IF(EXISTS(rivers(d))) THEN
@@ -272,11 +393,22 @@ END SUBROUTINE fill_L
 
 !> Fills real-valued grid-square data for an output item.
 SUBROUTINE  fill_m(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, n
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name   !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ    !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a      !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b      !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb     !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su     !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow   !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh  !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay  !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee     !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed   !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon   !! Contaminant number.
+INTEGER                           :: d      !! Location slot passed through to `SAVE_ITEMS_WORTH`.
+INTEGER                           :: e      !! Extra-dimension loop index.
+INTEGER                           :: n      !! Retained local work index.
 DO e=1,SIZE(ee)
     CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
     SHETRAN_REAL_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
@@ -285,11 +417,23 @@ END SUBROUTINE fill_m
 
 !> Fills compound integer data for a subunit and its adjacent banks and rivers.
 SUBROUTINE  fill_n(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-INTEGER, INTENT(IN)               :: a, b, bb, su, klow, khigh, nsed, ncon
-TYPE(C_PTR), INTENT(IN)           :: latest
-INTEGER, DIMENSION(:), INTENT(IN) :: ee, silay
-INTEGER                           :: d, e, banks(4), rivers(4)
-CHARACTER(*), INTENT(IN)          :: name, typ
+CHARACTER(*), INTENT(IN)          :: name      !! Visualisation variable name.
+CHARACTER(*), INTENT(IN)          :: typ       !! Metadata type code plus static/dynamic suffix.
+INTEGER, INTENT(IN)               :: a         !! Output x index or non-grid subunit-list index.
+INTEGER, INTENT(IN)               :: b         !! Output HDF5/SHEGRAPH y index.
+INTEGER, INTENT(IN)               :: bb        !! SHETRAN y index.
+INTEGER, INTENT(IN)               :: su        !! SHETRAN grid-square subunit.
+INTEGER, INTENT(IN)               :: klow      !! Lower SHEGRAPH layer index.
+INTEGER, INTENT(IN)               :: khigh     !! Upper SHEGRAPH layer index.
+INTEGER, DIMENSION(:), INTENT(IN) :: silay     !! SHETRAN layer numbers for `klow:khigh`.
+INTEGER, DIMENSION(:), INTENT(IN) :: ee        !! Extra-dimension values passed to SHETRAN accessors.
+TYPE(C_PTR), INTENT(IN)           :: latest    !! Pointer to the latest stored data slice.
+INTEGER, INTENT(IN)               :: nsed      !! Sediment fraction number.
+INTEGER, INTENT(IN)               :: ncon      !! Contaminant number.
+INTEGER                           :: d         !! HDF5/SHEGRAPH face slot, in `N,E,S,W` order.
+INTEGER                           :: e         !! Extra-dimension loop index.
+INTEGER                           :: banks(4)  !! Bank element numbers around `su`.
+INTEGER                           :: rivers(4) !! River-link element numbers around `su`.
 DO e=1,SIZE(ee)
     CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
             SHETRAN_INTEGER_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
@@ -314,10 +458,14 @@ END SUBROUTINE fill_n
 
 !> Sends setup metadata and geometry arrays to the far-right visualisation layer.
 SUBROUTINE send_pass(jj)
-INTEGER                              :: i, j, nx, ny, total_no_elements
-INTEGER, INTENT(IN)                  :: jj
-INTEGER, DIMENSION(:), ALLOCATABLE   :: iel
-INTEGER, DIMENSION(:,:), ALLOCATABLE :: dum
+INTEGER, INTENT(IN)                  :: jj !! Setup pass selector: 1 file metadata, 2 geometry metadata.
+INTEGER                              :: i  !! X/grid or element loop index.
+INTEGER                              :: j  !! Y/grid or face loop index.
+INTEGER                              :: nx !! Number of HDF5/SHEGRAPH grid columns.
+INTEGER                              :: ny !! Number of HDF5/SHEGRAPH grid rows.
+INTEGER                              :: total_no_elements !! Number of SHETRAN elements.
+INTEGER, DIMENSION(:), ALLOCATABLE   :: iel !! Element index vector `1:NO_EL()`.
+INTEGER, DIMENSION(:,:), ALLOCATABLE :: dum !! Temporary integer grid/table sent through `SEND_P`.
 
 SELECT CASE(jj)
 CASE(1)
@@ -365,13 +513,18 @@ END SUBROUTINE send_pass
 
 !> Returns the subunit number at HDF5 visualisation grid coordinates.
 ELEMENTAL INTEGER FUNCTION su_number(i,j) RESULT(r)
-INTEGER, INTENT(IN) :: i,j  !HDF5 indices
+INTEGER, INTENT(IN) :: i !! HDF5/SHEGRAPH x index.
+INTEGER, INTENT(IN) :: j !! HDF5/SHEGRAPH y index.
 r = ELEMENT(i,SHETRAN_J(j))  !SHETRAN grid is upside down
 END FUNCTION su_number
 
 !> Converts an HDF5/SHEGRAPH y-index to the SHETRAN y-index.
+!>
+!> \[
+!> r = GRID\_NY() - sgv2j + 1
+!> \]
 ELEMENTAL INTEGER FUNCTION shetran_j(sgv2j) RESULT(r) !grid y coordinate
-INTEGER, INTENT(IN) :: sgv2j
+INTEGER, INTENT(IN) :: sgv2j !! HDF5/SHEGRAPH y index.
 r = GRID_NY() - sgv2j + 1
 END FUNCTION shetran_j
 

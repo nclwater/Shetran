@@ -5,9 +5,39 @@
 !> items from the visualisation plan file, resolves masks/lists/timing blocks,
 !> validates item dimensions, and creates the derived metadata consumed by the
 !> HDF5 writer.
+!>
+!> Visualisation plan blocks:
+!>
+!> | Keyword | Action |
+!> |:--------|:-------|
+!> | `item` | Read one requested output variable and its grid/list, timing, layer, sediment, and contaminant selectors. |
+!> | `list` | Read an explicit element list and derive square-only, bank-only, and river-only lists. |
+!> | `mask` | Read a grid mask, remove inactive catchment cells, and derive scoped element lists. |
+!> | `time` | Read output time-step and stop-time pairs for later `TIME_TO_RECORD` checks. |
+!> | `diag` | Enable verbose visualisation-plan diagnostics in the check file. |
+!> | `kill` | Stop after reading the plan so the check file can be inspected. |
+!> | `stop` | Finish plan reading and continue the simulation. |
+!>
+!> Selector values:
+!>
+!> | Selector | Values | Meaning |
+!> |:---------|:-------|:--------|
+!> | `basis` | `grid_as_grid`, `grid_as_list`, `list_as_list` | Grid output, mask-derived list, or explicit list. |
+!> | `scope` | `all`, `squares`, `banks`, `rivers` | Element classes retained in derived lists or gridded compound outputs. |
+!> | `extra_dimensions` | `-`, `faces`, `X_Y`, `left_right` | Optional non-spatial dimension appended to the HDF5 item metadata. |
+!>
+!> `faces` labels are stored in north, east, south, west order for the output
+!> file. Mask rows are read in the visualisation-plan order and then written
+!> unchanged to the check file; row-orientation conversion is handled by the
+!> interface layer that reads model data.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 200407 | JE | SHEGRAPH 2.0 | Created for SHEGRAPH visualisation metadata handling. |
+!> | ? | ? | - | Item time-buffer pointers use `TYPE(C_PTR)` rather than integer pointer kinds. |
+!> @endhistory
 MODULE visualisation_metadata
-
-!JE for SHEGRAPH Version 2.0 Created July 2004
 
 USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR
 USE VISUALISATION_PASS,      ONLY : SU_NUMBER, BANK_NO, RIVER_NO, EXISTS, nel, &
@@ -18,113 +48,128 @@ USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
 IMPLICIT NONE
 
-INTEGER, PARAMETER                    :: ndim=6 !max no of dimensions in HDF5 file
-REAL, DIMENSION(:), ALLOCATABLE, SAVE :: previous_time, next_time
-LOGICAL, PARAMETER                    :: T=.TRUE., F=.FALSE.
-REAL, PARAMETER                       :: zero = 0.0
+INTEGER, PARAMETER                    :: ndim=6 !! Maximum number of dimensions in an HDF5 item.
+REAL, DIMENSION(:), ALLOCATABLE, SAVE :: previous_time !! Last output time recorded for each item.
+REAL, DIMENSION(:), ALLOCATABLE, SAVE :: next_time     !! Next scheduled output time for each item.
+LOGICAL, PARAMETER                    :: T=.TRUE.      !! Short logical true constant used by legacy code.
+LOGICAL, PARAMETER                    :: F=.FALSE.     !! Short logical false constant used by legacy code.
+REAL, PARAMETER                       :: zero = 0.0    !! Zero time initialiser.
 
 !> Output timing definition from a `time` block in the visualisation plan.
 TYPE ttime
 PRIVATE
-    INTEGER :: number, sz
-    REAL, DIMENSION(:), POINTER  :: tstep=>NULL(), tstop=>NULL()  !step and stoptime
+    INTEGER :: number !! User number for the `time` block.
+    INTEGER :: sz     !! Number of time-step/stop-time pairs before the sentinel pair.
+    REAL, DIMENSION(:), POINTER  :: tstep=>NULL() !! Output interval for each timing segment, in hours.
+    REAL, DIMENSION(:), POINTER  :: tstop=>NULL() !! Stop time for each timing segment, in hours.
 END TYPE ttime
-TYPE(ttime), DIMENSION(:), POINTER :: times
-TYPE(ttime), POINTER               :: sstatic
+TYPE(ttime), DIMENSION(:), POINTER :: times   !! Dynamic timing blocks read from the plan.
+TYPE(ttime), POINTER               :: sstatic !! Static-output timing sentinel.
 !> Element list definition, including derived scope-specific lists.
 TYPE llist
 PRIVATE
-    INTEGER                        :: number, sz=0, indx=0 !number, size, and index
-    CHARACTER(12)                  :: basis  !'grid_as_grid', 'grid_as_list' or 'list'
-    CHARACTER(7)                   :: scope  !'all', 'squares', 'banks', 'rivers'
-    INTEGER, DIMENSION(:), POINTER :: a
+    INTEGER                        :: number !! User list or source mask number.
+    INTEGER                        :: sz=0   !! Number of active element numbers in `a`.
+    INTEGER                        :: indx=0 !! Internal list-table index.
+    CHARACTER(12)                  :: basis  !! Basis selector: `grid_as_grid`, `grid_as_list`, or `list_as_list`.
+    CHARACTER(7)                   :: scope  !! Scope selector: `all`, `squares`, `banks`, or `rivers`.
+    INTEGER, DIMENSION(:), POINTER :: a      !! Element numbers after scope filtering and sorting.
 END TYPE llist
-TYPE(LLIST), DIMENSION(:), POINTER :: lists=>NULL()
+TYPE(LLIST), DIMENSION(:), POINTER :: lists=>NULL() !! All explicit and derived element lists.
 !> Grid mask definition and its associated derived list index.
 TYPE mask
 PRIVATE
-    INTEGER                          :: number, ilow, ihigh, jlow, jhigh, &
-                                        listno  !first list assoc with this mask
-    LOGICAL, DIMENSION(:,:), POINTER :: ma
+    INTEGER                          :: number !! User mask number.
+    INTEGER                          :: ilow   !! First column covered by the mask.
+    INTEGER                          :: ihigh  !! Last column covered by the mask.
+    INTEGER                          :: jlow   !! First row covered by the mask.
+    INTEGER                          :: jhigh  !! Last row covered by the mask.
+    INTEGER                          :: listno !! First derived list associated with this mask.
+    LOGICAL, DIMENSION(:,:), POINTER :: ma     !! Effective mask, after inactive catchment cells are removed.
 END TYPE mask
-TYPE(MASK), DIMENSION(:), POINTER :: masks=>NULL()
-TYPE(MASK), POINTER               :: whole_grid=>NULL()
+TYPE(MASK), DIMENSION(:), POINTER :: masks=>NULL()      !! Masks read from the visualisation plan.
+TYPE(MASK), POINTER               :: whole_grid=>NULL() !! Singleton mask covering the full model grid.
 !> User-facing visualisation item before conversion to HDF5 dimensions.
 TYPE item
 PRIVATE
-    INTEGER :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
-    sediment_no=0, contaminant_no=0
-    ! REPLACED INTEGER(INT_PTR_KIND()) WITH TYPE(C_PTR)
-    TYPE(C_PTR) :: first = C_NULL_PTR, latest = C_NULL_PTR
-    CHARACTER(8)         :: name=''
-    CHARACTER(2)         :: typ=''
-    CHARACTER(csz)       :: title='*S' !for plots and printouts
-    CHARACTER(8)         :: units=''
-    CHARACTER(12)        :: basis='grid_as_grid'  !'grid_as_grid', 'grid_as_list' or 'list'
-    CHARACTER(7)         :: scope='all'          !'all', 'squares', 'banks', 'rivers'
-    CHARACTER(11)        :: extra_dimensions = '-'
-    LOGICAL              :: isgrid = F,                &
-                            istimeseries = F,          &
-                            varies_with_sediment=F,    &
-                            varies_with_contaminant=F, &
-                            implemented=F
-    INTEGER              :: layers(2)=(/0,0/)  !bottom and top layers
-    TYPE(MASK), POINTER  :: amask=>NULL()
-    TYPE(LLIST), POINTER :: alist=>NULL()
-    TYPE(TTIME), POINTER :: atime=>NULL()
+    INTEGER :: users_number=0              !! User item number.
+    INTEGER :: users_no_for_link_or_mask=0 !! Referenced user mask or list number.
+    INTEGER :: users_no_for_times=0        !! Referenced user timing-block number.
+    INTEGER :: sediment_no=0               !! Sediment fraction selector; zero when not sediment-dependent.
+    INTEGER :: contaminant_no=0            !! Contaminant selector; zero when not contaminant-dependent.
+    TYPE(C_PTR) :: first = C_NULL_PTR      !! First node in the item's time-buffer chain.
+    TYPE(C_PTR) :: latest = C_NULL_PTR     !! Latest node in the item's time-buffer chain.
+    CHARACTER(8)         :: name=''        !! Variable name used in the visualisation plan.
+    CHARACTER(2)         :: typ=''         !! Internal visualisation type code plus static/dynamic suffix.
+    CHARACTER(csz)       :: title='*S'     !! Title used for plots and printouts.
+    CHARACTER(8)         :: units=''       !! Output units label.
+    CHARACTER(12)        :: basis='grid_as_grid' !! Basis selector.
+    CHARACTER(7)         :: scope='all'    !! Element scope selector.
+    CHARACTER(11)        :: extra_dimensions = '-' !! Extra-dimension selector.
+    LOGICAL              :: isgrid = F     !! True when the item is written as a grid rather than an element list.
+    LOGICAL              :: istimeseries = F !! True for dynamic outputs.
+    LOGICAL              :: varies_with_sediment=F !! True when a sediment fraction selector is required.
+    LOGICAL              :: varies_with_contaminant=F !! True when a contaminant selector is required.
+    LOGICAL              :: implemented=F  !! True once the model interface has registered the variable.
+    INTEGER              :: layers(2)=(/0,0/) !! Bottom and top subsurface layer selectors; zero means no layer axis.
+    TYPE(MASK), POINTER  :: amask=>NULL()  !! Associated mask for gridded output.
+    TYPE(LLIST), POINTER :: alist=>NULL()  !! Associated element list for list output.
+    TYPE(TTIME), POINTER :: atime=>NULL()  !! Associated output timing definition.
 END TYPE item
-TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
+TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL() !! Static and dynamic item catalogue.
 
 !> HDF5-ready visualisation item metadata.
 TYPE hdf5_item
-    INTEGER              :: users_number = 0,              &
-                            users_no_for_link_or_mask = 0, &
-                            users_no_for_times=0,          &
-                            ilow = 0,                      &
-                            ihigh = 0,                     &
-                            jlow = 0,                      &
-                            jhigh = 0,                     &
-                            klow = 0,                      &
-                            khigh = 0,                     &
-                            no_extra_dimensions = 0,       &
-                            tstep_no = 1,                  &
-                            sz   = 0,                      & !size of list
-                            sediment_no   = 0,             & !sediment no
-                            contaminant_no = 0               !contaminant no
-    INTEGER, DIMENSION(:), POINTER :: dimensions, &  !dimensions
-                                      szorder,    &
-                                      list           !list of ssu numbers
-    CHARACTER(8)         :: name=''
-    CHARACTER(2)         :: typ=''
-    CHARACTER(csz)       :: title='*S' !for plots and printouts
-    CHARACTER(8)         :: units=''
-    CHARACTER(12)        :: basis='grid_as_grid'  !'grid_as_grid', 'grid_as_list' or 'list'
-    CHARACTER(7)         :: scope='all'          !'all', 'squares', 'banks', 'rivers'
-    CHARACTER(11)        :: extra_dimensions = '-'
-    CHARACTER(6), DIMENSION(:), POINTER :: names_of_extra_dimensions, &
-                                           names_of_dimensions,       & 
-                                           !'row', 'el-lst', 'column', 'el-typ', 'extra', 'time'
-                                           mbr
-                                           !'square', N-bank, etc
-    LOGICAL              :: isgrid       = F,        &
-                            istimeseries = F,        &
-                            isreal       = T,        &
-                            varies_with_sediment=F,  &
-                            varies_with_contaminant=F
+    INTEGER              :: users_number = 0              !! User item number.
+    INTEGER              :: users_no_for_link_or_mask = 0 !! Referenced user mask or list number.
+    INTEGER              :: users_no_for_times=0          !! Referenced user timing-block number.
+    INTEGER              :: ilow = 0                      !! First column or list index.
+    INTEGER              :: ihigh = 0                     !! Last column or list index.
+    INTEGER              :: jlow = 0                      !! First row for gridded output.
+    INTEGER              :: jhigh = 0                     !! Last row for gridded output.
+    INTEGER              :: klow = 0                      !! First subsurface layer.
+    INTEGER              :: khigh = 0                     !! Last subsurface layer.
+    INTEGER              :: no_extra_dimensions = 0       !! Size of the selected extra dimension.
+    INTEGER              :: tstep_no = 1                  !! Current HDF5 time-step record number.
+    INTEGER              :: sz   = 0                      !! Size of `list` for list outputs.
+    INTEGER              :: sediment_no   = 0             !! Sediment fraction selector.
+    INTEGER              :: contaminant_no = 0            !! Contaminant selector.
+    INTEGER, DIMENSION(:), POINTER :: dimensions !! Dimension sizes in HDF5 slot order.
+    INTEGER, DIMENSION(:), POINTER :: szorder    !! Logical write order mapped onto HDF5 slot order.
+    INTEGER, DIMENSION(:), POINTER :: list       !! Element numbers for list outputs.
+    CHARACTER(8)         :: name=''              !! Variable name.
+    CHARACTER(2)         :: typ=''               !! HDF5 visualisation type code plus static/dynamic suffix.
+    CHARACTER(csz)       :: title='*S'           !! Plot/check-file title.
+    CHARACTER(8)         :: units=''             !! Output units label.
+    CHARACTER(12)        :: basis='grid_as_grid' !! Basis selector.
+    CHARACTER(7)         :: scope='all'          !! Element scope selector.
+    CHARACTER(11)        :: extra_dimensions = '-' !! Extra-dimension selector.
+    CHARACTER(6), DIMENSION(:), POINTER :: names_of_extra_dimensions !! Labels for extra-dimension entries.
+    CHARACTER(6), DIMENSION(:), POINTER :: names_of_dimensions       !! Labels for row/list/column/layer/type/extra/time axes.
+    CHARACTER(6), DIMENSION(:), POINTER :: mbr                       !! Member labels such as square, bank, or link part.
+    LOGICAL              :: isgrid       = F        !! True for gridded outputs.
+    LOGICAL              :: istimeseries = F        !! True for dynamic outputs.
+    LOGICAL              :: isreal       = T        !! True when the HDF5 value type is real.
+    LOGICAL              :: varies_with_sediment=F  !! True when output varies by sediment fraction.
+    LOGICAL              :: varies_with_contaminant=F !! True when output varies by contaminant.
 
 END TYPE hdf5_item
-TYPE(HDF5_ITEM), DIMENSION(:), POINTER :: hdf5_items=>NULL()
+TYPE(HDF5_ITEM), DIMENSION(:), POINTER :: hdf5_items=>NULL() !! HDF5-ready item catalogue.
 
 
 
-INTEGER                  :: no_times=0, no_lists=0, no_masks=0, no_items=0, no_static_items=0
-INTEGER, PARAMETER       :: sp=50  !DEBUG compiler bug  should be <sp>X in writes, but had to make it 50X
-REAL, PARAMETER          :: small = 0.001
-CHARACTER(4), PARAMETER  :: keywords(7)         = (/'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag'/)
-CHARACTER(12),PARAMETER  :: basis(3)            = (/'grid_as_grid', 'grid_as_list', 'list_as_list'/)
-CHARACTER(7), PARAMETER  :: scope(4)            = (/'all', 'squares', 'banks', 'rivers'/)
-CHARACTER(11), PARAMETER :: extra_dimensions(4) = (/'-','faces','X_Y', 'left_right'/)
-LOGICAL                  :: diagnostics=F
+INTEGER                  :: no_times=0        !! Number of timing blocks read.
+INTEGER                  :: no_lists=0        !! Number of explicit and derived lists.
+INTEGER                  :: no_masks=0        !! Number of masks read.
+INTEGER                  :: no_items=0        !! Number of static and dynamic items.
+INTEGER                  :: no_static_items=0 !! Number of static items registered before dynamic plan reading.
+INTEGER, PARAMETER       :: sp=50             !! Legacy indentation width used in check-file writes.
+REAL, PARAMETER          :: small = 0.001     !! Time comparison tolerance, in hours.
+CHARACTER(4), PARAMETER  :: keywords(7) = (/'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag'/) !! Plan keywords.
+CHARACTER(12),PARAMETER  :: basis(3) = (/'grid_as_grid', 'grid_as_list', 'list_as_list'/) !! Valid basis selectors.
+CHARACTER(7), PARAMETER  :: scope(4) = (/'all', 'squares', 'banks', 'rivers'/) !! Valid scope selectors.
+CHARACTER(11), PARAMETER :: extra_dimensions(4) = (/'-','faces','X_Y', 'left_right'/) !! Valid extra-dimension selectors.
+LOGICAL                  :: diagnostics=F     !! True when plan diagnostics are enabled.
 
 
 PRIVATE
@@ -148,10 +193,15 @@ END SUBROUTINE INCREMENT_HDF5_TSTEP_NO
 
 
 !> Returns whether item `n` should be recorded at the current simulation time.
+!>
+!> The first call allocates per-item timing state and schedules the first output
+!> for each item. Time zero is always recorded. Later calls compare `time` with
+!> the next scheduled output time using `small` as the tolerance, then advance
+!> the schedule for that item.
 LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
 INTEGER, INTENT(IN)                   :: n
 INTEGER                               :: i
-REAL, INTENT(IN)                      :: time  !hours
+REAL, INTENT(IN)                      :: time  !! Current simulation time, in hours.
 LOGICAL, SAVE :: first = T
 IF(first) THEN
     first = F
@@ -171,9 +221,13 @@ ENDIF
 END FUNCTION time_to_record
 
 !> Returns the next scheduled output time for an item.
+!>
+!> The selected timing segment is the first `tstop` greater than the previous
+!> output time. `read_time` appends a `HUGE` sentinel, so normal plan data should
+!> always provide a terminating segment.
 ELEMENTAL REAL FUNCTION get_next_time(n) RESULT(r)
-INTEGER, INTENT(IN) :: n
-INTEGER             :: j
+INTEGER, INTENT(IN) :: n !! Item index.
+INTEGER             :: j !! Timing-segment index.
 j = 0
 DO
     j = j + 1
@@ -184,10 +238,13 @@ END FUNCTION get_next_time
 
 
 !> Returns character metadata for a visualisation item.
+!>
+!> Valid `text` selectors are `basis`, `name`, `title`, `typ`, `units`, `scope`,
+!> and `extra_dimensions`; unknown selectors return a diagnostic string.
 PURE FUNCTION get_metadata_c(i, text) RESULT(r)
-INTEGER, INTENT(IN)      :: i
-CHARACTER(*), INTENT(IN) :: text
-CHARACTER(csz)           :: r
+INTEGER, INTENT(IN)      :: i    !! Item index.
+CHARACTER(*), INTENT(IN) :: text !! Metadata selector.
+CHARACTER(csz)           :: r    !! Character metadata value.
 SELECT CASE(text)
 CASE('basis') ; r=items(i)%basis
 CASE('name')  ; r=items(i)%name
@@ -201,11 +258,14 @@ END SELECT
 END FUNCTION get_metadata_c
 
 !> Returns character metadata for an HDF5-ready item.
+!>
+!> Selectors that name dimension labels or member labels require optional index
+!> `e`; unknown selectors return a diagnostic string.
 ELEMENTAL FUNCTION get_metadata_HDF5_c(i, text, e) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: e
-CHARACTER(*), INTENT(IN)      :: text
-CHARACTER(csz)                :: r
+INTEGER, INTENT(IN)           :: i    !! HDF5 item index.
+INTEGER, INTENT(IN), OPTIONAL :: e    !! Dimension/member label index.
+CHARACTER(*), INTENT(IN)      :: text !! Metadata selector.
+CHARACTER(csz)                :: r    !! Character metadata value.
 SELECT CASE(text)
 CASE('basis')                     ; r=hdf5_items(i)%basis
 CASE('el-typ')                    ; r=hdf5_items(i)%mbr(e)
@@ -221,10 +281,13 @@ END SELECT
 END FUNCTION get_metadata_HDF5_c
 
 !> Returns integer metadata for a visualisation item.
+!>
+!> Bounds are returned as mask limits for gridded items and as list limits for
+!> list items. Unknown selectors return `HUGE(1)`.
 ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: su
-CHARACTER(*), INTENT(IN)      :: text
+INTEGER, INTENT(IN)           :: i    !! Item index.
+INTEGER, INTENT(IN), OPTIONAL :: su   !! Element-list position for selector `su`.
+CHARACTER(*), INTENT(IN)      :: text !! Metadata selector.
 SELECT CASE(text)
 CASE('ext')      ; r=NO_EXTRA_DIMENSIONS(items(i)%extra_dimensions)
 !!CASE('first')    ; r=items(i)%first
@@ -246,10 +309,10 @@ END FUNCTION get_metadata_i
 
 !> Returns a stored C pointer for an item's time-buffer chain.
 ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
-    INTEGER, INTENT(IN) :: i
-    INTEGER, INTENT(IN), OPTIONAL :: su
-    CHARACTER(*), INTENT(IN) :: text
-    TYPE(C_PTR) :: r
+    INTEGER, INTENT(IN) :: i              !! Item index.
+    INTEGER, INTENT(IN), OPTIONAL :: su   !! Unused compatibility argument.
+    CHARACTER(*), INTENT(IN) :: text      !! Pointer selector: `first` or `latest`.
+    TYPE(C_PTR) :: r                      !! Stored C pointer, or `C_NULL_PTR` for an unknown selector.
     SELECT CASE(text)
         CASE('first') ; r=items(i)%first
         CASE('latest') ; r=items(i)%latest
@@ -258,10 +321,13 @@ ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
 END FUNCTION get_metadata_ptr
 
 !> Returns integer metadata for an HDF5-ready item.
+!>
+!> Selectors that access arrays use optional index `e`. Unknown selectors return
+!> `HUGE(1)`.
 ELEMENTAL INTEGER FUNCTION get_metadata_hdf5_i(i, text, e) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: e
-CHARACTER(*), INTENT(IN)      :: text
+INTEGER, INTENT(IN)           :: i    !! HDF5 item index.
+INTEGER, INTENT(IN), OPTIONAL :: e    !! Dimension, order, list, or member index.
+CHARACTER(*), INTENT(IN)      :: text !! Metadata selector.
 SELECT CASE(text)
 CASE('dimensions')          ; r=hdf5_items(i)%dimensions(e)
 CASE('ext')                 ; r=NO_EXTRA_DIMENSIONS(hdf5_items(i)%extra_dimensions)
@@ -288,9 +354,9 @@ END FUNCTION get_metadata_hdf5_i
 
 !> Stores a C pointer for an item's first or latest time-buffer node.
 SUBROUTINE set_metadata_ptr(i, text, a)
-    INTEGER, INTENT(IN) :: i
-    TYPE(C_PTR), INTENT(IN) :: a
-    CHARACTER(*), INTENT(IN) :: text
+    INTEGER, INTENT(IN) :: i           !! Item index.
+    TYPE(C_PTR), INTENT(IN) :: a       !! Pointer value to store.
+    CHARACTER(*), INTENT(IN) :: text   !! Pointer selector: `first` or `latest`.
     SELECT CASE(text)
         CASE('first') ; items(i)%first = a
         CASE('latest') ; items(i)%latest = a
@@ -298,10 +364,14 @@ SUBROUTINE set_metadata_ptr(i, text, a)
 END SUBROUTINE set_metadata_ptr
 
 !> Returns logical metadata for a visualisation item.
+!>
+!> The `on` selector reads the associated mask at indices `a,b`; other selectors
+!> describe item flags. Unknown selectors return false.
 PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-INTEGER, INTENT(IN), OPTIONAL :: a,b
-CHARACTER(*), INTENT(IN)      :: text
+INTEGER, INTENT(IN)           :: i    !! Item index.
+INTEGER, INTENT(IN), OPTIONAL :: a    !! Mask column index for selector `on`.
+INTEGER, INTENT(IN), OPTIONAL :: b    !! Mask row index for selector `on`.
+CHARACTER(*), INTENT(IN)      :: text !! Metadata selector.
 SELECT CASE(text)
 CASE('on')           ; r=items(i)%amask%ma(a,b)
 CASE('isgrid')       ; r=items(i)%isgrid
@@ -316,8 +386,8 @@ END FUNCTION get_metadata_L
 
 !> Returns logical metadata for an HDF5-ready item.
 PURE LOGICAL FUNCTION get_metadata_HDF5_L(I, text) RESULT(r)
-INTEGER, INTENT(IN)           :: i
-CHARACTER(*), INTENT(IN)      :: text
+INTEGER, INTENT(IN)           :: i    !! HDF5 item index.
+CHARACTER(*), INTENT(IN)      :: text !! Metadata selector.
 SELECT CASE(text)
 CASE('isgrid')                  ; r=hdf5_items(i)%isgrid
 CASE('istimeseries')            ; r=hdf5_items(i)%istimeseries
@@ -330,9 +400,14 @@ END FUNCTION get_metadata_HDF5_L
 
 
 !> Reads dynamic visualisation requests from the visualisation plan file.
+!>
+!> The plan is copied to the parser input unit, read block-by-block until `stop`
+!> or `kill`, then user mask/list/time numbers are linked to their resolved
+!> metadata. `kill` deliberately stops the simulation after writing the check
+!> file.
 SUBROUTINE read_dynamic_visualisation_metadata()
-INTEGER              :: i
-CHARACTER(4)         :: now
+INTEGER              :: i   !! Dynamic item index.
+CHARACTER(4)         :: now !! Current visualisation-plan keyword.
 CALL COPY(DIRQQ, planfile)
 !CALL STRIP(file='input-files/visualisation_plan.txt', u=ur, checktitle='visualisation plan', delimiter='!', separator=(/':','^'/))
 !!!WRITE(vp_in,'(/A)') 'Opened '//TRIM(DIRQQ)//'/'//'input/visualisation_plan.txt'
@@ -368,11 +443,15 @@ END SUBROUTINE read_dynamic_visualisation_metadata
 
 !> Registers one static visualisation variable supplied by the model interface.
 SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
-INTEGER, INTENT(IN)      :: szi, szj
-CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
-CHARACTER, INTENT(IN)    :: typ
-LOGICAL, INTENT(IN)      :: varies_with_elevation
-TYPE(ITEM), POINTER      :: ii
+INTEGER, INTENT(IN)      :: szi                  !! Number of columns in the static grid.
+INTEGER, INTENT(IN)      :: szj                  !! Number of rows in the static grid.
+CHARACTER(*), INTENT(IN) :: name                 !! Static variable name.
+CHARACTER(*), INTENT(IN) :: units                !! Units label.
+CHARACTER(*), INTENT(IN) :: title                !! Check-file and plotting title.
+CHARACTER(*), INTENT(IN) :: extra_dimensions     !! Extra-dimension selector.
+CHARACTER, INTENT(IN)    :: typ                  !! Base visualisation type code.
+LOGICAL, INTENT(IN)      :: varies_with_elevation !! True when the item has a layer axis.
+TYPE(ITEM), POINTER      :: ii                   !! Newly created static item.
 CALL WRITE_STA_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation)
 CALL INCREMENT_item(items,1)
 no_static_items = no_static_items + 1
@@ -394,10 +473,13 @@ END SUBROUTINE register_static_visualisation_metadata
 
 !> Writes one static variable entry to the visualisation check file.
 SUBROUTINE write_sta_variable(name, units, title, extra_dimensions, varies_with_elev)
-CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
-LOGICAL, INTENT(IN)              :: varies_with_elev
-LOGICAL, SAVE                    :: first=T
-CHARACTER(LEN(extra_dimensions)) :: ed
+CHARACTER(*), INTENT(IN)         :: name             !! Static variable name.
+CHARACTER(*), INTENT(IN)         :: units            !! Units label.
+CHARACTER(*), INTENT(IN)         :: title            !! Check-file title.
+CHARACTER(*), INTENT(IN)         :: extra_dimensions !! Extra-dimension selector.
+LOGICAL, INTENT(IN)              :: varies_with_elev !! True when the item has a layer axis.
+LOGICAL, SAVE                    :: first=T          !! True before the check file is opened.
+CHARACTER(LEN(extra_dimensions)) :: ed               !! Printed extra-dimension selector.
 IF(extra_dimensions=='-') THEN ; ed = '-' ; ELSE ; ed=extra_dimensions ; ENDIF
 IF(first) THEN
     first = F
@@ -411,9 +493,14 @@ WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_ELEV(varies_with_elev), units, ed
 END SUBROUTINE write_sta_variable
 !> Writes one dynamic variable entry to the visualisation check file.
 SUBROUTINE write_dyn_variable(name, units, title, extra_dimensions, varies_with_elev, varies_with_sed, varies_with_con)
-CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
-LOGICAL, INTENT(IN)              :: varies_with_elev, varies_with_sed, varies_with_con
-LOGICAL, SAVE                    :: first=T
+CHARACTER(*), INTENT(IN)         :: name             !! Dynamic variable name.
+CHARACTER(*), INTENT(IN)         :: units            !! Units label.
+CHARACTER(*), INTENT(IN)         :: title            !! Check-file title.
+CHARACTER(*), INTENT(IN)         :: extra_dimensions !! Extra-dimension selector.
+LOGICAL, INTENT(IN)              :: varies_with_elev !! True when the item has a layer axis.
+LOGICAL, INTENT(IN)              :: varies_with_sed  !! True when sediment fraction is required.
+LOGICAL, INTENT(IN)              :: varies_with_con  !! True when contaminant number is required.
+LOGICAL, SAVE                    :: first=T          !! True before the check file is opened.
 IF(first) THEN
     first = F
 !    OPEN(unit=uw, FILE=TRIM(DIRQQ)//'/'//'output/check_visualisation_plan.txt', ACTION='WRITE', STATUS='UNKNOWN')
@@ -421,14 +508,18 @@ IF(first) THEN
     OPEN(unit=vp_out, FILE=checkfile, ACTION='WRITE', STATUS='UNKNOWN')
     WRITE(vp_out,'(A80)') REPEAT('-',80)
     WRITE(vp_out,'(A)') 'Full list of variables that can be recorded in the HDF5 file'
-    WRITE(vp_out,'(A)') 'E-varies with subsurface elevation; C-varies with contaminant no; S-varies with sediment fraction no'
+    WRITE(vp_out,'(A)') 'E-varies with subsurface elevation; C-varies with contaminant no; '// &
+                        'S-varies with sediment fraction no'
 ENDIF
-WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_E_SED_CON(varies_with_elev,varies_with_sed,varies_with_con), units, extra_dimensions, title
+WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_E_SED_CON(varies_with_elev,varies_with_sed,varies_with_con), &
+                                       units, extra_dimensions, title
 END SUBROUTINE write_dyn_variable
 !> Encodes elevation, sediment, and contaminant variability for the check file.
 PURE CHARACTER(7) FUNCTION v_e_sed_con(v,s,c) RESULT(r)
-INTEGER             :: p
-LOGICAL, INTENT(IN) :: v,s,c
+INTEGER             :: p !! Character position used while packing flags.
+LOGICAL, INTENT(IN) :: v !! Elevation-varying flag.
+LOGICAL, INTENT(IN) :: s !! Sediment-varying flag.
+LOGICAL, INTENT(IN) :: c !! Contaminant-varying flag.
 r = REPEAT(' ',LEN(r))
 p = 3
 IF(v) THEN ; r(p:p)='E' ; p=p+2 ; ENDIF
@@ -437,8 +528,8 @@ IF(c) r(p:p)='C'
 END FUNCTION v_e_sed_con
 !> Encodes elevation variability for a static check-file entry.
 PURE CHARACTER(5) FUNCTION v_elev(v) RESULT(r)
-INTEGER             :: p
-LOGICAL, INTENT(IN) :: v
+INTEGER             :: p !! Character position for the elevation flag.
+LOGICAL, INTENT(IN) :: v !! Elevation-varying flag.
 r = REPEAT(' ',LEN(r))
 p = 3
 IF(v) r(p:p)='E'
@@ -446,19 +537,31 @@ END FUNCTION v_elev
 
 
 !> Registers and validates dynamic visualisation variables.
+!>
+!> Calls with `jj==1` only write the catalogue of implemented variables to the
+!> check file. The first later call reads the user plan. The `final` call checks
+!> that every requested item was recognised and implemented, validates selectors,
+!> and creates the HDF5 metadata table.
 SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
            extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
-INTEGER                                  :: i
-INTEGER, INTENT(IN)                      :: jj
-CHARACTER(*), INTENT(IN)                 :: name, units, title, extra_dimensions
-CHARACTER, INTENT(IN)                    :: typ
-LOGICAL, INTENT(IN)                      :: final, & !is final call to this routine
-                                            varies_with_elevation, varies_with_sed, varies_with_con, implemented
-LOGICAL, DIMENSION(:), ALLOCATABLE, SAVE :: found
-TYPE(ITEM), POINTER                      :: ii=>NULL()
-LOGICAL, SAVE                            :: first=T
+INTEGER                                  :: i          !! Dynamic item index.
+INTEGER, INTENT(IN)                      :: jj         !! Registration pass number.
+CHARACTER(*), INTENT(IN)                 :: name       !! Dynamic variable name.
+CHARACTER(*), INTENT(IN)                 :: units      !! Units label.
+CHARACTER(*), INTENT(IN)                 :: title      !! Check-file and plotting title.
+CHARACTER(*), INTENT(IN)                 :: extra_dimensions !! Extra-dimension selector.
+CHARACTER, INTENT(IN)                    :: typ        !! Base model visualisation type code.
+LOGICAL, INTENT(IN)                      :: final      !! True on the final registration call.
+LOGICAL, INTENT(IN)                      :: varies_with_elevation !! True when the item has a layer axis.
+LOGICAL, INTENT(IN)                      :: varies_with_sed       !! True when sediment fraction is required.
+LOGICAL, INTENT(IN)                      :: varies_with_con       !! True when contaminant number is required.
+LOGICAL, INTENT(IN)                      :: implemented           !! True when the variable can be output.
+LOGICAL, DIMENSION(:), ALLOCATABLE, SAVE :: found      !! Per-request match flags for dynamic items.
+TYPE(ITEM), POINTER                      :: ii=>NULL() !! Matched dynamic item.
+LOGICAL, SAVE                            :: first=T    !! True before the user plan has been read.
 IF(jj==1) THEN
-    IF(implemented) CALL WRITE_DYN_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con)
+    IF(implemented) CALL WRITE_DYN_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation, &
+                                            varies_with_sed, varies_with_con)
     RETURN
 ENDIF
 IF(first) THEN
@@ -513,10 +616,14 @@ ENDIF
 END SUBROUTINE register_dynamic_visualisation_metadata
 
 !> Converts internal item metadata to the HDF5-ready metadata table.
+!>
+!> This copies stable item fields, resolves extra-dimension labels, calculates
+!> dimension slots, and copies list element numbers for list outputs.
 SUBROUTINE create_hdf5_metadata()
-INTEGER                  :: mn, nex
-TYPE(ITEM), POINTER      :: ii
-TYPE(HDF5_ITEM), POINTER :: hh
+INTEGER                  :: mn  !! Item index.
+INTEGER                  :: nex !! Size of the selected extra dimension.
+TYPE(ITEM), POINTER      :: ii  !! Source internal item.
+TYPE(HDF5_ITEM), POINTER :: hh  !! Destination HDF5 metadata item.
 ALLOCATE(hdf5_items(no_items))
 DO mn=1,no_items
     ii => items(mn)
@@ -561,9 +668,24 @@ END SUBROUTINE create_hdf5_metadata
 
 
 !> Calculates HDF5 dimension sizes and dimension ordering for one item.
+!>
+!> HDF5 metadata uses six fixed slots. The write order is stored separately in
+!> `szorder` so grid/list geometry, layers, member type, extra dimensions, and
+!> time can be omitted by setting their size to zero.
+!>
+!> | Slot | Dimension label | Size source |
+!> |:-----|:----------------|:------------|
+!> | 1 | `time` | `1` for time series, otherwise `0`. |
+!> | 2 | `extra` | Extra-dimension count; singletons are suppressed to `0`. |
+!> | 3 | `layer` | `khigh-klow+1` when `khigh>0`, otherwise `0`. |
+!> | 4 | `el_typ` | Structure member count; singletons are suppressed to `0`. |
+!> | 5 | `column` or empty row slot | Number of columns for grids, otherwise `0`. |
+!> | 6 | `row` or `el-lst` | Number of rows for grids, or list length for list outputs. |
 SUBROUTINE GET_SZ_CR(h)
-INTEGER                  :: r, mbr, nextra
-TYPE(HDF5_ITEM), POINTER :: h
+INTEGER                  :: r      !! HDF5 dimension slot currently being filled.
+INTEGER                  :: mbr    !! Number of structure members for the item type.
+INTEGER                  :: nextra !! Extra-dimension count.
+TYPE(HDF5_ITEM), POINTER :: h      !! HDF5 metadata item to update.
 mbr    = MBR_COUNT(h%typ)
 nextra = h%no_extra_dimensions
 IF(h%isgrid) THEN
@@ -578,18 +700,33 @@ IF(h%isgrid) THEN
 ELSE
     r=5 ; h%dimensions(r) = 0
 ENDIF
-      h%names_of_dimensions(r)='row'    ;                                  ; h%szorder(2) = r
-r=3 ; h%names_of_dimensions(r)='layer'  ; IF(h%khigh>0) THEN ; h%dimensions(r)=h%khigh-h%klow+1 ; ELSE ; h%dimensions(r)=0 ; ENDIF ; h%szorder(3) = r
-r=4 ; h%names_of_dimensions(r)='el_typ' ; h%dimensions(r)=mbr              ; IF(h%dimensions(r)==1) h%dimensions(r)=0  ; h%szorder(4) = r
-r=2 ; h%names_of_dimensions(r)='extra'  ; h%dimensions(r)=nextra           ; IF(h%dimensions(r)==1) h%dimensions(r)=0  ; h%szorder(5) = r
-r=1 ; h%names_of_dimensions(r)='time'   ; IF(h%istimeseries) THEN ; h%dimensions(r)=1 ; ELSE ; h%dimensions(r)=0 ; ENDIF ; h%szorder(6) = r
+      h%names_of_dimensions(r)='row'
+      h%szorder(2) = r
+r=3
+h%names_of_dimensions(r)='layer'
+IF(h%khigh>0) THEN ; h%dimensions(r)=h%khigh-h%klow+1 ; ELSE ; h%dimensions(r)=0 ; ENDIF
+h%szorder(3) = r
+r=4
+h%names_of_dimensions(r)='el_typ'
+h%dimensions(r)=mbr
+IF(h%dimensions(r)==1) h%dimensions(r)=0
+h%szorder(4) = r
+r=2
+h%names_of_dimensions(r)='extra'
+h%dimensions(r)=nextra
+IF(h%dimensions(r)==1) h%dimensions(r)=0
+h%szorder(5) = r
+r=1
+h%names_of_dimensions(r)='time'
+IF(h%istimeseries) THEN ; h%dimensions(r)=1 ; ELSE ; h%dimensions(r)=0 ; ENDIF
+h%szorder(6) = r
 END SUBROUTINE GET_SZ_CR
 
 
 !> Calculates the nominal HDF5 rank for an item.
 PURE INTEGER FUNCTION calc_rank(h) RESULT(r)
-INTEGER                  :: mbr
-TYPE(HDF5_ITEM), POINTER :: h
+INTEGER                  :: mbr !! Number of structure members for the item type.
+TYPE(HDF5_ITEM), POINTER :: h   !! HDF5 metadata item.
 mbr = MBR_COUNT(h%typ)
 r   = 1
 IF(h%jhigh-h%jlow>1)        r=r+1
@@ -601,9 +738,20 @@ END FUNCTION calc_rank
 
 
 !> Maps a model data type and requested scope to a visualisation storage type.
+!>
+!> `W` data are rejected. List outputs are collapsed to list-compatible storage
+!> types, while gridded outputs preserve `typ` for `scope='all'` and remap
+!> sub-scopes as follows:
+!>
+!> | Scope | `C` | `G` | `H` | `L` | `Q` |
+!> |:------|:----|:----|:----|:----|:----|
+!> | list output | `V` | `M` | `X` | `M` | `Z` |
+!> | `squares` | `V` | `M` | `X` | `L` | `Z` |
+!> | `banks` | `K` | `B` | `T` | `L` | `A` |
+!> | `rivers` | `O` | `L` | `U` | `L` | `D` |
 CHARACTER FUNCTION alter_dynamic_type(typ, ii) RESULT(r)
-CHARACTER, INTENT(IN)     :: typ
-TYPE(ITEM), INTENT(INOUT) :: ii
+CHARACTER, INTENT(IN)     :: typ !! Base model visualisation type code.
+TYPE(ITEM), INTENT(INOUT) :: ii  !! Requested item, including basis and scope.
 IF(typ=='W') THEN
     WRITE(mess,*) 'cannot handle type W data' ; CALL ERROR()
     ii%typ = 'W*'
@@ -652,9 +800,12 @@ END FUNCTION alter_dynamic_type
 
 
 !> Dispatches one visualisation plan keyword block to its reader.
+!>
+!> `list` and `mask` blocks create derived scope-specific lists immediately
+!> after the original source list/mask so `EXTRA(scope)` can later select them.
 SUBROUTINE HANDLE(now)
-INTEGER                  :: orig
-CHARACTER(4), INTENT(IN) :: now
+INTEGER                  :: orig !! Index of the original explicit list before derived lists are appended.
+CHARACTER(4), INTENT(IN) :: now  !! Current visualisation-plan keyword.
 SELECT CASE(now)
 CASE('item')
     CALL INCREMENT_item(items,1)
@@ -698,8 +849,8 @@ END SUBROUTINE HANDLE
 
 !> Links user numbers in an item to the resolved mask/list/time metadata.
 SUBROUTINE link_users_numbers_to_indexes(it)
-INTEGER                   :: uun
-TYPE(ITEM), INTENT(INOUT) :: it
+INTEGER                   :: uun !! User mask or list number copied from the item.
+TYPE(ITEM), INTENT(INOUT) :: it  !! Item whose pointers and grid/list flag are updated.
 uun = it%users_no_for_link_or_mask
 SELECT CASE(it%basis)
 CASE('grid_as_grid')
@@ -716,9 +867,12 @@ END SUBROUTINE link_users_numbers_to_indexes
 
 
 !> Returns the static-output timing sentinel.
+!>
+!> The singleton timing block uses user number `999` and `HUGE` step/stop times
+!> so static variables are metadata-only and are not scheduled as dynamic series.
 FUNCTION point_to_static() RESULT(r)
-TYPE(TTIME), POINTER :: r
-LOGICAL, SAVE        :: first=T
+TYPE(TTIME), POINTER :: r       !! Pointer to the singleton static timing block.
+LOGICAL, SAVE        :: first=T !! True until the singleton has been allocated.
 IF(first) THEN
     first    =  F
     ALLOCATE(sstatic)
@@ -734,10 +888,13 @@ END FUNCTION point_to_static
 
 
 !> Returns a mask covering the whole model grid.
+!>
+!> The singleton is sized by the first call; later calls return the same mask.
 FUNCTION point_to_whole_grid(i,j) RESULT(r)
-TYPE(MASK), POINTER :: r
-INTEGER, INTENT(IN) :: i,j
-LOGICAL, SAVE :: first=T
+TYPE(MASK), POINTER :: r       !! Pointer to the singleton full-grid mask.
+INTEGER, INTENT(IN) :: i       !! Number of columns used when first allocating the mask.
+INTEGER, INTENT(IN) :: j       !! Number of rows used when first allocating the mask.
+LOGICAL, SAVE :: first=T       !! True until the singleton has been allocated.
 IF(first) THEN
     first    =  F
     ALLOCATE(whole_grid)
@@ -757,7 +914,7 @@ END FUNCTION point_to_whole_grid
 
 !> Returns the list offset associated with an item scope.
 ELEMENTAL INTEGER FUNCTION extra(s) RESULT(r)
-CHARACTER(*), INTENT(IN) :: s
+CHARACTER(*), INTENT(IN) :: s !! Scope selector.
 SELECT CASE(s)
 CASE('all')    ; r=0
 CASE('squares') ; r=1
@@ -768,9 +925,9 @@ END FUNCTION extra
 
 !> Returns the mask matching a user mask number.
 FUNCTION point_to_mask(users_no_for_link_or_mask) RESULT(r)
-INTEGER, INTENT(IN) :: users_no_for_link_or_mask
-INTEGER             :: I
-TYPE(MASK), POINTER :: r
+INTEGER, INTENT(IN) :: users_no_for_link_or_mask !! User mask number.
+INTEGER             :: I                         !! Mask-table index.
+TYPE(MASK), POINTER :: r                         !! Matching mask pointer.
 r=>NULL()
 DO i=1,no_masks
     IF(masks(i)%number==users_no_for_link_or_mask) THEN
@@ -785,11 +942,17 @@ ENDIF
 END FUNCTION point_to_mask
 
 !> Returns the list matching a user list/mask number, basis, and scope.
+!>
+!> For `grid_as_list`, the user number refers to a mask and `scope` selects one
+!> of the four derived mask lists. For `list_as_list`, the user number refers to
+!> an explicit list and `scope` selects the corresponding derived list.
 FUNCTION point_to_list(users_no_for_link_or_mask, basis, scope) RESULT(r)
-INTEGER                  :: i, j
-INTEGER, INTENT(IN)      :: users_no_for_link_or_mask
-CHARACTER(*), INTENT(IN) :: basis, scope
-TYPE(LLIST), POINTER :: r
+INTEGER                  :: i                         !! Mask/list table index.
+INTEGER                  :: j                         !! Non-zero match flag and matched index.
+INTEGER, INTENT(IN)      :: users_no_for_link_or_mask !! User mask or list number.
+CHARACTER(*), INTENT(IN) :: basis                     !! Basis selector.
+CHARACTER(*), INTENT(IN) :: scope                     !! Scope selector.
+TYPE(LLIST), POINTER :: r                             !! Matching explicit or derived list.
 r=>null()
 j = 0
 IF(basis=='grid_as_list') THEN
@@ -822,9 +985,9 @@ END FUNCTION point_to_list
 
 !> Returns the timing block matching a user time number.
 FUNCTION point_to_time(users_no_for_times) RESULT(r)
-INTEGER, INTENT(IN)  :: users_no_for_times
-INTEGER              :: I
-TYPE(TTIME), POINTER :: r
+INTEGER, INTENT(IN)  :: users_no_for_times !! User timing-block number.
+INTEGER              :: I                  !! Timing-table index.
+TYPE(TTIME), POINTER :: r                  !! Matching timing-block pointer.
 r=>NULL()
 DO i=1,no_times
     IF(times(i)%number==users_no_for_times) THEN
@@ -840,14 +1003,18 @@ END FUNCTION point_to_time
 
 !> Returns a copy of one internal visualisation item.
 TYPE(ITEM) FUNCTION get_item(i) RESULT(r)
-INTEGER, INTENT(IN) :: i
+INTEGER, INTENT(IN) :: i !! Item index.
 r = items(i)
 END FUNCTION get_item
 
 
 !> Returns the number of registered visualisation items.
+!>
+!> Current implementation returns the total when optional `text` is present.
+!> The absent-argument branch contains legacy static/dynamic selector code but
+!> cannot be used safely because it references the absent optional argument.
 PURE INTEGER FUNCTION no_of_items(text) RESULT(r)
-CHARACTER(*), INTENT(IN), OPTIONAL :: text
+CHARACTER(*), INTENT(IN), OPTIONAL :: text !! Legacy selector, intended values `static` or `dynamic`.
 IF(PRESENT(text)) THEN
     r = no_items
 ELSE
@@ -874,10 +1041,14 @@ r = 'stop'
 END FUNCTION cycle_till_keyword
 
 !> Reads one requested visualisation item from the plan file.
+!>
+!> `as_above` copies the previous item and then restores the new item's name and
+!> number. Layer limits are reordered if the user supplies them high-to-low.
 SUBROUTINE read_item(s)
-INTEGER                   :: number
-CHARACTER(csz)            :: dum, name
-TYPE(ITEM), INTENT(INOUT) :: s
+INTEGER                   :: number !! User item number preserved across `as_above`.
+CHARACTER(csz)            :: dum    !! Plan heading currently being read.
+CHARACTER(csz)            :: name   !! Item name preserved across `as_above`.
+TYPE(ITEM), INTENT(INOUT) :: s      !! Item populated from the plan block.
         IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a item'
 DO
     CALL R_C(' ',dum)
@@ -912,8 +1083,11 @@ END SUBROUTINE read_item
 
 
 !> Validates one requested visualisation item.
+!>
+!> Checks selector names and enforces sediment/contaminant numbers only when
+!> the registered variable varies with those dimensions.
 SUBROUTINE check_item(a)
-TYPE(ITEM), INTENT(IN) :: a
+TYPE(ITEM), INTENT(IN) :: a !! Item to validate.
 IF (ALL(a%basis/=basis)) THEN
     WRITE(mess,'(2A)') a%basis,'  BASIS NOT RECOGNISED'
     WRITE(mess2,'(A,10A14)') ' SHOULD BE ONE OF: ',basis
@@ -952,8 +1126,9 @@ END SUBROUTINE check_item
 
 !> Performs cross-item validation after all requested items are linked.
 SUBROUTINE final_check_of_item()
-INTEGER             :: i, cnt
-TYPE(ITEM), POINTER :: a
+INTEGER             :: i   !! Item index.
+INTEGER             :: cnt !! Number of cross-item validation failures.
+TYPE(ITEM), POINTER :: a   !! Current item being checked.
 cnt = 0
 DO i=1,SIZE(items,dim=1)
     a => items(i)
@@ -973,9 +1148,12 @@ END SUBROUTINE final_check_of_item
 
 
 !> Reads one output timing block from the plan file.
+!>
+!> A sentinel `HUGE` step/stop pair is appended so timing lookup can continue
+!> past the final user-specified segment without a separate bounds check.
 SUBROUTINE read_time(t)
-INTEGER                    :: i
-TYPE(TTIME), INTENT(INOUT) :: t
+INTEGER                    :: i !! Timing-pair index.
+TYPE(TTIME), INTENT(INOUT) :: t !! Timing block populated from the plan.
         IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading times'
 CALL R_I('TIMES number and size', t%number, t%sz)
 ALLOCATE(t%tstep(t%sz+1), t%tstop(t%sz+1))
@@ -995,8 +1173,9 @@ END SUBROUTINE read_time
 
 !> Reads one explicit element list from the plan file.
 SUBROUTINE read_list(L)
-INTEGER                    :: i, cnt
-TYPE(LLIST), INTENT(INOUT) :: L
+INTEGER                    :: i   !! List-entry index.
+INTEGER                    :: cnt !! Number of invalid element numbers.
+TYPE(LLIST), INTENT(INOUT) :: L   !! Explicit list populated from the plan.
     IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a list'
 L%scope = 'all'
 L%indx  = no_lists
@@ -1018,10 +1197,13 @@ IF(cnt>0) CALL ERROR()
 END SUBROUTINE read_list
 
 !> Builds a scoped element list from a mask.
+!>
+!> Scope expansion uses a nine-slot cell layout for `all`: one square, four
+!> banks, and four river links. Zeros and duplicates are removed by `sort`.
 TYPE(LLIST) FUNCTION make_list_from_mask(m, txt) RESULT(r)
-INTEGER                  :: num
-CHARACTER(*), INTENT(IN) :: txt
-TYPE(MASK), INTENT(IN)   :: m
+INTEGER                  :: num !! Number of element slots contributed by each active cell.
+CHARACTER(*), INTENT(IN) :: txt !! Scope selector for the derived list.
+TYPE(MASK), INTENT(IN)   :: m   !! Source mask.
 r%scope = txt
 num     = GET_NUM(txt)
 r%sz    = num*COUNT(m%ma) ; ALLOCATE(r%a(r%sz)) ; r%a = 0
@@ -1036,7 +1218,10 @@ CONTAINS
 
     !> Expands active masked cells into subunit, bank, and river element numbers.
     SUBROUTINE loops()
-    INTEGER :: c, i, j, su
+    INTEGER :: c  !! Output-list write position.
+    INTEGER :: i  !! Mask column index.
+    INTEGER :: j  !! Mask row index.
+    INTEGER :: su !! Subunit number for the current mask cell.
     c = 1
     DO i=m%ilow,m%ihigh
         DO j=m%jlow,m%jhigh
@@ -1054,9 +1239,9 @@ END FUNCTION make_list_from_mask
 
 !> Builds a scoped element list from an explicit element list.
 TYPE(LLIST) FUNCTION make_list_from_list(L, txt) RESULT(r)
-INTEGER                  :: num
-CHARACTER(*), INTENT(IN) :: txt
-TYPE(LLIST), INTENT(IN)  :: L
+INTEGER                  :: num !! Number of element slots contributed by each source entry.
+CHARACTER(*), INTENT(IN) :: txt !! Scope selector for the derived list.
+TYPE(LLIST), INTENT(IN)  :: L   !! Source explicit list.
 r%scope = txt
 num    = GET_NUM(txt)
 r%sz   = L%sz ; ALLOCATE(r%a(r%sz)) ; r%a=0
@@ -1071,8 +1256,11 @@ CONTAINS
 
     !> Filters the source list down to elements matching the requested scope.
     SUBROUTINE lists()
-    INTEGER :: c, i, j, su
-    LOGICAL :: iss
+    INTEGER :: c  !! Output-list write position.
+    INTEGER :: i  !! Source-list index.
+    INTEGER :: j  !! Unused legacy workspace.
+    INTEGER :: su !! Current element number from the source list.
+    LOGICAL :: iss !! True when `su` matches the requested scope.
     c = 1
     DO i=1,L%sz
         su  = L%a(i)
@@ -1089,7 +1277,7 @@ END FUNCTION make_list_from_list
 
 !> Returns the number of element slots contributed by a scope.
 PURE INTEGER FUNCTION get_num(txt) RESULT(r)
-CHARACTER(*), INTENT(IN) :: txt
+CHARACTER(*), INTENT(IN) :: txt !! Scope selector.
 SELECT CASE(txt)
     CASE('all')     ; r=9
     CASE('squares') ; r=1
@@ -1100,11 +1288,17 @@ END FUNCTION get_num
 
 
 !> Removes zeros and duplicates from an element list and sorts it ascending.
+!>
+!> The routine assumes at least one positive candidate value, because it sizes a
+!> logical work array with `MAXVAL(a)`. Callers construct candidate lists from
+!> existing model elements before calling it.
 SUBROUTINE sort(sza, a)
-INTEGER, INTENT(INOUT)             :: sza
-INTEGER                            :: i, j, szd
-INTEGER, DIMENSION(:), POINTER     :: a
-LOGICAL, DIMENSION(:), ALLOCATABLE :: d
+INTEGER, INTENT(INOUT)             :: sza !! Input candidate count; output unique positive count.
+INTEGER                            :: i   !! Candidate or work-array index.
+INTEGER                            :: j   !! Count/write position.
+INTEGER                            :: szd !! Maximum positive element number used to size `d`.
+INTEGER, DIMENSION(:), POINTER     :: a   !! Element list, reallocated when zeros/duplicates are removed.
+LOGICAL, DIMENSION(:), ALLOCATABLE :: d   !! Presence map keyed by element number.
 szd = MAXVAL(a)
 ALLOCATE(d(szd))
 d = F
@@ -1128,11 +1322,16 @@ ENDDO
 END SUBROUTINE sort
 
 !> Reads one grid mask from the plan file and removes cells outside the catchment.
+!>
+!> Mask bounds are normalised to low/high order before reading. Characters in
+!> `off` mark inactive cells; all other characters initially mark active cells,
+!> then `EXISTS(SU_NUMBER(i,j))` removes locations outside the catchment.
 SUBROUTINE read_mask(m, off)
-INTEGER                              :: i, j
-CHARACTER, DIMENSION(:), INTENT(IN)  :: off
-CHARACTER                            :: c
-TYPE(MASK), INTENT(INOUT)            :: m
+INTEGER                              :: i   !! Mask column index or temporary bound swap value.
+INTEGER                              :: j   !! Mask row index.
+CHARACTER, DIMENSION(:), INTENT(IN)  :: off !! Characters that indicate an inactive mask cell.
+CHARACTER                            :: c   !! Mask character read from the plan file.
+TYPE(MASK), INTENT(INOUT)            :: m   !! Mask populated from the plan.
         IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a mask'
 CALL R_I('number,JLOW,JHIGH,ILOW,IHIGH',m%number, m%jlow, m%jhigh, m%ilow, m%ihigh)
 IF(m%jlow>m%jhigh) THEN ; i=m%jlow ; m%jlow=m%jhigh ; m%jhigh=i ; ENDIF
@@ -1163,12 +1362,13 @@ END SUBROUTINE read_mask
 
 !> Writes a logical mask to the visualisation check file.
 SUBROUTINE mask_write(txt, ma, tr, fa)
-    CHARACTER(*), INTENT(IN) :: txt
-    LOGICAL, INTENT(IN)      :: ma(:,:)
-    CHARACTER(1), INTENT(IN) :: tr, fa
+    CHARACTER(*), INTENT(IN) :: txt    !! Check-file heading for the mask.
+    LOGICAL, INTENT(IN)      :: ma(:,:) !! Mask to print.
+    CHARACTER(1), INTENT(IN) :: tr     !! Character used for true cells.
+    CHARACTER(1), INTENT(IN) :: fa     !! Character used for false cells.
 
-    CHARACTER(1), ALLOCATABLE :: cc(:,:)
-    CHARACTER(20)             :: fmt_str
+    CHARACTER(1), ALLOCATABLE :: cc(:,:) !! Printable character copy of `ma`.
+    CHARACTER(20)             :: fmt_str !! Runtime format replacing the old Intel `<SIZE>` extension.
 
     IF (SIZE(ma, 1) == 0 .OR. SIZE(ma, 2) == 0) RETURN
 
@@ -1190,33 +1390,40 @@ END SUBROUTINE mask_write
 
 !> Extends the internal visualisation item table.
 SUBROUTINE INCREMENT_item(s,n)
-TYPE(ITEM), DIMENSION(:), POINTER :: s,old=>NULL()
+TYPE(ITEM), DIMENSION(:), POINTER :: s        !! Pointer table to extend.
+TYPE(ITEM), DIMENSION(:), POINTER :: old=>NULL() !! Temporary pointer used by `include_increment.f90`.
 INCLUDE 'include_increment.f90'
 no_items   = no_items + 1
 END SUBROUTINE INCREMENT_item
 
 !> Extends the internal list table.
 SUBROUTINE INCREMENT_LIST(s,n)
-TYPE(LLIST), DIMENSION(:), POINTER :: s,old=>NULL()
+TYPE(LLIST), DIMENSION(:), POINTER :: s        !! Pointer table to extend.
+TYPE(LLIST), DIMENSION(:), POINTER :: old=>NULL() !! Temporary pointer used by `include_increment.f90`.
 INCLUDE 'include_increment.f90'
 no_lists   = no_lists + 1
 END SUBROUTINE INCREMENT_LIST
 !> Extends the internal mask table.
 SUBROUTINE INCREMENT_MASK(s,n)
-TYPE(MASK), DIMENSION(:), POINTER :: s,old=>NULL()
+TYPE(MASK), DIMENSION(:), POINTER :: s        !! Pointer table to extend.
+TYPE(MASK), DIMENSION(:), POINTER :: old=>NULL() !! Temporary pointer used by `include_increment.f90`.
 INCLUDE 'include_increment.f90'
 no_masks  = no_masks + 1
 END SUBROUTINE INCREMENT_MASK
 !> Extends the internal timing-block table.
 SUBROUTINE INCREMENT_TIME(s,n)
-TYPE(TTIME), DIMENSION(:), POINTER :: s,old=>NULL()
+TYPE(TTIME), DIMENSION(:), POINTER :: s        !! Pointer table to extend.
+TYPE(TTIME), DIMENSION(:), POINTER :: old=>NULL() !! Temporary pointer used by `include_increment.f90`.
 INCLUDE 'include_increment.f90'
 no_times  = no_times + 1
 END SUBROUTINE INCREMENT_TIME
 
 !> Returns the number of entries in an extra-dimension selector.
+!>
+!> `faces` is north/east/south/west, `left_right` is left/right, and `X_Y` is
+!> x/y. `-` is treated as a singleton so metadata arrays can still be allocated.
 ELEMENTAL INTEGER FUNCTION no_extra_dimensions(e_d) RESULT(r)
-CHARACTER(*), INTENT(IN) :: e_d
+CHARACTER(*), INTENT(IN) :: e_d !! Extra-dimension selector.
 SELECT CASE(e_d)
 CASE('-')        ; r = 1
 CASE('faces')       ; r = 4
@@ -1227,9 +1434,9 @@ END FUNCTION no_extra_dimensions
 
 !> Returns labels for an extra-dimension selector.
 FUNCTION names_of_extra_dimensions(n,e_d) RESULT(r)
-INTEGER, INTENT(IN)        :: n
-CHARACTER(*), INTENT(IN)   :: e_d
-CHARACTER(6), DIMENSION(n) :: r
+INTEGER, INTENT(IN)        :: n   !! Number of labels to return.
+CHARACTER(*), INTENT(IN)   :: e_d !! Extra-dimension selector.
+CHARACTER(6), DIMENSION(n) :: r   !! Labels for the selected extra dimension.
 SELECT CASE(e_d)
 CASE('-')        ; r = ''
 CASE('faces')       ; r = (/'North', 'East', 'South', 'West'/)

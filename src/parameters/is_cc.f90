@@ -16,10 +16,10 @@
 !> @endhistory
 MODULE IS_CC
 IMPLICIT NONE
-LOGICAL :: ISADNL !! Flag for additional contaminant/nitrate logic.
-LOGICAL :: ISBK   !! Flag for bank-related contaminant calculations.
-LOGICAL :: ISFLXB !! Flag for contaminant flux-boundary processing.
-LOGICAL :: ISPLT  !! Flag for plant-related contaminant calculations.
-LOGICAL :: ISMN   !! Flag for mineral/nitrogen contaminant coupling.
+LOGICAL :: ISADNL !! Nonlinear adsorption flag from `CM13`.
+LOGICAL :: ISBK   !! Current element is a bank element for contaminant column calculations.
+LOGICAL :: ISFLXB !! Base-boundary mode uses flux concentration `CCAPR` rather than prescribed base concentration `CCAPB`.
+LOGICAL :: ISPLT  !! Plant-uptake contaminant calculations are active.
+LOGICAL :: ISMN   !! Mineral/nitrogen coupling is active.
 
 END MODULE IS_CC

@@ -14,9 +14,7 @@
 MODULE LINK_CC1
 USE SGLOBAL, ONLY : LLEE
 IMPLICIT NONE
-DOUBLEPRECISION :: KS                  !! Scaled link length used by contaminant link calculations.
-DOUBLEPRECISION :: KSPBK (2, LLEE)     !! Scaled bank-side thicknesses by side and vertical layer.
-!COMMON / SIZE / KS, KSPBK (2, LLEE)  
-!                             SCALED LENGTHS AND THICKNESSES
+DOUBLEPRECISION :: KS              !! Link length scaled by the contaminant depth scale, `CLENTH/Z2`.
+DOUBLEPRECISION :: KSPBK(2, LLEE)  !! Bank-cell thickness scaled by `Z2` for each bank side and cell.
 !PRIVATE :: LLEE
 END MODULE LINK_CC1

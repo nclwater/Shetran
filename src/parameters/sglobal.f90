@@ -6,6 +6,10 @@
 !> consolidation of earlier COMMON-block include files and remains widely used
 !> by the older model components.
 !>
+!> Size parameters are compile-time maxima; the active problem size is held in
+!> `total_no_elements`, `total_no_links`, and related run-state variables after
+!> input has been read.
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -19,120 +23,95 @@
 !> | 1997-02-18 | RAH | 4.1 | Removed redundant dimensions and updated version/banner metadata. |
 !> | 1998-02-20 | RAH | 4.2 | Updated version/banner and removed unused dimensions. |
 !> | 2004-07 | JE | - | Converted to Fortran 95 during SHEGRAPH v2 integration. |
-!> | 2009-01 | JE | 4.3.5F90 | Created module form as part of Fortran 90 conversion, replacing `AL_P` and related global include files. |
+!> | 2009-01 | JE | 4.3.5F90 | Created module form during the Fortran 90 conversion, replacing `AL_P`. |
 !> | 2026-03 | SB | 4.6 | Increased array sizes after 2-D and 3-D arrays became allocatable, including `NXOCEE=4*NXEE`. |
 !> @endhistory
 MODULE sglobal
 !USE BUFF_DISK
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
 IMPLICIT NONE
-! Legacy AL_P distributed constants and global state.
-! 970218 temporary block removed to temporary.f90, JE 170704.
-!      IMPLICIT DOUBLEPRECISION (A-H,O-Z)
-!      IMPLICIT INTEGER (I-N)
 
-!------------ SHE VERSION NUMBER
+DOUBLEPRECISION, PARAMETER :: SHEVER=4.6 !! SHETRAN version number in `major.minor` form.
+LOGICAL, PARAMETER :: BDEVER=.TRUE.      !! Development-version flag.
+CHARACTER(*), PARAMETER :: BANNER='SHETRAN Hydrological Model' !! Banner text written by the model.
+CHARACTER(*), PARAMETER :: RUNFIL='rundata_' !! Prefix for catchment-specific run-data filenames.
 
-!     (MUST BE IN FORMAT XX.Y WHERE XX = MAJOR PART OF VERSION NUMBER,
-!                                    Y = MINOR PART )
-      DOUBLEPRECISION, PARAMETER :: SHEVER=4.6
-!
-!------------ DEVELOPMENT VERSION FLAG
+INTEGER, PARAMETER :: nxee=1000   !! Maximum grid points in the x direction.
+INTEGER, PARAMETER :: nyee=1000   !! Maximum grid points in the y direction.
+INTEGER, PARAMETER :: nlfee=20000 !! Maximum number of river/channel links.
+INTEGER, PARAMETER :: nelee=250000 !! Maximum total number of elements.
 
-!     SET TO .TRUE. FOR DEVELOPMENT VERSION OF CODE
-!     SET TO .FALSE. FOR FINAL STATIC VERSION
-      LOGICAL, PARAMETER :: BDEVER=.TRUE.
+INTEGER :: total_no_elements=-1 !! Active number of elements after setup.
+INTEGER :: total_no_links=-1    !! Active number of channel links after setup.
+INTEGER :: top_cell_no=-1       !! Top VSS cell number used by column setup.
+INTEGER :: szmonte=-1           !! Monte Carlo saturated-zone seed/state value.
+INTEGER :: ran2monte1=-1        !! First Monte Carlo random-number state value.
+INTEGER :: ran2monte2=-1        !! Second Monte Carlo random-number state value.
+INTEGER :: pcmonte=-1           !! Monte Carlo process-control state value.
+INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec !! Monte Carlo classification grid.
 
-!------------ BANNER HEADER
-!     Description of local implementation: software, architecture, date
-      CHARACTER(*), PARAMETER ::BANNER='SHETRAN Hydrological Model'
+INTEGER, PARAMETER :: LLEE=50 !! Maximum vertical grid points plus one.
 
-!------------ RUNDATA FILENAME (THE CATCHMENT NAME ENTERED AT THE START
-!     OF A SIMULATION RUN IS APPENDED TO THIS FILENAME)
-      CHARACTER(*), PARAMETER :: RUNFIL='rundata_'
+INTEGER, PARAMETER :: NVEE=250000 !! Maximum vegetation types; also used for precipitation/PET station counts.
+INTEGER, PARAMETER :: NSEE=1000   !! Maximum soil types.
+INTEGER, PARAMETER :: NVSEE=20    !! Maximum table entries used in the VSS component.
+INTEGER, PARAMETER :: NVBP=140    !! Maximum time-varying vegetation breakpoints.
+INTEGER, PARAMETER :: NUZTAB=20   !! Maximum ET table entries for PSI, RCF, and FET values.
+INTEGER, PARAMETER :: NLYREE=20   !! Maximum number of soil layers plus one.
+INTEGER, PARAMETER :: NSETEE=45   !! Maximum number of output sets for `res` file output.
+INTEGER, PARAMETER :: NXOCEE=4*nxee !! Maximum number of grids, banks, and links in one row.
+INTEGER, PARAMETER :: NOCTAB=20   !! Maximum OC roughness, cross-section, and boundary-element categories.
+INTEGER, PARAMETER :: NSEDEE=7    !! Maximum sediment size fractions.
+INTEGER, PARAMETER :: NCONEE=3    !! Maximum contaminants.
+INTEGER, PARAMETER :: NOLEE=2*LLEE !! Maximum contaminant column-overlap entries.
+INTEGER, PARAMETER :: NPLTEE=NVEE !! Maximum plant types.
+INTEGER, PARAMETER :: NPELEE=2    !! Maximum plant slots per element.
+INTEGER, PARAMETER :: max_no_snowmelt_slugs=400 !! Maximum snowmelt slug records.
 
-!------------ ARRAY SIZES (must be greater than zero!)
+CHARACTER(256) :: DIRQQ   !! Catchment directory path.
+CHARACTER(256) :: filnam  !! Current filename workspace.
+CHARACTER(256) :: cnam    !! Catchment name.
+CHARACTER(256) :: rootdir !! Root directory for model resources.
+CHARACTER(256) :: hdf5filename !! HDF5 output filename.
+CHARACTER(256) :: visualisation_plan_filename  !! Visualisation plan filename.
+CHARACTER(256) :: visualisation_check_filename !! Visualisation check filename.
 
-! --- Grid points in x,y directions, river links, total no of elements
-!16 Sep 94  NB  INFR references elements LCODEX(NX+1) and LCODEY(NY+1)!
-!30 Sep 94  NB  NELEE is also used as size of workspace arrays.
-!Jan 2009   JE  this link broken - it wastes memory - workspace now set separately
-      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  
-!      INTEGER, PARAMETER :: nxee=1000, nyee=1000, nlfee=20000, nelee=250000  !sv4.6
-!      INTEGER, PARAMETER :: nxee=400, nyee=400, nlfee=2000, nelee=80000  !sv4.5
-      INTEGER            :: total_no_elements=-1, total_no_links=-1, top_cell_no=-1, szmonte=-1, &
-                            ran2monte1=-1, ran2monte2=-1, pcmonte=-1
-      INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: montec
-      
-! --- GRID POINTS IN VERTICAL PLUS ONE
-      !INTEGER, PARAMETER :: LLEE=50
-      INTEGER, PARAMETER :: LLEE=50  
+INTEGER, PARAMETER :: NXSCEE = 100000 !! Maximum cross-section table entries.
+INTEGER, PARAMETER :: ERRNEE = 100    !! Maximum error number per error module.
+INTEGER, PARAMETER :: FFFATAL = 1     !! Fatal error severity code.
+INTEGER, PARAMETER :: EEERR = 2       !! Non-fatal error severity code.
+INTEGER, PARAMETER :: WWWARN = 3      !! Warning severity code.
+INTEGER, PARAMETER :: pppri = 23      !! Default PRI output unit number.
+DOUBLEPRECISION :: UZNOW              !! Current model time in hours for reporting.
+DOUBLEPRECISION, PARAMETER :: marker999=999999.9D0 !! Legacy real missing-value marker.
+INTEGER, PARAMETER :: izero=0         !! Integer zero constant.
+INTEGER, PARAMETER :: izero1(1)=0     !! One-element integer zero vector for checker calls.
+INTEGER, PARAMETER :: ione=1          !! Integer one constant.
+INTEGER, PARAMETER :: ione1(1)=1      !! One-element integer one vector for checker calls.
+INTEGER, PARAMETER :: imarker=INT(marker999) !! Integer form of the legacy missing-value marker.
+DOUBLEPRECISION, PARAMETER :: zero=0.0d0    !! Double-precision zero.
+DOUBLEPRECISION, PARAMETER :: zero1(1)=0.0d0 !! One-element double-precision zero vector.
+DOUBLEPRECISION, PARAMETER :: half=0.5d0    !! Double-precision one half.
+DOUBLEPRECISION, PARAMETER :: one=1.0d0     !! Double-precision one.
+DOUBLEPRECISION, PARAMETER :: one1(1)=1.0d0 !! One-element double-precision one vector.
+DOUBLEPRECISION, PARAMETER :: two=2.0d0     !! Double-precision two.
+DOUBLEPRECISION, PARAMETER :: three=3.0d0   !! Double-precision three.
+DOUBLEPRECISION, PARAMETER :: five=5.0d0    !! Double-precision five.
+DOUBLEPRECISION, PARAMETER :: vsmall=1.0d-20 !! Tolerance used by zero/one comparison helpers.
+DOUBLEPRECISION :: EARRAY(1)          !! Numeric context value printed by selected error messages.
+INTEGER :: ERRC(0:ERRNEE,0:3)=0       !! Error occurrence counts by error number and module group.
+INTEGER :: ERRTOT=0                   !! Total recorded error and warning count.
+CHARACTER(128) :: helppath            !! Relative path to help-message files.
+LOGICAL :: ISERROR                    !! Timestep-reduction flag for selected flow errors.
+LOGICAL :: ISERROR2                   !! Secondary timestep-reduction flag for selected flow errors.
+LOGICAL :: error_mode                 !! If true, fatal stops do not wait for an Enter keypress.
 
-! --- VEGETATION TYPES, SOIL TYPES (NVEE also used for number of precipitation and pet stations)
-      INTEGER, PARAMETER :: NVEE=250000,NSEE=1000
+DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea !! Element area.
+DOUBLEPRECISION, DIMENSION(NELEE) :: DXQQ     !! Element face length in the x direction.
+DOUBLEPRECISION, DIMENSION(NELEE) :: DYQQ     !! Element face length in the y direction.
+DOUBLEPRECISION, DIMENSION(NELEE) :: ZGRUND   !! Ground-surface elevation.
 
-! --- TABLES USED IN VSS COMPONENT
-      INTEGER, PARAMETER :: NVSEE=20
-
-! --- TIME VARYING VEG BREAKPOINTS
-      INTEGER, PARAMETER  :: NVBP=140
-
-! --- TABLES USED IN ET COMPONENT (MAX. NO. OF PSI/RCF/FET VALUES)
-      INTEGER, PARAMETER :: NUZTAB=20
-
-! --- MAXIMUM NUMBER OF SOIL LAYERS + 1
-      INTEGER, PARAMETER :: NLYREE=20
-
-! --- OUTPUT SETS (FOR 'RES' FILE OUTPUT)
-      INTEGER, PARAMETER :: NSETEE=45
-
-! --- MAXIMUM NUMBER OF ELEMENTS (GRIDS, BANKS AND LINKS) IN A ROW
-!      INTEGER, PARAMETER :: NXOCEE=2000
-      INTEGER, PARAMETER :: NXOCEE=4*nxee
-      
-! --- TABLES USED IN OC COMPONENT (MAX. OF NO. OF ROUGHNESS CATEGORIES,
-!      NO. OF CHANNEL X-SECTION CATEGORIES, NO. OF OC BOUNDARY ELEMENTS)
-      INTEGER, PARAMETER :: NOCTAB=20
-
-! --- SEDIMENT SIZE FRACTIONS
-      INTEGER, PARAMETER :: NSEDEE=7
-
-! --- NUMBER OF CONTAMINANTS, NUMBER OF OVERLAPS
-      INTEGER, PARAMETER :: NCONEE=3, NOLEE=2*LLEE
-
-! --- NO. OF PLANTS IN AN ELEMENT, TOTAL NO. OF PLANTS, FOR CONTAMINANTS
-      INTEGER, PARAMETER :: NPLTEE=NVEE, NPELEE=2
-      
-      INTEGER, PARAMETER :: max_no_snowmelt_slugs=400
-
-      CHARACTER(256)     :: DIRQQ, filnam, cnam, rootdir   !catchment directory and name
-      CHARACTER(256)     :: hdf5filename, visualisation_plan_filename, visualisation_check_filename
-      
-
-      INTEGER, PARAMETER :: NXSCEE=100000
-!END MODULE AL_P
-INTEGER, PARAMETER :: ERRNEE = 100
-INTEGER, PARAMETER ::   FFFATAL = 1, &  
-                        EEERR = 2, &
-                        WWWARN = 3, &
-                        pppri  = 23
-DOUBLEPRECISION :: UZNOW 
-DOUBLEPRECISION, PARAMETER :: marker999=999999.9D0
-INTEGER, PARAMETER         :: izero=0, izero1(1)=0, ione=1, ione1(1)=1, imarker=INT(marker999)
-DOUBLEPRECISION, PARAMETER :: zero=0.0d0, zero1(1)=0.0d0, half=0.5d0, one=1.0d0, one1(1)=1.0d0, &
-                              two=2.0d0, three=3.0d0, five=5.0d0, vsmall=1.0d-20
-DOUBLEPRECISION EARRAY(1)
-INTEGER            :: ERRC(0:ERRNEE,0:3)=0, ERRTOT=0
-CHARACTER(128)     :: helppath
-LOGICAL :: ISERROR
-LOGICAL :: ISERROR2
-LOGICAL :: error_mode
-
-DOUBLEPRECISION, DIMENSION(NELEE) :: cellarea,   &  !cell area
-                                     DXQQ, DYQQ, &  !face lengths
-                                     ZGRUND         !surface elevation
-                                     
-CHARACTER(32) :: text32
+CHARACTER(32) :: text32 !! Short shared text workspace.
 !PRIVATE
 !PUBLIC :: izero, izero1, ione, ione1, zero, zero1, half, one, one1, two, three, five, marker999, &
 !          IDIMJE, DIMJE, &
@@ -257,6 +236,21 @@ END FUNCTION dimje
 !> formats the message with simulation time and optional element/cell context,
 !> records per-module error counts, prints available help-message files in the
 !> final summary, and sets timestep-reduction flags for selected flow errors.
+!>
+!> Severity codes:
+!>
+!> | `ETYPE` | Meaning |
+!> |:--------|:--------|
+!> | `FFFATAL` | Fatal error; print a final summary and stop via [[alstop]]. |
+!> | `EEERR` | Non-fatal error. |
+!> | `WWWARN` | Warning. |
+!> | `0` | Summary-only path used at model shutdown. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2020-07-07 | SB | - | Added timestep-reduction flags for errors 1024, 1030, and 1060. |
+!> @endhistory
 SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       ! Assumed global variables provided via host module:
@@ -291,14 +285,12 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       LOGICAL :: VALID, present
 
-      ! Modernization Fix: Replaced legacy DATA statement with a strict PARAMETER array
       CHARACTER(LEN=11), PARAMETER :: CTYPE(3) = ['FATAL ERROR', '      ERROR', '    WARNING']
 
       !-------------------------------------------------------------------*
 
       helppath = '/helpmessages'
 
-      ! SB 07072020 potentially reduce timestep if there are errors 1024,1030,1060
       ISERROR  = .FALSE.
       ISERROR2 = .FALSE.
 
@@ -340,7 +332,6 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
          !
       END IF
 
-      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
       IF (ERRNUM == 1024 .OR. ERRNUM == 1030) THEN
          ISERROR = .TRUE.
       END IF
@@ -424,6 +415,7 @@ SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
    !> |:----:|:------:|-------------|
    !> | 1994-09-17 | RAH | v3.4.1: File created. |
    !> | 2000-03-07 | SB | v4g-pc: Removed IEEE calls for PC version. |
+   !> @endhistory
    SUBROUTINE ALSTOP (FLAG)
       INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
       ! if error_mode is true then there is no need to press enter to continue

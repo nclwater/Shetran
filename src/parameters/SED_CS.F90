@@ -7,6 +7,15 @@
 !> parent-material soil type, sediment count, link flows, and particle flow
 !> rates.
 !>
+!> Main state groups:
+!>
+!> | Group | Symbols | Purpose |
+!> |:------|:--------|:--------|
+!> | Deposited and loose sediment | `ARBDEP`, `DLS`, `DCBED`, `DCBSED` | Link/element sediment stores and active bed layers. |
+!> | Generation/infiltration | `GNU`, `GNUBK`, `GINFD`, `GINFS` | Hillslope, bank, and link source/sink rates. |
+!> | Fractions/porosity | `FDEL`, `FBETA`, `FBTSD`, `PBSED`, `PLS`, `SOSDFN`, `SOFN` | Mobile, bed, and soil fractions. |
+!> | Routing | `QLINK`, `QDEFF`, `QSED` | Water-link and particle-flow rates used by sediment and contaminant transport. |
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -22,44 +31,31 @@
 MODULE sed_cs
       USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE, NSEE
       IMPLICIT NONE
-      DOUBLEPRECISION   ARBDEP(NLFEE),DLS(NELEE),GINFD(NLFEE,NSEDEE), &
-                        GINFS(NLFEE,NSEDEE),GNU(NELEE),GNUBK(NLFEE), &
-                        DCBED(NLFEE),DCBSED(NLFEE,NSEDEE)
-!!!      COMMON/   SDDEP   /ARBDEP,DLS,GINFD,GINFS,GNU,GNUBK,DCBED,DCBSED
-!*                             ACCUMULATED X-SECTIONAL AREA OF DEPOSITED
-!*                             SEDIMENTS; DEPTH OF LOOSE SEDIMENT; RATES
-!*                             OF INFILTRATION OF SEDIMENTS; AND RATES OF
-!*                             EROSION
-!*
-      DOUBLEPRECISION   FDEL(NELEE,NSEDEE)
- !!!     COMMON/   SDDEN   /FDEL
-!*                             RELATIVE DENSITY OF SUSPENDED SEDIMENTS
-!*
-      DOUBLEPRECISION   FBETA(NELEE,NSEDEE),FBTSD(NLFEE,NSEDEE)
-!!!      COMMON/   SDFRA   /FBETA,FBTSD
-!*                             FRACTIONS OF LOOSE AND NEWLY DEPOSITED
-!*                             SEDIMENTS
-!*
-      DOUBLEPRECISION   PBSED(NLFEE),PLS(NELEE), &
-                        SOSDFN(NSEE,NSEDEE),SOFN(NSEE,NSEDEE)
-!!!!      COMMON/   SDEPOR  /PBSED,PLS,SOSDFN,SOFN
-!*                             POROSITIES; THE FRACTION OF A SOIL WHICH
-!*                             IS IN A GIVEN PARTICLE SIZE GROUP (SOFN IS
-!*                             USED TO SET SOSDFN ONLY IF THE SEDIMENT
-!*                             CODE IS NOT ACTIVE)
-!*
-      INTEGER            NSOBED(NLFEE)
-!!!!      COMMON/   SDEPOI  /NSOBED
-!*                             SOIL TYPE FOR PARENT MATERIAL @ STREAM BED
-!*
-      INTEGER            NSED
-!!!!      COMMON/   NUMSED  /NSED
-!*                             NUMBER OF SEDIMENTS
-!*
-      DOUBLEPRECISION   QLINK(NLFEE,2),QDEFF(NLFEE,2), &
-                        QSED(NELEE,NSEDEE,4)
-!!!!      COMMON/   SDFLO   /QLINK,QDEFF,QSED
-!*                             LINK FLOWS; PARTICLE FLOW RATES
-!*--------------------- End of SED.CS ----------------------------------*
+      DOUBLEPRECISION :: ARBDEP(NLFEE)       !! Accumulated cross-sectional area of deposited sediment by link.
+      DOUBLEPRECISION :: DLS(NELEE)          !! Loose or bed sediment depth by element/link.
+      DOUBLEPRECISION :: GINFD(NLFEE,NSEDEE) !! Dynamic/deposited-bed sediment infiltration rate by link and size class.
+      DOUBLEPRECISION :: GINFS(NLFEE,NSEDEE) !! Stream-water/suspended sediment infiltration rate by link and size class.
+      DOUBLEPRECISION :: GNU(NELEE)          !! Unsaturated-zone erosion/source rate by element.
+      DOUBLEPRECISION :: GNUBK(NLFEE)        !! Bank erosion/source rate by link.
+      DOUBLEPRECISION :: DCBED(NLFEE)        !! Active upper-bed sediment depth by link.
+      DOUBLEPRECISION :: DCBSED(NLFEE,NSEDEE) !! Active upper-bed sediment depth by link and size class.
+
+      DOUBLEPRECISION :: FDEL(NELEE,NSEDEE) !! Mobile sediment concentration fraction by element/link and size class.
+
+      DOUBLEPRECISION :: FBETA(NELEE,NSEDEE) !! Loose/bed sediment composition fraction by element/link and size class.
+      DOUBLEPRECISION :: FBTSD(NLFEE,NSEDEE) !! Transported or newly deposited sediment fraction by link and size class.
+
+      DOUBLEPRECISION :: PBSED(NLFEE)        !! Channel-bed sediment porosity by link.
+      DOUBLEPRECISION :: PLS(NELEE)          !! Loose-sediment porosity by element.
+      DOUBLEPRECISION :: SOSDFN(NSEE,NSEDEE) !! Soil particle-size composition used when sediment is active.
+      DOUBLEPRECISION :: SOFN(NSEE,NSEDEE)   !! Soil particle-size composition used to seed `SOSDFN` if sediment is inactive.
+
+      INTEGER :: NSOBED(NLFEE) !! Soil type for parent material at the stream bed by link.
+
+      INTEGER :: NSED !! Number of active sediment size classes.
+
+      DOUBLEPRECISION :: QLINK(NLFEE,2)       !! Link water-flow rates at the two link ends.
+      DOUBLEPRECISION :: QDEFF(NLFEE,2)       !! Effective sediment-link flow correction at the two link ends.
+      DOUBLEPRECISION :: QSED(NELEE,NSEDEE,4) !! Particle-flow rate by element/link, size class, and face.
 !PRIVATE :: NELEE, NLFEE, NSEDEE, NSEE
 END MODULE sed_cs

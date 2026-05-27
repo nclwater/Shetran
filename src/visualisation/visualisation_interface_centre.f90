@@ -10,26 +10,40 @@
 !> (`N`, `E`, `S`, `W`) as described in the manual. The SHETRAN core uses its
 !> internal face numbering in the accessors below, and the right-hand
 !> visualisation interface remaps between the two orders before data are stored.
+!>
+!> Catalogue maintenance:
+!>
+!> | Step | Requirement |
+!> |:-----|:------------|
+!> | Add or rename a variable | Amend `outtype`; non-positive `number` values are static and positive values are dynamic. |
+!> | Change catalogue bounds | Keep `first_type` and `last_type` aligned with the `outtype` constructor bounds. |
+!> | Add implemented data | Add the corresponding dispatch branch in [[shetran_integer_data]] or [[shetran_real_data]]. |
+!> | Access raw SHETRAN state | Route access through [[visualisation_interface_left]]. |
+!> | Preserve public contract | Keep this module private except for the explicit `PUBLIC` list; keep [[get_output_type]] stable. |
+!>
+!> `outtype%typ` identifies the spatial object and value kind:
+!>
+!> | Code | Values returned for |
+!> |:-----|:--------------------|
+!> | `B` | Real bank values. |
+!> | `E` | Integer bank values. |
+!> | `F` | Integer river/link values. |
+!> | `G` | Real compound values. |
+!> | `I` | Integer gridsquare values. |
+!> | `L` | Real river/link values. |
+!> | `M` | Real gridsquare values. |
+!> | `N` | Integer compound values. |
+!>
+!> A compound is one gridsquare plus, where present, its four banks and four
+!> river/link segments.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 20190704 | JE | 2.0 | Created central SHETRAN v4/SHEGRAPH v2 interface. |
+!> @endhistory
 MODULE visualisation_interface_centre
 
-!JE 2.0 190704 Created
-!This is the central part of the interface between SHETRAN Version 4 and SHEGRAPH Version 2
-!If new variables are to be added to SHEGRAPH Version 2, this module will have to be edited as follows:
-!1. Ammend the outtype list as necessary - note that zero and negative numbers correspond to
-!   static variables (i.e. constants) and positive numbers correspond to dynamic variables 
-!   (i.e. varaibles which cange with time).
-!2. Ammend variables first_type and last_type to match the ammended outtype list.
-!3. Depending on its type, add code to either SHETRAN_INTEGER_DATA or SHETRAN_REAL_DATA so the new &
-!   variable can be evaluated.
-
-!Ammendment guidance
-!1. This module and the VISUALISATION_INTERFACE_LEFT modules are the only modules that need be
-!   ammended if new variables are added to SHEGRAPH Version 2. 
-!2. This module should USE only the moudule VISUALISATION_INTERFACE_LEFT
-!3. If raw SHETRAN variables are to be accessed, do this via VISUALISATION_INTERFACE_LEFT in the saem manner 
-!   as used for CELL_THICKNESS.
-!4. Don't alter GET_OUTPUT_TYPE in any way.
-!5. Keep this module PRIVATE and don't add anything else to the PUBLIC list.
 USE VISUALISATION_INTERFACE_LEFT, ONLY  : &
          BANK_NO, BANK_WIDTH, CELL_THICKNESS, ELEMENT, ELEMENT_DX, ELEMENT_DY,                     &
          GRID_DX, GRID_DY, GRID_NX, GRID_NY, IS_BANK, IS_LINK, RIVER_WIDTH, RIVER_NO, S_ELEVATION, &
@@ -43,34 +57,26 @@ USE VISUALISATION_INTERFACE_LEFT, ONLY  : &
          !spatial1 , SPACE_TIME1
 IMPLICIT NONE
 
-INTEGER, PARAMETER :: first_type=-7, last_type=44  !limits for outtype
-INTEGER, PARAMETER :: csz = 70                     !name length
-REAL,PARAMETER     :: zero=0.0, half=0.5
-LOGICAL, PARAMETER :: T=.TRUE., F=.FALSE.
+INTEGER, PARAMETER :: first_type=-7 !! Lower `outtype` bound; non-positive entries are static.
+INTEGER, PARAMETER :: last_type=44  !! Upper `outtype` bound; positive entries are dynamic.
+INTEGER, PARAMETER :: csz = 70      !! Character length used for visualisation titles.
+REAL, PARAMETER    :: zero=0.0      !! Real zero sentinel used when requesting `HUGE`.
+REAL, PARAMETER    :: half=0.5      !! Half factor used for widths and centroids.
+LOGICAL, PARAMETER :: T=.TRUE.      !! Short true value for compact `outtype` constructors.
+LOGICAL, PARAMETER :: F=.FALSE.     !! Short false value for compact `outtype` constructors.
 
-!In the structure below, the typ component can be:
-!B - real for banks
-!E - integer for banks
-!F - integer for rivers
-!G - real for compounds
-!I - integer for gridsquares
-!L - real for rivers
-!M - real for gridsquares
-!N - integer for compounds
-!A compound is a grouping of a gridsquare and all the banks and rivers segments asociasted with it
-!  so a compound has (potentially) 9 parts - one gridsquare, 4 banks and 4 river segments
 !> Metadata for one visualisation output variable.
 TYPE output_type
-INTEGER        :: number
-CHARACTER(8)   :: name                       !as used in the visualisation input file (called the visualisation plan)
-CHARACTER(70)  :: title                      !appears on plots and printouts
-CHARACTER(8)   :: units                      !e.g.metres, appears on plots and printouts
-CHARACTER      :: typ                        !data type character - see list above
-CHARACTER(11)  :: extra_dimensions           !'-', 'faces', 'left_right', or 'X_Y' 
-LOGICAL        :: varies_with_elevation,   & !i.e. the variable chnages with depth in the soil, as well as with plan location in the catchmnet
-                  varies_with_sediment_no, &
-                  varies_with_contaminant_no, &
-                  implemented
+INTEGER        :: number                  !! Static/dynamic catalogue number.
+CHARACTER(8)   :: name                    !! Name used in the visualisation plan.
+CHARACTER(70)  :: title                   !! Plot and printout title.
+CHARACTER(8)   :: units                   !! Display units for plots and printouts.
+CHARACTER      :: typ                     !! Spatial object and value-kind code.
+CHARACTER(11)  :: extra_dimensions        !! Extra axis: `-`, `faces`, `left_right`, or `X_Y`.
+LOGICAL        :: varies_with_elevation   !! True when values vary by subsurface layer as well as plan location.
+LOGICAL        :: varies_with_sediment_no !! True when values vary by sediment fraction number.
+LOGICAL        :: varies_with_contaminant_no !! True when values vary by contaminant number.
+LOGICAL        :: implemented             !! True when an accessor branch currently supplies the variable.
 
 END TYPE output_type
 
@@ -146,20 +152,30 @@ CONTAINS
 !>
 !> The optional indices identify either element/grid position, vertical layer,
 !> extra face or direction, sediment fraction, and contaminant number depending
-!> on the variable metadata.
+!> on the variable metadata. `ext` is copied before dispatch, so current callers
+!> must supply it even when the selected integer branch does not use a face or
+!> direction. Other optional indices are required only by the selected `name`.
+!> Unsupported names return `HUGE(0)`.
+!>
+!> Extra-dimension conventions:
+!>
+!> | `extra_dimensions` | `ext` convention |
+!> |:-------------------|:-----------------|
+!> | `faces` | SHETRAN internal faces: 1 east, 2 north, 3 west, 4 south. |
+!> | `X_Y` | 1 east-west coordinate/width, 2 north-south coordinate/width. |
+!> | `left_right` | 1 left, 2 right. |
 ELEMENTAL INTEGER FUNCTION shetran_integer_data(name, iel, ix, iy, ilay, ext, nsed, ncon) RESULT(r)
-!will be passed element no (i.e. iel) or grid coordinates (ix,iy)
-INTEGER, INTENT(IN), OPTIONAL :: iel,  &  !SHETRAN element no. (numbering: 1 - NEL)
-                                 ix,   &  !x coordinate on grid (grid is NX by NY)
-                                 iy,   &  !y coordinate on grid (grid is NX by NY)ilay,
-                                 ilay, &  !layer no. (top layer is LL)
-                                 ext,  &  !internal SHETRAN order: faces 1-E, 2-N, 3-W, 4-S
-                                          !for 'X_Y',        DIRECTIONS ARE:  1-E/W, 2-N/S
-                                          !for 'left_right', DIRECTIONS ARE:  1-left, 2-right
-                                 nsed, ncon
-CHARACTER(*), INTENT(IN)      :: name      !corresponds to outtype component
-INTEGER                       :: face, direction  !working variables
-face      = ext  !face number in SV3 and SV4
+CHARACTER(*), INTENT(IN)       :: name !! `outtype%name` selector.
+INTEGER, INTENT(IN), OPTIONAL  :: iel  !! SHETRAN element number, numbered `1:NEL`.
+INTEGER, INTENT(IN), OPTIONAL  :: ix   !! X coordinate on the model grid.
+INTEGER, INTENT(IN), OPTIONAL  :: iy   !! Y coordinate on the model grid.
+INTEGER, INTENT(IN), OPTIONAL  :: ilay !! SHETRAN layer number; the top active layer is `LL`.
+INTEGER, INTENT(IN), OPTIONAL  :: ext  !! Extra face or direction index.
+INTEGER, INTENT(IN), OPTIONAL  :: nsed !! Sediment fraction number, where applicable.
+INTEGER, INTENT(IN), OPTIONAL  :: ncon !! Contaminant number, where applicable.
+INTEGER                        :: face !! Copy of `ext` used as a SHETRAN face number.
+INTEGER                        :: direction !! Copy of `ext` used as a non-face direction selector.
+face      = ext
 direction = ext
 SELECT CASE(name)
     CASE('number')   ; r = iel
@@ -172,21 +188,27 @@ END FUNCTION shetran_integer_data
 !>
 !> The dispatch is controlled by `name`, which is matched against the
 !> visualisation output catalogue. Units are those advertised in `outtype`.
+!> `ext` is copied before dispatch, so current callers must supply it even when
+!> the selected branch does not use a face or direction. Other optional indices
+!> are required only by the selected catalogue entry. Unsupported names return
+!> `HUGE(zero)`.
 ELEMENTAL REAL FUNCTION shetran_real_data(name, iel, ix, iy, ilay, ext, nsed, ncon) RESULT(r)
-INTEGER, INTENT(IN), OPTIONAL :: iel,  &  !SHETRAN element no. (numbering: 1 - NEL)
-                                 ix,   &  !x coordinate on grid (grid is NX by NY)
-                                 iy,   &  !y coordinate on grid (grid is NX by NY)
-                                 ilay, &  !layer no. (top layer is LL)
-                                 ext,  &  !internal SHETRAN order: faces 1-E, 2-N, 3-W, 4-S
-                                          !for 'X_Y',        DIRECTIONS ARE:  1-E/W, 2-N/S
-                                          !for 'left_right', DIRECTIONS ARE:  1-left, 2-right
-                                 nsed, ncon
-INTEGER                       :: ii, face, direction  !working variables
-REAL                          :: dx, asumdx !working variable
-REAL                          :: dum       !working variable
-CHARACTER(*), INTENT(IN)      :: name      !corresponds to outtype component
+CHARACTER(*), INTENT(IN)       :: name !! `outtype%name` selector.
+INTEGER, INTENT(IN), OPTIONAL  :: iel  !! SHETRAN element number, numbered `1:NEL`.
+INTEGER, INTENT(IN), OPTIONAL  :: ix   !! X coordinate on the model grid.
+INTEGER, INTENT(IN), OPTIONAL  :: iy   !! Y coordinate on the model grid.
+INTEGER, INTENT(IN), OPTIONAL  :: ilay !! SHETRAN layer number; the top active layer is `LL`.
+INTEGER, INTENT(IN), OPTIONAL  :: ext  !! Extra face or direction index.
+INTEGER, INTENT(IN), OPTIONAL  :: nsed !! Sediment fraction number, where applicable.
+INTEGER, INTENT(IN), OPTIONAL  :: ncon !! Contaminant number, where applicable.
+INTEGER                        :: ii   !! Loop index for accumulated grid lengths.
+INTEGER                        :: face !! Copy of `ext` used as a SHETRAN face number.
+INTEGER                        :: direction !! Copy of `ext` used as a non-face direction selector.
+REAL                           :: dx   !! Current grid interval used for centroid coordinates.
+REAL                           :: asumdx !! Accumulated grid interval before the current centroid.
+REAL                           :: dum  !! Temporary width selected from element dimensions.
 
-face      = ext  !face number in SV3 and SV4
+face      = ext
 direction = ext
 SELECT CASE(name)
     CASE('grid_dxy') 
@@ -244,9 +266,13 @@ END FUNCTION shetran_real_data
 
 
 !> Returns the static or dynamic subset of the visualisation output catalogue.
+!>
+!> `text='static'` returns a newly allocated pointer with bounds
+!> `first_type:0`; `text='dynamic'` returns bounds `1:last_type`. The legacy
+!> interface expects this allocation and bound behaviour.
 FUNCTION get_output_type(text)  RESULT(r)
-TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: r
-CHARACTER(*), INTENT(IN)                 :: text
+TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: r    !! Allocated catalogue subset.
+CHARACTER(*), INTENT(IN)                 :: text !! Catalogue subset selector: `static` or `dynamic`.
 SELECT CASE(text)
 CASE('static')
     ALLOCATE(r(first_type:0))
@@ -258,8 +284,12 @@ END SELECT
 END FUNCTION get_output_type
 
 !> Converts a SHEGRAPH vertical layer number to a SHETRAN cell-layer number.
+!>
+!> \[
+!> r = TOP\_CELL() - sgv2layer + 1
+!> \]
 ELEMENTAL INTEGER FUNCTION shetran_layer(sgv2layer) RESULT(r) !vertical layering
-INTEGER, INTENT(IN) :: sgv2layer
+INTEGER, INTENT(IN) :: sgv2layer !! SHEGRAPH vertical layer number.
 r = TOP_CELL() - sgv2layer + 1
 END FUNCTION shetran_layer
 

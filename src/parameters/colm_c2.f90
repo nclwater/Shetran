@@ -17,41 +17,45 @@
 MODULE COLM_C2
 USE SGLOBAL, ONLY : LLEE
 IMPLICIT NONE
-!
-! Commons
-DOUBLEPRECISION ICAP, ICAPT, ICAPC, QCAP, QCAPT, QCAPC  
-DOUBLEPRECISION DDA, DDB, DDDLS, DDDLS1, DDDSW, DDDSW1  
-DOUBLEPRECISION GGGNU, GGGNU1, KSP (LLEE), KSPP (LLEE), ZONE, &
- ZONE1
-!                             FOR COMPATIBILITY WITH VARIABLE NAMES
-!                             IN WRSRU/TR'S
-!COMMON / CLBC / ICAP, ICAPT, ICAPC, QCAP, QCAPT, QCAPC  
+DOUBLEPRECISION :: ICAP        !! Previous scaled internal contaminant input term.
+DOUBLEPRECISION :: ICAPT       !! Time derivative of the internal contaminant input term.
+DOUBLEPRECISION :: ICAPC       !! Concentration derivative of the internal contaminant input term.
+DOUBLEPRECISION :: QCAP        !! Previous scaled rainfall, well, and imposed-flow input term.
+DOUBLEPRECISION :: QCAPT       !! Time derivative of the rainfall, well, and imposed-flow input term.
+DOUBLEPRECISION :: QCAPC       !! Concentration derivative of the rainfall, well, and imposed-flow input term.
+DOUBLEPRECISION :: DDA         !! Column y-width from `DYQQ(NCL)`.
+DOUBLEPRECISION :: DDB         !! Column x-width from `DXQQ(NCL)`.
+DOUBLEPRECISION :: DDDLS       !! Previous loose-sediment depth for the column.
+DOUBLEPRECISION :: DDDLS1      !! Current loose-sediment depth for the column.
+DOUBLEPRECISION :: DDDSW       !! Previous surface-water depth above the column.
+DOUBLEPRECISION :: DDDSW1      !! Current surface-water depth above the column.
+DOUBLEPRECISION :: GGGNU       !! Previous surface-water exchange coefficient for the column.
+DOUBLEPRECISION :: GGGNU1      !! Current surface-water exchange coefficient for the column.
+DOUBLEPRECISION :: KSP(LLEE)   !! Nondimensional cell thickness, `DELTAZ/Z2`.
+DOUBLEPRECISION :: KSPP(LLEE)  !! Nondimensional node spacing used between cell centres.
+DOUBLEPRECISION :: ZONE        !! Previous nondimensional saturated column depth.
+DOUBLEPRECISION :: ZONE1       !! Current nondimensional saturated column depth.
 
-!COMMON / CLDIM / DDA, DDB, DDDLS, DDDLS1, DDDSW, DDDSW1, GGGNU, &
-! GGGNU1, KSP, KSPP, ZONE, ZONE1
-!                            NUMBERING AND SIZE DATA FOR COLUMN
-DOUBLEPRECISION TTTLSE  
+DOUBLEPRECISION :: TTTLSE      !! Loose-sediment scaling constant used in surface-cell exchange.
 
-!COMMON / CSEDAT / TTTLSE  
-!                            CONSTANT FOR LOOSE SEDIMENT
-DOUBLEPRECISION QQQSW (4), QQQSW1 (4)  
+DOUBLEPRECISION :: QQQSW(4)    !! Previous lateral surface-water flow for each face.
+DOUBLEPRECISION :: QQQSW1(4)   !! Current lateral surface-water flow for each face.
 
-!COMMON / CLSURW / QQQSW, QQQSW1  
-!                            DATA FOR LATERAL FLOWS AT SURFACE
-DOUBLEPRECISION GGAMM (LLEE), GGAMM1 (LLEE), PPHI (LLEE), PPHI1 ( &
- LLEE)
-DOUBLEPRECISION QQ (LLEE, 4), QQ1 (LLEE, 4), TTHET (LLEE), &
- TTHET1 (LLEE)
-DOUBLEPRECISION UUAJP (LLEE), UUAJP1 (LLEE)  
+DOUBLEPRECISION :: GGAMM(LLEE)  !! Previous cell water-change coefficient.
+DOUBLEPRECISION :: GGAMM1(LLEE) !! Current cell water-change coefficient.
+DOUBLEPRECISION :: PPHI(LLEE)   !! Previous mobile-water fraction for each cell.
+DOUBLEPRECISION :: PPHI1(LLEE)  !! Current mobile-water fraction for each cell.
+DOUBLEPRECISION :: QQ(LLEE,4)   !! Previous lateral water flow for each cell face.
+DOUBLEPRECISION :: QQ1(LLEE,4)  !! Current lateral water flow for each cell face.
+DOUBLEPRECISION :: TTHET(LLEE)  !! Previous volumetric water content for each cell.
+DOUBLEPRECISION :: TTHET1(LLEE) !! Current volumetric water content for each cell.
+DOUBLEPRECISION :: UUAJP(LLEE)  !! Previous vertical water flux for each cell interface.
+DOUBLEPRECISION :: UUAJP1(LLEE) !! Current vertical water flux for each cell interface.
 
-!COMMON / CLWAT / GGAMM, GGAMM1, PPHI, PPHI1, QQ, QQ1, TTHET, &
- !TTHET1, UUAJP, UUAJP1
-!                            WATER FLOW DATA FOR COLUMN
-DOUBLEPRECISION QQRF, QQRF1  
-
-!COMMON / STMBKW / QQRF, QQRF1  
-!                            FLOWS INTO BOTTOM CELL
-DOUBLEPRECISION QI, QI1  
+DOUBLEPRECISION :: QQRF        !! Previous flow into the bottom cell.
+DOUBLEPRECISION :: QQRF1       !! Current flow into the bottom cell.
+DOUBLEPRECISION :: QI          !! Previous net rainfall input over the column area.
+DOUBLEPRECISION :: QI1         !! Current net rainfall input over the column area.
 !PRIVATE :: LLEE
 
 END MODULE COLM_C2

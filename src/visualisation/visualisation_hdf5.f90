@@ -50,26 +50,37 @@ USE H5LT
                                     
 IMPLICIT NONE
 
-INTEGER                 :: error  !Error flag
-INTEGER, SAVE           :: jndim(ndim)                      
-INTEGER, PARAMETER      :: csz=70
-REAL, PARAMETER         :: zero=0.0
-LOGICAL, PARAMETER      :: T=.TRUE., F=.FALSE.
+INTEGER                 :: error      !! HDF5 status/error flag reused by module calls.
+INTEGER, SAVE           :: jndim(ndim) !! Index vector `1:ndim` used for metadata array lookups.
+INTEGER, PARAMETER      :: csz=70      !! Fixed character length for HDF5 string metadata.
+REAL, PARAMETER         :: zero=0.0    !! Real zero used for time comparisons.
+LOGICAL, PARAMETER      :: T=.TRUE.    !! Logical true shorthand.
+LOGICAL, PARAMETER      :: F=.FALSE.   !! Logical false shorthand.
 
 
 !> Pointer wrapper for HDF5 dimension-size arrays.
 TYPE ssz
-    INTEGER(HSIZE_T), DIMENSION(:), POINTER :: a
+    INTEGER(HSIZE_T), DIMENSION(:), POINTER :: a !! Dimension sizes for one HDF5 dataset.
 END TYPE ssz
-TYPE(ssz), DIMENSION(:), ALLOCATABLE, SAVE  :: szz, newsz  !recording array size, and its size after extension
+TYPE(ssz), DIMENSION(:), ALLOCATABLE, SAVE  :: szz   !! Current recording array size by item.
+TYPE(ssz), DIMENSION(:), ALLOCATABLE, SAVE  :: newsz !! Extended recording array size by item.
 
-INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: dataset, dataspace, dtype, orig_dataspace, t_dataspace, t_dataset
-INTEGER(HSIZE_T)                            :: t_newsz(1)
-!INTEGER(HSIZE_T), DIMENSION(:), ALLOCATABLE :: rank
-INTEGER, DIMENSION(:), ALLOCATABLE :: rank
-INTEGER(HID_T)                              :: orig_t_dataspace, group_static, group_dynamic, group_images, file, &
-                                               group_magnified_integer
-INTEGER(HID_T), SAVE                        :: dataset_compress_property, t_dataset_compress_property
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: dataset        !! HDF5 value dataset handle by item.
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: dataspace      !! Active HDF5 dataspace handle by item.
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: dtype          !! HDF5 native value datatype by item.
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: orig_dataspace !! Original memory dataspace by item.
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: t_dataspace    !! Time dataspace handle by item.
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: t_dataset      !! Time dataset handle by item.
+INTEGER(HSIZE_T)                            :: t_newsz(1)     !! Extended time-dataset size.
+INTEGER, DIMENSION(:), ALLOCATABLE          :: rank           !! HDF5 rank by item after zero dimensions are removed.
+INTEGER(HID_T)                              :: orig_t_dataspace !! Original one-value time memory dataspace.
+INTEGER(HID_T)                              :: group_static      !! HDF5 group for static constants.
+INTEGER(HID_T)                              :: group_dynamic     !! HDF5 group for time-varying variables.
+INTEGER(HID_T)                              :: group_images      !! HDF5 group for derived catchment-map images.
+INTEGER(HID_T)                              :: file              !! HDF5 file handle.
+INTEGER(HID_T)                              :: group_magnified_integer !! HDF5 group for magnified integer grids.
+INTEGER(HID_T), SAVE                        :: dataset_compress_property !! Compression property for value datasets.
+INTEGER(HID_T), SAVE                        :: t_dataset_compress_property !! Compression property for time datasets.
 
 PRIVATE
 PUBLIC :: SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP
@@ -77,15 +88,26 @@ PUBLIC :: SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP
 CONTAINS
 
 !> Creates the HDF5 file, groups, datasets, dataspaces, and compression properties.
+!>
+!> Entry assumptions:
+!>
+!> | Requirement | Reason |
+!> |:------------|:-------|
+!> | Visualisation metadata has been registered. | `G_I(0,'no_items')` and per-item HDF5 metadata drive allocation. |
+!> | `hdf5filename` is set and writable. | The HDF5 file is created with truncation. |
+!> | Each item has at least one non-zero HDF5 dimension. | `rank(mn)` is used to allocate dataset dimensions. |
 SUBROUTINE initialise()
-INTEGER                  :: ni, mn, jj
-INTEGER, DIMENSION(ndim) :: hhdim
-LOGICAL                  :: istimeseries
-CHARACTER(csz)           :: name, namet
-INTEGER(HID_T)           :: gp
-INTEGER(HID_T), DIMENSION(:), ALLOCATABLE, SAVE   :: gp_var
-INTEGER(HSIZE_T), DIMENSION(ndim)                 :: maxdims
-INTEGER(HSIZE_T), PARAMETER                       :: one=1
+INTEGER                  :: ni !! Number of visualisation items.
+INTEGER                  :: mn !! Visualisation item index.
+INTEGER                  :: jj !! Dimension index.
+INTEGER, DIMENSION(ndim) :: hhdim !! Full HDF5 dimensions from metadata, including zero placeholders.
+LOGICAL                  :: istimeseries !! Whether the item is stored in the dynamic variables group.
+CHARACTER(csz)           :: name  !! HDF5 dataset or group name.
+CHARACTER(csz)           :: namet !! HDF5 time-dataset name.
+INTEGER(HID_T)           :: gp    !! HDF5 parent group for the item value dataset.
+INTEGER(HID_T), DIMENSION(:), ALLOCATABLE, SAVE   :: gp_var !! HDF5 dynamic variable group by item.
+INTEGER(HSIZE_T), DIMENSION(ndim)                 :: maxdims !! Maximum HDF5 dimensions for the item dataset.
+INTEGER(HSIZE_T), PARAMETER                       :: one=1   !! One-element time-dataspace extent.
 !integer :: error
 !integer :: majnum, minnum, relnum
 
@@ -148,14 +170,14 @@ DO mn=1,ni
 
     IF(G_H5_L(mn,'isreal')) THEN ; dtype(mn)=H5T_NATIVE_REAL ; ELSE ; dtype(mn)=H5T_NATIVE_INTEGER ; ENDIF
 
-    !CALL H5DCREATE_F(gp, name, dtype(mn), dataspace(mn), dataset(mn), error, creation_prp=dataset_compress_property)
-CALL H5DCREATE_F(gp, name, dtype(mn), dataspace(mn), dataset(mn), error, dcpl_id=dataset_compress_property)  !160913
+    CALL H5DCREATE_F(gp, name, dtype(mn), dataspace(mn), dataset(mn), error, &
+                     dcpl_id=dataset_compress_property)
 
     CALL CREATE_VARIABLES_ATTRIBUTES(mn)
 
     IF(istimeseries) THEN
-        !CALL H5DCREATE_F(gp, namet, H5T_NATIVE_REAL, t_dataspace(mn), t_dataset(mn), error, creation_prp=t_dataset_compress_property)
-        CALL H5DCREATE_F(gp, namet, H5T_NATIVE_REAL, t_dataspace(mn), t_dataset(mn), error, dcpl_id=t_dataset_compress_property)
+        CALL H5DCREATE_F(gp, namet, H5T_NATIVE_REAL, t_dataspace(mn), &
+                         t_dataset(mn), error, dcpl_id=t_dataset_compress_property)
         CALL CREATE_TIME_ATTRIBUTES(mn)
     ENDIF
 
@@ -166,8 +188,8 @@ END SUBROUTINE initialise
 
 !> Builds an HDF5 group name for one visualisation item and optional fraction number.
 CHARACTER(12) FUNCTION combination_name(mn) RESULT(r)
-INTEGER, INTENT(IN) :: mn
-CHARACTER(8)        :: dum
+INTEGER, INTENT(IN) :: mn  !! Visualisation item index.
+CHARACTER(8)        :: dum !! Variable name with optional sediment/contaminant suffix.
 WRITE(r,'(I3)')G_H5_I(mn,'users_number')
 dum = G_H5_C(mn,'name')
 IF(G_H5_L(mn,'varies_with_sediment')) THEN
@@ -178,10 +200,15 @@ ENDIF
 r  = TRIM(r)//' '//TRIM(dum)
 END FUNCTION combination_name
 
-!> Closes all open HDF5 datasets, groups, dataspaces, the file, and the HDF5 library.
+!> Closes open HDF5 datasets, groups, dataspaces, the file, and the HDF5 library.
+!>
+!> This routine assumes [[initialise]] has run. The image and magnified-grid
+!> groups are closed unconditionally, so runs that never create `surf_elv` or
+!> `number` products rely on the HDF5 close routine accepting the stored handle.
 SUBROUTINE visualisation_tidy_up()
-INTEGER :: ni, mn
-LOGICAL :: istimeseries
+INTEGER :: ni !! Number of visualisation items.
+INTEGER :: mn !! Visualisation item index.
+LOGICAL :: istimeseries !! Whether the item has a time dataset.
 ni           = G_I(0,'no_items')
 DO mn=1,ni
     istimeseries = G_H5_L(mn, 'istimeseries')
@@ -200,13 +227,20 @@ END SUBROUTINE visualisation_tidy_up
 
 
 !> Writes one visualisation metadata item to disk when its output is due.
+!>
+!> The first call is ignored, the second call initializes HDF5 output, static
+!> items are written only at `time == 0`, and time-series items extend their
+!> datasets before buffered values are copied.
 SUBROUTINE save_visualisation_data_to_disk(mn, time)
-INTEGER, INTENT(IN) :: mn
-INTEGER, PARAMETER  :: buffer_length_for_storage=1
-INTEGER             :: tc, tstep
-REAL, INTENT(IN)    :: time
-LOGICAL, SAVE       :: one=T, two=F, notflag=F
-TYPE(C_PTR)         :: first_ptr
+INTEGER, INTENT(IN) :: mn   !! Visualisation item index.
+INTEGER, PARAMETER  :: buffer_length_for_storage=1 !! Number of buffered timesteps written at once.
+INTEGER             :: tc    !! Number of buffered values currently available.
+INTEGER             :: tstep !! HDF5 timestep index for the item.
+REAL, INTENT(IN)    :: time  !! Simulation time in hours.
+LOGICAL, SAVE       :: one=T !! First-call guard.
+LOGICAL, SAVE       :: two=F !! Second-call initialization guard.
+LOGICAL, SAVE       :: notflag=F !! Retained early-return flag; currently remains false.
+TYPE(C_PTR)         :: first_ptr !! Pointer to the first buffered value node.
 
 IF(notflag .AND. time>zero) THEN
     RETURN
@@ -233,7 +267,9 @@ ELSE
     tc = TIME_COUNT(G_C(mn,'typ'), first_ptr)
 ENDIF
 IF(time==zero .OR. tc==buffer_length_for_storage) &
-        CALL WRITE_MN(mn, tc, time==zero, tstep, G_H5_L(mn,'isreal'), G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
+        CALL WRITE_MN(mn, tc, time==zero, tstep, G_H5_L(mn,'isreal'), &
+                      G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), &
+                      G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
 !IF(mn==G_I(0,'no_items')) PRINT*,time !, 'RECODE HERE TO IMPROVE OUTPUT'
 
 END SUBROUTINE save_visualisation_data_to_disk
@@ -245,23 +281,34 @@ END SUBROUTINE save_visualisation_data_to_disk
 !> Time-series items are appended by selecting hyperslabs in the extended HDF5
 !> dataset. Static values are written once at simulation time zero.
 SUBROUTINE write_mn(mn, amount, firstwrites, tstep, isreal, szorder, ilow, jlow, klow)
-INTEGER, INTENT(IN)                                :: mn, tstep, ilow, jlow, klow, amount !how many to copy to disk
-INTEGER, DIMENSION(:), INTENT(IN)                  :: szorder
-INTEGER                                            :: am, hhdim(ndim)
-TYPE(C_PTR)                                        :: first
-INTEGER, DIMENSION(ndim)                           :: sz
-INTEGER(HSIZE_T)                                   :: t_sz(7)
-REAL                                               :: time
-REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: surf_elv
-REAL, DIMENSION(:,:,:), ALLOCATABLE                :: temp_surf_map
-REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: temp_r
-INTEGER, DIMENSION(:,:,:,:,:,:), ALLOCATABLE       :: temp_i
-LOGICAL, INTENT(IN)                                :: firstwrites, isreal
-LOGICAL                                            :: istimeseries
-CHARACTER(2)                                       :: typ
-CHARACTER(csz)                                     :: name
-INTEGER(HID_T)                                     :: filespace, t_filespace
-INTEGER(HSIZE_T), DIMENSION(ndim)                  :: start, t_start, ccount, t_ccount
+INTEGER, INTENT(IN)                                :: mn !! Visualisation item index.
+INTEGER, INTENT(IN)                                :: amount !! Number of buffered values to copy to disk.
+INTEGER, INTENT(IN)                                :: tstep !! Current HDF5 timestep index.
+INTEGER, INTENT(IN)                                :: ilow !! Lower column offset used by the structure extractor.
+INTEGER, INTENT(IN)                                :: jlow !! Lower row offset used by the structure extractor.
+INTEGER, INTENT(IN)                                :: klow !! Lower layer offset used by the structure extractor.
+INTEGER, DIMENSION(:), INTENT(IN)                  :: szorder !! Storage-order mapping for HDF5 dimensions.
+INTEGER                                            :: am !! Buffered value counter.
+INTEGER                                            :: hhdim(ndim) !! HDF5 dimensions including zero placeholders.
+TYPE(C_PTR)                                        :: first !! Pointer to the next buffered value node.
+INTEGER, DIMENSION(ndim)                           :: sz !! Extractor dimensions with zeros replaced by one.
+INTEGER(HSIZE_T)                                   :: t_sz(7) !! Time write memory dimensions.
+REAL                                               :: time !! Buffered value time in hours.
+REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: surf_elv !! Surface-elevation buffer for map output.
+REAL, DIMENSION(:,:,:), ALLOCATABLE                :: temp_surf_map !! Surface-elevation map slice.
+REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: temp_r !! Real-valued write buffer.
+INTEGER, DIMENSION(:,:,:,:,:,:), ALLOCATABLE       :: temp_i !! Integer-valued write buffer.
+LOGICAL, INTENT(IN)                                :: firstwrites !! True when writing initial/static values.
+LOGICAL, INTENT(IN)                                :: isreal !! True for real-valued datasets.
+LOGICAL                                            :: istimeseries !! Whether the item has a time dataset.
+CHARACTER(2)                                       :: typ !! Visualisation storage type code.
+CHARACTER(csz)                                     :: name !! Visualisation item name.
+INTEGER(HID_T)                                     :: filespace !! File dataspace for the value write.
+INTEGER(HID_T)                                     :: t_filespace !! File dataspace for the time write.
+INTEGER(HSIZE_T), DIMENSION(ndim)                  :: start !! Value hyperslab start indices.
+INTEGER(HSIZE_T), DIMENSION(ndim)                  :: t_start !! Time hyperslab start indices.
+INTEGER(HSIZE_T), DIMENSION(ndim)                  :: ccount !! Value hyperslab count.
+INTEGER(HSIZE_T), DIMENSION(ndim)                  :: t_ccount !! Time hyperslab count.
 
 name            = G_H5_C(mn,'name')
 first           = G_PTR(mn,'first')
@@ -336,12 +383,12 @@ END SUBROUTINE write_mn
 
 !> Adds units metadata to a time dataset.
 SUBROUTINE create_time_attributes(mn)
-INTEGER, INTENT(IN)                     :: mn
-!INTEGER(HSIZE_T)                        :: arank
-INTEGER                        :: arank
-INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-INTEGER(HID_T)                          :: atype
-INTEGER(HID_T)                          :: attribute, a_dataspace
+INTEGER, INTENT(IN)                     :: mn !! Visualisation item index.
+INTEGER                                 :: arank !! Attribute dataspace rank.
+INTEGER(HSIZE_T), DIMENSION(7)          :: tsz !! Attribute dimensions; over-sized for compiler compatibility.
+INTEGER(HID_T)                          :: atype !! HDF5 attribute datatype.
+INTEGER(HID_T)                          :: attribute !! HDF5 attribute handle.
+INTEGER(HID_T)                          :: a_dataspace !! HDF5 attribute dataspace handle.
 !units
     CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
     CALL H5TSET_SIZE_F(atype, 5, error)
@@ -357,17 +404,21 @@ END SUBROUTINE create_time_attributes
 
 !> Adds descriptive and dimension metadata attributes to a value dataset.
 SUBROUTINE create_variables_attributes(mn)
-INTEGER, INTENT(IN)                     :: mn
-INTEGER                                 :: dd, ii, jj, no_dimensions
-!INTEGER(HSIZE_T)                        :: arank
-INTEGER                        :: arank
-INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-INTEGER(HID_T)                          :: atype
-INTEGER(HID_T)                          :: attribute, a_dataspace
-INTEGER                                 :: i
-INTEGER, DIMENSION(:,:), ALLOCATABLE    :: pairs
-CHARACTER(2)                            :: typ
-CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nme, nmed
+INTEGER, INTENT(IN)                     :: mn !! Visualisation item index.
+INTEGER                                 :: dd !! Dimension loop counter.
+INTEGER                                 :: ii !! Packed-dimension counter.
+INTEGER                                 :: jj !! Metadata dimension/member counter.
+INTEGER                                 :: no_dimensions !! Number of non-zero HDF5 dimensions for this item.
+INTEGER                                 :: arank !! Attribute dataspace rank.
+INTEGER(HSIZE_T), DIMENSION(7)          :: tsz !! Attribute dimensions; over-sized for compiler compatibility.
+INTEGER(HID_T)                          :: atype !! HDF5 attribute datatype.
+INTEGER(HID_T)                          :: attribute !! HDF5 attribute handle.
+INTEGER(HID_T)                          :: a_dataspace !! HDF5 attribute dataspace handle.
+INTEGER                                 :: i !! Element-list index.
+INTEGER, DIMENSION(:,:), ALLOCATABLE    :: pairs !! Element-list attribute pairs.
+CHARACTER(2)                            :: typ !! Visualisation storage type code.
+CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nme !! Temporary dimension/member names.
+CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nmed !! Packed names of active HDF5 dimensions.
 !title
     CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
     CALL H5TSET_SIZE_F(atype, csz, error)
@@ -441,8 +492,8 @@ CONTAINS
 
     !> Adds per-dimension limit or membership attributes to a value dataset.
     SUBROUTINE dimension_attributes(name)
-    CHARACTER(*), INTENT(IN) :: name
-    CHARACTER(csz)           :: dum(1)
+    CHARACTER(*), INTENT(IN) :: name !! Dimension name to describe.
+    CHARACTER(csz)           :: dum(1) !! Character attribute value.
 
 
     SELECT CASE(name)
@@ -541,10 +592,12 @@ END SUBROUTINE create_variables_attributes
 
 !> Saves surface elevation as an indexed catchment-map image.
 SUBROUTINE save_surf_elev_as_map(mn, dat, magnif)
-INTEGER, INTENT(IN)                :: mn, magnif
-INTEGER                            :: sz(2)
-REAL, DIMENSION(:,:,:), INTENT(IN) :: dat
-CHARACTER(csz)                     :: name, title
+INTEGER, INTENT(IN)                  :: mn !! Visualisation item index for `surf_elv`.
+INTEGER, INTENT(IN)                  :: magnif !! Image magnification factor.
+INTEGER                              :: sz(2) !! Map dimensions.
+REAL, DIMENSION(:,:,:), INTENT(IN)   :: dat !! Surface-elevation map data.
+CHARACTER(csz)                       :: name !! HDF5 image dataset name.
+CHARACTER(csz)                       :: title !! HDF5 image title.
 INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_pic
 WRITE(name,'(A,I1,A)') 'SV',ver,'_elevation'
 WRITE(title,'(A,I1,A)') 'SV',ver,' surface elevation'
@@ -556,9 +609,9 @@ END SUBROUTINE save_surf_elev_as_map
 
 !> Saves magnified element numbers as an HDF5 spreadsheet-style dataset.
 SUBROUTINE save_numbers_as_spreadsheet(mn)
-INTEGER, INTENT(IN) :: mn
-INTEGER, PARAMETER  :: magnif=20
-INTEGER             :: sz(2)
+INTEGER, INTENT(IN) :: mn !! Visualisation item index for `number`.
+INTEGER, PARAMETER  :: magnif=20 !! Spreadsheet magnification factor.
+INTEGER             :: sz(2) !! Map dimensions.
 INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_magarr
 sz = szz(mn)%a(2:3)
 temp_magarr = GET_MAGNIFIED_SU_ARR(sz, magnif, mn)
@@ -569,20 +622,19 @@ END SUBROUTINE save_numbers_as_spreadsheet
 
 !> Adds an indexed catchment-map image and colour palette to the HDF5 file.
 SUBROUTINE add_an_image_to_group(name, title, magnif, pic)
-INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic
-INTEGER, INTENT(IN)                           :: magnif
-INTEGER, PARAMETER                            :: mmax=256, vrange(2)=[0,mmax]
-INTEGER                                       :: i, p, minvi, maxvi, arank, st
-INTEGER(HID_T)                                :: dataspace, atype, attribute, a_dataspace, dataset
-INTEGER(HSIZE_T), DIMENSION(1)                :: tsz
-CHARACTER(*), INTENT(IN)                      :: name, title
-TYPE(ssz)                                     :: aszz
-REAL                                          :: minvr, maxvr
-LOGICAL, SAVE                                 :: first = .TRUE.
-INTEGER(HSIZE_T)                              :: wid, hei
-CHARACTER(*), PARAMETER                       :: pal_name = "palette1"     ! Dataset name
-INTEGER(HSIZE_T), DIMENSION(2)                :: pal_dims = [mmax,3] ! Dataset dimensions
-INTEGER, DIMENSION(mmax*3)                    :: pal_data_in
+INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic !! Indexed image values.
+INTEGER, INTENT(IN)                           :: magnif !! Image magnification factor.
+INTEGER, PARAMETER                            :: mmax=256 !! Palette entry count.
+INTEGER                                       :: i !! Palette loop index.
+CHARACTER(*), INTENT(IN)                      :: name !! HDF5 image dataset name.
+CHARACTER(*), INTENT(IN)                      :: title !! HDF5 image title.
+TYPE(ssz)                                     :: aszz !! Local image dimension wrapper.
+LOGICAL, SAVE                                 :: first = .TRUE. !! First-call guard for group creation.
+INTEGER(HSIZE_T)                              :: wid !! Image width.
+INTEGER(HSIZE_T)                              :: hei !! Image height.
+CHARACTER(*), PARAMETER                       :: pal_name = "palette1" !! HDF5 palette dataset name.
+INTEGER(HSIZE_T), DIMENSION(2)                :: pal_dims = [mmax,3] !! Palette dimensions.
+INTEGER, DIMENSION(mmax*3)                    :: pal_data_in !! RGB palette values.
 
 IF(first) THEN
     pal_data_in                = [(MIN(mmax-1,4*i/3),i,i/2,i=1,mmax)]
@@ -605,12 +657,13 @@ END SUBROUTINE add_an_image_to_group
 !> Writes an 8-bit indexed image dataset with HDF5 image attributes.
 SUBROUTINE make_tidy_image_8(loc_id, name, wid, hei, pic, err)
 INTEGER, PARAMETER                            :: rank=2
-INTEGER, INTENT(OUT)                          :: err
-INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic
-INTEGER(HID_T), INTENT(IN)                    :: loc_id
-INTEGER(HSIZE_T), INTENT(IN)                  :: wid, hei
-INTEGER(HSIZE_T), DIMENSION(rank)             :: dims
-CHARACTER(*), INTENT(IN)                      :: name
+INTEGER, INTENT(OUT)                          :: err !! HDF5/H5LT status code.
+INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic !! Indexed image values.
+INTEGER(HID_T), INTENT(IN)                    :: loc_id !! HDF5 parent location.
+INTEGER(HSIZE_T), INTENT(IN)                  :: wid !! Image width.
+INTEGER(HSIZE_T), INTENT(IN)                  :: hei !! Image height.
+INTEGER(HSIZE_T), DIMENSION(rank)             :: dims !! Image dimensions.
+CHARACTER(*), INTENT(IN)                      :: name !! HDF5 image dataset name.
 
 dims = [wid,hei]
 err  = 0
@@ -642,14 +695,21 @@ END SUBROUTINE make_tidy_image_8
 
 !> Adds a magnified integer grid dataset to the spreadsheet group.
 SUBROUTINE add_magnified_integer_spreadsheet_to_group(mn, nme, magnif, magarr)
-INTEGER, INTENT(IN)                     :: mn, magnif, magarr(:,:)
-INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset
-INTEGER                                 :: arank
-INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-TYPE(ssz)                               :: aszz
-CHARACTER(*), INTENT(IN)                :: nme
-CHARACTER(csz)                          :: title, name
-LOGICAL, SAVE                           :: first = .TRUE.
+INTEGER, INTENT(IN)                     :: mn !! Visualisation item index.
+INTEGER, INTENT(IN)                     :: magnif !! Spreadsheet magnification factor.
+INTEGER, INTENT(IN)                     :: magarr(:,:) !! Magnified integer grid.
+INTEGER(HID_T)                          :: dataspace !! HDF5 dataset dataspace.
+INTEGER(HID_T)                          :: atype !! HDF5 attribute datatype.
+INTEGER(HID_T)                          :: attribute !! HDF5 attribute handle.
+INTEGER(HID_T)                          :: a_dataspace !! HDF5 attribute dataspace.
+INTEGER(HID_T)                          :: dataset !! HDF5 spreadsheet dataset handle.
+INTEGER                                 :: arank !! Attribute or dataset rank.
+INTEGER(HSIZE_T), DIMENSION(7)          :: tsz !! Attribute dimensions; over-sized for compiler compatibility.
+TYPE(ssz)                               :: aszz !! Local dataset dimension wrapper.
+CHARACTER(*), INTENT(IN)                :: nme !! Base name for the spreadsheet dataset.
+CHARACTER(csz)                          :: title !! HDF5 title attribute.
+CHARACTER(csz)                          :: name !! HDF5 dataset name.
+LOGICAL, SAVE                           :: first = .TRUE. !! First-call guard for group creation.
 
 IF(first) THEN
     first = .FALSE.
@@ -663,8 +723,8 @@ ALLOCATE(aszz%a(2))
 aszz%a = SHAPE(magarr)
 CALL H5SCREATE_SIMPLE_F(arank, aszz%a, dataspace, error)
 CALL H5PSET_CHUNK_F    (dataset_compress_property, 2, aszz%a, error)
-!CALL H5DCREATE_F       (group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, dataset, error, creation_prp=dataset_compress_property)
-CALL H5DCREATE_F       (group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, dataset, error, dcpl_id=dataset_compress_property)
+CALL H5DCREATE_F(group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, &
+                 dataset, error, dcpl_id=dataset_compress_property)
 CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
 CALL H5TSET_SIZE_F(atype, csz, error)
 arank  = 1
@@ -805,7 +865,7 @@ END MODULE visualisation_hdf5
 !INTEGER(HID_T), INTENT(IN)              :: file, dataset_compress_property
 !INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset, group_plans
 !INTEGER(HSIZE_T)                        :: arank
-!INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
+!INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  ! Legacy compatibility workspace.
 !TYPE(ssz)                               :: aszz
 !CHARACTER(csz)                          :: name, title
 !INTEGER(HID_T)                          :: file2

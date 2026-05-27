@@ -72,12 +72,6 @@ module ZQmod
     !> strings such as `ZQ>96.8` are converted to numeric stage thresholds and
     !> stored in `headerRealArray`.
     !>
-    !> @history
-    !> | Date | Author | Version | Description |
-    !> |:-----|:-------|:--------|:------------|
-    !> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
-    !> @endhistory
-    !>
     !> Expected table layout:
     !>
     !> | File item | Code use |
@@ -102,6 +96,12 @@ module ZQmod
     !> from `AL_D`, writes `output_readZQTable.txt`, closes `zqd`, and stops the
     !> program with status 255 if the table cannot be read.
     !> @endnote
+    !>
+    !> @history
+    !> | Date | Author | Version | Description |
+    !> |:-----|:-------|:--------|:------------|
+    !> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
+    !> @endhistory
     SUBROUTINE ReadZQTable()
 
         ! general variables

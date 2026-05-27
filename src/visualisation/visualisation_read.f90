@@ -4,16 +4,40 @@
 !> layer. It strips comments and separators from the visualisation plan file,
 !> then exposes typed readers for character, integer, and real values while
 !> collecting consistent diagnostic messages for malformed input.
+!>
+!> Parser flow:
+!>
+!> | Stage | Behaviour |
+!> |:------|:----------|
+!> | `COPY` | Calls `STRIP` for the selected visualisation plan file and opens the stripped stream on `vp_in`. |
+!> | `STRIP` | Checks the first token, removes `!` comments, trims blanks, splits on `:` and `^`, and writes `temporary.txt`. |
+!> | `R_C` | Reads the next nonblank character plus the remaining character token. |
+!> | `R_I` / `R_R` | Read scalar, vector, or two-to-five-value integer/real sequences through generic interfaces. |
+!> | `ERROR` | Writes accumulated diagnostics to the check file and console, then stops. |
+!>
+!> `STRIP` accepts printable ASCII characters 32:126 only; tabs and other
+!> non-printing characters are treated as fatal input errors.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 199912 | JE | - | Created line-by-line stripping utility for informative text in data files. |
+!> | 200407 | JE | SHEGRAPH 2.0 | Created visualisation plan reader for SHEGRAPH. |
+!> | 20050809 | NETT | - | Preserved zero-length-line guards while trimming blanks in `STRIP`. |
+!> @endhistory
 MODULE visualisation_read
 
-!JE for SHEGRAPH Version 2.0 Created July 2004
 IMPLICIT NONE
 
-INTEGER, PARAMETER :: vp_in=48, vp_out=49  !read and write numbers for visualisation_plan files
-LOGICAL, PARAMETER :: T=.TRUE., F=.FALSE.
-CHARACTER(100)     :: mess='', mess2='', mess3=''
-CHARACTER, PARAMETER           :: di(10)=(/'0','1','2','3','4','5','6','7','8','9'/), &
-                                  dr(12)=(/'-','.','0','1','2','3','4','5','6','7','8','9'/)
+INTEGER, PARAMETER :: vp_in=48  !! Unit number for the stripped visualisation-plan input stream.
+INTEGER, PARAMETER :: vp_out=49 !! Unit number for the visualisation check-file output stream.
+LOGICAL, PARAMETER :: T=.TRUE.  !! Short logical true constant retained for legacy parser code.
+LOGICAL, PARAMETER :: F=.FALSE. !! Short logical false constant retained for legacy parser code.
+CHARACTER(100)     :: mess=''   !! Primary parser diagnostic message.
+CHARACTER(100)     :: mess2=''  !! Secondary parser diagnostic message.
+CHARACTER(100)     :: mess3=''  !! Tertiary parser diagnostic message.
+CHARACTER, PARAMETER :: di(10)=(/'0','1','2','3','4','5','6','7','8','9'/) !! Integer digit characters.
+CHARACTER, PARAMETER :: dr(12)=(/'-','.','0','1','2','3','4','5','6','7','8','9'/) !! Real-token characters.
 
 INTERFACE R_C ; MODULE PROCEDURE R_C                      ; ENDINTERFACE
 INTERFACE R_I ; MODULE PROCEDURE R_I_0, R_I_1, R_I_M ; ENDINTERFACE
@@ -30,25 +54,24 @@ CONTAINS
 SUBROUTINE copy(dirqq, filename)
 CHARACTER(*), INTENT(IN) :: dirqq !! Catchment directory used for temporary parser files.
 CHARACTER(*), INTENT(IN) :: filename !! Visualisation plan filename to read.
-!CALL STRIP(file=TRIM(dirqq)//'input/visualisation_plan.txt', u=vp_in, checktitle='visualisation plan', delimiter='!', separator=(/':','^'/), DIR=dirqq)
 CALL STRIP(file=filename, u=vp_in, checktitle='visualisation plan', delimiter='!', separator=(/':','^'/), DIR=dirqq)
 END SUBROUTINE copy
 
 !> Reads a character token from the stripped visualisation plan stream.
 SUBROUTINE r_c(text, r)
-INTEGER                   :: i
-LOGICAL                   :: eor
-CHARACTER(*), INTENT(IN)  :: text
-CHARACTER(*), INTENT(OUT) :: r
-CHARACTER                 :: c
+INTEGER                   :: i    !! Unused legacy workspace.
+LOGICAL                   :: eor  !! Unused legacy end-of-record flag.
+CHARACTER(*), INTENT(IN)  :: text !! Field name used in diagnostics.
+CHARACTER(*), INTENT(OUT) :: r    !! Character value read from the stream.
+CHARACTER                 :: c    !! Unused legacy character workspace.
 CALL READ_A_LINE(text, r)
 END SUBROUTINE r_c
 
 !> Reads a nonblank character and then the remainder of a character value.
 SUBROUTINE read_a_line(text, r)
-CHARACTER(*), INTENT(IN)  :: text
-CHARACTER(*), INTENT(OUT) :: r
-CHARACTER                 :: c
+CHARACTER(*), INTENT(IN)  :: text !! Field name used in diagnostics.
+CHARACTER(*), INTENT(OUT) :: r    !! Character value read from the stream.
+CHARACTER                 :: c    !! First nonblank character.
 CALL FIND_FIRST_CHARACTER(text, c, exclude=' ')
 r(1:1) = c
 IF(LEN(r)>1) READ(vp_in,*) r(2:)
@@ -56,15 +79,17 @@ END SUBROUTINE read_a_line
 
 
 !> Reads one integer token from the stripped visualisation plan stream.
+!>
+!> Integer tokens are buffered in an eight-character field. Values longer than
+!> this or containing a non-digit character produce a fatal parser error.
 SUBROUTINE r_ii(text, r)
-!Read an integer
-INTEGER, PARAMETER             :: szb = 8
-INTEGER, INTENT(OUT)           :: r
-INTEGER                        :: i
-CHARACTER(*), INTENT(IN)       :: text
+INTEGER, PARAMETER             :: szb = 8 !! Maximum integer-token length.
+INTEGER, INTENT(OUT)           :: r       !! Integer value read.
+INTEGER                        :: i       !! Token character count.
+CHARACTER(*), INTENT(IN)       :: text    !! Field name used in diagnostics.
 
-CHARACTER                      :: c
-CHARACTER(szb)                 :: b
+CHARACTER                      :: c       !! Current input character.
+CHARACTER(szb)                 :: b       !! Buffered token text.
 b   = REPEAT(' ',szb)
 CALL FIND_FIRST_CHARACTER(text, c, di)
 i = 0
@@ -85,11 +110,16 @@ WRITE(mess,*) TRIM(text)//' - Expecting integer, but read '//b ; GOTO 100
 END SUBROUTINE r_ii
 
 !> Advances the parser to the next accepted character.
+!>
+!> End-of-record recurses until a character can be read. When `exclude` is
+!> present, excluded characters are skipped. The optional `d` argument is passed
+!> by numeric readers as an allowed-character set, but the legacy test is kept as
+!> implemented and validation is performed by the caller.
 RECURSIVE SUBROUTINE find_first_character(text, c, d, exclude)
-CHARACTER, INTENT(OUT)                        :: c
-CHARACTER, DIMENSION(:), INTENT(IN), OPTIONAL :: d
-CHARACTER(*), INTENT(IN)                      :: text
-CHARACTER, INTENT(IN), OPTIONAL               :: exclude !don't count this as a character
+CHARACTER, INTENT(OUT)                        :: c       !! Character found in the stream.
+CHARACTER, DIMENSION(:), INTENT(IN), OPTIONAL :: d       !! Legacy character set argument from numeric readers.
+CHARACTER(*), INTENT(IN)                      :: text    !! Field name used in diagnostics.
+CHARACTER, INTENT(IN), OPTIONAL               :: exclude !! Character to skip.
 READ(vp_in,'(A1)',ERR=90, EOR=92, ADVANCE='NO') c
 DO 
     IF (PRESENT(d)) THEN
@@ -109,14 +139,17 @@ END SUBROUTINE find_first_character
 
 
 !> Reads one real token from the stripped visualisation plan stream.
+!>
+!> Real tokens are buffered in a 20-character field and may contain digits,
+!> decimal point, and minus sign. Exponents are not in the accepted character
+!> set, matching the legacy parser.
 SUBROUTINE r_rr(text,r)
-!Read a read
-INTEGER, PARAMETER             :: szb = 20
-INTEGER                        :: i
-REAL, INTENT(OUT)              :: r
-CHARACTER(*), INTENT(IN)       :: text
-CHARACTER                      :: c
-CHARACTER(szb)                 :: b
+INTEGER, PARAMETER             :: szb = 20 !! Maximum real-token length.
+INTEGER                        :: i        !! Token character count.
+REAL, INTENT(OUT)              :: r        !! Real value read.
+CHARACTER(*), INTENT(IN)       :: text     !! Field name used in diagnostics.
+CHARACTER                      :: c        !! Current input character.
+CHARACTER(szb)                 :: b        !! Buffered token text.
 b   = REPEAT(' ',szb)
 CALL FIND_FIRST_CHARACTER(text, c, dr)
 i = 0
@@ -137,16 +170,19 @@ END SUBROUTINE r_rr
 
 !> Interface wrapper for reading a scalar integer.
 SUBROUTINE r_i_0(text, r)
-INTEGER, INTENT(OUT)     :: r
-CHARACTER(*), INTENT(IN) :: text
+INTEGER, INTENT(OUT)     :: r    !! Integer value read.
+CHARACTER(*), INTENT(IN) :: text !! Field name used in diagnostics.
 CALL R_II(text, r)
 END SUBROUTINE r_i_0
 
 !> Interface wrapper for reading two to five scalar integers.
 SUBROUTINE r_i_m(text, i1, i2, i3, i4, i5)
-INTEGER, INTENT(OUT)           :: i1, i2
-INTEGER, INTENT(OUT), OPTIONAL :: i3, i4, i5
-CHARACTER(*), INTENT(IN)       :: text
+INTEGER, INTENT(OUT)           :: i1   !! First integer value read.
+INTEGER, INTENT(OUT)           :: i2   !! Second integer value read.
+INTEGER, INTENT(OUT), OPTIONAL :: i3   !! Optional third integer value read.
+INTEGER, INTENT(OUT), OPTIONAL :: i4   !! Optional fourth integer value read.
+INTEGER, INTENT(OUT), OPTIONAL :: i5   !! Optional fifth integer value read.
+CHARACTER(*), INTENT(IN)       :: text !! Field name used in diagnostics.
 CALL R_I(text, I1)
 CALL R_I(text, i2)
 IF(PRESENT(i3)) CALL R_I(text, i3)
@@ -156,10 +192,10 @@ END SUBROUTINE r_i_m
 
 !> Interface wrapper for reading an integer vector.
 SUBROUTINE r_i_1(text, sz, r)
-INTEGER, INTENT(IN)                 :: sz
-INTEGER, DIMENSION(sz), INTENT(OUT) :: r
-INTEGER                             :: i
-CHARACTER(*), INTENT(IN)            :: text
+INTEGER, INTENT(IN)                 :: sz   !! Number of integer values to read.
+INTEGER, DIMENSION(sz), INTENT(OUT) :: r    !! Integer values read.
+INTEGER                             :: i    !! Vector index.
+CHARACTER(*), INTENT(IN)            :: text !! Field name used in diagnostics.
 DO i=1,sz
     CALL R_I(text, r(i))
 ENDDO
@@ -167,16 +203,19 @@ END SUBROUTINE r_i_1
 
 !> Interface wrapper for reading a scalar real.
 SUBROUTINE r_r_0(text, r)
-REAL, INTENT(OUT)     :: r
-CHARACTER(*), INTENT(IN) :: text
+REAL, INTENT(OUT)        :: r    !! Real value read.
+CHARACTER(*), INTENT(IN) :: text !! Field name used in diagnostics.
 CALL R_RR(text, r)
 END SUBROUTINE r_r_0
 
 !> Interface wrapper for reading two to five scalar reals.
 SUBROUTINE r_r_m(text, r1, r2, r3, r4, r5)
-REAL, INTENT(OUT)           :: r1, r2
-REAL, INTENT(OUT), OPTIONAL :: r3, r4, r5
-CHARACTER(*), INTENT(IN)    :: text
+REAL, INTENT(OUT)           :: r1   !! First real value read.
+REAL, INTENT(OUT)           :: r2   !! Second real value read.
+REAL, INTENT(OUT), OPTIONAL :: r3   !! Optional third real value read.
+REAL, INTENT(OUT), OPTIONAL :: r4   !! Optional fourth real value read.
+REAL, INTENT(OUT), OPTIONAL :: r5   !! Optional fifth real value read.
+CHARACTER(*), INTENT(IN)    :: text !! Field name used in diagnostics.
     CALL R_R(text, r1)
     CALL R_R(text, r2)
     IF(PRESENT(r3)) CALL R_R(text, r3)
@@ -186,10 +225,10 @@ END SUBROUTINE r_r_m
 
 !> Interface wrapper for reading a real vector.
 SUBROUTINE r_r_1(text, sz, r)
-INTEGER, INTENT(IN)                 :: sz
-REAL, DIMENSION(sz), INTENT(OUT) :: r
-INTEGER                          :: i
-CHARACTER(*), INTENT(IN)         :: text
+INTEGER, INTENT(IN)              :: sz   !! Number of real values to read.
+REAL, DIMENSION(sz), INTENT(OUT) :: r    !! Real values read.
+INTEGER                          :: i    !! Vector index.
+CHARACTER(*), INTENT(IN)         :: text !! Field name used in diagnostics.
 DO i=1,sz
     CALL R_R(text, r(i))
 ENDDO
@@ -197,7 +236,7 @@ END SUBROUTINE r_r_1
 
 !> Reports a visualisation parser error and stops the program.
 SUBROUTINE error()
-CHARACTER(27), PARAMETER :: mm='*** VISUALISATION ERROR ***'
+CHARACTER(27), PARAMETER :: mm='*** VISUALISATION ERROR ***' !! Parser error banner.
 WRITE(vp_out,'(/A)') mm
 WRITE(vp_out,88) TRIM(mess)
 WRITE(vp_out,88) TRIM(mess2)
@@ -214,26 +253,37 @@ END SUBROUTINE error
 !>
 !> The stripped content is written to a temporary file and reopened on unit `u`
 !> so the typed readers can consume a compact token stream.
+!>
+!> Entry conditions:
+!>
+!> | Item | Requirement |
+!> |:-----|:------------|
+!> | `file` | Existing input file whose first token equals `checktitle`. |
+!> | `delimiter` | Character that begins an ignored comment tail on each line. |
+!> | `separator` | Two characters that split one physical line into multiple parser records. |
+!> | `dir` | Optional directory used for `temporary.txt`; current code appends `/temporary.txt`. |
 SUBROUTINE strip(file, u, checktitle, delimiter, separator, dir)
-!JE 12/99 Strips informative text from data files
-!Works line by line - removes delimiter and all following text
-!Writes stripped file to "newfile"
 IMPLICIT NONE
-INTEGER, INTENT(IN)         :: u                    !unit number for read file
-INTEGER                     :: i, j, k, llen=500, & !max allowed length for input lines
-                               io=0, nunit=100,   &  !io error no and unit number for new file
-                               ichar, lineno
-CHARACTER (*), INTENT(IN)   :: file                 !filename for read
-CHARACTER (*), INTENT(IN)   :: checktitle           !expected text on first line of read file
-CHARACTER(*), INTENT(IN), OPTIONAL :: dir
-CHARACTER,     INTENT(IN)   :: delimiter,         & !marks the begining of text for stripping
-                               separator(2)         !break to create new line
-CHARACTER                   :: ch
-CHARACTER (LEN(checktitle)) :: dum
-CHARACTER, DIMENSION(:), ALLOCATABLE :: store
-CHARACTER(13), PARAMETER             :: tf='temporary.txt'
-CHARACTER(250)                       :: tempfile
-LOGICAL                              :: opened
+INTEGER, INTENT(IN)         :: u      !! Unit number for the stripped read file.
+INTEGER                     :: i      !! Current input/write start index.
+INTEGER                     :: j      !! Last nonblank character position on the current line.
+INTEGER                     :: k      !! Separator-search index.
+INTEGER                     :: llen=500 !! Maximum allowed input line length.
+INTEGER                     :: io=0   !! Input I/O status; `-1` indicates end-of-file.
+INTEGER                     :: nunit=100 !! Unit number for the temporary stripped file.
+INTEGER                     :: ichar  !! ASCII code for the current character.
+INTEGER                     :: lineno !! Physical input-file line number.
+CHARACTER (*), INTENT(IN)   :: file   !! Filename to strip and reopen.
+CHARACTER (*), INTENT(IN)   :: checktitle !! Expected first token in `file`.
+CHARACTER(*), INTENT(IN), OPTIONAL :: dir !! Optional directory for the temporary stripped file.
+CHARACTER,     INTENT(IN)   :: delimiter  !! Character marking the beginning of an ignored comment tail.
+CHARACTER,     INTENT(IN)   :: separator(2) !! Characters that split one input line into parser records.
+CHARACTER                   :: ch     !! Current input character.
+CHARACTER (LEN(checktitle)) :: dum    !! First token read from `file`.
+CHARACTER, DIMENSION(:), ALLOCATABLE :: store !! Current physical input line before splitting.
+CHARACTER(13), PARAMETER             :: tf='temporary.txt' !! Temporary stripped filename.
+CHARACTER(250)                       :: tempfile !! Full temporary-file path.
+LOGICAL                              :: opened   !! True when a unit is already open.
 
 IF(PRESENT(dir)) THEN
     tempfile=TRIM(dir)//'/'//tf
@@ -266,7 +316,7 @@ DO WHILE (io/=-1)                               !io-1 is for end-of-file
         IF(ichar<32 .OR. ichar>126) THEN
             WRITE(mess, '(A,I3)')  TRIM(file)//' contains ASCII character number ',ichar
             WRITE(mess2,'(A,I3,A,I4)') 'At character position ', i, ' in line ', lineno
-            IF(ichar==9) WRITE(mess3,'(A)') 'This is probably a tab charcacter - removed or replace with spaces'
+            IF(ichar==9) WRITE(mess3,'(A)') 'This is probably a tab character - remove or replace with spaces'
             CALL ERROR()
         ENDIF
         store(i) = ch
@@ -274,10 +324,10 @@ DO WHILE (io/=-1)                               !io-1 is for end-of-file
     END DO
     IF(io==0) READ(u,'(A1)', IOSTAT=IO, ADVANCE='YES')  !to item up for next input line
     j=i
-    IF(j>0) THEN  !.NETT  090805
+    IF(j>0) THEN
         DO WHILE (j>0 .AND. store(j)==' ')           !strip off trailing blanks
             j=j-1
-            IF(j==0) EXIT  !.NETT  090805
+            IF(j==0) EXIT
         ENDDO
     ENDIF
     i=1
