@@ -17,9 +17,15 @@ MODULE GETDIRQQ
     use mod_parameters
     use sglobal, only : error_mode
 
+#if defined(__INTEL_COMPILER) && defined(_WIN32)
+#define USE_QUICKWIN 1
+#endif    
+    
+#ifdef USE_QUICKWIN
     USE IFWIN
-    USE IFPORT, ONLY : SPLITPATHQQ, SYSTEMQQ, GETDRIVEDIRQQ
     USE IFQWIN, ONLY : QWIN$FRAMEWINDOW, GETHWNDQQ
+#endif
+   USE IFPORT, ONLY : SPLITPATHQQ, SYSTEMQQ, GETDRIVEDIRQQ
 
     IMPLICIT NONE
 
@@ -68,8 +74,9 @@ MODULE GETDIRQQ
         CHARACTER(len=60)               :: DLGTITLE, code
         CHARACTER(len=LENGTH_LINE)      :: message, dum1, dum2
         LOGICAL                         :: ex
-        TYPE(T_OPENFILENAME)            :: opn   
-        
+#ifdef USE_QUICKWIN
+        TYPE(T_OPENFILENAME) :: opn
+#endif       
         ! Code =================================================================
         idum = GETDRIVEDIRQQ(rootdir)
         error_mode = .FALSE.
@@ -79,13 +86,20 @@ MODULE GETDIRQQ
         IF(na>1) THEN
             CALL GETARG(INT(1,KIND=2), code)
         ELSE
+#ifdef USE_QUICKWIN
             code = '-a'  !treat as default filname
+#else
+            code = '-f'  !treat as default filname
+#endif           
         ENDIF
         
         message=''
         SELECT CASE(code)
-        CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results') !use popup
-            ALLFILTERS            = 'All files(*.*)'//CHAR(0)//'*.*'//CHAR(0)//CHAR(0)
+#ifdef USE_QUICKWIN
+       CASE ('-a') !use popup
+            ALLFILTERS            =  'rundata files (*rundata*.txt)'//CHAR(0)//'*rundata*.txt'//CHAR(0)// &
+                                    'All files (*.*)'//CHAR(0)//'*.*'//CHAR(0)//CHAR(0)
+            !'All files(*.*)'//CHAR(0)//'*.*'//CHAR(0)//CHAR(0)
             DLGTITLE              = 'Select a SHETRAN rundata file'C
             opn%lStructSize       = SIZEOF(Opn)
             opn%HWNDOWNER         = GETHWNDQQ(QWIN$FRAMEWINDOW)
@@ -109,7 +123,8 @@ MODULE GETDIRQQ
             opn%LPTEMPLATENAME    = NULL 
             bRET                  = GETOPENFILENAME(opn)
             CALL COMDLGER(IERROR)
-        
+#endif
+      
         CASE('-f') !treat as filename
             CALL GETARG(INT(2,KIND=2), filename)
         
@@ -207,6 +222,7 @@ MODULE GETDIRQQ
     ! ?        - ?     - ?
     ! 20200305 - SvenB - formatting & cleanup
     !--------------------------------------------------------------------------- 
+#ifdef USE_QUICKWIN
     SUBROUTINE comdlger(IRET)
         
         ! IO-Vars
@@ -289,5 +305,7 @@ MODULE GETDIRQQ
         ENDIF
 
     END SUBROUTINE comdlger
+#endif
+    
 
 END MODULE GETDIRQQ
