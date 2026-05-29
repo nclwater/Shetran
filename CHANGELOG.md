@@ -1,5 +1,9 @@
 # Changelog
 
+## 290526
+
+- change getdirqq.f90 so it works on all operating systems and compilers but has windows popup for Intel compiler on Windows.
+
 ## 210526
 
 - improved channel junction convergence
