@@ -40,4 +40,6 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
 
 7. In 	Project|Properties|Configuration Properties|Fortran|Floating Point change Floating Point Model to "fp:prcise"
 
-8. Build the project using Build|Build Solution(either the debug or the release versions)
+8. In Project|Properties|Configuration Properties|Fortran|Preprocessor change Preprocess source file to "Yes (/fpp)"
+
+9. Build the project using Build|Build Solution(either the debug or the release versions)
