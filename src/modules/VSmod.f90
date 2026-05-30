@@ -3074,7 +3074,7 @@ END SUBROUTINE VSPREP
 !> [[vsconc]].
 !> @endnote
 SUBROUTINE VSREAD (NAQCON, IAQCON)
-INTEGER, INTENT(OUT) :: NAQCON       !! Number of user-defined aquifer connectivity records read from `VS10`.
+INTEGER, INTENT(OUT) :: NAQCON      !! Number of user-defined aquifer connectivity records read from `VS10`.
 INTEGER, INTENT(OUT) :: IAQCON(4,NVSEE) !! User-defined aquifer connectivity records read from `VS10a`.
 ! Locals, etc
 INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, &
@@ -3572,7 +3572,8 @@ IF (total_no_links.GT.0.AND.BEXBK) THEN
 ENDIF
 ! VS10 ----- aquifer zone user-defined connectivities
 
-CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, NAQCON, DUMMY)
+CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, IDUM, DUMMY)
+NAQCON = IDUM (1)
 
 
 IF (NAQCON.GT.0) CALL ALREAD (2, VSD, PPPRI, ':VS10a', 4, NAQCON, 0, &
