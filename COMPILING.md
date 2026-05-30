@@ -1,28 +1,31 @@
 # Code compilation
 
-## Windows update 23042026
-Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
+## Windows update 29052026
+Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and Visual Studio 2022
 
 
 ## Windows
 
-1. Create a Visual Fortran empty console application. File|New|Project search Fortran and select "Empty Project" ("A project for creating a command-line application"?)
+1. Start Visual Studio 2022. Select "Continue without code".
 
 ```text
     Project name    = Shetran
     Location        = location of the Shetran folder containing the src code folder
     Solution name   = Shetran
 
+    Click "place a solution and project in the same directory"
+
     Select "Create"
 ```
 
 2. In Project|Properties, select "Configuration Manager..." (at the top of the box).
 
-   In Project contexts box, go to Platform, select "<New...>. Then under "New platform", select "x64". Select "OK". Close Configuration Manager.
-
-   Still in Property Pages, under "Configuration:" select "All Configurations".
-
-   Still in Property Pages, go to Configuration Properties|Fortran |Optimisation. Set the "Heap Array" to 0. Select "OK" to close Property Pages
+   - In Project contexts box, go to Platform, select "<New...>. Then under "New platform", select "x64".
+   - Select "OK".
+   - Close Configuration Manager.
+   - Still in Property Pages, under "Configuration:" select "All Configurations".
+   - Still in Property Pages, go to Configuration Properties|Fortran|Optimisation. Set the "Heap Array" to 0.
+   - Select "OK" to close Property Pages.
 
 3. In Project|Add Existing Item... , add the following to the project:
 
@@ -34,7 +37,7 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
    - all the .lib from the external/library-files folder. NB "All Files (*.*)"" must be searchable
    - in the Solution explorer (on the right), click on Resource files, then add in Project|Add Exisiting Item select resource1.rc from the src/resource folder
 
-4. Copy the full path for the "inlcude" directory (e.g. C:\Users\sjbir_000\Documents\shetrn\external\Include), and enter in the following place:
+4. Copy the full path for the "include" directory (e.g. C:\Users\sjbir_000\Documents\shetran\external\Include), and enter in the following place:
 
 ```text
     Project|Properties|Configuration Properties|Fortran|General|Additional Include Directories
