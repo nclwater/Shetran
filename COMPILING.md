@@ -8,7 +8,7 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
 
 1. Create a Visual Fortran empty console application. File|New|Project search Fortran and select "Empty Project" ("A project for creating a command-line application"?)
 
-```
+```text
     Project name    = Shetran
     Location        = location of the Shetran folder containing the src code folder
     Solution name   = Shetran
@@ -36,9 +36,9 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
 
 4. Copy the full path for the "inlcude" directory (e.g. C:\Users\sjbir_000\Documents\shetrn\external\Include), and enter in the following place:
 
-```
+```text
     Project|Properties|Configuration Properties|Fortran|General|Additional Include Directories
-    ```
+```
 
 5. In Project|Properties|Configuration Properties|Fortran|Libraries change runtime Library to "Multithreaded"
 
