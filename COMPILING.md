@@ -18,11 +18,11 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and VS2022
 
 2. In Project|Properties, select "Configuration Manager..." (at the top of the box).
 
-In Project contexts box, go to Platform, select "<New...>. Then under "New platform", select "x64". Select "OK". Close Configuration Manager.
+   In Project contexts box, go to Platform, select "<New...>. Then under "New platform", select "x64". Select "OK". Close Configuration Manager.
 
-Still in Property Pages, under "Configuration:" select "All Configurations".
+   Still in Property Pages, under "Configuration:" select "All Configurations".
 
-Still in Property Pages, go to Configuration Properties|Fortran |Optimisation. Set the "Heap Array" to 0. Select "OK" to close Property Pages
+   Still in Property Pages, go to Configuration Properties|Fortran |Optimisation. Set the "Heap Array" to 0. Select "OK" to close Property Pages
 
 3. In Project|Add Existing Item... , add the following to the project:
 
@@ -36,7 +36,9 @@ Still in Property Pages, go to Configuration Properties|Fortran |Optimisation. S
 
 4. Copy the full path for the "inlcude" directory (e.g. C:\Users\sjbir_000\Documents\shetrn\external\Include), and enter in the following place:
 
+```
     Project|Properties|Configuration Properties|Fortran|General|Additional Include Directories
+    ```
 
 5. In Project|Properties|Configuration Properties|Fortran|Libraries change runtime Library to "Multithreaded"
 
