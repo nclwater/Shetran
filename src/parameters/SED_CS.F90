@@ -29,33 +29,33 @@
 !> | 2004-11 | JE | - | Converted to Fortran 95. |
 !> @endhistory
 MODULE sed_cs
-      USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE, NSEE
-      IMPLICIT NONE
-      DOUBLEPRECISION :: ARBDEP(NLFEE)       !! Accumulated cross-sectional area of deposited sediment by link.
-      DOUBLEPRECISION :: DLS(NELEE)          !! Loose or bed sediment depth by element/link.
-      DOUBLEPRECISION :: GINFD(NLFEE,NSEDEE) !! Dynamic/deposited-bed sediment infiltration rate by link and size class.
-      DOUBLEPRECISION :: GINFS(NLFEE,NSEDEE) !! Stream-water/suspended sediment infiltration rate by link and size class.
-      DOUBLEPRECISION :: GNU(NELEE)          !! Unsaturated-zone erosion/source rate by element.
-      DOUBLEPRECISION :: GNUBK(NLFEE)        !! Bank erosion/source rate by link.
-      DOUBLEPRECISION :: DCBED(NLFEE)        !! Active upper-bed sediment depth by link.
-      DOUBLEPRECISION :: DCBSED(NLFEE,NSEDEE) !! Active upper-bed sediment depth by link and size class.
+   USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE, NSEE
+   IMPLICIT NONE
+   DOUBLEPRECISION :: ARBDEP(NLFEE)       !! Accumulated cross-sectional area of deposited sediment by link.
+   DOUBLEPRECISION :: DLS(NELEE)          !! Loose or bed sediment depth by element/link.
+   DOUBLEPRECISION :: GINFD(NLFEE,NSEDEE) !! Dynamic/deposited-bed sediment infiltration rate by link and size class.
+   DOUBLEPRECISION :: GINFS(NLFEE,NSEDEE) !! Stream-water/suspended sediment infiltration rate by link and size class.
+   DOUBLEPRECISION :: GNU(NELEE)          !! Unsaturated-zone erosion/source rate by element.
+   DOUBLEPRECISION :: GNUBK(NLFEE)        !! Bank erosion/source rate by link.
+   DOUBLEPRECISION :: DCBED(NLFEE)        !! Active upper-bed sediment depth by link.
+   DOUBLEPRECISION :: DCBSED(NLFEE,NSEDEE) !! Active upper-bed sediment depth by link and size class.
 
-      DOUBLEPRECISION :: FDEL(NELEE,NSEDEE) !! Mobile sediment concentration fraction by element/link and size class.
+   DOUBLEPRECISION :: FDEL(NELEE,NSEDEE) !! Mobile sediment concentration fraction by element/link and size class.
 
-      DOUBLEPRECISION :: FBETA(NELEE,NSEDEE) !! Loose/bed sediment composition fraction by element/link and size class.
-      DOUBLEPRECISION :: FBTSD(NLFEE,NSEDEE) !! Transported or newly deposited sediment fraction by link and size class.
+   DOUBLEPRECISION :: FBETA(NELEE,NSEDEE) !! Loose/bed sediment composition fraction by element/link and size class.
+   DOUBLEPRECISION :: FBTSD(NLFEE,NSEDEE) !! Transported or newly deposited sediment fraction by link and size class.
 
-      DOUBLEPRECISION :: PBSED(NLFEE)        !! Channel-bed sediment porosity by link.
-      DOUBLEPRECISION :: PLS(NELEE)          !! Loose-sediment porosity by element.
-      DOUBLEPRECISION :: SOSDFN(NSEE,NSEDEE) !! Soil particle-size composition used when sediment is active.
-      DOUBLEPRECISION :: SOFN(NSEE,NSEDEE)   !! Soil particle-size composition used to seed `SOSDFN` if sediment is inactive.
+   DOUBLEPRECISION :: PBSED(NLFEE)        !! Channel-bed sediment porosity by link.
+   DOUBLEPRECISION :: PLS(NELEE)          !! Loose-sediment porosity by element.
+   DOUBLEPRECISION :: SOSDFN(NSEE,NSEDEE) !! Soil particle-size composition used when sediment is active.
+   DOUBLEPRECISION :: SOFN(NSEE,NSEDEE)   !! Soil particle-size composition used to seed `SOSDFN` if sediment is inactive.
 
-      INTEGER :: NSOBED(NLFEE) !! Soil type for parent material at the stream bed by link.
+   INTEGER :: NSOBED(NLFEE) !! Soil type for parent material at the stream bed by link.
 
-      INTEGER :: NSED !! Number of active sediment size classes.
+   INTEGER :: NSED !! Number of active sediment size classes.
 
-      DOUBLEPRECISION :: QLINK(NLFEE,2)       !! Link water-flow rates at the two link ends.
-      DOUBLEPRECISION :: QDEFF(NLFEE,2)       !! Effective sediment-link flow correction at the two link ends.
-      DOUBLEPRECISION :: QSED(NELEE,NSEDEE,4) !! Particle-flow rate by element/link, size class, and face.
+   DOUBLEPRECISION :: QLINK(NLFEE,2)       !! Link water-flow rates at the two link ends.
+   DOUBLEPRECISION :: QDEFF(NLFEE,2)       !! Effective sediment-link flow correction at the two link ends.
+   DOUBLEPRECISION :: QSED(NELEE,NSEDEE,4) !! Particle-flow rate by element/link, size class, and face.
 !PRIVATE :: NELEE, NLFEE, NSEDEE, NSEE
 END MODULE sed_cs

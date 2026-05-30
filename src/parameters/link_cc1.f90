@@ -12,9 +12,9 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE LINK_CC1
-USE SGLOBAL, ONLY : LLEE
-IMPLICIT NONE
-DOUBLEPRECISION :: KS              !! Link length scaled by the contaminant depth scale, `CLENTH/Z2`.
-DOUBLEPRECISION :: KSPBK(2, LLEE)  !! Bank-cell thickness scaled by `Z2` for each bank side and cell.
+   USE SGLOBAL, ONLY : LLEE
+   IMPLICIT NONE
+   DOUBLEPRECISION :: KS              !! Link length scaled by the contaminant depth scale, `CLENTH/Z2`.
+   DOUBLEPRECISION :: KSPBK(2, LLEE)  !! Bank-cell thickness scaled by `Z2` for each bank side and cell.
 !PRIVATE :: LLEE
 END MODULE LINK_CC1

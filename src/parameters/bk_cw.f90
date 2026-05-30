@@ -26,12 +26,12 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE BK_CW
-USE SGLOBAL, ONLY : NLFEE, LLEE
-IMPLICIT NONE
-DOUBLEPRECISION FNCEBD (NLFEE, 2)  !! Fraction of cell `NCEBD+1` lying below the bed deep layer.
-INTEGER :: NBANK (NLFEE, 2)        !! Bank element adjacent to each link and bank side.
-INTEGER :: NCEAB (NLFEE, 2)        !! Lowest VSS cell exchanging water with the stream.
-INTEGER :: NCEBD (NLFEE, 2)        !! Highest VSS cell lying fully below the bed deep layer.
-DOUBLEPRECISION QQRVO (NLFEE, LLEE, 2)  !! Previous bank vertical flow values by link, layer, and bank side.
+   USE SGLOBAL, ONLY : NLFEE, LLEE
+   IMPLICIT NONE
+   DOUBLEPRECISION FNCEBD (NLFEE, 2)  !! Fraction of cell `NCEBD+1` lying below the bed deep layer.
+   INTEGER :: NBANK (NLFEE, 2)        !! Bank element adjacent to each link and bank side.
+   INTEGER :: NCEAB (NLFEE, 2)        !! Lowest VSS cell exchanging water with the stream.
+   INTEGER :: NCEBD (NLFEE, 2)        !! Highest VSS cell lying fully below the bed deep layer.
+   DOUBLEPRECISION QQRVO (NLFEE, LLEE, 2)  !! Previous bank vertical flow values by link, layer, and bank side.
 !PRIVATE :: NLFEE, LLEE
 END MODULE BK_CW

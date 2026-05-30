@@ -15,11 +15,11 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE IS_CC
-IMPLICIT NONE
-LOGICAL :: ISADNL !! Nonlinear adsorption flag from `CM13`.
-LOGICAL :: ISBK   !! Current element is a bank element for contaminant column calculations.
-LOGICAL :: ISFLXB !! Base-boundary mode uses flux concentration `CCAPR` rather than prescribed base concentration `CCAPB`.
-LOGICAL :: ISPLT  !! Plant-uptake contaminant calculations are active.
-LOGICAL :: ISMN   !! Mineral/nitrogen coupling is active.
+   IMPLICIT NONE
+   LOGICAL :: ISADNL !! Nonlinear adsorption flag from `CM13`.
+   LOGICAL :: ISBK   !! Current element is a bank element for contaminant column calculations.
+   LOGICAL :: ISFLXB !! Base-boundary mode uses flux concentration `CCAPR` rather than prescribed base concentration `CCAPB`.
+   LOGICAL :: ISPLT  !! Plant-uptake contaminant calculations are active.
+   LOGICAL :: ISMN   !! Mineral/nitrogen coupling is active.
 
 END MODULE IS_CC

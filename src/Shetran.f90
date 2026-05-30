@@ -29,6 +29,18 @@
 !>
 !> Required input files are those named by the selected run-data file.
 !>
+!> This program uses the following SHETRAN modules:
+!>
+!> - **ETmod**: Evapotranspiration processes
+!> - **FRmod**: Framework for file operations and mass balance
+!> - **Mnmod**: Nitrate transport module.
+!> - **OCmod**: Overland channel flow calculations
+!> - **SMmod**: Snow model calculations
+!> - **SYmod**: Sediment yield and transport
+!> - **RUN_SIM**: Main simulation execution controller
+!> - **simulation_output**: Additional output utilities
+!> - **GETDIRQQ**: Cross-platform directory utilities
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
@@ -47,7 +59,7 @@ PROGRAM SHETRAN
 
    ! Main data arrays and simulation parameters
    USE AL_D, ONLY: nstep  !< Current simulation time step number
-   
+
    ! Testing trap of floating point exceptions
    ! Is it still necessary? Default is _off_
    USE mod_load_filedata, ONLY : ALTRAP
@@ -70,10 +82,10 @@ PROGRAM SHETRAN
    USE RUN_SIM, ONLY: SIMULATION  !< Execute main simulation loop.
 
    IMPLICIT NONE
-    
+
    ! Resolve run-data file, catchment name, input directory, and root directory.
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
-    
+
    ! Testing trap of floating point exceptions
    ! Is it still necessary? Default is _off_
    CALL ALTRAP
@@ -102,6 +114,6 @@ PROGRAM SHETRAN
    ! ============================================================================
 
    ! Keep the console visible briefly for interactive Windows runs.
-   CALL sleepqq(5000) 
+   CALL sleepqq(5000)
 
 END PROGRAM SHETRAN
