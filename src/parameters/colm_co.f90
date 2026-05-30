@@ -56,16 +56,16 @@ MODULE COLM_CO
    DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: QQO
    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: UUAJPO,VSTHEO
 
-DOUBLEPRECISION, ALLOCATABLE :: DSWO(:)     !! Previous surface-water depth above each column.
-DOUBLEPRECISION, ALLOCATABLE :: QIO(:)      !! Previous net rainfall input over each column area.
-DOUBLEPRECISION, ALLOCATABLE :: QQRFO(:)    !! Previous base flow into each column bottom cell.
-DOUBLEPRECISION, ALLOCATABLE :: RSZWLO(:)   !! Previous well-flow value for each well column.
-DOUBLEPRECISION, ALLOCATABLE :: ZONEO(:)    !! Previous nondimensional saturated depth for each column.
-DOUBLEPRECISION, ALLOCATABLE :: GGAMMO(:,:) !! Previous dead-space water-change coefficient by column and cell.
-DOUBLEPRECISION, ALLOCATABLE :: QQQSWO(:,:) !! Previous lateral surface-water flow by column and face.
-DOUBLEPRECISION, ALLOCATABLE :: QQO(:,:,:)  !! Previous lateral subsurface flow by column, cell, and face.
-DOUBLEPRECISION, ALLOCATABLE :: UUAJPO(:,:) !! Previous vertical water flux by column and cell interface.
-DOUBLEPRECISION, ALLOCATABLE :: VSTHEO(:,:) !! Previous volumetric water content by column and cell.
+   DOUBLEPRECISION, ALLOCATABLE :: DSWO(:)     !! Previous surface-water depth above each column.
+   DOUBLEPRECISION, ALLOCATABLE :: QIO(:)      !! Previous net rainfall input over each column area.
+   DOUBLEPRECISION, ALLOCATABLE :: QQRFO(:)    !! Previous base flow into each column bottom cell.
+   DOUBLEPRECISION, ALLOCATABLE :: RSZWLO(:)   !! Previous well-flow value for each well column.
+   DOUBLEPRECISION, ALLOCATABLE :: ZONEO(:)    !! Previous nondimensional saturated depth for each column.
+   DOUBLEPRECISION, ALLOCATABLE :: GGAMMO(:,:) !! Previous dead-space water-change coefficient by column and cell.
+   DOUBLEPRECISION, ALLOCATABLE :: QQQSWO(:,:) !! Previous lateral surface-water flow by column and face.
+   DOUBLEPRECISION, ALLOCATABLE :: QQO(:,:,:)  !! Previous lateral subsurface flow by column, cell, and face.
+   DOUBLEPRECISION, ALLOCATABLE :: UUAJPO(:,:) !! Previous vertical water flux by column and cell interface.
+   DOUBLEPRECISION, ALLOCATABLE :: VSTHEO(:,:) !! Previous volumetric water content by column and cell.
 
 
 CONTAINS

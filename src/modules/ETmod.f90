@@ -41,7 +41,7 @@ MODULE ETmod
 !                       PS1,FET,RCF,RELCST,TIMCST,RELPLA,TIMPLA,RELCLA,TIMCLA,RELVHT,TIMVHT
 !                       allocated in new subroutine INITIALISE_ETMOD
 
-USE SGLOBAL
+   USE SGLOBAL
 !USE SGLOBAL,     ONLY : NVEE, NUZTAB, NVBP, LLEE, &
 !                     nelee  !NEEDED ONLY FOR AD
    USE AL_G,     ONLY : ICMREF, NGDBGN, ICMREF
