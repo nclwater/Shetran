@@ -1,10 +1,16 @@
 # Changelog
 
+## 210526
+
+- improved channel junction convergence
+- VSS error messages turned to warnings
+
 ## 080526
 
 - add percentage completion and other improved output to command prompt during simulation
 - improved error messages and their output to the command prompt and pri file
 - add -error option to command prompt options
+- compiled with -O2 and and -fp:precise which leads to noticeable improvements in runtime (20%-80%, depending on model) 
 
 
 ## 230426
