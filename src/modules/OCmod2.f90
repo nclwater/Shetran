@@ -144,6 +144,7 @@ CONTAINS
    ! SB    990204 4.27  Problem with conserving mass at junctions
    !                    Adjust QJ so the largest absolute value at a
    !                    junction is modified so that the asum = 0
+   ! SB    260521 4.6   Change convergence criteria at channel junctions.
    !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables/functions:
@@ -192,30 +193,28 @@ CONTAINS
       FN = FA
       FAILED = .FALSE.
       
-      ! * Start of iteration loop: set new point WN and calculate FN
-      iteration_loop: DO NC = 1, 50
+      ! Increase iteration limit and tighten convergence for difficult junctions.
+      iteration_loop: DO NC = 1, 200
          
          WN = (A * FB - B * FA) / (FB - FA)
          FNM1 = FN
          
          CALL FNODE(WN, DI, CI, ZI, ROOTLI, QJ, FN)
          
-         IF (ISZERO(FN)) THEN   ! * Test for convergence (either exact or approximate)
-            FAILED = .TRUE.
-            EXIT iteration_loop
-         END IF
-         
          SIGMAQ = ABS(QJ(0)) + ABS(QJ(1)) + ABS(QJ(2)) + ABS(QJ(3))
          
-         IF (ABS(FN) <= SIGMAQ * 1.0D-2 .AND. ABS(B - A) <= 1.0D-3) THEN
+         IF (ABS(FN) <= SIGMAQ * 1.0D-3 .AND. ABS(B - A) <= 1.0D-4) THEN
             JMAJOR = 0
             DO J = 1, 3
                IF (ABS(QJ(J)) > ABS(QJ(JMAJOR))) JMAJOR = J
             END DO
             QJ(JMAJOR) = QJ(JMAJOR) - FN
+            FAILED = .FALSE.
             EXIT iteration_loop
          END IF
          
+         FAILED = .TRUE.
+
          ! * ... carry on: replace either A or B with WN; and
          ! * adjust interpolation factor if sign of F didn't change
          TEST = GTZERO(FN * FNM1)  ! TAKE CARE - PRECEDENCE
@@ -232,13 +231,12 @@ CONTAINS
          
       END DO iteration_loop
 
-      ! IF(failed) THEN
-      !    IF (ABS(FN) < SIGMAQ * 1.0D-1 .AND. ABS(B - A) < 5.0D-2) THEN
-      !       !CALL ERROR(WWWARN, 1027, PPPRI, iela, 0, 'maximum iterations exceeded for OC confluence')
-      !    ELSE
-      !       !CALL ERROR(FFFATAL, 1028, PPPRI, iela, 0, 'iteration failure for OC confluence')
-      !    ENDIF
-      ! ENDIF
+      IF (FAILED) THEN
+         CALL ERROR(WWWARN, 1027, PPPRI, IELA, 0, 'maximum iterations exceeded for OC confluence')
+         IF (ABS(FN) > SIGMAQ * 1.0D-2 .OR. ABS(B - A) > 1.0D-3) THEN
+            CALL ERROR(WWWARN, 1028, PPPRI, IELA, 0, 'Bad iteration failure for OC confluence')
+         END IF
+      END IF
 
    END SUBROUTINE OCNODE
 

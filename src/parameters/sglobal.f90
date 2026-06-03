@@ -94,7 +94,7 @@ MODULE sglobal
    INTEGER(KIND=I_P), PARAMETER :: NUZTAB = 20 !! Max table entries for ET component (PSI/RCF/FET).
    INTEGER(KIND=I_P), PARAMETER :: NLYREE = 20 !! Max number of soil layers plus one.
    INTEGER(KIND=I_P), PARAMETER :: NSETEE = 45 !! Max number of output sets for binary results file.
-   INTEGER(KIND=I_P), PARAMETER :: NXOCEE = 4000 !! Max number of elements (grids, banks, links) in a row.
+   INTEGER(KIND=I_P), PARAMETER :: NXOCEE = 4 * nxee !! Max number of elements (grids, banks, links) in a row.
    INTEGER(KIND=I_P), PARAMETER :: NOCTAB = 20 !! Max categories for OC tables (roughness, x-section, boundaries).
    INTEGER(KIND=I_P), PARAMETER :: NSEDEE = 7 !! Max number of sediment size fractions.
    INTEGER(KIND=I_P), PARAMETER :: NCONEE = 3 !! Max number of contaminants.
