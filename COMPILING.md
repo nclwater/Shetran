@@ -1,8 +1,15 @@
 # Compiling SHETRAN
 
-## Windows update 29052026
-Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and Visual Studio 2022
+## Compiler Support
 
+The following cases have been tested:
+
+- Windows + Visual Studio 2022 + ifx 2026
+- Windows + CMake + ifx 2026
+- Linux + CMake + ifx 2026
+- Linux + CMake + gfortran 16.1
+
+With any other platform and compiler your MMV.
 
 ## Windows
 
