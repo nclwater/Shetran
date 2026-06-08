@@ -2,6 +2,7 @@ MODULE FRmod
 ! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
 !                       Replaces the FR .F files
 !***ZQ Module 200520 new variables iszq,zqd
+   USE stdlib_system, ONLY : join_path
    USE SGLOBAL
    USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
 !USE SGLOBAL, ONLY :     NELEE, nlfee, noctab, NXEE, NYEE, NVEE, BDEVER, SHEVER, BANNER, FILNAM, DIRQQ, &
@@ -1561,7 +1562,7 @@ CONTAINS
       OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = ios)
       IF (ios /= 0) CALL stop_rundata_error(CNAM)
 
-      FILNAM2 = TRIM(DIRQQ) // 'info_' // TRIM(CNAM) // '_SHETRAN_log.txt'
+      FILNAM2 = join_path(DIRQQ, 'info_' // TRIM(CNAM) // '_SHETRAN_log.txt')
 
       OPEN (61, FILE = FILNAM2, IOSTAT = ios)
       IF (ios /= 0) CALL stop_open_error(FILNAM2)
@@ -1608,7 +1609,7 @@ CONTAINS
 
             WRITE (61, '("- NOT USED")')
          ELSE
-            FILNAM = TRIM(DIRQQ) // TRIM(FILNAM)
+            FILNAM = join_path(DIRQQ, TRIM(FILNAM))
             IF (I == 48) THEN
                WRITE (61, '("FILE ",I3," IS ",A)') I, FILNAM
                visualisation_plan_filename = FILNAM
@@ -1690,7 +1691,7 @@ CONTAINS
          isextrapsl = .FALSE.
          WRITE (61, '("- NOT USED")')
       ELSE
-         FILNAM2 = TRIM(DIRQQ) // FILNAM
+         FILNAM2 = join_path(DIRQQ, TRIM(FILNAM))
          OPEN (52, FILE = FILNAM2, IOSTAT = ios)
          IF (ios /= 0) CALL stop_open_error(FILNAM2)
          WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') 52, FILNAM2
@@ -1717,7 +1718,7 @@ CONTAINS
          ismn = .FALSE.
          WRITE (61, '("- NOT USED")')
       ELSE
-         FILNAM = TRIM(DIRQQ) // FILNAM
+         FILNAM = join_path(DIRQQ, TRIM(FILNAM))
          OPEN (53, FILE = FILNAM, IOSTAT = ios)
          IF (ios /= 0) CALL stop_open_error(FILNAM)
          WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') 53, FILNAM
@@ -1735,7 +1736,7 @@ CONTAINS
          IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
             WRITE (61, '("- NOT USED")')
          ELSE
-            FILNAM = TRIM(DIRQQ) // FILNAM
+            FILNAM = join_path(DIRQQ, TRIM(FILNAM))
             OPEN (I, FILE = FILNAM, IOSTAT = ios)
             IF (ios /= 0) CALL stop_open_error(FILNAM)
             WRITE (61, '("OPENING FILE UNIT ",I3," TO FILE ",A)') I, FILNAM
@@ -1981,7 +1982,7 @@ CONTAINS
 
          pslextrapoints = j
 
-         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_water_table_depth.csv'
+         filnam = join_path(DIRQQ, 'output_' // TRIM(cnam) // '_water_table_depth.csv')
          OPEN(PSLFILEUNIT, FILE=filnam, IOSTAT=ios)
          CALL fatal_on_io_error(ios, 1069, 'Error opening water table depth file')
 
@@ -2028,10 +2029,10 @@ CONTAINS
 
 
       SUBROUTINE initialise_sediment_output()
-         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_all.csv'
+         filnam = join_path(DIRQQ, 'output_' // TRIM(cnam) // '_sediment_all.csv')
          OPEN(SEDALLUNIT, FILE=filnam)
 
-         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_sediment_fine.csv'
+         filnam = join_path(DIRQQ, 'output_' // TRIM(cnam) // '_sediment_fine.csv')
          OPEN(SEDFINEUNIT, FILE=filnam)
 
          WRITE(SEDALLUNIT, '(A)', IOSTAT=ios) &
@@ -2053,7 +2054,7 @@ CONTAINS
 
 
       SUBROUTINE initialise_contaminant_output()
-         filnam = TRIM(DIRQQ) // 'output_' // TRIM(cnam) // '_contaminant.csv'
+         filnam = join_path(DIRQQ, 'output_' // TRIM(cnam) // '_contaminant.csv')
          OPEN(CONTAMUNIT, FILE=filnam)
 
          WRITE(CONTAMUNIT, '(A)', IOSTAT=ios) &
