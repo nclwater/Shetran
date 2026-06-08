@@ -19,8 +19,8 @@ The easiest way to build SHETRAN on Windows is by using the provided `build.bat`
 
 #### Prerequisites
 
-* **CMake** (version 3.20 or higher) added to your system PATH.
-* **Intel oneAPI HPC Toolkit** installed (specifically providing the `ifx` Fortran compiler).
+* **CMake** (version 3.20 or higher) added to your system PATH. Get it from the official [webpage](https://cmake.org/download/).
+* **Intel oneAPI HPC Toolkit** installed (specifically providing the `ifx` Fortran compiler). Currently you can get it from [here](https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneapi-toolkit-download.html).
 * **Python tooling with `fypp` available on PATH**. `fypp` is required by the Fortran stdlib build.
 * The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
 * The **Fortran stdlib 0.8.1** source tarball (`stdlib-0.8.1.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
@@ -33,7 +33,7 @@ The recommended setup is a small conda environment named `shetran`:
 conda create -n shetran python=3.12 -y
 conda activate shetran
 python -m pip install --upgrade pip
-python -m pip install fypp ford pandas h5py numpy
+python -m pip install fypp ford pandas h5py numpy matplotlib
 ```
 
 `fypp` is required for compiling Fortran stdlib. `ford` is only required when generating documentation, and `pandas`, `h5py`, and `numpy` are used by the integration-test scripts.
@@ -44,7 +44,7 @@ If you do not use conda, use a normal Python virtual environment instead:
 py -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install fypp ford pandas h5py numpy
+python -m pip install fypp ford pandas h5py numpy matplotlib
 ```
 
 Before building, confirm the tools are visible from the same shell:
@@ -307,8 +307,7 @@ If you cannot use CMake-generated Visual Studio solutions, the older manual proj
 
 ### Current Compiler Status
 
-SHETRAN currently only cleanly compiles on Linux with Intel `ifx`.
-`gfortran` support is in progress and should currently be treated as experimental.
+SHETRAN currently compiles and runs cleanly with both `ifx` and `gfortran` under Linux.
 
 ### Prerequisites
 
