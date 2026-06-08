@@ -38,7 +38,7 @@ function(extract_fortran_modules SOURCE_FILE PROVIDES_VAR REQUIRES_VAR)
                     # Filter out intrinsic and external modules that we don't need to track
                     if(NOT MODULE_NAME MATCHES "^(ISO_|IEEE_|OMP_|MPI)" AND
                        NOT MODULE_NAME MATCHES "^(IFPORT|IFCORE|KERNEL32)" AND
-                       NOT MODULE_NAME MATCHES "^(HDF5|H5|NETCDF)" AND
+                       NOT MODULE_NAME MATCHES "^(HDF5|H5|NETCDF|STDLIB)" AND
                        NOT MODULE_NAME MATCHES "^(BLAS|LAPACK)")
                         list(APPEND REQUIRES_MODULES ${MODULE_NAME})
                     endif()
@@ -132,7 +132,7 @@ function(topological_sort_fortran SOURCES_LIST OUTPUT_VAR)
 
                     # Check if it's a system/external module that we don't need to worry about
                     if(NOT MODULE_FOUND)
-                        if(REQUIRED_MODULE MATCHES "^(HDF5|H5|NETCDF|MPI_|ISO_|IEEE_|OMP_)" OR
+                        if(REQUIRED_MODULE MATCHES "^(HDF5|H5|NETCDF|STDLIB|MPI_|ISO_|IEEE_|OMP_)" OR
                            REQUIRED_MODULE MATCHES "^(IFPORT|IFCORE|KERNEL32|BLAS|LAPACK)" OR
                            NOT DEFINED PROVIDES_MAP_${REQUIRED_MODULE})
                             set(MODULE_FOUND TRUE)

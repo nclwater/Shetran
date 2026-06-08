@@ -139,6 +139,12 @@ endif()
 # =============================================================================
 include(ExternalProject)
 
+if(WIN32)
+    set(STATIC_LIBRARY_EXT ".lib")
+else()
+    set(STATIC_LIBRARY_EXT ".a")
+endif()
+
 set(HDF5_LOCAL_TARBALL "${CMAKE_SOURCE_DIR}/external/tarballs/hdf5-1.14.6.tar.gz")
 if(EXISTS ${HDF5_LOCAL_TARBALL})
     set(HDF5_URL "file://${HDF5_LOCAL_TARBALL}")
@@ -165,11 +171,7 @@ else()
     set(HDF5_CMAKE_BUILD_TYPE "Release")
 endif()
 
-if(WIN32)
-    set(HDF5_STATIC_EXT ".lib")
-else()
-    set(HDF5_STATIC_EXT ".a")
-endif()
+set(HDF5_STATIC_EXT "${STATIC_LIBRARY_EXT}")
 
 # Always stage HDF5 into the project build tree; never rely on system install paths.
 set(HDF5_STAGE_DIR "${CMAKE_BINARY_DIR}/hdf5-install")
@@ -253,6 +255,44 @@ set(HDF5_LIBRARIES
 if(WIN32)
     list(APPEND HDF5_LIBRARIES shlwapi)
 endif()
+
+# =============================================================================
+# Fortran stdlib from source
+# =============================================================================
+include(FetchContent)
+
+set(STDLIB_LOCAL_TARBALL "${CMAKE_SOURCE_DIR}/external/tarballs/stdlib-0.8.1.tar.gz")
+if(EXISTS ${STDLIB_LOCAL_TARBALL})
+    set(STDLIB_URL "file://${STDLIB_LOCAL_TARBALL}")
+    message(STATUS "Using local Fortran stdlib tarball: ${STDLIB_LOCAL_TARBALL}")
+else()
+    message(FATAL_ERROR
+        "Fortran stdlib tarball not found at: ${STDLIB_LOCAL_TARBALL}\n"
+        "Please place stdlib-0.8.1.tar.gz in external/tarballs/")
+endif()
+
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Build tests" FORCE)
+set(FIND_BLAS OFF CACHE BOOL "Find external BLAS and LAPACK" FORCE)
+
+set(STDLIB_ANSI OFF CACHE BOOL "Compile STDLIB ANSI" FORCE)
+set(STDLIB_BITSETS OFF CACHE BOOL "Compile STDLIB BITSETS" FORCE)
+set(STDLIB_HASHMAPS OFF CACHE BOOL "Compile STDLIB HASHMAPS" FORCE)
+set(STDLIB_IO OFF CACHE BOOL "Compile STDLIB IO" FORCE)
+set(STDLIB_LINALG_ITERATIVE OFF CACHE BOOL "Compile STDLIB LINALG_ITERATIVE" FORCE)
+set(STDLIB_LOGGER OFF CACHE BOOL "Compile STDLIB LOGGER" FORCE)
+set(STDLIB_QUADRATURE OFF CACHE BOOL "Compile STDLIB QUADRATURE" FORCE)
+set(STDLIB_SPECIALMATRICES OFF CACHE BOOL "Compile STDLIB SPECIALMATRICES" FORCE)
+set(STDLIB_STRINGLIST OFF CACHE BOOL "Compile STDLIB STRINGLIST" FORCE)
+set(STDLIB_STATS OFF CACHE BOOL "Compile STDLIB STATS" FORCE)
+set(STDLIB_SYSTEM ON CACHE BOOL "Compile STDLIB SYSTEM" FORCE)
+
+FetchContent_Declare(fortran_stdlib
+    URL ${STDLIB_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+FetchContent_MakeAvailable(fortran_stdlib)
 
 # =============================================================================
 # Include Fortran dependency analysis
@@ -364,7 +404,18 @@ target_include_directories(SHETRAN PRIVATE
 # =============================================================================
 # Link libraries
 # =============================================================================
-target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
+target_link_libraries(SHETRAN PRIVATE
+    ${HDF5_LIBRARIES}
+    fortran_stdlib::fortran_stdlib_system
+)
+
+target_compile_definitions(SHETRAN PRIVATE
+    SHETRAN_HAVE_STDLIB_SYSTEM
+    $<$<BOOL:${WIN32}>:SHETRAN_WINDOWS>
+    $<$<BOOL:${IS_INTEL_FORTRAN}>:SHETRAN_INTEL_FORTRAN>
+    $<$<AND:$<BOOL:${WIN32}>,$<BOOL:${IS_INTEL_FORTRAN}>>:SHETRAN_HAVE_QUICKWIN>
+    $<$<STREQUAL:${CMAKE_Fortran_COMPILER_ID},GNU>:SHETRAN_GNU_FORTRAN>
+)
 
 # =============================================================================
 # Compiler flags
@@ -372,7 +423,7 @@ target_link_libraries(SHETRAN PRIVATE ${HDF5_LIBRARIES})
 if(WIN32)
     # ifx on Windows uses MSVC-style options.
     target_compile_options(SHETRAN PRIVATE
-        # "/fpp"
+        /fpp
         # "/mcmodel:large"
         # "/heap-arrays:0"
         ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
@@ -407,6 +458,7 @@ elseif(UNIX AND NOT APPLE)
     if(IS_INTEL_FORTRAN)
         # ifx on Linux uses GNU-style options.
         target_compile_options(SHETRAN PRIVATE
+            -fpp
             ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
             $<$<CONFIG:Debug>:-O0>
             $<$<CONFIG:Debug>:-g>
@@ -425,6 +477,7 @@ elseif(UNIX AND NOT APPLE)
         )
     elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
         target_compile_options(SHETRAN PRIVATE
+            -cpp
             $<$<CONFIG:Debug>:-O0>
             $<$<CONFIG:Debug>:-g>
             $<$<CONFIG:Debug>:-fbacktrace>
@@ -454,6 +507,7 @@ message(STATUS "  Build type:       ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Fortran compiler: ${CMAKE_Fortran_COMPILER}")
 message(STATUS "  Compiler ID:      ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "  HDF5 source:      ${HDF5_LOCAL_TARBALL}")
+message(STATUS "  stdlib source:    ${STDLIB_LOCAL_TARBALL}")
 if(WIN32)
         message(STATUS "  Static runtime:   ${STATIC_RUNTIME}")
 endif()
