@@ -21,7 +21,38 @@ The easiest way to build SHETRAN on Windows is by using the provided `build.bat`
 
 * **CMake** (version 3.20 or higher) added to your system PATH.
 * **Intel oneAPI HPC Toolkit** installed (specifically providing the `ifx` Fortran compiler).
+* **Python tooling with `fypp` available on PATH**. `fypp` is required by the Fortran stdlib build.
 * The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
+* The **Fortran stdlib 0.8.1** source tarball (`stdlib-0.8.1.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
+
+#### Python Tooling Environment
+
+The recommended setup is a small conda environment named `shetran`:
+
+```cmd
+conda create -n shetran python=3.12 -y
+conda activate shetran
+python -m pip install --upgrade pip
+python -m pip install fypp ford pandas h5py numpy
+```
+
+`fypp` is required for compiling Fortran stdlib. `ford` is only required when generating documentation, and `pandas`, `h5py`, and `numpy` are used by the integration-test scripts.
+
+If you do not use conda, use a normal Python virtual environment instead:
+
+```cmd
+py -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install fypp ford pandas h5py numpy
+```
+
+Before building, confirm the tools are visible from the same shell:
+
+```cmd
+where fypp
+where ford
+```
 
 #### Using `build.bat`
 
@@ -79,12 +110,19 @@ If you prefer to run CMake manually:
 **CMake Options:**
 
 * `STATIC_RUNTIME` (Default: `ON`): Links Intel and MSVC runtimes statically (`/MT` and `/libs:static`). This generates a portable `.exe` that does not require Intel oneAPI to be in the PATH of the target machine. Set to `OFF` for dynamic linking.
+* `ENABLE_QUICKWIN` (Default: `ON` on Windows with Intel Fortran): Builds the Windows/ifx executable with the interactive file picker used by no-argument and `-a` runs. This option is ignored on non-Windows or non-Intel builds.
 * `Release` build intent: Uses `/O2` and `/fp:precise` for stable, safer numerics and good portability.
 * `ReleaseNative` build intent: Uses `/O3` and `/QxHost` for maximum performance on the build machine CPU. This may reduce portability to older or different CPUs.
 * `ENABLE_DEPENDENCY_ANALYSIS` (Default: `ON`): Must remain `ON` for proper automatic Fortran module dependency sorting.
 * `ENABLE_FORD_DOCS` (Default: `OFF`): Adds a `ford_docs` build target. This target can be built independently and does not build `shetran.exe`.
 
 ### FORD Documentation
+
+Activate the Python environment containing `ford` first:
+
+```cmd
+conda activate shetran
+```
 
 You can generate FORD docs directly from the build script:
 
@@ -143,7 +181,7 @@ If you inspect the Visual Studio property pages of the generated project, you wi
 
 #### Legacy Manual Visual Studio Project
 
-If you cannot use CMake-generated Visual Studio solutions, the older manual project setup is:
+If you cannot use CMake-generated Visual Studio solutions, the older manual project setup is below. This path is not recommended: you must build HDF5 and Fortran stdlib yourself, keep the include and library paths consistent for every configuration, and keep Visual Studio's source-file ordering compatible with Fortran module dependencies.
 
 1. Start Visual Studio 2022 and select **Continue without code**.
 2. Create a Visual Fortran empty console application: **File > New > Project**, search for Fortran, and select **Empty Project**.
@@ -156,23 +194,114 @@ If you cannot use CMake-generated Visual Studio solutions, the older manual proj
    ```
 
    Select **Place solution and project in the same directory**, then select **Create**.
-4. Use **Project > Add Existing Item...** to add:
+4. Open **Project > Properties > Configuration Manager...**. Under **Platform**, select **<New...>**, choose `x64`, then close Configuration Manager. In **Configuration**, select **All Configurations** before changing the properties below.
+5. Build the external libraries manually before adding their include and library directories to Visual Studio. The examples below use command-line CMake and install into `external\manual-install`.
+
+   HDF5 1.14.6:
+
+   ```cmd
+   mkdir external\src
+   tar -xf external\tarballs\hdf5-1.14.6.tar.gz -C external\src
+
+   cmake -S external\src\hdf5-1.14.6 -B build\manual-hdf5 ^
+     -G "Visual Studio 17 2022" -A x64 -T "fortran=ifx" ^
+     -DCMAKE_INSTALL_PREFIX=%CD%\external\manual-install\hdf5 ^
+     -DHDF5_BUILD_FORTRAN=ON ^
+     -DHDF5_BUILD_HL_LIB=ON ^
+     -DHDF5_BUILD_EXAMPLES=OFF ^
+     -DHDF5_BUILD_TESTING=OFF ^
+     -DHDF5_BUILD_TOOLS=OFF ^
+     -DHDF5_ENABLE_SHARED_LIB=OFF ^
+     -DHDF5_ENABLE_STATIC_LIB=ON ^
+     -DHDF5_ENABLE_Z_LIB_SUPPORT=OFF ^
+     -DHDF5_ENABLE_SZIP_SUPPORT=OFF
+
+   cmake --build build\manual-hdf5 --config Release --target INSTALL
+   ```
+
+   Fortran stdlib 0.8.1. Make sure the Python environment with `fypp` is active first:
+
+   ```cmd
+   conda activate shetran
+
+   mkdir external\src
+   tar -xf external\tarballs\stdlib-0.8.1.tar.gz -C external\src
+
+   cmake -S external\src\stdlib-0.8.1 -B build\manual-stdlib ^
+     -G "Visual Studio 17 2022" -A x64 -T "fortran=ifx" ^
+     -DCMAKE_INSTALL_PREFIX=%CD%\external\manual-install\stdlib ^
+     -DBUILD_SHARED_LIBS=OFF ^
+     -DBUILD_TESTING=OFF ^
+     -DFIND_BLAS=OFF ^
+     -DSTDLIB_ANSI=OFF ^
+     -DSTDLIB_BITSETS=OFF ^
+     -DSTDLIB_HASHMAPS=OFF ^
+     -DSTDLIB_IO=OFF ^
+     -DSTDLIB_LINALG_ITERATIVE=OFF ^
+     -DSTDLIB_LOGGER=OFF ^
+     -DSTDLIB_QUADRATURE=OFF ^
+     -DSTDLIB_SPECIALMATRICES=OFF ^
+     -DSTDLIB_STRINGLIST=OFF ^
+     -DSTDLIB_STATS=OFF ^
+     -DSTDLIB_SYSTEM=ON
+
+   cmake --build build\manual-stdlib --config Release --target INSTALL
+   ```
+
+   For Debug builds, repeat the build commands with `--config Debug` and keep Debug and Release library paths separate if the generated library names differ.
+
+6. Use **Project > Add Existing Item...** to add:
 
    * `Shetran.f90` from the `src` folder.
    * All `.f90` files from `src/modules`.
    * All `.f90` files from `src/parameters`.
    * `mod_load_filedata.f90` from `src/util`.
    * All `.f90` files from `src/visualisation`, except `include_extend_s.f90` and `include_increment.f90`, which must be present but not included in the project.
-   * All `.lib` files from `external/library-files`; choose **All Files (*.*)** if needed.
+   * The static HDF5 libraries from `external\manual-install\hdf5\lib`.
+   * The static Fortran stdlib libraries from `external\manual-install\stdlib\lib`, including the `fortran_stdlib_system` library used by SHETRAN.
    * `src/resource/resource1.rc`, added under **Resource files**.
 
-5. Copy the full path for the `external\Include` directory and add it under **Project > SHETRAN Properties > Configuration Properties > Fortran > General > Additional Include Directories**.
+7. Add include directories under **Project > SHETRAN Properties > Configuration Properties > Fortran > General > Additional Include Directories**.
    Use **All Configurations** so this applies to both Debug and Release.
-6. Set **Fortran > Optimization > Heap Arrays** to `0`.
-7. Set **Fortran > Libraries > Runtime Library** to **Multithreaded**.
-8. Set **Fortran > Optimization > Optimization** to **Maximum Speed** (`/O2`).
-9. Set **Fortran > Floating Point > Floating Point Model** to `fp:precise`.
-10. Build the project with **Build > Build Solution**.
+
+   Add at least:
+
+   ```text
+   external\manual-install\hdf5\include
+   external\manual-install\stdlib\include
+   src
+   ```
+
+   Depending on the stdlib install layout, the module files may be under a compiler-specific subdirectory below `external\manual-install\stdlib\include`; add that directory if Visual Studio cannot find `stdlib_system.mod`.
+
+8. Add library directories under **Linker > General > Additional Library Directories**:
+
+   ```text
+   external\manual-install\hdf5\lib
+   external\manual-install\stdlib\lib
+   ```
+
+9. Add the HDF5 and stdlib library names under **Linker > Input > Additional Dependencies**. The exact Debug suffixes can differ by HDF5 configuration; match the files in the install directory. For a Release build, expect names similar to:
+
+   ```text
+   libhdf5.lib
+   libhdf5_f90cstub.lib
+   libhdf5_fortran.lib
+   libhdf5_hl.lib
+   libhdf5_hl_f90cstub.lib
+   libhdf5_hl_fortran.lib
+   fortran_stdlib_system.lib
+   shlwapi.lib
+   user32.lib
+   ```
+
+10. Set **Fortran > General > Preprocess Source File** to **Yes** (`/fpp`).
+11. Set **Fortran > Optimization > Heap Arrays** to `0`.
+12. Set **Fortran > Libraries > Runtime Library** to **Multithreaded**.
+13. Set **Fortran > Optimization > Optimization** to **Maximum Speed** (`/O2`) for Release.
+14. Set **Fortran > Floating Point > Floating Point Model** to `fp:precise`.
+15. If you want the Windows file-picker path in a manual Visual Studio project, define `SHETRAN_HAVE_QUICKWIN`, `SHETRAN_WINDOWS`, `SHETRAN_INTEL_FORTRAN`, and `SHETRAN_HAVE_STDLIB_SYSTEM` under **Fortran > Preprocessor > Preprocessor Definitions**, and add `/libs:qwin` under **Fortran > Command Line > Additional Options** or the Intel Fortran library options.
+16. Build the project with **Build > Build Solution**.
 
 ## Linux
 
@@ -184,13 +313,21 @@ SHETRAN currently only cleanly compiles on Linux with Intel `ifx`.
 ### Prerequisites
 
 * **CMake** (version 3.20 or higher) available on PATH.
+* **Python tooling with `fypp` available on PATH**. `fypp` is required by the Fortran stdlib build.
 * A supported Fortran compiler:
    * **Intel oneAPI HPC Toolkit** (`ifx`, recommended and most reliable).
    * **gfortran** (supported, but currently considered experimental in this project).
 * Standard build tools (for example GNU Make) installed.
 * The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in `external/tarballs/`.
+* The **Fortran stdlib 0.8.1** source tarball (`stdlib-0.8.1.tar.gz`) placed in `external/tarballs/`.
 
 ### Using `build.sh` (recommended)
+
+Activate the Python environment containing `fypp` first:
+
+```bash
+conda activate shetran
+```
 
 From the repository root:
 

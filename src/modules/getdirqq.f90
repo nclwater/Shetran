@@ -8,7 +8,6 @@ MODULE GETDIRQQ
 
 #ifdef SHETRAN_HAVE_QUICKWIN
    USE IFWIN
-   USE IFQWIN, ONLY : QWIN$FRAMEWINDOW, GETHWNDQQ
 #endif
 
    IMPLICIT NONE
@@ -40,6 +39,7 @@ CONTAINS
       CHARACTER(LEN=LENGTH_FILEPATH) :: allfilters
       CHARACTER(LEN=60)              :: dlgtitle
       TYPE(T_OPENFILENAME)           :: opn
+      INTEGER                        :: null_pos
 #endif
 
       CALL get_current_dir(rootdir)
@@ -62,31 +62,42 @@ CONTAINS
       SELECT CASE(TRIM(code))
 #ifdef SHETRAN_HAVE_QUICKWIN
       CASE('-a')
-         FileName = ''
+         FileName = CHAR(0)
          allfilters = 'rundata files (*rundata*.txt)' // CHAR(0) // '*rundata*.txt' // CHAR(0) // &
-                      'All files (*.*)' // CHAR(0) // '*.*' // CHAR(0) // CHAR(0)
+                       'All files (*.*)' // CHAR(0) // '*.*' // CHAR(0) // CHAR(0)
          dlgtitle = 'Select a SHETRAN rundata file'C
 
-         opn%lStructSize       = SIZEOF(opn)
-         opn%HWNDOWNER         = GETHWNDQQ(QWIN$FRAMEWINDOW)
+         opn%lStructSize       = 0
+         opn%HWNDOWNER         = NULL
          opn%HINSTANCE         = NULL
-         opn%LPSTRFILTER       = LOC(allfilters)
+         opn%LPSTRFILTER       = NULL
          opn%LPSTRCUSTOMFILTER = NULL
-         opn%NMAXCUSTFILTER    = NULL
+         opn%NMAXCUSTFILTER    = 0
+         opn%NFILTERINDEX      = 0
+         opn%LPSTRFILE         = NULL
+         opn%NMAXFILE          = 0
+         opn%LPSTRFILETITLE    = NULL
+         opn%NMAXFILETITLE     = 0
+         opn%LPSTRINITIALDIR   = NULL
+         opn%LPSTRTITLE        = NULL
+         opn%FLAGS             = 0
+         opn%NFILEOFFSET       = 0
+         opn%NFILEEXTENSION    = 0
+         opn%LPSTRDEFEXT       = NULL
+         opn%LCUSTDATA         = 0
+         opn%LPFNHOOK          = NULL
+         opn%LPTEMPLATENAME    = NULL
+         opn%PVRESERVED        = NULL
+         opn%DWRESERVED        = 0
+         opn%FLAGSEX           = 0
+
+         opn%lStructSize       = SIZEOF(opn)
+         opn%LPSTRFILTER       = LOC(allfilters)
          opn%NFILTERINDEX      = 1
          opn%LPSTRFILE         = LOC(FileName)
          opn%NMAXFILE          = LEN(FileName)
-         opn%LPSTRFILETITLE    = NULL
-         opn%NMAXFILETITLE     = NULL
-         opn%LPSTRINITIALDIR   = NULL
          opn%LPSTRTITLE        = LOC(dlgtitle)
-         opn%FLAGS             = NULL
-         opn%NFILEOFFSET       = NULL
-         opn%NFILEEXTENSION    = NULL
-         opn%LPSTRDEFEXT       = NULL
-         opn%LCUSTDATA         = NULL
-         opn%LPFNHOOK          = NULL
-         opn%LPTEMPLATENAME    = NULL
+         opn%FLAGS             = OFN_EXPLORER + OFN_FILEMUSTEXIST + OFN_PATHMUSTEXIST + OFN_NOCHANGEDIR
 
          bret = GETOPENFILENAME(opn)
          CALL comdlger(ierror)
@@ -95,7 +106,12 @@ CONTAINS
             CALL print_usage_and_stop('No rundata file selected')
          END IF
 
-         cli_argument = FileName
+         null_pos = INDEX(FileName, CHAR(0))
+         IF (null_pos > 1) THEN
+            cli_argument = FileName(1:null_pos - 1)
+         ELSE
+            cli_argument = FileName
+         END IF
 #endif
 
       CASE('-f')

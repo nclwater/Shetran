@@ -89,6 +89,14 @@ option(ENABLE_DEPENDENCY_ANALYSIS "Enable automatic Fortran module dependency an
 option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analysis" OFF)
 option(STATIC_RUNTIME "Link Intel and MSVC runtimes statically (portable .exe, no oneAPI on PATH required)" ON)
 option(ENABLE_FORD_DOCS "Enable FORD documentation target (ford_docs)" OFF)
+option(ENABLE_QUICKWIN "Enable Intel QuickWin file picker for no-argument and -a Windows runs" ON)
+
+set(SHETRAN_ENABLE_QUICKWIN OFF)
+if(ENABLE_QUICKWIN AND WIN32 AND IS_INTEL_FORTRAN)
+    set(SHETRAN_ENABLE_QUICKWIN ON)
+elseif(ENABLE_QUICKWIN)
+    message(WARNING "ENABLE_QUICKWIN requires Intel Fortran on Windows; disabling QuickWin support.")
+endif()
 
 # =============================================================================
 # Runtime linking (Windows/MSVC only)
@@ -413,7 +421,7 @@ target_compile_definitions(SHETRAN PRIVATE
     SHETRAN_HAVE_STDLIB_SYSTEM
     $<$<BOOL:${WIN32}>:SHETRAN_WINDOWS>
     $<$<BOOL:${IS_INTEL_FORTRAN}>:SHETRAN_INTEL_FORTRAN>
-    $<$<AND:$<BOOL:${WIN32}>,$<BOOL:${IS_INTEL_FORTRAN}>>:SHETRAN_HAVE_QUICKWIN>
+    $<$<BOOL:${SHETRAN_ENABLE_QUICKWIN}>:SHETRAN_HAVE_QUICKWIN>
     $<$<STREQUAL:${CMAKE_Fortran_COMPILER_ID},GNU>:SHETRAN_GNU_FORTRAN>
 )
 
@@ -453,6 +461,12 @@ if(WIN32)
     # so the .exe runs without Intel oneAPI on PATH
     if(STATIC_RUNTIME)
         target_link_options(SHETRAN PRIVATE /libs:static)
+    endif()
+
+    if(SHETRAN_ENABLE_QUICKWIN)
+        target_link_options(SHETRAN PRIVATE
+            /libs:qwin
+        )
     endif()
 elseif(UNIX AND NOT APPLE)
     if(IS_INTEL_FORTRAN)
@@ -510,6 +524,7 @@ message(STATUS "  HDF5 source:      ${HDF5_LOCAL_TARBALL}")
 message(STATUS "  stdlib source:    ${STDLIB_LOCAL_TARBALL}")
 if(WIN32)
         message(STATUS "  Static runtime:   ${STATIC_RUNTIME}")
+        message(STATUS "  QuickWin dialog:  ${SHETRAN_ENABLE_QUICKWIN}")
 endif()
 message(STATUS "  Output directory: ${CMAKE_BINARY_DIR}/bin")
 message(STATUS "")
