@@ -42,4 +42,6 @@ Intel Fortran Compiler with Visual Studio. Intel ifx compiler 2025 and Visual St
 
 8. In 	Project|SHETRAN Properties|Configuration Properties|Fortran|Floating Point change Floating Point Model to "fp:precise"
 
-9. Build the project using Build|Build Solution(either the debug or the release versions)
+9. In 	Project|SHETRAN Properties|Configuration Properties|Fortran|Preprocessor set Preprocess source File to Yes (/fpp)
+
+10. Build the project using Build|Build Solution(either the debug or the release versions)
