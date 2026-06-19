@@ -38,9 +38,7 @@ Compiling Shetran
 
 I tried to use Eclipse but the Makefile did not seem to work and I could not link the library files
 
-I needed to change the following files:
-getdirqq.f90  - remove IFWIN and IFQWIN and only have the -c and -f options for running Shetran (no pop up window)
-visulisation_metadata.f90 - put the include_increment.f90 in 4 subroutines (this now seems to be in the Windows code as well)
+Linux and Windows file are now the same
 
 For simplicity I have put all the source code in  a single directory
 
@@ -64,55 +62,55 @@ Download HDFView (e.g. HDFView-3.1.1-centros7_64.tar.gz) and uncomress. Follow t
 
 shetran-compile.bat  (run from Release folder)
 *******************
-ifx -c -O2 -fp-model=precise  ../src/is_cc.f90
-ifx -c -O2 -fp-model=precise  ../src/CONST_SY.F90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_extras.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_structure.f90
-ifx -c -O2 -fp-model=precise  ../src/colm_c1.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_pass.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_read.f90
-ifx -c -O2 -fp-model=precise  ../src/sglobal.f90
-ifx -c -O2 -fp-model=precise  ../src/mod_parameters.f90
-ifx -c -O2 -fp-model=precise  ../src/AL_G.F90
-ifx -c -O2 -fp-model=precise  ../src/mod_load_filedata.f90
-ifx -c -O2 -fp-model=precise  ../src/link_cc.f90
-ifx -c -O2 -fp-model=precise  ../src/CONT_CC.F90
-ifx -c -O2 -fp-model=precise  ../src/colm_cg.f90
-ifx -c -O2 -fp-model=precise  ../src/link_cc1.f90
-ifx -c -O2 -fp-model=precise  ../src/getdirqq.f90
-ifx -c -O2 -fp-model=precise  ../src/SED_CS.F90
-ifx -c -O2 -fp-model=precise  ../src/colm_co.f90
-ifx -c -O2 -fp-model=precise  ../src/colm_c2.f90
-ifx -c -O2 -fp-model=precise  ../src/colm_cc1.f90
-ifx -c -O2 -fp-model=precise  ../src/colm_cc.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_metadata.f90
-ifx -c -O2 -fp-model=precise  ../src/plant_cc.f90
-ifx -c -O2 -fp-model=precise  ../src/AL_C.F90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_map.f90
-ifx -c -O2 -fp-model=precise  ../src/bk_cw.f90
-ifx -c -O2 -fp-model=precise  ../src/sed_co.f90
-ifx -c -O2 -fp-model=precise  ../src/AL_D.f90
-ifx -c -O2 -fp-model=precise  ../src/link_cw.f90
-ifx -c -O2 -fp-model=precise  ../src/ZQmod.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_hdf5.f90 -I/home/steve/hdf5-1.12.0/include
-ifx -c -O2 -fp-model=precise  ../src/SMmod.f90
-ifx -c -O2 -fp-model=precise  ../src/utilsmod.f90
-ifx -c -O2 -fp-model=precise  ../src/OCmod2.f90
-ifx -c -O2 -fp-model=precise  ../src/MNmod.f90
-ifx -c -O2 -fp-model=precise  ../src/CMmod.f90
-ifx -c -O2 -fp-model=precise  ../src/OCQDQMOD.F90
-ifx -c -O2 -fp-model=precise  ../src/SYmod.f90
-ifx -c -O2 -fp-model=precise  ../src/ETmod.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_interface_far_right.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_interface_left.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_interface_centre.f90
-ifx -c -O2 -fp-model=precise  ../src/VSmod.f90
-ifx -c -O2 -fp-model=precise  ../src/OCmod.f90
-ifx -c -O2 -fp-model=precise  ../src/FRmod.f90
-ifx -c -O2 -fp-model=precise  ../src/visualisation_interface_right.f90
-ifx -c -O2 -fp-model=precise  ../src/rest.f90
-ifx -c -O2 -fp-model=precise  ../src/run_sim.f90
-ifx -c -O2 -fp-model=precise  ../src/Shetran.f90
+ifx 4.5001 -fp-model=precise  ../src/is_cc.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/CONST_SY.F90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_extras.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_structure.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/colm_c1.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_pass.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_read.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/sglobal.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/mod_parameters.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/AL_G.F90
+ifx -c -fpp -O2 -fp-model=precise  ../src/mod_load_filedata.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/link_cc.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/CONT_CC.F90
+ifx -c -fpp -O2 -fp-model=precise  ../src/colm_cg.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/link_cc1.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/getdirqq.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/SED_CS.F90
+ifx -c -fpp -O2 -fp-model=precise  ../src/colm_co.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/colm_c2.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/colm_cc1.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/colm_cc.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_metadata.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/plant_cc.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/AL_C.F90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_map.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/bk_cw.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/sed_co.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/AL_D.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/link_cw.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/ZQmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_hdf5.f90 -I/home/steve/hdf5-1.12.0/include
+ifx -c -fpp -O2 -fp-model=precise  ../src/SMmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/utilsmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/OCmod2.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/MNmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/CMmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/OCQDQMOD.F90
+ifx -c -fpp -O2 -fp-model=precise  ../src/SYmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/ETmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_interface_far_right.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_interface_left.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_interface_centre.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/VSmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/OCmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/FRmod.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/visualisation_interface_right.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/rest.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/run_sim.f90
+ifx -c -fpp -O2 -fp-model=precise  ../src/Shetran.f90
 
 ifx is_cc.o CONST_SY.o visualisation_extras.o visualisation_structure.o colm_c1.o visualisation_pass.o visualisation_read.o sglobal.o mod_parameters.o AL_G.o mod_load_filedata.o link_cc.o CONT_CC.o colm_cg.o link_cc1.o getdirqq.o SED_CS.o colm_co.o colm_c2.o colm_cc1.o colm_cc.o visualisation_metadata.o plant_cc.o AL_C.o visualisation_map.o bk_cw.o sed_co.o AL_D.o link_cw.o ZQmod.o visualisation_hdf5.o  SMmod.o utilsmod.o OCmod2.o MNmod.o CMmod.o OCQDQMOD.o SYmod.o ETmod.o visualisation_interface_far_right.o visualisation_interface_left.o visualisation_interface_centre.o VSmod.o OCmod.o FRmod.o visualisation_interface_right.o rest.o run_sim.o Shetran.o -L/home/steve/hdf5-1.12.0/lib /home/steve/hdf5-1.12.0/lib/libhdf5hl_fortran.a /home/steve/hdf5-1.12.0/lib/libhdf5_hl.a /home/steve/hdf5-1.12.0/lib/libhdf5_fortran.a /home/steve/hdf5-1.12.0/lib/libhdf5.a -o "SHETRAN-Linux"
 
