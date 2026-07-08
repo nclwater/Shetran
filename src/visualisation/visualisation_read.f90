@@ -4,7 +4,7 @@ MODULE visualisation_read
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: IOSTAT_END
 
 
-!JE for SHEGRAPH Version 2.0 Created July 2004
+!JE for SHEGRAPH Version 2.0 Created July 2004 
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: vp_in=48, vp_out=49  !read and write numbers for visualisation_plan files
@@ -50,58 +50,85 @@ CONTAINS
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   SUBROUTINE r_ii(text, r)
-      ! Read an integer
-      ! Note: Assuming vp_in, mess, and di are made available via host association/modules
-      IMPLICIT NONE
+SUBROUTINE r_ii(text, r)
+!Read an integer
+INTEGER, PARAMETER             :: szb = 8
+INTEGER, INTENT(OUT)           :: r
+INTEGER                        :: i
+CHARACTER(*), INTENT(IN)       :: text
 
-      INTEGER, PARAMETER       :: szb = 8
-      INTEGER, INTENT(OUT)     :: r
-      CHARACTER(*), INTENT(IN) :: text
+CHARACTER                      :: c
+CHARACTER(szb)                 :: b
+b   = REPEAT(' ',szb)
+CALL FIND_FIRST_CHARACTER(text, c, di)
+i = 0
+DO WHILE(c/=' ')
+    IF(.NOT.ANY(c==di)) GOTO 95
+    i=i+1
+    IF(i>szb) GOTO 95
+    b(i:i)=c
+    READ(vp_in,'(A1)',ERR=90, EOR=80, ADVANCE='NO') c
+ENDDO
+80 READ(b,*) r
 
-      INTEGER                  :: i, ios
-      CHARACTER                :: c
-      CHARACTER(szb)           :: b
-
-      b = REPEAT(' ', szb)
-      CALL FIND_FIRST_CHARACTER(text, c, di)
-      i = 0
-
-      read_loop: DO WHILE (c /= ' ')
-
-         ! Check for non-digit characters OR buffer overflow (replacing GOTO 95)
-         IF (.NOT. ANY(c == di) .OR. i >= szb) THEN
-            ! Safely append the bad character only if we have room
-            IF (i < szb) b(i + 1 : i + 1) = c
-            WRITE(mess,*) TRIM(text) // ' - Expecting integer, but read ' // TRIM(b)
-            CALL error_visualisation()
-            RETURN
-         END IF
-
-         i = i + 1
-         b(i:i) = c
-
-         ! Read the next character using IOSTAT instead of ERR/EOR jump labels
-         READ(vp_in, '(A1)', IOSTAT=ios, ADVANCE='NO') c
-
-         IF (ios > 0) THEN
-            ! Hard Read Error (replacing ERR=90)
-            WRITE(mess,*) 'Error when trying to read integer ' // TRIM(text)
-            CALL error_visualisation()
-            RETURN
-         ELSE IF (ios < 0) THEN
-            ! End of Record (EOR) or End of File (EOF) (replacing EOR=80)
-            EXIT read_loop
-         END IF
-
-      END DO read_loop
-
-      ! Parse the final integer (replacing label 80)
-      READ(b, *) r
-
-   END SUBROUTINE r_ii
-
-
+RETURN
+90 WRITE(mess,*) 'Error when trying to read integer'//TRIM(text)    ; GOTO 100
+95 b(i+1:i+1)=c
+WRITE(mess,*) TRIM(text)//' - Expecting integer, but read '//b ; GOTO 100
+100 CALL error_visualisation()
+END SUBROUTINE r_ii
+   !SUBROUTINE r_ii(text, r)
+   !   ! Read an integer
+   !   ! Note: Assuming vp_in, mess, and di are made available via host association/modules
+   !   IMPLICIT NONE
+   !
+   !   INTEGER, PARAMETER       :: szb = 8
+   !   INTEGER, INTENT(OUT)     :: r
+   !   CHARACTER(*), INTENT(IN) :: text
+   !
+   !   INTEGER                  :: i, ios
+   !   CHARACTER                :: c
+   !   CHARACTER(szb)           :: b
+   !
+   !   b = REPEAT(' ', szb)
+   !   CALL FIND_FIRST_CHARACTER(text, c, di)
+   !   i = 0
+   !
+   !   read_loop: DO WHILE (c /= ' ')
+   !
+   !      ! Check for non-digit characters OR buffer overflow (replacing GOTO 95)
+   !      IF (.NOT. ANY(c == di) .OR. i >= szb) THEN
+   !         ! Safely append the bad character only if we have room
+   !         IF (i < szb) b(i + 1 : i + 1) = c
+   !         WRITE(mess,*) TRIM(text) // ' - Expecting integer, but read ' // TRIM(b)
+   !         CALL error_visualisation()
+   !         RETURN
+   !      END IF
+   !
+   !      i = i + 1
+   !      b(i:i) = c
+   !
+   !      ! Read the next character using IOSTAT instead of ERR/EOR jump labels
+   !      READ(vp_in, '(A1)', IOSTAT=ios, ADVANCE='NO') c
+   !
+   !      IF (ios > 0) THEN
+   !         ! Hard Read Error (replacing ERR=90)
+   !         WRITE(mess,*) 'Error when trying to read integer ' // TRIM(text)
+   !         CALL error_visualisation()
+   !         RETURN
+   !      ELSE IF (ios < 0) THEN
+   !         ! End of Record (EOR) or End of File (EOF) (replacing EOR=80)
+   !         EXIT read_loop
+   !      END IF
+   !
+   !   END DO read_loop
+   !
+   !   ! Parse the final integer (replacing label 80)
+   !   READ(b, *) r
+   !
+   !END SUBROUTINE r_ii
+   !
+   !
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
    RECURSIVE SUBROUTINE find_first_character(text, c, d, exclude)
@@ -123,9 +150,11 @@ CONTAINS
       read_loop: DO
 
          ! Single READ statement handling all iterations using IOSTAT
-         READ(vp_in, '(A1)', IOSTAT=ios, ADVANCE='NO') c
+         ! Explicit EOR handling required for reliable non-advancing reads
+         ! across supported compilers.
+         READ(vp_in, '(A1)', IOSTAT=ios, EOR=997, ADVANCE='NO') c
 
-         IF (ios > 0) THEN
+997      IF (ios > 0) THEN
             ! Hard Read Error (replacing ERR=90 & GOTO 100)
             WRITE(mess,*) 'Error when trying to read integer' // TRIM(text)
             CALL error_visualisation()
@@ -151,58 +180,83 @@ CONTAINS
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-   SUBROUTINE r_rr(text, r)
-      ! Read a real
-      ! Assumed external module dependencies providing global variables:
-      ! vp_in, mess, dr, ERROR
-      IMPLICIT NONE
+   !SUBROUTINE r_rr(text, r)
+   !   ! Read a real
+   !   ! Assumed external module dependencies providing global variables:
+   !   ! vp_in, mess, dr, ERROR
+   !   IMPLICIT NONE
+   !
+   !   INTEGER, PARAMETER       :: szb = 20
+   !   REAL, INTENT(OUT)        :: r
+   !   CHARACTER(*), INTENT(IN) :: text
+   !
+   !   INTEGER                  :: i, ios
+   !   CHARACTER                :: c
+   !   CHARACTER(szb)           :: b
+   !
+   !   !----------------------------------------------------------------------*
+   !
+   !   b = REPEAT(' ', szb)
+   !   CALL find_first_character(text, c, dr)
+   !   i = 0
+   !
+   !   read_loop: DO WHILE (c /= ' ')
+   !
+   !      ! Check for non-valid characters OR buffer overflow (replacing GOTO 95)
+   !      IF (.NOT. ANY(c == dr) .OR. i >= szb) THEN
+   !         WRITE(mess,*) TRIM(text) // ' - Expecting real, but read ' // TRIM(b)
+   !         CALL error_visualisation()
+   !         RETURN
+   !      END IF
+   !
+   !      i = i + 1
+   !      b(i:i) = c
+   !
+   !      ! Read the next character using IOSTAT instead of ERR/EOR jump labels
+   !      READ(vp_in, '(A1)', IOSTAT=ios, ADVANCE='NO') c
+   !
+   !      IF (ios > 0) THEN
+   !         ! Hard Read Error (replacing ERR=90)
+   !         WRITE(mess,*) 'Error when trying to read real' // TRIM(text)
+   !         CALL error_visualisation()
+   !         RETURN
+   !      ELSE IF (ios < 0) THEN
+   !         ! End of Record (EOR) or End of File (EOF) (replacing EOR=80)
+   !         EXIT read_loop
+   !      END IF
+   !
+   !   END DO read_loop
+   !
+   !   ! Parse the final real (replacing label 80)
+   !   READ(b, *) r
+   !
+   !END SUBROUTINE r_rr
+   !
+SUBROUTINE r_rr(text,r)
+!Read a read
+INTEGER, PARAMETER             :: szb = 20
+INTEGER                        :: i
+REAL, INTENT(OUT)              :: r
+CHARACTER(*), INTENT(IN)       :: text
+CHARACTER                      :: c
+CHARACTER(szb)                 :: b
+b   = REPEAT(' ',szb)
+CALL FIND_FIRST_CHARACTER(text, c, dr)
+i = 0
+DO WHILE(c/=' ')
+    IF(.NOT.ANY(c==dr)) GOTO 95
+    i=i+1
+    IF(i>szb) GOTO 95
+    b(i:i)=c
+    READ(vp_in,'(A1)',ERR=90, EOR=80, ADVANCE='NO') c
+ENDDO
+80 READ(b,*) r
 
-      INTEGER, PARAMETER       :: szb = 20
-      REAL, INTENT(OUT)        :: r
-      CHARACTER(*), INTENT(IN) :: text
-
-      INTEGER                  :: i, ios
-      CHARACTER                :: c
-      CHARACTER(szb)           :: b
-
-      !----------------------------------------------------------------------*
-
-      b = REPEAT(' ', szb)
-      CALL find_first_character(text, c, dr)
-      i = 0
-
-      read_loop: DO WHILE (c /= ' ')
-
-         ! Check for non-valid characters OR buffer overflow (replacing GOTO 95)
-         IF (.NOT. ANY(c == dr) .OR. i >= szb) THEN
-            WRITE(mess,*) TRIM(text) // ' - Expecting real, but read ' // TRIM(b)
-            CALL error_visualisation()
-            RETURN
-         END IF
-
-         i = i + 1
-         b(i:i) = c
-
-         ! Read the next character using IOSTAT instead of ERR/EOR jump labels
-         READ(vp_in, '(A1)', IOSTAT=ios, ADVANCE='NO') c
-
-         IF (ios > 0) THEN
-            ! Hard Read Error (replacing ERR=90)
-            WRITE(mess,*) 'Error when trying to read real' // TRIM(text)
-            CALL error_visualisation()
-            RETURN
-         ELSE IF (ios < 0) THEN
-            ! End of Record (EOR) or End of File (EOF) (replacing EOR=80)
-            EXIT read_loop
-         END IF
-
-      END DO read_loop
-
-      ! Parse the final real (replacing label 80)
-      READ(b, *) r
-
-   END SUBROUTINE r_rr
-
+RETURN
+90 WRITE(mess,*) 'Error when trying to read real'//TRIM(text)    ; GOTO 100
+95 WRITE(mess,*) TRIM(text)//' - Expecting real, but read '//b ; GOTO 100
+100 CALL error_visualisation()
+END SUBROUTINE r_rr
 
 
 !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
@@ -301,7 +355,7 @@ CONTAINS
 
       INTEGER :: i, j, k, llen = 500                           ! max allowed length for input lines
       INTEGER :: io = 0, nunit = 100                           ! io error no and unit number for new file
-      INTEGER :: ichar, lineno
+      INTEGER :: ichar, lineno, ieor
 
       CHARACTER                           :: ch
       CHARACTER (LEN(checktitle))         :: dum
@@ -350,7 +404,10 @@ CONTAINS
       read_lines: DO WHILE (io /= IOSTAT_END .AND. io /= -1)
          lineno = lineno + 1
          i = 0
-         READ(u, '(A1)', IOSTAT=io, ADVANCE='NO') ch
+         ! Explicit EOR handling required for reliable non-advancing reads
+         ! across supported compilers.
+         READ(u, '(A1)', IOSTAT=io, EOR=998, ADVANCE='NO') ch
+998      ieor=1
 
          ! Catch EOF or Hard Read Errors immediately
          IF (io == IOSTAT_END .OR. io == -1 .OR. io > 0) EXIT read_lines
@@ -373,8 +430,11 @@ CONTAINS
             END IF
 
             store(i) = ch
-            READ(u, '(A1)', IOSTAT=io, ADVANCE='NO') ch
-         END DO parse_chars
+         ! Explicit EOR handling required for reliable non-advancing reads
+         ! across supported compilers.
+            READ(u, '(A1)', IOSTAT=io, EOR=999, ADVANCE='NO') ch
+999         ieor=2
+        END DO parse_chars
 
          IF (io == 0) READ(u, '(A1)', IOSTAT=io, ADVANCE='YES')  ! to item up for next input line
 
