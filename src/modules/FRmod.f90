@@ -1640,7 +1640,7 @@ CONTAINS
 
       !***ZQ Module 200520
       READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios < 0) THEN
+      IF (ios /= 0) THEN
          iszq = .FALSE.
          isextrapsl = .FALSE.
          ismn = .FALSE.
@@ -1651,7 +1651,7 @@ CONTAINS
       WRITE (61, '(A)') FILNAM
       READ (2, '(A)', IOSTAT = ios) FILNAM
 
-      IF (ios < 0) THEN
+      IF (ios /= 0) THEN
          iszq = .FALSE.
          isextrapsl = .FALSE.
          ismn = .FALSE.
@@ -1670,7 +1670,7 @@ CONTAINS
 
       !extra psl 110324
       READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios < 0) THEN
+      IF (ios /= 0) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
          CLOSE (2)
@@ -1680,7 +1680,7 @@ CONTAINS
       WRITE (61, '(A)') FILNAM
       READ (2, '(A)', IOSTAT = ios) FILNAM
 
-      IF (ios < 0) THEN
+      IF (ios /= 0) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
          CLOSE (2)
@@ -1699,7 +1699,7 @@ CONTAINS
 
       !nitrate component 230925
       READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios < 0) THEN
+      IF (ios /= 0) THEN
          ismn = .FALSE.
          CLOSE (2)
          RETURN
@@ -1708,7 +1708,7 @@ CONTAINS
       WRITE (61, '(A)') FILNAM
       READ (2, '(A)', IOSTAT = ios) FILNAM
 
-      IF (ios < 0) THEN
+      IF (ios /= 0) THEN
          ismn = .FALSE.
          CLOSE (2)
          RETURN
@@ -1727,11 +1727,11 @@ CONTAINS
       ! Remaining nitrate files
       DO I = 54, 60
          READ (2, '(A)', IOSTAT = ios) FILNAM
-         IF (ios < 0) EXIT
+         IF (ios /= 0) EXIT
 
          WRITE (61, '(A)') FILNAM
          READ (2, '(A)', IOSTAT = ios) FILNAM
-         IF (ios < 0) EXIT
+         IF (ios /= 0) EXIT
 
          IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
             WRITE (61, '("- NOT USED")')
@@ -2184,14 +2184,14 @@ CONTAINS
          !     equivalent mean value timestamped at the end of the timestep.
          output_hour = next_hour - ONE
 
-         CALL write_regular_outputs(output_hour, ABS(qoctot), qoctotextra, &
+         CALL write_regular_outputs(output_hour, ABS(qoctot), disextrapoints, qoctotextra, &
             sedtot, sedfinetot, contamtot)
 
          DO i = INT(next_hour) + 1, hour_now
             next_hour   = DBLE(i)
             output_hour = next_hour - ONE
 
-            CALL write_regular_outputs(output_hour, ABS(q_mean), qocavextra, &
+            CALL write_regular_outputs(output_hour, ABS(q_mean), disextrapoints, qocavextra, &
                sed_mean, sedfine_mean, contam_mean)
          END DO
       END SUBROUTINE write_completed_regular_outputs
@@ -2222,9 +2222,10 @@ CONTAINS
       END SUBROUTINE restart_accumulators
 
 
-      SUBROUTINE write_regular_outputs(output_hour, discharge, discharge_extra, sediment, sediment_fine, contaminant)
+      SUBROUTINE write_regular_outputs(output_hour, discharge, disextrapoints, discharge_extra, sediment, sediment_fine, contaminant)
          DOUBLE PRECISION, INTENT(IN) :: output_hour
          DOUBLE PRECISION, INTENT(IN) :: discharge
+         INTEGER, INTENT(IN) :: disextrapoints
          DOUBLE PRECISION, INTENT(IN) :: discharge_extra(:)
          DOUBLE PRECISION, INTENT(IN) :: sediment
          DOUBLE PRECISION, INTENT(IN) :: sediment_fine
@@ -2232,27 +2233,44 @@ CONTAINS
 
          CHARACTER(LEN=32) :: stamp
          DOUBLE PRECISION  :: elapsed
+         
+         CHARACTER(len=32), DIMENSION(:),allocatable :: buf
+         CHARACTER(len=32) :: bufdis
+         SAVE buf
+         IF (ALLOCATED(buf)) DEALLOCATE(buf)
+         ALLOCATE   (buf(disextrapoints))
+         buf = ''
+
 
          elapsed = output_hour * TOUTPUT
          stamp   = timestamp_from_output_hour(output_hour)
+         
+         write(bufdis,'(F20.5)') discharge
+         bufdis = adjustl(bufdis)
+         if (ISextradis) then
+            do j=1,disextrapoints
+                write(buf(j),'(F20.5)') abs(discharge_extra(j))
+                buf(j) = adjustl(buf(j))
+            enddo
+            WRITE(dis,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
+          else
+            WRITE(dis,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',',trim(bufdis)
+          endif
+  
+          if (bexsy) then
+              write(bufdis,'(F20.5)') sediment
+              bufdis = adjustl(bufdis)
+              write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
+              write(bufdis,'(F20.5)') sediment_fine
+              bufdis = adjustl(bufdis)
+              write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
+          endif
+          if (bexcm) then
+              write(bufdis,'(F20.5)') contaminant
+              bufdis = adjustl(bufdis)
+              write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
+          endif
 
-         IF (ISextradis) THEN
-            WRITE(dis, '(A,'','',F0.3,'','',F0.5,*( '','',F0.5 ))') &
-               TRIM(stamp), elapsed, discharge, &
-               (ABS(discharge_extra(j)), j = 1, disextrapoints)
-         ELSE
-            WRITE(dis, '(A,'','',F0.3,'','',F0.5)') &
-               TRIM(stamp), elapsed, discharge
-         END IF
-
-         IF (bexsy) THEN
-            WRITE(SEDALLUNIT,  '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment
-            WRITE(SEDFINEUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, sediment_fine
-         END IF
-
-         IF (bexcm) THEN
-            WRITE(CONTAMUNIT, '(A,'','',F0.3,'','',F0.5)') TRIM(stamp), elapsed, contaminant
-         END IF
       END SUBROUTINE write_regular_outputs
 
 
@@ -2376,6 +2394,7 @@ CONTAINS
       DOUBLEPRECISION, INTENT(IN)    :: qoo, tme
       DOUBLEPRECISION                :: qd
       CHARACTER(128)                 :: dum
+      CHARACTER(len=32)              :: bufdis2
       IF((mbface==1) .OR. (mbface==2)) THEN
          qd = qoo
       ELSE
@@ -2384,7 +2403,9 @@ CONTAINS
       c = DATE_FROM_HOUR(tih + tme)
       WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
 !WRITE(dum,'(2(I2.2,A),I4.4,3(A,I2.2))') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
-      WRITE(dis2,'(A,A1,F0.5,A1,F0.5)') TRIM(dum), ',',tme, ',',qd
+      WRITE(bufdis2,'(F20.5)') qd
+      bufdis2 = adjustl(bufdis2)
+      WRITE(dis2,'(A,A1,F0.5,A1,A)') TRIM(dum), ',',tme, ',',TRIM(bufdis2)
    END SUBROUTINE write_dis2
 
 
