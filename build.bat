@@ -232,7 +232,7 @@ echo INFO: Generating FORD documentation...
 where ford >nul 2>&1
 if errorlevel 1 (
     echo ERROR: ford command not found in PATH!
-    echo ERROR: Install FORD first (for example: pip install ford)
+    echo ERROR: Install FORD first - for example: pip install ford
     exit /b 1
 )
 
