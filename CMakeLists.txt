@@ -90,6 +90,7 @@ option(VERBOSE_DEPENDENCY_OUTPUT "Enable verbose output during dependency analys
 option(STATIC_RUNTIME "Link Intel and MSVC runtimes statically (portable .exe, no oneAPI on PATH required)" ON)
 option(ENABLE_FORD_DOCS "Enable FORD documentation target (ford_docs)" OFF)
 option(ENABLE_QUICKWIN "Enable Intel QuickWin file picker for no-argument and -a Windows runs" ON)
+option(SHETRAN_BUILD_TESTS "Build SHETRAN parser tests" OFF)
 
 set(SHETRAN_ENABLE_QUICKWIN OFF)
 if(ENABLE_QUICKWIN AND WIN32 AND IS_INTEL_FORTRAN)
@@ -428,9 +429,10 @@ target_compile_definitions(SHETRAN PRIVATE
 # =============================================================================
 # Compiler flags
 # =============================================================================
+function(apply_shetran_fortran_options target_name)
 if(WIN32)
     # ifx on Windows uses MSVC-style options.
-    target_compile_options(SHETRAN PRIVATE
+    target_compile_options(${target_name} PRIVATE
         /fpp
         # "/mcmodel:large"
         # "/heap-arrays:0"
@@ -457,27 +459,17 @@ if(WIN32)
         $<$<CONFIG:ReleaseNative>:/fp:precise>
     )
 
-    # /libs:static — statically link Intel Fortran/C runtime libraries
-    # so the .exe runs without Intel oneAPI on PATH
-    if(STATIC_RUNTIME)
-        target_link_options(SHETRAN PRIVATE /libs:static)
-    endif()
-
-    if(SHETRAN_ENABLE_QUICKWIN)
-        target_link_options(SHETRAN PRIVATE
-            /libs:qwin
-        )
-    endif()
 elseif(UNIX AND NOT APPLE)
     if(IS_INTEL_FORTRAN)
         # ifx on Linux uses GNU-style options.
-        target_compile_options(SHETRAN PRIVATE
+        target_compile_options(${target_name} PRIVATE
             -fpp
             ${INTEL_G_FORMAT_WARN_SUPPRESS_FLAG}
             $<$<CONFIG:Debug>:-O0>
             $<$<CONFIG:Debug>:-g>
             $<$<CONFIG:Debug>:-traceback>
-            $<$<CONFIG:Debug>:-check=bounds>
+            $<$<CONFIG:Debug>:-check>
+            $<$<CONFIG:Debug>:bounds>
             $<$<CONFIG:Debug>:-stand>
             $<$<CONFIG:Debug>:-warn>
             $<$<CONFIG:Debug>:-fp-model=precise>
@@ -490,7 +482,7 @@ elseif(UNIX AND NOT APPLE)
             $<$<CONFIG:Release>:-fp-model=precise>
         )
     elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(SHETRAN PRIVATE
+        target_compile_options(${target_name} PRIVATE
             -cpp
             $<$<CONFIG:Debug>:-O0>
             $<$<CONFIG:Debug>:-g>
@@ -511,6 +503,29 @@ elseif(UNIX AND NOT APPLE)
         )
     endif()
 endif()
+endfunction()
+
+apply_shetran_fortran_options(SHETRAN)
+
+# /libs:static — statically link Intel Fortran/C runtime libraries
+# so the .exe runs without Intel oneAPI on PATH
+if(WIN32 AND STATIC_RUNTIME)
+    target_link_options(SHETRAN PRIVATE /libs:static)
+endif()
+
+if(SHETRAN_ENABLE_QUICKWIN)
+    target_link_options(SHETRAN PRIVATE
+        /libs:qwin
+    )
+endif()
+
+# =============================================================================
+# Tests
+# =============================================================================
+if(SHETRAN_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
 
 # =============================================================================
 # Configuration summary
@@ -522,6 +537,7 @@ message(STATUS "  Fortran compiler: ${CMAKE_Fortran_COMPILER}")
 message(STATUS "  Compiler ID:      ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "  HDF5 source:      ${HDF5_LOCAL_TARBALL}")
 message(STATUS "  stdlib source:    ${STDLIB_LOCAL_TARBALL}")
+message(STATUS "  Parser tests:     ${SHETRAN_BUILD_TESTS}")
 if(WIN32)
         message(STATUS "  Static runtime:   ${STATIC_RUNTIME}")
         message(STATUS "  QuickWin dialog:  ${SHETRAN_ENABLE_QUICKWIN}")

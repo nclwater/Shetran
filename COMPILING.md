@@ -72,6 +72,7 @@ This will configure and build a `Release` version of SHETRAN. The resulting exec
 * `-v, --verbose`   : Enable verbose build output.
 * `--ford`          : Generate FORD documentation after a successful build.
 * `--docs-only`     : Generate FORD documentation only (no compile).
+* `--test`          : Build and run the visualisation parser CTest suite.
 * `-h, --help`      : Show help message.
 
 **Examples:**
@@ -84,6 +85,7 @@ build.bat -t Release -v        :: Verbose Release build
 build.bat -t ReleaseNative     :: Max local optimization (may be non-portable)
 build.bat --ford               :: Build and generate FORD docs
 build.bat --docs-only          :: Generate FORD docs without compiling
+build.bat -t Debug --test      :: Build Debug and run parser tests
 ```
 
 `--clean` and `--clean-app` are mutually exclusive.
@@ -115,6 +117,7 @@ If you prefer to run CMake manually:
 * `ReleaseNative` build intent: Uses `/O3` and `/QxHost` for maximum performance on the build machine CPU. This may reduce portability to older or different CPUs.
 * `ENABLE_DEPENDENCY_ANALYSIS` (Default: `ON`): Must remain `ON` for proper automatic Fortran module dependency sorting.
 * `ENABLE_FORD_DOCS` (Default: `OFF`): Adds a `ford_docs` build target. This target can be built independently and does not build `shetran.exe`.
+* `SHETRAN_BUILD_TESTS` (Default: `OFF`): Adds the visualisation parser test target and CTest entries.
 
 ### FORD Documentation
 
@@ -346,6 +349,7 @@ Important options:
 * `-v, --verbose`: verbose build output.
 * `--ford`: generate FORD docs after a successful build.
 * `--docs-only`: generate FORD docs only.
+* `--test`: build and run the visualisation parser CTest suite.
 
 Examples:
 
@@ -354,6 +358,7 @@ Examples:
 ./build.sh -c ifx -t Debug
 ./build.sh -c ifx -t ReleaseNative --clean
 ./build.sh -c ifx --clean-app
+./build.sh -c ifx -t Debug --test
 ```
 
 ### Manual CMake Build (Linux)
@@ -376,6 +381,48 @@ Notes:
 * Platforms other than Windows and Linux are currently unsupported by this CMake configuration.
 
 ## Testing
+
+### Visualisation Parser Tests
+
+The visualisation parser tests are a focused CTest suite for
+`src/visualisation/visualisation_read*.f90`. They cover the `COPY`/`strip`
+preprocessing path, token progression across blank records, EOF handling,
+integer and real parsing, and visualisation plans discovered under
+`examples/<name>/model` for example names that do not start with `_`.
+
+Run them through the build scripts:
+
+```cmd
+build.bat -t Debug --test
+```
+
+```bash
+./build.sh -c ifx -t Debug --test
+./build.sh -c gfortran -t Debug --test
+```
+
+For a manual CMake build, enable the optional test target when configuring:
+
+```cmd
+cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_Fortran_COMPILER=ifx -DSHETRAN_BUILD_TESTS=ON ..\..
+nmake SHETRAN
+nmake visualisation_read_tests
+ctest --output-on-failure -R "visualisation_read\."
+```
+
+```bash
+cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_Fortran_COMPILER=ifx -DSHETRAN_BUILD_TESTS=ON
+cmake --build build/debug --target SHETRAN --parallel
+cmake --build build/debug --target visualisation_read_tests --parallel
+ctest --test-dir build/debug --output-on-failure -R '^visualisation_read\.'
+```
+
+To run only one parser suite from an already configured build:
+
+```bash
+ctest --test-dir build/debug --output-on-failure -R '^visualisation_read\.unit$'
+ctest --test-dir build/debug --output-on-failure -R '^visualisation_read\.examples$'
+```
 
 ### Integration Testing
 

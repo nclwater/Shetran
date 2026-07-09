@@ -15,6 +15,7 @@ JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 GENERATE_FORD=false
 DOCS_ONLY=false
 COMPILER="gfortran"
+RUN_TESTS=false
 
 show_usage() {
     cat <<EOF
@@ -29,6 +30,7 @@ Options:
   -j, --jobs N            Number of parallel jobs (default: ${JOBS})
   --ford                  Generate FORD documentation after a successful build
   --docs-only             Generate FORD documentation only (no compile)
+  --test                  Build and run the visualisation parser tests
   -h, --help              Show this help message
 
 Examples:
@@ -38,6 +40,7 @@ Examples:
   $(basename "$0") -t Release --clean-app
   $(basename "$0") --ford
   $(basename "$0") --docs-only
+  $(basename "$0") -t Debug -c gfortran --test
 
 Build Directory Structure:
   Debug builds:    build/debug/
@@ -126,6 +129,10 @@ while [[ $# -gt 0 ]]; do
             GENERATE_FORD=true
             shift
             ;;
+        --test)
+            RUN_TESTS=true
+            shift
+            ;;
         -h|--help)
             show_usage
             exit 0
@@ -211,6 +218,7 @@ esac
 echo "INFO: Build type:      $BUILD_TYPE"
 echo "INFO: Compiler:        $COMPILER"
 echo "INFO: Build directory: $BUILD_DIR"
+echo "INFO: Parser tests:    $RUN_TESTS"
 
 # Clean build directory if requested
 if $CLEAN_BUILD; then
@@ -224,6 +232,8 @@ if $CLEAN_APP_ONLY; then
         echo "INFO: Cleaning SHETRAN artifacts in: $BUILD_DIR"
         rm -f "$BUILD_DIR/bin/shetran"
         rm -rf "$BUILD_DIR/CMakeFiles/SHETRAN.dir"
+        rm -f "$BUILD_DIR/test/bin/visualisation_read_tests"
+        rm -rf "$BUILD_DIR/test/CMakeFiles/visualisation_read_tests.dir"
         find "$BUILD_DIR" -maxdepth 1 -type f \( -name "*.mod" -o -name "*.smod" \) -delete
     else
         echo "INFO: Build directory does not exist yet. --clean-app has nothing to clean."
@@ -239,6 +249,7 @@ echo "INFO: Configuring with CMake..."
 CMAKE_ARGS=(
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
     -DCMAKE_Fortran_COMPILER="$COMPILER"
+    -DSHETRAN_BUILD_TESTS="$RUN_TESTS"
 )
 echo "INFO: CMake arguments: ${CMAKE_ARGS[*]}"
 cmake "${CMAKE_ARGS[@]}" "$SOURCE_PATH"
@@ -250,6 +261,18 @@ if $VERBOSE; then
 fi
 cmake "${BUILD_ARGS[@]}"
 
+if $RUN_TESTS; then
+    echo "INFO: Building visualisation parser tests..."
+    TEST_BUILD_ARGS=(--build . --target visualisation_read_tests --parallel "$JOBS")
+    if $VERBOSE; then
+        TEST_BUILD_ARGS+=(--verbose)
+    fi
+    cmake "${TEST_BUILD_ARGS[@]}"
+
+    echo "INFO: Running visualisation parser tests..."
+    ctest --output-on-failure -R '^visualisation_read\.'
+fi
+
 popd >/dev/null
 
 echo
@@ -259,6 +282,7 @@ echo "  Compiler:     $COMPILER"
 echo "  Build type:   $BUILD_TYPE"
 echo "  Build dir:    $BUILD_DIR"
 echo "  Executable:   $BUILD_DIR/bin/shetran"
+echo "  Parser tests: $RUN_TESTS"
 echo
 
 if $GENERATE_FORD; then

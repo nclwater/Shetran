@@ -12,6 +12,7 @@ set VERBOSE=false
 set JOBS=%NUMBER_OF_PROCESSORS%
 set GENERATE_FORD=false
 set DOCS_ONLY=false
+set RUN_TESTS=false
 
 REM Parse command line arguments
 :parse_args
@@ -68,6 +69,11 @@ if "%~1"=="--ford" (
 if "%~1"=="--docs-only" (
     set DOCS_ONLY=true
     set GENERATE_FORD=true
+    shift
+    goto parse_args
+)
+if "%~1"=="--test" (
+    set RUN_TESTS=true
     shift
     goto parse_args
 )
@@ -151,6 +157,7 @@ if /i "%BUILD_TYPE%"=="Debug" (
 
 echo INFO: Build type:      %BUILD_TYPE%
 echo INFO: Build directory:  %BUILD_DIR%
+echo INFO: Parser tests:     %RUN_TESTS%
 
 REM Clean build directory if requested
 if "%CLEAN_BUILD%"=="true" (
@@ -165,6 +172,8 @@ if "%CLEAN_APP_ONLY%"=="true" (
 
         if exist "%BUILD_DIR%\bin\shetran.exe" del /q "%BUILD_DIR%\bin\shetran.exe"
         if exist "%BUILD_DIR%\CMakeFiles\SHETRAN.dir" rmdir /s /q "%BUILD_DIR%\CMakeFiles\SHETRAN.dir"
+        if exist "%BUILD_DIR%\test\bin\visualisation_read_tests.exe" del /q "%BUILD_DIR%\test\bin\visualisation_read_tests.exe"
+        if exist "%BUILD_DIR%\test\CMakeFiles\visualisation_read_tests.dir" rmdir /s /q "%BUILD_DIR%\test\CMakeFiles\visualisation_read_tests.dir"
 
         for %%f in ("%BUILD_DIR%\*.mod" "%BUILD_DIR%\*.smod") do (
             if exist "%%~f" del /q "%%~f"
@@ -183,7 +192,7 @@ set SOURCE_PATH=..\..
 
 REM Configure
 echo INFO: Configuring with CMake...
-set CMAKE_ARGS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_Fortran_COMPILER=ifx -G "NMake Makefiles"
+set CMAKE_ARGS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_Fortran_COMPILER=ifx -DSHETRAN_BUILD_TESTS=%RUN_TESTS% -G "NMake Makefiles"
 echo INFO: CMake arguments: %CMAKE_ARGS%
 cmake %CMAKE_ARGS% %SOURCE_PATH%
 if errorlevel 1 (
@@ -205,6 +214,28 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if "%RUN_TESTS%"=="true" (
+    echo INFO: Building visualisation parser tests...
+    if "%VERBOSE%"=="true" (
+        nmake visualisation_read_tests VERBOSE=1
+    ) else (
+        nmake visualisation_read_tests
+    )
+    if errorlevel 1 (
+        echo ERROR: Visualisation parser test build failed!
+        cd "%~dp0"
+        exit /b 1
+    )
+
+    echo INFO: Running visualisation parser tests...
+    ctest --output-on-failure -R "visualisation_read\."
+    if errorlevel 1 (
+        echo ERROR: Visualisation parser tests failed!
+        cd "%~dp0"
+        exit /b 1
+    )
+)
+
 echo.
 echo SUCCESS: Build completed successfully!
 echo.
@@ -212,6 +243,7 @@ echo   Compiler:     ifx
 echo   Build type:   %BUILD_TYPE%
 echo   Build dir:    %BUILD_DIR%
 echo   Executable:   %BUILD_DIR%\bin\shetran.exe
+echo   Parser tests: %RUN_TESTS%
 echo.
 
 REM Return to source directory
@@ -256,6 +288,7 @@ echo   -v, --verbose       Verbose build output
 echo   -j, --jobs N        Number of parallel jobs (default: %NUMBER_OF_PROCESSORS%)
 echo   --ford              Generate FORD documentation after a successful build
 echo   --docs-only         Generate FORD documentation only ^(no compile^)
+echo   --test              Build and run the visualisation parser tests
 echo   -h, --help          Show this help message
 echo.
 echo Examples:
@@ -267,6 +300,7 @@ echo   %~nx0 -t Release --verbose   Verbose Release build
 echo   %~nx0 -t ReleaseNative       Maximum local optimization build
 echo   %~nx0 --ford                 Build and generate FORD documentation
 echo   %~nx0 --docs-only            Generate FORD documentation only
+echo   %~nx0 -t Debug --test        Build and run parser tests
 echo.
 echo Build Directory Structure:
 echo   Debug builds:    build\debug\
