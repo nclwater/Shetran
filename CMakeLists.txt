@@ -167,7 +167,17 @@ endif()
 # HDF5 debug static libraries are platform-specific:
 # - Windows builds typically use _D
 # - Linux/macOS builds use _debug
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+if(CMAKE_CONFIGURATION_TYPES)
+    # Multi-config generators choose the build type at build time, so
+    # CMAKE_BUILD_TYPE cannot be used to select one imported library here.
+    if(WIN32)
+        set(HDF5_DEBUG_LIB_POSTFIX "_D")
+    else()
+        set(HDF5_DEBUG_LIB_POSTFIX "_debug")
+    endif()
+    set(HDF5_LIB_POSTFIX "")
+    set(HDF5_CMAKE_BUILD_TYPE "Release")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
     if(WIN32)
         set(HDF5_LIB_POSTFIX "_D")
     else()
@@ -222,7 +232,7 @@ ExternalProject_Add(HDF5_external
     CMAKE_ARGS
         ${HDF5_CMAKE_ARGS}
     INSTALL_COMMAND
-        ${CMAKE_COMMAND} --install <BINARY_DIR> --prefix <INSTALL_DIR>
+        ${CMAKE_COMMAND} --install <BINARY_DIR> --prefix <INSTALL_DIR> --config $<CONFIG>
     BUILD_BYPRODUCTS
         ${HDF5_STAGE_DIR}/lib/libhdf5${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
         ${HDF5_STAGE_DIR}/lib/libhdf5_f90cstub${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}
@@ -245,9 +255,22 @@ foreach(_hdf5_lib
     libhdf5_f90cstub
     libhdf5)
     add_library(hdf5::${_hdf5_lib} STATIC IMPORTED)
-    set_target_properties(hdf5::${_hdf5_lib} PROPERTIES
-        IMPORTED_LOCATION "${HDF5_LIB_DIR}/${_hdf5_lib}${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}"
-    )
+    if(CMAKE_CONFIGURATION_TYPES)
+        set_target_properties(hdf5::${_hdf5_lib} PROPERTIES
+            IMPORTED_CONFIGURATIONS "Debug;Release;ReleaseNative"
+            IMPORTED_LOCATION_DEBUG
+                "${HDF5_LIB_DIR}/${_hdf5_lib}${HDF5_DEBUG_LIB_POSTFIX}${HDF5_STATIC_EXT}"
+            IMPORTED_LOCATION_RELEASE
+                "${HDF5_LIB_DIR}/${_hdf5_lib}${HDF5_STATIC_EXT}"
+            IMPORTED_LOCATION_RELEASENATIVE
+                "${HDF5_LIB_DIR}/${_hdf5_lib}${HDF5_STATIC_EXT}"
+        )
+    else()
+        set_target_properties(hdf5::${_hdf5_lib} PROPERTIES
+            IMPORTED_LOCATION
+                "${HDF5_LIB_DIR}/${_hdf5_lib}${HDF5_LIB_POSTFIX}${HDF5_STATIC_EXT}"
+        )
+    endif()
 endforeach()
 # add_dependencies on IMPORTED targets is not supported; the dependency is
 # established via add_dependencies(SHETRAN HDF5_external) further below.
@@ -296,12 +319,156 @@ set(STDLIB_STRINGLIST OFF CACHE BOOL "Compile STDLIB STRINGLIST" FORCE)
 set(STDLIB_STATS OFF CACHE BOOL "Compile STDLIB STATS" FORCE)
 set(STDLIB_SYSTEM ON CACHE BOOL "Compile STDLIB SYSTEM" FORCE)
 
+# Visual Studio normally starts without an activated Conda environment.  Find
+# fypp in the environment used for SHETRAN and cache its absolute path so the
+# generated custom-build commands work from both the IDE and the command line.
+set(SHETRAN_CONDA_ENV "shetran" CACHE STRING
+    "Conda environment from which to use the fypp preprocessor")
+
+if(NOT FYPP)
+    set(_conda_environment_roots)
+
+    if(DEFINED ENV{CONDA_PREFIX})
+        get_filename_component(_active_conda_name "$ENV{CONDA_PREFIX}" NAME)
+        if(_active_conda_name STREQUAL SHETRAN_CONDA_ENV)
+            list(APPEND _conda_environment_roots "$ENV{CONDA_PREFIX}")
+        endif()
+        list(APPEND _conda_environment_roots
+            "$ENV{CONDA_PREFIX}/envs/${SHETRAN_CONDA_ENV}")
+    endif()
+
+    if(DEFINED ENV{CONDA_EXE})
+        get_filename_component(_conda_scripts_dir "$ENV{CONDA_EXE}" DIRECTORY)
+        get_filename_component(_conda_base_dir "${_conda_scripts_dir}" DIRECTORY)
+        list(APPEND _conda_environment_roots
+            "${_conda_base_dir}/envs/${SHETRAN_CONDA_ENV}")
+    endif()
+
+    if(DEFINED ENV{USERPROFILE})
+        set(_conda_environments_file "$ENV{USERPROFILE}/.conda/environments.txt")
+        if(EXISTS "${_conda_environments_file}")
+            file(STRINGS "${_conda_environments_file}" _known_conda_environments)
+            foreach(_conda_environment IN LISTS _known_conda_environments)
+                get_filename_component(_conda_environment_name
+                    "${_conda_environment}" NAME)
+                if(_conda_environment_name STREQUAL SHETRAN_CONDA_ENV)
+                    list(APPEND _conda_environment_roots "${_conda_environment}")
+                endif()
+            endforeach()
+        endif()
+
+        list(APPEND _conda_environment_roots
+            "$ENV{USERPROFILE}/miniforge3/envs/${SHETRAN_CONDA_ENV}"
+            "$ENV{USERPROFILE}/miniconda3/envs/${SHETRAN_CONDA_ENV}"
+            "$ENV{USERPROFILE}/anaconda3/envs/${SHETRAN_CONDA_ENV}"
+        )
+    endif()
+
+    list(REMOVE_DUPLICATES _conda_environment_roots)
+    find_program(FYPP
+        NAMES fypp fypp.exe
+        HINTS ${_conda_environment_roots}
+        PATH_SUFFIXES Scripts bin
+        NO_DEFAULT_PATH
+        DOC "Path to the fypp preprocessor"
+    )
+    if(NOT FYPP)
+        find_program(FYPP NAMES fypp fypp.exe
+            DOC "Path to the fypp preprocessor")
+    endif()
+
+    unset(_active_conda_name)
+    unset(_conda_scripts_dir)
+    unset(_conda_base_dir)
+    unset(_conda_environments_file)
+    unset(_known_conda_environments)
+    unset(_conda_environment)
+    unset(_conda_environment_name)
+    unset(_conda_environment_roots)
+endif()
+
+if(NOT FYPP)
+    message(FATAL_ERROR
+        "fypp was not found in Conda environment '${SHETRAN_CONDA_ENV}'.\n"
+        "Install it in that environment or configure with "
+        "-DFYPP=<absolute-path-to-fypp>.")
+endif()
+message(STATUS "Using fypp: ${FYPP}")
+
 FetchContent_Declare(fortran_stdlib
     URL ${STDLIB_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    PATCH_COMMAND
+        ${CMAKE_COMMAND}
+        -DSTDLIB_SOURCE_DIR=<SOURCE_DIR>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/PatchFortranStdlib.cmake
 )
 
 FetchContent_MakeAvailable(fortran_stdlib)
+
+# A Visual Studio project can use either the C/C++ project system or Intel's
+# Fortran project system, but not both.  stdlib 0.8.1 puts C helpers and
+# Fortran modules in one target, causing CMake to generate a .vcxproj in which
+# the Fortran sources are non-compiling items.  Build the C helpers as an
+# object library and archive those objects into the Fortran target instead.
+if(CMAKE_GENERATOR MATCHES "^Visual Studio" AND TARGET fortran_stdlib_system)
+    set(_stdlib_system_source_dir "${fortran_stdlib_SOURCE_DIR}/src/system")
+
+    set_property(TARGET fortran_stdlib_system PROPERTY SOURCES
+        "${_stdlib_system_source_dir}/stdlib_system.F90"
+        "${_stdlib_system_source_dir}/stdlib_system_subprocess.F90"
+        "${_stdlib_system_source_dir}/stdlib_system_path.f90"
+    )
+    set_property(TARGET fortran_stdlib_system PROPERTY LINKER_LANGUAGE Fortran)
+
+    add_library(fortran_stdlib_system_c OBJECT
+        "${_stdlib_system_source_dir}/stdlib_system.c"
+        "${_stdlib_system_source_dir}/stdlib_system_subprocess.c"
+    )
+    set_target_properties(fortran_stdlib_system_c PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+    )
+    target_sources(fortran_stdlib_system PRIVATE
+        $<TARGET_OBJECTS:fortran_stdlib_system_c>
+    )
+
+    unset(_stdlib_system_source_dir)
+endif()
+
+# Multi-config generators append the configuration name to
+# Fortran_MODULE_DIRECTORY (for example, ``.../mod_files/target/Debug``).
+# stdlib 0.8.1 creates only the base module directory, while ifx expects the
+# complete output directory to exist before it writes the first .mod file.
+# Create those per-configuration directories during generation so a clean
+# Visual Studio build does not fail with ifx error #7001.
+if(CMAKE_CONFIGURATION_TYPES)
+    function(collect_buildsystem_targets DIRECTORY_PATH OUTPUT_VAR)
+        get_property(_targets DIRECTORY "${DIRECTORY_PATH}" PROPERTY BUILDSYSTEM_TARGETS)
+        get_property(_subdirectories DIRECTORY "${DIRECTORY_PATH}" PROPERTY SUBDIRECTORIES)
+
+        foreach(_subdirectory IN LISTS _subdirectories)
+            collect_buildsystem_targets("${_subdirectory}" _subdirectory_targets)
+            list(APPEND _targets ${_subdirectory_targets})
+        endforeach()
+
+        set(${OUTPUT_VAR} "${_targets}" PARENT_SCOPE)
+    endfunction()
+
+    collect_buildsystem_targets("${fortran_stdlib_SOURCE_DIR}" _stdlib_targets)
+    foreach(_target IN LISTS _stdlib_targets)
+        get_target_property(_module_directory "${_target}" Fortran_MODULE_DIRECTORY)
+        if(_module_directory AND NOT _module_directory MATCHES "-NOTFOUND$")
+            foreach(_configuration IN LISTS CMAKE_CONFIGURATION_TYPES)
+                file(MAKE_DIRECTORY "${_module_directory}/${_configuration}")
+            endforeach()
+        endif()
+    endforeach()
+
+    unset(_stdlib_targets)
+    unset(_target)
+    unset(_module_directory)
+    unset(_configuration)
+endif()
 
 # =============================================================================
 # Include Fortran dependency analysis
