@@ -4,7 +4,7 @@ MODULE GETDIRQQ
 
    USE mod_parameters
    USE sglobal, ONLY : error_mode
-   USE stdlib_system, ONLY : base_name, dir_name, get_cwd
+   USE stdlib_system, ONLY : base_name, dir_name, get_cwd, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN
    USE IFWIN
@@ -32,8 +32,7 @@ CONTAINS
       CHARACTER(LEN=LENGTH_LINE)     :: message, dum1, dum2, code
       CHARACTER(LEN=LENGTH_FILEPATH) :: cli_argument, fn_part
       LOGICAL                        :: ex, found_catchment
-      INTEGER                        :: dir_len, ios, na
-	  character 					 :: sep
+      INTEGER                        :: ios, na
 #ifdef SHETRAN_HAVE_QUICKWIN
       INTEGER(KIND=I_P)              :: ierror
       LOGICAL(KIND=4)                :: bret
@@ -55,7 +54,7 @@ CONTAINS
             code = '-a'  !popup window is default if there is a fortran compiler on Windows
 #else
             code = '-f'  !otherwise filename is default and user must provide it as an argument
-#endif           
+#endif
         ENDIF
 
       message = ''
@@ -187,39 +186,12 @@ CONTAINS
       ELSE
          dirqq = dir_name(TRIM(cli_argument))
          fn_part = base_name(TRIM(cli_argument))
-         dir_len = LEN_TRIM(dirqq)
-         !write(*,*) 'Debug: cli_argument=', TRIM(cli_argument), ' dirqq=', TRIM(dirqq), ' fn_part=', TRIM(fn_part)
- 
-         ! legacy code requires a trailing slash on the directory path (dirqq), so we add it if it's missing
-         IF (dir_len > 0) THEN
-            IF (INDEX(cli_argument, '\') > 0) then
-			   sep = '\'
-			ELSE 
-			   sep = '/'
-			ENDIF
-			!write(*,*), dirqq, len(dirqq), sep
-			if (dirqq(len(trim(dirqq)):) /= sep ) then
-               dirqq = trim(dirqq) // sep
-            END IF
-			!write(*,*), dirqq, len(dirqq), sep
-         END IF
-!        IF (dir_len > 1) THEN
- !           IF (dirqq(dir_len:dir_len) == '/' .OR. dirqq(dir_len:dir_len) == '\') THEN
- !              IF (.NOT. (dir_len == 3 .AND. dirqq(2:2) == ':')) THEN
- !                 dirqq = dirqq(1:dir_len - 1)
- !              END IF
- !           END IF
- !        END IF
       END IF
 
-!change fn as it was not working in quickwin. 
-! fn  is the full filename with path, fn_part is the filename without path. The catchment name is derived from the filename without path.
-!      write(*,*) 'Debug: cli_argument=', TRIM(cli_argument), ' dirqq=', TRIM(dirqq), ' fn_part=', TRIM(fn_part)
-      fn = TRIM(cli_argument)
+      ! Reconstruct the validated rundata path with the platform separator.
+      ! DIRQQ remains a directory path without an appended separator.
+      fn = join_path(TRIM(dirqq), TRIM(fn_part))
       catch = derive_catch_from_filename(fn_part)
-
-      !fn = TRIM(fn_part)
-      !catch = derive_catch_from_filename(fn)
 
    CONTAINS
 
@@ -304,39 +276,39 @@ CONTAINS
       CHARACTER(210) :: msg2
 
       iret = COMMDLGEXTENDEDERROR()
-      msg1 = 'FILE OPEN DIALOG FAILURE'C
+      msg1 = 'FILE OPEN DIALOG FAILURE'
 
       SELECT CASE(iret)
       CASE (CDERR_FINDRESFAILURE)
-         msg2 = 'The common dialog box procedure failed to find a specified resource.'C
+         msg2 = 'The common dialog box procedure failed to find a specified resource.'
       CASE (CDERR_INITIALIZATION)
-         msg2 = 'The common dialog box procedure failed during initialization.'C
+         msg2 = 'The common dialog box procedure failed during initialization.'
       CASE (CDERR_LOCKRESFAILURE)
-         msg2 = 'The common dialog box procedure failed to lock a specified resource.'C
+         msg2 = 'The common dialog box procedure failed to lock a specified resource.'
       CASE (CDERR_LOADRESFAILURE)
-         msg2 = 'The common dialog box procedure failed to load a specified resource.'C
+         msg2 = 'The common dialog box procedure failed to load a specified resource.'
       CASE (CDERR_LOADSTRFAILURE)
-         msg2 = 'The common dialog box procedure failed to load a specified string.'C
+         msg2 = 'The common dialog box procedure failed to load a specified string.'
       CASE (CDERR_MEMALLOCFAILURE)
-         msg2 = 'The common dialog box procedure was unable to allocate memory for internal structures.'C
+         msg2 = 'The common dialog box procedure was unable to allocate memory for internal structures.'
       CASE (CDERR_MEMLOCKFAILURE)
-         msg2 = 'The common dialog box procedure was unable to lock memory associated with a handle.'C
+         msg2 = 'The common dialog box procedure was unable to lock memory associated with a handle.'
       CASE (CDERR_NOHINSTANCE)
-         msg2 = 'The common dialog box requires an instance handle but none was provided.'C
+         msg2 = 'The common dialog box requires an instance handle but none was provided.'
       CASE (CDERR_NOHOOK)
-         msg2 = 'The common dialog box requires a hook procedure but none was provided.'C
+         msg2 = 'The common dialog box requires a hook procedure but none was provided.'
       CASE (CDERR_NOTEMPLATE)
-         msg2 = 'The common dialog box requires a template but none was provided.'C
+         msg2 = 'The common dialog box requires a template but none was provided.'
       CASE (CDERR_STRUCTSIZE)
-         msg2 = 'The common dialog box structure size is invalid.'C
+         msg2 = 'The common dialog box structure size is invalid.'
       CASE (FNERR_BUFFERTOOSMALL)
-         msg2 = 'The buffer for a filename is too small.'C
+         msg2 = 'The buffer for a filename is too small.'
       CASE (FNERR_INVALIDFILENAME)
-         msg2 = 'A filename is invalid.'C
+         msg2 = 'A filename is invalid.'
       CASE (FNERR_SUBCLASSFAILURE)
-         msg2 = 'An attempt to subclass a list box failed because insufficient memory was available.'C
+         msg2 = 'An attempt to subclass a list box failed because insufficient memory was available.'
       CASE DEFAULT
-         msg2 = 'Unknown error number'C
+         msg2 = 'Unknown error number'
       END SELECT
 
       IF (iret /= 0) THEN
