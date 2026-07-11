@@ -304,39 +304,39 @@ CONTAINS
       CHARACTER(210) :: msg2
 
       iret = COMMDLGEXTENDEDERROR()
-      msg1 = 'FILE OPEN DIALOG FAILURE'C
+      msg1 = 'FILE OPEN DIALOG FAILURE'
 
       SELECT CASE(iret)
       CASE (CDERR_FINDRESFAILURE)
-         msg2 = 'The common dialog box procedure failed to find a specified resource.'C
+         msg2 = 'The common dialog box procedure failed to find a specified resource.'
       CASE (CDERR_INITIALIZATION)
-         msg2 = 'The common dialog box procedure failed during initialization.'C
+         msg2 = 'The common dialog box procedure failed during initialization.'
       CASE (CDERR_LOCKRESFAILURE)
-         msg2 = 'The common dialog box procedure failed to lock a specified resource.'C
+         msg2 = 'The common dialog box procedure failed to lock a specified resource.'
       CASE (CDERR_LOADRESFAILURE)
-         msg2 = 'The common dialog box procedure failed to load a specified resource.'C
+         msg2 = 'The common dialog box procedure failed to load a specified resource.'
       CASE (CDERR_LOADSTRFAILURE)
-         msg2 = 'The common dialog box procedure failed to load a specified string.'C
+         msg2 = 'The common dialog box procedure failed to load a specified string.'
       CASE (CDERR_MEMALLOCFAILURE)
-         msg2 = 'The common dialog box procedure was unable to allocate memory for internal structures.'C
+         msg2 = 'The common dialog box procedure was unable to allocate memory for internal structures.'
       CASE (CDERR_MEMLOCKFAILURE)
-         msg2 = 'The common dialog box procedure was unable to lock memory associated with a handle.'C
+         msg2 = 'The common dialog box procedure was unable to lock memory associated with a handle.'
       CASE (CDERR_NOHINSTANCE)
-         msg2 = 'The common dialog box requires an instance handle but none was provided.'C
+         msg2 = 'The common dialog box requires an instance handle but none was provided.'
       CASE (CDERR_NOHOOK)
-         msg2 = 'The common dialog box requires a hook procedure but none was provided.'C
+         msg2 = 'The common dialog box requires a hook procedure but none was provided.'
       CASE (CDERR_NOTEMPLATE)
-         msg2 = 'The common dialog box requires a template but none was provided.'C
+         msg2 = 'The common dialog box requires a template but none was provided.'
       CASE (CDERR_STRUCTSIZE)
-         msg2 = 'The common dialog box structure size is invalid.'C
+         msg2 = 'The common dialog box structure size is invalid.'
       CASE (FNERR_BUFFERTOOSMALL)
-         msg2 = 'The buffer for a filename is too small.'C
+         msg2 = 'The buffer for a filename is too small.'
       CASE (FNERR_INVALIDFILENAME)
-         msg2 = 'A filename is invalid.'C
+         msg2 = 'A filename is invalid.'
       CASE (FNERR_SUBCLASSFAILURE)
-         msg2 = 'An attempt to subclass a list box failed because insufficient memory was available.'C
+         msg2 = 'An attempt to subclass a list box failed because insufficient memory was available.'
       CASE DEFAULT
-         msg2 = 'Unknown error number'C
+         msg2 = 'Unknown error number'
       END SELECT
 
       IF (iret /= 0) THEN
