@@ -394,7 +394,7 @@ CONTAINS
       IMPLICIT NONE
 
       ! Arguments
-      INTEGER, INTENT(OUT)         :: IXER
+      INTEGER, INTENT(INOUT)       :: IXER
       INTEGER, INTENT(OUT)         :: NOCBC
 
       ! Local Variables
