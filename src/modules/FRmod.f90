@@ -3,6 +3,7 @@ MODULE FRmod
 !                       Replaces the FR .F files
 !***ZQ Module 200520 new variables iszq,zqd
    USE stdlib_system, ONLY : join_path
+   USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : ERROR_UNIT, IOSTAT_END
    USE SGLOBAL
    USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
 !USE SGLOBAL, ONLY :     NELEE, nlfee, noctab, NXEE, NYEE, NVEE, BDEVER, SHEVER, BANNER, FILNAM, DIRQQ, &
@@ -1535,6 +1536,7 @@ CONTAINS
       IMPLICIT NONE
 
       INTEGER :: I, ios
+      LOGICAL :: at_eof
       CHARACTER (LEN=200) :: FILNAM2
 
       !----------------------------------------------------------------------*
@@ -1567,8 +1569,8 @@ CONTAINS
       OPEN (61, FILE = FILNAM2, IOSTAT = ios)
       IF (ios /= 0) CALL stop_open_error(FILNAM2)
 
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios /= 0) CALL stop_rundata_error(CNAM)
+      CALL read_rundata_record(FILNAM, at_eof, 'rundata header')
+      IF (at_eof) CALL stop_eof_error(CNAM)
 
       !***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
       !***extra psl 110324 change log file to unit 53 and read DO 100 I = 10, 52 (was 50). see extra lines at the end
@@ -1578,9 +1580,8 @@ CONTAINS
 
       ! Main file reading loop
       DO I = 10, 50
-         READ (2, '(A)', IOSTAT = ios) FILNAM
-
-         IF (ios < 0) THEN
+         CALL read_rundata_record(FILNAM, at_eof, unit_context(I, 'description'))
+         IF (at_eof) THEN
             IF (I < 14) CALL stop_eof_error(CNAM)
             iszq = .FALSE.
             isextrapsl = .FALSE.
@@ -1590,9 +1591,8 @@ CONTAINS
          END IF
 
          WRITE (61, '(A)') FILNAM
-         READ (2, '(A)', IOSTAT = ios) FILNAM
-
-         IF (ios < 0) THEN
+         CALL read_rundata_record(FILNAM, at_eof, unit_context(I, 'filename'))
+         IF (at_eof) THEN
             IF (I < 14) CALL stop_eof_error(CNAM)
             iszq = .FALSE.
             isextrapsl = .FALSE.
@@ -1639,8 +1639,8 @@ CONTAINS
       END DO
 
       !***ZQ Module 200520
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios /= 0) THEN
+      CALL read_rundata_record(FILNAM, at_eof, unit_context(51, 'description'))
+      IF (at_eof) THEN
          iszq = .FALSE.
          isextrapsl = .FALSE.
          ismn = .FALSE.
@@ -1649,9 +1649,8 @@ CONTAINS
       END IF
 
       WRITE (61, '(A)') FILNAM
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-
-      IF (ios /= 0) THEN
+      CALL read_rundata_record(FILNAM, at_eof, unit_context(51, 'filename'))
+      IF (at_eof) THEN
          iszq = .FALSE.
          isextrapsl = .FALSE.
          ismn = .FALSE.
@@ -1669,8 +1668,8 @@ CONTAINS
       END IF
 
       !extra psl 110324
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios /= 0) THEN
+      CALL read_rundata_record(FILNAM, at_eof, unit_context(52, 'description'))
+      IF (at_eof) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
          CLOSE (2)
@@ -1678,9 +1677,8 @@ CONTAINS
       END IF
 
       WRITE (61, '(A)') FILNAM
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-
-      IF (ios /= 0) THEN
+      CALL read_rundata_record(FILNAM, at_eof, unit_context(52, 'filename'))
+      IF (at_eof) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
          CLOSE (2)
@@ -1698,17 +1696,16 @@ CONTAINS
       END IF
 
       !nitrate component 230925
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-      IF (ios /= 0) THEN
+      CALL read_rundata_record(FILNAM, at_eof, unit_context(53, 'description'))
+      IF (at_eof) THEN
          ismn = .FALSE.
          CLOSE (2)
          RETURN
       END IF
 
       WRITE (61, '(A)') FILNAM
-      READ (2, '(A)', IOSTAT = ios) FILNAM
-
-      IF (ios /= 0) THEN
+      CALL read_rundata_record(FILNAM, at_eof, unit_context(53, 'filename'))
+      IF (at_eof) THEN
          ismn = .FALSE.
          CLOSE (2)
          RETURN
@@ -1726,12 +1723,12 @@ CONTAINS
 
       ! Remaining nitrate files
       DO I = 54, 60
-         READ (2, '(A)', IOSTAT = ios) FILNAM
-         IF (ios /= 0) EXIT
+         CALL read_rundata_record(FILNAM, at_eof, unit_context(I, 'description'))
+         IF (at_eof) EXIT
 
          WRITE (61, '(A)') FILNAM
-         READ (2, '(A)', IOSTAT = ios) FILNAM
-         IF (ios /= 0) EXIT
+         CALL read_rundata_record(FILNAM, at_eof, unit_context(I, 'filename'))
+         IF (at_eof) EXIT
 
          IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
             WRITE (61, '("- NOT USED")')
@@ -1748,6 +1745,41 @@ CONTAINS
       RETURN
 
    CONTAINS
+
+      SUBROUTINE read_rundata_record(line, at_eof, context)
+         CHARACTER(LEN=*), INTENT(OUT) :: line
+         LOGICAL, INTENT(OUT) :: at_eof
+         CHARACTER(LEN=*), INTENT(IN) :: context
+
+         INTEGER :: read_status
+         CHARACTER(LEN=512) :: message
+
+         ! An '(A)' read consumes exactly one physical record.  In particular,
+         ! a blank record is a successful read whose result is all blanks.
+         line = ''
+         message = ''
+         at_eof = .FALSE.
+         READ (2, '(A)', IOSTAT=read_status, IOMSG=message) line
+
+         IF (read_status == 0) RETURN
+         IF (read_status == IOSTAT_END) THEN
+            at_eof = .TRUE.
+            RETURN
+         END IF
+
+         WRITE (ERROR_UNIT, '(A)') 'ERROR READING RUNDATA FILE '//TRIM(CNAM)// &
+            ' ('//TRIM(context)//'): '//TRIM(message)
+         ERROR STOP 'RUNDATA READ ERROR'
+      END SUBROUTINE read_rundata_record
+
+
+      FUNCTION unit_context(unit, record_kind) RESULT(context)
+         INTEGER, INTENT(IN) :: unit
+         CHARACTER(LEN=*), INTENT(IN) :: record_kind
+         CHARACTER(LEN=64) :: context
+
+         WRITE (context, '("unit ",I0,1X,A)') unit, TRIM(record_kind)
+      END FUNCTION unit_context
 
       ! Internal helpers to cleanly exit without jumping to bottom labels
       SUBROUTINE stop_eof_error(c_name)
