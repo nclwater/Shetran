@@ -33,7 +33,7 @@ CONTAINS
       CHARACTER(LEN=LENGTH_FILEPATH) :: cli_argument, fn_part
       LOGICAL                        :: ex, found_catchment
       INTEGER                        :: dir_len, ios, na
-	  character 					 :: sep
+	  character                      :: sep
 #ifdef SHETRAN_HAVE_QUICKWIN
       INTEGER(KIND=I_P)              :: ierror
       LOGICAL(KIND=4)                :: bret
@@ -55,7 +55,7 @@ CONTAINS
             code = '-a'  !popup window is default if there is a fortran compiler on Windows
 #else
             code = '-f'  !otherwise filename is default and user must provide it as an argument
-#endif           
+#endif
         ENDIF
 
       message = ''
@@ -189,12 +189,12 @@ CONTAINS
          fn_part = base_name(TRIM(cli_argument))
          dir_len = LEN_TRIM(dirqq)
          !write(*,*) 'Debug: cli_argument=', TRIM(cli_argument), ' dirqq=', TRIM(dirqq), ' fn_part=', TRIM(fn_part)
- 
+
          ! legacy code requires a trailing slash on the directory path (dirqq), so we add it if it's missing
          IF (dir_len > 0) THEN
             IF (INDEX(cli_argument, '\') > 0) then
 			   sep = '\'
-			ELSE 
+			ELSE
 			   sep = '/'
 			ENDIF
 			!write(*,*), dirqq, len(dirqq), sep
@@ -212,7 +212,7 @@ CONTAINS
  !        END IF
       END IF
 
-!change fn as it was not working in quickwin. 
+!change fn as it was not working in quickwin.
 ! fn  is the full filename with path, fn_part is the filename without path. The catchment name is derived from the filename without path.
 !      write(*,*) 'Debug: cli_argument=', TRIM(cli_argument), ' dirqq=', TRIM(dirqq), ' fn_part=', TRIM(fn_part)
       fn = TRIM(cli_argument)
