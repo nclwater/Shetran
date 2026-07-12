@@ -2,14 +2,19 @@
 
 ## Compiler Support
 
-The following cases have been tested:
+The following build configurations have been tested:
 
-- Windows + Visual Studio 2022 + ifx 2026
-- Windows + CMake + ifx 2026
-- Linux + CMake + ifx 2026
-- Linux + CMake + gfortran 16.1
+| Platform | Build system | Fortran compiler | CMake |
+| --- | --- | --- | --- |
+| Windows | Visual Studio 2026 | Intel ifx 2026.1 | 4.4 |
+| Windows | NMake | Intel ifx 2026.1 | 4.3 |
+| Linux | Make | Intel ifx 2026.1 | 4.3 |
+| Linux | Make | GNU Fortran 16.1 | 4.3 |
 
-With any other platform and compiler your MMV.
+The CMake-generated Visual Studio workflow requires **CMake 4.4 or newer**.
+
+On Windows, SHETRAN has been tested both with a rundata file supplied on the command line and with the interactive QuickWin file picker. 
+Other platforms, compilers, and versions may work, but have not been verified.
 
 ## Windows
 
@@ -19,7 +24,7 @@ The easiest way to build SHETRAN on Windows is by using the provided `build.bat`
 
 #### Prerequisites
 
-* **CMake** (version 3.20 or higher) added to your system PATH. Get it from the official [webpage](https://cmake.org/download/).
+* **CMake** added to your system PATH. The NMake workflow requires version 3.20 or higher; **CMake-generated Visual Studio solutions require CMake 4.4 or higher**. Get it from the official [webpage](https://cmake.org/download/).
 * **Intel oneAPI HPC Toolkit** installed (specifically providing the `ifx` Fortran compiler). Currently you can get it from [here](https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneapi-toolkit-download.html).
 * **Python tooling with `fypp` available on PATH**. `fypp` is required by the Fortran stdlib build.
 * The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
@@ -150,37 +155,91 @@ The generated entry point is `docs\ford\index.html`.
 
 ### Visual Studio
 
-Because SHETRAN requires automatic Fortran module dependency sorting and builds HDF5 from source, manually configuring a Visual Studio project is highly discouraged. Instead, you should let CMake generate the Visual Studio Solution (`.sln`) for you.
+Because SHETRAN requires automatic Fortran module dependency sorting and builds HDF5 and Fortran stdlib from source, manually configuring a Visual Studio project is highly discouraged. Let CMake generate the Visual Studio solution (`.sln` or `.slnx`) instead.
+
+> **CMake 4.4 or higher is mandatory for this Visual Studio workflow.** Do not generate the solution with CMake 4.3 or an older release.
 
 #### Generating the Solution
 
-1. Open a command prompt with CMake in your PATH.
-2. Create a specific directory for your Visual Studio build:
+The recommended method is the supplied `setup_vs_sln.bat` script:
+
+1. Open an Intel oneAPI command prompt or a normal command prompt from which `ifx` is available.
+2. Activate the Python environment containing `fypp` and verify that it is visible in that same prompt:
 
    ```cmd
-   mkdir build\vs
-   cd build\vs
+   conda activate shetran
+   where fypp
    ```
 
-3. Generate the solution file. You must instruct Visual Studio to use the modern Intel LLVM compiler (`ifx`) by passing the `-T fortran=ifx` toolset argument:
+3. From the repository root, run:
 
    ```cmd
-   cmake -G "Visual Studio 17 2022" -T "fortran=ifx" ..\..
+   setup_vs_sln.bat
    ```
 
-   *(If you are using Visual Studio 2019, use `-G "Visual Studio 16 2019"` instead).*
-4. Open the generated `SHETRAN.sln` file in Visual Studio.
-5. In the **Solution Explorer**, right-click the **SHETRAN** project and select **Set as Startup Project**.
-6. Select your desired configuration (e.g., `Release` or `Debug`) from the top toolbar and build the solution (**Build > Build Solution** or `Ctrl+Shift+B`).
+The script performs the following checks and setup:
+
+* Requires **CMake 4.4 or higher**.
+* Requires `fypp` to be available in the current environment and passes its absolute path to CMake. Visual Studio therefore does not need to be launched from an activated conda environment.
+* Checks for Intel `ifx` and attempts to initialise the standard oneAPI environment if necessary.
+* Uses the Visual Studio Installer's `vswhere.exe` to detect installed Visual Studio 2019, 2022, and 2026 versions.
+* Generates an independent solution and CMake cache for every installed version:
+
+  | Visual Studio | Generator | Output directory |
+  | --- | --- | --- |
+  | 2026 | `Visual Studio 18 2026` | `build\vs_2026` |
+  | 2022 | `Visual Studio 17 2022` | `build\vs_2022` |
+  | 2019 | `Visual Studio 16 2019` | `build\vs_2019` |
+
+If several Visual Studio versions are installed, all applicable solutions are generated in one run. Before generating a solution, the script **deletes its existing `build\vs_VERSION` directory** to prevent stale CMake caches, generated sources, object files, or dependency artifacts from affecting the new solution. Close Visual Studio before running the script so that files in these directories are not locked. Other build directories, including `build\debug`, `build\release`, and the older unversioned `build\vs`, are not touched.
+
+To generate one solution manually, use the matching generator and versioned directory. For Visual Studio 2026, for example:
+
+```cmd
+conda activate shetran
+cmake -S . -B build\vs_2026 ^
+  -G "Visual Studio 18 2026" ^
+  -A x64 ^
+  -T "fortran=ifx" ^
+  -DFYPP:FILEPATH="%CONDA_PREFIX%\Scripts\fypp.exe"
+```
+
+Use `Visual Studio 17 2022` with `build\vs_2022`, or `Visual Studio 16 2019` with `build\vs_2019`, when generating for those releases.
+
+#### Building and Debugging
+
+1. Open `SHETRAN.slnx` or `SHETRAN.sln` from the appropriate `build\vs_VERSION` directory.
+2. Select **Debug** and **x64** in the Visual Studio toolbar.
+3. In **Solution Explorer**, right-click **SHETRAN** and select **Set as Startup Project**.
+4. Build with **Build > Build Solution** or `Ctrl+Shift+B`. The first build also compiles HDF5 and Fortran stdlib and will take considerably longer than later builds.
+5. To debug a particular model, open the **SHETRAN Project Properties**, select **Debugging**, and set its working directory and arguments. For example:
+
+   ```text
+   Working Directory: <repository>\examples\Aire_at_Kildwick_Bridge-simple\model
+   Command Arguments: -f rundata_Aire_at_Kildwick_Bridge.txt
+   ```
+
+6. Start debugging with **Debug > Start Debugging** or `F5`.
+
+The equivalent command-line build is:
+
+```cmd
+cmake --build build\vs_2026 --config Debug --target SHETRAN --parallel
+```
+
+Debug executables and PDB files are written below `build\vs_VERSION\bin\Debug`.
 
 #### Behind the Scenes: CMake to Visual Studio Mappings
 
 If you inspect the Visual Studio property pages of the generated project, you will notice CMake has automatically applied the following essential settings:
 
+* **Fortran stdlib preprocessing**: `fypp` runs during CMake configuration so its generated Fortran sources exist when Visual Studio scans module and submodule dependencies. The normal custom-build rules remain in the generated projects for subsequent source changes.
+* **Fortran module output**: Per-configuration module directories are created for `Debug`, `Release`, and `ReleaseNative` before `ifx` writes `.mod` and `.smod` files.
+* **Mixed C/Fortran stdlib system target**: C helper objects and Fortran modules are built by the appropriate Visual Studio project systems and combined into the stdlib system library.
 * **Fortran > Libraries**: Static Intel runtime linking is enabled when `STATIC_RUNTIME=ON` (via `/libs:static`).
 * **C/C++ > Code Generation > Runtime Library**: With `STATIC_RUNTIME=ON`, set to **Multi-threaded** (`/MT` for Release, `/MTd` for Debug).
   *(These static runtime linkage settings ensure the resulting `.exe` can be distributed and run on machines without Intel oneAPI installed).*
-* **Linker & Includes**: Automatically pointed to the `hdf5-install` directory generated by the external build step.
+* **Linker & Includes**: Automatically pointed to the configuration-specific libraries and module files below the generated `hdf5-install` directory.
 
 #### Legacy Manual Visual Studio Project
 
