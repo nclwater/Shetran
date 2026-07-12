@@ -69,6 +69,8 @@ build.bat
 
 This will configure and build a `Release` version of SHETRAN. The resulting executable will be located at `build\release\bin\shetran.exe`.
 
+On Windows, CMake also generates and compiles a version resource into `shetran.exe`. The executable properties shown by Windows Explorer use the version from the top-level CMake `project()` declaration together with the product and company information in `src\resource\shetran.rc.in`. Change the CMake project version for a new SHETRAN release; do not edit a generated `build\...\generated\shetran.rc` file.
+
 **Available Options:**
 
 * `-t, --type TYPE` : Build type: `Debug`, `Release`, or `ReleaseNative` (default: `Release`).
@@ -240,6 +242,7 @@ If you inspect the Visual Studio property pages of the generated project, you wi
 * **C/C++ > Code Generation > Runtime Library**: With `STATIC_RUNTIME=ON`, set to **Multi-threaded** (`/MT` for Release, `/MTd` for Debug).
   *(These static runtime linkage settings ensure the resulting `.exe` can be distributed and run on machines without Intel oneAPI installed).*
 * **Linker & Includes**: Automatically pointed to the configuration-specific libraries and module files below the generated `hdf5-install` directory.
+* **Windows version resource**: CMake expands `src\resource\shetran.rc.in` into `generated\shetran.rc` in the selected build directory, compiles it with the Windows resource compiler, and links the resulting version metadata into `shetran.exe`.
 
 #### Legacy Manual Visual Studio Project
 
@@ -321,7 +324,8 @@ If you cannot use CMake-generated Visual Studio solutions, the older manual proj
    * All `.f90` files from `src/visualisation`.
    * The static HDF5 libraries from `external\manual-install\hdf5\lib`.
    * The static Fortran stdlib libraries from `external\manual-install\stdlib\lib`, including the `fortran_stdlib_system` library used by SHETRAN.
-   * `src/resource/resource1.rc`, added under **Resource files**.
+
+   The CMake build normally generates the Windows version resource from `src\resource\shetran.rc.in`. A fully manual Visual Studio project cannot add the `.rc.in` template directly: copy it to a local `shetran.rc`, replace every `@PROJECT_VERSION...@` placeholder with the release's numeric version components (and `@PROJECT_VERSION@` with the dotted version), then add that generated `.rc` file under **Resource files**. This resource is optional for program operation, but omitting it leaves the Windows executable version and product properties blank.
 
 7. Add include directories under **Project > SHETRAN Properties > Configuration Properties > Fortran > General > Additional Include Directories**.
    Use **All Configurations** so this applies to both Debug and Release.

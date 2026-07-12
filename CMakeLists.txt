@@ -17,7 +17,13 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND NOT DEFINED CMAKE_Fortran_COMPILE
     endif()
 endif()
 
-project(SHETRAN LANGUAGES Fortran C)
+project(SHETRAN VERSION 4.6.4.0 LANGUAGES Fortran C)
+
+# Windows executable metadata is compiled from a generated resource script.
+# Keep RC Windows-only so Linux builds do not need a resource compiler.
+if(WIN32)
+    enable_language(RC)
+endif()
 
 # =============================================================================
 # Build type
@@ -561,6 +567,22 @@ message(STATUS "Total sources found: ${SOURCES_COUNT}")
 # Create executable
 # =============================================================================
 add_executable(SHETRAN ${SHETRAN_SOURCES})
+
+if(WIN32)
+    set(SHETRAN_GENERATED_RESOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    set(SHETRAN_GENERATED_RESOURCE "${SHETRAN_GENERATED_RESOURCE_DIR}/shetran.rc")
+
+    file(MAKE_DIRECTORY "${SHETRAN_GENERATED_RESOURCE_DIR}")
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/resource/shetran.rc.in"
+        "${SHETRAN_GENERATED_RESOURCE}"
+        @ONLY
+    )
+    target_sources(SHETRAN PRIVATE "${SHETRAN_GENERATED_RESOURCE}")
+    set_source_files_properties("${SHETRAN_GENERATED_RESOURCE}" PROPERTIES
+        COMPILE_DEFINITIONS "$<$<CONFIG:Debug>:_DEBUG>"
+    )
+endif()
 
 add_dependencies(SHETRAN HDF5_external)
 
