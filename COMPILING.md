@@ -318,7 +318,7 @@ If you cannot use CMake-generated Visual Studio solutions, the older manual proj
    * All `.f90` files from `src/modules`.
    * All `.f90` files from `src/parameters`.
    * `mod_load_filedata.f90` from `src/util`.
-   * All `.f90` files from `src/visualisation`, except `include_extend_s.f90` and `include_increment.f90`, which must be present but not included in the project.
+   * All `.f90` files from `src/visualisation`.
    * The static HDF5 libraries from `external\manual-install\hdf5\lib`.
    * The static Fortran stdlib libraries from `external\manual-install\stdlib\lib`, including the `fortran_stdlib_system` library used by SHETRAN.
    * `src/resource/resource1.rc`, added under **Resource files**.
