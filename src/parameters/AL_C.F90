@@ -164,16 +164,6 @@ MODULE AL_C
    DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE ::  RDF !root density function
 !    DOUBLEPRECISION, DIMENSION(NVEE,LLEE) :: RDF !root density function
 
-!SOIL (NSEE)
-   INTEGER                          :: NS  !no. of soil types
-   DOUBLEPRECISION, DIMENSION(NSEE)         :: THSAT, VSPOR !saturated m/c and porosity
-!SOIL LAYERS (NLYREE)
-   INTEGER, DIMENSION(:,:) , ALLOCATABLE :: NLYRBT,NTSOIL  !bottom cell no in each soil layer and soil type in soil layer
-   DOUBLEPRECISION, DIMENSION(:,:) , ALLOCATABLE :: ZLYRBT  !elevatuion of bottom of soil layer
-!    INTEGER, DIMENSION(NELEE,NLYREE) :: NLYRBT, & !bottom cell no in each soil layer
-!                                        NTSOIL    !soil type in soil layer
-!    DOUBLEPRECISION, DIMENSION(NELEE,NLYREE) :: ZLYRBT    !elevatuion of bottom of soil layer
-
 ! Soil and soil-layer state
    INTEGER :: NS                              !! Number of soil types.
    DOUBLEPRECISION, DIMENSION(NSEE) :: THSAT  !! Saturated moisture content by soil type.
@@ -204,34 +194,6 @@ MODULE AL_C
    DOUBLEPRECISION, ALLOCATABLE :: QVSWLI(:,:) !! Well flux by VSS cell and well element.
    DOUBLEPRECISION, ALLOCATABLE :: ERUZ(:,:)   !! Root-zone extraction by element and VSS cell.
    DOUBLEPRECISION, ALLOCATABLE :: QVSH(:,:,:) !! Lateral VSS flux by face, cell, and element.
-
-!----- Time-dependent stuff
-!?????????
-   !2D PLAN(NELEE)
-   INTEGER, DIMENSION(NXEE*NYEE)   :: IDUM
-   !INTEGER, DIMENSION(NELEE)   :: IDUM,ISORT, & !
-   INTEGER, DIMENSION(NELEE)   :: ISORT, & !
-      NHSAT !not used ????
-   DOUBLEPRECISION, DIMENSION(NELEE)   :: DRAINA, & !
-      DUMMY,  & !
-      ESOILA, & !
-      EEVAP,  & !
-      PNETTO, & !
-      QH,     & !
-      WBERR,  & !
-      ZVSPSL, & !phreatic surface level?
-      QVSBF,  & !
-      QVSSPR, & !
-      QVSWEL
-   DOUBLEPRECISION, DIMENSION(NELEE,4) :: QOC  !overalnd flow through face  (inflow or outflow???)
-!3D (LLEE)
-   !DOUBLEPRECISION, DIMENSION(NELEE,LLEE)   :: ERUZ     !transpiration ??>>
-   !DOUBLEPRECISION, DIMENSION(LLEE,NELEE)   :: QVSV,  & !vertical flow
-   !                                    VSPSI, & !psi
-   !                                    VSTHE    !theta
-   !DOUBLEPRECISION, DIMENSION(4,LLEE,NELEE) :: QVSH     !cell horiziontal flow ????
-   DOUBLEPRECISION, DIMENSION(:,:)  , ALLOCATABLE :: QVSV, VSPSI, VSTHE, QVSWLI, ERUZ
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: QVSH
 
 !LINK (NLFEE)
    DOUBLEPRECISION, DIMENSION(NLFEE)   :: ARXL  !cross-sectional area of flow????
