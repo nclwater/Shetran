@@ -11,6 +11,7 @@
 # General Imports
 import argparse
 import os
+import re
 
 # Package Imports
 import pandas as pd
@@ -20,6 +21,70 @@ from _methods import compare as compare
 from _methods import compute as compute
 from _methods import settings as settings
 from _methods import util as util
+
+
+_USE_DEFAULT_OVERVIEW_WITH_COMPILER = "__use_default_overview_with_compiler__"
+
+
+def _normalise_compiler_name(compiler: str) -> str:
+
+    compiler_name = os.path.basename(compiler.strip()).lower()
+    compiler_name = os.path.splitext(compiler_name)[0]
+
+    if compiler_name.startswith("gfortran"):
+        compiler_name = "gfortran"
+
+    compiler_name = re.sub(r"[^A-Za-z0-9_-]+", "_", compiler_name)
+    return compiler_name or "unknown_compiler"
+
+
+def _get_compiler_from_cmake_cache(fn_shetran: str) -> str:
+
+    fn_shetran_abs = os.path.abspath(os.path.expanduser(fn_shetran))
+    search_dir = os.path.dirname(fn_shetran_abs)
+
+    while True:
+        fn_cmake_cache = os.path.join(search_dir, "CMakeCache.txt")
+        if os.path.isfile(fn_cmake_cache):
+            with open(fn_cmake_cache, encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("CMAKE_Fortran_COMPILER:"):
+                        compiler = line.partition("=")[2].strip()
+                        return _normalise_compiler_name(compiler)
+            break
+
+        next_search_dir = os.path.dirname(search_dir)
+        if next_search_dir == search_dir:
+            break
+        search_dir = next_search_dir
+
+    return "unknown_compiler"
+
+
+def _with_csv_extension(filename: str) -> str:
+
+    if os.path.splitext(filename)[1]:
+        return filename
+    return f"{filename}.csv"
+
+
+def _with_filename_suffix(filename: str, suffix: str) -> str:
+
+    stem, ext = os.path.splitext(filename)
+    return f"{stem}_{suffix}{ext}"
+
+
+def _get_overview_filename(overview_filename: str | None,
+                           fn_shetran: str) -> str:
+
+    if overview_filename is None:
+        return settings.fn_overall_analysis
+
+    if overview_filename == _USE_DEFAULT_OVERVIEW_WITH_COMPILER:
+        compiler = _get_compiler_from_cmake_cache(fn_shetran)
+        return _with_filename_suffix(settings.fn_overall_analysis, compiler)
+
+    return _with_csv_extension(overview_filename)
 
 
 def _get_all_models() -> list[str]:
@@ -284,6 +349,19 @@ def main() -> None:
               "If omitted, uses the value from fn_shetran in this script."),
     )
     parser.add_argument(
+        "-o",
+        "--overview-file",
+        "--comparison-overview-file",
+        dest="overview_filename",
+        nargs="?",
+        const=_USE_DEFAULT_OVERVIEW_WITH_COMPILER,
+        default=None,
+        help=(
+            "Filename for the overall comparison CSV. If given without a "
+            "filename, appends the detected compiler name to the default "
+            "filename. If the filename has no extension, .csv is appended."),
+    )
+    parser.add_argument(
         "-m",
         "--model",
         action="append",
@@ -338,7 +416,9 @@ def main() -> None:
 
     if overview:
         df_overview = pd.DataFrame.from_dict(overview, orient="index")
-        df_overview.to_csv(settings.fn_overall_analysis)
+        fn_overview = _get_overview_filename(args.overview_filename,
+                                             args.fn_shetran)
+        df_overview.to_csv(fn_overview)
 
 
 if __name__ == "__main__":

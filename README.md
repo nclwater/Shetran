@@ -10,17 +10,29 @@ Download the zip file from the latest release and then extract it.
 
 ## Sample Usage
 
-Double click on exectuable, e.g. 'SHETRAN.exe' in the shetran folder that has been extracted.
+Double click on exectuable, e.g. 'shetran.exe' in the shetran folder that has been extracted.
 Then select a rundata file from one of the examples data sets.
+
+## Compiling & Development
+
+See [COMPILING.md](COMPILING.md) for instructions on how to compile the program.
+
+For iterative local development builds on Windows, use `build.bat -t Release --clean-app` to rebuild SHETRAN quickly without rebuilding external libraries.
+The equivalent Linux command is nearly identical: `./build.sh -t Release --clean-app`.
 
 ## Documentation
 
-Some documentation, especially the official user manual, can be found in the ``docs`` folder.
-Additionally, in-code-documentation can be generated using [FORD](https://forddocs.readthedocs.io/en/stable/index.html).
+This project is setup to support [FORD](https://github.com/Fortran-FOSS-Programmers/ford) for in-code documentation.
+The current state of the documentation can be generated from the project root using either:
 
-Generating the documentation is done as follows:
+```cmd
+build.bat --docs-only
+```
 
-1. Install FORD into a Python environment, by running ```pip install ford```.
-2. Generate the documentation itself by running ```ford -o docs/ford ford_project.md``` from the project root. 
+or directly via FORD:
 
-The generated documentation can then be found in the ``docs/ford`` folder.
+```powershell
+ford -o docs\ford .\ford_project.md
+```
+
+The generated documentation entry point is [FORD index](docs/ford/index.html).

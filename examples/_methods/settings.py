@@ -74,7 +74,7 @@ list_short_runtime = [
     # "reservoir-ZQmodule-example",
     "Slapton",
     "Slapton-1D-1year-nitrate",
-    "Slapton-3D-1year-nitrate"
+    "Slapton-3D-1year-nitrate",
 ]
 
 # Indicators which files are for what comparison.
@@ -82,6 +82,7 @@ list_short_runtime = [
 list_table_files_indicators = [
     "_sim_daily.",
     "_sim_hourly.",
+    "_discharge_everytimestep.",
     "_discharge_sim_everytimestep.",
     "_discharge_sim_regulartimestep.",
     "_mb.water_table_depth.",
@@ -94,9 +95,9 @@ tolerance_table = 0.001
 
 # Filename settings
 shetran_executable_name = "shetran.exe" if os.name == "nt" else "shetran"
-default_shetran_exe = fn_shetran = os.path.join(_REPO_ROOT_DIR, "build",
-                                                "release", "bin",
-                                                shetran_executable_name)
+default_shetran_exe = fn_shetran = os.path.join(
+    _REPO_ROOT_DIR, "build", "release", "bin", shetran_executable_name
+)
 fn_model_analysis = "model_analysis.csv"
 fn_overall_analysis = "comparison_overview.csv"
 fn_setup_overview = "setup_overview.csv"
