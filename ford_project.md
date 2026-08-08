@@ -1,6 +1,6 @@
 ---
 project: SHETRAN
-version: 4.6.2
+version: 4.6.4
 license: GPL-3.0-or-later
 author: Newcastle University Water Group
 author_description: Hydrological modeling research group
