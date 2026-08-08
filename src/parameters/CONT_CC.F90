@@ -1,95 +1,105 @@
+!> summary: Shared state and properties for contaminant transport.
+!>
+!> Replaces the legacy `CONT.CC` common blocks with module data for contaminant
+!> boundary conditions, concentrations, adsorption and decay properties,
+!> retardation, and channel-bed exchange. [[cmmod]] reads and advances this
+!> state, while [[frmod]] derives coefficients and establishes initial values.
+!> [[mnmod]] supplies nitrate and plant source/sink terms through `SSS1` and
+!> `SSS2`, and [[visualisation_interface_left]] exposes current concentrations.
+!>
+!> Fixed-size arrays use the compile-time maxima imported from `SGLOBAL`. The
+!> eight allocatable runtime arrays use active extents set by
+!> `initialise_cont_cc`: concentration and source arrays are indexed by element,
+!> cell, and contaminant; bank-retardation arrays add a bank-side index after the
+!> link index. Module state is public by default and is mutated during
+!> initialisation and simulation.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.1 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Completed the original implementation. |
+!> | 1991-06-18 | JE | 3.1 | Added the `WELC` well-concentration block. |
+!> | 1997-02-24 | RAH | 4.1 | Added explicit typing. |
+!> | 2004-11 | JE | - | Converted to Fortran 95. |
+!> | 2026-03 | SB | 4.6.1 | Made eight runtime arrays allocatable and added active-size allocation. |
+!> @endhistory
 MODULE CONT_CC
    USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements,top_cell_no,total_no_links
    IMPLICIT NONE
-!*------------------------------ Start of CONT.CC ----------------------*
-!*
-!*                       INCLUDE FILE FOR CONTAMIANT VARIABLES AND DATA
-!*
-!*----------------------------------------------------------------------*
-!* Version:  SHETRAN/INCLUDE/CONT.CC/4.1
-!* Modifications:
-!*                           JE     26/4/91   3.1     WRITTEN
-!*                           JE     13/6/91   3.1     COMPLETED
-!*                           JE     18/6/91   3.1     BLOCK WELC ADDED
-!* RAH  970224  4.1  Explicit typing.
-!  JE  NOV 04 ---- Convert to FORTRAN 95
-! SB    Mar26   4.6 added total_no_elements,top_cell_no,total_no_links to subroutine
-!                    make the following allocatable CCCC, CCCCO, SSSS, SSSSO, SSS1, SSS2, FCPBKO, GCPBKO
-!                    Add initialise_cont_cc() where these arrays are allocated
-!*----------------------------------------------------------------------*
-!* Imported constants
-!*                      LLEE,NCONEE,NELEE,NLFEE,NSEE
-!* Commons
-   DOUBLEPRECISION CCAPB(NELEE,NCONEE),CCPBO(NELEE,NCONEE)
-   DOUBLEPRECISION CCAPE(NELEE,NCONEE)
-   DOUBLEPRECISION CCAPI(NCONEE),      CCAPIO(NCONEE)
-   DOUBLEPRECISION CCAPR(NELEE,NCONEE),CCAPRO(NELEE,NCONEE)
-   DOUBLEPRECISION IIICF(NCONEE),      IIICFO(NCONEE)
-!      COMMON/  CBDY   /CCAPB,CCPBO,CCAPE,CCAPI,CCAPIO,CCAPR,CCAPRO,
-!     $                 IIICF,IIICFO
-!*                             CONTAMINANT CONCENTRATION AND
-!*                             FLUX BOUNDARY CONDITIONS
 
-   DOUBLEPRECISION CCCCW(NELEE,NCONEE)
-!      COMMON/  WELC   /CCCCW
-!*                             CONTAMINANT CONCENTRATION IN WELL WATER
+   DOUBLEPRECISION CCAPB(NELEE,NCONEE)  !! Base concentration boundary by element and contaminant.
+   DOUBLEPRECISION CCPBO(NELEE,NCONEE)  !! Legacy companion to `CCAPB`; not referenced by current source.
+   DOUBLEPRECISION CCAPE(NELEE,NCONEE)  !! External-inflow concentration by element and contaminant.
+   DOUBLEPRECISION CCAPI(NCONEE)        !! Current rainfall concentration by contaminant.
+   DOUBLEPRECISION CCAPIO(NCONEE)       !! Previous rainfall concentration by contaminant.
+   DOUBLEPRECISION CCAPR(NELEE,NCONEE)  !! Base flux-boundary concentration by element and contaminant.
+   DOUBLEPRECISION CCAPRO(NELEE,NCONEE) !! Legacy companion to `CCAPR`; not referenced by current source.
+   DOUBLEPRECISION IIICF(NCONEE)        !! Current dry-deposition rate by contaminant.
+   DOUBLEPRECISION IIICFO(NCONEE)       !! Previous dry-deposition rate by contaminant.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCC, CCCCO
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSS, SSSSO
-!     DOUBLEPRECISION CCCC(NELEE,LLEE,NCONEE),CCCCO(NELEE,LLEE,NCONEE)
-!      DOUBLEPRECISION SSSS(NELEE,LLEE,NCONEE),SSSSO(NELEE,LLEE,NCONEE)
-!      COMMON/  CONC   /CCCC,CCCCO,SSSS,SSSSO
-!*                             CONCENTRATIONS WITHIN CATCHMENT
+   DOUBLEPRECISION CCCCW(NELEE,NCONEE) !! Well-water concentration by well/element and contaminant.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS1, SSS2
-!     DOUBLEPRECISION SSS1(NELEE,LLEE,NCONEE), SSS2(NELEE,LLEE,NCONEE)
-!                           SOURCE/SINK TERMS FOR PLANT UPTAKE AND NITRATE
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCC  !! Current dynamic-region concentration.
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCCO !! Previous dynamic-region concentration.
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSS  !! Current dead-space-region concentration.
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSSO !! Previous dead-space-region concentration.
 
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS1 !! Dynamic-region nitrate/plant source-sink term.
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS2 !! Dead-space-region nitrate/plant source-sink term.
 
-   DOUBLEPRECISION GCPLA(NCONEE),GGLMSO(NCONEE)
-!      COMMON/  GEN    /GCPLA,GGLMSO
-!*                             CONTAMINANT DECAY RATES
+   DOUBLEPRECISION GCPLA(NCONEE)  !! Scaled chemical-decay coefficient by contaminant.
+   DOUBLEPRECISION GGLMSO(NCONEE) !! Input chemical-decay constant by contaminant.
 
-   DOUBLEPRECISION CCAPIN(NCONEE)
-!      COMMON/  INIT   /CCAPIN
-!*                             INITIAL CONCENTRATION
+   DOUBLEPRECISION CCAPIN(NCONEE) !! Uniform or link-element initial concentration by contaminant.
 
-   DOUBLEPRECISION ALPHA(NSEE,NCONEE),FADS(NSEE,NCONEE)
-   DOUBLEPRECISION GNN(NCONEE)
-   DOUBLEPRECISION KDDLS(NSEDEE,NCONEE)
-   DOUBLEPRECISION KDDSOL(NSEE,NCONEE)
-!      COMMON/  NNNN   /ALPHA,FADS,GNN,KDDLS,KDDSOL
-!*                             CONTAMINANT PROPERTIES FOR SOIL
-!*                             AND SEDIMENT
+   DOUBLEPRECISION ALPHA(NSEE,NCONEE)   !! Exchange coefficient between soil regions by soil and contaminant.
+   DOUBLEPRECISION FADS(NSEE,NCONEE)    !! Dynamic-region fraction of adsorption sites by soil and contaminant.
+   DOUBLEPRECISION GNN(NCONEE)          !! Freundlich isotherm exponent by contaminant.
+   DOUBLEPRECISION KDDLS(NSEDEE,NCONEE) !! Reference distribution coefficient by sediment size and contaminant.
+   DOUBLEPRECISION KDDSOL(NSEE,NCONEE)  !! Derived soil distribution coefficient by soil and contaminant.
 
-   INTEGER          NCON
-!      COMMON/  NCONS  /NCON
-!*                             NUMBER OF CONTAMINANTS
+   INTEGER NCON !! Number of active contaminants.
 
+   DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO !! Dynamic-region bank retardation storage.
+   DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO !! Dead-space-region bank retardation storage.
+   DOUBLEPRECISION FSF(NLFEE,NCONEE)  !! Stream-water retardation coefficient by link and contaminant.
+   DOUBLEPRECISION FSFC(NLFEE,NCONEE) !! Concentration derivative of `FSF`.
+   DOUBLEPRECISION FSFT(NLFEE,NCONEE) !! Time derivative of `FSF`.
+   DOUBLEPRECISION RSW(NELEE,NCONEE)  !! Surface-water retardation coefficient by element and contaminant.
+   DOUBLEPRECISION RSWC(NELEE,NCONEE) !! Concentration derivative of `RSW`.
+   DOUBLEPRECISION RSWT(NELEE,NCONEE) !! Time derivative of `RSW`.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO
-   DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO
-!      DOUBLEPRECISION FCPBKO(NLFEE,2,LLEE,NCONEE)
-!      DOUBLEPRECISION GCPBKO(NLFEE,2,LLEE,NCONEE)
-   DOUBLEPRECISION    FSF(NLFEE,NCONEE),       FSFC(NLFEE,NCONEE)
-   DOUBLEPRECISION   FSFT(NLFEE,NCONEE),        RSW(NELEE,NCONEE)
-   DOUBLEPRECISION   RSWC(NELEE,NCONEE),       RSWT(NELEE,NCONEE)
-
-!      COMMON/  RETN   /FCPBKO,GCPBKO,FSF,FSFC,FSFT,RSW,RSWC,RSWT
-!*                             RETARDATION VARIABLES USED IN THE
-!*                             CALCULATIONS FOR IMPLICIT LATERAL
-!*                             COUPLING BY BANK EROSION AND WITH
-!*                             CONVECTION WITH SURFACE FLOWS
-
-   DOUBLEPRECISION ALPHBD(NCONEE),ALPHBS(NCONEE)
-!      COMMON/  SBED   /ALPHBD,ALPHBS
-!*                             COEFFICIENTS FOR EXCHANGE BETWEEN CELLS
-!*                             OF A LINK
+   DOUBLEPRECISION ALPHBD(NCONEE) !! Exchange coefficient between channel-bed layers by contaminant.
+   DOUBLEPRECISION ALPHBS(NCONEE) !! Stream-water/channel-bed exchange coefficient by contaminant.
 
 !PRIVATE :: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE
 
 CONTAINS
 
+!> Allocates and zero-initialises the active contaminant state arrays.
+!>
+!> [[run_sim:simulation]] calls this routine when contaminant transport is
+!> enabled, after [[visualisation_interface_left:get_ncon_early]] has read
+!> `NCON` and the model dimensions have been established.
+!>
+!> | Arrays | Allocated shape | Initial value |
+!> |:-------|:----------------|:--------------|
+!> | `CCCC`, `CCCCO`, `SSSS`, `SSSSO`, `SSS1`, `SSS2` | `(total_no_elements, top_cell_no + 1, NCON)` | Zero |
+!> | `FCPBKO`, `GCPBKO` | `(total_no_links, 2, top_cell_no + 1, NCON)` | Zero |
+!>
+!> The routine has no dummy arguments and mutates allocatable state in
+!> `CONT_CC`. Allocation is unconditional and has no `STAT=` handler, so all
+!> eight arrays must be unallocated on entry. The current run path calls the
+!> routine once and does not explicitly deallocate these arrays; a second call
+!> in the same process would therefore fail unless the caller first deallocates
+!> them.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03 | SB | 4.6.1 | Added active-size allocation for contaminant state arrays. |
+!> @endhistory
    SUBROUTINE initialise_cont_cc()
 
       allocate   (cccc(total_no_elements,top_cell_no+1,ncon),cccco(total_no_elements,top_cell_no+1,ncon))
