@@ -878,6 +878,7 @@ CONTAINS
    !> | 1994-09-17 | RAH | Created the v3.4.1 routine; the dated source note was added on 1994-09-30. |
    !> | 2000-03-07 | SB | Removed the legacy IEEE calls for the v4g-pc version. |
    !> | 2026-03-28 | SvB | Converted `FLAG` to selected integer kind with input intent, replaced the legacy pause with an explicit prompt/read, and added the initial FORD block. |
+   !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-05-10 | SvB | Removed the interactive wait and changed normal `STOP` to `ERROR STOP` for scripted use. |
    !> @endhistory
    SUBROUTINE ALSTOP (FLAG)

@@ -1,8 +1,29 @@
+!> @brief Miscellaneous run-control, meteorological input, and water-balance routines.
+!>
+!> `rest` collects legacy routines that do not naturally belong to one of the
+!> process-specific modules. [[extra_output]] writes the end-of-run error
+!> summary and spatially averaged water-balance totals to the `.pri` output.
+!> [[balwat]] maintains the per-column/link cumulative water-balance
+!> diagnostic `WBERR`. [[metin]] reads or interpolates the meteorological
+!> forcing (precipitation, potential evaporation, radiation, wind,
+!> temperature, and time-varying vegetation/canopy parameters) needed as the
+!> simulation clock advances. [[tmstep]] computes the next model timestep,
+!> subject to soft-start, snowmelt, meteorological record-boundary, and
+!> runtime-error-driven limits, and calls [[metin]] to keep forcing data
+!> current for the chosen step.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2005-01-25 | SB | - | Added spatially averaged cumulative-flux and end-of-run storage summary output to `extra_output`. |
+!> | 2008-12 | JE | 4.3.5F90 | Created during Fortran 90 conversion, to collect `.F` routines without another natural module home. |
+!> | 2020-07-07 | SB | - | Added timestep reduction in `TMSTEP` after selected flow errors (1024, 1030, 1060). |
+!> | 2026-03-19 | SB | 4.6.1 | Added optional date-aware (ISO 8601) precipitation, potential-evaporation, and max/min-temperature file input (`BMETDATES`) to `METIN` and `TMSTEP`. |
+!> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` call in `BALWAT` with a direct array-slice assignment. |
+!> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow in `METIN` and `TMSTEP` with named `DO`/`CYCLE`/`EXIT` constructs. |
+!> | 2026-05-10 | SvB | - | Removed interactive "press enter to continue" prompts after fatal read errors in `METIN`/`TMSTEP`; replaced with `ERROR STOP`. |
+!> @endhistory
 MODULE rest
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Mops up .F files that do not have a natural home in any other module
-! SB  mar 26   4.6      Added dates to met files. precipitation (prd), Potential evaporation (epd) and max and min temperatrue
-!
    USE SGLOBAL
 !USE SGLOBAL,    ONLY : NELEE, NVEE
    USE AL_G,    ONLY : icmref
@@ -22,8 +43,12 @@ MODULE rest
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE
 
-   LOGICAL :: FIRST_balwat=.TRUE.
-   DOUBLEPRECISION :: STORW_balwat(NELEE)=zero, pinp(nvee+10)=zero, METIME=zero, MELAST=zero, EPTIME=zero
+   LOGICAL :: FIRST_balwat=.TRUE. !! `.TRUE.` until `BALWAT` has initialised `STORW_balwat` and `WBERR` on its first call.
+   DOUBLEPRECISION :: STORW_balwat(NELEE)=zero !! Water storage depth for each element/link at the previous `BALWAT` call (m).
+   DOUBLEPRECISION :: pinp(nvee+10)=zero !! Current precipitation input by rain station, used by `METIN` and `TMSTEP` (mm/hr).
+   DOUBLEPRECISION :: METIME=zero !! End time of the current precipitation/full-meteorological record window (h).
+   DOUBLEPRECISION :: MELAST=zero !! Start time of the current precipitation/full-meteorological record window (h).
+   DOUBLEPRECISION :: EPTIME=zero !! End time of the current potential-evaporation record window (h).
 
    PRIVATE
 
@@ -33,7 +58,43 @@ MODULE rest
 
 CONTAINS
 
-!SSSSSS SUBROUTINE extra_output
+!> Writes end-of-run error counts and spatially averaged water-balance summaries.
+!>
+!> `extra_output` is called once after the simulation loop completes. It
+!> prints the `FLERRC`/`SYERRC`/`CMERRC` flow, sediment, and contaminant error
+!> counters (indices 0-100, offset by 1000/2000/3000 respectively for the
+!> printed error number), the normal-completion line to standard output, and
+!> catchment-averaged cumulative-flux and end-of-run storage totals to the
+!> `.pri` output, using [[al_d]]'s `BALANC` accumulator and `CAREA`:
+!>
+!> | `BALANC` index | Quantity |
+!> |:---------------|:---------|
+!> | 7 | Cumulative precipitation |
+!> | 8 | Cumulative canopy evaporation |
+!> | 9 | Cumulative soil/surface evaporation |
+!> | 10 | Cumulative transpiration |
+!> | 11 | Cumulative aquifer flow |
+!> | 12 | Cumulative discharge |
+!> | 13 | Canopy storage |
+!> | 14 | Snow storage |
+!> | 15 | Subsurface storage |
+!> | 16 | Surface storage |
+!> | 17 | Channel storage |
+!>
+!> Each total is printed as `BALANC(i) * 1000 / CAREA` (mm), converting the
+!> volume accumulator (m^3) to a depth over the catchment plan area (m^2).
+!>
+!> @note
+!> As documented on [[al_d]], no current routine assigns `FLERRC`, `SYERRC`,
+!> or `CMERRC`; the error-count section of this output is therefore always
+!> zero in the current build.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2005-01-25 | SB | - | Added the spatially averaged cumulative-flux and storage summary output. |
+!> @endhistory
    SUBROUTINE extra_output()
       INTEGER :: i
       DOUBLEPRECISION    :: car
@@ -96,42 +157,73 @@ CONTAINS
 
 
 
-SUBROUTINE BALWAT
-      !----------------------------------------------------------------------*
-      !          Returns WBERR(column or link no.)
-      !          the balance error for water depth. This is the
-      !          extra depth, in metres, of water created during the
-      !          timestep.
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/BALWAT/4.1
-      ! Modifications:
-      !  RAH  03.10.94  Version 3.4.1 from version 3.4 Aug 94: std header;
-      !                 declare everything; extra comments.
-      !                 Initialize STORW; set WBERR=0 on first pass.
-      !  GP  20.02.95  updated for SHETRAN V4.0 (finished 15/1/96)
-      !                  Mods for new VSS module: one loop for all elements;
-      !                  scrap AMULT,JBK,NLINKA,NLKSA; asumQ for advection;
-      !                  replace DDZ,TH3,RSZAQ,RSZWEL,QHSZ with DELTAZ,
-      !                  VSTHE,QVSBF,QVSWEL,QVSH (note change in sign); QBK*
-      !                  implicit in QVSH (except QBKF for link elements).
-      ! RAH  970217  4.1  Swap subscripts: QVSH,DELTAZ,VSTHE (see AL.C).
-      !      970606       Rename locals NCE,NCL as CELL,IEL.
-      !----------------------------------------------------------------------*
-      ! Commons and constants
-      ! Imported constants
-      !     AL.P:            LLEE,NELEE,NLFEE
-      ! Input common
-      !     AL.C:            LL,NLYRBT(NEL,1),AREA(NEL),CWIDTH(NLFEE)
-      !                      DELTAZ(LLEE,NEL),ZGRUND(NLF+1,NEL)
-      !                      DTUZ,ARXL(NLFEE),EEVAP(NEL),ERUZ(NELEE,LLEE)
-      !                      HRF(NLF+1:NEL),PNETTO(NEL),QBKF(NLFEE,2)
-      !                      QOC(NELEE,4),QVSBF(NEL),QVSH(4,LLEE,NEL)
-      !                      QVSWEL(NEL),VSTHE(LLEE,NEL),
-      !     AL.G:            NEL,ICMREF(NEL,1)
-      ! In+out common
-      !     AL.C:            WBERR(NEL)
-
-      ! Note: Implicit variables from COMMON blocks or modules are used here.
+!> Updates the cumulative water-balance error [[al_c]]`:WBERR` for each column or link.
+!>
+!> The routine computes the change in stored surface/subsurface water since
+!> the previous call and compares it with the net supplied depth over the
+!> last timestep (precipitation, evaporation, subsurface exchange, well flow,
+!> overland flow, and lateral subsurface advection). The residual is
+!> accumulated in `WBERR` as a diagnostic depth in metres.
+!>
+!> The stored depth used by the balance is
+!>
+!> \[
+!> S_{iel} =
+!> \begin{cases}
+!> ARXL_{iel}/CWIDTH_{iel}, & \text{channel links (}ICMREF(iel,1)=3\text{)},\\
+!> HRF_{iel}-ZGRUND_{iel}, & \text{otherwise},
+!> \end{cases}
+!> + \sum_{k=NLYRBT(iel,1)}^{LL} \Delta z_{k,iel}\,\theta_{k,iel},
+!> \]
+!>
+!> where \(\theta\) is `VSTHE` and `HRF` is read through [[ocmod2:gethrf]].
+!> The storage change is \(\Delta S = S_{iel}-S^{old}_{iel}\), where
+!> \(S^{old}\) is the previous call's `STORW_balwat`. On the first call
+!> (`FIRST_balwat`) `WBERR` is initialised to zero and `STORW_balwat` is
+!> primed with \(S\), but no residual is added because no previous storage
+!> state is available.
+!>
+!> On subsequent calls the supplied rate depth before timestep conversion is
+!>
+!> \[
+!> I_{iel} =
+!> PNETTO_{iel} - EEVAP_{iel} + QVSBF_{iel} - QVSWEL_{iel}
+!> - \sum_k ERUZ_{iel,k}
+!> + \frac{Q_{adv}}{AREA_{iel}},
+!> \]
+!>
+!> with channel-bank exchange \(Q_{adv} = -QBKF_{iel,1}-QBKF_{iel,2}\) for
+!> channel links, and zero otherwise, before the paired face-direction terms
+!> are added for \(j=1,2\):
+!>
+!> \[
+!> Q_{adv} \leftarrow Q_{adv}
+!> - QOC_{iel,j} + QOC_{iel,j+2}
+!> + \sum_k \left(QVSH_{j,k,iel}+QVSH_{j+2,k,iel}\right).
+!> \]
+!>
+!> The timestep input depth is `DEPTHI = I * DTUZ`, and the diagnostic update
+!> is
+!>
+!> \[
+!> WBERR_{iel} \leftarrow WBERR_{iel} + \Delta S - DEPTHI .
+!> \]
+!>
+!> @note
+!> This routine has no dummy arguments. It reads and updates shared grid,
+!> geometry, flow, and water-level state from `SGLOBAL`, `AL_C`, `AL_D`, and
+!> `AL_G`, and calls [[ocmod2:gethrf]] for the current surface water level.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Standard header, explicit declarations, extra comments, and first-pass storage initialisation. |
+!> | 1995-02-20 | GP | 4.0 | Updated for the VSS module and revised subsurface flow variables. |
+!> | 1997-02-17 | RAH | 4.1 | Swapped array subscripts for `QVSH`, `DELTAZ`, and `VSTHE`; renamed local counters. |
+!> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` call with a direct `WBERR` array-slice assignment and replaced the `GOTO 400` skip on the first call with the `IF (.NOT. FIRST_balwat)` block. |
+!> @endhistory
+   SUBROUTINE BALWAT
       IMPLICIT NONE
 
       DOUBLE PRECISION :: DELSTO, DEPTHI, DEPTHS, asum, asumQ
@@ -141,7 +233,6 @@ SUBROUTINE BALWAT
       ! Initialization
       ! --------------
 
-      ! Replaced ALINIT with Fortran array slice
       IF (FIRST_balwat) WBERR(1:total_no_elements) = ZERO
 
       ! Loop Over Columns
@@ -175,7 +266,6 @@ SUBROUTINE BALWAT
          ! ------------------------------------------------------------
          ! * ... but only if we have a bona fide value for DELSTO
 
-         ! GOTO 400 removed and replaced with a logical IF block
          IF (.NOT. FIRST_balwat) THEN
 
             ! * sources and sinks
@@ -218,82 +308,102 @@ SUBROUTINE BALWAT
    END SUBROUTINE BALWAT
 
 
-   !SSSSSS SUBROUTINE METIN
+   !> Reads or interpolates meteorological forcing required by ET, interception, and snowmelt.
+   !>
+   !> `METIN` advances precipitation, potential evaporation, radiation, wind,
+   !> temperature, vapour pressure deficit, and (via [[utilsmod:terpo1]]) the
+   !> current time-varying canopy-storage-capacity, plant/land-cover leaf-area,
+   !> and vegetation-height values in [[etmod]] needed for the current
+   !> simulation time. In date-aware mode, [[tmstep]] first checks and positions
+   !> the dated forcing files; `METIN` then consumes the selected records and
+   !> converts their ISO-8601-like date fields to SHETRAN hours using
+   !> [[utilsmod:hour_from_date]].
+   !>
+   !> | Mode | Files and records | Code path |
+   !> |:-----|:-------------------|:----------|
+   !> | `BMETAL=.FALSE.` | Full meteorological data in `MED`, updated every `DTMET` hours. If `NM=NRAIN`, rainfall and meteorological data share the same station distribution and are read together; optional measured PE follows on the next `MED` record. If `NM/=NRAIN`, meteorological and rainfall data are read from separate `MED` record groups. | Reads `RN`, `U`, `TA`, `DEL`, `VPD`, optional `OBSPE`, and `PINP`. |
+   !> | `BMETAL=.TRUE.` | Separate precipitation (`PRD`) and potential-evaporation (`EPD`) files, updated every `DTMET2` and `DTMET3` hours respectively. Optional date-aware files carry an ISO-8601-like first column when `BMETDATES=.TRUE.`, with optional companion max/min-temperature files (`TAH`/`TAL`) when `ISTA` is enabled. | `PINP` is read from `PRD`; potential evaporation `PEIN`/`OBSPE` is read from `EPD`. |
+   !>
+   !> The principal variables and units are:
+   !>
+   !> | Variable | Meaning | Input units | Internal use |
+   !> |:---------|:--------|:------------|:-------------|
+   !> | `ISITE` | Station identifier. | - | Read but not used for interpolation here. |
+   !> | `METIME` | Validity time of the current meteorological data. | h | Advanced by `DTMET`, `DTMET2`, or `DTMET3`. |
+   !> | `DTMET` | Full meteorological-data interval. | h | `MED` update interval. |
+   !> | `DTMET2` | Precipitation-data interval. | h | `PRD` update interval. |
+   !> | `DTMET3` | Potential-evaporation-data interval. | h | `EPD` update interval. |
+   !> | `PINP` | Precipitation. | mm/hr in `MED`; interval depth over `DTMET2` in `PRD` | Stored as a rate in mm/hr for timestep accumulation in [[tmstep]]. |
+   !> | `OBSPE` | Measured potential evaporation/evapotranspiration. | mm/hr in `MED`; interval depth over `DTMET3` in `EPD` | Converted to mm/s for ET calculations. |
+   !> | `RN` | Net radiation. | W/m^2 | Used by ET. |
+   !> | `U` | Wind speed. | m/s | Used by ET. |
+   !> | `TA` | Air temperature. | C | Used by ET and snowmelt; from max/min temperature average when `ISTA` is enabled. |
+   !> | `DEL` | Slope of saturation vapour pressure versus temperature. | mb/C | Used by ET. |
+   !> | `VPD` | Vapour pressure deficit. | mb | Used by ET. |
+   !> | `PA` | Atmospheric pressure. | mb | Read from `MED` into the local `PA` but not otherwise used. |
+   !> | `IDATA` | Data-quality indicator. | - | Read from `MED` but not used. |
+   !>
+   !> For separate `PRD`/`EPD` files the input is an interval amount; the code
+   !> converts it to a rate before later timestep averaging:
+   !>
+   !> \[
+   !> PINP_i = \frac{PRD_i}{DTMET2},\qquad
+   !> PEIN_i = \frac{EPD_i}{DTMET3}.
+   !> \]
+   !>
+   !> [[tmstep]] later accumulates `PINP` over the model timestep and converts
+   !> the average precipitation to `precip_m_per_s` with
+   !> `PTOT / UZNEXT / 3.6E6`. For separate `EPD` input, `METIN` accumulates
+   !> potential evaporation over the current model timestep,
+   !>
+   !> \[
+   !> PETOT_i = \sum_m \Delta t_m\,PEIN_{i,m},
+   !> \]
+   !>
+   !> then stores the ET-module value as
+   !>
+   !> \[
+   !> OBSPE_i = \frac{PETOT_i}{UZNEXT\,3600},
+   !> \]
+   !>
+   !> in mm/s. When max/min temperature forcing is available, the air
+   !> temperature used at the end of the timestep is the simple average
+   !> \(TA_i=(TAHIGH_i+TALOW_i)/2\). If an input file ends, the first
+   !> occurrence is reported to the `.pri` output and remaining precipitation
+   !> or PE values are set to zero, while missing optional max/min
+   !> temperatures default to 10 C; a malformed record is a fatal
+   !> `ERROR STOP` rather than end-of-file. The legacy comment notes that
+   !> precipitation is averaged over the computational timestep elsewhere;
+   !> that averaging is performed by [[tmstep]].
+   !>
+   !> Finally, `METIN` updates any time-varying vegetation parameters flagged
+   !> in [[etmod]] (`MODECS`, `MODEPL`, `MODECL`, `MODEVH`) by calling
+   !> [[utilsmod:terpo1]] at the current `TIMEUZ` (see [[al_d]]) for canopy-storage
+   !> capacity (`CSTCAP`), plant leaf area (`PLAI`), land-cover leaf area
+   !> (`CLAI`), and vegetation height (`VHT`), for every vegetation type `1:NV`.
+   !>
+   !> @note
+   !> For dated `PRD`/`EPD`/`TAH`/`TAL` files the parsed dates are used for
+   !> start-file checks and initial positioning in [[tmstep]]. Within this
+   !> routine the active record windows are still advanced by `DTMET2` and
+   !> `DTMET3`. The declared locals `PER`, `TAHIGHT`, and `TALOWT` are never
+   !> referenced in the current body.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 1994-10-01 | RAH | 3.4.1 | Added legacy double-precision typing. |
+   !> | 1996-12-28 | RAH | 4.1 | Initialised `PELAST`; moved data from `SPEC.ET`; removed redundant interpolation argument. |
+   !> | 2026-03-19 | SB | 4.6.1 | Added optional date-aware meteorological input handling (`BMETDATES`, `TAH`/`TAL`). |
+   !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with named `DO`/`CYCLE`/`EXIT` loop constructs. |
+   !> | 2026-05-10 | SvB | - | Replaced interactive "press enter to continue" prompts after fatal read errors with `ERROR STOP`. |
+   !> @endhistory
    SUBROUTINE METIN (IFLAG)
-   !----------------------------------------------------------------------*
-   !
-   !  THIS SUBROUTINE READS IN THE MET DATA AS REQUIRED FOR THE
-   !  PENMAN-MONTEITH EQUATION, INTERCEPTION (AND SNOW MELT)
-   !  CALCULATIONS.  IT IS ASSUMED THAT A MET DATA PREPROGRAM
-   !  WILL HAVE CARRIED OUT VALIDATION CHECKS.
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/METIN/4.1
-   ! Modifications:
-   ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-   ! RAH  961228  4.1  Initialize PELAST (was undefined). No long comments.
-   !      970516       Bring IDATA & PA from SPEC.ET; don't print values.
-   !                   Also bring EPLAST & PEIN.  Explicit typing.
-   !                   Generic intrinsics.  "PINP" not "P" in list below.
-   !                   Remove local TSTART (redundant), and
-   !                   TERPO1 redundant 7th arg (SPEC.ET arrays NUM*).
-   !----------------------------------------------------------------------*
-   ! Commons and constants
-   !
-   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
-   !     VARIABLE AND UNIT SPEFICATION
-   !
-   !     ISITE - SITE IDENTIFIER                         NON-DIM
-   !     METIME- VALIDITY TIME OF CURRENT MET. DATA      HR
-   !     DTMET - TIMESTEP FOR INPUT OF MET. DATA         HR
-   !     PINP  - PRECIPITATION
-   !                   INPUT                             MM/HR
-   !                   IN THE CALCULATIONS               M/SEC
-   !     OBSPE - MEASURED POTENTIAL EVAPORATION
-   !                   INPUT                             MM/HR
-   !                   IN THE CALCULATIONS               MM/S
-   !     RN    - NET RADIATION                           W/M/M
-   !     U     - WIND SPEED                              M/S
-   !     TA    - AIR TEMPERATURE                         C
-   !     DEL   - SLOPE                                   MB/C
-   !     VPD   - VAPOUR PRESSURE DEFICIT                 MB
-   !970516  The following are read but not used:
-   !     PA    - ATM. PRESSURE                           MB.
-   !     IDATA - DATA QUALITY INDICATOR                  NON-DIM
-   !
-   !
-   !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !     FOR BMETAL = .FALSE. :
-   !     IF THE NUMBER OF RAINFALL STATIONS AND THE NUMBER OF METEOROL-
-   !     OGICAL STATIONS ARE THE SAME, THE STATIONS ARE ASSUMED TO HAVE
-   !     THE SAME GRID-DISTRIBUTION CODE. METEOROLOGICAL AND RAINFALL
-   !     DATA ARE THEN GIVEN TOGETHER IN THE DATA FILE. IF THE NUMBERS
-   !     OF THE STATIONS ARE NOT THE SAME, RAINFALL AND METEOROLOGICAL
-   !     DATA ARE DISTRIBUTED BY SEPERATE GRID-CODES AND ARE READ FROM
-   !     SEPERATE LINES IN THE DATA FILE.
-   !
-   !     FOR BMETAL = .TRUE. :
-   !     EVAPOTR. DATA AND RAINFALL DATA ARE READ FROM TWO SEPARATE FILES.
-   !
-   !     NOTE: THE PRECIPITATION DATA IS AVERAGED OVER A COMPUTATIONAL
-   !           TIMESTEP ELSEWHERE
-   !
-   !     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !
-      ! Assumed external module dependencies providing global variables:
-      ! BMETAL, BMETDATES, prd, NRAIN, PPPRI, uznow, PINP, ZERO, dtmet2, MELAST,
-      ! METIME, BHOTRD, BHOTTI, EPTIME, epd, NM, PEIN, ISTA, TAH, TAHIGH, TAL,
-      ! TALOW, dtmet3, EPLAST, UZNEXT, PETOT, OBSPE, TA, BMETP, DTMET, MED, RN,
-      ! U, PA, DEL, VPD, MEASPE, TIMEUZ, NV, MODECS, CSTCAP, RELCST, TIMCST,
-      ! NCTCST, CSTCA1, MODEPL, PLAI, RELPLA, TIMPLA, NCTPLA, PLAI1, MODECL,
-      ! CLAI, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, VHT, RELVHT, TIMVHT,
-      ! NCTVHT, VHT1, ONE, HOUR_FROM_DATE, TERPO1
-
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: IFLAG
+      INTEGER, INTENT(IN) :: IFLAG !! Read mode: `1` advances precipitation records; `2` advances potential evaporation, temperature, and time-varying vegetation parameters.
 
       ! Locals, etc
       INTEGER             :: I, IDATA, ISITE, K, NN
@@ -751,41 +861,64 @@ SUBROUTINE BALWAT
 
 
 
-!SSSSSS SUBROUTINE TMSTEP
+!> Computes the next simulation timestep and reads any required meteorological data.
+!>
+!> `TMSTEP` is called once per model step. The candidate timestep is limited
+!> by soft-start growth, snowmelt conditions, forcing-data record boundaries,
+!> the configured maximum timestep, and runtime reductions triggered by
+!> selected flow errors; it then advances the meteorological data ([[metin]])
+!> needed for the chosen step. This routine is the main point where
+!> meteorological file timing and hydrological stability controls meet before
+!> the next model step is taken.
+!>
+!> The candidate timestep is first reduced by these controls:
+!>
+!> | Control | Code expression | Effect |
+!> |:--------|:-----------------|:-------|
+!> | Growth from previous step | `UZNEXT*(1+PALFA)` | Prevents abrupt timestep expansion. |
+!> | Soft start | `TMAX*0.05*1.03**NSTEP` for the first 102 steps when `BSOFT` is true | Starts the run with smaller steps; disabled for hot starts. |
+!> | Snowmelt | `0.5` h when snow is present and any met station has `TA>0` | Limits melt-period steps. |
+!> | Runtime errors | `UZNEXT/10` or `UZNEXT/100`, lower-bounded by `0.0003` h | Retries after selected flow errors (`ISERROR`/`ISERROR2`, cleared after use). |
+!>
+!> For date-aware forcing (`BMETDATES`) the first call checks that `PRD`,
+!> `EPD`, and optional `TAH`/`TAL` records do not start after the simulation
+!> start date. It also skips older records until the first record whose date
+!> is within about `0.01` h of `TIH` or later, then backspaces so [[metin]]
+!> can read that record.
+!>
+!> Precipitation is accumulated over the candidate timestep by splitting at
+!> meteorological record boundaries:
+!>
+!> \[
+!> PTOT_i = \sum_m \Delta t_m\,PINP_{i,m}.
+!> \]
+!>
+!> If any accumulated station total would exceed `PMAX`, the timestep is
+!> reduced to the crossing time; if the resulting `UZNEXT` still falls below
+!> \(5\times10^{-5}\) h the run stops fatally (`ERROR` code 1025) since this
+!> normally indicates a data problem. The final element precipitation rate is
+!> then
+!>
+!> \[
+!> precip\_m\_per\_s(e) =
+!> \frac{PTOT_{NRAINC(e)}}{UZNEXT\,3.6\times10^6}.
+!> \]
+!>
+!> Finally `METIN(2)` reads or interpolates PE and time-varying
+!> vegetation/canopy parameters needed for the timestep.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-07 | GP | 3.4 | Reworked `UZNEXT` algorithm and added soft-start controls. |
+!> | 1994-10-03 | RAH | 3.4.1 | Added legacy double-precision typing. |
+!> | 1996-07-17 | GP | 4.0 | Limited timestep during snowmelt. |
+!> | 1998-10-20 | RAH | 4.2 | Reworked control flow and initialisation. |
+!> | 2020-07-07 | SB | - | Added timestep reduction after selected runtime errors. |
+!> | 2026-03-19 | SB | 4.6.1 | Added date-aware checks for meteorological forcing files. |
+!> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with named `DO`/`CYCLE`/`EXIT` loop constructs. |
+!> @endhistory
    SUBROUTINE TMSTEP
-!----------------------------------------------------------------------*
-!
-!  COMPUTE THE NEXT TiMeSTEP AND READ METEOROLOGICAL DATA.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/FR/TMSTEP/4.2
-! Modifications since v3.3:
-!  GP Jul 93  3.4  Rewrite UZNEXT algorithm: scrap inputs PINMAX,PMAX,
-!                  PREST; new inputs NSTEP,BSOFT; new locals EXIT,
-!                  TSOFT,TSTART,TEND; many diffs.
-!                  Call ERROR if UZNEXT too small.
-!                  Call METIN twice, and pass arg IFLAG (see METIN).
-! RAH 941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL(AL.P).
-!  GP 960717  4.0  Constrain UZNEXT.le.TSNOW (new local, also SMFLAG,
-!                  IEL); uses new inputs BEXSM,NM,TA,NLF,NEL,SD.
-! RAH 981020  4.2  Explicit typing.  Generic intrinsics.
-!                  Remove needless FLOAT setting TSOFT.
-!                  Replace loop 22, etc with IF (EXIT) GOTO ...
-!                  Remove redundant TSTART.  Move label 8 inside block.
-!                  Move initializations of EXIT,TOFT,TSNOW.
-!                  Label 45 was 1000.  Test UZNEXT BEFORE loop 50.
-!----------------------------------------------------------------------*
-! Commons and constants
-! Input common
-!     SPEC.AL          FATAL,NEL,NLF,NM,NRAIN,NSTEP,PRI
-!                      PALFA,TMAX,MELAST,METIME,UZNOW
-!                      PINP(NRAIN),SD(NLF+1:NEL),TA(NM)
-!                      BEXSM
-!     SPEC.FR          BSOFT
-! In+out common
-!     SPEC.AL          UZNEXT
-! Output common
-!     SPEC.AL          P(NRAIN),PTOT(NRAIN)
       IMPLICIT NONE
 
 ! Locals, etc
@@ -835,7 +968,7 @@ SUBROUTINE BALWAT
       ! SET TIMESTEP LENGTH
       UZNEXT = MIN(UZNEXT * (1.0d0 + PALFA), TSOFT, TSNOW)
 
-      !**SB 07072020 reduce timestep if there are errors 1024,1030,1060
+      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
       IF (ISERROR2) THEN
          UZNEXT = MAX(0.0003d0, UZNEXT / 10.0d0)
       ELSEIF (ISERROR) THEN

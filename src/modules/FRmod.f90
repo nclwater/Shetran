@@ -1,13 +1,66 @@
+!> @brief Coordinates SHETRAN frame initialisation, file I/O, output, and component setup.
+!>
+!> This module contains the legacy FR "frame" routines that connect SHETRAN's
+!> component models to run data, mesh indexing, output control, hot-start/restart
+!> files, and component initialisation. It reads the global frame input, opens
+!> data files, constructs element/link/bank indexing, calculates element areas
+!> and face lengths, initialises ET, snow, overland/channel, VSS, bank, sediment,
+!> contaminant, plant, and ZQ-table options, and writes both legacy result output
+!> and newer text time series.
+!>
+!> The routines here are primarily orchestration and data-marshalling code rather
+!> than a separate hydrological process formulation. They provide the common
+!> bookkeeping that allows the water-flow, sediment, contaminant, snow, ET, and
+!> reservoir table modules to share geometry, file units, time controls, and
+!> output definitions.
+!>
+!> | Responsibility | Main routines |
+!> |:---------------|:--------------|
+!> | Run setup and file handling | [[fropen]], [[infr]], [[frinit]] |
+!> | Geometry and topology | [[frdim]], [[frltl]], [[frind]], [[frsort]] |
+!> | Optional component setup | [[inet]], [[insm]], [[inbk]], [[incm]], [[inpl]] |
+!> | Runtime frame bookkeeping | [[frmb]], [[froutput]] |
+!> | Result and restart output | [[frresc]], [[frresp]], [[write_dis]], [[write_dis2]] |
+!> | Legacy dummy/checking helpers | [[dinet]], [[dinoc]], [[docin]], [[muerr2]] |
+!>
+!> Only selected orchestration entry points and a small set of frame state
+!> variables are public. Most input readers and helper routines remain private
+!> module implementation details, even though they are documented here because
+!> they define important file-format and coupling behaviour.
+!>
+!> @warning
+!> [[froutput]] declares saved local variables named `next_hour`, `qoctot`,
+!> `uzold`, `sedtot`, `sedfinetot`, and `contamtot`. They shadow the same-named
+!> public module variables imported by [[run_sim]] for automatic
+!> differentiation. Consequently the public copies retain their
+!> declaration-time values while output uses the local copies; only
+!> module-level `icounter2` is updated by the current output path. The private
+!> module `hour_now`, `uznowt`, and `qoctotextra` are likewise shadowed and
+!> unused.
+!> @endwarning
+!>
+!> @warning
+!> `PREVTM` and `GNUCUM` have no declaration initialisation and no assignment
+!> before their first use in [[frresp]]. Output id 44 therefore relies on
+!> processor/startup state on its first result-output call. This documentation
+!> records the current contract; it does not supply an executable default.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed and standardised the FR frame, including impermeable-bed defaults, `BSOFT`, `TIM` migration to `AL_D`, result output, and hot-start/rescue handling. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the FR `.F` files into this Fortran 90 module. |
+!> | 2020-05 | SB | 4.5 | Added ZQ-module variables and support. |
+!> | 2026-03 | SB | 4.6 | Added allocation-based initialisation through `INITIALISE_AL_C3` and `INITIALISE_ETMOD`, date-aware meteorological input through `BMETDATES`, outlet sediment/contaminant text series, water-table and virtual-discharge text output, improved diagnostics, and `.pri` reporting of hard-coded array sizes. |
+!> | 2026-05-03 | SvB | 4.6.1 | Decomposed `FROUTPUT` into phase, sampling, accumulation, formatting, and I/O helpers without changing its output contracts. |
+!> | 2026-07-11 | SvB | 4.6.1 | Made rundata input record-based so blank records, normal EOF, and genuine read failures are distinguished. |
+!> @endhistory
 MODULE FRmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the FR .F files
-!***ZQ Module 200520 new variables iszq,zqd
    USE stdlib_system, ONLY : join_path
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY : ERROR_UNIT, IOSTAT_END
    USE SGLOBAL
    USE CONT_CC, ONLY :    CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
-!USE SGLOBAL, ONLY :     NELEE, nlfee, noctab, NXEE, NYEE, NVEE, BDEVER, SHEVER, BANNER, FILNAM, DIRQQ, &
-!                     VISUALISATION_PLAN_FILENAME, VISUALISATION_CHECK_FILENAME, HDF5FILENAME, CNAM, NCONEE, LLEE, NSEE
    USE AL_G, ONLY :     NX, NY, ICMREF, ICMXY, NGDBGN
    USE AL_C, ONLY :     ARXL, BEXBK, BFB, BHB, BUG, CWIDTH, CLENTH, CMD, CMP, CMT, CMB,  clai, &
       DELTAZ, DRAINA, dhf, DUMMY, DTUZ, EEVAP, ESOILA, &
@@ -18,7 +71,8 @@ MODULE FRmod
       RDL, RDF, SYD, SPR, &
       TIH, UZNEXT, VSPSI, VSD, VSTHE, VSI, VSPOR, WLD, WBERR, ZBEFF, ZBFULL, ZLYRBT, ZVSNOD, &
       ZVSPSL, MND,MNFC,MNFN,MNPL,MNPR,MNOUT1,MNOUT2,MNOUTPL,INITIALISE_AL_C3
-   USE AL_D,    ONLY :  BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BKD, BHOTRD, BWIDTH, BHOTST, BHOTTI, BHOTPR,&
+   USE AL_D,    ONLY :  BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BKD, BHOTRD, BWIDTH, &
+      BHOTST, BHOTTI, BHOTPR, &
       CAREA, CSTORE, DIS, DIS2, DISEXTRA, DXIN, DYIN, DQ0ST, DQIST, DQIST2, DTMET3, EINTA, DTMET, DTMET2, ERZA, ETD, EPOT, &
       EPD, FRD, HOTIME, HOT, TAH, TAL, ISTA,isextradis,iszq,isextrapsl,pslextra, &
       IOCORS, ICLNUM, NCLASS, ICLIST, IODATA, IOELEM, IOSTA, IOSTEP, IOEND, IORES, IOTIME, INGRID, &
@@ -33,7 +87,6 @@ MODULE FRmod
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
-!                     PS1, PLAI1, RELPLA, RELCST, RA, RC, RCF, RELCLA, RELVHT, RTOP, TIMCST, TIMPLA, TIMVHT, TIMCLA,  VHT1
       PS1, PLAI1, RELPLA, RELCST, RA, RC, RCF, RELCLA, RELVHT, RTOP, TIMCST, TIMPLA, TIMVHT, TIMCLA,  VHT1, &
       INITIALISE_ETMOD
    USE VSmod,    ONLY : VSIN, VSPTHE, NVSSOL, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, VSPPSI
@@ -56,64 +109,48 @@ MODULE FRmod
 
 
    IMPLICIT NONE
-!FROM SPEC_FR
-!MODULE SPEC_FR
-!------------------- Start of SPEC.FR ---------------------------------*
-!
-! ^^^ COMMON FILE OF SPECIFICATIONS OF FRAME VARIABLES.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/SPEC.FR/4.2
-! Modifications:
-!   GP        FEB 89    2.0  'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!   GP        AUG 89    2.2  ADD DEFAULT IMPERMEABLE BED LEVEL VARIABLES
-!   GP        MAR 90    3.0     SHETRANUK AMENDMENTS
-!  GP          3.4  Add BSOFT.
-! RAH  03.10.94  Version 3.4.1 from version 3.4: standard format;
-!                 no INTEGER*2; declare everything; no long lines.
-!  GP  950117  4.0  Move TIM to AL.D.
-! RAH  970221  4.1  Remove II,KK,L1,L,NSTRAT,NUZ,INIBDE,ZIBDE,WSI,WS,
-!                   WEXSY,WSYEX,WSER1,WSER2,UZOLD,SZOLD,OCOLD,EXOLD,NOW,
-!                   N1,T,QOCFT,DUMH,BCAL,B1,BIBDE (redundant).
-! RAH  980308  4.2  Remove BUZCAL,BSZCAL,BOCCAL,BEXCAL.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-! SB  Mar 26  4.6  Allocate the following arrays:
-!                  ADD BMETDATES so met data has the option of including dates
-!----------------------------------------------------------------------*
-!
-! ^^^ INTEGER VARIABLES.
-!IMPLICIT NONE
-   INTEGER :: IAOUT
-!COMMON / FRCB1 / IAOUT
-!
-! ^^^ FLOATING-POINT VARIABLES AND ARRAYS.
-!
-   DOUBLEPRECISION ALLOUT, DTAO, TSH, TCH !, TITLE (20)
-!COMMON / FRCB2 / ALLOUT, DTAO, TSH, TCH, TITLE
-!
-! ^^^ LOGICAL VARIABLES.
-!
-   LOGICAL :: BFRTS1, BFRTS2, BINFRP, BTIME, BSOFT
-   LOGICAL :: BSTORE, BPPNET, BPEPOT
-   LOGICAL :: BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD
-!END MODULE SPEC_FR
+   INTEGER :: IAOUT !! Legacy frame-output selector read from the FR data file.
+   DOUBLEPRECISION :: ALLOUT !! Next accumulated legacy output-control time (h).
+   DOUBLEPRECISION :: DTAO   !! Legacy output interval (h).
+   DOUBLEPRECISION :: TSH    !! Sediment-component start time measured from the run start (h).
+   DOUBLEPRECISION :: TCH    !! Contaminant-component start time measured from the run start (h).
+   LOGICAL :: BFRTS1 !! Print the calculation sequence to the screen during simulation.
+   LOGICAL :: BFRTS2 !! Print values exchanged between the frame and components each timestep.
+   LOGICAL :: BINFRP !! Echo frame input data to the print file.
+   LOGICAL :: BTIME  !! Enable time-series result processing.
+   LOGICAL :: BSOFT  !! Enable the shortened-timestep soft start.
+   LOGICAL :: BSTORE !! Enable the legacy result-output method.
+   LOGICAL :: BPPNET !! Print net precipitation arrays.
+   LOGICAL :: BPEPOT !! Print potential-evaporation arrays.
+   LOGICAL :: BPQOC  !! Print overland/channel discharge arrays.
+   LOGICAL :: BPDEP  !! Print surface-water-depth arrays.
+   LOGICAL :: BPQF   !! Print river-level and river-flow arrays.
+   LOGICAL :: BPQH   !! Print infiltration arrays.
+   LOGICAL :: BPQSZ  !! Print saturated-zone flow arrays.
+   LOGICAL :: BPHSZ  !! Print phreatic-surface-level arrays.
+   LOGICAL :: BPBAL  !! Print water-balance arrays.
+   LOGICAL :: BPSD   !! Print snow-depth arrays.
 
-   CHARACTER (LEN=80) :: TITLE
-   CHARACTER(256)     :: msg
+   CHARACTER(LEN=80) :: TITLE !! Current run title or input-section heading.
+   CHARACTER(256)    :: msg   !! Shared formatted diagnostic message.
 
-
-
-!SAVEd variables put here for AD
-   INTEGER, SAVE   :: next_hour = 1, icounter2 = 0
-   INTEGER         :: hour_now
-   DOUBLEPRECISION :: qoctot = 0.0d0, uzold = 0.0d0, uznowt
-   DOUBLEPRECISION :: sedtot = 0.0d0, sedfinetot = 0.0d0, contamtot = 0.0d0
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE               :: qoctotextra
-   DOUBLEPRECISION :: PREVTM
-   DOUBLEPRECISION :: TIMB=zero
-   LOGICAL         :: FIRST_frmb=.TRUE.
-   LOGICAL         :: SEDSRT=.FALSE.
-   DOUBLEPRECISION :: GNUCUM (NELEE), DLSSRT (NELEE)
+   INTEGER, SAVE   :: next_hour = 1     !! AD-exported compatibility copy; shadowed by [[froutput]] and remains 1.
+   INTEGER, SAVE   :: icounter2 = 0     !! Next whole-day mass-balance output threshold (h).
+   INTEGER         :: hour_now          !! Unused module copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: qoctot = 0.0d0    !! AD-exported compatibility copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: uzold = 0.0d0     !! AD-exported compatibility copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: uznowt            !! Unused module copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: sedtot = 0.0d0    !! Public compatibility copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: sedfinetot = 0.0d0 !! Public compatibility copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: contamtot = 0.0d0 !! Public compatibility copy shadowed by [[froutput]].
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: qoctotextra
+      !! Unused private module copy shadowed by [[froutput]].
+   DOUBLEPRECISION :: PREVTM            !! Previous [[frresp]] call time (h); undefined before the first call.
+   DOUBLEPRECISION :: TIMB = zero       !! Next monthly-balance reporting time (h).
+   LOGICAL         :: FIRST_frmb=.TRUE. !! True until [[frmb]] initialises its persistent schedule.
+   LOGICAL         :: SEDSRT=.FALSE.    !! True after sediment sorting state has been initialised.
+   DOUBLEPRECISION :: GNUCUM(NELEE)     !! Cumulative erosion-depth workspace (mm); initially undefined.
+   DOUBLEPRECISION :: DLSSRT(NELEE)     !! Loose-sediment-depth baseline captured by [[frresp]] (mm).
 
    PRIVATE
 
@@ -124,22 +161,96 @@ MODULE FRmod
 CONTAINS
 
 
-   !SSSSSS SUBROUTINE FRDIM
+!> @brief Calculates element dimensions, face lengths, and total catchment area.
+!>
+!> `FRDIM` derives grid-cell dimensions from half-grid spacing, assigns areas
+!> for channel links, banks, and land elements, computes face lengths `DHF`,
+!> and accumulates `CAREA`. These geometry terms are used throughout water,
+!> sediment, and contaminant calculations.
+!>
+!> Inputs are the active model dimensions and grid/link geometry from the legacy
+!> shared frame state: `total_no_elements`, `NX`, `NY`, `NXM1`, `NYM1`,
+!> `ICMREF`, `CWIDTH`, `DXIN`, `DYIN`, and `LINKNS`. Outputs are `CAREA`,
+!> `cellarea`, `DHF`, `DXQQ`,
+!> `DYQQ`, and the fixed bank-element width `BWIDTH`.
+!>
+!> The routine first converts half-grid spacings to full cell dimensions:
+!>
+!> \[
+!> DX_1=DXIN_1,\qquad DX_{NX}=DXIN_{NX-1},\qquad
+!> DX_i=\frac{DXIN_{i-1}+DXIN_i}{2},
+!> \]
+!>
+!> with the same construction for `DY`. The bank width is currently fixed as
+!> `BWIDTH = 10 m`.
+!>
+!> Initial element dimensions are assigned from element type `ICMREF(IEL,1)`.
+!> Grid elements use the full grid dimensions,
+!>
+!> | `ICMREF(:,1)` | Element type | Initial dimensions |
+!> |:--------------|:-------------|:-------------------|
+!> | 0 | Land/grid element | `DXQQ=DX(IX)`, `DYQQ=DY(IY)`. |
+!> | 1 or 2 | Bank element | Width is `BWIDTH`; along-bank length follows the associated link orientation. |
+!> | 3 | Channel link | Width is `CWIDTH(link)`; length `CLENTH(link)` follows the link orientation. |
+!>
+!> \[
+!> DXQQ=DX(IX),\qquad DYQQ=DY(IY).
+!> \]
+!>
+!> Bank elements use `BWIDTH` across the bank and the grid spacing along the
+!> associated link: north-south links use `DXQQ=BWIDTH`, `DYQQ=DY(IY)`;
+!> east-west links use `DXQQ=DX(IX)`, `DYQQ=BWIDTH`. Channel links use channel
+!> width across the channel and grid spacing along the link:
+!>
+!> \[
+!> \begin{array}{ll}
+!> DXQQ=CWIDTH,\ DYQQ=DY,\ CLENTH=DY, & \text{north-south link},\\
+!> DXQQ=DX,\ DYQQ=CWIDTH,\ CLENTH=DX, & \text{east-west link}.
+!> \end{array}
+!> \]
+!>
+!> The dimensions of grid and bank elements are then reduced to remove overlap
+!> with adjacent channels and banks. For a grid face adjacent to a channel or
+!> bank, the removed width is
+!>
+!> \[
+!> \Delta = 0.5\,CWIDTH + \begin{cases}
+!> BWIDTH, & \text{adjacent element is a bank},\\
+!> 0, & \text{adjacent element is a channel link}.
+!> \end{cases}
+!> \]
+!>
+!> Bank-bank corner overlaps are also removed by subtracting
+!> `BWIDTH + 0.5*CWIDTH` from the along-bank dimension of the paired bank
+!> elements. The final element area and total catchment area are then
+!>
+!> \[
+!> cellarea_i = DXQQ_i\,DYQQ_i,\qquad CAREA=\sum_i cellarea_i.
+!> \]
+!>
+!> `CATEST` is the uncorrected sum of basic grid-square areas,
+!> \(\sum DX(IX)DY(IY)\), used only for optional printed diagnostics comparing
+!> the basic catchment area with the element-area sum after channel and bank
+!> corrections.
+!>
+!> Finally, `DHF(IEL,face)` stores the distance from the element computational
+!> node to each face. West and south distances are calculated from the neighbour
+!> element type and local overlap corrections; east and north distances are the
+!> remaining parts of the corrected element dimensions:
+!>
+!> \[
+!> DHF_{east}=DXQQ-DHF_{west},\qquad
+!> DHF_{north}=DYQQ-DHF_{south}.
+!> \]
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Standardised declarations and inherited frame typing. |
+!> | 1997-02-23 | RAH | 4.1 | Made typing explicit. |
+!> @endhistory
    SUBROUTINE FRDIM(BINFRP)
-      !----------------------------------------------------------------------*
-      !
-      ! SET UP ELEMENT DIMENSIONS AND AREAS, AND TOTAL CATCHMENT AREA
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FRDIM/4.1
-      ! Modifications:
-      ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-      ! RAH  970223  4.1  Explicit typing.
-      !----------------------------------------------------------------------*
 
-      ! Assumed global variables provided via host module(s) (e.g., SPEC.AL):
-      ! NXEE, NYEE, NX, NXM1, NY, NYM1, total_no_elements, PPPRI
-      ! DXIN, DYIN, ICMREF, LINKNS, CWIDTH, CLENTH, DXQQ, DYQQ, CAREA, cellarea, DHF
 
       IMPLICIT NONE
 
@@ -151,7 +262,6 @@ CONTAINS
       INTEGER :: IX, IY, J, JEL, JL, JTYPE, K
       DOUBLE PRECISION :: CATEST, DIFF, DX(NXEE), DY(NYEE)
 
-      !----------------------------------------------------------------------*
 
       ! SET VALUE FOR BANK ELEMENT WIDTH
       ! (CURRENTLY HARD-CODED AS A FIXED WIDTH)
@@ -420,27 +530,94 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FRIND (BINFRP)
+!> @brief Builds element, bank, link, grid, and neighbour index arrays.
+!>
+!> The routine converts grid/link/bank code maps into compact SHETRAN element
+!> numbering, including the index arrays needed by contaminant migration. Inputs
+!> are the grid dimensions and code maps `NX`, `NY`, `INGRID`, `LCODEX`,
+!> `LCODEY`, plus the bank/OC flags `BEXBK` and `BEXOC`. It sets
+!> `total_no_elements`, `NGDBGN`, and `total_no_links`, and fills `ICMREF`,
+!> `ICMRF2`, `ICMBK`, `ICMXY`,
+!> `NBFACE`, `NGRID`, and `LINKNS`, defining the topology later used by OC,
+!> VSS, sediment, and contaminant routines.
+!>
+!> Element numbers are assigned in a fixed order. Channel links are created
+!> first from the link-code grids: `LCODEY >= 4` creates east-west links
+!> (`LINKNS=.FALSE.`), then `LCODEX >= 4` creates north-south links
+!> (`LINKNS=.TRUE.`). Each link has `ICMREF(:,1)=3`, stores its grid location in
+!> `ICMREF(:,2:3)`, and stores its own link number in `ICMREF(:,4)`.
+!> `total_no_links` is the last link index.
+!>
+!> | Element group | Creation order | Key indices |
+!> |:--------------|:---------------|:------------|
+!> | East-west channel links | First, from `LCODEY >= 4` | `ICMREF(:,1)=3`, `LINKNS=.FALSE.` |
+!> | North-south channel links | Second, from `LCODEX >= 4` | `ICMREF(:,1)=3`, `LINKNS=.TRUE.` |
+!> | Banks | Third, only when `BEXBK` and links exist | `ICMREF(:,1)=1,2`, `ICMREF(:,4)=link`, `ICMBK(link,side)=element` |
+!> | Grid elements | Last, for `INGRID >= 0` | `ICMREF(:,1)=0`, `ICMXY(i,j)=element` |
+!>
+!> If the bank component is active, two bank elements are then created for each
+!> link. Bank element type is `1` or `2`, `ICMREF(:,4)` points back to the
+!> associated link, and `ICMBK(link,bank)` maps from a link and bank side to the
+!> bank element number. Grid elements are added last for every non-negative
+!> `INGRID` cell; `ICMXY(i,j)` maps a grid coordinate back to the grid-element
+!> number. Consequently
+!>
+!> \[
+!> NGDBGN = total\_no\_links + 1,
+!> \]
+!>
+!> so active land/bank/grid elements begin immediately after the channel links.
+!>
+!> `ICMREF` columns 5:8 hold the neighbours across faces 1:4
+!> (east, north, west, south). For grid elements the neighbour is either the
+!> adjacent grid cell, an intervening bank element when banks are enabled, or
+!> the channel link itself when OC links exist without banks. In the latter case
+!> `ICMREF(:,4)=9999` marks that the grid element is adjacent to a channel
+!> system rather than an ordinary soil-only element.
+!>
+!> | `ICMREF` columns | Meaning |
+!> |:-----------------|:--------|
+!> | 1 | Element type: 0 grid, 1/2 bank side, 3 channel link. |
+!> | 2:3 | Grid coordinate used to locate the element. |
+!> | 4 | Associated link for banks/links; `9999` for grid cells adjacent directly to OC links when banks are disabled. |
+!> | 5:8 | Neighbour across faces 1:4. Negative values point into `ICMRF2`. |
+!> | 9:12 | Reciprocal face number in the neighbour, or the boundary face itself. |
+!>
+!> Channel-link faces either point to their adjacent banks/grid cells or to
+!> other channel links at link nodes. A single connected link is stored directly
+!> in `ICMREF(:,5:8)`. If a node has multiple connected links, `FRIND` creates an
+!> auxiliary `ICMRF2` entry, stores the connected link numbers in
+!> `ICMRF2(idx,1:3)`, and stores `-idx` in the relevant `ICMREF` face column.
+!> This negative pointer is used later by routing and contaminant routines to
+!> expand multi-link junctions.
+!>
+!> Bank-element face neighbours are assigned according to the associated link
+!> orientation and bank side: one face connects to the channel link, one or more
+!> faces may connect to neighbouring bank elements around junctions, and the
+!> outer face connects to the adjacent grid cell where present.
+!>
+!> After all forward neighbours are assigned, `FRIND` checks that each neighbour
+!> points back to the current element. For ordinary neighbours it records the
+!> reciprocal face in `ICMREF(:,9:12)`. For multi-link nodes it records the
+!> reciprocal faces in `ICMRF2(:,4:6)`. Boundary faces keep their own face index
+!> in `ICMREF(:,9:12)` and the first boundary face for non-link elements is
+!> stored in `NBFACE`.
+!>
+!> | Neighbour value | Interpretation |
+!> |:----------------|:---------------|
+!> | `> 0` | Direct neighbouring element number. |
+!> | `= 0` | External boundary face. |
+!> | `< 0` | Multi-link node reference: use `ICMRF2(-value,1:3)` for links and `ICMRF2(-value,4:6)` for reciprocal faces. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Standardised declarations. |
+!> | 1997-02-23 | RAH | 4.1 | Made typing explicit and clarified the header. |
+!> | 1998-07-13 | RAH | 4.2 | Removed the dependency on `SPEC.OC`. |
+!> @endhistory
    SUBROUTINE FRIND (BINFRP)
-      !----------------------------------------------------------------------*
-      !
-      ! SUBROUTINE TO SET UP INDEX ARRAY FOR CONTAMINANT MIGRATION
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FRIND/4.2
-      ! Modifications:
-      ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.
-      ! RAH  970223  4.1  Explicit typing.
-      !      970523       Amend header.
-      ! RAH  980713  4.2  Don't INCLUDE SPEC.OC.
-      !      980717       (Amend Version.)
-      !----------------------------------------------------------------------*
-      ! Commons and constants
 
-      ! Assumed external module dependencies providing global variables:
-      ! NELEE, NX, NY, NXEE, INGRID, LCODEX, LCODEY, BEXBK, BEXOC, NEL, NGDBGN, NLF,
-      ! ICMBK, ICMREF, ICMRF2, ICMXY, NBFACE, NGRID, LINKNS, LINKNO, PPPRI,
-      ! total_no_links, total_no_elements
 
       IMPLICIT NONE
 
@@ -456,7 +633,6 @@ CONTAINS
 
       CHARACTER(LEN=2) :: PDIRN
 
-      !----------------------------------------------------------------------*
       !
       ! ^^^^^^^^^^^^ INITIALISE ARRAY AND INDEX NUMBER
       !
@@ -1052,50 +1228,50 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FRINIT
+!> @brief Runs the main frame initialisation sequence.
+!>
+!> `FRINIT` calls the common frame reader, component-specific input routines,
+!> geometry/index setup, VSS initialisation, bank/sediment/contaminant setup,
+!> hot-start reading, allocation routines, and output header preparation before
+!> the first timestep is executed.
+!>
+!> The initialisation uses shared model dimensions and flags including
+!> `top_cell_no`, `total_no_elements`, `NGDBGN`, `total_no_links`, `ICMREF`,
+!> `UZNEXT`, `CSTORE`, `BEXBK`, `BEXET`,
+!> `BEXOC`, `BEXSM`, `DTAO`, `BHOTRD`, `BINFRP`, and `BSTORE`. It updates
+!> meteorological/rainfall category arrays `NMC` and `NRAINC`, consumes the
+!> component input/output units already opened by [[fropen]] (`BFB`, `BHB`,
+!> `BKD`, `CMB`, `CMD`, `CMP`, `CMT`,
+!> `EPD`, `ETD`, `FRD`, `HOT`, `LFB`, `LGB`, `LHB`, `MED`, `OCD`, `OFB`, `OHB`,
+!> `PPD`, `PRD`, `PPPRI`, `RES`, `SMD`, `SPR`, `SYD`, `TIM`, `VED`, `VSD`, `VSI`,
+!> `WLD`), and initialises run state such as `BHOTTI`, `HOTIME`, `OCNOW`,
+!> `TIMEUZ`, `UZNEXT`, `UZNOW`, `MSM`, and `ALLOUT`.
+!>
+!> | Stage | Main calls/actions |
+!> |:------|:-------------------|
+!> | Frame input and allocation | [[infr]], `INITIALISE_AL_C3`, `INITIALISE_ETMOD`. |
+!> | Optional component input | [[inet]]/[[dinet]], [[insm]], [[ocmod:ocini]]/[[dinoc]]. |
+!> | Geometry and subsurface | [[frdim]], [[inbk]] when banks are active, then [[vsmod:vsin]]. |
+!> | Link forcing setup | Copy meteorological/rainfall station codes from the first adjacent non-link element to each channel link. |
+!> | Reservoir tables | [[zqmod:readzqtable]] when `ISZQ` is true. |
+!> | Hot-start | Scan `HOT` until `HOTIME >= BHOTTI`, restore water-flow arrays through `SETHRF`/`SETQSA`, and write restart output via [[frresp]]. |
+!>
+!> @note
+!> Input units are rewound rather than closed after reading. This preserves the
+!> legacy automatic-differentiation workflow noted by the in-line comments.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-05 | RAH | 3.4.1 | Added restart checks and passed simulation time to result output. |
+!> | 1996-07-24 | GP | 4.0 | Replaced the separate UZ/SZ/EX initialisation path with VSS. |
+!> | 1997-1998 | RAH | 4.1-4.2 | Removed redundant legacy state and standardised restart/output setup. |
+!> | 2007-03-01 | SB | 4g-pc | Changed the `AIOSTO` `DATA` statement initialisation. |
+!> | 2026-03 | SB | 4.6 | Added allocation-based ET/vegetation setup and ZQ-table initialisation. |
+!> @endhistory
    SUBROUTINE FRINIT()
-      !----------------------------------------------------------------------*
-      !
-      ! INITIALISATION PHASE
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FRINIT/4.2
-      ! Modifications:
-      !  GP         3.4  Set CMT,CMP,CMB.  Special treatment for DBOT(LL).
-      !                  Replace L1 with L1+1 in assignment of NLYRBT,ZLYRBT.
-      !                  Print table of soil horizon depths.
-      !                  Hot-start: initialize HOTIME; read HOT file;
-      !                  set TIMEUZ,BHOTTI; call FRRESP.
-      ! RAH  941005 3.4.1 Bring IMPLICIT from AL.P.  Pass UZNOW to FRRESP.
-      !                  Call ERROR if NLYRBT can't be set.
-      !  GP  960724  4.0  New module VSS replaces UZ,SZ,EX ...
-      !                  Reassign unit nos; replace UZD,SZD,AQD,SZB,HBD with
-      !                  VSD,VSI,LFB,LHB,LGB,BFB,BHB; scrap CPR (keep CMP).
-      !                  Call VSIN, instead of INUZ,INSZ,INUZ2 (or DINUZ,
-      !                  DINSZ), and after INBK, not before.
-      !                  Move adjustment of ZLYRBT & setting of
-      !                  NLYRBT,NTSOIL,NHBED,FHBED to VSREAD,VSCONC.
-      !                  Scrap ZBED (see INCM), RSZ,QUZR,QSZR (see SHETRN)
-      !                  and EPSZA,QSZOC,QSZO,WSI.  Add FRRESP arg .FALSE..
-      !                  Close FR,WAT input (except boundary data) files.
-      !                  Remove PSI3,PSI33,HSZ,EPS,QSZUZ,WATC3 from HOT read.
-      ! RAH  970223  4.1  Explicit typing.  Scrap BUZCAL,BSZCAL,BOCCAL,BEXCAL,
-      !                  DTSTOC,DTSTSZ,DTSTUZ,EXNEXT,EXNOW,EXVAL,OCUNT,OCVAL,
-      !                  PNETOC,POC,SZNOW,SZUNT,SZVAL,TSTOOC,TSTOSZ,TSTOUZ,
-      !                  UZUNT,WSUZI,WSSZI,WSOCI,WOCLI (AL.D), FINC,NUMBER.
-      !      970524      AIOSTO size 20 (was 50); & use DATA.
-      !      970525      Pass BINFRP to INRES.
-      !      970530      (Amend DATA statement.)
-      ! RAH  980317  4.2  (Amend specification comments below.)
-      ! SB   010307  4g-pc changed data statement for AIOSTO
-      !----------------------------------------------------------------------*
 
-      ! Assumed external module dependencies providing global variables:
-      ! NELEE, BEXET, BEXSM, MSM, BEXOC, BEXBK, BINFRP, total_no_links, NMC,
-      ! NRAINC, ICMREF, iszq, FRD, VSD, OCD, ETD, SMD, BKD, VSI, PPD, HOTIME,
-      ! zero, BHOTRD, HOT, UZNEXT, top_cell_no, CSTORE, NGDBGN, total_no_elements,
-      ! QOC, DQ0ST, DQIST, DQIST2, SD, TS, NSMC, SMELT, tmelt, VSPSI, BHOTTI,
-      ! PPPRI, ALLOUT, DTAO, UZNOW, OCNOW, UZVAL, TIMEUZ
 
       IMPLICIT NONE
 
@@ -1107,7 +1283,6 @@ CONTAINS
 
       DATA AIOSTO / '11111111111111111111' /
 
-      !----------------------------------------------------------------------*
 
       ! OPEN I/O DATA FILES
       ! CALL FROPEN  !moded to main routine
@@ -1153,20 +1328,20 @@ CONTAINS
          END DO
       END DO link_loop
 
-      !***ZQ Module 200520
+      ! ZQ Module 200520
       IF (iszq) CALL ReadZQTable
 
       ! close data input file units
-      REWIND(FRD) !!CLOSE (FRD)    !AD
-      REWIND(VSD) !!CLOSE (VSD)    !AD
-      REWIND(OCD) !!CLOSE (OCD)    !AD
-      REWIND(ETD) !!CLOSE (ETD)    !AD
-      REWIND(SMD) !!CLOSE (SMD)    !AD
-      REWIND(BKD) !!CLOSE (BKD)    !AD
-      REWIND(VSI) !!CLOSE (VSI)    !AD
+      REWIND(FRD) ! CLOSE (FRD) for AD
+      REWIND(VSD) ! CLOSE (VSD) for AD
+      REWIND(OCD) ! CLOSE (OCD) for AD
+      REWIND(ETD) ! CLOSE (ETD) for AD
+      REWIND(SMD) ! CLOSE (SMD) for AD
+      REWIND(BKD) ! CLOSE (BKD) for AD
+      REWIND(VSI) ! CLOSE (VSI) for AD
       ! CALL RES FILE INPUT ROUTINE, IF REQUIRED
       ! IF (BSTORE) CALL INRES(BINFRP)
-      REWIND(PPD) !!CLOSE (PPD)    !AD
+      REWIND(PPD) ! CLOSE (PPD) for AD
 
       ! UPDATE HOTSTART TIME AND READ FROM FILE IF BHOTRD = TRUE
       HOTIME = zero
@@ -1225,31 +1400,41 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
+!> @brief Reads a gridded numeric-code map used for output class definitions.
+!>
+!> `NNX` and `NNY` are the grid dimensions to read, while `NXE` and `NYE` are the
+!> declared dimensions of output array `IARR`. `INF` is the input file unit,
+!> `IOF` is the output/echo file unit, and `BPCNTL` controls whether the read
+!> code map is printed. The numeric codes read from `INF` are returned in
+!> `IARR`.
+!>
+!> The file section starts with an 80-character title, then reads `NNY` grid
+!> rows. Rows must be supplied from top to bottom: the first row label must be
+!> `NNY`, then `NNY-1`, and so on to 1. Each map character is interpreted as:
+!>
+!> | Character | Stored value |
+!> |:----------|:-------------|
+!> | `1`-`9` | Corresponding integer code. |
+!> | Any other character | 0. |
+!>
+!> @warning
+!> A row-label mismatch writes `INCORRECT COORDINATE` when echoing is enabled
+!> and then executes `STOP`.
+!> @endwarning
+!>
+!> @warning
+!> The local character buffer has 200 entries although the current grid capacity
+!> `NXEE` is 1000, and no guard enforces `NNX<=200`. Larger calls would index
+!> beyond `A1LINE`; there is no call to `FRLTL` elsewhere in the current source.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-02 | RAH | 3.4.1 | Replaced the two-byte integer map with default integers. |
+!> | 1997-02-23 | RAH | 4.1 | Made typing explicit. |
+!> @endhistory
    SUBROUTINE FRLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-      !----------------------------------------------------------------------*
-      !
-      ! READ IN ARRAY OF NUMERIC CODES (FOR OUTPUT CLASS DEFINITION)
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FRLTL/4.0
-      ! Modifications:
-      ! RAH  941002 3.4.1 Remove IMPLICIT INTEGER*2.  IARR INTEGER (was *2).
-      ! RAH  970223  4.1  Explicit typing.
-      !----------------------------------------------------------------------*
-      ! INPUT PARAMETERS:
-      !   NNX     X DIMENSION OF GRID
-      !   NNY     Y DIMENSION OF GRID
-      !   NXE     X DIMENSION OF ARRAY
-      !   NYE     Y DIMENSION OF ARRAY
-      !   INF     INOUT FILE UNIT NUMBER
-      !   IOF     OUTPUT FILE UNIT NUMBER
-      !   BPCNTL  LOGICAL PRINT CONTROL
-      !
-      ! OUTPUT PARAMETERS:
-      !   IARR    ARRAY OF CODES READ IN FROM FILE
-      !
-      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -1265,15 +1450,12 @@ CONTAINS
       ! CHARACTER(LEN=80) :: TITLE
       CHARACTER(LEN=1)  :: A1LINE (200)
 
-      ! Modern array constructor replacing the legacy DATA statement
       CHARACTER(LEN=1), PARAMETER :: NMERIC(9) = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
-      !----------------------------------------------------------------------*
 
       READ (INF, '(A80)') TITLE
       IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
 
-      ! Vectorized array initialization replacing nested DO loops
       IARR(1:NNX, 1:NNY) = 0
 
       I = NNY
@@ -1281,7 +1463,6 @@ CONTAINS
          READ (INF, '(I7, 1X, 500A1)') K, (A1LINE (L), L = 1, NNX)
          IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, (A1LINE (L), L = 1, NNX)
 
-         ! Inline error handling replacing GOTO 100
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, '("   ^^^   INCORRECT COORDINATE")')
             STOP 1
@@ -1304,69 +1485,146 @@ CONTAINS
 
 
 
-   !----------------------------------------------------------------------*
-   ! subroutine to calculate monthly mass balance
-   ! all variables are calculated in cubic metres
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/FR/FRMB/4.1
-   ! Modifications:
-   !  GP  29.06.95  written (v4.0 finished 16/7/96)
-   ! RAH  970307  4.1  Replace ineffectual (& illegal) COMMON with SAVE.
-   !                   Swap indices: DELTAZ,QVSV,VSTHE (see AL.C).
-   !                   DATA statements AFTER specs.  Explicit typing.
-   !      970310       Use local variables for repeated sub-expressions.
-   !                   Define constant SS.  Remove redundant local IMSTN.
-   !                   Initialize locals to 0, not BALANC.
-   !                   Consistent indices.  Generic intrinsics.
-   !                   Replace NGDBGN with NLF+1.  Scrap some locals.
-   !      970311       Loop I=0,6,6 for BALANC update.  Labels in order.
-   !      970312       Change name from MB to FRMB.  Remove temporary code.
-   !                   Use ALINIT.  Simplify test (asasume UZNOW.ge.0).
-   !                   Replace UZNEXT*3600 with DTUZ.
-   !                   Fix errors in: setting of MBDAY (case MBFLAG=1); and
-   !                   initialization of BALANC (was omitted).
-   !      970524       Add FRRESP argument UZNOW.
-   !----------------------------------------------------------------------*
-   ! Limited ranges:
-   !      dimensions of size NLFEE:  for link  in            1:NLF
-   ! DELTAZ(cell,e), VSTHE(cell,e):  for cell  in NLYRBT(e,1):LL
-   !                       P(ipstn):  for ipstn in    NRAINC(1:NEL)
-   !                  QVSV(cell,e):  for cell  == NLYRBT(e,1)
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <=  LL <=  LLEE
-   ! 1 <= NEL <= NELEE
-   ! 0 <= NLF <= NLFEE >= 1
-   ! for each e in 1:NEL:
-   !     2 <= NLYRBT(e,1) <= LLEE
-   !     1 <= NRAINC(e)   <= NVEE (size of P)
-   !----------------------------------------------------------------------*
-   ! Commons and imported constants
-   ! Imported constants
-   !     SPEC.AL:         LLEE,NELEE,NLFEE
-   ! Input common
-   !     SPEC.AL:         LL,MBFACE,MBFLAG,MBLINK,NEL,NLF
-   !                           NRAINC(NEL),NLYRBT(NEL,1)
-   !                      TIH,   AREA(NEL),RHOSAR(NEL),CLENTH(NLFEE)
-   !                      DELTAZ(LLEE,NEL),ZGRUND(NEL)
-   !                      DTUZ,QOC(MBLINK:MBLINK,MBFACE:MBFACE)
-   !                      ARXL(NLFEE), CSTORE(NEL),    P(*)
-   !                      QBKB(NLFEE,2),EINTA(NEL),HRF(NEL), QVSV(LLEE,NEL)
-   !                      QBKF(NLFEE,2),EEVAP(NEL), SD(NEL),VSTHE(LLEE,NEL)
-   ! In+out common
-   !     SPEC.AL:         MBDAY,MBMON,MBYEAR
-   ! Out+in common
-   !     SPEC.AL:         BALANC(19)
-   ! Locals, etc
-   !INTRINSIC ABS, MOD
+!> @brief Calculates and writes monthly water-balance accumulators.
+!>
+!> `FRMB` accumulates precipitation, evapotranspiration, discharge, storage,
+!> subsurface, snow, and balance terms in cubic metres, resets monthly totals
+!> when required, and triggers result output through [[frresp]].
+!>
+!> All accumulated quantities are in cubic metres. The routine uses the
+!> following limited index ranges:
+!>
+!> | Quantity | Limited range used |
+!> |:---------|:-------------------|
+!> | Link-indexed arrays | `link = 1:total_no_links` |
+!> | `DELTAZ(cell,e)` and `VSTHE(cell,e)` | `cell = NLYRBT(e,1):top_cell_no` |
+!> | Rainfall-station lookup | `IPSTN=NRAINC(e)` is retained but no longer used in the precipitation sum. |
+!> | `QVSV(cell,e)` | `cell == NLYRBT(e,1)` |
+!>
+!> Entry conditions are `1 <= top_cell_no <= LLEE`,
+!> `1 <= total_no_elements <= NELEE`, and
+!> `0 <= total_no_links <= NLFEE`; for each element `e`,
+!> `2 <= NLYRBT(e,1) <= LLEE` and `1 <= NRAINC(e) <= NVEE`.
+!>
+!> Inputs include monthly-balance controls `MBFACE`, `MBFLAG`, `MBLINK`, model
+!> dimensions `top_cell_no`, `total_no_elements`, `total_no_links`,
+!> geometry/storage arrays `cellarea`, `CLENTH`,
+!> `DELTAZ`, `ZGRUND`, `ARXL`, `CSTORE`, `HRF`, `SD`, `VSTHE`, flow terms `QOC`,
+!> `QBKB`, `QBKF`, `QVSV`, rainfall and ET terms `precip_m_per_s`, `EINTA`,
+!> `EEVAP`, and time controls `TIH` and `DTUZ`. It updates `MBDAY`, `MBMON`,
+!> `MBYEAR`, and `BALANC(1:19)` (the declared twentieth entry is untouched).
+!> `IPSTN=NRAINC(IEL)` is still set
+!> for the legacy rainfall-station pathway but is not used in the current
+!> precipitation accumulation.
+!>
+!> `BALANC` stores both short-period and cumulative water-balance terms:
+!>
+!> | Index | Meaning |
+!> |:------|:--------|
+!> | 1:6 | Current reporting-period precipitation, canopy evaporation, soil/surface-water evaporation, transpiration, regional aquifer flux through the model base, and outlet discharge. |
+!> | 7:12 | Cumulative totals of the same six flow terms. |
+!> | 13 | Canopy storage. |
+!> | 14 | Snowpack water-equivalent storage. |
+!> | 15 | Subsurface water storage. |
+!> | 16 | Surface-water storage on land elements. |
+!> | 17 | Channel water storage. |
+!> | 18 | Current reporting-period aquifer-channel exchange through channel bed and sides. |
+!> | 19 | Cumulative aquifer-channel exchange. |
+!>
+!> On each timestep, rates are converted to volumes with
+!>
+!> \[
+!> A_t(e)=cellarea_e\,DTUZ.
+!> \]
+!>
+!> The timestep contributions are
+!>
+!> \[
+!> P_m = \sum_e precip_e A_t(e),\qquad
+!> E_{can,m} = \sum_e EINTA_e A_t(e),
+!> \]
+!>
+!> \[
+!> E_{soil,m} = \sum_e EEVAP_e A_t(e),\qquad
+!> T_m = \sum_e ERZA_e A_t(e),
+!> \]
+!>
+!> \[
+!> Q_{base,m} = \sum_e QVSV_{NLYRBT(e,1)-1,e} A_t(e).
+!> \]
+!>
+!> Outlet discharge is taken from the configured monthly-balance link and face:
+!>
+!> \[
+!> Q_{out,m} =
+!> \begin{cases}
+!> |QOC(MBLINK,MBFACE)|\,DTUZ, & MBLINK \ne 0,\\
+!> 0, & MBLINK = 0.
+!> \end{cases}
+!> \]
+!>
+!> Aquifer-channel exchange is accumulated over all links from bank-bed and
+!> bank-face flows:
+!>
+!> \[
+!> Q_{bank,m} =
+!> \sum_l \left(QBKB_{l,1}+QBKB_{l,2}+QBKF_{l,1}+QBKF_{l,2}\right)DTUZ.
+!> \]
+!>
+!> These timestep values are added to both `BALANC(1:6)` and `BALANC(7:12)`,
+!> while `Q_bank,m` is added to `BALANC(18)` and `BALANC(19)`.
+!>
+!> Storage terms are recomputed only when output is due (`UZNOW >= TIMB`).
+!> Canopy and snow storages convert millimetres over element area to cubic
+!> metres with `MPMM = 1D-3`:
+!>
+!> \[
+!> BALANC_{13}=\sum_e CSTORE_e\,cellarea_e\,10^{-3},
+!> \]
+!>
+!> \[
+!> BALANC_{14}=\sum_e SD_e\,RHOSAR_e\,cellarea_e\,10^{-3}.
+!> \]
+!>
+!> Subsurface, land-surface, and channel storages are
+!>
+!> \[
+!> BALANC_{15}=\sum_e\sum_{k=NLYRBT(e,1)}^{top}
+!> VSTHE_{k,e}\,DELTAZ_{k,e}\,cellarea_e,
+!> \]
+!>
+!> \[
+!> BALANC_{16}=\sum_e (HRF_e-ZGRUND_e)cellarea_e,\qquad
+!> BALANC_{17}=\sum_l ARXL_l\,CLENTH_l.
+!> \]
+!>
+!> In the storage sums, `e` runs from `total_no_links+1` through
+!> `total_no_elements`; channel links contribute separately through `BALANC(17)`.
+!>
+!> The routine writes these values through [[frresp]] using output-data selector
+!> 50. It then advances the next reporting date by one day when `MBFLAG=1`, or
+!> to the first day of the next month otherwise, including Gregorian leap-year
+!> handling for February. After output, the short-period flow terms
+!> `BALANC(1:6)` and `BALANC(18)` are reset to zero; cumulative totals are
+!> retained.
+!>
+!> | Condition after accumulation | Action |
+!> |:-----------------------------|:-------|
+!> | `UZNOW < TIMB` | Return after updating flow accumulators only. |
+!> | `UZNOW >= TIMB`, `MBFLAG=1` | Recompute storages, output, advance `MBDAY` by one calendar day. |
+!> | `UZNOW >= TIMB`, `MBFLAG/=1` | Recompute storages, output, advance to day 1 of the next month. |
+!>
+!> The output selector string passed to [[frresp]] is blank except for position
+!> 50, which requests the monthly-balance output block.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | Legacy | - | - | Implemented daily/monthly catchment water-balance accumulation and calendar advancement. |
+!> | 2026-04-05 | SvB | 4.6.1 | Replaced legacy array-initialisation calls with explicit slices. |
+!> @endhistory
    SUBROUTINE FRMB
 
-      ! Assumed external module dependencies providing global arrays:
-      ! BALANC, total_no_elements, precip_m_per_s, EINTA, EEVAP, ERZA, QVSV
-      ! QOC, QBKB, QBKF, CSTORE, SD, RHOSAR, GETHRF, ZGRUND, VSTHE, DELTAZ
-      ! ARXL, CLENTH, NRAINC, NLYRBT, cellarea, HOUR_FROM_DATE
-      ! ZERO, FIRST_frmb, DTUZ, MBLINK, MBFACE, total_no_links, UZNOW, TIMB
-      ! MBFLAG, MBMON, MBDAY, MBYEAR, TIH
 
       IMPLICIT NONE
 
@@ -1397,10 +1655,8 @@ CONTAINS
       ! 17      "    in channels
       ! 18   aquifer-channel flow (through channel bed and sides)
       ! 19   cumulative aquifer-channel flow
-      !----------------------------------------------------------------------*
 
       ! Initialization
-      ! Replaced ALINIT with array slice
       IF (FIRST_frmb) BALANC(1:19) = ZERO
       FIRST_frmb = .FALSE.
 
@@ -1450,7 +1706,6 @@ CONTAINS
       IF (UZNOW < TIMB) RETURN
 
       ! Calculate water volumes based on storage
-      ! Replaced ALINIT with array slice (13 through 17 is 5 elements)
       BALANC(13:17) = ZERO
 
       DO IEL = total_no_links + 1, total_no_elements
@@ -1505,7 +1760,6 @@ CONTAINS
       TIMB = HOUR_FROM_DATE(MBYEAR, MBMON, MBDAY, MBHOUR, MBMIN) - TIH
 
       ! Initialise all short period flow data
-      ! Replaced ALINIT with array slice
       BALANC(1:6) = ZERO
       BALANC (18) = ZERO
 
@@ -1513,25 +1767,65 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FROPEN
+!> @brief Opens the run-data controlled input and output files.
+!>
+!> `FROPEN` prints the SHETRAN banner, opens the frame/run files, reads file
+!> names and unit assignments, and prepares legacy output streams used by
+!> initialisation and runtime reporting.
+!>
+!> The routine opens the rundata file `FILNAM` on unit 2 and a run log named
+!> `info_<catchment>_SHETRAN_log.txt` on unit 61. It then reads label/name pairs
+!> from the rundata file. Blank names and `0` mark optional files as unused;
+!> otherwise most names are prefixed with `DIRQQ` and opened on their numeric
+!> unit.
+!>
+!> | Units or entry | Behaviour |
+!> |:---------------|:----------|
+!> | 10:47 | Ordinary input/output files; missing unit 45 or 46 disables station output, missing unit 47 disables extra discharge output. |
+!> | 48 | Stored as `visualisation_plan_filename`; not opened here. |
+!> | 49 | Stored as `visualisation_check_filename`; not opened here. |
+!> | 50 | Stored as `hdf5filename`; not opened here. |
+!> | 51 | A blank name or `0` disables ZQ only; EOF here disables ZQ and every later optional group. A nonblank name is opened exactly as read. |
+!> | 52 | Optional extra phreatic-surface-level output configuration, prefixed with `DIRQQ`. |
+!> | 53 | Optional nitrate configuration file, prefixed with `DIRQQ`. |
+!> | 54:60 | Additional optional nitrate files, prefixed with `DIRQQ`. |
+!>
+!> Special side effects:
+!>
+!> | Condition | Side effect |
+!> |:----------|:------------|
+!> | Routine entry | `ISTA`, `ISEXTRADIS`, `ISZQ`, `ISEXTRAPSL`, and `ISMN` are initially assumed true. |
+!> | Unit 22 opened | `BTIME=.TRUE.`, writes an initial message to `TIM`, then rewinds it. |
+!> | Unit 27 opened | `RESFIL` stores the resolved filename. |
+!> | Required early file list ends before unit 14 | Stops with `ABNORMAL END`. |
+!>
+!> The contained `read_rundata_record` helper consumes one complete physical
+!> record, so an empty record is distinct from EOF. `unit_context` labels read
+!> diagnostics; `stop_eof_error`, `stop_rundata_error`, and `stop_open_error`
+!> retain the legacy terminal messages. FORD lists these contained routines in
+!> the source page rather than emitting separate procedure pages.
+!>
+!> @warning
+!> Optional ZQ unit 51 is opened using the filename exactly as read, unlike most
+!> other optional file entries that are prefixed with `DIRQQ`.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Included the catchment name in run-file diagnostics. |
+!> | 1997-02-23 | RAH | 4.0 | Standardised file status, time-series setup, and unit assignments. |
+!> | 2013-12-16 | SB | - | Missing unit 45 or 46 disables station output (`ISTA`). |
+!> | 2015-04-22 | SB | - | Missing unit 47 disables extra discharge output (`ISEXTRADIS`). |
+!> | 2020-07-08 | SB | 4.5 | Added the optional ZQ table file on unit 51. |
+!> | 2024-03-12 | SB | - | Added the optional extra phreatic-surface-level output configuration on unit 52, and moved the run log to unit 53. |
+!> | 2025-09-25 | SB | 4.5.3 | Added the optional nitrate configuration files on units 53--60. |
+!> | 2026-04 | SvB | 4.6.1 | Replaced platform-specific path handling with `join_path`. |
+!> | 2026-05-11 | SB | - | Added error checking on the initial rundata-file `OPEN`, stopping instead of proceeding silently on failure. |
+!> | 2026-07-11 | SvB | 4.6.1 | Distinguished blank records, EOF, and genuine rundata read errors. |
+!> @endhistory
    SUBROUTINE FROPEN
-      !----------------------------------------------------------------------*
-      !
-      ! OPEN I/O DATA FILES
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FROPEN/4.0
-      ! Modifications:
-      ! RAH  941003 3.4.1 Amend writes 1030,1050: append CNAM to RUNFIL.
-      ! RAH  970223  4.0  Specify STATUS on OPEN(2).  Write to, & rewind, TIM.
-      !                   Units 27,28,22,14 were 18,19,36,18 (see FRINIT).
-      !----------------------------------------------------------------------*
-      ! Commons and constants
 
-      ! Assumed external module dependencies providing global variables:
-      ! BTIME, BANNER, DIRQQ, FILNAM, CNAM, ista, isextradis, iszq,
-      ! isextrapsl, ismn, visualisation_plan_filename, visualisation_check_filename,
-      ! hdf5filename, RESFIL, TIM
 
       IMPLICIT NONE
 
@@ -1539,7 +1833,6 @@ CONTAINS
       LOGICAL :: at_eof
       CHARACTER (LEN=200) :: FILNAM2
 
-      !----------------------------------------------------------------------*
       !
       BTIME = .FALSE.
 
@@ -1550,15 +1843,10 @@ CONTAINS
       WRITE (*,*) '**************************'
       WRITE (*,*)
 
-      ! ****sb 161213
       ista = .TRUE.
-      ! ****sb 220415
       isextradis = .TRUE.
-      !***ZQ Module 200520
       iszq = .TRUE.
-      !sb 110324
       isextrapsl = .TRUE.
-      !sb 230925
       ismn = .TRUE.
 
       OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = ios)
@@ -1572,9 +1860,6 @@ CONTAINS
       CALL read_rundata_record(FILNAM, at_eof, 'rundata header')
       IF (at_eof) CALL stop_eof_error(CNAM)
 
-      !***ZQ Module 200520 change log file to unit 52 and read DO 100 I = 10, 51 (was 50)
-      !***extra psl 110324 change log file to unit 53 and read DO 100 I = 10, 52 (was 50). see extra lines at the end
-      !***nitrate 230925 change log file to unit 61 and read DO 100 I = 10, 60 (was 50). see extra lines at the end
       WRITE (61, '(A)') FILNAM
       WRITE (61, *)
 
@@ -1602,9 +1887,7 @@ CONTAINS
          END IF
 
          IF (FILNAM == ' ' .OR. FILNAM == '0') THEN
-            !***Sb 161213
             IF (I == 45 .OR. I == 46) ista = .FALSE.
-            !***Sb 220415
             IF (I == 47) isextradis = .FALSE.
 
             WRITE (61, '("- NOT USED")')
@@ -1638,7 +1921,7 @@ CONTAINS
          END IF
       END DO
 
-      !***ZQ Module 200520
+      ! ZQ Module 2020-05-20
       CALL read_rundata_record(FILNAM, at_eof, unit_context(51, 'description'))
       IF (at_eof) THEN
          iszq = .FALSE.
@@ -1746,6 +2029,17 @@ CONTAINS
 
    CONTAINS
 
+!> @brief Reads one complete physical record from the rundata file on unit 2.
+!>
+!> A blank record is a successful read and is returned as blanks in `line`.
+!> End of file sets `at_eof`; every other input error reports the catchment and
+!> supplied record `context` on `ERROR_UNIT`, then terminates with `ERROR STOP`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-07-11 | SvB | Distinguished genuine read failures from normal end of file using whole-record input. |
+!> @endhistory
       SUBROUTINE read_rundata_record(line, at_eof, context)
          CHARACTER(LEN=*), INTENT(OUT) :: line
          LOGICAL, INTENT(OUT) :: at_eof
@@ -1773,6 +2067,13 @@ CONTAINS
       END SUBROUTINE read_rundata_record
 
 
+!> @brief Formats the rundata unit number and record kind for an input diagnostic.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-07-11 | SvB | Added contextual diagnostics for whole-record rundata input. |
+!> @endhistory
       FUNCTION unit_context(unit, record_kind) RESULT(context)
          INTEGER, INTENT(IN) :: unit
          CHARACTER(LEN=*), INTENT(IN) :: record_kind
@@ -1782,18 +2083,39 @@ CONTAINS
       END FUNCTION unit_context
 
       ! Internal helpers to cleanly exit without jumping to bottom labels
+!> @brief Reports an unexpected early end of the rundata file and stops the run.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-04-06 | SvB | Replaced the legacy branch to a shared terminal label. |
+!> @endhistory
       SUBROUTINE stop_eof_error(c_name)
          CHARACTER(LEN=*), INTENT(IN) :: c_name
          WRITE (*, '("UNEXPECTED -EOF- ON FILE ",A)') c_name
          STOP 'ABNORMAL END'
       END SUBROUTINE stop_eof_error
 
+!> @brief Reports failure to open the catchment rundata file and stops the run.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-04-06 | SvB | Replaced the legacy branch to a shared terminal label. |
+!> @endhistory
       SUBROUTINE stop_rundata_error(c_name)
          CHARACTER(LEN=*), INTENT(IN) :: c_name
          WRITE (*, '("ERROR OPENING RUNDATA FILE ",A)') c_name
          STOP 'ABNORMAL END'
       END SUBROUTINE stop_rundata_error
 
+!> @brief Reports failure to open an individual rundata-listed file and stops the run.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-04-06 | SvB | Replaced the legacy branch to a shared terminal label. |
+!> @endhistory
       SUBROUTINE stop_open_error(f_name)
          CHARACTER(LEN=*), INTENT(IN) :: f_name
          WRITE (*, '("ERROR OPENING FILE ",A)') f_name
@@ -1804,23 +2126,77 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FROUTPUT
+!> @brief Manages additional text time-series output.
+!>
+!> The routine handles start, timestep, and final-state phases for CSV-style discharge,
+!> extra discharge stations, water-table depth, sediment, fine sediment, and
+!> contaminant outlet series. It keeps running totals between calls and formats
+!> time using `DATE_FROM_HOUR`.
+!>
+!> `SIMPOS` selects the phase:
+!>
+!> | `SIMPOS` value | Behaviour |
+!> |:---------------|:----------|
+!> | `start` | Read optional extra-output control files, open CSV/text outputs, find the outlet link/face, initialise averaging counters. |
+!> | starts with `main` | Accumulate current timestep values, write regular output when a `TOUTPUT` interval boundary is crossed, write every-timestep discharge through [[write_dis2]], and write daily mass-balance/optional water-table rows. |
+!> | any other value | Write end-of-simulation phreatic-surface and pressure-head output to `VSE` for use as VSI-style initial conditions. |
+!>
+!> | Contained helper group | Routines |
+!> |:-----------------------|:---------|
+!> | Start/setup | `initialise_output`, `initialise_extra_discharge_points`, `allocate_extra_discharge`, `initialise_extra_water_table_output`, `find_mass_balance_outlet`, `write_discharge_header`, `initialise_sediment_output`, `initialise_contaminant_output` |
+!> | Timestep sampling/averaging | `write_main_output`, `sample_current_values`, `accumulate_interval`, `write_completed_regular_outputs`, `restart_accumulators` |
+!> | Formatting/final state | `write_regular_outputs`, `timestamp_from_output_hour`, `write_periodic_mass_balance`, `write_final_state` |
+!> | I/O checks | `write_checked`, `stop_on_io_error`, `fatal_on_io_error` |
+!>
+!> FORD exposes those contained routines on the source page rather than as
+!> separate procedure pages; each still has an adjacent source header below.
+!>
+!> Opened or written outputs are:
+!>
+!> | Output | Unit/source | Contents |
+!> |:-------|:------------|:---------|
+!> | `DIS2` | rundata unit 44 | Every-model-timestep outlet discharge with absolute date/time. |
+!> | `MAS` | rundata unit 43 | Daily spatially averaged cumulative balance and storage terms in mm over `CAREA`. |
+!> | `DIS` | rundata unit 41 | Regular `TOUTPUT`-interval outlet discharge, with optional extra channels. |
+!> | `output_<catchment>_water_table_depth.csv` | local unit 683 when `ISEXTRAPSL` | Selected element water-table depth below ground; negative means surface-water depth. |
+!> | `output_<catchment>_sediment_all.csv` and `_sediment_fine.csv` | local units 681/682 when `BEXSY` | Outlet sediment discharge for all fractions and fraction 1. |
+!> | `output_<catchment>_contaminant.csv` | local unit 684 when `BEXCM` | Outlet relative concentration for contaminant 1. |
+!>
+!> @warning
+!> Two existing write-error messages call `DIS2` unit 41 and `DIS` unit 44.
+!> The actual `AL_D` parameter assignments, and therefore the files written,
+!> are `DIS=41` and `DIS2=44` as shown above.
+!> @endwarning
+!>
+!> Extra discharge points are read from `DISEXTRA` as `(element, face)` pairs and
+!> silently filtered when the element number exceeds `total_no_links`. Extra
+!> water-table output elements are read from `PSLEXTRA` and filtered when the
+!> element number exceeds `total_no_elements`.
+!>
+!> @warning
+!> Optional-point validation checks only those upper element/link bounds. Zero
+!> or negative identifiers, discharge faces outside 1:4, and negative requested
+!> counts are not rejected here and can fail during allocation or later indexing.
+!> @endwarning
+!>
+!> When result-file output has not provided `MBLINK`/`MBFACE`, the `start` phase
+!> scans channel links and selects the last external OC boundary with boundary
+!> type 7, i.e. a weir boundary. If no outlet is found, outlet discharge,
+!> sediment, and contaminant series use zero values.
+!>
+!> Regular discharge, sediment, and contaminant records are accumulated in
+!> normalised output time `UZNOW/TOUTPUT`. The value written for `outputhour =
+!> next_hour-1` is the mean over the preceding `TOUTPUT` interval and is dated at
+!> the interval start. If one model step crosses more than one output interval,
+!> intermediate intervals are filled with the current timestep value.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2005-2024 | SB | 4.x | Added every-step and regular discharge, mass-balance, virtual-station, water-table, sediment, and contaminant text output. |
+!> | 2026-05-03 | SvB | 4.6.1 | Split the monolithic phase logic into contained helpers. |
+!> @endhistory
    SUBROUTINE FROUTPUT(SIMPOS)
-      !----------------------------------------------------------------------*
-      ! Generates output files for discharge, sediment, contaminants,
-      ! water tables, and mass balances at various simulation stages.
-      !
-      ! SIMPOS == 'start' : initialise output files and persistent state
-      ! SIMPOS == 'main*' : accumulate and write timestep/hourly outputs
-      ! otherwise         : write final-state output for restart/initialisation
-      !
-      ! Assumed global variables provided via host module(s):
-      ! ISextradis, disextra, total_no_links, ISextrapsl, pslextra,
-      ! total_no_elements, DIRQQ, cnam, dis2, mas, dis, toutput,
-      ! ICMREF, NOCBCC, NOCBCD, uznow, BHOTRD, bhotti, bexsy, bexcm,
-      ! QSED, RHOSED, CCCC, top_cell_no, qoc, tih, icounter2, balanc,
-      ! carea, zgrund, zvspsl, vse, bexbk, VSPSI, nlyrbt, FFFATAL, PPPRI
-      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -1862,7 +2238,6 @@ CONTAINS
       INTEGER, ALLOCATABLE, SAVE :: disextraelement(:), disextraface(:)
       DOUBLE PRECISION, ALLOCATABLE, SAVE :: qocavextra(:)
 
-      !----------------------------------------------------------------------*
 
       SELECT CASE (SIMPOS)
 
@@ -1881,12 +2256,22 @@ CONTAINS
    CONTAINS
 
 
+!> @brief Opens and primes the regular and optional runtime output streams.
+!>
+!> The routine reads optional station lists, writes the `DIS2`, `MAS`, and `DIS`
+!> headings, locates the outlet weir, and starts the normalised `TOUTPUT`
+!> interval counters. Hot starts seed the previous interval from `BHOTTI`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-04-22 | SB | Added the `DIS2` every-timestep discharge heading line. |
+!> | 2026-05-03 | SvB | Extracted the start phase from the monolithic `FROUTPUT` implementation. |
+!> @endhistory
       SUBROUTINE initialise_output()
-         !----------------------------------------------------------------------*
          ! Initialise regular and optional output streams.  The optional point
          ! lists are compacted in-place: invalid element/link IDs are skipped and
          ! the retained count is written back to disextrapoints/pslextrapoints.
-         !----------------------------------------------------------------------*
 
          IF (ISextradis) CALL initialise_extra_discharge_points()
          IF (ISextrapsl) CALL initialise_extra_water_table_output()
@@ -1941,6 +2326,22 @@ CONTAINS
       END SUBROUTINE initialise_output
 
 
+!> @brief Reads and compacts the optional virtual-discharge station list.
+!>
+!> Each retained record supplies a channel-link number and face. Requests whose
+!> link exceeds `total_no_links` are silently discarded; malformed input raises
+!> fatal frame error 1068.
+!>
+!> @warning
+!> Non-positive link numbers and face numbers outside 1:4 are retained without
+!> validation and will later be used as `QOC` indices.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted optional discharge-point setup from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE initialise_extra_discharge_points()
          READ(disextra, *, IOSTAT=ios)
          CALL fatal_on_io_error(ios, 1068, 'no or incorrect data in extra discharge points file')
@@ -1968,6 +2369,16 @@ CONTAINS
       END SUBROUTINE initialise_extra_discharge_points
 
 
+!> @brief Reallocates and zeroes persistent arrays for `n` virtual discharge stations.
+!>
+!> This includes retained link/face identifiers, current samples, and
+!> interval-integrated discharge. Existing allocations are discarded.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Centralised virtual-station allocation during the output refactor. |
+!> @endhistory
       SUBROUTINE allocate_extra_discharge(n)
          INTEGER, INTENT(IN) :: n
 
@@ -1985,6 +2396,23 @@ CONTAINS
       END SUBROUTINE allocate_extra_discharge
 
 
+!> @brief Reads selected water-table elements and opens their CSV output.
+!>
+!> Element numbers above `total_no_elements` are silently discarded. Valid
+!> entries become columns containing `ZGRUND-ZVSPSL` in metres below ground;
+!> a negative result denotes ponded surface water. Input/open failures use frame
+!> error 1069.
+!>
+!> @warning
+!> Non-positive element numbers are retained without validation and will later
+!> be used to index `ZGRUND` and `ZVSPSL`.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted optional water-table setup from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE initialise_extra_water_table_output()
          READ(pslextra, *, IOSTAT=ios)
          CALL fatal_on_io_error(ios, 1069, &
@@ -2027,11 +2455,20 @@ CONTAINS
       END SUBROUTINE initialise_extra_water_table_output
 
 
+!> @brief Selects the outlet link and face used by text and mass-balance output.
+!>
+!> The search resets `MBLINK` and `MBFACE`, scans every external channel face,
+!> and retains the last boundary whose OC boundary-condition type is 7 (weir).
+!> Both values remain zero when no such outlet exists.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted outlet discovery from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE find_mass_balance_outlet()
-         !----------------------------------------------------------------------*
          ! Find outlet link for mass-balance output when no reservoir files exist.
          ! The outlet must be a weir boundary condition, type 7.
-         !----------------------------------------------------------------------*
          mblink = 0
          mbface = 0
 
@@ -2048,6 +2485,16 @@ CONTAINS
       END SUBROUTINE find_mass_balance_outlet
 
 
+!> @brief Writes the regular-discharge CSV column heading.
+!>
+!> The first discharge column identifies `MBLINK`; when virtual stations are
+!> enabled, one `Channel-<link>` column is appended for every retained point.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted discharge-header formatting from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE write_discharge_header()
          IF (ISextradis) THEN
             WRITE(dis, '(*(A,I0))') &
@@ -2060,6 +2507,17 @@ CONTAINS
       END SUBROUTINE write_discharge_header
 
 
+!> @brief Opens and labels the total- and fine-sediment outlet CSV files.
+!>
+!> Output is enabled only when the sediment component is active. Total sediment
+!> combines all fractions; fine sediment is fraction 1. Both fluxes are reported
+!> in kg/s as interval means dated at the interval start.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted sediment-output setup from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE initialise_sediment_output()
          filnam = join_path(DIRQQ, 'output_' // TRIM(cnam) // '_sediment_all.csv')
          OPEN(SEDALLUNIT, FILE=filnam)
@@ -2085,6 +2543,16 @@ CONTAINS
       END SUBROUTINE initialise_sediment_output
 
 
+!> @brief Opens and labels the contaminant-one outlet CSV file.
+!>
+!> The series contains the interval mean of `CCCC(MBLINK,top_cell_no,1)`,
+!> described by the file as relative concentration.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted contaminant-output setup from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE initialise_contaminant_output()
          filnam = join_path(DIRQQ, 'output_' // TRIM(cnam) // '_contaminant.csv')
          OPEN(CONTAMUNIT, FILE=filnam)
@@ -2098,13 +2566,23 @@ CONTAINS
       END SUBROUTINE initialise_contaminant_output
 
 
+!> @brief Processes all additional output for one model timestep.
+!>
+!> Current outlet values are sampled, integrated over normalised output time,
+!> emitted at every crossed regular boundary, and retained for the unfinished
+!> interval. The routine also writes every-step discharge and scheduled
+!> mass-balance/water-table rows before advancing `uzold`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted the timestep phase from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE write_main_output()
-         !----------------------------------------------------------------------*
          ! Accumulate mean values in normalised output-time units.  When the
          ! current model time crosses one or more regular output boundaries, write
          ! one row for the just-completed interval and fill any skipped regular
          ! intervals with the current timestep average.
-         !----------------------------------------------------------------------*
 
          CALL sample_current_values(qocav, sedav, sedfineav, contamav)
 
@@ -2126,7 +2604,7 @@ CONTAINS
 
          uzold = uznowt
 
-         ! temp sb 250925 for when doing 1d simulations
+         ! A 1-D run may have no configured outlet face.
          IF (mblink == 0 .AND. mbface == 0) THEN
             qocav = ZERO
          ELSE
@@ -2136,6 +2614,18 @@ CONTAINS
       END SUBROUTINE write_main_output
 
 
+!> @brief Samples outlet discharge, sediment flux, and contaminant concentration.
+!>
+!> When no outlet was found, all returned values are zero. Otherwise total
+!> sediment is the sum of all `QSED` fractions multiplied by `RHOSED`, fine
+!> sediment is fraction 1, and contaminant output is the top-cell concentration
+!> of contaminant 1. Optional station discharges are also refreshed.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted outlet sampling from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE sample_current_values(q_out, sed_out, sedfine_out, contam_out)
          DOUBLE PRECISION, INTENT(OUT) :: q_out
          DOUBLE PRECISION, INTENT(OUT) :: sed_out
@@ -2176,6 +2666,17 @@ CONTAINS
       END SUBROUTINE sample_current_values
 
 
+!> @brief Integrates current samples over part of a regular output interval.
+!>
+!> `dt` is measured in units of `TOUTPUT`, so the accumulated values become
+!> interval means when a complete unit interval is written. Sediment,
+!> contaminant, and virtual-station totals are updated only when enabled.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted interval accumulation from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE accumulate_interval(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
          DOUBLE PRECISION, INTENT(IN) :: dt
          DOUBLE PRECISION, INTENT(IN) :: q_mean
@@ -2200,6 +2701,17 @@ CONTAINS
       END SUBROUTINE accumulate_interval
 
 
+!> @brief Writes a completed regular interval and fills any crossed intervals.
+!>
+!> The accumulated interval is timestamped at `next_hour-1`. If one model
+!> timestep spans further boundaries, those intermediate rows use the current
+!> sample directly, matching the legacy averaging behaviour.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted boundary-crossing output from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE write_completed_regular_outputs(hour_now, q_mean, sed_mean, sedfine_mean, contam_mean)
          INTEGER, INTENT(IN) :: hour_now
          DOUBLE PRECISION, INTENT(IN) :: q_mean
@@ -2229,6 +2741,16 @@ CONTAINS
       END SUBROUTINE write_completed_regular_outputs
 
 
+!> @brief Seeds interval accumulators with the portion after an output boundary.
+!>
+!> Each enabled total is replaced by its current sample multiplied by `dt`,
+!> where `dt` is the remaining fraction of the current `TOUTPUT` interval.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted post-boundary state handling from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE restart_accumulators(dt, q_mean, sed_mean, sedfine_mean, contam_mean)
          DOUBLE PRECISION, INTENT(IN) :: dt
          DOUBLE PRECISION, INTENT(IN) :: q_mean
@@ -2254,7 +2776,20 @@ CONTAINS
       END SUBROUTINE restart_accumulators
 
 
-      SUBROUTINE write_regular_outputs(output_hour, discharge, disextrapoints, discharge_extra, sediment, sediment_fine, contaminant)
+!> @brief Writes one timestamped row to each enabled regular-output stream.
+!>
+!> `output_hour` is an interval index and is converted to elapsed hours using
+!> `TOUTPUT`. Outlet discharge is supplied already non-negative; optional
+!> station discharges are made absolute. Sediment and contaminant rows are
+!> written only when their components are active.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Centralised regular CSV row formatting during the output refactor. |
+!> @endhistory
+      SUBROUTINE write_regular_outputs(output_hour, discharge, disextrapoints, discharge_extra, &
+         sediment, sediment_fine, contaminant)
          DOUBLE PRECISION, INTENT(IN) :: output_hour
          DOUBLE PRECISION, INTENT(IN) :: discharge
          INTEGER, INTENT(IN) :: disextrapoints
@@ -2306,6 +2841,16 @@ CONTAINS
       END SUBROUTINE write_regular_outputs
 
 
+!> @brief Converts a regular-output interval index to an absolute timestamp.
+!>
+!> The timestamp represents `TIH + output_hour*TOUTPUT` and is formatted
+!> `yyyy-mm-dd HH:MM:SS`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Centralised output timestamp generation. |
+!> @endhistory
       FUNCTION timestamp_from_output_hour(output_hour) RESULT(stamp)
          DOUBLE PRECISION, INTENT(IN) :: output_hour
          CHARACTER(LEN=32) :: stamp
@@ -2318,6 +2863,18 @@ CONTAINS
       END FUNCTION timestamp_from_output_hour
 
 
+!> @brief Writes scheduled catchment-average balance and water-table rows.
+!>
+!> Once `UZNOW` exceeds `icounter2`, cumulative balance/storage entries
+!> `BALANC(7:17)` are converted from cubic metres to millimetres over `CAREA`
+!> and written to `MAS`. The threshold then advances by 24 h. Selected
+!> water-table depths are written on the same schedule.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted periodic mass-balance output from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE write_periodic_mass_balance()
          IF (uznow <= icounter2) RETURN
 
@@ -2344,6 +2901,17 @@ CONTAINS
       END SUBROUTINE write_periodic_mass_balance
 
 
+!> @brief Writes the final phreatic surface and pressure heads for VSI reuse.
+!>
+!> With banks active, output begins at element 1; otherwise channel links are
+!> omitted and output begins at `total_no_links+1`. Each included element writes
+!> `VSPSI` from its bottom active layer through `top_cell_no`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Extracted end-of-simulation state output from `FROUTPUT`. |
+!> @endhistory
       SUBROUTINE write_final_state()
          WRITE(vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
          WRITE(vse, *) 'This output is by element number'
@@ -2370,6 +2938,13 @@ CONTAINS
       END SUBROUTINE write_final_state
 
 
+!> @brief Writes one text record and applies the standard fatal output check.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Centralised checked heading writes during the output refactor. |
+!> @endhistory
       SUBROUTINE write_checked(unit, line, error_message)
          INTEGER,          INTENT(IN) :: unit
          CHARACTER(LEN=*), INTENT(IN) :: line
@@ -2380,6 +2955,16 @@ CONTAINS
       END SUBROUTINE write_checked
 
 
+!> @brief Converts a nonzero output status into a console diagnostic and `ERROR STOP`.
+!>
+!> The supplied message is followed by a reminder to close software that may
+!> have locked the output file. A zero status returns without side effects.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Centralised fatal text-output handling. |
+!> @endhistory
       SUBROUTINE stop_on_io_error(io_status, message)
          INTEGER,          INTENT(IN) :: io_status
          CHARACTER(LEN=*), INTENT(IN) :: message
@@ -2392,6 +2977,16 @@ CONTAINS
       END SUBROUTINE stop_on_io_error
 
 
+!> @brief Routes a nonzero input/output status through the shared frame error service.
+!>
+!> On failure, `error_code` and `message` are passed to
+!> `ERROR(FFFATAL,...)`; a zero status returns normally.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-05-03 | SvB | Centralised numbered fatal I/O checks during the output refactor. |
+!> @endhistory
       SUBROUTINE fatal_on_io_error(io_status, error_code, message)
          INTEGER,          INTENT(IN) :: io_status
          INTEGER,          INTENT(IN) :: error_code
@@ -2404,7 +2999,17 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE write_dis
+!> @brief Writes one discharge value using the configured mass-balance face sign convention.
+!>
+!> Faces 1 and 2 preserve the sign of `qoo`; faces 3 and 4 reverse it before
+!> writing to the regular discharge unit `DIS`.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | Legacy | - | - | Added regular discharge output using the OC face sign convention. |
+!> | 2026-04-04 | SvB | 4.6.1 | Standardised Fortran formatting without changing the sign rule. |
+!> @endhistory
    SUBROUTINE write_dis(mbface, qoo)
       INTEGER, INTENT(IN)            :: mbface
       DOUBLEPRECISION, INTENT(IN)    :: qoo
@@ -2419,7 +3024,18 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE write_dis2
+!> @brief Writes one timestamped discharge record using the configured face sign convention.
+!>
+!> Faces 1 and 2 preserve the sign of `qoo`; faces 3 and 4 reverse it. The
+!> timestamp is `TIH + TME` converted with [[utilsmod:date_from_hour]], and the
+!> row is written to `DIS2` as date/time, simulation hour, and discharge.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2006-03 | SB | 4.x | Added outlet discharge at every model timestep. |
+!> | 2026-07-08 | SB | 4.6.1 | Made numeric text formatting explicit and checked output writes. |
+!> @endhistory
    SUBROUTINE write_dis2(mbface, qoo, tme)
       INTEGER, INTENT(IN)            :: mbface
       INTEGER                        :: c(6)
@@ -2434,7 +3050,6 @@ CONTAINS
       ENDIF
       c = DATE_FROM_HOUR(tih + tme)
       WRITE(dum,'(I4.4,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
-!WRITE(dum,'(2(I2.2,A),I4.4,3(A,I2.2))') c(1),'-',c(2),'-',c(3),' ', c(4),':',c(5),':',c(6)
       WRITE(bufdis2,'(F20.5)') qd
       bufdis2 = adjustl(bufdis2)
       WRITE(dis2,'(A,A1,F0.5,A1,A)') TRIM(dum), ',',tme, ',',TRIM(bufdis2)
@@ -2442,55 +3057,41 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FRRESC
+!> @brief Writes result-file control headers and opens unformatted result datasets.
+!>
+!> `FRRESC` serialises output class definitions and common model metadata to the
+!> legacy results file, then opens the unformatted result files used by
+!> [[frresp]] for selected output sets and data classes.
+!>
+!> The header contains the SHETRAN version, result filename stem, model
+!> dimensions, component file units, output set/class definitions, element/grid
+!> topology, VSS connectivity, soil and vegetation tables, bed/channel geometry,
+!> boundary and component-enable flags, and VSS soil-property tables. The write
+!> order intentionally does not always follow the old COMMON-block ordering
+!> because some arrays must be read back in a specific order. `IORES` is filled
+!> with the unformatted result-file units opened for the selected output data.
+!>
+!> | Header section | Main contents |
+!> |:---------------|:--------------|
+!> | Version/dimensions/topology | `SHEVER`, `NX`, `NY`, `NGDBGN`, element count, `ICMREF`, `ICMXY`, file units. |
+!> | Vertical/element geometry | layer counts, cell depths, bank/link maps, faces, bed cells, vegetation/soil/well category maps. |
+!> | Physical geometry | element area, channel length/width, `DHF`, `DXQQ`, `DYQQ`, bank fractions, ground and VSS node elevations. |
+!> | Run/output controls | component flags, time-step controls, output classes, output data ids, output elements, link-code maps, output timing. |
+!> | Soil hydraulic tables | VSS table count and `VSPPSI`, `VSPTHE`, `VSPKR`, `VSPETA`, `VSPDTH`, `VSPDKR`, `VSPDET`. |
+!>
+!> After the header is written, `RES` is closed so the result header can be
+!> inspected before the simulation finishes. Each selected output set then opens
+!> one unformatted data file on unit `50+set`, named by appending the two-digit
+!> set number to the resolved `RESFIL` stem.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Made typing explicit. |
+!> | 1997-1998 | RAH | 4.0-4.2 | Updated VSS metadata, array ordering, output classes, and unformatted result-file setup. |
+!> @endhistory
    SUBROUTINE FRRESC
-      !----------------------------------------------------------------------*
-      !
-      ! OUTPUT CONTROL (HEADER) DATA TO UNFORMATTED 'RES' FILE.
-      ! OPEN UNFORMATTED RESULTS FILES TO HOLD ACTUAL DATA.
-      !
-      ! NOTE: THE ORDER OF ARRAYS DOESN'T NECESSARILY MATCH THAT OF THE COMMON
-      ! BLOCKS, SINCE THE ORDER OF READING THE DATA IS IMPORTANT IN SOME CASES
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FRRESC/4.2
-      ! Modifications:
-      ! RAH  941003 3.4.1 Explicit typing.
-      ! RAH  970223  4.0  Combine DFILE with CFILE (& replace CPR with CMP).
-      !                   Add sections IVEG,VEG,ALCB1A.
-      !                   Replace NWC,DCONX,DCONY,DDZ,THSAT,NW,CCB,DB,BLOWP,
-      !                   CATUZ,NLYRC,EFFSAT,THFC,THWILT with JVS*,NVS*,
-      !                   DELTAZ,RDL,VSP*,ZBFULL,ZVSNOD.  See also AL.C,AL.D.
-      !                   Amend NLYRBT,NTSOIL loops (J inside, not I).
-      !                   Size of ICL* is 14 (was 13).
-      ! RAH  970223  4.1  Swap indices: DELTAZ,JVS*,ZVSNOD (see AL.C).
-      ! RAH  980713  4.2  Replace [I,N]CATUZ (redundant) with 0.
-      !      980722       ICL[IST,NUM] size NCLASS was 14 (see AL.D).
-      !                   Replace BEX[UZ,EX,SZ,TS1] with LDUM0 (see AL.D).
-      !                   Repace NGRID,NEXPO (also 0) with IDUM0 (see AL.D).
-      !                   Replace WIDTF,ZBED,HFLBED,ZFBED,DZFBED,LROOT,HFLBNK,
-      !                   PSTART with FDUM0 (see AL.D).  Use I2.2 for ANUM.
-      !                   Replace IORES with IDUM0 (was written while unset).
-      !                   Rewrite loop 280, & use intrinsic LEN & FORMAT 9300.
-      !                   Scrap local FILNAM (then no length limit).
-      !----------------------------------------------------------------------*
-      ! Commons and constants
 
-      ! Assumed external module dependencies providing global variables:
-      ! SHEVER, RES, NX, NY, NGDBGN, total_no_elements, ICMREF, ICMXY,
-      ! FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, EPD, TIM,
-      ! PPPRI, SPR, CMP, BUG, HOT, VSI, VED, WLD, LFB, LHB, LGB, BFB, BHB,
-      ! OFB, OHB, CMT, CMB, top_cell_no, total_no_links, NS, NV, WWWARN,
-      ! EEERR, FFFATAL, NRD, RDF, CAREA, TIH, LINKNS, BEXBK, ICMBK, ICMRF2,
-      ! JVSACN, JVSDEL, NLYR, NLYRBT, NBFACE, NHBED, NTSOIL, NVC, NVSSPC,
-      ! NVSSPT, NVSWLI, NVSWLT, NWELBT, NWELTP, cellarea, CLENTH, CWIDTH,
-      ! DELTAZ, DHF, DXQQ, DYQQ, FHBED, RDL, VSPOR, ZBEFF, ZBFULL, ZGRUND,
-      ! ZLYRBT, ZVSNOD, MSM, NM, NRAIN, NSET, NXP1, NYP1, NXM1, NYM1, NXE,
-      ! NYE, NXEP1, NYEP1, DTMET, QMAX, BHOTTI, BHOTST, PMAX, PALFA, TMAX,
-      ! BWIDTH, TTH, BEXET, BEXOC, BEXSM, BHOTPR, BHOTRD, BEXSY, BEXCM,
-      ! NMC, INGRID, NRAINC, IOCORS, ICLNUM, NCLASS, ICLIST, IODATA, IOELEM,
-      ! LCODEX, LCODEY, DXIN, DYIN, IOSTA, IOSTEP, IOEND, NVSSOL, VSPPSI,
-      ! VSPTHE, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, RESFIL, IORES
 
       IMPLICIT NONE
 
@@ -2503,7 +3104,6 @@ CONTAINS
       CHARACTER(2) :: ANUM
       CHARACTER(128) :: fname
 
-      !----------------------------------------------------------------------*
 
       ! WRITE SHETRAN VERSION
       !1
@@ -2652,29 +3252,65 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
+!> @brief Writes selected results to legacy result files.
+!>
+!> Output is controlled by user-defined output sets, output classes, and output
+!> times. The routine assembles the requested water-flow and component data into
+!> output buffers and writes only the records due on the current call.
+!>
+!> On each call, data are written only for data types marked with `1` in
+!> `AIOSTO`, allowing different SHETRAN components to call `FRRESP`
+!> selectively. Entry conditions require `NELEE >= 1`, `1 <= NSET <= NSETEE`,
+!> each `IODATA(set)` within the `AIOSTO` range, `IOELEM(set)` either a valid
+!> element or a valid output class selector, class lists `ICLNUM`/`ICLIST`
+!> within element bounds, contaminant-oriented data types `21:38` and `44`
+!> using `1 <= IOCORS(set) <= NCON`, and each `IORES(set)` connected for
+!> unformatted output.
+!>
+!> | Output-id range | Data group | Notes |
+!> |:----------------|:-----------|:------|
+!> | 1:8 | ET, surface input, storage, and head rates | Fluxes in m/s are converted to mm/hour with `3600000`; canopy storage is written as stored. |
+!> | 9, 13, 14, 19, 20 | Column or face arrays | Written immediately as `(RESNOW, array)` records and bypass the scalar `BUFFER`. |
+!> | 10:12, 15, 17, 18 | Snow, phreatic/surface depth, channel exchange, springs | Undefined or non-applicable cases use `999.999`. |
+!> | 21:31, 44 | Sediment and erosion | `IOCORS=0` means all sediment fractions; positive `IOCORS` selects one fraction. |
+!> | 32:38 | Contaminant concentrations | `IOCORS` selects contaminant number; ids 32 and 33 write full vertical profiles. |
+!> | 39:43, 45:49 | Wells and placeholders | 39, 40, and 45:49 are undefined; 41/42 write well abstraction, 43 water-balance error. |
+!> | 50 | Water-balance summary | `BALANC(j)*1000/CAREA`, so volumes are reported as catchment-depth millimetres. |
+!>
+!> The selector string `AIOSTO` is a per-call mask: output id `IDATA` is ignored
+!> unless `AIOSTO(IDATA:IDATA) == '1'`. When `NOW=.FALSE.`, the routine also
+!> enforces `IOTIME`/`IOEND`; when `NOW=.TRUE.`, those timing checks are bypassed.
+!>
+!> Sediment fraction bounds are selected by two statement functions:
+!>
+!> \[
+!> SFSED1(c)=\max(1,c),\qquad SFSED2(c)=\max(NSED(1-c),c).
+!> \]
+!>
+!> Therefore `IOCORS=0` expands to fractions `1:NSED`, while `IOCORS>0` selects
+!> exactly that sediment fraction.
+!>
+!> Cumulative erosion output id 44 uses elapsed time since `PREVTM` to update
+!> `GNUCUM` in mm:
+!>
+!> \[
+!> GNUCUM \leftarrow GNUCUM + GNU(RESNOW-PREVTM)3600\,1000.
+!> \]
+!>
+!> @warning
+!> Module state `PREVTM` and `GNUCUM` is not initialised before this update.
+!> Unless a caller or processor supplies known startup values, the first
+!> cumulative-erosion calculation for output id 44 is undefined.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1997-1998 | RAH | 4.1-4.2 | Updated VSS, sediment, contaminant, well, and water-balance result selectors. |
+!> | 2026-04-05 | SvB | 4.6.1 | Replaced removed legacy initialisers while retaining result-file layout. |
+!> @endhistory
    SUBROUTINE FRRESP (AIOSTO, RESNOW, NOW)
-      !----------------------------------------------------------------------*
-      !
-      ! WRITE DATA TO UNFORMATTED RESULT FILES.
-      !
-      ! DATA IS ONLY WRITTEN (ON A PARTICULAR CALL TO THIS SUBROUTINE) FOR THE
-      !   DATA TYPES INDICATED BY A '1' IN ARGUMENT AIOSTO. THIS ROUTINE CAN
-      !   THEREFORE BE CALLED SELECTIVELY FROM DIFFERENT PARTS OF SHETRAN.
-      !
-      ! DATA OUTPUT IS DETERMINED BY USER-DEFINED OUTPUT SETS & DATA CLASSES.
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/FR/FRRESP/4.2
 
-      ! Assumed external module dependencies providing global variables:
-      ! SEDSRT, total_no_elements, DLS, DLSSRT, GNUCUM, GNU, PREVTM, NSET,
-      ! IOTIME, IOEND, IODATA, IOELEM, ICLNUM, IOCORS, NSED, ICLIST, PNETTO,
-      ! EPOT, ERZA, ESOILA, EINTA, DRAINA, CSTORE, QH, IORES, QVSV, top_cell_no,
-      ! SD, TS, ZVSPSL, ZGRUND, QVSH, QOC, GETHRF, QBKB, QBKF, QVSSPR, VSPSI,
-      ! VSTHE, FBETA, FDEL, RHOSED, PLS, GINFD, GINFS, GNUBK, QSED, DCBED,
-      ! DCBSED, ZERO, ARBDEP, CCCC, SSSS, NCOLMB, CCCCW, QVSWEL, cellarea,
-      ! NVSWLI, QVSWLI, WBERR, BALANC, CAREA, NELEE, LLEE
 
       IMPLICIT NONE
 
@@ -2694,7 +3330,6 @@ CONTAINS
       LOGICAL :: COLUMN
       INTEGER :: SED
 
-      !----------------------------------------------------------------------*
 
       ! --- LOOP OVER ALL OUTPUT SETS
       !
@@ -2911,23 +3546,33 @@ CONTAINS
    ! 14/3/95
    !
    !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   !SSSSSS SUBROUTINE FRSORT
+!> @brief Sorts active elements for component execution and output ordering.
+!>
+!> Elements are sorted by descending surface-water elevation, with dry elements
+!> sorted by phreatic-surface elevation. For channel links, a dry-link ghost
+!> phreatic level is first set to the maximum adjacent non-link phreatic level on
+!> the two faces normal to the link direction.
+!>
+!> | Element state | Temporary list | Stored key |
+!> |:--------------|:---------------|:-----------|
+!> | Ponded, `GETHRF(IEL)-ZGRUND(IEL) > 1.0E-8` | Column 1 of `ELEV`/`ISTEMP` | `GETHRF(IEL)` |
+!> | Dry or non-ponded | Column 2 of `ELEV`/`ISTEMP` | `ZVSPSL(IEL)` |
+!> | Dry channel link | Column 2 after ghost update | `MAX(ZVSPSL(adjacent face A), ZVSPSL(adjacent face B))` |
+!>
+!> Each list is sorted from high to low. When the two lists are merged back into
+!> `ISORT`, the implemented comparison uses `ZVSPSL` for the next column-1
+!> element and the stored `ELEV(:,2)` key for the next column-2 element; this is
+!> the code behaviour, not a fresh comparison against the stored surface-water
+!> key.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1995-03-14 | - | 3.x | Documented the combined surface-water and phreatic-level ordering. |
+!> | 2026-05-03 | SvB | 4.6.1 | Explicitly initialised temporary sorting state for GFortran. |
+!> @endhistory
    SUBROUTINE FRSORT
-      !
-      ! SORT OF ALL ELEMENTS ON WATER ELEVATION (HIGHEST ELEVATION FIRST)
-      ! OR WATER TABLE ELEVATION IF NO SURFACE WATER IS PRESENT IN A GRID SQUARE
-      !   BANK ELEMENT
-      ! OR CHANNEL BED ELEVATION IF NO SURFACE WATER IS PRESENT IN A CHANNEL LINK
-      !
-      ! SURFACE WATER ELEVATIONS AND INDICES STORED IN COLUMN 1 OF ELEV AND ISTEMP
-      ! WATER TABLE ELEVATIONS AND INDICES STORED IN COLUMN 2 OF ELEV AND ISTEMP
-      !
-      !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      !
 
-      ! Assumed external module dependencies providing global variables:
-      ! NELEE, total_no_elements, ISORT, ICMREF, LINKNS, ZVSPSL, GETHRF,
-      ! ZGRUND, zero
 
       IMPLICIT NONE
 
@@ -2938,7 +3583,6 @@ CONTAINS
          JUMP, M, K, N, ITEMP, I1, I2, IS
       DOUBLE PRECISION :: HSZ1, HSZ2, ZHIGH, ZLOW, TEMP
 
-      !----------------------------------------------------------------------*
 
       IF (total_no_elements == 1) RETURN
 
@@ -3131,39 +3775,50 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE INBK
+!> @brief Reads and initialises bank water-level/depth data.
+!>
+!> `INBK` reads bank-component input data and sets bank water-surface elevations
+!> and related bank state used by OC, VSS, sediment, and contaminant routines.
+!> The routine loops over 13 bank data records. The `INTYPE` input methods are:
+!>
+!> | `INTYPE` | Meaning |
+!> |:---------|:--------|
+!> | 1 | Copy from an adjacent grid element if possible, otherwise from the first adjacent bank element found on the second pass. Ground level is set from adjacent bank-full elevation. |
+!> | 2 | Set all bank elements from one supplied default value. For ground level, the value is an offset from `ZBFULL`. |
+!> | 3 | Unsupported; the routine raises fatal error 1061. |
+!> | 4 | Read explicit `(bank element, value)` pairs. The read `NVALUE` is ignored and replaced by `2*total_no_links`. |
+!>
+!> | `IDATA` | Target | Type and transform |
+!> |:--------|:-------|:-------------------|
+!> | 1 | `ZGRUND` | Real. `INTYPE=1` sets `ZBFULL(link)`; `INTYPE=2` stores `ZBFULL(link)+DFAULT`; `INTYPE=4` stores the explicit elevation. |
+!> | 2 | `NMC` | Integer meteorological category. |
+!> | 3 | `NRAINC` | Integer rainfall category. |
+!> | 4 | `NVC` | Integer vegetation category. |
+!> | 5 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
+!> | 6 | `STRXX` | Real east-west Strickler/roughness value. |
+!> | 7 | `STRYY` | Real north-south Strickler/roughness value. |
+!> | 8 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
+!> | 9 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
+!> | 10 | `SD` | Initial bank-element snow depth (mm snow). |
+!> | 11 | `RHOSAR` | Initial bank-element snow specific gravity (dimensionless). |
+!> | 12 | `ZVSPSL` | Real. `INTYPE=1` copies adjacent phreatic elevation plus `ZGRUND(IEL)-ZGRUND(JEL)`; `INTYPE=2/4` interprets input as depth below bank ground and sets `ZGRUND-DUMMY`. |
+!> | 13 | `HRF` | Real. `INTYPE=1` copies adjacent water-surface elevation plus `ZGRUND(IEL)-ZGRUND(JEL)`; `INTYPE=2/4` interprets input as water depth above bank ground and sets `ZGRUND+DUMMY`. |
+!>
+!> Bank widths are not set here. `INTEGR` selects integer input for records 2,
+!> 3, 4, 5, 8, and 9; all other records are read as real values. The routine
+!> uses bank input unit `BKD`, element references `ICMREF`, and bank-full
+!> elevations `ZBFULL`, with `IDUM` and `DUMMY` as workspace.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-01 | RAH | 3.4.1 | Standardised inherited typing. |
+!> | 1994-08 | GP | 4.0 | Moved VSS soil-layer state out of bank input. |
+!> | 1998-07 | RAH | 4.2 | Removed unsupported class-based bank input. |
+!> | 2009-01 | JE | - | Restructured loops for automatic differentiation. |
+!> @endhistory
    SUBROUTINE INBK
-      !----------------------------------------------------------------------*
-      !
-      ! SUBROUTINE TO READ IN INPUT DATA FOR BANK COMPONENT
-      !
-      ! INPUT METHODS ARE:
-      !  1  SET VALUE = ADJACENT GRID VALUE
-      !                 (OR ADJACENT BANK-FULL ELEV. FOR G. LEVEL)
-      !  2  SET VALUE = GIVEN DEFAULT VALUE
-      !  3  VALUE GIVEN FOR EACH DATA CLASS (SEE OUTPUT DEFINITION FILE)
-      !  4  VALUE GIVEN FOR EACH BANK ELEMENT
-      !
-      ! Note that bank widths are not set here.
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/BK/INBK/4.2
-      ! Modifications:
-      ! RAH  941001 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL (AL.P).
-      !  GP  940816  4.0  Don't set NLYRC,I/CATUZ (see AL.D,FRRESC), N/ICTUZR
-      !                   (see AL.D), NLYR,NTSOIL,ZLYRBT (see VSREAD,VSCONC).
-      !                   Replace HSZ with ZVSPSL (see AL.C).
-      ! RAH  980713  4.2  Explicit typing.
-      !      980730       Don't support INTYPE=3 (was incorrect - see BR/__).
-      !                   New local DZG.
-      ! JE   JAN 2009     Loop restructure for AD
-      !----------------------------------------------------------------------*
-      ! Commons and constants
 
-      ! Assumed external module dependencies providing global variables:
-      ! BKD, TITLE, PPPRI, NGDBGN, total_no_elements, IDUM, DUMMY, zero,
-      ! ICMREF, ZGRUND, ZBFULL, NMC, NRAINC, NVC, STRXX, STRYY, SD,
-      ! RHOSAR, ZVSPSL, GETHRF, SETHRF, total_no_links, FFFATAL, ERROR
 
       IMPLICIT NONE
 
@@ -3174,11 +3829,9 @@ CONTAINS
       DOUBLE PRECISION :: DFAULT, DZG, VALUE (NLFEE * 2)
       LOGICAL :: BINBKD, found_adjacent
 
-      ! Modern array constructor replacing the legacy DATA statement
       LOGICAL, PARAMETER :: INTEGR(13) = [.FALSE., .TRUE., .TRUE., .TRUE., .TRUE., .FALSE., &
          .FALSE., .TRUE., .TRUE., .FALSE., .FALSE., .FALSE., .FALSE.]
 
-      !----------------------------------------------------------------------*
       !
       ! READ TITLE, FLAG FOR PRINTING INITIALISATION DATA
       ! :BK1
@@ -3382,47 +4035,166 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE INCM
+!> @brief Initialises the contaminant component and contaminant interface arrays.
+!>
+!> The routine reads contaminant data via [[cmmod:cmrd]], checks tabulated
+!> spatially variable concentrations, builds column/link geometry terms, sets
+!> contaminant storage coefficients, interpolates initial column concentrations,
+!> and initialises plant uptake data when enabled.
+!>
+!> | Phase | Main state prepared |
+!> |:------|:--------------------|
+!> | Input and checking | `CMRD` reads CM/CMP data; [[muerr2]] checks spatial concentration tables. |
+!> | Sediment interface | If `ISSDON` is false, neutral three-fraction sediment state is generated for contaminant coupling. |
+!> | Scaling and coefficients | Contaminant scaling constants, decay coefficients, and soil `KDDSOL` values are set. |
+!> | Column/link geometry | Column bottoms, lateral overlaps, bank/link bed layers, and stream-bed storage areas are derived. |
+!> | Old-state initialisation | Link, column, surface-flow, vertical-flow, moisture, and concentration old-state arrays are copied from the current hydraulic state. |
+!> | Optional spatial concentration | `ALINTP` maps depth-concentration tables onto active column cells. |
+!>
+!> `INCM` sets contaminant scaling constants before any solve-time coefficients
+!> are assembled:
+!>
+!> \[
+!> Z2 = 50,\qquad D0 = 10^{-3},\qquad OODO=1/D0,
+!> \]
+!>
+!> \[
+!> Z2SQ=Z2^2,\qquad Z2OD=Z2/D0,\qquad Z2SQOD=Z2^2/D0.
+!> \]
+!>
+!> The finite-difference weighting is initialised as fully implicit through
+!> `SGMA=1`, `SGSQ=SGMA**2`, and `OMSGMA=1-SGMA`. Contaminant decay is scaled
+!> for the solver as
+!>
+!> \[
+!> GCPLA_c = GGLMSO_c\,Z2SQOD.
+!> \]
+!>
+!> For each soil type and contaminant, the soil reference distribution
+!> coefficient is reconstructed from sediment particle fractions and
+!> particle-size distribution coefficients:
+!>
+!> \[
+!> KDDSOL_{s,c} = \sum_j SOSDFN_{s,j}\,KDDLS_{j,c}.
+!> \]
+!>
+!> If the sediment component is inactive, `INCM` creates a neutral sediment
+!> interface: three sediment fractions, no loose/deposited sediment mass, first
+!> fraction equal to one, zero sediment fluxes, and bed soil/porosity inferred
+!> from the bank soil at the exposed channel bed. This gives the contaminant
+!> component consistent sediment arrays without running sediment transport.
+!>
+!> Column geometry is prepared from VSS layering. `NCOLMB` is set to each
+!> column's bottom active layer, `ZCOLMB` stores the corresponding node
+!> elevation, and the scaled cell thickness workspace is
+!>
+!> \[
+!> KSPDUM_{e,k}=DELTAZ_{k,e}/Z2.
+!> \]
+!>
+!> Lateral overlap arrays `NOL`, `NOLBT`, `NOLCE`, `NOLCEA`, and `JOLFN` are
+!> built from `JVSACN`, `JVSDEL`, and `DELTAZ`. Where an overlap spans two
+!> cells, `JOLFN` stores the fractional contribution on the legacy integer scale
+!> 32500, for example
+!>
+!> \[
+!> JOLFN =
+!> \left\lfloor
+!> 32500\,\frac{DELTAZ_k}{DELTAZ_k+DELTAZ_{k+1}}
+!> \right\rfloor .
+!> \]
+!>
+!> For each channel link, the routine derives the bed-deep cell numbers and
+!> fractional coverage (`NCEBD`, `FNCEBD`) on both adjacent banks from the
+!> specified deep-bed thickness `DBDI/Z2` and reconciles the two bank overlap
+!> systems so all bank soil below the channel is accounted for. It then sets the
+!> bed-surface and bed-deep storage coefficients:
+!>
+!> \[
+!> ACPBSG_l = DBS\,CWIDTH_l/Z2^2,
+!> \]
+!>
+!> \[
+!> ACPBI_l =
+!> \frac{1}{2}\left(\sum \Delta z^\*_{bank}\right)CWIDTH_l/Z2
+!> - ACPBSG_l,
+!> \]
+!>
+!> where the summed scaled bank thickness excludes the parts outside the
+!> bed-surface/deep-bed region.
+!>
+!> Link initial concentrations are set to the incoming concentration `CCAPIN`
+!> in the deep-bed, bed-surface, and stream-water cells. Initial stream-bed
+!> moisture is the thickness-weighted average over the two adjacent bank regions
+!> participating in the bed layers, capped by bed porosity:
+!>
+!> \[
+!> THBED_l =
+!> \min\left(PBSED_l,\frac{\sum_k VSTHE_k w_k}{\sum_k w_k}\right).
+!> \]
+!>
+!> Initial bed particle fractions combine loose sediment and parent bed
+!> material:
+!>
+!> \[
+!> FBBEDO_{l,j} =
+!> \frac{DLS_l\,CWIDTH_l\,FBETA_{l,j}
+!>       +(ACPBI_l-ACPBSG_l)Z2^2\,SOSDFN_{NSOBED_l,j}}
+!>      {DLS_l\,CWIDTH_l +(ACPBI_l-ACPBSG_l)Z2^2}.
+!> \]
+!>
+!> @note
+!> If `NSOBED(l)` is zero during this calculation, the current code sets it to
+!> soil type 1 before using `SOSDFN`. The in-line comment identifies this as a
+!> temporary fix for cases where sediment and solute components run together.
+!> @endnote
+!>
+!> For soil and bank columns, old-state flow and concentration arrays are
+!> initialised from current water-flow state. Surface input and bottom flux use
+!>
+!> \[
+!> QIO_e=-PNETTO_e\,cellarea_e,\qquad
+!> QQRFO_e=QVSV_{NCOLMB(e),e}\,cellarea_e,
+!> \]
+!>
+!> and surface-water depth is stored as `DSWO = HRF - ZGRUND`. Bank columns use
+!> an L-shaped correction factor
+!>
+!> \[
+!> \rho = \frac{cellarea_{bank}/CLENTH_l}
+!>             {cellarea_{bank}/CLENTH_l + 0.5\,CWIDTH_l},
+!> \]
+!>
+!> to blend bank and associated-link water contents and vertical velocities
+!> where the contaminant column represents both bank soil and channel-underflow
+!> geometry.
+!>
+!> Surface-flow old-state values are converted to the contaminant component's
+!> inward-positive convention as
+!>
+!> \[
+!> QQQSWO_{e,1:2}=-QOC_{e,1:2},\qquad
+!> QQQSWO_{e,3:4}= QOC_{e,3:4}.
+!> \]
+!>
+!> If `CMRD` marked an initial concentration as spatially variable, `INCM`
+!> calls `ALINTP` to interpolate the category-specific concentration/depth table
+!> onto every active column cell and copies the result into both current and old
+!> mobile/dead-space concentration arrays (`CCCC`, `SSSS`, `CCCCO`, `SSSSO`).
+!> Finally, plant uptake data are initialised through [[inpl]] when `ISPLT` is
+!> enabled.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Standardised declarations. |
+!> | 1996-1998 | GP/RAH | 4.0-4.2 | Reworked VSS coupling, overlap geometry, sediment interfaces, and explicit typing. |
+!> | 2026-03 | SB | 4.6 | Updated contaminant allocation and active-cell interpolation. |
+!> @endhistory
    SUBROUTINE INCM (ISSDON)
-      !----------------------------------------------------------------------*
-      !
-      !  INITIALISATION SUBROUTINE FOR CONTAMINANT COMPONENT
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/MUZ/INCM/4.2
-      ! Modifications:
-      ! RAH  941003 3.4.1 Bring IMPLICIT from AL.P.  No INTEGER*2.
-      !  GP  960124  4.0  Scrap local variables K1,K2 & arrays JAQBT,JFACE,
-      !                   JSOOL,JSOOLA,NWORK,DOL,TDUMMY,ZDEL,ZHATP; add ROH.
-      !                   Replace: THSAT with VSPOR; KSPPE,KSPE with KSPDUM.
-      !                   Set ZCOLMB from ZVSNOD (was ZGRUND & DDZ).
-      !                   ...
-      ! RAH  970108  4.1  No long lines or non-std chars.  Generic intrinsics.
-      !      970218       Swap subscripts: QVSH,DELTAZ,JVSACN,JVSDEL,ZVSNOD,
-      !                   QVSV,VSTHE (see AL.C).
-      !      970521       Scrap outputs PLS,PSD (SED.CS), JBTLYR (COLM.CG) &
-      !                   WELDRO (COLM.CO).  Explicit typing.
-      !                   Don't admit BEXBK=F (setting JEL in loop 24).
-      ! RAH  980308  4.2  Scrap output OLBD (BK.CW).
-      !      981103       Scrap output ERUZO (COLM.CO).
-      !----------------------------------------------------------------------*
-      ! Commons and constants
 
       USE CMmod, ONLY: CMRD   !"JE"
 
-      ! Assumed external module dependencies providing global variables:
-      ! CMD, CMP, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, NS, NSEDEE,
-      ! NSED, NOCTAB, NX, NXEE, NYEE, NY, NLYRBT, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS,
-      ! NCOLMB, DBS, DBDI, CCAPI, CCAPE, CCAPR, CCAPB, IIICF, SOFN, GNN, GGLMSO, ALPHBD,
-      ! ALPHBS, KDDLS, ALPHA, FADS, MUERR2, ARBDEP, zero, DLS, DLSO, FBETA, FBTSD, FDEL,
-      ! GINFD, GINFS, GNUBK, QDEFF, NHBED, NTSOIL, NSOBED, PBSED, VSPOR, GNU, GNUO,
-      ! SOSDFN, one, Z2, D0, Z2SQ, Z2OD, Z2SQOD, SGMA, SGSQ, OMSGMA, top_cell_no, NCON,
-      ! GCPLA, KDDSOL, ZCOLMB, ZVSNOD, KSPDUM, DELTAZ, JVSACN, JVSDEL, NOLCE, NOLCEA,
-      ! NOLBT, JOLFN, NOL, FHBED, JFCE, NCEBD, FNCEBD, JOLDUM, FOLDUM, JKZCOL, cellarea,
-      ! CLENTH, CWIDTH, half, ACPBSG, ACPBI, NCEAB, CCAPIO, IIICFO, ACPSFO, ARXL, ACPBDO,
-      ! CCCCO, CCAPIN, CCCC, VSTHE, THBEDO, THBED, FBBEDO, FDELO, FBTSDO, DSWO, GETHRF,
-      ! ZGRUND, QIO, PNETTO, QQRFO, QVSV, RSZWLO, ZONEO, QQQSWO, QOC, GGAMMO, QQO, QVSH,
-      ! SSSSO, SSSS, VSTHEO, UUAJPO, ISCNSV, ALINTP, ISPLT, INPL
 
       IMPLICIT NONE
 
@@ -3453,17 +4225,13 @@ CONTAINS
 
       LOGICAL :: LDUM1(1), ISCNSV (NCONEE)
 
-      !----------------------------------------------------------------------*
       ! New by SB 18/11/04
       ! contam.f removed. z2 and d0 (scaling variables) needed here
-      ! -----------------------------------------------------------------
       Z2 = 50.0D0
       D0 = 1.0D-3
 
-      !----------------------------------------------------------------------*
       ! New by SB
       ! Parameter values for spatially variable initial contaminant conc.
-      ! -----------------------------------------------------------------
       !
       MAX_NUM_CATEGORY_TYPES = NOCTAB
       MAX_NUM_DATA_PAIRS = NOCTAB
@@ -3473,7 +4241,6 @@ CONTAINS
       ALLOCATE(TABLE_CONCENTRATION(NOCTAB, NOCTAB, NCONEE), TABLE_WATER_DEPTH(NOCTAB, NOCTAB, NCONEE))
 
       ! Read main CM input data file
-      ! ----------------------------
       ! Modified by SB
 
       CALL CMRD (CMD, CMP, MAX_NUM_CATEGORY_TYPES, NCONEE, NELEE, total_no_elements, total_no_links, NLFEE, NSEE, &
@@ -3488,7 +4255,6 @@ CONTAINS
       CALL MUERR2 (CMP, total_no_elements, NELEE, total_no_links, MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCON, NCONEE, &
          NUM_CATEGORIES_TYPES, NTAB, NCATTY, ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM1)
 
-      !----------------------------------------------------------------------*
       DO NCL = total_no_links + 1, total_no_elements
          NCOLMB (NCL) = NLYRBT (NCL, 1)
       END DO
@@ -3594,7 +4360,6 @@ CONTAINS
          KSPDUM (NCL, top_cell_no + 1) = KSPDUM (NCL, top_cell_no)
       END DO
 
-      !---------------------------------------------------------------
       ! Set up NOL, NOLBT, NOLCE, NOLCEA, JOLFN using VSS arrays JVSACN,
       ! JVSDEL and DELTAZ
       ! NB. NOLBT and JOLFN are overwritten during the loop over a column
@@ -3953,38 +4718,90 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE INET
+!> @brief Reads evapotranspiration input and initialises ET state.
+!>
+!> `INET` reads meteorological/vegetation mode flags, canopy and aerodynamic
+!> parameters, time-varying canopy/ground-cover/leaf-area/height tables, and
+!> root density functions used by [[etmod]].
+!>
+!> It assumes meteorological-site codes and vegetation codes have already been
+!> read by the global initialisation routines. Variable names follow the IH SHE
+!> Report 8 convention used by the legacy manual and code.
+!>
+!> | Phase | Main action |
+!> |:------|:------------|
+!> | Reset state | Clear vegetation defaults, reset `precip_m_per_s`, reset `TIMEUZ`, and clear `CSTORE` only when not reading a hot start. |
+!> | ET control records | Read print flags, `BMETAL`, optional `BMETDATES`, input timesteps, and measured-potential-evaporation flags. |
+!> | Vegetation loop | Read ET8 parameters, optional time-varying parameter tables, optional `PS1`/`RCF`/`FET` tables, and root-density values. |
+!> | Time-series priming | Read and discard the first row from `PRD`/`EPD` when `BMETAL` is true, otherwise from `MED`; also check `TAH`/`TAL` when station temperature output is active. |
+!>
+!> Shared inputs are:
+!>
+!> | Group | Variables |
+!> |:------|:----------|
+!> | ET and meteorological file units | `EPD`, `ETD`, `MED`, `PRD`, `PPPRI` |
+!> | Run dimensions | `total_no_elements`, `NGDBGN`, `NM`, `NRAIN`, `NV` |
+!> | Restart control | `BHOTRD` |
+!> | Local aerodynamic-array extent | `NVEE` |
+!>
+!> Initialised shared state is:
+!>
+!> | Group | Variables |
+!> |:------|:----------|
+!> | ET timing | `DTMET`, `DTMET2`, `DTMET3`, `TIMEUZ` |
+!> | Vegetation/root state | `NRD`, `CLAI`, `RDL`, `PLAI`, `VHT`, `RDF` |
+!> | Rainfall and canopy storage | `precip_m_per_s`, `CSTORE` |
+!> | ET mode/control flags | `MEASPE`, `MODE`, `NF`, `BMETP`, `BINETP`, `BMETAL`, `BMETDATES`, `BAR` |
+!> | Time-varying parameter controls | `MODECS`, `MODEPL`, `MODECL`, `MODEVH`, `NCTCST`, `NCTPLA`, `NCTCLA`, `NCTVHT` |
+!> | Canopy/aerodynamic/resistance tables | `CB`, `CK`, `CSTCAP`, `CSTCA1`, `RA`, `RC`, `RTOP`, `PLAI1`, `CLAI1`, `VHT1` |
+!> | Soil-moisture-tension tables | `PS1`, `RCF`, `FET` |
+!> | Time-varying ratio/time tables | `RELCST`/`TIMCST`, `RELPLA`/`TIMPLA`, `RELCLA`/`TIMCLA`, `RELVHT`/`TIMVHT` |
+!>
+!> Key ET variables and units are:
+!>
+!> | Variable | Meaning | Units |
+!> |:---------|:--------|:------|
+!> | `RA` | Aerodynamic resistance. | s/m |
+!> | `RC` | Stomatal/canopy resistance. | s/m |
+!> | `CSTCAP` | Canopy storage capacity. | mm |
+!> | `CSTORE` | Canopy storage. | mm |
+!> | `CK` | Canopy drainage parameter. | mm/s |
+!> | `CB` | Canopy drainage parameter. | 1/mm |
+!> | `ZO` | Zero-plane displacement. | m |
+!> | `ZD` | Roughness height. | m |
+!> | `ZU` | Height of anemometer. | m |
+!> | `PS1` | Average soil-moisture tension. | m |
+!> | `RCF` | Canopy resistance corresponding to `PS1`. | s/m |
+!> | `FET` | Actual/potential evapotranspiration ratio `EA/EP`. | nondimensional |
+!> | `RDF` | Root distribution function. | nondimensional |
+!> | `PLAI` | Ground-cover index. | nondimensional |
+!> | `CLAI` | Canopy leaf-area index. | nondimensional |
+!> | `VHT` | Canopy height. | m |
+!> | `MEASPE` | `0` if potential evaporation is not measured; `1` if measured. | flag |
+!> | `BMETDATES` | `TRUE` when PRD/EPD/temperature time-series records include a leading date column. | flag |
+!> | `DTMET` | Timestep for full meteorological-data input. | hr |
+!> | `DTMET2` | Timestep for precipitation-data input. | hr |
+!> | `DTMET3` | Timestep for potential-evaporation-data input. | hr |
+!>
+!> The `PS1`/`RCF`/`FET` table is read when `MODE` is neither 1 nor 4. For
+!> `MODE=1` and `MODE=4`, the table is skipped and the constant `RC` value is
+!> reported. When `BAR` is true, the top aerodynamic resistance term is computed
+!> as
+!>
+!> \[
+!> RTOP = \frac{\log^2((ZU-ZD)/ZO)}{0.41^2}.
+!> \]
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | Legacy | GP | 3.4 | Removed direct meteorological priming from ET input. |
+!> | 1994-1998 | RAH | 3.4.1-4.2 | Standardised typing and revised resistance/time-varying tables. |
+!> | 2007-04-30 | SB | - | Added `DTMET2`/`DTMET3` to convert breakpoint meteorological data to regularly spaced data. |
+!> | 2026-03 | SB | 4.6 | Added date-aware meteorological input and allocatable ET tables. |
+!> @endhistory
    SUBROUTINE INET
-      !----------------------------------------------------------------------*
-      ! THIS SUBROUTINE READS IN PARAMETERS REQUIRED FOR THE ET COMPONENT
-      ! AND CARRIES OUT INITIALISATION CALCULATIONS
-      ! IT IS ASSUMED THAT MET SITE CODES AND VEGETATION CODES HAVE BEEN
-      ! READ IN THE GLOBAL INITIALISATION ROUTINES
-      ! VARIABLE NAMES ARE AS SPECIFIED IN IH SHE REPORT 8, MAY 1978
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/ET/INET/4.2
-      ! Modifications since v3.3:
-      !  GP       3.4  Don't call METIN (see TMSTEP).
-      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-      ! RAH  970516  4.1  Scrap WEP,WETEX,WETOCE,WEXET,WSET,WSETER,WSETI
-      !                   (AL.D), DWETER (SPEC.ET) & AKKEP,AKKEA,AKKP (local).
-      !                   Bring HEAD,ZU,ZD,ZO from SPEC.ET.
-      !                   HEAD is type CHAR (was DBLE).  Explicit typing.
-      !                   Scrap SPEC.ET output arrays NUMCST,NUMPLA,NUMCLA,
-      !                   NUMVHT: use local JJJ.
-      ! RAH  981021  4.2  Scrap AL.D outputs CSTOLD,EPOTR.
-      !                   Replace VK^2 with constant VKSQ.
-      !----------------------------------------------------------------------*
 
-      ! Assumed global variables provided via host module(s):
-      ! NV, BHOTRD, NGDBGN, total_no_elements, NRAIN, ETD, PPPRI, NM
-      ! PRD, EPD, MED, TAH, TAL, ISTA, FFFATAL
-      ! CSTCAP, RC, BAR, MODE, CSTORE, precip_m_per_s, TIMEUZ, BMETDATES
-      ! BMETP, BINETP, BMETAL, DTMET, DTMET2, DTMET3, MEASPE, RA, ZU, ZD, ZO
-      ! NF, PLAI, CK, CB, NRD, CLAI, VHT, RDL, MODECS, MODEPL, MODECL, MODEVH
-      ! NCTCST, CSTCA1, RELCST, TIMCST, NCTPLA, PLAI1, RELPLA, TIMPLA
-      ! NCTCLA, CLAI1, RELCLA, TIMCLA, NCTVHT, VHT1, RELVHT, TIMVHT
-      ! PS1, RCF, FET, RDF, RTOP
 
       IMPLICIT NONE
 
@@ -4002,7 +4819,6 @@ CONTAINS
       ! Constants
       DOUBLE PRECISION, PARAMETER :: VKSQ = 0.1681D0 ! (0.41^2)
 
-      !----------------------------------------------------------------------*
 
       ! INITIAL VALUES
       init_veg_loop: DO I = 1, NV
@@ -4041,7 +4857,7 @@ CONTAINS
       !     TIMECONSTANT FOR RAINFALL DISTRIBUTION
       !:ET3
       READ(ETD, '(A)') HEAD
-      ! sb 300407 convert breakpoint data to regularly spaced data
+      ! Read the breakpoint interval and the regular interpolation intervals.
       READ(ETD, *) DTMET, DTMET2, DTMET3
 
       !-----READ WHETHER POTENTIAL EVAP IS MEASURED AND THEREFORE TO
@@ -4052,9 +4868,7 @@ CONTAINS
       READ(ETD, '(A)') HEAD
       READ(ETD, '(10I7)') (MEASPE(IIMEAS), IIMEAS = 1, NM)
 
-      !---------------------------------
       !  LOOP ON VEGETATION TYPES....
-      !---------------------------------
       veg_type_loop: DO I = 1, NV
 
          IF (BINETP) WRITE(PPPRI, "('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))") I
@@ -4063,9 +4877,7 @@ CONTAINS
          READ(ETD, '(A)') HEAD
          IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
 
-         !-------------------------------------
          !  READ PARAMETER DATA
-         !-------------------------------------
          READ(ETD, '(L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)') &
             BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
             PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
@@ -4083,9 +4895,7 @@ CONTAINS
 
          IF (.NOT. BAR(I) .AND. BINETP) WRITE(PPPRI, "(' ', 10X, 'CONSTANT RA =', F10.4)") RA(I)
 
-         !--------------------------------------------------------
          !    READ TABULAR VARIATION OF TIME-VARYING PARAMETERS
-         !--------------------------------------------------------
          !:ET9
          READ(ETD, '(A)') HEAD
 
@@ -4184,15 +4994,11 @@ CONTAINS
             END DO vht_loop
          END IF
 
-         !--------------------------------------------------
          !    END OF READING TIME-VARYING PARAMETERS
-         !--------------------------------------------------
 
          !-----CHECK MODE FOR EVAPOTRANSPIRATION CALCULATIONS
          IF (MODE(I) /= 1 .AND. MODE(I) /= 4) THEN
-            !---------------------------------------------
             !  READ AND WRITE PSI/RCF/FET FUNCTION DATA.
-            !---------------------------------------------
             !:ET15
             READ(ETD, '(A)') HEAD
             N1 = NF(I)
@@ -4207,13 +5013,11 @@ CONTAINS
          !-----READ AND WRITE ROOT DENSITY FUNCTION DATA
          !:ET17
          READ(ETD, '(A)') HEAD
-         ! --------------------------------------------------------
          !  NOTE THAT IT IS ASSUMED HERE THAT DEPTHS CORRESPOND
          !  TO THE NODE DEPTHS FOR THE UZ SOLUTION, SO THAT
          !  EACH NODE IN THE ROOT ZONE HAS A CORRESPONDING RDF
          !  VALUE.  THE VALUES SHOULD BE INPUT FROM THE SURFACE
          !  DOWNWARDS.
-         !---------------------------------------------------------
          IF (BINETP) WRITE(PPPRI, "('0'//1X, A)") TRIM(HEAD)
 
          ASUM = 0.0D0
@@ -4232,11 +5036,8 @@ CONTAINS
       END DO veg_type_loop
       !-----END OF VEGETATION LOOP
 
-      !-----------------------------------
       !    READ IN METEOROLOGICAL DATA
-      !-----------------------------------
       IF (BMETAL) THEN
-         ! Modernization Fix: Replaced GOTO traps with strict IOSTAT handling
          READ(PRD, *, IOSTAT=ios)
          IF (ios /= 0) CALL ERROR(FFFATAL, 1063, PPPRI, 0, 0, 'no data in prd file')
 
@@ -4259,56 +5060,65 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE INFR
+!> @brief Reads global frame data shared by multiple components.
+!>
+!> This includes model size, simulation dates, grid spacing, output controls,
+!> component execution flags, meteorological/vegetation/soil codes, ground
+!> levels, link maps, printing controls, and the optional regular-output interval.
+!>
+!> | Stage | Main records/actions |
+!> |:------|:---------------------|
+!> | Run identity and dimensions | Print version/banner, read catchment title, `NX`, `NY`, simulation start/end, and sediment/contaminant start dates. |
+!> | Grid and output timing | Read `DXIN`, `DYIN`, `DTAO`, `IAOUT`, `BINFRP`, `BFRTS1`, `BFRTS2`, `BSTORE`, and `PSTART`. |
+!> | Timestep controls | Read `PMAX`, `PALFA`, `QMAX`, `TMAX`, and `BSOFT`; cap `TMAX` at 2 h and set `PREST=1+PALFA`. |
+!> | Optional printed arrays | Read `BPPNET`, `BPEPOT`, `BPQOC`, `BPDEP`, `BPQF`, `BPQH`, `BPQSZ`, `BPHSZ`, `BPBAL`, and `BPSD` only when `IAOUT=2`. |
+!> | Component flags and hot start | Read optional-component flags `BEXSM`, `BEXBK`, `BEXSY`, `BEXCM`, then hot-start controls. |
+!> | Codes and geometry | Read station/type counts, discard obsolete river-lining record, read default codes, grid mask, OC link-code layouts, and call [[frind]]. |
+!> | Distributed arrays | Read `ZGRUND`; read or default `NMC`, `NRAINC`, and `NVC`; read optional `TOUTPUT`. |
+!>
+!> Common data read and initialised include:
+!>
+!> | Data group | Variables |
+!> |:-----------|:----------|
+!> | Input and echo units | `FRD` and `PPPRI`, already opened by [[fropen]] |
+!> | Job title | run title text |
+!> | Model size | `NX`, `NY` |
+!> | Simulation start time | `ISYEAR`, `ISMTH`, `ISDAY`, `ISHOUR`, `ISMIN` |
+!> | Simulation end time | `IEYEAR`, `IEMTH`, `IEDAY`, `IEHOUR`, `IEMIN` |
+!> | Sediment and contaminant start times | `JSYEAR`...`JSMIN`, `JCYEAR`...`JCMIN`; converted to `TSH`/`TCH` only when the component is enabled. |
+!> | Node spacing | `DXIN` in x direction, `DYIN` in y direction |
+!> | Printing/output control | `DTAO`, `IAOUT`, `BINFRP`, `BFRTS1`, `BFRTS2`, `BSTORE`, `PSTART`, `TOUTPUT` |
+!> | Printed-result selection | `BPPNET`, `BPEPOT`, `BPQOC`, `BPDEP`, `BPQF`, `BPQH`, `BPQSZ`, `BPHSZ`, `BPBAL`, `BPSD` |
+!> | Component execution control | `BEXSM`, `BEXBK`, `BEXSY`, `BEXCM`; `BEXET`, `BEXUZ`, `BEXOC`, `BEXSZ`, and `BEXEX` are forced true. |
+!> | Counts | `NM`, `NRAIN`, `NV`, `NS`; local `NLYRCT` is read and echoed only |
+!> | Default met/rain/vegetation codes | `IDMC`, `IDRA`, `IDVE`; `IDLYR` is read but not used here. |
+!> | Elevations and geometry | `ZGRUND`, `INGRID`, `LCODEX`, `LCODEY`, `ICMREF` |
+!> | Distributed codes | `NMC`, `NRAINC`, `NVC` |
+!>
+!> The main grid mask is read by row label from top to bottom (`K=NY...1`).
+!> Input value `1` is converted to internal catchment value `0`; every other
+!> value is converted to `-1`. The row label is checked and a mismatch stops the
+!> run immediately.
+!>
+!> @note
+!> The obsolete river-lining record `FR30/FR31` is still consumed from the input
+!> stream, but its values are not stored or converted by the active code.
+!> @endnote
+!>
+!> @note
+!> `TOUTPUT` is optional. If record `FR52/FR53` is absent or unreadable, the
+!> routine uses a 24 h averaging interval.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed common frame input, component flags, grid codes, and output controls. |
+!> | 2015-02-13 | SB | - | Added the optional `TOUTPUT` interval for regular text output. |
+!> | 2026-03 | SB | 4.6 | Added current hard-coded array-capacity reporting to the print file. |
+!> @endhistory
    SUBROUTINE INFR
-      !-------------------------
-      !
-      !
-      !     READ AND INITIALIZE DATA WHICH IS COMMON TO TWO OR MORE COMPONENTS
-      !         - ORGANISATION AND FILE NOS.        FRD,MED,ETD,UZD,OCD,SZD,
-      !                                             SMD,PRI,RES,HOT,SED
-      !         - JOB TITLE.
-      !         - MODEL SIZE.                       NX,NY
-      !          - START TIME OF SIMULATION
-      ! ISYEAR,ISMTH,ISDAY,ISHOUR,ISMIN
-      !          - END   TIME OF SIMULATION
-      ! IEYEAR,IEMTH,IEDAY,IEHOUR,IEMIN
-      !         - H-H GRID SIZES IN X-DIRECTION.    DXIN
-      !         - H-H GRID SIZES IN Y-DIRECTION.    DYIN
-      !         - PRINTING CONTROL.                 DTAO,IAOUT,BINFRP,
-      !                                             BFRTS1,BFRTS2,BSTORE
-      !         - CONTROLS FOR SELECTION OF         BPPNET,BPEPOT,BPQOC,
-      !             RESULTS TO BE PRINTED           BPDEP,BPQF,BPQH,BPQSZ,
-      !                                             BPHSZ,BPBAL
-      !         - COMPONENT EXECUTION CONTROL.      BEXET,BEXUZ,BEXOC,BEXSZ,
-      !                                             BEXSM
-      !         - NO. OF METEOROLOGICAL SITES,
-      !             RAINFALL STATIONS,
-      !             VEGETATION TYPES AND SOIL
-      !             TYPES.                          NM,NRAIN,NV,NS
-      !         - RIVER LINING PARAMETERS.          BLOWP,DB,CCB
-      !         - DEFAULT MET- VEG- AND SOILCODES   IDMC,IDRA,IDVE,IDS1,IDS2
-      !         - GROUND SURFACE LEVEL.             ZGRUND
-      !         - IMPERMEABLE BED LEVEL.            ZBED
-      !         - METEOROLOGICAL SITE CODES.        NMC
-      !         - RAINFALL STATION CODES.           NRAINC
-      !         - VEGETATION CODES.                 NVC
-      !         - SOIL CODES - UNDER ROOT ZONE.     NSC1
-      !         - SOIL CODES - ROOT ZONE.           NSC2
-      !         - GRID CODE FOR UZ, SZ AND FRAME    INGRID
 
-      ! Assumed external module dependencies providing global variables:
-      ! PPPRI, BDEVER, SHEVER, BANNER, FRD, TITLE, nxee, nyee, nlfee, nelee,
-      ! llee, nvee, nsee, NVSEE, NVBP, NUZTAB, NLYREE, NXOCEE, NOCTAB, NSEDEE,
-      ! NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE, NX, NY,
-      ! NXM1, NYM1, NXP1, NYP1, DXIN, DYIN, DTAO, IAOUT, BINFRP, BFRTS1,
-      ! BFRTS2, BSTORE, PSTART, PMAX, PALFA, QMAX, TMAX, BSOFT, PREST, two,
-      ! BPPNET, BPEPOT, BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD,
-      ! BEXSM, BEXBK, BEXSY, BEXCM, BEXET, BEXUZ, BEXOC, BEXSZ, BEXEX, BHOTRD,
-      ! BHOTPR, BHOTTI, BHOTST, HOUR_FROM_DATE, mbyear, mbmon, mbday, TSH, TCH,
-      ! NM, NRAIN, NV, NS, INGRID, LCODEX, LCODEY, NXE, NYE, ZGRUND, NMC, NRAINC,
-      ! NVC, TOUTPUT, ALLOUT, NXEP1, NYEP1, ISORT, total_no_elements, OCLTL,
-      ! FRIND, AREADR, AREADI
 
       IMPLICIT NONE
 
@@ -4317,7 +5127,6 @@ CONTAINS
          nlyrct, ipr, idmc, idra, idve, idlyr, i1, i2, i, ipflg, iel, ios
       DOUBLE PRECISION :: tthx
 
-      !----------------------------------------------------------------------*
 
       WRITE(PPPRI, 10)
 10    FORMAT ('1', // T10, '                                E'/T10, &
@@ -4615,16 +5424,38 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE INPL
+!> @brief Initialises contaminant plant-uptake arrays.
+!>
+!> `INPL` initialises the SHETRAN-UK plant contaminant migration component
+!> (MPL). The current implementation maps vegetation classes to plant uptake
+!> compartments and root fractions, including legacy hard-coded plant parameters.
+!>
+!> | Plant type | `PMASS` | `PF2MAX` | `PKMAX(:,1)` |
+!> |:-----------|--------:|---------:|-------------:|
+!> | 1 | 2 | 2 | \(1.5\times10^{-8}\) |
+!> | 2 | 3 | 6 | \(3.0\times10^{-8}\) |
+!> | 3 | 20 | 10 | \(3.0\times10^{-8}\) |
+!>
+!> Each non-link element is assigned a primary plant type from `NVC`. The
+!> primary plant fraction is `PFONE(:,1)=PLAI(NVC)`. If that fraction is less
+!> than 0.99, the routine creates a second plant compartment with fraction
+!> `1-PFONE(:,1)`; the second plant type is assumed to have been set elsewhere
+!> in legacy block data. Root fractions are copied from `RDF` into `PDZF3` from
+!> the top contaminant cell downward, and the old plant compartment-B mass is
+!> initialised as
+!>
+!> \[
+!> GMCBBO = \frac{CLAI}{PF2MAX}\,DELONE .
+!> \]
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1993-03-18 | JE | 3.4 | Implemented the MPL plant contaminant migration component initialisation. |
+!> @endhistory
    SUBROUTINE INPL
-      !----------------------------------------------------------------------*
-      !           Initialisation subroutine for contaminant plant uptake
-      !----------------------------------------------------------------------*
 
-      ! Assumed global variables provided via host module(s):
-      ! NPLT, NV, pmass, pf2max, pkmax, total_no_links, total_no_elements
-      ! NPLTYP, NVC, PFONE, PLAI, NPL, NCETOP, PDZF3, RDF, DELONE
-      ! CLAI, GMCBBO
       USE PLANT_CC
       USE COLM_C1
 
@@ -4634,7 +5465,6 @@ CONTAINS
       INTEGER :: NCL, JPLANT, JPLTY, NCE, NDUM
       DOUBLE PRECISION :: D1DUM, RDUM
 
-      !----------------------------------------------------------------------*
 
       NPLT = NV
       ! Number of top cell in column, and number of plant types
@@ -4696,31 +5526,43 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE INSM
+!> @brief Reads snowmelt component input and initialises snowpack state.
+!>
+!> Key snowmelt variables and units are:
+!>
+!> | Variable | Meaning | Units |
+!> |:---------|:--------|:------|
+!> | `UNIFSD` | Snow depth when a uniform initial snow depth is supplied. | mm snow |
+!> | `SD` | Snow depth. | mm snow |
+!> | `DDF` | Degree-day factor. | mm/s/C |
+!> | `RHOS` | Specific gravity of snow. | - |
+!> | `TSIN` | Initial snow temperature. | C |
+!> | `TS` | Snow temperature. | C |
+!> | `NSMC` | Number of meltwater slugs being routed through the snowpack. | - |
+!> | `MSM` | Snowmelt method flag: `1` degree-day, `2` energy budget. | - |
+!> | `ZOS`, `ZDS`, `ZUS` | Snow aerodynamic roughness, zero-plane displacement, and anemometer height for energy-budget snowmelt. | m |
+!> | `IMET` | Meteorological station element numbers for energy-budget windspeed correction. | element |
+!>
+!> | Branch | Input and initialisation |
+!> |:-------|:-------------------------|
+!> | `MSM=1` | Degree-day method; `TSIN` is forced to zero and energy-budget aerodynamic/location records are skipped. |
+!> | `MSM/=1` | Energy-budget method; reads `ZOS`, `ZDS`, `ZUS`, and `IMET(1:NM)`. |
+!> | `NSD=0` | Uniform initial snowpack; sets all `RHOSAR` to default `RHOS`, reads one `UNIFSD`, then sets all `SD` to that depth. |
+!> | `NSD/=0` | Spatial snowpack; reads distributed `SD` and `RHOSAR` arrays with `AREADR`. |
+!>
+!> After either snowpack branch, `NSMC` is reset to zero, `TS` is set to the
+!> effective `TSIN`, and snowfall `SF` is set to zero for every non-link element.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1981-03 | JCB | - | Created snowmelt component (SM). |
+!> | 1989-09 | GP | 2.1 | SHE88 implementation on Newcastle AMDAHL. |
+!> | 1990-06 | GP | 2.2 | Variable snowpack, low-temp correction, shallow pack, SHETRAN amendments. |
+!> | 1992-11 | SPA | 3.x | Removed incorrect snowpack temperature control, further low-temp correction. |
+!> @endhistory
    SUBROUTINE INSM
-      !----------------------------------------------------------------------*
-      !  THIS SUBROUTINE READS IN THE PARAMETERS REQUIRED FOR THE
-      !  SNOWMELT COMPONENT AND CARRIES OUT INITIALISATION
-      !  CALCULATIONS.
-      !----------------------------------------------------------------------*
-      !  VARIABLE AND UNIT SPECIFICATION
-      !  UNIFSD- SNOWDEPTH IF UNIFORM (MM OF SNOW)           MM
-      !  SD    - SNOWDEPTH (MM OF SNOW)                      MM
-      !  DDF   - DEGREE DAY FACTOR                           MM/S/C
-      !  RHOS  - SPECIFIC GRAVITY OF SNOW                    --
-      !  TSIN  - INITIAL TEMPERATURE OF SNOW                 C
-      !  TS    - TEMPERATURE OF SNOW                         C
-      !  NSMC  - COUNTER USED IN ROUTING MELTWATER
-      !          THROUGH SNOWPACK. EQUALS NUMBER OF
-      !          SLUGS OF MELTWATER MOVING THROUGH SNOWPACK  --
-      !  MSM   - EQUALS 1 FOR DEGREE DAY
-      !                 2 FOR ENERGY BUDGET                  --
-      !----------------------------------------------------------------------*
 
-      ! Assumed external module dependencies providing global variables:
-      ! SMD, BINSMP, PPPRI, HEAD, DDF, RHOS, NSD, MSM, RHODEF
-      ! ZOS, ZDS, ZUS, NM, IMET, ngdbgn, total_no_elements, rhosar
-      ! SD, NSMC, TS, SF
 
       IMPLICIT NONE
 
@@ -4728,7 +5570,6 @@ CONTAINS
       INTEGER :: N, IEL, I
       DOUBLE PRECISION :: TSIN, UNIFSD
 
-      !----------------------------------------------------------------------*
 
       ! READ PRINT CONTROL PARAMETERS
       READ(SMD, '(20A4)') HEAD
@@ -4799,9 +5640,7 @@ CONTAINS
          SF(IEL) = ZERO
       END DO epilogue_loop
 
-      !----------------------------------------------------------------------*
       ! FORMAT STATEMENTS
-      !----------------------------------------------------------------------*
 
 801   FORMAT(/, 'DEGREE DAY FACTOR DDF =', F7.5, 1X, 'MM/S/C', &
          5X, 'SNOW SPECIFIC GRAVITY RHOS =', F7.5 / &
@@ -4820,18 +5659,25 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE DINET
+!> @brief Supplies ET defaults when the evapotranspiration component is disabled.
+!>
+!> The routine only writes an `ENTER DINET` message and sets `BMETAL=.TRUE.`.
+!> The commented assignments to rainfall, evaporation, interception, root-zone
+!> evaporation, drainage, and soil evaporation are inactive. In the current frame
+!> initialisation, ET is forced active by [[infr]], so this dummy path is retained
+!> mainly for legacy component structure.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1991 | GP | 0.1-0.2 | Added and reduced the legacy dummy-component initialisation set. |
+!> | 2026-04 | SvB | 4.6.1 | Retained the inactive compatibility hook during control-flow cleanup. |
+!> @endhistory
    SUBROUTINE DINET
-      !----------------------------------------------------------------------*
-      ! DUMMY COMPONENT INITIALISATION (ET)
-      !----------------------------------------------------------------------*
 
-      ! Assumed global variable provided via host module:
-      ! BMETAL
 
       IMPLICIT NONE
 
-      !----------------------------------------------------------------------*
 
       WRITE(*, '(/, /, "ENTER DINET")')
       BMETAL = .TRUE.
@@ -4847,15 +5693,24 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE DINOC
+!> @brief Supplies overland/channel defaults when that component is disabled.
+!>
+!> This routine belongs to the legacy SHETRAN-UK dummy component set (DUM),
+!> which contains dummy versions of OC, ET, UZ, SZ, and EXSZOC routines. These
+!> minimal dummy components are not currently used. `DINOC` only writes an
+!> `ENTER DINOC` message and returns.
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-06 | GP | 0.1 | Added dummy components for use with V-catchment tests. |
+!> | 1991-12 | GP | 0.2 | Reduced to minimal versions, not currently used. |
+!> @endhistory
    SUBROUTINE DINOC
-      !----------------------------------------------------------------------*
-      ! DUMMY COMPONENT INITIALISATION (OC)
-      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
-      !----------------------------------------------------------------------*
 
       WRITE(*, '(/, /, "ENTER DINOC")')
 
@@ -4863,11 +5718,17 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE DOCIN
+!> @brief Retains the no-op overland/channel input hook required by the legacy component structure.
+!>
+!> `DOCIN` performs no work and has no side effects.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1991 | GP | 0.1-0.2 | Added the legacy dummy OC component hooks. |
+!> | 2026-04-13 | SvB | 4.6.1 | Marked the no-op input hook pure. |
+!> @endhistory
    PURE SUBROUTINE DOCIN
-      !----------------------------------------------------------------------*
-      ! DUMMY COMPONENT (OC)
-      !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
@@ -4875,23 +5736,34 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE MUERR2
+!> @brief Checks spatially variable contaminant concentration tables.
+!>
+!> `MUERR2` verifies that category counts, table lengths, water-depth breakpoints,
+!> and concentration values are valid before the contaminant initialisation uses
+!> them to interpolate grid and bank concentrations.
+!>
+!> Checks are applied only for contaminants whose `ISCNSV` flag is true:
+!>
+!> | Data checked | Condition |
+!> |:-------------|:----------|
+!> | `NCATTY(J,I)` for non-link elements `J=total_no_links+1:total_no_elements` | Category type must be greater than zero. |
+!> | `TABLE_WATER_DEPTH(NELMTY,1,I)` | First depth breakpoint must equal zero. |
+!> | `TABLE_WATER_DEPTH(NELMTY,NTBL,I)`, `NTBL>=2` | Depth breakpoints must strictly increase. |
+!> | `TABLE_CONCENTRATION(NELMTY,NTBL,I)` | Concentrations must be non-negative. |
+!>
+!> Errors are accumulated through `ALCHKI`/`ALCHK` into `NERR`; any positive
+!> count triggers fatal error 2107 at the end of the routine.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | Legacy | - | 4.2 | Added validation of spatially variable contaminant concentration tables. |
+!> | 2026-04-13 | SvB | 4.6.1 | Retained the checker during structured-control-flow conversion. |
+!> @endhistory
    SUBROUTINE MUERR2(CPR, total_no_elements, NELEE, total_no_links, MAX_NUM_CATEGORY_TYPES, &
       MAX_NUM_DATA_PAIRS, NCON, NCONEE, NUM_CATEGORIES_TYPES, NTAB, NCATTY,  &
       ISCNSV, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, LDUM)
-      !--------------------------------------------------------------------*
-      ! Checks data that is used to calculate the spatially variable
-      ! contaminant concentrations for grid and bank elements
-      !--------------------------------------------------------------------*
-      ! Version: 4.2                 Notes:
-      ! Module: CM                 Program: SHETRAN
-      ! Modifications
-      ! Notes: The checking works. However, it is done in a poor way.
-      ! In future this should be changed
-      !--------------------------------------------------------------------*
 
-      ! Assumed global variables provided via host module(s):
-      ! EEERR, FFFATAL
 
       IMPLICIT NONE
 
@@ -4921,7 +5793,6 @@ CONTAINS
       INTEGER :: IZERO(1)
 
 
-      !--------------------------------------------------------------------*
 
       ! 0. Preliminaries
       ! --- Data Initialisation ---
@@ -4931,7 +5802,6 @@ CONTAINS
 
       ! 1. Check the data used to calculate the spatially variable
       ! contaminant concentrations
-      ! -------------------------------------------------------
 
       contam_loop: DO I = 1, NCON
 
@@ -4976,7 +5846,6 @@ CONTAINS
       END DO contam_loop
 
       ! 2. Epilogue
-      ! -----------
       IF (NERR > 0) THEN
          CALL ERROR(FFFATAL, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
       END IF

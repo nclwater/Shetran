@@ -1,8 +1,49 @@
-!MMMMMM MODULE ocqdqmod
+!> summary: Overland/channel face flow and derivative controller.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> `ocqdqmod` controls calculation of overland and channel flows, together
+!> with the derivatives used by the [[ocmod:ocsim]] implicit solver, at
+!> element faces. [[ocqdq]] handles external boundaries, single adjacent
+!> faces, multi-way branch faces, bank exchanges, land-grid exchanges,
+!> link-link exchanges, and ZQ reservoir-table routing hooks by dispatching to
+!> the exchange-flow routines in [[ocmod2]].
+!>
+!> `STRXX` and `STRYY` normally hold directional Strickler roughness values
+!> read by [[ocmod]]. For land or link participants passed through
+!> [[ocqdq]], a negative `STRXX` is used as a surface-storage marker rather
+!> than as a physical roughness:
+!>
+!> | Condition | Effective roughness passed to flow helper |
+!> |:----------|:------------------------------------------|
+!> | `STRXX(kel) >= 0` | Directional value from [[fstr]] |
+!> | `STRXX(kel) < 0` and `HRF-ZGRUND < -STRXX/1000` | `0.5` |
+!> | `STRXX(kel) < 0` and `HRF-ZGRUND >= -STRXX/1000` | `2.0` |
+!>
+!> The threshold depth is therefore stored in millimetres as `-STRXX`; the
+!> active hydraulic calculation receives the fixed effective values above.
+!>
+!> `ICMXY` is imported from `AL_G` but has no reference in this module; it is
+!> retained because this transfer does not change import lists. Current
+!> `run_sim` imports `HOCNOW`, `QOCF`, and `XAFULL` (alongside a disabled
+!> `firstocqdq` import) without referencing them elsewhere in that file.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit declarations from `SPEC.AL`. |
+!> | 1998-02-24 | RAH | 4.2 | Reworked face arguments and loop structure; added explicit typing. |
+!> | 1998-02-25 | RAH | 4.2 | Called face-flow routines on lowest element and restructured boundary handling. |
+!> | 1998-02-26 | RAH | 4.2 | Replaced multi-call interface with one element loop. |
+!> | 1998-03-27 | RAH | 4.2 | Added `XAFULL` input argument. |
+!> | 1998-03-31 | RAH | 4.2 | Reworked `OCQGRD` arguments and derivative arrays. |
+!> | 1998-04 | RAH | 4.2 | Reworked bank, link, and boundary-condition calls. |
+!> | 1998-08-07 | RAH | 4.2 | Added local `LINK` to avoid out-of-bounds access. |
+!> | 2009-01 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2020-05-20 | SB | - | Added ZQ table routing support. |
+!> | 2022-05-19 | SB | - | Added negative-`STRXX` surface-storage switching. |
+!> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-based branch skipping with named-loop `CYCLE` statements and passed whole local work arrays/base element addresses to [[ocmod2]] exchange routines instead of `(0:1)`/column array sections, to avoid array-descriptor overhead (commit `632f254`). |
+!> @endhistory
 MODULE ocqdqmod
-! JE  1/09   4.3.5F90  Created, as part of conversion to FORTRAN90
-!***ZQ Module 200520
-! new variables     NoZQTables,ZQTableRef,ZQTableLink,ZQTableFace
    USE SGLOBAL
    USE AL_C ,     ONLY : ICMRF2, CWIDTH, DHF, ZBFULL, CLENTH
    USE AL_G ,     ONLY : ICMREF, ICMXY
@@ -10,9 +51,12 @@ MODULE ocqdqmod
    USE OCmod2 ,   ONLY : GETHRF, OCQMLN, SETQSA, OCQBNK, OCQGRD, OCQLNK, OCQBC
 
    IMPLICIT NONE
-   DOUBLEPRECISION    :: XAFULL(NLFEE), COCBCD(5, NOCTAB)
-   DOUBLEPRECISION    :: HOCNOW (NOCTAB), QOCF (NOCTAB)
-   DOUBLEPRECISION    :: STRXX(NELEE), STRYY(NELEE)
+   DOUBLEPRECISION    :: XAFULL(NLFEE)     !! Full-flow cross-sectional area for each channel link.
+   DOUBLEPRECISION    :: COCBCD(5, NOCTAB) !! Real-valued overland/channel boundary-condition coefficients.
+   DOUBLEPRECISION    :: HOCNOW (NOCTAB)   !! Current boundary stage/head values by boundary category.
+   DOUBLEPRECISION    :: QOCF (NOCTAB)     !! Current prescribed overland/channel boundary flow values by category.
+   DOUBLEPRECISION    :: STRXX(NELEE)      !! X-direction Strickler roughness, or negative storage-depth marker.
+   DOUBLEPRECISION    :: STRYY(NELEE)      !! Y-direction Strickler roughness.
 !LOGICAL            :: firstocqdq=.TRUE.
 
 
@@ -21,82 +65,88 @@ MODULE ocqdqmod
 
 CONTAINS
 
-   !SSSSSS SUBROUTINE OCQDQ
+   !> Calculates overland/channel face flows and flow derivatives.
+   !>
+   !> The routine loops over every element face (`element_loop`/`face_loop`),
+   !> dispatching to the appropriate hydraulic calculation for external
+   !> boundary conditions, land-land faces, link-link faces, link-bank faces,
+   !> and multi-link junctions. It scatters resulting flows into the global
+   !> face-flow arrays and stores derivative terms for the solver. A face
+   !> already handled from its lower-numbered neighbour is skipped: for an
+   !> ordinary single neighbour, `SINGLE .AND. JEL < ielu` cycles `face_loop`;
+   !> for a multi-link branch, `multi_setup_loop` cycles `face_loop` directly
+   !> as soon as any active participant element number is below `ielu`, so the
+   !> junction is instead processed once, from its lowest-numbered member.
+   !>
+   !> For a single face between local side `0` and neighbour side `1`, the
+   !> called hydraulic helper returns
+   !>
+   !> \[
+   !> Q_j = Q_j(Z_0,Z_1),\qquad
+   !> DQ(j,k) = \frac{\partial Q_j}{\partial Z_k},
+   !> \quad j,k\in\{0,1\}.
+   !> \]
+   !>
+   !> `OCQDQ` writes these to the global arrays as
+   !>
+   !> \[
+   !> QSA(iel,iface)=Q_0,\quad DQ0ST(iel,iface)=DQ(0,0),
+   !> \quad DQIST(iel,iface)=DQ(0,1),
+   !> \]
+   !>
+   !> and, where there is a regular neighbour,
+   !>
+   !> \[
+   !> QSA(jel,jface)=Q_1,\quad DQ0ST(jel,jface)=DQ(1,1),
+   !> \quad DQIST(jel,jface)=DQ(1,0).
+   !> \]
+   !>
+   !> For a multi-link junction, [[ocmod2:ocqmln]] returns branch flows
+   !> \(Q_j\) and the derivative matrix \(DQIJ(j,k)=\partial Q_j/\partial
+   !> Z_k\). The diagonal terms are stored in `DQ0ST`, while off-diagonal
+   !> confluence couplings are stored in `DQIST2`. In ordinary sign
+   !> conventions the self derivative is usually negative (`DQ0ST < 0`) and
+   !> neighbour derivatives are usually positive (`DQIST`/`DQIST2 > 0`), but
+   !> dry states, boundary controls, or limiting can alter those values.
+   !>
+   !> Surface storage: for single- and multi-link participants, a negative
+   !> `STRXX(kel)` is treated as a millimetre-scale ponding-depth marker
+   !> rather than roughness (see the module-level table); the substituted
+   !> value feeds [[ocmod2:ocqbnk]], [[ocmod2:ocqgrd]], [[ocmod2:ocqlnk]], or
+   !> [[ocmod2:ocqmln]] in place of [[fstr]]'s directional roughness.
+   !>
+   !> If either side of a link-link face matches a configured ZQ table
+   !> (`ZQTableLink`, `ZQTableFace`), `OCQDQ` sets `ZQTableRef` and dispatches
+   !> the face as boundary type `12`, so [[ocmod2:ocqlnk]] obtains discharge
+   !> from the ZQ rating table instead of the ordinary link-link equation.
+   !>
+   !> Entry requirements retained from the legacy routine are:
+   !>
+   !> | Requirement | Meaning |
+   !> |:------------|:--------|
+   !> | `NELEE >= total_no_elements`, `total_no_elements >= 1`, `NXSCEE >= 1` | Active elements and cross-section tables fit the compiled extents. |
+   !> | `NLFEE >= 1` and `NLFEE >= -ICMREF(1:total_no_elements,5:8)` for negative face references | Link/confluence references fit the link extent. |
+   !> | `NOCTAB >= 1` and `NOCTAB >= NOCBCC(1:total_no_elements)` | Boundary-condition indices fit the boundary table. |
+   !> | For each negative face reference `i`, `ICMRF2(-i,1:3) <= total_no_elements` | Multi-link participant elements fit the element extent. |
+   !> | For each negative face reference `i`, `1 <= ICMRF2(-i,4:6) <= 4` | Multi-link participant face numbers are valid. |
+   !> | For each external boundary `ibc=NOCBCC(iel)>0`, `NOCBCD(ibc,2)` identifies a face whose `ICMREF` neighbour is external or component-compatible | Boundary metadata is consistent with the element topology. |
+   !>
+   !> Boundary conflicts where both sides of a face carry non-zero boundary
+   !> condition indices are disallowed. The routine also assumes the
+   !> consistency between `ICMREF` and `ICMRF2` checked by the multi-link
+   !> scatter loop (`multi_scatter_loop`).
+   !>
+   !> @note
+   !> This routine has no dummy arguments. It uses shared grid,
+   !> boundary, geometry, water-level, and ZQ-table state from `SGLOBAL`,
+   !> `AL_C`, `AL_D`, `AL_G`, and [[ocmod2]]. Several calls into [[ocmod2]]
+   !> pass whole local work arrays (declared `(0:3)`) to dummy arguments
+   !> declared `(0:1)`, and pass single-element addresses
+   !> (`COCBCD(1,ibc)`/`COCBCD(1,itemp)`) to array dummy arguments, relying on
+   !> standard Fortran sequence association through the explicit-shape actual
+   !> arguments rather than array-section copies.
+   !> @endnote
    SUBROUTINE OCQDQ ()
-   !----------------------------------------------------------------------*
-   !
-   !  CONTROL CALCULATION OF FLOWS AND DERIVATIVES AT ELEMENT FACES
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCQDQ/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   ! RAH  980224  4.2  Bring JEL2,JFACE2,ZI,ZGI from OCQMLN, and pass
-   !                   as arguments - along with PRI,LI - in place of
-   !                   locals IFACE,JEL,FIRST,DDDZ2.  Also: set only JEL2
-   !                   at null branches; call on lowest IEL, not IROW,IND;
-   !                   rewrite loop 260.  Explicit typing.
-   !      980225       Call OCQBNK,OCQGRD,OCQLNK on lowest IEL.  Don't
-   !                   initialize Q,DQ0,DQI.  Use IEL.le.NLF for ITYPE=3.
-   !                   Rename INDEX I/JBC, & set IBC once only; also use
-   !                   new local NBC.  Set JFACE only if JEL.GT.IEL.
-   !                   Restructure IF-blocks to avoid unnecessary steps.
-   !                   Don't pass JFACE2 to OCQMLN.  Full args for OCQBC.
-   !      980226       One call; loop over IEL; scrap args ICOUNT,IROW.
-   !                   Move COCBCD,QOCF to arg list; don't INCLUDE SPEC.OC.
-   !      980327       New input argument XAFULL (see OCSIM).
-   !      980331       OCQGRD: remove input args I/JEL,I/JFACE,INDEX & add
-   !                   W (new local),LI,ZGI,STR,ZI; replace output vars
-   !                   Q,DQ0,DQI with arrays QJ,DQ; remove output DDDZ.
-   !                   New statement functions FSTR,FDQQ & args STRX,STRY.
-   !      980406       OCQLNK: remove input args I/JFACE,NBC & add
-   !                   LI,ZGI,COCBCD,ZI; outputs as OCQGRD above.
-   !      980408       OCQBNK: remove input args I/JEL,I/JFACE & add
-   !                   CLENTH,LI,ZGI,STR,ZI; outputs as OCQGRD above.
-   !                   Replace remaining Q,DQ0,DQI with QJ,DQ.
-   !      980409       OCQBC args: remove output DQ(0,1) & set to zero; add
-   !                   inputs W,STR, & HOCNOW (new, see OCSIM) & re-order.
-   !      980424       Add arguments NXSCEE,XSTAB (see OCSIM).
-   !                   Pass NXSCEE,STR,CW,XA to OCQMLN,OCQLNK.
-   !                   OCQLNK args also: remove IEL,JEL; move NTYPE.
-   !      980427       Pass new work arg XS (see OCSIM) to OCQMLN,OCQLNK.
-   !                   OCQBC args: add NXSCEE,XAFULL,XSTAB; rm IEL,IFACE.
-   !                   Reorder OCQGRD arguments.
-   !      980807       New local LINK (else, strictly, get out-of-bounds).
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !   NELEE.ge.NEL    [NEL,NXSCEE].ge.1    NLFEE.ge.[1,-ICMREF(1:NEL,5:8)]
-   !  NOCTAB.ge.[1,NOCBCC(1:NEL)]
-   !  for i in {ICMREF(1:NEL,5:8).lt.0}:  ICMRF2(-i,1:3).le.NEL
-   !               ICMRF2(-i,4;6).ge.1    ICMRF2(-i,4;6).le.4
-   !  for iel in 1:NEL
-   !    { let ibc=NOCBCC(iel), face=NOCBCD(ibc,2), jel=ICMREF(iel,face) ;
-   !      if ibc.gt.0 then
-   !   ( jel.ge.0 .and. ( jel.eq.0 .or. (jel.le.NLF).eqv.(iel.le.NLF) ) ) }
-   !
-   !980225 Disallow conflicts when NOCBCC(iel),NOCBCC(jel) both non-zero
-   !980225 Require consistency of ICMREF/ICMRF2 - see loop 260
-   !----------------------------------------------------------------------*
-   ! Commons and constants
-   ! Imported constants
-   !     SPEC.AL          NELEE,NLFEE,NOCTAB
-   ! Input common
-   !     SPEC.AL          PRI,NEL,NLF
-   !                      ICMREF(NELEE,5:12),NOCBCC(NEL)
-   !                      ICMRF2(NLFEE,6),   NOCBCD(NOCTAB,2:3)
-   !                      DYQQ(NEL),CWIDTH(NLFEE),ZGRUND(NEL),DHF(NELEE,4)
-   !                      DXQQ(NEL),CLENTH(NLFEE),ZBFULL(NLFEE),  HRF(NEL)
-   ! Output common
-   !     SPEC.AL            QSA(NELEE,4),DQIST(NELEE,4)
-   !                      DQ0ST(NELEE,4),DQIST2(NLFEE,3)
-   !                Note: Usually expect DQ0ST<0 and DQIST*>0.
-   ! Version:  SHETRAN/OC/OCQDQ/4.2
-
-      ! Assumed external module dependencies providing global variables:
-      ! NOCBCC, NOCBCD, ICMREF, ICMRF2, total_no_elements, total_no_links,
-      ! zero, FDQQ, FSTR, DHF, ZGRUND, XAFULL, COCBCD, GETHRF, HOCNOW, QOCF,
-      ! STRXX, CWIDTH, CLENTH, ZBFULL, NoZQTables, ZQTableLink, ZQTableFace,
-      ! ZQTableRef, DQ0ST, DQIST, DQIST2, OCQBC, OCQBNK, OCQGRD, OCQLNK, OCQMLN, SETQSA
 
       IMPLICIT NONE
 
@@ -211,7 +261,7 @@ CONTAINS
                   ELSE
                      itemp = MAX(1, NBC)
                      
-                     !***ZQ Module 200520
+                     ! ZQ Module 200520: override with a configured ZQ rating table, if this face has one
                      DO i = 1, NoZQTables
                         IF (((ielu == ZQTableLink(i)) .AND. (IFACE == ZQTableFace(i))) .OR. &
                             ((JEL == ZQTableLink(i)) .AND. (JFACE == ZQTableFace(i)))) THEN
@@ -219,7 +269,7 @@ CONTAINS
                            NTYPE = 12
                         END IF
                      END DO
-                     !!***ZQ Module 200520 end
+                     ! ZQ Module 200520 end
 
                      ! PERF FIX: Pass full arrays and base address COCBCD(1, itemp) instead of slices
                      CALL OCQLNK(NTYPE, LI, ZGI, STR, CW, XA, &
@@ -309,10 +359,19 @@ CONTAINS
    END SUBROUTINE OCQDQ
 
 
-!FFFFFF FUNCTION fstr
+   !> Returns the Strickler/roughness value for a face direction.
+   !>
+   !> Faces 1 and 3 use `STRXX`; faces 2 and 4 use `STRYY`.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 2026-04-09 | SvB | 4.6.1 | Declared `PURE` (commit `738cc38`). |
+   !> @endhistory
    PURE FUNCTION fstr(jel,face) RESULT(r)
-      INTEGER, INTENT(IN) :: jel, face
-      DOUBLEPRECISION     :: r
+      INTEGER, INTENT(IN) :: jel  !! Element index.
+      INTEGER, INTENT(IN) :: face !! Face number.
+      DOUBLEPRECISION     :: r    !! Roughness/Strickler value for the requested face.
 !mult = DBLE(MOD(face, 2))
 !r    = mult * strxx(jel) + (one-mult) * stryy(jel)
       IF(face==1 .OR. face==3) THEN
@@ -323,10 +382,19 @@ CONTAINS
    END FUNCTION fstr
 
 
-!FFFFFF FUNCTION fdqq
+   !> Returns the transverse face length used in a face-flow calculation.
+   !>
+   !> Faces 1 and 3 use `DYQQ`; faces 2 and 4 use `DXQQ`.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 2026-04-09 | SvB | 4.6.1 | Declared `PURE` (commit `738cc38`). |
+   !> @endhistory
    PURE FUNCTION fdqq(jel, face) RESULT(r)
-      INTEGER, INTENT(IN) :: jel, face
-      DOUBLEPRECISION     :: r
+      INTEGER, INTENT(IN) :: jel  !! Element index.
+      INTEGER, INTENT(IN) :: face !! Face number.
+      DOUBLEPRECISION     :: r    !! Transverse face length associated with the requested face.
 !mult = DBLE(MOD(face,2))
 !r    = mult * dyqq(jel) + (one-mult) * dxqq(jel)
       IF(face==1 .OR. face==3) THEN

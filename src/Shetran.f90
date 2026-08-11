@@ -1,139 +1,137 @@
-!> SHETRAN - Main Program
+!> @brief Runs one SHETRAN simulation from command-line selection through final output.
 !>
-!> Main program entry point for the SHETRAN hydrological modeling system.
-!> This program coordinates the initialization, execution, and finalization
-!> of all SHETRAN simulation components.
+!> This is the sole program unit and the entry point of the `SHETRAN`
+!> executable assembled by `CMakeLists.txt`. It owns no local data. Instead it
+!> establishes the initial shared state, delegates setup and timestepping to
+!> the model modules, requests final reports, and returns to the Fortran run
+!> time. The hydrological process ordering itself belongs to
+!> [[run_sim:SIMULATION]].
 !>
-!> ### Authors:
-!> - **Stephen Birkinshaw**, Newcastle University (Original development)
-!> - **Sven Berendsen**, Newcastle University (Modernization)
-!> - **Newcastle University Water Group** (Ongoing development)
+!> @author Stephen Birkinshaw, Newcastle University
+!> @author Sven Berendsen, Newcastle University
 !>
-!> ### Program Responsibilities:
-!> - Parse command line arguments and configuration
-!> - Initialize all model components and data structures
-!> - Execute the main simulation time-stepping loop
-!> - Generate final outputs and cleanup resources
+!> ### Command-line selection
 !>
-!> ### Program Flow:
-!> 1. **Initialization**: Parse command line, read configuration
-!> 2. **Setup**: Initialize all model components and data structures
-!> 3. **Simulation**: Execute main time-stepping loop
-!> 4. **Finalization**: Write final outputs and cleanup
+!> [[getdirqq:get_dir_and_catch]] validates the selected rundata file and sets
+!> the shared filenames before any model file is opened:
 !>
-!> ### Related Components:
-!> This program uses the following SHETRAN modules:
+!> | Invocation | Current behavior |
+!> |:-----------|:-----------------|
+!> | `shetran -f <path>` | Uses the named rundata file directly. This is the normal GFortran invocation. |
+!> | `shetran -c [name]` | Reads alternating name/path records from `catchments.txt`; an omitted name selects `default`. |
+!> | no args or `-a` | Opens a dialog only with Intel QuickWin on Windows; other builds stop with usage text. |
+!> | trailing `-error` | Sets shared `error_mode`; no current routine reads that flag, so termination behavior is unchanged. |
 !>
-!> - **ETmod**: Evapotranspiration processes
-!> - **FRmod**: Framework for file operations and mass balance
-!> - **Mnmod**: Nitrate transport module.
-!> - **OCmod**: Overland channel flow calculations
-!> - **SMmod**: Snow model calculations
-!> - **SYmod**: Sediment yield and transport
-!> - **RUN_SIM**: Main simulation execution controller
-!> - **simulation_output**: Additional output utilities
-!> - **GETDIRQQ**: Cross-platform directory utilities
+!> `catchments.txt` is resolved relative to the launch working directory. A
+!> successful selection sets `FILNAM` to the validated path, `DIRQQ` to its
+!> directory (or `.`), `CNAM` to its final filename stem with an exact lowercase
+!> `rundata_` prefix removed, and `rootdir` to the launch working directory.
+!> The historical `RUNFIL` argument is passed but is not read by the current
+!> selector.
 !>
-!> @note This is the main entry point for all SHETRAN simulations
+!> @warning
+!> The current non-QuickWin behavior differs from the user manual: a bare
+!> filename is not accepted without `-f`, and no-argument GFortran execution
+!> does not open a dialog. The manual also describes `-error` as suppressing an
+!> interactive wait, but current fatal termination is already noninteractive
+!> and independent of that flag.
+!> @endwarning
 !>
-!> @warning Ensure all input files are properly formatted and accessible
+!> ### Execution sequence
+!>
+!> | Step | Operation | Current effect |
+!> |:-----|:----------|:---------------|
+!> | 1 | `ERROR(-999,...)` | Initializes the shared error flags and retained help-path state. |
+!> | 2 | `GET_DIR_AND_CATCH` | Resolves and validates the rundata path and catchment identity. |
+!> | 3 | `ALTRAP` | Calls the retained floating-point-trap hook; the current implementation enables no traps. |
+!> | 4 | `NSTEP=0`; `UZNOW=ZERO` | Initializes the timestep count and elapsed simulation time in hours. |
+!> | 5 | `FROPEN` | Opens the rundata-controlled inputs and outputs and reads their filename records. |
+!> | 6 | `SIMULATION` | Initializes the model, advances timesteps, and writes scheduled outputs. |
+!> | 7 | `FROUTPUT('end  ')` | Writes final phreatic-surface and pressure-head data for a future VSI file. |
+!> | 8 | `EXTRA_OUTPUT` | Writes the error-count summary, completion record, and final water-balance totals. |
+!> | 9 | `RECORD_VISUALISATION_DATA(...,'end')` | Records any due final state and closes visualisation/HDF5 resources. |
+!>
+!> The final visualisation time is converted from double precision to
+!> default-real kind. Remaining connected Fortran units and process-lifetime
+!> allocations are left to normal program termination; this entry point does
+!> not explicitly close or deallocate the complete model state.
+!>
+!> Command-line failures stop before [[frmod:FROPEN]]. Fatal setup or simulation
+!> errors may stop in their owning routines, so the final three calls are made
+!> only after [[run_sim:SIMULATION]] returns normally.
+!>
+!> @note
+!> [[mod_load_filedata:ALTRAP]] is retained for interface compatibility. Its
+!> platform-specific IEEE handler has been disabled since version 4g-pc; it
+!> currently forces a local status to zero and returns.
+!> @endnote
 !>
 !> @history
-!> | Version | Date | Author | Description |
-!> |---------|------|--------|-------------|
-!> | v4.4.6 | 2019-12-10 | SteveB | Added Hotstart ability |
-!> | v4.4.7 | 2020-03-05 | SvenB | Code cleanups and modernization |
-!> | v4.5.3 | 2026-03-19 | SteveB | Datum in time series, allocatable arrays and nitrate module |
-!>
-!-------------------------------------------------------------------------------
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2019-12-10 | SB | 4.4.6 | Added hotstart capability to the orchestrated simulation. |
+!> | 2020-03-05 | SvB | - | Cleaned and modernized the legacy entry source. |
+!> | 2020-04-22 | SB | - | Added the current `src/Shetran.f90` entry file during repository reorganization. |
+!> | 2026-03-28 | SvB | - | Added the first FORD program header and explanatory call-site comments. |
+!> | 2026-05-11 | SteveB / SvenB | - | Restored the `ALTRAP` import for the retained call during the current-code rebase. |
+!> | 2026-05-13 | SvB | - | Removed the final Intel-specific `sleepqq` call from the portable entry point. |
+!> | 2026-06-19 | SB | 4.6.4 | Updated cross-platform command-line selection, including conditional QuickWin support. |
+!> @endhistory
 PROGRAM SHETRAN
 
-   ! ============================================================================
-   ! Module imports with explicit interface declarations
-   ! ============================================================================
-
-   ! Global constants and shared variables
+   ! Shared filenames, time, constants, and error service.
    USE SGLOBAL
 
-   ! Main data arrays and simulation parameters
-   USE AL_D, ONLY: nstep  !< Current simulation time step number
+   ! Shared timestep number.
+   USE AL_D, ONLY: nstep
 
-   ! Testing trap of floating point exceptions
-   ! Is it still necessary? Default is _off_
+   ! Retained no-op floating-point-trap hook.
    USE mod_load_filedata, ONLY : ALTRAP
 
-   ! Cross-platform command line and directory utilities
-   USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH  !< Parse command line arguments
+   ! Cross-platform command-line and directory handling.
+   USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH
 
-   ! Framework for file operations and mass balance
-   USE FRmod, ONLY: FROPEN, &  !< Open all data files
-      FROUTPUT       !< Generate framework output
+   ! Rundata-controlled file setup and framework output.
+   USE FRmod, ONLY: FROPEN, &
+      FROUTPUT
 
-   ! Visualization data recording interface
-   USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA  !< Record viz data
+   ! Visualisation recording and final cleanup.
+   USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA
 
-   ! Additional simulation output utilities
-   USE REST, ONLY: extra_output  !< Generate extra output files
+   ! Completion and water-balance reporting.
+   USE REST, ONLY: extra_output
 
-   ! Main simulation execution controller
-   USE RUN_SIM, ONLY: SIMULATION  !< Execute main simulation loop   IMPLICIT NONE
+   ! Model initialization and timestep driver.
+   USE RUN_SIM, ONLY: SIMULATION
 
    IMPLICIT NONE
 
-   ! ============================================================================
-   ! Local variables (none needed for main program)
-   ! ============================================================================
-
-   ! ============================================================================
-   ! Main program execution
-   ! ============================================================================
-
-   ! Initialize error handling system
-   ! Sets up error message handling with initial message buffer
+   ! Initialize error flags and retained help-path state.
    CALL ERROR(-999, 0, 0, 0, 0, 'Initialise error messages')
 
-   ! Parse command line arguments and determine input files
-   ! Processes command line to get rundata file and directory paths
-   ! Note: Uses cross-platform implementation for Linux/Windows compatibility
+   ! Resolve the rundata path, catchment identity, and working directories.
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
 
-   ! Testing trap of floating point exceptions
-   ! Is it still necessary? Default is _off_
+   ! Retain the legacy startup call; the current hook enables no traps.
    CALL ALTRAP
 
-   ! Initialize simulation state variables
-   ! Set initial conditions for time stepping and model state
-   nstep = 0        !< Initialize step counter
-   uznow = zero     !< Initialize time variable
+   ! Initialize the timestep count and elapsed simulation time [h].
+   nstep = 0
+   uznow = zero
 
-   ! Open all input and output data files
-   ! Opens data files based on configuration and validates formats
-   ! Note: File handles are managed by the framework system
+   ! Open the rundata-controlled model inputs and outputs.
    CALL FROPEN
 
-   ! Execute main simulation time-stepping loop
-   ! This is the core computational engine that advances the simulation
-   ! through time, solving the governing equations at each time step
-   ! See RUN_SIM module for detailed simulation algorithm
+   ! Initialize the model and run its timestep loop.
    CALL SIMULATION
 
-   ! Generate final framework output and close files
-   ! Writes final mass balance, summary statistics, and closes file handles
+   ! Write final state suitable for a later VSI initial-condition file.
    CALL FROUTPUT('end  ')
 
-   ! Generate additional output files
-   ! Creates supplementary output files for specialized analysis
+   ! Write completion, error-count, and water-balance summaries.
    CALL extra_output()
 
-   ! Record final visualization data
-   ! Writes final state data for post-processing visualization
-   ! Note: Converts time to single precision for visualization system
+   ! Record any due final visualisation data and close its resources.
    CALL RECORD_VISUALISATION_DATA(REAL(uznow, KIND=4), 'end')
-
-   ! ============================================================================
-   ! Program completion
-   ! ============================================================================
-
-   ! The program now terminates cleanly
 
 END PROGRAM SHETRAN

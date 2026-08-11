@@ -49,11 +49,11 @@
 !> |:-----|:-------|:--------|:------------|
 !> | - | AB/RAH | - | Created the original `AL*.F` input utilities. |
 !> | 2012-08 | JE | - | Converted the utilities to Fortran 90 and combined them in this module. |
-!> | 2020-03-05 | SvenB | - | Reformatted the module, added documentation, and renamed selected category/table variables. |
+!> | 2020-03-05 | SvB | - | Reformatted the module, added documentation, and renamed selected category/table variables. |
 !> | 2025-10 | SB | 4.5.3 | Generalized an `ALALLI` diagnostic, used active output extents in `ALINTP`, and expanded selected reader buffers. |
-!> | 2026-04-05 | SvenB | - | Removed `ALINIT`; its remaining use was replaced by an array-slice assignment. |
-!> | 2026-04-06 | SvenB | - | Replaced principal `GOTO` error/control paths with structured control flow and `IOSTAT` handling. |
-!> | 2026-05-11 | SvenB | - | Restored the public `ALTRAP` compatibility entry point during the current-code rebase. |
+!> | 2026-04-05 | SvB | - | Removed `ALINIT`; its remaining use was replaced by an array-slice assignment. |
+!> | 2026-04-06 | SvB | - | Replaced principal `GOTO` error/control paths with structured control flow and `IOSTAT` handling. |
+!> | 2026-05-11 | SvB | - | Restored the public `ALTRAP` compatibility entry point during the current-code rebase. |
 !> @endhistory
 MODULE mod_load_filedata
 
@@ -120,7 +120,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 1994-05-27 | - | - | Initial version. |
    !> | 1994-09-19 | AB/RAH | 3.4.1 | Revised the legacy distributed-array reader. |
-   !> | 2026-04-05 | SvenB | - | Replaced the uniform-field `ALINIT` call with an equivalent array-slice assignment. |
+   !> | 2026-04-05 | SvB | - | Replaced the uniform-field `ALINIT` call with an equivalent array-slice assignment. |
    !> @endhistory
    SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, &
                       NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, AEL, IDUM, &
@@ -349,7 +349,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | - | - | 4.2 or earlier | Created the integer distributed-category reader. |
    !> | 2025-10 | SB | 4.5.3 | Replaced a nitrate-specific invalid-category message with the current generic `ALALLI` diagnostic. |
-   !> | 2026-04-06 | SvenB | - | Replaced the legacy error jump with structured fatal-error handling. |
+   !> | 2026-04-06 | SvB | - | Replaced the legacy error jump with structured fatal-error handling. |
    !> @endhistory
    SUBROUTINE ALALLI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX,  &
                       NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
@@ -589,7 +589,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 1994-07-22 | - | - | Initial version. |
    !> | 1994-08-17 | AB/RAH | 3.4.1 | Revised the relation checker. |
-   !> | 2026-04-06 | SvenB | - | Replaced the subscript-parser jump with a named-loop exit. |
+   !> | 2026-04-06 | SvB | - | Replaced the subscript-parser jump with a named-loop exit. |
    !> @endhistory
    SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
                      OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
@@ -790,7 +790,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 1994-07-22 | - | - | Initial version. |
    !> | 1994-08-17 | AB/RAH | 3.4.1 | Revised the integer relation checker. |
-   !> | 2026-04-06 | SvenB | - | Replaced the subscript-parser jump with a named-loop exit. |
+   !> | 2026-04-06 | SvB | - | Replaced the subscript-parser jump with a named-loop exit. |
    !> @endhistory
    SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
                       OP, OBJ, SUBJ, COUNT, NOTOK)
@@ -993,7 +993,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | - | - | - | Created the category depth-table interpolation routine. |
    !> | 2025-10 | SB | 4.5.3 | Changed the result extent from capacity bounds to active `NEL` and `NCETOP` bounds. |
-   !> | 2026-04-06 | SvenB | - | Replaced the interval-search jump with a named-loop exit. |
+   !> | 2026-04-06 | SvB | - | Replaced the interval-search jump with a named-loop exit. |
    !> @endhistory
    SUBROUTINE ALINTP (LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES,     &
                       MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
@@ -1129,7 +1129,7 @@ CONTAINS
    !> | 1994-09-16 | AB/RAH | 3.4.1 | Revised the legacy input reader. |
    !> | 1997-08-04 | RAH | 4.1 | Added end-of-file handling to modes 6 and 7 and renumbered the VSS error as 16. |
    !> | 2025-10-02 | SB | - | Increased the diagnostic message buffer from 132 to 140 characters. |
-   !> | 2026-04-06 | SvenB | - | Replaced error jumps with `SELECT CASE`, `IOSTAT`, and the contained fatal-error helper. |
+   !> | 2026-04-06 | SvB | - | Replaced error jumps with `SELECT CASE`, `IOSTAT`, and the contained fatal-error helper. |
    !> @endhistory
    SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
                       CDATA, IDATA, RDATA)
@@ -1339,7 +1339,7 @@ CONTAINS
       !> @history
       !> | Date | Author | Version | Description |
       !> |:-----|:-------|:--------|:------------|
-      !> | 2026-04-06 | SvenB | - | Extracted repeated fatal-error dispatch while replacing `GOTO` paths. |
+      !> | 2026-04-06 | SvB | - | Extracted repeated fatal-error dispatch while replacing `GOTO` paths. |
       !> @endhistory
       SUBROUTINE throw_fatal(err_id, err_msg)
          INTEGER(kind=I_P), INTENT(IN) :: err_id !! Legacy error code passed to `ERROR`.
@@ -1379,7 +1379,7 @@ CONTAINS
    !> | 1994-09-16 | AB/RAH | 3.4.1 | Revised the legacy routine. |
    !> | 1995-03-22 | RAH | - | Replaced the former `ENTRY` interface with separate type-specific `ALRED*` routines. |
    !> | 2025-10 | SB | - | Expanded the status, filename, and diagnostic buffers. |
-   !> | 2026-04-06 | SvenB | - | Replaced the file-not-open jump with structured error handling. |
+   !> | 2026-04-06 | SvB | - | Replaced the file-not-open jump with structured error handling. |
    !> @endhistory
    SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)
 
@@ -1537,7 +1537,7 @@ CONTAINS
    !> | 1993-12-10 | - | - | Initial real input routine. |
    !> | 1994-09-16 | AB/RAH | 3.4.1 | Revised the legacy routine. |
    !> | 1995-03-22 | RAH | - | Created the separate real reader and renamed the destination `FDATA`. |
-   !> | 2026-04-06 | SvenB | - | Replaced error jumps with `IOSTAT` checks and structured returns. |
+   !> | 2026-04-06 | SvB | - | Replaced error jumps with `IOSTAT` checks and structured returns. |
    !> @endhistory
    SUBROUTINE ALREDF (FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)
 
@@ -1650,7 +1650,7 @@ CONTAINS
    !> | 1993-12-10 | - | - | Initial integer input routine. |
    !> | 1994-09-16 | AB/RAH | 3.4.1 | Revised the legacy routine. |
    !> | 1995-03-22 | RAH | - | Created the separate integer reader during removal of the former `ENTRY` interface. |
-   !> | 2026-04-06 | SvenB | - | Replaced error jumps with `IOSTAT` checks and structured returns. |
+   !> | 2026-04-06 | SvB | - | Replaced error jumps with `IOSTAT` checks and structured returns. |
    !> @endhistory
    SUBROUTINE ALREDI (FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
 
@@ -1914,8 +1914,8 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 1994-09-30 | RAH | 3.4.1 | Created the floating-point trap setup hook (legacy SSR79). |
    !> | 2000-03-07 | StevenB | 4g-pc | Removed the platform-specific IEEE handler calls. |
-   !> | 2026-04-04 | SvenB | - | Removed the no-op routine. |
-   !> | 2026-05-11 | SvenB | - | Restored the public no-op interface during the current-code rebase. |
+   !> | 2026-04-04 | SvB | - | Removed the no-op routine. |
+   !> | 2026-05-11 | SvB | - | Restored the public no-op interface during the current-code rebase. |
    !> @endhistory
     SUBROUTINE ALTRAP ()
 

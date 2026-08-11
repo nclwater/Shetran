@@ -1,14 +1,52 @@
+!> @brief Models carbon turnover and mineral-nitrogen cycling in soil columns.
+!>
+!> `MNmod` implements SHETRAN's optional Nitrate Component. It is enabled when
+!> [[frmod:fropen]] finds the main nitrate-data file on unit `MND` (53), and is
+!> called from [[cmmod:cmsim]] rather than acting as an independent transport
+!> solver. The contaminant component transports dissolved nitrate; this module
+!> calculates ammonium storage, organic carbon and nitrogen turnover,
+!> mineralisation and immobilisation, nitrification, denitrification, ammonia
+!> volatilisation, deposition, fertiliser and organic additions, plant uptake,
+!> environmental response factors, and the coupled nitrate source/sink terms.
+!>
+!> The main nitrate-data file supplies the process constants and spatial fields
+!> in records `MN11`--`MN60`. Scheduled inorganic-nitrogen and organic-carbon
+!> additions come from `MNFN` and `MNFC`; plant-uptake data come from `MNPL`.
+!> Diagnostics are written to `MNPR`, `MNOUT1`, `MNOUT2`, and `MNOUTPL`. See the
+!> User Guide's *Nitrate component* and *Nitrate component data input* sections
+!> for the record definitions and units.
+!>
+!> Runtime control is split between [[mncont]] and [[mnmain]]. `MNCONT` allocates
+!> the private element/cell arrays and calls [[mnplant]] before `MNMAIN`.
+!> `MNMAIN` reads and validates static data on its first call; later calls read
+!> scheduled additions, update the process pools, populate `SSS1` and `SSS2` for
+!> the contaminant equations, and write cumulative output. The module has saved
+!> state in several routines and no reset/deallocation path, so it is not
+!> re-entrant and assumes one model run with fixed dimensions per process.
+!>
+!> @note The implementation overwrites `TA(1:NV)` with 10 deg C in [[mncont]],
+!> hard-codes the mobile-water uptake fraction `PPHI` to 0.5 in [[mnint2]], and
+!> accumulates [[mnout]] budgets from that routine's first call.
+!> @endnote
+!>
+!> @warning Several retained current-code limitations affect interpretation:
+!> [[mnplant]] stores every vegetation table in row `NV` and can inspect saved,
+!> uninitialised `ISCROP` flags; [[mnred1]] leaves `Q10M` and `Q10N` undefined
+!> when Q10 mode is disabled although [[mnerr2]] still checks them; and the
+!> nitrogen loss/addition labels in [[mnout]] do not match all terms included in
+!> their totals. These behaviours are documented here and are not corrected by
+!> this documentation transfer.
+!> @endwarning
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03 | Stephen Birkinshaw | 4.6 | Added the current nitrate component and examples, then made the `MNCONT` name and allocatable work arrays portable to Linux. |
+!> | 2026-03--04 | Sven Berendsen | 4.6 | Removed DEC dependencies and modernised declarations, interfaces, and control flow while preserving the component algorithms. |
+!> | 2026-05 | Sven Berendsen | 4.6 | Moved large work arrays to heap storage and repaired current allocation/runtime failures. |
+!> @endhistory
 module MNmod
-
-
-!-------------------------- Start of MNmod --------------------------*
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/4.6
-! Modifications:
-!   SB        Mar 26    4.6   Capitalize MNCONT so it works in Linux
-!                              change the following as now allocatable
-!                              vstheo, nlyrbt, ntsoil, deltaz, rdf, zvsnod, cccc, ssss, sss1, sss2
-!----------------------------------------------------------------------*
 
 
     use sglobal, only : llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee, error
@@ -23,49 +61,125 @@ module MNmod
    PUBLIC    :: mnerr0, mnerr1, mnerr2, mnerr3, mnerr4, mngam, mninit, mnint2
    PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp
 
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     cahum,calit,caman,cdort,chum,chum1,clit,clit1,cman,cman1
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     denit,dummy4,dummy6
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     edeth,emph,emt,enph,ent
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     gam,gamtmp,imamm,imdiff,imnit
-   LOGICAL, DIMENSION(:,:), ALLOCATABLE ::     isimtf
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     kd1,kd2,khum,klit,kman,knit,kvol
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     miner
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     naamm,namm,namm1,nanit,ndnit,ndsnt,nlit,nlit1,nman,nman1,ntrf
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     plamm,plnit,plup,pphi
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE ::     snit,temp,vol
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cahum  !! External carbon-addition rate assigned to humus.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: calit  !! External carbon-addition rate assigned to litter.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: caman  !! External carbon-addition rate assigned to manure.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cdort  !! Carbon-dioxide production rate from organic-matter turnover.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: chum   !! Humus carbon at the start of the timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: chum1  !! Updated humus carbon.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: clit   !! Litter carbon at the start of the timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: clit1  !! Updated litter carbon.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cman   !! Manure carbon at the start of the timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cman1  !! Updated manure carbon.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: denit  !! Denitrification loss rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: dummy4 !! Transposed element/cell workspace for MN input checks.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: dummy6 !! Element/cell workspace for MN input checks.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: edeth  !! Water-content response factor for denitrification.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: emph   !! Matric-potential response factor for mineralisation.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: emt    !! Temperature response factor for mineralisation.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: enph   !! Matric-potential response factor for nitrification.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ent    !! Temperature response factor for nitrification.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: gam    !! Net mineralisation rate after deficit adjustment.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: gamtmp !! Unadjusted net mineralisation rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: imamm  !! Ammonium immobilisation rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: imdiff !! Unmet immobilisation demand carried to the next timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: imnit  !! Nitrate immobilisation rate.
+   LOGICAL, DIMENSION(:,:), ALLOCATABLE :: isimtf        !! Whether an immobilisation deficit suppresses litter/manure turnover.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kd1    !! Denitrification carbon-demand coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kd2    !! Denitrification nitrate-availability coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: khum   !! Humus decomposition-rate coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: klit   !! Litter decomposition-rate coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kman   !! Manure decomposition-rate coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: knit   !! Nitrification-rate coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: kvol   !! Ammonia-volatilisation-rate coefficient.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: miner  !! Gross mineralisation rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: naamm  !! Ammonium addition/deposition rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: namm   !! Ammonium concentration at the start of the timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: namm1  !! Updated ammonium concentration.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nanit  !! Nitrate addition/deposition rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ndnit  !! Dimensional nitrate concentration in dynamic water.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ndsnt  !! Dimensional nitrate concentration in dead-space water.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nlit   !! Litter nitrogen at the start of the timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nlit1  !! Updated litter nitrogen.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nman   !! Manure nitrogen at the start of the timestep.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: nman1  !! Updated manure nitrogen.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ntrf   !! Nitrification rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: plamm  !! Actual ammonium plant-uptake rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: plnit  !! Actual nitrate plant-uptake rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: plup   !! Potential plant-nitrogen-uptake rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: pphi   !! Dynamic-water fraction used to partition uptake.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: snit   !! Total nitrate source/sink diagnostic rate.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: temp   !! Soil temperature used by MN response factors.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: vol    !! Ammonia-volatilisation loss rate.
 
 CONTAINS
 
-
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the concentration of ammonium nitrogen per unit volume of,
-   ! solution at timestep n+1
-   ! failure of iteration loop to converge produces error no 3018
-   !
-   !--------------------------------------------------------------------*
-   ! version:                   notes:
-   ! module: mn                 program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+!> @brief Updates dissolved ammonium concentration for all active soil cells.
+!>
+!> `mnamm` iterates the ammonium mass balance with adsorption retardation,
+!> mineralisation/immobilisation, nitrification, volatilisation, plant uptake,
+!> and external ammonium input. Non-convergence of the cell iteration reports
+!> error 3018.
+!>
+!> The active vertical range is `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`. Within each soil layer, the iteration solves for
+!> `NAMM1` using the nonlinear ammonium retardation factor
+!>
+!> \[
+!> R_\mathrm{amm}=1+
+!> \frac{KDDSOL_s\,(NAMM/MNCREF)^{GNN-1}}{\theta}.
+!> \]
+!>
+!> At each iteration the half-step concentration
+!> \(NAMM_h=(NAMM+NAMM1)/2\) drives the process terms:
+!>
+!> | Term | Implemented expression |
+!> |:-----|:-----------------------|
+!> | Mineralisation | `MINER=GAM` and `IMAMM=0` when `GAM>=0`. |
+!> | Immobilisation | `MINER=0`, `IMAMM=min(-GAM, KUAMM*NAMM_h)` when `GAM<0`. |
+!> | Nitrification | `NTRF=theta_h*KNIT*ENT*ENPH*NAMM_h`. |
+!> | Volatilisation | `VOL=theta_h*KVOL*EMT*NAMM_h`. |
+!> | Plant uptake | `PLAMM=min(PLUP*(PPHI*NAMM_h/(NDNIT+NAMM_h)+(1-PPHI)*NAMM_h/(NDSNT+NAMM_h)), VSTHE*KPLAMM*NAMM_h)`. |
+!>
+!> The new concentration is
+!>
+!> \[
+!> NAMM1 =
+!> \frac{\theta_o\,NAMM\,R_o
+!>       + DTUZ(-PLAMM+MINER-IMAMM-NTRF-VOL+NAAMM)}
+!>      {\theta\,R_1}.
+!> \]
+!>
+!> Up to 20 iterations are allowed per cell. Convergence uses the squared
+!> relative change in `NAMM1`; the tolerance is \(10^{-12}\).
    SUBROUTINE mnamm (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, nlyree, ns, ncolmb, nlyr, nlyrbt, ntsoil, gnn, kplamm, kuamm, &
                      mncref, kddsol, dtuz, vsthe, vstheo, isbotc)
-
-      ! Assumed external module dependencies providing global variables:
-      ! gam, miner, imamm, namm, namm1, knit, ent, enph, ntrf, kvol, emt,
-      ! vol, plup, pphi, ndnit, ndsnt, naamm, plamm, ERROR
 
       IMPLICIT NONE
 
       ! input arguments
-      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf, nlyree, ns
-      INTEGER, INTENT(IN) :: ncolmb(nelee), nlyr(nelee)
-      INTEGER, INTENT(IN) :: nlyrbt(nel, nlyree), ntsoil(nel, nlyree)
-      DOUBLE PRECISION, INTENT(IN) :: gnn, kplamm, kuamm, mncref
-      DOUBLE PRECISION, INTENT(IN) :: kddsol(ns)
-      DOUBLE PRECISION, INTENT(IN) :: dtuz
-      DOUBLE PRECISION, INTENT(IN) :: vsthe(ncetop, nel), vstheo(nel, ncetop + 1)
-      LOGICAL, INTENT(IN) :: isbotc
+      INTEGER, INTENT(IN) :: llee  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: mnpr  !! MN diagnostic output unit used for warning messages.
+      INTEGER, INTENT(IN) :: nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: nel  !! Number of elements.
+      INTEGER, INTENT(IN) :: nelee  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: nlyree  !! Soil-layer array dimension.
+      INTEGER, INTENT(IN) :: ns  !! Number of soil types.
+      INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(IN) :: nlyr(nelee)  !! Number of soil layers in each element.
+      INTEGER, INTENT(IN) :: nlyrbt(nel, nlyree)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: ntsoil(nel, nlyree)  !! Soil type index for each element layer.
+      DOUBLE PRECISION, INTENT(IN) :: gnn  !! Nonlinear ammonium adsorption exponent.
+      DOUBLE PRECISION, INTENT(IN) :: kplamm  !! First-order ammonium plant-uptake limit.
+      DOUBLE PRECISION, INTENT(IN) :: kuamm  !! First-order ammonium immobilisation limit.
+      DOUBLE PRECISION, INTENT(IN) :: mncref  !! Reference nitrogen concentration.
+      DOUBLE PRECISION, INTENT(IN) :: kddsol(ns)  !! Soil ammonium adsorption coefficient.
+      DOUBLE PRECISION, INTENT(IN) :: dtuz  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: vsthe(ncetop, nel)  !! Current volumetric water content.
+      DOUBLE PRECISION, INTENT(IN) :: vstheo(nel, ncetop + 1)  !! Previous volumetric water content.
+      LOGICAL, INTENT(IN) :: isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! locals
       INTEGER :: jsoil, jlyr, nbotm, ncebot, ncl, nelm, niters, ntime
@@ -168,7 +282,6 @@ CONTAINS
                ! * If the DO loop ran all the way through to niters without
                ! * exiting early, it has failed to converge
                IF (ntime > niters) THEN
-                  ! PERF FIX: Restored external format label
                   WRITE (msg, 9000) wer1sq
                   CALL ERROR(warn, 3018, mnpr, 0, 0, msg)
                END IF
@@ -181,26 +294,41 @@ CONTAINS
 
    END SUBROUTINE mnamm
 
-
-
+!> @brief Calculates cumulative carbon dioxide production from organic matter turnover.
+!>
+!> The calculation combines humus, litter, and manure carbon pools with
+!> temperature and matric-potential modifiers and suppresses litter/manure
+!> decomposition where immobilisation is limiting.
+!>
+!> For each active land-column cell the routine uses average old/new carbon
+!> pools:
+!>
+!> \[
+!> C_h=\frac{CHUM+CHUM1}{2},\quad
+!> C_l=\frac{CLIT+CLIT1}{2},\quad
+!> C_m=\frac{CMAN+CMAN1}{2}.
+!> \]
+!>
+!> If `ISIMTF` is true, litter and manure decomposition rates are temporarily
+!> set to zero. Otherwise the stored `KLIT` and `KMAN` rates are used. Carbon
+!> dioxide production is then
+!>
+!> \[
+!> CDORT = (1-FE)(1-FH)K_{lit}EMT\,EMPH\,C_l
+!>       + (1-FE)KHUM\,EMT\,EMPH\,C_h
+!>       + (1-FE)K_{man}EMT\,EMPH\,C_m .
+!> \]
    subroutine mnco2 (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,fe,fh,isbotc)
-      !
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the concentration of carbon dioxide produced
-      ! upto timestep n+1
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision fe,fh
+
+      integer llee  !! Maximum soil-cell dimension.
+      integer nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      integer ncetop  !! Top soil-cell index.
+      integer nel  !! Number of elements.
+      integer nelee  !! Element-array dimension.
+      integer nlf  !! Number of overland/channel links excluded from land-column updates.
+      integer ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      double precision fe  !! Efficiency fraction for organic carbon turnover.
+      double precision fh  !! Humification fraction.
       !double precision chum(nelee,llee)
       !double precision chum1(nelee,llee),clit(nelee,llee)
       !double precision clit1(nelee,llee),cman(nelee,llee)
@@ -208,7 +336,7 @@ CONTAINS
       !double precision emph(nelee,llee),emt(nelee,llee)
       !double precision khum(nelee,llee),klit(nelee,llee)
       !double precision kman(nelee,llee)
-      logical isbotc
+      logical isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
       !logical isimtf(nelee,llee)
       !
       ! output arguments
@@ -257,73 +385,115 @@ CONTAINS
       !
    end subroutine mnco2
 
-
-
-   !SSSSSS SUBROUTINE MNCONT
+!> @brief Controls the mineral nitrogen component from the contaminant timestep.
+!>
+!> `MNCONT` is called by [[cmmod:cmsim]] when the mineral nitrogen option is
+!> active. When `CAHUM` is not allocated it allocates every private MN work
+!> array, computes potential plant nitrogen uptake with [[mnplant]], then calls
+!> [[mnmain]] to read or update mineral nitrogen state and to fill `SSS1` and
+!> `SSS2`, which replace the contaminant source/sink arrays used by the CM
+!> transport equations.
+!>
+!> | Phase | Main action |
+!> |:------|:------------|
+!> | Allocation guard | If `CAHUM` is not allocated, allocate all carbon, nitrogen, process-rate, environmental-factor, adsorption, plant-uptake, and workspace arrays with shape based on `NEL` and `NCETOP`; there is no reallocation for later dimension changes. |
+!> | Temporary temperature setup | Set every vegetation air-temperature entry `TA(1:NV)` to 10.0 before plant uptake and the main nitrogen update. |
+!> | Plant uptake | Call [[mnplant]] to calculate nitrogen plant uptake demand and related plant output. |
+!> | Main MN update | Call [[mnmain]] to initialise/check/read inputs on the first pass and then update ammonium/nitrate source-sink terms. |
+!>
+!> The dissolved nitrate concentration fields are supplied through the CM arrays
+!> `cccc` and `ssss`; ammonium, litter, humus, manure, and process-rate pools are
+!> held internally by `MNmod`. Rates and pools are evaluated over land columns
+!> from `NLF+1:NEL`; channel links are not treated as nitrogen soil columns.
+!>
+!> @note `MNCONT` overwrites the incoming `TA` values with 10 deg C before
+!> [[mnplant]] and [[mnmain]] are called.
+!> @endnote
+!>
+!> @warning The legacy source comments note that [[mnplant]] has limited input
+!> checking. The main nitrogen update path performs more extensive validation in
+!> [[mnerr0]], [[mnerr1]], [[mnerr2]], [[mnerr3]], and [[mnerr4]].
+!> @endwarning
+!>
+!> @warning [[cmmod:cmsim]] passes `ICMREF(1:NEL,5)` to the explicit-shape
+!> `ICMREF(NEL,4,2:2)` dummy. The MN checks then index four faces, relying on
+!> contiguous storage from columns 5--8 beyond the declared one-column actual
+!> section. This retained coupling is compiler-sensitive and is not changed
+!> here.
+!> @endwarning
    SUBROUTINE MNCONT(MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, &
                      ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NRD, NVC, NLYRBT, NTSOIL, &
                      D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, PLAI, RDF, ZVSNOD, BEXBK, &
                      LINKNS, DTUZ, UZNOW, CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, SSS1, SSS2)
-   !--------------------------------------------------------------------*
-   ! controlling mn subroutine from the other main ones are called
-   ! mnplant is very poorly written and there is no checking of data, it
-   ! is based on mpl component of shetran with only the relevant lines
-   ! included
-   !
-   ! mnmain everything is checked
-   !--------------------------------------------------------------------*
-   ! version: 4.2             notes:
-   ! module: mn               program: shetran
-   !--------------------------------------------------------------------*
-
-      ! Assumed module dependencies providing global allocatable arrays:
-      ! USE MN_MODULE, ONLY : cahum, calit, caman, cdort, chum, chum1, clit, clit1, &
-      !                       cman, cman1, denit, dummy4, dummy6, edeth, emph, emt, &
-      !                       enph, ent, gam, gamtmp, imamm, imdiff, imnit, isimtf, &
-      !                       kd1, kd2, khum, klit, kman, knit, kvol, miner, naamm, &
-      !                       namm, namm1, nanit, ndnit, ndsnt, nlit, nlit1, nman, &
-      !                       nman1, ntrf, plamm, plnit, plup, pphi, snit, temp, vol
 
       IMPLICIT NONE
 
       ! --- Input arguments ---
       ! Static
-      INTEGER, INTENT(IN) :: MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL
-      INTEGER, INTENT(IN) :: NCETOP, NCON, NEL, NLF, NS, NV, NX, NY
-      INTEGER, INTENT(IN) :: ICMBK(NLF, 2), ICMREF(NEL, 4, 2:2), ICMXY(NX, NY)
-      INTEGER, INTENT(IN) :: NLYRBT(NEL, *), NTSOIL(NEL, *)
+      INTEGER, INTENT(IN) :: MND  !! Static MND input unit.
+      INTEGER, INTENT(IN) :: MNFC  !! Scheduled carbon-addition input unit.
+      INTEGER, INTENT(IN) :: MNFN  !! Scheduled nitrogen-addition input unit.
+      INTEGER, INTENT(IN) :: MNPL  !! Plant-uptake input unit.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: MNOUT1  !! Carbon budget output unit.
+      INTEGER, INTENT(IN) :: MNOUT2  !! Nitrogen budget output unit.
+      INTEGER, INTENT(IN) :: MNOUTPL  !! Plant nitrogen output unit.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NCON  !! Number of contaminant species coupled to MN.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NV  !! Number of vegetation/meteorological entries.
+      INTEGER, INTENT(IN) :: NX  !! Number of grid columns.
+      INTEGER, INTENT(IN) :: NY  !! Number of grid rows.
+      INTEGER, INTENT(IN) :: ICMBK(NLF, 2)  !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMREF(NEL, 4, 2:2)  !! Neighbour reference map.
+      INTEGER, INTENT(IN) :: ICMXY(NX, NY)  !! Element number at each grid location.
+      INTEGER, INTENT(IN) :: NLYRBT(NEL, *)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: NTSOIL(NEL, *)  !! Soil type index for each element layer.
 
-      DOUBLE PRECISION, INTENT(IN) :: D0, TIH, RHOPL, Z2
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLF)
+      DOUBLE PRECISION, INTENT(IN) :: D0  !! Reference diffusion/dispersion scale used by CM.
+      DOUBLE PRECISION, INTENT(IN) :: TIH  !! Initial simulation time in hours.
+      DOUBLE PRECISION, INTENT(IN) :: RHOPL  !! Plant dry-matter density used by uptake calculation.
+      DOUBLE PRECISION, INTENT(IN) :: Z2  !! Vertical length scale used by CM and MN temperature diffusion.
+      LOGICAL, INTENT(IN) :: BEXBK  !! True when bank elements are represented.
+      LOGICAL, INTENT(IN) :: LINKNS(NLF)  !! True for north-south channel links.
 
       ! Varying
-      DOUBLE PRECISION, INTENT(IN)    :: DTUZ, UZNOW
-      DOUBLE PRECISION, INTENT(IN)    :: CCCC(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN)    :: SSSS(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN)    :: VSPSI(NCETOP, NEL)
-      DOUBLE PRECISION, INTENT(IN)    :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: UZNOW  !! Current unsaturated-zone simulation time.
+      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)  !! Dynamic-region nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)  !! Dead-space nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: VSPSI(NCETOP, NEL)  !! Matric potential/pressure head by cell and element.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL)  !! Current volumetric water content.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHEO(NEL, NCETOP + 1)  !! Previous volumetric water content.
 
       ! --- In/Out arguments (Propagated up from MNMAIN / MNPLANT strict architectures) ---
-      INTEGER, INTENT(INOUT) :: NCOLMB(NEL), NLYR(NEL)
-      INTEGER, INTENT(INOUT) :: NRD(NV), NVC(NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: DELONE(*)
-      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NEL), DYQQ(NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)
-      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(*), PLAI(NV)
-      DOUBLE PRECISION, INTENT(INOUT) :: RDF(NV, *), ZVSNOD(*)
-      DOUBLE PRECISION, INTENT(INOUT) :: CLAI(NV)
-      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: TA(NV) ! Modified by temporary code
+      INTEGER, INTENT(INOUT) :: NCOLMB(NEL)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(INOUT) :: NLYR(NEL)  !! Number of soil layers in each element.
+      INTEGER, INTENT(INOUT) :: NRD(NV)  !! Rooting depth in cell counts by vegetation type.
+      INTEGER, INTENT(INOUT) :: NVC(NEL)  !! Vegetation type index by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DELONE(*)  !! Initial plant biomass/cover scaling by plant type.
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NEL)  !! Element width.
+      DOUBLE PRECISION, INTENT(INOUT) :: DYQQ(NEL)  !! Element length.
+      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)  !! Soil porosity by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(*)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(INOUT) :: PLAI(NV)  !! Plant leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: RDF(NV, *)  !! Root density fraction by vegetation type and cell.
+      DOUBLE PRECISION, INTENT(INOUT) :: ZVSNOD(*)  !! Vertical node elevation/depth by cell and element.
+      DOUBLE PRECISION, INTENT(INOUT) :: CLAI(NV)  !! Current canopy leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NEL)  !! Net precipitation/effective rainfall by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: TA(NV)  !! Air temperature overwritten with 10 deg C before MN calculations.
 
       ! --- Output arguments ---
-      DOUBLE PRECISION, INTENT(OUT)   :: SSS1(NEL, NCETOP + 1), SSS2(NEL, NCETOP + 1)
+      DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP + 1)  !! Dynamic-region CM source/sink array.
+      DOUBLE PRECISION, INTENT(OUT) :: SSS2(NEL, NCETOP + 1)  !! Dead-space CM source/sink array.
 
       ! --- Local variables ---
       INTEGER :: I
 
    !----------------------------------------------------------------------*
 
-      ! Modernization Fix: Replaced legacy PASS counter with robust ALLOCATED check
       IF (.NOT. ALLOCATED(cahum)) THEN
          ALLOCATE(cahum(nel,ncetop), calit(nel,ncetop), caman(nel,ncetop), cdort(nel,ncetop), &
                   chum(nel,ncetop), chum1(nel,ncetop), clit(nel,ncetop), clit1(nel,ncetop), &
@@ -350,8 +520,7 @@ CONTAINS
          ALLOCATE(snit(nel,ncetop), temp(nel,ncetop), vol(nel,ncetop))
       END IF
 
-   !----------------------------------------------------------------------*
-   ! temp code    (sb 1/3/01)
+      ! Retained MN behaviour: use a fixed 10 deg C temperature input.
       DO I = 1, NV
          TA(I) = 10.0D0
       END DO
@@ -366,31 +535,59 @@ CONTAINS
 
    END SUBROUTINE MNCONT
 
-
-
-   !SSSSSS SUBROUTINE mnedth
+!> @brief Calculates the water-content reduction factor for denitrification.
+!>
+!> The manual defines the spatial denitrification parameters `KD1` and `KD2`
+!> through the `MN25`-`MN28` category/depth tables. This routine supplies the
+!> separate moisture response multiplier used with those parameters. For each
+!> active land-column cell it forms the relative saturation
+!>
+!> \[
+!> S_r = \frac{\theta}{\phi}
+!> \]
+!>
+!> from `VSTHE` (`\theta`, volumetric water content) and `VSPOR` (`\phi`, soil
+!> porosity), then applies the legacy segmented relationship
+!>
+!> \[
+!> E_\theta =
+!> \begin{cases}
+!> 1, & S_r > 1,\\
+!> -7 + 8S_r, & 0.9 < S_r \le 1,\\
+!> -1.6 + 2S_r, & 0.8 < S_r \le 0.9,\\
+!> 0, & S_r \le 0.8.
+!> \end{cases}
+!> \]
+!>
+!> Thus denitrification is switched off at or below 80 percent saturation,
+!> increases linearly to 0.2 between 80 and 90 percent saturation, increases
+!> linearly to 1.0 between 90 percent saturation and saturation, and remains
+!> capped at 1.0 above saturation.
+!>
+!> The active vertical range follows the module convention: `NBOTCE:NCETOP` when
+!> `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`, with lower bounds also
+!> clipped to the current soil-layer base in the layer loop.
    SUBROUTINE mnedth (llee, nbotce, ncetop, nel, nelee, nlf, nlyree, ns, &
          ncolmb, nlyr, nlyrbt, ntsoil, vsthe, vspor, isbotc)
-   !--------------------------------------------------------------------*
-   ! Calculates the moisture environmental reduction factor
-   ! for denitrification
-   !--------------------------------------------------------------------*
-   ! version:                   notes:
-   ! module: mn                 program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! edeth (nelee, llee)
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: llee, nbotce, ncetop, nel, nelee, nlf, nlyree, ns
-      INTEGER, INTENT(IN) :: ncolmb(nelee), nlyr(nelee)
-      INTEGER, INTENT(IN) :: nlyrbt(nel, nlyree), ntsoil(nel, nlyree)
-      DOUBLE PRECISION, INTENT(IN) :: vsthe(ncetop, nel), vspor(ns)
-      LOGICAL, INTENT(IN) :: isbotc
+      INTEGER, INTENT(IN) :: llee  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: nel  !! Number of elements.
+      INTEGER, INTENT(IN) :: nelee  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: nlyree  !! Soil-layer array dimension.
+      INTEGER, INTENT(IN) :: ns  !! Number of soil types.
+      INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(IN) :: nlyr(nelee)  !! Number of soil layers in each element.
+      INTEGER, INTENT(IN) :: nlyrbt(nel, nlyree)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: ntsoil(nel, nlyree)  !! Soil type index for each element layer.
+      DOUBLE PRECISION, INTENT(IN) :: vsthe(ncetop, nel)  !! Current volumetric water content.
+      DOUBLE PRECISION, INTENT(IN) :: vspor(ns)  !! Soil porosity by soil type.
+      LOGICAL, INTENT(IN) :: isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! Locals
       INTEGER :: jlyr, jsoil, nbotm, nce, ncebot, nelm
@@ -433,26 +630,43 @@ CONTAINS
 
    END SUBROUTINE mnedth
 
-
-
+!> @brief Calculates the matric-potential reduction factor for mineralisation.
+!>
+!> The manual supplies the humus, litter, and manure decomposition parameter
+!> fields through `MN15`-`MN20`, with optional Q10 temperature controls for
+!> mineralisation in `MN35`/`MN35a`. This routine supplies the separate matric-
+!> potential multiplier applied to mineralisation. For each active land-column
+!> cell it evaluates the pressure head/matric potential `\psi` from `VSPSI`
+!> and stores
+!>
+!> \[
+!> E_\psi =
+!> \begin{cases}
+!> 0.6, & \psi > -0.01,\\
+!> 1.05 + 0.225\log_{10}(-\psi), & -0.6 < \psi \le -0.01,\\
+!> 1.0, & -3.0 < \psi \le -0.6,\\
+!> 1.136 - 0.284\log_{10}(-\psi), & -10000 < \psi \le -3.0,\\
+!> 0.0, & \psi \le -10000.
+!> \end{cases}
+!> \]
+!>
+!> The response is therefore reduced in very wet cells, reaches its maximum
+!> over the intermediate matric-potential range, and declines to zero under
+!> very dry conditions.
+!>
+!> The active vertical range is `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
    subroutine mnemph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the matric potential environmental reduction factor
-      ! for mineralization
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision vspsi(ncetop,nel)
-      logical isbotc
+
+      integer llee  !! Maximum soil-cell dimension.
+      integer nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      integer ncetop  !! Top soil-cell index.
+      integer nel  !! Number of elements.
+      integer nelee  !! Element-array dimension.
+      integer nlf  !! Number of overland/channel links excluded from land-column updates.
+      integer ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      double precision vspsi(ncetop,nel)  !! Matric potential/pressure head by cell and element.
+      logical isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
       !
       !
       ! output arguments
@@ -490,27 +704,46 @@ CONTAINS
       !
    end    subroutine mnemph
 
-
-
+!> @brief Calculates the temperature reduction factor for mineralisation.
+!>
+!> The manual's `MN35` flag (`ISQ10`) selects whether temperature reduction
+!> factors use a Q10 function, and `MN35a` supplies `Q10M` for mineralisation
+!> when that option is enabled. If `ISQ10` is true, this routine stores
+!>
+!> \[
+!> E_T = Q10M^{(T - 30) / 10}
+!> \]
+!>
+!> where `T` is the cell temperature in `TEMP`. If `ISQ10` is false, the legacy
+!> segmented temperature response is used:
+!>
+!> \[
+!> E_T =
+!> \begin{cases}
+!> 1.0, & T \ge 30,\\
+!> -0.5 + 0.05T, & 20 < T < 30,\\
+!> -0.1 + 0.03T, & 10 < T \le 20,\\
+!> 0.02T, & 0 < T \le 10,\\
+!> 0.0, & T \le 0.
+!> \end{cases}
+!> \]
+!>
+!> The Q10 branch is used exactly as written and is not capped at 1.0 for
+!> temperatures above 30 degrees C. The active vertical range is `NBOTCE:NCETOP`
+!> when `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
    subroutine mnemt (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10m,isbotc,isq10)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the temperature environmental reduction factor
-      ! for mineralization
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision q10m
+
+      integer llee  !! Maximum soil-cell dimension.
+      integer nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      integer ncetop  !! Top soil-cell index.
+      integer nel  !! Number of elements.
+      integer nelee  !! Element-array dimension.
+      integer nlf  !! Number of overland/channel links excluded from land-column updates.
+      integer ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      double precision q10m  !! Q10 coefficient for mineralisation temperature response.
       !temp(nelee,llee)
-      logical isbotc,isq10
+      logical isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
+      logical isq10  !! True when Q10 temperature response is selected.
       !
       ! output arguments
       !double precision emt(nelee,llee)
@@ -556,25 +789,47 @@ CONTAINS
       !
    end subroutine mnemt
 
-
+!> @brief Calculates the matric-potential reduction factor for nitrification.
+!>
+!> The manual supplies the spatial nitrification parameter field through the
+!> `MN21`/`MN22` category and depth tables, with optional Q10 temperature
+!> controls in `MN35`/`MN35a`. This routine supplies the separate matric-
+!> potential multiplier applied to nitrification. For each active land-column
+!> cell it evaluates the pressure head/matric potential `\psi` from `VSPSI`
+!> and stores
+!>
+!> \[
+!> E_\psi =
+!> \begin{cases}
+!> 0.6, & \psi > -0.01,\\
+!> 1.05 + 0.225\log_{10}(-\psi), & -0.6 < \psi \le -0.01,\\
+!> 1.0, & -3.0 < \psi \le -0.6,\\
+!> 1.136 - 0.284\log_{10}(-\psi), & -10000 < \psi \le -3.0,\\
+!> 0.0, & \psi \le -10000.
+!> \end{cases}
+!> \]
+!>
+!> The active implementation therefore keeps nitrification partly active under
+!> very wet conditions, reaches its maximum over the intermediate matric-
+!> potential range, and declines to zero under very dry conditions.
+!>
+!> @history
+!>
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 1996-01-22 | Legacy MN development | Replaced the older wet-condition response with the active values above, including `0.6` in the wettest band. |
+!> @endhistory
    subroutine mnenph (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,vspsi,isbotc)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the matric potential environmental reduction factor
-      ! for mineralization
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision vspsi(ncetop,nel)
-      logical isbotc
+
+      integer llee  !! Maximum soil-cell dimension.
+      integer nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      integer ncetop  !! Top soil-cell index.
+      integer nel  !! Number of elements.
+      integer nelee  !! Element-array dimension.
+      integer nlf  !! Number of overland/channel links excluded from land-column updates.
+      integer ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      double precision vspsi(ncetop,nel)  !! Matric potential/pressure head by cell and element.
+      logical isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
       !
       !
       ! output arguments
@@ -596,18 +851,10 @@ CONTAINS
             !           * a segmented relationship is being used with the
             !           * matric potential falling into one of five bands
             !
-            !           * temporary change 22/1/96 to increase nitrification
-            !           * in wet conditions
             if (vspsi(ncl,nelm)>-0.1d-1) then
                enph(nelm,ncl) = 0.6
             elseif (vspsi(ncl,nelm)>-0.6d0) then
                enph(nelm,ncl) = 1.05d0 + 0.225d0*log10(-vspsi(ncl,nelm))
-               !
-               !            if (vspsi(ncl,nelm)>-0.1d-1) then
-               !              enph(nelm,ncl) = 0.0d0
-               !            elseif (vspsi(ncl,nelm)>-0.6d0) then
-               !              enph(nelm,ncl) =1.125d0 + 0.562d0*log10(-vspsi(ncl,nelm))
-               !
             elseif (vspsi(ncl,nelm)>-3.0d0) then
                enph(nelm,ncl) = 1.0d0
             elseif (vspsi(ncl,nelm)>-1.0d4) then
@@ -621,26 +868,46 @@ CONTAINS
       !
    end subroutine mnenph
 
-
+!> @brief Calculates the temperature reduction factor for nitrification.
+!>
+!> The manual's `MN35` flag (`ISQ10`) selects whether temperature reduction
+!> factors use a Q10 function, and `MN35a` supplies `Q10N` for nitrification
+!> when that option is enabled. If `ISQ10` is true, this routine stores
+!>
+!> \[
+!> E_T = Q10N^{(T - 30) / 10}
+!> \]
+!>
+!> where `T` is the cell temperature in `TEMP`. If `ISQ10` is false, the legacy
+!> segmented temperature response is used:
+!>
+!> \[
+!> E_T =
+!> \begin{cases}
+!> 1.0, & T \ge 30,\\
+!> -0.5 + 0.05T, & 20 < T < 30,\\
+!> -0.1 + 0.03T, & 10 < T \le 20,\\
+!> -0.05 + 0.025T, & 2 < T \le 10,\\
+!> 0.0, & T \le 2.
+!> \end{cases}
+!> \]
+!>
+!> The Q10 branch is used exactly as written and is not capped at 1.0 for
+!> temperatures above 30 degrees C. The active vertical range is `NBOTCE:NCETOP`
+!> when `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
    subroutine mnent (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,q10n,isbotc,isq10)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the temperature environmental reduction factor
-      ! for nitrification
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision q10n
+
+      integer llee  !! Maximum soil-cell dimension.
+      integer nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      integer ncetop  !! Top soil-cell index.
+      integer nel  !! Number of elements.
+      integer nelee  !! Element-array dimension.
+      integer nlf  !! Number of overland/channel links excluded from land-column updates.
+      integer ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      double precision q10n  !! Q10 coefficient for nitrification temperature response.
       !temp(nelee,llee)
-      logical isbotc,isq10
+      logical isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
+      logical isq10  !! True when Q10 temperature response is selected.
       !
       ! output arguments
       !double precision ent(nelee,llee)
@@ -686,32 +953,50 @@ CONTAINS
       !
    end subroutine mnent
 
-
-
-   !SSSSSS SUBROUTINE MNERR0
+!> @brief Checks fixed MN array dimensions, entity counts, and selected file units.
+!>
+!> `mnerr0` validates the static bounds needed before MN arrays are used.
+!>
+!> | Group | Checks |
+!> | --- | --- |
+!> | Fixed array limits | `LLEE >= NCETOP`; `NCONEE >= NCON`; `NELEE >= NEL`; `NLFEE >= max(1, NLF)`; `NLYREE > 0`; `NSEE >= NS`; `NVEE >= NV`; `NXEE >= NX` and `NXEE <= 9999`; `NMNEEE > 0`; `NMNTEE > 0`. |
+!> | Entity counts | `0 <= NLF < NEL`; `min(NCETOP, NS, NV) > 0`; `min(NX, NY) > 0`. |
+!> | Contaminant contract | MN is coupled to exactly one contaminant species: `NCON == 1`. |
+!> | File units | Only `MND`, `MNFC`, `MNFN`, and `MNPR` are checked here, and all must be non-negative. |
+!>
+!> Detailed failures use errors `3020`-`3033`; any failure is followed by
+!> fatal summary error `3010`.
    SUBROUTINE MNERR0(LLEE, MND, MNFC, MNFN, MNPR, NCETOP, NCON, NCONEE, NEL, NELEE, NLF, NLFEE, NLYREE, NMNEEE, NMNTEE, NS, NSEE, NV, NVEE, NX, NXEE, NY)
-   !--------------------------------------------------------------------*
-   !
-   ! checks array dimensions
-   ! error numbers 3010,3020-3034
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: LLEE, MND, MNFC, MNFN, MNPR, NCETOP, NCON, NCONEE, NEL
-      INTEGER, INTENT(IN) :: NELEE, NLF, NLFEE, NLYREE, NMNEEE, NMNTEE, NS, NSEE
-      INTEGER, INTENT(IN) :: NX, NXEE, NV, NVEE, NY
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: MND  !! Static MND input unit.
+      INTEGER, INTENT(IN) :: MNFC  !! Scheduled carbon-addition input unit.
+      INTEGER, INTENT(IN) :: MNFN  !! Scheduled nitrogen-addition input unit.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NCON  !! Number of contaminant species coupled to MN.
+      INTEGER, INTENT(IN) :: NCONEE  !! Contaminant-species array dimension.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
+      INTEGER, INTENT(IN) :: NLFEE  !! Link-array dimension.
+      INTEGER, INTENT(IN) :: NLYREE  !! Soil-layer array dimension.
+      INTEGER, INTENT(IN) :: NMNEEE  !! Maximum number of MN category entries.
+      INTEGER, INTENT(IN) :: NMNTEE  !! Maximum number of MN table entries.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NSEE  !! Soil-type array dimension.
+      INTEGER, INTENT(IN) :: NX  !! Number of grid columns.
+      INTEGER, INTENT(IN) :: NXEE  !! Grid-column array dimension.
+      INTEGER, INTENT(IN) :: NV  !! Number of vegetation types.
+      INTEGER, INTENT(IN) :: NVEE  !! Vegetation-type array dimension.
+      INTEGER, INTENT(IN) :: NY  !! Number of grid rows.
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
 
-      ! Modernization Fix: Lock IUNDEF to prevent uninitialized memory passing
       INTEGER, PARAMETER :: IUNDEF = 0
 
       INTEGER :: NERR
@@ -818,43 +1103,68 @@ CONTAINS
 
    END SUBROUTINE MNERR0
 
-
-
-   !SSSSSS SUBROUTINE MNERR1
+!> @brief Checks the static contaminant-to-MN interface variables.
+!>
+!> `mnerr1` validates the spatial indexing and soil-column geometry handed to
+!> the mineral-nitrogen component before initialisation.
+!>
+!> | Group | Checks |
+!> | --- | --- |
+!> | Grid and bank identities | Active grid entries in `ICMXY`, plus both bank elements for each link when `BEXBK` is true, must account for exactly `NEL-NLF` column elements (`2075`). Every model element must be represented once (`2076`). |
+!> | Bank neighbours | If the identity check passed and banks exist, each link must have at least one bank with an active grid neighbour (`2079`). The checked face is `2*bank`, decremented for north-south links, and the neighbour is read from `ICMREF(element,face,2)`. |
+!> | Reference values | `D0 > 0` and `Z2 > 0`. |
+!> | Soil properties | Soil porosity satisfies `0 < VSPOR(soil) <= 1`. |
+!> | Column geometry | Land-column `DXQQ` and `DYQQ` are positive; `1 <= NLYR <= NLYREE`; `NLYRBT` is strictly increasing and the top-layer boundary equals `NCETOP+1`; `NTSOIL` is in `1:NS`; `0 < NCOLMB <= NCETOP`; active `DELTAZ` values are positive; `ZVSNOD(nce+1,iel) > ZVSNOD(nce,iel)`. |
+!> | Time | Initial simulation time `TIH >= 0`. |
+!>
+!> Detailed interface failures use errors `3035`-`3046`; any failure is followed
+!> by fatal summary error `3011`.
    SUBROUTINE MNERR1(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NLFEE, NLYREE, NS, NX, NXEE, NY, ICMBK, ICMREF, &
                      ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, &
                      BEXBK, LINKNS, DUMMY2, DUMMY3, IDUM, IDUM1X, LDUM, LDUM2)
-   !--------------------------------------------------------------------*
-   !
-   ! checks static input variables from cm -mn interface
-   ! error numbers 3011,3035-3047 and 2075-2079 for index arrays
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments (Strictly Read-Only)
-      INTEGER, INTENT(IN) :: LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NLFEE, NLYREE, NS
-      INTEGER, INTENT(IN) :: NX, NXEE, NY
-      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
-      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE), NTSOIL(NEL, NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: D0, TIH, Z2
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
+      INTEGER, INTENT(IN) :: NLFEE  !! Link-array dimension.
+      INTEGER, INTENT(IN) :: NLYREE  !! Soil-layer array dimension.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NX  !! Number of grid columns.
+      INTEGER, INTENT(IN) :: NXEE  !! Grid-column array dimension.
+      INTEGER, INTENT(IN) :: NY  !! Number of grid rows.
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)  !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2)  !! Neighbour reference map used to validate bank adjacency.
+      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)  !! Element number at each grid location.
+      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE)  !! Soil type index for each element layer.
+      DOUBLE PRECISION, INTENT(IN) :: D0  !! Reference diffusion/dispersion scale used by CM.
+      DOUBLE PRECISION, INTENT(IN) :: TIH  !! Initial simulation time in hours.
+      DOUBLE PRECISION, INTENT(IN) :: Z2  !! Vertical length scale used by CM and MN temperature diffusion.
+      LOGICAL, INTENT(IN) :: BEXBK  !! True when bank elements are represented.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE)  !! True for north-south channel links.
 
       ! Input/Output Arrays (Tested by ALCHK/ALCHKI; subject to internal data reset)
-      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE), NLYR(NELEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE), DYQQ(NELEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)
-      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
+      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(INOUT) :: NLYR(NELEE)  !! Number of soil layers in each element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE)  !! Element width.
+      DOUBLE PRECISION, INTENT(INOUT) :: DYQQ(NELEE)  !! Element length.
+      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)  !! Soil porosity by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(INOUT) :: ZVSNOD(LLEE, NEL)  !! Vertical node elevation/depth by cell and element.
 
       ! Workspace arguments (INTENT(INOUT) as they are used for scratch space)
-      INTEGER, INTENT(INOUT) :: DUMMY2(NLYREE, NELEE), DUMMY3(NLYREE)
-      INTEGER, INTENT(INOUT) :: IDUM(NELEE), IDUM1X(-1:NEL+1)
-      LOGICAL, INTENT(INOUT) :: LDUM(NELEE), LDUM2(LLEE)
+      INTEGER, INTENT(INOUT) :: DUMMY2(NLYREE, NELEE)  !! Integer workspace for layer membership checks.
+      INTEGER, INTENT(INOUT) :: DUMMY3(NLYREE)  !! Integer workspace for layer checks.
+      INTEGER, INTENT(INOUT) :: IDUM(NELEE)  !! Integer workspace for element accounting.
+      INTEGER, INTENT(INOUT) :: IDUM1X(-1:NEL+1)  !! Integer workspace for element identity checks.
+      LOGICAL, INTENT(INOUT) :: LDUM(NELEE)  !! Logical workspace for element accounting.
+      LOGICAL, INTENT(INOUT) :: LDUM2(LLEE)  !! Logical workspace for cell/layer checks.
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
@@ -866,7 +1176,6 @@ CONTAINS
       DOUBLE PRECISION :: DUMS(1)
       LOGICAL :: BKXYOK
 
-      ! Modernization Fix: Strict array/scalar parameters for shape matching in ALCHK
       INTEGER, PARAMETER :: IZERO_ARR(1) = [0], IONE_ARR(1) = [1]
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
@@ -1063,62 +1372,116 @@ CONTAINS
 
    END SUBROUTINE MNERR1
 
-
-
-   !SSSSSS SUBROUTINE MNERR2
+!> @brief Checks static mineral-nitrogen input read by [[mnred1]].
+!>
+!> `mnerr2` validates the nitrogen and carbon data file after [[mnred1]] has
+!> loaded it. Land-column checks run over elements `NLF+1:NEL`.
+!>
+!> | Group | Checks |
+!> | --- | --- |
+!> | Uptake and immobilisation | `KUAMM`, `KPLAMM`, `KUNIT`, and `KPLNIT` are non-negative. |
+!> | Carbon cycling scalars | `0 <= FE <= 1`, `0 <= FH <= 1`, and `CNRBIO`, `CNRHUM`, and `CNRLIT` are positive. The initial-carbon litter fraction `CLITFR` must be in `0:1`. |
+!> | Temperature and deposition scalars | `Q10M` and `Q10N` are non-negative; ammonium and nitrate dry/wet deposition rates are non-negative; `MNCREF > 0`. |
+!> | Initial carbon | If `ISICCD` is true, decay-function inputs require `CTOTTP >= 0` and `DCHLF > 0`. Otherwise `CELEM > 0`, initial-carbon table depths start at zero and increase, and table concentrations are non-negative. |
+!> | Initial ammonium | If `ISIAMD` is true, decay-function inputs require `NAMTOP >= 0` and `DAMHLF > 0`. Otherwise `NAELEM > 0`, initial-ammonium table depths start at zero and increase, and table concentrations are non-negative. |
+!> | Depth-varying process tables | Category ids for `KHUM`, `KLIT`, `KMAN`, `KNIT`, `KVOL`, `KD1`, and `KD2` are positive. Their depth tables start at zero, subsequent depths increase, and table values are non-negative. |
+!> | Ammonium adsorption and active depth | `KDDSOL(soil) >= 0` and `NBOTCE < NCETOP`. |
+!>
+!> Detailed failures use errors `3048`-`3064`; any failure is followed by fatal
+!> summary error `3012`.
    SUBROUTINE MNERR2(MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
                      NMNEEE, NMNTEE, NS, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, KMELEM, KNELEM, KVELEM, NAELEM, NMN15T, NMN17T, NMN19T, NMN21T, &
                      NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, &
                      MNCREF, NITDDR, NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, &
                      KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, LDUM)
-   !--------------------------------------------------------------------*
-   !
-   ! checks static input data read in from mnred1 subroutine
-   ! error numbers 3012,3048-3064
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments (Strictly Read-Only)
-      INTEGER, INTENT(IN) :: MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF
-      INTEGER, INTENT(IN) :: NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E
-      INTEGER, INTENT(IN) :: NMN27E, NMN43E, NMN53E
-      INTEGER, INTENT(IN) :: NMNEEE, NMNTEE, NS
-      INTEGER, INTENT(IN) :: NMN15T(NMNEEE), NMN17T(NMNEEE), NMN19T(NMNEEE)
-      INTEGER, INTENT(IN) :: NMN21T(NMNEEE), NMN23T(NMNEEE), NMN25T(NMNEEE)
-      INTEGER, INTENT(IN) :: NMN27T(NMNEEE)
-      INTEGER, INTENT(IN) :: NMN43T(NMNEEE), NMN53T(NMNEEE)
-      DOUBLE PRECISION, INTENT(IN) :: AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT
-      DOUBLE PRECISION, INTENT(IN) :: FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT
-      DOUBLE PRECISION, INTENT(IN) :: MNCREF, NITDDR, NITWDR, Q10M, Q10N
-      LOGICAL, INTENT(IN) :: ISICCD, ISIAMD
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NBOTCE  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column checks.
+      INTEGER, INTENT(IN) :: NMN15E  !! Number of humus category entries.
+      INTEGER, INTENT(IN) :: NMN17E  !! Number of litter category entries.
+      INTEGER, INTENT(IN) :: NMN19E  !! Number of manure category entries.
+      INTEGER, INTENT(IN) :: NMN21E  !! Number of nitrification category entries.
+      INTEGER, INTENT(IN) :: NMN23E  !! Number of volatilisation category entries.
+      INTEGER, INTENT(IN) :: NMN25E  !! Number of KD1 denitrification category entries.
+      INTEGER, INTENT(IN) :: NMN27E  !! Number of KD2 denitrification category entries.
+      INTEGER, INTENT(IN) :: NMN43E  !! Number of initial-carbon category entries.
+      INTEGER, INTENT(IN) :: NMN53E  !! Number of initial-ammonium category entries.
+      INTEGER, INTENT(IN) :: NMNEEE  !! Maximum number of MN category entries.
+      INTEGER, INTENT(IN) :: NMNTEE  !! Maximum number of MN table entries.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NMN15T(NMNEEE)  !! Humus table length by category.
+      INTEGER, INTENT(IN) :: NMN17T(NMNEEE)  !! Litter table length by category.
+      INTEGER, INTENT(IN) :: NMN19T(NMNEEE)  !! Manure table length by category.
+      INTEGER, INTENT(IN) :: NMN21T(NMNEEE)  !! Nitrification table length by category.
+      INTEGER, INTENT(IN) :: NMN23T(NMNEEE)  !! Volatilisation table length by category.
+      INTEGER, INTENT(IN) :: NMN25T(NMNEEE)  !! KD1 table length by category.
+      INTEGER, INTENT(IN) :: NMN27T(NMNEEE)  !! KD2 table length by category.
+      INTEGER, INTENT(IN) :: NMN43T(NMNEEE)  !! Initial-carbon table length by category.
+      INTEGER, INTENT(IN) :: NMN53T(NMNEEE)  !! Initial-ammonium table length by category.
+      DOUBLE PRECISION, INTENT(IN) :: AMMDDR  !! Dry ammonium deposition rate.
+      DOUBLE PRECISION, INTENT(IN) :: AMMWDR  !! Wet ammonium deposition coefficient.
+      DOUBLE PRECISION, INTENT(IN) :: CLITFR  !! Fraction of initial organic carbon assigned to litter.
+      DOUBLE PRECISION, INTENT(IN) :: CNRBIO  !! Biomass carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: CNRHUM  !! Humus carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: CNRLIT  !! Litter carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: FE  !! Efficiency fraction for organic carbon turnover.
+      DOUBLE PRECISION, INTENT(IN) :: FH  !! Humification fraction.
+      DOUBLE PRECISION, INTENT(IN) :: GNN  !! Nonlinear ammonium adsorption exponent.
+      DOUBLE PRECISION, INTENT(IN) :: KPLAMM  !! First-order ammonium plant-uptake limit.
+      DOUBLE PRECISION, INTENT(IN) :: KPLNIT  !! First-order nitrate plant-uptake limit.
+      DOUBLE PRECISION, INTENT(IN) :: KUAMM  !! First-order ammonium immobilisation limit.
+      DOUBLE PRECISION, INTENT(IN) :: KUNIT  !! First-order nitrate immobilisation limit.
+      DOUBLE PRECISION, INTENT(IN) :: MNCREF  !! Reference nitrogen concentration.
+      DOUBLE PRECISION, INTENT(IN) :: NITDDR  !! Dry nitrate deposition rate.
+      DOUBLE PRECISION, INTENT(IN) :: NITWDR  !! Wet nitrate deposition coefficient.
+      DOUBLE PRECISION, INTENT(IN) :: Q10M  !! Q10 coefficient for mineralisation.
+      DOUBLE PRECISION, INTENT(IN) :: Q10N  !! Q10 coefficient for nitrification.
+      LOGICAL, INTENT(IN) :: ISICCD  !! True when initial carbon uses decay-function input.
+      LOGICAL, INTENT(IN) :: ISIAMD  !! True when initial ammonium uses decay-function input.
 
       ! Arguments tested by ALCHK/ALCHKI (Strict INTENT(INOUT) to satisfy dummy arguments)
-      INTEGER, INTENT(INOUT) :: CELEM(NLF+1:NEL), KD1ELM(NLF+1:NEL), KD2ELM(NLF+1:NEL)
-      INTEGER, INTENT(INOUT) :: KHELEM(NLF+1:NEL), KLELEM(NLF+1:NEL), KMELEM(NLF+1:NEL)
-      INTEGER, INTENT(INOUT) :: KNELEM(NLF+1:NEL), KVELEM(NLF+1:NEL)
-      INTEGER, INTENT(INOUT) :: NAELEM(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: CCONC(NMNEEE,NMNTEE), CDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: CTOTTP(NLF+1:NEL), DAMHLF(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: DCHLF(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: KD1CNC(NMNEEE,NMNTEE), KD1DTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: KD2CNC(NMNEEE,NMNTEE), KD2DTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: KDDSOL(NS)
-      DOUBLE PRECISION, INTENT(INOUT) :: KHCONC(NMNEEE,NMNTEE), KHDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: KLCONC(NMNEEE,NMNTEE), KLDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: KMCONC(NMNEEE,NMNTEE), KMDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: KNCONC(NMNEEE,NMNTEE), KNDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: KVCONC(NMNEEE,NMNTEE), KVDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: NACONC(NMNEEE,NMNTEE), NADPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: NAMTOP(NLF+1:NEL)
+      INTEGER, INTENT(INOUT) :: CELEM(NLF+1:NEL)  !! Initial-carbon category by element.
+      INTEGER, INTENT(INOUT) :: KD1ELM(NLF+1:NEL)  !! KD1 denitrification category by element.
+      INTEGER, INTENT(INOUT) :: KD2ELM(NLF+1:NEL)  !! KD2 denitrification category by element.
+      INTEGER, INTENT(INOUT) :: KHELEM(NLF+1:NEL)  !! Humus decomposition category by element.
+      INTEGER, INTENT(INOUT) :: KLELEM(NLF+1:NEL)  !! Litter decomposition category by element.
+      INTEGER, INTENT(INOUT) :: KMELEM(NLF+1:NEL)  !! Manure decomposition category by element.
+      INTEGER, INTENT(INOUT) :: KNELEM(NLF+1:NEL)  !! Nitrification category by element.
+      INTEGER, INTENT(INOUT) :: KVELEM(NLF+1:NEL)  !! Volatilisation category by element.
+      INTEGER, INTENT(INOUT) :: NAELEM(NLF+1:NEL)  !! Initial-ammonium category by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: CCONC(NMNEEE,NMNTEE)  !! Initial-carbon profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: CDPTH(NMNEEE,NMNTEE)  !! Initial-carbon profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: CTOTTP(NLF+1:NEL)  !! Top total-carbon value for decay initialisation.
+      DOUBLE PRECISION, INTENT(INOUT) :: DAMHLF(NLF+1:NEL)  !! Ammonium decay half-depth by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DCHLF(NLF+1:NEL)  !! Carbon decay half-depth by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: KD1CNC(NMNEEE,NMNTEE)  !! KD1 denitrification profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KD1DTH(NMNEEE,NMNTEE)  !! KD1 denitrification profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: KD2CNC(NMNEEE,NMNTEE)  !! KD2 denitrification profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KD2DTH(NMNEEE,NMNTEE)  !! KD2 denitrification profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: KDDSOL(NS)  !! Soil ammonium adsorption coefficient.
+      DOUBLE PRECISION, INTENT(INOUT) :: KHCONC(NMNEEE,NMNTEE)  !! Humus decomposition profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KHDPTH(NMNEEE,NMNTEE)  !! Humus decomposition profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: KLCONC(NMNEEE,NMNTEE)  !! Litter decomposition profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KLDPTH(NMNEEE,NMNTEE)  !! Litter decomposition profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: KMCONC(NMNEEE,NMNTEE)  !! Manure decomposition profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KMDPTH(NMNEEE,NMNTEE)  !! Manure decomposition profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: KNCONC(NMNEEE,NMNTEE)  !! Nitrification profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KNDPTH(NMNEEE,NMNTEE)  !! Nitrification profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: KVCONC(NMNEEE,NMNTEE)  !! Volatilisation profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: KVDPTH(NMNEEE,NMNTEE)  !! Volatilisation profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: NACONC(NMNEEE,NMNTEE)  !! Initial-ammonium profile values.
+      DOUBLE PRECISION, INTENT(INOUT) :: NADPTH(NMNEEE,NMNTEE)  !! Initial-ammonium profile depths.
+      DOUBLE PRECISION, INTENT(INOUT) :: NAMTOP(NLF+1:NEL)  !! Top ammonium value for decay initialisation.
 
       ! Workspace arguments
-      LOGICAL, INTENT(INOUT) :: LDUM(NELEE)
+      LOGICAL, INTENT(INOUT) :: LDUM(NELEE)  !! Logical workspace for element checks.
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2, WARN = 3
@@ -1128,7 +1491,6 @@ CONTAINS
       INTEGER :: IDUMS(1), IDUMO(1)
       DOUBLE PRECISION :: PREVDP_ARR(1), DUMS_ARR(1)
 
-      ! Modernization Fix: Strict parameter shapes and locked IUNDEF
       INTEGER, PARAMETER :: IZERO_ARR(1) = [0]
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
@@ -1375,41 +1737,48 @@ CONTAINS
 
    END SUBROUTINE MNERR2
 
-
-
-   !SSSSSS SUBROUTINE MNERR3
+!> @brief Checks time-dependent MN inputs and updated state variables.
+!>
+!> `mnerr3` validates the dynamic CM-MN interface over active land-column cells
+!> `NCOLMB(element):NCETOP` for elements `NLF+1:NEL`.
+!>
+!> | Group | Checks |
+!> | --- | --- |
+!> | Time | `DTUZ > 0`. On the first call only, `UZNOW >= 0`; the later-call monotonic-time check is present in comments but not active. |
+!> | Nitrate concentrations | Dynamic-region concentration `CCCC` and dead-space concentration `SSSS` are non-negative. |
+!> | Organic pools | Updated humus carbon, litter carbon, manure carbon, litter nitrogen, and manure nitrogen pools are non-negative. |
+!> | Ammonium pool | Updated ammonium concentration `NAMM1` is non-negative. |
+!> | Soil water and uptake | Current and previous soil-water contents satisfy `0 < VSTHE <= 1` and `0 < VSTHEO <= 1`; plant uptake `PLUP >= 0`. |
+!> | Rainfall input | Net precipitation/effective rainfall `PNETTO >= 0` for land-column elements. |
+!>
+!> Detailed failures use errors `3065`-`3072`; any failure is followed by fatal
+!> summary error `3013`.
    SUBROUTINE MNERR3(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NCOLMB, DTUZ, UZNOW, CCCC, &
                      PNETTO, SSSS, VSTHE, VSTHEO, LDUM, LDUM2)
-   !--------------------------------------------------------------------*
-   !
-   ! checks time dependent input variables from cm -mn interface and the
-   ! concentrations calculated in this component are positive
-   ! error numbers 3013 and 3065-3079
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! Assumed global variables provided via host module:
-      ! USE MN_MODULE, ONLY: chum1, clit1, cman1, namm1, nlit1, nman1, plup
 
       IMPLICIT NONE
 
       ! Input arguments (Strictly Read-Only)
-      INTEGER, INTENT(IN) :: LLEE, MNPR, NCETOP, NEL, NELEE, NLF
-      INTEGER, INTENT(IN) :: NCOLMB(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ, UZNOW
-      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column checks.
+      INTEGER, INTENT(IN) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: UZNOW  !! Current unsaturated-zone simulation time.
+      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)  !! Dynamic-region nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)  !! Dead-space nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL)  !! Current volumetric water content.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHEO(NEL, NCETOP + 1)  !! Previous volumetric water content.
 
       ! Arguments tested directly by ALCHK (Must be INTENT(INOUT) to satisfy dummy arguments)
-      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NELEE)  !! Net precipitation/effective rainfall by element.
 
       ! Workspace arguments (INTENT(INOUT) because they act as scratch space)
-      LOGICAL, INTENT(INOUT) :: LDUM(NELEE), LDUM2(LLEE)
+      LOGICAL, INTENT(INOUT) :: LDUM(NELEE)  !! Logical workspace for element checks.
+      LOGICAL, INTENT(INOUT) :: LDUM2(LLEE)  !! Logical workspace for cell checks.
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
@@ -1421,7 +1790,6 @@ CONTAINS
       INTEGER, SAVE :: PASS = 0
       DOUBLE PRECISION, SAVE :: UZPREV(1) = [0.0D0]
 
-      ! Modernization Fix: Strict parameter shapes and locked IUNDEF
       DOUBLE PRECISION, PARAMETER :: ZERO_ARR(1) = [0.0D0], ONE_ARR(1) = [1.0D0], THIRTY_ARR(1) = [30.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
       INTEGER, PARAMETER :: IUNDEF = 0
@@ -1602,44 +1970,50 @@ CONTAINS
 
    END SUBROUTINE MNERR3
 
-
-
-   !SSSSSS SUBROUTINE MNERR4
+!> @brief Checks time-varying fertiliser and organic addition data from [[mnred2]].
+!>
+!> `mnerr4` validates only the scheduled additions that are active for the
+!> current timestep, over land-column elements `NLF+1:NEL`.
+!>
+!> | Active flag | Checked records | Bounds |
+!> | --- | --- | --- |
+!> | `ISADDN` | Total inorganic nitrogen `NTOT`, ammonium fraction `NAMFCT`, nitrogen banding depth `NDPTHB`. | `NTOT >= 0`, `0 <= NAMFCT <= 1`, `NDPTHB >= 0`. |
+!> | `ISADDC` | Total carbon `CTOT`, carbon banding depth `CDPTHB`, litter fraction `CLTFCT`, manure fraction `CMNFCT`, litter C:N ratio `CNRAL`, manure C:N ratio `CNRAM`. | `CTOT >= 0`, `CDPTHB >= 0`, `CLTFCT >= 0`, `CMNFCT >= 0`, `CLTFCT+CMNFCT <= 1`; when `CTOT > 0`, both C:N ratios must be positive. |
+!>
+!> Detailed failures use errors `3080`-`3087`; any failure is followed by fatal
+!> summary error `3014`.
    SUBROUTINE MNERR4(MNPR, NEL, NELEE, NLF, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, &
                      DUMMY, LDUM)
-   !--------------------------------------------------------------------*
-   !
-   !  checks time varying dependent data read in mnred2
-   !  error numbers 3014 and 3080-3089
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments (Strictly Read-Only)
-      INTEGER, INTENT(IN) :: MNPR, NEL, NELEE, NLF
-      LOGICAL, INTENT(IN) :: ISADDC, ISADDN
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column checks.
+      LOGICAL, INTENT(IN) :: ISADDC  !! True when a carbon-addition event is active.
+      LOGICAL, INTENT(IN) :: ISADDN  !! True when a nitrogen-addition event is active.
 
       ! Arguments tested directly by ALCHK (Must be INTENT(INOUT) to satisfy dummy arguments)
-      DOUBLE PRECISION, INTENT(INOUT) :: CDPTHB(NLF+1:NEL), CLTFCT(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: CMNFCT(NLF+1:NEL), CNRAL(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: CNRAM(NLF+1:NEL), CTOT(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: NAMFCT(NLF+1:NEL), NDPTHB(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: NTOT(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(INOUT) :: CDPTHB(NLF+1:NEL)  !! Carbon banding depth.
+      DOUBLE PRECISION, INTENT(INOUT) :: CLTFCT(NLF+1:NEL)  !! Litter fraction of added carbon.
+      DOUBLE PRECISION, INTENT(INOUT) :: CMNFCT(NLF+1:NEL)  !! Manure fraction of added carbon.
+      DOUBLE PRECISION, INTENT(INOUT) :: CNRAL(NLF+1:NEL)  !! Carbon-to-nitrogen ratio for added litter.
+      DOUBLE PRECISION, INTENT(INOUT) :: CNRAM(NLF+1:NEL)  !! Carbon-to-nitrogen ratio for added manure.
+      DOUBLE PRECISION, INTENT(INOUT) :: CTOT(NLF+1:NEL)  !! Total external carbon addition.
+      DOUBLE PRECISION, INTENT(INOUT) :: NAMFCT(NLF+1:NEL)  !! Ammonium fraction of added inorganic nitrogen.
+      DOUBLE PRECISION, INTENT(INOUT) :: NDPTHB(NLF+1:NEL)  !! Nitrogen banding depth.
+      DOUBLE PRECISION, INTENT(INOUT) :: NTOT(NLF+1:NEL)  !! Total external inorganic nitrogen addition.
 
       ! Workspace arguments (INTENT(INOUT) because they act as scratch space)
-      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)
-      LOGICAL, INTENT(INOUT)          :: LDUM(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)  !! Floating-point workspace for range checks.
+      LOGICAL, INTENT(INOUT) :: LDUM(NELEE)  !! Logical workspace for range checks.
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1, ERR = 2
       INTEGER :: ICOL1, IEL, NERR
 
-      ! Modernization Fix: Separate Array parameters (for OBJ) and Scalar parameters (for TOL)
       DOUBLE PRECISION, PARAMETER :: ONE_ARR(1) = [1.0D0], ZERO_ARR(1) = [0.0D0]
       DOUBLE PRECISION, PARAMETER :: ZERO_VAL = 0.0D0
       INTEGER, PARAMETER :: IUNDEF = 0
@@ -1690,7 +2064,6 @@ CONTAINS
          ! cnral, cnram
          DO IEL = ICOL1, NEL
             IF (CTOT(IEL) > 0.0D0) THEN
-               ! Modern Fix: Array slice (IEL:IEL) to satisfy F77 array interface
                CALL ALCHK(ERR, 3087, MNPR, IEL, IEL, IUNDEF, IUNDEF, 'cnral(iel)', 'GT', ZERO_ARR, ZERO_VAL, CNRAL(IEL:IEL), NERR, LDUM)
                CALL ALCHK(ERR, 3087, MNPR, IEL, IEL, IUNDEF, IUNDEF, 'cnram(iel)', 'GT', ZERO_ARR, ZERO_VAL, CNRAM(IEL:IEL), NERR, LDUM)
             END IF
@@ -1705,36 +2078,62 @@ CONTAINS
 
    END SUBROUTINE MNERR4
 
-
-
-   !SSSSSS SUBROUTINE MNGAM
+!> @brief Calculates net mineralisation or immobilisation for each active soil cell.
+!>
+!> Positive `gam` values represent net mineralisation and negative values
+!> represent immobilisation demand. If immobilisation previously exceeded
+!> available mineral nitrogen, litter and manure decomposition are temporarily
+!> suppressed until mineralisation has repaid the stored deficit.
+!>
+!> The manual supplies `FE`, `FH`, `CNRBIO`, and `CNRHUM` in `MN12`, and the
+!> depth-varying humus, litter, and manure decomposition parameters through
+!> `MN15`-`MN20`. For a cell, the routine first averages old and new pool
+!> values, for example \(\bar{C}_h = (C_h + C_h^1)/2\), and forms the
+!> environmental reduction factor
+!> over `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise over
+!> `NCOLMB(element):NCETOP`.
+!>
+!> \[
+!> E = E_T E_\psi.
+!> \]
+!>
+!> With \(K_l'\) and \(K_m'\) equal to `KLIT` and `KMAN` normally, but set to
+!> zero while an earlier immobilisation deficit is being repaid, the raw net
+!> mineralisation/immobilisation rate is
+!>
+!> \[
+!> \begin{aligned}
+!> \Gamma = E\{&
+!> K_l'[\bar{N}_l - \bar{C}_l(1-FE)FH/CNRHUM
+!>          - \bar{C}_l FE/CNRBIO]\\
+!> &+ KHUM\,\bar{C}_h(1/CNRHUM - FE/CNRBIO)\\
+!> &+ K_m'[\bar{N}_m - FE\,\bar{C}_m/CNRBIO]\}.
+!> \end{aligned}
+!> \]
+!>
+!> `GAMTMP` stores this raw \(\Gamma\). If `ISIMTF` is set, `IMDIFF` stores the
+!> remaining immobilisation deficit. Mineralisation over the timestep first
+!> repays that deficit: if \(\Gamma\Delta t \ge IMDIFF\), the exported `GAM`
+!> becomes \((\Gamma\Delta t - IMDIFF)/\Delta t\) and the flag is cleared;
+!> otherwise `IMDIFF` is reduced by \(\Gamma\Delta t\) and `GAM` is set to zero.
    SUBROUTINE MNGAM(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, CNRHUM, CNRBIO, FE, FH, DTUZ, ISBOTC)
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the mineralisation/immobilisation rate. if mngam is
-   ! positive then this is the mineralisation rate. if mngam is negative
-   ! then this is the immobilisation rate
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! Assumed global variables provided via host module:
-      ! USE MN_MODULE, ONLY: chum, chum1, clit, clit1, cman, cman1, nlit, &
-      !                      nlit1, nman, nman1, isimtf, klit, kman, &
-      !                      emt, emph, khum, gam, gamtmp, imdiff
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF
-      INTEGER, INTENT(IN) :: NCOLMB(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: CNRBIO, CNRHUM
-      DOUBLE PRECISION, INTENT(IN) :: FE, FH
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ
-      LOGICAL, INTENT(IN) :: ISBOTC
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: NBOTCE  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      DOUBLE PRECISION, INTENT(IN) :: CNRBIO  !! Biomass carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: CNRHUM  !! Humus carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: FE  !! Efficiency fraction for organic carbon turnover.
+      DOUBLE PRECISION, INTENT(IN) :: FH  !! Humification fraction.
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      LOGICAL, INTENT(IN) :: ISBOTC  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! Locals
       INTEGER :: NBOTM, NELM, NCL
@@ -1774,7 +2173,6 @@ CONTAINS
 
             ERF = EMT(NELM, NCL) * EMPH(NELM, NCL)
 
-            ! Modernization Fix: Enforced strict double-precision (1.0D0) to prevent precision loss
             DUM = KLITTP * ERF * (NLITH - CLITH * (1.0D0 - FE) * FH / CNRHUM - CLITH * FE / CNRBIO)
             DUM1 = DUM + KHUM(NELM, NCL) * ERF * CHUMH * (1.0D0 / CNRHUM - FE / CNRBIO)
 
@@ -1801,66 +2199,106 @@ CONTAINS
 
    END SUBROUTINE MNGAM
 
-
-
-   !SSSSSS SUBROUTINE MNINIT
+!> @brief Initialises MN pools, parameters, and source/sink terms.
+!>
+!> `mninit` prepares the land-column MN state over `NLF+1:NEL` and
+!> `NCOLMB(element):NCETOP`. It first clears immobilisation-deficit state
+!> (`IMDIFF=0`, `ISIMTF=.false.`), then initialises carbon, ammonium, and
+!> depth-varying process parameters.
+!>
+!> | Quantity | Mode | Implemented calculation |
+!> | --- | --- | --- |
+!> | Initial organic carbon | `ISICCD` true | Exponential profile \(C=C_{top}\exp(-0.693\,z/D_{1/2})\), using `CTOTTP` and `DCHLF`; `CLIT1=CLITFR*C`, `CHUM1=(1-CLITFR)*C`, `NLIT1=CLIT1/CNRLIT`, and manure pools start at zero. |
+!> | Initial organic carbon | `ISICCD` false | Interpolate category/profile table `CELEM`, `CCONC`, `CDPTH` with `ALINTP`; split the interpolated total using `CLITFR`, derive `NLIT1`, and set manure pools to zero. |
+!> | Initial ammonium | `ISIAMD` true | Exponential profile \(N_{amm}=NAMTOP\exp(-0.693\,z/DAMHLF)\). |
+!> | Initial ammonium | `ISIAMD` false | Interpolate category/profile table `NAELEM`, `NACONC`, `NADPTH` with `ALINTP`. |
+!> | Process parameters | Always table-based | Interpolate `KHUM`, `KLIT`, `KMAN`, `KNIT`, `KVOL`, `KD1`, and `KD2` from their category/profile tables with `ALINTP`. |
+!>
+!> The profile depth `z` starts at half the top-cell thickness and then advances
+!> downward using adjacent `ZVSNOD` differences. After interpolation,
+!> `ISBOTC` is true only if the configured `NBOTCE` is at or below every land
+!> column bottom (`NBOTCE >= NCOLMB(element)` for all land elements), and the CM
+!> source/sink arrays `SSS1` and `SSS2` are reset to zero.
    SUBROUTINE MNINIT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
                      NMNEEE, NMNTEE, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, KMELEM, KNELEM, KVELEM, NAELEM, NCOLMB, NMN15T, NMN17T, NMN19T, NMN21T, &
                      NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, DELTAZ, KD1CNC, KD1DTH, KD2CNC, &
                      KD2DTH, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ZVSNOD, ISICCD, &
                      ISIAMD, SSS1, SSS2, ISBOTC)
-   !--------------------------------------------------------------------*
-   !
-   ! initialises the global variables
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! Assumed global variables provided via host module:
-      ! USE MN_MODULE, ONLY: chum1, clit1, cman1, imdiff, kd1, kd2, khum,
-      !                      klit, kman, knit, kvol, namm1, nlit1, nman1,
-      !                      isimtf, dummy6
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF
-      INTEGER, INTENT(IN) :: NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E
-      INTEGER, INTENT(IN) :: NMN27E, NMN43E, NMN53E
-      INTEGER, INTENT(IN) :: NMNEEE, NMNTEE
-      INTEGER, INTENT(IN) :: CELEM(NLF+1:NEL), KD1ELM(NLF+1:NEL), KD2ELM(NLF+1:NEL)
-      INTEGER, INTENT(IN) :: KHELEM(NLF+1:NEL), KLELEM(NLF+1:NEL), KMELEM(NLF+1:NEL)
-      INTEGER, INTENT(IN) :: KNELEM(NLF+1:NEL), KVELEM(NLF+1:NEL)
-      INTEGER, INTENT(IN) :: NAELEM(NLF+1:NEL), NCOLMB(NELEE)
-      INTEGER, INTENT(IN) :: NMN15T(NMNEEE), NMN17T(NMNEEE), NMN19T(NMNEEE)
-      INTEGER, INTENT(IN) :: NMN21T(NMNEEE), NMN23T(NMNEEE), NMN25T(NMNEEE)
-      INTEGER, INTENT(IN) :: NMN27T(NMNEEE)
-      INTEGER, INTENT(IN) :: NMN43T(NMNEEE), NMN53T(NMNEEE)
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: NBOTCE  !! Requested lower active cell for nitrogen transformations.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: NMN15E  !! Number of humus category entries.
+      INTEGER, INTENT(IN) :: NMN17E  !! Number of litter category entries.
+      INTEGER, INTENT(IN) :: NMN19E  !! Number of manure category entries.
+      INTEGER, INTENT(IN) :: NMN21E  !! Number of nitrification category entries.
+      INTEGER, INTENT(IN) :: NMN23E  !! Number of volatilisation category entries.
+      INTEGER, INTENT(IN) :: NMN25E  !! Number of KD1 denitrification category entries.
+      INTEGER, INTENT(IN) :: NMN27E  !! Number of KD2 denitrification category entries.
+      INTEGER, INTENT(IN) :: NMN43E  !! Number of initial-carbon category entries.
+      INTEGER, INTENT(IN) :: NMN53E  !! Number of initial-ammonium category entries.
+      INTEGER, INTENT(IN) :: NMNEEE  !! Maximum number of MN category entries.
+      INTEGER, INTENT(IN) :: NMNTEE  !! Maximum number of MN table entries.
+      INTEGER, INTENT(IN) :: CELEM(NLF+1:NEL)  !! Initial-carbon category by element.
+      INTEGER, INTENT(IN) :: KD1ELM(NLF+1:NEL)  !! KD1 denitrification category by element.
+      INTEGER, INTENT(IN) :: KD2ELM(NLF+1:NEL)  !! KD2 denitrification category by element.
+      INTEGER, INTENT(IN) :: KHELEM(NLF+1:NEL)  !! Humus decomposition category by element.
+      INTEGER, INTENT(IN) :: KLELEM(NLF+1:NEL)  !! Litter decomposition category by element.
+      INTEGER, INTENT(IN) :: KMELEM(NLF+1:NEL)  !! Manure decomposition category by element.
+      INTEGER, INTENT(IN) :: KNELEM(NLF+1:NEL)  !! Nitrification category by element.
+      INTEGER, INTENT(IN) :: KVELEM(NLF+1:NEL)  !! Volatilisation category by element.
+      INTEGER, INTENT(IN) :: NAELEM(NLF+1:NEL)  !! Initial-ammonium category by element.
+      INTEGER, INTENT(IN) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(IN) :: NMN15T(NMNEEE)  !! Humus table length by category.
+      INTEGER, INTENT(IN) :: NMN17T(NMNEEE)  !! Litter table length by category.
+      INTEGER, INTENT(IN) :: NMN19T(NMNEEE)  !! Manure table length by category.
+      INTEGER, INTENT(IN) :: NMN21T(NMNEEE)  !! Nitrification table length by category.
+      INTEGER, INTENT(IN) :: NMN23T(NMNEEE)  !! Volatilisation table length by category.
+      INTEGER, INTENT(IN) :: NMN25T(NMNEEE)  !! KD1 table length by category.
+      INTEGER, INTENT(IN) :: NMN27T(NMNEEE)  !! KD2 table length by category.
+      INTEGER, INTENT(IN) :: NMN43T(NMNEEE)  !! Initial-carbon table length by category.
+      INTEGER, INTENT(IN) :: NMN53T(NMNEEE)  !! Initial-ammonium table length by category.
 
-      DOUBLE PRECISION, INTENT(IN) :: CLITFR, CNRLIT
-      DOUBLE PRECISION, INTENT(IN) :: CCONC(NMNEEE,NMNTEE), CDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: CTOTTP(NLF+1:NEL), DAMHLF(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: DCHLF(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE,NEL)
-      DOUBLE PRECISION, INTENT(IN) :: KD1CNC(NMNEEE,NMNTEE), KD1DTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: KD2CNC(NMNEEE,NMNTEE), KD2DTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: KHCONC(NMNEEE,NMNTEE), KHDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: KLCONC(NMNEEE,NMNTEE), KLDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: KMCONC(NMNEEE,NMNTEE), KMDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: KNCONC(NMNEEE,NMNTEE), KNDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: KVCONC(NMNEEE,NMNTEE), KVDPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: NACONC(NMNEEE,NMNTEE), NADPTH(NMNEEE,NMNTEE)
-      DOUBLE PRECISION, INTENT(IN) :: NAMTOP(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: ZVSNOD(LLEE,NEL)
+      DOUBLE PRECISION, INTENT(IN) :: CLITFR  !! Fraction of initial organic carbon assigned to litter.
+      DOUBLE PRECISION, INTENT(IN) :: CNRLIT  !! Initial litter carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: CCONC(NMNEEE,NMNTEE)  !! Initial-carbon profile values.
+      DOUBLE PRECISION, INTENT(IN) :: CDPTH(NMNEEE,NMNTEE)  !! Initial-carbon profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: CTOTTP(NLF+1:NEL)  !! Top total-carbon value for decay initialisation.
+      DOUBLE PRECISION, INTENT(IN) :: DAMHLF(NLF+1:NEL)  !! Ammonium decay half-depth by element.
+      DOUBLE PRECISION, INTENT(IN) :: DCHLF(NLF+1:NEL)  !! Carbon decay half-depth by element.
+      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE,NEL)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(IN) :: KD1CNC(NMNEEE,NMNTEE)  !! KD1 denitrification profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KD1DTH(NMNEEE,NMNTEE)  !! KD1 denitrification profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: KD2CNC(NMNEEE,NMNTEE)  !! KD2 denitrification profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KD2DTH(NMNEEE,NMNTEE)  !! KD2 denitrification profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: KHCONC(NMNEEE,NMNTEE)  !! Humus decomposition profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KHDPTH(NMNEEE,NMNTEE)  !! Humus decomposition profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: KLCONC(NMNEEE,NMNTEE)  !! Litter decomposition profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KLDPTH(NMNEEE,NMNTEE)  !! Litter decomposition profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: KMCONC(NMNEEE,NMNTEE)  !! Manure decomposition profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KMDPTH(NMNEEE,NMNTEE)  !! Manure decomposition profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: KNCONC(NMNEEE,NMNTEE)  !! Nitrification profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KNDPTH(NMNEEE,NMNTEE)  !! Nitrification profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: KVCONC(NMNEEE,NMNTEE)  !! Volatilisation profile values.
+      DOUBLE PRECISION, INTENT(IN) :: KVDPTH(NMNEEE,NMNTEE)  !! Volatilisation profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: NACONC(NMNEEE,NMNTEE)  !! Initial-ammonium profile values.
+      DOUBLE PRECISION, INTENT(IN) :: NADPTH(NMNEEE,NMNTEE)  !! Initial-ammonium profile depths.
+      DOUBLE PRECISION, INTENT(IN) :: NAMTOP(NLF+1:NEL)  !! Top ammonium value for decay initialisation.
+      DOUBLE PRECISION, INTENT(IN) :: ZVSNOD(LLEE,NEL)  !! Vertical node elevation/depth by cell and element.
 
-      LOGICAL, INTENT(IN) :: ISICCD, ISIAMD
+      LOGICAL, INTENT(IN) :: ISICCD  !! True when initial carbon uses decay-function input.
+      LOGICAL, INTENT(IN) :: ISIAMD  !! True when initial ammonium uses decay-function input.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP+1), SSS2(NEL, NCETOP+1)
-      LOGICAL, INTENT(OUT)          :: ISBOTC
+      DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP+1)  !! Dynamic-region CM source/sink array reset by this routine.
+      DOUBLE PRECISION, INTENT(OUT) :: SSS2(NEL, NCETOP+1)  !! Dead-space CM source/sink array reset by this routine.
+      LOGICAL, INTENT(OUT) :: ISBOTC  !! True when `NBOTCE` is valid for all land columns.
 
       ! Locals
       INTEGER :: NCL, NELM
@@ -1899,7 +2337,6 @@ CONTAINS
          END DO decay_c_loop
       ELSE
          ! * typical columns are used with linear interpolation between table values
-         ! Modern Fix: Passed NCOLMB array slice instead of scalar memory address
          CALL ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NMN43E, NMNEEE, NMNTEE, CELEM, NCOLMB(NLF+1:NEL), NMN43T, &
                      CCONC, CDPTH, DELTAZ, ZVSNOD, DUMMY6)
 
@@ -1985,59 +2422,109 @@ CONTAINS
 
    END SUBROUTINE MNINIT
 
-
-
-   !SSSSSS SUBROUTINE MNINT2
+!> @brief Converts time-varying MN inputs into cell-based process rates.
+!>
+!> `mnint2` carries forward previous pool values, dimensionalises nitrate
+!> concentrations, assigns mobile fractions, distributes mineral and organic
+!> additions over the specified banding depth, and adds wet/dry deposition to
+!> the top active cell.
+!>
+!> The time-varying inputs come from the manual's external carbon (`MNFC`) and
+!> external inorganic nitrogen/fertilizer (`MNFN`) files. Effective rainfall is
+!> converted from SHETRAN flow units to millimetres per second as
+!> `Pnet_mm = 1000 * PNETTO`, and dimensionless nitrate concentrations are
+!> dimensionalised using the `MN14` reference concentration:
+!>
+!> \[
+!> N_d = C\,MNCREF,\qquad N_s = S\,MNCREF.
+!> \]
+!>
+!> The mobile-water nitrate fraction `PPHI` is currently assigned a fixed value
+!> of `0.500` in every active cell; the previous call to the `PHI` function is
+!> still present only as a comment.
+!>
+!> For an inorganic nitrogen addition with total `NTOT`, ammonium fraction
+!> `NAMFCT`, banding depth `NDPTHB`, cell thickness `\Delta z`, and timestep
+!> `\Delta t`, the top-cell-only case (`NDPTHB = 0`) uses
+!>
+!> \[
+!> N_{amm}^{add} = \frac{NTOT\,NAMFCT}{\Delta z_{top}\Delta t},\qquad
+!> N_{nit}^{add} = \frac{NTOT(1-NAMFCT)}{\Delta z_{top}\Delta t}.
+!> \]
+!>
+!> When `NDPTHB > 0`, cells fully inside the band use `NDPTHB` in place of
+!> `\Delta z_{top}`. The cell cut by the banding depth is multiplied by
+!> \(f = d_{overlap}/NDPTHB\) and divided by that cell's own `\Delta z`; cells
+!> below the band receive zero addition.
+!>
+!> Organic carbon additions use the same banding logic with `CTOT`, `CDPTHB`,
+!> `CLTFCT`, and `CMNFCT`:
+!>
+!> \[
+!> C_{lit}^{add} = \frac{CTOT\,CLTFCT}{D\Delta t},\quad
+!> C_{man}^{add} = \frac{CTOT\,CMNFCT}{D\Delta t},\quad
+!> C_{hum}^{add} = \frac{CTOT(1-CLTFCT-CMNFCT)}{D\Delta t},
+!> \]
+!>
+!> where `D` is the top-cell thickness, the banding depth, or the partially
+!> overlapped cell thickness with the overlap fraction applied. If no organic
+!> carbon is active for an element, `CNRALT` and `CNRAMN` are set to `999.0` and
+!> the carbon-addition rates are zeroed. Dry and wet deposition are finally
+!> added to the top cell as
+!>
+!> \[
+!> N_{amm}^{dep} = \frac{AMMDDR + AMMWDR\,Pnet_{mm}}{\Delta z_{top}},\qquad
+!> N_{nit}^{dep} = \frac{NITDDR + NITWDR\,Pnet_{mm}}{\Delta z_{top}}.
+!> \]
    SUBROUTINE MNINT2(LLEE, NCETOP, NEL, NELEE, NLF, NLYREE, NCOLMB, NLYR, NLYRBT, NTSOIL, AMMDDR, AMMWDR, MNCREF, NITDDR, NITWDR, &
                      DELTAZ, DTUZ, CCCC, CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, &
                      PNETTO, SSSS, VSTHE, ISADDC, ISADDN, CNRALT, CNRAMN, DUMMY)
-   !--------------------------------------------------------------------*
-   !
-   !  modifies the time varying input variables into suitable units
-   !  for the rest of the program
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! Assumed global variables provided via host module:
-      ! USE MN_MODULE, ONLY: cman, cman1, nman, nman1, clit, clit1, chum,
-      !                      chum1, nlit, nlit1, namm, namm1, ndnit, ndsnt,
-      !                      pphi, naamm, nanit, calit, caman, cahum
 
       IMPLICIT NONE
 
       ! Input arguments
       ! * stationary
-      INTEGER, INTENT(IN) :: LLEE, NCETOP, NEL, NELEE, NLF, NLYREE
-      INTEGER, INTENT(IN) :: NCOLMB(NELEE), NLYR(NELEE)
-      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE), NTSOIL(NEL, NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: AMMDDR, AMMWDR
-      DOUBLE PRECISION, INTENT(IN) :: MNCREF, NITDDR, NITWDR
-      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL)
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: NLYREE  !! Soil-layer array dimension.
+      INTEGER, INTENT(IN) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(IN) :: NLYR(NELEE)  !! Number of soil layers in each element.
+      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE)  !! Soil type index for each element layer.
+      DOUBLE PRECISION, INTENT(IN) :: AMMDDR  !! Dry ammonium deposition rate.
+      DOUBLE PRECISION, INTENT(IN) :: AMMWDR  !! Wet ammonium deposition coefficient.
+      DOUBLE PRECISION, INTENT(IN) :: MNCREF  !! Reference nitrogen concentration.
+      DOUBLE PRECISION, INTENT(IN) :: NITDDR  !! Dry nitrate deposition rate.
+      DOUBLE PRECISION, INTENT(IN) :: NITWDR  !! Wet nitrate deposition coefficient.
+      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL)  !! Cell thickness by cell and element.
 
       ! * time dependent
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ
-      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: CDPTHB(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: CLTFCT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: CMNFCT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: CNRAL(NLF + 1:NEL), CNRAM(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: CTOT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: NAMFCT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: NDPTHB(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: NTOT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1), VSTHE(NCETOP, NEL)
-      LOGICAL, INTENT(IN) :: ISADDC, ISADDN
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)  !! Dynamic-region nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: CDPTHB(NLF + 1:NEL)  !! Carbon banding depth.
+      DOUBLE PRECISION, INTENT(IN) :: CLTFCT(NLF + 1:NEL)  !! Litter fraction of added carbon.
+      DOUBLE PRECISION, INTENT(IN) :: CMNFCT(NLF + 1:NEL)  !! Manure fraction of added carbon.
+      DOUBLE PRECISION, INTENT(IN) :: CNRAL(NLF + 1:NEL)  !! Carbon-to-nitrogen ratio for added litter.
+      DOUBLE PRECISION, INTENT(IN) :: CNRAM(NLF + 1:NEL)  !! Carbon-to-nitrogen ratio for added manure.
+      DOUBLE PRECISION, INTENT(IN) :: CTOT(NLF + 1:NEL)  !! Total external carbon addition.
+      DOUBLE PRECISION, INTENT(IN) :: NAMFCT(NLF + 1:NEL)  !! Ammonium fraction of added inorganic nitrogen.
+      DOUBLE PRECISION, INTENT(IN) :: NDPTHB(NLF + 1:NEL)  !! Nitrogen banding depth.
+      DOUBLE PRECISION, INTENT(IN) :: NTOT(NLF + 1:NEL)  !! Total external inorganic nitrogen addition.
+      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NELEE)  !! Net precipitation/effective rainfall by element.
+      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)  !! Dead-space nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL)  !! Current volumetric water content.
+      LOGICAL, INTENT(IN) :: ISADDC  !! True when a carbon-addition event is active.
+      LOGICAL, INTENT(IN) :: ISADDN  !! True when a nitrogen-addition event is active.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CNRALT(NELEE), CNRAMN(NELEE)
+      DOUBLE PRECISION, INTENT(OUT) :: CNRALT(NELEE)  !! Element litter C:N ratio for active additions.
+      DOUBLE PRECISION, INTENT(OUT) :: CNRAMN(NELEE)  !! Element manure C:N ratio for active additions.
 
       ! Workspace
-      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)
+      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)  !! Floating-point workspace.
 
       ! Locals etc.
       INTEGER :: JLYR, JSOIL, NCEBOT, NCE, NCL, NELM
@@ -2216,32 +2703,59 @@ CONTAINS
 
    END SUBROUTINE MNINT2
 
-
-
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the concentration in the carbon litter and
-   !  humus pools at timestep n+1
-   ! failure of iteration loop to converge produces error no 3016
-   !
-   !--------------------------------------------------------------------*
-   ! version:                   notes:
-   ! module: mn                 program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+!> @brief Updates litter and humus carbon pools.
+!>
+!> The routine solves the coupled litter-humus carbon balance with a fixed-point
+!> iteration using mid-timestep pool estimates. Non-convergence within the
+!> iteration limit is reported as warning 3016.
+!>
+!> The manual supplies the organic-matter efficiency fraction `FE` and
+!> humification fraction `FH` in `MN12`, and the humus, litter, and manure
+!> decomposition parameters through `MN15`-`MN20`. For each active cell the
+!> routine uses \(E = E_T E_\psi\). The active vertical range is
+!> `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`. `CALIT` and `CAHUM` are the cell-based external
+!> carbon additions prepared by [[mnint2]].
+!>
+!> With \(K_l'\) and \(K_m'\) equal to `KLIT` and `KMAN` normally, but set to
+!> zero while an immobilisation deficit is being repaid, the fixed-point
+!> iteration solves
+!>
+!> \[
+!> C_l^{n+1} = C_l^n + \Delta t\{K_l'E\bar{C}_l(FE-1)
+!>             + FE\,E\,KHUM\,\bar{C}_h
+!>             + FE\,E\,K_m'\bar{C}_m + C_l^{add}\},
+!> \]
+!>
+!> \[
+!> C_h^{n+1} = C_h^n + \Delta t\{(1-FE)FH\,K_l'E\bar{C}_l
+!>             - KHUM\,E\,\bar{C}_h + C_h^{add}\}.
+!> \]
+!>
+!> The midpoint values are updated as
+!> \(\bar{C}_l=(C_l^n+C_l^{n+1})/2\) and
+!> \(\bar{C}_h=(C_h^n+C_h^{n+1})/2\); manure uses
+!> \(\bar{C}_m=(C_m^n+C_m^{n+1})/2\). Iteration stops when the squared relative
+!> changes in both `CLIT1` and `CHUM1` are below `1D-12`. If convergence is not
+!> reached after 20 iterations the routine reports warning `3016` and leaves the
+!> last iterate in place.
    SUBROUTINE mnlthm (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, ncolmb, fe, fh, dtuz, isbotc)
-
-      ! Assumed external module dependencies providing global variables:
-      ! clit, chum, cman, cman1, isimtf, kman, klit, emt, emph, khum,
-      ! calit, clit1, cahum, chum1, ERROR
 
       IMPLICIT NONE
 
       ! input arguments
-      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf
-      INTEGER, INTENT(IN) :: ncolmb(nelee)
-      DOUBLE PRECISION, INTENT(IN) :: fe, fh, dtuz
-      LOGICAL, INTENT(IN) :: isbotc
+      INTEGER, INTENT(IN) :: llee  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: mnpr  !! MN diagnostic output unit used for warning messages.
+      INTEGER, INTENT(IN) :: nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: nel  !! Number of elements.
+      INTEGER, INTENT(IN) :: nelee  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      DOUBLE PRECISION, INTENT(IN) :: fe  !! Efficiency fraction for organic carbon turnover.
+      DOUBLE PRECISION, INTENT(IN) :: fh  !! Humification fraction.
+      DOUBLE PRECISION, INTENT(IN) :: dtuz  !! Unsaturated-zone timestep in seconds.
+      LOGICAL, INTENT(IN) :: isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! locals
       INTEGER :: nbotm, ncl, nelm, niters, ntime, warn
@@ -2338,7 +2852,6 @@ CONTAINS
             ! * the do loop has continued to niters and has thus
             ! * failed to converge
             IF (ntime > niters) THEN
-               ! PERF FIX: Restored external format label
                WRITE (msg, 9000) wer1sq, wer2sq
                CALL ERROR(warn, 3016, mnpr, 0, 0, msg)
             END IF
@@ -2350,34 +2863,60 @@ CONTAINS
 
    END SUBROUTINE mnlthm
 
-
-
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the concentration in the nitrogen litter
-   ! pool at timestep n+1
-   ! failure of iteration loop to converge produces error no 3017
-   !
-   !--------------------------------------------------------------------*
-   ! version:                   notes:
-   ! module: mn                 program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+!> @brief Updates the litter nitrogen pool.
+!>
+!> Litter nitrogen is advanced with the same environmental reduction terms used
+!> for carbon turnover, including immobilisation-limited suppression of
+!> litter/manure decomposition. Non-convergence is reported as warning 3017.
+!>
+!> The manual supplies the biomass C:N ratio `CNRBIO` and efficiency fraction
+!> `FE` in `MN12`; `CNRALT` is the litter C:N ratio from the active external
+!> carbon input (`MNFC32`) after [[mnint2]] has converted the addition to a
+!> cell-based rate. For each active cell the routine uses \(E = E_T E_\psi\)
+!> and midpoint carbon pools from the updated carbon calculation. The active
+!> vertical range is `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
+!>
+!> With \(K_l'\) and \(K_m'\) equal to `KLIT` and `KMAN` normally, but set to
+!> zero while an immobilisation deficit is being repaid, the fixed-point
+!> iteration solves
+!>
+!> \[
+!> N_l^{n+1} = N_l^n + \Delta t\{-K_l'E\bar{N}_l
+!>             + FE\,K_l'E\bar{C}_l/CNRBIO
+!>             + FE\,KHUM\,E\bar{C}_h/CNRBIO
+!>             + C_l^{add}/CNRALT
+!>             + FE\,K_m'E\bar{C}_m/CNRBIO\}.
+!> \]
+!>
+!> The midpoint nitrogen value is updated as
+!> \(\bar{N}_l=(N_l^n+N_l^{n+1})/2\). Iteration stops when the squared relative
+!> change in `NLIT1` is below `1D-12`. If convergence is not reached after 20
+!> iterations the routine reports warning `3017` and leaves the last iterate in
+!> place.
+!>
+!> @note `FH` is passed to this routine but is not used by the active
+!> calculation.
+!> @endnote
    SUBROUTINE mnltn (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, ncolmb, cnrbio, fe, fh, dtuz, cnralt, isbotc)
-
-      ! Assumed external module dependencies providing global variables:
-      ! chum, chum1, clit, clit1, cman, cman1, nlit, nlit1, isimtf,
-      ! klit, kman, emt, emph, khum, calit, ERROR
 
       IMPLICIT NONE
 
       ! input arguments
-      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf
-      INTEGER, INTENT(IN) :: ncolmb(nelee)
-      DOUBLE PRECISION, INTENT(IN) :: cnrbio, fe, fh
-      DOUBLE PRECISION, INTENT(IN) :: dtuz
-      DOUBLE PRECISION, INTENT(IN) :: cnralt(nelee)
-      LOGICAL, INTENT(IN) :: isbotc
+      INTEGER, INTENT(IN) :: llee  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: mnpr  !! MN diagnostic output unit used for warning messages.
+      INTEGER, INTENT(IN) :: nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: nel  !! Number of elements.
+      INTEGER, INTENT(IN) :: nelee  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      DOUBLE PRECISION, INTENT(IN) :: cnrbio  !! Biomass carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: fe  !! Efficiency fraction for organic carbon turnover.
+      DOUBLE PRECISION, INTENT(IN) :: fh  !! Humification fraction; passed through but not used.
+      DOUBLE PRECISION, INTENT(IN) :: dtuz  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: cnralt(nelee)  !! Element litter C:N ratio for active additions.
+      LOGICAL, INTENT(IN) :: isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! locals
       INTEGER :: nbotm, ncl, nelm, niters, ntime, warn
@@ -2459,7 +2998,6 @@ CONTAINS
             ! * the do loop has continued to niters and has thus
             ! * failed to converge
             IF (ntime > niters) THEN
-               ! PERF FIX: Restored external format label
                WRITE (msg, 9000) wer1sq
                CALL ERROR(warn, 3017, mnpr, 0, 0, msg)
             END IF
@@ -2471,52 +3009,79 @@ CONTAINS
 
    END SUBROUTINE mnltn
 
-
-
-   !SSSSSS SUBROUTINE MNMAIN
+!> @brief Main mineral nitrogen setup and timestep driver.
+!>
+!> `mnmain` uses a saved call counter. The first call performs static checks,
+!> reads the MND file, and initialises state; subsequent calls run the timestep
+!> update and optional output.
+!>
+!> | Phase | Call order | Purpose |
+!> | --- | --- | --- |
+!> | First call | [[mnerr0]] -> [[mnerr1]] -> [[mnred1]] -> [[mnerr2]] -> [[mninit]] | Check array/interface consistency, read static nitrate data, validate it, interpolate initial pools and process parameters, and reset source/sink arrays. |
+!> | Later calls | [[mnerr3]] -> [[mnred2]] -> [[mnerr4]] -> [[mnint2]] | Check dynamic CM-MN state, read scheduled MNFC/MNFN additions, validate them, and convert concentrations/additions/deposition to cell-based rates. |
+!> | Environment | [[mntemp]] -> [[mnemt]] -> [[mnent]] -> [[mnemph]] -> [[mnenph]] -> [[mnedth]] | Update soil temperature and temperature, matric-potential, and saturation response factors. |
+!> | Carbon and nitrogen pools | [[mnman]] -> [[mnlthm]] -> [[mnltn]] -> [[mnco2]] -> [[mngam]] -> [[mnamm]] -> [[mnnit]] | Update manure, litter, humus, carbon dioxide production, mineralisation/immobilisation, ammonium, and nitrate source/sink terms. |
+!> | Output | [[mnout]] | Write requested detailed MN diagnostics. |
+!>
+!> Static parameters read by [[mnred1]], including deposition rates, Q10 values,
+!> reaction constants, `MNCREF`, and `ISBOTC`, are saved between calls.
    SUBROUTINE MNMAIN(MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, ICMBK, &
                      ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
                      ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
                      SSS1, SSS2)
-   !--------------------------------------------------------------------*
-   !
-   ! main mn subroutine from which all the others are called
-   !
-   !--------------------------------------------------------------------*
-   ! version: 4.2             notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! USE SGLOBAL, ONLY : llee, nelee, nlfee, nlyree, nxee, nsee, nvee, nconee
 
       IMPLICIT NONE
 
       ! Input arguments
       ! * static
-      INTEGER, INTENT(IN) :: MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2
-      INTEGER, INTENT(IN) :: NCETOP, NCON, NEL, NLF, NS, NV, NX, NY
-      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
-      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE), NTSOIL(NEL, NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: D0, TIH, Z2
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
+      INTEGER, INTENT(IN) :: MND  !! Static MND input unit.
+      INTEGER, INTENT(IN) :: MNFC  !! Scheduled carbon-addition input unit.
+      INTEGER, INTENT(IN) :: MNFN  !! Scheduled nitrogen-addition input unit.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: MNOUT1  !! Carbon budget output unit.
+      INTEGER, INTENT(IN) :: MNOUT2  !! Nitrogen budget output unit.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NCON  !! Number of contaminant species coupled to MN.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NV  !! Number of vegetation/meteorological entries.
+      INTEGER, INTENT(IN) :: NX  !! Number of grid columns.
+      INTEGER, INTENT(IN) :: NY  !! Number of grid rows.
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)  !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2)  !! Neighbour reference map.
+      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)  !! Element number at each grid location.
+      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE)  !! Soil type index for each element layer.
+      DOUBLE PRECISION, INTENT(IN) :: D0  !! Reference diffusion/dispersion scale used by CM.
+      DOUBLE PRECISION, INTENT(IN) :: TIH  !! Initial simulation time in hours.
+      DOUBLE PRECISION, INTENT(IN) :: Z2  !! Vertical length scale used by CM and MN temperature diffusion.
+      LOGICAL, INTENT(IN) :: BEXBK  !! True when bank elements are represented.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE)  !! True for north-south channel links.
 
       ! * varying
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ, UZNOW
-      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: TA(NV), VSPSI(NCETOP, NEL)
-      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: UZNOW  !! Current unsaturated-zone simulation time.
+      DOUBLE PRECISION, INTENT(IN) :: CCCC(NEL, NCETOP + 1)  !! Dynamic-region nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: SSSS(NEL, NCETOP + 1)  !! Dead-space nitrate concentration.
+      DOUBLE PRECISION, INTENT(IN) :: TA(NV)  !! Air temperature by vegetation/meteorological entry.
+      DOUBLE PRECISION, INTENT(IN) :: VSPSI(NCETOP, NEL)  !! Matric potential/pressure head by cell and element.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL)  !! Current volumetric water content.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHEO(NEL, NCETOP + 1)  !! Previous volumetric water content.
 
       ! Input/Output arguments (Propagated up from MNERR1, MNERR3 requirements)
-      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE), NLYR(NELEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE), DYQQ(NELEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)
-      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
-      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NELEE)
+      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(INOUT) :: NLYR(NELEE)  !! Number of soil layers in each element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE)  !! Element width.
+      DOUBLE PRECISION, INTENT(INOUT) :: DYQQ(NELEE)  !! Element length.
+      DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)  !! Soil porosity by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(INOUT) :: ZVSNOD(LLEE, NEL)  !! Vertical node elevation/depth by cell and element.
+      DOUBLE PRECISION, INTENT(INOUT) :: PNETTO(NELEE)  !! Net precipitation/effective rainfall by element.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP + 1), SSS2(NEL, NCETOP + 1)
+      DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP + 1)  !! Dynamic-region CM source/sink array.
+      DOUBLE PRECISION, INTENT(OUT) :: SSS2(NEL, NCETOP + 1)  !! Dead-space CM source/sink array.
 
       ! Constants
       INTEGER, PARAMETER :: NMNEEE = 9, NMNTEE = 10
@@ -2680,32 +3245,52 @@ CONTAINS
 
    END SUBROUTINE MNMAIN
 
-
-
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the concentration in the carbon and nitrogen
-   !  manure pools at timestep n+1
-   ! failure of iteration loop to converge produces error no 3015
-   !
-   !--------------------------------------------------------------------*
-   ! version:                   notes:
-   ! module: mn                 program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
+!> @brief Updates manure carbon and nitrogen pools.
+!>
+!> Manure pools are integrated with a mid-timestep iteration, using the
+!> temperature and matric-potential reduction factors and the scheduled manure
+!> addition rate. Non-convergence is reported as warning 3015.
+!>
+!> The manual supplies manure decomposition categories and depth tables in
+!> `MN19`/`MN20`. Time-varying external carbon input supplies the manure carbon
+!> fraction (`MNFC41`) and manure C:N ratio (`MNFC42`), which [[mnint2]]
+!> converts to `CAMAN` and `CNRAMN`. For each active cell the routine uses
+!> \(E = E_T E_\psi\). The active vertical range is `NBOTCE:NCETOP` when
+!> `ISBOTC` is true, otherwise `NCOLMB(element):NCETOP`.
+!>
+!> With \(K_m'\) equal to `KMAN` normally, but set to zero while an
+!> immobilisation deficit is being repaid, the fixed-point iteration solves
+!>
+!> \[
+!> C_m^{n+1} = C_m^n + \Delta t(-K_m'E\bar{C}_m + C_m^{add}),
+!> \]
+!>
+!> \[
+!> N_m^{n+1} = N_m^n + \Delta t(-K_m'E\bar{N}_m + C_m^{add}/CNRAMN).
+!> \]
+!>
+!> The midpoint values are updated as
+!> \(\bar{C}_m=(C_m^n+C_m^{n+1})/2\) and
+!> \(\bar{N}_m=(N_m^n+N_m^{n+1})/2\). Iteration stops when the squared relative
+!> changes in both `CMAN1` and `NMAN1` are below `1D-12`. If convergence is not
+!> reached after 20 iterations the routine reports warning `3015` and leaves the
+!> last iterate in place.
    SUBROUTINE mnman (llee, mnpr, nbotce, ncetop, nel, nelee, nlf, ncolmb, dtuz, cnramn, isbotc)
-
-      ! Assumed external module dependencies providing global variables:
-      ! cman, cman1, nman, nman1, isimtf, kman, emt, emph, caman, ERROR
 
       IMPLICIT NONE
 
       ! input arguments
-      INTEGER, INTENT(IN) :: llee, mnpr, nbotce, ncetop, nel, nelee, nlf
-      INTEGER, INTENT(IN) :: ncolmb(nelee)
-      DOUBLE PRECISION, INTENT(IN) :: dtuz
-      DOUBLE PRECISION, INTENT(IN) :: cnramn(nelee)
-      LOGICAL, INTENT(IN) :: isbotc
+      INTEGER, INTENT(IN) :: llee  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: mnpr  !! MN diagnostic output unit used for warning messages.
+      INTEGER, INTENT(IN) :: nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: nel  !! Number of elements.
+      INTEGER, INTENT(IN) :: nelee  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      DOUBLE PRECISION, INTENT(IN) :: dtuz  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: cnramn(nelee)  !! Element manure C:N ratio for active additions.
+      LOGICAL, INTENT(IN) :: isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! locals
       INTEGER :: nbotm, ncl, nelm, niters, ntime, warn
@@ -2806,26 +3391,86 @@ CONTAINS
 
    END SUBROUTINE mnman
 
-
-
+!> @brief Calculates nitrate source/sink terms for dynamic and dead-space water.
+!>
+!> The nitrate balance combines immobilisation, denitrification, plant uptake,
+!> nitrification input from ammonium, fertiliser input, and the mobile/immobile
+!> partitioning factor. The resulting rates are converted to the
+!> non-dimensional `sss1` and `sss2` source terms used by the contaminant
+!> transport solver.
+!>
+!> The manual supplies nitrate immobilisation and plant uptake constants
+!> `KUNIT` and `KPLNIT` in `MN11`, and denitrification parameters `KD1` and
+!> `KD2` through `MN25`-`MN28`. For each active cell the routine uses the
+!> average water content \(\bar{\theta}=(\theta^n+\theta^{n+1})/2\), average
+!> ammonium \(\bar{N}_{amm}\), dynamic nitrate \(N_d\), dead-space nitrate
+!> \(N_s\), and mobile fraction \(\phi_m\). The active vertical range is
+!> `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
+!>
+!> If net mineralisation `GAM` is negative, nitrate immobilisation is limited by
+!> both the remaining immobilisation demand after ammonium immobilisation and
+!> first-order nitrate availability:
+!>
+!> \[
+!> I_d = \min(-GAM-I_{amm}, KUNIT\,N_d),\qquad
+!> I_s = \min(-GAM-I_{amm}, KUNIT\,N_s),
+!> \]
+!>
+!> otherwise \(I_d=I_s=0\). Denitrification is
+!>
+!> \[
+!> D_d = \bar{\theta}\min(KD1\,E_T\,E_\theta\,C_{dort}, KD2\,N_d),
+!> \qquad
+!> D_s = \bar{\theta}\min(KD1\,E_T\,E_\theta\,C_{dort}, KD2\,N_s).
+!> \]
+!>
+!> Plant nitrate uptake is limited by the plant demand share and by first-order
+!> uptake:
+!>
+!> \[
+!> P_d = \min\left(PLUP\,\frac{N_d}{N_d+\bar{N}_{amm}},
+!>                 \bar{\theta}KPLNIT\,N_d\right),
+!> \]
+!>
+!> with the same expression for \(P_s\) using \(N_s\); the demand-share term is
+!> zero when the corresponding nitrate concentration is zero. The dynamic and
+!> dead-space nitrate rates are then
+!>
+!> \[
+!> R_d = -P_d + NTRF - D_d - I_d + N_{nit}^{add},\qquad
+!> R_s = -P_s + NTRF - D_s - I_s + N_{nit}^{add}.
+!> \]
+!>
+!> They are partitioned and converted to contaminant-source terms as
+!>
+!> \[
+!> SSS1 = -\frac{\phi_m R_d Z2^2}{D0\,MNCREF},\qquad
+!> SSS2 = -\frac{(1-\phi_m)R_s Z2^2}{D0\,MNCREF}.
+!> \]
+!>
+!> Diagnostic totals are stored as weighted sums: `DENIT`, `PLNIT`, `SNIT`, and
+!> `IMNIT`. If total actual immobilisation remains less than the potential
+!> demand \(-GAM\), `ISIMTF` is set and `IMDIFF` stores the remaining deficit
+!> over the current timestep.
+!>
+!> When `ISBOTC` is true, source/sink terms below the real column bottom and
+!> above `NBOTCE` are explicitly zeroed after the active range is processed.
    subroutine mnnit (llee,nbotce,ncetop,nel,nelee,nlf,ncolmb,d0,kplnit,kunit,mncref,z2,dtuz,vsthe,vstheo,isbotc,sss1,sss2)
-      !
-      !--------------------------------------------------------------------*
-      !
-      ! calculates the concentration of dynamic nitrate concentration per
-      ! unit volume of solution at timestep n+1
-      !
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-      !
-      ! input arguments
-      integer llee,nbotce,ncetop,nel,nelee,nlf
-      integer ncolmb(nelee)
-      double precision d0,kplnit,kunit,mncref,z2
-      double precision dtuz
+
+      integer llee  !! Maximum soil-cell dimension.
+      integer nbotce  !! Lowest cell included when bottom-cell truncation is active.
+      integer ncetop  !! Top soil-cell index.
+      integer nel  !! Number of elements.
+      integer nelee  !! Element-array dimension.
+      integer nlf  !! Number of overland/channel links excluded from land-column updates.
+      integer ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      double precision d0  !! Reference diffusion/dispersion scale used by CM.
+      double precision kplnit  !! First-order nitrate plant-uptake limit.
+      double precision kunit  !! First-order nitrate immobilisation limit.
+      double precision mncref  !! Reference nitrogen concentration.
+      double precision z2  !! Vertical length scale used by CM source conversion.
+      double precision dtuz  !! Unsaturated-zone timestep in seconds.
       !double precision cdort(nelee,llee),edeth(nelee,llee)
       !double precision emt(nelee,llee),gam(nelee,llee)
       !double precision imamm(nelee,llee)
@@ -2836,8 +3481,9 @@ CONTAINS
       !double precision ndsnt(nelee,llee)
       !double precision ntrf(nelee,llee),plup(nelee,llee)
       !double precision pphi(nelee,llee)
-      double precision vsthe(ncetop,nel),vstheo(nel,ncetop+1)
-      logical isbotc
+      double precision vsthe(ncetop,nel)  !! Current volumetric water content.
+      double precision vstheo(nel,ncetop+1)  !! Previous volumetric water content.
+      logical isbotc  !! True when the fixed lower active cell `NBOTCE` is used.
       !
       ! input/output arguments
       !double precision imdiff(nelee,llee)
@@ -2847,7 +3493,8 @@ CONTAINS
       !double precision denit(nelee,llee)
       !double precision imnit(nelee,llee)
       !double precision plnit(nelee,llee),snit(nelee,llee)
-      double precision sss1(nel,ncetop+1),sss2(nel,ncetop+1)
+      double precision sss1(nel,ncetop+1)  !! Dynamic-region CM source/sink array.
+      double precision sss2(nel,ncetop+1)  !! Dead-space CM source/sink array.
       ! locals
       integer nbotm,ncl,nelm
       double precision dednt,dedsnt,dum1,dum2,imdnt,imdsnt,imrat
@@ -2951,42 +3598,63 @@ CONTAINS
       enddo
    end subroutine mnnit
 
-
-
-   !SSSSSS SUBROUTINE MNOUT
+!> @brief Accumulates and writes mineral nitrogen and carbon budget outputs.
+!>
+!> `mnout` keeps saved cumulative arrays and writes area-normalised summaries to
+!> `MNOUT1` (carbon) and `MNOUT2` (nitrogen). Active cells follow the module
+!> convention: `NBOTCE:NCETOP` when `ISBOTC` is true, otherwise
+!> `NCOLMB(element):NCETOP`.
+!>
+!> | Stage | Accounting |
+!> | --- | --- |
+!> | First call | Allocate saved cumulative flux arrays, zero them over active soil-layer cells, compute total land area, and write initial carbon and nitrogen stores. |
+!> | Every call | Accumulate cell-depth-integrated rates over the current timestep, including ammonium/nitrate additions, organic additions, CO2 production, denitrification, mineralisation, immobilisation, nitrification, plant uptake, source/sink totals, and volatilisation. |
+!> | Store totals | Recompute current nitrogen and carbon stores from updated pools. Ammonium storage uses the nonlinear retardation factor \(1 + KDDSOL(NAMM1/MNCREF)^{GNN-1}/VSTHE\). |
+!> | Periodic output | When `UZNOW >= MNSTRT + 24*NPRNT`, increment `NPRNT` and write current total/addition/loss summaries normalised by total land area. |
+!>
+!> The routine does not reset cumulative flux arrays after each write; reported
+!> additions and losses are cumulative since the initial `MNOUT` call.
+!>
+!> @warning The printed nitrogen labels describe the current calculations only
+!> imperfectly. `TOTADN` contains organic-N additions, ammonium additions, and
+!> nitrate immobilisation (`IMNITT`), but omits the accumulated nitrate addition
+!> `ADNITT`. `TOTLOS` contains volatilisation, ammonium plant uptake, and
+!> nitrification, but omits nitrate plant uptake and denitrification. The stored
+!> `TOTN` likewise includes ammonium and organic pools but not dissolved nitrate.
+!> These retained accounting expressions are documented, not corrected here.
+!> @endwarning
    SUBROUTINE MNOUT(MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, CNRHUM, GNN, MNCREF, DELTAZ, &
                     KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
-   !--------------------------------------------------------------------*
-   !
-   ! calculates total inputs and outputs and writes output to files
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
-
-      ! Assumed global variables provided via host module:
-      ! USE MN_MODULE, ONLY: llee, nelee, nlyree, namm, nlit, nman, chum,
-      !                      cman, clit, naamm, caman, cahum, calit, nanit,
-      !                      cdort, denit, gamtmp, imamm, imnit, miner,
-      !                      ntrf, plamm, plnit, snit, vol, namm1, nlit1,
-      !                      nman1, chum1, cman1, clit1
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS
-      INTEGER, INTENT(IN) :: NCOLMB(NELEE), NLYR(NELEE)
-      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE), NTSOIL(NEL, NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: CNRHUM, GNN, MNCREF
-      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL), KDDSOL(NS)
-      DOUBLE PRECISION, INTENT(IN) :: PPHI(NELEE, LLEE)
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ, UZNOW
-      DOUBLE PRECISION, INTENT(IN) :: DXQQ(NELEE), DYQQ(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: CNRALT(NELEE), CNRAMN(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL), VSTHEO(NEL, NCETOP + 1)
-      LOGICAL, INTENT(IN) :: ISBOTC
+      INTEGER, INTENT(IN) :: MNOUT1  !! Carbon budget output unit.
+      INTEGER, INTENT(IN) :: MNOUT2  !! Nitrogen budget output unit.
+      INTEGER, INTENT(IN) :: NBOTCE  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column output.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(IN) :: NLYR(NELEE)  !! Number of soil layers in each element.
+      INTEGER, INTENT(IN) :: NLYRBT(NEL, NLYREE)  !! Bottom cell index of each soil layer.
+      INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE)  !! Soil type index for each element layer.
+      DOUBLE PRECISION, INTENT(IN) :: CNRHUM  !! Humus carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(IN) :: GNN  !! Nonlinear ammonium adsorption exponent.
+      DOUBLE PRECISION, INTENT(IN) :: MNCREF  !! Reference nitrogen concentration.
+      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(IN) :: KDDSOL(NS)  !! Soil ammonium adsorption coefficient.
+      DOUBLE PRECISION, INTENT(IN) :: PPHI(NELEE, LLEE)  !! Mobile-water partition factor.
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: UZNOW  !! Current unsaturated-zone simulation time.
+      DOUBLE PRECISION, INTENT(IN) :: DXQQ(NELEE)  !! Element width.
+      DOUBLE PRECISION, INTENT(IN) :: DYQQ(NELEE)  !! Element length.
+      DOUBLE PRECISION, INTENT(IN) :: CNRALT(NELEE)  !! Element litter C:N ratio for active additions.
+      DOUBLE PRECISION, INTENT(IN) :: CNRAMN(NELEE)  !! Element manure C:N ratio for active additions.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHE(NCETOP, NEL)  !! Current volumetric water content.
+      DOUBLE PRECISION, INTENT(IN) :: VSTHEO(NEL, NCETOP + 1)  !! Previous volumetric water content.
+      LOGICAL, INTENT(IN) :: ISBOTC  !! True when the fixed lower active cell `NBOTCE` is used.
 
       ! Locals etc.
       INTEGER, PARAMETER :: HRPRNT = 24
@@ -3103,7 +3771,7 @@ CONTAINS
       TOTC   = 0.0D0
       TOTCO2 = 0.0D0
 
-   ! Progressive sum logic restored exactly as provided
+      ! Form the current area-integrated totals from the cumulative arrays.
       DO NELM = NLF + 1, NEL
          IF (ISBOTC) THEN
             NBOTM = NBOTCE
@@ -3150,57 +3818,116 @@ CONTAINS
 
    END SUBROUTINE MNOUT
 
-
-   !--------------------------------------------------------------------*
+!> @brief Calculates potential plant nitrogen uptake by rooted cell.
+!>
+!> Plant uptake is based on canopy leaf area, canopy-density correction,
+!> changing plant biomass, rooting depth, and root density fractions. The
+!> routine is adapted from the SHETRAN plant component and preserves its
+!> simplified assumptions for mixed vegetation in a grid cell.
+!>
+!> The manual's plant-uptake file `MNPL` supplies a title (`MNP1`) and, for
+!> each vegetation type, a canopy-density function table (`MNP10`/`MNP11`) as
+!> pairs of density factor `CDI` and time `CDIT` in days from the simulation
+!> start. The routine linearly interpolates this table at `UZNOW/24`; if the
+!> current time is beyond the table, the canopy-density factor is set to 1.
+!> The first call only reads this file, writes the title to `MNOUTPL`, closes
+!> both units, and initialises saved plant-mixture and mass state. Potential
+!> uptake is calculated on later calls, after `PLUP` has been reset to zero over
+!> `NCOLMB(element):NCETOP`.
+!>
+!> Important plant-index variables retained from the legacy MPL-based logic are:
+!>
+!> | Variable | Meaning |
+!> |:---------|:--------|
+!> | `NPLTEE` | Total number of plant types; normally set to the same value as `NVEE`. |
+!> | `NPELEE` | Maximum number of plant types in one element; normally set to 2. |
+!> | `NPLANT` | Plant slot number within the current element. |
+!> | `JPLTY` | Actual vegetation/plant type represented by `NPLANT`. |
+!>
+!> For plant type \(p\) in element \(e\), the estimated above-ground plant mass
+!> is
+!>
+!> \[
+!> M_{e,p} =
+!> \frac{CLAI_p\,DELONE_p\,CDI_p(t)}{CLAIMX_p}
+!> PFONE_{e,p}\,DXQQ_e\,DYQQ_e\,RHOPL .
+!> \]
+!>
+!> The potential nitrogen uptake demand is based on the positive mass-change
+!> rate \(\dot{M}_{e,p}=(M_{e,p}^{new}-M_{e,p}^{old})/\Delta t\). Negative
+!> mass change marks cropping and produces no uptake. For growing plants the
+!> nitrogen fraction \(f_N\) is a legacy age function of time since crop
+!> emergence:
+!>
+!> \[
+!> f_N =
+!> \begin{cases}
+!> 0.022, & t_c < 360,\\
+!> 0.017, & 360 \le t_c < 720,\\
+!> 0.015, & 720 \le t_c < 1080,\\
+!> 0.012, & t_c \ge 1080.
+!> \end{cases}
+!> \]
+!>
+!> The rooted-cell potential uptake added to `PLUP` is then
+!>
+!> \[
+!> PLUP_{e,c} \mathrel{+}=
+!> \frac{\dot{M}_{e,p}\,f_N\,RDF_{p,k}}
+!>      {\Delta z_{e,c}\,DXQQ_e\,DYQQ_e},
+!> \]
+!>
+!> where `k = NCETOP - c + 1` indexes the root-density fraction and uptake is
+!> applied only from the bottom rooted cell `NCETOP - NRD(JPLTY)` to `NCETOP`.
+!> The final nitrate/ammonium availability limits are applied later by
+!> [[mnnit]] and [[mnamm]].
+!>
+!> @note The legacy comments describe this as reasonable for deciduous trees and
+!> arable crops, but less suitable for permanent grassland where `CLAI` may be
+!> held nearly constant in the ET data. The implementation also keeps several
+!> MPL-era simplifications: hard-coded `CLAIMX = 2`, at most two plant types per
+!> element, plant type 1 as every second type, a named linear-search
+!> interpolation loop, and saved state across calls. `MNOUTPL` receives only the
+!> input title before both plant units are closed; no timestep plant values are
+!> written.
+!> @endnote
+!>
+!> @warning The current table-read loop stores every vegetation type's `MNP11`
+!> values in `CDI(NV,*)` and `CDIT(NV,*)`, rather than row `i`, and does not
+!> verify that `NVALUE(i)` is at most the fixed limit `NVALEE=30`. The saved
+!> `ISCROP` flags are not initialised before their first possible test. Also,
+!> `NRBOT=NCETOP-NRD(JPLTY)` is included in the root loop, giving `NRD+1` cell
+!> indices when the complete range is valid. These current behaviours can make
+!> multi-vegetation uptake or crop-reset results undefined.
+!> @endwarning
    SUBROUTINE mnplant (mnpl, mnoutpl, ncetop, nel, nlf, nv, ncolmb, nrd, nvc, rhopl, delone, dxqq, dyqq, deltaz, plai, rdf, dtuz, &
                        uznow, clai)
-   !--------------------------------------------------------------------*
-      !
-      ! subroutine used to calculate the potential nitrogen uptake by plants
-      ! this is calculted from the canopy leaf area index of the plants
-      ! this is generally reasonable for decidous trees and arable crops
-      ! but not so for permanent grassland where the clai is often considered
-      ! to be constant. (see etd file)
-      !
-      ! the basis of the programming is from the mpl component (with only
-      ! the relevant bits included ). thus the code is of poor quality.
-      !
-      ! important varaibles:
-      ! npltee is the total number of plant types and it is generally
-      !    set to the same value as nvee
-      ! npelee is the number of plants in any element and it is
-      !    generally set to 2.
-      ! nplant is the number of the plant type on the element
-      ! jplty is an actual plant type on the element
-      !
-      ! additionally there is an extra data file used here which gives data
-      ! on the canopy density. this modifies the calculation of the mass of
-      ! the plants (the canopy leaf area index is not sufficient)
-      !--------------------------------------------------------------------*
-      ! version:                   notes:
-      ! module: mn                 program: shetran
-      ! modifications
-      !--------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! llee, nelee, npelee, npltee, nvee, plup, alredf, alredi, alred2,
-      ! alalli, alredl, alredc
 
       IMPLICIT NONE
 
       ! input arguments
       !     * static
-      INTEGER, INTENT(IN) :: mnpl, mnoutpl, ncetop, nel, nlf, nv
-      INTEGER, INTENT(IN) :: ncolmb(nelee)
-      INTEGER, INTENT(IN) :: nrd(nv), nvc(nelee)
-      DOUBLE PRECISION, INTENT(IN) :: rhopl
-      DOUBLE PRECISION, INTENT(IN) :: delone(npltee), dxqq(nelee), dyqq(nelee)
-      DOUBLE PRECISION, INTENT(IN) :: deltaz(llee, nel), plai(nv)
-      DOUBLE PRECISION, INTENT(IN) :: rdf(nv, llee)
+      INTEGER, INTENT(IN) :: mnpl  !! Plant-uptake input unit.
+      INTEGER, INTENT(IN) :: mnoutpl  !! Plant nitrogen output unit.
+      INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: nel  !! Number of elements.
+      INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column uptake.
+      INTEGER, INTENT(IN) :: nv  !! Number of vegetation types.
+      INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
+      INTEGER, INTENT(IN) :: nrd(nv)  !! Rooting depth in cell counts by vegetation type.
+      INTEGER, INTENT(IN) :: nvc(nelee)  !! Vegetation type index by element.
+      DOUBLE PRECISION, INTENT(IN) :: rhopl  !! Plant dry-matter density used by uptake calculation.
+      DOUBLE PRECISION, INTENT(IN) :: delone(npltee)  !! Initial plant biomass/cover scaling by plant type.
+      DOUBLE PRECISION, INTENT(IN) :: dxqq(nelee)  !! Element width.
+      DOUBLE PRECISION, INTENT(IN) :: dyqq(nelee)  !! Element length.
+      DOUBLE PRECISION, INTENT(IN) :: deltaz(llee, nel)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(IN) :: plai(nv)  !! Plant leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(IN) :: rdf(nv, llee)  !! Root density fraction by vegetation type and cell.
 
       !     * time dependent
-      DOUBLE PRECISION, INTENT(IN) :: dtuz, uznow
-      DOUBLE PRECISION, INTENT(IN) :: clai(nv)
+      DOUBLE PRECISION, INTENT(IN) :: dtuz  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: uznow  !! Current unsaturated-zone simulation time.
+      DOUBLE PRECISION, INTENT(IN) :: clai(nv)  !! Current canopy leaf-area index by vegetation type.
 
       ! locals
       !     * maximum number of values in the input data for canopy density
@@ -3225,7 +3952,7 @@ CONTAINS
       DOUBLE PRECISION :: dum, dum2
       DOUBLE PRECISION :: dummy(nvalee * 2)
 
-      !      * temporary variable to test this subroutine
+      ! Input-reader work buffers.
       CHARACTER(LEN=32) :: msg
       CHARACTER(LEN=200) :: cdum(1)
 
@@ -3287,8 +4014,6 @@ CONTAINS
                npl(nelm) = 2
             END IF
 
-            !* sb 5/3/01 add data from pldat.f
-            !* all second plant types on a grid square are equal to 1i=1,nel
             DO i = 1, nel
                npltyp(i, 2) = 1
             END DO
@@ -3323,8 +4048,7 @@ CONTAINS
                   END IF
                END DO age_search_loop
 
-               ! PERF FIX: Only assign 1.0d0 if the loop completed without exiting early.
-               ! This exactly mimics the old GOTO 460 bypass with zero pipeline stalls.
+               ! Use the full-density factor after the last table time.
                IF (i > nvalue(jplty)) cdfnc = 1.0d0
 
                nrbot = ncetop - nrd(jplty)
@@ -3365,70 +4089,139 @@ CONTAINS
       END IF
    END SUBROUTINE mnplant
 
-
-
-   !SSSSSS SUBROUTINE MNRED1
+!> @brief Reads static mineral nitrogen input data.
+!>
+!> `mnred1` reads the MND file once during [[mnmain]] initialisation, echoes the
+!> nitrate title to `MNPR`, and fills the static parameter arrays that are later
+!> validated by [[mnerr2]] and interpolated by [[mninit]].
+!>
+!> | Records | Data read |
+!> | --- | --- |
+!> | `MN11`-`MN14` | Ammonium/nitrate immobilisation and plant-uptake constants, organic-matter fractions and C:N ratios, dry/wet deposition rates, and `MNCREF`. |
+!> | `MN15`-`MN28` | Category assignments and depth/value tables for `KHUM`, `KLIT`, `KMAN`, `KNIT`, `KVOL`, `KD1`, and `KD2`. Each category count must be in `1:NMNEEE` and each table length in `1:MNMTEE`; failures are fatal errors `3090` and `3091`. |
+!> | `MN30`-`MN31` | Soil ammonium adsorption factor `KDDSOL(soil)` and power `GNN`. |
+!> | `MN35`-`MN35a` | Q10 temperature-response flag `ISQ10`; `Q10M` and `Q10N` are read only when `ISQ10` is true. |
+!> | `MN40`-`MN46` | Initial-carbon mode. If `ISICCD` is true, read decay-profile inputs `CTOTTP` and `DCHLF`; otherwise read category/profile tables `CELEM`, `CCONC`, and `CDPTH`. `CLITFR` and `CNRLIT` are always read. |
+!> | `MN50`-`MN54` | Initial-ammonium mode. If `ISIAMD` is true, read decay-profile inputs `NAMTOP` and `DAMHLF`; otherwise read category/profile tables `NAELEM`, `NACONC`, and `NADPTH`. |
+!> | `MN60` | Bottom cell `NBOTCE`, below which nitrogen transformations are not considered when it is valid for all columns. |
+!>
+!> Spatial category and profile fields are read with `ALALLI`/`ALALLF`, using the
+!> grid, bank, and neighbour maps passed from the frame setup. The routine calls
+!> `ALRED2` both before and after reading the MND file.
+!>
+!> @warning `Q10M` and `Q10N` are not assigned when `ISQ10` is false, although
+!> [[mnerr2]] unconditionally reads and checks both values. Their values are
+!> therefore undefined on that current-code path.
+!> @endwarning
    SUBROUTINE MNRED1(MND, MNPR, NEL, NELEE, NLF, NLFEE, NMNEEE, NMNTEE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, BEXBK, LINKNS, NBOTCE, &
                      NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM, KD1ELM, KD2ELM, KHELEM, KLELEM, &
                      KMELEM, KNELEM, KVELEM, NAELEM, NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, &
                      AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR, Q10M, &
                      Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
                      KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
-   !--------------------------------------------------------------------*
-   !
-   ! reads input from files
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
-      ! Modernization Fix: Restored required global variable for ALALLF interface
       USE SGLOBAL, ONLY : nyee
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: MND, MNPR, NEL, NELEE, NLF, NLFEE, NMNEEE, NMNTEE, NS, NX, NXEE, NY
-      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
+      INTEGER, INTENT(IN) :: MND  !! Static MND input unit.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
+      INTEGER, INTENT(IN) :: NLFEE  !! Link-array dimension.
+      INTEGER, INTENT(IN) :: NMNEEE  !! Maximum number of MN category entries.
+      INTEGER, INTENT(IN) :: NMNTEE  !! Maximum number of MN table entries.
+      INTEGER, INTENT(IN) :: NS  !! Number of soil types.
+      INTEGER, INTENT(IN) :: NX  !! Number of grid columns.
+      INTEGER, INTENT(IN) :: NXEE  !! Grid-column array dimension.
+      INTEGER, INTENT(IN) :: NY  !! Number of grid rows.
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)  !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2)  !! Neighbour reference map.
+      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)  !! Element number at each grid location.
+      LOGICAL, INTENT(IN) :: BEXBK  !! True when bank elements are represented.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE)  !! True for north-south channel links.
 
       ! Output arguments
-      INTEGER, INTENT(OUT) :: NBOTCE, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E
-      INTEGER, INTENT(OUT) :: NMN27E, NMN43E, NMN53E
-      INTEGER, INTENT(OUT) :: CELEM(NLF+1:NEL), KD1ELM(NLF+1:NEL), KD2ELM(NLF+1:NEL)
-      INTEGER, INTENT(OUT) :: KHELEM(NLF+1:NEL), KLELEM(NLF+1:NEL), KMELEM(NLF+1:NEL)
-      INTEGER, INTENT(OUT) :: KNELEM(NLF+1:NEL), KVELEM(NLF+1:NEL)
-      INTEGER, INTENT(OUT) :: NAELEM(NLF+1:NEL)
-      INTEGER, INTENT(OUT) :: NMN15T(NMNEEE), NMN17T(NMNEEE), NMN19T(NMNEEE)
-      INTEGER, INTENT(OUT) :: NMN21T(NMNEEE), NMN23T(NMNEEE), NMN25T(NMNEEE)
-      INTEGER, INTENT(OUT) :: NMN27T(NMNEEE)
-      INTEGER, INTENT(OUT) :: NMN43T(NMNEEE), NMN53T(NMNEEE)
+      INTEGER, INTENT(OUT) :: NBOTCE  !! Lowest cell included when bottom-cell truncation is active.
+      INTEGER, INTENT(OUT) :: NMN15E  !! Number of humus category entries.
+      INTEGER, INTENT(OUT) :: NMN17E  !! Number of litter category entries.
+      INTEGER, INTENT(OUT) :: NMN19E  !! Number of manure category entries.
+      INTEGER, INTENT(OUT) :: NMN21E  !! Number of nitrification category entries.
+      INTEGER, INTENT(OUT) :: NMN23E  !! Number of volatilisation category entries.
+      INTEGER, INTENT(OUT) :: NMN25E  !! Number of KD1 denitrification category entries.
+      INTEGER, INTENT(OUT) :: NMN27E  !! Number of KD2 denitrification category entries.
+      INTEGER, INTENT(OUT) :: NMN43E  !! Number of initial-carbon category entries.
+      INTEGER, INTENT(OUT) :: NMN53E  !! Number of initial-ammonium category entries.
+      INTEGER, INTENT(OUT) :: CELEM(NLF+1:NEL)  !! Initial-carbon category by element.
+      INTEGER, INTENT(OUT) :: KD1ELM(NLF+1:NEL)  !! KD1 denitrification category by element.
+      INTEGER, INTENT(OUT) :: KD2ELM(NLF+1:NEL)  !! KD2 denitrification category by element.
+      INTEGER, INTENT(OUT) :: KHELEM(NLF+1:NEL)  !! Humus decomposition category by element.
+      INTEGER, INTENT(OUT) :: KLELEM(NLF+1:NEL)  !! Litter decomposition category by element.
+      INTEGER, INTENT(OUT) :: KMELEM(NLF+1:NEL)  !! Manure decomposition category by element.
+      INTEGER, INTENT(OUT) :: KNELEM(NLF+1:NEL)  !! Nitrification category by element.
+      INTEGER, INTENT(OUT) :: KVELEM(NLF+1:NEL)  !! Volatilisation category by element.
+      INTEGER, INTENT(OUT) :: NAELEM(NLF+1:NEL)  !! Initial-ammonium category by element.
+      INTEGER, INTENT(OUT) :: NMN15T(NMNEEE)  !! Humus table length by category.
+      INTEGER, INTENT(OUT) :: NMN17T(NMNEEE)  !! Litter table length by category.
+      INTEGER, INTENT(OUT) :: NMN19T(NMNEEE)  !! Manure table length by category.
+      INTEGER, INTENT(OUT) :: NMN21T(NMNEEE)  !! Nitrification table length by category.
+      INTEGER, INTENT(OUT) :: NMN23T(NMNEEE)  !! Volatilisation table length by category.
+      INTEGER, INTENT(OUT) :: NMN25T(NMNEEE)  !! KD1 table length by category.
+      INTEGER, INTENT(OUT) :: NMN27T(NMNEEE)  !! KD2 table length by category.
+      INTEGER, INTENT(OUT) :: NMN43T(NMNEEE)  !! Initial-carbon table length by category.
+      INTEGER, INTENT(OUT) :: NMN53T(NMNEEE)  !! Initial-ammonium table length by category.
 
-      DOUBLE PRECISION, INTENT(OUT) :: AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT
-      DOUBLE PRECISION, INTENT(OUT) :: FE, FH, GNN, KPLAMM, KPLNIT
-      DOUBLE PRECISION, INTENT(OUT) :: KUAMM, KUNIT, MNCREF, NITDDR, NITWDR
-      DOUBLE PRECISION, INTENT(OUT) :: Q10M, Q10N
-      DOUBLE PRECISION, INTENT(OUT) :: CCONC(NMNEEE, NMNTEE), CDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: CTOTTP(NLF+1:NEL), DAMHLF(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: DCHLF(NLF+1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: KD1CNC(NMNEEE, NMNTEE), KD1DTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: KD2CNC(NMNEEE, NMNTEE), KD2DTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: KDDSOL(NS)
-      DOUBLE PRECISION, INTENT(OUT) :: KHCONC(NMNEEE, NMNTEE), KHDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: KLCONC(NMNEEE, NMNTEE), KLDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: KMCONC(NMNEEE, NMNTEE), KMDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: KNCONC(NMNEEE, NMNTEE), KNDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: KVCONC(NMNEEE, NMNTEE), KVDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: NACONC(NMNEEE, NMNTEE), NADPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, INTENT(OUT) :: NAMTOP(NLF+1:NEL)
+      DOUBLE PRECISION, INTENT(OUT) :: AMMDDR  !! Dry ammonium deposition rate.
+      DOUBLE PRECISION, INTENT(OUT) :: AMMWDR  !! Wet ammonium deposition coefficient.
+      DOUBLE PRECISION, INTENT(OUT) :: CLITFR  !! Fraction of initial organic carbon assigned to litter.
+      DOUBLE PRECISION, INTENT(OUT) :: CNRBIO  !! Biomass carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(OUT) :: CNRHUM  !! Humus carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(OUT) :: CNRLIT  !! Initial litter carbon-to-nitrogen ratio.
+      DOUBLE PRECISION, INTENT(OUT) :: FE  !! Efficiency fraction for organic carbon turnover.
+      DOUBLE PRECISION, INTENT(OUT) :: FH  !! Humification fraction.
+      DOUBLE PRECISION, INTENT(OUT) :: GNN  !! Nonlinear ammonium adsorption exponent.
+      DOUBLE PRECISION, INTENT(OUT) :: KPLAMM  !! First-order ammonium plant-uptake limit.
+      DOUBLE PRECISION, INTENT(OUT) :: KPLNIT  !! First-order nitrate plant-uptake limit.
+      DOUBLE PRECISION, INTENT(OUT) :: KUAMM  !! First-order ammonium immobilisation limit.
+      DOUBLE PRECISION, INTENT(OUT) :: KUNIT  !! First-order nitrate immobilisation limit.
+      DOUBLE PRECISION, INTENT(OUT) :: MNCREF  !! Reference nitrogen concentration.
+      DOUBLE PRECISION, INTENT(OUT) :: NITDDR  !! Dry nitrate deposition rate.
+      DOUBLE PRECISION, INTENT(OUT) :: NITWDR  !! Wet nitrate deposition coefficient.
+      DOUBLE PRECISION, INTENT(OUT) :: Q10M  !! Q10 coefficient for mineralisation.
+      DOUBLE PRECISION, INTENT(OUT) :: Q10N  !! Q10 coefficient for nitrification.
+      DOUBLE PRECISION, INTENT(OUT) :: CCONC(NMNEEE, NMNTEE)  !! Initial-carbon profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: CDPTH(NMNEEE, NMNTEE)  !! Initial-carbon profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: CTOTTP(NLF+1:NEL)  !! Top total-carbon value for decay initialisation.
+      DOUBLE PRECISION, INTENT(OUT) :: DAMHLF(NLF+1:NEL)  !! Ammonium decay half-depth by element.
+      DOUBLE PRECISION, INTENT(OUT) :: DCHLF(NLF+1:NEL)  !! Carbon decay half-depth by element.
+      DOUBLE PRECISION, INTENT(OUT) :: KD1CNC(NMNEEE, NMNTEE)  !! KD1 denitrification profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KD1DTH(NMNEEE, NMNTEE)  !! KD1 denitrification profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: KD2CNC(NMNEEE, NMNTEE)  !! KD2 denitrification profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KD2DTH(NMNEEE, NMNTEE)  !! KD2 denitrification profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: KDDSOL(NS)  !! Soil ammonium adsorption coefficient.
+      DOUBLE PRECISION, INTENT(OUT) :: KHCONC(NMNEEE, NMNTEE)  !! Humus decomposition profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KHDPTH(NMNEEE, NMNTEE)  !! Humus decomposition profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: KLCONC(NMNEEE, NMNTEE)  !! Litter decomposition profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KLDPTH(NMNEEE, NMNTEE)  !! Litter decomposition profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: KMCONC(NMNEEE, NMNTEE)  !! Manure decomposition profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KMDPTH(NMNEEE, NMNTEE)  !! Manure decomposition profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: KNCONC(NMNEEE, NMNTEE)  !! Nitrification profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KNDPTH(NMNEEE, NMNTEE)  !! Nitrification profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: KVCONC(NMNEEE, NMNTEE)  !! Volatilisation profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: KVDPTH(NMNEEE, NMNTEE)  !! Volatilisation profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: NACONC(NMNEEE, NMNTEE)  !! Initial-ammonium profile values.
+      DOUBLE PRECISION, INTENT(OUT) :: NADPTH(NMNEEE, NMNTEE)  !! Initial-ammonium profile depths.
+      DOUBLE PRECISION, INTENT(OUT) :: NAMTOP(NLF+1:NEL)  !! Top ammonium value for decay initialisation.
 
-      LOGICAL, INTENT(OUT) :: ISICCD, ISIAMD, ISQ10
+      LOGICAL, INTENT(OUT) :: ISICCD  !! True when initial carbon uses decay-function input.
+      LOGICAL, INTENT(OUT) :: ISIAMD  !! True when initial ammonium uses decay-function input.
+      LOGICAL, INTENT(OUT) :: ISQ10  !! True when Q10 temperature response is selected.
 
       ! Workspace arguments (INTENT(INOUT) because they act as read buffers)
-      INTEGER, INTENT(INOUT)          :: IDUM(NELEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)
+      INTEGER, INTENT(INOUT) :: IDUM(NELEE)  !! Integer workspace for spatial reads.
+      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)  !! Floating-point workspace for spatial reads.
 
       ! Locals etc.
       INTEGER, PARAMETER :: FATAL = 1
@@ -3771,7 +4564,6 @@ CONTAINS
 
    ! cell below which no nitrogen transformations are considered
    ! -----------------------------------------------------------
-      ! Modern Fix: Wrapped scalar in size-1 array to satisfy ALREDI
       CALL ALREDI(0, MND, MNPR, ':MN60', 1, 1, IDUMS)
       NBOTCE = IDUMS(1)
 
@@ -3781,49 +4573,69 @@ CONTAINS
 
    END SUBROUTINE MNRED1
 
-
-
-   !SSSSSS SUBROUTINE MNRED2
+!> @brief Reads scheduled nitrogen and carbon additions for the current timestep.
+!>
+!> `mnred2` maintains saved next-event times for the external inorganic nitrogen
+!> (`MNFN`) and external carbon/organic nitrogen (`MNFC`) files. Times read from
+!> `MNFN01` and `MNFC01` are converted with [[utilsmod:hour_from_date]] and
+!> shifted by the simulation start hour `TIH`.
+!>
+!> | File | Activation test | Records read when active | Flag |
+!> | --- | --- | --- | --- |
+!> | `MNFN` | `UZNOW + DTUZ/3600 > INTIMN` | `MNFN11` total nitrogen, `MNFN21` banding depth, `MNFN31` ammonium fraction, then the next `MNFN01` time. | `ISADDN=.true.` |
+!> | `MNFC` | `UZNOW + DTUZ/3600 > INTIMC` | `MNFC11` total carbon, `MNFC21` banding depth, `MNFC31` litter fraction, `MNFC32` litter C:N, `MNFC41` manure fraction, `MNFC42` manure C:N, then the next `MNFC01` time. | `ISADDC=.true.` |
+!>
+!> If a file is not active in the current timestep, only its flag is set false;
+!> the previous data arrays are not overwritten. [[mnerr4]] and [[mnint2]] gate
+!> their use with `ISADDN` and `ISADDC`.
+!>
+!> The source assumes at most one nitrogen and one carbon event per timestep. If
+!> more are scheduled, only the first active event is read and the next event
+!> remains queued for a later call.
    SUBROUTINE MNRED2(MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, DTUZ, TIH, UZNOW, BEXBK, LINKNS, &
                      CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, IDUM, DUMMY)
-   !--------------------------------------------------------------------*
-   !
-   ! reads input from time dependent files
-   ! it is assumed for simplicity that there is never more than one
-   ! fertilizer addition in a timestep (this should be a valid assumption
-   ! because farmers do not add fertilizer more than once a day and there
-   ! is a maximum timestep of two hours). if there is more than one
-   ! fertilizer addition the remainder are read in following timesteps.
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
-      ! Modernization Fix: Restored required modules for interfaces and time calculation
       USE UTILSMOD, ONLY : hour_from_date
       USE SGLOBAL, ONLY : nyee
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY
-      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ, TIH, UZNOW
-      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
+      INTEGER, INTENT(IN) :: MNFC  !! Scheduled carbon-addition input unit.
+      INTEGER, INTENT(IN) :: MNFN  !! Scheduled nitrogen-addition input unit.
+      INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
+      INTEGER, INTENT(IN) :: NLFEE  !! Link-array dimension.
+      INTEGER, INTENT(IN) :: NX  !! Number of grid columns.
+      INTEGER, INTENT(IN) :: NXEE  !! Grid-column array dimension.
+      INTEGER, INTENT(IN) :: NY  !! Number of grid rows.
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)  !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2)  !! Neighbour reference map.
+      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)  !! Element number at each grid location.
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: TIH  !! Initial simulation time in hours.
+      DOUBLE PRECISION, INTENT(IN) :: UZNOW  !! Current unsaturated-zone simulation time.
+      LOGICAL, INTENT(IN) :: BEXBK  !! True when bank elements are represented.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE)  !! True for north-south channel links.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL)
-      DOUBLE PRECISION, INTENT(OUT) :: NTOT(NLF + 1:NEL)
-      LOGICAL, INTENT(OUT) :: ISADDC, ISADDN
+      DOUBLE PRECISION, INTENT(OUT) :: CDPTHB(NLF + 1:NEL)  !! Carbon banding depth.
+      DOUBLE PRECISION, INTENT(OUT) :: CLTFCT(NLF + 1:NEL)  !! Litter fraction of added carbon.
+      DOUBLE PRECISION, INTENT(OUT) :: CMNFCT(NLF + 1:NEL)  !! Manure fraction of added carbon.
+      DOUBLE PRECISION, INTENT(OUT) :: CNRAL(NLF + 1:NEL)  !! Carbon-to-nitrogen ratio for added litter.
+      DOUBLE PRECISION, INTENT(OUT) :: CNRAM(NLF + 1:NEL)  !! Carbon-to-nitrogen ratio for added manure.
+      DOUBLE PRECISION, INTENT(OUT) :: CTOT(NLF + 1:NEL)  !! Total external carbon addition.
+      DOUBLE PRECISION, INTENT(OUT) :: NAMFCT(NLF + 1:NEL)  !! Ammonium fraction of added inorganic nitrogen.
+      DOUBLE PRECISION, INTENT(OUT) :: NDPTHB(NLF + 1:NEL)  !! Nitrogen banding depth.
+      DOUBLE PRECISION, INTENT(OUT) :: NTOT(NLF + 1:NEL)  !! Total external inorganic nitrogen addition.
+      LOGICAL, INTENT(OUT) :: ISADDC  !! True when a carbon-addition event is active.
+      LOGICAL, INTENT(OUT) :: ISADDN  !! True when a nitrogen-addition event is active.
 
       ! Workspace arguments (INTENT(INOUT) because they act as read buffers)
-      INTEGER, INTENT(INOUT)          :: IDUM(NELEE)
-      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)
+      INTEGER, INTENT(INOUT) :: IDUM(NELEE)  !! Integer workspace for spatial reads.
+      DOUBLE PRECISION, INTENT(INOUT) :: DUMMY(NELEE)  !! Floating-point workspace for spatial reads.
 
       ! Locals
       INTEGER :: NCAT
@@ -3921,35 +4733,84 @@ CONTAINS
 
    END SUBROUTINE MNRED2
 
-
-   !SSSSSS SUBROUTINE MNTEMP
+!> @brief Updates soil temperature for the MN environmental response factors.
+!>
+!> `mntemp` solves a one-dimensional heat-diffusion profile with prescribed
+!> surface air temperature and a fixed deep boundary temperature, then maps the
+!> solved profile onto each active SHETRAN soil cell.
+!>
+!> The driving air temperature is `TA`, read from the manual's meteorological
+!> input records. The routine uses the first meteorological site's air
+!> temperature and sets the ground-surface boundary to
+!>
+!> \[
+!> T_1 = T_{air} + 2.
+!> \]
+!>
+!> The internal temperature profile has `NUM = 11` nodes, initialised to
+!> 12 deg C and saved between calls. With thermal diffusivity
+!> `DIFF = 2D-5`, timestep `DTUZ`, and model depth scale `Z2`, the diffusion
+!> coefficient used in the finite-difference equations is
+!>
+!> \[
+!> k = DIFF\left(\frac{NUM-1}{Z2}\right)^2 .
+!> \]
+!>
+!> For unknown node tendencies \(\omega_i\), where
+!> \(T_i^{n+1}=T_i^n+\Delta t\,\omega_i\), the interior tridiagonal rows solve
+!>
+!> \[
+!> -k\Delta t\,\omega_{i-1} + (1+2k\Delta t)\omega_i
+!> -k\Delta t\,\omega_{i+1}
+!> = k(T_{i-1}^n-2T_i^n+T_{i+1}^n).
+!> \]
+!>
+!> The first unknown node uses the prescribed surface temperature \(T_1\) in
+!> the right-hand side. The deepest node uses a one-sided lower boundary:
+!>
+!> \[
+!> -k\Delta t\,\omega_{N-1} + (1+k\Delta t)\omega_N
+!> = k(T_{N-1}^n-T_N^n).
+!> \]
+!>
+!> After [[tridag]] solves the tridiagonal system, the routine places the
+!> temperature nodes at equal 1 m intervals from 0 to `DEPTHC = 10` m and
+!> linearly interpolates the solved profile to each SHETRAN cell-centre depth.
+!> Cells deeper than the deepest temperature node are assigned the deepest-node
+!> temperature.
+!>
+!> Cell depths are accumulated from the top cell downward over
+!> `NCOLMB(element):NCETOP`; this routine does not use `ISBOTC`/`NBOTCE`.
+!> After all columns are mapped, the saved temperature profile `TEMPR` is
+!> replaced by the newly solved profile for the next call.
+!>
+!> @note Although `TA` originates in the meteorological state, the only current
+!> caller is [[mncont]], which first sets every `TA(1:NV)` value to 10 deg C.
+!> Consequently this routine currently receives 10 deg C and prescribes a
+!> 12 deg C surface boundary on every call.
+!> @endnote
    SUBROUTINE MNTEMP(LLEE, NCETOP, NEL, NELEE, NLF, NV, NCOLMB, Z2, DELTAZ, ZVSNOD, DTUZ, TA)
-   !--------------------------------------------------------------------*
-   !
-   ! calculates the temperature in every cell
-   !
-   !--------------------------------------------------------------------*
-   ! version:                 notes:
-   ! module: mn               program: shetran
-   ! modifications
-   !--------------------------------------------------------------------*
 
       USE UTILSMOD, ONLY: TRIDAG
-
-      ! Assumed external module dependencies providing global variables:
-      ! USE MN_MODULE, ONLY: TEMP
 
       IMPLICIT NONE
 
       ! * input arguments
       ! * static
-      INTEGER, INTENT(IN) :: LLEE, NCETOP, NEL, NELEE, NLF, NV
-      INTEGER, INTENT(IN) :: NCOLMB(NELEE)
-      DOUBLE PRECISION, INTENT(IN) :: Z2
-      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL)
+      INTEGER, INTENT(IN) :: LLEE  !! Maximum soil-cell dimension.
+      INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
+      INTEGER, INTENT(IN) :: NEL  !! Number of elements.
+      INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
+      INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links excluded from land-column updates.
+      INTEGER, INTENT(IN) :: NV  !! Number of vegetation/meteorological temperature entries.
+      INTEGER, INTENT(IN) :: NCOLMB(NELEE)  !! Lowest active soil cell in each land-column element.
+      DOUBLE PRECISION, INTENT(IN) :: Z2  !! Vertical length scale for the temperature diffusion calculation.
+      DOUBLE PRECISION, INTENT(IN) :: DELTAZ(LLEE, NEL)  !! Cell thickness by cell and element.
+      DOUBLE PRECISION, INTENT(IN) :: ZVSNOD(LLEE, NEL)  !! Vertical node elevation/depth by cell and element.
 
       ! * varying
-      DOUBLE PRECISION, INTENT(IN) :: DTUZ, TA(NV)
+      DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
+      DOUBLE PRECISION, INTENT(IN) :: TA(NV)  !! Air temperature input; only the first value is used.
 
       ! locals etc
       INTEGER :: IEL, NCE, NCEBOT, NCELLS, NNUM, NSERCH
@@ -3963,8 +4824,7 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: DIFF = 2.0D-5
       DOUBLE PRECISION, PARAMETER :: DIFFGA = 2.0D0
 
-      ! Saved state initialization replacing legacy DATA statement
-      ! Modern Fix: Scalar broadcast initialization is safer than array constructor looping
+      ! Saved temperature profile carried between timesteps.
       DOUBLE PRECISION, SAVE :: TEMPR(NUM) = 12.0D0
 
    !--------------------------------------------------------------------*
@@ -4043,7 +4903,6 @@ CONTAINS
       END DO element_loop
 
       ! Update the saved temperature state for the next timestep
-      ! Modern Fix: Vectorized array assignment replaces the DO loop
       TEMPR(1:NUM) = TEMPR1(1:NUM)
 
    END SUBROUTINE MNTEMP

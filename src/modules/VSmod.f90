@@ -1,6 +1,101 @@
+!> summary: Variably saturated subsurface flow.
+!>
+!> This module implements SHETRAN's `VS`/`VSS` component described in section
+!> 2.5 of the User Guide and Data Input Manual. It reads the variably saturated
+!> subsurface data file (`VSD`, `VS01`-`VS18`) and, when requested by `INITYP`,
+!> the initial-conditions file (`VSI`). It constructs soil, river-bed, and
+!> aquifer-zone cells; builds layer and cell connectivity; prepares
+!> time-varying subsurface boundary data; solves each coupled column problem;
+!> and returns surface exchange, spring, well, lateral, vertical, bank, and
+!> base-flow fluxes to the shared model arrays.
+!>
+!> The solved state is pressure head/potential (`VSPSI`), water content
+!> (`VSTHE`), relative hydraulic conductivity (`VSKR`), and fluxes (`QVSV`,
+!> `QVSH`, `QVSBF`, `QVSSPR`, `QVSWEL`, `QBKB`, `QBKF`, `QBKI`). Numerically,
+!> each active element is treated as a one-dimensional vertical column with
+!> lateral coupling through the layer/cell connectivity arrays. [[vscolm]]
+!> assembles a tridiagonal pressure-head correction system and solves it with
+!> `TRIDAG` from `utilsmod`; [[vssim]] iterates columns in `ISORT` order until
+!> pressure-head changes converge or the iteration limit is reached.
+!>
+!> Important manual controls are implemented as follows:
+!>
+!> | Input | Meaning in this module |
+!> |:------|:-----------------------|
+!> | `BFAST` | Chooses 100 or `min(500,NSOLEE)` soil lookup entries in [[vssoil]]. |
+!> | `BSOILP` | Prints generated soil hydraulic lookup tables. |
+!> | `BHELEV` | Interprets boundary head data as elevations rather than depths below ground. |
+!> | `INITYP = 1` | Initialises an equilibrium profile from uniform phreatic-surface depth `VSIPSD`. |
+!> | `INITYP = 2` | Initialises equilibrium profiles from phreatic-surface elevations in `VSI`. |
+!> | `INITYP = 3` | Reads initial potentials for every cell from `VSI`. |
+!> | `VSWV`, `VSWL` | Control w-mean averaging of vertical and lateral hydraulic conductivity. |
+!>
+!> Soil/lithology hydraulic properties are stored as lookup tables over pressure
+!> head by [[vssoil]] and interpolated by [[vsfunc]]. The manual flags map to
+!> code paths as follows:
+!>
+!> | `IVSFLG` | Manual option | Implementation status |
+!> |:---------|:--------------|:----------------------|
+!> | 1 | van Genuchten water retention and conductivity parameters | Implemented. |
+!> | 2 | user tables for \(\theta(\psi)\) and \(K_r(\psi)\) | Implemented with spline interpolation over input tables. |
+!> | 3 | exponential functions | Implemented. |
+!> | 4 | user table for \(\theta(\psi)\) and Averjanov \(K(\theta)\) | Parsed as a legacy option, but stops in [[vssoil]]. |
+!>
+!> Boundary condition categories follow the manual `VS11`-`VS18` groups:
+!> pumping wells, springs, lateral flow/head/head-gradient boundaries, and
+!> bottom flow/head/free-drainage boundaries. Time-varying well and boundary
+!> files are advanced by [[vsprep]] using `FINPUT`/`HINPUT`. Their terms are
+!> folded into the column matrix by [[vswell]], [[vsspr]], [[vsbc]],
+!> [[vslowr]], [[vsuppr]], [[vsintc]], and [[vssai]].
+!>
+!> Important implementation caveats found in the current code:
+!>
+!> | Area | Current behaviour |
+!> |:-----|:------------------|
+!> | Setup lifetime | Several setup routines use retained local state, and [[vssim]] caches `JCBCsv`, `VSAIJsv`, and `ICSOILsv` behind `FIRSTvssim`; the module follows the original one-initialisation workflow. |
+!> | Manual boundary options | Lateral head-gradient boundaries (`JCBC=5`) are read/interpolated but not applied; bottom free drainage (`NBBTYP=8`) currently falls through to zero lower-boundary flux. |
+!> | Soil-table derivatives | [[vssoil]] finally overwrites `VSPKR` with a DSATG saturation-ratio curve without recomputing `VSPDKR`, so conductivity derivatives used by [[vsfunc]] can be stale or unset. |
+!> | Explicit source/sink linearisation | Spring and well terms use simplified or explicit pressure-dependent coefficients; see [[vsspr]] and [[vswell]] for the exact active forms. |
+!> | Unfinished paths | `IVSFLG=4`, split-cell mass-balance correction, and lateral head-gradient boundary application are legacy unfinished paths. |
+!>
+!> Programmer's map:
+!>
+!> | Routine | Main responsibility |
+!> |:--------|:--------------------|
+!> | [[vsin]] | Read VSS inputs, allocate arrays, build connectivity, initialise soil tables and pressure heads. |
+!> | [[vsread]] | Load `VSD` soil, zone, connectivity, well, spring, and boundary-category data. |
+!> | [[vsconl]] / [[vsconc]] | Build layer and cell connectivity, cell thicknesses, node elevations, and split-cell mappings. |
+!> | [[vssoil]] / [[vsfunc]] | Build and interpolate soil hydraulic property tables. |
+!> | [[vssim]] | Run one VSS timestep, iterate columns, update fluxes, and call mass-balance correction. |
+!> | [[vscolm]] / [[vscoef]] | Assemble and solve one nonlinear column system. |
+!> | [[vsmb]] | Reconcile reported fluxes with storage change after the solve. |
+!>
+!> @warning
+!> `IVSFLG = 4` is listed in the manual as tabulated water content with
+!> Averjanov-style conductivity, but the current implementation stops if that
+!> option is selected in [[vssoil]]. Split-cell mass-balance correction in
+!> [[vsmb]] is also marked unfinished and stops if reached. Lateral
+!> head-gradient boundary categories and bottom free-drainage categories are
+!> parsed from the manual inputs, but do not currently add their advertised
+!> physical boundary terms to the VSS matrix.
+!> @endwarning
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-1998 | GP/RAH | 4.0-4.2 | Developed and reorganised the VSS common state, soil tables, initialisation state, connectivity, boundary handling, and column solver. |
+!> | 1998-11 | SPA | - | Added the channel-aquifer flow correction: pass adjacent channel depth into [[vscolm]]/[[vssai]], limit channel-to-aquifer contact area for low channel water depth, simplify the stream-aquifer derivative, and align exchange-flow reporting with BALWAT. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the VSS `.F` files and include blocks into this Fortran 90 module. |
+!> | 2026-03-26 | SB | 4.6 | Made the VSS arrays allocatable via `INITIALISE_AL_C2` (see [[vsin]]). |
+!> | 2026-04-03 | SvB | 4.6 | AI-assisted fixes and modernisation pass (formatting, count-prefixed locals, minor corrections). |
+!> | 2026-04-05 | SvB | 4.6 | Removed the `ALINIT` helper; zero-initialisation calls replaced with Fortran 90 array-slice assignment. |
+!> | 2026-04-06/07 | SvB | 4.6 | Expunged `GOTO`-based control flow in favour of `DO WHILE`/`CYCLE`/`EXIT` constructs; converted the `FNCELL` statement function to a contained function; removed a redundant array-section copy into `TRIDAG` (relies on sequence association); further modernisation and removal of obsolescent features. |
+!> | 2026-04-10 | SvB | 4.6 | Fixed the `VSSOIL` saturation-curve initialisation: `VSPTHE(3,IS)` is now computed from the DSATG recursion instead of being copied from `VSPTHE(4,IS)`/`VSPOR`. |
+!> | 2026-04-13 | SvB | 4.6 | Removed remaining labelled `DO` loops. |
+!> | 2026-05-03 | SvB | 4.6 | Moved several large `VSREAD` work arrays (`IVSDUM`, `IVSCAT`, `ISDUM`, `RVSDUM`, `RSDUM`, `BDONE`) from routine-local (stack) storage into allocatable module state, allocated once by [[initialise_vsread_buffers]], to fix a stack-related crash. |
+!> @endhistory
 MODULE VSmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the VS .F files
    USE SGLOBAL
    USE mod_load_filedata, ONLY : ALSPRD, ALREAD
 !USE SGLOBAL,  ONLY :
@@ -18,149 +113,165 @@ MODULE VSmod
    USE UTILSMOD, ONLY : TRIDAG, FINPUT, HINPUT, DCOPY
    USE OCmod2,   ONLY : GETHRF
    IMPLICIT NONE
-!ALL THESE WERE SAVE VARAIABLES - MOVED HERE FOR AD
-   INTEGER         :: ICSOILsv(LLEE,NELEE), JCBCsv(0:5,NELEE)
-!DOUBLEPRECISION :: VSAIJsv(4,LLEE,NELEE)
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: VSAIJsv
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: IVSDUM_VSREAD
-   INTEGER, DIMENSION(:), ALLOCATABLE :: IVSCAT_VSREAD
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: ISDUM_VSREAD
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RVSDUM_VSREAD
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RSDUM_VSREAD
-   LOGICAL, DIMENSION(:), ALLOCATABLE :: BDONE_VSREAD
+! Saved legacy state moved here for AD/current builds.
+   INTEGER :: ICSOILsv(LLEE,NELEE) !! Cached VSS soil type by cell and element.
+   INTEGER :: JCBCsv(0:5,NELEE)    !! Cached boundary-condition type/category metadata by face and element.
+   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: VSAIJsv !! Cached lateral face area/conductance terms.
 
-   DOUBLEPRECISION :: WLLAST=zero, WLTIME=zero, RWELIN(NVSEE)=zero
-   DOUBLEPRECISION :: RLFLST=zero, RLFTIM=zero, RLFPRV(NVSEE)=zero
-   DOUBLEPRECISION :: RLHLST=zero, RLHTIM=zero, RLHPRV(NVSEE)=zero, RLHNXT(NVSEE)=zero
-   DOUBLEPRECISION :: RLGLST=zero, RLGTIM=zero, RLGPRV(NVSEE)=zero, RLGNXT(NVSEE)=zero
-   DOUBLEPRECISION :: RBFLST=zero, RBFTIM=zero, RBFPRV(NVSEE)=zero
-   DOUBLEPRECISION :: RBHLST=zero, RBHTIM=zero, RBHPRV(NVSEE)=zero, RBHNXT(NVSEE)=zero
-   DOUBLEPRECISION :: RLFDUM(NVSEE)=zero, RLHDUM(NVSEE)=zero, RLGDUM(NVSEE)=zero
-   LOGICAL :: FIRSTvssim=.TRUE.
-   integer,parameter :: errcntallowed=1000
+   ! Read-buffer arrays for VSREAD, moved to allocatable module state (was
+   ! routine-local) to avoid a stack-related crash; see initialise_vsread_buffers.
+   INTEGER, DIMENSION(:,:), ALLOCATABLE :: IVSDUM_VSREAD !! `VSREAD` work buffer: per-category layer soil-type codes.
+   INTEGER, DIMENSION(:), ALLOCATABLE :: IVSCAT_VSREAD   !! `VSREAD` work buffer: layer category selected by each element.
+   INTEGER, DIMENSION(:,:), ALLOCATABLE :: ISDUM_VSREAD  !! `VSREAD` work buffer: integer fields read from `VS05`.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RVSDUM_VSREAD !! `VSREAD` work buffer: per-category layer boundary depths.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RSDUM_VSREAD  !! `VSREAD` work buffer: real-valued fields read from `VS05`.
+   LOGICAL, DIMENSION(:), ALLOCATABLE :: BDONE_VSREAD    !! `VSREAD` work buffer: per-element layer-data-assigned flag.
 
-!IMPORTED FROM  MODULE vscom1_inc
-!MODULE vscom1_inc
-!------------------- Start of VSCOM1.INC ------------------------------*
-!
-!  common block for global VSS variables
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/VSCOM1.INC/4.2
-! Modifications:
-!  GP  15.04.94  Created.  v4.0 completed 950808.
-! RAH  970210  4.1  Remove VSPSIN,VSTHEN (VSSIM).
-!      970213       Reverse subscripts: NVSLFL,NVSLHL,NVSLGL,RLFNOW,
-!                   RLHNOW,RLGNOW (see VSSIM; also VSPREP,VSREAD).
-!      970218       Swap IVSSTO,VSKR subscripts, and remove VSETAN,VSKRN
-!                   (see VSIN,VSSIM).
-! RAH  980308  4.2  Amend history.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
+   DOUBLEPRECISION :: WLLAST=zero        !! Previous well-input record time.
+   DOUBLEPRECISION :: WLTIME=zero        !! Current/next well-input record time.
+   DOUBLEPRECISION :: RWELIN(NVSEE)=zero !! Current well abstraction input values.
+   DOUBLEPRECISION :: RLFLST=zero        !! Previous lateral-flow boundary record time.
+   DOUBLEPRECISION :: RLFTIM=zero        !! Current/next lateral-flow boundary record time.
+   DOUBLEPRECISION :: RLFPRV(NVSEE)=zero !! Previous lateral-flow boundary values.
+   DOUBLEPRECISION :: RLHLST=zero        !! Previous lateral-head boundary record time.
+   DOUBLEPRECISION :: RLHTIM=zero        !! Current/next lateral-head boundary record time.
+   DOUBLEPRECISION :: RLHPRV(NVSEE)=zero !! Previous lateral-head boundary values.
+   DOUBLEPRECISION :: RLHNXT(NVSEE)=zero !! Next lateral-head boundary values.
+   DOUBLEPRECISION :: RLGLST=zero        !! Previous lateral-gradient boundary record time.
+   DOUBLEPRECISION :: RLGTIM=zero        !! Current/next lateral-gradient boundary record time.
+   DOUBLEPRECISION :: RLGPRV(NVSEE)=zero !! Previous lateral-gradient boundary values.
+   DOUBLEPRECISION :: RLGNXT(NVSEE)=zero !! Next lateral-gradient boundary values.
+   DOUBLEPRECISION :: RBFLST=zero        !! Previous base-flow boundary record time.
+   DOUBLEPRECISION :: RBFTIM=zero        !! Current/next base-flow boundary record time.
+   DOUBLEPRECISION :: RBFPRV(NVSEE)=zero !! Previous base-flow boundary values.
+   DOUBLEPRECISION :: RBHLST=zero        !! Previous base-head boundary record time.
+   DOUBLEPRECISION :: RBHTIM=zero        !! Current/next base-head boundary record time.
+   DOUBLEPRECISION :: RBHPRV(NVSEE)=zero !! Previous base-head boundary values.
+   DOUBLEPRECISION :: RBHNXT(NVSEE)=zero !! Next base-head boundary values.
+   DOUBLEPRECISION :: RLFDUM(NVSEE)=zero !! Lateral-flow interpolation workspace.
+   DOUBLEPRECISION :: RLHDUM(NVSEE)=zero !! Lateral-head interpolation workspace.
+   DOUBLEPRECISION :: RLGDUM(NVSEE)=zero !! Lateral-gradient interpolation workspace.
+   LOGICAL :: FIRSTvssim=.TRUE.          !! True until `VSSIM` has cached column metadata.
+   integer,parameter :: errcntallowed=1000 !! Maximum repeated VSS convergence warnings.
 
-! Imported constants
-!                      LLEE,NELEE,NLFEE,NLYREE,NSEE,NVSEE
-
-! logical variables, initialisation
+! Legacy VSCOM1.INC global VSS variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !IMPLICIT NONE
-   LOGICAL :: BLOWP, BHELEV
+   LOGICAL :: BLOWP  !! Lower-boundary output print-control flag retained from legacy VSCOM1 state.
+   LOGICAL :: BHELEV !! True when lateral boundary head inputs are elevations; false when they are depths below ground.
 
 !COMMON / VSC1LI / BLOWP, BHELEV
 ! integer variables, initialisation
-   INTEGER :: NCSZON, NCRBED
-   INTEGER :: JVSALN (NELEE, NLYREE, 4), ISRBED (NLFEE)
-   INTEGER :: NVSWL, NVSSP, NVSLF, NVSLH, NVSLG, NVSBF, NVSBH, NVSBD
-   INTEGER :: NVSWLC (NELEE), NLBTYP (NELEE)
-   INTEGER :: NLBCAT (NELEE), NBBTYP (NELEE), NBBCAT (NELEE)
-   INTEGER :: NVSLFT, NVSLFL (NLYREE, NVSEE), NVSLFN (NVSEE)
-   INTEGER :: NVSLHT, NVSLHL (NLYREE, NVSEE), NVSLHN (NVSEE)
-   INTEGER :: NVSLGT, NVSLGL (NLYREE, NVSEE), NVSLGN (NVSEE)
+   INTEGER :: NCSZON                  !! Number of extra cells used to represent the soil-zone depth increments.
+   INTEGER :: NCRBED                  !! Number of extra cells used to represent river-bed depth increments.
+   INTEGER :: JVSALN(NELEE,NLYREE,4)  !! Aquifer-layer connectivity ranges packed as `NLYREE+1` multiples.
+   INTEGER :: ISRBED(NLFEE)           !! River-bed soil type by link.
+   INTEGER :: NVSWL                   !! Number of well boundary categories.
+   INTEGER :: NVSSP                   !! Number of spring boundary categories.
+   INTEGER :: NVSLF                   !! Number of lateral-flow boundary categories.
+   INTEGER :: NVSLH                   !! Number of lateral-head boundary categories.
+   INTEGER :: NVSLG                   !! Number of lateral head-gradient boundary categories.
+   INTEGER :: NVSBF                   !! Number of bottom-flow boundary categories.
+   INTEGER :: NVSBH                   !! Number of bottom-head boundary categories.
+   INTEGER :: NVSBD                   !! Number of bottom-drainage boundary categories.
+   INTEGER :: NVSWLC(NELEE)           !! Well category used by each element.
+   INTEGER :: NLBTYP(NELEE)           !! Lateral boundary type by element.
+   INTEGER :: NLBCAT(NELEE)           !! Lateral boundary category by element.
+   INTEGER :: NBBTYP(NELEE)           !! Bottom boundary type by element.
+   INTEGER :: NBBCAT(NELEE)           !! Bottom boundary category by element.
+   INTEGER :: NVSLFT                  !! Expanded count of lateral-flow boundary values after selected-layer categories.
+   INTEGER :: NVSLFL(NLYREE,NVSEE)    !! Selected model layers for lateral-flow categories.
+   INTEGER :: NVSLFN(NVSEE)           !! Number of selected lateral-flow layers per category; zero means whole column.
+   INTEGER :: NVSLHT                  !! Expanded count of lateral-head boundary values after selected-layer categories.
+   INTEGER :: NVSLHL(NLYREE,NVSEE)    !! Selected model layers for lateral-head categories.
+   INTEGER :: NVSLHN(NVSEE)           !! Number of selected lateral-head layers per category; zero means whole column.
+   INTEGER :: NVSLGT                  !! Expanded count of lateral-gradient boundary values after selected-layer categories.
+   INTEGER :: NVSLGL(NLYREE,NVSEE)    !! Selected model layers for lateral-gradient categories.
+   INTEGER :: NVSLGN(NVSEE)           !! Number of selected lateral-gradient layers per category; zero means whole column.
 
 !COMMON / VSC1II / NCSZON, NCRBED, JVSALN, ISRBED, NVSWL, NVSSP, &
    !NVSLF, NVSLH, NVSLG, NVSBF, NVSBH, NVSBD, NVSWLC, NLBTYP, NLBCAT, &
    !NBBTYP, NBBCAT, NVSLFT, NVSLFL, NVSLFN, NVSLHT, NVSLHL, NVSLHN, &
    !NVSLGT, NVSLGL, NVSLGN
 ! integer variables, time-varying
-   INTEGER :: IVSSTO (LLEE, NELEE)
+   INTEGER :: IVSSTO(LLEE,NELEE) !! Stored soil lookup-table interval by VSS cell and element.
 
 !COMMON / VSC1IT / IVSSTO
 ! floating-point variables and arrays, initialisation
-   DOUBLEPRECISION DCSZON (LLEE), DCRBED (LLEE), DCSTOT, DCRTOT, &
-      VSZMIN, VSZMAX, VSK3D (NSEE, 3), DRBED (NLFEE), VSSPZ (NELEE), &
-      VSSPCO (NELEE), VSWV, VSWL
+   DOUBLEPRECISION :: DCSZON(LLEE)  !! Soil-zone cell-depth increments, ordered from the ground surface downward.
+   DOUBLEPRECISION :: DCRBED(LLEE)  !! River-bed cell-depth increments, ordered from the bed surface downward.
+   DOUBLEPRECISION :: DCSTOT        !! Total configured soil-zone depth.
+   DOUBLEPRECISION :: DCRTOT        !! Total configured river-bed depth.
+   DOUBLEPRECISION :: VSZMIN        !! Minimum VSS cell thickness.
+   DOUBLEPRECISION :: VSZMAX        !! Maximum VSS cell thickness, stored with the legacy small tolerance.
+   DOUBLEPRECISION :: VSK3D(NSEE,3) !! Saturated hydraulic conductivity by soil type and x/y/z direction.
+   DOUBLEPRECISION :: DRBED(NLFEE)  !! River-bed depth by link.
+   DOUBLEPRECISION :: VSSPZ(NELEE)  !! Spring discharge elevation by element.
+   DOUBLEPRECISION :: VSSPCO(NELEE) !! Spring conductance coefficient by element.
+   DOUBLEPRECISION :: VSWV          !! Vertical hydraulic-conductivity w-mean control.
+   DOUBLEPRECISION :: VSWL          !! Lateral hydraulic-conductivity w-mean control.
 
 !COMMON / VSC1RI / DCSZON, DCRBED, DCSTOT, DCRTOT, VSZMIN, VSZMAX, &
    !VSK3D, DRBED, VSSPZ, VSSPCO, VSWV, VSWL
 ! floating-point arrays, time-varying
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSKR !(LLEE, NELEE)
-   DOUBLEPRECISION WLNOW (NVSEE), RLFNOW (NLYREE, &
-      NVSEE), RLHNOW (NLYREE, NVSEE), RLGNOW (NLYREE, NVSEE), RBFNOW ( &
-      NVSEE), RBHNOW (NVSEE)
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSKR !! Relative hydraulic conductivity by VSS cell and element.
+   DOUBLEPRECISION :: WLNOW(NVSEE)        !! Current well abstraction values.
+   DOUBLEPRECISION :: RLFNOW(NLYREE,NVSEE) !! Current lateral-flow boundary values.
+   DOUBLEPRECISION :: RLHNOW(NLYREE,NVSEE) !! Current lateral-head boundary values.
+   DOUBLEPRECISION :: RLGNOW(NLYREE,NVSEE) !! Current lateral-gradient boundary values.
+   DOUBLEPRECISION :: RBFNOW(NVSEE)       !! Current bottom-flow boundary values.
+   DOUBLEPRECISION :: RBHNOW(NVSEE)       !! Current bottom-head boundary values.
 !PRIVATE :: NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !end MODULE vscom1_inc
 
-!IMPORTED FROM MODULE vssoil_inc
-!MODULE vssoil_inc
-! 19/9/94
-!------------------- Start of VSSOIL.INC ------------------------------*
-! common block for soil parameter tables
-!----------------------------------------------------------------------*
-! Modules:       VSS (0.0)
-! Program:       SHETRAN (4.0)
-! Includers:     ??
-! Modifications:
-!  GP  15.04.94  Created
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-!
+! Legacy VSSOIL.INC soil-parameter tables retained as module state.
 !USE SGLOBAL, ONLY : NSEE
 !IMPLICIT NONE
-   INTEGER :: NSOLEE
+   INTEGER :: NSOLEE !! Maximum number of generated soil lookup-table rows.
 
    PARAMETER (NSOLEE = 200)
-   DOUBLEPRECISION VSPPSI (NSOLEE), VSPTHE (NSOLEE, NSEE), VSPKR ( &
-      NSOLEE, NSEE), VSPETA (NSOLEE, NSEE)
-   DOUBLEPRECISION VSPDTH (NSOLEE, NSEE), VSPDKR (NSOLEE, NSEE), &
-      VSPDET (NSOLEE, NSEE)
-
-   DOUBLEPRECISION VSPSS (NSEE), VSPPOR (NSEE)
-
-   INTEGER :: NVSSOL
+   DOUBLEPRECISION :: VSPPSI(NSOLEE)        !! Soil lookup pressure-head ordinates.
+   DOUBLEPRECISION :: VSPTHE(NSOLEE,NSEE)   !! Soil lookup volumetric water content.
+   DOUBLEPRECISION :: VSPKR(NSOLEE,NSEE)    !! Soil lookup relative hydraulic conductivity.
+   DOUBLEPRECISION :: VSPETA(NSOLEE,NSEE)   !! Soil lookup storage coefficient.
+   DOUBLEPRECISION :: VSPDTH(NSOLEE,NSEE)   !! Soil lookup derivative `d(theta)/d(psi)`.
+   DOUBLEPRECISION :: VSPDKR(NSOLEE,NSEE)   !! Soil lookup derivative `d(K_r)/d(psi)`.
+   DOUBLEPRECISION :: VSPDET(NSOLEE,NSEE)   !! Soil lookup derivative `d(eta)/d(psi)`.
+   DOUBLEPRECISION :: VSPSS(NSEE)           !! Specific storage by soil type.
+   DOUBLEPRECISION :: VSPPOR(NSEE)          !! Porosity copied from the wider soil parameter state.
+   INTEGER :: NVSSOL                        !! Number of active soil lookup-table rows.
 !PRIVATE :: NSEE
 !END MODULE vssoil_inc
 
-!IMPORTED FROM MODULE VSINIT_INC
-!MODULE VSINIT_INC
-!------------------- Start of VSINIT.INC ------------------------------*
-! common block for VSS variables used in initialisation only
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/VSINIT.INC/4.1
-! Modifications:
-!  GP  12.09.94  Created (v4.0 finished 9/8/95)
-! RAH  970630  4.1  Move NAQCON,IAQCON to VSIN; see also VSREAD,VSCONL.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-
-! logical variables
+! Legacy VSINIT.INC initialisation variables retained as module state.
 !USE SGLOBAL, ONLY : NELEE, NSEE, NVSEE
 !IMPLICIT NONE
 
-   LOGICAL :: BFAST, BSOILP
-
+   LOGICAL :: BFAST  !! True to use the shorter generated soil lookup table.
+   LOGICAL :: BSOILP !! True to print generated soil lookup tables.
 
 !COMMON / VSINIL / BFAST, BSOILP
 ! integer arrays & variables
-   INTEGER :: IVSFLG (NSEE), IVSNTB (NSEE), NVSERR, INITYP
-
+   INTEGER :: IVSFLG(NSEE) !! Soil hydraulic-property option by soil type.
+   INTEGER :: IVSNTB(NSEE) !! Number of tabulated hydraulic-property rows by soil type.
+   INTEGER :: NVSERR       !! Accumulated VSS input/setup error count.
+   INTEGER :: INITYP       !! Initial pressure-head option from the VSS input file.
 
 !COMMON / VSINII / IVSFLG, IVSNTB, NVSERR, INITYP
 ! floating-point arrays & variables
 
-   DOUBLEPRECISION VSTRES (NSEE), VSVGN (NSEE), VSALPH (NSEE), &
-      VSIPSD, VSZWLB (NVSEE), VSZWLT (NVSEE), TBPSI (NVSEE, NSEE), &
-      TBTHE (NVSEE, NSEE), TBKR (NVSEE, NSEE), TBTHEC (NVSEE, NSEE), &
-      TBKRC (NVSEE, NSEE), VSSPD (NELEE)
+   DOUBLEPRECISION :: VSTRES(NSEE)      !! Residual water content by soil type.
+   DOUBLEPRECISION :: VSVGN(NSEE)       !! van Genuchten `n` parameter by soil type.
+   DOUBLEPRECISION :: VSALPH(NSEE)      !! Retention-curve alpha parameter by soil type.
+   DOUBLEPRECISION :: VSIPSD            !! Initial uniform phreatic-surface depth for `INITYP=1`.
+   DOUBLEPRECISION :: VSZWLB(NVSEE)     !! Lower screen depth for well categories.
+   DOUBLEPRECISION :: VSZWLT(NVSEE)     !! Upper screen depth for well categories.
+   DOUBLEPRECISION :: TBPSI(NVSEE,NSEE) !! Tabulated pressure-head values by row and soil type.
+   DOUBLEPRECISION :: TBTHE(NVSEE,NSEE) !! Tabulated water-content values by row and soil type.
+   DOUBLEPRECISION :: TBKR(NVSEE,NSEE)  !! Tabulated relative-conductivity values by row and soil type.
+   DOUBLEPRECISION :: TBTHEC(NVSEE,NSEE) !! Cubic-spline second derivatives for tabulated water content.
+   DOUBLEPRECISION :: TBKRC(NVSEE,NSEE) !! Cubic-spline second derivatives for tabulated relative conductivity.
+   DOUBLEPRECISION :: VSSPD(NELEE)      !! Spring depth below ground by element.
 !PRIVATE :: NELEE, NSEE, NVSEE
 !end MODULE VSINIT_INC
 
@@ -175,14 +286,37 @@ MODULE VSmod
 CONTAINS
 
 
-   !SSSSSS SUBROUTINE initialise_vsmod
+!> Allocates run-size VSS work arrays.
+!>
+!> `vsaijsv` stores lateral inter-cell conductance terms by face, cell, and
+!> element, while `vskr` stores relative hydraulic conductivity by cell and
+!> element. Both depend on mesh dimensions read earlier in the setup sequence.
+!>
+!> @note
+!> This routine allocates, but does not initialise, the arrays and does not
+!> guard against repeated allocation. It should therefore be called once after
+!> `top_cell_no` and `total_no_elements` have been established.
+!> @endnote
    SUBROUTINE initialise_vsmod()
 
       ALLOCATE(vsaijsv(4,top_cell_no,total_no_elements), vskr(top_cell_no,total_no_elements))
    END SUBROUTINE initialise_vsmod
 
 
-   !SSSSSS SUBROUTINE initialise_vsread_buffers
+!> Allocates and zeroes the [[vsread]] category/layer work buffers.
+!>
+!> `IVSDUM_VSREAD`, `IVSCAT_VSREAD`, `ISDUM_VSREAD`, `RVSDUM_VSREAD`,
+!> `RSDUM_VSREAD`, and `BDONE_VSREAD` were originally declared local to
+!> [[vsread]]. They were moved into allocatable module state, allocated once
+!> here, to avoid a stack-related crash from their combined size. [[vsread]]
+!> calls this routine on every entry; the `ALLOCATED` guard makes repeated
+!> calls safe, but the zeroing below always re-runs.
+!>
+!> @note
+!> Unlike [[initialise_vsmod]], this routine is safe to call more than once:
+!> allocation happens at most once, but the work arrays are always reset to
+!> zero/false so each [[vsread]] call starts from a clean state.
+!> @endnote
    SUBROUTINE initialise_vsread_buffers()
 
       IF (.NOT. ALLOCATED(IVSDUM_VSREAD)) THEN
@@ -200,63 +334,139 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSBC
+!> Adds user-defined lateral boundary-condition terms to a column system.
+!>
+!> `VSBC` applies the manual `VS14`-`VS16` lateral boundary categories to one
+!> face of the column currently being assembled by [[vscolm]]. `JCBC` selects
+!> the lateral boundary type:
+!>
+!> | `JCBC` | Manual boundary type | Implementation |
+!> |:-------|:---------------------|:---------------|
+!> | 3 | prescribed lateral flow | Implemented. |
+!> | 4 | prescribed lateral head | Implemented. |
+!> | 5 | prescribed lateral head gradient | Recognised, but only prints an unfinished-code message. |
+!>
+!> `FACE` must be in `1:4`, `ICBOT:ICTOP` must bound the active cells, `CDELL`
+!> must be positive, and each active cell must have positive `CDELZ` and
+!> `CKIJ`. If `ICLFN` or `ICLHN` is zero the corresponding boundary value is
+!> applied across the full active column; otherwise `ICLFL` or `ICLHL` selects
+!> model layers whose cell bounds are supplied by `ICLYRB`. The declared array
+!> bounds behind those conditions are `ICTOP <= LLEE` (the size of `DUM`) and
+!> `ICLFN`, `ICLHN <= NLYREE` (the sizes of `ICLFL`/`CLF` and
+!> `ICLHL`/`CLH`/`DUM`). Each selected layer index must satisfy
+!> `1 <= ICLFL(i) < NLYREE` (likewise `ICLHL(i)`), with the corresponding
+!> `ICLYRB` bounds inside `ICBOT:ICTOP+1`.
+!>
+!> For a prescribed lateral flow category (`JCBC = 3`), the total input flow
+!> `CLF(i)` for the selected layer interval is partitioned between cells in
+!> proportion to
+!>
+!> \[
+!>   T_c = CKIJ_c\,\Delta z_c,\qquad
+!>   Q_c = {T_c\over\sum T_c}\,CLF_i .
+!> \]
+!>
+!> The cell contribution is inserted as `CR(c) = CR(c) - Q_c` and stored in
+!> `CQH(FACE,c)`.
+!>
+!> @note
+!> The transmissive-thickness sum is used as a divisor without a zero check.
+!> Active type-3 boundary intervals must therefore include at least one cell
+!> with positive `CKIJ(c) * CDELZ(c)`.
+!> @endnote
+!>
+!> For a prescribed lateral head category (`JCBC = 4`), the boundary value
+!> `CLH(i)` is interpreted as an elevation when `BCHELE` is true, or as a depth
+!> below ground when false:
+!>
+!> \[
+!>   H_b =
+!>   \begin{cases}
+!>     CLH_i, & BCHELE,\\
+!>     CZG - CLH_i, & \text{otherwise}.
+!>   \end{cases}
+!> \]
+!>
+!> For each selected cell,
+!>
+!> \[
+!>   A/L = CAIJ(FACE,c)/CDELL,\qquad
+!>   \Delta h = (H_b - CZ_c - CPSI_c)(A/L),
+!> \]
+!>
+!> \[
+!>   Q_c = CKIJ_c\,\Delta h .
+!> \]
+!>
+!> The linearised contribution is added to the tridiagonal diagonal and
+!> right-hand side as
+!>
+!> \[
+!>   CB_c \leftarrow CB_c + CDKIJ_c\,\Delta h + CKIJ_c(A/L),\qquad
+!>   CR_c \leftarrow CR_c - Q_c .
+!> \]
+!>
+!> `CQH(FACE,c)` stores the diagnostic lateral boundary flux.
+!>
+!> @warning
+!> `JCBC = 5` only prints `unfinished code for boundary type 5 - head
+!> gradients`; it does not add matrix terms, source terms, or diagnostic fluxes.
+!> @endwarning
+!>
+!> @note
+!> The `ICLHL`/`ICLHN` argument order was swapped relative to the historical
+!> `.F`-era signature during 2026 modernisation, and the call in [[vscolm]] was
+!> updated to match; this is a pure reordering with no behavioural change.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written; version 4.0 completed 1995-08-08. |
+!> | 1997-01-20 | RAH | 4.1 | Removed leading comments and lower-case code; combined `IF`-blocks; used generic intrinsics. |
+!> | 1997-01-27 | RAH | 4.1 | Passed data through arguments instead of `INCLUDE` blocks; reused `DUM` in place of the separate `TDUM`/`HDUM` workspaces. |
+!> | 1997-05-14 | RAH | 4.1 | Scrapped the `CDQH` workspace argument and set `CB`/`CR` directly; stopped initialising `CQH` here (now the caller's job, see [[vscolm]]); added local `QTOT`; added argument `FACE` (`1:4`) and a leading dimension to `CAIJ` and `CQH`. |
+!> | 1997-08-13 | RAH | 4.1 | Corrected the `CLF` and `DUM` subscripts to use `I` rather than `ILYR`. |
+!> | 2026-04-06/07 | SvB | 4.6 | Swapped the `ICLHL`/`ICLHN` argument order relative to the historical `.F`-era signature, updating the call in [[vscolm]] to match; a pure reordering with no behavioural change. |
+!> @endhistory
    SUBROUTINE VSBC(BCHELE, FACE, ICBOT, ICTOP, JCBC, ICLYRB, ICLFN, &
                    ICLFL, ICLHL, ICLHN, CZG, CDELL, CDELZ, CZ, CAIJ, CLF, CLH, CPSI, &
                    CKIJ, CDKIJ, CB, CR, CQH, DUM)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column user-defined boundary conditions
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSBC/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 8.8.95)
-   ! RAH  970120  4.1  No leading comments.  No lower-case code.
-   !                   Combine IF-blocks.  Use generic intrinsics.
-   !      970127       Use arguments, not INCLUDE.  Use DUM for TDUM,HDUM.
-   !      970514       Scrap workspace arg CDQH; set CB & CR directly.
-   !                   Don't initialize CQH (see VSCOLM).  New local QTOT.
-   !                   Add arg FACE (=1:4) & 1st dim to arrays CAIJ & CQH.
-   !      970813       Amend CLF & DUM subscripts: use I not ILYR.
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <= FACE  <= 4
-   ! 1 <= ICBOT <= ICTOP <=   LLEE (size of DUM)
-   ! 0 <= ICLFN           <= NLYREE (size of ICLFL,CLF)
-   ! 0 <= ICLHN           <= NLYREE (size of ICLHL,CLH,DUM)
-   ! 0 <  CDELL
-   ! for each i in 1:ICLFN:
-   !             1 <= ICLFL(i) < NLYREE (size of ICLYRB)
-   !         ICBOT <= ICLYRB(y)
-   !     1 + ICTOP >= ICLYRB(y+1)
-   ! where y=ICLFL(i)
-   ! for each i in 1:ICLHN:
-   !             1 <= ICLHL(i) < NLYREE (size of ICLYRB)
-   !         ICBOT <= ICLYRB(y)
-   !     1 + ICTOP >= ICLYRB(y+1)
-   ! where y=ICLHL(i)
-   ! for each c in ICBOT:ICTOP: 0 < CDELZ(c), CKIJ(c)
-   !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments
-      LOGICAL, INTENT(IN) :: BCHELE
-      INTEGER, INTENT(IN) :: FACE, ICBOT, ICTOP, JCBC, ICLFN, ICLHN
-      INTEGER, INTENT(IN) :: ICLYRB(*), ICLFL(*), ICLHL(*)
-      DOUBLE PRECISION, INTENT(IN) :: CZG, CDELL
-      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP), CZ(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4, ICBOT:ICTOP), CPSI(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP), CDKIJ(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CLF(*), CLH(*)
+      LOGICAL, INTENT(IN) :: BCHELE                    !! True when `CLH` values are elevations; false when they are depths below ground.
+      INTEGER, INTENT(IN) :: FACE                      !! Boundary face number, in `1:4`.
+      INTEGER, INTENT(IN) :: ICBOT                     !! Bottom active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICTOP                     !! Top active VSS cell in the column.
+      INTEGER, INTENT(IN) :: JCBC                      !! Lateral boundary type for this face.
+      INTEGER, INTENT(IN) :: ICLYRB(*)                 !! Bottom-cell bounds for model-layer intervals.
+      INTEGER, INTENT(IN) :: ICLFN                     !! Number of selected lateral-flow layers; zero means full active column.
+      INTEGER, INTENT(IN) :: ICLFL(*)                  !! Selected model layers for type-3 lateral-flow categories.
+      INTEGER, INTENT(IN) :: ICLHL(*)                  !! Selected model layers for type-4 lateral-head categories.
+      INTEGER, INTENT(IN) :: ICLHN                     !! Number of selected lateral-head layers; zero means full active column.
+      DOUBLE PRECISION, INTENT(IN) :: CZG               !! Ground elevation used to convert depth-style head boundaries.
+      DOUBLE PRECISION, INTENT(IN) :: CDELL             !! Distance scale normal to the boundary face.
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Cell thicknesses.
+      DOUBLE PRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP)   !! Cell-node elevations.
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Face areas by face and cell.
+      DOUBLE PRECISION, INTENT(IN) :: CLF(*)            !! Prescribed lateral-flow boundary values.
+      DOUBLE PRECISION, INTENT(IN) :: CLH(*)            !! Prescribed lateral-head or depth boundary values.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Current pressure heads.
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP) !! Current lateral hydraulic conductivity terms.
+      DOUBLE PRECISION, INTENT(IN) :: CDKIJ(ICBOT:ICTOP) !! Derivatives of `CKIJ` with respect to pressure head.
 
       ! In+out arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP), CR(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP) !! Matrix diagonal terms updated with lateral boundary contributions.
+      DOUBLE PRECISION, INTENT(INOUT) :: CR(ICBOT:ICTOP) !! Right-hand side terms updated with lateral boundary fluxes.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT)   :: CQH(4, ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT)   :: CQH(4, ICBOT:ICTOP) !! Diagnostic lateral boundary fluxes for the selected face.
 
       ! Workspace arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: DUM(*)
+      DOUBLE PRECISION, INTENT(INOUT) :: DUM(*)         !! Workspace for transmissive-thickness weights or converted boundary heads.
 
       ! Locals
       INTEGER :: ICL, I, ILYR, ICL1, ICL2, IDUM, SGN
@@ -343,43 +553,98 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSCOEF
+!> Assembles internal vertical and lateral coefficients for a VSS column.
+!>
+!> `VSCOEF` builds the internal conductance terms used by [[vscolm]] when it
+!> assembles the tridiagonal pressure-head correction system. It uses the
+!> manual w-mean controls `VSWV` and `VSWL` (passed as `CWV` and `CWL`) to
+!> average vertical and lateral hydraulic conductivity. A value of zero selects
+!> the weighted harmonic vertical special case, a value of one gives an
+!> arithmetic mean, and other positive values use the general w-mean.
+!>
+!> Required entry conditions are those established by [[vsconc]] and [[vssim]]:
+!> `1 <= ICBOT <= ICTOP <= LLEE`; `CA0`, `CWL`, cell thicknesses `CDELZ`, cell
+!> relative conductivities `CKR`, and saturated conductivities `VSK3D` are
+!> positive; each `ICSOIL` is in `1:NSEE`; and any active lateral neighbour
+!> referenced by `JCACN`/`JCDEL` has valid cell indices, face areas, distances,
+!> and neighbour conductivities. `CDELL(j)+CDELL1(j)` must be positive on each
+!> face.
+!>
+!> For vertical flow between cells \(i-1\) and \(i\), with cell area \(A\),
+!> thicknesses \(\Delta z\), relative conductivity \(K_r\), saturated vertical
+!> conductivity \(K_z\), and \(K_i=K_{r,i}K_{z,i}\), the stored inter-cell
+!> conductance `CBETM(i)` is:
+!>
+!> \[
+!>   \beta_i =
+!>   \begin{cases}
+!>     {C_{i-1}C_i\over C_{i-1}+C_i},
+!>       & CWV=0,\quad C_i={2AK_i\over\Delta z_i},\\
+!>     {A(K_{i-1}+K_i)\over \Delta z_{i-1}+\Delta z_i},
+!>       & CWV=1,\\
+!>     {2A\over\Delta z_{i-1}+\Delta z_i}
+!>       \left({K_{i-1}^{CWV}+K_i^{CWV}\over2}\right)^{1/CWV},
+!>       & \text{otherwise}.
+!>   \end{cases}
+!> \]
+!>
+!> `CDBETM` and `CDBTMM` store the derivatives of that conductance with
+!> respect to the lower and upper cell conductivities, using `CDKR` from
+!> [[vsfunc]]. The per-cell vertical contribution is
+!>
+!> \[
+!>   CF_i = \beta_i+\beta_{i+1},\qquad
+!>   CDF_i = {d\beta_i\over d\psi_i}+{d\beta_{i+1}\over d\psi_i}.
+!> \]
+!>
+!> For lateral faces, `CKIJ(i,j)=K_rK_{sat,j}` and `CDKIJ` stores its
+!> derivative. If a neighbour is active and the face is not handled as
+!> stream-aquifer interaction (`JCBC(j) /= 9`), the routine constructs lateral
+!> conductances `CGAM1` and, for split-cell connections, `CGAM2`, using the
+!> current cell area `CAIJ`, neighbour areas `CAIJ1`, face distance
+!> `CDELL+CDELL1`, and the lateral w-mean `CWL`. These lateral conductances and
+!> their derivatives are added into `CF` and `CDF`; [[vscoef]] leaves the
+!> boundary-specific terms to [[vsbc]], [[vssai]], and [[vslowr]].
+!>
+!> The lateral split factors are:
+!>
+!> | Quantity | Definition | Effect |
+!> |:---------|:-----------|:-------|
+!> | `NIJ = abs(JCDEL(j,i)) + 1` | Number of current-column pieces represented by the neighbour area term. | Divides neighbour conductance-area products. |
+!> | `NKJ = abs(JCDEL1(k,j)) + 1` | Number of neighbour-column pieces represented by the current cell face. | Divides current face area. |
+!> | `CGAM1` | Conductance to neighbour cell `k`. | Always present for an active lateral connection. |
+!> | `CGAM2` | Conductance to neighbour cell `k + JCDEL1(k,j)`. | Zero by construction when `JCDEL1(k,j)=0`; otherwise represents the split-cell second neighbour. |
+!>
+!> In detail, an active lateral connection `j` of cell `i` (one with
+!> `JELDUM(j) > 0`, `JCACN(j,i) /= 0`, and `JCBC(j) /= 9`) must satisfy
+!> `1 <= k, k1 <= LLEE` and `|JCDEL(j,i)|, |JCDEL1(k,j)| <= 1`, with positive
+!> `CAIJ(j,i)`, `CAIJ1(k,j)`, `CAIJ1(k1,j)`, `CKIJ1(k,j)`, and `CKIJ1(k1,j)`,
+!> where `k = JCACN(j,i)` and `k1 = k + JCDEL1(k,j)`. `VSK3D(ICSOIL(i),1:3)`
+!> must be positive for every active cell.
+!>
+!> @note
+!> `CKIJ` and `CDKIJ` are set for every local cell and face. `CGAM1/2` and
+!> `CDGAM1/2` are assigned only when `JCACN(j,i) /= 0`, `JELDUM(j) >= 1`, and
+!> `JCBC(j) /= 9`; callers should only use those arrays on the same active
+!> lateral-connection mask.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written; version 4.0 completed 1995-12-20. |
+!> | 1996-12-28 | RAH | 4.1 | Removed leading comments; removed arguments `IEL` and `NIT`; added arguments `CWV` and `CWL` (previously in `VSCOLM.INC`). |
+!> | 1997-01-15 | RAH | 4.1 | Dispensed with the `VSCOLM.INC` arrays `CKZ`/`CDKZ`; rewrote the vertical sections to use fewer operations and to stop overwriting `CDELZ`. |
+!> | 1997-01-16 | RAH | 4.1 | Rewrote the lateral sections in the same style, fixing an error in `CDGAM*` when `CWL /= 1`; removed lower-case code. |
+!> | 1997-01-22 | RAH | 4.1 | Passed data through arguments instead of `COMMON`. |
+!> | 1997-01-23 | RAH | 4.1 | Scrapped the outputs `CBETP`, `CDBETP`, `CDBTPP`, `CDFM`, `CDFP`, `CG`, and `CDG`. |
+!> | 1997-05-13 | RAH | 4.1 | Swapped the `JCACN`, `JCDEL`, and `CAIJ` indices; renamed the local `DUM`; replaced `CKZS`/`CKIJS` with the new arguments `NSEE`, `ICSOIL`, and `VSK3D`. |
+!> @endhistory
    SUBROUTINE VSCOEF (LLEE, NSEE, CWV, CWL, VSK3D, ICBOT, ICTOP, &
          JELDUM, JCBC, ICSOIL, JCACN, JCDEL, JCDEL1, CA0, CDELL, CDELL1, &
          CDELZ, CAIJ, CAIJ1, CKR, CDKR, CKIJ1, CBETM, CDBETM, CDBTMM, CF, &
          CDF, CKIJ, CDKIJ, CGAM1, CGAM2, CDGAM1, CDGAM2, C, D)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column internal cells
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSCOEF/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 20.12.95)
-   ! RAH  961228  4.1  No leading comments.  Remove arguments IEL & NIT.
-   !                   Add arguments CWV,CWL (were in VSCOLM.INC).
-   !      970115       Dispense with VSCOLM.INC arrays CKZ,CDKZ.
-   !                   Rewrite "vertical" sections: use fewer operations;
-   !                   use DCOPY; don't overwrite CDELZ.
-   !      970116       Rewrite "lateral" sections similarly, and fix error
-   !                   in CDGAM* when CWL.NE.1.  No lower-case code.
-   !      970122       Use arguments, not COMMON.
-   !      970123       Scrap output CBETP,CDBETP,CDBTPP,CDFM,CDFP,CG,CDG.
-   !      970513       Swap indices: JCACN, JCDEL & CAIJ. Rename local DUM.
-   !                   New args NSEE,ICSOIL,VSK3D in place of CKZS,CKIJS.
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <= ICBOT <= ICTOP <= LLEE
-   ! 0 <  CWL, CA0, NSEE
-   ! for each i in ICBOT:ICTOP:
-   !    1 <= ICSOIL(i) <= NSEE
-   !    0 <   CDELZ(i), CKR(i), VSK3D(ICSOIL(i),1:3)
-   !    for each j in 1:4 such that
-   !                       JELDUM(j)>0 and JCACN(j,i).ne.0 and JCBC(j).ne.9:
-   !       1 <= k, k1 <= LLEE
-   !       1 >= |JCDEL(j,i)|, |JCDEL1(k,j)|
-   !       0 <  CAIJ(j,i), CAIJ1(k,j), CAIJ1(k1,j), CKIJ1(k,j), CKIJ1(k1,j)
-   !    where k=JCACN(j,i), and k1=k+JCDEL1(k,j)
-   ! for each j in 1:4: 0 < CDELL(j) + CDELL1(j)
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! zero, one, half, ISZERO, ISONE, NOTONE
@@ -387,24 +652,45 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN)          :: LLEE, NSEE, ICBOT, ICTOP
-      INTEGER, INTENT(IN)          :: JELDUM(4), JCBC(4)
-      INTEGER, INTENT(IN)          :: ICSOIL(ICBOT:ICTOP), JCACN(4, ICBOT:ICTOP)
-      INTEGER, INTENT(IN)          :: JCDEL1(LLEE, 4), JCDEL(4, ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CWV, CWL, VSK3D(NSEE, 3)
-      DOUBLE PRECISION, INTENT(IN) :: CA0, CDELL(4), CDELZ(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CDELL1(4), CAIJ(4, ICBOT:ICTOP), CAIJ1(LLEE, 4)
-      DOUBLE PRECISION, INTENT(IN) :: CKR(ICBOT:ICTOP), CDKR(ICBOT:ICTOP), CKIJ1(LLEE, 4)
+      INTEGER, INTENT(IN) :: LLEE                  !! Declared cell dimension for column and neighbour arrays.
+      INTEGER, INTENT(IN) :: NSEE                  !! Declared soil-type dimension for conductivity arrays.
+      INTEGER, INTENT(IN) :: ICBOT                 !! Bottom active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICTOP                 !! Top active VSS cell in the column.
+      INTEGER, INTENT(IN) :: JELDUM(4)             !! Adjacent element id by face; values below 1 disable lateral coupling.
+      INTEGER, INTENT(IN) :: JCBC(4)               !! Boundary type by face; type 9 is handled outside regular lateral coupling.
+      INTEGER, INTENT(IN) :: ICSOIL(ICBOT:ICTOP)   !! Soil type by active cell.
+      INTEGER, INTENT(IN) :: JCACN(4,ICBOT:ICTOP)  !! Adjacent-cell index by face and active cell; zero means no lateral connection.
+      INTEGER, INTENT(IN) :: JCDEL1(LLEE,4)        !! Neighbour-column split offset used to find a second connected neighbour cell.
+      INTEGER, INTENT(IN) :: JCDEL(4,ICBOT:ICTOP)  !! Current-column split indicator for lateral area weighting.
+      DOUBLE PRECISION, INTENT(IN) :: CWV           !! Vertical hydraulic-conductivity w-mean control.
+      DOUBLE PRECISION, INTENT(IN) :: CWL           !! Lateral hydraulic-conductivity w-mean control.
+      DOUBLE PRECISION, INTENT(IN) :: VSK3D(NSEE,3) !! Saturated hydraulic conductivity by soil type and x/y/z direction.
+      DOUBLE PRECISION, INTENT(IN) :: CA0           !! Plan area of the current element.
+      DOUBLE PRECISION, INTENT(IN) :: CDELL(4)      !! Current-element lateral distance scale by face.
+      DOUBLE PRECISION, INTENT(IN) :: CDELL1(4)     !! Adjacent-element lateral distance scale by face.
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Active-cell thicknesses.
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Current-element lateral face areas.
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ1(LLEE,4) !! Adjacent-element lateral face areas.
+      DOUBLE PRECISION, INTENT(IN) :: CKR(ICBOT:ICTOP) !! Current relative hydraulic conductivity by active cell.
+      DOUBLE PRECISION, INTENT(IN) :: CDKR(ICBOT:ICTOP) !! Derivative of `CKR` with respect to pressure head.
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ1(LLEE,4) !! Adjacent-cell lateral hydraulic conductivity terms.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CBETM(ICBOT:ICTOP + 1)
-      DOUBLE PRECISION, INTENT(OUT) :: CDBETM(ICBOT:ICTOP + 1), CDBTMM(ICBOT:ICTOP + 1)
-      DOUBLE PRECISION, INTENT(OUT) :: CF(ICBOT:ICTOP), CDF(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(OUT) :: CKIJ(LLEE, 4), CDKIJ(LLEE, 4), CGAM1(LLEE, 4)
-      DOUBLE PRECISION, INTENT(OUT) :: CDGAM1(LLEE, 4), CGAM2(LLEE, 4), CDGAM2(LLEE, 4)
+      DOUBLE PRECISION, INTENT(OUT) :: CBETM(ICBOT:ICTOP+1) !! Vertical inter-cell conductance below each active cell.
+      DOUBLE PRECISION, INTENT(OUT) :: CDBETM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the lower cell.
+      DOUBLE PRECISION, INTENT(OUT) :: CDBTMM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the upper cell.
+      DOUBLE PRECISION, INTENT(OUT) :: CF(ICBOT:ICTOP) !! Internal conductance contribution to the column diagonal.
+      DOUBLE PRECISION, INTENT(OUT) :: CDF(ICBOT:ICTOP) !! Derivative of `CF` with respect to pressure head.
+      DOUBLE PRECISION, INTENT(OUT) :: CKIJ(LLEE,4)  !! Current-cell lateral hydraulic conductivity terms.
+      DOUBLE PRECISION, INTENT(OUT) :: CDKIJ(LLEE,4) !! Derivatives of `CKIJ` with respect to pressure head.
+      DOUBLE PRECISION, INTENT(OUT) :: CGAM1(LLEE,4) !! Primary lateral coupling conductance to adjacent cells.
+      DOUBLE PRECISION, INTENT(OUT) :: CGAM2(LLEE,4) !! Secondary split-cell lateral coupling conductance.
+      DOUBLE PRECISION, INTENT(OUT) :: CDGAM1(LLEE,4) !! Derivative of `CGAM1` with respect to local pressure head.
+      DOUBLE PRECISION, INTENT(OUT) :: CDGAM2(LLEE,4) !! Derivative of `CGAM2` with respect to local pressure head.
 
       ! Workspace arguments
-      DOUBLE PRECISION, INTENT(OUT) :: C(ICBOT:ICTOP), D(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: C(ICBOT:ICTOP) !! Workspace for local conductivity products.
+      DOUBLE PRECISION, INTENT(OUT) :: D(ICBOT:ICTOP) !! Workspace for local conductivity derivatives.
 
       ! Locals
       INTEGER :: DELKJ, I, J, K, K1, M, NIJ, NKJ, NKJM1, P
@@ -565,7 +851,107 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSCOLM
+!> Solves the variably saturated flow equations for one element column.
+!>
+!> `VSCOLM` is the local nonlinear solve used by [[vssim]] for one active
+!> vertical column. It updates pressure head `CPSI`, water content `CTHETA`,
+!> relative conductivity `CKR`, vertical flux `CQV`, lateral flux `CQH`, well
+!> flux `CQWI`, spring flux `CQSP`, and phreatic-surface level `CPSL`.
+!>
+!> Required entry conditions are established by [[vsconc]], [[vsconl]], and
+!> [[vssim]]: `1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE`, with
+!> `ICWLBT <= ICWLTP`; face boundary codes are limited to internal/no-flow
+!> (`0`), lateral flow/head/gradient (`3:5`), or stream-aquifer interaction
+!> (`9` or `10`); lateral boundary faces have no regular neighbour in
+!> `JELDUM`; type `9` faces have no internal lateral cell connectivity; and
+!> type `10` stream-aquifer faces have no connectivity above the river-bed cell
+!> `ICBED`. `CQWI`/`CQWIN` are meaningful only for well columns
+!> (`JCBC(5)=1`), while `ICSPCE`, `CCS`, `CQSP`, and `CZSP` are meaningful only
+!> for spring columns (`JCBC(5)=2`). `ICBED`, `ICBOT`, `ICLFL`, `ICLFN`,
+!> `ICLHL`, `ICLHN`, `ICLYRB`, `ICTOP`, `JCACN`, `JCBC`, and `JELDUM` are static
+!> functions of `IEL`, fixed once by the setup phase and unchanged thereafter.
+!>
+!> For each local iteration, the routine:
+!>
+!> | Step | Routine/action |
+!> |:-----|:---------------|
+!> | Hydraulic functions | [[vsfunc]] interpolates \(\theta\), storage, \(K_r\), and derivatives from the [[vssoil]] tables. |
+!> | Internal coefficients | [[vscoef]] builds vertical and lateral conductance terms. |
+!> | Matrix assembly | [[vsintc]] forms the tridiagonal arrays `CA`, `CB`, `CC`, and `CR`. |
+!> | Upper boundary | [[vsuppr]] applies infiltration/exfiltration from surface water. |
+!> | Well or spring | [[vswell]] or [[vsspr]] adds type 1 or 2 source/sink terms. |
+!> | Lateral/stream boundaries | [[vsbc]] handles manual lateral boundary types 3-5; [[vssai]] handles stream-aquifer types 9 and 10. |
+!> | Lower boundary | [[vslowr]] adds bottom flow/head/free-drainage terms. |
+!> | Linear solve | `TRIDAG` solves for pressure-head increments `CDPSI`. |
+!>
+!> A column is computationally converged when
+!>
+!> \[
+!>   \max_c |\Delta\psi_c| \le 10^{-4}
+!> \]
+!>
+!> within the 100 local iterations, exiting the loop immediately via `EXIT
+!> OUT500`.
+!>
+!> After the pressure update, internal vertical fluxes are recomputed as
+!>
+!> \[
+!>   CQV_c =
+!>   {\beta_{c+1}\left[(z_c+\psi_c)-(z_{c+1}+\psi_{c+1})\right]\over CA0},
+!> \]
+!>
+!> and regular lateral fluxes as
+!>
+!> \[
+!>   CQH_{j,c} =
+!>   \gamma_1(H_1-H_0)+\gamma_2(H_2-H_0),
+!> \]
+!>
+!> where the \(\beta\) and \(\gamma\) conductances come from [[vscoef]]. The
+!> phreatic-surface level is taken from the highest cell whose pressure head is
+!> non-negative, bounded below by the bottom-cell base elevation.
+!>
+!> @warning
+!> The error-reporting block only checks `NIT > NITMAX .AND. ELEVEL > 0`, i.e.
+!> whether the loop ran to completion without converging; the severity
+!> argument passed to `ERROR` is the caller-supplied `ELEVEL`, not a fixed
+!> `WWWARN`. Repeated messages are limited by the saved `errorcount` and
+!> `errcntallowed`.
+!> @endwarning
+!>
+!> @note
+!> `EESN`, `ICLGN`, `ICLGL`, and `CLG` are not used in this routine. Manual
+!> lateral head-gradient boundary categories are therefore not applied here;
+!> `JCBC=5` reaches [[vsbc]], which only prints its unfinished-code message.
+!> `CQH` is not reset for all faces and cells; entries are assigned only by the
+!> active boundary/stream-aquifer calls or by the final active-neighbour flux
+!> loop.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-29 | GP | 4.0 | Written; version 4.0 completed 1996-07-17. |
+!> | 1996-12-20 | RAH | 4.1 | Removed commented-out lines. |
+!> | 1996-12-28 | RAH | 4.1 | Arguments: added `CWV`/`CWL`, removed `BUG`; made `IFA` local. Removed `COMMON /CCCOLM/` and the `CETAO`/`CKRO` lines. [[vscoef]] arguments: removed `IEL`/`NIT`, added `CWV`/`CWL`. |
+!> | 1997-01-21 | RAH | 4.1 | Made `CEPSMX` and `NITMAX` constants; used a `DO 500` loop instead of `GOTO`; used generic intrinsics; removed the redundant `ICPSL`; extended (and de-duplicated) the [[vsfunc]] argument list. |
+!> | 1997-01-22 | RAH | 4.1 | Extended the [[vscoef]] argument list. |
+!> | 1997-01-23 | RAH | 4.1 | Made the [[vscoef]] outputs arguments and `CETA`, `CDETA`, `CDKR` local; eliminated further arguments, including `CBETP` (now `CBETM(ICL+1)`). |
+!> | 1997-01-26 | RAH | 4.1 | Gave [[vsintc]] a full argument list and made `CA`/`CC` local. |
+!> | 1997-01-27 | RAH | 4.1 | Gave [[vsuppr]], [[vswell]], [[vsspr]], and [[vsbc]] full argument lists. |
+!> | 1997-01-31 | RAH | 4.1 | Gave [[vslowr]] a full argument list and made its call unconditional; removed the redundant `I1`. |
+!> | 1997-02-03 | RAH | 4.1 | Gave [[vssai]] a full argument list and repositioned its call; replaced input `CV` with `CA0`/`CDELZ`; made `CDPSI`, `CB`, `CR` local; replaced output `CQINF` with `CQV(ICTOP)`; passed `CA0` to [[vswell]]; simplified the `CPSL` code; added the `CGAM2` term to `CQH` unconditionally. |
+!> | 1997-02-07 | RAH | 4.1 | Removed the [[vswell]] output `CQW`. |
+!> | 1997-02-10 | RAH | 4.1 | Removed the output argument `NITC` and the `CQBK*` commons; moved inputs `BCHELE`, `CA0`, `CZG`, `DT`, `CPSIN` and outputs `CQSP`, `CPSL` from `VSCOLM.INC` into the argument list; moved input `SIGMA` into [[vsintc]]; initialised `CQH`. |
+!> | 1997-05-13 | RAH | 4.1 | Used `VSK3D(ICSOIL(ICL),?)` for `CKIJS(ICL,?)`/`CKZS(ICL)`; swapped the `CAIJ`, `CQH`, `JCACN`, and `JCDEL` indices; replaced `VSCOLM.INC` with arguments. |
+!> | 1997-05-14 | RAH | 4.1 | [[vsbc]] arguments: removed `DWORK2`, added `IFA` (also to [[vssai]]). [[vsuppr]] arguments: replaced `CDW`, `CEW`, `CQP` with `CDNET`. [[vswell]] arguments: reordered; stopped initialising `CQH`. Added local `DPSI`; removed the block-`IF` when setting `CPSL`. |
+!> | 1997-05-15 | RAH | 4.1 | Reordered the argument list. |
+!> | 1998-04-02 | RAH | 4.2 | Replaced the local `ERR` with the new argument `ELEVEL` (see [[vssim]]). |
+!> | 1998-11-03 | SPA | - | Added the `depadj` argument, carrying the adjacent channel water depth through to [[vssai]] for the channel-aquifer flow correction. |
+!> | 2009-01 | JE | 4.3.5F90 | Restructured loops for automatic differentiation. |
+!> | 2026-04-06/07 | SvB | 4.6 | The `GOTO`-driven `g510`/label-510 exit flag was replaced with a direct `EXIT OUT500`; the non-convergence report now checks `NIT > NITMAX` instead of a separate flag, and uses `ELEVEL` (not a fixed `WWWARN`) as the reported severity. The phreatic-surface search loop was rewritten from a labelled `DO`/`GOTO` pair to `EXIT search_loop`, with equivalent behaviour. The explicit array-section copy into `TRIDAG` was replaced with scalar-start dummy arguments (relies on sequence association). |
+!> @endhistory
    SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
          IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
          JCACN, JCDEL, ICSPCE, ICLFN, ICLFL, ICWLBT, ICLHN, ICLHL, ICWLTP, &
@@ -573,64 +959,6 @@ CONTAINS
          CDELL1, CZ1, DT, CDNET, CPSIN, CQ, CZS, CPSI1, CPSIN1, CKIJ1, &
          CQWIN, CLF, CLH, CLG, CBF, CBH, ICSTOR, CPSI, CKR, CTHETA, CQH, &
          CQV, CQWI, CQSP, CPSL, depadj)
-   !!!!!!! extra variable depadj passed for mods to vssai.f
-   ! SPA, 03/11.98
-   !----------------------------------------------------------------------*
-   ! Solves flow equations for a single colm
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSCOLM/4.2
-   ! Modifications:
-   !  GP  29.07.94  written (v4.0 finished 17.07.96)
-   ! RAH  961220  4.1  Remove commented lines.
-   !      961228       Arguments: add CWV,CWL; remove BUG.  IFA is local.
-   !                   Remove common CCCOLM, and CETAO, CKRO lines.
-   !                   VSCOEF arguments: remove IEL,NIT; add CWV,CWL.
-   !      970121       CEPSMX,NITMAX are constants.  Use DO 500 not GOTO.
-   !                   Use generic intrinsics.  Remove redundant ICPSL.
-   !                   Extend arg-list (& remove redundancies) for VSFUNC.
-   !      970122       Extend VSCOEF argument list.
-   !      970123       Make VSCOEF output arguments, and CETA,CDETA,CDKR,
-   !                   local; also eliminate some arguments (see VSCOEF),
-   !                   including CBETP (use CBETM(ICL+1) instead).
-   !      970126       Full argument list for VSINTC, and make CA,CC local.
-   !      970127       Full argument lists for VSUPPR,VSWELL,VSSPR,VSBC.
-   !      970131       Full argument list for VSLOWR, & unconditional call.
-   !                   Remove redundant I1.  Amend some comments.
-   !      970203       Full argument list for VSSAI, and reposition call.
-   !                   Replace input CV with CA0,CDELZ.  CDPSI,CB,CR local.
-   !                   Replace output CQINF with CQV(ICTOP).
-   !                   Pass CA0 to VSWELL (see VSWELL). Simplify CPSL code.
-   !                   Add CGAM2 term to CQH unconditionally.
-   !      970207       Remove VSWELL output CQW.
-   !      970210       Remove output argument NITC and common CQBK*.
-   !                   Move inputs BCHELE,CA0,CZG,DT,CPSIN and outputs
-   !                   CQSP,CPSL from VSCOLM.INC to argument list.
-   !                   Move input SIGMA to VSINTC.  Initialize CQH.
-   !      970513       Use VSK3D(ICSOIL(ICL),?) for CKIJS(ICL,?),CKZS(ICL).
-   !                   Swap indices: CAIJ, CQH, JCACN, & JCDEL.
-   !                   Use arguments in place of VSCOLM.INC.
-   !      970514       VSBC args: remove DWORK2; add IFA - also to VSSAI.
-   !                   VSUPPR args: replace CDW,CEW,CQP with CDNET.
-   !                   VSWELL args: reorder.  Don't initialize CQH.
-   !                   New local DPSI.  No block-IF in setting CPSL.
-   !      970515       Re-order arguments.
-   ! RAH  980402  4.2  Replace local ERR with new arg ELEVEL (see VSSIM).
-   ! JE   JAN 2009      Loop restructure for AD
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! 1 <= ICBOT <= ICSPCE, ICWLBT, ICWLTP <= ICTOP < LLEE
-   !      ICWLBT <= ICWLTP
-   ! for each j in 1:4: JCBC(j)  =   0,3,4,5,9 or 10
-   !              3 <= JCBC(j) <= 5  ==>  JELDUM(j) = 0
-   !                   JCBC(j)  = 9  ==>  JCACN(j,ICBOT:ICTOP) = 0
-   !                   JCBC(j)  = 10 ==>  JCACN(j,ICBED+1:ICTOP) = 0
-   ! the following are static functions of IEL:
-   !     ICBED,ICBOT,ICLFL,ICLFN,ICLHL,ICLHN,ICLYRB,ICTOP,JCACN,JCBC,JELDUM
-   !----------------------------------------------------------------------*
-   ! Limited ranges:
-   !              CQWI, CQWIN: only if JCBC(5)=1
-   ! ICSPCE, CCS, CQSP,  CZSP: only if JCBC(5)=2
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NLYREE, NSEE, NSOLEE, NVSSOL, VSPPSI, VSPTHE, VSPKR, VSPETA,
@@ -639,31 +967,71 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: EESN, ELEVEL, IEL, ICBOT, ICTOP, ICBED
-      INTEGER, INTENT(IN) :: ICSPCE, ICWLBT, ICWLTP, ICLFN, ICLHN, ICLGN
-      INTEGER, INTENT(IN) :: ICLYRB (NLYREE), ICSOIL (ICBOT:ICTOP), JCBC (0:5)
-      INTEGER, INTENT(IN) :: ICLFL (NLYREE), JCACN (4, ICBOT:ICTOP), JELDUM (4)
-      INTEGER, INTENT(IN) :: ICLHL (NLYREE), JCDEL (4, ICBOT:ICTOP)
-      INTEGER, INTENT(IN) :: ICLGL (NLYREE), JCDEL1 (LLEE, 4)
-      DOUBLE PRECISION, INTENT(IN) :: CWV, CWL, CA0, CZG, CZSP, CCS
-      DOUBLE PRECISION, INTENT(IN) :: VSK3D (NSEE, 3), CDELZ (ICBOT:ICTOP), CDELL (4)
-      DOUBLE PRECISION, INTENT(IN) :: CAIJ1 (LLEE, 4), CZ (ICBOT:ICTOP), CDELL1 (4)
-      DOUBLE PRECISION, INTENT(IN) :: CZ1 (LLEE, 4), CAIJ (4, ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: DT, CDNET, CQWIN, CBF, CBH
-      DOUBLE PRECISION, INTENT(IN) :: CPSI1 (LLEE, 4), CPSIN (ICBOT:ICTOP), CLF (NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: CPSIN1 (LLEE, 4), CQ (ICBOT:ICTOP), CLH (NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: CKIJ1 (LLEE, 4), CZS (4), CLG (NLYREE)
-      DOUBLE PRECISION, INTENT(IN) :: depadj (4)
-      LOGICAL, INTENT(IN) :: BCHELE
+      INTEGER, INTENT(IN) :: EESN                  !! Unused legacy dimension argument; current calls pass `NSEE`.
+      INTEGER, INTENT(IN) :: ELEVEL                !! Positive value enables column non-convergence reporting; also used as the reported `ERROR` severity.
+      INTEGER, INTENT(IN) :: IEL                   !! Element number for diagnostics and soil-function interpolation.
+      INTEGER, INTENT(IN) :: ICBOT                 !! Bottom active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICTOP                 !! Top active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICBED                 !! River-bed cell index for stream-aquifer interaction.
+      INTEGER, INTENT(IN) :: ICSPCE                !! Spring source cell; meaningful only for spring columns.
+      INTEGER, INTENT(IN) :: ICWLBT                !! Bottom screened well cell; meaningful only for well columns.
+      INTEGER, INTENT(IN) :: ICWLTP                !! Top screened well cell; meaningful only for well columns.
+      INTEGER, INTENT(IN) :: ICLFN                 !! Number of selected lateral-flow layers; zero means full active column.
+      INTEGER, INTENT(IN) :: ICLHN                 !! Number of selected lateral-head layers; zero means full active column.
+      INTEGER, INTENT(IN) :: ICLGN                 !! Unused number of selected lateral-gradient layers.
+      INTEGER, INTENT(IN) :: ICLYRB(NLYREE)        !! Bottom-cell bounds for model-layer intervals.
+      INTEGER, INTENT(IN) :: ICSOIL(ICBOT:ICTOP)   !! Soil type by active cell.
+      INTEGER, INTENT(IN) :: JCBC(0:5)             !! Boundary/source type by base, lateral face, and source slot.
+      INTEGER, INTENT(IN) :: ICLFL(NLYREE)         !! Selected model layers for lateral-flow categories.
+      INTEGER, INTENT(IN) :: JCACN(4,ICBOT:ICTOP)  !! Adjacent-cell index by face and active cell.
+      INTEGER, INTENT(IN) :: JELDUM(4)             !! Adjacent element id by face; values below 1 disable regular lateral coupling.
+      INTEGER, INTENT(IN) :: ICLHL(NLYREE)         !! Selected model layers for lateral-head categories.
+      INTEGER, INTENT(IN) :: JCDEL(4,ICBOT:ICTOP)  !! Current-column split indicator for lateral coupling.
+      INTEGER, INTENT(IN) :: ICLGL(NLYREE)         !! Unused selected model layers for lateral-gradient categories.
+      INTEGER, INTENT(IN) :: JCDEL1(LLEE,4)        !! Neighbour-column split offset used for second connected cells.
+      DOUBLE PRECISION, INTENT(IN) :: CWV           !! Vertical hydraulic-conductivity w-mean control.
+      DOUBLE PRECISION, INTENT(IN) :: CWL           !! Lateral hydraulic-conductivity w-mean control.
+      DOUBLE PRECISION, INTENT(IN) :: CA0           !! Plan area of the current element.
+      DOUBLE PRECISION, INTENT(IN) :: CZG           !! Ground elevation used for depth-style lateral head boundaries.
+      DOUBLE PRECISION, INTENT(IN) :: CZSP          !! Spring discharge elevation; meaningful only for spring columns.
+      DOUBLE PRECISION, INTENT(IN) :: CCS           !! Spring coefficient; meaningful only for spring columns.
+      DOUBLE PRECISION, INTENT(IN) :: VSK3D(NSEE,3) !! Saturated hydraulic conductivity by soil type and x/y/z direction.
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Active-cell thicknesses.
+      DOUBLE PRECISION, INTENT(IN) :: CDELL(4)      !! Current-element lateral distance scale by face.
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ1(LLEE,4) !! Adjacent-element lateral face areas.
+      DOUBLE PRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP) !! Active-cell node elevations.
+      DOUBLE PRECISION, INTENT(IN) :: CDELL1(4)     !! Adjacent-element lateral distance scale by face.
+      DOUBLE PRECISION, INTENT(IN) :: CZ1(LLEE,4)   !! Adjacent-cell node elevations by cell and face.
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4,ICBOT:ICTOP) !! Current-element lateral face areas.
+      DOUBLE PRECISION, INTENT(IN) :: DT            !! Timestep length.
+      DOUBLE PRECISION, INTENT(IN) :: CDNET         !! Net surface-water depth available for the upper boundary.
+      DOUBLE PRECISION, INTENT(IN) :: CQWIN         !! Prescribed total well abstraction rate; meaningful only for well columns.
+      DOUBLE PRECISION, INTENT(IN) :: CBF           !! Prescribed bottom-flow boundary value.
+      DOUBLE PRECISION, INTENT(IN) :: CBH           !! Prescribed bottom-head boundary value.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI1(LLEE,4) !! Adjacent current pressure heads by cell and face.
+      DOUBLE PRECISION, INTENT(IN) :: CPSIN(ICBOT:ICTOP) !! Previous-timestep pressure heads for the current column.
+      DOUBLE PRECISION, INTENT(IN) :: CLF(NLYREE)   !! Prescribed lateral-flow boundary values.
+      DOUBLE PRECISION, INTENT(IN) :: CPSIN1(LLEE,4) !! Adjacent previous-timestep pressure heads by cell and face.
+      DOUBLE PRECISION, INTENT(IN) :: CQ(ICBOT:ICTOP) !! Cell source/sink terms already scaled for column assembly.
+      DOUBLE PRECISION, INTENT(IN) :: CLH(NLYREE)   !! Prescribed lateral-head or depth boundary values.
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ1(LLEE,4) !! Adjacent-cell lateral hydraulic conductivity terms.
+      DOUBLE PRECISION, INTENT(IN) :: CZS(4)        !! Adjacent channel water-surface elevations for stream-aquifer faces.
+      DOUBLE PRECISION, INTENT(IN) :: CLG(NLYREE)   !! Unused prescribed lateral-gradient boundary values.
+      DOUBLE PRECISION, INTENT(IN) :: depadj(4)     !! Depth adjustment for stream-aquifer contact-area limiting.
+      LOGICAL, INTENT(IN) :: BCHELE                !! True when lateral head-boundary values are elevations.
 
       ! In+out arguments
-      INTEGER, INTENT(INOUT) :: ICSTOR (ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(INOUT) :: CPSI (ICBOT:ICTOP)
+      INTEGER, INTENT(INOUT) :: ICSTOR(ICBOT:ICTOP) !! Soil lookup interval cache updated by [[vsfunc]].
+      DOUBLE PRECISION, INTENT(INOUT) :: CPSI(ICBOT:ICTOP) !! Current pressure heads updated by the nonlinear solve.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CTHETA (ICBOT:ICTOP), CQV (ICBOT - 1:ICTOP)
-      DOUBLE PRECISION, INTENT(OUT) :: CKR (ICBOT:ICTOP), CQH (4, ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(OUT) :: CQWI (ICWLBT:ICWLTP), CQSP, CPSL
+      DOUBLE PRECISION, INTENT(OUT) :: CTHETA(ICBOT:ICTOP) !! Final volumetric water content.
+      DOUBLE PRECISION, INTENT(OUT) :: CQV(ICBOT-1:ICTOP) !! Final vertical fluxes, including lower and upper boundaries.
+      DOUBLE PRECISION, INTENT(OUT) :: CKR(ICBOT:ICTOP) !! Final relative hydraulic conductivity.
+      DOUBLE PRECISION, INTENT(OUT) :: CQH(4,ICBOT:ICTOP) !! Lateral and stream-aquifer fluxes assigned on active faces.
+      DOUBLE PRECISION, INTENT(OUT) :: CQWI(ICWLBT:ICWLTP) !! Well abstraction rate by screened cell; meaningful only for well columns.
+      DOUBLE PRECISION, INTENT(OUT) :: CQSP          !! Spring discharge; meaningful only for spring columns.
+      DOUBLE PRECISION, INTENT(OUT) :: CPSL          !! Final phreatic-surface elevation for the column.
 
       ! Locals, etc
       INTEGER, PARAMETER :: NITMAX = 100
@@ -818,57 +1186,83 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSCONC ()
+!> Builds VSS cell thicknesses, node elevations, and cell connectivity.
+!>
+!> `VSCONC` translates the manual `VS06` soil-zone cell depths, `VS07`
+!> river-bed cell depths, `VS08` aquifer-zone layer definitions, `VS09` river
+!> bed geometry, and the layer connectivity prepared by [[vsconl]] into the
+!> cell mesh used by the VSS solver.
+!>
+!> Required setup conditions include positive VSS array bounds, `VSZMAX > 0`,
+!> non-negative `VSZMIN`, `NCSZON`, and `NCRBED`, `LLEE >= NCSZON`, and enough
+!> model layer capacity (`NLYREE > NLYR`) for active land elements. Soil-zone
+!> cell depths `DCSZON` must be at least `VSZMIN`; aquifer layer boundaries
+!> must be ordered and compatible with the prescribed soil-zone depths; and
+!> regular neighbour faces in `ICMREF` must reference valid elements and faces.
+!> The routine is designed to be called once during VSS initialisation.
+!>
+!> Cell construction proceeds bottom-up. Aquifer layers are subdivided into
+!> equal cells no larger than `VSZMAX`, unless later connectivity checks require
+!> additional subdivision. The soil zone is then appended from the manual
+!> top-down `DCSZON` depths, and link elements receive additional river-bed
+!> cells from `DCRBED`. Bank elements are mirrored across each link when
+!> explicit banks are enabled.
+!>
+!> The main outputs are:
+!>
+!> | Array | Meaning |
+!> |:------|:--------|
+!> | `DELTAZ(cell,element)` | VSS cell thickness. |
+!> | `ZVSNOD(cell,element)` | Cell-node elevation. |
+!> | `NLYRBT(element,layer)` | Bottom-cell index for each model layer. |
+!> | `top_cell_no` / `LL` | Maximum active cell index after renumbering. |
+!> | `JVSACN(face,cell,element)` | Adjacent cell connected across a face. |
+!> | `JVSDEL(face,cell,element)` | Split-cell offset used when one cell connects to two neighbour cells. |
+!> | `NHBED`, `FHBED` | River-bed cell index and bed fraction metadata for channel links. |
+!>
+!> Connectivity is first direct-matched in the soil zone and below river beds.
+!> Aquifer-zone connectivity follows `JVSALN`, which encodes the layer ranges
+!> allowed to exchange laterally. When two connected layer ranges have too few
+!> cells to represent the required one-to-one or one-to-two split-cell
+!> connections, `VSCONC` records extra layer subdivisions in `LRENUM` and
+!> rebuilds the mesh. If repeated rebuilding reaches the element-count limit,
+!> the routine exits through the existing fatal-error path.
+!>
+!> @note
+!> `LRENUM` and `NRENUM` are module-lifetime state (an initialised local array
+!> and a `SAVE`d counter) and therefore retain state between calls. The routine
+!> also calls [[initialise_vsmod]] and `INITIALISE_AL_C` after each
+!> mesh-construction pass, before the final rebuild test can loop back for
+!> another pass. This matches the original one-call setup assumption; repeated
+!> calls, or a rebuild after allocation routines that do not tolerate repeated
+!> allocation, are not safe.
+!> @endnote
+!>
+!> @note
+!> The local `nlyrmax` is declared but not used anywhere in the routine body.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-20 | GP | 4.0 | Written; version 4.0 completed 1996-01-17. |
+!> | 1997-03-26 | RAH | 4.1 | Generic intrinsics; moved the `ERROR` calls to the end; new locals `ZAQTOP`, `ZLBOT`, `ZNODE`, `ICOL1`, `ICL0`, `NCL`; scrapped local `ZDUM1`; automatic type conversion; renamed locals `NDUM`, `ZDUM2`, `ZDUM3`, `Zasum`, `Zasum1`; replaced label/`GOTO 970` with `MAX(ZERO,VSZMIN)`; swapped the `DELTAZ`/`ZVSNOD` subscripts and moved `IBANK2`; moved a block-`IF` outside loop 974 and made it unconditional; put labels in order; defined `DELTAZ`/`ZVSNOD` for `ICL=1`; ran loop 1100 only when `ICL0>0`, called `ALINIT`, and removed loop 1170 (zeroing sub-cells); initialised `NRENUM` in `DATA`; started the `NLYRBT` search at `ICL0+1` without testing `DELTAZ>0`. |
+!> | 1997-04-02 | RAH | 4.1 | Started loop 1600 at `ICOL1` instead of using a `GOTO`; rationalised the tests in loop 1500; swapped the `JVSACN`/`JVSDEL` subscripts and initialised them to `0` (previously `IUNDEF`); declared `NCELL`, `NACELL`, `ZDIFF`. |
+!> | 1997-04-22 | RAH | 4.1 | Initialised `LRENUM` to `0` (previously `IUNDEF`) and tested `NCLYR<=0`. |
+!> | 1997-04-23 | RAH | 4.1 | Started loop 1000 at `NLF+1` rather than testing for element type 3. |
+!> | 1997-05-22 | RAH | 4.1 | Removed the "unfinished code" message and simplified a test. |
+!> | 1997-05-23 | RAH | 4.1 | Set `ZVSNOD(1,IEL)` less than `ZLYRBT(IEL,1)`. |
+!> | 1997-06-12 | RAH | 4.1 | Simplified loop 1120, cancelling the two preceding modifications. |
+!> | 1997-07-18 | RAH | 4.1 | Renamed `ZLBOT` to `ZAQBOT`; put labels in order; used `IEL <= NLF` in place of `ITYPE == 3`; used `GOTO 1585` instead of an `ELSE`; fixed an error setting `ITOP`/`JTOP` for links (previously `LL-NCSZON`); used `NMOD` instead of `100` and merged the layer `IF`-blocks; rationalised the tests for skipping loop 1590; renamed `IALDUM`/`JALDUM` to `IRANGE`/`JRANGE`; scrapped inconsistency error 1049; fixed an aquifer-zone error (skip if either, not both). |
+!> | 1997-07-28 | RAH | 4.1 | Scrapped local `IUNDEF` and arrays `LIDUM`/`LJDUM`; fixed errors in message 1037 (print `I`/`J`, not `LIDUM`/`LJDUM`, which were always 1) and at the top of the aquifer zone (`GOTO 1585`, not `1590`, for `BDONE`). |
+!> | 1997-07-30 | RAH | 4.1 | Refined the split-cell treatment so splits do not straddle null cells; flagged warnings 1037 and 1053 once only; scrapped inconsistency error 1050; completed the `IEL` loop before renumbering instead of jumping out immediately. |
+!> | 1997-08-01 | RAH | 4.1 | Completed the split-cell logic by spreading foregone splits (previously ill-specified); reduced the `MSG` size; simplified a test; stopped connecting the ends of river-bed cells. |
+!> | 1997-08-06 | RAH | 4.1 | Added further entry conditions. |
+!> | 1997-08-11 | RAH | 4.1 | Amended the `PAIR` logic to use `MISS`. |
+!> | 2026-04-06/07 | SvB | 4.6 | Rewrote the cell-renumbering outer loop, layer-matching search, and split-cell pairing loop from labelled `GOTO`s to `DO`/`DO WHILE` constructs with `CYCLE`/`EXIT`; replaced `CALL ALINIT` zero-initialisation with Fortran 90 array-slice assignment; converted the obsolete `FNCELL` statement function (never actually defined as a callable in the pre-modernisation source) into the contained function below; replaced the non-standard `IDIMJE` intrinsic with an equivalent `MAX(0, ...)` expression. All of these are direct control-flow/style translations with the same per-cell arithmetic. |
+!> @endhistory
    SUBROUTINE VSCONC ()
-   !----------------------------------------------------------------------*
-   ! Sets up cell sizes and connectivity matrix
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSCONC/4.1
-   ! Modifications:
-   !  GP  20.07.94  written (4.0 completed 960117)
-   ! RAH  970326  4.1  Generic intrinsics.  Move ERROR calls to the end.
-   !                   New locals ZAQTOP,ZLBOT,ZNODE,ICOL1,ICL0,NCL.
-   !                   Scrap local ZDUM1.  Automatic type conversion.
-   !                   Rename locals NDUM,ZDUM2,ZDUM3,Zasum,Zasum1.
-   !                   Scrap label & GOTO 970 (use MAX(ZERO,VSZMIN)).
-   !                   Swap subscripts: DELTAZ,ZVSNOD (AL.C).  Move IBANK2.
-   !                   Move block-IF outside loop 974; execute always.
-   !                   Labels in order.  Define DELTAZ,ZVSNOD for ICL=1.
-   !                   Do loop 1100 only if ICL0>0, call ALINIT, & rm loop
-   !                   1170 (zero sub-cells).  Initialize NRENUM in DATA.
-   !                   Start at ICL0+1 in search for NLYRBT & don't test
-   !                   DELTAZ>0.
-   !      970402       Start at ICOL1 in loop 1600 (instead of GOTO).
-   !                   Rationalize tests in loop 1500.  Swap subscripts:
-   !                   JVSACN,JVSDEL, & initialize to 0 (was IUNDEF first).
-   !                   Declare NCELL,NACELL,ZDIFF.
-   !      970422       Initialize LRENUM to 0 (was IUNDEF) & test NCLYR<=0.
-   !      970423       Start at NLF+1 (was test type=3) in loop 1000.
-   !                   Rename ZAQTOP ZSZBOT.
-   !      970522       Remove "unfinished code" message.  Simplify test.
-   !      970523       Set ZVSNOD(1,IEL) less than ZLYRBT(IEL,1).
-   !      970612       Simplify loop 1120.  (Cancel above: 2 mods.)
-   !      970718       ZAQBOT was ZLBOT.  Labels in order.
-   !                   Use IEL.LE.NLF etc for ITYPE.EQ.3.
-   !                   GOTO 1585 instead of ELSE.  Fix error in setting of
-   !                   ITOP, JTOP for links (was LL-NCSZON).
-   !                   Use NMOD instead of 100, & merge layer IF-blocks.
-   !                   Rationalize tests for skipping loop 1590.  Rename
-   !                   I|JALDUM J|IRANGE.  Scrap inconsistency error 1049.
-   !                   Fix error in aquifer zone: skip if EITHER, not BOTH.
-   !      970728       Scrap local IUNDEF & arrays LIDUM,LJDUM. Fix errors:
-   !                   in message 1037 print I|J not LI|JDUM(I|J) (=1); at
-   !                   top of aquifer zone goto 1585 not 1590 (for BDONE).
-   !      970730       Refine split cell treatment: don't straddle null
-   !                   cells.  Flag warnings 1037 & 1053 once only.
-   !                   Scrap inconsistency error 1050.  Complete IEL loop
-   !                   before renumbering (don't jump out straightaway).
-   !      970801       Complete split cells: spread foregone splits
-   !                   (was ill-specified). Reduce MSG size. Simplify test.
-   !                   Don't connect (ends of) river bed cells.
-   !      970806       Add some entry conditions.
-   !      970811       (Amend PAIR logic: use MISS.)
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NELEE, NLYREE, LLEE, NLFEE, total_no_links, total_no_elements,
@@ -1355,9 +1749,16 @@ CONTAINS
 
    CONTAINS
 
-      ! Replaces the obsolete Statement Function FNCELL
+      !> Returns the number of VSS cells spanned by one model layer interval.
+      !>
+      !> Replaces the obsolete Fortran statement function of the same name
+      !> (the pre-modernisation source only commented out its definition, so
+      !> `FNCELL` had never actually been a callable statement function; this
+      !> contained function restores it with the same formula).
       PURE INTEGER FUNCTION FNCELL(IDX, ELEM, TOP)
-         INTEGER, INTENT(IN) :: IDX, ELEM, TOP
+         INTEGER, INTENT(IN) :: IDX  !! Model-layer index.
+         INTEGER, INTENT(IN) :: ELEM !! Element number.
+         INTEGER, INTENT(IN) :: TOP  !! Upper active cell bound used to clip the layer top.
          ! Calculates number of cells handling boundary constraints
          FNCELL = MAX(0, MIN(NLYRBT(ELEM, IDX + 1), TOP + 1) - NLYRBT(ELEM, IDX))
       END FUNCTION FNCELL
@@ -1366,61 +1767,81 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSCONL (NAQCON, IAQCON)
+!> Builds the layer-to-layer lateral connectivity matrix.
+!>
+!> `VSCONL` builds the layer-level lateral connectivity used later by
+!> [[vsconc]] to create cell-level links. It combines default aquifer-zone
+!> matching with the manual `VS10`/`VS10a` user-defined aquifer connectivity
+!> records (`IAQCON`).
+!>
+!> Required setup conditions are that the routine is called at most once per
+!> run; `NAQCON` does not exceed `NVSEE` (the declared second dimension of
+!> `IAQCON`); `1 <= NEL <= NELEE`, `NLF >= 0`, and `1 <= NLYR(1:NEL) <= NLYREE`;
+!> and, for every element `e` from `ICOL1` to `NEL` and every face `1:4`, the
+!> adjacent element `ea = ICMREF(e,4+face)` satisfies `ea <= NEL`, with
+!> `1 <= ICMREF(e,8+face) <= 4` whenever `ea >= ICOL1`. If explicit banks are
+!> not present, active VSS columns start at `NLF+1`; otherwise links and bank
+!> elements are included from element 1.
+!>
+!> `JVSALN(element,layer,face)` stores the range of layers in the adjacent
+!> element connected to this layer. A value of zero means no lateral connection.
+!> Non-zero ranges are encoded compactly as
+!>
+!> \[
+!>   JVSALN = NMOD\,l_{min}+l_{max},\qquad NMOD=NLYREE+1.
+!> \]
+!>
+!> For each neighbouring element pair, `IAQCON(:,i)` records are first checked
+!> for this pair. Layer numbers must be in range. Positive user records are
+!> accumulated into inclusive connected-layer ranges, while conflicting
+!> null/non-null records are reported as error 1038 and counted in `NVSERR`.
+!>
+!> Default matching starts immediately below the soil-zone depth
+!> \(ZGRUND-DCSTOT\), using a small tolerance to avoid roundoff at exact layer
+!> boundaries. When no user record overrides the pair, layers with the same
+!> soil/lithology type are connected one-to-one. If soil types differ, the
+!> routine skips downward through one or both columns until it finds the next
+!> compatible soil type or user-specified connection, trying to preserve
+!> continuity where possible. Boundary faces, branched channels, and link-flank
+!> faces receive null connectivity.
+!>
+!> @warning
+!> The legacy comments describe layer zero in `IAQCON` as an explicit null
+!> connection, but a new one-sided zero record is not stored as a simple null
+!> marker by the current range-building code. Use positive layer-pair records
+!> for user-defined connectivity and do not rely on one-sided zero records to
+!> block default matching.
+!> @endwarning
+!>
+!> @note
+!> The local `BDONE` array is `DATA`-initialised and retained between calls.
+!> This is another reason the routine follows the original one-call setup
+!> assumption. Note also that `NAQCON` and `IAQCON` carry no `INTENT`
+!> attribute in the current declaration (both are read-only in this routine).
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-20 | GP | 4.0 | Written; version 4.0 completed 1995-08-08. |
+!> | 1997-05-08 | RAH | 4.1 | New locals `ICOL1`, `JTYPE`, `LYR`, `NLYRI`; simplified the null-connectivity test and amended its comment; generic intrinsics; removed the illegal `DATA` statement for `JVSALN`. |
+!> | 1997-05-22 | RAH | 4.1 | Fixed an error setting `JLMAX` (used `JLMIN`, not `ILMIN`); scrapped the "null connectivity" message (error 1047). |
+!> | 1997-06-30 | RAH | 4.1 | Moved `NAQCON`/`IAQCON` from `VSINIT.INC` into the argument list and swapped their indices (see [[vsread]]). |
+!> | 1997-07-03 | RAH | 4.1 | Initialised `JVSALN` to `0` (previously `IUNDEF`) once and for all, but only for active elements and only up to `NLYR(iel)+1`. |
+!> | 1997-07-10 | RAH | 4.1 | Redefined `IUNDEF` (previously `9999`); used `NMOD` instead of `100`; added detail to the `ERROR` message; put labels in order; rewrote loop 110 and fixed an error there (multiply `JLYR` by `NMOD+1` on first assignment); trapped invalid `JLYR`. |
+!> | 1997-07-11 | RAH | 4.1 | New local `ZSMALL`; rewrote loop 200 and fixed errors there: set `JVSALN` on both sides for user-defined connectivity, corrected the expressions for `ILMIN` and similar, and generalised the default strategy (previously it checked/set a single embedded layer, missing some, else matched soils, else moved down a layer). Used `-1` for `IUNDEF`. |
+!> | 1997-07-14 | RAH | 4.1 | Left bank-link faces at zero (never used anyway); moved the loop 200 criterion to the start (previously at the end); set `ISOILP=0` for `ILYR=NLYRI` and used `JSOILP`. |
+!> | 1997-07-21 | RAH | 4.1 | Made `JVSALN` always either `0` or `NMOD*imin+imax`. |
+!> | 1997-08-13 | RAH | 4.1 | Stopped giving up on a face when no match is found for `ILYR`/`JLYR`. |
+!> | 2026-04-06/07 | SvB | 4.6 | Rewrote labelled `GOTO` loops (default-connectivity initialisation, per-pair layer counters, the layer-matching search, and the connected-range walk) as `DO`/`DO WHILE` constructs with `CYCLE`/`EXIT`; no change to the matching arithmetic. |
+!> @endhistory
    SUBROUTINE VSCONL (NAQCON, IAQCON)
-!----------------------------------------------------------------------*
-! Sets up layer connectivity matrix
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSCONL/4.1
-! Modifications:
-!  GP  20.07.94  written (v4.0 finished 8/8/95)
-! RAH  970508  4.1  New locals ICOL1, JTYPE, LYR, NLYRI.
-!                   Simplify test & amend comment for null connectivity.
-!                   Generic intrinsics.  No illegal DATA for JVSALN.
-!      970522       Fix error setting JLMAX: use JLMIN not ILMIN.
-!                   Scrap "null connectivity" message (error 1047).
-!      970630       Move NAQCON,IAQCON from VSINIT.INC to arg-list, &
-!                   swap indices (see VSREAD).
-!      970703       Initialize to 0 (was IUNDEF), once & for all, but
-!                   only for active iel, & only up to NLYR(iel)+1.
-!      970710       Redefine IUNDEF (was 9999).  Use NMOD, not 100.
-!                   More detail in ERROR MSG.  Labels in order.
-!                   Rewrite loop 110, & fix error: multiply JLYR by
-!                   NMOD+1 on first assignment; also trap invalid JLYR.
-!      970711       Local ZSMALL.  Rewrite loop 200, & fix errors: set
-!                   JVSALN BOTH sides for user-defined; correct express-
-!                   ions for ILMIN, etc; also generalize/amend default
-!                   strategy (was: check/set single embedded layer -
-!                   although some were missed; else connect matching
-!                   soils; else move down a layer).  Use -1 for IUNDEF.
-!      970714       Leave bank-link faces at zero (never used anyway).
-!                   Criterion for loop 200 at start (was at end).
-!                   Set ISOILP=0 for ILYR=NLYRI; also use JSOILP.
-!      970721       JVSALN=0 or NMOD*imin+imax always.
-!      970813       Don't give up on face if no match for I|JLYR.
-!----------------------------------------------------------------------*
-! Entry conditions:  not more than 1 call per run
-! NAQCON <= nvsee (size of IAQCON)
-! NELEE >= NEL >= 1 ;  NLF >= 0 ;  NLYREE >= 1, NLYR(1:NEL)
-! for e in ICOL1:NEL : for face in 1:4 :  ea = ICMREF(e,4+face) <= NEL ;
-!                       ea >= ICOL1  ==>  1 <= ICMREF(e,8+face) <= 4
-!----------------------------------------------------------------------*
-! Commons and constants
-! Imported constants
-!     AL.P.VSS:        NELEE,NLYREE
-! Input common
-!     AL.C:            ERR,NLF,PRI,NLYR(NEL),NTSOIL(NELEE,NLYREE)
-!                                ZGRUND(NEL),ZLYRBT(NELEE,NLYREE)
-!                      BEXBK
-!     AL.G:            NEL,ICMREF(NELEE,5:12)
-!     VSCOM1.INC:      DCSTOT
-! In+out common
-!     VSINIT.INC:      NVSERR
-! Output common
-!     VSCOM1.INC:      JVSALN(NELEE,NLYREE,4)
+
 ! Input arguments
 
-      INTEGER :: NAQCON, IAQCON (4, * )
+      INTEGER :: NAQCON       !! Number of user-defined aquifer connectivity records.
+      INTEGER :: IAQCON(4,*)  !! User aquifer connectivity records: element/layer pairs for adjacent columns.
 ! Locals, etc
 !INTRINSIC MAX, MIN, MOD
       INTEGER :: NMOD
@@ -1662,44 +2083,85 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSFUNC
+!> Interpolates soil hydraulic functions for a column.
+!>
+!> `VSFUNC` evaluates the soil hydraulic functions needed by [[vscolm]] for
+!> every active cell in one column, using the lookup tables prepared by
+!> [[vssoil]]. Given pressure potential `CPSI`, it returns moisture content
+!> `CTHETA`, storage coefficient `CETA`, relative hydraulic conductivity `CKR`,
+!> derivative of storage `CDETA`, and derivative of relative conductivity
+!> `CDKR`.
+!>
+!> Required entry conditions are: `1 < NVSSOL <= NSOLEE`; `VSPPSI` is strictly
+!> decreasing; `ICBOT <= ICTOP`; `ICSOIL(ICBOT:ICTOP)` contains valid soil
+!> indices, i.e. `0 < ICSOIL <= NS`, where `NS` is the size of the second
+!> dimension of `VSPTHE`, `VSPKR`, `VSPETA`, `VSPDKR`, and `VSPDET`; and the
+!> print/error unit is available for diagnostics.
+!>
+!> For each cell, the previous interval index `ICSTOR(c)` is used as the first
+!> guess. The routine then hunts up or down the monotonic pressure-head table
+!> with doubling increments and finishes with bisection, following the `HUNT`
+!> search pattern from Press et al. (1992), *Numerical Recipes in FORTRAN: The
+!> Art of Scientific Computing*, 2nd ed., p. 112. It stores the lower bracket
+!> `j = ICSTOR(c)` such that, after clipping to the valid table range,
+!>
+!> \[
+!>   VSPPSI_j \ge CPSI_c \ge VSPPSI_{j+1}.
+!> \]
+!>
+!> The interpolation fraction is
+!>
+!> \[
+!>   p = {CPSI_c - VSPPSI_j\over VSPPSI_{j+1}-VSPPSI_j}.
+!> \]
+!>
+!> `CTHETA`, `CKR`, `CDKR`, and `CDETA` are linearly interpolated as
+!>
+!> \[
+!>   X_c = X_j + p(X_{j+1}-X_j),
+!> \]
+!>
+!> using `VSPTHE`, `VSPKR`, `VSPDKR`, and `VSPDET`, respectively. `CETA` is
+!> assigned from `VSPETA(j+1,soil)` as in the legacy implementation.
+!>
+!> On a successful return, for each cell `c` in `ICBOT:ICTOP`, with
+!> `j = ICSTOR(c)` and `s = ICSOIL(c)`, the stored interval and returned values
+!> satisfy the bracketing implied by the strictly decreasing `VSPPSI` table:
+!>
+!> | Quantity | Exit condition |
+!> |:---------|:---------------|
+!> | `ICSTOR(c)` | `0 < j < NVSSOL` |
+!> | `CPSI(c)` | `VSPPSI(j) >= CPSI(c) >= VSPPSI(j+1)` because `VSPPSI` is strictly decreasing. |
+!> | `CTHETA(c)` | Bounded by the bracketing `VSPTHE(j,s)` and `VSPTHE(j+1,s)` values. |
+!> | `CETA(c)` | Taken from `VSPETA(j+1,s)`; for monotone table segments this lies between `VSPETA(j,s)` and `VSPETA(j+1,s)`. |
+!> | `CKR(c)` | Bounded by the bracketing `VSPKR(j,s)` and `VSPKR(j+1,s)` values. |
+!> | `CDETA(c)` | Bounded by the bracketing `VSPDET(j,s)` and `VSPDET(j+1,s)` values. |
+!> | `CDKR(c)` | Bounded by the bracketing `VSPDKR(j,s)` and `VSPDKR(j+1,s)` values. |
+!>
+!> If \(p\) falls outside `[0,1]`, the routine raises fatal error 1034 or 1035
+!> with a wet/dry diagnostic for the offending element and cell.
+!>
+!> @note
+!> In the current restructured loop, an out-of-range cell sets the local
+!> `IS_ERROR` flag and exits the cell loop immediately (`EXIT OUT100`) before
+!> the fatal `ERROR` call is made after the loop. Output values after the
+!> offending cell should therefore be treated as undefined on this path.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-18 | GP | 4.0 | Written. |
+!> | 1996-12-20 | RAH | 4.1 | Removed long and leading comments; declared externals; used explicit sizes where possible; made `ICSTOR` in+out; removed redundant execution and lower-case code. |
+!> | 1997-01-21 | RAH | 4.1 | Passed data through arguments instead of `COMMON`; allowed the end-point cases; removed redundant arguments and commented-out code. |
+!> | 1997-01-22 | RAH | 4.1 | Amended the entry conditions; used a branch for the `ERROR` call. |
+!> | 2009-01 | JE | 4.3.5F90 | Restructured loops for automatic differentiation. |
+!> | 2026-04-06/07 | SvB | 4.6 | Rewrote the labelled `GOTO`-driven hunt/bisection search as `DO WHILE` loops with named `EXIT`s; renamed the GOTO-era `g8100` flag to `IS_ERROR`. Same search algorithm and bracketing result. |
+!> @endhistory
    SUBROUTINE VSFUNC (NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, &
          VSPETA, VSPDKR, VSPDET, IEL, ICBOT, ICTOP, ICSOIL, CPSI, ICSTOR, &
          CTHETA, CETA, CKR, CDETA, CDKR)
-      !
-      !----------------------------------------------------------------------*
-      ! Calculates moisture content, storage coefficient, and relative
-      ! hydraulic conductivity for a column, given soil water potentials
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/VSS/VSFUNC/4.1
-      ! Modifications:
-      !  GP  18.8.94  written
-      ! RAH  961220  4.1  No long/leading comments.  Declare externals.
-      !                   Explicit sizes where possible.  ICSTOR is in+out.
-      !                   No redundant execution or lower-case code.
-      !      970121       Use arguments, not COMMON.  Allow end-point cases.
-      !                   Remove redundant arguments and commented code.
-      !      970122       Amend entry conditions.  Use branch for ERROR call.
-      ! JE   JAN 2009       Loop restructure for AD
-      !----------------------------------------------------------------------*
-      ! Returns:
-      !         moisture content (CTHETA),
-      !         storage co-efficient (CETA),
-      !         relative hydraulic conductivity (CKR),
-      !         derivative of storage coefficient(CDETA), and
-      !         derivative of relative conductivity (CDKR)
-      ! for all cells in a column, given pressure potential (CPSI).
-      !
-      ! Based on subroutine HUNT of 'Numerical Recipes in FORTRAN: The Art of
-      !   Scientific Computing (2nd Ed.)', Press et al. (1992), p112
-      !----------------------------------------------------------------------*
-      ! Entry conditions:
-      !     PRI is connected for formatted output
-      ! 1 < NVSSOL <= NSOLEE
-      !     VSPPSI is monotonic strictly decreasing
-      !      ICBOT <= ICTOP
-      ! 0 < ICSOIL(ICBOT:ICTOP) <= NS (size of 2nd dimension of VSPTHE, etc)
-      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! ZERO, ONE, FFFATAL, PPPRI, ERROR
@@ -1707,20 +2169,29 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: NVSSOL, NSOLEE
-      DOUBLE PRECISION, INTENT(IN) :: VSPPSI(NVSSOL), VSPTHE(NSOLEE, *)
-      DOUBLE PRECISION, INTENT(IN) :: VSPKR(NSOLEE, *), VSPETA(NSOLEE, *)
-      DOUBLE PRECISION, INTENT(IN) :: VSPDKR(NSOLEE, *), VSPDET(NSOLEE, *)
-      INTEGER, INTENT(IN) :: IEL, ICBOT, ICTOP, ICSOIL(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP)
+      INTEGER, INTENT(IN) :: NVSSOL                   !! Number of active soil lookup-table rows.
+      INTEGER, INTENT(IN) :: NSOLEE                   !! Declared first dimension of the soil lookup tables.
+      DOUBLE PRECISION, INTENT(IN) :: VSPPSI(NVSSOL)   !! Strictly decreasing lookup pressure-head ordinates.
+      DOUBLE PRECISION, INTENT(IN) :: VSPTHE(NSOLEE,*) !! Lookup volumetric water content by row and soil type.
+      DOUBLE PRECISION, INTENT(IN) :: VSPKR(NSOLEE,*)  !! Lookup relative hydraulic conductivity by row and soil type.
+      DOUBLE PRECISION, INTENT(IN) :: VSPETA(NSOLEE,*) !! Lookup storage coefficient by row and soil type.
+      DOUBLE PRECISION, INTENT(IN) :: VSPDKR(NSOLEE,*) !! Lookup derivative `d(K_r)/d(psi)` by row and soil type.
+      DOUBLE PRECISION, INTENT(IN) :: VSPDET(NSOLEE,*) !! Lookup derivative `d(eta)/d(psi)` by row and soil type.
+      INTEGER, INTENT(IN) :: IEL                      !! Element number used in diagnostics.
+      INTEGER, INTENT(IN) :: ICBOT                    !! Bottom active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICTOP                    !! Top active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICSOIL(ICBOT:ICTOP)      !! Soil type by active cell.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Pressure head/potential by active cell.
 
       ! In+out arguments
-      INTEGER, INTENT(INOUT) :: ICSTOR(ICBOT:ICTOP)
+      INTEGER, INTENT(INOUT) :: ICSTOR(ICBOT:ICTOP)   !! Cached lower lookup-table interval by active cell.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CTHETA(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(OUT) :: CETA(ICBOT:ICTOP), CKR(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(OUT) :: CDETA(ICBOT:ICTOP), CDKR(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CTHETA(ICBOT:ICTOP) !! Interpolated volumetric water content.
+      DOUBLE PRECISION, INTENT(OUT) :: CETA(ICBOT:ICTOP) !! Interpolated storage coefficient.
+      DOUBLE PRECISION, INTENT(OUT) :: CKR(ICBOT:ICTOP) !! Interpolated relative hydraulic conductivity.
+      DOUBLE PRECISION, INTENT(OUT) :: CDETA(ICBOT:ICTOP) !! Interpolated derivative `d(eta)/d(psi)`.
+      DOUBLE PRECISION, INTENT(OUT) :: CDKR(ICBOT:ICTOP) !! Interpolated derivative `d(K_r)/d(psi)`.
 
       ! Locals
       CHARACTER(LEN=5) :: WETDRY(0:1) = ['(wet)', '(dry)']
@@ -1825,19 +2296,6 @@ CONTAINS
 
       END DO OUT100
 
-   !----------------------------------------------------------------------*
-   ! Exit conditions:
-   ! for each c in ICBOT:ICTOP:
-   !             0 <  ICSTOR(c) <  NVSSOL
-   !    VSPPSI(j)  <=   CPSI(c) <= VSPPSI(j+1)
-   !    VSPTHE(j,s)<= CTHETA(c) <= VSPTHE(j+1,s)
-   !    VSPETA(j,s)<=   CETA(c) <= VSPETA(j+1,s)
-   !     VSPKR(j,s)<=    CKR(c) <=  VSPKR(j+1,s)
-   !    VSPDET(j,s)<=  CDETA(c) <= VSPDET(j+1,s)
-   !    VSPDKR(j,s)<=   CDKR(c) <= VSPDKR(j+1,s)
-   ! where j=ICSTOR(c) and s=ICSOIL(c)
-   !----------------------------------------------------------------------*
-
       IF (IS_ERROR) THEN
          DRY = NINT(MAX(ZERO, MIN(PDUM, ONE)))
          CALL ERROR(FFFATAL, 1034 + DRY, PPPRI, IEL, ICL, 'soil property interpolation out of range '//WETDRY(DRY))
@@ -1847,28 +2305,69 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSIN ()
+!> Initialises the VSS component.
+!>
+!> `VSIN` controls one-time setup of the VSS component before the first
+!> timestep. It allocates shared run-size arrays, reads the manual VSS data
+!> file through [[vsread]], initialises time-varying boundary input streams,
+!> constructs layer and cell connectivity, builds soil hydraulic lookup tables,
+!> and creates the initial pressure-head and conductivity fields.
+!>
+!> The setup sequence is:
+!>
+!> | Step | Action |
+!> |:-----|:-------|
+!> | Allocate shared storage | `INITIALISE_AL_C2` allocates arrays needed before `top_cell_no` is known. |
+!> | Read VSS input | [[vsread]] loads `VSD` data and returns user aquifer connectivity `IAQCON`. |
+!> | Prime boundary files | First records are read for well, lateral-flow/head, and bottom-flow/head files when their category counts are non-zero. |
+!> | Build connectivity | [[vsconl]] creates layer connectivity and [[vsconc]] creates cells, node elevations, and cell connectivity. |
+!> | Locate wells/springs | `NWELBT`, `NWELTP`, and `NVSSPC` are set from well screen depths and spring source depths. |
+!> | Soil tables | [[vssoil]] builds pressure-head lookup tables for each soil/lithology. |
+!> | Initial conditions | `INITYP` selects the initial pressure-head setup. |
+!> | Initial conductivity | [[vsfunc]] checks/interpolates initial pressure heads and fills `VSKR`; `IVSSTO` stores lookup-table interval indices. |
+!>
+!> Initial-condition handling follows the manual `VS03`/`VSI` options:
+!>
+!> | `INITYP` | Initialisation |
+!> |:---------|:---------------|
+!> | 1 | Uniform phreatic-surface depth `VSIPSD`; equilibrium profile \(VSPSI=z_{psl}-z_{node}\). |
+!> | 2 | Phreatic-surface elevations read from the `VSI` file; equilibrium profile. |
+!> | 3 | Full cell pressure potentials read from `VSI`; `ZVSPSL` is derived from the highest non-negative pressure head. |
+!>
+!> Main outputs are well screen cell bounds `NWELBT`/`NWELTP`, spring source
+!> cell `NVSSPC`, pressure heads `VSPSI`, phreatic-surface levels `ZVSPSL`,
+!> lookup interval state `IVSSTO`, and initial relative conductivity `VSKR`.
+!> Data-reading or initialisation errors accumulate in `NVSERR`; any non-zero
+!> count raises fatal error 1040 via the contained `ABORT_VSIN`.
+!>
+!> @note
+!> `ISTART` is `1` when explicit banks are present and `total_no_links+1`
+!> otherwise. `INITYP=2` and `INITYP=3` therefore read `VSI` data only for
+!> `ISTART:total_no_elements`, not necessarily for every manual element listed
+!> in the `VSI` table. For `INITYP=3`, each element record must appear in that
+!> exact increasing order; a mismatched `IEL` raises error 1041 and then the
+!> accumulated fatal error 1040.
+!> @endnote
+!>
+!> @warning
+!> Well-screen depths (`VS12b`) and spring source depths (`VS13b`) are assumed
+!> to fall inside the generated column cells. If a depth search fails, the code
+!> falls through with the loop index beyond the searched range rather than
+!> reporting a dedicated bounds error.
+!> @endwarning
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-20 | GP | 4.0 | Written; version 4.0 completed 1996-10-21. |
+!> | 1997-01-22 | RAH | 4.1 | Removed long/leading comments and lower-case code; amended the externals list; extended the [[vsfunc]] argument list. |
+!> | 1997-05-12 | RAH | 4.1 | Swapped the `IVSSTO`/`VSKR` indices and scrapped the local arrays `ICSDUM`/`CKRDUM`; likewise swapped `DELTAZ`, `ZVSNOD`, `VSPSI` and scrapped `CPSDUM`; scrapped the outputs `VSETAN`/`VSKRN`; rationalised and initialised loops 800 and 950; generic intrinsics; made more use of `ISTART`; put labels in order. |
+!> | 1997-05-22 | RAH | 4.1 | Defaulted `NWELTP` to 1; used `GOTO` for errors and fixed an error in message 1041. |
+!> | 1997-06-30 | RAH | 4.1 | Brought `NAQCON`/`IAQCON` from `VSINIT.INC`, swapped their indices, and passed them to [[vsread]] and [[vsconl]]; used format 9010 in place of 9020; replaced `NGDBGN` with `NLF+1`. |
+!> | 2026-04-06/07 | SvB | 4.6 | Replaced the `GOTO 8900`-based fatal-error exit with the contained `ABORT_VSIN` routine, called from the two error sites; converted well/spring search loops and the `INITYP=3` layer loop from labelled `GOTO`s to named `DO`/`EXIT` constructs. Same error conditions and search results. |
+!> @endhistory
    SUBROUTINE VSIN ()
-   !----------------------------------------------------------------------*
-   ! Controls initialisation of VSS component data
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSIN/4.1
-   ! Modifications:
-   !  GP  20.07.94  written (v4.0 finished 21/10/96)
-   ! RAH  970122  4.1  No long/leading comments or lower-case code.
-   !                   Amend externals list.  Extend VSFUNC argument list.
-   !      970512       Swap IVSSTO & VSKR indices (VSCOM1.INC), and scrap
-   !                   local arrays ICSDUM & CKRDUM.  Similarly, swap
-   !                   DELTAZ, ZVSNOD & VSPSI (AL.C), and scrap CPSDUM.
-   !                   Scrap outputs VSETAN & VSKRN (VSCOM1.INC).
-   !                   Rationalize loops 800 & 950, and initialize.
-   !                   Generic intrinsics.  Use ISTART more.  Order labels.
-   !      970522       NWELTP default 1.
-   !                   Use GOTO for errors; fix error in message 1041.
-   !      970630       Bring NAQCON,IAQCON from VSINIT.INC; swap indices;
-   !                   pass to VSREAD,VSCONL.  Use format 9010 for 9020.
-   !                   Replace NGDBGN with NLF+1.
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NVSEE, total_no_elements, total_no_links, top_cell_no, BEXBK,
@@ -2054,7 +2553,9 @@ CONTAINS
 
    CONTAINS
 
-      ! Internal subroutine to handle fatal data initialisation failures cleanly
+      !> Reports the accumulated VSS data-reading/initialisation error count
+      !> and stops via fatal error 1040. Replaces the legacy `GOTO 8900` exit
+      !> from [[vsin]].
       SUBROUTINE ABORT_VSIN()
          WRITE (MSG, 9030) NVSERR
          CALL ERROR(FFFATAL, 1040, PPPRI, 0, 0, MSG)
@@ -2067,33 +2568,87 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSINTC
+!> Adds inter-column exchange coefficients to the column system.
+!>
+!> `VSINTC` assembles the base tridiagonal system for one VSS column before
+!> [[vscolm]] adds upper, lower, well, spring, lateral-boundary, and
+!> stream-aquifer terms. It combines storage, vertical inter-cell flow, internal
+!> lateral exchange to already known neighbour heads, and existing source/sink
+!> terms `CQ`.
+!>
+!> Required entry conditions are `1 <= ICBOT <= ICTOP <= LLEE` and `DT > 0`. In
+!> addition, for every face `j` with `JELDUM(j) > 0` and `JCBC(j) /= 9`, and
+!> every cell `i` with `JCACN(j,i) /= 0`, both `k = JCACN(j,i)` and
+!> `k1 = k + JCDEL1(k,j)` must lie in `1:LLEE`.
+!> For any face with a regular neighbour (`JELDUM(j)>0`) that is not handled as
+!> stream-aquifer interaction (`JCBC(j) /= 9`), each non-zero `JCACN(j,i)` must
+!> point to a valid neighbour cell `k`, and `k1 = k + JCDEL1(k,j)` must also be
+!> valid. The neighbour heads and conductances supplied by [[vssim]] and
+!> [[vscoef]] are assumed to be consistent with those indices.
+!>
+!> The scheme is currently fully implicit (`SIGMA = 1`). Effective hydraulic
+!> head is formed as
+!>
+!> \[
+!>   H_i = \sigma\psi_i + (1-\sigma)\psi_i^n + z_i,\qquad \sigma=1.
+!> \]
+!>
+!> For each cell, the storage volume factor and linearised storage terms are
+!>
+!> \[
+!>   V_i/\Delta t = {CDELZ_i\,CA0\over DT},\qquad
+!>   G_i = CETA_i\,V_i/\Delta t,\qquad
+!>   G'_i = CDETA_i\,V_i/\Delta t .
+!> \]
+!>
+!> Using the vertical conductances `CBETM(i)` and `CBETM(i+1)` from [[vscoef]],
+!> the routine fills lower diagonal `CA`, upper diagonal `CC`, diagonal `CB`,
+!> and right-hand side `CR`. In compact form, the residual being linearised is
+!>
+!> \[
+!>   R_i =
+!>   H_{i-1}\beta_i - H_i CF_i + H_{i+1}\beta_{i+1}
+!>   -(\psi_i-\psi_i^n)G_i + CQ_i ,
+!> \]
+!>
+!> with derivative terms from `CDBETM`, `CDBTMM`, and `CDF` included in the
+!> assembled matrix.
+!>
+!> Lateral neighbour contributions are then added for regular faces:
+!>
+!> \[
+!>   CR_i \leftarrow CR_i - H_k\gamma_1 - H_{k1}\gamma_2,\qquad
+!>   CB_i \leftarrow CB_i + H_k\gamma'_1 + H_{k1}\gamma'_2,
+!> \]
+!>
+!> where `CGAM1/2` and `CDGAM1/2` are lateral conductances and derivatives from
+!> [[vscoef]]. Faces with `JCBC=9` are skipped here because [[vssai]] adds those
+!> stream-aquifer terms separately. Faces with `JCBC=10` are not skipped by this
+!> routine; any non-zero `JCACN` entries still contribute regular lateral terms,
+!> and [[vssai]] then adds the stream-aquifer contribution.
+!>
+!> @note
+!> `CQ` is already premultiplied by the cell volume factor in [[vssim]], as of
+!> the 1997-05-14 change recorded below. This routine treats it as an assembled
+!> residual/source term, not as a flux density to be scaled again.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-20 | GP | 4.0 | Written; version 4.0 completed 1995-06-22. |
+!> | 1997-01-20 | RAH | 4.1 | Rewritten to use fewer operations and to stop overwriting the input arrays. |
+!> | 1997-01-26 | RAH | 4.1 | Dispensed with the inputs `IEL`, `CB*P`, `CD*P`, `CDFM`, and `C*G`; passed data through arguments instead of `COMMON`. |
+!> | 1997-02-03 | RAH | 4.1 | Replaced input `CV` with `CA0` and `CDELZ`. |
+!> | 1997-02-10 | RAH | 4.1 | Made the input `SIGMA` a local. |
+!> | 1997-05-14 | RAH | 4.1 | `CQ` is now pre-multiplied by `CA0*CDELZ` by the caller (see [[vssim]]); swapped the `JCACN` indices. |
+!> | 2026-04-06/07 | SvB | 4.6 | Rewrote the lateral-terms `GOTO`-skip logic as `CYCLE` on named loops; added the `PURE` attribute (the routine performs no I/O and modifies only its `INTENT(OUT)` dummy arguments). No change to the assembled coefficients. |
+!> @endhistory
    PURE SUBROUTINE VSINTC (LLEE, ICBOT, ICTOP, JELDUM, JCBC, JCACN, &
          JCDEL1, CA0, CDELZ, CZ, CZ1, DT, CETA, CDETA, CQ, CPSI, CPSIN, CF, &
          CDF, CBETM, CDBETM, CDBTMM, CPSI1, CPSIN1, CGAM1, CGAM2, CDGAM1, &
          CDGAM2, CA, CB, CC, CR, H)
-      !----------------------------------------------------------------------*
-      ! Sets up coefficients for column internal cells
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/VSS/VSINTC/4.1
-      ! Modifications:
-      !  GP  20.08.94  written (v4.0 finished 22.06.95)
-      ! RAH  970120  4.1  Rewrite with fewer operations, and without
-      !                   overwriting input arrays.
-      !      970126       Dispense with input IEL,CB*P,CD*P,CDFM,C*G.
-      !                   Use arguments, not COMMON.
-      !      970203       Replace input CV with CA0,CDELZ.
-      !      970210       Make input SIGMA local.
-      !      970514       CQ is now pre-multiplied by CA0*CDELZ (see VSSIM).
-      !                   Swap JCACN indices.
-      !----------------------------------------------------------------------*
-      ! Entry conditions:
-      ! 1 <= ICBOT <= ICTOP <= LLEE
-      ! 0 <  DT
-      ! for each j such that JELDUM(j)>0 and JCBC(j).ne.9:
-      !    for each i such that JCACN(j,i).ne.0: 1 <= k, k1 <= LLEE
-      !    where k=JCACN(j,i) and k1=k+JCDEL1(k,j)
-      !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! zero
@@ -2101,24 +2656,43 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: LLEE, ICBOT, ICTOP, JELDUM (4), JCBC (4)
-      INTEGER, INTENT(IN) :: JCACN (4, ICBOT:ICTOP), JCDEL1 (LLEE, 4)
-      DOUBLE PRECISION, INTENT(IN) :: CA0, CZ1 (LLEE, 4)
-      DOUBLE PRECISION, INTENT(IN) :: CDELZ (ICBOT:ICTOP), CZ (ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CETA (ICBOT:ICTOP), DT, CDETA (ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CPSI (ICBOT:ICTOP), CPSIN (ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CF (ICBOT:ICTOP), CDF (ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CQ (ICBOT:ICTOP), CBETM (ICBOT:ICTOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: CDBETM (ICBOT:ICTOP + 1), CDBTMM (ICBOT:ICTOP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: CPSI1 (LLEE, 4), CPSIN1 (LLEE, 4), CGAM1 (LLEE, 4)
-      DOUBLE PRECISION, INTENT(IN) :: CDGAM1 (LLEE, 4), CDGAM2 (LLEE, 4), CGAM2 (LLEE, 4)
+      INTEGER, INTENT(IN) :: LLEE                  !! Declared cell dimension for neighbour arrays.
+      INTEGER, INTENT(IN) :: ICBOT                 !! Bottom active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICTOP                 !! Top active VSS cell in the column.
+      INTEGER, INTENT(IN) :: JELDUM(4)             !! Adjacent element id by face; values below 1 disable regular lateral coupling.
+      INTEGER, INTENT(IN) :: JCBC(4)               !! Boundary type by face; type 9 is skipped here.
+      INTEGER, INTENT(IN) :: JCACN(4,ICBOT:ICTOP)  !! Adjacent-cell index by face and active cell.
+      INTEGER, INTENT(IN) :: JCDEL1(LLEE,4)        !! Neighbour-column split offset used for second connected cells.
+      DOUBLE PRECISION, INTENT(IN) :: CA0           !! Plan area of the current element.
+      DOUBLE PRECISION, INTENT(IN) :: CZ1(LLEE,4)   !! Adjacent-cell node elevations by cell and face.
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICBOT:ICTOP) !! Active-cell thicknesses.
+      DOUBLE PRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP) !! Active-cell node elevations.
+      DOUBLE PRECISION, INTENT(IN) :: CETA(ICBOT:ICTOP) !! Storage coefficient by active cell.
+      DOUBLE PRECISION, INTENT(IN) :: DT            !! Timestep length.
+      DOUBLE PRECISION, INTENT(IN) :: CDETA(ICBOT:ICTOP) !! Derivative of storage coefficient by active cell.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Current pressure heads.
+      DOUBLE PRECISION, INTENT(IN) :: CPSIN(ICBOT:ICTOP) !! Previous-timestep pressure heads.
+      DOUBLE PRECISION, INTENT(IN) :: CF(ICBOT:ICTOP) !! Internal conductance contribution to the diagonal.
+      DOUBLE PRECISION, INTENT(IN) :: CDF(ICBOT:ICTOP) !! Derivative of `CF` with respect to pressure head.
+      DOUBLE PRECISION, INTENT(IN) :: CQ(ICBOT:ICTOP) !! Assembled cell source/sink terms.
+      DOUBLE PRECISION, INTENT(IN) :: CBETM(ICBOT:ICTOP+1) !! Vertical inter-cell conductance below each active cell.
+      DOUBLE PRECISION, INTENT(IN) :: CDBETM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the lower cell.
+      DOUBLE PRECISION, INTENT(IN) :: CDBTMM(ICBOT:ICTOP+1) !! Derivative of `CBETM` with respect to the upper cell.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI1(LLEE,4) !! Adjacent current pressure heads by cell and face.
+      DOUBLE PRECISION, INTENT(IN) :: CPSIN1(LLEE,4) !! Adjacent previous-timestep pressure heads by cell and face.
+      DOUBLE PRECISION, INTENT(IN) :: CGAM1(LLEE,4) !! Primary lateral coupling conductance.
+      DOUBLE PRECISION, INTENT(IN) :: CDGAM1(LLEE,4) !! Derivative of `CGAM1` with respect to local pressure head.
+      DOUBLE PRECISION, INTENT(IN) :: CDGAM2(LLEE,4) !! Derivative of `CGAM2` with respect to local pressure head.
+      DOUBLE PRECISION, INTENT(IN) :: CGAM2(LLEE,4) !! Secondary split-cell lateral coupling conductance.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CA (ICBOT:ICTOP), CB (ICBOT:ICTOP), CC (ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(OUT) :: CR (ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CA(ICBOT:ICTOP) !! Lower diagonal for the tridiagonal column system.
+      DOUBLE PRECISION, INTENT(OUT) :: CB(ICBOT:ICTOP) !! Diagonal for the tridiagonal column system.
+      DOUBLE PRECISION, INTENT(OUT) :: CC(ICBOT:ICTOP) !! Upper diagonal for the tridiagonal column system.
+      DOUBLE PRECISION, INTENT(OUT) :: CR(ICBOT:ICTOP) !! Right-hand side for the tridiagonal column system.
 
       ! Workspace arguments
-      DOUBLE PRECISION, INTENT(OUT) :: H (ICBOT - 1:ICTOP + 1)
+      DOUBLE PRECISION, INTENT(OUT) :: H(ICBOT - 1:ICTOP + 1) !! Workspace for effective hydraulic heads.
 
       ! Locals
       DOUBLE PRECISION, PARAMETER :: SIGMA = 1.0D0, OMSIG = 1.0D0 - SIGMA
@@ -2189,33 +2763,83 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSLOWR (JCBC, CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, &
+!> Adds lower boundary-condition terms to the bottom VSS cell.
+!>
+!> `VSLOWR` applies the manual bottom boundary categories (`VS17`/`VS18`) to the
+!> bottom cell of the column matrix assembled by [[vscolm]]. The required entry
+!> condition is `CDELZ > 0`.
+!>
+!> Implemented behaviour is:
+!>
+!> | `JCBC` | Manual boundary type | Code behaviour |
+!> |:-------|:---------------------|:---------------|
+!> | 6 | prescribed column-base flow | Uses `CBF` directly. |
+!> | 7 | prescribed column-base head | Applies a conductance term to head `CBH`. |
+!> | 8 | free drainage | Currently falls through to zero lower-boundary flux. |
+!> | other | no-flow/default | Zero lower-boundary flux. |
+!>
+!> For prescribed flow,
+!>
+!> \[
+!>   q_b = CBF,\qquad {dq_b\over d\psi}=0.
+!> \]
+!>
+!> For prescribed head, with bottom cell centre elevation `CZ`, pressure head
+!> `CPSI`, saturated vertical conductivity `CKZS`, relative conductivity `CKR`,
+!> and derivative `CDKR`,
+!>
+!> \[
+!>   \Delta h = CBH - CZ - CPSI,\qquad
+!>   K_{\Delta z} = {CKZS\over 0.5\,CDELZ},
+!> \]
+!>
+!> \[
+!>   q_b = K_{\Delta z}CKR\,\Delta h,\qquad
+!>   {dq_b\over d\psi} = K_{\Delta z}(CDKR\,\Delta h - CKR).
+!> \]
+!>
+!> The diagnostic/output lower flux is `CQV = q_b`. The linearised contribution
+!> is inserted into the bottom-cell equation as
+!>
+!> \[
+!>   CB \leftarrow CB + CA0\,{dq_b\over d\psi},\qquad
+!>   CR \leftarrow CR - CA0\,q_b .
+!> \]
+!>
+!> @note
+!> None of this routine's dummy arguments carry an `INTENT` attribute in the
+!> current declarations, unlike most other routines in this module.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written. |
+!> | 1997-01-20 | RAH | 4.1 | Removed leading comments and lower-case code; combined `IF`-blocks; introduced the local `CQVDUM`. |
+!> | 1997-01-31 | RAH | 4.1 | Passed data through arguments instead of `INCLUDE` blocks; declared `CDQDUM` as `DBLE` rather than `DOUBLEPRECISION`. |
+!> @endhistory
    SUBROUTINE VSLOWR (JCBC, CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, &
       CKR, CDKR, CB, CR, CQV)
 !
-!----------------------------------------------------------------------*
-! Sets up coefficients for column lower boundary condition
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSLOWR/4.1
-! Modifications:
-!  GP  22.08.94  written
-! RAH  970120  4.1  No leading comments.  No lower-case code.
-!                   Combine IF-blocks.  Use local CQVDUM.
-!      970131       Use arguments, not INCLUDE.  CDQDUM DBLE, not DOUBLEPRECISION.
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 0 < CDELZ
-!----------------------------------------------------------------------*
-!
 ! Input arguments
-      INTEGER :: JCBC
-      DOUBLEPRECISION CA0, CZ, CDELZ, CKZS, CBF, CBH, CPSI, CKR, CDKR
+      INTEGER :: JCBC           !! Bottom boundary type: 6 flow, 7 head, otherwise no-flow/free-drainage fallback.
+      DOUBLEPRECISION :: CA0    !! Plan area of the current element.
+      DOUBLEPRECISION :: CZ     !! Bottom-cell node elevation.
+      DOUBLEPRECISION :: CDELZ  !! Bottom-cell thickness.
+      DOUBLEPRECISION :: CKZS   !! Saturated vertical hydraulic conductivity for the bottom-cell soil.
+      DOUBLEPRECISION :: CBF    !! Prescribed bottom-flow boundary value.
+      DOUBLEPRECISION :: CBH    !! Prescribed bottom-head boundary value.
+      DOUBLEPRECISION :: CPSI   !! Bottom-cell pressure head.
+      DOUBLEPRECISION :: CKR    !! Bottom-cell relative hydraulic conductivity.
+      DOUBLEPRECISION :: CDKR   !! Derivative of `CKR` with respect to pressure head.
 !
 ! In+out arguments
-      DOUBLEPRECISION CB, CR
+      DOUBLEPRECISION :: CB  !! Bottom-cell matrix diagonal term.
+      DOUBLEPRECISION :: CR  !! Bottom-cell right-hand side term.
 !
 ! Output arguments
-      DOUBLEPRECISION CQV
+      DOUBLEPRECISION :: CQV   !! Bottom vertical boundary flux.
 !
 ! Locals, etc
       DOUBLEPRECISION CDQDUM, CQVDUM, DH, KSODZ
@@ -2249,25 +2873,65 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSMB (VSTHEN)
+!> Applies a post-solve mass-balance correction to VSS flux arrays.
+!>
+!> `VSMB` adjusts reported lateral VSS fluxes after [[vssim]] has solved the
+!> pressure-head and water-content fields. It uses the previous water contents
+!> `VSTHEN`, current `VSTHE`, vertical fluxes `QVSV`, lateral fluxes `QVSH`,
+!> root extraction `ERUZ`, soil evaporation `ESOILA`, well fluxes `QVSWLI`,
+!> cell volumes (`AREA*DELTAZ`), and timestep `DTUZ` to reduce residual
+!> cell-scale mass-balance error.
+!>
+!> The correction is applied only to selected lateral faces:
+!>
+!> | Element type from `ICMREF(iel,1)` | Faces adjusted |
+!> |:----------------------------------|:---------------|
+!> | grid (`0`) | none |
+!> | bank (`1` or `2`) | the outer face adjacent to a grid element, if present |
+!> | link/other | the two bank-facing side faces, selected using `LINKNS` |
+!>
+!> For each adjusted cell, the residual volume rate is assembled as
+!>
+!> \[
+!>   E =
+!>   AREA\left[
+!>     -QVSV_{c-1}+QVSV_c+ERUZ_c
+!>     + {\Delta z_c(VSTHE_c-VSTHEN_c)\over DTUZ}
+!>     + QVSWLI_c + ESOILA_{top}
+!>   \right]
+!>   - \sum_{f=1}^4 QVSH_{f,c}.
+!> \]
+!>
+!> Well flux is included only when `NVSWLI(iel)>0`, and `ESOILA` is included
+!> only for the top cell. If the sum of the selected adjustable lateral fluxes
+!> is non-zero,
+!>
+!> \[
+!>   QVSH_{f,c} \leftarrow QVSH_{f,c}
+!>   \left(1 + {E\over\sum_{adjusted}QVSH_{f,c}}\right)
+!> \]
+!>
+!> for each selected face. The corrected flux is then copied to the adjacent
+!> element with opposite sign using `JVSACN`/`ICMREF`, so paired cells report
+!> equal and opposite exchange.
+!>
+!> @warning The split-cell branch is not implemented. If `JVSDEL` indicates a
+!> split-cell lateral connection, the routine stops immediately with
+!> `UNFINISHED CODE FOR SPLIT CELLS IN SUBROUTINE VSMB`.
+!> @endwarning
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1995-03-08 | GP | 4.0 | Written; version 4.0 completed 1996-07-17. |
+!> | 1996-12-28 | RAH | 4.1 | Removed the variable `ILINK` and the leading comments. |
+!> | 1997-01-18 | RAH | 4.1 | Swapped the `JVSACN`, `QVSV`, `QVSWLI`, and `VSTHE` subscripts, fixing an error in the `QVSWLI` index (use `IW`, not `IEL`); removed temporary code that set `VSSTMP`; made locals `DBLE`; stopped including `VSCOM1.INC`. |
+!> | 1997-02-14 | RAH | 4.1 | Reversed the `DELTAZ` and `QVSH` indices; declared `JCL` and `JFA`; moved `VSTHEN` from `VSCOM1.INC` into the argument list, reversing its subscripts. |
+!> | 1997-05-09 | RAH | 4.1 | Scrapped the output `QVSBF` (now set in [[vssim]]); put labels in order; removed the redundant local `BDONE`; added a trap for non-zero `JVSDEL`. |
+!> | 2026-04-06/07 | SvB | 4.6 | Replaced the `GOTO`-driven `iscycle` deferred-stop flag with an immediate `STOP` at the point the split-cell condition is detected. Both versions terminate the run on the same condition; the current version does so without first finishing the remaining bookkeeping for the current/later elements. |
+!> @endhistory
    SUBROUTINE VSMB (VSTHEN)
-   !
-   !----------------------------------------------------------------------*
-   ! Updates flows to ensure mass conservation
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSMB/4.1
-   ! Modifications:
-   !  GP  08.03.95  written (v4.0 finished 17.07.96)
-   ! RAH  961228  4.1  Remove variable ILINK.  No leading comments.
-   !      970214       Reverse DELTAZ,QVSH indices (AL.C). Declare JCL,JFA.
-   !                   mv VSTHEN from VSCOM1.INC to arg list, reverse subs.
-   !      970118       Swap subscripts: JVSACN,QVSV,QVSWLI,VSTHE (AL.C);
-   !                   also fix error in QVSWLI index: use IW not IEL.
-   !                   Remove temporary code (to set VSSTMP).  DBLE locals.
-   !                   Don't include VSCOM1.INC.
-   !      970509       Scrap output QVSBF (set in VSSIM).  Order labels.
-   !                   Remove redundant local BDONE.  Trap JVSDEL.ne.0.
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, total_no_elements, ICMREF, LINKNS, NVSWLI, cellarea, top_cell_no,
@@ -2277,7 +2941,7 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      DOUBLE PRECISION, INTENT(IN) :: VSTHEN (LLEE, total_no_elements)
+      DOUBLE PRECISION, INTENT(IN) :: VSTHEN(LLEE,total_no_elements) !! Previous-timestep water content by cell and element.
 
       ! Locals
       INTEGER :: NFACES, IFACES (4)
@@ -2389,21 +3053,64 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSPREP
+!> Reads and interpolates time-varying VSS boundary-condition series.
+!>
+!> `VSPREP` is the timestep preparatory reader for the VSS boundary data files
+!> described in the manual's time-varying boundary-condition section. Flow
+!> files are processed with `FINPUT`, which returns the timestep-averaged value
+!> for a piecewise-constant input series,
+!> \[
+!>   \bar q(t_n,t_{n+1}) =
+!>   {1 \over \Delta t}\int_{t_n}^{t_{n+1}} q_b(t)\,dt ,
+!> \]
+!> while head files are processed with `HINPUT`, which linearly interpolates the
+!> breakpoint series to the current computational time,
+!> \[
+!>   h(t) = h_i + {t-t_i \over t_{i+1}-t_i}\,(h_{i+1}-h_i).
+!> \]
+!>
+!> Boundary categories and selected-layer counts are defined by [[vsread]] from
+!> `VS11` and `VS16`; this routine expands the compact time-series values back
+!> into the category/layer arrays used by [[vsbc]], [[vslowr]], and [[vscolm]].
+!>
+!> | File/unit | Data represented | Count used | Output array |
+!> |:----------|:-----------------|:-----------|:-------------|
+!> | `WLD` | pumping-well abstraction, m3/s | `NVSWL` | `WLNOW` |
+!> | `LFB` | lateral subsurface flow, m3/s | `NVSLFT` | `RLFNOW` |
+!> | `LHB` | lateral subsurface head, m above datum | `NVSLHT` | `RLHNOW` |
+!> | `LGB` | lateral head-gradient boundary | `NVSLGT` | `RLGNOW` |
+!> | `BFB` | bottom flow boundary, m/s | `NVSBF` | `RBFNOW` |
+!> | `BHB` | bottom head boundary, m above datum | `NVSBH` | `RBHNOW` |
+!>
+!> If a boundary file reaches its missing/end marker before the required model
+!> time, `EQMARKER` triggers a fatal `ERROR` call (`1042`-`1046` or `1052`) so
+!> the solver cannot continue with stale boundary conditions.
+!>
+!> @note
+!> Lateral head-gradient data (`LGB`/`RLGNOW`) are still read and interpolated
+!> when `NVSLG > 0`, but the downstream `JCBC=5` implementation in [[vsbc]]
+!> only prints an unfinished-code message and does not apply those values to the
+!> matrix.
+!> @endnote
+!>
+!> @note
+!> The saved interpolation state (`WLLAST`, `WLTIME`, `RWELIN`, and similar
+!> `RL*`/`RB*` arrays for each boundary category) lives in module-level storage
+!> declared near the top of `VSmod`, rather than as `SAVE` locals of this
+!> routine.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-29 | GP | 4.0 | Written; version 4.0 completed 1995-05-03. |
+!> | 1996-12-28 | RAH | 4.1 | Removed the variables `IEL` and `ICL` and the leading comments; declared `ERROR` external; removed lower-case code; used `SAVE` instead of an ineffectual `COMMON`. |
+!> | 1997-02-13 | RAH | 4.1 | Reversed the `RLFNOW`, `RLHNOW`, and `RLGNOW` subscripts (see [[vssim]]). |
+!> | 1997-05-22 | RAH | 4.1 | Initialised the saved locals. |
+!> | 2026-04-03 | SvB | 4.6 | Moved the saved interpolation state out of routine `SAVE` locals into module-level storage, so it survives independently of this routine's declarations. |
+!> @endhistory
    SUBROUTINE VSPREP()
-   !----------------------------------------------------------------------*
-   ! Prepares catchment, and controls reading of time-varying boundary
-   ! conditions
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSPREP/4.1
-   ! Modifications:
-   !  GP  29.07.94  written (v4.0 finished 3/5/95)
-   ! RAH  961228  4.1  Remove variables IEL,ICL.  No leading comments.
-   !                   Declare ERROR external.  No lower-case code.
-   !                   Use SAVE instead of ineffectual COMMON.
-   !      970213       Reverse subscripts RLFNOW,RLHNOW,RLGNOW (see VSSIM).
-   !      970522       Initialize saved locals.
-   !----------------------------------------------------------------------*
 
       ! Assumed global variables provided via host module(s):
       ! NVSEE, NVSWL, WLD, TIH, UZNOW, UZNEXT, WLNOW
@@ -2539,23 +3246,87 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSREAD (NAQCON, IAQCON)
+!> Reads static VSS data from the subsurface input file.
+!>
+!> `VSREAD` reads the manual `VSD` groups `VS01`-`VS18` and populates the module
+!> state used by [[vsconl]], [[vsconc]], [[vssoil]], [[vsin]], and the timestep
+!> solver. The routine uses `ALREAD` for labelled blocks and increments
+!> `NVSERR` or raises fatal errors when required layer/table data are
+!> inconsistent.
+!>
+!> Main input groups and destinations:
+!>
+!> | Group | Data read | Main arrays/variables filled |
+!> |:------|:----------|:-----------------------------|
+!> | `VS01` | VSD title | Printed to `PPPRI`. |
+!> | `VS02` | logical flags | `BFAST`, `BSOILP`, `BHELEV`. |
+!> | `VS03` | counts and initialisation type | `NS`, `NCSZON`, `NCRBED`, `INITYP`. |
+!> | `VS04` | initial phreatic depth and mesh/averaging controls | `VSIPSD`, `VSZMIN`, `VSZMAX`, `VSWV`, `VSWL`. |
+!> | `VS05`, `VS05a` | soil/lithology hydraulic parameters and optional tables | `IVSFLG`, `IVSNTB`, `VSK3D`, `VSPOR`, `VSTRES`, `VSPSS`, `VSVGN`, `VSALPH`, `TBPSI`, `TBTHE`, `TBKR`, spline coefficients. |
+!> | `VS06`, `VS07` | soil-zone and river-bed cell depths | `DCSZON`, `DCSTOT`, `DCRBED`, `DCRTOT` and helper node-depth arrays. |
+!> | `VS08`-`VS08d` | aquifer-zone layer categories, grids, and individual elements | `NLYR`, `NTSOIL`, `ZLYRBT` for grids, banks, and links. |
+!> | `VS09`, `VS09a` | river-bed soil type and depth | `ISRBED`, `DRBED`, link bed layers. |
+!> | `VS10`, `VS10a` | user-defined aquifer connectivity | `NAQCON`, `IAQCON` for [[vsconl]]. |
+!> | `VS11` | boundary category counts | `NVSWL`, `NVSSP`, `NVSLF`, `NVSLH`, `NVSLG`, `NVSBF`, `NVSBH`, `NVSBD`. |
+!> | `VS12`-`VS13b` | wells and springs | `NVSWLI`, `NVSWLC`, `NVSWLT`, `VSZWLB`, `VSZWLT`, `NVSSPT`, `VSSPD`, `VSSPZ`, `VSSPCO`. |
+!> | `VS14`-`VS16b` | lateral boundary type/category grids and selected-layer lists | `NLBTYP`, `NLBCAT`, `NVSLFN/HN/GN`, `NVSLFL/HL/GL`, `NVSLFT/HT/GT`. |
+!> | `VS17`, `VS18` | bottom boundary type/category grids | `NBBTYP`, `NBBCAT`. |
+!>
+!> Conductivities from `VS05` are converted from m/day to m/s for the solver.
+!> `VSZMAX` from `VS04` is stored as the input value plus `1.0e-6`, matching
+!> the legacy tolerance used when deciding aquifer-zone cell subdivisions.
+!> For tabulated soil options (`IVSFLG = 2` or `4`), the routine reads
+!> \(\psi\), \(\theta\), and \(K_r\) tables and builds natural cubic-spline
+!> second-derivative coefficients in log10(-\(\psi\)) space. For `IVSFLG = 4`,
+!> the manual says entered `K_r` values are not used, but the table still has to
+!> be present for input compatibility.
+!>
+!> Layer category data are expanded to element arrays. Category grids may cover
+!> links and grid elements; individual `VS08d` records fill elements whose
+!> category is zero. Soil-zone and river-bed layer boundaries are snapped to the
+!> computational cell-depth sequences so later cell construction in [[vsconc]]
+!> is consistent with `DCSZON` and `DCRBED`.
+!>
+!> `VS13` itself is treated as a dummy record in this implementation: the number
+!> of spring records read from `VS13a`/`VS13b` is `NVSSP` from `VS11`. For `VS16`
+!> selected-layer boundary categories, a category with `NLDUM` selected layers
+!> contributes `NLDUM` time-series values, while an unlisted category contributes
+!> one full-column value; this is why `NVSLFT`, `NVSLHT`, and `NVSLGT` start at
+!> their category counts and add `NLDUM - 1` for each selected-layer record.
+!>
+!> On exit, for each element `e = 1:NEL`, the boundary type arrays are
+!> non-negative and the boundary category arrays have valid defaults:
+!>
+!> | Array | Exit condition |
+!> |:------|:---------------|
+!> | `NLBTYP(e)` | `0 <= NLBTYP(e)` |
+!> | `NBBTYP(e)` | `0 <= NBBTYP(e)` |
+!> | `NLBCAT(e)` | `1 <= NLBCAT(e)` |
+!> | `NBBCAT(e)` | `1 <= NBBCAT(e)` |
+!> | `NVSWLC(e)` | `1 <= NVSWLC(e)` |
+!>
+!> @note
+!> The category/layer work buffers (`IVSDUM_VSREAD`, `IVSCAT_VSREAD`,
+!> `ISDUM_VSREAD`, `RVSDUM_VSREAD`, `RSDUM_VSREAD`, `BDONE_VSREAD`) are
+!> allocated once in module state by [[initialise_vsread_buffers]], called at
+!> the start of every `VSREAD` entry, rather than being routine-local arrays as
+!> in the historical `.F`-era implementation; see the module-level history for
+!> why.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-20 | GP | 4.0 | Written; version 4.0 completed 1996-01-31. |
+!> | 1997-02-13 | RAH | 4.1 | Initialised `NLBTYP`, `NLBCAT`, `NVSWLC`, `NBBTYP`, and `NBBCAT`; reversed the `NVSLFL`, `NVSLHL`, and `NVSLGL` subscripts (see [[vssim]]). |
+!> | 1997-05-22 | RAH | 4.1 | Initialised `NVSWLI`; fixed errors: used `TBKR` rather than `TBTHE` in loop 21 (`IVSFLG=2`), and added `-1` to `NVSLHT` and `NVSLGT`. |
+!> | 1997-06-30 | RAH | 4.1 | Brought `NAQCON`/`IAQCON` from `VSINIT.INC` into the argument list and swapped their indices, fixing an error in the `ALREAD` call; restricted the `VS08b` `ALREAD` call to `NLF > 0`. |
+!> | 1997-08-05 | RAH | 4.1 | Ensured `NLBCAT`, `NBBCAT`, and `NVSWLC` are all at least 1. |
+!> | 2026-04-06/07 | SvB | 4.6 | Rewrote the labelled `GOTO`-driven "find first free layer slot" and "count link-bed layers" searches (both duplicated for category and per-element data) as `DO WHILE` loops with `CYCLE`d element-skip logic. Same search results. |
+!> | 2026-05-03 | SvB | 4.6 | Moved `IVSDUM`, `IVSCAT`, `ISDUM`, `RVSDUM`, `RSDUM`, and `BDONE` from routine-local arrays into allocatable module state (`*_VSREAD`), allocated by [[initialise_vsread_buffers]], to fix a stack-related crash from their combined size. |
+!> @endhistory
    SUBROUTINE VSREAD (NAQCON, IAQCON)
-   !----------------------------------------------------------------------*
-   ! Reads in all data from VSS input data file
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSREAD/4.1
-   ! Modifications:
-   !  GP  20.07.94  written (v4.0 finished 31/1/96)
-   ! RAH  970213  4.1  Initialize NLBTYP,NLBCAT,NVSWLC,NBBTYP,NBBCAT.
-   !                   Reverse subscripts NVSLFL,NVSLHL,NVSLGL (see VSSIM).
-   !      970522       Initialize NVSWLI.  Fix errors: use TBKR not TBTHE
-   !                   in loop 21 (IVSFLG=2); add -1 to NVSLHT & NVSLGT.
-   !      970630       Bring NAQCON,IAQCON from VSINIT.INC to arg-list, &
-   !                   swap indices to fix error in ALREAD call.
-   !                   Fix ALREAD call VS08b: only if NLF>0.
-   !      970805       Ensure {NLBCAT,NBBCAT,NVSWLC}.ge.1.
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NELEE, NLYREE, NSEE, NVSEE, total_no_elements, NVSWLI, NLBTYP,
@@ -2572,8 +3343,8 @@ CONTAINS
       IMPLICIT NONE
 
       ! Arguments
-      INTEGER, INTENT(INOUT) :: NAQCON
-      INTEGER, INTENT(INOUT) :: IAQCON(4, NVSEE)
+      INTEGER, INTENT(INOUT) :: NAQCON       !! Number of user-defined aquifer connectivity records read from `VS10`.
+      INTEGER, INTENT(INOUT) :: IAQCON(4, NVSEE) !! User-defined aquifer connectivity records read from `VS10a`.
 
       ! Locals
       INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, IXY0, IY
@@ -3196,42 +3967,89 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSSAI
+!> Adds stream-aquifer interaction terms to the column system.
+!>
+!> `VSSAI` applies the channel-aquifer exchange correction (added 1998-11 by
+!> SPA) for boundary types `JCBC = 9` (no explicit banks) and `JCBC = 10`
+!> (explicit banks) on one face of the column assembled by [[vscolm]]. Entry
+!> conditions are `1 <= FACE <= 4`, `ICBOT <= ICBED+1, ICTOP`, and `CDELL > 0`.
+!>
+!> The lowest affected cell is `ICBOT` for `JCBC = 9` (the stream bed is
+!> effectively at the base of the land element) or `ICBED+1` for `JCBC = 10`
+!> (interaction starts above the explicit river-bed cell). For each affected
+!> cell,
+!>
+!> \[
+!>   \Delta h = CZS - CZ_c - CPSI_c .
+!> \]
+!>
+!> The channel-to-aquifer contact area is limited when the channel water depth
+!> is low or the cell would otherwise be losing water to a shallow channel:
+!>
+!> \[
+!>   f =
+!>   \begin{cases}
+!>     \min(1,\;depadj/CDELZ_c), & \Delta h > 0,\\
+!>     1, & \text{otherwise},
+!>   \end{cases}
+!>   \qquad A/L = {f\,CAIJ(FACE,c)\over CDELL}.
+!> \]
+!>
+!> The exchange flux and its derivative are
+!>
+!> \[
+!>   Q_c = CKIJ_c\,\Delta h\,(A/L),\qquad
+!>   {dQ_c\over d\psi_c} = -CKIJ_c\,(A/L).
+!> \]
+!>
+!> `CQH(FACE,c)` stores the diagnostic flux, and the linearised term is added
+!> as `CB(c) += dQ_c/d\psi_c` and `CR(c) -= Q_c`.
+!>
+!> @note
+!> `CDKIJ` is a dummy argument but not used in the current formula: the
+!> derivative term omits the `CDKIJ*DH` contribution used in the original 1994
+!> formula, matching the 1998-11 SPA revision noted in the header comments.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written; version 4.0 completed 1996-01-15. |
+!> | 1997-01-21 | RAH | 4.1 | Declared `IDUM` as `INTEGER` rather than `DOUBLEPRECISION`; introduced `AOL`, `DH`, and `KIJ` to reduce the number of operations. |
+!> | 1997-02-03 | RAH | 4.1 | Passed data through arguments instead of `INCLUDE` blocks; added explanatory comments. |
+!> | 1997-02-11 | RAH | 4.1 | Removed the outputs `CQBKB` and `CQBKF` (now handled in [[vssim]]). |
+!> | 1997-05-14 | RAH | 4.1 | Added the argument `FACE` and a leading dimension to `CAIJ` and `CQH`. |
+!> | 1998-11-03 | SPA | - | Added the `depadj` channel-depth contact-area limit and changed the derivative definition to the current form. |
+!> | 2026-04-06/07 | SvB | 4.6 | Added the `PURE` attribute; no other change. |
+!> @endhistory
    PURE SUBROUTINE VSSAI(FACE, JCBC, ICBOT, ICTOP, ICBED, CDELL, CZ, &
                          CAIJ, CZS, CPSI, CKIJ, CDKIJ, CB, CR, CQH, depadj, cdelz)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column stream-aquifer interaction
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSSAI/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 15.01.96)
-   ! RAH  970121  4.1  IDUM is INTEGER not DOUBLEPRECISION.
-   !                   Use AOL,DH,KIJ to reduce number of operations.
-   !      970203       Use arguments, not INCLUDE.  Add some comments.
-   !      970211       Remove outputs CQBKB,CQBKF (see VSSIM).
-   !      970514       Add arg FACE & 1st dim to arrays CAIJ & CQH.
-   !      SPA, 03/11/98 depadj added
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   !     1 <= FACE <= 4
-   ! ICBOT <= ICBED+1, ICTOP
-   !     0 <  CDELL
-   !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: FACE, JCBC, ICBOT, ICTOP, ICBED
-      DOUBLE PRECISION, INTENT(IN) :: CDELL, CZS, depadj
-      DOUBLE PRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP), CPSI(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4, ICBOT:ICTOP), cdelz(ICBOT:ICTOP)
-      DOUBLE PRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP), CDKIJ(ICBOT:ICTOP)
+      INTEGER, INTENT(IN) :: FACE                      !! Boundary face number, in `1:4`.
+      INTEGER, INTENT(IN) :: JCBC                      !! Stream-aquifer boundary type, normally 9 or 10.
+      INTEGER, INTENT(IN) :: ICBOT                     !! Bottom active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICTOP                     !! Top active VSS cell in the column.
+      INTEGER, INTENT(IN) :: ICBED                     !! River-bed cell index used for bank interaction.
+      DOUBLE PRECISION, INTENT(IN) :: CDELL             !! Distance scale normal to the stream-aquifer face.
+      DOUBLE PRECISION, INTENT(IN) :: CZS               !! Adjacent channel water-surface elevation.
+      DOUBLE PRECISION, INTENT(IN) :: depadj            !! Channel-depth adjustment for contact-area limiting.
+      DOUBLE PRECISION, INTENT(IN) :: CZ(ICBOT:ICTOP)   !! Active-cell node elevations.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICBOT:ICTOP) !! Current pressure heads.
+      DOUBLE PRECISION, INTENT(IN) :: CAIJ(4, ICBOT:ICTOP) !! Face areas by face and active cell.
+      DOUBLE PRECISION, INTENT(IN) :: cdelz(ICBOT:ICTOP) !! Active-cell thicknesses used in the contact-area limit.
+      DOUBLE PRECISION, INTENT(IN) :: CKIJ(ICBOT:ICTOP) !! Lateral hydraulic conductivity terms on this face.
+      DOUBLE PRECISION, INTENT(IN) :: CDKIJ(ICBOT:ICTOP) !! Unused conductivity derivatives retained for the legacy interface.
 
       ! In+out arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP), CR(ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(INOUT) :: CB(ICBOT:ICTOP) !! Matrix diagonal terms updated by stream-aquifer exchange.
+      DOUBLE PRECISION, INTENT(INOUT) :: CR(ICBOT:ICTOP) !! Right-hand side terms updated by stream-aquifer exchange.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: CQH(4, ICBOT:ICTOP)
+      DOUBLE PRECISION, INTENT(OUT) :: CQH(4, ICBOT:ICTOP) !! Diagnostic lateral fluxes on the stream-aquifer face.
 
       ! Locals
       INTEGER :: ICL, IDUM
@@ -3278,83 +4096,127 @@ CONTAINS
 
 
 
-   !----------------------------------------------------------------------*
-   ! VSS Controlling routine for a single timestep
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSSIM/4.2
-   ! Modifications:
-   !  GP  29.07.94  written (v4.0 finished 17.07.96)
-   ! RAH  961228  4.1  Remove temporary debug code.  DPSIEL,DPSIMX >=0.
-   !                   Bring CWV,CWL from VSCOLM.INC, and pass to VSCOLM.
-   !      970207       Dispense with CNOW,CTHEN,CV,CWV,CWL,VSPOR1,VSSTMP.
-   !                   Replace CQINF with CQV(ICTOP).  Use DO 660 not GOTO.
-   !                   CQWI is redefined - see VSWELL.  asum QVSWEL locally.
-   !                   Use OK to simplify convergence test.
-   !      970210       Remove CETAN,CKRN.CPSIM,NVSCIT. Make PSIM 1D not 2D.
-   !                   Dispense with BCHELE,CA0,CPSIN,CPSL,CQSP,CZG,DT.
-   !                   Use ALINIT and DCOPY.  Bring VSPSIN,VSTHEN from
-   !                   VSCOM1.INC and reverse indices.  If JEL.le.0 set
-   !                   JCACN=0, and don't set JCDEL* or C*IJ1,CZ1,CPSI*1.
-   !                   Move CQH initialization to VSCOLM.  Move SIGMA from
-   !                   VSCOLM.INC to VSINTC.  Set ICTOP,QH,QVSBF,QBK* once.
-   !      970211       Replace CES,CDW,CEW,CQP with CDNET, bring CQ from
-   !                   VSCOLM.INC (with ICBED,ICLYRB,ICSOIL), add dim, set
-   !                   once. Scrap ICWL*,ICSP*,CZSP,CCS.Initialize QH,QVSH.
-   !      970213       VSCOLM.INC: bring JCBC,ICWCAT,ICLBCT,ICBBCT,CZS, and
-   !                   scrap CQWIN,CLF,ICLFL,ICLFN,CLH,ICLHL,ICLHN,CLG,
-   !                   ICLGL,ICLGN,CBF,CBH. Include VSSOIL.INC. rm NVSSPT,
-   !                   NVSWLT (AL.C).  JCBC: add dimension; define once.
-   !                   Swap subscripts on NVSL*L,RL*NOW (in VSCOM1.INC).
-   !      970214       Bring from VSCOLM.INC: CDELL,CDELL1,CAIJ,CAIJ1.
-   !                   Replace CAIJ with VSAIJ: set once; use for CAIJ1.
-   !                   Reverse DELTAZ,QVSH subscripts (in AL.C); pass to
-   !                   VSCOLM; scrap CDELZ,CQH.
-   !      970217       Swap subscripts: JVSACN,JVSDEL,ZVSNOD,QVSV,QVSWLI,
-   !                   VSPSI,VSTHE (see AL.C), & IVSSTO,VSKR (VSCOM1.INC)
-   !                   (also fixes error whereby ICSTOR not initialized).
-   !                   VSCOLM.INC: scrap JCACN,JCDEL,CZ,CQV,CQWI,CPSI,
-   !                   ICSTOR,CTHETA,CKR; bring remainder (CPSI1,CPSIN1,
-   !                   CZ1,CKIJ1,JCDEL1).  Add dimension to ICSOIL: set
-   !                   once; scrap CKZS,CKIJS (use VSK3D); use for CKIJ1.
-   !                   Redefine CQ: multiply by AREA*DELTAZ (see VSINTC).
-   !                   Move QVSWEL outside loop.  VSMB straight after loop.
-   !      970515       Re-order VSCOLM arguments.
-   !      970522       Don't need MAX for ICWLBT,etc.
-   !      970618       Don't call VSCOLP.  DO 285 if JEL.GE.ISTART (was 1).
-   ! RAH  980402  4.2  Pass new local ELEVEL to VSCOLM.
-   ! JE   JAN 2009      Loop restructure for AD
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   !   1 <= LLEE,  NEL,   NLFEE
-   !  LL <= LLEE;  NEL <= NELEE;  0 <= NLF <= NLFEE
-   ! for each e in 1:NEL:    LLEE >= LL =NLYRBT(e,NLYR(e)+1)
-   !     for each layer in 1:NLYR(e): 1<=NLYRBT(e,layer)<=NLYRBT(e,layer+1)
-   ! for each link in 1:NLF: for each face in 1:4:
-   !    BEXBK  ==>  1 <= ICMREF(jel,1) <= 3,  where jel=ICMREF(link,face+4)
-   ! for each e in istart:NEL: 0 <= NLBTYP(e), NBBTYP(e)
-   !                           1 <= NLBCAT(e), NBBCAT(e), NVSWLC(e)
-   !                           1 <= NWELBT(e) <= NWELTP(e) <= LLEE
-   !                           4 >= NBFACE(e)
-   !                       NVSEE >= NVSWLI(e)
-   !         NLBTYP(e)>0  ==>  0 <  NBFACE(e)
-   !                           0  = NVSWLI(e)*NVSSPC(e)
-   !     for each face in 1:4:
-   !         ICMREF(e,4+face)<istart ==> JVSACN(face,NLYRBT(e,1):LL,e) = 0,
-   !  where istart=1 if BEXBK, NLF+1 otherwise
-   ! for each e in NLF+1:NEL:  1 <= NVC(e) <= NV (size of NRD array)
-   !         LL-NLYRBT(e,1)+1 >= NRD(veg),
-   !                              where veg=NVC(e)
-   ! ...
-   !----------------------------------------------------------------------*
-   ! Limited ranges:
-   !                    range (e,1:LLEE):  (e,NLYRBT(e,1):LL) only
-   !                    range   1:NLFEE:               1:NLF only
-   ! JVSACN(face,cell,e), NLYR(e), NTSOIL(e,layer), NVSWLI(e):
-   !              for e in istart:NEL only, where istart is defined above
-   ! VSKR(e,cell): input for any e having a neighbour earlier in ISORT list
-   !              output for e in istart:NEL
-   ! ...
-   !----------------------------------------------------------------------*
+!> Runs the VSS solver for one model timestep.
+!>
+!> `VSSIM` is the timestep controller for the variably saturated subsurface
+!> component. It prepares time-varying boundary values, builds the per-element
+!> column work arrays, iterates the coupled column solves, and then reconciles
+!> the reported fluxes with the final water-content change.
+!>
+!> Main timestep sequence:
+!>
+!> | Stage | Work performed | Main routines/arrays |
+!> |:------|:---------------|:---------------------|
+!> | One-time setup | Initialise static column boundary flags, face areas, soil-type lookup, and stream-aquifer boundary types. | `JCBCsv`, `VSAIJsv`, `ICSOILsv` |
+!> | Boundary preparation | Read/interpolate current VSS boundary data. | [[vsprep]], `WLNOW`, `RLFNOW`, `RLHNOW`, `RLGNOW`, `RBFNOW`, `RBHNOW` |
+!> | Surface forcing | Convert rainfall, evaporation, soil evaporation, root extraction, and surface-water depth to column source terms. | `CDNET`, `CQ`, `ESOILA`, `ERUZ`, `PNETTO`, `EEVAP` |
+!> | State save | Store pressure head and water content from time level \(n\). | `VSPSIN`, `VSTHEN` |
+!> | Global nonlinear iteration | Visit elements in `ISORT`, assemble neighbour data, solve each active column with [[vscolm]], and track the largest pressure-head correction. | `VSPSI`, `VSTHE`, `VSKR`, `QVSH`, `QVSV` |
+!> | Flux correction/output | Apply mass-balance correction and derive VSS-to-OC/bank summary fluxes. | [[vsmb]], `QVSBF`, `QH`, `QVSWEL`, `QBKB`, `QBKF`, `QBKI` |
+!>
+!> The surface forcing depth passed into each active column is
+!> \[
+!>   CDNET_e = \left(PNETTO_e - (EEVAP_e-ESOILA_e)\right)DTUZ
+!>             + (h_{rf,e}-z_{g,e}),
+!> \]
+!> where `GETHRF(e)-ZGRUND(e)` is the current surface-water depth. Root uptake
+!> and soil evaporation are assembled as source terms in `CQ`: cells in the
+!> rooting zone receive \(-ERUZ(e,c)A_e\), and the top cell also receives
+!> \(-ESOILA(e)A_e\). When explicit bank elements are disabled, link `CDNET`
+!> values are set only to link water depth before active land columns are
+!> solved; rainfall and evaporation on channels are handled later in the main
+!> simulation sequence.
+!>
+!> The active element range starts at `ISTART = 1` when explicit bank elements
+!> are enabled (`BEXBK`), so links and banks are solved as VSS columns; otherwise
+!> it starts at `total_no_links + 1` and only land/grid columns are solved.
+!> Stream-aquifer interaction is still accounted for without explicit banks by
+!> assigning boundary type `9` on land faces adjacent to links; with banks it
+!> uses type `10` on link-bank faces.
+!>
+!> The global iteration stops when
+!> \[
+!>   \max_e\max_i |\psi_i^{m+1}(e)-\psi_i^m(e)| \le 10^{-4}\ {\rm m},
+!> \]
+!> or after `NITMAX = 10` iterations. After `NITMIN = 2`, elements whose own
+!> pressure change and neighbouring pressure changes are below the tolerance are
+!> marked converged and skipped in later global iterations. If convergence is
+!> not reached, warning 1039 is issued with rate-limited repeated reporting.
+!> On the final global iteration `ELEVEL` is passed to [[vscolm]] as `EEERR`,
+!> but the non-convergence `ERROR` call in this routine uses `WWWARN`.
+!>
+!> Boundary-condition flags used in the column solve:
+!>
+!> | `JCBC` value | Meaning |
+!> |:-------------|:--------|
+!> | `0` | internal face or no-flow boundary |
+!> | `1` | well |
+!> | `2` | spring |
+!> | `3` | lateral flow boundary |
+!> | `4` | lateral head boundary |
+!> | `5` | lateral head-gradient boundary |
+!> | `6` | column-base flow boundary |
+!> | `7` | column-base head boundary |
+!> | `8` | column-base free drainage |
+!> | `9` | stream-aquifer interaction without explicit banks |
+!> | `10` | stream-aquifer interaction with explicit banks |
+!>
+!> Key entry conditions carried over from the legacy interface:
+!>
+!> | Requirement | Purpose |
+!> |:------------|:--------|
+!> | `1 <= LLEE`, `LL <= LLEE`, `NEL <= NELEE`, `0 <= NLF <= NLFEE` | Global dimensions must cover the active catchment. |
+!> | `LL = NLYRBT(e,NLYR(e)+1)` and ordered `NLYRBT` layer bounds | Each element must have a valid active cell range. |
+!> | If `BEXBK`, link neighbours must be typed as link/bank/grid elements. | Stream-bank connectivity is required before assigning `JCBC = 10`. |
+!> | For `e = ISTART:NEL`, boundary types are non-negative and categories are at least one. | `VSREAD`/`VSIN` must have assigned valid defaults. |
+!> | `NLBTYP(e) > 0` implies `NBFACE(e) > 0`; wells and springs are mutually exclusive on an element. | Column boundary setup assumes one lateral-boundary face and one vertical source type. |
+!> | Faces to elements earlier than `ISTART` have zero `JVSACN` connectivity. | Non-solved neighbours are represented through boundary/stream terms instead of lateral column coupling. |
+!>
+!> Limited ranges: element/cell arrays are used over
+!> `NLYRBT(e,1):LL`; link arrays are used over `1:NLF`; and `VSKR` may be input
+!> from any neighbour already visited in `ISORT`, then overwritten for active
+!> elements after their column solve.
+!>
+!> Output summary terms after [[vsmb]]:
+!>
+!> | Array | Value assigned here |
+!> |:------|:--------------------|
+!> | `QVSBF(e)` | Bottom vertical flux `QVSV(ICBOT-1,e)`. |
+!> | `QH(e)` | Top vertical flux `QVSV(ICTOP,e)`. |
+!> | `QVSWEL(e)` | Sum of `QVSWLI` over the well screen when `NVSWLI(e)>0`. |
+!> | `QBKF(link,bank)` | Sum of lateral VSS fluxes from the bank/grid side above the channel bed. |
+!> | `QBKB(link,bank)` | Half-link surface exchange `-0.5*A_link*QH(link)` only with explicit banks and a wet link. |
+!> | `QBKI(link,bank)` | Same half-link exchange only with explicit banks and a dry link. |
+!>
+!> @note
+!> `FIRSTvssim` gates the setup of `JCBCsv`, `VSAIJsv`, and `ICSOILsv`. Changes
+!> to boundary-type arrays, layer soil types, element geometry, or explicit-bank
+!> mode after the first call are therefore not reflected in the cached column
+!> metadata. If an element were both a well and a spring, the spring flag would
+!> overwrite the well flag in `JCBCsv(5,e)`; valid input should avoid that case.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-29 | GP | 4.0 | Written; version 4.0 completed 1996-07-17. |
+!> | 1996-12-28 | RAH | 4.1 | Removed temporary debug code; made `DPSIEL`/`DPSIMX` non-negative; brought `CWV`/`CWL` from `VSCOLM.INC` and passed them to [[vscolm]]. |
+!> | 1997-02-07 | RAH | 4.1 | Dispensed with `CNOW`, `CTHEN`, `CV`, `CWV`, `CWL`, `VSPOR1`, `VSSTMP`; replaced `CQINF` with `CQV(ICTOP)`; used a `DO 660` loop instead of `GOTO`; redefined `CQWI` (see [[vswell]]); accumulated `QVSWEL` locally; used `OK` to simplify the convergence test. |
+!> | 1997-02-10 | RAH | 4.1 | Removed `CETAN`, `CKRN`, `CPSIM`, `NVSCIT`; made `PSIM` one-dimensional; dispensed with `BCHELE`, `CA0`, `CPSIN`, `CPSL`, `CQSP`, `CZG`, `DT`; used `ALINIT` and `DCOPY`; brought `VSPSIN`/`VSTHEN` from `VSCOM1.INC` with reversed indices; set `JCACN=0` (and skipped `JCDEL*`, `C*IJ1`, `CZ1`, `CPSI*1`) when `JEL <= 0`; moved the `CQH` initialisation into [[vscolm]] and `SIGMA` into [[vsintc]]; set `ICTOP`, `QH`, `QVSBF`, and `QBK*` once. |
+!> | 1997-02-11 | RAH | 4.1 | Replaced `CES`, `CDW`, `CEW`, `CQP` with `CDNET`; brought `CQ` (with `ICBED`, `ICLYRB`, `ICSOIL`) from `VSCOLM.INC`, added a dimension, and set it once; scrapped `ICWL*`, `ICSP*`, `CZSP`, `CCS`; initialised `QH` and `QVSH`. |
+!> | 1997-02-13 | RAH | 4.1 | Brought `JCBC`, `ICWCAT`, `ICLBCT`, `ICBBCT`, `CZS` from `VSCOLM.INC` and scrapped `CQWIN`, `CLF`, `ICLFL`, `ICLFN`, `CLH`, `ICLHL`, `ICLHN`, `CLG`, `ICLGL`, `ICLGN`, `CBF`, `CBH`; included `VSSOIL.INC`; removed `NVSSPT`/`NVSWLT`; gave `JCBC` a dimension and defined it once; swapped the `NVSL*L`/`RL*NOW` subscripts. |
+!> | 1997-02-14 | RAH | 4.1 | Brought `CDELL`, `CDELL1`, `CAIJ`, `CAIJ1` from `VSCOLM.INC`; replaced `CAIJ` with `VSAIJ`, set once and reused for `CAIJ1`; reversed the `DELTAZ`/`QVSH` subscripts and passed them to [[vscolm]]; scrapped `CDELZ` and `CQH`. |
+!> | 1997-02-17 | RAH | 4.1 | Swapped the `JVSACN`, `JVSDEL`, `ZVSNOD`, `QVSV`, `QVSWLI`, `VSPSI`, `VSTHE`, `IVSSTO`, and `VSKR` subscripts, which also fixed an error whereby `ICSTOR` was left uninitialised; scrapped `JCACN`, `JCDEL`, `CZ`, `CQV`, `CQWI`, `CPSI`, `ICSTOR`, `CTHETA`, `CKR` from `VSCOLM.INC` and brought the remainder (`CPSI1`, `CPSIN1`, `CZ1`, `CKIJ1`, `JCDEL1`); added a dimension to `ICSOIL` and set it once; scrapped `CKZS`/`CKIJS` in favour of `VSK3D`, also used for `CKIJ1`; redefined `CQ` to be premultiplied by `AREA*DELTAZ` (see [[vsintc]]); moved `QVSWEL` outside the loop and placed the [[vsmb]] call straight after it. |
+!> | 1997-05-15 | RAH | 4.1 | Reordered the [[vscolm]] arguments. |
+!> | 1997-05-22 | RAH | 4.1 | Removed the now-unnecessary `MAX` on `ICWLBT` and similar. |
+!> | 1997-06-18 | RAH | 4.1 | Stopped calling `VSCOLP`; ran loop 285 when `JEL >= ISTART` (previously `>= 1`). |
+!> | 1998-04-02 | RAH | 4.2 | Passed the new local `ELEVEL` to [[vscolm]]. |
+!> | 1998-11-03 | SPA | - | Passed adjacent surface-water depth (`depadj`) to [[vscolm]], as well as the adjacent water-surface elevation, for the channel-aquifer flow correction. |
+!> | 1998-11-04 | SPA | - | Made reported bank exchange flows consistent with BALWAT. |
+!> | 2009-01 | JE | 4.3.5F90 | Restructured loops for automatic differentiation. |
+!> | 2026-04-06/07 | SvB | 4.6 | Rewrote the labelled `GOTO`-driven element/face/cell loops as `DO`/`CYCLE` constructs; removed the `ALINIT` calls in favour of array-slice zero-assignment. Same convergence test and reported fluxes. |
+!> @endhistory
    SUBROUTINE VSSIM ()
 
       IMPLICIT NONE
@@ -3383,7 +4245,7 @@ CONTAINS
       DOUBLE PRECISION :: PSIM (LLEE), VSPSIN (LLEE, NELEE), VSTHEN (LLEE, NELEE)
       DOUBLE PRECISION :: CPSI1 (LLEE, 4), CPSIN1 (LLEE, 4), CKIJ1 (LLEE, 4), CZS (4)
 
-      !!!!!! Extra array: depadj - depth of surface water for adjacent
+      ! Extra array: depadj - depth of surface water for adjacent
       ! elements - added for channel aquifer flows fix, SPA, 03/11/98
       !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       DOUBLE PRECISION :: depadj (4)
@@ -3479,7 +4341,7 @@ CONTAINS
       CALL VSPREP
 
 
-      !!!!!! Calc. depth of water for channel links, even if no banks
+      ! Calc. depth of water for channel links, even if no banks
       ! n.b. rainfall and evap terms neglected, as these are calculated for
       ! channels after VSS is called.
       !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3626,7 +4488,7 @@ CONTAINS
                          QVSH (1, ICBOT, IEL), QVSV (ICBOT - 1, IEL), QVSWLI (ICWLBT, IW),        &
                          QVSSPR (IEL), ZVSPSL (IEL), depadj)
 
-            !!!!!! extra argument depadj added for channel-aquifer flows fix
+            ! extra argument depadj added for channel-aquifer flows fix
             ! SPA, 03/11/98
 
             ! record largest change for this iteration
@@ -3729,18 +4591,73 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSSOIL ()
+!> Builds soil/lithology hydraulic-property lookup tables.
+!>
+!> `VSSOIL` is called once by [[vsin]] to generate the pressure-head lookup
+!> tables (`VSPPSI`, `VSPTHE`, `VSPKR`, `VSPETA`, and their derivatives
+!> `VSPDTH`/`VSPDKR`/`VSPDET`) interpolated at runtime by [[vsfunc]]. The table
+!> size is `NVSSOL = min(100,NSOLEE)` when `BFAST` is set, or
+!> `min(500,NSOLEE)` otherwise.
+!>
+!> Rows `5:NVSSOL-1` cover a log-spaced pressure-head range from
+!> \(-10^{-2}\) to \(-10^4\), with each soil/lithology type (`1:NS`) evaluated
+!> according to its `IVSFLG` option:
+!>
+!> | `IVSFLG` | Model | Formula |
+!> |:---------|:------|:--------|
+!> | 1 | van Genuchten | \(\theta=\theta_r+(\theta_s-\theta_r)(1+(\alpha\lvert\psi\rvert)^n)^{-m}\), \(m=1-1/n\); `VSPDET` is set to zero rather than the commented-out analytic derivative. |
+!> | 2 | user table | Natural cubic-spline interpolation of `TBTHE`/`TBKR` in `log10(-psi)` from [[vsread]], scaled by `VSPOR`. |
+!> | 3 | exponential | \(\theta=\theta_r+(\theta_s-\theta_r)e^{\alpha\psi}\), \(K_r=e^{\alpha\psi}\). |
+!> | 4 | tabulated theta / Averjanov Kr (for SHETRAN V3.4 compatibility) | Not implemented; the routine stops with `UNFINISHED code for soil properties type 4`. |
+!>
+!> Row `NVSSOL` is set to fixed dry-end values (`VSPTHE=VSTRES`, conductivity
+!> and derivatives zero, `VSPPSI=-1e6`). For `IVSFLG` 2 or 4, storage
+!> derivatives `VSPDTH`/`VSPDET` for interior rows are then overwritten by
+!> finite differences of the interpolated `VSPTHE`/`VSPDTH` values with respect
+!> to `VSPPSI`.
+!>
+!> Rows `1:4` extend the table to near-saturation, working down in pressure
+!> head from `VSPPSI(4)=0`: `VSPKR` is fixed at 1, `VSPETA`/`VSPDTH`/`VSPDKR`
+!> are carried down from rows 5/4 or set to `VSPSS`/zero, and each `VSPTHE`
+!> row is built recursively from the row above using the corresponding
+!> `VSPETA`/`VSPSS`:
+!>
+!> \[
+!>   VSPTHE(4)=VSPOR,\quad
+!>   VSPTHE(k) = VSPTHE(k{+}1) + VSPETA(k{+}1)\bigl(VSPPSI(k)-VSPPSI(k{+}1)\bigr)
+!>   \ \text{for } k=3,2,
+!> \]
+!> \[
+!>   VSPTHE(1) = VSPTHE(2) + VSPSS\bigl(VSPPSI(1)-VSPPSI(2)\bigr).
+!> \]
+!>
+!> Finally, for rows `5:NVSSOL` the routine rescales `VSPKR` using a
+!> DSATG-style saturation ratio,
+!> \[
+!>   K_r(i) = \left({\theta(i)-\theta_r\over\theta_s-\theta_r}\right)^2,
+!> \]
+!> so that `Kr` approaches unity at saturation even for van Genuchten `n < 2`,
+!> where the original curve drops rapidly and unphysically below one just below
+!> saturation. This overwrite runs after the derivative tables are already
+!> finalised. If `BSOILP` is set, the completed tables are printed to `PPPRI`.
+!>
+!> @note
+!> The DSATG saturation-ratio rescale (see above) replaces `VSPKR` without
+!> recomputing `VSPDKR`, so the relative-conductivity derivative used later by
+!> [[vsfunc]] does not correspond to the final `VSPKR` curve for
+!> `IVSFLG = 1` or `3`. This is a pre-existing characteristic of the table
+!> construction, not something introduced by the 2026 modernisation.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-07-20 | GP | 4.0 | Written. Called only from [[vsin]]. |
+!> | 2026-04-06/07 | SvB | 4.6 | Replaced the manual `EDUM**x` exponentiation (`EDUM` a hardcoded `e` constant) with the `EXP` intrinsic for the `IVSFLG=3` branch; equivalent result. |
+!> | 2026-04-10 | SvB | 4.6 | Fixed the near-saturation `VSPTHE` initialisation: row 3 had collapsed to `VSPTHE(3,IS) = VSPOR(IS)` (the same value as row 4, with no correction term), which is now corrected to the recursive `VSPTHE(4,IS) + VSPETA(4,IS)*(VSPPSI(3)-VSPPSI(4))` form shown above. |
+!> @endhistory
    SUBROUTINE VSSOIL ()
-   !
-   !----------------------------------------------------------------------*
-   ! Sets up soil property tables for VSS
-   !----------------------------------------------------------------------*
-   ! Module:        VSS (0.0)
-   ! Program:       SHETRAN (4.0)
-   ! Callers:       VSIN
-   ! Modifications:
-   !  GP  20.07.94  written
-   !----------------------------------------------------------------------*
 
       ! Assumed external module dependencies providing global variables:
       ! NSEE, NSOLEE, BFAST, NVSSOL, VSPPSI, NS, IVSFLG, VSPOR, VSTRES,
@@ -3757,14 +4674,6 @@ CONTAINS
       DOUBLE PRECISION :: DDAP, DDAPN, DDAPN1, DDAPM, DDAPM1, DDAPM2, DDTCAP
       DOUBLE PRECISION :: DDTC, DDTCM, DDTCM1, DDTCM2, DDDTCP
       DOUBLE PRECISION :: PLOG, PLOGLO, PLOGHI, ADUM, BDUM, HDUM, RKRDUM
-
-   !----------------------------------------------------------------------*
-   ! soil flags:
-   !       1       van Genuchten
-   !       2       tabulated theta(psi) and Kr(psi)
-   !       3       exponential
-   !       4       tabulated theta(psi), Averjanov Kr (compatible with V3.4
-   !----------------------------------------------------------------------*
 
       ! set up size of internal look-up tables
       IF (BFAST) THEN
@@ -3979,27 +4888,68 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSSPR (CZ, CZSP, CCS, CPSI, CKR, CDKR, CB, CR, CQSP)
+!> Adds spring discharge terms to one VSS cell.
+!>
+!> `VSSPR` implements the spring boundary type (`JCBC(5) = 2`) for the single
+!> cell selected by [[vsin]] from the manual `VS13b` spring source depth
+!> `VSSPD`. The discharge elevation and spring coefficient are the `VS13b`
+!> inputs passed here as `CZSP` and `CCS`.
+!>
+!> The spring is inactive while the hydraulic head in the source cell is below
+!> the discharge elevation:
+!> \[
+!>   H - z_{\rm sp} = z_i + \psi_i - z_{\rm sp} < 0 .
+!> \]
+!> If the head is high enough, the routine computes the spring outflow as
+!> \[
+!>   Q_{\rm sp} = C_{\rm sp}\,K_r\,\left(z_i + \psi_i - z_{\rm sp}\right),
+!> \]
+!> where `CZ` is \(z_i\), `CPSI` is \(\psi_i\), `CKR` is the current relative
+!> hydraulic conductivity from [[vsfunc]], and `CCS` is the spring coefficient.
+!>
+!> For an active spring, `CQSP` receives \(Q_{\rm sp}\), `CR` is increased by the
+!> same flux, and `CB` is updated with the implemented linearisation term
+!> `-CCS * CDKR`. For an inactive spring, `CQSP` is set to zero and the column
+!> coefficients are unchanged.
+!>
+!> @note
+!> This is not the full derivative of
+!> \(C_{\rm sp}K_r(z_i+\psi_i-z_{\rm sp})\) with respect to pressure head,
+!> which would include both the direct `CKR` term and the head-excess multiplier
+!> on `CDKR`. The active implementation uses only `-CCS * CDKR`. Because the
+!> activation test is `GEZERO`, a zero head excess gives zero spring flux but
+!> still applies this coefficient term.
+!> @endnote
+!>
+!> @note
+!> None of this routine's dummy arguments carry an `INTENT` attribute in the
+!> current declarations.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written. |
+!> | 1997-01-20 | RAH | 4.1 | Removed the leading comments; introduced the local `DHDUM`. |
+!> | 1997-01-27 | RAH | 4.1 | Passed data through arguments instead of `INCLUDE` blocks. |
+!> @endhistory
    SUBROUTINE VSSPR (CZ, CZSP, CCS, CPSI, CKR, CDKR, CB, CR, CQSP)
 !
-!----------------------------------------------------------------------*
-! Sets up coefficients for column spring discharge
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSSPR/4.1
-! Modifications:
-!  GP  22.08.94  written
-! RAH  970120  4.1  No leading comments.  Use local DHDUM.
-!      970127       Use arguments, not INCLUDE.
-!----------------------------------------------------------------------*
-!
 ! Input arguments
-      DOUBLEPRECISION CZ, CZSP, CCS, CPSI, CKR, CDKR
+      DOUBLEPRECISION CZ    !! Spring-cell node elevation.
+      DOUBLEPRECISION CZSP  !! Spring discharge elevation.
+      DOUBLEPRECISION CCS   !! Spring conductance coefficient.
+      DOUBLEPRECISION CPSI  !! Spring-cell pressure head.
+      DOUBLEPRECISION CKR   !! Spring-cell relative hydraulic conductivity.
+      DOUBLEPRECISION CDKR  !! Derivative of `CKR` with respect to pressure head.
 !
 ! In+out arguments
-      DOUBLEPRECISION CB, CR
+      DOUBLEPRECISION CB !! Spring-cell matrix diagonal term.
+      DOUBLEPRECISION CR !! Spring-cell right-hand side term.
 !
 ! Output arguments
-      DOUBLEPRECISION CQSP
+      DOUBLEPRECISION CQSP !! Spring discharge; zero when the spring is inactive.
 !
 ! Locals, etc
       DOUBLEPRECISION DHDUM
@@ -4026,45 +4976,88 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE VSUPPR (CA0, CDELZ, CKZS, DT, CDNET, CPSI, CB, CR, &
+!> Adds the upper infiltration/exfiltration boundary to the top VSS cell.
+!>
+!> `VSUPPR` forms the top-boundary contribution for one VSS column. The input
+!> `CDNET` is the net surface-water depth available over the timestep after
+!> evaporation has been applied by [[vssim]], and `CKZS` is the vertical
+!> saturated conductivity of the top cell. The routine uses the model flux
+!> convention that `CQINF > 0` is upward from the subsurface to the surface, so
+!> infiltration is negative. Entry conditions: `CDELZ > 0` and `DT > 0`.
+!>
+!> The water-availability limit is
+!> \[
+!>   q_{\rm in} = {d_{\rm net} \over \Delta t},
+!> \]
+!> the rate that would exhaust the available surface depth during the timestep
+!> (Fortran name `QIN`). The hydraulic-capacity expression is
+!> \[
+!>   q_{\rm out} =
+!>   {K_{zs} \over \Delta z/2}
+!>   \left[\psi -
+!>   \left(\max(d_{\rm net},0)+{\Delta z\over2}\right)\right],
+!> \]
+!> where `CPSI` is top-cell pressure head and `CDELZ` is top-cell thickness
+!> (Fortran name `QOUT`).
+!>
+!> If available water is limiting (`q_in < -q_out`), the returned flux is
+!> `CQINF = -q_in` and the derivative contribution is set to zero. Otherwise
+!> the boundary is hydraulic-capacity limited, or exfiltrating, and
+!> `CQINF = q_out` with derivative `CKZS/(CDELZ/2)`.
+!>
+!> The column-system updates are
+!> \[
+!>   CB \leftarrow CB - {K_{zs}\over\Delta z/2}\,A,\qquad
+!>   CR \leftarrow CR + q_{\rm inf} A,
+!> \]
+!> except in the water-limited case where the coefficient term is zero.
+!>
+!> @note
+!> `CKZS` is the saturated vertical conductivity passed from `VSK3D(SOIL,3)`;
+!> the upper-boundary capacity does not use the current relative conductivity
+!> `CKR` from [[vsfunc]]. Positive `CDNET` is treated as ponded depth in the
+!> hydraulic head term. Negative `CDNET` can limit upward extraction through
+!> `q_in = CDNET/DT`, but `MAX(CDNET,0)` means it does not impose a negative
+!> surface-water head in `q_out`.
+!> @endnote
+!>
+!> @note
+!> None of this routine's dummy arguments carry an `INTENT` attribute in the
+!> current declarations.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written; version 4.0 completed 1995-12-20. |
+!> | 1997-01-20 | RAH | 4.1 | Removed leading/long comments and lower-case code; used the generic `MAX`; rearranged expressions; stopped including `AL.G`. |
+!> | 1997-01-27 | RAH | 4.1 | Passed data through arguments instead of `COMMON`. |
+!> | 1997-05-14 | RAH | 4.1 | Replaced `CDW + (CQP - CEW)*DT` with the single input `CDNET` (see [[vssim]]). |
+!> | 1998-11-04 | RAH | 4.2 | Renamed the `DUM?` locals to `QIN` and similar. |
+!> @endhistory
    SUBROUTINE VSUPPR (CA0, CDELZ, CKZS, DT, CDNET, CPSI, CB, CR, &
       CQINF)
-!----------------------------------------------------------------------*
-! Sets up coefficients for column upper boundary condition
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/VSS/VSUPPR/4.2
-! Modifications:
-!  GP  22.08.94  written (v4.0 finished 20.12.95)
-! RAH  970120  4.1  No leading or long comments.  No lower-case code.
-!                   Use MAX not MAX.  Rearrange expressions.
-!                   Don't INCLUDE AL.G.
-!      970127       Use arguments, not COMMON.
-!      970514       Replace CDW + (CQP - CEW)*DT with CDNET (see VSSIM).
-! RAH  981104  4.2  Rename locals DUM? as QIN,etc.
-!----------------------------------------------------------------------*
-! Entry conditions:
-! 0 < CDELZ, DT
-!----------------------------------------------------------------------*
 ! Input arguments
-      DOUBLEPRECISION CA0, CDELZ, CKZS, DT, CDNET, CPSI
+      DOUBLEPRECISION CA0    !! Plan area of the current element.
+      DOUBLEPRECISION CDELZ  !! Top-cell thickness.
+      DOUBLEPRECISION CKZS   !! Saturated vertical hydraulic conductivity for the top-cell soil.
+      DOUBLEPRECISION DT     !! Timestep length.
+      DOUBLEPRECISION CDNET  !! Net available surface-water depth after evaporation.
+      DOUBLEPRECISION CPSI   !! Top-cell pressure head.
 ! In+out arguments
 
-      DOUBLEPRECISION CB, CR
+      DOUBLEPRECISION CB !! Top-cell matrix diagonal term.
+      DOUBLEPRECISION CR !! Top-cell right-hand side term.
 ! Output arguments
 
-      DOUBLEPRECISION CQINF
+      DOUBLEPRECISION CQINF !! Calculated upward-positive infiltration/exfiltration rate.
 ! Locals, etc
 !INTRINSIC MAX
 
 
       DOUBLEPRECISION QIN, QOUT, CDQINF, DZO2
-!----------------------------------------------------------------------*
-! CDNET = total net available depth of surface water after evaporation
-! QIN   = infiltration rate which would exhaust CDNET
-! QOUT  = exfiltration rate based on transport (-ve for infiltration)
-! CQINF = calculated exfiltration rate
-!         (+ve upwards, to be consistent with the global array, QH)
-!----------------------------------------------------------------------*
+
       DZO2 = half * CDELZ
       QIN = CDNET / DT
       CDQINF = CKZS / DZO2
@@ -4094,45 +5087,86 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE VSWELL
+!> Distributes a prescribed well abstraction over screened VSS cells.
+!>
+!> `VSWELL` implements the well boundary type (`JCBC(5) = 1`) for the screen
+!> interval `ICWLBT:ICWLTP`, which is derived in [[vsin]] from the manual
+!> `VS12b` well-screen depths. The prescribed input `CQWIN` is the total well
+!> abstraction rate in m3/s, read for the current timestep by [[vsprep]] from
+!> the well data file.
+!>
+!> Each screened cell is first assigned a saturated lateral
+!> conductivity-depth weight,
+!> \[
+!>   w_i = {K_{x,i}+K_{y,i} \over 2}\,\Delta z_i,\qquad
+!>   W = \sum_{i=I_b}^{I_t} w_i .
+!> \]
+!> The available saturated thickness factor is then limited using the current
+!> pressure head:
+!> \[
+!>   f_i =
+!>   {\min\left(d_i,\max(\psi_i,0)\right) \over d_i},\qquad
+!>   d_i = { \Delta z_i+\Delta z_{i+1} \over 2}.
+!> \]
+!>
+!> The cell abstraction is
+!> \[
+!>   Q_i = Q_{\rm well}\,{w_i \over W}\,f_i ,
+!> \]
+!> so the total realised abstraction can be less than the prescribed value when
+!> screened cells are partly or fully unsaturated. `CQWI(i)` stores the
+!> corresponding areal rate \(Q_i/A\) in m/s, and `CR(i)` is increased by
+!> \(Q_i\) for the column right-hand side.
+!>
+!> Entry conditions: `ICWLBT <= ICWLTP`;
+!> `1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE`; and positive `CA0`, screened-cell
+!> thicknesses including `CDELZ(ICWLTP+1)`, and a positive total
+!> conductivity-depth weight \(W\) from
+!> `VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)`.
+!>
+!> @note
+!> The pressure-head reduction factor is evaluated explicitly. The routine does
+!> not add a diagonal coefficient for the dependence of \(f_i\) on `CPSI(i)`, so
+!> well abstraction changes affect the nonlinear iteration only through the next
+!> column assembly. The sign convention assumes positive `CQWIN` is abstraction
+!> from the VSS column.
+!> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-22 | GP | 4.0 | Written; version 4.0 completed 1995-02-28. |
+!> | 1997-01-20 | RAH | 4.1 | Used generic intrinsics; introduced the local `QDUM`. |
+!> | 1997-01-27 | RAH | 4.1 | Passed data through arguments instead of `INCLUDE` blocks. |
+!> | 1997-02-07 | RAH | 4.1 | Redefined `CQWI` to be divided by `CA0`; removed the output `CQW`. |
+!> | 1997-05-14 | RAH | 4.1 | Replaced `LLEE`/`CKIJS` with the new arguments `NSEE`, `ICSOIL`, and `VSK3D`; rearranged the `QDUM` expression. |
+!> | 2026-04-06/07 | SvB | 4.6 | Added the `PURE` attribute; no other change. |
+!> @endhistory
    PURE SUBROUTINE VSWELL(NSEE, VSK3D, ICWLBT, ICWLTP, ICSOIL, CA0, &
                           CDELZ, CQWIN, CPSI, CR, CQWI, RKZDUM)
-   !----------------------------------------------------------------------*
-   ! Sets up coefficients for column well abstraction
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/VSS/VSWELL/4.1
-   ! Modifications:
-   !  GP  22.08.94  written (v4.0 finished 28.02.95)
-   ! RAH  970120  4.1  Use generic intrinsics.  Use local QDUM.
-   !      970127       Use arguments, not INCLUDE.
-   !      970207       Redefine CQWI: divide by CA0.  Remove output CQW.
-   !      970514       New args NSEE,ICSOIL,VSK3D in place of LLEE,CKIJS.
-   !                   Rearrange QDUM expression.
-   !----------------------------------------------------------------------*
-   ! Entry conditions:
-   ! ICWLBT <= ICWLTP
-   !      1 <= ICSOIL(ICWLBT:ICWLTP) <= NSEE
-   !      0 < CA0, CDELZ(ICWLBT:ICWLTP+1), VSK3D(ICSOIL(ICWLBT:ICWLTP),1:2)
-   !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: NSEE, ICWLBT, ICWLTP
-      INTEGER, INTENT(IN) :: ICSOIL(ICWLBT:ICWLTP)
-      DOUBLE PRECISION, INTENT(IN) :: CA0, CQWIN
-      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICWLBT:ICWLTP + 1)
-      DOUBLE PRECISION, INTENT(IN) :: VSK3D(NSEE, 2)
-      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICWLBT:ICWLTP)
+      INTEGER, INTENT(IN) :: NSEE                    !! Declared soil-type dimension for conductivity arrays.
+      INTEGER, INTENT(IN) :: ICWLBT                  !! Bottom screened well cell.
+      INTEGER, INTENT(IN) :: ICWLTP                  !! Top screened well cell.
+      INTEGER, INTENT(IN) :: ICSOIL(ICWLBT:ICWLTP)   !! Soil type by screened cell.
+      DOUBLE PRECISION, INTENT(IN) :: CA0             !! Plan area of the current element.
+      DOUBLE PRECISION, INTENT(IN) :: CQWIN           !! Prescribed total well abstraction rate.
+      DOUBLE PRECISION, INTENT(IN) :: CDELZ(ICWLBT:ICWLTP + 1) !! Screened-cell thicknesses plus the cell above the screen top.
+      DOUBLE PRECISION, INTENT(IN) :: VSK3D(NSEE, 2)   !! Saturated x/y hydraulic conductivity by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: CPSI(ICWLBT:ICWLTP) !! Current pressure heads in screened cells.
 
       ! In+out arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: CR(ICWLBT:ICWLTP)
+      DOUBLE PRECISION, INTENT(INOUT) :: CR(ICWLBT:ICWLTP) !! Right-hand side terms updated with realised abstraction.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT)   :: CQWI(ICWLBT:ICWLTP)
+      DOUBLE PRECISION, INTENT(OUT)   :: CQWI(ICWLBT:ICWLTP) !! Realised well abstraction rate per cell area.
 
       ! Workspace arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: RKZDUM(ICWLBT:ICWLTP)
+      DOUBLE PRECISION, INTENT(INOUT) :: RKZDUM(ICWLBT:ICWLTP) !! Workspace for conductivity-depth weights.
 
       ! Locals
       INTEGER :: ICL, SOIL
