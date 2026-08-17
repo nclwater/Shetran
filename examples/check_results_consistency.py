@@ -371,6 +371,14 @@ def main() -> None:
             "when used."),
     )
     parser.add_argument(
+        "-s",
+        "--skip-model",
+        action="append",
+        default=[],
+        help=(
+            "Model name to remove from the selected run. Can be repeated."),
+    )
+    parser.add_argument(
         "-l",
         "--list",
         default="short",
@@ -391,8 +399,8 @@ def main() -> None:
     else:
         subdirs = settings.list_short_runtime
 
-    # deduplicate and sort model names
-    subdirs = sorted(set(subdirs))
+    # remove skipped models, then deduplicate and sort model names
+    subdirs = sorted(set(subdirs) - set(args.skip_model))
 
     # overall check
     util.check_model_names_vs_directory()
