@@ -2024,15 +2024,6 @@ CONTAINS
 
       !----------------------------------------------------------------------*
       !
-      ! ----- Initialize
-      ijedum = 0
-      ijedum2 = 0
-
-      AA = 0.0D0; DD = 0.0D0; FF = 0.0D0; BB = 0.0D0; GG = 0.0D0
-      CC = 0.0D0; EE = 0.0D0; TM1 = 0.0D0; TM2 = 0.0D0; TV1 = 0.0D0; TV2 = 0.0D0
-
-      inhrf = 0.0D0; GGGETHRF = 0.0D0; inqsa = 0.0D0; GGGETQSA = 0.0D0
-
       ! ----- Timestep setup
       DTOC = OCNEXT*3600.0D0
 
