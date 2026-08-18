@@ -122,7 +122,7 @@ CONTAINS
 !> Initialised shared outputs include boundary-condition counts and codes
 !> (`NOCHB`, `NOCFB`, `NOCBCC`, `NOCBCD`, `COCBCD`), hydraulic geometry
 !> (`HRF`, `CWIDTH`, `ZBEFF`, `ZBFULL`, `NXSECT`, `XINH`, `XINW`, `XAREA`,
-!> `XSTAB`), Strickler/roughness fields (`STRXX`, `STRYY`), timing controls
+!> `XAFULL`, `XSTAB`), Strickler/roughness fields (`STRXX`, `STRYY`), timing controls
 !> (`TDC`, `TFC`), and row-index arrays (`NELIND`, `NROWEL`, `NROWST`,
 !> `NROWF`, `NROWL`) used by the OC implicit row solver.
 !>
@@ -1926,9 +1926,9 @@ CONTAINS
 !> cross-section and roughness tables (`NXSECT`, `XINH`, `XINW`, `XAREA`,
 !> `XSTAB`, `STRXX`, `STRYY`), and timing controls (`OCNOW`, `OCNEXT`,
 !> `TDC`, `TFC`). It updates `HRF` and writes `QSA`, `QOC`, `DQ0ST`,
-!> `DQIST`, `DQIST2`, and `ARXL`. On the first call it also caches each
-!> link's bankfull tabulated area in
-!> `XAFULL(link)=XAREA(link,NXSECT(link))` for [[OCQDQ]].
+!> `DQIST`, `DQIST2`, and `ARXL`. The per-link bankfull area `XAFULL` that
+!> [[OCQDQ]] reads is a static property of the cross-section tables and is
+!> built once by [[ocxs]] during initialisation, not here.
 !>
 !> The OC timestep is converted to seconds as
 !>
@@ -2047,7 +2047,6 @@ CONTAINS
 
       DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
 
-      LOGICAL :: first = .TRUE. !! True only on the first call; caches `XAFULL` then latches false (implicit `SAVE`).
       LOGICAL :: found_level, channel_blowup
       CHARACTER(36) :: MSG
 
@@ -2064,13 +2063,6 @@ CONTAINS
 
       !
       DTOC = OCNEXT * 3600.0D0
-
-      IF (first) THEN
-         first = .FALSE.
-         DO LINK = 1, total_no_links
-            XAFULL (LINK) = XAREA (LINK, NXSECT (LINK))
-         END DO
-      END IF
 
       ! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
       CALL OCEXT
@@ -2333,6 +2325,11 @@ CONTAINS
 !> ZBEFF = ZBFULL - XAREA_N/CWIDTH.
 !> \]
 !>
+!> The same bankfull area is retained per link as
+!> `XAFULL(link) = XAREA(link,NXSECT(link))` for [[ocqdqmod:ocqdq]]. It
+!> depends only on the cross-section tables, so it is built here once rather
+!> than on the first [[ocsim]] call.
+!>
 !> The lookup table `XSTAB` supports the OC flow calculation without
 !> repeatedly integrating the irregular cross-section. It has rows:
 !>
@@ -2398,6 +2395,7 @@ CONTAINS
 !> | 1998-02-03 | RAH | 4.2 | Created this routine, taking it from part of [[OCPLF]]. |
 !> | 1998-03-17 | RAH | 4.2 | Fixed the `XAJ` inaccuracy so the stored conveyance derivative is continuous. |
 !> | 1998-04-24 | RAH | 4.2 | Merged the legacy `XSECTH`/`XCONV`/`XDERIV` arrays into `XSTAB`. |
+!> | 2026-08-18 | SvB | 4.6.5 | Moved the `XAFULL` setup here from the first-call branch of [[ocsim]], reusing this routine's existing per-link loop. |
 !> @endhistory
    SUBROUTINE OCXS ()
 
@@ -2430,6 +2428,11 @@ CONTAINS
          ! EFFECTIVE BED ELEVATION
          !
          ZBEFF(ielr) = ZBFULL(ielr) - XAREA(ielr, N) / CWIDTH(ielr)
+
+         !
+         ! FULL-FLOW AREA FOR OCQDQ: the top row of this link's area table
+         !
+         XAFULL(ielr) = XAREA(ielr, N)
 
          !
          ! SET UP FULL CROSS-SECTION TABLES OF HEIGHT, CONVEYANCE & DERIVATIVE
