@@ -44,6 +44,7 @@
 !> | v4.4.6 | 2019-12-10 | SteveB | Added Hotstart ability |
 !> | v4.4.7 | 2020-03-05 | SvenB | Code cleanups and modernization |
 !> | v4.5.3 | 2026-03-19 | SteveB | Datum in time series, allocatable arrays and nitrate module |
+!> | v4.7.0 | 2024-06-05 | SteveB | remove inital call to error subroutine |
 !>
 !-------------------------------------------------------------------------------
 PROGRAM SHETRAN
@@ -87,10 +88,6 @@ PROGRAM SHETRAN
    ! ============================================================================
    ! Main program execution
    ! ============================================================================
-
-   ! Initialize error handling system
-   ! Sets up error message handling with initial message buffer
-   CALL ERROR(-999, 0, 0, 0, 0, 'Initialise error messages')
 
    ! Parse command line arguments and determine input files
    ! Processes command line to get rundata file and directory paths
