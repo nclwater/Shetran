@@ -4354,7 +4354,7 @@ CONTAINS
 
       WRITE(PPPRI, '(A)') TITLE
 
-      WRITE(PPPRI, *)
+      WRITE(PPPRI,*)
       WRITE(PPPRI, '(A)') 'Fixed array sizes in this version of SHETRAN '
       WRITE(PPPRI, '(A)') '******************************************** '
       WRITE(PPPRI, '(A)') 'Grid points in x,y directions, river links, total no of elements. THESE ARE THE MOST IMPROTANT ONES'
