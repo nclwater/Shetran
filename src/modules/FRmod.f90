@@ -4336,14 +4336,23 @@ CONTAINS
       WRITE(PPPRI, 17) BANNER
 17    FORMAT(/A80/)
 
-      ! READ AND PRINT JOB TITLE.
+      write(PPPRI,*) 
+      write(PPPRI,*) 
+      write(PPPRI,'(A)') ' SHETRAN file folder = '
+      write(PPPRI,'(1X,A)') DIRQQ 
+      write(PPPRI,'(A)') ' SHETRAN rundata name = '
+      write(PPPRI,'(A)') ' rundata_'//trim(cnam)//'.txt'
+      write(PPPRI,*) 
+      write(PPPRI,*) 
+      write(PPPRI,*) 
+      
+! READ AND PRINT JOB TITLE.
       ! :FR1
       WRITE(PPPRI, '(A)') 'Catchment Name '
       WRITE(PPPRI, '(A)') '************** '
       READ (FRD, '(A)') TITLE
 
       WRITE(PPPRI, '(A)') TITLE
-      WRITE(PPPRI, '(/ 20A4, //, 100("="))') TITLE
 
       WRITE(PPPRI, *)
       WRITE(PPPRI, '(A)') 'Fixed array sizes in this version of SHETRAN '
