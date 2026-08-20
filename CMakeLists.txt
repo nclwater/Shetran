@@ -66,6 +66,22 @@ if(CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM" OR CMAKE_Fortran_COMPILER_ID S
     set(IS_INTEL_FORTRAN ON)
 endif()
 
+# Enable link-time optimization for every target in Release builds.  Checking
+# both project languages ensures that this works for the mixed Fortran/C
+# targets used by SHETRAN and fortran_stdlib on all supported toolchains.
+include(CheckIPOSupported)
+check_ipo_supported(
+    RESULT SHETRAN_IPO_SUPPORTED
+    OUTPUT SHETRAN_IPO_ERROR
+    LANGUAGES Fortran C
+)
+if(NOT SHETRAN_IPO_SUPPORTED)
+    message(FATAL_ERROR
+        "Link-time optimization is required for Release builds but is not supported:\n"
+        "${SHETRAN_IPO_ERROR}")
+endif()
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+
 # Define flags used by the custom ReleaseNative build type.
 set(CMAKE_Fortran_FLAGS_RELEASENATIVE "" CACHE STRING "Flags used by the ReleaseNative build type" FORCE)
 
