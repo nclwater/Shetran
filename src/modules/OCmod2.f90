@@ -1678,6 +1678,13 @@ CONTAINS
    !> `HERROR`, or when the criteria are still not satisfied after the final
    !> pass.
    !>
+   !> `afromICMREF` and `afromICMRF2` retain the native two-dimensional
+   !> topology layouts. Regular neighbours and reciprocal faces occupy
+   !> `afromICMREF(:,5:8)` and `afromICMREF(:,9:12)`; confluence participants
+   !> and their faces occupy `afromICMRF2(:,1:3)` and
+   !> `afromICMRF2(:,4:6)`. This avoids duplicating the static topology before
+   !> every call.
+   !>
    !> Entry requirements retained from the legacy routine are:
    !>
    !> | Requirement | Meaning |
@@ -1686,10 +1693,10 @@ CONTAINS
    !> | `DTOC > 0` | OC timestep must be positive. |
    !> | `PRI >= 0` and open for formatted output | Diagnostics can be written. |
    !> | `NLFEE >= 1`, `AREA(1:NEL) > 0` | Link extent and element areas must be valid. |
-   !> | For every `iel=1:NEL`, `iface=1:4`, `ICMREF(iel,iface,2) <= NEL` | Regular neighbour elements must be in range. |
-   !> | If `ICMREF(iel,iface,2) >= 1`, then `1 <= ICMREF(iel,iface,3) <= 4` | Regular neighbour face numbers must be valid. |
-   !> | If `ICMREF(iel,iface,2) < 0`, with `ibr=-ICMREF(iel,iface,2)`, then `ibr <= NLFEE` | Confluence branch references must fit the link extent. |
-   !> | For each confluence participant `pel=ICMRF2(ibr,p,1)` with `pel >= 1`, `pel <= NEL` and `1 <= ICMRF2(ibr,p,2) <= 4` | Confluence participant elements and faces must be valid, and at least one participant must exist. |
+   !> | For every `iel=1:NEL`, `iface=1:4`, `ICMREF(iel,iface+4) <= NEL` | Regular neighbour elements must be in range. |
+   !> | If `ICMREF(iel,iface+4) >= 1`, then `1 <= ICMREF(iel,iface+8) <= 4` | Regular neighbour face numbers must be valid. |
+   !> | If `ICMREF(iel,iface+4) < 0`, with `ibr=-ICMREF(iel,iface+4)`, then `ibr <= NLFEE` | Confluence branch references must fit the link extent. |
+   !> | For each confluence participant `pel=ICMRF2(ibr,p)` with `pel >= 1`, `pel <= NEL` and `1 <= ICMRF2(ibr,p+3) <= 4` | Confluence participant elements and faces must be valid, and at least one participant must exist. |
    !>
    !> @history
    !>
@@ -1707,14 +1714,15 @@ CONTAINS
    !> | 1999-02-08 | SB | 4.27 | Set `AOK = .FALSE.` in the final depth adjustment for the same small adverse-flow issue. |
    !> | 2020-07-08 | SB | 4.5 | Demoted the final error 1060 response from fatal to a warning, so the timestep-reduction flag (see `SGLOBAL:ERROR`) can take effect instead of stopping the run. |
    !> | 2026-04-06 | SvB | - | Replaced the labelled `DO`/`CYCLE`/`GOTO`-style pass, element, face, and confluence loops with named `pass_loop`/`element_loop`/`face_loop`/`confluence_loop` constructs using `EXIT`/`CYCLE`; replaced the per-element `HRF`/`QSA` copy loop with whole-array assignment; and unrolled the `rdum4` array-slice arguments to the two diagnostic `WRITE` statements. |
+   !> | 2026-08-20 | - | - | Changed the topology arguments to the native `ICMREF(NELEE,12)` and `ICMRF2(NLFEE,6)` layouts, eliminating caller-side staging. |
    !> @endhistory
    SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
 
       IMPLICIT NONE
 
       INTEGER, INTENT(IN) :: nel                        !! Number of active elements to correct.
-      INTEGER, INTENT(IN) :: afromICMREF(NELEE, 4, 2:3)  !! Regular neighbour element and face references.
-      INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 3, 2)    !! Multi-link confluence participant references.
+      INTEGER, INTENT(IN) :: afromICMREF(NELEE, 12) !! Native table; columns 5:8 are neighbours and 9:12 reciprocal faces.
+      INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 6)  !! Native branch table; columns 1:3 are participants and 4:6 their faces.
       DOUBLE PRECISION, INTENT(IN) :: dtoc !! OC timestep in seconds.
       DOUBLE PRECISION, DIMENSION(nel), INTENT(IN)     :: inhrf     !! Input water-surface elevations.
       DOUBLE PRECISION, DIMENSION(nel), INTENT(OUT)    :: GGGETHRF  !! Corrected water-surface elevations.
@@ -1783,9 +1791,9 @@ CONTAINS
                QSMALL = -QE < DXY (MOD (IFACE, 2)) * UHCRIT
                TEST = QSMALL .OR. HSMALL
                
-               JEL = afromICMREF (ielc, IFACE, 2)
+               JEL = afromICMREF (ielc, IFACE + 4)
                IF (JEL > 0) THEN
-                  JFACE = afromICMREF (ielc, IFACE, 3)
+                  JFACE = afromICMREF (ielc, IFACE + 8)
                   FAIL = GGGETHRF (JEL) >= ZE
                ELSE IF (JEL == 0) THEN
                   FAIL = .FALSE.
@@ -1795,10 +1803,10 @@ CONTAINS
                   FAIL = .FALSE.
                   
                   confluence_loop: DO PPP = 1, 3
-                     PEL = afromICMRF2 (IBR, PPP, 1)
+                     PEL = afromICMRF2 (IBR, PPP)
                      IF (PEL < 1) CYCLE confluence_loop
                      
-                     PFACE = afromICMRF2 (IBR, PPP, 2)
+                     PFACE = afromICMRF2 (IBR, PPP + 3)
                      QQ = GGGETQSA (PEL, PFACE) * QE
                      FAILP = (GGGETHRF (PEL) >= ZE) .AND. (QQ < ZERO)
                      

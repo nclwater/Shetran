@@ -73,8 +73,6 @@ MODULE OCmod
    DOUBLEPRECISION    :: dtoc                   !! OC timestep in seconds.
 
    ! Persistent [[ocsim]] row-solver workspace, allocated once by [[initialise_ocsim_workspace]]
-   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: ijedum  !! Reshaped `ICMREF` neighbour-index slice passed to [[ocmod2:ocfix]].
-   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: ijedum2 !! Reshaped `ICMRF2` neighbour-index slice passed to [[ocmod2:ocfix]].
    DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: AA       !! Next-row block coefficients of the row-wise implicit matrix.
    DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: DD       !! Back-substituted water-level correction, by row position and row number.
    DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: BB       !! Current-row block coefficients of the row-wise implicit matrix.
@@ -184,28 +182,27 @@ CONTAINS
 !> Keeping them as module work arrays preserves heap storage without repeated
 !> allocation in the timestep loop.
 !>
-!> [[ocini]] calls this routine once, after `NX`, `NY`, `total_no_elements`,
-!> `NELEE`, and `NLFEE` have been established. [[ocsim]] still clears every
-!> array on each call before use.
+!> [[ocini]] calls this routine once, after `NX`, `NY`, and
+!> `total_no_elements` have been established. Static topology is not duplicated
+!> here: [[ocsim]] passes `ICMREF` and `ICMRF2` to [[ocmod2:ocfix]] directly.
 !>
 !> @warning
 !> The `ALLOCATED` guard makes this a one-shot initialiser: there is no
 !> resizing or deallocation path, so a later change in `NX`, `NY`,
-!> `total_no_elements`, `NELEE`, or `NLFEE` within the same process would not
-!> be reflected in these arrays.
+!> or `total_no_elements` within the same process would not be reflected in
+!> these arrays.
 !> @endwarning
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-05-10 | SvB | 4.6.1 | Added this allocator while moving `AA`, `DD`, `FF`, `BB`, `GG`, `CC`, `EE`, `TM1`, `TM2`, `TV1`, `TV2`, `inhrf`, `GGGETHRF`, `inqsa`, `GGGETQSA`, `ijedum`, and `ijedum2` from automatic locals in [[ocsim]] to allocatable module state. |
+!> | 2026-08-20 | - | - | Removed the duplicate topology work arrays after [[ocmod2:ocfix]] was changed to accept `ICMREF` and `ICMRF2` in their native layouts. |
 !> @endhistory
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
 
-      IF (.NOT. ALLOCATED(ijedum)) THEN
-         ! NELEE/NLFEE (not the active NX/NY-derived counts) size these two arrays, matching OCSIM's neighbour-index domain
-         ALLOCATE (ijedum(nelee, 4, 2:3), ijedum2(nlfee, 3, 2))
+      IF (.NOT. ALLOCATED(AA)) THEN
          ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
          ALLOCATE (FF(NX*4))
          ALLOCATE (BB(NX*4, NX*4), GG(NX*4, NY))
@@ -1976,7 +1973,8 @@ CONTAINS
 !> where a single neighbour uses `DQIST` and a multi-link junction expands
 !> the neighbour sum through `ICMRF2` and `DQIST2`. [[OCFIX]] is then called
 !> to remove spurious negative internal flows and adjust the corresponding
-!> water levels.
+!> water levels. The static `ICMREF` and `ICMRF2` tables are passed in their
+!> native layouts, without per-timestep reshaping or copying.
 !>
 !> `QOC` is copied from the internal face-flow array and converted from the
 !> OC face convention to the model x/y convention by changing the sign on
@@ -2008,6 +2006,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-1998 | GP/RAH | 3.4-4.2 | Developed the row-wise implicit solve, [[OCFIX]] flow-correction split, and current `OCABC` argument list. |
 !> | 2009-01 | JE | - | Restructured the row loop for automatic differentiation. |
+!> | 2026-08-20 | - | - | Passed `ICMREF` and `ICMRF2` directly to [[ocmod2:ocfix]], removing the per-timestep topology staging. |
 !> @endhistory
    SUBROUTINE OCSIM
 
@@ -2015,7 +2014,7 @@ CONTAINS
 
       INTEGER :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
       INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV, face
-      INTEGER :: kk, ll, vv
+      INTEGER :: vv
 
       DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
 
@@ -2154,22 +2153,6 @@ CONTAINS
 
       ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
       ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
-      vv = 5
-      DO LL = 2, 3
-         DO kk = 1, 4
-            ijedum(:, kk, LL) = icmref(:, vv)
-            vv = vv + 1
-         END DO
-      END DO
-
-      vv = 1
-      DO LL = 1, 2
-         DO kk = 1, 3
-            ijedum2(:, kk, LL) = icmrf2(:, vv)
-            vv = vv + 1
-         END DO
-      END DO
-
       ! untidy mess for debugging of tangent
       DO vv = 1, total_no_elements
          inhrf(vv) = GETHRF(vv)
@@ -2178,7 +2161,7 @@ CONTAINS
          END DO
       END DO
 
-      CALL OCFIX(ijedum, ijedum2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
+      CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
 
       DO vv = 1, total_no_elements
          CALL SETHRF(vv, GGGETHRF(vv))
