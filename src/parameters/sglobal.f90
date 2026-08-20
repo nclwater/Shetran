@@ -35,6 +35,7 @@
 !> | 2009-01-01 | JE | v4.3.5F90: Created `sglobal` module from legacy include files (e.g. al_p). |
 !> | 2024-09-05 | SvB | Added KIND parameters and FORD docs. |
 !> | 2026-03 | SB |  Increase array sizes now all the 2 and 3D arrays are allocatable, NXOCEE=4*nxee |
+!> | 2027-08 | SB |  remove code for initial error call and sort out helpmessages |
 MODULE sglobal
 
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
@@ -58,7 +59,7 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! System Version and Banners
    ! --------------------------------------------------------------------
-   REAL(KIND=R8P), PARAMETER :: SHEVER = 4.6_R8P !! SHETRAN version number (Major.Minor format).
+   REAL(KIND=R8P), PARAMETER :: SHEVER = 4.7_R8P !! SHETRAN version number (Major.Minor format).
    LOGICAL, PARAMETER :: BDEVER = .TRUE. !! Development version flag. `.TRUE.` for development, `.FALSE.` for release.
    CHARACTER(*), PARAMETER :: BANNER = 'SHETRAN Hydrological Model' !! Banner for local implementation.
    CHARACTER(*), PARAMETER :: RUNFIL = 'rundata_' !! Base filename for run data files.
@@ -362,7 +363,7 @@ CONTAINS
       ! Local variables
       CHARACTER(LEN=*), PARAMETER :: PATH1 = '/shetran/'
       CHARACTER(LEN=256) :: FIL, fname
-      CHARACTER(LEN=80)  :: HLPMSG
+      CHARACTER(LEN=256)  :: HLPMSG
       CHARACTER(LEN=1)   :: cc
       CHARACTER(LEN=1), PARAMETER :: slash = '/'
 
@@ -383,32 +384,6 @@ CONTAINS
       ISERROR  = .FALSE.
       ISERROR2 = .FALSE.
 
-      IF (ETYPE == -999) THEN
-         present = .TRUE.
-         helpcheck = 60
-
-         IF (helpcheck == 0) THEN
-            PRINT *, "Failed to find the 'helpmessages' directory"
-            PRINT *, "  (which contains the help message files)"
-            PRINT *, "Its name must be 'helpmessages'"
-
-            ! helpcheck = GETDRIVEDIRQQ (helppath)
-            IF (helpcheck /= 0) THEN
-               PRINT *, "and it must be in "//TRIM(helppath)
-            END IF
-
-            PRINT *, "Type 's' to stop or 'c' to continue"
-
-            ! Intentional bypass by setting cc='c' before the loop
-            cc = 'c'
-            bypass_loop: DO WHILE (cc /= 'c' .AND. cc /= 's' .AND. cc /= 'C' .AND. cc /= 'S')
-               ! cc = GETCHARQQ ()
-            END DO bypass_loop
-
-            IF (cc == 's' .OR. cc == 'S') STOP
-         END IF
-         RETURN
-      END IF
 
       ! Write general error message
       ! ---------------------------
@@ -477,16 +452,14 @@ CONTAINS
                   WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
 
                   ! Print contents of help file (if any)
-                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '\', AMODL, ERRN
-                  PRINT *, dirqq, rootdir
-                  PRINT *, FIL
+                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '/', AMODL, ERRN, '.txt'
 
                   OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
                   IF (IO_STATUS == 0) THEN
                      read_help: DO
                         READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
                         IF (IO_STATUS /= 0) EXIT read_help
-                        WRITE(*, '(A)') HLPMSG
+                        WRITE(*, '(A)') trim(HLPMSG)
                      END DO read_help
                      CLOSE(HLP)
                   END IF
@@ -508,7 +481,7 @@ CONTAINS
       ! ------------------------
 9100  FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
       &        ', iel =', I5:', cell =', I5 )
-9200  FORMAT(A,I1,I3.3)
+9200  FORMAT(A,I1,I3.3,A)
 
 9500  FORMAT(' No. of occurrences of error number',I5.4,' is',I6)
 9600  FORMAT(/' ### End of summary: recorded error count is',I7,' ###'/)
@@ -535,9 +508,14 @@ CONTAINS
       INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! A flag indicating the reason for stopping. If > 0, it's a fatal error.
 
       IF (FLAG.GT.0) THEN
-         WRITE(*, '(A)') 'FATAL ERROR: Program will terminate.'
-         ERROR STOP 'Program terminating due to fatal error'
+          if (error_mode) then
+              STOP 'Program terminating due to fatal error'
+          else
+              WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+              READ(*,*)
+              STOP 'Program terminating due to fatal error'
+          endif
       ENDIF
-   END SUBROUTINE ALSTOP
+    END SUBROUTINE ALSTOP
 
 END MODULE sglobal
