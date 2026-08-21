@@ -54,7 +54,7 @@ MODULE sglobal
    PUBLIC :: EARRAY, text32
    PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, i_iszero_a2, notzero, isone, notone
    PUBLIC :: idimje, dimje
-   PUBLIC :: ERROR, ALSTOP, error_mode
+   PUBLIC :: ERROR, ALSTOP, error_mode, casemode
 
    ! --------------------------------------------------------------------
    ! System Version and Banners
@@ -142,6 +142,7 @@ MODULE sglobal
    LOGICAL :: ISERROR !! Flag set to .TRUE. on critical errors (e.g., 1024, 1030) to trigger timestep reduction.
    LOGICAL :: ISERROR2 !! Flag set to .TRUE. on error 1060 to trigger timestep reduction.
    LOGICAL :: error_mode
+   CHARACTER(LEN=LENGTH_FILEPATH) :: casemode   
 
    ! --------------------------------------------------------------------
    ! Mathematical and Numerical Constants

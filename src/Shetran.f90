@@ -133,7 +133,6 @@ PROGRAM SHETRAN
 
    ! The program now terminates cleanly
    ! added a delay to allow users to see the final output before the console window closes
-   CALL sleepqq(5000) 
-
+   if (casemode == '-a')       CALL sleepqq(5000)
 
 END PROGRAM SHETRAN
