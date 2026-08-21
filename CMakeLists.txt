@@ -81,6 +81,7 @@ if(NOT SHETRAN_IPO_SUPPORTED)
         "${SHETRAN_IPO_ERROR}")
 endif()
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASENATIVE ON)
 
 # Define flags used by the custom ReleaseNative build type.
 set(CMAKE_Fortran_FLAGS_RELEASENATIVE "" CACHE STRING "Flags used by the ReleaseNative build type" FORCE)
@@ -657,8 +658,6 @@ if(WIN32)
         $<$<CONFIG:Release>:/fp:precise>
 
         # ReleaseNative: maximum local performance, non-portable ISA tuning
-        # (intentionally no interprocedural optimization flags such as /Qipo)
-        # because they break the build
         $<$<CONFIG:ReleaseNative>:/O3>
         $<$<CONFIG:ReleaseNative>:/QxHost>
         $<$<CONFIG:ReleaseNative>:/fp:precise>
