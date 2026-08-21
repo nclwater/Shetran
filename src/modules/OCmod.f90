@@ -217,6 +217,15 @@ CONTAINS
          CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OCSIM workspace initialised more than once')
       END IF
 
+      ! `GG` and `EE` share a `+1` storage offset: the quantity [[ocsim]] forms
+      ! while eliminating row `IROW` is stored at index `IROW+1`. Their row
+      ! extents differ because of what each is indexed by, not because either
+      ! carries spare space. `GG` holds one vector per active row, so it spans
+      ! `NROWF+1:NROWL+1`. `EE` holds one matrix per interface between
+      ! consecutive active rows, and N rows have N-1 interfaces, so it spans
+      ! `NROWF+1:NROWL`. The `IF (IROW /= NROWL)` guard on the `EE` write
+      ! follows from that: there is no interface below the last row. Both
+      ! ranges are exactly tight, so neither tolerates an off-by-one.
       ALLOCATE (OCSIM_WORKSPACE%AA(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
                 OCSIM_WORKSPACE%DD(MAX_ROW_WIDTH, NROWF:NROWL), &
                 OCSIM_WORKSPACE%FF(MAX_ROW_WIDTH), &
