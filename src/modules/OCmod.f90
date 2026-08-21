@@ -49,6 +49,7 @@ MODULE OCmod
    INTEGER            :: NELIND(NELEE)         !! Position of each element within its implicit-solver row.
    INTEGER            :: NROWF                  !! First non-empty OC solver row.
    INTEGER            :: NROWL                  !! Last non-empty OC solver row.
+   INTEGER            :: MAX_ROW_WIDTH = 0      !! Greatest active OC solver-row width established by [[ocind]].
    INTEGER            :: NOCHB                  !! Number of OC head-boundary categories.
    INTEGER            :: NOCFB                  !! Number of OC flow-boundary categories.
    INTEGER            :: NROWEL(NELEE)         !! Contiguous list of OC elements in row-solver order.
@@ -72,26 +73,31 @@ MODULE OCmod
    DOUBLEPRECISION    :: XAREA(NLFEE, NOCTAB)  !! Integrated channel cross-section areas.
    DOUBLEPRECISION    :: dtoc                   !! OC timestep in seconds.
 
-   ! Persistent [[ocsim]] row-solver workspace, allocated once by [[initialise_ocsim_workspace]]
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: AA       !! Next-row block coefficients of the row-wise implicit matrix.
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: DD       !! Back-substituted water-level correction, by row position and row number.
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: BB       !! Current-row block coefficients of the row-wise implicit matrix.
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: GG       !! Forward-elimination constant term, by row position and row number.
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: CC       !! Previous-row block coefficients of the row-wise implicit matrix.
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM1      !! Scratch matrix product used while assembling a row's system.
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM2      !! Row system matrix, inverted in place by [[utilsmod:invertmat]].
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: inqsa    !! Current face-flow buffer passed to [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: GGGETQSA !! Corrected face-flow buffer returned by [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: FF       !! Right-hand-side vector for the current row.
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV1      !! Scratch vector product used while assembling a row's right-hand side.
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV2      !! Row right-hand-side vector, inverted in place alongside `TM2`.
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: inhrf    !! Current water-level buffer passed to [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: GGGETHRF !! Corrected water-level buffer returned by [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:, :, :), ALLOCATABLE :: EE       !! Forward-elimination coefficient relating a row's correction to the next row's.
+   ! Persistent [[ocsim]] workspace, allocated once by [[initialise_ocsim_workspace]].
+   TYPE :: OCSIM_WORKSPACE_TYPE
+      LOGICAL :: READY = .FALSE. !! True only after every workspace component has been allocated successfully.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: AA       !! Next-row block coefficients.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: DD       !! Back-substituted correction by row position and row.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: BB       !! Current-row block coefficients.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: GG       !! Forward-elimination constant term by row position and row.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: CC       !! Previous-row block coefficients.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM1      !! Scratch matrix product.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM2      !! Row system matrix, inverted in place.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: INQSA    !! Current face-flow buffer passed to [[ocmod2:ocfix]].
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: GGGETQSA !! Corrected face-flow buffer returned by [[ocmod2:ocfix]].
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: FF          !! Current-row right-hand-side vector.
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV1         !! Scratch vector product.
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV2         !! Row right-hand-side vector.
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: INHRF       !! Current water-level buffer passed to [[ocmod2:ocfix]].
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: GGGETHRF    !! Corrected water-level buffer returned by [[ocmod2:ocfix]].
+      DOUBLE PRECISION, DIMENSION(:, :, :), ALLOCATABLE :: EE    !! Forward-elimination coefficients between rows.
+   END TYPE OCSIM_WORKSPACE_TYPE
+
+   TYPE(OCSIM_WORKSPACE_TYPE) :: OCSIM_WORKSPACE
 
    PRIVATE
 
-   PUBLIC :: OCINI, OCSIM, OCLTL, LINKNO, & !REST ARE PUBLIC FOR AD ONLY
+   PUBLIC :: OCINI, OCSIM, OCLTL, LINKNO, FINALISE_OCSIM_WORKSPACE, & !REST ARE PUBLIC FOR AD ONLY
              qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
 
 CONTAINS
@@ -156,7 +162,6 @@ CONTAINS
       IF (NOCFB > 0) READ (OFB, *)
 
       CALL INITIALISE_OCMOD()
-      CALL INITIALISE_OCSIM_WORKSPACE()
 
       ! Cross-section tables & effective bed elevations
       IF (total_no_links > 0) THEN
@@ -166,6 +171,7 @@ CONTAINS
 
       ! Indicies for Thomas algorithm
       CALL OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
+      CALL INITIALISE_OCSIM_WORKSPACE()
 
       RETURN
 
@@ -179,19 +185,14 @@ CONTAINS
 !> These arrays were formerly automatic local arrays in [[ocsim]]. They are too
 !> large for the stack on some compilers/runs, but allocating them on every
 !> [[ocsim]] call is expensive because [[ocsim]] is called every timestep.
-!> Keeping them as module work arrays preserves heap storage without repeated
-!> allocation in the timestep loop.
+!> Keeping them in a module-owned workspace preserves heap storage without
+!> repeated allocation in the timestep loop.
 !>
-!> [[ocini]] calls this routine once, after `NX`, `NY`, and
-!> `total_no_elements` have been established. Static topology is not duplicated
-!> here: [[ocsim]] passes `ICMREF` and `ICMRF2` to [[ocmod2:ocfix]] directly.
-!>
-!> @warning
-!> The `ALLOCATED` guard makes this a one-shot initialiser: there is no
-!> resizing or deallocation path, so a later change in `NX`, `NY`,
-!> or `total_no_elements` within the same process would not be reflected in
-!> these arrays.
-!> @endwarning
+!> [[ocini]] calls this routine once, after [[ocind]] has established
+!> `NROWF`, `NROWL`, and `MAX_ROW_WIDTH`. The program supports one model per
+!> execution; a second call without intervening finalisation is a lifecycle
+!> error. Static topology is not duplicated here: [[ocsim]] passes `ICMREF`
+!> and `ICMRF2` to [[ocmod2:ocfix]] directly.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -202,21 +203,94 @@ CONTAINS
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
 
-      IF (.NOT. ALLOCATED(AA)) THEN
-         ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
-         ALLOCATE (FF(NX*4))
-         ALLOCATE (BB(NX*4, NX*4), GG(NX*4, NY))
-         ALLOCATE (CC(NX*4, NX*4))
-         ALLOCATE (EE(NX*4, NX*4, NY))
-         ALLOCATE (TM1(NX*4, NX*4), TM2(NX*4, NX*4))
-         ALLOCATE (TV1(NX*4), TV2(NX*4))
-         ALLOCATE (inhrf(total_no_elements))
-         ALLOCATE (GGGETHRF(total_no_elements))
-         ALLOCATE (inqsa(total_no_elements, 4))
-         ALLOCATE (GGGETQSA(total_no_elements, 4))
+      INTEGER :: ALLOC_STATUS
+      CHARACTER(LEN=512) :: ALLOC_MESSAGE, MSG
+
+      IF (MAX_ROW_WIDTH <= 0 .OR. NROWF < 1 .OR. NROWL < NROWF .OR. total_no_elements <= 0) THEN
+         WRITE (MSG, '(A,6(A,I0))') 'Invalid OCSIM workspace dimensions:', &
+            ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
+            ' MAX_ROW_WIDTH=', MAX_ROW_WIDTH, ' NEL=', total_no_elements
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, TRIM(MSG))
       END IF
 
+      IF (OCSIM_WORKSPACE%READY .OR. OCSIM_WORKSPACE_HAS_ALLOCATIONS()) THEN
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OCSIM workspace initialised more than once')
+      END IF
+
+      ALLOCATE (OCSIM_WORKSPACE%AA(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%DD(MAX_ROW_WIDTH, NROWF:NROWL), &
+                OCSIM_WORKSPACE%FF(MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%BB(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%GG(MAX_ROW_WIDTH, NROWF + 1:NROWL + 1), &
+                OCSIM_WORKSPACE%CC(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%EE(MAX_ROW_WIDTH, MAX_ROW_WIDTH, NROWF + 1:NROWL), &
+                OCSIM_WORKSPACE%TM1(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TM2(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TV1(MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TV2(MAX_ROW_WIDTH), &
+                OCSIM_WORKSPACE%INHRF(total_no_elements), &
+                OCSIM_WORKSPACE%GGGETHRF(total_no_elements), &
+                OCSIM_WORKSPACE%INQSA(total_no_elements, 4), &
+                OCSIM_WORKSPACE%GGGETQSA(total_no_elements, 4), &
+                STAT=ALLOC_STATUS, ERRMSG=ALLOC_MESSAGE)
+
+      IF (ALLOC_STATUS /= 0) THEN
+         WRITE (MSG, '(A,6(A,I0),2A)') 'Unable to allocate OCSIM workspace:', &
+            ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
+            ' MAX_ROW_WIDTH=', MAX_ROW_WIDTH, ' NEL=', total_no_elements, &
+            ' allocator: ', TRIM(ALLOC_MESSAGE)
+         CALL FINALISE_OCSIM_WORKSPACE()
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, TRIM(MSG))
+      END IF
+
+      OCSIM_WORKSPACE%READY = .TRUE.
+
    END SUBROUTINE INITIALISE_OCSIM_WORKSPACE
+
+!> @brief Releases all persistent [[ocsim]] workspace storage.
+!>
+!> The procedure is idempotent and also handles a partially allocated object,
+!> allowing the allocation-failure path to clean up before reporting a fatal
+!> error. The normal program shutdown calls it after the final possible
+!> [[ocsim]] use. SHETRAN still assumes one model per process execution.
+   SUBROUTINE FINALISE_OCSIM_WORKSPACE()
+      IMPLICIT NONE
+
+      IF (ALLOCATED(OCSIM_WORKSPACE%AA))       DEALLOCATE (OCSIM_WORKSPACE%AA)
+      IF (ALLOCATED(OCSIM_WORKSPACE%DD))       DEALLOCATE (OCSIM_WORKSPACE%DD)
+      IF (ALLOCATED(OCSIM_WORKSPACE%FF))       DEALLOCATE (OCSIM_WORKSPACE%FF)
+      IF (ALLOCATED(OCSIM_WORKSPACE%BB))       DEALLOCATE (OCSIM_WORKSPACE%BB)
+      IF (ALLOCATED(OCSIM_WORKSPACE%GG))       DEALLOCATE (OCSIM_WORKSPACE%GG)
+      IF (ALLOCATED(OCSIM_WORKSPACE%CC))       DEALLOCATE (OCSIM_WORKSPACE%CC)
+      IF (ALLOCATED(OCSIM_WORKSPACE%EE))       DEALLOCATE (OCSIM_WORKSPACE%EE)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM1))      DEALLOCATE (OCSIM_WORKSPACE%TM1)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM2))      DEALLOCATE (OCSIM_WORKSPACE%TM2)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV1))      DEALLOCATE (OCSIM_WORKSPACE%TV1)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV2))      DEALLOCATE (OCSIM_WORKSPACE%TV2)
+      IF (ALLOCATED(OCSIM_WORKSPACE%INHRF))    DEALLOCATE (OCSIM_WORKSPACE%INHRF)
+      IF (ALLOCATED(OCSIM_WORKSPACE%GGGETHRF)) DEALLOCATE (OCSIM_WORKSPACE%GGGETHRF)
+      IF (ALLOCATED(OCSIM_WORKSPACE%INQSA))    DEALLOCATE (OCSIM_WORKSPACE%INQSA)
+      IF (ALLOCATED(OCSIM_WORKSPACE%GGGETQSA)) DEALLOCATE (OCSIM_WORKSPACE%GGGETQSA)
+
+      OCSIM_WORKSPACE%READY = .FALSE.
+      MAX_ROW_WIDTH = 0
+
+   END SUBROUTINE FINALISE_OCSIM_WORKSPACE
+
+   LOGICAL FUNCTION OCSIM_WORKSPACE_HAS_ALLOCATIONS()
+      IMPLICIT NONE
+
+      OCSIM_WORKSPACE_HAS_ALLOCATIONS = &
+         ALLOCATED(OCSIM_WORKSPACE%AA) .OR. ALLOCATED(OCSIM_WORKSPACE%DD) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%FF) .OR. ALLOCATED(OCSIM_WORKSPACE%BB) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%GG) .OR. ALLOCATED(OCSIM_WORKSPACE%CC) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%EE) .OR. ALLOCATED(OCSIM_WORKSPACE%TM1) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%TM2) .OR. ALLOCATED(OCSIM_WORKSPACE%TV1) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%TV2) .OR. ALLOCATED(OCSIM_WORKSPACE%INHRF) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%GGGETHRF) .OR. ALLOCATED(OCSIM_WORKSPACE%INQSA) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%GGGETQSA)
+
+   END FUNCTION OCSIM_WORKSPACE_HAS_ALLOCATIONS
 
 !> @brief Assembles one element row of the implicit OC matrix.
 !>
@@ -318,10 +392,10 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: QHE    !! Exchange flow rate for the current (non-link) element.
       DOUBLE PRECISION, INTENT(IN) :: ESWAE  !! Evaporation rate from the current element's surface water.
       DOUBLE PRECISION, INTENT(IN) :: HNOW   !! Prescribed head value for a fixed-head boundary.
-      DOUBLE PRECISION, INTENT(OUT):: AA(NXOCEE) !! Next-row coefficients for elements adjacent to `IELZ`.
-      DOUBLE PRECISION, INTENT(OUT):: BB(NCR)    !! Current-row coefficients for elements adjacent to `IELZ`.
-      DOUBLE PRECISION, INTENT(OUT):: CC(NXOCEE) !! Previous-row coefficients for elements adjacent to `IELZ`.
-      DOUBLE PRECISION, INTENT(OUT):: FF         !! Right-hand-side residual for the current element's row equation.
+      DOUBLE PRECISION, INTENT(OUT):: AA(:) !! Active next-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: BB(:) !! Active current-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: CC(:) !! Active previous-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: FF    !! Right-hand-side residual for the current element's row equation.
 
       ! Local Variables
       INTEGER                      :: I, IBR, IFACE, IM, J, JEL, JFACE, JND, JROW
@@ -1189,10 +1263,10 @@ CONTAINS
 !> n_j = NROWST(j+1)-NROWST(j),
 !> \]
 !>
-!> and the maximum row width checked against `NXOCEE` is
+!> and the maximum row width retained as module state for workspace sizing is
 !>
 !> \[
-!> NXOC = \max_j n_j.
+!> MAX\_ROW\_WIDTH = \max_j n_j.
 !> \]
 !>
 !> Entry requirements retained from the legacy routine are:
@@ -1217,12 +1291,14 @@ CONTAINS
       INTEGER, INTENT(OUT) :: NROWEL(:)    !! Contiguous list of elements in row order.
 
       ! Locals
-      INTEGER :: BANK, FACE, I, ICOUNT, IELv, J, K, LINK, NXOC
+      INTEGER :: BANK, FACE, I, ICOUNT, IELv, J, K, LINK
 
       !----------------------------------------------------------------------*
 
       ! Initialize counters
-      NXOC = 0
+      MAX_ROW_WIDTH = 0
+      NROWF = 0
+      NROWL = 0
       K = 0
 
       ! LOOP OVER BASIC GRID SYSTEM
@@ -1281,7 +1357,7 @@ CONTAINS
          END DO col_loop
 
          ! ---- Next row
-         NXOC = MAX(NXOC, K + 1 - NROWST(J))
+         MAX_ROW_WIDTH = MAX(MAX_ROW_WIDTH, K + 1 - NROWST(J))
          IF (ICOUNT > 0) NROWL = J
 
       END DO row_loop
@@ -1290,9 +1366,9 @@ CONTAINS
       ! Modern Fix: Explicitly use NY + 1 instead of relying on the leaked loop variable 'J'
       NROWST(NY + 1) = K + 1
 
-      ! CHECK ARRAY DIMENSIONS
-      IF (NXOC > NXOCEE) THEN
-         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'ARRAY DIMENSION OF NXOC TOO SMALL')
+      ! The row solver is allocated from the active topology after this call.
+      IF (MAX_ROW_WIDTH <= 0) THEN
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OC topology contains no active solver row')
       END IF
 
    END SUBROUTINE OCIND
@@ -2022,6 +2098,19 @@ CONTAINS
       CHARACTER(36) :: MSG
 
       !----------------------------------------------------------------------*
+
+      IF (.NOT. OCSIM_WORKSPACE%READY) THEN
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OCSIM called before its workspace was initialised')
+      END IF
+
+      ASSOCIATE (AA => OCSIM_WORKSPACE%AA, DD => OCSIM_WORKSPACE%DD, &
+                 FF => OCSIM_WORKSPACE%FF, BB => OCSIM_WORKSPACE%BB, &
+                 GG => OCSIM_WORKSPACE%GG, CC => OCSIM_WORKSPACE%CC, &
+                 EE => OCSIM_WORKSPACE%EE, TM1 => OCSIM_WORKSPACE%TM1, &
+                 TM2 => OCSIM_WORKSPACE%TM2, TV1 => OCSIM_WORKSPACE%TV1, &
+                 TV2 => OCSIM_WORKSPACE%TV2, INHRF => OCSIM_WORKSPACE%INHRF, &
+                 GGGETHRF => OCSIM_WORKSPACE%GGGETHRF, INQSA => OCSIM_WORKSPACE%INQSA, &
+                 GGGETQSA => OCSIM_WORKSPACE%GGGETQSA)
       !
       ! ----- Timestep setup
       DTOC = OCNEXT*3600.0D0
@@ -2065,8 +2154,8 @@ CONTAINS
 
             CALL OCABC(IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT(LINK), cellarea(iels), &
                        ZGRUND(iels), CLENTH(LINK), ZBFULL(LINK), GETHRF(iels), &
-                       PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(:, IND), &
-                       BB(1:ncr, IND), CC(:, IND), FF(IND))
+                       PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(1:nsv, IND), &
+                       BB(1:ncr, IND), CC(1:npr, IND), FF(IND))
          END DO
 
          ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
@@ -2222,6 +2311,8 @@ CONTAINS
          MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
          CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
       END IF
+
+      END ASSOCIATE
 
    END SUBROUTINE OCSIM
 

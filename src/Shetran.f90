@@ -104,6 +104,9 @@ PROGRAM SHETRAN
    ! Model initialization and timestep driver.
    USE RUN_SIM, ONLY: SIMULATION
 
+   ! Explicit release of the persistent open-channel solver workspace.
+   USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
+
    IMPLICIT NONE
 
    ! Initialize error flags and retained help-path state.
@@ -133,5 +136,8 @@ PROGRAM SHETRAN
 
    ! Record any due final visualisation data and close its resources.
    CALL RECORD_VISUALISATION_DATA(REAL(uznow, KIND=4), 'end')
+
+   ! Release the model-lifetime open-channel solver workspace.
+   CALL FINALISE_OCSIM_WORKSPACE()
 
 END PROGRAM SHETRAN
