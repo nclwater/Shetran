@@ -22,6 +22,7 @@
 !> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` call in `BALWAT` with a direct array-slice assignment. |
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow in `METIN` and `TMSTEP` with named `DO`/`CYCLE`/`EXIT` constructs. |
 !> | 2026-05-10 | SvB | - | Removed interactive "press enter to continue" prompts after fatal read errors in `METIN`/`TMSTEP`; replaced with `ERROR STOP`. |
+!> | 2026-08-22 | SvB | - | Added `READ_DATED_RECORD`, which reads dated meteorological records through a buffer sized to the record instead of a fixed 100000-character line. |
 !> @endhistory
 MODULE rest
    USE SGLOBAL
@@ -40,6 +41,7 @@ MODULE rest
    USE FRmod,    ONLY : BSOFT
    USE UTILSMOD, ONLY : HOUR_FROM_DATE, TERPO1
    USE OCmod2,   ONLY : GETHRF
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE
 
@@ -49,6 +51,16 @@ MODULE rest
    DOUBLEPRECISION :: METIME=zero !! End time of the current precipitation/full-meteorological record window (h).
    DOUBLEPRECISION :: MELAST=zero !! Start time of the current precipitation/full-meteorological record window (h).
    DOUBLEPRECISION :: EPTIME=zero !! End time of the current potential-evaporation record window (h).
+
+   ! Dated meteorological record buffer, see READ_DATED_RECORD -----------------
+   INTEGER, PARAMETER :: RECORD_HEADROOM = 10 !! Characters kept free at the end of `MET_RECORD`; a record reaching into them is treated as too long for the buffer.
+   INTEGER, PARAMETER :: IOSTAGE_NONE   = 0 !! `READ_DATED_RECORD` completed without an error.
+   INTEGER, PARAMETER :: IOSTAGE_RECORD = 1 !! `READ_DATED_RECORD` failed while reading the timestamp and record text.
+   INTEGER, PARAMETER :: IOSTAGE_VALUES = 2 !! `READ_DATED_RECORD` failed while parsing the values of the record.
+   INTEGER, PARAMETER :: IOS_SHORT_RECORD = 1 !! `IOS` reported by `READ_DATED_RECORD` for a record holding fewer values than expected.
+
+   CHARACTER(LEN=:), ALLOCATABLE :: MET_RECORD !! Reusable buffer holding the value part of the dated meteorological record currently being read.
+   LOGICAL :: MET_RECORD_SIZED = .FALSE. !! `.TRUE.` once `MET_RECORD` has been resized from its initial capacity to fit the first data line read.
 
    PRIVATE
 
@@ -308,6 +320,148 @@ CONTAINS
    END SUBROUTINE BALWAT
 
 
+   !> Reads one dated meteorological record: its timestamp and `NVALUES` values.
+   !>
+   !> The record text is read into the module buffer `MET_RECORD`, whose capacity
+   !> is proportional to the number of values actually expected rather than to a
+   !> fixed worst case. The buffer starts at `LENGTH_LINEVERYLONG` characters and
+   !> is resized once the first data line has been read successfully, to
+   !>
+   !> \[
+   !> capacity = \max(NVALUES \cdot LENGTH\_TEXT\_R8P,\; len\_trim(record)) +
+   !>            RECORD\_HEADROOM .
+   !> \]
+   !>
+   !> Because all dated files (`PRD`, `EPD`, `TAH`, `TAL`) share the buffer, a
+   !> later call needing more room grows it again; the capacity therefore
+   !> converges to the widest record in use and no per-record allocation occurs.
+   !>
+   !> A record whose text reaches into the last `RECORD_HEADROOM` characters may
+   !> have been truncated. The buffer is then grown (doubled, capped at
+   !> `LENGTH_LINEVERYLONG`), the record is re-read after a `BACKSPACE`, and the
+   !> run stops with a diagnostic if even `LENGTH_LINEVERYLONG` characters are
+   !> not enough.
+   !>
+   !> The timestamp is parsed once per record into `DATEHOUR` using
+   !> [[utilsmod:hour_from_date]]; the seconds field is consumed but not used.
+   !> `DATEHOUR` and `VALUES` are left unchanged when the read fails, so an
+   !> end-of-file caller keeps whatever fallback it has already set.
+   !>
+   !> `IOS` follows the usual convention (`<0` end of file, `>0` error) and
+   !> `IOSTAGE` reports which step failed, so callers can keep their own
+   !> file-specific messages. Only the record read reports end of file: a record
+   !> that exists but carries fewer than `NVALUES` values is reported as the
+   !> error `IOS_SHORT_RECORD` instead, because it is a data problem rather than
+   !> the end of the series.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 2026-08-22 | SvB | - | Initial version, replacing the fixed 100000-character record buffer in [[metin]]. |
+   !> @endhistory
+   SUBROUTINE READ_DATED_RECORD (UNIT, NVALUES, DATEHOUR, VALUES, IOS, IOSTAGE)
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER, INTENT(IN)             :: UNIT     !! Unit of the dated meteorological file to read from.
+      INTEGER, INTENT(IN)             :: NVALUES  !! Number of values expected after the timestamp.
+      DOUBLE PRECISION, INTENT(INOUT) :: DATEHOUR !! Record timestamp in SHETRAN hours; unchanged when the record could not be read.
+      DOUBLE PRECISION, INTENT(INOUT) :: VALUES(:)!! Receives `VALUES(1:NVALUES)`; unchanged when the record could not be read.
+      INTEGER, INTENT(OUT)            :: IOS      !! Status of the read: `0` success, `<0` end of file, `>0` error.
+      INTEGER, INTENT(OUT)            :: IOSTAGE  !! Step that failed: `IOSTAGE_NONE`, `IOSTAGE_RECORD`, or `IOSTAGE_VALUES`.
+
+      ! Locals
+      INTEGER :: YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
+      INTEGER :: NEEDED, TRIMMED
+   !----------------------------------------------------------------------*
+
+      IOSTAGE = IOSTAGE_NONE
+      NEEDED  = NVALUES * LENGTH_TEXT_R8P + RECORD_HEADROOM
+
+      IF (.NOT. ALLOCATED(MET_RECORD)) THEN
+         ! start from the reserved capacity; the first data line sets the real size
+         ALLOCATE (CHARACTER(LEN=LENGTH_LINEVERYLONG) :: MET_RECORD)
+         MET_RECORD_SIZED = .FALSE.
+      ELSE IF (MET_RECORD_SIZED .AND. LEN(MET_RECORD) < NEEDED) THEN
+         ! a wider file than the one that sized the buffer
+         CALL RESIZE_MET_RECORD (MIN(NEEDED, LENGTH_LINEVERYLONG))
+      END IF
+
+      read_record: DO
+         READ (UNIT, 9000, IOSTAT=IOS) YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, MET_RECORD
+
+         IF (IOS /= 0) THEN
+            IOSTAGE = IOSTAGE_RECORD
+            RETURN
+         END IF
+
+         TRIMMED = LEN_TRIM(MET_RECORD)
+         IF (TRIMMED <= LEN(MET_RECORD) - RECORD_HEADROOM) EXIT read_record
+
+         ! the record filled the buffer: grow and read it again, or give up
+         IF (LEN(MET_RECORD) >= LENGTH_LINEVERYLONG) THEN
+            WRITE (*, 9010) ' Error reading a dated meteorological time series file. A record needs more than ', &
+               LENGTH_LINEVERYLONG, ' characters for ', NVALUES, &
+               ' values. Reduce the number of stations or the column width of the file.'
+            ERROR STOP
+         END IF
+
+         CALL RESIZE_MET_RECORD (MIN(2 * LEN(MET_RECORD), LENGTH_LINEVERYLONG))
+         BACKSPACE (UNIT)
+      END DO read_record
+
+      DATEHOUR = HOUR_FROM_DATE(YEAR, MONTH, DAY, HOUR, MINUTE)
+
+      READ (MET_RECORD, *, IOSTAT=IOS) VALUES(1:NVALUES)
+      IF (IOS /= 0) THEN
+         ! a record that exists but holds too few values is a data error, not an end of file
+         IF (IOS < 0) IOS = IOS_SHORT_RECORD
+         IOSTAGE = IOSTAGE_VALUES
+         RETURN
+      END IF
+
+      IF (.NOT. MET_RECORD_SIZED) THEN
+         ! first full data line read: make the buffer proportional to the record
+         CALL RESIZE_MET_RECORD (MIN(MAX(NEEDED, TRIMMED + RECORD_HEADROOM), LENGTH_LINEVERYLONG))
+         MET_RECORD_SIZED = .TRUE.
+      END IF
+
+      RETURN
+
+      ! FORMAT STATEMENTS
+9000  FORMAT (I4,1X,I2,1X,I2,1X,I2,1X,I2,1X,I2,1X,A)
+9010  FORMAT (A, I0, A, I0, A)
+
+   END SUBROUTINE READ_DATED_RECORD
+
+
+   !> Reallocates the dated meteorological record buffer `MET_RECORD` to `CAPACITY` characters.
+   !>
+   !> The buffer contents are not preserved; callers resize it only between
+   !> records or immediately before re-reading a record.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 2026-08-22 | SvB | - | Initial version. |
+   !> @endhistory
+   SUBROUTINE RESIZE_MET_RECORD (CAPACITY)
+      IMPLICIT NONE
+
+      ! Arguments
+      INTEGER, INTENT(IN) :: CAPACITY !! New buffer length in characters.
+   !----------------------------------------------------------------------*
+
+      IF (ALLOCATED(MET_RECORD)) THEN
+         IF (LEN(MET_RECORD) == CAPACITY) RETURN
+         DEALLOCATE (MET_RECORD)
+      END IF
+
+      ALLOCATE (CHARACTER(LEN=CAPACITY) :: MET_RECORD)
+
+   END SUBROUTINE RESIZE_MET_RECORD
+
+
    !> Reads or interpolates meteorological forcing required by ET, interception, and snowmelt.
    !>
    !> `METIN` advances precipitation, potential evaporation, radiation, wind,
@@ -398,6 +552,7 @@ CONTAINS
    !> | 2026-03-19 | SB | 4.6.1 | Added optional date-aware meteorological input handling (`BMETDATES`, `TAH`/`TAL`). |
    !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with named `DO`/`CYCLE`/`EXIT` loop constructs. |
    !> | 2026-05-10 | SvB | - | Replaced interactive "press enter to continue" prompts after fatal read errors with `ERROR STOP`. |
+   !> | 2026-08-22 | SvB | - | Moved dated record reading into [[rest:read_dated_record]], replacing the fixed 100000-character line buffer. |
    !> @endhistory
    SUBROUTINE METIN (IFLAG)
       IMPLICIT NONE
@@ -413,14 +568,15 @@ CONTAINS
       LOGICAL             :: FIRSTNOPRD = .TRUE., FIRSTNOEPD1 = .TRUE., FIRSTNOEPD2 = .TRUE.
       LOGICAL             :: FIRSTNOMET1 = .TRUE., FIRSTNOMET2 = .TRUE., FIRSTNOMET3 = .TRUE.
       LOGICAL             :: FIRSTNOMET4 = .TRUE., FIRSTNOMET5 = .TRUE.
-      INTEGER             :: prdyear, prdmonth, prdday, prdhour, prdminute, prdsecond
-      INTEGER             :: epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond
-      INTEGER             :: tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond
-      INTEGER             :: talyear, talmonth, talday, talhour, talminute, talsecond
-      CHARACTER(LEN=100000) :: tmp
-      INTEGER             :: ios
+      INTEGER             :: ios, iostage
       DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
    !----------------------------------------------------------------------*
+
+      ! record timestamps are read for validation only, so they start defined
+      prddate = ZERO
+      epddate = ZERO
+      tahdate = ZERO
+      taldate = ZERO
 
       IF (BMETAL) THEN
 
@@ -433,13 +589,18 @@ CONTAINS
          IF (IFLAG == 1) THEN
             precip_read_loop: DO
                IF (BMETDATES) THEN
-                  READ(prd, 9000, IOSTAT=ios) prdyear, prdmonth, prdday, prdhour, prdminute, prdsecond, tmp
+                  CALL READ_DATED_RECORD (prd, NRAIN, prddate, PINP, ios, iostage)
 
                   IF (ios > 0) THEN
-                      WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
-                         'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
-                         NRAIN, ' values on each row'
-                      ERROR STOP
+                     IF (iostage == IOSTAGE_RECORD) THEN
+                        WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                           'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 followed by ', &
+                           NRAIN, ' values on each row'
+                     ELSE
+                        WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
+                           'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
+                     END IF
+                     ERROR STOP
                   END IF
 
                   IF (ios < 0) THEN
@@ -448,15 +609,6 @@ CONTAINS
                         FIRSTNOPRD = .FALSE.
                      END IF
                      PINP(1:NRAIN) = ZERO
-                  ELSE
-                     prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
-                     READ (tmp, *, IOSTAT=ios) PINP(1:NRAIN)
-
-                     IF (ios > 0) THEN
-                         WRITE (*, 9020) ' Error reading the precipitation time series file. ' // &
-                            'This should have the date in the iso 8601 format followed by ', NRAIN, ' values'
-                         ERROR STOP
-                     END IF
                   END IF
 
                ELSE
@@ -492,12 +644,16 @@ CONTAINS
                hotstart_epd_loop: DO
                   ! epd and temperature files have dates
                   IF (BMETDATES) THEN
-                     READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
+                     CALL READ_DATED_RECORD (epd, NM, epddate, PEIN, ios, iostage)
 
                      IF (ios > 0) THEN
-                         WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
-                            'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
-                         ERROR STOP
+                        IF (iostage == IOSTAGE_RECORD) THEN
+                           WRITE (*, 9020) ' Error reading the potential evaporation time series file. ' // &
+                              'This should have the date in iso 8601 format followed by ', NM, ' values on each row'
+                        ELSE
+                           WRITE (*, 9022) ' Error reading potential evap data values from line.'
+                        END IF
+                        ERROR STOP
                      END IF
 
                      IF (ios < 0) THEN
@@ -506,43 +662,30 @@ CONTAINS
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
-                     ELSE
-                        epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
-                        READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
-                         IF (ios > 0) THEN
-                            WRITE (*, 9022) ' Error reading potential evap data values from line.'
-                            ERROR STOP
-                         END IF
                      END IF
 
                      IF (ISTA) THEN
-                        READ(TAH, 9000, IOSTAT=ios) tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
+                        CALL READ_DATED_RECORD (TAH, NM, tahdate, TAHIGH, ios, iostage)
                         IF (ios > 0) THEN
-                           WRITE (*, 9022) ' Error reading max temp time series file.'
-                           STOP
+                           IF (iostage == IOSTAGE_RECORD) THEN
+                              WRITE (*, 9022) ' Error reading max temp time series file.'
+                              STOP
+                           END IF
+                           STOP 'Error parsing max temperature line'
                         END IF
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
-
-                        IF (ios == 0) THEN
-                           READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
-                           IF (ios > 0) STOP 'Error parsing max temperature line'
-                           tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
-                        END IF
                      END IF
 
                      IF (ISTA) THEN
-                        READ(TAL, 9000, IOSTAT=ios) talyear, talmonth, talday, talhour, talminute, talsecond, tmp
+                        CALL READ_DATED_RECORD (TAL, NM, taldate, TALOW, ios, iostage)
                         IF (ios > 0) THEN
-                           WRITE (*, 9022) ' Error reading min temp time series file.'
-                           STOP
+                           IF (iostage == IOSTAGE_RECORD) THEN
+                              WRITE (*, 9022) ' Error reading min temp time series file.'
+                              STOP
+                           END IF
+                           STOP 'Error parsing min temperature line'
                         END IF
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
-
-                        IF (ios == 0) THEN
-                           READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
-                           IF (ios > 0) STOP 'Error parsing min temperature line'
-                           taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
-                        END IF
                      END IF
 
                      PEIN(1:NM) = PEIN(1:NM) / dtmet3
@@ -600,9 +743,12 @@ CONTAINS
                pet_read_loop: DO
                   ! epd and temperature files have dates
                   IF (BMETDATES) THEN
-                     READ(epd, 9000, IOSTAT=ios) epdyear, epdmonth, epdday, epdhour, epdminute, epdsecond, tmp
+                     CALL READ_DATED_RECORD (epd, NM, epddate, PEIN, ios, iostage)
 
-                     IF (ios > 0) STOP 'Error reading PET file'
+                     IF (ios > 0) THEN
+                        IF (iostage == IOSTAGE_RECORD) STOP 'Error reading PET file'
+                        STOP 'Error parsing PET values'
+                     END IF
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
@@ -610,34 +756,24 @@ CONTAINS
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
-                     ELSE
-                        epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
-                        READ (tmp, *, IOSTAT=ios) PEIN(1:NM)
-                        IF (ios > 0) STOP 'Error parsing PET values'
                      END IF
 
                      IF (ISTA) THEN
-                        READ(TAH, 9000, IOSTAT=ios) tahyear, tahmonth, tahday, tahhour, tahminute, tahsecond, tmp
-                        IF (ios > 0) STOP 'Error reading max temp file'
+                        CALL READ_DATED_RECORD (TAH, NM, tahdate, TAHIGH, ios, iostage)
+                        IF (ios > 0) THEN
+                           IF (iostage == IOSTAGE_RECORD) STOP 'Error reading max temp file'
+                           STOP 'Error parsing max temp values'
+                        END IF
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
-
-                        IF (ios == 0) THEN
-                           READ (tmp, *, IOSTAT=ios) TAHIGH(1:NM)
-                           IF (ios > 0) STOP 'Error parsing max temp values'
-                           tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
-                        END IF
                      END IF
 
                      IF (ISTA) THEN
-                        READ(TAL, 9000, IOSTAT=ios) talyear, talmonth, talday, talhour, talminute, talsecond, tmp
-                        IF (ios > 0) STOP 'Error reading min temp file'
-                        IF (ios < 0) TALOW(1:NM) = 10.0d0
-
-                        IF (ios == 0) THEN
-                           READ (tmp, *, IOSTAT=ios) TALOW(1:NM)
-                           IF (ios > 0) STOP 'Error parsing min temp values'
-                           taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
+                        CALL READ_DATED_RECORD (TAL, NM, taldate, TALOW, ios, iostage)
+                        IF (ios > 0) THEN
+                           IF (iostage == IOSTAGE_RECORD) STOP 'Error reading min temp file'
+                           STOP 'Error parsing min temp values'
                         END IF
+                        IF (ios < 0) TALOW(1:NM) = 10.0d0
                      END IF
 
                      PEIN(1:NM) = PEIN(1:NM) / dtmet3
@@ -838,7 +974,6 @@ CONTAINS
       RETURN
 
       ! FORMAT STATEMENTS
-9000  FORMAT (I4,1X,I2,1X,I2,1X,I2,1X,I2,1X,I2,1X,A)
 9010  FORMAT (///, A6, G12.4, A8, /, A18, /, A33, ///)
 9020  FORMAT (A, I0, A)
 9022  FORMAT (A)

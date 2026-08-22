@@ -10,13 +10,14 @@
 !>
 !> `R_P` and `I_P` are project aliases currently set to `R8P` and `I4P`.
 !> They do not change the processor's intrinsic default real or integer kinds.
-!> All 16 parameters are public because the module has no `PRIVATE` statement.
+!> All 17 parameters are public because the module has no `PRIVATE` statement.
 !>
 !> | Parameter group | Current use outside this module |
 !> |:----------------|:--------------------------------|
 !> | `R8P`, `I_P` | Numeric declarations in [[sglobal]], [[mod_load_filedata]], and [[zqmod]]. |
 !> | `LENGTH_FILEPATH`, `LENGTH_LINE` | Path, command-line, and diagnostic buffers in `SGLOBAL` and [[getdirqq]]. |
 !> | `LENGTH_LINELONG` | Diagnostic-detail buffers in [[visualisation_read_parser]]. |
+!> | `LENGTH_LINEVERYLONG`, `LENGTH_TEXT_R8P` | Initial capacity and per-value width of the dated meteorological record buffer in [[rest]]. |
 !> | Remaining kind, buffer, and `NAN_*` parameters | No named external consumer; retained public API. |
 !>
 !> These are internal compile-time constants and have no user-manual input
@@ -45,6 +46,7 @@
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-03-05 | SB | - | Initial version. |
 !> | 2026-03-28 | SvB | - | Converted the file documentation to FORD style as an example. |
+!> | 2026-08-22 | SvB | - | Added `LENGTH_TEXT_R8P`; `LENGTH_LINEVERYLONG` is now used by the dated meteorological reader. |
 !> @endhistory
 module mod_parameters
 
@@ -66,7 +68,8 @@ module mod_parameters
    integer(kind=I_P), parameter :: LENGTH_FILEPATH     =    260 !! Project path buffer; classic Windows `MAX_PATH` size.
    integer(kind=I_P), parameter :: LENGTH_LINE         =    256 !! Short text and diagnostic buffer length.
    integer(kind=I_P), parameter :: LENGTH_LINELONG     =  16384 !! Long text buffer; used for parser diagnostics.
-   integer(kind=I_P), parameter :: LENGTH_LINEVERYLONG = 262144 !! Reserved very-long text buffer; currently unused.
+   integer(kind=I_P), parameter :: LENGTH_LINEVERYLONG = 262144 !! Very-long text buffer; upper bound for the dated meteorological record buffer in [[rest]].
+   integer(kind=I_P), parameter :: LENGTH_TEXT_R8P     =     26 !! Characters reserved per free-format `R8P` value, including its separator.
 
 
    ! NaN equivalents ----------------------------------------------------------
