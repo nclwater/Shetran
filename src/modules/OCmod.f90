@@ -84,13 +84,9 @@ MODULE OCmod
       DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: CC       !! Previous-row block coefficients.
       DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM1      !! Scratch matrix product.
       DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM2      !! Row system matrix, inverted in place.
-      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: INQSA    !! Current face-flow buffer passed to [[ocmod2:ocfix]].
-      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: GGGETQSA !! Corrected face-flow buffer returned by [[ocmod2:ocfix]].
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: FF          !! Current-row right-hand-side vector.
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV1         !! Scratch vector product.
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV2         !! Row right-hand-side vector.
-      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: INHRF       !! Current water-level buffer passed to [[ocmod2:ocfix]].
-      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: GGGETHRF    !! Corrected water-level buffer returned by [[ocmod2:ocfix]].
       DOUBLE PRECISION, DIMENSION(:, :, :), ALLOCATABLE :: EE    !! Forward-elimination coefficients between rows.
    END TYPE OCSIM_WORKSPACE_TYPE
 
@@ -200,6 +196,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-05-10 | SvB | 4.6.1 | Added this allocator while moving `AA`, `DD`, `FF`, `BB`, `GG`, `CC`, `EE`, `TM1`, `TM2`, `TV1`, `TV2`, `inhrf`, `GGGETHRF`, `inqsa`, `GGGETQSA`, `ijedum`, and `ijedum2` from automatic locals in [[ocsim]] to allocatable module state. |
 !> | 2026-08-20 | - | - | Removed the duplicate topology work arrays after [[ocmod2:ocfix]] was changed to accept `ICMREF` and `ICMRF2` in their native layouts. |
+!> | 2026-08-22 | - | - | Removed the `INHRF`, `GGGETHRF`, `INQSA`, and `GGGETQSA` state buffers after [[ocmod2:ocfix]] was changed to correct `HRFZZ`/`QSAZZ` in place. |
 !> @endhistory
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
@@ -238,10 +235,6 @@ CONTAINS
                 OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
                 OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), &
                 OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), &
-                OCSIM_WORKSPACE%INHRF(total_no_elements), &
-                OCSIM_WORKSPACE%GGGETHRF(total_no_elements), &
-                OCSIM_WORKSPACE%INQSA(total_no_elements, 4), &
-                OCSIM_WORKSPACE%GGGETQSA(total_no_elements, 4), &
                 STAT=ALLOC_STATUS, ERRMSG=ALLOC_MESSAGE)
 
       IF (ALLOC_STATUS /= 0) THEN
@@ -277,10 +270,6 @@ CONTAINS
       IF (ALLOCATED(OCSIM_WORKSPACE%TM2)) DEALLOCATE (OCSIM_WORKSPACE%TM2)
       IF (ALLOCATED(OCSIM_WORKSPACE%TV1)) DEALLOCATE (OCSIM_WORKSPACE%TV1)
       IF (ALLOCATED(OCSIM_WORKSPACE%TV2)) DEALLOCATE (OCSIM_WORKSPACE%TV2)
-      IF (ALLOCATED(OCSIM_WORKSPACE%INHRF)) DEALLOCATE (OCSIM_WORKSPACE%INHRF)
-      IF (ALLOCATED(OCSIM_WORKSPACE%GGGETHRF)) DEALLOCATE (OCSIM_WORKSPACE%GGGETHRF)
-      IF (ALLOCATED(OCSIM_WORKSPACE%INQSA)) DEALLOCATE (OCSIM_WORKSPACE%INQSA)
-      IF (ALLOCATED(OCSIM_WORKSPACE%GGGETQSA)) DEALLOCATE (OCSIM_WORKSPACE%GGGETQSA)
 
       OCSIM_WORKSPACE%READY = .FALSE.
       MAX_SOLVER_ROW_WIDTH = 0
@@ -296,9 +285,7 @@ CONTAINS
          ALLOCATED(OCSIM_WORKSPACE%GG) .OR. ALLOCATED(OCSIM_WORKSPACE%CC) .OR. &
          ALLOCATED(OCSIM_WORKSPACE%EE) .OR. ALLOCATED(OCSIM_WORKSPACE%TM1) .OR. &
          ALLOCATED(OCSIM_WORKSPACE%TM2) .OR. ALLOCATED(OCSIM_WORKSPACE%TV1) .OR. &
-         ALLOCATED(OCSIM_WORKSPACE%TV2) .OR. ALLOCATED(OCSIM_WORKSPACE%INHRF) .OR. &
-         ALLOCATED(OCSIM_WORKSPACE%GGGETHRF) .OR. ALLOCATED(OCSIM_WORKSPACE%INQSA) .OR. &
-         ALLOCATED(OCSIM_WORKSPACE%GGGETQSA)
+         ALLOCATED(OCSIM_WORKSPACE%TV2)
 
    END FUNCTION OCSIM_WORKSPACE_HAS_ALLOCATIONS
 
@@ -2098,14 +2085,14 @@ CONTAINS
 !> | 1989-1998 | GP/RAH | 3.4-4.2 | Developed the row-wise implicit solve, [[OCFIX]] flow-correction split, and current `OCABC` argument list. |
 !> | 2009-01 | JE | - | Restructured the row loop for automatic differentiation. |
 !> | 2026-08-20 | - | - | Passed `ICMREF` and `ICMRF2` directly to [[ocmod2:ocfix]], removing the per-timestep topology staging. |
+!> | 2026-08-22 | - | - | Deleted the per-timestep staging of `HRFZZ`/`QSAZZ` into and out of [[ocmod2:ocfix]] buffers, which cost `10*total_no_elements` accessor calls and three round trips of the OC state. |
 !> @endhistory
    SUBROUTINE OCSIM
 
       IMPLICIT NONE
 
       INTEGER :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
-      INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV, face
-      INTEGER :: vv
+      INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV
 
       DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
 
@@ -2123,9 +2110,7 @@ CONTAINS
                  GG => OCSIM_WORKSPACE%GG, CC => OCSIM_WORKSPACE%CC, &
                  EE => OCSIM_WORKSPACE%EE, TM1 => OCSIM_WORKSPACE%TM1, &
                  TM2 => OCSIM_WORKSPACE%TM2, TV1 => OCSIM_WORKSPACE%TV1, &
-                 TV2 => OCSIM_WORKSPACE%TV2, INHRF => OCSIM_WORKSPACE%INHRF, &
-                 GGGETHRF => OCSIM_WORKSPACE%GGGETHRF, INQSA => OCSIM_WORKSPACE%INQSA, &
-                 GGGETQSA => OCSIM_WORKSPACE%GGGETQSA)
+                 TV2 => OCSIM_WORKSPACE%TV2)
          !
          ! ----- Timestep setup
          DTOC = OCNEXT*3600.0D0
@@ -2257,22 +2242,14 @@ CONTAINS
 
          ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
          ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
-         ! untidy mess for debugging of tangent
-         DO vv = 1, total_no_elements
-            inhrf(vv) = GETHRF(vv)
-            DO face = 1, 4
-               inqsa(vv, face) = GETQSA(vv, face)
-            END DO
-         END DO
-
-         CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
-
-         DO vv = 1, total_no_elements
-            CALL SETHRF(vv, GGGETHRF(vv))
-            DO face = 1, 4
-               CALL SETQSA(vv, face, GGGETQSA(vv, face))
-            END DO
-         END DO
+         !
+         ! [[ocmod2:ocfix]] corrects `HRFZZ`/`QSAZZ` in place. The former
+         ! staging of the whole OC state into `inhrf`/`inqsa` and back out of
+         ! `GGGETHRF`/`GGGETQSA` through the element accessors existed only for
+         ! tangent debugging; see the AD note in [[ocmod2:ocfix]] for how to
+         ! reinstate an argument-passed form for an AD build without paying for
+         ! it here.
+         CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc)
 
          ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
          QOC(1:total_no_elements, :) = GETQSA_ALL(total_no_elements)
