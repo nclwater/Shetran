@@ -40,7 +40,7 @@ MODULE OCmod
    USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
-   USE OCmod2, ONLY: GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
+   USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
                      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD, ONLY: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
 
@@ -2252,8 +2252,14 @@ CONTAINS
          CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc)
 
          ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
-         QOC(1:total_no_elements, :) = GETQSA_ALL(total_no_elements)
-         qoc(1:total_no_elements, 1:2) = -qoc(1:total_no_elements, 1:2)
+         !
+         ! Faces 1 and 2 point in -x/-y in the OC sign convention, so they are
+         ! negated here. Written column by column so that each column is a
+         ! single contiguous pass over `QSAZZ` with no array temporary.
+         qoc(1:total_no_elements, 1) = -qsazz(1:total_no_elements, 1)
+         qoc(1:total_no_elements, 2) = -qsazz(1:total_no_elements, 2)
+         qoc(1:total_no_elements, 3) = qsazz(1:total_no_elements, 3)
+         qoc(1:total_no_elements, 4) = qsazz(1:total_no_elements, 4)
 
          ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
          link_loop: DO iels = 1, total_no_links

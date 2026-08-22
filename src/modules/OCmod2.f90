@@ -82,7 +82,7 @@ MODULE OCmod2
    !! Allocated once by [[initialise_ocmod]] to shape `(3,NXSCEE,total_no_links)`.
 
    PRIVATE
-   PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, GETQSA_ALL, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
+   PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
       hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
 CONTAINS
 
@@ -147,21 +147,6 @@ CONTAINS
 
    END SUBROUTINE setqsa
 
-
-   !> Returns the stored face-discharge array for the first `n` elements.
-   !>
-   !> The returned array has shape `(n,4)` and is a value copy of
-   !> `QSAZZ(1:n,:)`.
-   PURE FUNCTION getqsa_all(n) RESULT(res)
-
-      IMPLICIT NONE
-
-      INTEGER, INTENT(IN) :: n !! Number of leading elements to return.
-      DOUBLE PRECISION, DIMENSION(n, 4) :: res !! Face-discharge copy for elements `1:n`.
-
-      res = qsazz(1:n, :)
-
-   END FUNCTION getqsa_all
 
    !> Allocates the channel cross-section conveyance lookup table.
    !>
