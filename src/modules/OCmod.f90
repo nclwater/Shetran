@@ -38,6 +38,7 @@ MODULE OCmod
                    NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
    USE AL_G, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
+   USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
    USE OCmod2, ONLY: GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
                      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
@@ -1275,8 +1276,11 @@ CONTAINS
 !> and the maximum row width retained as module state for workspace sizing is
 !>
 !> \[
-!> MAX\_ROW\_WIDTH = \max_j n_j.
+!> MAX\_ROW\_WIDTH = \max_j n_j,
 !> \]
+!>
+!> evaluated by [[oc_row_width:max_active_row_width]] once every row start,
+!> including the end-of-last-row marker `NROWST(NY+1)`, has been written.
 !>
 !> Entry requirements retained from the legacy routine are:
 !>
@@ -1305,7 +1309,6 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! Initialize counters
-      MAX_ROW_WIDTH = 0
       NROWF = 0
       NROWL = 0
       K = 0
@@ -1366,7 +1369,6 @@ CONTAINS
          END DO col_loop
 
          ! ---- Next row
-         MAX_ROW_WIDTH = MAX(MAX_ROW_WIDTH, K + 1 - NROWST(J))
          IF (ICOUNT > 0) NROWL = J
 
       END DO row_loop
@@ -1374,6 +1376,10 @@ CONTAINS
       ! - This marks the end of the last row (+1)
       ! Modern Fix: Explicitly use NY + 1 instead of relying on the leaked loop variable 'J'
       NROWST(NY + 1) = K + 1
+
+      ! Every row start, including the end marker just written, is now known,
+      ! so the widest row follows from the pointer differences.
+      MAX_ROW_WIDTH = MAX_ACTIVE_ROW_WIDTH(NROWST)
 
       ! The row solver is allocated from the active topology after this call.
       IF (MAX_ROW_WIDTH <= 0) THEN
