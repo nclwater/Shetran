@@ -50,7 +50,7 @@ MODULE OCmod
    INTEGER            :: NELIND(NELEE)         !! Position of each element within its implicit-solver row.
    INTEGER            :: NROWF                  !! First non-empty OC solver row.
    INTEGER            :: NROWL                  !! Last non-empty OC solver row.
-   INTEGER            :: MAX_ROW_WIDTH = 0      !! Greatest active OC solver-row width established by [[ocind]].
+   INTEGER            :: MAX_SOLVER_ROW_WIDTH = 0      !! Greatest active OC solver-row width established by [[ocind]].
    INTEGER            :: NOCHB                  !! Number of OC head-boundary categories.
    INTEGER            :: NOCFB                  !! Number of OC flow-boundary categories.
    INTEGER            :: NROWEL(NELEE)         !! Contiguous list of OC elements in row-solver order.
@@ -207,10 +207,10 @@ CONTAINS
       INTEGER :: ALLOC_STATUS
       CHARACTER(LEN=512) :: ALLOC_MESSAGE, MSG
 
-      IF (MAX_ROW_WIDTH <= 0 .OR. NROWF < 1 .OR. NROWL < NROWF .OR. total_no_elements <= 0) THEN
+      IF (MAX_SOLVER_ROW_WIDTH <= 0 .OR. NROWF < 1 .OR. NROWL < NROWF .OR. total_no_elements <= 0) THEN
          WRITE (MSG, '(A,6(A,I0))') 'Invalid OCSIM workspace dimensions:', &
             ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
-            ' MAX_ROW_WIDTH=', MAX_ROW_WIDTH, ' NEL=', total_no_elements
+            ' MAX_SOLVER_ROW_WIDTH=', MAX_SOLVER_ROW_WIDTH, ' NEL=', total_no_elements
          CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, TRIM(MSG))
       END IF
 
@@ -227,17 +227,17 @@ CONTAINS
       ! `NROWF+1:NROWL`. The `IF (IROW /= NROWL)` guard on the `EE` write
       ! follows from that: there is no interface below the last row. Both
       ! ranges are exactly tight, so neither tolerates an off-by-one.
-      ALLOCATE (OCSIM_WORKSPACE%AA(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%DD(MAX_ROW_WIDTH, NROWF:NROWL), &
-                OCSIM_WORKSPACE%FF(MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%BB(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%GG(MAX_ROW_WIDTH, NROWF + 1:NROWL + 1), &
-                OCSIM_WORKSPACE%CC(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%EE(MAX_ROW_WIDTH, MAX_ROW_WIDTH, NROWF + 1:NROWL), &
-                OCSIM_WORKSPACE%TM1(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%TM2(MAX_ROW_WIDTH, MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%TV1(MAX_ROW_WIDTH), &
-                OCSIM_WORKSPACE%TV2(MAX_ROW_WIDTH), &
+      ALLOCATE (OCSIM_WORKSPACE%AA(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%DD(MAX_SOLVER_ROW_WIDTH, NROWF:NROWL), &
+                OCSIM_WORKSPACE%FF(MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%BB(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%GG(MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL + 1), &
+                OCSIM_WORKSPACE%CC(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%EE(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL), &
+                OCSIM_WORKSPACE%TM1(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), &
                 OCSIM_WORKSPACE%INHRF(total_no_elements), &
                 OCSIM_WORKSPACE%GGGETHRF(total_no_elements), &
                 OCSIM_WORKSPACE%INQSA(total_no_elements, 4), &
@@ -247,7 +247,7 @@ CONTAINS
       IF (ALLOC_STATUS /= 0) THEN
          WRITE (MSG, '(A,6(A,I0),2A)') 'Unable to allocate OCSIM workspace:', &
             ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
-            ' MAX_ROW_WIDTH=', MAX_ROW_WIDTH, ' NEL=', total_no_elements, &
+            ' MAX_ROW_WIDTH=', MAX_SOLVER_ROW_WIDTH, ' NEL=', total_no_elements, &
             ' allocator: ', TRIM(ALLOC_MESSAGE)
          CALL FINALISE_OCSIM_WORKSPACE()
          CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, TRIM(MSG))
@@ -283,7 +283,7 @@ CONTAINS
       IF (ALLOCATED(OCSIM_WORKSPACE%GGGETQSA)) DEALLOCATE (OCSIM_WORKSPACE%GGGETQSA)
 
       OCSIM_WORKSPACE%READY = .FALSE.
-      MAX_ROW_WIDTH = 0
+      MAX_SOLVER_ROW_WIDTH = 0
 
    END SUBROUTINE FINALISE_OCSIM_WORKSPACE
 
@@ -1379,10 +1379,10 @@ CONTAINS
 
       ! Every row start, including the end marker just written, is now known,
       ! so the widest row follows from the pointer differences.
-      MAX_ROW_WIDTH = MAX_ACTIVE_ROW_WIDTH(NROWST)
+      MAX_SOLVER_ROW_WIDTH = MAX_ACTIVE_ROW_WIDTH(NROWST)
 
       ! The row solver is allocated from the active topology after this call.
-      IF (MAX_ROW_WIDTH <= 0) THEN
+      IF (MAX_SOLVER_ROW_WIDTH <= 0) THEN
          CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OC topology contains no active solver row')
       END IF
 
