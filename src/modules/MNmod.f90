@@ -3609,8 +3609,7 @@ CONTAINS
 !> | --- | --- |
 !> | First call | Allocate saved cumulative flux arrays, zero them over active soil-layer cells, compute total land area, and write initial carbon and nitrogen stores. |
 !> | Every call | Accumulate cell-depth-integrated rates over the current timestep, including ammonium/nitrate additions, organic additions, CO2 production, denitrification, mineralisation, immobilisation, nitrification, plant uptake, source/sink totals, and volatilisation. |
-!> | Store totals | Recompute current nitrogen and carbon stores from updated pools. Ammonium storage uses the nonlinear retardation factor \(1 + KDDSOL(NAMM1/MNCREF)^{GNN-1}/VSTHE\). |
-!> | Periodic output | When `UZNOW >= MNSTRT + 24*NPRNT`, increment `NPRNT` and write current total/addition/loss summaries normalised by total land area. |
+!> | Periodic output | When `UZNOW >= MNSTRT + 24*NPRNT`, recompute current nitrogen and carbon stores from updated pools, increment `NPRNT`, and write current total/addition/loss summaries normalised by total land area. Ammonium storage uses the nonlinear retardation factor \(1 + KDDSOL(NAMM1/MNCREF)^{GNN-1}/VSTHE\). |
 !>
 !> The routine does not reset cumulative flux arrays after each write; reported
 !> additions and losses are cumulative since the initial `MNOUT` call.
@@ -3764,44 +3763,43 @@ CONTAINS
          END DO
       END DO
 
-      TOTADN = 0.0D0
-      TOTADC = 0.0D0
-      TOTLOS = 0.0D0
-      TOTN   = 0.0D0
-      TOTC   = 0.0D0
-      TOTCO2 = 0.0D0
-
-      ! Form the current area-integrated totals from the cumulative arrays.
-      DO NELM = NLF + 1, NEL
-         IF (ISBOTC) THEN
-            NBOTM = NBOTCE
-         ELSE
-            NBOTM = NCOLMB(NELM)
-         END IF
-         NCEBOT = NBOTM
-
-         DO JLYR = 1, NLYR(NELM)
-            JSOIL = NTSOIL(NELM, JLYR)
-            DO NCL = MAX(NCEBOT, NLYRBT(NELM, JLYR)), NLYRBT(NELM, JLYR + 1) - 1
-
-               RETAMM = 1.0D0 + (KDDSOL(JSOIL) * (NAMM1(NELM, NCL) / MNCREF)**(GNN - 1.0D0)) / VSTHE(NCL, NELM)
-
-               ! * sum of concentrations over all the cells
-               TOTLOS = TOTLOS + DXQQ(NELM) * DYQQ(NELM) * (VOLTOT(NELM, NCL) + PLAMMT(NELM, NCL) + NTRTOT(NELM, NCL))
-               TOTADN = TOTADN + DXQQ(NELM) * DYQQ(NELM) * (ADORNT(NELM, NCL) + ADAMMT(NELM, NCL) + IMNITT(NELM, NCL))
-               TOTADC = TOTADC + DXQQ(NELM) * DYQQ(NELM) * ADDCT(NELM, NCL)
-
-               TOTN = TOTN + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (NAMM1(NELM, NCL) * VSTHE(NCL, NELM) * RETAMM + &
-                      NLIT1(NELM, NCL) + NMAN1(NELM, NCL) + CHUM1(NELM, NCL) / CNRHUM)
-
-               TOTC = TOTC + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (CMAN1(NELM, NCL) + CLIT1(NELM, NCL) + CHUM1(NELM, NCL))
-               TOTCO2 = TOTCO2 + DXQQ(NELM) * DYQQ(NELM) * CDOTOT(NELM, NCL)
-            END DO
-         END DO
-      END DO
-
    ! Output reporting block
       IF (UZNOW >= HRPRNT * NPRNT + MNSTRT) THEN
+         TOTADN = 0.0D0
+         TOTADC = 0.0D0
+         TOTLOS = 0.0D0
+         TOTN   = 0.0D0
+         TOTC   = 0.0D0
+         TOTCO2 = 0.0D0
+
+         ! Form the current area-integrated totals from the cumulative arrays.
+         DO NELM = NLF + 1, NEL
+            IF (ISBOTC) THEN
+               NBOTM = NBOTCE
+            ELSE
+               NBOTM = NCOLMB(NELM)
+            END IF
+            NCEBOT = NBOTM
+
+            DO JLYR = 1, NLYR(NELM)
+               JSOIL = NTSOIL(NELM, JLYR)
+               DO NCL = MAX(NCEBOT, NLYRBT(NELM, JLYR)), NLYRBT(NELM, JLYR + 1) - 1
+
+                  RETAMM = 1.0D0 + (KDDSOL(JSOIL) * (NAMM1(NELM, NCL) / MNCREF)**(GNN - 1.0D0)) / VSTHE(NCL, NELM)
+
+                  ! * sum of concentrations over all the cells
+                  TOTLOS = TOTLOS + DXQQ(NELM) * DYQQ(NELM) * (VOLTOT(NELM, NCL) + PLAMMT(NELM, NCL) + NTRTOT(NELM, NCL))
+                  TOTADN = TOTADN + DXQQ(NELM) * DYQQ(NELM) * (ADORNT(NELM, NCL) + ADAMMT(NELM, NCL) + IMNITT(NELM, NCL))
+                  TOTADC = TOTADC + DXQQ(NELM) * DYQQ(NELM) * ADDCT(NELM, NCL)
+
+                  TOTN = TOTN + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (NAMM1(NELM, NCL) * VSTHE(NCL, NELM) * RETAMM + &
+                         NLIT1(NELM, NCL) + NMAN1(NELM, NCL) + CHUM1(NELM, NCL) / CNRHUM)
+
+                  TOTC = TOTC + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (CMAN1(NELM, NCL) + CLIT1(NELM, NCL) + CHUM1(NELM, NCL))
+                  TOTCO2 = TOTCO2 + DXQQ(NELM) * DYQQ(NELM) * CDOTOT(NELM, NCL)
+               END DO
+            END DO
+         END DO
 
          NPRNT = NPRNT + 1
 
