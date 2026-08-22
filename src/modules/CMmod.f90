@@ -16,10 +16,11 @@
 !> multiple columns or links. Concentrations are processed in numeric order so
 !> decay products can use the immediately preceding contaminant as their parent.
 !>
-!> When mineral nitrogen is enabled, [[mnmod:mncont]] runs before transport and
-!> [[colmsm]] substitutes its `SSS1`/`SSS2` source and sink terms into the
-!> column equations. Sediment transport supplies link sediment fluxes when it
-!> is active; otherwise [[cmsim]] derives only the water-flow directions.
+!> When mineral nitrogen is enabled, the first [[cmsim]] call runs
+!> [[mnmod:mninitialise]] and later calls run [[mnmod:mncont]] before transport.
+!> [[colmsm]] substitutes the resulting `SSS1`/`SSS2` source and sink terms into
+!> the column equations. Sediment transport supplies link sediment fluxes when
+!> it is active; otherwise [[cmsim]] derives only the water-flow directions.
 !>
 !> | Module-scope work state | Producer | Consumer |
 !> |:------------------------|:---------|:---------|
@@ -68,7 +69,7 @@ MODULE CMmod
    USE IS_CC
    USE mod_load_filedata, ONLY: ALALLI, ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
    USE UTILSMOD, ONLY : DCOPY
-   USE MNMOD, only : MNCONT
+   USE MNMOD, only : MNCONT, MNINITIALISE, MNISINITIALISED
    IMPLICIT NONE
 
    INTEGER :: JBK       !! Current bank side, 1 or 2, shared by the column preparation and solve paths.
@@ -631,13 +632,20 @@ CONTAINS
 !> TSE = D0\,DTUZ/Z2SQ .
 !> \]
 !>
-!> [[mnmod:mncont]] is called first when `ISMN` is true. The optional plant
-!> preparation follows, after which `ISORT` determines the serial sweep:
+!> When `ISMN` is true, the first call performs [[mnmod:mninitialise]] but does
+!> not advance the MN processes; later calls run [[mnmod:mncont]]. The optional
+!> plant preparation follows, after which `ISORT` determines the serial sweep:
 !> land elements call [[colmw]] then [[colmsm]], and links call [[linkw]] then
 !> [[linksm]]. Finally the current link and column concentrations are copied to
 !> `CCCCO`/`SSSSO` for the next time level. `RSZWLO` is refreshed from `QVSWEL`
 !> inside every contaminant pass, so the same assignment is repeated `NCON`
 !> times for each land element.
+!>
+!> @note The initialization-only first MN call is intentional legacy behaviour.
+!> That contaminant solve uses the zero source/sink terms produced by
+!> `MNINITIALISE`; the first MN process timestep occurs on the following
+!> `CMSIM` call.
+!> @endnote
 !>
 !> @warning Plant preparation is gated by the currently unassigned `ISPLT`
 !> module flag described in [[is_cc]].
@@ -694,17 +702,17 @@ CONTAINS
       IF (ismn) THEN
          ! Modern Fix: Replaced 'ICMREF(1,5)' with explicit array slice 'ICMREF(1:NEL, 5)' 
          ! to prevent rank-mismatch and AD aliasing compiler crashes.
-         CALL MNCONT(MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, NCETOP, NCON, NEL, NLF, &
-                     NS, NV, NX, NY, &
-                     ICMBK, ICMREF(1:NEL, 5), ICMXY, &
-                     NCOLMB, NLYR, NRD, NVC, NLYRBT, NTSOIL, &
-                     D0, TIH, RHOPL, Z2, &
-                     DELONE, DXQQ, DYQQ, VSPOR, &
-                     DELTAZ, PLAI, RDF, ZVSNOD, &
-                     BEXBK, LINKNS, &
-                     DTUZ, uznow, &
-                     CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
-                     SSS1, SSS2)
+         IF (.NOT. MNISINITIALISED()) THEN
+            CALL MNINITIALISE(MND, MNFC, MNFN, MNPL, MNPR, MNOUTPL, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, &
+                              ICMBK, ICMREF(1:NEL, 5), ICMXY, NCOLMB, NLYR, NVC, NLYRBT, NTSOIL, &
+                              D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, PLAI, ZVSNOD, &
+                              BEXBK, LINKNS, CLAI, TA, SSS1, SSS2)
+         ELSE
+            CALL MNCONT(MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NEL, NLF, NS, NV, NX, NY, &
+                        ICMBK, ICMREF(1:NEL, 5), ICMXY, NCOLMB, NLYR, NRD, NLYRBT, NTSOIL, &
+                        D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, RDF, ZVSNOD, BEXBK, LINKNS, &
+                        DTUZ, uznow, CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, SSS1, SSS2)
+         END IF
       END IF
 
    ! Prepare for plant uptake calculations
