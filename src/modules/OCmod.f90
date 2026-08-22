@@ -266,20 +266,20 @@ CONTAINS
    SUBROUTINE FINALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
 
-      IF (ALLOCATED(OCSIM_WORKSPACE%AA))       DEALLOCATE (OCSIM_WORKSPACE%AA)
-      IF (ALLOCATED(OCSIM_WORKSPACE%DD))       DEALLOCATE (OCSIM_WORKSPACE%DD)
-      IF (ALLOCATED(OCSIM_WORKSPACE%FF))       DEALLOCATE (OCSIM_WORKSPACE%FF)
-      IF (ALLOCATED(OCSIM_WORKSPACE%BB))       DEALLOCATE (OCSIM_WORKSPACE%BB)
-      IF (ALLOCATED(OCSIM_WORKSPACE%GG))       DEALLOCATE (OCSIM_WORKSPACE%GG)
-      IF (ALLOCATED(OCSIM_WORKSPACE%CC))       DEALLOCATE (OCSIM_WORKSPACE%CC)
-      IF (ALLOCATED(OCSIM_WORKSPACE%EE))       DEALLOCATE (OCSIM_WORKSPACE%EE)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TM1))      DEALLOCATE (OCSIM_WORKSPACE%TM1)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TM2))      DEALLOCATE (OCSIM_WORKSPACE%TM2)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TV1))      DEALLOCATE (OCSIM_WORKSPACE%TV1)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TV2))      DEALLOCATE (OCSIM_WORKSPACE%TV2)
-      IF (ALLOCATED(OCSIM_WORKSPACE%INHRF))    DEALLOCATE (OCSIM_WORKSPACE%INHRF)
+      IF (ALLOCATED(OCSIM_WORKSPACE%AA)) DEALLOCATE (OCSIM_WORKSPACE%AA)
+      IF (ALLOCATED(OCSIM_WORKSPACE%DD)) DEALLOCATE (OCSIM_WORKSPACE%DD)
+      IF (ALLOCATED(OCSIM_WORKSPACE%FF)) DEALLOCATE (OCSIM_WORKSPACE%FF)
+      IF (ALLOCATED(OCSIM_WORKSPACE%BB)) DEALLOCATE (OCSIM_WORKSPACE%BB)
+      IF (ALLOCATED(OCSIM_WORKSPACE%GG)) DEALLOCATE (OCSIM_WORKSPACE%GG)
+      IF (ALLOCATED(OCSIM_WORKSPACE%CC)) DEALLOCATE (OCSIM_WORKSPACE%CC)
+      IF (ALLOCATED(OCSIM_WORKSPACE%EE)) DEALLOCATE (OCSIM_WORKSPACE%EE)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM1)) DEALLOCATE (OCSIM_WORKSPACE%TM1)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM2)) DEALLOCATE (OCSIM_WORKSPACE%TM2)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV1)) DEALLOCATE (OCSIM_WORKSPACE%TV1)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV2)) DEALLOCATE (OCSIM_WORKSPACE%TV2)
+      IF (ALLOCATED(OCSIM_WORKSPACE%INHRF)) DEALLOCATE (OCSIM_WORKSPACE%INHRF)
       IF (ALLOCATED(OCSIM_WORKSPACE%GGGETHRF)) DEALLOCATE (OCSIM_WORKSPACE%GGGETHRF)
-      IF (ALLOCATED(OCSIM_WORKSPACE%INQSA))    DEALLOCATE (OCSIM_WORKSPACE%INQSA)
+      IF (ALLOCATED(OCSIM_WORKSPACE%INQSA)) DEALLOCATE (OCSIM_WORKSPACE%INQSA)
       IF (ALLOCATED(OCSIM_WORKSPACE%GGGETQSA)) DEALLOCATE (OCSIM_WORKSPACE%GGGETQSA)
 
       OCSIM_WORKSPACE%READY = .FALSE.
@@ -2126,206 +2126,206 @@ CONTAINS
                  TV2 => OCSIM_WORKSPACE%TV2, INHRF => OCSIM_WORKSPACE%INHRF, &
                  GGGETHRF => OCSIM_WORKSPACE%GGGETHRF, INQSA => OCSIM_WORKSPACE%INQSA, &
                  GGGETQSA => OCSIM_WORKSPACE%GGGETQSA)
-      !
-      ! ----- Timestep setup
-      DTOC = OCNEXT*3600.0D0
-
-      ! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
-      CALL OCEXT
-
-      ! ----- CALCULATE FLOWS QSA & DERIVATIVES DQ0ST,DQIST,DQIST2
-      CALL OCQDQ()
-
-      ! ----- LOOP OVER ROWS, CALCULATING EE & GG
-      NCR = 0
-
-      row_loop: DO IROW = NROWF, NROWL
-         IRSV = IROW + 1
          !
-         ! NCR : NUMBER OF ELEMENTS IN THE CURRENT ROW
-         ! NPR : NUMBER OF ELEMENTS IN THE PREVIOUS ROW
-         ! NSV : NUMBER OF ELEMENTS IN THE NEXT (SUIVANT) ROW
-         !
-         NPR = NCR
-         K0 = NROWST(IROW) - 1
-         NCR = NROWST(IRSV) - 1 - K0
+         ! ----- Timestep setup
+         DTOC = OCNEXT*3600.0D0
 
-         IF (NCR == 0) CYCLE row_loop
+         ! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
+         CALL OCEXT
 
-         NSV = NROWST(MIN(IRSV, NROWL) + 1) - NROWST(IRSV)
+         ! ----- CALCULATE FLOWS QSA & DERIVATIVES DQ0ST,DQIST,DQIST2
+         CALL OCQDQ()
 
-         ! CALCULATE MATRICES AA, BB, CC, FF
-         DO IND = 1, NCR
-            iels = NROWEL(IND + K0)
-            LINK = MAX(1, MIN(iels, total_no_links))
-            IBC = NOCBCC(iels)
+         ! ----- LOOP OVER ROWS, CALCULATING EE & GG
+         NCR = 0
 
-            IF (IBC > 0) THEN
-               IHB = NOCBCD(IBC, 4)
-               IBC = NOCBCD(IBC, 3)
+         row_loop: DO IROW = NROWF, NROWL
+            IRSV = IROW + 1
+            !
+            ! NCR : NUMBER OF ELEMENTS IN THE CURRENT ROW
+            ! NPR : NUMBER OF ELEMENTS IN THE PREVIOUS ROW
+            ! NSV : NUMBER OF ELEMENTS IN THE NEXT (SUIVANT) ROW
+            !
+            NPR = NCR
+            K0 = NROWST(IROW) - 1
+            NCR = NROWST(IRSV) - 1 - K0
+
+            IF (NCR == 0) CYCLE row_loop
+
+            NSV = NROWST(MIN(IRSV, NROWL) + 1) - NROWST(IRSV)
+
+            ! CALCULATE MATRICES AA, BB, CC, FF
+            DO IND = 1, NCR
+               iels = NROWEL(IND + K0)
+               LINK = MAX(1, MIN(iels, total_no_links))
+               IBC = NOCBCC(iels)
+
+               IF (IBC > 0) THEN
+                  IHB = NOCBCD(IBC, 4)
+                  IBC = NOCBCD(IBC, 3)
+               ELSE
+                  IHB = 1
+               END IF
+
+               CALL OCABC(IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT(LINK), cellarea(iels), &
+                          ZGRUND(iels), CLENTH(LINK), ZBFULL(LINK), GETHRF(iels), &
+                          PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(1:nsv, IND), &
+                          BB(1:ncr, IND), CC(1:npr, IND), FF(IND))
+            END DO
+
+            ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
+            IF (IROW == NROWF) THEN
+               DO IND = 1, NCR
+                  TM2(1:ncr, IND) = BB(1:ncr, IND)
+               END DO
+               TV2(1:ncr) = FF(1:ncr)
             ELSE
-               IHB = 1
+               tm1(1:ncr, 1:ncr) = JEMATMUL_MM(cc(1:npr, 1:ncr), ee(1:ncr, 1:npr, irow), ncr, npr, ncr)
+               tm2(1:ncr, 1:ncr) = bb(1:ncr, 1:ncr) + tm1(1:ncr, 1:ncr)
+               tv1(1:ncr) = JEMATMUL_VM(cc(1:npr, 1:ncr), gg(1:npr, irow), ncr, npr)
+               TV2(1:ncr) = FF(1:ncr) - TV1(1:ncr)
             END IF
 
-            CALL OCABC(IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT(LINK), cellarea(iels), &
-                       ZGRUND(iels), CLENTH(LINK), ZBFULL(LINK), GETHRF(iels), &
-                       PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(1:nsv, IND), &
-                       BB(1:ncr, IND), CC(1:npr, IND), FF(IND))
+            CALL INVERTMAT(TM2(1:ncr, 1:ncr), NCR, ICOD)
+
+            ! Catch singular matrix inversion failure
+            IF (ICOD == 1) THEN
+               WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
+               CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL(NROWST(IROW)), 0, MSG)
+               RETURN
+            END IF
+
+            ! CALCULATE MATRIX EE(IROW+1)
+            IF (IROW /= NROWL) THEN
+               ee(1:nsv, 1:ncr, irsv) = JEMATMUL_MM(tm2(1:ncr, 1:ncr), aa(1:nsv, 1:ncr), ncr, ncr, nsv)
+               ee(1:nsv, 1:ncr, irsv) = -ee(1:nsv, 1:ncr, irsv)
+            END IF
+
+            ! CALCULATE VECTOR GG(IROW+1)
+            gg(1:ncr, irsv) = JEMATMUL_VM(tm2(1:ncr, 1:ncr), tv2(1:ncr), ncr, ncr)
+
+         END DO row_loop
+
+         ! ----- DOWNWARDS SWEEP, CALCULATION OF DD
+         !
+         ! * last row first (use NCR,IRSV from loop above)
+         IROW = NROWL
+         DD(1:ncr, IROW) = GG(1:ncr, IRSV)
+
+         ! * loop over remaining rows
+         DO IROW = NROWL - 1, NROWF, -1
+            IRSV = IROW + 1
+            NSV = NCR
+            NCR = NROWST(IRSV) - NROWST(IROW)
+
+            tv1(1:ncr) = JEMATMUL_VM(ee(1:nsv, 1:ncr, irsv), dd(1:nsv, irsv), ncr, nsv)
+            dd(1:ncr, irow) = tv1(1:ncr) + gg(1:ncr, irsv)
          END DO
 
-         ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
-         IF (IROW == NROWF) THEN
-            DO IND = 1, NCR
-               TM2(1:ncr, IND) = BB(1:ncr, IND)
+         ! ----- ADVANCE WATER LEVELS AND FLOWS TO TIME LEVEL N+1,
+         !       USING FIRST ORDER DERIVATIVES OF FLOWS AT TIME LEVEL N
+         DO iels = 1, total_no_elements
+            IND = NELIND(iels)
+            IROW = ICMREF(iels, 3)
+            DDI = DD(IND, IROW)
+            CALL SETHRF(iels, GETHRF(iels) + DDI)
+
+            DO IFACE = 1, 4
+               DQ = DQ0ST(iels, IFACE)*DDI
+               JEL = ICMREF(iels, IFACE + 4)
+
+               IF (JEL > 0) THEN
+                  JND = NELIND(JEL)
+                  JROW = ICMREF(JEL, 3)
+                  DQ = DQIST(iels, IFACE)*DD(JND, JROW) + DQ
+
+               ELSE IF (JEL < 0) THEN
+                  IBR = -JEL
+                  DO J = 1, 3
+                     JEL = ICMRF2(IBR, J)
+                     IF (JEL > 0) THEN
+                        JND = NELIND(JEL)
+                        JROW = ICMREF(JEL, 3)
+                        DQ = DQIST2(IBR, J)*DD(JND, JROW) + DQ
+                     END IF
+                  END DO
+               END IF
+
+               CALL SETQSA(iels, IFACE, GETQSA(iels, IFACE) + DQ)
             END DO
-            TV2(1:ncr) = FF(1:ncr)
-         ELSE
-            tm1(1:ncr, 1:ncr) = JEMATMUL_MM(cc(1:npr, 1:ncr), ee(1:ncr, 1:npr, irow), ncr, npr, ncr)
-            tm2(1:ncr, 1:ncr) = bb(1:ncr, 1:ncr) + tm1(1:ncr, 1:ncr)
-            tv1(1:ncr) = JEMATMUL_VM(cc(1:npr, 1:ncr), gg(1:npr, irow), ncr, npr)
-            TV2(1:ncr) = FF(1:ncr) - TV1(1:ncr)
-         END IF
+         END DO
 
-         CALL INVERTMAT(TM2(1:ncr, 1:ncr), NCR, ICOD)
+         ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
+         ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
+         ! untidy mess for debugging of tangent
+         DO vv = 1, total_no_elements
+            inhrf(vv) = GETHRF(vv)
+            DO face = 1, 4
+               inqsa(vv, face) = GETQSA(vv, face)
+            END DO
+         END DO
 
-         ! Catch singular matrix inversion failure
-         IF (ICOD == 1) THEN
-            WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
-            CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL(NROWST(IROW)), 0, MSG)
-            RETURN
-         END IF
+         CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
 
-         ! CALCULATE MATRIX EE(IROW+1)
-         IF (IROW /= NROWL) THEN
-            ee(1:nsv, 1:ncr, irsv) = JEMATMUL_MM(tm2(1:ncr, 1:ncr), aa(1:nsv, 1:ncr), ncr, ncr, nsv)
-            ee(1:nsv, 1:ncr, irsv) = -ee(1:nsv, 1:ncr, irsv)
-         END IF
+         DO vv = 1, total_no_elements
+            CALL SETHRF(vv, GGGETHRF(vv))
+            DO face = 1, 4
+               CALL SETQSA(vv, face, GGGETQSA(vv, face))
+            END DO
+         END DO
 
-         ! CALCULATE VECTOR GG(IROW+1)
-         gg(1:ncr, irsv) = JEMATMUL_VM(tm2(1:ncr, 1:ncr), tv2(1:ncr), ncr, ncr)
+         ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
+         QOC(1:total_no_elements, :) = GETQSA_ALL(total_no_elements)
+         qoc(1:total_no_elements, 1:2) = -qoc(1:total_no_elements, 1:2)
 
-      END DO row_loop
+         ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
+         link_loop: DO iels = 1, total_no_links
+            Z = GETHRF(iels)
+            H = Z - ZGRUND(iels)
+            N = NXSECT(iels)
+            found_level = .FALSE.
 
-      ! ----- DOWNWARDS SWEEP, CALCULATION OF DD
-      !
-      ! * last row first (use NCR,IRSV from loop above)
-      IROW = NROWL
-      DD(1:ncr, IROW) = GG(1:ncr, IRSV)
+            sect_loop: DO I = 2, N
+               HI = XINH(iels, I)
+               IF (H < HI) THEN
+                  IM = I - 1
+                  HM = XINH(iels, IM)
+                  WM = XINW(iels, IM)
+                  WI = XINW(iels, I)
+                  DH = H - HM
+                  DW = (WI - WM)*(DH/(HI - HM))
+                  ARXL(iels) = XAREA(iels, IM) + (WM + 0.5D0*DW)*DH
+                  found_level = .TRUE.
+                  EXIT sect_loop
+               END IF
+            END DO sect_loop
 
-      ! * loop over remaining rows
-      DO IROW = NROWL - 1, NROWF, -1
-         IRSV = IROW + 1
-         NSV = NCR
-         NCR = NROWST(IRSV) - NROWST(IROW)
+            IF (.NOT. found_level) THEN
+               ARXL(iels) = XAREA(iels, N) + (Z - ZBFULL(iels))*CWIDTH(iels)
+            END IF
+         END DO link_loop
 
-         tv1(1:ncr) = JEMATMUL_VM(ee(1:nsv, 1:ncr, irsv), dd(1:nsv, irsv), ncr, nsv)
-         dd(1:ncr, irow) = tv1(1:ncr) + gg(1:ncr, irsv)
-      END DO
+         ! ----- Print results
+         OCTIME = OCNOW + OCNEXT
+         IF ((OCTIME >= TDC) .AND. (OCTIME <= TFC)) CALL OCPRI(OCTIME, ARXL, QOC)
 
-      ! ----- ADVANCE WATER LEVELS AND FLOWS TO TIME LEVEL N+1,
-      !       USING FIRST ORDER DERIVATIVES OF FLOWS AT TIME LEVEL N
-      DO iels = 1, total_no_elements
-         IND = NELIND(iels)
-         IROW = ICMREF(iels, 3)
-         DDI = DD(IND, IROW)
-         CALL SETHRF(iels, GETHRF(iels) + DDI)
-
-         DO IFACE = 1, 4
-            DQ = DQ0ST(iels, IFACE)*DDI
-            JEL = ICMREF(iels, IFACE + 4)
-
-            IF (JEL > 0) THEN
-               JND = NELIND(JEL)
-               JROW = ICMREF(JEL, 3)
-               DQ = DQIST(iels, IFACE)*DD(JND, JROW) + DQ
-
-            ELSE IF (JEL < 0) THEN
-               IBR = -JEL
-               DO J = 1, 3
-                  JEL = ICMRF2(IBR, J)
-                  IF (JEL > 0) THEN
-                     JND = NELIND(JEL)
-                     JROW = ICMREF(JEL, 3)
-                     DQ = DQIST2(IBR, J)*DD(JND, JROW) + DQ
+         ! ----- CHECK FOR CHANNEL BLOW-UP
+         channel_blowup = .FALSE.
+         IF (GTZERO(QMAX)) THEN
+            blowup_loop: DO iels = 1, total_no_links
+               DO IFACE = 1, 4
+                  IF (ABS(QOC(iels, IFACE)) > QMAX) THEN
+                     channel_blowup = .TRUE.
+                     EXIT blowup_loop
                   END IF
                END DO
-            END IF
-
-            CALL SETQSA(iels, IFACE, GETQSA(iels, IFACE) + DQ)
-         END DO
-      END DO
-
-      ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
-      ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
-      ! untidy mess for debugging of tangent
-      DO vv = 1, total_no_elements
-         inhrf(vv) = GETHRF(vv)
-         DO face = 1, 4
-            inqsa(vv, face) = GETQSA(vv, face)
-         END DO
-      END DO
-
-      CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
-
-      DO vv = 1, total_no_elements
-         CALL SETHRF(vv, GGGETHRF(vv))
-         DO face = 1, 4
-            CALL SETQSA(vv, face, GGGETQSA(vv, face))
-         END DO
-      END DO
-
-      ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
-      QOC(1:total_no_elements, :) = GETQSA_ALL(total_no_elements)
-      qoc(1:total_no_elements, 1:2) = -qoc(1:total_no_elements, 1:2)
-
-      ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
-      link_loop: DO iels = 1, total_no_links
-         Z = GETHRF(iels)
-         H = Z - ZGRUND(iels)
-         N = NXSECT(iels)
-         found_level = .FALSE.
-
-         sect_loop: DO I = 2, N
-            HI = XINH(iels, I)
-            IF (H < HI) THEN
-               IM = I - 1
-               HM = XINH(iels, IM)
-               WM = XINW(iels, IM)
-               WI = XINW(iels, I)
-               DH = H - HM
-               DW = (WI - WM)*(DH/(HI - HM))
-               ARXL(iels) = XAREA(iels, IM) + (WM + 0.5D0*DW)*DH
-               found_level = .TRUE.
-               EXIT sect_loop
-            END IF
-         END DO sect_loop
-
-         IF (.NOT. found_level) THEN
-            ARXL(iels) = XAREA(iels, N) + (Z - ZBFULL(iels))*CWIDTH(iels)
+            END DO blowup_loop
          END IF
-      END DO link_loop
 
-      ! ----- Print results
-      OCTIME = OCNOW + OCNEXT
-      IF ((OCTIME >= TDC) .AND. (OCTIME <= TFC)) CALL OCPRI(OCTIME, ARXL, QOC)
-
-      ! ----- CHECK FOR CHANNEL BLOW-UP
-      channel_blowup = .FALSE.
-      IF (GTZERO(QMAX)) THEN
-         blowup_loop: DO iels = 1, total_no_links
-            DO IFACE = 1, 4
-               IF (ABS(QOC(iels, IFACE)) > QMAX) THEN
-                  channel_blowup = .TRUE.
-                  EXIT blowup_loop
-               END IF
-            END DO
-         END DO blowup_loop
-      END IF
-
-      IF (channel_blowup) THEN
-         MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
-         CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
-      END IF
+         IF (channel_blowup) THEN
+            MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
+            CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
+         END IF
 
       END ASSOCIATE
 
