@@ -7,7 +7,7 @@ The following build configurations have been tested:
 | Platform | Build system | Fortran compiler | CMake |
 | --- | --- | --- | --- |
 | Windows | Visual Studio 2026 | Intel ifx 2026.1 | 4.4 |
-| Windows | NMake | Intel ifx 2026.1 | 4.3 |
+| Windows | NMake | Intel ifx 2026.1 | 4.4 |
 | Linux | Make | Intel ifx 2026.1 | 4.3 |
 | Linux | Make | GNU Fortran 16.1 | 4.3 |
 
@@ -96,6 +96,25 @@ build.bat -t Debug --test      :: Build Debug and run parser tests
 ```
 
 `--clean` and `--clean-app` are mutually exclusive.
+
+#### Intel ifx IPO compatibility
+
+Release builds require interprocedural optimization (IPO). On Windows,
+`/Qipo` makes ifx use `lld-link`. CMake 4.4 can place its IntelLLVM-wrapped
+`-machine:` option after the compiler driver's `/link` delimiter when using
+the NMake generator, causing `lld-link` to interpret the option as an input
+file. The top-level `CMakeLists.txt` loads the project-local
+`cmake/WindowsIntelLLVMIPO.cmake` Fortran rule override during compiler
+initialization. The override moves only the affected wrapped machine option
+before `/link`, including in CMake's nested IPO capability test. This is a
+configuration-only workaround and does not change SHETRAN's Fortran sources.
+IPO remains enabled for SHETRAN and the pure-Fortran dependency targets. It is
+disabled only for stdlib's small mixed C/Fortran `fortran_stdlib_system`
+library because MSVC `/GL` and ifx `/Qipo` objects use incompatible
+intermediate representations that cannot share Intel's LLVM archive. The
+link-rule override can be removed when CMake generates the corrected option
+ordering itself; the mixed-library exception can be removed if the Windows C
+and Fortran toolchain gains a mutually compatible IPO object format.
 
 #### Manual CMake Build (NMake)
 

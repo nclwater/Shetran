@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.20)
 
+# CMake 4.4's Windows-IntelLLVM rule can place its wrapped -machine option
+# after ifx's /link delimiter.  That fails when /Qipo selects lld-link.  Load
+# a project-local rule override while Fortran is initialized; using CMake's
+# override hook also applies the fix inside check_ipo_supported() try-projects.
+if(CMAKE_HOST_WIN32)
+    set(CMAKE_USER_MAKE_RULES_OVERRIDE_Fortran
+        "${CMAKE_CURRENT_LIST_DIR}/cmake/WindowsIntelLLVMIPO.cmake"
+        CACHE FILEPATH "SHETRAN's Windows IntelLLVM CMake rule override" FORCE)
+    list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
+        CMAKE_USER_MAKE_RULES_OVERRIDE_Fortran)
+    if(POLICY CMP0137)
+        cmake_policy(SET CMP0137 NEW)
+    endif()
+endif()
+
 # Default to ifx on Linux (fallback: gfortran) unless user explicitly selected a compiler.
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND NOT DEFINED CMAKE_Fortran_COMPILER)
     find_program(DEFAULT_IFX ifx)
@@ -429,6 +444,21 @@ FetchContent_Declare(fortran_stdlib
 
 FetchContent_MakeAvailable(fortran_stdlib)
 
+# MSVC's /GL objects and ifx's /Qipo objects use different intermediate
+# representations. CMake selects Intel's LLVM librarian for the mixed
+# fortran_stdlib_system target, and that librarian cannot combine the two IPO
+# formats. Keep IPO enabled for SHETRAN and the pure-Fortran stdlib targets,
+# but compile this small C-interoperability library as ordinary COFF objects.
+if(WIN32
+        AND CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM"
+        AND CMAKE_C_COMPILER_ID STREQUAL "MSVC"
+        AND TARGET fortran_stdlib_system)
+    set_target_properties(fortran_stdlib_system PROPERTIES
+        INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF
+        INTERPROCEDURAL_OPTIMIZATION_RELEASENATIVE OFF
+    )
+endif()
+
 # A Visual Studio project can use either the C/C++ project system or Intel's
 # Fortran project system, but not both.  stdlib 0.8.1 puts C helpers and
 # Fortran modules in one target, causing CMake to generate a .vcxproj in which
@@ -450,6 +480,8 @@ if(CMAKE_GENERATOR MATCHES "^Visual Studio" AND TARGET fortran_stdlib_system)
     )
     set_target_properties(fortran_stdlib_system_c PROPERTIES
         POSITION_INDEPENDENT_CODE ON
+        INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF
+        INTERPROCEDURAL_OPTIMIZATION_RELEASENATIVE OFF
     )
     target_sources(fortran_stdlib_system PRIVATE
         $<TARGET_OBJECTS:fortran_stdlib_system_c>
