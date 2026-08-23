@@ -457,7 +457,7 @@ cmake --build . --target SHETRAN --parallel
 Notes:
 
 * On Linux, if `-DCMAKE_Fortran_COMPILER` is not provided, CMake will try `ifx` first and then fall back to `gfortran`.
-* The build pulls zlib-ng and HDF5 from `external/tarballs/`, stages them under `build/<type>/zlib-ng-install` and `build/<type>/hdf5-install`, and builds HDF5 with static DEFLATE support. zlib-ng uses its zlib-compatible API and portable runtime CPU detection.
+* The build pulls zlib-ng and HDF5 from `external/tarballs/`, stages them under `build/<type>/zlib-ng-install` and `build/<type>/hdf5-install`, and builds HDF5 with static DEFLATE support. zlib-ng uses its zlib-compatible API and portable runtime CPU detection. On Windows, Debug builds link `zlibstaticd.lib`; Release and ReleaseNative builds link `zlibstatic.lib`.
 * `ReleaseNative` is intended for maximum local optimization and may reduce portability across different CPUs.
 * Keep `ENABLE_DEPENDENCY_ANALYSIS=ON` for correct Fortran module dependency sorting.
 * Platforms other than Windows and Linux are currently unsupported by this CMake configuration.

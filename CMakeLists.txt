@@ -255,6 +255,16 @@ else()
     set(ZLIB_NG_LIB_PREFIX "lib")
 endif()
 
+# zlib-ng gives its MSVC Debug archive a "d" suffix. Single-config
+# generators such as NMake need the configuration-specific filename selected
+# while configuring; otherwise SHETRAN is made to depend on the Release archive
+# even though the external project installed the Debug archive.
+if(NOT CMAKE_CONFIGURATION_TYPES AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(ZLIB_NG_ACTIVE_LIB_NAME "${ZLIB_NG_DEBUG_LIB_NAME}")
+else()
+    set(ZLIB_NG_ACTIVE_LIB_NAME "${ZLIB_NG_LIB_NAME}")
+endif()
+
 set(ZLIB_NG_CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=${HDF5_CMAKE_BUILD_TYPE}
     -DBUILD_SHARED_LIBS=OFF
@@ -289,7 +299,7 @@ ExternalProject_Add(ZLIB_NG_external
     INSTALL_COMMAND
         ${CMAKE_COMMAND} --install <BINARY_DIR> --prefix <INSTALL_DIR> --config $<CONFIG>
     BUILD_BYPRODUCTS
-        ${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_LIB_NAME}${HDF5_STATIC_EXT}
+        ${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_ACTIVE_LIB_NAME}${HDF5_STATIC_EXT}
 )
 
 # Always stage HDF5 into the project build tree; never rely on system install paths.
@@ -364,7 +374,7 @@ if(CMAKE_CONFIGURATION_TYPES)
 else()
     set_target_properties(zlib_ng::zlib PROPERTIES
         IMPORTED_LOCATION
-            "${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_LIB_NAME}${HDF5_STATIC_EXT}"
+            "${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_ACTIVE_LIB_NAME}${HDF5_STATIC_EXT}"
     )
 endif()
 
