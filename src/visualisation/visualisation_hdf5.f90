@@ -13,7 +13,7 @@
 !> extended by this module.
 !>
 !> Metadata-driven value and time datasets use native default `REAL` or
-!> `INTEGER` values and DEFLATE level 9. Derived products retain the datatypes
+!> `INTEGER` values and DEFLATE level 6. Derived products retain the datatypes
 !> and filters selected by their individual helpers. HDF5 status values are
 !> retained in the module variable `error`, but this module does not currently
 !> report or recover from HDF5 failures.
@@ -26,6 +26,7 @@
 !> | 2026-04-07 | SvB | Made HDF5 size kinds portable for GFortran and closed temporary HDF5 identifiers. |
 !> | 2026-04-08 | SB | Removed Intel-specific directives and legacy pointer code during the Intel IFX update. |
 !> | 2026-04-14 | SvB | Guarded empty dimensions, enlarged names, and corrected time-dataspace ownership and cleanup. |
+!> | 2026-08-23 | SvB | Changed the DEFLATE compression level from 9 to 6. |
 !> @endhistory
 MODULE visualisation_hdf5
 
@@ -49,6 +50,7 @@ MODULE visualisation_hdf5
    INTEGER            :: error       !! Most recent HDF5 status code; currently not inspected.
    INTEGER, SAVE      :: jndim(ndim) !! Index vector `1:ndim` used for metadata array queries.
    INTEGER, PARAMETER :: csz=70      !! Character length used for generated names and string metadata.
+   INTEGER, PARAMETER :: deflate_level=6 !! DEFLATE level shared by compressed datasets.
    REAL, PARAMETER    :: zero=0.0    !! Default-real zero used by the writer's exact time tests.
    LOGICAL, PARAMETER :: T=.TRUE.    !! Logical true shorthand used to initialise saved guards.
    LOGICAL, PARAMETER :: F=.FALSE.   !! Logical false shorthand used to initialise saved guards.
@@ -90,7 +92,7 @@ CONTAINS
 !> directly in `/CONSTANTS`; each dynamic item gets a generated group below
 !> `/VARIABLES` containing an unlimited `value` dataset and a matching unlimited
 !> `time` dataset. Each dataset is chunked by its initial item shape and uses
-!> DEFLATE level 9.
+!> DEFLATE level 6.
 !>
 !> Zero-rank metadata is represented by a one-element, rank-one dataset. The
 !> routine is a one-shot initialiser: its allocatable state and saved group
@@ -126,8 +128,8 @@ CONTAINS
       CALL H5OPEN_F(error)
       CALL H5PCREATE_F(H5P_DATASET_CREATE_F, dataset_compress_property, error)
       CALL H5PCREATE_F(H5P_DATASET_CREATE_F, t_dataset_compress_property, error)
-      CALL H5PSET_DEFLATE_F(dataset_compress_property, 9, error)
-      CALL H5PSET_DEFLATE_F(t_dataset_compress_property, 9, error)
+      CALL H5PSET_DEFLATE_F(dataset_compress_property, deflate_level, error)
+      CALL H5PSET_DEFLATE_F(t_dataset_compress_property, deflate_level, error)
 
       CALL H5FCREATE_F(TRIM(hdf5filename), H5F_ACC_TRUNC_F, file, error)
 
