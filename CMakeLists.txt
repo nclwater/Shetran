@@ -215,59 +215,66 @@ endif()
 
 set(HDF5_STATIC_EXT "${STATIC_LIBRARY_EXT}")
 
-# Build the pinned zlib source before HDF5 so that DEFLATE support is available
-# consistently on Windows and Linux without relying on a system installation.
-set(ZLIB_LOCAL_TARBALL "${CMAKE_SOURCE_DIR}/external/tarballs/zlib-1.3.2.tar.gz")
-if(EXISTS ${ZLIB_LOCAL_TARBALL})
-    set(ZLIB_URL "file://${ZLIB_LOCAL_TARBALL}")
-    message(STATUS "Using local zlib tarball: ${ZLIB_LOCAL_TARBALL}")
+# Build the pinned zlib-ng source in zlib-compatibility mode before HDF5 so
+# that DEFLATE support is available consistently on Windows and Linux without
+# relying on a system installation.
+set(ZLIB_NG_LOCAL_TARBALL "${CMAKE_SOURCE_DIR}/external/tarballs/zlib-ng-2.3.3.tar.gz")
+if(EXISTS ${ZLIB_NG_LOCAL_TARBALL})
+    set(ZLIB_NG_URL "file://${ZLIB_NG_LOCAL_TARBALL}")
+    message(STATUS "Using local zlib-ng tarball: ${ZLIB_NG_LOCAL_TARBALL}")
 else()
     message(FATAL_ERROR
-        "zlib tarball not found at: ${ZLIB_LOCAL_TARBALL}\n"
-        "Please place zlib-1.3.2.tar.gz in external/tarballs/")
+        "zlib-ng tarball not found at: ${ZLIB_NG_LOCAL_TARBALL}\n"
+        "Please place zlib-ng-2.3.3.tar.gz in external/tarballs/")
 endif()
 
-set(ZLIB_STAGE_DIR "${CMAKE_BINARY_DIR}/zlib-install")
+set(ZLIB_NG_STAGE_DIR "${CMAKE_BINARY_DIR}/zlib-ng-install")
 
 if(WIN32)
-    set(ZLIB_LIB_POSTFIX "s")
-    set(ZLIB_DEBUG_LIB_POSTFIX "sd")
-    set(ZLIB_LIB_PREFIX "")
+    set(ZLIB_NG_LIB_NAME "zlibstatic")
+    set(ZLIB_NG_DEBUG_LIB_NAME "zlibstaticd")
+    set(ZLIB_NG_LIB_PREFIX "")
 else()
-    set(ZLIB_LIB_POSTFIX "")
-    set(ZLIB_DEBUG_LIB_POSTFIX "")
-    set(ZLIB_LIB_PREFIX "lib")
+    set(ZLIB_NG_LIB_NAME "z")
+    set(ZLIB_NG_DEBUG_LIB_NAME "z")
+    set(ZLIB_NG_LIB_PREFIX "lib")
 endif()
 
-set(ZLIB_CMAKE_ARGS
+set(ZLIB_NG_CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=${HDF5_CMAKE_BUILD_TYPE}
-    -DZLIB_BUILD_TESTING=OFF
-    -DZLIB_BUILD_SHARED=OFF
-    -DZLIB_BUILD_STATIC=ON
-    -DZLIB_INSTALL=ON
+    -DBUILD_SHARED_LIBS=OFF
+    -DBUILD_TESTING=OFF
+    -DZLIB_COMPAT=ON
+    -DWITH_GTEST=OFF
+    -DWITH_FUZZERS=OFF
+    -DWITH_BENCHMARKS=OFF
+    -DWITH_BENCHMARK_APPS=OFF
+    -DINSTALL_UTILS=OFF
+    -DWITH_NATIVE_INSTRUCTIONS=OFF
+    -DWITH_RUNTIME_CPU_DETECTION=ON
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
 )
 
 if(WIN32)
-    list(APPEND ZLIB_CMAKE_ARGS -DCMAKE_MSVC_RUNTIME_LIBRARY=${HDF5_MSVC_RUNTIME})
+    list(APPEND ZLIB_NG_CMAKE_ARGS -DCMAKE_MSVC_RUNTIME_LIBRARY=${HDF5_MSVC_RUNTIME})
 endif()
 
-ExternalProject_Add(ZLIB_external
-    URL ${ZLIB_URL}
-    URL_HASH SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+ExternalProject_Add(ZLIB_NG_external
+    URL ${ZLIB_NG_URL}
+    URL_HASH SHA256=f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    INSTALL_DIR ${ZLIB_STAGE_DIR}
+    INSTALL_DIR ${ZLIB_NG_STAGE_DIR}
     CMAKE_CACHE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DCMAKE_INSTALL_LIBDIR:PATH=lib
         -DCMAKE_INSTALL_BINDIR:PATH=bin
         -DCMAKE_INSTALL_INCLUDEDIR:PATH=include
     CMAKE_ARGS
-        ${ZLIB_CMAKE_ARGS}
+        ${ZLIB_NG_CMAKE_ARGS}
     INSTALL_COMMAND
         ${CMAKE_COMMAND} --install <BINARY_DIR> --prefix <INSTALL_DIR> --config $<CONFIG>
     BUILD_BYPRODUCTS
-        ${ZLIB_STAGE_DIR}/lib/${ZLIB_LIB_PREFIX}z${ZLIB_LIB_POSTFIX}${HDF5_STATIC_EXT}
+        ${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_LIB_NAME}${HDF5_STATIC_EXT}
 )
 
 # Always stage HDF5 into the project build tree; never rely on system install paths.
@@ -292,8 +299,8 @@ set(HDF5_CMAKE_ARGS
     -DHDF5_ENABLE_Z_LIB_SUPPORT=ON
     -DHDF5_USE_ZLIB_STATIC=ON
     -DZLIB_USE_STATIC_LIBS=ON
-    -DZLIB_ROOT=${ZLIB_STAGE_DIR}
-    -DCMAKE_PREFIX_PATH=${ZLIB_STAGE_DIR}
+    -DZLIB_ROOT=${ZLIB_NG_STAGE_DIR}
+    -DCMAKE_PREFIX_PATH=${ZLIB_NG_STAGE_DIR}
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
     -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER}
 )
@@ -303,7 +310,7 @@ if(WIN32)
 endif()
 
 ExternalProject_Add(HDF5_external
-    DEPENDS ZLIB_external
+    DEPENDS ZLIB_NG_external
     URL ${HDF5_URL}
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     INSTALL_DIR ${HDF5_STAGE_DIR}
@@ -328,21 +335,21 @@ ExternalProject_Add(HDF5_external
 set(HDF5_INCLUDE_DIRS "${HDF5_STAGE_DIR}/include")
 set(HDF5_LIB_DIR "${HDF5_STAGE_DIR}/lib")
 
-add_library(zlib::zlib STATIC IMPORTED)
+add_library(zlib_ng::zlib STATIC IMPORTED)
 if(CMAKE_CONFIGURATION_TYPES)
-    set_target_properties(zlib::zlib PROPERTIES
+    set_target_properties(zlib_ng::zlib PROPERTIES
         IMPORTED_CONFIGURATIONS "Debug;Release;ReleaseNative"
         IMPORTED_LOCATION_DEBUG
-            "${ZLIB_STAGE_DIR}/lib/${ZLIB_LIB_PREFIX}z${ZLIB_DEBUG_LIB_POSTFIX}${HDF5_STATIC_EXT}"
+            "${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_DEBUG_LIB_NAME}${HDF5_STATIC_EXT}"
         IMPORTED_LOCATION_RELEASE
-            "${ZLIB_STAGE_DIR}/lib/${ZLIB_LIB_PREFIX}z${ZLIB_LIB_POSTFIX}${HDF5_STATIC_EXT}"
+            "${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_LIB_NAME}${HDF5_STATIC_EXT}"
         IMPORTED_LOCATION_RELEASENATIVE
-            "${ZLIB_STAGE_DIR}/lib/${ZLIB_LIB_PREFIX}z${ZLIB_LIB_POSTFIX}${HDF5_STATIC_EXT}"
+            "${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_LIB_NAME}${HDF5_STATIC_EXT}"
     )
 else()
-    set_target_properties(zlib::zlib PROPERTIES
+    set_target_properties(zlib_ng::zlib PROPERTIES
         IMPORTED_LOCATION
-            "${ZLIB_STAGE_DIR}/lib/${ZLIB_LIB_PREFIX}z${ZLIB_LIB_POSTFIX}${HDF5_STATIC_EXT}"
+            "${ZLIB_NG_STAGE_DIR}/lib/${ZLIB_NG_LIB_PREFIX}${ZLIB_NG_LIB_NAME}${HDF5_STATIC_EXT}"
     )
 endif()
 
@@ -383,7 +390,7 @@ set(HDF5_LIBRARIES
     hdf5::libhdf5_fortran
     hdf5::libhdf5_f90cstub
     hdf5::libhdf5
-    zlib::zlib
+    zlib_ng::zlib
 )
 
 if(WIN32)
@@ -819,7 +826,7 @@ message(STATUS "  Build type:       ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Fortran compiler: ${CMAKE_Fortran_COMPILER}")
 message(STATUS "  Compiler ID:      ${CMAKE_Fortran_COMPILER_ID}")
 message(STATUS "  HDF5 source:      ${HDF5_LOCAL_TARBALL}")
-message(STATUS "  zlib source:      ${ZLIB_LOCAL_TARBALL}")
+message(STATUS "  zlib-ng source:   ${ZLIB_NG_LOCAL_TARBALL}")
 message(STATUS "  stdlib source:    ${STDLIB_LOCAL_TARBALL}")
 message(STATUS "  Parser tests:     ${SHETRAN_BUILD_TESTS}")
 if(WIN32)
