@@ -31,29 +31,31 @@
 !> @endhistory
 MODULE OCmod
    USE SGLOBAL
-   USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
-      DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
-      TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
-   USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
-      NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
-   USE AL_G ,     ONLY : NGDBGN, NX, NY, ICMREF, ICMXY
-   USE UTILSMOD , ONLY : HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
-   USE mod_load_filedata ,    ONLY : ALCHK, ALCHKI
-   USE OCmod2 ,   ONLY : GETHRF, GETQSA, GETQSA_ALL, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
-      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
-   USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
+   USE AL_C, ONLY: IDUM, NBFACE, CWIDTH, ZBFULL, &
+                   DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
+                   TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
+   USE AL_D, ONLY: DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
+                   NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
+   USE AL_G, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
+   USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
+   USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
+   USE mod_load_filedata, ONLY: ALCHK, ALCHKI
+   USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
+                     HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
+   USE OCQDQMOD, ONLY: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
 
    IMPLICIT NONE
 
    ! Row-solver indexing (see [[ocind]])
-   INTEGER            :: NELIND (NELEE)         !! Position of each element within its implicit-solver row.
+   INTEGER            :: NELIND(NELEE)         !! Position of each element within its implicit-solver row.
    INTEGER            :: NROWF                  !! First non-empty OC solver row.
    INTEGER            :: NROWL                  !! Last non-empty OC solver row.
+   INTEGER            :: MAX_SOLVER_ROW_WIDTH = 0      !! Greatest active OC solver-row width established by [[ocind]].
    INTEGER            :: NOCHB                  !! Number of OC head-boundary categories.
    INTEGER            :: NOCFB                  !! Number of OC flow-boundary categories.
-   INTEGER            :: NROWEL (NELEE)         !! Contiguous list of OC elements in row-solver order.
-   INTEGER            :: NROWST (NYEE+1)        !! Row-start pointer into `NROWEL`.
-   INTEGER            :: NXSECT (NLFEE)         !! Number of width-depth cross-section points for each channel link.
+   INTEGER            :: NROWEL(NELEE)         !! Contiguous list of OC elements in row-solver order.
+   INTEGER            :: NROWST(NYEE + 1)        !! Row-start pointer into `NROWEL`.
+   INTEGER            :: NXSECT(NLFEE)         !! Number of width-depth cross-section points for each channel link.
 
    ! Boundary-series and diagnostic-output timing state
    DOUBLEPRECISION    :: HOCLST                 !! Previous time-varying OC head-boundary time.
@@ -62,43 +64,40 @@ MODULE OCmod
    DOUBLEPRECISION    :: QFNEXT                 !! Next time-varying OC flow-boundary time.
    DOUBLEPRECISION    :: TDC                    !! First time for detailed OC diagnostic output; see the [[ocini]] shadowing warning.
    DOUBLEPRECISION    :: TFC                    !! Last time for detailed OC diagnostic output; see the [[ocini]] shadowing warning.
-   DOUBLEPRECISION    :: HOCPRV (NOCTAB)        !! Previous head-boundary values by category.
-   DOUBLEPRECISION    :: QOCFIN (NOCTAB)        !! Previous flow-boundary values by category.
-   DOUBLEPRECISION    :: HOCNXV (NOCTAB)        !! Next head-boundary values by category.
+   DOUBLEPRECISION    :: HOCPRV(NOCTAB)        !! Previous head-boundary values by category.
+   DOUBLEPRECISION    :: QOCFIN(NOCTAB)        !! Previous flow-boundary values by category.
+   DOUBLEPRECISION    :: HOCNXV(NOCTAB)        !! Next head-boundary values by category.
 
    ! Channel cross-section tables (see [[ocxs]])
-   DOUBLEPRECISION    :: XINH (NLFEE, NOCTAB)   !! Channel cross-section depths above bed.
-   DOUBLEPRECISION    :: XINW (NLFEE, NOCTAB)   !! Channel cross-section widths.
-   DOUBLEPRECISION    :: XAREA (NLFEE, NOCTAB)  !! Integrated channel cross-section areas.
+   DOUBLEPRECISION    :: XINH(NLFEE, NOCTAB)   !! Channel cross-section depths above bed.
+   DOUBLEPRECISION    :: XINW(NLFEE, NOCTAB)   !! Channel cross-section widths.
+   DOUBLEPRECISION    :: XAREA(NLFEE, NOCTAB)  !! Integrated channel cross-section areas.
    DOUBLEPRECISION    :: dtoc                   !! OC timestep in seconds.
 
-   ! Persistent [[ocsim]] row-solver workspace, allocated once by [[initialise_ocsim_workspace]]
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum  !! Reshaped `ICMREF` neighbour-index slice passed to [[ocmod2:ocfix]].
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum2 !! Reshaped `ICMRF2` neighbour-index slice passed to [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: AA       !! Next-row block coefficients of the row-wise implicit matrix.
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: DD       !! Back-substituted water-level correction, by row position and row number.
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: BB       !! Current-row block coefficients of the row-wise implicit matrix.
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: GG       !! Forward-elimination constant term, by row position and row number.
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: CC       !! Previous-row block coefficients of the row-wise implicit matrix.
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: TM1      !! Scratch matrix product used while assembling a row's system.
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: TM2      !! Row system matrix, inverted in place by [[utilsmod:invertmat]].
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: inqsa    !! Current face-flow buffer passed to [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: GGGETQSA !! Corrected face-flow buffer returned by [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: FF       !! Right-hand-side vector for the current row.
-   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: TV1      !! Scratch vector product used while assembling a row's right-hand side.
-   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: TV2      !! Row right-hand-side vector, inverted in place alongside `TM2`.
-   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: inhrf    !! Current water-level buffer passed to [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: GGGETHRF !! Corrected water-level buffer returned by [[ocmod2:ocfix]].
-   DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE       !! Forward-elimination coefficient relating a row's correction to the next row's.
+   ! Persistent [[ocsim]] workspace, allocated once by [[initialise_ocsim_workspace]].
+   TYPE :: OCSIM_WORKSPACE_TYPE
+      LOGICAL :: READY = .FALSE. !! True only after every workspace component has been allocated successfully.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: AA       !! Next-row block coefficients.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: DD       !! Back-substituted correction by row position and row.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: BB       !! Current-row block coefficients.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: GG       !! Forward-elimination constant term by row position and row.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: CC       !! Previous-row block coefficients.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM1      !! Scratch matrix product.
+      DOUBLE PRECISION, DIMENSION(:, :), ALLOCATABLE :: TM2      !! Row system matrix, inverted in place.
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: FF          !! Current-row right-hand-side vector.
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV1         !! Scratch vector product.
+      DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: TV2         !! Row right-hand-side vector.
+      DOUBLE PRECISION, DIMENSION(:, :, :), ALLOCATABLE :: EE    !! Forward-elimination coefficients between rows.
+   END TYPE OCSIM_WORKSPACE_TYPE
+
+   TYPE(OCSIM_WORKSPACE_TYPE) :: OCSIM_WORKSPACE
 
    PRIVATE
 
-   PUBLIC :: OCINI, OCSIM, OCLTL, LINKNO, & !REST ARE PUBLIC FOR AD ONLY
-      qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
+   PUBLIC :: OCINI, OCSIM, OCLTL, LINKNO, FINALISE_OCSIM_WORKSPACE, & !REST ARE PUBLIC FOR AD ONLY
+             qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
 
 CONTAINS
-
-
 
 !> @brief Controls OC component initialisation.
 !>
@@ -122,7 +121,7 @@ CONTAINS
 !> Initialised shared outputs include boundary-condition counts and codes
 !> (`NOCHB`, `NOCFB`, `NOCBCC`, `NOCBCD`, `COCBCD`), hydraulic geometry
 !> (`HRF`, `CWIDTH`, `ZBEFF`, `ZBFULL`, `NXSECT`, `XINH`, `XINW`, `XAREA`,
-!> `XSTAB`), Strickler/roughness fields (`STRXX`, `STRYY`), timing controls
+!> `XAFULL`, `XSTAB`), Strickler/roughness fields (`STRXX`, `STRYY`), timing controls
 !> (`TDC`, `TFC`), and row-index arrays (`NELIND`, `NROWEL`, `NROWST`,
 !> `NROWF`, `NROWL`) used by the OC implicit row solver.
 !>
@@ -139,11 +138,11 @@ CONTAINS
 
       ! Locals
       INTEGER :: KONT                                !! Print/output control read by [[ocread]]; odd values enable verbose echoing.
-      DOUBLE PRECISION :: DDUM1 (NOCTAB), DDUM2 (NOCTAB, NOCTAB) !! Discarded roughness/cross-section scratch passed to [[ocread]].
+      DOUBLE PRECISION :: DDUM1(NOCTAB), DDUM2(NOCTAB, NOCTAB) !! Discarded roughness/cross-section scratch passed to [[ocread]].
       DOUBLE PRECISION :: TDC, TFC                    !! Shadow the module-level `TDC`/`TFC`; see the routine's warning.
-      LOGICAL :: LDUM1 (NELEE)                        !! Discarded per-element check-result scratch passed to [[occhk1]].
+      LOGICAL :: LDUM1(NELEE)                        !! Discarded per-element check-result scratch passed to [[occhk1]].
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       CALL OCCHK0()
 
@@ -160,71 +159,135 @@ CONTAINS
       IF (NOCFB > 0) READ (OFB, *)
 
       CALL INITIALISE_OCMOD()
-      CALL INITIALISE_OCSIM_WORKSPACE()
 
       ! Cross-section tables & effective bed elevations
       IF (total_no_links > 0) THEN
-         IF (MOD(KONT, 2) == 1) WRITE(PPPRI, 9100) NXSCEE
+         IF (MOD(KONT, 2) == 1) WRITE (PPPRI, 9100) NXSCEE
          CALL OCXS()
       END IF
 
       ! Indicies for Thomas algorithm
       CALL OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
+      CALL INITIALISE_OCSIM_WORKSPACE()
 
       RETURN
 
       ! FORMAT statements
-9100  FORMAT (/5X, 'Size of internal tables for channel conveyance, etc', '  NXSCEE =', I6)
+9100  FORMAT(/5X, 'Size of internal tables for channel conveyance, etc', '  NXSCEE =', I6)
 
    END SUBROUTINE OCINI
-
 
 !> @brief Allocates the persistent [[ocsim]] row-solver work arrays.
 !>
 !> These arrays were formerly automatic local arrays in [[ocsim]]. They are too
 !> large for the stack on some compilers/runs, but allocating them on every
 !> [[ocsim]] call is expensive because [[ocsim]] is called every timestep.
-!> Keeping them as module work arrays preserves heap storage without repeated
-!> allocation in the timestep loop.
+!> Keeping them in a module-owned workspace preserves heap storage without
+!> repeated allocation in the timestep loop.
 !>
-!> [[ocini]] calls this routine once, after `NX`, `NY`, `total_no_elements`,
-!> `NELEE`, and `NLFEE` have been established. [[ocsim]] still clears every
-!> array on each call before use.
-!>
-!> @warning
-!> The `ALLOCATED` guard makes this a one-shot initialiser: there is no
-!> resizing or deallocation path, so a later change in `NX`, `NY`,
-!> `total_no_elements`, `NELEE`, or `NLFEE` within the same process would not
-!> be reflected in these arrays.
-!> @endwarning
+!> [[ocini]] calls this routine once, after [[ocind]] has established
+!> `NROWF`, `NROWL`, and `MAX_ROW_WIDTH`. The program supports one model per
+!> execution; a second call without intervening finalisation is a lifecycle
+!> error. Static topology is not duplicated here: [[ocsim]] passes `ICMREF`
+!> and `ICMRF2` to [[ocmod2:ocfix]] directly.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-05-10 | SvB | 4.6.1 | Added this allocator while moving `AA`, `DD`, `FF`, `BB`, `GG`, `CC`, `EE`, `TM1`, `TM2`, `TV1`, `TV2`, `inhrf`, `GGGETHRF`, `inqsa`, `GGGETQSA`, `ijedum`, and `ijedum2` from automatic locals in [[ocsim]] to allocatable module state. |
+!> | 2026-08-20 | - | - | Removed the duplicate topology work arrays after [[ocmod2:ocfix]] was changed to accept `ICMREF` and `ICMRF2` in their native layouts. |
+!> | 2026-08-22 | - | - | Removed the `INHRF`, `GGGETHRF`, `INQSA`, and `GGGETQSA` state buffers after [[ocmod2:ocfix]] was changed to correct `HRFZZ`/`QSAZZ` in place. |
 !> @endhistory
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
 
-      IF (.NOT. ALLOCATED(ijedum)) THEN
-         ! NELEE/NLFEE (not the active NX/NY-derived counts) size these two arrays, matching OCSIM's neighbour-index domain
-         ALLOCATE (ijedum(nelee, 4, 2:3), ijedum2(nlfee, 3, 2))
-         ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
-         ALLOCATE (FF(NX*4))
-         ALLOCATE (BB(NX*4, NX*4), GG(NX*4, NY))
-         ALLOCATE (CC(NX*4, NX*4))
-         ALLOCATE (EE(NX*4, NX*4, NY))
-         ALLOCATE (TM1(NX*4, NX*4), TM2(NX*4, NX*4))
-         ALLOCATE (TV1(NX*4), TV2(NX*4))
-         ALLOCATE (inhrf(total_no_elements))
-         ALLOCATE (GGGETHRF(total_no_elements))
-         ALLOCATE (inqsa(total_no_elements, 4))
-         ALLOCATE (GGGETQSA(total_no_elements, 4))
+      INTEGER :: ALLOC_STATUS
+      CHARACTER(LEN=512) :: ALLOC_MESSAGE, MSG
+
+      IF (MAX_SOLVER_ROW_WIDTH <= 0 .OR. NROWF < 1 .OR. NROWL < NROWF .OR. total_no_elements <= 0) THEN
+         WRITE (MSG, '(A,6(A,I0))') 'Invalid OCSIM workspace dimensions:', &
+            ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
+            ' MAX_SOLVER_ROW_WIDTH=', MAX_SOLVER_ROW_WIDTH, ' NEL=', total_no_elements
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, TRIM(MSG))
       END IF
+
+      IF (OCSIM_WORKSPACE%READY .OR. OCSIM_WORKSPACE_HAS_ALLOCATIONS()) THEN
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OCSIM workspace initialised more than once')
+      END IF
+
+      ! `GG` and `EE` share a `+1` storage offset: the quantity [[ocsim]] forms
+      ! while eliminating row `IROW` is stored at index `IROW+1`. Their row
+      ! extents differ because of what each is indexed by, not because either
+      ! carries spare space. `GG` holds one vector per active row, so it spans
+      ! `NROWF+1:NROWL+1`. `EE` holds one matrix per interface between
+      ! consecutive active rows, and N rows have N-1 interfaces, so it spans
+      ! `NROWF+1:NROWL`. The `IF (IROW /= NROWL)` guard on the `EE` write
+      ! follows from that: there is no interface below the last row. Both
+      ! ranges are exactly tight, so neither tolerates an off-by-one.
+      ALLOCATE (OCSIM_WORKSPACE%AA(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%DD(MAX_SOLVER_ROW_WIDTH, NROWF:NROWL), &
+                OCSIM_WORKSPACE%FF(MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%BB(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%GG(MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL + 1), &
+                OCSIM_WORKSPACE%CC(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%EE(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL), &
+                OCSIM_WORKSPACE%TM1(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), &
+                OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), &
+                STAT=ALLOC_STATUS, ERRMSG=ALLOC_MESSAGE)
+
+      IF (ALLOC_STATUS /= 0) THEN
+         WRITE (MSG, '(A,6(A,I0),2A)') 'Unable to allocate OCSIM workspace:', &
+            ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
+            ' MAX_ROW_WIDTH=', MAX_SOLVER_ROW_WIDTH, ' NEL=', total_no_elements, &
+            ' allocator: ', TRIM(ALLOC_MESSAGE)
+         CALL FINALISE_OCSIM_WORKSPACE()
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, TRIM(MSG))
+      END IF
+
+      OCSIM_WORKSPACE%READY = .TRUE.
 
    END SUBROUTINE INITIALISE_OCSIM_WORKSPACE
 
+!> @brief Releases all persistent [[ocsim]] workspace storage.
+!>
+!> The procedure is idempotent and also handles a partially allocated object,
+!> allowing the allocation-failure path to clean up before reporting a fatal
+!> error. The normal program shutdown calls it after the final possible
+!> [[ocsim]] use. SHETRAN still assumes one model per process execution.
+   SUBROUTINE FINALISE_OCSIM_WORKSPACE()
+      IMPLICIT NONE
 
+      IF (ALLOCATED(OCSIM_WORKSPACE%AA)) DEALLOCATE (OCSIM_WORKSPACE%AA)
+      IF (ALLOCATED(OCSIM_WORKSPACE%DD)) DEALLOCATE (OCSIM_WORKSPACE%DD)
+      IF (ALLOCATED(OCSIM_WORKSPACE%FF)) DEALLOCATE (OCSIM_WORKSPACE%FF)
+      IF (ALLOCATED(OCSIM_WORKSPACE%BB)) DEALLOCATE (OCSIM_WORKSPACE%BB)
+      IF (ALLOCATED(OCSIM_WORKSPACE%GG)) DEALLOCATE (OCSIM_WORKSPACE%GG)
+      IF (ALLOCATED(OCSIM_WORKSPACE%CC)) DEALLOCATE (OCSIM_WORKSPACE%CC)
+      IF (ALLOCATED(OCSIM_WORKSPACE%EE)) DEALLOCATE (OCSIM_WORKSPACE%EE)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM1)) DEALLOCATE (OCSIM_WORKSPACE%TM1)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM2)) DEALLOCATE (OCSIM_WORKSPACE%TM2)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV1)) DEALLOCATE (OCSIM_WORKSPACE%TV1)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV2)) DEALLOCATE (OCSIM_WORKSPACE%TV2)
+
+      OCSIM_WORKSPACE%READY = .FALSE.
+      MAX_SOLVER_ROW_WIDTH = 0
+
+   END SUBROUTINE FINALISE_OCSIM_WORKSPACE
+
+   LOGICAL FUNCTION OCSIM_WORKSPACE_HAS_ALLOCATIONS()
+      IMPLICIT NONE
+
+      OCSIM_WORKSPACE_HAS_ALLOCATIONS = &
+         ALLOCATED(OCSIM_WORKSPACE%AA) .OR. ALLOCATED(OCSIM_WORKSPACE%DD) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%FF) .OR. ALLOCATED(OCSIM_WORKSPACE%BB) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%GG) .OR. ALLOCATED(OCSIM_WORKSPACE%CC) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%EE) .OR. ALLOCATED(OCSIM_WORKSPACE%TM1) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%TM2) .OR. ALLOCATED(OCSIM_WORKSPACE%TV1) .OR. &
+         ALLOCATED(OCSIM_WORKSPACE%TV2)
+
+   END FUNCTION OCSIM_WORKSPACE_HAS_ALLOCATIONS
 
 !> @brief Assembles one element row of the implicit OC matrix.
 !>
@@ -304,7 +367,7 @@ CONTAINS
 !> multi-link junction, `ICMREF` contains a negative pointer to `ICMRF2`; the
 !> same operation is applied to each connected link using `DQIST2`.
    SUBROUTINE OCABC(IND, IROW, IELZ, NSV, NCR, NPR, IBC, N, AREAE, &
-         ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
+                    ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
 
       IMPLICIT NONE
 
@@ -326,10 +389,10 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: QHE    !! Exchange flow rate for the current (non-link) element.
       DOUBLE PRECISION, INTENT(IN) :: ESWAE  !! Evaporation rate from the current element's surface water.
       DOUBLE PRECISION, INTENT(IN) :: HNOW   !! Prescribed head value for a fixed-head boundary.
-      DOUBLE PRECISION, INTENT(OUT):: AA(NXOCEE) !! Next-row coefficients for elements adjacent to `IELZ`.
-      DOUBLE PRECISION, INTENT(OUT):: BB(NCR)    !! Current-row coefficients for elements adjacent to `IELZ`.
-      DOUBLE PRECISION, INTENT(OUT):: CC(NXOCEE) !! Previous-row coefficients for elements adjacent to `IELZ`.
-      DOUBLE PRECISION, INTENT(OUT):: FF         !! Right-hand-side residual for the current element's row equation.
+      DOUBLE PRECISION, INTENT(OUT):: AA(:) !! Active next-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: BB(:) !! Active current-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: CC(:) !! Active previous-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: FF    !! Right-hand-side residual for the current element's row equation.
 
       ! Local Variables
       INTEGER                      :: I, IBR, IFACE, IM, J, JEL, JFACE, JND, JROW
@@ -337,9 +400,9 @@ CONTAINS
       DOUBLE PRECISION             :: QHDUM, WI, WM
       LOGICAL                      :: BLINK, TEST
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! ----- INITIALIZE OUTPUT ARRAYS & GET WATER DEPTH
+      ! ----- INITIALIZE OUTPUT ARRAYS & GET WATER DEPTH
       ! Performance Rollback: Explicit DO loops bypass dope-vector overhead for micro-arrays
       IF (NSV > 0) THEN
          DO I = 1, NSV
@@ -359,17 +422,17 @@ CONTAINS
 
       H = Z - ZG
 
-   ! ----- HEAD BOUNDARY
+      ! ----- HEAD BOUNDARY
       IF (IBC == 3 .OR. IBC == 9) THEN
          BB(IND) = ONE
          FF = HNOW - H
          RETURN
       END IF
 
-   ! ----- IS THE CURRENT ELEMENT A LINK?
+      ! ----- IS THE CURRENT ELEMENT A LINK?
       BLINK = (ICMREF(IELZ, 1) == 3)
 
-   ! ----- PUT STORAGE TERM INTO CENTRAL COEFFICIENT FOR CURRENT ELEMENT
+      ! ----- PUT STORAGE TERM INTO CENTRAL COEFFICIENT FOR CURRENT ELEMENT
       TEST = BLINK
       IF (TEST) TEST = (Z < ZBF)
 
@@ -382,7 +445,7 @@ CONTAINS
                HM = XINH(IELZ, IM)
                WM = XINW(IELZ, IM)
                WI = XINW(IELZ, I)
-               AR = CL * (WM + (WI - WM) * ((H - HM) / (HI - HM)))
+               AR = CL*(WM + (WI - WM)*((H - HM)/(HI - HM)))
                EXIT search_loop
             END IF
          END DO search_loop
@@ -390,9 +453,9 @@ CONTAINS
          AR = AREAE
       END IF
 
-      BB(IND) = -AR / DTOC
+      BB(IND) = -AR/DTOC
 
-   ! ----- PUT PRECIPITATION, EVAPORATION AND EXCHANGE FLOWS INTO RHS
+      ! ----- PUT PRECIPITATION, EVAPORATION AND EXCHANGE FLOWS INTO RHS
       PDUM = PNETT
       IF (BLINK) THEN
          IF (H < 1.0D-8) PDUM = ZERO
@@ -403,33 +466,33 @@ CONTAINS
          QHDUM = QHE
       END IF
 
-      FF = -AREAE * (PDUM + QHDUM - ESWAE) + BKDUM
+      FF = -AREAE*(PDUM + QHDUM - ESWAE) + BKDUM
 
-   ! ----- LOOP OVER ADJACENT ELEMENTS
+      ! ----- LOOP OVER ADJACENT ELEMENTS
       face_loop: DO IFACE = 1, 4
          JEL = ICMREF(IELZ, IFACE + 4)
          JFACE = ICMREF(IELZ, IFACE + 8)
 
-   ! --- GET FLOW AND DERIVATIVE (+VE INTO ELEMENT)
-         Q = GETQSA (ielz, IFACE)
+         ! --- GET FLOW AND DERIVATIVE (+VE INTO ELEMENT)
+         Q = GETQSA(ielz, IFACE)
          DQ0 = DQ0ST(IELZ, IFACE)
 
-   ! --- ADD INTO COEFFICIENTS FOR CURRENT ELEMENT
+         ! --- ADD INTO COEFFICIENTS FOR CURRENT ELEMENT
          BB(IND) = BB(IND) + DQ0
          FF = FF - Q
 
-   ! --- TEST FOR SINGLE ADJACENT ELEMENT
+         ! --- TEST FOR SINGLE ADJACENT ELEMENT
          IF (JEL > 0) THEN
             JROW = ICMREF(JEL, 3)
             JND = NELIND(JEL)
             DQI = DQIST(IELZ, IFACE)
 
-   !        ADD DERIVATIVE TO COEFFICIENT FOR ADJACENT ELEMENT
+            !        ADD DERIVATIVE TO COEFFICIENT FOR ADJACENT ELEMENT
             IF (JROW == IROW) BB(JND) = BB(JND) + DQI
-            IF (JROW > IROW)  AA(JND) = AA(JND) + DQI
-            IF (JROW < IROW)  CC(JND) = CC(JND) + DQI
+            IF (JROW > IROW) AA(JND) = AA(JND) + DQI
+            IF (JROW < IROW) CC(JND) = CC(JND) + DQI
 
-   ! --- SIMILARLY FOR MULTIPLE ADJACENT LINKS
+            ! --- SIMILARLY FOR MULTIPLE ADJACENT LINKS
          ELSE IF (JEL < 0) THEN
             IBR = -JEL
             DO J = 1, 3
@@ -440,16 +503,14 @@ CONTAINS
                   DQI = DQIST2(IBR, J)
 
                   IF (JROW == IROW) BB(JND) = BB(JND) + DQI
-                  IF (JROW > IROW)  AA(JND) = AA(JND) + DQI
-                  IF (JROW < IROW)  CC(JND) = CC(JND) + DQI
+                  IF (JROW > IROW) AA(JND) = AA(JND) + DQI
+                  IF (JROW < IROW) CC(JND) = CC(JND) + DQI
                END IF
             END DO
          END IF
       END DO face_loop
 
    END SUBROUTINE OCABC
-
-
 
 !> @brief Reads and builds OC boundary-condition metadata.
 !>
@@ -543,19 +604,19 @@ CONTAINS
       LOGICAL                      :: TEST
       CHARACTER(LEN=77)            :: MSG
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! NUMBER OF CATEGORIES FOR EACH TYPE
+      ! NUMBER OF CATEGORIES FOR EACH TYPE
       READ (OCD, *)
       READ (OCD, *) NOCHB, NOCFB, NOCPB
 
-   ! INITIALIZATION
+      ! INITIALIZATION
       NOCBC = 0
 
       ! Vectorized zeroing for large array
       NOCBCC(1:total_no_elements) = 0
 
-   ! HEAD BOUNDARY (TYPE 3)
+      ! HEAD BOUNDARY (TYPE 3)
       IF (NOCHB > 0) THEN
          MSG = 'ERROR IN OC HEAD BOUNDARY GRID'
          CALL AREADI(IDUM, 0, OCD, PPPRI, NOCHB)
@@ -577,7 +638,7 @@ CONTAINS
          END DO
       END IF
 
-   ! FLUX BOUNDARY (TYPE 4)
+      ! FLUX BOUNDARY (TYPE 4)
       IF (NOCFB > 0) THEN
          MSG = 'ERROR IN OC FLUX BOUNDARY GRID'
          CALL AREADI(IDUM, 0, OCD, PPPRI, NOCFB)
@@ -599,7 +660,7 @@ CONTAINS
          END DO
       END IF
 
-   ! POLYNOMIAL FUNCTION BOUNDARY (TYPE 5)
+      ! POLYNOMIAL FUNCTION BOUNDARY (TYPE 5)
       IF (NOCPB > 0) THEN
          IBC0 = NOCBC
          MSG = 'ERROR IN OC POLYNOMIAL FUNCTION BOUNDARY GRID'
@@ -638,11 +699,11 @@ CONTAINS
          END DO
       END IF
 
-   ! SET CHANNEL LINK BOUNDARY TYPES (other data will follow)
+      ! SET CHANNEL LINK BOUNDARY TYPES (other data will follow)
       x_link_loop: DO I = 1, NX
          y_link_loop: DO J = 1, NY
             DO K = 0, 1
-               TYPEE = LCODEX(I, J) * (1 - K) + LCODEY(I, J) * K
+               TYPEE = LCODEX(I, J)*(1 - K) + LCODEY(I, J)*K
                IF (TYPEE >= 7 .AND. TYPEE <= 11) THEN
                   IELY = LINKNO(I, J, K == 0)
                   NOCBC = NOCBC + 1
@@ -658,13 +719,13 @@ CONTAINS
          END DO y_link_loop
       END DO x_link_loop
 
-   ! SET INTERNAL IMPERMEABLE GRID BOUNDARY CONDITIONS (TYPE 1)
-   ! NB Impermeability extended across ends of any adjacent bank elements
+      ! SET INTERNAL IMPERMEABLE GRID BOUNDARY CONDITIONS (TYPE 1)
+      ! NB Impermeability extended across ends of any adjacent bank elements
       IBC0 = NOCBC
       x_grid_loop: DO I = 1, NX
          y_grid_loop: DO J = 1, NY
             DO IFACE = 3, 4
-               TYPEE = LCODEX(I, J) * (4 - IFACE) + LCODEY(I, J) * (IFACE - 3)
+               TYPEE = LCODEX(I, J)*(4 - IFACE) + LCODEY(I, J)*(IFACE - 3)
                IF (TYPEE == 1) THEN
                   IELY = ICMXY(I, J)
                   JEL = 0
@@ -686,7 +747,7 @@ CONTAINS
                      END IF
 
                      DO BANK = 2, 1, -1
-                        KFACE = 9 - IFACE - 2 * BANK
+                        KFACE = 9 - IFACE - 2*BANK
                         IBANK = ICMREF(IELY, 4 + KFACE)
                         IBK = 0
                         IF (IBANK > 0) IBK = ICMREF(IBANK, 1)
@@ -716,11 +777,11 @@ CONTAINS
 
       ! Vectorized setting types and categories
       IF (NOCBC > IBC0) THEN
-         NOCBCD(IBC0 + 1 : MIN(NOCBC, NOCTAB), 3) = 1
-         NOCBCD(IBC0 + 1 : MIN(NOCBC, NOCTAB), 4) = 1
+         NOCBCD(IBC0 + 1:MIN(NOCBC, NOCTAB), 3) = 1
+         NOCBCD(IBC0 + 1:MIN(NOCBC, NOCTAB), 4) = 1
       END IF
 
-   ! CHECK
+      ! CHECK
       IF (NOCBC > NOCTAB) THEN
          IXER = IXER + 1
          WRITE (MSG, "('Number of OC boundary conditions NOCBC =',I4,2X,'exceeds array size NOCTAB =',I4)") NOCBC, NOCTAB
@@ -738,8 +799,6 @@ CONTAINS
       END DO
 
    END SUBROUTINE JEOCBC
-
-
 
 !> @brief Checks OC file units, array bounds, and global entity counts.
 !>
@@ -770,22 +829,22 @@ CONTAINS
    SUBROUTINE OCCHK0()
       INTEGER       :: ERRNUM, I, IUNIT, NERR, OUNIT
       INTEGER, PARAMETER :: IUNDEF = 0
-      INTEGER       :: IDUMS (1), IDUMO (1)
-      LOGICAL       :: BOPEN, LDUM1 (1)
+      INTEGER       :: IDUMS(1), IDUMO(1)
+      LOGICAL       :: BOPEN, LDUM1(1)
       CHARACTER(47) :: MSG
       CHARACTER(11) :: FORM
       CHARACTER(3)  :: NAME
       NERR = 0
-   !----------------------------------------------------------------------*
-   ! 1. Unit Numbers
-   ! ---------------
-   ! PRI, OCD
+      !----------------------------------------------------------------------*
+      ! 1. Unit Numbers
+      ! ---------------
+      ! PRI, OCD
       OUNIT = PPPRI
       IUNIT = PPPRI
       NAME = 'PRI'
 
       DO I = 0, 1
-         INQUIRE (IUNIT, OPENED = BOPEN, FORM = FORM)
+         INQUIRE (IUNIT, OPENED=BOPEN, FORM=FORM)
 
          IF (.NOT. BOPEN) THEN
             WRITE (MSG, '("File unit ",A," =",I4,1X,A)') NAME, IUNIT, 'is not connected to a file'
@@ -806,57 +865,55 @@ CONTAINS
          NAME = 'OCD'
       END DO
 
-      IDUMS (1) = MIN (PPPRI, OCD)
+      IDUMS(1) = MIN(PPPRI, OCD)
 
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ PRI, OCD ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ PRI, OCD ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
 
-   ! 2. Array Sizes
-   ! --------------
-   ! NELEE
-      IDUMS (1) = NELEE
-      IDUMO (1) = MAX (NX, total_no_elements)! , NOCTAB*NOCTAB)
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-   ! NLFEE
-      IDUMS (1) = NLFEE
-      IDUMO (1) = MAX (1, total_no_links)
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-   ! NXEE
-      IDUMS (1) = NXEE
-      IDUMO (1) = NX
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
-   ! NOCTAB
-      IDUMS (1) = NOCTAB
-      CALL ALCHKI (EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NOCTAB', 'GE', IONE1, IDUMS, NERR, LDUM1)
-   ! NXSCEE
-      IDUMS (1) = NXSCEE
+      ! 2. Array Sizes
+      ! --------------
+      ! NELEE
+      IDUMS(1) = NELEE
+      IDUMO(1) = MAX(NX, total_no_elements)! , NOCTAB*NOCTAB)
+      CALL ALCHKI(EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      ! NLFEE
+      IDUMS(1) = NLFEE
+      IDUMO(1) = MAX(1, total_no_links)
+      CALL ALCHKI(EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      ! NXEE
+      IDUMS(1) = NXEE
+      IDUMO(1) = NX
+      CALL ALCHKI(EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
+      ! NOCTAB
+      IDUMS(1) = NOCTAB
+      CALL ALCHKI(EEERR, 1001, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NOCTAB', 'GE', IONE1, IDUMS, NERR, LDUM1)
+      ! NXSCEE
+      IDUMS(1) = NXSCEE
 
-      CALL ALCHKI (EEERR, 1002, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXSCEE', 'GT', IONE1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 1002, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NXSCEE', 'GT', IONE1, IDUMS, NERR, LDUM1)
 
-   ! 3. Number of Entities
-   ! ---------------------
-   ! NLF
-      IDUMS (1) = total_no_links
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO1, IDUMS, NERR, LDUM1)
-      IDUMO (1) = total_no_elements
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
-   ! NX, NY
-      IDUMS (1) = MIN (NX, NY)
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ NX, NY ]', 'GE', IONE1, IDUMS, NERR, LDUM1)
-   ! NGDBGN
-      IDUMS (1) = NGDBGN
-      IDUMO (1) = total_no_links + 1
+      ! 3. Number of Entities
+      ! ---------------------
+      ! NLF
+      IDUMS(1) = total_no_links
+      CALL ALCHKI(EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO1, IDUMS, NERR, LDUM1)
+      IDUMO(1) = total_no_elements
+      CALL ALCHKI(EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
+      ! NX, NY
+      IDUMS(1) = MIN(NX, NY)
+      CALL ALCHKI(EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, '[ NX, NY ]', 'GE', IONE1, IDUMS, NERR, LDUM1)
+      ! NGDBGN
+      IDUMS(1) = NGDBGN
+      IDUMO(1) = total_no_links + 1
 
-      CALL ALCHKI (EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NGDBGN', 'EQ', IDUMO, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 1003, OUNIT, 1, 1, IUNDEF, IUNDEF, 'NGDBGN', 'EQ', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! 4. Finish
-   ! ---------
+      ! 4. Finish
+      ! ---------
       IF (NERR > 0) THEN
          CALL ERROR(FFFATAL, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
       END IF
 
    END SUBROUTINE OCCHK0
-
-
 
 !> @brief Checks static OC topology and channel-definition arrays.
 !>
@@ -899,33 +956,33 @@ CONTAINS
       CHARACTER(LEN=23) :: NAME
       CHARACTER, PARAMETER :: XY(0:1) = ['X', 'Y']
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Initialize local variables in the executable block to avoid implicit SAVE bugs
+      ! Initialize local variables in the executable block to avoid implicit SAVE bugs
       NERR = 0
       IUNDEF = 0
       NAME = 'validity_of_LCODE?(x,y)'
 
-   ! 1. Index Arrays
-   ! ---------------
+      ! 1. Index Arrays
+      ! ---------------
       IDUMO(1) = total_no_elements
 
-   ! ICMREF
+      ! ICMREF
       face_loop: DO FACE = 1, 4
-         CALL ALCHKI (EEERR, 1057, PPPRI, 1, total_no_elements, FACE, 2, 'ICMREF(iel,face,2)', &
-                      'LE', IDUMO, ICMREF(1:total_no_elements, 4+FACE), NERR, LDUM1(1:total_no_elements))
+         CALL ALCHKI(EEERR, 1057, PPPRI, 1, total_no_elements, FACE, 2, 'ICMREF(iel,face,2)', &
+                     'LE', IDUMO, ICMREF(1:total_no_elements, 4 + FACE), NERR, LDUM1(1:total_no_elements))
       END DO face_loop
 
-   ! ICMXY
+      ! ICMXY
       y_icmxy_loop: DO Y = 1, NY
          ! Modernized: Passing explicit array slice ICMXY(1:NX, Y) instead of scalar start point
-         CALL ALCHKI (EEERR, 1057, PPPRI, 1, NX, Y, IUNDEF, 'ICMXY(x,y)', &
-                      'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
+         CALL ALCHKI(EEERR, 1057, PPPRI, 1, NX, Y, IUNDEF, 'ICMXY(x,y)', &
+                     'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
       END DO y_icmxy_loop
 
-   ! 2. Channel Definition Arrays
-   ! ----------------------------
-   ! LCODEX, LCODEY
+      ! 2. Channel Definition Arrays
+      ! ----------------------------
+      ! LCODEX, LCODEY
       xy_loop: DO I = 0, 1
 
          ! Inject 'X' or 'Y' into the 18th character of the string
@@ -934,7 +991,7 @@ CONTAINS
          y_lcode_loop: DO Y = 1, NY
             x_lcode_loop: DO X = 1, NX
                CODE = 0
-               TYPEE = LCODEX(X, Y) * (1 - I) + LCODEY(X, Y) * I
+               TYPEE = LCODEX(X, Y)*(1 - I) + LCODEY(X, Y)*I
 
                IF (TYPEE >= 7 .AND. TYPEE <= 11) THEN
                   IELx = LINKNO(X, Y, I == 0)
@@ -945,21 +1002,19 @@ CONTAINS
             END DO x_lcode_loop
 
             ! Modernized: Explicit array slice for IDUM
-            CALL ALCHKI (EEERR, 1058, PPPRI, 1, NX, Y, IUNDEF, NAME, 'EQ', &
-                         IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
+            CALL ALCHKI(EEERR, 1058, PPPRI, 1, NX, Y, IUNDEF, NAME, 'EQ', &
+                        IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
          END DO y_lcode_loop
 
       END DO xy_loop
 
-   ! 3. Finish
-   ! ---------
+      ! 3. Finish
+      ! ---------
       IF (NERR > 0) THEN
          CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking static OC input arrays')
       END IF
 
    END SUBROUTINE OCCHK1
-
-
 
 !> @brief Checks OC input values after [[OCREAD]].
 !>
@@ -1001,21 +1056,21 @@ CONTAINS
 !> | 1998-02-18 | RAH | 4.2 | Skipped the unit checks when `NONEED` is true. |
 !> | 2022-05-19 | SB | - | Demoted the final error response from fatal to a warning, allowing the negative-`STRXX` surface-storage marker to pass through. |
 !> @endhistory
-   SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
+   SUBROUTINE OCCHK2(DDUM1A, DDUM1B, SZLOG, LDUM1)
 
       USE CONST_SY
 
       IMPLICIT NONE
 
       INTEGER, INTENT(IN)           :: SZLOG          !! Size of the logical check-result workspace `LDUM1`.
-      DOUBLE PRECISION, INTENT(OUT) :: DDUM1A (:)      !! Discarded cross-section lower-bound scratch.
+      DOUBLE PRECISION, INTENT(OUT) :: DDUM1A(:)      !! Discarded cross-section lower-bound scratch.
       DOUBLE PRECISION, INTENT(OUT) :: DDUM1B(:)       !! Discarded cross-section upper-bound scratch.
       LOGICAL, INTENT(INOUT)        :: LDUM1(SZLOG)    !! Discarded per-entry check-result scratch; see the routine's warning.
 
       INTEGER :: ERRNUM, I, IELw, IUNDEF, IUNIT, N, NERR
-      INTEGER :: IDUMS (1)
+      INTEGER :: IDUMS(1)
       LOGICAL :: BOPEN, NONEED
-      CHARACTER (47) :: MSG
+      CHARACTER(47) :: MSG
       CHARACTER(11)  :: FORM
       CHARACTER(3)   :: NAME
       CHARACTER(19)  :: SUBJ
@@ -1028,15 +1083,15 @@ CONTAINS
       ! 1. Unit Numbers
       ! ---------------
       ! OHB, OFB
-      IDUMS (1) = 0
+      IDUMS(1) = 0
       IUNIT = OHB
       NAME = 'OHB'
       NONEED = NOCHB == 0
 
       DO I = 0, 1
          IF (.NOT. NONEED) THEN
-            IDUMS (1) = MIN (IUNIT, IDUMS (1))
-            INQUIRE (IUNIT, OPENED = BOPEN, FORM = FORM)
+            IDUMS(1) = MIN(IUNIT, IDUMS(1))
+            INQUIRE (IUNIT, OPENED=BOPEN, FORM=FORM)
 
             IF (.NOT. BOPEN) THEN
                WRITE (MSG, 9100) NAME, IUNIT, 'is not connected to a file'
@@ -1057,44 +1112,43 @@ CONTAINS
          NONEED = NOCFB == 0
       END DO
 
-      CALL ALCHKI (EEERR, 1003, PPPRI, 1, 1, IUNDEF, IUNDEF, '[ OHB, OFB ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
+      CALL ALCHKI(EEERR, 1003, PPPRI, 1, 1, IUNDEF, IUNDEF, '[ OHB, OFB ]', 'GE', IZERO1, IDUMS, NERR, LDUM1)
 
       ! 2. Element Properties
       ! ---------------------
       ! STRX
       CALL ALCHK(EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRX(iel)', 'GT', ZERO1, ZERO, STRXX, NERR, LDUM1)
       ! STRY
-      CALL ALCHK (EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRY(iel)', 'GT', ZERO1, ZERO, STRYY, NERR, LDUM1)
-
+      CALL ALCHK(EEERR, 1010, PPPRI, 1, total_no_elements, IUNDEF, IUNDEF, 'STRY(iel)', 'GT', ZERO1, ZERO, STRYY, NERR, LDUM1)
 
       ! 3. Cross-section Tables
       ! -----------------------
       !
       IF (total_no_links > 0) THEN
          ! XINH
-         CALL ALCHK (EEERR, 1016, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINH(link)[j=1]', 'EQ', ZERO1, ZERO, XINH, NERR, LDUM1)
+         CALL ALCHK(EEERR, 1016, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINH(link)[j=1]', 'EQ', ZERO1, ZERO, XINH, NERR, LDUM1)
 
          DO IELw = 1, total_no_links
-            N = NXSECT (IELw) - 1
+            N = NXSECT(IELw) - 1
             WRITE (SUBJ, 9310) IELw
 
             DDUM1A(1:N) = XINH(IELw, 1:N)
-            DDUM1B(1:N) = XINH(IELw, 2:N+1)
-            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GTa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
+            DDUM1B(1:N) = XINH(IELw, 2:N + 1)
+            CALL ALCHK(EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GTa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
 
             ! XINW
-            SUBJ (4:4) = 'W'
+            SUBJ(4:4) = 'W'
             DDUM1A(1:N) = XINW(IELw, 1:N)
-            DDUM1B(1:N) = XINW(IELw, 2:N+1)
-            CALL ALCHK (EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GEa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
+            DDUM1B(1:N) = XINW(IELw, 2:N + 1)
+            CALL ALCHK(EEERR, 1017, PPPRI, 1, N, IUNDEF, IUNDEF, SUBJ, 'GEa', DDUM1A, ZERO, DDUM1B, NERR, LDUM1)
          END DO
 
          DO IELw = 1, total_no_links
-            DDUM1A (IELw) = XINW (IELw, NXSECT (IELw))
+            DDUM1A(IELw) = XINW(IELw, NXSECT(IELw))
          END DO
 
-         CALL ALCHK (EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
-                     DDUM1A, NERR, LDUM1)
+         CALL ALCHK(EEERR, 1056, PPPRI, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
+                    DDUM1A, NERR, LDUM1)
       END IF
 
       IF (NERR > 0) THEN
@@ -1105,12 +1159,10 @@ CONTAINS
 
       ! Format Statements
       ! -----------------
-9100  FORMAT ('File unit ', A, ' =', I4, 1X, A: 1X, A)
-9310  FORMAT ('XINH[ link =', I3, '](j)')
+9100  FORMAT('File unit ', A, ' =', I4, 1X, A:1X, A)
+9310  FORMAT('XINH[ link =', I3, '](j)')
 
    END SUBROUTINE OCCHK2
-
-
 
 !> @brief Reads time-varying head and flux boundary values for the current OC step.
 !>
@@ -1134,22 +1186,22 @@ CONTAINS
 
       IMPLICIT NONE
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! --- HEAD BOUNDARY ---
+      ! --- HEAD BOUNDARY ---
       IF (NOCHB > 0) THEN
-         CALL HINPUT (OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, &
-                      HOCPRV(1:NOCHB), HOCNXV(1:NOCHB), NOCHB, HOCNOW(1:NOCHB))
+         CALL HINPUT(OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, &
+                     HOCPRV(1:NOCHB), HOCNXV(1:NOCHB), NOCHB, HOCNOW(1:NOCHB))
       END IF
 
       IF (EQMARKER(HOCNXT)) THEN
          CALL ERROR(FFFATAL, 1007, PPPRI, 0, 0, 'END OF OC HEAD BOUNDARY DATA')
       END IF
 
-   ! --- FLUX BOUNDARY ---
+      ! --- FLUX BOUNDARY ---
       IF (NOCFB > 0) THEN
-         CALL FINPUT (OFB, TIH, OCNOW, OCNEXT, QFLAST, QFNEXT, &
-                      QOCFIN(1:NOCFB), NOCFB, QOCF(1:NOCFB))
+         CALL FINPUT(OFB, TIH, OCNOW, OCNEXT, QFLAST, QFNEXT, &
+                     QOCFIN(1:NOCFB), NOCFB, QOCF(1:NOCFB))
       END IF
 
       IF (EQMARKER(QFNEXT)) THEN
@@ -1157,8 +1209,6 @@ CONTAINS
       END IF
 
    END SUBROUTINE OCEXT
-
-
 
 !> @brief Builds row-order indexing for the implicit OC solver.
 !>
@@ -1210,11 +1260,14 @@ CONTAINS
 !> n_j = NROWST(j+1)-NROWST(j),
 !> \]
 !>
-!> and the maximum row width checked against `NXOCEE` is
+!> and the maximum row width retained as module state for workspace sizing is
 !>
 !> \[
-!> NXOC = \max_j n_j.
+!> MAX\_ROW\_WIDTH = \max_j n_j,
 !> \]
+!>
+!> evaluated by [[oc_row_width:max_active_row_width]] once every row start,
+!> including the end-of-last-row marker `NROWST(NY+1)`, has been written.
 !>
 !> Entry requirements retained from the legacy routine are:
 !>
@@ -1238,30 +1291,31 @@ CONTAINS
       INTEGER, INTENT(OUT) :: NROWEL(:)    !! Contiguous list of elements in row order.
 
       ! Locals
-      INTEGER :: BANK, FACE, I, ICOUNT, IELv, J, K, LINK, NXOC
+      INTEGER :: BANK, FACE, I, ICOUNT, IELv, J, K, LINK
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Initialize counters
-      NXOC = 0
+      ! Initialize counters
+      NROWF = 0
+      NROWL = 0
       K = 0
 
-   ! LOOP OVER BASIC GRID SYSTEM
-   ! - LOOP OVER EACH ROW
+      ! LOOP OVER BASIC GRID SYSTEM
+      ! - LOOP OVER EACH ROW
 
       row_loop: DO J = 1, NY
          NROWST(J) = K + 1
          IF (K == 0) NROWF = J
 
-   ! ---- LOOP OVER EACH GRID SQUARE IN ROW
+         ! ---- LOOP OVER EACH GRID SQUARE IN ROW
          ICOUNT = 0
 
          col_loop: DO I = 1, NX
 
-   ! ------- Loop over west & south faces
+            ! ------- Loop over west & south faces
             face_loop: DO FACE = 3, 4
 
-   ! ---------- Test for link at face of grid
+               ! ---------- Test for link at face of grid
                LINK = LINKNO(I, J, FACE == 3)
 
                IF (LINK > 0) THEN
@@ -1287,7 +1341,7 @@ CONTAINS
                   END IF
                END IF
 
-   ! ---------- Test for active grid square
+               ! ---------- Test for active grid square
                IF (FACE == 3) THEN
                   IELv = ICMXY(I, J)
                   IF (IELv > 0) THEN
@@ -1301,24 +1355,25 @@ CONTAINS
             END DO face_loop
          END DO col_loop
 
-   ! ---- Next row
-         NXOC = MAX(NXOC, K + 1 - NROWST(J))
+         ! ---- Next row
          IF (ICOUNT > 0) NROWL = J
 
       END DO row_loop
 
-   ! - This marks the end of the last row (+1)
-   ! Modern Fix: Explicitly use NY + 1 instead of relying on the leaked loop variable 'J'
+      ! - This marks the end of the last row (+1)
+      ! Modern Fix: Explicitly use NY + 1 instead of relying on the leaked loop variable 'J'
       NROWST(NY + 1) = K + 1
 
-   ! CHECK ARRAY DIMENSIONS
-      IF (NXOC > NXOCEE) THEN
-         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'ARRAY DIMENSION OF NXOC TOO SMALL')
+      ! Every row start, including the end marker just written, is now known,
+      ! so the widest row follows from the pointer differences.
+      MAX_SOLVER_ROW_WIDTH = MAX_ACTIVE_ROW_WIDTH(NROWST)
+
+      ! The row solver is allocated from the active topology after this call.
+      IF (MAX_SOLVER_ROW_WIDTH <= 0) THEN
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OC topology contains no active solver row')
       END IF
 
    END SUBROUTINE OCIND
-
-
 
 !> @brief Reads an alphanumeric channel-definition grid.
 !>
@@ -1350,7 +1405,7 @@ CONTAINS
 !> | 1994-08-12 | - | - | Created this routine. |
 !> | 2015-04-21 | SB | - | Increased the `A1LINE` row buffer and its read/write format from 200 to 500 characters for larger catchments. |
 !> @endhistory
-   SUBROUTINE OCLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
+   SUBROUTINE OCLTL(NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
       IMPLICIT NONE
 
       ! Dummy Arguments
@@ -1369,7 +1424,7 @@ CONTAINS
       INTEGER              :: I, J, K, L, M
 
       CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
-         ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
+                                     ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
 
       READ (INF, '(A80)') TITLE
       IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
@@ -1401,8 +1456,6 @@ CONTAINS
       END DO read_loop
 
    END SUBROUTINE OCLTL
-
-
 
 !> @brief Reads per-link channel geometry and link boundary data.
 !>
@@ -1464,9 +1517,9 @@ CONTAINS
       LOGICAL, INTENT(INOUT) :: BOUT   !! True to echo link data to `PRI`.
       INTEGER, INTENT(INOUT) :: IXER   !! OC input-error count; only ever increased here.
       INTEGER, INTENT(INOUT) :: fromNOCBCD(NOCTAB, 2:4) !! Boundary-face/category columns of `NOCBCD`, updated for river-link boundary types.
-      INTEGER, INTENT(OUT)   :: NXDEF (NOCTAB) !! Number of width/depth pairs in each default cross-section category.
-      DOUBLE PRECISION       :: XDEFH (NOCTAB, NOCTAB) !! Default cross-section depths by category.
-      DOUBLE PRECISION       :: XDEFW (NOCTAB, NOCTAB) !! Default cross-section widths by category.
+      INTEGER, INTENT(OUT)   :: NXDEF(NOCTAB) !! Number of width/depth pairs in each default cross-section category.
+      DOUBLE PRECISION       :: XDEFH(NOCTAB, NOCTAB) !! Default cross-section depths by category.
+      DOUBLE PRECISION       :: XDEFW(NOCTAB, NOCTAB) !! Default cross-section widths by category.
 
       INTEGER :: I, IBC, IDEF, IDEFX, ielm, J, N, NDEFCT, TYPEE, ios
       DOUBLE PRECISION :: STR, WDEPTH, ZG
@@ -1495,7 +1548,7 @@ CONTAINS
       ! :OC32
       IF (NDEFCT > 0) THEN
          READ (OCD, *)
-         IF (BOUT) WRITE(PPPRI, 9032) 'Category', 'Width', 'Height'
+         IF (BOUT) WRITE (PPPRI, 9032) 'Category', 'Width', 'Height'
 
          out100: DO IDEF = 1, NDEFCT
             IF (g8055) CYCLE out100
@@ -1506,10 +1559,10 @@ CONTAINS
                CYCLE out100
             END IF
 
-            NXDEF (IDEF) = N
-            READ (OCD, *) (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
+            NXDEF(IDEF) = N
+            READ (OCD, *) (XDEFW(IDEF, J), XDEFH(IDEF, J), J=1, N)
 
-            IF (BOUT) WRITE(PPPRI, 9034) IDEF, (XDEFW (IDEF, J), XDEFH (IDEF, J), J = 1, N)
+            IF (BOUT) WRITE (PPPRI, 9034) IDEF, (XDEFW(IDEF, J), XDEFH(IDEF, J), J=1, N)
          END DO out100
       END IF
 
@@ -1522,7 +1575,7 @@ CONTAINS
          IXER = IXER + 1
       ELSE
          READ (OCD, *)
-         IF (BOUT) WRITE(PPPRI, 9035) 'Element', 'Elevation', 'Init.Depth', 'Strickler', 'Width', 'Height'
+         IF (BOUT) WRITE (PPPRI, 9035) 'Element', 'Elevation', 'Init.Depth', 'Strickler', 'Width', 'Height'
 
          out500: DO ielm = 1, total_no_links
             IF (g8013 .OR. g8300 .OR. greturn) CYCLE out500
@@ -1540,7 +1593,7 @@ CONTAINS
                CYCLE out500
             END IF
 
-            ZGRUND (ielm) = ZG
+            ZGRUND(ielm) = ZG
             CALL SETHRF(ielm, ZG + WDEPTH)
             STRXX(ielm) = STR
             STRYY(ielm) = STR
@@ -1561,42 +1614,42 @@ CONTAINS
             ELSE
                IF (IDEFX > 0) THEN
                   N = IDEFX
-                  READ (OCD, *) (XINW (ielm, J), XINH (ielm, J), J = 1, N)
-                  IF (BOUT) WRITE(PPPRI, 9037) ielm, ZG, WDEPTH, STR, (XINW (ielm, J), XINH (ielm, J), J = 1, N)
+                  READ (OCD, *) (XINW(ielm, J), XINH(ielm, J), J=1, N)
+                  IF (BOUT) WRITE (PPPRI, 9037) ielm, ZG, WDEPTH, STR, (XINW(ielm, J), XINH(ielm, J), J=1, N)
                ELSE
                   IDEF = -IDEFX
-                  N = NXDEF (IDEF)
+                  N = NXDEF(IDEF)
                   ! Native Fortran array slice copying N elements
                   XINH(ielm, 1:N) = XDEFH(IDEF, 1:N)
                   XINW(ielm, 1:N) = XDEFW(IDEF, 1:N)
-                  IF (BOUT) WRITE(PPPRI, 9137) ielm, ZG, WDEPTH, STR, IDEF
+                  IF (BOUT) WRITE (PPPRI, 9137) ielm, ZG, WDEPTH, STR, IDEF
                END IF
 
-               NXSECT (ielm) = N
+               NXSECT(ielm) = N
 
                ! CHANNEL BANK-FULL WIDTH & ELEVATION
-               CWIDTH (ielm) = XINW (ielm, N)
-               ZBFULL (ielm) = XINH (ielm, N) + ZG
+               CWIDTH(ielm) = XINW(ielm, N)
+               ZBFULL(ielm) = XINH(ielm, N) + ZG
             END IF
 
             ! READ IN ADDITIONAL DATA FOR BOUNDARY CONDITIONS
             ! :OC38-41
-            IBC = NOCBCC (ielm)
+            IBC = NOCBCC(ielm)
 
             IF (IBC > 0) THEN
-               TYPEE = fromNOCBCD (IBC, 3)
+               TYPEE = fromNOCBCD(IBC, 3)
 
                IF ((TYPEE == 7) .OR. (TYPEE == 8)) THEN
-                  READ (OCD, *) fromNOCBCD (IBC, 2), (COCBCD (J, IBC), J = 1, 4)
-                  fromNOCBCD (IBC, 4) = 1
+                  READ (OCD, *) fromNOCBCD(IBC, 2), (COCBCD(J, IBC), J=1, 4)
+                  fromNOCBCD(IBC, 4) = 1
                ELSE IF (TYPEE == 9) THEN
-                  fromNOCBCD (IBC, 2) = 0
-                  READ (OCD, *) fromNOCBCD (IBC, 4)
+                  fromNOCBCD(IBC, 2) = 0
+                  READ (OCD, *) fromNOCBCD(IBC, 4)
                ELSE IF (TYPEE == 10) THEN
-                  READ (OCD, *) (fromNOCBCD (IBC, J), J = 2, 4, 2)
+                  READ (OCD, *) (fromNOCBCD(IBC, J), J=2, 4, 2)
                ELSE IF (TYPEE == 11) THEN
-                  READ (OCD, *) fromNOCBCD (IBC, 2), (COCBCD (J, IBC), J = 1, 5)
-                  fromNOCBCD (IBC, 4) = 1
+                  READ (OCD, *) fromNOCBCD(IBC, 2), (COCBCD(J, IBC), J=1, 5)
+                  fromNOCBCD(IBC, 4) = 1
                END IF
             END IF
 
@@ -1617,31 +1670,29 @@ CONTAINS
       END IF
 
       ! Format Statements
-9012  FORMAT ('Cross-section number IDEFX =', I4, ' lies outside ranges', &
-               ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
+9012  FORMAT('Cross-section number IDEFX =', I4, ' lies outside ranges', &
+             ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
 
-9013  FORMAT ('Expected element number,', I5, ', but found', I5, ', ', &
-               'while reading channel data')
+9013  FORMAT('Expected element number,', I5, ', but found', I5, ', ', &
+             'while reading channel data')
 
-9032  FORMAT (/5X, 'Default Channel Cross-sections:'//5X, 3A10/)
+9032  FORMAT(/5X, 'Default Channel Cross-sections:'//5X, 3A10/)
 
-9034  FORMAT (5X, I10, (T16, 2F10.3))
+9034  FORMAT(5X, I10, (T16, 2F10.3))
 
-9035  FORMAT (/5X, 'Link Element Data:'//5X, 6A11/)
+9035  FORMAT(/5X, 'Link Element Data:'//5X, 6A11/)
 
-9037  FORMAT (5X, I11, 3F11.3, (T50, 2F11.3))
+9037  FORMAT(5X, I11, 3F11.3, (T50, 2F11.3))
 
-9054  FORMAT ('Number of default channel cross-section categories ', &
-               'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
+9054  FORMAT('Number of default channel cross-section categories ', &
+             'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
 
-9055  FORMAT ('Number of width/elevation pairs NXDEF(', I3, ') =', I4, 2X, &
-               'lies outside range 2:NOCTAB = 2:', I4)
+9055  FORMAT('Number of width/elevation pairs NXDEF(', I3, ') =', I4, 2X, &
+             'lies outside range 2:NOCTAB = 2:', I4)
 
-9137  FORMAT (5X, I11, 3F11.3, 3X, 'default category', I3)
+9137  FORMAT(5X, I11, 3F11.3, 3X, 'default category', I3)
 
    END SUBROUTINE OCPLF
-
-
 
 !> @brief Prints one OC diagnostic block to the main print file.
 !>
@@ -1668,33 +1719,31 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1998-02-26 | RAH | 4.2 | Created this routine. |
 !> @endhistory
-   SUBROUTINE OCPRI (OCNOW, ARXL, QOC)
+   SUBROUTINE OCPRI(OCNOW, ARXL, QOC)
       DOUBLEPRECISION, INTENT(IN) :: OCNOW      !! Simulation time being reported, in hours.
       DOUBLEPRECISION, INTENT(IN) :: ARXL(:)    !! Current channel wetted cross-sectional area, by link.
       DOUBLEPRECISION, INTENT(IN) :: QOC(NELEE, 4) !! Current face flows in the model x/y sign convention.
       DOUBLEPRECISION, ALLOCATABLE :: ghrf(:)   !! Local copy of the current water level, by link.
       INTEGER                     :: FACE, ielmm
 !----------------------------------------------------------------------*
-      ALLOCATE(ghrf(total_no_links))
+      ALLOCATE (ghrf(total_no_links))
 
-      WRITE(PPPRI, 9100) 'AFTER', OCNOW, ' HOURS ----'
-      WRITE(PPPRI, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE = 1, 4) , 'HRF', 'ARXL'
-      DO ielmm=1,total_no_links
+      WRITE (PPPRI, 9100) 'AFTER', OCNOW, ' HOURS ----'
+      WRITE (PPPRI, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE=1, 4), 'HRF', 'ARXL'
+      DO ielmm = 1, total_no_links
          ghrf(ielmm) = GETHRF(ielmm)
-      ENDDO
-      WRITE(PPPRI, 9210) (ielmm, (QOC(ielmm,FACE), FACE=1,4), ghrf(ielmm), ARXL (ielmm), ielmm = 1, total_no_links)
-      DO ielmm = total_no_links + 1,total_no_elements
-         WRITE(PPPRI, 9210) ielmm, (QOC (ielmm, FACE), FACE = 1, 4), GETHRF (ielmm)
+      END DO
+      WRITE (PPPRI, 9210) (ielmm, (QOC(ielmm, FACE), FACE=1, 4), ghrf(ielmm), ARXL(ielmm), ielmm=1, total_no_links)
+      DO ielmm = total_no_links + 1, total_no_elements
+         WRITE (PPPRI, 9210) ielmm, (QOC(ielmm, FACE), FACE=1, 4), GETHRF(ielmm)
       END DO
 
-      WRITE(PPPRI, 9100) 'END ----'
-9100  FORMAT (//'---- OC MODULE  RESULTS ',A:F10.2,A//)
-9200  FORMAT (4X,A4,4(2X,A8,I1,A1),2A12/)
+      WRITE (PPPRI, 9100) 'END ----'
+9100  FORMAT(//'---- OC MODULE  RESULTS ', A:F10.2, A//)
+9200  FORMAT(4X, A4, 4(2X, A8, I1, A1), 2A12/)
 
-9210  FORMAT (4X,I4,SP,4F12.3,S,2F12.3)
+9210  FORMAT(4X, I4, SP, 4F12.3, S, 2F12.3)
    END SUBROUTINE OCPRI
-
-
 
 !> @brief Reads and dispatches the static OC input file.
 !>
@@ -1756,7 +1805,7 @@ CONTAINS
 
       INTEGER, PARAMETER :: NC(11) = [0, 0, 0, 0, 5, 0, 4, 4, 0, 0, 5]
       CHARACTER(11), PARAMETER :: CTYPE(11) = ['impermeable', '  grid-grid', '       head', ' flux      ', &
-         ' polynomial', ' river_link', '       weir', ' river+weir', '       head', '       flux', ' polynomial']
+                            ' polynomial', ' river_link', '       weir', ' river+weir', '       head', '       flux', ' polynomial']
 
       !----------------------------------------------------------------------*
       !              Initialization
@@ -1773,7 +1822,7 @@ CONTAINS
       KKON = MOD(KONT, 2)
       BOUT = (KKON == 1)
 
-      IF (BOUT) WRITE(PPPRI, 9080) ' ', NCATR
+      IF (BOUT) WRITE (PPPRI, 9080) ' ', NCATR
 
       !              OC time-step data
       ! :OC2
@@ -1797,14 +1846,14 @@ CONTAINS
 
          IF (NCATR > 0) THEN
             ! PERF FIX: Implied DO loop instead of array slice
-            READ (OCD, *) (CATR(I), I = 1, NCATR)
+            READ (OCD, *) (CATR(I), I=1, NCATR)
             IF (BOUT) THEN
-               WRITE(PPPRI, 9084) (CATR(I), I = 1, NCATR)
-               WRITE(PPPRI, *)
+               WRITE (PPPRI, 9084) (CATR(I), I=1, NCATR)
+               WRITE (PPPRI, *)
             END IF
          END IF
       ELSE IF (BOUT) THEN
-         WRITE(PPPRI, 9082) CDRS
+         WRITE (PPPRI, 9082) CDRS
       END IF
 
       !              INITIAL OVERLAND FLOW ELEVATIONS
@@ -1816,7 +1865,7 @@ CONTAINS
          DO ielt = NGDBGN, total_no_elements
             DUMMY(ielt) = ZERO
          END DO
-         IF (BOUT) WRITE(PPPRI, 9085) 'zero'
+         IF (BOUT) WRITE (PPPRI, 9085) 'zero'
       END IF
 
       elevation_loop: DO ielt = NGDBGN, total_no_elements
@@ -1862,53 +1911,51 @@ CONTAINS
       END IF
 
       !              FINISH
-      REWIND(OCD)
+      REWIND (OCD)
 
       IF (IXER /= 0) THEN
          WRITE (MSG, 9412) IXER
          CALL ERROR(FFFATAL, 1049, PPPRI, 0, 0, MSG)
       ELSE IF (BOUT) THEN
-         WRITE(PPPRI, 9500) 'no-flow'
-         IF (NOCBC > 0) WRITE(PPPRI, 9600) 'Index', 'Element', 'Face', &
+         WRITE (PPPRI, 9500) 'no-flow'
+         IF (NOCBC > 0) WRITE (PPPRI, 9600) 'Index', 'Element', 'Face', &
             'Type', 'Category', 'Coefficients'
 
          print_bc_loop: DO IBC = 1, NOCBC
             TYPEE = NOCBCD(IBC, 3)
 
             ! PERF FIX: Explicit indexing and Implied DO loop instead of slices
-            WRITE(PPPRI, 9610) IBC, NOCBCD(IBC, 1), NOCBCD(IBC, 2), CTYPE(TYPEE), &
-               NOCBCD(IBC, 4), (COCBCD(I, IBC), I = 1, NC(TYPEE))
+            WRITE (PPPRI, 9610) IBC, NOCBCD(IBC, 1), NOCBCD(IBC, 2), CTYPE(TYPEE), &
+               NOCBCD(IBC, 4), (COCBCD(I, IBC), I=1, NC(TYPEE))
          END DO print_bc_loop
 
-         WRITE(PPPRI, 9080) ' END OF '
+         WRITE (PPPRI, 9080) ' END OF '
       END IF
 
       RETURN
 
       ! FORMAT STATEMENTS
-9080  FORMAT (///'---- OC MODULE ',A,'INPUT DATA PROCESSING ----'///: &
-              5X,'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
-                 ' CATEGORIES   NCATR = ',I4)
+9080  FORMAT(///'---- OC MODULE ', A, 'INPUT DATA PROCESSING ----'///: &
+              5X, 'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
+              ' CATEGORIES   NCATR = ', I4)
 
-9082  FORMAT (/5X,'DEFAULT VALUE OF OVERLAND FLOW ROUGHNESS ', &
-                  'COEFFICIENT     CDRS = ', F8.2)
+9082  FORMAT(/5X, 'DEFAULT VALUE OF OVERLAND FLOW ROUGHNESS ', &
+              'COEFFICIENT     CDRS = ', F8.2)
 
-9084  FORMAT (/4X,' ROUGHNESS COEFFICIENTS  CATR  ATTACHED TO', &
-                  ' EACH OF THE NCATR CATEGORIES' / (10F10.2))
+9084  FORMAT(/4X, ' ROUGHNESS COEFFICIENTS  CATR  ATTACHED TO', &
+              ' EACH OF THE NCATR CATEGORIES'/(10F10.2))
 
-9085  FORMAT (/5X,'Initial overland water depth is ',A)
+9085  FORMAT(/5X, 'Initial overland water depth is ', A)
 
-9412  FORMAT (I5,' ERROR(S) FOUND DURING OC INPUT DATA PROCESSING')
+9412  FORMAT(I5, ' ERROR(S) FOUND DURING OC INPUT DATA PROCESSING')
 
-9500  FORMAT (/5X,'Default OC B.C. is ',A,' at catchment boundaries ', &
-                  'and at channel/bank dead-ends')
+9500  FORMAT(/5X, 'Default OC B.C. is ', A, ' at catchment boundaries ', &
+              'and at channel/bank dead-ends')
 
-9600  FORMAT (/5X,'OC Boundary Conditions:'//5X,3A8,A12,A10,A14)
+9600  FORMAT(/5X, 'OC Boundary Conditions:'//5X, 3A8, A12, A10, A14)
 
-9610  FORMAT (5X,3I8,A12,I10,1P,5G14.6)
+9610  FORMAT(5X, 3I8, A12, I10, 1P, 5G14.6)
    END SUBROUTINE OCREAD
-
-
 
 !> @brief Advances the overland/channel flow solution by one OC timestep.
 !>
@@ -1926,9 +1973,9 @@ CONTAINS
 !> cross-section and roughness tables (`NXSECT`, `XINH`, `XINW`, `XAREA`,
 !> `XSTAB`, `STRXX`, `STRYY`), and timing controls (`OCNOW`, `OCNEXT`,
 !> `TDC`, `TFC`). It updates `HRF` and writes `QSA`, `QOC`, `DQ0ST`,
-!> `DQIST`, `DQIST2`, and `ARXL`. On the first call it also caches each
-!> link's bankfull tabulated area in
-!> `XAFULL(link)=XAREA(link,NXSECT(link))` for [[OCQDQ]].
+!> `DQIST`, `DQIST2`, and `ARXL`. The per-link bankfull area `XAFULL` that
+!> [[OCQDQ]] reads is a static property of the cross-section tables and is
+!> built once by [[ocxs]] during initialisation, not here.
 !>
 !> The OC timestep is converted to seconds as
 !>
@@ -2004,7 +2051,8 @@ CONTAINS
 !> where a single neighbour uses `DQIST` and a multi-link junction expands
 !> the neighbour sum through `ICMRF2` and `DQIST2`. [[OCFIX]] is then called
 !> to remove spurious negative internal flows and adjust the corresponding
-!> water levels.
+!> water levels. The static `ICMREF` and `ICMRF2` tables are passed in their
+!> native layouts, without per-timestep reshaping or copying.
 !>
 !> `QOC` is copied from the internal face-flow array and converted from the
 !> OC face convention to the model x/y convention by changing the sign on
@@ -2036,261 +2084,235 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-1998 | GP/RAH | 3.4-4.2 | Developed the row-wise implicit solve, [[OCFIX]] flow-correction split, and current `OCABC` argument list. |
 !> | 2009-01 | JE | - | Restructured the row loop for automatic differentiation. |
+!> | 2026-08-20 | - | - | Passed `ICMREF` and `ICMRF2` directly to [[ocmod2:ocfix]], removing the per-timestep topology staging. |
+!> | 2026-08-22 | - | - | Deleted the per-timestep staging of `HRFZZ`/`QSAZZ` into and out of [[ocmod2:ocfix]] buffers, which cost `10*total_no_elements` accessor calls and three round trips of the OC state. |
 !> @endhistory
    SUBROUTINE OCSIM
 
       IMPLICIT NONE
 
       INTEGER :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
-      INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV, face
-      INTEGER :: kk, ll, vv
+      INTEGER :: J, JEL, JND, JROW, K0, LINK, N, NCR, NPR, NSV
 
       DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
 
-      LOGICAL :: first = .TRUE. !! True only on the first call; caches `XAFULL` then latches false (implicit `SAVE`).
       LOGICAL :: found_level, channel_blowup
       CHARACTER(36) :: MSG
 
       !----------------------------------------------------------------------*
-      !
-      ! ----- Initialize
-      ijedum  = 0
-      ijedum2 = 0
 
-      AA = 0.0D0; DD = 0.0D0; FF = 0.0D0; BB = 0.0D0; GG = 0.0D0
-      CC = 0.0D0; EE = 0.0D0; TM1 = 0.0D0; TM2 = 0.0D0; TV1 = 0.0D0; TV2 = 0.0D0
-
-      inhrf = 0.0D0; GGGETHRF = 0.0D0; inqsa = 0.0D0; GGGETQSA = 0.0D0
-
-      !
-      DTOC = OCNEXT * 3600.0D0
-
-      IF (first) THEN
-         first = .FALSE.
-         DO LINK = 1, total_no_links
-            XAFULL (LINK) = XAREA (LINK, NXSECT (LINK))
-         END DO
+      IF (.NOT. OCSIM_WORKSPACE%READY) THEN
+         CALL ERROR(FFFATAL, 1006, PPPRI, 0, 0, 'OCSIM called before its workspace was initialised')
       END IF
 
-      ! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
-      CALL OCEXT
-
-      ! ----- CALCULATE FLOWS QSA & DERIVATIVES DQ0ST,DQIST,DQIST2
-      CALL OCQDQ ()
-
-
-
-      ! ----- LOOP OVER ROWS, CALCULATING EE & GG
-      NCR = 0
-
-      row_loop: DO IROW = NROWF, NROWL
-         IRSV = IROW + 1
+      ASSOCIATE (AA => OCSIM_WORKSPACE%AA, DD => OCSIM_WORKSPACE%DD, &
+                 FF => OCSIM_WORKSPACE%FF, BB => OCSIM_WORKSPACE%BB, &
+                 GG => OCSIM_WORKSPACE%GG, CC => OCSIM_WORKSPACE%CC, &
+                 EE => OCSIM_WORKSPACE%EE, TM1 => OCSIM_WORKSPACE%TM1, &
+                 TM2 => OCSIM_WORKSPACE%TM2, TV1 => OCSIM_WORKSPACE%TV1, &
+                 TV2 => OCSIM_WORKSPACE%TV2)
          !
-         ! NCR : NUMBER OF ELEMENTS IN THE CURRENT ROW
-         ! NPR : NUMBER OF ELEMENTS IN THE PREVIOUS ROW
-         ! NSV : NUMBER OF ELEMENTS IN THE NEXT (SUIVANT) ROW
-         !
-         NPR = NCR
-         K0 = NROWST (IROW) - 1
-         NCR = NROWST (IRSV) - 1 - K0
+         ! ----- Timestep setup
+         DTOC = OCNEXT*3600.0D0
 
-         IF (NCR == 0) CYCLE row_loop
+         ! ----- GET PRESCRIBED BOUNDARY VALUES HOCNOW & QOCF
+         CALL OCEXT
 
-         NSV = NROWST (MIN (IRSV, NROWL) + 1) - NROWST (IRSV)
+         ! ----- CALCULATE FLOWS QSA & DERIVATIVES DQ0ST,DQIST,DQIST2
+         CALL OCQDQ()
 
-         ! CALCULATE MATRICES AA, BB, CC, FF
-         DO IND = 1, NCR
-            iels = NROWEL (IND + K0)
-            LINK = MAX (1, MIN (iels, total_no_links))
-            IBC = NOCBCC (iels)
+         ! ----- LOOP OVER ROWS, CALCULATING EE & GG
+         NCR = 0
 
-            IF (IBC > 0) THEN
-               IHB = NOCBCD (IBC, 4)
-               IBC = NOCBCD (IBC, 3)
+         row_loop: DO IROW = NROWF, NROWL
+            IRSV = IROW + 1
+            !
+            ! NCR : NUMBER OF ELEMENTS IN THE CURRENT ROW
+            ! NPR : NUMBER OF ELEMENTS IN THE PREVIOUS ROW
+            ! NSV : NUMBER OF ELEMENTS IN THE NEXT (SUIVANT) ROW
+            !
+            NPR = NCR
+            K0 = NROWST(IROW) - 1
+            NCR = NROWST(IRSV) - 1 - K0
+
+            IF (NCR == 0) CYCLE row_loop
+
+            NSV = NROWST(MIN(IRSV, NROWL) + 1) - NROWST(IRSV)
+
+            ! CALCULATE MATRICES AA, BB, CC, FF
+            DO IND = 1, NCR
+               iels = NROWEL(IND + K0)
+               LINK = MAX(1, MIN(iels, total_no_links))
+               IBC = NOCBCC(iels)
+
+               IF (IBC > 0) THEN
+                  IHB = NOCBCD(IBC, 4)
+                  IBC = NOCBCD(IBC, 3)
+               ELSE
+                  IHB = 1
+               END IF
+
+               CALL OCABC(IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT(LINK), cellarea(iels), &
+                          ZGRUND(iels), CLENTH(LINK), ZBFULL(LINK), GETHRF(iels), &
+                          PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(1:nsv, IND), &
+                          BB(1:ncr, IND), CC(1:npr, IND), FF(IND))
+            END DO
+
+            ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
+            IF (IROW == NROWF) THEN
+               DO IND = 1, NCR
+                  TM2(1:ncr, IND) = BB(1:ncr, IND)
+               END DO
+               TV2(1:ncr) = FF(1:ncr)
             ELSE
-               IHB = 1
+               tm1(1:ncr, 1:ncr) = JEMATMUL_MM(cc(1:npr, 1:ncr), ee(1:ncr, 1:npr, irow), ncr, npr, ncr)
+               tm2(1:ncr, 1:ncr) = bb(1:ncr, 1:ncr) + tm1(1:ncr, 1:ncr)
+               tv1(1:ncr) = JEMATMUL_VM(cc(1:npr, 1:ncr), gg(1:npr, irow), ncr, npr)
+               TV2(1:ncr) = FF(1:ncr) - TV1(1:ncr)
             END IF
 
-            CALL OCABC (IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT (LINK), cellarea (iels), &
-                        ZGRUND (iels), CLENTH (LINK), ZBFULL (LINK), GETHRF (iels),          &
-                        PNETTO (iels), QH (iels), ESWA (iels), HOCNOW (IHB), AA(:,IND),      &
-                        BB (1:ncr,IND), CC(:,IND), FF (IND))
+            CALL INVERTMAT(TM2(1:ncr, 1:ncr), NCR, ICOD)
+
+            ! Catch singular matrix inversion failure
+            IF (ICOD == 1) THEN
+               WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
+               CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL(NROWST(IROW)), 0, MSG)
+               RETURN
+            END IF
+
+            ! CALCULATE MATRIX EE(IROW+1)
+            IF (IROW /= NROWL) THEN
+               ee(1:nsv, 1:ncr, irsv) = JEMATMUL_MM(tm2(1:ncr, 1:ncr), aa(1:nsv, 1:ncr), ncr, ncr, nsv)
+               ee(1:nsv, 1:ncr, irsv) = -ee(1:nsv, 1:ncr, irsv)
+            END IF
+
+            ! CALCULATE VECTOR GG(IROW+1)
+            gg(1:ncr, irsv) = JEMATMUL_VM(tm2(1:ncr, 1:ncr), tv2(1:ncr), ncr, ncr)
+
+         END DO row_loop
+
+         ! ----- DOWNWARDS SWEEP, CALCULATION OF DD
+         !
+         ! * last row first (use NCR,IRSV from loop above)
+         IROW = NROWL
+         DD(1:ncr, IROW) = GG(1:ncr, IRSV)
+
+         ! * loop over remaining rows
+         DO IROW = NROWL - 1, NROWF, -1
+            IRSV = IROW + 1
+            NSV = NCR
+            NCR = NROWST(IRSV) - NROWST(IROW)
+
+            tv1(1:ncr) = JEMATMUL_VM(ee(1:nsv, 1:ncr, irsv), dd(1:nsv, irsv), ncr, nsv)
+            dd(1:ncr, irow) = tv1(1:ncr) + gg(1:ncr, irsv)
          END DO
 
-         ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)
-         IF (IROW == NROWF) THEN
-            DO IND = 1, NCR
-               TM2(1:ncr, IND) = BB(1:ncr, IND)
+         ! ----- ADVANCE WATER LEVELS AND FLOWS TO TIME LEVEL N+1,
+         !       USING FIRST ORDER DERIVATIVES OF FLOWS AT TIME LEVEL N
+         DO iels = 1, total_no_elements
+            IND = NELIND(iels)
+            IROW = ICMREF(iels, 3)
+            DDI = DD(IND, IROW)
+            CALL SETHRF(iels, GETHRF(iels) + DDI)
+
+            DO IFACE = 1, 4
+               DQ = DQ0ST(iels, IFACE)*DDI
+               JEL = ICMREF(iels, IFACE + 4)
+
+               IF (JEL > 0) THEN
+                  JND = NELIND(JEL)
+                  JROW = ICMREF(JEL, 3)
+                  DQ = DQIST(iels, IFACE)*DD(JND, JROW) + DQ
+
+               ELSE IF (JEL < 0) THEN
+                  IBR = -JEL
+                  DO J = 1, 3
+                     JEL = ICMRF2(IBR, J)
+                     IF (JEL > 0) THEN
+                        JND = NELIND(JEL)
+                        JROW = ICMREF(JEL, 3)
+                        DQ = DQIST2(IBR, J)*DD(JND, JROW) + DQ
+                     END IF
+                  END DO
+               END IF
+
+               CALL SETQSA(iels, IFACE, GETQSA(iels, IFACE) + DQ)
             END DO
-            TV2(1:ncr) = FF(1:ncr)
-         ELSE
-            tm1(1:ncr, 1:ncr) = JEMATMUL_MM(cc(1:npr, 1:ncr), ee(1:ncr, 1:npr, irow), ncr, npr, ncr)
-            tm2(1:ncr, 1:ncr) = bb(1:ncr, 1:ncr) + tm1(1:ncr, 1:ncr)
-            tv1(1:ncr)        = JEMATMUL_VM(cc(1:npr, 1:ncr), gg(1:npr, irow), ncr, npr)
-            TV2(1:ncr)        = FF(1:ncr) - TV1(1:ncr)
-         END IF
+         END DO
 
-         CALL INVERTMAT(TM2(1:ncr, 1:ncr), NCR, ICOD)
+         ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
+         ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
+         !
+         ! [[ocmod2:ocfix]] corrects `HRFZZ`/`QSAZZ` in place. The former
+         ! staging of the whole OC state into `inhrf`/`inqsa` and back out of
+         ! `GGGETHRF`/`GGGETQSA` through the element accessors existed only for
+         ! tangent debugging; see the AD note in [[ocmod2:ocfix]] for how to
+         ! reinstate an argument-passed form for an AD build without paying for
+         ! it here.
+         CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc)
 
-         ! Catch singular matrix inversion failure
-         IF (ICOD == 1) THEN
-            WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
-            CALL ERROR(FFFATAL, 1018, PPPRI, NROWEL(NROWST(IROW)), 0, MSG)
-            RETURN
-         END IF
+         ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
+         !
+         ! Faces 1 and 2 point in -x/-y in the OC sign convention, so they are
+         ! negated here. Written column by column so that each column is a
+         ! single contiguous pass over `QSAZZ` with no array temporary.
+         qoc(1:total_no_elements, 1) = -qsazz(1:total_no_elements, 1)
+         qoc(1:total_no_elements, 2) = -qsazz(1:total_no_elements, 2)
+         qoc(1:total_no_elements, 3) = qsazz(1:total_no_elements, 3)
+         qoc(1:total_no_elements, 4) = qsazz(1:total_no_elements, 4)
 
-         ! CALCULATE MATRIX EE(IROW+1)
-         IF (IROW /= NROWL) THEN
-            ee(1:nsv, 1:ncr, irsv) = JEMATMUL_MM(tm2(1:ncr, 1:ncr), aa(1:nsv, 1:ncr), ncr, ncr, nsv)
-            ee(1:nsv, 1:ncr, irsv) = -ee(1:nsv, 1:ncr, irsv)
-         END IF
+         ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
+         link_loop: DO iels = 1, total_no_links
+            Z = GETHRF(iels)
+            H = Z - ZGRUND(iels)
+            N = NXSECT(iels)
+            found_level = .FALSE.
 
-         ! CALCULATE VECTOR GG(IROW+1)
-         gg(1:ncr, irsv) = JEMATMUL_VM(tm2(1:ncr, 1:ncr), tv2(1:ncr), ncr, ncr)
+            sect_loop: DO I = 2, N
+               HI = XINH(iels, I)
+               IF (H < HI) THEN
+                  IM = I - 1
+                  HM = XINH(iels, IM)
+                  WM = XINW(iels, IM)
+                  WI = XINW(iels, I)
+                  DH = H - HM
+                  DW = (WI - WM)*(DH/(HI - HM))
+                  ARXL(iels) = XAREA(iels, IM) + (WM + 0.5D0*DW)*DH
+                  found_level = .TRUE.
+                  EXIT sect_loop
+               END IF
+            END DO sect_loop
 
-      END DO row_loop
+            IF (.NOT. found_level) THEN
+               ARXL(iels) = XAREA(iels, N) + (Z - ZBFULL(iels))*CWIDTH(iels)
+            END IF
+         END DO link_loop
 
+         ! ----- Print results
+         OCTIME = OCNOW + OCNEXT
+         IF ((OCTIME >= TDC) .AND. (OCTIME <= TFC)) CALL OCPRI(OCTIME, ARXL, QOC)
 
-      ! ----- DOWNWARDS SWEEP, CALCULATION OF DD
-      !
-      ! * last row first (use NCR,IRSV from loop above)
-      IROW = NROWL
-      DD(1:ncr, IROW) = GG(1:ncr, IRSV)
-
-      ! * loop over remaining rows
-      DO IROW = NROWL - 1, NROWF, -1
-         IRSV = IROW + 1
-         NSV = NCR
-         NCR = NROWST (IRSV) - NROWST (IROW)
-
-         tv1(1:ncr) = JEMATMUL_VM(ee(1:nsv, 1:ncr, irsv), dd(1:nsv, irsv), ncr, nsv)
-         dd(1:ncr, irow) = tv1(1:ncr) + gg(1:ncr, irsv)
-      END DO
-
-      ! ----- ADVANCE WATER LEVELS AND FLOWS TO TIME LEVEL N+1,
-      !       USING FIRST ORDER DERIVATIVES OF FLOWS AT TIME LEVEL N
-      DO iels = 1, total_no_elements
-         IND = NELIND (iels)
-         IROW = ICMREF (iels, 3)
-         DDI = DD (IND, IROW)
-         CALL SETHRF(iels, GETHRF (iels) + DDI)
-
-         DO IFACE = 1, 4
-            DQ = DQ0ST (iels, IFACE) * DDI
-            JEL = ICMREF (iels, IFACE + 4)
-
-            IF (JEL > 0) THEN
-               JND = NELIND (JEL)
-               JROW = ICMREF (JEL, 3)
-               DQ = DQIST (iels, IFACE) * DD (JND, JROW) + DQ
-
-            ELSE IF (JEL < 0) THEN
-               IBR = -JEL
-               DO J = 1, 3
-                  JEL = ICMRF2 (IBR, J)
-                  IF (JEL > 0) THEN
-                     JND = NELIND (JEL)
-                     JROW = ICMREF (JEL, 3)
-                     DQ = DQIST2 (IBR, J) * DD (JND, JROW) + DQ
+         ! ----- CHECK FOR CHANNEL BLOW-UP
+         channel_blowup = .FALSE.
+         IF (GTZERO(QMAX)) THEN
+            blowup_loop: DO iels = 1, total_no_links
+               DO IFACE = 1, 4
+                  IF (ABS(QOC(iels, IFACE)) > QMAX) THEN
+                     channel_blowup = .TRUE.
+                     EXIT blowup_loop
                   END IF
                END DO
-            END IF
-
-            CALL SETQSA(iels, IFACE, GETQSA(iels, IFACE) + DQ)
-         END DO
-      END DO
-
-      ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
-      ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
-      vv = 5
-      DO LL = 2, 3
-         DO kk = 1, 4
-            ijedum(:, kk, LL) = icmref(:, vv)
-            vv = vv + 1
-         END DO
-      END DO
-
-      vv = 1
-      DO LL = 1, 2
-         DO kk = 1, 3
-            ijedum2(:, kk, LL) = icmrf2(:, vv)
-            vv = vv + 1
-         END DO
-      END DO
-
-      ! untidy mess for debugging of tangent
-      DO vv = 1, total_no_elements
-         inhrf(vv) = GETHRF(vv)
-         DO face = 1, 4
-            inqsa(vv, face) = GETQSA(vv, face)
-         END DO
-      END DO
-
-      CALL OCFIX(ijedum, ijedum2, total_no_elements, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
-
-      DO vv = 1, total_no_elements
-         CALL SETHRF(vv, GGGETHRF(vv))
-         DO face = 1, 4
-            CALL SETQSA(vv, face, GGGETQSA(vv, face))
-         END DO
-      END DO
-
-      ! SET FLOWS QOC (POSITIVE X,Y) FOR USE BY OTHER COMPONENTS
-      QOC(1:total_no_elements, :) = GETQSA_ALL(total_no_elements)
-      qoc(1:total_no_elements, 1:2) = -qoc(1:total_no_elements, 1:2)
-
-      ! ----- CALCULATE CROSS-SECTIONAL AREA OF CHANNEL WATER
-      link_loop: DO iels = 1, total_no_links
-         Z = GETHRF (iels)
-         H = Z - ZGRUND (iels)
-         N = NXSECT (iels)
-         found_level = .FALSE.
-
-         sect_loop: DO I = 2, N
-            HI = XINH (iels, I)
-            IF (H < HI) THEN
-               IM = I - 1
-               HM = XINH (iels, IM)
-               WM = XINW (iels, IM)
-               WI = XINW (iels, I)
-               DH = H - HM
-               DW = (WI - WM) * (DH / (HI - HM))
-               ARXL (iels) = XAREA (iels, IM) + (WM + 0.5D0 * DW) * DH
-               found_level = .TRUE.
-               EXIT sect_loop
-            END IF
-         END DO sect_loop
-
-         IF (.NOT. found_level) THEN
-            ARXL (iels) = XAREA (iels, N) + (Z - ZBFULL (iels)) * CWIDTH (iels)
+            END DO blowup_loop
          END IF
-      END DO link_loop
 
-      ! ----- Print results
-      OCTIME = OCNOW + OCNEXT
-      IF ((OCTIME >= TDC) .AND. (OCTIME <= TFC)) CALL OCPRI (OCTIME, ARXL, QOC)
+         IF (channel_blowup) THEN
+            MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
+            CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
+         END IF
 
-      ! ----- CHECK FOR CHANNEL BLOW-UP
-      channel_blowup = .FALSE.
-      IF (GTZERO(QMAX)) THEN
-         blowup_loop: DO iels = 1, total_no_links
-            DO IFACE = 1, 4
-               IF (ABS (QOC (iels, IFACE)) > QMAX) THEN
-                  channel_blowup = .TRUE.
-                  EXIT blowup_loop
-               END IF
-            END DO
-         END DO blowup_loop
-      END IF
-
-      IF (channel_blowup) THEN
-         MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
-         CALL ERROR(FFFATAL, 1029, PPPRI, iels, 0, MSG)
-      END IF
+      END ASSOCIATE
 
    END SUBROUTINE OCSIM
-
-
 
 !> @brief Builds channel cross-section area and conveyance lookup tables.
 !>
@@ -2332,6 +2354,11 @@ CONTAINS
 !> \[
 !> ZBEFF = ZBFULL - XAREA_N/CWIDTH.
 !> \]
+!>
+!> The same bankfull area is retained per link as
+!> `XAFULL(link) = XAREA(link,NXSECT(link))` for [[ocqdqmod:ocqdq]]. It
+!> depends only on the cross-section tables, so it is built here once rather
+!> than on the first [[ocsim]] call.
 !>
 !> The lookup table `XSTAB` supports the OC flow calculation without
 !> repeatedly integrating the irregular cross-section. It has rows:
@@ -2398,15 +2425,16 @@ CONTAINS
 !> | 1998-02-03 | RAH | 4.2 | Created this routine, taking it from part of [[OCPLF]]. |
 !> | 1998-03-17 | RAH | 4.2 | Fixed the `XAJ` inaccuracy so the stored conveyance derivative is continuous. |
 !> | 1998-04-24 | RAH | 4.2 | Merged the legacy `XSECTH`/`XCONV`/`XDERIV` arrays into `XSTAB`. |
+!> | 2026-08-18 | SvB | 4.6.5 | Moved the `XAFULL` setup here from the first-call branch of [[ocsim]], reusing this routine's existing per-link loop. |
 !> @endhistory
-   SUBROUTINE OCXS ()
+   SUBROUTINE OCXS()
 
       IMPLICIT NONE
 
       INTEGER         :: I, IELr, J, N
       DOUBLE PRECISION :: ALPHA, DH, HI, HIP1, HJ, STEPH, STR, W2, XAJ, XCJ, XCJM1, adumy
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       link_loop: DO ielr = 1, total_no_links
          !
@@ -2423,13 +2451,18 @@ CONTAINS
          area_loop: DO J = 2, N
             W2 = XINW(ielr, J) + XINW(ielr, J - 1)
             DH = XINH(ielr, J) - XINH(ielr, J - 1)
-            XAREA(ielr, J) = XAREA(ielr, J - 1) + W2 * DH * half
+            XAREA(ielr, J) = XAREA(ielr, J - 1) + W2*DH*half
          END DO area_loop
 
          !
          ! EFFECTIVE BED ELEVATION
          !
-         ZBEFF(ielr) = ZBFULL(ielr) - XAREA(ielr, N) / CWIDTH(ielr)
+         ZBEFF(ielr) = ZBFULL(ielr) - XAREA(ielr, N)/CWIDTH(ielr)
+
+         !
+         ! FULL-FLOW AREA FOR OCQDQ: the top row of this link's area table
+         !
+         XAFULL(ielr) = XAREA(ielr, N)
 
          !
          ! SET UP FULL CROSS-SECTION TABLES OF HEIGHT, CONVEYANCE & DERIVATIVE
@@ -2440,13 +2473,13 @@ CONTAINS
          !
          I = 1
          HI = XINH(ielr, I)
-         STEPH = XINH(ielr, N) / (NXSCEE - 1.0d0)
+         STEPH = XINH(ielr, N)/(NXSCEE - 1.0d0)
          XCJ = zero
          XSTAB(1, 1, ielr) = zero
 
          table_loop: DO J = 2, NXSCEE
             XCJM1 = XCJ
-            HJ = STEPH * (J - 1)
+            HJ = STEPH*(J - 1)
 
             ! Advance index I until we bracket the target height HJ
             search_loop: DO
@@ -2457,23 +2490,21 @@ CONTAINS
             END DO search_loop
 
             DH = HJ - HI
-            ALPHA = DH / (HIP1 - HI)
-            W2 = (2.0d0 - ALPHA) * XINW(ielr, I) + ALPHA * XINW(ielr, I + 1)
-            XAJ = XAREA(ielr, I) + W2 * DH * half
+            ALPHA = DH/(HIP1 - HI)
+            W2 = (2.0d0 - ALPHA)*XINW(ielr, I) + ALPHA*XINW(ielr, I + 1)
+            XAJ = XAREA(ielr, I) + W2*DH*half
 
             ! XCJ = STR * XAJ * HJ**F23
             CALL CONVEYAN(str, hj, xcj, adumy, 0, xaj)
 
             XSTAB(1, J, ielr) = HJ
             XSTAB(2, J - 1, ielr) = XCJM1
-            XSTAB(3, J - 1, ielr) = (XCJ - XCJM1) / STEPH
+            XSTAB(3, J - 1, ielr) = (XCJ - XCJM1)/STEPH
          END DO table_loop
 
       END DO link_loop
 
    END SUBROUTINE OCXS
-
-
 
 !> @brief Returns the channel link number at a grid coordinate and orientation.
 !>
@@ -2488,7 +2519,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-04 | SvB | - | Marked the function `PURE` and replaced the legacy `iscycle`-flag loop with a direct `EXIT`, without changing its search order or result. |
 !> @endhistory
-   PURE INTEGER FUNCTION LINKNO (I, J, NSOUTH)
+   PURE INTEGER FUNCTION LINKNO(I, J, NSOUTH)
 
       IMPLICIT NONE
 
@@ -2500,7 +2531,7 @@ CONTAINS
       ! Locals
       INTEGER :: L
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       LINKNO = 0
 

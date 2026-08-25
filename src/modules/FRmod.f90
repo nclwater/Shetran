@@ -5178,8 +5178,8 @@ CONTAINS
       WRITE(PPPRI, '(A)') 'Tables in the VSS component, time varying veg breakpoints, Tables in the ET component (max number of PSI/RCF/FET values, Maximum number of ssoi layers'
       WRITE(PPPRI, '(4(A,I0))') ' NVSEE = ', NVSEE, '  NVBP = ', NVBP, '  NUZTAB = ', NUZTAB, '  NLYREE = ', NLYREE
       WRITE(PPPRI, *)
-      WRITE(PPPRI, '(A)') 'Maximum number of elements(Grids,banks and links) in a row, Tables used in OC component, sediment sze fractions'
-      WRITE(PPPRI, '(3(A,I0))') ' NXOCEE = ', NXOCEE, '  NOCTAB = ', NOCTAB, '  NSEDEE = ', NSEDEE
+      WRITE(PPPRI, '(A)') 'Tables used in OC component, sediment sze fractions'
+      WRITE(PPPRI, '(2(A,I0))') ' NOCTAB = ', NOCTAB, '  NSEDEE = ', NSEDEE
       WRITE(PPPRI, *)
       WRITE(PPPRI, '(A)') 'Number of contaminants, number of overlaps, number of plants in an element, total number of plants for contaminants'
       WRITE(PPPRI, '(4(A,I0))') ' NCONEE = ', NCONEE, '  NOLEE = ', NOLEE, '  NPLTEE = ', NPLTEE, '  NPELEE = ', NPELEE

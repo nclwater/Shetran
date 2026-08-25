@@ -1,3 +1,14 @@
+# Shared assertion support: a core owning the counters and pass/fail decision,
+# one module per asserted type, and a facade the test programs use. Every test
+# target compiles these; they are small and carry no state between targets.
+set(SHETRAN_TEST_SUPPORT_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/support/test_support_core.f90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/support/test_support_integer.f90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/support/test_support_character.f90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/support/test_support_real.f90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/support/shetran_test_support.f90"
+)
+
 set(VISUALISATION_TEST_MODULE_DIR "${CMAKE_CURRENT_BINARY_DIR}/modules")
 set(VISUALISATION_TEST_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/data")
 set(VISUALISATION_TEST_SCRATCH_DIR "${CMAKE_CURRENT_BINARY_DIR}/scratch")
@@ -27,7 +38,7 @@ add_executable(visualisation_read_tests
     "${CMAKE_SOURCE_DIR}/src/parameters/mod_parameters.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read_parser.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read.f90"
-    "${CMAKE_CURRENT_SOURCE_DIR}/visualisation_read/visualisation_read_test_support.f90"
+    ${SHETRAN_TEST_SUPPORT_SOURCES}
     "${CMAKE_CURRENT_SOURCE_DIR}/visualisation_read/test_visualisation_read.f90"
 )
 
@@ -49,6 +60,37 @@ add_test(
 set_tests_properties(visualisation_read.unit PROPERTIES
     WORKING_DIRECTORY "${VISUALISATION_TEST_SCRATCH_DIR}"
     LABELS "visualisation;unit"
+)
+
+# The OC row-width derivation is deliberately dependency-free, so this target
+# compiles only that module and the shared assertion support.
+set(OC_ROW_WIDTH_TEST_MODULE_DIR "${CMAKE_CURRENT_BINARY_DIR}/modules_oc_row_width")
+file(MAKE_DIRECTORY "${OC_ROW_WIDTH_TEST_MODULE_DIR}")
+
+add_executable(oc_row_width_tests
+    "${CMAKE_SOURCE_DIR}/src/modules/oc_row_width.f90"
+    ${SHETRAN_TEST_SUPPORT_SOURCES}
+    "${CMAKE_CURRENT_SOURCE_DIR}/oc_row_width/test_oc_row_width.f90"
+)
+
+set_target_properties(oc_row_width_tests PROPERTIES
+    Fortran_MODULE_DIRECTORY "${OC_ROW_WIDTH_TEST_MODULE_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+)
+
+target_include_directories(oc_row_width_tests PRIVATE
+    "${OC_ROW_WIDTH_TEST_MODULE_DIR}"
+)
+
+apply_shetran_fortran_options(oc_row_width_tests)
+
+add_test(
+    NAME oc_row_width.unit
+    COMMAND $<TARGET_FILE:oc_row_width_tests>
+)
+set_tests_properties(oc_row_width.unit PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    LABELS "oc;unit"
 )
 
 file(GLOB VISUALISATION_PLAN_SOURCES

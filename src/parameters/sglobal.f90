@@ -14,7 +14,7 @@
 !>
 !> | Capacity group | Parameters | Bounded data |
 !> |:---------------|:-----------|:-------------|
-!> | Horizontal topology | `NXEE`, `NYEE`, `NLFEE`, `NELEE`, `NXOCEE` | Grid extents, links, all elements, and an OC matrix row. |
+!> | Horizontal topology | `NXEE`, `NYEE`, `NLFEE`, `NELEE` | Grid extents, links, and all elements. |
 !> | Vertical subsurface | `LLEE`, `NLYREE`, `NSEE`, `NVSEE` | Cells, layer boundaries, soil types, and VSS tables. |
 !> | Vegetation and forcing | `NVEE`, `NVBP`, `NUZTAB` | Vegetation/meteorological series, breakpoints, and ET entries. |
 !> | Process and output | `NSETEE`, `NOCTAB`, `NSEDEE`, `NCONEE`, `NOLEE` | Result sets and OC, sediment, and contaminant tables. |
@@ -78,9 +78,10 @@
 !> | 2004-07 | JE | - | Converted the source to Fortran 95 during SHEGRAPH v2 integration. |
 !> | 2009-01 | JE | 4.3.5F90 | Created `sglobal` during the Fortran 90 conversion, replacing `AL_P` and related includes. |
 !> | 2026-03-28 | SvB | - | Added selected-kind declarations, explicit visibility, and the initial FORD conversion. |
-!> | 2026-03-30 | SB | 4.6.1 | Increase array sizes now all the 2 and 3D arrays are allocatable, NXOCEE=4*nxee |
-!> | 2026-08 | SB | - |  remove code for initial error call and sort out helpmessages |
-! !> @endhistory
+!> | 2026-03-30 | SB | 4.6.1 | Increased capacities after major multidimensional arrays became allocatable; set `NXOCEE=4*NXEE`. |
+!> | 2026-08-20 | SB | - |  remove code for initial error call and sort out helpmessages |
+!> | 2026-08-22 | SvB | 4.6.4 | Removed `NXOCEE`; the OC row solver is sized from the active maximum row width established by [[ocmod:ocind]]. |
+!> @endhistory
 MODULE sglobal
 
    USE MOD_PARAMETERS, ONLY : I_P, R8P, LENGTH_FILEPATH
@@ -90,7 +91,7 @@ MODULE sglobal
 
    PUBLIC :: SHEVER, BDEVER, BANNER, RUNFIL
    PUBLIC :: nxee, nyee, nlfee, nelee, LLEE, NVEE, NSEE, NVSEE, NVBP, NUZTAB, NLYREE, NSETEE, &
-      NXOCEE, NOCTAB, NSEDEE, NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE
+      NOCTAB, NSEDEE, NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE
    PUBLIC :: total_no_elements, total_no_links, top_cell_no, szmonte, ran2monte1, ran2monte2, pcmonte, montec
    PUBLIC :: DIRQQ, filnam, cnam, rootdir, hdf5filename, visualisation_plan_filename, visualisation_check_filename
    PUBLIC :: UZNOW, cellarea, DXQQ, DYQQ, ZGRUND
@@ -126,7 +127,6 @@ MODULE sglobal
    INTEGER(KIND=I_P), PARAMETER :: NUZTAB = 20 !! Maximum PSI, RCF, and FET lookup entries per vegetation type.
    INTEGER(KIND=I_P), PARAMETER :: NLYREE = 20 !! Soil-layer boundary capacity (maximum layers plus one).
    INTEGER(KIND=I_P), PARAMETER :: NSETEE = 45 !! Maximum output sets in legacy binary results metadata.
-   INTEGER(KIND=I_P), PARAMETER :: NXOCEE = 4 * nxee !! Maximum grid, bank, and link elements represented in one OC matrix row.
    INTEGER(KIND=I_P), PARAMETER :: NOCTAB = 20 !! Maximum OC roughness, cross-section, or boundary-table category count.
    INTEGER(KIND=I_P), PARAMETER :: NSEDEE = 7 !! Maximum number of sediment size fractions.
    INTEGER(KIND=I_P), PARAMETER :: NCONEE = 3 !! Maximum number of numeric contaminants.

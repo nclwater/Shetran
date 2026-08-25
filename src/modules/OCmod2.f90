@@ -82,7 +82,7 @@ MODULE OCmod2
    !! Allocated once by [[initialise_ocmod]] to shape `(3,NXSCEE,total_no_links)`.
 
    PRIVATE
-   PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, GETQSA_ALL, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
+   PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
       hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
 CONTAINS
 
@@ -147,21 +147,6 @@ CONTAINS
 
    END SUBROUTINE setqsa
 
-
-   !> Returns the stored face-discharge array for the first `n` elements.
-   !>
-   !> The returned array has shape `(n,4)` and is a value copy of
-   !> `QSAZZ(1:n,:)`.
-   PURE FUNCTION getqsa_all(n) RESULT(res)
-
-      IMPLICIT NONE
-
-      INTEGER, INTENT(IN) :: n !! Number of leading elements to return.
-      DOUBLE PRECISION, DIMENSION(n, 4) :: res !! Face-discharge copy for elements `1:n`.
-
-      res = qsazz(1:n, :)
-
-   END FUNCTION getqsa_all
 
    !> Allocates the channel cross-section conveyance lookup table.
    !>
@@ -1678,6 +1663,17 @@ CONTAINS
    !> `HERROR`, or when the criteria are still not satisfied after the final
    !> pass.
    !>
+   !> The corrected quantities are the module arrays `HRFZZ` and `QSAZZ`,
+   !> which the routine reads and updates in place. Nothing is staged into or
+   !> out of caller-side buffers.
+   !>
+   !> `afromICMREF` and `afromICMRF2` retain the native two-dimensional
+   !> topology layouts. Regular neighbours and reciprocal faces occupy
+   !> `afromICMREF(:,5:8)` and `afromICMREF(:,9:12)`; confluence participants
+   !> and their faces occupy `afromICMRF2(:,1:3)` and
+   !> `afromICMRF2(:,4:6)`. This avoids duplicating the static topology before
+   !> every call.
+   !>
    !> Entry requirements retained from the legacy routine are:
    !>
    !> | Requirement | Meaning |
@@ -1686,10 +1682,10 @@ CONTAINS
    !> | `DTOC > 0` | OC timestep must be positive. |
    !> | `PRI >= 0` and open for formatted output | Diagnostics can be written. |
    !> | `NLFEE >= 1`, `AREA(1:NEL) > 0` | Link extent and element areas must be valid. |
-   !> | For every `iel=1:NEL`, `iface=1:4`, `ICMREF(iel,iface,2) <= NEL` | Regular neighbour elements must be in range. |
-   !> | If `ICMREF(iel,iface,2) >= 1`, then `1 <= ICMREF(iel,iface,3) <= 4` | Regular neighbour face numbers must be valid. |
-   !> | If `ICMREF(iel,iface,2) < 0`, with `ibr=-ICMREF(iel,iface,2)`, then `ibr <= NLFEE` | Confluence branch references must fit the link extent. |
-   !> | For each confluence participant `pel=ICMRF2(ibr,p,1)` with `pel >= 1`, `pel <= NEL` and `1 <= ICMRF2(ibr,p,2) <= 4` | Confluence participant elements and faces must be valid, and at least one participant must exist. |
+   !> | For every `iel=1:NEL`, `iface=1:4`, `ICMREF(iel,iface+4) <= NEL` | Regular neighbour elements must be in range. |
+   !> | If `ICMREF(iel,iface+4) >= 1`, then `1 <= ICMREF(iel,iface+8) <= 4` | Regular neighbour face numbers must be valid. |
+   !> | If `ICMREF(iel,iface+4) < 0`, with `ibr=-ICMREF(iel,iface+4)`, then `ibr <= NLFEE` | Confluence branch references must fit the link extent. |
+   !> | For each confluence participant `pel=ICMRF2(ibr,p)` with `pel >= 1`, `pel <= NEL` and `1 <= ICMRF2(ibr,p+3) <= 4` | Confluence participant elements and faces must be valid, and at least one participant must exist. |
    !>
    !> @history
    !>
@@ -1707,19 +1703,17 @@ CONTAINS
    !> | 1999-02-08 | SB | 4.27 | Set `AOK = .FALSE.` in the final depth adjustment for the same small adverse-flow issue. |
    !> | 2020-07-08 | SB | 4.5 | Demoted the final error 1060 response from fatal to a warning, so the timestep-reduction flag (see `SGLOBAL:ERROR`) can take effect instead of stopping the run. |
    !> | 2026-04-06 | SvB | - | Replaced the labelled `DO`/`CYCLE`/`GOTO`-style pass, element, face, and confluence loops with named `pass_loop`/`element_loop`/`face_loop`/`confluence_loop` constructs using `EXIT`/`CYCLE`; replaced the per-element `HRF`/`QSA` copy loop with whole-array assignment; and unrolled the `rdum4` array-slice arguments to the two diagnostic `WRITE` statements. |
+   !> | 2026-08-20 | - | - | Changed the topology arguments to the native `ICMREF(NELEE,12)` and `ICMRF2(NLFEE,6)` layouts, eliminating caller-side staging. |
+   !> | 2026-08-22 | - | - | Dropped the `inhrf`/`GGGETHRF`/`inqsa`/`GGGETQSA` buffer arguments and corrected `HRFZZ`/`QSAZZ` in place, removing three round trips of the full OC state per timestep. |
    !> @endhistory
-   SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, inhrf, GGGETHRF, inqsa, GGGETQSA)
+   SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc)
 
       IMPLICIT NONE
 
       INTEGER, INTENT(IN) :: nel                        !! Number of active elements to correct.
-      INTEGER, INTENT(IN) :: afromICMREF(NELEE, 4, 2:3)  !! Regular neighbour element and face references.
-      INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 3, 2)    !! Multi-link confluence participant references.
+      INTEGER, INTENT(IN) :: afromICMREF(NELEE, 12) !! Native table; columns 5:8 are neighbours and 9:12 reciprocal faces.
+      INTEGER, INTENT(IN) :: afromICMRF2(NLFEE, 6)  !! Native branch table; columns 1:3 are participants and 4:6 their faces.
       DOUBLE PRECISION, INTENT(IN) :: dtoc !! OC timestep in seconds.
-      DOUBLE PRECISION, DIMENSION(nel), INTENT(IN)     :: inhrf     !! Input water-surface elevations.
-      DOUBLE PRECISION, DIMENSION(nel), INTENT(OUT)    :: GGGETHRF  !! Corrected water-surface elevations.
-      DOUBLE PRECISION, DIMENSION(nel, 4), INTENT(IN)  :: inqsa     !! Input face discharges; positive into each element.
-      DOUBLE PRECISION, DIMENSION(nel, 4), INTENT(OUT) :: GGGETQSA  !! Corrected face discharges.
 
       INTEGER, PARAMETER :: NPASS = 100 !! Maximum number of passes through the element/face consistency loop.
       DOUBLE PRECISION, PARAMETER :: UHCRIT = 1.0D-7 !! Minimum admissible flow rate, \([L^2/T]\).
@@ -1736,10 +1730,30 @@ CONTAINS
    !----------------------------------------------------------------------*
    ! Control Loop
    ! ------------
-      
-      ! Fast whole-array copies outside the iteration loop
-      GGGETHRF = inhrf
-      GGGETQSA = inqsa
+
+      ! `HRFZZ`/`QSAZZ` are corrected in place: they are module state of this
+      ! same module, so no staging buffers are needed.
+      !
+      ! AD NOTE: an AD (tangent/adjoint) build needs the state to arrive as
+      ! explicit arguments rather than as module variables, so the
+      ! differentiated code can carry the matching derivative arrays. To set
+      ! that up cleanly, add a preprocessor-guarded alternative interface,
+      !
+      !    #ifdef SHETRAN_AD
+      !       SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc, hrf, qsa)
+      !          DOUBLE PRECISION, INTENT(INOUT) :: hrf(nel), qsa(nel,4)
+      !    #else
+      !       SUBROUTINE OCFIX(afromICMREF, afromICMRF2, nel, dtoc)
+      !          ASSOCIATE (hrf => HRFZZ, qsa => QSAZZ)
+      !    #endif
+      !
+      ! with the body below written against `hrf`/`qsa` only, and have the AD
+      ! caller pass `HRFZZ(1:nel)`/`QSAZZ(1:nel,:)` (or its own arrays). Note
+      ! `QSAZZ` is dimensioned `(NELEE,4)`, so a `(1:nel,:)` actual argument is
+      ! non-contiguous and will be copied in and out by the compiler - that
+      ! cost is what the in-place production path avoids, and it is the reason
+      ! the buffered form must not be the default. INTENT(INOUT) is required:
+      ! the routine reads the incoming state before correcting it.
       AOK = .FALSE.
       
       pass_loop: DO PASSS = 1, NPASS
@@ -1747,7 +1761,7 @@ CONTAINS
          AOK = .TRUE.
          
          element_loop: DO ielc = 1, NEL
-            ZE = GGGETHRF (ielc)
+            ZE = HRFZZ (ielc)
             DZE = DTOC / cellarea (ielc)
             DXY (0) = DXQQ (ielc)
             DXY (1) = DYQQ (ielc)
@@ -1763,7 +1777,7 @@ CONTAINS
                Qasum = ZERO
                
                DO IFACE = 1, 4
-                  QE = GGGETQSA (ielc, IFACE)
+                  QE = QSAZZ (ielc, IFACE)
                   FLAG (IFACE) = QE * SGN < ZERO
                   IF (FLAG (IFACE)) Qasum = Qasum + QE
                END DO
@@ -1774,7 +1788,7 @@ CONTAINS
             ! Face Loop
             Qasum = ZERO
             face_loop: DO IFACE = 1, 4
-               QE = GGGETQSA (ielc, IFACE)
+               QE = QSAZZ (ielc, IFACE)
                
                TEST = QE < ZERO
                IF (HSMALL) TEST = FLAG (IFACE)
@@ -1783,10 +1797,10 @@ CONTAINS
                QSMALL = -QE < DXY (MOD (IFACE, 2)) * UHCRIT
                TEST = QSMALL .OR. HSMALL
                
-               JEL = afromICMREF (ielc, IFACE, 2)
+               JEL = afromICMREF (ielc, IFACE + 4)
                IF (JEL > 0) THEN
-                  JFACE = afromICMREF (ielc, IFACE, 3)
-                  FAIL = GGGETHRF (JEL) >= ZE
+                  JFACE = afromICMREF (ielc, IFACE + 8)
+                  FAIL = HRFZZ (JEL) >= ZE
                ELSE IF (JEL == 0) THEN
                   FAIL = .FALSE.
                ELSE
@@ -1795,12 +1809,12 @@ CONTAINS
                   FAIL = .FALSE.
                   
                   confluence_loop: DO PPP = 1, 3
-                     PEL = afromICMRF2 (IBR, PPP, 1)
+                     PEL = afromICMRF2 (IBR, PPP)
                      IF (PEL < 1) CYCLE confluence_loop
                      
-                     PFACE = afromICMRF2 (IBR, PPP, 2)
-                     QQ = GGGETQSA (PEL, PFACE) * QE
-                     FAILP = (GGGETHRF (PEL) >= ZE) .AND. (QQ < ZERO)
+                     PFACE = afromICMRF2 (IBR, PPP + 3)
+                     QQ = QSAZZ (PEL, PFACE) * QE
+                     FAILP = (HRFZZ (PEL) >= ZE) .AND. (QQ < ZERO)
                      
                      IF ((FAILP .OR. TEST) .AND. QQ < QQMIN) THEN
                         JEL = PEL
@@ -1825,8 +1839,8 @@ CONTAINS
                   
                   IF (JEL > 0) THEN
                      DZA = DTOC / cellarea (JEL)
-                     ZA = GGGETHRF (JEL)
-                     QA = GGGETQSA (JEL, JFACE)
+                     ZA = HRFZZ (JEL)
+                     QA = QSAZZ (JEL, JFACE)
                   END IF
                   
                   IF (HSMALL) THEN
@@ -1839,15 +1853,15 @@ CONTAINS
                   END IF
                   
                   Qasum = Qasum + DQE
-                  GGGETQSA(ielc, IFACE) = QE + DQE
+                  QSAZZ(ielc, IFACE) = QE + DQE
                   ZE = ZE + DQE * DZE
                   
                   IF (JEL > 0) THEN
                      SGN = SIGN (ONE, DQE)
                      DQA = -SGN * MIN (SGN * DQE, SGN * QA)
                      Qasum = Qasum + DQA
-                     GGGETQSA(JEL, JFACE) = QA + DQA
-                     GGGETHRF(JEL) = ZA + DQA * DZA
+                     QSAZZ(JEL, JFACE) = QA + DQA
+                     HRFZZ(JEL) = ZA + DQA * DZA
                   END IF
                   
                   IF (.NOT. HSMALL) THEN
@@ -1886,7 +1900,7 @@ CONTAINS
                END IF
             END IF
             
-            GGGETHRF(ielc) = ZE
+            HRFZZ(ielc) = ZE
          END DO element_loop
 
          ! Clean break out if network satisfies all stability criteria

@@ -7,7 +7,7 @@ The following build configurations have been tested:
 | Platform | Build system | Fortran compiler | CMake |
 | --- | --- | --- | --- |
 | Windows | Visual Studio 2026 | Intel ifx 2026.1 | 4.4 |
-| Windows | NMake | Intel ifx 2026.1 | 4.3 |
+| Windows | NMake | Intel ifx 2026.1 | 4.4 |
 | Linux | Make | Intel ifx 2026.1 | 4.3 |
 | Linux | Make | GNU Fortran 16.1 | 4.3 |
 
@@ -27,7 +27,7 @@ The easiest way to build SHETRAN on Windows is by using the provided `build.bat`
 * **CMake** added to your system PATH. The NMake workflow requires version 3.20 or higher; **CMake-generated Visual Studio solutions require CMake 4.4 or higher**. Get it from the official [webpage](https://cmake.org/download/).
 * **Intel oneAPI HPC Toolkit** installed (specifically providing the `ifx` Fortran compiler). Currently you can get it from [here](https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneapi-toolkit-download.html).
 * **Python tooling with `fypp` available on PATH**. `fypp` is required by the Fortran stdlib build.
-* The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
+* The **HDF5 1.14.6** and **zlib-ng 2.3.3** source tarballs (`hdf5-1.14.6.tar.gz` and `zlib-ng-2.3.3.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, these files already exist.
 * The **Fortran stdlib 0.8.1** source tarball (`stdlib-0.8.1.tar.gz`) placed in the `external/tarballs/` directory. If the repository is cloned, this file already exists.
 
 #### Python Tooling Environment
@@ -96,6 +96,25 @@ build.bat -t Debug --test      :: Build Debug and run parser tests
 ```
 
 `--clean` and `--clean-app` are mutually exclusive.
+
+#### Intel ifx IPO compatibility
+
+Release builds require interprocedural optimization (IPO). On Windows,
+`/Qipo` makes ifx use `lld-link`. CMake 4.4 can place its IntelLLVM-wrapped
+`-machine:` option after the compiler driver's `/link` delimiter when using
+the NMake generator, causing `lld-link` to interpret the option as an input
+file. The top-level `CMakeLists.txt` loads the project-local
+`cmake/WindowsIntelLLVMIPO.cmake` Fortran rule override during compiler
+initialization. The override moves only the affected wrapped machine option
+before `/link`, including in CMake's nested IPO capability test. This is a
+configuration-only workaround and does not change SHETRAN's Fortran sources.
+IPO remains enabled for SHETRAN and the pure-Fortran dependency targets. It is
+disabled only for stdlib's small mixed C/Fortran `fortran_stdlib_system`
+library because MSVC `/GL` and ifx `/Qipo` objects use incompatible
+intermediate representations that cannot share Intel's LLVM archive. The
+link-rule override can be removed when CMake generates the corrected option
+ordering itself; the mixed-library exception can be removed if the Windows C
+and Fortran toolchain gains a mutually compatible IPO object format.
 
 #### Manual CMake Build (NMake)
 
@@ -383,7 +402,7 @@ SHETRAN currently compiles and runs cleanly with both `ifx` and `gfortran` under
    * **Intel oneAPI HPC Toolkit** (`ifx`, recommended and most reliable).
    * **gfortran** (supported, but currently considered experimental in this project).
 * Standard build tools (for example GNU Make) installed.
-* The **HDF5 1.14.6** source tarball (`hdf5-1.14.6.tar.gz`) placed in `external/tarballs/`.
+* The **HDF5 1.14.6** and **zlib-ng 2.3.3** source tarballs (`hdf5-1.14.6.tar.gz` and `zlib-ng-2.3.3.tar.gz`) placed in `external/tarballs/`.
 * The **Fortran stdlib 0.8.1** source tarball (`stdlib-0.8.1.tar.gz`) placed in `external/tarballs/`.
 
 ### Using `build.sh` (recommended)
@@ -438,7 +457,7 @@ cmake --build . --target SHETRAN --parallel
 Notes:
 
 * On Linux, if `-DCMAKE_Fortran_COMPILER` is not provided, CMake will try `ifx` first and then fall back to `gfortran`.
-* The build pulls HDF5 from `external/tarballs/hdf5-1.14.6.tar.gz` and stages it in the project build tree under `build/<type>/hdf5-install`.
+* The build pulls zlib-ng and HDF5 from `external/tarballs/`, stages them under `build/<type>/zlib-ng-install` and `build/<type>/hdf5-install`, and builds HDF5 with static DEFLATE support. zlib-ng uses its zlib-compatible API and portable runtime CPU detection. On Windows, Debug builds link `zlibstaticd.lib`; Release and ReleaseNative builds link `zlibstatic.lib`.
 * `ReleaseNative` is intended for maximum local optimization and may reduce portability across different CPUs.
 * Keep `ENABLE_DEPENDENCY_ANALYSIS=ON` for correct Fortran module dependency sorting.
 * Platforms other than Windows and Linux are currently unsupported by this CMake configuration.

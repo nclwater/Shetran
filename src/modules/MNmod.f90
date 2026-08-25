@@ -16,13 +16,18 @@
 !> User Guide's *Nitrate component* and *Nitrate component data input* sections
 !> for the record definitions and units.
 !>
-!> Runtime control is split between [[mncont]] and [[mnmain]]. `MNCONT` allocates
-!> the private element/cell arrays and calls [[mnplant]] before `MNMAIN`.
-!> `MNMAIN` reads and validates static data on its first call; later calls read
-!> scheduled additions, update the process pools, populate `SSS1` and `SSS2` for
-!> the contaminant equations, and write cumulative output. The module has saved
-!> state in several routines and no reset/deallocation path, so it is not
-!> re-entrant and assumes one model run with fixed dimensions per process.
+!> Runtime control is split between [[mninitialise]], [[mncont]], and [[mnmain]].
+!> `MNINITIALISE` allocates persistent state and workspace, reads and validates
+!> static data, initialises plant state and process pools, and clears `SSS1` and
+!> `SSS2`. Later `MNCONT` calls update plant uptake before `MNMAIN` reads
+!> scheduled additions, advances the process pools, populates the contaminant
+!> source/sink arrays, and writes cumulative output. The module has retained
+!> state and no reset/deallocation path, so it is not re-entrant and assumes one
+!> model run with fixed dimensions per process.
+!>
+!> To preserve legacy timing, the first `CMSIM` call performs only
+!> `MNINITIALISE`; its contaminant solve uses zero MN source/sink terms. MN
+!> process updates begin on the following `CMSIM` call.
 !>
 !> @note The implementation overwrites `TA(1:NV)` with 10 deg C in [[mncont]],
 !> hard-codes the mobile-water uptake fraction `PPHI` to 0.5 in [[mnint2]], and
@@ -60,6 +65,7 @@ module MNmod
    PUBLIC    :: mnamm, mnco2, mncont, mnedth, mnemph, mnemt, mnenph, mnent   ! subroutine names
    PUBLIC    :: mnerr0, mnerr1, mnerr2, mnerr3, mnerr4, mngam, mninit, mnint2
    PUBLIC    :: mnlthm, mnltn, mnmain, mnman, mnnit, mnout, mnplant, mnred1, mnred2, mntemp
+   PUBLIC    :: mninitialise, mnisinitialised
 
    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: cahum  !! External carbon-addition rate assigned to humus.
    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: calit  !! External carbon-addition rate assigned to litter.
@@ -111,6 +117,42 @@ module MNmod
    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: snit   !! Total nitrate source/sink diagnostic rate.
    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: temp   !! Soil temperature used by MN response factors.
    DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: vol    !! Ammonia-volatilisation loss rate.
+
+   INTEGER, PARAMETER :: MN_PLANT_NVALEE = 30
+
+   TYPE :: MN_CONFIG_TYPE
+      INTEGER :: NBOTCE
+      DOUBLE PRECISION :: AMMDDR, AMMWDR, CNRBIO, CNRHUM, FE, FH, GNN
+      DOUBLE PRECISION :: KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR
+      DOUBLE PRECISION :: Q10M, Q10N
+      DOUBLE PRECISION :: KDDSOL(NSEE)
+      LOGICAL :: ISBOTC, ISQ10
+   END TYPE MN_CONFIG_TYPE
+
+   TYPE :: MN_WORKSPACE_TYPE
+      INTEGER, ALLOCATABLE :: IDUM(:)
+      LOGICAL, ALLOCATABLE :: LDUM(:)
+      DOUBLE PRECISION, ALLOCATABLE :: DUMMY(:)
+      DOUBLE PRECISION, ALLOCATABLE :: CDPTHB(:), CLTFCT(:), CMNFCT(:)
+      DOUBLE PRECISION, ALLOCATABLE :: CNRAL(:), CNRALT(:), CNRAM(:), CNRAMN(:)
+      DOUBLE PRECISION, ALLOCATABLE :: CTOT(:), NAMFCT(:), NDPTHB(:), NTOT(:)
+   END TYPE MN_WORKSPACE_TYPE
+
+   TYPE :: MN_PLANT_STATE_TYPE
+      INTEGER :: NVALUE(NPLTEE)
+      INTEGER :: NPL(NELEE), NPLTYP(NELEE, NPELEE)
+      DOUBLE PRECISION :: CDI(NPLTEE, MN_PLANT_NVALEE), CDIT(NPLTEE, MN_PLANT_NVALEE)
+      DOUBLE PRECISION :: CLAIMX(NPLTEE)
+      DOUBLE PRECISION :: CROPTM(NELEE, NPELEE), GMCPBB(NELEE, NPELEE)
+      DOUBLE PRECISION :: MASSB(NELEE, NPELEE), PFONE(NELEE, NPELEE)
+      LOGICAL :: ISCROP(NELEE, NPELEE)
+   END TYPE MN_PLANT_STATE_TYPE
+
+   TYPE(MN_CONFIG_TYPE) :: MN_CONFIG
+   TYPE(MN_WORKSPACE_TYPE) :: MN_WORK
+   TYPE(MN_PLANT_STATE_TYPE) :: MN_PLANT_STATE
+   LOGICAL :: MN_INITIALISED = .FALSE.
+   INTEGER :: MN_ALLOCATED_NEL = 0, MN_ALLOCATED_NCETOP = 0
 
 CONTAINS
 
@@ -385,18 +427,152 @@ CONTAINS
       !
    end subroutine mnco2
 
+!> @brief Reports whether the mineral-nitrogen component has completed setup.
+   LOGICAL FUNCTION MNISINITIALISED()
+      MNISINITIALISED = MN_INITIALISED
+   END FUNCTION MNISINITIALISED
+
+!> @brief Allocates persistent mineral-nitrogen state and timestep workspace.
+   SUBROUTINE MNALLOCATE(NEL, NCETOP)
+      INTEGER, INTENT(IN) :: NEL, NCETOP
+
+      IF (ALLOCATED(CAHUM)) THEN
+         IF (MN_ALLOCATED_NEL /= NEL .OR. MN_ALLOCATED_NCETOP /= NCETOP) &
+            ERROR STOP 'MN state was already allocated with different dimensions'
+         RETURN
+      END IF
+
+      ALLOCATE(CAHUM(NEL,NCETOP), CALIT(NEL,NCETOP), CAMAN(NEL,NCETOP), CDORT(NEL,NCETOP), &
+               CHUM(NEL,NCETOP), CHUM1(NEL,NCETOP), CLIT(NEL,NCETOP), CLIT1(NEL,NCETOP), &
+               CMAN(NEL,NCETOP), CMAN1(NEL,NCETOP))
+
+      ALLOCATE(DENIT(NEL,NCETOP), DUMMY4(NCETOP,NEL), DUMMY6(NEL,NCETOP))
+      ALLOCATE(EDETH(NEL,NCETOP), EMPH(NEL,NCETOP), EMT(NEL,NCETOP), ENPH(NEL,NCETOP), ENT(NEL,NCETOP))
+      ALLOCATE(GAM(NEL,NCETOP), GAMTMP(NEL,NCETOP), IMAMM(NEL,NCETOP), IMDIFF(NEL,NCETOP), &
+               IMNIT(NEL,NCETOP), ISIMTF(NEL,NCETOP))
+      ALLOCATE(KD1(NEL,NCETOP), KD2(NEL,NCETOP), KHUM(NEL,NCETOP), KLIT(NEL,NCETOP), &
+               KMAN(NEL,NCETOP), KNIT(NEL,NCETOP), KVOL(NEL,NCETOP))
+      ALLOCATE(MINER(NEL,NCETOP))
+      ALLOCATE(NAAMM(NEL,NCETOP), NAMM(NEL,NCETOP), NAMM1(NEL,NCETOP), NANIT(NEL,NCETOP), &
+               NDNIT(NEL,NCETOP), NDSNT(NEL,NCETOP), NLIT(NEL,NCETOP), NLIT1(NEL,NCETOP), &
+               NMAN(NEL,NCETOP), NMAN1(NEL,NCETOP), NTRF(NEL,NCETOP))
+      ALLOCATE(PLAMM(NEL,NCETOP), PLNIT(NEL,NCETOP), PLUP(NEL,NCETOP), PPHI(NEL,NCETOP))
+      ALLOCATE(SNIT(NEL,NCETOP), TEMP(NEL,NCETOP), VOL(NEL,NCETOP))
+
+      ALLOCATE(MN_WORK%IDUM(NELEE), MN_WORK%DUMMY(NELEE), MN_WORK%LDUM(NELEE))
+      ALLOCATE(MN_WORK%CDPTHB(NELEE), MN_WORK%CLTFCT(NELEE), MN_WORK%CMNFCT(NELEE), &
+               MN_WORK%CNRAL(NELEE), MN_WORK%CNRALT(NELEE), MN_WORK%CNRAM(NELEE), &
+               MN_WORK%CNRAMN(NELEE), MN_WORK%CTOT(NELEE), MN_WORK%NAMFCT(NELEE), &
+               MN_WORK%NDPTHB(NELEE), MN_WORK%NTOT(NELEE))
+
+      MN_ALLOCATED_NEL = NEL
+      MN_ALLOCATED_NCETOP = NCETOP
+   END SUBROUTINE MNALLOCATE
+
+!> @brief Performs the explicit one-time setup for the mineral-nitrogen component.
+!>
+!> `CMSIM` calls this routine instead of advancing MN on its first call after
+!> contaminant setup. This deliberately preserves the legacy one-call delay:
+!> initial MN source/sink terms are zero for that contaminant solve, and the
+!> first MN process timestep occurs on the following `CMSIM` call.
+   SUBROUTINE MNINITIALISE(MND, MNFC, MNFN, MNPL, MNPR, MNOUTPL, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, &
+                           ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NVC, NLYRBT, NTSOIL, D0, TIH, RHOPL, Z2, &
+                           DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, PLAI, ZVSNOD, BEXBK, LINKNS, CLAI, TA, SSS1, SSS2)
+
+      IMPLICIT NONE
+
+      INTEGER, INTENT(IN) :: MND, MNFC, MNFN, MNPL, MNPR, MNOUTPL
+      INTEGER, INTENT(IN) :: NCETOP, NCON, NEL, NLF, NS, NV, NX, NY
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2), ICMREF(NELEE, 4, 2:2), ICMXY(NXEE, NY)
+      INTEGER, INTENT(IN) :: NVC(NELEE), NLYRBT(NEL, NLYREE), NTSOIL(NEL, NLYREE)
+      INTEGER, INTENT(INOUT) :: NCOLMB(NELEE), NLYR(NELEE)
+      DOUBLE PRECISION, INTENT(IN) :: D0, TIH, RHOPL, Z2
+      DOUBLE PRECISION, INTENT(IN) :: DELONE(NPLTEE), PLAI(NV), CLAI(NV)
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NELEE), DYQQ(NELEE), VSPOR(NS)
+      DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(LLEE, NEL), ZVSNOD(LLEE, NEL), TA(NV)
+      DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP + 1), SSS2(NEL, NCETOP + 1)
+      LOGICAL, INTENT(IN) :: BEXBK, LINKNS(NLFEE)
+
+      INTEGER, PARAMETER :: NMNEEE = 9, NMNTEE = 10
+      INTEGER :: NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E
+      INTEGER :: NMN27E, NMN43E, NMN53E
+      INTEGER, ALLOCATABLE :: CELEM(:), KD1ELM(:), KD2ELM(:), KHELEM(:), KLELEM(:)
+      INTEGER, ALLOCATABLE :: KMELEM(:), KNELEM(:), KVELEM(:), NAELEM(:)
+      INTEGER :: NMN15T(NMNEEE), NMN17T(NMNEEE), NMN19T(NMNEEE)
+      INTEGER :: NMN21T(NMNEEE), NMN23T(NMNEEE), NMN25T(NMNEEE)
+      INTEGER :: NMN27T(NMNEEE), NMN43T(NMNEEE), NMN53T(NMNEEE)
+      INTEGER, ALLOCATABLE :: DUMMY2(:, :), IDUM1X(:)
+      INTEGER :: DUMMY3(NLYREE)
+      DOUBLE PRECISION :: CLITFR, CNRLIT
+      DOUBLE PRECISION, ALLOCATABLE :: CTOTTP(:), DAMHLF(:), DCHLF(:), NAMTOP(:)
+      DOUBLE PRECISION :: CCONC(NMNEEE, NMNTEE), CDPTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KD1CNC(NMNEEE, NMNTEE), KD1DTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KD2CNC(NMNEEE, NMNTEE), KD2DTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KHCONC(NMNEEE, NMNTEE), KHDPTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KLCONC(NMNEEE, NMNTEE), KLDPTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KMCONC(NMNEEE, NMNTEE), KMDPTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KNCONC(NMNEEE, NMNTEE), KNDPTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: KVCONC(NMNEEE, NMNTEE), KVDPTH(NMNEEE, NMNTEE)
+      DOUBLE PRECISION :: NACONC(NMNEEE, NMNTEE), NADPTH(NMNEEE, NMNTEE)
+      LOGICAL :: ISICCD, ISIAMD
+      LOGICAL :: LDUM2(LLEE)
+
+      IF (MN_INITIALISED) ERROR STOP 'MNINITIALISE was called more than once'
+
+      CALL MNALLOCATE(NEL, NCETOP)
+      TA(1:NV) = 10.0D0
+      CALL MNPLANTINITIALISE(MNPL, MNOUTPL, NEL, NLF, NV, NVC, RHOPL, DELONE, DXQQ, DYQQ, PLAI, CLAI)
+
+      ALLOCATE(CELEM(NELEE), KD1ELM(NELEE), KD2ELM(NELEE), KHELEM(NELEE), KLELEM(NELEE), &
+               KMELEM(NELEE), KNELEM(NELEE), KVELEM(NELEE), NAELEM(NELEE))
+      ALLOCATE(DUMMY2(NLYREE, NELEE), IDUM1X(NELEE + 3))
+      ALLOCATE(CTOTTP(NELEE), DAMHLF(NELEE), DCHLF(NELEE), NAMTOP(NELEE))
+
+      CALL MNERR0(LLEE, MND, MNFC, MNFN, MNPR, NCETOP, NCON, NCONEE, NEL, NELEE, NLF, NLFEE, NLYREE, NMNEEE, NMNTEE, NS, NSEE, NV, &
+                  NVEE, NX, NXEE, NY)
+      CALL MNERR1(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NLFEE, NLYREE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, &
+                  NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, BEXBK, LINKNS, DUMMY2, DUMMY3, MN_WORK%IDUM, IDUM1X, &
+                  MN_WORK%LDUM, LDUM2)
+      CALL MNRED1(MND, MNPR, NEL, NELEE, NLF, NLFEE, NMNEEE, NMNTEE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, BEXBK, LINKNS, &
+                  MN_CONFIG%NBOTCE, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM(NLF + 1:NEL), &
+                  KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), &
+                  KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, &
+                  NMN27T, NMN43T, NMN53T, MN_CONFIG%AMMDDR, MN_CONFIG%AMMWDR, CLITFR, MN_CONFIG%CNRBIO, MN_CONFIG%CNRHUM, CNRLIT, &
+                  MN_CONFIG%FE, MN_CONFIG%FH, MN_CONFIG%GNN, MN_CONFIG%KPLAMM, MN_CONFIG%KPLNIT, MN_CONFIG%KUAMM, MN_CONFIG%KUNIT, &
+                  MN_CONFIG%MNCREF, MN_CONFIG%NITDDR, MN_CONFIG%NITWDR, MN_CONFIG%Q10M, MN_CONFIG%Q10N, CCONC, CDPTH, &
+                  CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, KD2CNC, KD2DTH, MN_CONFIG%KDDSOL, &
+                  KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), &
+                  ISICCD, ISIAMD, MN_CONFIG%ISQ10, MN_WORK%IDUM, MN_WORK%DUMMY)
+      CALL MNERR2(MNPR, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, &
+                  NMN53E, NMNEEE, NMNTEE, NS, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
+                  KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, &
+                  NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, MN_CONFIG%AMMDDR, MN_CONFIG%AMMWDR, CLITFR, &
+                  MN_CONFIG%CNRBIO, MN_CONFIG%CNRHUM, CNRLIT, MN_CONFIG%FE, MN_CONFIG%FH, MN_CONFIG%GNN, MN_CONFIG%KPLAMM, &
+                  MN_CONFIG%KPLNIT, MN_CONFIG%KUAMM, MN_CONFIG%KUNIT, MN_CONFIG%MNCREF, MN_CONFIG%NITDDR, MN_CONFIG%NITWDR, &
+                  MN_CONFIG%Q10M, MN_CONFIG%Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), &
+                  KD1CNC, KD1DTH, KD2CNC, KD2DTH, MN_CONFIG%KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, &
+                  KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, MN_WORK%LDUM)
+      CALL MNINIT(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, &
+                  NMN53E, NMNEEE, NMNTEE, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
+                  KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NCOLMB, &
+                  NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, &
+                  CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), DELTAZ, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KHCONC, &
+                  KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), &
+                  ZVSNOD, ISICCD, ISIAMD, SSS1, SSS2, MN_CONFIG%ISBOTC)
+
+      MN_INITIALISED = .TRUE.
+   END SUBROUTINE MNINITIALISE
+
 !> @brief Controls the mineral nitrogen component from the contaminant timestep.
 !>
-!> `MNCONT` is called by [[cmmod:cmsim]] when the mineral nitrogen option is
-!> active. When `CAHUM` is not allocated it allocates every private MN work
-!> array, computes potential plant nitrogen uptake with [[mnplant]], then calls
-!> [[mnmain]] to read or update mineral nitrogen state and to fill `SSS1` and
-!> `SSS2`, which replace the contaminant source/sink arrays used by the CM
-!> transport equations.
+!> `MNCONT` is called by [[cmmod:cmsim]] after [[mninitialise]] has allocated
+!> and initialised the mineral-nitrogen component. It computes potential plant
+!> nitrogen uptake with [[mnplant]], then calls [[mnmain]] to advance mineral
+!> nitrogen state and fill `SSS1` and `SSS2`, which replace the contaminant
+!> source/sink arrays used by the CM transport equations.
 !>
 !> | Phase | Main action |
 !> |:------|:------------|
-!> | Allocation guard | If `CAHUM` is not allocated, allocate all carbon, nitrogen, process-rate, environmental-factor, adsorption, plant-uptake, and workspace arrays with shape based on `NEL` and `NCETOP`; there is no reallocation for later dimension changes. |
 !> | Temporary temperature setup | Set every vegetation air-temperature entry `TA(1:NV)` to 10.0 before plant uptake and the main nitrogen update. |
 !> | Plant uptake | Call [[mnplant]] to calculate nitrogen plant uptake demand and related plant output. |
 !> | Main MN update | Call [[mnmain]] to initialise/check/read inputs on the first pass and then update ammonium/nitrate source-sink terms. |
@@ -421,25 +597,21 @@ CONTAINS
 !> section. This retained coupling is compiler-sensitive and is not changed
 !> here.
 !> @endwarning
-   SUBROUTINE MNCONT(MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, &
-                     ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NRD, NVC, NLYRBT, NTSOIL, &
-                     D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, PLAI, RDF, ZVSNOD, BEXBK, &
+   SUBROUTINE MNCONT(MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NEL, NLF, NS, NV, NX, NY, &
+                     ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NRD, NLYRBT, NTSOIL, &
+                     D0, TIH, RHOPL, Z2, DELONE, DXQQ, DYQQ, VSPOR, DELTAZ, RDF, ZVSNOD, BEXBK, &
                      LINKNS, DTUZ, UZNOW, CLAI, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, SSS1, SSS2)
 
       IMPLICIT NONE
 
       ! --- Input arguments ---
       ! Static
-      INTEGER, INTENT(IN) :: MND  !! Static MND input unit.
       INTEGER, INTENT(IN) :: MNFC  !! Scheduled carbon-addition input unit.
       INTEGER, INTENT(IN) :: MNFN  !! Scheduled nitrogen-addition input unit.
-      INTEGER, INTENT(IN) :: MNPL  !! Plant-uptake input unit.
       INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
       INTEGER, INTENT(IN) :: MNOUT1  !! Carbon budget output unit.
       INTEGER, INTENT(IN) :: MNOUT2  !! Nitrogen budget output unit.
-      INTEGER, INTENT(IN) :: MNOUTPL  !! Plant nitrogen output unit.
       INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
-      INTEGER, INTENT(IN) :: NCON  !! Number of contaminant species coupled to MN.
       INTEGER, INTENT(IN) :: NEL  !! Number of elements.
       INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
       INTEGER, INTENT(IN) :: NS  !! Number of soil types.
@@ -472,13 +644,11 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: NCOLMB(NEL)  !! Lowest active soil cell in each land-column element.
       INTEGER, INTENT(INOUT) :: NLYR(NEL)  !! Number of soil layers in each element.
       INTEGER, INTENT(INOUT) :: NRD(NV)  !! Rooting depth in cell counts by vegetation type.
-      INTEGER, INTENT(INOUT) :: NVC(NEL)  !! Vegetation type index by element.
       DOUBLE PRECISION, INTENT(INOUT) :: DELONE(*)  !! Initial plant biomass/cover scaling by plant type.
       DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NEL)  !! Element width.
       DOUBLE PRECISION, INTENT(INOUT) :: DYQQ(NEL)  !! Element length.
       DOUBLE PRECISION, INTENT(INOUT) :: VSPOR(NS)  !! Soil porosity by soil type.
       DOUBLE PRECISION, INTENT(INOUT) :: DELTAZ(*)  !! Cell thickness by cell and element.
-      DOUBLE PRECISION, INTENT(INOUT) :: PLAI(NV)  !! Plant leaf-area index by vegetation type.
       DOUBLE PRECISION, INTENT(INOUT) :: RDF(NV, *)  !! Root density fraction by vegetation type and cell.
       DOUBLE PRECISION, INTENT(INOUT) :: ZVSNOD(*)  !! Vertical node elevation/depth by cell and element.
       DOUBLE PRECISION, INTENT(INOUT) :: CLAI(NV)  !! Current canopy leaf-area index by vegetation type.
@@ -494,41 +664,16 @@ CONTAINS
 
    !----------------------------------------------------------------------*
 
-      IF (.NOT. ALLOCATED(cahum)) THEN
-         ALLOCATE(cahum(nel,ncetop), calit(nel,ncetop), caman(nel,ncetop), cdort(nel,ncetop), &
-                  chum(nel,ncetop), chum1(nel,ncetop), clit(nel,ncetop), clit1(nel,ncetop), &
-                  cman(nel,ncetop), cman1(nel,ncetop))
-
-         ALLOCATE(denit(nel,ncetop), dummy4(ncetop,nel), dummy6(nel,ncetop))
-
-         ALLOCATE(edeth(nel,ncetop), emph(nel,ncetop), emt(nel,ncetop), enph(nel,ncetop), ent(nel,ncetop))
-
-         ALLOCATE(gam(nel,ncetop), gamtmp(nel,ncetop), imamm(nel,ncetop), imdiff(nel,ncetop), &
-                  imnit(nel,ncetop), isimtf(nel,ncetop))
-
-         ALLOCATE(kd1(nel,ncetop), kd2(nel,ncetop), khum(nel,ncetop), klit(nel,ncetop), &
-                  kman(nel,ncetop), knit(nel,ncetop), kvol(nel,ncetop))
-
-         ALLOCATE(miner(nel,ncetop))
-
-         ALLOCATE(naamm(nel,ncetop), namm(nel,ncetop), namm1(nel,ncetop), nanit(nel,ncetop), &
-                  ndnit(nel,ncetop), ndsnt(nel,ncetop), nlit(nel,ncetop), nlit1(nel,ncetop), &
-                  nman(nel,ncetop), nman1(nel,ncetop), ntrf(nel,ncetop))
-
-         ALLOCATE(plamm(nel,ncetop), plnit(nel,ncetop), plup(nel,ncetop), pphi(nel,ncetop))
-
-         ALLOCATE(snit(nel,ncetop), temp(nel,ncetop), vol(nel,ncetop))
-      END IF
+      IF (.NOT. MN_INITIALISED) ERROR STOP 'MNCONT called before MNINITIALISE'
 
       ! Retained MN behaviour: use a fixed 10 deg C temperature input.
       DO I = 1, NV
          TA(I) = 10.0D0
       END DO
 
-      CALL MNPLANT(MNPL, MNOUTPL, NCETOP, NEL, NLF, NV, NCOLMB, NRD, NVC, RHOPL, DELONE, DXQQ, DYQQ, &
-                   DELTAZ, PLAI, RDF, DTUZ, UZNOW, CLAI)
+      CALL MNPLANT(NCETOP, NEL, NLF, NV, NCOLMB, NRD, RHOPL, DELONE, DXQQ, DYQQ, DELTAZ, RDF, DTUZ, UZNOW, CLAI)
 
-      CALL MNMAIN(MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, ICMBK, &
+      CALL MNMAIN(MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NEL, NLF, NS, NV, NX, NY, ICMBK, &
                   ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
                   ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
                   SSS1, SSS2)
@@ -3009,23 +3154,22 @@ CONTAINS
 
    END SUBROUTINE mnltn
 
-!> @brief Main mineral nitrogen setup and timestep driver.
+!> @brief Advances the explicitly initialised mineral-nitrogen component.
 !>
-!> `mnmain` uses a saved call counter. The first call performs static checks,
-!> reads the MND file, and initialises state; subsequent calls run the timestep
-!> update and optional output.
+!> [[mninitialise]] performs all static checks, reads the MND file, initialises
+!> process state, and allocates the persistent timestep workspace. `MNMAIN`
+!> therefore contains only the timestep update and performs no heap allocation.
 !>
 !> | Phase | Call order | Purpose |
 !> | --- | --- | --- |
-!> | First call | [[mnerr0]] -> [[mnerr1]] -> [[mnred1]] -> [[mnerr2]] -> [[mninit]] | Check array/interface consistency, read static nitrate data, validate it, interpolate initial pools and process parameters, and reset source/sink arrays. |
-!> | Later calls | [[mnerr3]] -> [[mnred2]] -> [[mnerr4]] -> [[mnint2]] | Check dynamic CM-MN state, read scheduled MNFC/MNFN additions, validate them, and convert concentrations/additions/deposition to cell-based rates. |
+!> | Timestep input | [[mnerr3]] -> [[mnred2]] -> [[mnerr4]] -> [[mnint2]] | Check dynamic CM-MN state, read scheduled MNFC/MNFN additions, validate them, and convert concentrations/additions/deposition to cell-based rates. |
 !> | Environment | [[mntemp]] -> [[mnemt]] -> [[mnent]] -> [[mnemph]] -> [[mnenph]] -> [[mnedth]] | Update soil temperature and temperature, matric-potential, and saturation response factors. |
 !> | Carbon and nitrogen pools | [[mnman]] -> [[mnlthm]] -> [[mnltn]] -> [[mnco2]] -> [[mngam]] -> [[mnamm]] -> [[mnnit]] | Update manure, litter, humus, carbon dioxide production, mineralisation/immobilisation, ammonium, and nitrate source/sink terms. |
 !> | Output | [[mnout]] | Write requested detailed MN diagnostics. |
 !>
 !> Static parameters read by [[mnred1]], including deposition rates, Q10 values,
-!> reaction constants, `MNCREF`, and `ISBOTC`, are saved between calls.
-   SUBROUTINE MNMAIN(MND, MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NCON, NEL, NLF, NS, NV, NX, NY, ICMBK, &
+!> reaction constants, `MNCREF`, and `ISBOTC`, are retained in `MN_CONFIG`.
+   SUBROUTINE MNMAIN(MNFC, MNFN, MNPR, MNOUT1, MNOUT2, NCETOP, NEL, NLF, NS, NV, NX, NY, ICMBK, &
                      ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, &
                      ZVSNOD, BEXBK, LINKNS, DTUZ, UZNOW, CCCC, PNETTO, SSSS, TA, VSPSI, VSTHE, VSTHEO, &
                      SSS1, SSS2)
@@ -3034,14 +3178,12 @@ CONTAINS
 
       ! Input arguments
       ! * static
-      INTEGER, INTENT(IN) :: MND  !! Static MND input unit.
       INTEGER, INTENT(IN) :: MNFC  !! Scheduled carbon-addition input unit.
       INTEGER, INTENT(IN) :: MNFN  !! Scheduled nitrogen-addition input unit.
       INTEGER, INTENT(IN) :: MNPR  !! MN diagnostic output unit.
       INTEGER, INTENT(IN) :: MNOUT1  !! Carbon budget output unit.
       INTEGER, INTENT(IN) :: MNOUT2  !! Nitrogen budget output unit.
       INTEGER, INTENT(IN) :: NCETOP  !! Top soil-cell index.
-      INTEGER, INTENT(IN) :: NCON  !! Number of contaminant species coupled to MN.
       INTEGER, INTENT(IN) :: NEL  !! Number of elements.
       INTEGER, INTENT(IN) :: NLF  !! Number of overland/channel links.
       INTEGER, INTENT(IN) :: NS  !! Number of soil types.
@@ -3083,165 +3225,73 @@ CONTAINS
       DOUBLE PRECISION, INTENT(OUT) :: SSS1(NEL, NCETOP + 1)  !! Dynamic-region CM source/sink array.
       DOUBLE PRECISION, INTENT(OUT) :: SSS2(NEL, NCETOP + 1)  !! Dead-space CM source/sink array.
 
-      ! Constants
-      INTEGER, PARAMETER :: NMNEEE = 9, NMNTEE = 10
-
-      ! Protected Static State Variables (Replacing F77 SAVE blocks)
-      INTEGER, SAVE :: NBOTCE, PASS = 0
-      DOUBLE PRECISION, SAVE :: AMMDDR, AMMWDR, CNRBIO, CNRHUM, FE, FH, GNN
-      DOUBLE PRECISION, SAVE :: KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR
-      DOUBLE PRECISION, SAVE :: NITWDR, Q10M, Q10N
-      DOUBLE PRECISION, SAVE :: KDDSOL(NSEE)
-      LOGICAL, SAVE :: ISBOTC, ISQ10
-
-      ! Locals (Not saved)
-      INTEGER :: NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E
-      INTEGER :: NMN27E, NMN43E, NMN53E
-      INTEGER, ALLOCATABLE :: CELEM(:), KD1ELM(:), KD2ELM(:)
-      INTEGER, ALLOCATABLE :: KHELEM(:), KLELEM(:), KMELEM(:)
-      INTEGER, ALLOCATABLE :: KNELEM(:), KVELEM(:)
-      INTEGER, ALLOCATABLE :: NAELEM(:)
-      INTEGER :: NMN15T(NMNEEE), NMN17T(NMNEEE), NMN19T(NMNEEE)
-      INTEGER :: NMN21T(NMNEEE), NMN23T(NMNEEE), NMN25T(NMNEEE)
-      INTEGER :: NMN27T(NMNEEE)
-      INTEGER :: NMN43T(NMNEEE), NMN53T(NMNEEE)
-      INTEGER, ALLOCATABLE :: DUMMY2(:, :), IDUM(:), IDUM1X(:)
-      INTEGER :: DUMMY3(NLYREE)
-
-      DOUBLE PRECISION :: CLITFR, CNRLIT
-      DOUBLE PRECISION, ALLOCATABLE :: CDPTHB(:), CLTFCT(:)
-      DOUBLE PRECISION, ALLOCATABLE :: CMNFCT(:), CNRAL(:), CNRALT(:)
-      DOUBLE PRECISION, ALLOCATABLE :: CNRAM(:), CNRAMN(:)
-      DOUBLE PRECISION, ALLOCATABLE :: CTOT(:), CTOTTP(:)
-      DOUBLE PRECISION, ALLOCATABLE :: DAMHLF(:), DCHLF(:)
-      DOUBLE PRECISION, ALLOCATABLE :: NAMFCT(:), NAMTOP(:), NDPTHB(:)
-      DOUBLE PRECISION, ALLOCATABLE :: NTOT(:)
-      DOUBLE PRECISION :: CCONC(NMNEEE, NMNTEE), CDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KD1CNC(NMNEEE, NMNTEE), KD1DTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KD2CNC(NMNEEE, NMNTEE), KD2DTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KHCONC(NMNEEE, NMNTEE), KHDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KLCONC(NMNEEE, NMNTEE), KLDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KMCONC(NMNEEE, NMNTEE), KMDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KNCONC(NMNEEE, NMNTEE), KNDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: KVCONC(NMNEEE, NMNTEE), KVDPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION :: NACONC(NMNEEE, NMNTEE), NADPTH(NMNEEE, NMNTEE)
-      DOUBLE PRECISION, ALLOCATABLE :: DUMMY(:)
-
-      LOGICAL :: ISADDC, ISADDN, ISICCD, ISIAMD
-      LOGICAL, ALLOCATABLE :: LDUM(:)
+      LOGICAL :: ISADDC, ISADDN
       LOGICAL :: LDUM2(LLEE)
 
    !-------------------------------------------------------------------*
 
-      ALLOCATE(CELEM(NELEE), KD1ELM(NELEE), KD2ELM(NELEE), KHELEM(NELEE), KLELEM(NELEE), &
-               KMELEM(NELEE), KNELEM(NELEE), KVELEM(NELEE), NAELEM(NELEE))
-      ALLOCATE(DUMMY2(NLYREE, NELEE), IDUM(NELEE), IDUM1X(NELEE + 3), DUMMY(NELEE), LDUM(NELEE))
-      ALLOCATE(CDPTHB(NELEE), CLTFCT(NELEE), CMNFCT(NELEE), CNRAL(NELEE), CNRALT(NELEE), &
-               CNRAM(NELEE), CNRAMN(NELEE), CTOT(NELEE), CTOTTP(NELEE), DAMHLF(NELEE), &
-               DCHLF(NELEE), NAMFCT(NELEE), NAMTOP(NELEE), NDPTHB(NELEE), NTOT(NELEE))
-
-      PASS = PASS + 1
-
-      IF (PASS == 1) THEN
-         !------------------------ initialization step  ---------------------*
-
-         ! * check array dimensions
-         CALL MNERR0(LLEE, MND, MNFC, MNFN, MNPR, NCETOP, NCON, NCONEE, NEL, NELEE, NLF, NLFEE, NLYREE, NMNEEE, NMNTEE, NS, NSEE, NV, &
-                     NVEE, NX, NXEE, NY)
-
-         ! * checks static input variables from cm - mn interface
-         CALL MNERR1(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NLFEE, NLYREE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, NCOLMB, NLYR, NLYRBT, &
-                     NTSOIL, D0, TIH, Z2, DXQQ, DYQQ, VSPOR, DELTAZ, ZVSNOD, BEXBK, LINKNS, DUMMY2, DUMMY3, IDUM, IDUM1X, LDUM, LDUM2)
-
-         ! * read the input data files
-         CALL MNRED1(MND, MNPR, NEL, NELEE, NLF, NLFEE, NMNEEE, NMNTEE, NS, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, BEXBK, LINKNS, NBOTCE, &
-                     NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), &
-                     KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), &
-                     KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, &
-                     AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, &
-                     NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, &
-                     KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, &
-                     NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
-
-         ! * checks static input data read in mnred1
-         CALL MNERR2(MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
-                     NMNEEE, NMNTEE, NS, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
-                     KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NMN15T, &
-                     NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, AMMDDR, AMMWDR, CLITFR, CNRBIO, CNRHUM, CNRLIT, &
-                     FE, FH, GNN, KPLAMM, KPLNIT, KUAMM, KUNIT, MNCREF, NITDDR, NITWDR, Q10M, Q10N, CCONC, CDPTH, CTOTTP(NLF + 1:NEL), &
-                     DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
-                     KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), ISICCD, ISIAMD, LDUM)
-
-         ! * initialises variables
-         CALL MNINIT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NMN15E, NMN17E, NMN19E, NMN21E, NMN23E, NMN25E, NMN27E, NMN43E, NMN53E, &
-                     NMNEEE, NMNTEE, CELEM(NLF + 1:NEL), KD1ELM(NLF + 1:NEL), KD2ELM(NLF + 1:NEL), KHELEM(NLF + 1:NEL), &
-                     KLELEM(NLF + 1:NEL), KMELEM(NLF + 1:NEL), KNELEM(NLF + 1:NEL), KVELEM(NLF + 1:NEL), NAELEM(NLF + 1:NEL), NCOLMB, &
-                     NMN15T, NMN17T, NMN19T, NMN21T, NMN23T, NMN25T, NMN27T, NMN43T, NMN53T, CLITFR, CNRLIT, CCONC, CDPTH, &
-                     CTOTTP(NLF + 1:NEL), DAMHLF(NLF + 1:NEL), DCHLF(NLF + 1:NEL), DELTAZ, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KHCONC, &
-                     KHDPTH, KLCONC, KLDPTH, KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP(NLF + 1:NEL), &
-                     ZVSNOD, ISICCD, ISIAMD, SSS1, SSS2, ISBOTC)
-
-         !----------------------- end of initialization step------------------*
-
-      ELSE
-         !------------------------ simulation step ---------------------------*
+      IF (.NOT. MN_INITIALISED) ERROR STOP 'MNMAIN called before MNINITIALISE'
 
          ! * checks time varying input variables from cm - mn interface
-         CALL MNERR3(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NCOLMB, DTUZ, UZNOW, CCCC, PNETTO, SSSS, VSTHE, VSTHEO, LDUM, LDUM2)
+      CALL MNERR3(LLEE, MNPR, NCETOP, NEL, NELEE, NLF, NCOLMB, DTUZ, UZNOW, CCCC, PNETTO, SSSS, VSTHE, VSTHEO, MN_WORK%LDUM, LDUM2)
 
          ! * reads time varying input data
-         CALL MNRED2(MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, DTUZ, TIH, UZNOW, BEXBK, LINKNS, &
-                     CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), CNRAM(NLF + 1:NEL), &
-                     CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), ISADDC, ISADDN, IDUM, DUMMY)
+      CALL MNRED2(MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, DTUZ, TIH, UZNOW, BEXBK, LINKNS, &
+                  MN_WORK%CDPTHB(NLF + 1:NEL), MN_WORK%CLTFCT(NLF + 1:NEL), MN_WORK%CMNFCT(NLF + 1:NEL), MN_WORK%CNRAL(NLF + 1:NEL), &
+                  MN_WORK%CNRAM(NLF + 1:NEL), MN_WORK%CTOT(NLF + 1:NEL), MN_WORK%NAMFCT(NLF + 1:NEL), MN_WORK%NDPTHB(NLF + 1:NEL), &
+                  MN_WORK%NTOT(NLF + 1:NEL), ISADDC, ISADDN, MN_WORK%IDUM, MN_WORK%DUMMY)
 
          ! * checks time dependent input data read in mnred2
-         CALL MNERR4(MNPR, NEL, NELEE, NLF, CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), &
-                     CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), ISADDC, &
-                     ISADDN, DUMMY, LDUM)
+      CALL MNERR4(MNPR, NEL, NELEE, NLF, MN_WORK%CDPTHB(NLF + 1:NEL), MN_WORK%CLTFCT(NLF + 1:NEL), &
+                  MN_WORK%CMNFCT(NLF + 1:NEL), MN_WORK%CNRAL(NLF + 1:NEL), MN_WORK%CNRAM(NLF + 1:NEL), MN_WORK%CTOT(NLF + 1:NEL), &
+                  MN_WORK%NAMFCT(NLF + 1:NEL), MN_WORK%NDPTHB(NLF + 1:NEL), MN_WORK%NTOT(NLF + 1:NEL), ISADDC, ISADDN, &
+                  MN_WORK%DUMMY, MN_WORK%LDUM)
 
          ! * modifies data read in mnred2 into suitable units and form for the rest of the program
-         CALL MNINT2(LLEE, NCETOP, NEL, NELEE, NLF, NLYREE, NCOLMB, NLYR, NLYRBT, NTSOIL, AMMDDR, AMMWDR, MNCREF, NITDDR, NITWDR, &
-                     DELTAZ, DTUZ, CCCC, CDPTHB(NLF + 1:NEL), CLTFCT(NLF + 1:NEL), CMNFCT(NLF + 1:NEL), CNRAL(NLF + 1:NEL), &
-                     CNRAM(NLF + 1:NEL), CTOT(NLF + 1:NEL), NAMFCT(NLF + 1:NEL), NDPTHB(NLF + 1:NEL), NTOT(NLF + 1:NEL), PNETTO, &
-                     SSSS, VSTHE, ISADDC, ISADDN, CNRALT, CNRAMN, DUMMY)
+      CALL MNINT2(LLEE, NCETOP, NEL, NELEE, NLF, NLYREE, NCOLMB, NLYR, NLYRBT, NTSOIL, MN_CONFIG%AMMDDR, MN_CONFIG%AMMWDR, &
+                  MN_CONFIG%MNCREF, MN_CONFIG%NITDDR, MN_CONFIG%NITWDR, DELTAZ, DTUZ, CCCC, MN_WORK%CDPTHB(NLF + 1:NEL), &
+                  MN_WORK%CLTFCT(NLF + 1:NEL), MN_WORK%CMNFCT(NLF + 1:NEL), MN_WORK%CNRAL(NLF + 1:NEL), MN_WORK%CNRAM(NLF + 1:NEL), &
+                  MN_WORK%CTOT(NLF + 1:NEL), MN_WORK%NAMFCT(NLF + 1:NEL), MN_WORK%NDPTHB(NLF + 1:NEL), MN_WORK%NTOT(NLF + 1:NEL), &
+                  PNETTO, SSSS, VSTHE, ISADDC, ISADDN, MN_WORK%CNRALT, MN_WORK%CNRAMN, MN_WORK%DUMMY)
 
          ! * environmental reduction factors are calculated
-         CALL MNTEMP(LLEE, NCETOP, NEL, NELEE, NLF, NV, NCOLMB, Z2, DELTAZ, ZVSNOD, DTUZ, TA)
-         CALL MNEMT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, Q10M, ISBOTC, ISQ10)
-         CALL MNENT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, Q10N, ISBOTC, ISQ10)
-         CALL MNEMPH(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, VSPSI, ISBOTC)
-         CALL MNENPH(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, VSPSI, ISBOTC)
-         CALL MNEDTH(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NLYREE, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, VSTHE, VSPOR, ISBOTC)
+      CALL MNTEMP(LLEE, NCETOP, NEL, NELEE, NLF, NV, NCOLMB, Z2, DELTAZ, ZVSNOD, DTUZ, TA)
+      CALL MNEMT(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, MN_CONFIG%Q10M, MN_CONFIG%ISBOTC, MN_CONFIG%ISQ10)
+      CALL MNENT(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, MN_CONFIG%Q10N, MN_CONFIG%ISBOTC, MN_CONFIG%ISQ10)
+      CALL MNEMPH(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, VSPSI, MN_CONFIG%ISBOTC)
+      CALL MNENPH(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, VSPSI, MN_CONFIG%ISBOTC)
+      CALL MNEDTH(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NLYREE, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, VSTHE, VSPOR, &
+                  MN_CONFIG%ISBOTC)
 
          ! * new concentration of carbon and nitrogen manure pools
-         CALL MNMAN(LLEE, MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, DTUZ, CNRAMN, ISBOTC)
+      CALL MNMAN(LLEE, MNPR, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, DTUZ, MN_WORK%CNRAMN, MN_CONFIG%ISBOTC)
 
          ! * new concentration of carbon litter and humus pools
-         CALL MNLTHM(LLEE, MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, FE, FH, DTUZ, ISBOTC)
+      CALL MNLTHM(LLEE, MNPR, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, MN_CONFIG%FE, MN_CONFIG%FH, DTUZ, MN_CONFIG%ISBOTC)
 
          ! * new concentration of nitrogen litter pool
-         CALL MNLTN(LLEE, MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, CNRBIO, FE, FH, DTUZ, CNRALT, ISBOTC)
+      CALL MNLTN(LLEE, MNPR, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, MN_CONFIG%CNRBIO, MN_CONFIG%FE, MN_CONFIG%FH, DTUZ, &
+                 MN_WORK%CNRALT, MN_CONFIG%ISBOTC)
 
          ! * carbon dioxide production
-         CALL MNCO2(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, FE, FH, ISBOTC)
+      CALL MNCO2(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, MN_CONFIG%FE, MN_CONFIG%FH, MN_CONFIG%ISBOTC)
 
          ! * mineralization/immobilisation rate
-         CALL MNGAM(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, CNRHUM, CNRBIO, FE, FH, DTUZ, ISBOTC)
+      CALL MNGAM(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, MN_CONFIG%CNRHUM, MN_CONFIG%CNRBIO, MN_CONFIG%FE, &
+                 MN_CONFIG%FH, DTUZ, MN_CONFIG%ISBOTC)
 
          ! * new concentration of ammonium
-         CALL MNAMM(LLEE, MNPR, NBOTCE, NCETOP, NEL, NELEE, NLF, NLYREE, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, GNN, KPLAMM, KUAMM, &
-                    MNCREF, KDDSOL, DTUZ, VSTHE, VSTHEO, ISBOTC)
+      CALL MNAMM(LLEE, MNPR, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NLYREE, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, MN_CONFIG%GNN, &
+                 MN_CONFIG%KPLAMM, MN_CONFIG%KUAMM, MN_CONFIG%MNCREF, MN_CONFIG%KDDSOL, DTUZ, VSTHE, VSTHEO, MN_CONFIG%ISBOTC)
 
          ! * new nitrate concentration in dynamic and dead space regions
-         CALL MNNIT(LLEE, NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, D0, KPLNIT, KUNIT, MNCREF, Z2, DTUZ, VSTHE, VSTHEO, ISBOTC, &
-                    SSS1, SSS2)
+      CALL MNNIT(LLEE, MN_CONFIG%NBOTCE, NCETOP, NEL, NELEE, NLF, NCOLMB, D0, MN_CONFIG%KPLNIT, MN_CONFIG%KUNIT, MN_CONFIG%MNCREF, &
+                 Z2, DTUZ, VSTHE, VSTHEO, MN_CONFIG%ISBOTC, SSS1, SSS2)
 
          ! * extra output that may be required that is printed in this subroutine
-         CALL MNOUT(MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, CNRHUM, GNN, MNCREF, DELTAZ, &
-                    KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
-
-         !------------------------end of simulation step---------------------*
-      END IF
+      CALL MNOUT(MNOUT1, MNOUT2, MN_CONFIG%NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, MN_CONFIG%CNRHUM, &
+                 MN_CONFIG%GNN, MN_CONFIG%MNCREF, DELTAZ, MN_CONFIG%KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, MN_WORK%CNRALT, &
+                 MN_WORK%CNRAMN, VSTHE, VSTHEO, MN_CONFIG%ISBOTC)
 
    END SUBROUTINE MNMAIN
 
@@ -3609,8 +3659,7 @@ CONTAINS
 !> | --- | --- |
 !> | First call | Allocate saved cumulative flux arrays, zero them over active soil-layer cells, compute total land area, and write initial carbon and nitrogen stores. |
 !> | Every call | Accumulate cell-depth-integrated rates over the current timestep, including ammonium/nitrate additions, organic additions, CO2 production, denitrification, mineralisation, immobilisation, nitrification, plant uptake, source/sink totals, and volatilisation. |
-!> | Store totals | Recompute current nitrogen and carbon stores from updated pools. Ammonium storage uses the nonlinear retardation factor \(1 + KDDSOL(NAMM1/MNCREF)^{GNN-1}/VSTHE\). |
-!> | Periodic output | When `UZNOW >= MNSTRT + 24*NPRNT`, increment `NPRNT` and write current total/addition/loss summaries normalised by total land area. |
+!> | Periodic output | When `UZNOW >= MNSTRT + 24*NPRNT`, recompute current nitrogen and carbon stores from updated pools, increment `NPRNT`, and write current total/addition/loss summaries normalised by total land area. Ammonium storage uses the nonlinear retardation factor \(1 + KDDSOL(NAMM1/MNCREF)^{GNN-1}/VSTHE\). |
 !>
 !> The routine does not reset cumulative flux arrays after each write; reported
 !> additions and losses are cumulative since the initial `MNOUT` call.
@@ -3764,44 +3813,43 @@ CONTAINS
          END DO
       END DO
 
-      TOTADN = 0.0D0
-      TOTADC = 0.0D0
-      TOTLOS = 0.0D0
-      TOTN   = 0.0D0
-      TOTC   = 0.0D0
-      TOTCO2 = 0.0D0
-
-      ! Form the current area-integrated totals from the cumulative arrays.
-      DO NELM = NLF + 1, NEL
-         IF (ISBOTC) THEN
-            NBOTM = NBOTCE
-         ELSE
-            NBOTM = NCOLMB(NELM)
-         END IF
-         NCEBOT = NBOTM
-
-         DO JLYR = 1, NLYR(NELM)
-            JSOIL = NTSOIL(NELM, JLYR)
-            DO NCL = MAX(NCEBOT, NLYRBT(NELM, JLYR)), NLYRBT(NELM, JLYR + 1) - 1
-
-               RETAMM = 1.0D0 + (KDDSOL(JSOIL) * (NAMM1(NELM, NCL) / MNCREF)**(GNN - 1.0D0)) / VSTHE(NCL, NELM)
-
-               ! * sum of concentrations over all the cells
-               TOTLOS = TOTLOS + DXQQ(NELM) * DYQQ(NELM) * (VOLTOT(NELM, NCL) + PLAMMT(NELM, NCL) + NTRTOT(NELM, NCL))
-               TOTADN = TOTADN + DXQQ(NELM) * DYQQ(NELM) * (ADORNT(NELM, NCL) + ADAMMT(NELM, NCL) + IMNITT(NELM, NCL))
-               TOTADC = TOTADC + DXQQ(NELM) * DYQQ(NELM) * ADDCT(NELM, NCL)
-
-               TOTN = TOTN + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (NAMM1(NELM, NCL) * VSTHE(NCL, NELM) * RETAMM + &
-                      NLIT1(NELM, NCL) + NMAN1(NELM, NCL) + CHUM1(NELM, NCL) / CNRHUM)
-
-               TOTC = TOTC + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (CMAN1(NELM, NCL) + CLIT1(NELM, NCL) + CHUM1(NELM, NCL))
-               TOTCO2 = TOTCO2 + DXQQ(NELM) * DYQQ(NELM) * CDOTOT(NELM, NCL)
-            END DO
-         END DO
-      END DO
-
    ! Output reporting block
       IF (UZNOW >= HRPRNT * NPRNT + MNSTRT) THEN
+         TOTADN = 0.0D0
+         TOTADC = 0.0D0
+         TOTLOS = 0.0D0
+         TOTN   = 0.0D0
+         TOTC   = 0.0D0
+         TOTCO2 = 0.0D0
+
+         ! Form the current area-integrated totals from the cumulative arrays.
+         DO NELM = NLF + 1, NEL
+            IF (ISBOTC) THEN
+               NBOTM = NBOTCE
+            ELSE
+               NBOTM = NCOLMB(NELM)
+            END IF
+            NCEBOT = NBOTM
+
+            DO JLYR = 1, NLYR(NELM)
+               JSOIL = NTSOIL(NELM, JLYR)
+               DO NCL = MAX(NCEBOT, NLYRBT(NELM, JLYR)), NLYRBT(NELM, JLYR + 1) - 1
+
+                  RETAMM = 1.0D0 + (KDDSOL(JSOIL) * (NAMM1(NELM, NCL) / MNCREF)**(GNN - 1.0D0)) / VSTHE(NCL, NELM)
+
+                  ! * sum of concentrations over all the cells
+                  TOTLOS = TOTLOS + DXQQ(NELM) * DYQQ(NELM) * (VOLTOT(NELM, NCL) + PLAMMT(NELM, NCL) + NTRTOT(NELM, NCL))
+                  TOTADN = TOTADN + DXQQ(NELM) * DYQQ(NELM) * (ADORNT(NELM, NCL) + ADAMMT(NELM, NCL) + IMNITT(NELM, NCL))
+                  TOTADC = TOTADC + DXQQ(NELM) * DYQQ(NELM) * ADDCT(NELM, NCL)
+
+                  TOTN = TOTN + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (NAMM1(NELM, NCL) * VSTHE(NCL, NELM) * RETAMM + &
+                         NLIT1(NELM, NCL) + NMAN1(NELM, NCL) + CHUM1(NELM, NCL) / CNRHUM)
+
+                  TOTC = TOTC + DELTAZ(NCL, NELM) * DXQQ(NELM) * DYQQ(NELM) * (CMAN1(NELM, NCL) + CLIT1(NELM, NCL) + CHUM1(NELM, NCL))
+                  TOTCO2 = TOTCO2 + DXQQ(NELM) * DYQQ(NELM) * CDOTOT(NELM, NCL)
+               END DO
+            END DO
+         END DO
 
          NPRNT = NPRNT + 1
 
@@ -3830,9 +3878,9 @@ CONTAINS
 !> pairs of density factor `CDI` and time `CDIT` in days from the simulation
 !> start. The routine linearly interpolates this table at `UZNOW/24`; if the
 !> current time is beyond the table, the canopy-density factor is set to 1.
-!> The first call only reads this file, writes the title to `MNOUTPL`, closes
-!> both units, and initialises saved plant-mixture and mass state. Potential
-!> uptake is calculated on later calls, after `PLUP` has been reset to zero over
+!> [[mnplantinitialise]] reads this file, writes the title to `MNOUTPL`, closes
+!> both units, and initialises retained plant-mixture and mass state. `MNPLANT`
+!> then calculates potential uptake on every call after resetting `PLUP` over
 !> `NCOLMB(element):NCETOP`.
 !>
 !> Important plant-index variables retained from the legacy MPL-based logic are:
@@ -3900,28 +3948,85 @@ CONTAINS
 !> indices when the complete range is valid. These current behaviours can make
 !> multi-vegetation uptake or crop-reset results undefined.
 !> @endwarning
-   SUBROUTINE mnplant (mnpl, mnoutpl, ncetop, nel, nlf, nv, ncolmb, nrd, nvc, rhopl, delone, dxqq, dyqq, deltaz, plai, rdf, dtuz, &
-                       uznow, clai)
+   SUBROUTINE MNPLANTINITIALISE(MNPL, MNOUTPL, NEL, NLF, NV, NVC, RHOPL, DELONE, DXQQ, DYQQ, PLAI, CLAI)
+
+      IMPLICIT NONE
+
+      INTEGER, INTENT(IN) :: MNPL, MNOUTPL, NEL, NLF, NV
+      INTEGER, INTENT(IN) :: NVC(NELEE)
+      DOUBLE PRECISION, INTENT(IN) :: RHOPL, DELONE(NPLTEE), DXQQ(NELEE), DYQQ(NELEE)
+      DOUBLE PRECISION, INTENT(IN) :: PLAI(NV), CLAI(NV)
+
+      INTEGER :: I, JPLTY, NDATA, NELM, NPLANT, NTB
+      INTEGER :: IDUM(1)
+      DOUBLE PRECISION :: DUMMY(MN_PLANT_NVALEE * 2)
+      CHARACTER(LEN=200) :: CDUM(1)
+
+      CALL ALRED2(0, MNPL, MNOUTPL, 'mnptin')
+      CALL ALREDC(0, MNPL, MNOUTPL, ':MNP1', 1, 1, CDUM)
+      WRITE (MNOUTPL, '(/1x,A/)') CDUM
+
+      DO I = 1, NV
+         CALL ALREDI(0, MNPL, MNOUTPL, ':MNP10', 1, 1, IDUM)
+         MN_PLANT_STATE%NVALUE(I) = IDUM(1)
+         NDATA = IDUM(1) * 2
+         CALL ALREDF(0, MNPL, MNOUTPL, ':MNP11', NDATA, 1, DUMMY)
+
+         DO NTB = 1, IDUM(1)
+            MN_PLANT_STATE%CDI(NV, NTB) = DUMMY(2 * NTB - 1)
+            MN_PLANT_STATE%CDIT(NV, NTB) = DUMMY(2 * NTB)
+         END DO
+      END DO
+
+      CLOSE (MNPL)
+      CLOSE (MNOUTPL)
+
+      DO NELM = NLF + 1, NEL
+         DO I = 1, NPLTEE
+            MN_PLANT_STATE%CLAIMX(I) = 2.0D0
+         END DO
+
+         MN_PLANT_STATE%NPLTYP(NELM, 1) = NVC(NELM)
+         MN_PLANT_STATE%PFONE(NELM, 1) = PLAI(MN_PLANT_STATE%NPLTYP(NELM, 1))
+
+         IF (MN_PLANT_STATE%PFONE(NELM, 1) >= 0.99D0) THEN
+            MN_PLANT_STATE%NPL(NELM) = 1
+         ELSE
+            MN_PLANT_STATE%PFONE(NELM, 2) = 1.0D0 - MN_PLANT_STATE%PFONE(NELM, 1)
+            MN_PLANT_STATE%NPL(NELM) = 2
+         END IF
+
+         DO I = 1, NEL
+            MN_PLANT_STATE%NPLTYP(I, 2) = 1
+         END DO
+
+         DO NPLANT = 1, MN_PLANT_STATE%NPL(NELM)
+            JPLTY = MN_PLANT_STATE%NPLTYP(NELM, NPLANT)
+            MN_PLANT_STATE%GMCPBB(NELM, NPLANT) = &
+               CLAI(JPLTY) * DELONE(JPLTY) / MN_PLANT_STATE%CLAIMX(JPLTY)
+            MN_PLANT_STATE%MASSB(NELM, NPLANT) = MN_PLANT_STATE%GMCPBB(NELM, NPLANT) * &
+               MN_PLANT_STATE%PFONE(NELM, NPLANT) * DXQQ(NELM) * DYQQ(NELM) * RHOPL
+            MN_PLANT_STATE%CROPTM(NELM, NPLANT) = 0.0D0
+         END DO
+      END DO
+   END SUBROUTINE MNPLANTINITIALISE
+
+   SUBROUTINE mnplant (ncetop, nel, nlf, nv, ncolmb, nrd, rhopl, delone, dxqq, dyqq, deltaz, rdf, dtuz, uznow, clai)
 
       IMPLICIT NONE
 
       ! input arguments
-      !     * static
-      INTEGER, INTENT(IN) :: mnpl  !! Plant-uptake input unit.
-      INTEGER, INTENT(IN) :: mnoutpl  !! Plant nitrogen output unit.
       INTEGER, INTENT(IN) :: ncetop  !! Top soil-cell index.
       INTEGER, INTENT(IN) :: nel  !! Number of elements.
       INTEGER, INTENT(IN) :: nlf  !! Number of overland/channel links excluded from land-column uptake.
       INTEGER, INTENT(IN) :: nv  !! Number of vegetation types.
       INTEGER, INTENT(IN) :: ncolmb(nelee)  !! Lowest active soil cell in each land-column element.
       INTEGER, INTENT(IN) :: nrd(nv)  !! Rooting depth in cell counts by vegetation type.
-      INTEGER, INTENT(IN) :: nvc(nelee)  !! Vegetation type index by element.
       DOUBLE PRECISION, INTENT(IN) :: rhopl  !! Plant dry-matter density used by uptake calculation.
       DOUBLE PRECISION, INTENT(IN) :: delone(npltee)  !! Initial plant biomass/cover scaling by plant type.
       DOUBLE PRECISION, INTENT(IN) :: dxqq(nelee)  !! Element width.
       DOUBLE PRECISION, INTENT(IN) :: dyqq(nelee)  !! Element length.
       DOUBLE PRECISION, INTENT(IN) :: deltaz(llee, nel)  !! Cell thickness by cell and element.
-      DOUBLE PRECISION, INTENT(IN) :: plai(nv)  !! Plant leaf-area index by vegetation type.
       DOUBLE PRECISION, INTENT(IN) :: rdf(nv, llee)  !! Root density fraction by vegetation type and cell.
 
       !     * time dependent
@@ -3929,169 +4034,76 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: uznow  !! Current unsaturated-zone simulation time.
       DOUBLE PRECISION, INTENT(IN) :: clai(nv)  !! Current canopy leaf-area index by vegetation type.
 
-      ! locals
-      !     * maximum number of values in the input data for canopy density
-      INTEGER, PARAMETER :: nvalee = 30
-
-      !     * those saved
-      INTEGER, SAVE :: nvalue(npltee), pass = 0
-      INTEGER, SAVE :: npl(nelee), npltyp(nelee, npelee)
-      DOUBLE PRECISION, SAVE :: cdi(npltee, nvalee), cdit(npltee, nvalee)
-      DOUBLE PRECISION, SAVE :: claimx(npltee)
-      DOUBLE PRECISION, SAVE :: croptm(nelee, npelee)
-      DOUBLE PRECISION, SAVE :: gmcpbb(nelee, npelee)
-      DOUBLE PRECISION, SAVE :: massb(nelee, npelee)
-      DOUBLE PRECISION, SAVE :: pfone(nelee, npelee)
-      LOGICAL, SAVE :: iscrop(nelee, npelee)
-
-      !     * those not saved
-      INTEGER :: jplty, ndata, nelm, nplant, nrbot, ntb
+      INTEGER :: jplty, nelm, nplant, nrbot
       INTEGER :: i, nce, ndum
-      INTEGER :: idum(1)
       DOUBLE PRECISION :: cdfnc, chgmas, fn, massbo, tmsncr
       DOUBLE PRECISION :: dum, dum2
-      DOUBLE PRECISION :: dummy(nvalee * 2)
-
-      ! Input-reader work buffers.
-      CHARACTER(LEN=32) :: msg
-      CHARACTER(LEN=200) :: cdum(1)
 
       !----------------------------------------------------------------------*
 
-      pass = pass + 1
-
-      IF (pass == 1) THEN
-         !----------------------------------------------------------------------*
-         !     initialising step
-         !----------------------------------------------------------------------*
-         !
-         !        extra data for the canopy density index
-         !        this is used to correct the canopy leaf area index so that the
-         !        plant uptake of nitrogen is more accurate
-         !
-         !        * check status of data file
-         CALL alred2(0, mnpl, mnoutpl, 'mnptin')
-
-         !        * print title for data file
-         CALL alredc(0, mnpl, mnoutpl, ':MNP1', 1, 1, cdum)
-         WRITE (mnoutpl, '(/1x,A/)') cdum
-
-         DO i = 1, nv
-            CALL alredi (0, mnpl, mnoutpl, ':MNP10', 1, 1, idum)
-            nvalue(i) = idum(1)
-            ndata = idum(1) * 2
-            CALL alredf(0, mnpl, mnoutpl, ':MNP11', ndata, 1, dummy)
-
-            DO ntb = 1, idum(1)
-               cdi(nv, ntb) = dummy(2 * ntb - 1)
-               cdit(nv, ntb) = dummy(2 * ntb)
-            END DO
+      DO nelm = nlf + 1, nel
+         DO nce = ncolmb(nelm), ncetop
+            plup(nelm, nce) = 0.0d0
          END DO
+      END DO
 
-         CLOSE (mnpl)
-         CLOSE (mnoutpl)
+      DO nelm = nlf + 1, nel
+         DO nplant = 1, MN_PLANT_STATE%npl(nelm)
+            jplty = MN_PLANT_STATE%npltyp(nelm, nplant)
 
-         DO nelm = nlf + 1, nel
-            ! **************** temporary
-            !                hard code the maximum leaf area index
-            DO i = 1, npltee
-               claimx(i) = 2.0d0
-            END DO
-
-            ! *************** temporary
-            !                 set number of plant types on each column
-            !                 temporarily, only two plant types are allowed on each
-            !                 column and the total plai is one
-            !                 second plant type number is set in block data
-
-            npltyp(nelm, 1) = nvc(nelm)
-            pfone(nelm, 1) = plai(npltyp(nelm, 1))
-
-            IF (pfone(nelm, 1) >= 0.99d0) THEN
-               npl(nelm) = 1
-            ELSE
-               pfone(nelm, 2) = 1.0d0 - pfone(nelm, 1)
-               npl(nelm) = 2
-            END IF
-
-            DO i = 1, nel
-               npltyp(i, 2) = 1
-            END DO
-
-            DO nplant = 1, npl(nelm)
-               ! plant type number
-               jplty = npltyp(nelm, nplant)
-               gmcpbb(nelm, nplant) = clai(jplty) * delone(jplty) / claimx(jplty)
-               ! initialise for mass in compartment b
-               massb(nelm, nplant) = gmcpbb(nelm, nplant) * pfone(nelm, nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
-               croptm(nelm, nplant) = 0.0d0
-            END DO
-         END DO
-
-      ELSE
-         DO nelm = nlf + 1, nel
-            DO nce = ncolmb(nelm), ncetop
-               plup(nelm, nce) = 0.0d0
-            END DO
-         END DO
-
-         DO nelm = nlf + 1, nel
-            DO nplant = 1, npl(nelm)
-               jplty = npltyp(nelm, nplant)
-
-               age_search_loop: DO i = 2, nvalue(jplty)
-                  IF ((uznow / 24.0d0) < cdit(jplty, i)) THEN
-                     dum = (cdi(jplty, i) - cdi(jplty, i - 1)) / (cdit(jplty, i) - cdit(jplty, i - 1))
-                     dum2 = uznow / 24.0d0 - cdit(jplty, i - 1)
-                     cdfnc = cdi(jplty, i - 1) + dum * dum2
-                     EXIT age_search_loop
-                  END IF
-               END DO age_search_loop
-
-               ! Use the full-density factor after the last table time.
-               IF (i > nvalue(jplty)) cdfnc = 1.0d0
-
-               nrbot = ncetop - nrd(jplty)
-               gmcpbb(nelm, nplant) = clai(jplty) * delone(jplty) * cdfnc / claimx(jplty)
-               massbo = massb(nelm, nplant)
-               massb(nelm, nplant) = gmcpbb(nelm, nplant) * pfone(nelm, nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
-               chgmas = (massb(nelm, nplant) - massbo) / dtuz
-
-               IF (chgmas < 0.0d0) THEN
-                  iscrop(nelm, nplant) = .TRUE.
-               ELSE IF (clai(jplty) > 0.0d0) THEN
-                  IF (iscrop(nelm, nplant)) THEN
-                     croptm(nelm, nplant) = uznow
-                     iscrop(nelm, nplant) = .FALSE.
-                  END IF
-
-                  tmsncr = uznow - croptm(nelm, nplant)
-
-                  ! Calculate uptake fraction based on crop age
-                  IF (tmsncr < 360.0d0) THEN
-                     fn = 0.022d0
-                  ELSE IF (tmsncr < 720.0d0) THEN
-                     fn = 0.017d0
-                  ELSE IF (tmsncr < 1080.0d0) THEN
-                     fn = 0.015d0
-                  ELSE
-                     fn = 0.012d0
-                  END IF
-
-                  ! Distribute the mass uptake across the root zone layers
-                  DO nce = nrbot, ncetop
-                     ndum = ncetop - nce + 1
-                     plup(nelm, nce) = plup(nelm, nce) + chgmas * fn * rdf(jplty, ndum) / (deltaz(nce, nelm) * dxqq(nelm) * dyqq(nelm))
-                  END DO
+            age_search_loop: DO i = 2, MN_PLANT_STATE%nvalue(jplty)
+               IF ((uznow / 24.0d0) < MN_PLANT_STATE%cdit(jplty, i)) THEN
+                  dum = (MN_PLANT_STATE%cdi(jplty, i) - MN_PLANT_STATE%cdi(jplty, i - 1)) / &
+                        (MN_PLANT_STATE%cdit(jplty, i) - MN_PLANT_STATE%cdit(jplty, i - 1))
+                  dum2 = uznow / 24.0d0 - MN_PLANT_STATE%cdit(jplty, i - 1)
+                  cdfnc = MN_PLANT_STATE%cdi(jplty, i - 1) + dum * dum2
+                  EXIT age_search_loop
                END IF
-            END DO
+            END DO age_search_loop
+
+            ! Use the full-density factor after the last table time.
+            IF (i > MN_PLANT_STATE%nvalue(jplty)) cdfnc = 1.0d0
+
+            nrbot = ncetop - nrd(jplty)
+            MN_PLANT_STATE%gmcpbb(nelm, nplant) = clai(jplty) * delone(jplty) * cdfnc / MN_PLANT_STATE%claimx(jplty)
+            massbo = MN_PLANT_STATE%massb(nelm, nplant)
+            MN_PLANT_STATE%massb(nelm, nplant) = MN_PLANT_STATE%gmcpbb(nelm, nplant) * &
+               MN_PLANT_STATE%pfone(nelm, nplant) * dxqq(nelm) * dyqq(nelm) * rhopl
+            chgmas = (MN_PLANT_STATE%massb(nelm, nplant) - massbo) / dtuz
+
+            IF (chgmas < 0.0d0) THEN
+               MN_PLANT_STATE%iscrop(nelm, nplant) = .TRUE.
+            ELSE IF (clai(jplty) > 0.0d0) THEN
+               IF (MN_PLANT_STATE%iscrop(nelm, nplant)) THEN
+                  MN_PLANT_STATE%croptm(nelm, nplant) = uznow
+                  MN_PLANT_STATE%iscrop(nelm, nplant) = .FALSE.
+               END IF
+
+               tmsncr = uznow - MN_PLANT_STATE%croptm(nelm, nplant)
+
+               IF (tmsncr < 360.0d0) THEN
+                  fn = 0.022d0
+               ELSE IF (tmsncr < 720.0d0) THEN
+                  fn = 0.017d0
+               ELSE IF (tmsncr < 1080.0d0) THEN
+                  fn = 0.015d0
+               ELSE
+                  fn = 0.012d0
+               END IF
+
+               DO nce = nrbot, ncetop
+                  ndum = ncetop - nce + 1
+                  plup(nelm, nce) = plup(nelm, nce) + chgmas * fn * rdf(jplty, ndum) / &
+                     (deltaz(nce, nelm) * dxqq(nelm) * dyqq(nelm))
+               END DO
+            END IF
          END DO
-      END IF
+      END DO
    END SUBROUTINE mnplant
 
 !> @brief Reads static mineral nitrogen input data.
 !>
-!> `mnred1` reads the MND file once during [[mnmain]] initialisation, echoes the
+!> `mnred1` reads the MND file once during [[mninitialise]], echoes the
 !> nitrate title to `MNPR`, and fills the static parameter arrays that are later
 !> validated by [[mnerr2]] and interpolated by [[mninit]].
 !>

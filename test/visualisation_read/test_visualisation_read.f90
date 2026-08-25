@@ -4,7 +4,7 @@ PROGRAM test_visualisation_read
       visualisation_title_matches, VIS_READ_OK, VIS_READ_END, VIS_READ_INVALID, &
       VIS_MAX_RECORD_LENGTH, VIS_RECORD_BUFFER_LENGTH
    USE visualisation_read, ONLY: COPY, R_C, R_I, R_R, vp_in
-   USE visualisation_read_test_support, ONLY: assert_true, assert_equal_integer, &
+   USE shetran_test_support, ONLY: assert_true, assert_equal_integer, &
       assert_equal_character, assert_close_real, finish_tests
 
    IMPLICIT NONE

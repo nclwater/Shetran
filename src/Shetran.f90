@@ -105,6 +105,9 @@ PROGRAM SHETRAN
    ! Model initialization and timestep driver.
    USE RUN_SIM, ONLY: SIMULATION
 
+   ! Explicit release of the persistent open-channel solver workspace.
+   USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
+
    ! Cross-platform millisecond sleep used before automatic console closure.
    USE stdlib_system, ONLY: sleep
 
@@ -140,9 +143,10 @@ PROGRAM SHETRAN
    ! Record any due final visualisation data and close its resources.
    CALL RECORD_VISUALISATION_DATA(REAL(uznow, KIND=4), 'end')
 
-   ! Program completion
+   ! Release the model-lifetime open-channel solver workspace.
+   CALL FINALISE_OCSIM_WORKSPACE()
 
-   ! The program now terminates cleanly
+   ! Program completion
    ! added a delay to allow users to see the final output before the console window closes
    if (casemode == '-a') CALL sleep(5000)
 
