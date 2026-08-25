@@ -73,9 +73,10 @@
 !> | 2020-03-05 | SvB | - | Cleaned and modernized the legacy entry source. |
 !> | 2020-04-22 | SB | - | Added the current `src/Shetran.f90` entry file during repository reorganization. |
 !> | 2026-03-28 | SvB | - | Added the first FORD program header and explanatory call-site comments. |
-!> | 2026-05-11 | SteveB / SvenB | - | Restored the `ALTRAP` import for the retained call during the current-code rebase. |
+!> | 2026-05-11 | SB | - | Restored the `ALTRAP` import for the retained call during the current-code rebase. |
 !> | 2026-05-13 | SvB | - | Removed the final Intel-specific `sleepqq` call from the portable entry point. |
 !> | 2026-06-19 | SB | 4.6.4 | Updated cross-platform command-line selection, including conditional QuickWin support. |
+!> | 2024-06-05 | SB | v4.7.0 |  remove inital call to error subroutine |
 !> @endhistory
 PROGRAM SHETRAN
 
@@ -107,12 +108,17 @@ PROGRAM SHETRAN
    ! Explicit release of the persistent open-channel solver workspace.
    USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
 
+   ! Cross-platform millisecond sleep used before automatic console closure.
+   USE stdlib_system, ONLY: sleep
+
    IMPLICIT NONE
 
-   ! Initialize error flags and retained help-path state.
-   CALL ERROR(-999, 0, 0, 0, 0, 'Initialise error messages')
+   ! Local variables (none needed for main program)
 
-   ! Resolve the rundata path, catchment identity, and working directories.
+   ! Main program execution
+
+   ! Parse command line arguments and determine input files
+   ! Processes command line to get rundata file and directory paths
    CALL GET_DIR_AND_CATCH(runfil, filnam, cnam, dirqq, rootdir)
 
    ! Retain the legacy startup call; the current hook enables no traps.
@@ -139,5 +145,9 @@ PROGRAM SHETRAN
 
    ! Release the model-lifetime open-channel solver workspace.
    CALL FINALISE_OCSIM_WORKSPACE()
+
+   ! Program completion
+   ! added a delay to allow users to see the final output before the console window closes
+   if (casemode == '-a') CALL sleep(5000)
 
 END PROGRAM SHETRAN

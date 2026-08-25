@@ -195,7 +195,7 @@ The recommended method is the supplied `setup_vs_sln.bat` script:
 3. From the repository root, run:
 
    ```cmd
-   setup_vs_sln.bat
+   setup_sln.bat
    ```
 
 The script performs the following checks and setup:
