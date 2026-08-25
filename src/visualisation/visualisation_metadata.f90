@@ -1,7 +1,85 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> @brief Owns the visualisation catalogue, plan parser, and HDF5 metadata view.
+!>
+!> The module builds two related catalogues. Private [[item]] records hold the
+!> model-facing state used by [[visualisation_interface_right]] while values are
+!> recorded. Public [[hdf5_item]] records are the dimension-oriented projection
+!> consumed by [[visualisation_hdf5]]. Masks, element lists, and time schedules
+!> are shared through pointer components rather than copied into every item.
+!>
+!> The normal one-shot lifecycle is:
+!>
+!> | Stage | Entry point | Effect |
+!> |:------|:------------|:-------|
+!> | Register constants | [[register_static_visualisation_metadata]] | Appends whole-grid static items. |
+!> | Publish variables | [[register_dynamic_visualisation_metadata]], `jj=1` | Reports implemented choices. |
+!> | Read plan | First dynamic call with `jj/=1` | Creates requested items and referenced records. |
+!> | Match variables | Remaining `jj/=1` calls | Adds catalogue attributes and maps requested basis/scope to a storage type. |
+!> | Finalize | Call with `final=.TRUE.` | Validates every request and builds `hdf5_items`. |
+!> | Record/write | Getters and pointer setters | Exposes schedules, selectors, dimensions, and buffer handles. |
+!>
+!> Visualisation plan blocks are introduced by these exact lowercase keywords:
+!>
+!> | Keyword | Action |
+!> |:--------|:-------|
+!> | `item` | Reads one output request and its selectors. |
+!> | `list` | Reads explicit element numbers and derives square, bank, and river subsets. |
+!> | `mask` | Reads a grid mask and derives all/square/bank/river lists. |
+!> | `time` | Reads output-step and stop-time pairs in hours. |
+!> | `diag` | Enables verbose plan diagnostics. |
+!> | `kill` | Stops after parsing so the check file can be inspected. |
+!> | `stop` | Completes parsing and continues initialization. |
+!>
+!> | Selector | Accepted values |
+!> |:---------|:----------------|
+!> | Basis | `grid_as_grid`, `grid_as_list`, `list_as_list` |
+!> | Scope | `all`, `squares`, `banks`, `rivers` |
+!> | Extra dimension | `-`, `faces`, `X_Y`, `left_right` |
+!>
+!> The HDF5 projection always allocates six fixed slots: time (1), extra (2),
+!> layer (3), element member (4), column (5), and row/list (6). A singleton
+!> optional axis is represented by dimension zero and omitted from the HDF5
+!> rank. `szorder` maps logical traversal order back to these fixed slots.
+!>
+!> @warning
+!> This is process-lifetime, one-shot state. Saved first-call flags, global
+!> counters, pointer arrays, schedules, and HDF5 projections have no reset or
+!> cleanup path. Re-registration, concurrent use, or a second simulation in the
+!> same process is unsupported.
+!> @endwarning
+!>
+!> @warning
+!> `times` and `sstatic` have no explicit `=>NULL()` initialization in current
+!> source. Their first allocation/`ASSOCIATED` use therefore relies on the
+!> compiler/runtime treating module pointer storage as initially disassociated;
+!> the Fortran source does not establish that association status.
+!> @endwarning
+!>
+!> @warning
+!> Plan and lookup errors call
+!> [[visualisation_read:error_visualisation]], which prints diagnostics and
+!> executes `STOP`. The parser also deliberately stops on the `kill` keyword.
+!> Allocation and I/O failures outside those explicit checks are not handled.
+!> @endwarning
+!>
+!> @note
+!> Fortran applies the bare `PRIVATE` statement below to the whole module. The
+!> current FORD parser applies default accessibility in source order and may
+!> label earlier private state as public; compiled visibility is defined by the
+!> explicit public list.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2004-07 | JE | SHEGRAPH 2.0 | Created the central visualisation metadata handler. |
+!> | 2020-09-08 | SB | - | Added the visualisation sources to the repository. |
+!> | 2026-03-29 | SvB | - | Replaced integer buffer addresses with `C_PTR` and made portability updates. |
+!> | 2026-04-03 | SvB | - | Reworked character constructors, formats, and the nested list helper for current compilers. |
+!> | 2026-04-14 | SvB | - | Added allocation guards needed by GFortran. |
+!> | 2026-05-02 | SvB | - | Removed unresolved merge-conflict duplicates while retaining current list filtering. |
+!> | 2026-07-12 | SvB | - | Inlined the four typed array-growth helpers after include-file removal. |
+!> @endhistory
 MODULE visualisation_metadata
-
-!JE for SHEGRAPH Version 2.0 Created July 2004
 
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR
    USE VISUALISATION_PASS,      ONLY : SU_NUMBER, BANK_NO, RIVER_NO, EXISTS, nel, &
@@ -12,113 +90,135 @@ MODULE visualisation_metadata
 
    IMPLICIT NONE
 
-   INTEGER, PARAMETER                    :: ndim=6 !max no of dimensions in HDF5 file
-   REAL, DIMENSION(:), ALLOCATABLE, SAVE :: previous_time, next_time
-   LOGICAL, PARAMETER                    :: T=.TRUE., F=.FALSE.
-   REAL, PARAMETER                       :: zero = 0.0
+   INTEGER, PARAMETER                    :: ndim = 6 !! Number of fixed slots in every HDF5 metadata record.
+   REAL, DIMENSION(:), ALLOCATABLE, SAVE :: previous_time !! Last scheduled time accepted for each item, in hours.
+   REAL, DIMENSION(:), ALLOCATABLE, SAVE :: next_time !! Next scheduled time for each item, in hours.
+   LOGICAL, PARAMETER                    :: T = .TRUE.  !! Legacy shorthand for true.
+   LOGICAL, PARAMETER                    :: F = .FALSE. !! Legacy shorthand for false.
+   REAL, PARAMETER                       :: zero = 0.0  !! Initial scheduler time, in hours.
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Piecewise output schedule read from a plan `time` block.
    TYPE ttime
       PRIVATE
-      INTEGER :: number, sz
-      REAL, DIMENSION(:), POINTER  :: tstep=>NULL(), tstop=>NULL()  !step and stoptime
+      INTEGER :: number !! User-visible time-block number.
+      INTEGER :: sz     !! Number of user-supplied interval/stop pairs.
+      REAL, DIMENSION(:), POINTER :: tstep=>NULL() !! Output interval for each segment, plus a final sentinel.
+      REAL, DIMENSION(:), POINTER :: tstop=>NULL() !! Segment stop time, plus a final sentinel.
    END TYPE ttime
-   TYPE(ttime), DIMENSION(:), POINTER :: times
-   TYPE(ttime), POINTER               :: sstatic
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+   TYPE(ttime), DIMENSION(:), POINTER :: times   !! Dynamic time blocks; current declaration lacks `=>NULL()`.
+   TYPE(ttime), POINTER               :: sstatic !! Shared static schedule; current declaration lacks `=>NULL()`.
+
+!> Explicit or derived list of SHETRAN element numbers.
    TYPE llist
       PRIVATE
-      INTEGER                        :: number, sz=0, indx=0 !number, size, and index
-      CHARACTER(12)                  :: basis  !'grid_as_grid', 'grid_as_list' or 'list'
-      CHARACTER(7)                   :: scope  !'all', 'squares', 'banks', 'rivers'
-      INTEGER, DIMENSION(:), POINTER :: a
+      INTEGER                        :: number !! User list/mask number for an original list; undefined for derived subsets.
+      INTEGER                        :: sz=0   !! Number of sorted unique positive elements in `a`.
+      INTEGER                        :: indx=0 !! Internal index assigned to an explicitly read list.
+      CHARACTER(12)                  :: basis  !! Basis selector; not initialized for every derived list.
+      CHARACTER(7)                   :: scope  !! `all`, `squares`, `banks`, or `rivers`.
+      INTEGER, DIMENSION(:), POINTER :: a      !! Owned sorted element-number array.
    END TYPE llist
-   TYPE(LLIST), DIMENSION(:), POINTER :: lists=>NULL()
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+   TYPE(LLIST), DIMENSION(:), POINTER :: lists=>NULL() !! Original lists followed by their three derived subsets.
+
+!> Rectangular plan mask and the offset of its derived-list group.
    TYPE mask
       PRIVATE
-      INTEGER                          :: number, ilow, ihigh, jlow, jhigh, &
-         listno  !first list assoc with this mask
-      LOGICAL, DIMENSION(:,:), POINTER :: ma
+      INTEGER                          :: number !! User-visible mask number.
+      INTEGER                          :: ilow   !! Inclusive first display column.
+      INTEGER                          :: ihigh  !! Inclusive last display column.
+      INTEGER                          :: jlow   !! Inclusive first display row.
+      INTEGER                          :: jhigh  !! Inclusive last display row.
+      INTEGER                          :: listno !! Index of the mask's derived `all` list.
+      LOGICAL, DIMENSION(:,:), POINTER :: ma     !! Effective mask after excluding zero `SU_NUMBER` cells.
    END TYPE mask
-   TYPE(MASK), DIMENSION(:), POINTER :: masks=>NULL()
-   TYPE(MASK), POINTER               :: whole_grid=>NULL()
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+   TYPE(MASK), DIMENSION(:), POINTER :: masks=>NULL()      !! User masks read from the plan.
+   TYPE(MASK), POINTER               :: whole_grid=>NULL() !! Shared all-true mask for static items.
+
+!> Model-facing metadata and buffer handles for one requested output item.
    TYPE item
       PRIVATE
-      INTEGER :: users_number=0, users_no_for_link_or_mask=0, users_no_for_times=0, &
-         sediment_no=0, contaminant_no=0
-      ! REPLACED INTEGER(INT_PTR_KIND()) WITH TYPE(C_PTR)
-      TYPE(C_PTR) :: first = C_NULL_PTR, latest = C_NULL_PTR
-      CHARACTER(8)         :: name=''
-      CHARACTER(2)         :: typ=''
-      CHARACTER(csz)       :: title='*S' !for plots and printouts
-      CHARACTER(8)         :: units=''
-      CHARACTER(12)        :: basis='grid_as_grid'  !'grid_as_grid', 'grid_as_list' or 'list'
-      CHARACTER(7)         :: scope='all'          !'all', 'squares', 'banks', 'rivers'
-      CHARACTER(11)        :: extra_dimensions = '-'
-      LOGICAL              :: isgrid = F,                &
-         istimeseries = F,          &
-         varies_with_sediment=F,    &
-         varies_with_contaminant=F, &
-         implemented=F
-      INTEGER              :: layers(2)=(/0,0/)  !bottom and top layers
-      TYPE(MASK), POINTER  :: amask=>NULL()
-      TYPE(LLIST), POINTER :: alist=>NULL()
-      TYPE(TTIME), POINTER :: atime=>NULL()
+      INTEGER :: users_number=0              !! User item number; static items retain zero.
+      INTEGER :: users_no_for_link_or_mask=0 !! Referenced mask/list number.
+      INTEGER :: users_no_for_times=0        !! Referenced time-block number.
+      INTEGER :: sediment_no=0               !! Selected sediment fraction or zero.
+      INTEGER :: contaminant_no=0            !! Selected contaminant or zero.
+      TYPE(C_PTR) :: first = C_NULL_PTR       !! First structure-buffer node for this item.
+      TYPE(C_PTR) :: latest = C_NULL_PTR      !! Latest structure-buffer node for this item.
+      CHARACTER(8)         :: name=''         !! Exact catalogue selector.
+      CHARACTER(2)         :: typ=''          !! Structure storage code, normally ending in `S`.
+      CHARACTER(csz)       :: title='*S'      !! Plot/check-file title.
+      CHARACTER(8)         :: units=''        !! Units label.
+      CHARACTER(12)        :: basis='grid_as_grid' !! Grid/list representation selector.
+      CHARACTER(7)         :: scope='all'     !! Element-class selector.
+      CHARACTER(11)        :: extra_dimensions = '-' !! Extra-axis selector.
+      LOGICAL              :: isgrid = F      !! Whether spatial data use a rectangular grid.
+      LOGICAL              :: istimeseries = F !! Whether the item has a time axis.
+      LOGICAL              :: varies_with_sediment=F !! Whether `sediment_no` is required.
+      LOGICAL              :: varies_with_contaminant=F !! Whether `contaminant_no` is required.
+      LOGICAL              :: implemented=F   !! Whether the interface catalogue supports the requested name.
+      INTEGER              :: layers(2)=(/0,0/) !! Inclusive requested layer bounds; zero removes the layer axis.
+      TYPE(MASK), POINTER  :: amask=>NULL()    !! Resolved mask for gridded output.
+      TYPE(LLIST), POINTER :: alist=>NULL()    !! Resolved list for list output.
+      TYPE(TTIME), POINTER :: atime=>NULL()    !! Resolved output schedule.
    END TYPE item
-   TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL()
+   TYPE(ITEM), DIMENSION(:), POINTER :: items=>NULL() !! Static items followed by parsed dynamic requests.
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> HDF5-facing projection of one model-facing [[item]].
    TYPE hdf5_item
-      INTEGER              :: users_number = 0,              &
-         users_no_for_link_or_mask = 0, &
-         users_no_for_times=0,          &
-         ilow = 0,                      &
-         ihigh = 0,                     &
-         jlow = 0,                      &
-         jhigh = 0,                     &
-         klow = 0,                      &
-         khigh = 0,                     &
-         no_extra_dimensions = 0,       &
-         tstep_no = 1,                  &
-         sz   = 0,                      & !size of list
-         sediment_no   = 0,             & !sediment no
-         contaminant_no = 0               !contaminant no
-      INTEGER, DIMENSION(:), POINTER :: dimensions, &  !dimensions
-         szorder,    &
-         list           !list of ssu numbers
-      CHARACTER(8)         :: name=''
-      CHARACTER(2)         :: typ=''
-      CHARACTER(csz)       :: title='*S' !for plots and printouts
-      CHARACTER(8)         :: units=''
-      CHARACTER(12)        :: basis='grid_as_grid'  !'grid_as_grid', 'grid_as_list' or 'list'
-      CHARACTER(7)         :: scope='all'          !'all', 'squares', 'banks', 'rivers'
-      CHARACTER(11)        :: extra_dimensions = '-'
-      CHARACTER(6), DIMENSION(:), POINTER :: names_of_extra_dimensions, &
-         names_of_dimensions,       &
-      !'row', 'el-lst', 'column', 'el-typ', 'extra', 'time'
-         mbr
-      !'square', N-bank, etc
-      LOGICAL              :: isgrid       = F,        &
-         istimeseries = F,        &
-         isreal       = T,        &
-         varies_with_sediment=F,  &
-         varies_with_contaminant=F
+      INTEGER :: users_number = 0              !! User item number.
+      INTEGER :: users_no_for_link_or_mask = 0 !! Referenced user mask/list number.
+      INTEGER :: users_no_for_times=0          !! Referenced user time-block number.
+      INTEGER :: ilow = 0                      !! Inclusive first column or list position.
+      INTEGER :: ihigh = 0                     !! Inclusive last column or list position.
+      INTEGER :: jlow = 0                      !! Inclusive first row for a grid.
+      INTEGER :: jhigh = 0                     !! Inclusive last row for a grid.
+      INTEGER :: klow = 0                      !! Inclusive first layer.
+      INTEGER :: khigh = 0                     !! Inclusive last layer.
+      INTEGER :: no_extra_dimensions = 0       !! Physical extra-axis size; one is later suppressed as a dimension.
+      INTEGER :: tstep_no = 1                  !! One-based HDF5 time-record counter.
+      INTEGER :: sz = 0                        !! Number of element entries for list output.
+      INTEGER :: sediment_no = 0               !! Selected sediment fraction or zero.
+      INTEGER :: contaminant_no = 0             !! Selected contaminant or zero.
+      INTEGER, DIMENSION(:), POINTER :: dimensions !! Sizes in the six fixed HDF5 slots.
+      INTEGER, DIMENSION(:), POINTER :: szorder    !! Logical traversal axes expressed as fixed-slot indices.
+      INTEGER, DIMENSION(:), POINTER :: list       !! Copied element numbers for list output.
+      CHARACTER(8)         :: name=''              !! Catalogue selector.
+      CHARACTER(2)         :: typ=''               !! Structure storage code.
+      CHARACTER(csz)       :: title='*S'           !! Plot/check-file title.
+      CHARACTER(8)         :: units=''             !! Units label.
+      CHARACTER(12)        :: basis='grid_as_grid' !! Grid/list representation selector.
+      CHARACTER(7)         :: scope='all'          !! Element-class selector.
+      CHARACTER(11)        :: extra_dimensions = '-' !! Extra-axis selector.
+      CHARACTER(6), DIMENSION(:), POINTER :: names_of_extra_dimensions !! Extra-axis member labels.
+      CHARACTER(6), DIMENSION(:), POINTER :: names_of_dimensions       !! Labels for all six fixed slots.
+      CHARACTER(6), DIMENSION(:), POINTER :: mbr                       !! Square/bank/river member labels.
+      LOGICAL :: isgrid = F                    !! Whether spatial data use column and row axes.
+      LOGICAL :: istimeseries = F              !! Whether fixed slot 1 is active.
+      LOGICAL :: isreal = T                    !! Whether the structure stores real rather than integer values.
+      LOGICAL :: varies_with_sediment=F        !! Whether a sediment selector was applied.
+      LOGICAL :: varies_with_contaminant=F     !! Whether a contaminant selector was applied.
 
    END TYPE hdf5_item
-   TYPE(HDF5_ITEM), DIMENSION(:), POINTER :: hdf5_items=>NULL()
+   TYPE(HDF5_ITEM), DIMENSION(:), POINTER :: hdf5_items=>NULL() !! Public HDF5 projection, built once at finalization.
 
 
 
-   INTEGER                  :: no_times=0, no_lists=0, no_masks=0, no_items=0, no_static_items=0
-   INTEGER, PARAMETER       :: sp=50  !DEBUG compiler bug  should be <sp>X in writes, but had to make it 50X
-   REAL, PARAMETER          :: small = 0.001
-   CHARACTER(4), PARAMETER  :: keywords(7)         = [character(len=4)  :: 'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag']
-   CHARACTER(12),PARAMETER  :: basis(3)            = [character(len=12) :: 'grid_as_grid', 'grid_as_list', 'list_as_list']
-   CHARACTER(7), PARAMETER  :: scope(4)            = [character(len=7)  :: 'all', 'squares', 'banks', 'rivers']
-   CHARACTER(11), PARAMETER :: extra_dimensions(4) = [character(len=11) :: '-','faces','X_Y', 'left_right']
-   LOGICAL                  :: diagnostics=F
+   INTEGER                  :: no_times=0        !! Number of user time blocks.
+   INTEGER                  :: no_lists=0        !! Number of original and derived element lists.
+   INTEGER                  :: no_masks=0        !! Number of user masks.
+   INTEGER                  :: no_items=0        !! Total static and dynamic item count.
+   INTEGER                  :: no_static_items=0 !! Static prefix length within `items`.
+   INTEGER, PARAMETER       :: sp=50             !! Legacy check-file separator/indentation width.
+   REAL, PARAMETER          :: small = 0.001     !! Scheduler comparison tolerance in hours (3.6 seconds).
+   CHARACTER(4), PARAMETER  :: keywords(7) = &
+      [character(len=4) :: 'item', 'list', 'mask', 'time', 'stop', 'kill', 'diag'] !! Plan block keywords.
+   CHARACTER(12), PARAMETER :: basis(3) = &
+      [character(len=12) :: 'grid_as_grid', 'grid_as_list', 'list_as_list'] !! Accepted basis selectors.
+   CHARACTER(7), PARAMETER  :: scope(4) = &
+      [character(len=7) :: 'all', 'squares', 'banks', 'rivers'] !! Accepted element scopes.
+   CHARACTER(11), PARAMETER :: extra_dimensions(4) = &
+      [character(len=11) :: '-', 'faces', 'X_Y', 'left_right'] !! Accepted extra-axis selectors.
+   LOGICAL                  :: diagnostics=F !! Whether verbose plan-parser messages are written.
 
 
    PRIVATE
@@ -134,19 +234,47 @@ MODULE visualisation_metadata
 CONTAINS
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Advances one HDF5 item's one-based output-record counter.
+!>
+!> No bounds or allocation check is made; `hdf5_items` must already have been
+!> built by final dynamic registration.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added per-item HDF5 timestep accounting. |
+!> @endhistory
    SUBROUTINE INCREMENT_HDF5_TSTEP_NO(mn)
-      INTEGER, INTENT(IN) :: mn
+      INTEGER, INTENT(IN) :: mn !! One-based HDF5 item index.
       hdf5_items(mn)%tstep_no = hdf5_items(mn)%tstep_no + 1
    END SUBROUTINE INCREMENT_HDF5_TSTEP_NO
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Reports whether an item is due at the supplied simulation time.
+!>
+!> On its first call the routine allocates schedule state for the final
+!> `no_items` catalogue and obtains every first due time from [[get_next_time]].
+!> Time zero is always recorded. A later time is due when it reaches the next
+!> schedule within `small=0.001` hours; accepting it advances that item by one
+!> scheduled interval.
+!>
+!> @warning
+!> A call that jumps over several due times advances only one interval. Later
+!> calls remain due until the stored schedule catches up. The saved arrays are
+!> never resized or reset, so all item registration must be complete first.
+!> Exact comparison with real zero is intentional current behavior.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added per-item piecewise output scheduling. |
+!> @endhistory
    LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
-      INTEGER, INTENT(IN)                   :: n
-      INTEGER                               :: i
-      REAL, INTENT(IN)                      :: time  !hours
-      LOGICAL, SAVE :: first = T
+      INTEGER, INTENT(IN) :: n    !! One-based model-facing item index.
+      REAL, INTENT(IN)    :: time !! Current simulation time in hours.
+      INTEGER             :: i    !! Array-constructor index used during first-call initialization.
+      LOGICAL, SAVE       :: first = T !! First-call initialization guard.
       IF(first) THEN
          first = F
          ALLOCATE(previous_time(no_items), next_time(no_items))
@@ -166,10 +294,27 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Computes the next scheduled output time for one item.
+!>
+!> The first stop time strictly greater than `previous_time(n)` selects the
+!> active schedule segment. The result is the earlier of that segment's stop
+!> and one interval after the previous time. [[read_time]] appends a `HUGE`
+!> sentinel pair so a normally constructed schedule terminates the search.
+!>
+!> @warning
+!> Schedule stops and steps are not validated. Non-increasing stops, nonpositive
+!> steps, an unresolved schedule pointer, or a manually built schedule without
+!> the sentinel can produce a stalled schedule or an out-of-bounds lookup.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added piecewise next-time calculation. |
+!> @endhistory
    ELEMENTAL REAL FUNCTION get_next_time(n) RESULT(r)
-      INTEGER, INTENT(IN) :: n
-      INTEGER             :: j
+      INTEGER, INTENT(IN) :: n !! One-based model-facing item index.
+      INTEGER             :: j !! Active time-segment index.
       j = 0
       DO
          j = j + 1
@@ -179,11 +324,21 @@ CONTAINS
    END FUNCTION get_next_time
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns one character property from a model-facing item.
+!>
+!> Exact selectors are `basis`, `name`, `title`, `typ`, `units`, `scope`, and
+!> `extra_dimensions`. An unknown selector returns a diagnostic string rather
+!> than stopping. The caller must supply a valid one-based item index.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added model-facing character metadata lookup. |
+!> @endhistory
    PURE FUNCTION get_metadata_c(i, text) RESULT(r)
-      INTEGER, INTENT(IN)      :: i
-      CHARACTER(*), INTENT(IN) :: text
-      CHARACTER(csz)           :: r
+      INTEGER, INTENT(IN)      :: i    !! One-based model-facing item index.
+      CHARACTER(*), INTENT(IN) :: text !! Exact property selector.
+      CHARACTER(csz)           :: r    !! Selected value or diagnostic text.
       SELECT CASE(text)
        CASE('basis') ; r=items(i)%basis
        CASE('name')  ; r=items(i)%name
@@ -198,12 +353,23 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns one character property from an HDF5-facing item.
+!>
+!> Scalar selectors are `basis`, `name`, `title`, `typ`, `units`, and `scope`.
+!> `el-typ`, `names_of_dimensions`, and `names_of_extra_dimensions` require the
+!> optional member index `e`. Unknown selectors return diagnostic text; invalid
+!> item/member indices are unchecked.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added HDF5-facing character metadata lookup. |
+!> @endhistory
    ELEMENTAL FUNCTION get_metadata_HDF5_c(i, text, e) RESULT(r)
-      INTEGER, INTENT(IN)           :: i
-      INTEGER, INTENT(IN), OPTIONAL :: e
-      CHARACTER(*), INTENT(IN)      :: text
-      CHARACTER(csz)                :: r
+      INTEGER, INTENT(IN)           :: i    !! One-based HDF5 item index.
+      INTEGER, INTENT(IN), OPTIONAL :: e    !! Required member index for array-valued selectors.
+      CHARACTER(*), INTENT(IN)      :: text !! Exact property selector.
+      CHARACTER(csz)                :: r    !! Selected value or diagnostic text.
       SELECT CASE(text)
        CASE('basis')                     ; r=hdf5_items(i)%basis
        CASE('el-typ')                    ; r=hdf5_items(i)%mbr(e)
@@ -220,22 +386,32 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns one integer property from a model-facing item.
+!>
+!> Supported selectors are `ext`, spatial/list bounds (`ilow`, `ihigh`, `jlow`,
+!> `jhigh`), layer bounds (`klow`, `khigh`), `no_items`, `sz`, `nsed`, `ncon`,
+!> and `su`. Grid bounds come from the resolved mask; list bounds are `1:sz`.
+!> Selector `su` requires the optional list position `su`. Unknown selectors
+!> return `HUGE(1)`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added model-facing integer metadata lookup. |
+!> @endhistory
    ELEMENTAL INTEGER FUNCTION get_metadata_i(i, text, su) RESULT(r)
-      INTEGER, INTENT(IN)           :: i
-      INTEGER, INTENT(IN), OPTIONAL :: su
-      CHARACTER(*), INTENT(IN)      :: text
+      INTEGER, INTENT(IN)           :: i    !! One-based model-facing item index.
+      INTEGER, INTENT(IN), OPTIONAL :: su   !! List position required by selector `su`.
+      CHARACTER(*), INTENT(IN)      :: text !! Exact property selector.
       SELECT CASE(text)
        CASE('ext')      ; r=NO_EXTRA_DIMENSIONS(items(i)%extra_dimensions)
 
-!!CASE('first')    ; r=items(i)%first
        CASE('ilow')     ; IF(items(i)%isgrid) THEN ; r=items(i)%amask%ilow  ; ELSE ; r=1                 ; ENDIF
        CASE('ihigh')    ; IF(items(i)%isgrid) THEN ; r=items(i)%amask%ihigh ; ELSE ; r=items(i)%alist%sz ; ENDIF
        CASE('jlow')     ; IF(items(i)%isgrid) THEN ; r=items(i)%amask%jlow  ; ELSE ; r=1                 ; ENDIF
        CASE('jhigh')    ; IF(items(i)%isgrid) THEN ; r=items(i)%amask%jhigh ; ELSE ; r=1                 ; ENDIF
        CASE('klow')     ; r=items(i)%layers(1)
        CASE('khigh')    ; r=items(i)%layers(2)
-!!CASE('latest')   ; r=items(i)%latest
        CASE('no_items') ; r=no_items
        CASE('su')       ; r=items(i)%alist%a(su)
        CASE('sz')       ; r=items(i)%alist%sz
@@ -247,12 +423,23 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns a structure-buffer handle from a model-facing item.
+!>
+!> Exact selectors `first` and `latest` return the corresponding `C_PTR`.
+!> Unknown selectors return `C_NULL_PTR`. Optional `su` is a retained legacy
+!> argument and is not used.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added buffer-handle lookup using the compiler's integer pointer representation. |
+!> | 2026-03-29 | SvB | Replaced integer addresses with interoperable `C_PTR` handles. |
+!> @endhistory
    ELEMENTAL FUNCTION get_metadata_ptr(i, text, su) RESULT(r)
-      INTEGER, INTENT(IN) :: i
-      INTEGER, INTENT(IN), OPTIONAL :: su
-      CHARACTER(*), INTENT(IN) :: text
-      TYPE(C_PTR) :: r
+      INTEGER, INTENT(IN)           :: i    !! One-based model-facing item index.
+      INTEGER, INTENT(IN), OPTIONAL :: su   !! Retained unused legacy selector index.
+      CHARACTER(*), INTENT(IN)      :: text !! Exact handle selector.
+      TYPE(C_PTR)                    :: r    !! Selected handle or `C_NULL_PTR`.
       SELECT CASE(text)
        CASE('first') ; r=items(i)%first
        CASE('latest') ; r=items(i)%latest
@@ -262,11 +449,22 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns one integer property from an HDF5-facing item.
+!>
+!> Scalar selectors expose bounds, counts, user selectors, item count, and the
+!> HDF5 timestep counter. `dimensions`, `list`, and `szorder` require optional
+!> index `e`; `no_mbr` and `no_dimensions` derive array sizes/counts. Unknown
+!> selectors return `HUGE(1)`. Indices and pointer association are unchecked.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added HDF5-facing integer metadata lookup. |
+!> @endhistory
    ELEMENTAL INTEGER FUNCTION get_metadata_hdf5_i(i, text, e) RESULT(r)
-      INTEGER, INTENT(IN)           :: i
-      INTEGER, INTENT(IN), OPTIONAL :: e
-      CHARACTER(*), INTENT(IN)      :: text
+      INTEGER, INTENT(IN)           :: i    !! One-based HDF5 item index.
+      INTEGER, INTENT(IN), OPTIONAL :: e    !! Required index for array-valued selectors.
+      CHARACTER(*), INTENT(IN)      :: text !! Exact property selector.
       SELECT CASE(text)
        CASE('dimensions')          ; r=hdf5_items(i)%dimensions(e)
        CASE('ext')                 ; r=NO_EXTRA_DIMENSIONS(hdf5_items(i)%extra_dimensions)
@@ -293,11 +491,22 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Replaces one structure-buffer handle on a model-facing item.
+!>
+!> Exact selectors `first` and `latest` update the respective `C_PTR`; any
+!> other selector silently performs no assignment. Ownership of the target
+!> buffer remains with [[visualisation_structure]].
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added buffer-handle mutation using integer pointer values. |
+!> | 2026-03-29 | SvB | Replaced integer addresses with interoperable `C_PTR` handles. |
+!> @endhistory
    SUBROUTINE set_metadata_ptr(i, text, a)
-      INTEGER, INTENT(IN) :: i
-      TYPE(C_PTR), INTENT(IN) :: a
-      CHARACTER(*), INTENT(IN) :: text
+      INTEGER, INTENT(IN)      :: i    !! One-based model-facing item index.
+      TYPE(C_PTR), INTENT(IN)  :: a    !! Replacement structure-buffer handle.
+      CHARACTER(*), INTENT(IN) :: text !! Exact handle selector.
       SELECT CASE(text)
        CASE('first') ; items(i)%first = a
        CASE('latest') ; items(i)%latest = a
@@ -306,11 +515,23 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns one logical property from a model-facing item.
+!>
+!> Selectors are `on`, `isgrid`, `istimeseries`, `isreal`,
+!> `varies_with_sediment`, and `varies_with_contaminant`. `on` requires both
+!> optional mask coordinates. Real storage is recognized by first type letter
+!> B, G, L, or M. Unknown selectors return false.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added model-facing logical metadata lookup. |
+!> @endhistory
    PURE LOGICAL FUNCTION get_metadata_L(I, text, a, b) RESULT(r)
-      INTEGER, INTENT(IN)           :: i
-      INTEGER, INTENT(IN), OPTIONAL :: a,b
-      CHARACTER(*), INTENT(IN)      :: text
+      INTEGER, INTENT(IN)           :: i    !! One-based model-facing item index.
+      INTEGER, INTENT(IN), OPTIONAL :: a    !! Mask first-dimension index required by `on`.
+      INTEGER, INTENT(IN), OPTIONAL :: b    !! Mask second-dimension index required by `on`.
+      CHARACTER(*), INTENT(IN)      :: text !! Exact property selector.
       SELECT CASE(text)
        CASE('on')           ; r=items(i)%amask%ma(a,b)
        CASE('isgrid')       ; r=items(i)%isgrid
@@ -324,10 +545,21 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns one logical property from an HDF5-facing item.
+!>
+!> Selectors are `isgrid`, `istimeseries`, `isreal`,
+!> `varies_with_sediment`, and `varies_with_contaminant`. Real storage is
+!> recognized by first type letter B, G, L, or M. Unknown selectors return
+!> false; item bounds are unchecked.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added HDF5-facing logical metadata lookup. |
+!> @endhistory
    PURE LOGICAL FUNCTION get_metadata_HDF5_L(I, text) RESULT(r)
-      INTEGER, INTENT(IN)           :: i
-      CHARACTER(*), INTENT(IN)      :: text
+      INTEGER, INTENT(IN)      :: i    !! One-based HDF5 item index.
+      CHARACTER(*), INTENT(IN) :: text !! Exact property selector.
       SELECT CASE(text)
        CASE('isgrid')                  ; r=hdf5_items(i)%isgrid
        CASE('istimeseries')            ; r=hdf5_items(i)%istimeseries
@@ -339,13 +571,28 @@ CONTAINS
    END FUNCTION get_metadata_HDF5_L
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Parses the dynamic visualisation plan and resolves its references.
+!>
+!> [[visualisation_read:COPY]] prepares the plan input. The routine scans block
+!> keywords, delegates each content block to [[HANDLE]], honors `diag`, and
+!> stops parsing on `stop` or `kill`. Normal completion links every dynamic item
+!> to its mask/list and time records, checks empty lists and layer ranges, and
+!> deletes the temporary plan stream.
+!>
+!> `kill` deliberately prints guidance and executes `STOP`. Missing/invalid
+!> tokens are fatal through the visualisation reader. This routine is called
+!> once by the saved first `jj/=1` dynamic-registration pass.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added visualisation-plan scanning and reference resolution. |
+!> | 2026-04-14 | SvB | Routed parser failures through the current fatal visualisation error service. |
+!> @endhistory
    SUBROUTINE read_dynamic_visualisation_metadata()
-      INTEGER              :: i
-      CHARACTER(4)         :: now
+      INTEGER      :: i   !! Dynamic item index during reference resolution.
+      CHARACTER(4) :: now !! Current lowercase plan-block keyword.
       CALL COPY(DIRQQ, planfile)
-!CALL STRIP(file='input-files/visualisation_plan.txt', u=ur, checktitle='visualisation plan', delimiter='!', separator=(/':','^'/))
-!!!WRITE(vp_in,'(/A)') 'Opened '//TRIM(DIRQQ)//'/'//'input/visualisation_plan.txt'
       now = CYCLE_TILL_KEYWORD()
       IF(now/='diag') THEN
          WRITE(vp_in,'(A)') 'TO GET DIAGNOSTIC INFO IN THIS CHECK FILE'
@@ -365,7 +612,6 @@ CONTAINS
          PRINT*
          STOP
       ELSE
-!    CALL CHECK()
       ENDIF
       DO i=no_static_items+1,no_items
          CALL LINK_USERS_NUMBERS_TO_INDEXES(items(i))
@@ -377,20 +623,37 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Appends one static catalogue item and its shared grid/time records.
+!>
+!> Static items are always whole-grid, scope `all`, and not time series. The
+!> supplied one-letter base type receives the fixed `S` structure suffix.
+!> Layer-varying items span `1:TOP_CELL`; others store `(0,0)`. The shared mask
+!> and schedule are lazily created by [[point_to_whole_grid]] and
+!> [[point_to_static]]. The interface must register all static items before any
+!> dynamic plan is read.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added static visualisation-item registration. |
+!> @endhistory
    SUBROUTINE register_static_visualisation_metadata(name, typ, units, title, szi, szj, extra_dimensions, varies_with_elevation)
-      INTEGER, INTENT(IN)      :: szi, szj
-      CHARACTER(*), INTENT(IN) :: name, units, title, extra_dimensions
-      CHARACTER, INTENT(IN)    :: typ
-      LOGICAL, INTENT(IN)      :: varies_with_elevation
-      TYPE(ITEM), POINTER      :: ii
+      INTEGER, INTENT(IN)      :: szi !! Whole-grid first-dimension extent.
+      INTEGER, INTENT(IN)      :: szj !! Whole-grid second-dimension extent.
+      CHARACTER(*), INTENT(IN) :: name !! Catalogue selector.
+      CHARACTER, INTENT(IN)    :: typ !! One-letter base structure type.
+      CHARACTER(*), INTENT(IN) :: units !! Units label.
+      CHARACTER(*), INTENT(IN) :: title !! Human-readable output title.
+      CHARACTER(*), INTENT(IN) :: extra_dimensions !! Extra-axis selector.
+      LOGICAL, INTENT(IN)      :: varies_with_elevation !! Whether all model layers form an axis.
+      TYPE(ITEM), POINTER      :: ii !! Newly appended model-facing item.
       CALL WRITE_STA_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation)
       CALL INCREMENT_item(items,1)
       no_static_items = no_static_items + 1
       ii                  => items(no_items)
       ii%name             =  name
       ii%istimeseries     = F
-      ii%typ              =  typ//'S'  !s for static
+      ii%typ              =  typ//'S'
       ii%title            =  title
       ii%units            =  units
       ii%basis            =  'grid_as_grid'
@@ -403,17 +666,28 @@ CONTAINS
    END SUBROUTINE register_static_visualisation_metadata
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Writes one static variable to the visualisation check file.
+!>
+!> The first call opens `checkfile` on `vp_out` and writes the constants header.
+!> Every call writes the fixed-width name, elevation flag, units, extra-axis
+!> selector, and title. The saved first-call state is never reset.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added static catalogue reporting. |
+!> @endhistory
    SUBROUTINE write_sta_variable(name, units, title, extra_dimensions, varies_with_elev)
-      CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
-      LOGICAL, INTENT(IN)              :: varies_with_elev
-      LOGICAL, SAVE                    :: first=T
-      CHARACTER(LEN(extra_dimensions)) :: ed
+      CHARACTER(*), INTENT(IN)         :: name !! Catalogue selector.
+      CHARACTER(*), INTENT(IN)         :: units !! Units label.
+      CHARACTER(*), INTENT(IN)         :: title !! Human-readable title.
+      CHARACTER(*), INTENT(IN)         :: extra_dimensions !! Extra-axis selector.
+      LOGICAL, INTENT(IN)              :: varies_with_elev !! Whether to print the elevation flag.
+      LOGICAL, SAVE                    :: first=T !! Check-file header/open guard.
+      CHARACTER(LEN(extra_dimensions)) :: ed !! Fixed-length extra-axis field written to the report.
       IF(extra_dimensions=='-') THEN ; ed = '-' ; ELSE ; ed=extra_dimensions ; ENDIF
       IF(first) THEN
          first = F
-         !! OPEN(unit=uw, FILE=TRIM(DIRQQ)//'/'//'output/check_visualisation_plan.txt', ACTION='WRITE', STATUS='UNKNOWN')
-         !print*, 'CHECKFILE1 = ', TRIM(checkfile)
          OPEN(unit=vp_out, FILE=checkfile, ACTION='WRITE', STATUS='UNKNOWN')
          WRITE(vp_out,'(A)') 'Full list of constants recorded in the HDF5 file'
          WRITE(vp_out,'(A)') 'E-varies with subsurface elevation'
@@ -423,29 +697,57 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Writes one implemented dynamic variable to the check-file catalogue.
+!>
+!> The first call opens `checkfile` and writes the variable header after the
+!> static catalogue. Each row contains availability flags produced by
+!> [[v_e_sed_con]], units, extra-axis selector, and title. Only variables whose
+!> interface catalogue marks them implemented reach this routine.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added dynamic catalogue reporting. |
+!> | 2026-04-03 | SvB | Made character lengths and fixed-width report formatting portable. |
+!> @endhistory
    SUBROUTINE write_dyn_variable(name, units, title, extra_dimensions, varies_with_elev, varies_with_sed, varies_with_con)
-      CHARACTER(*), INTENT(IN)         :: name, units, title, extra_dimensions
-      LOGICAL, INTENT(IN)              :: varies_with_elev, varies_with_sed, varies_with_con
-      LOGICAL, SAVE                    :: first=T
+      CHARACTER(*), INTENT(IN) :: name !! Catalogue selector.
+      CHARACTER(*), INTENT(IN) :: units !! Units label.
+      CHARACTER(*), INTENT(IN) :: title !! Human-readable title.
+      CHARACTER(*), INTENT(IN) :: extra_dimensions !! Extra-axis selector.
+      LOGICAL, INTENT(IN)      :: varies_with_elev !! Whether an elevation/layer selector is available.
+      LOGICAL, INTENT(IN)      :: varies_with_sed !! Whether a sediment selector is required.
+      LOGICAL, INTENT(IN)      :: varies_with_con !! Whether a contaminant selector is required.
+      LOGICAL, SAVE            :: first=T !! Check-file dynamic-header/open guard.
       IF(first) THEN
          first = F
-!    OPEN(unit=uw, FILE=TRIM(DIRQQ)//'/'//'output/check_visualisation_plan.txt', ACTION='WRITE', STATUS='UNKNOWN')
-         !print*, 'CHECKFILE2 = ', TRIM(checkfile)
          OPEN(unit=vp_out, FILE=checkfile, ACTION='WRITE', STATUS='UNKNOWN')
          WRITE(vp_out,'(A80)') REPEAT('-',80)
          WRITE(vp_out,'(A)') 'Full list of variables that can be recorded in the HDF5 file'
          WRITE(vp_out,'(A)') 'E-varies with subsurface elevation; C-varies with contaminant no; S-varies with sediment fraction no'
       ENDIF
-      WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, V_E_SED_CON(varies_with_elev,varies_with_sed,varies_with_con), units, extra_dimensions, title
+      WRITE(vp_out,'(A8, A8, A9, A12, A70)') name, &
+         V_E_SED_CON(varies_with_elev,varies_with_sed,varies_with_con), &
+         units, extra_dimensions, title
    END SUBROUTINE write_dyn_variable
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Formats layer, sediment, and contaminant availability flags.
+!>
+!> The five interior character positions receive `E`, `S`, and `C` in that
+!> order, separated by blanks when enabled; disabled positions remain blank.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added dynamic availability-flag formatting. |
+!> @endhistory
    PURE CHARACTER(7) FUNCTION v_e_sed_con(v,s,c) RESULT(r)
-      INTEGER             :: p
-      LOGICAL, INTENT(IN) :: v,s,c
+      LOGICAL, INTENT(IN) :: v !! Whether to emit `E`.
+      LOGICAL, INTENT(IN) :: s !! Whether to emit `S`.
+      LOGICAL, INTENT(IN) :: c !! Whether to emit `C`.
+      INTEGER             :: p !! Next flag position in the fixed-width result.
       r = REPEAT(' ',LEN(r))
       p = 3
       IF(v) THEN ; r(p:p)='E' ; p=p+2 ; ENDIF
@@ -455,10 +757,19 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Formats the static elevation-availability flag.
+!>
+!> A true input places `E` in the middle of the five-character result; false
+!> returns blanks.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added static elevation-flag formatting. |
+!> @endhistory
    PURE CHARACTER(5) FUNCTION v_elev(v) RESULT(r)
-      INTEGER             :: p
-      LOGICAL, INTENT(IN) :: v
+      LOGICAL, INTENT(IN) :: v !! Whether to emit `E`.
+      INTEGER             :: p !! Fixed output position of the flag.
       r = REPEAT(' ',LEN(r))
       p = 3
       IF(v) r(p:p)='E'
@@ -466,20 +777,51 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Publishes and resolves the dynamic output catalogue in two passes.
+!>
+!> With `jj=1`, implemented interface entries are written to the check-file
+!> catalogue and the routine returns. On the first `jj/=1` call the user plan is
+!> parsed and a saved `found` array is allocated. Every subsequent catalogue
+!> entry updates all requested items with the same name, including units,
+!> dependency flags, and the type returned by [[alter_dynamic_type]].
+!>
+!> When `final` is true, every requested name must have matched an implemented
+!> catalogue entry. Items are validated and reported, then
+!> [[create_hdf5_metadata]] builds the writer-facing projection.
+!>
+!> @warning
+!> Correct operation depends on the interface's exact two-pass call order and
+!> one final call after every catalogue entry. Saved state has no reset. The
+!> routine appends `S` to both static and dynamic structure storage types; that
+!> suffix does not distinguish time dependence.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added two-pass matching of plan requests to the model output catalogue. |
+!> | 2026-04-14 | SvB | Routed rejected/unimplemented requests through the current fatal error service. |
+!> @endhistory
    SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
       extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
-      INTEGER                                  :: i
-      INTEGER, INTENT(IN)                      :: jj
-      CHARACTER(*), INTENT(IN)                 :: name, units, title, extra_dimensions
-      CHARACTER, INTENT(IN)                    :: typ
-      LOGICAL, INTENT(IN)                      :: final, & !is final call to this routine
-         varies_with_elevation, varies_with_sed, varies_with_con, implemented
-      LOGICAL, DIMENSION(:), ALLOCATABLE, SAVE :: found
-      TYPE(ITEM), POINTER                      :: ii=>NULL()
-      LOGICAL, SAVE                            :: first=T
+      INTEGER, INTENT(IN)      :: jj !! Registration pass: one publishes, any other value resolves.
+      LOGICAL, INTENT(IN)      :: final !! Whether this is the final catalogue entry of the resolving pass.
+      CHARACTER(*), INTENT(IN) :: name !! Interface catalogue selector.
+      CHARACTER, INTENT(IN)    :: typ !! One-letter base storage type.
+      CHARACTER(*), INTENT(IN) :: units !! Units label.
+      CHARACTER(*), INTENT(IN) :: title !! Human-readable title.
+      CHARACTER(*), INTENT(IN) :: extra_dimensions !! Extra-axis selector.
+      LOGICAL, INTENT(IN)      :: varies_with_elevation !! Whether a layer selector is available.
+      LOGICAL, INTENT(IN)      :: varies_with_sed !! Whether a sediment selector is required.
+      LOGICAL, INTENT(IN)      :: varies_with_con !! Whether a contaminant selector is required.
+      LOGICAL, INTENT(IN)      :: implemented !! Whether current extraction code supports the entry.
+      INTEGER                  :: i !! Dynamic item index.
+      LOGICAL, DIMENSION(:), ALLOCATABLE, SAVE :: found !! Match flag for each parsed dynamic request.
+      TYPE(ITEM), POINTER      :: ii=>NULL() !! Current matching/validated request.
+      LOGICAL, SAVE            :: first=T !! Plan-reading and `found` allocation guard.
       IF(jj==1) THEN
-         IF(implemented) CALL WRITE_DYN_VARIABLE(name, units, title, extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con)
+         IF(implemented) CALL WRITE_DYN_VARIABLE(name, units, title, extra_dimensions, &
+            varies_with_elevation, varies_with_sed, varies_with_con)
          RETURN
       ENDIF
       IF(first) THEN
@@ -534,11 +876,33 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Projects every model-facing item into six-slot HDF5 metadata.
+!>
+!> Scalar fields are copied, extra-axis labels and six fixed dimension arrays
+!> are allocated, [[GET_SZ_CR]] fills size/order metadata, and `GET_MBR` supplies
+!> structure-member labels. List items receive an owned copy of their resolved
+!> element list; grid items continue to use bounds only.
+!>
+!> @warning
+!> The public `hdf5_items` pointer must be disassociated and every source item
+!> fully resolved. There is no repeated-call, allocation-failure, or unsupported
+!> structure-type recovery. The projection intentionally does not copy timing
+!> schedules or structure-buffer handles. Copying the general character getter
+!> into the 11-character extra-axis field triggers a conservative compiler
+!> truncation warning, but every accepted selector is at most ten characters.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added the HDF5-oriented metadata projection. |
+!> | 2026-04-14 | SvB | Supplied a safe default extra-axis size used by this projection. |
+!> @endhistory
    SUBROUTINE create_hdf5_metadata()
-      INTEGER                  :: mn, nex
-      TYPE(ITEM), POINTER      :: ii
-      TYPE(HDF5_ITEM), POINTER :: hh
+      INTEGER                  :: mn  !! Item index shared by the source and projection catalogues.
+      INTEGER                  :: nex !! Physical size of the selected extra axis.
+      TYPE(ITEM), POINTER      :: ii  !! Current model-facing source item.
+      TYPE(HDF5_ITEM), POINTER :: hh  !! Current HDF5-facing destination item.
       ALLOCATE(hdf5_items(no_items))
       DO mn=1,no_items
          ii => items(mn)
@@ -582,10 +946,31 @@ CONTAINS
    END SUBROUTINE create_hdf5_metadata
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Fills fixed HDF5 dimension slots and their logical traversal order.
+!>
+!> | Logical axis | Fixed slot | Active size |
+!> |:-------------|:----------:|:------------|
+!> | Column or element list | 5 for grid, 6 for list | Inclusive `ilow:ihigh` extent |
+!> | Row | 6 for grid, 5 (disabled) for list | Inclusive `jlow:jhigh` extent |
+!> | Layer | 3 | Inclusive layer extent when `khigh>0` |
+!> | Element member | 4 | `MBR_COUNT(typ)`, disabled when one |
+!> | Extra | 2 | Extra-axis size, disabled when one |
+!> | Time | 1 | One for a time series, otherwise disabled |
+!>
+!> `szorder(1:6)` retains logical traversal order: spatial/list, row, layer,
+!> member, extra, then time. All three destination arrays must already have
+!> length `ndim`.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added six-slot dimension and traversal-order construction. |
+!> @endhistory
    SUBROUTINE GET_SZ_CR(h)
-      INTEGER                  :: r, mbr, nextra
-      TYPE(HDF5_ITEM), POINTER :: h
+      TYPE(HDF5_ITEM), POINTER :: h      !! HDF5 item whose allocated dimension arrays are filled.
+      INTEGER                  :: r      !! Current fixed-slot index.
+      INTEGER                  :: mbr    !! Number of structure element members.
+      INTEGER                  :: nextra !! Physical extra-axis size.
       mbr    = MBR_COUNT(h%typ)
       nextra = h%no_extra_dimensions
       IF(h%isgrid) THEN
@@ -601,18 +986,47 @@ CONTAINS
          r=5 ; h%dimensions(r) = 0
       ENDIF
       h%names_of_dimensions(r)='row'    ;                                  ; h%szorder(2) = r
-      r=3 ; h%names_of_dimensions(r)='layer'  ; IF(h%khigh>0) THEN ; h%dimensions(r)=h%khigh-h%klow+1 ; ELSE ; h%dimensions(r)=0 ; ENDIF ; h%szorder(3) = r
-      r=4 ; h%names_of_dimensions(r)='el_typ' ; h%dimensions(r)=mbr              ; IF(h%dimensions(r)==1) h%dimensions(r)=0  ; h%szorder(4) = r
-      r=2 ; h%names_of_dimensions(r)='extra'  ; h%dimensions(r)=nextra           ; IF(h%dimensions(r)==1) h%dimensions(r)=0  ; h%szorder(5) = r
-      r=1 ; h%names_of_dimensions(r)='time'   ; IF(h%istimeseries) THEN ; h%dimensions(r)=1 ; ELSE ; h%dimensions(r)=0 ; ENDIF ; h%szorder(6) = r
+      r=3
+      h%names_of_dimensions(r)='layer'
+      IF(h%khigh>0) THEN ; h%dimensions(r)=h%khigh-h%klow+1 ; ELSE ; h%dimensions(r)=0 ; ENDIF
+      h%szorder(3) = r
+      r=4
+      h%names_of_dimensions(r)='el_typ'
+      h%dimensions(r)=mbr
+      IF(h%dimensions(r)==1) h%dimensions(r)=0
+      h%szorder(4) = r
+      r=2
+      h%names_of_dimensions(r)='extra'
+      h%dimensions(r)=nextra
+      IF(h%dimensions(r)==1) h%dimensions(r)=0
+      h%szorder(5) = r
+      r=1
+      h%names_of_dimensions(r)='time'
+      IF(h%istimeseries) THEN ; h%dimensions(r)=1 ; ELSE ; h%dimensions(r)=0 ; ENDIF
+      h%szorder(6) = r
    END SUBROUTINE GET_SZ_CR
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Estimates the active HDF5 rank from item bounds and flags.
+!>
+!> This private legacy helper has no current caller; the writer instead counts
+!> nonzero entries in `dimensions`.
+!>
+!> @warning
+!> The current tests use `high-low>1`, so a two-entry row or layer extent is not
+!> counted. The function also starts at rank one unconditionally. It should not
+!> be used as a substitute for counting the finalized dimension array.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added the now-unused direct rank estimator. |
+!> @endhistory
    PURE INTEGER FUNCTION calc_rank(h) RESULT(r)
-      INTEGER                  :: mbr
-      TYPE(HDF5_ITEM), POINTER :: h
+      TYPE(HDF5_ITEM), POINTER :: h   !! HDF5 item to inspect.
+      INTEGER                  :: mbr !! Number of structure element members.
       mbr = MBR_COUNT(h%typ)
       r   = 1
       IF(h%jhigh-h%jlow>1)        r=r+1
@@ -624,10 +1038,36 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Maps a base data type plus requested representation to a storage type.
+!>
+!> | Representation | Scope `all` | `squares` | `banks` | `rivers` |
+!> |:---------------|:------------|:----------|:--------|:---------|
+!> | Grid `C` | C | V | K | O |
+!> | Grid `G` | G | M | B | L |
+!> | Grid `H` | H | X | T | U |
+!> | Grid `L` | L | L | L | L |
+!> | Grid `Q` | Q | Z | A | D |
+!> | List `C/G/H/L/Q` | V/M/X/M/Z | same | same | same |
+!>
+!> The caller appends `S`. Current implemented catalogue paths chiefly produce
+!> the storage types supported by [[visualisation_structure]]; several legacy
+!> letters in this table have no current structure implementation.
+!>
+!> @warning
+!> Base type `W` is fatal. Unknown types/scopes retain `$`; validation does not
+!> explicitly reject that result before later structure lookup. `ii` is modified
+!> on the fatal `W` path even though the error service stops execution.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added basis/scope transformation of legacy visualisation types. |
+!> | 2026-04-14 | SvB | Routed unsupported `W` data through the current fatal error service. |
+!> @endhistory
    CHARACTER FUNCTION alter_dynamic_type(typ, ii) RESULT(r)
-      CHARACTER, INTENT(IN)     :: typ
-      TYPE(ITEM), INTENT(INOUT) :: ii
+      CHARACTER, INTENT(IN)     :: typ !! One-letter base type from the interface catalogue.
+      TYPE(ITEM), INTENT(INOUT) :: ii  !! Requested item whose basis/scope select the transformation.
       IF(typ=='W') THEN
          WRITE(mess,*) 'cannot handle type W data' ; CALL error_visualisation()
          ii%typ = 'W*'
@@ -675,10 +1115,26 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Dispatches one parsed plan keyword to its block handler.
+!>
+!> `item` appends and reads one request. `list` reads an original list followed
+!> by its square/bank/river subsets. `mask` reads an effective mask followed by
+!> all/square/bank/river lists and stores the first-list offset. `time` appends a
+!> schedule; `diag` enables verbose output. `stop` and `kill` are handled by the
+!> outer parser and do not reach this routine.
+!>
+!> Derived list groups must remain in exactly this order because [[extra]] and
+!> [[point_to_list]] resolve them by fixed offsets.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added plan-block dispatch and derived-list construction. |
+!> | 2026-04-03 | SvB | Renamed the nested explicit-list filter to avoid collision with module `lists`. |
+!> @endhistory
    SUBROUTINE HANDLE(now)
-      INTEGER                  :: orig
-      CHARACTER(4), INTENT(IN) :: now
+      CHARACTER(4), INTENT(IN) :: now  !! Exact lowercase plan-block keyword.
+      INTEGER                  :: orig !! Index of an original explicit list while subsets are appended.
       SELECT CASE(now)
        CASE('item')
          CALL INCREMENT_item(items,1)
@@ -720,10 +1176,27 @@ CONTAINS
       END SELECT
    END SUBROUTINE HANDLE
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Resolves one parsed item's mask/list and timing references.
+!>
+!> `grid_as_grid` points `amask` at the referenced mask and sets `isgrid` true.
+!> `grid_as_list` resolves a mask-derived scoped list; `list_as_list` resolves an
+!> explicit-list scoped subset. Every path resolves `atime` by user number.
+!> Lookup failure is fatal.
+!>
+!> @warning
+!> List paths do not explicitly reset `isgrid` false; normal freshly initialized
+!> dynamic items already have false. An `as_above` item copied from a static
+!> item can violate that assumption.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added user-number reference resolution. |
+!> @endhistory
    SUBROUTINE link_users_numbers_to_indexes(it)
-      INTEGER                   :: uun
-      TYPE(ITEM), INTENT(INOUT) :: it
+      TYPE(ITEM), INTENT(INOUT) :: it  !! Parsed item whose references are resolved in place.
+      INTEGER                   :: uun !! Referenced user mask/list number.
       uun = it%users_no_for_link_or_mask
       SELECT CASE(it%basis)
        CASE('grid_as_grid')
@@ -739,10 +1212,20 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns the lazily created shared static-output schedule.
+!>
+!> On first use a singleton timing record numbered 999 is allocated with one
+!> `HUGE(1.0)` interval and stop. Every static item points to this record. The
+!> object is process-lifetime state and is never deallocated or reset.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added the shared static timing sentinel. |
+!> @endhistory
    FUNCTION point_to_static() RESULT(r)
-      TYPE(TTIME), POINTER :: r
-      LOGICAL, SAVE        :: first=T
+      TYPE(TTIME), POINTER :: r !! Shared static schedule.
+      LOGICAL, SAVE        :: first=T !! Lazy-allocation guard.
       IF(first) THEN
          first    =  F
          ALLOCATE(sstatic)
@@ -757,11 +1240,27 @@ CONTAINS
    END FUNCTION point_to_static
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns the lazily created shared all-true grid mask.
+!>
+!> The first call allocates mask number 999 over bounds `(1:i,1:j)`. Later calls
+!> return the same mask and ignore their dimensions, which is valid only because
+!> all static registrations use one model grid.
+!>
+!> @warning
+!> A later call with different extents does not resize or validate the mask.
+!> Dimensions must be positive and stable before first use.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added the shared whole-grid mask. |
+!> @endhistory
    FUNCTION point_to_whole_grid(i,j) RESULT(r)
-      TYPE(MASK), POINTER :: r
-      INTEGER, INTENT(IN) :: i,j
-      LOGICAL, SAVE :: first=T
+      INTEGER, INTENT(IN) :: i !! First-dimension extent used on first call.
+      INTEGER, INTENT(IN) :: j !! Second-dimension extent used on first call.
+      TYPE(MASK), POINTER :: r !! Shared all-true mask.
+      LOGICAL, SAVE       :: first=T !! Lazy-allocation guard.
       IF(first) THEN
          first    =  F
          ALLOCATE(whole_grid)
@@ -779,9 +1278,19 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Maps an element scope to its fixed derived-list offset.
+!>
+!> `all`, `squares`, `banks`, and `rivers` map to 0, 1, 2, and 3. This ordering
+!> must match [[HANDLE]]. There is no default branch; callers rely on prior item
+!> validation.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added fixed scope offsets for derived-list groups. |
+!> @endhistory
    ELEMENTAL INTEGER FUNCTION extra(s) RESULT(r)
-      CHARACTER(*), INTENT(IN) :: s
+      CHARACTER(*), INTENT(IN) :: s !! Exact validated scope selector.
       SELECT CASE(s)
        CASE('all')    ; r=0
        CASE('squares') ; r=1
@@ -790,11 +1299,22 @@ CONTAINS
       END SELECT
    END FUNCTION extra
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Finds a user mask and returns a pointer to its stored record.
+!>
+!> The first mask whose `number` equals the requested value is returned. A
+!> missing number is fatal. Mask numbering uniqueness is not checked, so a
+!> duplicate silently resolves to the first occurrence.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added user-number mask lookup. |
+!> | 2026-04-14 | SvB | Routed lookup failure through the current fatal error service. |
+!> @endhistory
    FUNCTION point_to_mask(users_no_for_link_or_mask) RESULT(r)
-      INTEGER, INTENT(IN) :: users_no_for_link_or_mask
-      INTEGER             :: I
-      TYPE(MASK), POINTER :: r
+      INTEGER, INTENT(IN) :: users_no_for_link_or_mask !! User-visible mask number.
+      TYPE(MASK), POINTER :: r !! Matching stored mask.
+      INTEGER             :: i !! Mask-table index.
       r=>NULL()
       DO i=1,no_masks
          IF(masks(i)%number==users_no_for_link_or_mask) THEN
@@ -808,12 +1328,32 @@ CONTAINS
       ENDIF
    END FUNCTION point_to_mask
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Resolves a scoped list from a mask or explicit list user number.
+!>
+!> For `grid_as_list`, the mask lookup supplies its `listno` base; for
+!> `list_as_list`, the original explicit list supplies the base. [[extra]] then
+!> selects the all/original, square, bank, or river entry at offsets 0:3.
+!> Missing source numbers are fatal.
+!>
+!> @warning
+!> Correct resolution depends on contiguous four-entry groups in the order
+!> established by [[HANDLE]]. Duplicate user numbers select the first source.
+!> Any basis other than exact `grid_as_list` follows the explicit-list branch.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added mask/list scope resolution. |
+!> | 2026-04-14 | SvB | Routed lookup failures through the current fatal error service. |
+!> @endhistory
    FUNCTION point_to_list(users_no_for_link_or_mask, basis, scope) RESULT(r)
-      INTEGER                  :: i, j
-      INTEGER, INTENT(IN)      :: users_no_for_link_or_mask
-      CHARACTER(*), INTENT(IN) :: basis, scope
-      TYPE(LLIST), POINTER :: r
+      INTEGER, INTENT(IN)      :: users_no_for_link_or_mask !! User-visible mask or list number.
+      CHARACTER(*), INTENT(IN) :: basis !! Exact basis selector.
+      CHARACTER(*), INTENT(IN) :: scope !! Exact validated scope selector.
+      TYPE(LLIST), POINTER     :: r !! Resolved original or derived list.
+      INTEGER                  :: i !! Mask/list search index.
+      INTEGER                  :: j !! Located source index, or zero before a match.
       r=>null()
       j = 0
       IF(basis=='grid_as_list') THEN
@@ -844,11 +1384,21 @@ CONTAINS
 
    END FUNCTION point_to_list
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Finds a user timing block and returns its stored record.
+!>
+!> The first matching `number` is returned. A missing number is fatal; duplicate
+!> numbers are not rejected and resolve to the first occurrence.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added user-number timing lookup. |
+!> | 2026-04-14 | SvB | Routed lookup failure through the current fatal error service. |
+!> @endhistory
    FUNCTION point_to_time(users_no_for_times) RESULT(r)
-      INTEGER, INTENT(IN)  :: users_no_for_times
-      INTEGER              :: I
-      TYPE(TTIME), POINTER :: r
+      INTEGER, INTENT(IN)  :: users_no_for_times !! User-visible time-block number.
+      TYPE(TTIME), POINTER :: r !! Matching stored schedule.
+      INTEGER              :: i !! Time-table index.
       r=>NULL()
       DO i=1,no_times
          IF(times(i)%number==users_no_for_times) THEN
@@ -862,16 +1412,41 @@ CONTAINS
       ENDIF
    END FUNCTION point_to_time
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns a shallow derived-type copy of one model-facing item.
+!>
+!> This private legacy helper has no current caller. Intrinsic assignment copies
+!> scalar values and pointer association targets; it does not deep-copy masks,
+!> lists, schedules, or structure-buffer storage. Bounds are unchecked.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added private item retrieval. |
+!> @endhistory
    TYPE(ITEM) FUNCTION get_item(i) RESULT(r)
-      INTEGER, INTENT(IN) :: i
+      INTEGER, INTENT(IN) :: i !! One-based model-facing item index.
       r = items(i)
    END FUNCTION get_item
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Legacy helper intended to report total, static, or dynamic counts.
+!>
+!> This private function has no current caller.
+!>
+!> @warning
+!> The optional-argument test is reversed in current code. When `text` is
+!> present the function always returns total `no_items`; when absent it illegally
+!> references `text` in a `SELECT CASE`. It cannot safely provide the intended
+!> static/dynamic query and is retained unchanged for documentation-only scope.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added the now-unused catalogue count helper. |
+!> @endhistory
    PURE INTEGER FUNCTION no_of_items(text) RESULT(r)
-      CHARACTER(*), INTENT(IN), OPTIONAL :: text
+      CHARACTER(*), INTENT(IN), OPTIONAL :: text !! Intended optional selector `static` or `dynamic`.
       IF(PRESENT(text)) THEN
          r = no_items
       ELSE
@@ -884,7 +1459,17 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Reads plan tokens until a recognized block keyword is found.
+!>
+!> Every unrecognized token is skipped. Diagnostics report the search and match.
+!> End-of-file and read failures are handled fatally by `R_C`; the assignment
+!> `r='stop'` after the explicit `RETURN` is unreachable legacy code.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added plan-keyword scanning. |
+!> @endhistory
    CHARACTER(4) FUNCTION cycle_till_keyword() RESULT(r)
       WRITE(vp_out,*)
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'looking for keyword'
@@ -897,11 +1482,35 @@ CONTAINS
       r = 'stop'
    END FUNCTION cycle_till_keyword
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Reads one `item` block into a model-facing request.
+!>
+!> Recognized headings set user number, name, basis, scope, extra axis,
+!> mask/list number, timing number, layer range, sediment number, and
+!> contaminant number. Reversed layer endpoints are normalized. Exact lowercase
+!> `as_above` copies the previous item and then restores only the new name and
+!> item number. `ENDITEM` terminates the block; unknown headings are fatal.
+!>
+!> @warning
+!> `as_above` requires a preceding dynamic request. Intrinsic assignment is a
+!> shallow copy and can inherit static mask/time pointers and `isgrid=.TRUE.` if
+!> used on the first dynamic item, while list reference resolution does not
+!> clear `isgrid`. No guard enforces this precondition. Item names are stored in
+!> eight characters; longer plan values are silently truncated before catalogue
+!> matching. The temporary used by `as_above` makes that fixed-width narrowing
+!> visible as a compiler warning.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added item-block parsing and `as_above` inheritance. |
+!> | 2026-04-14 | SvB | Routed unknown headings through the current fatal error service. |
+!> @endhistory
    SUBROUTINE read_item(s)
-      INTEGER                   :: number
-      CHARACTER(csz)            :: dum, name
-      TYPE(ITEM), INTENT(INOUT) :: s
+      TYPE(ITEM), INTENT(INOUT) :: s      !! Newly appended request populated in place.
+      INTEGER                   :: number !! New user number preserved across `as_above` copying.
+      CHARACTER(csz)            :: dum    !! Current heading token.
+      CHARACTER(csz)            :: name   !! New name preserved across `as_above` copying.
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a item'
       DO
          CALL R_C(' ',dum)
@@ -924,7 +1533,6 @@ CONTAINS
             s              = items(no_items-1)
             s%name         = name
             s%users_number = number
-!            s%group_with   = no_items-1
           CASE DEFAULT
             WRITE(mess,'(A,I4)') TRIM(dum)//'  Unrecognised heading in item number',s%users_number
             CALL error_visualisation()
@@ -935,9 +1543,27 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Validates selectors and component numbers on one resolved item.
+!>
+!> Basis, scope, and extra-axis values must occur in the module parameter
+!> arrays. Sediment/contaminant-dependent variables require an in-range positive
+!> selector; independent variables require zero. The first failure is fatal.
+!>
+!> @note
+!> The diagnostic for a contaminant number supplied to an independent variable
+!> currently says `SEDIMENT No`; validation itself still tests
+!> `contaminant_no`. Item-number uniqueness, reference-number uniqueness, and
+!> schedule validity are not checked here.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added item selector and component validation. |
+!> | 2026-04-14 | SvB | Routed validation failures through the current fatal error service. |
+!> @endhistory
    SUBROUTINE check_item(a)
-      TYPE(ITEM), INTENT(IN) :: a
+      TYPE(ITEM), INTENT(IN) :: a !! Resolved item to validate.
       IF (ALL(a%basis/=basis)) THEN
          WRITE(mess,'(2A)') a%basis,'  BASIS NOT RECOGNISED'
          WRITE(mess2,'(A,10A14)') ' SHOULD BE ONE OF: ',basis
@@ -974,10 +1600,27 @@ CONTAINS
 
    END SUBROUTINE check_item
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Performs catalogue-wide empty-list and layer-bound checks.
+!>
+!> Every list-based item must resolve to at least one element. Layer endpoints
+!> may be zero to suppress the axis; otherwise they may not fall below zero or
+!> above `TOP_CELL`. All failures are written before one fatal error call.
+!>
+!> @note
+!> The test permits mixed ranges beginning at zero and does not require a
+!> layer-varying variable to select layers. Those are current validation limits.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added final empty-list and layer-range checks. |
+!> | 2026-04-14 | SvB | Routed aggregate failure through the current fatal error service. |
+!> @endhistory
    SUBROUTINE final_check_of_item()
-      INTEGER             :: i, cnt
-      TYPE(ITEM), POINTER :: a
+      INTEGER             :: i   !! Item index.
+      INTEGER             :: cnt !! Number of reported failures.
+      TYPE(ITEM), POINTER :: a   !! Current item.
       cnt = 0
       DO i=1,SIZE(items,dim=1)
          a => items(i)
@@ -996,10 +1639,27 @@ CONTAINS
    END SUBROUTINE final_check_of_item
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Reads one piecewise timing block and appends a sentinel segment.
+!>
+!> The leading record supplies the user number and pair count. Each following
+!> pair is `(tstep,tstop)` in hours. Arrays have size `sz+1`; the final step and
+!> stop are both `HUGE(1.0)` so [[get_next_time]] can always terminate for a
+!> valid schedule. User pairs are echoed to the check file.
+!>
+!> @warning
+!> Pair count, positive step size, ascending stop times, and stop/step
+!> consistency are not validated. Invalid schedules can stall or mis-schedule
+!> [[time_to_record]]. Duplicate user time numbers resolve to the first block.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added timing-block parsing and terminal sentinel values. |
+!> @endhistory
    SUBROUTINE read_time(t)
-      INTEGER                    :: i
-      TYPE(TTIME), INTENT(INOUT) :: t
+      TYPE(TTIME), INTENT(INOUT) :: t !! Newly appended timing record populated in place.
+      INTEGER                    :: i !! User timing-pair index.
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading times'
       CALL R_I('TIMES number and size', t%number, t%sz)
       ALLOCATE(t%tstep(t%sz+1), t%tstop(t%sz+1))
@@ -1017,11 +1677,30 @@ CONTAINS
    END SUBROUTINE read_time
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Reads and validates one explicit element list.
+!>
+!> The input gives user list number, size, and exactly that many element
+!> numbers. The original list receives scope `all` and its internal table index,
+!> is echoed with a runtime-generated format, and requires every element to lie
+!> in `1:nel`. All invalid elements are reported before a fatal error.
+!>
+!> @warning
+!> Nonnegative list size, uniqueness, and user-list-number uniqueness are not
+!> checked here. [[make_list_from_list]] later sorts and removes duplicates.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added explicit element-list parsing and range validation. |
+!> | 2026-04-03 | SvB | Replaced a compiler-specific repeated-field format with a runtime format string. |
+!> | 2026-04-14 | SvB | Routed aggregate range failure through the current fatal error service. |
+!> @endhistory
    SUBROUTINE read_list(L)
-      INTEGER                    :: i, cnt
-      TYPE(LLIST), INTENT(INOUT) :: L
-      CHARACTER(LEN=100) :: fmt_str
+      TYPE(LLIST), INTENT(INOUT) :: L !! Newly appended original list populated in place.
+      INTEGER                    :: i !! Element position.
+      INTEGER                    :: cnt !! Number of invalid elements.
+      CHARACTER(LEN=100)         :: fmt_str !! Runtime repeated-integer output format.
 
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a list'
 
@@ -1045,11 +1724,32 @@ CONTAINS
       IF(cnt>0) CALL error_visualisation()
    END SUBROUTINE read_list
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Derives a sorted scoped element list from an effective grid mask.
+!>
+!> Capacity is `GET_NUM(txt)*COUNT(m%ma)`: one square, four banks, four rivers,
+!> or all nine candidates per enabled cell. Nested [[loops]] fills candidates
+!> from display-oriented `SU_NUMBER`, `BANK_NO`, and `RIVER_NO`; [[sort]] removes
+!> absent zeros and duplicates and orders remaining element numbers.
+!>
+!> The result's `scope`, `sz`, and `a` are defined. Other private `llist`
+!> bookkeeping fields remain undefined because mask-derived lists are located
+!> through their group's stored array offset.
+!>
+!> @warning
+!> `txt` must be one of the four validated scopes. Mask bounds must conform to
+!> all transferred topology arrays. An empty effective mask reaches [[sort]]
+!> with a zero-sized candidate array; that edge path is not explicitly guarded.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added topology-aware scoped lists derived from masks. |
+!> @endhistory
    TYPE(LLIST) FUNCTION make_list_from_mask(m, txt) RESULT(r)
-      INTEGER                  :: num
-      CHARACTER(*), INTENT(IN) :: txt
-      TYPE(MASK), INTENT(IN)   :: m
+      TYPE(MASK), INTENT(IN)   :: m   !! Effective source mask and inclusive display bounds.
+      CHARACTER(*), INTENT(IN) :: txt !! Exact derived scope.
+      INTEGER                  :: num !! Maximum candidate elements contributed per enabled cell.
       r%scope = txt
       num     = GET_NUM(txt)
       r%sz    = num*COUNT(m%ma) ; ALLOCATE(r%a(r%sz)) ; r%a = 0
@@ -1062,9 +1762,21 @@ CONTAINS
 
    CONTAINS
 
-      !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+      !> Populates the result's candidate array in mask traversal order.
+      !>
+      !> The effective mask guarantees a positive gridsquare number. Topology
+      !> arrays may contribute zero for absent banks/links; [[sort]] removes it.
+      !>
+      !> @history
+      !> | Date | Author | Description |
+      !> |:-----|:-------|:------------|
+      !> | 2004-07 | JE | Added nested mask/topology traversal. |
+      !> @endhistory
       SUBROUTINE loops()
-         INTEGER :: c, i, j, su
+         INTEGER :: c  !! Next candidate-array position.
+         INTEGER :: i  !! Mask first-dimension index.
+         INTEGER :: j  !! Mask second-dimension index.
+         INTEGER :: su !! Positive gridsquare element number.
          c = 1
          DO i=m%ilow,m%ihigh
             DO j=m%jlow,m%jhigh
@@ -1080,13 +1792,27 @@ CONTAINS
 
    END FUNCTION make_list_from_mask
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Derives a sorted element-class subset from an explicit list.
+!>
+!> A result array with the original list capacity is filled by nested
+!> [[filter_list_items]], then [[sort]] removes zeros/duplicates and shrinks it
+!> to the unique matching square, bank, or river elements. The source list is
+!> the scope-`all` entry, so only the three class subsets use this function.
+!>
+!> `num=GET_NUM(txt)` is retained but unused. Result bookkeeping other than
+!> `scope`, `sz`, and `a` remains undefined; fixed group offsets locate it.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added scope subsets derived from explicit lists. |
+!> | 2026-04-03 | SvB | Reworked and renamed the nested filter for current name-resolution rules. |
+!> @endhistory
    FUNCTION make_list_from_list(L, txt) RESULT(r)
-      TYPE(LLIST), INTENT(IN)      :: L
-      CHARACTER(LEN=*), INTENT(IN) :: txt
-      TYPE(LLIST)                  :: r
-
-      INTEGER :: num
+      TYPE(LLIST), INTENT(IN)      :: L   !! Validated original element list.
+      CHARACTER(LEN=*), INTENT(IN) :: txt !! Exact class scope: squares, banks, or rivers.
+      TYPE(LLIST)                  :: r   !! Derived sorted subset.
+      INTEGER                      :: num !! Retained result of `GET_NUM`; unused by current filtering.
 
       r%scope = txt
       num = GET_NUM(txt)
@@ -1095,7 +1821,6 @@ CONTAINS
       ALLOCATE(r%a(r%sz))
       r%a = 0
 
-      ! Renamed to prevent collision with any module-level 'lists' array
       CALL filter_list_items()
 
       IF (diagnostics) THEN
@@ -1115,10 +1840,22 @@ CONTAINS
 
    CONTAINS
 
-      !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+      !> Copies elements of the requested class into the result candidate array.
+      !>
+      !> Source elements were range-checked by [[read_list]], so the transferred
+      !> type arrays may be indexed directly. Unmatched entries remain zero for
+      !> the outer [[sort]] to remove.
+      !>
+      !> @history
+      !> | Date | Author | Description |
+      !> |:-----|:-------|:------------|
+      !> | 2026-04-03 | SvB | Isolated the nested class filter under its collision-free current name. |
+      !> @endhistory
       SUBROUTINE filter_list_items()
-         INTEGER :: c, i, su
-         LOGICAL :: iss
+         INTEGER :: c   !! Next result candidate position.
+         INTEGER :: i   !! Source-list position.
+         INTEGER :: su  !! Current validated element number.
+         LOGICAL :: iss !! Whether the current element matches `txt`.
 
          c = 1
          DO i = 1, L%sz
@@ -1145,9 +1882,18 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns the maximum candidate count contributed per selected cell.
+!>
+!> `all`, `squares`, `banks`, and `rivers` return 9, 1, 4, and 4. There is no
+!> default branch; callers must supply a validated scope.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added candidate-capacity lookup for derived lists. |
+!> @endhistory
    PURE INTEGER FUNCTION get_num(txt) RESULT(r)
-      CHARACTER(*), INTENT(IN) :: txt
+      CHARACTER(*), INTENT(IN) :: txt !! Exact validated scope selector.
       SELECT CASE(txt)
        CASE('all')     ; r=9
        CASE('squares') ; r=1
@@ -1158,12 +1904,32 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Removes nonpositive/duplicate candidates and sorts element numbers.
+!>
+!> A logical presence array indexed `1:MAXVAL(a)` marks positive candidates.
+!> `COUNT` gives the unique result size; the pointer target is reallocated only
+!> when that size shrinks. Scanning the presence array then writes ascending
+!> element numbers. This is a set conversion, not a comparison sort.
+!>
+!> @warning
+!> `sza` must equal the current extent of associated pointer `a`, and candidates
+!> must be nonnegative. Memory scales with the greatest element number rather
+!> than candidate count. Empty/all-zero input relies on zero-size intrinsic and
+!> allocation behavior; negative candidates can index below `d`.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added presence-array deduplication and ascending ordering. |
+!> @endhistory
    SUBROUTINE sort(sza, a)
-      INTEGER, INTENT(INOUT)             :: sza
-      INTEGER                            :: i, j, szd
-      INTEGER, DIMENSION(:), POINTER     :: a
-      LOGICAL, DIMENSION(:), ALLOCATABLE :: d
+      INTEGER, INTENT(INOUT)             :: sza !! Candidate count on entry; unique positive count on return.
+      INTEGER, DIMENSION(:), POINTER     :: a   !! Candidate array, possibly reallocated and sorted in place.
+      INTEGER                            :: i   !! Candidate/presence-array index.
+      INTEGER                            :: j   !! Count or next output position.
+      INTEGER                            :: szd !! Largest candidate and presence-array extent.
+      LOGICAL, DIMENSION(:), ALLOCATABLE :: d   !! Presence flags indexed by element number.
       szd = MAXVAL(a)
       ALLOCATE(d(szd))
       d = F
@@ -1173,7 +1939,7 @@ CONTAINS
       ENDDO
 
       j = COUNT(d)
-      IF(j<sza) THEN     !lose and that lie outside catchment
+      IF(j<sza) THEN     ! Remove absent zeroes and duplicate element numbers.
          sza = j
          DEALLOCATE(a)
          ALLOCATE(a(sza))
@@ -1188,12 +1954,31 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Reads a rectangular mask and removes non-model cells.
+!>
+!> The header order is user number, row bounds, then column bounds. Reversed
+!> endpoints are normalized and a lower-bound-preserving logical array is
+!> allocated. Any character not present in `off` enables a cell. The raw mask is
+!> reported, then ANDed with positive `SU_NUMBER` existence and reported again.
+!>
+!> @warning
+!> Mask extents are not checked against the display-oriented `SU_NUMBER` grid.
+!> Out-of-range or nonpositive bounds can fail during allocation or effective
+!> mask construction. Duplicate mask numbers resolve to the first occurrence.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added plan-mask parsing and catchment intersection. |
+!> | 2026-03-29 | SvB | Moved mask reporting to the allocatable standalone [[mask_write]] helper. |
+!> @endhistory
    SUBROUTINE read_mask(m, off)
-      INTEGER                              :: i, j
-      CHARACTER, DIMENSION(:), INTENT(IN)  :: off
-      CHARACTER                            :: c
-      TYPE(MASK), INTENT(INOUT)            :: m
+      TYPE(MASK), INTENT(INOUT)           :: m   !! Newly appended mask populated in place.
+      CHARACTER, DIMENSION(:), INTENT(IN) :: off !! Characters interpreted as disabled cells.
+      INTEGER                             :: i   !! Column index and temporary bound during normalization.
+      INTEGER                             :: j   !! Row index.
+      CHARACTER                           :: c   !! One mask-cell token.
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading a mask'
       CALL R_I('number,JLOW,JHIGH,ILOW,IHIGH',m%number, m%jlow, m%jhigh, m%ilow, m%ihigh)
       IF(m%jlow>m%jhigh) THEN ; i=m%jlow ; m%jlow=m%jhigh ; m%jhigh=i ; ENDIF
@@ -1216,7 +2001,7 @@ CONTAINS
 
       DO j=m%jlow,m%jhigh
          DO i=m%ilow,m%ihigh
-            m%ma(i,j) = m%ma(i,j) .AND. EXISTS(SU_NUMBER(i,j))  !effective mask
+            m%ma(i,j) = m%ma(i,j) .AND. EXISTS(SU_NUMBER(i,j))  ! Exclude non-model grid cells.
          ENDDO
       ENDDO
       CALL mask_write('effective mask', m%ma, 'T', '.')
@@ -1224,14 +2009,27 @@ CONTAINS
 
 
 
-!cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+!> @brief Writes a logical mask using caller-selected true/false characters.
+!>
+!> Empty dimensions return without output. Otherwise a same-shape character
+!> array is allocated, filled with `tr`/`fa`, and written using a runtime format
+!> whose repeat count equals the first dimension. Fortran array order therefore
+!> emits one first-dimension run for each second-dimension row.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added mask rendering as a nested plan-reader helper. |
+!> | 2026-03-29 | SvB | Made it standalone with an allocatable character buffer. |
+!> | 2026-04-03 | SvB | Replaced the Intel repeat-count format extension with a runtime format. |
+!> @endhistory
    SUBROUTINE mask_write(txt, ma, tr, fa)
-      CHARACTER(*), INTENT(IN) :: txt
-      LOGICAL, INTENT(IN)      :: ma(:,:)
-      CHARACTER(1), INTENT(IN) :: tr, fa
-
-      CHARACTER(1), ALLOCATABLE :: cc(:,:)
-      CHARACTER(20)             :: fmt_str
+      CHARACTER(*), INTENT(IN) :: txt    !! Heading written before the mask.
+      LOGICAL, INTENT(IN)      :: ma(:,:) !! Mask values in display orientation.
+      CHARACTER(1), INTENT(IN) :: tr     !! Character used for true entries.
+      CHARACTER(1), INTENT(IN) :: fa     !! Character used for false entries.
+      CHARACTER(1), ALLOCATABLE :: cc(:,:) !! Rendered character mask.
+      CHARACTER(20)             :: fmt_str !! Runtime repeated-character format.
 
       IF (SIZE(ma, 1) == 0 .OR. SIZE(ma, 2) == 0) RETURN
 
@@ -1243,7 +2041,7 @@ CONTAINS
       END WHERE
 
       WRITE(vp_out,'(50X,A)') txt
-      ! Dynamically build format string to replace Intel-specific <SIZE> extension
+      ! Build the repeated-character format without a compiler extension.
       WRITE(fmt_str, '("(",I0,"A)")') SIZE(cc, 1)
       WRITE(vp_out, fmt_str) cc
 
@@ -1251,12 +2049,29 @@ CONTAINS
    END SUBROUTINE mask_write
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Grows the model-facing item pointer array.
+!>
+!> Existing records are shallow-copied into a new target, preserving their
+!> mask/list/time pointer associations and `C_PTR` values, then the old array
+!> target is deallocated. The global item count advances by one.
+!>
+!> @warning
+!> Although `n` controls allocated growth, `no_items` always increments by one;
+!> all current callers therefore pass `n=1`. Association status of `s` must be
+!> defined before entry. Allocation failure is not handled.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added typed item-array growth. |
+!> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> @endhistory
    SUBROUTINE INCREMENT_item(s,n)
-      TYPE(ITEM), DIMENSION(:), POINTER, INTENT(INOUT) :: s
-      INTEGER, INTENT(IN)                             :: n
-      TYPE(ITEM), DIMENSION(:), POINTER                :: old
-      INTEGER                                          :: sz
+      TYPE(ITEM), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
+      INTEGER, INTENT(IN)                             :: n   !! Number of new slots; current contract requires one.
+      TYPE(ITEM), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
+      INTEGER                                          :: sz  !! Previous array extent.
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
@@ -1273,12 +2088,28 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Grows the explicit/derived list pointer array.
+!>
+!> Existing records and their element-array pointer associations are
+!> shallow-copied before the old list-array target is deallocated. `no_lists`
+!> advances by one.
+!>
+!> @warning
+!> `n` controls growth but the counter advances by one; every current caller
+!> passes `n=1`. Association status must be defined and allocation is unchecked.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added typed list-array growth. |
+!> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> @endhistory
    SUBROUTINE INCREMENT_LIST(s,n)
-      TYPE(LLIST), DIMENSION(:), POINTER, INTENT(INOUT) :: s
-      INTEGER, INTENT(IN)                              :: n
-      TYPE(LLIST), DIMENSION(:), POINTER                :: old
-      INTEGER                                           :: sz
+      TYPE(LLIST), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
+      INTEGER, INTENT(IN)                              :: n   !! Number of new slots; current contract requires one.
+      TYPE(LLIST), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
+      INTEGER                                           :: sz  !! Previous array extent.
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
@@ -1295,12 +2126,27 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Grows the user-mask pointer array.
+!>
+!> Existing masks and their logical-array associations are shallow-copied before
+!> the old array target is deallocated. `no_masks` advances by one.
+!>
+!> @warning
+!> `n` controls growth but the counter advances by one; every current caller
+!> passes `n=1`. Association status must be defined and allocation is unchecked.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added typed mask-array growth. |
+!> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> @endhistory
    SUBROUTINE INCREMENT_MASK(s,n)
-      TYPE(MASK), DIMENSION(:), POINTER, INTENT(INOUT) :: s
-      INTEGER, INTENT(IN)                             :: n
-      TYPE(MASK), DIMENSION(:), POINTER                :: old
-      INTEGER                                          :: sz
+      TYPE(MASK), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
+      INTEGER, INTENT(IN)                             :: n   !! Number of new slots; current contract requires one.
+      TYPE(MASK), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
+      INTEGER                                          :: sz  !! Previous array extent.
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
@@ -1317,12 +2163,28 @@ CONTAINS
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> @brief Grows the user timing-block pointer array.
+!>
+!> Existing schedules and their step/stop array associations are shallow-copied
+!> before the old array target is deallocated. `no_times` advances by one.
+!>
+!> @warning
+!> `n` controls growth but the counter advances by one; every current caller
+!> passes `n=1`. The module pointer `times` has no explicit initial null
+!> association, yet this routine immediately applies `ASSOCIATED(s)`.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added typed timing-array growth. |
+!> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> @endhistory
    SUBROUTINE INCREMENT_TIME(s,n)
-      TYPE(TTIME), DIMENSION(:), POINTER, INTENT(INOUT) :: s
-      INTEGER, INTENT(IN)                              :: n
-      TYPE(TTIME), DIMENSION(:), POINTER                :: old
-      INTEGER                                           :: sz
+      TYPE(TTIME), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
+      INTEGER, INTENT(IN)                              :: n   !! Number of new slots; current contract requires one.
+      TYPE(TTIME), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
+      INTEGER                                           :: sz  !! Previous array extent.
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
@@ -1339,9 +2201,20 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns the physical size of an extra-axis selector.
+!>
+!> `faces` returns four; `left_right` and `X_Y` return two. `-` and unknown
+!> selectors return one so an allocated placeholder label exists; [[GET_SZ_CR]]
+!> later changes singleton extra axes to dimension zero.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added extra-axis sizing. |
+!> | 2026-04-14 | SvB | Added the safe default size of one. |
+!> @endhistory
    ELEMENTAL INTEGER FUNCTION no_extra_dimensions(e_d) RESULT(r)
-      CHARACTER(*), INTENT(IN) :: e_d
+      CHARACTER(*), INTENT(IN) :: e_d !! Exact extra-axis selector.
       SELECT CASE(e_d)
        CASE('-')        ; r = 1
        CASE('faces')       ; r = 4
@@ -1353,29 +2226,41 @@ CONTAINS
 
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> @brief Returns fixed labels for one extra axis.
+!>
+!> `faces` labels are North, East, South, West; `left_right` labels are left and
+!> right; `X_Y` labels are x and y; `-` is blank. The result is blank-initialized
+!> before selection.
+!>
+!> @warning
+!> `n` must agree with [[no_extra_dimensions]]: four for faces, two for the
+!> paired axes, and one for `-`. Array assignment is not shape-guarded. Unknown
+!> selectors leave blanks.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2004-07 | JE | Added extra-axis member labels. |
+!> | 2026-04-03 | SvB | Made mixed-length character constructors explicit and portable. |
+!> @endhistory
    PURE FUNCTION names_of_extra_dimensions(n, e_d) RESULT(r)
-      INTEGER, INTENT(IN)            :: n
-      CHARACTER(LEN=*), INTENT(IN)   :: e_d
-      CHARACTER(LEN=6), DIMENSION(n) :: r
+      INTEGER, INTENT(IN)            :: n   !! Result extent, normally from `no_extra_dimensions`.
+      CHARACTER(LEN=*), INTENT(IN)   :: e_d !! Exact extra-axis selector.
+      CHARACTER(LEN=6), DIMENSION(n) :: r   !! Fixed-width extra-axis labels.
 
-      ! Initialize to blanks in case n is larger than the provided names
+      ! Initialize to blanks for `-`, unknown selectors, or surplus entries.
       r = ''
 
       SELECT CASE(e_d)
        CASE('-')
          r = ''
        CASE('faces')
-         ! Assumes n == 4
          r = [CHARACTER(LEN=6) :: 'North', 'East', 'South', 'West']
        CASE('left_right')
-         ! Assumes n == 2
          r = [CHARACTER(LEN=6) :: 'left', 'right']
        CASE('X_Y')
-         ! Assumes n == 2
          r = [CHARACTER(LEN=6) :: 'x', 'y']
-         !   CASE DEFAULT
-         !      r = ''
       END SELECT
    END FUNCTION names_of_extra_dimensions
 

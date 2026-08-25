@@ -1,15 +1,31 @@
+!> summary: General numerical, date/time, and input helper routines.
+!>
+!> `utilsmod` contains shared utility routines used across SHETRAN. These
+!> include vector copying, breakpoint time-series reading, date/hour conversion,
+!> one-dimensional interpolation, tridiagonal linear solves, matrix products,
+!> matrix inversion helpers, integer/real array readers, and a random-number
+!> generator.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2008-12 | JE | 4.3.5F90 | Created during conversion to Fortran 90, replacing utility `.F` files. |
+!> | 2026-03-19 | SB | 4.6 | [[hour_from_date]] gained an informative error message for invalid dates (previously a bare `print*,' date trap'`). |
+!> | 2026-04-01 | SB | | Removed two long-dead commented-out routines, `get_start_end_impact` and `open_file`, that were unused and unreachable. |
+!> | 2026-04-03 | SvB | | Modernised [[finput]], [[lubksb]], [[ludcmp]], [[areadi]], and [[areadr]] to free-form style: `IMPLICIT NONE`, explicit `INTENT`, array-slice assignment, `DOT_PRODUCT`, and named `DO`/`IF` blocks in place of `GOTO`s and labelled loops (partly AI-assisted). |
+!> | 2026-04-04 | SvB | | Auto-formatted all source files for consistent indentation and line length. |
+!> | 2026-04-06 | SvB | | Removed the remaining `GOTO`s from [[hinput]]; made [[tridag]] `PURE` and changed its array arguments from assumed-shape to explicit-shape to guarantee no copy-in/copy-out overhead. |
+!> | 2026-04-13 | SvB | | Removed the remaining labelled `DO` loops and modernised [[invertmat]]; made [[dcopy]], the date/leap-year helper functions, [[jematmul_mm]], [[jematmul_vm]], [[terpo1]], [[invertmat]], [[lubksb]], and [[ludcmp]] `PURE`; fixed [[dcopy]]'s `n<-0` typo to `n<=0` and its `dy` argument's intent from `OUT` to `INOUT`. |
+!> | 2026-05-10 | SvB | | Replaced the interactive pause-and-stop in [[hour_from_date]] with `ERROR STOP`, so an invalid date halts non-interactively. |
+!> @endhistory
 MODULE utilsmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the utility .F files
-! SB Mar 26  4.6       Error traping for dates
-!
    USE SGLOBAL
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
    IMPLICIT NONE
 
-   DOUBLEPRECISION, PARAMETER :: eps=1.0d-15
-   CHARACTER(128)             :: msg
+   DOUBLEPRECISION, PARAMETER :: eps=1.0d-15 !! Singularity/zero tolerance used by matrix inversion.
+   CHARACTER(128)             :: msg         !! Error-message buffer passed to `ERROR`.
 
    PRIVATE
    PUBLIC :: TRIDAG, DCOPY, HOUR_FROM_DATE, TERPO1, FINPUT, HINPUT, AREADI, AREADR, &
@@ -17,7 +33,21 @@ MODULE utilsmod
 CONTAINS
 
 
-   !SSSSSS subroutine dcopy (n, dx, incx, dy, incy)
+   !> Copies a double-precision vector into another vector.
+   !>
+   !> This is the BLAS `dcopy` operation implemented locally, including support
+   !> for non-unit and negative increments.
+   !>
+   !> @note The routine follows the simple BLAS indexing convention but does not
+   !> validate `incx` or `incy`. Zero increments and overlapping source/destination
+   !> storage are therefore caller responsibilities.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-13 | SvB | Corrected the `n<-0` typo to `n<=0` (behaviour-preserving for `n=0`, since both the array-slice and strided branches already reduce to zero-trip no-ops); changed `dy`'s intent from `OUT` to `INOUT`, since an `OUT` array can be copied back from an uninitialised compiler temporary and overwrite elements skipped by a non-unit stride. |
+   !> @endhistory
    PURE SUBROUTINE dcopy(n, dx, incx, dy, incy)
    !----------------------------------------------------------------------*
    !     copies vector x to vector y
@@ -26,13 +56,15 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: n, incx, incy ! size and increments
-      DOUBLE PRECISION, DIMENSION(*), INTENT(IN) :: dx
+      INTEGER, INTENT(IN) :: n    !! Number of values to copy.
+      INTEGER, INTENT(IN) :: incx !! Increment between values in `dx`.
+      INTEGER, INTENT(IN) :: incy !! Increment between values in `dy`.
+      DOUBLE PRECISION, DIMENSION(*), INTENT(IN) :: dx !! Source vector.
 
       ! Input/Output arguments
       ! Modernization Fix: MUST be INOUT. If incy > 1, an OUT declaration
       ! would destroy the interleaved elements that are skipped by the stride!
-      DOUBLE PRECISION, DIMENSION(*), INTENT(INOUT) :: dy
+      DOUBLE PRECISION, DIMENSION(*), INTENT(INOUT) :: dy !! Destination vector.
 
       ! Locals
       INTEGER :: i, ix, iy
@@ -61,7 +93,56 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE FINPUT
+   !> Reads breakpoint flux time-series data and averages over a timestep.
+   !>
+   !> The routine accumulates piecewise-constant flux values over the current
+   !> simulation timestep and returns timestep-average values.
+   !>
+   !> `FINPUT` is the general reader for breakpoint flux time series. Input records
+   !> contain a date/time followed by `NINP` flux values. Each flux value is treated
+   !> as constant over the interval ending at its record time `INTIME`, and the
+   !> returned `ARRAY(j)` is the average over the current simulation timestep
+   !> `[SIMNOW, SIMNOW+SIMSTP]`.
+   !>
+   !> Parameters are:
+   !>
+   !> | Argument | Intent | Meaning |
+   !> |:---------|:-------|:--------|
+   !> | `IIN` | input | File unit number for reading data. |
+   !> | `TIH` | input | Simulation start time since the reference date, in hours. |
+   !> | `SIMNOW` | input | Start time of the current simulation timestep, in model hours. |
+   !> | `SIMSTP` | input | Current simulation timestep length, in hours. |
+   !> | `INLAST` | input/output | Last breakpoint time read, relative to `TIH`. |
+   !> | `INTIME` | input/output | Current breakpoint time up to which `FNEXT` is valid. |
+   !> | `FNEXT` | input/output | Current flux vector valid up to `INTIME`; overwritten by newly read interval values. |
+   !> | `NINP` | input | Number of flux items to read from each record. |
+   !> | `ARRAY` | output | Timestep-average flux vector. |
+   !>
+   !> If the existing breakpoint already extends beyond the timestep end,
+   !> `ARRAY = FNEXT`. Otherwise the code integrates each piecewise-constant
+   !> segment and divides by the timestep:
+   !>
+   !> \[
+   !> ARRAY_j =
+   !> \frac{1}{SIMSTP}
+   !> \sum_m \Delta t_m\,F_{j,m},
+   !> \]
+   !>
+   !> where each \(\Delta t_m\) is the overlap between the current simulation
+   !> timestep and one breakpoint interval. Input dates are converted with
+   !> [[hour_from_date]] and shifted by `TIH`. If end-of-file is reached before a
+   !> complete timestep average can be formed, `INTIME` is set to `MARKER999`.
+   !>
+   !> @note A newly read record value is applied over `(INLAST, INTIME]`, where
+   !> `INTIME` is the record time just read. The caller is expected to maintain
+   !> `FNEXT`, `INLAST`, and `INTIME` between calls.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-03 | SvB | Replaced the `GOTO`-driven read loop and implied-`DO` slicing with a named `DO`/`EXIT` loop, `IOSTAT`-based end-of-file detection, and array-slice assignment. |
+   !> @endhistory
    SUBROUTINE FINPUT(IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, &
                      FNEXT, NINP, ARRAY)
    !----------------------------------------------------------------------
@@ -69,26 +150,19 @@ CONTAINS
    ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF FLUX DATA.
    ! DATA ARE AVERAGED OVER A SIMULATION TIMESTEP.
    !
-   ! PARAMETERS:
-   !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-   !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-   !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-   !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-   ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-   ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-   ! (INPUT/OUTPUT)  FNEXT   CURRENT VALUE VALID UP TO TIME 'INTIME'
-   !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-   !       (OUTPUT)  ARRAY   ARRAY OF DATA ITEMS
-   !
    !----------------------------------------------------------------------
       IMPLICIT NONE
 
       ! Dummy Arguments
-      INTEGER, INTENT(IN)             :: IIN, NINP
-      DOUBLE PRECISION, INTENT(IN)    :: TIH, SIMNOW, SIMSTP
-      DOUBLE PRECISION, INTENT(INOUT) :: INLAST, INTIME
-      DOUBLE PRECISION, INTENT(INOUT) :: FNEXT(NINP)
-      DOUBLE PRECISION, INTENT(OUT)   :: ARRAY(NINP)
+      INTEGER, INTENT(IN)             :: IIN    !! File unit number for reading data.
+      INTEGER, INTENT(IN)             :: NINP   !! Number of flux items to read from each record.
+      DOUBLE PRECISION, INTENT(IN)    :: TIH    !! Simulation start time since the reference date, in hours.
+      DOUBLE PRECISION, INTENT(IN)    :: SIMNOW !! Start time of the current simulation timestep, in model hours.
+      DOUBLE PRECISION, INTENT(IN)    :: SIMSTP !! Current simulation timestep length, in hours.
+      DOUBLE PRECISION, INTENT(INOUT) :: INLAST !! Last breakpoint time read, relative to `TIH`.
+      DOUBLE PRECISION, INTENT(INOUT) :: INTIME !! Current breakpoint time up to which `FNEXT` is valid.
+      DOUBLE PRECISION, INTENT(INOUT) :: FNEXT(NINP) !! Flux vector valid up to `INTIME`; overwritten by new records.
+      DOUBLE PRECISION, INTENT(OUT)   :: ARRAY(NINP) !! Timestep-average flux vector.
 
       ! Local Variables
       INTEGER                         :: TIME(5), read_stat
@@ -148,38 +222,77 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE HINPUT
+   !> Reads breakpoint head time-series data and interpolates to timestep midpoint.
+   !>
+   !> The routine advances through input records until it can interpolate head data
+   !> at the midpoint of the current simulation timestep.
+   !>
+   !> `HINPUT` is the general reader for breakpoint head time series. Unlike
+   !> [[finput]], head values are not averaged as fluxes; they are linearly
+   !> interpolated to the midpoint of the current timestep,
+   !> `SIMMID = SIMNOW + 0.5*SIMSTP`.
+   !>
+   !> Parameters are:
+   !>
+   !> | Argument | Intent | Meaning |
+   !> |:---------|:-------|:--------|
+   !> | `IIN` | input | File unit number for reading data. |
+   !> | `TIH` | input | Simulation start time since the reference date, in hours. |
+   !> | `SIMNOW` | input | Start time of the current simulation timestep, in model hours. |
+   !> | `SIMSTP` | input | Current simulation timestep length, in hours. |
+   !> | `INLAST` | input/output | Previous breakpoint time, relative to `TIH`. |
+   !> | `INTIME` | input/output | Next breakpoint time, relative to `TIH`. |
+   !> | `HLAST` | input/output | Head vector read at `INLAST`. |
+   !> | `HNEXT` | input/output | Head vector read at `INTIME`; overwritten when new records are read. |
+   !> | `NINP` | input | Number of head values to read from each record. |
+   !> | `ARRAY` | output | Head vector interpolated to the timestep midpoint. |
+   !>
+   !> Once the midpoint lies between the stored breakpoint times,
+   !> \(INLAST < SIMMID \le INTIME\), the interpolation is
+   !>
+   !> \[
+   !> ARRAY_j =
+   !> HLAST_j + (HNEXT_j-HLAST_j)
+   !> \frac{SIMMID-INLAST}{INTIME-INLAST}.
+   !> \]
+   !>
+   !> The routine then continues reading records until the current timestep end is
+   !> covered. Input dates are converted with [[hour_from_date]] and shifted by
+   !> `TIH`. If end-of-file is reached unexpectedly, `INTIME` is set to
+   !> `marker999`.
+   !>
+   !> @note The interpolation assignment is made only when
+   !> `INLAST < SIMMID <= INTIME`. The caller must carry `HLAST`, `HNEXT`,
+   !> `INLAST`, and `INTIME` between calls so the timestep midpoint is bracketed,
+   !> or can be bracketed by reading additional records.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-06 | SvB | Replaced the `GOTO`-driven read loop with a named `DO`/`EXIT` loop and `IOSTAT`-based end-of-file detection, and the implied-`DO` interpolation loop with array-slice assignment. |
+   !> @endhistory
    SUBROUTINE HINPUT (IIN, TIH, SIMNOW, SIMSTP, INLAST, INTIME, HLAST, HNEXT, NINP, ARRAY)
    !----------------------------------------------------------------------
    !
    ! GENERAL SUBROUTINE TO READ IN BREAKPOINT TIME-SERIES OF HEAD DATA.
    ! HEAD DATA ARE INTERPOLATED ONTO THE MID-POINT OF THE SIMULATION TIMESTEP
    !
-   ! PARAMETERS:
-   !        (INPUT)  IIN     FILE UNIT NUMBER FOR READING DATA
-   !        (INPUT)  TIH     START TIME OF SIMULATION SINCE REFERENCE DATE
-   !        (INPUT)  SIMNOW  START TIME OF CURRENT SIMULATION TIMESTEP
-   !        (INPUT)  SIMSTP  CURRENT SIMULATION TIMESTEP
-   ! (INPUT/OUTPUT)  INLAST  LAST TIME OF READING DATA
-   ! (INPUT/OUTPUT)  INTIME  CURRENT TIME FOR READING DATA
-   ! (INPUT/OUTPUT)  HLAST   LAST VALUE READ FROM INPUT FILE AT TIME 'INLAST'
-   ! (INPUT/OUTPUT)  HNEXT   NEXT VALUE READ FROM INPUT FILE AT TIME 'INTIME'
-   !        (INPUT)  NINP    NUMBER OF DATA ITEMS TO READ
-   !       (OUTPUT)  ARRAY   ARRAY OF INTERPOLATED DATA ITEMS
-   !
    !----------------------------------------------------------------------
-
-      ! Assumed external module dependencies providing global variables:
-      ! HOUR_FROM_DATE, marker999
 
       IMPLICIT NONE
 
       ! Arguments
-      INTEGER, INTENT(IN)             :: IIN, NINP
-      DOUBLE PRECISION, INTENT(IN)    :: TIH, SIMNOW, SIMSTP
-      DOUBLE PRECISION, INTENT(INOUT) :: INLAST, INTIME
-      DOUBLE PRECISION, INTENT(INOUT) :: HLAST (NINP), HNEXT (NINP)
-      DOUBLE PRECISION, INTENT(OUT)   :: ARRAY (NINP)
+      INTEGER, INTENT(IN)             :: IIN    !! File unit number for reading data.
+      INTEGER, INTENT(IN)             :: NINP   !! Number of head values to read from each record.
+      DOUBLE PRECISION, INTENT(IN)    :: TIH    !! Simulation start time since the reference date, in hours.
+      DOUBLE PRECISION, INTENT(IN)    :: SIMNOW !! Start time of the current simulation timestep, in model hours.
+      DOUBLE PRECISION, INTENT(IN)    :: SIMSTP !! Current simulation timestep length, in hours.
+      DOUBLE PRECISION, INTENT(INOUT) :: INLAST !! Previous breakpoint time, relative to `TIH`.
+      DOUBLE PRECISION, INTENT(INOUT) :: INTIME !! Next breakpoint time, relative to `TIH`.
+      DOUBLE PRECISION, INTENT(INOUT) :: HLAST (NINP) !! Head vector read at `INLAST`.
+      DOUBLE PRECISION, INTENT(INOUT) :: HNEXT (NINP) !! Head vector read at `INTIME`; overwritten by new records.
+      DOUBLE PRECISION, INTENT(OUT)   :: ARRAY (NINP) !! Head vector interpolated to the timestep midpoint.
 
       ! Locals
       INTEGER          :: TIME (5), ios
@@ -228,35 +341,62 @@ CONTAINS
 
 
 
-   !SSSSSS DOUBLE PRECISION FUNCTION hour_from_date
+   !> Converts a calendar date/time to simulation hours since 1950-01-01 00:00.
+   !>
+   !> Leap years are accounted for. The function checks the round trip through
+   !> `DATE_FROM_HOUR` and halts with a diagnostic if the supplied date is invalid.
+   !>
+   !> Entry requirements:
+   !>
+   !> | Requirement | Reason |
+   !> |:------------|:-------|
+   !> | `KYEAR >= 1949` | Required by the legacy year-offset calculation. |
+   !> | `1 <= KMTH <= 12` | Required before indexing the month-offset table. |
+   !>
+   !> The legacy comments describe the returned value as hours since 1 January
+   !> 1950 at 00:00. The implemented convention is the one used by the paired
+   !> [[date_from_hour]] routine and includes the one-based calendar day in the
+   !> accumulated day count:
+   !>
+   !> \[
+   !> r = 24\left(D_y + D_m + KDAY\right) + KHOUR + \frac{KMIN}{60},
+   !> \]
+   !>
+   !> where `D_y` is the number of days in complete years since 1950, including
+   !> leap years, and `D_m` is the number of complete days before month `KMTH` in
+   !> `KYEAR`. Thus `1950-01-01 00:00` maps to 24 hours under this convention, not
+   !> zero. A small one-hundredth-second offset is added to avoid minute-level
+   !> roundoff errors in the reverse conversion check.
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 1993-12-09 | RAH | 3.4.1 | Removed `IMPLICIT INTEGER*2 (I-N)`. |
+   !> | 1998-06-11 | RAH | 4.2 | Replaced `60.` with `6D1` to eliminate rounding error; added explicit typing. |
+   !> | 2026-03-19 | SB | 4.6 | Replaced the bare `print*,' date trap'` with a message reporting the offending year/month/day/hour/minute values. |
+   !> | 2026-05-10 | SvB | | Replaced the interactive pause-and-`STOP` with `ERROR STOP`, so an invalid date halts non-interactively instead of waiting for console input. |
+   !> @endhistory
    FUNCTION hour_from_date(kyear, kmth, kday, khour, kmin) RESULT(r)
    !----------------------------------------------------------------------*
    !  THIS FUNCTION CALCULATES HOURS SINCE 1.JANUARY YEAR 1950 AT 0 HOUR
    !  LEAP YEARS ARE TAKEN INTO ACCOUNT
    !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/AL/HOUR/4.2
-   ! Modifications:
-   ! RAH  09.12.93  3.4.1  Remove IMPLICIT INTEGER*2 (I-N).
-   ! RAH  980611  4.2 !Replace 60. with 6D1 to eliminate rounding error.
-   !                  Explicit typing.
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  KYEAR.ge.1949    KMTH.ge.1    KMTH.le.12
-
-      ! Assumed external module dependencies providing functions:
-      ! (If DATE_FROM_HOUR, DAYS_IN_YEARS_SINCE_1950, etc., are in modules,
-      !  USE them here instead of the explicit interfaces below)
 
       IMPLICIT NONE
 
       ! Dummy arguments
-      INTEGER, INTENT(IN) :: kyear, kmth, kday, khour, kmin
+      INTEGER, INTENT(IN) :: kyear !! Calendar year.
+      INTEGER, INTENT(IN) :: kmth  !! Calendar month number.
+      INTEGER, INTENT(IN) :: kday  !! Calendar day of month.
+      INTEGER, INTENT(IN) :: khour !! Hour of day.
+      INTEGER, INTENT(IN) :: kmin  !! Minute of hour.
 
       ! Return variable
-      DOUBLE PRECISION :: r
+      DOUBLE PRECISION :: r !! Model hour count under the SHETRAN date convention.
 
       ! Locals
-      INTEGER :: d, check(6)
+      INTEGER :: d        !! One-based day count used by the implemented model-hour convention.
+      INTEGER :: check(6) !! Date returned by the round-trip validity check.
 
    !----------------------------------------------------------------------*
 
@@ -281,29 +421,25 @@ CONTAINS
 
 
 
-!FFFFFF FUNCTION days_in_years_since_1950
+   !> Returns the number of days in complete years since 1950-01-01.
+   !>
+   !> Leap days are counted by iterating over candidate leap years from 1952 up to
+   !> `y-1`, using [[is_leap]] for the Gregorian leap-year rule.
    PURE FUNCTION days_in_years_since_1950(y) RESULT(r)
    !----------------------------------------------------------------------*
    ! Calculates the total days in whole years elapsed since 1950.
    !----------------------------------------------------------------------*
 
-      ! Assumed external module dependencies:
-      ! USE TIME_UTILS, ONLY : IS_LEAP
-
       IMPLICIT NONE
 
       ! Dummy arguments
-      INTEGER, INTENT(IN) :: y
+      INTEGER, INTENT(IN) :: y !! Year at the end of the counted interval.
 
       ! Return variable
-      INTEGER :: r
+      INTEGER :: r !! Days in complete years from 1950-01-01 to year `y`.
 
       ! Locals
-      INTEGER :: i
-
-      ! Explicit interface (if IS_LEAP is not provided via a USE module)
-      ! Note: IS_LEAP MUST be PURE for this function to be PURE
-      ! PURE LOGICAL, EXTERNAL :: IS_LEAP
+      INTEGER :: i !! Candidate leap year.
 
    !----------------------------------------------------------------------*
 
@@ -318,18 +454,17 @@ CONTAINS
 
 
 
-   !FFFFFF FUNCTION is_leap
+   !> Returns whether a year is a leap year in the Gregorian calendar.
+   !>
+   !> A year will be a leap year if it is divisible by 4 but not by 100.
+   !> If a year is divisible by 4 and by 100, it is not a leap year unless
+   !> it is also divisible by 400.
    PURE FUNCTION is_leap(y) RESULT(r)
-   !----------------------------------------------------------------------*
-   ! A year will be a leap year if it is divisible by 4 but not by 100.
-   ! If a year is divisible by 4 and by 100, it is not a leap year unless
-   ! it is also divisible by 400.
-   !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN) :: y
-      LOGICAL :: r
+      INTEGER, INTENT(IN) :: y !! Calendar year to test.
+      LOGICAL :: r             !! True when `y` is a Gregorian leap year.
 
       IF (MOD(y, 4) == 0) THEN
          IF (MOD(y, 100) == 0) THEN
@@ -345,18 +480,21 @@ CONTAINS
 
 
 
-   !FFFFFF FUNCTION days_to_start_month
+   !> Returns the day offset to the start of a month in a given year.
+   !>
+   !> Month offsets are zero-based (`January -> 0`). Leap years add one day for
+   !> months after February. The routine traps `m < 1` through `ERROR`, but it does
+   !> not explicitly guard `m > 12` before indexing the month table.
    FUNCTION days_to_start_month(m, y) RESULT(r)
    !----------------------------------------------------------------------*
 
-      ! Assumed global variables from host module: FFFATAL, pppri
-
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN) :: m, y
-      INTEGER :: r
+      INTEGER, INTENT(IN) :: m !! Calendar month number.
+      INTEGER, INTENT(IN) :: y !! Calendar year used for leap-day adjustment.
+      INTEGER :: r             !! Day offset to the start of month `m`.
 
-      INTEGER, PARAMETER :: sd(12) = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+      INTEGER, PARAMETER :: sd(12) = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334] !! Non-leap offsets.
 
       IF (m < 1) THEN
          WRITE(MSG, *) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
@@ -370,13 +508,18 @@ CONTAINS
 
 
 
-   !FFFFFF FUNCTION date_from_hour
+   !> Converts the model hour count used by [[hour_from_date]] to date components.
+   !>
+   !> The result array is `[year, month, day, hour, minute, second]`. The
+   !> conversion uses deliberately low initial estimates (`days/366` for the year
+   !> and `mthdays/32` for the month), then increments to the correct year/month.
+   !> A day value of zero triggers a stop as a date-trapping guard.
    FUNCTION date_from_hour(h) RESULT(r)
    !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
-      DOUBLE PRECISION, INTENT(IN) :: h
+      DOUBLE PRECISION, INTENT(IN) :: h !! Model hour count under the SHETRAN date convention.
       INTEGER :: r(6) ! year, month, day, hour, min, sec
 
       INTEGER :: hours, days, year, month, mthdays, mins, sec
@@ -415,7 +558,22 @@ CONTAINS
    END FUNCTION date_from_hour
 
 
-   !FFFFFF FUNCTION jematmul_mm
+   !> Multiplies two dense matrices using explicit loops.
+   !>
+   !> With the declared storage, the returned array satisfies
+   !>
+   !> \[
+   !>   A(i,j)=\sum_{k=1}^{n2} C(i,k)\,B(k,j),
+   !> \]
+   !>
+   !> for `A(n3,n1)`, `B(n2,n1)`, and `C(n3,n2)`. In conventional matrix
+   !> notation this is `A = C * B`, despite the old inline comment `A = B * C`.
+   !>
+   !> @note The local `ZERO` parameter shadows the identical module-wide `ZERO`
+   !> constant brought in via `USE SGLOBAL`; the added declaration is redundant
+   !> (both equal `0.0D0`) but harmless. [[jematmul_vm]] below still relies on
+   !> the module-wide constant directly.
+   !> @endnote
    PURE FUNCTION jematmul_mm(b, c, n1, n2, n3) RESULT(a)
    !----------------------------------------------------------------------*
    ! A = B * C  (Note: Indexing implies A(i,j) = sum(B(k,j)*C(i,k)))
@@ -423,9 +581,12 @@ CONTAINS
 
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN) :: n1, n2, n3
-      DOUBLE PRECISION, INTENT(IN) :: b(n2, n1), c(n3, n2)
-      DOUBLE PRECISION :: a(n3, n1)
+      INTEGER, INTENT(IN) :: n1 !! Number of columns in the returned matrix.
+      INTEGER, INTENT(IN) :: n2 !! Shared inner dimension.
+      INTEGER, INTENT(IN) :: n3 !! Number of rows in the returned matrix.
+      DOUBLE PRECISION, INTENT(IN) :: b(n2, n1) !! Right-hand matrix in declared storage.
+      DOUBLE PRECISION, INTENT(IN) :: c(n3, n2) !! Left-hand matrix in declared storage.
+      DOUBLE PRECISION :: a(n3, n1)              !! Matrix product `C * B`.
 
       INTEGER :: i, j, k
 
@@ -444,7 +605,16 @@ CONTAINS
    END FUNCTION jematmul_mm
 
 
-   !FFFFFF FUNCTION jematmul_vm
+   !> Multiplies a dense matrix by a vector using explicit loops.
+   !>
+   !> The returned vector satisfies
+   !>
+   !> \[
+   !>   A_i=\sum_{k=1}^{n2} B(k,i)\,C_k,
+   !> \]
+   !>
+   !> so the declared `B(n2,n1)` is used as the transpose of the conventional
+   !> `n1 x n2` matrix.
    PURE FUNCTION jematmul_vm(b, c, n1, n2) RESULT(a)
    !----------------------------------------------------------------------*
    ! A = B * C
@@ -452,9 +622,11 @@ CONTAINS
 
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN) :: n1, n2
-      DOUBLE PRECISION, INTENT(IN) :: b(n2, n1), c(n2)
-      DOUBLE PRECISION :: a(n1)
+      INTEGER, INTENT(IN) :: n1 !! Length of the returned vector.
+      INTEGER, INTENT(IN) :: n2 !! Shared inner dimension.
+      DOUBLE PRECISION, INTENT(IN) :: b(n2, n1) !! Matrix stored transposed relative to conventional notation.
+      DOUBLE PRECISION, INTENT(IN) :: c(n2)     !! Input vector.
+      DOUBLE PRECISION :: a(n1)                  !! Matrix-vector product.
 
       INTEGER :: i, k
 
@@ -469,41 +641,78 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE TERPO1
+   !> Interpolates a one-dimensional time-varying parameter.
+   !>
+   !> The routine updates one parameter value from a table of relative values and
+   !> tabulated times, using the current simulation time in hours.
+   !>
+   !> `TERPO1` is a service routine for time-varying parameters whose tabulated
+   !> values are stored as relative multipliers. The arguments are:
+   !>
+   !> | Argument | Meaning |
+   !> |:---------|:--------|
+   !> | `YCURR` | Current parameter array to update. |
+   !> | `YTAB` | Tabulated relative values of the parameter. |
+   !> | `YINIT` | Initial or reference parameter values. |
+   !> | `TCURR` | Current simulation time, in hours. |
+   !> | `TTAB` | Tabulated times, in days. |
+   !> | `NCT` | Current table-position counter for each parameter. |
+   !> | `NPAR` | Size of the parameter array. |
+   !> | `I` | Parameter-array position being updated. |
+   !>
+   !> The routine advances `NCT(I)` to the interval containing `TCURR/24`, then
+   !> linearly interpolates the relative multiplier:
+   !>
+   !> \[
+   !> Y_{rel} =
+   !> YTAB_{I,k}
+   !> + \frac{TCURR-24\,TTAB_{I,k}}
+   !>        {24\,(TTAB_{I,k+1}-TTAB_{I,k})}
+   !>   \left(YTAB_{I,k+1}-YTAB_{I,k}\right),
+   !> \]
+   !>
+   !> where \(k=NCT(I)\) after the interval update. The absolute value returned to
+   !> the model is
+   !>
+   !> \[
+   !> YCURR_I = Y_{rel}\,YINIT_I.
+   !> \]
+   !>
+   !> @note `NCT(I)` may jump by more than one interval because `ITERP` is computed
+   !> with integer division of the time offset by the current interval length. The
+   !> caller must provide increasing `TTAB` values and enough table entries for the
+   !> updated `NCT(I)+1`; no bounds or zero-interval checks are made here.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 1994-10-05 | RAH | 3.4.1 | Removed `IMPLICIT INTEGER*2`. |
+   !> | 1997-05-16 | RAH | 4.1 | Added explicit typing; made `*TAB` assumed-size arrays; removed redundant `ITAB` argument. |
+   !> | 2026-04-13 | SvB | | Made the routine `PURE`; gave `NCT` and `YCURR` explicit `INOUT` intent (they were previously declared with no intent attribute, an implicit F77-style dummy) to formalise that both are read and updated. |
+   !> @endhistory
    PURE SUBROUTINE TERPO1(YCURR, TCURR, YTAB, TTAB, NCT, YINIT, NPAR, I)
    !----------------------------------------------------------------------*
    !
    !     SERVICE SUBROUTINE TO INTERPOLATE VALUES FOR ONE-DIMENSIONAL
    !                   TIME-VARYING PARAMETERS
-   !        VARIABLE LISTING:
-   !        YCURR = CURRENT VALUE OF PARAMETER
-   !        YTAB  = TABULATED RELATIVE VALUES OF PARAMETER
-   !        YINIT = INITIAL OR REFERENCE VALUE OF PARAMETER
-   !        TCURR = CURRENT TIME (HOURS)
-   !        TTAB  = TABULATED VALUES OF TIME (DAYS)
-   !        NCT   = COUNTER FOR POSITION IN TABULATED ARRAYS
-   !        NPAR  = SIZE OF PARAMETER ARRAY
-   !        I     = POSITION IN PARAMETER ARRAY
    !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/TERPO1/4.1
-   ! Modifications:
-   ! RAH  941005 3.4.1 Remove IMPLICIT INTEGER*2.
-   ! RAH  970516  4.1  Explicit typing.  *TAB assumed size (were 20).
-   !                   Scrap redundant arg ITAB "SIZE OF TABULATED ARRAYS".
    !----------------------------------------------------------------------*
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: NPAR, I
-      DOUBLE PRECISION, INTENT(IN) :: TCURR
-      DOUBLE PRECISION, INTENT(IN) :: YTAB(NPAR, *), TTAB(NPAR, *), YINIT(NPAR)
+      INTEGER, INTENT(IN) :: NPAR !! Size of the parameter array.
+      INTEGER, INTENT(IN) :: I    !! Parameter-array position being updated.
+      DOUBLE PRECISION, INTENT(IN) :: TCURR         !! Current simulation time, in hours.
+      DOUBLE PRECISION, INTENT(IN) :: YTAB(NPAR, *)  !! Tabulated relative values of the parameter.
+      DOUBLE PRECISION, INTENT(IN) :: TTAB(NPAR, *)  !! Tabulated times, in days.
+      DOUBLE PRECISION, INTENT(IN) :: YINIT(NPAR)    !! Initial or reference parameter values.
 
       ! Input/Output arguments
       ! Modernization Fix: MUST be INOUT to preserve array elements other than index 'I'
-      INTEGER, INTENT(INOUT) :: NCT(NPAR)
-      DOUBLE PRECISION, INTENT(INOUT) :: YCURR(NPAR)
+      INTEGER, INTENT(INOUT) :: NCT(NPAR)          !! Current table-position counter for each parameter.
+      DOUBLE PRECISION, INTENT(INOUT) :: YCURR(NPAR) !! Current parameter array to update.
 
       ! Locals, etc
       INTEGER :: ITERP, NCTERP
@@ -532,7 +741,31 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE TRIDAG (A, B, C, R, U, N)
+   !> Solves a tridiagonal linear system.
+   !>
+   !> This is the Thomas algorithm for a tridiagonal matrix with lower diagonal
+   !> `A`, diagonal `B`, upper diagonal `C`, right-hand side `R`, and solution `U`.
+   !> It solves for the vector `U` of length `N` in
+   !>
+   !> \[
+   !> A_i U_{i-1} + B_i U_i + C_i U_{i+1} = R_i,
+   !> \qquad i=1,\ldots,N,
+   !> \]
+   !>
+   !> with the usual endpoint interpretation that `A(1)` and `C(N)` are not used.
+   !> The routine performs a forward elimination followed by back substitution,
+   !> overwriting only the output vector `U` and local work array `GAM`.
+   !>
+   !> @note No pivoting or zero-pivot protection is performed. `B(1)` and every
+   !> subsequent reduced diagonal `BET` must be non-zero.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-06 | SvB | Made the routine `PURE`. |
+   !> | 2026-04-06 | SvB | Changed `A`, `B`, `C`, `R`, and `U` from assumed-shape (`(:)`) to explicit-shape (`(N)`) arguments, guaranteeing no copy-in/copy-out overhead for non-contiguous actual arguments. |
+   !> @endhistory
    PURE SUBROUTINE TRIDAG (A, B, C, R, U, N)
    !----------------------------------------------------------------------*
    !                            SOLVES FOR VECTOR U OF LENGTH N
@@ -543,10 +776,13 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN)             :: N
+      INTEGER, INTENT(IN)             :: N !! Number of equations.
       ! Explicit-shape arrays guarantee zero copy-in/copy-out overhead
-      DOUBLE PRECISION, INTENT(IN)    :: A(N), B(N), C(N), R(N)
-      DOUBLE PRECISION, INTENT(INOUT) :: U(N)
+      DOUBLE PRECISION, INTENT(IN)    :: A(N) !! Lower diagonal; `A(1)` is not used.
+      DOUBLE PRECISION, INTENT(IN)    :: B(N) !! Main diagonal.
+      DOUBLE PRECISION, INTENT(IN)    :: C(N) !! Upper diagonal; `C(N)` is not used.
+      DOUBLE PRECISION, INTENT(IN)    :: R(N) !! Right-hand-side vector.
+      DOUBLE PRECISION, INTENT(INOUT) :: U(N) !! Solution vector.
 
       ! Locals
       INTEGER :: J
@@ -571,7 +807,37 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE invertmat
+   !> Inverts a dense matrix in place using LU decomposition.
+   !>
+   !> `invertmat` replaces the input matrix `A` by `A^{-1}`. For `N=1` it returns
+   !> the scalar reciprocal directly. For `N>1` it forms the identity matrix,
+   !> factors `A` with [[ludcmp]], and solves
+   !>
+   !> \[
+   !> A x_j = e_j,\qquad j=1,\ldots,N,
+   !> \]
+   !>
+   !> with [[lubksb]] for each identity-column right-hand side \(e_j\). The solved
+   !> columns \(x_j\) are then copied back into `A`, giving
+   !>
+   !> \[
+   !> A^{-1} = [x_1\;x_2\;\cdots\;x_N].
+   !> \]
+   !>
+   !> `ICOD=0` indicates success. `ICOD=1` indicates an invalid size, a zero
+   !> scalar, or a singular matrix detected by the LU factorisation.
+   !>
+   !> @note For `N > 1`, the input matrix is passed directly to [[ludcmp]] and is
+   !> overwritten by the LU factors before singularity status is known. If
+   !> `ICOD=1` is returned after factorisation, `A` should not be assumed to retain
+   !> the original matrix.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-13 | SvB | Made the routine `PURE`; removed the local `ret` flag, which was set on the `N=1` branch but never read anywhere (the original `N<1`/`N=1`/else structure already dispatched correctly without it). |
+   !> @endhistory
    PURE SUBROUTINE invertmat(a, n, icod)
    !----------------------------------------------------------------------*
    ! Inverts a square matrix 'a' of size 'n' using LU decomposition.
@@ -581,13 +847,13 @@ CONTAINS
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: n
+      INTEGER, INTENT(IN) :: n !! Matrix order.
 
       ! Output arguments
-      INTEGER, INTENT(OUT) :: icod
+      INTEGER, INTENT(OUT) :: icod !! Status code: `0` success, `1` failure.
 
       ! Input/Output arguments
-      DOUBLE PRECISION, DIMENSION(n,n), INTENT(INOUT) :: a
+      DOUBLE PRECISION, DIMENSION(n,n), INTENT(INOUT) :: a !! Matrix to replace with its inverse.
 
       ! Locals
       INTEGER :: i, j
@@ -638,7 +904,35 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE lubksb(a, n, indx, b)
+   !> Solves an LU-decomposed linear system by back substitution.
+   !>
+   !> `lubksb` applies the row permutation stored in `indx` and overwrites `b` with
+   !> the solution vector for the matrix factors produced by [[ludcmp]]. This is
+   !> the Numerical Recipes LU back-substitution algorithm used by [[invertmat]].
+   !>
+   !> After [[ludcmp]], the array `A` stores the combined lower and upper
+   !> triangular factors of a pivoted decomposition
+   !>
+   !> \[
+   !> P A_{orig} = L U,
+   !> \]
+   !>
+   !> where `L` has an implicit unit diagonal and `U` is stored on and above the
+   !> diagonal. `lubksb` solves
+   !>
+   !> \[
+   !> L y = P b,\qquad U x = y,
+   !> \]
+   !>
+   !> by forward substitution followed by back substitution, returning `x` in
+   !> `b`. The `ii` marker skips leading zero terms in the permuted right-hand
+   !> side, matching the Numerical Recipes implementation.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-03 | SvB | Replaced the labelled inner-product loops with `DOT_PRODUCT` over array sections. |
+   !> @endhistory
    PURE SUBROUTINE lubksb(a, n, indx, b)
    !----------------------------------------------------------------------*
    ! Solves the linear system A*x = b using LU Decomposition.
@@ -651,10 +945,10 @@ CONTAINS
       IMPLICIT NONE
 
       ! Dummy Arguments
-      INTEGER, INTENT(IN)             :: n
-      INTEGER, INTENT(IN)             :: indx(n)
-      DOUBLE PRECISION, INTENT(IN)    :: a(n,n)
-      DOUBLE PRECISION, INTENT(INOUT) :: b(n)
+      INTEGER, INTENT(IN)             :: n       !! Matrix order.
+      INTEGER, INTENT(IN)             :: indx(n) !! Pivot-row indices from `ludcmp`.
+      DOUBLE PRECISION, INTENT(IN)    :: a(n,n)  !! Combined LU factors from `ludcmp`.
+      DOUBLE PRECISION, INTENT(INOUT) :: b(n)    !! Right-hand side on entry; solution on exit.
 
       ! Local Variables
       INTEGER                         :: i, ii, ll
@@ -695,7 +989,38 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE ludcmp(a, n, indx, d, issing)
+   !> Performs LU decomposition with partial pivoting.
+   !>
+   !> `ludcmp` factors `a` in place, records pivot rows in `indx`, returns the
+   !> parity factor `d`, and sets `issing` when the matrix is singular or has a
+   !> zero scaling row. The factorisation is used by [[invertmat]] before
+   !> [[lubksb]] solves each right-hand side.
+   !>
+   !> The decomposition is a scaled partial-pivoting LU factorisation. For each
+   !> row, the scaling value
+   !>
+   !> \[
+   !> v_i = \frac{1}{\max_j |a_{ij}|}
+   !> \]
+   !>
+   !> is used to choose the pivot row that maximises \(v_i |a_{ij}|\) in the
+   !> current column. Row swaps are recorded in `INDX`, and each swap changes the
+   !> sign of `D`. On successful return, `A` stores `L` below the diagonal and `U`
+   !> on and above the diagonal:
+   !>
+   !> \[
+   !> P A_{orig} = L U.
+   !> \]
+   !>
+   !> If a row has zero scale the matrix is singular and `ISSING` is set. If a
+   !> selected pivot is exactly zero after elimination, the routine substitutes the
+   !> small value `TINY=1.0d-20`, preserving the legacy Numerical Recipes behaviour.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-04-03 | SvB | Replaced the labelled inner-product loops with `DOT_PRODUCT` over array sections, `MAXVAL` for the row-scaling search, and whole-row array slices for pivot swapping. |
+   !> @endhistory
    PURE SUBROUTINE ludcmp(a, n, indx, d, issing)
    !----------------------------------------------------------------------*
    ! Performs LU Decomposition on matrix 'a' using partial pivoting.
@@ -708,11 +1033,11 @@ CONTAINS
       IMPLICIT NONE
 
       ! Dummy Arguments
-      INTEGER, INTENT(IN)             :: n
-      DOUBLE PRECISION, INTENT(INOUT) :: a(n,n)
-      INTEGER, INTENT(OUT)            :: indx(n)
-      DOUBLE PRECISION, INTENT(OUT)   :: d
-      LOGICAL, INTENT(OUT)            :: issing
+      INTEGER, INTENT(IN)             :: n       !! Matrix order.
+      DOUBLE PRECISION, INTENT(INOUT) :: a(n,n)  !! Matrix overwritten by combined LU factors.
+      INTEGER, INTENT(OUT)            :: indx(n) !! Pivot-row index for each column.
+      DOUBLE PRECISION, INTENT(OUT)   :: d       !! Pivot-parity factor.
+      LOGICAL, INTENT(OUT)            :: issing  !! True if a zero scaling row marks the matrix singular.
 
       ! Local Variables
       INTEGER                         :: i, imax, j
@@ -785,48 +1110,72 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
+   !> Reads and optionally echoes an integer grid/element array.
+   !>
+   !> `AREADI` implements the legacy `KON` control modes for integer AL input:
+   !> read a grid and convert it to element order, convert an existing element
+   !> array back to a grid, or read and print a grid without conversion. The
+   !> resulting integer element array is returned in `IAOUT`.
+   !>
+   !> Control modes are:
+   !>
+   !> | `KON` | Action |
+   !> |:------|:-------|
+   !> | 0 | Read grid array `IA`, convert it to element array `IAOUT`, and do not print. |
+   !> | 1 | Read grid array `IA`, convert it to element array `IAOUT`, and print the grid array. |
+   !> | 2 | Do not read; convert the input element array `IAOUT` back to grid array `IA` and print it. |
+   !> | 3 | Fill `IAOUT(NGDBGN:total_no_elements)` with the default value supplied in `INF`; no file read is performed. |
+   !>
+   !> Parameters are:
+   !>
+   !> | Argument | Meaning |
+   !> |:---------|:--------|
+   !> | `IAOUT` | Integer element array returned by the routine, or input element array when `KON=2`. |
+   !> | `KON` | Control parameter selecting read/convert/print/default-fill behaviour. |
+   !> | `INF` | Input file unit for read modes; default integer value when `KON=3`. |
+   !> | `IOF` | Output file unit used when printing the grid array. |
+   !> | `INUM` | Expected range/count of integer codes; zero selects old `20I4` input. |
+   !>
+   !> For read modes, the grid-to-element mapping is
+   !>
+   !> \[
+   !> IAOUT_{ICMXY(i,j)} = IA_{i,j}
+   !> \quad\text{for each active grid cell } ICMXY(i,j)\ne0.
+   !> \]
+   !>
+   !> For `KON=2`, the reverse reporting grid is assembled from grid elements using
+   !>
+   !> \[
+   !> IA_{ICMREF(iel,2),ICMREF(iel,3)} = IAOUT_{iel}
+   !> \quad\text{where } ICMREF(iel,1)=0.
+   !> \]
+   !>
+   !> @note Only `KON=0`, `1`, and `3` are tested explicitly. Any other value uses
+   !> the `KON=2` convert-and-print path. The single-digit integer grid format
+   !> (`0 < INUM < 10`) is hard-limited to `NX <= 500`.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 1994-09-28 | RAH | 3.4.1 | Added explicit `IMPLICIT` statement in the original source. |
+   !> | 1995-07-24 | GP | 4.0 | Initialised `IAOUT` when `KON=0` or `KON=1`. |
+   !> | 1997-08-04 | RAH | 4.1 | Added explicit typing; corrected `TITLE` from implicit double precision. |
+   !> | 2026-04-03 | SvB | | Replaced numbered-`FORMAT`/labelled-`DO` I/O with named `DO` loops, inline `FORMAT` strings, and array-slice reads/assignments. |
+   !> @endhistory
    SUBROUTINE AREADI (IAOUT, KON, INF, IOF, INUM)
 !----------------------------------------------------------------------*
 !
 !      SERVICE SUBROUTINE TO READ AND PRINT AN INTEGER ARRAY
 !
 !----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/AREADI/4.1
-! Modifications:
-! RAH  940928 3.4.1 Add IMPLICIT (was in AL.P).
-! GP  24/7/95  4.0  Initialize IAOUT (if KON = 0 or 1).
-! RAH  970804  4.1  Explicit typing (note TITLE was implicit double).
-!----------------------------------------------------------------------*
-!
-!    PARAMETER LIST :
-!    IA   : ARRAY TO BE READ
-!    KON  : CONTROL PARAMETER : KON=0 : READ GRID ARRAY (IA)
-!                                       CONVERT TO ELEMENT ARRAY (IAOUT)
-!                                       NO PRINT
-!                               K0N=1 : READ GRID ARRAY (IA)
-!                                       CONVERT TO ELEMENT ARRAY (IAOUT)
-!                                       PRINT GRID ARRAY (IA)
-!                               KON=2 : NO READ;   CONVERT
-!                                       INPUT ARRAY (IAOUT) TO GRID (IA)
-!                                       PRINT GRID ARRAY (IA)
-!
-!    INF  : FILE UNIT NUMBER FOR READING FROM
-!    IOF  : FILE UNIT NUMBER FOR PRINTING TO
-!
-!    INUM : RANGE OF NUMBERS TO BE READ IN (EG. NO. OF MET. STATIONS)
-!           NB. IF SET TO ZERO, OLD FORMAT (20I4) WILL BE USED.
-!
-!    ALSO INCLUDES THE POSSIBILITY OF FILLING AN INTEGER ARRAY
-!    WITH DEFAULT VALUES IN WHICH CASE SHOULD HAVE
-!                               KON=3
-!                               INF=REQUIRED DEFAULT VALUE
-!
-!----------------------------------------------------------------------*
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN)  :: KON, INF, IOF, INUM
-      INTEGER, INTENT(OUT) :: IAOUT(:)
+      INTEGER, INTENT(IN)  :: KON  !! Control parameter selecting read/convert/print/default-fill behaviour.
+      INTEGER, INTENT(IN)  :: INF  !! Input file unit for read modes; default integer value when `KON=3`.
+      INTEGER, INTENT(IN)  :: IOF  !! Output file unit used when printing the grid array.
+      INTEGER, INTENT(IN)  :: INUM !! Expected range/count of integer codes; zero selects old `20I4` input.
+      INTEGER, INTENT(OUT) :: IAOUT(:) !! Integer element array; also input when converting elements back to grid.
       INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX
       INTEGER              :: IA(NXEE, NYEE)
       CHARACTER(4)         :: TITLE(20)
@@ -941,7 +1290,64 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE AREADR (AOUT, KON, INF, IOF)
+   !> Reads and optionally echoes a double-precision grid/element array.
+   !>
+   !> `AREADR` mirrors [[AREADI]] for floating-point input. Depending on `KON`, it
+   !> reads grid values and converts them to SHETRAN element order, converts an
+   !> existing element array for reporting, or reads and prints a grid directly.
+   !>
+   !> Control modes are:
+   !>
+   !> | `KON` | Action |
+   !> |:------|:-------|
+   !> | 0 | Read double-precision grid array `A`, convert it to element array `AOUT`, and do not print. |
+   !> | 1 | Read double-precision grid array `A`, convert it to element array `AOUT`, and print the grid array. |
+   !> | 2 | Do not read; convert the input element array `AOUT` back to grid array `A` and print it. |
+   !>
+   !> Parameters are:
+   !>
+   !> | Argument | Meaning |
+   !> |:---------|:--------|
+   !> | `AOUT` | Double-precision element array returned by the routine, or input element array when `KON=2`. |
+   !> | `KON` | Control parameter selecting read/convert/print behaviour. |
+   !> | `INF` | Input file unit for read modes. |
+   !> | `IOF` | Output file unit used when printing the grid and link/bank values. |
+   !>
+   !> For read modes, the grid-to-element mapping is
+   !>
+   !> \[
+   !> AOUT_{ICMXY(i,j)} = A_{i,j}
+   !> \quad\text{for each active grid cell } ICMXY(i,j)\ne0.
+   !> \]
+   !>
+   !> For `KON=2`, the reverse reporting grid is assembled from grid elements using
+   !>
+   !> \[
+   !> A_{ICMREF(iel,2),ICMREF(iel,3)} = AOUT_{iel}
+   !> \quad\text{where } ICMREF(iel,1)=0.
+   !> \]
+   !>
+   !> Printed output also includes link values and their associated bank-element
+   !> values through `ICMBK`.
+   !>
+   !> @note Only `KON=0` and `KON=1` read from `INF`; any other value uses the
+   !> convert-and-print path. The all-zero print shortcut tests the element array
+   !> `AOUT(1:total_no_elements)`, then printed output includes the grid plus
+   !> link/bank values.
+   !> @endnote
+   !>
+   !> @note `KON`, `INF`, and `IOF` are declared with no `INTENT` attribute here,
+   !> unlike most other routines in this module. This is retained legacy F77-style
+   !> behaviour, not something introduced by the recent modernisation.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 1994-09-28 | RAH | 3.4.1 | Added explicit `IMPLICIT` statement in the original source. |
+   !> | 1997-08-04 | RAH | 4.1 | Added explicit typing; corrected `TITLE` from implicit double precision. |
+   !> | 2026-04-03 | SvB | | Replaced numbered-`FORMAT`/labelled-`DO` I/O with named `DO` loops, inline `FORMAT` strings, and array-slice reads/assignments. |
+   !> @endhistory
    SUBROUTINE AREADR (AOUT, KON, INF, IOF)
 !----------------------------------------------------------------------*
 !
@@ -949,36 +1355,16 @@ CONTAINS
 !      (IN DOUBLEPRECISION)
 !
 !----------------------------------------------------------------------*
-! Version:  SHETRAN/AL/AREADR/4.1
-! Modifications:
-! RAH  940928 3.4.1 Add IMPLICIT (was in AL.P).
-! RAH  970804  4.1  Explicit typing (note TITLE was implicit double).
-!----------------------------------------------------------------------*
-!
-!     PARAMETER LIST :
-!     A    : ARRAY TO BE READ
-!     KON  : CONTROL PARAMETER : KON=0 : READ GRID ARRAY (A)
-!                                        CONVERT TO ELEMENT ARRAY (AOUT)
-!                                        NO PRINT
-!                                K0N=1 : READ GRID ARRAY (A)
-!                                        CONVERT TO ELEMENT ARRAY (AOUT)
-!                                        PRINT GRID ARRAY (A)
-!                                KON=2 : NO READ;   CONVERT
-!                                        INPUT ARRAY (AOUT) TO GRID (A)
-!                                        PRINT GRID ARRAY (A)
-!
-!     INF  : FILE UNIT NUMBER FOR READING FROM
-!     IOF  : FILE UNIT NUMBER FOR PRINTING TO
-!
-!----------------------------------------------------------------------*
 ! Commons and constants
       IMPLICIT NONE
 
 ! Input arguments
-      INTEGER :: KON, INF, IOF
+      INTEGER :: KON !! Control parameter selecting read/convert/print behaviour.
+      INTEGER :: INF !! Input file unit for read modes.
+      INTEGER :: IOF !! Output file unit used when printing the grid and link/bank values.
 
 ! In|out arguments
-      DOUBLE PRECISION :: AOUT(NELEE)
+      DOUBLE PRECISION :: AOUT(NELEE) !! Double-precision element array; input when `KON` is not 0 or 1.
 
 ! Locals, etc
       INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, NXX
@@ -1080,12 +1466,19 @@ CONTAINS
 
 
 
-   !FFFFFF FUNCTION ran2
+   !> Returns a pseudo-random number from the legacy `ran2` generator.
+   !>
+   !> Long period (> 2 x 10^18) random number generator of L'Ecuyer with
+   !> Bays-Durham shuffle and added safeguards. The generator updates `idum` in
+   !> place and returns a uniform variate in `(0,1)`, exclusive. This is the
+   !> combined multiplicative generator used in legacy Numerical Recipes code,
+   !> retained for reproducibility of existing workflows.
+   !>
+   !> Passing `idum <= 0` reinitialises the saved shuffle table and secondary seed.
+   !> Subsequent calls use saved module-local generator state, so independent random
+   !> streams require explicit reseeding and are not thread-independent.
    FUNCTION ran2(idum)
    !----------------------------------------------------------------------*
-   ! Long period (> 2 x 10^18) random number generator of L'Ecuyer with
-   ! Bays-Durham shuffle and added safeguards.
-   ! Returns a uniform random deviate between 0.0 and 1.0 (exclusive).
    ! Call with idum a negative integer to initialize; thereafter, do not
    ! alter idum between successive deviates in a sequence.
    !----------------------------------------------------------------------*
@@ -1094,10 +1487,10 @@ CONTAINS
 
       ! Dummy argument MUST be INOUT because the seed updates.
       ! This side-effect strictly prevents the function from being PURE.
-      INTEGER, INTENT(INOUT) :: idum
+      INTEGER, INTENT(INOUT) :: idum !! Seed/state value; `idum <= 0` reinitialises the saved stream.
 
       ! Return type (Explicitly Single Precision as per standard NR)
-      REAL :: ran2
+      REAL :: ran2 !! Uniform variate in `(0,1)`.
 
       ! Magic parameters for the dual LCGs and shuffle table
       INTEGER, PARAMETER :: IM1  = 2147483563

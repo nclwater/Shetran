@@ -1,42 +1,43 @@
-!MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+!> @brief Writes SHETRAN visualisation data and derived catchment products to HDF5.
+!>
+!> Static metadata items are stored below `/CONSTANTS`. Time-varying items are
+!> stored in numbered groups below `/VARIABLES`, with separate `value` and
+!> `time` datasets. The static `surf_elv` and `number` items also produce an
+!> indexed elevation map below `/CATCHMENT_MAPS` and a magnified numbering grid
+!> below `/CATCHMENT_SPREADSHEETS`.
+!>
+!> Metadata dimensions use SHETRAN's Fortran order. The HDF5 Fortran interface
+!> presents them in reverse order to C-oriented readers, so the dimension-name
+!> attribute is deliberately reversed as well. Consequently, time is the last
+!> displayed axis in tools such as `h5dump`, although it is the first dimension
+!> extended by this module.
+!>
+!> Metadata-driven value and time datasets use native default `REAL` or
+!> `INTEGER` values and DEFLATE level 9. Derived products retain the datatypes
+!> and filters selected by their individual helpers. HDF5 status values are
+!> retained in the module variable `error`, but this module does not currently
+!> report or recover from HDF5 failures.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced the HDF5 visualisation writer. |
+!> | 2026-03-29 | SvB | Made temporary write arrays allocatable to avoid invalid storage and memory corruption. |
+!> | 2026-04-07 | SvB | Made HDF5 size kinds portable for GFortran and closed temporary HDF5 identifiers. |
+!> | 2026-04-08 | SB | Removed Intel-specific directives and legacy pointer code during the Intel IFX update. |
+!> | 2026-04-14 | SvB | Guarded empty dimensions, enlarged names, and corrected time-dataspace ownership and cleanup. |
+!> @endhistory
 MODULE visualisation_hdf5
 
-USE ISO_C_BINDING, ONLY: C_PTR
+   USE ISO_C_BINDING, ONLY: C_PTR
 
-USE VISUALISATION_PASS,      ONLY : DIRQQ, ver, rootdir, hdf5filename
-USE VISUALISATION_METADATA,  ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, &
-                                    G_I=>GET_METADATA_I, S_PTR=>SET_METADATA_PTR, &
-                                    G_PTR=>GET_METADATA_PTR,                  &
-                                    ndim,                                     &
-                                    G_H5_I=>GET_METADATA_HDF5_I, G_H5_L=>GET_METADATA_HDF5_L, &
-                                    G_H5_C=>GET_METADATA_HDF5_C, INCREMENT_HDF5_TSTEP_NO
-USE VISUALISATION_STRUCTURE, ONLY : TIME_COUNT, GET_HDF5_I, GET_HDF5_R, GET_HDF5_TIME
-USE VISUALISATION_MAP,       ONLY : GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
-!USE HDF5,                    ONLY : H5OPEN_F,         &
-!                                    H5PSET_DEFLATE_F, &
-!                                    H5SCOPY_F,        &
-!                                    H5PSET_CHUNK_F,   &
-!                                    H5TCOPY_F,        &
-!                                    H5TSET_SIZE_F,    &
-!                                    H5AWRITE_F,       &
-!                                    H5DWRITE_F,       &
-!                                    H5DEXTEND_F,      &
-!                                    H5SSELECT_HYPERSLAB_F, &
-!                                    H5TCOPY_F,        &
-!                                    H5TSET_SIZE_F,    &
-!                                    H5SCREATE_SIMPLE_F, &
-!                                    H5PCREATE_F,        &
-!                                    H5FCREATE_F,        &
-!                                    H5GCREATE_F,        &
-!                                    H5ACREATE_F,        &
-!                                    H5DCREATE_F,        &
-!                                    H5ACLOSE_F, &
-!                                    H5DCLOSE_F, &
-!                                    H5SCLOSE_F, &
-!                                    H5GCLOSE_F, &
-!                                    H5FCLOSE_F, &
-!                                    H5CLOSE_F,  &
-!                                    HSIZE_T, HID_T
+   USE VISUALISATION_PASS,      ONLY : DIRQQ, ver, rootdir, hdf5filename
+   USE VISUALISATION_METADATA,  ONLY : G_C=>GET_METADATA_C, G_L=>GET_METADATA_L, &
+      G_I=>GET_METADATA_I, S_PTR=>SET_METADATA_PTR, G_PTR=>GET_METADATA_PTR, ndim, &
+      G_H5_I=>GET_METADATA_HDF5_I, G_H5_L=>GET_METADATA_HDF5_L, &
+      G_H5_C=>GET_METADATA_HDF5_C, INCREMENT_HDF5_TSTEP_NO
+   USE VISUALISATION_STRUCTURE, ONLY : TIME_COUNT, GET_HDF5_I, GET_HDF5_R, GET_HDF5_TIME
+   USE VISUALISATION_MAP,       ONLY : GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
 
    USE HDF5
    USE H5IM
@@ -45,45 +46,76 @@ USE VISUALISATION_MAP,       ONLY : GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
 
    IMPLICIT NONE
 
-   INTEGER                 :: error  !Error flag
-   INTEGER, SAVE           :: jndim(ndim)
-   INTEGER, PARAMETER      :: csz=70
-   REAL, PARAMETER         :: zero=0.0
-   LOGICAL, PARAMETER      :: T=.TRUE., F=.FALSE.
+   INTEGER            :: error       !! Most recent HDF5 status code; currently not inspected.
+   INTEGER, SAVE      :: jndim(ndim) !! Index vector `1:ndim` used for metadata array queries.
+   INTEGER, PARAMETER :: csz=70      !! Character length used for generated names and string metadata.
+   REAL, PARAMETER    :: zero=0.0    !! Default-real zero used by the writer's exact time tests.
+   LOGICAL, PARAMETER :: T=.TRUE.    !! Logical true shorthand used to initialise saved guards.
+   LOGICAL, PARAMETER :: F=.FALSE.   !! Logical false shorthand used to initialise saved guards.
 
 
-!TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+!> Holds the active HDF5 extents for one registered metadata item.
    TYPE ssz
-      INTEGER(HSIZE_T), DIMENSION(:), POINTER :: a
+      INTEGER(HSIZE_T), DIMENSION(:), POINTER :: a !! Extents in the HDF5 Fortran interface's order.
    END TYPE ssz
-   TYPE(ssz), DIMENSION(:), ALLOCATABLE, SAVE  :: szz, newsz  !recording array size, and its size after extension
+   TYPE(ssz), DIMENSION(:), ALLOCATABLE, SAVE :: szz   !! Initial/current write-block extents by item.
+   TYPE(ssz), DIMENSION(:), ALLOCATABLE, SAVE :: newsz !! Extended dataset extents by item.
 
-   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE   :: dataset, dataspace, dtype, orig_dataspace, t_dataspace, t_dataset
-   INTEGER(HSIZE_T)                            :: t_newsz(1)
-!INTEGER(HSIZE_T), DIMENSION(:), ALLOCATABLE :: rank
-   INTEGER, DIMENSION(:), ALLOCATABLE :: rank
-   INTEGER(HID_T)                              :: orig_t_dataspace, group_static, group_dynamic, group_images, file, &
-      group_magnified_integer
-   INTEGER(HID_T), SAVE                        :: dataset_compress_property, t_dataset_compress_property
+   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE :: dataset        !! Value-dataset identifiers by item.
+   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE :: dataspace      !! Initial value-dataspace identifiers by item.
+   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE :: dtype          !! Native value datatype identifiers by item.
+   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE :: orig_dataspace !! Value memory-dataspace identifiers by item.
+   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE :: t_dataspace    !! Time-dataspace identifiers by item.
+   INTEGER(HID_T), DIMENSION(:), ALLOCATABLE :: t_dataset      !! Time-dataset identifiers by item.
+   INTEGER(HSIZE_T)                          :: t_newsz(1)     !! Extended time-dataset extent.
+   INTEGER, DIMENSION(:), ALLOCATABLE        :: rank           !! Effective HDF5 rank by item.
+   INTEGER(HID_T)                            :: orig_t_dataspace !! Shared one-value time memory dataspace.
+   INTEGER(HID_T)                            :: group_static     !! `/CONSTANTS` group identifier.
+   INTEGER(HID_T)                            :: group_dynamic    !! `/VARIABLES` group identifier.
+   INTEGER(HID_T)                            :: group_images     !! Lazily created `/CATCHMENT_MAPS` identifier.
+   INTEGER(HID_T)                            :: file             !! Visualisation HDF5 file identifier.
+   INTEGER(HID_T)                            :: group_magnified_integer !! Lazily created spreadsheet group identifier.
+   INTEGER(HID_T), SAVE :: dataset_compress_property   !! DEFLATE property list shared by value datasets.
+   INTEGER(HID_T), SAVE :: t_dataset_compress_property !! DEFLATE property list shared by time datasets.
 
    PRIVATE
    PUBLIC :: SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP
 
 CONTAINS
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Creates the visualisation file and every metadata-driven HDF5 dataset.
+!>
+!> Visualisation metadata must already be registered and `hdf5filename` must
+!> name a writable target. The target is truncated. Static datasets are created
+!> directly in `/CONSTANTS`; each dynamic item gets a generated group below
+!> `/VARIABLES` containing an unlimited `value` dataset and a matching unlimited
+!> `time` dataset. Each dataset is chunked by its initial item shape and uses
+!> DEFLATE level 9.
+!>
+!> Zero-rank metadata is represented by a one-element, rank-one dataset. The
+!> routine is a one-shot initialiser: its allocatable state and saved group
+!> identifiers are not prepared for a second invocation in the same process.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced the dataset initialisation. |
+!> | 2026-04-07 | SvB | Made HDF5 dimensions portable to GFortran. |
+!> | 2026-04-14 | SvB | Added the zero-rank stand-in and one shared unlimited time memory dataspace. |
+!> @endhistory
    SUBROUTINE initialise()
-      INTEGER                  :: ni, mn, jj
-      INTEGER, DIMENSION(ndim) :: hhdim
-      LOGICAL                  :: istimeseries
-      CHARACTER(csz)           :: name, namet
-      INTEGER(HID_T)           :: gp
-      INTEGER(HID_T), DIMENSION(:), ALLOCATABLE, SAVE   :: gp_var
-      INTEGER(HSIZE_T), DIMENSION(ndim)                 :: maxdims
-      INTEGER(HSIZE_T), DIMENSION(1)                    :: t_maxdims
-      INTEGER(HSIZE_T), PARAMETER                       :: one=1
-!integer :: error
-!integer :: majnum, minnum, relnum
+      INTEGER                  :: ni !! Number of registered visualisation items.
+      INTEGER                  :: mn !! Current metadata-item index.
+      INTEGER                  :: jj !! Dimension-index constructor variable.
+      INTEGER, DIMENSION(ndim) :: hhdim !! Metadata extents including inactive zero entries.
+      LOGICAL                  :: istimeseries !! Whether this item belongs below `/VARIABLES`.
+      CHARACTER(csz)           :: name  !! Value dataset or dynamic group name.
+      CHARACTER(csz)           :: namet !! Time dataset name.
+      INTEGER(HID_T)           :: gp    !! Parent group identifier for the value dataset.
+      INTEGER(HID_T), DIMENSION(:), ALLOCATABLE, SAVE :: gp_var !! Dynamic item groups; closed by `H5CLOSE_F`.
+      INTEGER(HSIZE_T), DIMENSION(ndim) :: maxdims !! Maximum value extents, with time unlimited when present.
+      INTEGER(HSIZE_T), DIMENSION(1)    :: t_maxdims !! Unlimited maximum extent for time datasets.
+      INTEGER(HSIZE_T), PARAMETER       :: one=1 !! Initial time extent and time chunk length.
 
 
       jndim = (/(jj,jj=1,ndim)/)
@@ -92,18 +124,11 @@ CONTAINS
          newsz(ni), gp_var(ni), t_dataspace(ni), t_dataset(ni), rank(ni))
 
       CALL H5OPEN_F(error)
-!call h5get_libversion_f(majnum, minnum, relnum, error)
-!print *, "HDF5 version:", majnum, ".", minnum, ".", relnum
-
-!lined below needed only for compound datatypes
-!CALL H5PCREATE_F(H5P_DATASET_XFER_F, dataset_transfer_property, error)
-!CALL H5PSET_PRESERVE_F(dataset_transfer_property, .TRUE., error)
       CALL H5PCREATE_F(H5P_DATASET_CREATE_F, dataset_compress_property, error)
       CALL H5PCREATE_F(H5P_DATASET_CREATE_F, t_dataset_compress_property, error)
       CALL H5PSET_DEFLATE_F(dataset_compress_property, 9, error)
       CALL H5PSET_DEFLATE_F(t_dataset_compress_property, 9, error)
 
-!CALL H5FCREATE_F(TRIM(DIRQQ)//'/'//'output/sssshegraph.h5', H5F_ACC_TRUNC_F, file, error)
       CALL H5FCREATE_F(TRIM(hdf5filename), H5F_ACC_TRUNC_F, file, error)
 
       CALL H5GCREATE_F(file, 'CONSTANTS', group_static, error)
@@ -127,8 +152,6 @@ CONTAINS
          IF(istimeseries) THEN
             maxdims(1) = H5S_UNLIMITED_F
             namet      = 'time'
-!        WRITE(name,'(I3)')G_H5_I(mn,'users_number')
-!        name  = TRIM(name)//' '//TRIM(G_H5_C(mn,'name'))
             name = COMBINATION_NAME(mn)
             CALL H5GCREATE_F(group_dynamic, name, gp_var(mn), error)
             WRITE(name,'(I3)')G_H5_I(mn,'users_number')
@@ -150,14 +173,14 @@ CONTAINS
 
          IF(G_H5_L(mn,'isreal')) THEN ; dtype(mn)=H5T_NATIVE_REAL ; ELSE ; dtype(mn)=H5T_NATIVE_INTEGER ; ENDIF
 
-         !CALL H5DCREATE_F(gp, name, dtype(mn), dataspace(mn), dataset(mn), error, creation_prp=dataset_compress_property)
-         CALL H5DCREATE_F(gp, name, dtype(mn), dataspace(mn), dataset(mn), error, dcpl_id=dataset_compress_property)  !160913
+         CALL H5DCREATE_F(gp, name, dtype(mn), dataspace(mn), dataset(mn), error, &
+            dcpl_id=dataset_compress_property)
 
          CALL CREATE_VARIABLES_ATTRIBUTES(mn)
 
          IF(istimeseries) THEN
-            !CALL H5DCREATE_F(gp, namet, H5T_NATIVE_REAL, t_dataspace(mn), t_dataset(mn), error, creation_prp=t_dataset_compress_property)
-            CALL H5DCREATE_F(gp, namet, H5T_NATIVE_REAL, t_dataspace(mn), t_dataset(mn), error, dcpl_id=t_dataset_compress_property)
+            CALL H5DCREATE_F(gp, namet, H5T_NATIVE_REAL, t_dataspace(mn), &
+               t_dataset(mn), error, dcpl_id=t_dataset_compress_property)
             CALL CREATE_TIME_ATTRIBUTES(mn)
          ENDIF
 
@@ -166,10 +189,26 @@ CONTAINS
    END SUBROUTINE initialise
 
 
-!FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+!> Builds the HDF5 group name for one time-varying visualisation item.
+!>
+!> The result consists of the user's three-column output number, a space, the
+!> metadata name, and—when applicable—the two-column sediment or contaminant
+!> fraction. Sediment takes precedence if both variation flags are set. Leading
+!> spaces in the `I3` output number are retained in the HDF5 group name.
+!>
+!> Callers must keep output numbers within `I3`, fraction numbers within `I2`,
+!> and the name-plus-fraction within the eight characters available in `dum`;
+!> otherwise formatted asterisks or truncation can make group names ambiguous.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced metadata-derived group names. |
+!> | 2026-04-14 | SvB | Expanded the returned name from 12 to 70 characters. |
+!> @endhistory
    CHARACTER(csz) FUNCTION combination_name(mn) RESULT(r)
-      INTEGER, INTENT(IN) :: mn
-      CHARACTER(8)        :: dum
+      INTEGER, INTENT(IN) :: mn  !! Registered visualisation-item index.
+      CHARACTER(8)        :: dum !! Metadata name and optional fraction suffix.
       WRITE(r,'(I3)')G_H5_I(mn,'users_number')
       dum = G_H5_C(mn,'name')
       IF(G_H5_L(mn,'varies_with_sediment')) THEN
@@ -180,10 +219,30 @@ CONTAINS
       r  = TRIM(r)//' '//TRIM(dum)
    END FUNCTION combination_name
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Closes the HDF5 resources owned by the visualisation writer.
+!>
+!> This is the terminal operation for a run and assumes [[initialise]] has
+!> completed. It closes each value and time dataset/dataspace, the shared time
+!> dataspace, the top-level groups and file, and finally the HDF5 library.
+!> Lazily created map and spreadsheet groups are closed unconditionally; normal
+!> registration includes the static `surf_elv` and `number` items that create
+!> them. Saved allocations and guards are not reset, so output cannot be
+!> restarted safely in the same process.
+!>
+!> Dynamic per-item group identifiers and the two compression property lists
+!> are left for `H5CLOSE_F` to release. Close failures are not propagated.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced HDF5 shutdown. |
+!> | 2026-04-08 | SB | Removed the Intel `DLLEXPORT` directive. |
+!> | 2026-04-14 | SvB | Closed the per-item and shared time dataspaces. |
+!> @endhistory
    SUBROUTINE visualisation_tidy_up()
-      INTEGER :: ni, mn
-      LOGICAL :: istimeseries
+      INTEGER :: ni !! Number of registered visualisation items.
+      INTEGER :: mn !! Current metadata-item index.
+      LOGICAL :: istimeseries !! Whether this item owns a time dataset.
       ni           = G_I(0,'no_items')
       DO mn=1,ni
          istimeseries = G_H5_L(mn, 'istimeseries')
@@ -203,14 +262,41 @@ CONTAINS
    END SUBROUTINE visualisation_tidy_up
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes one registered visualisation item when its value is due.
+!>
+!> The public caller first invokes this routine once to arm the writer, then
+!> registers all metadata before the second call triggers [[initialise]]. Static
+!> items are accepted only at the exact sentinel `time == 0`; dynamic items
+!> increment their own timestep, extend both datasets, count queued values and
+!> pass a full buffer to [[write_mn]]. The current buffer length is one.
+!>
+!> `mn` must identify a registered item and dynamic `time` values are hours.
+!> The retained `notflag` path is inactive after removal of the old Intel key
+!> test. Exact default-real time comparisons are intentional legacy sentinels.
+!>
+!> @warning
+!> The buffer test is equality with one, not a lower bound. If more than one
+!> node is already queued, the datasets are extended by one timestep but the
+!> queued nodes are not written on that call; ordinary callers therefore must
+!> invoke the writer for every due value.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced deferred initialisation and buffered writes. |
+!> | 2026-04-08 | SB | Replaced legacy pointer handling with `C_PTR` and removed the Intel-specific keyboard test. |
+!> @endhistory
    SUBROUTINE save_visualisation_data_to_disk(mn, time)
-      INTEGER, INTENT(IN) :: mn
-      INTEGER, PARAMETER  :: buffer_length_for_storage=1
-      INTEGER             :: tc, tstep
-      REAL, INTENT(IN)    :: time
-      LOGICAL, SAVE       :: one=T, two=F, notflag=F
-      TYPE(C_PTR)         :: first_ptr
+      INTEGER, INTENT(IN) :: mn !! Registered visualisation-item index.
+      INTEGER, PARAMETER  :: buffer_length_for_storage=1 !! Number of queued values written together.
+      INTEGER             :: tc !! Number of values currently queued for the item.
+      INTEGER             :: tstep !! One-based dynamic output index; unused for static writes.
+      REAL, INTENT(IN)    :: time !! Simulation time in hours, or zero for a static value.
+      LOGICAL, SAVE       :: one=T !! Guard that discards the pre-registration call.
+      LOGICAL, SAVE       :: two=F !! Guard that initialises HDF5 on the next call.
+      LOGICAL, SAVE       :: notflag=F !! Inactive legacy early-stop flag.
+      TYPE(C_PTR)         :: first_ptr !! Head of the item's queued-value list.
 
       IF(notflag .AND. time>zero) THEN
          RETURN
@@ -229,40 +315,71 @@ CONTAINS
       ELSE
          CALL INCREMENT_HDF5_TSTEP_NO(mn)
          tstep          = G_H5_I(mn, 'tstep_no')
-         newsz(mn)%a    = szz(mn)%a ; newsz(mn)%a(1) = tstep !hh%tstep_no
-         t_newsz        = (/tstep/) !(/hh%tstep_no/)
+         newsz(mn)%a    = szz(mn)%a ; newsz(mn)%a(1) = tstep
+         t_newsz        = (/tstep/)
          CALL H5DEXTEND_F(dataset(mn), newsz(mn)%a, error)
          CALL H5DEXTEND_F(t_dataset(mn), t_newsz, error)
          first_ptr = G_PTR(mn,'first')
          tc = TIME_COUNT(G_C(mn,'typ'), first_ptr)
       ENDIF
       IF(time==zero .OR. tc==buffer_length_for_storage) &
-         CALL WRITE_MN(mn, tc, time==zero, tstep, G_H5_L(mn,'isreal'), G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
-!IF(mn==G_I(0,'no_items')) PRINT*,time !, 'RECODE HERE TO IMPROVE OUTPUT'
+         CALL WRITE_MN(mn, tc, time==zero, tstep, G_H5_L(mn,'isreal'), &
+            G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), &
+            G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
 
    END SUBROUTINE save_visualisation_data_to_disk
 
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Copies queued values from the visualisation structure into HDF5.
+!>
+!> Dynamic writes select the newly extended hyperslab and store the matching
+!> time value. Static writes use the original dataspace. The `GET_HDF5_R` and
+!> `GET_HDF5_I` extractors consume each linked-list node and advance `first`,
+!> which is written back to metadata after the loop. Real and integer values are
+!> materialised in six-dimensional temporary arrays whose inactive extents are
+!> one.
+!>
+!> The internal HDF5 dimension sequence is Fortran ordered; readers using the C
+!> view see the reverse sequence. Static items named exactly `surf_elv` and
+!> `number` additionally trigger the derived map and spreadsheet products.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced queued HDF5 value writes. |
+!> | 2026-03-29 | SvB | Allocated temporary arrays from runtime dimensions to prevent invalid storage and memory corruption. |
+!> | 2026-04-08 | SB | Replaced legacy integer addresses with `C_PTR`. |
+!> @endhistory
    SUBROUTINE write_mn(mn, amount, firstwrites, tstep, isreal, szorder, ilow, jlow, klow)
-      INTEGER, INTENT(IN)                                :: mn, tstep, ilow, jlow, klow, amount !how many to copy to disk
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: szorder
-      INTEGER                                            :: am, hhdim(ndim)
-      TYPE(C_PTR)                                        :: first
-      INTEGER, DIMENSION(ndim)                           :: sz
-      INTEGER(HSIZE_T)                                   :: t_sz(7)
-      REAL                                               :: time
-      REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: surf_elv
-      REAL, DIMENSION(:,:,:), ALLOCATABLE                :: temp_surf_map
-      REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE          :: temp_r
-      INTEGER, DIMENSION(:,:,:,:,:,:), ALLOCATABLE       :: temp_i
-      LOGICAL, INTENT(IN)                                :: firstwrites, isreal
-      LOGICAL                                            :: istimeseries
-      CHARACTER(2)                                       :: typ
-      CHARACTER(csz)                                     :: name
-      INTEGER(HID_T)                                     :: filespace, t_filespace
-      INTEGER(HSIZE_T), DIMENSION(ndim)                  :: start, t_start, ccount, t_ccount
+      INTEGER, INTENT(IN) :: mn !! Registered visualisation-item index.
+      INTEGER, INTENT(IN) :: amount !! Number of queued nodes to copy.
+      INTEGER, INTENT(IN) :: tstep !! Current one-based dynamic output index.
+      INTEGER, INTENT(IN) :: ilow !! Lower column offset passed to the extractor.
+      INTEGER, INTENT(IN) :: jlow !! Lower row offset passed to the extractor.
+      INTEGER, INTENT(IN) :: klow !! Lower layer offset passed to the extractor.
+      INTEGER, DIMENSION(:), INTENT(IN) :: szorder !! Mapping from metadata to storage dimensions.
+      INTEGER                  :: am !! Queued-node counter.
+      INTEGER                  :: hhdim(ndim) !! Metadata extents including inactive zero entries.
+      TYPE(C_PTR)              :: first !! Current queued-node pointer; advanced by the extractor.
+      INTEGER, DIMENSION(ndim) :: sz !! Extractor extents with inactive dimensions replaced by one.
+      INTEGER(HSIZE_T)         :: t_sz(7) !! One-value time memory dimensions.
+      REAL                     :: time !! Time in hours read from the current queued node.
+      REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE :: surf_elv !! Surface-elevation value buffer.
+      REAL, DIMENSION(:,:,:), ALLOCATABLE       :: temp_surf_map !! Map-shaped surface-elevation slice.
+      REAL, DIMENSION(:,:,:,:,:,:), ALLOCATABLE :: temp_r !! General real value buffer.
+      INTEGER, DIMENSION(:,:,:,:,:,:), ALLOCATABLE :: temp_i !! General integer value buffer.
+      LOGICAL, INTENT(IN) :: firstwrites !! True for the initial/static write path.
+      LOGICAL, INTENT(IN) :: isreal !! True when this item's database values are real.
+      LOGICAL             :: istimeseries !! Whether the item owns a time dataset.
+      CHARACTER(2)        :: typ !! Visualisation structure type code.
+      CHARACTER(csz)      :: name !! Metadata item name.
+      INTEGER(HID_T)      :: filespace !! Value file dataspace for this write.
+      INTEGER(HID_T)      :: t_filespace !! Time file dataspace for this write.
+      INTEGER(HSIZE_T), DIMENSION(ndim) :: start !! Zero-based value hyperslab start.
+      INTEGER(HSIZE_T), DIMENSION(ndim) :: t_start !! Zero-based time hyperslab start.
+      INTEGER(HSIZE_T), DIMENSION(ndim) :: ccount !! Value hyperslab selection count.
+      INTEGER(HSIZE_T), DIMENSION(ndim) :: t_ccount !! Time hyperslab selection count.
 
       name            = G_H5_C(mn,'name')
       first           = G_PTR(mn,'first')
@@ -275,8 +392,8 @@ CONTAINS
          CALL H5SCOPY_F(dataspace(mn), filespace, error)
          CALL H5SCOPY_F(t_dataspace(mn), t_filespace, error)
       ELSE
-         CALL H5SCREATE_SIMPLE_F(rank(mn), newsz(mn)%a,   filespace,   error) !create dataspacesv4_elevation
-         CALL H5SCREATE_SIMPLE_F(1,    t_newsz, t_filespace, error) !create dataspace
+         CALL H5SCREATE_SIMPLE_F(rank(mn), newsz(mn)%a, filespace, error)
+         CALL H5SCREATE_SIMPLE_F(1, t_newsz, t_filespace, error)
       ENDIF
 
       start    = 0
@@ -289,7 +406,6 @@ CONTAINS
          IF(.NOT.firstwrites) THEN
             start(1) = tstep-amount+am-1
             CALL H5SSELECT_HYPERSLAB_F(filespace, H5S_SELECT_SET_F, start(1:rank(mn)), ccount(1:rank(mn)), error, block=szz(mn)%a)
-            !for time data
             t_start(1) = tstep-amount+am-1
             CALL H5SSELECT_HYPERSLAB_F(t_filespace, H5S_SELECT_SET_F, t_start, t_ccount, error)
          ENDIF
@@ -300,7 +416,7 @@ CONTAINS
                t_sz, error, mem_space_id=orig_t_dataspace, file_space_id=t_filespace)
          ENDIF
 
-         !NB *** first is updated in this loop
+         ! The structure extractor consumes the current node and advances `first`.
          IF(isreal) THEN
             IF(name=='surf_elv') THEN
                IF(.NOT.ALLOCATED(surf_elv)) ALLOCATE(surf_elv(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)))
@@ -317,7 +433,7 @@ CONTAINS
             IF(.NOT.ALLOCATED(temp_i)) ALLOCATE(temp_i(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)))
             CALL GET_HDF5_I(typ, sz, szorder, first, ilow, jlow, klow, temp_i)
             CALL H5DWRITE_F(dataset(mn), dtype(mn), temp_i, &
-               szz(mn)%a, error, mem_space_id=orig_dataspace(mn), file_space_id=filespace)  !write to file
+               szz(mn)%a, error, mem_space_id=orig_dataspace(mn), file_space_id=filespace)
          ENDIF
       ENDDO
       CALL S_PTR(mn,'first', first)
@@ -334,39 +450,28 @@ CONTAINS
          DEALLOCATE(surf_elv)
       ENDIF
    END SUBROUTINE write_mn
-
-
-
-   !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds the `units = "hours"` attribute to an item's time dataset.
+!>
+!> The time dataset must already exist in `t_dataset(mn)`. Temporary HDF5
+!> datatype, dataspace and attribute identifiers are closed before return.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced time units metadata. |
+!> | 2026-04-07 | SvB | Added portable `SIZE_T`/`HSIZE_T` conversions and explicit identifier cleanup for GFortran. |
+!> @endhistory
    SUBROUTINE create_time_attributes(mn)
-
-      ! Assumed module variables available via host association:
-      ! error, t_dataset
-      ! H5T_NATIVE_CHARACTER
-
       IMPLICIT NONE
+      INTEGER, INTENT(IN) :: mn !! Registered visualisation-item index.
+      INTEGER             :: arank !! Rank of the scalar-like attribute dataspace.
+      INTEGER(HID_T)      :: atype !! Fixed-length character datatype identifier.
+      INTEGER(HID_T)      :: attribute !! `units` attribute identifier.
+      INTEGER(HID_T)      :: a_dataspace !! Attribute dataspace identifier.
+      INTEGER(HSIZE_T)    :: dims1(1) !! One-element attribute extent.
+      CHARACTER(5)        :: units_str = 'hours' !! Time-unit attribute value.
 
-      ! Input arguments
-      INTEGER, INTENT(IN)                     :: mn
-
-      ! Locals
-      INTEGER                                 :: arank
-      INTEGER(HID_T)                          :: atype, attribute, a_dataspace
-
-      ! Strictly typed HDF5 dimension array
-      INTEGER(HSIZE_T)                        :: dims1(1)
-
-      ! Safe character string to replace the inline array constructor
-      CHARACTER(5)                            :: units_str = 'hours'
-
-   !----------------------------------------------------------------------*
-
-      ! ---------------------------------------------------------
-      ! units
-      ! ---------------------------------------------------------
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-
-      ! Explicit SIZE_T cast to fix gfortran Type Mismatch error
       CALL H5TSET_SIZE_F(atype, INT(5, KIND=SIZE_T), error)
 
       arank    = 1
@@ -376,46 +481,60 @@ CONTAINS
       CALL H5ACREATE_F(t_dataset(mn), 'units', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, units_str, dims1, error)
 
-      ! Cleanup to prevent HDF5 ID leaks
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
       CALL H5TCLOSE_F(atype, error)
 
    END SUBROUTINE create_time_attributes
-
-
-
-
-   !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds descriptive and dimension metadata to one value dataset.
+!>
+!> The attributes are `title`, `units`, `basis`, `scope`, `names of
+!> dimensions`, `database type`, and the applicable per-dimension attributes
+!> written by the contained `dimension_attributes` helper. Active names are reversed to
+!> match the order exposed to C-oriented HDF5 readers. The database type stores
+!> only the first character of the visualisation structure type code.
+!>
+!> | Dimension | Auxiliary attribute |
+!> |:----------|:--------------------|
+!> | `time` | Text noting that values have their own `time` dataset. |
+!> | `column`, `row` | Inclusive lower and upper metadata limits. |
+!> | `el-lst` | Two rows pairing local positions with element numbers. |
+!> | `el_typ` | Element-type member labels. |
+!> | `extra` | Extra-dimension member labels. |
+!> | `layer` or unknown | None. |
+!>
+!> Zero-member element-type, element-list and extra dimensions receive a
+!> one-entry placeholder so the HDF5 Fortran interface is never passed an empty
+!> buffer. A metadata item with no active dimensions still requests a zero-length
+!> `names of dimensions` attribute; any HDF5 failure is retained only in
+!> `error`. No `layer limits` attribute is currently written.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced dataset and dimension attributes. |
+!> | 2026-04-07 | SvB | Added portable HDF5 size kinds and closed local datatype identifiers. |
+!> | 2026-04-14 | SvB | Guarded empty dimension-member arrays. |
+!> @endhistory
    SUBROUTINE create_variables_attributes(mn)
-
-      ! Assumed module variables available via host association:
-      ! error, dataset, csz, G_H5_C, G_H5_I, ndim
-      ! H5T_NATIVE_CHARACTER, H5T_NATIVE_INTEGER
-
       IMPLICIT NONE
+      INTEGER, INTENT(IN) :: mn !! Registered visualisation-item index.
+      INTEGER             :: dd !! Active-dimension counter.
+      INTEGER             :: ii !! Packed-dimension counter.
+      INTEGER             :: jj !! Metadata member or dimension counter.
+      INTEGER             :: no_dimensions !! Number of active metadata dimensions.
+      INTEGER             :: arank !! Rank of the current attribute dataspace.
+      INTEGER(HID_T)      :: atype !! Reusable character datatype identifier.
+      INTEGER(HID_T)      :: attribute !! Current attribute identifier.
+      INTEGER(HID_T)      :: a_dataspace !! Current attribute dataspace identifier.
+      INTEGER             :: i !! Array-constructor index for element-list positions.
+      INTEGER, DIMENSION(:,:), ALLOCATABLE :: pairs !! Position/element-number pairs.
+      CHARACTER(2)        :: typ !! Visualisation structure type code.
+      CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nme !! Dimension member labels.
+      CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nmed !! Active dimension names in file order.
+      INTEGER(HSIZE_T) :: dims1(1) !! One-dimensional attribute extent.
+      INTEGER(HSIZE_T) :: dims2(2) !! Two-dimensional attribute extents.
 
-      ! Input arguments
-      INTEGER, INTENT(IN)                     :: mn
-
-      ! Locals
-      INTEGER                                 :: dd, ii, jj, no_dimensions
-      INTEGER                                 :: arank
-      INTEGER(HID_T)                          :: atype, attribute, a_dataspace
-      INTEGER                                 :: i
-      INTEGER, DIMENSION(:,:), ALLOCATABLE    :: pairs
-      CHARACTER(2)                            :: typ
-      CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nme, nmed
-
-      ! Strictly typed HDF5 dimension arrays
-      INTEGER(HSIZE_T)                        :: dims1(1)
-      INTEGER(HSIZE_T)                        :: dims2(2)
-
-      !----------------------------------------------------------------------*
-
-      ! ---------------------------------------------------------
-      ! title
-      ! ---------------------------------------------------------
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
       CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
 
@@ -428,9 +547,7 @@ CONTAINS
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! ---------------------------------------------------------
-      ! units
-      ! ---------------------------------------------------------
+      ! Units.
       CALL H5TSET_SIZE_F(atype, INT(8, SIZE_T), error)
 
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
@@ -439,9 +556,7 @@ CONTAINS
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! ---------------------------------------------------------
-      ! basis
-      ! ---------------------------------------------------------
+      ! Basis.
       CALL H5TSET_SIZE_F(atype, INT(12, SIZE_T), error)
 
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
@@ -450,9 +565,7 @@ CONTAINS
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! ---------------------------------------------------------
-      ! scope
-      ! ---------------------------------------------------------
+      ! Scope.
       CALL H5TSET_SIZE_F(atype, INT(7, SIZE_T), error)
 
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
@@ -461,9 +574,7 @@ CONTAINS
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! ---------------------------------------------------------
-      ! names of dimensions
-      ! ---------------------------------------------------------
+      ! Active dimension names in the order seen by C-oriented readers.
       CALL H5TSET_SIZE_F(atype, INT(6, SIZE_T), error)
 
       no_dimensions = G_H5_I(mn, 'no_dimensions')
@@ -478,7 +589,7 @@ CONTAINS
          END IF
       END DO
 
-      nmed = nmed(no_dimensions:1:-1) ! Reverse array
+      nmed = nmed(no_dimensions:1:-1)
 
       CALL H5SCREATE_SIMPLE_F(arank, dims1, a_dataspace, error)
       CALL H5ACREATE_F(dataset(mn), 'names of dimensions', atype, a_dataspace, attribute, error)
@@ -486,16 +597,13 @@ CONTAINS
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! Process specific dimension attributes
       DO dd = 1, no_dimensions
          CALL DIMENSION_ATTRIBUTES(nmed(dd))
       END DO
 
       DEALLOCATE(nmed)
 
-      ! ---------------------------------------------------------
-      ! database type
-      ! ---------------------------------------------------------
+      ! First character of the visualisation structure type code.
       CALL H5TSET_SIZE_F(atype, INT(1, SIZE_T), error)
 
       arank    = 1
@@ -508,17 +616,37 @@ CONTAINS
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! Prevent HDF5 Identifier Memory Leak
       CALL H5TCLOSE_F(atype, error)
 
    CONTAINS
 
-      !cscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscscsc
+      !> Adds the auxiliary attribute associated with one active dimension.
+      !>
+      !> The mapping is:
+      !>
+      !> | Dimension | Attribute |
+      !> |:----------|:----------|
+      !> | `time` | Text noting that values have their own `time` dataset. |
+      !> | `column`, `row` | Inclusive lower and upper metadata limits. |
+      !> | `el-lst` | Two rows pairing local positions with element numbers. |
+      !> | `el_typ` | Element-type member labels. |
+      !> | `extra` | Extra-dimension member labels. |
+      !>
+      !> `layer` and unknown names deliberately add no auxiliary attribute.
+      !> Empty member arrays use one blank or zero-filled placeholder entry.
+      !>
+      !> @history
+      !> | Date | Author | Description |
+      !> |:-----|:-------|:------------|
+      !> | 2020-09-08 | SB | Introduced per-dimension metadata. |
+      !> | 2026-04-07 | SvB | Isolated and closed string datatypes and ceased writing `layer limits`. |
+      !> | 2026-04-14 | SvB | Guarded zero-length member arrays. |
+      !> @endhistory
       SUBROUTINE dimension_attributes(name)
-         CHARACTER(*), INTENT(IN) :: name
-         CHARACTER(csz)           :: dum(1)
-         INTEGER(HID_T)           :: local_atype
-         INTEGER                  :: nvals
+         CHARACTER(*), INTENT(IN) :: name !! Active dimension name in file order.
+         CHARACTER(csz)           :: dum(1) !! Text value for the `time` attribute.
+         INTEGER(HID_T)           :: local_atype !! Temporary fixed-length string datatype.
+         INTEGER                  :: nvals !! Number of meaningful dimension members.
 
          SELECT CASE(name)
 
@@ -527,7 +655,6 @@ CONTAINS
             dims1(1) = 1
             dum(1)   = 'has its own dataset'
 
-            ! Use a local datatype ID to avoid leaking or overwriting the host's `atype`
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(LEN_TRIM(dum(1)), SIZE_T), error)
 
@@ -536,7 +663,7 @@ CONTAINS
             CALL H5AWRITE_F(attribute, local_atype, dum, dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
-            CALL H5TCLOSE_F(local_atype, error) ! Cleanup
+            CALL H5TCLOSE_F(local_atype, error)
 
           CASE('column')
             arank    = 1
@@ -601,7 +728,7 @@ CONTAINS
             CALL H5AWRITE_F(attribute, local_atype, nme, dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
-            CALL H5TCLOSE_F(local_atype, error) ! Cleanup
+            CALL H5TCLOSE_F(local_atype, error)
             DEALLOCATE(nme)
 
           CASE('extra')
@@ -625,7 +752,7 @@ CONTAINS
             CALL H5AWRITE_F(attribute, local_atype, nme, dims1, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
-            CALL H5TCLOSE_F(local_atype, error) ! Cleanup
+            CALL H5TCLOSE_F(local_atype, error)
             DEALLOCATE(nme)
 
          END SELECT
@@ -635,16 +762,29 @@ CONTAINS
 
 
 
-!MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF
-!MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF
-!MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF MAP STUFF
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Converts static surface elevation into a magnified indexed catchment map.
+!>
+!> The input is the map-shaped slice extracted from the `surf_elv` item. Palette
+!> indices are computed by `GET_REAL_IMAGE_INDEX` using the item's row/column
+!> extents and the requested magnification, then written as
+!> `/CATCHMENT_MAPS/SV<ver>_elevation`. The current caller uses magnification 20.
+!>
+!> The `I1` version field supports only single-digit visualisation versions.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced the derived elevation map. |
+!> | 2026-03-29 | SvB | Made the temporary image allocatable to prevent invalid storage and memory corruption. |
+!> @endhistory
    SUBROUTINE save_surf_elev_as_map(mn, dat, magnif)
-      INTEGER, INTENT(IN)                :: mn, magnif
-      INTEGER                            :: sz(2)
-      REAL, DIMENSION(:,:,:), INTENT(IN) :: dat
-      CHARACTER(csz)                     :: name, title
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_pic
+      INTEGER, INTENT(IN) :: mn !! Registered index of the static `surf_elv` item.
+      INTEGER, INTENT(IN) :: magnif !! Map magnification passed to the index generator.
+      INTEGER             :: sz(2) !! Unmagnified column and row extents.
+      REAL, DIMENSION(:,:,:), INTENT(IN) :: dat !! Surface elevation on the map grid.
+      CHARACTER(csz) :: name !! HDF5 image dataset name.
+      CHARACTER(csz) :: title !! Descriptive title passed to the image helper; currently unused there.
+      INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_pic !! Magnified palette-index image.
       WRITE(name,'(A,I1,A)') 'SV',ver,'_elevation'
       WRITE(title,'(A,I1,A)') 'SV',ver,' surface elevation'
       sz  = szz(mn)%a(2:3)
@@ -653,12 +793,22 @@ CONTAINS
       DEALLOCATE(temp_pic)
    END SUBROUTINE save_surf_elev_as_map
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Converts static element numbers into a magnified integer grid.
+!>
+!> The grid is written as
+!> `/CATCHMENT_SPREADSHEETS/SV<ver>_numbering` with a fixed magnification of 20.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced the derived element-number spreadsheet. |
+!> | 2026-03-29 | SvB | Made the temporary magnified grid allocatable to prevent invalid storage and memory corruption. |
+!> @endhistory
    SUBROUTINE save_numbers_as_spreadsheet(mn)
-      INTEGER, INTENT(IN) :: mn
-      INTEGER, PARAMETER  :: magnif=20
-      INTEGER             :: sz(2)
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_magarr
+      INTEGER, INTENT(IN) :: mn !! Registered index of the static `number` item.
+      INTEGER, PARAMETER  :: magnif=20 !! Fixed spreadsheet magnification.
+      INTEGER             :: sz(2) !! Unmagnified column and row extents.
+      INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_magarr !! Magnified element-number grid.
       sz = szz(mn)%a(2:3)
       temp_magarr = GET_MAGNIFIED_SU_ARR(sz, magnif, mn)
       CALL ADD_MAGNIFIED_INTEGER_SPREADSHEET_TO_GROUP(mn, nme='numbering', magnif=magnif, magarr=temp_magarr)
@@ -666,22 +816,51 @@ CONTAINS
    END SUBROUTINE save_numbers_as_spreadsheet
 
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Adds an indexed elevation image and its colour palette to the map group.
+!>
+!> On the first call the routine creates `/CATCHMENT_MAPS` and constructs a
+!> 256-entry RGB palette. It writes `pic` as a native-integer HDF5 dataset,
+!> creates `palette1`, and links that palette to the indexed image. Despite the
+!> helper's historical name, the current GFortran output stores 32-bit integer
+!> indices rather than an eight-bit dataset.
+!>
+!> For entries `i = 1,...,256`, the base RGB sequence is
+!> `(MIN(255,4*i/3), i, i/2)` using integer division. The first entry is then
+!> set to `(5,125,125)` and the last to `(80,125,255)`.
+!>
+!> `pic` is declared optional for historical reasons but is dereferenced
+!> unconditionally and is therefore required in practice. `title` and `magnif`
+!> are also retained interface arguments but are not written as attributes.
+!> Palette data is initialised only on the first call while palette creation is
+!> attempted on every call, so this helper currently supports one image per
+!> output file.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced indexed map and palette output. |
+!> @endhistory
    SUBROUTINE add_an_image_to_group(name, title, magnif, pic)
-      INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic
-      INTEGER, INTENT(IN)                           :: magnif
-      INTEGER, PARAMETER                            :: mmax=256, vrange(2)=[0,mmax]
-      INTEGER                                       :: i, p, minvi, maxvi, arank, st
-      INTEGER(HID_T)                                :: dataspace, atype, attribute, a_dataspace, dataset
-      INTEGER(HSIZE_T), DIMENSION(1)                :: tsz
-      CHARACTER(*), INTENT(IN)                      :: name, title
-      TYPE(ssz)                                     :: aszz
-      REAL                                          :: minvr, maxvr
-      LOGICAL, SAVE                                 :: first = .TRUE.
-      INTEGER(HSIZE_T)                              :: wid, hei
-      CHARACTER(*), PARAMETER                       :: pal_name = "palette1"     ! Dataset name
-      INTEGER(HSIZE_T), DIMENSION(2)                :: pal_dims = [mmax,3] ! Dataset dimensions
-      INTEGER, DIMENSION(mmax*3)                    :: pal_data_in
+      INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic !! Magnified palette indices; required in practice.
+      INTEGER, INTENT(IN) :: magnif !! Retained magnification argument; currently unused.
+      INTEGER, PARAMETER  :: mmax=256 !! Number of entries in the colour palette.
+      INTEGER, PARAMETER  :: vrange(2)=[0,mmax] !! Unused range retained from the superseded image writer.
+      INTEGER :: i !! Palette-constructor index.
+      INTEGER :: p !! Unused legacy address variable.
+      INTEGER :: minvi, maxvi !! Unused legacy integer range.
+      INTEGER :: arank, st !! Unused legacy HDF5 workspace.
+      INTEGER(HID_T) :: dataspace, atype, attribute, a_dataspace, dataset !! Unused legacy HDF5 identifiers.
+      INTEGER(HSIZE_T), DIMENSION(1) :: tsz !! Unused legacy attribute extent.
+      CHARACTER(*), INTENT(IN) :: name !! HDF5 image dataset name.
+      CHARACTER(*), INTENT(IN) :: title !! Retained image title; currently unused.
+      TYPE(ssz) :: aszz !! Unused legacy extent wrapper allocated on the first call.
+      REAL :: minvr, maxvr !! Unused legacy real range.
+      LOGICAL, SAVE :: first = .TRUE. !! Guard for group and palette-data initialisation.
+      INTEGER(HSIZE_T) :: wid !! First extent of `pic`.
+      INTEGER(HSIZE_T) :: hei !! Second extent of `pic`.
+      CHARACTER(*), PARAMETER :: pal_name = "palette1" !! Palette dataset name.
+      INTEGER(HSIZE_T), DIMENSION(2) :: pal_dims = [mmax,3] !! Palette entry and RGB-component extents.
+      INTEGER, DIMENSION(mmax*3) :: pal_data_in !! Flattened RGB palette values.
 
       IF(first) THEN
          pal_data_in                = [(MIN(mmax-1,4*i/3),i,i/2,i=1,mmax)]
@@ -695,89 +874,89 @@ CONTAINS
       wid = SIZE(pic,DIM=1)
       hei = SIZE(pic,DIM=2)
 
-!CALL H5IMmake_image_8bit_F(group_images, name, wid, hei, pic, error)
       CALL make_tidy_image_8(group_images, name, wid, hei,  pic, error)
       CALL h5IMmake_palette_F(group_images, pal_name, pal_dims, pal_data_in, error)
       CALL H5IMlink_palette_f(group_images, name, pal_name, error)
    END SUBROUTINE add_an_image_to_group
 
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes a native-integer indexed-image dataset with HDF5 image attributes.
+!>
+!> `H5LTmake_dataset_int_f` creates a rank-two native-integer dataset, after
+!> which `CLASS=IMAGE`, `IMAGE_VERSION=1.2`, and
+!> `IMAGE_SUBCLASS=IMAGE_INDEXED` are attached. The name is historical: this
+!> routine does not request an eight-bit datatype. `pic` is optional in the
+!> interface but required in practice because it is passed unconditionally.
+!>
+!> `err` contains only the status of the last H5LT attribute call; earlier
+!> failures can be overwritten.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced the compact indexed-image writer. |
+!> @endhistory
    SUBROUTINE make_tidy_image_8(loc_id, name, wid, hei, pic, err)
-      INTEGER, PARAMETER                            :: rank=2
-      INTEGER, INTENT(OUT)                          :: err
-      INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic
-      INTEGER(HID_T), INTENT(IN)                    :: loc_id
-      INTEGER(HSIZE_T), INTENT(IN)                  :: wid, hei
-      INTEGER(HSIZE_T), DIMENSION(rank)             :: dims
-      CHARACTER(*), INTENT(IN)                      :: name
+      INTEGER, PARAMETER :: rank=2 !! Dataset rank.
+      INTEGER, INTENT(OUT) :: err !! Most recent H5LT status code.
+      INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic !! Palette indices; required in practice.
+      INTEGER(HID_T), INTENT(IN) :: loc_id !! Parent HDF5 group identifier.
+      INTEGER(HSIZE_T), INTENT(IN) :: wid !! First dataset extent.
+      INTEGER(HSIZE_T), INTENT(IN) :: hei !! Second dataset extent.
+      INTEGER(HSIZE_T), DIMENSION(rank) :: dims !! Native HDF5 dataset extents.
+      CHARACTER(*), INTENT(IN) :: name !! HDF5 image dataset name.
 
       dims = [wid,hei]
       err  = 0
       CALL H5LTmake_dataset_int_f(loc_id, name, 2, dims, pic, err)
-!subroutine h5ltmake_dataset_int_f(loc_id, dset_name, rank, dims, buf, errcode)
-!  integer(HID_T), intent(IN) :: loc_id           ! file or group identifier
-!  character(LEN=*), intent(IN) :: dset_name      ! name of the dataset
-!  integer, intent(IN) :: rank                    ! rank
-!  integer(HSIZE_T), dimension(*), intent(IN) :: dims ! size of the buffer buf
-!  integer, intent(IN), dimension(*) :: buf       ! data buffer
-!  integer :: errcode                             ! error code
-!end subroutine h5ltmake_dataset_int_f
-
-
-!subroutine h5ltset_attribute_string_f(loc_id, dset_name, attr_name, buf, errcode )
-!  implicit none
-!  integer(HID_T), intent(IN) :: loc_id           ! file or group identifier
-!  character(LEN=*), intent(IN) :: dset_name      ! name of the dataset
-!  character(LEN=*), intent(IN) :: attr_name      ! name of the attribute
-!  integer :: errcode                             ! error code
-!  character(LEN=*), intent(IN) :: buf            ! data buffer
-!end subroutine h5ltset_attribute_string_f
 
       CALL H5LTset_attribute_string_f(loc_id, name, "CLASS", "IMAGE", err)
       CALL H5LTset_attribute_string_f(loc_id, name, "IMAGE_VERSION", "1.2", err)
       CALL H5LTset_attribute_string_f(loc_id, name, "IMAGE_SUBCLASS", "IMAGE_INDEXED", err )
 
    END SUBROUTINE make_tidy_image_8
-
-
-
-   !SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+!> Writes a magnified integer grid to `/CATCHMENT_SPREADSHEETS`.
+!>
+!> The group is created on the first call. The dataset name is
+!> `SV<ver>_<nme>`, its full shape is used as a DEFLATE chunk, and it receives a
+!> title plus the integer magnification attribute. The `I0` version field avoids
+!> overflow for multi-digit versions. `mn` is retained for interface symmetry
+!> but is not used.
+!>
+!> The copied string datatype `atype` is not explicitly closed; the final
+!> `H5CLOSE_F` call releases it with other remaining HDF5 resources.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2020-09-08 | SB | Introduced magnified integer-grid output. |
+!> | 2026-04-07 | SvB | Added portable dimension casts, multi-digit versions, and dataset/dataspace cleanup. |
+!> @endhistory
    SUBROUTINE add_magnified_integer_spreadsheet_to_group(mn, nme, magnif, magarr)
-
-      ! Assumed module variables available via host association:
-      ! file, group_magnified_integer, error, ver, csz, dataset_compress_property
-      ! H5T_NATIVE_INTEGER, H5T_NATIVE_CHARACTER
-
       IMPLICIT NONE
-
-      ! Input arguments
-      INTEGER, INTENT(IN)                     :: mn, magnif, magarr(:,:)
-      CHARACTER(*), INTENT(IN)                :: nme
-
-      ! HDF5 Identifiers
-      INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset
-
-      ! Dimension arrays (strictly typed for HDF5 C-interoperability)
-      INTEGER                                 :: arank
-      INTEGER(HSIZE_T)                        :: dims(2)   ! For the 2D dataset
-      INTEGER(HSIZE_T)                        :: adims(1)  ! Replaces the 7-element tsz hack
-
-      ! Locals
-      CHARACTER(csz)                          :: title, name
-      LOGICAL, SAVE                           :: first = .TRUE.
-
-   !----------------------------------------------------------------------*
+      INTEGER, INTENT(IN) :: mn !! Retained visualisation-item index; currently unused.
+      INTEGER, INTENT(IN) :: magnif !! Grid magnification stored as an attribute.
+      INTEGER, INTENT(IN) :: magarr(:,:) !! Magnified integer grid.
+      CHARACTER(*), INTENT(IN) :: nme !! Dataset-name suffix.
+      INTEGER(HID_T) :: dataspace !! Grid dataspace identifier.
+      INTEGER(HID_T) :: atype !! Fixed-length title datatype identifier.
+      INTEGER(HID_T) :: attribute !! Current attribute identifier.
+      INTEGER(HID_T) :: a_dataspace !! Current attribute dataspace identifier.
+      INTEGER(HID_T) :: dataset !! Grid dataset identifier.
+      INTEGER :: arank !! Dataset or attribute rank.
+      INTEGER(HSIZE_T) :: dims(2) !! Grid dataset extents.
+      INTEGER(HSIZE_T) :: adims(1) !! One-element attribute extent.
+      CHARACTER(csz) :: title !! Dataset title attribute.
+      CHARACTER(csz) :: name !! Versioned dataset name.
+      LOGICAL, SAVE :: first = .TRUE. !! Guard for spreadsheet-group creation.
 
       IF (first) THEN
          first = .FALSE.
          CALL H5GCREATE_F(file, 'CATCHMENT_SPREADSHEETS', group_magnified_integer, error)
       END IF
 
-      ! Use I0 instead of I1 to prevent format overflow if 'ver' ever exceeds 9
       WRITE(name, '(A,I0,A)') 'SV', ver, '_' // TRIM(nme)
       title = name
 
-      ! Define dataset dimensions safely with explicit HSIZE_T casting
       arank = 2
       dims(1) = INT(SIZE(magarr, 1), HSIZE_T)
       dims(2) = INT(SIZE(magarr, 2), HSIZE_T)
@@ -788,32 +967,26 @@ CONTAINS
       CALL H5DCREATE_F(group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, &
                        dataset, error, dcpl_id=dataset_compress_property)
 
-      ! Set up string datatype for the title attribute
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
       CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
 
-      ! Setup 1D attribute dimensions safely
       arank = 1
       adims(1) = 1
 
-      ! --- Write 'title' attribute ---
       CALL H5SCREATE_SIMPLE_F(arank, adims, a_dataspace, error)
       CALL H5ACREATE_F(dataset, 'title', atype, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, atype, title, adims, error)
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! --- Write 'magnification' attribute ---
       CALL H5SCREATE_SIMPLE_F(arank, adims, a_dataspace, error)
       CALL H5ACREATE_F(dataset, 'magnification', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
       CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, magnif, adims, error)
       CALL H5ACLOSE_F(attribute, error)
       CALL H5SCLOSE_F(a_dataspace, error)
 
-      ! --- Write Core Dataset ---
       CALL H5DWRITE_F(dataset, H5T_NATIVE_INTEGER, magarr, dims, error)
 
-      ! Cleanup
       CALL H5DCLOSE_F(dataset, error)
       CALL H5SCLOSE_F(dataspace, error)
 
@@ -821,223 +994,4 @@ CONTAINS
 
 
 
-! KEEP KEEP KEEP KEEP KEEP KEEP ************ USES COMPRESSION USES COMPRESSION
-!IF(PRESENT(pic_int)) THEN
-!    wid = SIZE(pic_int,DIM=1)
-!    hei = SIZE(pic_int,DIM=2)
-!    ALLOCATE(pic(SIZE(pic_int,DIM=1), SIZE(pic_int,DIM=2)))
-!    minvi = MINVAL(pic_int)
-!    maxvi = MAXVAL(pic_int)
-!    pic  = mmax * (pic_int-minvi)/(maxvi-minvi)  !scaling
-!ELSE IF(PRESENT(pic_real)) THEN
-!    wid = SIZE(pic_real,DIM=1)
-!    hei = SIZE(pic_real,DIM=2)
-!!    ALLOCATE(pic(SIZE(pic_real,DIM=1), SIZE(pic_real,DIM=2)))
-!!    minvr = MINVAL(pic_real)
-!!    maxvr = MAXVAL(pic_real)
-!!    pic  = mmax * (pic_real-minvr)/(maxvr-minvr)  !scaling
-!!pic = GET_REAL_IMAGE_INDEX(sz, pic_real, mag, mn)
-!ELSE IF(PRESENT(pic_l)) THEN
-!    wid = SIZE(pic_L,DIM=1)
-!    hei = SIZE(pic_L,DIM=2)
-!    ALLOCATE(pic(SIZE(pic_L,DIM=1), SIZE(pic_L,DIM=2)))
-!    DO i=1,SIZE(pic_L,DIM=1)
-!        WHERE(pic_L(i,:))
-!            pic(i,:) = mmax
-!        ELSEWHERE
-!            pic(i,:) = 1
-!        ENDWHERE
-!    ENDDO
-!ELSE
-!    RETURN
-!ENDIF
-
-!aszz%a = SHAPE(pic)
-!arank = 2
-!
-!CALL H5SCREATE_SIMPLE_F(arank, aszz%a, dataspace, error)
-!CALL H5PSET_CHUNK_F    (dataset_compress_property, 2, aszz%a, error)
-!
-!CALL H5DCREATE_F       (group_images, name, H5T_STD_U8BE, dataspace, dataset, error, creation_prp=dataset_compress_property)
-!CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-!CALL H5TSET_SIZE_F(atype, csz, error)
-!arank  = 1
-!tsz    = 0
-!tsz(1) = 1
-!!name attribute
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'title', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, title, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image class attribute
-!CALL H5TSET_SIZE_F(atype, 6, error)
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'CLASS', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, "IMAGE", tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image subclass class attribute
-!CALL H5TSET_SIZE_F(atype, 15, error)
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_SUBCLASS', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, 'IMAGE_GREYSCALE', tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image color model
-!!CALL H5TSET_SIZE_F(atype, 4, error)
-!!cALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!!CALL H5ACREATE_F(dataset, 'IMAGE_COLORMODEL', atype, a_dataspace, attribute, error)
-!!CALL H5AWRITE_F(attribute, atype, 'RGB', tsz, error)
-!!CALL H5ACLOSE_F(attribute, error)
-!!CALL H5SCLOSE_F(a_dataspace, error)
-!!image version
-!CALL H5TSET_SIZE_F(atype, 4, error)
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_VERSION', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, '1', tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image white
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_WHITE_IS_ZERO', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, 1, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!maginfication attribute
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'magnification', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, magnif, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image MINMAX
-!tsz(1) = 2
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_MINMAXRANGE', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, vrange, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!
-
-!p= LOC(pic)
-!CALL H5DWRITE_F(dataset, H5T_STD_U8BE, pic4, aszz%a, error)  !write to file
-
-!CALL H5DCLOSE_F(dataset, error)
-!CALL H5SCLOSE_F(dataspace, error)
-! KEEP KEEP KEEP KEEP KEEP KEEP ************ USES COMPRESSION USES COMPRESSION
-
-
-
-
-!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-!SUBROUTINE save_numbers_as_map_old(mn, file, dataset_compress_property)
-!INTEGER, INTENT(IN)                     :: mn
-!INTEGER, PARAMETER                      :: magnif=20, mmax=255  !built-in magnification
-!INTEGER(HID_T), INTENT(IN)              :: file, dataset_compress_property
-!INTEGER(HID_T)                          :: dataspace, atype, attribute, a_dataspace, dataset, group_plans
-!INTEGER(HSIZE_T)                        :: arank
-!INTEGER(HSIZE_T), DIMENSION(7)          :: tsz  !don't know why this could not be set at size 1 - compilation problem
-!TYPE(ssz)                               :: aszz
-!CHARACTER(csz)                          :: name, title
-!INTEGER(HID_T)                          :: file2
-!INTEGER                                 :: p
-!INTEGER(1), DIMENSION(:,:), ALLOCATABLE :: pic
-!INTEGER, DIMENSION(100,100)    :: pic4
-!POINTER (p, pic4)
-!!CALL H5FCREATE_F(TRIM(DIRQQ)//'/'//'output/test.h5', H5F_ACC_TRUNC_F, file2, error)
-!
-!CALL H5GCREATE_F(file, 'CATCHMENT_MAP', group_plans, error)
-!!name  = 'SV4_numbering'
-!WRITE(name,'(A,I1,A)') 'SV',ver,'_numbering'
-!!title = 'SV4 element number'
-!WRITE(title,'(A,I1,A)') 'SV',ver,' element number'
-!arank = 2
-!ALLOCATE(aszz%a(2))
-!aszz%a = magnif*szz(mn)%a(2:3)
-!CALL H5SCREATE_SIMPLE_F(arank, aszz%a, dataspace, error)
-!CALL H5PSET_CHUNK_F    (dataset_compress_property, 2, aszz%a, error)
-!
-!CALL H5DCREATE_F       (group_plans, name, H5T_STD_U8BE, dataspace, dataset, error, creation_prp=dataset_compress_property)
-!!    CALL H5DCREATE_F   (file2, name, H5T_NATIVE_INTEGER, dataspace, dataset, error, creation_prp=dataset_compress_property)
-!CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
-!CALL H5TSET_SIZE_F(atype, csz, error)
-!arank  = 1
-!tsz    = 0
-!tsz(1) = 1
-!!name attribute
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'title', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, title, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image class attribute
-!CALL H5TSET_SIZE_F(atype, 6, error)
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'CLASS', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, "IMAGE", tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image subclass class attribute
-!CALL H5TSET_SIZE_F(atype, 15, error)
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_SUBCLASS', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, 'IMAGE_GREYSCALE', tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image version
-!CALL H5TSET_SIZE_F(atype, 4, error)
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_VERSION', atype, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, atype, '1', tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image white
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_WHITE_IS_ZERO', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, 1, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!maginfication attribute
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'magnification', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, magnif, tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!!image MINMAX
-!tsz(1) = 2
-!CALL H5SCREATE_SIMPLE_F(arank, tsz, a_dataspace, error)
-!CALL H5ACREATE_F(dataset, 'IMAGE_MINMAXRANGE', H5T_NATIVE_INTEGER, a_dataspace, attribute, error)
-!CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, (/0,255/), tsz, error)
-!CALL H5ACLOSE_F(attribute, error)
-!CALL H5SCLOSE_F(a_dataspace, error)
-!
-!ALLOCATE(pic(aszz%a(1), aszz%a(2)))
-!pic = GET_NUMBER_ARR(aszz%a, magnif, mn)
-!pic = pic * mmax/MAXVAL(pic)
-!p = LOC(pic)
-!
-!CALL H5DWRITE_F(dataset, H5T_STD_U8BE, pic4, aszz%a, error)  !write to file
-!
-!CALL H5DCLOSE_F(dataset, error)
-!CALL H5SCLOSE_F(dataspace, error)
-!CALL H5GCLOSE_F(group_plans, error)
-!END SUBROUTINE save_numbers_as_map_old
-
-!!SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-!SUBROUTINE save_numbers_as_map(mn, magnif)
-!INTEGER, INTENT(IN)                     :: mn, magnif
-!INTEGER                                 :: sz(2)
-!CHARACTER(csz)                          :: name, title
-!LOGICAL, DIMENSION(:,:), ALLOCATABLE    :: pic
-!
-!WRITE(name,'(A,I1,A)') 'SV',ver,'_rivers'
-!WRITE(title,'(A,I1,A)') 'SV',ver,' rivers'
-!
-!sz  = szz(mn)%a(2:3)
-!pic = GET_IS_LINK_MAGNIFIED(sz, magnif, mn)
-!
-!CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic_L=pic)
-!DEALLOCATE(pic)
-!
-!END SUBROUTINE save_numbers_as_map
 END MODULE visualisation_hdf5

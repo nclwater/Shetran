@@ -1,6 +1,35 @@
+!> @brief Overland and channel flow routing.
+!>
+!> `OCmod` implements the SHETRAN overland/channel flow (OC) component. It
+!> reads OC input, builds channel link geometry and boundary-condition tables,
+!> computes channel cross-section lookup tables, sets up row-wise indexing for
+!> the implicit solver, and advances free-surface elevations and inter-element
+!> flows during the simulation.
+!>
+!> The timestep solve is a row-swept implicit finite-difference system. Each
+!> active row is assembled as a block tridiagonal coupling to the previous,
+!> current, and next rows, inverted row by row, and then back-substituted in a
+!> downward sweep. Channel conveyance is derived from the OC input-file
+!> width/depth cross-section tables and Strickler roughness coefficients
+!> through [[ocmod2:conveyan]]. Boundary categories, channel geometry, and
+!> roughness controls correspond to the manual's Overland/Channel Module
+!> section (records `OC1`-`OC41`).
+!>
+!> `STRXX` and `STRYY` (held in [[ocqdqmod]]) normally store the directional
+!> Strickler roughness read from the OC records. A negative `STRXX` value is
+!> allowed by the current checker as a surface-storage marker;
+!> [[ocqdqmod:ocqdq]] interprets its magnitude as a millimetre-scale threshold
+!> and substitutes fixed effective roughness values during face-flow
+!> calculation.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
+!> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
+!> | 2026-05-10 | SvB | 4.6.1 | Moved the OC solver, water-surface, discharge, and index work arrays to allocatable storage (see [[initialise_ocsim_workspace]]). |
+!> @endhistory
 MODULE OCmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces part of the OC .F files
    USE SGLOBAL
    USE AL_C ,     ONLY : IDUM, NBFACE, CWIDTH, ZBFULL, &
       DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
@@ -14,63 +43,53 @@ MODULE OCmod
       HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD,  ONLY : OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
 
-!                     firstocqdq
-!FROM SPEC_OC
-!-------------------------- Start of SPEC.OC --------------------------*,
-!
-! ^^^ COMMON FILE OF SPECIFICATIONS OF OC COMPONENT VARIABLES.
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/SPEC.OC/4.2
-! Modifications:
-!   GP        FEB 89    2.0   'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!   GP        AUG 89    2.1     ADD LOGICAL BIOWAT
-!   GP        NOV 89    2.2     ADD VARIABLES FOR NEW IMPLICIT OC
-!   GP        APR 91    3.0     SHETRAN REWRITE
-!                               + INCLUDING IMPLICIT SCHEME AND BANKS
-!   GP        JAN 92    3.2     ADD WLMIN, DQIST2(NLFEE,3)
-!   GP        JUN 92    3.4     VARIABLES MOVED TO AL.D FOR HOTSTART
-!                               (arrays QSA,DQ0ST,DQIST,DQIST2).
-!  GP  960103  4.0  Move NOCBCC,NOCBCD to AL.D.
-! RAH  970221  4.1  Correct spelling: NCATR was NACTR.  Explicit typing.
-!                   Remove CFDEB,SURFS,SURFZ,DDDZST (redundant).
-! RAH  971215  4.2  Remove LONT (see OCSIM).  Move DD,EE,GG to OCSIM.
-!      980107       Move AA,BB,CC,FF to OCSIM (see also OCABC).
-!      980119       Amend mod note above (3.4 was 3.3).
-!                   Remove PT,TEMPS (see OCINI).  Move DET to OCINI.
-!      980120       Remove NCATRE (see OCINI,OCBLOC - deleted).
-!                   Move KONT,NCATR,CDRS,CATR,BIOWAT to OCINI.
-!      980121       Move NOCBC,NOCPB to OCBC.
-!                   Move NDEFCT,NXDEF,XDEFH,XDEFW to OCPLF.
-!      980205       Move IXER to OCREAD.
-!      980210       Move NXOC to OCIND.
-!      980212       Remove NROWFN (see OCSIM,OCIND). Mv WLMIN to OCQMLN.
-!                   Increase NROWST size by 1, reduce XCONV,XDERIV by 1.
-!      980225       Swap COCBCD subscripts - also in
-!                   OCINI,OCREAD,OCBC,OCPLF,OCQLNK,OCQBC.
-!      980226       Move DTOC to OCSIM.  Add TDC,TFC (see OCINI,OCSIM).
-!      980408       Move ROOT2G to OCQBNK.
-!      980424       Merge XSECTH,XCONV,XDERIV into XSTAB
-!                   (see OCINI,OCXS,OCSIM).
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
-! Requirements:
-!  NXSCEE.ge.2
-!----------------------------------------------------------------------*
    IMPLICIT NONE
-   INTEGER            :: NELIND (NELEE)
-   INTEGER            :: NROWF, NROWL, NOCHB, NOCFB
-   INTEGER            :: NROWEL (NELEE), NROWST (NYEE+1), NXSECT (NLFEE)
-   DOUBLEPRECISION    :: HOCLST, HOCNXT, QFLAST, QFNEXT, TDC, TFC
-   DOUBLEPRECISION    :: HOCPRV (NOCTAB), QOCFIN (NOCTAB), HOCNXV (NOCTAB)
-   DOUBLEPRECISION    :: XINH (NLFEE, NOCTAB)
-   DOUBLEPRECISION    :: XINW (NLFEE, NOCTAB)
-   DOUBLEPRECISION    :: XAREA (NLFEE, NOCTAB)
-   DOUBLEPRECISION     :: dtoc
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum, ijedum2
-   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: AA, DD, BB, GG, CC, TM1, TM2, inqsa, GGGETQSA
-   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: FF, TV1, TV2, inhrf, GGGETHRF
-   DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE
+
+   ! Row-solver indexing (see [[ocind]])
+   INTEGER            :: NELIND (NELEE)         !! Position of each element within its implicit-solver row.
+   INTEGER            :: NROWF                  !! First non-empty OC solver row.
+   INTEGER            :: NROWL                  !! Last non-empty OC solver row.
+   INTEGER            :: NOCHB                  !! Number of OC head-boundary categories.
+   INTEGER            :: NOCFB                  !! Number of OC flow-boundary categories.
+   INTEGER            :: NROWEL (NELEE)         !! Contiguous list of OC elements in row-solver order.
+   INTEGER            :: NROWST (NYEE+1)        !! Row-start pointer into `NROWEL`.
+   INTEGER            :: NXSECT (NLFEE)         !! Number of width-depth cross-section points for each channel link.
+
+   ! Boundary-series and diagnostic-output timing state
+   DOUBLEPRECISION    :: HOCLST                 !! Previous time-varying OC head-boundary time.
+   DOUBLEPRECISION    :: HOCNXT                 !! Next time-varying OC head-boundary time.
+   DOUBLEPRECISION    :: QFLAST                 !! Previous time-varying OC flow-boundary time.
+   DOUBLEPRECISION    :: QFNEXT                 !! Next time-varying OC flow-boundary time.
+   DOUBLEPRECISION    :: TDC                    !! First time for detailed OC diagnostic output; see the [[ocini]] shadowing warning.
+   DOUBLEPRECISION    :: TFC                    !! Last time for detailed OC diagnostic output; see the [[ocini]] shadowing warning.
+   DOUBLEPRECISION    :: HOCPRV (NOCTAB)        !! Previous head-boundary values by category.
+   DOUBLEPRECISION    :: QOCFIN (NOCTAB)        !! Previous flow-boundary values by category.
+   DOUBLEPRECISION    :: HOCNXV (NOCTAB)        !! Next head-boundary values by category.
+
+   ! Channel cross-section tables (see [[ocxs]])
+   DOUBLEPRECISION    :: XINH (NLFEE, NOCTAB)   !! Channel cross-section depths above bed.
+   DOUBLEPRECISION    :: XINW (NLFEE, NOCTAB)   !! Channel cross-section widths.
+   DOUBLEPRECISION    :: XAREA (NLFEE, NOCTAB)  !! Integrated channel cross-section areas.
+   DOUBLEPRECISION    :: dtoc                   !! OC timestep in seconds.
+
+   ! Persistent [[ocsim]] row-solver workspace, allocated once by [[initialise_ocsim_workspace]]
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum  !! Reshaped `ICMREF` neighbour-index slice passed to [[ocmod2:ocfix]].
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: ijedum2 !! Reshaped `ICMRF2` neighbour-index slice passed to [[ocmod2:ocfix]].
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: AA       !! Next-row block coefficients of the row-wise implicit matrix.
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: DD       !! Back-substituted water-level correction, by row position and row number.
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: BB       !! Current-row block coefficients of the row-wise implicit matrix.
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: GG       !! Forward-elimination constant term, by row position and row number.
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: CC       !! Previous-row block coefficients of the row-wise implicit matrix.
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: TM1      !! Scratch matrix product used while assembling a row's system.
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: TM2      !! Row system matrix, inverted in place by [[utilsmod:invertmat]].
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: inqsa    !! Current face-flow buffer passed to [[ocmod2:ocfix]].
+   DOUBLE PRECISION, DIMENSION(:,:),   ALLOCATABLE :: GGGETQSA !! Corrected face-flow buffer returned by [[ocmod2:ocfix]].
+   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: FF       !! Right-hand-side vector for the current row.
+   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: TV1      !! Scratch vector product used while assembling a row's right-hand side.
+   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: TV2      !! Row right-hand-side vector, inverted in place alongside `TM2`.
+   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: inhrf    !! Current water-level buffer passed to [[ocmod2:ocfix]].
+   DOUBLE PRECISION, DIMENSION(:),     ALLOCATABLE :: GGGETHRF !! Corrected water-level buffer returned by [[ocmod2:ocfix]].
+   DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: EE       !! Forward-elimination coefficient relating a row's correction to the next row's.
 
    PRIVATE
 
@@ -81,49 +100,48 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCINI
+!> @brief Controls OC component initialisation.
+!>
+!> `OCINI` checks static dimensions and topology, reads the OC input file,
+!> validates roughness and cross-section data, opens boundary files,
+!> initialises OC state held in [[OCmod2]] and this module's row-solver
+!> workspace, builds channel cross-section tables through [[OCXS]], and
+!> prepares row indices through [[OCIND]].
+!>
+!> Entry requirements are the OC/frame array limits being positive
+!> (`NELEE`, `NLFEE`, `NXEE`, `NY`, `NOCTAB`), at least two internal
+!> cross-section table rows (`NXSCEE >= 2`), and an element index range with
+!> `total_no_elements >= NGDBGN`.
+!>
+!> The routine uses frame geometry and topology from `ICMREF`, `ICMBK`,
+!> `ICMXY`, `LCODEX`, `LCODEY`, `NBFACE`, and `LINKNS`, plus OC input/output
+!> units `OCD`, `OHB`, `OFB`, and `PRI`. It treats `ZGRUND` as input for
+!> land/bank elements and fills the link entries from the OC/cross-section
+!> setup.
+!>
+!> Initialised shared outputs include boundary-condition counts and codes
+!> (`NOCHB`, `NOCFB`, `NOCBCC`, `NOCBCD`, `COCBCD`), hydraulic geometry
+!> (`HRF`, `CWIDTH`, `ZBEFF`, `ZBFULL`, `NXSECT`, `XINH`, `XINW`, `XAREA`,
+!> `XSTAB`), Strickler/roughness fields (`STRXX`, `STRYY`), timing controls
+!> (`TDC`, `TFC`), and row-index arrays (`NELIND`, `NROWEL`, `NROWST`,
+!> `NROWF`, `NROWL`) used by the OC implicit row solver.
+!>
+!> @warning
+!> The local `TDC` and `TFC` declared here shadow the module-level variables
+!> of the same name that [[OCSIM]] reads to gate diagnostic printing.
+!> `OCREAD` fills only these local copies, so the module's `TDC`/`TFC` are
+!> never explicitly assigned by the current initialisation path. This
+!> documents current behaviour; it was not repaired in this transfer.
+!> @endwarning
    SUBROUTINE OCINI()
-   !----------------------------------------------------------------------*
-   !  Control OC initialization
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCINI/4.2
-   ! Modifications:
-   !  GP       3.4  Don't set OCNOW,OCVAL,OCNEXT (see also FRINIT,SHE).
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   ! RAH  961228  4.1  Remove variables T & TF.
-   ! RAH  980119  4.2  Explicit typing.
-   !                   Scrap SPEC.AL variables WSOC,WSOCI,WSOCER, SPEC.OC
-   !                   arrays PT,TEMPS, & local variables DT,IDT,TITRE,VTP.
-   !      980120       Use SQRT not DSQRT.
-   !                   Bring KONT from SPEC.OC & pass to OCREAD.
-   !      980130       Call OCCHK0 (new).  Move read section to OCREAD.
-   !      980202       Write NXSCEE.  Bring OCIND call from OCREAD.
-   !      980203       Pass NGDBGN to OCCHK0, but not OHB,OFB.
-   !                   Call OCCHK1, OCCHK2 and OCXS (new).
-   !                   Bring OHB,OFB initial read from OCBC.
-   !      980205       Pass LDUM1 to OCCHK1. Full argument list for OCREAD.
-   !      980210       Full argument list for OCIND.
-   !      980212       Move WLMIN (SPEC.OC) to OCQMLN.
-   !      980218       (Remove NGDBGN from OCREAD argument list.)
-   !      980226       Get TDC,TFC from OCREAD.
-   !      980408       Move ROOT2G (SPEC.OC) to OCQBNK.
-   !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (SPEC.OC).
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  [NELEE,NLFEE,NXEE,NY,NOCTAB ].ge.1    NXSCEE.ge.2    NEL.ge.NGDBGN
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! NOCTAB, NELEE, total_no_links, NXSCEE, PPPRI, BEXBK, NROWF, NROWL,
-      ! NROWST, NELIND, NROWEL, NOCHB, OHB, NOCFB, OFB, DUMMY
 
       IMPLICIT NONE
 
       ! Locals
-      INTEGER :: KONT
-      DOUBLE PRECISION :: DDUM1 (NOCTAB), DDUM2 (NOCTAB, NOCTAB)
-      DOUBLE PRECISION :: TDC, TFC
-      LOGICAL :: LDUM1 (NELEE)
+      INTEGER :: KONT                                !! Print/output control read by [[ocread]]; odd values enable verbose echoing.
+      DOUBLE PRECISION :: DDUM1 (NOCTAB), DDUM2 (NOCTAB, NOCTAB) !! Discarded roughness/cross-section scratch passed to [[ocread]].
+      DOUBLE PRECISION :: TDC, TFC                    !! Shadow the module-level `TDC`/`TFC`; see the routine's warning.
+      LOGICAL :: LDUM1 (NELEE)                        !! Discarded per-element check-result scratch passed to [[occhk1]].
 
    !----------------------------------------------------------------------*
 
@@ -161,25 +179,35 @@ CONTAINS
    END SUBROUTINE OCINI
 
 
-   !SSSSSS SUBROUTINE INITIALISE_OCSIM_WORKSPACE
-   !----------------------------------------------------------------------*
-   ! Allocate OCSIM work arrays once during OC initialisation.
-   !
-   ! These arrays used to be automatic local arrays in OCSIM.  They are too
-   ! large for the stack on some compilers/runs, but allocating them on every
-   ! OCSIM call is expensive because OCSIM is called every timestep.  Keeping
-   ! them as module work arrays preserves heap storage without repeated
-   ! allocation in the timestep loop.
-   !
-   ! This routine is called from OCINI, after NX, NY, total_no_elements, NELEE
-   ! and NLFEE have been established.  OCSIM still clears the arrays on each
-   ! call before use.
-   !----------------------------------------------------------------------*
+!> @brief Allocates the persistent [[ocsim]] row-solver work arrays.
+!>
+!> These arrays were formerly automatic local arrays in [[ocsim]]. They are too
+!> large for the stack on some compilers/runs, but allocating them on every
+!> [[ocsim]] call is expensive because [[ocsim]] is called every timestep.
+!> Keeping them as module work arrays preserves heap storage without repeated
+!> allocation in the timestep loop.
+!>
+!> [[ocini]] calls this routine once, after `NX`, `NY`, `total_no_elements`,
+!> `NELEE`, and `NLFEE` have been established. [[ocsim]] still clears every
+!> array on each call before use.
+!>
+!> @warning
+!> The `ALLOCATED` guard makes this a one-shot initialiser: there is no
+!> resizing or deallocation path, so a later change in `NX`, `NY`,
+!> `total_no_elements`, `NELEE`, or `NLFEE` within the same process would not
+!> be reflected in these arrays.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-05-10 | SvB | 4.6.1 | Added this allocator while moving `AA`, `DD`, `FF`, `BB`, `GG`, `CC`, `EE`, `TM1`, `TM2`, `TV1`, `TV2`, `inhrf`, `GGGETHRF`, `inqsa`, `GGGETQSA`, `ijedum`, and `ijedum2` from automatic locals in [[ocsim]] to allocatable module state. |
+!> @endhistory
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
 
       IF (.NOT. ALLOCATED(ijedum)) THEN
-         ! needs to be nelee and nlfee here as it reads from arrays that are still set to these sizes
+         ! NELEE/NLFEE (not the active NX/NY-derived counts) size these two arrays, matching OCSIM's neighbour-index domain
          ALLOCATE (ijedum(nelee, 4, 2:3), ijedum2(nlfee, 3, 2))
          ALLOCATE (AA(NX*4, NX*4), DD(NX*4, NY))
          ALLOCATE (FF(NX*4))
@@ -198,44 +226,110 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCABC
+!> @brief Assembles one element row of the implicit OC matrix.
+!>
+!> Given the current element, boundary type, water level, storage area,
+!> rainfall, evaporation, exchange flow, and previously calculated flow
+!> derivatives, `OCABC` fills the lower, central, upper, and right-hand-side
+!> coefficients used by the row-wise implicit solver in [[OCSIM]].
+!>
+!> The routine uses the element topology in `ICMREF`, multi-link node
+!> expansion in `ICMRF2`, flow derivatives `DQ0ST`, `DQIST`, and `DQIST2`,
+!> bank exchange flows `QBKB` and `QBKF`, current face flows from
+!> [[ocmod2:getqsa]], row indices `NELIND`, and channel cross-section tables
+!> `XINH`/`XINW`.
+!>
+!> For fixed-head boundary types `IBC=3` and `IBC=9`, the assembled row simply
+!> enforces the prescribed head increment:
+!>
+!> \[
+!> \Delta H = HNOW - H,\qquad BB_{IND}=1,\qquad FF=HNOW-H.
+!> \]
+!>
+!> Otherwise the unknown is the water-level correction for the current
+!> element and its neighbours. The current water depth is
+!>
+!> \[
+!> H = Z - ZG.
+!> \]
+!>
+!> For land/bank elements the storage area is `AREAE`. For channel links
+!> below bankfull level, the storage width is linearly interpolated from the
+!> cross-section table and multiplied by link length:
+!>
+!> \[
+!> A_s =
+!> CL\left(W_m +
+!> \frac{H-H_m}{H_i-H_m}(W_i-W_m)\right),
+!> \]
+!>
+!> where \(H_m \le H < H_i\), `W_m=XINW(link,m)`, and `W_i=XINW(link,i)`.
+!> The storage term contributes
+!>
+!> \[
+!> BB_{IND} \leftarrow -A_s/DTOC.
+!> \]
+!>
+!> Rainfall, evaporation, bank exchange, and external exchange are assembled
+!> on the right-hand side as
+!>
+!> \[
+!> FF = -AREAE\,(P_{net}+Q_H-E_{sw}) + Q_{bank},
+!> \]
+!>
+!> with `Q_H=QHE` only for non-link elements. For links, rainfall is
+!> suppressed when `H < 1D-8`, and
+!>
+!> \[
+!> Q_{bank}=QBKB_{1}+QBKF_{1}+QBKB_{2}+QBKF_{2}.
+!> \]
+!>
+!> Each face flow is taken positive into the current element. For face
+!> \(f\), the previously calculated linearisation is applied as
+!>
+!> \[
+!> Q_f^{n+1} \approx Q_f + DQ0ST_f\,\Delta H_i
+!>                  + DQIST_f\,\Delta H_j,
+!> \]
+!>
+!> so the current-element coefficient and residual are updated by
+!>
+!> \[
+!> BB_{IND} \leftarrow BB_{IND}+DQ0ST_f,\qquad
+!> FF \leftarrow FF-Q_f.
+!> \]
+!>
+!> A single adjacent element receives `DQIST` in the same row (`BB`), a later
+!> row (`AA`), or an earlier row (`CC`) according to its row number. For a
+!> multi-link junction, `ICMREF` contains a negative pointer to `ICMRF2`; the
+!> same operation is applied to each connected link using `DQIST2`.
    SUBROUTINE OCABC(IND, IROW, IELZ, NSV, NCR, NPR, IBC, N, AREAE, &
          ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
-   !----------------------------------------------------------------------*
-   ! CALCULATION OF MATRIX COEFFICIENTS, GIVEN FLOWS AND DERIVATIVES
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCABC/4.2
-   ! Modifications:
-   ! GP   930326  3.4  Don't set EEVAP(IEL) (see ETIN).
-   !                   Replace PNETTO(IEL)-EPDUM (part of FF(IND)) with
-   !                   PDUM-ESWA(IEL).
-   !                   Don't subtract QBKI(IEL,IBK) from BKDUM.
-   ! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
-   ! GP   960115  4.0  Replace QUZR(IEL)+QSZR(IEL) (part of FF) with QHDUM.
-   ! RAH  980107  4.2  Explicit typing.  Amend description in header.
-   !                   Add arguments IND,IEL,N,AREAE,CL,ZBF,ZG,Z;
-   !                   remove ICOUNT; also, move AA,BB,CC,FF from SPEC.OC
-   !                   to arg-list & reduce dimensions by one (see OCSIM).
-   !                   Ensure AR defined (for links) when Z=ZBF.
-   !                   New locals HI,HM,IM,WI,WM.
-   !      980108       Scrap JFACE2.  New local IBR.  Use BLINK not ITYPE.
-   !                   Initialize AA,BB,CC,FF here, not in OCSIM.
-   !                   Unroll loop, and use ELSE, for BKDUM and QHDUM.
-   !                   Add arguments NSV,NCR,NPR,PNETT,QHE,ESWAE.
-   !      980115       Set head boundaries (were in OCSIM, after solver).
-   !      980226       Move DTOC from SPEC.OC to arg-list (see OCSIM).
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! NXOCEE, DTOC, ZERO, ONE, ICMREF, ICMRF2, DQ0ST, DQIST2, QBKB, DQIST,
-      ! QSA, QBKF, NELIND, XINH, XINW
 
       IMPLICIT NONE
 
       ! Dummy Arguments
-      INTEGER, INTENT(IN)          :: IND, IROW, IELZ, NSV, NCR, NPR, IBC, N
-      DOUBLE PRECISION, INTENT(IN) :: AREAE, ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW
-      DOUBLE PRECISION, INTENT(OUT):: AA(NXOCEE), BB(NCR), CC(NXOCEE), FF
+      INTEGER, INTENT(IN)          :: IND    !! Row position of the current element.
+      INTEGER, INTENT(IN)          :: IROW   !! Row number of the current element.
+      INTEGER, INTENT(IN)          :: IELZ   !! Current element number.
+      INTEGER, INTENT(IN)          :: NSV    !! Number of elements in the next (following) row.
+      INTEGER, INTENT(IN)          :: NCR    !! Number of elements in the current row.
+      INTEGER, INTENT(IN)          :: NPR    !! Number of elements in the previous row.
+      INTEGER, INTENT(IN)          :: IBC    !! Boundary-condition type for the current element, or 0.
+      INTEGER, INTENT(IN)          :: N      !! Number of cross-section table points for the current element's link.
+      DOUBLE PRECISION, INTENT(IN) :: AREAE  !! Plan storage area of the current (non-link) element.
+      DOUBLE PRECISION, INTENT(IN) :: ZG     !! Ground/bed elevation of the current element.
+      DOUBLE PRECISION, INTENT(IN) :: CL     !! Channel-link length, used for link storage width.
+      DOUBLE PRECISION, INTENT(IN) :: ZBF    !! Bankfull elevation of the current element's link.
+      DOUBLE PRECISION, INTENT(IN) :: Z      !! Current water-surface elevation.
+      DOUBLE PRECISION, INTENT(IN) :: PNETT  !! Net rainfall rate onto the current element.
+      DOUBLE PRECISION, INTENT(IN) :: QHE    !! Exchange flow rate for the current (non-link) element.
+      DOUBLE PRECISION, INTENT(IN) :: ESWAE  !! Evaporation rate from the current element's surface water.
+      DOUBLE PRECISION, INTENT(IN) :: HNOW   !! Prescribed head value for a fixed-head boundary.
+      DOUBLE PRECISION, INTENT(OUT):: AA(NXOCEE) !! Next-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: BB(NCR)    !! Current-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: CC(NXOCEE) !! Previous-row coefficients for elements adjacent to `IELZ`.
+      DOUBLE PRECISION, INTENT(OUT):: FF         !! Right-hand-side residual for the current element's row equation.
 
       ! Local Variables
       INTEGER                      :: I, IBR, IFACE, IM, J, JEL, JFACE, JND, JROW
@@ -357,45 +451,89 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE JEOCBC
+!> @brief Reads and builds OC boundary-condition metadata.
+!>
+!> `JEOCBC` maps gridded head, flux, polynomial, channel-link, and
+!> impermeable boundary-condition definitions onto `NOCBCD` and `NOCBCC`,
+!> including extra bank elements where bank flow is represented.
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NELEE >= total_no_elements` | Element-indexed workspace is large enough. |
+!> | `NXEE >= max(NX,1)` | Grid-code workspace is large enough. |
+!> | `NY >= 1`, `NGDBGN >= 1`, `NOCTAB >= 1` | Active grid, land-element start, and boundary table capacity exist. |
+!> | `ICMXY(1:NX,1:NY) <= total_no_elements` and `ICMREF(1:total_no_elements,5:8) <= total_no_elements` | Grid and neighbour indices are in range where positive. |
+!> | `7 <= LCODEX(x,y) <= 11` | `LINKNO(x,y,.TRUE.)` must return a valid link index below `NGDBGN`. |
+!> | `7 <= LCODEY(x,y) <= 11` | `LINKNO(x,y,.FALSE.)` must return a valid link index below `NGDBGN`. |
+!> | `OCD`, `PRI` | Open formatted input and diagnostic output units. |
+!>
+!> On exit, `IXER` is only increased, every `NOCBCC(element)` is either zero
+!> or a boundary-condition index, and a clean exit satisfies
+!> `NOCBC <= NOCTAB`, `1 <= NOCBCD(1:NOCBC,1) <= total_no_elements`, and
+!> `1 <= NOCBCD(1:NOCBC,3) <= 11`.
+!>
+!> `NOCBCD` is the boundary-condition table:
+!>
+!> | Column | Stored value |
+!> |:-------|:-------------|
+!> | 1 | Element or channel-link index carrying the boundary condition. |
+!> | 2 | Boundary face number, where applicable. |
+!> | 3 | Boundary-condition type code. |
+!> | 4 | Category number within that type. |
+!>
+!> For gridded head, flux, and polynomial boundaries, a positive category
+!> `ICAT` read for element `e` creates a new boundary row
+!>
+!> \[
+!> b \leftarrow b+1,\qquad NOCBCC_e=b,\qquad
+!> NOCBCD_{b,:}=(e,\ face,\ type,\ ICAT).
+!> \]
+!>
+!> Head boundaries use type 3 and no face (`face=0`), while flux and
+!> polynomial boundaries use the element's stored boundary face `NBFACE(e)`
+!> with types 4 and 5. Polynomial boundary rows also receive the five
+!> coefficients read from record `OC28`:
+!>
+!> \[
+!> COCBCD_{1:5,b}=a_{1:5}(ICAT).
+!> \]
+!>
+!> Channel-link boundary codes are taken directly from `LCODEX`/`LCODEY`
+!> when their values are 7:11. The corresponding link is found with
+!> `LINKNO`, a row is added with `NOCBCD(:,1)=link` and `NOCBCD(:,3)=type`,
+!> and type 9 and 10 entries increment the head-boundary and flux-boundary
+!> counts respectively. Link-specific parameters for types 7:11 are filled
+!> later by [[OCPLF]].
+!>
+!> Internal impermeable grid boundaries use type 1. For each impermeable
+!> west/south grid boundary, `JEOCBC` creates reciprocal rows for the two
+!> adjacent elements and extends the impermeable condition across the ends of
+!> any adjacent bank elements. The reciprocal face is taken from
+!> `ICMREF(:,9:12)` so the table remains consistent with the topology built
+!> by [[frmod:frind]].
+!>
+!> Boundary type codes are:
+!>
+!> | Type | Meaning |
+!> |:-----|:--------|
+!> | 1 | Internal impermeable grid boundary. |
+!> | 3 | Time-varying grid head boundary. |
+!> | 4 | Time-varying grid flux boundary. |
+!> | 5 | Polynomial grid boundary. |
+!> | 7 | Channel weir boundary. |
+!> | 8 | Channel river/resistance plus weir boundary. |
+!> | 9 | Time-varying channel head boundary. |
+!> | 10 | Time-varying channel flow boundary. |
+!> | 11 | Polynomial channel boundary. |
    SUBROUTINE JEOCBC(IXER, NOCBC)
-   !----------------------------------------------------------------------*
-   !
-   !  Set up boundary data (except for some channel link details to follow)
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCBC/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT from SPEC.AL.
-   ! GP   970207  4.2  Add missing code for polynomial coeffs (see BR/50).
-   ! RAH  971218       Explicit typing.  List-directed reads.
-   !                   Initialize NOCBCC, but not NOCBCD(link) (use OCPLF).
-   !                   Use local TYPE.  Loop 90 instead of duplicate.
-   !                   Fix error in use of IBANK (using new loop 107).
-   !      980115       Trap ICAT<0 and NOCBC>NOCTAB.  Pass IEL to ERROR.
-   !                   Update IXER.  Replace ADUM,...,EDUM with ADUM(5).
-   !                   Amend COCBCD index, & replace STOP with call ERROR.
-   !                   Use IEL,TYPE for L,LC.
-   !      980121       Ensure NOCBCD(*,4).ge.1.  Use locals MSG,TEST.
-   !                   Bring NOCBC,NOCPB from SPEC.OC.
-   !      980203       Move OHB,OFB initial read to OCINI.
-   !      980204       Full argument list (no INCLUDEs) (see OCREAD);
-   !                   ERR local.  Move NOCBC to argument list.
-   !      980206       Check for elements with multiple BCs.
-   !      980218       (Fix error in loop 120 start value).
-   !      980225       Swap COCBCD subscripts (see SPEC.OC)
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! OCD, NOCHB, NOCFB, total_no_elements, NOCBCC, PPPRI, EEERR, NOCTAB,
-      ! NOCBCD, NBFACE, COCBCD, NX, NY, LCODEX, LCODEY, LINKNO, ICMXY, ICMREF
-      ! *CRITICAL*: Ensure 'IDUM' is available via host module
 
       IMPLICIT NONE
 
       ! Arguments
-      INTEGER, INTENT(INOUT)       :: IXER
-      INTEGER, INTENT(OUT)         :: NOCBC
+      INTEGER, INTENT(INOUT)       :: IXER  !! OC input-error count; only ever increased here.
+      INTEGER, INTENT(OUT)         :: NOCBC !! Total number of OC boundary-condition rows built.
 
       ! Local Variables
       INTEGER                      :: BANK, I, IBANK, IBC, IBC0, IBK, ICAT
@@ -603,21 +741,33 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCCHK0
+!> @brief Checks OC file units, array bounds, and global entity counts.
+!>
+!> This is the first OC validation pass and ensures the output/input units
+!> are usable and that compiled dimensions are large enough for the current
+!> grid, channel-link, cross-section, and boundary-condition counts.
+!>
+!> Checks performed:
+!>
+!> | Check | Requirement |
+!> |:------|:------------|
+!> | `PRI`, `OCD` | Open formatted diagnostic/input units. |
+!> | `NELEE` | At least `max(NX,total_no_elements)`. |
+!> | `NLFEE` | At least `max(1,total_no_links)`. |
+!> | `NXEE` | At least `NX`. |
+!> | `NOCTAB` | At least 1. |
+!> | `NXSCEE` | Greater than 1 for channel cross-section lookup tables. |
+!> | `total_no_links` | Non-negative and less than `total_no_elements`. |
+!> | `NX`, `NY` | Both at least 1. |
+!> | `NGDBGN` | Equal to `total_no_links + 1`. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-01-30 | RAH | 4.2 | Created this routine. |
+!> | 2009-01 | JE | - | Removed the `NELEE >= NOCTAB*NOCTAB` restriction. |
+!> @endhistory
    SUBROUTINE OCCHK0()
-   !----------------------------------------------------------------------*
-   !
-   !  Check static variables & constants input to the OC
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCCHK0/4.2
-   ! Modifications:
-   ! RAH  980130  4.2  New.
-   !      980203       Add argument NGDBGN; remove OHB,OFB.  NELEE.ge.NX.
-   !                   INQUIRE first, and use OUNIT for messages.
-   !      980206       NELEE.ge.NOCTAB*NOCTAB.
-   ! JE Jan 2009       Above restriction removed
-   !----------------------------------------------------------------------*
       INTEGER       :: ERRNUM, I, IUNIT, NERR, OUNIT
       INTEGER, PARAMETER :: IUNDEF = 0
       INTEGER       :: IDUMS (1), IDUMO (1)
@@ -708,32 +858,38 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCCHK1
+!> @brief Checks static OC topology and channel-definition arrays.
+!>
+!> `OCCHK1` verifies neighbour references, active-grid indexing, and the
+!> link-code grids used to locate north-south and east-west channel links.
+!> Positive neighbour and grid references must not exceed
+!> `total_no_elements`. Any `LCODEX` or `LCODEY` value in the
+!> channel-boundary range 7:11 must map through `LINKNO` to a valid
+!> channel-link element, i.e. an index greater than zero and less than
+!> `NGDBGN`.
+!>
+!> Entry requirements:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NEL >= 1`, `NX >= 1`, `NY >= 1` | The element and grid dimensions are populated. |
+!> | `NELEE >= NEL`, `NXEE >= NX` | Workspace leading dimensions cover the active model extent. |
+!> | `PRI` open for formatted output | Error reporting can write diagnostics. |
+!> | `size_of_LDUM1 >= max(NX,NEL)` | Logical workspace is large enough for the largest check in this routine. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-02-03 | RAH | 4.2 | Created this routine. |
+!> | 1998-02-05 | RAH | 4.2 | Added the `LDUM1` argument. |
+!> @endhistory
    SUBROUTINE OCCHK1(SZLOG, LDUM1)
-   !----------------------------------------------------------------------*
-   !
-   !  Check static OC input arrays
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCCHK1/4.2
-   ! Modifications:
-   ! RAH  980203  4.2  New.
-   !      980205       Add argument LDUM1.
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  [ NEL, NX, NY ].ge.1     NELEE.ge.NEL    NXEE.ge.NX
-   !  PRI open for F output    size_of_LDUM1.ge.[NX,NEL]
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! total_no_elements, EEERR, PPPRI, NX, NY, NGDBGN, ICMREF, ICMXY,
-      ! LCODEX, LCODEY, LINKNO, IDUM, IZERO1, FFFATAL
 
       IMPLICIT NONE
 
       ! Arguments
-      INTEGER, INTENT(IN)  :: SZLOG
-      LOGICAL, INTENT(OUT) :: LDUM1(SZLOG)
+      INTEGER, INTENT(IN)  :: SZLOG        !! Size of the logical check-result workspace `LDUM1`.
+      LOGICAL, INTENT(OUT) :: LDUM1(SZLOG) !! Discarded per-entry check-result scratch.
 
       ! Locals
       INTEGER :: CODE, FACE, I, IELx, X, Y, TYPEE
@@ -805,32 +961,56 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCCHK2
+!> @brief Checks OC input values after [[OCREAD]].
+!>
+!> The checks cover boundary file units, overland/channel roughness values,
+!> and channel cross-section tables, including monotonic level coordinates
+!> and positive final widths.
+!>
+!> Boundary files `OHB` and `OFB` are checked only when their corresponding
+!> boundary counts are non-zero. Roughness checks still call `ALCHK` with a
+!> positive-roughness test for both `STRXX` and `STRYY`; however, the final
+!> response to accumulated errors is a warning rather than a fatal error.
+!> This preserves the current surface-storage convention where negative
+!> `STRXX` values can be passed through to [[ocqdqmod:ocqdq]].
+!>
+!> Channel cross-section checks require the first depth to be zero, depth
+!> values to be strictly increasing, widths to be non-decreasing, and the
+!> final width for each active link to be positive.
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `total_no_elements >= max(total_no_links,1)` | Active element range covers active links. |
+!> | `NLFEE >= max(total_no_links,1)` | Link-indexed arrays cover active links. |
+!> | `PRI` open for formatted output | Error reporting can write diagnostics. |
+!>
+!> @warning
+!> `LDUM1` is declared `INTENT(INOUT)` here (the legacy routine declared it
+!> `INTENT(IN)`) so it can be passed as the check-result buffer to
+!> `ALCHK`/`ALCHKI`; the `USE CONST_SY` import is unused in this routine's
+!> current body.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-02-03 | RAH | 4.2 | Created this routine, taking part of it from [[OCPLF]]. |
+!> | 1998-02-06 | RAH | 4.2 | Added the boundary-file unit checks. |
+!> | 1998-02-18 | RAH | 4.2 | Skipped the unit checks when `NONEED` is true. |
+!> | 2022-05-19 | SB | - | Demoted the final error response from fatal to a warning, allowing the negative-`STRXX` surface-storage marker to pass through. |
+!> @endhistory
    SUBROUTINE OCCHK2 (DDUM1A, DDUM1B, SZLOG, LDUM1)
-   !----------------------------------------------------------------------*
-   !
-   !  Check OC input data
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCCHK2/4.2
-   ! Modifications:
-   ! RAH  980203  4.2  New: partly from part of OCPLF.
-   !      980206       Check unit numbers.
-   !      980218       Don't check units if NONEED.
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NEL.ge.[NLF,1]    NLFEE.ge.[NLF,1]    PRI open for F output
-   !----------------------------------------------------------------------*
 
-      USE CONST_SY ! Assuming this provides global variables like total_no_links, etc.
+      USE CONST_SY
 
       IMPLICIT NONE
 
-      INTEGER, INTENT(IN)           :: SZLOG
-      DOUBLE PRECISION, INTENT(OUT) :: DDUM1A (:), DDUM1B(:)
-
-      ! Changed from INTENT(IN) to INTENT(INOUT) to allow ALCHK/ALCHKI to write to it
-      LOGICAL, INTENT(INOUT)        :: LDUM1(SZLOG)  !LDUM1 ( * )
+      INTEGER, INTENT(IN)           :: SZLOG          !! Size of the logical check-result workspace `LDUM1`.
+      DOUBLE PRECISION, INTENT(OUT) :: DDUM1A (:)      !! Discarded cross-section lower-bound scratch.
+      DOUBLE PRECISION, INTENT(OUT) :: DDUM1B(:)       !! Discarded cross-section upper-bound scratch.
+      LOGICAL, INTENT(INOUT)        :: LDUM1(SZLOG)    !! Discarded per-entry check-result scratch; see the routine's warning.
 
       INTEGER :: ERRNUM, I, IELw, IUNDEF, IUNIT, N, NERR
       INTEGER :: IDUMS (1)
@@ -839,10 +1019,6 @@ CONTAINS
       CHARACTER(11)  :: FORM
       CHARACTER(3)   :: NAME
       CHARACTER(19)  :: SUBJ
-
-      ! Assumed external module dependencies providing global variables:
-      ! OHB, OFB, NOCHB, NOCFB, EEERR, PPPRI, IZERO1, ZERO1, ZERO, STRXX, STRYY
-      ! total_no_elements, total_no_links, XINH, XINW, NXSECT, WWWARN
 
       !----------------------------------------------------------------------*
 
@@ -922,7 +1098,7 @@ CONTAINS
       END IF
 
       IF (NERR > 0) THEN
-         !!!! sb 190522 negative strickler for surface storage
+         ! sb 190522 negative strickler for surface storage
          CALL ERROR(WWWARN, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
          ! CALL ERROR(FFFATAL, 1000, PPPRI, 0, 0, 'Error(s) detected while checking OC input data')
       END IF
@@ -936,16 +1112,25 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCEXT
+!> @brief Reads time-varying head and flux boundary values for the current OC step.
+!>
+!> Boundary time series are advanced from the head-boundary and flux-boundary
+!> files into `HOCNOW` and `QOCF`; end-of-file markers are treated as fatal
+!> input errors.
+!>
+!> `HINPUT` interpolates or advances head values for `NOCHB` categories using
+!> `TIH`, `OCNOW`, and `OCNEXT`. `FINPUT` does the same for `NOCFB` flux
+!> categories. The resulting `QOCF` values are prescribed inflow rates
+!> consumed by [[ocmod2:ocqbc]].
+!>
+!> @warning
+!> [[OCINI]] does not explicitly initialise `HOCLST`, `HOCNXT`, `QFLAST`,
+!> `QFNEXT`, `HOCPRV`, `HOCNXV`, or `QOCFIN` before the first call to this
+!> routine, so `HINPUT`/`FINPUT` receive processor-dependent initial state on
+!> that call. This documents current behaviour; it was not repaired in this
+!> transfer.
+!> @endwarning
    SUBROUTINE OCEXT
-   !----------------------------------------------------------------------*
-   ! READ IN TIME-VARYING BOUNDARY CONDITION DATA
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! NOCHB, OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, HOCPRV, HOCNXV, HOCNOW
-      ! NOCFB, OFB, QFLAST, QFNEXT, QOCFIN, QOCF
-      ! FFFATAL, PPPRI
 
       IMPLICIT NONE
 
@@ -975,39 +1160,82 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCIND
+!> @brief Builds row-order indexing for the implicit OC solver.
+!>
+!> The catchment is split into y-coordinate rows, with west/south channel
+!> links and optional bank elements inserted beside the grid elements. The
+!> resulting `NROWST`, `NROWEL`, and `NELIND` arrays define the block rows
+!> used by [[OCSIM]].
+!>
+!> Rows follow the basic grid `y` coordinate. East-west links and their banks
+!> are included in the row above the link, matching the legacy OC row solver
+!> ordering.
+!>
+!> | Array | Meaning |
+!> |:------|:--------|
+!> | `NROWF` | First non-empty row number. |
+!> | `NROWL` | Last non-empty row number. |
+!> | `NROWST(j)` | Pointer into `NROWEL` for the first element in row `j`. |
+!> | `NROWEL` | Contiguous list of elements in row order. |
+!> | `NELIND(e)` | Position of element `e` within its row. |
+!>
+!> If element `i` is the `p`th entry in row `j`, then
+!>
+!> \[
+!> e = NROWEL(NROWST(j)+p-1),
+!> \]
+!>
+!> and `NELIND` is the partial inverse:
+!>
+!> \[
+!> NELIND\left(NROWEL(NROWST(j)+p-1)\right)=p.
+!> \]
+!>
+!> The row of grid element `ICMXY(x,y)`, and of any associated link/bank
+!> elements inserted while processing that grid square, is `y`.
+!>
+!> For each grid square `(i,j)`, `OCIND` scans the west face (`FACE=3`) and
+!> then the south face (`FACE=4`). If a link is present, the row receives
+!>
+!> | Bank option | Inserted sequence |
+!> |:------------|:------------------|
+!> | `BEXBK=.FALSE.` | `link` |
+!> | `BEXBK=.TRUE.` | bank on one side, `link`, bank on the other side |
+!>
+!> using `ICMBK(link,5-FACE)` before the link and `ICMBK(link,FACE-2)` after
+!> the link. On the west-face pass only, the active grid element
+!> `ICMXY(i,j)` is then inserted. Thus the current row length is
+!>
+!> \[
+!> n_j = NROWST(j+1)-NROWST(j),
+!> \]
+!>
+!> and the maximum row width checked against `NXOCEE` is
+!>
+!> \[
+!> NXOC = \max_j n_j.
+!> \]
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NLFEE >= max(total_no_links,1)` | Link-indexed arrays cover the active link set. |
+!> | `NXEE >= max(NX,1)` and `NY >= 1` | Grid-indexed arrays cover the active grid. |
+!> | `LINKNO` on west and south faces is at most `total_no_links` | Link lookup stays within the defined `ICMBK` extent. |
+!> | `1 <= ICMBK(1:total_no_links,1:2) <= total_no_elements` when banks are active | Bank elements can be indexed in `NELIND`/`NROWEL`. |
+!> | Active grid elements, active links, and optional bank elements partition `1:total_no_elements` | Every OC element appears exactly once in row order. |
    SUBROUTINE OCIND(BEXBK, NROWF, NROWL, NROWST, NELIND, NROWEL)
-   !----------------------------------------------------------------------*
-   !
-   ! SET UP INDEXING SYSTEM FOR THOMAS ALGORITHM
-   !
-   !   THE CATCHMENT IS SPLIT INTO A NUMBER OF ROWS, EACH INCLUDING ALL
-   !   THE ELEMENTS WITH THE SAME Y CO-ORDINATE (AS IN ICMXY(X,Y))
-   !   NOTE: E-W BANKS/LINKS ARE INCLUDED WITH THE ROW ABOVE.
-   !
-   !   NROWF         - NO. OF FIRST (LOWEST) ROW
-   !   NROWL         - NO. OF LAST (HIGHEST) ROW
-   !   NROWST(J)     - POINTER TO POSITION IN NROWEL OF START OF ROW J
-   !   NROWEL(1:NEL) - Contiguous list of elements in row order: thus,
-   !                   the number of the Ith element in row J is
-   !                       IEL = NROWEL(K) where K = NROWST(J)+I-1
-   !   NELIND(IEL)   - INDEX NO. (POSITION IN ROW) OF ELEMENT NO. IEL
-   !
-   !   NB. NELIND IS THE PARTIAL INVERSE OF NROWEL:
-   !                                  NELIND(NROWEL(NROWST(J)+I-1)) = I
-   !   NB. Row no. of element ICMXY(x,y) (also of any associated link/bank
-   !       elements) is y
-   !
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! NY, NX, LINKNO, ICMBK, ICMXY, NXOCEE, FFFATAL, PPPRI
 
       IMPLICIT NONE
 
       ! Arguments
-      LOGICAL, INTENT(IN)  :: BEXBK
-      INTEGER, INTENT(OUT) :: NROWF, NROWL, NROWST(NY + 1), NELIND(:), NROWEL(:)
+      LOGICAL, INTENT(IN)  :: BEXBK        !! True when explicit bank elements are inserted beside their links.
+      INTEGER, INTENT(OUT) :: NROWF        !! First non-empty row number.
+      INTEGER, INTENT(OUT) :: NROWL        !! Last non-empty row number.
+      INTEGER, INTENT(OUT) :: NROWST(NY + 1) !! Row-start pointer into `NROWEL`.
+      INTEGER, INTENT(OUT) :: NELIND(:)    !! Position of each element within its row.
+      INTEGER, INTENT(OUT) :: NROWEL(:)    !! Contiguous list of elements in row order.
 
       ! Locals
       INTEGER :: BANK, FACE, I, ICOUNT, IELv, J, K, LINK, NXOC
@@ -1092,58 +1320,68 @@ CONTAINS
 
 
 
-   ! 12/8/94
-   !SSSSSS SUBROUTINE OCLTL
+!> @brief Reads an alphanumeric channel-definition grid.
+!>
+!> `OCLTL` decodes the legacy one-character OC map into integer link and
+!> boundary codes, preserving row-number checks and optional echo printing.
+!> Input rows must be supplied from `NNY` down to 1; an unexpected row number
+!> prints an "incorrect coordinate" marker when echo output is enabled and
+!> then stops the program.
+!>
+!> Character mapping:
+!>
+!> | Character | Code | Meaning in OC flow-code grids |
+!> |:----------|:-----|:-------------------------------|
+!> | `I` | 1 | Internal impermeable boundary. |
+!> | `.` | 2 | No special OC boundary/link code. |
+!> | `R` | 6 | River/channel link without boundary type. |
+!> | `W` | 7 | Channel weir boundary. |
+!> | `A` | 8 | Channel river/resistance plus weir boundary. |
+!> | `H` | 9 | Channel time-varying head boundary. |
+!> | `F` | 10 | Channel time-varying flow boundary. |
+!> | `P` | 11 | Channel polynomial boundary. |
+!>
+!> Characters not listed in `CODES` leave the target entry at its initial
+!> zero value.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-12 | - | - | Created this routine. |
+!> | 2015-04-21 | SB | - | Increased the `A1LINE` row buffer and its read/write format from 200 to 500 characters for larger catchments. |
+!> @endhistory
    SUBROUTINE OCLTL (NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-!
-! READ IN ARRAY OF ALPHANUMERIC CODES FOR CHANNEL DEFINITION
-!
-! INPUT PARAMETERS:
-!   NNX     X DIMENSION OF GRID
-!   NNY     Y DIMENSION OF GRID
-!   NXE     X DIMENSION OF ARRAY
-!   NYE     Y DIMENSION OF ARRAY
-!   INF     INOUT FILE UNIT NUMBER
-!   IOF     OUTPUT FILE UNIT NUMBER
-!   BPCNTL  LOGICAL PRINT CONTROL
-!
-! OUTPUT PARAMETERS:
-!   IARR    ARRAY OF CODES READ IN FROM FILE
-!
-!^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      IMPLICIT NONE ! Always good practice in modern Fortran
+      IMPLICIT NONE
 
       ! Dummy Arguments
-      INTEGER, INTENT(IN)  :: NNX, NNY, NXE, NYE, INF, IOF
-      INTEGER, INTENT(OUT) :: IARR(NXE, NYE)
-      LOGICAL, INTENT(IN)  :: BPCNTL
+      INTEGER, INTENT(IN)  :: NNX    !! X dimension of the grid to read.
+      INTEGER, INTENT(IN)  :: NNY    !! Y dimension of the grid to read.
+      INTEGER, INTENT(IN)  :: NXE    !! First declared extent of `IARR`.
+      INTEGER, INTENT(IN)  :: NYE    !! Second declared extent of `IARR`.
+      INTEGER, INTENT(IN)  :: INF    !! Input file unit for the OC map records.
+      INTEGER, INTENT(IN)  :: IOF    !! Echo-output file unit.
+      INTEGER, INTENT(OUT) :: IARR(NXE, NYE) !! Decoded OC flow-code grid; entries within `1:NNX,1:NNY` are overwritten.
+      LOGICAL, INTENT(IN)  :: BPCNTL !! Enables echo printing and coordinate-error output.
 
       ! Local Variables
       CHARACTER(LEN=80)    :: TITLE
       CHARACTER(LEN=1)     :: A1LINE(500)
       INTEGER              :: I, J, K, L, M
 
-      ! 1. Replaced DATA with modern PARAMETER array initialization
       CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
          ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
 
-! Code =================================================================
-
-      ! 2. Inline format strings eliminate the need for numbered FORMAT labels
       READ (INF, '(A80)') TITLE
       IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
 
-      ! 3. Whole-array slicing replaces the DO 30 loops
       IARR(1:NNX, 1:NNY) = 0
 
       I = NNY
 
       read_loop: DO J = 1, NNY
-         ! 4. Replaced implied DO loop with array slicing: A1LINE(1:NNX)
          READ (INF, '(I7, 1X, 500A1)') K, A1LINE(1:NNX)
          IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, A1LINE(1:NNX)
 
-         ! 5. Handled the error immediately instead of using the iscycle40 flag
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, "('  ^^^   INCORRECT COORDINATE')")
             STOP 'INCORRECT COORDINATE'
@@ -1155,7 +1393,6 @@ CONTAINS
             search_code: DO M = 1, 11
                IF (A1LINE(L) == CODES(M) .AND. CODES(M) /= ' ') THEN
                   IARR(L, K) = M
-                  ! 6. Replaced the "iscycle" flag with a clean EXIT
                   EXIT search_code
                END IF
             END DO search_code
@@ -1167,63 +1404,69 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE OCPLF
+!> @brief Reads per-link channel geometry and link boundary data.
+!>
+!> `OCPLF` reads default and explicit cross-section definitions, link bed
+!> elevations, initial water depths, Strickler roughness coefficients, and
+!> boundary-condition parameters for river-link boundary types.
+!>
+!> Channel data follow the manual records `OC30`-`OC41`. The cross-section
+!> selector `IDEFX` on `OC36` is interpreted as:
+!>
+!> | `IDEFX` value | Meaning |
+!> |:--------------|:--------|
+!> | `< 0` | Use default cross-section category `-IDEFX` from records `OC32`-`OC34`. |
+!> | `> 0` and not 1 | Read `IDEFX` width/depth pairs from following record `OC37`. |
+!> | `0`, `1`, `< -NDEFCT`, or `> NOCTAB` | Invalid; increments `IXER`, and very large positive values stop further link processing. |
+!>
+!> For each link `iel`, `OCPLF` stores bed elevation in `ZGRUND(iel)`,
+!> initial water surface as `SETHRF(iel,ZGRUND+WDEPTH)`, link roughness in
+!> both `STRXX(iel)` and `STRYY(iel)`, the active cross-section count in
+!> `NXSECT(iel)`, bankfull width in `CWIDTH(iel)`, and bankfull elevation in
+!> `ZBFULL(iel)`.
+!>
+!> Boundary-specific records appended after each link are:
+!>
+!> | Type | Record | Stored values |
+!> |:-----|:-------|:--------------|
+!> | 7 or 8 | `OC38` | `IFACE`, `COEFF`, `SUBRIO`, `ZSILL`, `ZL`; category is set to 1. |
+!> | 9 | `OC39` | Time-varying head category; face is set to 0. |
+!> | 10 | `OC40` | Boundary face and time-varying flow category. |
+!> | 11 | `OC41` | Boundary face and five polynomial coefficients; category is set to 1. |
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NLFEE >= total_no_links` and `total_no_links >= 1` | Link-indexed arrays cover active links. |
+!> | `NOCTAB >= 1` and `NOCBCC(1:total_no_links) <= NOCTAB` | Boundary indices fit the OC boundary table. |
+!> | `OCD` open for formatted input | Per-link channel data can be read. |
+!> | `PRI` open for formatted output | Diagnostics can be written. |
+!>
+!> Exit conditions retained from the legacy routine are:
+!>
+!> | Condition | Meaning |
+!> |:----------|:--------|
+!> | `IXER(out) >= IXER(in)` | Input-error count is monotonic. |
+!> | `IXER(out) == IXER(in)` implies `2 <= NXSECT(1:total_no_links) <= NOCTAB` | Each valid link has a usable cross-section table. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-01-21 | RAH | 4.2 | Created this routine, fixing an error in the second `COCBCD` subscript. |
+!> | 1998-02-03 | RAH | 4.2 | Moved cross-section table set-up to the new [[OCXS]] and value checks to the new [[OCCHK2]]. |
+!> | 2009-01 | JE | - | Restructured the read loop for automatic differentiation. |
+!> @endhistory
    SUBROUTINE OCPLF(BOUT, IXER, fromNOCBCD, NXDEF, XDEFW)
-   !----------------------------------------------------------------------*
-   !
-   !  READ IN DATA FOR EACH CHANNEL LINK
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCPLF/4.2
-   ! Modifications:
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   !  GP  940808  4.0  Remove redundant array EXBETA (SPEC.AL).
-   ! RAH  980121  4.2  Fix error in COCBCD 2nd subscript (see BR/50).
-   !                   Explicit typing.
-   !                   List-directed input, & scrap local TITRE.  No FLOAT.
-   !                   Bring NDEFCT,NXDEF,XDEFH,XDEFW from SPEC.OC.
-   !                   Trap large NDEFCT.  Scrap EARRAY.  New local TEST.
-   !      980127       Use locals MSG,N more.  New local ZG.
-   !                   Test STR.le.0, not .eq.0.  Require IEL in order.
-   !                   Combine IDEFX tests.  Use IDEF: don't redfine IDEFX.
-   !                   Split expression for XAREA.  Use HJ for DPNOW.
-   !                   Rearrange loop 200.  Rename INDEX,ICODE as IBC,TYPE.
-   !                   Read NOCBCD,COCBCD directly, & set NOCBCD(IBC,2&4).
-   !      980128       Don't set XCONV or XDERIV for J=NXSCEE.  Trap N=1.
-   !                   Replace FATAL errors with ERR, & increase IXER.
-   !                   Require XDEFH,XINH strictly increasing, and
-   !                   XDEFW,XINW .gt.0 for J=N.
-   !      980129       Use IEL for loop variable ICT.  Trap NDEFCT<0.
-   !      980203       Move cross-section table set-up to OCXS (new).
-   !                   Move STRX,STRY,XINH,XINW checks to OCCHK2 (new).
-   !      980204       Full argument list (no INCLUDEs) (see OCREAD);
-   !                   ERR local.  Add argument BOUT: write to PRI if true.
-   !      980206       Call DCOPY for XINH,XINW.  More info in MSG.
-   !      980218       Adjust formats.
-   !      980220       Adjust formats.
-   !      980225       Swap COCBCD subscripts (see SPEC.OC)
-   ! JE   JAN 2009     Loop restructure for AD
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NLFEE.ge.NLF    [NLF,NOCTAB].ge.1    NOCBCC(1:NLF).le.NOCTAB
-   !  OCD open for F input                 PRI open for F output
-   !----------------------------------------------------------------------*
-   ! Exit conditions:
-   ! IXER(out).ge.IXER(in)
-   ! IXER(out).eq.IXER(in) ==> 2.le.NXSECT(1:NLF).le.NOCTAB
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! NOCTAB, XDEFH, OCD, EEERR, PPPRI, total_no_links, ZGRUND, SETHRF, STRXX
-      ! STRYY, XINW, XINH, NXSECT, CWIDTH, ZBFULL, NOCBCC, COCBCD, ERROR
 
       IMPLICIT NONE
 
-      LOGICAL, INTENT(INOUT) :: BOUT
-      INTEGER, INTENT(INOUT) :: IXER
-      INTEGER, INTENT(INOUT) :: fromNOCBCD(NOCTAB, 2:4)
-      INTEGER, INTENT(OUT)   :: NXDEF (NOCTAB)
-      DOUBLE PRECISION       :: XDEFH (NOCTAB, NOCTAB), XDEFW (NOCTAB, NOCTAB)
+      LOGICAL, INTENT(INOUT) :: BOUT   !! True to echo link data to `PRI`.
+      INTEGER, INTENT(INOUT) :: IXER   !! OC input-error count; only ever increased here.
+      INTEGER, INTENT(INOUT) :: fromNOCBCD(NOCTAB, 2:4) !! Boundary-face/category columns of `NOCBCD`, updated for river-link boundary types.
+      INTEGER, INTENT(OUT)   :: NXDEF (NOCTAB) !! Number of width/depth pairs in each default cross-section category.
+      DOUBLE PRECISION       :: XDEFH (NOCTAB, NOCTAB) !! Default cross-section depths by category.
+      DOUBLE PRECISION       :: XDEFW (NOCTAB, NOCTAB) !! Default cross-section widths by category.
 
       INTEGER :: I, IBC, IDEF, IDEFX, ielm, J, N, NDEFCT, TYPEE, ios
       DOUBLE PRECISION :: STR, WDEPTH, ZG
@@ -1400,23 +1643,36 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE OCPRI
+!> @brief Prints one OC diagnostic block to the main print file.
+!>
+!> The report is written only when [[OCSIM]] calls this routine for an
+!> output time in the requested interval. It lists each element, the four
+!> `QOC` face flows after conversion to the model x/y sign convention, and
+!> the current water level `HRF`.
+!>
+!> | Element range | Extra field |
+!> |:--------------|:------------|
+!> | `1:total_no_links` | `ARXL`, the current channel wetted area. |
+!> | `total_no_links+1:total_no_elements` | No channel area is printed. |
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NELEE >= total_no_elements` and `total_no_elements >= max(total_no_links,1)` | Element arrays cover active elements and links. |
+!> | `total_no_links >= 0` and `total_no_links <= size(ARXL)` | Channel area values are available for printed links. |
+!> | `PRI` open for formatted output | The report can be written. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-02-26 | RAH | 4.2 | Created this routine. |
+!> @endhistory
    SUBROUTINE OCPRI (OCNOW, ARXL, QOC)
-!----------------------------------------------------------------------*
-!
-!  Print results of OC simulation
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/OC/OCPRI/4.2
-! Modifications:
-! RAH  980226  4.2  New.
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NELEE.ge.NEL    NEL.ge.[1,NLF]    NLF.ge.0    NLF.le.size_of_ARXL
-!  PRI.ge.0        PRI open for F output
-!----------------------------------------------------------------------*
-      DOUBLEPRECISION, INTENT(IN) :: OCNOW, ARXL(:), QOC(NELEE, 4)
-      DOUBLEPRECISION, ALLOCATABLE :: ghrf(:)
+      DOUBLEPRECISION, INTENT(IN) :: OCNOW      !! Simulation time being reported, in hours.
+      DOUBLEPRECISION, INTENT(IN) :: ARXL(:)    !! Current channel wetted cross-sectional area, by link.
+      DOUBLEPRECISION, INTENT(IN) :: QOC(NELEE, 4) !! Current face flows in the model x/y sign convention.
+      DOUBLEPRECISION, ALLOCATABLE :: ghrf(:)   !! Local copy of the current water level, by link.
       INTEGER                     :: FACE, ielmm
 !----------------------------------------------------------------------*
       ALLOCATE(ghrf(total_no_links))
@@ -1440,58 +1696,56 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCREAD
+!> @brief Reads and dispatches the static OC input file.
+!>
+!> `OCREAD` loads timestep/output controls, roughness parameters, initial
+!> overland water depths, boundary-condition definitions, and channel-link
+!> data. It delegates boundary parsing to [[JEOCBC]] and link geometry to
+!> [[OCPLF]].
+!>
+!> The routine follows the OC input record order used in the SHETRAN Data
+!> Input Manual:
+!>
+!> | Records | Action |
+!> |:--------|:-------|
+!> | `OC1` | Read `NT`, roughness-category count `NCATR`, print/output control `KONT`, and `BIOWAT`. Odd `KONT` values enable verbose input echoing. |
+!> | `OC2` | Skip the obsolete OC timestep pairs; the current code reads and discards this section. |
+!> | `OC3` | Read `SMIN`, default roughness `CDRS`, output interval `TDC:TFC`, and `DET`. If `KONT < 2`, output is disabled by setting `TDC > TFC`. |
+!> | `OC4` | If `CDRS=0` and `NCATR>0`, read the category roughness values `CATR`. |
+!> | `OC5` | Read initial overland water depth when `BIOWAT` is true; otherwise initialise it to zero. `HRF` is set to `ZGRUND + depth` for land elements. |
+!> | `OC14`/`OC17` | Populate `STRXX` and `STRYY` from `CDRS`, direct arrays, or category maps. |
+!> | Boundary records | Call [[JEOCBC]] for OC boundary metadata, then [[OCPLF]] for channel-link geometry and link-boundary details. |
+!>
+!> `OCD` is rewound, not closed, after the read. Any boundary or channel-link
+!> input errors collected during parsing are promoted to fatal error 1049.
+!>
+!> Entry requirements retained from the legacy routine are:
+!>
+!> | Requirement | Meaning |
+!> |:------------|:--------|
+!> | `NELEE >= max(total_no_elements, NOCTAB*NOCTAB)` | Element and temporary OC tables fit the compiled extent. |
+!> | `total_no_elements > total_no_links` and `total_no_links >= 0` | Land elements and optional links are consistently numbered. |
+!> | `NOCTAB >= 1` and `NLFEE >= total_no_links` | Boundary and link tables cover active data. |
+!> | `OCD` open for formatted input | OC input records can be read. |
+!> | `PRI` open for formatted output | Input echo and diagnostics can be written. |
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-01-20 | RAH | 4.2 | Created this routine, implementing the previously-missing `NCATR>0` option. |
+!> | 1998-02-26 | RAH | 4.2 | Moved `TDC`/`TFC` to the argument list, overwriting `TDC` when `KONT<2`. |
+!> | 2026-04-02 | SvB | - | Modernised the routine's loops and error handling with Gemini assistance (replaced `GOTO`-based control flow with block `IF`s and array slicing). |
+!> @endhistory
    SUBROUTINE OCREAD(KONT, TDC, TFC, CATR, DDUM2)
-   !----------------------------------------------------------------------*
-   !  Control the reading of the OC input data file
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCREAD/4.2
-   ! Modifications:
-   !  GP          3.4  Call OCBC always, not only when NLF.ne.0.
-   ! RAH  941003 3.4.1 Bring IMPLICIT DOUBLEPRECISION from SPEC.AL.
-   ! RAH  980120  4.2  Explicit typing.  Remove local FINI.
-   !                   Call ALINIT if .not.BIOWAT.  Use KKON for I (=1).
-   !                   Move KONT from SPEC.OC to arg-list (see OCINI).
-   !                   Implement missing option NCATR.gt.0 (see BR/48).
-   !      980130       Bring (initial) read section from OCINI.
-   !                   Don't print NT (now redundant) or DET,TDC,TFC,SMIN.
-   !                   Replace GOTOs with block-IFs.  List-directed input.
-   !                   Test NCATR>NOCTAB not NCATRE (SPEC.OC variable).
-   !                   Renumber labels, move FORMATs to end and tidy.
-   !                   Print CDRS only if non-zero.  Call ERROR on errors.
-   !                   Bring NCATR,CDRS,CATR,BIOWAT from SPEC.OC.
-   !      980202       KKON=0 if KONT even, not just 0.
-   !                   Trap NCATR.lt.0.  Move OCIND call to OCINI.
-   !                   Use ALINIT for STRX,STRY.  Full output if BOUT.
-   !      980203       Use NGDBGN for NLF+1.
-   !      980204       Full argument lists for OCBC, OCPLF.  Close OCD.
-   !      980205       Full argument list, no INCLUDEs (see OCINI).
-   !                   Bring IXER from SPEC.OC.  FATAL local.
-   !      980218       Bring NGDBGN(=NLF+1) from argument list (see OCINI).
-   !                   Call OCPLF only if IXER.eq.0.
-   !      980220       Spelling.
-   !      980225       Swap COCBCD subscripts (see SPEC.OC)
-   !      980226       Move TDC,TFC to argument list; overwrite if KONT<2.
-   !                   Don't print KONT.
-   ! SvB  260402       Ran through G:Gemini for mondernization
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NELEE.ge.[NEL,NOCTAB*NOCTAB]    NEL.gt.NLF    NLF.ge.0    NOCTAB.ge.1
-   !  NLFEE.ge.NLF    OCD open for F input      PRI open for F output
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCREAD/4.2
-
-      ! Assumed external module dependencies providing global variables:
-      ! NOCTAB, IDUM, total_no_elements, total_no_links, NGDBGN, OCD, PPPRI,
-      ! one, ISZERO, ZERO, DUMMY, ZGRUND, SETHRF, STRXX, STRYY, NOTZERO,
-      ! nelee, JEOCBC, OCPLF, NOCBCD, COCBCD, FFFATAL, ERROR, AREADR, AREADI
 
       IMPLICIT NONE
 
       ! Arguments
-      INTEGER, INTENT(OUT)          :: KONT
-      DOUBLE PRECISION, INTENT(OUT) :: TDC, TFC
-      DOUBLE PRECISION, INTENT(OUT) :: CATR(NOCTAB), DDUM2(NOCTAB, NOCTAB)
+      INTEGER, INTENT(OUT)          :: KONT   !! Print/output control; odd values enable verbose echoing.
+      DOUBLE PRECISION, INTENT(OUT) :: TDC    !! First time for detailed OC diagnostic output.
+      DOUBLE PRECISION, INTENT(OUT) :: TFC    !! Last time for detailed OC diagnostic output.
+      DOUBLE PRECISION, INTENT(OUT) :: CATR(NOCTAB) !! Roughness coefficient by category, when `NCATR>0`.
+      DOUBLE PRECISION, INTENT(OUT) :: DDUM2(NOCTAB, NOCTAB) !! Discarded scratch passed through to [[occhk2]].
 
       ! Locals
       INTEGER          :: I, IBC, ICAT, ielt, IXER, KKON, TYPEE
@@ -1656,61 +1910,135 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCSIM
+!> @brief Advances the overland/channel flow solution by one OC timestep.
+!>
+!> `OCSIM` reads current boundary values, calls [[OCQDQ]] for nonlinear flow
+!> and derivative terms, assembles the row-wise implicit matrix with
+!> [[OCABC]], solves the block tridiagonal system by forward row elimination
+!> and backward substitution, updates water levels and inter-element flows,
+!> applies [[OCFIX]] to remove spurious negative internal flows, computes
+!> channel wetted area, and optionally prints OC diagnostics.
+!>
+!> The routine uses frame topology and geometry (`ICMREF`, `ICMRF2`,
+!> `NOCBCC`, `NOCBCD`, `cellarea`, `CLENTH`, `DHF`, `ZGRUND`, `CWIDTH`,
+!> `ZBFULL`), forcing terms (`PNETTO`, `ESWA`, `QH`, `QOCF`, `HOCNOW`), OC
+!> row indices (`NROWF`, `NROWL`, `NROWST`, `NROWEL`, `NELIND`),
+!> cross-section and roughness tables (`NXSECT`, `XINH`, `XINW`, `XAREA`,
+!> `XSTAB`, `STRXX`, `STRYY`), and timing controls (`OCNOW`, `OCNEXT`,
+!> `TDC`, `TFC`). It updates `HRF` and writes `QSA`, `QOC`, `DQ0ST`,
+!> `DQIST`, `DQIST2`, and `ARXL`. On the first call it also caches each
+!> link's bankfull tabulated area in
+!> `XAFULL(link)=XAREA(link,NXSECT(link))` for [[OCQDQ]].
+!>
+!> The OC timestep is converted to seconds as
+!>
+!> \[
+!> DTOC = 3600\,OCNEXT.
+!> \]
+!>
+!> After [[OCQDQ]] has evaluated current flows and derivatives, [[OCABC]]
+!> assembles one block row for each y-row. For row \(r\), with water-level
+!> correction vector \(d_r\), the assembled equation has the
+!> block-tridiagonal form
+!>
+!> \[
+!> C_r d_{r-1} + B_r d_r + A_r d_{r+1} = F_r,
+!> \]
+!>
+!> where `CC`, `BB`, and `AA` contain the previous-row, current-row, and
+!> next-row coefficients, and `FF` contains \(F_r\).
+!>
+!> The forward sweep stores each eliminated row as
+!>
+!> \[
+!> d_{r-1} = E_r d_r + G_r.
+!> \]
+!>
+!> For the first active row,
+!>
+!> \[
+!> M_r=B_r,\qquad v_r=F_r.
+!> \]
+!>
+!> For later rows, the previous-row relation is substituted:
+!>
+!> \[
+!> M_r = B_r + C_rE_r,\qquad
+!> v_r = F_r - C_rG_r.
+!> \]
+!>
+!> The row matrix is inverted and the relation for the next row is stored as
+!>
+!> \[
+!> E_{r+1} = -M_r^{-1}A_r,\qquad
+!> G_{r+1} = M_r^{-1}v_r.
+!> \]
+!>
+!> Back substitution starts with the last row,
+!>
+!> \[
+!> d_{NROWL}=G_{NROWL+1},
+!> \]
+!>
+!> and proceeds upward with
+!>
+!> \[
+!> d_r = E_{r+1}d_{r+1}+G_{r+1}.
+!> \]
+!>
+!> The solved correction for each element is applied directly to water
+!> level,
+!>
+!> \[
+!> HRF_e^{n+1}=HRF_e^n+d_e.
+!> \]
+!>
+!> Face flows are advanced with the same first-order linearisation used in
+!> the matrix assembly:
+!>
+!> \[
+!> Q_{e,f}^{n+1}=Q_{e,f}^n + DQ0ST_{e,f}d_e
+!> + \sum_j DQIST_{e,f,j}d_j,
+!> \]
+!>
+!> where a single neighbour uses `DQIST` and a multi-link junction expands
+!> the neighbour sum through `ICMRF2` and `DQIST2`. [[OCFIX]] is then called
+!> to remove spurious negative internal flows and adjust the corresponding
+!> water levels.
+!>
+!> `QOC` is copied from the internal face-flow array and converted from the
+!> OC face convention to the model x/y convention by changing the sign on
+!> faces 1 and 2. For each channel link, wetted area is interpolated from
+!> the cross-section table. If \(H=HRF-ZGRUND\) falls between tabulated
+!> depths \(H_m\) and \(H_i\),
+!>
+!> \[
+!> \Delta H = H-H_m,\qquad
+!> \Delta W = (W_i-W_m)\frac{\Delta H}{H_i-H_m},
+!> \]
+!>
+!> \[
+!> ARXL = XAREA_m + \left(W_m+\frac{1}{2}\Delta W\right)\Delta H.
+!> \]
+!>
+!> Above the last table level, the link is extended with rectangular
+!> bankfull width:
+!>
+!> \[
+!> ARXL = XAREA_N + (HRF-ZBFULL)\,CWIDTH.
+!> \]
+!>
+!> If `QMAX > 0`, all channel-link face flows are checked against this
+!> maximum and a fatal diagnostic is issued when it is exceeded.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-1998 | GP/RAH | 3.4-4.2 | Developed the row-wise implicit solve, [[OCFIX]] flow-correction split, and current `OCABC` argument list. |
+!> | 2009-01 | JE | - | Restructured the row loop for automatic differentiation. |
+!> @endhistory
    SUBROUTINE OCSIM
-   !----------------------------------------------------------------------*
-   !
-   !  MAIN OVERLAND/CHANNEL SIMULATION ROUTINE
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCSIM/4.2
-   ! Modifications:
-   !  GP         3.4  Set HRF at head boundaries.  Disallow flow against
-   !                  surface gradient (except boundaries & confluences),
-   !                  and move trap for small depths & setting of ARXL to
-   !                  after this point; also, replace WLMIN with 1D-5.
-   !                  Trap large flows (ABS(QOC)>QMAX) in channels.
-   ! RAH  941008 3.4.1 Bring IMPLICIT from SPEC.AL.  Move traps (except
-   !                  QMAX) to new subroutine OCFIX (confluences too).
-   ! RAH  961228  4.1  Remove variables TF & LONT.
-   ! RAH  971215  4.2  Explicit typing.  Bring DD,EE,GG from SPEC.OC.
-   !                  Remove DOCEV,DLIOC,DETOCO,DOCUZO,DOCSZO.
-   !                  Set NCR,NPR,NSV (& NDUM) only where necessary.
-   !                  Merge OCQDQ loops.  Don't call OCMAS.
-   !      971216      Move first row initialization nearer to OCABC.
-   !                  Call OCQDQ always (not only 1st step) at the start,
-   !                  and not at the end of a step.  Scrap tests NLF.GT.0.
-   !                  Use IROW as subscript not NROWF; also use IRSV.
-   !                  Cut duplicate code in main loop over rows.
-   !      971217      Merge EE,GG code for first row into loop over rows.
-   !                  Initialize only useful elements of AA,BB,CC,FF.
-   !                  Separate treatment for DD of last row.
-   !      980106      Call ERROR if ICOD=1 after PMINVM.
-   !                  Next IROW if NCR=0 in main loop.  Scrap JFACE.
-   !                  Renumber labels 4,190,200 as 44,250,255.
-   !                  Amend head boundary implementation, & move to OCABC.
-   !                  New locals DDI,DH,DQ,DW,HI,HM,IBR,IM,WI,WM,Z.
-   !                  Use DCOPY & CHSGN to set QOC.  Use ABS not DABS.
-   !      980107      OCABC arguments: remove ICOUNT;
-   !                  add IEL,NXSECT,ZBFULL,ZGRUND,HRF,AA,BB,CC,FF.
-   !                  Bring AA,BB,CC,FF from SPEC.OC.
-   !      980108      OCABC arguments: add NSV,NCR,NPR,PNETTO,QH,ESWA.
-   !                  Move initialization of AA,BB,CC,FF to OCABC.
-   !      980109      OCABC arguments: add IBC,HOCNOW.
-   !      980212      Scrap NROWFN - use NROWST(IROW+1)-1.
-   !      980226      Call OCPRI.  Bring DTOC from SPEC.OC; pass to OCABC.
-   !                  Call OCQDQ once only, and pass COCBCD,QOCF.
-   !      980327      Pass XAFULL (new local) to OCQDQ.  Scrap local K.
-   !                  Pass OCTIME, not OCNOW, to OCPRI, & call before QMAX
-   !                  test, not after.
-   !      980331      Pass STRX,STRY to OCQDQ.
-   !      980409      Pass HOCNOW to OCQDQ.
-   !      980424      Pass NXSCEE,XSTAB to OCQDQ.
-   !      980427      Pass final local FWRK to OCQDQ.
-   ! JE   JAN 2009    Loop restructure for AD
-   !----------------------------------------------------------------------*
 
-      ! Assumed external module dependencies providing global variables
       IMPLICIT NONE
 
       INTEGER :: I, IELs, IND, IROW, IBC, IBR, ICOD, IFACE, IHB, IM, IRSV
@@ -1719,7 +2047,8 @@ CONTAINS
 
       DOUBLE PRECISION :: DDI, DH, DQ, DW, H, HI, HM, OCTIME, WI, WM, Z
 
-      LOGICAL :: first = .TRUE., found_level, channel_blowup
+      LOGICAL :: first = .TRUE. !! True only on the first call; caches `XAFULL` then latches false (implicit `SAVE`).
+      LOGICAL :: found_level, channel_blowup
       CHARACTER(36) :: MSG
 
       !----------------------------------------------------------------------*
@@ -1963,36 +2292,114 @@ CONTAINS
 
 
 
-   !SSSSSS SUBROUTINE OCXS
+!> @brief Builds channel cross-section area and conveyance lookup tables.
+!>
+!> `OCXS` integrates tabulated width-depth pairs to water area, derives an
+!> effective bed elevation for full-bank storage, and fills `XSTAB` with
+!> uniformly spaced depth, conveyance, and conveyance-derivative values used
+!> by the OC flow calculation.
+!>
+!> The SHETRAN User Guide and Data Input Manual defines the channel
+!> cross-section data in records `OC30`-`OC34`: each cross-section category
+!> is supplied as width/depth pairs (`XDEFW`, `XDEFH`), the first depth must
+!> be zero, and the final depth defines the bankfull depth. The manual also
+!> states that channel flow uses the user-supplied cross-section, while
+!> subsurface-flow exchange uses an effective rectangular channel with the
+!> same cross-sectional area.
+!>
+!> In the code these manual fields are stored per link as `XINW(link,j)` and
+!> `XINH(link,j)`, with `NXSECT(link)` width/depth pairs and roughness
+!> `STRXX(link)`. Entry requirements retained from the legacy routine are:
+!> at least one active link, `NXSCEE >= 2`, positive channel widths
+!> `CWIDTH(1:total_no_links)`, `NXSECT` values within the allocated
+!> `XINH`/`XINW`/`XAREA` table sizes, a positive final tabulated depth, and
+!> strictly increasing tabulated depths within each link.
+!>
+!> Input width-depth pairs are integrated by the trapezoidal rule. For
+!> tabulated level \(j\),
+!>
+!> \[
+!> XAREA_j = XAREA_{j-1}
+!> + \frac{1}{2}\left(XINW_j+XINW_{j-1}\right)
+!>   \left(XINH_j-XINH_{j-1}\right),
+!> \]
+!>
+!> with `XAREA(:,1)=0`. The manual's effective rectangular-channel statement
+!> is implemented by shifting the effective bed elevation so that a
+!> rectangle of width `CWIDTH` has the same bankfull area as the tabulated
+!> cross-section:
+!>
+!> \[
+!> ZBEFF = ZBFULL - XAREA_N/CWIDTH.
+!> \]
+!>
+!> The lookup table `XSTAB` supports the OC flow calculation without
+!> repeatedly integrating the irregular cross-section. It has rows:
+!>
+!> | `XSTAB` row | Meaning |
+!> |:------------|:--------|
+!> | 1 | Uniformly spaced water depth. |
+!> | 2 | Conveyance at that depth. |
+!> | 3 | Piecewise-linear derivative of conveyance with respect to depth. |
+!>
+!> For a table with `NXSCEE` rows, the uniform depth increment is
+!>
+!> \[
+!> \Delta h = XINH_N/(NXSCEE-1),\qquad h_j=(j-1)\Delta h.
+!> \]
+!>
+!> For each lookup depth \(h_j\), the enclosing manual input interval
+!> \(H_i \le h_j \le H_{i+1}\) is found. Width is treated as linearly
+!> varying between the two tabulated width/depth points:
+!>
+!> \[
+!> \alpha=\frac{h_j-H_i}{H_{i+1}-H_i},
+!> \]
+!>
+!> and the area increment above \(H_i\) is evaluated as a trapezoid:
+!>
+!> \[
+!> A_j = XAREA_i
+!> + \frac{1}{2}\left((2-\alpha)W_i+\alpha W_{i+1}\right)
+!>   (h_j-H_i).
+!> \]
+!>
+!> `CONVEYAN` converts \(A_j\), depth, and roughness `STRXX` into
+!> conveyance. For `OCXS` it is called with `ty=0`, so the main branch used
+!> away from near-zero depth is the Gauckler-Manning-Strickler-style
+!> relation implemented in [[ocmod2:conveyan]]:
+!>
+!> \[
+!> C_j = STRXX\,A_j\,h_j^{2/3}.
+!> \]
+!>
+!> For \(10^{-9} \le h_j < 10^{-3}\) m, the code uses the smoothed
+!> polynomial branch in `CONVEYAN` for automatic-differentiation stability:
+!>
+!> \[
+!> C_j = STRXX\,A_j\,\frac{10}{3}\,h_j(4-1000h_j),
+!> \]
+!>
+!> and for smaller depths it returns zero conveyance. The stored derivative
+!> in `XSTAB` is not the derivative returned by `CONVEYAN`; `OCXS` stores
+!> the finite-difference slope for interval `j-1`:
+!>
+!> \[
+!> XSTAB_{3,j-1} = \frac{C_j-C_{j-1}}{\Delta h},
+!> \]
+!>
+!> so `XSTAB(2,j) + XSTAB(3,j)*(h-XSTAB(1,j))` is continuous and
+!> piecewise linear in water depth. As in the legacy routine, conveyance and
+!> derivative entries for the final lookup row are not defined.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-02-03 | RAH | 4.2 | Created this routine, taking it from part of [[OCPLF]]. |
+!> | 1998-03-17 | RAH | 4.2 | Fixed the `XAJ` inaccuracy so the stored conveyance derivative is continuous. |
+!> | 1998-04-24 | RAH | 4.2 | Merged the legacy `XSECTH`/`XCONV`/`XDERIV` arrays into `XSTAB`. |
+!> @endhistory
    SUBROUTINE OCXS ()
-   !----------------------------------------------------------------------*
-   !
-   !  Set up channel cross-section tables & effective bed elevations
-   !
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/OC/OCXS/4.2
-   ! Modifications:
-   ! RAH  980203  4.2  New: taken from part of OCPLF.
-   !      980317      ! Fix inaccuracy in XAJ (was linear in H); set XDERIV
-   !                   to give continuous XCONV.  Use XAJ in loop 180.
-   !      980424       Merge XSECTH,XCONV,XDERIV into XSTAB (see SPEC.OC).
-   !----------------------------------------------------------------------*
-   ! Entry requirements:
-   !  NLFEE.ge.NLF    NLF.ge.1    NXSCEE.ge.2    CWIDTH(1:NLF).gt.0
-   !  NXSECT(1:NLF).le.size_of_[XINH,XINW,XAREA]
-   !  for iel in 1:NLF                XINH(iel,NXSECT(iel)).gt.0
-   !      for i in 1:NXSECT(iel)-1    XINH(iel,i).lt.XINH(iel,i+1)
-   ! Exit conditions:
-   !  ...
-   ! Note:
-   !       XSTAB(i,j,iel) is, for i=1,2,3: water depth, conveyance, and
-   !                                       derivative of conveyance, respectively
-   ! NB:
-   !       XSTAB(2:3,j,1:NLF) not defined for j=NXSCEE
-   !
-      ! Assumed external module dependencies providing global variables:
-      ! total_no_links, NXSECT, STRXX, XAREA, zero, XINW, XINH, half,
-      ! ZBEFF, ZBFULL, CWIDTH, NXSCEE, XSTAB, CONVEYAN
 
       IMPLICIT NONE
 
@@ -2068,20 +2475,27 @@ CONTAINS
 
 
 
-   !FFFFFF INTEGER FUNCTION LINKNO
+!> @brief Returns the channel link number at a grid coordinate and orientation.
+!>
+!> `LINKNO` searches the link reference table for a north-south or east-west
+!> link whose stored grid coordinate matches the requested `(I,J)` location.
+!> The orientation argument is compared directly with `LINKNS`; no geometric
+!> inference is made here. If there are no links, or no matching link is
+!> found, the function returns zero.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-04 | SvB | - | Marked the function `PURE` and replaced the legacy `iscycle`-flag loop with a direct `EXIT`, without changing its search order or result. |
+!> @endhistory
    PURE INTEGER FUNCTION LINKNO (I, J, NSOUTH)
-   !----------------------------------------------------------------------*
-   ! GET LINK NUMBER, GIVEN X, Y CO-ORDINATES AND ORIENTATION
-   !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! total_no_links, LINKNS, ICMREF
 
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: I, J
-      LOGICAL, INTENT(IN) :: NSOUTH
+      INTEGER, INTENT(IN) :: I      !! Grid x-coordinate.
+      INTEGER, INTENT(IN) :: J      !! Grid y-coordinate.
+      LOGICAL, INTENT(IN) :: NSOUTH !! True to match a north-south link; false for east-west.
 
       ! Locals
       INTEGER :: L

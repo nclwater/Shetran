@@ -1,8 +1,54 @@
+!> @brief Main SHETRAN simulation time-step driver.
+!>
+!> `run_sim` contains [[simulation]], the top-level loop that advances the
+!> model from the configured start time to the end time. It coordinates the
+!> process modules rather than implementing a numerical method itself:
+!> selecting the current time step, running the land-hydrology and
+!> surface-routing components, conditionally running the sediment and
+!> contaminant components, maintaining water/sediment mass-balance
+!> diagnostics, and writing hotstart/result/progress output.
+!>
+!> The main loop uses this high-level order:
+!>
+!> | Stage | Main calls/state updates |
+!> |:------|:-------------------------|
+!> | Timestep selection | [[rest:tmstep]], increment `NSTEP`, copy `UZNEXT` to `OCNEXT`. |
+!> | Land hydrology | [[etmod:etsim]], then [[vsmod:vssim]]. |
+!> | Time advance | `UZNOW = UZNOW + UZNEXT`; channel rainfall, evaporation, and well-transfer terms are updated for links. |
+!> | Surface routing | [[ocmod:ocsim]], then `OCNOW = UZNOW`. |
+!> | Optional sediment | [[symod:symain]] when `BEXSY` and `UZNOW >= TSH-TIH`. |
+!> | Optional contaminants | [[frmod:incm]] on the first active contaminant step, then [[cmmod:cmsim]] on later active steps. |
+!> | Output and balances | [[rest:balwat]], [[frmod:frmb]], optional [[symod:balsed]], result/hotstart/time-counter output, visualisation, and [[frmod:froutput]]. |
+!>
+!> @note Contaminant setup is intentionally split: contaminant and column
+!> helper arrays are allocated before the loop when `BEXCM` is true, but
+!> [[frmod:incm]] is called on the first active contaminant timestep and
+!> `CMSIM` is called only on subsequent active timesteps.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1999-01-28 | SB | - | Incorporated sediment output into the `AIOSTO` result-type selection. |
+!> | 2006-03-08 | SB | - | Made mass-balance output (`FRMB`) a daily call. |
+!> | 2007-05-02 | SB | - | Added an additional `FROUTPUT('main ')` call. |
+!> | 2008-12 | JE | 4.3.5F90 | Created during the Fortran 90 conversion by extracting the computational core from `shetrn.f`. |
+!> | 2026-03-19 | SB | 4.6.1 | Added `DATE_FROM_HOUR`-based reporting of the simulation start/end dates, and added the contaminant/column-array allocation and cleanup calls (`initialise_cont_cc`, `initialise_colm_cg`, `initialise_colm_co`, `deallocate_colm_cg`). |
+!> | 2026-04-03 | SvB | 4.6.1 | Replaced `OPEN(UNIT=6, ..., carriagecontrol='fortran')` with `OPEN(UNIT=OUTPUT_UNIT, ...)` from `iso_fortran_env` (portable output-unit handling) as part of a wider restructuring of the main loop. |
+!> | 2026-04-23 | SB | 4.6.1 | Added elapsed/remaining wall-clock time reporting (`cpu_time`) to the progress line, and reordered the run-configuration diagnostics printed at start-up. |
+!> | 2026-04-28 | SB | 4.6.1 | Reworded the progress-line format and added the line that clears the progress display once the simulation loop exits. |
+!> | 2026-05-02 | SvB | 4.6.1 | Removed the pre-loop "Length of Simulation" message during a branch merge; the `9750`/`9900` `FORMAT` labels are no longer referenced by any `WRITE`. |
+!> | 2026-05-03 | SvB | 4.6.1 | Changed the sediment-yield elevation buffer `hrf` from a fixed-size array to `ALLOCATABLE`, allocated only when sediment yield (`BEXSY`) is active, to reduce static memory use. |
+!> @endhistory
+!>
+!> @note The module has a large dependency surface because it orchestrates
+!> most SHETRAN process modules and shared state arrays. Changes here should
+!> be checked against component ordering, mass-balance output, hotstart
+!> output, and visualisation side effects.
+!> @endnote
+!>
 MODULE run_sim
 
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       This is the comutational core - it runs the simulation, timestep by timestep
-!                       Code was extracted from shetrn.f and modifed to create this module
    USE SGLOBAL
    USE SED_CS,   ONLY : nsed,pbsed,pls,sosdfn,arbdep,dls,fbeta,fdel,&
       ginfd,ginfs,gnu,gnubk,qsed,dcbed,dcbsed
@@ -65,15 +111,77 @@ MODULE run_sim
 CONTAINS
 
 
-!SSSSSS SUBROUTINE simulation
-!----------------------------------------------------------------------*
-! SUBROUTINE SIMULATION
-! Description: Runs the main simulation loop set up in the SHETRAN program.
-! It initializes the required data, outputs starting information, and then
-! loops over time steps, sequentially calling the Evapotranspiration (ET),
-! Variably Saturated Subsurface (VSS), Overland Channel (OC), and optional
-! Sediment Yield (SY) and Contaminant Transport (CM) components.
-!----------------------------------------------------------------------*
+!> Runs the SHETRAN simulation from the configured start time to end time.
+!>
+!> `SIMULATION` is the top-level time-stepping routine called after the
+!> model has been configured (see [[shetran]]). It initializes framework and
+!> output state, enters the main time loop, asks [[rest:tmstep]] for the next
+!> time step, calls the process modules in the required order, writes daily
+!> and event-driven output, and exits when `UZNOW` reaches `TTH - TIH`.
+!>
+!> The routine has no dummy arguments. It operates through module variables
+!> imported from `SGLOBAL`, `AL_C`, `AL_D`, `FRmod`, `ETmod`, `VSmod`,
+!> `OCmod`, `SYmod`, `CMmod`, `rest`, the visualisation interfaces, and
+!> supporting parameter modules.
+!>
+!> Main loop sequence:
+!>
+!> | Step | Action |
+!> |:-----|:-------|
+!> | Select timestep | `TMSTEP` sets `UZNEXT`; `NSTEP` increments and `OCNEXT=UZNEXT`. |
+!> | Land hydrology | `ETSIM` runs first, then `VSSIM`; only after both does `UZNOW` advance. |
+!> | Link forcing | Channel/link `EPOT`, `PNETTO`, `ESWA`, `EEVAP`, and well additions are updated. |
+!> | Surface routing | `OCSIM` advances overland/channel hydraulics, then `OCNOW=UZNOW`. |
+!> | Sediment and contaminants | `FRSORT` refreshes ordering; `SYMAIN` runs when sediment is active; `INCM` runs only on the first active contaminant step, with `CMSIM` on later active steps. |
+!> | Output | Water balance, monthly balance, optional sediment balance, result output, hot-start output, visualisation, progress, and `FROUTPUT('main ')` are written. |
+!>
+!> Sediment yield uses a per-element surface-water-elevation buffer, `hrf`,
+!> which is allocated (to `total_no_elements`) only when `BEXSY` is true,
+!> since it is otherwise unused.
+!>
+!> Progress is reported once per simulated day (`icounter3` tracks the next
+!> reporting time in hours) as a single self-overwriting line, using
+!> `ACHAR(13)` (carriage return) with `ADVANCE='NO'` and an explicit `FLUSH`,
+!> and includes the elapsed and estimated remaining wall-clock time from
+!> `cpu_time`.
+!>
+!> Hot-start output fields:
+!>
+!> | Field | Meaning |
+!> |:------|:--------|
+!> | `time` | Current time `UZNOW`, next step `UZNEXT`, and active top-cell number. |
+!> | `cstore` | Canopy storage for land/bank elements. |
+!> | `HRF` | Surface-water elevation from `getHRF`. |
+!> | `QSA` | Overland face flow from `QSAZZ`. |
+!> | `QOC` | Overland/channel face flow. |
+!> | `DQ0ST`, `DQIST`, `DQIST2` | Stored flow derivatives. |
+!> | `SD`, `TS` | Snowpack depth and snow temperature. |
+!> | `NSMC`, `SMELT`, `TMELT` | Snowmelt routing slug count, water amount, and release time. |
+!> | `VSPSI` | Variably saturated pressure-head profile. |
+!>
+!> @note Component ordering is hydrologically significant: ET and VSS are
+!> run before the model time is advanced; overland/channel flow is run after
+!> rainfall, evaporation, and well transfers are updated; sediment and
+!> contaminant calls are gated by their configured start times.
+!> @endnote
+!>
+!> @note The locals `ptub` and `elapsed_time` are declared but not
+!> referenced in the current routine body.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1999-01-28 | SB | - | Incorporated sediment output into the `AIOSTO` result-type selection. |
+!> | 2006-03-08 | SB | - | Made mass-balance output (`FRMB`) a daily call. |
+!> | 2007-05-02 | SB | - | Added an additional `FROUTPUT('main ')` call. |
+!> | 2008-12 | JE | 4.3.5F90 | Extracted the timestep loop from the legacy `shetrn.f` main program into this Fortran 90 computational core. |
+!> | 2026-03-19 | SB | 4.6.1 | Added human-readable simulation start/end dates and contaminant allocation setup/cleanup calls. |
+!> | 2026-04-03 | SvB | 4.6.1 | Restructured the routine to use `OUTPUT_UNIT` for all console output instead of the non-standard `carriagecontrol='fortran'` unit-6 open. |
+!> | 2026-04-23 | SB | 4.6.1 | Added elapsed/remaining wall-clock progress reporting via `cpu_time`. |
+!> | 2026-05-03 | SvB | 4.6.1 | Changed `hrf` to an allocatable array, allocated only when sediment yield is active. |
+!> @endhistory
+!>
    SUBROUTINE SIMULATION
       USE, INTRINSIC :: iso_fortran_env, ONLY: OUTPUT_UNIT
 

@@ -1,14 +1,68 @@
+!> @brief Computes canopy interception, evapotranspiration, and land-surface evaporation fluxes.
+!>
+!> `ETmod` owns the evapotranspiration component's vegetation controls,
+!> meteorological selectors, lookup tables, and current-column work arrays.
+!> [[initialise_etmod]] allocates its run-sized state after the catchment
+!> dimensions are known. Each timestep [[etsim]] visits every land element,
+!> prepares its bank geometry and pressure-head profile, and delegates to the
+!> private [[etin]] and [[et]] calculation path.
+!>
+!> [[frmod:inet]] reads user-manual records `ET2`--`ET18` into this module
+!> after [[initialise_etmod]] has run. [[rest:metin]] supplies the current
+!> meteorological values and advances time-varying vegetation parameters.
+!> [[run_sim:simulation]] then calls [[etsim]] before the variably saturated
+!> subsurface calculation on every model step. The resulting rainfall,
+!> interception, root-extraction, soil-evaporation, and surface-water fluxes
+!> are stored in shared `AL_C`/`AL_D` arrays used by water, contaminant, and
+!> mass-balance calculations.
+!>
+!> | State group | Producer or updater | Principal consumer |
+!> |:------------|:--------------------|:-------------------|
+!> | `BMET*`, `MEASPE`, vegetation controls and lookup tables | [[frmod:inet]] | [[rest:metin]], [[et]] |
+!> | `REL*`, `TIM*`, `NCT*`, and `*1` reference values | [[frmod:inet]] and [[rest:metin]] | [[utilsmod:terpo1]] |
+!> | `DEL` | [[rest:metin]] | [[et]] |
+!> | `PSI4`, `UZALFA` | [[etsim]] | [[et]] and exported AD state |
+!>
+!> `NCTCST`, `NCTPLA`, `NCTCLA`, and `NCTVHT` are current lower-breakpoint
+!> cursors. [[frmod:inet]] initializes each enabled cursor to one; the number
+!> of rows read from the corresponding manual `ET12` record remains local to
+!> `INET`. [[utilsmod:terpo1]] advances the cursor while interpolating a ratio
+!> from `REL*`/`TIM*`, then multiplies it by the fixed `*1` reference value.
+!>
+!> @warning
+!> Private [[etchk2]] has no caller in the current source. If called, its
+!> equality check would accept only `RDL=0`, although manual record `ET8`
+!> permits a positive channel-root fraction. Consequently current ET input is
+!> not validated by that routine.
+!> @endwarning
+!>
+!> @warning
+!> The module is mutable, single-run state. [[initialise_etmod]] allocates
+!> every allocatable unconditionally, has no `STAT=` handling, and there is no
+!> matching deallocator; a repeated call or allocation failure terminates via
+!> the Fortran runtime.
+!> @endwarning
+!>
+!> @note
+!> Manual `ET2` allows a fourth, optional `BMETDATES` value. Current
+!> [[frmod:inet]] first attempts `(4L7)` and falls back to the legacy three
+!> logical values, defaulting `BMETDATES` false. The flag applies to separate
+!> precipitation, potential-evaporation, and temperature series handled by
+!> [[rest:metin]].
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1989-02 to 1998-10 | GP / RAH | 2.0--4.2 | Developed and reorganised the combined ET component. |
+!> | 2008-12 | JE | 4.3.5F90 | Combined the former ET Fortran sources into this Fortran 90 module. |
+!> | 2026-03-19 | SB | 4.6 | Added date-aware meteorological input and the run-sized allocator. |
+!> | 2026-04-05 to 2026-04-14 | SvB | - | Removed `ALINIT`/GOTOs and added resistance error 4998. |
+!> | 2026-05-03 | SvB | - | Resized `DEL` and explicitly initialized `IUNDEF`. |
+!> @endhistory
 MODULE ETmod
-! JE  12/08   4.3.5F90  Created, as part of conversion to FORTRAN90
-!                       Replaces the ET .F files
-! SB mar 26     4.6     read if dates included in met data (BMETDATES)
-!                       allocatable arrays for RA,RC,RTOP, CSTCAP,CK,CB,DEL, PSI4,UZALFA, CSTCA1,PLAI1, CLAI1,VHT1
-!                       PS1,FET,RCF,RELCST,TIMCST,RELPLA,TIMPLA,RELCLA,TIMCLA,RELVHT,TIMVHT
-!                       allocated in new subroutine INITIALISE_ETMOD
 
-USE SGLOBAL
-!USE SGLOBAL,     ONLY : NVEE, NUZTAB, NVBP, LLEE, &
-!                     nelee  !NEEDED ONLY FOR AD
+   USE SGLOBAL
    USE AL_G,     ONLY : ICMREF, NGDBGN, ICMREF
    USE AL_C,     ONLY : NVC, DTUZ, NRD, RDF, ERUZ, DELTAZ, CLAI, PNETTO, DRAINA, ESOILA, &
       NHBED, PLAI, NVSWLT, QVSWEL, eevap, UZNEXT, CWIDTH, &
@@ -24,100 +78,57 @@ USE SGLOBAL
 !NEEDED ONLY FOR AD
    USE SMmod,    ONLY : rhos
    USE OCMOD2, ONLY  : GETHRF
-
-
-
    IMPLICIT NONE
-!FROM SPEC_ET
-!MODULE SPEC_ET
-!-------------------------- Start of SPEC.ET --------------------------*
-!
-!     COMMON BLOCKS  ** ET-COMPONENT **
-!     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/SPEC.ET/4.2
-! Modifications:
-!   GP        FEB 89    2.0   'SHE88' IMPLEMENTATION ON NEWCASTLE AMDAHL
-!                              NB. THIS IS A COMBINED OLD/NEW ET VERSION
-!   GP        APR 89    2.1     REMOVE VARIABLE SDEPTH
-!   GP        NOV 90    3.0     STANDARDISE TO F77
-!                               + MOVE VARIABLES TO SPEC.AL
-!   GP        JAN 92    3.3     DIMENSION OF VARIABLES AMENDED
-!                               (TO NUZTAB OR NVBP)
-!  GP          3.4  Add EPLAST,PEIN.  Remove RDF.
-!  GP  940809  4.0  Bring PSI4,UZALFA from AL.D
-! RAH  970220  4.1  Remove EOC,EA,PS,ESNOW,QSNOW,CSNOW,CMELT,TTHRES,
-!                   NUMROT,NCTROT,NROT,NCLA,QLAI,CLA,CINT,C1,C2,C3,ROT,
-!                   RELROT,TIMROT,AROOT (redundant).  Explicit typing.
-!                   Move HEAD from ETCB6.  Move ETCB6,ETCB7.
-!      970516       Remove DWETER (see ETIN & INET) and DTDAYS,DTHRS,
-!                   DTMIN,DTSEC (were used in PRIET).  Move: HEAD,
-!                   ZU,ZD,ZO to INET; EPLAST,IDATA,PA,PEIN to METIN.
-!                   Remove NUMCST,NUMPLA,NUMCLA,NUMVHT (INET & METIN).
-! RAH  981021  4.2  Move FE to ET.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-!----------------------------------------------------------------------*
 
-! Imported constants
-!                      LLEE,NVBP,NVEE,NUZTAB
+   DOUBLEPRECISION, PARAMETER :: LAMDA=2465000. !! Latent heat of vaporisation used by the Penman equations (J/kg).
+   DOUBLEPRECISION, PARAMETER :: GAMMA=0.659 !! Psychrometric constant used with `DEL` (mb/degree C).
+   DOUBLEPRECISION, PARAMETER :: RHO=1.2 !! Fixed air density (kg/m3).
+   DOUBLEPRECISION, PARAMETER :: CP=1003. !! Fixed specific heat capacity of air (J/kg/degree C).
 
-! Commons
+   LOGICAL :: BAR(NVEE) !! Manual `ET8` selector: compute `RA` from wind when true; retain its input constant otherwise.
+   LOGICAL :: BMETP !! Manual `ET2` selector for echoing meteorological input to the print file.
+   LOGICAL :: BINETP !! Manual `ET2` selector for echoing ET parameter input to the print file.
+   LOGICAL :: BMETAL !! Manual `ET2` selector for separate `PRD`/`EPD` forcing rather than combined `MED` forcing.
+   LOGICAL :: BMETDATES !! Optional manual `ET2` selector for ISO-8601 dates in separate forcing files.
 
-!
-! ^^^ EXTRA COMMON BLOCK FOR VARIABLES IN BLOCK DATA SEGMENT
-!USE SGLOBAL, ONLY : NVEE, NUZTAB, NVBP, LLEE
-!IMPLICIT NONE
-!DOUBLEPRECISION LAMDA, GAMMA, RHO, CP
-!COMMON / ETCB6 / LAMDA, GAMMA, RHO, CP
+   INTEGER :: MODE(NVEE) !! Manual `ET8` actual-ET mode by vegetation type.
+   INTEGER :: NF(NVEE) !! Number of active `PS1`/`RCF`/`FET` rows by vegetation type.
+   INTEGER :: MEASPE(NVEE) !! Manual `ET6` measured-potential-evaporation selector by meteorological site.
+   INTEGER :: MODECS(NVEE) !! Zero for constant `CSTCAP`; any nonzero value enables time interpolation.
+   INTEGER :: MODEPL(NVEE) !! Zero for constant `PLAI`; any nonzero value enables time interpolation.
+   INTEGER :: MODECL(NVEE) !! Zero for constant `CLAI`; any nonzero value enables time interpolation.
+   INTEGER :: MODEVH(NVEE) !! Zero for constant `VHT`; any nonzero value enables time interpolation.
+   INTEGER :: NCTCST(NVEE) !! Current lower-breakpoint cursor for canopy-storage interpolation.
+   INTEGER :: NCTPLA(NVEE) !! Current lower-breakpoint cursor for ground-cover interpolation.
+   INTEGER :: NCTCLA(NVEE) !! Current lower-breakpoint cursor for canopy-LAI interpolation.
+   INTEGER :: NCTVHT(NVEE) !! Current lower-breakpoint cursor for vegetation-height interpolation.
 
-   DOUBLEPRECISION, PARAMETER :: LAMDA=2465000., &
-      GAMMA=0.659, &
-      RHO=1.2, &
-      CP=1003.
-!
-! ^^^ LOGICAL VARIABLES AND ARRAYS
-!
-   LOGICAL :: BAR (NVEE), BMETP, BINETP, BMETAL, BMETDATES
-!COMMON / ETCB3 / BAR, BMETP, BINETP, BMETAL
-!
-! ^^^ INTEGER ARRAYS
-!
-   INTEGER :: MODE (NVEE), NF (NVEE), MEASPE (NVEE)
-   INTEGER :: MODECS (NVEE), MODEPL (NVEE), MODECL (NVEE), MODEVH ( &
-      NVEE)
-   INTEGER :: NCTCST (NVEE), NCTPLA (NVEE), NCTCLA (NVEE), NCTVHT ( &
-      NVEE)
-!COMMON / ETCB4 / MODE, NF, MEASPE, MODECS, MODEPL, MODECL, MODEVH, &
-   !NCTCST, NCTPLA, NCTCLA, NCTVHT
-!
-! ^^^ FLOATING-POINT ARRAYS
-!
-!DOUBLEPRECISION RA (NVEE), RC (NVEE), RTOP (NVEE)
-!DOUBLEPRECISION CSTCAP (NVEE), CK (NVEE), CB (NVEE), DEL (NVEE)
-!DOUBLEPRECISION PS1 (NVEE, NUZTAB)
-!DOUBLEPRECISION PSI4 (LLEE), UZALFA (LLEE)
-!DOUBLEPRECISION FET (NVEE, NUZTAB), CSTCA1 (NVEE), PLAI1 (NVEE)
-!DOUBLEPRECISION RCF (NVEE, NUZTAB), CLAI1 (NVEE), VHT1 (NVEE)
-!DOUBLEPRECISION RELCST (NVEE, NVBP), TIMCST (NVEE, NVBP)
-!DOUBLEPRECISION RELPLA (NVEE, NVBP), TIMPLA (NVEE, NVBP)
-!DOUBLEPRECISION RELCLA (NVEE, NVBP), TIMCLA (NVEE, NVBP)
-!DOUBLEPRECISION RELVHT (NVEE, NVBP), TIMVHT (NVEE, NVBP)
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RA !! Aerodynamic resistance by vegetation type (s/m).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RC !! Canopy resistance by vegetation type (s/m).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RTOP !! Wind-independent `RA*U` factor by vegetation type.
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCAP !! Canopy storage capacity by vegetation type (mm).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CK !! Canopy drainage coefficient by vegetation type (mm/s).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CB !! Canopy drainage exponent coefficient by vegetation type (1/mm).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: DEL !! Saturation vapour-pressure slope by meteorological site (mb/degree C).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PSI4 !! Current land-column pressure heads copied from `VSPSI` (m).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: UZALFA !! Current bank/channel root-access weighting by vertical cell.
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCA1 !! Initial/reference canopy storage capacity by vegetation type (mm).
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PLAI1 !! Initial/reference maximum ground-cover proportion by vegetation type.
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CLAI1 !! Initial/reference canopy leaf-area index by vegetation type.
+   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: VHT1 !! Initial/reference vegetation height by vegetation type (m).
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: PS1 !! Manual `ET16` soil-moisture-tension table (m).
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: FET !! Manual `ET16` actual/potential ET ratio table.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RCF !! Manual `ET16` canopy-resistance table (s/m).
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCST !! Relative canopy-storage values by vegetation and breakpoint.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMCST !! Canopy-storage breakpoint times (days).
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELPLA !! Relative ground-cover values by vegetation and breakpoint.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMPLA !! Ground-cover breakpoint times (days).
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCLA !! Relative canopy-LAI values by vegetation and breakpoint.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMCLA !! Canopy-LAI breakpoint times (days).
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELVHT !! Relative vegetation-height values by vegetation and breakpoint.
+   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: TIMVHT !! Vegetation-height breakpoint times (days).
 
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RA,RC,RTOP
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCAP,CK,CB,DEL
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PSI4,UZALFA
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCA1,PLAI1
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CLAI1,VHT1
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: PS1,FET,RCF
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCST,TIMCST
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELPLA,TIMPLA
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELCLA,TIMCLA
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RELVHT,TIMVHT
-
-   CHARACTER(132) :: msg
-!PRIVATE :: NVEE, NUZTAB, NVBP, LLEE
-!END MODULE SPEC_ET
+   CHARACTER(132) :: msg !! Shared private warning/fatal diagnostic buffer.
    PRIVATE
    PUBLIC :: ETSIM, BMETP, BINETP, BMETAL, BMETDATES, MEASPE, CSTCAP, RC, BAR, RA, MODE, &
       NF, CK, CB, MODECS, MODEPL, MODECL, MODEVH, NCTCST, CSTCA1, RELCST, TIMCST, &
@@ -127,6 +138,38 @@ USE SGLOBAL
 CONTAINS
 
 
+!> @brief Allocates and zero-initialises the run-sized ET state.
+!>
+!> [[frmod:frinit]] calls this routine after [[frmod:infr]] has established active
+!> vegetation (`NV`), meteorological (`NM`), and rainfall (`NRAIN`) counts and
+!> before [[frmod:inet]] reads the ET data. All 24 allocatables are initialized to
+!> double-precision zero after allocation.
+!>
+!> | Arrays | Allocated shape | Role |
+!> |:-------|:----------------|:-----|
+!> | `RA`, `RC`, `RTOP`, `CSTCAP`, `CK`, `CB` | `NV` | Per-vegetation physical controls. |
+!> | `CSTCA1`, `PLAI1`, `CLAI1`, `VHT1` | `NV` | Per-vegetation reference values. |
+!> | `DEL` | `MAX(NV,NM,NRAIN)` | Forcing slope sized for the largest active legacy index domain. |
+!> | `PSI4`, `UZALFA` | `LLEE` | Current vertical-column workspace. |
+!> | `PS1`, `FET`, `RCF` | `NV x NUZTAB` | Soil-tension lookup tables. |
+!> | `REL*`, `TIM*` | `NV x NVBP` | Time-varying vegetation ratios and breakpoint times. |
+!>
+!> The larger `DEL` extent is intentional current behaviour: [[rest:metin]]
+!> writes it by meteorological-site index, while the three active counts can
+!> differ. `NVEE` remains the common compile-time capacity for vegetation,
+!> meteorological, and rainfall categories.
+!>
+!> @warning
+!> Allocation is unconditional and has no `STAT=` branch. Call exactly once
+!> per process after valid positive run dimensions have been established.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03-19 | SB | 4.6 | Added the allocator while converting ET arrays to run-sized storage. |
+!> | 2026-05-03 | SvB | - | Expanded `DEL` to `MAX(NV,NM,NRAIN)` to avoid undersizing the meteorological domain. |
+!> @endhistory
    SUBROUTINE INITIALISE_ETMOD()
 
       ALLOCATE (RA(NV),RC(NV),RTOP(NV))
@@ -166,70 +209,158 @@ CONTAINS
 
    END SUBROUTINE INITIALISE_ETMOD
 
-!SSSSSS SUBROUTINE ET
+!> @brief Computes interception and evapotranspiration for one land element.
+!>
+!> `IEL` selects meteorological site `MS=NMC(IEL)` and vegetation type
+!> `N=NVC(IEL)`. The routine updates shared scalar ET state and the current
+!> element's canopy store, root extraction, and cell sinks; [[etin]] converts
+!> the millimetre-based results into the model's metre/second arrays.
+!>
+!> Potential evaporation comes either from measured `OBSPE(MS)` or from the
+!> Penman numerator. With `BAR(N)` true, aerodynamic resistance is updated as
+!>
+!> \[
+!> RA_N =
+!> \begin{cases}
+!> RTOP_N/U_{MS}, & U_{MS}>0,\\
+!> 10^{10}, & U_{MS}\leq0.
+!> \end{cases}
+!> \]
+!>
+!> The current code then defines
+!>
+!> \[
+!> BOTTOM=LAMDA(DEL_{MS}+GAMMA),
+!> \]
+!>
+!> and either sets `PE=OBSPE(MS)` and `TOP=PE*BOTTOM`, or calculates
+!>
+!> \[
+!> TOP=\max\left(0,
+!> RN_{MS}DEL_{MS}+\frac{RHO\,CP\,VPD_{MS}}{RA_N}\right),
+!> \qquad PE=TOP/BOTTOM.
+!> \]
+!>
+!> `PE` and actual ET are in mm/s inside this routine. `EINT`, `DRAIN`, and
+!> `CSTORE` are timestep depths in mm. Before canopy storage limitation,
+!>
+!> \[
+!> PNET_0=1000P_r(1-CPLAI)DTUZ,\qquad
+!> EINT_0=PE\,CPLAI\,DTUZ,
+!> \]
+!>
+!> \[
+!> Q=CPLAI(1000P_r-PE).
+!> \]
+!>
+!> | Canopy-store state | Current branch |
+!> |:-------------------|:---------------|
+!> | `CSTOLD>CSTCAP` and `Q>0` | Integrates exponential drainage while adding net canopy supply. |
+!> | `CSTOLD>CSTCAP` and `Q<=0` | Draws down the store; drainage continues only while it remains above capacity. |
+!> | `CSTOLD<=CSTCAP` | Scales interception evaporation by wet-canopy fraction `F1`, then drains any excess above capacity. |
+!>
+!> The exponential drainage relation uses `CK` and `CB`; each branch recovers
+!> drainage by canopy mass balance. Final throughfall is
+!> `PNET=(PNET_0+DRAIN)/DTUZ`.
+!>
+!> Actual ET is evaluated for each rooted cell, counting downward from the
+!> surface. The manual's modes have these current implementations:
+!>
+!> | `MODE(N)` | Actual-ET calculation |
+!> |:----------|:----------------------|
+!> | 1 | Uses constant `RC(N)` in the Penman--Monteith expression; a nonnegative `PSI4` sets `AE=PE`. |
+!> | 2 | Linearly interpolates `RC(N)` from the `PS1`/`RCF` table and applies Penman--Monteith. |
+!> | 3 | Linearly interpolates `FE=AE/PE` from `PS1`/`FET`, then sets `AE=PE*FE`. |
+!>
+!> Modes 1 and 2 use
+!>
+!> \[
+!> AE=\frac{TOP}
+!> {LAMDA\left(DEL_{MS}+GAMMA(1+RC_N/RA_N)\right)}.
+!> \]
+!>
+!> Values below/above the tension-table range use its first/last row; a
+!> nonnegative pressure head uses the last `RCF` value in mode 2 and `FE=1` in
+!> mode 3. Interior values are linearly interpolated between adjacent `PS1`
+!> rows. Any mode other than 2 or 3 follows the mode-1 branch; notably
+!> [[frmod:inet]] also treats legacy `MODE=4` as a constant-`RC` case even
+!> though the manual documents only modes 1--3.
+!>
+!> Root extraction is applied only when no surface water is present:
+!>
+!> \[
+!> E_k=AE\,CPLAI(1-F_1)\frac{RDF_{N,k}}{1+UZALFA_k}.
+!> \]
+!>
+!> The routine accumulates `ERZ` in mm/s, converts each `E_k` to m/s in
+!> `ERUZ(IEL,II)`, and writes volumetric sink
+!> `S(II)=ERUZ(IEL,II)/DELTAZ(II,IEL)`. Top-cell soil evaporation is
+!> `ESOIL=0.5*AE*(1-CPLAI)`. For bank elements the loop is extended to the
+!> exposed channel-bed cell. A root range deeper than `top_cell_no` is clipped
+!> and warning 4999 is emitted only on the first occurrence.
+!>
+!> @warning
+!> Fatal error 4998 checks `RA<=0` only while calculating unmeasured potential
+!> evaporation. Measured `PE` combined with mode 1 or 2 can still divide by an
+!> invalid `RA`. The zero-capacity repair also runs only after evaluating
+!> `CT1/CSTCAP`, and the logarithmic canopy branches assume valid nonzero
+!> `CB` and positive logarithm arguments.
+!> @endwarning
+!>
+!> @warning
+!> Mode 3 with `NF=1` and `PSI4==PS1(N,1)<0` enters an empty interpolation
+!> loop and can use an undefined `FE`; the manual says the sole row should
+!> cover every negative tension. Equal adjacent `PS1` rows are likewise not
+!> guarded. An ordinary element with `NRD(N)=0` skips the complete cell loop,
+!> leaving `ESOIL` and per-cell extraction state unchanged. Other assumed
+!> nonzero denominators include `DTUZ`, `DELTAZ`, and `1+UZALFA`.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1992-09-08 | JE | 3.4 | Corrected repeated assignment of root-extraction state. |
+!> | 1992-12-11 | GP | 3.4 | Moved dry-soil evaporation and the final top-cell sink update to [[etin]]. |
+!> | 1995-07-13 | GP | 4.0 | Removed the former mode-4 calculation and adopted current subsurface-layer state. |
+!> | 1997-05-15 | RAH | 4.1 | Swapped `DELTAZ` indices and explicitly typed the routine. |
+!> | 1998-10-21 to 1998-11-03 | RAH | 4.2 | Reworked control flow, resistance state, outputs, and root-cell handling. |
+!> | 2007-09-04 | SB | - | Revised zero/small-capacity canopy-storage handling and evaporation mass balance. |
+!> | 2015-05-27 | SB | - | Limited top-cell soil evaporation to half the short-grass estimate. |
+!> | 2026-04-06 | SvB | - | Replaced the remaining table-search GOTOs with structured loops. |
+!> | 2026-04-14 | SvB | - | Restored forcing-site indexing and added resistance error 4998. |
+!> @endhistory
    SUBROUTINE ET (IEL)
-      !----------------------------------------------------------------------*
-      !
-      !        INTERCEPTION AND EVAPOTRANSPIRATION CALCULATIONS
-      !        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      !
-      !  THIS SUBROUTINE REPRESENTS THE MAJOR PART OF THE EVAPOTRANSPIRATION
-      !  COMPONENT, AND SHOULD BE CALLED FOR EACH ELEMENT IEL.
-      !  THREE MODES OF OPERATION ARE CURRENTLY INCORPORATED FOR THE
-      !  CALCULATION OF ACTUAL EVAPOTRANSPIRATION :
-      !
-      !    MODE 1 : POTENTIAL AND ACTUAL EVAPOTRANSPIRATION CALCULATED
-      !             BY THE PENMAN-MONTEITH EQUATION WITH CONSTANT RC
-      !    MODE 2 : AS MODE 1 BUT WITH A VARIABLE RC DEPENDENT ON THE
-      !             SUPPLIED VALUE OF PSI4
-      !    MODE 3 : POTENTIAL EVAPOTRANSPIRATION CALCULATED BY THE
-      !             PENMAN-MONTEITH EQUATION (WITH RC=0.), ACTUAL
-      !             EVAPOTRANSPIRATION CALCULATED FROM THE RATIO AE/PE
-      !             AS DEPENDENT ON THE SUPPLIED VALUE OF PSI4
-      !
-      !  IN ADDITION POTENTIAL EVAPORATION CAN EITHER BE CALCULATED USING
-      !  THE PENMAN EQUATION OR BE READ IN DIRECTLY AS A MEASURED QUANTITY.
-      !
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/ET/ET/4.2
-      ! Modifications since v3.3:
-      !  JE  920908  3.4  Set ERUZ 4 times instead of once (fixes error).
-      !      920928       Replace (.eq.)0 with (.lt.)ZGRUND+1D-8 in HRF tests.
-      !  GP  921211       Move dry soil code & setting of S(LL) to ETIN.
-      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-      !  GP  950713  4.0  Remove "MODE 4" calculations (AE/PE=f(moisture)), &
-      !                   calculation of QBKI (see VSSIM). Use DELTAZ for DDZ.
-      ! RAH  970515  4.1  Swap DELTAZ indices.Explicit typing.Amend comments.
-      ! RAH  981021  4.2  Use block-IFs instead of GOTOs.
-      !                   Replace DLOG with generic LOG.
-      !                   Scrap output EPOTR (see AL.D).
-      !                   More MAX,ONE,ZERO,CSTOLD.  Bring FE from SPEC.ET.
-      !      981027       New locals BOTTOM,RABIG.  GAMMA units were wrong.
-      !                   Don't use EINT as intermediate variable.
-      !      981103       Don't set ERUZ(IEL,LL+1); and use 1 for local RDLINK
-      !                   (both used NHSAT, which has no defined value!).
-      !                   Scrap locals NEX (use MAX) & M2 (redundant), & hence
-      !                   also NSOIL (AL.D).
-      !----------------------------------------------------------------------*
-
-      ! Assumed external module dependencies providing global variables:
-      ! NMC, NRAINC, NVC, BAR, U, RA, RTOP, LAMDA, DEL, GAMMA, MEASPE, PE,
-      ! OBSPE, RN, RHO, CP, VPD, precip_m_per_s, CPLAI, DTUZ, PNET, EINT,
-      ! CSTORE, CSTCAP, CB, CK, DRAIN, AE, MODE, NRD, ERZ, ICMREF, top_cell_no,
-      ! NHBED, msg, WWWARN, pppri, ERROR, PSI4, RC, RCF, PS1, NF, FET, RDF,
-      ! UZALFA, ERUZ, S, DELTAZ, HRUZ, ESOIL, ZERO, ONE, LEZERO, NOTZERO
-
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: IEL
+      INTEGER, INTENT(IN) :: IEL !! Land-element number to process.
 
       ! Locals, etc
-      DOUBLE PRECISION, PARAMETER :: RABIG = 1.0D10
-      INTEGER :: II, IL, ITYPE, K, KF, KK, KL, M1, MR, MS, N
-      DOUBLE PRECISION :: BOTTOM, CALC, CT1, DFET, DPS1, DRCF, DUM, F1, FE
-      DOUBLE PRECISION :: Q, TOP, XPSTOR
-      LOGICAL, SAVE :: first = .TRUE.
+      DOUBLE PRECISION, PARAMETER :: RABIG = 1.0D10 !! Calm-wind aerodynamic-resistance substitute (s/m).
+      INTEGER :: II !! Current vertical-cell index, numbered upward from the aquifer bed.
+      INTEGER :: IL !! Channel link associated with a bank element.
+      INTEGER :: ITYPE !! Element type/bank side from `ICMREF(IEL,1)`.
+      INTEGER :: K !! Number of root/exposed-bed cells processed from the surface downward.
+      INTEGER :: KF !! Active tension-table row count for the current vegetation type.
+      INTEGER :: KK !! Surface-down root-density index.
+      INTEGER :: KL !! Tension-table search index.
+      INTEGER :: M1 !! Current actual-ET mode.
+      INTEGER :: MR !! Rainfall-station index retained from legacy code but otherwise unused.
+      INTEGER :: MS !! Meteorological-site index for the element.
+      INTEGER :: N !! Vegetation-type index for the element.
+      DOUBLE PRECISION :: BOTTOM !! Penman denominator based on latent heat, `DEL`, and `GAMMA`.
+      DOUBLE PRECISION :: CALC !! Temporary logarithmic/interpolation value.
+      DOUBLE PRECISION :: CT1 !! Candidate canopy storage after supply or evaporation (mm).
+      DOUBLE PRECISION :: DFET !! Difference between adjacent `FET` rows.
+      DOUBLE PRECISION :: DPS1 !! Difference between adjacent `PS1` rows (m).
+      DOUBLE PRECISION :: DRCF !! Difference between adjacent `RCF` rows (s/m).
+      DOUBLE PRECISION :: DUM !! Current cell extraction, first in mm/s and then m/s.
+      DOUBLE PRECISION :: F1 !! Wet-canopy/available-storage fraction applied to interception and transpiration.
+      DOUBLE PRECISION :: FE !! Actual/potential ET ratio for mode 3.
+      DOUBLE PRECISION :: Q !! Net supply rate to canopy storage (mm/s).
+      DOUBLE PRECISION :: TOP !! Penman numerator, or measured `PE*BOTTOM`.
+      DOUBLE PRECISION :: XPSTOR !! Exponential canopy-storage integration term.
+      LOGICAL, SAVE :: first = .TRUE. !! Once-only guard for root-depth warning 4999.
 
       !----------------------------------------------------------------------*
       !-----------------
@@ -477,82 +608,140 @@ CONTAINS
 
 
 
-!SSSSSS SUBROUTINE ETCHK2 (PRI, NV, RDL, LDUM1)
+!> @brief Retained private checker for the vegetation channel-root fraction.
+!>
+!> This routine passes `RDL(1:NV)` to [[mod_load_filedata:alchk]] with exact
+!> relation `EQ`, object zero, tolerance zero, and error action 2. `LDUM1` is
+!> overwritten with the per-vegetation failure mask and the saved `NERR`
+!> counter is incremented. Any nonzero final count then raises fatal error
+!> 1000 on `PRI`.
+!>
+!> | Entry requirement | Current reason |
+!> |:------------------|:---------------|
+!> | `NV>=1` | Defines the explicit shapes and checked range. |
+!> | `PRI` open for formatted output | Receives `ALCHK` and fatal diagnostics. |
+!> | `LDUM1` extent at least `NV` | Used as the complete failure-mask workspace. |
+!>
+!> @warning
+!> No current code calls `ETCHK2`, and it is private. Moreover, its equality
+!> test rejects every nonzero `RDL`, whereas manual `ET8` defines positive
+!> `RDL` as the proportion of bank-element roots taking water from the channel.
+!> The active [[frmod:inet]] path reads `RDL` without invoking this checker.
+!> @endwarning
+!>
+!> @note
+!> `NERR` is initialized by a `DATA` statement and therefore has implicit
+!> saved state; it is not reset at routine entry. `FATAL` is a retained unused
+!> local parameter. These details are documented without changing the legacy
+!> interface or behaviour.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1998-11-03 | RAH | 4.2 | Added the ET checker from the overland/channel checking pattern. |
+!> | 2026-05-03 | SvB | - | Made the zero-valued fixed-index argument `IUNDEF` an explicitly initialized parameter. |
+!> @endhistory
    SUBROUTINE ETCHK2 (PRI, NV, RDL, LDUM1)
-!----------------------------------------------------------------------*
-!
-!  Check ET input data
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/ET/ETCHK2/4.2
-! Modifications:
-! RAH  981103  4.2  New (from OCCHK2).
-!----------------------------------------------------------------------*
-! Entry requirements:
-!  NV.ge.1    PRI open for F output
-!----------------------------------------------------------------------*
-      INTEGER :: PRI, NV
-
-      DOUBLEPRECISION RDL (NV)
-! Workspace arguments
-
-      LOGICAL :: LDUM1 (NV)
-! Locals, etc
-      INTEGER :: FATAL, ERR
+      INTEGER :: PRI !! Unit receiving check and fatal-error diagnostics.
+      INTEGER :: NV !! Number of vegetation entries to check.
+      DOUBLEPRECISION :: RDL(NV) !! Manual `ET8` channel-root fractions tested against exact zero.
+      LOGICAL :: LDUM1(NV) !! Per-entry failure-mask workspace overwritten by `ALCHK`.
+      INTEGER :: FATAL !! Retained unused fatal-action constant.
+      INTEGER :: ERR !! Nonfatal check action passed to `ALCHK`.
       PARAMETER (FATAL = 1, ERR = 2)
-      INTEGER, PARAMETER :: IUNDEF = 0
-      INTEGER :: NERR
+      INTEGER, PARAMETER :: IUNDEF = 0 !! Placeholder outer subscript for the one-dimensional diagnostic.
+      INTEGER :: NERR !! Saved cumulative check-failure count.
       DATA NERR / 0 /
-!----------------------------------------------------------------------*
-! 1. Vegetation Properties
-! ------------------------
-!RDL
-
-
 
       CALL ALCHK (ERR, 1062, PRI, 1, NV, IUNDEF, IUNDEF, 'RDL(veg)', &
          'EQ', ZERO1, ZERO , RDL, NERR, LDUM1)
-! 2. Finish
-! ---------
-!
 
       IF (NERR.GT.0) CALL ERROR(FFFATAL, 1000, PRI, 0, 0, 'Error(s) detected while checking ET input data')
    END SUBROUTINE ETCHK2
 
 
 
-   !SSSSSS SUBROUTINE ETIN (IEL)
+!> @brief Coordinates snow/ET processing and exports fluxes for one element.
+!>
+!> `ETIN` forms current canopy area
+!> `CPLAI=MIN(CLAI(N),1)*PLAI(N)`, where `N=NVC(IEL)`. With snowmelt enabled,
+!> the first [[smmod:smin]] call decides whether freezing/snowpack processing
+!> has already supplied the ET state or sets `NSMT` to request [[et]]. If
+!> `NSMT` is nonzero, `ET` runs and a second `SMIN` call may melt an existing
+!> snowpack. Without snowmelt, `ET` always runs.
+!>
+!> The routine subtracts interception evaporation from the potential rate and
+!> exports the legacy millimetre quantities as water-flow rates:
+!>
+!> | Output | Current assignment | Units |
+!> |:-------|:-------------------|:------|
+!> | `PNETTO(IEL)` | `PNET/1000` | m/s |
+!> | `EPOT(IEL)` | `(PE-EINT/DTUZ)/1000` | m/s |
+!> | `EINTA(IEL)` | `EINT/(1000*DTUZ)` | m/s |
+!> | `DRAINA(IEL)` | `DRAIN/(1000*DTUZ)` | m/s |
+!> | `ERZA(IEL)` | `ERZ/1000` | m/s |
+!> | `ESOILA(IEL)` | `ESOIL/1000` | m/s |
+!>
+!> If `NVSWLT(IEL)` identifies an irrigation well, its `QVSWEL` rate is
+!> multiplied by `cellarea(WEL)/cellarea(IEL)` and added to `PNETTO`.
+!>
+!> When `HRUZ` indicates surface water at timestep start, the trial depth is
+!>
+!> \[
+!> h'=HRF(IEL)-ZGRUND(IEL)+(PNETTO-EPOT)DTUZ.
+!> \]
+!>
+!> If `h'` remains nonnegative, all available potential evaporation is assigned
+!> to `ESWA`. If it is negative, `EDUM=-h'/DTUZ` is the unsatisfied part:
+!> `ESWA=EPOT-EDUM`, and `EDUM` becomes soil evaporation unless top-cell
+!> `PSI4<-150` m. In that branch `HRUZ` and the shared scalar `PNET` are set to
+!> zero. With no initial surface water, `ESWA` is zero and [[et]] has already
+!> calculated `ESOILA`.
+!>
+!> Finally `EEVAP=ESWA+ESOILA`, and soil evaporation is added to the current
+!> top-cell sink as `ESOILA/DELTAZ`. Root-extraction contributions written by
+!> [[et]] are already present in `S`.
+!>
+!> @warning
+!> The unit conversions and area/thickness scaling assume positive `DTUZ`,
+!> `cellarea(IEL)`, and top-cell `DELTAZ`. A nonzero `NVSWLT(IEL)` is also
+!> assumed to be a valid index for both `QVSWEL` and `cellarea`; this routine
+!> performs no bounds or denominator checks.
+!> @endwarning
+!>
+!> @warning
+!> If the first [[smmod:smin]] call leaves `NSMT=0`, [[et]] is skipped and
+!> `ETIN` exports the scalars left by `SMET`. Current `SMET` does not assign
+!> `DRAIN`, and it can leave `PNET` unchanged when there is neither snowpack nor
+!> precipitation to trigger `SM`; `DRAINA` and sometimes `PNETTO` can therefore
+!> inherit a previous element's value. `SMET` also zeroes `S(1:NRD)` although
+!> `ET` writes root sinks at the surface-indexed cells
+!> `top_cell_no-NRD+1:top_cell_no`. This cross-module state behaviour is not
+!> repaired here.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1992-12-11 | GP | 3.4 | Moved dry-soil and surface-water evaporation partitioning into this wrapper. |
+!> | 1994-10-01 | RAH | 3.4.1 | Added explicit legacy double-precision typing. |
+!> | 1995-01-18 | GP | 4.0 | Adopted `NVSWLT`, `QVSWEL`, and `DELTAZ` for irrigation and cell scaling. |
+!> | 1997-05-16 | RAH | 4.1 | Swapped `DELTAZ` indices, removed redundant outputs, and bounded `CPLAI`. |
+!> | 2026-04-06 to 2026-04-07 | SvB | - | Structured snow/ET flow and made conversions double precision. |
+!> @endhistory
    SUBROUTINE ETIN (IEL)
-      !----------------------------------------------------------------------*
-      ! Version:  SHETRAN/ET/ETIN/4.1
-      ! Modifications:
-      ! RAH  941001 3.4.1 Add IMPLICIT DOUBLEPRECISION (see AL.P).
-      !  GP  950118  4.0  Scrap call to PRIET.  Replace IRRC, RSZWEL & DDZ
-      !                   with NVSWLT, QVSWEL & DELTAZ.
-      ! RAH  970516  4.1  Swap DELTAZ indices.  Explicit typing.  Local WEL.
-      !                   Scrap AL.D outputs DWETOC, DWETEX & DWEXET, and
-      !                   SPEC.ET outputs DWETER & WSET.  Amend comments.
-      !                   Use MIN for CPLAI.  Remove redundant setting of N.
-      !----------------------------------------------------------------------*
-      ! Commons and constants
-      ! Output common
-      !     SPEC.AL:         NSMT
-      !                      CPLAI,HRUZ,PE,PNET,...
-
-      ! Assumed external module dependencies providing global variables:
-      ! NMC, NRAINC, NVC, CLAI, ONE, PLAI, NSMT, BEXSM, SMIN, ET, PE, EINT,
-      ! DTUZ, PNETTO, PNET, EPOT, EINTA, DRAINA, DRAIN, ERZA, ERZ, ESOILA,
-      ! ESOIL, NVSWLT, QVSWEL, cellarea, GTZERO, HRUZ, getHRF, ZGRUND,
-      ! LTZERO, ESWA, PSI4, top_cell_no, zero, EEVAP, S, DELTAZ
-
       IMPLICIT NONE
 
       ! Input arguments
-      INTEGER, INTENT(IN) :: IEL
+      INTEGER, INTENT(IN) :: IEL !! Land-element number to process.
 
       ! Locals, etc
-      INTEGER :: MR, MS, N, WEL
-      DOUBLE PRECISION :: EDUM
+      INTEGER :: MR !! Rainfall-station index retained from legacy code but otherwise unused.
+      INTEGER :: MS !! Meteorological-site index retained from legacy code but otherwise unused.
+      INTEGER :: N !! Vegetation-type index for the element.
+      INTEGER :: WEL !! Irrigation-well/transfer element selected by `NVSWLT(IEL)`.
+      DOUBLE PRECISION :: EDUM !! Potential evaporation not supplied by initial surface water (m/s).
 
       !----------------------------------------------------------------------*
       MS = NMC (IEL)
@@ -629,31 +818,68 @@ CONTAINS
 
    END SUBROUTINE ETIN
 
-
-
-
-   !----------------------------------------------------------------------*
-   ! Controlling routine for evapotranspiration/interception module
-   !----------------------------------------------------------------------*
-   ! Version:  SHETRAN/ET/ETSIM/4.2
-   ! Modifications:
-   !  GP  08.08.94  written (v4.0 finished 3/10/95)
-   ! RAH  970516  4.1  Swap VSPSI indices. Amend comments. Explicit typing.
-   ! RAH  981103  4.2  Scrap AL.D output NSOIL (see ET).
-   !                   Replace DO-loops with calls to ALINIT & DCOPY.
-   !----------------------------------------------------------------------*
+!> @brief Advances evapotranspiration and interception for every land element.
+!>
+!> This is the public timestep driver called by `run_sim:SIMULATION` after
+!> [[rest:tmstep]] has selected `UZNEXT` and updated meteorological forcing.
+!> It converts the upper-zone step from hours to seconds and advances the ET
+!> clock:
+!>
+!> \[
+!> DTUZ=3600\,UZNEXT,\qquad TIMEUZ\leftarrow TIMEUZ+UZNEXT.
+!> \]
+!>
+!> The loop covers land elements `NGDBGN:total_no_elements`; channel-link
+!> elements precede `NGDBGN` and are handled separately by the simulation
+!> driver. For an explicit bank element (`ICMREF(IEL,1)` equal to 1 or 2),
+!> the associated link `IL=ICMREF(IEL,4)` supplies root access to channel-bed
+!> water. The dimensionless weighting is
+!>
+!> \[
+!> ALFA=\frac{0.5\,CWIDTH(IL)}{BWIDTH}.
+!> \]
+!>
+!> With `ICE=NHBED(IL,ITYPE)+2`, cells `1:ICE-2` receive `ALFA`, cell
+!> `ICE-1` receives `ALFA*FHBED(IL,ITYPE)`, and `ICE:top_cell_no` is reset to
+!> zero. For ordinary land elements `ICE=1`, so the complete active
+!> `UZALFA` range is zero.
+!>
+!> The routine then sets current surface-water depth
+!> `HRUZ=GETHRF(IEL)-ZGRUND(IEL)`, copies the active VSS pressure-head range
+!>
+!> \[
+!> PSI4(k)=VSPSI(k,IEL),\qquad
+!> k=NLYRBT(IEL,1),\ldots,top\_cell\_no,
+!> \]
+!>
+!> and invokes [[etin]] for the element. `UZALFA`, `PSI4`, and other scalar
+!> ET work values are therefore scratch state for the element most recently
+!> prepared, not independent per-element arrays.
+!>
+!> @warning
+!> The driver assumes [[initialise_etmod]] has run and that `BWIDTH` is
+!> nonzero. It also trusts the `ICMREF`/`NHBED` link mapping and
+!> `NLYRBT(IEL,1):top_cell_no` bounds; no local allocation, bounds, or geometry
+!> validation precedes the slice assignments and `DCOPY`.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1994-08-08 to 1995-10-03 | GP | 4.0 | Created and completed the ET timestep controller. |
+!> | 1997-05-16 | RAH | 4.1 | Swapped `VSPSI` indices and explicitly typed the routine. |
+!> | 1998-11-03 | RAH | 4.2 | Removed redundant soil output and replaced loops with `ALINIT`/`DCOPY`. |
+!> | 2026-04-05 | SvB | - | Replaced `ALINIT` with slices while retaining pressure-profile `DCOPY`. |
+!> @endhistory
    SUBROUTINE ETSIM ()
-
-      ! Assumed external module dependencies providing global variables:
-      ! DTUZ, UZNEXT, TIMEUZ, NGDBGN, total_no_elements, ICMREF, CWIDTH,
-      ! BWIDTH, NHBED, UZALFA, FHBED, top_cell_no, ZERO, HRUZ, getHRF,
-      ! ZGRUND, NLYRBT, VSPSI, PSI4, ETIN
-
       IMPLICIT NONE
 
       ! Locals, etc
-      INTEGER :: ICE, IEL, IL, ITYPE
-      DOUBLE PRECISION :: ALFA
+      INTEGER :: ICE !! First cell above the bank/channel-bed root-access range, then active VSS base cell.
+      INTEGER :: IEL !! Current land-element number.
+      INTEGER :: IL !! Channel link associated with a bank element.
+      INTEGER :: ITYPE !! Element type/bank side from `ICMREF(IEL,1)`.
+      DOUBLE PRECISION :: ALFA !! Channel-width to grid-width root-access weighting.
 
       !----------------------------------------------------------------------*
 

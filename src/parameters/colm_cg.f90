@@ -1,85 +1,107 @@
+!> summary: Column-base, face-overlap, and well-flow state for contaminant transport.
+!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!>
+!> `COLM_CG` replaces the legacy `COLM.CG` common blocks. [[frmod:incm]]
+!> establishes the column bases, contaminant scaling, and lateral face-overlap
+!> topology. During simulation, [[cmmod:colmw]] prepares the current column's
+!> well fluxes and [[cmmod:colmsm]] uses the retained overlap mapping to obtain
+!> adjacent-cell concentrations.
+!>
+!> | State group | Lifetime and principal use |
+!> |:------------|:---------------------------|
+!> | `NCOLMB`, `ZCOLMB`, `SCL`, `OODO` | Persistent geometry and scaling established by `INCM`. |
+!> | `JKZCOL`, `JOLFN`, `NOL`, `NOLCE` | Setup-only allocatable workspace released after the first `INCM` call. |
+!> | `NOLBT`, `NOLCEA` | Allocatable overlap mapping retained for contaminant timesteps. |
+!> | `WELDRA` | Per-column cell workspace overwritten by `COLMW`. |
+!> | `JBTLYR` | Inactive fixed-size legacy storage. |
+!>
+!> Overlap arrays are indexed by element and one of four lateral faces;
+!> record arrays add an overlap-record index. `NOLBT` instead uses a cell
+!> index and includes `top_cell_no+1` as a one-past-the-end sentinel. The
+!> allocation helpers size these arrays from `total_no_elements` and
+!> `top_cell_no`; fixed-size arrays retain the `NELEE` or `LLEE` capacity.
+!> The module has no active `PRIVATE` statement, so its declared state and all
+!> six names imported from `SGLOBAL` remain public. `NVEE` and `NOLEE` have no
+!> active reference here but are retained because this transfer does not alter
+!> the module interface.
+!>
+!> @warning
+!> [[cmmod:cmrd]] reads the default and per-column base-cell choices from
+!> manual records `CM7` and `CM11`, but current `INCM` then unconditionally
+!> replaces every active `NCOLMB` value with `NLYRBT(NCL,1)`. Those manual
+!> choices therefore do not survive the current initialization path.
+!>
+!> `JKZCOL` is zero-initialized, adjusted only by reading and rewriting its
+!> own entries during bank setup, and has no downstream reader. Its current
+!> values do not affect a calculation. In the `INCM` branch where an adjacent
+!> cell is split (`JDEL==1`), the corresponding `JOLFN` overlap weights are not
+!> assigned and retain their initialized value of zero. This documentation
+!> transfer does not change either behaviour.
+!> @endwarning
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 1991-04-26 | JE | 3.0 | Original version written. |
+!> | 1991-06-13 | JE | 3.1 | Checked and tidied the text. |
+!> | 1991-07-16 | JE | 3.1 | Reordered names in `WELPRO`. |
+!> | 1997-02-24 | RAH | 4.1 | Added explicit typing and separated `WELPRI` from mixed-type `WELPRO`. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
+!> | 2026-03-30 | SB | 4.6.1 | Retired unused legacy arrays, made six overlap arrays allocatable, and added allocation helpers. |
+!> @endhistory
 MODULE COLM_CG
-!---------------------------- Start of COLM.CG ------------------------*
-!
-!                      INCLUDE FILE FOR WATER VARIABLES USED IN
-!                      THE PREPARATION FOR RUNNING SUBROUTINE COLM
-!                      BUT NOT USED IN SUBROUTINE COLM
-!
-!----------------------------------------------------------------------*
-! Version:  SHETRAN/INCLUDE/COLM.CG/4.1
-! Modifications:
-!                          JE     26/4/91   3.0     WRITTEN
-!                          JE     13/6/91   3.1     CHECKED, TIDIED TEXT
-!                          JE     16/7/91   3.1     REORDERED NAMES IN
-!                                                   WELPRO
-! RAH  970224  4.1  Explicit typing.
-!                   Separate /WELPRI/ from mixed-type /WELPRO/.
-! JE  12/08   4.3.5F90  Convert to FORTRAN90
-! SB Mar 26     4.6     comment out KSPE and KSPPE as no longer used
-!                       comment out JKZCOB as no longer used
-!                       comment out JKZWEL and JKZWCE as no longer used
-!                       make the following arrays allocatable: JKZCOL,JOLFN,NOL, NOLBT,NOLCE, NOLCEA
-!                       added initialise_colm_cg and deallocate_colm_cg subroutines
-!----------------------------------------------------------------------*
-! Imported constants
-!                      LLEE,NELEE,NOLEE,NVEE
-! Commons
    USE SGLOBAL, ONLY : NELEE, LLEE, NVEE, NOLEE, total_no_elements,top_cell_no
    IMPLICIT NONE
 
-!sb 040326 comment out KSPE and KSPPE as no longer used
-!DOUBLEPRECISION KSPE (LLEE, NVEE), KSPPE (LLEE, NVEE)
+   INTEGER :: JBTLYR(NELEE)  !! Unused legacy bottom-soil-layer index by element.
+   INTEGER :: NCOLMB(NELEE)  !! Bottom active contaminant cell by non-link element.
 
-!COMMON / CELLTK / KSPE, KSPPE
-!                             NON-DIMENSIONED CELL THICKNESSES
-   INTEGER :: JBTLYR (NELEE), NCOLMB (NELEE)
+   DOUBLEPRECISION ZCOLMB(NELEE)  !! Elevation of each non-link element's column base (m).
 
-!COMMON / COLUMN / JBTLYR, NCOLMB
-!                             NUMBERS FOR THE BOTTOM SOIL LAYER
-!                             AND CELL IN SOIL COLUMNS
-   DOUBLEPRECISION ZCOLMB (NELEE)
+   DOUBLEPRECISION SCL   !! Integer-overlap conversion factor, `1/32500`.
+   DOUBLEPRECISION OODO  !! Reciprocal reference dispersion coefficient, `1/D0` (s/m2).
 
-!COMMON / ZCLUMN / ZCOLMB
-!                             ELEVATION TO BASE OF SOIL COLUMNS
-   DOUBLEPRECISION SCL, OODO
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JKZCOL  !! Inactive setup-only lateral-transmissivity weights.
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JOLFN   !! Setup-only overlap shares encoded on a 32500 scale.
+   INTEGER, DIMENSION(:,:), ALLOCATABLE :: NOL       !! Number of overlap records by element and face.
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLBT   !! First overlap record by element, local cell, and face.
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCE   !! Local cell index by element, overlap record, and face.
+   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCEA  !! Adjacent cell index by element, overlap record, and face.
 
-!COMMON / OCONST / SCL, OODO
-!                             CONSTANTS
+   DOUBLEPRECISION WELDRA(LLEE)  !! Current column's signed VSS well-flow flux by cell (m/s).
 
-
-
-!sb 020326 comment out JKZCOB as no longer used
-!INTEGER :: JKZCOB (NELEE, 4)
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JKZCOL,JOLFN
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: NOL
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLBT,NOLCE
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCEA
-
-!INTEGER :: JKZCOL (NELEE, NOLEE, 4)
-!INTEGER :: JOLFN (NELEE, NOLEE, 4), NOL (NELEE, 4)
-!INTEGER :: NOLBT (NELEE, LLEE, 4), NOLCE (NELEE, NOLEE, 4)
-!INTEGER :: NOLCEA (NELEE, NOLEE, 4)
-!COMMON / OVRLAP / JKZCOB, JKZCOL, JOLFN, NOL, NOLBT, NOLCE, &
-   !NOLCEA
-!                             FACE OVERLAP AND LATERAL
-!                             TRANSMISIVITY VALUES
-
-
-   DOUBLEPRECISION WELDRA (LLEE)
-
-!COMMON / WELPRO / WELDRA
-!                             WITHDRAWL RATES FOR WELLS
-!sb 020326 comment out JKZWEL and JKZWCE as no longer used
-!INTEGER :: JKZWEL (NELEE), JKZWCE (NELEE, LLEE)
 !PRIVATE :: NELEE, LLEE, NVEE, NOLEE
 
 CONTAINS
 
+!> Allocates and zero-initializes the active-size face-overlap arrays.
+!>
+!> [[run_sim:simulation]] calls this routine once when contaminant transport
+!> is enabled, after the model dimensions are available and before the main
+!> simulation loop. [[frmod:incm]] later populates the arrays during the first
+!> contaminant initialization.
+!>
+!> | Arrays | Allocated shape | Initial value | Later lifetime |
+!> |:-------|:----------------|:--------------|:---------------|
+!> | `JKZCOL`, `JOLFN`, `NOLCE` | `(total_no_elements, 2*top_cell_no+1, 4)` | Zero | Released by [[deallocate_colm_cg]]. |
+!> | `NOLCEA` | `(total_no_elements, 2*top_cell_no+1, 4)` | Zero | Retained for contaminant timesteps. |
+!> | `NOL` | `(total_no_elements, 4)` | Zero | Released by `deallocate_colm_cg`. |
+!> | `NOLBT` | `(total_no_elements, top_cell_no+1, 4)` | Zero | Retained for contaminant timesteps. |
+!>
+!> The routine has no dummy arguments and mutates six allocatable variables in
+!> `COLM_CG`. Every allocation is unconditional and has no `STAT=` handler, so
+!> all six arrays must be unallocated and both dimension variables established
+!> on entry. The normal run path is intentionally one-shot: even after
+!> `deallocate_colm_cg`, `NOLBT` and `NOLCEA` remain allocated, so a second call
+!> would fail unless the caller first deallocated those retained arrays too.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for six overlap arrays. |
+!> @endhistory
    SUBROUTINE initialise_colm_cg()
 
-!                             FACE OVERLAP AND LATERAL
-!                             TRANSMISIVITY VALUES
-! NOLBT and NOLCEA are in contaminant transport component the other variables only during the initialisation
       allocate   (JKZCOL(total_no_elements,2*top_cell_no+1,4),JOLFN(total_no_elements,2*top_cell_no+1,4))
       allocate   (NOL(total_no_elements,4))
       allocate   (NOLBT(total_no_elements,top_cell_no+1,4),NOLCE(total_no_elements,2*top_cell_no+1,4))
@@ -93,9 +115,28 @@ CONTAINS
 
    END SUBROUTINE initialise_colm_cg
 
+!> Releases the four overlap arrays needed only during contaminant setup.
+!>
+!> [[run_sim:simulation]] calls this routine immediately after the first
+!> [[frmod:incm]] call has finished building column and bank geometry.
+!> `JKZCOL`, `JOLFN`, `NOL`, and `NOLCE` have no later active consumer and are
+!> deallocated. `NOLBT` and `NOLCEA` deliberately remain allocated because
+!> [[cmmod:colmsm]] uses them during every contaminant timestep.
+!>
+!> The routine has no dummy arguments. Each `DEALLOCATE` statement is
+!> unconditional and has no `STAT=` handler, so all four setup-only arrays must
+!> be allocated on entry. Calling this routine before [[initialise_colm_cg]] or
+!> calling it twice would cause a Fortran runtime error and could leave only a
+!> prefix of the four arrays released. No current routine deallocates the two
+!> retained mappings; they remain allocated until process termination.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-03-30 | SB | 4.6.1 | Added partial cleanup for setup-only overlap arrays. |
+!> @endhistory
    SUBROUTINE deallocate_colm_cg()
 
-! NOLBT and NOLCEA are in contaminant transport component the other variables only during the initialisation so can be deallocated
       deallocate (JKZCOL)
       deallocate (JOLFN)
       deallocate (NOL)
