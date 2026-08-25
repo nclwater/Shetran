@@ -105,6 +105,9 @@ PROGRAM SHETRAN
    ! Model initialization and timestep driver.
    USE RUN_SIM, ONLY: SIMULATION
 
+   ! Cross-platform millisecond sleep used before automatic console closure.
+   USE stdlib_system, ONLY: sleep
+
    IMPLICIT NONE
 
    ! Local variables (none needed for main program)
@@ -141,6 +144,6 @@ PROGRAM SHETRAN
 
    ! The program now terminates cleanly
    ! added a delay to allow users to see the final output before the console window closes
-   if (casemode == '-a')       CALL sleepqq(5000)
+   if (casemode == '-a') CALL sleep(5000)
 
 END PROGRAM SHETRAN
