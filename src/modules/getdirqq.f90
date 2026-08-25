@@ -42,7 +42,7 @@
 MODULE GETDIRQQ
 
    USE mod_parameters
-   USE sglobal, ONLY : error_mode
+   USE sglobal, ONLY : error_mode, casemode
    USE stdlib_system, ONLY : base_name, dir_name, get_cwd, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN
@@ -171,6 +171,7 @@ CONTAINS
         ENDIF
 
       message = ''
+      casemode = code  !casemode is set to decide if there is a sleep at the end of the program
 
       SELECT CASE(TRIM(code))
 #ifdef SHETRAN_HAVE_QUICKWIN

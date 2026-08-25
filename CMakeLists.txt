@@ -17,7 +17,7 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND NOT DEFINED CMAKE_Fortran_COMPILE
     endif()
 endif()
 
-project(SHETRAN VERSION 4.6.4.0 LANGUAGES Fortran C)
+project(SHETRAN VERSION 4.7.0.0 LANGUAGES Fortran C)
 
 # Windows executable metadata is compiled from a generated resource script.
 # Keep RC Windows-only so Linux builds do not need a resource compiler.
