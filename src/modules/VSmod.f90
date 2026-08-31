@@ -98,6 +98,7 @@
 MODULE VSmod
    USE SGLOBAL
    USE mod_load_filedata, ONLY : ALSPRD, ALREAD
+   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
 !USE SGLOBAL,  ONLY :
    USE AL_G, ONLY : ICMREF, NX, NY, ICMXY, NGDBGN
    USE AL_C, ONLY : BHB, BFB, bexbk, DTUZ, deltaz, dummy, DHF, ESOILA, ERUZ, EEVAP, &
@@ -915,7 +916,7 @@ CONTAINS
 !> The error-reporting block only checks `NIT > NITMAX .AND. ELEVEL > 0`, i.e.
 !> whether the loop ran to completion without converging; the severity
 !> argument passed to `ERROR` is the caller-supplied `ELEVEL`, not a fixed
-!> `WWWARN`. Repeated messages are limited by the saved `errorcount` and
+!> `ERRLVL_warn`. Repeated messages are limited by the saved `errorcount` and
 !> `errcntallowed`.
 !> @endwarning
 !>
@@ -950,7 +951,7 @@ CONTAINS
 !> | 1998-04-02 | RAH | 4.2 | Replaced the local `ERR` with the new argument `ELEVEL` (see [[vssim]]). |
 !> | 1998-11-03 | SPA | - | Added the `depadj` argument, carrying the adjacent channel water depth through to [[vssai]] for the channel-aquifer flow correction. |
 !> | 2009-01 | JE | 4.3.5F90 | Restructured loops for automatic differentiation. |
-!> | 2026-04-06/07 | SvB | 4.6 | The `GOTO`-driven `g510`/label-510 exit flag was replaced with a direct `EXIT OUT500`; the non-convergence report now checks `NIT > NITMAX` instead of a separate flag, and uses `ELEVEL` (not a fixed `WWWARN`) as the reported severity. The phreatic-surface search loop was rewritten from a labelled `DO`/`GOTO` pair to `EXIT search_loop`, with equivalent behaviour. The explicit array-section copy into `TRIDAG` was replaced with scalar-start dummy arguments (relies on sequence association). |
+!> | 2026-04-06/07 | SvB | 4.6 | The `GOTO`-driven `g510`/label-510 exit flag was replaced with a direct `EXIT OUT500`; the non-convergence report now checks `NIT > NITMAX` instead of a separate flag, and uses `ELEVEL` (not a fixed `ERRLVL_warn`) as the reported severity. The phreatic-surface search loop was rewritten from a labelled `DO`/`GOTO` pair to `EXIT search_loop`, with equivalent behaviour. The explicit array-section copy into `TRIDAG` was replaced with scalar-start dummy arguments (relies on sequence association). |
 !> @endhistory
    SUBROUTINE VSCOLM (EESN, CWV, CWL, VSK3D, BCHELE, ELEVEL, &
          IEL, ICBOT, ICTOP, ICBED, ICLYRB, ICSOIL, JCBC, JCDEL1, JELDUM, &
@@ -962,7 +963,7 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NLYREE, NSEE, NSOLEE, NVSSOL, VSPPSI, VSPTHE, VSPKR, VSPETA,
-      ! VSPDKR, VSPDET, PPPRI, ERROR, errcntallowed, ZERO, half
+      ! VSPDKR, VSPDET, FID_logfile, ERROR, errcntallowed, ZERO, half
 
       IMPLICIT NONE
 
@@ -1140,9 +1141,9 @@ CONTAINS
       IF (NIT > NITMAX .AND. ELEVEL > 0) THEN
          errorcount = errorcount + 1
          IF (errorcount < errcntallowed) THEN
-            CALL ERROR (ELEVEL, 1036, PPPRI, IEL, 0, 'Maximum iterations in VSS column solver')
+            CALL ERROR (ELEVEL, 1036, FID_logfile, IEL, 0, 'Maximum iterations in VSS column solver')
          ELSE IF (errorcount == errcntallowed) THEN
-            CALL ERROR (ELEVEL, 1036, PPPRI, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
+            CALL ERROR (ELEVEL, 1036, FID_logfile, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
          END IF
       END IF
 
@@ -1269,7 +1270,7 @@ CONTAINS
       ! top_cell_no, VSZMIN, VSZMAX, ZERO, half, DCSTOT, DCSZON, NCSZON,
       ! DCRBED, NCRBED, ZGRUND, ZLYRBT, DELTAZ, ZVSNOD, JVSACN, JVSDEL,
       ! JVSALN, NHBED, FHBED, NLYR, NLYRBT, ICMREF, ICMBK, ZBEFF, DCRTOT,
-      ! INITIALISE_VSMOD, INITIALISE_AL_C, ALSPRD, ERROR, FFFATAL, WWWARN, PPPRI
+      ! INITIALISE_VSMOD, INITIALISE_AL_C, ALSPRD, ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
 
       IMPLICIT NONE
 
@@ -1303,7 +1304,7 @@ CONTAINS
 
          ! Safe inline error trap replaces GOTO 8048
          IF (NRENUM > NELEE) THEN
-            CALL ERROR(FFFATAL, 1048, PPPRI, 0, 0, 'Attempts to renumber cells have failed.')
+            CALL ERROR(ERRLVL_fatal, 1048, FID_logfile, 0, 0, 'Attempts to renumber cells have failed.')
             RETURN
          END IF
 
@@ -1599,11 +1600,11 @@ CONTAINS
                   ! Checking conditions and splitting cells
                   IF (NITOT == 0 .AND. NJTOT > 0) THEN
                      WRITE (MSG, 9200) JFA, JLYR
-                     IF (NRENUM == 1) CALL ERROR(WWWARN, 1053, PPPRI, JEL, 0, MSG)
+                     IF (NRENUM == 1) CALL ERROR(ERRLVL_warn, 1053, FID_logfile, JEL, 0, MSG)
 
                   ELSE IF (NJTOT == 0 .AND. NITOT > 0) THEN
                      WRITE (MSG, 9200) IFA, ILYR
-                     IF (NRENUM == 1) CALL ERROR(WWWARN, 1053, PPPRI, IEL, 0, MSG)
+                     IF (NRENUM == 1) CALL ERROR(ERRLVL_warn, 1053, FID_logfile, IEL, 0, MSG)
 
                   ELSE IF (NJTOT < NJMIN) THEN
                      BRENUM = .TRUE.
@@ -1612,7 +1613,7 @@ CONTAINS
                         IF (JVSALN(JEL, JL, JFA) /= 0) THEN
                            IF (BWARN) THEN
                               WRITE (MSG, 9300) JFA, JL
-                              CALL ERROR(WWWARN, 1037, PPPRI, JEL, 0, MSG)
+                              CALL ERROR(ERRLVL_warn, 1037, FID_logfile, JEL, 0, MSG)
                            END IF
                            NCELL = FNCELL(JL, JEL, JTOP)
                            NDUM = NCELL * NJMIN + NEXTRA + NJTOT / 2
@@ -1628,7 +1629,7 @@ CONTAINS
                         IF (JVSALN(IEL, IL, IFA) /= 0) THEN
                            IF (BWARN) THEN
                               WRITE (MSG, 9300) IFA, IL
-                              CALL ERROR(WWWARN, 1037, PPPRI, IEL, 0, MSG)
+                              CALL ERROR(ERRLVL_warn, 1037, FID_logfile, IEL, 0, MSG)
                            END IF
                            NCELL = FNCELL(IL, IEL, ITOP)
                            NDUM = NCELL * NIMIN + NEXTRA + NITOT / 2
@@ -1712,7 +1713,7 @@ CONTAINS
 
    ! Finish off
    !____________*
-      WRITE (PPPRI, 9000) top_cell_no
+      WRITE (FID_logfile, 9000) top_cell_no
 
       finish_loop: DO IEL = ICOL1, total_no_links
          IBK = ICMBK(IEL, 1)
@@ -1960,7 +1961,7 @@ CONTAINS
                ! * note: MSG for ILYR>0.and.JRANGE=0 is lost
                ! * if also JLYR>0.and.IRANGE=0
                IF (MSG /= ' ') THEN
-                  CALL ERROR(EEERR, 1038, PPPRI, KEL, 0, MSG)
+                  CALL ERROR(ERRLVL_error, 1038, FID_logfile, KEL, 0, MSG)
                   NVSERR = NVSERR + 1
                END IF
             END DO aqcon_loop
@@ -2164,7 +2165,7 @@ CONTAINS
          CTHETA, CETA, CKR, CDETA, CDKR)
 
       ! Assumed external module dependencies providing global variables:
-      ! ZERO, ONE, FFFATAL, PPPRI, ERROR
+      ! ZERO, ONE, ERRLVL_fatal, FID_logfile, ERROR
 
       IMPLICIT NONE
 
@@ -2298,7 +2299,7 @@ CONTAINS
 
       IF (IS_ERROR) THEN
          DRY = NINT(MAX(ZERO, MIN(PDUM, ONE)))
-         CALL ERROR(FFFATAL, 1034 + DRY, PPPRI, IEL, ICL, 'soil property interpolation out of range '//WETDRY(DRY))
+         CALL ERROR(ERRLVL_fatal, 1034 + DRY, FID_logfile, IEL, ICL, 'soil property interpolation out of range '//WETDRY(DRY))
       END IF
 
    END SUBROUTINE VSFUNC
@@ -2375,7 +2376,7 @@ CONTAINS
       ! NWELBT, NWELTP, NVSSPC, NLYRBT, ZGRUND, NVSWLI, VSZWLB, VSZWLT, ZVSNOD,
       ! VSSPD, DELTAZ, INITYP, ZVSPSL, ZLYRBT, VSIPSD, VSI, VSPSI, NLYR, NTSOIL,
       ! IVSSTO, NVSSOL, NSOLEE, VSPPSI, VSPTHE, VSPKR, VSPETA, VSPDKR, VSPDET,
-      ! VSKR, EEERR, FFFATAL, PPPRI, ERROR, INITIALISE_AL_C2, VSREAD, VSCONL,
+      ! VSKR, ERRLVL_error, ERRLVL_fatal, FID_logfile, ERROR, INITIALISE_AL_C2, VSREAD, VSCONL,
       ! VSCONC, VSSOIL, VSFUNC, half, GTZERO, LTZERO
 
       IMPLICIT NONE
@@ -2393,7 +2394,7 @@ CONTAINS
       ! uses DELTAZ and ZVSNOD so these use llee
       CALL INITIALISE_AL_C2()
 
-      WRITE(PPPRI, 9010) 'Start', ' '
+      WRITE(FID_logfile, 9010) 'Start', ' '
 
       NVSERR = 0
       IF (BEXBK) THEN
@@ -2491,7 +2492,7 @@ CONTAINS
             IF (IELIN /= IEL) THEN
                NVSERR = NVSERR + 1
                WRITE (MSG, 9040) IEL
-               CALL ERROR (EEERR, 1041, PPPRI, 0, 0, MSG)
+               CALL ERROR (ERRLVL_error, 1041, FID_logfile, 0, 0, MSG)
                CALL ABORT_VSIN()
                RETURN
             END IF
@@ -2543,7 +2544,7 @@ CONTAINS
 
       END DO init_cond_loop
 
-      WRITE(PPPRI, 9010) 'End', '   '
+      WRITE(FID_logfile, 9010) 'End', '   '
 
       RETURN
 
@@ -2558,7 +2559,7 @@ CONTAINS
       !> from [[vsin]].
       SUBROUTINE ABORT_VSIN()
          WRITE (MSG, 9030) NVSERR
-         CALL ERROR(FFFATAL, 1040, PPPRI, 0, 0, MSG)
+         CALL ERROR(ERRLVL_fatal, 1040, FID_logfile, 0, 0, MSG)
 
          ! Format statement scoped correctly to the internal subroutine
 9030     FORMAT(I4,' Errors have occurred in VSS data reading ', 'or initialisation.')
@@ -3118,7 +3119,7 @@ CONTAINS
       ! NVSLH, LHB, NVSLHT, NVSLHN, RLHNOW
       ! NVSLG, LGB, NVSLGT, NVSLGN, RLGNOW
       ! NVSBF, BFB, RBFNOW, NVSBH, BHB, RBHNOW
-      ! FFFATAL, PPPRI
+      ! ERRLVL_fatal, FID_logfile
 
       IMPLICIT NONE
 
@@ -3156,7 +3157,7 @@ CONTAINS
          CALL FINPUT(WLD, TIH, UZNOW, UZNEXT, WLLAST, WLTIME, RWELIN, NVSWL, WLNOW)
 
          IF (EQMARKER(WLTIME)) THEN
-            CALL ERROR(FFFATAL, 1042, PPPRI, 0, 0, 'End of well abstraction file (WLD)')
+            CALL ERROR(ERRLVL_fatal, 1042, FID_logfile, 0, 0, 'End of well abstraction file (WLD)')
          END IF
       END IF
 
@@ -3165,7 +3166,7 @@ CONTAINS
          CALL FINPUT(LFB, TIH, UZNOW, UZNEXT, RLFLST, RLFTIM, RLFPRV, NVSLFT, RLFDUM)
 
          IF (EQMARKER(RLFTIM)) THEN
-            CALL ERROR(FFFATAL, 1043, PPPRI, 0, 0, 'End of lateral flow boundary condition file (LFB)')
+            CALL ERROR(ERRLVL_fatal, 1043, FID_logfile, 0, 0, 'End of lateral flow boundary condition file (LFB)')
          END IF
 
          III = 1
@@ -3186,7 +3187,7 @@ CONTAINS
                      RLHNXT, NVSLHT, RLHDUM)
 
          IF (EQMARKER(RLHTIM)) THEN
-            CALL ERROR(FFFATAL, 1044, PPPRI, 0, 0, 'End of lateral head boundary condition file (LHB)')
+            CALL ERROR(ERRLVL_fatal, 1044, FID_logfile, 0, 0, 'End of lateral head boundary condition file (LHB)')
          END IF
 
          III = 1
@@ -3207,7 +3208,7 @@ CONTAINS
                      RLGNXT, NVSLGT, RLGDUM)
 
          IF (EQMARKER(RLGTIM)) THEN
-            CALL ERROR(FFFATAL, 1052, PPPRI, 0, 0, 'End of lateral head gradient boundary condition file (LGB)')
+            CALL ERROR(ERRLVL_fatal, 1052, FID_logfile, 0, 0, 'End of lateral head gradient boundary condition file (LGB)')
          END IF
 
          III = 1
@@ -3228,7 +3229,7 @@ CONTAINS
                      NVSBF, RBFNOW)
 
          IF (EQMARKER(RBFTIM)) THEN
-            CALL ERROR(FFFATAL, 1045, PPPRI, 0, 0, 'End of column base flow boundary condition file (BFB)')
+            CALL ERROR(ERRLVL_fatal, 1045, FID_logfile, 0, 0, 'End of column base flow boundary condition file (BFB)')
          END IF
       END IF
 
@@ -3238,7 +3239,7 @@ CONTAINS
                      RBHNXT, NVSBH, RBHNOW)
 
          IF (EQMARKER(RBHTIM)) THEN
-            CALL ERROR(FFFATAL, 1046, PPPRI, 0, 0, 'End of column base head boundary condition file (BHB)')
+            CALL ERROR(ERRLVL_fatal, 1046, FID_logfile, 0, 0, 'End of column base head boundary condition file (BHB)')
          END IF
       END IF
 
@@ -3258,7 +3259,7 @@ CONTAINS
 !>
 !> | Group | Data read | Main arrays/variables filled |
 !> |:------|:----------|:-----------------------------|
-!> | `VS01` | VSD title | Printed to `PPPRI`. |
+!> | `VS01` | VSD title | Printed to `FID_logfile`. |
 !> | `VS02` | logical flags | `BFAST`, `BSOILP`, `BHELEV`. |
 !> | `VS03` | counts and initialisation type | `NS`, `NCSZON`, `NCRBED`, `INITYP`. |
 !> | `VS04` | initial phreatic depth and mesh/averaging controls | `VSIPSD`, `VSZMIN`, `VSZMAX`, `VSWV`, `VSWL`. |
@@ -3330,12 +3331,12 @@ CONTAINS
 
       ! Assumed external module dependencies providing global variables:
       ! LLEE, NELEE, NLYREE, NSEE, NVSEE, total_no_elements, NVSWLI, NLBTYP,
-      ! NBBTYP, NVSWLC, NLBCAT, NBBCAT, ALREAD, VSD, PPPRI, IDUM, DUMMY, BFAST,
+      ! NBBTYP, NVSWLC, NLBCAT, NBBCAT, ALREAD, VSD, FID_logfile, IDUM, DUMMY, BFAST,
       ! BSOILP, BHELEV, NS, NCSZON, NCRBED, INITYP, VSIPSD, VSZMIN, VSZMAX,
       ! VSWV, VSWL, IVSFLG, IVSNTB, VSK3D, VSPOR, VSTRES, VSPSS, VSVGN, VSALPH,
-      ! VSPPOR, ERROR, FFFATAL, TBPSI, TBTHE, TBKR, TBTHEC, TBKRC, zero, two, one,
+      ! VSPPOR, ERROR, ERRLVL_fatal, TBPSI, TBTHE, TBKR, TBTHEC, TBKRC, zero, two, one,
       ! DCSZON, DCSTOT, DCRBED, DCRTOT, BEXBK, total_no_links, NX, NY, ICMXY,
-      ! ICMREF, NLYR, NTSOIL, ZLYRBT, ZGRUND, ICMBK, ZBEFF, NGDBGN, EEERR,
+      ! ICMREF, NLYR, NTSOIL, ZLYRBT, ZGRUND, ICMBK, ZBEFF, NGDBGN, ERRLVL_error,
       ! ISRBED, DRBED, NVSWL, NVSSP, NVSLF, NVSLH, NVSLG, NVSBF, NVSBH, NVSBD,
       ! NVSLFN, NVSLHN, NVSLGN, NVSLFT, NVSLHT, NVSLGT, NVSLFL, NVSLHL, NVSLGL,
       ! NVSWLT, VSZWLB, VSZWLT, NVSSPT, VSSPD, VSSPZ, VSSPCO
@@ -3372,22 +3373,22 @@ CONTAINS
       END DO
 
       ! VS01 ----- main data file title
-      CALL ALREAD (1, VSD, PPPRI, ':VS01', 1, 1, 0, CDUM, IDUM, DUMMY)
-      WRITE(PPPRI, '(/, 1X, A, /)') TRIM(CDUM)
+      CALL ALREAD (1, VSD, FID_logfile, ':VS01', 1, 1, 0, CDUM, IDUM, DUMMY)
+      WRITE(FID_logfile, '(/, 1X, A, /)') TRIM(CDUM)
 
       ! VS02 ----- logical flags
       READ (VSD, '(A)') CDUM
       READ (VSD, *) BFAST, BSOILP, BHELEV
 
       ! VS03 ----- integer variables
-      CALL ALREAD (2, VSD, PPPRI, ':VS03', 4, 1, 0, CDUM, IDUM, DUMMY)
+      CALL ALREAD (2, VSD, FID_logfile, ':VS03', 4, 1, 0, CDUM, IDUM, DUMMY)
       NS = IDUM(1)
       NCSZON = IDUM(2)
       NCRBED = IDUM(3)
       INITYP = IDUM(4)
 
       ! VS04 ----- real variables
-      CALL ALREAD (3, VSD, PPPRI, ':VS04', 5, 1, 0, CDUM, IDUM, DUMMY)
+      CALL ALREAD (3, VSD, FID_logfile, ':VS04', 5, 1, 0, CDUM, IDUM, DUMMY)
       VSIPSD = DUMMY(1)
       VSZMIN = DUMMY(2)
       VSZMAX = DUMMY(3) + 1.0D-6
@@ -3395,7 +3396,7 @@ CONTAINS
       VSWL   = DUMMY(5)
 
       ! VS05 ----- physical property data
-      CALL ALREAD (7, VSD, PPPRI, ':VS05', NSEE, 8, NS, CDUM, ISDUM_VSREAD, RSDUM_VSREAD)
+      CALL ALREAD (7, VSD, FID_logfile, ':VS05', NSEE, 8, NS, CDUM, ISDUM_VSREAD, RSDUM_VSREAD)
 
       DO IS = 1, NS
          IVSFLG(IS) = ISDUM_VSREAD(IS, 2)
@@ -3417,7 +3418,7 @@ CONTAINS
             READ (VSD, *) ISDUM1
             IF (IS /= ISDUM1) THEN
                WRITE (MSG, 9030) IS
-               CALL ERROR(FFFATAL, 1051, PPPRI, 0, 0, MSG)
+               CALL ERROR(ERRLVL_fatal, 1051, FID_logfile, 0, 0, MSG)
             END IF
 
             DO I = 1, IVSNTB(IS)
@@ -3489,9 +3490,9 @@ CONTAINS
 
       ! VS06 ----- soil zone cell sizes (start at the ground surface)
       IF (NCSZON > 0) THEN
-         CALL ALREAD (3, VSD, PPPRI, ':VS06', NCSZON, 1, 0, CDUM, IDUM, DCSZON)
+         CALL ALREAD (3, VSD, FID_logfile, ':VS06', NCSZON, 1, 0, CDUM, IDUM, DCSZON)
       END IF
-      WRITE(PPPRI, *) 'DCSZON: ', (DCSZON(I), I = 1, NCSZON)
+      WRITE(FID_logfile, *) 'DCSZON: ', (DCSZON(I), I = 1, NCSZON)
 
       DCSTOT = zero
       DCSDUM(0) = zero
@@ -3506,9 +3507,9 @@ CONTAINS
 
       ! VS07 ----- river bed cell sizes (start at the bed surface)
       IF (NCRBED > 0) THEN
-         CALL ALREAD (3, VSD, PPPRI, ':VS07', NCRBED, 1, 0, CDUM, IDUM, DCRBED)
+         CALL ALREAD (3, VSD, FID_logfile, ':VS07', NCRBED, 1, 0, CDUM, IDUM, DCRBED)
       END IF
-      WRITE(PPPRI, *) 'DCRBED: ', (DCRBED(I), I = 1, NCRBED)
+      WRITE(FID_logfile, *) 'DCRBED: ', (DCRBED(I), I = 1, NCRBED)
 
       DCRTOT = zero
       DCRDUM(0) = zero
@@ -3523,7 +3524,7 @@ CONTAINS
 
       ! VS08 ----- soil/lithology layer definition data
       ! --- read no. of categories and elements
-      CALL ALREAD (2, VSD, PPPRI, ':VS08', 2, 1, 0, CDUM, IDUM, DUMMY)
+      CALL ALREAD (2, VSD, FID_logfile, ':VS08', 2, 1, 0, CDUM, IDUM, DUMMY)
       NUM_CATEGORIES_TYPES = IDUM(1)
       NELEM = IDUM(2)
 
@@ -3546,7 +3547,7 @@ CONTAINS
          END DO
 
          ! read layer data
-         CALL ALREAD (6, VSD, PPPRI, ':VS08a', NELEE, NLYREE, NUM_CATEGORIES_TYPES, CDUM, IVSDUM_VSREAD, RVSDUM_VSREAD)
+         CALL ALREAD (6, VSD, FID_logfile, ':VS08a', NELEE, NLYREE, NUM_CATEGORIES_TYPES, CDUM, IVSDUM_VSREAD, RVSDUM_VSREAD)
 
          ! for NUM_CATEGORIES_TYPES = 1, set all elements = category 1
          IF (NUM_CATEGORIES_TYPES == 1) THEN
@@ -3557,10 +3558,10 @@ CONTAINS
          ! for > 1 category read in categories for links (if required) and grids
          ELSE
             IF (BEXBK .AND. total_no_links > 0) THEN
-               CALL ALREAD (2, VSD, PPPRI, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES, CDUM, IVSCAT_VSREAD, DUMMY)
+               CALL ALREAD (2, VSD, FID_logfile, ':VS08b', total_no_links, 1, NUM_CATEGORIES_TYPES, CDUM, IVSCAT_VSREAD, DUMMY)
             END IF
 
-            CALL ALREAD (4, VSD, PPPRI, ':VS08c', NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
+            CALL ALREAD (4, VSD, FID_logfile, ':VS08c', NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
 
             DO IY = 1, NY
                IXY0 = (IY - 1) * NX
@@ -3630,7 +3631,7 @@ CONTAINS
       ! check no. of category elements consistent with no. of individual elements
       IF (NCOUNT /= NELEM) THEN
          WRITE (MSG, 9000) NCOUNT
-         CALL ERROR(FFFATAL, 1032, PPPRI, 0, 0, MSG)
+         CALL ERROR(ERRLVL_fatal, 1032, FID_logfile, 0, 0, MSG)
       END IF
 
       ! --- element data
@@ -3644,7 +3645,7 @@ CONTAINS
          END DO
 
          ! read layer data
-         CALL ALREAD (6, VSD, PPPRI, ':VS08d', NELEE, NLYREE, NELEM, CDUM, IVSDUM_VSREAD, RVSDUM_VSREAD)
+         CALL ALREAD (6, VSD, FID_logfile, ':VS08d', NELEE, NLYREE, NELEM, CDUM, IVSDUM_VSREAD, RVSDUM_VSREAD)
 
          element_data_loop: DO IEL = 1, total_no_elements
             ! ignore banks, links (if no banks), and elements already processed
@@ -3724,17 +3725,17 @@ CONTAINS
          IF (.NOT. BEXBK .AND. ICMREF(IEL, 1) /= 0) CYCLE check_done_loop
           IF (.NOT. BDONE_VSREAD(IEL)) THEN
             WRITE (MSG, 9020) IEL
-            CALL ERROR (EEERR, 1033, PPPRI, 0, 0, MSG)
+            CALL ERROR (ERRLVL_error, 1033, FID_logfile, 0, 0, MSG)
          END IF
       END DO check_done_loop
 
       ! VS09 ----- channel bed layer
       IF (total_no_links > 0 .AND. BEXBK) THEN
          ! read soil types for each link
-         CALL ALREAD (2, VSD, PPPRI, ':VS09', total_no_links, 1, 1, CDUM, ISRBED, DUMMY)
+         CALL ALREAD (2, VSD, FID_logfile, ':VS09', total_no_links, 1, 1, CDUM, ISRBED, DUMMY)
 
          ! read bed depths for each link
-         CALL ALREAD (3, VSD, PPPRI, ':VS09a', total_no_links, 1, 1, CDUM, IDUM, DRBED)
+         CALL ALREAD (3, VSD, FID_logfile, ':VS09a', total_no_links, 1, 1, CDUM, IDUM, DRBED)
 
          ! set up channel bed layer for each link
          DO IEL = 1, total_no_links
@@ -3771,15 +3772,15 @@ CONTAINS
       ! VS10 ----- aquifer zone user-defined connectivities
       ! FIX: Read into the IDUM array first to satisfy strict array-interface
       ! requirements, then assign the value to the scalar NAQCON.
-      CALL ALREAD (2, VSD, PPPRI, ':VS10', 1, 1, 0, CDUM, IDUM, DUMMY)
+      CALL ALREAD (2, VSD, FID_logfile, ':VS10', 1, 1, 0, CDUM, IDUM, DUMMY)
       NAQCON = IDUM(1)
 
       IF (NAQCON > 0) THEN
-         CALL ALREAD (2, VSD, PPPRI, ':VS10a', 4, NAQCON, 0, CDUM, IAQCON, DUMMY)
+         CALL ALREAD (2, VSD, FID_logfile, ':VS10a', 4, NAQCON, 0, CDUM, IAQCON, DUMMY)
       END IF
 
       ! VS11 ----- no. of categories for boundary conditions
-      CALL ALREAD (2, VSD, PPPRI, ':VS11', 8, 1, 0, CDUM, IDUM, DUMMY)
+      CALL ALREAD (2, VSD, FID_logfile, ':VS11', 8, 1, 0, CDUM, IDUM, DUMMY)
       NVSWL = IDUM(1)
       NVSSP = IDUM(2)
       NVSLF = IDUM(3)
@@ -3792,11 +3793,11 @@ CONTAINS
       ! wells -----------------------------------------------
       ! VS12 ----- no. of wells
       IF (NVSWL > 0) THEN
-         CALL ALREAD (2, VSD, PPPRI, ':VS12', 1, 1, 0, CDUM, IDUM, DUMMY)
+         CALL ALREAD (2, VSD, FID_logfile, ':VS12', 1, 1, 0, CDUM, IDUM, DUMMY)
          NW = IDUM(1)
 
          ! VS12a ---- element, category number, and target element
-         CALL ALREAD (2, VSD, PPPRI, ':VS12a', 3, NW, 0, CDUM, IDUM, DUMMY)
+         CALL ALREAD (2, VSD, FID_logfile, ':VS12a', 3, NW, 0, CDUM, IDUM, DUMMY)
          DO IW = 1, NW
             I0 = 3 * (IW - 1)
             IEL = IDUM(I0 + 1)
@@ -3807,7 +3808,7 @@ CONTAINS
          END DO
 
          ! VS12b ---- depth below ground of bottom and top of well screen
-         CALL ALREAD (3, VSD, PPPRI, ':VS12b', 2, NW, 0, CDUM, IDUM, DUMMY)
+         CALL ALREAD (3, VSD, FID_logfile, ':VS12b', 2, NW, 0, CDUM, IDUM, DUMMY)
          DO IW = 1, NW
             VSZWLB(IW) = DUMMY(2 * (IW - 1) + 1)
             VSZWLT(IW) = DUMMY(2 * (IW - 1) + 2)
@@ -3819,7 +3820,7 @@ CONTAINS
       IF (NVSSP > 0) THEN
          NSP = NVSSP
          ! VS13a ---- element and target element
-         CALL ALREAD (2, VSD, PPPRI, ':VS13a', 2, NSP, 0, CDUM, IDUM, DUMMY)
+         CALL ALREAD (2, VSD, FID_logfile, ':VS13a', 2, NSP, 0, CDUM, IDUM, DUMMY)
          DO ISP = 1, NSP
             IEL = IDUM(2 * (ISP - 1) + 1)
             IF (IDUM(2 * (ISP - 1) + 2) > 0) NVSSPT(IDUM(2 * (ISP - 1) + 2)) = IEL
@@ -3827,7 +3828,7 @@ CONTAINS
 
          ! VS13b ---- depth of spring source below ground, elevation of
          !            discharge point, spring coefficient
-         CALL ALREAD (3, VSD, PPPRI, ':VS13b', 3, NSP, 0, CDUM, IDUM1, DUMMY)
+         CALL ALREAD (3, VSD, FID_logfile, ':VS13b', 3, NSP, 0, CDUM, IDUM1, DUMMY)
          DO ISP = 1, NSP
             IEL = IDUM(2 * (ISP - 1) + 1)
             VSSPD(IEL) = DUMMY(3 * (ISP - 1) + 1)
@@ -3841,7 +3842,7 @@ CONTAINS
       NDUM = MAX(NVSLF, NVSLH, NVSLG)
 
       IF (NDUM > 0) THEN
-         CALL ALREAD (4, VSD, PPPRI, ':VS14', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         CALL ALREAD (4, VSD, FID_logfile, ':VS14', NX, NY, NDUM, CDUM, IDUM, DUMMY)
          DO IY = 1, NY
             IXY0 = (IY - 1) * NX
             DO IX = 1, NX
@@ -3851,7 +3852,7 @@ CONTAINS
          END DO
 
          ! VS15 ----- grid of category numbers
-         CALL ALREAD (4, VSD, PPPRI, ':VS15', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         CALL ALREAD (4, VSD, FID_logfile, ':VS15', NX, NY, NDUM, CDUM, IDUM, DUMMY)
          DO IY = 1, NY
             IXY0 = (IY - 1) * NX
             DO IX = 1, NX
@@ -3873,18 +3874,18 @@ CONTAINS
          NVSLHT = NVSLH
          NVSLGT = NVSLG
 
-         CALL ALREAD (2, VSD, PPPRI, ':VS16', 1, 1, 0, CDUM, IDUM, DUMMY)
+         CALL ALREAD (2, VSD, FID_logfile, ':VS16', 1, 1, 0, CDUM, IDUM, DUMMY)
          NLB = IDUM(1)
 
          DO ILB = 1, NLB
             ! VS16a ---- b.c. type, category, no. of layers
-            CALL ALREAD (2, VSD, PPPRI, ':VS16a', 3, 1, 0, CDUM, IDUM, DUMMY)
+            CALL ALREAD (2, VSD, FID_logfile, ':VS16a', 3, 1, 0, CDUM, IDUM, DUMMY)
             ITYP = IDUM(1)
             ICAT = IDUM(2)
             NLDUM = IDUM(3)
 
             ! VS16b ---- layer numbers
-            CALL ALREAD (2, VSD, PPPRI, ':VS16b', NLDUM, 1, 0, CDUM, IDUM, DUMMY)
+            CALL ALREAD (2, VSD, FID_logfile, ':VS16b', NLDUM, 1, 0, CDUM, IDUM, DUMMY)
 
             IF (ITYP == 3) THEN
                NVSLFN(ICAT) = NLDUM
@@ -3918,7 +3919,7 @@ CONTAINS
 
       IF (NDUM > 0) THEN
          IF (total_no_links > 0 .AND. BEXBK) THEN
-            CALL ALREAD (2, VSD, PPPRI, ':VS17', total_no_links, 1, 1, CDUM, IDUM, DUMMY)
+            CALL ALREAD (2, VSD, FID_logfile, ':VS17', total_no_links, 1, 1, CDUM, IDUM, DUMMY)
             DO IEL = 1, total_no_links
                NBBTYP(IEL) = IDUM(IEL)
                NBBTYP(total_no_links + IEL) = IDUM(IEL)
@@ -3926,7 +3927,7 @@ CONTAINS
             END DO
          END IF
 
-         CALL ALREAD (4, VSD, PPPRI, ':VS17', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         CALL ALREAD (4, VSD, FID_logfile, ':VS17', NX, NY, NDUM, CDUM, IDUM, DUMMY)
          DO IY = 1, NY
             IXY0 = (IY - 1) * NX
             DO IX = 1, NX
@@ -3937,7 +3938,7 @@ CONTAINS
 
          ! VS18 ----- grid of category numbers
          IF (total_no_links > 0 .AND. BEXBK) THEN
-            CALL ALREAD (2, VSD, PPPRI, ':VS18', total_no_links, 1, 1, CDUM, IDUM, DUMMY)
+            CALL ALREAD (2, VSD, FID_logfile, ':VS18', total_no_links, 1, 1, CDUM, IDUM, DUMMY)
             DO IEL = 1, total_no_links
                ICAT = MAX(1, IDUM(IEL))
                NBBCAT(IEL) = ICAT
@@ -3946,7 +3947,7 @@ CONTAINS
             END DO
          END IF
 
-         CALL ALREAD (4, VSD, PPPRI, ':VS18', NX, NY, NDUM, CDUM, IDUM, DUMMY)
+         CALL ALREAD (4, VSD, FID_logfile, ':VS18', NX, NY, NDUM, CDUM, IDUM, DUMMY)
          DO IY = 1, NY
             IXY0 = (IY - 1) * NX
             DO IX = 1, NX
@@ -4142,8 +4143,8 @@ CONTAINS
 !> pressure change and neighbouring pressure changes are below the tolerance are
 !> marked converged and skipped in later global iterations. If convergence is
 !> not reached, warning 1039 is issued with rate-limited repeated reporting.
-!> On the final global iteration `ELEVEL` is passed to [[vscolm]] as `EEERR`,
-!> but the non-convergence `ERROR` call in this routine uses `WWWARN`.
+!> On the final global iteration `ELEVEL` is passed to [[vscolm]] as `ERRLVL_error`,
+!> but the non-convergence `ERROR` call in this routine uses `ERRLVL_warn`.
 !>
 !> Boundary-condition flags used in the column solve:
 !>
@@ -4404,7 +4405,7 @@ CONTAINS
 
       DO NIT = 1, NITMAX
 
-         IF (NIT == NITMAX) ELEVEL = EEERR
+         IF (NIT == NITMAX) ELEVEL = ERRLVL_error
          DPSIMX = ZERO
 
          DO I = 1, total_no_elements
@@ -4526,9 +4527,9 @@ CONTAINS
       IF (.NOT. g670) THEN
          errorcount2 = errorcount2 + 1
          IF (errorcount2 < errcntallowed) THEN
-            CALL ERROR(EEERR, 1039, PPPRI, 0, 0, 'Maximum iterations in VSS global solver')
+            CALL ERROR(ERRLVL_error, 1039, FID_logfile, 0, 0, 'Maximum iterations in VSS global solver')
          ELSE IF (errorcount2 == errcntallowed) THEN
-            CALL ERROR (EEERR, 1039, PPPRI, 0, 0, '**** Last printout of the error message - maximum iterations in VSS global solver *****')
+            CALL ERROR (ERRLVL_error, 1039, FID_logfile, 0, 0, '**** Last printout of the error message - maximum iterations in VSS global solver *****')
          END IF
       END IF
 
@@ -4639,7 +4640,7 @@ CONTAINS
 !> so that `Kr` approaches unity at saturation even for van Genuchten `n < 2`,
 !> where the original curve drops rapidly and unphysically below one just below
 !> saturation. This overwrite runs after the derivative tables are already
-!> finalised. If `BSOILP` is set, the completed tables are printed to `PPPRI`.
+!> finalised. If `BSOILP` is set, the completed tables are printed to `FID_logfile`.
 !>
 !> @note
 !> The DSATG saturation-ratio rescale (see above) replaces `VSPKR` without
@@ -4662,7 +4663,7 @@ CONTAINS
       ! Assumed external module dependencies providing global variables:
       ! NSEE, NSOLEE, BFAST, NVSSOL, VSPPSI, NS, IVSFLG, VSPOR, VSTRES,
       ! VSALPH, VSVGN, VSPTHE, VSPDTH, VSPKR, VSPDKR, VSPETA, VSPDET, VSPSS,
-      ! TBPSI, TBTHE, TBTHEC, TBKR, TBKRC, BSOILP, PPPRI, zero, one, two, three
+      ! TBPSI, TBTHE, TBTHEC, TBKR, TBKRC, BSOILP, FID_logfile, zero, one, two, three
 
       IMPLICIT NONE
 
@@ -4854,11 +4855,11 @@ CONTAINS
 
       ! write soil property tables to PRI file
       IF (BSOILP) THEN
-         WRITE(PPPRI, 905) NS, NVSSOL
+         WRITE(FID_logfile, 905) NS, NVSSOL
          DO IS = 1, NS
-            WRITE(PPPRI, 910) IS
+            WRITE(FID_logfile, 910) IS
             DO I = 1, NVSSOL
-               WRITE(PPPRI, 920) I, VSPPSI(I), VSPTHE(I, IS), VSPETA(I, IS), VSPKR(I, IS), &
+               WRITE(FID_logfile, 920) I, VSPPSI(I), VSPTHE(I, IS), VSPETA(I, IS), VSPKR(I, IS), &
                                  VSPDTH(I, IS), VSPDET(I, IS), VSPDKR(I, IS)
             END DO
          END DO

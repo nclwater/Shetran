@@ -60,7 +60,8 @@ MODULE CMmod
    USE SGLOBAL, ONLY :                                                             &
       nlf=>total_no_links, area=>cellarea, NEL=>total_no_elements,                  &
       NOTZERO, ZERO, ONE, TWO, HALF,                                                &
-      ISZERO, GTZERO, LTZERO, GEZERO, DYQQ, DXQQ, ZGRUND, ERROR
+      ISZERO, GTZERO, LTZERO, GEZERO, DYQQ, DXQQ, ZGRUND
+   USE mod_error, ONLY : ERROR
    USE OCMOD2,  ONLY : hrf=>hrfzz
    USE AL_C
    USE AL_G

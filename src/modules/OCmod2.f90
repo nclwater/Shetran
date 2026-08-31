@@ -64,6 +64,7 @@
 !> @endhistory
 MODULE OCmod2
    USE SGLOBAL
+   USE mod_error, ONLY : ERROR, ERRLVL_warn, FID_logfile
    USE ZQmod,     ONLY : get_ZQTable_value
    USE AL_D,      ONLY : ZQweirsill,ZQTableRef
    IMPLICIT NONE
@@ -345,9 +346,9 @@ CONTAINS
       END DO iteration_loop
 
       IF (FAILED) THEN
-         CALL ERROR(WWWARN, 1027, PPPRI, IELA, 0, 'maximum iterations exceeded for OC confluence')
+         CALL ERROR(ERRLVL_warn, 1027, FID_logfile, IELA, 0, 'maximum iterations exceeded for OC confluence')
          IF (ABS(FN) > SIGMAQ * 1.0D-2 .OR. ABS(B - A) > 1.0D-3) THEN
-            CALL ERROR(WWWARN, 1028, PPPRI, IELA, 0, 'Bad iteration failure for OC confluence')
+            CALL ERROR(ERRLVL_warn, 1028, FID_logfile, IELA, 0, 'Bad iteration failure for OC confluence')
          END IF
       END IF
 
@@ -1876,7 +1877,7 @@ CONTAINS
                         
                         ! PERF FIX: Unrolled the array slice rdum4(1:2)
                         WRITE (MSG, 91030) rdum4(1), rdum4(2), idum, rdum4(4)
-                        CALL ERROR(WWWARN, 1030, PPPRI, ielc, 0, MSG)
+                        CALL ERROR(ERRLVL_warn, 1030, FID_logfile, ielc, 0, MSG)
                      END IF
                   END IF
                END IF
@@ -1896,7 +1897,7 @@ CONTAINS
                   
                   ! PERF FIX: Unrolled the array slice rdum4(1:3)
                   WRITE (MSG, 91024) rdum4(1), rdum4(2), rdum4(3)
-                  CALL ERROR(WWWARN, 1024, PPPRI, ielc, 0, MSG)
+                  CALL ERROR(ERRLVL_warn, 1024, FID_logfile, ielc, 0, MSG)
                END IF
             END IF
             
@@ -1908,7 +1909,7 @@ CONTAINS
          
       END DO pass_loop
       
-      IF (.NOT. AOK) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
+      IF (.NOT. AOK) CALL ERROR(ERRLVL_warn, 1060, FID_logfile, 0, 0, 'OC flow criteria could not be met')
 
       ! FORMAT STATEMENTS (Safely compiled exactly once)
 91024 FORMAT('Surface water depth adjusted from', SP, 1PG15.7, ' to zero', ': depth created =', 2G15.7)

@@ -40,6 +40,7 @@ MODULE rest
       VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod,    ONLY : BSOFT
    USE UTILSMOD, ONLY : HOUR_FROM_DATE, TERPO1
+   USE mod_error, ONLY : ERROR, ERRLVL_fatal, FID_logfile
    USE OCmod2,   ONLY : GETHRF
    USE MOD_PARAMETERS, ONLY : LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
@@ -110,57 +111,57 @@ CONTAINS
    SUBROUTINE extra_output()
       INTEGER :: i
       DOUBLEPRECISION    :: car
-      WRITE(PPPRI, 1400)
+      WRITE(FID_logfile, 1400)
       DO I = 0, 100
-         IF (FLERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 1000, FLERRC (I)
+         IF (FLERRC (I) .GT.0) WRITE(FID_logfile, 1500) I + 1000, FLERRC (I)
       END DO
       DO I = 0, 100
-         IF (SYERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 2000, SYERRC (I)
+         IF (SYERRC (I) .GT.0) WRITE(FID_logfile, 1500) I + 2000, SYERRC (I)
       END DO
       DO I = 0, 100
-         IF (CMERRC (I) .GT.0) WRITE(PPPRI, 1500) I + 3000, CMERRC (I)
+         IF (CMERRC (I) .GT.0) WRITE(FID_logfile, 1500) I + 3000, CMERRC (I)
       END DO
-      WRITE(PPPRI, 1600)
+      WRITE(FID_logfile, 1600)
 1400  FORMAT(// 'Error message asummary'/)
 1500  FORMAT('No. of occurences of error number ',I4,': ',I6)
 
 1600  FORMAT(/ 'End of error message asummary')
 !<<<
-      WRITE(PPPRI, '(////)')
-      WRITE(PPPRI, 9900) UZNOW, NSTEP
+      WRITE(FID_logfile, '(////)')
+      WRITE(FID_logfile, 9900) UZNOW, NSTEP
 !
       WRITE ( *, * )
 
       WRITE ( *, *) 'Normal completion of SHETRAN run'
 
 !^^^^^sb 250105 mass balnce output
-      WRITE(PPPRI, '(////)')
-      WRITE(PPPRI,  * ) ' Spatially Averaged Totals (mm) over the simulation'
-      WRITE(PPPRI, '(A20,F10.2)') 'Cum Prec = ', balanc (7) * 1000 / &
+      WRITE(FID_logfile, '(////)')
+      WRITE(FID_logfile,  * ) ' Spatially Averaged Totals (mm) over the simulation'
+      WRITE(FID_logfile, '(A20,F10.2)') 'Cum Prec = ', balanc (7) * 1000 / &
          carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Cum Can. Evap = ', balanc (8) * 1000 / &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Cum Can. Evap = ', balanc (8) * 1000 / &
          carea
       car = carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Cum Soil+Sur Evp = ', balanc (9) &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Cum Soil+Sur Evp = ', balanc (9) &
          * 1000 / car
-      WRITE(PPPRI, '(A20,F10.2)') 'Cum Trans = ', balanc (10) * 1000 / &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Cum Trans = ', balanc (10) * 1000 / &
          carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Cum Aqu. Flow = ', balanc (11) &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Cum Aqu. Flow = ', balanc (11) &
          * 1000 / carea
 
-      WRITE(PPPRI, '(A20,F10.2)') 'Cum Discharge = ', balanc (12) &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Cum Discharge = ', balanc (12) &
          * 1000 / carea
-      WRITE(PPPRI, '(//)')
-      WRITE(PPPRI,  * ) ' Storage totals (mm) at the end of the simulation'
-      WRITE(PPPRI, '(A20,F10.2)') 'Canopy Stor = ', balanc (13) * 1000 / &
+      WRITE(FID_logfile, '(//)')
+      WRITE(FID_logfile,  * ) ' Storage totals (mm) at the end of the simulation'
+      WRITE(FID_logfile, '(A20,F10.2)') 'Canopy Stor = ', balanc (13) * 1000 / &
          carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Snow Store = ', balanc (14) * 1000 / &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Snow Store = ', balanc (14) * 1000 / &
          carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Subsur Stor = ', balanc (15) * 1000 / &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Subsur Stor = ', balanc (15) * 1000 / &
          carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Surface Stor = ', balanc (16) * 1000 / &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Surface Stor = ', balanc (16) * 1000 / &
          carea
-      WRITE(PPPRI, '(A20,F10.2)') 'Channel Stor = ', balanc (17) * 1000 / &
+      WRITE(FID_logfile, '(A20,F10.2)') 'Channel Stor = ', balanc (17) * 1000 / &
          carea
 9900  FORMAT ('Normal completion of SHETRAN run: ',F10.2, ' hours, ', &
       &        I7,' steps.' /)
@@ -605,7 +606,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOPRD) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
                         FIRSTNOPRD = .FALSE.
                      END IF
                      PINP(1:NRAIN) = ZERO
@@ -622,7 +623,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOPRD) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
                         FIRSTNOPRD = .FALSE.
                      END IF
                      PINP(1:NRAIN) = ZERO
@@ -658,7 +659,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
-                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -705,7 +706,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD1) THEN
-                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD1 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -752,7 +753,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
-                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -791,7 +792,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
-                           WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -828,9 +829,9 @@ CONTAINS
 
          ! PRINT OUT INPUT DATA
          IF (BMETP) THEN
-            WRITE(PPPRI, 9130) METIME
+            WRITE(FID_logfile, 9130) METIME
             DO I = 1, NM
-               WRITE(PPPRI, 9140) I, PINP(I), PEIN(I)
+               WRITE(FID_logfile, 9140) I, PINP(I), PEIN(I)
             END DO
          END IF
 
@@ -841,7 +842,7 @@ CONTAINS
 
          IF (NRAIN == NM) THEN
             !-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE EQUAL
-            IF (BMETP) WRITE(PPPRI, 9100)
+            IF (BMETP) WRITE(FID_logfile, 9100)
 
             !-----LOOP ON NUMBER OF MET SITES
             read_equal_loop: DO
@@ -853,7 +854,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET1) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET1 = .FALSE.
                      END IF
                      ISITE = 1
@@ -868,7 +869,7 @@ CONTAINS
                      IDATA = 1000
                   END IF
 
-                  IF (BMETP) WRITE(PPPRI, 9040) ISITE, METIME, PINP(I), RN(I), U(I), TA(I), DEL(I), VPD(I)
+                  IF (BMETP) WRITE(FID_logfile, 9040) ISITE, METIME, PINP(I), RN(I), U(I), TA(I), DEL(I), VPD(I)
 
                   IF (MEASPE(I) == 0) CYCLE
 
@@ -876,7 +877,7 @@ CONTAINS
                   READ (MED, 9050, IOSTAT=ios) OBSPE(I)
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET2) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET2 = .FALSE.
                      END IF
                      OBSPE(I) = 0.0d0
@@ -892,7 +893,7 @@ CONTAINS
 
          ELSE
             !-----NUMBERS OF RAINFALL AND METEOROLOGICAL STATIONS ARE UNEQUAL
-            IF (BMETP) WRITE(PPPRI, 9110)
+            IF (BMETP) WRITE(FID_logfile, 9110)
 
             !-----LOOP ON NUMBER OF MET SITES
             read_unequal_loop: DO
@@ -904,7 +905,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET3) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET3 = .FALSE.
                      END IF
                      ISITE = 1
@@ -918,7 +919,7 @@ CONTAINS
                      IDATA = 1000
                   END IF
 
-                  IF (BMETP) WRITE(PPPRI, 9070) ISITE, METIME, RN(I), U(I), TA(I), DEL(I), VPD(I)
+                  IF (BMETP) WRITE(FID_logfile, 9070) ISITE, METIME, RN(I), U(I), TA(I), DEL(I), VPD(I)
 
                   IF (MEASPE(I) == 0) CYCLE
 
@@ -926,7 +927,7 @@ CONTAINS
                   READ (MED, 9050, IOSTAT=ios) OBSPE(I)
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET4) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET4 = .FALSE.
                      END IF
                      OBSPE(I) = 0.0d0
@@ -936,20 +937,20 @@ CONTAINS
                   OBSPE(I) = OBSPE(I) / 3600.0d0
                END DO
 
-               IF (BMETP) WRITE(PPPRI, 9120)
+               IF (BMETP) WRITE(FID_logfile, 9120)
 
                !-----LOOP ON NUMBER OF RAIN SITES
                DO I = 1, NRAIN
                   READ (MED, 9080, IOSTAT=ios) ISITE, NN, PINP(I), IDATA
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET5) THEN
-                        WRITE(PPPRI, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE(FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET5 = .FALSE.
                      END IF
                      PINP(I) = 0.0d0
                   END IF
 
-                  IF (BMETP) WRITE(PPPRI, 9090) ISITE, METIME, PINP(I)
+                  IF (BMETP) WRITE(FID_logfile, 9090) ISITE, METIME, PINP(I)
                END DO
 
                ! READ TO SIMULATION START TIME, IF HOTSTART
@@ -1013,7 +1014,7 @@ CONTAINS
 !> | Growth from previous step | `UZNEXT*(1+PALFA)` | Prevents abrupt timestep expansion. |
 !> | Soft start | `TMAX*0.05*1.03**NSTEP` for the first 102 steps when `BSOFT` is true | Starts the run with smaller steps; disabled for hot starts. |
 !> | Snowmelt | `0.5` h when snow is present and any met station has `TA>0` | Limits melt-period steps. |
-!> | Runtime errors | `UZNEXT/10` or `UZNEXT/100`, lower-bounded by `0.0003` h | Retries after selected flow errors (`ISERROR`/`ISERROR2`, cleared after use). |
+!> | Runtime errors | `UZNEXT/10` or `UZNEXT/100`, lower-bounded by `0.0003` h | Retries after selected flow errors (`flag_runtime_reduction_errors`/`flag_runtime_reduction_e1060`, cleared after use). |
 !>
 !> For date-aware forcing (`BMETDATES`) the first call checks that `PRD`,
 !> `EPD`, and optional `TAH`/`TAL` records do not start after the simulation
@@ -1104,14 +1105,14 @@ CONTAINS
       UZNEXT = MIN(UZNEXT * (1.0d0 + PALFA), TSOFT, TSNOW)
 
       ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      IF (ISERROR2) THEN
+      IF (flag_runtime_reduction_e1060) THEN
          UZNEXT = MAX(0.0003d0, UZNEXT / 10.0d0)
-      ELSEIF (ISERROR) THEN
+      ELSEIF (flag_runtime_reduction_errors) THEN
          UZNEXT = MAX(0.0003d0, UZNEXT / 100.0d0)
       END IF
 
-      ISERROR2 = .FALSE.
-      ISERROR = .FALSE.
+      flag_runtime_reduction_e1060 = .FALSE.
+      flag_runtime_reduction_errors = .FALSE.
 
 ! ----------------------------------------------------------------------
 !  2.  READ METEOROLOGICAL DATA AND REDUCE TMSTEP IF NECESSARY
@@ -1346,11 +1347,11 @@ CONTAINS
 
 ! check for invalid timestep (could be a result of data errors)
       IF (UZNEXT < 5.0D-5) THEN
-         WRITE(PPPRI, "(////'UZNEXT = ',G14.6, /' TSOFT = ',G14.6, /'MELAST = ',G14.6, " // &
+         WRITE(FID_logfile, "(////'UZNEXT = ',G14.6, /' TSOFT = ',G14.6, /'MELAST = ',G14.6, " // &
             "/'METIME = ',G14.6 /, 'PREC.STN.   PINP        PTOT'/)") &
             UZNEXT, TSOFT, MELAST, METIME
-         WRITE(PPPRI, "(4X,I4,2G14.6)") (I, PINP(I), PTOT(I), I = 1, NRAIN)
-         CALL ERROR(FFFATAL, 1025, PPPRI, 0, 0, 'INVALID TIMESTEP')
+         WRITE(FID_logfile, "(4X,I4,2G14.6)") (I, PINP(I), PTOT(I), I = 1, NRAIN)
+         CALL ERROR(ERRLVL_fatal, 1025, FID_logfile, 0, 0, 'INVALID TIMESTEP')
       END IF
 
       ! calculate average value over timestep (& convert mm/h to m/s)

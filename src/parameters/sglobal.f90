@@ -3,10 +3,14 @@
 !>
 !> `sglobal` consolidates the former `AL_P`-family include-file state used
 !> throughout SHETRAN. It owns compile-time array limits, active catchment
-!> dimensions and geometry, model/file identity, numeric helper constants,
-!> and the state used by [[sglobal:ERROR]]. The module defaults to `PRIVATE`;
-!> only the names in the explicit `PUBLIC` lists form its interface. The
-!> imported `I_P`, `R8P`, and `LENGTH_FILEPATH` parameters remain private.
+!> dimensions and geometry, model/file identity, and numeric helper constants.
+!> The module defaults to `PRIVATE`; only the names in the explicit `PUBLIC`
+!> lists form its interface. The imported `I_P`, `R8P`, and `LENGTH_FILEPATH`
+!> parameters remain private.
+!>
+!> Error reporting itself now lives in [[mod_error]]. Only the two
+!> timestep-reduction request flags remain here, because `mod_error` uses
+!> `sglobal` and the dependency cannot run both ways.
 !>
 !> Compile-time limits are capacities, not the active problem size. The manual's
 !> array-size table describes their configured values; setup must keep every
@@ -45,17 +49,16 @@
 !> @endnote
 !>
 !> @warning
-!> `ISERROR` and `ISERROR2` have no declaration initializers. The normal
-!> [[shetran]] entry path initializes them through `ERROR(-999,...)`, but every
-!> later `ERROR` call clears both flags before setting one for error 1024/1030
-!> or 1060. Consequently an intervening error call can erase a pending timestep-
-!> reduction request before [[rest:TMSTEP]] consumes it.
+!> `flag_runtime_reduction_errors` and `flag_runtime_reduction_e1060` have no
+!> declaration initializers, and every [[mod_error:ERROR]] call clears both
+!> before setting one for error 1024/1030 or 1060. Consequently an intervening
+!> error call can erase a pending timestep-reduction request before
+!> [[rest:TMSTEP]] consumes it.
 !>
 !> `EARRAY(1)` is printed for errors 1003 and 1024, but no current assignment to
 !> `EARRAY` exists in the source tree. Those numeric diagnostic values are
-!> therefore undefined. `error_mode` records the command-line `-error` option,
-!> but no current routine reads the flag, so it does not alter stop behaviour.
-!> These current behaviours are documented here rather than changed.
+!> therefore undefined. These current behaviours are documented here rather than
+!> changed.
 !> @endwarning
 !>
 !> The retained Monte Carlo names (`szmonte`, `ran2monte1`, `ran2monte2`,
@@ -81,6 +84,7 @@
 !> | 2026-03-30 | SB | 4.6.1 | Increased capacities after major multidimensional arrays became allocatable; set `NXOCEE=4*NXEE`. |
 !> | 2026-08-20 | SB | - |  remove code for initial error call and sort out helpmessages |
 !> | 2026-08-22 | SvB | 4.6.4 | Removed `NXOCEE`; the OC row solver is sized from the active maximum row width established by [[ocmod:ocind]]. |
+!> | 2026-08-31 | SvB | - | Moved `ERROR`, `ALSTOP`, and the error-accounting state to [[mod_error]]; renamed the retained timestep-reduction flags. |
 !> @endhistory
 MODULE sglobal
 
@@ -95,12 +99,12 @@ MODULE sglobal
    PUBLIC :: total_no_elements, total_no_links, top_cell_no, szmonte, ran2monte1, ran2monte2, pcmonte, montec
    PUBLIC :: DIRQQ, filnam, cnam, rootdir, hdf5filename, visualisation_plan_filename, visualisation_check_filename
    PUBLIC :: UZNOW, cellarea, DXQQ, DYQQ, ZGRUND
-   PUBLIC :: ERRNEE, FFFATAL, EEERR, WWWARN, pppri, ERRC, ERRTOT, helppath, ISERROR, ISERROR2
+   PUBLIC :: flag_runtime_reduction_errors, flag_runtime_reduction_e1060
    PUBLIC :: marker999, imarker, izero, ione, izero1, ione1, zero, half, one, two, three, five, vsmall, zero1, one1
    PUBLIC :: EARRAY, text32
    PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, i_iszero_a2, notzero, isone, notone
    PUBLIC :: idimje, dimje
-   PUBLIC :: ERROR, ALSTOP, error_mode, casemode
+   PUBLIC :: error_mode, casemode
 
    ! --------------------------------------------------------------------
    ! System Version and Banners
@@ -160,19 +164,18 @@ MODULE sglobal
    REAL(KIND=R8P), DIMENSION(nelee) :: DYQQ !! Corrected y-direction plan dimension of each active element [m].
    REAL(KIND=R8P), DIMENSION(nelee) :: ZGRUND !! Ground-surface elevation of each active element [m].
    ! --------------------------------------------------------------------
-   ! Error Handling Constants and Variables
+   ! Model Timestep Control Flags
    ! --------------------------------------------------------------------
-   INTEGER(KIND=I_P), PARAMETER :: ERRNEE = 100 !! Greatest error-code remainder represented in each module-group counter.
-   INTEGER(KIND=I_P), PARAMETER :: FFFATAL = 1 !! Fatal error severity passed to `ERROR`.
-   INTEGER(KIND=I_P), PARAMETER :: EEERR = 2 !! Nonfatal error severity passed to `ERROR`.
-   INTEGER(KIND=I_P), PARAMETER :: WWWARN = 3 !! Warning severity passed to `ERROR`.
-   INTEGER(KIND=I_P), PARAMETER :: pppri = 23 !! Default Fortran unit for primary PRI output.
-   INTEGER(KIND=I_P) :: ERRC(0:ERRNEE, 0:3) = 0 !! Occurrence counts by error-code remainder and module group.
-   INTEGER(KIND=I_P) :: ERRTOT = 0 !! Total number of errors and warnings recorded by `ERROR`.
-   CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Help-directory fragment set to `/helpmessages` by each `ERROR` call.
-   LOGICAL :: ISERROR !! Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
-   LOGICAL :: ISERROR2 !! Latest `ERROR` call requested the separate timestep reduction for error 1060.
-   LOGICAL :: error_mode !! State of command-line option `-error`; currently has no consumer.
+   ! Written by [[mod_error:ERROR]] and consumed by [[rest:TMSTEP]]. They stay
+   ! here rather than in [[mod_error]] so that `mod_error` can use `sglobal`
+   ! without a circular dependency.
+   LOGICAL :: flag_runtime_reduction_errors !! Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
+   LOGICAL :: flag_runtime_reduction_e1060 !! Latest `ERROR` call requested the separate timestep reduction for error 1060.
+
+   ! --------------------------------------------------------------------
+   ! Run Mode Flags
+   ! --------------------------------------------------------------------
+   LOGICAL :: error_mode !! State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ALSTOP]].
    CHARACTER(LEN=LENGTH_FILEPATH) :: casemode !! State whether the program should wait with exit at the end of the execution.
 
    ! --------------------------------------------------------------------
@@ -580,294 +583,5 @@ CONTAINS
          dimje = zero
       ENDIF
    END FUNCTION dimje
-
-
-
-   !> summary: Reports a SHETRAN diagnostic, records it, and terminates fatal runs.
-   !>
-   !> @author R. A. Heath, Newcastle University
-   !>
-   !> This is the shared reporter used by 155 active call sites across the
-   !> input utilities, process modules, simulation driver, and visualisation
-   !> interface. In agreement with User Manual section 1.6.6, ordinary calls
-   !> write a numbered diagnostic to a component print unit such as PRI, SPR,
-   !> CPR, or MNPR. `IEL` and `CELL` add spatial context when their zero sentinel
-   !> is not used, and the module time `UZNOW` supplies the reported time [h].
-   !>
-   !> Message selectors have the following current behavior:
-   !>
-   !> | `ETYPE` | Immediate record and accounting | Control behavior |
-   !> |:--------|:--------------------------------|:-----------------|
-   !> | `FFFATAL=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `ERRTOT` and, for a representable code, `ERRC`. | Prints the summary, then calls [[alstop]] for error termination. |
-   !> | `EEERR=2` | Writes an `ERROR` header and `TEXT`; increments the counters as above. | Returns to the caller. |
-   !> | `WWWARN=3` | Writes a `WARNING` header and `TEXT`; increments the counters as above. | Returns to the caller. |
-   !> | `0` | Writes `TEXT` without a severity header and does not increment either counter. | `ERRNUM=0` would also request a summary; current callers use code 12 only for continuation text from [[mod_load_filedata:ALCHK]] and [[mod_load_filedata:ALCHKI]]. |
-   !> | `-999` | Sets `helppath`, clears both timestep flags, and returns before using `OUT` or `TEXT`. | Startup-only initialization call from the main program. |
-   !>
-   !> Every non-startup call writes `TEXT` to `OUT`, even if `ETYPE` lies
-   !> outside zero through three. Only selectors one through three receive a
-   !> formatted severity line, and only `FFFATAL` terminates. A zero `IEL`
-   !> suppresses both spatial fields; otherwise a zero `CELL` suppresses only
-   !> the cell field. Codes 1003 and 1024 append a numeric line read from
-   !> `EARRAY(1)`.
-   !>
-   !> The per-code summary decomposes `ERRNUM` into `AMODL=ERRNUM/1000` and
-   !> `ERRN=MOD(ERRNUM,1000)`. `ERRC(0:ERRNEE,0:3)`, with `ERRNEE=100`, can
-   !> therefore represent only these inclusive domains:
-   !>
-   !> | Representable codes | Current component convention |
-   !> |:--------------------|:-----------------------------|
-   !> | 0000--0100 | General library and input utilities. |
-   !> | 1000--1100 | Water-flow components. |
-   !> | 2000--2100 | Sediment component. |
-   !> | 3000--3100 | Contaminant and nitrate components. |
-   !>
-   !> `ERRTOT` counts every nonzero-selector call regardless of whether its code
-   !> is representable. `ERRC` aggregates by code, not by severity. A fatal call
-   !> or any regular call with `ERRNUM=0` writes the summary heading to standard
-   !> output and `OUT`, obtains the connected filename for `OUT`, and tells the
-   !> user to inspect it. Per-code counts, constructed help paths, help text,
-   !> and the final total are then written only to standard output.
-   !>
-   !> Errors 1024 and 1030 request the stronger timestep reduction through
-   !> `ISERROR`; error 1060 requests the separate reduction through `ISERROR2`.
-   !> [[rest:TMSTEP]] divides its proposed timestep by 100 or 10 respectively,
-   !> subject to a 0.0003 h floor, and clears the flags after consuming them.
-   !>
-   !> @warning
-   !> This routine clears both timestep-reduction flags at the start of every
-   !> call. Consequently the flags describe only the most recent diagnostic:
-   !> any later unrelated error or warning can erase a pending request before
-   !> `TMSTEP` reads it.
-   !> @endwarning
-   !>
-   !> @warning
-   !> No current source assignment initializes `EARRAY(1)`, although codes 1003
-   !> and 1024 print it as maximum head difference and surface-water depth.
-   !> Those appended numeric diagnostics are therefore undefined.
-   !> @endwarning
-   !>
-   !> @warning
-   !> Current calls with codes 4820, 4998, 4999, and 2107 lie outside the
-   !> representable `ERRC` domains. Their immediate messages, `ERRTOT` increments,
-   !> and fatal termination still occur, but their per-code counts and help-file
-   !> lookups are omitted from the summary. The manual's numbered component list
-   !> is also offset from the zero-through-three code groups used by the routine.
-   !> @endwarning
-   !>
-   !> @warning
-   !> Help-message discovery is not operational in the current checkout. The
-   !> `-999` path fixes `helpcheck` at 60, so its directory check and prompt can
-   !> never run. Summary lookup uses the launch working directory followed by
-   !> `/helpmessages`, a backslash, and a four-digit code with no extension;
-   !> failed opens are silent, help lines are limited to 80 characters, and no
-   !> `helpmessages` directory is present in this repository. Each counted code
-   !> also exposes the raw `DIRQQ`, `rootdir`, and constructed filename on
-   !> standard output. This differs from
-   !> both the manual's “main program directory” description and the old
-   !> documentation branch, which used a forward slash, a `.txt` extension, and
-   !> copied summary details to `OUT`.
-   !> @endwarning
-   !>
-   !> @note
-   !> `ERRCEE`, `PATH1`, `slash`, and `present` are retained but have no effect on
-   !> current execution. The startup `-999` call is therefore a state reset, not
-   !> a functioning help-path check.
-   !> @endnote
-   !>
-   !> @history
-   !> | Date | Author | Description |
-   !> |:-----|:-------|:------------|
-   !> | 1994-10-08 | RAH | Created v3.4.1 from v3.4: introduced severity zero, local/range-checked counters, conditional element/cell fields, help summaries, and fatal dispatch through `ALSTOP`. |
-   !> | 1997-08-04 | RAH | Restored `EARRAY(1)` output for error 1024 in v4.1. |
-   !> | 1997-08-11 | RAH | Added the legacy external declaration after the include block. |
-   !> | 2020-07-07 | SB | Added the 1024/1030 and 1060 flags used to reduce the subsequent timestep. |
-   !> | 2026-03-28 | SvB | Converted the interface and locals to selected kinds with input intents, replaced the `CTYPE` data statement, and added the initial FORD block. |
-   !> | 2026-04-13 | SvB | Replaced labelled summary/help loops and error branches with named loops and `IOSTAT` handling. |
-   !> | 2026-05-08 | SB | Reworked summary output to name the selected print file and write the summary heading to both standard output and `OUT`. |
-   !> | 2026-05-10 | SvB | Removed the interactive wait before help-file lookup for noninteractive scripted use. |
-   !> @endhistory
-   SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
-
-      IMPLICIT NONE
-
-      ! IO-related parameters and variables
-      INTEGER(KIND=I_P), INTENT(IN) :: ETYPE  !! Severity/control selector: 0--3, or startup sentinel -999.
-      INTEGER(KIND=I_P), INTENT(IN) :: ERRNUM !! Diagnostic code; zero requests a summary outside the startup path.
-      INTEGER(KIND=I_P), INTENT(IN) :: OUT    !! Connected formatted unit receiving the immediate diagnostic.
-      INTEGER(KIND=I_P), INTENT(IN) :: IEL    !! Element identifier; zero omits both element and cell fields.
-      INTEGER(KIND=I_P), INTENT(IN) :: CELL   !! VSS cell identifier; zero omits the cell field.
-      CHARACTER(LEN=*),  INTENT(IN) :: TEXT   !! Immediate diagnostic or continuation text.
-
-      INTEGER(KIND=I_P), PARAMETER :: NONE = 0 !! No-severity selector.
-      INTEGER(KIND=I_P), PARAMETER :: ERRCEE = (1 + ERRNEE) * 4 !! Unused retained counter-capacity value.
-      INTEGER(KIND=I_P), PARAMETER :: HLP = 8 !! Fixed unit used for an available help file.
-
-      ! Local variables
-      CHARACTER(LEN=*), PARAMETER :: PATH1 = '/shetran/' !! Unused retained path fragment.
-      CHARACTER(LEN=256) :: FIL, fname !! Constructed help path and name queried for `OUT`.
-      CHARACTER(LEN=80)  :: HLPMSG !! One fixed-width help-file line.
-      CHARACTER(LEN=1)   :: cc !! Dormant startup-prompt response.
-      CHARACTER(LEN=1), PARAMETER :: slash = '/' !! Unused retained path separator.
-
-      INTEGER(KIND=I_P) :: COUNT, ERRN, AMODL !! Summary count, code remainder, and component group.
-      INTEGER(KIND=I_P) :: IO_STATUS !! Help-file open/read status.
-      INTEGER(KIND=I_P) :: helpcheck !! Fixed startup help-directory status; currently set to 60.
-
-      LOGICAL :: VALID, present !! Counter-index validity and unused startup-presence flag.
-
-      ! Modernization Fix: Replaced legacy DATA statement with a strict PARAMETER array
-      CHARACTER(LEN=11), PARAMETER :: CTYPE(3) = ['FATAL ERROR', '      ERROR', '    WARNING'] !! Labels for `ETYPE` 1--3.
-
-      !-------------------------------------------------------------------*
-
-      helppath = '/helpmessages'
-
-      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      ISERROR  = .FALSE.
-      ISERROR2 = .FALSE.
-
-
-      ! Write general error message
-      ! ---------------------------
-      IF (ETYPE >= 1 .AND. ETYPE <= 3) THEN
-         IF (ETYPE == FFFATAL) WRITE(OUT, '(//)')
-
-         IF (IEL == 0) THEN
-            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW
-         ELSE IF (CELL == 0) THEN
-            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL
-         ELSE
-            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL, CELL
-         END IF
-      END IF
-
-      WRITE(OUT, '(8X,A)') TEXT
-
-      ! Decompose ERRNUM and update counters
-      ! ------------------------------------
-      IF (ETYPE /= NONE) THEN
-         ERRTOT = ERRTOT + 1
-         AMODL  = ERRNUM / 1000
-         ERRN   = MOD(ERRNUM, 1000)
-
-         VALID  = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERRNEE)
-         IF (VALID) ERRC(ERRN, AMODL) = ERRC(ERRN, AMODL) + 1
-      END IF
-
-      ! Write specific error messages
-      ! -----------------------------
-      IF (ERRNUM == 1003) THEN
-         WRITE(OUT, 91003) EARRAY(1)
-         ! 970804
-      ELSE IF (ERRNUM == 1024) THEN
-         WRITE(OUT, 91024) EARRAY(1)
-         !
-      END IF
-
-      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      IF (ERRNUM == 1024 .OR. ERRNUM == 1030) THEN
-         ISERROR = .TRUE.
-      END IF
-      IF (ERRNUM == 1060) THEN
-         ISERROR2 = .TRUE.
-      END IF
-
-      ! Write summary
-      ! -------------
-      IF (ETYPE == FFFATAL .OR. ERRNUM == 0) THEN
-          WRITE(*,'(/,A,/,A,/)') &
-                        ' ### Error Summary and Advice ###', &
-                        '     ------------------------'
-          WRITE(OUT,'(/,A,/,A,/)') &
-                        ' ### Error Summary and Advice ###', &
-                        '     ------------------------'
-          INQUIRE(OUT, NAME=fname)
-
-          IF (ERRTOT > 0) WRITE(*, '(A,A,A/)') ' ==> Check the pri file: "', trim(fname), '" for more details <=='
-
-         module_loop: DO AMODL = 0, 3
-            error_loop: DO ERRN = 0, ERRNEE
-               COUNT = ERRC(ERRN, AMODL)
-
-               IF (COUNT > 0) THEN
-                  ! Print number of occurrences
-                  WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
-
-                  ! Print contents of help file (if any)
-                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '/', AMODL, ERRN, '.txt'
-
-                  OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
-                  IF (IO_STATUS == 0) THEN
-                     read_help: DO
-                        READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
-                        IF (IO_STATUS /= 0) EXIT read_help
-                        WRITE(*, '(A)') trim(HLPMSG)
-                     END DO read_help
-                     CLOSE(HLP)
-                  END IF
-
-                  WRITE(*, *)
-
-               END IF
-            END DO error_loop
-         END DO module_loop
-
-         WRITE(*, 9600) ERRTOT
-      END IF
-
-      ! Stop?
-      ! -----
-      IF (ETYPE == FFFATAL) CALL ALSTOP(1)
-
-      ! String format statements
-      ! ------------------------
-9100  FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-      &        ', iel =', I5:', cell =', I5 )
-9200  FORMAT(A,I1,I3.3,A)
-
-9500  FORMAT(' No. of occurrences of error number',I5.4,' is',I6)
-9600  FORMAT(/' ### End of summary: recorded error count is',I7,' ###'/)
-91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G12.6,' METRES')
-! 970804
-91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')
-!
-   END SUBROUTINE ERROR
-
-
-
-   !> summary: Performs noninteractive termination after a fatal error.
-   !>
-   !> When `FLAG > 0`, writes a fatal-error message to standard output and then
-   !> initiates Fortran error termination with `ERROR STOP`. When `FLAG <= 0`,
-   !> it returns without output or other action. [[error]] is the only current
-   !> caller and always passes `1` after it has printed the fatal-error summary.
-   !>
-   !> The current routine never reads from standard input and does not inspect
-   !> `error_mode`; the old documentation-branch behavior that conditionally
-   !> waited for Enter is obsolete.
-   !>
-   !> @history
-   !> | Date | Author | Description |
-   !> |:-----|:-------|:------------|
-   !> | 1994-09-17 | RAH | Created the v3.4.1 routine; the dated source note was added on 1994-09-30. |
-   !> | 2000-03-07 | SB | Removed the legacy IEEE calls for the v4g-pc version. |
-   !> | 2026-03-28 | SvB | Converted `FLAG` to selected integer kind with input intent, replaced the legacy pause with an explicit prompt/read, and added the initial FORD block. |
-   !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
-   !> | 2026-05-10 | SvB | Removed the interactive wait and changed normal `STOP` to `ERROR STOP` for scripted use. |
-   !> @endhistory
-   SUBROUTINE ALSTOP (FLAG)
-      INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! Termination flag; positive requests fatal error termination.
-
-      IF (FLAG.GT.0) THEN
-          if (error_mode) then
-              STOP 'Program terminating due to fatal error'
-          else
-              WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
-              READ(*,*)
-              STOP 'Program terminating due to fatal error'
-          endif
-      ENDIF
-    END SUBROUTINE ALSTOP
 
 END MODULE sglobal

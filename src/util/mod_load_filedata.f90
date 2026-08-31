@@ -58,6 +58,7 @@
 MODULE mod_load_filedata
 
    USE SGLOBAL
+   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_warn
    use mod_parameters
 
    IMPLICIT NONE
@@ -195,7 +196,7 @@ CONTAINS
       ! Invalid Option
       IF (NUM_CATEGORIES_TYPES < MINCAT) THEN
          WRITE (MSG, 9001) NUM_CATEGORIES_TYPES, LINE
-         CALL ERROR (FFFATAL, 1, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_fatal, 1, OUNIT, 0, 0, MSG)
 
       ! Special Case: Return to Caller
       ELSE IF (NUM_CATEGORIES_TYPES < 0) THEN
@@ -260,7 +261,7 @@ CONTAINS
                   ! error if out of bounds
                   IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                      WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-                     CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
+                     CALL ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
                   END IF
 
                   DO I2 = 1, N2
@@ -283,7 +284,7 @@ CONTAINS
                      ! error if out of bounds
                      IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                         WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-                        CALL ERROR (FFFATAL, 9, OUNIT, IEL, 0, MSG)
+                        CALL ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
                      END IF
 
                      DO I2 = 1, N2
@@ -297,7 +298,7 @@ CONTAINS
       ! Insufficient Workspace
       ELSE
          WRITE (MSG, 9008) NUM_CATEGORIES_TYPES, LINE, N2 * NUM_CATEGORIES_TYPES
-         CALL ERROR (FFFATAL, 8, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_fatal, 8, OUNIT, 0, 0, MSG)
       END IF
       !
       !
@@ -356,7 +357,7 @@ CONTAINS
                       LINKNS, CATTYP, IDUM)
 
       ! Assumed external module dependencies providing global kinds/variables:
-      ! I_P, FFFATAL, ERROR, ALREDI
+      ! I_P, ERRLVL_fatal, ERROR, ALREDI
 
       IMPLICIT NONE
 
@@ -413,7 +414,7 @@ CONTAINS
                ICAT = IDUM (XY0 + X)
 
                IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
-                  CALL ERROR (FFFATAL, 3090, OUNIT, 0, 0, &
+                  CALL ERROR (ERRLVL_fatal, 3090, OUNIT, 0, 0, &
                               'Error in ALALLI -reading spatially distributed category types')
                END IF
 
@@ -1135,7 +1136,7 @@ CONTAINS
                       CDATA, IDATA, RDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
-      ! I_P, R8P, WWWARN, FFFATAL, HEAD0_alread, ERROR
+      ! I_P, R8P, ERRLVL_warn, ERRLVL_fatal, HEAD0_alread, ERROR
 
       IMPLICIT NONE
 
@@ -1186,7 +1187,7 @@ CONTAINS
 
          IF (INDEX (HEAD, LINE) == 0) THEN
             WRITE (MSG, 9002) LINE, HEAD
-            CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
+            CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
          END IF
 
       ELSE
@@ -1332,7 +1333,7 @@ CONTAINS
       !> Reports one `ALREAD` I/O failure as fatal.
       !>
       !> This contained helper host-associates `OUNIT` from [[ALREAD]] and calls
-      !> [[sglobal:ERROR]] with `FFFATAL`, the supplied legacy error identifier,
+      !> [[sglobal:ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
       !> no element/cell context, and the already formatted message. `ERROR`
       !> terminates normal execution for fatal severity.
       !>
@@ -1345,7 +1346,7 @@ CONTAINS
          INTEGER(kind=I_P), INTENT(IN) :: err_id !! Legacy error code passed to `ERROR`.
          CHARACTER(LEN=*), INTENT(IN) :: err_msg !! Fully formatted diagnostic text.
 
-         CALL ERROR(FFFATAL, err_id, OUNIT, 0, 0, err_msg)
+         CALL ERROR(ERRLVL_fatal, err_id, OUNIT, 0, 0, err_msg)
       END SUBROUTINE throw_fatal
 
    END SUBROUTINE ALREAD
@@ -1384,7 +1385,7 @@ CONTAINS
    SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)
 
       ! Assumed external module dependencies providing global kinds/variables:
-      ! I_P, FFFATAL, HEAD0_alred2, ERROR
+      ! I_P, ERRLVL_fatal, HEAD0_alred2, ERROR
 
       IMPLICIT NONE
 
@@ -1416,7 +1417,7 @@ CONTAINS
          ! Check that input file is open
          IF (.NOT. BOPEN) THEN
             WRITE (MSG, 9000) LINE, 'not open', IUNIT
-            CALL ERROR (FFFATAL, 4, OUNIT, 0, 0, MSG)
+            CALL ERROR (ERRLVL_fatal, 4, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1484,7 +1485,7 @@ CONTAINS
       READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
       IF (INDEX (HEAD, LINE)  == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       ENDIF
 
       !  Read character data
@@ -1498,11 +1499,11 @@ CONTAINS
 
       ! Title line read error
 8010  WRITE (MSG, 9801) LINE, HEAD0_alredc
-      CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
+      CALL ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
 
       ! Char data error
 8100  WRITE (MSG, 9810) 'character', HEAD
-      CALL ERROR (FFFATAL, 5, OUNIT, 0, 0, MSG)
+      CALL ERROR (ERRLVL_fatal, 5, OUNIT, 0, 0, MSG)
 
 
       ! Format ---------------------------------------------------------------
@@ -1542,7 +1543,7 @@ CONTAINS
    SUBROUTINE ALREDF (FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
-      ! I_P, R8P, WWWARN, FFFATAL, HEAD0_alredf, ERROR
+      ! I_P, R8P, ERRLVL_warn, ERRLVL_fatal, HEAD0_alredf, ERROR
 
       IMPLICIT NONE
 
@@ -1572,13 +1573,13 @@ CONTAINS
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredf
-         CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
 
       IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       END IF
 
       ! Read floating-point data
@@ -1590,7 +1591,7 @@ CONTAINS
          IF (ios /= 0) THEN
             ! Real data error
             WRITE (MSG, 9810) 'floating-point', HEAD
-            CALL ERROR (FFFATAL, 7, OUNIT, 0, 0, MSG)
+            CALL ERROR (ERRLVL_fatal, 7, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1602,7 +1603,7 @@ CONTAINS
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Real grid error (or index mismatch)
                WRITE (MSG, 9842) 'floating-point', IY, HEAD
-               CALL ERROR (FFFATAL, 11, OUNIT, 0, 0, MSG)
+               CALL ERROR (ERRLVL_fatal, 11, OUNIT, 0, 0, MSG)
                RETURN
             END IF
          END DO
@@ -1655,7 +1656,7 @@ CONTAINS
    SUBROUTINE ALREDI (FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
-      ! I_P, WWWARN, FFFATAL, HEAD0_alredi, ERROR
+      ! I_P, ERRLVL_warn, ERRLVL_fatal, HEAD0_alredi, ERROR
 
       IMPLICIT NONE
 
@@ -1686,13 +1687,13 @@ CONTAINS
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredi
-         CALL ERROR (FFFATAL, 3, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
 
       IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       END IF
 
       ! Read INTEGER(kind=I_P) data
@@ -1704,7 +1705,7 @@ CONTAINS
          IF (ios /= 0) THEN
             ! Integer data error
             WRITE (MSG, 9810) 'integer', HEAD
-            CALL ERROR (FFFATAL, 6, OUNIT, 0, 0, MSG)
+            CALL ERROR (ERRLVL_fatal, 6, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1723,7 +1724,7 @@ CONTAINS
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Integer grid error
                WRITE (MSG, 9842) 'integer', IY, HEAD
-               CALL ERROR (FFFATAL, 10, OUNIT, 0, 0, MSG)
+               CALL ERROR (ERRLVL_fatal, 10, OUNIT, 0, 0, MSG)
                RETURN
             END IF
          END DO
@@ -1785,7 +1786,7 @@ CONTAINS
       READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
       IF (INDEX (HEAD, LINE)  == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (WWWARN, 2, OUNIT, 0, 0, MSG)
+         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       ENDIF
 
       ! Read logical data
@@ -1799,11 +1800,11 @@ CONTAINS
 
       ! Title line read error
 8010  WRITE (MSG, 9801) LINE, HEAD0_ALREDL
-      CALL ERROR(FFFATAL, 3, OUNIT, 0, 0, MSG)
+      CALL ERROR(ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
 
       ! Logical data error
 8600  WRITE (MSG, 9810) 'logical', HEAD
-      CALL ERROR(FFFATAL, 14, OUNIT, 0, 0, MSG)
+      CALL ERROR(ERRLVL_fatal, 14, OUNIT, 0, 0, MSG)
 
 
       ! Format ---------------------------------------------------------------
@@ -1928,7 +1929,7 @@ CONTAINS
 
         !   I = IEEE_HANDLER( 'set', 'common', ABORT )
         I = 0
-        IF (I .NE. 0) CALL ERROR(WWWARN, 13, OUT, 0, 0,                         &
+        IF (I .NE. 0) CALL ERROR(ERRLVL_warn, 13, OUT, 0, 0,                         &
                            'Could not set traps for floating-point exceptions')
 
         RETURN
