@@ -90,7 +90,7 @@ PROGRAM SHETRAN
    USE mod_load_filedata, ONLY : ALTRAP
 
    ! Cross-platform command-line and directory handling.
-   USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH
+   USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH, RUNDATA_FROM_FILE_DIALOG
 
    ! Rundata-controlled file setup and framework output.
    USE FRmod, ONLY: FROPEN, &
@@ -147,7 +147,9 @@ PROGRAM SHETRAN
    CALL FINALISE_OCSIM_WORKSPACE()
 
    ! Program completion
-   ! added a delay to allow users to see the final output before the console window closes
-   if (casemode == '-a') CALL sleep(5000)
+   ! A run launched through the QuickWin file dialog owns the console window and
+   ! closes it on exit, so pause long enough for the final output to be read.
+   ! A run given its rundata file on the command line keeps its caller's console.
+   IF (rundata_from_file_dialog) CALL sleep(5000)
 
 END PROGRAM SHETRAN

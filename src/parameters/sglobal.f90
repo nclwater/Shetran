@@ -104,7 +104,7 @@ MODULE sglobal
    PUBLIC :: EARRAY, text32
    PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, i_iszero_a2, notzero, isone, notone
    PUBLIC :: idimje, dimje
-   PUBLIC :: error_mode, casemode
+   PUBLIC :: error_mode
 
    ! --------------------------------------------------------------------
    ! System Version and Banners
@@ -176,7 +176,6 @@ MODULE sglobal
    ! Run Mode Flags
    ! --------------------------------------------------------------------
    LOGICAL :: error_mode !! State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ALSTOP]].
-   CHARACTER(LEN=LENGTH_FILEPATH) :: casemode !! State whether the program should wait with exit at the end of the execution.
 
    ! --------------------------------------------------------------------
    ! Mathematical and Numerical Constants
