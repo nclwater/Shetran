@@ -40,7 +40,7 @@ MODULE OCmod
    USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
-   USE mod_error, ONLY: ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+   USE mod_error, ONLY: ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ALSTOP
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
                      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD, ONLY: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
@@ -1440,7 +1440,8 @@ CONTAINS
 
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, "('  ^^^   INCORRECT COORDINATE')")
-            STOP 'INCORRECT COORDINATE'
+            WRITE (*, '(A)') 'INCORRECT COORDINATE'
+            CALL ALSTOP(255)
          END IF
 
          I = I - 1

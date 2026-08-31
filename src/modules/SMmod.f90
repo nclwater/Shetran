@@ -48,6 +48,7 @@
 MODULE SMmod
    USE SGLOBAL
 !USE SGLOBAL, ONLY : NVEE
+   USE mod_error, ONLY : ALSTOP
    USE AL_C, ONLY : nvc, dtuz, ispack, nrd
    USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
       msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
@@ -447,10 +448,10 @@ CONTAINS
       NSMC(IEL) = NSMC(IEL) + 1
       NNC = NSMC(IEL)
       
-      ! Note: Consider replacing STOP with an ERROR flag to allow the host to shut down gracefully
+      ! Note: Consider replacing ALSTOP with an ERROR flag to allow the host to shut down gracefully
       IF (NSMC(IEL) > max_no_snowmelt_slugs) THEN
          WRITE (6, 30) NSMC(IEL), IEL
-         STOP
+         CALL ALSTOP(255)
       END IF
 
       ! ADD ANY RAINFALL TO SNOWMELT AND CONVERT TOTAL TO MM OF WATER

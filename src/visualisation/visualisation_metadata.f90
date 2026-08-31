@@ -610,7 +610,7 @@ CONTAINS
          PRINT*, 'KILLED RUN so visualisation plan can be checked'
          PRINT*, 'Look in output/check_visualisation_plan.txt'
          PRINT*
-         STOP
+         ERROR STOP
       ELSE
       ENDIF
       DO i=no_static_items+1,no_items

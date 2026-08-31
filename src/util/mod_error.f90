@@ -29,17 +29,18 @@
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-08-31 | SvB | - | Initial version, extracted from [[sglobal]] with the selectors, counters, and print unit renamed. |
+!> | 2026-08-31 | SvB | - | Split fatal from ordinary termination in `ALSTOP`, added `err_set_wait_on_exit`, and widened the help-line buffer to `LENGTH_LINE`. |
 !> @endhistory
 MODULE mod_error
 
-   USE MOD_PARAMETERS, ONLY : I_P, LENGTH_FILEPATH
+   USE MOD_PARAMETERS, ONLY : I_P, LENGTH_FILEPATH, LENGTH_LINE
    USE SGLOBAL, ONLY : UZNOW, EARRAY, rootdir, error_mode, &
       flag_runtime_reduction_errors, flag_runtime_reduction_e1060
 
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: ERROR, ALSTOP
+   PUBLIC :: ERROR, ALSTOP, err_set_wait_on_exit
    PUBLIC :: ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
    PUBLIC :: FID_logfile
    PUBLIC :: ERR_limit_error_codes
@@ -57,6 +58,7 @@ MODULE mod_error
    INTEGER(KIND=I_P), PARAMETER :: ERR_limit_error_codes = 100 !! Greatest error-code remainder represented in each module-group counter.
    INTEGER(KIND=I_P) :: error_counter(0:ERR_limit_error_codes, 0:3) = 0 !! Occurrence counts by error-code remainder and module group.
    INTEGER(KIND=I_P) :: error_counter_total = 0 !! Total number of errors and warnings recorded by `ERROR`.
+   LOGICAL :: flag_wait_on_exit = .FALSE. !! Whether `ALSTOP` waits for the user before terminating.
 
    ! --------------------------------------------------------------------
    ! Diagnostic output destinations
@@ -65,6 +67,32 @@ MODULE mod_error
    CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Help-directory fragment set to `/helpmessages` by each `ERROR` call.
 
 CONTAINS
+
+   !> summary: Selects whether [[mod_error:ALSTOP]] waits before terminating.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Intended for interactive launches, where the console window closes as
+   !> soon as the process exits and the user would otherwise never get to read
+   !> the final diagnostics. `error_mode` still overrides the request, so a run
+   !> started with `-error` stays noninteractive either way.
+   !>
+   !> @note
+   !> No current caller sets this flag, so `ALSTOP` does not yet wait on the
+   !> strength of it alone. Wiring it to the launch mode is pending.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_set_wait_on_exit(wait)
+      LOGICAL, INTENT(IN) :: wait !! `.TRUE.` requests a wait for user input before termination.
+
+      flag_wait_on_exit = wait
+   END SUBROUTINE err_set_wait_on_exit
+
+
 
    !> summary: Reports a SHETRAN diagnostic, records it, and terminates fatal runs.
    !>
@@ -144,8 +172,9 @@ CONTAINS
    !> @warning
    !> Summary lookup uses the launch working directory followed by
    !> `/helpmessages`, a forward slash, and a four-digit code with a `.txt`
-   !> extension; failed opens are silent, help lines are limited to 80
-   !> characters, and no `helpmessages` directory is present in this repository.
+   !> extension; failed opens are silent, help lines are limited to
+   !> `LENGTH_LINE` characters, and no `helpmessages` directory is present in
+   !> this repository.
    !> @endwarning
    !>
    !> @history
@@ -178,7 +207,7 @@ CONTAINS
 
       ! Local variables
       CHARACTER(LEN=256) :: FIL, fname !! Constructed help path and name queried for `OUT`.
-      CHARACTER(LEN=80)  :: HLPMSG !! One fixed-width help-file line.
+      CHARACTER(LEN=LENGTH_LINE) :: HLPMSG !! One help-file line.
 
       INTEGER(KIND=I_P) :: COUNT, ERRN, AMODL !! Summary count, code remainder, and component group.
       INTEGER(KIND=I_P) :: IO_STATUS !! Help-file open/read status.
@@ -306,15 +335,21 @@ CONTAINS
 
 
 
-   !> summary: Terminates the run after a fatal error.
+   !> summary: Terminates the run, distinguishing fatal from ordinary exits.
    !>
-   !> When `FLAG > 0`, writes a fatal-error message to standard output and then
-   !> stops. When `FLAG <= 0`, it returns without output or other action.
-   !> [[mod_error:ERROR]] is the only current caller and always passes `1` after
-   !> it has printed the fatal-error summary.
+   !> A positive `error_number` selects error termination through `ERROR STOP`,
+   !> so that the process reports a nonzero status to whatever launched it.
+   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:ERROR]]
+   !> passes `1` after it has printed the fatal-error summary; the
+   !> unrecoverable conditions detected directly in the process modules pass
+   !> `255`.
    !>
-   !> `error_mode` (the `-error` command-line option) suppresses the interactive
-   !> prompt so that scripted and batch runs stay noninteractive.
+   !> When `flag_wait_on_exit` has been set through
+   !> [[mod_error:err_set_wait_on_exit]], the routine prompts and blocks on
+   !> standard input first, so that an interactively launched console window
+   !> does not close before the diagnostics can be read. `error_mode` (the
+   !> `-error` command-line option) suppresses that wait unconditionally, which
+   !> keeps scripted and batch runs noninteractive.
    !>
    !> @history
    !> | Date | Author | Description |
@@ -323,20 +358,29 @@ CONTAINS
    !> | 2000-03-07 | SB | Removed the legacy IEEE calls for the v4g-pc version. |
    !> | 2026-03-28 | SvB | Converted `FLAG` to selected integer kind with input intent, replaced the legacy pause with an explicit prompt/read, and added the initial FORD block. |
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
-   !> | 2026-08-31 | SvB | Moved from [[sglobal]] to [[mod_error]]. |
+   !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
    !> @endhistory
-   SUBROUTINE ALSTOP (FLAG)
-      INTEGER(KIND=I_P), INTENT(IN) :: FLAG !! Termination flag; positive requests fatal error termination.
+   SUBROUTINE ALSTOP (error_number)
+      INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
 
-      IF (FLAG.GT.0) THEN
-         if (error_mode) then
-            STOP 'Program terminating due to fatal error'
-         else
+      LOGICAL :: is_fatal !! Whether to take the error-termination path.
+
+      is_fatal = .FALSE.
+      IF (PRESENT(error_number)) is_fatal = (error_number > 0)
+
+      IF (flag_wait_on_exit .AND. .NOT. error_mode) THEN
+         IF (is_fatal) THEN
             WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
-            READ(*,*)
-            STOP 'Program terminating due to fatal error'
-         endif
-      ENDIF
+         ELSE
+            WRITE(*, '(A)') 'Program will terminate. Press Enter to exit...'
+         END IF
+         READ(*, *)
+      END IF
+
+      IF (is_fatal) ERROR STOP 'Program terminating due to fatal error'
+
+      STOP 'Program terminating'
+
    END SUBROUTINE ALSTOP
 
 END MODULE mod_error

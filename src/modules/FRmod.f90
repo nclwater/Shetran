@@ -84,7 +84,7 @@ MODULE FRmod
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ALSTOP
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
@@ -1466,7 +1466,8 @@ CONTAINS
 
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, '("   ^^^   INCORRECT COORDINATE")')
-            STOP 1
+            WRITE (*, '(A)') 'INCORRECT COORDINATE'
+            CALL ALSTOP(255)
          END IF
 
          I = I - 1
@@ -1802,9 +1803,10 @@ CONTAINS
 !>
 !> The contained `read_rundata_record` helper consumes one complete physical
 !> record, so an empty record is distinct from EOF. `unit_context` labels read
-!> diagnostics; `stop_eof_error`, `stop_rundata_error`, and `stop_open_error`
-!> retain the legacy terminal messages. FORD lists these contained routines in
-!> the source page rather than emitting separate procedure pages.
+!> diagnostics; `stop_eof_error`, `stop_rundata_open_error`, and
+!> `stop_open_error` report the terminal messages and stop through
+!> [[mod_error:ALSTOP]]. FORD lists these contained routines in the source page
+!> rather than emitting separate procedure pages.
 !>
 !> @warning
 !> Optional ZQ unit 51 is opened using the filename exactly as read, unlike most
@@ -1851,7 +1853,7 @@ CONTAINS
       ismn = .TRUE.
 
       OPEN (2, FILE = FILNAM, STATUS = 'OLD', IOSTAT = ios)
-      IF (ios /= 0) CALL stop_rundata_error(CNAM)
+      IF (ios /= 0) CALL stop_rundata_open_error(FILNAM)
 
       FILNAM2 = join_path(DIRQQ, 'info_' // TRIM(CNAM) // '_SHETRAN_log.txt')
 
@@ -1909,7 +1911,7 @@ CONTAINS
                OPEN (I, FILE = FILNAM, IOSTAT = ios)
                IF (ios /= 0) THEN
                   WRITE (*,'(A,A)') ' Error opening the file ', TRIM(FILNAM)
-                  ERROR STOP
+                  CALL ALSTOP(255)
                END IF
 
                IF (I == 27) RESFIL = FILNAM
@@ -2064,7 +2066,7 @@ CONTAINS
 
          WRITE (ERROR_UNIT, '(A)') 'ERROR READING RUNDATA FILE '//TRIM(CNAM)// &
             ' ('//TRIM(context)//'): '//TRIM(message)
-         ERROR STOP 'RUNDATA READ ERROR'
+         CALL ALSTOP(255)
       END SUBROUTINE read_rundata_record
 
 
@@ -2094,21 +2096,24 @@ CONTAINS
       SUBROUTINE stop_eof_error(c_name)
          CHARACTER(LEN=*), INTENT(IN) :: c_name
          WRITE (*, '("UNEXPECTED -EOF- ON FILE ",A)') c_name
-         STOP 'ABNORMAL END'
+         CALL ALSTOP(255)
       END SUBROUTINE stop_eof_error
 
-!> @brief Reports failure to open the catchment rundata file and stops the run.
+!> @brief Reports failure to open the rundata file and stops the run.
+!>
+!> Takes the pathname that was actually opened, so that the message names the
+!> file the user can go and look at.
 !>
 !> @history
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
-!> | 2026-04-06 | SvB | Replaced the legacy branch to a shared terminal label. |
+!> | 2026-08-31 | SvB | Split from `stop_rundata_error`, which reported the catchment name instead of the path. |
 !> @endhistory
-      SUBROUTINE stop_rundata_error(c_name)
-         CHARACTER(LEN=*), INTENT(IN) :: c_name
-         WRITE (*, '("ERROR OPENING RUNDATA FILE ",A)') c_name
-         STOP 'ABNORMAL END'
-      END SUBROUTINE stop_rundata_error
+      SUBROUTINE stop_rundata_open_error(f_name)
+         CHARACTER(LEN=*), INTENT(IN) :: f_name
+         WRITE (*, '("Error opening the rundata file ",A)') TRIM(f_name)
+         CALL ALSTOP(255)
+      END SUBROUTINE stop_rundata_open_error
 
 !> @brief Reports failure to open an individual rundata-listed file and stops the run.
 !>
@@ -2120,7 +2125,7 @@ CONTAINS
       SUBROUTINE stop_open_error(f_name)
          CHARACTER(LEN=*), INTENT(IN) :: f_name
          WRITE (*, '("ERROR OPENING FILE ",A)') f_name
-         STOP 'ABNORMAL END'
+         CALL ALSTOP(255)
       END SUBROUTINE stop_open_error
 
    END SUBROUTINE FROPEN
@@ -2974,7 +2979,7 @@ CONTAINS
 
          WRITE(*, '(A)') message
          WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-         ERROR STOP
+         CALL ALSTOP(255)
       END SUBROUTINE stop_on_io_error
 
 
@@ -5369,7 +5374,7 @@ CONTAINS
             WRITE(FID_logfile, 314) TITLE, I2
 314         FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
                'LINE K= ', I5)
-            STOP
+            CALL ALSTOP(255)
          END IF
       END DO
 

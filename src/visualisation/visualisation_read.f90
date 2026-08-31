@@ -444,7 +444,7 @@ CONTAINS
       PRINT '(A)', TRIM(mess)
       IF (mess2 /= '') PRINT '(A)', TRIM(mess2)
       IF (mess3 /= '') PRINT '(A)', TRIM(mess3)
-      STOP
+      ERROR STOP
    END SUBROUTINE error_visualisation
 
 !> @brief Validates and preprocesses a plan into a compact parser stream.
