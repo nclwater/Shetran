@@ -57,12 +57,25 @@ MODULE mod_error
    INTEGER(KIND=I_P), PARAMETER :: ERRLVL_warn = 3 !! Warning severity passed to `ERROR`.
 
    ! --------------------------------------------------------------------
+   ! Diagnostic codes reported by the standardised status checks
+   !
+   ! These sit in the general library group (0000--0100), clear of the
+   ! codes 1--14 already issued by [[mod_load_filedata]].
+   ! --------------------------------------------------------------------
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_fileopen = 20 !! Code reported for a failed file open.
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_fileclose = 21 !! Code reported for a failed file close.
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_allocate = 22 !! Code reported for a failed allocation.
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_deallocate = 23 !! Code reported for a failed deallocation.
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_read = 24 !! Code reported for a failed read.
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_write = 25 !! Code reported for a failed write.
+
+   ! --------------------------------------------------------------------
    ! Error accounting
    ! --------------------------------------------------------------------
    INTEGER(KIND=I_P), PARAMETER :: ERR_limit_error_codes = 100 !! Greatest error-code remainder represented in each module-group counter.
    INTEGER(KIND=I_P) :: error_counter(0:ERR_limit_error_codes, 0:3) = 0 !! Occurrence counts by error-code remainder and module group.
    INTEGER(KIND=I_P) :: error_counter_total = 0 !! Total number of errors and warnings recorded by `ERROR`.
-   LOGICAL :: flag_wait_on_exit = .FALSE. !! Whether `ALSTOP` waits for the user before terminating.
+   LOGICAL :: flag_wait_on_exit = .FALSE. !! Whether `ERR_STOP` waits for the user before terminating.
 
    ! --------------------------------------------------------------------
    ! Diagnostic output destinations
@@ -95,6 +108,158 @@ CONTAINS
 
       flag_wait_on_exit = wait
    END SUBROUTINE err_set_wait_on_exit
+
+
+
+   !> summary: Standardised check for opening file return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for opening file return status.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_check_fileopenstatus(status, filename)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
+      CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being opened.
+
+      IF (status /= 0) THEN
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileopen, FID_logfile, 0, 0, &
+            'Error opening file: ' // TRIM(filename))
+      END IF
+   END SUBROUTINE err_check_fileopenstatus
+
+
+
+
+   !> summary: Standardised check for closing file return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for closing file return status.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_check_fileclosestatus(status, filename)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file closing.
+      CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being closed.
+
+      IF (status /= 0) THEN
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileclose, FID_logfile, 0, 0, &
+            'Error closing file: ' // TRIM(filename))
+      END IF
+   END SUBROUTINE err_check_fileclosestatus
+
+
+
+   !> summary: Standardised check for allocate memory return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for allocate memory return status.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_check_allocatememorystatus(status, location)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from allocate memory.
+      CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was allocated.
+
+      IF (status /= 0) THEN
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_allocate, FID_logfile, 0, 0, &
+            'Error allocating memory at ' // TRIM(location))
+      END IF
+   END SUBROUTINE err_check_allocatememorystatus
+
+
+
+
+   !> summary: Standardised check for deallocating memory return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for deallocating memory return status.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_check_deallocatememorystatus(status, variable, location)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from deallocate memory.
+      CHARACTER(LEN=*), INTENT(IN) :: variable !! Name of the variable being deallocated.
+      CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was deallocated.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
+
+      msg = 'Error deallocating memory for ' // TRIM(variable) // ' at ' // TRIM(location)
+
+      IF (status /= 0) THEN
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_deallocate, FID_logfile, 0, 0, TRIM(msg))
+      END IF
+   END SUBROUTINE err_check_deallocatememorystatus
+
+
+
+   !> summary: Standardised check for reading data return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for reading data return status.
+   !> For special end-of-file or end-of-record conditions, the caller should
+   !> check `status` and handle them before calling this routine.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_check_readstatus(status, location, filename, linenumber)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
+      CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the data was read.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name from which file this data was read.
+      INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: linenumber !! Line number in the file being read.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
+
+      msg = 'Error reading data at ' // TRIM(location)
+      IF (PRESENT(filename)) msg = TRIM(msg) // ' from file ' // TRIM(filename)
+      IF (PRESENT(linenumber)) msg = TRIM(msg) // ' at line ' // to_string(linenumber)
+
+      IF (status /= 0) THEN
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_read, FID_logfile, 0, 0, TRIM(msg))
+      END IF
+   END SUBROUTINE err_check_readstatus
+
+
+
+   !> summary: Standardised check for opening file return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for opening file return status.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-08-31 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE err_check_writestatus(status, location, filename)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
+      CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the data is supposed to be written to.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name of the file being written to.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
+
+      msg = 'Error writing data at ' // TRIM(location)
+      IF (PRESENT(filename)) msg = TRIM(msg) // ' to file ' // TRIM(filename)
+
+      IF (status /= 0) THEN
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_write, FID_logfile, 0, 0, TRIM(msg))
+      END IF
+   END SUBROUTINE err_check_writestatus
 
 
 
