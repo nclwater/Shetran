@@ -98,7 +98,7 @@
 MODULE VSmod
    USE SGLOBAL
    USE mod_load_filedata, ONLY : ALSPRD, ALREAD
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ALSTOP
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 !USE SGLOBAL,  ONLY :
    USE AL_G, ONLY : ICMREF, NX, NY, ICMXY, NGDBGN
    USE AL_C, ONLY : BHB, BFB, bexbk, DTUZ, deltaz, dummy, DHF, ESOILA, ERUZ, EEVAP, &
@@ -1141,9 +1141,9 @@ CONTAINS
       IF (NIT > NITMAX .AND. ELEVEL > 0) THEN
          errorcount = errorcount + 1
          IF (errorcount < errcntallowed) THEN
-            CALL ERROR (ELEVEL, 1036, FID_logfile, IEL, 0, 'Maximum iterations in VSS column solver')
+            CALL RAISE_ERROR (ELEVEL, 1036, FID_logfile, IEL, 0, 'Maximum iterations in VSS column solver')
          ELSE IF (errorcount == errcntallowed) THEN
-            CALL ERROR (ELEVEL, 1036, FID_logfile, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
+            CALL RAISE_ERROR (ELEVEL, 1036, FID_logfile, IEL, 0, '**** Last printout of the error message - maximum iterations error in VSS column solver *****')
          END IF
       END IF
 
@@ -1304,7 +1304,7 @@ CONTAINS
 
          ! Safe inline error trap replaces GOTO 8048
          IF (NRENUM > NELEE) THEN
-            CALL ERROR(ERRLVL_fatal, 1048, FID_logfile, 0, 0, 'Attempts to renumber cells have failed.')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1048, FID_logfile, 0, 0, 'Attempts to renumber cells have failed.')
             RETURN
          END IF
 
@@ -1600,11 +1600,11 @@ CONTAINS
                   ! Checking conditions and splitting cells
                   IF (NITOT == 0 .AND. NJTOT > 0) THEN
                      WRITE (MSG, 9200) JFA, JLYR
-                     IF (NRENUM == 1) CALL ERROR(ERRLVL_warn, 1053, FID_logfile, JEL, 0, MSG)
+                     IF (NRENUM == 1) CALL RAISE_ERROR(ERRLVL_warn, 1053, FID_logfile, JEL, 0, MSG)
 
                   ELSE IF (NJTOT == 0 .AND. NITOT > 0) THEN
                      WRITE (MSG, 9200) IFA, ILYR
-                     IF (NRENUM == 1) CALL ERROR(ERRLVL_warn, 1053, FID_logfile, IEL, 0, MSG)
+                     IF (NRENUM == 1) CALL RAISE_ERROR(ERRLVL_warn, 1053, FID_logfile, IEL, 0, MSG)
 
                   ELSE IF (NJTOT < NJMIN) THEN
                      BRENUM = .TRUE.
@@ -1613,7 +1613,7 @@ CONTAINS
                         IF (JVSALN(JEL, JL, JFA) /= 0) THEN
                            IF (BWARN) THEN
                               WRITE (MSG, 9300) JFA, JL
-                              CALL ERROR(ERRLVL_warn, 1037, FID_logfile, JEL, 0, MSG)
+                              CALL RAISE_ERROR(ERRLVL_warn, 1037, FID_logfile, JEL, 0, MSG)
                            END IF
                            NCELL = FNCELL(JL, JEL, JTOP)
                            NDUM = NCELL * NJMIN + NEXTRA + NJTOT / 2
@@ -1629,7 +1629,7 @@ CONTAINS
                         IF (JVSALN(IEL, IL, IFA) /= 0) THEN
                            IF (BWARN) THEN
                               WRITE (MSG, 9300) IFA, IL
-                              CALL ERROR(ERRLVL_warn, 1037, FID_logfile, IEL, 0, MSG)
+                              CALL RAISE_ERROR(ERRLVL_warn, 1037, FID_logfile, IEL, 0, MSG)
                            END IF
                            NCELL = FNCELL(IL, IEL, ITOP)
                            NDUM = NCELL * NIMIN + NEXTRA + NITOT / 2
@@ -1961,7 +1961,7 @@ CONTAINS
                ! * note: MSG for ILYR>0.and.JRANGE=0 is lost
                ! * if also JLYR>0.and.IRANGE=0
                IF (MSG /= ' ') THEN
-                  CALL ERROR(ERRLVL_error, 1038, FID_logfile, KEL, 0, MSG)
+                  CALL RAISE_ERROR(ERRLVL_error, 1038, FID_logfile, KEL, 0, MSG)
                   NVSERR = NVSERR + 1
                END IF
             END DO aqcon_loop
@@ -2299,7 +2299,7 @@ CONTAINS
 
       IF (IS_ERROR) THEN
          DRY = NINT(MAX(ZERO, MIN(PDUM, ONE)))
-         CALL ERROR(ERRLVL_fatal, 1034 + DRY, FID_logfile, IEL, ICL, 'soil property interpolation out of range '//WETDRY(DRY))
+         CALL RAISE_ERROR(ERRLVL_fatal, 1034 + DRY, FID_logfile, IEL, ICL, 'soil property interpolation out of range '//WETDRY(DRY))
       END IF
 
    END SUBROUTINE VSFUNC
@@ -2492,7 +2492,7 @@ CONTAINS
             IF (IELIN /= IEL) THEN
                NVSERR = NVSERR + 1
                WRITE (MSG, 9040) IEL
-               CALL ERROR (ERRLVL_error, 1041, FID_logfile, 0, 0, MSG)
+               CALL RAISE_ERROR (ERRLVL_error, 1041, FID_logfile, 0, 0, MSG)
                CALL ABORT_VSIN()
                RETURN
             END IF
@@ -2559,7 +2559,7 @@ CONTAINS
       !> from [[vsin]].
       SUBROUTINE ABORT_VSIN()
          WRITE (MSG, 9030) NVSERR
-         CALL ERROR(ERRLVL_fatal, 1040, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 1040, FID_logfile, 0, 0, MSG)
 
          ! Format statement scoped correctly to the internal subroutine
 9030     FORMAT(I4,' Errors have occurred in VSS data reading ', 'or initialisation.')
@@ -3039,7 +3039,7 @@ CONTAINS
                   IF (JVSDEL(IFA, ICL, IEL) /= 0) THEN
                      WRITE (*, '(A)') 'ERROR: Unfinished code for split cells in subroutine VSMB. ' // &
                         'Please contact the developers.'
-                     CALL ALSTOP(255)
+                     CALL ERR_STOP(255)
                   END IF
 
                   JCL = JVSACN(IFA, ICL, IEL)
@@ -3159,7 +3159,7 @@ CONTAINS
          CALL FINPUT(WLD, TIH, UZNOW, UZNEXT, WLLAST, WLTIME, RWELIN, NVSWL, WLNOW)
 
          IF (EQMARKER(WLTIME)) THEN
-            CALL ERROR(ERRLVL_fatal, 1042, FID_logfile, 0, 0, 'End of well abstraction file (WLD)')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1042, FID_logfile, 0, 0, 'End of well abstraction file (WLD)')
          END IF
       END IF
 
@@ -3168,7 +3168,7 @@ CONTAINS
          CALL FINPUT(LFB, TIH, UZNOW, UZNEXT, RLFLST, RLFTIM, RLFPRV, NVSLFT, RLFDUM)
 
          IF (EQMARKER(RLFTIM)) THEN
-            CALL ERROR(ERRLVL_fatal, 1043, FID_logfile, 0, 0, 'End of lateral flow boundary condition file (LFB)')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1043, FID_logfile, 0, 0, 'End of lateral flow boundary condition file (LFB)')
          END IF
 
          III = 1
@@ -3189,7 +3189,7 @@ CONTAINS
                      RLHNXT, NVSLHT, RLHDUM)
 
          IF (EQMARKER(RLHTIM)) THEN
-            CALL ERROR(ERRLVL_fatal, 1044, FID_logfile, 0, 0, 'End of lateral head boundary condition file (LHB)')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1044, FID_logfile, 0, 0, 'End of lateral head boundary condition file (LHB)')
          END IF
 
          III = 1
@@ -3210,7 +3210,7 @@ CONTAINS
                      RLGNXT, NVSLGT, RLGDUM)
 
          IF (EQMARKER(RLGTIM)) THEN
-            CALL ERROR(ERRLVL_fatal, 1052, FID_logfile, 0, 0, 'End of lateral head gradient boundary condition file (LGB)')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1052, FID_logfile, 0, 0, 'End of lateral head gradient boundary condition file (LGB)')
          END IF
 
          III = 1
@@ -3231,7 +3231,7 @@ CONTAINS
                      NVSBF, RBFNOW)
 
          IF (EQMARKER(RBFTIM)) THEN
-            CALL ERROR(ERRLVL_fatal, 1045, FID_logfile, 0, 0, 'End of column base flow boundary condition file (BFB)')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1045, FID_logfile, 0, 0, 'End of column base flow boundary condition file (BFB)')
          END IF
       END IF
 
@@ -3241,7 +3241,7 @@ CONTAINS
                      RBHNXT, NVSBH, RBHNOW)
 
          IF (EQMARKER(RBHTIM)) THEN
-            CALL ERROR(ERRLVL_fatal, 1046, FID_logfile, 0, 0, 'End of column base head boundary condition file (BHB)')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1046, FID_logfile, 0, 0, 'End of column base head boundary condition file (BHB)')
          END IF
       END IF
 
@@ -3420,7 +3420,7 @@ CONTAINS
             READ (VSD, *) ISDUM1
             IF (IS /= ISDUM1) THEN
                WRITE (MSG, 9030) IS
-               CALL ERROR(ERRLVL_fatal, 1051, FID_logfile, 0, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_fatal, 1051, FID_logfile, 0, 0, MSG)
             END IF
 
             DO I = 1, IVSNTB(IS)
@@ -3633,7 +3633,7 @@ CONTAINS
       ! check no. of category elements consistent with no. of individual elements
       IF (NCOUNT /= NELEM) THEN
          WRITE (MSG, 9000) NCOUNT
-         CALL ERROR(ERRLVL_fatal, 1032, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 1032, FID_logfile, 0, 0, MSG)
       END IF
 
       ! --- element data
@@ -3727,7 +3727,7 @@ CONTAINS
          IF (.NOT. BEXBK .AND. ICMREF(IEL, 1) /= 0) CYCLE check_done_loop
           IF (.NOT. BDONE_VSREAD(IEL)) THEN
             WRITE (MSG, 9020) IEL
-            CALL ERROR (ERRLVL_error, 1033, FID_logfile, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_error, 1033, FID_logfile, 0, 0, MSG)
          END IF
       END DO check_done_loop
 
@@ -4529,9 +4529,9 @@ CONTAINS
       IF (.NOT. g670) THEN
          errorcount2 = errorcount2 + 1
          IF (errorcount2 < errcntallowed) THEN
-            CALL ERROR(ERRLVL_error, 1039, FID_logfile, 0, 0, 'Maximum iterations in VSS global solver')
+            CALL RAISE_ERROR(ERRLVL_error, 1039, FID_logfile, 0, 0, 'Maximum iterations in VSS global solver')
          ELSE IF (errorcount2 == errcntallowed) THEN
-            CALL ERROR (ERRLVL_error, 1039, FID_logfile, 0, 0, '**** Last printout of the error message - maximum iterations in VSS global solver *****')
+            CALL RAISE_ERROR (ERRLVL_error, 1039, FID_logfile, 0, 0, '**** Last printout of the error message - maximum iterations in VSS global solver *****')
          END IF
       END IF
 
@@ -4785,7 +4785,7 @@ CONTAINS
             ! ... 4 (tabulated theta and Averjanov Kr)
             ELSE IF (IVSFLG(IS) == 4) THEN
                WRITE (*, '(A)') 'ERROR: Unfinished code for soil properties type 4.'
-               CALL ALSTOP(255)
+               CALL ERR_STOP(255)
             END IF
 
          END DO soil_loop

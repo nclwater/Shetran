@@ -48,7 +48,7 @@
 MODULE SMmod
    USE SGLOBAL
 !USE SGLOBAL, ONLY : NVEE
-   USE mod_error, ONLY : ALSTOP
+   USE mod_error, ONLY : ERR_STOP
    USE AL_C, ONLY : nvc, dtuz, ispack, nrd
    USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
       msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
@@ -369,16 +369,16 @@ CONTAINS
          ! High-Performance Fix: Pre-calculate the temperature ratio to avoid repeated division/subtraction
          TEMP_RATIO = (TS(IEL) / five) - three
          ESAT = (17.044d0 + TEMP_RATIO * (5.487d0 + TEMP_RATIO * (0.776d0 + TEMP_RATIO * (0.1063d0 + TEMP_RATIO * 0.003d0))))
-         
+
          PO = 1012.0d0 * (one - 0.0065d0 * ZGRUND(IEL) / 288.0d0) * 100.0d0
          Q = (0.62197d0 * ESAT) / ((PO / 1.0045d0) - (0.37803d0 * ESAT))
-         
+
          TEMP_RATIO = (TA(MS) / five) - three
          ESATA = (17.044d0 + TEMP_RATIO * (5.487d0 + TEMP_RATIO * (0.776d0 + TEMP_RATIO * (0.1063d0 + TEMP_RATIO * 0.003d0))))
-         
+
          EA = ESATA - VPD(MS)
          QA = (0.62197d0 * EA) / ((PO / 1.0045d0) - (0.37803d0 * EA))
-         
+
          ! MASS EVAPORATED (E) IN KG/S/M^^2
          E = RHOA * DN * (Q - QA)
 
@@ -422,7 +422,7 @@ CONTAINS
       IF (LTZERO(E) .AND. ISZERO(TS(IEL))) E = zero
       ! SNOWMELT CHANGES DEPTH BUT FREEZING DOES NOT
       IF (LTZERO(USM)) USM = zero
-      
+
       ! EVAPORATION LOSS ESM IN TIME DTUZ (MM OF SNOW)
       ESM = E * DTUZ / RHOS
       ! TOTAL LOSS FROM SNOWPACK TSM IN TIME DTUZ (MM OF SNOW)
@@ -447,11 +447,11 @@ CONTAINS
       ! NSMC IS NUMBER OF SLUGS OF MELTWATER STILL MOVING THROUGH SNOWPACK
       NSMC(IEL) = NSMC(IEL) + 1
       NNC = NSMC(IEL)
-      
-      ! Note: Consider replacing ALSTOP with an ERROR flag to allow the host to shut down gracefully
+
+      ! Note: Consider replacing ERR_STOP with an ERROR flag to allow the host to shut down gracefully
       IF (NSMC(IEL) > max_no_snowmelt_slugs) THEN
          WRITE (6, 30) NSMC(IEL), IEL
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END IF
 
       ! ADD ANY RAINFALL TO SNOWMELT AND CONVERT TOTAL TO MM OF WATER
@@ -492,7 +492,7 @@ CONTAINS
          IF (NCC > 0) THEN
             NSMC(IEL) = NSMC(IEL) - NCC
             KK = NSMC(IEL)
-            
+
             ! Performance Reversion: Explicit DO loop is faster for micro-arrays
             ! than building F90 array-slice dope vectors.
             IF (KK > 0) THEN
@@ -507,10 +507,10 @@ CONTAINS
 
       ! CONVERT SF TO MM OF SNOW / HOUR
       SF(IEL) = (SF(IEL) / DTUZ) * 3600.0d0
-      
+
       ! CONVERT pnsnow (mm) to PNET TO MM OF WATER / SEC
       pnet = pnsnow / dtuz
-      
+
       IF (GTZERO(SD(IEL))) THEN
          ISPACK(IEL) = .TRUE.
       ELSE
@@ -604,23 +604,23 @@ CONTAINS
       IF (ISZERO(SNDEP)) THEN
          ! No snowpack exists. Proceed to generic freezing/precipitation checks.
          CONTINUE
-         
+
       ELSE IF (SNDEP >= VHT(N)) THEN
          ! SNOW COVERS THE VEGETATION SO THERE IS NO CANOPY INTERCEPTION,
          ! NO EVAPOTRANSPIRATION AND NO SOIL EVAPORATION
          CPLAI = zero
-         
+
       ELSE
          ! 0 < SNDEP < VHT(N): Snow partially covers the vegetation.
          CPLAI = CPLAI * (VHT(N) - SNDEP) / VHT(N)
-         
+
          ! IS THE TEMPERATURE ABOVE FREEZING?
          IF (GTZERO(TA(MS))) THEN
             ! INTERCEPTION CALCULATIONS FOR TEMPERATURES ABOVE FREEZING
             ! ---------------------------------------------------------
             ! THERE IS EVAPOTRANSPIRATION AND INTERCEPTION (OF RAINFALL)
             ! WHICH MUST BE MODELLED BY SUBROUTINE ET.
-            ! IT IS ASSUMED THAT THERE IS NO CANOPY STORAGE OF SNOW TO BE 
+            ! IT IS ASSUMED THAT THERE IS NO CANOPY STORAGE OF SNOW TO BE
             ! MODELLED. IF THERE IS A SNOWPACK THERE IS NO SOIL EVAPORATION.
             NSMT = 1
             RETURN
@@ -633,7 +633,7 @@ CONTAINS
       ! PRECIPITATION FALLING ON THE CANOPY IS ASSUMED TO PASS
       ! WITHOUT DELAY THROUGH THE VEGETATION LAYER. IE THERE
       ! IS NO INTERCEPTION OR CANOPY STORAGE OF SNOW.
-      
+
       ! SNOWFALL (IN MM OF WATER) REACHING GROUND OR SNOWPACK
       pnsnow = precip_m_per_s(IEL) * 1000.0d0 * DTUZ
       CSTOLD = CSTORE(IEL)
@@ -643,7 +643,7 @@ CONTAINS
       AE = zero
       PE = zero
       K = NRD(N)
-      
+
       DO KK = 1, K
          S(KK) = zero
       END DO
@@ -700,48 +700,48 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       CALL INITIALISE_SMMOD()
-      
+
       MS = NMC(IEL)
 
       ! IF ET CALCULATIONS HAVE ALREADY BEEN CARRIED OUT AND
       ! TEMPERATURE IS ABOVE FREEZING (REQUIRING THE CONDITION NSMT = 1)
       IF (NSMT == 1) THEN
-         
+
          ! SNOWMELT CALCULATION IS REQUIRED IF A SNOWPACK EXISTS.
          ! (THE FOLLOWING CAN BE REACHED ONLY IF TEMPERATURE IS ABOVE FREEZING)
          IF (GTZERO(SD(IEL))) THEN
-            
+
             ! THERE IS STILL A SNOWPACK SO THERE IS NO SOIL EVAPORATION
             ESOIL = zero
-            
+
             ! addition by spa, 17/11/92. pnet output from et(iel) as a rate.
             ! Needs to be a depth for input into sm(iel).
             pnsnow = pnet * dtuz
-            
+
             ! CALL SNOWMELT ROUTINE
             CALL SM(IEL)
-            
+
          END IF
-         
+
       ELSE
-         
+
          ! IF ET CALCULATIONS HAVE NOT YET BEEN CARRIED OUT,
          ! IS THERE A SNOWPACK OR IS TEMPERATURE BELOW FREEZING?
          IF (GTZERO(SD(IEL)) .OR. LEZERO(TA(MS))) THEN
-            
+
             ! CALL ET ROUTINE FOR SNOW/FREEZING TEMPERATURES
             CALL SMET(IEL)
-            
+
          ELSE
-            
+
             ! NO SNOWPACK EXISTS AND TEMPERATURE IS ABOVE FREEZING
             NSMT = 1
-            
+
          END IF
-         
+
       END IF
 
       RETURN
    END SUBROUTINE SMIN
-   
+
 END MODULE SMmod

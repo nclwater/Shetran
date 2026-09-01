@@ -20,7 +20,7 @@
 !> @endhistory
 MODULE utilsmod
    USE SGLOBAL
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, FID_logfile, ALSTOP
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
    IMPLICIT NONE
@@ -414,7 +414,7 @@ CONTAINS
 
          WRITE (*, '(A)') ' There is a problem with a date that has been entered'
          WRITE (*, '(A,5(1x,I0))') 'The Year, month,day,hour,minute values entered are: ', kyear, kmth, kday, khour, kmin
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
 
       END IF
 
@@ -499,7 +499,7 @@ CONTAINS
 
       IF (m < 1) THEN
          WRITE(MSG, *) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
-         CALL ERROR(ERRLVL_fatal, 4820, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 4820, FID_logfile, 0, 0, MSG)
       END IF
 
       r = sd(m)
@@ -553,7 +553,7 @@ CONTAINS
 
       IF (r(3) == 0) THEN
          PRINT *, ' date trap -DAY'
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END IF
 
    END FUNCTION date_from_hour
@@ -1196,7 +1196,7 @@ CONTAINS
 !
       IF ((INUM > 0 .AND. INUM < 10) .AND. NX > 500) THEN
          WRITE (IOF, "(' ', 'NX greater than 500. Change I/O formats in AREADI', /, 'Program aborted.')")
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END IF
 
       IF (KON == 0 .OR. KON == 1) THEN
@@ -1209,13 +1209,13 @@ CONTAINS
                READ (INF, '(I7, 1X, 500I1)') I2, IA(1:NX, K)
                IF (I2 /= K) THEN
                   WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
-                  CALL ALSTOP(255)
+                  CALL ERR_STOP(255)
                END IF
             ELSE
                READ (INF, '(I7)') I2
                IF (I2 /= K) THEN
                   WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
-                  CALL ALSTOP(255)
+                  CALL ERR_STOP(255)
                END IF
                ! Note: Used list-directed read (*) as per your original commented-out line 30
                READ (INF, *) IA(1:NX, K)
@@ -1384,7 +1384,7 @@ CONTAINS
 
             IF (I2 /= K) THEN
                WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
-               CALL ALSTOP(255)
+               CALL ERR_STOP(255)
             END IF
 
             ! 1. Replaced implied DO loop with array slicing

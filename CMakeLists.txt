@@ -750,6 +750,7 @@ target_include_directories(SHETRAN PRIVATE
 target_link_libraries(SHETRAN PRIVATE
     ${HDF5_LIBRARIES}
     fortran_stdlib::fortran_stdlib_system
+    fortran_stdlib::fortran_stdlib_strings
 )
 
 target_compile_definitions(SHETRAN PRIVATE

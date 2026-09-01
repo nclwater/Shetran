@@ -40,7 +40,7 @@ MODULE OCmod
    USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
-   USE mod_error, ONLY: ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ALSTOP
+   USE mod_error, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
                      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD, ONLY: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
@@ -209,11 +209,11 @@ CONTAINS
          WRITE (MSG, '(A,6(A,I0))') 'Invalid OCSIM workspace dimensions:', &
             ' NX=', NX, ' NY=', NY, ' NROWF=', NROWF, ' NROWL=', NROWL, &
             ' MAX_SOLVER_ROW_WIDTH=', MAX_SOLVER_ROW_WIDTH, ' NEL=', total_no_elements
-         CALL ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, TRIM(MSG))
+         CALL RAISE_ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, TRIM(MSG))
       END IF
 
       IF (OCSIM_WORKSPACE%READY .OR. OCSIM_WORKSPACE_HAS_ALLOCATIONS()) THEN
-         CALL ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'OCSIM workspace initialised more than once')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'OCSIM workspace initialised more than once')
       END IF
 
       ! `GG` and `EE` share a `+1` storage offset: the quantity [[ocsim]] forms
@@ -244,7 +244,7 @@ CONTAINS
             ' MAX_ROW_WIDTH=', MAX_SOLVER_ROW_WIDTH, ' NEL=', total_no_elements, &
             ' allocator: ', TRIM(ALLOC_MESSAGE)
          CALL FINALISE_OCSIM_WORKSPACE()
-         CALL ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, TRIM(MSG))
+         CALL RAISE_ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, TRIM(MSG))
       END IF
 
       OCSIM_WORKSPACE%READY = .TRUE.
@@ -626,7 +626,7 @@ CONTAINS
             ICAT = IDUM(IELY)
             IF (ICAT < 0 .OR. ICAT > NOCHB) THEN
                IXER = IXER + 1
-               CALL ERROR(ERRLVL_error, 1020, FID_logfile, IELY, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, 1020, FID_logfile, IELY, 0, MSG)
             ELSE IF (ICAT > 0) THEN
                NOCBC = NOCBC + 1
                IF (NOCBC > NOCTAB) CYCLE
@@ -648,7 +648,7 @@ CONTAINS
             ICAT = IDUM(IELY)
             IF (ICAT < 0 .OR. ICAT > NOCFB) THEN
                IXER = IXER + 1
-               CALL ERROR(ERRLVL_error, 1021, FID_logfile, IELY, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, 1021, FID_logfile, IELY, 0, MSG)
             ELSE IF (ICAT > 0) THEN
                NOCBC = NOCBC + 1
                IF (NOCBC > NOCTAB) CYCLE
@@ -671,7 +671,7 @@ CONTAINS
             ICAT = IDUM(IELY)
             IF (ICAT < 0 .OR. ICAT > NOCPB) THEN
                IXER = IXER + 1
-               CALL ERROR(ERRLVL_error, 1022, FID_logfile, IELY, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, 1022, FID_logfile, IELY, 0, MSG)
             ELSE IF (ICAT > 0) THEN
                NOCBC = NOCBC + 1
                IF (NOCBC > NOCTAB) CYCLE
@@ -690,7 +690,7 @@ CONTAINS
             READ (OCD, *) ICAT, ADUM
             IF (ICAT /= I) THEN
                IXER = IXER + 1
-               CALL ERROR(ERRLVL_error, 1031, FID_logfile, IELY, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, 1031, FID_logfile, IELY, 0, MSG)
             ELSE
                DO IBC = IBC0 + 1, MIN(NOCBC, NOCTAB)
                   TEST = (NOCBCD(IBC, 4) == I)
@@ -786,7 +786,7 @@ CONTAINS
       IF (NOCBC > NOCTAB) THEN
          IXER = IXER + 1
          WRITE (MSG, "('Number of OC boundary conditions NOCBC =',I4,2X,'exceeds array size NOCTAB =',I4)") NOCBC, NOCTAB
-         CALL ERROR(ERRLVL_error, 1050, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_error, 1050, FID_logfile, 0, 0, MSG)
       END IF
 
       DO IBC = 1, MIN(NOCBC, NOCTAB)
@@ -795,7 +795,7 @@ CONTAINS
          IF (JBC /= IBC) THEN
             IXER = IXER + 1
             WRITE (MSG, "('Element has multiple OC boundary conditions (types',I2,' and',I2,')')") NOCBCD(IBC, 3), NOCBCD(JBC, 3)
-            CALL ERROR(ERRLVL_error, 1059, FID_logfile, IELY, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_error, 1059, FID_logfile, IELY, 0, MSG)
          END IF
       END DO
 
@@ -851,13 +851,13 @@ CONTAINS
             WRITE (MSG, '("File unit ",A," =",I4,1X,A)') NAME, IUNIT, 'is not connected to a file'
             ERRNUM = 1008
             IF (I == 0) OUNIT = 0
-            CALL ERROR(ERRLVL_error, ERRNUM, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_error, ERRNUM, OUNIT, 0, 0, MSG)
             NERR = NERR + 1
          ELSE IF (FORM /= 'FORMATTED') THEN
             WRITE (MSG, '("File unit ",A," =",I4,1X,A,1X,A)') NAME, IUNIT, 'has format type', FORM
             ERRNUM = 1009
             IF (I == 0) OUNIT = 0
-            CALL ERROR(ERRLVL_error, ERRNUM, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_error, ERRNUM, OUNIT, 0, 0, MSG)
             NERR = NERR + 1
          END IF
 
@@ -911,7 +911,7 @@ CONTAINS
       ! 4. Finish
       ! ---------
       IF (NERR > 0) THEN
-         CALL ERROR(ERRLVL_fatal, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1000, OUNIT, 0, 0, 'Error(s) detected while checking OC input variables & constants')
       END IF
 
    END SUBROUTINE OCCHK0
@@ -1012,7 +1012,7 @@ CONTAINS
       ! 3. Finish
       ! ---------
       IF (NERR > 0) THEN
-         CALL ERROR(ERRLVL_fatal, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking static OC input arrays')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking static OC input arrays')
       END IF
 
    END SUBROUTINE OCCHK1
@@ -1097,12 +1097,12 @@ CONTAINS
             IF (.NOT. BOPEN) THEN
                WRITE (MSG, 9100) NAME, IUNIT, 'is not connected to a file'
                ERRNUM = 1008
-               CALL ERROR(ERRLVL_error, ERRNUM, FID_logfile, 0, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, ERRNUM, FID_logfile, 0, 0, MSG)
                NERR = NERR + 1
             ELSE IF (FORM /= 'FORMATTED') THEN
                WRITE (MSG, 9100) NAME, IUNIT, 'has format type', FORM
                ERRNUM = 1009
-               CALL ERROR(ERRLVL_error, ERRNUM, FID_logfile, 0, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, ERRNUM, FID_logfile, 0, 0, MSG)
                NERR = NERR + 1
             END IF
          END IF
@@ -1154,7 +1154,7 @@ CONTAINS
 
       IF (NERR > 0) THEN
          ! sb 190522 negative strickler for surface storage
-         CALL ERROR(ERRLVL_warn, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking OC input data')
+         CALL RAISE_ERROR(ERRLVL_warn, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking OC input data')
          ! CALL ERROR(ERRLVL_fatal, 1000, FID_logfile, 0, 0, 'Error(s) detected while checking OC input data')
       END IF
 
@@ -1196,7 +1196,7 @@ CONTAINS
       END IF
 
       IF (EQMARKER(HOCNXT)) THEN
-         CALL ERROR(ERRLVL_fatal, 1007, FID_logfile, 0, 0, 'END OF OC HEAD BOUNDARY DATA')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1007, FID_logfile, 0, 0, 'END OF OC HEAD BOUNDARY DATA')
       END IF
 
       ! --- FLUX BOUNDARY ---
@@ -1206,7 +1206,7 @@ CONTAINS
       END IF
 
       IF (EQMARKER(QFNEXT)) THEN
-         CALL ERROR(ERRLVL_fatal, 1023, FID_logfile, 0, 0, 'END OF OC FLUX BOUNDARY DATA')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1023, FID_logfile, 0, 0, 'END OF OC FLUX BOUNDARY DATA')
       END IF
 
    END SUBROUTINE OCEXT
@@ -1371,7 +1371,7 @@ CONTAINS
 
       ! The row solver is allocated from the active topology after this call.
       IF (MAX_SOLVER_ROW_WIDTH <= 0) THEN
-         CALL ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'OC topology contains no active solver row')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'OC topology contains no active solver row')
       END IF
 
    END SUBROUTINE OCIND
@@ -1441,7 +1441,7 @@ CONTAINS
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, "('  ^^^   INCORRECT COORDINATE')")
             WRITE (*, '(A)') 'INCORRECT COORDINATE'
-            CALL ALSTOP(255)
+            CALL ERR_STOP(255)
          END IF
 
          I = I - 1
@@ -1538,7 +1538,7 @@ CONTAINS
 
       IF ((NDEFCT > NOCTAB) .OR. (NDEFCT < 0)) THEN
          WRITE (MSG, 9054) NDEFCT, NOCTAB
-         CALL ERROR(ERRLVL_error, 1054, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_error, 1054, FID_logfile, 0, 0, MSG)
          IXER = IXER + 1
       END IF
 
@@ -1573,7 +1573,7 @@ CONTAINS
       ! :OC35
       IF (g8055) THEN
          WRITE (MSG, 9055) IDEF, N, NOCTAB
-         CALL ERROR(ERRLVL_error, 1055, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_error, 1055, FID_logfile, 0, 0, MSG)
          IXER = IXER + 1
       ELSE
          READ (OCD, *)
@@ -1605,7 +1605,7 @@ CONTAINS
 
             IF ((IDEFX == 0) .OR. (IDEFX < -NDEFCT) .OR. TEST) THEN
                WRITE (MSG, 9012) IDEFX, -NDEFCT, NOCTAB
-               CALL ERROR(ERRLVL_error, 1012, FID_logfile, ielm, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_error, 1012, FID_logfile, ielm, 0, MSG)
                IXER = IXER + 1
 
                IF (TEST) THEN
@@ -1663,11 +1663,11 @@ CONTAINS
          RETURN
       ELSE IF (g8013) THEN
          WRITE (MSG, 9013) ielm, I
-         CALL ERROR(ERRLVL_error, 1013, FID_logfile, ielm, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_error, 1013, FID_logfile, ielm, 0, MSG)
          IXER = IXER + 1
       ELSE IF (g8300) THEN
          MSG = 'Channel input data is missing or has incorrect format'
-         CALL ERROR(ERRLVL_error, 1019, FID_logfile, ielm, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_error, 1019, FID_logfile, ielm, 0, MSG)
          IXER = IXER + 1
       END IF
 
@@ -1843,7 +1843,7 @@ CONTAINS
          IF (NCATR > NOCTAB .OR. NCATR < 0) THEN
             WRITE (MSG, '("Number of roughness categories NCATR =",I4,2X, &
 &                         "lies outside range 0:NOCTAB = 0 :",I4)') NCATR, NOCTAB
-            CALL ERROR(ERRLVL_fatal, 1047, FID_logfile, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 1047, FID_logfile, 0, 0, MSG)
          END IF
 
          IF (NCATR > 0) THEN
@@ -1917,7 +1917,7 @@ CONTAINS
 
       IF (IXER /= 0) THEN
          WRITE (MSG, 9412) IXER
-         CALL ERROR(ERRLVL_fatal, 1049, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 1049, FID_logfile, 0, 0, MSG)
       ELSE IF (BOUT) THEN
          WRITE (FID_logfile, 9500) 'no-flow'
          IF (NOCBC > 0) WRITE (FID_logfile, 9600) 'Index', 'Element', 'Face', &
@@ -2104,7 +2104,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       IF (.NOT. OCSIM_WORKSPACE%READY) THEN
-         CALL ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'OCSIM called before its workspace was initialised')
+         CALL RAISE_ERROR(ERRLVL_fatal, 1006, FID_logfile, 0, 0, 'OCSIM called before its workspace was initialised')
       END IF
 
       ASSOCIATE (AA => OCSIM_WORKSPACE%AA, DD => OCSIM_WORKSPACE%DD, &
@@ -2178,7 +2178,7 @@ CONTAINS
             ! Catch singular matrix inversion failure
             IF (ICOD == 1) THEN
                WRITE (MSG, '(A,I4)') 'Singular matrix at row', IROW
-               CALL ERROR(ERRLVL_fatal, 1018, FID_logfile, NROWEL(NROWST(IROW)), 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_fatal, 1018, FID_logfile, NROWEL(NROWST(IROW)), 0, MSG)
                RETURN
             END IF
 
@@ -2309,7 +2309,7 @@ CONTAINS
 
          IF (channel_blowup) THEN
             MSG = 'CHANNEL FLOWS EXCEED MAXIMUM ALLOWED'
-            CALL ERROR(ERRLVL_fatal, 1029, FID_logfile, iels, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 1029, FID_logfile, iels, 0, MSG)
          END IF
 
       END ASSOCIATE

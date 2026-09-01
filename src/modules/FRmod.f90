@@ -84,7 +84,7 @@ MODULE FRmod
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ALSTOP
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
@@ -1467,7 +1467,7 @@ CONTAINS
          IF (K /= I) THEN
             IF (BPCNTL) WRITE (IOF, '("   ^^^   INCORRECT COORDINATE")')
             WRITE (*, '(A)') 'INCORRECT COORDINATE'
-            CALL ALSTOP(255)
+            CALL ERR_STOP(255)
          END IF
 
          I = I - 1
@@ -1805,7 +1805,7 @@ CONTAINS
 !> record, so an empty record is distinct from EOF. `unit_context` labels read
 !> diagnostics; `stop_eof_error`, `stop_rundata_open_error`, and
 !> `stop_open_error` report the terminal messages and stop through
-!> [[mod_error:ALSTOP]]. FORD lists these contained routines in the source page
+!> [[mod_error:ERR_STOP]]. FORD lists these contained routines in the source page
 !> rather than emitting separate procedure pages.
 !>
 !> @warning
@@ -1911,7 +1911,7 @@ CONTAINS
                OPEN (I, FILE = FILNAM, IOSTAT = ios)
                IF (ios /= 0) THEN
                   WRITE (*,'(A,A)') ' Error opening the file ', TRIM(FILNAM)
-                  CALL ALSTOP(255)
+                  CALL ERR_STOP(255)
                END IF
 
                IF (I == 27) RESFIL = FILNAM
@@ -2066,7 +2066,7 @@ CONTAINS
 
          WRITE (ERROR_UNIT, '(A)') 'ERROR READING RUNDATA FILE '//TRIM(CNAM)// &
             ' ('//TRIM(context)//'): '//TRIM(message)
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END SUBROUTINE read_rundata_record
 
 
@@ -2096,7 +2096,7 @@ CONTAINS
       SUBROUTINE stop_eof_error(c_name)
          CHARACTER(LEN=*), INTENT(IN) :: c_name
          WRITE (*, '("UNEXPECTED -EOF- ON FILE ",A)') c_name
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END SUBROUTINE stop_eof_error
 
 !> @brief Reports failure to open the rundata file and stops the run.
@@ -2112,7 +2112,7 @@ CONTAINS
       SUBROUTINE stop_rundata_open_error(f_name)
          CHARACTER(LEN=*), INTENT(IN) :: f_name
          WRITE (*, '("Error opening the rundata file ",A)') TRIM(f_name)
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END SUBROUTINE stop_rundata_open_error
 
 !> @brief Reports failure to open an individual rundata-listed file and stops the run.
@@ -2125,7 +2125,7 @@ CONTAINS
       SUBROUTINE stop_open_error(f_name)
          CHARACTER(LEN=*), INTENT(IN) :: f_name
          WRITE (*, '("ERROR OPENING FILE ",A)') f_name
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END SUBROUTINE stop_open_error
 
    END SUBROUTINE FROPEN
@@ -2806,7 +2806,7 @@ CONTAINS
 
          CHARACTER(LEN=32) :: stamp
          DOUBLE PRECISION  :: elapsed
-         
+
          CHARACTER(len=32), DIMENSION(:),allocatable :: buf
          CHARACTER(len=32) :: bufdis
          SAVE buf
@@ -2817,7 +2817,7 @@ CONTAINS
 
          elapsed = output_hour * TOUTPUT
          stamp   = timestamp_from_output_hour(output_hour)
-         
+
          write(bufdis,'(F20.5)') discharge
          bufdis = adjustl(bufdis)
          if (ISextradis) then
@@ -2829,7 +2829,7 @@ CONTAINS
           else
             WRITE(dis,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',',trim(bufdis)
           endif
-  
+
           if (bexsy) then
               write(bufdis,'(F20.5)') sediment
               bufdis = adjustl(bufdis)
@@ -2979,7 +2979,7 @@ CONTAINS
 
          WRITE(*, '(A)') message
          WRITE(*, '(A)') 'Check it is not open in other software (e.g. Excel)'
-         CALL ALSTOP(255)
+         CALL ERR_STOP(255)
       END SUBROUTINE stop_on_io_error
 
 
@@ -2998,7 +2998,7 @@ CONTAINS
          INTEGER,          INTENT(IN) :: error_code
          CHARACTER(LEN=*), INTENT(IN) :: message
 
-         IF (io_status /= 0) CALL ERROR(ERRLVL_fatal, error_code, FID_logfile, 0, 0, message)
+         IF (io_status /= 0) CALL RAISE_ERROR(ERRLVL_fatal, error_code, FID_logfile, 0, 0, message)
       END SUBROUTINE fatal_on_io_error
 
    END SUBROUTINE FROUTPUT
@@ -3967,7 +3967,7 @@ CONTAINS
             ! +++++++++++++++++++++++++++++++++++++++++
          ELSE IF (INTYPE == 3) THEN
             ! :BK7-8
-            CALL ERROR(ERRLVL_fatal, 1061, FID_logfile, 0, 0, 'BKD input type 3 (data class, value) not supported')
+            CALL RAISE_ERROR(ERRLVL_fatal, 1061, FID_logfile, 0, 0, 'BKD input type 3 (data class, value) not supported')
 
             ! TYPE 4: READ PAIRS OF (BANK ELEMENT NUMBER, VALUE)
             ! ++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -5045,21 +5045,21 @@ CONTAINS
       !    READ IN METEOROLOGICAL DATA
       IF (BMETAL) THEN
          READ(PRD, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1063, FID_logfile, 0, 0, 'no data in prd file')
+         IF (ios /= 0) CALL RAISE_ERROR(ERRLVL_fatal, 1063, FID_logfile, 0, 0, 'no data in prd file')
 
          READ(EPD, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1064, FID_logfile, 0, 0, 'no data in epd file')
+         IF (ios /= 0) CALL RAISE_ERROR(ERRLVL_fatal, 1064, FID_logfile, 0, 0, 'no data in epd file')
       ELSE
          READ(MED, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1065, FID_logfile, 0, 0, 'no data in med file')
+         IF (ios /= 0) CALL RAISE_ERROR(ERRLVL_fatal, 1065, FID_logfile, 0, 0, 'no data in med file')
       END IF
 
       IF (ISTA) THEN
          READ(TAH, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1066, FID_logfile, 0, 0, 'no data in air temp - high file')
+         IF (ios /= 0) CALL RAISE_ERROR(ERRLVL_fatal, 1066, FID_logfile, 0, 0, 'no data in air temp - high file')
 
          READ(TAL, *, IOSTAT=ios)
-         IF (ios /= 0) CALL ERROR(ERRLVL_fatal, 1067, FID_logfile, 0, 0, 'no data in air temp - low file')
+         IF (ios /= 0) CALL RAISE_ERROR(ERRLVL_fatal, 1067, FID_logfile, 0, 0, 'no data in air temp - low file')
       END IF
 
    END SUBROUTINE INET
@@ -5151,16 +5151,16 @@ CONTAINS
       WRITE(FID_logfile, 17) BANNER
 17    FORMAT(/A80/)
 
-      write(FID_logfile,*) 
-      write(FID_logfile,*) 
+      write(FID_logfile,*)
+      write(FID_logfile,*)
       write(FID_logfile,'(A)') ' SHETRAN file folder = '
-      write(FID_logfile,'(1X,A)') DIRQQ 
+      write(FID_logfile,'(1X,A)') DIRQQ
       write(FID_logfile,'(A)') ' SHETRAN rundata name = '
       write(FID_logfile,'(A)') ' rundata_'//trim(cnam)//'.txt'
-      write(FID_logfile,*) 
-      write(FID_logfile,*) 
-      write(FID_logfile,*) 
-      
+      write(FID_logfile,*)
+      write(FID_logfile,*)
+      write(FID_logfile,*)
+
 ! READ AND PRINT JOB TITLE.
       ! :FR1
       WRITE(FID_logfile, '(A)') 'Catchment Name '
@@ -5374,7 +5374,7 @@ CONTAINS
             WRITE(FID_logfile, 314) TITLE, I2
 314         FORMAT (//2X, 'ERROR IN DATA ', 20A4, //2X, 'IN THE VICINITY OF ', &
                'LINE K= ', I5)
-            CALL ALSTOP(255)
+            CALL ERR_STOP(255)
          END IF
       END DO
 
@@ -5862,7 +5862,7 @@ CONTAINS
 
       ! 2. Epilogue
       IF (NERR > 0) THEN
-         CALL ERROR(ERRLVL_fatal, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
+         CALL RAISE_ERROR(ERRLVL_fatal, 2107, CPR, 0, 0, 'Error(s) detected while checking static/initial interface')
       END IF
 
    END SUBROUTINE MUERR2

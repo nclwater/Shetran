@@ -86,7 +86,7 @@
 !> @endhistory
 MODULE visualisation_interface_left
    USE SGLOBAL, ONLY    : dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf=>total_no_links
-   USE mod_error, ONLY  : ERROR, ERRLVL_fatal, FID_logfile
+   USE mod_error, ONLY  : RAISE_ERROR, ERRLVL_fatal, FID_logfile
    USE AL_C, ONLY       : cmd, draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, syd, wberr
    USE AL_C, ONLY       : deltaz, esoila, qvsv, vspsi, vsthe, zvspsl
    USE AL_D, ONLY       : bexcm, bexsy, cstore, dxin, dyin, einta, epot, erza, sd
@@ -493,7 +493,7 @@ CONTAINS
          IF (ios /= 0) THEN
             mess = 'failed to find line :CM3 in contaminant data file'
             mess = 'GET_NCON_EARLY ' // TRIM(mess)
-            CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
+            CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
             RETURN
          END IF
 
@@ -503,7 +503,7 @@ CONTAINS
             IF (ios /= 0) THEN
                mess = 'failed to read NCON '
                mess = 'GET_NCON_EARLY ' // TRIM(mess)
-               CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
+               CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
                RETURN
             END IF
 
@@ -546,7 +546,7 @@ CONTAINS
          IF (ios /= 0) THEN
             mess = 'failed to find line :SY11 in sediment data file'
             mess = 'GET_NSED_EARLY ' // TRIM(mess)
-            CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
+            CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
             RETURN
          END IF
 
@@ -556,7 +556,7 @@ CONTAINS
             IF (ios /= 0) THEN
                mess = 'failed to read NSED '
                mess = 'GET_NSED_EARLY ' // TRIM(mess)
-               CALL ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
+               CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
                RETURN
             END IF
 

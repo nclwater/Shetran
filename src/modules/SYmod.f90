@@ -109,7 +109,7 @@ MODULE SYmod
    USE SGLOBAL
 !USE AL_P
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
    USE UTILSMOD, ONLY : DCOPY
    USE CONST_SY
 
@@ -1720,7 +1720,7 @@ CONTAINS
    ! -----------
 
       IF (NERR > 0) THEN
-         CALL ERROR(ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking WAT-SY interface variables')
+         CALL RAISE_ERROR(ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking WAT-SY interface variables')
       END IF
 
    END SUBROUTINE SYERR0
@@ -2042,7 +2042,7 @@ CONTAINS
    ! 6. Epilogue
    ! -----------
       IF (NERR > 0) THEN
-         CALL ERROR(ERRLVL_fatal, 2001, SPR, 0, 0, 'Error(s) detected while checking static/initial WAT-SY interface')
+         CALL RAISE_ERROR(ERRLVL_fatal, 2001, SPR, 0, 0, 'Error(s) detected while checking static/initial WAT-SY interface')
       END IF
 
    END SUBROUTINE SYERR1
@@ -2407,7 +2407,7 @@ CONTAINS
       ! 7. Epilogue
       ! -----------
       !
-      IF (NERR > 0) CALL ERROR (ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking SY input data')
+      IF (NERR > 0) CALL RAISE_ERROR (ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking SY input data')
 
    END SUBROUTINE SYERR2
 
@@ -2644,7 +2644,7 @@ CONTAINS
             WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC (IEL, FACE), IEL = 1, NEL)
          END DO
    !
-         CALL ERROR (ERRLVL_error, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
+         CALL RAISE_ERROR (ERRLVL_error, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
    !
       END IF
 
@@ -4107,7 +4107,7 @@ CONTAINS
       !     * [miss off last character to allow eg '3.4.1' is ok in '3.4.1a' ]
       IF (INDEX (SYDVER, SYVER (:LEN (SYVER) - 1) ) == 0) THEN
          WRITE (MSG, 9011) SYVER, SYDVER
-         CALL ERROR (ERRLVL_warn, 2011, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_warn, 2011, SPR, 0, 0, MSG)
       ELSE
          WRITE (SPR, '(4X,2A/)') 'SY Module Version ', SYVER
       END IF
@@ -4120,7 +4120,7 @@ CONTAINS
       NREQ = 8
       IF (NELEE < NREQ) THEN
          WRITE (MSG, 9005) NELEE, NREQ
-         CALL ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
       END IF
 
       !     * Integer
@@ -4141,7 +4141,7 @@ CONTAINS
 
       IF (NSED < 1 .OR. NSED > NSEDEE) THEN
          WRITE (MSG, 9006) NSED, NSEDEE
-         CALL ERROR (ERRLVL_fatal, 2006, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 2006, SPR, 0, 0, MSG)
       END IF
 
       !     * Floating-point
@@ -4167,7 +4167,7 @@ CONTAINS
       NREQ = MAX (MAX (5, NSED) * NS, 3 * NV)
       IF (NELEE < NREQ) THEN
          WRITE (MSG, 9005) NELEE, NREQ
-         CALL ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
       END IF
 
       !     * Sediment
@@ -4265,14 +4265,14 @@ CONTAINS
       IF (NSYB > 0) THEN
          IF (NSYB > NSYBEE) THEN
             WRITE (MSG, 9007) NSYB, NSYBEE
-            CALL ERROR (ERRLVL_fatal, 2007, SPR, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_fatal, 2007, SPR, 0, 0, MSG)
          END IF
 
          ! * Check workspace array size: part 3
          NREQ = MAX (3 * NSYB, NSED * NSYC (1), NSED * 2 * NSYC (3) )
          IF (NELEE < NREQ) THEN
             WRITE (MSG, 9005) NELEE, NREQ
-            CALL ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
          END IF
 
          ! * Integer boundary data
@@ -4286,7 +4286,7 @@ CONTAINS
 
             IF (ITYPE < 1 .OR. ITYPE > 4) THEN
                WRITE (MSG, 9008) BB, ITYPE
-               CALL ERROR (ERRLVL_fatal, 2008, SPR, 0, 0, MSG)
+               CALL RAISE_ERROR (ERRLVL_fatal, 2008, SPR, 0, 0, MSG)
             END IF
 
             ! * condense 4 into 2 by adding cats 2 & 4 to lists for 1 & 3
@@ -4302,7 +4302,7 @@ CONTAINS
          IF (NC > 0) THEN
             IF (NC > NSYCEE) THEN
                WRITE (MSG, 9009) NSYC (1), NSYCEE
-               CALL ERROR (ERRLVL_fatal, 2009, SPR, 0, 0, MSG)
+               CALL RAISE_ERROR (ERRLVL_fatal, 2009, SPR, 0, 0, MSG)
             END IF
 
             CALL ALREAD (3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, IDUM, DUMMY)
@@ -4316,7 +4316,7 @@ CONTAINS
          IF (NC > 0) THEN
             IF (NC > NSYCEE) THEN
                WRITE (MSG, 9010) NSYC (3), NSYCEE
-               CALL ERROR (ERRLVL_fatal, 2010, SPR, 0, 0, MSG)
+               CALL RAISE_ERROR (ERRLVL_fatal, 2010, SPR, 0, 0, MSG)
             END IF
 
             CALL ALREAD (3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, CDUM, IDUM, DUMMY)

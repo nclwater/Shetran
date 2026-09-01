@@ -72,7 +72,7 @@ MODULE ETmod
       NSMT, S, TIMEUZ, BWIDTH, &
       sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
    USE mod_load_filedata,    ONLY : ALCHK
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
    USE UTILSMOD, ONLY : DCOPY
    USE SMmod,    ONLY : SMIN, &
       smelt, tmelt !THESE NEEDED ONLY FOR AD
@@ -392,7 +392,7 @@ CONTAINS
          !---------PE MUST BE CALCULATED USING PENMAN EQUATION
          IF (RA (N) <= ZERO) THEN
             WRITE(msg, '(A,I0,A,I0,A,ES24.16E3)') 'invalid aerodynamic resistance in ET: IEL=', IEL, ' N=', N, ' RA=', RA(N)
-            CALL ERROR(ERRLVL_fatal, 4998, FID_logfile, IEL, 0, msg)
+            CALL RAISE_ERROR(ERRLVL_fatal, 4998, FID_logfile, IEL, 0, msg)
          END IF
          TOP = MAX (ZERO, RN (MS) * DEL (MS) + RHO * CP * VPD (MS) / RA (N))
          !         TOP = TOP * 1D3 / densityOfWater   is implied!
@@ -506,7 +506,7 @@ CONTAINS
          K = top_cell_no
          WRITE(msg,'(A)') 'root zone extends below aquifer bed. Values below aquifer bed are ignored'
          IF (first) THEN
-            CALL ERROR(ERRLVL_warn, 4999, FID_logfile, 0, 0, msg)
+            CALL RAISE_ERROR(ERRLVL_warn, 4999, FID_logfile, 0, 0, msg)
             first = .FALSE.
          END IF
       END IF
@@ -658,7 +658,7 @@ CONTAINS
       CALL ALCHK (ERR, 1062, PRI, 1, NV, IUNDEF, IUNDEF, 'RDL(veg)', &
          'EQ', ZERO1, ZERO , RDL, NERR, LDUM1)
 
-      IF (NERR.GT.0) CALL ERROR(ERRLVL_fatal, 1000, PRI, 0, 0, 'Error(s) detected while checking ET input data')
+      IF (NERR.GT.0) CALL RAISE_ERROR(ERRLVL_fatal, 1000, PRI, 0, 0, 'Error(s) detected while checking ET input data')
    END SUBROUTINE ETCHK2
 
 

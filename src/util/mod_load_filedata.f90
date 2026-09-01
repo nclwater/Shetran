@@ -58,7 +58,7 @@
 MODULE mod_load_filedata
 
    USE SGLOBAL
-   USE mod_error, ONLY : ERROR, ERRLVL_fatal, ERRLVL_warn
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn
    use mod_parameters
 
    IMPLICIT NONE
@@ -196,7 +196,7 @@ CONTAINS
       ! Invalid Option
       IF (NUM_CATEGORIES_TYPES < MINCAT) THEN
          WRITE (MSG, 9001) NUM_CATEGORIES_TYPES, LINE
-         CALL ERROR (ERRLVL_fatal, 1, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 1, OUNIT, 0, 0, MSG)
 
       ! Special Case: Return to Caller
       ELSE IF (NUM_CATEGORIES_TYPES < 0) THEN
@@ -261,7 +261,7 @@ CONTAINS
                   ! error if out of bounds
                   IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                      WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-                     CALL ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
+                     CALL RAISE_ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
                   END IF
 
                   DO I2 = 1, N2
@@ -284,7 +284,7 @@ CONTAINS
                      ! error if out of bounds
                      IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
                         WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-                        CALL ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
+                        CALL RAISE_ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
                      END IF
 
                      DO I2 = 1, N2
@@ -298,7 +298,7 @@ CONTAINS
       ! Insufficient Workspace
       ELSE
          WRITE (MSG, 9008) NUM_CATEGORIES_TYPES, LINE, N2 * NUM_CATEGORIES_TYPES
-         CALL ERROR (ERRLVL_fatal, 8, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 8, OUNIT, 0, 0, MSG)
       END IF
       !
       !
@@ -414,7 +414,7 @@ CONTAINS
                ICAT = IDUM (XY0 + X)
 
                IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
-                  CALL ERROR (ERRLVL_fatal, 3090, OUNIT, 0, 0, &
+                  CALL RAISE_ERROR (ERRLVL_fatal, 3090, OUNIT, 0, 0, &
                               'Error in ALALLI -reading spatially distributed category types')
                END IF
 
@@ -738,12 +738,12 @@ CONTAINS
          ! print the first occurrence ...
          rrr = SB  !AD
          WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, rrr, (IX (P), P = 1, NDIM)
-         CALL ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
 
          IF (COUNT1 > 1) THEN
             ! ... and allude to any others
             WRITE (MSG, 9010) COUNT1 - 1
-            CALL ERROR (0, 12, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR (0, 12, OUNIT, 0, 0, MSG)
          END IF
       END IF
 
@@ -937,12 +937,12 @@ CONTAINS
          ! print the first occurrence ...
          iii = SB !AD
          WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, iii, (IX (P), P = 1, NDIM)
-         CALL ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
 
          IF (COUNT1 > 1) THEN
             ! ... and allude to any others
             WRITE (MSG, 9010) COUNT1 - 1
-            CALL ERROR (0, 12, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR (0, 12, OUNIT, 0, 0, MSG)
          END IF
       END IF
 
@@ -1187,7 +1187,7 @@ CONTAINS
 
          IF (INDEX (HEAD, LINE) == 0) THEN
             WRITE (MSG, 9002) LINE, HEAD
-            CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
          END IF
 
       ELSE
@@ -1346,7 +1346,7 @@ CONTAINS
          INTEGER(kind=I_P), INTENT(IN) :: err_id !! Legacy error code passed to `ERROR`.
          CHARACTER(LEN=*), INTENT(IN) :: err_msg !! Fully formatted diagnostic text.
 
-         CALL ERROR(ERRLVL_fatal, err_id, OUNIT, 0, 0, err_msg)
+         CALL RAISE_ERROR(ERRLVL_fatal, err_id, OUNIT, 0, 0, err_msg)
       END SUBROUTINE throw_fatal
 
    END SUBROUTINE ALREAD
@@ -1417,7 +1417,7 @@ CONTAINS
          ! Check that input file is open
          IF (.NOT. BOPEN) THEN
             WRITE (MSG, 9000) LINE, 'not open', IUNIT
-            CALL ERROR (ERRLVL_fatal, 4, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_fatal, 4, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1485,7 +1485,7 @@ CONTAINS
       READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
       IF (INDEX (HEAD, LINE)  == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       ENDIF
 
       !  Read character data
@@ -1499,11 +1499,11 @@ CONTAINS
 
       ! Title line read error
 8010  WRITE (MSG, 9801) LINE, HEAD0_alredc
-      CALL ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+      CALL RAISE_ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
 
       ! Char data error
 8100  WRITE (MSG, 9810) 'character', HEAD
-      CALL ERROR (ERRLVL_fatal, 5, OUNIT, 0, 0, MSG)
+      CALL RAISE_ERROR (ERRLVL_fatal, 5, OUNIT, 0, 0, MSG)
 
 
       ! Format ---------------------------------------------------------------
@@ -1573,13 +1573,13 @@ CONTAINS
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredf
-         CALL ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
 
       IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       END IF
 
       ! Read floating-point data
@@ -1591,7 +1591,7 @@ CONTAINS
          IF (ios /= 0) THEN
             ! Real data error
             WRITE (MSG, 9810) 'floating-point', HEAD
-            CALL ERROR (ERRLVL_fatal, 7, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_fatal, 7, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1603,7 +1603,7 @@ CONTAINS
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Real grid error (or index mismatch)
                WRITE (MSG, 9842) 'floating-point', IY, HEAD
-               CALL ERROR (ERRLVL_fatal, 11, OUNIT, 0, 0, MSG)
+               CALL RAISE_ERROR (ERRLVL_fatal, 11, OUNIT, 0, 0, MSG)
                RETURN
             END IF
          END DO
@@ -1687,13 +1687,13 @@ CONTAINS
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredi
-         CALL ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
 
       IF (INDEX (HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       END IF
 
       ! Read INTEGER(kind=I_P) data
@@ -1705,7 +1705,7 @@ CONTAINS
          IF (ios /= 0) THEN
             ! Integer data error
             WRITE (MSG, 9810) 'integer', HEAD
-            CALL ERROR (ERRLVL_fatal, 6, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR (ERRLVL_fatal, 6, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1724,7 +1724,7 @@ CONTAINS
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Integer grid error
                WRITE (MSG, 9842) 'integer', IY, HEAD
-               CALL ERROR (ERRLVL_fatal, 10, OUNIT, 0, 0, MSG)
+               CALL RAISE_ERROR (ERRLVL_fatal, 10, OUNIT, 0, 0, MSG)
                RETURN
             END IF
          END DO
@@ -1786,7 +1786,7 @@ CONTAINS
       READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
       IF (INDEX (HEAD, LINE)  == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       ENDIF
 
       ! Read logical data
@@ -1800,11 +1800,11 @@ CONTAINS
 
       ! Title line read error
 8010  WRITE (MSG, 9801) LINE, HEAD0_ALREDL
-      CALL ERROR(ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+      CALL RAISE_ERROR(ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
 
       ! Logical data error
 8600  WRITE (MSG, 9810) 'logical', HEAD
-      CALL ERROR(ERRLVL_fatal, 14, OUNIT, 0, 0, MSG)
+      CALL RAISE_ERROR(ERRLVL_fatal, 14, OUNIT, 0, 0, MSG)
 
 
       ! Format ---------------------------------------------------------------
@@ -1929,7 +1929,7 @@ CONTAINS
 
         !   I = IEEE_HANDLER( 'set', 'common', ABORT )
         I = 0
-        IF (I .NE. 0) CALL ERROR(ERRLVL_warn, 13, OUT, 0, 0,                         &
+        IF (I .NE. 0) CALL RAISE_ERROR(ERRLVL_warn, 13, OUT, 0, 0,                         &
                            'Could not set traps for floating-point exceptions')
 
         RETURN

@@ -3,7 +3,7 @@
 !>
 !> This module owns SHETRAN's shared error-handling interface: the numbered
 !> diagnostic reporter [[mod_error:ERROR]], the termination routine
-!> [[mod_error:ALSTOP]], the severity selectors passed to `ERROR`, the
+!> [[mod_error:ERR_STOP]], the severity selectors passed to `ERROR`, the
 !> per-code occurrence counters, and the default primary print unit. It was
 !> extracted from [[sglobal]] so that error handling is no longer coupled to
 !> the global capacity/state module, and so that its consumers declare the
@@ -36,11 +36,15 @@ MODULE mod_error
    USE MOD_PARAMETERS, ONLY : I_P, LENGTH_FILEPATH, LENGTH_LINE
    USE SGLOBAL, ONLY : UZNOW, EARRAY, rootdir, error_mode, &
       flag_runtime_reduction_errors, flag_runtime_reduction_e1060
+   USE stdlib_strings, ONLY : to_string
 
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: ERROR, ALSTOP, err_set_wait_on_exit
+   PUBLIC :: RAISE_ERROR, ERR_STOP, err_set_wait_on_exit
+   PUBLIC :: err_check_fileopenstatus, err_check_fileclosestatus
+   PUBLIC :: err_check_allocatememorystatus, err_check_deallocatememorystatus
+   PUBLIC :: err_check_readstatus, err_check_writestatus
    PUBLIC :: ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
    PUBLIC :: FID_logfile
    PUBLIC :: ERR_limit_error_codes
@@ -68,7 +72,7 @@ MODULE mod_error
 
 CONTAINS
 
-   !> summary: Selects whether [[mod_error:ALSTOP]] waits before terminating.
+   !> summary: Selects whether [[mod_error:ERR_STOP]] waits before terminating.
    !> author: S. Berendsen, Southampton University
    !>
    !> Intended for interactive launches, where the console window closes as
@@ -77,7 +81,7 @@ CONTAINS
    !> started with `-error` stays noninteractive either way.
    !>
    !> @note
-   !> No current caller sets this flag, so `ALSTOP` does not yet wait on the
+   !> No current caller sets this flag, so `ERR_STOP` does not yet wait on the
    !> strength of it alone. Wiring it to the launch mode is pending.
    !> @endnote
    !>
@@ -190,7 +194,7 @@ CONTAINS
    !> | 2026-05-10 | SvB | Removed the interactive wait before help-file lookup for noninteractive scripted use. |
    !> | 2026-08-31 | SvB | Moved from [[sglobal]] to [[mod_error]] and renamed the selectors and counters. |
    !> @endhistory
-   SUBROUTINE ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
+   SUBROUTINE RAISE_ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
       IMPLICIT NONE
 
@@ -317,7 +321,7 @@ CONTAINS
 
       ! Stop?
       ! -----
-      IF (ETYPE == ERRLVL_fatal) CALL ALSTOP(1)
+      IF (ETYPE == ERRLVL_fatal) CALL ERR_STOP(1)
 
       ! String format statements
       ! ------------------------
@@ -331,7 +335,7 @@ CONTAINS
 ! 970804
 91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')
 !
-   END SUBROUTINE ERROR
+   END SUBROUTINE RAISE_ERROR
 
 
 
@@ -360,7 +364,7 @@ CONTAINS
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
    !> @endhistory
-   SUBROUTINE ALSTOP (error_number)
+   SUBROUTINE ERR_STOP (error_number)
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
 
       LOGICAL :: is_fatal !! Whether to take the error-termination path.
@@ -377,10 +381,10 @@ CONTAINS
          READ(*, *)
       END IF
 
-      IF (is_fatal) ERROR STOP 'Program terminating due to fatal error'
+      IF (is_fatal) STOP 'Program terminating due to fatal error'
 
       STOP 'Program terminating'
 
-   END SUBROUTINE ALSTOP
+   END SUBROUTINE ERR_STOP
 
 END MODULE mod_error
