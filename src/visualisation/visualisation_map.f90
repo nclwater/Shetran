@@ -84,6 +84,9 @@ MODULE visualisation_map
    USE VISUALISATION_PASS,     ONLY : BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK
    USE VISUALISATION_METADATA, ONLY : G_L=>GET_METADATA_L
 
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: mmax = 255       !! Highest palette slot; the current index generator does not emit it.
@@ -125,8 +128,9 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added indexed real-map generation. |
 !> | 2026-03-29 | SvB | Changed pointer results to allocatables and replaced the masked `WHERE` assignment with explicit loops. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
-   PURE FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
+   FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: r     !! Indexed magnified image returned to the caller.
       INTEGER, INTENT(IN)                  :: mag   !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                  :: mn    !! Metadata item index supplying the active-cell mask.
@@ -138,11 +142,15 @@ CONTAINS
       INTEGER                              :: i     !! Magnified-grid first-dimension index.
       INTEGER                              :: j     !! Magnified-grid second-dimension index.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_real_image_index"
+
       rreal = GET_MAGNIFIED_REAL(sz, dat, mag, mn, mark_river=.TRUE.)
       minr  =  MINVAL(rreal, MASK=(rreal/=river .AND. rreal/=background))
       maxr  =  MAXVAL(rreal, MASK=(rreal/=river .AND. rreal/=background))
 
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
+      ALLOCATE(r(mag*sz(1),mag*sz(2)), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r", location)
       DO j = 1, mag*sz(2)
          DO i = 1, mag*sz(1)
             IF (rreal(i,j) == river) THEN
@@ -180,8 +188,9 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added masked real-field magnification. |
 !> | 2026-03-29 | SvB | Changed the pointer result to an allocatable result. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
-   PURE FUNCTION get_magnified_real(sz, dat, mag, mn, mark_river) RESULT(r)
+   FUNCTION get_magnified_real(sz, dat, mag, mn, mark_river) RESULT(r)
       INTEGER, INTENT(IN)                 :: mag        !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                 :: mn         !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)   :: sz         !! Source-grid `(x,y)` extents.
@@ -198,7 +207,11 @@ CONTAINS
       INTEGER                             :: jhigh      !! Upper source second-dimension bound, `sz(2)`.
       INTEGER                             :: su         !! Display-oriented SHETRAN element number for the source cell.
 
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_magnified_real"
+
+      ALLOCATE(r(mag*sz(1),mag*sz(2)), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r", location)
 
       ilow  = 1
       ihigh = sz(1)
@@ -300,15 +313,20 @@ CONTAINS
 !> | 2020-09-08 | SB | Added the private magnified link-mask helper. |
 !> | 2026-03-29 | SvB | Changed its pointer result and temporary to allocatables. |
 !> @endhistory
-   PURE FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
+   FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
       INTEGER, INTENT(IN)                  :: mag !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                  :: mn  !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)    :: sz  !! Source-grid `(x,y)` extents.
       LOGICAL, DIMENSION(:,:), ALLOCATABLE :: r   !! Logical magnified link mask returned to the caller.
       INTEGER                              :: i   !! Magnified-grid first-dimension index.
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: su  !! Magnified element-number grid, including background zeroes.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_is_link_magnified"
+
       su = GET_MAGNIFIED_SU_ARR(sz, mag, mn)
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
+      ALLOCATE(r(mag*sz(1),mag*sz(2)), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r", location)
       DO i=1,mag*sz(1)
          r(i,:) = IS_LINK(su(i,:))
       ENDDO
@@ -338,8 +356,9 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added masked element-number magnification. |
 !> | 2026-03-29 | SvB | Changed the pointer result to an allocatable result. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
-   PURE FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
+   FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
       INTEGER, INTENT(IN)                  :: mag   !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                  :: mn    !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)    :: sz    !! Source-grid `(x,y)` extents.
@@ -355,7 +374,11 @@ CONTAINS
       INTEGER                              :: jhigh !! Upper source second-dimension bound, `sz(2)`.
       INTEGER                              :: su    !! Display-oriented SHETRAN gridsquare element number.
 
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_magnified_su_arr"
+
+      ALLOCATE(r(mag*sz(1),mag*sz(2)), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r", location)
       ilow  = 1
       ihigh = sz(1)
       jlow  = 1

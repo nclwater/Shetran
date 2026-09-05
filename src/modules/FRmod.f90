@@ -84,7 +84,10 @@ MODULE FRmod
    USE OCQDQMOD, ONLY : STRXX, STRYY
    USE UTILSMOD, ONLY : AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata,    ONLY : ALINTP, ALCHK, ALCHKI
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+
    USE SMmod,    ONLY : head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod,    ONLY : BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
       MEASPE, MODE, MODECS, MODEVH, MODEPL, MODECL, NCTCLA, NCTVHT,NCTCST, NF, NCTPLA, &
@@ -145,7 +148,7 @@ MODULE FRmod
    DOUBLEPRECISION :: sedfinetot = 0.0d0 !! Public compatibility copy shadowed by [[froutput]].
    DOUBLEPRECISION :: contamtot = 0.0d0 !! Public compatibility copy shadowed by [[froutput]].
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: qoctotextra
-      !! Unused private module copy shadowed by [[froutput]].
+   !! Unused private module copy shadowed by [[froutput]].
    DOUBLEPRECISION :: PREVTM            !! Previous [[frresp]] call time (h); undefined before the first call.
    DOUBLEPRECISION :: TIMB = zero       !! Next monthly-balance reporting time (h).
    LOGICAL         :: FIRST_frmb=.TRUE. !! True until [[frmb]] initialises its persistent schedule.
@@ -2384,16 +2387,26 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-05-03 | SvB | Centralised virtual-station allocation during the output refactor. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
       SUBROUTINE allocate_extra_discharge(n)
          INTEGER, INTENT(IN) :: n
+
+         INTEGER(KIND=I_P) :: ios
 
          IF (ALLOCATED(disextraelement)) DEALLOCATE(disextraelement)
          IF (ALLOCATED(disextraface))    DEALLOCATE(disextraface)
          IF (ALLOCATED(qocavextra))      DEALLOCATE(qocavextra)
          IF (ALLOCATED(qoctotextra))     DEALLOCATE(qoctotextra)
 
-         ALLOCATE(disextraelement(n), disextraface(n), qocavextra(n), qoctotextra(n))
+         ALLOCATE(disextraelement(n), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "disextraelement", "allocate_extra_discharge")
+         ALLOCATE(disextraface(n), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "disextraface", "allocate_extra_discharge")
+         ALLOCATE(qocavextra(n), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "qocavextra", "allocate_extra_discharge")
+         ALLOCATE(qoctotextra(n), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "qoctotextra", "allocate_extra_discharge")
 
          disextraelement = 0
          disextraface    = 0
@@ -2418,8 +2431,12 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-05-03 | SvB | Extracted optional water-table setup from `FROUTPUT`. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
       SUBROUTINE initialise_extra_water_table_output()
+
+         INTEGER(KIND=I_P) :: ios
+
          READ(pslextra, *, IOSTAT=ios)
          CALL fatal_on_io_error(ios, 1069, &
             'no or incorrect data in input_CATCH_water_table_depth file')
@@ -2429,7 +2446,8 @@ CONTAINS
             'no or incorrect data in input_CATCH_water_table_depth file')
 
          IF (ALLOCATED(pslextraelement)) DEALLOCATE(pslextraelement)
-         ALLOCATE(pslextraelement(pslextrapoints))
+         ALLOCATE(pslextraelement(pslextrapoints), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "pslextraelement", "initialise_extra_water_table_output")
          pslextraelement = 0
 
          j = 0
@@ -2793,6 +2811,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-05-03 | SvB | Centralised regular CSV row formatting during the output refactor. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
       SUBROUTINE write_regular_outputs(output_hour, discharge, disextrapoints, discharge_extra, &
          sediment, sediment_fine, contaminant)
@@ -2809,9 +2828,14 @@ CONTAINS
 
          CHARACTER(len=32), DIMENSION(:),allocatable :: buf
          CHARACTER(len=32) :: bufdis
+
+         INTEGER(KIND=I_P) :: ios
+
          SAVE buf
+
          IF (ALLOCATED(buf)) DEALLOCATE(buf)
-         ALLOCATE   (buf(disextrapoints))
+         ALLOCATE   (buf(disextrapoints), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "buf", "write_regular_outputs")
          buf = ''
 
 
@@ -2822,27 +2846,27 @@ CONTAINS
          bufdis = adjustl(bufdis)
          if (ISextradis) then
             do j=1,disextrapoints
-                write(buf(j),'(F20.5)') abs(discharge_extra(j))
-                buf(j) = adjustl(buf(j))
+               write(buf(j),'(F20.5)') abs(discharge_extra(j))
+               buf(j) = adjustl(buf(j))
             enddo
             WRITE(dis,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',',trim(bufdis),(',',trim(buf(j)),j=1,disextrapoints)
-          else
+         else
             WRITE(dis,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',',trim(bufdis)
-          endif
+         endif
 
-          if (bexsy) then
-              write(bufdis,'(F20.5)') sediment
-              bufdis = adjustl(bufdis)
-              write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
-              write(bufdis,'(F20.5)') sediment_fine
-              bufdis = adjustl(bufdis)
-              write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
-          endif
-          if (bexcm) then
-              write(bufdis,'(F20.5)') contaminant
-              bufdis = adjustl(bufdis)
-              write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
-          endif
+         if (bexsy) then
+            write(bufdis,'(F20.5)') sediment
+            bufdis = adjustl(bufdis)
+            write(SEDALLUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
+            write(bufdis,'(F20.5)') sediment_fine
+            bufdis = adjustl(bufdis)
+            write(SEDFINEUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
+         endif
+         if (bexcm) then
+            write(bufdis,'(F20.5)') contaminant
+            bufdis = adjustl(bufdis)
+            write(CONTAMUNIT,'(A,A1,F0.3,*(A1,A))') TRIM(stamp),',',elapsed,',', trim(bufdis)
+         endif
 
       END SUBROUTINE write_regular_outputs
 
@@ -4196,6 +4220,7 @@ CONTAINS
 !> | 1994-10-03 | RAH | 3.4.1 | Standardised declarations. |
 !> | 1996-1998 | GP/RAH | 4.0-4.2 | Reworked VSS coupling, overlap geometry, sediment interfaces, and explicit typing. |
 !> | 2026-03 | SB | 4.6 | Updated contaminant allocation and active-cell interpolation. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE INCM (ISSDON)
 
@@ -4231,6 +4256,9 @@ CONTAINS
 
       LOGICAL :: LDUM1(1), ISCNSV (NCONEE)
 
+      INTEGER(KIND=I_P):: ios
+      CHARACTER(LEN=*), PARAMETER :: location="FRmod:INCM"
+
       ! New by SB 18/11/04
       ! contam.f removed. z2 and d0 (scaling variables) needed here
       Z2 = 50.0D0
@@ -4242,9 +4270,16 @@ CONTAINS
       MAX_NUM_CATEGORY_TYPES = NOCTAB
       MAX_NUM_DATA_PAIRS = NOCTAB
 
-      ALLOCATE(KSPDUM(total_no_elements, top_cell_no + 1), DUMMYCONC(total_no_elements, top_cell_no))
-      ALLOCATE(NCATTY(NELEE, NCONEE))
-      ALLOCATE(TABLE_CONCENTRATION(NOCTAB, NOCTAB, NCONEE), TABLE_WATER_DEPTH(NOCTAB, NOCTAB, NCONEE))
+      ALLOCATE(KSPDUM(total_no_elements, top_cell_no + 1), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "KSPDUM", location)
+      ALLOCATE(DUMMYCONC(total_no_elements, top_cell_no), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "DUMMYCONC", location)
+      ALLOCATE(NCATTY(NELEE, NCONEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NCATTY", location)
+      ALLOCATE(TABLE_CONCENTRATION(NOCTAB, NOCTAB, NCONEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "TABLE_CONCENTRATION", location)
+      ALLOCATE(TABLE_WATER_DEPTH(NOCTAB, NOCTAB, NCONEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "TABLE_WATER_DEPTH", location)
 
       ! Read main CM input data file
       ! Modified by SB

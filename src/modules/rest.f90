@@ -40,9 +40,12 @@ MODULE rest
       VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod,    ONLY : BSOFT
    USE UTILSMOD, ONLY : HOUR_FROM_DATE, TERPO1
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
+
+   USE MOD_PARAMETERS, ONLY : I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
+
    USE OCmod2,   ONLY : GETHRF
-   USE MOD_PARAMETERS, ONLY : LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
+
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE
 
@@ -359,6 +362,7 @@ CONTAINS
    !> | Date | Author | Version | Description |
    !> |:-----|:-------|:--------|:------------|
    !> | 2026-08-22 | SvB | - | Initial version, replacing the fixed 100000-character record buffer in [[metin]]. |
+   !> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
    !> @endhistory
    SUBROUTINE READ_DATED_RECORD (UNIT, NVALUES, DATEHOUR, VALUES, IOS, IOSTAGE)
       IMPLICIT NONE
@@ -374,14 +378,17 @@ CONTAINS
       ! Locals
       INTEGER :: YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
       INTEGER :: NEEDED, TRIMMED
-   !----------------------------------------------------------------------*
+
+      INTEGER(KIND=I_P) :: status
+      !----------------------------------------------------------------------*
 
       IOSTAGE = IOSTAGE_NONE
       NEEDED  = NVALUES * LENGTH_TEXT_R8P + RECORD_HEADROOM
 
       IF (.NOT. ALLOCATED(MET_RECORD)) THEN
          ! start from the reserved capacity; the first data line sets the real size
-         ALLOCATE (CHARACTER(LEN=LENGTH_LINEVERYLONG) :: MET_RECORD)
+         ALLOCATE (CHARACTER(LEN=LENGTH_LINEVERYLONG) :: MET_RECORD, STAT=status)
+         CALL err_check_allocatememorystatus(status, "MET_RECORD", "rest:READ_DATED_RECORD")
          MET_RECORD_SIZED = .FALSE.
       ELSE IF (MET_RECORD_SIZED .AND. LEN(MET_RECORD) < NEEDED) THEN
          ! a wider file than the one that sized the buffer
@@ -451,7 +458,7 @@ CONTAINS
 
       ! Arguments
       INTEGER, INTENT(IN) :: CAPACITY !! New buffer length in characters.
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IF (ALLOCATED(MET_RECORD)) THEN
          IF (LEN(MET_RECORD) == CAPACITY) RETURN
@@ -571,7 +578,7 @@ CONTAINS
       LOGICAL             :: FIRSTNOMET4 = .TRUE., FIRSTNOMET5 = .TRUE.
       INTEGER             :: ios, iostage
       DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! record timestamps are read for validation only, so they start defined
       prddate = ZERO
@@ -616,9 +623,9 @@ CONTAINS
                   READ (PRD, *, IOSTAT=ios) PINP(1:NRAIN)
 
                   IF (ios > 0) THEN
-                      WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
-                         NRAIN, ' values on each row with no dates in the first column (see ET1)'
-                      CALL ERR_STOP(255)
+                     WRITE (*, 9020) ' Error reading the precipitation time series file. This should have ', &
+                        NRAIN, ' values on each row with no dates in the first column (see ET1)'
+                     CALL ERR_STOP(255)
                   END IF
 
                   IF (ios < 0) THEN
@@ -697,7 +704,7 @@ CONTAINS
 
                      IF (.NOT. (BHOTRD .AND. EPTIME < BHOTTI)) EXIT hotstart_epd_loop
 
-                  ! epd and temperature files DO NOT have dates
+                     ! epd and temperature files DO NOT have dates
                   ELSE
                      READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
                      IF (ios > 0) THEN
@@ -799,7 +806,7 @@ CONTAINS
 
                      IF (.NOT. (EPTIME < UZNOW + UZNEXT)) EXIT pet_read_loop
 
-                  ! epd and temperature files DO NOT have dates
+                     ! epd and temperature files DO NOT have dates
                   ELSE
                      READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
                      IF (ios > 0) STOP 'Error reading PET file'
@@ -1000,9 +1007,9 @@ CONTAINS
 9080  FORMAT (2I6, G12.6, 24X, I12)
 9090  FORMAT ('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')
 9100  FORMAT (//, 1X, 'MET DATA - SITE    TIME      RAINFALL    NET RADN', 4X, &
-              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+         'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
 9110  FORMAT (//, 1X, 'MET DATA - SITE    TIME      NET RADN', 4X, &
-              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+         'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
 9120  FORMAT (//, 1X, 'RAIN DATA - SITE    TIME      RAINFALL         IDATA')
 9130  FORMAT (//, 1X, 'MET DATA -  TIME :', F8.2, /, ' STATION           RAINFALL      POT. EVAP.(MM/HR)')
 9140  FORMAT (4X, I2, 9X, F10.3, 9X, F10.3)

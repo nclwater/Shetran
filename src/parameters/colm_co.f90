@@ -65,7 +65,12 @@
 !> | 2026-03-30 | SB | 4.6.1 | Made the ten old-state arrays allocatable and added `initialise_colm_co`. |
 !> @endhistory
 MODULE COLM_CO
+
    USE SGLOBAL, ONLY : NELEE, LLEE, total_no_elements, top_cell_no
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: DSWO     !! Previous surface-water depth above ground by non-link column (m).
@@ -119,15 +124,35 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for ten old-state arrays. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE initialise_colm_co()
 
-      allocate   (DSWO(total_no_elements),QIO(total_no_elements))
-      allocate   (QQRFO(total_no_elements),RSZWLO(total_no_elements))
-      allocate   (ZONEO(total_no_elements))
-      allocate   (GGAMMO(total_no_elements,top_cell_no+1),QQQSWO(total_no_elements,4))
-      allocate   (QQO(total_no_elements,top_cell_no+1,4))
-      allocate   (UUAJPO(total_no_elements,top_cell_no+1),VSTHEO(total_no_elements,top_cell_no+1))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CO:initialise_colm_co"
+
+      allocate(DSWO(total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "DSWO", location)
+      allocate(QIO(total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "QIO", location)
+      allocate(QQRFO(total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "QQRFO", location)
+      allocate(RSZWLO(total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RSZWLO", location)
+      allocate(ZONEO(total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZONEO", location)
+      allocate(GGAMMO(total_no_elements,top_cell_no+1), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "GGAMMO", location)
+      allocate(UUAJPO(total_no_elements,top_cell_no+1), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "UUAJPO", location)
+      allocate(VSTHEO(total_no_elements,top_cell_no+1), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "VSTHEO", location)
+      allocate(QQQSWO(total_no_elements,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "QQQSWO", location)
+      allocate(QQO(total_no_elements,top_cell_no+1,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "QQO", location)
+
+      ! Initialise to default values
       DSWO=0.0d0
       QIO=0.0d0
       QQRFO=0.0d0

@@ -93,6 +93,9 @@ MODULE visualisation_structure
 
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
 
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: iundef = -1 !! Integer missing-value sentinel.
@@ -404,6 +407,7 @@ CONTAINS
 !> | 2004-07 | JE | Created dimension-permuted extraction for all visualisation storage families. |
 !> | 2005-08-14 | Unknown | Routed consumed nodes through payload-aware destructors to fix a memory leak. |
 !> | 2026-03-29 | SvB | Replaced integer addresses with `C_PTR`, changed wrappers to subroutines, and fixed middle time access. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE get_hdf5(typ, sz, szo, first, ilow, jlow, klow, rint, rreal)
       INTEGER, INTENT(IN) :: ilow !! Source payload's lower column/list bound.
@@ -441,9 +445,14 @@ CONTAINS
       TYPE(NS), POINTER :: pn !! Converted integer compound node.
 
       LOGICAL, SAVE :: initial=T !! One-time allocation guard for `d`.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:get_hdf5"
+
       IF(initial) THEN
          initial = F
-         ALLOCATE(d(6))
+         ALLOCATE(d(6), STAT=ios)
+         call err_check_allocatememorystatus(ios, "d",location)
       ENDIF
 
       szii = sz(szo(1)) ; d(szo(1))%a=>dii
@@ -778,6 +787,7 @@ CONTAINS
    END SUBROUTINE deall_pn
 
 
+
 !> @brief Allocates the element-member labels for one storage family.
 !>
 !> The pointer result is newly allocated and becomes caller-owned. Labels are
@@ -794,6 +804,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added member-label generation for HDF5 metadata. |
 !> | 2026-04-14 | SvB | Made unknown type codes yield a zero-sized label result through `MBR_COUNT`. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    FUNCTION get_mbr(typ) RESULT(r)
       INTEGER :: n !! Number of labels returned for `typ`.
@@ -802,8 +813,15 @@ CONTAINS
       CHARACTER(6), PARAMETER :: sq(1)=(/'square'/) !! Square/middle label.
       CHARACTER(6), PARAMETER :: bk(4)=(/'N-bank','E-bank','S-bank','W-bank'/) !! Bank labels.
       CHARACTER(6), PARAMETER :: rv(4)=(/'N-link','E-link','S-link','W-link'/) !! River-link labels.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:get_mbr"
+
       n = MBR_COUNT(typ)
-      ALLOCATE(r(n))
+
+      ALLOCATE(r(n), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r", location)
+
       SELECT CASE(typ)
        CASE('BS') ; r = bk
        CASE('ES') ; r = bk
@@ -815,6 +833,7 @@ CONTAINS
        CASE('NS') ; r = (/sq,bk,rv/)
       END SELECT
    END FUNCTION get_mbr
+
 
 
 !> @brief Counts nodes in one nonempty visualisation time queue.
@@ -1269,6 +1288,7 @@ CONTAINS
    END SUBROUTINE FOR_NEW_TIME
 
 
+
 !> @brief Allocates and appends one real bank-edge (`BS`) time node.
 !>
 !> The payload retains the supplied first-three-dimension bounds, uses `1:ext`
@@ -1299,9 +1319,16 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(BS), POINTER :: r !! Newly allocated node.
       TYPE(BS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_BS'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_real_edges
       IF(.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
@@ -1312,6 +1339,8 @@ CONTAINS
       ENDIF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_BS
+
+
 
 !> @brief Allocates and appends one integer bank-edge (`ES`) time node.
 !>
@@ -1328,6 +1357,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer bank-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1342,9 +1372,15 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(ES), POINTER :: r !! Newly allocated node.
       TYPE(ES), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_ES'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_integer_edges
       IF(.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
@@ -1355,6 +1391,8 @@ CONTAINS
       ENDIF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_ES
+
+
 
 !> @brief Allocates and appends one real compound (`GS`) time node.
 !>
@@ -1372,6 +1410,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real compound time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1387,10 +1426,15 @@ CONTAINS
       TYPE(GS), POINTER :: r !! Newly allocated node.
       TYPE(GS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
-      ALLOCATE(r)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_GS'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time = time
 
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_real_middle_and_edges
 
       IF (.NOT. C_ASSOCIATED(first)) THEN
@@ -1402,6 +1446,8 @@ CONTAINS
       ENDIF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_GS
+
+
 
 !> @brief Allocates and appends one integer middle (`IS`) time node.
 !>
@@ -1418,6 +1464,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer middle time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1432,10 +1479,18 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(IS), POINTER :: r !! Newly allocated node.
       TYPE(IS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_IS'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_integer_middle
+
       IF(.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
@@ -1445,6 +1500,8 @@ CONTAINS
       ENDIF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_IS
+
+
 
 !> @brief Allocates and appends one real river-edge (`LS`) time node.
 !>
@@ -1462,6 +1519,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real river-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1476,10 +1534,18 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(LS), POINTER :: r !! Newly allocated node.
       TYPE(LS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_LS'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_real_edges
+
       IF(.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
@@ -1489,6 +1555,8 @@ CONTAINS
       ENDIF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_LS
+
+
 
 !> @brief Allocates and appends one real middle (`MS`) time node.
 !>
@@ -1505,6 +1573,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real middle time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1519,10 +1588,18 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(MS), POINTER :: r !! Newly allocated node.
       TYPE(MS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_MS'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_real_middle
+
       IF(.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
@@ -1532,6 +1609,8 @@ CONTAINS
       ENDIF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_MS
+
+
 
 !> @brief Allocates and appends one integer compound (`NS`) time node.
 !>
@@ -1549,6 +1628,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer compound time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1563,10 +1643,18 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(NS), POINTER :: r !! Newly allocated node.
       TYPE(NS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_NS'
+
+      ALLOCATE(r, STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r",location)
       r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "r%s",location)
       r%s = default_integer_middle_and_edges
+
       IF(.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE

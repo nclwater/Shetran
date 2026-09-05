@@ -57,6 +57,10 @@
 !> | 2026-04-08 | SB | 4.6.1 | Carried the portable pass-through implementation into the IFX visualisation update. |
 !> @endhistory
 MODULE visualisation_pass
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER :: north    !! Native SHETRAN north-face column, currently 2.
@@ -165,6 +169,7 @@ CONTAINS
 !> | 2020-09-08 | SB | - | Imported the keyed SHEGRAPH pass-through with the visualisation sources. |
 !> | 2026-03-29 | SvB | - | Removed DEC conditionals and the `DLLEXPORT` directive for portable in-process use. |
 !> | 2026-04-08 | SB | 4.6.1 | Retained the portable implementation in the IFX compiler update. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
       integer, save :: coun=0 !! Legacy saved call counter; its former debug print is disabled.
@@ -175,6 +180,10 @@ CONTAINS
       LOGICAL, DIMENSION(da), INTENT(IN), OPTIONAL :: L1 !! Rank-one logical payload for element-class keys.
       CHARACTER(*), INTENT(IN) :: text !! Exact lowercase dispatch key.
       CHARACTER(*), INTENT(IN), OPTIONAL :: cc !! Character payload for directory/filename keys.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location='send_p'
+
       coun = coun + 1
       SELECT CASE(text)
        CASE('north')      ; north    = ii
@@ -203,12 +212,32 @@ CONTAINS
        CASE('top_cell')   ; top_cell = ii
        CASE('nel')        ; nel      = ii
        CASE('dirqq')      ; dirqq    = cc
-       CASE('is_square')  ; ALLOCATE(IS_SQUARE(nel))             ; IS_SQUARE = L1
-       CASE('is_bank')    ; ALLOCATE(IS_BANK(nel))               ; IS_BANK   = L1
-       CASE('is_link')    ; ALLOCATE(IS_LINK(nel))               ; IS_LINK   = L1
-       CASE('su')         ; ALLOCATE(SU_NUMBER(grid_nx,grid_ny)) ; SU_NUMBER = d2
-       CASE('bank_no')    ; ALLOCATE(BANK_NO(nel,4))             ; BANK_NO   = d2
-       CASE('river_no')   ; ALLOCATE(RIVER_NO(nel,4))            ; RIVER_NO  = d2
+
+       CASE('is_square')
+         ALLOCATE(IS_SQUARE(nel), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "IS_SQUARE", location)
+         IS_SQUARE = L1
+       CASE('is_bank')
+         ALLOCATE(IS_BANK(nel), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "IS_BANK", location)
+         IS_BANK   = L1
+       CASE('is_link')
+         ALLOCATE(IS_LINK(nel), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "IS_LINK", location)
+         IS_LINK   = L1
+       CASE('su')
+         ALLOCATE(SU_NUMBER(grid_nx,grid_ny), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "SU_NUMBER", location)
+         SU_NUMBER = d2
+       CASE('bank_no')
+         ALLOCATE(BANK_NO(nel,4), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "BANK_NO", location)
+         BANK_NO   = d2
+       CASE('river_no')
+         ALLOCATE(RIVER_NO(nel,4), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "RIVER_NO", location)
+         RIVER_NO  = d2
+
        CASE('nsed')       ; nsed = ii
        CASE('ncon')       ; ncon = ii
        CASE('ver')        ; ver  = ii
@@ -216,7 +245,9 @@ CONTAINS
        CASE('hdf5fname')  ; hdf5filename=cc
        CASE('planfile')   ; planfile=cc
        CASE('checkfile')  ; checkfile=cc
+
        CASE DEFAULT ; PRINT*, 'FAILED IN PASS  '//TRIM(text)//'  '//TRIM(cc) ; STOP
+
       END SELECT
    END SUBROUTINE send_p
 

@@ -72,7 +72,10 @@ MODULE ETmod
       NSMT, S, TIMEUZ, BWIDTH, &
       sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
    USE mod_load_filedata,    ONLY : ALCHK
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus,  RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
+
    USE UTILSMOD, ONLY : DCOPY
    USE SMmod,    ONLY : SMIN, &
       smelt, tmelt !THESE NEEDED ONLY FOR AD
@@ -170,19 +173,63 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-19 | SB | 4.6 | Added the allocator while converting ET arrays to run-sized storage. |
 !> | 2026-05-03 | SvB | - | Expanded `DEL` to `MAX(NV,NM,NRAIN)` to avoid undersizing the meteorological domain. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE INITIALISE_ETMOD()
 
-      ALLOCATE (RA(NV),RC(NV),RTOP(NV))
-      ALLOCATE (CSTCAP(NV),CK(NV),CB(NV),DEL(MAX(NV, NM, NRAIN)))
-      ALLOCATE (PSI4(LLEE),UZALFA(LLEE))
-      ALLOCATE (CSTCA1(NV),PLAI1(NV))
-      ALLOCATE (CLAI1(NV),VHT1(NV))
-      ALLOCATE (PS1(NV,NUZTAB),FET(NV,NUZTAB),RCF(NV,NUZTAB))
-      ALLOCATE (RELCST(NV,NVBP),TIMCST(NV,NVBP))
-      ALLOCATE (RELPLA(NV,NVBP),TIMPLA(NV,NVBP))
-      ALLOCATE (RELCLA(NV,NVBP),TIMCLA(NV,NVBP))
-      ALLOCATE (RELVHT(NV,NVBP),TIMVHT(NV,NVBP))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'ETmod:INITIALISE_ETMOD'
+
+      ALLOCATE (RA(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RA",location)
+      ALLOCATE (RC(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RC",location)
+      ALLOCATE (RTOP(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RTOP",location)
+      ALLOCATE (CSTCAP(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CSTCAP",location)
+      ALLOCATE (CK(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CK",location)
+      ALLOCATE (CB(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CB",location)
+      ALLOCATE (DEL(MAX(NV, NM, NRAIN)), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "DEL",location)
+      ALLOCATE (PSI4(LLEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "PSI4",location)
+      ALLOCATE (UZALFA(LLEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "UZALFA",location)
+      ALLOCATE (CSTCA1(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CSTCA1",location)
+      ALLOCATE (PLAI1(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "PLAI1",location)
+      ALLOCATE (CLAI1(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CLAI1",location)
+      ALLOCATE (VHT1(NV), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "VHT1",location)
+      ALLOCATE (PS1(NV,NUZTAB), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "PS1",location)
+      ALLOCATE (FET(NV,NUZTAB), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "FET",location)
+      ALLOCATE (RCF(NV,NUZTAB), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RCF",location)
+      ALLOCATE (RELCST(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RELCST",location)
+      ALLOCATE (TIMCST(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "TIMCST",location)
+      ALLOCATE (RELPLA(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RELPLA",location)
+      ALLOCATE (TIMPLA(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "TIMPLA",location)
+      ALLOCATE (RELCLA(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RELCLA",location)
+      ALLOCATE (TIMCLA(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "TIMCLA",location)
+      ALLOCATE (RELVHT(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RELVHT",location)
+      ALLOCATE (TIMVHT(NV,NVBP), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "TIMVHT",location)
+
+      ! -----Zero-initialise all allocatables
       RA=0.0d0
       RC=0.0d0
       RTOP=0.0d0

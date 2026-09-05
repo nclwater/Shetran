@@ -48,7 +48,10 @@
 MODULE SMmod
    USE SGLOBAL
 !USE SGLOBAL, ONLY : NVEE
-   USE mod_error, ONLY : ERR_STOP
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, ERR_STOP
+
    USE AL_C, ONLY : nvc, dtuz, ispack, nrd
    USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
       msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
@@ -105,11 +108,22 @@ CONTAINS
 !> itself the fix for a prior bug; the faulty behaviour it replaced and the
 !> exact fix date are not otherwise recorded.
 !> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
    SUBROUTINE initialise_smmod
       LOGICAL         :: first=.TRUE.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "SMmod:initialise_smmod"
+
       if (FIRST) then
-         ALLOCATE (TMELT(max_no_snowmelt_slugs,total_no_elements))
-         ALLOCATE (SMELT(max_no_snowmelt_slugs,total_no_elements))
+         ALLOCATE (TMELT(max_no_snowmelt_slugs,total_no_elements), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "TMELT", location)
+         ALLOCATE (SMELT(max_no_snowmelt_slugs,total_no_elements), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "SMELT", location)
          FIRST = .FALSE.
       endif
    END SUBROUTINE initialise_smmod
@@ -302,7 +316,7 @@ CONTAINS
       DOUBLE PRECISION :: hfc, hfr, hfe, hft
       DOUBLE PRECISION :: EFFDEP, TEMP_RATIO
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       EFFDEP = 0.0D0
 
@@ -345,7 +359,7 @@ CONTAINS
 
          ! CORRECT DN USING RICHARDSON NUMBER (SD - MM; ZUS,ZDS,ZOS - M)
          RICH = 9.81d0 * (ZUS - EFFDEP / 1000.0d0 - ZDS) * (TA(MS) - TS(IEL)) &
-              / ((TA(MS) + 273.0d0) * U(MS) * U(MS))
+            / ((TA(MS) + 273.0d0) * U(MS) * U(MS))
 
          IF (TA(MS) > TS(IEL)) THEN
             DN = DN / (1.0d0 + 10.0d0 * RICH)
@@ -521,7 +535,7 @@ CONTAINS
 
       ! FORMAT STATEMENTS
 30    FORMAT(/,'NO OF MELTWATER SLUGS IS', I5, ' AT ELEMENT', I4, &
-             ' WHICH EXCEEDS AVAILABLE MEMORY STORE SIZE')
+         ' WHICH EXCEEDS AVAILABLE MEMORY STORE SIZE')
 
    END SUBROUTINE SM
 

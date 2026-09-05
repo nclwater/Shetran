@@ -64,7 +64,10 @@
 !> @endhistory
 MODULE OCmod2
    USE SGLOBAL
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_warn, FID_logfile
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_warn, FID_logfile
+
    USE ZQmod,     ONLY : get_ZQTable_value
    USE AL_D,      ONLY : ZQweirsill,ZQTableRef
    IMPLICIT NONE
@@ -169,13 +172,16 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 2012-12-12 | SB | - | Made `XSTAB` dynamically allocatable in place of a fixed-size `(3,NXSCEE,NLFEE)` array. |
    !> | 2026-04-11 | SvB | - | Added the `ALLOCATED` guard so a repeated call does not attempt to re-allocate an already-allocated table. |
+   !> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
    !> @endhistory
    SUBROUTINE initialise_ocmod()
 
       IMPLICIT NONE
+      INTEGER(KIND=I_P) :: ios
 
       IF (.NOT. ALLOCATED(xstab)) THEN
-         ALLOCATE(xstab(3, nxscee, total_no_links))
+         ALLOCATE(xstab(3, nxscee, total_no_links), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "xstab", "OCmod:initialise_ocmod")
       END IF
 
    END SUBROUTINE initialise_ocmod
@@ -279,10 +285,10 @@ CONTAINS
       DOUBLE PRECISION :: A, B, FA, FB, FN, FNM1, SIGMAQ, WN
       LOGICAL :: TEST, FAILED
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! FIRST GUESSES (CHOOSE VALUES A,B SUCH THAT F(A)*F(B) .le. 0 )
-   ! (USE MIN AND MAX OF VALID ELEVATIONS); also, set QJ at absent branches
+      ! FIRST GUESSES (CHOOSE VALUES A,B SUCH THAT F(A)*F(B) .le. 0 )
+      ! (USE MIN AND MAX OF VALID ELEVATIONS); also, set QJ at absent branches
 
       A = ZI(0)
       B = A
@@ -302,7 +308,7 @@ CONTAINS
       CALL FNODE(B, DI, CI, ZI, ROOTLI, QJ, FB)
       IF (ISZERO(FB)) RETURN
 
-   ! Iterate to convergence, using successive linear interpolation
+      ! Iterate to convergence, using successive linear interpolation
 
       FN = FA
       FAILED = .FALSE.
@@ -420,7 +426,7 @@ CONTAINS
       INTEGER :: J
       DOUBLE PRECISION :: CJ, DZ, QASUM, SIG
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       QASUM = ZERO
       QJ = ZERO
@@ -525,7 +531,7 @@ CONTAINS
       INTEGER :: I
       DOUBLE PRECISION :: H, HFULL, XA
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       H = Z - ZG
       HFULL = AFROMXSTYPES(1, NXSCEE)
@@ -662,69 +668,69 @@ CONTAINS
       DOUBLE PRECISION :: SIG, STRW, SUBRIO, ZSILL, ZL, ZU, ZX, COEFF(2)
       DOUBLE PRECISION :: CONVM, CONVMM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Prologue
-   ! --------
-   ! Modernization Fix: Default initialize outputs to zero to prevent passing back uninitialized garbage
+      ! Prologue
+      ! --------
+      ! Modernization Fix: Default initialize outputs to zero to prevent passing back uninitialized garbage
       FROMQ = ZERO
       FROMDQ = ZERO
       MTYPE = MOD(NTYPE, 6)
 
-   ! Part 1
-   ! ------
+      ! Part 1
+      ! ------
       SELECT CASE (MTYPE)
          ! Prescribed time-varying head - grid (3) or channel (9)
          ! NB: see Part 2
-         CASE (3)
-            ZX = AFROMHOCNOW
-            FROMQ = ZERO
-            FROMDQ = ZERO
+       CASE (3)
+         ZX = AFROMHOCNOW
+         FROMQ = ZERO
+         FROMDQ = ZERO
 
          ! Prescribed time-varying flow - grid (4) or channel (10)
          ! NB: QOCF is rate of INFLOW, not discharge
-         CASE (4)
-            FROMQ = AFROMQOCF
-            FROMDQ = ZERO
+       CASE (4)
+         FROMQ = AFROMQOCF
+         FROMDQ = ZERO
 
          ! Flow a polynomial function of head - grid (5) or channel (11)
-         CASE (5)
-            H = ZI - ZGI
-            AH = AFROMCOCBCD(1) * H
-            B = AFROMCOCBCD(2)
-            C = AFROMCOCBCD(3)
-            D = AFROMCOCBCD(4)
-            E = AFROMCOCBCD(5)
+       CASE (5)
+         H = ZI - ZGI
+         AH = AFROMCOCBCD(1) * H
+         B = AFROMCOCBCD(2)
+         C = AFROMCOCBCD(3)
+         D = AFROMCOCBCD(4)
+         E = AFROMCOCBCD(5)
 
-            FROMQ = -((((AH + B) * H + C) * H + D) * H + E)
-            FROMDQ = -(((4.0D0 * AH + 3.0D0 * B) * H + 2.0D0 * C) * H + D)
+         FROMQ = -((((AH + B) * H + C) * H + D) * H + E)
+         FROMDQ = -(((4.0D0 * AH + 3.0D0 * B) * H + 2.0D0 * C) * H + D)
 
-         CASE DEFAULT
-            ! Weir (7) ... with river in parallel (8) - see Part 2
-            IF (NTYPE == 7 .OR. NTYPE == 8) THEN
-               COEFF(1) = AFROMCOCBCD(1)
-               SUBRIO   = AFROMCOCBCD(2)
-               ZSILL    = AFROMCOCBCD(3)
-               ZX       = AFROMCOCBCD(4)
-               COEFF(2) = COEFF(1)
+       CASE DEFAULT
+         ! Weir (7) ... with river in parallel (8) - see Part 2
+         IF (NTYPE == 7 .OR. NTYPE == 8) THEN
+            COEFF(1) = AFROMCOCBCD(1)
+            SUBRIO   = AFROMCOCBCD(2)
+            ZSILL    = AFROMCOCBCD(3)
+            ZX       = AFROMCOCBCD(4)
+            COEFF(2) = COEFF(1)
 
-               ZU = MAX(ZX, ZI)
-               ZL = MIN(ZX, ZI)
+            ZU = MAX(ZX, ZI)
+            ZL = MIN(ZX, ZI)
 
-               CALL QWEIR(ZU, ZSILL, ZL, COEFF, SUBRIO, FROMQ, DQU, FROMDQ)
+            CALL QWEIR(ZU, ZSILL, ZL, COEFF, SUBRIO, FROMQ, DQU, FROMDQ)
 
-               IF (ZI >= ZX) THEN
-                  FROMQ = -FROMQ
-                  FROMDQ = -DQU
-               END IF
+            IF (ZI >= ZX) THEN
+               FROMQ = -FROMQ
+               FROMDQ = -DQU
             END IF
+         END IF
       END SELECT
 
 
-   ! Part 2
-   ! ------
-   ! Head, or river-part of river+weir
-   ! Note: river has fictitious d/s link, same size as u/s
+      ! Part 2
+      ! ------
+      ! Head, or river-part of river+weir
+      ! Note: river has fictitious d/s link, same size as u/s
 
       IF (MTYPE == 3 .OR. NTYPE == 8) THEN
          DZ = ZX - ZI
@@ -857,7 +863,7 @@ CONTAINS
       DOUBLE PRECISION :: ROOTDZ, ROOTL, SIG, STRW
       DOUBLE PRECISION :: DZL, ZB, ZG, COEFF(2), RDUM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       DZ = ZI(1) - ZI(0)
       SIG = SIGN(ONE, DZ)
@@ -868,8 +874,8 @@ CONTAINS
 
       DZL = ZI(LO) - ZB
 
-   ! Channel bank-full lower than adjacent ground: resistance equation
-   ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1
+      ! Channel bank-full lower than adjacent ground: resistance equation
+      ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1
       IF (ZG >= ZB) THEN
          DZ = SIG * DZ + MIN(DZL, ZERO)
          ROOTDZ = SQRT(DZ)
@@ -891,7 +897,7 @@ CONTAINS
 
          DQ(LO, LO) = -DUM / ROOTL
 
-   ! Channel bank-full higher than adjacent ground: flat-crested weir eqn
+         ! Channel bank-full higher than adjacent ground: flat-crested weir eqn
       ELSE
          COEFF(1) = ROOT2G * W
          COEFF(2) = 0.386D0 * COEFF(1)
@@ -901,7 +907,7 @@ CONTAINS
          DQ(LO, LO) = RDUM
       END IF
 
-   ! Copy LO to HI
+      ! Copy LO to HI
       Q(HI) = -Q(LO)
       DQ(HI, HI) = -DQ(LO, HI)
       DQ(HI, LO) = -DQ(LO, LO)
@@ -1021,10 +1027,10 @@ CONTAINS
       DOUBLE PRECISION :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
       DOUBLE PRECISION :: ROOTDZ, ROOTL, SIG, STRW
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! INTERNAL IMPERMEABLE BOUNDARY
-   ! NB: NTYPE 3,4,5 not allowed internally
+      ! INTERNAL IMPERMEABLE BOUNDARY
+      ! NB: NTYPE 3,4,5 not allowed internally
       IF (NTYPE == 1) THEN
          ! Modernization Fix: Scalar-to-array broadcasting replaces the DO loop
          Q = ZERO
@@ -1032,10 +1038,10 @@ CONTAINS
          RETURN
       END IF
 
-   ! Set up local variables
-   ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1; but
-   !     note STR is averaged, so CONVM will NOT be strictly "upstream"
-   ! Note: ZGI(LO) is not required
+      ! Set up local variables
+      ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1; but
+      !     note STR is averaged, so CONVM will NOT be strictly "upstream"
+      ! Note: ZGI(LO) is not required
       DZ = ZI(1) - ZI(0)
       SIG = SIGN(ONE, DZ)
       HI = (1 + NINT(SIG)) / 2
@@ -1048,11 +1054,11 @@ CONTAINS
       STRW = W * (STR(0) * LI(0) + STR(1) * LI(1)) / DHH
       ROOTL = SQRT(DHH)
 
-   ! CALCULATE FLOW AND DERIVATIVES
-   ! NB:   H23MIN          in DERIVM  prevents small DQ when HM is small
-   !        DZMIN          in CONVMM  prevents small DQ when DZ is small
-   !       RDZMIN          in DUM     prevents overflow when DZ is small
-   !       ROOTDZ (no MAX) in DQ gives symmetric values when DZ is small
+      ! CALCULATE FLOW AND DERIVATIVES
+      ! NB:   H23MIN          in DERIVM  prevents small DQ when HM is small
+      !        DZMIN          in CONVMM  prevents small DQ when DZ is small
+      !       RDZMIN          in DUM     prevents overflow when DZ is small
+      !       ROOTDZ (no MAX) in DQ gives symmetric values when DZ is small
 
       CALL CONVEYAN(STRW, HM, CONVM, DERIVM, 1)
 
@@ -1181,16 +1187,16 @@ CONTAINS
       DOUBLE PRECISION :: COEFF(2), RDUM
       DOUBLE PRECISION :: DZU, WEIRSILL
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Set up local variables - part 1
+      ! Set up local variables - part 1
       DZ = ZI(1) - ZI(0)
       SIG = SIGN(ONE, DZ)
       HI = (1 + NINT(SIG)) / 2
       LO = 1 - HI
 
-   ! Internal weir
-   ! NB: NTYPE 1,8,9,10,11 not allowed internally
+      ! Internal weir
+      ! NB: NTYPE 1,8,9,10,11 not allowed internally
 
       IF (NTYPE == 7) THEN
          COEFF(1) = AFROMCOCBCD(1)
@@ -1202,7 +1208,7 @@ CONTAINS
          CALL QWEIR(ZI(HI), ZSILL, ZI(LO), COEFF, SUBRIO, Q(LO), DQ(LO, HI), RDUM)
          DQ(LO, LO) = RDUM
 
-   ! ***ZQ Module 200520
+         ! ***ZQ Module 200520
       ELSE IF (NTYPE == 12) THEN
          ! print*, ZQTableRef, ZI(HI)
 
@@ -1216,7 +1222,7 @@ CONTAINS
 
          ! write(779,*) ZI(HI), Q(LO), DQ(LO,HI)
 
-   ! Standard Channel Flow
+         ! Standard Channel Flow
       ELSE
          ! Set up local variables - part 2
          DZ = SIG * DZ
@@ -1353,9 +1359,9 @@ CONTAINS
       DOUBLE PRECISION :: CSAVE, DSAVE, CI(0:3), DI(0:3), QDUM2(0:3)
       DOUBLE PRECISION :: ZINC, ZSAVE, ROOTLI(0:3), ZJ(0:3)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Calculate conveyance & its derivative (both.ge.0), & set local arrays
+      ! Calculate conveyance & its derivative (both.ge.0), & set local arrays
       DO J = 0, 3
          IF (JEL2(J) <= 0) THEN
             ! * OCNODE uses ROOTLI as a flag
@@ -1367,10 +1373,10 @@ CONTAINS
          END IF
       END DO
 
-   ! Find flows out of node
+      ! Find flows out of node
       CALL OCNODE(IELB, ZI, CI, DI, ROOTLI, QJ)
 
-   ! CALC. DQi/DHj
+      ! CALC. DQi/DHj
       DO J = 0, 3
          IF (JEL2(J) <= 0) CYCLE
 
@@ -1450,7 +1456,7 @@ CONTAINS
       DOUBLE PRECISION :: HM23
       DOUBLE PRECISION, PARAMETER :: MUL = 10.0D0 / 3.0D0
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IF (TY == 0) THEN
          IF (H < 1.0D-9) THEN
@@ -1585,9 +1591,9 @@ CONTAINS
       ! Locals
       DOUBLE PRECISION :: CR, DML, DZU, DZL, ROOTDZ
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! NO FLOW ACROSS WEIR
+      ! NO FLOW ACROSS WEIR
       IF (ZU < ZSILL - DZMIN) THEN
          Q = ZERO
          DQU = ZERO
@@ -1596,7 +1602,7 @@ CONTAINS
          DZU = DIMJE(ZU, ZSILL)
          DZL = ZL - ZSILL
 
-   ! DROWNED WEIR
+         ! DROWNED WEIR
          IF (DZL > SUBRIO * DZU) THEN
             ROOTDZ = SQRT(ZU - ZL)
             DML = MAX(DZMIN, DZL)
@@ -1605,7 +1611,7 @@ CONTAINS
             DQU = COEFF(1) * DML * HALF / MAX(RDZMIN, ROOTDZ)
             DQL = CR - DQU
 
-   ! UNDROWNED WEIR
+            ! UNDROWNED WEIR
          ELSE
             ROOTDZ = SQRT(DZU)
             Q = COEFF(2) * DZU * ROOTDZ
@@ -1728,9 +1734,9 @@ CONTAINS
       LOGICAL          :: AOK, QSMALL, HSMALL, FAIL, FAILP, TEST, FLAG (4)
       CHARACTER(132)   :: MSG
 
-   !----------------------------------------------------------------------*
-   ! Control Loop
-   ! ------------
+      !----------------------------------------------------------------------*
+      ! Control Loop
+      ! ------------
 
       ! `HRFZZ`/`QSAZZ` are corrected in place: they are module state of this
       ! same module, so no staging buffers are needed.

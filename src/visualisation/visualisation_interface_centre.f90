@@ -84,6 +84,10 @@ MODULE visualisation_interface_centre
       OVR_FLOW, SRF_DEP, PSI, THETA, S_T_DP,         &
       S_V_ER, S_DIS, C_C_DR, C_C_DS, BAL_ERR, NO_SED, NO_CON, VERSION, ROOTDIR,                 &
       hdf5filename, planfile, checkfile
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: first_type=-7 !! Lower catalogue bound; static entries occupy `first_type:0`.
@@ -356,19 +360,26 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07-19 | JE | 2.0 | Added allocation and copying of the static and dynamic catalogue ranges. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    FUNCTION get_output_type(text)  RESULT(r)
       TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: r    !! Newly allocated copy of the selected catalogue range.
       CHARACTER(*), INTENT(IN)                 :: text !! Exact subset selector: `static` or `dynamic`.
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_INTERFACE_CENTRE:get_output_type"
       SELECT CASE(text)
        CASE('static')
-         ALLOCATE(r(first_type:0))
+         ALLOCATE(r(first_type:0), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "r", location)
          r = outtype(first_type:0)
        CASE('dynamic')
-         ALLOCATE(r(1:last_type))
+         ALLOCATE(r(1:last_type), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "r", location)
          r = outtype(1:last_type)
       END SELECT
    END FUNCTION get_output_type
+
+
 
 !> Converts a top-down visualisation layer number to a solver cell-layer number.
 !>

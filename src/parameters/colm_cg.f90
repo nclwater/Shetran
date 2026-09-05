@@ -50,7 +50,12 @@
 !> | 2026-03-30 | SB | 4.6.1 | Retired unused legacy arrays, made six overlap arrays allocatable, and added allocation helpers. |
 !> @endhistory
 MODULE COLM_CG
+
    USE SGLOBAL, ONLY : NELEE, LLEE, NVEE, NOLEE, total_no_elements,top_cell_no
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER :: JBTLYR(NELEE)  !! Unused legacy bottom-soil-layer index by element.
@@ -99,13 +104,27 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for six overlap arrays. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE initialise_colm_cg()
 
-      allocate   (JKZCOL(total_no_elements,2*top_cell_no+1,4),JOLFN(total_no_elements,2*top_cell_no+1,4))
-      allocate   (NOL(total_no_elements,4))
-      allocate   (NOLBT(total_no_elements,top_cell_no+1,4),NOLCE(total_no_elements,2*top_cell_no+1,4))
-      allocate   (NOLCEA(total_no_elements,2*top_cell_no+1,4))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:initialise_colm_cg"
+
+      allocate(JKZCOL(total_no_elements,2*top_cell_no+1,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "JKZCOL", location)
+      allocate(JOLFN(total_no_elements,2*top_cell_no+1,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "JOLFN", location)
+      allocate(NOL(total_no_elements,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NOL", location)
+      allocate(NOLBT(total_no_elements,top_cell_no+1,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NOLBT", location)
+      allocate(NOLCE(total_no_elements,2*top_cell_no+1,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NOLCE", location)
+      allocate(NOLCEA(total_no_elements,2*top_cell_no+1,4), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NOLCEA", location)
+
+      ! Initialise to default values
       JKZCOL=0
       JOLFN=0
       NOL=0
@@ -114,6 +133,8 @@ CONTAINS
       NOLCEA=0
 
    END SUBROUTINE initialise_colm_cg
+
+
 
 !> Releases the four overlap arrays needed only during contaminant setup.
 !>

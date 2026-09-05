@@ -37,6 +37,10 @@
 !> | 2026-04-08 | SB | 4.6.1 | Removed the legacy Intel export directives during the IFX compiler update. |
 !> @endhistory
 MODULE VISUALISATION_EXTRAS
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER, DIMENSION(:), POINTER              :: acol  !! Public legacy integer buffer; allocated and resized by [[react]].
@@ -74,13 +78,21 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the allocation/growth routine with an Intel `DLLEXPORT` directive. |
 !> | 2026-04-08 | SB | 4.6.1 | Removed the compiler-specific export directive; allocation behavior was unchanged. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE react(p, j)
       INTEGER, INTENT(IN)           :: p !! Capacity threshold, or initial capacity when `j` is present.
       INTEGER, INTENT(IN), OPTIONAL :: j !! Initial first extent of `vpsed`; its presence selects allocation rather than growth.
       INTEGER                       :: n !! Existing capacity, then the positive increment used by both grow helpers.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:react"
+
       IF(PRESENT(j)) THEN
-         ALLOCATE(acol(p), vpsed(j,2,p))
+         ALLOCATE(acol(p), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "acol", location)
+         ALLOCATE(vpsed(j,2,p), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "vpsed", location)
       ELSE
          n = SIZE(acol)
          IF(p>n) THEN
@@ -90,6 +102,8 @@ CONTAINS
          ENDIF
       ENDIF
    END SUBROUTINE react
+
+
 
 !> Reallocates an integer pointer with `n` additional elements.
 !>
@@ -108,16 +122,24 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the rank-one pointer-growth helper. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE increment_I1(s,n)
       INTEGER, DIMENSION(:), POINTER :: s           !! Integer pointer to grow; existing positive-size values are preserved.
       INTEGER, DIMENSION(:), POINTER :: old=>NULL() !! Saved alias to the old target during reallocation.
       INTEGER, INTENT(IN)            :: n           !! Number of elements appended by the current caller.
       INTEGER                        :: sz          !! Original element count, or zero for a disassociated pointer.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:increment_I1"
+
       IF(ASSOCIATED(s)) THEN ; sz=SIZE(s) ; old=>s ; NULLIFY(s) ; ELSE ; sz=0 ; ENDIF
-      ALLOCATE(s(sz+n))
+      ALLOCATE(s(sz+n), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "s", location)
       IF(sz>0) THEN ; s(1:sz)=old ; DEALLOCATE(old) ; ENDIF
    END SUBROUTINE increment_I1
+
+
 
 !> Reallocates an associated rank-three pointer with a longer final extent.
 !>
@@ -135,16 +157,22 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the rank-three pointer-growth helper. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE increment_D3(s,n)
       DOUBLE PRECISION, DIMENSION(:,:,:), POINTER :: s           !! Pointer whose shape and existing values are preserved.
       DOUBLE PRECISION, DIMENSION(:,:,:), POINTER :: old=>NULL() !! Saved alias to the old target during reallocation.
       INTEGER, INTENT(IN)                         :: n           !! Number of entries appended to the third extent.
       INTEGER                                     :: sh(3)       !! Original three-dimensional shape.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:increment_D3"
+
       sh=SHAPE(s)
       old=>s
       NULLIFY(s)
-      ALLOCATE(s(sh(1),sh(2),sh(3)+n))
+      ALLOCATE(s(sh(1),sh(2),sh(3)+n), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "s", location)
       s(:,:,1:sh(3))=old
       DEALLOCATE(old)
    END SUBROUTINE increment_D3

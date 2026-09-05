@@ -106,6 +106,9 @@ MODULE visualisation_interface_right
       SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP, &
       SEND_P
 
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    INTEGER, DIMENSION(4), PARAMETER :: &
@@ -704,6 +707,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the two-stage transfer into the far-right visualisation state. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE send_pass(jj)
       INTEGER, INTENT(IN)                  :: jj !! Setup selector: 1 for paths, 2 for topology.
@@ -715,6 +719,9 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE   :: iel !! Element vector `1:total_no_elements`.
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: dum !! Temporary grid or topology table copied by `SEND_P`.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_INTERFACE_RIGHT:send_pass"
+
       SELECT CASE(jj)
        CASE(1)
          CALL SEND_P('dirqq',     cc=dirqq, da=0, db=0)
@@ -725,7 +732,9 @@ CONTAINS
          CALL SEND_p('checkfile', cc=checkfile, da=0, db=0)
        CASE(2)
          total_no_elements = NO_EL()
-         ALLOCATE(iel(total_no_elements)) ; iel = (/(i,i=1,total_no_elements)/)
+         ALLOCATE(iel(total_no_elements), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "iel", location)
+         iel = (/(i,i=1,total_no_elements)/)
          nx  = GRID_NX()
          ny  = GRID_NY()
          CALL SEND_P('north',     ii=north, da=0, db=0)
@@ -741,12 +750,14 @@ CONTAINS
          CALL SEND_P('is_square', L1=IS_SQUARE(iel), da=total_no_elements, db=0)
          CALL SEND_P('is_bank',   L1=IS_BANK(iel), da=total_no_elements, db=0)
          CALL SEND_P('is_link',   L1=IS_LINK(iel), da=total_no_elements, db=0)
-         ALLOCATE(dum(nx,ny))
+         ALLOCATE(dum(nx,ny), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "dum", location)
          DO i=1,nx ; dum(i,:) = SU_NUMBER(i,(/(j,j=1,ny)/))
          ENDDO
          CALL SEND_P('su', d2=dum, da=nx, db=ny)
          DEALLOCATE(dum)
-         ALLOCATE(dum(total_no_elements,4))
+         ALLOCATE(dum(total_no_elements,4), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "dum", location)
          DO j=1,4
             WHERE(IS_SQUARE(iel)) ; dum(:,j)=BANK_NO(iel,j) ; ELSEWHERE ; dum(:,j)=0 ; ENDWHERE
          ENDDO

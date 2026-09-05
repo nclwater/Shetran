@@ -85,8 +85,8 @@
 !> | 2026-04-08 | SB | 4.6.1 | Removed Intel directives and SHETRAN 3 paths for IFX. |
 !> @endhistory
 MODULE visualisation_interface_left
+
    USE SGLOBAL, ONLY    : dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf=>total_no_links
-   USE mod_error, ONLY  : RAISE_ERROR, ERRLVL_fatal, FID_logfile
    USE AL_C, ONLY       : cmd, draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, syd, wberr
    USE AL_C, ONLY       : deltaz, esoila, qvsv, vspsi, vsthe, zvspsl
    USE AL_D, ONLY       : bexcm, bexsy, cstore, dxin, dyin, einta, epot, erza, sd
@@ -98,6 +98,10 @@ MODULE visualisation_interface_left
    USE CONST_SY, ONLY   : rhosed
    USE SED_CS, ONLY     : dls, gnu, nnnsed=>nsed, qsed
    USE OCmod2, ONLY     : hrfzz
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+
    IMPLICIT NONE
    INTEGER, PARAMETER :: east=1          !! Native SHETRAN east-face number.
    INTEGER, PARAMETER :: north=2         !! Native SHETRAN north-face number.

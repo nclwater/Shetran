@@ -42,6 +42,7 @@ module ZQmod
    USE AL_C,       ONLY: DTUZ,UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
    USE AL_D,       ONLY: zqd,NoZQTables,ZQTableLink,ZQTableFace,ZQweirSill     ! module state shared with OCQDQ
    USE mod_parameters                                                          ! general parameters
+   USE mod_error,  ONLY: err_check_allocatememorystatus
 
 
    IMPLICIT NONE
@@ -106,6 +107,7 @@ CONTAINS
 !! |:-----|:-------|:--------|:------------|
 !! | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
 !! | 2026-04-03 | SvB | | Replaced `GOTO`/labelled `STOP` error handling with `IOSTAT` checks and the internal `handle_zq_error` subroutine; made the header-token loops robust to runs of multiple spaces via `ADJUSTL`. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !! @endhistory
 !---------------------------------------------------------------------------
    SUBROUTINE ReadZQTable()
@@ -117,7 +119,8 @@ CONTAINS
       INTEGER(KIND=I_P)                               :: printRow                          !! Row index used when echoing a table to the log file.
       INTEGER(KIND=I_P)                               :: printCol                          !! Column index used when echoing a table to the log file.
       INTEGER(KIND=I_P)                               :: pos                               !! Position of the next space delimiter in `headerRaw`.
-      INTEGER                                         :: ios                               !! I/O status integer.
+      INTEGER(KIND=I_P)                               :: ios                               !! I/O status integer.
+      CHARACTER(LEN=*), PARAMETER :: location = "ZQmod:ReadZQTable"                        !! Location string for error messages.
 
       ! specific variables
       CHARACTER(LEN=120)                              :: headerRaw                         !! Raw ZQ table header line while it is being split.
@@ -139,13 +142,20 @@ CONTAINS
       READ(zqd, *, IOSTAT=ios) NoZQTables                                             ! read line 2
       IF (ios /= 0) CALL handle_zq_error()
 
-      ALLOCATE(nZQcols(NoZQTables))
-      ALLOCATE(nZQrows(NoZQTables))
-      ALLOCATE(zcol(NoZQTables))
-      ALLOCATE(ZQTableLink(NoZQTables))
-      ALLOCATE(ZQTableFace(NoZQTables))
-      ALLOCATE(ZQTableOpHour(NoZQTables))
-      ALLOCATE(ZQWeirSill(NoZQTables))
+      ALLOCATE(nZQcols(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "nZQcols", location)
+      ALLOCATE(nZQrows(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "nZQrows", location)
+      ALLOCATE(zcol(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "zcol", location)
+      ALLOCATE(ZQTableLink(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZQTableLink", location)
+      ALLOCATE(ZQTableFace(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZQTableFace", location)
+      ALLOCATE(ZQTableOpHour(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZQTableOpHour", location)
+      ALLOCATE(ZQWeirSill(NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZQWeirSill", location)
 
       DO i = 1, NoZQTables                                                            ! loop through ZQtables
          DO j = 1, 9
@@ -186,10 +196,14 @@ CONTAINS
       maxnumberCols = MAXVAL(nZQcols)
 
       ! allocate array dimensions using maxnumberRows and maxnumberCols
-      ALLOCATE(ZQ(maxnumberRows, maxnumberCols, NoZQTables))
-      ALLOCATE(headerRawArray(maxnumberCols, NoZQTables))
-      ALLOCATE(headerCharArray(maxnumberCols, NoZQTables))
-      ALLOCATE(headerRealArray(maxnumberCols, NoZQTables))
+      ALLOCATE(ZQ(maxnumberRows, maxnumberCols, NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZQ", location)
+      ALLOCATE(headerRawArray(maxnumberCols, NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "headerRawArray", location)
+      ALLOCATE(headerCharArray(maxnumberCols, NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "headerCharArray", location)
+      ALLOCATE(headerRealArray(maxnumberCols, NoZQTables), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "headerRealArray", location)
       REWIND(zqd)
 
       ! read ZQ metadata

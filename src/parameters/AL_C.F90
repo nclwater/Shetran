@@ -59,7 +59,12 @@
 !> | 2026-03-30 | SB | 4.6.1 | Made the active VSS, soil-layer, and root-density arrays allocatable and added three initializers. |
 !> @endhistory
 MODULE AL_C
+
    USE SGLOBAL, ONLY : NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
 ! File units occupy their rundata positions. SFB and SRB are non-opened
@@ -200,14 +205,31 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2019-11-28 | - | - | Active-size allocation and zero-initialization for the six VSS/ET arrays was present in the initial repository snapshot. |
 !> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for `JVSACN` and `JVSDEL`. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE initialise_al_c()
 
-      ALLOCATE(qvsh(4,top_cell_no,total_no_elements), qvsv(top_cell_no,total_no_elements), &
-         vspsi(top_cell_no,total_no_elements), vsthe(top_cell_no,total_no_elements), &
-         qvswli(top_cell_no,total_no_elements), eruz(total_no_elements,top_cell_no))
-      ALLOCATE (JVSACN(4,top_cell_no,total_no_elements), JVSDEL(4,top_cell_no,total_no_elements))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c"
 
+      ALLOCATE(qvsh(4,top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "qvsh", location)
+      ALLOCATE(qvsv(top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "qvsv", location)
+      ALLOCATE(vspsi(top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "vspsi", location)
+      ALLOCATE(vsthe(top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "vsthe", location)
+      ALLOCATE(qvswli(top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "qvswli", location)
+      ALLOCATE(eruz(total_no_elements,top_cell_no), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "eruz", location)
+      ALLOCATE (JVSACN(4,top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "JVSACN", location)
+      ALLOCATE (JVSDEL(4,top_cell_no,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "JVSDEL", location)
+
+      ! Initialize to default values
       qvsh=0.0d0
       qvsv=0.0d0
       vspsi=0.0d0
@@ -218,6 +240,8 @@ CONTAINS
       JVSDEL=0
 
    END SUBROUTINE initialise_al_c
+
+
 
 !> Allocates and zero-initializes VSS cell and soil-layer geometry.
 !>
@@ -240,12 +264,24 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added active-element allocation and zero-initialization for VSS and soil-layer geometry. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE initialise_al_c2()
 
-      ALLOCATE (DELTAZ(LLEE,total_no_elements), ZVSNOD(LLEE,total_no_elements))
-      ALLOCATE (NLYRBT(total_no_elements,NLYREE), NTSOIL(total_no_elements,NLYREE))
-      ALLOCATE (ZLYRBT(total_no_elements,NLYREE))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c2"
+
+      ALLOCATE (DELTAZ(LLEE,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "DELTAZ", location)
+      ALLOCATE (ZVSNOD(LLEE,total_no_elements), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZVSNOD", location)
+      ALLOCATE (NLYRBT(total_no_elements,NLYREE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NLYRBT", location)
+      ALLOCATE (NTSOIL(total_no_elements,NLYREE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "NTSOIL", location)
+      ALLOCATE (ZLYRBT(total_no_elements,NLYREE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "ZLYRBT", location)
+
       DELTAZ=0.0d0
       ZVSNOD=0.0d0
       NLYRBT=0
@@ -254,6 +290,8 @@ CONTAINS
 
 
    END SUBROUTINE initialise_al_c2
+
+
 
 !> Allocates and zero-initializes the root-density function table.
 !>
@@ -272,14 +310,17 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added active-vegetation allocation and zero-initialization for `RDF`. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE initialise_al_c3()
 
-      ALLOCATE (RDF(NV,LLEE))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c3"
+
+      ALLOCATE (RDF(NV,LLEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RDF", location)
       RDF=0.0d0
 
    END SUBROUTINE initialise_al_c3
-
-
 
 END MODULE AL_C

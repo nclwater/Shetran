@@ -179,7 +179,6 @@ CONTAINS
 
 
 
-
    !> summary: Standardised check for deallocating memory return status.
    !> author: S. Berendsen, Southampton University
    !>

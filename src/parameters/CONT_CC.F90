@@ -26,6 +26,10 @@
 !> @endhistory
 MODULE CONT_CC
    USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements,top_cell_no,total_no_links
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+
    IMPLICIT NONE
 
    DOUBLEPRECISION CCAPB(NELEE,NCONEE)  !! Base concentration boundary by element and contaminant.
@@ -99,14 +103,31 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03 | SB | 4.6.1 | Added active-size allocation for contaminant state arrays. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE initialise_cont_cc()
 
-      allocate   (cccc(total_no_elements,top_cell_no+1,ncon),cccco(total_no_elements,top_cell_no+1,ncon))
-      allocate   (ssss(total_no_elements,top_cell_no+1,ncon),sssso(total_no_elements,top_cell_no+1,ncon))
-      allocate   (sss1(total_no_elements,top_cell_no+1,ncon),sss2(total_no_elements,top_cell_no+1,ncon))
-      allocate   (FCPBKO(total_no_links,2,top_cell_no+1,ncon))
-      allocate   (GCPBKO(total_no_links,2,top_cell_no+1,ncon))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "CONT_CC:initialise_cont_cc"
+
+      allocate   (cccc(total_no_elements,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CCCC", location)
+      allocate   (cccco(total_no_elements,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "CCCCO", location)
+      allocate   (ssss(total_no_elements,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "SSSS", location)
+      allocate   (sssso(total_no_elements,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "SSSFO", location)
+      allocate   (sss1(total_no_elements,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "SSS1", location)
+      allocate   (sss2(total_no_elements,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "SSS2", location)
+      allocate   (FCPBKO(total_no_links,2,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "FCPBKO", location)
+      allocate   (GCPBKO(total_no_links,2,top_cell_no+1,ncon), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "GCPBKO", location)
+
+      ! Initialise to default values
       cccc=0
       cccco=0
       ssss=0

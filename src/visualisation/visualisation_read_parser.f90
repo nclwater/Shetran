@@ -64,7 +64,9 @@ MODULE visualisation_read_parser
 
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: IOSTAT_END
    USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
-   USE mod_parameters, ONLY: LENGTH_LINELONG
+
+   USE MOD_PARAMETERS, ONLY : I_P, LENGTH_LINELONG
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
 
    IMPLICIT NONE
 
@@ -673,7 +675,7 @@ CONTAINS
       length = LEN(title)
       IF (length >= 2) THEN
          IF ((title(1:1) == "'" .AND. title(length:length) == "'") .OR. &
-             (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
+            (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
             title = title(2:length - 1)
          END IF
       END IF
@@ -713,6 +715,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-07-09 | SvB | - | Added record preprocessing with comments, validation, splitting, and exact allocation. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE transform_visualisation_record(record, delimiter, separators, segments, status, message)
       CHARACTER(*), INTENT(IN) :: record !! Source record; physical trailing spaces are insignificant.
@@ -732,9 +735,13 @@ CONTAINS
       CHARACTER(VIS_MAX_RECORD_LENGTH) :: content !! Validated uncommented content buffer.
       CHARACTER(LENGTH_LINELONG) :: detail !! Formatted module diagnostic.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = 'transform_visualisation_record'
+
       status = VIS_READ_OK
       message = ''
-      ALLOCATE (segments(0))
+      ALLOCATE (segments(0), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "segments", location)
 
       content_length = LEN_TRIM(record)
       IF (content_length > 0) THEN
@@ -778,7 +785,8 @@ CONTAINS
       END DO
 
       DEALLOCATE (segments)
-      ALLOCATE (segments(count))
+      ALLOCATE (segments(count), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "segments", location)
       count = 0
       first = 1
       DO i = 1, content_length + 1

@@ -109,7 +109,10 @@ MODULE SYmod
    USE SGLOBAL
 !USE AL_P
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+
+   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+
    USE UTILSMOD, ONLY : DCOPY
    USE CONST_SY
 
@@ -220,19 +223,65 @@ CONTAINS
 !> on every call; that would fail from the second `SYMAIN` call onwards. The
 !> `IF (.NOT. ALLOCATED(...))` guard below was added to allocate only once.
 !> @endnote
+!>
+!> @history
+!>
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
    SUBROUTINE INITIALISE_SYMAIN_WORKSPACE()
       IMPLICIT NONE
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "SYmod:initialise_symain_workspace"
+
       IF (.NOT. ALLOCATED(BARM)) THEN
-         ALLOCATE (BARM (NLFEE), CONCI (NLFEE, NSEDEE), DCIPRM (NLFEE, NSEDEE), &
-                   DDIPRM (NLFEE, NSEDEE), DRDROP (NELEE), DUMSED (NLFEE * NSEDEE), &
-                   DWAT1 (NELEE), EPSB (NLFEE), FQCONF (NLFEE, 3), IDUM1A (NELEE), &
-                   IDUM1X (NELEE + 3), LDUM (NELEE), LRAIN (NELEE), QSDWAT (NLFEE, NSEDEE, 4), &
-                   QSEDB (NSEDEE, NSYBEE), QWATB (NSYBEE), SLOPEJ (NELEE, 4), &
-                   TAUJ (NELEE, 4), TAUK (NELEE), VCFMAX (NLFEE), VINFMX (NLFEE))
+         ALLOCATE (BARM (NLFEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "BARM", location)
+         ALLOCATE (CONCI (NLFEE, NSEDEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "CONCI", location)
+         ALLOCATE (DCIPRM (NLFEE, NSEDEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "DCIPRM", location)
+         ALLOCATE (DDIPRM (NLFEE, NSEDEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "DDIPRM", location)
+         ALLOCATE (DRDROP (NELEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "DRDROP", location)
+         ALLOCATE (DUMSED (NLFEE * NSEDEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "DUMSED", location)
+         ALLOCATE (DWAT1 (NELEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "DWAT1", location)
+         ALLOCATE (EPSB (NLFEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "EPSB", location)
+         ALLOCATE (FQCONF (NLFEE, 3), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "FQCONF", location)
+         ALLOCATE (IDUM1A (NELEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "IDUM1A", location)
+         ALLOCATE (IDUM1X (NELEE + 3), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "IDUM1X", location)
+         ALLOCATE (LDUM (NELEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "LDUM", location)
+         ALLOCATE (LRAIN (NELEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "LRAIN", location)
+         ALLOCATE (QSDWAT (NLFEE, NSEDEE, 4), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "QSDWAT", location)
+         ALLOCATE (QSEDB (NSEDEE, NSYBEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "QSEDB", location)
+         ALLOCATE (QWATB (NSYBEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "QWATB", location)
+         ALLOCATE (SLOPEJ (NELEE, 4), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "SLOPEJ", location)
+         ALLOCATE (TAUJ (NELEE, 4), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "TAUJ", location)
+         ALLOCATE (TAUK (NELEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "TAUK", location)
+         ALLOCATE (VCFMAX (NLFEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "VCFMAX", location)
+         ALLOCATE (VINFMX (NLFEE), STAT=ios)
+         CALL err_check_allocatememorystatus(ios, "VINFMX", location)
       END IF
 
    END SUBROUTINE INITIALISE_SYMAIN_WORKSPACE
+
 
 
 !> Calculates Ackers-White channel transport capacity for non-fine sediment.
@@ -311,7 +360,7 @@ CONTAINS
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `K2_syackw`/`DGRMAX_syackw`/`ROOT32_syackw` with compile-time `PARAMETER`s; skipped the capacity exponentiation/accumulation when its base is non-positive (see the preceding note on `BASE`). |
 !> @endhistory
    PURE SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
-                           QOC, TAUJ, ACKW, GSED)
+      QOC, TAUJ, ACKW, GSED)
 
       IMPLICIT NONE
 
@@ -530,7 +579,7 @@ CONTAINS
 !> zero.
 !> @endnote
    PURE SUBROUTINE SYBED(DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
-                         DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
+      DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
 
       IMPLICIT NONE
 
@@ -559,7 +608,7 @@ CONTAINS
       DOUBLE PRECISION :: AC, AD, DCBEDZ, DCC, DCNEW, DDBEDZ, DLSNEW, DLSOLD
       DOUBLE PRECISION :: DCIPP, DDIPP, DCINEW, SUMSED
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! * Loop over links
       link_loop: DO LINK = 1, NLF
@@ -659,7 +708,7 @@ CONTAINS
 !>   EPSB = 2\,FETA\,CLENTH\,GNUBK\,\min(h,DBFULL).
 !> \]
    PURE SUBROUTINE SYBKER(ISTEC, NLF, NS, FPCLAY, RHOSO, DRSO50, TAUK, &
-                          CWIDTH, DWAT1, BKB, NTSOBK, FETA, CLENTH, DBFULL, EPSB, GNUBK)
+      CWIDTH, DWAT1, BKB, NTSOBK, FETA, CLENTH, DBFULL, EPSB, GNUBK)
 
       IMPLICIT NONE
 
@@ -690,7 +739,7 @@ CONTAINS
       INTEGER :: BKSOIL, LINK
       DOUBLE PRECISION :: DWAT1E, GNUBKE, K, TAUEC, TAUKE, X
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! * Loop over channel links
       link_loop: DO LINK = 1, NLF
@@ -702,7 +751,7 @@ CONTAINS
          ! * Calculate aspect ratio coefficient ( see Notes )
          X = ONE / MAX(QUART, DWAT1E / CWIDTH(LINK))
          K = A1 + B1 * MIN(X, ONE) + B2 * MIN(DIMJE(X, ONE), ONE) &
-             + B3 * DIMJE(X, TWO)
+            + B3 * DIMJE(X, TWO)
 
          ! * Obtain critical shear stress for bank erosion
          CALL SYCRIT(ISTEC, DRSO50(BKSOIL), TAUKE, FPCLAY(BKSOIL), TAUEC)
@@ -713,7 +762,7 @@ CONTAINS
 
          ! * Calculate rate of release of sediments for each link
          EPSB(LINK) = TWO * FETA(LINK) * CLENTH(LINK) * GNUBKE * &
-                      MIN(DWAT1E, DBFULL(LINK))
+            MIN(DWAT1E, DBFULL(LINK))
 
       END DO link_loop
 
@@ -795,8 +844,8 @@ CONTAINS
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `K1_sycltr` with a compile-time `PARAMETER`. |
 !> @endhistory
    SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, NLF, NLFEE, NSED, NSEDEE,     &
-                      DRSED, ARXL, CWIDTH, DCBED, LINKNS, DWAT1, QOC, SLOPEJ, DCBSED, FDEL, TAUJ, &
-                      ACKW, CONCI, QSDWAT, GSED, QSWSUM)
+      DRSED, ARXL, CWIDTH, DCBED, LINKNS, DWAT1, QOC, SLOPEJ, DCBSED, FDEL, TAUJ, &
+      ACKW, CONCI, QSDWAT, GSED, QSWSUM)
 
       IMPLICIT NONE
 
@@ -858,7 +907,7 @@ CONTAINS
       !
       IF (ISACKW == 1 .OR. ISACKW == 2) THEN
          CALL SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
-                      QOC, TAUJ, ACKW, GSED)
+            QOC, TAUJ, ACKW, GSED)
       ELSE
          CALL SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, QOC, LINKNS, SLOPEJ, GSED)
       END IF
@@ -933,10 +982,10 @@ CONTAINS
 
                END IF
 
-            ! * Next link
+               ! * Next link
             END DO
 
-         ! * Next end
+            ! * Next end
          END DO
 
       END IF
@@ -1008,10 +1057,10 @@ CONTAINS
 
                END IF
 
-            ! * Next link
+               ! * Next link
             END DO
 
-         ! * Next side
+            ! * Next side
          END DO
 
       END IF
@@ -1103,8 +1152,8 @@ CONTAINS
 !> overwritten before return.
 !> @endnote
    PURE SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, FETAE, GNUE, ISGSED, NSED,       &
-                      FPCRIT, PLSE, NSEDEE, DRSED, QWAT, SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE,     &
-                      FDELE, QSEDE, Q, VDSED)
+      FPCRIT, PLSE, NSEDEE, DRSED, QWAT, SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE,     &
+      FDELE, QSEDE, Q, VDSED)
 
       IMPLICIT NONE
 
@@ -1353,7 +1402,7 @@ CONTAINS
       DOUBLE PRECISION :: SF, RSTR_DUM, R_DUM
       SF(RSTR_DUM, R_DUM) = HALF - SIGN(HALF, R_DUM - RSTR_DUM)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IF (FLAG == 1) THEN
          ! Quick method
@@ -1431,7 +1480,7 @@ CONTAINS
       DOUBLE PRECISION :: DR, DRHI, DRLO, F02, FLO, FHI, FSUM2, FTOT
       INTEGER :: FRPTR, SED
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! * Initialize local variables
       FHI = 0.0d0
@@ -1587,10 +1636,10 @@ CONTAINS
 
             END IF
 
-         ! * Next link
+            ! * Next link
          END DO
 
-      ! * Next iend
+         ! * Next iend
       END DO
 
    END SUBROUTINE SYENGH
@@ -1622,7 +1671,7 @@ CONTAINS
 !> `SPR`. If any failures are found, the routine raises fatal error 2000 before
 !> returning.
    SUBROUTINE SYERR0(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, &
-                     NSEE, NV, NVEE, NX, NXEE, NY, SPR, SYD)
+      NSEE, NV, NVEE, NX, NXEE, NY, SPR, SYD)
 
       IMPLICIT NONE
 
@@ -1652,42 +1701,42 @@ CONTAINS
       INTEGER :: IDUMS(1), IDUMO(1)
       LOGICAL :: LDUM1(1)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! 0. Preliminaries
-   ! ----------------
+      ! 0. Preliminaries
+      ! ----------------
 
       ! * Initialize local counters
       NERR = 0
 
-   ! 1. Array Sizes
-   ! --------------
+      ! 1. Array Sizes
+      ! --------------
 
-   ! NELEE
+      ! NELEE
       IDUMS(1) = NELEE
       IDUMO(1) = MAX(NEL, NV, NX * NY)
       CALL ALCHKI(ERRLVL_error, 2054, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! NLFEE
+      ! NLFEE
       IDUMS(1) = NLFEE
       IDUMO(1) = MAX(1, NLF)
       CALL ALCHKI(ERRLVL_error, 2055, SPR, 1, 1, IUNDEF, IUNDEF, 'NLFEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! NLYREE, NSEDEE
+      ! NLYREE, NSEDEE
       IDUMS(1) = MIN(NLYREE, NSEDEE)
       CALL ALCHKI(ERRLVL_error, 2056, SPR, 1, 1, IUNDEF, IUNDEF, '[ NLYREE, NSEDEE ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
 
-   ! NSEE
+      ! NSEE
       IDUMS(1) = NSEE
       IDUMO(1) = NS
       CALL ALCHKI(ERRLVL_error, 2057, SPR, 1, 1, IUNDEF, IUNDEF, 'NSEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! NVEE
+      ! NVEE
       IDUMS(1) = NVEE
       IDUMO(1) = NV
       CALL ALCHKI(ERRLVL_error, 2058, SPR, 1, 1, IUNDEF, IUNDEF, 'NVEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! NXEE
+      ! NXEE
       IDUMS(1) = NXEE
       IDUMO(1) = NX
       CALL ALCHKI(ERRLVL_error, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
@@ -1695,29 +1744,29 @@ CONTAINS
       IDUMO(1) = 9999
       CALL ALCHKI(ERRLVL_error, 2059, SPR, 1, 1, IUNDEF, IUNDEF, 'NXEE', 'LE', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! 2. Unit Numbers
-   ! ---------------
+      ! 2. Unit Numbers
+      ! ---------------
 
-   ! SPR, SYD
+      ! SPR, SYD
       IDUMS(1) = MIN(SPR, SYD)
       CALL ALCHKI(ERRLVL_error, 2060, SPR, 1, 1, IUNDEF, IUNDEF, '[ SPR, SYD ]', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
 
-   ! 3. Number of Entities
-   ! ---------------------
+      ! 3. Number of Entities
+      ! ---------------------
 
-   ! NLF
+      ! NLF
       IDUMS(1) = NLF
       IDUMO(1) = NEL
       CALL ALCHKI(ERRLVL_error, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'GE', IZERO_ARR, IDUMS, NERR, LDUM1)
       CALL ALCHKI(ERRLVL_error, 2061, SPR, 1, 1, IUNDEF, IUNDEF, 'NLF', 'LT', IDUMO, IDUMS, NERR, LDUM1)
 
-   ! NS, NV, NX, NY
+      ! NS, NV, NX, NY
       JEDUMDUM = MIN(NS, NV)
       IDUMS(1) = MIN(JEDUMDUM, NX, NY)
       CALL ALCHKI(ERRLVL_error, 2062, SPR, 1, 1, IUNDEF, IUNDEF, '[ NS, NV, NX, NY ]', 'GT', IZERO_ARR, IDUMS, NERR, LDUM1)
 
-   ! 4. Epilogue
-   ! -----------
+      ! 4. Epilogue
+      ! -----------
 
       IF (NERR > 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking WAT-SY interface variables')
@@ -1763,9 +1812,9 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
 !> @endhistory
    SUBROUTINE SYERR1(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
-                     NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
-                     NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
-                     ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
+      NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
+      NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
+      ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
 
       IMPLICIT NONE
 
@@ -1824,18 +1873,18 @@ CONTAINS
       INTEGER :: IDUM1(2)
       LOGICAL :: BKXYOK, REFOK
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! 0. Preliminaries
-   ! ----------------
+      ! 0. Preliminaries
+      ! ----------------
       NERR = 0
       ICOL1 = NLF + 1
       NELP = NEL + 1
 
-   ! 1. Index Arrays
-   ! ---------------
+      ! 1. Index Arrays
+      ! ---------------
 
-   ! ICMBK, ICMXY
+      ! ICMBK, ICMXY
       COUNT = NERR
       NCOL = 0
 
@@ -1873,7 +1922,7 @@ CONTAINS
 
       BKXYOK = COUNT == NERR
 
-   ! ICMREF part 1
+      ! ICMREF part 1
       IDUM1(1) = NEL
       IDUM1(2) = -NLFEE
       REFOK = .TRUE.
@@ -1908,7 +1957,7 @@ CONTAINS
          REFOK = REFOK .AND. COUNT == NERR
       END DO
 
-   ! ICMREF part 2 (bank element neighbours)
+      ! ICMREF part 2 (bank element neighbours)
       IF (NLF > 0 .AND. BEXBK .AND. BKXYOK .AND. REFOK) THEN
          IDUM1X(-1) = -2
          IDUM1X(0) = 0
@@ -1941,7 +1990,7 @@ CONTAINS
          CALL ALCHKI(ERRLVL_error, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
-   ! ICMRF2
+      ! ICMRF2
       IF (REFOK) THEN
          DO IBR = 1, NLFEE
             IDUM(IBR) = -1
@@ -1993,12 +2042,12 @@ CONTAINS
          CALL ALCHKI(ERRLVL_error, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
-   ! 2. Soil Properties
-   ! ------------------
+      ! 2. Soil Properties
+      ! ------------------
       CALL ALCHK(ERRLVL_error, 2063, SPR, 1, NS, IUNDEF, IUNDEF, 'THSAT(soil)', 'LE', ONE_ARR, ZERO_VAL, THSAT, NERR, LDUM)
 
-   ! 3. Link Properties & Initial State
-   ! ----------------------------------
+      ! 3. Link Properties & Initial State
+      ! ----------------------------------
       IF (NLF > 0) THEN
          CALL ALCHK(ERRLVL_error, 2064, SPR, 1, NLF, IUNDEF, IUNDEF, 'CLENTH(link)', 'GE', ZERO_ARR, ZERO_VAL, CLENTH, NERR, LDUM)
          CALL ALCHK(ERRLVL_error, 2065, SPR, 1, NLF, IUNDEF, IUNDEF, 'CWIDTH(link)', 'GT', ZERO_ARR, ZERO_VAL, CWIDTH, NERR, LDUM)
@@ -2006,8 +2055,8 @@ CONTAINS
          CALL ALCHK(ERRLVL_error, 2067, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', 'GE', ZERO_ARR, ZERO_VAL, ARXL, NERR, LDUM)
       END IF
 
-   ! 4. Column Properties & Initial State
-   ! ------------------------------------
+      ! 4. Column Properties & Initial State
+      ! ------------------------------------
       CALL ALCHK(ERRLVL_error, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:), NERR, LDUM)
       CALL ALCHK(ERRLVL_error, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:), NERR, LDUM)
       CALL ALCHK(ERRLVL_error, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', 'GEa', ZGRUND(ICOL1:), ZERO_VAL, HRF(ICOL1:), NERR, LDUM)
@@ -2032,15 +2081,15 @@ CONTAINS
       CALL ALCHKI(ERRLVL_error, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'GT', IZERO_ARR, NVC(ICOL1:), NERR, LDUM)
       CALL ALCHKI(ERRLVL_error, 2072, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NVC(iel)', 'LE', IDUM1(1:1), NVC(ICOL1:), NERR, LDUM)
 
-   ! 5. Element Properties
-   ! ---------------------
+      ! 5. Element Properties
+      ! ---------------------
       CALL ALCHK(ERRLVL_error, 2073, SPR, 1, NEL, IUNDEF, IUNDEF, 'AREA(iel)', 'GT', ZERO_ARR, ZERO_VAL, AREA, NERR, LDUM)
       DO FACE = 1, 4
          CALL ALCHK(ERRLVL_error, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', 'GT', ZERO_ARR, ZERO_VAL, DHF(1:, FACE), NERR, LDUM)
       END DO
 
-   ! 6. Epilogue
-   ! -----------
+      ! 6. Epilogue
+      ! -----------
       IF (NERR > 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, 2001, SPR, 0, 0, 'Error(s) detected while checking static/initial WAT-SY interface')
       END IF
@@ -2086,12 +2135,13 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-05-04 | SvB | 4.6.1 | Changed the local `RDUM` workspace from an automatic array sized `NXEE*NYEE` to `ALLOCATABLE`, to reduce stack usage. |
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV, NSYB, NSYBEE, &
-                      NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, SFB, SRB, ALPHA, DCBEDO,      &
-                      FPCRIT, DLSMAX, NTSOBK, NSYBCD, NBFACE, DRSED, BKB, GKF, GKR, RHOSO, SOSDFN,  &
-                      DRDRIP, FDRIP, XDRIP, PBSED, FCG, FCROCK, PLS, DLS, FBETA, FDEL, ABC, BBC,    &
-                      GBC, IDUM, DUMMY, LDUM)
+      NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, SFB, SRB, ALPHA, DCBEDO,      &
+      FPCRIT, DLSMAX, NTSOBK, NSYBCD, NBFACE, DRSED, BKB, GKF, GKR, RHOSO, SOSDFN,  &
+      DRDRIP, FDRIP, XDRIP, PBSED, FCG, FCROCK, PLS, DLS, FBETA, FDEL, ABC, BBC,    &
+      GBC, IDUM, DUMMY, LDUM)
 
       IMPLICIT NONE
 
@@ -2160,12 +2210,15 @@ CONTAINS
       INTEGER :: IDUM1 (1)
       DOUBLE PRECISION, ALLOCATABLE :: RDUM (:)
 
+      INTEGER(KIND=I_P) :: ios
+
       !----------------------------------------------------------------------*
 
       ! 0. Preliminaries
       ! ----------------
       !     * Local counter
-      ALLOCATE (RDUM (NXEE*NYEE))
+      ALLOCATE (RDUM (NXEE*NYEE), STAT=ios)
+      CALL err_check_allocatememorystatus(ios, "RDUM", "SYmod:SYERR2")
 
       NERR = 0
 
@@ -2452,8 +2505,8 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
 !> @endhistory
    SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
-         ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
-         ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
+      ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
+      ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
 
       IMPLICIT NONE
 
@@ -2484,78 +2537,78 @@ CONTAINS
       LOGICAL :: LDUM (NELEE) !! Logical workspace for `ALCHK`/`ALCHKI` checks.
 
       DOUBLE PRECISION, PARAMETER :: TOL = 1.0D-7
-   !
+      !
       INTEGER :: FACE, FADJ, I, IADJ, IBR, IEL, J, NELP, NERR, P
       INTEGER, PARAMETER :: IUNDEF = 0
       DOUBLE PRECISION :: QADJ, QMIN
       DOUBLE PRECISION :: DUM1 (1)
 
-   !----------------------------------------------------------------------*
-   !
-   ! 0. Preliminaries
-   ! ----------------
-   !
-   !     * Initialize local counter
+      !----------------------------------------------------------------------*
+      !
+      ! 0. Preliminaries
+      ! ----------------
+      !
+      !     * Initialize local counter
       NERR = 0
-   !
-   !
-   ! 1. Variables
-   ! ------------
-   !
-   ! DTUZ
+      !
+      !
+      ! 1. Variables
+      ! ------------
+      !
+      ! DTUZ
       DUM1 (1) = DTUZ
       CALL ALCHK (ERRLVL_error, 2046, SPR, 1, 1, IUNDEF, IUNDEF, 'DTUZ', 'GE', &
          zero1, zero1 (1), DUM1, NERR, LDUM)
-   !
-   !
-   ! 2. Vegetative State
-   ! -------------------
-   !
-   ! CLAI
+      !
+      !
+      ! 2. Vegetative State
+      ! -------------------
+      !
+      ! CLAI
       CALL ALCHK (ERRLVL_error, 2047, SPR, 1, NV, IUNDEF, IUNDEF, 'CLAI(veg)', &
          'GE', zero1, zero1 (1), CLAI, NERR, LDUM)
-   ! PLAI
+      ! PLAI
       CALL ALCHK (ERRLVL_error, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
          'GE', zero1, zero1 (1), PLAI, NERR, LDUM)
       CALL ALCHK (ERRLVL_error, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
          'LE', ONE1, ZERO1 (1), PLAI, NERR, LDUM)
-   !
-   !
-   ! 3. Link State
-   ! -------------
-   !
+      !
+      !
+      ! 3. Link State
+      ! -------------
+      !
       IF (NLF > 0) THEN
-   !
-   ! ARXL
+         !
+         ! ARXL
          CALL ALCHK (ERRLVL_error, 2049, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
-         'GE', zero1, zero1 (1), ARXL, NERR, LDUM)
-   !
+            'GE', zero1, zero1 (1), ARXL, NERR, LDUM)
+         !
       END IF
-   !
-   !
-   ! 4. Columnar State
-   ! -----------------
-   !
-   ! DRAINA
+      !
+      !
+      ! 4. Columnar State
+      ! -----------------
+      !
+      ! DRAINA
       CALL ALCHK (ERRLVL_error, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1 (1), DRAINA, NERR, LDUM)
-   ! 10.10.94  Ought to fix WAT module so that we don't need TOL
+      ! 10.10.94  Ought to fix WAT module so that we don't need TOL
       CALL ALCHK (ERRLVL_error, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'LEa', PNETTO, TOL, DRAINA, NERR, LDUM)
-   !
-   !
-   ! 5. Elemental State
-   ! ------------------
-   !
-   ! HRF
+      !
+      !
+      ! 5. Elemental State
+      ! ------------------
+      !
+      ! HRF
       CALL ALCHK (ERRLVL_error, 2051, SPR, 1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', &
          'GEa', ZGRUND, ZERO1 (1), HRF, NERR, LDUM)
-   !
-   !
-   ! 6. Flux/Ordering
-   ! ----------------
-   !
-   ! ISORT & QOC
-   !     * Set JSORT = inverse of ISORT & initialize upper bound JMIN
-   !       (note that JSORT has overspill elements )
+      !
+      !
+      ! 6. Flux/Ordering
+      ! ----------------
+      !
+      ! ISORT & QOC
+      !     * Set JSORT = inverse of ISORT & initialize upper bound JMIN
+      !       (note that JSORT has overspill elements )
       NELP = NEL + 1
       DO J = 0, NELP
          JSORT (J) = NELP
@@ -2568,16 +2621,16 @@ CONTAINS
          JMIN (I) = NELP
       END DO
 
-   !     * At this point any element not listed in ISORT has a JSORT
-   !       value of NELP, which is guaranteed to fail the test below
-   !     * Update JMIN (used as object of JSORT test) & set QOC status IQ
+      !     * At this point any element not listed in ISORT has a JSORT
+      !       value of NELP, which is guaranteed to fail the test below
+      !     * Update JMIN (used as object of JSORT test) & set QOC status IQ
       DO FACE = 1, 4
 
          element_loop: DO IEL = 1, NEL
-   !          * innocent until proven guilty
+            !          * innocent until proven guilty
             IQ (IEL) = 0
 
-   !          * non-discharge faces are ok (Cycle directly replaces GOTO 640)
+            !          * non-discharge faces are ok (Cycle directly replaces GOTO 640)
             IF (FNQOUT(IEL, FACE) <= ZERO1 (1)) CYCLE element_loop
 
             IADJ = ICMREF (IEL, FACE, 2)
@@ -2585,9 +2638,9 @@ CONTAINS
             IF (IADJ > 0) THEN
                FADJ = ICMREF (IEL, FACE, 3)
                QADJ = FNQOUT(IADJ, FADJ)
-   !             * do both elements discharge into the same face?
+               !             * do both elements discharge into the same face?
                IF (QADJ > ZERO1 (1)) IQ (IEL) = 1
-   !             * IEL must precede IADJ in the ISORT list
+               !             * IEL must precede IADJ in the ISORT list
                JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
 
             ELSE IF (IADJ < 0) THEN
@@ -2601,34 +2654,34 @@ CONTAINS
                      QADJ = FNQOUT(IADJ, FADJ)
                      QMIN = MIN (QADJ, QMIN)
                      IF (QADJ < zero1 (1)) THEN
-   !                      * IEL must precede IADJ in the ISORT list
+                        !                      * IEL must precede IADJ in the ISORT list
                         JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
                      END IF
                   END IF
                END DO
 
-   !             * discharge from IEL has nowhere to go?
+               !             * discharge from IEL has nowhere to go?
                IF (QMIN >= zero1 (1)) IQ (IEL) = 2
             END IF
          END DO element_loop
 
-   !        * Check QOC status at this FACE for all elements
+         !        * Check QOC status at this FACE for all elements
          CALL ALCHKI (ERRLVL_error, 2052, SPR, 1, NEL, FACE, IUNDEF, &
             'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
 
       END DO
 
-   !     * Check that each donor element listed in ISORT occurs before
-   !       each of its receptors, and that all elements are listed
+      !     * Check that each donor element listed in ISORT occurs before
+      !       each of its receptors, and that all elements are listed
       CALL ALCHKI (ERRLVL_error, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
          'position_in_ISORT(iel)', 'LTa', JMIN, JSORT (1), NERR, LDUM)
-   !
-   !
-   ! 7. Epilogue
-   ! -----------
-   !
+      !
+      !
+      ! 7. Epilogue
+      ! -----------
+      !
       IF (NERR > 0) THEN
-   !
+         !
          WRITE (SPR, 9100) 'DTUZ', DTUZ
          WRITE (SPR, 9100) 'CLAI[veg=1,...,NV]', CLAI
          WRITE (SPR, 9100) 'PLAI[veg=1,...,NV]', PLAI
@@ -2643,9 +2696,9 @@ CONTAINS
          DO FACE = 1, 4
             WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC (IEL, FACE), IEL = 1, NEL)
          END DO
-   !
+         !
          CALL RAISE_ERROR (ERRLVL_error, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
-   !
+         !
       END IF
 
       RETURN
@@ -2730,7 +2783,7 @@ CONTAINS
 !> (the Shields option), which never reads that argument.
 !> @endnote
    SUBROUTINE SYFINE(DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
-                     DCBF, FBETAF, FDELF, PBSED, TAUK, VCFMAX, VINFMX, BARM)
+      DCBF, FBETAF, FDELF, PBSED, TAUK, VCFMAX, VINFMX, BARM)
 
       IMPLICIT NONE
 
@@ -2758,7 +2811,7 @@ CONTAINS
       DOUBLE PRECISION :: DUM, TAUEC, VMAX
       DOUBLE PRECISION :: AREA_L, DCFMXL, FDELFL, TAUKL
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! * Calculate settling velocity for fines ( first call only )
       IF (FIRST_syfine) THEN
@@ -2848,9 +2901,9 @@ CONTAINS
 !> | 2026-04-06 | SvB | 4.6.1 | Removed `GOTO`-driven control flow. |
 !> @endhistory
    SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, NTSOBK, ARXL, DCBEDO, DLS, &
-                      FBETA, DRSED, HRF, PBSED, PLS, SOSDFN, THSAT, ZGRUND, NTSOTP, ZBFULL, ARBDEP, &
-                      ARXLOL, DCBED, DCBSED, DDBSED, DRSO50, DWATOL, FETA, GINFD, GINFS, GNU, GNUBK, &
-                      QSED, DBFULL)
+      FBETA, DRSED, HRF, PBSED, PLS, SOSDFN, THSAT, ZGRUND, NTSOTP, ZBFULL, ARBDEP, &
+      ARXLOL, DCBED, DCBSED, DDBSED, DRSO50, DWATOL, FETA, GINFD, GINFS, GNU, GNUBK, &
+      QSED, DBFULL)
 
       IMPLICIT NONE
 
@@ -2932,7 +2985,7 @@ CONTAINS
             QSED(1:NEL, SED, FACE) = ZERO
          END DO
 
-      ! * Next sediment type
+         ! * Next sediment type
       END DO
 
 
@@ -2959,7 +3012,7 @@ CONTAINS
             DDBSED (LINK, SED) = DDBEDE * FBETAE
          END DO
 
-      ! * Next link
+         ! * Next link
       END DO
 
 
@@ -3067,9 +3120,9 @@ CONTAINS
 !> no-flow faces are read as incoming sediment fluxes and are left unchanged.
 !> @endnote
    PURE SUBROUTINE SYLINK(NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
-                          ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
-                          DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
-                          DDIPRE, GINFDE, GINFSE)
+      ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
+      DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
+      DDIPRE, GINFDE, GINFSE)
 
       IMPLICIT NONE
 
@@ -3111,10 +3164,10 @@ CONTAINS
       DOUBLE PRECISION :: OMPB, OMPBI, QSEDIN, SUM, SUMN, SUMP
       DOUBLE PRECISION :: VCFS, VCARM, VDMAX, VDSEDS, VDSED, VDWAT, VINF, VSTRAN
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Initialization
-   ! --------------
+      ! Initialization
+      ! --------------
 
       ! * Make lists of outflow and inflow faces
       NIN = 0
@@ -3136,8 +3189,8 @@ CONTAINS
       DTSYI = 1.0D0 / DTSY
       AREAEI = 1.0D0 / AREAE
 
-   ! Loop over size groups ( largest to smallest )
-   ! ---------------------------------------------
+      ! Loop over size groups ( largest to smallest )
+      ! ---------------------------------------------
 
       ! * Loop over sediment types ( largest to smallest )
       sed_loop: DO SED = NSED, 1, -1
@@ -3163,7 +3216,7 @@ CONTAINS
          ! * Sediment available for resuspension/transport/infiltration
          ! * /armouring
          VDMAX = FDELE(SED) * ARXLOE * CLENTE + DCBEEE * AREAE + &
-                 (QSEDIN + EPSBE * SOSDFE(SED)) * DTSY
+            (QSEDIN + EPSBE * SOSDFE(SED)) * DTSY
 
          ! Infiltration and Armouring
          ! --------------------------
@@ -3288,10 +3341,10 @@ CONTAINS
 !> | 2026-05-10 | SvB | 4.6.1 | Moved those work arrays to module scope, allocated once by [[initialise_symain_workspace]] (see that routine's own history and notes). |
 !> @endhistory
    SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF, ICMRF2, ICMXY, &
-                      NBFACE, NLYR, NTSOIL, NVC, AREA, CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT,    &
-                      ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, &
-                      HRF, PLAI, PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
-                      GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+      NBFACE, NLYR, NTSOIL, NVC, AREA, CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT,    &
+      ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, &
+      HRF, PLAI, PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
+      GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
 
       IMPLICIT NONE
 
@@ -3392,13 +3445,13 @@ CONTAINS
 
          ! * Check array bounds & input variables
          CALL SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE, NV, NVEE, NX, NXEE, NY, &
-                      SPR, SYD)
+            SPR, SYD)
 
          ! * Check static/initializing input arrays
          CALL SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, SPR, BEXBK,   &
-                      LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, NTSOIL, NVC, THSAT, CLENTH,   &
-                      CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, ARXL, HRF (NLF + 1), ZGRUND, IDUM, &
-                      IDUM1X, LDUM)
+            LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, NTSOIL, NVC, THSAT, CLENTH,   &
+            CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, ARXL, HRF (NLF + 1), ZGRUND, IDUM, &
+            IDUM1X, LDUM)
 
          ! * Store top-layer soil type for each column element
          DO IEL = NLF + 1, NEL
@@ -3407,34 +3460,34 @@ CONTAINS
 
          ! * Read SY input data file
          CALL SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, NLF, NLFEE, NS, NSEDEE,  &
-                      NSEE, NSYBEE, NSYCEE, NTSOTP_symain (NLF + 1), NV, NX, NXEE, NYEE, NY,    &
-                      SPR, SYD, SYVER, ABC_symain, ALPHA_symain, BBC_symain, BKB_symain,        &
-                      CONCOB_symain, DCBEDO_symain, DLS, DRDRIP_symain, DRSED_symain,           &
-                      DLSMAX_symain, FBETA, FBIC_symain, FCG_symain (NLF + 1),                  &
-                      FCROCK_symain (NLF + 1), FDEL, FDRIP_symain, FICRIT_symain, FPCLAY_symain,&
-                      FPCRIT_symain, GBC_symain, GKF_symain, GKR_symain, ISACKW_symain,         &
-                      ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, NEPS_symain,   &
-                      NFINE_symain, NSED, NSYB_symain, NSYBCD_symain, NSYC_symain,              &
-                      NTSOBK_symain, PBSED, PLS, RHOSO_symain, SOSDFN, XDRIP_symain, IDUM,      &
-                      DUMMY, DUMSED)
+            NSEE, NSYBEE, NSYCEE, NTSOTP_symain (NLF + 1), NV, NX, NXEE, NYEE, NY,    &
+            SPR, SYD, SYVER, ABC_symain, ALPHA_symain, BBC_symain, BKB_symain,        &
+            CONCOB_symain, DCBEDO_symain, DLS, DRDRIP_symain, DRSED_symain,           &
+            DLSMAX_symain, FBETA, FBIC_symain, FCG_symain (NLF + 1),                  &
+            FCROCK_symain (NLF + 1), FDEL, FDRIP_symain, FICRIT_symain, FPCLAY_symain,&
+            FPCRIT_symain, GBC_symain, GKF_symain, GKR_symain, ISACKW_symain,         &
+            ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, NEPS_symain,   &
+            NFINE_symain, NSED, NSYB_symain, NSYBCD_symain, NSYC_symain,              &
+            NTSOBK_symain, PBSED, PLS, RHOSO_symain, SOSDFN, XDRIP_symain, IDUM,      &
+            DUMMY, DUMSED)
 
          ! * Check SY input data
          CALL SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV,           &
-                      NSYB_symain, NSYBEE, NSYC_symain, NSYCEE, SPR, ICMREF, ISUSED_symain,     &
-                      NEPS_symain, NFINE_symain, SFB, SRB, ALPHA_symain, DCBEDO_symain,         &
-                      FPCRIT_symain, DLSMAX_symain, NTSOBK_symain, NSYBCD_symain, NBFACE,       &
-                      DRSED_symain, BKB_symain, GKF_symain, GKR_symain, RHOSO_symain, SOSDFN,   &
-                      DRDRIP_symain, FDRIP_symain, XDRIP_symain, PBSED, FCG_symain (NLF + 1),   &
-                      FCROCK_symain (NLF + 1), PLS, DLS, FBETA, FDEL, ABC_symain, BBC_symain,   &
-                      GBC_symain, IDUM, DUMMY, LDUM)
+            NSYB_symain, NSYBEE, NSYC_symain, NSYCEE, SPR, ICMREF, ISUSED_symain,     &
+            NEPS_symain, NFINE_symain, SFB, SRB, ALPHA_symain, DCBEDO_symain,         &
+            FPCRIT_symain, DLSMAX_symain, NTSOBK_symain, NSYBCD_symain, NBFACE,       &
+            DRSED_symain, BKB_symain, GKF_symain, GKR_symain, RHOSO_symain, SOSDFN,   &
+            DRDRIP_symain, FDRIP_symain, XDRIP_symain, PBSED, FCG_symain (NLF + 1),   &
+            FCROCK_symain (NLF + 1), PLS, DLS, FBETA, FDEL, ABC_symain, BBC_symain,   &
+            GBC_symain, IDUM, DUMMY, LDUM)
 
          ! * Static variables and initialization
          CALL SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, NTSOBK_symain, ARXL,      &
-                      DCBEDO_symain, DLS, FBETA, DRSED_symain, HRF (NLF + 1), PBSED, PLS,       &
-                      SOSDFN, THSAT, ZGRUND, NTSOTP_symain (NLF + 1), ZBFULL, ARBDEP,           &
-                      ARXLOL_symain, DCBED, DCBSED, DDBSED_symain, DRSO50_symain,               &
-                      DWATOL_symain (NLF + 1), FETA_symain, GINFD, GINFS, GNU, GNUBK, QSED,     &
-                      DBFULL_symain)
+            DCBEDO_symain, DLS, FBETA, DRSED_symain, HRF (NLF + 1), PBSED, PLS,       &
+            SOSDFN, THSAT, ZGRUND, NTSOTP_symain (NLF + 1), ZBFULL, ARBDEP,           &
+            ARXLOL_symain, DCBED, DCBSED, DDBSED_symain, DRSO50_symain,               &
+            DWATOL_symain (NLF + 1), FETA_symain, GINFD, GINFS, GNU, GNUBK, QSED,     &
+            DBFULL_symain)
 
          !------------------- End of initialization step -----------------------*
 
@@ -3449,29 +3502,29 @@ CONTAINS
 
          IF (DOUBT) THEN
             CALL SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, ICMRF2, ISORT, DTUZ, CLAI,    &
-                         PLAI, ARXL, DRAINA, PNETTO, HRF, ZGRUND, QOC, IDUM, IDUM1A, IDUM1X,    &
-                         LDUM)
+               PLAI, ARXL, DRAINA, PNETTO, HRF, ZGRUND, QOC, IDUM, IDUM1A, IDUM1X,    &
+               LDUM)
          END IF
 
          ! Quantities Independent of Sub-timestep
          ! --------------------------------------
          ! * Water-flow related variables
          CALL SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, DHF, DRDRIP_symain,       &
-                     LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, PNETTO, QOC,              &
-                     DRDROP (NLF + 1), DWAT1, FCC, FQCONF, LRAIN (NLF + 1), SLOPEJ, TAUJ, TAUK)
+            LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, PNETTO, QOC,              &
+            DRDROP (NLF + 1), DWAT1, FCC, FQCONF, LRAIN (NLF + 1), SLOPEJ, TAUJ, TAUK)
 
          ! * Erosion rates for all column elements
          CALL SYOVER (ISTEC_symain, NEL, NLF, NS, NV, FCC, LRAIN (NLF + 1), XDRIP_symain,       &
-                      DRDRIP_symain, FDRIP_symain, DRAINA, GKR_symain, DWAT1 (NLF + 1),         &
-                      DRDROP (NLF + 1), FCG_symain (NLF + 1), FCROCK_symain (NLF + 1),          &
-                      DRSO50_symain, TAUK (NLF + 1), FPCLAY_symain, GKF_symain, RHOSO_symain,   &
-                      NTSOTP_symain (NLF + 1), NVC, GNU, DUMMY, DLS, DLSMAX_symain)
+            DRDRIP_symain, FDRIP_symain, DRAINA, GKR_symain, DWAT1 (NLF + 1),         &
+            DRDROP (NLF + 1), FCG_symain (NLF + 1), FCROCK_symain (NLF + 1),          &
+            DRSO50_symain, TAUK (NLF + 1), FPCLAY_symain, GKF_symain, RHOSO_symain,   &
+            NTSOTP_symain (NLF + 1), NVC, GNU, DUMMY, DLS, DLSMAX_symain)
 
          ! * Erosion rates for all link elements
          IF (NLF > 0) THEN
             CALL SYBKER (ISTEC_symain, NLF, NS, FPCLAY_symain, RHOSO_symain, DRSO50_symain,     &
-                         TAUK, CWIDTH, DWAT1, BKB_symain, NTSOBK_symain, FETA_symain, CLENTH,   &
-                         DBFULL_symain, EPSB, GNUBK)
+               TAUK, CWIDTH, DWAT1, BKB_symain, NTSOBK_symain, FETA_symain, CLENTH,   &
+               DBFULL_symain, EPSB, GNUBK)
          END IF
 
 
@@ -3518,17 +3571,17 @@ CONTAINS
             IF (NLF > 0) THEN
                ! * Transport capacity & advection coefficients
                CALL SYCLTR (CONCOB_symain, FPCRIT_symain, ISACKW_symain, ISUSED_symain, NELEE,  &
-                            NFINE_symain, NLF, NLFEE, NSED, NSEDEE,                             &
-                            DRSED_symain (NFINE_symain + 1), ARXL, CWIDTH, DCBED, LINKNS, DWAT1,&
-                            QOC, SLOPEJ, DCBSED (1, NFINE_symain + 1),                          &
-                            FDEL (1, NFINE_symain + 1), TAUJ, ACKW_symain (1, NFINE_symain + 1),&
-                            CONCI, QSDWAT, DUMMY, DUMSED)
+                  NFINE_symain, NLF, NLFEE, NSED, NSEDEE,                             &
+                  DRSED_symain (NFINE_symain + 1), ARXL, CWIDTH, DCBED, LINKNS, DWAT1,&
+                  QOC, SLOPEJ, DCBSED (1, NFINE_symain + 1),                          &
+                  FDEL (1, NFINE_symain + 1), TAUJ, ACKW_symain (1, NFINE_symain + 1),&
+                  CONCI, QSDWAT, DUMMY, DUMSED)
 
                ! * Settling, infiltration & armouring
                IF (NFINE_symain > 0) THEN
                   CALL SYFINE (DRSED_symain (1), FBIC_symain, FICRIT_symain, NLF, ALPHA_symain, &
-                               DTSY, AREA, DCBSED, FBETA, FDEL, PBSED, TAUK, VCFMAX, VINFMX,    &
-                               BARM)
+                     DTSY, AREA, DCBSED, FBETA, FDEL, PBSED, TAUK, VCFMAX, VINFMX,    &
+                     BARM)
                END IF
             END IF
 
@@ -3558,10 +3611,10 @@ CONTAINS
 
                   ! * Solve transport equation
                   CALL SYLINK (NFINE_symain, NSED, NSEDEE, DTSY, AREA (IEL),                    &
-                               ARXLOL_symain (IEL), ARXL (IEL), CLENTH (IEL), EPSB (IEL),       &
-                               PBSED (IEL), VINFMX (IEL), BARM (IEL), VCFMAX (IEL), CONCIE,     &
-                               DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE,      &
-                               DDIPRE, GINFDE, GINFSE)
+                     ARXLOL_symain (IEL), ARXL (IEL), CLENTH (IEL), EPSB (IEL),       &
+                     PBSED (IEL), VINFMX (IEL), BARM (IEL), VCFMAX (IEL), CONCIE,     &
+                     DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE,      &
+                     DDIPRE, GINFDE, GINFSE)
 
                   ! * Scatter link-specific results
                   CALL DCOPY (NSED, DCIPRE, 1, DCIPRM (IEL, 1), NLFEE)
@@ -3580,9 +3633,9 @@ CONTAINS
 
                   ! * Solve transport equation for this column element
                   CALL SYCOLM (AREA (IEL), DTSY, DWAT1 (IEL), DWATOL_symain (IEL), DXQQ (IEL),  &
-                               DYQQ (IEL), FETA_symain (IEL), GNU (IEL), ISGSED_symain, NSED,   &
-                               FPCRIT_symain, PLS (IEL), NSEDEE, DRSED_symain, QWAT, SLOPEE,    &
-                               SOSDFE, TAUJE, DLS (IEL), FBETAE, FDELE, QSEDE, DUMMY, DUMSED)
+                     DYQQ (IEL), FETA_symain (IEL), GNU (IEL), ISGSED_symain, NSED,   &
+                     FPCRIT_symain, PLS (IEL), NSEDEE, DRSED_symain, QWAT, SLOPEE,    &
+                     SOSDFE, TAUJE, DLS (IEL), FBETAE, FDELE, QSEDE, DUMMY, DUMSED)
 
                   ! * Scatter column-specific results
                   CALL DCOPY (NSED, FBETAE, 1, FBETA (IEL, 1), NELEE)
@@ -3614,7 +3667,7 @@ CONTAINS
                               FADJ = ICMRF2 (IBR, P, 2)
                               DO SED = 1, NSED
                                  QSED (IADJ, SED, FADJ) = QSED (IADJ, SED, FADJ) - &
-                                                          QSEDE (SED, FACE) * FQCONF (IBR, P)
+                                    QSEDE (SED, FACE) * FQCONF (IBR, P)
                               END DO
                            END IF
                         END DO
@@ -3629,7 +3682,7 @@ CONTAINS
             ! ------------------
             IF (NLF > 0) THEN
                CALL SYBED (DCBEDO_symain, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, DDIPRM,      &
-                           ARBDEP, DLS, FBETA, DCBSED, DDBSED_symain, DCBED)
+                  ARBDEP, DLS, FBETA, DCBSED, DDBSED_symain, DCBED)
             END IF
 
             ! Store Old-time Values & Update Timer
@@ -3707,12 +3760,12 @@ CONTAINS
 !> form (unchanged since the 1994 Fortran 77 version).
 !> @endnote
    SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
-         DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
-         TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
+      DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
+      TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
 
       IMPLICIT NONE
 
-   ! Input/Output arguments
+      ! Input/Output arguments
       INTEGER, INTENT(IN) :: ISTEC !! Critical-shear calculation option.
       INTEGER, INTENT(IN) :: NEL   !! Number of elements.
       INTEGER, INTENT(IN) :: NLF   !! Number of channel links.
@@ -3741,7 +3794,7 @@ CONTAINS
       DOUBLE PRECISION, INTENT(OUT) :: GNU (NLF + 1:NEL) !! Hillslope erosion rate by land element.
       DOUBLE PRECISION, INTENT(OUT) :: TGMD (NV)  !! Workspace for canopy-drip momentum by vegetation type.
 
-   ! Locals
+      ! Locals
       DOUBLE PRECISION, PARAMETER :: X1 = 7.5D0, D1 = 3.3D-3, L1 = 2.78D-6, L2 = 1.39D-5
       DOUBLE PRECISION, PARAMETER :: PI = 3.14159265358979323846D0
       DOUBLE PRECISION, PARAMETER :: CLALIM = 1.0D0 / L2
@@ -3759,7 +3812,7 @@ CONTAINS
       DOUBLE PRECISION :: SF2, SX, SY
       SF2(SX, SY) = HALF + SIGN(HALF, SX - SY)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       PRSGOS = PI * RHOWAT * RHOWAT * GRAVTY / 6.0D0
 
@@ -3788,7 +3841,7 @@ CONTAINS
          GMD = TGMD(NVEG) * DRAINA(IEL)
 
          DR = GKR(ISOIL) * EXP(-MAX(ZERO, (DWAT1(IEL) / DRDROP(IEL)) - ONE)) * &
-              (ONE - FCG(IEL) - FCROCE) * (GMR + GMD)
+            (ONE - FCG(IEL) - FCROCE) * (GMR + GMD)
 
          CALL SYCRIT (ISTEC, DRSO50(ISOIL), TAUKE, FPCLAY(ISOIL), TAUEC)
 
@@ -3865,11 +3918,11 @@ CONTAINS
 !> | 2026-04-12 | SvB | 4.6.1 | Precalculated the four face lengths into `FLJ_ARRAY` instead of a per-face `MOD` test. |
 !> @endhistory
    PURE SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
-         DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
+      DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
 
       IMPLICIT NONE
 
-   ! Input arguments
+      ! Input arguments
       INTEGER, INTENT(IN) :: ISGSED !! Overland transport-capacity option.
       INTEGER, INTENT(IN) :: NSED   !! Number of sediment size classes.
       DOUBLE PRECISION, INTENT(IN) :: DXQQE  !! Element width.
@@ -3881,19 +3934,19 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: SLOPEE (4) !! Water-surface slope by face.
       DOUBLE PRECISION, INTENT(IN) :: TAUJE (4)  !! Face shear stress.
 
-   ! Output arguments
+      ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: GJSUM !! Total overland sediment transport capacity for the element.
 
-   ! Locals
+      ! Locals
       DOUBLE PRECISION :: K2, AJ, DRD50, FTAU, DUM, GJ, GSUM
       DOUBLE PRECISION :: LJ, TAUEC, TAUJEE
       INTEGER :: FACE, NOUT, I, J(4)
       DOUBLE PRECISION :: FLJ_ARRAY(4)
 
-   !----------------------------------------------------------------------*
-   ! Preliminaries
-   ! -------------
-   !
+      !----------------------------------------------------------------------*
+      ! Preliminaries
+      ! -------------
+      !
 
       ! Initialize variables
       GSUM = ZERO
@@ -3913,10 +3966,10 @@ CONTAINS
          END IF
       END DO
 
-   !
-   ! Transport Capacity
-   ! ------------------
-   !
+      !
+      ! Transport Capacity
+      ! ------------------
+      !
       IF (ISGSED == 1 .AND. DWAT1E > ZERO) THEN
 
          ! ^^^ ENGELUND-HANSEN METHOD ^^^
@@ -4003,11 +4056,11 @@ CONTAINS
 !> outside `1:NSEDEE`, too many boundary elements/categories, or a boundary type
 !> outside `1:4`.
    SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, &
-                      NSYBEE, NSYCEE, NTSOTP, NV, NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA,   &
-                      BBC, BKB, CONCOB, DCBEDO, DLS, DRDRIP, DRSED, DLSMAX, FBETA, FBIC, FCG,        &
-                      FCROCK, FDEL, FDRIP, FICRIT, FPCLAY, FPCRIT, GBC, GKF, GKR, ISACKW, ISGSED,    &
-                      ISSYOK, ISTEC, ISUSED, NEPS, NFINE, NSED, NSYB, NSYBCD, NSYC, NTSOBK, PBSED,   &
-                      PLS, RHOSO, SOSDFN, XDRIP, IDUM, DUMMY, DUMSED)
+      NSYBEE, NSYCEE, NTSOTP, NV, NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA,   &
+      BBC, BKB, CONCOB, DCBEDO, DLS, DRDRIP, DRSED, DLSMAX, FBETA, FBIC, FCG,        &
+      FCROCK, FDEL, FDRIP, FICRIT, FPCLAY, FPCRIT, GBC, GKF, GKR, ISACKW, ISGSED,    &
+      ISSYOK, ISTEC, ISUSED, NEPS, NFINE, NSED, NSYB, NSYBCD, NSYC, NTSOBK, PBSED,   &
+      PLS, RHOSO, SOSDFN, XDRIP, IDUM, DUMMY, DUMSED)
 
       IMPLICIT NONE
 
@@ -4212,15 +4265,15 @@ CONTAINS
       !
       !     * Ground cover
       CALL ALALLF (1, 1, 0, SYD, SPR, ':SY41', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-                   ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCG, IDUM, DUMMY)
+         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCG, IDUM, DUMMY)
 
       !     * Rock cover
       CALL ALALLF (1, 1, 0, SYD, SPR, ':SY42', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-                   ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCROCK, IDUM, DUMMY)
+         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCROCK, IDUM, DUMMY)
 
       !     * Porosity of loose sediment
       CALL ALALLF (1, 1, 0, SYD, SPR, ':SY43', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-                   ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, PLS, IDUM, DUMMY)
+         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, PLS, IDUM, DUMMY)
 
 
       ! 5. All-element Initialization
@@ -4228,11 +4281,11 @@ CONTAINS
       !
       !     * Initial depth of loose/bed sediment
       CALL ALALLF (0, 1, 0, SYD, SPR, ':SY51', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-                   ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, DLS, IDUM, DUMMY)
+         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, DLS, IDUM, DUMMY)
 
       !     * Initial composition of loose/bed sediment ...
       CALL ALALLF (0, NSED, - 1, SYD, SPR, ':SY52', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE,   &
-                   ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FBETA, IDUM, DUMMY)
+         ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FBETA, IDUM, DUMMY)
 
       !     ... with special option to inherit composition of soil
       IF (NUM_CATEGORIES_TYPES < 0) THEN
@@ -4249,7 +4302,7 @@ CONTAINS
 
       !     * Initial concentrations of suspended sediment
       CALL ALALLF (0, NSED, 0, SYD, SPR, ':SY53', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE,     &
-                   ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FDEL, IDUM, DUMMY)
+         ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FDEL, IDUM, DUMMY)
 
 
       ! 6. Boundary Data
@@ -4340,22 +4393,22 @@ CONTAINS
 9003  FORMAT ( 1X,A )
 
 9005  FORMAT ('Workspace available is NELEE = ', I5, &
-             '; workspace required in subroutine SYREAD is ', I6 )
+         '; workspace required in subroutine SYREAD is ', I6 )
 
 9006  FORMAT ('No. of size groups NSED=', I4, &
-             ' is not in range [1,NSEDEE=', I3, ']')
+         ' is not in range [1,NSEDEE=', I3, ']')
 
 9007  FORMAT ('No. of boundaries NSYB=', I5, &
-             ' is greater than NSYBEE=', I4, ']')
+         ' is greater than NSYBEE=', I4, ']')
 
 9008  FORMAT ('Boundary type NSYBCD(', I4, ',2)=', I2, &
-             ' is not is the range [1,4]')
+         ' is not is the range [1,4]')
 
 9009  FORMAT ('No. of steady flux categories NSYC(1)=', I4, &
-             ' is greater than NSYCEE=', I3, ']')
+         ' is greater than NSYCEE=', I3, ']')
 
 9010  FORMAT ('No. of steady rating categories NSYC(3)=', I4, &
-             ' is greater than NSYCEE=', I3, ']')
+         ' is greater than NSYCEE=', I3, ']')
 
 9011  FORMAT ('SY module is version ', A, '; SYD data file is version ', A)
 
@@ -4422,9 +4475,9 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Added the explicit zero-initialisation of `SLOPEJ`/`TAUJ`/`FQCONF`/`LRAIN`/`DRDROP` described in the preceding note. |
 !> @endhistory
    PURE SUBROUTINE SYWAT(NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
-                         DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
-                         PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
-                         TAUK)
+      DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
+      PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
+      TAUK)
 
       IMPLICIT NONE
 
@@ -4470,7 +4523,7 @@ CONTAINS
       INTEGER :: KADJ, KEL, KELP, LINK, P, PADJ, PIN, POUT, VEG
       LOGICAL :: BSIDE
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       ! Modernization Fix: Fully initialize INTENT(OUT) arrays to prevent garbage memory
       ! on elements skipped by the internal logic (like side faces)
@@ -4480,15 +4533,15 @@ CONTAINS
       LRAIN  = 0.0D0
       DRDROP = 0.0D0
 
-   ! Loop over Vegetation Types
-   ! --------------------------
-   !
-   !     * Calculate ground fraction sheltered from rain by canopy
+      ! Loop over Vegetation Types
+      ! --------------------------
+      !
+      !     * Calculate ground fraction sheltered from rain by canopy
       FCC(1:NV) = PLAI(1:NV) * MIN(CLAI(1:NV), 1.0D0)
 
-   ! Loop over Column Elements
-   ! -------------------------
-   !
+      ! Loop over Column Elements
+      ! -------------------------
+      !
       column_loop: DO ICOL = NLF + 1, NEL
          ! * Avoid multiple array references
          DRAINE = DRAINA(ICOL)
@@ -4509,9 +4562,9 @@ CONTAINS
          LRAIN(ICOL) = L
       END DO column_loop
 
-   ! Loop over All Elements
-   ! ----------------------
-   !
+      ! Loop over All Elements
+      ! ----------------------
+      !
       element_loop: DO IEL = 1, NEL
          ! * Avoid multiple array references
          HRFE = HRF(IEL)
@@ -4650,13 +4703,13 @@ CONTAINS
                TAUMAX = TAUJE
             END IF
 
-         ! * Next face
+            ! * Next face
          END DO face_loop
 
          ! * Set representative shear stress equal to maximum over faces
          TAUK(IEL) = TAUMAX
 
-      ! * Next element
+         ! * Next element
       END DO element_loop
 
    CONTAINS
