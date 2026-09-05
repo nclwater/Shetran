@@ -166,13 +166,14 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_allocatememorystatus(status, location)
+   SUBROUTINE err_check_allocatememorystatus(status, variable, location)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from allocate memory.
+      CHARACTER(LEN=*), INTENT(IN) :: variable !! Name of the variable being allocated.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was allocated.
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_allocate, FID_logfile, 0, 0, &
-            'Error allocating memory at ' // TRIM(location))
+            'Error allocating memory for ' // TRIM(variable) // ' at ' // TRIM(location))
       END IF
    END SUBROUTINE err_check_allocatememorystatus
 
