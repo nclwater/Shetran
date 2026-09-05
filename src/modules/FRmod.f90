@@ -2370,14 +2370,22 @@ CONTAINS
          CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
          CHARACTER(LEN=*), PARAMETER :: location = "FRmod:allocate_extra_discharge"
 
-         IF (ALLOCATED(disextraelement)) DEALLOCATE (disextraelement, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "disextraelement", location, emsg)
-         IF (ALLOCATED(disextraface)) DEALLOCATE (disextraface, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "disextraface", location, emsg)
-         IF (ALLOCATED(qocavextra)) DEALLOCATE (qocavextra, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "qocavextra", location, emsg)
-         IF (ALLOCATED(qoctotextra)) DEALLOCATE (qoctotextra, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "qoctotextra", location, emsg)
+         IF (ALLOCATED(disextraelement)) THEN
+            DEALLOCATE (disextraelement, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "disextraelement", location, emsg)
+         END IF
+         IF (ALLOCATED(disextraface)) THEN
+            DEALLOCATE (disextraface, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "disextraface", location, emsg)
+         END IF
+         IF (ALLOCATED(qocavextra)) THEN
+            DEALLOCATE (qocavextra, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "qocavextra", location, emsg)
+         END IF
+         IF (ALLOCATED(qoctotextra)) THEN
+            DEALLOCATE (qoctotextra, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "qoctotextra", location, emsg)
+         END IF
 
          ALLOCATE (disextraelement(n), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "disextraelement", location, emsg)
@@ -2426,8 +2434,10 @@ CONTAINS
          CALL fatal_on_io_error(ios, 1069, &
             'no or incorrect data in input_CATCH_water_table_depth file')
 
-         IF (ALLOCATED(pslextraelement)) DEALLOCATE (pslextraelement, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "pslextraelement", location, emsg)
+         IF (ALLOCATED(pslextraelement)) THEN
+            DEALLOCATE (pslextraelement, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "pslextraelement", location, emsg)
+         END IF
          ALLOCATE (pslextraelement(pslextrapoints), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "pslextraelement", location, emsg)
          pslextraelement = 0
@@ -2807,8 +2817,10 @@ CONTAINS
 
          SAVE buf
 
-         IF (ALLOCATED(buf)) DEALLOCATE (buf, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "buf", location, emsg)
+         IF (ALLOCATED(buf)) THEN
+            DEALLOCATE (buf, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "buf", location, emsg)
+         END IF
          ALLOCATE (buf(disextrapoints), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "buf", location, emsg)
          buf = ''

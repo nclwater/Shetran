@@ -472,10 +472,14 @@ CONTAINS
       CALL S_PTR(mn,'first', first)
       CALL H5SCLOSE_F(filespace, error)
       CALL H5SCLOSE_F(t_filespace, error)
-      IF(ALLOCATED(temp_r)) DEALLOCATE(temp_r, STAT=ios, ERRMSG=emsg)
-      CALL errstat_dealloc(ios, "temp_r", location, emsg)
-      IF(ALLOCATED(temp_i)) DEALLOCATE(temp_i, STAT=ios, ERRMSG=emsg)
-      CALL errstat_dealloc(ios, "temp_i", location, emsg)
+      IF(ALLOCATED(temp_r)) THEN
+         DEALLOCATE(temp_r, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "temp_r", location, emsg)
+      ENDIF
+      IF(ALLOCATED(temp_i)) THEN
+         DEALLOCATE(temp_i, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "temp_i", location, emsg)
+      ENDIF
       IF(name=='number') CALL SAVE_NUMBERS_AS_SPREADSHEET(mn)
 
       IF(name=='surf_elv') THEN
