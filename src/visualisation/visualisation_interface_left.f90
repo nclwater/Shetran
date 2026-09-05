@@ -92,15 +92,15 @@ MODULE visualisation_interface_left
    USE AL_D, ONLY: bexcm, bexsy, cstore, dxin, dyin, einta, epot, erza, sd
    USE AL_G, ONLY: icmref, icmxy, nx, ny
    USE SGLOBAL, ONLY: DIRQQ, shever, ROOTDIR, hdf5filename, uznow, &
-                      planfile => visualisation_plan_filename, &
-                      checkfile => visualisation_check_filename
+      planfile => visualisation_plan_filename, &
+      checkfile => visualisation_check_filename
    USE CONT_CC, ONLY: cccc, nnncon => ncon, ssss
    USE CONST_SY, ONLY: rhosed
    USE SED_CS, ONLY: dls, gnu, nnnsed => nsed, qsed
    USE OCmod2, ONLY: hrfzz
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile
 
    IMPLICIT NONE
    INTEGER, PARAMETER :: east = 1          !! Native SHETRAN east-face number.
@@ -118,19 +118,19 @@ MODULE visualisation_interface_left
    REAL, PARAMETER    :: mps_to_mmpd = m_to_mm*ps_to_pd !! Metres/second to millimetres/day factor.
    PRIVATE
    PUBLIC :: BAL_ERR, BANK_NO, BANK_WIDTH, &
-             CAN_STOR, C_C_DR, C_C_DS, CELL_THICKNESS, &
-             DRAINAGE, &
-             ELEMENT, ELEMENT_DX, ELEMENT_DY, EXISTS, &
-             GET_NCON_EARLY, GET_NSED_EARLY, GRID_DX, GRID_DY, GRID_NX, GRID_NY, &
-             INT_EVAP, IS_BANK, IS_LINK, IS_SQUARE, &
-             NET_RAIN, NO_EL, NO_CON, NO_SED, &
-             OVR_FLOW, &
-             PH_DEPTH, POT_EVAP, PSI, &
-             RIVER_NO, RIVER_WIDTH, &
-             S_DIS, S_ELEVATION, SNOW_DEP, SOIL_TYPE, SRF_DEP, &
-             SRF_EVAP, S_T_DP, S_V_ER, &
-             THETA, TOP_CELL, TRNSP, &
-             VERSION, V_FLOW
+      CAN_STOR, C_C_DR, C_C_DS, CELL_THICKNESS, &
+      DRAINAGE, &
+      ELEMENT, ELEMENT_DX, ELEMENT_DY, EXISTS, &
+      GET_NCON_EARLY, GET_NSED_EARLY, GRID_DX, GRID_DY, GRID_NX, GRID_NY, &
+      INT_EVAP, IS_BANK, IS_LINK, IS_SQUARE, &
+      NET_RAIN, NO_EL, NO_CON, NO_SED, &
+      OVR_FLOW, &
+      PH_DEPTH, POT_EVAP, PSI, &
+      RIVER_NO, RIVER_WIDTH, &
+      S_DIS, S_ELEVATION, SNOW_DEP, SOIL_TYPE, SRF_DEP, &
+      SRF_EVAP, S_T_DP, S_V_ER, &
+      THETA, TOP_CELL, TRNSP, &
+      VERSION, V_FLOW
    PUBLIC :: DIRQQ, ROOTDIR, north, east, south, west, hdf5filename, planfile, checkfile, etype, ADJACENT_ELEMENT
 
 CONTAINS

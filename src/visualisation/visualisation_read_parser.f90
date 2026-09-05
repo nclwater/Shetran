@@ -66,7 +66,7 @@ MODULE visualisation_read_parser
    USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINELONG
-   USE MOD_ERROR, ONLY: errstat_alloc
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -675,7 +675,7 @@ CONTAINS
       length = LEN(title)
       IF (length >= 2) THEN
          IF ((title(1:1) == "'" .AND. title(length:length) == "'") .OR. &
-             (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
+            (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
             title = title(2:length - 1)
          END IF
       END IF
@@ -736,7 +736,7 @@ CONTAINS
       CHARACTER(LENGTH_LINELONG) :: detail !! Formatted module diagnostic.
 
       INTEGER(KIND=I_P) :: ios
-      CHARACTER(LEN=*), PARAMETER :: location = 'transform_visualisation_record'
+      CHARACTER(LEN=*), PARAMETER :: location = 'visualisation_read_parser:transform_visualisation_record'
 
       status = VIS_READ_OK
       message = ''
@@ -784,7 +784,8 @@ CONTAINS
          END IF
       END DO
 
-      DEALLOCATE (segments)
+      DEALLOCATE (segments, STAT=ios)
+      CALL errstat_dealloc(ios, "segments", location)
       ALLOCATE (segments(count), STAT=ios)
       CALL errstat_alloc(ios, "segments", location)
       count = 0

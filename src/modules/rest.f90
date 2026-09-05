@@ -29,20 +29,20 @@ MODULE rest
 !USE SGLOBAL,    ONLY : NELEE, NVEE
    USE AL_G, ONLY: icmref
    USE AL_C, ONLY: ARXL, CWIDTH, CLAI, DELTAZ, DTUZ, EEVAP, ERUZ, tih, &
-                   NLYRBT, NV, &
-                   PLAI, PNETTO, QVSBF, QVSWEL, QBKF, QOC, QVSH, UZNEXT, VSTHE, WBERR
+      NLYRBT, NV, &
+      PLAI, PNETTO, QVSBF, QVSWEL, QBKF, QOC, QVSH, UZNEXT, VSTHE, WBERR
    USE AL_D, ONLY: flerrc, balanc, syerrc, cmerrc, nstep, carea, DTMET2, BHOTRD, &
-                   BHOTTI, EPD, NM, PRD, NRAIN, DTMET3, PE, DTMET, MED, RN, OBSPE, &
-                   U, TA, VPD, TMAX, VHT, TIMEUZ, SD, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, &
-                   tah, tal, ista
+      BHOTTI, EPD, NM, PRD, NRAIN, DTMET3, PE, DTMET, MED, RN, OBSPE, &
+      U, TA, VPD, TMAX, VHT, TIMEUZ, SD, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, &
+      tah, tal, ista
    USE ETmod, ONLY: MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, NCTPLA, &
-                    PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, NCTVHT, &
-                    VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
+      PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, NCTVHT, &
+      VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod, ONLY: BSOFT
    USE UTILSMOD, ONLY: HOUR_FROM_DATE, TERPO1
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
 
    USE OCmod2, ONLY: GETHRF
 
@@ -69,7 +69,7 @@ MODULE rest
    PRIVATE
 
    PUBLIC :: BALWAT, TMSTEP, EXTRA_OUTPUT, &
-             metime, melast, eptime, pinp
+      metime, melast, eptime, pinp
 
 CONTAINS
 
@@ -166,7 +166,7 @@ CONTAINS
       WRITE (FID_logfile, '(A20,F10.2)') 'Channel Stor = ', balanc(17)*1000/ &
          carea
 9900  FORMAT('Normal completion of SHETRAN run: ', F10.2, ' hours, ', &
-       &        I7, ' steps.'/)
+      &        I7, ' steps.'/)
    END SUBROUTINE extra_output
 
 !> Updates the cumulative water-balance error [[al_c]]`:WBERR` for each column or link.
@@ -452,11 +452,15 @@ CONTAINS
 
       ! Arguments
       INTEGER, INTENT(IN) :: CAPACITY !! New buffer length in characters.
+
+      INTEGER(KIND=I_P) :: ios
+
       !----------------------------------------------------------------------*
 
       IF (ALLOCATED(MET_RECORD)) THEN
          IF (LEN(MET_RECORD) == CAPACITY) RETURN
-         DEALLOCATE (MET_RECORD)
+         DEALLOCATE (MET_RECORD, STAT=ios)
+         CALL errstat_dealloc(ios, "MET_RECORD", "rest:RESIZE_MET_RECORD")
       END IF
 
       ALLOCATE (CHARACTER(LEN=CAPACITY) :: MET_RECORD)
@@ -606,7 +610,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOPRD) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
                         FIRSTNOPRD = .FALSE.
                      END IF
                      PINP(1:NRAIN) = ZERO
@@ -623,7 +627,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOPRD) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of prd data', 'All remaining values will be zero'
                         FIRSTNOPRD = .FALSE.
                      END IF
                      PINP(1:NRAIN) = ZERO
@@ -659,7 +663,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -708,7 +712,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD1) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD1 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -759,7 +763,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -806,7 +810,7 @@ CONTAINS
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
+                           WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of epd data', 'All remaining values will be zero'
                            FIRSTNOEPD2 = .FALSE.
                         END IF
                         PEIN(1:NM) = ZERO
@@ -868,7 +872,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET1) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET1 = .FALSE.
                      END IF
                      ISITE = 1
@@ -891,7 +895,7 @@ CONTAINS
                   READ (MED, 9050, IOSTAT=ios) OBSPE(I)
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET2) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET2 = .FALSE.
                      END IF
                      OBSPE(I) = 0.0d0
@@ -919,7 +923,7 @@ CONTAINS
 
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET3) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET3 = .FALSE.
                      END IF
                      ISITE = 1
@@ -941,7 +945,7 @@ CONTAINS
                   READ (MED, 9050, IOSTAT=ios) OBSPE(I)
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET4) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET4 = .FALSE.
                      END IF
                      OBSPE(I) = 0.0d0
@@ -958,7 +962,7 @@ CONTAINS
                   READ (MED, 9080, IOSTAT=ios) ISITE, NN, PINP(I), IDATA
                   IF (ios < 0) THEN
                      IF (FIRSTNOMET5) THEN
-                    WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
+                        WRITE (FID_logfile, 9010) 'Time = ', uznow, ' Hours.', 'Finish of met data', 'All remaining values will be zero'
                         FIRSTNOMET5 = .FALSE.
                      END IF
                      PINP(I) = 0.0d0
@@ -1000,9 +1004,9 @@ CONTAINS
 9080  FORMAT(2I6, G12.6, 24X, I12)
 9090  FORMAT('0', 9X, I6, F8.2, 5X, F12.6, '  NOT_USED  ')
 9100  FORMAT(//, 1X, 'MET DATA - SITE    TIME      RAINFALL    NET RADN', 4X, &
-              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+         'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
 9110  FORMAT(//, 1X, 'MET DATA - SITE    TIME      NET RADN', 4X, &
-              'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
+         'WIND SPEED  ATMOS PRES   AIR TEMP       DEL        VPD         IDATA')
 9120  FORMAT(//, 1X, 'RAIN DATA - SITE    TIME      RAINFALL         IDATA')
 9130  FORMAT(//, 1X, 'MET DATA -  TIME :', F8.2, /, ' STATION           RAINFALL      POT. EVAP.(MM/HR)')
 9140  FORMAT(4X, I2, 9X, F10.3, 9X, F10.3)
@@ -1360,7 +1364,7 @@ CONTAINS
 ! check for invalid timestep (could be a result of data errors)
       IF (UZNEXT < 5.0D-5) THEN
          WRITE (FID_logfile, "(////'UZNEXT = ',G14.6, /' TSOFT = ',G14.6, /'MELAST = ',G14.6, "// &
-                "/'METIME = ',G14.6 /, 'PREC.STN.   PINP        PTOT'/)") &
+            "/'METIME = ',G14.6 /, 'PREC.STN.   PINP        PTOT'/)") &
             UZNEXT, TSOFT, MELAST, METIME
          WRITE (FID_logfile, "(4X,I4,2G14.6)") (I, PINP(I), PTOT(I), I=1, NRAIN)
          CALL RAISE_ERROR(ERRLVL_fatal, 1025, FID_logfile, 0, 0, 'INVALID TIMESTEP')

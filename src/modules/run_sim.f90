@@ -52,36 +52,36 @@ MODULE run_sim
    USE SGLOBAL
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
-                     ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
+      ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
 !USE SGLOBAL, ONLY : nxee, nyee, nlfee, nvee, nelee, &
 !                 llee, NVSEE, NLYREE, NOCTAB, NXSCEE !NEEDED ONLY FOR AD
    USE AL_G, ONLY: nx, ny, icmref, icmxy, ngdbgn
    USE AL_C, ONLY: uznext, pnetto, arxl, dtuz, eevap, icmbk, &
-                   nvswlt, qvswel, tih, ns, nv, sfb, spr, srb, syd, icmrf2, nbface, &
-                   nlyr, ntsoil, nvc, clenth, cwidth, &
-                   dhf, vspor, zbfull, bexbk, linkns, isort, clai, draina, plai, qoc, idum, dummy, cmp
+      nvswlt, qvswel, tih, ns, nv, sfb, spr, srb, syd, icmrf2, nbface, &
+      nlyr, ntsoil, nvc, clenth, cwidth, &
+      dhf, vspor, zbfull, bexbk, linkns, isort, clai, draina, plai, qoc, idum, dummy, cmp
 
    USE AL_D, ONLY: eswa, nstep, ocnext, epot, nmc, obspe, &
-                   ocnow, bexsy, bexcm, precip_m_per_s, &
-                   mbflag, bhotpr, hotime, hot, cstore, dq0st, &
-                   dqist, dqist2, sd, ts, nsmc, bhotst, tim, tth, bhotrd, tmax
+      ocnow, bexsy, bexcm, precip_m_per_s, &
+      mbflag, bhotpr, hotime, hot, cstore, dq0st, &
+      dqist, dqist2, sd, ts, nsmc, bhotst, tim, tth, bhotrd, tmax
    USE FRmod, ONLY: tsh, tch, bstore, btime
    USE VSmod, ONLY: VSSIM, &
-                    RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
+      RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
    USE CMmod, ONLY: CMSIM  !"JE"
    USE ETmod, ONLY: ETSIM, &
-                    psi4, uzalfa !TH,ESE NEEDED ONLY FOR AD
+      psi4, uzalfa !TH,ESE NEEDED ONLY FOR AD
    USE rest, ONLY: BALWAT, TMSTEP, &
-                   metime, melast, eptime, pinp
+      metime, melast, eptime, pinp
    !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
    USE FRmod, ONLY: INCM, FRINIT
    USE OCmod, ONLY: OCSIM
    USE OCQDQMOD, ONLY: STRXX, STRYY
    USE OCmod2, ONLY: GETHRF, &
-                     HRFZZ !HRFZZ NEEDED ONLY FOR AD
+      HRFZZ !HRFZZ NEEDED ONLY FOR AD
    USE FRmod, ONLY: FRSORT, FROUTPUT, FRMB, FRRESP, DATE_FROM_HOUR
    USE SYmod, ONLY: SYMAIN, BALSED  !"JE"
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA         !VISVISVIS
@@ -94,15 +94,15 @@ MODULE run_sim
    USE OCQDQMOD, ONLY: hocnow, qocf, xafull !, firstocqdq
    USE OCmod2, ONLY: hrfzz, qsazz !NEEDED ONLY FOR AD
    USE vsmod, ONLY: rlfdum, rlgnxt, firstvssim, rbhlst, rlhlst, vsaijsv, jcbcsv, rbhprv, rlglst, rlhprv, rbfprv, &
-                    rlgprv, rlfprv, rwelin, rbhtim, wltime, rlhdum, rbhnxt, rlhtim, rlgdum, rlhnxt, rbftim, rlgtim, &
-                    wlnow, vskr, rlfnow, rbfnow, ivssto, rlhnow, rbhnow
+      rlgprv, rlfprv, rwelin, rbhtim, wltime, rlhdum, rbhnxt, rlhtim, rlgdum, rlhnxt, rbftim, rlgtim, &
+      wlnow, vskr, rlfnow, rbfnow, ivssto, rlhnow, rbhnow
    USE SMmod, ONLY: rhos, smelt, tmelt
    USE al_c, ONLY: qh, qvswli, vsthe, vspsi, qvsh, qvsv, qbkb, qbkf, esoila, eruz
    USE ETmod, ONLY: rc, ra, cstcap, del, &
-                    nctcst, nctvht, nctcla, nctpla !these here only for AD
+      nctcst, nctvht, nctcla, nctpla !these here only for AD
    USE SYmod, ONLY: issyok_symain  !"JE"
    USE FRmod, ONLY: qoctot, uzold, &
-                    next_hour, icounter2  !these here only for AD
+      next_hour, icounter2  !these here only for AD
    USE CONT_CC, ONLY: initialise_cont_cc
    USE COLM_CG, ONLY: initialise_colm_cg, deallocate_colm_cg
    USE COLM_CO, ONLY: initialise_colm_co
@@ -283,7 +283,7 @@ CONTAINS
             EEVAP(IEL) = ESWA(IEL)
             !^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             IF (NVSWLT(IEL) .NE. 0) PNETTO(IEL) = PNETTO(IEL) + QVSWEL( &
-                                                  NVSWLT(IEL))*cellarea(NVSWLT(IEL))/cellarea(IEL)
+               NVSWLT(IEL))*cellarea(NVSWLT(IEL))/cellarea(IEL)
          END DO
          !-----------------------------------
          !         OC COMPONENT
@@ -305,11 +305,11 @@ CONTAINS
                hrf(iel) = gethrf(iel)
             end do
             CALL SYMAIN(total_no_elements, total_no_links, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF(1, 5), &
-                       ICMRF2, ICMXY, NBFACE, NLYR(total_no_links + 1), NTSOIL, NVC(total_no_links + 1), cellarea, CLENTH, CWIDTH, &
-                        DHF, DXQQ(total_no_links + 1), DYQQ(total_no_links + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, &
-                        DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA(total_no_links + 1), HRF, PLAI, PNETTO(total_no_links + 1), QOC, &
-                    NSED, PBSED, PLS(total_no_links + 1), SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU(total_no_links + 1), &
-                        GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+               ICMRF2, ICMXY, NBFACE, NLYR(total_no_links + 1), NTSOIL, NVC(total_no_links + 1), cellarea, CLENTH, CWIDTH, &
+               DHF, DXQQ(total_no_links + 1), DYQQ(total_no_links + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, &
+               DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA(total_no_links + 1), HRF, PLAI, PNETTO(total_no_links + 1), QOC, &
+               NSED, PBSED, PLS(total_no_links + 1), SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU(total_no_links + 1), &
+               GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
             !        CALL SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF (1, 5), &
             !        ICMRF2, ICMXY, NBFACE, NLYR (NLF + 1), NTSOIL, NVC (NLF + 1), AREA, CLENTH, CWIDTH, &
             !        DHF, DXQQ (NLF + 1), DYQQ (NLF + 1), VSPOR, ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, &
@@ -319,7 +319,7 @@ CONTAINS
          END IF
          IF (BCM) THEN
             IF (BEXSY .AND. (.NOT. BSY)) CALL RAISE_ERROR(ERRLVL_fatal, 1041, CMP, 0, 0, &
-                                                          'Start-time for sediment is later than for contaminants')
+               'Start-time for sediment is later than for contaminants')
             IF (CMFRST) THEN
                CALL INCM(BEXSY)
                CMFRST = .FALSE.
@@ -369,15 +369,15 @@ CONTAINS
                ! TMELT = temperature of eltwater slug?
                ! vspsi = soil water potentials
                WRITE (HOT, *) "time= ", UZNOW, UZNEXT, top_cell_no, "cstore= ", (CSTORE(IEL), IEL=NGDBGN, &
-                            total_no_elements), "HRF= ", (getHRF(IEL), IEL=1, total_no_elements), "QSA= ", ((QSAzz(IEL, K), IEL=1, &
-                                          total_no_elements), K=1, 4), "QOC= ", ((QOC(IEL, K), IEL=1, total_no_elements), K=1, 4), &
+                  total_no_elements), "HRF= ", (getHRF(IEL), IEL=1, total_no_elements), "QSA= ", ((QSAzz(IEL, K), IEL=1, &
+                  total_no_elements), K=1, 4), "QOC= ", ((QOC(IEL, K), IEL=1, total_no_elements), K=1, 4), &
                   "DQ0ST= ", ((DQ0ST(IEL, K), IEL=1, total_no_elements), K=1, 4), "DQIST= ", ((DQIST(IEL, &
-                                                      K), IEL=1, total_no_elements), K=1, 4), "DQIST2= ", ((DQIST2(IEL, K), IEL=1, &
-                                                           NGDBGN - 1), K=1, 3), "SD= ", (SD(IEL), IEL=NGDBGN, total_no_elements), &
+                  K), IEL=1, total_no_elements), K=1, 4), "DQIST2= ", ((DQIST2(IEL, K), IEL=1, &
+                  NGDBGN - 1), K=1, 3), "SD= ", (SD(IEL), IEL=NGDBGN, total_no_elements), &
                   "TS= ", (TS(IEL), IEL=NGDBGN, total_no_elements), "NSMC= ", (NSMC(IEL), IEL=NGDBGN, &
-                                                      total_no_elements), "SMELT= ", ((SMELT(K, IEL), K=1, NSMC(IEL)), IEL=NGDBGN, &
-                                                      total_no_elements), "TMELT= ", ((TMelt(K, IEL), K=1, NSMC(IEL)), IEL=NGDBGN, &
-                                        total_no_elements), "vspsi= ", ((VSPSI(j, iel), j=1, top_cell_no), IEL=1, total_no_elements)
+                  total_no_elements), "SMELT= ", ((SMELT(K, IEL), K=1, NSMC(IEL)), IEL=NGDBGN, &
+                  total_no_elements), "TMELT= ", ((TMelt(K, IEL), K=1, NSMC(IEL)), IEL=NGDBGN, &
+                  total_no_elements), "vspsi= ", ((VSPSI(j, iel), j=1, top_cell_no), IEL=1, total_no_elements)
                HOTIME = HOTIME + BHOTST
             END IF
          END IF

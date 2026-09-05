@@ -94,7 +94,7 @@ MODULE visualisation_structure
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -152,7 +152,7 @@ MODULE visualisation_structure
       INTEGER :: r(4) = iundef !! River-link values in north/east/south/west order.
    END TYPE integer_middle_and_edges
    TYPE(INTEGER_MIDDLE_AND_EDGES), PARAMETER :: default_integer_middle_and_edges = &
-                                                INTEGER_MIDDLE_AND_EDGES(i_not_exist, defi4, defi4) !! Missing integer compound payload.
+      INTEGER_MIDDLE_AND_EDGES(i_not_exist, defi4, defi4) !! Missing integer compound payload.
 
 !> @brief Holds a real square plus four bank and four river-link values.
    TYPE real_middle_and_edges
@@ -161,7 +161,7 @@ MODULE visualisation_structure
       REAL :: r(4) = rundef !! River-link values in north/east/south/west order.
    END TYPE real_middle_and_edges
    TYPE(REAL_MIDDLE_AND_EDGES), PARAMETER :: default_real_middle_and_edges = &
-                                             REAL_MIDDLE_AND_EDGES(r_not_exist, defr4, defr4) !! Missing real compound payload.
+      REAL_MIDDLE_AND_EDGES(r_not_exist, defr4, defr4) !! Missing real compound payload.
 
 !> @brief Time-list node for real bank-edge (`BS`) data.
    TYPE BS
@@ -239,7 +239,7 @@ MODULE visualisation_structure
 
    PRIVATE
    PUBLIC :: FOR_NEW_TIME, SAVE_ITEMS_WORTH, TIME_COUNT, MBR_COUNT, GET_MBR, GET_HDF5_I, GET_HDF5_R, &
-             GET_HDF5_TIME, csz
+      GET_HDF5_TIME, csz
 
 CONTAINS
 
@@ -276,14 +276,14 @@ CONTAINS
       TYPE(NS), POINTER          :: pn    !! Converted integer compound node.
 
       SELECT CASE (typ)
-      CASE ('BS'); CALL C_F_POINTER(first, pb); r = pb%time
-      CASE ('ES'); CALL C_F_POINTER(first, pe); r = pe%time
-      CASE ('FS'); CALL C_F_POINTER(first, pf); r = pf%time
-      CASE ('GS'); CALL C_F_POINTER(first, pg); r = pg%time
-      CASE ('IS'); CALL C_F_POINTER(first, pi); r = pi%time
-      CASE ('LS'); CALL C_F_POINTER(first, pl); r = pl%time
-      CASE ('MS'); CALL C_F_POINTER(first, pm); r = pm%time
-      CASE ('NS'); CALL C_F_POINTER(first, pn); r = pn%time
+       CASE ('BS'); CALL C_F_POINTER(first, pb); r = pb%time
+       CASE ('ES'); CALL C_F_POINTER(first, pe); r = pe%time
+       CASE ('FS'); CALL C_F_POINTER(first, pf); r = pf%time
+       CASE ('GS'); CALL C_F_POINTER(first, pg); r = pg%time
+       CASE ('IS'); CALL C_F_POINTER(first, pi); r = pi%time
+       CASE ('LS'); CALL C_F_POINTER(first, pl); r = pl%time
+       CASE ('MS'); CALL C_F_POINTER(first, pm); r = pm%time
+       CASE ('NS'); CALL C_F_POINTER(first, pn); r = pn%time
       END SELECT
    END FUNCTION get_hdf5_time
 
@@ -449,42 +449,42 @@ CONTAINS
       tt = 1
 
       SELECT CASE (TYP)
-      CASE ('BS')  !real banks
+       CASE ('BS')  !real banks
          CALL C_F_POINTER(first, pb)
          CALL MAIN_LOOP('BS')
          IF (ASSOCIATED(pb%next)) THEN; first = C_LOC(pb%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PB(pb)
-      CASE ('ES')  !integer banks
+       CASE ('ES')  !integer banks
          CALL C_F_POINTER(first, pe)
          CALL MAIN_LOOP('ES')
          IF (ASSOCIATED(pe%next)) THEN; first = C_LOC(pe%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PE(pe)
-      CASE ('FS')  !integer rivers
+       CASE ('FS')  !integer rivers
          CALL C_F_POINTER(first, pf)
          CALL MAIN_LOOP('FS')
          IF (ASSOCIATED(pf%next)) THEN; first = C_LOC(pf%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PF(pf)
-      CASE ('GS')  !real middle and edges
+       CASE ('GS')  !real middle and edges
          CALL C_F_POINTER(first, pg)
          CALL MAIN_LOOP('GS')
          IF (ASSOCIATED(pg%next)) THEN; first = C_LOC(pg%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PG(pg)
-      CASE ('IS')  !integer middle
+       CASE ('IS')  !integer middle
          CALL C_F_POINTER(first, pi)
          CALL MAIN_LOOP('IS')
          IF (ASSOCIATED(pi%next)) THEN; first = C_LOC(pi%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PI(pi)
-      CASE ('LS')  !real banks
+       CASE ('LS')  !real banks
          CALL C_F_POINTER(first, pl)
          CALL MAIN_LOOP('LS')
          IF (ASSOCIATED(pl%next)) THEN; first = C_LOC(pl%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PL(pl)
-      CASE ('MS')  !real middle
+       CASE ('MS')  !real middle
          CALL C_F_POINTER(first, pm)
          CALL MAIN_LOOP('MS')
          IF (ASSOCIATED(pm%next)) THEN; first = C_LOC(pm%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PM(pm)
-      CASE ('NS')  !integer middle and edges
+       CASE ('NS')  !integer middle and edges
          CALL C_F_POINTER(first, pn)
          CALL MAIN_LOOP('NS')
          IF (ASSOCIATED(pn%next)) THEN; first = C_LOC(pn%next); ELSE; first = C_NULL_PTR; END IF
@@ -524,18 +524,18 @@ CONTAINS
                      DO cc = 1, szcc
                         IF (PRESENT(rint)) THEN
                            SELECT CASE (text)
-                           CASE ('ES'); idum = pe%s(ii, jj, kk, ee)%e(cc)
-                           CASE ('FS'); idum = pf%s(ii, jj, kk, ee)%e(cc)
-                           CASE ('IS'); idum = pi%s(ii, jj, kk, ee)%m
-                           CASE ('NS'); idum = FNS()
+                            CASE ('ES'); idum = pe%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('FS'); idum = pf%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('IS'); idum = pi%s(ii, jj, kk, ee)%m
+                            CASE ('NS'); idum = FNS()
                            END SELECT
                            rint(d(1)%a, d(2)%a, d(3)%a, d(4)%a, d(5)%a, d(6)%a) = idum
                         ELSEIF (PRESENT(rreal)) THEN
                            SELECT CASE (text)
-                           CASE ('BS'); rdum = pb%s(ii, jj, kk, ee)%e(cc)
-                           CASE ('GS'); rdum = FGS()
-                           CASE ('LS'); rdum = pl%s(ii, jj, kk, ee)%e(cc)
-                           CASE ('MS'); rdum = pm%s(ii, jj, kk, ee)%m
+                            CASE ('BS'); rdum = pb%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('GS'); rdum = FGS()
+                            CASE ('LS'); rdum = pl%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('MS'); rdum = pm%s(ii, jj, kk, ee)%m
                            END SELECT
                            rreal(d(1)%a, d(2)%a, d(3)%a, d(4)%a, d(5)%a, d(6)%a) = rdum
                         END IF
@@ -611,12 +611,19 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pb(p)
       TYPE(BS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pb"
+
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pb
 
 !> @brief Deallocates one consumed integer bank-edge node and its payload.
@@ -632,12 +639,19 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pe(p)
       TYPE(ES), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pe"
+
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pe
 
 !> @brief Deallocates one consumed integer river-edge node and its payload.
@@ -654,12 +668,19 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pf(p)
       TYPE(FS), POINTER :: p !! Consumed legacy node to destroy.
-      DEALLOCATE (p%s)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pf"
+
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pf
 
 !> @brief Deallocates one consumed real compound node and its payload.
@@ -675,12 +696,17 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pg(p)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pg"
       TYPE(GS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pg
 
 !> @brief Deallocates one consumed integer middle node and its payload.
@@ -696,12 +722,19 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pi(p)
       TYPE(IS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pi"
+
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pi
 
 !> @brief Deallocates one consumed real river-edge node and its payload.
@@ -717,12 +750,17 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pl(p)
       TYPE(LS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pl"
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pl
 
 !> @brief Deallocates one consumed real middle node and its payload.
@@ -738,12 +776,17 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pm(p)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pm"
       TYPE(MS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pm
 
 !> @brief Deallocates one consumed integer compound node and its payload.
@@ -759,12 +802,17 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE deall_pn(p)
       TYPE(NS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pn"
+      DEALLOCATE (p%s, STAT=ios)
+      CALL errstat_dealloc(ios, "p%s", location)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p)
+      DEALLOCATE (p, STAT=ios)
+      CALL errstat_dealloc(ios, "p", location)
    END SUBROUTINE deall_pn
 
 !> @brief Allocates the element-member labels for one storage family.
@@ -802,14 +850,14 @@ CONTAINS
       CALL errstat_alloc(ios, "r", location)
 
       SELECT CASE (typ)
-      CASE ('BS'); r = bk
-      CASE ('ES'); r = bk
-      CASE ('FS'); r = rv
-      CASE ('GS'); r = (/sq, bk, rv/)
-      CASE ('IS'); r = sq
-      CASE ('LS'); r = rv
-      CASE ('MS'); r = sq
-      CASE ('NS'); r = (/sq, bk, rv/)
+       CASE ('BS'); r = bk
+       CASE ('ES'); r = bk
+       CASE ('FS'); r = rv
+       CASE ('GS'); r = (/sq, bk, rv/)
+       CASE ('IS'); r = sq
+       CASE ('LS'); r = rv
+       CASE ('MS'); r = sq
+       CASE ('NS'); r = (/sq, bk, rv/)
       END SELECT
    END FUNCTION get_mbr
 
@@ -846,14 +894,14 @@ CONTAINS
       TYPE(NS), POINTER :: pn !! Integer compound traversal pointer.
       r = 1
       SELECT CASE (typ)
-      CASE ('BS'); CALL C_F_POINTER(first, pb); DO WHILE (ASSOCIATED(pb%next)); r = r + 1; pb => pb%next; END DO
-      CASE ('ES'); CALL C_F_POINTER(first, pe); DO WHILE (ASSOCIATED(pe%next)); r = r + 1; pe => pe%next; END DO
-      CASE ('FS'); CALL C_F_POINTER(first, pf); DO WHILE (ASSOCIATED(pf%next)); r = r + 1; pf => pf%next; END DO
-      CASE ('GS'); CALL C_F_POINTER(first, pg); DO WHILE (ASSOCIATED(pg%next)); r = r + 1; pg => pg%next; END DO
-      CASE ('IS'); CALL C_F_POINTER(first, pi); DO WHILE (ASSOCIATED(pi%next)); r = r + 1; pi => pi%next; END DO
-      CASE ('LS'); CALL C_F_POINTER(first, pl); DO WHILE (ASSOCIATED(pl%next)); r = r + 1; pl => pl%next; END DO
-      CASE ('MS'); CALL C_F_POINTER(first, pm); DO WHILE (ASSOCIATED(pm%next)); r = r + 1; pm => pm%next; END DO
-      CASE ('NS'); CALL C_F_POINTER(first, pn); DO WHILE (ASSOCIATED(pn%next)); r = r + 1; pn => pn%next; END DO
+       CASE ('BS'); CALL C_F_POINTER(first, pb); DO WHILE (ASSOCIATED(pb%next)); r = r + 1; pb => pb%next; END DO
+       CASE ('ES'); CALL C_F_POINTER(first, pe); DO WHILE (ASSOCIATED(pe%next)); r = r + 1; pe => pe%next; END DO
+       CASE ('FS'); CALL C_F_POINTER(first, pf); DO WHILE (ASSOCIATED(pf%next)); r = r + 1; pf => pf%next; END DO
+       CASE ('GS'); CALL C_F_POINTER(first, pg); DO WHILE (ASSOCIATED(pg%next)); r = r + 1; pg => pg%next; END DO
+       CASE ('IS'); CALL C_F_POINTER(first, pi); DO WHILE (ASSOCIATED(pi%next)); r = r + 1; pi => pi%next; END DO
+       CASE ('LS'); CALL C_F_POINTER(first, pl); DO WHILE (ASSOCIATED(pl%next)); r = r + 1; pl => pl%next; END DO
+       CASE ('MS'); CALL C_F_POINTER(first, pm); DO WHILE (ASSOCIATED(pm%next)); r = r + 1; pm => pm%next; END DO
+       CASE ('NS'); CALL C_F_POINTER(first, pn); DO WHILE (ASSOCIATED(pn%next)); r = r + 1; pn => pn%next; END DO
       END SELECT
    END FUNCTION TIME_COUNT
 
@@ -873,15 +921,15 @@ CONTAINS
    PURE INTEGER FUNCTION mbr_count(typ) RESULT(r)
       CHARACTER(*), INTENT(IN) :: typ !! Exact two-character storage-family code.
       SELECT CASE (typ)
-      CASE ('BS'); r = 4
-      CASE ('ES'); r = 4
-      CASE ('FS'); r = 4
-      CASE ('GS'); r = 9
-      CASE ('IS'); r = 1
-      CASE ('LS'); r = 4
-      CASE ('MS'); r = 1
-      CASE ('NS'); r = 9
-      CASE DEFAULT; r = 0
+       CASE ('BS'); r = 4
+       CASE ('ES'); r = 4
+       CASE ('FS'); r = 4
+       CASE ('GS'); r = 9
+       CASE ('IS'); r = 1
+       CASE ('LS'); r = 4
+       CASE ('MS'); r = 1
+       CASE ('NS'); r = 9
+       CASE DEFAULT; r = 0
       END SELECT
    END FUNCTION mbr_count
 
@@ -925,10 +973,10 @@ CONTAINS
       CHARACTER, INTENT(IN) :: c !! Compound selector `m`, `b`, or `r`; ignored by simple families.
       CHARACTER(*), INTENT(IN) :: typ !! Exact integer storage-family code.
       SELECT CASE (typ)
-      CASE ('ES'); CALL C_F_POINTER(latest, ptr_e); CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this)
-      CASE ('FS'); CALL C_F_POINTER(latest, ptr_f); CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this)
-      CASE ('IS'); CALL C_F_POINTER(latest, ptr_i); CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, save_this)
-      CASE ('NS'); CALL C_F_POINTER(latest, ptr_n); CALL SAVE_NS(ptr_n, a, b, klow, khigh, e, d, save_this, c)
+       CASE ('ES'); CALL C_F_POINTER(latest, ptr_e); CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this)
+       CASE ('FS'); CALL C_F_POINTER(latest, ptr_f); CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this)
+       CASE ('IS'); CALL C_F_POINTER(latest, ptr_i); CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, save_this)
+       CASE ('NS'); CALL C_F_POINTER(latest, ptr_n); CALL SAVE_NS(ptr_n, a, b, klow, khigh, e, d, save_this, c)
       END SELECT
    END SUBROUTINE save_items_worth_i
 
@@ -969,10 +1017,10 @@ CONTAINS
       CHARACTER, INTENT(IN) :: c !! Compound selector `m`, `b`, or `r`; ignored by simple families.
       CHARACTER(*), INTENT(IN) :: typ !! Exact real storage-family code.
       SELECT CASE (typ)
-      CASE ('BS'); CALL C_F_POINTER(latest, ptr_b); CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this)
-      CASE ('GS'); CALL C_F_POINTER(latest, ptr_g); CALL SAVE_GS(ptr_g, a, b, klow, khigh, e, d, save_this, c)
-      CASE ('LS'); CALL C_F_POINTER(latest, ptr_l); CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this)
-      CASE ('MS'); CALL C_F_POINTER(latest, ptr_m); CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, save_this)
+       CASE ('BS'); CALL C_F_POINTER(latest, ptr_b); CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this)
+       CASE ('GS'); CALL C_F_POINTER(latest, ptr_g); CALL SAVE_GS(ptr_g, a, b, klow, khigh, e, d, save_this, c)
+       CASE ('LS'); CALL C_F_POINTER(latest, ptr_l); CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this)
+       CASE ('MS'); CALL C_F_POINTER(latest, ptr_m); CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, save_this)
       END SELECT
    END SUBROUTINE save_items_worth_r
 
@@ -1084,9 +1132,9 @@ CONTAINS
       CHARACTER, INTENT(IN) :: c !! Lowercase compound selector `m`, `b`, or `r`.
       TYPE(GS), INTENT(INOUT) :: r !! Real compound node to update.
       SELECT CASE (c)
-      CASE ('m'); r%s(a, b, klow:khigh, e)%m = save_this
-      CASE ('b'); r%s(a, b, klow:khigh, e)%b(d) = save_this
-      CASE ('r'); r%s(a, b, klow:khigh, e)%r(d) = save_this
+       CASE ('m'); r%s(a, b, klow:khigh, e)%m = save_this
+       CASE ('b'); r%s(a, b, klow:khigh, e)%b(d) = save_this
+       CASE ('r'); r%s(a, b, klow:khigh, e)%r(d) = save_this
       END SELECT
    END SUBROUTINE save_gs
 
@@ -1190,9 +1238,9 @@ CONTAINS
       CHARACTER, INTENT(IN) :: c !! Lowercase compound selector `m`, `b`, or `r`.
       TYPE(NS), INTENT(INOUT) :: r !! Integer compound node to update.
       SELECT CASE (c)
-      CASE ('m'); r%s(a, b, klow:khigh, e)%m = save_this
-      CASE ('b'); r%s(a, b, klow:khigh, e)%b(d) = save_this
-      CASE ('r'); r%s(a, b, klow:khigh, e)%r(d) = save_this
+       CASE ('m'); r%s(a, b, klow:khigh, e)%m = save_this
+       CASE ('b'); r%s(a, b, klow:khigh, e)%b(d) = save_this
+       CASE ('r'); r%s(a, b, klow:khigh, e)%r(d) = save_this
       END SELECT
    END SUBROUTINE save_ns
 
@@ -1248,13 +1296,13 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours stored on the node.
       CHARACTER(*), INTENT(IN) :: typ !! Exact active storage-family code.
       SELECT CASE (typ)
-      CASE ('BS'); CALL FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      CASE ('ES'); CALL FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      CASE ('GS'); CALL FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      CASE ('IS'); CALL FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      CASE ('LS'); CALL FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      CASE ('MS'); CALL FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-      CASE ('NS'); CALL FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('BS'); CALL FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('ES'); CALL FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('GS'); CALL FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('IS'); CALL FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('LS'); CALL FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('MS'); CALL FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('NS'); CALL FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       END SELECT
    END SUBROUTINE FOR_NEW_TIME
 

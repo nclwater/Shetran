@@ -85,7 +85,7 @@ MODULE visualisation_map
    USE VISUALISATION_METADATA, ONLY: G_L => GET_METADATA_L
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -161,7 +161,8 @@ CONTAINS
          END DO
       END DO
 
-      DEALLOCATE (rreal)
+      DEALLOCATE (rreal, STAT=ios)
+      CALL errstat_dealloc(ios, "rreal", location)
    END FUNCTION get_real_image_index
 
 !> @brief Expands a real compound field into fixed-size raster blocks.
@@ -277,14 +278,14 @@ CONTAINS
                dum = d9(b)
             END IF
             SELECT CASE (b)
-            CASE (2); r(3:mag - 2, 3:4) = d9(b)
-            CASE (3); r(mag - 3:mag - 2, 3:mag - 2) = d9(b)
-            CASE (4); r(3:mag - 2, mag - 3:mag - 2) = d9(b)
-            CASE (5); r(3:4, 3:mag - 2) = d9(b)
-            CASE (6); r(3:mag - 2, 1:2) = dum
-            CASE (7); r(mag - 1:mag, 3:mag - 2) = dum
-            CASE (8); r(3:mag - 2, mag - 1:mag) = dum
-            CASE (9); r(1:2, 3:mag - 2) = dum
+             CASE (2); r(3:mag - 2, 3:4) = d9(b)
+             CASE (3); r(mag - 3:mag - 2, 3:mag - 2) = d9(b)
+             CASE (4); r(3:mag - 2, mag - 3:mag - 2) = d9(b)
+             CASE (5); r(3:4, 3:mag - 2) = d9(b)
+             CASE (6); r(3:mag - 2, 1:2) = dum
+             CASE (7); r(mag - 1:mag, 3:mag - 2) = dum
+             CASE (8); r(3:mag - 2, mag - 1:mag) = dum
+             CASE (9); r(1:2, 3:mag - 2) = dum
             END SELECT
          END IF
       END DO
@@ -327,7 +328,8 @@ CONTAINS
       DO i = 1, mag*sz(1)
          r(i, :) = IS_LINK(su(i, :))
       END DO
-      DEALLOCATE (su)
+      DEALLOCATE (su, STAT=ios)
+      CALL errstat_dealloc(ios, "su", location)
    END FUNCTION get_is_link_magnified
 
 !> @brief Expands selected element numbers and topology into a raster grid.

@@ -66,7 +66,7 @@ MODULE OCmod2
    USE SGLOBAL
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_warn, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_warn, FID_logfile
 
    USE ZQmod, ONLY: get_ZQTable_value
    USE AL_D, ONLY: ZQweirsill, ZQTableRef
@@ -87,7 +87,7 @@ MODULE OCmod2
 
    PRIVATE
    PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
-             hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
+      hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
 CONTAINS
 
    !> Returns the stored water-surface elevation for an element.
@@ -672,19 +672,19 @@ CONTAINS
       SELECT CASE (MTYPE)
          ! Prescribed time-varying head - grid (3) or channel (9)
          ! NB: see Part 2
-      CASE (3)
+       CASE (3)
          ZX = AFROMHOCNOW
          FROMQ = ZERO
          FROMDQ = ZERO
 
          ! Prescribed time-varying flow - grid (4) or channel (10)
          ! NB: QOCF is rate of INFLOW, not discharge
-      CASE (4)
+       CASE (4)
          FROMQ = AFROMQOCF
          FROMDQ = ZERO
 
          ! Flow a polynomial function of head - grid (5) or channel (11)
-      CASE (5)
+       CASE (5)
          H = ZI - ZGI
          AH = AFROMCOCBCD(1)*H
          B = AFROMCOCBCD(2)
@@ -695,7 +695,7 @@ CONTAINS
          FROMQ = -((((AH + B)*H + C)*H + D)*H + E)
          FROMDQ = -(((4.0D0*AH + 3.0D0*B)*H + 2.0D0*C)*H + D)
 
-      CASE DEFAULT
+       CASE DEFAULT
          ! Weir (7) ... with river in parallel (8) - see Part 2
          IF (NTYPE == 7 .OR. NTYPE == 8) THEN
             COEFF(1) = AFROMCOCBCD(1)

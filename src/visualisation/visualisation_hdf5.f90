@@ -45,7 +45,7 @@ MODULE visualisation_hdf5
    USE H5LT
 
    USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : errstat_alloc
+   USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -470,8 +470,10 @@ CONTAINS
       CALL S_PTR(mn,'first', first)
       CALL H5SCLOSE_F(filespace, error)
       CALL H5SCLOSE_F(t_filespace, error)
-      IF(ALLOCATED(temp_r)) DEALLOCATE(temp_r)
-      IF(ALLOCATED(temp_i)) DEALLOCATE(temp_i)
+      IF(ALLOCATED(temp_r)) DEALLOCATE(temp_r, STAT=ios)
+      CALL errstat_dealloc(ios, "temp_r", location)
+      IF(ALLOCATED(temp_i)) DEALLOCATE(temp_i, STAT=ios)
+      CALL errstat_dealloc(ios, "temp_i", location)
       IF(name=='number') CALL SAVE_NUMBERS_AS_SPREADSHEET(mn)
 
       IF(name=='surf_elv') THEN
@@ -479,8 +481,10 @@ CONTAINS
          CALL errstat_alloc(ios, "temp_surf_map", location)
          temp_surf_map = surf_elv(1,1,1,:,:,:)
          CALL SAVE_SURF_ELEV_AS_MAP(mn, temp_surf_map, magnif=20)
-         DEALLOCATE(temp_surf_map)
-         DEALLOCATE(surf_elv)
+         DEALLOCATE(temp_surf_map, STAT=ios)
+         CALL errstat_dealloc(ios, "temp_surf_map", location)
+         DEALLOCATE(surf_elv, STAT=ios)
+         CALL errstat_dealloc(ios, "surf_elv", location)
       ENDIF
    END SUBROUTINE write_mn
 
@@ -642,7 +646,8 @@ CONTAINS
          CALL DIMENSION_ATTRIBUTES(nmed(dd))
       END DO
 
-      DEALLOCATE(nmed)
+      DEALLOCATE(nmed, STAT=ios)
+      CALL errstat_dealloc(ios, "nmed", location)
 
       ! First character of the visualisation structure type code.
       CALL H5TSET_SIZE_F(atype, INT(1, SIZE_T), error)
@@ -751,7 +756,8 @@ CONTAINS
             CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, pairs, dims2, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
-            DEALLOCATE(pairs)
+            DEALLOCATE(pairs, STAT=ios)
+            CALL errstat_dealloc(ios, "pairs", location)
 
           CASE('el_typ')
             arank    = 1
@@ -776,7 +782,8 @@ CONTAINS
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
             CALL H5TCLOSE_F(local_atype, error)
-            DEALLOCATE(nme)
+            DEALLOCATE(nme, STAT=ios)
+            CALL errstat_dealloc(ios, "nme", location)
 
           CASE('extra')
             arank    = 1
@@ -801,7 +808,8 @@ CONTAINS
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
             CALL H5TCLOSE_F(local_atype, error)
-            DEALLOCATE(nme)
+            DEALLOCATE(nme, STAT=ios)
+            CALL errstat_dealloc(ios, "nme", location)
 
          END SELECT
 
@@ -833,12 +841,17 @@ CONTAINS
       CHARACTER(csz) :: name !! HDF5 image dataset name.
       CHARACTER(csz) :: title !! Descriptive title passed to the image helper; currently unused there.
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_pic !! Magnified palette-index image.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:save_surf_elev_as_map"
+
       WRITE(name,'(A,I1,A)') 'SV',ver,'_elevation'
       WRITE(title,'(A,I1,A)') 'SV',ver,' surface elevation'
       sz  = szz(mn)%a(2:3)
       temp_pic = GET_REAL_IMAGE_INDEX(sz, dat, magnif, mn)
       CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic=temp_pic)
-      DEALLOCATE(temp_pic)
+      DEALLOCATE(temp_pic, STAT=ios)
+      CALL errstat_dealloc(ios, "temp_pic", location)
    END SUBROUTINE save_surf_elev_as_map
 
 !> Converts static element numbers into a magnified integer grid.
@@ -857,10 +870,15 @@ CONTAINS
       INTEGER, PARAMETER  :: magnif=20 !! Fixed spreadsheet magnification.
       INTEGER             :: sz(2) !! Unmagnified column and row extents.
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_magarr !! Magnified element-number grid.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:save_numbers_as_spreadsheet"
+
       sz = szz(mn)%a(2:3)
       temp_magarr = GET_MAGNIFIED_SU_ARR(sz, magnif, mn)
       CALL ADD_MAGNIFIED_INTEGER_SPREADSHEET_TO_GROUP(mn, nme='numbering', magnif=magnif, magarr=temp_magarr)
-      DEALLOCATE(temp_magarr)
+      DEALLOCATE(temp_magarr, STAT=ios)
+      CALL errstat_dealloc(ios, "temp_magarr", location)
    END SUBROUTINE save_numbers_as_spreadsheet
 
 

@@ -39,7 +39,7 @@
 MODULE VISUALISATION_EXTRAS
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -170,7 +170,8 @@ CONTAINS
       ALLOCATE (s(sh(1), sh(2), sh(3) + n), STAT=ios)
       CALL errstat_alloc(ios, "s", location)
       s(:, :, 1:sh(3)) = old
-      DEALLOCATE (old)
+      DEALLOCATE (old, STAT=ios)
+      CALL errstat_dealloc(ios, "old", location)
    END SUBROUTINE increment_D3
 
 END MODULE VISUALISATION_EXTRAS

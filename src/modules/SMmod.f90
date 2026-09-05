@@ -50,12 +50,12 @@ MODULE SMmod
 !USE SGLOBAL, ONLY : NVEE
 
    USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, ERR_STOP
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, ERR_STOP
 
    USE AL_C, ONLY: nvc, dtuz, ispack, nrd
    USE AL_D, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
-                   msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
-                   timeuz, u, vpd, VHT
+      msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
+      timeuz, u, vpd, VHT
    IMPLICIT NONE
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
@@ -356,7 +356,7 @@ CONTAINS
 
          ! CORRECT DN USING RICHARDSON NUMBER (SD - MM; ZUS,ZDS,ZOS - M)
          RICH = 9.81d0*(ZUS - EFFDEP/1000.0d0 - ZDS)*(TA(MS) - TS(IEL)) &
-                /((TA(MS) + 273.0d0)*U(MS)*U(MS))
+            /((TA(MS) + 273.0d0)*U(MS)*U(MS))
 
          IF (TA(MS) > TS(IEL)) THEN
             DN = DN/(1.0d0 + 10.0d0*RICH)
@@ -532,7 +532,7 @@ CONTAINS
 
       ! FORMAT STATEMENTS
 30    FORMAT(/, 'NO OF MELTWATER SLUGS IS', I5, ' AT ELEMENT', I4, &
-              ' WHICH EXCEEDS AVAILABLE MEMORY STORE SIZE')
+         ' WHICH EXCEEDS AVAILABLE MEMORY STORE SIZE')
 
    END SUBROUTINE SM
 
