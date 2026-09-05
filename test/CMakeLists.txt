@@ -34,12 +34,22 @@ endforeach()
 # CMake writes this fixture without a trailing record terminator.
 file(WRITE "${VISUALISATION_TEST_DATA_DIR}/records_no_final_newline.txt" "final")
 
+# visualisation_read_parser gains a `USE mod_error` dependency (commit 0f00bfa),
+# which drags in its `sglobal` -> `mod_parameters` chain and stdlib's
+# `to_string`. Compile that chain here and link the stdlib strings target the
+# same way the main executable does.
 add_executable(visualisation_read_tests
     "${CMAKE_SOURCE_DIR}/src/parameters/mod_parameters.f90"
+    "${CMAKE_SOURCE_DIR}/src/parameters/sglobal.f90"
+    "${CMAKE_SOURCE_DIR}/src/util/mod_error.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read_parser.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read.f90"
     ${SHETRAN_TEST_SUPPORT_SOURCES}
     "${CMAKE_CURRENT_SOURCE_DIR}/visualisation_read/test_visualisation_read.f90"
+)
+
+target_link_libraries(visualisation_read_tests PRIVATE
+    fortran_stdlib::fortran_stdlib_strings
 )
 
 set_target_properties(visualisation_read_tests PROPERTIES
