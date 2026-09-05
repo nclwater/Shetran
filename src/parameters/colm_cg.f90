@@ -104,7 +104,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for six overlap arrays. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE initialise_colm_cg()
 
@@ -154,6 +154,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added partial cleanup for setup-only overlap arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deallocate_colm_cg()
 

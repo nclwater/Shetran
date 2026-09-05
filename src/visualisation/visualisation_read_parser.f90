@@ -715,7 +715,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-07-09 | SvB | - | Added record preprocessing with comments, validation, splitting, and exact allocation. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE transform_visualisation_record(record, delimiter, separators, segments, status, message)
       CHARACTER(*), INTENT(IN) :: record !! Source record; physical trailing spaces are insignificant.

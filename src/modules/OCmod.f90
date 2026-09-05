@@ -202,7 +202,7 @@ CONTAINS
 !> | 2026-05-10 | SvB | 4.6.1 | Added this allocator while moving `AA`, `DD`, `FF`, `BB`, `GG`, `CC`, `EE`, `TM1`, `TM2`, `TV1`, `TV2`, `inhrf`, `GGGETHRF`, `inqsa`, `GGGETQSA`, `ijedum`, and `ijedum2` from automatic locals in [[ocsim]] to allocatable module state. |
 !> | 2026-08-20 | - | - | Removed the duplicate topology work arrays after [[ocmod2:ocfix]] was changed to accept `ICMREF` and `ICMRF2` in their native layouts. |
 !> | 2026-08-22 | - | - | Removed the `INHRF`, `GGGETHRF`, `INQSA`, and `GGGETQSA` state buffers after [[ocmod2:ocfix]] was changed to correct `HRFZZ`/`QSAZZ` in place. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
@@ -284,6 +284,13 @@ CONTAINS
 !> allowing the allocation-failure path to clean up before reporting a fatal
 !> error. The normal program shutdown calls it after the final possible
 !> [[ocsim]] use. SHETRAN still assumes one model per process execution.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-08-21 | SvB | - | Added this finaliser alongside [[initialise_ocsim_workspace]]. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
+!> @endhistory
    SUBROUTINE FINALISE_OCSIM_WORKSPACE()
       IMPLICIT NONE
 
@@ -1762,7 +1769,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1998-02-26 | RAH | 4.2 | Created this routine. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE OCPRI(OCNOW, ARXL, QOC)
       DOUBLEPRECISION, INTENT(IN) :: OCNOW      !! Simulation time being reported, in hours.

@@ -228,7 +228,7 @@ CONTAINS
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    SUBROUTINE INITIALISE_SYMAIN_WORKSPACE()
       IMPLICIT NONE
 
@@ -2136,7 +2136,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-05-04 | SvB | 4.6.1 | Changed the local `RDUM` workspace from an automatic array sized `NXEE*NYEE` to `ALLOCATABLE`, to reduce stack usage. |
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV, NSYB, NSYBEE, &
       NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, SFB, SRB, ALPHA, DCBEDO,      &

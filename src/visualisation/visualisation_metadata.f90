@@ -272,7 +272,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added per-item piecewise output scheduling. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
       INTEGER, INTENT(IN) :: n    !! One-based model-facing item index.
@@ -813,7 +813,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added two-pass matching of plan requests to the model output catalogue. |
 !> | 2026-04-14 | SvB | Routed rejected/unimplemented requests through the current fatal error service. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
       extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
@@ -917,7 +917,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added the HDF5-oriented metadata projection. |
 !> | 2026-04-14 | SvB | Supplied a safe default extra-axis size used by this projection. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE create_hdf5_metadata()
       INTEGER                  :: mn  !! Item index shared by the source and projection catalogues.
@@ -1261,7 +1261,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added the shared static timing sentinel. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION point_to_static() RESULT(r)
       TYPE(TTIME), POINTER :: r !! Shared static schedule.
@@ -1305,7 +1305,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added the shared whole-grid mask. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION point_to_whole_grid(i,j) RESULT(r)
       INTEGER, INTENT(IN) :: i !! First-dimension extent used on first call.
@@ -1714,7 +1714,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added timing-block parsing and terminal sentinel values. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE read_time(t)
       TYPE(TTIME), INTENT(INOUT) :: t !! Newly appended timing record populated in place.
@@ -1992,7 +1992,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added presence-array deduplication and ascending ordering. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE sort(sza, a)
       INTEGER, INTENT(INOUT)             :: sza !! Candidate count on entry; unique positive count on return.
@@ -2101,6 +2101,7 @@ CONTAINS
 !> | 2004-07 | JE | Added mask rendering as a nested plan-reader helper. |
 !> | 2026-03-29 | SvB | Made it standalone with an allocatable character buffer. |
 !> | 2026-04-03 | SvB | Replaced the Intel repeat-count format extension with a runtime format. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE mask_write(txt, ma, tr, fa)
       CHARACTER(*), INTENT(IN) :: txt    !! Heading written before the mask.
@@ -2150,7 +2151,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed item-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_item(s,n)
       TYPE(ITEM), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
@@ -2195,7 +2196,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed list-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_LIST(s,n)
       TYPE(LLIST), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
@@ -2240,7 +2241,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed mask-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_MASK(s,n)
       TYPE(MASK), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
@@ -2286,7 +2287,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed timing-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_TIME(s,n)
       TYPE(TTIME), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.

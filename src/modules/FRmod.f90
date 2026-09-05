@@ -2361,7 +2361,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-05-03 | SvB | Centralised virtual-station allocation during the output refactor. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
       SUBROUTINE allocate_extra_discharge(n)
          INTEGER, INTENT(IN) :: n
@@ -2410,7 +2410,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-05-03 | SvB | Extracted optional water-table setup from `FROUTPUT`. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
       SUBROUTINE initialise_extra_water_table_output()
 
@@ -2783,7 +2783,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-05-03 | SvB | Centralised regular CSV row formatting during the output refactor. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
       SUBROUTINE write_regular_outputs(output_hour, discharge, disextrapoints, discharge_extra, &
          sediment, sediment_fine, contaminant)
@@ -4166,7 +4166,7 @@ CONTAINS
 !> | 1994-10-03 | RAH | 3.4.1 | Standardised declarations. |
 !> | 1996-1998 | GP/RAH | 4.0-4.2 | Reworked VSS coupling, overlap geometry, sediment interfaces, and explicit typing. |
 !> | 2026-03 | SB | 4.6 | Updated contaminant allocation and active-cell interpolation. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCM(ISSDON)
 

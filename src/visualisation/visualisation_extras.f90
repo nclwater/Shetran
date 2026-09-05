@@ -78,7 +78,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the allocation/growth routine with an Intel `DLLEXPORT` directive. |
 !> | 2026-04-08 | SB | 4.6.1 | Removed the compiler-specific export directive; allocation behavior was unchanged. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE react(p, j)
       INTEGER, INTENT(IN)           :: p !! Capacity threshold, or initial capacity when `j` is present.
@@ -121,7 +121,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the rank-one pointer-growth helper. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE increment_I1(s, n)
       INTEGER, DIMENSION(:), POINTER :: s           !! Integer pointer to grow; existing positive-size values are preserved.
@@ -155,7 +155,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the rank-three pointer-growth helper. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE increment_D3(s, n)
       DOUBLE PRECISION, DIMENSION(:, :, :), POINTER :: s           !! Pointer whose shape and existing values are preserved.

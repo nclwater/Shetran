@@ -357,7 +357,7 @@ CONTAINS
    !> | Date | Author | Version | Description |
    !> |:-----|:-------|:--------|:------------|
    !> | 2026-08-22 | SvB | - | Initial version, replacing the fixed 100000-character record buffer in [[metin]]. |
-   !> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+   !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    !> @endhistory
    SUBROUTINE READ_DATED_RECORD(UNIT, NVALUES, DATEHOUR, VALUES, IOS, IOSTAGE)
       IMPLICIT NONE
@@ -447,6 +447,7 @@ CONTAINS
    !> | Date | Author | Version | Description |
    !> |:-----|:-------|:--------|:------------|
    !> | 2026-08-22 | SvB | - | Initial version. |
+   !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    !> @endhistory
    SUBROUTINE RESIZE_MET_RECORD(CAPACITY)
       IMPLICIT NONE

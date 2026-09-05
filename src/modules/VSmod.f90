@@ -305,7 +305,7 @@ CONTAINS
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    SUBROUTINE initialise_vsmod()
 
       INTEGER(KIND=I_P) :: ios
@@ -337,7 +337,7 @@ CONTAINS
 !>
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    SUBROUTINE initialise_vsread_buffers()
 
       INTEGER(KIND=I_P) :: ios

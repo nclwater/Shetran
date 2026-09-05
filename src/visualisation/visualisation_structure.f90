@@ -391,7 +391,7 @@ CONTAINS
 !> | 2004-07 | JE | Created dimension-permuted extraction for all visualisation storage families. |
 !> | 2005-08-14 | Unknown | Routed consumed nodes through payload-aware destructors to fix a memory leak. |
 !> | 2026-03-29 | SvB | Replaced integer addresses with `C_PTR`, changed wrappers to subroutines, and fixed middle time access. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE get_hdf5(typ, sz, szo, first, ilow, jlow, klow, rint, rreal)
       INTEGER, INTENT(IN) :: ilow !! Source payload's lower column/list bound.
@@ -612,7 +612,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pb(p)
       TYPE(BS), POINTER :: p !! Consumed node to destroy.
@@ -641,7 +641,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pe(p)
       TYPE(ES), POINTER :: p !! Consumed node to destroy.
@@ -671,7 +671,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pf(p)
       TYPE(FS), POINTER :: p !! Consumed legacy node to destroy.
@@ -700,7 +700,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pg(p)
       INTEGER(KIND=I_P) :: ios
@@ -727,7 +727,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pi(p)
       TYPE(IS), POINTER :: p !! Consumed node to destroy.
@@ -756,7 +756,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pl(p)
       TYPE(LS), POINTER :: p !! Consumed node to destroy.
@@ -783,7 +783,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pm(p)
       INTEGER(KIND=I_P) :: ios
@@ -810,7 +810,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pn(p)
       TYPE(NS), POINTER :: p !! Consumed node to destroy.
@@ -840,7 +840,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added member-label generation for HDF5 metadata. |
 !> | 2026-04-14 | SvB | Made unknown type codes yield a zero-sized label result through `MBR_COUNT`. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_mbr(typ) RESULT(r)
       INTEGER :: n !! Number of labels returned for `typ`.
@@ -1332,6 +1332,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real bank-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1383,7 +1384,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer bank-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1435,7 +1436,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real compound time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1488,7 +1489,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer middle time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1542,7 +1543,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real river-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1595,7 +1596,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real middle time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1649,7 +1650,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer compound time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.

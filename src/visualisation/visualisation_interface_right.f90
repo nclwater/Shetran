@@ -162,6 +162,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added startup registration, scheduled filling, writing, and shutdown. |
 !> | 2026-04-08 | SB | 4.6.1 | Replaced stored integer addresses with interoperable `C_PTR` handles. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE record_visualisation_data(time, text)
       REAL, INTENT(IN)                         :: time   !! Simulation time (hours).
@@ -714,7 +715,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the two-stage transfer into the far-right visualisation state. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE send_pass(jj)
       INTEGER, INTENT(IN)                  :: jj !! Setup selector: 1 for paths, 2 for topology.

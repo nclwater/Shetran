@@ -360,7 +360,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07-19 | JE | 2.0 | Added allocation and copying of the static and dynamic catalogue ranges. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_output_type(text)  RESULT(r)
       TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: r    !! Newly allocated copy of the selected catalogue range.

@@ -173,7 +173,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-19 | SB | 4.6 | Added the allocator while converting ET arrays to run-sized storage. |
 !> | 2026-05-03 | SvB | - | Expanded `DEL` to `MAX(NV,NM,NRAIN)` to avoid undersizing the meteorological domain. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INITIALISE_ETMOD()
 

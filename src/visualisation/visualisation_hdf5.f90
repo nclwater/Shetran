@@ -106,7 +106,7 @@ CONTAINS
 !> | 2020-09-08 | SB | Introduced the dataset initialisation. |
 !> | 2026-04-07 | SvB | Made HDF5 dimensions portable to GFortran. |
 !> | 2026-04-14 | SvB | Added the zero-rank stand-in and one shared unlimited time memory dataspace. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE initialise()
       INTEGER                  :: ni !! Number of registered visualisation items.
@@ -377,7 +377,7 @@ CONTAINS
 !> | 2020-09-08 | SB | Introduced queued HDF5 value writes. |
 !> | 2026-03-29 | SvB | Allocated temporary arrays from runtime dimensions to prevent invalid storage and memory corruption. |
 !> | 2026-04-08 | SB | Replaced legacy integer addresses with `C_PTR`. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE write_mn(mn, amount, firstwrites, tstep, isreal, szorder, ilow, jlow, klow)
       INTEGER, INTENT(IN) :: mn !! Registered visualisation-item index.
@@ -557,7 +557,7 @@ CONTAINS
 !> | 2020-09-08 | SB | Introduced dataset and dimension attributes. |
 !> | 2026-04-07 | SvB | Added portable HDF5 size kinds and closed local datatype identifiers. |
 !> | 2026-04-14 | SvB | Guarded empty dimension-member arrays. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE create_variables_attributes(mn)
       IMPLICIT NONE
@@ -690,7 +690,7 @@ CONTAINS
       !> | 2020-09-08 | SB | Introduced per-dimension metadata. |
       !> | 2026-04-07 | SvB | Isolated and closed string datatypes and ceased writing `layer limits`. |
       !> | 2026-04-14 | SvB | Guarded zero-length member arrays. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
       !> @endhistory
       SUBROUTINE dimension_attributes(name)
          CHARACTER(*), INTENT(IN) :: name !! Active dimension name in file order.
@@ -836,6 +836,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Introduced the derived elevation map. |
 !> | 2026-03-29 | SvB | Made the temporary image allocatable to prevent invalid storage and memory corruption. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE save_surf_elev_as_map(mn, dat, magnif)
       INTEGER, INTENT(IN) :: mn !! Registered index of the static `surf_elv` item.
@@ -869,6 +870,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Introduced the derived element-number spreadsheet. |
 !> | 2026-03-29 | SvB | Made the temporary magnified grid allocatable to prevent invalid storage and memory corruption. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE save_numbers_as_spreadsheet(mn)
       INTEGER, INTENT(IN) :: mn !! Registered index of the static `number` item.
@@ -911,7 +913,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Introduced indexed map and palette output. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE add_an_image_to_group(name, title, magnif, pic)
       INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic !! Magnified palette indices; required in practice.

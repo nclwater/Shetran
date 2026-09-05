@@ -111,7 +111,7 @@ CONTAINS
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    SUBROUTINE initialise_smmod
       LOGICAL         :: first = .TRUE.
 

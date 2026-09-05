@@ -126,7 +126,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added indexed real-map generation. |
 !> | 2026-03-29 | SvB | Changed pointer results to allocatables and replaced the masked `WHERE` assignment with explicit loops. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
       INTEGER, DIMENSION(:, :), ALLOCATABLE :: r     !! Indexed magnified image returned to the caller.
@@ -188,7 +188,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added masked real-field magnification. |
 !> | 2026-03-29 | SvB | Changed the pointer result to an allocatable result. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_magnified_real(sz, dat, mag, mn, mark_river) RESULT(r)
       INTEGER, INTENT(IN)                 :: mag        !! Number of output pixels along each source-cell axis.
@@ -312,6 +312,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added the private magnified link-mask helper. |
 !> | 2026-03-29 | SvB | Changed its pointer result and temporary to allocatables. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
       INTEGER, INTENT(IN)                  :: mag !! Number of output pixels along each source-cell axis.
@@ -357,7 +358,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added masked element-number magnification. |
 !> | 2026-03-29 | SvB | Changed the pointer result to an allocatable result. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
       INTEGER, INTENT(IN)                  :: mag   !! Number of output pixels along each source-cell axis.

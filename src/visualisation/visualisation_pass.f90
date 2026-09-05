@@ -169,7 +169,7 @@ CONTAINS
 !> | 2020-09-08 | SB | - | Imported the keyed SHEGRAPH pass-through with the visualisation sources. |
 !> | 2026-03-29 | SvB | - | Removed DEC conditionals and the `DLLEXPORT` directive for portable in-process use. |
 !> | 2026-04-08 | SB | 4.6.1 | Retained the portable implementation in the IFX compiler update. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
       integer, save :: coun = 0 !! Legacy saved call counter; its former debug print is disabled.

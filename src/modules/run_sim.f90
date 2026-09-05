@@ -183,7 +183,7 @@ CONTAINS
 !> | 2026-04-03 | SvB | 4.6.1 | Restructured the routine to use `OUTPUT_UNIT` for all console output instead of the non-standard `carriagecontrol='fortran'` unit-6 open. |
 !> | 2026-04-23 | SB | 4.6.1 | Added elapsed/remaining wall-clock progress reporting via `cpu_time`. |
 !> | 2026-05-03 | SvB | 4.6.1 | Changed `hrf` to an allocatable array, allocated only when sediment yield is active. |
-!> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
 !>
    SUBROUTINE SIMULATION
