@@ -99,7 +99,7 @@ MODULE VSmod
    USE SGLOBAL
    USE mod_load_filedata, ONLY: ALSPRD, ALREAD
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, &
       ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
@@ -309,12 +309,13 @@ CONTAINS
    SUBROUTINE initialise_vsmod()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VSmod:initialise_vsmod"
 
-      ALLOCATE (vsaijsv(4, top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "vsaijsv", location)
-      ALLOCATE (vskr(top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "vskr", location)
+      ALLOCATE (vsaijsv(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "vsaijsv", location, emsg)
+      ALLOCATE (vskr(top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "vskr", location, emsg)
    END SUBROUTINE initialise_vsmod
 
 !> Allocates and zeroes the [[vsread]] category/layer work buffers.
@@ -340,21 +341,22 @@ CONTAINS
    SUBROUTINE initialise_vsread_buffers()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VSmod:initialise_vsread_buffers"
 
       IF (.NOT. ALLOCATED(IVSDUM_VSREAD)) THEN
-         ALLOCATE (IVSDUM_VSREAD(NELEE, NLYREE), STAT=ios)
-         CALL errstat_alloc(ios, "IVSDUM_VSREAD", location)
-         ALLOCATE (IVSCAT_VSREAD(NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "IVSCAT_VSREAD", location)
-         ALLOCATE (ISDUM_VSREAD(NSEE, 8), STAT=ios)
-         CALL errstat_alloc(ios, "ISDUM_VSREAD", location)
-         ALLOCATE (RVSDUM_VSREAD(NELEE, NLYREE), STAT=ios)
-         CALL errstat_alloc(ios, "RVSDUM_VSREAD", location)
-         ALLOCATE (RSDUM_VSREAD(NSEE, 8), STAT=ios)
-         CALL errstat_alloc(ios, "RSDUM_VSREAD", location)
-         ALLOCATE (BDONE_VSREAD(NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "BDONE_VSREAD", location)
+         ALLOCATE (IVSDUM_VSREAD(NELEE, NLYREE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IVSDUM_VSREAD", location, emsg)
+         ALLOCATE (IVSCAT_VSREAD(NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IVSCAT_VSREAD", location, emsg)
+         ALLOCATE (ISDUM_VSREAD(NSEE, 8), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "ISDUM_VSREAD", location, emsg)
+         ALLOCATE (RVSDUM_VSREAD(NELEE, NLYREE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "RVSDUM_VSREAD", location, emsg)
+         ALLOCATE (RSDUM_VSREAD(NSEE, 8), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "RSDUM_VSREAD", location, emsg)
+         ALLOCATE (BDONE_VSREAD(NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "BDONE_VSREAD", location, emsg)
       END IF
 
       ! Initialise to default values

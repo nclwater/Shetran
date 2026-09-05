@@ -88,7 +88,7 @@ MODULE visualisation_metadata
    USE VISUALISATION_READ,      ONLY : vp_in, vp_out, mess, mess2, mess3, error_visualisation, R_C, R_I, R_R, COPY
    USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
-   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -281,14 +281,15 @@ CONTAINS
       LOGICAL, SAVE       :: first = T !! First-call initialization guard.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_METADATA:time_to_record"
 
       IF(first) THEN
          first = F
-         ALLOCATE(previous_time(no_items), STAT=ios)
-         CALL errstat_alloc(ios, "previous_time", location)
-         ALLOCATE(next_time(no_items), STAT=ios)
-         CALL errstat_alloc(ios, "next_time", location)
+         ALLOCATE(previous_time(no_items), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "previous_time", location, emsg)
+         ALLOCATE(next_time(no_items), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "next_time", location, emsg)
          previous_time = zero
          next_time     = GET_NEXT_TIME( (/(i,i=1,no_items)/) )
       ENDIF
@@ -833,6 +834,7 @@ CONTAINS
       LOGICAL, SAVE            :: first=T !! Plan-reading and `found` allocation guard.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='register_dynamic_visualisation_metadata'
 
 
@@ -844,8 +846,8 @@ CONTAINS
       IF(first) THEN
          first= F
          CALL READ_DYNAMIC_VISUALISATION_METADATA()
-         ALLOCATE(found(NO_static_items+1:no_items), STAT=ios)
-         CALL errstat_alloc(ios, "found", location)
+         ALLOCATE(found(NO_static_items+1:no_items), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "found", location, emsg)
          found = F
       ENDIF
       DO i=no_static_items+1, no_items
@@ -924,10 +926,11 @@ CONTAINS
       TYPE(HDF5_ITEM), POINTER :: hh  !! Current HDF5-facing destination item.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='create_hdf5_metadata'
 
-      ALLOCATE(hdf5_items(no_items), STAT=ios)
-      CALL errstat_alloc(ios, "hdf5_items", location)
+      ALLOCATE(hdf5_items(no_items), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "hdf5_items", location, emsg)
 
       DO mn=1,no_items
          ii => items(mn)
@@ -945,8 +948,8 @@ CONTAINS
          hh%no_extra_dimensions       = nex
          hh%extra_dimensions          = GET_METADATA_C(mn,'extra_dimensions')
 
-         ALLOCATE(hh%names_of_extra_dimensions(nex), STAT=ios)
-         CALL errstat_alloc(ios, "hh%names_of_extra_dimensions", location)
+         ALLOCATE(hh%names_of_extra_dimensions(nex), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%names_of_extra_dimensions", location, emsg)
 
          hh%names_of_extra_dimensions = NAMES_of_EXTRA_DIMENSIONS(nex, ii%extra_dimensions)
          hh%isgrid                    = ii%isgrid
@@ -963,19 +966,19 @@ CONTAINS
          hh%sediment_no    = GET_METADATA_I(mn,'nsed')
          hh%contaminant_no = GET_METADATA_I(mn,'ncon')
 
-         ALLOCATE(hh%dimensions(ndim), STAT=ios)
-         CALL errstat_alloc(ios, "hh%dimensions", location)
-         ALLOCATE(hh%names_of_dimensions(ndim), STAT=ios)
-         CALL errstat_alloc(ios, "hh%names_of_dimensions", location)
-         ALLOCATE(hh%szorder(ndim), STAT=ios)
-         CALL errstat_alloc(ios, "hh%szorder", location)
+         ALLOCATE(hh%dimensions(ndim), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%dimensions", location, emsg)
+         ALLOCATE(hh%names_of_dimensions(ndim), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%names_of_dimensions", location, emsg)
+         ALLOCATE(hh%szorder(ndim), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%szorder", location, emsg)
 
          CALL GET_SZ_CR(hh)
          hh%mbr => GET_MBR(hh%typ)
          IF(.NOT.hh%isgrid) THEN
             hh%sz = ii%alist%sz
-            ALLOCATE(hh%list(hh%sz), STAT=ios)
-            CALL errstat_alloc(ios, "hh%list", location)
+            ALLOCATE(hh%list(hh%sz), STAT=ios, ERRMSG=emsg)
+            CALL errstat_alloc(ios, "hh%list", location, emsg)
             hh%list = ii%alist%a
          ENDIF
       ENDDO
@@ -1265,19 +1268,20 @@ CONTAINS
       LOGICAL, SAVE        :: first=T !! Lazy-allocation guard.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='point_to_static'
 
       IF(first) THEN
          first    =  F
-         ALLOCATE(sstatic, STAT=ios)
-         CALL errstat_alloc(ios, "sstatic", location)
+         ALLOCATE(sstatic, STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "sstatic", location, emsg)
          r  => sstatic
          r%number = 999
          r%sz     = 1
-         ALLOCATE(r%tstep(1), STAT=ios)
-         CALL errstat_alloc(ios, "r%tstep", location)
-         ALLOCATE(r%tstop(1), STAT=ios)
-         CALL errstat_alloc(ios, "r%tstop", location)
+         ALLOCATE(r%tstep(1), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r%tstep", location, emsg)
+         ALLOCATE(r%tstop(1), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r%tstop", location, emsg)
          r%tstep(1) = HUGE(1.0)
          r%tstop(1) = HUGE(1.0)
       ENDIF
@@ -1310,20 +1314,21 @@ CONTAINS
       LOGICAL, SAVE       :: first=T !! Lazy-allocation guard.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='point_to_whole_grid'
 
       IF(first) THEN
          first    =  F
-         ALLOCATE(whole_grid, STAT=ios)
-         CALL errstat_alloc(ios, "whole_grid", location)
+         ALLOCATE(whole_grid, STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "whole_grid", location, emsg)
          r => whole_grid
          r%number = 999
          r%ilow   =1
          r%ihigh  =i
          r%jlow   =1
          r%jhigh  =j
-         ALLOCATE(r%ma(i,j), STAT=ios)
-         CALL errstat_alloc(ios, "r%ma", location)
+         ALLOCATE(r%ma(i,j), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r%ma", location, emsg)
          r%ma = T
       ENDIF
       r => whole_grid
@@ -1716,15 +1721,16 @@ CONTAINS
       INTEGER                    :: i !! User timing-pair index.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='read_time'
 
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading times'
       CALL R_I('TIMES number and size', t%number, t%sz)
 
-      ALLOCATE(t%tstep(t%sz+1), STAT=ios)
-      CALL errstat_alloc(ios, "t%tstep", location)
-      ALLOCATE(t%tstop(t%sz+1), STAT=ios)
-      CALL errstat_alloc(ios, "t%tstop", location)
+      ALLOCATE(t%tstep(t%sz+1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "t%tstep", location, emsg)
+      ALLOCATE(t%tstop(t%sz+1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "t%tstop", location, emsg)
 
       DO i=1,t%sz
          CALL R_R('TIMES',t%tstep(i), t%tstop(i))
@@ -1996,12 +2002,13 @@ CONTAINS
       INTEGER                            :: szd !! Largest candidate and presence-array extent.
       LOGICAL, DIMENSION(:), ALLOCATABLE :: d   !! Presence flags indexed by element number.
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:sort'
 
 
       szd = MAXVAL(a)
-      ALLOCATE(d(szd), STAT=ios)
-      CALL errstat_alloc(ios, "d", location)
+      ALLOCATE(d(szd), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "d", location, emsg)
       d = F
       j = 0
       DO i=1,sza
@@ -2011,10 +2018,10 @@ CONTAINS
       j = COUNT(d)
       IF(j<sza) THEN     ! Remove absent zeroes and duplicate element numbers.
          sza = j
-         DEALLOCATE(a, STAT=ios)
-         CALL errstat_dealloc(ios, "a", location)
-         ALLOCATE(a(sza), STAT=ios)
-         CALL errstat_alloc(ios, "a", location)
+         DEALLOCATE(a, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "a", location, emsg)
+         ALLOCATE(a(sza), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "a", location, emsg)
       ENDIF
 
       j = 1
@@ -2104,6 +2111,7 @@ CONTAINS
       CHARACTER(20)             :: fmt_str !! Runtime repeated-character format.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:mask_write'
 
       IF (SIZE(ma, 1) == 0 .OR. SIZE(ma, 2) == 0) RETURN
@@ -2120,8 +2128,8 @@ CONTAINS
       WRITE(fmt_str, '("(",I0,"A)")') SIZE(cc, 1)
       WRITE(vp_out, fmt_str) cc
 
-      DEALLOCATE(cc, STAT=ios)
-      CALL errstat_dealloc(ios, "cc", location)
+      DEALLOCATE(cc, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "cc", location, emsg)
    END SUBROUTINE mask_write
 
 
@@ -2150,20 +2158,21 @@ CONTAINS
       TYPE(ITEM), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
       INTEGER                                          :: sz  !! Previous array extent.
       INTEGER(KIND=I_P)                                :: ios  !! IOSTAT value for allocation.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_item'
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old, STAT=ios)
-         CALL errstat_dealloc(ios, "old", location)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_items   = no_items + 1
    END SUBROUTINE INCREMENT_item
@@ -2195,20 +2204,21 @@ CONTAINS
       INTEGER                                           :: sz  !! Previous array extent.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_LIST'
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old, STAT=ios)
-         CALL errstat_dealloc(ios, "old", location)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_lists   = no_lists + 1
    END SUBROUTINE INCREMENT_LIST
@@ -2239,20 +2249,21 @@ CONTAINS
       INTEGER                                          :: sz  !! Previous array extent.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_MASK'
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old, STAT=ios)
-         CALL errstat_dealloc(ios, "old", location)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_masks  = no_masks + 1
    END SUBROUTINE INCREMENT_MASK
@@ -2284,20 +2295,21 @@ CONTAINS
       INTEGER                                           :: sz  !! Previous array extent.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_TIME'
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old, STAT=ios)
-         CALL errstat_dealloc(ios, "old", location)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n), STAT=ios)
-         CALL errstat_alloc(ios, "s", location)
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_times  = no_times + 1
    END SUBROUTINE INCREMENT_TIME

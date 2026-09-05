@@ -85,7 +85,7 @@ MODULE FRmod
    USE UTILSMOD, ONLY: AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata, ONLY: ALINTP, ALCHK, ALCHKI
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, &
       ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
@@ -2367,25 +2367,26 @@ CONTAINS
          INTEGER, INTENT(IN) :: n
 
          INTEGER(KIND=I_P) :: ios
+         CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
          CHARACTER(LEN=*), PARAMETER :: location = "FRmod:allocate_extra_discharge"
 
-         IF (ALLOCATED(disextraelement)) DEALLOCATE (disextraelement, STAT=ios)
-         CALL errstat_dealloc(ios, "disextraelement", location)
-         IF (ALLOCATED(disextraface)) DEALLOCATE (disextraface, STAT=ios)
-         CALL errstat_dealloc(ios, "disextraface", location)
-         IF (ALLOCATED(qocavextra)) DEALLOCATE (qocavextra, STAT=ios)
-         CALL errstat_dealloc(ios, "qocavextra", location)
-         IF (ALLOCATED(qoctotextra)) DEALLOCATE (qoctotextra, STAT=ios)
-         CALL errstat_dealloc(ios, "qoctotextra", location)
+         IF (ALLOCATED(disextraelement)) DEALLOCATE (disextraelement, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "disextraelement", location, emsg)
+         IF (ALLOCATED(disextraface)) DEALLOCATE (disextraface, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "disextraface", location, emsg)
+         IF (ALLOCATED(qocavextra)) DEALLOCATE (qocavextra, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "qocavextra", location, emsg)
+         IF (ALLOCATED(qoctotextra)) DEALLOCATE (qoctotextra, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "qoctotextra", location, emsg)
 
-         ALLOCATE (disextraelement(n), STAT=ios)
-         CALL errstat_alloc(ios, "disextraelement", location)
-         ALLOCATE (disextraface(n), STAT=ios)
-         CALL errstat_alloc(ios, "disextraface", location)
-         ALLOCATE (qocavextra(n), STAT=ios)
-         CALL errstat_alloc(ios, "qocavextra", location)
-         ALLOCATE (qoctotextra(n), STAT=ios)
-         CALL errstat_alloc(ios, "qoctotextra", location)
+         ALLOCATE (disextraelement(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "disextraelement", location, emsg)
+         ALLOCATE (disextraface(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "disextraface", location, emsg)
+         ALLOCATE (qocavextra(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "qocavextra", location, emsg)
+         ALLOCATE (qoctotextra(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "qoctotextra", location, emsg)
 
          disextraelement = 0
          disextraface = 0
@@ -2414,6 +2415,7 @@ CONTAINS
       SUBROUTINE initialise_extra_water_table_output()
 
          INTEGER(KIND=I_P) :: ios
+         CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
          CHARACTER(LEN=*), PARAMETER :: location = "FRmod:initialise_extra_water_table_output"
 
          READ (pslextra, *, IOSTAT=ios)
@@ -2424,10 +2426,10 @@ CONTAINS
          CALL fatal_on_io_error(ios, 1069, &
             'no or incorrect data in input_CATCH_water_table_depth file')
 
-         IF (ALLOCATED(pslextraelement)) DEALLOCATE (pslextraelement, STAT=ios)
-         CALL errstat_dealloc(ios, "pslextraelement", location)
-         ALLOCATE (pslextraelement(pslextrapoints), STAT=ios)
-         CALL errstat_alloc(ios, "pslextraelement", location)
+         IF (ALLOCATED(pslextraelement)) DEALLOCATE (pslextraelement, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "pslextraelement", location, emsg)
+         ALLOCATE (pslextraelement(pslextrapoints), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "pslextraelement", location, emsg)
          pslextraelement = 0
 
          j = 0
@@ -2800,14 +2802,15 @@ CONTAINS
          CHARACTER(len=32) :: bufdis
 
          INTEGER(KIND=I_P) :: ios
+         CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
          CHARACTER(LEN=*), PARAMETER :: location = "FRmod:write_regular_outputs"
 
          SAVE buf
 
-         IF (ALLOCATED(buf)) DEALLOCATE (buf, STAT=ios)
-         CALL errstat_dealloc(ios, "buf", location)
-         ALLOCATE (buf(disextrapoints), STAT=ios)
-         CALL errstat_alloc(ios, "buf", location)
+         IF (ALLOCATED(buf)) DEALLOCATE (buf, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "buf", location, emsg)
+         ALLOCATE (buf(disextrapoints), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "buf", location, emsg)
          buf = ''
 
          elapsed = output_hour*TOUTPUT
@@ -4199,6 +4202,7 @@ CONTAINS
       LOGICAL :: LDUM1(1), ISCNSV(NCONEE)
 
       INTEGER(KIND=I_P):: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "FRmod:INCM"
 
       ! New by SB 18/11/04
@@ -4212,16 +4216,16 @@ CONTAINS
       MAX_NUM_CATEGORY_TYPES = NOCTAB
       MAX_NUM_DATA_PAIRS = NOCTAB
 
-      ALLOCATE (KSPDUM(total_no_elements, top_cell_no + 1), STAT=ios)
-      CALL errstat_alloc(ios, "KSPDUM", location)
-      ALLOCATE (DUMMYCONC(total_no_elements, top_cell_no), STAT=ios)
-      CALL errstat_alloc(ios, "DUMMYCONC", location)
-      ALLOCATE (NCATTY(NELEE, NCONEE), STAT=ios)
-      CALL errstat_alloc(ios, "NCATTY", location)
-      ALLOCATE (TABLE_CONCENTRATION(NOCTAB, NOCTAB, NCONEE), STAT=ios)
-      CALL errstat_alloc(ios, "TABLE_CONCENTRATION", location)
-      ALLOCATE (TABLE_WATER_DEPTH(NOCTAB, NOCTAB, NCONEE), STAT=ios)
-      CALL errstat_alloc(ios, "TABLE_WATER_DEPTH", location)
+      ALLOCATE (KSPDUM(total_no_elements, top_cell_no + 1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "KSPDUM", location, emsg)
+      ALLOCATE (DUMMYCONC(total_no_elements, top_cell_no), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "DUMMYCONC", location, emsg)
+      ALLOCATE (NCATTY(NELEE, NCONEE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NCATTY", location, emsg)
+      ALLOCATE (TABLE_CONCENTRATION(NOCTAB, NOCTAB, NCONEE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TABLE_CONCENTRATION", location, emsg)
+      ALLOCATE (TABLE_WATER_DEPTH(NOCTAB, NOCTAB, NCONEE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TABLE_WATER_DEPTH", location, emsg)
 
       ! Read main CM input data file
       ! Modified by SB

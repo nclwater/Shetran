@@ -68,7 +68,7 @@ MODULE COLM_CO
 
    USE SGLOBAL, ONLY: NELEE, LLEE, total_no_elements, top_cell_no
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
@@ -128,28 +128,29 @@ CONTAINS
    SUBROUTINE initialise_colm_co()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "COLM_CO:initialise_colm_co"
 
-      allocate (DSWO(total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "DSWO", location)
-      allocate (QIO(total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "QIO", location)
-      allocate (QQRFO(total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "QQRFO", location)
-      allocate (RSZWLO(total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "RSZWLO", location)
-      allocate (ZONEO(total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "ZONEO", location)
-      allocate (GGAMMO(total_no_elements, top_cell_no + 1), STAT=ios)
-      CALL errstat_alloc(ios, "GGAMMO", location)
-      allocate (UUAJPO(total_no_elements, top_cell_no + 1), STAT=ios)
-      CALL errstat_alloc(ios, "UUAJPO", location)
-      allocate (VSTHEO(total_no_elements, top_cell_no + 1), STAT=ios)
-      CALL errstat_alloc(ios, "VSTHEO", location)
-      allocate (QQQSWO(total_no_elements, 4), STAT=ios)
-      CALL errstat_alloc(ios, "QQQSWO", location)
-      allocate (QQO(total_no_elements, top_cell_no + 1, 4), STAT=ios)
-      CALL errstat_alloc(ios, "QQO", location)
+      allocate (DSWO(total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "DSWO", location, emsg)
+      allocate (QIO(total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "QIO", location, emsg)
+      allocate (QQRFO(total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "QQRFO", location, emsg)
+      allocate (RSZWLO(total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "RSZWLO", location, emsg)
+      allocate (ZONEO(total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZONEO", location, emsg)
+      allocate (GGAMMO(total_no_elements, top_cell_no + 1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "GGAMMO", location, emsg)
+      allocate (UUAJPO(total_no_elements, top_cell_no + 1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "UUAJPO", location, emsg)
+      allocate (VSTHEO(total_no_elements, top_cell_no + 1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "VSTHEO", location, emsg)
+      allocate (QQQSWO(total_no_elements, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "QQQSWO", location, emsg)
+      allocate (QQO(total_no_elements, top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "QQO", location, emsg)
 
       ! Initialise to default values
       DSWO = 0.0d0

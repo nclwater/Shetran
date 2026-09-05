@@ -154,19 +154,29 @@ CONTAINS
    !>
    !> Standardised check for allocate memory return status.
    !>
+   !> Pass `errmsg` the string filled by the `ERRMSG=` specifier of the failing
+   !> `ALLOCATE` statement to have the processor's explanatory text for `status`
+   !> included in the diagnostic.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-09-06 | SvB | Report the `status` value and the optional `ERRMSG=` text. |
    !> @endhistory
-   SUBROUTINE errstat_alloc(status, variable, location)
+   SUBROUTINE errstat_alloc(status, variable, location, errmsg)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from allocate memory.
       CHARACTER(LEN=*), INTENT(IN) :: variable !! Name of the variable being allocated.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was allocated.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: errmsg !! Text from the `ERRMSG=` specifier of the failing `ALLOCATE`.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
       IF (status /= 0) THEN
-         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_allocate, FID_logfile, 0, 0, &
-                          'Error allocating memory for '//TRIM(variable)//' at '//TRIM(location))
+         msg = 'Error allocating memory for '//TRIM(variable)//' at '//TRIM(location)// &
+               ' (status '//to_string(status)//')'
+         IF (PRESENT(errmsg)) msg = TRIM(msg)//': '//TRIM(errmsg)
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_allocate, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_alloc
 
@@ -175,21 +185,28 @@ CONTAINS
    !>
    !> Standardised check for deallocating memory return status.
    !>
+   !> Pass `errmsg` the string filled by the `ERRMSG=` specifier of the failing
+   !> `DEALLOCATE` statement to have the processor's explanatory text for
+   !> `status` included in the diagnostic.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-09-06 | SvB | Report the `status` value and the optional `ERRMSG=` text. |
    !> @endhistory
-   SUBROUTINE errstat_dealloc(status, variable, location)
+   SUBROUTINE errstat_dealloc(status, variable, location, errmsg)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from deallocate memory.
       CHARACTER(LEN=*), INTENT(IN) :: variable !! Name of the variable being deallocated.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was deallocated.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: errmsg !! Text from the `ERRMSG=` specifier of the failing `DEALLOCATE`.
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
-      msg = 'Error deallocating memory for '//TRIM(variable)//' at '//TRIM(location)
-
       IF (status /= 0) THEN
+         msg = 'Error deallocating memory for '//TRIM(variable)//' at '//TRIM(location)// &
+               ' (status '//to_string(status)//')'
+         IF (PRESENT(errmsg)) msg = TRIM(msg)//': '//TRIM(errmsg)
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_deallocate, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_dealloc

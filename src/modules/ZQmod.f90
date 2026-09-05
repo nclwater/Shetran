@@ -118,6 +118,7 @@ CONTAINS
       INTEGER(KIND=I_P)                               :: printCol                          !! Column index used when echoing a table to the log file.
       INTEGER(KIND=I_P)                               :: pos                               !! Position of the next space delimiter in `headerRaw`.
       INTEGER(KIND=I_P)                               :: ios                               !! I/O status integer.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "ZQmod:ReadZQTable"                        !! Location string for error messages.
 
       ! specific variables
@@ -140,20 +141,20 @@ CONTAINS
       READ (zqd, *, IOSTAT=ios) NoZQTables                                             ! read line 2
       IF (ios /= 0) CALL handle_zq_error()
 
-      ALLOCATE (nZQcols(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "nZQcols", location)
-      ALLOCATE (nZQrows(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "nZQrows", location)
-      ALLOCATE (zcol(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "zcol", location)
-      ALLOCATE (ZQTableLink(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "ZQTableLink", location)
-      ALLOCATE (ZQTableFace(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "ZQTableFace", location)
-      ALLOCATE (ZQTableOpHour(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "ZQTableOpHour", location)
-      ALLOCATE (ZQWeirSill(NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "ZQWeirSill", location)
+      ALLOCATE (nZQcols(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "nZQcols", location, emsg)
+      ALLOCATE (nZQrows(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "nZQrows", location, emsg)
+      ALLOCATE (zcol(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "zcol", location, emsg)
+      ALLOCATE (ZQTableLink(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZQTableLink", location, emsg)
+      ALLOCATE (ZQTableFace(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZQTableFace", location, emsg)
+      ALLOCATE (ZQTableOpHour(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZQTableOpHour", location, emsg)
+      ALLOCATE (ZQWeirSill(NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZQWeirSill", location, emsg)
 
       DO i = 1, NoZQTables                                                            ! loop through ZQtables
          DO j = 1, 9
@@ -194,14 +195,14 @@ CONTAINS
       maxnumberCols = MAXVAL(nZQcols)
 
       ! allocate array dimensions using maxnumberRows and maxnumberCols
-      ALLOCATE (ZQ(maxnumberRows, maxnumberCols, NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "ZQ", location)
-      ALLOCATE (headerRawArray(maxnumberCols, NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "headerRawArray", location)
-      ALLOCATE (headerCharArray(maxnumberCols, NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "headerCharArray", location)
-      ALLOCATE (headerRealArray(maxnumberCols, NoZQTables), STAT=ios)
-      CALL errstat_alloc(ios, "headerRealArray", location)
+      ALLOCATE (ZQ(maxnumberRows, maxnumberCols, NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZQ", location, emsg)
+      ALLOCATE (headerRawArray(maxnumberCols, NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "headerRawArray", location, emsg)
+      ALLOCATE (headerCharArray(maxnumberCols, NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "headerCharArray", location, emsg)
+      ALLOCATE (headerRealArray(maxnumberCols, NoZQTables), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "headerRealArray", location, emsg)
       REWIND (zqd)
 
       ! read ZQ metadata

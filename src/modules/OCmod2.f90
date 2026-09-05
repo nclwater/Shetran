@@ -65,7 +65,7 @@
 MODULE OCmod2
    USE SGLOBAL
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_warn, FID_logfile
 
    USE ZQmod, ONLY: get_ZQTable_value
@@ -176,10 +176,11 @@ CONTAINS
 
       IMPLICIT NONE
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
 
       IF (.NOT. ALLOCATED(xstab)) THEN
-         ALLOCATE (xstab(3, nxscee, total_no_links), STAT=ios)
-         CALL errstat_alloc(ios, "xstab", "OCmod:initialise_ocmod")
+         ALLOCATE (xstab(3, nxscee, total_no_links), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "xstab", "OCmod:initialise_ocmod", emsg)
       END IF
 
    END SUBROUTINE initialise_ocmod

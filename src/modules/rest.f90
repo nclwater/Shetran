@@ -41,7 +41,7 @@ MODULE rest
    USE FRmod, ONLY: BSOFT
    USE UTILSMOD, ONLY: HOUR_FROM_DATE, TERPO1
 
-   USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
 
    USE OCmod2, ONLY: GETHRF
@@ -375,6 +375,7 @@ CONTAINS
       INTEGER :: NEEDED, TRIMMED
 
       INTEGER(KIND=I_P) :: status
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       !----------------------------------------------------------------------*
 
       IOSTAGE = IOSTAGE_NONE
@@ -382,8 +383,8 @@ CONTAINS
 
       IF (.NOT. ALLOCATED(MET_RECORD)) THEN
          ! start from the reserved capacity; the first data line sets the real size
-         ALLOCATE (CHARACTER(LEN=LENGTH_LINEVERYLONG) :: MET_RECORD, STAT=status)
-         CALL errstat_alloc(status, "MET_RECORD", "rest:READ_DATED_RECORD")
+         ALLOCATE (CHARACTER(LEN=LENGTH_LINEVERYLONG) :: MET_RECORD, STAT=status, ERRMSG=emsg)
+         CALL errstat_alloc(status, "MET_RECORD", "rest:READ_DATED_RECORD", emsg)
          MET_RECORD_SIZED = .FALSE.
       ELSE IF (MET_RECORD_SIZED .AND. LEN(MET_RECORD) < NEEDED) THEN
          ! a wider file than the one that sized the buffer
@@ -454,13 +455,14 @@ CONTAINS
       INTEGER, INTENT(IN) :: CAPACITY !! New buffer length in characters.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
 
       !----------------------------------------------------------------------*
 
       IF (ALLOCATED(MET_RECORD)) THEN
          IF (LEN(MET_RECORD) == CAPACITY) RETURN
-         DEALLOCATE (MET_RECORD, STAT=ios)
-         CALL errstat_dealloc(ios, "MET_RECORD", "rest:RESIZE_MET_RECORD")
+         DEALLOCATE (MET_RECORD, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "MET_RECORD", "rest:RESIZE_MET_RECORD", emsg)
       END IF
 
       ALLOCATE (CHARACTER(LEN=CAPACITY) :: MET_RECORD)

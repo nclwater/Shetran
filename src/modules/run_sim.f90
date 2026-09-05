@@ -51,7 +51,7 @@ MODULE run_sim
 
    USE SGLOBAL
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
@@ -202,6 +202,7 @@ CONTAINS
       REAL :: start_time, current_time, elapsed_time
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
 
       !-----------------------------------------------------------------
       !                     INITIALISATION
@@ -245,8 +246,8 @@ CONTAINS
       !                     MAIN SIMULATION LOOP
       !------------------------------------------------------------------
       IF (bexsy) THEN
-         ALLOCATE (hrf(total_no_elements), STAT=ios)
-         CALL errstat_alloc(ios, "hrf", "run_sim:main")
+         ALLOCATE (hrf(total_no_elements), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hrf", "run_sim:main", emsg)
          CALL GET_NSED_EARLY()     !VISVISVIS
       END IF
       IF (bexcm) then

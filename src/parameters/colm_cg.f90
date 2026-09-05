@@ -53,7 +53,7 @@ MODULE COLM_CG
 
    USE SGLOBAL, ONLY: NELEE, LLEE, NVEE, NOLEE, total_no_elements, top_cell_no
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -109,20 +109,21 @@ CONTAINS
    SUBROUTINE initialise_colm_cg()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:initialise_colm_cg"
 
-      allocate (JKZCOL(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
-      CALL errstat_alloc(ios, "JKZCOL", location)
-      allocate (JOLFN(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
-      CALL errstat_alloc(ios, "JOLFN", location)
-      allocate (NOL(total_no_elements, 4), STAT=ios)
-      CALL errstat_alloc(ios, "NOL", location)
-      allocate (NOLBT(total_no_elements, top_cell_no + 1, 4), STAT=ios)
-      CALL errstat_alloc(ios, "NOLBT", location)
-      allocate (NOLCE(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
-      CALL errstat_alloc(ios, "NOLCE", location)
-      allocate (NOLCEA(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
-      CALL errstat_alloc(ios, "NOLCEA", location)
+      allocate (JKZCOL(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "JKZCOL", location, emsg)
+      allocate (JOLFN(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "JOLFN", location, emsg)
+      allocate (NOL(total_no_elements, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOL", location, emsg)
+      allocate (NOLBT(total_no_elements, top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOLBT", location, emsg)
+      allocate (NOLCE(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOLCE", location, emsg)
+      allocate (NOLCEA(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOLCEA", location, emsg)
 
       ! Initialise to default values
       JKZCOL = 0
@@ -157,16 +158,17 @@ CONTAINS
    SUBROUTINE deallocate_colm_cg()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:deallocate_colm_cg"
 
-      deallocate (JKZCOL, STAT=ios)
-      CALL errstat_dealloc(ios, "JKZCOL", location)
-      deallocate (JOLFN, STAT=ios)
-      CALL errstat_dealloc(ios, "JOLFN", location)
-      deallocate (NOL, STAT=ios)
-      CALL errstat_dealloc(ios, "NOL", location)
-      deallocate (NOLCE, STAT=ios)
-      CALL errstat_dealloc(ios, "NOLCE", location)
+      deallocate (JKZCOL, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "JKZCOL", location, emsg)
+      deallocate (JOLFN, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "JOLFN", location, emsg)
+      deallocate (NOL, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "NOL", location, emsg)
+      deallocate (NOLCE, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "NOLCE", location, emsg)
 
    END SUBROUTINE deallocate_colm_cg
 

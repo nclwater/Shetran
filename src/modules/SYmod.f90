@@ -110,7 +110,7 @@ MODULE SYmod
 !USE AL_P
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD
 
-   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY : errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
 
    USE UTILSMOD, ONLY : DCOPY
@@ -233,51 +233,52 @@ CONTAINS
       IMPLICIT NONE
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "SYmod:initialise_symain_workspace"
 
       IF (.NOT. ALLOCATED(BARM)) THEN
-         ALLOCATE (BARM (NLFEE), STAT=ios)
-         CALL errstat_alloc(ios, "BARM", location)
-         ALLOCATE (CONCI (NLFEE, NSEDEE), STAT=ios)
-         CALL errstat_alloc(ios, "CONCI", location)
-         ALLOCATE (DCIPRM (NLFEE, NSEDEE), STAT=ios)
-         CALL errstat_alloc(ios, "DCIPRM", location)
-         ALLOCATE (DDIPRM (NLFEE, NSEDEE), STAT=ios)
-         CALL errstat_alloc(ios, "DDIPRM", location)
-         ALLOCATE (DRDROP (NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "DRDROP", location)
-         ALLOCATE (DUMSED (NLFEE * NSEDEE), STAT=ios)
-         CALL errstat_alloc(ios, "DUMSED", location)
-         ALLOCATE (DWAT1 (NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "DWAT1", location)
-         ALLOCATE (EPSB (NLFEE), STAT=ios)
-         CALL errstat_alloc(ios, "EPSB", location)
-         ALLOCATE (FQCONF (NLFEE, 3), STAT=ios)
-         CALL errstat_alloc(ios, "FQCONF", location)
-         ALLOCATE (IDUM1A (NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "IDUM1A", location)
-         ALLOCATE (IDUM1X (NELEE + 3), STAT=ios)
-         CALL errstat_alloc(ios, "IDUM1X", location)
-         ALLOCATE (LDUM (NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "LDUM", location)
-         ALLOCATE (LRAIN (NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "LRAIN", location)
-         ALLOCATE (QSDWAT (NLFEE, NSEDEE, 4), STAT=ios)
-         CALL errstat_alloc(ios, "QSDWAT", location)
-         ALLOCATE (QSEDB (NSEDEE, NSYBEE), STAT=ios)
-         CALL errstat_alloc(ios, "QSEDB", location)
-         ALLOCATE (QWATB (NSYBEE), STAT=ios)
-         CALL errstat_alloc(ios, "QWATB", location)
-         ALLOCATE (SLOPEJ (NELEE, 4), STAT=ios)
-         CALL errstat_alloc(ios, "SLOPEJ", location)
-         ALLOCATE (TAUJ (NELEE, 4), STAT=ios)
-         CALL errstat_alloc(ios, "TAUJ", location)
-         ALLOCATE (TAUK (NELEE), STAT=ios)
-         CALL errstat_alloc(ios, "TAUK", location)
-         ALLOCATE (VCFMAX (NLFEE), STAT=ios)
-         CALL errstat_alloc(ios, "VCFMAX", location)
-         ALLOCATE (VINFMX (NLFEE), STAT=ios)
-         CALL errstat_alloc(ios, "VINFMX", location)
+         ALLOCATE (BARM (NLFEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "BARM", location, emsg)
+         ALLOCATE (CONCI (NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "CONCI", location, emsg)
+         ALLOCATE (DCIPRM (NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "DCIPRM", location, emsg)
+         ALLOCATE (DDIPRM (NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "DDIPRM", location, emsg)
+         ALLOCATE (DRDROP (NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "DRDROP", location, emsg)
+         ALLOCATE (DUMSED (NLFEE * NSEDEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "DUMSED", location, emsg)
+         ALLOCATE (DWAT1 (NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "DWAT1", location, emsg)
+         ALLOCATE (EPSB (NLFEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "EPSB", location, emsg)
+         ALLOCATE (FQCONF (NLFEE, 3), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "FQCONF", location, emsg)
+         ALLOCATE (IDUM1A (NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IDUM1A", location, emsg)
+         ALLOCATE (IDUM1X (NELEE + 3), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IDUM1X", location, emsg)
+         ALLOCATE (LDUM (NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "LDUM", location, emsg)
+         ALLOCATE (LRAIN (NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "LRAIN", location, emsg)
+         ALLOCATE (QSDWAT (NLFEE, NSEDEE, 4), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "QSDWAT", location, emsg)
+         ALLOCATE (QSEDB (NSEDEE, NSYBEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "QSEDB", location, emsg)
+         ALLOCATE (QWATB (NSYBEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "QWATB", location, emsg)
+         ALLOCATE (SLOPEJ (NELEE, 4), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "SLOPEJ", location, emsg)
+         ALLOCATE (TAUJ (NELEE, 4), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "TAUJ", location, emsg)
+         ALLOCATE (TAUK (NELEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "TAUK", location, emsg)
+         ALLOCATE (VCFMAX (NLFEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "VCFMAX", location, emsg)
+         ALLOCATE (VINFMX (NLFEE), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "VINFMX", location, emsg)
       END IF
 
    END SUBROUTINE INITIALISE_SYMAIN_WORKSPACE
@@ -2211,14 +2212,15 @@ CONTAINS
       DOUBLE PRECISION, ALLOCATABLE :: RDUM (:)
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
 
       !----------------------------------------------------------------------*
 
       ! 0. Preliminaries
       ! ----------------
       !     * Local counter
-      ALLOCATE (RDUM (NXEE*NYEE), STAT=ios)
-      CALL errstat_alloc(ios, "RDUM", "SYmod:SYERR2")
+      ALLOCATE (RDUM (NXEE*NYEE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "RDUM", "SYmod:SYERR2", emsg)
 
       NERR = 0
 

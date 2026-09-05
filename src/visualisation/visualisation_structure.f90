@@ -93,7 +93,7 @@ MODULE visualisation_structure
 
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -431,12 +431,13 @@ CONTAINS
       LOGICAL, SAVE :: initial = T !! One-time allocation guard for `d`.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:get_hdf5"
 
       IF (initial) THEN
          initial = F
-         ALLOCATE (d(6), STAT=ios)
-         call errstat_alloc(ios, "d", location)
+         ALLOCATE (d(6), STAT=ios, ERRMSG=emsg)
+         call errstat_alloc(ios, "d", location, emsg)
       END IF
 
       szii = sz(szo(1)); d(szo(1))%a => dii
@@ -617,13 +618,14 @@ CONTAINS
       TYPE(BS), POINTER :: p !! Consumed node to destroy.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pb"
 
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pb
 
 !> @brief Deallocates one consumed integer bank-edge node and its payload.
@@ -645,13 +647,14 @@ CONTAINS
       TYPE(ES), POINTER :: p !! Consumed node to destroy.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pe"
 
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pe
 
 !> @brief Deallocates one consumed integer river-edge node and its payload.
@@ -674,13 +677,14 @@ CONTAINS
       TYPE(FS), POINTER :: p !! Consumed legacy node to destroy.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pf"
 
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pf
 
 !> @brief Deallocates one consumed real compound node and its payload.
@@ -700,13 +704,14 @@ CONTAINS
 !> @endhistory
    SUBROUTINE deall_pg(p)
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pg"
       TYPE(GS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pg
 
 !> @brief Deallocates one consumed integer middle node and its payload.
@@ -728,13 +733,14 @@ CONTAINS
       TYPE(IS), POINTER :: p !! Consumed node to destroy.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pi"
 
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pi
 
 !> @brief Deallocates one consumed real river-edge node and its payload.
@@ -755,12 +761,13 @@ CONTAINS
    SUBROUTINE deall_pl(p)
       TYPE(LS), POINTER :: p !! Consumed node to destroy.
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pl"
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pl
 
 !> @brief Deallocates one consumed real middle node and its payload.
@@ -780,13 +787,14 @@ CONTAINS
 !> @endhistory
    SUBROUTINE deall_pm(p)
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pm"
       TYPE(MS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pm
 
 !> @brief Deallocates one consumed integer compound node and its payload.
@@ -807,12 +815,13 @@ CONTAINS
    SUBROUTINE deall_pn(p)
       TYPE(NS), POINTER :: p !! Consumed node to destroy.
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pn"
-      DEALLOCATE (p%s, STAT=ios)
-      CALL errstat_dealloc(ios, "p%s", location)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
       NULLIFY (p%previous, p%next)
-      DEALLOCATE (p, STAT=ios)
-      CALL errstat_dealloc(ios, "p", location)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pn
 
 !> @brief Allocates the element-member labels for one storage family.
@@ -842,12 +851,13 @@ CONTAINS
       CHARACTER(6), PARAMETER :: rv(4) = (/'N-link', 'E-link', 'S-link', 'W-link'/) !! River-link labels.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:get_mbr"
 
       n = MBR_COUNT(typ)
 
-      ALLOCATE (r(n), STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r(n), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
 
       SELECT CASE (typ)
        CASE ('BS'); r = bk
@@ -1338,14 +1348,15 @@ CONTAINS
       TYPE(BS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_BS'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_edges
       IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
@@ -1389,13 +1400,14 @@ CONTAINS
       TYPE(ES), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_ES'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_integer_edges
       IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
@@ -1440,14 +1452,15 @@ CONTAINS
       TYPE(GS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_GS'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_middle_and_edges
 
       IF (.NOT. C_ASSOCIATED(first)) THEN
@@ -1492,14 +1505,15 @@ CONTAINS
       TYPE(IS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_IS'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_integer_middle
 
       IF (.NOT. C_ASSOCIATED(first)) THEN
@@ -1545,14 +1559,15 @@ CONTAINS
       TYPE(LS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_LS'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_edges
 
       IF (.NOT. C_ASSOCIATED(first)) THEN
@@ -1597,14 +1612,15 @@ CONTAINS
       TYPE(MS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_MS'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_middle
 
       IF (.NOT. C_ASSOCIATED(first)) THEN
@@ -1650,14 +1666,15 @@ CONTAINS
       TYPE(NS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_NS'
 
-      ALLOCATE (r, STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios)
-      CALL errstat_alloc(ios, "r%s", location)
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_integer_middle_and_edges
 
       IF (.NOT. C_ASSOCIATED(first)) THEN

@@ -58,7 +58,7 @@
 !> @endhistory
 MODULE visualisation_pass
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
@@ -182,6 +182,7 @@ CONTAINS
       CHARACTER(*), INTENT(IN), OPTIONAL :: cc !! Character payload for directory/filename keys.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'send_p'
 
       coun = coun + 1
@@ -214,28 +215,28 @@ CONTAINS
       CASE ('dirqq'); dirqq = cc
 
       CASE ('is_square')
-         ALLOCATE (IS_SQUARE(nel), STAT=ios)
-         CALL errstat_alloc(ios, "IS_SQUARE", location)
+         ALLOCATE (IS_SQUARE(nel), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IS_SQUARE", location, emsg)
          IS_SQUARE = L1
       CASE ('is_bank')
-         ALLOCATE (IS_BANK(nel), STAT=ios)
-         CALL errstat_alloc(ios, "IS_BANK", location)
+         ALLOCATE (IS_BANK(nel), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IS_BANK", location, emsg)
          IS_BANK = L1
       CASE ('is_link')
-         ALLOCATE (IS_LINK(nel), STAT=ios)
-         CALL errstat_alloc(ios, "IS_LINK", location)
+         ALLOCATE (IS_LINK(nel), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "IS_LINK", location, emsg)
          IS_LINK = L1
       CASE ('su')
-         ALLOCATE (SU_NUMBER(grid_nx, grid_ny), STAT=ios)
-         CALL errstat_alloc(ios, "SU_NUMBER", location)
+         ALLOCATE (SU_NUMBER(grid_nx, grid_ny), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "SU_NUMBER", location, emsg)
          SU_NUMBER = d2
       CASE ('bank_no')
-         ALLOCATE (BANK_NO(nel, 4), STAT=ios)
-         CALL errstat_alloc(ios, "BANK_NO", location)
+         ALLOCATE (BANK_NO(nel, 4), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "BANK_NO", location, emsg)
          BANK_NO = d2
       CASE ('river_no')
-         ALLOCATE (RIVER_NO(nel, 4), STAT=ios)
-         CALL errstat_alloc(ios, "RIVER_NO", location)
+         ALLOCATE (RIVER_NO(nel, 4), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "RIVER_NO", location, emsg)
          RIVER_NO = d2
 
       CASE ('nsed'); nsed = ii

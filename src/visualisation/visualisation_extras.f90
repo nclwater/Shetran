@@ -38,7 +38,7 @@
 !> @endhistory
 MODULE VISUALISATION_EXTRAS
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -86,13 +86,14 @@ CONTAINS
       INTEGER                       :: n !! Existing capacity, then the positive increment used by both grow helpers.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:react"
 
       IF (PRESENT(j)) THEN
-         ALLOCATE (acol(p), STAT=ios)
-         CALL errstat_alloc(ios, "acol", location)
-         ALLOCATE (vpsed(j, 2, p), STAT=ios)
-         CALL errstat_alloc(ios, "vpsed", location)
+         ALLOCATE (acol(p), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "acol", location, emsg)
+         ALLOCATE (vpsed(j, 2, p), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "vpsed", location, emsg)
       ELSE
          n = SIZE(acol)
          IF (p > n) THEN
@@ -129,11 +130,12 @@ CONTAINS
       INTEGER                        :: sz          !! Original element count, or zero for a disassociated pointer.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:increment_I1"
 
       IF (ASSOCIATED(s)) THEN; sz = SIZE(s); old => s; NULLIFY (s); ELSE; sz = 0; END IF
-      ALLOCATE (s(sz + n), STAT=ios)
-      CALL errstat_alloc(ios, "s", location)
+      ALLOCATE (s(sz + n), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "s", location, emsg)
       IF (sz > 0) THEN; s(1:sz) = old; DEALLOCATE (old); END IF
    END SUBROUTINE increment_I1
 
@@ -162,16 +164,17 @@ CONTAINS
       INTEGER                                     :: sh(3)       !! Original three-dimensional shape.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:increment_D3"
 
       sh = SHAPE(s)
       old => s
       NULLIFY (s)
-      ALLOCATE (s(sh(1), sh(2), sh(3) + n), STAT=ios)
-      CALL errstat_alloc(ios, "s", location)
+      ALLOCATE (s(sh(1), sh(2), sh(3) + n), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "s", location, emsg)
       s(:, :, 1:sh(3)) = old
-      DEALLOCATE (old, STAT=ios)
-      CALL errstat_dealloc(ios, "old", location)
+      DEALLOCATE (old, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "old", location, emsg)
    END SUBROUTINE increment_D3
 
 END MODULE VISUALISATION_EXTRAS

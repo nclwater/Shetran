@@ -49,7 +49,7 @@ MODULE SMmod
    USE SGLOBAL
 !USE SGLOBAL, ONLY : NVEE
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, ERR_STOP
 
    USE AL_C, ONLY: nvc, dtuz, ispack, nrd
@@ -116,13 +116,14 @@ CONTAINS
       LOGICAL         :: first = .TRUE.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "SMmod:initialise_smmod"
 
       if (FIRST) then
-         ALLOCATE (TMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios)
-         CALL errstat_alloc(ios, "TMELT", location)
-         ALLOCATE (SMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios)
-         CALL errstat_alloc(ios, "SMELT", location)
+         ALLOCATE (TMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "TMELT", location, emsg)
+         ALLOCATE (SMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "SMELT", location, emsg)
          FIRST = .FALSE.
       end if
    END SUBROUTINE initialise_smmod

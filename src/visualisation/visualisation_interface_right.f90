@@ -106,7 +106,7 @@ MODULE visualisation_interface_right
       SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP, &
       SEND_P
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -196,6 +196,7 @@ CONTAINS
       TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: oty    !! Allocated static or dynamic catalogue copy.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_INTERFACE_RIGHT:record_visualisation_data"
 
       IF (one) THEN
@@ -212,8 +213,8 @@ CONTAINS
             CALL REGISTER_STATIC_VISUALISATION_METADATA(oty(i)%name, oty(i)%typ, &
                oty(i)%units, oty(i)%title, GRID_NX(), GRID_NY(), oty(i)%extra_dimensions, oty(i)%varies_with_elevation)
          END DO
-         DEALLOCATE (oty, STAT=ios)
-         CALL errstat_dealloc(ios, "oty", location)
+         DEALLOCATE (oty, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "oty", location, emsg)
          oty => GET_OUTPUT_TYPE('dynamic')
          DO k = 1, 2
             DO i = LBOUND(oty, DIM=1), UBOUND(oty, DIM=1)
@@ -223,8 +224,8 @@ CONTAINS
                   oty(i)%implemented)
             END DO
          END DO
-         DEALLOCATE (oty, STAT=ios)
-         CALL errstat_dealloc(ios, "oty", location)
+         DEALLOCATE (oty, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "oty", location, emsg)
       END IF
 
       MM: DO mn = 1, G_I(0, 'no_items')
@@ -726,6 +727,7 @@ CONTAINS
       INTEGER, DIMENSION(:, :), ALLOCATABLE :: dum !! Temporary grid or topology table copied by `SEND_P`.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_INTERFACE_RIGHT:send_pass"
 
       SELECT CASE (jj)
@@ -738,8 +740,8 @@ CONTAINS
          CALL SEND_p('checkfile', cc=checkfile, da=0, db=0)
        CASE (2)
          total_no_elements = NO_EL()
-         ALLOCATE (iel(total_no_elements), STAT=ios)
-         CALL errstat_alloc(ios, "iel", location)
+         ALLOCATE (iel(total_no_elements), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "iel", location, emsg)
          iel = (/(i, i=1, total_no_elements)/)
          nx = GRID_NX()
          ny = GRID_NY()
@@ -756,15 +758,15 @@ CONTAINS
          CALL SEND_P('is_square', L1=IS_SQUARE(iel), da=total_no_elements, db=0)
          CALL SEND_P('is_bank', L1=IS_BANK(iel), da=total_no_elements, db=0)
          CALL SEND_P('is_link', L1=IS_LINK(iel), da=total_no_elements, db=0)
-         ALLOCATE (dum(nx, ny), STAT=ios)
-         CALL errstat_alloc(ios, "dum", location)
+         ALLOCATE (dum(nx, ny), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "dum", location, emsg)
          DO i = 1, nx; dum(i, :) = SU_NUMBER(i, (/(j, j=1, ny)/))
          END DO
          CALL SEND_P('su', d2=dum, da=nx, db=ny)
-         DEALLOCATE (dum, STAT=ios)
-         CALL errstat_dealloc(ios, "dum", location)
-         ALLOCATE (dum(total_no_elements, 4), STAT=ios)
-         CALL errstat_alloc(ios, "dum", location)
+         DEALLOCATE (dum, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "dum", location, emsg)
+         ALLOCATE (dum(total_no_elements, 4), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "dum", location, emsg)
          DO j = 1, 4
             WHERE (IS_SQUARE(iel)); dum(:, j) = BANK_NO(iel, j); ELSEWHERE; dum(:, j) = 0; END WHERE
          END DO
@@ -773,8 +775,8 @@ CONTAINS
             WHERE (IS_SQUARE(iel)); dum(:, j) = RIVER_NO(iel, j); ELSEWHERE; dum(:, j) = 0; END WHERE
          END DO
          CALL SEND_P('river_no', d2=dum, da=total_no_elements, db=4)
-         DEALLOCATE (dum, STAT=ios)
-         CALL errstat_dealloc(ios, "dum", location)
+         DEALLOCATE (dum, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "dum", location, emsg)
       END SELECT
    END SUBROUTINE send_pass
 

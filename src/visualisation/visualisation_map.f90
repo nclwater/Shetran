@@ -84,7 +84,7 @@ MODULE visualisation_map
    USE VISUALISATION_PASS, ONLY: BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK
    USE VISUALISATION_METADATA, ONLY: G_L => GET_METADATA_L
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -141,14 +141,15 @@ CONTAINS
       INTEGER                              :: j     !! Magnified-grid second-dimension index.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_real_image_index"
 
       rreal = GET_MAGNIFIED_REAL(sz, dat, mag, mn, mark_river=.TRUE.)
       minr = MINVAL(rreal, MASK=(rreal /= river .AND. rreal /= background))
       maxr = MAXVAL(rreal, MASK=(rreal /= river .AND. rreal /= background))
 
-      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       DO j = 1, mag*sz(2)
          DO i = 1, mag*sz(1)
             IF (rreal(i, j) == river) THEN
@@ -161,8 +162,8 @@ CONTAINS
          END DO
       END DO
 
-      DEALLOCATE (rreal, STAT=ios)
-      CALL errstat_dealloc(ios, "rreal", location)
+      DEALLOCATE (rreal, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "rreal", location, emsg)
    END FUNCTION get_real_image_index
 
 !> @brief Expands a real compound field into fixed-size raster blocks.
@@ -207,10 +208,11 @@ CONTAINS
       INTEGER                             :: su         !! Display-oriented SHETRAN element number for the source cell.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_magnified_real"
 
-      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
 
       ilow = 1
       ihigh = sz(1)
@@ -320,16 +322,17 @@ CONTAINS
       INTEGER, DIMENSION(:, :), ALLOCATABLE :: su  !! Magnified element-number grid, including background zeroes.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_is_link_magnified"
 
       su = GET_MAGNIFIED_SU_ARR(sz, mag, mn)
-      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       DO i = 1, mag*sz(1)
          r(i, :) = IS_LINK(su(i, :))
       END DO
-      DEALLOCATE (su, STAT=ios)
-      CALL errstat_dealloc(ios, "su", location)
+      DEALLOCATE (su, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "su", location, emsg)
    END FUNCTION get_is_link_magnified
 
 !> @brief Expands selected element numbers and topology into a raster grid.
@@ -373,10 +376,11 @@ CONTAINS
       INTEGER                              :: su    !! Display-oriented SHETRAN gridsquare element number.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_magnified_su_arr"
 
-      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios)
-      CALL errstat_alloc(ios, "r", location)
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       ilow = 1
       ihigh = sz(1)
       jlow = 1

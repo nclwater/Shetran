@@ -65,7 +65,7 @@ MODULE visualisation_read_parser
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: IOSTAT_END
    USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
 
-   USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINELONG
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINELONG
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
@@ -736,12 +736,13 @@ CONTAINS
       CHARACTER(LENGTH_LINELONG) :: detail !! Formatted module diagnostic.
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = 'visualisation_read_parser:transform_visualisation_record'
 
       status = VIS_READ_OK
       message = ''
-      ALLOCATE (segments(0), STAT=ios)
-      CALL errstat_alloc(ios, "segments", location)
+      ALLOCATE (segments(0), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "segments", location, emsg)
 
       content_length = LEN_TRIM(record)
       IF (content_length > 0) THEN
@@ -784,10 +785,10 @@ CONTAINS
          END IF
       END DO
 
-      DEALLOCATE (segments, STAT=ios)
-      CALL errstat_dealloc(ios, "segments", location)
-      ALLOCATE (segments(count), STAT=ios)
-      CALL errstat_alloc(ios, "segments", location)
+      DEALLOCATE (segments, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "segments", location, emsg)
+      ALLOCATE (segments(count), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "segments", location, emsg)
       count = 0
       first = 1
       DO i = 1, content_length + 1

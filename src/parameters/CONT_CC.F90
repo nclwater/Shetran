@@ -27,7 +27,7 @@
 MODULE CONT_CC
    USE SGLOBAL, ONLY: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements, top_cell_no, total_no_links
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
@@ -108,24 +108,25 @@ CONTAINS
    SUBROUTINE initialise_cont_cc()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "CONT_CC:initialise_cont_cc"
 
-      allocate (cccc(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "CCCC", location)
-      allocate (cccco(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "CCCCO", location)
-      allocate (ssss(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "SSSS", location)
-      allocate (sssso(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "SSSFO", location)
-      allocate (sss1(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "SSS1", location)
-      allocate (sss2(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "SSS2", location)
-      allocate (FCPBKO(total_no_links, 2, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "FCPBKO", location)
-      allocate (GCPBKO(total_no_links, 2, top_cell_no + 1, ncon), STAT=ios)
-      CALL errstat_alloc(ios, "GCPBKO", location)
+      allocate (cccc(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "CCCC", location, emsg)
+      allocate (cccco(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "CCCCO", location, emsg)
+      allocate (ssss(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "SSSS", location, emsg)
+      allocate (sssso(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "SSSFO", location, emsg)
+      allocate (sss1(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "SSS1", location, emsg)
+      allocate (sss2(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "SSS2", location, emsg)
+      allocate (FCPBKO(total_no_links, 2, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "FCPBKO", location, emsg)
+      allocate (GCPBKO(total_no_links, 2, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "GCPBKO", location, emsg)
 
       ! Initialise to default values
       cccc = 0

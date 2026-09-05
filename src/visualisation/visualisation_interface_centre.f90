@@ -85,7 +85,7 @@ MODULE visualisation_interface_centre
       S_V_ER, S_DIS, C_C_DR, C_C_DS, BAL_ERR, NO_SED, NO_CON, VERSION, ROOTDIR,                 &
       hdf5filename, planfile, checkfile
 
-   USE MOD_PARAMETERS, ONLY : I_P
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY : errstat_alloc
 
    IMPLICIT NONE
@@ -366,15 +366,16 @@ CONTAINS
       TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: r    !! Newly allocated copy of the selected catalogue range.
       CHARACTER(*), INTENT(IN)                 :: text !! Exact subset selector: `static` or `dynamic`.
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_INTERFACE_CENTRE:get_output_type"
       SELECT CASE(text)
        CASE('static')
-         ALLOCATE(r(first_type:0), STAT=ios)
-         CALL errstat_alloc(ios, "r", location)
+         ALLOCATE(r(first_type:0), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r", location, emsg)
          r = outtype(first_type:0)
        CASE('dynamic')
-         ALLOCATE(r(1:last_type), STAT=ios)
-         CALL errstat_alloc(ios, "r", location)
+         ALLOCATE(r(1:last_type), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r", location, emsg)
          r = outtype(1:last_type)
       END SELECT
    END FUNCTION get_output_type

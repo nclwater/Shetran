@@ -41,7 +41,7 @@ MODULE OCmod
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, &
       ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
@@ -211,6 +211,7 @@ CONTAINS
       CHARACTER(LEN=512) :: ALLOC_MESSAGE, MSG
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "OCmod:INITIALISE_OCSIM_WORKSPACE"
 
       IF (MAX_SOLVER_ROW_WIDTH <= 0 .OR. NROWF < 1 .OR. NROWL < NROWF .OR. total_no_elements <= 0) THEN
@@ -233,36 +234,36 @@ CONTAINS
       ! `NROWF+1:NROWL`. The `IF (IROW /= NROWL)` guard on the `EE` write
       ! follows from that: there is no interface below the last row. Both
       ! ranges are exactly tight, so neither tolerates an off-by-one.
-      ALLOCATE (OCSIM_WORKSPACE%AA(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "AA", location)
-      ALLOCATE (OCSIM_WORKSPACE%DD(MAX_SOLVER_ROW_WIDTH, NROWF:NROWL), STAT=ios)
-      CALL errstat_alloc(ios, "DD", location)
-      ALLOCATE (OCSIM_WORKSPACE%FF(MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "FF", location)
-      ALLOCATE (OCSIM_WORKSPACE%BB(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "BB", location)
-      ALLOCATE (OCSIM_WORKSPACE%GG(MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL + 1), STAT=ios)
-      CALL errstat_alloc(ios, "GG", location)
-      ALLOCATE (OCSIM_WORKSPACE%CC(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "CC", location)
-      ALLOCATE (OCSIM_WORKSPACE%EE(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL), STAT=ios)
-      CALL errstat_alloc(ios, "EE", location)
-      ALLOCATE (OCSIM_WORKSPACE%TM1(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TM1", location)
-      ALLOCATE (OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TM2", location)
-      ALLOCATE (OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TV1", location)
-      ALLOCATE (OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TV2", location)
-      ALLOCATE (OCSIM_WORKSPACE%TM1(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TM1", location)
-      ALLOCATE (OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TM2", location)
-      ALLOCATE (OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TV1", location)
-      ALLOCATE (OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), STAT=ios)
-      CALL errstat_alloc(ios, "TV2", location)
+      ALLOCATE (OCSIM_WORKSPACE%AA(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "AA", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%DD(MAX_SOLVER_ROW_WIDTH, NROWF:NROWL), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "DD", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%FF(MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "FF", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%BB(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "BB", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%GG(MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL + 1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "GG", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%CC(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "CC", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%EE(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH, NROWF + 1:NROWL), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "EE", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TM1(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TM1", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TM2", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TV1", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TV2", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TM1(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TM1", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TM2(MAX_SOLVER_ROW_WIDTH, MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TM2", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TV1(MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TV1", location, emsg)
+      ALLOCATE (OCSIM_WORKSPACE%TV2(MAX_SOLVER_ROW_WIDTH), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "TV2", location, emsg)
 
       ! IF (ALLOC_STATUS /= 0) THEN
       !    WRITE (MSG, '(A,6(A,I0),2A)') 'Unable to allocate OCSIM workspace:', &
@@ -287,30 +288,31 @@ CONTAINS
       IMPLICIT NONE
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "OCmod:FINALISE_OCSIM_WORKSPACE"
 
-      IF (ALLOCATED(OCSIM_WORKSPACE%AA)) DEALLOCATE (OCSIM_WORKSPACE%AA, STAT=ios)
-      CALL errstat_dealloc(ios, "AA", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%DD)) DEALLOCATE (OCSIM_WORKSPACE%DD, STAT=ios)
-      CALL errstat_dealloc(ios, "DD", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%FF)) DEALLOCATE (OCSIM_WORKSPACE%FF, STAT=ios)
-      CALL errstat_dealloc(ios, "FF", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%BB)) DEALLOCATE (OCSIM_WORKSPACE%BB, STAT=ios)
-      CALL errstat_dealloc(ios, "BB", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%GG)) DEALLOCATE (OCSIM_WORKSPACE%GG, STAT=ios)
-      CALL errstat_dealloc(ios, "GG", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%CC)) DEALLOCATE (OCSIM_WORKSPACE%CC, STAT=ios)
-      CALL errstat_dealloc(ios, "CC", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%EE)) DEALLOCATE (OCSIM_WORKSPACE%EE, STAT=ios)
-      CALL errstat_dealloc(ios, "EE", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TM1)) DEALLOCATE (OCSIM_WORKSPACE%TM1, STAT=ios)
-      CALL errstat_dealloc(ios, "TM1", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TM2)) DEALLOCATE (OCSIM_WORKSPACE%TM2, STAT=ios)
-      CALL errstat_dealloc(ios, "TM2", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TV1)) DEALLOCATE (OCSIM_WORKSPACE%TV1, STAT=ios)
-      CALL errstat_dealloc(ios, "TV1", location)
-      IF (ALLOCATED(OCSIM_WORKSPACE%TV2)) DEALLOCATE (OCSIM_WORKSPACE%TV2, STAT=ios)
-      CALL errstat_dealloc(ios, "TV2", location)
+      IF (ALLOCATED(OCSIM_WORKSPACE%AA)) DEALLOCATE (OCSIM_WORKSPACE%AA, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "AA", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%DD)) DEALLOCATE (OCSIM_WORKSPACE%DD, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "DD", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%FF)) DEALLOCATE (OCSIM_WORKSPACE%FF, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "FF", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%BB)) DEALLOCATE (OCSIM_WORKSPACE%BB, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "BB", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%GG)) DEALLOCATE (OCSIM_WORKSPACE%GG, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "GG", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%CC)) DEALLOCATE (OCSIM_WORKSPACE%CC, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "CC", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%EE)) DEALLOCATE (OCSIM_WORKSPACE%EE, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "EE", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM1)) DEALLOCATE (OCSIM_WORKSPACE%TM1, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "TM1", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TM2)) DEALLOCATE (OCSIM_WORKSPACE%TM2, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "TM2", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV1)) DEALLOCATE (OCSIM_WORKSPACE%TV1, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "TV1", location, emsg)
+      IF (ALLOCATED(OCSIM_WORKSPACE%TV2)) DEALLOCATE (OCSIM_WORKSPACE%TV2, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "TV2", location, emsg)
 
       OCSIM_WORKSPACE%READY = .FALSE.
       MAX_SOLVER_ROW_WIDTH = 0
@@ -1770,10 +1772,11 @@ CONTAINS
       INTEGER                     :: FACE, ielmm
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
 
 !----------------------------------------------------------------------*
-      ALLOCATE (ghrf(total_no_links), STAT=ios)
-      CALL errstat_alloc(ios, "ghrf", "OCmod:OCPRI")
+      ALLOCATE (ghrf(total_no_links), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ghrf", "OCmod:OCPRI", emsg)
 
       WRITE (FID_logfile, 9100) 'AFTER', OCNOW, ' HOURS ----'
       WRITE (FID_logfile, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE=1, 4), 'HRF', 'ARXL'

@@ -62,7 +62,7 @@ MODULE AL_C
 
    USE SGLOBAL, ONLY: NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
 
-   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
@@ -209,24 +209,25 @@ CONTAINS
    SUBROUTINE initialise_al_c()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c"
 
-      ALLOCATE (qvsh(4, top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "qvsh", location)
-      ALLOCATE (qvsv(top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "qvsv", location)
-      ALLOCATE (vspsi(top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "vspsi", location)
-      ALLOCATE (vsthe(top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "vsthe", location)
-      ALLOCATE (qvswli(top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "qvswli", location)
-      ALLOCATE (eruz(total_no_elements, top_cell_no), STAT=ios)
-      CALL errstat_alloc(ios, "eruz", location)
-      ALLOCATE (JVSACN(4, top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "JVSACN", location)
-      ALLOCATE (JVSDEL(4, top_cell_no, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "JVSDEL", location)
+      ALLOCATE (qvsh(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "qvsh", location, emsg)
+      ALLOCATE (qvsv(top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "qvsv", location, emsg)
+      ALLOCATE (vspsi(top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "vspsi", location, emsg)
+      ALLOCATE (vsthe(top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "vsthe", location, emsg)
+      ALLOCATE (qvswli(top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "qvswli", location, emsg)
+      ALLOCATE (eruz(total_no_elements, top_cell_no), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "eruz", location, emsg)
+      ALLOCATE (JVSACN(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "JVSACN", location, emsg)
+      ALLOCATE (JVSDEL(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "JVSDEL", location, emsg)
 
       ! Initialize to default values
       qvsh = 0.0d0
@@ -266,18 +267,19 @@ CONTAINS
    SUBROUTINE initialise_al_c2()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c2"
 
-      ALLOCATE (DELTAZ(LLEE, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "DELTAZ", location)
-      ALLOCATE (ZVSNOD(LLEE, total_no_elements), STAT=ios)
-      CALL errstat_alloc(ios, "ZVSNOD", location)
-      ALLOCATE (NLYRBT(total_no_elements, NLYREE), STAT=ios)
-      CALL errstat_alloc(ios, "NLYRBT", location)
-      ALLOCATE (NTSOIL(total_no_elements, NLYREE), STAT=ios)
-      CALL errstat_alloc(ios, "NTSOIL", location)
-      ALLOCATE (ZLYRBT(total_no_elements, NLYREE), STAT=ios)
-      CALL errstat_alloc(ios, "ZLYRBT", location)
+      ALLOCATE (DELTAZ(LLEE, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "DELTAZ", location, emsg)
+      ALLOCATE (ZVSNOD(LLEE, total_no_elements), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZVSNOD", location, emsg)
+      ALLOCATE (NLYRBT(total_no_elements, NLYREE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NLYRBT", location, emsg)
+      ALLOCATE (NTSOIL(total_no_elements, NLYREE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NTSOIL", location, emsg)
+      ALLOCATE (ZLYRBT(total_no_elements, NLYREE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ZLYRBT", location, emsg)
 
       DELTAZ = 0.0d0
       ZVSNOD = 0.0d0
@@ -309,10 +311,11 @@ CONTAINS
    SUBROUTINE initialise_al_c3()
 
       INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
       CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c3"
 
-      ALLOCATE (RDF(NV, LLEE), STAT=ios)
-      CALL errstat_alloc(ios, "RDF", location)
+      ALLOCATE (RDF(NV, LLEE), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "RDF", location, emsg)
       RDF = 0.0d0
 
    END SUBROUTINE initialise_al_c3
