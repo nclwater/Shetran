@@ -111,7 +111,7 @@ MODULE SYmod
    USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD
 
    USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+   USE MOD_ERROR, ONLY : errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
 
    USE UTILSMOD, ONLY : DCOPY
    USE CONST_SY
@@ -237,47 +237,47 @@ CONTAINS
 
       IF (.NOT. ALLOCATED(BARM)) THEN
          ALLOCATE (BARM (NLFEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "BARM", location)
+         CALL errstat_alloc(ios, "BARM", location)
          ALLOCATE (CONCI (NLFEE, NSEDEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "CONCI", location)
+         CALL errstat_alloc(ios, "CONCI", location)
          ALLOCATE (DCIPRM (NLFEE, NSEDEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "DCIPRM", location)
+         CALL errstat_alloc(ios, "DCIPRM", location)
          ALLOCATE (DDIPRM (NLFEE, NSEDEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "DDIPRM", location)
+         CALL errstat_alloc(ios, "DDIPRM", location)
          ALLOCATE (DRDROP (NELEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "DRDROP", location)
+         CALL errstat_alloc(ios, "DRDROP", location)
          ALLOCATE (DUMSED (NLFEE * NSEDEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "DUMSED", location)
+         CALL errstat_alloc(ios, "DUMSED", location)
          ALLOCATE (DWAT1 (NELEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "DWAT1", location)
+         CALL errstat_alloc(ios, "DWAT1", location)
          ALLOCATE (EPSB (NLFEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "EPSB", location)
+         CALL errstat_alloc(ios, "EPSB", location)
          ALLOCATE (FQCONF (NLFEE, 3), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "FQCONF", location)
+         CALL errstat_alloc(ios, "FQCONF", location)
          ALLOCATE (IDUM1A (NELEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "IDUM1A", location)
+         CALL errstat_alloc(ios, "IDUM1A", location)
          ALLOCATE (IDUM1X (NELEE + 3), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "IDUM1X", location)
+         CALL errstat_alloc(ios, "IDUM1X", location)
          ALLOCATE (LDUM (NELEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "LDUM", location)
+         CALL errstat_alloc(ios, "LDUM", location)
          ALLOCATE (LRAIN (NELEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "LRAIN", location)
+         CALL errstat_alloc(ios, "LRAIN", location)
          ALLOCATE (QSDWAT (NLFEE, NSEDEE, 4), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "QSDWAT", location)
+         CALL errstat_alloc(ios, "QSDWAT", location)
          ALLOCATE (QSEDB (NSEDEE, NSYBEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "QSEDB", location)
+         CALL errstat_alloc(ios, "QSEDB", location)
          ALLOCATE (QWATB (NSYBEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "QWATB", location)
+         CALL errstat_alloc(ios, "QWATB", location)
          ALLOCATE (SLOPEJ (NELEE, 4), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "SLOPEJ", location)
+         CALL errstat_alloc(ios, "SLOPEJ", location)
          ALLOCATE (TAUJ (NELEE, 4), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "TAUJ", location)
+         CALL errstat_alloc(ios, "TAUJ", location)
          ALLOCATE (TAUK (NELEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "TAUK", location)
+         CALL errstat_alloc(ios, "TAUK", location)
          ALLOCATE (VCFMAX (NLFEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "VCFMAX", location)
+         CALL errstat_alloc(ios, "VCFMAX", location)
          ALLOCATE (VINFMX (NLFEE), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "VINFMX", location)
+         CALL errstat_alloc(ios, "VINFMX", location)
       END IF
 
    END SUBROUTINE INITIALISE_SYMAIN_WORKSPACE
@@ -2218,7 +2218,7 @@ CONTAINS
       ! ----------------
       !     * Local counter
       ALLOCATE (RDUM (NXEE*NYEE), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "RDUM", "SYmod:SYERR2")
+      CALL errstat_alloc(ios, "RDUM", "SYmod:SYERR2")
 
       NERR = 0
 

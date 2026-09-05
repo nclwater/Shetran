@@ -86,51 +86,51 @@
 !> @endhistory
 MODULE visualisation_interface_left
 
-   USE SGLOBAL, ONLY    : dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf=>total_no_links
-   USE AL_C, ONLY       : cmd, draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, syd, wberr
-   USE AL_C, ONLY       : deltaz, esoila, qvsv, vspsi, vsthe, zvspsl
-   USE AL_D, ONLY       : bexcm, bexsy, cstore, dxin, dyin, einta, epot, erza, sd
-   USE AL_G, ONLY       : icmref, icmxy, nx, ny
-   USE SGLOBAL, ONLY       : DIRQQ, shever, ROOTDIR, hdf5filename, uznow, &
-      planfile=>visualisation_plan_filename, &
-      checkfile=>visualisation_check_filename
-   USE CONT_CC, ONLY    : cccc, nnncon=>ncon, ssss
-   USE CONST_SY, ONLY   : rhosed
-   USE SED_CS, ONLY     : dls, gnu, nnnsed=>nsed, qsed
-   USE OCmod2, ONLY     : hrfzz
+   USE SGLOBAL, ONLY: dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf => total_no_links
+   USE AL_C, ONLY: cmd, draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, syd, wberr
+   USE AL_C, ONLY: deltaz, esoila, qvsv, vspsi, vsthe, zvspsl
+   USE AL_D, ONLY: bexcm, bexsy, cstore, dxin, dyin, einta, epot, erza, sd
+   USE AL_G, ONLY: icmref, icmxy, nx, ny
+   USE SGLOBAL, ONLY: DIRQQ, shever, ROOTDIR, hdf5filename, uznow, &
+                      planfile => visualisation_plan_filename, &
+                      checkfile => visualisation_check_filename
+   USE CONT_CC, ONLY: cccc, nnncon => ncon, ssss
+   USE CONST_SY, ONLY: rhosed
+   USE SED_CS, ONLY: dls, gnu, nnnsed => nsed, qsed
+   USE OCmod2, ONLY: hrfzz
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile
 
    IMPLICIT NONE
-   INTEGER, PARAMETER :: east=1          !! Native SHETRAN east-face number.
-   INTEGER, PARAMETER :: north=2         !! Native SHETRAN north-face number.
-   INTEGER, PARAMETER :: west=3          !! Native SHETRAN west-face number.
-   INTEGER, PARAMETER :: south=4         !! Native SHETRAN south-face number.
-   INTEGER, PARAMETER :: i_not_exist=-1  !! Private missing integer returned by topology accessors.
-   REAL, PARAMETER    :: zero=0.0        !! Retained legacy default-real zero; unused by current routines.
-   REAL, PARAMETER    :: half=0.5        !! Retained legacy half factor; current width helpers use literal `0.5`.
-   REAL, PARAMETER    :: r_not_exist=-1.0 !! Private missing real returned by selected geometry accessors.
-   REAL, PARAMETER    :: m_to_mm     = 1000.0             !! Metres-to-millimetres factor.
-   REAL, PARAMETER    :: ps_to_ph    = 3600.0             !! Per-second to per-hour factor.
-   REAL, PARAMETER    :: ps_to_pd    = 24.0 * ps_to_ph    !! Per-second to per-day factor.
-   REAL, PARAMETER    :: mps_to_mmph = m_to_mm * ps_to_ph !! Metres/second to millimetres/hour factor.
-   REAL, PARAMETER    :: mps_to_mmpd = m_to_mm * ps_to_pd !! Metres/second to millimetres/day factor.
+   INTEGER, PARAMETER :: east = 1          !! Native SHETRAN east-face number.
+   INTEGER, PARAMETER :: north = 2         !! Native SHETRAN north-face number.
+   INTEGER, PARAMETER :: west = 3          !! Native SHETRAN west-face number.
+   INTEGER, PARAMETER :: south = 4         !! Native SHETRAN south-face number.
+   INTEGER, PARAMETER :: i_not_exist = -1  !! Private missing integer returned by topology accessors.
+   REAL, PARAMETER    :: zero = 0.0        !! Retained legacy default-real zero; unused by current routines.
+   REAL, PARAMETER    :: half = 0.5        !! Retained legacy half factor; current width helpers use literal `0.5`.
+   REAL, PARAMETER    :: r_not_exist = -1.0 !! Private missing real returned by selected geometry accessors.
+   REAL, PARAMETER    :: m_to_mm = 1000.0             !! Metres-to-millimetres factor.
+   REAL, PARAMETER    :: ps_to_ph = 3600.0             !! Per-second to per-hour factor.
+   REAL, PARAMETER    :: ps_to_pd = 24.0*ps_to_ph    !! Per-second to per-day factor.
+   REAL, PARAMETER    :: mps_to_mmph = m_to_mm*ps_to_ph !! Metres/second to millimetres/hour factor.
+   REAL, PARAMETER    :: mps_to_mmpd = m_to_mm*ps_to_pd !! Metres/second to millimetres/day factor.
    PRIVATE
-   PUBLIC :: BAL_ERR,         BANK_NO,       BANK_WIDTH,                                &
-      CAN_STOR,        C_C_DR,        C_C_DS,     CELL_THICKNESS,                &
-      DRAINAGE,                                                                  &
-      ELEMENT,                        ELEMENT_DX, ELEMENT_DY, EXISTS,            &
-      GET_NCON_EARLY, GET_NSED_EARLY, GRID_DX,    GRID_DY,    GRID_NX, GRID_NY,  &
-      INT_EVAP,       IS_BANK,        IS_LINK,    IS_SQUARE,                     &
-      NET_RAIN,       NO_EL,          NO_CON,     NO_SED,                        &
-      OVR_FLOW,                                                                  &
-      PH_DEPTH,       POT_EVAP,       PSI,                                       &
-      RIVER_NO,       RIVER_WIDTH,                                               &
-      S_DIS,          S_ELEVATION,    SNOW_DEP,   SOIL_TYPE,  SRF_DEP,           &
-      SRF_EVAP,       S_T_DP,         S_V_ER,                                    &
-      THETA,          TOP_CELL,       TRNSP,                                     &
-      VERSION,        V_FLOW
+   PUBLIC :: BAL_ERR, BANK_NO, BANK_WIDTH, &
+             CAN_STOR, C_C_DR, C_C_DS, CELL_THICKNESS, &
+             DRAINAGE, &
+             ELEMENT, ELEMENT_DX, ELEMENT_DY, EXISTS, &
+             GET_NCON_EARLY, GET_NSED_EARLY, GRID_DX, GRID_DY, GRID_NX, GRID_NY, &
+             INT_EVAP, IS_BANK, IS_LINK, IS_SQUARE, &
+             NET_RAIN, NO_EL, NO_CON, NO_SED, &
+             OVR_FLOW, &
+             PH_DEPTH, POT_EVAP, PSI, &
+             RIVER_NO, RIVER_WIDTH, &
+             S_DIS, S_ELEVATION, SNOW_DEP, SOIL_TYPE, SRF_DEP, &
+             SRF_EVAP, S_T_DP, S_V_ER, &
+             THETA, TOP_CELL, TRNSP, &
+             VERSION, V_FLOW
    PUBLIC :: DIRQQ, ROOTDIR, north, east, south, west, hdf5filename, planfile, checkfile, etype, ADJACENT_ELEMENT
 
 CONTAINS
@@ -206,16 +206,16 @@ CONTAINS
       INTEGER, INTENT(IN) :: su   !! Gridsquare element number.
       INTEGER, INTENT(IN) :: face !! Native face number.
       INTEGER             :: adj  !! Element adjoining the gridsquare face.
-      IF(.NOT.IS_SQUARE(su)) THEN
+      IF (.NOT. IS_SQUARE(su)) THEN
          r = i_not_exist
       ELSE
-         adj = ADJACENT_ELEMENT(su,face)
-         IF(IS_BANK(adj)) THEN
-            r=adj
+         adj = ADJACENT_ELEMENT(su, face)
+         IF (IS_BANK(adj)) THEN
+            r = adj
          ELSE
             r = i_not_exist
-         ENDIF
-      ENDIF
+         END IF
+      END IF
    END FUNCTION bank_no
 
 !> @brief Returns the plan width of an explicit bank element in metres.
@@ -237,13 +237,13 @@ CONTAINS
    ELEMENTAL REAL FUNCTION bank_width(bk, face) RESULT(r)
       INTEGER, INTENT(IN) :: bk   !! Bank element number.
       INTEGER, INTENT(IN) :: face !! Native face number.
-      IF(EXISTS(bk)) THEN
-         IF(ANY(face==(/east,west/))) THEN
+      IF (EXISTS(bk)) THEN
+         IF (ANY(face == (/east, west/))) THEN
             r = dxqq(bk)
          ELSE
             r = dyqq(bk)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
    END FUNCTION bank_width
 
 !> @brief Returns canopy interception storage in millimetres.
@@ -314,11 +314,11 @@ CONTAINS
    ELEMENTAL REAL FUNCTION cell_thickness(iel, j) RESULT(r)
       INTEGER, INTENT(IN) :: iel !! Element number.
       INTEGER, INTENT(IN) :: j   !! Bottom-up subsurface cell number.
-      IF(EXISTS(iel)) THEN
-         r = DELTAZ(j,iel)
+      IF (EXISTS(iel)) THEN
+         r = DELTAZ(j, iel)
       ELSE
-         r=r_not_exist
-      ENDIF
+         r = r_not_exist
+      END IF
    END FUNCTION cell_thickness
 
 !> @brief Returns element drainage in millimetres per hour.
@@ -351,13 +351,13 @@ CONTAINS
 !> @endhistory
    ELEMENTAL REAL FUNCTION dxx(i) RESULT(r)
       INTEGER, INTENT(IN) :: i !! Native grid-column index.
-      IF(i==1) THEN
+      IF (i == 1) THEN
          r = dxin(1)
-      ELSEIF(i==nx) THEN
-         r = dxin(nx-1)
+      ELSEIF (i == nx) THEN
+         r = dxin(nx - 1)
       ELSE
-         r = (dxin(i-1) + dxin(i)) * 0.5
-      ENDIF
+         r = (dxin(i - 1) + dxin(i))*0.5
+      END IF
    END FUNCTION dxx
 
 !> @brief Derives one native grid-row height in metres.
@@ -375,13 +375,13 @@ CONTAINS
 !> @endhistory
    ELEMENTAL REAL FUNCTION dyy(i) RESULT(r)
       INTEGER, INTENT(IN) :: i !! Native grid-row index.
-      IF(i==1) THEN
+      IF (i == 1) THEN
          r = dyin(1)
-      ELSEIF(i==ny) THEN
-         r = dyin(ny-1)
+      ELSEIF (i == ny) THEN
+         r = dyin(ny - 1)
       ELSE
-         r = (dyin(i-1) + dyin(i)) * 0.5
-      ENDIF
+         r = (dyin(i - 1) + dyin(i))*0.5
+      END IF
    END FUNCTION dyy
 
 !> @brief Maps native grid coordinates to an active element number.
@@ -395,10 +395,10 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the grid-to-element lookup. |
 !> @endhistory
-   ELEMENTAL INTEGER FUNCTION element(i,j) RESULT(r)
+   ELEMENTAL INTEGER FUNCTION element(i, j) RESULT(r)
       INTEGER, INTENT(IN) :: i !! Native grid-column index.
       INTEGER, INTENT(IN) :: j !! Native grid-row index.
-      r = icmxy(i,j)
+      r = icmxy(i, j)
    END FUNCTION element
 
 !> @brief Returns an element's east-west plan extent in metres.
@@ -443,11 +443,11 @@ CONTAINS
 !> @endhistory
    ELEMENTAL INTEGER FUNCTION etype(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel !! Element reference.
-      IF(iel/=0) THEN
+      IF (iel /= 0) THEN
          r = icmref(iel, 1)
       ELSE
          r = 0
-      ENDIF
+      END IF
    END FUNCTION etype
 
 !> @brief Tests whether an integer is a positive element reference.
@@ -464,7 +464,7 @@ CONTAINS
 !> @endhistory
    ELEMENTAL LOGICAL FUNCTION exists(i) RESULT(r)
       INTEGER, INTENT(IN) :: i !! Candidate element reference.
-      r = i>0
+      r = i > 0
    END FUNCTION exists
 
 !> @brief Reads the contaminant-group count before normal contaminant setup.
@@ -492,21 +492,21 @@ CONTAINS
       INTEGER       :: ios  !! Input/output status from the current read.
 
       scan_loop: DO
-         READ(cmd, '(A)', IOSTAT=ios) dd
+         READ (cmd, '(A)', IOSTAT=ios) dd
 
          IF (ios /= 0) THEN
             mess = 'failed to find line :CM3 in contaminant data file'
-            mess = 'GET_NCON_EARLY ' // TRIM(mess)
+            mess = 'GET_NCON_EARLY '//TRIM(mess)
             CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
             RETURN
          END IF
 
          IF (dd(2:4) == 'CM3') THEN
-            READ(cmd, *, IOSTAT=ios) nnncon
+            READ (cmd, *, IOSTAT=ios) nnncon
 
             IF (ios /= 0) THEN
                mess = 'failed to read NCON '
-               mess = 'GET_NCON_EARLY ' // TRIM(mess)
+               mess = 'GET_NCON_EARLY '//TRIM(mess)
                CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
                RETURN
             END IF
@@ -516,7 +516,7 @@ CONTAINS
 
       END DO scan_loop
 
-      REWIND(cmd)
+      REWIND (cmd)
 
    END SUBROUTINE get_ncon_early
 
@@ -545,21 +545,21 @@ CONTAINS
       INTEGER       :: ios  !! Input/output status from the current read.
 
       scan_loop: DO
-         READ(syd, '(A)', IOSTAT=ios) dd
+         READ (syd, '(A)', IOSTAT=ios) dd
 
          IF (ios /= 0) THEN
             mess = 'failed to find line :SY11 in sediment data file'
-            mess = 'GET_NSED_EARLY ' // TRIM(mess)
+            mess = 'GET_NSED_EARLY '//TRIM(mess)
             CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
             RETURN
          END IF
 
          IF (dd(2:5) == 'SY11') THEN
-            READ(syd, *, IOSTAT=ios) nnnsed
+            READ (syd, *, IOSTAT=ios) nnnsed
 
             IF (ios /= 0) THEN
                mess = 'failed to read NSED '
-               mess = 'GET_NSED_EARLY ' // TRIM(mess)
+               mess = 'GET_NSED_EARLY '//TRIM(mess)
                CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
                RETURN
             END IF
@@ -569,7 +569,7 @@ CONTAINS
 
       END DO scan_loop
 
-      REWIND(syd)
+      REWIND (syd)
 
    END SUBROUTINE get_nsed_early
 
@@ -656,7 +656,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel !! Element reference.
       INTEGER             :: typ !! Native element type.
       typ = ETYPE(iel)
-      r   = typ==1 .OR. typ==2
+      r = typ == 1 .OR. typ == 2
    END FUNCTION is_bank
 
 !> @brief Tests whether an element has native channel-link type 3.
@@ -672,7 +672,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel !! Element reference.
       INTEGER             :: typ !! Native element type.
       typ = ETYPE(iel)
-      r   = typ==3
+      r = typ == 3
    END FUNCTION is_link
 
 !> @brief Tests whether an element reference resolves to native type 0.
@@ -691,7 +691,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel !! Element reference.
       INTEGER             :: typ !! Native element type.
       typ = ETYPE(iel)
-      r   = typ==0
+      r = typ == 0
    END FUNCTION is_square
 
 !> @brief Returns net surface water input in millimetres per hour.
@@ -771,7 +771,7 @@ CONTAINS
    ELEMENTAL REAL FUNCTION ovr_flow(iel, face) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !! Element number.
       INTEGER, INTENT(IN) :: face !! Native face number.
-      r = qoc(iel,face)
+      r = qoc(iel, face)
    END FUNCTION ovr_flow
 
 !> @brief Returns phreatic-surface depth below ground in metres.
@@ -790,7 +790,7 @@ CONTAINS
 !> @endhistory
    ELEMENTAL REAL FUNCTION ph_depth(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel !! Element number.
-      r = zgrund(iel)-zvspsl(iel)
+      r = zgrund(iel) - zvspsl(iel)
    END FUNCTION ph_depth
 
 !> @brief Returns potential evaporation in millimetres per hour.
@@ -831,7 +831,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel  !! Element number.
       INTEGER, INTENT(IN) :: ilay !! Bottom-up subsurface cell number.
       r = r_not_exist
-      r = vspsi(ilay,iel)
+      r = vspsi(ilay, iel)
    END FUNCTION psi
 
 !> @brief Finds the channel link adjoining a gridsquare face.
@@ -854,18 +854,18 @@ CONTAINS
       INTEGER, INTENT(IN) :: su   !! Gridsquare element number.
       INTEGER, INTENT(IN) :: face !! Native face number.
       INTEGER             :: adj  !! Element adjoining the current face.
-      IF(.NOT.IS_SQUARE(su)) THEN
+      IF (.NOT. IS_SQUARE(su)) THEN
          r = i_not_exist
       ELSE
-         adj = ADJACENT_ELEMENT(su,face)
-         IF(IS_LINK(adj)) THEN
+         adj = ADJACENT_ELEMENT(su, face)
+         IF (IS_LINK(adj)) THEN
             r = adj
-         ELSEIF(IS_BANK(adj)) THEN
-            r = ADJACENT_ELEMENT(adj,face)
+         ELSEIF (IS_BANK(adj)) THEN
+            r = ADJACENT_ELEMENT(adj, face)
          ELSE
             r = i_not_exist
-         ENDIF
-      ENDIF
+         END IF
+      END IF
    END FUNCTION river_no
 
 !> @brief Returns a channel link's width in metres.
@@ -879,11 +879,11 @@ CONTAINS
 !> @endhistory
    ELEMENTAL REAL FUNCTION river_width(ir) RESULT(r)
       INTEGER, INTENT(IN) :: ir !! Channel-link element number.
-      IF(EXISTS(ir)) THEN
+      IF (EXISTS(ir)) THEN
          r = cwidth(ir)
       ELSE
          r = i_not_exist
-      ENDIF
+      END IF
    END FUNCTION river_width
 
 !> @brief Returns solid-sediment mass discharge through an element face.
@@ -903,7 +903,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel  !! Element number.
       INTEGER, INTENT(IN) :: face !! Native face number.
       INTEGER, INTENT(IN) :: nsed !! Sediment size-fraction number.
-      r = rhosed*qsed(iel, nsed,face)
+      r = rhosed*qsed(iel, nsed, face)
    END FUNCTION s_dis
 
 !> @brief Returns an element's ground-surface elevation in metres.
@@ -917,11 +917,11 @@ CONTAINS
 !> @endhistory
    ELEMENTAL REAL FUNCTION s_elevation(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel !! Element number.
-      IF(iel>0) THEN
+      IF (iel > 0) THEN
          r = ZGRUND(iel)
       ELSE
          r = r_not_exist
-      ENDIF
+      END IF
    END FUNCTION s_elevation
 
 !> @brief Returns snow depth in millimetres.
@@ -965,17 +965,17 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel  !! Element number.
       INTEGER, INTENT(IN) :: ilay !! Bottom-up subsurface cell number.
       INTEGER             :: j    !! Current soil-layer number.
-      IF(IS_LINK(iel)) THEN
+      IF (IS_LINK(iel)) THEN
          r = 0
-      ELSEIF(ANY(nlyrbt(iel,:)/=0)) THEN
+      ELSEIF (ANY(nlyrbt(iel, :) /= 0)) THEN
          j = 1
-         DO WHILE (ilay >= nlyrbt(iel,j+1))
+         DO WHILE (ilay >= nlyrbt(iel, j + 1))
             j = j + 1
-         ENDDO
-         r = ntsoil(iel,j)
+         END DO
+         r = ntsoil(iel, j)
       ELSE
          r = 0
-      ENDIF
+      END IF
    END FUNCTION soil_type
 
 !> @brief Returns signed surface-water depth relative to ground in metres.
@@ -992,7 +992,7 @@ CONTAINS
 !> @endhistory
    ELEMENTAL REAL FUNCTION srf_dep(iel) RESULT(r)
       INTEGER, INTENT(IN) :: iel !! Element number.
-      r = hrfzz(iel)-zgrund(iel)
+      r = hrfzz(iel) - zgrund(iel)
    END FUNCTION srf_dep
 
 !> @brief Returns surface evaporation in millimetres per hour.
@@ -1062,7 +1062,7 @@ CONTAINS
    ELEMENTAL REAL FUNCTION theta(iel, ilay) RESULT(r)
       INTEGER, INTENT(IN) :: iel  !! Element number.
       INTEGER, INTENT(IN) :: ilay !! Bottom-up subsurface cell number.
-      r = vsthe(ilay,iel)
+      r = vsthe(ilay, iel)
    END FUNCTION theta
 
 !> @brief Returns the dynamic number of subsurface cells per element column.

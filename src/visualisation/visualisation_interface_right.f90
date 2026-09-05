@@ -92,33 +92,33 @@ MODULE visualisation_interface_right
 
    USE ISO_C_BINDING, ONLY: C_PTR
 
-   USE VISUALISATION_INTERFACE_CENTRE,    ONLY : BANK_NO, ELEMENT, GRID_NX, GRID_NY, RIVER_NO, TOP_CELL, &
-      IS_SQUARE, IS_BANK, IS_LINK,                            &
-      north, east, south, west, EXISTS, NO_EL, csz, DIRQQ,    &
-      SHETRAN_INTEGER_DATA, SHETRAN_REAL_DATA, OUTPUT_TYPE, GET_OUTPUT_TYPE, &
-      NO_SED, NO_CON, VERSION, ROOTDIR, SHETRAN_LAYER,                       &
-      hdf5filename, planfile, checkfile
-   USE VISUALISATION_INTERFACE_FAR_RIGHT, ONLY : G_C, G_L, G_I, S_PTR, G_PTR,                            &
-      TIME_TO_RECORD,                                         &
-      REGISTER_STATIC_VISUALISATION_METADATA,                 &
-      REGISTER_DYNAMIC_VISUALISATION_METADATA,                &
-      FOR_NEW_TIME, SAVE_ITEMS_WORTH,                         &
-      SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP, &
-      SEND_P
+   USE VISUALISATION_INTERFACE_CENTRE, ONLY: BANK_NO, ELEMENT, GRID_NX, GRID_NY, RIVER_NO, TOP_CELL, &
+                                             IS_SQUARE, IS_BANK, IS_LINK, &
+                                             north, east, south, west, EXISTS, NO_EL, csz, DIRQQ, &
+                                             SHETRAN_INTEGER_DATA, SHETRAN_REAL_DATA, OUTPUT_TYPE, GET_OUTPUT_TYPE, &
+                                             NO_SED, NO_CON, VERSION, ROOTDIR, SHETRAN_LAYER, &
+                                             hdf5filename, planfile, checkfile
+   USE VISUALISATION_INTERFACE_FAR_RIGHT, ONLY: G_C, G_L, G_I, S_PTR, G_PTR, &
+                                                TIME_TO_RECORD, &
+                                                REGISTER_STATIC_VISUALISATION_METADATA, &
+                                                REGISTER_DYNAMIC_VISUALISATION_METADATA, &
+                                                FOR_NEW_TIME, SAVE_ITEMS_WORTH, &
+                                                SAVE_VISUALISATION_DATA_TO_DISK, VISUALISATION_TIDY_UP, &
+                                                SEND_P
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
    INTEGER, DIMENSION(4), PARAMETER :: &
       north_order = (/north, east, south, west/) !! Solver face numbers in stored N/E/S/W order.
    INTEGER, DIMENSION(4), PARAMETER :: &
-      normal_order = (/1,2,3,4/)                !! Natural values for non-face extra dimensions.
-   LOGICAL, PARAMETER :: T=.TRUE.  !! Compact true value used by the startup guards.
-   LOGICAL, PARAMETER :: F=.FALSE. !! Compact false value used by the startup guards.
+      normal_order = (/1, 2, 3, 4/)                !! Natural values for non-face extra dimensions.
+   LOGICAL, PARAMETER :: T = .TRUE.  !! Compact true value used by the startup guards.
+   LOGICAL, PARAMETER :: F = .FALSE. !! Compact false value used by the startup guards.
 
-   REAL, PARAMETER :: zero=0.0 !! Retained default-real zero; unused by current module procedures.
+   REAL, PARAMETER :: zero = 0.0 !! Retained default-real zero; unused by current module procedures.
 
    PRIVATE
    PUBLIC :: RECORD_VISUALISATION_DATA, north_order
@@ -191,90 +191,90 @@ CONTAINS
       CHARACTER(2)                             :: typ    !! Structure storage code dispatched by [[fill_select]].
       CHARACTER(8)                             :: ext_dim !! Metadata name of the extra dimension.
       CHARACTER(csz)                           :: name   !! Exact centre-accessor selector name.
-      LOGICAL, SAVE                            :: one=T  !! First-call guard.
-      LOGICAL, SAVE                            :: two=F  !! Second-call registration guard.
+      LOGICAL, SAVE                            :: one = T  !! First-call guard.
+      LOGICAL, SAVE                            :: two = F  !! Second-call registration guard.
       TYPE(OUTPUT_TYPE), DIMENSION(:), POINTER :: oty    !! Allocated static or dynamic catalogue copy.
-      IF(one) THEN
+      IF (one) THEN
          one = F
          two = T
          CALL SEND_PASS(1)
          CALL SAVE_VISUALISATION_DATA_TO_DISK(1, 0.0)
          RETURN
-      ELSEIF(two) THEN
+      ELSEIF (two) THEN
          two = F
          CALL SEND_PASS(2)
-         oty         => GET_OUTPUT_TYPE('static')
-         DO i=LBOUND(oty,DIM=1),UBOUND(oty,DIM=1)
+         oty => GET_OUTPUT_TYPE('static')
+         DO i = LBOUND(oty, DIM=1), UBOUND(oty, DIM=1)
             CALL REGISTER_STATIC_VISUALISATION_METADATA(oty(i)%name, oty(i)%typ, &
-               oty(i)%units, oty(i)%title, GRID_NX(), GRID_NY(), oty(i)%extra_dimensions, oty(i)%varies_with_elevation)
-         ENDDO
-         DEALLOCATE(oty)
-         oty     => GET_OUTPUT_TYPE('dynamic')
-         DO k=1,2
-            DO i=LBOUND(oty,DIM=1),UBOUND(oty,DIM=1)
-               CALL REGISTER_DYNAMIC_VISUALISATION_METADATA(k, i==SIZE(oty).AND.k==2, oty(i)%name, oty(i)%typ, &
-                  oty(i)%units, oty(i)%title, oty(i)%extra_dimensions, oty(i)%varies_with_elevation,             &
-                  oty(i)%varies_with_sediment_no, oty(i)%varies_with_contaminant_no,         &
-                  oty(i)%implemented)
-            ENDDO
-         ENDDO
-         DEALLOCATE(oty)
-      ENDIF
+                            oty(i)%units, oty(i)%title, GRID_NX(), GRID_NY(), oty(i)%extra_dimensions, oty(i)%varies_with_elevation)
+         END DO
+         DEALLOCATE (oty)
+         oty => GET_OUTPUT_TYPE('dynamic')
+         DO k = 1, 2
+            DO i = LBOUND(oty, DIM=1), UBOUND(oty, DIM=1)
+               CALL REGISTER_DYNAMIC_VISUALISATION_METADATA(k, i == SIZE(oty) .AND. k == 2, oty(i)%name, oty(i)%typ, &
+                                                oty(i)%units, oty(i)%title, oty(i)%extra_dimensions, oty(i)%varies_with_elevation, &
+                                                            oty(i)%varies_with_sediment_no, oty(i)%varies_with_contaminant_no, &
+                                                            oty(i)%implemented)
+            END DO
+         END DO
+         DEALLOCATE (oty)
+      END IF
 
-      MM: DO mn=1,G_I(0,'no_items')
+      MM: DO mn = 1, G_I(0, 'no_items')
 
-         IF(.NOT.TIME_TO_RECORD(mn,time)) CYCLE MM
-         name   = G_C(mn,'name')
-         typ    = G_C(mn,'typ')
-         ilow   = G_I(mn,'ilow')
-         ihigh  = G_I(mn,'ihigh')
-         jlow   = G_I(mn,'jlow')
-         jhigh  = G_I(mn,'jhigh')
-         klow   = G_I(mn,'klow')
-         khigh  = G_I(mn,'khigh')
-         isgrid = G_L(mn,'isgrid')
-         ext    = G_I(mn,'ext')
-         IF(ext>0) THEN
-            ext_dim = G_C(mn,'extra_dimensions')
-            IF(ext_dim=='faces') THEN
+         IF (.NOT. TIME_TO_RECORD(mn, time)) CYCLE MM
+         name = G_C(mn, 'name')
+         typ = G_C(mn, 'typ')
+         ilow = G_I(mn, 'ilow')
+         ihigh = G_I(mn, 'ihigh')
+         jlow = G_I(mn, 'jlow')
+         jhigh = G_I(mn, 'jhigh')
+         klow = G_I(mn, 'klow')
+         khigh = G_I(mn, 'khigh')
+         isgrid = G_L(mn, 'isgrid')
+         ext = G_I(mn, 'ext')
+         IF (ext > 0) THEN
+            ext_dim = G_C(mn, 'extra_dimensions')
+            IF (ext_dim == 'faces') THEN
                ee = north_order
             ELSE
                ee = normal_order
-            ENDIF
-         ENDIF
-         first = G_PTR(mn,'first')
-         latest = G_PTR(mn,'latest')
-         nsed   = G_I(mn,'nsed')
-         ncon   = G_I(mn,'ncon')
+            END IF
+         END IF
+         first = G_PTR(mn, 'first')
+         latest = G_PTR(mn, 'latest')
+         nsed = G_I(mn, 'nsed')
+         ncon = G_I(mn, 'ncon')
          CALL FOR_NEW_TIME(typ, time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-         CALL S_PTR(mn,'first', first)
-         CALL S_PTR(mn,'latest', latest)
-         IF(.NOT.isgrid) THEN
-            sz = G_I(mn,'sz')
-            DO nn=1,sz
-               su = G_I(mn,'su',nn)
-               IF(su==0) CYCLE  ! Leave missing list entries at structure defaults.
+         CALL S_PTR(mn, 'first', first)
+         CALL S_PTR(mn, 'latest', latest)
+         IF (.NOT. isgrid) THEN
+            sz = G_I(mn, 'sz')
+            DO nn = 1, sz
+               su = G_I(mn, 'su', nn)
+               IF (su == 0) CYCLE  ! Leave missing list entries at structure defaults.
                CALL FILL_SELECT(name, typ, nn, 1, 1, su, klow, khigh, &
-                  SHETRAN_LAYER((/(n,n=klow,khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
-            ENDDO
+                                SHETRAN_LAYER((/(n, n=klow, khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
+            END DO
          ELSE
-            DO i=ilow,ihigh
-               DO j=jlow,jhigh
+            DO i = ilow, ihigh
+               DO j = jlow, jhigh
                   jj = SHETRAN_J(j)  ! Convert the display row to native SHETRAN orientation.
-                  IF(.NOT.G_L(mn,'on', i, j)) CYCLE
-                  su = SU_NUMBER(i,j)
-                  IF(su==0) CYCLE  ! Leave cells outside the catchment at structure defaults.
+                  IF (.NOT. G_L(mn, 'on', i, j)) CYCLE
+                  su = SU_NUMBER(i, j)
+                  IF (su == 0) CYCLE  ! Leave cells outside the catchment at structure defaults.
                   CALL FILL_SELECT(name, typ, i, j, jj, su, klow, khigh, &
-                     SHETRAN_LAYER((/(n,n=klow,khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
-               ENDDO
-            ENDDO
-         ENDIF
+                                   SHETRAN_LAYER((/(n, n=klow, khigh)/)), ee(1:ext), latest, nsed=nsed, ncon=ncon)
+               END DO
+            END DO
+         END IF
          CALL SAVE_VISUALISATION_DATA_TO_DISK(mn, time)
-      ENDDO MM
+      END DO MM
 
-      IF(PRESENT(text)) THEN
-         IF(text=='end') CALL VISUALISATION_TIDY_UP()
-      ENDIF
+      IF (PRESENT(text)) THEN
+         IF (text == 'end') CALL VISUALISATION_TIDY_UP()
+      END IF
    END SUBROUTINE record_visualisation_data
 
 !> @brief Dispatches one element/list position to its structure-specific filler.
@@ -308,15 +308,15 @@ CONTAINS
       TYPE(C_PTR), INTENT(IN)           :: latest !! Latest allocated structure node.
       INTEGER, INTENT(IN)               :: nsed   !! Selected sediment-fraction number.
       INTEGER, INTENT(IN)               :: ncon   !! Selected contaminant number.
-      SELECT CASE(typ)
-       CASE('BS') ; CALL FILL_B(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('ES') ; CALL FILL_E(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('FS') ; CALL FILL_F(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('GS') ; CALL FILL_G(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('IS') ; CALL FILL_I(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('LS') ; CALL FILL_L(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('MS') ; CALL FILL_M(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
-       CASE('NS') ; CALL FILL_N(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      SELECT CASE (typ)
+      CASE ('BS'); CALL FILL_B(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('ES'); CALL FILL_E(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('FS'); CALL FILL_F(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('GS'); CALL FILL_G(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('IS'); CALL FILL_I(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('LS'); CALL FILL_L(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('MS'); CALL FILL_M(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+      CASE ('NS'); CALL FILL_N(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
       END SELECT
    END SUBROUTINE fill_select
 
@@ -350,15 +350,15 @@ CONTAINS
       INTEGER                           :: d        !! Stored face/member slot in N/E/S/W order.
       INTEGER                           :: e        !! Extra-axis position.
       INTEGER                           :: banks(4) !! Bank elements in stored N/E/S/W order.
-      banks  = BANK_NO(su,north_order)
-      DO d=1,4
-         IF(EXISTS(banks(d))) THEN
-            DO e=1,SIZE(ee)
+      banks = BANK_NO(su, north_order)
+      DO d = 1, 4
+         IF (EXISTS(banks(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('e', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_REAL_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-      ENDDO
+                                SHETRAN_REAL_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+      END DO
    END SUBROUTINE fill_b
 
 !> @brief Fills integer-valued bank members around one gridsquare.
@@ -391,15 +391,15 @@ CONTAINS
       INTEGER                           :: d        !! Stored face/member slot in N/E/S/W order.
       INTEGER                           :: e        !! Extra-axis position.
       INTEGER                           :: banks(4) !! Bank elements in stored N/E/S/W order.
-      banks  = BANK_NO(su,north_order)
-      DO d=1,4
-         IF(EXISTS(banks(d))) THEN
-            DO e=1,SIZE(ee)
+      banks = BANK_NO(su, north_order)
+      DO d = 1, 4
+         IF (EXISTS(banks(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('e', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_INTEGER_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e)), latest)
-            ENDDO
-         ENDIF
-      ENDDO
+                                     SHETRAN_INTEGER_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e)), latest)
+            END DO
+         END IF
+      END DO
    END SUBROUTINE fill_e
 
 !> @brief Fills integer-valued river-link members around one gridsquare.
@@ -436,14 +436,14 @@ CONTAINS
       INTEGER                           :: e         !! Extra-axis position.
       INTEGER                           :: rivers(4) !! Link elements in stored N/E/S/W order.
       rivers = RIVER_NO(su, north_order)
-      DO d=1,4
-         IF(EXISTS(rivers(d))) THEN
-            DO e=1,SIZE(ee)
+      DO d = 1, 4
+         IF (EXISTS(rivers(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('e', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_INTEGER_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-      ENDDO
+                            SHETRAN_INTEGER_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+      END DO
    END SUBROUTINE fill_f
 
 !> @brief Fills a real compound of one gridsquare, its banks, and its links.
@@ -464,7 +464,7 @@ CONTAINS
 !> | 2004-07 | JE | 2.0 | Added compound real square/bank/link filling. |
 !> | 2026-04-08 | SB | 4.6.1 | Changed the latest-node argument to `C_PTR`. |
 !> @endhistory
-   SUBROUTINE  fill_g(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+   SUBROUTINE fill_g(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
       CHARACTER(*), INTENT(IN)          :: name      !! Exact real-accessor selector name.
       INTEGER, INTENT(IN)               :: a         !! Stored x index or list position.
       INTEGER, INTENT(IN)               :: b         !! Stored display-row index.
@@ -482,26 +482,26 @@ CONTAINS
       INTEGER                           :: e         !! Extra-axis position.
       INTEGER                           :: banks(4)  !! Bank elements in stored N/E/S/W order.
       INTEGER                           :: rivers(4) !! Link elements in stored N/E/S/W order.
-      DO e=1,SIZE(ee)
+      DO e = 1, SIZE(ee)
          CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
-            SHETRAN_REAL_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-      ENDDO
-      rivers  = RIVER_NO(su, north_order)
-      banks   = BANK_NO(su,north_order)
-      DO d=1,4
-         IF(EXISTS(banks(d))) THEN
-            DO e=1,SIZE(ee)
+                               SHETRAN_REAL_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+      END DO
+      rivers = RIVER_NO(su, north_order)
+      banks = BANK_NO(su, north_order)
+      DO d = 1, 4
+         IF (EXISTS(banks(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('b', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_REAL_DATA(name, banks(d),  ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-         IF(EXISTS(rivers(d))) THEN
-            DO e=1,SIZE(ee)
+                                SHETRAN_REAL_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+         IF (EXISTS(rivers(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('r', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_REAL_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-      ENDDO
+                               SHETRAN_REAL_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+      END DO
    END SUBROUTINE fill_g
 
 !> @brief Fills an integer middle-element value.
@@ -520,7 +520,7 @@ CONTAINS
 !> | 2004-07 | JE | 2.0 | Added integer middle-element filling. |
 !> | 2026-04-08 | SB | 4.6.1 | Changed the latest-node argument to `C_PTR`. |
 !> @endhistory
-   SUBROUTINE  fill_i(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+   SUBROUTINE fill_i(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
       CHARACTER(*), INTENT(IN)          :: name   !! Exact integer-accessor selector name.
       INTEGER, INTENT(IN)               :: a      !! Stored x index or list position.
       INTEGER, INTENT(IN)               :: b      !! Stored display-row index.
@@ -537,10 +537,10 @@ CONTAINS
       INTEGER                           :: d      !! Undefined slot passed through but ignored by `IS` storage.
       INTEGER                           :: e      !! Extra-axis position.
       INTEGER                           :: n      !! Retained legacy work index; unused.
-      DO e=1,SIZE(ee)
+      DO e = 1, SIZE(ee)
          CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
-            SHETRAN_INTEGER_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-      ENDDO
+                               SHETRAN_INTEGER_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+      END DO
    END SUBROUTINE fill_i
 
 !> @brief Fills real-valued river-link members around one gridsquare.
@@ -573,14 +573,14 @@ CONTAINS
       INTEGER                           :: e         !! Extra-axis position.
       INTEGER                           :: rivers(4) !! Link elements in stored N/E/S/W order.
       rivers = RIVER_NO(su, north_order)
-      DO d=1,4
-         IF(EXISTS(rivers(d))) THEN
-            DO e=1,SIZE(ee)
+      DO d = 1, 4
+         IF (EXISTS(rivers(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('e', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_REAL_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-      ENDDO
+                               SHETRAN_REAL_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+      END DO
    END SUBROUTINE fill_L
 
 !> @brief Fills a real middle-element value.
@@ -600,7 +600,7 @@ CONTAINS
 !> | 2004-07 | JE | 2.0 | Added real middle-element filling. |
 !> | 2026-04-08 | SB | 4.6.1 | Changed the latest-node argument to `C_PTR`. |
 !> @endhistory
-   SUBROUTINE  fill_m(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+   SUBROUTINE fill_m(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
       CHARACTER(*), INTENT(IN)          :: name   !! Exact real-accessor selector name.
       INTEGER, INTENT(IN)               :: a      !! Stored x index or list position.
       INTEGER, INTENT(IN)               :: b      !! Stored display-row index.
@@ -617,10 +617,10 @@ CONTAINS
       INTEGER                           :: d      !! Undefined slot passed through but ignored by `MS` storage.
       INTEGER                           :: e      !! Extra-axis position.
       INTEGER                           :: n      !! Retained legacy work index; unused.
-      DO e=1,SIZE(ee)
+      DO e = 1, SIZE(ee)
          CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
-            SHETRAN_REAL_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-      ENDDO
+                               SHETRAN_REAL_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+      END DO
    END SUBROUTINE fill_m
 
 !> @brief Fills an integer compound of one gridsquare, its banks, and its links.
@@ -640,7 +640,7 @@ CONTAINS
 !> | 2004-07 | JE | 2.0 | Added compound integer square/bank/link filling. |
 !> | 2026-04-08 | SB | 4.6.1 | Changed the latest-node argument to `C_PTR`. |
 !> @endhistory
-   SUBROUTINE  fill_n(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
+   SUBROUTINE fill_n(name, a, b, bb, su, klow, khigh, silay, ee, typ, latest, nsed, ncon)
       CHARACTER(*), INTENT(IN)          :: name      !! Exact integer-accessor selector name.
       INTEGER, INTENT(IN)               :: a         !! Stored x index or list position.
       INTEGER, INTENT(IN)               :: b         !! Stored display-row index.
@@ -658,26 +658,26 @@ CONTAINS
       INTEGER                           :: e         !! Extra-axis position.
       INTEGER                           :: banks(4)  !! Bank elements in stored N/E/S/W order.
       INTEGER                           :: rivers(4) !! Link elements in stored N/E/S/W order.
-      DO e=1,SIZE(ee)
+      DO e = 1, SIZE(ee)
          CALL SAVE_ITEMS_WORTH('m', typ, a, b, klow, khigh, e, d, &
-            SHETRAN_INTEGER_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-      ENDDO
-      rivers  = RIVER_NO(su, north_order)
-      banks   = BANK_NO(su,north_order)
-      DO d=1,4
-         IF(EXISTS(banks(d))) THEN
-            DO e=1,SIZE(ee)
+                               SHETRAN_INTEGER_DATA(name, su, ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+      END DO
+      rivers = RIVER_NO(su, north_order)
+      banks = BANK_NO(su, north_order)
+      DO d = 1, 4
+         IF (EXISTS(banks(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('b', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_INTEGER_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-         IF(EXISTS(rivers(d))) THEN
-            DO e=1,SIZE(ee)
+                             SHETRAN_INTEGER_DATA(name, banks(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+         IF (EXISTS(rivers(d))) THEN
+            DO e = 1, SIZE(ee)
                CALL SAVE_ITEMS_WORTH('r', typ, a, b, klow, khigh, e, d, &
-                  SHETRAN_INTEGER_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
-            ENDDO
-         ENDIF
-      ENDDO
+                            SHETRAN_INTEGER_DATA(name, rivers(d), ix=a, iy=bb, ilay=silay, ext=ee(e), nsed=nsed, ncon=ncon), latest)
+            END DO
+         END IF
+      END DO
    END SUBROUTINE fill_n
 
 !> @brief Copies startup paths, dimensions, topology, and type masks downstream.
@@ -717,58 +717,58 @@ CONTAINS
       INTEGER                              :: ny !! Number of native grid rows.
       INTEGER                              :: total_no_elements !! Dynamic active-element count.
       INTEGER, DIMENSION(:), ALLOCATABLE   :: iel !! Element vector `1:total_no_elements`.
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: dum !! Temporary grid or topology table copied by `SEND_P`.
+      INTEGER, DIMENSION(:, :), ALLOCATABLE :: dum !! Temporary grid or topology table copied by `SEND_P`.
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_INTERFACE_RIGHT:send_pass"
 
-      SELECT CASE(jj)
-       CASE(1)
-         CALL SEND_P('dirqq',     cc=dirqq, da=0, db=0)
-         CALL SEND_P('rootdir',   cc=rootdir, da=0, db=0)
-         CALL SEND_p('ver',       ii=VERSION(), da=0, db=0)
+      SELECT CASE (jj)
+      CASE (1)
+         CALL SEND_P('dirqq', cc=dirqq, da=0, db=0)
+         CALL SEND_P('rootdir', cc=rootdir, da=0, db=0)
+         CALL SEND_p('ver', ii=VERSION(), da=0, db=0)
          CALL SEND_p('hdf5fname', cc=hdf5filename, da=0, db=0)
-         CALL SEND_p('planfile',  cc=planfile, da=0, db=0)
+         CALL SEND_p('planfile', cc=planfile, da=0, db=0)
          CALL SEND_p('checkfile', cc=checkfile, da=0, db=0)
-       CASE(2)
+      CASE (2)
          total_no_elements = NO_EL()
-         ALLOCATE(iel(total_no_elements), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "iel", location)
-         iel = (/(i,i=1,total_no_elements)/)
-         nx  = GRID_NX()
-         ny  = GRID_NY()
-         CALL SEND_P('north',     ii=north, da=0, db=0)
-         CALL SEND_P('east',      ii=east, da=0, db=0)
-         CALL SEND_P('south',     ii=south, da=0, db=0)
-         CALL SEND_P('west',      ii=west, da=0, db=0)
-         CALL SEND_P('grid_nx',   ii=nx, da=0, db=0)
-         CALL SEND_P('grid_ny',   ii=ny, da=0, db=0)
-         CALL SEND_P('top_cell',  ii=TOP_CELL(), da=0, db=0)
-         CALL SEND_P('nel',  ii=total_no_elements, da=0, db=0)
-         CALL SEND_P('nsed',      ii=NO_SED(), da=0, db=0)
-         CALL SEND_P('ncon',      ii=NO_CON(), da=0, db=0)
+         ALLOCATE (iel(total_no_elements), STAT=ios)
+         CALL errstat_alloc(ios, "iel", location)
+         iel = (/(i, i=1, total_no_elements)/)
+         nx = GRID_NX()
+         ny = GRID_NY()
+         CALL SEND_P('north', ii=north, da=0, db=0)
+         CALL SEND_P('east', ii=east, da=0, db=0)
+         CALL SEND_P('south', ii=south, da=0, db=0)
+         CALL SEND_P('west', ii=west, da=0, db=0)
+         CALL SEND_P('grid_nx', ii=nx, da=0, db=0)
+         CALL SEND_P('grid_ny', ii=ny, da=0, db=0)
+         CALL SEND_P('top_cell', ii=TOP_CELL(), da=0, db=0)
+         CALL SEND_P('nel', ii=total_no_elements, da=0, db=0)
+         CALL SEND_P('nsed', ii=NO_SED(), da=0, db=0)
+         CALL SEND_P('ncon', ii=NO_CON(), da=0, db=0)
          CALL SEND_P('is_square', L1=IS_SQUARE(iel), da=total_no_elements, db=0)
-         CALL SEND_P('is_bank',   L1=IS_BANK(iel), da=total_no_elements, db=0)
-         CALL SEND_P('is_link',   L1=IS_LINK(iel), da=total_no_elements, db=0)
-         ALLOCATE(dum(nx,ny), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "dum", location)
-         DO i=1,nx ; dum(i,:) = SU_NUMBER(i,(/(j,j=1,ny)/))
-         ENDDO
+         CALL SEND_P('is_bank', L1=IS_BANK(iel), da=total_no_elements, db=0)
+         CALL SEND_P('is_link', L1=IS_LINK(iel), da=total_no_elements, db=0)
+         ALLOCATE (dum(nx, ny), STAT=ios)
+         CALL errstat_alloc(ios, "dum", location)
+         DO i = 1, nx; dum(i, :) = SU_NUMBER(i, (/(j, j=1, ny)/))
+         END DO
          CALL SEND_P('su', d2=dum, da=nx, db=ny)
-         DEALLOCATE(dum)
-         ALLOCATE(dum(total_no_elements,4), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "dum", location)
-         DO j=1,4
-            WHERE(IS_SQUARE(iel)) ; dum(:,j)=BANK_NO(iel,j) ; ELSEWHERE ; dum(:,j)=0 ; ENDWHERE
-         ENDDO
-         CALL SEND_P('bank_no', d2=dum, da=total_no_elements, db=4)
-         DO j=1,4
-            WHERE(IS_SQUARE(iel)) ; dum(:,j)=RIVER_NO(iel,j) ; ELSEWHERE ; dum(:,j)=0 ; ENDWHERE
-         ENDDO
-         CALL SEND_P('river_no', d2=dum, da=total_no_elements, db=4)
-         DEALLOCATE(dum)
-      END SELECT
-   END SUBROUTINE send_pass
+         DEALLOCATE (dum)
+         ALLOCATE (dum(total_no_elements, 4), STAT=ios)
+         CALL errstat_alloc(ios, "dum", location)
+         DO j = 1, 4
+            WHERE (IS_SQUARE(iel)); dum(:, j) = BANK_NO(iel, j); ELSEWHERE; dum(:, j) = 0; END WHERE
+            END DO
+            CALL SEND_P('bank_no', d2=dum, da=total_no_elements, db=4)
+            DO j = 1, 4
+               WHERE (IS_SQUARE(iel)); dum(:, j) = RIVER_NO(iel, j); ELSEWHERE; dum(:, j) = 0; END WHERE
+               END DO
+               CALL SEND_P('river_no', d2=dum, da=total_no_elements, db=4)
+               DEALLOCATE (dum)
+               END SELECT
+            END SUBROUTINE send_pass
 
 !> @brief Maps stored visualisation grid coordinates to a SHETRAN element.
 !>
@@ -784,11 +784,11 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added display-grid to solver-element translation. |
 !> @endhistory
-   ELEMENTAL INTEGER FUNCTION su_number(i,j) RESULT(r)
-      INTEGER, INTENT(IN) :: i !! Stored HDF5/SHEGRAPH column index.
-      INTEGER, INTENT(IN) :: j !! Stored HDF5/SHEGRAPH row index.
-      r = ELEMENT(i,SHETRAN_J(j))
-   END FUNCTION su_number
+            ELEMENTAL INTEGER FUNCTION su_number(i, j) RESULT(r)
+               INTEGER, INTENT(IN) :: i !! Stored HDF5/SHEGRAPH column index.
+               INTEGER, INTENT(IN) :: j !! Stored HDF5/SHEGRAPH row index.
+               r = ELEMENT(i, SHETRAN_J(j))
+            END FUNCTION su_number
 
 !> @brief Reverses a stored visualisation row into native SHETRAN orientation.
 !>
@@ -808,9 +808,9 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added row-orientation reversal for SHEGRAPH 2. |
 !> @endhistory
-   ELEMENTAL INTEGER FUNCTION shetran_j(sgv2j) RESULT(r)
-      INTEGER, INTENT(IN) :: sgv2j !! Stored HDF5/SHEGRAPH row index.
-      r = GRID_NY() - sgv2j + 1
-   END FUNCTION shetran_j
+            ELEMENTAL INTEGER FUNCTION shetran_j(sgv2j) RESULT(r)
+               INTEGER, INTENT(IN) :: sgv2j !! Stored HDF5/SHEGRAPH row index.
+               r = GRID_NY() - sgv2j + 1
+            END FUNCTION shetran_j
 
-END MODULE visualisation_interface_right
+         END MODULE visualisation_interface_right

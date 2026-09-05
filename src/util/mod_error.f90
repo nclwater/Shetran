@@ -33,18 +33,18 @@
 !> @endhistory
 MODULE mod_error
 
-   USE MOD_PARAMETERS, ONLY : I_P, LENGTH_FILEPATH, LENGTH_LINE
-   USE SGLOBAL, ONLY : UZNOW, EARRAY, rootdir, error_mode, &
-      flag_runtime_reduction_errors, flag_runtime_reduction_e1060
-   USE stdlib_strings, ONLY : to_string
+   USE MOD_PARAMETERS, ONLY: I_P, LENGTH_FILEPATH, LENGTH_LINE
+   USE SGLOBAL, ONLY: UZNOW, EARRAY, rootdir, error_mode, &
+                      flag_runtime_reduction_errors, flag_runtime_reduction_e1060
+   USE stdlib_strings, ONLY: to_string
 
    IMPLICIT NONE
    PRIVATE
 
    PUBLIC :: RAISE_ERROR, ERR_STOP, err_set_wait_on_exit
-   PUBLIC :: err_check_fileopenstatus, err_check_fileclosestatus
-   PUBLIC :: err_check_allocatememorystatus, err_check_deallocatememorystatus
-   PUBLIC :: err_check_readstatus, err_check_writestatus
+   PUBLIC :: errstat_fileopen, errstat_fileclose
+   PUBLIC :: errstat_alloc, errstat_dealloc
+   PUBLIC :: errstat_read, errstat_write
    PUBLIC :: ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
    PUBLIC :: FID_logfile
    PUBLIC :: ERR_limit_error_codes
@@ -109,8 +109,6 @@ CONTAINS
       flag_wait_on_exit = wait
    END SUBROUTINE err_set_wait_on_exit
 
-
-
    !> summary: Standardised check for opening file return status.
    !> author: S. Berendsen, Southampton University
    !>
@@ -121,18 +119,15 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_fileopenstatus(status, filename)
+   SUBROUTINE errstat_fileopen(status, filename)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
       CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being opened.
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileopen, FID_logfile, 0, 0, &
-            'Error opening file: ' // TRIM(filename))
+                          'Error opening file: '//TRIM(filename))
       END IF
-   END SUBROUTINE err_check_fileopenstatus
-
-
-
+   END SUBROUTINE errstat_fileopen
 
    !> summary: Standardised check for closing file return status.
    !> author: S. Berendsen, Southampton University
@@ -144,17 +139,15 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_fileclosestatus(status, filename)
+   SUBROUTINE errstat_fileclose(status, filename)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file closing.
       CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being closed.
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileclose, FID_logfile, 0, 0, &
-            'Error closing file: ' // TRIM(filename))
+                          'Error closing file: '//TRIM(filename))
       END IF
-   END SUBROUTINE err_check_fileclosestatus
-
-
+   END SUBROUTINE errstat_fileclose
 
    !> summary: Standardised check for allocate memory return status.
    !> author: S. Berendsen, Southampton University
@@ -166,18 +159,16 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_allocatememorystatus(status, variable, location)
+   SUBROUTINE errstat_alloc(status, variable, location)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from allocate memory.
       CHARACTER(LEN=*), INTENT(IN) :: variable !! Name of the variable being allocated.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was allocated.
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_allocate, FID_logfile, 0, 0, &
-            'Error allocating memory for ' // TRIM(variable) // ' at ' // TRIM(location))
+                          'Error allocating memory for '//TRIM(variable)//' at '//TRIM(location))
       END IF
-   END SUBROUTINE err_check_allocatememorystatus
-
-
+   END SUBROUTINE errstat_alloc
 
    !> summary: Standardised check for deallocating memory return status.
    !> author: S. Berendsen, Southampton University
@@ -189,21 +180,19 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_deallocatememorystatus(status, variable, location)
+   SUBROUTINE errstat_dealloc(status, variable, location)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from deallocate memory.
       CHARACTER(LEN=*), INTENT(IN) :: variable !! Name of the variable being deallocated.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the memory was deallocated.
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
-      msg = 'Error deallocating memory for ' // TRIM(variable) // ' at ' // TRIM(location)
+      msg = 'Error deallocating memory for '//TRIM(variable)//' at '//TRIM(location)
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_deallocate, FID_logfile, 0, 0, TRIM(msg))
       END IF
-   END SUBROUTINE err_check_deallocatememorystatus
-
-
+   END SUBROUTINE errstat_dealloc
 
    !> summary: Standardised check for reading data return status.
    !> author: S. Berendsen, Southampton University
@@ -217,7 +206,7 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_readstatus(status, location, filename, linenumber)
+   SUBROUTINE errstat_read(status, location, filename, linenumber)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the data was read.
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name from which file this data was read.
@@ -225,16 +214,14 @@ CONTAINS
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
-      msg = 'Error reading data at ' // TRIM(location)
-      IF (PRESENT(filename)) msg = TRIM(msg) // ' from file ' // TRIM(filename)
-      IF (PRESENT(linenumber)) msg = TRIM(msg) // ' at line ' // to_string(linenumber)
+      msg = 'Error reading data at '//TRIM(location)
+      IF (PRESENT(filename)) msg = TRIM(msg)//' from file '//TRIM(filename)
+      IF (PRESENT(linenumber)) msg = TRIM(msg)//' at line '//to_string(linenumber)
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_read, FID_logfile, 0, 0, TRIM(msg))
       END IF
-   END SUBROUTINE err_check_readstatus
-
-
+   END SUBROUTINE errstat_read
 
    !> summary: Standardised check for opening file return status.
    !> author: S. Berendsen, Southampton University
@@ -246,22 +233,20 @@ CONTAINS
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> @endhistory
-   SUBROUTINE err_check_writestatus(status, location, filename)
+   SUBROUTINE errstat_write(status, location, filename)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the data is supposed to be written to.
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name of the file being written to.
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
-      msg = 'Error writing data at ' // TRIM(location)
-      IF (PRESENT(filename)) msg = TRIM(msg) // ' to file ' // TRIM(filename)
+      msg = 'Error writing data at '//TRIM(location)
+      IF (PRESENT(filename)) msg = TRIM(msg)//' to file '//TRIM(filename)
 
       IF (status /= 0) THEN
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_write, FID_logfile, 0, 0, TRIM(msg))
       END IF
-   END SUBROUTINE err_check_writestatus
-
-
+   END SUBROUTINE errstat_write
 
    !> summary: Reports a SHETRAN diagnostic, records it, and terminates fatal runs.
    !>
@@ -369,7 +354,7 @@ CONTAINS
       INTEGER(KIND=I_P), INTENT(IN) :: OUT    !! Connected formatted unit receiving the immediate diagnostic.
       INTEGER(KIND=I_P), INTENT(IN) :: IEL    !! Element identifier; zero omits both element and cell fields.
       INTEGER(KIND=I_P), INTENT(IN) :: CELL   !! VSS cell identifier; zero omits the cell field.
-      CHARACTER(LEN=*),  INTENT(IN) :: TEXT   !! Immediate diagnostic or continuation text.
+      CHARACTER(LEN=*), INTENT(IN) :: TEXT   !! Immediate diagnostic or continuation text.
 
       INTEGER(KIND=I_P), PARAMETER :: NONE = 0 !! No-severity selector.
       INTEGER(KIND=I_P), PARAMETER :: HLP = 8 !! Fixed unit used for an available help file.
@@ -391,44 +376,43 @@ CONTAINS
       helppath = '/helpmessages'
 
       ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      flag_runtime_reduction_errors  = .FALSE.
+      flag_runtime_reduction_errors = .FALSE.
       flag_runtime_reduction_e1060 = .FALSE.
-
 
       ! Write general error message
       ! ---------------------------
       IF (ETYPE >= 1 .AND. ETYPE <= 3) THEN
-         IF (ETYPE == ERRLVL_fatal) WRITE(OUT, '(//)')
+         IF (ETYPE == ERRLVL_fatal) WRITE (OUT, '(//)')
 
          IF (IEL == 0) THEN
-            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW
+            WRITE (OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW
          ELSE IF (CELL == 0) THEN
-            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL
+            WRITE (OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL
          ELSE
-            WRITE(OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL, CELL
+            WRITE (OUT, 9100) CTYPE(ETYPE), ERRNUM, UZNOW, IEL, CELL
          END IF
       END IF
 
-      WRITE(OUT, '(8X,A)') TEXT
+      WRITE (OUT, '(8X,A)') TEXT
 
       ! Decompose ERRNUM and update counters
       ! ------------------------------------
       IF (ETYPE /= NONE) THEN
          error_counter_total = error_counter_total + 1
-         AMODL  = ERRNUM / 1000
-         ERRN   = MOD(ERRNUM, 1000)
+         AMODL = ERRNUM/1000
+         ERRN = MOD(ERRNUM, 1000)
 
-         VALID  = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERR_limit_error_codes)
+         VALID = (AMODL >= 0 .AND. AMODL <= 3 .AND. ERRN >= 0 .AND. ERRN <= ERR_limit_error_codes)
          IF (VALID) error_counter(ERRN, AMODL) = error_counter(ERRN, AMODL) + 1
       END IF
 
       ! Write specific error messages
       ! -----------------------------
       IF (ERRNUM == 1003) THEN
-         WRITE(OUT, 91003) EARRAY(1)
+         WRITE (OUT, 91003) EARRAY(1)
          ! 970804
       ELSE IF (ERRNUM == 1024) THEN
-         WRITE(OUT, 91024) EARRAY(1)
+         WRITE (OUT, 91024) EARRAY(1)
          !
       END IF
 
@@ -443,15 +427,15 @@ CONTAINS
       ! Write summary
       ! -------------
       IF (ETYPE == ERRLVL_fatal .OR. ERRNUM == 0) THEN
-         WRITE(*,'(/,A,/,A,/)') &
+         WRITE (*, '(/,A,/,A,/)') &
             ' ### Error Summary and Advice ###', &
             '     ------------------------'
-         WRITE(OUT,'(/,A,/,A,/)') &
+         WRITE (OUT, '(/,A,/,A,/)') &
             ' ### Error Summary and Advice ###', &
             '     ------------------------'
-         INQUIRE(OUT, NAME=fname)
+         INQUIRE (OUT, NAME=fname)
 
-         IF (error_counter_total > 0) WRITE(*, '(A,A,A/)') &
+         IF (error_counter_total > 0) WRITE (*, '(A,A,A/)') &
             ' ==> Check the pri file: "', trim(fname), '" for more details <=='
 
          module_loop: DO AMODL = 0, 3
@@ -460,28 +444,28 @@ CONTAINS
 
                IF (COUNT > 0) THEN
                   ! Print number of occurrences
-                  WRITE(*, 9500) ERRN + AMODL * 1000, COUNT
+                  WRITE (*, 9500) ERRN + AMODL*1000, COUNT
 
                   ! Print contents of help file (if any)
-                  WRITE(FIL, 9200) TRIM(rootdir) // TRIM(helppath) // '/', AMODL, ERRN, '.txt'
+                  WRITE (FIL, 9200) TRIM(rootdir)//TRIM(helppath)//'/', AMODL, ERRN, '.txt'
 
-                  OPEN(HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
+                  OPEN (HLP, FILE=FIL, STATUS='OLD', IOSTAT=IO_STATUS)
                   IF (IO_STATUS == 0) THEN
                      read_help: DO
-                        READ(HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
+                        READ (HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
                         IF (IO_STATUS /= 0) EXIT read_help
-                        WRITE(*, '(A)') trim(HLPMSG)
+                        WRITE (*, '(A)') trim(HLPMSG)
                      END DO read_help
-                     CLOSE(HLP)
+                     CLOSE (HLP)
                   END IF
 
-                  WRITE(*, *)
+                  WRITE (*, *)
 
                END IF
             END DO error_loop
          END DO module_loop
 
-         WRITE(*, 9600) error_counter_total
+         WRITE (*, 9600) error_counter_total
       END IF
 
       ! Stop?
@@ -490,19 +474,17 @@ CONTAINS
 
       ! String format statements
       ! ------------------------
-9100  FORMAT(/ ' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-      &        ', iel =', I5:', cell =', I5 )
-9200  FORMAT(A,I1,I3.3,A)
+9100  FORMAT(/' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
+         &        ', iel =', I5:', cell =', I5)
+9200  FORMAT(A, I1, I3.3, A)
 
-9500  FORMAT(' No. of occurrences of error number',I5.4,' is',I6)
-9600  FORMAT(/' ### End of summary: recorded error count is',I7,' ###'/)
-91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ',G12.6,' METRES')
+9500  FORMAT(' No. of occurrences of error number', I5.4, ' is', I6)
+9600  FORMAT(/' ### End of summary: recorded error count is', I7, ' ###'/)
+91003 FORMAT(' MAXIMUM DIFFERENCE (DHMAX) = ', G12.6, ' METRES')
 ! 970804
-91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ',G12.6,' METRES')
+91024 FORMAT(' DEPTH OF SURFACE WATER BELOW GROUND = ', G12.6, ' METRES')
 !
    END SUBROUTINE RAISE_ERROR
-
-
 
    !> summary: Terminates the run, distinguishing fatal from ordinary exits.
    !>
@@ -529,7 +511,7 @@ CONTAINS
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
    !> @endhistory
-   SUBROUTINE ERR_STOP (error_number)
+   SUBROUTINE ERR_STOP(error_number)
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
 
       LOGICAL :: is_fatal !! Whether to take the error-termination path.
@@ -539,11 +521,11 @@ CONTAINS
 
       IF (flag_wait_on_exit .AND. .NOT. error_mode) THEN
          IF (is_fatal) THEN
-            WRITE(*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
+            WRITE (*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
          ELSE
-            WRITE(*, '(A)') 'Program will terminate. Press Enter to exit...'
+            WRITE (*, '(A)') 'Program will terminate. Press Enter to exit...'
          END IF
-         READ(*, *)
+         READ (*, *)
       END IF
 
       IF (is_fatal) STOP 'Program terminating due to fatal error'

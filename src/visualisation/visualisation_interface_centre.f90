@@ -86,7 +86,7 @@ MODULE visualisation_interface_centre
       hdf5filename, planfile, checkfile
 
    USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_ERROR, ONLY : errstat_alloc
 
    IMPLICIT NONE
 
@@ -370,11 +370,11 @@ CONTAINS
       SELECT CASE(text)
        CASE('static')
          ALLOCATE(r(first_type:0), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "r", location)
+         CALL errstat_alloc(ios, "r", location)
          r = outtype(first_type:0)
        CASE('dynamic')
          ALLOCATE(r(1:last_type), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "r", location)
+         CALL errstat_alloc(ios, "r", location)
          r = outtype(1:last_type)
       END SELECT
    END FUNCTION get_output_type

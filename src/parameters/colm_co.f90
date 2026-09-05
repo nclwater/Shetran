@@ -66,10 +66,10 @@
 !> @endhistory
 MODULE COLM_CO
 
-   USE SGLOBAL, ONLY : NELEE, LLEE, total_no_elements, top_cell_no
+   USE SGLOBAL, ONLY: NELEE, LLEE, total_no_elements, top_cell_no
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -78,14 +78,13 @@ MODULE COLM_CO
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: QQRFO    !! Previous upward water-volume flow through the column base (m3/s).
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RSZWLO   !! Previous total VSS well flux at each source element (m/s).
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: ZONEO    !! Previous nondimensional active-column depth, `(ZGRUND-ZCOLMB)/Z2`.
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: GGAMMO !! Previous dynamic/dead-space coupling rate by column and cell (1/s).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: QQQSWO !! Previous surface-water volume flow into each column face (m3/s).
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: QQO  !! Previous solver-scaled subsurface flow into each cell face (m3/s).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: UUAJPO !! Previous upward vertical water flux by column and cell interface (m/s).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSTHEO !! Previous effective volumetric water content by column and cell.
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: GGAMMO !! Previous dynamic/dead-space coupling rate by column and cell (1/s).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: QQQSWO !! Previous surface-water volume flow into each column face (m3/s).
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: QQO  !! Previous solver-scaled subsurface flow into each cell face (m3/s).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: UUAJPO !! Previous upward vertical water flux by column and cell interface (m/s).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: VSTHEO !! Previous effective volumetric water content by column and cell.
 
 !PRIVATE :: NELEE, LLEE
-
 
 CONTAINS
 
@@ -131,38 +130,38 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "COLM_CO:initialise_colm_co"
 
-      allocate(DSWO(total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "DSWO", location)
-      allocate(QIO(total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "QIO", location)
-      allocate(QQRFO(total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "QQRFO", location)
-      allocate(RSZWLO(total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "RSZWLO", location)
-      allocate(ZONEO(total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZONEO", location)
-      allocate(GGAMMO(total_no_elements,top_cell_no+1), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "GGAMMO", location)
-      allocate(UUAJPO(total_no_elements,top_cell_no+1), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "UUAJPO", location)
-      allocate(VSTHEO(total_no_elements,top_cell_no+1), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "VSTHEO", location)
-      allocate(QQQSWO(total_no_elements,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "QQQSWO", location)
-      allocate(QQO(total_no_elements,top_cell_no+1,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "QQO", location)
+      allocate (DSWO(total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "DSWO", location)
+      allocate (QIO(total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "QIO", location)
+      allocate (QQRFO(total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "QQRFO", location)
+      allocate (RSZWLO(total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "RSZWLO", location)
+      allocate (ZONEO(total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "ZONEO", location)
+      allocate (GGAMMO(total_no_elements, top_cell_no + 1), STAT=ios)
+      CALL errstat_alloc(ios, "GGAMMO", location)
+      allocate (UUAJPO(total_no_elements, top_cell_no + 1), STAT=ios)
+      CALL errstat_alloc(ios, "UUAJPO", location)
+      allocate (VSTHEO(total_no_elements, top_cell_no + 1), STAT=ios)
+      CALL errstat_alloc(ios, "VSTHEO", location)
+      allocate (QQQSWO(total_no_elements, 4), STAT=ios)
+      CALL errstat_alloc(ios, "QQQSWO", location)
+      allocate (QQO(total_no_elements, top_cell_no + 1, 4), STAT=ios)
+      CALL errstat_alloc(ios, "QQO", location)
 
       ! Initialise to default values
-      DSWO=0.0d0
-      QIO=0.0d0
-      QQRFO=0.0d0
-      RSZWLO=0.0d0
-      ZONEO=0.0d0
-      GGAMMO=0.0d0
-      QQQSWO=0.0d0
-      QQO=0.0d0
-      UUAJPO=0.0d0
-      VSTHEO=0.0d0
+      DSWO = 0.0d0
+      QIO = 0.0d0
+      QQRFO = 0.0d0
+      RSZWLO = 0.0d0
+      ZONEO = 0.0d0
+      GGAMMO = 0.0d0
+      QQQSWO = 0.0d0
+      QQO = 0.0d0
+      UUAJPO = 0.0d0
+      VSTHEO = 0.0d0
 
    END SUBROUTINE initialise_colm_co
 

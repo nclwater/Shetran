@@ -60,10 +60,10 @@
 !> @endhistory
 MODULE AL_C
 
-   USE SGLOBAL, ONLY : NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
+   USE SGLOBAL, ONLY: NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -107,23 +107,23 @@ MODULE AL_C
    INTEGER, DIMENSION(NELEE) :: NVSSPC !! VSS cell containing a spring source by source element.
    INTEGER, DIMENSION(NELEE) :: NVSSPT !! Spring source element keyed by its target element; zero means no target mapping.
    INTEGER, DIMENSION(NELEE) :: NVSWLI !! Well-record number keyed by the element containing the well; zero means no well.
-   DOUBLEPRECISION, DIMENSION(NELEE,4) :: DHF !! Distance from an element node/centroid to each face (m).
+   DOUBLEPRECISION, DIMENSION(NELEE, 4) :: DHF !! Distance from an element node/centroid to each face (m).
    LOGICAL, DIMENSION(NELEE) :: ISPACK !! Whether a snowpack is present on each element.
 
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JVSACN !! Adjacent VSS cell number by face, cell, and element; zero means no connection.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JVSDEL !! Signed split-cell connectivity code by face, cell, and element.
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: DELTAZ !! VSS cell thickness by cell and element (m).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ZVSNOD !! VSS node elevation by cell and element (m).
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JVSACN !! Adjacent VSS cell number by face, cell, and element; zero means no connection.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JVSDEL !! Signed split-cell connectivity code by face, cell, and element.
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: DELTAZ !! VSS cell thickness by cell and element (m).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: ZVSNOD !! VSS node elevation by cell and element (m).
 
 ! Link and bank geometry.
-   INTEGER, DIMENSION(NLFEE,2) :: ICMBK  !! Explicit bank-element number by link and bank side.
-   INTEGER, DIMENSION(NLFEE,2) :: NHBED  !! Highest VSS cell below the channel bed by link and bank side.
-   INTEGER, DIMENSION(NLFEE,6) :: ICMRF2 !! Multi-link branch map: adjacent elements in columns 1:3 and their faces in 4:6.
+   INTEGER, DIMENSION(NLFEE, 2) :: ICMBK  !! Explicit bank-element number by link and bank side.
+   INTEGER, DIMENSION(NLFEE, 2) :: NHBED  !! Highest VSS cell below the channel bed by link and bank side.
+   INTEGER, DIMENSION(NLFEE, 6) :: ICMRF2 !! Multi-link branch map: adjacent elements in columns 1:3 and their faces in 4:6.
    DOUBLEPRECISION, DIMENSION(NLFEE) :: CLENTH !! Channel-link length (m).
    DOUBLEPRECISION, DIMENSION(NLFEE) :: CWIDTH !! Channel-link width (m).
    DOUBLEPRECISION, DIMENSION(NLFEE) :: ZBEFF  !! Effective channel-bed elevation (m).
    DOUBLEPRECISION, DIMENSION(NLFEE) :: ZBFULL !! Bankfull channel elevation (m).
-   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: FHBED !! Fractional vertical-cell overlap at the channel bed by link and bank side.
+   DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: FHBED !! Fractional vertical-cell overlap at the channel bed by link and bank side.
    LOGICAL :: BEXBK                            !! Whether explicit bank elements are enabled.
    LOGICAL, DIMENSION(NLFEE) :: LINKNS         !! Whether each channel link is aligned north-south.
 
@@ -131,14 +131,14 @@ MODULE AL_C
    INTEGER :: NV                           !! Number of active vegetation types.
    INTEGER, DIMENSION(NVEE) :: NRD         !! Number of VSS nodes in the root zone by vegetation type.
    DOUBLEPRECISION, DIMENSION(NVEE) :: RDL !! Legacy bank-root fraction read from ET8; current validation requires zero.
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: RDF !! Root-density fraction by vegetation type and VSS node.
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RDF !! Root-density fraction by vegetation type and VSS node.
 
    INTEGER :: NS                              !! Number of active soil types.
    DOUBLEPRECISION, DIMENSION(NSEE) :: THSAT  !! Saturated moisture content used by sediment coupling, by soil type (m3/m3).
    DOUBLEPRECISION, DIMENSION(NSEE) :: VSPOR  !! VSS porosity/saturated volumetric water content by soil type (m3/m3).
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: NLYRBT !! Bottom VSS cell number by element and soil layer.
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: NTSOIL !! Soil-type number by element and soil layer.
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ZLYRBT !! Bottom elevation by element and soil layer (m).
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: NLYRBT !! Bottom VSS cell number by element and soil layer.
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: NTSOIL !! Soil-type number by element and soil layer.
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: ZLYRBT !! Bottom elevation by element and soil layer (m).
 
 ! Time-dependent and workspace state.
    INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for spatial/category input.
@@ -155,29 +155,28 @@ MODULE AL_C
    DOUBLEPRECISION, DIMENSION(NELEE) :: QVSBF  !! VSS flux through the base of each active column (m/s).
    DOUBLEPRECISION, DIMENSION(NELEE) :: QVSSPR !! Spring discharge by source element (m3/s).
    DOUBLEPRECISION, DIMENSION(NELEE) :: QVSWEL !! Actual total well abstraction/recharge as an element-area flux (m/s).
-   DOUBLEPRECISION, DIMENSION(NELEE,4) :: QOC  !! Signed overland/channel discharge through each element face (m3/s).
+   DOUBLEPRECISION, DIMENSION(NELEE, 4) :: QOC  !! Signed overland/channel discharge through each element face (m3/s).
 
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: QVSV   !! Signed vertical VSS flux by cell interface and element (m/s).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSPSI  !! VSS pressure head by cell and element (m).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: VSTHE  !! Volumetric water content by cell and element (m3/m3).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: QVSWLI !! Actual well flux by VSS cell and well record (m/s).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: ERUZ   !! Root-water extraction rate by element and VSS cell (m/s).
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: QVSH !! Signed lateral VSS discharge by face, cell, and element (m3/s).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: QVSV   !! Signed vertical VSS flux by cell interface and element (m/s).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: VSPSI  !! VSS pressure head by cell and element (m).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: VSTHE  !! Volumetric water content by cell and element (m3/m3).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: QVSWLI !! Actual well flux by VSS cell and well record (m/s).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: ERUZ   !! Root-water extraction rate by element and VSS cell (m/s).
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: QVSH !! Signed lateral VSS discharge by face, cell, and element (m3/s).
 
    DOUBLEPRECISION, DIMENSION(NLFEE) :: ARXL    !! Current channel-flow cross-sectional area by link (m2).
-   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKB  !! Saturated channel-bed exchange for wet channel area (m3/s).
-   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKF  !! Lateral VSS exchange between channel/link and surrounding column (m3/s).
-   DOUBLEPRECISION, DIMENSION(NLFEE,2) :: QBKI  !! Channel-bed exchange assigned to dry channel area (m3/s).
+   DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: QBKB  !! Saturated channel-bed exchange for wet channel area (m3/s).
+   DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: QBKF  !! Lateral VSS exchange between channel/link and surrounding column (m3/s).
+   DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: QBKI  !! Channel-bed exchange assigned to dry channel area (m3/s).
 
    DOUBLEPRECISION, DIMENSION(NVEE) :: CLAI !! Current canopy leaf-area index by vegetation type.
    DOUBLEPRECISION, DIMENSION(NVEE) :: PLAI !! Current maximum-season ground-cover proportion by vegetation type.
 
-   DOUBLEPRECISION, DIMENSION(NELEE,NSEDEE) :: SBERR !! Sediment balance-error state by element and size fraction.
+   DOUBLEPRECISION, DIMENSION(NELEE, NSEDEE) :: SBERR !! Sediment balance-error state by element and size fraction.
 
    DOUBLEPRECISION DTUZ   !! Current coupled VSS/ET timestep in seconds (s).
    DOUBLEPRECISION UZNEXT !! Current model timestep expressed in hours (h).
 !PRIVATE :: NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE
-
 
 CONTAINS
 
@@ -212,36 +211,34 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c"
 
-      ALLOCATE(qvsh(4,top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "qvsh", location)
-      ALLOCATE(qvsv(top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "qvsv", location)
-      ALLOCATE(vspsi(top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "vspsi", location)
-      ALLOCATE(vsthe(top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "vsthe", location)
-      ALLOCATE(qvswli(top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "qvswli", location)
-      ALLOCATE(eruz(total_no_elements,top_cell_no), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "eruz", location)
-      ALLOCATE (JVSACN(4,top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "JVSACN", location)
-      ALLOCATE (JVSDEL(4,top_cell_no,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "JVSDEL", location)
+      ALLOCATE (qvsh(4, top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "qvsh", location)
+      ALLOCATE (qvsv(top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "qvsv", location)
+      ALLOCATE (vspsi(top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "vspsi", location)
+      ALLOCATE (vsthe(top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "vsthe", location)
+      ALLOCATE (qvswli(top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "qvswli", location)
+      ALLOCATE (eruz(total_no_elements, top_cell_no), STAT=ios)
+      CALL errstat_alloc(ios, "eruz", location)
+      ALLOCATE (JVSACN(4, top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "JVSACN", location)
+      ALLOCATE (JVSDEL(4, top_cell_no, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "JVSDEL", location)
 
       ! Initialize to default values
-      qvsh=0.0d0
-      qvsv=0.0d0
-      vspsi=0.0d0
-      vsthe=0.0d0
-      qvswli=0.0d0
-      eruz=0.0d0
-      JVSACN=0
-      JVSDEL=0
+      qvsh = 0.0d0
+      qvsv = 0.0d0
+      vspsi = 0.0d0
+      vsthe = 0.0d0
+      qvswli = 0.0d0
+      eruz = 0.0d0
+      JVSACN = 0
+      JVSDEL = 0
 
    END SUBROUTINE initialise_al_c
-
-
 
 !> Allocates and zero-initializes VSS cell and soil-layer geometry.
 !>
@@ -271,27 +268,24 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c2"
 
-      ALLOCATE (DELTAZ(LLEE,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "DELTAZ", location)
-      ALLOCATE (ZVSNOD(LLEE,total_no_elements), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZVSNOD", location)
-      ALLOCATE (NLYRBT(total_no_elements,NLYREE), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "NLYRBT", location)
-      ALLOCATE (NTSOIL(total_no_elements,NLYREE), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "NTSOIL", location)
-      ALLOCATE (ZLYRBT(total_no_elements,NLYREE), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZLYRBT", location)
+      ALLOCATE (DELTAZ(LLEE, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "DELTAZ", location)
+      ALLOCATE (ZVSNOD(LLEE, total_no_elements), STAT=ios)
+      CALL errstat_alloc(ios, "ZVSNOD", location)
+      ALLOCATE (NLYRBT(total_no_elements, NLYREE), STAT=ios)
+      CALL errstat_alloc(ios, "NLYRBT", location)
+      ALLOCATE (NTSOIL(total_no_elements, NLYREE), STAT=ios)
+      CALL errstat_alloc(ios, "NTSOIL", location)
+      ALLOCATE (ZLYRBT(total_no_elements, NLYREE), STAT=ios)
+      CALL errstat_alloc(ios, "ZLYRBT", location)
 
-      DELTAZ=0.0d0
-      ZVSNOD=0.0d0
-      NLYRBT=0
-      NTSOIL=0
-      ZLYRBT=0.0d0
-
+      DELTAZ = 0.0d0
+      ZVSNOD = 0.0d0
+      NLYRBT = 0
+      NTSOIL = 0
+      ZLYRBT = 0.0d0
 
    END SUBROUTINE initialise_al_c2
-
-
 
 !> Allocates and zero-initializes the root-density function table.
 !>
@@ -317,9 +311,9 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c3"
 
-      ALLOCATE (RDF(NV,LLEE), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "RDF", location)
-      RDF=0.0d0
+      ALLOCATE (RDF(NV, LLEE), STAT=ios)
+      CALL errstat_alloc(ios, "RDF", location)
+      RDF = 0.0d0
 
    END SUBROUTINE initialise_al_c3
 

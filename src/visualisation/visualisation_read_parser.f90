@@ -65,8 +65,8 @@ MODULE visualisation_read_parser
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: IOSTAT_END
    USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
 
-   USE MOD_PARAMETERS, ONLY : I_P, LENGTH_LINELONG
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINELONG
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -77,7 +77,7 @@ MODULE visualisation_read_parser
    INTEGER, PARAMETER, PUBLIC :: VIS_READ_INVALID = 2 !! Invalid state, record, syntax, conversion, or value.
    INTEGER, PARAMETER, PUBLIC :: VIS_READ_IO_ERROR = 3 !! External I/O failure other than normal EOF.
    INTEGER, PARAMETER, PUBLIC :: VIS_MAX_RECORD_LENGTH = 500 !! Maximum significant record length.
-   INTEGER, PARAMETER, PUBLIC :: VIS_RECORD_BUFFER_LENGTH = 2 * VIS_MAX_RECORD_LENGTH + 1 !! Raw look-ahead extent.
+   INTEGER, PARAMETER, PUBLIC :: VIS_RECORD_BUFFER_LENGTH = 2*VIS_MAX_RECORD_LENGTH + 1 !! Raw look-ahead extent.
 
 !> @brief Holds the cursor and validated record for one caller-owned input unit.
 !>
@@ -675,7 +675,7 @@ CONTAINS
       length = LEN(title)
       IF (length >= 2) THEN
          IF ((title(1:1) == "'" .AND. title(length:length) == "'") .OR. &
-            (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
+             (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
             title = title(2:length - 1)
          END IF
       END IF
@@ -741,7 +741,7 @@ CONTAINS
       status = VIS_READ_OK
       message = ''
       ALLOCATE (segments(0), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "segments", location)
+      CALL errstat_alloc(ios, "segments", location)
 
       content_length = LEN_TRIM(record)
       IF (content_length > 0) THEN
@@ -786,7 +786,7 @@ CONTAINS
 
       DEALLOCATE (segments)
       ALLOCATE (segments(count), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "segments", location)
+      CALL errstat_alloc(ios, "segments", location)
       count = 0
       first = 1
       DO i = 1, content_length + 1

@@ -38,12 +38,11 @@
 !> @endnote
 module ZQmod
 
-   USE sglobal,    ONLY: UZNOW                                                 ! simulation time (hours)
-   USE AL_C,       ONLY: DTUZ,UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
-   USE AL_D,       ONLY: zqd,NoZQTables,ZQTableLink,ZQTableFace,ZQweirSill     ! module state shared with OCQDQ
+   USE sglobal, ONLY: UZNOW                                                 ! simulation time (hours)
+   USE AL_C, ONLY: DTUZ, UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
+   USE AL_D, ONLY: zqd, NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill     ! module state shared with OCQDQ
    USE mod_parameters                                                          ! general parameters
-   USE mod_error,  ONLY: err_check_allocatememorystatus
-
+   USE mod_error, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -56,8 +55,8 @@ module ZQmod
    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQcols                  !! Number of columns in each ZQ table.
    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: nZQrows                  !! Number of data rows in each ZQ table.
    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: zcol                     !! Currently active discharge-column index for each ZQ table.
-   REAL(kind=R8P), DIMENSION(:,:), ALLOCATABLE     :: headerRealArray          !! Numeric stage thresholds parsed from `ZQ>threshold` headers.
-   REAL(kind=R8P), DIMENSION(:,:,:), ALLOCATABLE   :: ZQ                       !! Stage-discharge table values, indexed by row, column, and table.
+   REAL(kind=R8P), DIMENSION(:, :), ALLOCATABLE     :: headerRealArray          !! Numeric stage thresholds parsed from `ZQ>threshold` headers.
+   REAL(kind=R8P), DIMENSION(:, :, :), ALLOCATABLE   :: ZQ                       !! Stage-discharge table values, indexed by row, column, and table.
    INTEGER(kind=I_P), DIMENSION(:), ALLOCATABLE    :: ZQTableOpHour            !! Hour offset at which each reservoir's sluices are operated.
    INTEGER(kind=I_P)                               :: ZQTableRef               !! Reference number read for the current ZQ table.
 
@@ -65,7 +64,6 @@ module ZQmod
    PUBLIC                                          :: ReadZQTable, get_ZQTable_value   ! subroutine names
 
 CONTAINS
-
 
 !---------------------------------------------------------------------------
 !> Reads the user-defined reservoir ZQ table file.
@@ -124,52 +122,52 @@ CONTAINS
 
       ! specific variables
       CHARACTER(LEN=120)                              :: headerRaw                         !! Raw ZQ table header line while it is being split.
-      CHARACTER(LEN=9), DIMENSION(:,:), ALLOCATABLE   :: headerRawArray                    !! Raw header tokens by column and table.
-      CHARACTER(LEN=9), DIMENSION(:,:), ALLOCATABLE   :: headerCharArray                   !! Numeric part of each `ZQ>threshold` header as text.
+      CHARACTER(LEN=9), DIMENSION(:, :), ALLOCATABLE   :: headerRawArray                    !! Raw header tokens by column and table.
+      CHARACTER(LEN=9), DIMENSION(:, :), ALLOCATABLE   :: headerCharArray                   !! Numeric part of each `ZQ>threshold` header as text.
       INTEGER(KIND=I_P)                               :: maxnumberRows, maxnumberCols      !! Maximum row/column count over all ZQ tables.
       LOGICAL                                         :: IsZQreadOK = .FALSE.              !! Unused legacy read-status flag.
 
       INTEGER(KIND=I_P)                               :: fid_ZQ_log                        !! Unit number for `output_readZQTable.txt`.
 
       ! Code -----------------------------------------------------------------
-      OPEN(NEWUNIT=fid_ZQ_log, FILE='output_readZQTable.txt', IOSTAT=ios)
+      OPEN (NEWUNIT=fid_ZQ_log, FILE='output_readZQTable.txt', IOSTAT=ios)
       IF (ios /= 0) CALL handle_zq_error()
 
       ! read ZQ tables
-      READ(zqd, *, IOSTAT=ios)                                                        ! skip line 1
+      READ (zqd, *, IOSTAT=ios)                                                        ! skip line 1
       IF (ios /= 0) CALL handle_zq_error()
 
-      READ(zqd, *, IOSTAT=ios) NoZQTables                                             ! read line 2
+      READ (zqd, *, IOSTAT=ios) NoZQTables                                             ! read line 2
       IF (ios /= 0) CALL handle_zq_error()
 
-      ALLOCATE(nZQcols(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "nZQcols", location)
-      ALLOCATE(nZQrows(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "nZQrows", location)
-      ALLOCATE(zcol(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "zcol", location)
-      ALLOCATE(ZQTableLink(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZQTableLink", location)
-      ALLOCATE(ZQTableFace(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZQTableFace", location)
-      ALLOCATE(ZQTableOpHour(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZQTableOpHour", location)
-      ALLOCATE(ZQWeirSill(NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZQWeirSill", location)
+      ALLOCATE (nZQcols(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "nZQcols", location)
+      ALLOCATE (nZQrows(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "nZQrows", location)
+      ALLOCATE (zcol(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "zcol", location)
+      ALLOCATE (ZQTableLink(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "ZQTableLink", location)
+      ALLOCATE (ZQTableFace(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "ZQTableFace", location)
+      ALLOCATE (ZQTableOpHour(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "ZQTableOpHour", location)
+      ALLOCATE (ZQWeirSill(NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "ZQWeirSill", location)
 
       DO i = 1, NoZQTables                                                            ! loop through ZQtables
          DO j = 1, 9
-            READ(zqd, *, IOSTAT=ios)                                                ! skip lines 3-11
+            READ (zqd, *, IOSTAT=ios)                                                ! skip lines 3-11
             IF (ios /= 0) CALL handle_zq_error()
          END DO
 
-         READ(zqd, *, IOSTAT=ios) nZQrows(i)                                         ! read line 12
+         READ (zqd, *, IOSTAT=ios) nZQrows(i)                                         ! read line 12
          IF (ios /= 0) CALL handle_zq_error()
 
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 13
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 13
          IF (ios /= 0) CALL handle_zq_error()
 
-         READ(zqd, "(A)", IOSTAT=ios) headerRaw                                      ! read line 14
+         READ (zqd, "(A)", IOSTAT=ios) headerRaw                                      ! read line 14
          IF (ios /= 0) CALL handle_zq_error()
 
          nZQcols(i) = 0                                                              ! initialise nZQcols counter
@@ -181,13 +179,13 @@ CONTAINS
             IF (pos == 0) THEN
                headerRaw = ""                                                      ! No more spaces, reached the last element
             ELSE
-               headerRaw = ADJUSTL(headerRaw(pos+1:))                              ! Advance string past space
+               headerRaw = ADJUSTL(headerRaw(pos + 1:))                              ! Advance string past space
             END IF
             nZQcols(i) = nZQcols(i) + 1
          END DO
 
          DO j = 1, nZQrows(i)
-            READ(zqd, *, IOSTAT=ios)                                                ! read ZQ table as zqd
+            READ (zqd, *, IOSTAT=ios)                                                ! read ZQ table as zqd
             IF (ios /= 0) CALL handle_zq_error()
          END DO
       END DO
@@ -196,45 +194,45 @@ CONTAINS
       maxnumberCols = MAXVAL(nZQcols)
 
       ! allocate array dimensions using maxnumberRows and maxnumberCols
-      ALLOCATE(ZQ(maxnumberRows, maxnumberCols, NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "ZQ", location)
-      ALLOCATE(headerRawArray(maxnumberCols, NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "headerRawArray", location)
-      ALLOCATE(headerCharArray(maxnumberCols, NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "headerCharArray", location)
-      ALLOCATE(headerRealArray(maxnumberCols, NoZQTables), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "headerRealArray", location)
-      REWIND(zqd)
+      ALLOCATE (ZQ(maxnumberRows, maxnumberCols, NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "ZQ", location)
+      ALLOCATE (headerRawArray(maxnumberCols, NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "headerRawArray", location)
+      ALLOCATE (headerCharArray(maxnumberCols, NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "headerCharArray", location)
+      ALLOCATE (headerRealArray(maxnumberCols, NoZQTables), STAT=ios)
+      CALL errstat_alloc(ios, "headerRealArray", location)
+      REWIND (zqd)
 
       ! read ZQ metadata
-      READ(zqd, *, IOSTAT=ios)                                                        ! skip line 1
-      READ(zqd, *, IOSTAT=ios)                                                        ! skip line 2
+      READ (zqd, *, IOSTAT=ios)                                                        ! skip line 1
+      READ (zqd, *, IOSTAT=ios)                                                        ! skip line 2
 
       DO i = 1, NoZQTables
 
          zcol(i) = 2                                                                 ! set zcol=2 to start with
 
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 3
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 3
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios) ZQTableRef                                         ! read line 4
+         READ (zqd, *, IOSTAT=ios) ZQTableRef                                         ! read line 4
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 5
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 5
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios) ZQTableLink(i)                                     ! read line 6
+         READ (zqd, *, IOSTAT=ios) ZQTableLink(i)                                     ! read line 6
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 7
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 7
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios) ZQTableFace(i)                                     ! read line 8
+         READ (zqd, *, IOSTAT=ios) ZQTableFace(i)                                     ! read line 8
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 9
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 9
          IF (ios /= 0) CALL handle_zq_error()
-         READ(zqd, *, IOSTAT=ios) ZQTableOpHour(i)                                   ! read line 10
+         READ (zqd, *, IOSTAT=ios) ZQTableOpHour(i)                                   ! read line 10
          IF (ios /= 0) CALL handle_zq_error()
 
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 11
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 12
-         READ(zqd, *, IOSTAT=ios)                                                    ! skip line 13
-         READ(zqd, "(A)", IOSTAT=ios) headerRaw                                      ! read line 14
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 11
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 12
+         READ (zqd, *, IOSTAT=ios)                                                    ! skip line 13
+         READ (zqd, "(A)", IOSTAT=ios) headerRaw                                      ! read line 14
          IF (ios /= 0) CALL handle_zq_error()
 
          ! convert headerRaw to headerRawArray
@@ -242,49 +240,49 @@ CONTAINS
          DO j = 1, nZQcols(i)
             pos = INDEX(headerRaw, " ")
             IF (pos == 0) pos = LEN_TRIM(headerRaw) + 1
-            headerRawArray(j,i) = headerRaw(1:pos-1)
+            headerRawArray(j, i) = headerRaw(1:pos - 1)
             IF (pos <= LEN(headerRaw)) THEN
-               headerRaw = ADJUSTL(headerRaw(pos+1:))
+               headerRaw = ADJUSTL(headerRaw(pos + 1:))
             ELSE
                headerRaw = ""
             END IF
          END DO
 
          ! convert headerRawArray to headerCharArray and then headerRealArray e.g. 'ZQ>96.8' -> 96.80
-         headerCharArray(1,i) = 'Z'                                                  ! set the col/row header as 'Z'
+         headerCharArray(1, i) = 'Z'                                                  ! set the col/row header as 'Z'
          DO j = 2, nZQcols(i)
-            pos = INDEX(headerRawArray(j,i), '>')
-            headerCharArray(j,i) = headerRawArray(j,i)(pos+1:)
-            READ(headerCharArray(j,i), *, IOSTAT=ios) headerRealArray(j,i)
+            pos = INDEX(headerRawArray(j, i), '>')
+            headerCharArray(j, i) = headerRawArray(j, i) (pos + 1:)
+            READ (headerCharArray(j, i), *, IOSTAT=ios) headerRealArray(j, i)
             IF (ios /= 0) CALL handle_zq_error()
          END DO
 
          ! read ZQweirSill as lowest value of headers
-         ZQweirSill(i) = headerRealArray(2,i)
+         ZQweirSill(i) = headerRealArray(2, i)
 
          DO j = 1, nZQrows(i)
-            READ(zqd, *, IOSTAT=ios) (ZQ(j, k, i), k = 1, nZQcols(i))
+            READ (zqd, *, IOSTAT=ios) (ZQ(j, k, i), k=1, nZQcols(i))
             IF (ios /= 0) CALL handle_zq_error()
          END DO
 
          ! write ZQTables to fid_ZQ_log.fort
-         WRITE(fid_ZQ_log, *) 'ZQTableRef   =', ZQTableRef
-         WRITE(fid_ZQ_log, *) 'ZQTableLink  =', ZQTableLink(i)
-         WRITE(fid_ZQ_log, *) 'ZQTableFace  =', ZQTableFace(i)
-         WRITE(fid_ZQ_log, *) 'ZQTableOpHour=', ZQTableOpHour(i)
-         WRITE(fid_ZQ_log, *) 'nZQcols      =', nZQcols(i)
-         WRITE(fid_ZQ_log, *) 'nZQrows      =', nZQrows(i)
+         WRITE (fid_ZQ_log, *) 'ZQTableRef   =', ZQTableRef
+         WRITE (fid_ZQ_log, *) 'ZQTableLink  =', ZQTableLink(i)
+         WRITE (fid_ZQ_log, *) 'ZQTableFace  =', ZQTableFace(i)
+         WRITE (fid_ZQ_log, *) 'ZQTableOpHour=', ZQTableOpHour(i)
+         WRITE (fid_ZQ_log, *) 'nZQcols      =', nZQcols(i)
+         WRITE (fid_ZQ_log, *) 'nZQrows      =', nZQrows(i)
 
          ! Uses the modern unlimited repeat formatter "(*(...))"
-         WRITE(fid_ZQ_log, '(A, *(A10))') 'ZQ headers: ', headerRawArray(1:nZQcols(i), i)
+         WRITE (fid_ZQ_log, '(A, *(A10))') 'ZQ headers: ', headerRawArray(1:nZQcols(i), i)
 
          DO printRow = 1, nZQrows(i)
-            WRITE(fid_ZQ_log, '(*(F12.3))') (ZQ(printRow, printCol, i), printCol = 1, nZQcols(i))
+            WRITE (fid_ZQ_log, '(*(F12.3))') (ZQ(printRow, printCol, i), printCol=1, nZQcols(i))
          END DO
       END DO
 
-      CLOSE(zqd)
-      CLOSE(fid_ZQ_log)
+      CLOSE (zqd)
+      CLOSE (fid_ZQ_log)
 
       RETURN
 
@@ -302,7 +300,6 @@ CONTAINS
       END SUBROUTINE handle_zq_error
 
    END SUBROUTINE ReadZQTable
-
 
    !---------------------------------------------------------------------------
    !> Returns downstream discharge from a reservoir ZQ lookup table.
@@ -330,7 +327,7 @@ CONTAINS
    !! imported state. The stage-discharge lookup is table based and does not
    !! interpolate.
    !! @endnote
-   FUNCTION get_ZQTable_value(ZQref,zu) RESULT(qd)
+   FUNCTION get_ZQTable_value(ZQref, zu) RESULT(qd)
 
       ! IO variables
       INTEGER(kind=I_P), INTENT(IN)   :: ZQref    !! Index of the ZQ table to use for this reservoir/channel link.
@@ -343,30 +340,28 @@ CONTAINS
       ! Code -----------------------------------------------------------------
 
       ! start sluice operation loop
-      IF (INT(UZNOW + ZQTableOpHour(ZQref)) / 24 >                            &
-      &           INT(UZNOW + ZQTableOpHour(ZQref) - UZNEXT) / 24) THEN               ! if current day integer > previous day INT(UZNOW), then operate sluices:
+      IF (INT(UZNOW + ZQTableOpHour(ZQref))/24 >                            &
+      &           INT(UZNOW + ZQTableOpHour(ZQref) - UZNEXT)/24) THEN               ! if current day integer > previous day INT(UZNOW), then operate sluices:
          !WRITE(778, *), 'new day'                                            ! write for test purposes
 
          ! select weir equation (Zcol) based on which range of stages Zu falls into
          ! NB if Zu < min ZQ threshold, will return an error
          DO i = nZQcols(ZQref), 2, -1                                        ! start loop in descending order of ZQ thresholds
-            IF(Zu > headerRealArray(i,ZQref)) THEN                          ! test if Zu > ZQ threshold
+            IF (Zu > headerRealArray(i, ZQref)) THEN                          ! test if Zu > ZQ threshold
                zcol(ZQref) = i                                             ! if TRUE, then pass i (nZQcol) to zcol...
                EXIT                                                        ! ...and exit
-            ELSEIF(Zu > headerRealArray(2,ZQref)) THEN                      ! elseif Zu is greater than the minimum ZQ threshold ->restart loop
+            ELSEIF (Zu > headerRealArray(2, ZQref)) THEN                      ! elseif Zu is greater than the minimum ZQ threshold ->restart loop
             ELSE                                                            ! else Zu is below threshold, print warning and exit loop
-               PRINT*,                                                     &
+               PRINT *,                                                     &
                &                       'warning: Zu is below minimum ZQthreshold defined in ZQtable'
                EXIT
-            ENDIF
+            END IF
          END DO
-      ENDIF                                                                   ! end sluice operation loop
-
-
+      END IF                                                                   ! end sluice operation loop
 
       ! look up z value in ZQ array which matches Zu and return corresponding Qd
       DO i = 1, nZQrows(ZQref)                                                ! start loop through rows for a given table
-         IF(Zu > ZQ(i, 1, ZQref)) THEN                                       ! if Zu is greater than the ith value in the z column...
+         IF (Zu > ZQ(i, 1, ZQref)) THEN                                       ! if Zu is greater than the ith value in the z column...
             Qd = -999                                                       ! return dummy value -999
          ELSE
             Qd = ZQ(i, zcol(ZQref), ZQref)                                  ! when Zu is found, finds Qd from zcol, and assigns to Qd

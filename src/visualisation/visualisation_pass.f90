@@ -58,8 +58,8 @@
 !> @endhistory
 MODULE visualisation_pass
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -75,9 +75,9 @@ MODULE visualisation_pass
    INTEGER :: ncon     !! Number of contaminants available to visualisation metadata.
    INTEGER :: ver      !! Integer SHETRAN major version used in HDF5 dataset names.
 
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: SU_NUMBER !! Display-grid SHETRAN element number; zero means inactive.
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: BANK_NO   !! Bank element by square element and native face column.
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: RIVER_NO  !! River-link element by square element and native face column.
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: SU_NUMBER !! Display-grid SHETRAN element number; zero means inactive.
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: BANK_NO   !! Bank element by square element and native face column.
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: RIVER_NO  !! River-link element by square element and native face column.
    LOGICAL, DIMENSION(:), ALLOCATABLE   :: IS_SQUARE !! Element-class mask over `1:nel` for gridsquares.
    LOGICAL, DIMENSION(:), ALLOCATABLE   :: IS_BANK   !! Element-class mask over `1:nel` for bank elements.
    LOGICAL, DIMENSION(:), ALLOCATABLE   :: IS_LINK   !! Element-class mask over `1:nel` for river links.
@@ -89,18 +89,18 @@ MODULE visualisation_pass
    CHARACTER(256) :: checkfile    !! Visualisation-plan diagnostic pathname.
 
    INTEGER, PARAMETER :: freelimit = 360000 !! Legacy DLL licensing threshold; equal to `szlimit` in current source.
-   INTEGER, PARAMETER :: szlimit   = 360000 !! Per-axis upper limit applied to `grid_nx` and `grid_ny`.
+   INTEGER, PARAMETER :: szlimit = 360000 !! Per-axis upper limit applied to `grid_nx` and `grid_ny`.
    CHARACTER(256)     :: dumtext          !! Private workspace for the grid-limit diagnostic.
 
    PRIVATE
-   PUBLIC ::     north,     east,     south,    west, &
-      grid_nx,   grid_ny,  top_cell, nel,  &
-      SU_NUMBER,                           &
-      BANK_NO,  RIVER_NO,                  &
-      IS_SQUARE, IS_BANK,  IS_LINK,        &
-      EXISTS,    SEND_P,   DIRQQ,          &
-      nsed,      ncon,     ver,            &
-      ROOTDIR, hdf5filename, planfile, checkfile
+   PUBLIC ::     north, east, south, west, &
+             grid_nx, grid_ny, top_cell, nel, &
+             SU_NUMBER, &
+             BANK_NO, RIVER_NO, &
+             IS_SQUARE, IS_BANK, IS_LINK, &
+             EXISTS, SEND_P, DIRQQ, &
+             nsed, ncon, ver, &
+             ROOTDIR, hdf5filename, planfile, checkfile
 
 CONTAINS
 
@@ -122,7 +122,7 @@ CONTAINS
 !> @endhistory
    ELEMENTAL LOGICAL FUNCTION exists(i) RESULT(r)
       INTEGER, INTENT(IN) :: i !! Element number or sentinel to test.
-      r = i>0
+      r = i > 0
    END FUNCTION exists
 
 !> @brief Stores one keyed startup value in persistent visualisation state.
@@ -172,81 +172,81 @@ CONTAINS
 !> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
 !> @endhistory
    SUBROUTINE send_p(text, ii, L1, d2, cc, da, db)
-      integer, save :: coun=0 !! Legacy saved call counter; its former debug print is disabled.
+      integer, save :: coun = 0 !! Legacy saved call counter; its former debug print is disabled.
       INTEGER, INTENT(IN) :: da !! Declared first extent for an optional array payload; zero for scalar calls.
       INTEGER, INTENT(IN) :: db !! Declared second extent for `d2`; zero when no rank-two payload is sent.
       INTEGER, INTENT(IN), OPTIONAL :: ii !! Integer payload for integer-scalar keys.
-      INTEGER, DIMENSION(da,db), INTENT(IN), OPTIONAL :: d2 !! Rank-two integer payload for grid/topology keys.
+      INTEGER, DIMENSION(da, db), INTENT(IN), OPTIONAL :: d2 !! Rank-two integer payload for grid/topology keys.
       LOGICAL, DIMENSION(da), INTENT(IN), OPTIONAL :: L1 !! Rank-one logical payload for element-class keys.
       CHARACTER(*), INTENT(IN) :: text !! Exact lowercase dispatch key.
       CHARACTER(*), INTENT(IN), OPTIONAL :: cc !! Character payload for directory/filename keys.
 
       INTEGER(KIND=I_P) :: ios
-      CHARACTER(LEN=*), PARAMETER :: location='send_p'
+      CHARACTER(LEN=*), PARAMETER :: location = 'send_p'
 
       coun = coun + 1
-      SELECT CASE(text)
-       CASE('north')      ; north    = ii
-       CASE('east')       ; east     = ii
-       CASE('south')      ; south    = ii
-       CASE('west')       ; west     = ii
-       CASE('grid_nx')
-         IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
-         IF(ii>szlimit) THEN
-            WRITE(dumtext,'(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ',szlimit,' by ',szlimit,' cells'
-            PRINT*, TRIM(dumtext)
+      SELECT CASE (text)
+      CASE ('north'); north = ii
+      CASE ('east'); east = ii
+      CASE ('south'); south = ii
+      CASE ('west'); west = ii
+      CASE ('grid_nx')
+         IF (szlimit > freelimit) PRINT *, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
+         IF (ii > szlimit) THEN
+            WRITE (dumtext, '(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ', szlimit, ' by ', szlimit, ' cells'
+            PRINT *, TRIM(dumtext)
             ERROR STOP
          ELSE
-            grid_nx  = ii
-         ENDIF
-       CASE('grid_ny')
-         IF(szlimit>freelimit) PRINT*, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
-         IF(ii>szlimit) THEN
-            WRITE(dumtext,'(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ',szlimit,' by ',szlimit,' cells'
-            PRINT*, TRIM(dumtext)
+            grid_nx = ii
+         END IF
+      CASE ('grid_ny')
+         IF (szlimit > freelimit) PRINT *, 'THIS IS AN ILLEGAL COPY OF THE SHEGRAPH DLL 23/1/08'
+         IF (ii > szlimit) THEN
+            WRITE (dumtext, '(A,I4,A,I4,A)') '******* Grid size limit exceeded.  Limit is ', szlimit, ' by ', szlimit, ' cells'
+            PRINT *, TRIM(dumtext)
             ERROR STOP
          ELSE
-            grid_ny  = ii
-         ENDIF
+            grid_ny = ii
+         END IF
 
-       CASE('top_cell')   ; top_cell = ii
-       CASE('nel')        ; nel      = ii
-       CASE('dirqq')      ; dirqq    = cc
+      CASE ('top_cell'); top_cell = ii
+      CASE ('nel'); nel = ii
+      CASE ('dirqq'); dirqq = cc
 
-       CASE('is_square')
-         ALLOCATE(IS_SQUARE(nel), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "IS_SQUARE", location)
+      CASE ('is_square')
+         ALLOCATE (IS_SQUARE(nel), STAT=ios)
+         CALL errstat_alloc(ios, "IS_SQUARE", location)
          IS_SQUARE = L1
-       CASE('is_bank')
-         ALLOCATE(IS_BANK(nel), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "IS_BANK", location)
-         IS_BANK   = L1
-       CASE('is_link')
-         ALLOCATE(IS_LINK(nel), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "IS_LINK", location)
-         IS_LINK   = L1
-       CASE('su')
-         ALLOCATE(SU_NUMBER(grid_nx,grid_ny), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "SU_NUMBER", location)
+      CASE ('is_bank')
+         ALLOCATE (IS_BANK(nel), STAT=ios)
+         CALL errstat_alloc(ios, "IS_BANK", location)
+         IS_BANK = L1
+      CASE ('is_link')
+         ALLOCATE (IS_LINK(nel), STAT=ios)
+         CALL errstat_alloc(ios, "IS_LINK", location)
+         IS_LINK = L1
+      CASE ('su')
+         ALLOCATE (SU_NUMBER(grid_nx, grid_ny), STAT=ios)
+         CALL errstat_alloc(ios, "SU_NUMBER", location)
          SU_NUMBER = d2
-       CASE('bank_no')
-         ALLOCATE(BANK_NO(nel,4), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "BANK_NO", location)
-         BANK_NO   = d2
-       CASE('river_no')
-         ALLOCATE(RIVER_NO(nel,4), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "RIVER_NO", location)
-         RIVER_NO  = d2
+      CASE ('bank_no')
+         ALLOCATE (BANK_NO(nel, 4), STAT=ios)
+         CALL errstat_alloc(ios, "BANK_NO", location)
+         BANK_NO = d2
+      CASE ('river_no')
+         ALLOCATE (RIVER_NO(nel, 4), STAT=ios)
+         CALL errstat_alloc(ios, "RIVER_NO", location)
+         RIVER_NO = d2
 
-       CASE('nsed')       ; nsed = ii
-       CASE('ncon')       ; ncon = ii
-       CASE('ver')        ; ver  = ii
-       CASE('rootdir')    ; rootdir = cc
-       CASE('hdf5fname')  ; hdf5filename=cc
-       CASE('planfile')   ; planfile=cc
-       CASE('checkfile')  ; checkfile=cc
+      CASE ('nsed'); nsed = ii
+      CASE ('ncon'); ncon = ii
+      CASE ('ver'); ver = ii
+      CASE ('rootdir'); rootdir = cc
+      CASE ('hdf5fname'); hdf5filename = cc
+      CASE ('planfile'); planfile = cc
+      CASE ('checkfile'); checkfile = cc
 
-       CASE DEFAULT ; PRINT*, 'FAILED IN PASS  '//TRIM(text)//'  '//TRIM(cc) ; STOP
+      CASE DEFAULT; PRINT *, 'FAILED IN PASS  '//TRIM(text)//'  '//TRIM(cc); STOP
 
       END SELECT
    END SUBROUTINE send_p

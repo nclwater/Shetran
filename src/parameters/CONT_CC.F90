@@ -25,54 +25,54 @@
 !> | 2026-03 | SB | 4.6.1 | Made eight runtime arrays allocatable and added active-size allocation. |
 !> @endhistory
 MODULE CONT_CC
-   USE SGLOBAL, ONLY : NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements,top_cell_no,total_no_links
+   USE SGLOBAL, ONLY: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements, top_cell_no, total_no_links
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
-   DOUBLEPRECISION CCAPB(NELEE,NCONEE)  !! Base concentration boundary by element and contaminant.
-   DOUBLEPRECISION CCPBO(NELEE,NCONEE)  !! Legacy companion to `CCAPB`; not referenced by current source.
-   DOUBLEPRECISION CCAPE(NELEE,NCONEE)  !! External-inflow concentration by element and contaminant.
+   DOUBLEPRECISION CCAPB(NELEE, NCONEE)  !! Base concentration boundary by element and contaminant.
+   DOUBLEPRECISION CCPBO(NELEE, NCONEE)  !! Legacy companion to `CCAPB`; not referenced by current source.
+   DOUBLEPRECISION CCAPE(NELEE, NCONEE)  !! External-inflow concentration by element and contaminant.
    DOUBLEPRECISION CCAPI(NCONEE)        !! Current rainfall concentration by contaminant.
    DOUBLEPRECISION CCAPIO(NCONEE)       !! Previous rainfall concentration by contaminant.
-   DOUBLEPRECISION CCAPR(NELEE,NCONEE)  !! Base flux-boundary concentration by element and contaminant.
-   DOUBLEPRECISION CCAPRO(NELEE,NCONEE) !! Legacy companion to `CCAPR`; not referenced by current source.
+   DOUBLEPRECISION CCAPR(NELEE, NCONEE)  !! Base flux-boundary concentration by element and contaminant.
+   DOUBLEPRECISION CCAPRO(NELEE, NCONEE) !! Legacy companion to `CCAPR`; not referenced by current source.
    DOUBLEPRECISION IIICF(NCONEE)        !! Current dry-deposition rate by contaminant.
    DOUBLEPRECISION IIICFO(NCONEE)       !! Previous dry-deposition rate by contaminant.
 
-   DOUBLEPRECISION CCCCW(NELEE,NCONEE) !! Well-water concentration by well/element and contaminant.
+   DOUBLEPRECISION CCCCW(NELEE, NCONEE) !! Well-water concentration by well/element and contaminant.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCC  !! Current dynamic-region concentration.
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: CCCCO !! Previous dynamic-region concentration.
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSS  !! Current dead-space-region concentration.
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSSSO !! Previous dead-space-region concentration.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: CCCC  !! Current dynamic-region concentration.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: CCCCO !! Previous dynamic-region concentration.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: SSSS  !! Current dead-space-region concentration.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: SSSSO !! Previous dead-space-region concentration.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS1 !! Dynamic-region nitrate/plant source-sink term.
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: SSS2 !! Dead-space-region nitrate/plant source-sink term.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: SSS1 !! Dynamic-region nitrate/plant source-sink term.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: SSS2 !! Dead-space-region nitrate/plant source-sink term.
 
    DOUBLEPRECISION GCPLA(NCONEE)  !! Scaled chemical-decay coefficient by contaminant.
    DOUBLEPRECISION GGLMSO(NCONEE) !! Input chemical-decay constant by contaminant.
 
    DOUBLEPRECISION CCAPIN(NCONEE) !! Uniform or link-element initial concentration by contaminant.
 
-   DOUBLEPRECISION ALPHA(NSEE,NCONEE)   !! Exchange coefficient between soil regions by soil and contaminant.
-   DOUBLEPRECISION FADS(NSEE,NCONEE)    !! Dynamic-region fraction of adsorption sites by soil and contaminant.
+   DOUBLEPRECISION ALPHA(NSEE, NCONEE)   !! Exchange coefficient between soil regions by soil and contaminant.
+   DOUBLEPRECISION FADS(NSEE, NCONEE)    !! Dynamic-region fraction of adsorption sites by soil and contaminant.
    DOUBLEPRECISION GNN(NCONEE)          !! Freundlich isotherm exponent by contaminant.
-   DOUBLEPRECISION KDDLS(NSEDEE,NCONEE) !! Reference distribution coefficient by sediment size and contaminant.
-   DOUBLEPRECISION KDDSOL(NSEE,NCONEE)  !! Derived soil distribution coefficient by soil and contaminant.
+   DOUBLEPRECISION KDDLS(NSEDEE, NCONEE) !! Reference distribution coefficient by sediment size and contaminant.
+   DOUBLEPRECISION KDDSOL(NSEE, NCONEE)  !! Derived soil distribution coefficient by soil and contaminant.
 
    INTEGER NCON !! Number of active contaminants.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: FCPBKO !! Dynamic-region bank retardation storage.
-   DOUBLEPRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: GCPBKO !! Dead-space-region bank retardation storage.
-   DOUBLEPRECISION FSF(NLFEE,NCONEE)  !! Stream-water retardation coefficient by link and contaminant.
-   DOUBLEPRECISION FSFC(NLFEE,NCONEE) !! Concentration derivative of `FSF`.
-   DOUBLEPRECISION FSFT(NLFEE,NCONEE) !! Time derivative of `FSF`.
-   DOUBLEPRECISION RSW(NELEE,NCONEE)  !! Surface-water retardation coefficient by element and contaminant.
-   DOUBLEPRECISION RSWC(NELEE,NCONEE) !! Concentration derivative of `RSW`.
-   DOUBLEPRECISION RSWT(NELEE,NCONEE) !! Time derivative of `RSW`.
+   DOUBLEPRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: FCPBKO !! Dynamic-region bank retardation storage.
+   DOUBLEPRECISION, DIMENSION(:, :, :, :), ALLOCATABLE :: GCPBKO !! Dead-space-region bank retardation storage.
+   DOUBLEPRECISION FSF(NLFEE, NCONEE)  !! Stream-water retardation coefficient by link and contaminant.
+   DOUBLEPRECISION FSFC(NLFEE, NCONEE) !! Concentration derivative of `FSF`.
+   DOUBLEPRECISION FSFT(NLFEE, NCONEE) !! Time derivative of `FSF`.
+   DOUBLEPRECISION RSW(NELEE, NCONEE)  !! Surface-water retardation coefficient by element and contaminant.
+   DOUBLEPRECISION RSWC(NELEE, NCONEE) !! Concentration derivative of `RSW`.
+   DOUBLEPRECISION RSWT(NELEE, NCONEE) !! Time derivative of `RSW`.
 
    DOUBLEPRECISION ALPHBD(NCONEE) !! Exchange coefficient between channel-bed layers by contaminant.
    DOUBLEPRECISION ALPHBS(NCONEE) !! Stream-water/channel-bed exchange coefficient by contaminant.
@@ -110,34 +110,33 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "CONT_CC:initialise_cont_cc"
 
-      allocate   (cccc(total_no_elements,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "CCCC", location)
-      allocate   (cccco(total_no_elements,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "CCCCO", location)
-      allocate   (ssss(total_no_elements,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "SSSS", location)
-      allocate   (sssso(total_no_elements,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "SSSFO", location)
-      allocate   (sss1(total_no_elements,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "SSS1", location)
-      allocate   (sss2(total_no_elements,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "SSS2", location)
-      allocate   (FCPBKO(total_no_links,2,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "FCPBKO", location)
-      allocate   (GCPBKO(total_no_links,2,top_cell_no+1,ncon), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "GCPBKO", location)
+      allocate (cccc(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "CCCC", location)
+      allocate (cccco(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "CCCCO", location)
+      allocate (ssss(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "SSSS", location)
+      allocate (sssso(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "SSSFO", location)
+      allocate (sss1(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "SSS1", location)
+      allocate (sss2(total_no_elements, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "SSS2", location)
+      allocate (FCPBKO(total_no_links, 2, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "FCPBKO", location)
+      allocate (GCPBKO(total_no_links, 2, top_cell_no + 1, ncon), STAT=ios)
+      CALL errstat_alloc(ios, "GCPBKO", location)
 
       ! Initialise to default values
-      cccc=0
-      cccco=0
-      ssss=0
-      sssso=0
-      sss1=0
-      sss2=0
-      FCPBKO=0
-      GCPBKO=0
+      cccc = 0
+      cccco = 0
+      ssss = 0
+      sssso = 0
+      sss1 = 0
+      sss2 = 0
+      FCPBKO = 0
+      GCPBKO = 0
 
    END SUBROUTINE initialise_cont_cc
-
 
 END MODULE CONT_CC

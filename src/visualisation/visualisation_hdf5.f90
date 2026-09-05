@@ -45,7 +45,7 @@ MODULE visualisation_hdf5
    USE H5LT
 
    USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_ERROR, ONLY : errstat_alloc
 
    IMPLICIT NONE
 
@@ -129,25 +129,25 @@ CONTAINS
       ni    = G_I(0,'no_items')
 
       ALLOCATE(dataset(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "dataset", location)
+      CALL errstat_alloc(ios, "dataset", location)
       ALLOCATE(dataspace(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "dataspace", location)
+      CALL errstat_alloc(ios, "dataspace", location)
       ALLOCATE(orig_dataspace(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "orig_dataspace", location)
+      CALL errstat_alloc(ios, "orig_dataspace", location)
       ALLOCATE(dtype(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "dtype", location)
+      CALL errstat_alloc(ios, "dtype", location)
       ALLOCATE(szz(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "szz", location)
+      CALL errstat_alloc(ios, "szz", location)
       ALLOCATE(newsz(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "newsz", location)
+      CALL errstat_alloc(ios, "newsz", location)
       ALLOCATE(gp_var(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "gp_var", location)
+      CALL errstat_alloc(ios, "gp_var", location)
       ALLOCATE(t_dataspace(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "t_dataspace", location)
+      CALL errstat_alloc(ios, "t_dataspace", location)
       ALLOCATE(t_dataset(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "t_dataset", location)
+      CALL errstat_alloc(ios, "t_dataset", location)
       ALLOCATE(rank(ni), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "rank", location)
+      CALL errstat_alloc(ios, "rank", location)
 
       CALL H5OPEN_F(error)
       CALL H5PCREATE_F(H5P_DATASET_CREATE_F, dataset_compress_property, error)
@@ -476,7 +476,7 @@ CONTAINS
 
       IF(name=='surf_elv') THEN
          ALLOCATE(temp_surf_map(sz(4), sz(5), sz(6)), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "temp_surf_map", location)
+         CALL errstat_alloc(ios, "temp_surf_map", location)
          temp_surf_map = surf_elv(1,1,1,:,:,:)
          CALL SAVE_SURF_ELEV_AS_MAP(mn, temp_surf_map, magnif=20)
          DEALLOCATE(temp_surf_map)
@@ -621,7 +621,7 @@ CONTAINS
       dims1(1)      = INT(no_dimensions, HSIZE_T)
 
       ALLOCATE(nmed(no_dimensions), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "nmed", location)
+      CALL errstat_alloc(ios, "nmed", location)
       ii = 0
       DO jj = 1, ndim
          IF (G_H5_I(mn, 'dimensions', jj) /= 0) THEN
@@ -737,7 +737,7 @@ CONTAINS
             dims2(2) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
 
             ALLOCATE(pairs(dims2(1), dims2(2)), STAT=ios)
-            CALL err_check_allocatememorystatus(ios, "pairs", location)
+            CALL errstat_alloc(ios, "pairs", location)
             pairs = 0
             pairs(1,:) = [ (i, i = 1, INT(dims2(2))) ]
             IF(nvals>0) THEN
@@ -762,7 +762,7 @@ CONTAINS
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
 
             ALLOCATE(nme(dims1(1)), STAT=ios)
-            CALL err_check_allocatememorystatus(ios, "nme", location)
+            CALL errstat_alloc(ios, "nme", location)
             nme = ''
             IF(nvals>0) THEN
                DO jj = 1, nvals
@@ -787,7 +787,7 @@ CONTAINS
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
 
             ALLOCATE(nme(dims1(1)), STAT=ios)
-            CALL err_check_allocatememorystatus(ios, "nme", location)
+            CALL errstat_alloc(ios, "nme", location)
             nme = ''
             IF(nvals>0) THEN
                DO jj = 1, nvals
@@ -920,7 +920,7 @@ CONTAINS
          pal_data_in(1:3)           = [5,125,125]
          CALL H5GCREATE_F(file, 'CATCHMENT_MAPS', group_images, error)
          ALLOCATE(aszz%a(2), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "aszz%a", location)
+         CALL errstat_alloc(ios, "aszz%a", location)
          FIRST = .FALSE.
       ENDIF
 

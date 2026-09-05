@@ -89,7 +89,7 @@ MODULE visualisation_metadata
    USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
    USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_ERROR, ONLY : errstat_alloc
 
    IMPLICIT NONE
 
@@ -286,9 +286,9 @@ CONTAINS
       IF(first) THEN
          first = F
          ALLOCATE(previous_time(no_items), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "previous_time", location)
+         CALL errstat_alloc(ios, "previous_time", location)
          ALLOCATE(next_time(no_items), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "next_time", location)
+         CALL errstat_alloc(ios, "next_time", location)
          previous_time = zero
          next_time     = GET_NEXT_TIME( (/(i,i=1,no_items)/) )
       ENDIF
@@ -845,7 +845,7 @@ CONTAINS
          first= F
          CALL READ_DYNAMIC_VISUALISATION_METADATA()
          ALLOCATE(found(NO_static_items+1:no_items), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "found", location)
+         CALL errstat_alloc(ios, "found", location)
          found = F
       ENDIF
       DO i=no_static_items+1, no_items
@@ -927,7 +927,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: location='create_hdf5_metadata'
 
       ALLOCATE(hdf5_items(no_items), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "hdf5_items", location)
+      CALL errstat_alloc(ios, "hdf5_items", location)
 
       DO mn=1,no_items
          ii => items(mn)
@@ -946,7 +946,7 @@ CONTAINS
          hh%extra_dimensions          = GET_METADATA_C(mn,'extra_dimensions')
 
          ALLOCATE(hh%names_of_extra_dimensions(nex), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "hh%names_of_extra_dimensions", location)
+         CALL errstat_alloc(ios, "hh%names_of_extra_dimensions", location)
 
          hh%names_of_extra_dimensions = NAMES_of_EXTRA_DIMENSIONS(nex, ii%extra_dimensions)
          hh%isgrid                    = ii%isgrid
@@ -964,18 +964,18 @@ CONTAINS
          hh%contaminant_no = GET_METADATA_I(mn,'ncon')
 
          ALLOCATE(hh%dimensions(ndim), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "hh%dimensions", location)
+         CALL errstat_alloc(ios, "hh%dimensions", location)
          ALLOCATE(hh%names_of_dimensions(ndim), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "hh%names_of_dimensions", location)
+         CALL errstat_alloc(ios, "hh%names_of_dimensions", location)
          ALLOCATE(hh%szorder(ndim), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "hh%szorder", location)
+         CALL errstat_alloc(ios, "hh%szorder", location)
 
          CALL GET_SZ_CR(hh)
          hh%mbr => GET_MBR(hh%typ)
          IF(.NOT.hh%isgrid) THEN
             hh%sz = ii%alist%sz
             ALLOCATE(hh%list(hh%sz), STAT=ios)
-            CALL err_check_allocatememorystatus(ios, "hh%list", location)
+            CALL errstat_alloc(ios, "hh%list", location)
             hh%list = ii%alist%a
          ENDIF
       ENDDO
@@ -1270,14 +1270,14 @@ CONTAINS
       IF(first) THEN
          first    =  F
          ALLOCATE(sstatic, STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "sstatic", location)
+         CALL errstat_alloc(ios, "sstatic", location)
          r  => sstatic
          r%number = 999
          r%sz     = 1
          ALLOCATE(r%tstep(1), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "r%tstep", location)
+         CALL errstat_alloc(ios, "r%tstep", location)
          ALLOCATE(r%tstop(1), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "r%tstop", location)
+         CALL errstat_alloc(ios, "r%tstop", location)
          r%tstep(1) = HUGE(1.0)
          r%tstop(1) = HUGE(1.0)
       ENDIF
@@ -1315,7 +1315,7 @@ CONTAINS
       IF(first) THEN
          first    =  F
          ALLOCATE(whole_grid, STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "whole_grid", location)
+         CALL errstat_alloc(ios, "whole_grid", location)
          r => whole_grid
          r%number = 999
          r%ilow   =1
@@ -1323,7 +1323,7 @@ CONTAINS
          r%jlow   =1
          r%jhigh  =j
          ALLOCATE(r%ma(i,j), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "r%ma", location)
+         CALL errstat_alloc(ios, "r%ma", location)
          r%ma = T
       ENDIF
       r => whole_grid
@@ -1722,9 +1722,9 @@ CONTAINS
       CALL R_I('TIMES number and size', t%number, t%sz)
 
       ALLOCATE(t%tstep(t%sz+1), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "t%tstep", location)
+      CALL errstat_alloc(ios, "t%tstep", location)
       ALLOCATE(t%tstop(t%sz+1), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "t%tstop", location)
+      CALL errstat_alloc(ios, "t%tstop", location)
 
       DO i=1,t%sz
          CALL R_R('TIMES',t%tstep(i), t%tstop(i))
@@ -2001,7 +2001,7 @@ CONTAINS
 
       szd = MAXVAL(a)
       ALLOCATE(d(szd), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "d", location)
+      CALL errstat_alloc(ios, "d", location)
       d = F
       j = 0
       DO i=1,sza
@@ -2013,7 +2013,7 @@ CONTAINS
          sza = j
          DEALLOCATE(a)
          ALLOCATE(a(sza), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "a", location)
+         CALL errstat_alloc(ios, "a", location)
       ENDIF
 
       j = 1
@@ -2152,12 +2152,12 @@ CONTAINS
          old => s
          NULLIFY(s)
          ALLOCATE(s(sz+n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
          IF (sz > 0) s(1:sz) = old
          DEALLOCATE(old)
       ELSE
          ALLOCATE(s(n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
       END IF
       no_items   = no_items + 1
    END SUBROUTINE INCREMENT_item
@@ -2196,12 +2196,12 @@ CONTAINS
          old => s
          NULLIFY(s)
          ALLOCATE(s(sz+n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
          IF (sz > 0) s(1:sz) = old
          DEALLOCATE(old)
       ELSE
          ALLOCATE(s(n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
       END IF
       no_lists   = no_lists + 1
    END SUBROUTINE INCREMENT_LIST
@@ -2239,12 +2239,12 @@ CONTAINS
          old => s
          NULLIFY(s)
          ALLOCATE(s(sz+n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
          IF (sz > 0) s(1:sz) = old
          DEALLOCATE(old)
       ELSE
          ALLOCATE(s(n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
       END IF
       no_masks  = no_masks + 1
    END SUBROUTINE INCREMENT_MASK
@@ -2283,12 +2283,12 @@ CONTAINS
          old => s
          NULLIFY(s)
          ALLOCATE(s(sz+n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
          IF (sz > 0) s(1:sz) = old
          DEALLOCATE(old)
       ELSE
          ALLOCATE(s(n), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "s", location)
+         CALL errstat_alloc(ios, "s", location)
       END IF
       no_times  = no_times + 1
    END SUBROUTINE INCREMENT_TIME

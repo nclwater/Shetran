@@ -49,16 +49,16 @@ MODULE SMmod
    USE SGLOBAL
 !USE SGLOBAL, ONLY : NVEE
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus, ERR_STOP
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, ERR_STOP
 
-   USE AL_C, ONLY : nvc, dtuz, ispack, nrd
-   USE AL_D, ONLY : AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
-      msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
-      timeuz, u, vpd, VHT
+   USE AL_C, ONLY: nvc, dtuz, ispack, nrd
+   USE AL_D, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
+                   msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
+                   timeuz, u, vpd, VHT
    IMPLICIT NONE
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
-   DOUBLEPRECISION, DIMENSION(:,:), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
 
    DOUBLEPRECISION :: USM    !! Snowmelt during the current timestep (mm snow).
    DOUBLEPRECISION :: DDF    !! Degree-day melt factor (mm/s/C).
@@ -75,9 +75,9 @@ MODULE SMmod
    DOUBLEPRECISION :: TOPNET !! Water input to the snowpack before routing (mm water).
    DOUBLEPRECISION :: PNSNOW !! Water depth passed into or released from the snowpack in the current step (mm water).
    LOGICAL         :: BINSMP !! Snow-input echo-print flag.
-   INTEGER         :: IMET (NVEE) !! Meteorological-station element index for each vegetation type in energy-budget mode.
+   INTEGER         :: IMET(NVEE) !! Meteorological-station element index for each vegetation type in energy-budget mode.
    INTEGER         :: NSD         !! Initial snowpack mode: uniform (`0`) or spatial (`1`).
-   DOUBLEPRECISION :: HEAD (20)   !! Snow input title/header workspace retained for legacy I/O.
+   DOUBLEPRECISION :: HEAD(20)   !! Snow input title/header workspace retained for legacy I/O.
    DOUBLEPRECISION, PARAMETER :: RHOA = 1.29d0      !! Density of air (kg/m^3).
    DOUBLEPRECISION, PARAMETER :: RHOW = 1000.0d0    !! Density of water (kg/m^3).
    DOUBLEPRECISION, PARAMETER :: CPA = 1003.0d0     !! Specific heat of air at constant pressure (J/kg/C).
@@ -90,7 +90,6 @@ MODULE SMmod
    PRIVATE
    PUBLIC :: SMIN, rhos, head, binsmp, ddf, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt, initialise_smmod
 CONTAINS
-
 
 !> Allocates snowmelt slug storage arrays.
 !>
@@ -114,21 +113,19 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-05 | SvB | - | Added IOSTAT checking for all allocated arrays. |
    SUBROUTINE initialise_smmod
-      LOGICAL         :: first=.TRUE.
+      LOGICAL         :: first = .TRUE.
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "SMmod:initialise_smmod"
 
       if (FIRST) then
-         ALLOCATE (TMELT(max_no_snowmelt_slugs,total_no_elements), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "TMELT", location)
-         ALLOCATE (SMELT(max_no_snowmelt_slugs,total_no_elements), STAT=ios)
-         CALL err_check_allocatememorystatus(ios, "SMELT", location)
+         ALLOCATE (TMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios)
+         CALL errstat_alloc(ios, "TMELT", location)
+         ALLOCATE (SMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios)
+         CALL errstat_alloc(ios, "SMELT", location)
          FIRST = .FALSE.
-      endif
+      end if
    END SUBROUTINE initialise_smmod
-
-
 
    !> Updates snowpack and meltwater delivery for one element.
    !>
@@ -304,7 +301,7 @@ CONTAINS
    !> | 2026-04-07 | SvB | 4.6.1 | Pre-computed the repeated `ESAT`/`ESATA` temperature-ratio subexpression as `TEMP_RATIO`. |
    !> | 2026-04-13 | SvB | 4.6.1 | Replaced the `DLOG` double-precision-specific intrinsic with the generic `LOG`. |
    !> @endhistory
-   SUBROUTINE SM (IEL)
+   SUBROUTINE SM(IEL)
       IMPLICIT NONE
 
       ! Input arguments
@@ -325,7 +322,7 @@ CONTAINS
       N = NVC(IEL)
 
       ! CALCULATE NET PRECIPITATION FALLING ON SNOWPACK (MM OF SNOW)
-      SF(IEL) = pnsnow / RHOS
+      SF(IEL) = pnsnow/RHOS
       TOPNET = pnsnow
       pnsnow = zero
       pnet = zero
@@ -344,7 +341,7 @@ CONTAINS
          ! DEGREE DAY METHOD
          ! -----------------
          ! calculates melt rate directly. SPA, 05/11/92
-         USM = ddf * (TA(MS) - two) * dtuz
+         USM = ddf*(TA(MS) - two)*dtuz
          IF (TA(MS) < two) USM = zero
          ! set evaporation to zero
          e = 0.0d0
@@ -355,57 +352,57 @@ CONTAINS
          ! CALCULATE HEAT GAINED BY CONVECTION
          ! EFFDEP (snowpack depth at anemometer site) removed from calculation of DN
          ! to prevent ln of 0 or negative no. SPA, 05/11/92.
-         DN = ((0.4d0 / LOG((ZUS - ZDS) / ZOS))**2) * U(MS)
+         DN = ((0.4d0/LOG((ZUS - ZDS)/ZOS))**2)*U(MS)
 
          ! CORRECT DN USING RICHARDSON NUMBER (SD - MM; ZUS,ZDS,ZOS - M)
-         RICH = 9.81d0 * (ZUS - EFFDEP / 1000.0d0 - ZDS) * (TA(MS) - TS(IEL)) &
-            / ((TA(MS) + 273.0d0) * U(MS) * U(MS))
+         RICH = 9.81d0*(ZUS - EFFDEP/1000.0d0 - ZDS)*(TA(MS) - TS(IEL)) &
+                /((TA(MS) + 273.0d0)*U(MS)*U(MS))
 
          IF (TA(MS) > TS(IEL)) THEN
-            DN = DN / (1.0d0 + 10.0d0 * RICH)
+            DN = DN/(1.0d0 + 10.0d0*RICH)
          ELSE
-            DN = DN * (1.0d0 - 10.0d0 * RICH)
+            DN = DN*(1.0d0 - 10.0d0*RICH)
          END IF
 
          ! HEAT FLUX FROM CONVECTION IN TIME DTUZ (J/M^^2)
-         HFC = RHOA * CPA * DN * (TA(MS) - TS(IEL)) * DTUZ
+         HFC = RHOA*CPA*DN*(TA(MS) - TS(IEL))*DTUZ
 
          ! HEAT FROM RAINFALL OR SNOWFALL (MM OF WATER) IN TIME DTUZ (J/M^^2)
          ! (NOTE THAT SF IS IN MM OF SNOW)
          ! IF TEMPERATURE IS ABOVE FREEZING, HEAT IS FROM RAIN
          ! ^^^^^^ REMOVED + LWI FROM END OF NEXT EQUATION
-         HFR = CPW * TA(MS)
+         HFR = CPW*TA(MS)
          ! IF TEMPERATURE IS BELOW FREEZING, HEAT IS FROM SNOW
-         IF (LEZERO(TA(MS))) HFR = CPI * (TA(MS) - TS(IEL))
-         HFR = RHOW * SF(IEL) * RHOS * HFR / 1000.0d0
+         IF (LEZERO(TA(MS))) HFR = CPI*(TA(MS) - TS(IEL))
+         HFR = RHOW*SF(IEL)*RHOS*HFR/1000.0d0
 
          ! CALCULATE HEAT FROM WATER PHASE CHANGE
          ! High-Performance Fix: Pre-calculate the temperature ratio to avoid repeated division/subtraction
-         TEMP_RATIO = (TS(IEL) / five) - three
-         ESAT = (17.044d0 + TEMP_RATIO * (5.487d0 + TEMP_RATIO * (0.776d0 + TEMP_RATIO * (0.1063d0 + TEMP_RATIO * 0.003d0))))
+         TEMP_RATIO = (TS(IEL)/five) - three
+         ESAT = (17.044d0 + TEMP_RATIO*(5.487d0 + TEMP_RATIO*(0.776d0 + TEMP_RATIO*(0.1063d0 + TEMP_RATIO*0.003d0))))
 
-         PO = 1012.0d0 * (one - 0.0065d0 * ZGRUND(IEL) / 288.0d0) * 100.0d0
-         Q = (0.62197d0 * ESAT) / ((PO / 1.0045d0) - (0.37803d0 * ESAT))
+         PO = 1012.0d0*(one - 0.0065d0*ZGRUND(IEL)/288.0d0)*100.0d0
+         Q = (0.62197d0*ESAT)/((PO/1.0045d0) - (0.37803d0*ESAT))
 
-         TEMP_RATIO = (TA(MS) / five) - three
-         ESATA = (17.044d0 + TEMP_RATIO * (5.487d0 + TEMP_RATIO * (0.776d0 + TEMP_RATIO * (0.1063d0 + TEMP_RATIO * 0.003d0))))
+         TEMP_RATIO = (TA(MS)/five) - three
+         ESATA = (17.044d0 + TEMP_RATIO*(5.487d0 + TEMP_RATIO*(0.776d0 + TEMP_RATIO*(0.1063d0 + TEMP_RATIO*0.003d0))))
 
          EA = ESATA - VPD(MS)
-         QA = (0.62197d0 * EA) / ((PO / 1.0045d0) - (0.37803d0 * EA))
+         QA = (0.62197d0*EA)/((PO/1.0045d0) - (0.37803d0*EA))
 
          ! MASS EVAPORATED (E) IN KG/S/M^^2
-         E = RHOA * DN * (Q - QA)
+         E = RHOA*DN*(Q - QA)
 
          ! HEAT FROM PHASE CHANGE IN TIME DTUZ (J/M^^2)
-         HFE = (LVW + LWI - CPI * TS(IEL)) * E * DTUZ
+         HFE = (LVW + LWI - CPI*TS(IEL))*E*DTUZ
 
          ! TOTAL HEAT FLUX FROM AIR AND SOIL TO SNOW IN TIME DTUZ (J/M^^2)
-         HFT = HFC + HFR - HFE + (HFG + RN(MS)) * DTUZ
+         HFT = HFC + HFR - HFE + (HFG + RN(MS))*DTUZ
 
          ! Fix incorporated to stop excessive energy fluxes in/out
          ! of thin snowpacks. SPA, 05/11/92.
          IF ((SD(IEL) <= 100.0d0) .AND. (LTZERO(HFT))) THEN
-            HFT = (TA(MS) - TS(IEL)) * (CPI * RHOS * SD(IEL))
+            HFT = (TA(MS) - TS(IEL))*(CPI*RHOS*SD(IEL))
          END IF
 
          ! CALCULATE SNOWMELT USM (MM OF SNOW)
@@ -415,7 +412,7 @@ CONTAINS
          ! ( N.B. RHOS IS SPECIFIC GRAVITY AND SD IS IN MM. THEREFORE
          ! SNOWDEPTH IN METRES * SNOW DENSITY, WHICH IS REQUIRED IN
          ! THE FOLLOWING, IS (SD/1000)*(RHOS*1000) WHICH EQUALS SD*RHOS.)
-         TS2 = (HFT / (CPI * RHOS * SD(IEL))) + TS(IEL)
+         TS2 = (HFT/(CPI*RHOS*SD(IEL))) + TS(IEL)
          IF (TS2 < -50.0d0) TS2 = -50.0d0
 
          IF (LTZERO(TS2)) THEN
@@ -423,9 +420,9 @@ CONTAINS
             USM = 0.0d0
          ELSE
             ! SNOW TEMPERATURE > 0 SO CALCULATE EXCESS HEAT AVAILABLE FOR MELTING SNOW
-            HFT = HFT - ((-TS(IEL)) * CPI * RHOS * SD(IEL))
+            HFT = HFT - ((-TS(IEL))*CPI*RHOS*SD(IEL))
             TS2 = zero
-            USM = HFT / (LWI * RHOS)
+            USM = HFT/(LWI*RHOS)
          END IF
          TS(IEL) = TS2
       END IF
@@ -438,7 +435,7 @@ CONTAINS
       IF (LTZERO(USM)) USM = zero
 
       ! EVAPORATION LOSS ESM IN TIME DTUZ (MM OF SNOW)
-      ESM = E * DTUZ / RHOS
+      ESM = E*DTUZ/RHOS
       ! TOTAL LOSS FROM SNOWPACK TSM IN TIME DTUZ (MM OF SNOW)
       TSM = USM + ESM
 
@@ -472,16 +469,16 @@ CONTAINS
       ! ^^^^^ TENTATIVELY: IF SNOW TEMPERATURE REMAINS <0, CHANGE RAIN TO
       !       SNOW AND ADD TO SNOWPACK DEPTH
       IF (LEZERO(TA(MS))) THEN
-         SMELT(NNC, IEL) = USM * RHOS
+         SMELT(NNC, IEL) = USM*RHOS
       ELSE
-         SMELT(NNC, IEL) = (USM + SF(IEL)) * RHOS
+         SMELT(NNC, IEL) = (USM + SF(IEL))*RHOS
          SF(IEL) = zero
       END IF
 
       IF (GTZERO(SMELT(NNC, IEL))) THEN
          ! CALCULATE TIME TM AT WHICH MELTWATER SLUG WILL REACH
          ! BOTTOM OF SNOWPACK (TM - HR, SD - MM OF SNOW)
-         tmelt(NNC, IEL) = (0.7448d0 * SD(IEL) / 1000.0d0 + 1.429d0) * SD(IEL) / 1000.0d0 + TIMEUZ
+         tmelt(NNC, IEL) = (0.7448d0*SD(IEL)/1000.0d0 + 1.429d0)*SD(IEL)/1000.0d0 + TIMEUZ
       ELSE
          NSMC(IEL) = NSMC(IEL) - 1
          NNC = NSMC(IEL)
@@ -520,10 +517,10 @@ CONTAINS
       END IF
 
       ! CONVERT SF TO MM OF SNOW / HOUR
-      SF(IEL) = (SF(IEL) / DTUZ) * 3600.0d0
+      SF(IEL) = (SF(IEL)/DTUZ)*3600.0d0
 
       ! CONVERT pnsnow (mm) to PNET TO MM OF WATER / SEC
-      pnet = pnsnow / dtuz
+      pnet = pnsnow/dtuz
 
       IF (GTZERO(SD(IEL))) THEN
          ISPACK(IEL) = .TRUE.
@@ -534,12 +531,10 @@ CONTAINS
       RETURN
 
       ! FORMAT STATEMENTS
-30    FORMAT(/,'NO OF MELTWATER SLUGS IS', I5, ' AT ELEMENT', I4, &
-         ' WHICH EXCEEDS AVAILABLE MEMORY STORE SIZE')
+30    FORMAT(/, 'NO OF MELTWATER SLUGS IS', I5, ' AT ELEMENT', I4, &
+              ' WHICH EXCEEDS AVAILABLE MEMORY STORE SIZE')
 
    END SUBROUTINE SM
-
-
 
    !> Applies evapotranspiration losses to an existing snowpack for one
    !> element.
@@ -592,7 +587,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with structured `IF`/`ELSE IF` blocks; added `IMPLICIT NONE` and explicit `INTENT(IN)` for `IEL`. |
    !> @endhistory
-   SUBROUTINE SMET (IEL)
+   SUBROUTINE SMET(IEL)
       IMPLICIT NONE
 
       ! Input arguments
@@ -613,7 +608,7 @@ CONTAINS
       IF (ISZERO(RHOS)) RHOS = RHODEF
 
       ! IS THE SNOWDEPTH GREATER THAN THE VEGETATION HEIGHT?
-      SNDEP = SD(IEL) / 1000.0d0
+      SNDEP = SD(IEL)/1000.0d0
 
       IF (ISZERO(SNDEP)) THEN
          ! No snowpack exists. Proceed to generic freezing/precipitation checks.
@@ -626,7 +621,7 @@ CONTAINS
 
       ELSE
          ! 0 < SNDEP < VHT(N): Snow partially covers the vegetation.
-         CPLAI = CPLAI * (VHT(N) - SNDEP) / VHT(N)
+         CPLAI = CPLAI*(VHT(N) - SNDEP)/VHT(N)
 
          ! IS THE TEMPERATURE ABOVE FREEZING?
          IF (GTZERO(TA(MS))) THEN
@@ -649,7 +644,7 @@ CONTAINS
       ! IS NO INTERCEPTION OR CANOPY STORAGE OF SNOW.
 
       ! SNOWFALL (IN MM OF WATER) REACHING GROUND OR SNOWPACK
-      pnsnow = precip_m_per_s(IEL) * 1000.0d0 * DTUZ
+      pnsnow = precip_m_per_s(IEL)*1000.0d0*DTUZ
       CSTOLD = CSTORE(IEL)
       ERZ = zero
       ESOIL = zero
@@ -670,8 +665,6 @@ CONTAINS
 
       RETURN
    END SUBROUTINE SMET
-
-
 
    !> Snow wrapper called from ET/interception processing for one element.
    !>
@@ -702,7 +695,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with structured `IF`/`ELSE` blocks; added `IMPLICIT NONE` and explicit `INTENT(IN)` for `IEL`. |
    !> @endhistory
-   SUBROUTINE SMIN (IEL)
+   SUBROUTINE SMIN(IEL)
       IMPLICIT NONE
 
       ! Input arguments
@@ -730,7 +723,7 @@ CONTAINS
 
             ! addition by spa, 17/11/92. pnet output from et(iel) as a rate.
             ! Needs to be a depth for input into sm(iel).
-            pnsnow = pnet * dtuz
+            pnsnow = pnet*dtuz
 
             ! CALL SNOWMELT ROUTINE
             CALL SM(IEL)

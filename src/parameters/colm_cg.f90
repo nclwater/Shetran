@@ -51,10 +51,10 @@
 !> @endhistory
 MODULE COLM_CG
 
-   USE SGLOBAL, ONLY : NELEE, LLEE, NVEE, NOLEE, total_no_elements,top_cell_no
+   USE SGLOBAL, ONLY: NELEE, LLEE, NVEE, NOLEE, total_no_elements, top_cell_no
 
-   USE MOD_PARAMETERS, ONLY : I_P
-   USE MOD_ERROR, ONLY : err_check_allocatememorystatus
+   USE MOD_PARAMETERS, ONLY: I_P
+   USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -66,12 +66,12 @@ MODULE COLM_CG
    DOUBLEPRECISION SCL   !! Integer-overlap conversion factor, `1/32500`.
    DOUBLEPRECISION OODO  !! Reciprocal reference dispersion coefficient, `1/D0` (s/m2).
 
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JKZCOL  !! Inactive setup-only lateral-transmissivity weights.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JOLFN   !! Setup-only overlap shares encoded on a 32500 scale.
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: NOL       !! Number of overlap records by element and face.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLBT   !! First overlap record by element, local cell, and face.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCE   !! Local cell index by element, overlap record, and face.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCEA  !! Adjacent cell index by element, overlap record, and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JKZCOL  !! Inactive setup-only lateral-transmissivity weights.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JOLFN   !! Setup-only overlap shares encoded on a 32500 scale.
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: NOL       !! Number of overlap records by element and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: NOLBT   !! First overlap record by element, local cell, and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: NOLCE   !! Local cell index by element, overlap record, and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: NOLCEA  !! Adjacent cell index by element, overlap record, and face.
 
    DOUBLEPRECISION WELDRA(LLEE)  !! Current column's signed VSS well-flow flux by cell (m/s).
 
@@ -111,30 +111,28 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:initialise_colm_cg"
 
-      allocate(JKZCOL(total_no_elements,2*top_cell_no+1,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "JKZCOL", location)
-      allocate(JOLFN(total_no_elements,2*top_cell_no+1,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "JOLFN", location)
-      allocate(NOL(total_no_elements,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "NOL", location)
-      allocate(NOLBT(total_no_elements,top_cell_no+1,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "NOLBT", location)
-      allocate(NOLCE(total_no_elements,2*top_cell_no+1,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "NOLCE", location)
-      allocate(NOLCEA(total_no_elements,2*top_cell_no+1,4), STAT=ios)
-      CALL err_check_allocatememorystatus(ios, "NOLCEA", location)
+      allocate (JKZCOL(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
+      CALL errstat_alloc(ios, "JKZCOL", location)
+      allocate (JOLFN(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
+      CALL errstat_alloc(ios, "JOLFN", location)
+      allocate (NOL(total_no_elements, 4), STAT=ios)
+      CALL errstat_alloc(ios, "NOL", location)
+      allocate (NOLBT(total_no_elements, top_cell_no + 1, 4), STAT=ios)
+      CALL errstat_alloc(ios, "NOLBT", location)
+      allocate (NOLCE(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
+      CALL errstat_alloc(ios, "NOLCE", location)
+      allocate (NOLCEA(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios)
+      CALL errstat_alloc(ios, "NOLCEA", location)
 
       ! Initialise to default values
-      JKZCOL=0
-      JOLFN=0
-      NOL=0
-      NOLBT=0
-      NOLCE=0
-      NOLCEA=0
+      JKZCOL = 0
+      JOLFN = 0
+      NOL = 0
+      NOLBT = 0
+      NOLCE = 0
+      NOLCEA = 0
 
    END SUBROUTINE initialise_colm_cg
-
-
 
 !> Releases the four overlap arrays needed only during contaminant setup.
 !>
@@ -164,7 +162,5 @@ CONTAINS
       deallocate (NOLCE)
 
    END SUBROUTINE deallocate_colm_cg
-
-
 
 END MODULE COLM_CG
