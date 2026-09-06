@@ -114,18 +114,29 @@ CONTAINS
    !>
    !> Standardised check for opening file return status.
    !>
+   !> Pass `iomsg` the string filled by the `IOMSG=` specifier of the failing
+   !> `OPEN` statement to have the processor's explanatory text for `status`
+   !> included in the diagnostic.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-09-06 | SvB | Report the `status` value and the optional `IOMSG=` text. |
    !> @endhistory
-   SUBROUTINE errstat_fileopen(status, filename)
+   SUBROUTINE errstat_fileopen(status, filename, iomsg)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
       CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being opened.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: iomsg !! Text from the `IOMSG=` specifier of the failing `OPEN`.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
       IF (status /= 0) THEN
-         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileopen, FID_logfile, 0, 0, &
-                          'Error opening file: '//TRIM(filename))
+         msg = 'Error opening file: '//TRIM(filename)//' (status '//to_string(status)//')'
+         IF (PRESENT(iomsg)) THEN
+            IF (LEN_TRIM(iomsg) > 0) msg = TRIM(msg)//': '//TRIM(iomsg)
+         END IF
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileopen, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_fileopen
 
@@ -134,18 +145,29 @@ CONTAINS
    !>
    !> Standardised check for closing file return status.
    !>
+   !> Pass `iomsg` the string filled by the `IOMSG=` specifier of the failing
+   !> `CLOSE` statement to have the processor's explanatory text for `status`
+   !> included in the diagnostic.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-09-06 | SvB | Report the `status` value and the optional `IOMSG=` text. |
    !> @endhistory
-   SUBROUTINE errstat_fileclose(status, filename)
+   SUBROUTINE errstat_fileclose(status, filename, iomsg)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file closing.
       CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being closed.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: iomsg !! Text from the `IOMSG=` specifier of the failing `CLOSE`.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
       IF (status /= 0) THEN
-         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileclose, FID_logfile, 0, 0, &
-                          'Error closing file: '//TRIM(filename))
+         msg = 'Error closing file: '//TRIM(filename)//' (status '//to_string(status)//')'
+         IF (PRESENT(iomsg)) THEN
+            IF (LEN_TRIM(iomsg) > 0) msg = TRIM(msg)//': '//TRIM(iomsg)
+         END IF
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_fileclose, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_fileclose
 
@@ -218,24 +240,31 @@ CONTAINS
    !> For special end-of-file or end-of-record conditions, the caller should
    !> check `status` and handle them before calling this routine.
    !>
+   !> Pass `iomsg` the string filled by the `IOMSG=` specifier of the failing
+   !> `READ` statement to have the processor's explanatory text for `status`
+   !> included in the diagnostic.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-09-06 | SvB | Report the `status` value and the `IOMSG=` text. |
    !> @endhistory
-   SUBROUTINE errstat_read(status, location, filename, linenumber)
+   SUBROUTINE errstat_read(status, location, iomsg, filename, linenumber)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the data was read.
+      CHARACTER(LEN=*), INTENT(IN) :: iomsg !! Text from the `IOMSG=` specifier of the failing `READ`.
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name from which file this data was read.
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: linenumber !! Line number in the file being read.
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
-      msg = 'Error reading data at '//TRIM(location)
-      IF (PRESENT(filename)) msg = TRIM(msg)//' from file '//TRIM(filename)
-      IF (PRESENT(linenumber)) msg = TRIM(msg)//' at line '//to_string(linenumber)
-
       IF (status /= 0) THEN
+         msg = 'Error reading data at '//TRIM(location)
+         IF (PRESENT(filename)) msg = TRIM(msg)//' from file '//TRIM(filename)
+         IF (PRESENT(linenumber)) msg = TRIM(msg)//' at line '//to_string(linenumber)
+         msg = TRIM(msg)//' (status '//to_string(status)//')'
+         IF (LEN_TRIM(iomsg) > 0) msg = TRIM(msg)//': '//TRIM(iomsg)
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_read, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_read
@@ -245,22 +274,29 @@ CONTAINS
    !>
    !> Standardised check for opening file return status.
    !>
+   !> Pass `iomsg` the string filled by the `IOMSG=` specifier of the failing
+   !> `WRITE` statement to have the processor's explanatory text for `status`
+   !> included in the diagnostic.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-09-06 | SvB | Report the `status` value and the `IOMSG=` text. |
    !> @endhistory
-   SUBROUTINE errstat_write(status, location, filename)
+   SUBROUTINE errstat_write(status, location, iomsg, filename)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file opening.
       CHARACTER(LEN=*), INTENT(IN) :: location !! Location where the data is supposed to be written to.
+      CHARACTER(LEN=*), INTENT(IN) :: iomsg !! Text from the `IOMSG=` specifier of the failing `WRITE`.
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name of the file being written to.
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
 
-      msg = 'Error writing data at '//TRIM(location)
-      IF (PRESENT(filename)) msg = TRIM(msg)//' to file '//TRIM(filename)
-
       IF (status /= 0) THEN
+         msg = 'Error writing data at '//TRIM(location)
+         IF (PRESENT(filename)) msg = TRIM(msg)//' to file '//TRIM(filename)
+         msg = TRIM(msg)//' (status '//to_string(status)//')'
+         IF (LEN_TRIM(iomsg) > 0) msg = TRIM(msg)//': '//TRIM(iomsg)
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_write, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_write
