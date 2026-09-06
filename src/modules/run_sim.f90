@@ -52,7 +52,7 @@ MODULE run_sim
    USE SGLOBAL
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, RAISE_ERROR, ERRLVL_fatal
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
       ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
@@ -184,6 +184,7 @@ CONTAINS
 !> | 2026-04-23 | SB | 4.6.1 | Added elapsed/remaining wall-clock progress reporting via `cpu_time`. |
 !> | 2026-05-03 | SvB | 4.6.1 | Changed `hrf` to an allocatable array, allocated only when sediment yield is active. |
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
+!> | 2026-09-06 | SvB | - | Checked the `OUTPUT_UNIT` open through [[mod_error:errstat_fileopen]]. |
 !> @endhistory
 !>
    SUBROUTINE SIMULATION
@@ -202,14 +203,15 @@ CONTAINS
       REAL :: start_time, current_time, elapsed_time
 
       INTEGER(KIND=I_P) :: ios
-      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG=/IOMSG= text from a failed (de)allocation or open.
 
       !-----------------------------------------------------------------
       !                     INITIALISATION
       !-----------------------------------------------------------------
 
       ! Open standard output (Unit 6 is conventionally OUTPUT_UNIT)
-      OPEN (UNIT=OUTPUT_UNIT, FORM='formatted')
+      OPEN (UNIT=OUTPUT_UNIT, FORM='formatted', IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileopen(ios, 'standard output', emsg)
 
       syfrst = .TRUE.
       cmfrst = .TRUE.
