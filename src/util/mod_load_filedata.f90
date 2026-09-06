@@ -58,7 +58,7 @@
 MODULE mod_load_filedata
 
    USE SGLOBAL
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, errstat_fileclose
    use mod_parameters
 
    IMPLICIT NONE
@@ -1131,6 +1131,7 @@ CONTAINS
    !> | 1997-08-04 | RAH | 4.1 | Added end-of-file handling to modes 6 and 7 and renumbered the VSS error as 16. |
    !> | 2025-10-02 | SB | - | Increased the diagnostic message buffer from 132 to 140 characters. |
    !> | 2026-04-06 | SvB | - | Replaced error jumps with `SELECT CASE`, `IOSTAT`, and the contained fatal-error helper. |
+   !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[mod_error:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
    !> @endhistory
    SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
                       CDATA, IDATA, RDATA)
@@ -1166,7 +1167,8 @@ CONTAINS
       INTEGER(kind=I_P) :: IDUM2 !! VSS item value count read by mode 6.
       INTEGER(kind=I_P) :: ICOUNT !! VSS/soil record iterator.
       INTEGER(kind=I_P) :: I !! Inner implied-DO index for VSS records.
-      INTEGER(kind=I_P) :: ios !! I/O status from the most recent read.
+      INTEGER(kind=I_P) :: ios !! I/O status from the most recent read or close.
+      CHARACTER (LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
       LOGICAL :: BOPEN !! True when `IUNIT` is connected.
       LOGICAL :: BNAMED !! True when the connected unit has a filename.
 
@@ -1213,7 +1215,8 @@ CONTAINS
 
       ! Close input file
       CASE (-1)
-         CLOSE (IUNIT)
+         CLOSE (IUNIT, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose (ios, TRIM(FILNAM), IUNIT, emsg)
 
          ! Write (and store) an informative message
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
@@ -1381,6 +1384,7 @@ CONTAINS
    !> | 1995-03-22 | RAH | - | Replaced the former `ENTRY` interface with separate type-specific `ALRED*` routines. |
    !> | 2025-10 | SB | - | Expanded the status, filename, and diagnostic buffers. |
    !> | 2026-04-06 | SvB | - | Replaced the file-not-open jump with structured error handling. |
+   !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[mod_error:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
    !> @endhistory
    SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)
 
@@ -1399,6 +1403,8 @@ CONTAINS
       CHARACTER(152) :: HEAD !! Formatted open/closed status stored and written to `OUNIT`.
       CHARACTER(120) :: FILNAM !! Filename returned by `INQUIRE`, or `(no name)`.
       CHARACTER(200) :: MSG !! Fatal file-not-open message.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
+      INTEGER(kind=I_P) :: ios !! I/O status from the close.
       LOGICAL :: BOPEN !! True when `IUNIT` is connected.
       LOGICAL :: BNAMED !! True when the connected unit has an associated filename.
 
@@ -1425,7 +1431,8 @@ CONTAINS
 
       ELSE
          ! Close input file
-         CLOSE (IUNIT)
+         CLOSE (IUNIT, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose (ios, TRIM(FILNAM), IUNIT, emsg)
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
       END IF
 

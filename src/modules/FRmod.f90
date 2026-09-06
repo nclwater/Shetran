@@ -86,8 +86,8 @@ MODULE FRmod
    USE mod_load_filedata, ONLY: ALINTP, ALCHK, ALCHKI
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, RAISE_ERROR, ERRLVL_fatal, &
-                        ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
+                        RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE SMmod, ONLY: head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod, ONLY: BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
@@ -1813,6 +1813,7 @@ CONTAINS
 !> | 2026-05-11 | SB | - | Added error checking on the initial rundata-file `OPEN`, stopping instead of proceeding silently on failure. |
 !> | 2026-07-11 | SvB | 4.6.1 | Distinguished blank records, EOF, and genuine rundata read errors. |
 !> | 2026-09-06 | SvB | - | Routed every non-rundata file `OPEN` through [[mod_error:errstat_fileopen]] (reporting `IOSTAT`/`IOMSG`) and removed the local `stop_open_error` helper. |
+!> | 2026-09-06 | SvB | - | Checked every `CLOSE` of the rundata unit through [[mod_error:errstat_fileclose]], which recovers the filename from the unit. |
 !> @endhistory
    SUBROUTINE FROPEN
 
@@ -1862,7 +1863,8 @@ CONTAINS
             iszq = .FALSE.
             isextrapsl = .FALSE.
             ismn = .FALSE.
-            CLOSE (2)
+            CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+            CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
             RETURN
          END IF
 
@@ -1873,7 +1875,8 @@ CONTAINS
             iszq = .FALSE.
             isextrapsl = .FALSE.
             ismn = .FALSE.
-            CLOSE (2)
+            CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+            CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
             RETURN
          END IF
 
@@ -1915,7 +1918,8 @@ CONTAINS
          iszq = .FALSE.
          isextrapsl = .FALSE.
          ismn = .FALSE.
-         CLOSE (2)
+         CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
          RETURN
       END IF
 
@@ -1925,7 +1929,8 @@ CONTAINS
          iszq = .FALSE.
          isextrapsl = .FALSE.
          ismn = .FALSE.
-         CLOSE (2)
+         CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
          RETURN
       END IF
 
@@ -1943,7 +1948,8 @@ CONTAINS
       IF (at_eof) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
-         CLOSE (2)
+         CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
          RETURN
       END IF
 
@@ -1952,7 +1958,8 @@ CONTAINS
       IF (at_eof) THEN
          isextrapsl = .FALSE.
          ismn = .FALSE.
-         CLOSE (2)
+         CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
          RETURN
       END IF
 
@@ -1970,7 +1977,8 @@ CONTAINS
       CALL read_rundata_record(FILNAM, at_eof, unit_context(53, 'description'))
       IF (at_eof) THEN
          ismn = .FALSE.
-         CLOSE (2)
+         CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
          RETURN
       END IF
 
@@ -1978,7 +1986,8 @@ CONTAINS
       CALL read_rundata_record(FILNAM, at_eof, unit_context(53, 'filename'))
       IF (at_eof) THEN
          ismn = .FALSE.
-         CLOSE (2)
+         CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
          RETURN
       END IF
 
@@ -2011,7 +2020,8 @@ CONTAINS
          END IF
       END DO
 
-      CLOSE (2)
+      CLOSE (2, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, fid=2, iomsg=emsg)
 
       RETURN
 
@@ -3090,6 +3100,7 @@ CONTAINS
 !> | 1994-10-03 | RAH | 3.4.1 | Made typing explicit. |
 !> | 1997-1998 | RAH | 4.0-4.2 | Updated VSS metadata, array ordering, output classes, and unformatted result-file setup. |
 !> | 2026-09-06 | SvB | - | Checked the unformatted result-file `OPEN` through [[mod_error:errstat_fileopen]]. |
+!> | 2026-09-06 | SvB | - | Checked the result-file `CLOSE` through [[mod_error:errstat_fileclose]]. |
 !> @endhistory
    SUBROUTINE FRRESC
 
@@ -3232,7 +3243,8 @@ CONTAINS
       ! CLOSE RES FILE, SO THAT RESULTS CAN BE INSPECTED USING SHEGRAPH BEFORE
       ! SIMULATION HAS TERMINATED
       !
-      CLOSE (RES)
+      CLOSE (RES, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, TRIM(RESFIL), RES, emsg)
 
       ! OPEN OUTPUT DATA FILES ON FILE UNITS 50 ONWARDS
       !

@@ -73,12 +73,14 @@
 !> | 2026-04-14 | SvB | - | Exposed the renamed fatal error service used by GFortran-safe callers. |
 !> | 2026-07-08 | SB | - | Corrected record-boundary failures in the non-advancing reader. |
 !> | 2026-07-09 | SvB | - | Replaced non-advancing reads with the buffered lexer and added CMake regression suites. |
+!> | 2026-09-06 | SvB | - | Checked the success-path `CLOSE` statements through [[mod_error:errstat_fileclose]]. |
 !> @endhistory
 MODULE visualisation_read
 
    USE visualisation_read_parser, ONLY: visualisation_token_reader, transform_visualisation_record, &
                                         visualisation_title_matches, VIS_READ_OK, VIS_READ_END, &
                                         VIS_MAX_RECORD_LENGTH, VIS_RECORD_BUFFER_LENGTH
+   USE mod_error, ONLY: errstat_fileclose
 
    IMPLICIT NONE
 
@@ -456,7 +458,7 @@ CONTAINS
 !> | Stage | Current behavior |
 !> |:------|:-----------------|
 !> | Destination | Uses `<dir>/temporary.txt` when `dir` is present, otherwise `temporary.txt`; an existing file is replaced. |
-!> | Unit preparation | Closes an already-open `u` with `STATUS='keep'`; internal source and output units use `NEWUNIT`. |
+!> | Unit preparation | Closes an already-open `u` with `STATUS='keep'`, checked through [[mod_error:errstat_fileclose]]; internal source and output units use `NEWUNIT`. |
 !> | Title | Requires the case-sensitive expected title after trimming and optional matching outer quotes. |
 !> | Content | Removes the delimiter and comment tail, splits at either separator, trims ASCII spaces, and omits empty segments. |
 !> | Validation | Limits significant uncommented content to 500 characters and accepts printable ASCII 32:126 only. |
@@ -486,6 +488,7 @@ CONTAINS
 !> | 2004-07 | JE | SHEGRAPH 2.0 | Adapted stripping for visualisation plans. |
 !> | 2005-08-09 | NETT | - | Hardened blank-line trimming in the legacy implementation. |
 !> | 2026-07-09 | SvB | - | Replaced character-at-a-time stripping with complete-record transformation and checked I/O. |
+!> | 2026-09-06 | SvB | - | Checked the three success-path `CLOSE` statements through [[mod_error:errstat_fileclose]]; the cleanup closes on error branches stay unchecked so they cannot mask the reported failure. |
 !> @endhistory
    SUBROUTINE strip(file, u, checktitle, delimiter, separator, dir)
       INTEGER, INTENT(IN)                :: u          !! Caller-selected unit for the stripped stream.
@@ -515,7 +518,11 @@ CONTAINS
       END IF
 
       INQUIRE (UNIT=u, OPENED=opened)
-      IF (opened) CLOSE (UNIT=u, STATUS='keep')
+      IF (opened) THEN
+         iomsg = ''
+         CLOSE (UNIT=u, STATUS='keep', IOSTAT=ios, IOMSG=iomsg)
+         CALL errstat_fileclose(ios, fid=u, iomsg=iomsg)
+      END IF
 
       iomsg = ''
       OPEN (NEWUNIT=source_unit, FILE=file, STATUS='old', ACTION='read', IOSTAT=ios, IOMSG=iomsg)
@@ -590,8 +597,13 @@ CONTAINS
          END DO
       END DO
 
-      CLOSE (source_unit)
-      CLOSE (output_unit)
+      iomsg = ''
+      CLOSE (source_unit, IOSTAT=ios, IOMSG=iomsg)
+      CALL errstat_fileclose(ios, TRIM(file), source_unit, iomsg)
+
+      iomsg = ''
+      CLOSE (output_unit, IOSTAT=ios, IOMSG=iomsg)
+      CALL errstat_fileclose(ios, TRIM(tempfile), output_unit, iomsg)
 
       iomsg = ''
       OPEN (UNIT=u, FILE=TRIM(tempfile), STATUS='old', ACTION='readwrite', IOSTAT=ios, IOMSG=iomsg)

@@ -149,21 +149,49 @@ CONTAINS
    !> `CLOSE` statement to have the processor's explanatory text for `status`
    !> included in the diagnostic.
    !>
+   !> Both `filename` and `fid` are optional, but at least one of them should be
+   !> given so that the report identifies the file. If `filename` is absent the
+   !> name is recovered from `fid` with an `INQUIRE`, which works as long as the
+   !> unit is still connected to a named file. Where no name can be established
+   !> the unit number is reported instead.
+   !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
    !> | 2026-09-06 | SvB | Report the `status` value and the optional `IOMSG=` text. |
+   !> | 2026-09-06 | SvB | Added `fid` and derive the filename from it via `INQUIRE`. |
    !> @endhistory
-   SUBROUTINE errstat_fileclose(status, filename, iomsg)
+   SUBROUTINE errstat_fileclose(status, filename, fid, iomsg)
       INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file closing.
-      CHARACTER(LEN=*), INTENT(IN) :: filename !! Name of the file being closed.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name of the file being closed.
+      INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: fid !! Unit ID of the file being closed.
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: iomsg !! Text from the `IOMSG=` specifier of the failing `CLOSE`.
 
       CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
+      CHARACTER(LEN=LENGTH_FILEPATH) :: name !! Name of the file, either given or inquired from `fid`.
+      INTEGER(KIND=I_P) :: stat_inquire !! Return status of the `INQUIRE` recovering the name.
+      LOGICAL :: is_open !! `.TRUE.` if `fid` is still connected to a file.
+      LOGICAL :: is_named !! `.TRUE.` if the file connected to `fid` has a name.
 
       IF (status /= 0) THEN
-         msg = 'Error closing file: '//TRIM(filename)//' (status '//to_string(status)//')'
+         name = ''
+         IF (PRESENT(filename)) THEN
+            name = filename
+         ELSE IF (PRESENT(fid)) THEN
+            INQUIRE (UNIT=fid, OPENED=is_open, NAMED=is_named, NAME=name, IOSTAT=stat_inquire)
+            IF (stat_inquire /= 0 .OR. .NOT. is_open .OR. .NOT. is_named) name = ''
+         END IF
+
+         IF (LEN_TRIM(name) > 0) THEN
+            msg = 'Error closing file: '//TRIM(name)
+         ELSE IF (PRESENT(fid)) THEN
+            msg = 'Error closing file on unit '//to_string(fid)
+         ELSE
+            msg = 'Error closing file'
+         END IF
+
+         msg = TRIM(msg)//' (status '//to_string(status)//')'
          IF (PRESENT(iomsg)) THEN
             IF (LEN_TRIM(iomsg) > 0) msg = TRIM(msg)//': '//TRIM(iomsg)
          END IF

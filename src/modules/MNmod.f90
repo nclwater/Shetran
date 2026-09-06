@@ -56,7 +56,7 @@ module MNmod
    use sglobal, only: llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, RAISE_ERROR, ERRLVL_fatal, FID_logfile
 
    use mod_load_filedata, only: alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
    use utilsmod, only: hour_from_date, tridag
@@ -4151,6 +4151,12 @@ CONTAINS
 !> indices when the complete range is valid. These current behaviours can make
 !> multi-vegetation uptake or crop-reset results undefined.
 !> @endwarning
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-09-06 | SvB | Checked both plant-file `CLOSE` statements through [[mod_error:errstat_fileclose]], which recovers the filename from the unit. |
+!> @endhistory
    SUBROUTINE MNPLANTINITIALISE(MNPL, MNOUTPL, NEL, NLF, NV, NVC, RHOPL, DELONE, DXQQ, DYQQ, PLAI, CLAI)
 
       IMPLICIT NONE
@@ -4162,8 +4168,10 @@ CONTAINS
 
       INTEGER :: I, JPLTY, NDATA, NELM, NPLANT, NTB
       INTEGER :: IDUM(1)
+      INTEGER(KIND=I_P) :: ios !! I/O status from closing the plant input and output files.
       DOUBLE PRECISION :: DUMMY(MN_PLANT_NVALEE*2)
       CHARACTER(LEN=200) :: CDUM(1)
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
 
       CALL ALRED2(0, MNPL, MNOUTPL, 'mnptin')
       CALL ALREDC(0, MNPL, MNOUTPL, ':MNP1', 1, 1, CDUM)
@@ -4181,8 +4189,11 @@ CONTAINS
          END DO
       END DO
 
-      CLOSE (MNPL)
-      CLOSE (MNOUTPL)
+      CLOSE (MNPL, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, fid=MNPL, iomsg=emsg)
+
+      CLOSE (MNOUTPL, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, fid=MNOUTPL, iomsg=emsg)
 
       DO NELM = NLF + 1, NEL
          DO I = 1, NPLTEE

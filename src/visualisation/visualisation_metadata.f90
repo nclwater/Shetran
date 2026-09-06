@@ -89,7 +89,7 @@ MODULE visualisation_metadata
    USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
    USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc
+   USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc, errstat_fileclose
 
    IMPLICIT NONE
 
@@ -600,10 +600,13 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added visualisation-plan scanning and reference resolution. |
 !> | 2026-04-14 | SvB | Routed parser failures through the current fatal visualisation error service. |
+!> | 2026-09-06 | SvB | Checked the temporary-plan `CLOSE` through [[mod_error:errstat_fileclose]]. |
 !> @endhistory
    SUBROUTINE read_dynamic_visualisation_metadata()
       INTEGER      :: i   !! Dynamic item index during reference resolution.
+      INTEGER(KIND=I_P) :: ios !! I/O status from deleting the temporary plan stream.
       CHARACTER(4) :: now !! Current lowercase plan-block keyword.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
       CALL COPY(DIRQQ, planfile)
       now = CYCLE_TILL_KEYWORD()
       IF(now/='diag') THEN
@@ -629,7 +632,8 @@ CONTAINS
          CALL LINK_USERS_NUMBERS_TO_INDEXES(items(i))
       ENDDO
       CALL FINAL_CHECK_OF_ITEM()
-      CLOSE (UNIT=vp_in,status="delete")
+      CLOSE (UNIT=vp_in, STATUS="delete", IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, fid=vp_in, iomsg=emsg)
 
    END SUBROUTINE read_dynamic_visualisation_metadata
 

@@ -43,7 +43,7 @@ module ZQmod
    USE AL_C, ONLY: DTUZ, UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
    USE AL_D, ONLY: zqd, NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill     ! module state shared with OCQDQ
    USE mod_parameters                                                          ! general parameters
-   USE mod_error, ONLY: errstat_alloc, errstat_fileopen, errstat_read
+   USE mod_error, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read
 
    IMPLICIT NONE
 
@@ -108,6 +108,7 @@ CONTAINS
 !! | 2026-04-03 | SvB | | Replaced `GOTO`/labelled `STOP` error handling with `IOSTAT` checks and the internal `handle_zq_error` subroutine; made the header-token loops robust to runs of multiple spaces via `ADJUSTL`. |
 !! | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !! | 2026-09-06 | SvB | - | Routed the log-file `OPEN` and every checked `READ` through the standardised [[mod_error]] status checks, reporting `IOSTAT`/`IOMSG`, and removed the internal `handle_zq_error` subroutine. |
+!! | 2026-09-06 | SvB | - | Checked both `CLOSE` statements through [[mod_error:errstat_fileclose]]. |
 !! @endhistory
 !---------------------------------------------------------------------------
    SUBROUTINE ReadZQTable()
@@ -284,8 +285,11 @@ CONTAINS
          END DO
       END DO
 
-      CLOSE (zqd)
-      CLOSE (fid_ZQ_log)
+      CLOSE (zqd, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, fid=zqd, iomsg=emsg)
+
+      CLOSE (fid_ZQ_log, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, 'output_readZQTable.txt', iomsg=emsg)
 
       RETURN
 
