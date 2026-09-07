@@ -17,10 +17,12 @@
 !> | 2026-04-06 | SvB | | Removed the remaining `GOTO`s from [[hinput]]; made [[tridag]] `PURE` and changed its array arguments from assumed-shape to explicit-shape to guarantee no copy-in/copy-out overhead. |
 !> | 2026-04-13 | SvB | | Removed the remaining labelled `DO` loops and modernised [[invertmat]]; made [[dcopy]], the date/leap-year helper functions, [[jematmul_mm]], [[jematmul_vm]], [[terpo1]], [[invertmat]], [[lubksb]], and [[ludcmp]] `PURE`; fixed [[dcopy]]'s `n<-0` typo to `n<=0` and its `dy` argument's intent from `OUT` to `INOUT`. |
 !> | 2026-05-10 | SvB | | Replaced the interactive pause-and-stop in [[hour_from_date]] with `ERROR STOP`, so an invalid date halts non-interactively. |
+!> | 2026-09-07 | SvB | | Routed every `READ` in [[finput]], [[hinput]], [[areadi]], and [[areadr]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`; the breakpoint readers now distinguish a genuine read error from an expected end of file. |
 !> @endhistory
 MODULE utilsmod
    USE SGLOBAL
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
+   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP, errstat_read
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINE
    USE AL_G, ONLY : NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY : icmbk
    IMPLICIT NONE
@@ -168,6 +170,8 @@ CONTAINS
       ! Local Variables
       INTEGER                         :: TIME(5), read_stat
       DOUBLE PRECISION                :: SIMEND
+      CHARACTER(LEN=LENGTH_LINE)      :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER     :: location = 'utilsmod:FINPUT' !! Location string for read-error reports.
 
    !----------------------------------------------------------------------
 
@@ -189,13 +193,16 @@ CONTAINS
       read_loop: DO
 
          ! 1. Replaced implied DO loops with slicing and END=9999 with IOSTAT
-         READ (IIN, *, IOSTAT=read_stat) TIME(1:5), FNEXT(1:NINP)
+         READ (IIN, *, IOSTAT=read_stat, IOMSG=emsg) TIME(1:5), FNEXT(1:NINP)
 
          ! FATAL ERROR - END OF FILE REACHED - SET INTIME TO INDICATE ERROR
          IF (read_stat < 0) THEN
             INTIME = MARKER999
             RETURN
          END IF
+
+         ! a positive status is a genuine read error, not an expected end of file
+         CALL errstat_read(read_stat, location, emsg)
 
          INLAST = INTIME
          INTIME = HOUR_FROM_DATE(TIME(1), TIME(2), TIME(3), TIME(4), TIME(5)) - TIH
@@ -298,6 +305,8 @@ CONTAINS
       ! Locals
       INTEGER          :: TIME (5), ios
       DOUBLE PRECISION :: SIMEND, SIMMID
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'utilsmod:HINPUT' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------
 
@@ -320,13 +329,16 @@ CONTAINS
             HLAST(1:NINP) = HNEXT(1:NINP)
 
             ! Read using IOSTAT to gracefully catch End-of-File
-            READ (IIN, *, IOSTAT=ios) TIME(1:5), HNEXT(1:NINP)
+            READ (IIN, *, IOSTAT=ios, IOMSG=emsg) TIME(1:5), HNEXT(1:NINP)
 
-            IF (ios /= 0) THEN
-               ! End of file or read error reached
+            IF (ios < 0) THEN
+               ! End of file reached
                INTIME = marker999
                EXIT time_loop
             END IF
+
+            ! a positive status is a genuine read error, not an expected end of file
+            CALL errstat_read(ios, location, emsg)
 
             INLAST = INTIME
             INTIME = HOUR_FROM_DATE(TIME(1), TIME(2), TIME(3), TIME(4), TIME(5)) - TIH
@@ -1177,9 +1189,11 @@ CONTAINS
       INTEGER, INTENT(IN)  :: IOF  !! Output file unit used when printing the grid array.
       INTEGER, INTENT(IN)  :: INUM !! Expected range/count of integer codes; zero selects old `20I4` input.
       INTEGER, INTENT(OUT) :: IAOUT(:) !! Integer element array; also input when converting elements back to grid.
-      INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX
+      INTEGER              :: I, I1, I2, IEL, J, K, L, LAL, LL1, NNX, NXX, ios
       INTEGER              :: IA(NXEE, NYEE)
       CHARACTER(4)         :: TITLE(20)
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'utilsmod:AREADI' !! Location string for read-error reports.
 !----------------------------------------------------------------------*
 
 !^^^^^^FILL IN SECTION
@@ -1200,25 +1214,29 @@ CONTAINS
       END IF
 
       IF (KON == 0 .OR. KON == 1) THEN
-         READ (INF, '(20A4)') TITLE
+         READ (INF, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+         CALL errstat_read(ios, location, emsg)
 
          y_read_loop: DO I1 = 1, NY
             K = NY + 1 - I1
             IF (INUM > 0 .AND. INUM < 10) THEN
                ! Replaced implied DO loop with array slicing
-               READ (INF, '(I7, 1X, 500I1)') I2, IA(1:NX, K)
+               READ (INF, '(I7, 1X, 500I1)', IOSTAT=ios, IOMSG=emsg) I2, IA(1:NX, K)
+               CALL errstat_read(ios, location, emsg)
                IF (I2 /= K) THEN
                   WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
                   CALL ERR_STOP(255)
                END IF
             ELSE
-               READ (INF, '(I7)') I2
+               READ (INF, '(I7)', IOSTAT=ios, IOMSG=emsg) I2
+               CALL errstat_read(ios, location, emsg)
                IF (I2 /= K) THEN
                   WRITE (IOF, "(/,/,2X, 'ERROR IN DATA ', 20A4, /,/,2X, 'IN THE VICINITY OF LINE K=', I5)") TITLE, I2
                   CALL ERR_STOP(255)
                END IF
                ! Note: Used list-directed read (*) as per your original commented-out line 30
-               READ (INF, *) IA(1:NX, K)
+               READ (INF, *, IOSTAT=ios, IOMSG=emsg) IA(1:NX, K)
+               CALL errstat_read(ios, location, emsg)
             END IF
          END DO y_read_loop
 
@@ -1368,18 +1386,22 @@ CONTAINS
       DOUBLE PRECISION :: AOUT(NELEE) !! Double-precision element array; input when `KON` is not 0 or 1.
 
 ! Locals, etc
-      INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, NXX
+      INTEGER :: I, J, K, L, I1, I2, IEL, IEL1, IEL2, LAL, LL1, NNX, NXX, ios
       DOUBLE PRECISION :: B1, B2, A(NXEE, NYEE)
       CHARACTER(LEN=4) :: TITLE(20)
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'utilsmod:AREADR' !! Location string for read-error reports.
 !----------------------------------------------------------------------*
 
 !^^^^^^READ SECTION
 !
       IF (KON == 0 .OR. KON == 1) THEN
-         READ (INF, '(20A4)') TITLE
+         READ (INF, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+         CALL errstat_read(ios, location, emsg)
 
          y_read_loop: DO I1 = 1, NY
-            READ (INF, '(I7)') I2
+            READ (INF, '(I7)', IOSTAT=ios, IOMSG=emsg) I2
+            CALL errstat_read(ios, location, emsg)
             K = NY + 1 - I1
 
             IF (I2 /= K) THEN
@@ -1388,7 +1410,8 @@ CONTAINS
             END IF
 
             ! 1. Replaced implied DO loop with array slicing
-            READ (INF, '(10G7.0)') A(1:NX, K)
+            READ (INF, '(10G7.0)', IOSTAT=ios, IOMSG=emsg) A(1:NX, K)
+            CALL errstat_read(ios, location, emsg)
          END DO y_read_loop
 
 !^^^^^^CONVERT GRID ARRAY TO ELEMENT ARRAY

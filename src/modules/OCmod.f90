@@ -28,6 +28,7 @@
 !> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
 !> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
 !> | 2026-05-10 | SvB | 4.6.1 | Moved the OC solver, water-surface, discharge, and index work arrays to allocatable storage (see [[initialise_ocsim_workspace]]). |
+!> | 2026-09-07 | SvB | 4.6.1 | Routed the previously unchecked `READ` statements in [[ocini]], [[jeocbc]], [[ocltl]], [[ocplf]], and [[ocread]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`. |
 !> @endhistory
 MODULE OCmod
    USE SGLOBAL
@@ -42,7 +43,7 @@ MODULE OCmod
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, RAISE_ERROR, ERRLVL_fatal, &
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
       ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
@@ -146,6 +147,9 @@ CONTAINS
       DOUBLE PRECISION :: DDUM1(NOCTAB), DDUM2(NOCTAB, NOCTAB) !! Discarded roughness/cross-section scratch passed to [[ocread]].
       DOUBLE PRECISION :: TDC, TFC                    !! Shadow the module-level `TDC`/`TFC`; see the routine's warning.
       LOGICAL :: LDUM1(NELEE)                        !! Discarded per-element check-result scratch passed to [[occhk1]].
+      INTEGER :: ios                                 !! I/O status from a boundary-file title read.
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg            !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCINI' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------*
 
@@ -160,8 +164,14 @@ CONTAINS
 
       ! Boundary data files
       ! Read title lines if applicable
-      IF (NOCHB > 0) READ (OHB, *)
-      IF (NOCFB > 0) READ (OFB, *)
+      IF (NOCHB > 0) THEN
+         READ (OHB, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
+      IF (NOCFB > 0) THEN
+         READ (OFB, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
 
       CALL INITIALISE_OCMOD()
 
@@ -663,16 +673,20 @@ CONTAINS
       ! Local Variables
       INTEGER                      :: BANK, I, IBANK, IBC, IBC0, IBK, ICAT
       INTEGER                      :: IELY, IFACE, J, JBANK, JBC, JEL, K
-      INTEGER                      :: KFACE, NOCPB, TYPEE
+      INTEGER                      :: KFACE, NOCPB, TYPEE, ios
       DOUBLE PRECISION             :: ADUM(5)
       LOGICAL                      :: TEST
       CHARACTER(LEN=77)            :: MSG
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:JEOCBC' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------*
 
       ! NUMBER OF CATEGORIES FOR EACH TYPE
-      READ (OCD, *)
-      READ (OCD, *) NOCHB, NOCFB, NOCPB
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg) NOCHB, NOCFB, NOCPB
+      CALL errstat_read(ios, location, emsg)
 
       ! INITIALIZATION
       NOCBC = 0
@@ -747,10 +761,12 @@ CONTAINS
          END DO
 
          MSG = 'Error reading polynomial function data in OC'
-         READ (OCD, *)
+         READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
 
          DO I = 1, NOCPB
-            READ (OCD, *) ICAT, ADUM
+            READ (OCD, *, IOSTAT=ios, IOMSG=emsg) ICAT, ADUM
+            CALL errstat_read(ios, location, emsg)
             IF (ICAT /= I) THEN
                IXER = IXER + 1
                CALL RAISE_ERROR(ERRLVL_error, 1031, FID_logfile, IELY, 0, MSG)
@@ -1485,12 +1501,15 @@ CONTAINS
       ! Local Variables
       CHARACTER(LEN=80)    :: TITLE
       CHARACTER(LEN=1)     :: A1LINE(500)
-      INTEGER              :: I, J, K, L, M
+      INTEGER              :: I, J, K, L, M, ios
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCLTL' !! Location string for read-error reports.
 
       CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
          ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
 
-      READ (INF, '(A80)') TITLE
+      READ (INF, '(A80)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
       IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
 
       IARR(1:NNX, 1:NNY) = 0
@@ -1498,7 +1517,8 @@ CONTAINS
       I = NNY
 
       read_loop: DO J = 1, NNY
-         READ (INF, '(I7, 1X, 500A1)') K, A1LINE(1:NNX)
+         READ (INF, '(I7, 1X, 500A1)', IOSTAT=ios, IOMSG=emsg) K, A1LINE(1:NNX)
+         CALL errstat_read(ios, location, emsg)
          IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, A1LINE(1:NNX)
 
          IF (K /= I) THEN
@@ -1590,14 +1610,18 @@ CONTAINS
       DOUBLE PRECISION :: STR, WDEPTH, ZG
       LOGICAL :: TEST, g8055, g8013, g8300, greturn
       CHARACTER(102) :: MSG
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCPLF' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------*
       !
       ! READ DEFAULT CHANNEL CROSS-SECTIONS
       ! :OC30
 
-      READ (OCD, *)
-      READ (OCD, *) NDEFCT
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg) NDEFCT
+      CALL errstat_read(ios, location, emsg)
 
       IF ((NDEFCT > NOCTAB) .OR. (NDEFCT < 0)) THEN
          WRITE (MSG, 9054) NDEFCT, NOCTAB
@@ -1612,12 +1636,14 @@ CONTAINS
 
       ! :OC32
       IF (NDEFCT > 0) THEN
-         READ (OCD, *)
+         READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
          IF (BOUT) WRITE (FID_logfile, 9032) 'Category', 'Width', 'Height'
 
          out100: DO IDEF = 1, NDEFCT
             IF (g8055) CYCLE out100
-            READ (OCD, *) N
+            READ (OCD, *, IOSTAT=ios, IOMSG=emsg) N
+            CALL errstat_read(ios, location, emsg)
 
             IF ((N > NOCTAB) .OR. (N < 2)) THEN
                g8055 = .TRUE.
@@ -1625,7 +1651,8 @@ CONTAINS
             END IF
 
             NXDEF(IDEF) = N
-            READ (OCD, *) (XDEFW(IDEF, J), XDEFH(IDEF, J), J=1, N)
+            READ (OCD, *, IOSTAT=ios, IOMSG=emsg) (XDEFW(IDEF, J), XDEFH(IDEF, J), J=1, N)
+            CALL errstat_read(ios, location, emsg)
 
             IF (BOUT) WRITE (FID_logfile, 9034) IDEF, (XDEFW(IDEF, J), XDEFH(IDEF, J), J=1, N)
          END DO out100
@@ -1639,7 +1666,8 @@ CONTAINS
          CALL RAISE_ERROR(ERRLVL_error, 1055, FID_logfile, 0, 0, MSG)
          IXER = IXER + 1
       ELSE
-         READ (OCD, *)
+         READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
          IF (BOUT) WRITE (FID_logfile, 9035) 'Element', 'Elevation', 'Init.Depth', 'Strickler', 'Width', 'Height'
 
          out500: DO ielm = 1, total_no_links
@@ -1679,7 +1707,8 @@ CONTAINS
             ELSE
                IF (IDEFX > 0) THEN
                   N = IDEFX
-                  READ (OCD, *) (XINW(ielm, J), XINH(ielm, J), J=1, N)
+                  READ (OCD, *, IOSTAT=ios, IOMSG=emsg) (XINW(ielm, J), XINH(ielm, J), J=1, N)
+                  CALL errstat_read(ios, location, emsg)
                   IF (BOUT) WRITE (FID_logfile, 9037) ielm, ZG, WDEPTH, STR, (XINW(ielm, J), XINH(ielm, J), J=1, N)
                ELSE
                   IDEF = -IDEFX
@@ -1705,15 +1734,19 @@ CONTAINS
                TYPEE = fromNOCBCD(IBC, 3)
 
                IF ((TYPEE == 7) .OR. (TYPEE == 8)) THEN
-                  READ (OCD, *) fromNOCBCD(IBC, 2), (COCBCD(J, IBC), J=1, 4)
+                  READ (OCD, *, IOSTAT=ios, IOMSG=emsg) fromNOCBCD(IBC, 2), (COCBCD(J, IBC), J=1, 4)
+                  CALL errstat_read(ios, location, emsg)
                   fromNOCBCD(IBC, 4) = 1
                ELSE IF (TYPEE == 9) THEN
                   fromNOCBCD(IBC, 2) = 0
-                  READ (OCD, *) fromNOCBCD(IBC, 4)
+                  READ (OCD, *, IOSTAT=ios, IOMSG=emsg) fromNOCBCD(IBC, 4)
+                  CALL errstat_read(ios, location, emsg)
                ELSE IF (TYPEE == 10) THEN
-                  READ (OCD, *) (fromNOCBCD(IBC, J), J=2, 4, 2)
+                  READ (OCD, *, IOSTAT=ios, IOMSG=emsg) (fromNOCBCD(IBC, J), J=2, 4, 2)
+                  CALL errstat_read(ios, location, emsg)
                ELSE IF (TYPEE == 11) THEN
-                  READ (OCD, *) fromNOCBCD(IBC, 2), (COCBCD(J, IBC), J=1, 5)
+                  READ (OCD, *, IOSTAT=ios, IOMSG=emsg) fromNOCBCD(IBC, 2), (COCBCD(J, IBC), J=1, 5)
+                  CALL errstat_read(ios, location, emsg)
                   fromNOCBCD(IBC, 4) = 1
                END IF
             END IF
@@ -1873,8 +1906,9 @@ CONTAINS
       DOUBLE PRECISION :: DET, SMIN, CDRS
       LOGICAL          :: BIOWAT, BOUT
       CHARACTER(81)    :: MSG
-      INTEGER(KIND=I_P) :: ios !! Status from the closing `REWIND`.
-      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
+      INTEGER(KIND=I_P) :: ios !! Status from a `READ` or the closing `REWIND`.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `READ` or `REWIND`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCREAD' !! Location string for read-error reports.
 
       INTEGER, PARAMETER :: NC(11) = [0, 0, 0, 0, 5, 0, 4, 4, 0, 0, 5]
       CHARACTER(11), PARAMETER :: CTYPE(11) = ['impermeable', '  grid-grid', '       head', ' flux      ', &
@@ -1889,8 +1923,10 @@ CONTAINS
 
       !              Integer & logical variables
       ! :OC1
-      READ (OCD, *)
-      READ (OCD, *) NT, NCATR, KONT, BIOWAT
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg) NT, NCATR, KONT, BIOWAT
+      CALL errstat_read(ios, location, emsg)
 
       KKON = MOD(KONT, 2)
       BOUT = (KKON == 1)
@@ -1899,13 +1935,17 @@ CONTAINS
 
       !              OC time-step data
       ! :OC2
-      READ (OCD, *)
-      READ (OCD, *)
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
 
       !              Default roughness parameters & floating-point variables
       ! :OC3
-      READ (OCD, *)
-      READ (OCD, *) SMIN, CDRS, TDC, TFC, DET
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (OCD, *, IOSTAT=ios, IOMSG=emsg) SMIN, CDRS, TDC, TFC, DET
+      CALL errstat_read(ios, location, emsg)
 
       IF (KONT < 2) TDC = TFC + one
 
@@ -1919,7 +1959,8 @@ CONTAINS
 
          IF (NCATR > 0) THEN
             ! PERF FIX: Implied DO loop instead of array slice
-            READ (OCD, *) (CATR(I), I=1, NCATR)
+            READ (OCD, *, IOSTAT=ios, IOMSG=emsg) (CATR(I), I=1, NCATR)
+            CALL errstat_read(ios, location, emsg)
             IF (BOUT) THEN
                WRITE (FID_logfile, 9084) (CATR(I), I=1, NCATR)
                WRITE (FID_logfile, *)

@@ -94,13 +94,14 @@
 !> | 2026-04-10 | SvB | 4.6 | Fixed the `VSSOIL` saturation-curve initialisation: `VSPTHE(3,IS)` is now computed from the DSATG recursion instead of being copied from `VSPTHE(4,IS)`/`VSPOR`. |
 !> | 2026-04-13 | SvB | 4.6 | Removed remaining labelled `DO` loops. |
 !> | 2026-05-03 | SvB | 4.6 | Moved several large `VSREAD` work arrays (`IVSDUM`, `IVSCAT`, `ISDUM`, `RVSDUM`, `RSDUM`, `BDONE`) from routine-local (stack) storage into allocatable module state, allocated once by [[initialise_vsread_buffers]], to fix a stack-related crash. |
+!> | 2026-09-07 | SvB | 4.6 | Routed every `READ` in [[vsin]] and [[vsread]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`. |
 !> @endhistory
 MODULE VSmod
    USE SGLOBAL
    USE mod_load_filedata, ONLY: ALSPRD, ALREAD
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, &
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
       ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
 !USE SGLOBAL,  ONLY :
@@ -2403,8 +2404,10 @@ CONTAINS
 
       ! Locals
       CHARACTER(132) :: MSG
-      INTEGER :: IEL, ICL, ILYR, ICBOT, ICTOP, IW, IELIN, ISTART, NAQCON
+      INTEGER :: IEL, ICL, ILYR, ICBOT, ICTOP, IW, IELIN, ISTART, NAQCON, ios
       INTEGER :: IAQCON(4, NVSEE), ISDUM(LLEE)
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'VSmod:VSIN' !! Location string for read-error reports.
       DOUBLE PRECISION :: DZ, RDUM, ZGI, ZMIN
       DOUBLE PRECISION :: CDUM1(LLEE), CDUM2(LLEE), CDUM3(LLEE), CDUM4(LLEE)
 
@@ -2433,11 +2436,26 @@ CONTAINS
       END IF
 
       ! read first lines of time-varying files
-      IF (NVSWL > 0) READ (WLD, *)
-      IF (NVSLF > 0) READ (LFB, *)
-      IF (NVSLH > 0) READ (LHB, *)
-      IF (NVSBF > 0) READ (BFB, *)
-      IF (NVSBH > 0) READ (BHB, *)
+      IF (NVSWL > 0) THEN
+         READ (WLD, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
+      IF (NVSLF > 0) THEN
+         READ (LFB, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
+      IF (NVSLH > 0) THEN
+         READ (LHB, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
+      IF (NVSBF > 0) THEN
+         READ (BFB, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
+      IF (NVSBH > 0) THEN
+         READ (BHB, *, IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+      END IF
 
       ! call VSCONL and VSCONC to set up connectivity arrays for layers and cells
       CALL VSCONL(NAQCON, IAQCON)
@@ -2499,15 +2517,19 @@ CONTAINS
 
          ! type 2 - varying phreatic surface level, equilibrium psi profile
       ELSE IF (INITYP == 2) THEN
-         READ (VSI, '(A)')
-         READ (VSI, *) (ZVSPSL(IEL), IEL=ISTART, total_no_elements)
+         READ (VSI, '(A)', IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
+         READ (VSI, *, IOSTAT=ios, IOMSG=emsg) (ZVSPSL(IEL), IEL=ISTART, total_no_elements)
+         CALL errstat_read(ios, location, emsg)
 
          ! type 3 - 3-dimensional field of psi values (+ init. psl for output)
       ELSE
-         READ (VSI, '(A)')
+         READ (VSI, '(A)', IOSTAT=ios, IOMSG=emsg)
+         CALL errstat_read(ios, location, emsg)
 
          element_loop_vsi: DO IEL = ISTART, total_no_elements
-            READ (VSI, *) IELIN
+            READ (VSI, *, IOSTAT=ios, IOMSG=emsg) IELIN
+            CALL errstat_read(ios, location, emsg)
 
             IF (IELIN /= IEL) THEN
                NVSERR = NVSERR + 1
@@ -2520,7 +2542,8 @@ CONTAINS
             ICBOT = NLYRBT(IEL, 1)
             ICTOP = top_cell_no
 
-            READ (VSI, *) VSPSI(ICBOT:ICTOP, IEL)
+            READ (VSI, *, IOSTAT=ios, IOMSG=emsg) VSPSI(ICBOT:ICTOP, IEL)
+            CALL errstat_read(ios, location, emsg)
 
             ZMIN = ZVSNOD(ICBOT, IEL) - half*DELTAZ(ICBOT, IEL)
 
@@ -3362,12 +3385,14 @@ CONTAINS
       INTEGER :: I, I0, IBK, ICAT, IEL, ILYR, IS, ISP, IW, IWT, IX, IXY0, IY
       INTEGER :: ICOUNT, LCOUNT
       INTEGER :: NUM_CATEGORIES_TYPES, NELEM, NCOUNT, NDUM, NSP, NW
-      INTEGER :: ILB, NLB, ITYP, NLDUM, ISDUM1, IDUM1(1)
+      INTEGER :: ILB, NLB, ITYP, NLDUM, ISDUM1, IDUM1(1), ios
       DOUBLE PRECISION :: DCSDUM(0:LLEE)
       DOUBLE PRECISION :: DCSNOD(LLEE), DCRDUM(0:LLEE), DCRNOD(LLEE), SIG, PDUM
       DOUBLE PRECISION :: XDUM(NVSEE), YDUM(NVSEE), Y2DUM(NVSEE), UDUM(NVSEE)
       CHARACTER(LEN=80)  :: CDUM
       CHARACTER(LEN=132) :: MSG
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'VSmod:VSREAD' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------*
       ! Initialization
@@ -3388,8 +3413,10 @@ CONTAINS
       WRITE (FID_logfile, '(/, 1X, A, /)') TRIM(CDUM)
 
       ! VS02 ----- logical flags
-      READ (VSD, '(A)') CDUM
-      READ (VSD, *) BFAST, BSOILP, BHELEV
+      READ (VSD, '(A)', IOSTAT=ios, IOMSG=emsg) CDUM
+      CALL errstat_read(ios, location, emsg)
+      READ (VSD, *, IOSTAT=ios, IOMSG=emsg) BFAST, BSOILP, BHELEV
+      CALL errstat_read(ios, location, emsg)
 
       ! VS03 ----- integer variables
       CALL ALREAD(2, VSD, FID_logfile, ':VS03', 4, 1, 0, CDUM, IDUM, DUMMY)
@@ -3426,14 +3453,16 @@ CONTAINS
       ! VS05a ---- soil characteristic function tabulated data
       DO IS = 1, NS
          IF (IVSFLG(IS) == 2 .OR. IVSFLG(IS) == 4) THEN
-            READ (VSD, *) ISDUM1
+            READ (VSD, *, IOSTAT=ios, IOMSG=emsg) ISDUM1
+            CALL errstat_read(ios, location, emsg)
             IF (IS /= ISDUM1) THEN
                WRITE (MSG, 9030) IS
                CALL RAISE_ERROR(ERRLVL_fatal, 1051, FID_logfile, 0, 0, MSG)
             END IF
 
             DO I = 1, IVSNTB(IS)
-               READ (VSD, *) TBPSI(I, IS), TBTHE(I, IS), TBKR(I, IS)
+               READ (VSD, *, IOSTAT=ios, IOMSG=emsg) TBPSI(I, IS), TBTHE(I, IS), TBKR(I, IS)
+               CALL errstat_read(ios, location, emsg)
             END DO
 
             ! set up cubic spline coefficients for theta, using log(psi)

@@ -100,7 +100,7 @@ MODULE visualisation_interface_left
    USE OCmod2, ONLY: hrfzz
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, ERRLVL_fatal, FID_logfile
 
    IMPLICIT NONE
    INTEGER, PARAMETER :: east = 1          !! Native SHETRAN east-face number.
@@ -483,6 +483,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the early contaminant-count scan for visualisation setup. |
 !> | 2026-04-06 | SvB | - | Replaced branch labels with `IOSTAT`-controlled scanning and reads. |
+!> | 2026-09-07 | SvB | - | Routed the count read through [[mod_error:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
 !> @endhistory
    SUBROUTINE get_ncon_early()
       IMPLICIT NONE
@@ -490,7 +491,7 @@ CONTAINS
       CHARACTER(4)  :: dd   !! Current fixed-length tag record.
       CHARACTER(64) :: mess !! Error message passed to `ERROR`.
       INTEGER       :: ios  !! Input/output status from the current read.
-      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `READ` or `REWIND`.
 
       scan_loop: DO
          READ (cmd, '(A)', IOSTAT=ios) dd
@@ -503,14 +504,8 @@ CONTAINS
          END IF
 
          IF (dd(2:4) == 'CM3') THEN
-            READ (cmd, *, IOSTAT=ios) nnncon
-
-            IF (ios /= 0) THEN
-               mess = 'failed to read NCON '
-               mess = 'GET_NCON_EARLY '//TRIM(mess)
-               CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
-               RETURN
-            END IF
+            READ (cmd, *, IOSTAT=ios, IOMSG=emsg) nnncon
+            CALL errstat_read(ios, 'GET_NCON_EARLY: NCON in contaminant data file', emsg)
 
             EXIT scan_loop
          END IF
@@ -538,6 +533,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the early sediment-count scan for visualisation setup. |
 !> | 2026-04-06 | SvB | - | Replaced branch labels with `IOSTAT`-controlled scanning and reads. |
+!> | 2026-09-07 | SvB | - | Routed the count read through [[mod_error:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
 !> @endhistory
    SUBROUTINE get_nsed_early()
       IMPLICIT NONE
@@ -545,7 +541,7 @@ CONTAINS
       CHARACTER(5)  :: dd   !! Current fixed-length tag record.
       CHARACTER(64) :: mess !! Error message passed to `ERROR`.
       INTEGER       :: ios  !! Input/output status from the current read.
-      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `READ` or `REWIND`.
 
       scan_loop: DO
          READ (syd, '(A)', IOSTAT=ios) dd
@@ -558,14 +554,8 @@ CONTAINS
          END IF
 
          IF (dd(2:5) == 'SY11') THEN
-            READ (syd, *, IOSTAT=ios) nnnsed
-
-            IF (ios /= 0) THEN
-               mess = 'failed to read NSED '
-               mess = 'GET_NSED_EARLY '//TRIM(mess)
-               CALL RAISE_ERROR(ERRLVL_fatal, 1, FID_logfile, 0, 0, mess)
-               RETURN
-            END IF
+            READ (syd, *, IOSTAT=ios, IOMSG=emsg) nnnsed
+            CALL errstat_read(ios, 'GET_NSED_EARLY: NSED in sediment data file', emsg)
 
             EXIT scan_loop
          END IF

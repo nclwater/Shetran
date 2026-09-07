@@ -55,6 +55,7 @@
 !> | 2026-03 | SB | 4.6 | Added allocation-based initialisation through `INITIALISE_AL_C3` and `INITIALISE_ETMOD`, date-aware meteorological input through `BMETDATES`, outlet sediment/contaminant text series, water-table and virtual-discharge text output, improved diagnostics, and `.pri` reporting of hard-coded array sizes. |
 !> | 2026-05-03 | SvB | 4.6.1 | Decomposed `FROUTPUT` into phase, sampling, accumulation, formatting, and I/O helpers without changing its output contracts. |
 !> | 2026-07-11 | SvB | 4.6.1 | Made rundata input record-based so blank records, normal EOF, and genuine read failures are distinguished. |
+!> | 2026-09-07 | SvB | 4.6.1 | Routed the previously unchecked `READ` statements in [[frinit]], [[frltl]], [[inbk]], [[inet]], [[infr]], and [[insm]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`; the hot-start reader now separates a genuine read error from end of file. |
 !> @endhistory
 MODULE FRmod
    USE stdlib_system, ONLY: join_path
@@ -87,7 +88,7 @@ MODULE FRmod
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
-                        errstat_rewind, &
+                        errstat_rewind, errstat_read, &
                         RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE SMmod, ONLY: head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
@@ -1273,7 +1274,8 @@ CONTAINS
 
       ! Locals, etc
       INTEGER :: IEL, IFACE, JEL, K, ios
-      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND` or `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:FRINIT' !! Location string for read-error reports.
       DOUBLE PRECISION :: rdd(NELEE), rddq(NELEE, 4)
       CHARACTER(LEN=20) :: AIOSTO
       CHARACTER(LEN=10) :: atemp
@@ -1353,7 +1355,7 @@ CONTAINS
       IF (BHOTRD) THEN
 
          hotstart_read: DO
-            READ (HOT, *, IOSTAT=ios) atemp, HOTIME, UZNEXT, top_cell_no, atemp, &
+            READ (HOT, *, IOSTAT=ios, IOMSG=emsg) atemp, HOTIME, UZNEXT, top_cell_no, atemp, &
                (CSTORE(IEL), IEL=NGDBGN, total_no_elements), atemp, &
                (rdd(IEL), IEL=1, total_no_elements), atemp, &
                ((rddq(IEL, K), IEL=1, total_no_elements), K=1, 4), atemp, &
@@ -1369,10 +1371,13 @@ CONTAINS
                ((VSPSI(k, iel), k=1, top_cell_no), IEL=1, total_no_elements)
 
             ! Gracefully exit if end of hotstart file is reached
-            IF (ios /= 0) THEN
+            IF (ios < 0) THEN
                WRITE (FID_logfile, '(/ A)') ' WARNING: END OF HOTSTART FILE REACHED'
                EXIT hotstart_read
             END IF
+
+            ! a positive status is a genuine read error, not an expected end of file
+            CALL errstat_read(ios, location, emsg)
 
             DO IEL = 1, total_no_elements
                CALL SETHRF(IEL, rdd(IEL))
@@ -1448,20 +1453,24 @@ CONTAINS
       INTEGER, INTENT(OUT) :: IARR(NXE, NYE)
 
       ! Locals, etc
-      INTEGER :: I, J, K, L, M
+      INTEGER :: I, J, K, L, M, ios
       ! CHARACTER(LEN=80) :: TITLE
       CHARACTER(LEN=1)  :: A1LINE(200)
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:FRLTL' !! Location string for read-error reports.
 
       CHARACTER(LEN=1), PARAMETER :: NMERIC(9) = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
-      READ (INF, '(A80)') TITLE
+      READ (INF, '(A80)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
       IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
 
       IARR(1:NNX, 1:NNY) = 0
 
       I = NNY
       DO J = 1, NNY
-         READ (INF, '(I7, 1X, 500A1)') K, (A1LINE(L), L=1, NNX)
+         READ (INF, '(I7, 1X, 500A1)', IOSTAT=ios, IOMSG=emsg) K, (A1LINE(L), L=1, NNX)
+         CALL errstat_read(ios, location, emsg)
          IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, (A1LINE(L), L=1, NNX)
 
          IF (K /= I) THEN
@@ -3837,10 +3846,12 @@ CONTAINS
 
       ! Locals, etc
       INTEGER :: I, IEL, ICOUNT, IDATA, IFAULT, IL, INTYPE, ITYPE
-      INTEGER :: J, JEL, NVALUE
+      INTEGER :: J, JEL, NVALUE, ios
       INTEGER :: IVALUE(NLFEE*2), IELEM(NLFEE*2)
       DOUBLE PRECISION :: DFAULT, DZG, VALUE(NLFEE*2)
       LOGICAL :: BINBKD, found_adjacent
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INBK' !! Location string for read-error reports.
 
       LOGICAL, PARAMETER :: INTEGR(13) = [.FALSE., .TRUE., .TRUE., .TRUE., .TRUE., .FALSE., &
                                           .FALSE., .TRUE., .TRUE., .FALSE., .FALSE., .FALSE., .FALSE.]
@@ -3848,8 +3859,10 @@ CONTAINS
       !
       ! READ TITLE, FLAG FOR PRINTING INITIALISATION DATA
       ! :BK1
-      READ (BKD, '(A)') TITLE
-      READ (BKD, '(L7)') BINBKD
+      READ (BKD, '(A)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (BKD, '(L7)', IOSTAT=ios, IOMSG=emsg) BINBKD
+      CALL errstat_read(ios, location, emsg)
 
       ! ----- LOOP OVER INPUT DATA TYPES
       !
@@ -3862,9 +3875,11 @@ CONTAINS
 
          ! READ TITLE, INPUT METHOD, NUMBER OF FOLLOWING VALUES
          ! :BK3
-         READ (BKD, '(A)') TITLE
+         READ (BKD, '(A)', IOSTAT=ios, IOMSG=emsg) TITLE
+         CALL errstat_read(ios, location, emsg)
          IF (BINBKD) WRITE (FID_logfile, '(A)') TITLE
-         READ (BKD, '(10I7)') INTYPE, NVALUE
+         READ (BKD, '(10I7)', IOSTAT=ios, IOMSG=emsg) INTYPE, NVALUE
+         CALL errstat_read(ios, location, emsg)
 
          !
          ! TYPE 1: SET VALUE = VALUE AT ADJACENT GRID
@@ -3944,7 +3959,8 @@ CONTAINS
          ELSE IF (INTYPE == 2) THEN
             ! :BK5
             IF (INTEGR(IDATA)) THEN
-               READ (BKD, '(10I7)') IFAULT
+               READ (BKD, '(10I7)', IOSTAT=ios, IOMSG=emsg) IFAULT
+               CALL errstat_read(ios, location, emsg)
                IF (BINBKD) WRITE (FID_logfile, 1300) IFAULT
 
                DO IEL = NGDBGN, total_no_elements
@@ -3953,7 +3969,8 @@ CONTAINS
                END DO
                ! :BK6
             ELSE
-               READ (BKD, '(10F7.0)') DFAULT
+               READ (BKD, '(10F7.0)', IOSTAT=ios, IOMSG=emsg) DFAULT
+               CALL errstat_read(ios, location, emsg)
                IF (BINBKD) WRITE (FID_logfile, 1500) DFAULT
 
                DO IEL = NGDBGN, total_no_elements
@@ -3982,7 +3999,8 @@ CONTAINS
             NVALUE = 2*total_no_links
             ! 980713
             IF (INTEGR(IDATA)) THEN
-               READ (BKD, '(10I7)') (IELEM(I), IVALUE(I), I=1, NVALUE)
+               READ (BKD, '(10I7)', IOSTAT=ios, IOMSG=emsg) (IELEM(I), IVALUE(I), I=1, NVALUE)
+               CALL errstat_read(ios, location, emsg)
                IF (BINBKD) WRITE (FID_logfile, 2000)
                IF (BINBKD) WRITE (FID_logfile, 2050) (IELEM(I), IVALUE(I), I=1, NVALUE)
 
@@ -3992,7 +4010,8 @@ CONTAINS
                   IF (ITYPE == 1 .OR. ITYPE == 2) IDUM(IEL) = IVALUE(I)
                END DO
             ELSE
-               READ (BKD, '(5(I7,F7.0))') (IELEM(I), VALUE(I), I=1, NVALUE)
+               READ (BKD, '(5(I7,F7.0))', IOSTAT=ios, IOMSG=emsg) (IELEM(I), VALUE(I), I=1, NVALUE)
+               CALL errstat_read(ios, location, emsg)
                IF (BINBKD) WRITE (FID_logfile, 2100)
                IF (BINBKD) WRITE (FID_logfile, 2150) (IELEM(I), VALUE(I), I=1, NVALUE)
 
@@ -4830,6 +4849,8 @@ CONTAINS
       INTEGER          :: I, IEL, IIMEAS, J, JJ, JJJ, N1, N2, ios, N
       DOUBLE PRECISION :: DEPTH, ASUM
       CHARACTER(LEN=80):: HEAD
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INET' !! Location string for read-error reports.
 
       ! Missing local arrays used for Energy Budget calculations
       ! Defined with NVEE size as per the common block logic
@@ -4858,33 +4879,43 @@ CONTAINS
 
       !-----READ PRINTCONTROL PARAMETERS
       !:ET1
-      READ (ETD, '(A)') HEAD
+      READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+      CALL errstat_read(ios, location, emsg)
 
       ! new code 10202026 BMETDATES added
       ! if true then the prd, epd and temperature files contain dates in the first column
       ! for backwards compatibility the default is false and BMETDATES will not be present in line ET1
       BMETDATES = .FALSE.
-      READ (ETD, '(A)') HEAD
+      READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+      CALL errstat_read(ios, location, emsg)
+      emsg = ''
       READ (HEAD, '(4L7)', IOSTAT=ios) BMETP, BINETP, BMETAL, BMETDATES
       IF (ios /= 0) THEN
-         READ (HEAD, '(3L7)', IOSTAT=ios) BMETP, BINETP, BMETAL
+         READ (HEAD, '(3L7)', IOSTAT=ios, IOMSG=emsg) BMETP, BINETP, BMETAL
          BMETDATES = .FALSE.
       END IF
+
+      ! either the 4-logical or the fallback 3-logical form must parse cleanly
+      CALL errstat_read(ios, location, emsg)
 
       !-----READ TIMESTEP FOR INPUT OF MET AND RAINDATA,
       !     TIMECONSTANT FOR RAINFALL DISTRIBUTION
       !:ET3
-      READ (ETD, '(A)') HEAD
+      READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+      CALL errstat_read(ios, location, emsg)
       ! Read the breakpoint interval and the regular interpolation intervals.
-      READ (ETD, *) DTMET, DTMET2, DTMET3
+      READ (ETD, *, IOSTAT=ios, IOMSG=emsg) DTMET, DTMET2, DTMET3
+      CALL errstat_read(ios, location, emsg)
 
       !-----READ WHETHER POTENTIAL EVAP IS MEASURED AND THEREFORE TO
       !     BE READ IN DIRECTLY FOR EACH MET STATION IN TURN.
       !     MEASPE = 0 : POTENTIAL EVAP NOT MEASURED
       !            = 1 : POTENTIAL EVAP MEASURED
       !:ET5
-      READ (ETD, '(A)') HEAD
-      READ (ETD, '(10I7)') (MEASPE(IIMEAS), IIMEAS=1, NM)
+      READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+      CALL errstat_read(ios, location, emsg)
+      READ (ETD, '(10I7)', IOSTAT=ios, IOMSG=emsg) (MEASPE(IIMEAS), IIMEAS=1, NM)
+      CALL errstat_read(ios, location, emsg)
 
       !  LOOP ON VEGETATION TYPES....
       veg_type_loop: DO I = 1, NV
@@ -4892,13 +4923,15 @@ CONTAINS
          IF (BINETP) WRITE (FID_logfile, "('0'//1X, 'VEGETATION TYPE', I6/1X, 22('*'))") I
 
          !:ET7
-         READ (ETD, '(A)') HEAD
+         READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+         CALL errstat_read(ios, location, emsg)
          IF (BINETP) WRITE (FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
          !  READ PARAMETER DATA
-         READ (ETD, '(L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)') &
+         READ (ETD, '(L7, 5F7.0, I7/I7, 4F7.0, I7, 3F7.0)', IOSTAT=ios, IOMSG=emsg) &
             BAR(I), RA(I), ZU(I), ZD(I), ZO(I), RC(I), MODE(I), NF(I), &
             PLAI(I), CSTCAP(I), CK(I), CB(I), NRD(I), CLAI(I), VHT(I), RDL(I)
+         CALL errstat_read(ios, location, emsg)
 
          IF (BINETP) WRITE (FID_logfile, "('0', 1X, 'ET COMPONENT WITH MODE', I6, 2X, 'OPERATION')") MODE(I)
 
@@ -4915,10 +4948,12 @@ CONTAINS
 
          !    READ TABULAR VARIATION OF TIME-VARYING PARAMETERS
          !:ET9
-         READ (ETD, '(A)') HEAD
+         READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+         CALL errstat_read(ios, location, emsg)
 
          !-----READ MODE: 0=CONSTANT; 1=TIME-VARYING
-         READ (ETD, '(4I7)') MODECS(I), MODEPL(I), MODECL(I), MODEVH(I)
+         READ (ETD, '(4I7)', IOSTAT=ios, IOMSG=emsg) MODECS(I), MODEPL(I), MODECL(I), MODEVH(I)
+         CALL errstat_read(ios, location, emsg)
 
          !-----CHECK MODE FOR TIME-VARYING CSTCAP
          IF (BINETP) WRITE (FID_logfile, "('0', 1X, 'MODE FOR CSTCAP FOR VEGETATION', I3, ' IS', I3, 3X, "// &
@@ -4930,15 +4965,19 @@ CONTAINS
 
             !-----READ NUMBER OF VALUES IN CSTCAP VARIATION TABLE
             !:ET11(1/4)
-            READ (ETD, '(A)') HEAD
-            READ (ETD, '(I7)') JJJ
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
+            READ (ETD, '(I7)', IOSTAT=ios, IOMSG=emsg) JJJ
+            CALL errstat_read(ios, location, emsg)
             !:ET13(1/4)
-            READ (ETD, '(A)') HEAD
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
             IF (BINETP) WRITE (FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING CSTCAP VALUES
             cstcap_loop: DO JJ = 1, JJJ
-               READ (ETD, *) RELCST(I, JJ), TIMCST(I, JJ)
+               READ (ETD, *, IOSTAT=ios, IOMSG=emsg) RELCST(I, JJ), TIMCST(I, JJ)
+               CALL errstat_read(ios, location, emsg)
                IF (BINETP) WRITE (FID_logfile, "(2G10.3)") RELCST(I, JJ), TIMCST(I, JJ)
             END DO cstcap_loop
          END IF
@@ -4953,15 +4992,19 @@ CONTAINS
 
             !-----READ NUMBER OF VALUES IN PLAI VARIATION TABLE
             !:ET11(2/4)
-            READ (ETD, '(A)') HEAD
-            READ (ETD, '(I7)') JJJ
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
+            READ (ETD, '(I7)', IOSTAT=ios, IOMSG=emsg) JJJ
+            CALL errstat_read(ios, location, emsg)
             !:ET13(2/4)
-            READ (ETD, '(A)') HEAD
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
             IF (BINETP) WRITE (FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING PLAI VALUES
             plai_loop: DO JJ = 1, JJJ
-               READ (ETD, *) RELPLA(I, JJ), TIMPLA(I, JJ)
+               READ (ETD, *, IOSTAT=ios, IOMSG=emsg) RELPLA(I, JJ), TIMPLA(I, JJ)
+               CALL errstat_read(ios, location, emsg)
                IF (BINETP) WRITE (FID_logfile, "(2G10.3)") RELPLA(I, JJ), TIMPLA(I, JJ)
             END DO plai_loop
          END IF
@@ -4976,15 +5019,19 @@ CONTAINS
 
             !-----READ NUMBER OF VALUES IN CLAI VARIATION TABLE
             !:ET11(3/4)
-            READ (ETD, '(A)') HEAD
-            READ (ETD, '(I7)') JJJ
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
+            READ (ETD, '(I7)', IOSTAT=ios, IOMSG=emsg) JJJ
+            CALL errstat_read(ios, location, emsg)
             !:ET13(3/4)
-            READ (ETD, '(A)') HEAD
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
             IF (BINETP) WRITE (FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING CLAI VALUES
             clai_loop: DO JJ = 1, JJJ
-               READ (ETD, *) RELCLA(I, JJ), TIMCLA(I, JJ)
+               READ (ETD, *, IOSTAT=ios, IOMSG=emsg) RELCLA(I, JJ), TIMCLA(I, JJ)
+               CALL errstat_read(ios, location, emsg)
                IF (BINETP) WRITE (FID_logfile, "(2G10.3)") RELCLA(I, JJ), TIMCLA(I, JJ)
             END DO clai_loop
          END IF
@@ -4999,15 +5046,19 @@ CONTAINS
 
             !-----READ NUMBER OF VALUES IN VHT VARIATION TABLE
             !:ET11(4/4)
-            READ (ETD, '(A)') HEAD
-            READ (ETD, '(I7)') JJJ
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
+            READ (ETD, '(I7)', IOSTAT=ios, IOMSG=emsg) JJJ
+            CALL errstat_read(ios, location, emsg)
             !:ET13(4/4)
-            READ (ETD, '(A)') HEAD
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
             IF (BINETP) WRITE (FID_logfile, "('0'//1X, A)") TRIM(HEAD)
 
             !-----READ TIME-VARYING VHT VALUES
             vht_loop: DO JJ = 1, JJJ
-               READ (ETD, *) RELVHT(I, JJ), TIMVHT(I, JJ)
+               READ (ETD, *, IOSTAT=ios, IOMSG=emsg) RELVHT(I, JJ), TIMVHT(I, JJ)
+               CALL errstat_read(ios, location, emsg)
                IF (BINETP) WRITE (FID_logfile, "(2G10.3)") RELVHT(I, JJ), TIMVHT(I, JJ)
             END DO vht_loop
          END IF
@@ -5018,9 +5069,11 @@ CONTAINS
          IF (MODE(I) /= 1 .AND. MODE(I) /= 4) THEN
             !  READ AND WRITE PSI/RCF/FET FUNCTION DATA.
             !:ET15
-            READ (ETD, '(A)') HEAD
+            READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+            CALL errstat_read(ios, location, emsg)
             N1 = NF(I)
-            READ (ETD, '(3F7.2)') (PS1(I, J), RCF(I, J), FET(I, J), J=1, N1)
+            READ (ETD, '(3F7.2)', IOSTAT=ios, IOMSG=emsg) (PS1(I, J), RCF(I, J), FET(I, J), J=1, N1)
+            CALL errstat_read(ios, location, emsg)
 
             IF (BINETP) WRITE (FID_logfile, "('0'//1X, A)") TRIM(HEAD)
             IF (BINETP) WRITE (FID_logfile, "(' ', 3F10.2)") (PS1(I, J), RCF(I, J), FET(I, J), J=1, N1)
@@ -5030,7 +5083,8 @@ CONTAINS
 
          !-----READ AND WRITE ROOT DENSITY FUNCTION DATA
          !:ET17
-         READ (ETD, '(A)') HEAD
+         READ (ETD, '(A)', IOSTAT=ios, IOMSG=emsg) HEAD
+         CALL errstat_read(ios, location, emsg)
          !  NOTE THAT IT IS ASSUMED HERE THAT DEPTHS CORRESPOND
          !  TO THE NODE DEPTHS FOR THE UZ SOLUTION, SO THAT
          !  EACH NODE IN THE ROOT ZONE HAS A CORRESPONDING RDF
@@ -5042,7 +5096,8 @@ CONTAINS
          N2 = NRD(I)
 
          rdf_loop: DO J = 1, N2
-            READ (ETD, '(2F7.4)') DEPTH, RDF(I, J)
+            READ (ETD, '(2F7.4)', IOSTAT=ios, IOMSG=emsg) DEPTH, RDF(I, J)
+            CALL errstat_read(ios, location, emsg)
             IF (BINETP) WRITE (FID_logfile, "(' ', 2F15.6)") DEPTH, RDF(I, J)
             ASUM = ASUM + RDF(I, J)
          END DO rdf_loop
@@ -5141,6 +5196,8 @@ CONTAINS
                  jsyear, jsmth, jsday, jshour, jsmin, jcyear, jcmth, jcday, jchour, jcmin, j, k, &
                  nlyrct, ipr, idmc, idra, idve, idlyr, i1, i2, i, ipflg, iel, ios
       DOUBLE PRECISION :: tthx
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INFR' !! Location string for read-error reports.
 
       WRITE (FID_logfile, 10)
 10    FORMAT('1', //T10, '                                E'/T10, &
@@ -5173,7 +5230,8 @@ CONTAINS
       ! :FR1
       WRITE (FID_logfile, '(A)') 'Catchment Name '
       WRITE (FID_logfile, '(A)') '************** '
-      READ (FRD, '(A)') TITLE
+      READ (FRD, '(A)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
 
       WRITE (FID_logfile, '(A)') TITLE
 
@@ -5208,26 +5266,36 @@ CONTAINS
       ! READ AND PRINT MODEL SIZE, TOTAL SIMULATION TIME, GRID SIZES AND
       ! PRINTING CONTROL.
       ! :FR2
-      READ (FRD, *)
-      READ (FRD, *) NX, NY
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg) NX, NY
+      CALL errstat_read(ios, location, emsg)
       NXPLUS = 0
 
       ! :FR4
-      READ (FRD, *)
-      READ (FRD, *) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg) ISYEAR, ISMTH, ISDAY, ISHOUR, ISMIN
+      CALL errstat_read(ios, location, emsg)
 
       ! :FR6
-      READ (FRD, *)
-      READ (FRD, *) IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg) IEYEAR, IEMTH, IEDAY, IEHOUR, IEMIN
+      CALL errstat_read(ios, location, emsg)
 
       ! READ START TIMES FOR SEDIMENT AND CONTAMINANT COMPONENTS
       ! :FR7a
-      READ (FRD, *)
-      READ (FRD, *) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg) JSYEAR, JSMTH, JSDAY, JSHOUR, JSMIN
+      CALL errstat_read(ios, location, emsg)
 
       ! :FR7c
-      READ (FRD, *)
-      READ (FRD, *) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg) JCYEAR, JCMTH, JCDAY, JCHOUR, JCMIN
+      CALL errstat_read(ios, location, emsg)
 
       NXM1 = NX - 1
       NYM1 = NY - 1
@@ -5235,20 +5303,28 @@ CONTAINS
       NYP1 = NY + 1
 
       ! :FR8
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(10F7.0)') (DXIN(J), J=1, NXM1)
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(10F7.0)', IOSTAT=ios, IOMSG=emsg) (DXIN(J), J=1, NXM1)
+      CALL errstat_read(ios, location, emsg)
 
       ! :FR10
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(10F7.0)') (DYIN(K), K=1, NYM1)
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(10F7.0)', IOSTAT=ios, IOMSG=emsg) (DYIN(K), K=1, NYM1)
+      CALL errstat_read(ios, location, emsg)
 
       ! :FR12
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(F7.0, I7, 4L7, F7.0)') DTAO, IAOUT, BINFRP, BFRTS1, BFRTS2, BSTORE, PSTART
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(F7.0, I7, 4L7, F7.0)', IOSTAT=ios, IOMSG=emsg) DTAO, IAOUT, BINFRP, BFRTS1, BFRTS2, BSTORE, PSTART
+      CALL errstat_read(ios, location, emsg)
 
       ! :FR20
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(4F7.0,L7)') PMAX, PALFA, QMAX, TMAX, BSOFT
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(4F7.0,L7)', IOSTAT=ios, IOMSG=emsg) PMAX, PALFA, QMAX, TMAX, BSOFT
+      CALL errstat_read(ios, location, emsg)
 
       ! PMAX = one
       ! PALFA = 0.15D0
@@ -5261,15 +5337,19 @@ CONTAINS
 
       IF (IAOUT == 2) THEN
          ! :FR22
-         READ (FRD, '(20A4)') TITLE
-         READ (FRD, '(10L7)') BPPNET, BPEPOT, BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD
+         READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+         CALL errstat_read(ios, location, emsg)
+         READ (FRD, '(10L7)', IOSTAT=ios, IOMSG=emsg) BPPNET, BPEPOT, BPQOC, BPDEP, BPQF, BPQH, BPQSZ, BPHSZ, BPBAL, BPSD
+         CALL errstat_read(ios, location, emsg)
       END IF
 
       ! ---- BEX** = TRUE FOR EXECUTION AND FALSE FOR NO EXECUTION
       !      NOTE: COMPONENTS FR,ET,UZ,OC,SZ,EX ARE ALWAYS INCLUDED
       ! :FR24
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(10L7)') BEXSM, BEXBK, BEXSY, BEXCM
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(10L7)', IOSTAT=ios, IOMSG=emsg) BEXSM, BEXBK, BEXSY, BEXCM
+      CALL errstat_read(ios, location, emsg)
       BEXET = .TRUE.
       BEXUZ = .TRUE.
       BEXOC = .TRUE.
@@ -5278,8 +5358,10 @@ CONTAINS
 
       ! LOGICAL PARAMETERS FOR HOT START
       ! :FR26
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(2L7, 2F7.2)') BHOTRD, BHOTPR, BHOTTI, BHOTST
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(2L7, 2F7.2)', IOSTAT=ios, IOMSG=emsg) BHOTRD, BHOTPR, BHOTTI, BHOTST
+      CALL errstat_read(ios, location, emsg)
 
       ! PRINT INITIALISATION DATA
       WRITE (FID_logfile, 150) NX, NY
@@ -5336,8 +5418,10 @@ CONTAINS
 
       ! READ AND PRINT NM,NRAIN,NV AND NS.
       ! :FR28
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(5I7)') NM, NRAIN, NV, NS, NLYRCT
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(5I7)', IOSTAT=ios, IOMSG=emsg) NM, NRAIN, NV, NS, NLYRCT
+      CALL errstat_read(ios, location, emsg)
       WRITE (FID_logfile, 260) NM, NRAIN, NV, NS, NLYRCT
 260   FORMAT('0'//, ' NO. OF METEOROLOGICAL SITES = ', I3, /, &
              ' NO. OF RAINFALL STATIONS = ', I3, /, &
@@ -5347,8 +5431,10 @@ CONTAINS
 
       ! READ RIVER LINING PARAMETERS.  BLOWP,DB,CCB,BEXTS1
       ! :FR30
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, *)
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, *, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_read(ios, location, emsg)
 
       ! SET PRINTING CONTROL FOR SUBROUTINES AREADR AND AREADI.
       IPR = 0
@@ -5356,8 +5442,10 @@ CONTAINS
 
       ! READ DEFAULT VALUES FOR MET,RAIN,VEG,SOIL-CODES. APPLIED WHEN > 0
       ! :FR32
-      READ (FRD, '(20A4)') TITLE
-      READ (FRD, '(6I7)') IDMC, IDRA, IDVE, IDLYR
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      READ (FRD, '(6I7)', IOSTAT=ios, IOMSG=emsg) IDMC, IDRA, IDVE, IDLYR
+      CALL errstat_read(ios, location, emsg)
       WRITE (FID_logfile, 300) IDMC, IDRA, IDVE, IDLYR
 300   FORMAT('0', /, ' DEFAULT METEOROLOGICAL STATION CODE =', I3, /, &
              1X, 'DEFAULT RAINFALL STATION CODE       =', I3, /, &
@@ -5369,12 +5457,14 @@ CONTAINS
       ! INDEX ARRAY ICMREF HASN'T BEEN SET UP YET)
       !
       ! :FR34
-      READ (FRD, '(20A4)') TITLE
+      READ (FRD, '(20A4)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
       IF (BINFRP) WRITE (FID_logfile, '( / 20A4)') TITLE
 
       DO I1 = 1, NY
          K = NY + 1 - I1
-         READ (FRD, '(I7, 1X, 500I1)') I2, (INGRID(J, K), J=1, NX)
+         READ (FRD, '(I7, 1X, 500I1)', IOSTAT=ios, IOMSG=emsg) I2, (INGRID(J, K), J=1, NX)
+         CALL errstat_read(ios, location, emsg)
          IF (BINFRP) WRITE (FID_logfile, '(I7, 1X, 500I1)') I2, (INGRID(J, K), J=1, NX)
 
          ! Catchment array definition check
@@ -5584,17 +5674,23 @@ CONTAINS
       IMPLICIT NONE
 
       ! Locals
-      INTEGER :: N, IEL, I
+      INTEGER :: N, IEL, I, ios
       DOUBLE PRECISION :: TSIN, UNIFSD
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INSM' !! Location string for read-error reports.
 
       ! READ PRINT CONTROL PARAMETERS
-      READ (SMD, '(20A4)') HEAD
-      READ (SMD, '(L7)') BINSMP
+      READ (SMD, '(20A4)', IOSTAT=ios, IOMSG=emsg) HEAD
+      CALL errstat_read(ios, location, emsg)
+      READ (SMD, '(L7)', IOSTAT=ios, IOMSG=emsg) BINSMP
+      CALL errstat_read(ios, location, emsg)
       IF (BINSMP) WRITE (FID_logfile, '(///1X, 20A4)') HEAD
 
       ! READ SNOWMELT DATA
-      READ (SMD, '(20A4)') HEAD
-      READ (SMD, '(2F7.5,F7.2,2I7)') DDF, RHOS, TSIN, NSD, MSM
+      READ (SMD, '(20A4)', IOSTAT=ios, IOMSG=emsg) HEAD
+      CALL errstat_read(ios, location, emsg)
+      READ (SMD, '(2F7.5,F7.2,2I7)', IOSTAT=ios, IOMSG=emsg) DDF, RHOS, TSIN, NSD, MSM
+      CALL errstat_read(ios, location, emsg)
       RHODEF = RHOS
 
       ! Added by spa, 05/11/92.  Snowpack temp no longer needed
@@ -5606,14 +5702,18 @@ CONTAINS
       ! Execute Energy Budget specific reads if MSM > 1
       IF (MSM /= 1) THEN
          ! READ ENERGY BUDGET DATA
-         READ (SMD, '(20A4)') HEAD
-         READ (SMD, '(3F7.5)') ZOS, ZDS, ZUS
+         READ (SMD, '(20A4)', IOSTAT=ios, IOMSG=emsg) HEAD
+         CALL errstat_read(ios, location, emsg)
+         READ (SMD, '(3F7.5)', IOSTAT=ios, IOMSG=emsg) ZOS, ZDS, ZUS
+         CALL errstat_read(ios, location, emsg)
 
          IF (BINSMP) WRITE (FID_logfile, 803) ZOS, ZDS, ZUS
 
          ! METEOROLOGICAL (WINDSPEED) DATA LOCATION
-         READ (SMD, '(20A4)') HEAD
-         READ (SMD, '(10I7)') (IMET(N), N=1, NM)
+         READ (SMD, '(20A4)', IOSTAT=ios, IOMSG=emsg) HEAD
+         CALL errstat_read(ios, location, emsg)
+         READ (SMD, '(10I7)', IOSTAT=ios, IOMSG=emsg) (IMET(N), N=1, NM)
+         CALL errstat_read(ios, location, emsg)
 
          IF (BINSMP) THEN
             WRITE (FID_logfile, 715)
@@ -5630,8 +5730,10 @@ CONTAINS
          END DO uniform_rho_loop
 
          ! UNIFORM SNOWDEPTH (MM OF SNOW)
-         READ (SMD, '(20A4)') HEAD
-         READ (SMD, '(F7.1)') UNIFSD
+         READ (SMD, '(20A4)', IOSTAT=ios, IOMSG=emsg) HEAD
+         CALL errstat_read(ios, location, emsg)
+         READ (SMD, '(F7.1)', IOSTAT=ios, IOMSG=emsg) UNIFSD
+         CALL errstat_read(ios, location, emsg)
 
          uniform_sd_loop: DO IEL = ngdbgn, total_no_elements
             SD(IEL) = UNIFSD

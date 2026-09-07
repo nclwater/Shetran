@@ -23,6 +23,7 @@
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow in `METIN` and `TMSTEP` with named `DO`/`CYCLE`/`EXIT` constructs. |
 !> | 2026-05-10 | SvB | - | Removed interactive "press enter to continue" prompts after fatal read errors in `METIN`/`TMSTEP`; replaced with `ERROR STOP`. |
 !> | 2026-08-22 | SvB | - | Added `READ_DATED_RECORD`, which reads dated meteorological records through a buffer sized to the record instead of a fixed 100000-character line. |
+!> | 2026-09-07 | SvB | - | Replaced the bare `STOP 'Error reading ...'` checks on the undated PET/temperature reads in `METIN` with [[mod_error:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
 !> @endhistory
 MODULE rest
    USE SGLOBAL
@@ -42,7 +43,7 @@ MODULE rest
    USE UTILSMOD, ONLY: HOUR_FROM_DATE, TERPO1
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
 
    USE OCmod2, ONLY: GETHRF
 
@@ -577,6 +578,8 @@ CONTAINS
       LOGICAL             :: FIRSTNOMET1 = .TRUE., FIRSTNOMET2 = .TRUE., FIRSTNOMET3 = .TRUE.
       LOGICAL             :: FIRSTNOMET4 = .TRUE., FIRSTNOMET5 = .TRUE.
       INTEGER             :: ios, iostage
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'rest:METIN' !! Location string for read-error reports.
       DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
       !----------------------------------------------------------------------*
 
@@ -722,14 +725,14 @@ CONTAINS
                      END IF
 
                      IF (ISTA) THEN
-                        READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
-                        IF (ios > 0) STOP 'Error reading max temp file'
+                        READ (TAH, *, IOSTAT=ios, IOMSG=emsg) TAHIGH(1:NM)
+                        IF (ios > 0) CALL errstat_read(ios, TRIM(location)//' (max temp file)', emsg)
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
                      END IF
 
                      IF (ISTA) THEN
-                        READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
-                        IF (ios > 0) STOP 'Error reading min temp file'
+                        READ (TAL, *, IOSTAT=ios, IOMSG=emsg) TALOW(1:NM)
+                        IF (ios > 0) CALL errstat_read(ios, TRIM(location)//' (min temp file)', emsg)
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
                      END IF
 
@@ -808,8 +811,8 @@ CONTAINS
 
                      ! epd and temperature files DO NOT have dates
                   ELSE
-                     READ (EPD, *, IOSTAT=ios) PEIN(1:NM)
-                     IF (ios > 0) STOP 'Error reading PET file'
+                     READ (EPD, *, IOSTAT=ios, IOMSG=emsg) PEIN(1:NM)
+                     IF (ios > 0) CALL errstat_read(ios, TRIM(location)//' (PET file)', emsg)
 
                      IF (ios < 0) THEN
                         IF (FIRSTNOEPD2) THEN
@@ -820,14 +823,14 @@ CONTAINS
                      END IF
 
                      IF (ISTA) THEN
-                        READ (TAH, *, IOSTAT=ios) TAHIGH(1:NM)
-                        IF (ios > 0) STOP 'Error reading max temp file'
+                        READ (TAH, *, IOSTAT=ios, IOMSG=emsg) TAHIGH(1:NM)
+                        IF (ios > 0) CALL errstat_read(ios, TRIM(location)//' (max temp file)', emsg)
                         IF (ios < 0) TAHIGH(1:NM) = 10.0d0
                      END IF
 
                      IF (ISTA) THEN
-                        READ (TAL, *, IOSTAT=ios) TALOW(1:NM)
-                        IF (ios > 0) STOP 'Error reading min temp file'
+                        READ (TAL, *, IOSTAT=ios, IOMSG=emsg) TALOW(1:NM)
+                        IF (ios > 0) CALL errstat_read(ios, TRIM(location)//' (min temp file)', emsg)
                         IF (ios < 0) TALOW(1:NM) = 10.0d0
                      END IF
 
