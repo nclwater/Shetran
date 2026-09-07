@@ -33,21 +33,22 @@
 MODULE OCmod
    USE SGLOBAL
    USE AL_C, ONLY: IDUM, NBFACE, CWIDTH, ZBFULL, &
-      DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
-      TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
+                   DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
+                   TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
    USE AL_D, ONLY: DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
-      NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
+                   NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
    USE AL_G, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
 
+   USE tolerance_testing, ONLY: gtzero, iszero, notzero, eqmarker
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
-      ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+                        ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
-      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
+                     HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
    USE OCQDQMOD, ONLY: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD !, &  !REST NNEDED ONLY FOR AD
 
    IMPLICIT NONE
@@ -101,7 +102,7 @@ MODULE OCmod
    PRIVATE
 
    PUBLIC :: OCINI, OCSIM, OCLTL, LINKNO, FINALISE_OCSIM_WORKSPACE, & !REST ARE PUBLIC FOR AD ONLY
-      qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
+             qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
 
 CONTAINS
 
@@ -441,7 +442,7 @@ CONTAINS
 !> multi-link junction, `ICMREF` contains a negative pointer to `ICMRF2`; the
 !> same operation is applied to each connected link using `DQIST2`.
    SUBROUTINE OCABC(IND, IROW, IELZ, NSV, NCR, NPR, IBC, N, AREAE, &
-      ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
+                    ZG, CL, ZBF, Z, PNETT, QHE, ESWAE, HNOW, AA, BB, CC, FF)
 
       IMPLICIT NONE
 
@@ -1050,14 +1051,14 @@ CONTAINS
       ! ICMREF
       face_loop: DO FACE = 1, 4
          CALL ALCHKI(ERRLVL_error, 1057, FID_logfile, 1, total_no_elements, FACE, 2, 'ICMREF(iel,face,2)', &
-            'LE', IDUMO, ICMREF(1:total_no_elements, 4 + FACE), NERR, LDUM1(1:total_no_elements))
+                     'LE', IDUMO, ICMREF(1:total_no_elements, 4 + FACE), NERR, LDUM1(1:total_no_elements))
       END DO face_loop
 
       ! ICMXY
       y_icmxy_loop: DO Y = 1, NY
          ! Modernized: Passing explicit array slice ICMXY(1:NX, Y) instead of scalar start point
          CALL ALCHKI(ERRLVL_error, 1057, FID_logfile, 1, NX, Y, IUNDEF, 'ICMXY(x,y)', &
-            'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
+                     'LE', IDUMO, ICMXY(1:NX, Y), NERR, LDUM1(1:NX))
       END DO y_icmxy_loop
 
       ! 2. Channel Definition Arrays
@@ -1083,7 +1084,7 @@ CONTAINS
 
             ! Modernized: Explicit array slice for IDUM
             CALL ALCHKI(ERRLVL_error, 1058, FID_logfile, 1, NX, Y, IUNDEF, NAME, 'EQ', &
-               IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
+                        IZERO1, IDUM(1:NX), NERR, LDUM1(1:NX))
          END DO y_lcode_loop
 
       END DO xy_loop
@@ -1227,8 +1228,8 @@ CONTAINS
             DDUM1A(IELw) = XINW(IELw, NXSECT(IELw))
          END DO
 
-         CALL ALCHK(ERRLVL_error, 1056, FID_logfile, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
-            DDUM1A, NERR, LDUM1)
+      CALL ALCHK(ERRLVL_error, 1056, FID_logfile, 1, total_no_links, IUNDEF, IUNDEF, 'XINW[link,NXSECT(link)]', 'GT', ZERO1, ZERO, &
+                    DDUM1A, NERR, LDUM1)
       END IF
 
       IF (NERR > 0) THEN
@@ -1271,7 +1272,7 @@ CONTAINS
       ! --- HEAD BOUNDARY ---
       IF (NOCHB > 0) THEN
          CALL HINPUT(OHB, TIH, OCNOW, OCNEXT, HOCLST, HOCNXT, &
-            HOCPRV(1:NOCHB), HOCNXV(1:NOCHB), NOCHB, HOCNOW(1:NOCHB))
+                     HOCPRV(1:NOCHB), HOCNXV(1:NOCHB), NOCHB, HOCNOW(1:NOCHB))
       END IF
 
       IF (EQMARKER(HOCNXT)) THEN
@@ -1281,7 +1282,7 @@ CONTAINS
       ! --- FLUX BOUNDARY ---
       IF (NOCFB > 0) THEN
          CALL FINPUT(OFB, TIH, OCNOW, OCNEXT, QFLAST, QFNEXT, &
-            QOCFIN(1:NOCFB), NOCFB, QOCF(1:NOCFB))
+                     QOCFIN(1:NOCFB), NOCFB, QOCF(1:NOCFB))
       END IF
 
       IF (EQMARKER(QFNEXT)) THEN
@@ -1506,7 +1507,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCLTL' !! Location string for read-error reports.
 
       CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
-         ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
+                                     ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
 
       READ (INF, '(A80)', IOSTAT=ios, IOMSG=emsg) TITLE
       CALL errstat_read(ios, location, emsg)
@@ -1769,10 +1770,10 @@ CONTAINS
 
       ! Format Statements
 9012  FORMAT('Cross-section number IDEFX =', I4, ' lies outside ranges', &
-         ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
+             ' -NDEFCT:-1 =', I4, ' : -1  and  2:NOCTAB = 2 :', I4)
 
 9013  FORMAT('Expected element number,', I5, ', but found', I5, ', ', &
-         'while reading channel data')
+             'while reading channel data')
 
 9032  FORMAT(/5X, 'Default Channel Cross-sections:'//5X, 3A10/)
 
@@ -1783,10 +1784,10 @@ CONTAINS
 9037  FORMAT(5X, I11, 3F11.3, (T50, 2F11.3))
 
 9054  FORMAT('Number of default channel cross-section categories ', &
-         'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
+             'NDEFCT =', I4, 2X, 'lies outside range 0:NOCTAB = 0 :', I4)
 
 9055  FORMAT('Number of width/elevation pairs NXDEF(', I3, ') =', I4, 2X, &
-         'lies outside range 2:NOCTAB = 2:', I4)
+             'lies outside range 2:NOCTAB = 2:', I4)
 
 9137  FORMAT(5X, I11, 3F11.3, 3X, 'default category', I3)
 
@@ -1912,7 +1913,7 @@ CONTAINS
 
       INTEGER, PARAMETER :: NC(11) = [0, 0, 0, 0, 5, 0, 4, 4, 0, 0, 5]
       CHARACTER(11), PARAMETER :: CTYPE(11) = ['impermeable', '  grid-grid', '       head', ' flux      ', &
-         ' polynomial', ' river_link', '       weir', ' river+weir', '       head', '       flux', ' polynomial']
+                            ' polynomial', ' river_link', '       weir', ' river+weir', '       head', '       flux', ' polynomial']
 
       !----------------------------------------------------------------------*
       !              Initialization
@@ -2051,21 +2052,21 @@ CONTAINS
 
       ! FORMAT STATEMENTS
 9080  FORMAT(///'---- OC MODULE ', A, 'INPUT DATA PROCESSING ----'///: &
-         5X, 'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
-         ' CATEGORIES   NCATR = ', I4)
+              5X, 'NUMBER OF DIFFERENT OVERLAND FLOW ROUGHNESS', &
+              ' CATEGORIES   NCATR = ', I4)
 
 9082  FORMAT(/5X, 'DEFAULT VALUE OF OVERLAND FLOW ROUGHNESS ', &
-         'COEFFICIENT     CDRS = ', F8.2)
+              'COEFFICIENT     CDRS = ', F8.2)
 
 9084  FORMAT(/4X, ' ROUGHNESS COEFFICIENTS  CATR  ATTACHED TO', &
-         ' EACH OF THE NCATR CATEGORIES'/(10F10.2))
+              ' EACH OF THE NCATR CATEGORIES'/(10F10.2))
 
 9085  FORMAT(/5X, 'Initial overland water depth is ', A)
 
 9412  FORMAT(I5, ' ERROR(S) FOUND DURING OC INPUT DATA PROCESSING')
 
 9500  FORMAT(/5X, 'Default OC B.C. is ', A, ' at catchment boundaries ', &
-         'and at channel/bank dead-ends')
+              'and at channel/bank dead-ends')
 
 9600  FORMAT(/5X, 'OC Boundary Conditions:'//5X, 3A8, A12, A10, A14)
 
@@ -2221,11 +2222,11 @@ CONTAINS
       END IF
 
       ASSOCIATE (AA => OCSIM_WORKSPACE%AA, DD => OCSIM_WORKSPACE%DD, &
-         FF => OCSIM_WORKSPACE%FF, BB => OCSIM_WORKSPACE%BB, &
-         GG => OCSIM_WORKSPACE%GG, CC => OCSIM_WORKSPACE%CC, &
-         EE => OCSIM_WORKSPACE%EE, TM1 => OCSIM_WORKSPACE%TM1, &
-         TM2 => OCSIM_WORKSPACE%TM2, TV1 => OCSIM_WORKSPACE%TV1, &
-         TV2 => OCSIM_WORKSPACE%TV2)
+                 FF => OCSIM_WORKSPACE%FF, BB => OCSIM_WORKSPACE%BB, &
+                 GG => OCSIM_WORKSPACE%GG, CC => OCSIM_WORKSPACE%CC, &
+                 EE => OCSIM_WORKSPACE%EE, TM1 => OCSIM_WORKSPACE%TM1, &
+                 TM2 => OCSIM_WORKSPACE%TM2, TV1 => OCSIM_WORKSPACE%TV1, &
+                 TV2 => OCSIM_WORKSPACE%TV2)
          !
          ! ----- Timestep setup
          DTOC = OCNEXT*3600.0D0
@@ -2268,9 +2269,9 @@ CONTAINS
                END IF
 
                CALL OCABC(IND, IROW, iels, NSV, NCR, NPR, IBC, NXSECT(LINK), cellarea(iels), &
-                  ZGRUND(iels), CLENTH(LINK), ZBFULL(LINK), GETHRF(iels), &
-                  PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(1:nsv, IND), &
-                  BB(1:ncr, IND), CC(1:npr, IND), FF(IND))
+                          ZGRUND(iels), CLENTH(LINK), ZBFULL(LINK), GETHRF(iels), &
+                          PNETTO(iels), QH(iels), ESWA(iels), HOCNOW(IHB), AA(1:nsv, IND), &
+                          BB(1:ncr, IND), CC(1:npr, IND), FF(IND))
             END DO
 
             ! CALCULATE MATRIX TM2 (inverse of CC.EE+BB) AND VECTOR TV2 (FF-CC.GG)

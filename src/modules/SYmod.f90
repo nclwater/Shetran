@@ -108,24 +108,24 @@
 MODULE SYmod
    USE SGLOBAL
 !USE AL_P
-   USE mod_load_filedata, ONLY : ALCHKI, ALCHK, ALALLF, ALREAD
+   USE mod_load_filedata, ONLY: ALCHKI, ALCHK, ALALLF, ALREAD
 
-   USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY : errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+   USE tolerance_testing, ONLY: idimje, dimje, iszero, gezero, gtzero, notzero, isone, notone, eqmarker
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
 
-   USE UTILSMOD, ONLY : DCOPY
+   USE UTILSMOD, ONLY: DCOPY
    USE CONST_SY
 
    IMPLICIT NONE
 
-   LOGICAL         :: FIRST_syackw=.TRUE. !! Unused; see the module-level note above `MODULE SYmod`.
+   LOGICAL         :: FIRST_syackw = .TRUE. !! Unused; see the module-level note above `MODULE SYmod`.
 
-   LOGICAL         :: FIRST_syfine=.TRUE. !! True until the fine-sediment settling velocity `WSED_syfine` has been cached.
+   LOGICAL         :: FIRST_syfine = .TRUE. !! True until the fine-sediment settling velocity `WSED_syfine` has been cached.
    DOUBLEPRECISION :: WSED_syfine         !! Cached fine-sediment settling velocity, set on the first call to [[syfine]].
 
-
-   INTEGER, PARAMETER  :: NSYBEE= 40       !! Maximum number of sediment boundary entries.
-   INTEGER, PARAMETER  :: NSYCEE=10        !! Maximum number of sediment boundary categories.
+   INTEGER, PARAMETER  :: NSYBEE = 40       !! Maximum number of sediment boundary entries.
+   INTEGER, PARAMETER  :: NSYCEE = 10        !! Maximum number of sediment boundary categories.
    INTEGER          :: ISACKW_symain       !! Channel transport-capacity option.
    INTEGER          :: ISGSED_symain       !! Overland transport-capacity option.
    INTEGER          :: ISSYOK_symain       !! Dynamic sediment input-check interval.
@@ -134,10 +134,10 @@ MODULE SYmod
    INTEGER          :: NEPS_symain         !! Number of sediment substeps per water timestep.
    INTEGER          :: NFINE_symain        !! Number of fine sediment classes; manual allows 0 or 1.
    INTEGER          :: NSYB_symain         !! Number of sediment boundary entries.
-   INTEGER          :: NSYBCD_symain(NSYBEE,3) !! Sediment boundary element, type, and category metadata.
+   INTEGER          :: NSYBCD_symain(NSYBEE, 3) !! Sediment boundary element, type, and category metadata.
    INTEGER          :: NSYC_symain(4)      !! Number of sediment boundary categories by boundary type.
    INTEGER          :: NTSOBK_symain(NLFEE) !! Bank soil type by channel link.
-   INTEGER          :: PASS_symain=0       !! Saved call counter for sediment setup/timestep control.
+   INTEGER          :: PASS_symain = 0       !! Saved call counter for sediment setup/timestep control.
    INTEGER          :: NTSOTP_symain(NELEE) !! Top soil type by element.
    DOUBLEPRECISION  :: ALPHA_symain        !! Fine-sediment settling/resuspension critical-shear ratio.
    DOUBLEPRECISION  :: CONCOB_symain       !! Mobile concentration threshold for overbank exchange.
@@ -172,31 +172,31 @@ MODULE SYmod
    ! [[symain]] work arrays, allocated once by [[initialise_symain_workspace]].
    ! Named as they were when they were SYMAIN's own local variables, so unlike
    ! the scalars above they do not carry a "_symain" suffix.
-   INTEGER, ALLOCATABLE :: IDUM1A (:) !! Integer workspace for [[syerr3]].
-   INTEGER, ALLOCATABLE :: IDUM1X (:) !! Integer workspace for [[syerr1]].
-   DOUBLE PRECISION, ALLOCATABLE :: CONCI (:, :)  !! Capacity concentration by link and sediment class, from [[sycltr]].
-   DOUBLE PRECISION, ALLOCATABLE :: DCIPRM (:, :) !! Interim upper-bed sediment depth by link/class, from [[sylink]].
-   DOUBLE PRECISION, ALLOCATABLE :: DDIPRM (:, :) !! Interim lower-bed sediment depth by link/class, from [[sylink]].
-   DOUBLE PRECISION, ALLOCATABLE :: DRDROP (:) !! Effective raindrop/drip diameter by land element, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: DUMSED (:) !! Sediment-sized floating-point workspace passed to [[sycltr]]/[[sycolm]].
-   DOUBLE PRECISION, ALLOCATABLE :: DWAT1 (:)  !! Surface/channel water depth by element, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: EPSB (:)   !! Bank erosion sediment source by link, from [[sybker]].
-   DOUBLE PRECISION, ALLOCATABLE :: FQCONF (:, :) !! Confluence outflow fractions for receiving branches, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: LRAIN (:)  !! Effective direct rainfall rate by land element, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: QSDWAT (:, :, :) !! Sediment advection coefficient for outflow faces, from [[sycltr]].
-   DOUBLE PRECISION, ALLOCATABLE :: QSEDB (:, :) !! Boundary sediment flow by class and boundary entry, from [[sybc]].
-   DOUBLE PRECISION, ALLOCATABLE :: QWATB (:)    !! Boundary water outflow rate by boundary entry.
-   DOUBLE PRECISION, ALLOCATABLE :: SLOPEJ (:, :) !! Face water-surface slope, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: TAUJ (:, :)   !! Face shear stress, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: TAUK (:)      !! Representative element/link shear stress, from [[sywat]].
-   DOUBLE PRECISION, ALLOCATABLE :: VCFMAX (:) !! Maximum fine volume available for settling/infiltration, from [[syfine]].
-   DOUBLE PRECISION, ALLOCATABLE :: VINFMX (:) !! Maximum fine infiltration volume, from [[syfine]].
-   LOGICAL, ALLOCATABLE :: BARM (:) !! True where fine sediment is protected by bed armouring, from [[syfine]].
-   LOGICAL, ALLOCATABLE :: LDUM (:) !! Logical workspace for `ALCHK`/`ALCHKI` checks in [[syerr1]]-[[syerr3]].
+   INTEGER, ALLOCATABLE :: IDUM1A(:) !! Integer workspace for [[syerr3]].
+   INTEGER, ALLOCATABLE :: IDUM1X(:) !! Integer workspace for [[syerr1]].
+   DOUBLE PRECISION, ALLOCATABLE :: CONCI(:, :)  !! Capacity concentration by link and sediment class, from [[sycltr]].
+   DOUBLE PRECISION, ALLOCATABLE :: DCIPRM(:, :) !! Interim upper-bed sediment depth by link/class, from [[sylink]].
+   DOUBLE PRECISION, ALLOCATABLE :: DDIPRM(:, :) !! Interim lower-bed sediment depth by link/class, from [[sylink]].
+   DOUBLE PRECISION, ALLOCATABLE :: DRDROP(:) !! Effective raindrop/drip diameter by land element, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: DUMSED(:) !! Sediment-sized floating-point workspace passed to [[sycltr]]/[[sycolm]].
+   DOUBLE PRECISION, ALLOCATABLE :: DWAT1(:)  !! Surface/channel water depth by element, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: EPSB(:)   !! Bank erosion sediment source by link, from [[sybker]].
+   DOUBLE PRECISION, ALLOCATABLE :: FQCONF(:, :) !! Confluence outflow fractions for receiving branches, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: LRAIN(:)  !! Effective direct rainfall rate by land element, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: QSDWAT(:, :, :) !! Sediment advection coefficient for outflow faces, from [[sycltr]].
+   DOUBLE PRECISION, ALLOCATABLE :: QSEDB(:, :) !! Boundary sediment flow by class and boundary entry, from [[sybc]].
+   DOUBLE PRECISION, ALLOCATABLE :: QWATB(:)    !! Boundary water outflow rate by boundary entry.
+   DOUBLE PRECISION, ALLOCATABLE :: SLOPEJ(:, :) !! Face water-surface slope, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: TAUJ(:, :)   !! Face shear stress, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: TAUK(:)      !! Representative element/link shear stress, from [[sywat]].
+   DOUBLE PRECISION, ALLOCATABLE :: VCFMAX(:) !! Maximum fine volume available for settling/infiltration, from [[syfine]].
+   DOUBLE PRECISION, ALLOCATABLE :: VINFMX(:) !! Maximum fine infiltration volume, from [[syfine]].
+   LOGICAL, ALLOCATABLE :: BARM(:) !! True where fine sediment is protected by bed armouring, from [[syfine]].
+   LOGICAL, ALLOCATABLE :: LDUM(:) !! Logical workspace for `ALCHK`/`ALCHKI` checks in [[syerr1]]-[[syerr3]].
 
-   DOUBLE PRECISION, PARAMETER :: K1_syovtr = 0.05D0 * RHOWAT**2 / ((RHOSED - RHOWAT)**2 * SQRT(GRAVTY)) !! Engelund-Hansen overland-capacity coefficient.
-   DOUBLE PRECISION, PARAMETER :: K3_syovtr = 2.45D0 * (RHOSED / RHOWAT)**(-0.4D0) / SQRT((RHOSED - RHOWAT) * GRAVTY) !! Yalin overland-capacity coefficient.
-   DOUBLE PRECISION, PARAMETER :: K4_syovtr = 0.635D0 / SQRT(RHOWAT) !! Yalin overland-capacity coefficient.
+   DOUBLE PRECISION, PARAMETER :: K1_syovtr = 0.05D0*RHOWAT**2/((RHOSED - RHOWAT)**2*SQRT(GRAVTY)) !! Engelund-Hansen overland-capacity coefficient.
+   DOUBLE PRECISION, PARAMETER :: K3_syovtr = 2.45D0*(RHOSED/RHOWAT)**(-0.4D0)/SQRT((RHOSED - RHOWAT)*GRAVTY) !! Yalin overland-capacity coefficient.
+   DOUBLE PRECISION, PARAMETER :: K4_syovtr = 0.635D0/SQRT(RHOWAT) !! Yalin overland-capacity coefficient.
 
    PRIVATE
 
@@ -237,53 +237,51 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: location = "SYmod:initialise_symain_workspace"
 
       IF (.NOT. ALLOCATED(BARM)) THEN
-         ALLOCATE (BARM (NLFEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (BARM(NLFEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "BARM", location, emsg)
-         ALLOCATE (CONCI (NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (CONCI(NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "CONCI", location, emsg)
-         ALLOCATE (DCIPRM (NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (DCIPRM(NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "DCIPRM", location, emsg)
-         ALLOCATE (DDIPRM (NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (DDIPRM(NLFEE, NSEDEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "DDIPRM", location, emsg)
-         ALLOCATE (DRDROP (NELEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (DRDROP(NELEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "DRDROP", location, emsg)
-         ALLOCATE (DUMSED (NLFEE * NSEDEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (DUMSED(NLFEE*NSEDEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "DUMSED", location, emsg)
-         ALLOCATE (DWAT1 (NELEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (DWAT1(NELEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "DWAT1", location, emsg)
-         ALLOCATE (EPSB (NLFEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (EPSB(NLFEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "EPSB", location, emsg)
-         ALLOCATE (FQCONF (NLFEE, 3), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (FQCONF(NLFEE, 3), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "FQCONF", location, emsg)
-         ALLOCATE (IDUM1A (NELEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (IDUM1A(NELEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "IDUM1A", location, emsg)
-         ALLOCATE (IDUM1X (NELEE + 3), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (IDUM1X(NELEE + 3), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "IDUM1X", location, emsg)
-         ALLOCATE (LDUM (NELEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (LDUM(NELEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "LDUM", location, emsg)
-         ALLOCATE (LRAIN (NELEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (LRAIN(NELEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "LRAIN", location, emsg)
-         ALLOCATE (QSDWAT (NLFEE, NSEDEE, 4), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (QSDWAT(NLFEE, NSEDEE, 4), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "QSDWAT", location, emsg)
-         ALLOCATE (QSEDB (NSEDEE, NSYBEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (QSEDB(NSEDEE, NSYBEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "QSEDB", location, emsg)
-         ALLOCATE (QWATB (NSYBEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (QWATB(NSYBEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "QWATB", location, emsg)
-         ALLOCATE (SLOPEJ (NELEE, 4), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (SLOPEJ(NELEE, 4), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "SLOPEJ", location, emsg)
-         ALLOCATE (TAUJ (NELEE, 4), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (TAUJ(NELEE, 4), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "TAUJ", location, emsg)
-         ALLOCATE (TAUK (NELEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (TAUK(NELEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "TAUK", location, emsg)
-         ALLOCATE (VCFMAX (NLFEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (VCFMAX(NLFEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "VCFMAX", location, emsg)
-         ALLOCATE (VINFMX (NLFEE), STAT=ios, ERRMSG=emsg)
+         ALLOCATE (VINFMX(NLFEE), STAT=ios, ERRMSG=emsg)
          CALL errstat_alloc(ios, "VINFMX", location, emsg)
       END IF
 
    END SUBROUTINE INITIALISE_SYMAIN_WORKSPACE
-
-
 
 !> Calculates Ackers-White channel transport capacity for non-fine sediment.
 !>
@@ -360,8 +358,8 @@ CONTAINS
 !> | 2026-04-06 | SvB | 4.6.1 | Removed `GOTO`-driven control flow; replaced the legacy statement functions `FDGR`/`FA` with internal `FUNCTION`s. |
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `K2_syackw`/`DGRMAX_syackw`/`ROOT32_syackw` with compile-time `PARAMETER`s; skipped the capacity exponentiation/accumulation when its base is non-positive (see the preceding note on `BASE`). |
 !> @endhistory
-   PURE SUBROUTINE SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
-      QOC, TAUJ, ACKW, GSED)
+   PURE SUBROUTINE SYACKW(NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
+                          QOC, TAUJ, ACKW, GSED)
 
       IMPLICIT NONE
 
@@ -372,28 +370,28 @@ CONTAINS
       INTEGER, INTENT(IN) :: NLFEE  !! Link-array dimension.
       INTEGER, INTENT(IN) :: NELEE  !! Element-array dimension.
       INTEGER, INTENT(IN) :: NSED   !! Number of sediment size classes.
-      LOGICAL, INTENT(IN)          :: LINKNS (NLF)                  !! True for north-south channel links.
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NFINE + 1:NSED)        !! Representative non-fine particle diameters.
-      DOUBLE PRECISION, INTENT(IN) :: ARXL (NLF)                    !! Channel cross-sectional area by link.
-      DOUBLE PRECISION, INTENT(IN) :: DWAT1 (NLF)                   !! Channel water depth by link.
-      DOUBLE PRECISION, INTENT(IN) :: QOC (NELEE, 4)                !! Face water fluxes.
-      DOUBLE PRECISION, INTENT(IN) :: DCBSED (NLFEE, NFINE + 1:NSED) !! Active-bed sediment depth by link and non-fine class.
-      DOUBLE PRECISION, INTENT(IN) :: TAUJ (NELEE, 4)               !! Face shear stress.
+      LOGICAL, INTENT(IN)          :: LINKNS(NLF)                  !! True for north-south channel links.
+      DOUBLE PRECISION, INTENT(IN) :: DRSED(NFINE + 1:NSED)        !! Representative non-fine particle diameters.
+      DOUBLE PRECISION, INTENT(IN) :: ARXL(NLF)                    !! Channel cross-sectional area by link.
+      DOUBLE PRECISION, INTENT(IN) :: DWAT1(NLF)                   !! Channel water depth by link.
+      DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4)                !! Face water fluxes.
+      DOUBLE PRECISION, INTENT(IN) :: DCBSED(NLFEE, NFINE + 1:NSED) !! Active-bed sediment depth by link and non-fine class.
+      DOUBLE PRECISION, INTENT(IN) :: TAUJ(NELEE, 4)               !! Face shear stress.
 
       ! In/Out arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: ACKW (5, NFINE + 1:NSED) !! Cached Ackers-White parameters by non-fine class.
+      DOUBLE PRECISION, INTENT(INOUT) :: ACKW(5, NFINE + 1:NSED) !! Cached Ackers-White parameters by non-fine class.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT)   :: GSED (NLF, NFINE + 1:NSED) !! Channel transport capacity by link and non-fine class.
+      DOUBLE PRECISION, INTENT(OUT)   :: GSED(NLF, NFINE + 1:NSED) !! Channel transport capacity by link and non-fine class.
 
       ! Locals
       DOUBLE PRECISION, PARAMETER :: DGRSML = 1.0D-4
       DOUBLE PRECISION, PARAMETER :: F16 = 0.16D0, F50 = 0.5D0, F56 = 0.56D0, F84 = 0.84D0
-      DOUBLE PRECISION, PARAMETER :: THIRD = 1.0D0 / 3.0D0
+      DOUBLE PRECISION, PARAMETER :: THIRD = 1.0D0/3.0D0
 
-      DOUBLE PRECISION, PARAMETER :: KRHO = RHOSED / RHOWAT - 1.0D0
-      DOUBLE PRECISION, PARAMETER :: K2_syackw = (GRAVTY * KRHO / VISCOS**2)**THIRD
-      DOUBLE PRECISION, PARAMETER :: DGRMAX_syackw = 10.0D0**(ONE / F56) + DGRSML
+      DOUBLE PRECISION, PARAMETER :: KRHO = RHOSED/RHOWAT - 1.0D0
+      DOUBLE PRECISION, PARAMETER :: K2_syackw = (GRAVTY*KRHO/VISCOS**2)**THIRD
+      DOUBLE PRECISION, PARAMETER :: DGRMAX_syackw = 10.0D0**(ONE/F56) + DGRSML
       DOUBLE PRECISION, PARAMETER :: ROOT32_syackw = SQRT(32.0D0)
       DOUBLE PRECISION :: AAW, ARXLE, CAW, DAAA, DBED16, DBED50, DBED84, DGR
       DOUBLE PRECISION :: DSED, DWAT1E, FGR, G, H10, LGR, MAW
@@ -407,13 +405,13 @@ CONTAINS
       NFP1 = NFINE + 1
 
       DO SED = NFP1, NSED
-         DGR = FDGR (DRSED (SED))
-         LGR = LOG10 (DGR)
-         ACKW (1, SED) = MAX (ZERO, ONE - F56 * LGR) ! Replaced DIMJE with standard intrinsic
-         IF (ISACKW == 1) ACKW (2, SED) = FA (DGR)
-         ACKW (3, SED) = 1.34D0 + 9.66D0 / DGR
-         ACKW (4, SED) = 10.0D0**( (2.86D0 - LGR) * LGR - 3.53D0)
-         ACKW (5, SED) = ONE / SQRT (GRAVTY * KRHO * DRSED (SED))
+         DGR = FDGR(DRSED(SED))
+         LGR = LOG10(DGR)
+         ACKW(1, SED) = MAX(ZERO, ONE - F56*LGR) ! Replaced DIMJE with standard intrinsic
+         IF (ISACKW == 1) ACKW(2, SED) = FA(DGR)
+         ACKW(3, SED) = 1.34D0 + 9.66D0/DGR
+         ACKW(4, SED) = 10.0D0**((2.86D0 - LGR)*LGR - 3.53D0)
+         ACKW(5, SED) = ONE/SQRT(GRAVTY*KRHO*DRSED(SED))
       END DO
 
       ! Zero GSED array slice
@@ -428,40 +426,40 @@ CONTAINS
 
             ! Determine face equivalent to this end, and flow rate there
             FACE = IEND
-            IF (LINKNS (LINK)) FACE = FACE + 1
-            QK = SGN * QOC (LINK, FACE)
+            IF (LINKNS(LINK)) FACE = FACE + 1
+            QK = SGN*QOC(LINK, FACE)
 
             ! Check that this end is outflowing
             IF (QK > ZERO) THEN
 
                ! Copy array elements to local variables
-               ARXLE = ARXL (LINK)
-               DWAT1E = DWAT1 (LINK)
-               H10 = 10.0D0 * DWAT1E
+               ARXLE = ARXL(LINK)
+               DWAT1E = DWAT1(LINK)
+               H10 = 10.0D0*DWAT1E
 
                ! Determine shear velocity and water flow velocity
-               USTR = SQRT (TAUJ (LINK, FACE) / RHOWAT)
+               USTR = SQRT(TAUJ(LINK, FACE)/RHOWAT)
                UK = ZERO
-               IF (ARXLE > ZERO) UK = QK / ARXLE
+               IF (ARXLE > ZERO) UK = QK/ARXLE
 
                ! Set A-W parameters for the Day modification if needed
                IF (ISACKW == 2) THEN
 
-                  DBED84 = SYDR (F84, NLFEE, NNF, DCBSED (LINK, NFP1), DRSED (NFP1))
+                  DBED84 = SYDR(F84, NLFEE, NNF, DCBSED(LINK, NFP1), DRSED(NFP1))
 
                   IF (DBED84 > ZERO) THEN
-                     DBED50 = SYDR (F50, NLFEE, NNF, DCBSED (LINK, NFP1), DRSED (NFP1))
-                     DBED16 = SYDR (F16, NLFEE, NNF, DCBSED (LINK, NFP1), DRSED (NFP1))
-                     DAAA = 1.62D0 * DBED50 * (DBED16 / DBED84)**0.28D0
+                     DBED50 = SYDR(F50, NLFEE, NNF, DCBSED(LINK, NFP1), DRSED(NFP1))
+                     DBED16 = SYDR(F16, NLFEE, NNF, DCBSED(LINK, NFP1), DRSED(NFP1))
+                     DAAA = 1.62D0*DBED50*(DBED16/DBED84)**0.28D0
                   ELSE
                      DAAA = ZERO
                   END IF
 
-                  DGR = FDGR (DAAA)
-                  AAW = FA (DGR)
+                  DGR = FDGR(DAAA)
+                  AAW = FA(DGR)
 
                   DO SED = NFP1, NSED
-                     ACKW (2, SED) = AAW * (0.6D0 + 0.4D0 * SQRT (DAAA / DRSED (SED)))
+                     ACKW(2, SED) = AAW*(0.6D0 + 0.4D0*SQRT(DAAA/DRSED(SED)))
                   END DO
 
                END IF
@@ -470,29 +468,29 @@ CONTAINS
                DO SED = NFP1, NSED
 
                   ! Set A-W parameters for this Sediment size group
-                  NAW = ACKW (1, SED)
-                  AAW = ACKW (2, SED)
-                  MAW = ACKW (3, SED)
-                  CAW = ACKW (4, SED)
-                  DSED = DRSED (SED)
+                  NAW = ACKW(1, SED)
+                  AAW = ACKW(2, SED)
+                  MAW = ACKW(3, SED)
+                  CAW = ACKW(4, SED)
+                  DSED = DRSED(SED)
 
                   ! Calculate particle mobility
                   UGR = ZERO
-                  IF (DSED < H10) UGR = UK / (ROOT32_syackw * LOG10 (H10 / DSED))
-                  FGR = ACKW (5, SED)
-                  IF (NAW > ZERO) FGR = FGR * USTR**NAW
-                  IF (NAW < ONE) FGR = FGR * UGR**(ONE - NAW)
+                  IF (DSED < H10) UGR = UK/(ROOT32_syackw*LOG10(H10/DSED))
+                  FGR = ACKW(5, SED)
+                  IF (NAW > ZERO) FGR = FGR*USTR**NAW
+                  IF (NAW < ONE) FGR = FGR*UGR**(ONE - NAW)
 
                   ! Determine discharge capacity for this end
                   ! High-Performance Fix: Do not perform exponentiation (0.0**MAW) if base is zero or less.
                   IF (DWAT1E > ZERO) THEN
-                     BASE = (FGR / AAW) - ONE
+                     BASE = (FGR/AAW) - ONE
                      IF (BASE > ZERO) THEN
-                        G = DSED * (QK / DWAT1E) * CAW * (BASE**MAW)
-                        IF (NAW > ZERO) G = G * (UK / USTR)**NAW
+                        G = DSED*(QK/DWAT1E)*CAW*(BASE**MAW)
+                        IF (NAW > ZERO) G = G*(UK/USTR)**NAW
 
                         ! Determine the total discharge capacity of both ends
-                        GSED (LINK, SED) = GSED (LINK, SED) + G
+                        GSED(LINK, SED) = GSED(LINK, SED) + G
                      END IF
                   END IF
 
@@ -509,19 +507,17 @@ CONTAINS
       ELEMENTAL FUNCTION FDGR(DUM_VAL) RESULT(RES)
          DOUBLE PRECISION, INTENT(IN) :: DUM_VAL !! Scaled particle diameter.
          DOUBLE PRECISION :: RES !! Clamped dimensionless grain size \(D_*\).
-         RES = MAX (ONE, MIN (K2_syackw * DUM_VAL, DGRMAX_syackw))
+         RES = MAX(ONE, MIN(K2_syackw*DUM_VAL, DGRMAX_syackw))
       END FUNCTION FDGR
 
       !> Ackers-White mobility-threshold parameter \(A\) for a given dimensionless grain size.
       ELEMENTAL FUNCTION FA(DUM_VAL) RESULT(RES)
          DOUBLE PRECISION, INTENT(IN) :: DUM_VAL !! Dimensionless grain size \(D_*\).
          DOUBLE PRECISION :: RES !! Mobility-threshold parameter \(A\).
-         RES = 0.14D0 + 0.23D0 / SQRT (DUM_VAL)
+         RES = 0.14D0 + 0.23D0/SQRT(DUM_VAL)
       END FUNCTION FA
 
    END SUBROUTINE SYACKW
-
-
 
 !> Placeholder for time-varying sediment boundary flows.
 !>
@@ -532,8 +528,6 @@ CONTAINS
    SUBROUTINE SYBC
 !STOP ' FATAL ERROR!!  Sediment boundary flows not yet implemented'
    END SUBROUTINE SYBC
-
-
 
 !> Updates stream-bed depth and composition after channel sediment routing.
 !>
@@ -580,7 +574,7 @@ CONTAINS
 !> zero.
 !> @endnote
    PURE SUBROUTINE SYBED(DCBEDO, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, &
-      DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
+                         DDIPRM, ARBDEP, DLS, FBETA, DCBSED, DDBSED, DCBED)
 
       IMPLICIT NONE
 
@@ -628,7 +622,7 @@ CONTAINS
          DLSNEW = DCBEDZ + DDBEDZ
          DLS(LINK) = DLSNEW
 
-         ARBDEP(LINK) = ARBDEP(LINK) + CWIDTH(LINK) * (DLSNEW - DLSOLD)
+         ARBDEP(LINK) = ARBDEP(LINK) + CWIDTH(LINK)*(DLSNEW - DLSOLD)
          DCNEW = MIN(DLSNEW, DCBEDO)
          DCBED(LINK) = DCNEW
 
@@ -639,8 +633,8 @@ CONTAINS
          AC = 0.0D0
          AD = 0.0D0
 
-         IF (DCBEDZ > 0.0D0) AC = DCC / DCBEDZ
-         IF (DDBEDZ > 0.0D0) AD = (DCNEW - DCC) / DDBEDZ
+         IF (DCBEDZ > 0.0D0) AC = DCC/DCBEDZ
+         IF (DDBEDZ > 0.0D0) AD = (DCNEW - DCC)/DDBEDZ
 
          ! * Loop over sediment size groups
          sed_loop: DO SED = 1, NSED
@@ -653,22 +647,20 @@ CONTAINS
             SUMSED = DCIPP + DDIPP
 
             ! * New top layer depth
-            DCINEW = AC * DCIPP + AD * DDIPP
+            DCINEW = AC*DCIPP + AD*DDIPP
             DCBSED(LINK, SED) = DCINEW
 
             ! * New bottom layer depth
             DDBSED(LINK, SED) = SUMSED - DCINEW
 
             ! * Composition of both layers together
-            IF (DLSNEW > 0.0D0) FBETA(LINK, SED) = (SUMSED / DLSNEW)
+            IF (DLSNEW > 0.0D0) FBETA(LINK, SED) = (SUMSED/DLSNEW)
 
          END DO sed_loop
 
       END DO link_loop
 
    END SUBROUTINE SYBED
-
-
 
 !> Calculates lateral channel-bank erosion rates.
 !>
@@ -709,7 +701,7 @@ CONTAINS
 !>   EPSB = 2\,FETA\,CLENTH\,GNUBK\,\min(h,DBFULL).
 !> \]
    PURE SUBROUTINE SYBKER(ISTEC, NLF, NS, FPCLAY, RHOSO, DRSO50, TAUK, &
-      CWIDTH, DWAT1, BKB, NTSOBK, FETA, CLENTH, DBFULL, EPSB, GNUBK)
+                          CWIDTH, DWAT1, BKB, NTSOBK, FETA, CLENTH, DBFULL, EPSB, GNUBK)
 
       IMPLICIT NONE
 
@@ -735,7 +727,7 @@ CONTAINS
 
       ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: A1 = 0.05D0, B1 = 0.41D0, B2 = 0.22D0, B3 = 0.035D0
-      DOUBLE PRECISION, PARAMETER :: QUART = 1.0D0 / 4.0D0
+      DOUBLE PRECISION, PARAMETER :: QUART = 1.0D0/4.0D0
 
       INTEGER :: BKSOIL, LINK
       DOUBLE PRECISION :: DWAT1E, GNUBKE, K, TAUEC, TAUKE, X
@@ -747,29 +739,27 @@ CONTAINS
 
          BKSOIL = NTSOBK(LINK)
          DWAT1E = DWAT1(LINK)
-         TAUKE  = TAUK(LINK)
+         TAUKE = TAUK(LINK)
 
          ! * Calculate aspect ratio coefficient ( see Notes )
-         X = ONE / MAX(QUART, DWAT1E / CWIDTH(LINK))
-         K = A1 + B1 * MIN(X, ONE) + B2 * MIN(DIMJE(X, ONE), ONE) &
-            + B3 * DIMJE(X, TWO)
+         X = ONE/MAX(QUART, DWAT1E/CWIDTH(LINK))
+         K = A1 + B1*MIN(X, ONE) + B2*MIN(DIMJE(X, ONE), ONE) &
+             + B3*DIMJE(X, TWO)
 
          ! * Obtain critical shear stress for bank erosion
          CALL SYCRIT(ISTEC, DRSO50(BKSOIL), TAUKE, FPCLAY(BKSOIL), TAUEC)
 
          ! * Calculate bank erosion rate
-         GNUBKE = BKB(BKSOIL) * DIMJE(K * TAUKE, TAUEC) / (TAUEC * RHOSO(BKSOIL))
+         GNUBKE = BKB(BKSOIL)*DIMJE(K*TAUKE, TAUEC)/(TAUEC*RHOSO(BKSOIL))
          GNUBK(LINK) = GNUBKE
 
          ! * Calculate rate of release of sediments for each link
-         EPSB(LINK) = TWO * FETA(LINK) * CLENTH(LINK) * GNUBKE * &
-            MIN(DWAT1E, DBFULL(LINK))
+         EPSB(LINK) = TWO*FETA(LINK)*CLENTH(LINK)*GNUBKE* &
+                      MIN(DWAT1E, DBFULL(LINK))
 
       END DO link_loop
 
    END SUBROUTINE SYBKER
-
-
 
 !> Determines channel sediment transport capacity and advection coefficients.
 !>
@@ -844,9 +834,9 @@ CONTAINS
 !> | 2026-04-06 | SvB | 4.6.1 | Removed `GOTO`-driven control flow. |
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `K1_sycltr` with a compile-time `PARAMETER`. |
 !> @endhistory
-   SUBROUTINE SYCLTR (CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, NLF, NLFEE, NSED, NSEDEE,     &
-      DRSED, ARXL, CWIDTH, DCBED, LINKNS, DWAT1, QOC, SLOPEJ, DCBSED, FDEL, TAUJ, &
-      ACKW, CONCI, QSDWAT, GSED, QSWSUM)
+   SUBROUTINE SYCLTR(CONCOB, FPCRIT, ISACKW, ISUSED, NELEE, NFINE, NLF, NLFEE, NSED, NSEDEE, &
+                     DRSED, ARXL, CWIDTH, DCBED, LINKNS, DWAT1, QOC, SLOPEJ, DCBSED, FDEL, TAUJ, &
+                     ACKW, CONCI, QSDWAT, GSED, QSWSUM)
 
       IMPLICIT NONE
 
@@ -861,33 +851,33 @@ CONTAINS
       INTEGER, INTENT(IN) :: NSEDEE !! Sediment-size array dimension.
       DOUBLE PRECISION, INTENT(IN) :: CONCOB !! Mobile concentration threshold for overbank exchange.
       DOUBLE PRECISION, INTENT(IN) :: FPCRIT !! Maximum sediment concentration fraction.
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NFINE + 1:NSED) !! Representative non-fine particle diameters.
-      DOUBLE PRECISION, INTENT(IN) :: ARXL (NLF)    !! Channel cross-sectional area by link.
-      DOUBLE PRECISION, INTENT(IN) :: CWIDTH (NLF)  !! Channel width by link.
-      DOUBLE PRECISION, INTENT(IN) :: DCBED (NLF)   !! Active upper-bed layer depth by link.
-      DOUBLE PRECISION, INTENT(IN) :: DWAT1 (NLF)   !! Channel water depth by link.
-      DOUBLE PRECISION, INTENT(IN) :: QOC (NELEE, 4) !! Face water fluxes.
-      DOUBLE PRECISION, INTENT(IN) :: SLOPEJ (NELEE, 4) !! Face water-surface slopes.
-      DOUBLE PRECISION, INTENT(IN) :: DCBSED (NLFEE, NFINE + 1:NSED) !! Active-bed sediment depth by link and non-fine class.
-      DOUBLE PRECISION, INTENT(IN) :: FDEL (NELEE, NFINE + 1:NSED)   !! Mobile sediment concentration fraction by element and non-fine class.
-      DOUBLE PRECISION, INTENT(IN) :: TAUJ (NELEE, 4) !! Face shear stress.
-      LOGICAL, INTENT(IN)          :: LINKNS (NLF)    !! True for north-south channel links.
+      DOUBLE PRECISION, INTENT(IN) :: DRSED(NFINE + 1:NSED) !! Representative non-fine particle diameters.
+      DOUBLE PRECISION, INTENT(IN) :: ARXL(NLF)    !! Channel cross-sectional area by link.
+      DOUBLE PRECISION, INTENT(IN) :: CWIDTH(NLF)  !! Channel width by link.
+      DOUBLE PRECISION, INTENT(IN) :: DCBED(NLF)   !! Active upper-bed layer depth by link.
+      DOUBLE PRECISION, INTENT(IN) :: DWAT1(NLF)   !! Channel water depth by link.
+      DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4) !! Face water fluxes.
+      DOUBLE PRECISION, INTENT(IN) :: SLOPEJ(NELEE, 4) !! Face water-surface slopes.
+      DOUBLE PRECISION, INTENT(IN) :: DCBSED(NLFEE, NFINE + 1:NSED) !! Active-bed sediment depth by link and non-fine class.
+      DOUBLE PRECISION, INTENT(IN) :: FDEL(NELEE, NFINE + 1:NSED)   !! Mobile sediment concentration fraction by element and non-fine class.
+      DOUBLE PRECISION, INTENT(IN) :: TAUJ(NELEE, 4) !! Face shear stress.
+      LOGICAL, INTENT(IN)          :: LINKNS(NLF)    !! True for north-south channel links.
 
       ! Input/output arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: ACKW (5, NFINE + 1:NSED) !! Cached Ackers-White parameters by non-fine class.
+      DOUBLE PRECISION, INTENT(INOUT) :: ACKW(5, NFINE + 1:NSED) !! Cached Ackers-White parameters by non-fine class.
 
       ! Output arguments
       ! NB: QSDWAT defined for outflow faces only
-      DOUBLE PRECISION, INTENT(OUT)   :: CONCI (NLFEE, NSED)      !! Capacity concentration by link and sediment class.
-      DOUBLE PRECISION, INTENT(OUT)   :: QSDWAT (NLFEE, NSEDEE, 4) !! Sediment advection coefficient for outflow faces only.
+      DOUBLE PRECISION, INTENT(OUT)   :: CONCI(NLFEE, NSED)      !! Capacity concentration by link and sediment class.
+      DOUBLE PRECISION, INTENT(OUT)   :: QSDWAT(NLFEE, NSEDEE, 4) !! Sediment advection coefficient for outflow faces only.
 
       ! Workspace arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: GSED (NLF, NFINE + 1:NSED) !! Channel transport capacity workspace.
-      DOUBLE PRECISION, INTENT(INOUT) :: QSWSUM (NLF, NSED)         !! Sum of outflowing sediment advection coefficients by link/class.
+      DOUBLE PRECISION, INTENT(INOUT) :: GSED(NLF, NFINE + 1:NSED) !! Channel transport capacity workspace.
+      DOUBLE PRECISION, INTENT(INOUT) :: QSWSUM(NLF, NSED)         !! Sum of outflowing sediment advection coefficients by link/class.
 
       ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: ZZ5 = 0.05D0
-      DOUBLE PRECISION, PARAMETER :: k1_sycltr = 8.5D0 / SQRT (RHOWAT)
+      DOUBLE PRECISION, PARAMETER :: k1_sycltr = 8.5D0/SQRT(RHOWAT)
 
       INTEGER :: FACE, IEND, ISIDE, LINK, NFP1, NSDWAT, SED, SGN
       DOUBLE PRECISION :: CONCID, DCSUM, DUM, FDSUM, FRACT, KQ, QK
@@ -907,12 +897,11 @@ CONTAINS
       !     ... using specified method
       !
       IF (ISACKW == 1 .OR. ISACKW == 2) THEN
-         CALL SYACKW (NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
-            QOC, TAUJ, ACKW, GSED)
+         CALL SYACKW(NELEE, NLF, NLFEE, NFINE, NSED, ISACKW, LINKNS, DRSED, ARXL, DCBSED, DWAT1, &
+                     QOC, TAUJ, ACKW, GSED)
       ELSE
-         CALL SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, QOC, LINKNS, SLOPEJ, GSED)
+         CALL SYENGH(NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, QOC, LINKNS, SLOPEJ, GSED)
       END IF
-
 
       ! Advection Coefficients (outflow faces only) Part 1 ...
       ! ------------------------------------------------------
@@ -925,30 +914,29 @@ CONTAINS
       IF (NSDWAT > 0) THEN
          ! * All faces (both ends and sides)
          DO FACE = 1, 4
-            SGN = SIGN (1, 2 - FACE)
-            BODD = MOD (FACE, 2) == 1
+            SGN = SIGN(1, 2 - FACE)
+            BODD = MOD(FACE, 2) == 1
 
             ! * All links (but skip over non-outflow faces)
             DO LINK = 1, NLF
-               QK = SGN * QOC (LINK, FACE)
+               QK = SGN*QOC(LINK, FACE)
                IF (GTZERO(QK)) THEN
 
                   ! * Set QSWSUM increment for link ends only
                   QSW = ZERO
-                  IF (BODD .NEQV. LINKNS (LINK)) QSW = QK
+                  IF (BODD .NEQV. LINKNS(LINK)) QSW = QK
 
                   ! * Fines only, or all size groups, as appropriate
                   DO SED = 1, NSDWAT
-                     QSDWAT (LINK, SED, FACE) = QK
+                     QSDWAT(LINK, SED, FACE) = QK
                      ! * Don't actually need QSWSUM for fines, but ...
-                     QSWSUM (LINK, SED) = QSWSUM (LINK, SED) + QSW
+                     QSWSUM(LINK, SED) = QSWSUM(LINK, SED) + QSW
                   END DO
 
                END IF
             END DO
          END DO
       END IF
-
 
       ! Advection Coefficients (outflow faces only)  Part 2 ...
       ! -------------------------------------------------------
@@ -965,20 +953,20 @@ CONTAINS
             ! * Loop over every link (but skip over non-outflow faces)
             DO LINK = 1, NLF
                FACE = IEND
-               IF (LINKNS (LINK)) FACE = FACE + 1
-               QK = SGN * QOC (LINK, FACE)
+               IF (LINKNS(LINK)) FACE = FACE + 1
+               QK = SGN*QOC(LINK, FACE)
 
                IF (GTZERO(QK)) THEN
 
-                  TAUD = TAUJ (LINK, FACE)
-                  KQ = K1_sycltr * ARXL (LINK)
+                  TAUD = TAUJ(LINK, FACE)
+                  KQ = K1_sycltr*ARXL(LINK)
 
                   ! * Loop over non-fine size groups
                   DO SED = NFP1, NSED
-                     CALL SYCRIT (0, DRSED (SED), TAUD, DUM, TAUEC)
-                     QSW = MIN (KQ * SQRT (DIMJE(TAUD, SQRT (TAUD * TAUEC))), QK)
-                     QSDWAT (LINK, SED, FACE) = QSW
-                     QSWSUM (LINK, SED) = QSWSUM (LINK, SED) + QSW
+                     CALL SYCRIT(0, DRSED(SED), TAUD, DUM, TAUEC)
+                     QSW = MIN(KQ*SQRT(DIMJE(TAUD, SQRT(TAUD*TAUEC))), QK)
+                     QSDWAT(LINK, SED, FACE) = QSW
+                     QSWSUM(LINK, SED) = QSWSUM(LINK, SED) + QSW
                   END DO
 
                END IF
@@ -990,7 +978,6 @@ CONTAINS
          END DO
 
       END IF
-
 
       ! Determine notional particle concentrations at flow capacity
       ! -----------------------------------------------------------
@@ -1005,29 +992,28 @@ CONTAINS
          ! * Determine denominators for scaling factors
          FDSUM = ZERO
          DO SED = NFP1, NSED
-            FDSUM = FDSUM + FDEL (LINK, SED)
+            FDSUM = FDSUM + FDEL(LINK, SED)
          END DO
          IF (ISZERO(FDSUM)) FDSUM = ONE
 
-         DCSUM = DCBED (LINK)
+         DCSUM = DCBED(LINK)
          IF (ISZERO(DCSUM)) DCSUM = ONE
 
          ! * Loop over non-fines
          DO SED = NFP1, NSED
-            QSW = QSWSUM (LINK, SED)
+            QSW = QSWSUM(LINK, SED)
             IF (GTZERO(QSW)) THEN
-               FRACT1 = FDEL (LINK, SED) / FDSUM
-               FRACT2 = DCBSED (LINK, SED) / DCSUM
-               FRACT = MAX (ZZ5, FRACT1, FRACT2)
-               CONCID = MIN (FPCRIT, FRACT * GSED (LINK, SED) / QSW)
+               FRACT1 = FDEL(LINK, SED)/FDSUM
+               FRACT2 = DCBSED(LINK, SED)/DCSUM
+               FRACT = MAX(ZZ5, FRACT1, FRACT2)
+               CONCID = MIN(FPCRIT, FRACT*GSED(LINK, SED)/QSW)
             ELSE
                CONCID = ZERO
             END IF
-            CONCI (LINK, SED) = CONCID
+            CONCI(LINK, SED) = CONCID
          END DO
 
       END DO
-
 
       ! Advection Coefficients (outflow faces only) Part 3 ...
       ! ------------------------------------------------------
@@ -1044,16 +1030,16 @@ CONTAINS
             ! * Loop over every link (but skip over non-outflow sides)
             DO LINK = 1, NLF
                FACE = ISIDE
-               IF (LINKNS (LINK)) FACE = ISIDE - 1
-               QK = SGN * QOC (LINK, FACE)
+               IF (LINKNS(LINK)) FACE = ISIDE - 1
+               QK = SGN*QOC(LINK, FACE)
 
                IF (GTZERO(QK)) THEN
 
                   ! * Loop over non-fine size groups
                   DO SED = NFP1, NSED
-                     DUM = CONCI (LINK, SED)
-                     IF (GTZERO(DUM)) DUM = QK * DIMJE(DUM, CONCOB) / DUM
-                     QSDWAT (LINK, SED, FACE) = DUM
+                     DUM = CONCI(LINK, SED)
+                     IF (GTZERO(DUM)) DUM = QK*DIMJE(DUM, CONCOB)/DUM
+                     QSDWAT(LINK, SED, FACE) = DUM
                   END DO
 
                END IF
@@ -1067,8 +1053,6 @@ CONTAINS
       END IF
 
    END SUBROUTINE SYCLTR
-
-
 
 !> Routes sediment in overland flow for one column element.
 !>
@@ -1152,9 +1136,9 @@ CONTAINS
 !> Inflow and no-flow faces are read as incoming fluxes but are not cleared or
 !> overwritten before return.
 !> @endnote
-   PURE SUBROUTINE SYCOLM (AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, FETAE, GNUE, ISGSED, NSED,       &
-      FPCRIT, PLSE, NSEDEE, DRSED, QWAT, SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE,     &
-      FDELE, QSEDE, Q, VDSED)
+   PURE SUBROUTINE SYCOLM(AREAE, DTSY, DWAT1E, DWATOE, DXQQE, DYQQE, FETAE, GNUE, ISGSED, NSED, &
+                          FPCRIT, PLSE, NSEDEE, DRSED, QWAT, SLOPEE, SOSDFE, TAUJE, DLSE, FBETAE, &
+                          FDELE, QSEDE, Q, VDSED)
 
       IMPLICIT NONE
 
@@ -1172,24 +1156,24 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: GNUE   !! Hillslope erosion rate.
       DOUBLE PRECISION, INTENT(IN) :: FPCRIT !! Maximum sediment concentration fraction.
       DOUBLE PRECISION, INTENT(IN) :: PLSE   !! Loose-sediment porosity.
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NSED) !! Representative particle diameters by size class.
-      DOUBLE PRECISION, INTENT(IN) :: QWAT (4)     !! Outward water flux by face.
-      DOUBLE PRECISION, INTENT(IN) :: SLOPEE (4)   !! Water-surface slope by face.
-      DOUBLE PRECISION, INTENT(IN) :: SOSDFE (NSED) !! Source soil sediment-size fraction.
-      DOUBLE PRECISION, INTENT(IN) :: TAUJE (4)     !! Face shear stress.
+      DOUBLE PRECISION, INTENT(IN) :: DRSED(NSED) !! Representative particle diameters by size class.
+      DOUBLE PRECISION, INTENT(IN) :: QWAT(4)     !! Outward water flux by face.
+      DOUBLE PRECISION, INTENT(IN) :: SLOPEE(4)   !! Water-surface slope by face.
+      DOUBLE PRECISION, INTENT(IN) :: SOSDFE(NSED) !! Source soil sediment-size fraction.
+      DOUBLE PRECISION, INTENT(IN) :: TAUJE(4)     !! Face shear stress.
 
       ! Input/output arguments
       DOUBLE PRECISION, INTENT(INOUT) :: DLSE       !! Loose-sediment depth in the land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: FBETAE (NSED) !! Loose-sediment composition by size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: FDELE (NSED)  !! Mobile sediment concentration fraction by size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: QSEDE (NSEDEE, 4) !! Sediment flux by size class and face.
+      DOUBLE PRECISION, INTENT(INOUT) :: FBETAE(NSED) !! Loose-sediment composition by size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: FDELE(NSED)  !! Mobile sediment concentration fraction by size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: QSEDE(NSEDEE, 4) !! Sediment flux by size class and face.
 
       ! Workspace arguments
-      DOUBLE PRECISION, INTENT(INOUT) :: Q (NSED)     !! Workspace for outgoing sediment flux by size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: VDSED (NSED) !! Workspace for available sediment volume by size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: Q(NSED)     !! Workspace for outgoing sediment flux by size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: VDSED(NSED) !! Workspace for available sediment volume by size class.
 
       ! Locals, etc
-      INTEGER :: FACE, J (4), JLC, NOUT, SED
+      INTEGER :: FACE, J(4), JLC, NOUT, SED
       DOUBLE PRECISION :: A1, A2, A3, B1, B2, DBETA, DDLS, FD, FLS, G
       DOUBLE PRECISION :: GJSUM, GSUM, QK, QWSUM, VD, VDSUM, VDWAT
 
@@ -1212,33 +1196,32 @@ CONTAINS
       !     * ( both non-negative ), and make a list of outflow faces
       NOUT = 0
       DO FACE = 1, 4
-         QK = QWAT (FACE)
+         QK = QWAT(FACE)
          IF (QK > ZERO) THEN
             ! * Outflow face
             QWSUM = QWSUM + QK
             NOUT = NOUT + 1
-            J (NOUT) = FACE
+            J(NOUT) = FACE
          ELSE
             ! * Inflow or no-flow face
             DO SED = 1, NSED
-               Q (SED) = Q (SED) - QSEDE (SED, FACE) / FLS
+               Q(SED) = Q(SED) - QSEDE(SED, FACE)/FLS
             END DO
          END IF
       END DO
 
       !     * Calculate volume of water + volume of discharged water
-      VDWAT = DWAT1E * AREAE + QWSUM * DTSY
+      VDWAT = DWAT1E*AREAE + QWSUM*DTSY
 
       !     * Calculate volume of stored sediment plus volume of
       !     * discharged sediment for each fraction ( must be non-negative )
-      DDLS = FETAE * GNUE * DTSY
+      DDLS = FETAE*GNUE*DTSY
       DO SED = 1, NSED
-         DBETA = DLSE * FBETAE (SED) + DDLS * SOSDFE (SED)
-         VD = (FDELE (SED) * DWATOE + DBETA) * AREAE + Q (SED) * DTSY
+         DBETA = DLSE*FBETAE(SED) + DDLS*SOSDFE(SED)
+         VD = (FDELE(SED)*DWATOE + DBETA)*AREAE + Q(SED)*DTSY
          VDSUM = VDSUM + VD
-         VDSED (SED) = VD
+         VDSED(SED) = VD
       END DO
-
 
       ! Sediment Discharge
       ! ------------------
@@ -1248,7 +1231,7 @@ CONTAINS
       !
       !     * Discharge rate based upon SUPPLY, assuming unlimited capacity
       GSUM = ZERO
-      IF (GTZERO(VDWAT)) GSUM = FLS * VDSUM * (QWSUM / VDWAT)
+      IF (GTZERO(VDWAT)) GSUM = FLS*VDSUM*(QWSUM/VDWAT)
 
       !     * Is discharge possible?
       IF (GTZERO(GSUM)) THEN
@@ -1256,14 +1239,14 @@ CONTAINS
          ! * Yes ( implies VDSUM > 0 )
          !
          ! * Discharge rate based upon flow CAPACITY ...
-         CALL SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
+         CALL SYOVTR(DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
 
          ! ... with additional upper limit based on total suspended load
-         G = MIN (GJSUM, QWSUM * FPCRIT)
+         G = MIN(GJSUM, QWSUM*FPCRIT)
 
          ! * Transport is governed by the lower of the two rates
          !   (take MIN before dividing, in case G>>GSUM)
-         A1 = MIN (G, GSUM) / GSUM
+         A1 = MIN(G, GSUM)/GSUM
          B1 = VDWAT
 
       ELSE
@@ -1276,12 +1259,11 @@ CONTAINS
 
       END IF
 
-
       ! Define Output Variables
       ! -----------------------
       !
       !     * Update depth of loose sediments
-      DLSE = (ONE - A1) * VDSUM / AREAE
+      DLSE = (ONE - A1)*VDSUM/AREAE
 
       !     * Evaluate coefficients for FBETAE
       IF (GTZERO(DLSE)) THEN
@@ -1300,20 +1282,18 @@ CONTAINS
       !     * sediment flow rates for each outflow face.
       !     * ( don't pre-invert B1 or B2: they may be small! )
       DO SED = 1, NSED
-         VD = VDSED (SED)
-         FD = (A1 * VD) / B1
-         FDELE (SED) = FD
-         FBETAE (SED) = A2 * VD / B2 + A3 * SOSDFE (SED)
+         VD = VDSED(SED)
+         FD = (A1*VD)/B1
+         FDELE(SED) = FD
+         FBETAE(SED) = A2*VD/B2 + A3*SOSDFE(SED)
 
          DO JLC = 1, NOUT
-            FACE = J (JLC)
-            QSEDE (SED, FACE) = FLS * QWAT (FACE) * FD
+            FACE = J(JLC)
+            QSEDE(SED, FACE) = FLS*QWAT(FACE)*FD
          END DO
       END DO
 
    END SUBROUTINE SYCOLM
-
-
 
 !> Calculates critical shear stress for incipient sediment motion.
 !>
@@ -1370,7 +1350,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `K1_sycrit`/`K2_sycrit`/`K3_sycrit` with compile-time `PARAMETER`s, and replaced the legacy `DATA`-initialised `AEC`/`BEC` arrays with array constructors. |
 !> @endhistory
-   PURE SUBROUTINE SYCRIT (FLAG, DRX50, TAUX, FPCLAE, TAUEC)
+   PURE SUBROUTINE SYCRIT(FLAG, DRX50, TAUX, FPCLAE, TAUEC)
 
       IMPLICIT NONE
 
@@ -1392,9 +1372,9 @@ CONTAINS
 
       ! High-Performance Fix: Compile-time evaluation of constants
       ! (Completely replaces the runtime FIRST_sycrit block)
-      DOUBLE PRECISION, PARAMETER :: K1_sycrit = 1.0D0 / (SQRT(RHOWAT) * VISCOS)
-      DOUBLE PRECISION, PARAMETER :: K2_sycrit = (RHOSED - RHOWAT) * GRAVTY
-      DOUBLE PRECISION, PARAMETER :: K3_sycrit = 1.83D0 * LOG(10.0D0)
+      DOUBLE PRECISION, PARAMETER :: K1_sycrit = 1.0D0/(SQRT(RHOWAT)*VISCOS)
+      DOUBLE PRECISION, PARAMETER :: K2_sycrit = (RHOSED - RHOWAT)*GRAVTY
+      DOUBLE PRECISION, PARAMETER :: K3_sycrit = 1.83D0*LOG(10.0D0)
 
       INTEGER :: IS
       DOUBLE PRECISION :: RSTR
@@ -1407,20 +1387,18 @@ CONTAINS
 
       IF (FLAG == 1) THEN
          ! Quick method
-         TAUEC = 0.493D0 * EXP(K3_sycrit * FPCLAE)
+         TAUEC = 0.493D0*EXP(K3_sycrit*FPCLAE)
       ELSE
          ! Shields method
-         RSTR = MAX(R0, MIN(DRX50 * SQRT(TAUX) * K1_sycrit, R5))
+         RSTR = MAX(R0, MIN(DRX50*SQRT(TAUX)*K1_sycrit, R5))
 
          ! Performance Reversion: Branchless execution
          IS = NINT(ONE + SF(RSTR, R1) + SF(RSTR, R2) + SF(RSTR, R3) + SF(RSTR, R4))
 
-         TAUEC = AEC(IS) * K2_sycrit * DRX50 * (RSTR**BEC(IS))
+         TAUEC = AEC(IS)*K2_sycrit*DRX50*(RSTR**BEC(IS))
       END IF
 
    END SUBROUTINE SYCRIT
-
-
 
 !> Returns a percentile grain diameter from a discrete size distribution.
 !>
@@ -1465,7 +1443,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced the `GOTO`-driven search loop with `EXIT search_loop`. |
 !> @endhistory
-   PURE DOUBLE PRECISION FUNCTION SYDR (FSED, INCF, N, F, D)
+   PURE DOUBLE PRECISION FUNCTION SYDR(FSED, INCF, N, F, D)
 
       IMPLICIT NONE
 
@@ -1473,7 +1451,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: INCF !! Stride between distribution weights in `F`.
       INTEGER, INTENT(IN) :: N    !! Number of sediment size classes.
       DOUBLE PRECISION, INTENT(IN) :: FSED !! Target cumulative fraction.
-      DOUBLE PRECISION, INTENT(IN) :: F(1 + (N - 1) * INCF) !! Sediment distribution weights.
+      DOUBLE PRECISION, INTENT(IN) :: F(1 + (N - 1)*INCF) !! Sediment distribution weights.
       DOUBLE PRECISION, INTENT(IN) :: D(N) !! Representative particle diameters.
 
       ! Locals
@@ -1497,7 +1475,7 @@ CONTAINS
          FRPTR = FRPTR + INCF
       END DO
 
-      F02 = 2.0d0 * FSED * FTOT
+      F02 = 2.0d0*FSED*FTOT
 
       IF (ISZERO(F02)) THEN
          ! * Zeroth percentile or null distribution
@@ -1519,7 +1497,7 @@ CONTAINS
 
             ! * Break out of loop if target percentile has been reached
             ! * (allowing for rounding error)
-            IF (FSUM2 >= F02 * ALMOST) EXIT search_loop
+            IF (FSUM2 >= F02*ALMOST) EXIT search_loop
 
             ! * Increment fraction pointer
             FRPTR = FRPTR + INCF
@@ -1530,15 +1508,13 @@ CONTAINS
          ! * target percentile.
          ! * Note :- Combination of precondition FSED<1 and use of ALMOST
          ! * should ensure (FLO+FHI) > 0
-         DR = DRHI - (DRHI - DRLO) * (FSUM2 - F02) / (FLO + FHI)
+         DR = DRHI - (DRHI - DRLO)*(FSUM2 - F02)/(FLO + FHI)
 
       END IF
 
       SYDR = DR
 
    END FUNCTION SYDR
-
-
 
 !> Calculates Engelund-Hansen channel transport capacity.
 !>
@@ -1576,7 +1552,7 @@ CONTAINS
 !> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` zeroing of `GSED` with a whole-array slice assignment. |
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `KG_syengh` with a compile-time `PARAMETER`. |
 !> @endhistory
-   PURE SUBROUTINE SYENGH (NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, QOC, LINKNS, SLOPEJ, GSED)
+   PURE SUBROUTINE SYENGH(NFINE, NLF, NSED, NELEE, DRSED, CWIDTH, DWAT1, QOC, LINKNS, SLOPEJ, GSED)
 
       IMPLICIT NONE
 
@@ -1585,20 +1561,20 @@ CONTAINS
       INTEGER, INTENT(IN) :: NLF   !! Number of channel links.
       INTEGER, INTENT(IN) :: NSED  !! Number of sediment size classes.
       INTEGER, INTENT(IN) :: NELEE !! Element-array dimension.
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NFINE + 1:NSED) !! Representative non-fine particle diameters.
-      DOUBLE PRECISION, INTENT(IN) :: CWIDTH (NLF) !! Channel width by link.
-      DOUBLE PRECISION, INTENT(IN) :: DWAT1 (NLF)  !! Channel water depth by link.
-      DOUBLE PRECISION, INTENT(IN) :: QOC (NELEE, 4)    !! Face water fluxes.
-      DOUBLE PRECISION, INTENT(IN) :: SLOPEJ (NELEE, 4) !! Face water-surface slopes.
-      LOGICAL, INTENT(IN)          :: LINKNS (NLF) !! True for north-south channel links.
+      DOUBLE PRECISION, INTENT(IN) :: DRSED(NFINE + 1:NSED) !! Representative non-fine particle diameters.
+      DOUBLE PRECISION, INTENT(IN) :: CWIDTH(NLF) !! Channel width by link.
+      DOUBLE PRECISION, INTENT(IN) :: DWAT1(NLF)  !! Channel water depth by link.
+      DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4)    !! Face water fluxes.
+      DOUBLE PRECISION, INTENT(IN) :: SLOPEJ(NELEE, 4) !! Face water-surface slopes.
+      LOGICAL, INTENT(IN)          :: LINKNS(NLF) !! True for north-south channel links.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: GSED (NLF, NFINE + 1:NSED) !! Channel transport capacity by link and non-fine class.
+      DOUBLE PRECISION, INTENT(OUT) :: GSED(NLF, NFINE + 1:NSED) !! Channel transport capacity by link and non-fine class.
 
       ! Locals, etc
       INTEGER          :: FACE, IEND, LINK, NFP1, SED, SGN
       DOUBLE PRECISION :: DWAT1E, GD, QK
-      DOUBLE PRECISION, PARAMETER :: KG_syengh = 0.05D0 / (SQRT (GRAVTY) * (RHOSED / RHOWAT - 1.0D0)**2)
+      DOUBLE PRECISION, PARAMETER :: KG_syengh = 0.05D0/(SQRT(GRAVTY)*(RHOSED/RHOWAT - 1.0D0)**2)
 
       ! External/Module functions implicitly referenced
       ! LOGICAL :: GTZERO
@@ -1620,19 +1596,19 @@ CONTAINS
 
             ! * Determine current face number, outflow rate & water depth
             FACE = IEND
-            IF (LINKNS (LINK)) FACE = FACE + 1
-            QK = SGN * QOC (LINK, FACE)
-            DWAT1E = DWAT1 (LINK)
+            IF (LINKNS(LINK)) FACE = FACE + 1
+            QK = SGN*QOC(LINK, FACE)
+            DWAT1E = DWAT1(LINK)
 
             ! * Increment capacity rate for non-dry outflow ends only
             IF (GTZERO(DWAT1E) .AND. GTZERO(QK)) THEN
 
                ! * Loop invariant
-               GD = QK**2 * SLOPEJ (LINK, FACE)**1.5D0 * KG_syengh / (CWIDTH (LINK) * SQRT (DWAT1E))
+               GD = QK**2*SLOPEJ(LINK, FACE)**1.5D0*KG_syengh/(CWIDTH(LINK)*SQRT(DWAT1E))
 
                ! * All sediment types
                DO SED = NFP1, NSED
-                  GSED (LINK, SED) = GD / DRSED (SED) + GSED (LINK, SED)
+                  GSED(LINK, SED) = GD/DRSED(SED) + GSED(LINK, SED)
                END DO
 
             END IF
@@ -1644,8 +1620,6 @@ CONTAINS
       END DO
 
    END SUBROUTINE SYENGH
-
-
 
 !> Checks scalar dimensions and file units passed through the water-sediment interface.
 !>
@@ -1672,7 +1646,7 @@ CONTAINS
 !> `SPR`. If any failures are found, the routine raises fatal error 2000 before
 !> returning.
    SUBROUTINE SYERR0(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, &
-      NSEE, NV, NVEE, NX, NXEE, NY, SPR, SYD)
+                     NSEE, NV, NVEE, NX, NXEE, NY, SPR, SYD)
 
       IMPLICIT NONE
 
@@ -1715,7 +1689,7 @@ CONTAINS
 
       ! NELEE
       IDUMS(1) = NELEE
-      IDUMO(1) = MAX(NEL, NV, NX * NY)
+      IDUMO(1) = MAX(NEL, NV, NX*NY)
       CALL ALCHKI(ERRLVL_error, 2054, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUMO, IDUMS, NERR, LDUM1)
 
       ! NLFEE
@@ -1775,8 +1749,6 @@ CONTAINS
 
    END SUBROUTINE SYERR0
 
-
-
 !> Checks static water-flow arrays required by the sediment component.
 !>
 !> `SYERR1` validates the static and initial water-model data that the sediment
@@ -1813,9 +1785,9 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
 !> @endhistory
    SUBROUTINE SYERR1(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, &
-      NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
-      NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
-      ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
+                     NXEE, NYEE, NY, SPR, BEXBK, LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, &
+                     NTSOIL, NVC, THSAT, CLENTH, CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, &
+                     ARXL, HRF, ZGRUND, IDUM, IDUM1X, LDUM)
 
       IMPLICIT NONE
 
@@ -1858,7 +1830,7 @@ CONTAINS
       DOUBLE PRECISION, INTENT(INOUT) :: HRF(NLF + 1:NEL) !! Land-element water level/head.
 
       ! Workspace arguments (INTENT(INOUT) as scratch space)
-      INTEGER, INTENT(INOUT) :: IDUM(NXEE * NYEE) !! Integer workspace for identity checks.
+      INTEGER, INTENT(INOUT) :: IDUM(NXEE*NYEE) !! Integer workspace for identity checks.
       INTEGER, INTENT(INOUT) :: IDUM1X(-1:NEL + 1) !! Integer workspace for element identity checks.
       LOGICAL, INTENT(INOUT) :: LDUM(NELEE) !! Logical workspace for element checks.
 
@@ -1906,7 +1878,7 @@ CONTAINS
       END DO
 
       IF (BEXBK .AND. NLF > 0) THEN
-         NCOL = NCOL + 2 * NLF
+         NCOL = NCOL + 2*NLF
          DO BANK = 1, 2
             DO LINK = 1, NLF
                IEL = MAX(0, MIN(ICMBK(LINK, BANK), NELP))
@@ -1931,8 +1903,8 @@ CONTAINS
       DO FACE = 1, 4
          COUNT = NERR
 
-         CALL ALCHKI(ERRLVL_error, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'LE', IDUM1(1:1), ICMREF(1:, FACE, 2), NERR, LDUM)
-         CALL ALCHKI(ERRLVL_error, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'GE', IDUM1(2:2), ICMREF(1:, FACE, 2), NERR, LDUM)
+      CALL ALCHKI(ERRLVL_error, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'LE', IDUM1(1:1), ICMREF(1:, FACE, 2), NERR, LDUM)
+      CALL ALCHKI(ERRLVL_error, 2077, SPR, 1, NEL, FACE, 2, 'ICMREF(iel,face,2)', 'GE', IDUM1(2:2), ICMREF(1:, FACE, 2), NERR, LDUM)
 
          IF (COUNT == NERR) THEN
             DO IEL = 1, NEL
@@ -1953,7 +1925,7 @@ CONTAINS
                   END IF
                END IF
             END DO
-            CALL ALCHKI(ERRLVL_error, 2078, SPR, 1, NEL, FACE, IUNDEF, 'status_of_ICMREF(iel,face)', 'EQ', IZERO_ARR, IDUM, NERR, LDUM)
+         CALL ALCHKI(ERRLVL_error, 2078, SPR, 1, NEL, FACE, IUNDEF, 'status_of_ICMREF(iel,face)', 'EQ', IZERO_ARR, IDUM, NERR, LDUM)
          END IF
          REFOK = REFOK .AND. COUNT == NERR
       END DO
@@ -1981,14 +1953,14 @@ CONTAINS
          DO BANK = 1, 2
             DO LINK = 1, NLF
                IEL = ICMBK(LINK, BANK)
-               FACE = 2 * BANK
+               FACE = 2*BANK
                IF (LINKNS(LINK)) FACE = FACE - 1
                IADJ = MAX(-1, ICMREF(IEL, FACE, 2))
                IDUM(LINK) = IDUM(LINK) + IDUM1X(IADJ)
             END DO
          END DO
 
-         CALL ALCHKI(ERRLVL_error, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO_ARR, IDUM, NERR, LDUM)
+ CALL ALCHKI(ERRLVL_error, 2079, SPR, 1, NLF, IUNDEF, IUNDEF, '#_grids_neighbouring_banks(link)', 'GT', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
       ! ICMRF2
@@ -2010,15 +1982,15 @@ CONTAINS
                      DO P = 1, 3
                         IADJ = ICMRF2(IBR, P, 1)
                         IF (IADJ > NEL) THEN
-                           IDUM(IBR) = IDUM(IBR) + P * 10
+                           IDUM(IBR) = IDUM(IBR) + P*10
                         ELSE IF (IADJ > 0) THEN
                            FADJ = ICMRF2(IBR, P, 2)
                            IF (FADJ < 1 .OR. FADJ > 4) THEN
-                              IDUM(IBR) = IDUM(IBR) + P * 100
+                              IDUM(IBR) = IDUM(IBR) + P*100
                            ELSE
                               IBRADJ = -ICMREF(IADJ, FADJ, 2)
                               IF (IBRADJ < 1 .OR. IBRADJ > NLFEE) THEN
-                                 IDUM(IBR) = IDUM(IBR) + P * 1000
+                                 IDUM(IBR) = IDUM(IBR) + P*1000
                               ELSE
 
                                  search_padj: DO PADJ = 1, 3
@@ -2029,7 +2001,7 @@ CONTAINS
                                     END IF
                                  END DO search_padj
 
-                                 IF (PADJ > 3) IDUM(IBR) = IDUM(IBR) + P * 10000
+                                 IF (PADJ > 3) IDUM(IBR) = IDUM(IBR) + P*10000
 
                               END IF
                            END IF
@@ -2040,7 +2012,7 @@ CONTAINS
             END DO
          END DO
 
-         CALL ALCHKI(ERRLVL_error, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO_ARR, IDUM, NERR, LDUM)
+       CALL ALCHKI(ERRLVL_error, 2080, SPR, 1, NLFEE, IUNDEF, IUNDEF, 'status_of_ICMRF2(branch)', 'LE', IZERO_ARR, IDUM, NERR, LDUM)
       END IF
 
       ! 2. Soil Properties
@@ -2052,14 +2024,14 @@ CONTAINS
       IF (NLF > 0) THEN
          CALL ALCHK(ERRLVL_error, 2064, SPR, 1, NLF, IUNDEF, IUNDEF, 'CLENTH(link)', 'GE', ZERO_ARR, ZERO_VAL, CLENTH, NERR, LDUM)
          CALL ALCHK(ERRLVL_error, 2065, SPR, 1, NLF, IUNDEF, IUNDEF, 'CWIDTH(link)', 'GT', ZERO_ARR, ZERO_VAL, CWIDTH, NERR, LDUM)
-         CALL ALCHK(ERRLVL_error, 2066, SPR, 1, NLF, IUNDEF, IUNDEF, 'ZBFULL(link)', 'GEa', ZGRUND(1:), ZERO_VAL, ZBFULL, NERR, LDUM)
+        CALL ALCHK(ERRLVL_error, 2066, SPR, 1, NLF, IUNDEF, IUNDEF, 'ZBFULL(link)', 'GEa', ZGRUND(1:), ZERO_VAL, ZBFULL, NERR, LDUM)
          CALL ALCHK(ERRLVL_error, 2067, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', 'GE', ZERO_ARR, ZERO_VAL, ARXL, NERR, LDUM)
       END IF
 
       ! 4. Column Properties & Initial State
       ! ------------------------------------
-      CALL ALCHK(ERRLVL_error, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:), NERR, LDUM)
-      CALL ALCHK(ERRLVL_error, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:), NERR, LDUM)
+    CALL ALCHK(ERRLVL_error, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DXQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DXQQ(ICOL1:), NERR, LDUM)
+    CALL ALCHK(ERRLVL_error, 2068, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'DYQQ(iel)', 'GT', ZERO_ARR, ZERO_VAL, DYQQ(ICOL1:), NERR, LDUM)
       CALL ALCHK(ERRLVL_error, 2069, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', 'GEa', ZGRUND(ICOL1:), ZERO_VAL, HRF(ICOL1:), NERR, LDUM)
 
       COUNT = NERR
@@ -2073,7 +2045,7 @@ CONTAINS
             IDUM(IEL) = NTSOIL(IEL, ILYR)
          END DO
          IDUM1(1) = NS
-         CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO_ARR, IDUM(ICOL1:), NERR, LDUM)
+CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'GT', IZERO_ARR, IDUM(ICOL1:), NERR, LDUM)
          CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLYR(iel)]', 'LE', IDUM1(1:1), IDUM(ICOL1:), NERR, LDUM)
       END IF
 
@@ -2086,7 +2058,7 @@ CONTAINS
       ! ---------------------
       CALL ALCHK(ERRLVL_error, 2073, SPR, 1, NEL, IUNDEF, IUNDEF, 'AREA(iel)', 'GT', ZERO_ARR, ZERO_VAL, AREA, NERR, LDUM)
       DO FACE = 1, 4
-         CALL ALCHK(ERRLVL_error, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', 'GT', ZERO_ARR, ZERO_VAL, DHF(1:, FACE), NERR, LDUM)
+     CALL ALCHK(ERRLVL_error, 2074, SPR, 1, NEL, FACE, IUNDEF, 'DHF(iel,face)', 'GT', ZERO_ARR, ZERO_VAL, DHF(1:, FACE), NERR, LDUM)
       END DO
 
       ! 6. Epilogue
@@ -2096,8 +2068,6 @@ CONTAINS
       END IF
 
    END SUBROUTINE SYERR1
-
-
 
 !> Checks sediment input arrays and category assignments.
 !>
@@ -2138,11 +2108,11 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   SUBROUTINE SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV, NSYB, NSYBEE, &
-      NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, SFB, SRB, ALPHA, DCBEDO,      &
-      FPCRIT, DLSMAX, NTSOBK, NSYBCD, NBFACE, DRSED, BKB, GKF, GKR, RHOSO, SOSDFN,  &
-      DRDRIP, FDRIP, XDRIP, PBSED, FCG, FCROCK, PLS, DLS, FBETA, FDEL, ABC, BBC,    &
-      GBC, IDUM, DUMMY, LDUM)
+   SUBROUTINE SYERR2(NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV, NSYB, NSYBEE, &
+                     NSYC, NSYCEE, SPR, ICMREF, ISUSED, NEPS, NFINE, SFB, SRB, ALPHA, DCBEDO, &
+                     FPCRIT, DLSMAX, NTSOBK, NSYBCD, NBFACE, DRSED, BKB, GKF, GKR, RHOSO, SOSDFN, &
+                     DRDRIP, FDRIP, XDRIP, PBSED, FCG, FCROCK, PLS, DLS, FBETA, FDEL, ABC, BBC, &
+                     GBC, IDUM, DUMMY, LDUM)
 
       IMPLICIT NONE
 
@@ -2160,11 +2130,11 @@ CONTAINS
       INTEGER, INTENT(IN) :: NV     !! Number of vegetation types.
       INTEGER, INTENT(IN) :: NSYB   !! Number of sediment boundary entries.
       INTEGER, INTENT(IN) :: NSYBEE !! Sediment-boundary array dimension.
-      INTEGER, INTENT(IN) :: NSYC (4) !! Number of sediment boundary categories by boundary type.
+      INTEGER, INTENT(IN) :: NSYC(4) !! Number of sediment boundary categories by boundary type.
       INTEGER, INTENT(IN) :: NSYCEE !! Sediment-boundary-category array dimension.
       INTEGER, INTENT(IN) :: SPR    !! Sediment diagnostic output unit.
-      INTEGER, INTENT(IN) :: ICMREF (NELEE, 4, 2:2) !! Face-neighbour reference map.
-      INTEGER, INTENT(IN) :: NBFACE (NEL) !! Number of boundary faces by element.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2) !! Face-neighbour reference map.
+      INTEGER, INTENT(IN) :: NBFACE(NEL) !! Number of boundary faces by element.
       INTEGER, INTENT(IN) :: SFB !! Sediment boundary file unit.
       INTEGER, INTENT(IN) :: SRB !! Sediment rating-boundary file unit.
 
@@ -2172,31 +2142,31 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: ISUSED !! Sediment velocity option.
       INTEGER, INTENT(INOUT) :: NEPS   !! Number of sediment substeps per water timestep.
       INTEGER, INTENT(INOUT) :: NFINE  !! Number of fine sediment classes.
-      INTEGER, INTENT(INOUT) :: NTSOBK (NLFEE)     !! Bank soil type by link.
-      INTEGER, INTENT(INOUT) :: NSYBCD (NSYBEE, 3) !! Sediment boundary element, type, and category metadata.
+      INTEGER, INTENT(INOUT) :: NTSOBK(NLFEE)     !! Bank soil type by link.
+      INTEGER, INTENT(INOUT) :: NSYBCD(NSYBEE, 3) !! Sediment boundary element, type, and category metadata.
       DOUBLE PRECISION, INTENT(INOUT) :: ALPHA  !! Fine-sediment settling/resuspension critical-shear ratio.
       DOUBLE PRECISION, INTENT(INOUT) :: DCBEDO !! Active upper channel-bed layer thickness.
       DOUBLE PRECISION, INTENT(INOUT) :: FPCRIT !! Maximum sediment concentration fraction.
       DOUBLE PRECISION, INTENT(INOUT) :: DLSMAX !! Loose-sediment depth above which hillslope soil erosion is suppressed.
-      DOUBLE PRECISION, INTENT(INOUT) :: DRSED (NSED) !! Representative sediment particle diameters.
-      DOUBLE PRECISION, INTENT(INOUT) :: BKB (NS)   !! Bank erodibility by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: GKF (NS)   !! Flow detachment coefficient by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: GKR (NS)   !! Rainfall detachment coefficient by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: RHOSO (NS) !! Soil bulk density by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: SOSDFN (NSEE, NSED) !! Soil sediment-size fractions by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: DRDRIP (NV) !! Canopy drip drop diameter by vegetation type.
-      DOUBLE PRECISION, INTENT(INOUT) :: FDRIP (NV)  !! Canopy drip fraction by vegetation type.
-      DOUBLE PRECISION, INTENT(INOUT) :: XDRIP (NV)  !! Canopy drip fall height by vegetation type.
-      DOUBLE PRECISION, INTENT(INOUT) :: PBSED (NLFEE) !! Channel-bed sediment porosity by link.
-      DOUBLE PRECISION, INTENT(INOUT) :: FCG (NLF + 1:NEL)    !! Ground-cover fraction by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: FCROCK (NLF + 1:NEL) !! Rock-cover fraction by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: PLS (NLF + 1:NEL)    !! Loose-sediment porosity by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: DLS (NEL) !! Loose/bed sediment depth by element.
-      DOUBLE PRECISION, INTENT(INOUT) :: FBETA (NELEE, NSED) !! Sediment composition fraction by element and size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: FDEL (NELEE, NSED)  !! Mobile sediment concentration fraction by element and size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: ABC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `A` by sediment class/category.
-      DOUBLE PRECISION, INTENT(INOUT) :: BBC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `B` by sediment class/category.
-      DOUBLE PRECISION, INTENT(INOUT) :: GBC (NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
+      DOUBLE PRECISION, INTENT(INOUT) :: DRSED(NSED) !! Representative sediment particle diameters.
+      DOUBLE PRECISION, INTENT(INOUT) :: BKB(NS)   !! Bank erodibility by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: GKF(NS)   !! Flow detachment coefficient by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: GKR(NS)   !! Rainfall detachment coefficient by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: RHOSO(NS) !! Soil bulk density by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: SOSDFN(NSEE, NSED) !! Soil sediment-size fractions by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: DRDRIP(NV) !! Canopy drip drop diameter by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: FDRIP(NV)  !! Canopy drip fraction by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: XDRIP(NV)  !! Canopy drip fall height by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: PBSED(NLFEE) !! Channel-bed sediment porosity by link.
+      DOUBLE PRECISION, INTENT(INOUT) :: FCG(NLF + 1:NEL)    !! Ground-cover fraction by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: FCROCK(NLF + 1:NEL) !! Rock-cover fraction by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: PLS(NLF + 1:NEL)    !! Loose-sediment porosity by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DLS(NEL) !! Loose/bed sediment depth by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: FBETA(NELEE, NSED) !! Sediment composition fraction by element and size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: FDEL(NELEE, NSED)  !! Mobile sediment concentration fraction by element and size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: ABC(NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `A` by sediment class/category.
+      DOUBLE PRECISION, INTENT(INOUT) :: BBC(NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `B` by sediment class/category.
+      DOUBLE PRECISION, INTENT(INOUT) :: GBC(NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
 
       ! Workspace arguments
       INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT)      :: IDUM  !! Integer workspace for grid/category checks.
@@ -2208,8 +2178,8 @@ CONTAINS
       INTEGER :: BB, COUNT, FACE, ICAT, IEL, ITYPE, NERR
       INTEGER, PARAMETER :: IUNDEF = 0
       INTEGER :: SED, SOIL, jedumdum
-      INTEGER :: IDUM1 (1)
-      DOUBLE PRECISION, ALLOCATABLE :: RDUM (:)
+      INTEGER :: IDUM1(1)
+      DOUBLE PRECISION, ALLOCATABLE :: RDUM(:)
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
@@ -2219,7 +2189,7 @@ CONTAINS
       ! 0. Preliminaries
       ! ----------------
       !     * Local counter
-      ALLOCATE (RDUM (NXEE*NYEE), STAT=ios, ERRMSG=emsg)
+      ALLOCATE (RDUM(NXEE*NYEE), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "RDUM", "SYmod:SYERR2", emsg)
 
       NERR = 0
@@ -2228,245 +2198,237 @@ CONTAINS
       ! -------------------
 
       ! NEPS
-      IDUM (1) = NEPS
-      CALL ALCHKI (ERRLVL_error, 2012, SPR, 1, 1, IUNDEF, IUNDEF, 'NEPS', 'GE', IONE1, IDUM, NERR, LDUM)
-      NEPS = IDUM (1)
+      IDUM(1) = NEPS
+      CALL ALCHKI(ERRLVL_error, 2012, SPR, 1, 1, IUNDEF, IUNDEF, 'NEPS', 'GE', IONE1, IDUM, NERR, LDUM)
+      NEPS = IDUM(1)
 
       ! FPCRIT
-      DUMMY (1) = FPCRIT
-      CALL ALCHK (ERRLVL_error, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'FPCRIT', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
-      FPCRIT = DUMMY (1)
+      DUMMY(1) = FPCRIT
+      CALL ALCHK(ERRLVL_error, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'FPCRIT', 'GE', ZERO1, ZERO1(1), DUMMY, NERR, LDUM)
+      FPCRIT = DUMMY(1)
 
       ! DLSMAX
-      DUMMY (1) = DLSMAX
-      CALL ALCHK (ERRLVL_error, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'DLSMAX', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
-      DLSMAX = DUMMY (1)
+      DUMMY(1) = DLSMAX
+      CALL ALCHK(ERRLVL_error, 2013, SPR, 1, 1, IUNDEF, IUNDEF, 'DLSMAX', 'GE', ZERO1, ZERO1(1), DUMMY, NERR, LDUM)
+      DLSMAX = DUMMY(1)
 
       IF (NLF > 0) THEN
          ! ISUSED
-         IDUM (1) = ISUSED
-         CALL ALCHKI (ERRLVL_error, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'GE', IZERO1, IDUM, NERR, LDUM)
-         CALL ALCHKI (ERRLVL_error, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'LE', IONE1, IDUM, NERR, LDUM)
-         ISUSED = IDUM (1)
+         IDUM(1) = ISUSED
+         CALL ALCHKI(ERRLVL_error, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'GE', IZERO1, IDUM, NERR, LDUM)
+         CALL ALCHKI(ERRLVL_error, 2014, SPR, 1, 1, IUNDEF, IUNDEF, 'ISUSED', 'LE', IONE1, IDUM, NERR, LDUM)
+         ISUSED = IDUM(1)
 
          ! NFINE
-         IDUM (1) = NFINE
-         IDUM1 (1) = MIN (1, NSED - 1)
-         CALL ALCHKI (ERRLVL_error, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'GE', IZERO1, IDUM, NERR, LDUM)
-         CALL ALCHKI (ERRLVL_error, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'LE', IDUM1, IDUM, NERR, LDUM)
-         NFINE = IDUM (1)
+         IDUM(1) = NFINE
+         IDUM1(1) = MIN(1, NSED - 1)
+         CALL ALCHKI(ERRLVL_error, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'GE', IZERO1, IDUM, NERR, LDUM)
+         CALL ALCHKI(ERRLVL_error, 2015, SPR, 1, 1, IUNDEF, IUNDEF, 'NFINE', 'LE', IDUM1, IDUM, NERR, LDUM)
+         NFINE = IDUM(1)
 
          ! ALPHA
          IF (NFINE > 0) THEN
-            DUMMY (1) = ALPHA
-            CALL ALCHK (ERRLVL_error, 2016, SPR, 1, 1, IUNDEF, IUNDEF, 'ALPHA', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
-            ALPHA = DUMMY (1)
+            DUMMY(1) = ALPHA
+            CALL ALCHK(ERRLVL_error, 2016, SPR, 1, 1, IUNDEF, IUNDEF, 'ALPHA', 'GE', ZERO1, ZERO1(1), DUMMY, NERR, LDUM)
+            ALPHA = DUMMY(1)
          END IF
 
          ! DCBEDO
-         DUMMY (1) = DCBEDO
-         CALL ALCHK (ERRLVL_error, 2017, SPR, 1, 1, IUNDEF, IUNDEF, 'DCBEDO', 'GE', ZERO1, ZERO1 (1), DUMMY, NERR, LDUM)
-         DCBEDO = DUMMY (1)
+         DUMMY(1) = DCBEDO
+         CALL ALCHK(ERRLVL_error, 2017, SPR, 1, 1, IUNDEF, IUNDEF, 'DCBEDO', 'GE', ZERO1, ZERO1(1), DUMMY, NERR, LDUM)
+         DCBEDO = DUMMY(1)
       END IF
 
       ! NELEE
-      IDUM (1) = NXEE * NYEE
+      IDUM(1) = NXEE*NYEE
       jedumdum = IDIMJE(NSED, NFINE)
-      jedumdum = jedumdum * NLF
+      jedumdum = jedumdum*NLF
       IDUM1(1) = MAX(NSED, jedumdum)
 
       ! * (including local workspace requirements)
-      IDUM1 (1) = MAX (IDUM1 (1), NS, NSYB * 2)
-      CALL ALCHKI (ERRLVL_error, 2018, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUM1, IDUM, NERR, LDUM)
-
+      IDUM1(1) = MAX(IDUM1(1), NS, NSYB*2)
+      CALL ALCHKI(ERRLVL_error, 2018, SPR, 1, 1, IUNDEF, IUNDEF, 'NELEE', 'GE', IDUM1, IDUM, NERR, LDUM)
 
       ! 2. Sediment, Soil & Vegetation Properties
       ! -----------------------------------------
       !
       ! * Not enough workspace? (Converted GOTO 300 to block IF)
-      IF (NELEE >= MAX (NSED, NS)) THEN
+      IF (NELEE >= MAX(NSED, NS)) THEN
 
          ! DRSED
          COUNT = NERR
-         CALL ALCHK (ERRLVL_error, 2019, SPR, 1, 1, IUNDEF, IUNDEF, 'DRSED(sed)', 'GT', ZERO1, ZERO1 (1), DRSED (1), NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2019, SPR, 1, 1, IUNDEF, IUNDEF, 'DRSED(sed)', 'GT', ZERO1, ZERO1(1), DRSED(1), NERR, LDUM)
 
          IF (NSED > 1 .AND. NERR == COUNT) THEN
-            CALL DCOPY (NSED - 1, DRSED, 1, RDUM, 1)
-            IDUM(1:NSED - 1) = INT (RDUM(1:NSED - 1))
-            CALL ALCHK (ERRLVL_error, 2019, SPR, 2, NSED, IUNDEF, IUNDEF, 'DRSED(sed)', 'GEa', RDUM, ZERO1 (1), DRSED (2), NERR, LDUM)
+            CALL DCOPY(NSED - 1, DRSED, 1, RDUM, 1)
+            IDUM(1:NSED - 1) = INT(RDUM(1:NSED - 1))
+            CALL ALCHK(ERRLVL_error, 2019, SPR, 2, NSED, IUNDEF, IUNDEF, 'DRSED(sed)', 'GEa', RDUM, ZERO1(1), DRSED(2), NERR, LDUM)
          END IF
 
          ! GKR
-         CALL ALCHK (ERRLVL_error, 2020, SPR, 1, NS, IUNDEF, IUNDEF, 'GKR(soil)', 'GE', ZERO1, ZERO1 (1), GKR, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2020, SPR, 1, NS, IUNDEF, IUNDEF, 'GKR(soil)', 'GE', ZERO1, ZERO1(1), GKR, NERR, LDUM)
          ! GKF
-         CALL ALCHK (ERRLVL_error, 2021, SPR, 1, NS, IUNDEF, IUNDEF, 'GKF(soil)', 'GE', ZERO1, ZERO1 (1), GKF, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2021, SPR, 1, NS, IUNDEF, IUNDEF, 'GKF(soil)', 'GE', ZERO1, ZERO1(1), GKF, NERR, LDUM)
          ! RHOSO
-         CALL ALCHK (ERRLVL_error, 2022, SPR, 1, NS, IUNDEF, IUNDEF, 'RHOSO(soil)', 'GT', ZERO1, ZERO1 (1), RHOSO, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2022, SPR, 1, NS, IUNDEF, IUNDEF, 'RHOSO(soil)', 'GT', ZERO1, ZERO1(1), RHOSO, NERR, LDUM)
 
          ! BKB
          IF (NLF > 0) THEN
-            CALL ALCHK (ERRLVL_error, 2023, SPR, 1, NS, IUNDEF, IUNDEF, 'BKB(soil)', 'GE', ZERO1, ZERO1 (1), BKB, NERR, LDUM)
+            CALL ALCHK(ERRLVL_error, 2023, SPR, 1, NS, IUNDEF, IUNDEF, 'BKB(soil)', 'GE', ZERO1, ZERO1(1), BKB, NERR, LDUM)
          END IF
 
          ! SOSDFN
-         DUMMY(1:NS) = ZERO1 (1)
+         DUMMY(1:NS) = ZERO1(1)
          DO SED = 1, NSED
             DO SOIL = 1, NS
-               DUMMY (SOIL) = DUMMY (SOIL) + SOSDFN (SOIL, SED)
+               DUMMY(SOIL) = DUMMY(SOIL) + SOSDFN(SOIL, SED)
             END DO
-            CALL ALCHK (ERRLVL_error, 2024, SPR, 1, NS, SED, IUNDEF, 'SOSDFN(soil,sed)', 'GE', ZERO1, ZERO1 (1), SOSDFN (1, SED), NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2024, SPR, 1, NS, SED, IUNDEF, 'SOSDFN(soil,sed)', 'GE', ZERO1, ZERO1(1), SOSDFN(1, SED), NERR, LDUM)
          END DO
-         CALL ALCHK (ERRLVL_error, 2024, SPR, 1, NS, IUNDEF, IUNDEF, 'SOSDFN[*][sum_over_sed](soil)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
+     CALL ALCHK(ERRLVL_error, 2024, SPR, 1, NS, IUNDEF, IUNDEF, 'SOSDFN[*][sum_over_sed](soil)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
 
          ! XDRIP
-         CALL ALCHK (ERRLVL_error, 2025, SPR, 1, NV, IUNDEF, IUNDEF, 'XDRIP(veg)', 'GE', ZERO1, ZERO1 (1), XDRIP, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2025, SPR, 1, NV, IUNDEF, IUNDEF, 'XDRIP(veg)', 'GE', ZERO1, ZERO1(1), XDRIP, NERR, LDUM)
          ! DRDRIP
-         CALL ALCHK (ERRLVL_error, 2026, SPR, 1, NV, IUNDEF, IUNDEF, 'DRDRIP(veg)', 'GT', ZERO1, ZERO1 (1), DRDRIP, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2026, SPR, 1, NV, IUNDEF, IUNDEF, 'DRDRIP(veg)', 'GT', ZERO1, ZERO1(1), DRDRIP, NERR, LDUM)
          ! FDRIP
-         CALL ALCHK (ERRLVL_error, 2027, SPR, 1, NV, IUNDEF, IUNDEF, 'FDRIP(veg)', 'GE', ZERO1, ZERO1 (1), FDRIP, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2027, SPR, 1, NV, IUNDEF, IUNDEF, 'FDRIP(veg)', 'GE', ZERO1, ZERO1(1), FDRIP, NERR, LDUM)
 
       END IF
-
 
       ! 3. Link Element Properties
       ! --------------------------
       !
       IF (NLF > 0) THEN
          ! NTSOBK
-         IDUM (1) = NS
-         CALL ALCHKI (ERRLVL_error, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'GE', IONE1, NTSOBK, NERR, LDUM)
-         CALL ALCHKI (ERRLVL_error, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'LE', IDUM, NTSOBK, NERR, LDUM)
+         IDUM(1) = NS
+         CALL ALCHKI(ERRLVL_error, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'GE', IONE1, NTSOBK, NERR, LDUM)
+         CALL ALCHKI(ERRLVL_error, 2028, SPR, 1, NLF, IUNDEF, IUNDEF, 'NTSOBK(link)', 'LE', IDUM, NTSOBK, NERR, LDUM)
          ! PBSED
-         CALL ALCHK (ERRLVL_error, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'GE', ZERO1, ZERO1 (1), PBSED, NERR, LDUM)
-         CALL ALCHK (ERRLVL_error, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'LT', ONE1, ZERO1 (1), PBSED, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'GE', ZERO1, ZERO1(1), PBSED, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2029, SPR, 1, NLF, IUNDEF, IUNDEF, 'PBSED(link)', 'LT', ONE1, ZERO1(1), PBSED, NERR, LDUM)
       END IF
-
 
       ! 4. Column-element Properties
       ! ----------------------------
       !
       ! FCROCK
-      CALL ALCHK (ERRLVL_error, 2030, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCROCK(iel)', 'LE', ONE1, ZERO1 (1), FCROCK, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2030, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCROCK(iel)', 'LE', ONE1, ZERO1(1), FCROCK, NERR, LDUM)
 
       ! FCG
       DO IEL = NLF + 1, NEL
-         DUMMY (IEL) = ONE1 (1) - FCROCK (IEL)
+         DUMMY(IEL) = ONE1(1) - FCROCK(IEL)
       END DO
-      CALL ALCHK (ERRLVL_error, 2031, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCG(iel)', 'LEa', DUMMY (NLF + 1), ZERO1 (1), FCG, NERR, LDUM)
+     CALL ALCHK(ERRLVL_error, 2031, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'FCG(iel)', 'LEa', DUMMY(NLF + 1), ZERO1(1), FCG, NERR, LDUM)
 
       ! PLS
-      CALL ALCHK (ERRLVL_error, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'GE', ZERO1, ZERO1 (1), PLS, NERR, LDUM)
-      CALL ALCHK (ERRLVL_error, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'LT', ONE1, ZERO1 (1), PLS, NERR, LDUM)
-
+      CALL ALCHK(ERRLVL_error, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'GE', ZERO1, ZERO1(1), PLS, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2032, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'PLS(iel)', 'LT', ONE1, ZERO1(1), PLS, NERR, LDUM)
 
       ! 5. All-element Initialization
       ! -----------------------------
       !
       ! DLS
-      CALL ALCHK (ERRLVL_error, 2033, SPR, 1, NEL, IUNDEF, IUNDEF, 'DLS(iel)', 'GE', ZERO1, ZERO1 (1), DLS, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2033, SPR, 1, NEL, IUNDEF, IUNDEF, 'DLS(iel)', 'GE', ZERO1, ZERO1(1), DLS, NERR, LDUM)
 
       ! FBETA
-      DUMMY(1:NEL) = ZERO1 (1)
+      DUMMY(1:NEL) = ZERO1(1)
       DO SED = 1, NSED
          DO IEL = 1, NEL
-            DUMMY (IEL) = DUMMY (IEL) + FBETA (IEL, SED)
+            DUMMY(IEL) = DUMMY(IEL) + FBETA(IEL, SED)
          END DO
-         CALL ALCHK (ERRLVL_error, 2034, SPR, 1, NEL, SED, IUNDEF, 'FBETA(iel,sed)', 'GE', ZERO1, ZERO1 (1), FBETA (1, SED), NERR, LDUM)
+        CALL ALCHK(ERRLVL_error, 2034, SPR, 1, NEL, SED, IUNDEF, 'FBETA(iel,sed)', 'GE', ZERO1, ZERO1(1), FBETA(1, SED), NERR, LDUM)
       END DO
-      CALL ALCHK (ERRLVL_error, 2034, SPR, 1, NEL, IUNDEF, IUNDEF, 'FBETA[*][sum_over_sed](iel)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2034, SPR, 1, NEL, IUNDEF, IUNDEF, 'FBETA[*][sum_over_sed](iel)', 'EQ', ONE1, TOL, DUMMY, NERR, LDUM)
 
       ! FDEL
       DO SED = 1, NSED
-         CALL ALCHK (ERRLVL_error, 2035, SPR, 1, NEL, SED, IUNDEF, 'FDEL(iel,sed)', 'GE', ZERO1, ZERO1 (1), FDEL (1, SED), NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2035, SPR, 1, NEL, SED, IUNDEF, 'FDEL(iel,sed)', 'GE', ZERO1, ZERO1(1), FDEL(1, SED), NERR, LDUM)
       END DO
-
 
       ! 6. Boundary Data
       ! ----------------
       !
       IF (NSYB > 0) THEN
-         IF (NELEE >= NSYB * 2) THEN
+         IF (NELEE >= NSYB*2) THEN
 
             ! NSYCEE
-            IDUM (1) = NSYCEE
-            IDUM1 (1) = MAX (NSYC (1) + NSYC (2), NSYC (3) + NSYC (4))
-            CALL ALCHKI (ERRLVL_error, 2036, SPR, 1, 1, IUNDEF, IUNDEF, 'NSYCEE', 'GE', IDUM1, IDUM, NERR, LDUM)
+            IDUM(1) = NSYCEE
+            IDUM1(1) = MAX(NSYC(1) + NSYC(2), NSYC(3) + NSYC(4))
+            CALL ALCHKI(ERRLVL_error, 2036, SPR, 1, 1, IUNDEF, IUNDEF, 'NSYCEE', 'GE', IDUM1, IDUM, NERR, LDUM)
 
             ! NSYBCD(BB,1)
             COUNT = NERR
-            IDUM1 (1) = NEL
-            CALL ALCHKI (ERRLVL_error, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'GE', IONE1, NSYBCD, NERR, LDUM)
-            CALL ALCHKI (ERRLVL_error, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'LE', IDUM1, NSYBCD, NERR, LDUM)
+            IDUM1(1) = NEL
+            CALL ALCHKI(ERRLVL_error, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'GE', IONE1, NSYBCD, NERR, LDUM)
+            CALL ALCHKI(ERRLVL_error, 2037, SPR, 1, NSYB, 1, IUNDEF, 'NSYBCD(bdry,1)', 'LE', IDUM1, NSYBCD, NERR, LDUM)
 
             ! NBFACE
             IF (COUNT == NERR) THEN
                DO BB = 1, NSYB
-                  IEL = NSYBCD (BB, 1)
-                  IDUM (BB) = NBFACE (IEL)
+                  IEL = NSYBCD(BB, 1)
+                  IDUM(BB) = NBFACE(IEL)
                END DO
-               IDUM1 (1) = 4
-               CALL ALCHKI (ERRLVL_error, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'GE', IONE1, IDUM, NERR, LDUM)
-               CALL ALCHKI (ERRLVL_error, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'LE', IDUM1, IDUM, NERR, LDUM)
+               IDUM1(1) = 4
+          CALL ALCHKI(ERRLVL_error, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'GE', IONE1, IDUM, NERR, LDUM)
+          CALL ALCHKI(ERRLVL_error, 2038, SPR, 1, NSYB, IUNDEF, IUNDEF, 'NBFACE[NSYBCD[*][1]](bdry)', 'LE', IDUM1, IDUM, NERR, LDUM)
             END IF
 
             ! ICMREF
             IF (COUNT == NERR) THEN
                DO BB = 1, NSYB
-                  IEL = NSYBCD (BB, 1)
-                  FACE = NBFACE (IEL)
-                  IDUM (BB) = ICMREF (IEL, FACE, 2)
+                  IEL = NSYBCD(BB, 1)
+                  FACE = NBFACE(IEL)
+                  IDUM(BB) = ICMREF(IEL, FACE, 2)
                END DO
                CALL ALCHKI (ERRLVL_error, 2039, SPR, 1, NSYB, IUNDEF, IUNDEF, 'ICMREF[NSYBCD[*][1]][NBFACE][2](bdry)', 'EQ', IZERO1, IDUM, NERR, LDUM)
             END IF
 
             ! NSYBCD(BB,3)
             DO BB = 1, NSYB
-               ITYPE = NSYBCD (BB, 2)
-               IDUM (BB) = 1
-               IF (MOD (ITYPE, 2) == 0) IDUM (BB) = IDUM (BB) + NSYC (ITYPE - 1)
-               IDUM (NSYB + BB) = IDUM (BB) + NSYC (ITYPE)
+               ITYPE = NSYBCD(BB, 2)
+               IDUM(BB) = 1
+               IF (MOD(ITYPE, 2) == 0) IDUM(BB) = IDUM(BB) + NSYC(ITYPE - 1)
+               IDUM(NSYB + BB) = IDUM(BB) + NSYC(ITYPE)
             END DO
-            CALL ALCHKI (ERRLVL_error, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'GE', IDUM, NSYBCD (1, 3), NERR, LDUM)
-            CALL ALCHKI (ERRLVL_error, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'LE', IDUM (NSYB + 1), NSYBCD (1, 3), NERR, LDUM)
+            CALL ALCHKI(ERRLVL_error, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'GE', IDUM, NSYBCD(1, 3), NERR, LDUM)
+          CALL ALCHKI(ERRLVL_error, 2040, SPR, 1, NSYB, 3, IUNDEF, 'NSYBCD(bdry,3)', 'LE', IDUM(NSYB + 1), NSYBCD(1, 3), NERR, LDUM)
 
             ! GBC
-            DO ICAT = 1, NSYC (1)
-               CALL ALCHK (ERRLVL_error, 2041, SPR, 1, NSED, ICAT, IUNDEF, 'GBC(sed,icat)', 'GE', ZERO1, ZERO1 (1), GBC (1, ICAT), NERR, LDUM)
+            DO ICAT = 1, NSYC(1)
+        CALL ALCHK(ERRLVL_error, 2041, SPR, 1, NSED, ICAT, IUNDEF, 'GBC(sed,icat)', 'GE', ZERO1, ZERO1(1), GBC(1, ICAT), NERR, LDUM)
             END DO
 
             ! ABC
-            DO ICAT = 1, NSYC (3)
-               CALL ALCHK (ERRLVL_error, 2042, SPR, 1, NSED, ICAT, IUNDEF, 'ABC(sed,icat)', 'GE', ZERO1, ZERO1 (1), ABC (1, ICAT), NERR, LDUM)
+            DO ICAT = 1, NSYC(3)
+        CALL ALCHK(ERRLVL_error, 2042, SPR, 1, NSED, ICAT, IUNDEF, 'ABC(sed,icat)', 'GE', ZERO1, ZERO1(1), ABC(1, ICAT), NERR, LDUM)
             END DO
 
             ! BBC
-            DO ICAT = 1, NSYC (3)
-               CALL ALCHK (ERRLVL_error, 2043, SPR, 1, NSED, ICAT, IUNDEF, 'BBC(sed,icat)', 'GT', ZERO1, ZERO1 (1), BBC (1, ICAT), NERR, LDUM)
+            DO ICAT = 1, NSYC(3)
+        CALL ALCHK(ERRLVL_error, 2043, SPR, 1, NSED, ICAT, IUNDEF, 'BBC(sed,icat)', 'GT', ZERO1, ZERO1(1), BBC(1, ICAT), NERR, LDUM)
             END DO
 
             ! SFB
-            IF (NSYC (2) > 0) THEN
-               IDUM (1) = SFB
-               CALL ALCHKI (ERRLVL_error, 2044, SPR, 1, 1, IUNDEF, IUNDEF, 'SFB', 'GE', IZERO1, IDUM, NERR, LDUM)
+            IF (NSYC(2) > 0) THEN
+               IDUM(1) = SFB
+               CALL ALCHKI(ERRLVL_error, 2044, SPR, 1, 1, IUNDEF, IUNDEF, 'SFB', 'GE', IZERO1, IDUM, NERR, LDUM)
             END IF
 
             ! SRB
-            IF (NSYC (2) > 0) THEN
-               IDUM (1) = SRB
-               CALL ALCHKI (ERRLVL_error, 2045, SPR, 1, 1, IUNDEF, IUNDEF, 'SRB', 'GE', IZERO1, IDUM, NERR, LDUM)
+            IF (NSYC(2) > 0) THEN
+               IDUM(1) = SRB
+               CALL ALCHKI(ERRLVL_error, 2045, SPR, 1, 1, IUNDEF, IUNDEF, 'SRB', 'GE', IZERO1, IDUM, NERR, LDUM)
             END IF
          END IF
       END IF
 
-
       ! 7. Epilogue
       ! -----------
       !
-      IF (NERR > 0) CALL RAISE_ERROR (ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking SY input data')
+      IF (NERR > 0) CALL RAISE_ERROR(ERRLVL_fatal, 2000, SPR, 0, 0, 'Error(s) detected while checking SY input data')
 
    END SUBROUTINE SYERR2
-
-
 
 !> Checks time-dependent water-flow values before a sediment timestep.
 !>
@@ -2506,9 +2468,9 @@ CONTAINS
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced the `GOTO 640` non-discharge-face skip with `CYCLE element_loop`, and the legacy statement function used to evaluate face outflow with the internal `FUNCTION` `FNQOUT`. |
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
 !> @endhistory
-   SUBROUTINE SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
-      ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
-      ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
+   SUBROUTINE SYERR3(NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
+                     ICMRF2, ISORT, DTUZ, CLAI, PLAI, ARXL, DRAINA, PNETTO, HRF, &
+                     ZGRUND, QOC, IQ, JMIN, JSORT, LDUM)
 
       IMPLICIT NONE
 
@@ -2519,31 +2481,31 @@ CONTAINS
       INTEGER, INTENT(IN) :: NLFEE !! Link-array dimension.
       INTEGER, INTENT(IN) :: NV    !! Number of vegetation types.
       INTEGER, INTENT(IN) :: SPR   !! Sediment diagnostic output unit.
-      INTEGER, INTENT(IN) :: ICMREF (NELEE, 4, 2:3) !! Face-neighbour and reverse-face reference map.
-      INTEGER, INTENT(IN) :: ICMRF2 (NLFEE, 3, 2)   !! Confluence branch reference map.
-      INTEGER, INTENT(IN) :: ISORT (NEL) !! Donor-before-receptor element routing order.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:3) !! Face-neighbour and reverse-face reference map.
+      INTEGER, INTENT(IN) :: ICMRF2(NLFEE, 3, 2)   !! Confluence branch reference map.
+      INTEGER, INTENT(IN) :: ISORT(NEL) !! Donor-before-receptor element routing order.
       DOUBLE PRECISION, INTENT(IN) :: DTUZ !! Unsaturated-zone timestep in seconds.
-      DOUBLE PRECISION, INTENT(INOUT) :: CLAI (NV)    !! Current canopy leaf-area index by vegetation type.
-      DOUBLE PRECISION, INTENT(INOUT) :: PLAI (NV)    !! Potential/maximum leaf-area index by vegetation type.
-      DOUBLE PRECISION, INTENT(INOUT) :: ARXL (NLFEE) !! Channel cross-sectional area by link.
-      DOUBLE PRECISION, INTENT(INOUT) :: DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
-      DOUBLE PRECISION, INTENT(INOUT) :: HRF (NEL)    !! Water level/head by element.
-      DOUBLE PRECISION, INTENT(IN) :: PNETTO (NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
-      DOUBLE PRECISION, INTENT(IN) :: ZGRUND (NEL) !! Ground or bed elevation by element.
-      DOUBLE PRECISION, INTENT(IN) :: QOC (NELEE, 4) !! Face water fluxes.
+      DOUBLE PRECISION, INTENT(INOUT) :: CLAI(NV)    !! Current canopy leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: PLAI(NV)    !! Potential/maximum leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: ARXL(NLFEE) !! Channel cross-sectional area by link.
+      DOUBLE PRECISION, INTENT(INOUT) :: DRAINA(NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+      DOUBLE PRECISION, INTENT(INOUT) :: HRF(NEL)    !! Water level/head by element.
+      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
+      DOUBLE PRECISION, INTENT(IN) :: ZGRUND(NEL) !! Ground or bed elevation by element.
+      DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4) !! Face water fluxes.
 
       ! Workspace arguments
-      INTEGER :: IQ (NEL)    !! Per-face donor/receptor flow-consistency status by element.
-      INTEGER :: JMIN (NEL)  !! Earliest required `ISORT` position for each element's receptors.
-      INTEGER :: JSORT (0:NEL + 1) !! Inverse of `ISORT`: position of each element in the routing order.
-      LOGICAL :: LDUM (NELEE) !! Logical workspace for `ALCHK`/`ALCHKI` checks.
+      INTEGER :: IQ(NEL)    !! Per-face donor/receptor flow-consistency status by element.
+      INTEGER :: JMIN(NEL)  !! Earliest required `ISORT` position for each element's receptors.
+      INTEGER :: JSORT(0:NEL + 1) !! Inverse of `ISORT`: position of each element in the routing order.
+      LOGICAL :: LDUM(NELEE) !! Logical workspace for `ALCHK`/`ALCHKI` checks.
 
       DOUBLE PRECISION, PARAMETER :: TOL = 1.0D-7
       !
       INTEGER :: FACE, FADJ, I, IADJ, IBR, IEL, J, NELP, NERR, P
       INTEGER, PARAMETER :: IUNDEF = 0
       DOUBLE PRECISION :: QADJ, QMIN
-      DOUBLE PRECISION :: DUM1 (1)
+      DOUBLE PRECISION :: DUM1(1)
 
       !----------------------------------------------------------------------*
       !
@@ -2558,22 +2520,22 @@ CONTAINS
       ! ------------
       !
       ! DTUZ
-      DUM1 (1) = DTUZ
-      CALL ALCHK (ERRLVL_error, 2046, SPR, 1, 1, IUNDEF, IUNDEF, 'DTUZ', 'GE', &
-         zero1, zero1 (1), DUM1, NERR, LDUM)
+      DUM1(1) = DTUZ
+      CALL ALCHK(ERRLVL_error, 2046, SPR, 1, 1, IUNDEF, IUNDEF, 'DTUZ', 'GE', &
+                 zero1, zero1(1), DUM1, NERR, LDUM)
       !
       !
       ! 2. Vegetative State
       ! -------------------
       !
       ! CLAI
-      CALL ALCHK (ERRLVL_error, 2047, SPR, 1, NV, IUNDEF, IUNDEF, 'CLAI(veg)', &
-         'GE', zero1, zero1 (1), CLAI, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2047, SPR, 1, NV, IUNDEF, IUNDEF, 'CLAI(veg)', &
+                 'GE', zero1, zero1(1), CLAI, NERR, LDUM)
       ! PLAI
-      CALL ALCHK (ERRLVL_error, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
-         'GE', zero1, zero1 (1), PLAI, NERR, LDUM)
-      CALL ALCHK (ERRLVL_error, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
-         'LE', ONE1, ZERO1 (1), PLAI, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
+                 'GE', zero1, zero1(1), PLAI, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2048, SPR, 1, NV, IUNDEF, IUNDEF, 'PLAI(veg)', &
+                 'LE', ONE1, ZERO1(1), PLAI, NERR, LDUM)
       !
       !
       ! 3. Link State
@@ -2582,8 +2544,8 @@ CONTAINS
       IF (NLF > 0) THEN
          !
          ! ARXL
-         CALL ALCHK (ERRLVL_error, 2049, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
-            'GE', zero1, zero1 (1), ARXL, NERR, LDUM)
+         CALL ALCHK(ERRLVL_error, 2049, SPR, 1, NLF, IUNDEF, IUNDEF, 'ARXL(link)', &
+                    'GE', zero1, zero1(1), ARXL, NERR, LDUM)
          !
       END IF
       !
@@ -2592,17 +2554,17 @@ CONTAINS
       ! -----------------
       !
       ! DRAINA
-      CALL ALCHK (ERRLVL_error, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1 (1), DRAINA, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'GE', zero1, zero1(1), DRAINA, NERR, LDUM)
       ! 10.10.94  Ought to fix WAT module so that we don't need TOL
-      CALL ALCHK (ERRLVL_error, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'LEa', PNETTO, TOL, DRAINA, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2050, SPR, NLF + 1, NEL, IUNDEF, IUNDEF, 'DRAINA(iel)', 'LEa', PNETTO, TOL, DRAINA, NERR, LDUM)
       !
       !
       ! 5. Elemental State
       ! ------------------
       !
       ! HRF
-      CALL ALCHK (ERRLVL_error, 2051, SPR, 1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', &
-         'GEa', ZGRUND, ZERO1 (1), HRF, NERR, LDUM)
+      CALL ALCHK(ERRLVL_error, 2051, SPR, 1, NEL, IUNDEF, IUNDEF, 'HRF(iel)', &
+                 'GEa', ZGRUND, ZERO1(1), HRF, NERR, LDUM)
       !
       !
       ! 6. Flux/Ordering
@@ -2613,14 +2575,14 @@ CONTAINS
       !       (note that JSORT has overspill elements )
       NELP = NEL + 1
       DO J = 0, NELP
-         JSORT (J) = NELP
+         JSORT(J) = NELP
       END DO
 
       DO I = 1, NEL
-         IEL = ISORT (I)
-         J = MAX (0, MIN (IEL, NELP))
-         JSORT (J) = I
-         JMIN (I) = NELP
+         IEL = ISORT(I)
+         J = MAX(0, MIN(IEL, NELP))
+         JSORT(J) = I
+         JMIN(I) = NELP
       END DO
 
       !     * At this point any element not listed in ISORT has a JSORT
@@ -2630,53 +2592,53 @@ CONTAINS
 
          element_loop: DO IEL = 1, NEL
             !          * innocent until proven guilty
-            IQ (IEL) = 0
+            IQ(IEL) = 0
 
             !          * non-discharge faces are ok (Cycle directly replaces GOTO 640)
-            IF (FNQOUT(IEL, FACE) <= ZERO1 (1)) CYCLE element_loop
+            IF (FNQOUT(IEL, FACE) <= ZERO1(1)) CYCLE element_loop
 
-            IADJ = ICMREF (IEL, FACE, 2)
+            IADJ = ICMREF(IEL, FACE, 2)
 
             IF (IADJ > 0) THEN
-               FADJ = ICMREF (IEL, FACE, 3)
+               FADJ = ICMREF(IEL, FACE, 3)
                QADJ = FNQOUT(IADJ, FADJ)
                !             * do both elements discharge into the same face?
-               IF (QADJ > ZERO1 (1)) IQ (IEL) = 1
+               IF (QADJ > ZERO1(1)) IQ(IEL) = 1
                !             * IEL must precede IADJ in the ISORT list
-               JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
+               JMIN(IEL) = MIN(JSORT(IADJ), JMIN(IEL))
 
             ELSE IF (IADJ < 0) THEN
-               IBR = - IADJ
-               QMIN = ONE1 (1)
+               IBR = -IADJ
+               QMIN = ONE1(1)
 
                DO P = 1, 3
-                  IADJ = ICMRF2 (IBR, P, 1)
+                  IADJ = ICMRF2(IBR, P, 1)
                   IF (IADJ > 0) THEN
-                     FADJ = ICMRF2 (IBR, P, 2)
+                     FADJ = ICMRF2(IBR, P, 2)
                      QADJ = FNQOUT(IADJ, FADJ)
-                     QMIN = MIN (QADJ, QMIN)
-                     IF (QADJ < zero1 (1)) THEN
+                     QMIN = MIN(QADJ, QMIN)
+                     IF (QADJ < zero1(1)) THEN
                         !                      * IEL must precede IADJ in the ISORT list
-                        JMIN (IEL) = MIN (JSORT (IADJ), JMIN (IEL))
+                        JMIN(IEL) = MIN(JSORT(IADJ), JMIN(IEL))
                      END IF
                   END IF
                END DO
 
                !             * discharge from IEL has nowhere to go?
-               IF (QMIN >= zero1 (1)) IQ (IEL) = 2
+               IF (QMIN >= zero1(1)) IQ(IEL) = 2
             END IF
          END DO element_loop
 
          !        * Check QOC status at this FACE for all elements
-         CALL ALCHKI (ERRLVL_error, 2052, SPR, 1, NEL, FACE, IUNDEF, &
-            'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
+         CALL ALCHKI(ERRLVL_error, 2052, SPR, 1, NEL, FACE, IUNDEF, &
+                     'status_of_QOC(iel,face)', 'EQ', IZERO1, IQ, NERR, LDUM)
 
       END DO
 
       !     * Check that each donor element listed in ISORT occurs before
       !       each of its receptors, and that all elements are listed
-      CALL ALCHKI (ERRLVL_error, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
-         'position_in_ISORT(iel)', 'LTa', JMIN, JSORT (1), NERR, LDUM)
+      CALL ALCHKI(ERRLVL_error, 2053, SPR, 1, NEL, IUNDEF, IUNDEF, &
+                  'position_in_ISORT(iel)', 'LTa', JMIN, JSORT(1), NERR, LDUM)
       !
       !
       ! 7. Epilogue
@@ -2687,28 +2649,28 @@ CONTAINS
          WRITE (SPR, 9100) 'DTUZ', DTUZ
          WRITE (SPR, 9100) 'CLAI[veg=1,...,NV]', CLAI
          WRITE (SPR, 9100) 'PLAI[veg=1,...,NV]', PLAI
-         WRITE (SPR, 9100) 'ARXL[link=1,...,NLF]', (ARXL (IEL), IEL = 1, NLF)
+         WRITE (SPR, 9100) 'ARXL[link=1,...,NLF]', (ARXL(IEL), IEL=1, NLF)
          WRITE (SPR, 9100) 'DRAINA[col=NLF+1,...,NEL]', DRAINA
          WRITE (SPR, 9100) 'PNETTO[col=NLF+1,...,NEL]', PNETTO
-         WRITE (SPR, 9100) 'HRF[iel=1,...,NEL]', (HRF(IEL), IEL = 1, NEL)
+         WRITE (SPR, 9100) 'HRF[iel=1,...,NEL]', (HRF(IEL), IEL=1, NEL)
          WRITE (SPR, 9100) 'ZGRUND[iel=1,...,NEL]', ZGRUND
          WRITE (SPR, 9200) 'ISORT[iel=1,...,NEL]', ISORT
-         WRITE (SPR, 9200) 'position_in_ISORT[iel=1,...,NEL]', (JSORT (IEL), IEL = 1, NEL)
+         WRITE (SPR, 9200) 'position_in_ISORT[iel=1,...,NEL]', (JSORT(IEL), IEL=1, NEL)
 
          DO FACE = 1, 4
-            WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC (IEL, FACE), IEL = 1, NEL)
+            WRITE (SPR, 9150) 'QOC[iel=1,...,NEL][face=', FACE, ']', (QOC(IEL, FACE), IEL=1, NEL)
          END DO
          !
-         CALL RAISE_ERROR (ERRLVL_error, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
+         CALL RAISE_ERROR(ERRLVL_error, 2003, SPR, 0, 0, 'Error(s) detected while checking time-dependent WAT-SY interface')
          !
       END IF
 
       RETURN
 
       ! FORMAT STATEMENTS safely at the bottom
-9100  FORMAT(1X,A,     ':'/1P,(8E10.2))
-9150  FORMAT(1X,A,I1,A,':'/1P,(8E10.2))
-9200  FORMAT(1X,A,     ':'/   (16I5  ))
+9100  FORMAT(1X, A, ':'/1P, (8E10.2))
+9150  FORMAT(1X, A, I1, A, ':'/1P, (8E10.2))
+9200  FORMAT(1X, A, ':'/(16I5))
 
    CONTAINS
 
@@ -2716,12 +2678,10 @@ CONTAINS
       PURE DOUBLE PRECISION FUNCTION FNQOUT(ELEM, FCE)
          INTEGER, INTENT(IN) :: ELEM !! Element index.
          INTEGER, INTENT(IN) :: FCE  !! Face index (1-4).
-         FNQOUT = SIGN(1.0D0, 2.0D0 - DBLE(FCE)) * QOC(ELEM, FCE)
+         FNQOUT = SIGN(1.0D0, 2.0D0 - DBLE(FCE))*QOC(ELEM, FCE)
       END FUNCTION FNQOUT
 
    END SUBROUTINE SYERR3
-
-
 
 !> Evaluates fine-sediment settling, infiltration, and armouring limits.
 !>
@@ -2785,7 +2745,7 @@ CONTAINS
 !> (the Shields option), which never reads that argument.
 !> @endnote
    SUBROUTINE SYFINE(DRSEDF, FBIC, FICRIT, NLF, ALPHA, DTSY, AREA, &
-      DCBF, FBETAF, FDELF, PBSED, TAUK, VCFMAX, VINFMX, BARM)
+                     DCBF, FBETAF, FDELF, PBSED, TAUK, VCFMAX, VINFMX, BARM)
 
       IMPLICIT NONE
 
@@ -2818,13 +2778,13 @@ CONTAINS
       ! * Calculate settling velocity for fines ( first call only )
       IF (FIRST_syfine) THEN
          FIRST_syfine = .FALSE.
-         WSED_syfine = DRSEDF**2 * GRAVTY * (RHOSED - RHOWAT) / (18.0D0 * RHOWAT * VISCOS)
+         WSED_syfine = DRSEDF**2*GRAVTY*(RHOSED - RHOWAT)/(18.0D0*RHOWAT*VISCOS)
       END IF
 
       ! * Loop over channel links
       link_loop: DO LINK = 1, NLF
 
-         TAUKL  = TAUK(LINK)
+         TAUKL = TAUK(LINK)
          AREA_L = AREA(LINK)
          FDELFL = FDELF(LINK)
 
@@ -2833,10 +2793,10 @@ CONTAINS
 
          ! * Calculate potential fines in upper layer
          ! * (existing fines + settling)
-         DUM = ALPHA * TAUEC
-         IF (DUM > 0.0D0) DUM = DIMJE(DUM, TAUKL) / DUM
-         DCFMXL = DCBF(LINK) + FDELFL * WSED_syfine * DUM * DTSY
-         VCFMAX(LINK) = DCFMXL * AREA_L
+         DUM = ALPHA*TAUEC
+         IF (DUM > 0.0D0) DUM = DIMJE(DUM, TAUKL)/DUM
+         DCFMXL = DCBF(LINK) + FDELFL*WSED_syfine*DUM*DTSY
+         VCFMAX(LINK) = DCFMXL*AREA_L
 
          ! * Can fines be armoured ?
          BARM(LINK) = (TAUKL <= TAUEC)
@@ -2844,15 +2804,13 @@ CONTAINS
          ! * Calculate potential infiltration rate
          VMAX = 0.0D0
          IF (FBETAF(LINK) < FBIC) THEN
-            VMAX = WSED_syfine * AREA_L * DIMJE(FDELFL, FICRIT / (1.0D0 - PBSED(LINK))) * DTSY
+            VMAX = WSED_syfine*AREA_L*DIMJE(FDELFL, FICRIT/(1.0D0 - PBSED(LINK)))*DTSY
          END IF
          VINFMX(LINK) = VMAX
 
       END DO link_loop
 
    END SUBROUTINE SYFINE
-
-
 
 !> Initialises sediment state arrays on the first SY pass.
 !>
@@ -2902,10 +2860,10 @@ CONTAINS
 !> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` zeroing of `GNU`, `GNUBK`, `ARBDEP`, `GINFD`, `GINFS`, and `QSED` with array-slice assignment. |
 !> | 2026-04-06 | SvB | 4.6.1 | Removed `GOTO`-driven control flow. |
 !> @endhistory
-   SUBROUTINE SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, NTSOBK, ARXL, DCBEDO, DLS, &
-      FBETA, DRSED, HRF, PBSED, PLS, SOSDFN, THSAT, ZGRUND, NTSOTP, ZBFULL, ARBDEP, &
-      ARXLOL, DCBED, DCBSED, DDBSED, DRSO50, DWATOL, FETA, GINFD, GINFS, GNU, GNUBK, &
-      QSED, DBFULL)
+   SUBROUTINE SYINIT(NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, NTSOBK, ARXL, DCBEDO, DLS, &
+                     FBETA, DRSED, HRF, PBSED, PLS, SOSDFN, THSAT, ZGRUND, NTSOTP, ZBFULL, ARBDEP, &
+                     ARXLOL, DCBED, DCBSED, DDBSED, DRSO50, DWATOL, FETA, GINFD, GINFS, GNU, GNUBK, &
+                     QSED, DBFULL)
 
       IMPLICIT NONE
 
@@ -2918,36 +2876,36 @@ CONTAINS
       INTEGER, INTENT(IN) :: NSED  !! Number of sediment size classes.
       INTEGER, INTENT(IN) :: NSEE  !! Soil-type array dimension.
       INTEGER, INTENT(IN) :: NSEDEE !! Sediment-size array dimension.
-      INTEGER, INTENT(IN) :: NTSOBK (NLFEE) !! Bank soil type by link.
-      INTEGER, INTENT(IN) :: NTSOTP (NLF + 1:NEL) !! Top soil type by land element.
+      INTEGER, INTENT(IN) :: NTSOBK(NLFEE) !! Bank soil type by link.
+      INTEGER, INTENT(IN) :: NTSOTP(NLF + 1:NEL) !! Top soil type by land element.
       DOUBLE PRECISION, INTENT(IN) :: DCBEDO !! Active upper channel-bed layer thickness.
-      DOUBLE PRECISION, INTENT(IN) :: ARXL (NLFEE) !! Channel cross-sectional area by link.
-      DOUBLE PRECISION, INTENT(IN) :: DLS (NEL)    !! Initial loose/bed sediment depth by element.
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NSED) !! Representative sediment particle diameters.
-      DOUBLE PRECISION, INTENT(IN) :: FBETA (NELEE, NSED) !! Initial sediment composition by element and size class.
-      DOUBLE PRECISION, INTENT(IN) :: HRF (NLF + 1:NEL)   !! Initial land-element water level/head.
-      DOUBLE PRECISION, INTENT(IN) :: PBSED (NLFEE)       !! Channel-bed sediment porosity by link.
-      DOUBLE PRECISION, INTENT(IN) :: PLS (NLF + 1:NEL)   !! Loose-sediment porosity by land element.
-      DOUBLE PRECISION, INTENT(IN) :: SOSDFN (NSEE, NSED) !! Soil sediment-size fractions by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: THSAT (NS)      !! Saturated water content by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: ZBFULL (NLFEE)  !! Bankfull elevation/depth by link.
-      DOUBLE PRECISION, INTENT(IN) :: ZGRUND (NEL)    !! Ground or bed elevation by element.
+      DOUBLE PRECISION, INTENT(IN) :: ARXL(NLFEE) !! Channel cross-sectional area by link.
+      DOUBLE PRECISION, INTENT(IN) :: DLS(NEL)    !! Initial loose/bed sediment depth by element.
+      DOUBLE PRECISION, INTENT(IN) :: DRSED(NSED) !! Representative sediment particle diameters.
+      DOUBLE PRECISION, INTENT(IN) :: FBETA(NELEE, NSED) !! Initial sediment composition by element and size class.
+      DOUBLE PRECISION, INTENT(IN) :: HRF(NLF + 1:NEL)   !! Initial land-element water level/head.
+      DOUBLE PRECISION, INTENT(IN) :: PBSED(NLFEE)       !! Channel-bed sediment porosity by link.
+      DOUBLE PRECISION, INTENT(IN) :: PLS(NLF + 1:NEL)   !! Loose-sediment porosity by land element.
+      DOUBLE PRECISION, INTENT(IN) :: SOSDFN(NSEE, NSED) !! Soil sediment-size fractions by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: THSAT(NS)      !! Saturated water content by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: ZBFULL(NLFEE)  !! Bankfull elevation/depth by link.
+      DOUBLE PRECISION, INTENT(IN) :: ZGRUND(NEL)    !! Ground or bed elevation by element.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: ARBDEP (NLFEE) !! Accumulated channel-bed elevation/depth change.
-      DOUBLE PRECISION, INTENT(OUT) :: ARXLOL (NLFEE) !! Previous channel cross-sectional area by link.
-      DOUBLE PRECISION, INTENT(OUT) :: DBFULL (NLFEE) !! Bankfull depth by link.
-      DOUBLE PRECISION, INTENT(OUT) :: DCBED (NLFEE)  !! Active upper-bed layer depth by link.
-      DOUBLE PRECISION, INTENT(OUT) :: DCBSED (NLFEE, NSED) !! Upper-bed sediment depth by link and size class.
-      DOUBLE PRECISION, INTENT(OUT) :: DDBSED (NLFEE, NSED) !! Lower-bed sediment depth by link and size class.
-      DOUBLE PRECISION, INTENT(OUT) :: DRSO50 (NS)          !! Median soil particle diameter by soil type.
-      DOUBLE PRECISION, INTENT(OUT) :: DWATOL (NLF + 1:NEL) !! Previous water depth by land element.
-      DOUBLE PRECISION, INTENT(OUT) :: FETA (NEL) !! Soil-to-sediment solid-volume conversion factor by element.
-      DOUBLE PRECISION, INTENT(OUT) :: GINFD (NLFEE, NSED) !! Fine infiltration diagnostic/source for deposited material.
-      DOUBLE PRECISION, INTENT(OUT) :: GINFS (NLFEE, NSED) !! Fine infiltration diagnostic/source for suspended material.
-      DOUBLE PRECISION, INTENT(OUT) :: GNU (NLF + 1:NEL) !! Hillslope erosion rate by land element.
-      DOUBLE PRECISION, INTENT(OUT) :: GNUBK (NLFEE)     !! Lateral bank erosion rate by link.
-      DOUBLE PRECISION, INTENT(OUT) :: QSED (NELEE, NSEDEE, 4) !! Sediment flux by element, size class, and face.
+      DOUBLE PRECISION, INTENT(OUT) :: ARBDEP(NLFEE) !! Accumulated channel-bed elevation/depth change.
+      DOUBLE PRECISION, INTENT(OUT) :: ARXLOL(NLFEE) !! Previous channel cross-sectional area by link.
+      DOUBLE PRECISION, INTENT(OUT) :: DBFULL(NLFEE) !! Bankfull depth by link.
+      DOUBLE PRECISION, INTENT(OUT) :: DCBED(NLFEE)  !! Active upper-bed layer depth by link.
+      DOUBLE PRECISION, INTENT(OUT) :: DCBSED(NLFEE, NSED) !! Upper-bed sediment depth by link and size class.
+      DOUBLE PRECISION, INTENT(OUT) :: DDBSED(NLFEE, NSED) !! Lower-bed sediment depth by link and size class.
+      DOUBLE PRECISION, INTENT(OUT) :: DRSO50(NS)          !! Median soil particle diameter by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: DWATOL(NLF + 1:NEL) !! Previous water depth by land element.
+      DOUBLE PRECISION, INTENT(OUT) :: FETA(NEL) !! Soil-to-sediment solid-volume conversion factor by element.
+      DOUBLE PRECISION, INTENT(OUT) :: GINFD(NLFEE, NSED) !! Fine infiltration diagnostic/source for deposited material.
+      DOUBLE PRECISION, INTENT(OUT) :: GINFS(NLFEE, NSED) !! Fine infiltration diagnostic/source for suspended material.
+      DOUBLE PRECISION, INTENT(OUT) :: GNU(NLF + 1:NEL) !! Hillslope erosion rate by land element.
+      DOUBLE PRECISION, INTENT(OUT) :: GNUBK(NLFEE)     !! Lateral bank erosion rate by link.
+      DOUBLE PRECISION, INTENT(OUT) :: QSED(NELEE, NSEDEE, 4) !! Sediment flux by element, size class, and face.
 
       ! Locals, etc
       DOUBLE PRECISION :: DCBEDE, DDBEDE, DLSE, FBETAE
@@ -2959,7 +2917,7 @@ CONTAINS
       !----------------------------------------------------------------------*
 
       ! * Initialize surface erosion rates in each column (Replaced ALINIT)
-      GNU (NLF + 1 : NEL) = ZERO
+      GNU(NLF + 1:NEL) = ZERO
 
       IF (NLF > 0) THEN
          ! * Initialize bank erosion rates in each link (Replaced ALINIT)
@@ -2969,9 +2927,8 @@ CONTAINS
          ARBDEP(1:NLF) = ZERO
 
          ! * Set old river c/s area equal to current river c/s area
-         CALL DCOPY (NLF, ARXL, 1, ARXLOL, 1)
+         CALL DCOPY(NLF, ARXL, 1, ARXLOL, 1)
       END IF
-
 
       ! * Loop over sediment types
       DO SED = 1, NSED
@@ -2990,52 +2947,47 @@ CONTAINS
          ! * Next sediment type
       END DO
 
-
       ! * Loop over links
       DO LINK = 1, NLF
-         DLSE = DLS (LINK)
+         DLSE = DLS(LINK)
 
          ! * Set ratio of bank soil to bed sediment solid volume fractions
-         FETA (LINK) = (1.0D0 - THSAT (NTSOBK (LINK))) / (1.0D0 - PBSED (LINK))
+         FETA(LINK) = (1.0D0 - THSAT(NTSOBK(LINK)))/(1.0D0 - PBSED(LINK))
 
          ! * Set bank full depth
-         DBFULL (LINK) = ZBFULL (LINK) - ZGRUND (LINK)
+         DBFULL(LINK) = ZBFULL(LINK) - ZGRUND(LINK)
 
          ! * Bed layer depths
-         DCBEDE = MIN (DLSE, DCBEDO)
+         DCBEDE = MIN(DLSE, DCBEDO)
          DDBEDE = DIMJE(DLSE, DCBEDE)
-         DCBED (LINK) = DCBEDE
+         DCBED(LINK) = DCBEDE
 
          ! * Loop over sediment types
          DO SED = 1, NSED
             ! * Initialize sediment depths in both bed layers
-            FBETAE = FBETA (LINK, SED)
-            DCBSED (LINK, SED) = DCBEDE * FBETAE
-            DDBSED (LINK, SED) = DDBEDE * FBETAE
+            FBETAE = FBETA(LINK, SED)
+            DCBSED(LINK, SED) = DCBEDE*FBETAE
+            DDBSED(LINK, SED) = DDBEDE*FBETAE
          END DO
 
          ! * Next link
       END DO
 
-
       ! * Loop over column elements
       DO IEL = NLF + 1, NEL
          ! * Set ratio: surface soil to loose sediment solid vol fractions
-         FETA (IEL) = (1.0D0 - THSAT (NTSOTP (IEL))) / (1.0D0 - PLS (IEL))
+         FETA(IEL) = (1.0D0 - THSAT(NTSOTP(IEL)))/(1.0D0 - PLS(IEL))
 
          ! * Calculate initial surface water depth
-         DWATOL (IEL) = HRF (IEL) - ZGRUND (IEL)
+         DWATOL(IEL) = HRF(IEL) - ZGRUND(IEL)
       END DO
-
 
       ! * Calculate median particle diameter for each soil type
       DO SOIL = 1, NS
-         DRSO50 (SOIL) = SYDR (HALF, NSEE, NSED, SOSDFN (SOIL, 1), DRSED)
+         DRSO50(SOIL) = SYDR(HALF, NSEE, NSED, SOSDFN(SOIL, 1), DRSED)
       END DO
 
    END SUBROUTINE SYINIT
-
-
 
 !> Routes sediment through one channel link.
 !>
@@ -3122,9 +3074,9 @@ CONTAINS
 !> no-flow faces are read as incoming sediment fluxes and are left unchanged.
 !> @endnote
    PURE SUBROUTINE SYLINK(NFINE, NSED, NSEDEE, DTSY, AREAE, ARXLOE, &
-      ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
-      DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
-      DDIPRE, GINFDE, GINFSE)
+                          ARXLE, CLENTE, EPSBE, PBSEDE, VINFME, BARME, VCFMAE, CONCIE, &
+                          DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
+                          DDIPRE, GINFDE, GINFSE)
 
       IMPLICIT NONE
 
@@ -3187,9 +3139,9 @@ CONTAINS
       SUMP = 0.0D0
       SUMN = 0.0D0
       OMPB = 1.0D0 - PBSEDE
-      OMPBI = 1.0D0 / OMPB
-      DTSYI = 1.0D0 / DTSY
-      AREAEI = 1.0D0 / AREAE
+      OMPBI = 1.0D0/OMPB
+      DTSYI = 1.0D0/DTSY
+      AREAEI = 1.0D0/AREAE
 
       ! Loop over size groups ( largest to smallest )
       ! ---------------------------------------------
@@ -3206,19 +3158,19 @@ CONTAINS
          inflow_loop: DO KI = 1, NIN
             SUM = SUM + QSEDE(SED, K(KI))
          END DO inflow_loop
-         QSEDIN = -SUM * OMPBI
+         QSEDIN = -SUM*OMPBI
 
          ! * Volume of water remaining + advective water discharge
          SUM = 0.0D0
          outflow_loop: DO JI = 1, NOUT
             SUM = SUM + QSDWAE(SED, J(JI))
          END DO outflow_loop
-         VDWAT = ARXLE * CLENTE + SUM * DTSY
+         VDWAT = ARXLE*CLENTE + SUM*DTSY
 
          ! * Sediment available for resuspension/transport/infiltration
          ! * /armouring
-         VDMAX = FDELE(SED) * ARXLOE * CLENTE + DCBEEE * AREAE + &
-            (QSEDIN + EPSBE * SOSDFE(SED)) * DTSY
+         VDMAX = FDELE(SED)*ARXLOE*CLENTE + DCBEEE*AREAE + &
+                 (QSEDIN + EPSBE*SOSDFE(SED))*DTSY
 
          ! Infiltration and Armouring
          ! --------------------------
@@ -3234,8 +3186,8 @@ CONTAINS
             VINF = MIN(VINFME, VCFS)
             ! * ( SUMN/SUMP calculated below, summed over earlier passes )
             FDC = 0.0D0
-            IF (BARME .AND. SUMN > 0.0D0) FDC = MIN(SUMN, SUMP) / SUMN
-            VCARM = FDC * DIMJE(VCFS, VINF)
+            IF (BARME .AND. SUMN > 0.0D0) FDC = MIN(SUMN, SUMP)/SUMN
+            VCARM = FDC*DIMJE(VCFS, VINF)
          END IF
 
          ! * Volume in and above top layer after infiltration ...
@@ -3244,7 +3196,7 @@ CONTAINS
          VDSED = DIMJE(VDSEDS, VCARM)
 
          ! * Infiltration rates for each layer
-         GINF = VINF * DTSYI
+         GINF = VINF*DTSYI
          GINFDE(SED) = GINF
          GINFSE(SED) = GINF
 
@@ -3253,21 +3205,21 @@ CONTAINS
 
          ! * Sediment remaining in suspension + sediment discharged
          ! * - limited by either SUPPLY or CAPACITY
-         VSTRAN = MIN(VDSED, CONCIE(SED) * OMPBI * VDWAT)
+         VSTRAN = MIN(VDSED, CONCIE(SED)*OMPBI*VDWAT)
 
          ! * Concentration in suspension ('relative density')
          FDELEE = 0.0D0
-         IF (VDWAT > 0.0D0) FDELEE = VSTRAN / VDWAT
+         IF (VDWAT > 0.0D0) FDELEE = VSTRAN/VDWAT
          FDELE(SED) = FDELEE
 
          ! * Interim layer depths
-         DCIPEE = DIMJE(VDSEDS, VSTRAN) * AREAEI
+         DCIPEE = DIMJE(VDSEDS, VSTRAN)*AREAEI
          DCIPRE(SED) = DCIPEE
-         DDIPRE(SED) = DDBSEE(SED) + VINF * AREAEI
+         DDIPRE(SED) = DDBSEE(SED) + VINF*AREAEI
 
          ! * Particulate discharge rates at outflow faces
          discharge_loop: DO JI = 1, NOUT
-            QSEDE(SED, J(JI)) = QSDWAE(SED, J(JI)) * FDELEE * OMPB
+            QSEDE(SED, J(JI)) = QSDWAE(SED, J(JI))*FDELEE*OMPB
          END DO discharge_loop
 
          ! Epilogue
@@ -3282,8 +3234,6 @@ CONTAINS
       END DO sed_loop
 
    END SUBROUTINE SYLINK
-
-
 
 !> Controls the sediment-yield component for setup and timestep execution.
 !>
@@ -3342,11 +3292,11 @@ CONTAINS
 !> | 2026-05-04 | SvB | 4.6.1 | Changed this routine's large work arrays (`CONCI`, `DCIPRM`, `DDIPRM`, `DRDROP`, `DUMSED`, `DWAT1`, `EPSB`, `FQCONF`, `IDUM1A`, `IDUM1X`, `LDUM`, `LRAIN`, `QSDWAT`, `QSEDB`, `QWATB`, `SLOPEJ`, `TAUJ`, `TAUK`, `VCFMAX`, `VINFMX`, `BARM`) from automatic (stack) local arrays to local `ALLOCATABLE`s, to avoid a stack-overflow crash on Windows for large models. |
 !> | 2026-05-10 | SvB | 4.6.1 | Moved those work arrays to module scope, allocated once by [[initialise_symain_workspace]] (see that routine's own history and notes). |
 !> @endhistory
-   SUBROUTINE SYMAIN (NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF, ICMRF2, ICMXY, &
-      NBFACE, NLYR, NTSOIL, NVC, AREA, CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT,    &
-      ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, &
-      HRF, PLAI, PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
-      GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
+   SUBROUTINE SYMAIN(NEL, NLF, NS, NV, NX, NY, SFB, SPR, SRB, SYD, ICMBK, ICMREF, ICMRF2, ICMXY, &
+                     NBFACE, NLYR, NTSOIL, NVC, AREA, CLENTH, CWIDTH, DHF, DXQQ, DYQQ, THSAT, &
+                     ZBFULL, ZGRUND, BEXBK, LINKNS, ISORT, DTUZ, TIH, UZNOW, ARXL, CLAI, DRAINA, &
+                     HRF, PLAI, PNETTO, QOC, NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, &
+                     GINFD, GINFS, GNU, GNUBK, QSED, DCBED, DCBSED, IDUM, DUMMY)
 
       IMPLICIT NONE
 
@@ -3361,78 +3311,78 @@ CONTAINS
       INTEGER, INTENT(IN) :: SPR !! Sediment diagnostic output unit.
       INTEGER, INTENT(IN) :: SRB !! Sediment rating-boundary file unit.
       INTEGER, INTENT(IN) :: SYD !! Static sediment input unit.
-      INTEGER, INTENT(IN) :: ICMBK (NLFEE, 2)   !! Bank-element numbers for each channel link.
-      INTEGER, INTENT(IN) :: ICMRF2 (NLFEE, 3, 2) !! Confluence branch reference map.
-      INTEGER, INTENT(IN) :: ICMXY (NXEE, NY)   !! Element number at each grid location.
-      INTEGER, INTENT(IN) :: NBFACE (NEL)       !! Number of boundary faces by element.
-      INTEGER, INTENT(IN) :: NTSOIL (NEL, NLYREE) !! Soil type index for each element layer.
-      INTEGER, INTENT(IN) :: ISORT (NEL) !! Donor-before-receptor element routing order.
-      DOUBLE PRECISION, INTENT(IN) :: ZGRUND (NEL) !! Ground or bed elevation by element.
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)   !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMRF2(NLFEE, 3, 2) !! Confluence branch reference map.
+      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)   !! Element number at each grid location.
+      INTEGER, INTENT(IN) :: NBFACE(NEL)       !! Number of boundary faces by element.
+      INTEGER, INTENT(IN) :: NTSOIL(NEL, NLYREE) !! Soil type index for each element layer.
+      INTEGER, INTENT(IN) :: ISORT(NEL) !! Donor-before-receptor element routing order.
+      DOUBLE PRECISION, INTENT(IN) :: ZGRUND(NEL) !! Ground or bed elevation by element.
       DOUBLE PRECISION, INTENT(IN) :: DTUZ  !! Unsaturated-zone timestep in seconds.
       DOUBLE PRECISION, INTENT(IN) :: TIH   !! Initial simulation time in hours (unused in this routine).
       DOUBLE PRECISION, INTENT(IN) :: UZNOW !! Current unsaturated-zone simulation time.
-      DOUBLE PRECISION, INTENT(INOUT) :: ARXL (NLFEE) !! Channel cross-sectional area by link.
-      DOUBLE PRECISION, INTENT(INOUT) :: CLAI (NV)    !! Current canopy leaf-area index by vegetation type.
-      DOUBLE PRECISION, INTENT(INOUT) :: DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
-      DOUBLE PRECISION, INTENT(INOUT) :: HRF (NEL)    !! Water level/head by element.
-      DOUBLE PRECISION, INTENT(INOUT) :: PLAI (NV)    !! Potential/maximum leaf-area index by vegetation type.
-      DOUBLE PRECISION, INTENT(IN) :: PNETTO (NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
-      DOUBLE PRECISION, INTENT(IN) :: QOC (NELEE, 4) !! Face water fluxes.
+      DOUBLE PRECISION, INTENT(INOUT) :: ARXL(NLFEE) !! Channel cross-sectional area by link.
+      DOUBLE PRECISION, INTENT(INOUT) :: CLAI(NV)    !! Current canopy leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(INOUT) :: DRAINA(NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+      DOUBLE PRECISION, INTENT(INOUT) :: HRF(NEL)    !! Water level/head by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: PLAI(NV)    !! Potential/maximum leaf-area index by vegetation type.
+      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
+      DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4) !! Face water fluxes.
       LOGICAL, INTENT(IN) :: BEXBK        !! True when bank elements are represented.
-      LOGICAL, INTENT(IN) :: LINKNS (NLFEE) !! True for north-south channel links.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE) !! True for north-south channel links.
 
       ! Checked by SYERR1 via ALCHK/ALCHKI interfaces
-      INTEGER, INTENT(INOUT) :: ICMREF (NELEE, 4, 2:3) !! Face-neighbour and reverse-face reference map.
-      INTEGER, INTENT(INOUT) :: NLYR (NLF + 1:NEL) !! Number of soil layers in each land element.
-      INTEGER, INTENT(INOUT) :: NVC (NLF + 1:NEL)  !! Vegetation type by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: AREA (NEL)     !! Element plan area.
-      DOUBLE PRECISION, INTENT(INOUT) :: CLENTH (NLFEE) !! Channel-link length.
-      DOUBLE PRECISION, INTENT(INOUT) :: CWIDTH (NLFEE) !! Channel width by link.
-      DOUBLE PRECISION, INTENT(INOUT) :: DHF (NELEE, 4) !! Face-to-face hydraulic distance.
-      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ (NLF + 1:NEL) !! Land-element width.
-      DOUBLE PRECISION, INTENT(INOUT) :: DYQQ (NLF + 1:NEL) !! Land-element length.
-      DOUBLE PRECISION, INTENT(INOUT) :: THSAT (NS)     !! Saturated water content by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: ZBFULL (NLFEE) !! Bankfull elevation/depth by link.
+      INTEGER, INTENT(INOUT) :: ICMREF(NELEE, 4, 2:3) !! Face-neighbour and reverse-face reference map.
+      INTEGER, INTENT(INOUT) :: NLYR(NLF + 1:NEL) !! Number of soil layers in each land element.
+      INTEGER, INTENT(INOUT) :: NVC(NLF + 1:NEL)  !! Vegetation type by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: AREA(NEL)     !! Element plan area.
+      DOUBLE PRECISION, INTENT(INOUT) :: CLENTH(NLFEE) !! Channel-link length.
+      DOUBLE PRECISION, INTENT(INOUT) :: CWIDTH(NLFEE) !! Channel width by link.
+      DOUBLE PRECISION, INTENT(INOUT) :: DHF(NELEE, 4) !! Face-to-face hydraulic distance.
+      DOUBLE PRECISION, INTENT(INOUT) :: DXQQ(NLF + 1:NEL) !! Land-element width.
+      DOUBLE PRECISION, INTENT(INOUT) :: DYQQ(NLF + 1:NEL) !! Land-element length.
+      DOUBLE PRECISION, INTENT(INOUT) :: THSAT(NS)     !! Saturated water content by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: ZBFULL(NLFEE) !! Bankfull elevation/depth by link.
 
       ! Input/output arguments
       INTEGER, INTENT(INOUT) :: NSED !! Number of sediment size classes.
-      DOUBLE PRECISION, INTENT(INOUT) :: PBSED (NLFEE)   !! Channel-bed sediment porosity by link.
-      DOUBLE PRECISION, INTENT(INOUT) :: PLS (NLF + 1:NEL) !! Loose-sediment porosity by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: SOSDFN (NSEE, NSEDEE) !! Soil sediment-size fractions by soil type.
-      DOUBLE PRECISION, INTENT(INOUT) :: ARBDEP (NLFEE) !! Accumulated channel-bed elevation/depth change.
-      DOUBLE PRECISION, INTENT(INOUT) :: DLS (NEL)      !! Loose/bed sediment depth by element.
-      DOUBLE PRECISION, INTENT(INOUT) :: DCBED (NLFEE)  !! Active upper-bed layer depth by link.
-      DOUBLE PRECISION, INTENT(INOUT) :: DCBSED (NLFEE, NSEDEE) !! Upper-bed sediment depth by link and size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: FBETA (NELEE, NSEDEE)  !! Sediment composition fraction by element and size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: FDEL (NELEE, NSEDEE)   !! Mobile sediment concentration fraction by element and size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: PBSED(NLFEE)   !! Channel-bed sediment porosity by link.
+      DOUBLE PRECISION, INTENT(INOUT) :: PLS(NLF + 1:NEL) !! Loose-sediment porosity by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: SOSDFN(NSEE, NSEDEE) !! Soil sediment-size fractions by soil type.
+      DOUBLE PRECISION, INTENT(INOUT) :: ARBDEP(NLFEE) !! Accumulated channel-bed elevation/depth change.
+      DOUBLE PRECISION, INTENT(INOUT) :: DLS(NEL)      !! Loose/bed sediment depth by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DCBED(NLFEE)  !! Active upper-bed layer depth by link.
+      DOUBLE PRECISION, INTENT(INOUT) :: DCBSED(NLFEE, NSEDEE) !! Upper-bed sediment depth by link and size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: FBETA(NELEE, NSEDEE)  !! Sediment composition fraction by element and size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: FDEL(NELEE, NSEDEE)   !! Mobile sediment concentration fraction by element and size class.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: GINFD (NLFEE, NSEDEE) !! Fine infiltration diagnostic/source for deposited material.
-      DOUBLE PRECISION, INTENT(OUT) :: GINFS (NLFEE, NSEDEE) !! Fine infiltration diagnostic/source for suspended material.
-      DOUBLE PRECISION, INTENT(OUT) :: GNU (NLF + 1:NEL) !! Hillslope erosion rate by land element.
-      DOUBLE PRECISION, INTENT(OUT) :: GNUBK (NLFEE)     !! Lateral bank erosion rate by link.
-      DOUBLE PRECISION, INTENT(OUT) :: QSED (NELEE, NSEDEE, 4) !! Sediment flux by element, size class, and face.
+      DOUBLE PRECISION, INTENT(OUT) :: GINFD(NLFEE, NSEDEE) !! Fine infiltration diagnostic/source for deposited material.
+      DOUBLE PRECISION, INTENT(OUT) :: GINFS(NLFEE, NSEDEE) !! Fine infiltration diagnostic/source for suspended material.
+      DOUBLE PRECISION, INTENT(OUT) :: GNU(NLF + 1:NEL) !! Hillslope erosion rate by land element.
+      DOUBLE PRECISION, INTENT(OUT) :: GNUBK(NLFEE)     !! Lateral bank erosion rate by link.
+      DOUBLE PRECISION, INTENT(OUT) :: QSED(NELEE, NSEDEE, 4) !! Sediment flux by element, size class, and face.
 
       ! Workspace arguments
       INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT)      :: IDUM  !! Integer workspace for checks and reads.
       DOUBLE PRECISION, DIMENSION(NELEE), INTENT(INOUT) :: DUMMY !! Floating-point workspace for checks and reads.
 
       ! Locals, etc
-      CHARACTER (LEN=*), PARAMETER :: SYVER = '4.2.7'
+      CHARACTER(LEN=*), PARAMETER :: SYVER = '4.2.7'
 
       INTEGER :: FACE, FADJ, I, IADJ, IB, IBR, IEL, N, P, SED, SOIL
 
       DOUBLE PRECISION :: DTSY
-      DOUBLE PRECISION :: CONCIE (NSEDEE)
-      DOUBLE PRECISION :: DCBSEE (NSEDEE), DCIPRE (NSEDEE)
-      DOUBLE PRECISION :: DDBSEE (NSEDEE)
-      DOUBLE PRECISION :: DDIPRE (NSEDEE)
-      DOUBLE PRECISION :: FBETAE (NSEDEE), FCC (NVEE), FDELE (NSEDEE)
-      DOUBLE PRECISION :: GINFDE (NSEDEE), GINFSE (NSEDEE)
-      DOUBLE PRECISION :: QSDWAE (NSEDEE, 4), QSEDE (NSEDEE, 4)
-      DOUBLE PRECISION :: QWAT (4)
-      DOUBLE PRECISION :: SLOPEE (4), SOSDFE (NSEDEE)
-      DOUBLE PRECISION :: TAUJE (4)
+      DOUBLE PRECISION :: CONCIE(NSEDEE)
+      DOUBLE PRECISION :: DCBSEE(NSEDEE), DCIPRE(NSEDEE)
+      DOUBLE PRECISION :: DDBSEE(NSEDEE)
+      DOUBLE PRECISION :: DDIPRE(NSEDEE)
+      DOUBLE PRECISION :: FBETAE(NSEDEE), FCC(NVEE), FDELE(NSEDEE)
+      DOUBLE PRECISION :: GINFDE(NSEDEE), GINFSE(NSEDEE)
+      DOUBLE PRECISION :: QSDWAE(NSEDEE, 4), QSEDE(NSEDEE, 4)
+      DOUBLE PRECISION :: QWAT(4)
+      DOUBLE PRECISION :: SLOPEE(4), SOSDFE(NSEDEE)
+      DOUBLE PRECISION :: TAUJE(4)
 
       LOGICAL :: DOUBT
 
@@ -3446,50 +3396,50 @@ CONTAINS
          CALL INITIALISE_SYMAIN_WORKSPACE()
 
          ! * Check array bounds & input variables
-         CALL SYERR0 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE, NV, NVEE, NX, NXEE, NY, &
-            SPR, SYD)
+         CALL SYERR0(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NSEDEE, NSEE, NV, NVEE, NX, NXEE, NY, &
+                     SPR, SYD)
 
          ! * Check static/initializing input arrays
-         CALL SYERR1 (NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, SPR, BEXBK,   &
-            LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, NTSOIL, NVC, THSAT, CLENTH,   &
-            CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, ARXL, HRF (NLF + 1), ZGRUND, IDUM, &
-            IDUM1X, LDUM)
+         CALL SYERR1(NEL, NELEE, NLF, NLFEE, NLYREE, NS, NV, NX, NXEE, NYEE, NY, SPR, BEXBK, &
+                     LINKNS, ICMBK, ICMXY, ICMREF, ICMRF2, NLYR, NTSOIL, NVC, THSAT, CLENTH, &
+                     CWIDTH, ZBFULL, DXQQ, DYQQ, AREA, DHF, ARXL, HRF(NLF + 1), ZGRUND, IDUM, &
+                     IDUM1X, LDUM)
 
          ! * Store top-layer soil type for each column element
          DO IEL = NLF + 1, NEL
-            NTSOTP_symain (IEL) = NTSOIL (IEL, NLYR (IEL))
+            NTSOTP_symain(IEL) = NTSOIL(IEL, NLYR(IEL))
          END DO
 
          ! * Read SY input data file
-         CALL SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, NLF, NLFEE, NS, NSEDEE,  &
-            NSEE, NSYBEE, NSYCEE, NTSOTP_symain (NLF + 1), NV, NX, NXEE, NYEE, NY,    &
-            SPR, SYD, SYVER, ABC_symain, ALPHA_symain, BBC_symain, BKB_symain,        &
-            CONCOB_symain, DCBEDO_symain, DLS, DRDRIP_symain, DRSED_symain,           &
-            DLSMAX_symain, FBETA, FBIC_symain, FCG_symain (NLF + 1),                  &
-            FCROCK_symain (NLF + 1), FDEL, FDRIP_symain, FICRIT_symain, FPCLAY_symain,&
-            FPCRIT_symain, GBC_symain, GKF_symain, GKR_symain, ISACKW_symain,         &
-            ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, NEPS_symain,   &
-            NFINE_symain, NSED, NSYB_symain, NSYBCD_symain, NSYC_symain,              &
-            NTSOBK_symain, PBSED, PLS, RHOSO_symain, SOSDFN, XDRIP_symain, IDUM,      &
-            DUMMY, DUMSED)
+         CALL SYREAD(BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, NLF, NLFEE, NS, NSEDEE, &
+                     NSEE, NSYBEE, NSYCEE, NTSOTP_symain(NLF + 1), NV, NX, NXEE, NYEE, NY, &
+                     SPR, SYD, SYVER, ABC_symain, ALPHA_symain, BBC_symain, BKB_symain, &
+                     CONCOB_symain, DCBEDO_symain, DLS, DRDRIP_symain, DRSED_symain, &
+                     DLSMAX_symain, FBETA, FBIC_symain, FCG_symain(NLF + 1), &
+                     FCROCK_symain(NLF + 1), FDEL, FDRIP_symain, FICRIT_symain, FPCLAY_symain, &
+                     FPCRIT_symain, GBC_symain, GKF_symain, GKR_symain, ISACKW_symain, &
+                     ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, NEPS_symain, &
+                     NFINE_symain, NSED, NSYB_symain, NSYBCD_symain, NSYC_symain, &
+                     NTSOBK_symain, PBSED, PLS, RHOSO_symain, SOSDFN, XDRIP_symain, IDUM, &
+                     DUMMY, DUMSED)
 
          ! * Check SY input data
-         CALL SYERR2 (NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV,           &
-            NSYB_symain, NSYBEE, NSYC_symain, NSYCEE, SPR, ICMREF, ISUSED_symain,     &
-            NEPS_symain, NFINE_symain, SFB, SRB, ALPHA_symain, DCBEDO_symain,         &
-            FPCRIT_symain, DLSMAX_symain, NTSOBK_symain, NSYBCD_symain, NBFACE,       &
-            DRSED_symain, BKB_symain, GKF_symain, GKR_symain, RHOSO_symain, SOSDFN,   &
-            DRDRIP_symain, FDRIP_symain, XDRIP_symain, PBSED, FCG_symain (NLF + 1),   &
-            FCROCK_symain (NLF + 1), PLS, DLS, FBETA, FDEL, ABC_symain, BBC_symain,   &
-            GBC_symain, IDUM, DUMMY, LDUM)
+         CALL SYERR2(NXEE, NYEE, NEL, NELEE, NLF, NLFEE, NS, NSEE, NSED, NSEDEE, NV, &
+                     NSYB_symain, NSYBEE, NSYC_symain, NSYCEE, SPR, ICMREF, ISUSED_symain, &
+                     NEPS_symain, NFINE_symain, SFB, SRB, ALPHA_symain, DCBEDO_symain, &
+                     FPCRIT_symain, DLSMAX_symain, NTSOBK_symain, NSYBCD_symain, NBFACE, &
+                     DRSED_symain, BKB_symain, GKF_symain, GKR_symain, RHOSO_symain, SOSDFN, &
+                     DRDRIP_symain, FDRIP_symain, XDRIP_symain, PBSED, FCG_symain(NLF + 1), &
+                     FCROCK_symain(NLF + 1), PLS, DLS, FBETA, FDEL, ABC_symain, BBC_symain, &
+                     GBC_symain, IDUM, DUMMY, LDUM)
 
          ! * Static variables and initialization
-         CALL SYINIT (NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, NTSOBK_symain, ARXL,      &
-            DCBEDO_symain, DLS, FBETA, DRSED_symain, HRF (NLF + 1), PBSED, PLS,       &
-            SOSDFN, THSAT, ZGRUND, NTSOTP_symain (NLF + 1), ZBFULL, ARBDEP,           &
-            ARXLOL_symain, DCBED, DCBSED, DDBSED_symain, DRSO50_symain,               &
-            DWATOL_symain (NLF + 1), FETA_symain, GINFD, GINFS, GNU, GNUBK, QSED,     &
-            DBFULL_symain)
+         CALL SYINIT(NEL, NS, NSED, NSEE, NLF, NELEE, NSEDEE, NLFEE, NTSOBK_symain, ARXL, &
+                     DCBEDO_symain, DLS, FBETA, DRSED_symain, HRF(NLF + 1), PBSED, PLS, &
+                     SOSDFN, THSAT, ZGRUND, NTSOTP_symain(NLF + 1), ZBFULL, ARBDEP, &
+                     ARXLOL_symain, DCBED, DCBSED, DDBSED_symain, DRSO50_symain, &
+                     DWATOL_symain(NLF + 1), FETA_symain, GINFD, GINFS, GNU, GNUBK, QSED, &
+                     DBFULL_symain)
 
          !------------------- End of initialization step -----------------------*
 
@@ -3500,39 +3450,38 @@ CONTAINS
          ! -----------
          ! * Check time-varying input variables
          DOUBT = ISSYOK_symain > 0
-         IF (DOUBT) DOUBT = MOD (PASS_symain - 2, ISSYOK_symain) == 0
+         IF (DOUBT) DOUBT = MOD(PASS_symain - 2, ISSYOK_symain) == 0
 
          IF (DOUBT) THEN
-            CALL SYERR3 (NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, ICMRF2, ISORT, DTUZ, CLAI,    &
-               PLAI, ARXL, DRAINA, PNETTO, HRF, ZGRUND, QOC, IDUM, IDUM1A, IDUM1X,    &
-               LDUM)
+            CALL SYERR3(NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, ICMRF2, ISORT, DTUZ, CLAI, &
+                        PLAI, ARXL, DRAINA, PNETTO, HRF, ZGRUND, QOC, IDUM, IDUM1A, IDUM1X, &
+                        LDUM)
          END IF
 
          ! Quantities Independent of Sub-timestep
          ! --------------------------------------
          ! * Water-flow related variables
-         CALL SYWAT (NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, DHF, DRDRIP_symain,       &
-            LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, PNETTO, QOC,              &
-            DRDROP (NLF + 1), DWAT1, FCC, FQCONF, LRAIN (NLF + 1), SLOPEJ, TAUJ, TAUK)
+         CALL SYWAT(NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, DHF, DRDRIP_symain, &
+                    LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, PNETTO, QOC, &
+                    DRDROP(NLF + 1), DWAT1, FCC, FQCONF, LRAIN(NLF + 1), SLOPEJ, TAUJ, TAUK)
 
          ! * Erosion rates for all column elements
-         CALL SYOVER (ISTEC_symain, NEL, NLF, NS, NV, FCC, LRAIN (NLF + 1), XDRIP_symain,       &
-            DRDRIP_symain, FDRIP_symain, DRAINA, GKR_symain, DWAT1 (NLF + 1),         &
-            DRDROP (NLF + 1), FCG_symain (NLF + 1), FCROCK_symain (NLF + 1),          &
-            DRSO50_symain, TAUK (NLF + 1), FPCLAY_symain, GKF_symain, RHOSO_symain,   &
-            NTSOTP_symain (NLF + 1), NVC, GNU, DUMMY, DLS, DLSMAX_symain)
+         CALL SYOVER(ISTEC_symain, NEL, NLF, NS, NV, FCC, LRAIN(NLF + 1), XDRIP_symain, &
+                     DRDRIP_symain, FDRIP_symain, DRAINA, GKR_symain, DWAT1(NLF + 1), &
+                     DRDROP(NLF + 1), FCG_symain(NLF + 1), FCROCK_symain(NLF + 1), &
+                     DRSO50_symain, TAUK(NLF + 1), FPCLAY_symain, GKF_symain, RHOSO_symain, &
+                     NTSOTP_symain(NLF + 1), NVC, GNU, DUMMY, DLS, DLSMAX_symain)
 
          ! * Erosion rates for all link elements
          IF (NLF > 0) THEN
-            CALL SYBKER (ISTEC_symain, NLF, NS, FPCLAY_symain, RHOSO_symain, DRSO50_symain,     &
-               TAUK, CWIDTH, DWAT1, BKB_symain, NTSOBK_symain, FETA_symain, CLENTH,   &
-               DBFULL_symain, EPSB, GNUBK)
+            CALL SYBKER(ISTEC_symain, NLF, NS, FPCLAY_symain, RHOSO_symain, DRSO50_symain, &
+                        TAUK, CWIDTH, DWAT1, BKB_symain, NTSOBK_symain, FETA_symain, CLENTH, &
+                        DBFULL_symain, EPSB, GNUBK)
          END IF
-
 
          ! SY Sub-timestep Loop
          ! --------------------
-         DTSY = DTUZ / NEPS_symain
+         DTSY = DTUZ/NEPS_symain
          DO N = 1, NEPS_symain
 
             ! Initialization
@@ -3540,7 +3489,7 @@ CONTAINS
             ! Replaced ALINIT with array slices
             DO FACE = 1, 4
                DO SED = 1, NSED
-                  QSED (1:NEL, SED, FACE) = ZERO
+                  QSED(1:NEL, SED, FACE) = ZERO
                END DO
             END DO
 
@@ -3551,9 +3500,9 @@ CONTAINS
 
                ! * Gather water "outflow" rates (should be negative)
                DO IB = 1, NSYB_symain
-                  IEL = NSYBCD_symain (IB, 1)
-                  FACE = NBFACE (IEL)
-                  QWATB (IB) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)
+                  IEL = NSYBCD_symain(IB, 1)
+                  FACE = NBFACE(IEL)
+                  QWATB(IB) = SIGN(1, 2 - FACE)*QOC(IEL, FACE)
                END DO
 
                ! * Read time-varying flux data & calculate sediment flows
@@ -3561,9 +3510,9 @@ CONTAINS
 
                ! * Load boundary flows into QSED array
                DO IB = 1, NSYB_symain
-                  IEL = NSYBCD_symain (IB, 1)
-                  FACE = NBFACE (IEL)
-                  CALL DCOPY (NSED, QSEDB (1, IB), 1, QSED (IEL, 1, FACE), NELEE)
+                  IEL = NSYBCD_symain(IB, 1)
+                  FACE = NBFACE(IEL)
+                  CALL DCOPY(NSED, QSEDB(1, IB), 1, QSED(IEL, 1, FACE), NELEE)
                END DO
 
             END IF
@@ -3572,104 +3521,104 @@ CONTAINS
             ! ---------------------------------------
             IF (NLF > 0) THEN
                ! * Transport capacity & advection coefficients
-               CALL SYCLTR (CONCOB_symain, FPCRIT_symain, ISACKW_symain, ISUSED_symain, NELEE,  &
-                  NFINE_symain, NLF, NLFEE, NSED, NSEDEE,                             &
-                  DRSED_symain (NFINE_symain + 1), ARXL, CWIDTH, DCBED, LINKNS, DWAT1,&
-                  QOC, SLOPEJ, DCBSED (1, NFINE_symain + 1),                          &
-                  FDEL (1, NFINE_symain + 1), TAUJ, ACKW_symain (1, NFINE_symain + 1),&
-                  CONCI, QSDWAT, DUMMY, DUMSED)
+               CALL SYCLTR(CONCOB_symain, FPCRIT_symain, ISACKW_symain, ISUSED_symain, NELEE, &
+                           NFINE_symain, NLF, NLFEE, NSED, NSEDEE, &
+                           DRSED_symain(NFINE_symain + 1), ARXL, CWIDTH, DCBED, LINKNS, DWAT1, &
+                           QOC, SLOPEJ, DCBSED(1, NFINE_symain + 1), &
+                           FDEL(1, NFINE_symain + 1), TAUJ, ACKW_symain(1, NFINE_symain + 1), &
+                           CONCI, QSDWAT, DUMMY, DUMSED)
 
                ! * Settling, infiltration & armouring
                IF (NFINE_symain > 0) THEN
-                  CALL SYFINE (DRSED_symain (1), FBIC_symain, FICRIT_symain, NLF, ALPHA_symain, &
-                     DTSY, AREA, DCBSED, FBETA, FDEL, PBSED, TAUK, VCFMAX, VINFMX,    &
-                     BARM)
+                  CALL SYFINE(DRSED_symain(1), FBIC_symain, FICRIT_symain, NLF, ALPHA_symain, &
+                              DTSY, AREA, DCBSED, FBETA, FDEL, PBSED, TAUK, VCFMAX, VINFMX, &
+                              BARM)
                END IF
             END IF
 
             ! One Element at a Time
             ! ---------------------
             DO I = 1, NEL
-               IEL = ISORT (I)
+               IEL = ISORT(I)
 
                ! * Gather common sub-arrays
-               CALL DCOPY (NSED, FDEL (IEL, 1), NELEE, FDELE, 1)
+               CALL DCOPY(NSED, FDEL(IEL, 1), NELEE, FDELE, 1)
                DO FACE = 1, 4
-                  QWAT (FACE) = SIGN (1, 2 - FACE) * QOC (IEL, FACE)
-                  QSEDE (1:NSED, FACE) = QSED (IEL, 1:NSED, FACE)
+                  QWAT(FACE) = SIGN(1, 2 - FACE)*QOC(IEL, FACE)
+                  QSEDE(1:NSED, FACE) = QSED(IEL, 1:NSED, FACE)
                END DO
 
                IF (IEL <= NLF) THEN
                   ! ** Link element **
                   ! * Gather link-specific sub-arrays
-                  SOIL = NTSOBK_symain (IEL)
-                  CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, SOSDFE, 1)
-                  CALL DCOPY (NSED, CONCI (IEL, 1), NLFEE, CONCIE, 1)
-                  CALL DCOPY (NSED, DCBSED (IEL, 1), NLFEE, DCBSEE, 1)
-                  CALL DCOPY (NSED, DDBSED_symain (IEL, 1), NLFEE, DDBSEE, 1)
+                  SOIL = NTSOBK_symain(IEL)
+                  CALL DCOPY(NSED, SOSDFN(SOIL, 1), NSEE, SOSDFE, 1)
+                  CALL DCOPY(NSED, CONCI(IEL, 1), NLFEE, CONCIE, 1)
+                  CALL DCOPY(NSED, DCBSED(IEL, 1), NLFEE, DCBSEE, 1)
+                  CALL DCOPY(NSED, DDBSED_symain(IEL, 1), NLFEE, DDBSEE, 1)
                   DO FACE = 1, 4
-                     CALL DCOPY (NSED, QSDWAT (IEL, 1, FACE), NLFEE, QSDWAE (1, FACE), 1)
+                     CALL DCOPY(NSED, QSDWAT(IEL, 1, FACE), NLFEE, QSDWAE(1, FACE), 1)
                   END DO
 
                   ! * Solve transport equation
-                  CALL SYLINK (NFINE_symain, NSED, NSEDEE, DTSY, AREA (IEL),                    &
-                     ARXLOL_symain (IEL), ARXL (IEL), CLENTH (IEL), EPSB (IEL),       &
-                     PBSED (IEL), VINFMX (IEL), BARM (IEL), VCFMAX (IEL), CONCIE,     &
-                     DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE,      &
-                     DDIPRE, GINFDE, GINFSE)
+                  CALL SYLINK(NFINE_symain, NSED, NSEDEE, DTSY, AREA(IEL), &
+                              ARXLOL_symain(IEL), ARXL(IEL), CLENTH(IEL), EPSB(IEL), &
+                              PBSED(IEL), VINFMX(IEL), BARM(IEL), VCFMAX(IEL), CONCIE, &
+                              DCBSEE, DDBSEE, QSDWAE, QWAT, SOSDFE, FDELE, QSEDE, DCIPRE, &
+                              DDIPRE, GINFDE, GINFSE)
 
                   ! * Scatter link-specific results
-                  CALL DCOPY (NSED, DCIPRE, 1, DCIPRM (IEL, 1), NLFEE)
-                  CALL DCOPY (NSED, DDIPRE, 1, DDIPRM (IEL, 1), NLFEE)
-                  CALL DCOPY (NSED, GINFDE, 1, GINFD (IEL, 1), NLFEE)
-                  CALL DCOPY (NSED, GINFSE, 1, GINFS (IEL, 1), NLFEE)
+                  CALL DCOPY(NSED, DCIPRE, 1, DCIPRM(IEL, 1), NLFEE)
+                  CALL DCOPY(NSED, DDIPRE, 1, DDIPRM(IEL, 1), NLFEE)
+                  CALL DCOPY(NSED, GINFDE, 1, GINFD(IEL, 1), NLFEE)
+                  CALL DCOPY(NSED, GINFSE, 1, GINFS(IEL, 1), NLFEE)
 
                ELSE
                   ! ** Column element **
                   ! * Gather column-specific sub-arrays
-                  SOIL = NTSOTP_symain (IEL)
-                  CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, SOSDFE, 1)
-                  CALL DCOPY (NSED, FBETA (IEL, 1), NELEE, FBETAE, 1)
-                  CALL DCOPY (4, SLOPEJ (IEL, 1), NELEE, SLOPEE, 1)
-                  CALL DCOPY (4, TAUJ (IEL, 1), NELEE, TAUJE, 1)
+                  SOIL = NTSOTP_symain(IEL)
+                  CALL DCOPY(NSED, SOSDFN(SOIL, 1), NSEE, SOSDFE, 1)
+                  CALL DCOPY(NSED, FBETA(IEL, 1), NELEE, FBETAE, 1)
+                  CALL DCOPY(4, SLOPEJ(IEL, 1), NELEE, SLOPEE, 1)
+                  CALL DCOPY(4, TAUJ(IEL, 1), NELEE, TAUJE, 1)
 
                   ! * Solve transport equation for this column element
-                  CALL SYCOLM (AREA (IEL), DTSY, DWAT1 (IEL), DWATOL_symain (IEL), DXQQ (IEL),  &
-                     DYQQ (IEL), FETA_symain (IEL), GNU (IEL), ISGSED_symain, NSED,   &
-                     FPCRIT_symain, PLS (IEL), NSEDEE, DRSED_symain, QWAT, SLOPEE,    &
-                     SOSDFE, TAUJE, DLS (IEL), FBETAE, FDELE, QSEDE, DUMMY, DUMSED)
+                  CALL SYCOLM(AREA(IEL), DTSY, DWAT1(IEL), DWATOL_symain(IEL), DXQQ(IEL), &
+                              DYQQ(IEL), FETA_symain(IEL), GNU(IEL), ISGSED_symain, NSED, &
+                              FPCRIT_symain, PLS(IEL), NSEDEE, DRSED_symain, QWAT, SLOPEE, &
+                              SOSDFE, TAUJE, DLS(IEL), FBETAE, FDELE, QSEDE, DUMMY, DUMSED)
 
                   ! * Scatter column-specific results
-                  CALL DCOPY (NSED, FBETAE, 1, FBETA (IEL, 1), NELEE)
+                  CALL DCOPY(NSED, FBETAE, 1, FBETA(IEL, 1), NELEE)
                END IF
 
                ! * Scatter common results ...
-               CALL DCOPY (NSED, FDELE, 1, FDEL (IEL, 1), NELEE)
+               CALL DCOPY(NSED, FDELE, 1, FDEL(IEL, 1), NELEE)
                DO FACE = 1, 4
-                  CALL DCOPY (NSED, QSEDE (1, FACE), 1, QSED (IEL, 1, FACE), NELEE)
+                  CALL DCOPY(NSED, QSEDE(1, FACE), 1, QSED(IEL, 1, FACE), NELEE)
 
                   ! ... and propagate sediment flow rates at outflow faces
-                  IF (QWAT (FACE) > ZERO) THEN
-                     IADJ = ICMREF (IEL, FACE, 2)
+                  IF (QWAT(FACE) > ZERO) THEN
+                     IADJ = ICMREF(IEL, FACE, 2)
 
                      IF (IADJ > 0) THEN
                         ! * regular neighbour
-                        FADJ = ICMREF (IEL, FACE, 3)
+                        FADJ = ICMREF(IEL, FACE, 3)
                         DO SED = 1, NSED
-                           QSED (IADJ, SED, FADJ) = -QSEDE (SED, FACE)
+                           QSED(IADJ, SED, FADJ) = -QSEDE(SED, FACE)
                         END DO
 
                      ELSE IF (IADJ < 0) THEN
                         ! * neighbour is a confluence node
                         IBR = -IADJ
                         DO P = 1, 3
-                           IADJ = ICMRF2 (IBR, P, 1)
+                           IADJ = ICMRF2(IBR, P, 1)
                            IF (IADJ > 0) THEN
                               ! * prospect is active
-                              FADJ = ICMRF2 (IBR, P, 2)
+                              FADJ = ICMRF2(IBR, P, 2)
                               DO SED = 1, NSED
-                                 QSED (IADJ, SED, FADJ) = QSED (IADJ, SED, FADJ) - &
-                                    QSEDE (SED, FACE) * FQCONF (IBR, P)
+                                 QSED(IADJ, SED, FADJ) = QSED(IADJ, SED, FADJ) - &
+                                                         QSEDE(SED, FACE)*FQCONF(IBR, P)
                               END DO
                            END IF
                         END DO
@@ -3683,16 +3632,16 @@ CONTAINS
             ! Channel Bed Update
             ! ------------------
             IF (NLF > 0) THEN
-               CALL SYBED (DCBEDO_symain, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, DDIPRM,      &
-                  ARBDEP, DLS, FBETA, DCBSED, DDBSED_symain, DCBED)
+               CALL SYBED(DCBEDO_symain, NELEE, NLF, NLFEE, NSED, CWIDTH, DCIPRM, DDIPRM, &
+                          ARBDEP, DLS, FBETA, DCBSED, DDBSED_symain, DCBED)
             END IF
 
             ! Store Old-time Values & Update Timer
             ! ------------------------------------
-            CALL DCOPY (NEL - NLF, DWAT1 (NLF + 1), 1, DWATOL_symain (NLF + 1), 1)
-            IF (NLF > 0) CALL DCOPY (NLF, ARXL, 1, ARXLOL_symain, 1)
+            CALL DCOPY(NEL - NLF, DWAT1(NLF + 1), 1, DWATOL_symain(NLF + 1), 1)
+            IF (NLF > 0) CALL DCOPY(NLF, ARXL, 1, ARXLOL_symain, 1)
 
-            SYNOW_symain = SYNOW_symain + DTSY / 3600.0D0
+            SYNOW_symain = SYNOW_symain + DTSY/3600.0D0
 
          END DO
 
@@ -3705,8 +3654,6 @@ CONTAINS
       SYNOW_symain = UZNOW
 
    END SUBROUTINE SYMAIN
-
-
 
 !> Calculates ground-surface (hillslope) erosion for each column element.
 !>
@@ -3761,9 +3708,9 @@ CONTAINS
 !> with branches and was reverted for performance, restoring this original
 !> form (unchanged since the 1994 Fortran 77 version).
 !> @endnote
-   SUBROUTINE SYOVER (ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
-      DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
-      TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
+   SUBROUTINE SYOVER(ISTEC, NEL, NLF, NS, NV, FCC, LRAIN, XDRIP, &
+                     DRDRIP, FDRIP, DRAINA, GKR, DWAT1, DRDROP, FCG, FCROCK, DRSO50, &
+                     TAUK, FPCLAY, GKF, RHOSO, NTSOTP, NVC, GNU, TGMD, DLS, DLSMAX)
 
       IMPLICIT NONE
 
@@ -3773,40 +3720,40 @@ CONTAINS
       INTEGER, INTENT(IN) :: NLF   !! Number of channel links.
       INTEGER, INTENT(IN) :: NS    !! Number of soil types.
       INTEGER, INTENT(IN) :: NV    !! Number of vegetation types.
-      INTEGER, INTENT(IN) :: NTSOTP (NLF + 1:NEL) !! Top soil type by land element.
-      INTEGER, INTENT(IN) :: NVC (NLF + 1:NEL)    !! Vegetation type by land element.
-      DOUBLE PRECISION, INTENT(IN) :: FCC (NV)   !! Canopy/ground sheltering fraction by vegetation type.
-      DOUBLE PRECISION, INTENT(IN) :: LRAIN (NLF + 1:NEL) !! Effective direct rainfall rate by land element.
-      DOUBLE PRECISION, INTENT(IN) :: XDRIP (NV) !! Canopy drip fall height by vegetation type.
-      DOUBLE PRECISION, INTENT(IN) :: DRDRIP (NV) !! Canopy drip drop diameter by vegetation type.
-      DOUBLE PRECISION, INTENT(IN) :: FDRIP (NV)  !! Canopy drip fraction by vegetation type.
-      DOUBLE PRECISION, INTENT(IN) :: DRAINA (NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
-      DOUBLE PRECISION, INTENT(IN) :: GKR (NS)   !! Rainfall detachment coefficient by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: DWAT1 (NLF + 1:NEL)  !! Surface water depth by land element.
-      DOUBLE PRECISION, INTENT(IN) :: DRDROP (NLF + 1:NEL) !! Effective raindrop/drop diameter by land element.
-      DOUBLE PRECISION, INTENT(IN) :: FCG (NLF + 1:NEL)    !! Ground-cover fraction by land element.
-      DOUBLE PRECISION, INTENT(IN) :: FCROCK (NLF + 1:NEL) !! Rock-cover fraction by land element.
-      DOUBLE PRECISION, INTENT(IN) :: DRSO50 (NS) !! Median soil particle diameter by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: TAUK (NLF + 1:NEL) !! Overland-flow shear stress by land element.
-      DOUBLE PRECISION, INTENT(IN) :: FPCLAY (NS) !! Clay fraction by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: GKF (NS)    !! Flow detachment coefficient by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: RHOSO (NS)  !! Soil bulk density by soil type.
-      DOUBLE PRECISION, INTENT(IN) :: DLS (NEL)   !! Loose-sediment depth by element.
+      INTEGER, INTENT(IN) :: NTSOTP(NLF + 1:NEL) !! Top soil type by land element.
+      INTEGER, INTENT(IN) :: NVC(NLF + 1:NEL)    !! Vegetation type by land element.
+      DOUBLE PRECISION, INTENT(IN) :: FCC(NV)   !! Canopy/ground sheltering fraction by vegetation type.
+      DOUBLE PRECISION, INTENT(IN) :: LRAIN(NLF + 1:NEL) !! Effective direct rainfall rate by land element.
+      DOUBLE PRECISION, INTENT(IN) :: XDRIP(NV) !! Canopy drip fall height by vegetation type.
+      DOUBLE PRECISION, INTENT(IN) :: DRDRIP(NV) !! Canopy drip drop diameter by vegetation type.
+      DOUBLE PRECISION, INTENT(IN) :: FDRIP(NV)  !! Canopy drip fraction by vegetation type.
+      DOUBLE PRECISION, INTENT(IN) :: DRAINA(NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
+      DOUBLE PRECISION, INTENT(IN) :: GKR(NS)   !! Rainfall detachment coefficient by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: DWAT1(NLF + 1:NEL)  !! Surface water depth by land element.
+      DOUBLE PRECISION, INTENT(IN) :: DRDROP(NLF + 1:NEL) !! Effective raindrop/drop diameter by land element.
+      DOUBLE PRECISION, INTENT(IN) :: FCG(NLF + 1:NEL)    !! Ground-cover fraction by land element.
+      DOUBLE PRECISION, INTENT(IN) :: FCROCK(NLF + 1:NEL) !! Rock-cover fraction by land element.
+      DOUBLE PRECISION, INTENT(IN) :: DRSO50(NS) !! Median soil particle diameter by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: TAUK(NLF + 1:NEL) !! Overland-flow shear stress by land element.
+      DOUBLE PRECISION, INTENT(IN) :: FPCLAY(NS) !! Clay fraction by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: GKF(NS)    !! Flow detachment coefficient by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: RHOSO(NS)  !! Soil bulk density by soil type.
+      DOUBLE PRECISION, INTENT(IN) :: DLS(NEL)   !! Loose-sediment depth by element.
       DOUBLE PRECISION, INTENT(IN) :: DLSMAX      !! Loose-sediment depth above which soil erosion is suppressed.
-      DOUBLE PRECISION, INTENT(OUT) :: GNU (NLF + 1:NEL) !! Hillslope erosion rate by land element.
-      DOUBLE PRECISION, INTENT(OUT) :: TGMD (NV)  !! Workspace for canopy-drip momentum by vegetation type.
+      DOUBLE PRECISION, INTENT(OUT) :: GNU(NLF + 1:NEL) !! Hillslope erosion rate by land element.
+      DOUBLE PRECISION, INTENT(OUT) :: TGMD(NV)  !! Workspace for canopy-drip momentum by vegetation type.
 
       ! Locals
       DOUBLE PRECISION, PARAMETER :: X1 = 7.5D0, D1 = 3.3D-3, L1 = 2.78D-6, L2 = 1.39D-5
       DOUBLE PRECISION, PARAMETER :: PI = 3.14159265358979323846D0
-      DOUBLE PRECISION, PARAMETER :: CLALIM = 1.0D0 / L2
+      DOUBLE PRECISION, PARAMETER :: CLALIM = 1.0D0/L2
 
       INTEGER :: ISCD, IEL, ISGMR, ISOIL, NVEG
       DOUBLE PRECISION :: CD, FCROCE, DRDRPE, DR, DF
       DOUBLE PRECISION :: LRAINE, GMD, GMR, PRSGOS, TAUEC, TAUKE, XDRIPE
 
-      DOUBLE PRECISION, PARAMETER :: AD(4)  = [3214.9D0, 583.4D0, 133.1D0, 29.9D0]
-      DOUBLE PRECISION, PARAMETER :: BD(4)  = [1.6896D0, 1.5545D0, 1.4242D0, 1.2821D0]
+      DOUBLE PRECISION, PARAMETER :: AD(4) = [3214.9D0, 583.4D0, 133.1D0, 29.9D0]
+      DOUBLE PRECISION, PARAMETER :: BD(4) = [1.6896D0, 1.5545D0, 1.4242D0, 1.2821D0]
       DOUBLE PRECISION, PARAMETER :: ADD(4) = [0.0D0, 0.0D0, 1.93D0, 5.14D0]
       DOUBLE PRECISION, PARAMETER :: BDD(4) = [2200.0D0, 2200.0D0, 1640.0D0, 660.0D0]
 
@@ -3816,17 +3763,17 @@ CONTAINS
 
       !----------------------------------------------------------------------*
 
-      PRSGOS = PI * RHOWAT * RHOWAT * GRAVTY / 6.0D0
+      PRSGOS = PI*RHOWAT*RHOWAT*GRAVTY/6.0D0
 
       DO NVEG = 1, NV
          XDRIPE = XDRIP(NVEG)
          DRDRPE = DRDRIP(NVEG)
 
          ! Performance Reversion: Branchless execution
-         ISCD = 1 + NINT(SF2(XDRIPE, X1) + 2.0D0 * SF2(DRDRPE, D1))
+         ISCD = 1 + NINT(SF2(XDRIPE, X1) + 2.0D0*SF2(DRDRPE, D1))
 
-         CD = ADD(ISCD) + DRDRPE * BDD(ISCD)
-         TGMD(NVEG) = PRSGOS * CD * (ONE - EXP(-2.0D0 * XDRIPE / CD)) * (DRDRPE**3) * FDRIP(NVEG)
+         CD = ADD(ISCD) + DRDRPE*BDD(ISCD)
+         TGMD(NVEG) = PRSGOS*CD*(ONE - EXP(-2.0D0*XDRIPE/CD))*(DRDRPE**3)*FDRIP(NVEG)
       END DO
 
       DO IEL = NLF + 1, NEL
@@ -3837,28 +3784,26 @@ CONTAINS
          TAUKE = TAUK(IEL)
 
          ! Performance Reversion: Branchless execution
-         ISGMR = MIN(4, 1 + NINT(SF2(LRAINE, L1)) + INT(LRAINE * CLALIM))
+         ISGMR = MIN(4, 1 + NINT(SF2(LRAINE, L1)) + INT(LRAINE*CLALIM))
 
-         GMR = (ONE - FCC(NVEG)) * AD(ISGMR) * (LRAINE**BD(ISGMR))
-         GMD = TGMD(NVEG) * DRAINA(IEL)
+         GMR = (ONE - FCC(NVEG))*AD(ISGMR)*(LRAINE**BD(ISGMR))
+         GMD = TGMD(NVEG)*DRAINA(IEL)
 
-         DR = GKR(ISOIL) * EXP(-MAX(ZERO, (DWAT1(IEL) / DRDROP(IEL)) - ONE)) * &
-            (ONE - FCG(IEL) - FCROCE) * (GMR + GMD)
+         DR = GKR(ISOIL)*EXP(-MAX(ZERO, (DWAT1(IEL)/DRDROP(IEL)) - ONE))* &
+              (ONE - FCG(IEL) - FCROCE)*(GMR + GMD)
 
-         CALL SYCRIT (ISTEC, DRSO50(ISOIL), TAUKE, FPCLAY(ISOIL), TAUEC)
+         CALL SYCRIT(ISTEC, DRSO50(ISOIL), TAUKE, FPCLAY(ISOIL), TAUEC)
 
-         DF = GKF(ISOIL) * (ONE - FCROCE) * MAX(ZERO, TAUKE - TAUEC) / TAUEC
+         DF = GKF(ISOIL)*(ONE - FCROCE)*MAX(ZERO, TAUKE - TAUEC)/TAUEC
 
          IF (DLS(IEL) < DLSMAX) THEN
-            GNU(IEL) = (DR + DF) / RHOSO(ISOIL)
+            GNU(IEL) = (DR + DF)/RHOSO(ISOIL)
          ELSE
             GNU(IEL) = ZERO
          END IF
       END DO
 
    END SUBROUTINE SYOVER
-
-
 
 !> Calculates overland-flow sediment transport capacity for one element.
 !>
@@ -3919,8 +3864,8 @@ CONTAINS
 !> | 2026-04-07 | SvB | 4.6.1 | Replaced the runtime "first call" caching of `K1_syovtr`/`K3_syovtr`/`K4_syovtr` with compile-time `PARAMETER`s (declared at module scope, since they no longer need `SAVE`d state). |
 !> | 2026-04-12 | SvB | 4.6.1 | Precalculated the four face lengths into `FLJ_ARRAY` instead of a per-face `MOD` test. |
 !> @endhistory
-   PURE SUBROUTINE SYOVTR (DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
-      DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
+   PURE SUBROUTINE SYOVTR(DXQQE, DYQQE, ISGSED, DWAT1E, NSED, VDSED, &
+                          DRSED, QWAT, SLOPEE, TAUJE, GJSUM)
 
       IMPLICIT NONE
 
@@ -3930,11 +3875,11 @@ CONTAINS
       DOUBLE PRECISION, INTENT(IN) :: DXQQE  !! Element width.
       DOUBLE PRECISION, INTENT(IN) :: DYQQE  !! Element length.
       DOUBLE PRECISION, INTENT(IN) :: DWAT1E !! Current surface water depth.
-      DOUBLE PRECISION, INTENT(IN) :: VDSED (NSED) !! Available sediment volume by size class.
-      DOUBLE PRECISION, INTENT(IN) :: DRSED (NSED) !! Representative particle diameters by size class.
-      DOUBLE PRECISION, INTENT(IN) :: QWAT (4)   !! Outward water flux by face.
-      DOUBLE PRECISION, INTENT(IN) :: SLOPEE (4) !! Water-surface slope by face.
-      DOUBLE PRECISION, INTENT(IN) :: TAUJE (4)  !! Face shear stress.
+      DOUBLE PRECISION, INTENT(IN) :: VDSED(NSED) !! Available sediment volume by size class.
+      DOUBLE PRECISION, INTENT(IN) :: DRSED(NSED) !! Representative particle diameters by size class.
+      DOUBLE PRECISION, INTENT(IN) :: QWAT(4)   !! Outward water flux by face.
+      DOUBLE PRECISION, INTENT(IN) :: SLOPEE(4) !! Water-surface slope by face.
+      DOUBLE PRECISION, INTENT(IN) :: TAUJE(4)  !! Face shear stress.
 
       ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: GJSUM !! Total overland sediment transport capacity for the element.
@@ -3977,7 +3922,7 @@ CONTAINS
          ! ^^^ ENGELUND-HANSEN METHOD ^^^
 
          ! Precalculate constant over faces (note K2 may be very small)
-         K2 = SQRT(DWAT1E) * DRD50
+         K2 = SQRT(DWAT1E)*DRD50
 
          ! Loop over faces with outflow
          DO I = 1, NOUT
@@ -3985,7 +3930,7 @@ CONTAINS
 
             ! Discharge capacity at this face
             LJ = FLJ_ARRAY(FACE)
-            GJ = (K1_syovtr * QWAT(FACE)**2 * SLOPEE(FACE)**1.5D0) / (LJ * K2)
+            GJ = (K1_syovtr*QWAT(FACE)**2*SLOPEE(FACE)**1.5D0)/(LJ*K2)
 
             ! Accumulated discharge capacity for this element
             GSUM = GSUM + GJ
@@ -4008,9 +3953,9 @@ CONTAINS
 
             ! Calculate discharge capacity at this face
             ! High-Performance Fixes: MAX replaces DIMJE, LOG1P replaces LOG(1+X) for precision
-            FTAU = MAX(ZERO, TAUJEE - TAUEC) / TAUEC
-            AJ = K3_syovtr * SQRT(TAUEC / DRD50)
-            GJ = K4_syovtr * SQRT(TAUJEE) * DRD50 * LJ * (FTAU - LOG(1.0D0 + AJ * FTAU) / AJ)
+            FTAU = MAX(ZERO, TAUJEE - TAUEC)/TAUEC
+            AJ = K3_syovtr*SQRT(TAUEC/DRD50)
+            GJ = K4_syovtr*SQRT(TAUJEE)*DRD50*LJ*(FTAU - LOG(1.0D0 + AJ*FTAU)/AJ)
 
             ! Accumulated capacity for this element
             GSUM = GSUM + GJ
@@ -4023,8 +3968,6 @@ CONTAINS
       GJSUM = GSUM
 
    END SUBROUTINE SYOVTR
-
-
 
 !> Reads sediment-yield input data.
 !>
@@ -4057,12 +4000,12 @@ CONTAINS
 !> Fatal setup errors are raised for insufficient `NELEE` workspace, `NSED`
 !> outside `1:NSEDEE`, too many boundary elements/categories, or a boundary type
 !> outside `1:4`.
-   SUBROUTINE SYREAD (BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, &
-      NSYBEE, NSYCEE, NTSOTP, NV, NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA,   &
-      BBC, BKB, CONCOB, DCBEDO, DLS, DRDRIP, DRSED, DLSMAX, FBETA, FBIC, FCG,        &
-      FCROCK, FDEL, FDRIP, FICRIT, FPCLAY, FPCRIT, GBC, GKF, GKR, ISACKW, ISGSED,    &
-      ISSYOK, ISTEC, ISUSED, NEPS, NFINE, NSED, NSYB, NSYBCD, NSYC, NTSOBK, PBSED,   &
-      PLS, RHOSO, SOSDFN, XDRIP, IDUM, DUMMY, DUMSED)
+   SUBROUTINE SYREAD(BEXBK, ICMBK, ICMREF, ICMXY, LINKNS, NEL, NELEE, NLF, NLFEE, NS, NSEDEE, NSEE, &
+                     NSYBEE, NSYCEE, NTSOTP, NV, NX, NXEE, NYEE, NY, SPR, SYD, SYVER, ABC, ALPHA, &
+                     BBC, BKB, CONCOB, DCBEDO, DLS, DRDRIP, DRSED, DLSMAX, FBETA, FBIC, FCG, &
+                     FCROCK, FDEL, FDRIP, FICRIT, FPCLAY, FPCRIT, GBC, GKF, GKR, ISACKW, ISGSED, &
+                     ISSYOK, ISTEC, ISUSED, NEPS, NFINE, NSED, NSYB, NSYBCD, NSYC, NTSOBK, PBSED, &
+                     PLS, RHOSO, SOSDFN, XDRIP, IDUM, DUMMY, DUMSED)
 
       IMPLICIT NONE
 
@@ -4076,7 +4019,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: NSEE   !! Soil-type array dimension.
       INTEGER, INTENT(IN) :: NSYBEE !! Sediment-boundary array dimension.
       INTEGER, INTENT(IN) :: NSYCEE !! Sediment-boundary-category array dimension.
-      INTEGER, INTENT(IN) :: NTSOTP (NLF + 1:NEL) !! Top soil type by land element.
+      INTEGER, INTENT(IN) :: NTSOTP(NLF + 1:NEL) !! Top soil type by land element.
       INTEGER, INTENT(IN) :: NV   !! Number of vegetation types.
       INTEGER, INTENT(IN) :: NX   !! Number of grid columns.
       INTEGER, INTENT(IN) :: NXEE !! Grid-column array dimension.
@@ -4084,12 +4027,12 @@ CONTAINS
       INTEGER, INTENT(IN) :: NY   !! Number of grid rows.
       INTEGER, INTENT(IN) :: SYD  !! Static sediment input unit.
       INTEGER, INTENT(IN) :: SPR  !! Sediment diagnostic output unit.
-      INTEGER, INTENT(IN) :: ICMBK (NLFEE, 2)   !! Bank-element numbers for each channel link.
-      INTEGER, INTENT(IN) :: ICMREF (NELEE, 4, 2:2) !! Face-neighbour reference map.
-      INTEGER, INTENT(IN) :: ICMXY (NXEE, NY)   !! Element number at each grid location.
+      INTEGER, INTENT(IN) :: ICMBK(NLFEE, 2)   !! Bank-element numbers for each channel link.
+      INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:2) !! Face-neighbour reference map.
+      INTEGER, INTENT(IN) :: ICMXY(NXEE, NY)   !! Element number at each grid location.
       LOGICAL, INTENT(IN) :: BEXBK        !! True when bank elements are represented.
-      LOGICAL, INTENT(IN) :: LINKNS (NLFEE) !! True for north-south channel links.
-      CHARACTER (LEN=*), INTENT(IN) :: SYVER !! Expected sediment input-file version string.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE) !! True for north-south channel links.
+      CHARACTER(LEN=*), INTENT(IN) :: SYVER !! Expected sediment input-file version string.
 
       ! Output arguments
       INTEGER, INTENT(OUT) :: ISACKW !! Channel transport-capacity option.
@@ -4101,43 +4044,43 @@ CONTAINS
       INTEGER, INTENT(OUT) :: NFINE  !! Number of fine sediment classes.
       INTEGER, INTENT(OUT) :: NSED   !! Number of sediment size classes.
       INTEGER, INTENT(OUT) :: NSYB   !! Number of sediment boundary entries.
-      INTEGER, INTENT(OUT) :: NSYBCD (NSYBEE, 3) !! Sediment boundary element, type, and category metadata.
-      INTEGER, INTENT(OUT) :: NSYC (4) !! Number of sediment boundary categories by boundary type.
-      INTEGER, INTENT(OUT) :: NTSOBK (NLFEE) !! Bank soil type by link.
-      DOUBLE PRECISION, INTENT(OUT) :: ABC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `A`.
+      INTEGER, INTENT(OUT) :: NSYBCD(NSYBEE, 3) !! Sediment boundary element, type, and category metadata.
+      INTEGER, INTENT(OUT) :: NSYC(4) !! Number of sediment boundary categories by boundary type.
+      INTEGER, INTENT(OUT) :: NTSOBK(NLFEE) !! Bank soil type by link.
+      DOUBLE PRECISION, INTENT(OUT) :: ABC(NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `A`.
       DOUBLE PRECISION, INTENT(OUT) :: ALPHA !! Fine-sediment settling/resuspension critical-shear ratio.
-      DOUBLE PRECISION, INTENT(OUT) :: BBC (NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `B`.
-      DOUBLE PRECISION, INTENT(OUT) :: BKB (NS)   !! Bank erodibility by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: BBC(NSEDEE, NSYCEE) !! Boundary rating-curve coefficient `B`.
+      DOUBLE PRECISION, INTENT(OUT) :: BKB(NS)   !! Bank erodibility by soil type.
       DOUBLE PRECISION, INTENT(OUT) :: CONCOB     !! Mobile concentration threshold for overbank exchange.
       DOUBLE PRECISION, INTENT(OUT) :: DCBEDO     !! Active upper channel-bed layer thickness.
-      DOUBLE PRECISION, INTENT(OUT) :: DRDRIP (NV) !! Canopy drip drop diameter by vegetation type.
-      DOUBLE PRECISION, INTENT(OUT) :: DRSED (NSEDEE) !! Representative sediment particle diameters.
+      DOUBLE PRECISION, INTENT(OUT) :: DRDRIP(NV) !! Canopy drip drop diameter by vegetation type.
+      DOUBLE PRECISION, INTENT(OUT) :: DRSED(NSEDEE) !! Representative sediment particle diameters.
       DOUBLE PRECISION, INTENT(OUT) :: FBIC   !! Fine-bed fraction threshold for infiltration.
-      DOUBLE PRECISION, INTENT(OUT) :: FDRIP (NV) !! Canopy drip fraction by vegetation type.
+      DOUBLE PRECISION, INTENT(OUT) :: FDRIP(NV) !! Canopy drip fraction by vegetation type.
       DOUBLE PRECISION, INTENT(OUT) :: FICRIT !! Fine-concentration threshold for infiltration.
-      DOUBLE PRECISION, INTENT(OUT) :: FPCLAY (NS) !! Clay fraction by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: FPCLAY(NS) !! Clay fraction by soil type.
       DOUBLE PRECISION, INTENT(OUT) :: FPCRIT !! Maximum sediment concentration fraction.
-      DOUBLE PRECISION, INTENT(OUT) :: GBC (NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
-      DOUBLE PRECISION, INTENT(OUT) :: GKF (NS)   !! Flow detachment coefficient by soil type.
-      DOUBLE PRECISION, INTENT(OUT) :: GKR (NS)   !! Rainfall detachment coefficient by soil type.
-      DOUBLE PRECISION, INTENT(OUT) :: PBSED (NLFEE) !! Channel-bed sediment porosity by link.
-      DOUBLE PRECISION, INTENT(OUT) :: RHOSO (NS) !! Soil bulk density by soil type.
-      DOUBLE PRECISION, INTENT(OUT) :: SOSDFN (NSEE, NSEDEE) !! Soil sediment-size fractions by soil type.
-      DOUBLE PRECISION, INTENT(OUT) :: XDRIP (NV) !! Canopy drip fall height by vegetation type.
+      DOUBLE PRECISION, INTENT(OUT) :: GBC(NSEDEE, NSYCEE) !! Steady boundary sediment input by class/category.
+      DOUBLE PRECISION, INTENT(OUT) :: GKF(NS)   !! Flow detachment coefficient by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: GKR(NS)   !! Rainfall detachment coefficient by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: PBSED(NLFEE) !! Channel-bed sediment porosity by link.
+      DOUBLE PRECISION, INTENT(OUT) :: RHOSO(NS) !! Soil bulk density by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: SOSDFN(NSEE, NSEDEE) !! Soil sediment-size fractions by soil type.
+      DOUBLE PRECISION, INTENT(OUT) :: XDRIP(NV) !! Canopy drip fall height by vegetation type.
       DOUBLE PRECISION, INTENT(OUT) :: DLSMAX     !! Loose-sediment depth above which hillslope soil erosion is suppressed.
 
       ! INOUT Output Arrays (modified via ALALLF slices/subroutines)
-      DOUBLE PRECISION, INTENT(INOUT) :: DLS (NEL) !! Initial loose/bed sediment depth by element.
-      DOUBLE PRECISION, INTENT(INOUT) :: FBETA (NELEE, NSEDEE) !! Initial sediment composition by element and size class.
-      DOUBLE PRECISION, INTENT(INOUT) :: FCG (NLF + 1:NEL)     !! Ground-cover fraction by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: FCROCK (NLF + 1:NEL)  !! Rock-cover fraction by land element.
-      DOUBLE PRECISION, INTENT(INOUT) :: FDEL (NELEE, NSEDEE)  !! Initial mobile sediment concentration fraction.
-      DOUBLE PRECISION, INTENT(INOUT) :: PLS (NLF + 1:NEL)     !! Loose-sediment porosity by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: DLS(NEL) !! Initial loose/bed sediment depth by element.
+      DOUBLE PRECISION, INTENT(INOUT) :: FBETA(NELEE, NSEDEE) !! Initial sediment composition by element and size class.
+      DOUBLE PRECISION, INTENT(INOUT) :: FCG(NLF + 1:NEL)     !! Ground-cover fraction by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: FCROCK(NLF + 1:NEL)  !! Rock-cover fraction by land element.
+      DOUBLE PRECISION, INTENT(INOUT) :: FDEL(NELEE, NSEDEE)  !! Initial mobile sediment concentration fraction.
+      DOUBLE PRECISION, INTENT(INOUT) :: PLS(NLF + 1:NEL)     !! Loose-sediment porosity by land element.
 
       ! Workspace arguments
       INTEGER, DIMENSION(NXEE*NYEE), INTENT(INOUT) :: IDUM !! Integer workspace for distributed reads.
       DOUBLE PRECISION, DIMENSION(NELEE), INTENT(INOUT) :: DUMMY !! Floating-point workspace for distributed reads.
-      DOUBLE PRECISION, DIMENSION(NLFEE * NSEDEE), INTENT(INOUT) :: DUMSED !! Flattened sediment-size workspace for distributed reads.
+      DOUBLE PRECISION, DIMENSION(NLFEE*NSEDEE), INTENT(INOUT) :: DUMSED !! Flattened sediment-size workspace for distributed reads.
 
       CHARACTER(80)  :: CDUM
       CHARACTER(132) :: MSG
@@ -4150,23 +4093,22 @@ CONTAINS
       ! ----------------
       !
       !     * Check status of data file
-      CALL ALREAD (0, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
+      CALL ALREAD(0, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
 
       !     * Print SY job title
-      CALL ALREAD (1, SYD, SPR, ':SY01', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
+      CALL ALREAD(1, SYD, SPR, ':SY01', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
       WRITE (SPR, '(/1X,A/)') CDUM
 
       !     * Check & print version number
-      CALL ALREAD (1, SYD, SPR, ':SY02', 1, 1, IDUM0, SYDVER, IDUM, DUMMY)
+      CALL ALREAD(1, SYD, SPR, ':SY02', 1, 1, IDUM0, SYDVER, IDUM, DUMMY)
 
       !     * [miss off last character to allow eg '3.4.1' is ok in '3.4.1a' ]
-      IF (INDEX (SYDVER, SYVER (:LEN (SYVER) - 1) ) == 0) THEN
+      IF (INDEX(SYDVER, SYVER(:LEN(SYVER) - 1)) == 0) THEN
          WRITE (MSG, 9011) SYVER, SYDVER
-         CALL RAISE_ERROR (ERRLVL_warn, 2011, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_warn, 2011, SPR, 0, 0, MSG)
       ELSE
          WRITE (SPR, '(4X,2A/)') 'SY Module Version ', SYVER
       END IF
-
 
       ! 1. Static Variables
       ! -------------------
@@ -4175,248 +4117,240 @@ CONTAINS
       NREQ = 8
       IF (NELEE < NREQ) THEN
          WRITE (MSG, 9005) NELEE, NREQ
-         CALL RAISE_ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
       END IF
 
       !     * Integer
       NNN = 5
       IF (NLF > 0) NNN = 8
-      CALL ALREAD (2, SYD, SPR, ':SY11', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
-      NSED = IDUM (1)
-      ISGSED = IDUM (2)
-      ISTEC = IDUM (3)
-      ISSYOK = IDUM (4)
-      NEPS = IDUM (5)
+      CALL ALREAD(2, SYD, SPR, ':SY11', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
+      NSED = IDUM(1)
+      ISGSED = IDUM(2)
+      ISTEC = IDUM(3)
+      ISSYOK = IDUM(4)
+      NEPS = IDUM(5)
 
       IF (NLF > 0) THEN
-         ISACKW = IDUM (6)
-         ISUSED = IDUM (7)
-         NFINE = IDUM (8)
+         ISACKW = IDUM(6)
+         ISUSED = IDUM(7)
+         NFINE = IDUM(8)
       END IF
 
       IF (NSED < 1 .OR. NSED > NSEDEE) THEN
          WRITE (MSG, 9006) NSED, NSEDEE
-         CALL RAISE_ERROR (ERRLVL_fatal, 2006, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 2006, SPR, 0, 0, MSG)
       END IF
 
       !     * Floating-point
       NNN = 2
       IF (NLF > 0) NNN = 7
-      CALL ALREAD (3, SYD, SPR, ':SY12', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
-      FPCRIT = DUMMY (1)
-      DLSMAX = DUMMY (2)
+      CALL ALREAD(3, SYD, SPR, ':SY12', NNN, 1, IDUM0, CDUM, IDUM, DUMMY)
+      FPCRIT = DUMMY(1)
+      DLSMAX = DUMMY(2)
 
       IF (NLF > 0) THEN
-         ALPHA = DUMMY (3)
-         CONCOB = DUMMY (4)
-         DCBEDO = DUMMY (5)
-         FBIC = DUMMY (6)
-         FICRIT = DUMMY (7)
+         ALPHA = DUMMY(3)
+         CONCOB = DUMMY(4)
+         DCBEDO = DUMMY(5)
+         FBIC = DUMMY(6)
+         FICRIT = DUMMY(7)
       END IF
-
 
       ! 2. Sediment, Soil & Vegetation Properties
       ! -----------------------------------------
       !
       !     * Check workspace array size: part 2
-      NREQ = MAX (MAX (5, NSED) * NS, 3 * NV)
+      NREQ = MAX(MAX(5, NSED)*NS, 3*NV)
       IF (NELEE < NREQ) THEN
          WRITE (MSG, 9005) NELEE, NREQ
-         CALL RAISE_ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
       END IF
 
       !     * Sediment
-      CALL ALREAD (3, SYD, SPR, ':SY21', NSED, 1, IDUM0, CDUM, IDUM, DRSED)
+      CALL ALREAD(3, SYD, SPR, ':SY21', NSED, 1, IDUM0, CDUM, IDUM, DRSED)
 
       !     * Soil
-      CALL ALREAD (3, SYD, SPR, ':SY22', 5, NS, IDUM0, CDUM, IDUM, DUMMY)
-      CALL DCOPY (NS, DUMMY (1), 5, GKR, 1)
-      CALL DCOPY (NS, DUMMY (2), 5, GKF, 1)
-      CALL DCOPY (NS, DUMMY (3), 5, RHOSO, 1)
-      CALL DCOPY (NS, DUMMY (4), 5, FPCLAY, 1)
-      CALL DCOPY (NS, DUMMY (5), 5, BKB, 1)
+      CALL ALREAD(3, SYD, SPR, ':SY22', 5, NS, IDUM0, CDUM, IDUM, DUMMY)
+      CALL DCOPY(NS, DUMMY(1), 5, GKR, 1)
+      CALL DCOPY(NS, DUMMY(2), 5, GKF, 1)
+      CALL DCOPY(NS, DUMMY(3), 5, RHOSO, 1)
+      CALL DCOPY(NS, DUMMY(4), 5, FPCLAY, 1)
+      CALL DCOPY(NS, DUMMY(5), 5, BKB, 1)
 
       !     * Soil composition
-      CALL ALREAD (3, SYD, SPR, ':SY23', NSED, NS, IDUM0, CDUM, IDUM, DUMMY)
+      CALL ALREAD(3, SYD, SPR, ':SY23', NSED, NS, IDUM0, CDUM, IDUM, DUMMY)
 
       DO SED = 1, NSED
-         CALL DCOPY (NS, DUMMY (SED), NSED, SOSDFN (1, SED), 1)
+         CALL DCOPY(NS, DUMMY(SED), NSED, SOSDFN(1, SED), 1)
       END DO
 
       !     * Vegetation
-      CALL ALREAD (3, SYD, SPR, ':SY24', 3, NV, IDUM0, CDUM, IDUM, DUMMY)
-      CALL DCOPY (NV, DUMMY (1), 3, XDRIP, 1)
-      CALL DCOPY (NV, DUMMY (2), 3, DRDRIP, 1)
-      CALL DCOPY (NV, DUMMY (3), 3, FDRIP, 1)
-
+      CALL ALREAD(3, SYD, SPR, ':SY24', 3, NV, IDUM0, CDUM, IDUM, DUMMY)
+      CALL DCOPY(NV, DUMMY(1), 3, XDRIP, 1)
+      CALL DCOPY(NV, DUMMY(2), 3, DRDRIP, 1)
+      CALL DCOPY(NV, DUMMY(3), 3, FDRIP, 1)
 
       ! 3. Link Element Properties
       ! --------------------------
       !
       IF (NLF > 0) THEN
          ! * Bank soil type
-         CALL ALREAD (2, SYD, SPR, ':SY31', NLF, 1, IDUM0, CDUM, NTSOBK, DUMMY)
+         CALL ALREAD(2, SYD, SPR, ':SY31', NLF, 1, IDUM0, CDUM, NTSOBK, DUMMY)
 
          ! * Porosity of bed sediment
-         CALL ALREAD (3, SYD, SPR, ':SY32', NLF, 1, IDUM0, CDUM, IDUM, PBSED)
+         CALL ALREAD(3, SYD, SPR, ':SY32', NLF, 1, IDUM0, CDUM, IDUM, PBSED)
       END IF
-
 
       ! 4. Column-element Properties
       ! ----------------------------
       !
       !     * Ground cover
-      CALL ALALLF (1, 1, 0, SYD, SPR, ':SY41', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCG, IDUM, DUMMY)
+      CALL ALALLF(1, 1, 0, SYD, SPR, ':SY41', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
+                  ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCG, IDUM, DUMMY)
 
       !     * Rock cover
-      CALL ALALLF (1, 1, 0, SYD, SPR, ':SY42', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCROCK, IDUM, DUMMY)
+      CALL ALALLF(1, 1, 0, SYD, SPR, ':SY42', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
+                  ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FCROCK, IDUM, DUMMY)
 
       !     * Porosity of loose sediment
-      CALL ALALLF (1, 1, 0, SYD, SPR, ':SY43', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, PLS, IDUM, DUMMY)
-
+      CALL ALALLF(1, 1, 0, SYD, SPR, ':SY43', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
+                  ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, PLS, IDUM, DUMMY)
 
       ! 5. All-element Initialization
       ! -----------------------------
       !
       !     * Initial depth of loose/bed sediment
-      CALL ALALLF (0, 1, 0, SYD, SPR, ':SY51', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
-         ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, DLS, IDUM, DUMMY)
+      CALL ALALLF(0, 1, 0, SYD, SPR, ':SY51', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, ICMXY, &
+                  ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, DLS, IDUM, DUMMY)
 
       !     * Initial composition of loose/bed sediment ...
-      CALL ALALLF (0, NSED, - 1, SYD, SPR, ':SY52', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE,   &
-         ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FBETA, IDUM, DUMMY)
+      CALL ALALLF(0, NSED, -1, SYD, SPR, ':SY52', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, &
+                  ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FBETA, IDUM, DUMMY)
 
       !     ... with special option to inherit composition of soil
       IF (NUM_CATEGORIES_TYPES < 0) THEN
          DO IEL = 1, NLF
-            SOIL = NTSOBK (IEL)
-            CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), NELEE)
+            SOIL = NTSOBK(IEL)
+            CALL DCOPY(NSED, SOSDFN(SOIL, 1), NSEE, FBETA(IEL, 1), NELEE)
          END DO
 
          DO IEL = NLF + 1, NEL
-            SOIL = NTSOTP (IEL)
-            CALL DCOPY (NSED, SOSDFN (SOIL, 1), NSEE, FBETA (IEL, 1), NELEE)
+            SOIL = NTSOTP(IEL)
+            CALL DCOPY(NSED, SOSDFN(SOIL, 1), NSEE, FBETA(IEL, 1), NELEE)
          END DO
       END IF
 
       !     * Initial concentrations of suspended sediment
-      CALL ALALLF (0, NSED, 0, SYD, SPR, ':SY53', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE,     &
-         ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FDEL, IDUM, DUMMY)
-
+      CALL ALALLF(0, NSED, 0, SYD, SPR, ':SY53', NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, NYEE, &
+                  ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, FDEL, IDUM, DUMMY)
 
       ! 6. Boundary Data
       ! ----------------
       !
       !     * No of inflow boundary elements & no of categories of each type
-      CALL ALREAD (2, SYD, SPR, ':SY61', 5, 1, IDUM0, CDUM, IDUM, DUMMY)
-      NSYB = IDUM (1)
+      CALL ALREAD(2, SYD, SPR, ':SY61', 5, 1, IDUM0, CDUM, IDUM, DUMMY)
+      NSYB = IDUM(1)
       DO ITYPE = 1, 4
-         NSYC (ITYPE) = IDUM (1 + ITYPE)
+         NSYC(ITYPE) = IDUM(1 + ITYPE)
       END DO
 
       IF (NSYB > 0) THEN
          IF (NSYB > NSYBEE) THEN
             WRITE (MSG, 9007) NSYB, NSYBEE
-            CALL RAISE_ERROR (ERRLVL_fatal, 2007, SPR, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 2007, SPR, 0, 0, MSG)
          END IF
 
          ! * Check workspace array size: part 3
-         NREQ = MAX (3 * NSYB, NSED * NSYC (1), NSED * 2 * NSYC (3) )
+         NREQ = MAX(3*NSYB, NSED*NSYC(1), NSED*2*NSYC(3))
          IF (NELEE < NREQ) THEN
             WRITE (MSG, 9005) NELEE, NREQ
-            CALL RAISE_ERROR (ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 2005, SPR, 0, 0, MSG)
          END IF
 
          ! * Integer boundary data
-         CALL ALREAD (2, SYD, SPR, ':SY62', 3, NSYB, IDUM0, CDUM, IDUM, DUMMY)
+         CALL ALREAD(2, SYD, SPR, ':SY62', 3, NSYB, IDUM0, CDUM, IDUM, DUMMY)
          I0 = 0
 
          DO BB = 1, NSYB
-            IEL = IDUM (I0 + 1)
-            ITYPE = IDUM (I0 + 2)
-            ICAT = IDUM (I0 + 3)
+            IEL = IDUM(I0 + 1)
+            ITYPE = IDUM(I0 + 2)
+            ICAT = IDUM(I0 + 3)
 
             IF (ITYPE < 1 .OR. ITYPE > 4) THEN
                WRITE (MSG, 9008) BB, ITYPE
-               CALL RAISE_ERROR (ERRLVL_fatal, 2008, SPR, 0, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_fatal, 2008, SPR, 0, 0, MSG)
             END IF
 
             ! * condense 4 into 2 by adding cats 2 & 4 to lists for 1 & 3
-            IF (MOD (ITYPE, 2) == 0) ICAT = ICAT + NSYC (ITYPE - 1)
-            NSYBCD (BB, 1) = IEL
-            NSYBCD (BB, 2) = ITYPE
-            NSYBCD (BB, 3) = ICAT
+            IF (MOD(ITYPE, 2) == 0) ICAT = ICAT + NSYC(ITYPE - 1)
+            NSYBCD(BB, 1) = IEL
+            NSYBCD(BB, 2) = ITYPE
+            NSYBCD(BB, 3) = ICAT
             I0 = I0 + 3
          END DO
 
          ! * Steady flux data
-         NC = NSYC (1)
+         NC = NSYC(1)
          IF (NC > 0) THEN
             IF (NC > NSYCEE) THEN
-               WRITE (MSG, 9009) NSYC (1), NSYCEE
-               CALL RAISE_ERROR (ERRLVL_fatal, 2009, SPR, 0, 0, MSG)
+               WRITE (MSG, 9009) NSYC(1), NSYCEE
+               CALL RAISE_ERROR(ERRLVL_fatal, 2009, SPR, 0, 0, MSG)
             END IF
 
-            CALL ALREAD (3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, IDUM, DUMMY)
+            CALL ALREAD(3, SYD, SPR, ':SY63', NSED, NC, IDUM0, CDUM, IDUM, DUMMY)
             DO SED = 1, NSED
-               CALL DCOPY (NC, DUMMY (SED), NSED, GBC (SED, 1), NSEDEE)
+               CALL DCOPY(NC, DUMMY(SED), NSED, GBC(SED, 1), NSEDEE)
             END DO
          END IF
 
          ! * Steady rating curve data
-         NC = NSYC (3)
+         NC = NSYC(3)
          IF (NC > 0) THEN
             IF (NC > NSYCEE) THEN
-               WRITE (MSG, 9010) NSYC (3), NSYCEE
-               CALL RAISE_ERROR (ERRLVL_fatal, 2010, SPR, 0, 0, MSG)
+               WRITE (MSG, 9010) NSYC(3), NSYCEE
+               CALL RAISE_ERROR(ERRLVL_fatal, 2010, SPR, 0, 0, MSG)
             END IF
 
-            CALL ALREAD (3, SYD, SPR, ':SY64', NSED * 2, NC, IDUM0, CDUM, IDUM, DUMMY)
+            CALL ALREAD(3, SYD, SPR, ':SY64', NSED*2, NC, IDUM0, CDUM, IDUM, DUMMY)
             DO SED = 1, NSED
-               CALL DCOPY (NC, DUMMY (2 * SED - 1), 2 * NSED, ABC (SED, 1), NSEDEE)
-               CALL DCOPY (NC, DUMMY (2 * SED), 2 * NSED, BBC (SED, 1), NSEDEE)
+               CALL DCOPY(NC, DUMMY(2*SED - 1), 2*NSED, ABC(SED, 1), NSEDEE)
+               CALL DCOPY(NC, DUMMY(2*SED), 2*NSED, BBC(SED, 1), NSEDEE)
             END DO
          END IF
       END IF
-
 
       ! 7. Epilogue
       ! -----------
       !
       !     * Close the data file
-      CALL ALREAD ( - 1, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
+      CALL ALREAD(-1, SYD, SPR, 'SYD', 1, 1, IDUM0, CDUM, IDUM, DUMMY)
 
       RETURN
 
       ! Format Statements ----------------------------------------------------
-9003  FORMAT ( 1X,A )
+9003  FORMAT(1X, A)
 
-9005  FORMAT ('Workspace available is NELEE = ', I5, &
-         '; workspace required in subroutine SYREAD is ', I6 )
+9005  FORMAT('Workspace available is NELEE = ', I5, &
+             '; workspace required in subroutine SYREAD is ', I6)
 
-9006  FORMAT ('No. of size groups NSED=', I4, &
-         ' is not in range [1,NSEDEE=', I3, ']')
+9006  FORMAT('No. of size groups NSED=', I4, &
+             ' is not in range [1,NSEDEE=', I3, ']')
 
-9007  FORMAT ('No. of boundaries NSYB=', I5, &
-         ' is greater than NSYBEE=', I4, ']')
+9007  FORMAT('No. of boundaries NSYB=', I5, &
+             ' is greater than NSYBEE=', I4, ']')
 
-9008  FORMAT ('Boundary type NSYBCD(', I4, ',2)=', I2, &
-         ' is not is the range [1,4]')
+9008  FORMAT('Boundary type NSYBCD(', I4, ',2)=', I2, &
+             ' is not is the range [1,4]')
 
-9009  FORMAT ('No. of steady flux categories NSYC(1)=', I4, &
-         ' is greater than NSYCEE=', I3, ']')
+9009  FORMAT('No. of steady flux categories NSYC(1)=', I4, &
+             ' is greater than NSYCEE=', I3, ']')
 
-9010  FORMAT ('No. of steady rating categories NSYC(3)=', I4, &
-         ' is greater than NSYCEE=', I3, ']')
+9010  FORMAT('No. of steady rating categories NSYC(3)=', I4, &
+             ' is greater than NSYCEE=', I3, ']')
 
-9011  FORMAT ('SY module is version ', A, '; SYD data file is version ', A)
+9011  FORMAT('SY module is version ', A, '; SYD data file is version ', A)
 
    END SUBROUTINE SYREAD
-
-
 
 !> Derives water-dependent geometry, slopes, shear stresses, and rainfall for the sediment component.
 !>
@@ -4477,9 +4411,9 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Added the explicit zero-initialisation of `SLOPEJ`/`TAUJ`/`FQCONF`/`LRAIN`/`DRDROP` described in the preceding note. |
 !> @endhistory
    PURE SUBROUTINE SYWAT(NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
-      DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
-      PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
-      TAUK)
+                         DHF, DRDRIP, LINKNS, ZBFULL, ZGRUND, CLAI, DRAINA, HRF, PLAI, &
+                         PNETTO, QOC, DRDROP, DWAT1, FCC, FQCONF, LRAIN, SLOPEJ, TAUJ, &
+                         TAUK)
 
       IMPLICIT NONE
 
@@ -4492,25 +4426,25 @@ CONTAINS
       INTEGER, INTENT(IN) :: NV    !! Number of vegetation types.
       INTEGER, INTENT(IN) :: ICMREF(NELEE, 4, 2:3) !! Face-neighbour and reverse-face reference map.
       INTEGER, INTENT(IN) :: ICMRF2(NLFEE, 3, 2)   !! Confluence branch reference map.
-      INTEGER, INTENT(IN) :: NVC(NLF + 1 : NEL) !! Vegetation type by land element.
+      INTEGER, INTENT(IN) :: NVC(NLF + 1:NEL) !! Vegetation type by land element.
       DOUBLE PRECISION, INTENT(IN) :: CLAI(NV)   !! Current canopy leaf-area index by vegetation type.
       DOUBLE PRECISION, INTENT(IN) :: DHF(NELEE, 4) !! Face-to-face hydraulic distance.
-      DOUBLE PRECISION, INTENT(IN) :: DRAINA(NLF + 1 : NEL) !! Canopy-drip rainfall reaching the ground.
+      DOUBLE PRECISION, INTENT(IN) :: DRAINA(NLF + 1:NEL) !! Canopy-drip rainfall reaching the ground.
       DOUBLE PRECISION, INTENT(IN) :: DRDRIP(NV) !! Canopy drip drop diameter by vegetation type.
       DOUBLE PRECISION, INTENT(IN) :: HRF(NEL)   !! Water level/head by element.
       DOUBLE PRECISION, INTENT(IN) :: PLAI(NV)   !! Potential/maximum leaf-area index by vegetation type.
-      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NLF + 1 : NEL) !! Net precipitation/effective rainfall by land element.
+      DOUBLE PRECISION, INTENT(IN) :: PNETTO(NLF + 1:NEL) !! Net precipitation/effective rainfall by land element.
       DOUBLE PRECISION, INTENT(IN) :: QOC(NELEE, 4)  !! Face water fluxes.
       DOUBLE PRECISION, INTENT(IN) :: ZBFULL(NLFEE)  !! Bankfull elevation/depth by link.
       DOUBLE PRECISION, INTENT(IN) :: ZGRUND(NEL)    !! Ground or bed elevation by element.
       LOGICAL, INTENT(IN) :: LINKNS(NLFEE) !! True for north-south channel links.
 
       ! Output arguments
-      DOUBLE PRECISION, INTENT(OUT) :: DRDROP(NLF + 1 : NEL) !! Effective raindrop/drop diameter by land element.
+      DOUBLE PRECISION, INTENT(OUT) :: DRDROP(NLF + 1:NEL) !! Effective raindrop/drop diameter by land element.
       DOUBLE PRECISION, INTENT(OUT) :: DWAT1(NEL) !! Surface/channel water depth by element.
       DOUBLE PRECISION, INTENT(OUT) :: FCC(NV)    !! Canopy/ground sheltering fraction by vegetation type.
       DOUBLE PRECISION, INTENT(OUT) :: FQCONF(NLFEE, 3)  !! Confluence outflow fractions for receiving branches.
-      DOUBLE PRECISION, INTENT(OUT) :: LRAIN(NLF + 1 : NEL) !! Effective direct rainfall rate by land element.
+      DOUBLE PRECISION, INTENT(OUT) :: LRAIN(NLF + 1:NEL) !! Effective direct rainfall rate by land element.
       DOUBLE PRECISION, INTENT(OUT) :: SLOPEJ(NELEE, 4) !! Face water-surface slopes.
       DOUBLE PRECISION, INTENT(OUT) :: TAUJ(NELEE, 4)   !! Face shear stress.
       DOUBLE PRECISION, INTENT(OUT) :: TAUK(NEL) !! Representative element/link shear stress.
@@ -4530,16 +4464,16 @@ CONTAINS
       ! Modernization Fix: Fully initialize INTENT(OUT) arrays to prevent garbage memory
       ! on elements skipped by the internal logic (like side faces)
       SLOPEJ = 0.0D0
-      TAUJ   = 0.0D0
+      TAUJ = 0.0D0
       FQCONF = 0.0D0
-      LRAIN  = 0.0D0
+      LRAIN = 0.0D0
       DRDROP = 0.0D0
 
       ! Loop over Vegetation Types
       ! --------------------------
       !
       !     * Calculate ground fraction sheltered from rain by canopy
-      FCC(1:NV) = PLAI(1:NV) * MIN(CLAI(1:NV), 1.0D0)
+      FCC(1:NV) = PLAI(1:NV)*MIN(CLAI(1:NV), 1.0D0)
 
       ! Loop over Column Elements
       ! -------------------------
@@ -4554,13 +4488,13 @@ CONTAINS
          ! * Calculate median raindrop/leaf-drip diameter
          D = DRDMIN
          IF (PNETTE > 0.0D0) THEN
-            D = MAX(D, DRDRIP(VEG) * (DRAINE / PNETTE), 0.01935D0 * PNETTE**0.182D0)
+            D = MAX(D, DRDRIP(VEG)*(DRAINE/PNETTE), 0.01935D0*PNETTE**0.182D0)
          END IF
          DRDROP(ICOL) = D
 
          ! * Calculate rainfall rate
          L = 0.0D0
-         IF (FCCE < 1.0D0) L = DIMJE(PNETTE, DRAINE) / (1.0D0 - FCCE)
+         IF (FCCE < 1.0D0) L = DIMJE(PNETTE, DRAINE)/(1.0D0 - FCCE)
          LRAIN(ICOL) = L
       END DO column_loop
 
@@ -4665,7 +4599,7 @@ CONTAINS
                IF (QOUT > 0.0D0 .AND. KEL == FACE) THEN
                   ! * NB: Need precondition on QOC to ensure QSUM.GT.0
                   DO P = 1, 3
-                     FQCONF(IBR, P) = MAX(0.0D0, QOUTX(P)) / QSUM
+                     FQCONF(IBR, P) = MAX(0.0D0, QOUTX(P))/QSUM
                   END DO
                END IF
 
@@ -4691,11 +4625,11 @@ CONTAINS
                END IF
             END IF
 
-            SLOPEE = ABS(HE - HA) / (DE + DA)
+            SLOPEE = ABS(HE - HA)/(DE + DA)
             SLOPEJ(IEL, FACE) = SLOPEE
 
             ! * Calculate flow shear stress at the ground surface
-            TAUJE = RHOWAT * GRAVTY * DWAT1E * SLOPEE
+            TAUJE = RHOWAT*GRAVTY*DWAT1E*SLOPEE
             TAUJ(IEL, FACE) = TAUJE
 
             ! * Find maximum flow rate so far and TAUJ for that face
@@ -4720,12 +4654,10 @@ CONTAINS
       PURE DOUBLE PRECISION FUNCTION FQOUT(IEL, FACE)
          INTEGER, INTENT(IN) :: IEL  !! Element index.
          INTEGER, INTENT(IN) :: FACE !! Face index (1-4).
-         FQOUT = SIGN(1, 2 - FACE) * QOC(IEL, FACE)
+         FQOUT = SIGN(1, 2 - FACE)*QOC(IEL, FACE)
       END FUNCTION FQOUT
 
    END SUBROUTINE SYWAT
-
-
 
 !> Placeholder for sediment mass-balance output.
 !>

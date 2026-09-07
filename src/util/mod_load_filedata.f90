@@ -58,18 +58,18 @@
 MODULE mod_load_filedata
 
    USE SGLOBAL
-   USE mod_error, ONLY : RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, errstat_fileclose
+   USE mod_error, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, errstat_fileclose
+   USE tolerance_testing, ONLY: idimje
    use mod_parameters
 
    IMPLICIT NONE
 
-   CHARACTER(len=80) :: HEAD0_alread='( nothing read yet )' !! Most recent successful heading or status text processed by `ALREAD`.
-   CHARACTER(len=80) :: HEAD0_alredc='( nothing read yet )' !! Fixed fallback text used by `ALREDC` heading-read errors; never updated.
-   CHARACTER(len=80) :: HEAD0_alredi='( nothing read yet )' !! Fixed fallback text used by `ALREDI` heading-read errors; never updated.
-   CHARACTER(len=80) :: HEAD0_alred2='( nothing read yet )' !! Most recent `ALRED2` status text; currently written but never read.
-   CHARACTER(len=80) :: HEAD0_alredl='( nothing read yet )' !! Fixed fallback text used by `ALREDL` heading-read errors; never updated.
-   CHARACTER(len=80) :: HEAD0_alredf='( nothing read yet )' !! Fixed fallback text used by `ALREDF` heading-read errors; never updated.
-
+   CHARACTER(len=80) :: HEAD0_alread = '( nothing read yet )' !! Most recent successful heading or status text processed by `ALREAD`.
+   CHARACTER(len=80) :: HEAD0_alredc = '( nothing read yet )' !! Fixed fallback text used by `ALREDC` heading-read errors; never updated.
+   CHARACTER(len=80) :: HEAD0_alredi = '( nothing read yet )' !! Fixed fallback text used by `ALREDI` heading-read errors; never updated.
+   CHARACTER(len=80) :: HEAD0_alred2 = '( nothing read yet )' !! Most recent `ALRED2` status text; currently written but never read.
+   CHARACTER(len=80) :: HEAD0_alredl = '( nothing read yet )' !! Fixed fallback text used by `ALREDL` heading-read errors; never updated.
+   CHARACTER(len=80) :: HEAD0_alredf = '( nothing read yet )' !! Fixed fallback text used by `ALREDF` heading-read errors; never updated.
 
    ! --------------------------------------------------------------------------
    ! Private by default
@@ -77,14 +77,12 @@ MODULE mod_load_filedata
 
    ! --------------------------------------------------------------------------
    ! Public methods
-   PUBLIC :: ALREAD, ALALLF, ALCHKI, ALCHK, ALSPRD, ALTRAP,            &
-      ALINTP, ALREDL, ALREDF, ALALLI, ALRED2, ALREDC, ALREDI
-
+   PUBLIC :: ALREAD, ALALLF, ALCHKI, ALCHK, ALSPRD, ALTRAP, &
+             ALINTP, ALREDL, ALREDF, ALALLI, ALRED2, ALREDC, ALREDI
 
    ! Code =====================================================================
 
 CONTAINS
-
 
    !> Reads and expands a floating-point element or column element-array.
    !>
@@ -123,9 +121,9 @@ CONTAINS
    !> | 1994-09-19 | AB/RAH | 3.4.1 | Revised the legacy distributed-array reader. |
    !> | 2026-04-05 | SvB | - | Replaced the uniform-field `ALINIT` call with an equivalent array-slice assignment. |
    !> @endhistory
-   SUBROUTINE ALALLF (FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, &
-                      NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, AEL, IDUM, &
-                      DUMMY)
+   SUBROUTINE ALALLF(FLAG, N2, MINCAT, IUNIT, OUNIT, LINE, NEL, NLF, NX, NY, NELEE, NLFEE, NXEE, &
+                     NYEE, ICMXY, ICMBK, ICMREF, BEXBK, LINKNS, NUM_CATEGORIES_TYPES, AEL, IDUM, &
+                     DUMMY)
 
       IMPLICIT NONE
 
@@ -143,16 +141,16 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: NLFEE !! Channel-link capacity extent.
       INTEGER(kind=I_P), INTENT(IN) :: NXEE !! Grid workspace extent in the x direction.
       INTEGER(kind=I_P), INTENT(IN) :: NYEE !! Grid workspace extent in the y direction.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMXY (NXEE, NY) !! Active grid-coordinate to element-number map.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMBK (NLFEE, 2) !! Bank-element number for each link side.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMREF (NELEE, 4, 2:2) !! East/north/west/south adjacent-element references supplied from `AL_G:ICMREF(:,5:8)`.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMXY(NXEE, NY) !! Active grid-coordinate to element-number map.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMBK(NLFEE, 2) !! Bank-element number for each link side.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMREF(NELEE, 4, 2:2) !! East/north/west/south adjacent-element references supplied from `AL_G:ICMREF(:,5:8)`.
       LOGICAL, INTENT(IN) :: BEXBK !! True when explicit bank elements exist.
-      LOGICAL, INTENT(IN) :: LINKNS (NLF) !! True for north-south links; false for east-west links.
-      CHARACTER (LEN=*), INTENT(IN) :: LINE !! Base heading code; suffixed with `a` through `e` as required.
+      LOGICAL, INTENT(IN) :: LINKNS(NLF) !! True for north-south links; false for east-west links.
+      CHARACTER(LEN=*), INTENT(IN) :: LINE !! Base heading code; suffixed with `a` through `e` as required.
 
       ! Output arguments
       INTEGER(kind=I_P), INTENT(OUT)  :: NUM_CATEGORIES_TYPES !! Category count or permitted negative special-option value read from `LINE`.
-      REAL(kind=R8P), INTENT(INOUT)   :: AEL (1 + NLF * (FLAG / N2) : NELEE - (NELEE - NEL) * (1 / N2), N2)
+      REAL(kind=R8P), INTENT(INOUT)   :: AEL(1 + NLF*(FLAG/N2):NELEE - (NELEE - NEL)*(1/N2), N2)
          !! Expanded field; integer-valued bounds select active elements for `N2=1` and capacity storage for `N2>1`.
 
       ! Workspace/Buffer arguments
@@ -182,13 +180,12 @@ CONTAINS
       ! -------------
       !
       ! Initialization
-      LN = LEN (LINE) + 1
+      LN = LEN(LINE) + 1
       BLINK = NLF > 0 .AND. FLAG == 0
 
       ! Find out how many categories ( if any )
-      CALL ALREAD (2, IUNIT, OUNIT, LINE, 1, 1, IDUM0, CDUM, IDUM, DUMMY)
-      NUM_CATEGORIES_TYPES = IDUM (1)
-
+      CALL ALREAD(2, IUNIT, OUNIT, LINE, 1, 1, IDUM0, CDUM, IDUM, DUMMY)
+      NUM_CATEGORIES_TYPES = IDUM(1)
 
       ! Act on the Value of NUM_CATEGORIES_TYPES
       ! ------------------------
@@ -196,52 +193,52 @@ CONTAINS
       ! Invalid Option
       IF (NUM_CATEGORIES_TYPES < MINCAT) THEN
          WRITE (MSG, 9001) NUM_CATEGORIES_TYPES, LINE
-         CALL RAISE_ERROR (ERRLVL_fatal, 1, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 1, OUNIT, 0, 0, MSG)
 
-      ! Special Case: Return to Caller
+         ! Special Case: Return to Caller
       ELSE IF (NUM_CATEGORIES_TYPES < 0) THEN
          RETURN
 
-      ! No Categories
+         ! No Categories
       ELSE IF (NUM_CATEGORIES_TYPES == 0) THEN
          ! Loop over output vectors
          DO I2 = 1, N2
 
             ! Get values for link elements
             IF (BLINK) THEN
-               NEXT = LINE // 'a'
-               CALL ALREAD (3, IUNIT, OUNIT, NEXT (:LN), NLF, 1, IDUM0, CDUM, IDUM, AEL (1, I2) )
+               NEXT = LINE//'a'
+               CALL ALREAD(3, IUNIT, OUNIT, NEXT(:LN), NLF, 1, IDUM0, CDUM, IDUM, AEL(1, I2))
             END IF
 
             ! Get values for grid elements ...
-            NEXT = LINE // 'b'
-            CALL ALREAD (5, IUNIT, OUNIT, NEXT (:LN), NX, NY, IDUM0, CDUM, IDUM, DUMMY)
+            NEXT = LINE//'b'
+            CALL ALREAD(5, IUNIT, OUNIT, NEXT(:LN), NX, NY, IDUM0, CDUM, IDUM, DUMMY)
 
             ! ... and load into element array
             DO Y = 1, NY
-               XY0 = (Y - 1) * NX
+               XY0 = (Y - 1)*NX
                DO X = 1, NX
-                  IEL = ICMXY (X, Y)
-                  IF (IEL > 0) AEL (IEL, I2) = DUMMY (XY0 + X)
+                  IEL = ICMXY(X, Y)
+                  IF (IEL > 0) AEL(IEL, I2) = DUMMY(XY0 + X)
                END DO
             END DO
          END DO
 
-      ! Use category codes
-      ELSE IF (N2 * NUM_CATEGORIES_TYPES <= NELEE) THEN
+         ! Use category codes
+      ELSE IF (N2*NUM_CATEGORIES_TYPES <= NELEE) THEN
 
          ! Get list of values for each category
-         NEXT = LINE // 'c'
-         CALL ALREAD (3, IUNIT, OUNIT, NEXT (:LN), N2, NUM_CATEGORIES_TYPES, IDUM0, CDUM, IDUM, DUMMY)
+         NEXT = LINE//'c'
+         CALL ALREAD(3, IUNIT, OUNIT, NEXT(:LN), N2, NUM_CATEGORIES_TYPES, IDUM0, CDUM, IDUM, DUMMY)
 
          IF (NUM_CATEGORIES_TYPES == 1) THEN
 
             ! Uniform value: Set all elements or just columns
-            N = NEL - FLAG * NLF
+            N = NEL - FLAG*NLF
             I1 = 1 + NEL - N
             DO I2 = 1, N2
                ! Replaced ALINIT with Fortran array slice
-               AEL(I1 : I1 + N - 1, I2) = DUMMY(I2)
+               AEL(I1:I1 + N - 1, I2) = DUMMY(I2)
             END DO
 
          ELSE
@@ -250,55 +247,55 @@ CONTAINS
             !
             ! Get codes & set values for link elements
             IF (BLINK) THEN
-               NEXT = LINE // 'd'
+               NEXT = LINE//'d'
 
                ! Note: DUMMY should not be overwritten here
-               CALL ALREAD (2, IUNIT, OUNIT, NEXT (:LN), NLF, 1, IDUM0, CDUM, IDUM, DUMMY)
+               CALL ALREAD(2, IUNIT, OUNIT, NEXT(:LN), NLF, 1, IDUM0, CDUM, IDUM, DUMMY)
 
                DO IEL = 1, NLF
-                  ICAT = IDUM (IEL)
+                  ICAT = IDUM(IEL)
 
                   ! error if out of bounds
                   IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
-                     WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-                     CALL RAISE_ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
+                     WRITE (MSG, 9009) ICAT, NEXT(:LN), NUM_CATEGORIES_TYPES
+                     CALL RAISE_ERROR(ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
                   END IF
 
                   DO I2 = 1, N2
-                     AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
+                     AEL(IEL, I2) = DUMMY(I2 + (ICAT - 1)*N2)
                   END DO
                END DO
             END IF
 
             ! Get codes & set values for grid elements
-            NEXT = LINE // 'e'
-            CALL ALREAD (4, IUNIT, OUNIT, NEXT (:LN), NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
+            NEXT = LINE//'e'
+            CALL ALREAD(4, IUNIT, OUNIT, NEXT(:LN), NX, NY, NUM_CATEGORIES_TYPES, CDUM, IDUM, DUMMY)
 
             DO Y = 1, NY
-               XY0 = (Y - 1) * NX
+               XY0 = (Y - 1)*NX
                DO X = 1, NX
-                  IEL = ICMXY (X, Y)
+                  IEL = ICMXY(X, Y)
                   IF (IEL > 0) THEN
-                     ICAT = IDUM (XY0 + X)
+                     ICAT = IDUM(XY0 + X)
 
                      ! error if out of bounds
                      IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
-                        WRITE (MSG, 9009) ICAT, NEXT (:LN), NUM_CATEGORIES_TYPES
-                        CALL RAISE_ERROR (ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
+                        WRITE (MSG, 9009) ICAT, NEXT(:LN), NUM_CATEGORIES_TYPES
+                        CALL RAISE_ERROR(ERRLVL_fatal, 9, OUNIT, IEL, 0, MSG)
                      END IF
 
                      DO I2 = 1, N2
-                        AEL (IEL, I2) = DUMMY (I2 + (ICAT - 1) * N2)
+                        AEL(IEL, I2) = DUMMY(I2 + (ICAT - 1)*N2)
                      END DO
                   END IF
                END DO
             END DO
          END IF
 
-      ! Insufficient Workspace
+         ! Insufficient Workspace
       ELSE
-         WRITE (MSG, 9008) NUM_CATEGORIES_TYPES, LINE, N2 * NUM_CATEGORIES_TYPES
-         CALL RAISE_ERROR (ERRLVL_fatal, 8, OUNIT, 0, 0, MSG)
+         WRITE (MSG, 9008) NUM_CATEGORIES_TYPES, LINE, N2*NUM_CATEGORIES_TYPES
+         CALL RAISE_ERROR(ERRLVL_fatal, 8, OUNIT, 0, 0, MSG)
       END IF
       !
       !
@@ -308,23 +305,22 @@ CONTAINS
       ! All grid elements are defined - now set bank element values
       IF (NLF > 0 .AND. BEXBK .AND. NUM_CATEGORIES_TYPES /= 1) THEN
          DO I2 = 1, N2
-            CALL ALBANK (NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, AEL (NLF + 1, I2) )
+            CALL ALBANK(NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, AEL(NLF + 1, I2))
          END DO
       END IF
 
       RETURN
 
       ! Format Statements ----------------------------------------------------
-9001  FORMAT ( 'Invalid option NUM_CATEGORIES_TYPES =', I4, ' at title line ', A )
+9001  FORMAT('Invalid option NUM_CATEGORIES_TYPES =', I4, ' at title line ', A)
 
-9008  FORMAT ( 'Insufficient workspace for', I4, ' categories in ', A, &
-         ' : increase NELEE to at least', I6 )
+9008  FORMAT('Insufficient workspace for', I4, ' categories in ', A, &
+             ' : increase NELEE to at least', I6)
 
-9009  FORMAT ( 'Invalid category value', I4, ' while reading ', A, &
-         ' : should be in range [1,', I4, ']' )
+9009  FORMAT('Invalid category value', I4, ' while reading ', A, &
+             ' : should be in range [1,', I4, ']')
 
    END SUBROUTINE ALALLF
-
 
    !> Reads a distributed integer category field for column elements.
    !>
@@ -352,9 +348,9 @@ CONTAINS
    !> | 2025-10 | SB | 4.5.3 | Replaced a nitrate-specific invalid-category message with the current generic `ALALLI` diagnostic. |
    !> | 2026-04-06 | SvB | - | Replaced the legacy error jump with structured fatal-error handling. |
    !> @endhistory
-   SUBROUTINE ALALLI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX,  &
-                      NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK,     &
-                      LINKNS, CATTYP, IDUM)
+   SUBROUTINE ALALLI(NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NEL, NLF, NX, &
+                     NY, NELEE, NLFEE, NXEE, ICMXY, ICMBK, ICMREF, BEXBK, &
+                     LINKNS, CATTYP, IDUM)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, ERRLVL_fatal, ERROR, ALREDI
@@ -372,19 +368,19 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: NELEE !! Element capacity extent.
       INTEGER(kind=I_P), INTENT(IN) :: NLFEE !! Link capacity extent.
       INTEGER(kind=I_P), INTENT(IN) :: NXEE !! Grid workspace extent in the x direction.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMXY (NXEE, NY) !! Active grid-coordinate to element-number map.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMBK (NLFEE, 2) !! Bank-element number for each link side.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMREF (NELEE, 4, 2:2) !! Outer adjacent-element references supplied from `AL_G:ICMREF(:,5:8)`.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMXY(NXEE, NY) !! Active grid-coordinate to element-number map.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMBK(NLFEE, 2) !! Bank-element number for each link side.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMREF(NELEE, 4, 2:2) !! Outer adjacent-element references supplied from `AL_G:ICMREF(:,5:8)`.
       LOGICAL, INTENT(IN) :: BEXBK !! True when bank elements require copied categories.
-      LOGICAL, INTENT(IN) :: LINKNS (NLFEE) !! True for north-south links; false for east-west links.
-      CHARACTER (LEN=*), INTENT(IN) :: LINE !! Expected integer-grid heading substring.
+      LOGICAL, INTENT(IN) :: LINKNS(NLFEE) !! True for north-south links; false for east-west links.
+      CHARACTER(LEN=*), INTENT(IN) :: LINE !! Expected integer-grid heading substring.
 
       ! OUPUT ARGUMENTS
-      INTEGER(kind=I_P), INTENT(OUT):: CATTYP (NLF + 1:NEL) !! Category by active grid/bank element; link elements are outside its bounds.
+      INTEGER(kind=I_P), INTENT(OUT):: CATTYP(NLF + 1:NEL) !! Category by active grid/bank element; link elements are outside its bounds.
 
       ! WORKSPACE ARGUMENTS
       ! Changed to INTENT(INOUT) to fix compiler conflict with ALREDI modification
-      INTEGER(kind=I_P), INTENT(INOUT) :: IDUM (*) !! Integer grid workspace; first `NX*NY` entries are overwritten by `ALREDI`.
+      INTEGER(kind=I_P), INTENT(INOUT) :: IDUM(*) !! Integer grid workspace; first `NX*NY` entries are overwritten by `ALREDI`.
 
       ! LOCALS ETC.
       INTEGER(kind=I_P) :: BANK1 !! Bank element on link side one.
@@ -404,21 +400,21 @@ CONTAINS
       ! Code =================================================================
 
       ! Read the category type for each element
-      CALL ALREDI (NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NX, NY, IDUM)
+      CALL ALREDI(NUM_CATEGORIES_TYPES, IUNIT, OUNIT, LINE, NX, NY, IDUM)
 
       DO Y = 1, NY
-         XY0 = (Y - 1) * NX
+         XY0 = (Y - 1)*NX
          DO X = 1, NX
-            IEL = ICMXY (X, Y)
+            IEL = ICMXY(X, Y)
             IF (IEL > 0) THEN
-               ICAT = IDUM (XY0 + X)
+               ICAT = IDUM(XY0 + X)
 
                IF (ICAT < 1 .OR. ICAT > NUM_CATEGORIES_TYPES) THEN
-                  CALL RAISE_ERROR (ERRLVL_fatal, 3090, OUNIT, 0, 0, &
-                              'Error in ALALLI -reading spatially distributed category types')
+                  CALL RAISE_ERROR(ERRLVL_fatal, 3090, OUNIT, 0, 0, &
+                                   'Error in ALALLI -reading spatially distributed category types')
                END IF
 
-               CATTYP (IEL) = ICAT
+               CATTYP(IEL) = ICAT
             END IF
          END DO
       END DO
@@ -432,18 +428,18 @@ CONTAINS
 
             ! Determine orientation of link
             ISNS = 0
-            IF (LINKNS (LINK)) ISNS = 1
+            IF (LINKNS(LINK)) ISNS = 1
 
             ! For each side of the channel: Determine adjacent bank element
             ! number, the number of its face that lies opposite to the
             ! channel, and the number of the grid element adjacent to
             ! that face.
-            BANK1 = ICMBK (LINK, 1)
-            BANK2 = ICMBK (LINK, 2)
+            BANK1 = ICMBK(LINK, 1)
+            BANK2 = ICMBK(LINK, 2)
             FACE1 = 2 - ISNS
             FACE2 = 4 - ISNS
-            GRID1 = ICMREF (BANK1, FACE1, 2)
-            GRID2 = ICMREF (BANK2, FACE2, 2)
+            GRID1 = ICMREF(BANK1, FACE1, 2)
+            GRID2 = ICMREF(BANK2, FACE2, 2)
 
             ! If the grid (as defined above) does not exist, then use
             ! the grid corresponding to the opposite side of the channel
@@ -453,14 +449,13 @@ CONTAINS
 
             ! For each side of the channel, copy the contents of the array
             ! from the grid to its corresponding bank
-            CATTYP (BANK1) = CATTYP (GRID1)
-            CATTYP (BANK2) = CATTYP (GRID2)
+            CATTYP(BANK1) = CATTYP(GRID1)
+            CATTYP(BANK2) = CATTYP(GRID2)
 
          END DO
       END IF
 
    END SUBROUTINE ALALLI
-
 
    !> Copies adjacent grid values into the bank entries of an element array.
    !>
@@ -483,20 +478,20 @@ CONTAINS
    !> | 1994-04-22 | - | - | Initial version. |
    !> | 1994-05-23 | AB/RAH | 3.4.1 | Revised the bank-value propagation routine. |
    !> @endhistory
-   SUBROUTINE ALBANK (NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, A)
+   SUBROUTINE ALBANK(NEL, NLF, NLFEE, NELEE, ICMBK, LINKNS, ICMREF, A)
 
       ! Input arguments
       INTEGER(kind=I_P), INTENT(IN) :: NEL !! Number of active elements and upper bound of `A`.
       INTEGER(kind=I_P), INTENT(IN) :: NLF !! Number of active channel links and lower-bound offset of `A`.
       INTEGER(kind=I_P), INTENT(IN) :: NLFEE !! Link capacity extent.
       INTEGER(kind=I_P), INTENT(IN) :: NELEE !! Element capacity extent.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMBK (NLFEE, 2) !! Bank-element number by link and side.
-      INTEGER(kind=I_P), INTENT(IN) :: ICMREF (NELEE, 4, 2:2) !! Outer adjacent-element reference by element and face.
-      LOGICAL, INTENT(IN) :: LINKNS (NLF) !! True for a north-south link; false for an east-west link.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMBK(NLFEE, 2) !! Bank-element number by link and side.
+      INTEGER(kind=I_P), INTENT(IN) :: ICMREF(NELEE, 4, 2:2) !! Outer adjacent-element reference by element and face.
+      LOGICAL, INTENT(IN) :: LINKNS(NLF) !! True for a north-south link; false for an east-west link.
 
       !
       ! Input/output arguments
-      REAL(kind=R8P), INTENT(INOUT) :: A (NLF + 1:NEL) !! Element field whose two bank entries per link are overwritten.
+      REAL(kind=R8P), INTENT(INOUT) :: A(NLF + 1:NEL) !! Element field whose two bank entries per link are overwritten.
 
       !
       ! Locals, etc
@@ -509,7 +504,6 @@ CONTAINS
       INTEGER(kind=I_P) :: ISNS !! Orientation offset: one for north-south, zero for east-west.
       INTEGER(kind=I_P) :: LINK !! Active link index.
 
-
       ! Code =================================================================
 
       !
@@ -518,18 +512,18 @@ CONTAINS
 
          ! Determine orientation of link
          ISNS = 0
-         IF (LINKNS (LINK) ) ISNS = 1
+         IF (LINKNS(LINK)) ISNS = 1
 
          ! For each side of the channel: Determine adjacent bank element
          !  number, the number of it's face that lies opposite to the
          !  channel, and the number of the grid element adjacent to
          !  that face.
-         BANK1 = ICMBK (LINK, 1)
-         BANK2 = ICMBK (LINK, 2)
+         BANK1 = ICMBK(LINK, 1)
+         BANK2 = ICMBK(LINK, 2)
          FACE1 = 2 - ISNS
          FACE2 = 4 - ISNS
-         GRID1 = ICMREF (BANK1, FACE1, 2)
-         GRID2 = ICMREF (BANK2, FACE2, 2)
+         GRID1 = ICMREF(BANK1, FACE1, 2)
+         GRID2 = ICMREF(BANK2, FACE2, 2)
 
          ! If the grid ( as defined above ) does not exist, then use the
          ! grid corresponding to the opposite side of the channel
@@ -539,14 +533,13 @@ CONTAINS
 
          ! For each side of the channel, copy the contents of the array
          ! from the grid to its corresponding bank
-         A (BANK1) = A (GRID1)
-         A (BANK2) = A (GRID2)
+         A(BANK1) = A(GRID1)
+         A(BANK2) = A(GRID2)
          !
          ! Next channel link
       END DO
 
    END SUBROUTINE ALBANK
-
 
    !> Checks real values against a scalar or element-wise relation.
    !>
@@ -592,8 +585,8 @@ CONTAINS
    !> | 1994-08-17 | AB/RAH | 3.4.1 | Revised the relation checker. |
    !> | 2026-04-06 | SvB | - | Replaced the subscript-parser jump with a named-loop exit. |
    !> @endhistory
-   SUBROUTINE ALCHK (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
-                     OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
+   SUBROUTINE ALCHK(ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
+                    OP, OBJ, TOL, SUBJ, COUNT, NOTOK)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, ERROR
@@ -610,15 +603,15 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: IX3 !! Fixed third subscript printed when `SNAME` implies three dimensions.
       CHARACTER(LEN=*), INTENT(IN) :: SNAME !! Display name whose comma syntax controls printed subscript count.
       CHARACTER(LEN=*), INTENT(IN) :: OP !! Two-character relation, optionally suffixed by `a` for an object array.
-      REAL(kind=R8P), INTENT(IN) :: OBJ (N0: *) !! Scalar comparison at `N0` or element-wise comparison sequence.
+      REAL(kind=R8P), INTENT(IN) :: OBJ(N0:*) !! Scalar comparison at `N0` or element-wise comparison sequence.
       REAL(kind=R8P), INTENT(IN) :: TOL !! Relative tolerance used in every real relation.
 
       ! Input/output arguments
-      REAL(kind=R8P), INTENT(INOUT) :: SUBJ (N0:N1) !! Values checked and, for negative `ACTION`, reset on failure.
+      REAL(kind=R8P), INTENT(INOUT) :: SUBJ(N0:N1) !! Values checked and, for negative `ACTION`, reset on failure.
       INTEGER(kind=I_P), INTENT(INOUT):: COUNT !! Cumulative failure count, incremented once per nonconforming value.
 
       ! Workspace arguments
-      LOGICAL, INTENT(OUT) :: NOTOK (N0:N1) !! Per-value failure mask.
+      LOGICAL, INTENT(OUT) :: NOTOK(N0:N1) !! Per-value failure mask.
 
       ! Locals, etc
       INTEGER(kind=I_P) :: COUNT0 !! `COUNT` on entry.
@@ -626,7 +619,7 @@ CONTAINS
       INTEGER(kind=I_P) :: I !! Subject index.
       INTEGER(kind=I_P) :: INCOBJ !! Object-index increment: zero for scalar, one for element-wise comparison.
       INTEGER(kind=I_P) :: IOBJ !! Current object index.
-      INTEGER(kind=I_P) :: IX (3) !! Indices printed for the lowest-index failure.
+      INTEGER(kind=I_P) :: IX(3) !! Indices printed for the lowest-index failure.
       INTEGER(kind=I_P) :: NDIM !! Number of printed indices inferred from `SNAME`, capped at three.
       INTEGER(kind=I_P) :: P !! Diagnostic index-list iterator.
       INTEGER(kind=I_P) :: POS1 !! Previous delimiter position while parsing `SNAME`.
@@ -646,16 +639,16 @@ CONTAINS
 
       ! How many subscripts are there? (ignore any after the 3rd)
       ! ------------------------------
-      SLEN = LEN (SNAME)
+      SLEN = LEN(SNAME)
       POS1 = 0
-      POS2 = INDEX (SNAME, '(')
+      POS2 = INDEX(SNAME, '(')
 
       dim_loop: DO NDIM = 0, 2
          IF (POS2 > POS1 .AND. POS2 < SLEN) THEN
-            IF (NDIM == 1) IX (2) = IX2
-            IF (NDIM == 2) IX (3) = IX3
+            IF (NDIM == 1) IX(2) = IX2
+            IF (NDIM == 2) IX(3) = IX3
             POS1 = POS2
-            POS2 = POS1 + INDEX (SNAME (POS1 + 1:), ',')
+            POS2 = POS1 + INDEX(SNAME(POS1 + 1:), ',')
          ELSE
             EXIT dim_loop
          END IF
@@ -666,13 +659,13 @@ CONTAINS
       ! What action is required?
       ! ------------------------
       BRESET = ACTION < 0
-      OP1    = OP (1:1)
-      OP2    = OP (2:2)
-      SGN    = +1
+      OP1 = OP(1:1)
+      OP2 = OP(2:2)
+      SGN = +1
       IF (OP1 == 'G') SGN = -1
 
       INCOBJ = 0
-      IF (OP (LEN (OP) :) == 'a') INCOBJ = 1
+      IF (OP(LEN(OP):) == 'a') INCOBJ = 1
 
       ! Store test results in logical workspace array
       ! ---------------------------------------------
@@ -684,28 +677,28 @@ CONTAINS
       IF (OP2 == 'T') THEN
          ! require SUBJ < OBJ or SUBJ > OBJ (depending on SGN)
          DO I = N0, N1
-            SB        = SUBJ (I)
-            OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB) >= TOL * MAX (ABS (SB), ABS (OB))
-            IOBJ      = IOBJ + INCOBJ
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            NOTOK(I) = SGN*(SB - OB) >= TOL*MAX(ABS(SB), ABS(OB))
+            IOBJ = IOBJ + INCOBJ
          END DO
 
       ELSE IF (OP2 == 'E') THEN
          ! require SUBJ <= OBJ or SUBJ >= OBJ (depending on SGN)
          DO I = N0, N1
-            SB        = SUBJ (I)
-            OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB)  > TOL * MAX (ABS (SB), ABS (OB))
-            IOBJ      = IOBJ + INCOBJ
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            NOTOK(I) = SGN*(SB - OB) > TOL*MAX(ABS(SB), ABS(OB))
+            IOBJ = IOBJ + INCOBJ
          END DO
 
       ELSE
          ! require SUBJ == OBJ
          DO I = N0, N1
-            SB        = SUBJ (I)
-            OB        = OBJ (IOBJ)
-            NOTOK (I) = ABS (SB - OB)  > TOL * MAX (ABS (SB), ABS (OB))
-            IOBJ      = IOBJ + INCOBJ
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            NOTOK(I) = ABS(SB - OB) > TOL*MAX(ABS(SB), ABS(OB))
+            IOBJ = IOBJ + INCOBJ
          END DO
       END IF
 
@@ -714,16 +707,16 @@ CONTAINS
       ! Note: Non-vectorizing loop: keep it short
 
       COUNT0 = COUNT
-      IOBJ   = N0 + INCOBJ * (N1 - N0)
+      IOBJ = N0 + INCOBJ*(N1 - N0)
 
       ! step backwards so that IX(1), SB & OB refer to 1st non-conformer
       DO I = N1, N0, -1
-         IF (NOTOK (I)) THEN
-            COUNT  = COUNT + 1
-            IX (1) = I
-            SB     = SUBJ (I)
-            OB     = OBJ (IOBJ)
-            IF (BRESET) SUBJ (I) = OB
+         IF (NOTOK(I)) THEN
+            COUNT = COUNT + 1
+            IX(1) = I
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            IF (BRESET) SUBJ(I) = OB
          END IF
          IOBJ = IOBJ - INCOBJ
       END DO
@@ -737,13 +730,13 @@ CONTAINS
 
          ! print the first occurrence ...
          rrr = SB  !AD
-         WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, rrr, (IX (P), P = 1, NDIM)
-         CALL RAISE_ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
+         WRITE (MSG, 9000) CACT, SNAME, OP(:2), OB, rrr, (IX(P), P=1, NDIM)
+         CALL RAISE_ERROR(ABS(ACTION), ERRNUM, OUNIT, 0, 0, MSG)
 
          IF (COUNT1 > 1) THEN
             ! ... and allude to any others
             WRITE (MSG, 9010) COUNT1 - 1
-            CALL RAISE_ERROR (0, 12, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(0, 12, OUNIT, 0, 0, MSG)
          END IF
       END IF
 
@@ -754,7 +747,6 @@ CONTAINS
              ' other positions in the same vector')
 
    END SUBROUTINE ALCHK
-
 
    !> Checks integer values against a scalar or element-wise relation.
    !>
@@ -793,8 +785,8 @@ CONTAINS
    !> | 1994-08-17 | AB/RAH | 3.4.1 | Revised the integer relation checker. |
    !> | 2026-04-06 | SvB | - | Replaced the subscript-parser jump with a named-loop exit. |
    !> @endhistory
-   SUBROUTINE ALCHKI (ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
-                      OP, OBJ, SUBJ, COUNT, NOTOK)
+   SUBROUTINE ALCHKI(ACTION, ERRNUM, OUNIT, N0, N1, IX2, IX3, SNAME, &
+                     OP, OBJ, SUBJ, COUNT, NOTOK)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, ERROR
@@ -811,14 +803,14 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: IX3 !! Fixed third subscript printed for a three-dimensional display name.
       CHARACTER(LEN=*), INTENT(IN) :: SNAME !! Display name whose comma syntax controls printed subscript count.
       CHARACTER(LEN=*), INTENT(IN) :: OP !! Two-character relation, optionally suffixed by `a` for an object array.
-      INTEGER(kind=I_P), INTENT(IN) :: OBJ (N0:*) !! Scalar comparison at `N0` or element-wise comparison sequence.
+      INTEGER(kind=I_P), INTENT(IN) :: OBJ(N0:*) !! Scalar comparison at `N0` or element-wise comparison sequence.
 
       ! Input/output arguments
-      INTEGER(kind=I_P), INTENT(INOUT) :: SUBJ (N0:N1) !! Values checked and optionally reset.
+      INTEGER(kind=I_P), INTENT(INOUT) :: SUBJ(N0:N1) !! Values checked and optionally reset.
       INTEGER(kind=I_P), INTENT(INOUT) :: COUNT !! Cumulative failure count.
 
       ! Workspace arguments
-      LOGICAL, INTENT(OUT) :: NOTOK (N0:N1) !! Per-value failure mask.
+      LOGICAL, INTENT(OUT) :: NOTOK(N0:N1) !! Per-value failure mask.
 
       ! Locals, etc
       INTEGER(kind=I_P) :: COUNT0 !! `COUNT` on entry.
@@ -826,7 +818,7 @@ CONTAINS
       INTEGER(kind=I_P) :: I !! Subject index.
       INTEGER(kind=I_P) :: INCOBJ !! Object-index increment: zero for scalar, one for element-wise comparison.
       INTEGER(kind=I_P) :: IOBJ !! Current object index.
-      INTEGER(kind=I_P) :: IX (3) !! Indices printed for the lowest-index failure.
+      INTEGER(kind=I_P) :: IX(3) !! Indices printed for the lowest-index failure.
       INTEGER(kind=I_P) :: NDIM !! Number of printed indices inferred from `SNAME`, capped at three.
       INTEGER(kind=I_P) :: P !! Diagnostic index-list iterator.
       INTEGER(kind=I_P) :: POS1 !! Previous delimiter position while parsing `SNAME`.
@@ -846,16 +838,16 @@ CONTAINS
 
       ! How many subscripts are there? (ignore any after the 3rd)
       ! ------------------------------
-      SLEN = LEN (SNAME)
+      SLEN = LEN(SNAME)
       POS1 = 0
-      POS2 = INDEX (SNAME, '(')
+      POS2 = INDEX(SNAME, '(')
 
       dim_loop: DO NDIM = 0, 2
          IF (POS2 > POS1 .AND. POS2 < SLEN) THEN
-            IF (NDIM == 1) IX (2) = IX2
-            IF (NDIM == 2) IX (3) = IX3
+            IF (NDIM == 1) IX(2) = IX2
+            IF (NDIM == 2) IX(3) = IX3
             POS1 = POS2
-            POS2 = POS1 + INDEX (SNAME (POS1 + 1:), ',')
+            POS2 = POS1 + INDEX(SNAME(POS1 + 1:), ',')
          ELSE
             EXIT dim_loop
          END IF
@@ -866,13 +858,13 @@ CONTAINS
       ! What action is required?
       ! ------------------------
       BRESET = ACTION < 0
-      OP1    = OP (1:1)
-      OP2    = OP (2:2)
-      SGN    = +1
+      OP1 = OP(1:1)
+      OP2 = OP(2:2)
+      SGN = +1
       IF (OP1 == 'G') SGN = -1
 
       INCOBJ = 0
-      IF (OP (LEN (OP) :) == 'a') INCOBJ = 1
+      IF (OP(LEN(OP):) == 'a') INCOBJ = 1
 
       ! Store test results in logical workspace array
       ! ---------------------------------------------
@@ -883,28 +875,28 @@ CONTAINS
       IF (OP2 == 'T') THEN
          ! require SUBJ < OBJ or SUBJ > OBJ (depending on SGN)
          DO I = N0, N1
-            SB        = SUBJ (I)
-            OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB) >= 0
-            IOBJ      = IOBJ + INCOBJ
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            NOTOK(I) = SGN*(SB - OB) >= 0
+            IOBJ = IOBJ + INCOBJ
          END DO
 
       ELSE IF (OP2 == 'E') THEN
          ! require SUBJ <= OBJ or SUBJ >= OBJ (depending on SGN)
          DO I = N0, N1
-            SB        = SUBJ (I)
-            OB        = OBJ (IOBJ)
-            NOTOK (I) = SGN * (SB - OB) > 0
-            IOBJ      = IOBJ + INCOBJ
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            NOTOK(I) = SGN*(SB - OB) > 0
+            IOBJ = IOBJ + INCOBJ
          END DO
 
       ELSE
          ! require SUBJ == OBJ
          DO I = N0, N1
-            SB        = SUBJ (I)
-            OB        = OBJ (IOBJ)
-            NOTOK (I) = ABS (SB - OB) > 0
-            IOBJ      = IOBJ + INCOBJ
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            NOTOK(I) = ABS(SB - OB) > 0
+            IOBJ = IOBJ + INCOBJ
          END DO
       END IF
 
@@ -913,16 +905,16 @@ CONTAINS
       ! Note: Non-vectorizing loop: keep it short
 
       COUNT0 = COUNT
-      IOBJ   = N0 + INCOBJ * (N1 - N0)
+      IOBJ = N0 + INCOBJ*(N1 - N0)
 
       ! step backwards so that IX(1), SB & OB refer to 1st non-conformer
       DO I = N1, N0, -1
-         IF (NOTOK (I)) THEN
-            COUNT  = COUNT + 1
-            IX (1) = I
-            SB     = SUBJ (I)
-            OB     = OBJ (IOBJ)
-            IF (BRESET) SUBJ (I) = OB
+         IF (NOTOK(I)) THEN
+            COUNT = COUNT + 1
+            IX(1) = I
+            SB = SUBJ(I)
+            OB = OBJ(IOBJ)
+            IF (BRESET) SUBJ(I) = OB
          END IF
          IOBJ = IOBJ - INCOBJ
       END DO
@@ -936,13 +928,13 @@ CONTAINS
 
          ! print the first occurrence ...
          iii = SB !AD
-         WRITE (MSG, 9000) CACT, SNAME, OP (:2), OB, iii, (IX (P), P = 1, NDIM)
-         CALL RAISE_ERROR (ABS (ACTION), ERRNUM, OUNIT, 0, 0, MSG)
+         WRITE (MSG, 9000) CACT, SNAME, OP(:2), OB, iii, (IX(P), P=1, NDIM)
+         CALL RAISE_ERROR(ABS(ACTION), ERRNUM, OUNIT, 0, 0, MSG)
 
          IF (COUNT1 > 1) THEN
             ! ... and allude to any others
             WRITE (MSG, 9010) COUNT1 - 1
-            CALL RAISE_ERROR (0, 12, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(0, 12, OUNIT, 0, 0, MSG)
          END IF
       END IF
 
@@ -953,7 +945,6 @@ CONTAINS
              ' other positions in the same vector')
 
    END SUBROUTINE ALCHKI
-
 
    !> Interpolates category-specific depth profiles onto active column cells.
    !>
@@ -996,10 +987,10 @@ CONTAINS
    !> | 2025-10 | SB | 4.5.3 | Changed the result extent from capacity bounds to active `NEL` and `NCETOP` bounds. |
    !> | 2026-04-06 | SvB | - | Replaced the interval-search jump with a named-loop exit. |
    !> @endhistory
-   SUBROUTINE ALINTP (LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES,     &
-                      MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY,      &
-                      NCOLMB, NTAB, TABLE_CONCENTRATION, TABLE_WATER_DEPTH,    &
-                      DELTAZ, ZVSNOD, CELL_CONCENTRATION)
+   SUBROUTINE ALINTP(LLEE, NCETOP, NEL, NELEE, NLF, NUM_CATEGORIES_TYPES, &
+                     MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS, NCATTY, &
+                     NCOLMB, NTAB, TABLE_CONCENTRATION, TABLE_WATER_DEPTH, &
+                     DELTAZ, ZVSNOD, CELL_CONCENTRATION)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, two
@@ -1015,17 +1006,17 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: NUM_CATEGORIES_TYPES !! Number of active depth-profile categories.
       INTEGER(kind=I_P), INTENT(IN) :: MAX_NUM_CATEGORY_TYPES !! Allocated first extent of the table arrays.
       INTEGER(kind=I_P), INTENT(IN) :: MAX_NUM_DATA_PAIRS !! Allocated second extent of the table arrays.
-      INTEGER(kind=I_P), INTENT(IN) :: NCATTY (NLF + 1:NEL) !! Profile category by non-link element.
-      INTEGER(kind=I_P), INTENT(IN) :: NCOLMB (NLF + 1:NEL) !! Bottom active column-cell index by non-link element.
-      INTEGER(kind=I_P), INTENT(IN) :: NTAB (NUM_CATEGORIES_TYPES) !! Active depth/value-pair count by category.
+      INTEGER(kind=I_P), INTENT(IN) :: NCATTY(NLF + 1:NEL) !! Profile category by non-link element.
+      INTEGER(kind=I_P), INTENT(IN) :: NCOLMB(NLF + 1:NEL) !! Bottom active column-cell index by non-link element.
+      INTEGER(kind=I_P), INTENT(IN) :: NTAB(NUM_CATEGORIES_TYPES) !! Active depth/value-pair count by category.
 
-      REAL(kind=R8P), INTENT(IN) :: TABLE_CONCENTRATION (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) !! Profile value by category and table entry.
-      REAL(kind=R8P), INTENT(IN) :: TABLE_WATER_DEPTH (MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) !! Depth below ground surface by category and entry (m).
-      REAL(kind=R8P), INTENT(IN) :: DELTAZ (LLEE, NELEE) !! VSS cell thickness by cell and element (m).
-      REAL(kind=R8P), INTENT(IN) :: ZVSNOD (LLEE, NELEE) !! VSS node elevation by cell and element (m).
+      REAL(kind=R8P), INTENT(IN) :: TABLE_CONCENTRATION(MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) !! Profile value by category and table entry.
+      REAL(kind=R8P), INTENT(IN) :: TABLE_WATER_DEPTH(MAX_NUM_CATEGORY_TYPES, MAX_NUM_DATA_PAIRS) !! Depth below ground surface by category and entry (m).
+      REAL(kind=R8P), INTENT(IN) :: DELTAZ(LLEE, NELEE) !! VSS cell thickness by cell and element (m).
+      REAL(kind=R8P), INTENT(IN) :: ZVSNOD(LLEE, NELEE) !! VSS node elevation by cell and element (m).
 
       ! OUTPUT ARGUMENTS
-      REAL(kind=R8P), INTENT(OUT) :: CELL_CONCENTRATION (NEL, NCETOP) !! Interpolated profile values; only active non-link cells are assigned.
+      REAL(kind=R8P), INTENT(OUT) :: CELL_CONCENTRATION(NEL, NCETOP) !! Interpolated profile values; only active non-link cells are assigned.
 
       ! LOCALS ETC.
       INTEGER(kind=I_P) :: NCL !! Current VSS cell index.
@@ -1040,49 +1031,46 @@ CONTAINS
 
       element_loop: DO NELM = NLF + 1, NEL
          ! Category number for the element
-         NCATG = NCATTY (NELM)
+         NCATG = NCATTY(NELM)
 
          ! Number of values in the table for this category number
-         NINTB = NTAB (NCATG)
+         NINTB = NTAB(NCATG)
 
          ! The first depth in the table must be zero and the top
          ! cell is set to take the concentration at this depth
-         CELL_CONCENTRATION (NELM, NCETOP) = TABLE_CONCENTRATION (NCATG, 1)
-         DEPTH  = DELTAZ (NCETOP, NELM) / two
+         CELL_CONCENTRATION(NELM, NCETOP) = TABLE_CONCENTRATION(NCATG, 1)
+         DEPTH = DELTAZ(NCETOP, NELM)/two
          NTHRTB = 2
 
-         cell_loop: DO NCL = NCETOP - 1, NCOLMB (NELM), -1
+         cell_loop: DO NCL = NCETOP - 1, NCOLMB(NELM), -1
 
-            DEPTH = DEPTH + (ZVSNOD (NCL + 1, NELM) - ZVSNOD (NCL, NELM))
+            DEPTH = DEPTH + (ZVSNOD(NCL + 1, NELM) - ZVSNOD(NCL, NELM))
 
             ! The depth of the cell is greater than the lowest depth in
             ! the table and the cell takes the value of the concentration
             ! at the lowest specified depth
-            IF (DEPTH >= TABLE_WATER_DEPTH (NCATG, NINTB)) THEN
-               CELL_CONCENTRATION (NELM, NCL) = TABLE_CONCENTRATION (NCATG, NINTB)
+            IF (DEPTH >= TABLE_WATER_DEPTH(NCATG, NINTB)) THEN
+               CELL_CONCENTRATION(NELM, NCL) = TABLE_CONCENTRATION(NCATG, NINTB)
                CYCLE cell_loop
             END IF
 
             ! Find the correct interval for interpolation
             search_loop: DO NTABLE = NTHRTB, NINTB
-               IF (DEPTH <= TABLE_WATER_DEPTH (NCATG, NTABLE)) EXIT search_loop
+               IF (DEPTH <= TABLE_WATER_DEPTH(NCATG, NTABLE)) EXIT search_loop
                NTHRTB = NTHRTB + 1
             END DO search_loop
 
             ! Calculate concentration by linear interpolation
-            CELL_CONCENTRATION (NELM, NCL) = &
-               TABLE_CONCENTRATION (NCATG, NTABLE - 1) + &
-               (TABLE_CONCENTRATION (NCATG, NTABLE) - TABLE_CONCENTRATION (NCATG, NTABLE - 1)) * &
-               ((DEPTH - TABLE_WATER_DEPTH (NCATG, NTABLE - 1)) / &
-               (TABLE_WATER_DEPTH (NCATG, NTABLE) - TABLE_WATER_DEPTH (NCATG, NTABLE - 1)))
+            CELL_CONCENTRATION(NELM, NCL) = &
+               TABLE_CONCENTRATION(NCATG, NTABLE - 1) + &
+               (TABLE_CONCENTRATION(NCATG, NTABLE) - TABLE_CONCENTRATION(NCATG, NTABLE - 1))* &
+               ((DEPTH - TABLE_WATER_DEPTH(NCATG, NTABLE - 1))/ &
+                (TABLE_WATER_DEPTH(NCATG, NTABLE) - TABLE_WATER_DEPTH(NCATG, NTABLE - 1)))
 
          END DO cell_loop
       END DO element_loop
 
    END SUBROUTINE ALINTP
-
-
-
 
    !> Performs mixed file-status, character, integer, real, grid, and VSS input operations.
    !>
@@ -1133,8 +1121,8 @@ CONTAINS
    !> | 2026-04-06 | SvB | - | Replaced error jumps with `SELECT CASE`, `IOSTAT`, and the contained fatal-error helper. |
    !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[mod_error:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
    !> @endhistory
-   SUBROUTINE ALREAD (FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
-                      CDATA, IDATA, RDATA)
+   SUBROUTINE ALREAD(FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
+                     CDATA, IDATA, RDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, ERRLVL_warn, ERRLVL_fatal, HEAD0_alread, ERROR
@@ -1148,18 +1136,18 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: N1 !! First array extent or grid x extent.
       INTEGER(kind=I_P), INTENT(IN) :: N2 !! Second array extent or grid y extent.
       INTEGER(kind=I_P), INTENT(IN) :: NUM_CATEGORIES_TYPES !! Grid-code threshold or VSS record count, depending on `FLAG`.
-      CHARACTER (LEN=*), INTENT(IN) :: LINE !! Expected heading substring or file-status label.
+      CHARACTER(LEN=*), INTENT(IN) :: LINE !! Expected heading substring or file-status label.
 
       ! Output arguments
-      CHARACTER (LEN=*), INTENT(OUT) :: CDATA !! Character record returned by mode 1; undefined on entry for every mode.
-      INTEGER(kind=I_P), INTENT(OUT) :: IDATA (N1, N2) !! Integer destination for modes 2, 4, 6, and 7; undefined on entry for every mode.
-      REAL(kind=R8P), INTENT(OUT) :: RDATA (N1, N2) !! Real destination for modes 3, 5, 6, and 7; undefined on entry for every mode.
+      CHARACTER(LEN=*), INTENT(OUT) :: CDATA !! Character record returned by mode 1; undefined on entry for every mode.
+      INTEGER(kind=I_P), INTENT(OUT) :: IDATA(N1, N2) !! Integer destination for modes 2, 4, 6, and 7; undefined on entry for every mode.
+      REAL(kind=R8P), INTENT(OUT) :: RDATA(N1, N2) !! Real destination for modes 3, 5, 6, and 7; undefined on entry for every mode.
 
       ! Locals, etc
-      CHARACTER (LEN=80) :: HEAD !! Heading read from input or formatted file-status text.
-      CHARACTER (LEN=140) :: MSG !! Fatal/warning message buffer.
-      CHARACTER (LEN=48) :: FILNAM !! Possibly truncated filename returned by `INQUIRE`.
-      CHARACTER (LEN=17) :: FORM !! Generated compact integer-grid format.
+      CHARACTER(LEN=80) :: HEAD !! Heading read from input or formatted file-status text.
+      CHARACTER(LEN=140) :: MSG !! Fatal/warning message buffer.
+      CHARACTER(LEN=48) :: FILNAM !! Possibly truncated filename returned by `INQUIRE`.
+      CHARACTER(LEN=17) :: FORM !! Generated compact integer-grid format.
       INTEGER(kind=I_P) :: IX !! Grid x or inner implied-DO index.
       INTEGER(kind=I_P) :: IY !! Expected indexed-grid row, processed north to south.
       INTEGER(kind=I_P) :: KY !! Row number read from an indexed-grid record.
@@ -1168,7 +1156,7 @@ CONTAINS
       INTEGER(kind=I_P) :: ICOUNT !! VSS/soil record iterator.
       INTEGER(kind=I_P) :: I !! Inner implied-DO index for VSS records.
       INTEGER(kind=I_P) :: ios !! I/O status from the most recent read or close.
-      CHARACTER (LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
       LOGICAL :: BOPEN !! True when `IUNIT` is connected.
       LOGICAL :: BNAMED !! True when the connected unit has a filename.
 
@@ -1187,14 +1175,14 @@ CONTAINS
             CALL throw_fatal(3, MSG)
          END IF
 
-         IF (INDEX (HEAD, LINE) == 0) THEN
+         IF (INDEX(HEAD, LINE) == 0) THEN
             WRITE (MSG, 9002) LINE, HEAD
-            CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
          END IF
 
       ELSE
          ! Get file status and name
-         INQUIRE (IUNIT, OPENED = BOPEN, NAMED = BNAMED, NAME = FILNAM)
+         INQUIRE (IUNIT, OPENED=BOPEN, NAMED=BNAMED, NAME=FILNAM)
          IF (.NOT. BNAMED) FILNAM = '(no name)'
       END IF
 
@@ -1202,7 +1190,7 @@ CONTAINS
       ! ---------------------
       SELECT CASE (FLAG)
 
-      ! Check that input file is open
+         ! Check that input file is open
       CASE (0)
          IF (.NOT. BOPEN) THEN
             WRITE (MSG, 9000) LINE, 'not open', IUNIT
@@ -1213,16 +1201,16 @@ CONTAINS
          WRITE (HEAD, 9000) LINE, 'open', IUNIT, FILNAM
          WRITE (OUNIT, 9001) HEAD
 
-      ! Close input file
+         ! Close input file
       CASE (-1)
          CLOSE (IUNIT, IOSTAT=ios, IOMSG=emsg)
-         CALL errstat_fileclose (ios, TRIM(FILNAM), IUNIT, emsg)
+         CALL errstat_fileclose(ios, TRIM(FILNAM), IUNIT, emsg)
 
          ! Write (and store) an informative message
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
          WRITE (OUNIT, 9001) HEAD
 
-      ! Read a character string
+         ! Read a character string
       CASE (1)
          READ (IUNIT, '(A)', IOSTAT=ios) CDATA
          IF (ios /= 0) THEN
@@ -1230,7 +1218,7 @@ CONTAINS
             CALL throw_fatal(5, MSG)
          END IF
 
-      ! Read an INTEGER(kind=I_P) array
+         ! Read an INTEGER(kind=I_P) array
       CASE (2)
          READ (IUNIT, *, IOSTAT=ios) IDATA
          IF (ios /= 0) THEN
@@ -1238,7 +1226,7 @@ CONTAINS
             CALL throw_fatal(6, MSG)
          END IF
 
-      ! Read a floating-point array
+         ! Read a floating-point array
       CASE (3)
          READ (IUNIT, *, IOSTAT=ios) RDATA
          IF (ios /= 0) THEN
@@ -1246,7 +1234,7 @@ CONTAINS
             CALL throw_fatal(7, MSG)
          END IF
 
-      ! Read an INTEGER(kind=I_P) grid array
+         ! Read an INTEGER(kind=I_P) grid array
       CASE (4)
          ! Set format string to read single digit integers if possible
          IF (NUM_CATEGORIES_TYPES < 10) WRITE (FORM, 9410) N1
@@ -1254,9 +1242,9 @@ CONTAINS
          ! All grid rows: North to South
          DO IY = N2, 1, -1
             IF (NUM_CATEGORIES_TYPES < 10) THEN
-               READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
+               READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA(IX, IY), IX=1, N1)
             ELSE
-               READ (IUNIT, *, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
+               READ (IUNIT, *, IOSTAT=ios) KY, (IDATA(IX, IY), IX=1, N1)
             END IF
 
             IF (ios /= 0 .OR. KY /= IY) THEN
@@ -1265,23 +1253,23 @@ CONTAINS
             END IF
          END DO
 
-      ! Read a floating point grid array
+         ! Read a floating point grid array
       CASE (5)
          ! All grid rows: North to South
          DO IY = N2, 1, -1
-            READ (IUNIT, *, IOSTAT=ios) KY, (RDATA (IX, IY), IX = 1, N1)
+            READ (IUNIT, *, IOSTAT=ios) KY, (RDATA(IX, IY), IX=1, N1)
             IF (ios /= 0 .OR. KY /= IY) THEN
                WRITE (MSG, 9842) 'floating-point', IY, HEAD
                CALL throw_fatal(11, MSG)
             END IF
          END DO
 
-      ! Read data in VSS format for each element
+         ! Read data in VSS format for each element
       CASE (6)
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
             READ (IUNIT, *, IOSTAT=ios) IDUM1, IDUM2
-            IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (IDATA (IDUM1, I), I = 1, IDUM2)
-            IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (RDATA (IDUM1, I), I = 1, IDUM2)
+            IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (IDATA(IDUM1, I), I=1, IDUM2)
+            IF (ios == 0) READ (IUNIT, *, IOSTAT=ios) (RDATA(IDUM1, I), I=1, IDUM2)
 
             IF (ios /= 0) THEN
                WRITE (MSG, 9600) IDUM1, HEAD
@@ -1289,12 +1277,12 @@ CONTAINS
             END IF
          END DO
 
-      ! Read soil physical property data for VSS
+         ! Read soil physical property data for VSS
       CASE (7)
          DO ICOUNT = 1, NUM_CATEGORIES_TYPES
-            READ (IUNIT, *, IOSTAT=ios) (IDATA (ICOUNT, I), I = 1, 3)
-            IF (ios == 0 .AND. IDATA (ICOUNT, 1) == ICOUNT) THEN
-               READ (IUNIT, *, IOSTAT=ios) (RDATA (ICOUNT, I), I = 1, 8)
+            READ (IUNIT, *, IOSTAT=ios) (IDATA(ICOUNT, I), I=1, 3)
+            IF (ios == 0 .AND. IDATA(ICOUNT, 1) == ICOUNT) THEN
+               READ (IUNIT, *, IOSTAT=ios) (RDATA(ICOUNT, I), I=1, 8)
             ELSE
                ! Trigger the error format if the IDs don't match
                ios = 1
@@ -1319,17 +1307,16 @@ CONTAINS
 
       ! -----------------
       ! Note: Take care not to exceed internal file length
-9000  FORMAT ( A, ' data file ', A, ': unit', I3: '; ', A )
-9001  FORMAT ( 1X, A/ )
-9002  FORMAT ( 'Title line mismatch: expected "', A, &
-               '" but found "', A, '"' )
-9410  FORMAT ( '(I7,1X,', I4, 'I1)' )
-9600  FORMAT ( 'Reading VSS data for item no. ', I4, ' under title: ', A )
-9700  FORMAT ( 'Reading soils data for soil no. ', I4, ' under title: ', A )
-9801  FORMAT ( 'Reading heading: ', A, '; last item was: ', A )
-9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
-9842  FORMAT ( 'Reading ', A, ' grid (IY=', I4, ') under title: ', A )
-
+9000  FORMAT(A, ' data file ', A, ': unit', I3:'; ', A)
+9001  FORMAT(1X, A/)
+9002  FORMAT('Title line mismatch: expected "', A, &
+             '" but found "', A, '"')
+9410  FORMAT('(I7,1X,', I4, 'I1)')
+9600  FORMAT('Reading VSS data for item no. ', I4, ' under title: ', A)
+9700  FORMAT('Reading soils data for soil no. ', I4, ' under title: ', A)
+9801  FORMAT('Reading heading: ', A, '; last item was: ', A)
+9810  FORMAT('Reading ', A, ' data under heading: ', A)
+9842  FORMAT('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
 
    CONTAINS
 
@@ -1353,7 +1340,6 @@ CONTAINS
       END SUBROUTINE throw_fatal
 
    END SUBROUTINE ALREAD
-
 
    !> Checks or closes a legacy AL-family input file and echoes its status.
    !>
@@ -1386,7 +1372,7 @@ CONTAINS
    !> | 2026-04-06 | SvB | - | Replaced the file-not-open jump with structured error handling. |
    !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[mod_error:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
    !> @endhistory
-   SUBROUTINE ALRED2 (FLAG, IUNIT, OUNIT, LINE)
+   SUBROUTINE ALRED2(FLAG, IUNIT, OUNIT, LINE)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, ERRLVL_fatal, HEAD0_alred2, ERROR
@@ -1415,7 +1401,7 @@ CONTAINS
       ! ---------------
       !
       ! Get file status and name
-      INQUIRE (IUNIT, OPENED = BOPEN, NAMED = BNAMED, NAME = FILNAM)
+      INQUIRE (IUNIT, OPENED=BOPEN, NAMED=BNAMED, NAME=FILNAM)
       IF (.NOT. BNAMED) FILNAM = '(no name)'
 
       IF (FLAG == 0) THEN
@@ -1423,7 +1409,7 @@ CONTAINS
          ! Check that input file is open
          IF (.NOT. BOPEN) THEN
             WRITE (MSG, 9000) LINE, 'not open', IUNIT
-            CALL RAISE_ERROR (ERRLVL_fatal, 4, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 4, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1432,7 +1418,7 @@ CONTAINS
       ELSE
          ! Close input file
          CLOSE (IUNIT, IOSTAT=ios, IOMSG=emsg)
-         CALL errstat_fileclose (ios, TRIM(FILNAM), IUNIT, emsg)
+         CALL errstat_fileclose(ios, TRIM(FILNAM), IUNIT, emsg)
          WRITE (HEAD, 9000) LINE, 'closed', IUNIT, FILNAM
       END IF
 
@@ -1445,11 +1431,10 @@ CONTAINS
       RETURN
 
       ! Formats --------------------------------------------------------------
-9000  FORMAT (A, ' data file ', A, ': unit', I3: '; ', A)
-9001  FORMAT (1X, A/)
+9000  FORMAT(A, ' data file ', A, ': unit', I3:'; ', A)
+9001  FORMAT(1X, A/)
 
    END SUBROUTINE ALRED2
-
 
    !> Reads a heading followed by fixed-format character records.
    !>
@@ -1472,7 +1457,7 @@ CONTAINS
    !> | 1995-03-22 | RAH | - | Created the separate character reader during removal of the former `ENTRY` interface. |
    !> | 2025-10 | SB | - | Increased heading and message buffers to 150 and 200 characters. |
    !> @endhistory
-   SUBROUTINE ALREDC (FLAG, IUNIT, OUNIT, LINE, N1, N2, CDATA)
+   SUBROUTINE ALREDC(FLAG, IUNIT, OUNIT, LINE, N1, N2, CDATA)
 
       ! Input arguments
       INTEGER(kind=I_P) :: FLAG !! Unused selector retained for interface consistency.
@@ -1480,52 +1465,49 @@ CONTAINS
       INTEGER(kind=I_P) :: OUNIT !! Unit receiving warning/fatal diagnostics.
       INTEGER(kind=I_P) :: N1 !! First extent of `CDATA`.
       INTEGER(kind=I_P) :: N2 !! Second extent of `CDATA`.
-      CHARACTER (LEN=*) :: LINE !! Expected case-sensitive heading substring.
+      CHARACTER(LEN=*) :: LINE !! Expected case-sensitive heading substring.
 
       ! Output arguments
-      CHARACTER(LEN=*) :: CDATA (N1, N2) !! Character records read in Fortran array element order.
+      CHARACTER(LEN=*) :: CDATA(N1, N2) !! Character records read in Fortran array element order.
       CHARACTER(len=150) :: HEAD !! Heading record read from `IUNIT`.
       CHARACTER(len=200) :: MSG !! Warning/fatal message buffer.
 
       ! Code -----------------------------------------------------------------
 
-      READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
-      IF (INDEX (HEAD, LINE)  == 0) THEN
+      READ (IUNIT, '(A)', ERR=8010, END=8010) HEAD
+      IF (INDEX(HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
-      ENDIF
+         CALL RAISE_ERROR(ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+      END IF
 
       !  Read character data
       !  -------------------
-      READ (IUNIT, '(A)', ERR = 8100, END = 8100) CDATA
+      READ (IUNIT, '(A)', ERR=8100, END=8100) CDATA
 
       RETURN
-
 
       ! Errors ---------------------------------------------------------------
 
       ! Title line read error
 8010  WRITE (MSG, 9801) LINE, HEAD0_alredc
-      CALL RAISE_ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+      CALL RAISE_ERROR(ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
 
       ! Char data error
 8100  WRITE (MSG, 9810) 'character', HEAD
-      CALL RAISE_ERROR (ERRLVL_fatal, 5, OUNIT, 0, 0, MSG)
-
+      CALL RAISE_ERROR(ERRLVL_fatal, 5, OUNIT, 0, 0, MSG)
 
       ! Format ---------------------------------------------------------------
 
-9002  FORMAT ( 'Title line mismatch: expected "', A,                          &
-         '" but found "',                   A, '"' )
+9002  FORMAT('Title line mismatch: expected "', A, &
+             '" but found "', A, '"')
 
-9801  FORMAT ( 'Reading heading: ', A, '; last item was: ', A )
+9801  FORMAT('Reading heading: ', A, '; last item was: ', A)
 
-9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
+9810  FORMAT('Reading ', A, ' data under heading: ', A)
 
-9842  FORMAT ( 'Reading ', A, ' grid (IY=',I4, ') under title: ', A )
+9842  FORMAT('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
 
    END SUBROUTINE ALREDC
-
 
    !> Reads a heading followed by a real list or indexed real grid.
    !>
@@ -1547,7 +1529,7 @@ CONTAINS
    !> | 1995-03-22 | RAH | - | Created the separate real reader and renamed the destination `FDATA`. |
    !> | 2026-04-06 | SvB | - | Replaced error jumps with `IOSTAT` checks and structured returns. |
    !> @endhistory
-   SUBROUTINE ALREDF (FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)
+   SUBROUTINE ALREDF(FLAG, IUNIT, OUNIT, LINE, N1, N2, FDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, R8P, ERRLVL_warn, ERRLVL_fatal, HEAD0_alredf, ERROR
@@ -1560,10 +1542,10 @@ CONTAINS
       INTEGER(kind=I_P), INTENT(IN) :: OUNIT !! Unit receiving warning/fatal diagnostics.
       INTEGER(kind=I_P), INTENT(IN) :: N1 !! First result extent or grid x extent.
       INTEGER(kind=I_P), INTENT(IN) :: N2 !! Second result extent or grid y extent.
-      CHARACTER (LEN=*), INTENT(IN) :: LINE !! Expected case-sensitive heading substring.
+      CHARACTER(LEN=*), INTENT(IN) :: LINE !! Expected case-sensitive heading substring.
 
       ! Output arguments
-      REAL(kind=R8P), INTENT(OUT) :: FDATA (N1, N2) !! Real list or grid values read from `IUNIT`.
+      REAL(kind=R8P), INTENT(OUT) :: FDATA(N1, N2) !! Real list or grid values read from `IUNIT`.
 
       ! Locals, etc
       INTEGER(kind=I_P) :: IY !! Expected grid row, processed from north to south.
@@ -1580,13 +1562,13 @@ CONTAINS
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredf
-         CALL RAISE_ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
 
-      IF (INDEX (HEAD, LINE) == 0) THEN
+      IF (INDEX(HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       END IF
 
       ! Read floating-point data
@@ -1598,19 +1580,19 @@ CONTAINS
          IF (ios /= 0) THEN
             ! Real data error
             WRITE (MSG, 9810) 'floating-point', HEAD
-            CALL RAISE_ERROR (ERRLVL_fatal, 7, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 7, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
       ELSE
          ! Grid-based array: read indexed rows, North to South
          DO IY = N2, 1, -1
-            READ (IUNIT, *, IOSTAT=ios) KY, (FDATA (IX, IY), IX = 1, N1)
+            READ (IUNIT, *, IOSTAT=ios) KY, (FDATA(IX, IY), IX=1, N1)
 
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Real grid error (or index mismatch)
                WRITE (MSG, 9842) 'floating-point', IY, HEAD
-               CALL RAISE_ERROR (ERRLVL_fatal, 11, OUNIT, 0, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_fatal, 11, OUNIT, 0, 0, MSG)
                RETURN
             END IF
          END DO
@@ -1622,16 +1604,15 @@ CONTAINS
       !
       ! Note: Take care not to exceed internal file length
       !
-9002  FORMAT ('Title line mismatch: expected "', A, '" but found "', A, '"')
+9002  FORMAT('Title line mismatch: expected "', A, '" but found "', A, '"')
 
-9801  FORMAT ('Reading heading: ', A, '; last item was: ', A)
+9801  FORMAT('Reading heading: ', A, '; last item was: ', A)
 
-9810  FORMAT ('Reading ', A, ' data under heading: ', A)
+9810  FORMAT('Reading ', A, ' data under heading: ', A)
 
-9842  FORMAT ('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
+9842  FORMAT('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
 
    END SUBROUTINE ALREDF
-
 
    !> Reads a heading followed by an integer list or indexed integer grid.
    !>
@@ -1660,7 +1641,7 @@ CONTAINS
    !> | 1995-03-22 | RAH | - | Created the separate integer reader during removal of the former `ENTRY` interface. |
    !> | 2026-04-06 | SvB | - | Replaced error jumps with `IOSTAT` checks and structured returns. |
    !> @endhistory
-   SUBROUTINE ALREDI (FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
+   SUBROUTINE ALREDI(FLAG, IUNIT, OUNIT, LINE, N1, N2, IDATA)
 
       ! Assumed external module dependencies providing global kinds/variables:
       ! I_P, ERRLVL_warn, ERRLVL_fatal, HEAD0_alredi, ERROR
@@ -1676,7 +1657,7 @@ CONTAINS
       CHARACTER(LEN=*), INTENT(IN) :: LINE !! Expected case-sensitive heading substring.
 
       ! Output arguments
-      INTEGER(kind=I_P), INTENT(OUT) :: IDATA (N1, N2) !! Integer list or grid values read from `IUNIT`.
+      INTEGER(kind=I_P), INTENT(OUT) :: IDATA(N1, N2) !! Integer list or grid values read from `IUNIT`.
 
       ! Locals, etc
       INTEGER(kind=I_P) :: IY !! Expected grid row, processed from north to south.
@@ -1694,13 +1675,13 @@ CONTAINS
       IF (ios /= 0) THEN
          ! Title line read error
          WRITE (MSG, 9801) LINE, HEAD0_alredi
-         CALL RAISE_ERROR (ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 3, OUNIT, 0, 0, MSG)
          RETURN
       END IF
 
-      IF (INDEX (HEAD, LINE) == 0) THEN
+      IF (INDEX(HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
       END IF
 
       ! Read INTEGER(kind=I_P) data
@@ -1712,7 +1693,7 @@ CONTAINS
          IF (ios /= 0) THEN
             ! Integer data error
             WRITE (MSG, 9810) 'integer', HEAD
-            CALL RAISE_ERROR (ERRLVL_fatal, 6, OUNIT, 0, 0, MSG)
+            CALL RAISE_ERROR(ERRLVL_fatal, 6, OUNIT, 0, 0, MSG)
             RETURN
          END IF
 
@@ -1723,15 +1704,15 @@ CONTAINS
 
          DO IY = N2, 1, -1
             IF (FLAG < 10) THEN
-               READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
+               READ (IUNIT, FORM, IOSTAT=ios) KY, (IDATA(IX, IY), IX=1, N1)
             ELSE
-               READ (IUNIT, *, IOSTAT=ios) KY, (IDATA (IX, IY), IX = 1, N1)
+               READ (IUNIT, *, IOSTAT=ios) KY, (IDATA(IX, IY), IX=1, N1)
             END IF
 
             IF (ios /= 0 .OR. KY /= IY) THEN
                ! Integer grid error
                WRITE (MSG, 9842) 'integer', IY, HEAD
-               CALL RAISE_ERROR (ERRLVL_fatal, 10, OUNIT, 0, 0, MSG)
+               CALL RAISE_ERROR(ERRLVL_fatal, 10, OUNIT, 0, 0, MSG)
                RETURN
             END IF
          END DO
@@ -1743,18 +1724,17 @@ CONTAINS
       !
       ! Note: Take care not to exceed internal file length
       !
-9002  FORMAT ('Title line mismatch: expected "', A, '" but found "', A, '"')
+9002  FORMAT('Title line mismatch: expected "', A, '" but found "', A, '"')
 
-9410  FORMAT ('(I7,1X,', I4, 'I1)')
+9410  FORMAT('(I7,1X,', I4, 'I1)')
 
-9801  FORMAT ('Reading heading: ', A, '; last item was: ', A)
+9801  FORMAT('Reading heading: ', A, '; last item was: ', A)
 
-9810  FORMAT ('Reading ', A, ' data under heading: ', A)
+9810  FORMAT('Reading ', A, ' data under heading: ', A)
 
-9842  FORMAT ('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
+9842  FORMAT('Reading ', A, ' grid (IY=', I4, ') under title: ', A)
 
    END SUBROUTINE ALREDI
-
 
    !> Reads a heading followed by list-directed logical data.
    !>
@@ -1773,7 +1753,7 @@ CONTAINS
    !> | 1994-09-16 | AB/RAH | 3.4.1 | Revised the legacy routine. |
    !> | 1995-03-22 | RAH | - | Added the logical reader while replacing the former `ENTRY` interface with separate routines. |
    !> @endhistory
-   SUBROUTINE ALREDL (FLAG, IUNIT, OUNIT, LINE, N1, N2, LDATA)
+   SUBROUTINE ALREDL(FLAG, IUNIT, OUNIT, LINE, N1, N2, LDATA)
 
       ! Input arguments
       INTEGER(kind=I_P) :: FLAG !! Unused selector retained for interface consistency.
@@ -1781,27 +1761,26 @@ CONTAINS
       INTEGER(kind=I_P) :: OUNIT !! Unit receiving warning/fatal diagnostics.
       INTEGER(kind=I_P) :: N1 !! First extent of `LDATA`.
       INTEGER(kind=I_P) :: N2 !! Second extent of `LDATA`.
-      CHARACTER (LEN=*) :: LINE !! Expected case-sensitive heading substring.
+      CHARACTER(LEN=*) :: LINE !! Expected case-sensitive heading substring.
 
       ! Output arguments
-      LOGICAL :: LDATA (N1, N2) !! Logical values read in Fortran array element order.
-      CHARACTER (80) :: HEAD !! Heading record read from `IUNIT`.
+      LOGICAL :: LDATA(N1, N2) !! Logical values read in Fortran array element order.
+      CHARACTER(80) :: HEAD !! Heading record read from `IUNIT`.
       CHARACTER(132) :: MSG !! Warning/fatal message buffer.
 
       ! Code -----------------------------------------------------------------
 
-      READ (IUNIT, '(A)', ERR = 8010, END = 8010) HEAD
-      IF (INDEX (HEAD, LINE)  == 0) THEN
+      READ (IUNIT, '(A)', ERR=8010, END=8010) HEAD
+      IF (INDEX(HEAD, LINE) == 0) THEN
          WRITE (MSG, 9002) LINE, HEAD
-         CALL RAISE_ERROR (ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
-      ENDIF
+         CALL RAISE_ERROR(ERRLVL_warn, 2, OUNIT, 0, 0, MSG)
+      END IF
 
       ! Read logical data
       ! -----------------
-      READ (IUNIT, *, ERR = 8600, END = 8600) LDATA
+      READ (IUNIT, *, ERR=8600, END=8600) LDATA
 
       RETURN
-
 
       ! Error ----------------------------------------------------------------
 
@@ -1813,21 +1792,19 @@ CONTAINS
 8600  WRITE (MSG, 9810) 'logical', HEAD
       CALL RAISE_ERROR(ERRLVL_fatal, 14, OUNIT, 0, 0, MSG)
 
-
       ! Format ---------------------------------------------------------------
       !
       ! Note: Take care not to exceed internal file length
       !
       !
-9002  FORMAT ( 'Title line mismatch: expected "', A,                          &
-         '" but found "',                   A, '"' )
+9002  FORMAT('Title line mismatch: expected "', A, &
+             '" but found "', A, '"')
 
-9801  FORMAT ( 'Reading heading: ', A, '; last item was: ', A )
+9801  FORMAT('Reading heading: ', A, '; last item was: ', A)
 
-9810  FORMAT ( 'Reading ', A, ' data under heading: ', A )
+9810  FORMAT('Reading ', A, ' data under heading: ', A)
 
    END SUBROUTINE ALREDL
-
 
    !> Chooses the start and stride of an approximately even subsequence.
    !>
@@ -1853,7 +1830,7 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 1997-08-05 | RAH | 4.1 | Created the evenly spread subsequence calculation. |
    !> @endhistory
-   SUBROUTINE ALSPRD (M, N, N1, DEL)
+   SUBROUTINE ALSPRD(M, N, N1, DEL)
 
       ! Input arguments
       INTEGER(kind=I_P) :: M !! Number of positions to select.
@@ -1872,36 +1849,34 @@ CONTAINS
 
       LOGICAL :: TEST !! True when `NF` gives the preferred even/parity distribution.
 
-
       ! Code -----------------------------------------------------------------
 
       IF (M <= 1) THEN
-         N1  = N / (MAX (0, M) + 1) + 1
+         N1 = N/(MAX(0, M) + 1) + 1
          DEL = N
 
       ELSE
          ! set the number NE of out-lying items - even if possible
-         MM   = M - 1
-         NE   = MOD (N - 1, MM)
-         NF   = NE+MM
-         TEST = (MOD(NE, 2) == 1)  .AND.                                     &
-            (MOD(NF, 2)  == 0) .AND.                                     &
-            (NF <= N - M)
+         MM = M - 1
+         NE = MOD(N - 1, MM)
+         NF = NE + MM
+         TEST = (MOD(NE, 2) == 1) .AND. &
+                (MOD(NF, 2) == 0) .AND. &
+                (NF <= N - M)
 
          IF (TEST) NE = NF
 
          ! add a few if it makes a more uniform spread
-         DNE   = MM * (1 + MOD (MM, 2) * (1 - MOD (NE, 2) ) )
-         NEMAX = 2 * (N - M) / (M + 1)
+         DNE = MM*(1 + MOD(MM, 2)*(1 - MOD(NE, 2)))
+         NEMAX = 2*(N - M)/(M + 1)
 
-         NE = NE+ (IDIMJE(NEMAX, NE) / DNE) * DNE
+         NE = NE + (IDIMJE(NEMAX, NE)/DNE)*DNE
          ! round up
-         N1 = 1 + (NE+1) / 2
+         N1 = 1 + (NE + 1)/2
 
-         DEL = (N - NE-1) / MM
-      ENDIF
+         DEL = (N - NE - 1)/MM
+      END IF
    END SUBROUTINE ALSPRD
-
 
    !> Preserves the legacy startup hook for floating-point trap configuration.
    !>
@@ -1925,21 +1900,21 @@ CONTAINS
    !> | 2026-04-04 | SvB | - | Removed the no-op routine. |
    !> | 2026-05-11 | SvB | - | Restored the public no-op interface during the current-code rebase. |
    !> @endhistory
-    SUBROUTINE ALTRAP ()
+   SUBROUTINE ALTRAP()
 
-        ! Locals, etc
-        INTEGER(kind=I_P), parameter :: OUT = 0 !! Retained diagnostic unit for the unreachable warning path.
+      ! Locals, etc
+      INTEGER(kind=I_P), parameter :: OUT = 0 !! Retained diagnostic unit for the unreachable warning path.
 
-        INTEGER(kind=I_P) :: I !! Legacy trap-setup status, unconditionally set to zero.
+      INTEGER(kind=I_P) :: I !! Legacy trap-setup status, unconditionally set to zero.
 
-        ! Code -----------------------------------------------------------------
+      ! Code -----------------------------------------------------------------
 
-        !   I = IEEE_HANDLER( 'set', 'common', ABORT )
-        I = 0
-        IF (I .NE. 0) CALL RAISE_ERROR(ERRLVL_warn, 13, OUT, 0, 0,                         &
-                           'Could not set traps for floating-point exceptions')
+      !   I = IEEE_HANDLER( 'set', 'common', ABORT )
+      I = 0
+      IF (I .NE. 0) CALL RAISE_ERROR(ERRLVL_warn, 13, OUT, 0, 0, &
+                                     'Could not set traps for floating-point exceptions')
 
-        RETURN
-    END SUBROUTINE ALTRAP
+      RETURN
+   END SUBROUTINE ALTRAP
 
 END MODULE mod_load_filedata

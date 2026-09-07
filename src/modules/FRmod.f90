@@ -86,6 +86,7 @@ MODULE FRmod
    USE UTILSMOD, ONLY: AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata, ONLY: ALINTP, ALCHK, ALCHKI
 
+   USE tolerance_testing, ONLY: idimje, notzero
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
                         errstat_rewind, errstat_read, errstat_write, &
@@ -521,13 +522,13 @@ CONTAINS
 1500  FORMAT(/'   INDEX   DXQQ (M)   DYQQ (M)     AREA (M^^2)'/)
 1600  FORMAT(' ', 4X, I6, 4X, F7.2, 4X, F7.2, 4X, F12.2)
 1700  FORMAT(/' TOTAL CATCHMENT AREA = ', F12.3, ' SQ. METRES. '/ &
-        &        ' BASIC CATCHMENT AREA = ', F12.3, ' SQ. METRES. '/ &
-        &  ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
-        &  F12.3, ' %'/)
+          &        ' BASIC CATCHMENT AREA = ', F12.3, ' SQ. METRES. '/ &
+          &  ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
+          &  F12.3, ' %'/)
 1750  FORMAT(/' TOTAL CATCHMENT AREA = ', F12.3, ' SQ. KM. '/ &
-        &        ' BASIC CATCHMENT AREA = ', F12.3, ' SQ. KM. '/ &
-        &  ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
-        &  F12.3, ' %'/)
+          &        ' BASIC CATCHMENT AREA = ', F12.3, ' SQ. KM. '/ &
+          &  ' DIFFERENCE INTRODUCED BY CHANNEL SYSTEM AND BANKS = ', &
+          &  F12.3, ' %'/)
 
    END SUBROUTINE FRDIM
 
