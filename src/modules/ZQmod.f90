@@ -43,7 +43,7 @@ module ZQmod
    USE AL_C, ONLY: DTUZ, UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
    USE AL_D, ONLY: zqd, NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill     ! module state shared with OCQDQ
    USE mod_parameters                                                          ! general parameters
-   USE mod_error, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read
+   USE mod_error, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read, errstat_rewind
 
    IMPLICIT NONE
 
@@ -206,7 +206,8 @@ CONTAINS
       CALL errstat_alloc(ios, "headerCharArray", location, emsg)
       ALLOCATE (headerRealArray(maxnumberCols, NoZQTables), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "headerRealArray", location, emsg)
-      REWIND (zqd)
+      REWIND (zqd, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_rewind(ios, fid=zqd, iomsg=emsg)
 
       ! read ZQ metadata
       READ (zqd, *, IOSTAT=ios)                                                        ! skip line 1

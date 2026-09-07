@@ -45,6 +45,7 @@ MODULE mod_error
    PUBLIC :: errstat_fileopen, errstat_fileclose
    PUBLIC :: errstat_alloc, errstat_dealloc
    PUBLIC :: errstat_read, errstat_write
+   PUBLIC :: errstat_rewind
    PUBLIC :: ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
    PUBLIC :: FID_logfile
    PUBLIC :: ERR_limit_error_codes
@@ -68,6 +69,7 @@ MODULE mod_error
    INTEGER(KIND=I_P), PARAMETER :: ERRCODE_deallocate = 23 !! Code reported for a failed deallocation.
    INTEGER(KIND=I_P), PARAMETER :: ERRCODE_read = 24 !! Code reported for a failed read.
    INTEGER(KIND=I_P), PARAMETER :: ERRCODE_write = 25 !! Code reported for a failed write.
+   INTEGER(KIND=I_P), PARAMETER :: ERRCODE_rewind = 26 !! Code reported for a failed rewind.
 
    ! --------------------------------------------------------------------
    ! Error accounting
@@ -328,6 +330,63 @@ CONTAINS
          CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_write, FID_logfile, 0, 0, TRIM(msg))
       END IF
    END SUBROUTINE errstat_write
+
+   !> summary: Standardised check for rewinding file return status.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Standardised check for rewinding file return status.
+   !>
+   !> Pass `iomsg` the string filled by the `IOMSG=` specifier of the failing
+   !> `REWIND` statement to have the processor's explanatory text for `status`
+   !> included in the diagnostic.
+   !>
+   !> Both `filename` and `fid` are optional, but at least one of them should be
+   !> given so that the report identifies the file. If `filename` is absent the
+   !> name is recovered from `fid` with an `INQUIRE`, which works as long as the
+   !> unit is still connected to a named file. Where no name can be established
+   !> the unit number is reported instead.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-09-07 | SvB | Initial version. |
+   !> @endhistory
+   SUBROUTINE errstat_rewind(status, filename, fid, iomsg)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! Return status from file rewinding.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: filename !! Name of the file being rewound.
+      INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: fid !! Unit ID of the file being rewound.
+      CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: iomsg !! Text from the `IOMSG=` specifier of the failing `REWIND`.
+
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Constructed message for the error report.
+      CHARACTER(LEN=LENGTH_FILEPATH) :: name !! Name of the file, either given or inquired from `fid`.
+      INTEGER(KIND=I_P) :: stat_inquire !! Return status of the `INQUIRE` recovering the name.
+      LOGICAL :: is_open !! `.TRUE.` if `fid` is still connected to a file.
+      LOGICAL :: is_named !! `.TRUE.` if the file connected to `fid` has a name.
+
+      IF (status /= 0) THEN
+         name = ''
+         IF (PRESENT(filename)) THEN
+            name = filename
+         ELSE IF (PRESENT(fid)) THEN
+            INQUIRE (UNIT=fid, OPENED=is_open, NAMED=is_named, NAME=name, IOSTAT=stat_inquire)
+            IF (stat_inquire /= 0 .OR. .NOT. is_open .OR. .NOT. is_named) name = ''
+         END IF
+
+         IF (LEN_TRIM(name) > 0) THEN
+            msg = 'Error rewinding file: '//TRIM(name)
+         ELSE IF (PRESENT(fid)) THEN
+            msg = 'Error rewinding file on unit '//to_string(fid)
+         ELSE
+            msg = 'Error rewinding file'
+         END IF
+
+         msg = TRIM(msg)//' (status '//to_string(status)//')'
+         IF (PRESENT(iomsg)) THEN
+            IF (LEN_TRIM(iomsg) > 0) msg = TRIM(msg)//': '//TRIM(iomsg)
+         END IF
+         CALL RAISE_ERROR(ERRLVL_fatal, ERRCODE_rewind, FID_logfile, 0, 0, TRIM(msg))
+      END IF
+   END SUBROUTINE errstat_rewind
 
    !> summary: Reports a SHETRAN diagnostic, records it, and terminates fatal runs.
    !>

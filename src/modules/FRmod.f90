@@ -87,6 +87,7 @@ MODULE FRmod
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
+                        errstat_rewind, &
                         RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE SMmod, ONLY: head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
@@ -1272,6 +1273,7 @@ CONTAINS
 
       ! Locals, etc
       INTEGER :: IEL, IFACE, JEL, K, ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
       DOUBLE PRECISION :: rdd(NELEE), rddq(NELEE, 4)
       CHARACTER(LEN=20) :: AIOSTO
       CHARACTER(LEN=10) :: atemp
@@ -1326,16 +1328,24 @@ CONTAINS
       IF (iszq) CALL ReadZQTable
 
       ! close data input file units
-      REWIND (FRD) ! CLOSE (FRD) for AD
-      REWIND (VSD) ! CLOSE (VSD) for AD
-      REWIND (OCD) ! CLOSE (OCD) for AD
-      REWIND (ETD) ! CLOSE (ETD) for AD
-      REWIND (SMD) ! CLOSE (SMD) for AD
-      REWIND (BKD) ! CLOSE (BKD) for AD
-      REWIND (VSI) ! CLOSE (VSI) for AD
+      REWIND (FRD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (FRD) for AD
+      CALL errstat_rewind(ios, fid=FRD, iomsg=emsg)
+      REWIND (VSD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (VSD) for AD
+      CALL errstat_rewind(ios, fid=VSD, iomsg=emsg)
+      REWIND (OCD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (OCD) for AD
+      CALL errstat_rewind(ios, fid=OCD, iomsg=emsg)
+      REWIND (ETD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (ETD) for AD
+      CALL errstat_rewind(ios, fid=ETD, iomsg=emsg)
+      REWIND (SMD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (SMD) for AD
+      CALL errstat_rewind(ios, fid=SMD, iomsg=emsg)
+      REWIND (BKD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (BKD) for AD
+      CALL errstat_rewind(ios, fid=BKD, iomsg=emsg)
+      REWIND (VSI, IOSTAT=ios, IOMSG=emsg) ! CLOSE (VSI) for AD
+      CALL errstat_rewind(ios, fid=VSI, iomsg=emsg)
       ! CALL RES FILE INPUT ROUTINE, IF REQUIRED
       ! IF (BSTORE) CALL INRES(BINFRP)
-      REWIND (PPD) ! CLOSE (PPD) for AD
+      REWIND (PPD, IOSTAT=ios, IOMSG=emsg) ! CLOSE (PPD) for AD
+      CALL errstat_rewind(ios, fid=PPD, iomsg=emsg)
 
       ! UPDATE HOTSTART TIME AND READ FROM FILE IF BHOTRD = TRUE
       HOTIME = zero
@@ -1906,7 +1916,8 @@ CONTAINS
                IF (I == 22) THEN
                   BTIME = .TRUE.
                   WRITE (TIM, *) 'Reading data sets ...'
-                  REWIND (TIM)
+                  REWIND (TIM, IOSTAT=ios, IOMSG=emsg)
+                  CALL errstat_rewind(ios, fid=TIM, iomsg=emsg)
                END IF
             END IF
          END IF

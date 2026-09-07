@@ -99,8 +99,8 @@ MODULE visualisation_interface_left
    USE SED_CS, ONLY: dls, gnu, nnnsed => nsed, qsed
    USE OCmod2, ONLY: hrfzz
 
-   USE MOD_PARAMETERS, ONLY: I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, RAISE_ERROR, ERRLVL_fatal, FID_logfile
 
    IMPLICIT NONE
    INTEGER, PARAMETER :: east = 1          !! Native SHETRAN east-face number.
@@ -490,6 +490,7 @@ CONTAINS
       CHARACTER(4)  :: dd   !! Current fixed-length tag record.
       CHARACTER(64) :: mess !! Error message passed to `ERROR`.
       INTEGER       :: ios  !! Input/output status from the current read.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
 
       scan_loop: DO
          READ (cmd, '(A)', IOSTAT=ios) dd
@@ -516,7 +517,8 @@ CONTAINS
 
       END DO scan_loop
 
-      REWIND (cmd)
+      REWIND (cmd, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_rewind(ios, fid=cmd, iomsg=emsg)
 
    END SUBROUTINE get_ncon_early
 
@@ -543,6 +545,7 @@ CONTAINS
       CHARACTER(5)  :: dd   !! Current fixed-length tag record.
       CHARACTER(64) :: mess !! Error message passed to `ERROR`.
       INTEGER       :: ios  !! Input/output status from the current read.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
 
       scan_loop: DO
          READ (syd, '(A)', IOSTAT=ios) dd
@@ -569,7 +572,8 @@ CONTAINS
 
       END DO scan_loop
 
-      REWIND (syd)
+      REWIND (syd, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_rewind(ios, fid=syd, iomsg=emsg)
 
    END SUBROUTINE get_nsed_early
 

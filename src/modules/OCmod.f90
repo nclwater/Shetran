@@ -42,7 +42,7 @@ MODULE OCmod
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_fatal, &
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, RAISE_ERROR, ERRLVL_fatal, &
       ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
@@ -1873,6 +1873,8 @@ CONTAINS
       DOUBLE PRECISION :: DET, SMIN, CDRS
       LOGICAL          :: BIOWAT, BOUT
       CHARACTER(81)    :: MSG
+      INTEGER(KIND=I_P) :: ios !! Status from the closing `REWIND`.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND`.
 
       INTEGER, PARAMETER :: NC(11) = [0, 0, 0, 0, 5, 0, 4, 4, 0, 0, 5]
       CHARACTER(11), PARAMETER :: CTYPE(11) = ['impermeable', '  grid-grid', '       head', ' flux      ', &
@@ -1982,7 +1984,8 @@ CONTAINS
       END IF
 
       !              FINISH
-      REWIND (OCD)
+      REWIND (OCD, IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_rewind(ios, fid=OCD, iomsg=emsg)
 
       IF (IXER /= 0) THEN
          WRITE (MSG, 9412) IXER

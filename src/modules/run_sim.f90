@@ -52,7 +52,7 @@ MODULE run_sim
    USE SGLOBAL
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, RAISE_ERROR, ERRLVL_fatal
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, RAISE_ERROR, ERRLVL_fatal
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
       ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
@@ -386,7 +386,8 @@ CONTAINS
          END IF
          ! time-couter file
          IF (BTIME) THEN
-            REWIND (TIM)
+            REWIND (TIM, IOSTAT=ios, IOMSG=emsg)
+            CALL errstat_rewind(ios, fid=TIM, iomsg=emsg)
             WRITE (TIM, 9800) UZNOW, NSTEP
          END IF
          CALL RECORD_VISUALISATION_DATA(REAL(uznow, KIND=4))  !VISVISVIS
