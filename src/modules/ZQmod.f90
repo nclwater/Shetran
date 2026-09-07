@@ -22,6 +22,7 @@
 !> | 2026-04-03 | SvB | | Removed a non-standard trailing comma from a `WRITE` statement in [[ReadZQTable]] (accepted by some compilers as an extension, but not standard Fortran). |
 !> | 2026-04-03 | SvB | | Modernised [[ReadZQTable]] to free-form style: replaced `GOTO`/labelled `STOP` error handling with `IOSTAT` checks and a centralised internal `handle_zq_error` subroutine, made the header-token counting and splitting loops robust to runs of multiple spaces via `ADJUSTL`, and switched to unlimited-repeat `(*(...))` format descriptors for the log output. |
 !> | 2026-09-06 | SvB | | Replaced the internal `handle_zq_error` subroutine in [[ReadZQTable]] with the standardised [[mod_error]] status checks ([[mod_error:errstat_fileopen]], [[mod_error:errstat_read]]). |
+!> | 2026-09-07 | SvB | | Status-checked the `output_readZQTable.txt` log `WRITE`s through [[mod_error:errstat_write]]. |
 !> @endhistory
 !>
 !> @note The table parser assumes space-delimited input and ascending
@@ -43,7 +44,7 @@ module ZQmod
    USE AL_C, ONLY: DTUZ, UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
    USE AL_D, ONLY: zqd, NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill     ! module state shared with OCQDQ
    USE mod_parameters                                                          ! general parameters
-   USE mod_error, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read, errstat_rewind
+   USE mod_error, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read, errstat_rewind, errstat_write
 
    IMPLICIT NONE
 
@@ -271,19 +272,21 @@ CONTAINS
          END DO
 
          ! write ZQTables to fid_ZQ_log.fort
-         WRITE (fid_ZQ_log, *) 'ZQTableRef   =', ZQTableRef
-         WRITE (fid_ZQ_log, *) 'ZQTableLink  =', ZQTableLink(i)
-         WRITE (fid_ZQ_log, *) 'ZQTableFace  =', ZQTableFace(i)
-         WRITE (fid_ZQ_log, *) 'ZQTableOpHour=', ZQTableOpHour(i)
-         WRITE (fid_ZQ_log, *) 'nZQcols      =', nZQcols(i)
-         WRITE (fid_ZQ_log, *) 'nZQrows      =', nZQrows(i)
+         ios = 0
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableRef   =', ZQTableRef
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableLink  =', ZQTableLink(i)
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableFace  =', ZQTableFace(i)
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableOpHour=', ZQTableOpHour(i)
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'nZQcols      =', nZQcols(i)
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'nZQrows      =', nZQrows(i)
 
          ! Uses the modern unlimited repeat formatter "(*(...))"
-         WRITE (fid_ZQ_log, '(A, *(A10))') 'ZQ headers: ', headerRawArray(1:nZQcols(i), i)
+         IF (ios == 0) WRITE (fid_ZQ_log, '(A, *(A10))', IOSTAT=ios, IOMSG=emsg) 'ZQ headers: ', headerRawArray(1:nZQcols(i), i)
 
          DO printRow = 1, nZQrows(i)
-            WRITE (fid_ZQ_log, '(*(F12.3))') (ZQ(printRow, printCol, i), printCol=1, nZQcols(i))
+            IF (ios == 0) WRITE (fid_ZQ_log, '(*(F12.3))', IOSTAT=ios, IOMSG=emsg) (ZQ(printRow, printCol, i), printCol=1, nZQcols(i))
          END DO
+         CALL errstat_write(ios, location//' (ZQ table log)', emsg, 'output_readZQTable.txt')
       END DO
 
       CLOSE (zqd, IOSTAT=ios, IOMSG=emsg)

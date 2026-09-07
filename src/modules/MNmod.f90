@@ -56,7 +56,7 @@ module MNmod
    use sglobal, only: llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_write, RAISE_ERROR, ERRLVL_fatal, FID_logfile
 
    use mod_load_filedata, only: alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
    use utilsmod, only: hour_from_date, tridag
@@ -3842,6 +3842,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
+!> | 2026-09-07 | SvB | - | Status-checked the carbon/nitrogen budget `WRITE`s through [[mod_error:errstat_write]]. |
    SUBROUTINE MNOUT(MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, CNRHUM, GNN, MNCREF, DELTAZ, &
       KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
 
@@ -3985,8 +3986,10 @@ CONTAINS
 
          MNSTRT = UZNOW
 
-         WRITE (MNOUT2, '(/A30,G16.8)') 'initial nitrogen (kg n m-2) = ', TOTN/TAREA
-         WRITE (MNOUT1, '(/A28,G16.8)') 'initial carbon (kg c m-2) = ', TOTC/TAREA
+         ios = 0
+         IF (ios == 0) WRITE (MNOUT2, '(/A30,G16.8)', IOSTAT=ios, IOMSG=emsg) 'initial nitrogen (kg n m-2) = ', TOTN/TAREA
+         IF (ios == 0) WRITE (MNOUT1, '(/A28,G16.8)', IOSTAT=ios, IOMSG=emsg) 'initial carbon (kg c m-2) = ', TOTC/TAREA
+         CALL errstat_write(ios, location//' (initial carbon/nitrogen budget)', emsg)
       END IF
 
       ! Main simulation timestep updates
@@ -4056,15 +4059,17 @@ CONTAINS
 
          NPRNT = NPRNT + 1
 
-         WRITE (MNOUT1, '(///A7,G12.5,A6)') 'time = ', UZNOW, ' hours'
-         WRITE (MNOUT2, '(///A7,G12.5,A6)') 'time = ', UZNOW, ' hours'
+         ios = 0
+         IF (ios == 0) WRITE (MNOUT1, '(///A7,G12.5,A6)', IOSTAT=ios, IOMSG=emsg) 'time = ', UZNOW, ' hours'
+         IF (ios == 0) WRITE (MNOUT2, '(///A7,G12.5,A6)', IOSTAT=ios, IOMSG=emsg) 'time = ', UZNOW, ' hours'
 
-         WRITE (MNOUT2, '(A28,G16.8)') 'total nitrogen (kg n m-2) = ', TOTN/TAREA
-         WRITE (MNOUT2, '(A33,G16.8)') 'total nitrogen added (kg n m-2)= ', TOTADN/TAREA
-         WRITE (MNOUT2, '(A32,G16.8)') 'total nitrogen lost (kg n m-2) = ', TOTLOS/TAREA
-         WRITE (MNOUT1, '(A26,G16.8)') 'total carbon (kg c m-2) = ', TOTC/TAREA
-         WRITE (MNOUT1, '(A32,G16.8)') 'total carbon added (kg c m-2) = ', TOTADC/TAREA
-         WRITE (MNOUT1, '(A28,G16.8)') 'total co2 lost (kg c m-2) = ', TOTCO2/TAREA
+         IF (ios == 0) WRITE (MNOUT2, '(A28,G16.8)', IOSTAT=ios, IOMSG=emsg) 'total nitrogen (kg n m-2) = ', TOTN/TAREA
+         IF (ios == 0) WRITE (MNOUT2, '(A33,G16.8)', IOSTAT=ios, IOMSG=emsg) 'total nitrogen added (kg n m-2)= ', TOTADN/TAREA
+         IF (ios == 0) WRITE (MNOUT2, '(A32,G16.8)', IOSTAT=ios, IOMSG=emsg) 'total nitrogen lost (kg n m-2) = ', TOTLOS/TAREA
+         IF (ios == 0) WRITE (MNOUT1, '(A26,G16.8)', IOSTAT=ios, IOMSG=emsg) 'total carbon (kg c m-2) = ', TOTC/TAREA
+         IF (ios == 0) WRITE (MNOUT1, '(A32,G16.8)', IOSTAT=ios, IOMSG=emsg) 'total carbon added (kg c m-2) = ', TOTADC/TAREA
+         IF (ios == 0) WRITE (MNOUT1, '(A28,G16.8)', IOSTAT=ios, IOMSG=emsg) 'total co2 lost (kg c m-2) = ', TOTCO2/TAREA
+         CALL errstat_write(ios, location//' (periodic carbon/nitrogen budget)', emsg)
       END IF
 
    END SUBROUTINE MNOUT
@@ -4156,6 +4161,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2026-09-06 | SvB | Checked both plant-file `CLOSE` statements through [[mod_error:errstat_fileclose]], which recovers the filename from the unit. |
+!> | 2026-09-07 | SvB | Status-checked the `MNOUTPL` title `WRITE` through [[mod_error:errstat_write]]. |
 !> @endhistory
    SUBROUTINE MNPLANTINITIALISE(MNPL, MNOUTPL, NEL, NLF, NV, NVC, RHOPL, DELONE, DXQQ, DYQQ, PLAI, CLAI)
 
@@ -4175,7 +4181,8 @@ CONTAINS
 
       CALL ALRED2(0, MNPL, MNOUTPL, 'mnptin')
       CALL ALREDC(0, MNPL, MNOUTPL, ':MNP1', 1, 1, CDUM)
-      WRITE (MNOUTPL, '(/1x,A/)') CDUM
+      WRITE (MNOUTPL, '(/1x,A/)', IOSTAT=ios, IOMSG=emsg) CDUM
+      CALL errstat_write(ios, "MNmod:MNPLANTINITIALISE", emsg)
 
       DO I = 1, NV
          CALL ALREDI(0, MNPL, MNOUTPL, ':MNP10', 1, 1, IDUM)

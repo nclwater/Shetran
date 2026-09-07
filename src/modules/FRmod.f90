@@ -88,7 +88,7 @@ MODULE FRmod
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
-                        errstat_rewind, errstat_read, &
+                        errstat_rewind, errstat_read, errstat_write, &
                         RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
 
    USE SMmod, ONLY: head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
@@ -2204,6 +2204,7 @@ CONTAINS
 !> | 2005-2024 | SB | 4.x | Added every-step and regular discharge, mass-balance, virtual-station, water-table, sediment, and contaminant text output. |
 !> | 2026-05-03 | SvB | 4.6.1 | Split the monolithic phase logic into contained helpers. |
 !> | 2026-09-06 | SvB | - | Checked every output-file `OPEN` through [[mod_error:errstat_fileopen]], reporting `IOSTAT`/`IOMSG`. |
+!> | 2026-09-07 | SvB | - | Status-checked the remaining bare header/state `WRITE`s via `write_checked` / `stop_on_io_error`. |
 !> @endhistory
    SUBROUTINE FROUTPUT(SIMPOS)
 
@@ -2289,26 +2290,29 @@ CONTAINS
                             'Error writing to the discharge every timestep at the catchment outlet file '// &
                             '(unit 41 in the rundata file)')
 
-         WRITE (dis2, '(A)', IOSTAT=ios) &
-            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet_Discharge(m3/s)'
+         CALL write_checked(dis2, &
+                            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet_Discharge(m3/s)', &
+                            'Error writing the every-timestep discharge column header to the catchment outlet '// &
+                            'file (unit 41 in the rundata file)')
 
          CALL write_checked(mas, &
                             'Spatially Averaged Totals (mm) over the simulation', &
                             'Error writing to the the mass balance data file (unit 43 in the rundata file)')
 
-         WRITE (mas, '(A)') &
-            'Time(Hours),'// &
-            'Cumulative_Precipitation,'// &
-            'Cumulative_Canopy_Evaporation,'// &
-            'Cumulative_Soil_Evaporation,'// &
-            'Cumulative_Transpiration,'// &
-            'Cumulative_Aquifer_Flow,'// &
-            'Cumulative_Discharge,'// &
-            'Canopy_Storage,'// &
-            'Snow_Storage,'// &
-            'Subsurface_Storage,'// &
-            'Land_Surface_Storage,'// &
-            'Channel_Storage'
+         CALL write_checked(mas, &
+                            'Time(Hours),'// &
+                            'Cumulative_Precipitation,'// &
+                            'Cumulative_Canopy_Evaporation,'// &
+                            'Cumulative_Soil_Evaporation,'// &
+                            'Cumulative_Transpiration,'// &
+                            'Cumulative_Aquifer_Flow,'// &
+                            'Cumulative_Discharge,'// &
+                            'Canopy_Storage,'// &
+                            'Snow_Storage,'// &
+                            'Subsurface_Storage,'// &
+                            'Land_Surface_Storage,'// &
+                            'Channel_Storage', &
+                            'Error writing the column header to the mass balance data file (unit 43 in the rundata file)')
 
          WRITE (dis, '(A,F8.2,A)', IOSTAT=ios) &
             'Simulated discharge(m3/s) at the outlet - regular timestep ', &
@@ -2485,12 +2489,15 @@ CONTAINS
          OPEN (PSLFILEUNIT, FILE=filnam, IOSTAT=ios, IOMSG=emsg)
          CALL errstat_fileopen(ios, filnam, emsg)
 
-         WRITE (PSLFILEUNIT, '(A)') &
-            'Water_Table_depth(m_below_ground). A negative number '// &
-            'means there is surface water with the absolute value '// &
-            'the depth of surface water'
-         WRITE (PSLFILEUNIT, '(A,*(A,I0))') 'Time(hours)', &
+         CALL write_checked(PSLFILEUNIT, &
+                            'Water_Table_depth(m_below_ground). A negative number '// &
+                            'means there is surface water with the absolute value '// &
+                            'the depth of surface water', &
+                            'Error writing to the water-table depth output file '//TRIM(filnam))
+
+         WRITE (PSLFILEUNIT, '(A,*(A,I0))', IOSTAT=ios) 'Time(hours)', &
             (', Element-', pslextraelement(j), j=1, pslextrapoints)
+         CALL stop_on_io_error(ios, 'Error writing the column header to the water-table depth output file '//TRIM(filnam))
       END SUBROUTINE initialise_extra_water_table_output
 
 !> @brief Selects the outlet link and face used by text and mass-balance output.
@@ -2534,12 +2541,17 @@ CONTAINS
 !> @endhistory
       SUBROUTINE write_discharge_header()
          IF (ISextradis) THEN
-            WRITE (dis, '(*(A,I0))') &
+            WRITE (dis, '(*(A,I0))', IOSTAT=ios) &
                'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-', &
                mblink, (',Channel-', disextraelement(j), j=1, disextrapoints)
+            CALL stop_on_io_error(ios, &
+                                  'Error writing the column header to the regular discharge at the catchment '// &
+                                  'outlet file (unit 44 in the rundata file)')
          ELSE
-            WRITE (dis, '(A)') &
-               'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge'
+            CALL write_checked(dis, &
+                               'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge', &
+                               'Error writing the column header to the regular discharge at the catchment '// &
+                               'outlet file (unit 44 in the rundata file)')
          END IF
       END SUBROUTINE write_discharge_header
 
@@ -2567,15 +2579,17 @@ CONTAINS
             'Sediment discharge at the outlet - All Sediments. '// &
             'This is the mean value over the timestep with the date at the start of the timestep'
          CALL stop_on_io_error(ios, 'Error writing to the sed-all-daily-output.csv file')
-         WRITE (SEDALLUNIT, '(A)') &
-            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
+         CALL write_checked(SEDALLUNIT, &
+                            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)', &
+                            'Error writing the column header to the sed-all-daily-output.csv file')
 
          WRITE (SEDFINEUNIT, '(A)', IOSTAT=ios) &
             'Sediment discharge at the outlet - Fine Sediments. '// &
             'This is the mean value over the timestep with the date at the start of the timestep'
          CALL stop_on_io_error(ios, 'Error writing to the sed-fine-daily-output.csv file')
-         WRITE (SEDFINEUNIT, '(A)') &
-            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)'
+         CALL write_checked(SEDFINEUNIT, &
+                            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Outlet-Discharge(kg/s)', &
+                            'Error writing the column header to the sed-fine-daily-output.csv file')
 
          sedav = ZERO
       END SUBROUTINE initialise_sediment_output
@@ -2599,8 +2613,9 @@ CONTAINS
             'Contaminant Relative Concentration (contaminant 1) at the outlet. '// &
             'This is the mean value over the timestep with the date at the start of the timestep.'
          CALL stop_on_io_error(ios, 'Error writing to the contaminant.csv file')
-         WRITE (CONTAMUNIT, '(A)') &
-            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Relative_concentration'
+         CALL write_checked(CONTAMUNIT, &
+                            'Date_yyyy-mm-dd_HH:MM:SS,Time(hours),Relative_concentration', &
+                            'Error writing the column header to the contaminant.csv file')
       END SUBROUTINE initialise_contaminant_output
 
 !> @brief Processes all additional output for one model timestep.
@@ -2952,10 +2967,13 @@ CONTAINS
 !> | 2026-05-03 | SvB | Extracted end-of-simulation state output from `FROUTPUT`. |
 !> @endhistory
       SUBROUTINE write_final_state()
-         WRITE (vse, *) 'Output at end of simulation for use as initial conditions in vsi file'
-         WRITE (vse, *) 'This output is by element number'
-         WRITE (vse, *)
-         WRITE (vse, *) 'phreatic surface level '
+         ! The individual records are written unconditionally; ios carries the
+         ! first failure through to a single fatal check at the end.
+         ios = 0
+         IF (ios == 0) WRITE (vse, *, IOSTAT=ios) 'Output at end of simulation for use as initial conditions in vsi file'
+         IF (ios == 0) WRITE (vse, *, IOSTAT=ios) 'This output is by element number'
+         IF (ios == 0) WRITE (vse, *, IOSTAT=ios)
+         IF (ios == 0) WRITE (vse, *, IOSTAT=ios) 'phreatic surface level '
 
          IF (bexbk) THEN
             nminel = 1
@@ -2963,17 +2981,21 @@ CONTAINS
             nminel = total_no_links + 1
          END IF
 
-         WRITE (vse, '(10(1X,F9.3))') (zvspsl(j), j=nminel, total_no_elements)
-         WRITE (vse, *)
-         WRITE (vse, *) 'Heads at end of simulation'
+         IF (ios == 0) WRITE (vse, '(10(1X,F9.3))', IOSTAT=ios) (zvspsl(j), j=nminel, total_no_elements)
+         IF (ios == 0) WRITE (vse, *, IOSTAT=ios)
+         IF (ios == 0) WRITE (vse, *, IOSTAT=ios) 'Heads at end of simulation'
 
          DO iel = 1, total_no_elements
-            IF (bexbk .OR. iel > total_no_links) THEN
-               WRITE (vse, '(I7)') iel
-               WRITE (vse, '(10(1X,F9.3))') &
+            IF (ios == 0 .AND. (bexbk .OR. iel > total_no_links)) THEN
+               WRITE (vse, '(I7)', IOSTAT=ios) iel
+               IF (ios == 0) WRITE (vse, '(10(1X,F9.3))', IOSTAT=ios) &
                   (VSPSI(j, iel), j=nlyrbt(iel, 1), top_cell_no)
             END IF
          END DO
+
+         CALL stop_on_io_error(ios, &
+                               'Error writing the end-of-simulation VSS state to the vsi initial-conditions '// &
+                               'file (unit 42 in the rundata file)')
       END SUBROUTINE write_final_state
 
 !> @brief Writes one text record and applies the standard fatal output check.
@@ -3087,6 +3109,25 @@ CONTAINS
       WRITE (dis2, '(A,A1,F0.5,A1,A)') TRIM(dum), ',', tme, ',', TRIM(bufdis2)
    END SUBROUTINE write_dis2
 
+!> @brief Fatal check for an unformatted restart/result-file `WRITE` in `FRRESC` / `FRRESP`.
+!>
+!> The restart and per-set result files hold heterogeneous array records that
+!> cannot pass through a single typed wrapper, so each `WRITE` carries its own
+!> `IOSTAT=`/`IOMSG=` and calls this routine, which forwards a non-zero status to
+!> [[mod_error:errstat_write]] together with the resolved result-file stem.
+!>
+!> @history
+!> | Date | Author | Description |
+!> |:-----|:-------|:------------|
+!> | 2026-09-07 | SvB | Initial version, wiring the `RES` / `IORES` writes to `errstat_write`. |
+!> @endhistory
+   SUBROUTINE res_write_check(status, iomsg)
+      INTEGER(KIND=I_P), INTENT(IN) :: status !! `IOSTAT=` value from the restart/result-file `WRITE`.
+      CHARACTER(LEN=*), INTENT(IN)  :: iomsg  !! `IOMSG=` text from the restart/result-file `WRITE`.
+
+      CALL errstat_write(status, 'FRRESC/FRRESP unformatted result file', iomsg, TRIM(RESFIL))
+   END SUBROUTINE res_write_check
+
 !> @brief Writes result-file control headers and opens unformatted result datasets.
 !>
 !> `FRRESC` serialises output class definitions and common model metadata to the
@@ -3121,6 +3162,7 @@ CONTAINS
 !> | 1997-1998 | RAH | 4.0-4.2 | Updated VSS metadata, array ordering, output classes, and unformatted result-file setup. |
 !> | 2026-09-06 | SvB | - | Checked the unformatted result-file `OPEN` through [[mod_error:errstat_fileopen]]. |
 !> | 2026-09-06 | SvB | - | Checked the result-file `CLOSE` through [[mod_error:errstat_fileclose]]. |
+!> | 2026-09-07 | SvB | - | Checked every unformatted header `WRITE` through `res_write_check` / [[mod_error:errstat_write]]. |
 !> @endhistory
    SUBROUTINE FRRESC
 
@@ -3135,130 +3177,198 @@ CONTAINS
       INTEGER :: ios
       CHARACTER(2) :: ANUM
       CHARACTER(128) :: fname
-      CHARACTER(LEN=LENGTH_LINE) :: emsg !! IOMSG= text from a failed result-file OPEN.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! IOMSG= text from a failed result-file OPEN or WRITE.
 
       ! WRITE SHETRAN VERSION
       !1
-      WRITE (RES) SHEVER
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) SHEVER
+      CALL res_write_check(ios, emsg)
 
       ! ALGCB1
       !2
-      WRITE (RES) NX, NY, NGDBGN, total_no_elements
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) NX, NY, NGDBGN, total_no_elements
+      CALL res_write_check(ios, emsg)
 
       ! ALGCB2
       !3-4
-      WRITE (RES) ((ICMREF(I, J), I=1, total_no_elements), J=1, 12)
-      WRITE (RES) ((ICMXY(I, J), I=1, NX), J=1, NY)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ICMREF(I, J), I=1, total_no_elements), J=1, 12)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ICMXY(I, J), I=1, NX), J=1, NY)
+      CALL res_write_check(ios, emsg)
 
       ! CFILE + DFILE (except SFB,SRB)
       !5
-      WRITE (RES) FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, &
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) FRD, VSD, OCD, ETD, PPD, SMD, BKD, SYD, CMD, MED, PRD, &
          EPD, TIM, FID_logfile, SPR, CMP, BUG, RES, HOT, VSI, VED, WLD, LFB, LHB, &
          LGB, BFB, BHB, OFB, OHB, CMT, CMB
+      CALL res_write_check(ios, emsg)
 
       ! ALCCB1
       !6
-      WRITE (RES) top_cell_no, total_no_links, NS, NV, ERRLVL_warn, ERRLVL_error, ERRLVL_fatal
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) top_cell_no, total_no_links, NS, NV, ERRLVL_warn, ERRLVL_error, ERRLVL_fatal
+      CALL res_write_check(ios, emsg)
 
       ! IVEG
       !7
-      WRITE (RES) (NRD(I), I=1, NV)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NRD(I), I=1, NV)
+      CALL res_write_check(ios, emsg)
 
       ! VEG
       !8
-      WRITE (RES) ((RDF(I, J), J=1, NRD(I)), I=1, NV)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((RDF(I, J), J=1, NRD(I)), I=1, NV)
+      CALL res_write_check(ios, emsg)
 
       ! CAREA (ALDCB3 - see also below) + ALCB1A
       !9
-      WRITE (RES) CAREA, TIH
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) CAREA, TIH
+      CALL res_write_check(ios, emsg)
 
       ! ALCCB3
       !10-11
-      WRITE (RES) (LINKNS(L), L=1, total_no_links)
-      WRITE (RES) BEXBK
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (LINKNS(L), L=1, total_no_links)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) BEXBK
+      CALL res_write_check(ios, emsg)
 
       ! ALCCB5
       !12-27
-      WRITE (RES) ((ICMBK(I, J), I=1, total_no_links), J=1, 2)
-      WRITE (RES) ((ICMRF2(I, J), I=1, total_no_links), J=1, 6)
-      WRITE (RES) (((JVSACN(K, J, I), K=1, 4), J=1, top_cell_no), I=1, total_no_elements)
-      WRITE (RES) (((JVSDEL(K, J, I), K=1, 4), J=1, top_cell_no), I=1, total_no_elements)
-      WRITE (RES) (NLYR(I), I=1, total_no_elements)
-      WRITE (RES) ((NLYRBT(I, J), J=1, NLYR(I)), I=1, total_no_elements)
-      WRITE (RES) (NBFACE(I), I=1, total_no_elements)
-      WRITE (RES) ((NHBED(I, J), I=1, total_no_links), J=1, 2)
-      WRITE (RES) ((NTSOIL(I, J), J=1, NLYR(I)), I=1, total_no_elements)
-      WRITE (RES) (NVC(I), I=1, total_no_elements)
-      WRITE (RES) (NVSSPC(I), I=1, total_no_elements)
-      WRITE (RES) (NVSSPT(I), I=1, total_no_elements)
-      WRITE (RES) (NVSWLI(I), I=1, total_no_elements)
-      WRITE (RES) (NVSWLT(I), I=1, total_no_elements)
-      WRITE (RES) (NWELBT(I), I=1, total_no_elements)
-      WRITE (RES) (NWELTP(I), I=1, total_no_elements)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ICMBK(I, J), I=1, total_no_links), J=1, 2)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ICMRF2(I, J), I=1, total_no_links), J=1, 6)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (((JVSACN(K, J, I), K=1, 4), J=1, top_cell_no), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (((JVSDEL(K, J, I), K=1, 4), J=1, top_cell_no), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NLYR(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((NLYRBT(I, J), J=1, NLYR(I)), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NBFACE(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((NHBED(I, J), I=1, total_no_links), J=1, 2)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((NTSOIL(I, J), J=1, NLYR(I)), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NVC(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NVSSPC(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NVSSPT(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NVSWLI(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NVSWLT(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NWELBT(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NWELTP(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
 
       ! ALCCB7 (except THSAT)
       !28-42
-      WRITE (RES) (cellarea(I), I=1, total_no_elements)
-      WRITE (RES) (CLENTH(I), I=1, total_no_links)
-      WRITE (RES) (CWIDTH(I), I=1, total_no_links)
-      WRITE (RES) ((DELTAZ(J, I), J=1, top_cell_no), I=1, total_no_elements)
-      WRITE (RES) ((DHF(I, J), I=1, total_no_elements), J=1, 4)
-      WRITE (RES) (DXQQ(I), I=1, total_no_elements)
-      WRITE (RES) (DYQQ(I), I=1, total_no_elements)
-      WRITE (RES) ((FHBED(I, J), I=1, total_no_links), J=1, 2)
-      WRITE (RES) (RDL(I), I=1, NV)
-      WRITE (RES) (VSPOR(I), I=1, NS)
-      WRITE (RES) (ZBEFF(I), I=1, total_no_links)
-      WRITE (RES) (ZBFULL(I), I=1, total_no_links)
-      WRITE (RES) (ZGRUND(I), I=1, total_no_elements)
-      WRITE (RES) ((ZLYRBT(I, J), J=1, NLYR(I)), I=1, total_no_elements)
-      WRITE (RES) ((ZVSNOD(J, I), J=1, top_cell_no), I=1, total_no_elements)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (cellarea(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (CLENTH(I), I=1, total_no_links)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (CWIDTH(I), I=1, total_no_links)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((DELTAZ(J, I), J=1, top_cell_no), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((DHF(I, J), I=1, total_no_elements), J=1, 4)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (DXQQ(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (DYQQ(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((FHBED(I, J), I=1, total_no_links), J=1, 2)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (RDL(I), I=1, NV)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (VSPOR(I), I=1, NS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (ZBEFF(I), I=1, total_no_links)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (ZBFULL(I), I=1, total_no_links)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (ZGRUND(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ZLYRBT(I, J), J=1, NLYR(I)), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ZVSNOD(J, I), J=1, top_cell_no), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
 
       ! ALDCB1 (except MBLINK,MBFACE,MBFLAG)
       !43
-      WRITE (RES) MSM, IDUM0, NM, NRAIN, NSET, NXP1, NYP1, NXM1, NYM1, &
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) MSM, IDUM0, NM, NRAIN, NSET, NXP1, NYP1, NXM1, NYM1, &
          NXE, NYE, NXEP1, NYEP1
+      CALL res_write_check(ios, emsg)
 
       ! ALDCB3 (except CAREA - see above)
       !44
-      WRITE (RES) FDUM0, DTMET, QMAX, BHOTTI, BHOTST, PMAX, PALFA, TMAX, BWIDTH, TTH
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) FDUM0, DTMET, QMAX, BHOTTI, BHOTST, PMAX, PALFA, TMAX, BWIDTH, TTH
+      CALL res_write_check(ios, emsg)
 
       ! ALDCB5
       !45
-      WRITE (RES) BEXET, LDUM0, LDUM0, BEXOC, LDUM0, BEXSM, LDUM0, &
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) BEXET, LDUM0, LDUM0, BEXOC, LDUM0, BEXSM, LDUM0, &
          BHOTPR, BHOTRD, BEXSY, BEXCM
+      CALL res_write_check(ios, emsg)
 
       ! ALDCB6 (except NOCBCC, NOCBCD)
       !46-59
-      WRITE (RES) (NMC(I), I=1, total_no_elements)
-      WRITE (RES) ((INGRID(I, J), I=1, NX), J=1, NY)
-      WRITE (RES) (NRAINC(I), I=1, total_no_elements)
-      WRITE (RES) (IOCORS(I), I=1, NSET)
-      WRITE (RES) (ICLNUM(I), I=1, NCLASS)
-      WRITE (RES) ((ICLIST(I, J), I=1, total_no_elements), J=1, NCLASS)
-      WRITE (RES) (IODATA(I), I=1, NSET)
-      WRITE (RES) (IOELEM(I), I=1, NSET)
-      WRITE (RES) ((LCODEX(I, J), I=1, NX), J=1, NY)
-      WRITE (RES) ((LCODEY(I, J), I=1, NX), J=1, NY)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NMC(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((INGRID(I, J), I=1, NX), J=1, NY)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (NRAINC(I), I=1, total_no_elements)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (IOCORS(I), I=1, NSET)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (ICLNUM(I), I=1, NCLASS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((ICLIST(I, J), I=1, total_no_elements), J=1, NCLASS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (IODATA(I), I=1, NSET)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (IOELEM(I), I=1, NSET)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((LCODEX(I, J), I=1, NX), J=1, NY)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((LCODEY(I, J), I=1, NX), J=1, NY)
+      CALL res_write_check(ios, emsg)
 
       ! ALDCB8 (except RHOSAR)
       !60-71
-      WRITE (RES) (DXIN(I), I=1, NX)
-      WRITE (RES) (DYIN(I), I=1, NY)
-      WRITE (RES) (IOSTA(I), I=1, NSET)
-      WRITE (RES) (IOSTEP(I), I=1, NSET)
-      WRITE (RES) (IOEND(I), I=1, NSET)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (DXIN(I), I=1, NX)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (DYIN(I), I=1, NY)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (IOSTA(I), I=1, NSET)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (IOSTEP(I), I=1, NSET)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (IOEND(I), I=1, NSET)
+      CALL res_write_check(ios, emsg)
 
       ! VSSOLI/VSSOLR (except VSPSS, VSPPOR)
       !72-79
-      WRITE (RES) NVSSOL
-      WRITE (RES) (VSPPSI(I), I=1, NVSSOL)
-      WRITE (RES) ((VSPTHE(I, J), I=1, NVSSOL), J=1, NS)
-      WRITE (RES) ((VSPKR(I, J), I=1, NVSSOL), J=1, NS)
-      WRITE (RES) ((VSPETA(I, J), I=1, NVSSOL), J=1, NS)
-      WRITE (RES) ((VSPDTH(I, J), I=1, NVSSOL), J=1, NS)
-      WRITE (RES) ((VSPDKR(I, J), I=1, NVSSOL), J=1, NS)
-      WRITE (RES) ((VSPDET(I, J), I=1, NVSSOL), J=1, NS)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) NVSSOL
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) (VSPPSI(I), I=1, NVSSOL)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((VSPTHE(I, J), I=1, NVSSOL), J=1, NS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((VSPKR(I, J), I=1, NVSSOL), J=1, NS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((VSPETA(I, J), I=1, NVSSOL), J=1, NS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((VSPDTH(I, J), I=1, NVSSOL), J=1, NS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((VSPDKR(I, J), I=1, NVSSOL), J=1, NS)
+      CALL res_write_check(ios, emsg)
+      WRITE (RES, IOSTAT=ios, IOMSG=emsg) ((VSPDET(I, J), I=1, NVSSOL), J=1, NS)
+      CALL res_write_check(ios, emsg)
 
       ! CLOSE RES FILE, SO THAT RESULTS CAN BE INSPECTED USING SHEGRAPH BEFORE
       ! SIMULATION HAS TERMINATED
@@ -3340,6 +3450,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1997-1998 | RAH | 4.1-4.2 | Updated VSS, sediment, contaminant, well, and water-balance result selectors. |
 !> | 2026-04-05 | SvB | 4.6.1 | Replaced removed legacy initialisers while retaining result-file layout. |
+!> | 2026-09-07 | SvB | - | Checked every unformatted result `WRITE` through `res_write_check` / [[mod_error:errstat_write]]. |
 !> @endhistory
    SUBROUTINE FRRESP(AIOSTO, RESNOW, NOW)
 
@@ -3360,6 +3471,8 @@ CONTAINS
 
       LOGICAL :: COLUMN
       INTEGER :: SED
+      INTEGER(KIND=I_P) :: ios !! `IOSTAT=` from an unformatted result-file `WRITE`.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from an unformatted result-file `WRITE`.
 
       ! --- LOOP OVER ALL OUTPUT SETS
       !
@@ -3429,7 +3542,8 @@ CONTAINS
                BUFFER(J) = QH(IEL)*3600000.0D0
             CASE (9)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (QVSV(K, IEL), K=1, top_cell_no)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (QVSV(K, IEL), K=1, top_cell_no)
+               CALL res_write_check(ios, emsg)
             CASE (10)
                BUFFER(J) = SD(IEL)
             CASE (11)
@@ -3438,10 +3552,12 @@ CONTAINS
                BUFFER(J) = ZVSPSL(IEL) - ZGRUND(IEL)
             CASE (13)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (((QVSH(KK, K, IEL)), K=1, top_cell_no), KK=1, 4)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (((QVSH(KK, K, IEL)), K=1, top_cell_no), KK=1, 4)
+               CALL res_write_check(ios, emsg)
             CASE (14)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (QOC(IEL, K), K=1, 4)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (QOC(IEL, K), K=1, 4)
+               CALL res_write_check(ios, emsg)
             CASE (15)
                BUFFER(J) = GETHRF(IEL) - ZGRUND(IEL)
             CASE (16)
@@ -3456,10 +3572,12 @@ CONTAINS
                BUFFER(J) = QVSSPR(IEL)
             CASE (19)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (VSPSI(K, IEL), K=1, top_cell_no)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (VSPSI(K, IEL), K=1, top_cell_no)
+               CALL res_write_check(ios, emsg)
             CASE (20)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (VSTHE(K, IEL), K=1, top_cell_no)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (VSTHE(K, IEL), K=1, top_cell_no)
+               CALL res_write_check(ios, emsg)
             CASE (21)
                DUM0 = DLS(IEL)
                IF (ICORS > 0) DUM0 = DUM0*FBETA(IEL, ICORS)
@@ -3487,7 +3605,8 @@ CONTAINS
                   END DO
                   DUM1(K) = DUM0*RHOSED
                END DO
-               WRITE (IORES(ISET)) RESNOW, DUM1
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, DUM1
+               CALL res_write_check(ios, emsg)
             CASE (28)
                DUM0 = 0.0D0
                DO SED = SFSED1, SFSED2
@@ -3514,15 +3633,18 @@ CONTAINS
                   END DO
                   DUM1(K) = 1.0D3*DUM0*RHOSED
                END DO
-               WRITE (IORES(ISET)) RESNOW, (DUM1(K), K=1, 4)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (DUM1(K), K=1, 4)
+               CALL res_write_check(ios, emsg)
             CASE (31)
                BUFFER(J) = ARBDEP(IEL)
             CASE (32)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (CCCC(IEL, K, ICORS), K=1, top_cell_no)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (CCCC(IEL, K, ICORS), K=1, top_cell_no)
+               CALL res_write_check(ios, emsg)
             CASE (33)
                COLUMN = .TRUE.
-               WRITE (IORES(ISET)) RESNOW, (SSSS(IEL, K, ICORS), K=1, top_cell_no)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (SSSS(IEL, K, ICORS), K=1, top_cell_no)
+               CALL res_write_check(ios, emsg)
             CASE (34)
                BUFFER(J) = CCCC(IEL, top_cell_no, ICORS)
             CASE (35)
@@ -3549,7 +3671,8 @@ CONTAINS
                      COLBUF(K) = 0.0D0
                   END DO
                END IF
-               WRITE (IORES(ISET)) RESNOW, (COLBUF(K), K=1, top_cell_no)
+               WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (COLBUF(K), K=1, top_cell_no)
+               CALL res_write_check(ios, emsg)
             CASE (43)
                BUFFER(J) = WBERR(IEL)
             CASE (44)
@@ -3562,7 +3685,10 @@ CONTAINS
 
          END DO
 
-         IF (.NOT. COLUMN) WRITE (IORES(ISET)) RESNOW, (BUFFER(J), J=1, NOUT)
+         IF (.NOT. COLUMN) THEN
+            WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (BUFFER(J), J=1, NOUT)
+            CALL res_write_check(ios, emsg)
+         END IF
 
          IOTIME(ISET) = RESNOW + IOSTEP(ISET)
 

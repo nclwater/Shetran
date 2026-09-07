@@ -52,7 +52,7 @@ MODULE run_sim
    USE SGLOBAL
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, RAISE_ERROR, ERRLVL_fatal
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, errstat_write, RAISE_ERROR, ERRLVL_fatal
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
       ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
@@ -185,6 +185,7 @@ CONTAINS
 !> | 2026-05-03 | SvB | 4.6.1 | Changed `hrf` to an allocatable array, allocated only when sediment yield is active. |
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> | 2026-09-06 | SvB | - | Checked the `OUTPUT_UNIT` open through [[mod_error:errstat_fileopen]]. |
+!> | 2026-09-07 | SvB | - | Status-checked the hotstart state-dump `WRITE` through [[mod_error:errstat_write]]. |
 !> @endhistory
 !>
    SUBROUTINE SIMULATION
@@ -371,7 +372,7 @@ CONTAINS
                ! SMELT = water in meltwater slug?
                ! TMELT = temperature of eltwater slug?
                ! vspsi = soil water potentials
-               WRITE (HOT, *) "time= ", UZNOW, UZNEXT, top_cell_no, "cstore= ", (CSTORE(IEL), IEL=NGDBGN, &
+               WRITE (HOT, *, IOSTAT=ios, IOMSG=emsg) "time= ", UZNOW, UZNEXT, top_cell_no, "cstore= ", (CSTORE(IEL), IEL=NGDBGN, &
                   total_no_elements), "HRF= ", (getHRF(IEL), IEL=1, total_no_elements), "QSA= ", ((QSAzz(IEL, K), IEL=1, &
                   total_no_elements), K=1, 4), "QOC= ", ((QOC(IEL, K), IEL=1, total_no_elements), K=1, 4), &
                   "DQ0ST= ", ((DQ0ST(IEL, K), IEL=1, total_no_elements), K=1, 4), "DQIST= ", ((DQIST(IEL, &
@@ -381,6 +382,7 @@ CONTAINS
                   total_no_elements), "SMELT= ", ((SMELT(K, IEL), K=1, NSMC(IEL)), IEL=NGDBGN, &
                   total_no_elements), "TMELT= ", ((TMelt(K, IEL), K=1, NSMC(IEL)), IEL=NGDBGN, &
                   total_no_elements), "vspsi= ", ((VSPSI(j, iel), j=1, top_cell_no), IEL=1, total_no_elements)
+               CALL errstat_write(ios, 'run_sim:SIMULATION (hotstart state dump)', emsg)
                HOTIME = HOTIME + BHOTST
             END IF
          END IF
