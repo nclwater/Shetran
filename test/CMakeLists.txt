@@ -39,8 +39,8 @@ file(WRITE "${VISUALISATION_TEST_DATA_DIR}/records_no_final_newline.txt" "final"
 # `to_string`. Compile that chain here and link the stdlib strings target the
 # same way the main executable does.
 add_executable(visualisation_read_tests
-    "${CMAKE_SOURCE_DIR}/src/parameters/mod_parameters.f90"
-    "${CMAKE_SOURCE_DIR}/src/parameters/sglobal.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/mod_parameters.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/sglobal.f90"
     "${CMAKE_SOURCE_DIR}/src/util/mod_error.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read_parser.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read.f90"
@@ -78,7 +78,7 @@ set(OC_ROW_WIDTH_TEST_MODULE_DIR "${CMAKE_CURRENT_BINARY_DIR}/modules_oc_row_wid
 file(MAKE_DIRECTORY "${OC_ROW_WIDTH_TEST_MODULE_DIR}")
 
 add_executable(oc_row_width_tests
-    "${CMAKE_SOURCE_DIR}/src/modules/oc_row_width.f90"
+    "${CMAKE_SOURCE_DIR}/src/overland_channel/oc_row_width.f90"
     ${SHETRAN_TEST_SUPPORT_SOURCES}
     "${CMAKE_CURRENT_SOURCE_DIR}/oc_row_width/test_oc_row_width.f90"
 )
