@@ -1,0 +1,5 @@
+type_name,source_file,source_module,starting_line,ending_line,doc_block_start_line,move_block_start_line,n_components,target_file,target_module,target_module_purpose,referenced_by_n_files,referenced_by,possibly_referenced_by_n_files,possibly_referenced_by,documentation
+MN_CONFIG_TYPE,src/nitrate/MNmod.f90,MNmod,125,132,,125,20,src/nitrate/mn_state.f90,mn_state,"Carbon and nitrogen pools, rates and per-cell nitrate state.",0,,0,,
+MN_WORKSPACE_TYPE,src/nitrate/MNmod.f90,MNmod,134,141,,134,14,src/nitrate/mn_state.f90,mn_state,"Carbon and nitrogen pools, rates and per-cell nitrate state.",0,,0,,
+MN_PLANT_STATE_TYPE,src/nitrate/MNmod.f90,MNmod,143,151,,143,11,src/nitrate/mn_state.f90,mn_state,"Carbon and nitrogen pools, rates and per-cell nitrate state.",0,,0,,
+OCSIM_WORKSPACE_TYPE,src/overland_channel/OCmod.f90,OCmod,85,98,84,84,12,src/overland_channel/oc_driver.f90,oc_driver,Overland/channel setup and the implicit row solver.,0,,0,,"! Persistent [[ocsim]] workspace, allocated once by [[initialise_ocsim_workspace]]."

@@ -1,0 +1,1092 @@
+file,module,name,line,type,attrs,dims,is_parameter,has_init,doc
+src/contaminant/CMmod.f90,CMmod,JBK,78,INTEGER,,,False,False,"Current bank side, 1 or 2, shared by the column preparation and solve paths."
+src/contaminant/CMmod.f90,CMmod,JFLINK,79,INTEGER,,,False,False,Face of the adjacent link for the current bank column.
+src/contaminant/CMmod.f90,CMmod,JSOL,80,INTEGER,,(LLEE),False,False,Soil-type number for each current local column cell.
+src/contaminant/CMmod.f90,CMmod,NWORK,81,INTEGER,,(4),False,False,Adjacent element number for each face of the current column.
+src/contaminant/CMmod.f90,CMmod,NLINKA,82,INTEGER,,,False,False,"Link adjacent to the current bank column, or zero for an ordinary land column."
+src/contaminant/CMmod.f90,CMmod,NCWELL,83,INTEGER,,,False,False,"Well/spring element associated with the current column, or zero."
+src/contaminant/CMmod.f90,CMmod,VELDUM,84,DOUBLEPRECISION,,(LLEE),False,False,Bank-width correction applied to current local vertical-flow terms.
+src/contaminant/CMmod.f90,CMmod,QQQWEL,85,DOUBLEPRECISION,,,False,False,Current well/spring water rate used by [[colmsm]].
+src/contaminant/CMmod.f90,CMmod,QQQWL1,86,DOUBLEPRECISION,,,False,False,New well/spring water rate prepared by [[colmw]].
+src/contaminant/CMmod.f90,CMmod,QQRV,87,DOUBLEPRECISION,,(LLEE),False,False,Bank-to-link lateral water rates by local cell.
+src/contaminant/CMmod.f90,CMmod,ROH,88,DOUBLEPRECISION,,(LLEE),False,False,Fraction of a bank/link composite cell assigned to the bank column.
+src/contaminant/CMmod.f90,CMmod,ISBDY,89,LOGICAL,,(4),False,False,True where the corresponding current-column face is a catchment boundary.
+src/contaminant/CMmod.f90,CMmod,count,90,INTEGER,,,False,True,Unused legacy module counter; [[snl3]] owns its active saved warning counter.
+src/contaminant/CMmod.f90,CMmod,LWORK,91,INTEGER,,(6),False,False,Up to three adjacent-link entries at each end of the current link.
+src/contaminant/CMmod.f90,CMmod,NBK,92,INTEGER,,(2),False,False,Bank-column element numbers on the two sides of the current link.
+src/contaminant/CMmod.f90,CMmod,nwell,93,INTEGER,,,False,False,Intended current link irrigation-well number; shadowed in [[linkw]].
+src/contaminant/CMmod.f90,CMmod,islk,94,LOGICAL,,(2),False,False,True where the corresponding end of the current link connects to another link.
+src/contaminant/CMmod.f90,CMmod,qqqdum,95,DOUBLEPRECISION,,,False,False,Intended current link well inflow rate; shadowed in [[linkw]].
+src/contaminant/CMmod.f90,CMmod,QQQSL1,96,DOUBLEPRECISION,,,False,False,"Current effective rainfall input rate to the link, using the contaminant sign convention."
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPB,35,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Base concentration boundary by element and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCPBO,36,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Legacy companion to `CCAPB`; not referenced by current source.
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPE,37,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,External-inflow concentration by element and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPI,38,DOUBLEPRECISION,,(NCONEE),False,False,Current rainfall concentration by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPIO,39,DOUBLEPRECISION,,(NCONEE),False,False,Previous rainfall concentration by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPR,40,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Base flux-boundary concentration by element and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPRO,41,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Legacy companion to `CCAPR`; not referenced by current source.
+src/contaminant/CONT_CC.F90,CONT_CC,IIICF,42,DOUBLEPRECISION,,(NCONEE),False,False,Current dry-deposition rate by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,IIICFO,43,DOUBLEPRECISION,,(NCONEE),False,False,Previous dry-deposition rate by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCCCW,45,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Well-water concentration by well/element and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCCC,47,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Current dynamic-region concentration.
+src/contaminant/CONT_CC.F90,CONT_CC,CCCCO,48,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Previous dynamic-region concentration.
+src/contaminant/CONT_CC.F90,CONT_CC,SSSS,49,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Current dead-space-region concentration.
+src/contaminant/CONT_CC.F90,CONT_CC,SSSSO,50,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Previous dead-space-region concentration.
+src/contaminant/CONT_CC.F90,CONT_CC,SSS1,52,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Dynamic-region nitrate/plant source-sink term.
+src/contaminant/CONT_CC.F90,CONT_CC,SSS2,53,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Dead-space-region nitrate/plant source-sink term.
+src/contaminant/CONT_CC.F90,CONT_CC,GCPLA,55,DOUBLEPRECISION,,(NCONEE),False,False,Scaled chemical-decay coefficient by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,GGLMSO,56,DOUBLEPRECISION,,(NCONEE),False,False,Input chemical-decay constant by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,CCAPIN,58,DOUBLEPRECISION,,(NCONEE),False,False,Uniform or link-element initial concentration by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,ALPHA,60,DOUBLEPRECISION,,"(NSEE, NCONEE)",False,False,Exchange coefficient between soil regions by soil and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,FADS,61,DOUBLEPRECISION,,"(NSEE, NCONEE)",False,False,Dynamic-region fraction of adsorption sites by soil and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,GNN,62,DOUBLEPRECISION,,(NCONEE),False,False,Freundlich isotherm exponent by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,KDDLS,63,DOUBLEPRECISION,,"(NSEDEE, NCONEE)",False,False,Reference distribution coefficient by sediment size and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,KDDSOL,64,DOUBLEPRECISION,,"(NSEE, NCONEE)",False,False,Derived soil distribution coefficient by soil and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,NCON,66,INTEGER,,,False,False,Number of active contaminants.
+src/contaminant/CONT_CC.F90,CONT_CC,FCPBKO,68,DOUBLEPRECISION,"DIMENSION(:, :, :, :), ALLOCATABLE","(:, :, :, :)",False,False,Dynamic-region bank retardation storage.
+src/contaminant/CONT_CC.F90,CONT_CC,GCPBKO,69,DOUBLEPRECISION,"DIMENSION(:, :, :, :), ALLOCATABLE","(:, :, :, :)",False,False,Dead-space-region bank retardation storage.
+src/contaminant/CONT_CC.F90,CONT_CC,FSF,70,DOUBLEPRECISION,,"(NLFEE, NCONEE)",False,False,Stream-water retardation coefficient by link and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,FSFC,71,DOUBLEPRECISION,,"(NLFEE, NCONEE)",False,False,Concentration derivative of `FSF`.
+src/contaminant/CONT_CC.F90,CONT_CC,FSFT,72,DOUBLEPRECISION,,"(NLFEE, NCONEE)",False,False,Time derivative of `FSF`.
+src/contaminant/CONT_CC.F90,CONT_CC,RSW,73,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Surface-water retardation coefficient by element and contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,RSWC,74,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Concentration derivative of `RSW`.
+src/contaminant/CONT_CC.F90,CONT_CC,RSWT,75,DOUBLEPRECISION,,"(NELEE, NCONEE)",False,False,Time derivative of `RSW`.
+src/contaminant/CONT_CC.F90,CONT_CC,ALPHBD,77,DOUBLEPRECISION,,(NCONEE),False,False,Exchange coefficient between channel-bed layers by contaminant.
+src/contaminant/CONT_CC.F90,CONT_CC,ALPHBS,78,DOUBLEPRECISION,,(NCONEE),False,False,Stream-water/channel-bed exchange coefficient by contaminant.
+src/contaminant/bk_cw.f90,BK_CW,FNCEBD,35,DOUBLEPRECISION,,"(NLFEE, 2)",False,False,Fraction of cell `NCEBD+1` below the deep-bed boundary.
+src/contaminant/bk_cw.f90,BK_CW,NBANK,36,INTEGER,,"(NLFEE, 2)",False,False,Adjacent bank-element number for each link and bank side.
+src/contaminant/bk_cw.f90,BK_CW,NCEAB,37,INTEGER,,"(NLFEE, 2)",False,False,Lowest bank cell exchanging with the stream; currently set to `NHBED`.
+src/contaminant/bk_cw.f90,BK_CW,NCEBD,38,INTEGER,,"(NLFEE, 2)",False,False,Highest bank cell lying fully below the deep-bed boundary.
+src/contaminant/bk_cw.f90,BK_CW,QQRVO,39,DOUBLEPRECISION,,"(NLFEE, LLEE, 2)",False,False,"Unused legacy bank-flow storage, shaped by link, cell, and side."
+src/contaminant/column/colm_c1.f90,COLM_C1,D0,39,DOUBLEPRECISION,,,False,False,"Reference dispersion coefficient, currently `1.0D-3` m2/s."
+src/contaminant/column/colm_c1.f90,COLM_C1,Z2,40,DOUBLEPRECISION,,,False,False,"Reference soil-column length, currently 50 m."
+src/contaminant/column/colm_c1.f90,COLM_C1,Z2SQ,41,DOUBLEPRECISION,,,False,False,"Squared reference length, `Z2*Z2` (m2)."
+src/contaminant/column/colm_c1.f90,COLM_C1,Z2OD,42,DOUBLEPRECISION,,,False,False,"Reference length divided by dispersion scale, `Z2/D0` (s/m)."
+src/contaminant/column/colm_c1.f90,COLM_C1,Z2SQOD,43,DOUBLEPRECISION,,,False,False,"Reference dispersive timescale, `Z2SQ/D0` (s)."
+src/contaminant/column/colm_c1.f90,COLM_C1,CST1,45,DOUBLEPRECISION,,,False,False,"Lateral-flow scaling, `CST2/ZONE1`, for the current column."
+src/contaminant/column/colm_c1.f90,COLM_C1,CST2,46,DOUBLEPRECISION,,,False,False,"Surface-flow scaling, `Z2/(AREA(NCL)*D0)`, for the current column."
+src/contaminant/column/colm_c1.f90,COLM_C1,CST3,47,DOUBLEPRECISION,,,False,False,"Base-flow scaling, `CST2/KSP(NCEBOT)`, for the current column."
+src/contaminant/column/colm_c1.f90,COLM_C1,SGMA,48,DOUBLEPRECISION,,,False,False,Implicit finite-difference weight; currently one.
+src/contaminant/column/colm_c1.f90,COLM_C1,SGSQ,49,DOUBLEPRECISION,,,False,False,"Squared implicit weight, `SGMA*SGMA`."
+src/contaminant/column/colm_c1.f90,COLM_C1,SGTSE,50,DOUBLEPRECISION,,,False,False,"Sigma-weighted scaled timestep, `SGMA*TSE`."
+src/contaminant/column/colm_c1.f90,COLM_C1,SGSTSE,51,DOUBLEPRECISION,,,False,False,"Squared-sigma weighted scaled timestep, `SGSQ*TSE`."
+src/contaminant/column/colm_c1.f90,COLM_C1,OMSGMA,52,DOUBLEPRECISION,,,False,False,"Explicit finite-difference weight, `1-SGMA`; currently zero."
+src/contaminant/column/colm_c1.f90,COLM_C1,OPSGL,53,DOUBLEPRECISION,,,False,False,Current-contaminant factor `1+SGTSE*GCAPLA`.
+src/contaminant/column/colm_c1.f90,COLM_C1,OPSGSL,54,DOUBLEPRECISION,,,False,False,Current-contaminant factor `1+SGSTSE*GCAPLA`.
+src/contaminant/column/colm_c1.f90,COLM_C1,TSE,55,DOUBLEPRECISION,,,False,False,"Dimensionless contaminant timestep, `D0*DTUZ/Z2SQ`."
+src/contaminant/column/colm_c1.f90,COLM_C1,FNCPSF,57,DOUBLEPRECISION,,,False,False,Unused legacy phreatic-surface cell fraction; never initialized in current source.
+src/contaminant/column/colm_c1.f90,COLM_C1,NCEBOT,59,INTEGER,,,False,False,"Bottom active cell of the current column, `NCOLMB(NCL)`."
+src/contaminant/column/colm_c1.f90,COLM_C1,NCETOP,60,INTEGER,,,False,False,"Ground-surface cell index, set to `top_cell_no` by `INCM`."
+src/contaminant/column/colm_c1.f90,COLM_C1,NCEPSF,61,INTEGER,,,False,False,Upper lateral-transport cell index; currently set to `NCETOP`.
+src/contaminant/column/colm_c2.f90,COLM_C2,ICAP,49,DOUBLEPRECISION,,,False,False,"Prior scaled dry-deposition source, `-Z2OD*IIICFO(NCONT)`."
+src/contaminant/column/colm_c2.f90,COLM_C2,ICAPT,50,DOUBLEPRECISION,,,False,False,Time-derivative part of `ICAP`; currently set to zero.
+src/contaminant/column/colm_c2.f90,COLM_C2,ICAPC,51,DOUBLEPRECISION,,,False,False,Concentration derivative of `ICAP`; currently set to zero.
+src/contaminant/column/colm_c2.f90,COLM_C2,QCAP,52,DOUBLEPRECISION,,,False,False,Prior scaled rainfall and irrigation/well contaminant source.
+src/contaminant/column/colm_c2.f90,COLM_C2,QCAPT,53,DOUBLEPRECISION,,,False,False,Timestep change in the scaled rainfall and irrigation/well source.
+src/contaminant/column/colm_c2.f90,COLM_C2,QCAPC,54,DOUBLEPRECISION,,,False,False,Concentration derivative of `QCAP`; currently set to zero.
+src/contaminant/column/colm_c2.f90,COLM_C2,DDA,56,DOUBLEPRECISION,,,False,False,"Current column's y-direction plan dimension, `DYQQ(NCL)` (m)."
+src/contaminant/column/colm_c2.f90,COLM_C2,DDB,57,DOUBLEPRECISION,,,False,False,"Current column's x-direction plan dimension, `DXQQ(NCL)` (m)."
+src/contaminant/column/colm_c2.f90,COLM_C2,DDDLS,58,DOUBLEPRECISION,,,False,False,Previous loose-sediment depth for the current column (m).
+src/contaminant/column/colm_c2.f90,COLM_C2,DDDLS1,59,DOUBLEPRECISION,,,False,False,Current loose-sediment depth for the current column (m).
+src/contaminant/column/colm_c2.f90,COLM_C2,DDDSW,60,DOUBLEPRECISION,,,False,False,Previous surface-water depth for the current column (m).
+src/contaminant/column/colm_c2.f90,COLM_C2,DDDSW1,61,DOUBLEPRECISION,,,False,False,Current surface-water depth for the current column (m).
+src/contaminant/column/colm_c2.f90,COLM_C2,GGGNU,62,DOUBLEPRECISION,,,False,False,Previous ground-surface erosion depth rate (m/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,GGGNU1,63,DOUBLEPRECISION,,,False,False,Current ground-surface erosion depth rate (m/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,KSP,64,DOUBLEPRECISION,,(LLEE),False,False,"Nondimensional cell thickness, `DELTAZ/Z2`."
+src/contaminant/column/colm_c2.f90,COLM_C2,KSPP,65,DOUBLEPRECISION,,(LLEE),False,False,Nondimensional spacing between adjacent cell nodes.
+src/contaminant/column/colm_c2.f90,COLM_C2,ZONE,66,DOUBLEPRECISION,,,False,False,Previous nondimensional active-column depth.
+src/contaminant/column/colm_c2.f90,COLM_C2,ZONE1,67,DOUBLEPRECISION,,,False,False,"Current nondimensional depth, `(ZGRUND-ZCOLMB)/Z2`."
+src/contaminant/column/colm_c2.f90,COLM_C2,TTTLSE,69,DOUBLEPRECISION,,,False,False,Assumed loose-sediment moisture content; fixed at `1.0D-4`.
+src/contaminant/column/colm_c2.f90,COLM_C2,QQQSW,71,DOUBLEPRECISION,,(4),False,False,Previous surface-water volume flow into each column face (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,QQQSW1,72,DOUBLEPRECISION,,(4),False,False,Current surface-water volume flow into each column face (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,GGAMM,74,DOUBLEPRECISION,,(LLEE),False,False,Previous dynamic/dead-space water-coupling rate by cell (1/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,GGAMM1,75,DOUBLEPRECISION,,(LLEE),False,False,Current dynamic/dead-space water-coupling rate by cell (1/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,PPHI,76,DOUBLEPRECISION,,(LLEE),False,False,Previous mobile-water fraction by cell; currently `0.5`.
+src/contaminant/column/colm_c2.f90,COLM_C2,PPHI1,77,DOUBLEPRECISION,,(LLEE),False,False,Current mobile-water fraction by cell; currently `0.5`.
+src/contaminant/column/colm_c2.f90,COLM_C2,QQ,78,DOUBLEPRECISION,,"(LLEE,4)",False,False,Previous solver-scaled subsurface flow by cell and face (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,QQ1,79,DOUBLEPRECISION,,"(LLEE,4)",False,False,Current solver-scaled subsurface flow by cell and face (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,TTHET,80,DOUBLEPRECISION,,(LLEE),False,False,Previous volumetric water content by cell.
+src/contaminant/column/colm_c2.f90,COLM_C2,TTHET1,81,DOUBLEPRECISION,,(LLEE),False,False,Current volumetric water content by cell.
+src/contaminant/column/colm_c2.f90,COLM_C2,UUAJP,82,DOUBLEPRECISION,,(LLEE),False,False,Previous upward vertical water flux by cell interface (m/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,UUAJP1,83,DOUBLEPRECISION,,(LLEE),False,False,Current upward vertical water flux by cell interface (m/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,QQRF,85,DOUBLEPRECISION,,,False,False,Previous upward water-volume flow through the column base (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,QQRF1,86,DOUBLEPRECISION,,,False,False,Current upward water-volume flow through the column base (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,QI,87,DOUBLEPRECISION,,,False,False,Previous net-precipitation volume flow; downward input is negative (m3/s).
+src/contaminant/column/colm_c2.f90,COLM_C2,QI1,88,DOUBLEPRECISION,,,False,False,Current net-precipitation volume flow; downward input is negative (m3/s).
+src/contaminant/column/colm_cc.f90,COLM_CC,GCAPLA,62,DOUBLEPRECISION,,,False,False,"Active contaminant's scaled chemical-decay coefficient, `GCPLA(NCONT)`."
+src/contaminant/column/colm_cc.f90,COLM_CC,CSWA,64,DOUBLEPRECISION,,(4),False,False,Explicit adjacent/boundary surface-water concentration by face.
+src/contaminant/column/colm_cc.f90,COLM_CC,CSWAT,65,DOUBLEPRECISION,,(4),False,False,Scaled time derivative of the adjacent concentration in `CSWA`.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRSWA,66,DOUBLEPRECISION,,(4),False,False,Adjacent/boundary surface-water retardation factor by face.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRSAT,67,DOUBLEPRECISION,,(4),False,False,"Total scaled time derivative of `RRRSWA`, including concentration change."
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRLS,68,DOUBLEPRECISION,,,False,False,Loose-sediment retardation factor for the current column.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRLSC,69,DOUBLEPRECISION,,,False,False,Dynamic-concentration derivative of `RRRLS`.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRLST,70,DOUBLEPRECISION,,,False,False,Scaled time derivative of `RRRLS`.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRSW,71,DOUBLEPRECISION,,,False,False,Surface-water retardation factor for the current column.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRSWC,72,DOUBLEPRECISION,,,False,False,Dynamic-concentration derivative of `RRRSW`.
+src/contaminant/column/colm_cc.f90,COLM_CC,RRRSWT,73,DOUBLEPRECISION,,,False,False,Scaled time derivative of `RRRSW`.
+src/contaminant/column/colm_cc.f90,COLM_CC,CCAPA,75,DOUBLEPRECISION,,"(LLEE,4)",False,False,Explicit lateral upwind candidate by subsurface cell and face.
+src/contaminant/column/colm_cc.f90,COLM_CC,CCAPAT,76,DOUBLEPRECISION,,"(LLEE,4)",False,False,Scaled time derivative of `CCAPA`; nonzero for implicit bank coupling.
+src/contaminant/column/colm_cc.f90,COLM_CC,CCAP,78,DOUBLEPRECISION,,(LLEE),False,False,Updated dynamic-region concentration returned by `COLM`.
+src/contaminant/column/colm_cc.f90,COLM_CC,COLCAP,79,DOUBLEPRECISION,,(LLEE),False,False,Prior dynamic-region concentration supplied to `COLM`.
+src/contaminant/column/colm_cc.f90,COLM_CC,SCAP,80,DOUBLEPRECISION,,(LLEE),False,False,Updated dead-space-region concentration returned by `COLM`.
+src/contaminant/column/colm_cc.f90,COLM_CC,SOLCAP,81,DOUBLEPRECISION,,(LLEE),False,False,Prior dead-space-region concentration supplied to `COLM`.
+src/contaminant/column/colm_cc.f90,COLM_CC,EDCAP,83,DOUBLEPRECISION,,(LLEE),False,False,Net dynamic-region source/sink term subtracted in `COLM`.
+src/contaminant/column/colm_cc.f90,COLM_CC,EDCAPC,84,DOUBLEPRECISION,,(LLEE),False,False,Dynamic-concentration derivative of `EDCAP`.
+src/contaminant/column/colm_cc.f90,COLM_CC,EDCAPT,85,DOUBLEPRECISION,,(LLEE),False,False,Scaled time derivative of `EDCAP`.
+src/contaminant/column/colm_cc.f90,COLM_CC,ESCAP,86,DOUBLEPRECISION,,(LLEE),False,False,Net dead-space source/sink term subtracted in `COLM`.
+src/contaminant/column/colm_cc.f90,COLM_CC,ESCAPS,87,DOUBLEPRECISION,,(LLEE),False,False,Dead-space-concentration derivative of `ESCAP`.
+src/contaminant/column/colm_cc.f90,COLM_CC,ESCAPT,88,DOUBLEPRECISION,,(LLEE),False,False,Scaled time derivative of `ESCAP`.
+src/contaminant/column/colm_cc.f90,COLM_CC,ESSCAP,89,DOUBLEPRECISION,,,False,False,Top-cell surface-water/loose-sediment plant-uptake term; uninitialized.
+src/contaminant/column/colm_cc.f90,COLM_CC,ESSCPC,90,DOUBLEPRECISION,,,False,False,Dynamic-concentration derivative of `ESSCAP`; uninitialized.
+src/contaminant/column/colm_cc.f90,COLM_CC,ESSCPT,91,DOUBLEPRECISION,,,False,False,Scaled time derivative of `ESSCAP`; uninitialized.
+src/contaminant/column/colm_cc.f90,COLM_CC,DDOD,93,DOUBLEPRECISION,,(LLEE),False,False,Prior effective longitudinal dispersion divided by `D0`.
+src/contaminant/column/colm_cc.f90,COLM_CC,DDOD1,94,DOUBLEPRECISION,,(LLEE),False,False,Current effective longitudinal dispersion divided by `D0`.
+src/contaminant/column/colm_cc.f90,COLM_CC,GNERD,96,DOUBLEPRECISION,,(LLEE),False,False,Dynamic-region decay generation passed between successive contaminants.
+src/contaminant/column/colm_cc.f90,COLM_CC,GNDSE,97,DOUBLEPRECISION,,(LLEE),False,False,Dead-space decay generation passed between successive contaminants.
+src/contaminant/column/colm_cc.f90,COLM_CC,GND2,98,DOUBLEPRECISION,,(LLEE),False,False,Time-derivative component of dynamic-region decay generation.
+src/contaminant/column/colm_cc.f90,COLM_CC,GNDSE2,99,DOUBLEPRECISION,,(LLEE),False,False,Time-derivative component of dead-space decay generation.
+src/contaminant/column/colm_cc.f90,COLM_CC,AALPSO,101,DOUBLEPRECISION,,(LLEE),False,False,Exchange coefficient between dynamic and dead-space soil regions.
+src/contaminant/column/colm_cc.f90,COLM_CC,FFSO,102,DOUBLEPRECISION,,(LLEE),False,False,Fraction of adsorption sites assigned to the dynamic region.
+src/contaminant/column/colm_cc.f90,COLM_CC,GGNNSO,103,DOUBLEPRECISION,,(LLEE),False,False,"Active contaminant's Freundlich exponent, repeated by cell."
+src/contaminant/column/colm_cc.f90,COLM_CC,KKDSO,104,DOUBLEPRECISION,,(LLEE),False,False,Derived soil distribution coefficient by cell and active contaminant.
+src/contaminant/column/colm_cc.f90,COLM_CC,CCPRF,106,DOUBLEPRECISION,,,False,False,Advected base-flux concentration; zero for a fixed-concentration base.
+src/contaminant/column/colm_cc.f90,COLM_CC,CCPRFT,107,DOUBLEPRECISION,,,False,False,Scaled time derivative of `CCPRF`; currently always zero.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,DLT,44,DOUBLEPRECISION,,(LLEE),False,False,"Coefficient of the next-row dynamic rate, `OME(i+1)`."
+src/contaminant/column/colm_cc1.f90,COLM_CC1,ELT,45,DOUBLEPRECISION,,(LLEE),False,False,"Diagonal coefficient of the dynamic rate, `OME(i)`."
+src/contaminant/column/colm_cc1.f90,COLM_CC1,ELTSTR,46,DOUBLEPRECISION,,(LLEE),False,False,Nonlinear correction multiplying `OME(i)` in its diagonal.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,EPS,47,DOUBLEPRECISION,,(LLEE),False,False,Solved dead-space concentration rate with respect to scaled time.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,FLT,48,DOUBLEPRECISION,,(LLEE),False,False,"Coefficient of the previous-row dynamic rate, `OME(i-1)`."
+src/contaminant/column/colm_cc1.f90,COLM_CC1,GLT,49,DOUBLEPRECISION,,(LLEE),False,False,Magnitude of the negative `EPS(i)` coupling in the dynamic equation.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,OME,50,DOUBLEPRECISION,,(LLEE),False,False,Solved dynamic-region concentration rate with respect to scaled time.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,PLT,51,DOUBLEPRECISION,,(LLEE),False,False,"Diagonal coefficient of the dead-space rate, `EPS(i)`."
+src/contaminant/column/colm_cc1.f90,COLM_CC1,PLTSTR,52,DOUBLEPRECISION,,(LLEE),False,False,Nonlinear correction multiplying `EPS(i)` in its diagonal.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,QLT,53,DOUBLEPRECISION,,(LLEE),False,False,Right-hand side of the dead-space equation.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,SLT,54,DOUBLEPRECISION,,(LLEE),False,False,Right-hand side of the dynamic-region equation.
+src/contaminant/column/colm_cc1.f90,COLM_CC1,TLT,55,DOUBLEPRECISION,,(LLEE),False,False,Magnitude of the negative `OME(i)` coupling in the dead-space equation.
+src/contaminant/column/colm_cg.f90,COLM_CG,JBTLYR,61,INTEGER,,(NELEE),False,False,Unused legacy bottom-soil-layer index by element.
+src/contaminant/column/colm_cg.f90,COLM_CG,NCOLMB,62,INTEGER,,(NELEE),False,False,Bottom active contaminant cell by non-link element.
+src/contaminant/column/colm_cg.f90,COLM_CG,ZCOLMB,64,DOUBLEPRECISION,,(NELEE),False,False,Elevation of each non-link element's column base (m).
+src/contaminant/column/colm_cg.f90,COLM_CG,SCL,66,DOUBLEPRECISION,,,False,False,"Integer-overlap conversion factor, `1/32500`."
+src/contaminant/column/colm_cg.f90,COLM_CG,OODO,67,DOUBLEPRECISION,,,False,False,"Reciprocal reference dispersion coefficient, `1/D0` (s/m2)."
+src/contaminant/column/colm_cg.f90,COLM_CG,JKZCOL,69,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Inactive setup-only lateral-transmissivity weights.
+src/contaminant/column/colm_cg.f90,COLM_CG,JOLFN,70,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Setup-only overlap shares encoded on a 32500 scale.
+src/contaminant/column/colm_cg.f90,COLM_CG,NOL,71,INTEGER,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Number of overlap records by element and face.
+src/contaminant/column/colm_cg.f90,COLM_CG,NOLBT,72,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"First overlap record by element, local cell, and face."
+src/contaminant/column/colm_cg.f90,COLM_CG,NOLCE,73,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"Local cell index by element, overlap record, and face."
+src/contaminant/column/colm_cg.f90,COLM_CG,NOLCEA,74,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"Adjacent cell index by element, overlap record, and face."
+src/contaminant/column/colm_cg.f90,COLM_CG,WELDRA,76,DOUBLEPRECISION,,(LLEE),False,False,Current column's signed VSS well-flow flux by cell (m/s).
+src/contaminant/column/colm_co.f90,COLM_CO,DSWO,76,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Previous surface-water depth above ground by non-link column (m).
+src/contaminant/column/colm_co.f90,COLM_CO,QIO,77,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Previous net-precipitation flow; downward input is negative (m3/s).
+src/contaminant/column/colm_co.f90,COLM_CO,QQRFO,78,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Previous upward water-volume flow through the column base (m3/s).
+src/contaminant/column/colm_co.f90,COLM_CO,RSZWLO,79,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Previous total VSS well flux at each source element (m/s).
+src/contaminant/column/colm_co.f90,COLM_CO,ZONEO,80,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,"Previous nondimensional active-column depth, `(ZGRUND-ZCOLMB)/Z2`."
+src/contaminant/column/colm_co.f90,COLM_CO,GGAMMO,81,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Previous dynamic/dead-space coupling rate by column and cell (1/s).
+src/contaminant/column/colm_co.f90,COLM_CO,QQQSWO,82,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Previous surface-water volume flow into each column face (m3/s).
+src/contaminant/column/colm_co.f90,COLM_CO,QQO,83,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Previous solver-scaled subsurface flow into each cell face (m3/s).
+src/contaminant/column/colm_co.f90,COLM_CO,UUAJPO,84,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Previous upward vertical water flux by column and cell interface (m/s).
+src/contaminant/column/colm_co.f90,COLM_CO,VSTHEO,85,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Previous effective volumetric water content by column and cell.
+src/contaminant/is_cc.f90,IS_CC,ISADNL,49,LOGICAL,,,False,False,Intended nonlinear-adsorption flag from `CM13`; module value is currently unassigned.
+src/contaminant/is_cc.f90,IS_CC,ISBK,50,LOGICAL,,,False,False,True while the current contaminant column is a bank element.
+src/contaminant/is_cc.f90,IS_CC,ISFLXB,51,LOGICAL,,,False,False,Intended flux-concentration base-boundary flag from `CM5`; module value is currently unassigned.
+src/contaminant/is_cc.f90,IS_CC,ISPLT,52,LOGICAL,,,False,False,Intended contaminant plant-uptake flag; currently unassigned.
+src/contaminant/is_cc.f90,IS_CC,ISMN,53,LOGICAL,,,False,False,Nitrate-component flag established from rundata file unit 53.
+src/contaminant/link/link_cc.f90,LINK_CC,ACPBD1,60,DOUBLEPRECISION,,,False,False,"Current scaled bed/deposited-material area, `ACPBI+ARBDEP/Z2SQ`."
+src/contaminant/link/link_cc.f90,LINK_CC,ACPBDT,61,DOUBLEPRECISION,,,False,False,Scaled-time change in `ACPBD1`; zero for a dry link.
+src/contaminant/link/link_cc.f90,LINK_CC,ACPBS,62,DOUBLEPRECISION,,,False,False,Scaled bed-surface-layer area copied from `ACPBSG`.
+src/contaminant/link/link_cc.f90,LINK_CC,ACSFA1,63,DOUBLEPRECISION,,(6),False,False,Scaled stream-water areas for the six adjacent-link/end slots.
+src/contaminant/link/link_cc.f90,LINK_CC,ACPSF1,64,DOUBLEPRECISION,,,False,False,"Current scaled stream-water area, `ARXL/Z2SQ`."
+src/contaminant/link/link_cc.f90,LINK_CC,ACPSFT,65,DOUBLEPRECISION,,,False,False,Scaled-time change in stream-water area; zero for a dry link.
+src/contaminant/link/link_cc.f90,LINK_CC,CCBD1Q,67,DOUBLEPRECISION,,,False,False,Updated deep-bed concentration of the preceding numeric contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,CCPBK,68,DOUBLEPRECISION,,"(2,LLEE)",False,False,Previous dynamic-region concentrations in the two adjacent banks.
+src/contaminant/link/link_cc.f90,LINK_CC,CCPGS1,69,DOUBLEPRECISION,,(2),False,False,Current ground-surface-cell concentration in each adjacent bank.
+src/contaminant/link/link_cc.f90,LINK_CC,CCBS1Q,70,DOUBLEPRECISION,,,False,False,Updated bed-surface concentration of the preceding numeric contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,CCSFA1,71,DOUBLEPRECISION,,(6),False,False,Current stream-water concentrations for adjacent-link/end slots.
+src/contaminant/link/link_cc.f90,LINK_CC,CCSF1Q,72,DOUBLEPRECISION,,,False,False,Updated stream-water concentration of the preceding numeric contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,SCPBK,73,DOUBLEPRECISION,,"(2,LLEE)",False,False,Previous dead-space concentrations in the two adjacent banks.
+src/contaminant/link/link_cc.f90,LINK_CC,WCPBD1,75,DOUBLEPRECISION,,,False,False,Signed scaled coefficient for change in bed/deposited area.
+src/contaminant/link/link_cc.f90,LINK_CC,VCPBK1,76,DOUBLEPRECISION,,,False,False,"Scaled bank-erosion rate, `Z2OD*GNUBK`."
+src/contaminant/link/link_cc.f90,LINK_CC,ICP1,78,DOUBLEPRECISION,,,False,False,Scaled dry-deposition input with the link-equation sign convention.
+src/contaminant/link/link_cc.f90,LINK_CC,ICPSBD,79,DOUBLEPRECISION,,,False,False,Deep-bed contaminant source from infiltrating sediment.
+src/contaminant/link/link_cc.f90,LINK_CC,ICSBDC,80,DOUBLEPRECISION,,,False,False,Concentration derivative of `ICPSBD`.
+src/contaminant/link/link_cc.f90,LINK_CC,ICSBDT,81,DOUBLEPRECISION,,,False,False,Scaled-time derivative of `ICPSBD`.
+src/contaminant/link/link_cc.f90,LINK_CC,ICPSBS,82,DOUBLEPRECISION,,,False,False,Bed-surface contaminant source from infiltrating sediment.
+src/contaminant/link/link_cc.f90,LINK_CC,ICSBSC,83,DOUBLEPRECISION,,,False,False,Concentration derivative of `ICPSBS`.
+src/contaminant/link/link_cc.f90,LINK_CC,ICSBST,84,DOUBLEPRECISION,,,False,False,Scaled-time derivative of `ICPSBS`.
+src/contaminant/link/link_cc.f90,LINK_CC,QCP1,85,DOUBLEPRECISION,,,False,False,Scaled rainfall and irrigation/well contaminant input.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBD,87,DOUBLEPRECISION,,,False,False,Deep-bed storage/retardation factor.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBDC,88,DOUBLEPRECISION,,,False,False,Concentration derivative of `FCPBD`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCBD1Q,89,DOUBLEPRECISION,,,False,False,Updated `FCPBD` for the preceding numeric contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBDT,90,DOUBLEPRECISION,,,False,False,Scaled-time derivative of `FCPBD`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBK,91,DOUBLEPRECISION,,"(2,LLEE)",False,False,Dynamic-region storage factors in adjacent bank cells.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBS,92,DOUBLEPRECISION,,,False,False,Bed-surface storage/retardation factor.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBSC,93,DOUBLEPRECISION,,,False,False,Concentration derivative of `FCPBS`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCBS1Q,94,DOUBLEPRECISION,,,False,False,Updated `FCPBS` for the preceding numeric contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPBST,95,DOUBLEPRECISION,,,False,False,Scaled-time derivative of `FCPBS`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSW1,96,DOUBLEPRECISION,,(2),False,False,Updated surface-water storage factor for each adjacent bank.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSD,97,DOUBLEPRECISION,,,False,False,Storage factor for newly deposited sediment at stream concentration.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSDC,98,DOUBLEPRECISION,,,False,False,Concentration derivative of `FCPSD`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSDT,99,DOUBLEPRECISION,,,False,False,Scaled-time derivative of `FCPSD`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSF,100,DOUBLEPRECISION,,,False,False,Stream-water/mobile-sediment storage factor.
+src/contaminant/link/link_cc.f90,LINK_CC,FCSFA1,101,DOUBLEPRECISION,,(6),False,False,Updated stream-water storage factors for adjacent-link/end slots.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSFC,102,DOUBLEPRECISION,,,False,False,Concentration derivative of `FCPSF`.
+src/contaminant/link/link_cc.f90,LINK_CC,FCSF1Q,103,DOUBLEPRECISION,,,False,False,Updated `FCPSF` for the preceding numeric contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,FCPSFT,104,DOUBLEPRECISION,,,False,False,Scaled-time derivative of `FCPSF`.
+src/contaminant/link/link_cc.f90,LINK_CC,GCPBK,105,DOUBLEPRECISION,,"(2,LLEE)",False,False,Dead-space storage factors in adjacent bank cells.
+src/contaminant/link/link_cc.f90,LINK_CC,NCEBK,107,INTEGER,,(2),False,False,First exposed bank-cell index on each side of the link.
+src/contaminant/link/link_cc.f90,LINK_CC,PCPBK1,109,DOUBLEPRECISION,,"(2,LLEE)",False,False,Signed bank-cell exchange numbers; positive flow enters the link.
+src/contaminant/link/link_cc.f90,LINK_CC,PCPSB1,110,DOUBLEPRECISION,,(2),False,False,Signed bank-bed exchange numbers; positive flow enters the link.
+src/contaminant/link/link_cc.f90,LINK_CC,PCSFA1,111,DOUBLEPRECISION,,(6),False,False,Signed exchange numbers for adjacent-link/end slots.
+src/contaminant/link/link_cc.f90,LINK_CC,PCPSW1,112,DOUBLEPRECISION,,(2),False,False,Signed bank surface-water exchange numbers.
+src/contaminant/link/link_cc.f90,LINK_CC,PCSFM1,113,DOUBLEPRECISION,,,False,False,Signed stream-water exchange number at link end 1.
+src/contaminant/link/link_cc.f90,LINK_CC,PCSFP1,114,DOUBLEPRECISION,,,False,False,Signed stream-water exchange number at link end 2.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPBD,116,DOUBLEPRECISION,,,False,False,Intended deep-bed sink; currently set to zero by `LINKSM`.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPBDC,117,DOUBLEPRECISION,,,False,False,Intended concentration derivative of `ECPBD`; currently zero.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPBDT,118,DOUBLEPRECISION,,,False,False,Intended scaled-time derivative of `ECPBD`; currently zero.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPBS,119,DOUBLEPRECISION,,,False,False,Intended bed-surface sink; currently set to zero by `LINKSM`.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPBSC,120,DOUBLEPRECISION,,,False,False,Intended concentration derivative of `ECPBS`; currently zero.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPBST,121,DOUBLEPRECISION,,,False,False,Intended scaled-time derivative of `ECPBS`; currently zero.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPSF,122,DOUBLEPRECISION,,,False,False,Intended stream-water sink; currently set to zero by `LINKSM`.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPSFC,123,DOUBLEPRECISION,,,False,False,Intended concentration derivative of `ECPSF`; currently zero.
+src/contaminant/link/link_cc.f90,LINK_CC,ECPSFT,124,DOUBLEPRECISION,,,False,False,Intended scaled-time derivative of `ECPSF`; currently zero.
+src/contaminant/link/link_cc.f90,LINK_CC,USCP,126,DOUBLEPRECISION,,,False,False,"Numeric wetness indicator: one for stream water, zero for a dry link."
+src/contaminant/link/link_cc.f90,LINK_CC,ACSBD1,128,DOUBLEPRECISION,,,False,False,Scaled transfer coefficient between deep bed and bed surface.
+src/contaminant/link/link_cc.f90,LINK_CC,ACSBS1,129,DOUBLEPRECISION,,,False,False,Scaled transfer coefficient between bed surface and stream water.
+src/contaminant/link/link_cc.f90,LINK_CC,GCPLAL,130,DOUBLEPRECISION,,,False,False,Decay/generation coefficient for the current contaminant.
+src/contaminant/link/link_cc.f90,LINK_CC,GCPLAQ,131,DOUBLEPRECISION,,,False,False,Decay/generation coefficient of the preceding numeric contaminant.
+src/contaminant/link/link_cc1.f90,LINK_CC1,KS,47,DOUBLEPRECISION,,,False,False,Current link length divided by the reference length `Z2`.
+src/contaminant/link/link_cc1.f90,LINK_CC1,KSPBK,48,DOUBLEPRECISION,,"(2,LLEE)",False,False,"Bank-cell thickness divided by `Z2`, for the two adjacent banks."
+src/contaminant/link/link_cw.f90,LINK_CW,ACPBDO,72,DOUBLEPRECISION,,(NLFEE),False,False,Last stored scaled bed/deposited-material area for each link.
+src/contaminant/link/link_cw.f90,LINK_CW,ACPBSG,73,DOUBLEPRECISION,,(NLFEE),False,False,"Fixed scaled bed-surface area, `DBS*CWIDTH/Z2SQ`."
+src/contaminant/link/link_cw.f90,LINK_CW,ACPBI,74,DOUBLEPRECISION,,(NLFEE),False,False,Baseline scaled bed/deposited-material area before `ARBDEP` is added.
+src/contaminant/link/link_cw.f90,LINK_CW,ACPSFO,75,DOUBLEPRECISION,,(NLFEE),False,False,Last stored scaled stream-water area for each link.
+src/contaminant/link/link_cw.f90,LINK_CW,DBS,77,DOUBLEPRECISION,,,False,False,"Depth from the river bed to the base of the surface-bed layer (m), from `CM15`."
+src/contaminant/link/link_cw.f90,LINK_CW,DBDI,78,DOUBLEPRECISION,,,False,False,"Initial depth from the river bed to the base of the deep-bed layer (m), from `CM17`."
+src/contaminant/link/link_cw.f90,LINK_CW,LENDA,80,INTEGER,,(6),False,False,End number on the adjacent link represented by each current-link connection slot.
+src/contaminant/link/link_cw.f90,LINK_CW,THBED,82,DOUBLEPRECISION,,(NLFEE),False,False,Current thickness-weighted stream-bed volumetric moisture content.
+src/contaminant/link/link_cw.f90,LINK_CW,THBEDO,83,DOUBLEPRECISION,,(NLFEE),False,False,Preceding stream-bed moisture content passed to `FRET`.
+src/contaminant/plant_cc.f90,PLANT_CC,NTEMP1,70,INTEGER,PARAMETER,,True,True,Unused legacy element count for initializing `BCPAA` and `BCPBB`.
+src/contaminant/plant_cc.f90,PLANT_CC,NTEMP2,71,INTEGER,PARAMETER,,True,True,Unused legacy plant-type/contaminant element count.
+src/contaminant/plant_cc.f90,PLANT_CC,GENAA,73,DOUBLEPRECISION,,(NPELEE),False,False,"Compartment-A decay generation carried to the next numeric contaminant, by plant slot."
+src/contaminant/plant_cc.f90,PLANT_CC,GENBB,74,DOUBLEPRECISION,,(NPELEE),False,False,"Compartment-B decay generation carried to the next numeric contaminant, by plant slot."
+src/contaminant/plant_cc.f90,PLANT_CC,GCPL,75,DOUBLEPRECISION,,,False,False,"Active contaminant's dimensionless decay coefficient, copied from `GCPLA` by `PLCOLM`."
+src/contaminant/plant_cc.f90,PLANT_CC,GMCPAA,76,DOUBLEPRECISION,,,False,False,"Current dimensionless compartment-A mass factor, `1-DELONE`."
+src/contaminant/plant_cc.f90,PLANT_CC,GMCPBB,77,DOUBLEPRECISION,,,False,False,"Current dimensionless compartment-B mass factor, `PFTWO*DELONE/PF2MAX`."
+src/contaminant/plant_cc.f90,PLANT_CC,GMCBBD,78,DOUBLEPRECISION,,,False,False,Change in the compartment-B mass factor per dimensionless timestep.
+src/contaminant/plant_cc.f90,PLANT_CC,QCPAA,79,DOUBLEPRECISION,,,False,False,Scaled contaminant uptake rate assigned to plant compartment A.
+src/contaminant/plant_cc.f90,PLANT_CC,QCPBB,80,DOUBLEPRECISION,,,False,False,Scaled contaminant uptake rate assigned to plant compartment B.
+src/contaminant/plant_cc.f90,PLANT_CC,RHOPL,81,DOUBLEPRECISION,,,False,True,Plant-material density used to scale contaminant and nitrate plant mass.
+src/contaminant/plant_cc.f90,PLANT_CC,BCPAA,83,DOUBLEPRECISION,,"(NELEE, NPELEE, NCONEE)",False,True,Persistent relative contaminant concentration in plant compartment A.
+src/contaminant/plant_cc.f90,PLANT_CC,BCPBB,84,DOUBLEPRECISION,,"(NELEE, NPELEE, NCONEE)",False,True,Persistent relative contaminant concentration in plant compartment B.
+src/contaminant/plant_cc.f90,PLANT_CC,DELONE,86,DOUBLEPRECISION,,(NPLTEE),False,True,"Fraction assigned to the canopy-dependent annual-growth compartment B, by plant type."
+src/contaminant/plant_cc.f90,PLANT_CC,DELTWO,87,DOUBLEPRECISION,,(NPLTEE),False,True,Fraction of released compartment-B contaminant returned directly to the top cell.
+src/contaminant/plant_cc.f90,PLANT_CC,DELTHR,88,DOUBLEPRECISION,,(NPLTEE),False,True,"Multiplier on compartment-B contaminant uptake capacity, by plant type."
+src/contaminant/plant_cc.f90,PLANT_CC,DELFOU,89,DOUBLEPRECISION,,(NPLTEE),False,True,"Current recycling fraction for falling compartment-B mass, selected by `PLPREP`."
+src/contaminant/plant_cc.f90,PLANT_CC,FLEFT,90,DOUBLEPRECISION,,(NPLTEE),False,False,Zero-canopy fallback for `DELFOU`; currently uninitialized.
+src/contaminant/plant_cc.f90,PLANT_CC,GMCBBO,92,DOUBLEPRECISION,,"(NELEE, NPELEE)",False,False,"Previous compartment-B mass factor, used to calculate `GMCBBD`."
+src/contaminant/plant_cc.f90,PLANT_CC,NPL,94,INTEGER,,(NELEE),False,False,Number of active plant slots on each soil column.
+src/contaminant/plant_cc.f90,PLANT_CC,NPLTYP,95,INTEGER,,"(NELEE, NPELEE)",False,True,Plant type assigned to each soil-column plant slot; all entries initially 1.
+src/contaminant/plant_cc.f90,PLANT_CC,NPLT,96,INTEGER,,,False,False,"Total number of plant types, set to `NV` by `INPL`."
+src/contaminant/plant_cc.f90,PLANT_CC,PKMAX,98,DOUBLEPRECISION,,"(NPLTEE, NCONEE)",False,False,Maximum contaminant uptake coefficient by plant type and contaminant.
+src/contaminant/plant_cc.f90,PLANT_CC,PMASS,99,DOUBLEPRECISION,,(NPLTEE),False,False,"Maximum plant-material mass per unit ground area, by plant type."
+src/contaminant/plant_cc.f90,PLANT_CC,PFONE,101,DOUBLEPRECISION,,"(NELEE, NPELEE)",False,False,Fractional ground cover of each soil-column plant slot.
+src/contaminant/plant_cc.f90,PLANT_CC,PFTWO,102,DOUBLEPRECISION,,(NPLTEE),False,False,"Current canopy leaf area index copied from `CLAI`, by plant type."
+src/contaminant/plant_cc.f90,PLANT_CC,PF2MAX,103,DOUBLEPRECISION,,(NPLTEE),False,False,"Maximum canopy leaf area index used to normalize `PFTWO`, by plant type."
+src/contaminant/plant_cc.f90,PLANT_CC,PDZF3,104,DOUBLEPRECISION,,"(NELEE, NPELEE, LLEE)",False,False,Root fraction; declaration and current access orders disagree as warned above.
+src/contaminant/plant_cc.f90,PLANT_CC,XXI,106,DOUBLEPRECISION,,,False,False,Uninitialized weighting applied with the mobile-water fraction in contaminant transport and plant uptake.
+src/contaminant/sed_co.f90,SED_CO,DLSO,55,DOUBLEPRECISION,,(NELEE),False,False,Previous loose/bed-sediment depth by element [m]; actively used for columns.
+src/contaminant/sed_co.f90,SED_CO,GNUO,56,DOUBLEPRECISION,,(NELEE),False,False,Previous ground-surface erosion depth rate by element [m/s]; actively used for columns.
+src/contaminant/sed_co.f90,SED_CO,FBETAO,58,DOUBLEPRECISION,,"(NELEE, NSEDEE)",False,False,Previous loose/bed-sediment composition fraction by element and size class.
+src/contaminant/sed_co.f90,SED_CO,FDELO,59,DOUBLEPRECISION,,"(NELEE, NSEDEE)",False,False,Previous `FDEL` settled-depth/water-depth ratio by element and size class.
+src/contaminant/sed_co.f90,SED_CO,FBBEDO,60,DOUBLEPRECISION,,"(NLFEE, NSEDEE)",False,False,Previous combined channel-bed composition fraction by link and size class.
+src/contaminant/sed_co.f90,SED_CO,FBTSDO,61,DOUBLEPRECISION,,"(NLFEE, NSEDEE)",False,False,Previous newly deposited sediment composition fraction by link and size class.
+src/core/mod_parameters.f90,mod_parameters,R8P,56,integer,parameter,,True,True,Real kind with precision >= 15 and range >= 307.
+src/core/mod_parameters.f90,mod_parameters,R4P,57,integer,parameter,,True,True,Real kind with precision >= 6 and range >= 37.
+src/core/mod_parameters.f90,mod_parameters,R_P,58,integer,parameter,,True,True,"Project-selected real-kind alias, currently `R8P`."
+src/core/mod_parameters.f90,mod_parameters,I8P,60,integer,parameter,,True,True,Integer kind with decimal range >= 18.
+src/core/mod_parameters.f90,mod_parameters,I4P,61,integer,parameter,,True,True,Integer kind with decimal range >= 9.
+src/core/mod_parameters.f90,mod_parameters,I2P,62,integer,parameter,,True,True,Integer kind with decimal range >= 4.
+src/core/mod_parameters.f90,mod_parameters,I1P,63,integer,parameter,,True,True,Integer kind with decimal range >= 2.
+src/core/mod_parameters.f90,mod_parameters,I_P,64,integer,parameter,,True,True,"Project-selected integer-kind alias, currently `I4P`."
+src/core/mod_parameters.f90,mod_parameters,LENGTH_FILEPATH,68,integer(kind=I_P),parameter,,True,True,Project path buffer; classic Windows `MAX_PATH` size.
+src/core/mod_parameters.f90,mod_parameters,LENGTH_LINE,69,integer(kind=I_P),parameter,,True,True,Short text and diagnostic buffer length.
+src/core/mod_parameters.f90,mod_parameters,LENGTH_LINELONG,70,integer(kind=I_P),parameter,,True,True,Long text buffer; used for parser diagnostics.
+src/core/mod_parameters.f90,mod_parameters,LENGTH_LINEVERYLONG,71,integer(kind=I_P),parameter,,True,True,Very-long text buffer; upper bound for the dated meteorological record buffer in [[rest]].
+src/core/mod_parameters.f90,mod_parameters,LENGTH_TEXT_R8P,72,integer(kind=I_P),parameter,,True,True,"Characters reserved per free-format `R8P` value, including its separator."
+src/core/mod_parameters.f90,mod_parameters,NAN_REAL_R8P,76,real(kind=R8P),parameter,,True,True,Finite missing-value sentinel stored as `R8P`.
+src/core/mod_parameters.f90,mod_parameters,NAN_REAL_R_P,77,real(kind=R_P),parameter,,True,True,Same sentinel stored with project real kind `R_P`.
+src/core/mod_parameters.f90,mod_parameters,NAN_INT_I4P,78,integer(kind=I_P),parameter,,True,True,Finite integer sentinel; `I_P` currently equals `I4P`.
+src/core/mod_parameters.f90,mod_parameters,NAN_INT_I_P,79,integer(kind=I_P),parameter,,True,True,Alias of `NAN_INT_I4P` for project integer kind `I_P`.
+src/core/sglobal.f90,sglobal,SHEVER,111,REAL(KIND=R8P),PARAMETER,,True,True,SHETRAN version number (Major.Minor format).
+src/core/sglobal.f90,sglobal,BDEVER,112,LOGICAL,PARAMETER,,True,True,"Development version flag. `.TRUE.` for development, `.FALSE.` for release."
+src/core/sglobal.f90,sglobal,BANNER,113,CHARACTER(*),PARAMETER,,True,True,Banner for local implementation.
+src/core/sglobal.f90,sglobal,RUNFIL,114,CHARACTER(*),PARAMETER,,True,True,Base filename for run data files.
+src/core/sglobal.f90,sglobal,nxee,119,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum basic-grid extent in the x direction.
+src/core/sglobal.f90,sglobal,nyee,120,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum basic-grid extent in the y direction.
+src/core/sglobal.f90,sglobal,nlfee,121,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of channel links.
+src/core/sglobal.f90,sglobal,nelee,122,INTEGER(KIND=I_P),PARAMETER,,True,True,"Maximum total number of grid, bank, and channel-link elements."
+src/core/sglobal.f90,sglobal,LLEE,123,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of vertical computational cells per element.
+src/core/sglobal.f90,sglobal,NVEE,125,INTEGER(KIND=I_P),PARAMETER,,True,True,"Vegetation/meteorological-series capacity, including rainfall stations."
+src/core/sglobal.f90,sglobal,NSEE,126,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of soil types.
+src/core/sglobal.f90,sglobal,NVSEE,127,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of entries in VSS lookup and boundary tables.
+src/core/sglobal.f90,sglobal,NVBP,128,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum time-varying vegetation breakpoints per vegetation type.
+src/core/sglobal.f90,sglobal,NUZTAB,129,INTEGER(KIND=I_P),PARAMETER,,True,True,"Maximum PSI, RCF, and FET lookup entries per vegetation type."
+src/core/sglobal.f90,sglobal,NLYREE,130,INTEGER(KIND=I_P),PARAMETER,,True,True,Soil-layer boundary capacity (maximum layers plus one).
+src/core/sglobal.f90,sglobal,NSETEE,131,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum output sets in legacy binary results metadata.
+src/core/sglobal.f90,sglobal,NOCTAB,132,INTEGER(KIND=I_P),PARAMETER,,True,True,"Maximum OC roughness, cross-section, or boundary-table category count."
+src/core/sglobal.f90,sglobal,NSEDEE,133,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of sediment size fractions.
+src/core/sglobal.f90,sglobal,NCONEE,134,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of numeric contaminants.
+src/core/sglobal.f90,sglobal,NOLEE,135,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum contaminant column-overlap entries.
+src/core/sglobal.f90,sglobal,NPLTEE,136,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of contaminant plant types.
+src/core/sglobal.f90,sglobal,NPELEE,137,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum number of contaminant plant slots per element.
+src/core/sglobal.f90,sglobal,max_no_snowmelt_slugs,138,INTEGER(KIND=I_P),PARAMETER,,True,True,Maximum stored snowmelt-slug records per element.
+src/core/sglobal.f90,sglobal,NXSCEE,139,INTEGER(KIND=I_P),PARAMETER,,True,True,Number of samples in each channel cross-section/conveyance table.
+src/core/sglobal.f90,sglobal,total_no_elements,144,INTEGER(KIND=I_P),,,False,True,"Active total number of grid, bank, and channel-link elements."
+src/core/sglobal.f90,sglobal,total_no_links,145,INTEGER(KIND=I_P),,,False,True,Active number of channel links; link elements occupy the first indices.
+src/core/sglobal.f90,sglobal,top_cell_no,146,INTEGER(KIND=I_P),,,False,True,Greatest active VSS cell index across all element columns.
+src/core/sglobal.f90,sglobal,szmonte,147,INTEGER(KIND=I_P),,,False,True,Inactive retained Monte Carlo state; no current consumer.
+src/core/sglobal.f90,sglobal,ran2monte1,148,INTEGER(KIND=I_P),,,False,True,Inactive retained Monte Carlo state; no current consumer.
+src/core/sglobal.f90,sglobal,ran2monte2,149,INTEGER(KIND=I_P),,,False,True,Inactive retained Monte Carlo state; no current consumer.
+src/core/sglobal.f90,sglobal,pcmonte,150,INTEGER(KIND=I_P),,,False,True,Inactive retained Monte Carlo state; no current consumer.
+src/core/sglobal.f90,sglobal,montec,151,INTEGER(KIND=I_P),"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Inactive Monte Carlo array; never allocated by current code.
+src/core/sglobal.f90,sglobal,DIRQQ,152,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Parent directory of the selected rundata file; may be `.` or a pathname.
+src/core/sglobal.f90,sglobal,filnam,153,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Mutable filename buffer used by command-line setup and rundata-record reading.
+src/core/sglobal.f90,sglobal,cnam,154,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Catchment name derived from the selected rundata filename stem.
+src/core/sglobal.f90,sglobal,rootdir,155,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Process working directory captured at command-line setup.
+src/core/sglobal.f90,sglobal,hdf5filename,156,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,HDF5 pathname from nonblank rundata record 50.
+src/core/sglobal.f90,sglobal,visualisation_plan_filename,157,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Visualisation-plan pathname from nonblank rundata record 48.
+src/core/sglobal.f90,sglobal,visualisation_check_filename,158,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Visualisation-check pathname from nonblank rundata record 49.
+src/core/sglobal.f90,sglobal,UZNOW,159,REAL(KIND=R8P),,,False,False,Current simulation time measured from the configured start [h].
+src/core/sglobal.f90,sglobal,cellarea,160,REAL(KIND=R8P),DIMENSION(nelee),(nelee),False,False,"Plan area of each active element, `DXQQ*DYQQ` [m2]."
+src/core/sglobal.f90,sglobal,DXQQ,161,REAL(KIND=R8P),DIMENSION(nelee),(nelee),False,False,Corrected x-direction plan dimension of each active element [m].
+src/core/sglobal.f90,sglobal,DYQQ,162,REAL(KIND=R8P),DIMENSION(nelee),(nelee),False,False,Corrected y-direction plan dimension of each active element [m].
+src/core/sglobal.f90,sglobal,ZGRUND,163,REAL(KIND=R8P),DIMENSION(nelee),(nelee),False,False,Ground-surface elevation of each active element [m].
+src/core/sglobal.f90,sglobal,flag_runtime_reduction_errors,170,LOGICAL,,,False,False,Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
+src/core/sglobal.f90,sglobal,flag_runtime_reduction_e1060,171,LOGICAL,,,False,False,Latest `ERROR` call requested the separate timestep reduction for error 1060.
+src/core/sglobal.f90,sglobal,error_mode,176,LOGICAL,,,False,False,State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ALSTOP]].
+src/core/sglobal.f90,sglobal,marker999,181,REAL(KIND=R8P),PARAMETER,,True,True,End-of-input time sentinel returned by `FINPUT` and `HINPUT` [h].
+src/core/sglobal.f90,sglobal,imarker,182,INTEGER(KIND=I_P),PARAMETER,,True,True,Truncated sentinel used internally by `eqmarker`.
+src/core/sglobal.f90,sglobal,izero,183,INTEGER(KIND=I_P),PARAMETER,,True,True,Integer zero constant.
+src/core/sglobal.f90,sglobal,ione,184,INTEGER(KIND=I_P),PARAMETER,,True,True,Integer one constant.
+src/core/sglobal.f90,sglobal,izero1,185,INTEGER(KIND=I_P),"PARAMETER, DIMENSION(1)",(1),True,True,One-element integer-zero vector for checker calls.
+src/core/sglobal.f90,sglobal,ione1,186,INTEGER(KIND=I_P),"PARAMETER, DIMENSION(1)",(1),True,True,One-element integer-one vector for checker calls.
+src/core/sglobal.f90,sglobal,zero,187,REAL(KIND=R8P),PARAMETER,,True,True,`R8P` zero constant.
+src/core/sglobal.f90,sglobal,half,188,REAL(KIND=R8P),PARAMETER,,True,True,`R8P` one-half constant.
+src/core/sglobal.f90,sglobal,one,189,REAL(KIND=R8P),PARAMETER,,True,True,`R8P` one constant.
+src/core/sglobal.f90,sglobal,two,190,REAL(KIND=R8P),PARAMETER,,True,True,`R8P` two constant.
+src/core/sglobal.f90,sglobal,three,191,REAL(KIND=R8P),PARAMETER,,True,True,`R8P` three constant.
+src/core/sglobal.f90,sglobal,five,192,REAL(KIND=R8P),PARAMETER,,True,True,`R8P` five constant.
+src/core/sglobal.f90,sglobal,vsmall,193,REAL(KIND=R8P),PARAMETER,,True,True,Strict absolute tolerance used by zero/one comparison helpers.
+src/core/sglobal.f90,sglobal,zero1,194,REAL(KIND=R8P),"PARAMETER, DIMENSION(1)",(1),True,True,One-element `R8P` zero vector for checker calls.
+src/core/sglobal.f90,sglobal,one1,195,REAL(KIND=R8P),"PARAMETER, DIMENSION(1)",(1),True,True,One-element `R8P` one vector for checker calls.
+src/core/sglobal.f90,sglobal,EARRAY,200,REAL(KIND=R8P),,(1),False,False,Numeric context read for errors 1003/1024; no current producer initializes it.
+src/core/sglobal.f90,sglobal,text32,201,CHARACTER(32),,,False,False,Inactive retained shared text workspace; no current consumer.
+src/core/state/AL_C.F90,AL_C,SFB,72,INTEGER,PARAMETER,,True,True,Placeholder for the unimplemented sediment flow-boundary stream.
+src/core/state/AL_C.F90,AL_C,SRB,73,INTEGER,PARAMETER,,True,True,Placeholder for the unimplemented sediment rating/boundary stream.
+src/core/state/AL_C.F90,AL_C,VSD,74,INTEGER,PARAMETER,,True,True,Variably saturated subsurface data input unit.
+src/core/state/AL_C.F90,AL_C,SYD,75,INTEGER,PARAMETER,,True,True,Sediment data input unit.
+src/core/state/AL_C.F90,AL_C,CMD,76,INTEGER,PARAMETER,,True,True,Contaminant data input unit.
+src/core/state/AL_C.F90,AL_C,SPR,77,INTEGER,PARAMETER,,True,True,Formatted sediment diagnostic/output unit.
+src/core/state/AL_C.F90,AL_C,CMP,78,INTEGER,PARAMETER,,True,True,Formatted contaminant diagnostic/output unit (called `CPR` in the manual).
+src/core/state/AL_C.F90,AL_C,BUG,79,INTEGER,PARAMETER,,True,True,Developer debug-output unit.
+src/core/state/AL_C.F90,AL_C,VSI,80,INTEGER,PARAMETER,,True,True,VSS initial-condition input unit.
+src/core/state/AL_C.F90,AL_C,WLD,81,INTEGER,PARAMETER,,True,True,Time-varying well-abstraction input unit.
+src/core/state/AL_C.F90,AL_C,LFB,82,INTEGER,PARAMETER,,True,True,Time-varying lateral subsurface-flow boundary unit.
+src/core/state/AL_C.F90,AL_C,LHB,83,INTEGER,PARAMETER,,True,True,Time-varying lateral subsurface-head boundary unit.
+src/core/state/AL_C.F90,AL_C,LGB,84,INTEGER,PARAMETER,,True,True,Time-varying lateral head-gradient boundary unit.
+src/core/state/AL_C.F90,AL_C,BFB,85,INTEGER,PARAMETER,,True,True,Time-varying aquifer-base flow boundary unit.
+src/core/state/AL_C.F90,AL_C,BHB,86,INTEGER,PARAMETER,,True,True,Time-varying aquifer-base head boundary unit.
+src/core/state/AL_C.F90,AL_C,CMT,87,INTEGER,PARAMETER,,True,True,First contaminant-migration boundary input unit.
+src/core/state/AL_C.F90,AL_C,CMB,88,INTEGER,PARAMETER,,True,True,Second contaminant-migration boundary input unit.
+src/core/state/AL_C.F90,AL_C,MND,89,INTEGER,PARAMETER,,True,True,Nitrogen and carbon data input unit.
+src/core/state/AL_C.F90,AL_C,MNFC,90,INTEGER,PARAMETER,,True,True,External carbon-input unit.
+src/core/state/AL_C.F90,AL_C,MNFN,91,INTEGER,PARAMETER,,True,True,External nitrogen-input unit.
+src/core/state/AL_C.F90,AL_C,MNPL,92,INTEGER,PARAMETER,,True,True,Nitrate plant-uptake input unit.
+src/core/state/AL_C.F90,AL_C,MNPR,93,INTEGER,PARAMETER,,True,True,Formatted nitrate diagnostic/output unit.
+src/core/state/AL_C.F90,AL_C,MNOUT1,94,INTEGER,PARAMETER,,True,True,Nitrate carbon extra-output unit.
+src/core/state/AL_C.F90,AL_C,MNOUT2,95,INTEGER,PARAMETER,,True,True,Nitrate nitrogen extra-output unit.
+src/core/state/AL_C.F90,AL_C,MNOUTPL,96,INTEGER,PARAMETER,,True,True,Nitrate plant-output unit.
+src/core/state/AL_C.F90,AL_C,TIH,98,DOUBLEPRECISION,,,False,False,Simulation start as an absolute hour count returned by `HOUR_FROM_DATE` (h).
+src/core/state/AL_C.F90,AL_C,NBFACE,101,INTEGER,DIMENSION(NELEE),(NELEE),False,False,External boundary-face number by boundary element; zero otherwise.
+src/core/state/AL_C.F90,AL_C,NLYR,102,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Number of defined soil/lithology layers by element.
+src/core/state/AL_C.F90,AL_C,NVC,103,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Vegetation-category number by element.
+src/core/state/AL_C.F90,AL_C,NWELBT,104,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Bottom VSS cell of the well screen by well element.
+src/core/state/AL_C.F90,AL_C,NWELTP,105,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Top VSS cell of the well screen by well element.
+src/core/state/AL_C.F90,AL_C,NVSWLT,106,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Irrigating well element keyed by its target element; zero means no target mapping.
+src/core/state/AL_C.F90,AL_C,NVSSPC,107,INTEGER,DIMENSION(NELEE),(NELEE),False,False,VSS cell containing a spring source by source element.
+src/core/state/AL_C.F90,AL_C,NVSSPT,108,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Spring source element keyed by its target element; zero means no target mapping.
+src/core/state/AL_C.F90,AL_C,NVSWLI,109,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Well-record number keyed by the element containing the well; zero means no well.
+src/core/state/AL_C.F90,AL_C,DHF,110,DOUBLEPRECISION,"DIMENSION(NELEE, 4)","(NELEE, 4)",False,False,Distance from an element node/centroid to each face (m).
+src/core/state/AL_C.F90,AL_C,ISPACK,111,LOGICAL,DIMENSION(NELEE),(NELEE),False,False,Whether a snowpack is present on each element.
+src/core/state/AL_C.F90,AL_C,JVSACN,113,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"Adjacent VSS cell number by face, cell, and element; zero means no connection."
+src/core/state/AL_C.F90,AL_C,JVSDEL,114,INTEGER,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"Signed split-cell connectivity code by face, cell, and element."
+src/core/state/AL_C.F90,AL_C,DELTAZ,115,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,VSS cell thickness by cell and element (m).
+src/core/state/AL_C.F90,AL_C,ZVSNOD,116,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,VSS node elevation by cell and element (m).
+src/core/state/AL_C.F90,AL_C,ICMBK,119,INTEGER,"DIMENSION(NLFEE, 2)","(NLFEE, 2)",False,False,Explicit bank-element number by link and bank side.
+src/core/state/AL_C.F90,AL_C,NHBED,120,INTEGER,"DIMENSION(NLFEE, 2)","(NLFEE, 2)",False,False,Highest VSS cell below the channel bed by link and bank side.
+src/core/state/AL_C.F90,AL_C,ICMRF2,121,INTEGER,"DIMENSION(NLFEE, 6)","(NLFEE, 6)",False,False,Multi-link branch map: adjacent elements in columns 1:3 and their faces in 4:6.
+src/core/state/AL_C.F90,AL_C,CLENTH,122,DOUBLEPRECISION,DIMENSION(NLFEE),(NLFEE),False,False,Channel-link length (m).
+src/core/state/AL_C.F90,AL_C,CWIDTH,123,DOUBLEPRECISION,DIMENSION(NLFEE),(NLFEE),False,False,Channel-link width (m).
+src/core/state/AL_C.F90,AL_C,ZBEFF,124,DOUBLEPRECISION,DIMENSION(NLFEE),(NLFEE),False,False,Effective channel-bed elevation (m).
+src/core/state/AL_C.F90,AL_C,ZBFULL,125,DOUBLEPRECISION,DIMENSION(NLFEE),(NLFEE),False,False,Bankfull channel elevation (m).
+src/core/state/AL_C.F90,AL_C,FHBED,126,DOUBLEPRECISION,"DIMENSION(NLFEE, 2)","(NLFEE, 2)",False,False,Fractional vertical-cell overlap at the channel bed by link and bank side.
+src/core/state/AL_C.F90,AL_C,BEXBK,127,LOGICAL,,,False,False,Whether explicit bank elements are enabled.
+src/core/state/AL_C.F90,AL_C,LINKNS,128,LOGICAL,DIMENSION(NLFEE),(NLFEE),False,False,Whether each channel link is aligned north-south.
+src/core/state/AL_C.F90,AL_C,NV,131,INTEGER,,,False,False,Number of active vegetation types.
+src/core/state/AL_C.F90,AL_C,NRD,132,INTEGER,DIMENSION(NVEE),(NVEE),False,False,Number of VSS nodes in the root zone by vegetation type.
+src/core/state/AL_C.F90,AL_C,RDL,133,DOUBLEPRECISION,DIMENSION(NVEE),(NVEE),False,False,Legacy bank-root fraction read from ET8; current validation requires zero.
+src/core/state/AL_C.F90,AL_C,RDF,134,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Root-density fraction by vegetation type and VSS node.
+src/core/state/AL_C.F90,AL_C,NS,136,INTEGER,,,False,False,Number of active soil types.
+src/core/state/AL_C.F90,AL_C,THSAT,137,DOUBLEPRECISION,DIMENSION(NSEE),(NSEE),False,False,"Saturated moisture content used by sediment coupling, by soil type (m3/m3)."
+src/core/state/AL_C.F90,AL_C,VSPOR,138,DOUBLEPRECISION,DIMENSION(NSEE),(NSEE),False,False,VSS porosity/saturated volumetric water content by soil type (m3/m3).
+src/core/state/AL_C.F90,AL_C,NLYRBT,139,INTEGER,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Bottom VSS cell number by element and soil layer.
+src/core/state/AL_C.F90,AL_C,NTSOIL,140,INTEGER,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Soil-type number by element and soil layer.
+src/core/state/AL_C.F90,AL_C,ZLYRBT,141,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Bottom elevation by element and soil layer (m).
+src/core/state/AL_C.F90,AL_C,IDUM,144,INTEGER,DIMENSION(NXEE*NYEE),(NXEE*NYEE),False,False,Integer workspace for spatial/category input.
+src/core/state/AL_C.F90,AL_C,ISORT,145,INTEGER,DIMENSION(NELEE),(NELEE),False,False,"Element processing order, normally sorted from highest water level downward."
+src/core/state/AL_C.F90,AL_C,NHSAT,146,INTEGER,DIMENSION(NELEE),(NELEE),False,False,Unused legacy saturation-state array with no current producer or consumer.
+src/core/state/AL_C.F90,AL_C,DRAINA,147,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Canopy drainage reaching the surface by element (m/s).
+src/core/state/AL_C.F90,AL_C,DUMMY,148,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Floating-point workspace for spatial input and validation.
+src/core/state/AL_C.F90,AL_C,ESOILA,149,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Soil-surface evaporation rate by element (m/s).
+src/core/state/AL_C.F90,AL_C,EEVAP,150,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Soil plus surface-water evaporation rate by element (m/s).
+src/core/state/AL_C.F90,AL_C,PNETTO,151,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,"Net surface-water input, including mapped well irrigation (m/s)."
+src/core/state/AL_C.F90,AL_C,QH,152,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,VSS flux through the top of each column (m/s).
+src/core/state/AL_C.F90,AL_C,WBERR,153,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Cumulative element water-balance residual expressed as depth (m).
+src/core/state/AL_C.F90,AL_C,ZVSPSL,154,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Phreatic-surface elevation by element (m).
+src/core/state/AL_C.F90,AL_C,QVSBF,155,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,VSS flux through the base of each active column (m/s).
+src/core/state/AL_C.F90,AL_C,QVSSPR,156,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Spring discharge by source element (m3/s).
+src/core/state/AL_C.F90,AL_C,QVSWEL,157,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Actual total well abstraction/recharge as an element-area flux (m/s).
+src/core/state/AL_C.F90,AL_C,QOC,158,DOUBLEPRECISION,"DIMENSION(NELEE, 4)","(NELEE, 4)",False,False,Signed overland/channel discharge through each element face (m3/s).
+src/core/state/AL_C.F90,AL_C,QVSV,160,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Signed vertical VSS flux by cell interface and element (m/s).
+src/core/state/AL_C.F90,AL_C,VSPSI,161,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,VSS pressure head by cell and element (m).
+src/core/state/AL_C.F90,AL_C,VSTHE,162,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Volumetric water content by cell and element (m3/m3).
+src/core/state/AL_C.F90,AL_C,QVSWLI,163,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Actual well flux by VSS cell and well record (m/s).
+src/core/state/AL_C.F90,AL_C,ERUZ,164,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Root-water extraction rate by element and VSS cell (m/s).
+src/core/state/AL_C.F90,AL_C,QVSH,165,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"Signed lateral VSS discharge by face, cell, and element (m3/s)."
+src/core/state/AL_C.F90,AL_C,ARXL,167,DOUBLEPRECISION,DIMENSION(NLFEE),(NLFEE),False,False,Current channel-flow cross-sectional area by link (m2).
+src/core/state/AL_C.F90,AL_C,QBKB,168,DOUBLEPRECISION,"DIMENSION(NLFEE, 2)","(NLFEE, 2)",False,False,Saturated channel-bed exchange for wet channel area (m3/s).
+src/core/state/AL_C.F90,AL_C,QBKF,169,DOUBLEPRECISION,"DIMENSION(NLFEE, 2)","(NLFEE, 2)",False,False,Lateral VSS exchange between channel/link and surrounding column (m3/s).
+src/core/state/AL_C.F90,AL_C,QBKI,170,DOUBLEPRECISION,"DIMENSION(NLFEE, 2)","(NLFEE, 2)",False,False,Channel-bed exchange assigned to dry channel area (m3/s).
+src/core/state/AL_C.F90,AL_C,CLAI,172,DOUBLEPRECISION,DIMENSION(NVEE),(NVEE),False,False,Current canopy leaf-area index by vegetation type.
+src/core/state/AL_C.F90,AL_C,PLAI,173,DOUBLEPRECISION,DIMENSION(NVEE),(NVEE),False,False,Current maximum-season ground-cover proportion by vegetation type.
+src/core/state/AL_C.F90,AL_C,SBERR,175,DOUBLEPRECISION,"DIMENSION(NELEE, NSEDEE)","(NELEE, NSEDEE)",False,False,Sediment balance-error state by element and size fraction.
+src/core/state/AL_C.F90,AL_C,DTUZ,177,DOUBLEPRECISION,,,False,False,Current coupled VSS/ET timestep in seconds (s).
+src/core/state/AL_C.F90,AL_C,UZNEXT,178,DOUBLEPRECISION,,,False,False,Current model timestep expressed in hours (h).
+src/core/state/AL_D.f90,AL_D,NCLASS,68,INTEGER,PARAMETER,,True,True,Number of element classes supported by the legacy binary-result format.
+src/core/state/AL_D.f90,AL_D,FRD,71,INTEGER,PARAMETER,,True,True,Frame/common data input unit.
+src/core/state/AL_D.f90,AL_D,OCD,72,INTEGER,PARAMETER,,True,True,Overland/channel data input unit.
+src/core/state/AL_D.f90,AL_D,ETD,73,INTEGER,PARAMETER,,True,True,Evapotranspiration data input unit.
+src/core/state/AL_D.f90,AL_D,PPD,74,INTEGER,PARAMETER,,True,True,Reserved precipitation-data input unit.
+src/core/state/AL_D.f90,AL_D,SMD,75,INTEGER,PARAMETER,,True,True,Optional snowmelt data input unit.
+src/core/state/AL_D.f90,AL_D,BKD,76,INTEGER,PARAMETER,,True,True,Optional bank-element data input unit.
+src/core/state/AL_D.f90,AL_D,MED,77,INTEGER,PARAMETER,,True,True,Combined meteorological time-series input unit.
+src/core/state/AL_D.f90,AL_D,PRD,78,INTEGER,PARAMETER,,True,True,Precipitation time-series input unit.
+src/core/state/AL_D.f90,AL_D,EPD,79,INTEGER,PARAMETER,,True,True,Potential-evaporation time-series input unit.
+src/core/state/AL_D.f90,AL_D,TIM,80,INTEGER,PARAMETER,,True,True,Time-counter/status file unit.
+src/core/state/AL_D.f90,AL_D,RES,81,INTEGER,PARAMETER,,True,True,Legacy unformatted result-metadata file unit.
+src/core/state/AL_D.f90,AL_D,HOT,82,INTEGER,PARAMETER,,True,True,Hotstart input/output unit.
+src/core/state/AL_D.f90,AL_D,VED,83,INTEGER,PARAMETER,,True,True,Reserved vegetation-data input unit.
+src/core/state/AL_D.f90,AL_D,OFB,84,INTEGER,PARAMETER,,True,True,Time-varying overland/channel flow-boundary unit.
+src/core/state/AL_D.f90,AL_D,OHB,85,INTEGER,PARAMETER,,True,True,Time-varying overland/channel head-boundary unit.
+src/core/state/AL_D.f90,AL_D,DIS,86,INTEGER,PARAMETER,,True,True,Regular outlet-discharge CSV output unit.
+src/core/state/AL_D.f90,AL_D,VSE,87,INTEGER,PARAMETER,,True,True,Hotstart/VSS-state output unit.
+src/core/state/AL_D.f90,AL_D,MAS,88,INTEGER,PARAMETER,,True,True,Mass-balance output unit.
+src/core/state/AL_D.f90,AL_D,DIS2,89,INTEGER,PARAMETER,,True,True,Every-timestep outlet-discharge output unit.
+src/core/state/AL_D.f90,AL_D,TAH,90,INTEGER,PARAMETER,,True,True,Maximum-air-temperature time-series input unit.
+src/core/state/AL_D.f90,AL_D,TAL,91,INTEGER,PARAMETER,,True,True,Minimum-air-temperature time-series input unit.
+src/core/state/AL_D.f90,AL_D,disextra,92,INTEGER,PARAMETER,,True,True,Input unit selecting additional discharge element/face points.
+src/core/state/AL_D.f90,AL_D,zqd,93,INTEGER,PARAMETER,,True,True,ZQ reservoir/weir-table data input unit.
+src/core/state/AL_D.f90,AL_D,pslextra,94,INTEGER,PARAMETER,,True,True,Input unit selecting additional phreatic-surface elements.
+src/core/state/AL_D.f90,AL_D,MSM,97,INTEGER,,,False,False,"Snowmelt method: 0 disabled, 1 degree-day, or 2 energy-budget."
+src/core/state/AL_D.f90,AL_D,NM,98,INTEGER,,,False,False,Number of active meteorological sites.
+src/core/state/AL_D.f90,AL_D,NRAIN,99,INTEGER,,,False,False,Number of active rainfall stations.
+src/core/state/AL_D.f90,AL_D,NSET,100,INTEGER,,,False,False,Number of legacy binary result sets; no current producer was found.
+src/core/state/AL_D.f90,AL_D,MBLINK,101,INTEGER,,,False,False,Link whose selected face supplies outlet discharge to the catchment balance.
+src/core/state/AL_D.f90,AL_D,MBFACE,102,INTEGER,,,False,False,Face of `MBLINK` used for catchment-balance discharge.
+src/core/state/AL_D.f90,AL_D,MBFLAG,103,INTEGER,,,False,False,"Catchment-balance schedule: 1 daily, any other value monthly."
+src/core/state/AL_D.f90,AL_D,NXP1,104,INTEGER,,,False,False,Active grid helper value `NX+1`.
+src/core/state/AL_D.f90,AL_D,NYP1,105,INTEGER,,,False,False,Active grid helper value `NY+1`.
+src/core/state/AL_D.f90,AL_D,NXM1,106,INTEGER,,,False,False,Active grid helper value `NX-1`.
+src/core/state/AL_D.f90,AL_D,NYM1,107,INTEGER,,,False,False,Active grid helper value `NY-1`.
+src/core/state/AL_D.f90,AL_D,NXEP1,108,INTEGER,,,False,False,Capacity helper value `NXE+1`.
+src/core/state/AL_D.f90,AL_D,NYEP1,109,INTEGER,,,False,False,Capacity helper value `NYE+1`.
+src/core/state/AL_D.f90,AL_D,NoZQTables,110,INTEGER,,,False,False,Number of reservoir ZQ tables read from `zqd`.
+src/core/state/AL_D.f90,AL_D,ZQTableRef,111,INTEGER,,,False,False,Index of the ZQ table selected for the current link-face calculation.
+src/core/state/AL_D.f90,AL_D,NXE,112,INTEGER,PARAMETER,,True,True,Legacy x workspace capacity alias.
+src/core/state/AL_D.f90,AL_D,NYE,113,INTEGER,PARAMETER,,True,True,Legacy y workspace capacity alias.
+src/core/state/AL_D.f90,AL_D,NSTEP,116,INTEGER,,,False,False,Current coupled simulation timestep number.
+src/core/state/AL_D.f90,AL_D,NRPD,117,INTEGER,,,False,False,Legacy precipitation-record counter.
+src/core/state/AL_D.f90,AL_D,NSMT,118,INTEGER,,,False,False,Current ET/snowmelt coupling control for one element.
+src/core/state/AL_D.f90,AL_D,MBYEAR,119,INTEGER,,,False,False,Calendar year of the next mass-balance report.
+src/core/state/AL_D.f90,AL_D,MBMON,120,INTEGER,,,False,False,Calendar month of the next mass-balance report.
+src/core/state/AL_D.f90,AL_D,MBDAY,121,INTEGER,,,False,False,Calendar day of the next mass-balance report.
+src/core/state/AL_D.f90,AL_D,PSTART,125,DOUBLEPRECISION,,,False,False,Simulation-relative start time for legacy printed/result output (h).
+src/core/state/AL_D.f90,AL_D,DTMET,126,DOUBLEPRECISION,,,False,False,Combined meteorological input interval (h).
+src/core/state/AL_D.f90,AL_D,QMAX,127,DOUBLEPRECISION,,,False,False,Maximum permitted overland/channel face discharge magnitude (m3/s); nonpositive disables the check.
+src/core/state/AL_D.f90,AL_D,BHOTTI,128,DOUBLEPRECISION,,,False,False,Requested/read hotstart time (h).
+src/core/state/AL_D.f90,AL_D,BHOTST,129,DOUBLEPRECISION,,,False,False,Interval between hotstart outputs (h).
+src/core/state/AL_D.f90,AL_D,PMAX,130,DOUBLEPRECISION,,,False,False,Maximum rainfall depth permitted in one model timestep (mm).
+src/core/state/AL_D.f90,AL_D,PALFA,131,DOUBLEPRECISION,,,False,False,Fractional timestep growth factor used by `TMSTEP`.
+src/core/state/AL_D.f90,AL_D,TMAX,132,DOUBLEPRECISION,,,False,False,"Maximum/basic coupled model timestep, capped at two hours (h)."
+src/core/state/AL_D.f90,AL_D,CAREA,133,DOUBLEPRECISION,,,False,False,Total active catchment plan area (m2).
+src/core/state/AL_D.f90,AL_D,BWIDTH,134,DOUBLEPRECISION,,,False,False,Nominal explicit-bank width used in frame geometry (m).
+src/core/state/AL_D.f90,AL_D,TTH,135,DOUBLEPRECISION,,,False,False,Simulation end as an absolute hour count (h).
+src/core/state/AL_D.f90,AL_D,DTMET2,136,DOUBLEPRECISION,,,False,False,Separate precipitation input interval (h).
+src/core/state/AL_D.f90,AL_D,DTMET3,137,DOUBLEPRECISION,,,False,False,Separate potential-evaporation input interval (h).
+src/core/state/AL_D.f90,AL_D,TOUTPUT,138,DOUBLEPRECISION,,,False,False,Interval for regular text/CSV outputs; defaults to 24 h (h).
+src/core/state/AL_D.f90,AL_D,UZVAL,141,DOUBLEPRECISION,,,False,False,Next upper-zone/VSS solution time used in hotstart handling (h).
+src/core/state/AL_D.f90,AL_D,OCNOW,142,DOUBLEPRECISION,,,False,False,Start time of the current overland/channel step (h).
+src/core/state/AL_D.f90,AL_D,OCNEXT,143,DOUBLEPRECISION,,,False,False,Duration of the current overland/channel step (h).
+src/core/state/AL_D.f90,AL_D,HRUZ,144,DOUBLEPRECISION,,,False,False,Current element's surface-water depth workspace (m).
+src/core/state/AL_D.f90,AL_D,PNET,145,DOUBLEPRECISION,,,False,False,Current element's net throughfall rate workspace (mm/s).
+src/core/state/AL_D.f90,AL_D,PE,146,DOUBLEPRECISION,,,False,False,Current element's available potential-evaporation rate (mm/s).
+src/core/state/AL_D.f90,AL_D,EINT,147,DOUBLEPRECISION,,,False,False,Current element's canopy-interception evaporation over the step (mm).
+src/core/state/AL_D.f90,AL_D,ERZ,148,DOUBLEPRECISION,,,False,False,Current element's root-zone extraction rate workspace (mm/s).
+src/core/state/AL_D.f90,AL_D,DRAIN,149,DOUBLEPRECISION,,,False,False,Current element's canopy drainage over the step (mm).
+src/core/state/AL_D.f90,AL_D,ESOIL,150,DOUBLEPRECISION,,,False,False,Current element's soil-evaporation rate workspace (mm/s).
+src/core/state/AL_D.f90,AL_D,AE,151,DOUBLEPRECISION,,,False,False,Current cell's actual-evapotranspiration rate workspace (mm/s).
+src/core/state/AL_D.f90,AL_D,CSTOLD,152,DOUBLEPRECISION,,,False,False,Current element's canopy storage at step start (mm).
+src/core/state/AL_D.f90,AL_D,CPLAI,153,DOUBLEPRECISION,,,False,False,"Current element's intercepted-area fraction, `min(CLAI,1)*PLAI`."
+src/core/state/AL_D.f90,AL_D,PREST,154,DOUBLEPRECISION,,,False,False,Unused legacy value set to `1+PALFA` during frame initialization.
+src/core/state/AL_D.f90,AL_D,TIMEUZ,155,DOUBLEPRECISION,,,False,False,Current elapsed ET/snow/VSS model time (h).
+src/core/state/AL_D.f90,AL_D,HOTIME,156,DOUBLEPRECISION,,,False,False,Current/last hotstart time (h).
+src/core/state/AL_D.f90,AL_D,BEXET,159,LOGICAL,,,False,False,Whether evapotranspiration is active; current frame setup always sets true.
+src/core/state/AL_D.f90,AL_D,BEXUZ,160,LOGICAL,,,False,False,Whether the legacy upper-zone process is active; current frame setup always sets true.
+src/core/state/AL_D.f90,AL_D,BEXEX,161,LOGICAL,,,False,False,Whether legacy exchange is active; current frame setup always sets true.
+src/core/state/AL_D.f90,AL_D,BEXOC,162,LOGICAL,,,False,False,Whether overland/channel flow is active; current frame setup always sets true.
+src/core/state/AL_D.f90,AL_D,BEXSZ,163,LOGICAL,,,False,False,Whether saturated-zone flow is active; current frame setup always sets true.
+src/core/state/AL_D.f90,AL_D,BEXSM,164,LOGICAL,,,False,False,Whether snowmelt is enabled by FR25.
+src/core/state/AL_D.f90,AL_D,BEXTS1,165,LOGICAL,,,False,False,Inactive legacy first time-series extension switch.
+src/core/state/AL_D.f90,AL_D,BHOTPR,166,LOGICAL,,,False,False,Whether periodic hotstart output is enabled.
+src/core/state/AL_D.f90,AL_D,BHOTRD,167,LOGICAL,,,False,False,Whether initial state is read from the hotstart file.
+src/core/state/AL_D.f90,AL_D,BEXSY,168,LOGICAL,,,False,False,Whether sediment transport is enabled by FR25.
+src/core/state/AL_D.f90,AL_D,BEXCM,169,LOGICAL,,,False,False,Whether contaminant transport is enabled by FR25.
+src/core/state/AL_D.f90,AL_D,ISTA,170,LOGICAL,,,False,False,Whether separate maximum/minimum air-temperature streams are available.
+src/core/state/AL_D.f90,AL_D,isextradis,171,LOGICAL,,,False,False,Whether the extra-discharge point-selection input is available.
+src/core/state/AL_D.f90,AL_D,iszq,172,LOGICAL,,,False,False,Whether reservoir ZQ-table routing is enabled.
+src/core/state/AL_D.f90,AL_D,isextrapsl,173,LOGICAL,,,False,False,Whether the extra phreatic-surface point-selection input is available.
+src/core/state/AL_D.f90,AL_D,NGRID,176,INTEGER,,(NELEE),False,False,Legacy element list zeroed by `FRIND` and not subsequently read.
+src/core/state/AL_D.f90,AL_D,INGRID,177,INTEGER,,"(NXEE,NYEE)",False,False,Catchment mask: zero inside the active catchment and -1 outside.
+src/core/state/AL_D.f90,AL_D,IOCORS,178,INTEGER,,(NSETEE),False,False,Contaminant/sediment selector for each legacy result set.
+src/core/state/AL_D.f90,AL_D,NMC,179,INTEGER,,(NELEE),False,False,Meteorological-site category by element.
+src/core/state/AL_D.f90,AL_D,LCODEX,180,INTEGER,,"(NXEE,NYEE)",False,False,X-face overland/channel topology code grid.
+src/core/state/AL_D.f90,AL_D,IODATA,181,INTEGER,,(NSETEE),False,False,Data-type number for each legacy result set.
+src/core/state/AL_D.f90,AL_D,NRAINC,182,INTEGER,,(NELEE),False,False,Rainfall-station category by element.
+src/core/state/AL_D.f90,AL_D,LCODEY,183,INTEGER,,"(NXEE,NYEE)",False,False,Y-face overland/channel topology code grid.
+src/core/state/AL_D.f90,AL_D,IOELEM,184,INTEGER,,(NSETEE),False,False,Positive element number or negative element-class number by legacy result set.
+src/core/state/AL_D.f90,AL_D,NOCBCC,185,INTEGER,,(NELEE),False,False,Overland/channel boundary-condition record number by element.
+src/core/state/AL_D.f90,AL_D,NOCBCD,186,INTEGER,,"(NOCTAB,4)",False,False,"OC boundary records: element, face, boundary type, and time-series category."
+src/core/state/AL_D.f90,AL_D,IORES,187,INTEGER,,(NSETEE),False,False,Open unformatted output unit by legacy result set.
+src/core/state/AL_D.f90,AL_D,ICLIST,188,INTEGER,,"(NELEE,NCLASS)",False,False,Element numbers belonging to each legacy output class.
+src/core/state/AL_D.f90,AL_D,NEXPO,189,INTEGER,,"(NLFEE,2)",False,False,Inactive legacy link-exposure array.
+src/core/state/AL_D.f90,AL_D,ICLNUM,190,INTEGER,,(NCLASS),False,False,Number of elements in each legacy output class.
+src/core/state/AL_D.f90,AL_D,ZQTableLink,191,INTEGER,"DIMENSION(:), ALLOCATABLE",(:),False,False,Channel-link number for each ZQ table.
+src/core/state/AL_D.f90,AL_D,ZQTableFace,192,INTEGER,"DIMENSION(:), ALLOCATABLE",(:),False,False,Channel-link face number for each ZQ table.
+src/core/state/AL_D.f90,AL_D,NSMC,194,INTEGER,,(NELEE),False,False,Number of meltwater slugs still travelling through each snowpack.
+src/core/state/AL_D.f90,AL_D,FLERRC,196,INTEGER,,(0:100),False,False,Legacy flow error counts read at shutdown; no current producer was found.
+src/core/state/AL_D.f90,AL_D,SYERRC,197,INTEGER,,(0:100),False,False,Legacy sediment error counts read at shutdown; no current producer was found.
+src/core/state/AL_D.f90,AL_D,CMERRC,198,INTEGER,,(0:100),False,False,Legacy contaminant error counts read at shutdown; no current producer was found.
+src/core/state/AL_D.f90,AL_D,DXIN,201,DOUBLEPRECISION,,(NXEE),False,False,Grid-centre spacing in the x direction; active entries are `1:NX-1` (m).
+src/core/state/AL_D.f90,AL_D,DYIN,202,DOUBLEPRECISION,,(NYEE),False,False,Grid-centre spacing in the y direction; active entries are `1:NY-1` (m).
+src/core/state/AL_D.f90,AL_D,WIDTF,203,DOUBLEPRECISION,,(NLFEE),False,False,Inactive legacy link face-width array.
+src/core/state/AL_D.f90,AL_D,ZBED,204,DOUBLEPRECISION,,(NELEE),False,False,Inactive legacy impermeable-bed elevation array.
+src/core/state/AL_D.f90,AL_D,HFLBED,205,DOUBLEPRECISION,,(NLFEE),False,False,Inactive legacy link-bed head array.
+src/core/state/AL_D.f90,AL_D,ZFBED,206,DOUBLEPRECISION,,(NLFEE),False,False,Inactive legacy link-bed elevation array.
+src/core/state/AL_D.f90,AL_D,DZFBED,207,DOUBLEPRECISION,,(NLFEE),False,False,Inactive legacy link-bed elevation-difference array.
+src/core/state/AL_D.f90,AL_D,LROOT,208,DOUBLEPRECISION,,(NVEE),False,False,Inactive legacy root-depth array.
+src/core/state/AL_D.f90,AL_D,HFLBNK,209,DOUBLEPRECISION,,(NLFEE),False,False,Inactive legacy bank-head array.
+src/core/state/AL_D.f90,AL_D,IOSTA,210,DOUBLEPRECISION,,(NSETEE),False,False,Start time for each legacy result set (h).
+src/core/state/AL_D.f90,AL_D,IOSTEP,211,DOUBLEPRECISION,,(NSETEE),False,False,Output interval for each legacy result set (h).
+src/core/state/AL_D.f90,AL_D,IOEND,212,DOUBLEPRECISION,,(NSETEE),False,False,End time for each legacy result set (h).
+src/core/state/AL_D.f90,AL_D,RHOSAR,213,DOUBLEPRECISION,,(NELEE),False,False,Snow relative-density/specific-gravity state by element.
+src/core/state/AL_D.f90,AL_D,ZQweirSill,214,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Weir-sill elevation for each ZQ table (m).
+src/core/state/AL_D.f90,AL_D,CSTORE,217,DOUBLEPRECISION,,(NELEE),False,False,Canopy interception storage by element (mm).
+src/core/state/AL_D.f90,AL_D,ERZA,218,DOUBLEPRECISION,,(NELEE),False,False,Root-zone extraction rate by element (m/s).
+src/core/state/AL_D.f90,AL_D,EPOT,219,DOUBLEPRECISION,,(NELEE),False,False,Potential-evaporation rate by element (m/s).
+src/core/state/AL_D.f90,AL_D,EINTA,220,DOUBLEPRECISION,,(NELEE),False,False,Canopy-interception evaporation rate by element (m/s).
+src/core/state/AL_D.f90,AL_D,EPOTR,221,DOUBLEPRECISION,,(NVEE),False,False,Inactive legacy potential-evaporation array by vegetation type.
+src/core/state/AL_D.f90,AL_D,SD,222,DOUBLEPRECISION,,(NELEE),False,False,Snowpack depth by element (mm of snow).
+src/core/state/AL_D.f90,AL_D,TS,223,DOUBLEPRECISION,,(NELEE),False,False,Snowpack temperature by element (degrees C).
+src/core/state/AL_D.f90,AL_D,SF,224,DOUBLEPRECISION,,(NELEE),False,False,Current snowfall depth by element (mm of snow).
+src/core/state/AL_D.f90,AL_D,S,225,DOUBLEPRECISION,,(LLEE),False,False,Current column's volumetric root/soil extraction sink by VSS cell (s-1).
+src/core/state/AL_D.f90,AL_D,precip_m_per_s,226,DOUBLEPRECISION,,(NELEE),False,False,Precipitation rate mapped directly to each element (m/s).
+src/core/state/AL_D.f90,AL_D,OBSPE,227,DOUBLEPRECISION,,(NVEE),False,False,Potential-evaporation forcing by meteorological site (mm/s).
+src/core/state/AL_D.f90,AL_D,TA,228,DOUBLEPRECISION,,(NVEE),False,False,Air temperature by meteorological site (degrees C).
+src/core/state/AL_D.f90,AL_D,U,229,DOUBLEPRECISION,,(NVEE),False,False,Wind speed by meteorological site (m/s).
+src/core/state/AL_D.f90,AL_D,VPD,230,DOUBLEPRECISION,,(NVEE),False,False,Vapour-pressure deficit by meteorological site (mb).
+src/core/state/AL_D.f90,AL_D,RN,231,DOUBLEPRECISION,,(NVEE),False,False,Net radiation by meteorological site (W/m2).
+src/core/state/AL_D.f90,AL_D,VHT,232,DOUBLEPRECISION,,(NVEE),False,False,Current vegetation height by vegetation type (m).
+src/core/state/AL_D.f90,AL_D,IOTIME,233,DOUBLEPRECISION,,(NSETEE),False,False,Next output time for each legacy result set (h).
+src/core/state/AL_D.f90,AL_D,DQ0ST,234,DOUBLEPRECISION,,"(NELEE,4)",False,False,Face-flow derivative with respect to the local element state.
+src/core/state/AL_D.f90,AL_D,DQIST,235,DOUBLEPRECISION,,"(NELEE,4)",False,False,Face-flow derivative with respect to the adjacent element state.
+src/core/state/AL_D.f90,AL_D,DQIST2,236,DOUBLEPRECISION,,"(NLFEE,3)",False,False,Confluence-flow derivative by branch record and branch position.
+src/core/state/AL_D.f90,AL_D,ESWA,237,DOUBLEPRECISION,,(NELEE),False,False,Surface-water evaporation rate by element (m/s).
+src/core/state/AL_D.f90,AL_D,BALANC,238,DOUBLEPRECISION,,(20),False,False,Catchment water-volume terms described in the module table (m3).
+src/core/state/AL_D.f90,AL_D,CMEAN,239,DOUBLEPRECISION,,"(NELEE,2,NCONEE)",False,False,Inactive legacy dissolved-contaminant mean accumulator.
+src/core/state/AL_D.f90,AL_D,SMEAN,240,DOUBLEPRECISION,,"(NELEE,2,NCONEE)",False,False,Inactive legacy dead-space-contaminant mean accumulator.
+src/core/state/AL_D.f90,AL_D,ADMEAN,241,DOUBLEPRECISION,,"(NELEE,2,NCONEE)",False,False,Inactive legacy adsorbed-contaminant mean accumulator.
+src/core/state/AL_D.f90,AL_D,RESFIL,243,CHARACTER(len=200),,,False,False,Path used as the stem for legacy unformatted result files.
+src/core/state/AL_G.F90,AL_G,NX,42,INTEGER,,,False,False,Number of grid positions in the active x direction.
+src/core/state/AL_G.F90,AL_G,NY,43,INTEGER,,,False,False,Number of grid positions in the active y direction.
+src/core/state/AL_G.F90,AL_G,NGDBGN,44,INTEGER,,,False,False,"First non-link element number, always `total_no_links+1`."
+src/core/state/AL_G.F90,AL_G,ICMREF,46,INTEGER,,"(NELEE,12)",False,False,"Element metadata, neighbours, and reciprocal-face mapping described above."
+src/core/state/AL_G.F90,AL_G,ICMXY,47,INTEGER,,"(NXEE,NYEE)",False,False,Active grid-coordinate to element-number lookup.
+src/driver/getdirqq.f90,GETDIRQQ,rundata_from_file_dialog,62,LOGICAL,PROTECTED,,False,True,
+src/driver/getdirqq.f90,GETDIRQQ,FileName,65,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,NUL-terminated QuickWin dialog filename buffer.
+src/driver/rest.f90,rest,FIRST_balwat,53,LOGICAL,,,False,True,`.TRUE.` until `BALWAT` has initialised `STORW_balwat` and `WBERR` on its first call.
+src/driver/rest.f90,rest,STORW_balwat,54,DOUBLEPRECISION,,(NELEE),False,True,Water storage depth for each element/link at the previous `BALWAT` call (m).
+src/driver/rest.f90,rest,pinp,55,DOUBLEPRECISION,,(nvee + 10),False,True,"Current precipitation input by rain station, used by `METIN` and `TMSTEP` (mm/hr)."
+src/driver/rest.f90,rest,METIME,56,DOUBLEPRECISION,,,False,True,End time of the current precipitation/full-meteorological record window (h).
+src/driver/rest.f90,rest,MELAST,57,DOUBLEPRECISION,,,False,True,Start time of the current precipitation/full-meteorological record window (h).
+src/driver/rest.f90,rest,EPTIME,58,DOUBLEPRECISION,,,False,True,End time of the current potential-evaporation record window (h).
+src/driver/rest.f90,rest,RECORD_HEADROOM,61,INTEGER,PARAMETER,,True,True,Characters kept free at the end of `MET_RECORD`; a record reaching into them is treated as too long for the buffer.
+src/driver/rest.f90,rest,IOSTAGE_NONE,62,INTEGER,PARAMETER,,True,True,`READ_DATED_RECORD` completed without an error.
+src/driver/rest.f90,rest,IOSTAGE_RECORD,63,INTEGER,PARAMETER,,True,True,`READ_DATED_RECORD` failed while reading the timestamp and record text.
+src/driver/rest.f90,rest,IOSTAGE_VALUES,64,INTEGER,PARAMETER,,True,True,`READ_DATED_RECORD` failed while parsing the values of the record.
+src/driver/rest.f90,rest,IOS_SHORT_RECORD,65,INTEGER,PARAMETER,,True,True,`IOS` reported by `READ_DATED_RECORD` for a record holding fewer values than expected.
+src/driver/rest.f90,rest,MET_RECORD,67,CHARACTER(LEN=:),ALLOCATABLE,,False,False,Reusable buffer holding the value part of the dated meteorological record currently being read.
+src/driver/rest.f90,rest,MET_RECORD_SIZED,68,LOGICAL,,,False,True,`.TRUE.` once `MET_RECORD` has been resized from its initial capacity to fit the first data line read.
+src/evapotranspiration/ETmod.f90,ETmod,LAMDA,88,DOUBLEPRECISION,PARAMETER,,True,True,Latent heat of vaporisation used by the Penman equations (J/kg).
+src/evapotranspiration/ETmod.f90,ETmod,GAMMA,89,DOUBLEPRECISION,PARAMETER,,True,True,Psychrometric constant used with `DEL` (mb/degree C).
+src/evapotranspiration/ETmod.f90,ETmod,RHO,90,DOUBLEPRECISION,PARAMETER,,True,True,Fixed air density (kg/m3).
+src/evapotranspiration/ETmod.f90,ETmod,CP,91,DOUBLEPRECISION,PARAMETER,,True,True,Fixed specific heat capacity of air (J/kg/degree C).
+src/evapotranspiration/ETmod.f90,ETmod,BAR,93,LOGICAL,,(NVEE),False,False,Manual `ET8` selector: compute `RA` from wind when true; retain its input constant otherwise.
+src/evapotranspiration/ETmod.f90,ETmod,BMETP,94,LOGICAL,,,False,False,Manual `ET2` selector for echoing meteorological input to the print file.
+src/evapotranspiration/ETmod.f90,ETmod,BINETP,95,LOGICAL,,,False,False,Manual `ET2` selector for echoing ET parameter input to the print file.
+src/evapotranspiration/ETmod.f90,ETmod,BMETAL,96,LOGICAL,,,False,False,Manual `ET2` selector for separate `PRD`/`EPD` forcing rather than combined `MED` forcing.
+src/evapotranspiration/ETmod.f90,ETmod,BMETDATES,97,LOGICAL,,,False,False,Optional manual `ET2` selector for ISO-8601 dates in separate forcing files.
+src/evapotranspiration/ETmod.f90,ETmod,MODE,99,INTEGER,,(NVEE),False,False,Manual `ET8` actual-ET mode by vegetation type.
+src/evapotranspiration/ETmod.f90,ETmod,NF,100,INTEGER,,(NVEE),False,False,Number of active `PS1`/`RCF`/`FET` rows by vegetation type.
+src/evapotranspiration/ETmod.f90,ETmod,MEASPE,101,INTEGER,,(NVEE),False,False,Manual `ET6` measured-potential-evaporation selector by meteorological site.
+src/evapotranspiration/ETmod.f90,ETmod,MODECS,102,INTEGER,,(NVEE),False,False,Zero for constant `CSTCAP`; any nonzero value enables time interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,MODEPL,103,INTEGER,,(NVEE),False,False,Zero for constant `PLAI`; any nonzero value enables time interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,MODECL,104,INTEGER,,(NVEE),False,False,Zero for constant `CLAI`; any nonzero value enables time interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,MODEVH,105,INTEGER,,(NVEE),False,False,Zero for constant `VHT`; any nonzero value enables time interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,NCTCST,106,INTEGER,,(NVEE),False,False,Current lower-breakpoint cursor for canopy-storage interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,NCTPLA,107,INTEGER,,(NVEE),False,False,Current lower-breakpoint cursor for ground-cover interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,NCTCLA,108,INTEGER,,(NVEE),False,False,Current lower-breakpoint cursor for canopy-LAI interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,NCTVHT,109,INTEGER,,(NVEE),False,False,Current lower-breakpoint cursor for vegetation-height interpolation.
+src/evapotranspiration/ETmod.f90,ETmod,RA,111,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Aerodynamic resistance by vegetation type (s/m).
+src/evapotranspiration/ETmod.f90,ETmod,RC,112,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Canopy resistance by vegetation type (s/m).
+src/evapotranspiration/ETmod.f90,ETmod,RTOP,113,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Wind-independent `RA*U` factor by vegetation type.
+src/evapotranspiration/ETmod.f90,ETmod,CSTCAP,114,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Canopy storage capacity by vegetation type (mm).
+src/evapotranspiration/ETmod.f90,ETmod,CK,115,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Canopy drainage coefficient by vegetation type (mm/s).
+src/evapotranspiration/ETmod.f90,ETmod,CB,116,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Canopy drainage exponent coefficient by vegetation type (1/mm).
+src/evapotranspiration/ETmod.f90,ETmod,DEL,117,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Saturation vapour-pressure slope by meteorological site (mb/degree C).
+src/evapotranspiration/ETmod.f90,ETmod,PSI4,118,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Current land-column pressure heads copied from `VSPSI` (m).
+src/evapotranspiration/ETmod.f90,ETmod,UZALFA,119,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Current bank/channel root-access weighting by vertical cell.
+src/evapotranspiration/ETmod.f90,ETmod,CSTCA1,120,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Initial/reference canopy storage capacity by vegetation type (mm).
+src/evapotranspiration/ETmod.f90,ETmod,PLAI1,121,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Initial/reference maximum ground-cover proportion by vegetation type.
+src/evapotranspiration/ETmod.f90,ETmod,CLAI1,122,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Initial/reference canopy leaf-area index by vegetation type.
+src/evapotranspiration/ETmod.f90,ETmod,VHT1,123,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,Initial/reference vegetation height by vegetation type (m).
+src/evapotranspiration/ETmod.f90,ETmod,PS1,124,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Manual `ET16` soil-moisture-tension table (m).
+src/evapotranspiration/ETmod.f90,ETmod,FET,125,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Manual `ET16` actual/potential ET ratio table.
+src/evapotranspiration/ETmod.f90,ETmod,RCF,126,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Manual `ET16` canopy-resistance table (s/m).
+src/evapotranspiration/ETmod.f90,ETmod,RELCST,127,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Relative canopy-storage values by vegetation and breakpoint.
+src/evapotranspiration/ETmod.f90,ETmod,TIMCST,128,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Canopy-storage breakpoint times (days).
+src/evapotranspiration/ETmod.f90,ETmod,RELPLA,129,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Relative ground-cover values by vegetation and breakpoint.
+src/evapotranspiration/ETmod.f90,ETmod,TIMPLA,130,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Ground-cover breakpoint times (days).
+src/evapotranspiration/ETmod.f90,ETmod,RELCLA,131,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Relative canopy-LAI values by vegetation and breakpoint.
+src/evapotranspiration/ETmod.f90,ETmod,TIMCLA,132,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Canopy-LAI breakpoint times (days).
+src/evapotranspiration/ETmod.f90,ETmod,RELVHT,133,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Relative vegetation-height values by vegetation and breakpoint.
+src/evapotranspiration/ETmod.f90,ETmod,TIMVHT,134,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Vegetation-height breakpoint times (days).
+src/evapotranspiration/ETmod.f90,ETmod,msg,136,CHARACTER(132),,,False,False,Shared private warning/fatal diagnostic buffer.
+src/frame/FRmod.f90,FRmod,IAOUT,119,INTEGER,,,False,False,Legacy frame-output selector read from the FR data file.
+src/frame/FRmod.f90,FRmod,ALLOUT,120,DOUBLEPRECISION,,,False,False,Next accumulated legacy output-control time (h).
+src/frame/FRmod.f90,FRmod,DTAO,121,DOUBLEPRECISION,,,False,False,Legacy output interval (h).
+src/frame/FRmod.f90,FRmod,TSH,122,DOUBLEPRECISION,,,False,False,Sediment-component start time measured from the run start (h).
+src/frame/FRmod.f90,FRmod,TCH,123,DOUBLEPRECISION,,,False,False,Contaminant-component start time measured from the run start (h).
+src/frame/FRmod.f90,FRmod,BFRTS1,124,LOGICAL,,,False,False,Print the calculation sequence to the screen during simulation.
+src/frame/FRmod.f90,FRmod,BFRTS2,125,LOGICAL,,,False,False,Print values exchanged between the frame and components each timestep.
+src/frame/FRmod.f90,FRmod,BINFRP,126,LOGICAL,,,False,False,Echo frame input data to the print file.
+src/frame/FRmod.f90,FRmod,BTIME,127,LOGICAL,,,False,False,Enable time-series result processing.
+src/frame/FRmod.f90,FRmod,BSOFT,128,LOGICAL,,,False,False,Enable the shortened-timestep soft start.
+src/frame/FRmod.f90,FRmod,BSTORE,129,LOGICAL,,,False,False,Enable the legacy result-output method.
+src/frame/FRmod.f90,FRmod,BPPNET,130,LOGICAL,,,False,False,Print net precipitation arrays.
+src/frame/FRmod.f90,FRmod,BPEPOT,131,LOGICAL,,,False,False,Print potential-evaporation arrays.
+src/frame/FRmod.f90,FRmod,BPQOC,132,LOGICAL,,,False,False,Print overland/channel discharge arrays.
+src/frame/FRmod.f90,FRmod,BPDEP,133,LOGICAL,,,False,False,Print surface-water-depth arrays.
+src/frame/FRmod.f90,FRmod,BPQF,134,LOGICAL,,,False,False,Print river-level and river-flow arrays.
+src/frame/FRmod.f90,FRmod,BPQH,135,LOGICAL,,,False,False,Print infiltration arrays.
+src/frame/FRmod.f90,FRmod,BPQSZ,136,LOGICAL,,,False,False,Print saturated-zone flow arrays.
+src/frame/FRmod.f90,FRmod,BPHSZ,137,LOGICAL,,,False,False,Print phreatic-surface-level arrays.
+src/frame/FRmod.f90,FRmod,BPBAL,138,LOGICAL,,,False,False,Print water-balance arrays.
+src/frame/FRmod.f90,FRmod,BPSD,139,LOGICAL,,,False,False,Print snow-depth arrays.
+src/frame/FRmod.f90,FRmod,TITLE,141,CHARACTER(LEN=80),,,False,False,Current run title or input-section heading.
+src/frame/FRmod.f90,FRmod,msg,142,CHARACTER(256),,,False,False,Shared formatted diagnostic message.
+src/frame/FRmod.f90,FRmod,next_hour,144,INTEGER,SAVE,,False,True,AD-exported compatibility copy; shadowed by [[froutput]] and remains 1.
+src/frame/FRmod.f90,FRmod,icounter2,145,INTEGER,SAVE,,False,True,Next whole-day mass-balance output threshold (h).
+src/frame/FRmod.f90,FRmod,hour_now,146,INTEGER,,,False,False,Unused module copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,qoctot,147,DOUBLEPRECISION,,,False,True,AD-exported compatibility copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,uzold,148,DOUBLEPRECISION,,,False,True,AD-exported compatibility copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,uznowt,149,DOUBLEPRECISION,,,False,False,Unused module copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,sedtot,150,DOUBLEPRECISION,,,False,True,Public compatibility copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,sedfinetot,151,DOUBLEPRECISION,,,False,True,Public compatibility copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,contamtot,152,DOUBLEPRECISION,,,False,True,Public compatibility copy shadowed by [[froutput]].
+src/frame/FRmod.f90,FRmod,qoctotextra,153,DOUBLEPRECISION,"DIMENSION(:), ALLOCATABLE",(:),False,False,
+src/frame/FRmod.f90,FRmod,PREVTM,155,DOUBLEPRECISION,,,False,False,Previous [[frresp]] call time (h); undefined before the first call.
+src/frame/FRmod.f90,FRmod,TIMB,156,DOUBLEPRECISION,,,False,True,Next monthly-balance reporting time (h).
+src/frame/FRmod.f90,FRmod,FIRST_frmb,157,LOGICAL,,,False,True,True until [[frmb]] initialises its persistent schedule.
+src/frame/FRmod.f90,FRmod,SEDSRT,158,LOGICAL,,,False,True,True after sediment sorting state has been initialised.
+src/frame/FRmod.f90,FRmod,GNUCUM,159,DOUBLEPRECISION,,(NELEE),False,False,Cumulative erosion-depth workspace (mm); initially undefined.
+src/frame/FRmod.f90,FRmod,DLSSRT,160,DOUBLEPRECISION,,(NELEE),False,False,Loose-sediment-depth baseline captured by [[frresp]] (mm).
+src/nitrate/MNmod.f90,MNmod,cahum,72,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,External carbon-addition rate assigned to humus.
+src/nitrate/MNmod.f90,MNmod,calit,73,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,External carbon-addition rate assigned to litter.
+src/nitrate/MNmod.f90,MNmod,caman,74,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,External carbon-addition rate assigned to manure.
+src/nitrate/MNmod.f90,MNmod,cdort,75,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Carbon-dioxide production rate from organic-matter turnover.
+src/nitrate/MNmod.f90,MNmod,chum,76,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Humus carbon at the start of the timestep.
+src/nitrate/MNmod.f90,MNmod,chum1,77,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Updated humus carbon.
+src/nitrate/MNmod.f90,MNmod,clit,78,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Litter carbon at the start of the timestep.
+src/nitrate/MNmod.f90,MNmod,clit1,79,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Updated litter carbon.
+src/nitrate/MNmod.f90,MNmod,cman,80,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Manure carbon at the start of the timestep.
+src/nitrate/MNmod.f90,MNmod,cman1,81,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Updated manure carbon.
+src/nitrate/MNmod.f90,MNmod,denit,82,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Denitrification loss rate.
+src/nitrate/MNmod.f90,MNmod,dummy4,83,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Transposed element/cell workspace for MN input checks.
+src/nitrate/MNmod.f90,MNmod,dummy6,84,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Element/cell workspace for MN input checks.
+src/nitrate/MNmod.f90,MNmod,edeth,85,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Water-content response factor for denitrification.
+src/nitrate/MNmod.f90,MNmod,emph,86,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Matric-potential response factor for mineralisation.
+src/nitrate/MNmod.f90,MNmod,emt,87,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Temperature response factor for mineralisation.
+src/nitrate/MNmod.f90,MNmod,enph,88,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Matric-potential response factor for nitrification.
+src/nitrate/MNmod.f90,MNmod,ent,89,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Temperature response factor for nitrification.
+src/nitrate/MNmod.f90,MNmod,gam,90,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Net mineralisation rate after deficit adjustment.
+src/nitrate/MNmod.f90,MNmod,gamtmp,91,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Unadjusted net mineralisation rate.
+src/nitrate/MNmod.f90,MNmod,imamm,92,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Ammonium immobilisation rate.
+src/nitrate/MNmod.f90,MNmod,imdiff,93,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Unmet immobilisation demand carried to the next timestep.
+src/nitrate/MNmod.f90,MNmod,imnit,94,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Nitrate immobilisation rate.
+src/nitrate/MNmod.f90,MNmod,isimtf,95,LOGICAL,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Whether an immobilisation deficit suppresses litter/manure turnover.
+src/nitrate/MNmod.f90,MNmod,kd1,96,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Denitrification carbon-demand coefficient.
+src/nitrate/MNmod.f90,MNmod,kd2,97,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Denitrification nitrate-availability coefficient.
+src/nitrate/MNmod.f90,MNmod,khum,98,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Humus decomposition-rate coefficient.
+src/nitrate/MNmod.f90,MNmod,klit,99,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Litter decomposition-rate coefficient.
+src/nitrate/MNmod.f90,MNmod,kman,100,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Manure decomposition-rate coefficient.
+src/nitrate/MNmod.f90,MNmod,knit,101,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Nitrification-rate coefficient.
+src/nitrate/MNmod.f90,MNmod,kvol,102,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Ammonia-volatilisation-rate coefficient.
+src/nitrate/MNmod.f90,MNmod,miner,103,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Gross mineralisation rate.
+src/nitrate/MNmod.f90,MNmod,naamm,104,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Ammonium addition/deposition rate.
+src/nitrate/MNmod.f90,MNmod,namm,105,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Ammonium concentration at the start of the timestep.
+src/nitrate/MNmod.f90,MNmod,namm1,106,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Updated ammonium concentration.
+src/nitrate/MNmod.f90,MNmod,nanit,107,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Nitrate addition/deposition rate.
+src/nitrate/MNmod.f90,MNmod,ndnit,108,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Dimensional nitrate concentration in dynamic water.
+src/nitrate/MNmod.f90,MNmod,ndsnt,109,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Dimensional nitrate concentration in dead-space water.
+src/nitrate/MNmod.f90,MNmod,nlit,110,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Litter nitrogen at the start of the timestep.
+src/nitrate/MNmod.f90,MNmod,nlit1,111,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Updated litter nitrogen.
+src/nitrate/MNmod.f90,MNmod,nman,112,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Manure nitrogen at the start of the timestep.
+src/nitrate/MNmod.f90,MNmod,nman1,113,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Updated manure nitrogen.
+src/nitrate/MNmod.f90,MNmod,ntrf,114,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Nitrification rate.
+src/nitrate/MNmod.f90,MNmod,plamm,115,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Actual ammonium plant-uptake rate.
+src/nitrate/MNmod.f90,MNmod,plnit,116,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Actual nitrate plant-uptake rate.
+src/nitrate/MNmod.f90,MNmod,plup,117,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Potential plant-nitrogen-uptake rate.
+src/nitrate/MNmod.f90,MNmod,pphi,118,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Dynamic-water fraction used to partition uptake.
+src/nitrate/MNmod.f90,MNmod,snit,119,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Total nitrate source/sink diagnostic rate.
+src/nitrate/MNmod.f90,MNmod,temp,120,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Soil temperature used by MN response factors.
+src/nitrate/MNmod.f90,MNmod,vol,121,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Ammonia-volatilisation loss rate.
+src/nitrate/MNmod.f90,MNmod,MN_PLANT_NVALEE,123,INTEGER,PARAMETER,,True,True,
+src/nitrate/MNmod.f90,MNmod,MN_CONFIG,153,TYPE(MN_CONFIG_TYPE),,,False,False,
+src/nitrate/MNmod.f90,MNmod,MN_WORK,154,TYPE(MN_WORKSPACE_TYPE),,,False,False,
+src/nitrate/MNmod.f90,MNmod,MN_PLANT_STATE,155,TYPE(MN_PLANT_STATE_TYPE),,,False,False,
+src/nitrate/MNmod.f90,MNmod,MN_INITIALISED,156,LOGICAL,,,False,True,
+src/nitrate/MNmod.f90,MNmod,MN_ALLOCATED_NEL,157,INTEGER,,,False,True,
+src/nitrate/MNmod.f90,MNmod,MN_ALLOCATED_NCETOP,157,INTEGER,,,False,True,
+src/overland_channel/OCQDQMOD.F90,ocqdqmod,XAFULL,54,DOUBLEPRECISION,,(NLFEE),False,False,Full-flow cross-sectional area for each channel link.
+src/overland_channel/OCQDQMOD.F90,ocqdqmod,COCBCD,55,DOUBLEPRECISION,,"(5, NOCTAB)",False,False,Real-valued overland/channel boundary-condition coefficients.
+src/overland_channel/OCQDQMOD.F90,ocqdqmod,HOCNOW,56,DOUBLEPRECISION,,(NOCTAB),False,False,Current boundary stage/head values by boundary category.
+src/overland_channel/OCQDQMOD.F90,ocqdqmod,QOCF,57,DOUBLEPRECISION,,(NOCTAB),False,False,Current prescribed overland/channel boundary flow values by category.
+src/overland_channel/OCQDQMOD.F90,ocqdqmod,STRXX,58,DOUBLEPRECISION,,(NELEE),False,False,"X-direction Strickler roughness, or negative storage-depth marker."
+src/overland_channel/OCQDQMOD.F90,ocqdqmod,STRYY,59,DOUBLEPRECISION,,(NELEE),False,False,Y-direction Strickler roughness.
+src/overland_channel/OCmod.f90,OCmod,NELIND,57,INTEGER,,(NELEE),False,False,Position of each element within its implicit-solver row.
+src/overland_channel/OCmod.f90,OCmod,NROWF,58,INTEGER,,,False,False,First non-empty OC solver row.
+src/overland_channel/OCmod.f90,OCmod,NROWL,59,INTEGER,,,False,False,Last non-empty OC solver row.
+src/overland_channel/OCmod.f90,OCmod,MAX_SOLVER_ROW_WIDTH,60,INTEGER,,,False,True,Greatest active OC solver-row width established by [[ocind]].
+src/overland_channel/OCmod.f90,OCmod,NOCHB,61,INTEGER,,,False,False,Number of OC head-boundary categories.
+src/overland_channel/OCmod.f90,OCmod,NOCFB,62,INTEGER,,,False,False,Number of OC flow-boundary categories.
+src/overland_channel/OCmod.f90,OCmod,NROWEL,63,INTEGER,,(NELEE),False,False,Contiguous list of OC elements in row-solver order.
+src/overland_channel/OCmod.f90,OCmod,NROWST,64,INTEGER,,(NYEE + 1),False,False,Row-start pointer into `NROWEL`.
+src/overland_channel/OCmod.f90,OCmod,NXSECT,65,INTEGER,,(NLFEE),False,False,Number of width-depth cross-section points for each channel link.
+src/overland_channel/OCmod.f90,OCmod,HOCLST,68,DOUBLEPRECISION,,,False,False,Previous time-varying OC head-boundary time.
+src/overland_channel/OCmod.f90,OCmod,HOCNXT,69,DOUBLEPRECISION,,,False,False,Next time-varying OC head-boundary time.
+src/overland_channel/OCmod.f90,OCmod,QFLAST,70,DOUBLEPRECISION,,,False,False,Previous time-varying OC flow-boundary time.
+src/overland_channel/OCmod.f90,OCmod,QFNEXT,71,DOUBLEPRECISION,,,False,False,Next time-varying OC flow-boundary time.
+src/overland_channel/OCmod.f90,OCmod,TDC,72,DOUBLEPRECISION,,,False,False,First time for detailed OC diagnostic output; see the [[ocini]] shadowing warning.
+src/overland_channel/OCmod.f90,OCmod,TFC,73,DOUBLEPRECISION,,,False,False,Last time for detailed OC diagnostic output; see the [[ocini]] shadowing warning.
+src/overland_channel/OCmod.f90,OCmod,HOCPRV,74,DOUBLEPRECISION,,(NOCTAB),False,False,Previous head-boundary values by category.
+src/overland_channel/OCmod.f90,OCmod,QOCFIN,75,DOUBLEPRECISION,,(NOCTAB),False,False,Previous flow-boundary values by category.
+src/overland_channel/OCmod.f90,OCmod,HOCNXV,76,DOUBLEPRECISION,,(NOCTAB),False,False,Next head-boundary values by category.
+src/overland_channel/OCmod.f90,OCmod,XINH,79,DOUBLEPRECISION,,"(NLFEE, NOCTAB)",False,False,Channel cross-section depths above bed.
+src/overland_channel/OCmod.f90,OCmod,XINW,80,DOUBLEPRECISION,,"(NLFEE, NOCTAB)",False,False,Channel cross-section widths.
+src/overland_channel/OCmod.f90,OCmod,XAREA,81,DOUBLEPRECISION,,"(NLFEE, NOCTAB)",False,False,Integrated channel cross-section areas.
+src/overland_channel/OCmod.f90,OCmod,dtoc,82,DOUBLEPRECISION,,,False,False,OC timestep in seconds.
+src/overland_channel/OCmod.f90,OCmod,OCSIM_WORKSPACE,100,TYPE(OCSIM_WORKSPACE_TYPE),,,False,False,
+src/overland_channel/OCmod2.f90,OCmod2,F23,76,DOUBLEPRECISION,PARAMETER,,True,True,Exponent \(2/3\) used in Strickler conveyance.
+src/overland_channel/OCmod2.f90,OCmod2,F53,77,DOUBLEPRECISION,PARAMETER,,True,True,Exponent factor \(5/3\) used by the implemented derivative branches.
+src/overland_channel/OCmod2.f90,OCmod2,DZMIN,78,DOUBLEPRECISION,PARAMETER,,True,True,"Small depth/head-difference threshold, in metres."
+src/overland_channel/OCmod2.f90,OCmod2,RDZMIN,79,DOUBLEPRECISION,PARAMETER,,True,True,Square root of `DZMIN`.
+src/overland_channel/OCmod2.f90,OCmod2,H23MIN,80,DOUBLEPRECISION,PARAMETER,,True,True,"`DZMIN**(2/3)`, retained for legacy comments and comparisons."
+src/overland_channel/OCmod2.f90,OCmod2,ROOT2G,81,DOUBLEPRECISION,PARAMETER,,True,True,Approximation to \(\sqrt{2g}\) for weir flow.
+src/overland_channel/OCmod2.f90,OCmod2,HRFZZ,82,DOUBLEPRECISION,DIMENSION(NELEE),(NELEE),False,False,Water-surface elevation by element; abstracted for AD and solver access.
+src/overland_channel/OCmod2.f90,OCmod2,qsazz,83,DOUBLEPRECISION,"DIMENSION(NELEE, 4)","(NELEE, 4)",False,False,Face discharge by element and face; positive into the indexed element.
+src/overland_channel/OCmod2.f90,OCmod2,xstab,85,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,
+src/overland_channel/ZQmod.f90,ZQmod,nZQcols,57,INTEGER(kind=I_P),"DIMENSION(:), ALLOCATABLE",(:),False,False,Number of columns in each ZQ table.
+src/overland_channel/ZQmod.f90,ZQmod,nZQrows,58,INTEGER(kind=I_P),"DIMENSION(:), ALLOCATABLE",(:),False,False,Number of data rows in each ZQ table.
+src/overland_channel/ZQmod.f90,ZQmod,zcol,59,INTEGER(kind=I_P),"DIMENSION(:), ALLOCATABLE",(:),False,False,Currently active discharge-column index for each ZQ table.
+src/overland_channel/ZQmod.f90,ZQmod,headerRealArray,60,REAL(kind=R8P),"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Numeric stage thresholds parsed from `ZQ>threshold` headers.
+src/overland_channel/ZQmod.f90,ZQmod,ZQ,61,REAL(kind=R8P),"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,"Stage-discharge table values, indexed by row, column, and table."
+src/overland_channel/ZQmod.f90,ZQmod,ZQTableOpHour,62,INTEGER(kind=I_P),"DIMENSION(:), ALLOCATABLE",(:),False,False,Hour offset at which each reservoir's sluices are operated.
+src/overland_channel/ZQmod.f90,ZQmod,ZQTableRef,63,INTEGER(kind=I_P),,,False,False,Reference number read for the current ZQ table.
+src/sediment/CONST_SY.F90,const_sy,GRAVTY,18,DOUBLEPRECISION,PARAMETER,,True,True,Gravitational acceleration in metres per second squared.
+src/sediment/CONST_SY.F90,const_sy,RHOSED,19,DOUBLEPRECISION,PARAMETER,,True,True,Representative sediment-particle density in kilograms per cubic metre.
+src/sediment/CONST_SY.F90,const_sy,RHOWAT,20,DOUBLEPRECISION,PARAMETER,,True,True,Representative water density in kilograms per cubic metre.
+src/sediment/CONST_SY.F90,const_sy,VISCOS,21,DOUBLEPRECISION,PARAMETER,,True,True,Representative water kinematic viscosity in square metres per second.
+src/sediment/SED_CS.F90,sed_cs,ARBDEP,40,DOUBLEPRECISION,,(NLFEE),False,False,Deposited-sediment cross-sectional area by link [m2].
+src/sediment/SED_CS.F90,sed_cs,DLS,41,DOUBLEPRECISION,,(NELEE),False,False,Loose/bed sediment depth by active element [m].
+src/sediment/SED_CS.F90,sed_cs,GINFD,42,DOUBLEPRECISION,,"(NLFEE,NSEDEE)",False,False,Sediment-volume infiltration rate used for the deep-bed term [m3/s].
+src/sediment/SED_CS.F90,sed_cs,GINFS,43,DOUBLEPRECISION,,"(NLFEE,NSEDEE)",False,False,Sediment-volume infiltration rate used for the bed-surface term [m3/s].
+src/sediment/SED_CS.F90,sed_cs,GNU,44,DOUBLEPRECISION,,(NELEE),False,False,Ground-surface erosion depth rate by column element [m/s].
+src/sediment/SED_CS.F90,sed_cs,GNUBK,45,DOUBLEPRECISION,,(NLFEE),False,False,Lateral bank-erosion depth rate by link [m/s].
+src/sediment/SED_CS.F90,sed_cs,DCBED,46,DOUBLEPRECISION,,(NLFEE),False,False,Total thickness of the active upper channel-bed layer by link [m].
+src/sediment/SED_CS.F90,sed_cs,DCBSED,47,DOUBLEPRECISION,,"(NLFEE,NSEDEE)",False,False,Thickness contribution of each size class in the active upper bed layer [m].
+src/sediment/SED_CS.F90,sed_cs,FDEL,49,DOUBLEPRECISION,,"(NELEE,NSEDEE)",False,False,Mobile-sediment settled-depth/water-depth ratio by element and size class.
+src/sediment/SED_CS.F90,sed_cs,FBETA,51,DOUBLEPRECISION,,"(NELEE,NSEDEE)",False,False,Loose/bed sediment composition fraction by element and size class.
+src/sediment/SED_CS.F90,sed_cs,FBTSD,52,DOUBLEPRECISION,,"(NLFEE,NSEDEE)",False,False,Newly deposited sediment composition fraction by link and size class.
+src/sediment/SED_CS.F90,sed_cs,PBSED,54,DOUBLEPRECISION,,(NLFEE),False,False,Channel-bed sediment porosity by link.
+src/sediment/SED_CS.F90,sed_cs,PLS,55,DOUBLEPRECISION,,(NELEE),False,False,Loose-sediment porosity by column element.
+src/sediment/SED_CS.F90,sed_cs,SOSDFN,56,DOUBLEPRECISION,,"(NSEE,NSEDEE)",False,False,Un-eroded-soil mass fraction by soil type and sediment size class.
+src/sediment/SED_CS.F90,sed_cs,SOFN,57,DOUBLEPRECISION,,"(NSEE,NSEDEE)",False,False,Three-class fallback soil fraction read from contaminant input.
+src/sediment/SED_CS.F90,sed_cs,NSOBED,59,INTEGER,,(NLFEE),False,False,Parent-material soil-type index at the stream bed by link.
+src/sediment/SED_CS.F90,sed_cs,NSED,61,INTEGER,,,False,False,Number of active sediment size classes.
+src/sediment/SED_CS.F90,sed_cs,QLINK,63,DOUBLEPRECISION,,"(NLFEE,2)",False,False,Water discharge at the two link ends [m3/s].
+src/sediment/SED_CS.F90,sed_cs,QDEFF,64,DOUBLEPRECISION,,"(NLFEE,2)",False,False,Effective-flow correction at the two link ends [m3/s].
+src/sediment/SED_CS.F90,sed_cs,QSED,65,DOUBLEPRECISION,,"(NELEE,NSEDEE,4)",False,False,"Solid-sediment volume discharge by element, size class, and face [m3/s]."
+src/sediment/SYmod.f90,SYmod,FIRST_syackw,122,LOGICAL,,,False,True,Unused; see the module-level note above `MODULE SYmod`.
+src/sediment/SYmod.f90,SYmod,FIRST_syfine,124,LOGICAL,,,False,True,True until the fine-sediment settling velocity `WSED_syfine` has been cached.
+src/sediment/SYmod.f90,SYmod,WSED_syfine,125,DOUBLEPRECISION,,,False,False,"Cached fine-sediment settling velocity, set on the first call to [[syfine]]."
+src/sediment/SYmod.f90,SYmod,NSYBEE,127,INTEGER,PARAMETER,,True,True,Maximum number of sediment boundary entries.
+src/sediment/SYmod.f90,SYmod,NSYCEE,128,INTEGER,PARAMETER,,True,True,Maximum number of sediment boundary categories.
+src/sediment/SYmod.f90,SYmod,ISACKW_symain,129,INTEGER,,,False,False,Channel transport-capacity option.
+src/sediment/SYmod.f90,SYmod,ISGSED_symain,130,INTEGER,,,False,False,Overland transport-capacity option.
+src/sediment/SYmod.f90,SYmod,ISSYOK_symain,131,INTEGER,,,False,False,Dynamic sediment input-check interval.
+src/sediment/SYmod.f90,SYmod,ISTEC_symain,132,INTEGER,,,False,False,Critical-shear calculation option.
+src/sediment/SYmod.f90,SYmod,ISUSED_symain,133,INTEGER,,,False,False,Sediment velocity option.
+src/sediment/SYmod.f90,SYmod,NEPS_symain,134,INTEGER,,,False,False,Number of sediment substeps per water timestep.
+src/sediment/SYmod.f90,SYmod,NFINE_symain,135,INTEGER,,,False,False,Number of fine sediment classes; manual allows 0 or 1.
+src/sediment/SYmod.f90,SYmod,NSYB_symain,136,INTEGER,,,False,False,Number of sediment boundary entries.
+src/sediment/SYmod.f90,SYmod,NSYBCD_symain,137,INTEGER,,"(NSYBEE, 3)",False,False,"Sediment boundary element, type, and category metadata."
+src/sediment/SYmod.f90,SYmod,NSYC_symain,138,INTEGER,,(4),False,False,Number of sediment boundary categories by boundary type.
+src/sediment/SYmod.f90,SYmod,NTSOBK_symain,139,INTEGER,,(NLFEE),False,False,Bank soil type by channel link.
+src/sediment/SYmod.f90,SYmod,PASS_symain,140,INTEGER,,,False,True,Saved call counter for sediment setup/timestep control.
+src/sediment/SYmod.f90,SYmod,NTSOTP_symain,141,INTEGER,,(NELEE),False,False,Top soil type by element.
+src/sediment/SYmod.f90,SYmod,ALPHA_symain,142,DOUBLEPRECISION,,,False,False,Fine-sediment settling/resuspension critical-shear ratio.
+src/sediment/SYmod.f90,SYmod,CONCOB_symain,143,DOUBLEPRECISION,,,False,False,Mobile concentration threshold for overbank exchange.
+src/sediment/SYmod.f90,SYmod,DCBEDO_symain,144,DOUBLEPRECISION,,,False,False,Active upper channel-bed layer thickness.
+src/sediment/SYmod.f90,SYmod,FBIC_symain,145,DOUBLEPRECISION,,,False,False,Fine-bed fraction threshold for infiltration.
+src/sediment/SYmod.f90,SYmod,FICRIT_symain,146,DOUBLEPRECISION,,,False,False,Fine-concentration threshold for infiltration.
+src/sediment/SYmod.f90,SYmod,FPCRIT_symain,147,DOUBLEPRECISION,,,False,False,Maximum sediment concentration fraction.
+src/sediment/SYmod.f90,SYmod,SYNOW_symain,148,DOUBLEPRECISION,,,False,False,Current sediment simulation time.
+src/sediment/SYmod.f90,SYmod,DLSMAX_symain,149,DOUBLEPRECISION,,,False,False,Loose-sediment depth above which hillslope soil erosion is suppressed.
+src/sediment/SYmod.f90,SYmod,DDBSED_symain,150,DOUBLEPRECISION,,"(NLFEE, NSEDEE)",False,False,Lower channel-bed sediment depth by link and size class.
+src/sediment/SYmod.f90,SYmod,ABC_symain,151,DOUBLEPRECISION,,"(NSEDEE, NSYCEE)",False,False,Boundary rating-curve coefficient `A` by sediment class/category.
+src/sediment/SYmod.f90,SYmod,ACKW_symain,152,DOUBLEPRECISION,,"(5, NSEDEE)",False,False,Ackers-White cached coefficients by sediment class.
+src/sediment/SYmod.f90,SYmod,ARXLOL_symain,153,DOUBLEPRECISION,,(NLFEE),False,False,Previous channel cross-sectional area by link.
+src/sediment/SYmod.f90,SYmod,BBC_symain,154,DOUBLEPRECISION,,"(NSEDEE, NSYCEE)",False,False,Boundary rating-curve coefficient `B` by sediment class/category.
+src/sediment/SYmod.f90,SYmod,BKB_symain,155,DOUBLEPRECISION,,(NSEE),False,False,Channel-bank erodibility by soil type.
+src/sediment/SYmod.f90,SYmod,DBFULL_symain,156,DOUBLEPRECISION,,(NLFEE),False,False,Bankfull depth by channel link.
+src/sediment/SYmod.f90,SYmod,DRDRIP_symain,157,DOUBLEPRECISION,,(NVEE),False,False,Canopy drip drop diameter by vegetation type.
+src/sediment/SYmod.f90,SYmod,DRSED_symain,158,DOUBLEPRECISION,,(NSEDEE),False,False,Representative sediment particle diameter by size class.
+src/sediment/SYmod.f90,SYmod,DRSO50_symain,159,DOUBLEPRECISION,,(NSEE),False,False,Median soil particle diameter by soil type.
+src/sediment/SYmod.f90,SYmod,DWATOL_symain,160,DOUBLEPRECISION,,(NELEE),False,False,Previous surface/channel water depth by element.
+src/sediment/SYmod.f90,SYmod,FCG_symain,161,DOUBLEPRECISION,,(NELEE),False,False,Ground-cover fraction by element.
+src/sediment/SYmod.f90,SYmod,FCROCK_symain,162,DOUBLEPRECISION,,(NELEE),False,False,Rock-cover fraction by element.
+src/sediment/SYmod.f90,SYmod,FDRIP_symain,163,DOUBLEPRECISION,,(NVEE),False,False,Canopy drip fraction by vegetation type.
+src/sediment/SYmod.f90,SYmod,FETA_symain,164,DOUBLEPRECISION,,(NELEE),False,False,Soil-to-sediment solid-volume conversion factor by element.
+src/sediment/SYmod.f90,SYmod,FPCLAY_symain,165,DOUBLEPRECISION,,(NSEE),False,False,Clay fraction by soil type.
+src/sediment/SYmod.f90,SYmod,GBC_symain,166,DOUBLEPRECISION,,"(NSEDEE, NSYCEE)",False,False,Steady boundary sediment input by class/category.
+src/sediment/SYmod.f90,SYmod,GKF_symain,167,DOUBLEPRECISION,,(NSEE),False,False,Flow detachment coefficient by soil type.
+src/sediment/SYmod.f90,SYmod,GKR_symain,168,DOUBLEPRECISION,,(NSEE),False,False,Rainfall detachment coefficient by soil type.
+src/sediment/SYmod.f90,SYmod,RHOSO_symain,169,DOUBLEPRECISION,,(NSEE),False,False,Soil bulk density by soil type.
+src/sediment/SYmod.f90,SYmod,XDRIP_symain,170,DOUBLEPRECISION,,(NVEE),False,False,Canopy drip fall height by vegetation type.
+src/sediment/SYmod.f90,SYmod,IDUM1A,175,INTEGER,ALLOCATABLE,(:),False,False,Integer workspace for [[syerr3]].
+src/sediment/SYmod.f90,SYmod,IDUM1X,176,INTEGER,ALLOCATABLE,(:),False,False,Integer workspace for [[syerr1]].
+src/sediment/SYmod.f90,SYmod,CONCI,177,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Capacity concentration by link and sediment class, from [[sycltr]]."
+src/sediment/SYmod.f90,SYmod,DCIPRM,178,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Interim upper-bed sediment depth by link/class, from [[sylink]]."
+src/sediment/SYmod.f90,SYmod,DDIPRM,179,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Interim lower-bed sediment depth by link/class, from [[sylink]]."
+src/sediment/SYmod.f90,SYmod,DRDROP,180,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Effective raindrop/drip diameter by land element, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,DUMSED,181,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,Sediment-sized floating-point workspace passed to [[sycltr]]/[[sycolm]].
+src/sediment/SYmod.f90,SYmod,DWAT1,182,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Surface/channel water depth by element, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,EPSB,183,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Bank erosion sediment source by link, from [[sybker]]."
+src/sediment/SYmod.f90,SYmod,FQCONF,184,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Confluence outflow fractions for receiving branches, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,LRAIN,185,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Effective direct rainfall rate by land element, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,QSDWAT,186,DOUBLE PRECISION,ALLOCATABLE,"(:, :, :)",False,False,"Sediment advection coefficient for outflow faces, from [[sycltr]]."
+src/sediment/SYmod.f90,SYmod,QSEDB,187,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Boundary sediment flow by class and boundary entry, from [[sybc]]."
+src/sediment/SYmod.f90,SYmod,QWATB,188,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,Boundary water outflow rate by boundary entry.
+src/sediment/SYmod.f90,SYmod,SLOPEJ,189,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Face water-surface slope, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,TAUJ,190,DOUBLE PRECISION,ALLOCATABLE,"(:, :)",False,False,"Face shear stress, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,TAUK,191,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Representative element/link shear stress, from [[sywat]]."
+src/sediment/SYmod.f90,SYmod,VCFMAX,192,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Maximum fine volume available for settling/infiltration, from [[syfine]]."
+src/sediment/SYmod.f90,SYmod,VINFMX,193,DOUBLE PRECISION,ALLOCATABLE,(:),False,False,"Maximum fine infiltration volume, from [[syfine]]."
+src/sediment/SYmod.f90,SYmod,BARM,194,LOGICAL,ALLOCATABLE,(:),False,False,"True where fine sediment is protected by bed armouring, from [[syfine]]."
+src/sediment/SYmod.f90,SYmod,LDUM,195,LOGICAL,ALLOCATABLE,(:),False,False,Logical workspace for `ALCHK`/`ALCHKI` checks in [[syerr1]]-[[syerr3]].
+src/sediment/SYmod.f90,SYmod,K1_syovtr,197,DOUBLE PRECISION,PARAMETER,,True,True,Engelund-Hansen overland-capacity coefficient.
+src/sediment/SYmod.f90,SYmod,K3_syovtr,198,DOUBLE PRECISION,PARAMETER,,True,True,Yalin overland-capacity coefficient.
+src/sediment/SYmod.f90,SYmod,K4_syovtr,199,DOUBLE PRECISION,PARAMETER,,True,True,Yalin overland-capacity coefficient.
+src/snow/SMmod.f90,SMmod,smelt,61,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Routed meltwater slugs by slug number and element (mm water).
+src/snow/SMmod.f90,SMmod,tmelt,62,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Release time for each routed meltwater slug (h).
+src/snow/SMmod.f90,SMmod,USM,64,DOUBLEPRECISION,,,False,False,Snowmelt during the current timestep (mm snow).
+src/snow/SMmod.f90,SMmod,DDF,65,DOUBLEPRECISION,,,False,False,Degree-day melt factor (mm/s/C).
+src/snow/SMmod.f90,SMmod,RHOS,66,DOUBLEPRECISION,,,False,False,Active snow specific gravity for the current element.
+src/snow/SMmod.f90,SMmod,ESM,67,DOUBLEPRECISION,,,False,False,Snow depth lost to evaporation or sublimation (mm snow).
+src/snow/SMmod.f90,SMmod,HFC,68,DOUBLEPRECISION,,,False,False,Atmospheric-convection heat flux over the timestep (J/m^2).
+src/snow/SMmod.f90,SMmod,HFR,69,DOUBLEPRECISION,,,False,False,Heat supplied by rainfall or snowfall over the timestep (J/m^2).
+src/snow/SMmod.f90,SMmod,HFE,70,DOUBLEPRECISION,,,False,False,Latent heat term for evaporation or condensation over the timestep (J/m^2).
+src/snow/SMmod.f90,SMmod,HFT,71,DOUBLEPRECISION,,,False,False,Net heat flux available to the snowpack over the timestep (J/m^2).
+src/snow/SMmod.f90,SMmod,ZUS,72,DOUBLEPRECISION,,,False,False,Anemometer height above ground for energy-budget snowmelt (m).
+src/snow/SMmod.f90,SMmod,ZDS,73,DOUBLEPRECISION,,,False,False,Zero-plane displacement height for snow aerodynamic exchange (m).
+src/snow/SMmod.f90,SMmod,ZOS,74,DOUBLEPRECISION,,,False,False,Snow-surface roughness height for aerodynamic exchange (m).
+src/snow/SMmod.f90,SMmod,RHODEF,75,DOUBLEPRECISION,,,False,False,Default snow specific gravity used when spatial `RHOSAR` is zero.
+src/snow/SMmod.f90,SMmod,TOPNET,76,DOUBLEPRECISION,,,False,False,Water input to the snowpack before routing (mm water).
+src/snow/SMmod.f90,SMmod,PNSNOW,77,DOUBLEPRECISION,,,False,False,Water depth passed into or released from the snowpack in the current step (mm water).
+src/snow/SMmod.f90,SMmod,BINSMP,78,LOGICAL,,,False,False,Snow-input echo-print flag.
+src/snow/SMmod.f90,SMmod,IMET,79,INTEGER,,(NVEE),False,False,Meteorological-station element index for each vegetation type in energy-budget mode.
+src/snow/SMmod.f90,SMmod,NSD,80,INTEGER,,,False,False,Initial snowpack mode: uniform (`0`) or spatial (`1`).
+src/snow/SMmod.f90,SMmod,HEAD,81,DOUBLEPRECISION,,(20),False,False,Snow input title/header workspace retained for legacy I/O.
+src/snow/SMmod.f90,SMmod,RHOA,82,DOUBLEPRECISION,PARAMETER,,True,True,Density of air (kg/m^3).
+src/snow/SMmod.f90,SMmod,RHOW,83,DOUBLEPRECISION,PARAMETER,,True,True,Density of water (kg/m^3).
+src/snow/SMmod.f90,SMmod,CPA,84,DOUBLEPRECISION,PARAMETER,,True,True,Specific heat of air at constant pressure (J/kg/C).
+src/snow/SMmod.f90,SMmod,CPW,85,DOUBLEPRECISION,PARAMETER,,True,True,Specific heat of water (J/kg/C).
+src/snow/SMmod.f90,SMmod,CPI,86,DOUBLEPRECISION,PARAMETER,,True,True,Specific heat of ice (J/kg/C).
+src/snow/SMmod.f90,SMmod,LWI,87,DOUBLEPRECISION,PARAMETER,,True,True,Latent heat of fusion (J/kg).
+src/snow/SMmod.f90,SMmod,LVW,88,DOUBLEPRECISION,PARAMETER,,True,True,Latent heat of vaporisation (J/kg).
+src/snow/SMmod.f90,SMmod,HFG,89,DOUBLEPRECISION,PARAMETER,,True,True,Ground heat flux to snow (W/m^2).
+src/subsurface/VSmod.f90,VSmod,ICSOILsv,125,INTEGER,,"(LLEE, NELEE)",False,False,Cached VSS soil type by cell and element.
+src/subsurface/VSmod.f90,VSmod,JCBCsv,126,INTEGER,,"(0:5, NELEE)",False,False,Cached boundary-condition type/category metadata by face and element.
+src/subsurface/VSmod.f90,VSmod,VSAIJsv,127,DOUBLEPRECISION,"DIMENSION(:, :, :), ALLOCATABLE","(:, :, :)",False,False,Cached lateral face area/conductance terms.
+src/subsurface/VSmod.f90,VSmod,IVSDUM_VSREAD,131,INTEGER,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,`VSREAD` work buffer: per-category layer soil-type codes.
+src/subsurface/VSmod.f90,VSmod,IVSCAT_VSREAD,132,INTEGER,"DIMENSION(:), ALLOCATABLE",(:),False,False,`VSREAD` work buffer: layer category selected by each element.
+src/subsurface/VSmod.f90,VSmod,ISDUM_VSREAD,133,INTEGER,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,`VSREAD` work buffer: integer fields read from `VS05`.
+src/subsurface/VSmod.f90,VSmod,RVSDUM_VSREAD,134,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,`VSREAD` work buffer: per-category layer boundary depths.
+src/subsurface/VSmod.f90,VSmod,RSDUM_VSREAD,135,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,`VSREAD` work buffer: real-valued fields read from `VS05`.
+src/subsurface/VSmod.f90,VSmod,BDONE_VSREAD,136,LOGICAL,"DIMENSION(:), ALLOCATABLE",(:),False,False,`VSREAD` work buffer: per-element layer-data-assigned flag.
+src/subsurface/VSmod.f90,VSmod,WLLAST,138,DOUBLEPRECISION,,,False,True,Previous well-input record time.
+src/subsurface/VSmod.f90,VSmod,WLTIME,139,DOUBLEPRECISION,,,False,True,Current/next well-input record time.
+src/subsurface/VSmod.f90,VSmod,RWELIN,140,DOUBLEPRECISION,,(NVSEE),False,True,Current well abstraction input values.
+src/subsurface/VSmod.f90,VSmod,RLFLST,141,DOUBLEPRECISION,,,False,True,Previous lateral-flow boundary record time.
+src/subsurface/VSmod.f90,VSmod,RLFTIM,142,DOUBLEPRECISION,,,False,True,Current/next lateral-flow boundary record time.
+src/subsurface/VSmod.f90,VSmod,RLFPRV,143,DOUBLEPRECISION,,(NVSEE),False,True,Previous lateral-flow boundary values.
+src/subsurface/VSmod.f90,VSmod,RLHLST,144,DOUBLEPRECISION,,,False,True,Previous lateral-head boundary record time.
+src/subsurface/VSmod.f90,VSmod,RLHTIM,145,DOUBLEPRECISION,,,False,True,Current/next lateral-head boundary record time.
+src/subsurface/VSmod.f90,VSmod,RLHPRV,146,DOUBLEPRECISION,,(NVSEE),False,True,Previous lateral-head boundary values.
+src/subsurface/VSmod.f90,VSmod,RLHNXT,147,DOUBLEPRECISION,,(NVSEE),False,True,Next lateral-head boundary values.
+src/subsurface/VSmod.f90,VSmod,RLGLST,148,DOUBLEPRECISION,,,False,True,Previous lateral-gradient boundary record time.
+src/subsurface/VSmod.f90,VSmod,RLGTIM,149,DOUBLEPRECISION,,,False,True,Current/next lateral-gradient boundary record time.
+src/subsurface/VSmod.f90,VSmod,RLGPRV,150,DOUBLEPRECISION,,(NVSEE),False,True,Previous lateral-gradient boundary values.
+src/subsurface/VSmod.f90,VSmod,RLGNXT,151,DOUBLEPRECISION,,(NVSEE),False,True,Next lateral-gradient boundary values.
+src/subsurface/VSmod.f90,VSmod,RBFLST,152,DOUBLEPRECISION,,,False,True,Previous base-flow boundary record time.
+src/subsurface/VSmod.f90,VSmod,RBFTIM,153,DOUBLEPRECISION,,,False,True,Current/next base-flow boundary record time.
+src/subsurface/VSmod.f90,VSmod,RBFPRV,154,DOUBLEPRECISION,,(NVSEE),False,True,Previous base-flow boundary values.
+src/subsurface/VSmod.f90,VSmod,RBHLST,155,DOUBLEPRECISION,,,False,True,Previous base-head boundary record time.
+src/subsurface/VSmod.f90,VSmod,RBHTIM,156,DOUBLEPRECISION,,,False,True,Current/next base-head boundary record time.
+src/subsurface/VSmod.f90,VSmod,RBHPRV,157,DOUBLEPRECISION,,(NVSEE),False,True,Previous base-head boundary values.
+src/subsurface/VSmod.f90,VSmod,RBHNXT,158,DOUBLEPRECISION,,(NVSEE),False,True,Next base-head boundary values.
+src/subsurface/VSmod.f90,VSmod,RLFDUM,159,DOUBLEPRECISION,,(NVSEE),False,True,Lateral-flow interpolation workspace.
+src/subsurface/VSmod.f90,VSmod,RLHDUM,160,DOUBLEPRECISION,,(NVSEE),False,True,Lateral-head interpolation workspace.
+src/subsurface/VSmod.f90,VSmod,RLGDUM,161,DOUBLEPRECISION,,(NVSEE),False,True,Lateral-gradient interpolation workspace.
+src/subsurface/VSmod.f90,VSmod,FIRSTvssim,162,LOGICAL,,,False,True,True until `VSSIM` has cached column metadata.
+src/subsurface/VSmod.f90,VSmod,errcntallowed,163,integer,parameter,,True,True,Maximum repeated VSS convergence warnings.
+src/subsurface/VSmod.f90,VSmod,BLOWP,168,LOGICAL,,,False,False,Lower-boundary output print-control flag retained from legacy VSCOM1 state.
+src/subsurface/VSmod.f90,VSmod,BHELEV,169,LOGICAL,,,False,False,True when lateral boundary head inputs are elevations; false when they are depths below ground.
+src/subsurface/VSmod.f90,VSmod,NCSZON,173,INTEGER,,,False,False,Number of extra cells used to represent the soil-zone depth increments.
+src/subsurface/VSmod.f90,VSmod,NCRBED,174,INTEGER,,,False,False,Number of extra cells used to represent river-bed depth increments.
+src/subsurface/VSmod.f90,VSmod,JVSALN,175,INTEGER,,"(NELEE, NLYREE, 4)",False,False,Aquifer-layer connectivity ranges packed as `NLYREE+1` multiples.
+src/subsurface/VSmod.f90,VSmod,ISRBED,176,INTEGER,,(NLFEE),False,False,River-bed soil type by link.
+src/subsurface/VSmod.f90,VSmod,NVSWL,177,INTEGER,,,False,False,Number of well boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSSP,178,INTEGER,,,False,False,Number of spring boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSLF,179,INTEGER,,,False,False,Number of lateral-flow boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSLH,180,INTEGER,,,False,False,Number of lateral-head boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSLG,181,INTEGER,,,False,False,Number of lateral head-gradient boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSBF,182,INTEGER,,,False,False,Number of bottom-flow boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSBH,183,INTEGER,,,False,False,Number of bottom-head boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSBD,184,INTEGER,,,False,False,Number of bottom-drainage boundary categories.
+src/subsurface/VSmod.f90,VSmod,NVSWLC,185,INTEGER,,(NELEE),False,False,Well category used by each element.
+src/subsurface/VSmod.f90,VSmod,NLBTYP,186,INTEGER,,(NELEE),False,False,Lateral boundary type by element.
+src/subsurface/VSmod.f90,VSmod,NLBCAT,187,INTEGER,,(NELEE),False,False,Lateral boundary category by element.
+src/subsurface/VSmod.f90,VSmod,NBBTYP,188,INTEGER,,(NELEE),False,False,Bottom boundary type by element.
+src/subsurface/VSmod.f90,VSmod,NBBCAT,189,INTEGER,,(NELEE),False,False,Bottom boundary category by element.
+src/subsurface/VSmod.f90,VSmod,NVSLFT,190,INTEGER,,,False,False,Expanded count of lateral-flow boundary values after selected-layer categories.
+src/subsurface/VSmod.f90,VSmod,NVSLFL,191,INTEGER,,"(NLYREE, NVSEE)",False,False,Selected model layers for lateral-flow categories.
+src/subsurface/VSmod.f90,VSmod,NVSLFN,192,INTEGER,,(NVSEE),False,False,Number of selected lateral-flow layers per category; zero means whole column.
+src/subsurface/VSmod.f90,VSmod,NVSLHT,193,INTEGER,,,False,False,Expanded count of lateral-head boundary values after selected-layer categories.
+src/subsurface/VSmod.f90,VSmod,NVSLHL,194,INTEGER,,"(NLYREE, NVSEE)",False,False,Selected model layers for lateral-head categories.
+src/subsurface/VSmod.f90,VSmod,NVSLHN,195,INTEGER,,(NVSEE),False,False,Number of selected lateral-head layers per category; zero means whole column.
+src/subsurface/VSmod.f90,VSmod,NVSLGT,196,INTEGER,,,False,False,Expanded count of lateral-gradient boundary values after selected-layer categories.
+src/subsurface/VSmod.f90,VSmod,NVSLGL,197,INTEGER,,"(NLYREE, NVSEE)",False,False,Selected model layers for lateral-gradient categories.
+src/subsurface/VSmod.f90,VSmod,NVSLGN,198,INTEGER,,(NVSEE),False,False,Number of selected lateral-gradient layers per category; zero means whole column.
+src/subsurface/VSmod.f90,VSmod,IVSSTO,205,INTEGER,,"(LLEE, NELEE)",False,False,Stored soil lookup-table interval by VSS cell and element.
+src/subsurface/VSmod.f90,VSmod,DCSZON,209,DOUBLEPRECISION,,(LLEE),False,False,"Soil-zone cell-depth increments, ordered from the ground surface downward."
+src/subsurface/VSmod.f90,VSmod,DCRBED,210,DOUBLEPRECISION,,(LLEE),False,False,"River-bed cell-depth increments, ordered from the bed surface downward."
+src/subsurface/VSmod.f90,VSmod,DCSTOT,211,DOUBLEPRECISION,,,False,False,Total configured soil-zone depth.
+src/subsurface/VSmod.f90,VSmod,DCRTOT,212,DOUBLEPRECISION,,,False,False,Total configured river-bed depth.
+src/subsurface/VSmod.f90,VSmod,VSZMIN,213,DOUBLEPRECISION,,,False,False,Minimum VSS cell thickness.
+src/subsurface/VSmod.f90,VSmod,VSZMAX,214,DOUBLEPRECISION,,,False,False,"Maximum VSS cell thickness, stored with the legacy small tolerance."
+src/subsurface/VSmod.f90,VSmod,VSK3D,215,DOUBLEPRECISION,,"(NSEE, 3)",False,False,Saturated hydraulic conductivity by soil type and x/y/z direction.
+src/subsurface/VSmod.f90,VSmod,DRBED,216,DOUBLEPRECISION,,(NLFEE),False,False,River-bed depth by link.
+src/subsurface/VSmod.f90,VSmod,VSSPZ,217,DOUBLEPRECISION,,(NELEE),False,False,Spring discharge elevation by element.
+src/subsurface/VSmod.f90,VSmod,VSSPCO,218,DOUBLEPRECISION,,(NELEE),False,False,Spring conductance coefficient by element.
+src/subsurface/VSmod.f90,VSmod,VSWV,219,DOUBLEPRECISION,,,False,False,Vertical hydraulic-conductivity w-mean control.
+src/subsurface/VSmod.f90,VSmod,VSWL,220,DOUBLEPRECISION,,,False,False,Lateral hydraulic-conductivity w-mean control.
+src/subsurface/VSmod.f90,VSmod,VSKR,225,DOUBLEPRECISION,"DIMENSION(:, :), ALLOCATABLE","(:, :)",False,False,Relative hydraulic conductivity by VSS cell and element.
+src/subsurface/VSmod.f90,VSmod,WLNOW,226,DOUBLEPRECISION,,(NVSEE),False,False,Current well abstraction values.
+src/subsurface/VSmod.f90,VSmod,RLFNOW,227,DOUBLEPRECISION,,"(NLYREE, NVSEE)",False,False,Current lateral-flow boundary values.
+src/subsurface/VSmod.f90,VSmod,RLHNOW,228,DOUBLEPRECISION,,"(NLYREE, NVSEE)",False,False,Current lateral-head boundary values.
+src/subsurface/VSmod.f90,VSmod,RLGNOW,229,DOUBLEPRECISION,,"(NLYREE, NVSEE)",False,False,Current lateral-gradient boundary values.
+src/subsurface/VSmod.f90,VSmod,RBFNOW,230,DOUBLEPRECISION,,(NVSEE),False,False,Current bottom-flow boundary values.
+src/subsurface/VSmod.f90,VSmod,RBHNOW,231,DOUBLEPRECISION,,(NVSEE),False,False,Current bottom-head boundary values.
+src/subsurface/VSmod.f90,VSmod,NSOLEE,238,INTEGER,,,False,False,Maximum number of generated soil lookup-table rows.
+src/subsurface/VSmod.f90,VSmod,VSPPSI,241,DOUBLEPRECISION,,(NSOLEE),False,False,Soil lookup pressure-head ordinates.
+src/subsurface/VSmod.f90,VSmod,VSPTHE,242,DOUBLEPRECISION,,"(NSOLEE, NSEE)",False,False,Soil lookup volumetric water content.
+src/subsurface/VSmod.f90,VSmod,VSPKR,243,DOUBLEPRECISION,,"(NSOLEE, NSEE)",False,False,Soil lookup relative hydraulic conductivity.
+src/subsurface/VSmod.f90,VSmod,VSPETA,244,DOUBLEPRECISION,,"(NSOLEE, NSEE)",False,False,Soil lookup storage coefficient.
+src/subsurface/VSmod.f90,VSmod,VSPDTH,245,DOUBLEPRECISION,,"(NSOLEE, NSEE)",False,False,Soil lookup derivative `d(theta)/d(psi)`.
+src/subsurface/VSmod.f90,VSmod,VSPDKR,246,DOUBLEPRECISION,,"(NSOLEE, NSEE)",False,False,Soil lookup derivative `d(K_r)/d(psi)`.
+src/subsurface/VSmod.f90,VSmod,VSPDET,247,DOUBLEPRECISION,,"(NSOLEE, NSEE)",False,False,Soil lookup derivative `d(eta)/d(psi)`.
+src/subsurface/VSmod.f90,VSmod,VSPSS,248,DOUBLEPRECISION,,(NSEE),False,False,Specific storage by soil type.
+src/subsurface/VSmod.f90,VSmod,VSPPOR,249,DOUBLEPRECISION,,(NSEE),False,False,Porosity copied from the wider soil parameter state.
+src/subsurface/VSmod.f90,VSmod,NVSSOL,250,INTEGER,,,False,False,Number of active soil lookup-table rows.
+src/subsurface/VSmod.f90,VSmod,BFAST,258,LOGICAL,,,False,False,True to use the shorter generated soil lookup table.
+src/subsurface/VSmod.f90,VSmod,BSOILP,259,LOGICAL,,,False,False,True to print generated soil lookup tables.
+src/subsurface/VSmod.f90,VSmod,IVSFLG,263,INTEGER,,(NSEE),False,False,Soil hydraulic-property option by soil type.
+src/subsurface/VSmod.f90,VSmod,IVSNTB,264,INTEGER,,(NSEE),False,False,Number of tabulated hydraulic-property rows by soil type.
+src/subsurface/VSmod.f90,VSmod,NVSERR,265,INTEGER,,,False,False,Accumulated VSS input/setup error count.
+src/subsurface/VSmod.f90,VSmod,INITYP,266,INTEGER,,,False,False,Initial pressure-head option from the VSS input file.
+src/subsurface/VSmod.f90,VSmod,VSTRES,271,DOUBLEPRECISION,,(NSEE),False,False,Residual water content by soil type.
+src/subsurface/VSmod.f90,VSmod,VSVGN,272,DOUBLEPRECISION,,(NSEE),False,False,van Genuchten `n` parameter by soil type.
+src/subsurface/VSmod.f90,VSmod,VSALPH,273,DOUBLEPRECISION,,(NSEE),False,False,Retention-curve alpha parameter by soil type.
+src/subsurface/VSmod.f90,VSmod,VSIPSD,274,DOUBLEPRECISION,,,False,False,Initial uniform phreatic-surface depth for `INITYP=1`.
+src/subsurface/VSmod.f90,VSmod,VSZWLB,275,DOUBLEPRECISION,,(NVSEE),False,False,Lower screen depth for well categories.
+src/subsurface/VSmod.f90,VSmod,VSZWLT,276,DOUBLEPRECISION,,(NVSEE),False,False,Upper screen depth for well categories.
+src/subsurface/VSmod.f90,VSmod,TBPSI,277,DOUBLEPRECISION,,"(NVSEE, NSEE)",False,False,Tabulated pressure-head values by row and soil type.
+src/subsurface/VSmod.f90,VSmod,TBTHE,278,DOUBLEPRECISION,,"(NVSEE, NSEE)",False,False,Tabulated water-content values by row and soil type.
+src/subsurface/VSmod.f90,VSmod,TBKR,279,DOUBLEPRECISION,,"(NVSEE, NSEE)",False,False,Tabulated relative-conductivity values by row and soil type.
+src/subsurface/VSmod.f90,VSmod,TBTHEC,280,DOUBLEPRECISION,,"(NVSEE, NSEE)",False,False,Cubic-spline second derivatives for tabulated water content.
+src/subsurface/VSmod.f90,VSmod,TBKRC,281,DOUBLEPRECISION,,"(NVSEE, NSEE)",False,False,Cubic-spline second derivatives for tabulated relative conductivity.
+src/subsurface/VSmod.f90,VSmod,VSSPD,282,DOUBLEPRECISION,,(NELEE),False,False,Spring depth below ground by element.
+src/util/mod_error.f90,mod_error,ERRLVL_fatal,56,INTEGER(KIND=I_P),PARAMETER,,True,True,Fatal error severity passed to `ERROR`.
+src/util/mod_error.f90,mod_error,ERRLVL_error,57,INTEGER(KIND=I_P),PARAMETER,,True,True,Nonfatal error severity passed to `ERROR`.
+src/util/mod_error.f90,mod_error,ERRLVL_warn,58,INTEGER(KIND=I_P),PARAMETER,,True,True,Warning severity passed to `ERROR`.
+src/util/mod_error.f90,mod_error,ERRCODE_fileopen,66,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed file open.
+src/util/mod_error.f90,mod_error,ERRCODE_fileclose,67,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed file close.
+src/util/mod_error.f90,mod_error,ERRCODE_allocate,68,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed allocation.
+src/util/mod_error.f90,mod_error,ERRCODE_deallocate,69,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed deallocation.
+src/util/mod_error.f90,mod_error,ERRCODE_read,70,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed read.
+src/util/mod_error.f90,mod_error,ERRCODE_write,71,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed write.
+src/util/mod_error.f90,mod_error,ERRCODE_rewind,72,INTEGER(KIND=I_P),PARAMETER,,True,True,Code reported for a failed rewind.
+src/util/mod_error.f90,mod_error,ERR_limit_error_codes,77,INTEGER(KIND=I_P),PARAMETER,,True,True,Greatest error-code remainder represented in each module-group counter.
+src/util/mod_error.f90,mod_error,error_counter,78,INTEGER(KIND=I_P),,"(0:ERR_limit_error_codes, 0:3)",False,True,Occurrence counts by error-code remainder and module group.
+src/util/mod_error.f90,mod_error,error_counter_total,79,INTEGER(KIND=I_P),,,False,True,Total number of errors and warnings recorded by `ERROR`.
+src/util/mod_error.f90,mod_error,flag_wait_on_exit,80,LOGICAL,,,False,True,Whether `ERR_STOP` waits for the user before terminating.
+src/util/mod_error.f90,mod_error,FID_logfile,85,INTEGER(KIND=I_P),PARAMETER,,True,True,Default Fortran unit for primary PRI output.
+src/util/mod_error.f90,mod_error,helppath,86,CHARACTER(LEN=LENGTH_FILEPATH),,,False,False,Help-directory fragment set to `/helpmessages` by each `ERROR` call.
+src/util/mod_load_filedata.f90,mod_load_filedata,HEAD0_alread,67,CHARACTER(len=80),,,False,True,Most recent successful heading or status text processed by `ALREAD`.
+src/util/mod_load_filedata.f90,mod_load_filedata,HEAD0_alredc,68,CHARACTER(len=80),,,False,True,Fixed fallback text used by `ALREDC` heading-read errors; never updated.
+src/util/mod_load_filedata.f90,mod_load_filedata,HEAD0_alredi,69,CHARACTER(len=80),,,False,True,Fixed fallback text used by `ALREDI` heading-read errors; never updated.
+src/util/mod_load_filedata.f90,mod_load_filedata,HEAD0_alred2,70,CHARACTER(len=80),,,False,True,Most recent `ALRED2` status text; currently written but never read.
+src/util/mod_load_filedata.f90,mod_load_filedata,HEAD0_alredl,71,CHARACTER(len=80),,,False,True,Fixed fallback text used by `ALREDL` heading-read errors; never updated.
+src/util/mod_load_filedata.f90,mod_load_filedata,HEAD0_alredf,72,CHARACTER(len=80),,,False,True,Fixed fallback text used by `ALREDF` heading-read errors; never updated.
+src/util/utilsmod.f90,utilsmod,eps,31,DOUBLEPRECISION,PARAMETER,,True,True,Singularity/zero tolerance used by matrix inversion.
+src/util/utilsmod.f90,utilsmod,msg,32,CHARACTER(128),,,False,False,Error-message buffer passed to `ERROR`.
