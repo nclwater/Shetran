@@ -23,7 +23,7 @@
 !>
 !> Input headings are matched as case-sensitive substrings rather than exact
 !> records. A mismatch is a warning and reading continues; missing or malformed
-!> data are normally fatal through [[sglobal:ERROR]]. The readers retain
+!> data are normally fatal through [[mod_error:RAISE_ERROR]]. The readers retain
 !> explicit-shape legacy interfaces, so some callers use valid Fortran sequence
 !> association by passing an array element as the start of a contiguous data
 !> sequence.
@@ -558,7 +558,7 @@ CONTAINS
    !>
    !> Every failure sets `NOTOK(i)` and increments cumulative `COUNT`. A
    !> negative `ACTION` first replaces each failing subject with its comparison
-   !> value; `ABS(ACTION)` is then passed to [[sglobal:ERROR]] as the severity
+   !> value; `ABS(ACTION)` is then passed to [[mod_error:RAISE_ERROR]] as the severity
    !> selector. The diagnostic gives the lowest-index failure and, for a
    !> nonfatal action, a continuation reports how many other entries failed.
    !> Up to three indices are inferred from commas in `SNAME`; `IX2` and `IX3`
@@ -765,7 +765,7 @@ CONTAINS
    !> Failure accounting, optional reset, severity selection, `SNAME` subscript
    !> parsing, and reporting are identical to `ALCHK`: `NOTOK` receives the
    !> mask, `COUNT` is cumulative, and a negative `ACTION` resets bad subjects
-   !> before calling [[sglobal:ERROR]] with `ABS(ACTION)`.
+   !> before calling [[mod_error:RAISE_ERROR]] with `ABS(ACTION)`.
    !>
    !> @warning
    !> `OP` must contain at least two characters. The subtraction, sign
@@ -1095,7 +1095,7 @@ CONTAINS
    !> `HEAD0_alread`, which a later heading-read failure includes in its message.
    !> Error codes 3--7, 10--11, 14, and 16 distinguish heading, file/data,
    !> grid-row, soil, and VSS-record failures; contained helper `throw_fatal` dispatches
-   !> each through [[sglobal:ERROR]] with fatal severity.
+   !> each through [[mod_error:RAISE_ERROR]] with fatal severity.
    !>
    !> @warning
    !> There is no `CASE DEFAULT`; unsupported flags may consume a heading and
@@ -1323,7 +1323,7 @@ CONTAINS
       !> Reports one `ALREAD` I/O failure as fatal.
       !>
       !> This contained helper host-associates `OUNIT` from [[ALREAD]] and calls
-      !> [[sglobal:ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
+      !> [[mod_error:RAISE_ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
       !> no element/cell context, and the already formatted message. `ERROR`
       !> terminates normal execution for fatal severity.
       !>

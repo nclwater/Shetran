@@ -2,7 +2,7 @@
 !> author: R. A. Heath, Newcastle University; Sven Berendsen, Southampton University
 !>
 !> This module owns SHETRAN's shared error-handling interface: the numbered
-!> diagnostic reporter [[mod_error:ERROR]], the termination routine
+!> diagnostic reporter [[mod_error:RAISE_ERROR]], the termination routine
 !> [[mod_error:ERR_STOP]], the severity selectors passed to `ERROR`, the
 !> per-code occurrence counters, and the default primary print unit. It was
 !> extracted from [[sglobal]] so that error handling is no longer coupled to
@@ -77,7 +77,7 @@ MODULE mod_error
    INTEGER(KIND=I_P), PARAMETER :: ERR_limit_error_codes = 100 !! Greatest error-code remainder represented in each module-group counter.
    INTEGER(KIND=I_P) :: error_counter(0:ERR_limit_error_codes, 0:3) = 0 !! Occurrence counts by error-code remainder and module group.
    INTEGER(KIND=I_P) :: error_counter_total = 0 !! Total number of errors and warnings recorded by `ERROR`.
-   LOGICAL :: flag_wait_on_exit = .TRUE. !! Whether `ERR_STOP` waits for the user before terminating. Set the default to TRUE until err_set_wait_on_exit is correctly wired to the launch mode.
+   LOGICAL :: flag_wait_on_exit = .FALSE. !! Whether `ERR_STOP` waits for the user before terminating.
 
    ! --------------------------------------------------------------------
    ! Diagnostic output destinations
@@ -403,7 +403,7 @@ CONTAINS
    !>
    !> | `ETYPE` | Immediate record and accounting | Control behavior |
    !> |:--------|:--------------------------------|:-----------------|
-   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ALSTOP]] for error termination. |
+   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ERR_STOP]] for error termination. |
    !> | `ERRLVL_error=2` | Writes an `ERROR` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `ERRLVL_warn=3` | Writes a `WARNING` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `0` | Writes `TEXT` without a severity header and does not increment either counter. | `ERRNUM=0` would also request a summary; current callers use code 12 only for continuation text from [[mod_load_filedata:ALCHK]] and [[mod_load_filedata:ALCHKI]]. |
@@ -483,7 +483,6 @@ CONTAINS
    !> | 2026-05-08 | SB | Reworked summary output to name the selected print file and write the summary heading to both standard output and `OUT`. |
    !> | 2026-05-10 | SvB | Removed the interactive wait before help-file lookup for noninteractive scripted use. |
    !> | 2026-08-31 | SvB | Moved from [[sglobal]] to [[mod_error]] and renamed the selectors and counters. |
-   !> | 2026-10-06 | SvB | Error stop now returns standard status 255. |
    !> @endhistory
    SUBROUTINE RAISE_ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
@@ -586,7 +585,6 @@ CONTAINS
                IF (COUNT > 0) THEN
                   ! Print number of occurrences
                   WRITE (*, 9500) ERRN + AMODL*1000, COUNT
-                  WRITE (OUT, 9500) ERRN + AMODL*1000, COUNT
 
                   ! Print contents of help file (if any)
                   WRITE (FIL, 9200) TRIM(rootdir)//TRIM(helppath)//'/', AMODL, ERRN, '.txt'
@@ -597,13 +595,11 @@ CONTAINS
                         READ (HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
                         IF (IO_STATUS /= 0) EXIT read_help
                         WRITE (*, '(A)') trim(HLPMSG)
-                        WRITE (OUT, '(A)') trim(HLPMSG)
                      END DO read_help
                      CLOSE (HLP)
                   END IF
 
                   WRITE (*, *)
-                  WRITE (OUT, *)
 
                END IF
             END DO error_loop
@@ -614,7 +610,7 @@ CONTAINS
 
       ! Stop?
       ! -----
-      IF (ETYPE == ERRLVL_fatal) CALL ERR_STOP(255)
+      IF (ETYPE == ERRLVL_fatal) CALL ERR_STOP(1)
 
       ! String format statements
       ! ------------------------
@@ -632,10 +628,9 @@ CONTAINS
 
    !> summary: Terminates the run, distinguishing fatal from ordinary exits.
    !>
-   !> A positive `error_number` selects error termination through `ERROR STOP`
-   !> with exit status 255, so that the process reports a nonzero status to
-   !> whatever launched it.
-   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:ERROR]]
+   !> A positive `error_number` selects error termination through `ERROR STOP`,
+   !> so that the process reports a nonzero status to whatever launched it.
+   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:RAISE_ERROR]]
    !> passes `1` after it has printed the fatal-error summary; the
    !> unrecoverable conditions detected directly in the process modules pass
    !> `255`.
@@ -655,7 +650,6 @@ CONTAINS
    !> | 2026-03-28 | SvB | Converted `FLAG` to selected integer kind with input intent, replaced the legacy pause with an explicit prompt/read, and added the initial FORD block. |
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
-   !> | 2026-10-06 | SvB | Fatal path now uses `ERROR STOP 255`; the character `STOP` code returned status 0. |
    !> @endhistory
    SUBROUTINE ERR_STOP(error_number)
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
@@ -674,10 +668,7 @@ CONTAINS
          READ (*, *)
       END IF
 
-      IF (is_fatal) THEN
-         WRITE (*, '(A)') 'Program terminating due to fatal error'
-         ERROR STOP 255
-      END IF
+      IF (is_fatal) STOP 'Program terminating due to fatal error'
 
       STOP 'Program terminating'
 
