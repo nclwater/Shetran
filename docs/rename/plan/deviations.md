@@ -259,3 +259,24 @@ at all.
 file, matching `rename_extract.py`'s own filtering. Every step that touches a
 target shared with another step must pass it. The wrongly rewritten statements
 were restored from the run's `.backup` files before the step continued.
+
+## D13 — two names had to become public when their module split
+
+A procedure or variable that was private inside a large module becomes an
+interface as soon as the split puts its caller in a sibling module. Two cases
+so far, both recorded in the header of the module that now exports the name:
+
+| Name | Was | Now | Why |
+|:-----|:----|:----|:----|
+| `msg` | private in `utilsmod` | public in [[linear_algebra]] | [[datetime]] writes into it (D9) |
+| `MNPLANTINITIALISE` | private in `MNmod` | public in [[mn_plant]] | [[mn_driver:MNINITIALISE]] calls it |
+
+`mn_state`'s 57 variables and three derived types are the same case in bulk:
+`MNmod` declared `PRIVATE`, so all of them were private, and all eight sibling
+modules read them. `mn_state` follows the data-module convention and is public
+by default.
+
+This is the one visibility change the move cannot avoid, and it is worth
+noticing: each of these names is now part of a module's published interface
+because of where the boundary was drawn, not because anything decided it should
+be.

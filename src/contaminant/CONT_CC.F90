@@ -4,10 +4,10 @@
 !> boundary conditions, concentrations, adsorption and decay properties,
 !> retardation, and channel-bed exchange. [[cmmod]] reads and advances this
 !> state, while [[frmod]] derives coefficients and establishes initial values.
-!> [[mnmod]] supplies nitrate and plant source/sink terms through `SSS1` and
+!> [[mn_driver]] supplies nitrate and plant source/sink terms through `SSS1` and
 !> `SSS2`, and [[visualisation_interface_left]] exposes current concentrations.
 !>
-!> Fixed-size arrays use the compile-time maxima imported from `SGLOBAL`. The
+!> Fixed-size arrays use the compile-time maxima imported from [[array_limits]]. The
 !> eight allocatable runtime arrays use active extents set by
 !> `initialise_cont_cc`: concentration and source arrays are indexed by element,
 !> cell, and contaminant; bank-retardation arrays add a bank-side index after the

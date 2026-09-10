@@ -40,7 +40,7 @@ CONTAINS
    !> Values at or below the final table depth are clamped to the final value.
    !> The value units are those of `TABLE_CONCENTRATION`; despite its legacy
    !> name this argument also carries nitrate process-parameter profiles in
-   !> [[mnmod]]. [[cm_input:INCM]] uses the routine for initial contaminant
+   !> [[mn_input]]. [[cm_input:INCM]] uses the routine for initial contaminant
    !> concentration profiles. Depths and vertical geometry are in metres.
    !>
    !> Only `CELL_CONCENTRATION(NLF+1:NEL,NCOLMB(element):NCETOP)` is defined.

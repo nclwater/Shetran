@@ -82,7 +82,7 @@ MODULE CMmod
    USE record_readers, ONLY: ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
    USE spatial_fields, ONLY: ALALLI
    USE linear_algebra, ONLY: dcopy
-   USE MNMOD, only: MNCONT, MNINITIALISE, MNISINITIALISED
+   USE mn_driver, ONLY: MNCONT, MNINITIALISE, MNISINITIALISED
    IMPLICIT NONE
 
    INTEGER :: JBK       !! Current bank side, 1 or 2, shared by the column preparation and solve paths.
