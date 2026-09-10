@@ -2,7 +2,7 @@
 !>
 !> Replaces the legacy `CONT.CC` common blocks with module data for contaminant
 !> boundary conditions, concentrations, adsorption and decay properties,
-!> retardation, and channel-bed exchange. [[cmmod]] reads and advances this
+!> retardation, and channel-bed exchange. The contaminant solvers read and advance this
 !> state, while [[frmod]] derives coefficients and establishes initial values.
 !> [[mn_driver]] supplies nitrate and plant source/sink terms through `SSS1` and
 !> `SSS2`, and [[visualisation_interface_left]] exposes current concentrations.
@@ -24,7 +24,7 @@
 !> | 2004-11 | JE | - | Converted to Fortran 95. |
 !> | 2026-03 | SB | 4.6.1 | Made eight runtime arrays allocatable and added active-size allocation. |
 !> @endhistory
-MODULE CONT_CC
+MODULE cm_parameters
    USE array_limits, ONLY: nelee, NCONEE, LLEE, NSEE, NSEDEE, nlfee
    USE element_geometry, ONLY: total_no_elements, top_cell_no, total_no_links
 
@@ -141,4 +141,4 @@ CONTAINS
 
    END SUBROUTINE initialise_cont_cc
 
-END MODULE CONT_CC
+END MODULE cm_parameters

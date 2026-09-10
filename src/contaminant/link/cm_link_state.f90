@@ -53,7 +53,7 @@
 !> | 1991-07-16 | JE | 3.1 | Renamed legacy common block `CONC` as `CONCL` to avoid a name clash. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE LINK_CC
+MODULE cm_link_state
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
@@ -130,4 +130,4 @@ MODULE LINK_CC
    DOUBLEPRECISION :: GCPLAL !! Decay/generation coefficient for the current contaminant.
    DOUBLEPRECISION :: GCPLAQ !! Decay/generation coefficient of the preceding numeric contaminant.
 !PRIVATE :: LLEE
-END MODULE LINK_CC
+END MODULE cm_link_state

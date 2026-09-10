@@ -43,7 +43,7 @@
 !> | 1997-03-13 | RAH | 4.1 | Added explicit typing. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE COLM_C2
+MODULE cm_column_water
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
    DOUBLEPRECISION ICAP   !! Prior scaled dry-deposition source, `-Z2OD*IIICFO(NCONT)`.
@@ -88,4 +88,4 @@ MODULE COLM_C2
    DOUBLEPRECISION QI1    !! Current net-precipitation volume flow; downward input is negative (m3/s).
 !PRIVATE :: LLEE
 
-END MODULE COLM_C2
+END MODULE cm_column_water

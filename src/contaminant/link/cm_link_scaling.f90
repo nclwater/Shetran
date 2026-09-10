@@ -41,10 +41,10 @@
 !> | 1991-05-18 | JE | 3.1 | Original version written. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE LINK_CC1
+MODULE cm_link_scaling
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
    DOUBLEPRECISION :: KS             !! Current link length divided by the reference length `Z2`.
    DOUBLEPRECISION :: KSPBK(2,LLEE)  !! Bank-cell thickness divided by `Z2`, for the two adjacent banks.
 !PRIVATE :: LLEE
-END MODULE LINK_CC1
+END MODULE cm_link_scaling

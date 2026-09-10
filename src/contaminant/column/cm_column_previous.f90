@@ -64,8 +64,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> | 2026-03-30 | SB | 4.6.1 | Made the ten old-state arrays allocatable and added `initialise_colm_co`. |
 !> @endhistory
-MODULE COLM_CO
-
+MODULE cm_column_previous
    USE array_limits, ONLY: nelee, LLEE
    USE element_geometry, ONLY: total_no_elements, top_cell_no
 
@@ -167,4 +166,4 @@ CONTAINS
 
    END SUBROUTINE initialise_colm_co
 
-END MODULE COLM_CO
+END MODULE cm_column_previous

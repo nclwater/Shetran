@@ -83,13 +83,14 @@ MODULE run_sim
    USE FRmod, ONLY: tsh, tch, bstore, btime
    USE VSmod, ONLY: VSSIM, &
       RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
-   USE CMmod, ONLY: CMSIM  !"JE"
+   USE cm_driver, ONLY: CMSIM
    USE et_config, ONLY: PSI4, UZALFA
    USE et_process, ONLY: ETSIM
    USE rest, ONLY: BALWAT, TMSTEP, &
       metime, melast, eptime, pinp
    !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
-   USE FRmod, ONLY: INCM, FRINIT
+   USE FRmod, ONLY: FRINIT
+   USE cm_input, ONLY: INCM
    USE OCmod, ONLY: OCSIM
    USE OCQDQMOD, ONLY: STRXX, STRYY
    USE OCmod2, ONLY: GETHRF, &
@@ -104,7 +105,7 @@ MODULE run_sim
    USE et_state, ONLY: AE, S, ERZ, ESOIL, EINT, PNET, DRAIN, PE, VHT
    USE snow_state, ONLY: SF
    USE simulation_clock, ONLY: TIMEUZ
-   USE colm_c1, ONLY: z2sq   !"JE"
+   USE cm_column_scaling, ONLY: z2sq   !"JE"
    USE ocmod, ONLY: qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
    USE OCQDQMOD, ONLY: hocnow, qocf, xafull !, firstocqdq
    USE OCmod2, ONLY: hrfzz, qsazz !NEEDED ONLY FOR AD
@@ -119,9 +120,9 @@ MODULE run_sim
    USE sy_config, ONLY: ISSYOK_symain
    USE FRmod, ONLY: qoctot, uzold, &
       next_hour, icounter2  !these here only for AD
-   USE CONT_CC, ONLY: initialise_cont_cc
-   USE COLM_CG, ONLY: initialise_colm_cg, deallocate_colm_cg
-   USE COLM_CO, ONLY: initialise_colm_co
+   USE cm_parameters, ONLY: initialise_cont_cc
+   USE cm_column_geometry, ONLY: initialise_colm_cg, deallocate_colm_cg
+   USE cm_column_previous, ONLY: initialise_colm_co
 !USE PERTURBATIONS, ONLY : LOAD_PERTURBATIONS, spatial1
    IMPLICIT NONE
 

@@ -29,7 +29,7 @@
 !> | 1998-03-08 | RAH | 4.2 | Removed `OLBD`. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE BK_CW
+MODULE cm_bank_geometry
    USE array_limits, ONLY: nlfee, LLEE
    IMPLICIT NONE
    DOUBLEPRECISION FNCEBD (NLFEE, 2)  !! Fraction of cell `NCEBD+1` below the deep-bed boundary.
@@ -38,4 +38,4 @@ MODULE BK_CW
    INTEGER :: NCEBD (NLFEE, 2)  !! Highest bank cell lying fully below the deep-bed boundary.
    DOUBLEPRECISION QQRVO (NLFEE, LLEE, 2)  !! Unused legacy bank-flow storage, shaped by link, cell, and side.
 !PRIVATE :: NLFEE, LLEE
-END MODULE BK_CW
+END MODULE cm_bank_geometry

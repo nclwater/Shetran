@@ -48,7 +48,7 @@
 !> | 1997-03-14 | RAH | 4.1 | Added explicit typing. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE SED_CO
+MODULE cm_sediment_previous
    USE array_limits, ONLY: nelee, nlfee, NSEDEE
    IMPLICIT NONE
 
@@ -60,4 +60,4 @@ MODULE SED_CO
    DOUBLEPRECISION FBBEDO (NLFEE, NSEDEE) !! Previous combined channel-bed composition fraction by link and size class.
    DOUBLEPRECISION FBTSDO (NLFEE, NSEDEE) !! Previous newly deposited sediment composition fraction by link and size class.
 !PRIVATE :: NELEE, NLFEE, NSEDEE
-end MODULE SED_CO
+end MODULE cm_sediment_previous

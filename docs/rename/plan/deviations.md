@@ -391,3 +391,44 @@ Checked for the remaining steps: `eps` (three sources) and `temp` are the other
 colliding names, and no step so far has needed either across a module boundary.
 Every draft the script produces is read against `rename_rows.py --target`
 before it is used.
+
+## D18 — the drafter checked the module, not the entity
+
+`scripts/rename_imports.py` refused to follow the move tables to a target
+module that did not exist yet (D10), which is not the same test as the one that
+matters. `oc_state` has existed since step 04, but it does not hold `OCmod2`'s
+`HRFZZ` until step 11 — so in step 09 the drafter offered `cm_column`
+`USE oc_state, ONLY: hrf => HRFZZ`, which cannot compile.
+
+`existing_modules()` now returns, for each module in the tree, the set of names
+it actually declares, and a candidate is only re-pointed if the target owns the
+name **now**. `cm_column` correctly imports `hrf => hrfzz` from `OCmod2` until
+step 11 moves it.
+
+## D19 — `cm_input`'s imports had to be worked out per procedure
+
+The file-wide scope approximation in `rename_imports.py` (noted in D10) fails
+badly on `cm_input`, which holds `CMRD` from `CMmod` and `INCM`/`MUERR2` from
+`FRmod`. Between them those readers declare hundreds of locals and dummy
+arguments, and `declared_locally` — which does not know which procedure a
+declaration is in — suppressed roughly 60 genuine module-level imports,
+including `ALPHA`, `CCAPI`, `ICMREF` and `NCOLMB`.
+
+The block was rebuilt by scanning each of the three procedures separately, with
+its own locals and its own procedure-level `USE` statements excluded. The two
+readers also disagree about names: `CMRD` uses `CMmod`'s rename-on-import
+aliases `NEL`/`nlf`, while `INCM` uses the plain `total_no_elements` and
+`total_no_links`. Both forms are needed, in different modules —
+[[cm_driver]] keeps the aliases and `cm_input` the plain names.
+
+Making the drafter scope-aware would be the real fix. It is a helper, not part
+of the deliverable, and the compiler catches every case it gets wrong.
+
+## D20 — two more deletions forced by the split
+
+- **`USE cm_input, ONLY: CMRD` inside `INCM`.** `INCM` came from `FRmod` and
+  imported `CMRD` from `CMmod`; the `USE` rewriter re-pointed it at `cm_input`,
+  which is now `INCM`'s *own* module. A module cannot `USE` itself, so the
+  statement goes: `CMRD` is visible by host association.
+- **`! USE CONT_CC ! (Duplicate removed)`** in what is now `cm_channel`, a
+  commented-out import of a module that no longer exists under that name.

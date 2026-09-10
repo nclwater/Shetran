@@ -59,7 +59,7 @@ commits.
 | 06 | [`sediment/`](06_sediment.md) | 9 | `SYmod`, `SED_CS` | ☑ |
 | 07 | [`evapotranspiration/`](07_evapotranspiration.md) | 4 | `ETmod` | ☑ |
 | 08 | [`snow/`](08_snow.md) | 4 | `SMmod` | ☑ |
-| 09 | [`contaminant/`](09_contaminant.md) | 20 | `CMmod` + 14 data modules | ☐ |
+| 09 | [`contaminant/`](09_contaminant.md) | 20 | `CMmod` + 14 data modules | ☑ |
 | 10 | [`subsurface/`](10_subsurface.md) | 9 | `VSmod` | ☐ |
 | 11 | [`overland_channel/`](11_overland_channel.md) | 14 | `OCmod`, `OCmod2`, `OCQDQMOD`, `ZQmod`, `oc_row_width` | ☐ |
 | 12 | [`frame/`](12_frame.md) | 6 | `FRmod` | ☐ |

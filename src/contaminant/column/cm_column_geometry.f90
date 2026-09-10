@@ -49,8 +49,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> | 2026-03-30 | SB | 4.6.1 | Retired unused legacy arrays, made six overlap arrays allocatable, and added allocation helpers. |
 !> @endhistory
-MODULE COLM_CG
-
+MODULE cm_column_geometry
    USE array_limits, ONLY: nelee, LLEE, NVEE, NOLEE
    USE element_geometry, ONLY: total_no_elements, top_cell_no
 
@@ -174,4 +173,4 @@ CONTAINS
 
    END SUBROUTINE deallocate_colm_cg
 
-END MODULE COLM_CG
+END MODULE cm_column_geometry

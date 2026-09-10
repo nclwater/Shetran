@@ -37,7 +37,7 @@
 !> | 1997-03-13 | RAH | 4.1 | Added explicit typing. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE COLM_CC1
+MODULE cm_column_equations
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
@@ -54,4 +54,4 @@ MODULE COLM_CC1
    DOUBLEPRECISION SLT(LLEE)     !! Right-hand side of the dynamic-region equation.
    DOUBLEPRECISION TLT(LLEE)     !! Magnitude of the negative `OME(i)` coupling in the dead-space equation.
 !PRIVATE :: LLEE
-END MODULE COLM_CC1
+END MODULE cm_column_equations

@@ -1,9 +1,10 @@
 !> summary: Shared logical state controlling contaminant and nitrate calculation paths.
 !> author: JE, Newcastle University; GP, Newcastle University; RAH, Newcastle University; SB, Newcastle University
 !>
-!> `IS_CC` replaces the logical common block in the legacy `IS.CC` include.
-!> [[cmmod]] use-associates all five flags. [[frmod]] additionally imports
-!> `ISPLT` and `ISMN` for plant initialization and rundata file handling.
+!> This module replaces the logical common block in the legacy `IS.CC`
+!> include. The contaminant solvers between them use-associate all five
+!> flags; [[frmod]] additionally imports `ISPLT` and `ISMN` for plant
+!> initialization and rundata file handling.
 !>
 !> | Flag | Intended/current lifecycle and principal consumers |
 !> |:-----|:--------------------------------------------------|
@@ -43,7 +44,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> | 2025-10-07 | SB | 4.5.3 | Added `ISMN` for the nitrate component. |
 !> @endhistory
-MODULE IS_CC
+MODULE cm_solver_flags
    IMPLICIT NONE
 
    LOGICAL :: ISADNL !! Intended nonlinear-adsorption flag from `CM13`; module value is currently unassigned.
@@ -52,4 +53,4 @@ MODULE IS_CC
    LOGICAL :: ISPLT  !! Intended contaminant plant-uptake flag; currently unassigned.
    LOGICAL :: ISMN   !! Nitrate-component flag established from rundata file unit 53.
 
-END MODULE IS_CC
+END MODULE cm_solver_flags

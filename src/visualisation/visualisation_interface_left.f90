@@ -104,7 +104,7 @@ MODULE visualisation_interface_left
    USE run_context, ONLY: DIRQQ, rootdir, hdf5filename, planfile => visualisation_plan_filename, &
                   checkfile => visualisation_check_filename
    USE simulation_clock, ONLY: UZNOW
-   USE CONT_CC, ONLY: cccc, nnncon => ncon, ssss
+   USE cm_parameters, ONLY: cccc, nnncon => ncon, ssss
    USE mod_parameters, ONLY: rho_sediment
    USE sy_state, ONLY: DLS, GNU, nnnsed => NSED, QSED
    USE OCmod2, ONLY: hrfzz

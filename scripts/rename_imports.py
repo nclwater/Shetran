@@ -89,13 +89,38 @@ def imported(path):
 
 
 def existing_modules():
-    """Module names present in the tree right now."""
-    out = set()
+    """module.lower() -> the names it declares right now.
+
+    Checking the module exists is not enough: `oc_state` exists from step 04 but
+    does not hold `OCmod2`'s `HRFZZ` until step 11, and a draft that sent a
+    consumer to `oc_state` for it would not compile. So the entity itself has to
+    be found in the target.
+    """
+    out = {}
     for f in sorted((ROOT / "src").rglob("*.[fF]90")):
+        module, names = None, set()
         for line in f.read_text(errors="replace").splitlines():
             m = re.match(r"^\s*MODULE\s+([A-Za-z]\w*)\s*$", line, re.I)
             if m:
-                out.add(m.group(1).lower())
+                module = m.group(1).lower()
+                continue
+            code = line.split("!")[0]
+            m = re.match(r"^\s*(?:(?:PURE|RECURSIVE|ELEMENTAL|IMPURE|MODULE)\s+)*"
+                         r"(?:\w[\w\s(),=*]*?\s+)?(?:SUBROUTINE|FUNCTION)\s+(\w+)", code, re.I)
+            if m:
+                names.add(m.group(1).lower())
+                continue
+            if re.match(r"^\s*(?:DOUBLE\s*PRECISION|REAL|INTEGER|LOGICAL|CHARACTER|TYPE\s*[(,])",
+                        code, re.I):
+                rhs = code.partition("::")[2] or re.sub(
+                    r"^\s*(?:DOUBLE\s*PRECISION|REAL|INTEGER|LOGICAL|CHARACTER|TYPE\s*\([^)]*\))",
+                    "", code, flags=re.I)
+                for item in re.split(r",(?![^(]*\))", rhs):
+                    mm = re.match(r"\s*([A-Za-z]\w*)", item)
+                    if mm:
+                        names.add(mm.group(1).lower())
+        if module:
+            out.setdefault(module, set()).update(names)
     return out
 
 
@@ -165,7 +190,7 @@ def main():
         for name, (module, alias, original) in imported(path).items():
             if module.lower() in owner or name in owner:
                 target, new = owner.get(name, (module, original))
-                if target.lower() not in present:
+                if name not in present.get(target.lower(), ()):
                     target, new = module, original
                 candidates[new.lower()] = (target, alias, new)
             else:
@@ -194,7 +219,7 @@ def main():
             want(name, target, alias, shown)
         for name in siblings:                              # intra-step edges
             target, new = owner[name]
-            if target.lower() in present:
+            if name in present.get(target.lower(), ()):
                 want(name, target, None, new)
         for name, (mod, alias, shown) in outside.items():
             want(name, mod, alias, shown)

@@ -34,7 +34,7 @@
 !> | 1997-03-13 | RAH | 4.1 | Added explicit typing and split mixed-type `CLNUM`. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE COLM_C1
+MODULE cm_column_scaling
    IMPLICIT NONE
    DOUBLEPRECISION D0      !! Reference dispersion coefficient, currently `1.0D-3` m2/s.
    DOUBLEPRECISION Z2      !! Reference soil-column length, currently 50 m.
@@ -60,4 +60,4 @@ MODULE COLM_C1
    INTEGER :: NCETOP  !! Ground-surface cell index, set to `top_cell_no` by `INCM`.
    INTEGER :: NCEPSF  !! Upper lateral-transport cell index; currently set to `NCETOP`.
 
-END MODULE COLM_C1
+END MODULE cm_column_scaling

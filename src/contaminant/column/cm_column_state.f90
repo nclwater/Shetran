@@ -55,7 +55,7 @@
 !> | 1997-03-13 | RAH | 4.1 | Added explicit typing. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE COLM_CC
+MODULE cm_column_state
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
@@ -106,4 +106,4 @@ MODULE COLM_CC
    DOUBLEPRECISION CCPRF   !! Advected base-flux concentration; zero for a fixed-concentration base.
    DOUBLEPRECISION CCPRFT  !! Scaled time derivative of `CCPRF`; currently always zero.
 !PRIVATE :: LLEE
-END MODULE COLM_CC
+END MODULE cm_column_state

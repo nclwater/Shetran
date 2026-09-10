@@ -30,7 +30,7 @@
 !> stored current-link value. This existing in-place update is documented
 !> without changing it.
 !>
-!> The unrestricted `USE LINK_CC1` also makes `KS`, `KSPBK`, and the
+!> The unrestricted `USE` of [[cm_link_scaling]] also makes `KS`, `KSPBK`, and the
 !> use-associated `LLEE` accessible through this module. Together with
 !> use-associated `NLFEE`, they and the nine variables declared here are public
 !> because the `PRIVATE` statement remains commented out. The nine declared
@@ -64,9 +64,9 @@
 !> | 1998-03-08 | RAH | 4.2 | Amended comments. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
-MODULE LINK_CW
+MODULE cm_link_water
    USE array_limits, ONLY: nlfee
-   USE LINK_CC1
+   USE cm_link_scaling
    IMPLICIT NONE
 
    DOUBLEPRECISION :: ACPBDO(NLFEE) !! Last stored scaled bed/deposited-material area for each link.
@@ -82,4 +82,4 @@ MODULE LINK_CW
    DOUBLEPRECISION :: THBED(NLFEE)  !! Current thickness-weighted stream-bed volumetric moisture content.
    DOUBLEPRECISION :: THBEDO(NLFEE) !! Preceding stream-bed moisture content passed to `FRET`.
 !PRIVATE :: NLFEE
-END MODULE LINK_CW
+END MODULE cm_link_water

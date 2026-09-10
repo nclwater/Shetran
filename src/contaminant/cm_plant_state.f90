@@ -63,7 +63,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> | 2025-10-07 | SB | 4.5.3 | Reused `RHOPL` and `DELONE` in the nitrate plant-uptake path. |
 !> @endhistory
-MODULE PLANT_CC
+MODULE cm_plant_state
    USE array_limits, ONLY: nelee, nlfee, LLEE, NPELEE, NCONEE, NPLTEE
    IMPLICIT NONE
 
@@ -105,4 +105,4 @@ MODULE PLANT_CC
 
    DOUBLEPRECISION XXI !! Uninitialized weighting applied with the mobile-water fraction in contaminant transport and plant uptake.
 !PRIVATE :: NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
-END MODULE PLANT_CC
+END MODULE cm_plant_state
