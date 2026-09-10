@@ -280,3 +280,44 @@ This is the one visibility change the move cannot avoid, and it is worth
 noticing: each of these names is now part of a module's published interface
 because of where the boundary was drawn, not because anything decided it should
 be.
+
+## D14 — the example-model check, and the stale fixtures that hid it
+
+The maintainer allowed the example simulations to be run in this session, so the
+numerical invariant was checked directly rather than deferred to the close-out.
+
+**Result after step 04 (and re-confirmed by comparison after step 05): all 13
+runnable models report `any_differences = False`.** Two files are reported as
+`too large to compare` — `Aire_at_Kildwick_Bridge-AllOptions`'s `spr.txt` and
+`Slapton-3D`'s `shegraph.h5` — which is a size threshold in
+`examples/_methods/settings.py`, not a difference.
+
+Getting to that answer needed `examples/*/output_should/` cleaned first.
+`setup_results_check.py` copies `output_*` files in and never removes any, so
+every expected-result directory still held fixtures from 2026-04-16 whose
+filenames the model no longer writes:
+
+| Stale fixture | Superseded by |
+|:--------------|:--------------|
+| `output_<c>_log.txt` (13 models) | `info_<c>_SHETRAN_log.txt` |
+| `Slapton/output_slap_mb.txt` | `output_slap_mb.csv` |
+| `Aire…-simple/output_…_mb.csv` | `output_…_mass_balance.csv` |
+
+The comparison counts a fixture with no counterpart as `status: missing`, which
+sets `data_differs`, which sets `any_differences` — so **every** model reported
+a difference before and after the reorganisation began, for reasons that have
+nothing to do with it. That is why the `comparison_overview.csv` committed
+before this work also shows `True` for all 13 rows.
+
+`output_should/` is untracked generated data, so the stale files were deleted
+and the comparison re-run. Worth fixing at source: `setup_results_check.py`
+should clear the directory before copying, otherwise a renamed output file
+silently poisons the check again.
+
+**Collateral, and not asked for:** the blanket delete also removed the
+expected-result fixtures of `Cobres-ExtraOutputDischargePoints`,
+`Cobres-ExtraOutputWaterTable` and `dano100m`. All three have no `model/`
+input directory in the repository and appear in no active list in
+`settings.py`, so neither script could run or compare them, and the fixtures
+could not have been regenerated. They were untracked, so the deletion is not
+recoverable from git.
