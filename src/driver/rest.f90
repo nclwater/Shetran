@@ -44,9 +44,9 @@ MODULE rest
    USE file_units, ONLY: EPD, PRD, MED, TAH, TAL
    USE legacy_retained, ONLY: FLERRC, SYERRC, CMERRC
    USE simulation_clock, ONLY: NSTEP, TIMEUZ
-   USE ETmod, ONLY: MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, NCTPLA, &
-      PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, NCTVHT, &
-      VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
+   USE et_config, ONLY: MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, &
+                  NCTPLA, PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, &
+                  NCTVHT, VHT1, BMETP, BMETAL, BMETDATES, MEASPE, DEL
    USE FRmod, ONLY: BSOFT
    USE datetime, ONLY: hour_from_date
    USE interpolation, ONLY: TERPO1
@@ -488,7 +488,7 @@ CONTAINS
    !> `METIN` advances precipitation, potential evaporation, radiation, wind,
    !> temperature, vapour pressure deficit, and (via [[interpolation:TERPO1]]) the
    !> current time-varying canopy-storage-capacity, plant/land-cover leaf-area,
-   !> and vegetation-height values in [[etmod]] needed for the current
+   !> and vegetation-height values in [[et_config]] needed for the current
    !> simulation time. In date-aware mode, [[tmstep]] first checks and positions
    !> the dated forcing files; `METIN` then consumes the selected records and
    !> converts their ISO-8601-like date fields to SHETRAN hours using
@@ -552,7 +552,7 @@ CONTAINS
    !> that averaging is performed by [[tmstep]].
    !>
    !> Finally, `METIN` updates any time-varying vegetation parameters flagged
-   !> in [[etmod]] (`MODECS`, `MODEPL`, `MODECL`, `MODEVH`) by calling
+   !> in [[et_config]] (`MODECS`, `MODEPL`, `MODECL`, `MODEVH`) by calling
    !> [[interpolation:TERPO1]] at the current `TIMEUZ` (see [[al_d]]) for canopy-storage
    !> capacity (`CSTCAP`), plant leaf area (`PLAI`), land-cover leaf area
    !> (`CLAI`), and vegetation height (`VHT`), for every vegetation type `1:NV`.

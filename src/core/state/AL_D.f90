@@ -4,7 +4,7 @@
 !> `AL_D` replaces the legacy `AL.D` common blocks used by SHETRAN's flow
 !> components. [[frmod]] establishes the grid, run controls, component flags,
 !> file metadata, hotstart state, and water-balance calendar. [[rest]] updates
-!> meteorological forcing and timestep control; [[etmod]], [[smmod]],
+!> meteorological forcing and timestep control; [[et_process]], [[snowmelt]],
 !> [[ocmod]], and [[ocqdqmod]] produce the process arrays; [[zq_tables]] allocates
 !> the optional reservoir-table metadata.
 !>

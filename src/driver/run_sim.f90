@@ -84,8 +84,8 @@ MODULE run_sim
    USE VSmod, ONLY: VSSIM, &
       RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
    USE CMmod, ONLY: CMSIM  !"JE"
-   USE ETmod, ONLY: ETSIM, &
-      psi4, uzalfa !TH,ESE NEEDED ONLY FOR AD
+   USE et_config, ONLY: PSI4, UZALFA
+   USE et_process, ONLY: ETSIM
    USE rest, ONLY: BALWAT, TMSTEP, &
       metime, melast, eptime, pinp
    !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
@@ -111,11 +111,11 @@ MODULE run_sim
    USE vsmod, ONLY: rlfdum, rlgnxt, firstvssim, rbhlst, rlhlst, vsaijsv, jcbcsv, rbhprv, rlglst, rlhprv, rbfprv, &
       rlgprv, rlfprv, rwelin, rbhtim, wltime, rlhdum, rbhnxt, rlhtim, rlgdum, rlhnxt, rbftim, rlgtim, &
       wlnow, vskr, rlfnow, rbfnow, ivssto, rlhnow, rbhnow
-   USE SMmod, ONLY: rhos, smelt, tmelt
+   USE snow_config, ONLY: RHOS
+   USE snow_state, ONLY: smelt, tmelt
    USE et_state, ONLY: ESOILA, ERUZ
    USE vs_state, ONLY: QH, QVSWLI, VSTHE, VSPSI, QVSH, QVSV, QBKB, QBKF
-   USE ETmod, ONLY: rc, ra, cstcap, del, &
-      nctcst, nctvht, nctcla, nctpla !these here only for AD
+   USE et_config, ONLY: RC, RA, CSTCAP, DEL, NCTCST, NCTVHT, NCTCLA, NCTPLA
    USE sy_config, ONLY: ISSYOK_symain
    USE FRmod, ONLY: qoctot, uzold, &
       next_hour, icounter2  !these here only for AD

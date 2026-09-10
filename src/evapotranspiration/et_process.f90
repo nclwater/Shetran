@@ -1,149 +1,76 @@
-!> @brief Computes canopy interception, evapotranspiration, and land-surface evaporation fluxes.
+!> summary: Canopy interception, evapotranspiration and land-surface evaporation.
+!> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University; Sven Berendsen
 !>
-!> `ETmod` owns the evapotranspiration component's vegetation controls,
-!> meteorological selectors, lookup tables, and current-column work arrays.
-!> [[initialise_etmod]] allocates its run-sized state after the catchment
-!> dimensions are known. Each timestep [[etsim]] visits every land element,
-!> prepares its bank geometry and pressure-head profile, and delegates to the
-!> private [[etin]] and [[et]] calculation path.
+!> The calculation itself. Each timestep [[ETSIM]] visits every land element,
+!> prepares its bank geometry and pressure-head profile, and delegates to
+!> [[ETIN]] and [[ET]]; [[INITIALISE_ETMOD]] allocates the run-sized state once
+!> the catchment dimensions are known. [[simulation_driver:SIMULATION]] calls
+!> `ETSIM` before the variably saturated subsurface calculation on every model
+!> step.
 !>
-!> [[et_input:INET]] reads user-manual records `ET2`--`ET18` into this module
-!> after [[initialise_etmod]] has run. [[met_input:METIN]] supplies the current
-!> meteorological values and advances time-varying vegetation parameters.
-!> [[simulation_driver:SIMULATION]] then calls [[etsim]] before the variably saturated
-!> subsurface calculation on every model step. The resulting rainfall,
-!> interception, root-extraction, soil-evaporation, and surface-water fluxes
-!> are stored in shared `AL_C`/`AL_D` arrays used by water, contaminant, and
-!> mass-balance calculations.
+!> The resulting rainfall, interception, root-extraction, soil-evaporation and
+!> surface-water fluxes are written to [[et_state]], where the water,
+!> contaminant and mass-balance calculations read them.
 !>
-!> | State group | Producer or updater | Principal consumer |
-!> |:------------|:--------------------|:-------------------|
-!> | `BMET*`, `MEASPE`, vegetation controls and lookup tables | [[et_input:INET]] | [[met_input:METIN]], [[et]] |
-!> | `REL*`, `TIM*`, `NCT*`, and `*1` reference values | [[et_input:INET]] and [[met_input:METIN]] | [[interpolation:TERPO1]] |
-!> | `DEL` | [[met_input:METIN]] | [[et]] |
-!> | `PSI4`, `UZALFA` | [[etsim]] | [[et]] and exported AD state |
-!>
-!> `NCTCST`, `NCTPLA`, `NCTCLA`, and `NCTVHT` are current lower-breakpoint
-!> cursors. [[et_input:INET]] initializes each enabled cursor to one; the number
-!> of rows read from the corresponding manual `ET12` record remains local to
-!> `INET`. [[interpolation:TERPO1]] advances the cursor while interpolating a ratio
-!> from `REL*`/`TIM*`, then multiplies it by the fixed `*1` reference value.
+!> Despite its name [[ETIN]] reads nothing: it is the per-element ET and
+!> interception step, called only from `ETSIM`, and it calls `ET` and
+!> [[snowmelt:SMIN]]. The reader is [[et_input]].
 !>
 !> @warning
-!> Private [[etchk2]] has no caller in the current source. If called, its
+!> Private [[ETCHK2]] has no caller in the current source. If called, its
 !> equality check would accept only `RDL=0`, although manual record `ET8`
 !> permits a positive channel-root fraction. Consequently current ET input is
 !> not validated by that routine.
-!> @endwarning
 !>
-!> @warning
-!> The module is mutable, single-run state. [[initialise_etmod]] allocates
-!> every allocatable unconditionally, has no `STAT=` handling, and there is no
-!> matching deallocator; a repeated call or allocation failure terminates via
-!> the Fortran runtime.
+!> [[INITIALISE_ETMOD]] allocates every allocatable unconditionally, has no
+!> `STAT=` handling, and there is no matching deallocator; a repeated call or
+!> an allocation failure terminates via the Fortran runtime.
 !> @endwarning
-!>
-!> @note
-!> Manual `ET2` allows a fourth, optional `BMETDATES` value. Current
-!> [[et_input:INET]] first attempts `(4L7)` and falls back to the legacy three
-!> logical values, defaulting `BMETDATES` false. The flag applies to separate
-!> precipitation, potential-evaporation, and temperature series handled by
-!> [[met_input:METIN]].
-!> @endnote
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-02 to 1998-10 | GP / RAH | 2.0--4.2 | Developed and reorganised the combined ET component. |
-!> | 2008-12 | JE | 4.3.5F90 | Combined the former ET Fortran sources into this Fortran 90 module. |
+!> | 2008-12 | JE | 4.3.5F90 | Combined the former ET Fortran sources into a single Fortran 90 module. |
 !> | 2026-03-19 | SB | 4.6 | Added date-aware meteorological input and the run-sized allocator. |
 !> | 2026-04-05 to 2026-04-14 | SvB | - | Removed `ALINIT`/GOTOs and added resistance error 4998. |
 !> | 2026-05-03 | SvB | - | Resized `DEL` and explicitly initialized `IUNDEF`. |
+!> | 2026-09-10 | SvB | - | Split out of ETmod; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE ETmod
+MODULE et_process
 
-   USE array_limits, ONLY: LLEE, NUZTAB, NVBP, NVEE
-   USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, ZGRUND
-   USE grid_topology, ONLY: ICMREF, NGDBGN, ICMREF
-   USE channel_geometry, ONLY: NHBED, CWIDTH, FHBED
-   USE et_state, ONLY: NVC, NRD, RDF, ERUZ, CLAI, PNETTO, DRAINA, ESOILA, PLAI, EEVAP, NV
-   USE vs_state, ONLY: DELTAZ, NVSWLT, QVSWEL, NLYRBT, VSPSI
-   USE simulation_clock, ONLY: DTUZ, UZNEXT
-   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, OBSPE, RN, VPD, precip_m_per_s, BEXSM
-   USE et_state, ONLY: PE, PNET, CPLAI, EINT, CSTOLD, CSTORE, EPOT, EINTA, ERZA, ESWA, DRAIN, ERZ, &
-                  AE, HRUZ, ESOIL, S
-   USE snow_state, ONLY: NSMT, SF, SD, TS, NSMC
-   USE element_geometry, ONLY: BWIDTH
-   USE simulation_clock, ONLY: TIMEUZ
-   USE input_validation, ONLY: ALCHK
-
-   USE float_compare, ONLY: lezero, notzero, gtzero, ltzero
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              one, zero, zero1, L_VAPORISATION_ET, PSYCHROMETRIC_CONSTANT, &
                              RHO_AIR_ET, CP_AIR_ET
+   USE array_limits, ONLY: LLEE, NUZTAB, NVBP
+   USE element_geometry, ONLY: BWIDTH, cellarea, top_cell_no, total_no_elements, ZGRUND
+   USE grid_topology, ONLY: ICMREF, NGDBGN
+   USE channel_geometry, ONLY: NHBED, CWIDTH, FHBED
+   USE simulation_clock, ONLY: DTUZ, TIMEUZ, UZNEXT
+   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, OBSPE, RN, VPD, precip_m_per_s, BEXSM
+   USE et_config, ONLY: BAR, CB, CK, CLAI1, CSTCA1, CSTCAP, DEL, FET, MEASPE, MODE, msg, &
+                        NF, PLAI1, PS1, PSI4, RA, RC, RCF, RELCLA, RELCST, RELPLA, RELVHT, &
+                        RTOP, TIMCLA, TIMCST, TIMPLA, TIMVHT, UZALFA, VHT1
+   USE et_state, ONLY: AE, CLAI, CPLAI, CSTOLD, CSTORE, DRAIN, DRAINA, EEVAP, EINT, EINTA, &
+                       EPOT, ERUZ, ERZ, ERZA, ESOIL, ESOILA, ESWA, HRUZ, NRD, NV, NVC, PE, &
+                       PLAI, PNET, PNETTO, RDF, S
+   USE snow_state, ONLY: NSMT
+   USE vs_state, ONLY: DELTAZ, NLYRBT, NVSWLT, QVSWEL, VSPSI
+   USE input_validation, ONLY: ALCHK
+   USE float_compare, ONLY: lezero, notzero, gtzero, ltzero
    USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn
    USE error_status, ONLY: errstat_alloc
    USE file_units, ONLY: FID_logfile
-
    USE linear_algebra, ONLY: dcopy
-   USE SMmod, ONLY: SMIN, &
-                    smelt, tmelt !THESE NEEDED ONLY FOR AD
-!NEEDED ONLY FOR AD
-   USE SMmod, ONLY: rhos
+   USE snowmelt, ONLY: SMIN
    USE OCMOD2, ONLY: GETHRF
+
    IMPLICIT NONE
 
-
-   LOGICAL :: BAR(NVEE) !! Manual `ET8` selector: compute `RA` from wind when true; retain its input constant otherwise.
-   LOGICAL :: BMETP !! Manual `ET2` selector for echoing meteorological input to the print file.
-   LOGICAL :: BINETP !! Manual `ET2` selector for echoing ET parameter input to the print file.
-   LOGICAL :: BMETAL !! Manual `ET2` selector for separate `PRD`/`EPD` forcing rather than combined `MED` forcing.
-   LOGICAL :: BMETDATES !! Optional manual `ET2` selector for ISO-8601 dates in separate forcing files.
-
-   INTEGER :: MODE(NVEE) !! Manual `ET8` actual-ET mode by vegetation type.
-   INTEGER :: NF(NVEE) !! Number of active `PS1`/`RCF`/`FET` rows by vegetation type.
-   INTEGER :: MEASPE(NVEE) !! Manual `ET6` measured-potential-evaporation selector by meteorological site.
-   INTEGER :: MODECS(NVEE) !! Zero for constant `CSTCAP`; any nonzero value enables time interpolation.
-   INTEGER :: MODEPL(NVEE) !! Zero for constant `PLAI`; any nonzero value enables time interpolation.
-   INTEGER :: MODECL(NVEE) !! Zero for constant `CLAI`; any nonzero value enables time interpolation.
-   INTEGER :: MODEVH(NVEE) !! Zero for constant `VHT`; any nonzero value enables time interpolation.
-   INTEGER :: NCTCST(NVEE) !! Current lower-breakpoint cursor for canopy-storage interpolation.
-   INTEGER :: NCTPLA(NVEE) !! Current lower-breakpoint cursor for ground-cover interpolation.
-   INTEGER :: NCTCLA(NVEE) !! Current lower-breakpoint cursor for canopy-LAI interpolation.
-   INTEGER :: NCTVHT(NVEE) !! Current lower-breakpoint cursor for vegetation-height interpolation.
-
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RA !! Aerodynamic resistance by vegetation type (s/m).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RC !! Canopy resistance by vegetation type (s/m).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: RTOP !! Wind-independent `RA*U` factor by vegetation type.
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCAP !! Canopy storage capacity by vegetation type (mm).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CK !! Canopy drainage coefficient by vegetation type (mm/s).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CB !! Canopy drainage exponent coefficient by vegetation type (1/mm).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: DEL !! Saturation vapour-pressure slope by meteorological site (mb/degree C).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PSI4 !! Current land-column pressure heads copied from `VSPSI` (m).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: UZALFA !! Current bank/channel root-access weighting by vertical cell.
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CSTCA1 !! Initial/reference canopy storage capacity by vegetation type (mm).
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: PLAI1 !! Initial/reference maximum ground-cover proportion by vegetation type.
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: CLAI1 !! Initial/reference canopy leaf-area index by vegetation type.
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: VHT1 !! Initial/reference vegetation height by vegetation type (m).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: PS1 !! Manual `ET16` soil-moisture-tension table (m).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: FET !! Manual `ET16` actual/potential ET ratio table.
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RCF !! Manual `ET16` canopy-resistance table (s/m).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RELCST !! Relative canopy-storage values by vegetation and breakpoint.
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: TIMCST !! Canopy-storage breakpoint times (days).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RELPLA !! Relative ground-cover values by vegetation and breakpoint.
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: TIMPLA !! Ground-cover breakpoint times (days).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RELCLA !! Relative canopy-LAI values by vegetation and breakpoint.
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: TIMCLA !! Canopy-LAI breakpoint times (days).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RELVHT !! Relative vegetation-height values by vegetation and breakpoint.
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: TIMVHT !! Vegetation-height breakpoint times (days).
-
-   CHARACTER(132) :: msg !! Shared private warning/fatal diagnostic buffer.
    PRIVATE
-   PUBLIC :: ETSIM, BMETP, BINETP, BMETAL, BMETDATES, MEASPE, CSTCAP, RC, BAR, RA, MODE, &
-             NF, CK, CB, MODECS, MODEPL, MODECL, MODEVH, NCTCST, CSTCA1, RELCST, TIMCST, &
-             NCTPLA, PLAI1, RELPLA, TIMPLA, NCTCLA, CLAI1, NCTVHT, VHT1, RELVHT, TIMVHT, &
-             PS1, RCF, FET, RTOP, RELCLA, TIMCLA, del, &
-             psi4, uzalfa, INITIALISE_ETMOD !THESE NEEDED ONLY FOR AD
+
+   PUBLIC :: ETSIM, INITIALISE_ETMOD
+
 CONTAINS
 
 !> @brief Allocates and zero-initialises the run-sized ET state.
@@ -965,4 +892,5 @@ CONTAINS
 
    END SUBROUTINE ETSIM
 
-END MODULE ETmod
+END MODULE et_process
+

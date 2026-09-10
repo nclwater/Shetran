@@ -1,94 +1,56 @@
-!> @brief Snow accumulation and melt calculations.
+!> summary: Snow accumulation and melt, by degree-day or energy budget.
+!> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; Sven Berendsen
 !>
-!> `SMmod` implements the SHETRAN snow model. It updates snowpack depth,
-!> snowpack temperature, evaporation/sublimation losses, and meltwater
-!> delivery to the ground surface. The main routine, [[sm]], supports both a
-!> degree-day method and an energy-budget method selected by `MSM`.
+!> [[SMIN]] is the per-element entry point, called from
+!> [[et_process:ETIN]]; it calls [[SM]] for the degree-day method or
+!> [[SMET]] for the energy budget, according to `MSM`. Meltwater leaving the
+!> pack is routed as a set of slugs held in [[snow_state]], so melt at the
+!> surface reaches the bottom of the snowpack with a delay, and the downstream
+!> [[et_process]], [[vsmod]] and [[ocmod]] calculations see the delayed rate.
+!> `initialise_smmod` allocates the slug arrays.
 !>
-!> The degree-day option estimates melt directly from air temperature and a
-!> degree-day factor. The energy-budget option computes heat fluxes from
-!> atmospheric convection, rainfall or snowfall, phase change, ground heat
-!> flux, and net radiation.
-!>
-!> Snow depth `SD`, snowfall `SF`, and routed meltwater `SMELT` are stored in
-!> millimetres. [[sm]] replaces `PNET` with the meltwater delivered from the
-!> bottom of the snowpack, so downstream [[etmod]]/[[vsmod]]/[[ocmod]]
-!> calculations receive liquid-water input rather than raw snowfall. [[smin]]
-!> is the entry point called from [[et_process:ETIN]]; it dispatches to [[smet]]
-!> (snow/freezing-temperature ET) or [[sm]] (melt routing) as required.
-!>
-!> The manual's snowmelt input file supplies:
-!>
-!> | Records | Data |
-!> |:--------|:-----|
-!> | `SM2` | `BINSMP`, the snow-input print flag. |
-!> | `SM4` | Degree-day factor `DDF`, default snow specific gravity `RHOS`, initial snow temperature `TSIN`, spatial snowpack flag `NSD`, and method flag `MSM`. |
-!> | `SM6`/`SM6b` | Energy-budget aerodynamic parameters `ZOS`, `ZDS`, `ZUS`, and meteorological-station element locations `IMET`, required only for `MSM=2`. |
-!> | `SM8` | Uniform initial snow depth, used when `NSD=0`. |
-!> | `SM11`/`SM14` | Spatial initial snow depth `SD` and snow specific gravity `RHOSAR`, used when `NSD=1`. |
+!> Like [[et_process:ETIN]], `SMIN` is a per-element process wrapper rather
+!> than a reader despite the name; the reader is [[snow_input]].
 !>
 !> @note
-!> In the degree-day branch the implemented melt threshold is `TA >= 2 C`, not
-!> simply air temperature above freezing.
+!> The literal `9.81d0` in the Richardson-number expression is left as a
+!> literal: it is not the `GRAVITY` of [[mod_parameters]], which is
+!> `9.80665d0`, and substituting it would change the result. See
+!> `docs/rename/constants_review.md`.
 !> @endnote
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 1981-04 | JCB/EMM | - | Original snowmelt subroutine created. |
-!> | 1989-02 | GP | 2.0 | SHE88 implementation on Newcastle AMDAHL. |
-!> | 1990-06 | GP | 2.2 | Added variable snowpack amendments and standardized Fortran 77. |
-!> | 1991-02 | GP | 3.0 | SHETRAN amendments. |
-!> | 1992-06 | GP | 3.4 | Moved selected variables to `AL_D` for hotstart and added `PNSNOW`. |
-!> | 1996-12-28 | RAH | 4.1 | Initialised `EFFDEP`, which was previously undefined. |
-!> | 1998-03-08 | RAH | 4.2 | Removed redundant time constants and added explicit typing. |
+!> | 1990-06 to 1998-03 | GP / RAH | 2.2--4.2 | Developed the snowmelt component: variable snowpack, `PNSNOW`, and explicit typing. |
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90 and replaced the `SM.F` files. |
-!> | 2026-04-03 to 2026-04-13 | SvB | 4.6.1 | Modernisation pass: replaced the `1H0` Hollerith edit descriptor, removed `GOTO`-driven control flow in favour of structured `IF`/`DO` blocks with explicit `IMPLICIT NONE`/`INTENT`, replaced `DLOG` with the generic `LOG`, and pre-computed the repeated `ESAT`/`ESATA` temperature-ratio subexpression (see [[sm]] for details). |
+!> | 2026-04-03 to 2026-04-13 | SvB | 4.6.1 | Modernisation pass: removed the `1H0` Hollerith descriptor and the `GOTO`-driven control flow, added `IMPLICIT NONE`/`INTENT`, and pre-computed the repeated temperature-ratio subexpression. |
+!> | 2026-09-10 | SvB | - | Split out of SMmod; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE SMmod
-   USE array_limits, ONLY: max_no_snowmelt_slugs, NVEE
-   USE element_geometry, ONLY: total_no_elements, ZGRUND
+MODULE snowmelt
 
-   USE float_compare, ONLY: gtzero, lezero, ltzero, iszero
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              five, one, three, two, zero, RHO_AIR_SNOW, RHO_WATER_SNOW, &
                              CP_AIR_SNOW, CP_WATER, CP_ICE, L_FUSION, L_VAPORISATION_SNOW, &
                              GROUND_HEAT_FLUX_SNOW
+   USE array_limits, ONLY: max_no_snowmelt_slugs
+   USE element_geometry, ONLY: total_no_elements, ZGRUND
+   USE simulation_clock, ONLY: DTUZ, TIMEUZ
+   USE AL_D, ONLY: nrainc, nmc, precip_m_per_s, rn, ta, u, vpd
+   USE et_state, ONLY: NVC, NRD, AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, PNET, PE, S, VHT
+   USE snow_state, ONLY: ISPACK, MSM, NSMC, NSMT, RHOSAR, SF, SD, TS, smelt, tmelt
+   USE snow_config, ONLY: DDF, ESM, HEAD, HFC, HFE, HFR, HFT, IMET, NSD, PNSNOW, RHODEF, &
+                          RHOS, TOPNET, USM, ZDS, ZOS, ZUS
+   USE float_compare, ONLY: gtzero, lezero, ltzero, iszero
    USE error_reporting, ONLY: ERR_STOP
    USE error_status, ONLY: errstat_alloc, errstat_dealloc
 
-   USE et_state, ONLY: NVC, NRD
-   USE snow_state, ONLY: ISPACK
-   USE simulation_clock, ONLY: DTUZ
-   USE AL_D, ONLY: nrainc, nmc, precip_m_per_s, rn, ta, u, vpd
-   USE et_state, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, PNET, PE, S, VHT
-   USE snow_state, ONLY: MSM, NSMC, NSMT, RHOSAR, SF, SD, TS
-   USE simulation_clock, ONLY: TIMEUZ
    IMPLICIT NONE
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
-   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
-
-   DOUBLEPRECISION :: USM    !! Snowmelt during the current timestep (mm snow).
-   DOUBLEPRECISION :: DDF    !! Degree-day melt factor (mm/s/C).
-   DOUBLEPRECISION :: RHOS   !! Active snow specific gravity for the current element.
-   DOUBLEPRECISION :: ESM    !! Snow depth lost to evaporation or sublimation (mm snow).
-   DOUBLEPRECISION :: HFC    !! Atmospheric-convection heat flux over the timestep (J/m^2).
-   DOUBLEPRECISION :: HFR    !! Heat supplied by rainfall or snowfall over the timestep (J/m^2).
-   DOUBLEPRECISION :: HFE    !! Latent heat term for evaporation or condensation over the timestep (J/m^2).
-   DOUBLEPRECISION :: HFT    !! Net heat flux available to the snowpack over the timestep (J/m^2).
-   DOUBLEPRECISION :: ZUS    !! Anemometer height above ground for energy-budget snowmelt (m).
-   DOUBLEPRECISION :: ZDS    !! Zero-plane displacement height for snow aerodynamic exchange (m).
-   DOUBLEPRECISION :: ZOS    !! Snow-surface roughness height for aerodynamic exchange (m).
-   DOUBLEPRECISION :: RHODEF !! Default snow specific gravity used when spatial `RHOSAR` is zero.
-   DOUBLEPRECISION :: TOPNET !! Water input to the snowpack before routing (mm water).
-   DOUBLEPRECISION :: PNSNOW !! Water depth passed into or released from the snowpack in the current step (mm water).
-   LOGICAL         :: BINSMP !! Snow-input echo-print flag.
-   INTEGER         :: IMET(NVEE) !! Meteorological-station element index for each vegetation type in energy-budget mode.
-   INTEGER         :: NSD         !! Initial snowpack mode: uniform (`0`) or spatial (`1`).
-   DOUBLEPRECISION :: HEAD(20)   !! Snow input title/header workspace retained for legacy I/O.
 
    PRIVATE
-   PUBLIC :: SMIN, rhos, head, binsmp, ddf, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt, initialise_smmod
+
+   PUBLIC :: SMIN, initialise_smmod
+
 CONTAINS
 
 !> Allocates snowmelt slug storage arrays.
@@ -546,7 +508,7 @@ CONTAINS
    !> control for an ET element when a snowpack exists, when precipitation is
    !> snow, or when air temperature is below freezing. It is called from
    !> [[smin]] for each upper-zone element and uses the same shared ET and
-   !> snow variables as [[sm]] and the [[etmod]] routines.
+   !> snow variables as [[sm]] and the [[et_process]] routines.
    !>
    !> The routine reduces snowpack depth for evaporation or sublimation,
    !> updates snow temperature in the energy-budget case through [[sm]], and
@@ -754,4 +716,5 @@ CONTAINS
       RETURN
    END SUBROUTINE SMIN
 
-END MODULE SMmod
+END MODULE snowmelt
+

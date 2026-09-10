@@ -57,8 +57,8 @@ commits.
 | 04 | [Component state out of `AL_C`/`AL_D`](04_component_state.md) | 8 | `AL_C` | ☑ |
 | 05 | [`nitrate/`](05_nitrate.md) | 9 | `MNmod` | ☑ |
 | 06 | [`sediment/`](06_sediment.md) | 9 | `SYmod`, `SED_CS` | ☑ |
-| 07 | [`evapotranspiration/`](07_evapotranspiration.md) | 4 | `ETmod` | ☐ |
-| 08 | [`snow/`](08_snow.md) | 4 | `SMmod` | ☐ |
+| 07 | [`evapotranspiration/`](07_evapotranspiration.md) | 4 | `ETmod` | ☑ |
+| 08 | [`snow/`](08_snow.md) | 4 | `SMmod` | ☑ |
 | 09 | [`contaminant/`](09_contaminant.md) | 20 | `CMmod` + 14 data modules | ☐ |
 | 10 | [`subsurface/`](10_subsurface.md) | 9 | `VSmod` | ☐ |
 | 11 | [`overland_channel/`](11_overland_channel.md) | 14 | `OCmod`, `OCmod2`, `OCQDQMOD`, `ZQmod`, `oc_row_width` | ☐ |

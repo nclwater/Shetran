@@ -343,3 +343,51 @@ published interface, and reading `SYFINE` now requires looking somewhere else
 for the two variables it owns. Moving them to `sy_hillslope` would be a
 one-line change with no behaviour effect and would remove the edge; it is a
 follow-up, not part of a move that follows the tables.
+
+## D16 — `ETmod`'s three "AD only" imports are dropped
+
+`ETmod` carried
+
+```fortran
+USE SMmod, ONLY: SMIN, &
+                 smelt, tmelt !THESE NEEDED ONLY FOR AD
+!NEEDED ONLY FOR AD
+USE SMmod, ONLY: rhos
+```
+
+`SMIN` is called by `ETIN` and follows it to [[et_process]]. `smelt`, `tmelt`
+and `rhos` appear nowhere in any of `ETmod`'s bodies — they were imported so
+that an automatic-differentiation build could see them through this module.
+No target references them, so the imports went with `ETmod`'s shell rather
+than being carried into a module that does not use them.
+
+If the AD build depends on those names being visible through the ET component,
+this is the change that would break it. Nothing in `src/` or `test/` reads
+them that way today, and `run_sim` imports `smelt`/`tmelt` from
+[[snow_state]] and `rhos` from [[snow_config]] directly.
+
+The same pattern survives elsewhere and was *not* touched: `FRmod`'s
+`PUBLIC` list still carries a `!REST NEEDED FOR AD ONLY` comment over a dozen
+names, and [[et_config]] still exports `psi4`/`uzalfa` for the same reason.
+
+## D17 — the import drafter cannot tell two `msg`s apart
+
+`scripts/rename_imports.py` keys its ownership map on the lowercased entity
+name, so where the same name is a module variable in more than one source it
+reports whichever row it read last. Three modules declare a `msg`:
+
+| Source | Target | Kind |
+|:-------|:-------|:-----|
+| `utilsmod` | `linear_algebra` | `CHARACTER(128)` |
+| `ETmod` | `et_config` | `CHARACTER(132)` |
+| `FRmod` | `run_control` | `CHARACTER(256)` |
+
+In step 07 the drafter offered `et_process` a `USE linear_algebra, ONLY: msg`,
+which would have compiled and would have written the ET diagnostics into the
+matrix-inversion module's buffer. `et_config`'s `msg` is the right one, and is
+what `et_process` imports.
+
+Checked for the remaining steps: `eps` (three sources) and `temp` are the other
+colliding names, and no step so far has needed either across a module boundary.
+Every draft the script produces is read against `rename_rows.py --target`
+before it is used.

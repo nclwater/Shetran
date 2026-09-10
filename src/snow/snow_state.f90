@@ -35,5 +35,10 @@ MODULE snow_state
    DOUBLEPRECISION :: TS(NELEE)     !! Snowpack temperature by element (degrees C).
    DOUBLEPRECISION :: SF(NELEE)     !! Current snowfall depth by element (mm of snow).
 
+
+! Meltwater slugs still travelling through the pack (from SMmod).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
+   DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
+
 END MODULE snow_state
 
