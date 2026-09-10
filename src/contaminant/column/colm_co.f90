@@ -4,16 +4,16 @@
 !> `COLM_CO` replaces the legacy `COLM.CO` common blocks. It retains the
 !> element water state that transfers overland and variably saturated
 !> subsurface results into the contaminant column calculations. When
-!> contaminant transport starts, [[frmod:incm]] seeds the old-state arrays.
-!> On later contaminant steps, [[cmmod:colmw]] copies one column's retained
-!> values into [[colm_c2]], prepares the corresponding current values, and
+!> contaminant transport starts, [[cm_input:INCM]] seeds the old-state arrays.
+!> On later contaminant steps, [[cm_column:COLMW]] copies one column's retained
+!> values into [[cm_column_water]], prepares the corresponding current values, and
 !> writes those values back here for the next step.
 !>
-!> [[cmmod:cmsim]] passes `VSTHEO` to [[mnmod:mncont]] before `COLMW` advances
+!> [[cm_driver:CMSIM]] passes `VSTHEO` to [[mn_driver:MNCONT]] before `COLMW` advances
 !> the column state, so the nitrate component receives the preceding
 !> contaminant-step water contents. After the column sweep, `CMSIM` refreshes
 !> `RSZWLO` from the current VSS well fluxes; both `COLMW` and
-!> [[cmmod:linkw]] use that retained value when constructing irrigation input.
+!> [[cm_channel:LINKW]] use that retained value when constructing irrigation input.
 !>
 !> | State group | Meaning and update path |
 !> |:------------|:------------------------|
@@ -66,7 +66,8 @@
 !> @endhistory
 MODULE COLM_CO
 
-   USE SGLOBAL, ONLY: NELEE, LLEE, total_no_elements, top_cell_no
+   USE array_limits, ONLY: nelee, LLEE
+   USE element_geometry, ONLY: total_no_elements, top_cell_no
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
@@ -90,9 +91,9 @@ CONTAINS
 
 !> Allocates and zero-initializes the persistent previous-column water state.
 !>
-!> [[run_sim:simulation]] calls this routine once when contaminant transport
+!> [[simulation_driver:SIMULATION]] calls this routine once when contaminant transport
 !> is enabled, after the active model dimensions and contaminant count are
-!> available and before the main simulation loop. [[frmod:incm]] later replaces
+!> available and before the main simulation loop. [[cm_input:INCM]] later replaces
 !> the zero safety values with the initial hydrological state for active
 !> non-link columns when the contaminant component reaches its start time.
 !>

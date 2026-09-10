@@ -2,9 +2,9 @@
 !>
 !> `ZQmod` implements reservoir outflow lookup from user-supplied ZQ tables.
 !> Each table relates upstream water level (stage, `Z`) to downstream discharge
-!> (`Q`) for a channel link and face. [[FRmod:frinit]] calls [[ReadZQTable]] to
+!> (`Q`) for a channel link and face. [[frame_setup:FRINIT]] calls [[ReadZQTable]] to
 !> load the table metadata and values into module arrays, which
-!> [[ocqdqmod:ocqdq]] and [[get_ZQTable_value]] use later during the simulation.
+!> [[oc_stage_discharge:OCQDQ]] and [[get_ZQTable_value]] use later during the simulation.
 !>
 !> The implementation is a tabulated stage-discharge relationship rather than a
 !> fitted hydraulic formula: discharge is selected from the active column by
@@ -21,8 +21,8 @@
 !> | 2020 | DH/SB | SHETRAN 4.4.6.Res2 | Added reservoir ZQ lookup-table support. |
 !> | 2026-04-03 | SvB | | Removed a non-standard trailing comma from a `WRITE` statement in [[ReadZQTable]] (accepted by some compilers as an extension, but not standard Fortran). |
 !> | 2026-04-03 | SvB | | Modernised [[ReadZQTable]] to free-form style: replaced `GOTO`/labelled `STOP` error handling with `IOSTAT` checks and a centralised internal `handle_zq_error` subroutine, made the header-token counting and splitting loops robust to runs of multiple spaces via `ADJUSTL`, and switched to unlimited-repeat `(*(...))` format descriptors for the log output. |
-!> | 2026-09-06 | SvB | | Replaced the internal `handle_zq_error` subroutine in [[ReadZQTable]] with the standardised [[mod_error]] status checks ([[mod_error:errstat_fileopen]], [[mod_error:errstat_read]]). |
-!> | 2026-09-07 | SvB | | Status-checked the `output_readZQTable.txt` log `WRITE`s through [[mod_error:errstat_write]]. |
+!> | 2026-09-06 | SvB | | Replaced the internal `handle_zq_error` subroutine in [[ReadZQTable]] with the standardised [[mod_error]] status checks ([[error_status:errstat_fileopen]], [[error_status:errstat_read]]). |
+!> | 2026-09-07 | SvB | | Status-checked the `output_readZQTable.txt` log `WRITE`s through [[error_status:errstat_write]]. |
 !> @endhistory
 !>
 !> @note The table parser assumes space-delimited input and ascending
@@ -40,9 +40,10 @@
 !> @endnote
 module ZQmod
 
-   USE sglobal, ONLY: UZNOW                                                 ! simulation time (hours)
-   USE AL_C, ONLY: DTUZ, UZNEXT                                           ! DTUZ is unused; UZNEXT is the time step to be added to the previous time to get the current time
-   USE AL_D, ONLY: zqd, NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill     ! module state shared with OCQDQ
+   USE simulation_clock, ONLY: UZNOW
+   USE simulation_clock, ONLY: DTUZ, UZNEXT
+   USE AL_D, ONLY: NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill
+   USE file_units, ONLY: zqd
    USE mod_parameters                                                          ! general parameters
    USE mod_error, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read, errstat_rewind, errstat_write
 
@@ -83,7 +84,7 @@ CONTAINS
 !! |:----------|:---------|
 !! | Number of tables | Allocates per-table metadata and lookup arrays. |
 !! | Table reference | Read into `ZQTableRef` while loading each table. |
-!! | Link and face | Stored in `ZQTableLink` and `ZQTableFace` for [[ocqdqmod:ocqdq]] dispatch. |
+!! | Link and face | Stored in `ZQTableLink` and `ZQTableFace` for [[oc_stage_discharge:OCQDQ]] dispatch. |
 !! | Operation hour | Stored in `ZQTableOpHour`; controls when the active discharge column is reconsidered. |
 !! | Header row | First column is stage `Z`; later columns are `ZQ>stage_threshold` discharge columns. |
 !! | Data rows | Stage in column 1 and discharges in the selected lookup columns. |
@@ -98,7 +99,7 @@ CONTAINS
 !! @note This routine has no dummy arguments. It reads from the globally
 !! opened `zqd` unit, allocates module arrays, allocates ZQ metadata arrays
 !! from `AL_D`, writes `output_readZQTable.txt`, closes `zqd`, and stops the
-!! program through [[mod_error:errstat_read]] / [[mod_error:errstat_fileopen]]
+!! program through [[error_status:errstat_read]] / [[error_status:errstat_fileopen]]
 !! if the log file cannot be opened or the table cannot be read.
 !! @endnote
 !!
@@ -109,7 +110,7 @@ CONTAINS
 !! | 2026-04-03 | SvB | | Replaced `GOTO`/labelled `STOP` error handling with `IOSTAT` checks and the internal `handle_zq_error` subroutine; made the header-token loops robust to runs of multiple spaces via `ADJUSTL`. |
 !! | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !! | 2026-09-06 | SvB | - | Routed the log-file `OPEN` and every checked `READ` through the standardised [[mod_error]] status checks, reporting `IOSTAT`/`IOMSG`, and removed the internal `handle_zq_error` subroutine. |
-!! | 2026-09-06 | SvB | - | Checked both `CLOSE` statements through [[mod_error:errstat_fileclose]]. |
+!! | 2026-09-06 | SvB | - | Checked both `CLOSE` statements through [[error_status:errstat_fileclose]]. |
 !! @endhistory
 !---------------------------------------------------------------------------
    SUBROUTINE ReadZQTable()

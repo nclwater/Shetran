@@ -600,7 +600,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added visualisation-plan scanning and reference resolution. |
 !> | 2026-04-14 | SvB | Routed parser failures through the current fatal visualisation error service. |
-!> | 2026-09-06 | SvB | Checked the temporary-plan `CLOSE` through [[mod_error:errstat_fileclose]]. |
+!> | 2026-09-06 | SvB | Checked the temporary-plan `CLOSE` through [[error_status:errstat_fileclose]]. |
 !> @endhistory
    SUBROUTINE read_dynamic_visualisation_metadata()
       INTEGER      :: i   !! Dynamic item index during reference resolution.

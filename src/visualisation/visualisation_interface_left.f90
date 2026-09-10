@@ -34,7 +34,7 @@
 !> | m/s to mm/hour | `1000 * 3600` | [[net_rain]], [[pot_evap]], [[trnsp]], [[srf_evap]], [[int_evap]], [[drainage]] |
 !> | m/s to mm/day | `1000 * 24 * 3600` | [[s_v_er]] |
 !> | m to mm | `1000` | [[s_t_dp]] |
-!> | solid-sediment m3/s to kg/s | `RHOSED` | [[s_dis]] |
+!> | solid-sediment m3/s to kg/s | `RHO_SEDIMENT` | [[s_dis]] |
 !>
 !> Other accessors preserve the core value and units, although assignment to a
 !> default-real function result narrows double-precision model state. In
@@ -86,21 +86,27 @@
 !> @endhistory
 MODULE visualisation_interface_left
 
-   USE SGLOBAL, ONLY: dxqq, dyqq, zgrund, total_no_elements, top_cell_no, nlf => total_no_links
-   USE AL_C, ONLY: cmd, draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, syd, wberr
+   USE element_geometry, ONLY: DXQQ, DYQQ, ZGRUND, total_no_elements, top_cell_no, &
+                  nlf => total_no_links
+   USE AL_C, ONLY: draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, wberr
+   USE file_units, ONLY: CMD, SYD
    USE AL_C, ONLY: deltaz, esoila, qvsv, vspsi, vsthe, zvspsl
-   USE AL_D, ONLY: bexcm, bexsy, cstore, dxin, dyin, einta, epot, erza, sd
-   USE AL_G, ONLY: icmref, icmxy, nx, ny
-   USE SGLOBAL, ONLY: DIRQQ, shever, ROOTDIR, hdf5filename, uznow, &
-      planfile => visualisation_plan_filename, &
-      checkfile => visualisation_check_filename
+   USE AL_D, ONLY: bexcm, bexsy, cstore, einta, epot, erza, sd
+   USE element_geometry, ONLY: DXIN, DYIN
+   USE grid_topology, ONLY: ICMREF, ICMXY, NX, NY
+   USE build_info, ONLY: SHEVER
+   USE run_context, ONLY: DIRQQ, rootdir, hdf5filename, planfile => visualisation_plan_filename, &
+                  checkfile => visualisation_check_filename
+   USE simulation_clock, ONLY: UZNOW
    USE CONT_CC, ONLY: cccc, nnncon => ncon, ssss
-   USE CONST_SY, ONLY: rhosed
+   USE mod_parameters, ONLY: rho_sediment
    USE SED_CS, ONLY: dls, gnu, nnnsed => nsed, qsed
    USE OCmod2, ONLY: hrfzz
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, &
+                  ERRLVL_fatal
+   USE file_units, ONLY: FID_logfile
 
    IMPLICIT NONE
    INTEGER, PARAMETER :: east = 1          !! Native SHETRAN east-face number.
@@ -483,7 +489,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the early contaminant-count scan for visualisation setup. |
 !> | 2026-04-06 | SvB | - | Replaced branch labels with `IOSTAT`-controlled scanning and reads. |
-!> | 2026-09-07 | SvB | - | Routed the count read through [[mod_error:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
+!> | 2026-09-07 | SvB | - | Routed the count read through [[error_status:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
 !> @endhistory
    SUBROUTINE get_ncon_early()
       IMPLICIT NONE
@@ -533,7 +539,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2004-07 | JE | 2.0 | Added the early sediment-count scan for visualisation setup. |
 !> | 2026-04-06 | SvB | - | Replaced branch labels with `IOSTAT`-controlled scanning and reads. |
-!> | 2026-09-07 | SvB | - | Routed the count read through [[mod_error:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
+!> | 2026-09-07 | SvB | - | Routed the count read through [[error_status:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
 !> @endhistory
    SUBROUTINE get_nsed_early()
       IMPLICIT NONE
@@ -883,7 +889,7 @@ CONTAINS
 !> @brief Returns solid-sediment mass discharge through an element face.
 !>
 !> Multiplies the signed solid-sediment volume discharge `QSED` (m3/s) by the
-!> sediment density `RHOSED` (kg/m3). The sediment component must be active and
+!> sediment density `RHO_SEDIMENT` (kg/m3). The sediment component must be active and
 !> initialized; the core face-flow sign is preserved.
 !>
 !> Returns signed solid-sediment mass discharge (kg/s).
@@ -897,7 +903,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: iel  !! Element number.
       INTEGER, INTENT(IN) :: face !! Native face number.
       INTEGER, INTENT(IN) :: nsed !! Sediment size-fraction number.
-      r = rhosed*qsed(iel, nsed, face)
+      r = rho_sediment*qsed(iel, nsed, face)
    END FUNCTION s_dis
 
 !> @brief Returns an element's ground-surface elevation in metres.

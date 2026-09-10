@@ -46,7 +46,7 @@
 !> Weir routines use the manual's `OC38`-`OC41` weir coefficient, sill
 !> elevation, downstream water level, and submerged-flow ratio in the
 !> horizontal-crest weir solver [[qweir]]. Reservoir/channel links may instead
-!> obtain discharge from [[zqmod]] rating tables through `get_ZQTable_value`; in
+!> obtain discharge from [[zq_tables]] rating tables through `get_ZQTable_value`; in
 !> those cases discharge is a tabulated stage-discharge lookup rather than a
 !> direct conveyance or weir calculation.
 !>
@@ -63,22 +63,22 @@
 !> | 2026-05-21 | SB | 4.6 | Improved channel-junction convergence (see [[ocnode]]). |
 !> @endhistory
 MODULE OCmod2
-   USE SGLOBAL
+   USE array_limits, ONLY: nelee, nlfee, NXSCEE
+   USE element_geometry, ONLY: cellarea, DXQQ, DYQQ, total_no_links, ZGRUND
 
    USE tolerance_testing, ONLY: notzero, iszero, gtzero, dimje
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_warn, FID_logfile
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             half, one, zero, TWO_THIRDS, FIVE_THIRDS, SQRT_TWO_G
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_warn
+   USE file_units, ONLY: FID_logfile
 
    USE ZQmod, ONLY: get_ZQTable_value
    USE AL_D, ONLY: ZQweirsill, ZQTableRef
    IMPLICIT NONE
 
-   DOUBLEPRECISION, PARAMETER   :: F23 = 2.0D0/3.0D0      !! Exponent \(2/3\) used in Strickler conveyance.
-   DOUBLEPRECISION, PARAMETER   :: F53 = 5.0D0/3.0D0      !! Exponent factor \(5/3\) used by the implemented derivative branches.
    DOUBLEPRECISION, PARAMETER   :: DZMIN = 1.0D-3       !! Small depth/head-difference threshold, in metres.
    DOUBLEPRECISION, PARAMETER   :: RDZMIN = 3.16227766d-2 !! Square root of `DZMIN`.
    DOUBLEPRECISION, PARAMETER   :: H23MIN = 1.0d-2        !! `DZMIN**(2/3)`, retained for legacy comments and comparisons.
-   DOUBLEPRECISION, PARAMETER   :: ROOT2G = 4.42944d0   !! Approximation to \(\sqrt{2g}\) for weir flow.
    DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !! Water-surface elevation by element; abstracted for AD and solver access.
    DOUBLEPRECISION, DIMENSION(NELEE, 4)        :: qsazz    !! Face discharge by element and face; positive into the indexed element.
 
@@ -888,11 +888,11 @@ CONTAINS
 
          ! Channel bank-full higher than adjacent ground: flat-crested weir eqn
       ELSE
-         COEFF(1) = ROOT2G*W
+         COEFF(1) = SQRT_TWO_G*W
          COEFF(2) = 0.386D0*COEFF(1)
 
          ! AD aliasing fix: rdum isolates the output variable from DQ array memory
-         CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, F23, Q(LO), DQ(LO, HI), RDUM)
+         CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, TWO_THIRDS, Q(LO), DQ(LO, HI), RDUM)
          DQ(LO, LO) = RDUM
       END IF
 
@@ -1450,9 +1450,9 @@ CONTAINS
             CONV = CONV*XA/H
             DERIV = STR*MUL*H*(8.0D0 - 3.0D3*H)     ! TAKE CARE valid only for threshold of 1 mm
          ELSE
-            HM23 = H**F23
+            HM23 = H**TWO_THIRDS
             CONV = STR*XA*HM23      ! NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
-            DERIV = STR*HM23*F53
+            DERIV = STR*HM23*FIVE_THIRDS
          END IF
 
       ELSE IF (TY == 1) THEN
@@ -1464,27 +1464,27 @@ CONTAINS
             CONV = STR*MUL*H*H*(4.0D0 - 1.0D3*H)  ! TAKE CARE valid only for threshold of 1 mm
             DERIV = STR*MUL*H*(8.0D0 - 3.0D3*H)     ! TAKE CARE valid only for threshold of 1 mm
          ELSE
-            HM23 = H**F23
+            HM23 = H**TWO_THIRDS
             CONV = STR*H*HM23       ! NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
-            DERIV = STR*HM23*F53
+            DERIV = STR*HM23*FIVE_THIRDS
          END IF
 
       ELSE IF (TY == 2) THEN
-         HM23 = H**F23
+         HM23 = H**TWO_THIRDS
          CONV = STR*XA*HM23
-         DERIV = CONV*(EXTRA/XA + F23/H)  ! is f23 correct here?
+         DERIV = CONV*(EXTRA/XA + TWO_THIRDS/H)  ! is two_thirds correct here?
       END IF
 
       ! Legacy Disabled Block
       ! IF(ty<2) THEN
       !    IF(h<dzmin) THEN
-      !        deriv = str * h23min * f23
+      !        deriv = str * h23min * two_thirds
       !        conv  = deriv * h  !LINEARIZE NEAR ZERO (FOR AD)
       !        hm23  = zero
       !    ELSE
-      !        hm23 = h**f23
+      !        hm23 = h**two_thirds
       !        conv = str * xo * hm23
-      !        deriv = str * hm23 * f53  !str * MAX(h23min, hm23) * f53
+      !        deriv = str * hm23 * five_thirds  !str * MAX(h23min, hm23) * five_thirds
       !    ENDIF
       ! ELSE
 

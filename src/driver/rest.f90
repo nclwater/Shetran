@@ -23,27 +23,34 @@
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow in `METIN` and `TMSTEP` with named `DO`/`CYCLE`/`EXIT` constructs. |
 !> | 2026-05-10 | SvB | - | Removed interactive "press enter to continue" prompts after fatal read errors in `METIN`/`TMSTEP`; replaced with `ERROR STOP`. |
 !> | 2026-08-22 | SvB | - | Added `READ_DATED_RECORD`, which reads dated meteorological records through a buffer sized to the record instead of a fixed 100000-character line. |
-!> | 2026-09-07 | SvB | - | Replaced the bare `STOP 'Error reading ...'` checks on the undated PET/temperature reads in `METIN` with [[mod_error:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
+!> | 2026-09-07 | SvB | - | Replaced the bare `STOP 'Error reading ...'` checks on the undated PET/temperature reads in `METIN` with [[error_status:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
 !> @endhistory
 MODULE rest
-   USE SGLOBAL
-!USE SGLOBAL,    ONLY : NELEE, NVEE
-   USE AL_G, ONLY: icmref
-   USE AL_C, ONLY: ARXL, CWIDTH, CLAI, DELTAZ, DTUZ, EEVAP, ERUZ, tih, &
-      NLYRBT, NV, &
-      PLAI, PNETTO, QVSBF, QVSWEL, QBKF, QOC, QVSH, UZNEXT, VSTHE, WBERR
-   USE AL_D, ONLY: flerrc, balanc, syerrc, cmerrc, nstep, carea, DTMET2, BHOTRD, &
-      BHOTTI, EPD, NM, PRD, NRAIN, DTMET3, PE, DTMET, MED, RN, OBSPE, &
-      U, TA, VPD, TMAX, VHT, TIMEUZ, SD, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, &
-      tah, tal, ista
+   USE array_limits, ONLY: nelee, NVEE
+   USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, total_no_links, ZGRUND
+   USE runtime_flags, ONLY: flag_runtime_reduction_e1060, flag_runtime_reduction_errors
+   USE simulation_clock, ONLY: UZNOW
+   USE grid_topology, ONLY: ICMREF
+   USE AL_C, ONLY: ARXL, CWIDTH, CLAI, DELTAZ, EEVAP, ERUZ, NLYRBT, NV, PLAI, PNETTO, QVSBF, &
+                  QVSWEL, QBKF, QOC, QVSH, VSTHE, WBERR
+   USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT
+   USE AL_D, ONLY: balanc, DTMET2, BHOTRD, BHOTTI, NM, NRAIN, DTMET3, PE, DTMET, RN, OBSPE, U, TA, &
+                  VPD, TMAX, VHT, SD, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, ista
+   USE element_geometry, ONLY: CAREA
+   USE file_units, ONLY: EPD, PRD, MED, TAH, TAL
+   USE legacy_retained, ONLY: FLERRC, SYERRC, CMERRC
+   USE simulation_clock, ONLY: NSTEP, TIMEUZ
    USE ETmod, ONLY: MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, NCTPLA, &
       PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, NCTVHT, &
       VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod, ONLY: BSOFT
    USE UTILSMOD, ONLY: HOUR_FROM_DATE, TERPO1
 
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P, &
+                             one, zero
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
+                  ERR_STOP
+   USE file_units, ONLY: FID_logfile
 
    USE OCmod2, ONLY: GETHRF
 
@@ -189,7 +196,7 @@ CONTAINS
 !> + \sum_{k=NLYRBT(iel,1)}^{LL} \Delta z_{k,iel}\,\theta_{k,iel},
 !> \]
 !>
-!> where \(\theta\) is `VSTHE` and `HRF` is read through [[ocmod2:gethrf]].
+!> where \(\theta\) is `VSTHE` and `HRF` is read through [[oc_node_solver:gethrf]].
 !> The storage change is \(\Delta S = S_{iel}-S^{old}_{iel}\), where
 !> \(S^{old}\) is the previous call's `STORW_balwat`. On the first call
 !> (`FIRST_balwat`) `WBERR` is initialised to zero and `STORW_balwat` is
@@ -225,7 +232,7 @@ CONTAINS
 !> @note
 !> This routine has no dummy arguments. It reads and updates shared grid,
 !> geometry, flow, and water-level state from `SGLOBAL`, `AL_C`, `AL_D`, and
-!> `AL_G`, and calls [[ocmod2:gethrf]] for the current surface water level.
+!> `AL_G`, and calls [[oc_node_solver:gethrf]] for the current surface water level.
 !> @endnote
 !>
 !> @history
@@ -343,7 +350,7 @@ CONTAINS
    !> not enough.
    !>
    !> The timestamp is parsed once per record into `DATEHOUR` using
-   !> [[utilsmod:hour_from_date]]; the seconds field is consumed but not used.
+   !> [[datetime:hour_from_date]]; the seconds field is consumed but not used.
    !> `DATEHOUR` and `VALUES` are left unchanged when the read fails, so an
    !> end-of-file caller keeps whatever fallback it has already set.
    !>
@@ -474,13 +481,13 @@ CONTAINS
    !> Reads or interpolates meteorological forcing required by ET, interception, and snowmelt.
    !>
    !> `METIN` advances precipitation, potential evaporation, radiation, wind,
-   !> temperature, vapour pressure deficit, and (via [[utilsmod:terpo1]]) the
+   !> temperature, vapour pressure deficit, and (via [[interpolation:TERPO1]]) the
    !> current time-varying canopy-storage-capacity, plant/land-cover leaf-area,
    !> and vegetation-height values in [[etmod]] needed for the current
    !> simulation time. In date-aware mode, [[tmstep]] first checks and positions
    !> the dated forcing files; `METIN` then consumes the selected records and
    !> converts their ISO-8601-like date fields to SHETRAN hours using
-   !> [[utilsmod:hour_from_date]].
+   !> [[datetime:hour_from_date]].
    !>
    !> | Mode | Files and records | Code path |
    !> |:-----|:-------------------|:----------|
@@ -541,7 +548,7 @@ CONTAINS
    !>
    !> Finally, `METIN` updates any time-varying vegetation parameters flagged
    !> in [[etmod]] (`MODECS`, `MODEPL`, `MODECL`, `MODEVH`) by calling
-   !> [[utilsmod:terpo1]] at the current `TIMEUZ` (see [[al_d]]) for canopy-storage
+   !> [[interpolation:TERPO1]] at the current `TIMEUZ` (see [[al_d]]) for canopy-storage
    !> capacity (`CSTCAP`), plant leaf area (`PLAI`), land-cover leaf area
    !> (`CLAI`), and vegetation height (`VHT`), for every vegetation type `1:NV`.
    !>
@@ -561,7 +568,7 @@ CONTAINS
    !> | 2026-03-19 | SB | 4.6.1 | Added optional date-aware meteorological input handling (`BMETDATES`, `TAH`/`TAL`). |
    !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with named `DO`/`CYCLE`/`EXIT` loop constructs. |
    !> | 2026-05-10 | SvB | - | Replaced interactive "press enter to continue" prompts after fatal read errors with `ERROR STOP`. |
-   !> | 2026-08-22 | SvB | - | Moved dated record reading into [[rest:read_dated_record]], replacing the fixed 100000-character line buffer. |
+   !> | 2026-08-22 | SvB | - | Moved dated record reading into [[met_input:READ_DATED_RECORD]], replacing the fixed 100000-character line buffer. |
    !> @endhistory
    SUBROUTINE METIN(IFLAG)
       IMPLICIT NONE

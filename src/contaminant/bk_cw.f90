@@ -2,10 +2,10 @@
 !> author: JE, Newcastle University; GP, Newcastle University; RAH, Newcastle University
 !>
 !> `BK_CW` replaces the legacy `BK.CW` common blocks for bank water variables.
-!> During contaminant initialisation, [[frmod:incm]] identifies the bank element
+!> During contaminant initialisation, [[cm_input:INCM]] identifies the bank element
 !> on each side of every active channel link and establishes the bank-cell limits
 !> and fractional cell at the lower boundary of the deep-bed layer. Transport
-!> routines including [[cmmod:colmw]] and [[cmmod:linkw]] consume this geometry.
+!> routines including [[cm_column:COLMW]] and [[cm_channel:LINKW]] consume this geometry.
 !>
 !> The first array index is bounded by the link capacity `NLFEE`; the second
 !> selects bank side 1 or 2. `QQRVO` additionally has the cell-capacity bound
@@ -14,7 +14,7 @@
 !>
 !> Bank elements are channel-adjacent data structures rather than a separate
 !> process solver. The bank-element section of the user manual describes their
-!> geometric assumptions and input data. [[frmod:inbk]] reads the bank properties;
+!> geometric assumptions and input data. [[bank_setup:INBK]] reads the bank properties;
 !> this module holds only the contaminant-coupling geometry prepared by `INCM`.
 !>
 !> @history
@@ -30,7 +30,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE BK_CW
-   USE SGLOBAL, ONLY : NLFEE, LLEE
+   USE array_limits, ONLY: nlfee, LLEE
    IMPLICIT NONE
    DOUBLEPRECISION FNCEBD (NLFEE, 2)  !! Fraction of cell `NCEBD+1` below the deep-bed boundary.
    INTEGER :: NBANK (NLFEE, 2)  !! Adjacent bank-element number for each link and bank side.

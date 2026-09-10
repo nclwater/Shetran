@@ -31,7 +31,7 @@
 !> @warning
 !> [[froutput]] declares saved local variables named `next_hour`, `qoctot`,
 !> `uzold`, `sedtot`, `sedfinetot`, and `contamtot`. They shadow the same-named
-!> public module variables imported by [[run_sim]] for automatic
+!> public module variables imported by [[simulation_driver]] for automatic
 !> differentiation. Consequently the public copies retain their
 !> declaration-time values while output uses the local copies; only
 !> module-level `icounter2` is updated by the current output path. The private
@@ -55,42 +55,58 @@
 !> | 2026-03 | SB | 4.6 | Added allocation-based initialisation through `INITIALISE_AL_C3` and `INITIALISE_ETMOD`, date-aware meteorological input through `BMETDATES`, outlet sediment/contaminant text series, water-table and virtual-discharge text output, improved diagnostics, and `.pri` reporting of hard-coded array sizes. |
 !> | 2026-05-03 | SvB | 4.6.1 | Decomposed `FROUTPUT` into phase, sampling, accumulation, formatting, and I/O helpers without changing its output contracts. |
 !> | 2026-07-11 | SvB | 4.6.1 | Made rundata input record-based so blank records, normal EOF, and genuine read failures are distinguished. |
-!> | 2026-09-07 | SvB | 4.6.1 | Routed the previously unchecked `READ` statements in [[frinit]], [[frltl]], [[inbk]], [[inet]], [[infr]], and [[insm]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`; the hot-start reader now separates a genuine read error from end of file. |
+!> | 2026-09-07 | SvB | 4.6.1 | Routed the previously unchecked `READ` statements in [[frinit]], [[frltl]], [[inbk]], [[inet]], [[infr]], and [[insm]] through [[error_status:errstat_read]], reporting `IOSTAT`/`IOMSG`; the hot-start reader now separates a genuine read error from end of file. |
 !> @endhistory
 MODULE FRmod
    USE stdlib_system, ONLY: join_path
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: ERROR_UNIT, IOSTAT_END
-   USE SGLOBAL
+   USE array_limits, ONLY: LLEE, max_no_snowmelt_slugs, NCONEE, nelee, nlfee, NLYREE, NOCTAB, &
+                           NOLEE, NPELEE, NPLTEE, NSEDEE, NSEE, NUZTAB, NVBP, NVEE, NVSEE, &
+                           nxee, NXSCEE, nyee
+   USE build_info, ONLY: BANNER, BDEVER, SHEVER
+   USE element_geometry, ONLY: cellarea, DXQQ, DYQQ, top_cell_no, total_no_elements, &
+                              total_no_links, ZGRUND
+   USE run_context, ONLY: cnam, DIRQQ, filnam, hdf5filename, &
+                          visualisation_check_filename, visualisation_plan_filename
+   USE simulation_clock, ONLY: UZNOW
    USE CONT_CC, ONLY: CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
-   USE AL_G, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
-   USE AL_C, ONLY: ARXL, BEXBK, BFB, BHB, BUG, CWIDTH, CLENTH, CMD, CMP, CMT, CMB, clai, &
-                   DELTAZ, DRAINA, dhf, DUMMY, DTUZ, EEVAP, ESOILA, &
-                   FHBED, ISORT, IDUM, ICMRF2, ICMBK, JVSACN, JVSDEL, LINKNS, LFB, LHB, LGB, &
-                   NBFACE, NV, NLYRBT, NRD, NLYR, NHBED, NTSOIL, NVC, NVSSPC, NVSSPT, NVSWLI, NVSWLT, NWELBT, NS, NWELTP, &
-                   plai, PNETTO, &
-                   QH, QVSH, QVSSPR, QVSWEL, QVSWLI, QVSV, QOC, QBKB, QBKF, &
-                   RDL, RDF, SYD, SPR, &
-                   TIH, UZNEXT, VSPSI, VSD, VSTHE, VSI, VSPOR, WLD, WBERR, ZBEFF, ZBFULL, ZLYRBT, ZVSNOD, &
-                   ZVSPSL, MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, INITIALISE_AL_C3
-   USE AL_D, ONLY: BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BKD, BHOTRD, BWIDTH, &
-                   BHOTST, BHOTTI, BHOTPR, &
-              CAREA, CSTORE, DIS, DIS2, DISEXTRA, DXIN, DYIN, DQ0ST, DQIST, DQIST2, DTMET3, EINTA, DTMET, DTMET2, ERZA, ETD, EPOT, &
-                   EPD, FRD, HOTIME, HOT, TAH, TAL, ISTA, isextradis, iszq, isextrapsl, pslextra, &
-                   IOCORS, ICLNUM, NCLASS, ICLIST, IODATA, IOELEM, IOSTA, IOSTEP, IOEND, IORES, IOTIME, INGRID, &
-                   LCODEY, LCODEX, MBLINK, MBFACE, MBFLAG, MBYEAR, MSM, MAS, MED, MBMON, MBDAY, &
-                   NXM1, NYM1, NRAINC, NMC, NM, NSET, NXP1, NYP1, NXE, NYE, NSMC, NGRID, NOCBCC, NOCBCD, NRAIN, NXEP1, NYEP1, &
-                   OCD, OFB, OHB, OCNOW, precip_m_per_s, PSTART, PRD, PPD, PMAX, PALFA, PREST, QMAX, RES, RHOSAR, RESFIL, &
-                   SF, SMD, SD, TIMEUZ, TS, TIM, TMAX, TTH, UZVAL, VHT, VED, VSE, TOUTPUT, zqd
+   USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
+   USE AL_C, ONLY: ARXL, BEXBK, CWIDTH, CLENTH, clai, DELTAZ, DRAINA, DUMMY, EEVAP, ESOILA, FHBED, &
+                  IDUM, ICMBK, JVSACN, JVSDEL, LINKNS, NV, NLYRBT, NRD, NLYR, NHBED, NTSOIL, NVC, &
+                  NVSSPC, NVSSPT, NVSWLI, NVSWLT, NWELBT, NS, NWELTP, plai, PNETTO, QH, QVSH, &
+                  QVSSPR, QVSWEL, QVSWLI, QVSV, QOC, QBKB, QBKF, RDL, RDF, VSPSI, VSTHE, VSPOR, &
+                  WBERR, ZBEFF, ZBFULL, ZLYRBT, ZVSNOD, ZVSPSL, INITIALISE_AL_C3
+   USE element_geometry, ONLY: DHF, ISORT, NBFACE
+   USE file_units, ONLY: BFB, BHB, BUG, CMD, CMP, CMT, CMB, LFB, LHB, LGB, SYD, SPR, VSD, VSI, WLD, &
+                  MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL
+   USE grid_topology, ONLY: ICMRF2
+   USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT
+   USE AL_D, ONLY: BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BHOTRD, BHOTST, &
+                  BHOTTI, BHOTPR, CSTORE, DQ0ST, DQIST, DQIST2, DTMET3, EINTA, DTMET, DTMET2, ERZA, &
+                  EPOT, HOTIME, ISTA, isextradis, iszq, isextrapsl, IOCORS, ICLNUM, ICLIST, IODATA, &
+                  IOELEM, IOSTA, IOSTEP, IOEND, IORES, IOTIME, LCODEY, LCODEX, MBLINK, MBFACE, &
+                  MBFLAG, MBYEAR, MSM, MBMON, MBDAY, NRAINC, NMC, NM, NSET, NSMC, NOCBCC, NOCBCD, &
+                  NRAIN, OCNOW, precip_m_per_s, PSTART, PMAX, PALFA, PREST, QMAX, RHOSAR, RESFIL, &
+                  SF, SD, TS, TMAX, VHT, TOUTPUT
+   USE array_limits, ONLY: NCLASS, NXE, NYE
+   USE element_geometry, ONLY: BWIDTH, CAREA, DXIN, DYIN, NXM1, NYM1, NXP1, NYP1, NXEP1, NYEP1
+   USE file_units, ONLY: BKD, DIS, DIS2, disextra, ETD, EPD, FRD, HOT, TAH, TAL, pslextra, MAS, &
+                  MED, OCD, OFB, OHB, PRD, PPD, RES, SMD, TIM, VED, VSE, zqd
+   USE grid_topology, ONLY: INGRID
+   USE legacy_retained, ONLY: NGRID
+   USE simulation_clock, ONLY: TIMEUZ, TTH, UZVAL
    USE OCmod, ONLY: LINKNO, OCLTL
    USE OCQDQMOD, ONLY: STRXX, STRYY
    USE UTILSMOD, ONLY: AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
    USE mod_load_filedata, ONLY: ALINTP, ALCHK, ALCHKI
 
    USE tolerance_testing, ONLY: idimje, notzero
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P, &
+                             half, izero, one, two, zero, zero1
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
-                        errstat_rewind, errstat_read, errstat_write, &
-                        RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+                  errstat_rewind, errstat_read, errstat_write, RAISE_ERROR, ERRLVL_fatal, &
+                  ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE file_units, ONLY: FID_logfile
 
    USE SMmod, ONLY: head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt
    USE ETmod, ONLY: BAR, BMETP, BINETP, BMETAL, BMETDATES, CSTCAP, CSTCA1, CK, CB, CLAI1, FET, &
@@ -100,7 +116,7 @@ MODULE FRmod
    USE VSmod, ONLY: VSIN, VSPTHE, NVSSOL, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, VSPPSI
    USE OCmod, ONLY: OCINI
    USE OCmod2, ONLY: GETHRF, SETHRF, SETQSA
-   USE CONST_SY, ONLY: RHOSED
+   USE mod_parameters, ONLY: RHO_SEDIMENT
    USE SED_CS, ONLY: DLS, GNU, FBETA, FDEL, PLS, GINFD, GINFS, GNUBK, QSED, DCBED, DCBSED, ARBDEP, &
                      nsed, FBTSD, QDEFF, NSOBED, PBSED, SOSDFN, sofn
    USE SED_CO, ONLY: DLSO, GNUO, FBBEDO, FDELO, FBTSDO
@@ -1249,10 +1265,10 @@ CONTAINS
 !> | Stage | Main calls/actions |
 !> |:------|:-------------------|
 !> | Frame input and allocation | [[infr]], `INITIALISE_AL_C3`, `INITIALISE_ETMOD`. |
-!> | Optional component input | [[inet]]/[[dinet]], [[insm]], [[ocmod:ocini]]/[[dinoc]]. |
-!> | Geometry and subsurface | [[frdim]], [[inbk]] when banks are active, then [[vsmod:vsin]]. |
+!> | Optional component input | [[inet]]/[[dinet]], [[insm]], [[oc_driver:OCINI]]/[[dinoc]]. |
+!> | Geometry and subsurface | [[frdim]], [[inbk]] when banks are active, then [[vs_input:VSIN]]. |
 !> | Link forcing setup | Copy meteorological/rainfall station codes from the first adjacent non-link element to each channel link. |
-!> | Reservoir tables | [[zqmod:readzqtable]] when `ISZQ` is true. |
+!> | Reservoir tables | [[zq_tables:ReadZQTable]] when `ISZQ` is true. |
 !> | Hot-start | Scan `HOT` until `HOTIME >= BHOTTI`, restore water-flow arrays through `SETHRF`/`SETQSA`, and write restart output via [[frresp]]. |
 !>
 !> @note
@@ -1809,8 +1825,8 @@ CONTAINS
 !> The contained `read_rundata_record` helper consumes one complete physical
 !> record, so an empty record is distinct from EOF. `unit_context` labels read
 !> diagnostics; `stop_eof_error` and `stop_rundata_open_error` report the
-!> terminal messages and stop through [[mod_error:ERR_STOP]]. Every other file
-!> `OPEN` is checked through [[mod_error:errstat_fileopen]], which reports the
+!> terminal messages and stop through [[error_reporting:ERR_STOP]]. Every other file
+!> `OPEN` is checked through [[error_status:errstat_fileopen]], which reports the
 !> `IOSTAT`/`IOMSG` and terminates. FORD lists these contained routines in the
 !> source page rather than emitting separate procedure pages.
 !>
@@ -1832,8 +1848,8 @@ CONTAINS
 !> | 2026-04 | SvB | 4.6.1 | Replaced platform-specific path handling with `join_path`. |
 !> | 2026-05-11 | SB | - | Added error checking on the initial rundata-file `OPEN`, stopping instead of proceeding silently on failure. |
 !> | 2026-07-11 | SvB | 4.6.1 | Distinguished blank records, EOF, and genuine rundata read errors. |
-!> | 2026-09-06 | SvB | - | Routed every non-rundata file `OPEN` through [[mod_error:errstat_fileopen]] (reporting `IOSTAT`/`IOMSG`) and removed the local `stop_open_error` helper. |
-!> | 2026-09-06 | SvB | - | Checked every `CLOSE` of the rundata unit through [[mod_error:errstat_fileclose]], which recovers the filename from the unit. |
+!> | 2026-09-06 | SvB | - | Routed every non-rundata file `OPEN` through [[error_status:errstat_fileopen]] (reporting `IOSTAT`/`IOMSG`) and removed the local `stop_open_error` helper. |
+!> | 2026-09-06 | SvB | - | Checked every `CLOSE` of the rundata unit through [[error_status:errstat_fileclose]], which recovers the filename from the unit. |
 !> @endhistory
    SUBROUTINE FROPEN
 
@@ -2204,7 +2220,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2005-2024 | SB | 4.x | Added every-step and regular discharge, mass-balance, virtual-station, water-table, sediment, and contaminant text output. |
 !> | 2026-05-03 | SvB | 4.6.1 | Split the monolithic phase logic into contained helpers. |
-!> | 2026-09-06 | SvB | - | Checked every output-file `OPEN` through [[mod_error:errstat_fileopen]], reporting `IOSTAT`/`IOMSG`. |
+!> | 2026-09-06 | SvB | - | Checked every output-file `OPEN` through [[error_status:errstat_fileopen]], reporting `IOSTAT`/`IOMSG`. |
 !> | 2026-09-07 | SvB | - | Status-checked the remaining bare header/state `WRITE`s via `write_checked` / `stop_on_io_error`. |
 !> @endhistory
    SUBROUTINE FROUTPUT(SIMPOS)
@@ -2669,7 +2685,7 @@ CONTAINS
 !> @brief Samples outlet discharge, sediment flux, and contaminant concentration.
 !>
 !> When no outlet was found, all returned values are zero. Otherwise total
-!> sediment is the sum of all `QSED` fractions multiplied by `RHOSED`, fine
+!> sediment is the sum of all `QSED` fractions multiplied by `RHO_SEDIMENT`, fine
 !> sediment is fraction 1, and contaminant output is the top-cell concentration
 !> of contaminant 1. Optional station discharges are also refreshed.
 !>
@@ -2695,9 +2711,9 @@ CONTAINS
             IF (bexsy) THEN
                sed_out = ZERO
                DO i = 1, nsed
-                  sed_out = sed_out + QSED(mblink, i, mbface)*RHOSED
+                  sed_out = sed_out + QSED(mblink, i, mbface)*RHO_SEDIMENT
                END DO
-               sedfine_out = QSED(mblink, 1, mbface)*RHOSED
+               sedfine_out = QSED(mblink, 1, mbface)*RHO_SEDIMENT
             ELSE
                sed_out = ZERO
                sedfine_out = ZERO
@@ -3082,7 +3098,7 @@ CONTAINS
 !> @brief Writes one timestamped discharge record using the configured face sign convention.
 !>
 !> Faces 1 and 2 preserve the sign of `qoo`; faces 3 and 4 reverse it. The
-!> timestamp is `TIH + TME` converted with [[utilsmod:date_from_hour]], and the
+!> timestamp is `TIH + TME` converted with [[datetime:date_from_hour]], and the
 !> row is written to `DIS2` as date/time, simulation hour, and discharge.
 !>
 !> @history
@@ -3115,7 +3131,7 @@ CONTAINS
 !> The restart and per-set result files hold heterogeneous array records that
 !> cannot pass through a single typed wrapper, so each `WRITE` carries its own
 !> `IOSTAT=`/`IOMSG=` and calls this routine, which forwards a non-zero status to
-!> [[mod_error:errstat_write]] together with the resolved result-file stem.
+!> [[error_status:errstat_write]] together with the resolved result-file stem.
 !>
 !> @history
 !> | Date | Author | Description |
@@ -3161,9 +3177,9 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1994-10-03 | RAH | 3.4.1 | Made typing explicit. |
 !> | 1997-1998 | RAH | 4.0-4.2 | Updated VSS metadata, array ordering, output classes, and unformatted result-file setup. |
-!> | 2026-09-06 | SvB | - | Checked the unformatted result-file `OPEN` through [[mod_error:errstat_fileopen]]. |
-!> | 2026-09-06 | SvB | - | Checked the result-file `CLOSE` through [[mod_error:errstat_fileclose]]. |
-!> | 2026-09-07 | SvB | - | Checked every unformatted header `WRITE` through `res_write_check` / [[mod_error:errstat_write]]. |
+!> | 2026-09-06 | SvB | - | Checked the unformatted result-file `OPEN` through [[error_status:errstat_fileopen]]. |
+!> | 2026-09-06 | SvB | - | Checked the result-file `CLOSE` through [[error_status:errstat_fileclose]]. |
+!> | 2026-09-07 | SvB | - | Checked every unformatted header `WRITE` through `res_write_check` / [[error_status:errstat_write]]. |
 !> @endhistory
    SUBROUTINE FRRESC
 
@@ -3451,7 +3467,7 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1997-1998 | RAH | 4.1-4.2 | Updated VSS, sediment, contaminant, well, and water-balance result selectors. |
 !> | 2026-04-05 | SvB | 4.6.1 | Replaced removed legacy initialisers while retaining result-file layout. |
-!> | 2026-09-07 | SvB | - | Checked every unformatted result `WRITE` through `res_write_check` / [[mod_error:errstat_write]]. |
+!> | 2026-09-07 | SvB | - | Checked every unformatted result `WRITE` through `res_write_check` / [[error_status:errstat_write]]. |
 !> @endhistory
    SUBROUTINE FRRESP(AIOSTO, RESNOW, NOW)
 
@@ -3588,7 +3604,7 @@ CONTAINS
                DO SED = SFSED1, SFSED2
                   DUM0 = DUM0 + FDEL(IEL, SED)
                END DO
-               BUFFER(J) = 1.0D3*RHOSED*(1.0D0 - PLS(IEL))*DUM0
+               BUFFER(J) = 1.0D3*RHO_SEDIMENT*(1.0D0 - PLS(IEL))*DUM0
             CASE (23)
                BUFFER(J) = GINFD(IEL, ICORS)
             CASE (24)
@@ -3604,7 +3620,7 @@ CONTAINS
                   DO SED = SFSED1, SFSED2
                      DUM0 = DUM0 + QSED(IEL, SED, K)
                   END DO
-                  DUM1(K) = DUM0*RHOSED
+                  DUM1(K) = DUM0*RHO_SEDIMENT
                END DO
                WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, DUM1
                CALL res_write_check(ios, emsg)
@@ -3614,7 +3630,7 @@ CONTAINS
                   DUM0 = DUM0 + QSED(IEL, SED, 1) + QSED(IEL, SED, 2) + &
                          QSED(IEL, SED, 3) + QSED(IEL, SED, 4)
                END DO
-               BUFFER(J) = DUM0*RHOSED
+               BUFFER(J) = DUM0*RHO_SEDIMENT
             CASE (29)
                IF (DCBED(IEL) > 0.0D0) THEN
                   BUFFER(J) = DCBSED(IEL, ICORS)/DCBED(IEL)
@@ -3632,7 +3648,7 @@ CONTAINS
                         DUMO = ZERO
                      END IF
                   END DO
-                  DUM1(K) = 1.0D3*DUM0*RHOSED
+                  DUM1(K) = 1.0D3*DUM0*RHO_SEDIMENT
                END DO
                WRITE (IORES(ISET), IOSTAT=ios, IOMSG=emsg) RESNOW, (DUM1(K), K=1, 4)
                CALL res_write_check(ios, emsg)
@@ -4194,7 +4210,7 @@ CONTAINS
 
 !> @brief Initialises the contaminant component and contaminant interface arrays.
 !>
-!> The routine reads contaminant data via [[cmmod:cmrd]], checks tabulated
+!> The routine reads contaminant data via [[cm_input:CMRD]], checks tabulated
 !> spatially variable concentrations, builds column/link geometry terms, sets
 !> contaminant storage coefficients, interpolates initial column concentrations,
 !> and initialises plant uptake data when enabled.

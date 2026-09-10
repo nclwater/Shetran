@@ -2,10 +2,10 @@
 !> author: JE, Newcastle University
 !>
 !> `LINK_CC` replaces the legacy `LINK.CC` common blocks. For each link,
-!> [[cmmod:linkw]] prepares scaled areas, wet/dry state, bank geometry, and
-!> signed water-exchange numbers. [[cmmod:linksm]] then loads concentrations,
+!> [[cm_channel:LINKW]] prepares scaled areas, wet/dry state, bank geometry, and
+!> signed water-exchange numbers. [[cm_channel:LINKSM]] then loads concentrations,
 !> storage/retardation factors, and source terms for one contaminant at a time
-!> before [[cmmod:link]] solves the coupled stream-water (`SF`), bed-surface
+!> before [[cm_channel:LINK]] solves the coupled stream-water (`SF`), bed-surface
 !> (`BS`), and bed/deep-material (`BD`) equations.
 !>
 !> | State group | Producer and lifetime |
@@ -31,8 +31,8 @@
 !> no declaration initializers.
 !>
 !> @warning
-!> `LINKSM` passes `ISADNL` from [[is_cc]] to every link retardation
-!> calculation, but current [[cmmod:cmrd]] reads manual record `CM13` into a
+!> `LINKSM` passes `ISADNL` from [[cm_solver_flags]] to every link retardation
+!> calculation, but current [[cm_input:CMRD]] reads manual record `CM13` into a
 !> shadowing local variable. The module flag used here therefore remains
 !> undefined under standard Fortran, so the linear/nonlinear adsorption path
 !> for link calculations is not reliably selected.
@@ -54,7 +54,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE LINK_CC
-   USE SGLOBAL, ONLY : LLEE
+   USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
    DOUBLEPRECISION :: ACPBD1  !! Current scaled bed/deposited-material area, `ACPBI+ARBDEP/Z2SQ`.

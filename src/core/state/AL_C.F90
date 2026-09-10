@@ -3,7 +3,7 @@
 !>
 !> `AL_C` replaces the legacy `AL.C` common blocks. [[frmod]] and [[vsmod]]
 !> construct the element, link, soil-layer, well, spring, and VSS geometry;
-!> [[etmod]], [[vsmod]], and [[run_sim:simulation]] update the water and
+!> [[etmod]], [[vsmod]], and [[simulation_driver:SIMULATION]] update the water and
 !> vegetation state; sediment, contaminant, nitrate, result, and visualisation
 !> routines consume selected values.
 !>
@@ -17,22 +17,22 @@
 !>
 !> | Array family | Index order | Principal producer |
 !> |:-------------|:------------|:-------------------|
-!> | `JVSACN`, `JVSDEL`, `QVSH` | face, vertical cell, element | [[vsmod:vsconc]] / [[vsmod:vssim]] |
+!> | `JVSACN`, `JVSDEL`, `QVSH` | face, vertical cell, element | [[vs_connectivity:VSCONC]] / [[vs_driver:VSSIM]] |
 !> | `DELTAZ`, `ZVSNOD`, `QVSV`, `VSPSI`, `VSTHE`, `QVSWLI` | vertical cell, element or well | [[vsmod]] |
-!> | `ERUZ` | element, vertical cell | [[etmod:et]] |
-!> | `NLYRBT`, `NTSOIL`, `ZLYRBT` | element, soil layer | [[vsmod:vsread]] / [[vsmod:vsconc]] |
+!> | `ERUZ` | element, vertical cell | [[et_process:ET]] |
+!> | `NLYRBT`, `NTSOIL`, `ZLYRBT` | element, soil layer | [[vs_input:VSREAD]] / [[vs_connectivity:VSCONC]] |
 !> | `ICMBK`, `NHBED`, `FHBED`, `QBK*` | link, bank side | frame and VSS setup/simulation |
 !>
 !> Flux units depend on the control surface. Vertical column rates such as
 !> `QH`, `QVSBF`, `QVSWEL`, and `QVSWLI` are depths per second (m/s), while
 !> face, channel-bank, and spring discharges such as `QOC`, `QVSH`, `QBK*`,
 !> and `QVSSPR` are volumetric rates (m3/s). Positive/sign conventions are
-!> those of the producing solver; [[rest:balwat]] applies the required face
+!> those of the producing solver; [[water_balance:BALWAT]] applies the required face
 !> signs when forming an element balance.
 !>
 !> @warning
 !> Manual section 2.3 still describes nonzero `RDL` as reducing the root
-!> distribution assigned to bank elements. The current [[etmod:etchk2]]
+!> distribution assigned to bank elements. The current [[et_process:ETCHK2]]
 !> instead requires every active `RDL` value to equal zero, and the ET solver
 !> does not otherwise read the array. This documentation records the current
 !> implementation and does not change that discrepancy.
@@ -60,45 +60,17 @@
 !> @endhistory
 MODULE AL_C
 
-   USE SGLOBAL, ONLY: NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE, top_cell_no, total_no_elements
+   USE array_limits, ONLY: nelee, LLEE, nlfee, NVSEE, nxee, nyee, NSEDEE, NVEE, NLYREE, NSEE
+   USE element_geometry, ONLY: top_cell_no, total_no_elements
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
-! File units occupy their rundata positions. SFB and SRB are non-opened
-! placeholders retained by the sediment interface.
-   INTEGER, PARAMETER :: SFB = 9876   !! Placeholder for the unimplemented sediment flow-boundary stream.
-   INTEGER, PARAMETER :: SRB = 9877   !! Placeholder for the unimplemented sediment rating/boundary stream.
-   INTEGER, PARAMETER :: VSD = 11     !! Variably saturated subsurface data input unit.
-   INTEGER, PARAMETER :: SYD = 17     !! Sediment data input unit.
-   INTEGER, PARAMETER :: CMD = 18     !! Contaminant data input unit.
-   INTEGER, PARAMETER :: SPR = 24     !! Formatted sediment diagnostic/output unit.
-   INTEGER, PARAMETER :: CMP = 25     !! Formatted contaminant diagnostic/output unit (called `CPR` in the manual).
-   INTEGER, PARAMETER :: BUG = 26     !! Developer debug-output unit.
-   INTEGER, PARAMETER :: VSI = 29     !! VSS initial-condition input unit.
-   INTEGER, PARAMETER :: WLD = 31     !! Time-varying well-abstraction input unit.
-   INTEGER, PARAMETER :: LFB = 32     !! Time-varying lateral subsurface-flow boundary unit.
-   INTEGER, PARAMETER :: LHB = 33     !! Time-varying lateral subsurface-head boundary unit.
-   INTEGER, PARAMETER :: LGB = 34     !! Time-varying lateral head-gradient boundary unit.
-   INTEGER, PARAMETER :: BFB = 35     !! Time-varying aquifer-base flow boundary unit.
-   INTEGER, PARAMETER :: BHB = 36     !! Time-varying aquifer-base head boundary unit.
-   INTEGER, PARAMETER :: CMT = 39     !! First contaminant-migration boundary input unit.
-   INTEGER, PARAMETER :: CMB = 40     !! Second contaminant-migration boundary input unit.
-   INTEGER, PARAMETER :: MND = 53     !! Nitrogen and carbon data input unit.
-   INTEGER, PARAMETER :: MNFC = 54    !! External carbon-input unit.
-   INTEGER, PARAMETER :: MNFN = 55    !! External nitrogen-input unit.
-   INTEGER, PARAMETER :: MNPL = 56    !! Nitrate plant-uptake input unit.
-   INTEGER, PARAMETER :: MNPR = 57    !! Formatted nitrate diagnostic/output unit.
-   INTEGER, PARAMETER :: MNOUT1 = 58  !! Nitrate carbon extra-output unit.
-   INTEGER, PARAMETER :: MNOUT2 = 59  !! Nitrate nitrogen extra-output unit.
-   INTEGER, PARAMETER :: MNOUTPL = 60 !! Nitrate plant-output unit.
 
-   DOUBLEPRECISION TIH !! Simulation start as an absolute hour count returned by `HOUR_FROM_DATE` (h).
 
 ! Plan and column geometry.
-   INTEGER, DIMENSION(NELEE) :: NBFACE !! External boundary-face number by boundary element; zero otherwise.
    INTEGER, DIMENSION(NELEE) :: NLYR   !! Number of defined soil/lithology layers by element.
    INTEGER, DIMENSION(NELEE) :: NVC    !! Vegetation-category number by element.
    INTEGER, DIMENSION(NELEE) :: NWELBT !! Bottom VSS cell of the well screen by well element.
@@ -107,7 +79,6 @@ MODULE AL_C
    INTEGER, DIMENSION(NELEE) :: NVSSPC !! VSS cell containing a spring source by source element.
    INTEGER, DIMENSION(NELEE) :: NVSSPT !! Spring source element keyed by its target element; zero means no target mapping.
    INTEGER, DIMENSION(NELEE) :: NVSWLI !! Well-record number keyed by the element containing the well; zero means no well.
-   DOUBLEPRECISION, DIMENSION(NELEE, 4) :: DHF !! Distance from an element node/centroid to each face (m).
    LOGICAL, DIMENSION(NELEE) :: ISPACK !! Whether a snowpack is present on each element.
 
    INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JVSACN !! Adjacent VSS cell number by face, cell, and element; zero means no connection.
@@ -118,7 +89,6 @@ MODULE AL_C
 ! Link and bank geometry.
    INTEGER, DIMENSION(NLFEE, 2) :: ICMBK  !! Explicit bank-element number by link and bank side.
    INTEGER, DIMENSION(NLFEE, 2) :: NHBED  !! Highest VSS cell below the channel bed by link and bank side.
-   INTEGER, DIMENSION(NLFEE, 6) :: ICMRF2 !! Multi-link branch map: adjacent elements in columns 1:3 and their faces in 4:6.
    DOUBLEPRECISION, DIMENSION(NLFEE) :: CLENTH !! Channel-link length (m).
    DOUBLEPRECISION, DIMENSION(NLFEE) :: CWIDTH !! Channel-link width (m).
    DOUBLEPRECISION, DIMENSION(NLFEE) :: ZBEFF  !! Effective channel-bed elevation (m).
@@ -142,8 +112,6 @@ MODULE AL_C
 
 ! Time-dependent and workspace state.
    INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for spatial/category input.
-   INTEGER, DIMENSION(NELEE) :: ISORT    !! Element processing order, normally sorted from highest water level downward.
-   INTEGER, DIMENSION(NELEE) :: NHSAT    !! Unused legacy saturation-state array with no current producer or consumer.
    DOUBLEPRECISION, DIMENSION(NELEE) :: DRAINA !! Canopy drainage reaching the surface by element (m/s).
    DOUBLEPRECISION, DIMENSION(NELEE) :: DUMMY  !! Floating-point workspace for spatial input and validation.
    DOUBLEPRECISION, DIMENSION(NELEE) :: ESOILA !! Soil-surface evaporation rate by element (m/s).
@@ -174,15 +142,13 @@ MODULE AL_C
 
    DOUBLEPRECISION, DIMENSION(NELEE, NSEDEE) :: SBERR !! Sediment balance-error state by element and size fraction.
 
-   DOUBLEPRECISION DTUZ   !! Current coupled VSS/ET timestep in seconds (s).
-   DOUBLEPRECISION UZNEXT !! Current model timestep expressed in hours (h).
 !PRIVATE :: NELEE, LLEE, NLFEE, NVSEE, NXEE, NYEE, NSEDEE, NVEE, NLYREE, NSEE
 
 CONTAINS
 
 !> Allocates and zero-initializes active VSS topology and timestep state.
 !>
-!> [[vsmod:vsconc]] calls this routine once after `top_cell_no` and
+!> [[vs_connectivity:VSCONC]] calls this routine once after `top_cell_no` and
 !> `total_no_elements` have been established and before it builds vertical
 !> cell connectivity. Later VSS, ET, balance, contaminant, nitrate, result,
 !> and visualisation routines use the allocated state.
@@ -243,8 +209,8 @@ CONTAINS
 
 !> Allocates and zero-initializes VSS cell and soil-layer geometry.
 !>
-!> [[vsmod:vsin]] calls this routine once before [[vsmod:vsread]] reads the
-!> soil/lithology layers and before [[vsmod:vsconc]] constructs the vertical
+!> [[vs_input:VSIN]] calls this routine once before [[vs_input:VSREAD]] reads the
+!> soil/lithology layers and before [[vs_connectivity:VSCONC]] constructs the vertical
 !> mesh. `DELTAZ` and `ZVSNOD` retain the compile-time vertical capacity
 !> `LLEE`, while the layer arrays retain `NLYREE`; their element extent is the
 !> active `total_no_elements`.
@@ -291,8 +257,8 @@ CONTAINS
 
 !> Allocates and zero-initializes the root-density function table.
 !>
-!> [[frmod:frinit]] calls this routine once after `NV` has been read and before
-!> [[frmod:inet]] reads ET17 root-density values. The allocated shape is
+!> [[frame_setup:FRINIT]] calls this routine once after `NV` has been read and before
+!> [[et_input:INET]] reads ET17 root-density values. The allocated shape is
 !> `(NV,LLEE)`, but
 !> only `RDF(vegetation,1:NRD(vegetation))` is populated and subsequently used.
 !> ET17 supplies node-depth/value pairs from the surface downward; the depths

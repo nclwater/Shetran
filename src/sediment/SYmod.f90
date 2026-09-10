@@ -85,9 +85,9 @@
 !> or written anywhere in this file. The one-time Ackers-White constant setup
 !> it used to guard (`K2_syackw`, `DGRMAX_syackw`, `ROOT32_syackw`) was
 !> converted to compile-time `PARAMETER`s local to [[syackw]] because the
-!> constants it depends on (`GRAVTY`, `RHOSED`, `RHOWAT`, `VISCOS` from
-!> `CONST_SY`) are themselves `PARAMETER`s. `FIRST_syackw` is dead state left
-!> behind by that change.
+!> constants it depends on (`GRAVITY`, `RHO_SEDIMENT`, `RHO_WATER_SEDIMENT`,
+!> `NU_WATER` from [[mod_parameters]]) are themselves `PARAMETER`s.
+!> `FIRST_syackw` is dead state left behind by that change.
 !> @endnote
 !>
 !> @history
@@ -106,16 +106,20 @@
 !> | 2026-05-04 to 2026-05-10 | SvB | 4.6.1 | Moved [[symain]]'s large work arrays from automatic (stack) local arrays to module-level `ALLOCATABLE` storage allocated once by [[initialise_symain_workspace]], fixing a stack-overflow crash under Windows; an intermediate state that re-`ALLOCATE`d these arrays on every call was corrected by adding the allocate-once guard. |
 !> @endhistory
 MODULE SYmod
-   USE SGLOBAL
+   USE array_limits, ONLY: nelee, nlfee, NLYREE, NSEDEE, NSEE, NVEE, nxee, nyee
+   USE element_geometry, ONLY: DXQQ, DYQQ, ZGRUND
+   USE simulation_clock, ONLY: UZNOW
 !USE AL_P
    USE mod_load_filedata, ONLY: ALCHKI, ALCHK, ALALLF, ALREAD
 
    USE tolerance_testing, ONLY: idimje, dimje, iszero, gezero, gtzero, notzero, isone, notone, eqmarker
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, FID_logfile
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             half, ione1, izero1, one, one1, two, zero, zero1, GRAVITY, &
+                             RHO_SEDIMENT, RHO_WATER_SEDIMENT, NU_WATER
+   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
+   USE file_units, ONLY: FID_logfile
 
    USE UTILSMOD, ONLY: DCOPY
-   USE CONST_SY
 
    IMPLICIT NONE
 
@@ -194,9 +198,9 @@ MODULE SYmod
    LOGICAL, ALLOCATABLE :: BARM(:) !! True where fine sediment is protected by bed armouring, from [[syfine]].
    LOGICAL, ALLOCATABLE :: LDUM(:) !! Logical workspace for `ALCHK`/`ALCHKI` checks in [[syerr1]]-[[syerr3]].
 
-   DOUBLE PRECISION, PARAMETER :: K1_syovtr = 0.05D0*RHOWAT**2/((RHOSED - RHOWAT)**2*SQRT(GRAVTY)) !! Engelund-Hansen overland-capacity coefficient.
-   DOUBLE PRECISION, PARAMETER :: K3_syovtr = 2.45D0*(RHOSED/RHOWAT)**(-0.4D0)/SQRT((RHOSED - RHOWAT)*GRAVTY) !! Yalin overland-capacity coefficient.
-   DOUBLE PRECISION, PARAMETER :: K4_syovtr = 0.635D0/SQRT(RHOWAT) !! Yalin overland-capacity coefficient.
+   DOUBLE PRECISION, PARAMETER :: K1_syovtr = 0.05D0*RHO_WATER_SEDIMENT**2/((RHO_SEDIMENT - RHO_WATER_SEDIMENT)**2*SQRT(GRAVITY)) !! Engelund-Hansen overland-capacity coefficient.
+   DOUBLE PRECISION, PARAMETER :: K3_syovtr = 2.45D0*(RHO_SEDIMENT/RHO_WATER_SEDIMENT)**(-0.4D0)/SQRT((RHO_SEDIMENT - RHO_WATER_SEDIMENT)*GRAVITY) !! Yalin overland-capacity coefficient.
+   DOUBLE PRECISION, PARAMETER :: K4_syovtr = 0.635D0/SQRT(RHO_WATER_SEDIMENT) !! Yalin overland-capacity coefficient.
 
    PRIVATE
 
@@ -389,8 +393,8 @@ CONTAINS
       DOUBLE PRECISION, PARAMETER :: F16 = 0.16D0, F50 = 0.5D0, F56 = 0.56D0, F84 = 0.84D0
       DOUBLE PRECISION, PARAMETER :: THIRD = 1.0D0/3.0D0
 
-      DOUBLE PRECISION, PARAMETER :: KRHO = RHOSED/RHOWAT - 1.0D0
-      DOUBLE PRECISION, PARAMETER :: K2_syackw = (GRAVTY*KRHO/VISCOS**2)**THIRD
+      DOUBLE PRECISION, PARAMETER :: KRHO = RHO_SEDIMENT/RHO_WATER_SEDIMENT - 1.0D0
+      DOUBLE PRECISION, PARAMETER :: K2_syackw = (GRAVITY*KRHO/NU_WATER**2)**THIRD
       DOUBLE PRECISION, PARAMETER :: DGRMAX_syackw = 10.0D0**(ONE/F56) + DGRSML
       DOUBLE PRECISION, PARAMETER :: ROOT32_syackw = SQRT(32.0D0)
       DOUBLE PRECISION :: AAW, ARXLE, CAW, DAAA, DBED16, DBED50, DBED84, DGR
@@ -411,7 +415,7 @@ CONTAINS
          IF (ISACKW == 1) ACKW(2, SED) = FA(DGR)
          ACKW(3, SED) = 1.34D0 + 9.66D0/DGR
          ACKW(4, SED) = 10.0D0**((2.86D0 - LGR)*LGR - 3.53D0)
-         ACKW(5, SED) = ONE/SQRT(GRAVTY*KRHO*DRSED(SED))
+         ACKW(5, SED) = ONE/SQRT(GRAVITY*KRHO*DRSED(SED))
       END DO
 
       ! Zero GSED array slice
@@ -438,7 +442,7 @@ CONTAINS
                H10 = 10.0D0*DWAT1E
 
                ! Determine shear velocity and water flow velocity
-               USTR = SQRT(TAUJ(LINK, FACE)/RHOWAT)
+               USTR = SQRT(TAUJ(LINK, FACE)/RHO_WATER_SEDIMENT)
                UK = ZERO
                IF (ARXLE > ZERO) UK = QK/ARXLE
 
@@ -877,7 +881,7 @@ CONTAINS
 
       ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: ZZ5 = 0.05D0
-      DOUBLE PRECISION, PARAMETER :: k1_sycltr = 8.5D0/SQRT(RHOWAT)
+      DOUBLE PRECISION, PARAMETER :: k1_sycltr = 8.5D0/SQRT(RHO_WATER_SEDIMENT)
 
       INTEGER :: FACE, IEND, ISIDE, LINK, NFP1, NSDWAT, SED, SGN
       DOUBLE PRECISION :: CONCID, DCSUM, DUM, FDSUM, FRACT, KQ, QK
@@ -1372,8 +1376,8 @@ CONTAINS
 
       ! High-Performance Fix: Compile-time evaluation of constants
       ! (Completely replaces the runtime FIRST_sycrit block)
-      DOUBLE PRECISION, PARAMETER :: K1_sycrit = 1.0D0/(SQRT(RHOWAT)*VISCOS)
-      DOUBLE PRECISION, PARAMETER :: K2_sycrit = (RHOSED - RHOWAT)*GRAVTY
+      DOUBLE PRECISION, PARAMETER :: K1_sycrit = 1.0D0/(SQRT(RHO_WATER_SEDIMENT)*NU_WATER)
+      DOUBLE PRECISION, PARAMETER :: K2_sycrit = (RHO_SEDIMENT - RHO_WATER_SEDIMENT)*GRAVITY
       DOUBLE PRECISION, PARAMETER :: K3_sycrit = 1.83D0*LOG(10.0D0)
 
       INTEGER :: IS
@@ -1574,7 +1578,7 @@ CONTAINS
       ! Locals, etc
       INTEGER          :: FACE, IEND, LINK, NFP1, SED, SGN
       DOUBLE PRECISION :: DWAT1E, GD, QK
-      DOUBLE PRECISION, PARAMETER :: KG_syengh = 0.05D0/(SQRT(GRAVTY)*(RHOSED/RHOWAT - 1.0D0)**2)
+      DOUBLE PRECISION, PARAMETER :: KG_syengh = 0.05D0/(SQRT(GRAVITY)*(RHO_SEDIMENT/RHO_WATER_SEDIMENT - 1.0D0)**2)
 
       ! External/Module functions implicitly referenced
       ! LOGICAL :: GTZERO
@@ -2778,7 +2782,7 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
       ! * Calculate settling velocity for fines ( first call only )
       IF (FIRST_syfine) THEN
          FIRST_syfine = .FALSE.
-         WSED_syfine = DRSEDF**2*GRAVTY*(RHOSED - RHOWAT)/(18.0D0*RHOWAT*VISCOS)
+         WSED_syfine = DRSEDF**2*GRAVITY*(RHO_SEDIMENT - RHO_WATER_SEDIMENT)/(18.0D0*RHO_WATER_SEDIMENT*NU_WATER)
       END IF
 
       ! * Loop over channel links
@@ -3763,7 +3767,7 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
 
       !----------------------------------------------------------------------*
 
-      PRSGOS = PI*RHOWAT*RHOWAT*GRAVTY/6.0D0
+      PRSGOS = PI*RHO_WATER_SEDIMENT*RHO_WATER_SEDIMENT*GRAVITY/6.0D0
 
       DO NVEG = 1, NV
          XDRIPE = XDRIP(NVEG)
@@ -4629,7 +4633,7 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
             SLOPEJ(IEL, FACE) = SLOPEE
 
             ! * Calculate flow shear stress at the ground surface
-            TAUJE = RHOWAT*GRAVTY*DWAT1E*SLOPEE
+            TAUJE = RHO_WATER_SEDIMENT*GRAVITY*DWAT1E*SLOPEE
             TAUJ(IEL, FACE) = TAUJE
 
             ! * Find maximum flow rate so far and TAUJ for that face

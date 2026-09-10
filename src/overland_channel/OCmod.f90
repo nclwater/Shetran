@@ -11,14 +11,14 @@
 !> current, and next rows, inverted row by row, and then back-substituted in a
 !> downward sweep. Channel conveyance is derived from the OC input-file
 !> width/depth cross-section tables and Strickler roughness coefficients
-!> through [[ocmod2:conveyan]]. Boundary categories, channel geometry, and
+!> through [[oc_conveyance:CONVEYAN]]. Boundary categories, channel geometry, and
 !> roughness controls correspond to the manual's Overland/Channel Module
 !> section (records `OC1`-`OC41`).
 !>
 !> `STRXX` and `STRYY` (held in [[ocqdqmod]]) normally store the directional
 !> Strickler roughness read from the OC records. A negative `STRXX` value is
 !> allowed by the current checker as a surface-storage marker;
-!> [[ocqdqmod:ocqdq]] interprets its magnitude as a millimetre-scale threshold
+!> [[oc_stage_discharge:OCQDQ]] interprets its magnitude as a millimetre-scale threshold
 !> and substitutes fixed effective roughness values during face-flow
 !> calculation.
 !>
@@ -28,24 +28,30 @@
 !> | 1989-1998 | GP/RAH | 2.0-4.2 | Developed the implicit OC scheme, banks, hot-start state migration, boundary-condition arrays, row indexing, and merged channel cross-section lookup table `XSTAB`. |
 !> | 2008-12 | JE | 4.3.5F90 | Created as part of the Fortran 90 conversion, replacing part of the legacy OC `.F` files. |
 !> | 2026-05-10 | SvB | 4.6.1 | Moved the OC solver, water-surface, discharge, and index work arrays to allocatable storage (see [[initialise_ocsim_workspace]]). |
-!> | 2026-09-07 | SvB | 4.6.1 | Routed the previously unchecked `READ` statements in [[ocini]], [[jeocbc]], [[ocltl]], [[ocplf]], and [[ocread]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`. |
+!> | 2026-09-07 | SvB | 4.6.1 | Routed the previously unchecked `READ` statements in [[ocini]], [[jeocbc]], [[ocltl]], [[ocplf]], and [[ocread]] through [[error_status:errstat_read]], reporting `IOSTAT`/`IOMSG`. |
 !> @endhistory
 MODULE OCmod
-   USE SGLOBAL
-   USE AL_C, ONLY: IDUM, NBFACE, CWIDTH, ZBFULL, &
-                   DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, ICMRF2, &
-                   TIH, DHF, CLENTH, CLENTH, PNETTO, QH, QOC, LINKNS, ARXL
-   USE AL_D, ONLY: DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, OCD, ESWA, QMAX, NOCBCC, &
-                   NOCBCD, LCODEX, LCODEY, NOCTAB, OHB, OFB
-   USE AL_G, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
+   USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, NXSCEE, nyee
+   USE element_geometry, ONLY: cellarea, total_no_elements, total_no_links, ZGRUND
+   USE AL_C, ONLY: IDUM, CWIDTH, ZBFULL, DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, CLENTH, CLENTH, &
+                  PNETTO, QH, QOC, LINKNS, ARXL
+   USE element_geometry, ONLY: NBFACE, DHF
+   USE grid_topology, ONLY: ICMRF2
+   USE simulation_clock, ONLY: TIH
+   USE AL_D, ONLY: DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, ESWA, QMAX, NOCBCC, NOCBCD, LCODEX, LCODEY, &
+                  NOCTAB
+   USE file_units, ONLY: OCD, OHB, OFB
+   USE grid_topology, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
    USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE mod_load_filedata, ONLY: ALCHK, ALCHKI
 
    USE tolerance_testing, ONLY: gtzero, iszero, notzero, eqmarker
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
-                        ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             half, ione1, izero1, one, zero, zero1
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, &
+                  ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE file_units, ONLY: FID_logfile
 
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &
                      HRFZZ, qsazz, INITIALISE_OCMOD  !these needed only for ad
@@ -205,14 +211,14 @@ CONTAINS
 !> `NROWF`, `NROWL`, and `MAX_ROW_WIDTH`. The program supports one model per
 !> execution; a second call without intervening finalisation is a lifecycle
 !> error. Static topology is not duplicated here: [[ocsim]] passes `ICMREF`
-!> and `ICMRF2` to [[ocmod2:ocfix]] directly.
+!> and `ICMRF2` to [[oc_node_solver:OCFIX]] directly.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-05-10 | SvB | 4.6.1 | Added this allocator while moving `AA`, `DD`, `FF`, `BB`, `GG`, `CC`, `EE`, `TM1`, `TM2`, `TV1`, `TV2`, `inhrf`, `GGGETHRF`, `inqsa`, `GGGETQSA`, `ijedum`, and `ijedum2` from automatic locals in [[ocsim]] to allocatable module state. |
-!> | 2026-08-20 | - | - | Removed the duplicate topology work arrays after [[ocmod2:ocfix]] was changed to accept `ICMREF` and `ICMRF2` in their native layouts. |
-!> | 2026-08-22 | - | - | Removed the `INHRF`, `GGGETHRF`, `INQSA`, and `GGGETQSA` state buffers after [[ocmod2:ocfix]] was changed to correct `HRFZZ`/`QSAZZ` in place. |
+!> | 2026-08-20 | - | - | Removed the duplicate topology work arrays after [[oc_node_solver:OCFIX]] was changed to accept `ICMREF` and `ICMRF2` in their native layouts. |
+!> | 2026-08-22 | - | - | Removed the `INHRF`, `GGGETHRF`, `INQSA`, and `GGGETQSA` state buffers after [[oc_node_solver:OCFIX]] was changed to correct `HRFZZ`/`QSAZZ` in place. |
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INITIALISE_OCSIM_WORKSPACE()
@@ -374,7 +380,7 @@ CONTAINS
 !> The routine uses the element topology in `ICMREF`, multi-link node
 !> expansion in `ICMRF2`, flow derivatives `DQ0ST`, `DQIST`, and `DQIST2`,
 !> bank exchange flows `QBKB` and `QBKF`, current face flows from
-!> [[ocmod2:getqsa]], row indices `NELIND`, and channel cross-section tables
+!> [[oc_node_solver:getqsa]], row indices `NELIND`, and channel cross-section tables
 !> `XINH`/`XINW`.
 !>
 !> For fixed-head boundary types `IBC=3` and `IBC=9`, the assembled row simply
@@ -648,7 +654,7 @@ CONTAINS
 !> adjacent elements and extends the impermeable condition across the ends of
 !> any adjacent bank elements. The reciprocal face is taken from
 !> `ICMREF(:,9:12)` so the table remains consistent with the topology built
-!> by [[frmod:frind]].
+!> by [[frame_geometry:FRIND]].
 !>
 !> Boundary type codes are:
 !>
@@ -1108,7 +1114,7 @@ CONTAINS
 !> positive-roughness test for both `STRXX` and `STRYY`; however, the final
 !> response to accumulated errors is a warning rather than a fatal error.
 !> This preserves the current surface-storage convention where negative
-!> `STRXX` values can be passed through to [[ocqdqmod:ocqdq]].
+!> `STRXX` values can be passed through to [[oc_stage_discharge:OCQDQ]].
 !>
 !> Channel cross-section checks require the first depth to be zero, depth
 !> values to be strictly increasing, widths to be non-decreasing, and the
@@ -1125,8 +1131,9 @@ CONTAINS
 !> @warning
 !> `LDUM1` is declared `INTENT(INOUT)` here (the legacy routine declared it
 !> `INTENT(IN)`) so it can be passed as the check-result buffer to
-!> `ALCHK`/`ALCHKI`; the `USE CONST_SY` import is unused in this routine's
-!> current body.
+!> `ALCHK`/`ALCHKI`. The routine also carried a `USE` of the retired
+!> `CONST_SY` module that its body never referenced; the import went with the
+!> module.
 !> @endwarning
 !>
 !> @history
@@ -1139,7 +1146,6 @@ CONTAINS
 !> @endhistory
    SUBROUTINE OCCHK2(DDUM1A, DDUM1B, SZLOG, LDUM1)
 
-      USE CONST_SY
 
       IMPLICIT NONE
 
@@ -1254,7 +1260,7 @@ CONTAINS
 !> `HINPUT` interpolates or advances head values for `NOCHB` categories using
 !> `TIH`, `OCNOW`, and `OCNEXT`. `FINPUT` does the same for `NOCFB` flux
 !> categories. The resulting `QOCF` values are prescribed inflow rates
-!> consumed by [[ocmod2:ocqbc]].
+!> consumed by [[oc_discharge:OCQBC]].
 !>
 !> @warning
 !> [[OCINI]] does not explicitly initialise `HOCLST`, `HOCNXT`, `QFLAST`,
@@ -1347,7 +1353,7 @@ CONTAINS
 !> MAX\_ROW\_WIDTH = \max_j n_j,
 !> \]
 !>
-!> evaluated by [[oc_row_width:max_active_row_width]] once every row start,
+!> evaluated by [[oc_indexing:MAX_ACTIVE_ROW_WIDTH]] once every row start,
 !> including the end-of-last-row marker `NROWST(NY+1)`, has been written.
 !>
 !> Entry requirements retained from the legacy routine are:
@@ -2200,8 +2206,8 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 1989-1998 | GP/RAH | 3.4-4.2 | Developed the row-wise implicit solve, [[OCFIX]] flow-correction split, and current `OCABC` argument list. |
 !> | 2009-01 | JE | - | Restructured the row loop for automatic differentiation. |
-!> | 2026-08-20 | - | - | Passed `ICMREF` and `ICMRF2` directly to [[ocmod2:ocfix]], removing the per-timestep topology staging. |
-!> | 2026-08-22 | - | - | Deleted the per-timestep staging of `HRFZZ`/`QSAZZ` into and out of [[ocmod2:ocfix]] buffers, which cost `10*total_no_elements` accessor calls and three round trips of the OC state. |
+!> | 2026-08-20 | - | - | Passed `ICMREF` and `ICMRF2` directly to [[oc_node_solver:OCFIX]], removing the per-timestep topology staging. |
+!> | 2026-08-22 | - | - | Deleted the per-timestep staging of `HRFZZ`/`QSAZZ` into and out of [[oc_node_solver:OCFIX]] buffers, which cost `10*total_no_elements` accessor calls and three round trips of the OC state. |
 !> @endhistory
    SUBROUTINE OCSIM
 
@@ -2359,10 +2365,10 @@ CONTAINS
          ! CHECK FOR SPURIOUS NEGATIVE FLOWS, AND RECALCULATE WATER LEVELS
          ! IF REQUIRED.  NB. DOES NOT CHECK BOUNDARY FLOWS
          !
-         ! [[ocmod2:ocfix]] corrects `HRFZZ`/`QSAZZ` in place. The former
+         ! [[oc_node_solver:OCFIX]] corrects `HRFZZ`/`QSAZZ` in place. The former
          ! staging of the whole OC state into `inhrf`/`inqsa` and back out of
          ! `GGGETHRF`/`GGGETQSA` through the element accessors existed only for
-         ! tangent debugging; see the AD note in [[ocmod2:ocfix]] for how to
+         ! tangent debugging; see the AD note in [[oc_node_solver:OCFIX]] for how to
          ! reinstate an argument-passed form for an AD build without paying for
          ! it here.
          CALL OCFIX(ICMREF, ICMRF2, total_no_elements, dtoc)
@@ -2472,7 +2478,7 @@ CONTAINS
 !> \]
 !>
 !> The same bankfull area is retained per link as
-!> `XAFULL(link) = XAREA(link,NXSECT(link))` for [[ocqdqmod:ocqdq]]. It
+!> `XAFULL(link) = XAREA(link,NXSECT(link))` for [[oc_stage_discharge:OCQDQ]]. It
 !> depends only on the cross-section tables, so it is built here once rather
 !> than on the first [[ocsim]] call.
 !>
@@ -2510,7 +2516,7 @@ CONTAINS
 !> `CONVEYAN` converts \(A_j\), depth, and roughness `STRXX` into
 !> conveyance. For `OCXS` it is called with `ty=0`, so the main branch used
 !> away from near-zero depth is the Gauckler-Manning-Strickler-style
-!> relation implemented in [[ocmod2:conveyan]]:
+!> relation implemented in [[oc_conveyance:CONVEYAN]]:
 !>
 !> \[
 !> C_j = STRXX\,A_j\,h_j^{2/3}.
@@ -2610,7 +2616,7 @@ CONTAINS
             W2 = (2.0d0 - ALPHA)*XINW(ielr, I) + ALPHA*XINW(ielr, I + 1)
             XAJ = XAREA(ielr, I) + W2*DH*half
 
-            ! XCJ = STR * XAJ * HJ**F23
+            ! XCJ = STR * XAJ * HJ**TWO_THIRDS
             CALL CONVEYAN(str, hj, xcj, adumy, 0, xaj)
 
             XSTAB(1, J, ielr) = HJ

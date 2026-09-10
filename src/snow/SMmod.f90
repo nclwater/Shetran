@@ -14,7 +14,7 @@
 !> millimetres. [[sm]] replaces `PNET` with the meltwater delivered from the
 !> bottom of the snowpack, so downstream [[etmod]]/[[vsmod]]/[[ocmod]]
 !> calculations receive liquid-water input rather than raw snowfall. [[smin]]
-!> is the entry point called from [[etmod:etin]]; it dispatches to [[smet]]
+!> is the entry point called from [[et_process:ETIN]]; it dispatches to [[smet]]
 !> (snow/freezing-temperature ET) or [[sm]] (melt routing) as required.
 !>
 !> The manual's snowmelt input file supplies:
@@ -46,17 +46,21 @@
 !> | 2026-04-03 to 2026-04-13 | SvB | 4.6.1 | Modernisation pass: replaced the `1H0` Hollerith edit descriptor, removed `GOTO`-driven control flow in favour of structured `IF`/`DO` blocks with explicit `IMPLICIT NONE`/`INTENT`, replaced `DLOG` with the generic `LOG`, and pre-computed the repeated `ESAT`/`ESATA` temperature-ratio subexpression (see [[sm]] for details). |
 !> @endhistory
 MODULE SMmod
-   USE SGLOBAL
-!USE SGLOBAL, ONLY : NVEE
+   USE array_limits, ONLY: max_no_snowmelt_slugs, NVEE
+   USE element_geometry, ONLY: total_no_elements, ZGRUND
 
    USE tolerance_testing, ONLY: gtzero, lezero, ltzero, iszero
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             five, one, three, two, zero, RHO_AIR_SNOW, RHO_WATER_SNOW, &
+                             CP_AIR_SNOW, CP_WATER, CP_ICE, L_FUSION, L_VAPORISATION_SNOW, &
+                             GROUND_HEAT_FLUX_SNOW
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, ERR_STOP
 
-   USE AL_C, ONLY: nvc, dtuz, ispack, nrd
-   USE AL_D, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, &
-                   msm, nsmc, nrainc, nmc, nsmt, precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, &
-                   timeuz, u, vpd, VHT
+   USE AL_C, ONLY: nvc, ispack, nrd
+   USE simulation_clock, ONLY: DTUZ
+   USE AL_D, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, msm, nsmc, nrainc, nmc, nsmt, &
+                  precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, u, vpd, VHT
+   USE simulation_clock, ONLY: TIMEUZ
    IMPLICIT NONE
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: tmelt !! Release time for each routed meltwater slug (h).
@@ -79,14 +83,6 @@ MODULE SMmod
    INTEGER         :: IMET(NVEE) !! Meteorological-station element index for each vegetation type in energy-budget mode.
    INTEGER         :: NSD         !! Initial snowpack mode: uniform (`0`) or spatial (`1`).
    DOUBLEPRECISION :: HEAD(20)   !! Snow input title/header workspace retained for legacy I/O.
-   DOUBLEPRECISION, PARAMETER :: RHOA = 1.29d0      !! Density of air (kg/m^3).
-   DOUBLEPRECISION, PARAMETER :: RHOW = 1000.0d0    !! Density of water (kg/m^3).
-   DOUBLEPRECISION, PARAMETER :: CPA = 1003.0d0     !! Specific heat of air at constant pressure (J/kg/C).
-   DOUBLEPRECISION, PARAMETER :: CPW = 4187.0d0     !! Specific heat of water (J/kg/C).
-   DOUBLEPRECISION, PARAMETER :: CPI = 2093.0d0     !! Specific heat of ice (J/kg/C).
-   DOUBLEPRECISION, PARAMETER :: LWI = 334000.0d0   !! Latent heat of fusion (J/kg).
-   DOUBLEPRECISION, PARAMETER :: LVW = 2500000.0d0  !! Latent heat of vaporisation (J/kg).
-   DOUBLEPRECISION, PARAMETER :: HFG = 2.0d0        !! Ground heat flux to snow (W/m^2).
 
    PRIVATE
    PUBLIC :: SMIN, rhos, head, binsmp, ddf, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt, initialise_smmod
@@ -96,7 +92,8 @@ CONTAINS
 !>
 !> The routine allocates `TMELT` and `SMELT` once, on the first call, using
 !> the maximum configured number of snowmelt slugs (`max_no_snowmelt_slugs`,
-!> see [[sglobal]]) and the active element count (`total_no_elements`). It is
+!> see [[array_limits]]) and the active element count (`total_no_elements`,
+!> see [[element_geometry]]). It is
 !> called unconditionally from [[smin]] on every timestep; the local `FIRST`
 !> flag is initialised to `.TRUE.` in its declaration, which gives it an
 !> implicit `SAVE` attribute, so the guard and the allocation both run only on
@@ -220,7 +217,7 @@ CONTAINS
    !> The total heat available to the pack is
    !>
    !> \[
-   !> HFT = HFC + HFR - HFE + (HFG + RN)DTUZ.
+   !> HFT = HFC + HFR - HFE + (GROUND\_HEAT\_FLUX\_SNOW + RN)DTUZ.
    !> \]
    !>
    !> The hypothetical new snow temperature is
@@ -282,7 +279,8 @@ CONTAINS
    !>
    !> @note
    !> The routine operates mainly through module/global state imported from
-   !> [[sglobal]], [[al_c]], and [[al_d]]; its only dummy argument is the
+   !> [[array_limits]], [[mod_parameters]], [[element_geometry]], [[al_c]], and
+!> [[al_d]]; its only dummy argument is the
    !> element index. The energy-budget saturation-vapour-pressure polynomial
    !> is evaluated for both the snow surface and the air using a shared
    !> `TEMP_RATIO` local to avoid repeating the `(T/5-3)` subexpression; this
@@ -367,16 +365,16 @@ CONTAINS
          END IF
 
          ! HEAT FLUX FROM CONVECTION IN TIME DTUZ (J/M^^2)
-         HFC = RHOA*CPA*DN*(TA(MS) - TS(IEL))*DTUZ
+         HFC = RHO_AIR_SNOW*CP_AIR_SNOW*DN*(TA(MS) - TS(IEL))*DTUZ
 
          ! HEAT FROM RAINFALL OR SNOWFALL (MM OF WATER) IN TIME DTUZ (J/M^^2)
          ! (NOTE THAT SF IS IN MM OF SNOW)
          ! IF TEMPERATURE IS ABOVE FREEZING, HEAT IS FROM RAIN
-         ! ^^^^^^ REMOVED + LWI FROM END OF NEXT EQUATION
-         HFR = CPW*TA(MS)
+         ! ^^^^^^ REMOVED + L_FUSION FROM END OF NEXT EQUATION
+         HFR = CP_WATER*TA(MS)
          ! IF TEMPERATURE IS BELOW FREEZING, HEAT IS FROM SNOW
-         IF (LEZERO(TA(MS))) HFR = CPI*(TA(MS) - TS(IEL))
-         HFR = RHOW*SF(IEL)*RHOS*HFR/1000.0d0
+         IF (LEZERO(TA(MS))) HFR = CP_ICE*(TA(MS) - TS(IEL))
+         HFR = RHO_WATER_SNOW*SF(IEL)*RHOS*HFR/1000.0d0
 
          ! CALCULATE HEAT FROM WATER PHASE CHANGE
          ! High-Performance Fix: Pre-calculate the temperature ratio to avoid repeated division/subtraction
@@ -393,18 +391,18 @@ CONTAINS
          QA = (0.62197d0*EA)/((PO/1.0045d0) - (0.37803d0*EA))
 
          ! MASS EVAPORATED (E) IN KG/S/M^^2
-         E = RHOA*DN*(Q - QA)
+         E = RHO_AIR_SNOW*DN*(Q - QA)
 
          ! HEAT FROM PHASE CHANGE IN TIME DTUZ (J/M^^2)
-         HFE = (LVW + LWI - CPI*TS(IEL))*E*DTUZ
+         HFE = (L_VAPORISATION_SNOW + L_FUSION - CP_ICE*TS(IEL))*E*DTUZ
 
          ! TOTAL HEAT FLUX FROM AIR AND SOIL TO SNOW IN TIME DTUZ (J/M^^2)
-         HFT = HFC + HFR - HFE + (HFG + RN(MS))*DTUZ
+         HFT = HFC + HFR - HFE + (GROUND_HEAT_FLUX_SNOW + RN(MS))*DTUZ
 
          ! Fix incorporated to stop excessive energy fluxes in/out
          ! of thin snowpacks. SPA, 05/11/92.
          IF ((SD(IEL) <= 100.0d0) .AND. (LTZERO(HFT))) THEN
-            HFT = (TA(MS) - TS(IEL))*(CPI*RHOS*SD(IEL))
+            HFT = (TA(MS) - TS(IEL))*(CP_ICE*RHOS*SD(IEL))
          END IF
 
          ! CALCULATE SNOWMELT USM (MM OF SNOW)
@@ -414,7 +412,7 @@ CONTAINS
          ! ( N.B. RHOS IS SPECIFIC GRAVITY AND SD IS IN MM. THEREFORE
          ! SNOWDEPTH IN METRES * SNOW DENSITY, WHICH IS REQUIRED IN
          ! THE FOLLOWING, IS (SD/1000)*(RHOS*1000) WHICH EQUALS SD*RHOS.)
-         TS2 = (HFT/(CPI*RHOS*SD(IEL))) + TS(IEL)
+         TS2 = (HFT/(CP_ICE*RHOS*SD(IEL))) + TS(IEL)
          IF (TS2 < -50.0d0) TS2 = -50.0d0
 
          IF (LTZERO(TS2)) THEN
@@ -422,9 +420,9 @@ CONTAINS
             USM = 0.0d0
          ELSE
             ! SNOW TEMPERATURE > 0 SO CALCULATE EXCESS HEAT AVAILABLE FOR MELTING SNOW
-            HFT = HFT - ((-TS(IEL))*CPI*RHOS*SD(IEL))
+            HFT = HFT - ((-TS(IEL))*CP_ICE*RHOS*SD(IEL))
             TS2 = zero
-            USM = HFT/(LWI*RHOS)
+            USM = HFT/(L_FUSION*RHOS)
          END IF
          TS(IEL) = TS2
       END IF
@@ -577,7 +575,7 @@ CONTAINS
    !> `RHOSAR(IEL)`; if that value is zero, the default `RHODEF` is used.
    !>
    !> @note
-   !> [[etmod:etin]] documents cross-module consequences of `SMET`'s state:
+   !> [[et_process:ETIN]] documents cross-module consequences of `SMET`'s state:
    !> `DRAIN` is never assigned here, `PNET` can be left unchanged from a
    !> previous element when neither a snowpack nor precipitation triggers
    !> [[sm]], and the `S(1:NRD)` zeroing here does not align with the
@@ -673,7 +671,7 @@ CONTAINS
    !> `SMIN` decides whether snow processing is needed, converts the current
    !> net precipitation to snowpack input, calls [[sm]] when snowfall or
    !> snowpack is present, or calls [[smet]] when only snowpack
-   !> evaporation/sublimation is required. It is called from [[etmod:etin]].
+   !> evaporation/sublimation is required. It is called from [[et_process:ETIN]].
    !>
    !> | State | Action |
    !> |:------|:-------|
@@ -688,7 +686,7 @@ CONTAINS
    !>
    !> @note
    !> This routine has no result-affecting side effects beyond those
-   !> described above and in [[sm]]/[[smet]]; [[etmod:etin]] documents further
+   !> described above and in [[sm]]/[[smet]]; [[et_process:ETIN]] documents further
    !> cross-module caveats about the state `SMIN`'s callees leave behind.
    !> @endnote
    !>

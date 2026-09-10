@@ -25,7 +25,8 @@
 !> | 2026-03 | SB | 4.6.1 | Made eight runtime arrays allocatable and added active-size allocation. |
 !> @endhistory
 MODULE CONT_CC
-   USE SGLOBAL, ONLY: NELEE, NCONEE, LLEE, NSEE, NSEDEE, NLFEE, total_no_elements, top_cell_no, total_no_links
+   USE array_limits, ONLY: nelee, NCONEE, LLEE, NSEE, NSEDEE, nlfee
+   USE element_geometry, ONLY: total_no_elements, top_cell_no, total_no_links
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc
@@ -83,7 +84,7 @@ CONTAINS
 
 !> Allocates and zero-initialises the active contaminant state arrays.
 !>
-!> [[run_sim:simulation]] calls this routine when contaminant transport is
+!> [[simulation_driver:SIMULATION]] calls this routine when contaminant transport is
 !> enabled, after [[visualisation_interface_left:get_ncon_early]] has read
 !> `NCON` and the model dimensions have been established.
 !>

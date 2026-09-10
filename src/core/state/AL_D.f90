@@ -5,7 +5,7 @@
 !> components. [[frmod]] establishes the grid, run controls, component flags,
 !> file metadata, hotstart state, and water-balance calendar. [[rest]] updates
 !> meteorological forcing and timestep control; [[etmod]], [[smmod]],
-!> [[ocmod]], and [[ocqdqmod]] produce the process arrays; [[zqmod]] allocates
+!> [[ocmod]], and [[ocqdqmod]] produce the process arrays; [[zq_tables]] allocates
 !> the optional reservoir-table metadata.
 !>
 !> Fixed arrays retain compile-time capacity bounds. Active element, link,
@@ -22,19 +22,19 @@
 !> | 7:12 | Cumulative totals of entries 1:6 (m3). |
 !> | 13:17 | Canopy, snow, subsurface, surface-water, and channel storage (m3). |
 !> | 18:19 | Current-period and cumulative aquifer-channel exchange (m3). |
-!> | 20 | Declared capacity entry; not assigned by current [[frmod:frmb]]. |
+!> | 20 | Declared capacity entry; not assigned by current [[mass_balance_report:FRMB]]. |
 !>
 !> @warning
 !> Manual section 2.2 says `PMAX` and `PALFA` are hardcoded and their FR20
-!> values ignored. In the current [[frmod:infr]], the assignments that would
+!> values ignored. In the current [[frame_setup:INFR]], the assignments that would
 !> hardcode them are commented out: both values are read from FR20 and used by
-!> [[rest:tmstep]]. `TOUTPUT` is likewise an output interval, not an absolute
+!> [[timestep_control:TMSTEP]]. `TOUTPUT` is likewise an output interval, not an absolute
 !> next-output time.
 !>
 !> No current source routine explicitly assigns `MBLINK`, `MBFACE`, or
-!> `MBFLAG`, although [[frmod:frmb]] reads them every timestep. The legacy
+!> `MBFLAG`, although [[mass_balance_report:FRMB]] reads them every timestep. The legacy
 !> binary-result metadata headed by `NSET`, and the three `*ERRC` error-count
-!> arrays read by [[rest:extra_output]], also have no current producer.
+!> arrays read by [[run_summary:extra_output]], also have no current producer.
 !> Standard Fortran therefore regards these values as undefined; a compiler's
 !> zero-filled static storage is not a portable initialization. This
 !> documentation transfer does not alter that behavior.
@@ -62,36 +62,10 @@
 !> | 2024-03-12 | SB | - | Added the optional phreatic-surface output-point input. |
 !> @endhistory
 MODULE AL_D
-   USE SGLOBAL, ONLY : NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
+   USE array_limits, ONLY: nelee, NVEE, nxee, nyee, NCONEE, nlfee, NSETEE, LLEE, NOCTAB, NCLASS
    IMPLICIT NONE
 
-   INTEGER, PARAMETER :: NCLASS = 14 !! Number of element classes supported by the legacy binary-result format.
 
-! File units occupy their rundata positions.
-   INTEGER, PARAMETER :: FRD = 10      !! Frame/common data input unit.
-   INTEGER, PARAMETER :: OCD = 12      !! Overland/channel data input unit.
-   INTEGER, PARAMETER :: ETD = 13      !! Evapotranspiration data input unit.
-   INTEGER, PARAMETER :: PPD = 14      !! Reserved precipitation-data input unit.
-   INTEGER, PARAMETER :: SMD = 15      !! Optional snowmelt data input unit.
-   INTEGER, PARAMETER :: BKD = 16      !! Optional bank-element data input unit.
-   INTEGER, PARAMETER :: MED = 19      !! Combined meteorological time-series input unit.
-   INTEGER, PARAMETER :: PRD = 20      !! Precipitation time-series input unit.
-   INTEGER, PARAMETER :: EPD = 21      !! Potential-evaporation time-series input unit.
-   INTEGER, PARAMETER :: TIM = 22      !! Time-counter/status file unit.
-   INTEGER, PARAMETER :: RES = 27      !! Legacy unformatted result-metadata file unit.
-   INTEGER, PARAMETER :: HOT = 28      !! Hotstart input/output unit.
-   INTEGER, PARAMETER :: VED = 30      !! Reserved vegetation-data input unit.
-   INTEGER, PARAMETER :: OFB = 37      !! Time-varying overland/channel flow-boundary unit.
-   INTEGER, PARAMETER :: OHB = 38      !! Time-varying overland/channel head-boundary unit.
-   INTEGER, PARAMETER :: DIS = 41      !! Regular outlet-discharge CSV output unit.
-   INTEGER, PARAMETER :: VSE = 42      !! Hotstart/VSS-state output unit.
-   INTEGER, PARAMETER :: MAS = 43      !! Mass-balance output unit.
-   INTEGER, PARAMETER :: DIS2 = 44     !! Every-timestep outlet-discharge output unit.
-   INTEGER, PARAMETER :: TAH = 45      !! Maximum-air-temperature time-series input unit.
-   INTEGER, PARAMETER :: TAL = 46      !! Minimum-air-temperature time-series input unit.
-   INTEGER, PARAMETER :: disextra = 47 !! Input unit selecting additional discharge element/face points.
-   INTEGER, PARAMETER :: zqd = 51      !! ZQ reservoir/weir-table data input unit.
-   INTEGER, PARAMETER :: pslextra = 52 !! Input unit selecting additional phreatic-surface elements.
 
 ! Static integer controls.
    INTEGER :: MSM        !! Snowmelt method: 0 disabled, 1 degree-day, or 2 energy-budget.
@@ -101,20 +75,10 @@ MODULE AL_D
    INTEGER :: MBLINK     !! Link whose selected face supplies outlet discharge to the catchment balance.
    INTEGER :: MBFACE     !! Face of `MBLINK` used for catchment-balance discharge.
    INTEGER :: MBFLAG     !! Catchment-balance schedule: 1 daily, any other value monthly.
-   INTEGER :: NXP1       !! Active grid helper value `NX+1`.
-   INTEGER :: NYP1       !! Active grid helper value `NY+1`.
-   INTEGER :: NXM1       !! Active grid helper value `NX-1`.
-   INTEGER :: NYM1       !! Active grid helper value `NY-1`.
-   INTEGER :: NXEP1      !! Capacity helper value `NXE+1`.
-   INTEGER :: NYEP1      !! Capacity helper value `NYE+1`.
    INTEGER :: NoZQTables !! Number of reservoir ZQ tables read from `zqd`.
    INTEGER :: ZQTableRef !! Index of the ZQ table selected for the current link-face calculation.
-   INTEGER, PARAMETER :: NXE = NXEE !! Legacy x workspace capacity alias.
-   INTEGER, PARAMETER :: NYE = NYEE !! Legacy y workspace capacity alias.
 
 ! Time-dependent integer state.
-   INTEGER :: NSTEP  !! Current coupled simulation timestep number.
-   INTEGER :: NRPD   !! Legacy precipitation-record counter.
    INTEGER :: NSMT   !! Current ET/snowmelt coupling control for one element.
    INTEGER :: MBYEAR !! Calendar year of the next mass-balance report.
    INTEGER :: MBMON  !! Calendar month of the next mass-balance report.
@@ -130,15 +94,11 @@ MODULE AL_D
    DOUBLEPRECISION :: PMAX    !! Maximum rainfall depth permitted in one model timestep (mm).
    DOUBLEPRECISION :: PALFA   !! Fractional timestep growth factor used by `TMSTEP`.
    DOUBLEPRECISION :: TMAX    !! Maximum/basic coupled model timestep, capped at two hours (h).
-   DOUBLEPRECISION :: CAREA   !! Total active catchment plan area (m2).
-   DOUBLEPRECISION :: BWIDTH  !! Nominal explicit-bank width used in frame geometry (m).
-   DOUBLEPRECISION :: TTH     !! Simulation end as an absolute hour count (h).
    DOUBLEPRECISION :: DTMET2  !! Separate precipitation input interval (h).
    DOUBLEPRECISION :: DTMET3  !! Separate potential-evaporation input interval (h).
    DOUBLEPRECISION :: TOUTPUT !! Interval for regular text/CSV outputs; defaults to 24 h (h).
 
 ! Per-step scalar state.
-   DOUBLEPRECISION :: UZVAL  !! Next upper-zone/VSS solution time used in hotstart handling (h).
    DOUBLEPRECISION :: OCNOW  !! Start time of the current overland/channel step (h).
    DOUBLEPRECISION :: OCNEXT !! Duration of the current overland/channel step (h).
    DOUBLEPRECISION :: HRUZ   !! Current element's surface-water depth workspace (m).
@@ -152,7 +112,6 @@ MODULE AL_D
    DOUBLEPRECISION :: CSTOLD !! Current element's canopy storage at step start (mm).
    DOUBLEPRECISION :: CPLAI  !! Current element's intercepted-area fraction, `min(CLAI,1)*PLAI`.
    DOUBLEPRECISION :: PREST  !! Unused legacy value set to `1+PALFA` during frame initialization.
-   DOUBLEPRECISION :: TIMEUZ !! Current elapsed ET/snow/VSS model time (h).
    DOUBLEPRECISION :: HOTIME !! Current/last hotstart time (h).
 
 ! Process and optional-file switches.
@@ -162,7 +121,6 @@ MODULE AL_D
    LOGICAL :: BEXOC      !! Whether overland/channel flow is active; current frame setup always sets true.
    LOGICAL :: BEXSZ      !! Whether saturated-zone flow is active; current frame setup always sets true.
    LOGICAL :: BEXSM      !! Whether snowmelt is enabled by FR25.
-   LOGICAL :: BEXTS1     !! Inactive legacy first time-series extension switch.
    LOGICAL :: BHOTPR     !! Whether periodic hotstart output is enabled.
    LOGICAL :: BHOTRD     !! Whether initial state is read from the hotstart file.
    LOGICAL :: BEXSY      !! Whether sediment transport is enabled by FR25.
@@ -173,8 +131,6 @@ MODULE AL_D
    LOGICAL :: isextrapsl !! Whether the extra phreatic-surface point-selection input is available.
 
 ! Static integer arrays.
-   INTEGER :: NGRID(NELEE)        !! Legacy element list zeroed by `FRIND` and not subsequently read.
-   INTEGER :: INGRID(NXEE,NYEE)   !! Catchment mask: zero inside the active catchment and -1 outside.
    INTEGER :: IOCORS(NSETEE)      !! Contaminant/sediment selector for each legacy result set.
    INTEGER :: NMC(NELEE)          !! Meteorological-site category by element.
    INTEGER :: LCODEX(NXEE,NYEE)   !! X-face overland/channel topology code grid.
@@ -186,27 +142,14 @@ MODULE AL_D
    INTEGER :: NOCBCD(NOCTAB,4)    !! OC boundary records: element, face, boundary type, and time-series category.
    INTEGER :: IORES(NSETEE)       !! Open unformatted output unit by legacy result set.
    INTEGER :: ICLIST(NELEE,NCLASS) !! Element numbers belonging to each legacy output class.
-   INTEGER :: NEXPO(NLFEE,2)      !! Inactive legacy link-exposure array.
    INTEGER :: ICLNUM(NCLASS)      !! Number of elements in each legacy output class.
    INTEGER, DIMENSION(:), ALLOCATABLE :: ZQTableLink !! Channel-link number for each ZQ table.
    INTEGER, DIMENSION(:), ALLOCATABLE :: ZQTableFace !! Channel-link face number for each ZQ table.
 
    INTEGER :: NSMC(NELEE) !! Number of meltwater slugs still travelling through each snowpack.
 
-   INTEGER :: FLERRC(0:100) !! Legacy flow error counts read at shutdown; no current producer was found.
-   INTEGER :: SYERRC(0:100) !! Legacy sediment error counts read at shutdown; no current producer was found.
-   INTEGER :: CMERRC(0:100) !! Legacy contaminant error counts read at shutdown; no current producer was found.
 
 ! Static real arrays.
-   DOUBLEPRECISION :: DXIN(NXEE)     !! Grid-centre spacing in the x direction; active entries are `1:NX-1` (m).
-   DOUBLEPRECISION :: DYIN(NYEE)     !! Grid-centre spacing in the y direction; active entries are `1:NY-1` (m).
-   DOUBLEPRECISION :: WIDTF(NLFEE)   !! Inactive legacy link face-width array.
-   DOUBLEPRECISION :: ZBED(NELEE)    !! Inactive legacy impermeable-bed elevation array.
-   DOUBLEPRECISION :: HFLBED(NLFEE)  !! Inactive legacy link-bed head array.
-   DOUBLEPRECISION :: ZFBED(NLFEE)   !! Inactive legacy link-bed elevation array.
-   DOUBLEPRECISION :: DZFBED(NLFEE)  !! Inactive legacy link-bed elevation-difference array.
-   DOUBLEPRECISION :: LROOT(NVEE)    !! Inactive legacy root-depth array.
-   DOUBLEPRECISION :: HFLBNK(NLFEE)  !! Inactive legacy bank-head array.
    DOUBLEPRECISION :: IOSTA(NSETEE)  !! Start time for each legacy result set (h).
    DOUBLEPRECISION :: IOSTEP(NSETEE) !! Output interval for each legacy result set (h).
    DOUBLEPRECISION :: IOEND(NSETEE)  !! End time for each legacy result set (h).
@@ -218,7 +161,6 @@ MODULE AL_D
    DOUBLEPRECISION :: ERZA(NELEE)   !! Root-zone extraction rate by element (m/s).
    DOUBLEPRECISION :: EPOT(NELEE)   !! Potential-evaporation rate by element (m/s).
    DOUBLEPRECISION :: EINTA(NELEE)  !! Canopy-interception evaporation rate by element (m/s).
-   DOUBLEPRECISION :: EPOTR(NVEE)   !! Inactive legacy potential-evaporation array by vegetation type.
    DOUBLEPRECISION :: SD(NELEE)     !! Snowpack depth by element (mm of snow).
    DOUBLEPRECISION :: TS(NELEE)     !! Snowpack temperature by element (degrees C).
    DOUBLEPRECISION :: SF(NELEE)     !! Current snowfall depth by element (mm of snow).
@@ -236,9 +178,6 @@ MODULE AL_D
    DOUBLEPRECISION :: DQIST2(NLFEE,3) !! Confluence-flow derivative by branch record and branch position.
    DOUBLEPRECISION :: ESWA(NELEE)    !! Surface-water evaporation rate by element (m/s).
    DOUBLEPRECISION :: BALANC(20)     !! Catchment water-volume terms described in the module table (m3).
-   DOUBLEPRECISION :: CMEAN(NELEE,2,NCONEE)  !! Inactive legacy dissolved-contaminant mean accumulator.
-   DOUBLEPRECISION :: SMEAN(NELEE,2,NCONEE)  !! Inactive legacy dead-space-contaminant mean accumulator.
-   DOUBLEPRECISION :: ADMEAN(NELEE,2,NCONEE) !! Inactive legacy adsorbed-contaminant mean accumulator.
 
    CHARACTER(len=200) :: RESFIL !! Path used as the stem for legacy unformatted result files.
 

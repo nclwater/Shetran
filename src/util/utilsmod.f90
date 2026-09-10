@@ -17,14 +17,17 @@
 !> | 2026-04-06 | SvB | | Removed the remaining `GOTO`s from [[hinput]]; made [[tridag]] `PURE` and changed its array arguments from assumed-shape to explicit-shape to guarantee no copy-in/copy-out overhead. |
 !> | 2026-04-13 | SvB | | Removed the remaining labelled `DO` loops and modernised [[invertmat]]; made [[dcopy]], the date/leap-year helper functions, [[jematmul_mm]], [[jematmul_vm]], [[terpo1]], [[invertmat]], [[lubksb]], and [[ludcmp]] `PURE`; fixed [[dcopy]]'s `n<-0` typo to `n<=0` and its `dy` argument's intent from `OUT` to `INOUT`. |
 !> | 2026-05-10 | SvB | | Replaced the interactive pause-and-stop in [[hour_from_date]] with `ERROR STOP`, so an invalid date halts non-interactively. |
-!> | 2026-09-07 | SvB | | Routed every `READ` in [[finput]], [[hinput]], [[areadi]], and [[areadr]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`; the breakpoint readers now distinguish a genuine read error from an expected end of file. |
+!> | 2026-09-07 | SvB | | Routed every `READ` in [[finput]], [[hinput]], [[areadi]], and [[areadr]] through [[error_status:errstat_read]], reporting `IOSTAT`/`IOMSG`; the breakpoint readers now distinguish a genuine read error from an expected end of file. |
 !> @endhistory
 MODULE utilsmod
-   USE SGLOBAL
+   USE array_limits, ONLY: nelee, nxee, nyee
+   USE element_geometry, ONLY: total_no_elements, total_no_links
    USE tolerance_testing, ONLY: iszero, iszero_a, i_iszero_a2, notzero
-   USE mod_error, ONLY: RAISE_ERROR, ERRLVL_fatal, FID_logfile, ERR_STOP, errstat_read
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE
-   USE AL_G, ONLY: NGDBGN, NX, NY, ICMXY, ICMREF
+   USE mod_error, ONLY: RAISE_ERROR, ERRLVL_fatal, ERR_STOP, errstat_read
+   USE file_units, ONLY: FID_logfile
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, &
+                             marker999, one, zero
+   USE grid_topology, ONLY: NGDBGN, NX, NY, ICMXY, ICMREF
    USE AL_C, ONLY: icmbk
    IMPLICIT NONE
 
@@ -568,7 +571,7 @@ CONTAINS
    !> notation this is `A = C * B`, despite the old inline comment `A = B * C`.
    !>
    !> @note The local `ZERO` parameter shadows the identical module-wide `ZERO`
-   !> constant brought in via `USE SGLOBAL`; the added declaration is redundant
+   !> constant brought in from [[mod_parameters]]; the added declaration is redundant
    !> (both equal `0.0D0`) but harmless. [[jematmul_vm]] below still relies on
    !> the module-wide constant directly.
    !> @endnote

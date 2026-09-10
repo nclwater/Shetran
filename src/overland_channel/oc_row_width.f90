@@ -1,11 +1,11 @@
 !> @brief Row widths of the open-channel implicit solver.
 !>
 !> The open-channel row solver in [[OCmod]] works on one block row of the
-!> basic grid at a time. [[ocmod:ocind]] lists the elements of every row
+!> basic grid at a time. [[oc_indexing:OCIND]] lists the elements of every row
 !> contiguously in `NROWEL` and records where each row starts in `NROWST`, so
 !> the width of row `j` is the difference of successive row-start pointers.
 !> The greatest of those widths sizes the solver workspace allocated by
-!> [[ocmod:initialise_ocsim_workspace]].
+!> [[oc_driver:INITIALISE_OCSIM_WORKSPACE]].
 !>
 !> This module holds only that derivation. It deliberately depends on nothing
 !> else so the sizing rule can be exercised directly by
@@ -14,7 +14,7 @@
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-08-22 | SvB | 4.6.4 | Extracted the maximum-row-width derivation from [[ocmod:ocind]] so it can be tested on its own. |
+!> | 2026-08-22 | SvB | 4.6.4 | Extracted the maximum-row-width derivation from [[oc_indexing:OCIND]] so it can be tested on its own. |
 !> @endhistory
 MODULE OC_ROW_WIDTH
 

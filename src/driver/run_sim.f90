@@ -12,17 +12,17 @@
 !>
 !> | Stage | Main calls/state updates |
 !> |:------|:-------------------------|
-!> | Timestep selection | [[rest:tmstep]], increment `NSTEP`, copy `UZNEXT` to `OCNEXT`. |
-!> | Land hydrology | [[etmod:etsim]], then [[vsmod:vssim]]. |
+!> | Timestep selection | [[timestep_control:TMSTEP]], increment `NSTEP`, copy `UZNEXT` to `OCNEXT`. |
+!> | Land hydrology | [[et_process:ETSIM]], then [[vs_driver:VSSIM]]. |
 !> | Time advance | `UZNOW = UZNOW + UZNEXT`; channel rainfall, evaporation, and well-transfer terms are updated for links. |
-!> | Surface routing | [[ocmod:ocsim]], then `OCNOW = UZNOW`. |
-!> | Optional sediment | [[symod:symain]] when `BEXSY` and `UZNOW >= TSH-TIH`. |
-!> | Optional contaminants | [[frmod:incm]] on the first active contaminant step, then [[cmmod:cmsim]] on later active steps. |
-!> | Output and balances | [[rest:balwat]], [[frmod:frmb]], optional [[symod:balsed]], result/hotstart/time-counter output, visualisation, and [[frmod:froutput]]. |
+!> | Surface routing | [[oc_driver:OCSIM]], then `OCNOW = UZNOW`. |
+!> | Optional sediment | [[sy_driver:SYMAIN]] when `BEXSY` and `UZNOW >= TSH-TIH`. |
+!> | Optional contaminants | [[cm_input:INCM]] on the first active contaminant step, then [[cm_driver:CMSIM]] on later active steps. |
+!> | Output and balances | [[water_balance:BALWAT]], [[mass_balance_report:FRMB]], optional [[sy_driver:BALSED]], result/hotstart/time-counter output, visualisation, and [[frame_output:FROUTPUT]]. |
 !>
 !> @note Contaminant setup is intentionally split: contaminant and column
 !> helper arrays are allocated before the loop when `BEXCM` is true, but
-!> [[frmod:incm]] is called on the first active contaminant timestep and
+!> [[cm_input:INCM]] is called on the first active contaminant timestep and
 !> `CMSIM` is called only on subsequent active timesteps.
 !> @endnote
 !>
@@ -49,25 +49,29 @@
 !>
 MODULE run_sim
 
-   USE SGLOBAL
+   USE element_geometry, ONLY: cellarea, DXQQ, DYQQ, top_cell_no, total_no_elements, total_no_links, ZGRUND
+   USE run_context, ONLY: cnam, DIRQQ
+   USE simulation_clock, ONLY: UZNOW
 
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             zero
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, errstat_write, RAISE_ERROR, ERRLVL_fatal
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
       ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
-!USE SGLOBAL, ONLY : nxee, nyee, nlfee, nvee, nelee, &
 !                 llee, NVSEE, NLYREE, NOCTAB, NXSCEE !NEEDED ONLY FOR AD
-   USE AL_G, ONLY: nx, ny, icmref, icmxy, ngdbgn
-   USE AL_C, ONLY: uznext, pnetto, arxl, dtuz, eevap, icmbk, &
-      nvswlt, qvswel, tih, ns, nv, sfb, spr, srb, syd, icmrf2, nbface, &
-      nlyr, ntsoil, nvc, clenth, cwidth, &
-      dhf, vspor, zbfull, bexbk, linkns, isort, clai, draina, plai, qoc, idum, dummy, cmp
+   USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
+   USE AL_C, ONLY: pnetto, arxl, eevap, icmbk, nvswlt, qvswel, ns, nv, nlyr, ntsoil, nvc, clenth, &
+                  cwidth, vspor, zbfull, bexbk, linkns, clai, draina, plai, qoc, idum, dummy
+   USE element_geometry, ONLY: NBFACE, DHF, ISORT
+   USE file_units, ONLY: SFB, SPR, SRB, SYD, CMP
+   USE grid_topology, ONLY: ICMRF2
+   USE simulation_clock, ONLY: UZNEXT, DTUZ, TIH
 
-   USE AL_D, ONLY: eswa, nstep, ocnext, epot, nmc, obspe, &
-      ocnow, bexsy, bexcm, precip_m_per_s, &
-      mbflag, bhotpr, hotime, hot, cstore, dq0st, &
-      dqist, dqist2, sd, ts, nsmc, bhotst, tim, tth, bhotrd, tmax
+   USE AL_D, ONLY: eswa, ocnext, epot, nmc, obspe, ocnow, bexsy, bexcm, precip_m_per_s, mbflag, &
+                  bhotpr, hotime, cstore, dq0st, dqist, dqist2, sd, ts, nsmc, bhotst, bhotrd, tmax
+   USE file_units, ONLY: HOT, TIM
+   USE simulation_clock, ONLY: NSTEP, TTH
    USE FRmod, ONLY: tsh, tch, bstore, btime
    USE VSmod, ONLY: VSSIM, &
       RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
@@ -88,7 +92,8 @@ MODULE run_sim
    USE VISUALISATION_INTERFACE_LEFT, ONLY: GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
 !NEEDED ONLY FOR AD
    USE AL_C, ONLY: eruz
-   USE AL_D, ONLY: mblink, mbface, ae, s, erz, esoil, eint, pnet, timeuz, drain, sf, pe, u, vht, rn, vpd, ta
+   USE AL_D, ONLY: mblink, mbface, ae, s, erz, esoil, eint, pnet, drain, sf, pe, u, vht, rn, vpd, ta
+   USE simulation_clock, ONLY: TIMEUZ
    USE colm_c1, ONLY: z2sq   !"JE"
    USE ocmod, ONLY: qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
    USE OCQDQMOD, ONLY: hocnow, qocf, xafull !, firstocqdq
@@ -118,7 +123,7 @@ CONTAINS
 !>
 !> `SIMULATION` is the top-level time-stepping routine called after the
 !> model has been configured (see [[shetran]]). It initializes framework and
-!> output state, enters the main time loop, asks [[rest:tmstep]] for the next
+!> output state, enters the main time loop, asks [[timestep_control:TMSTEP]] for the next
 !> time step, calls the process modules in the required order, writes daily
 !> and event-driven output, and exits when `UZNOW` reaches `TTH - TIH`.
 !>
@@ -184,8 +189,8 @@ CONTAINS
 !> | 2026-04-23 | SB | 4.6.1 | Added elapsed/remaining wall-clock progress reporting via `cpu_time`. |
 !> | 2026-05-03 | SvB | 4.6.1 | Changed `hrf` to an allocatable array, allocated only when sediment yield is active. |
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
-!> | 2026-09-06 | SvB | - | Checked the `OUTPUT_UNIT` open through [[mod_error:errstat_fileopen]]. |
-!> | 2026-09-07 | SvB | - | Status-checked the hotstart state-dump `WRITE` through [[mod_error:errstat_write]]. |
+!> | 2026-09-06 | SvB | - | Checked the `OUTPUT_UNIT` open through [[error_status:errstat_fileopen]]. |
+!> | 2026-09-07 | SvB | - | Status-checked the hotstart state-dump `WRITE` through [[error_status:errstat_write]]. |
 !> @endhistory
 !>
    SUBROUTINE SIMULATION

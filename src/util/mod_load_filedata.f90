@@ -23,7 +23,7 @@
 !>
 !> Input headings are matched as case-sensitive substrings rather than exact
 !> records. A mismatch is a warning and reading continues; missing or malformed
-!> data are normally fatal through [[mod_error:RAISE_ERROR]]. The readers retain
+!> data are normally fatal through [[error_reporting:RAISE_ERROR]]. The readers retain
 !> explicit-shape legacy interfaces, so some callers use valid Fortran sequence
 !> association by passing an array element as the start of a contiguous data
 !> sequence.
@@ -57,7 +57,9 @@
 !> @endhistory
 MODULE mod_load_filedata
 
-   USE SGLOBAL
+   USE mod_parameters, ONLY: two
+   USE array_limits, ONLY: LLEE, nelee, nlfee, nxee, nyee
+   USE run_context, ONLY: filnam
    USE mod_error, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, errstat_fileclose
    USE tolerance_testing, ONLY: idimje
    use mod_parameters
@@ -558,7 +560,7 @@ CONTAINS
    !>
    !> Every failure sets `NOTOK(i)` and increments cumulative `COUNT`. A
    !> negative `ACTION` first replaces each failing subject with its comparison
-   !> value; `ABS(ACTION)` is then passed to [[mod_error:RAISE_ERROR]] as the severity
+   !> value; `ABS(ACTION)` is then passed to [[error_reporting:RAISE_ERROR]] as the severity
    !> selector. The diagnostic gives the lowest-index failure and, for a
    !> nonfatal action, a continuation reports how many other entries failed.
    !> Up to three indices are inferred from commas in `SNAME`; `IX2` and `IX3`
@@ -765,7 +767,7 @@ CONTAINS
    !> Failure accounting, optional reset, severity selection, `SNAME` subscript
    !> parsing, and reporting are identical to `ALCHK`: `NOTOK` receives the
    !> mask, `COUNT` is cumulative, and a negative `ACTION` resets bad subjects
-   !> before calling [[mod_error:RAISE_ERROR]] with `ABS(ACTION)`.
+   !> before calling [[error_reporting:RAISE_ERROR]] with `ABS(ACTION)`.
    !>
    !> @warning
    !> `OP` must contain at least two characters. The subtraction, sign
@@ -963,7 +965,7 @@ CONTAINS
    !> Values at or below the final table depth are clamped to the final value.
    !> The value units are those of `TABLE_CONCENTRATION`; despite its legacy
    !> name this argument also carries nitrate process-parameter profiles in
-   !> [[mnmod]]. [[frmod:INCM]] uses the routine for initial contaminant
+   !> [[mnmod]]. [[cm_input:INCM]] uses the routine for initial contaminant
    !> concentration profiles. Depths and vertical geometry are in metres.
    !>
    !> Only `CELL_CONCENTRATION(NLF+1:NEL,NCOLMB(element):NCETOP)` is defined.
@@ -1095,7 +1097,7 @@ CONTAINS
    !> `HEAD0_alread`, which a later heading-read failure includes in its message.
    !> Error codes 3--7, 10--11, 14, and 16 distinguish heading, file/data,
    !> grid-row, soil, and VSS-record failures; contained helper `throw_fatal` dispatches
-   !> each through [[mod_error:RAISE_ERROR]] with fatal severity.
+   !> each through [[error_reporting:RAISE_ERROR]] with fatal severity.
    !>
    !> @warning
    !> There is no `CASE DEFAULT`; unsupported flags may consume a heading and
@@ -1119,7 +1121,7 @@ CONTAINS
    !> | 1997-08-04 | RAH | 4.1 | Added end-of-file handling to modes 6 and 7 and renumbered the VSS error as 16. |
    !> | 2025-10-02 | SB | - | Increased the diagnostic message buffer from 132 to 140 characters. |
    !> | 2026-04-06 | SvB | - | Replaced error jumps with `SELECT CASE`, `IOSTAT`, and the contained fatal-error helper. |
-   !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[mod_error:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
+   !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[error_status:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
    !> @endhistory
    SUBROUTINE ALREAD(FLAG, IUNIT, OUNIT, LINE, N1, N2, NUM_CATEGORIES_TYPES, &
                      CDATA, IDATA, RDATA)
@@ -1323,7 +1325,7 @@ CONTAINS
       !> Reports one `ALREAD` I/O failure as fatal.
       !>
       !> This contained helper host-associates `OUNIT` from [[ALREAD]] and calls
-      !> [[mod_error:RAISE_ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
+      !> [[error_reporting:RAISE_ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
       !> no element/cell context, and the already formatted message. `ERROR`
       !> terminates normal execution for fatal severity.
       !>
@@ -1370,7 +1372,7 @@ CONTAINS
    !> | 1995-03-22 | RAH | - | Replaced the former `ENTRY` interface with separate type-specific `ALRED*` routines. |
    !> | 2025-10 | SB | - | Expanded the status, filename, and diagnostic buffers. |
    !> | 2026-04-06 | SvB | - | Replaced the file-not-open jump with structured error handling. |
-   !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[mod_error:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
+   !> | 2026-09-06 | SvB | - | Checked the `CLOSE` through [[error_status:errstat_fileclose]], reporting `IOSTAT`/`IOMSG`. |
    !> @endhistory
    SUBROUTINE ALRED2(FLAG, IUNIT, OUNIT, LINE)
 
@@ -1813,7 +1815,7 @@ CONTAINS
    !> the unused positions as evenly as its integer arithmetic permits and
    !> adjusts their parity when that produces a more uniform spread.
    !>
-   !> The only current caller is [[vsmod:VSCONC]], which uses these positions to
+   !> The only current caller is [[vs_connectivity:VSCONC]], which uses these positions to
    !> distribute `M` foregone cell splits across `N` possible split locations.
    !> For `M=0`, `N1=N+1` selects no in-range position; for `M=1`, the one
    !> position is centred and `DEL=N`.

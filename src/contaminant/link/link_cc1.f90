@@ -3,8 +3,8 @@
 !>
 !> `LINK_CC1` replaces the legacy `LINK.CC1` common block. The two values are
 !> shared workspace for the stream link most recently prepared by
-!> [[cmmod:linkw]], not arrays retaining data for every link. [[cmmod:linksm]]
-!> uses `KS` to scale rainfall and irrigation/well input, and [[cmmod:link]]
+!> [[cm_channel:LINKW]], not arrays retaining data for every link. [[cm_channel:LINKSM]]
+!> uses `KS` to scale rainfall and irrigation/well input, and [[cm_channel:LINK]]
 !> uses both values in the three-compartment link equations.
 !>
 !> | Variable | Assignment in `LINKW` | Current consumers |
@@ -19,7 +19,7 @@
 !> active exposed-bank range later summed by `LINK`, `NHBED(side)+1:NCETOP`, is
 !> within the populated range.
 !>
-!> [[link_cw]] imports this module without restricting accessibility, so
+!> [[cm_link_water]] imports this module without restricting accessibility, so
 !> `LINKW` and `LINKSM` currently reach the variables transitively through
 !> `LINK_CW`; `LINK` also imports `LINK_CC1` directly. This module likewise has
 !> no active `PRIVATE` statement: `KS`, `KSPBK`, and the use-associated `LLEE`
@@ -42,7 +42,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE LINK_CC1
-   USE SGLOBAL, ONLY : LLEE
+   USE array_limits, ONLY: LLEE
    IMPLICIT NONE
    DOUBLEPRECISION :: KS             !! Current link length divided by the reference length `Z2`.
    DOUBLEPRECISION :: KSPBK(2,LLEE)  !! Bank-cell thickness divided by `Z2`, for the two adjacent banks.

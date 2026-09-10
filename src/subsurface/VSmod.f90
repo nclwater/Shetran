@@ -94,27 +94,32 @@
 !> | 2026-04-10 | SvB | 4.6 | Fixed the `VSSOIL` saturation-curve initialisation: `VSPTHE(3,IS)` is now computed from the DSATG recursion instead of being copied from `VSPTHE(4,IS)`/`VSPOR`. |
 !> | 2026-04-13 | SvB | 4.6 | Removed remaining labelled `DO` loops. |
 !> | 2026-05-03 | SvB | 4.6 | Moved several large `VSREAD` work arrays (`IVSDUM`, `IVSCAT`, `ISDUM`, `RVSDUM`, `RSDUM`, `BDONE`) from routine-local (stack) storage into allocatable module state, allocated once by [[initialise_vsread_buffers]], to fix a stack-related crash. |
-!> | 2026-09-07 | SvB | 4.6 | Routed every `READ` in [[vsin]] and [[vsread]] through [[mod_error:errstat_read]], reporting `IOSTAT`/`IOMSG`. |
+!> | 2026-09-07 | SvB | 4.6 | Routed every `READ` in [[vsin]] and [[vsread]] through [[error_status:errstat_read]], reporting `IOSTAT`/`IOMSG`. |
 !> @endhistory
 MODULE VSmod
-   USE SGLOBAL
+   USE array_limits, ONLY: LLEE, nelee, nlfee, NLYREE, NSEE, NVSEE
+   USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, total_no_links, ZGRUND
+   USE simulation_clock, ONLY: UZNOW
    USE mod_load_filedata, ONLY: ALSPRD, ALREAD
 
    USE tolerance_testing, ONLY: dimje, ltzero, gtzero, gezero, iszero, notzero, &
                                 isone, notone, eqmarker
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             half, one, three, two, zero
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
-                        ERRLVL_error, ERRLVL_warn, FID_logfile, ERR_STOP
+                  ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE file_units, ONLY: FID_logfile
 
-!USE SGLOBAL,  ONLY :
-   USE AL_G, ONLY: ICMREF, NX, NY, ICMXY, NGDBGN
-   USE AL_C, ONLY: BHB, BFB, bexbk, DTUZ, deltaz, dummy, DHF, ESOILA, ERUZ, EEVAP, &
-                   FHBED, ISORT, jvsacn, JVSDEL, idum, icmbk, LFB, LHB, LINKNS, lgb, &
-                   NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, nhbed, NVC, NRD, nlyrbt, NVSWLT, NVSSPT, NBFACE, NS, nlyr, &
-                   PNETTO, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, QVSH, QBKI, &
-                   tih, UZNEXT, &
-                   vsd, VSI, VSPSI, VSTHE, VSPOR, WLD, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, INITIALISE_AL_C2, TIH
-   USE AL_D, ONLY: TTH
+   USE grid_topology, ONLY: ICMREF, NX, NY, ICMXY, NGDBGN
+   USE AL_C, ONLY: bexbk, deltaz, dummy, ESOILA, ERUZ, EEVAP, FHBED, jvsacn, JVSDEL, idum, icmbk, &
+                  LINKNS, NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, nhbed, NVC, NRD, nlyrbt, NVSWLT, &
+                  NVSSPT, NS, nlyr, PNETTO, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, &
+                  QVSH, QBKI, VSPSI, VSTHE, VSPOR, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, &
+                  INITIALISE_AL_C2
+   USE element_geometry, ONLY: DHF, ISORT, NBFACE
+   USE file_units, ONLY: BHB, BFB, LFB, LHB, LGB, VSD, VSI, WLD
+   USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT, TIH
+   USE simulation_clock, ONLY: TTH
 !USE VSINIT_INC
 !USE VSCOM1_INC
 !USE VSSOIL_INC
@@ -163,7 +168,6 @@ MODULE VSmod
    integer, parameter :: errcntallowed = 1000 !! Maximum repeated VSS convergence warnings.
 
 ! Legacy VSCOM1.INC global VSS variables retained as module state.
-!USE SGLOBAL, ONLY : NELEE, NLFEE, NLYREE, NVSEE, LLEE, NSEE
 !IMPLICIT NONE
    LOGICAL :: BLOWP  !! Lower-boundary output print-control flag retained from legacy VSCOM1 state.
    LOGICAL :: BHELEV !! True when lateral boundary head inputs are elevations; false when they are depths below ground.
@@ -233,7 +237,6 @@ MODULE VSmod
 !end MODULE vscom1_inc
 
 ! Legacy VSSOIL.INC soil-parameter tables retained as module state.
-!USE SGLOBAL, ONLY : NSEE
 !IMPLICIT NONE
    INTEGER :: NSOLEE !! Maximum number of generated soil lookup-table rows.
 
@@ -252,7 +255,6 @@ MODULE VSmod
 !END MODULE vssoil_inc
 
 ! Legacy VSINIT.INC initialisation variables retained as module state.
-!USE SGLOBAL, ONLY : NELEE, NSEE, NVSEE
 !IMPLICIT NONE
 
    LOGICAL :: BFAST  !! True to use the shorter generated soil lookup table.

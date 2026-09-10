@@ -42,7 +42,7 @@
 MODULE GETDIRQQ
 
    USE mod_parameters
-   USE sglobal, ONLY : error_mode
+   USE run_context, ONLY: error_mode
    USE stdlib_system, ONLY : base_name, dir_name, get_cwd, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN

@@ -2,12 +2,12 @@
 !> author: JE, Newcastle University; RAH, Newcastle University
 !>
 !> `COLM_C2` replaces the second legacy `COLM.C2` common-block include.
-!> [[cmmod:colmw]] gathers the previous and current water, sediment, erosion,
+!> [[cm_column:COLMW]] gathers the previous and current water, sediment, erosion,
 !> geometry, and flow state for one column and updates the corresponding
-!> persistent arrays in [[colm_co]] and [[sed_co]]. For each contaminant,
-!> [[cmmod:colmsm]] then prepares the dry-deposition and water-input source
-!> terms before [[cmmod:colm]] assembles and solves the column equations.
-!> [[cmmod:plcolm]] also consumes selected cell properties for plant uptake.
+!> persistent arrays in [[cm_column_previous]] and [[cm_sediment_previous]]. For each contaminant,
+!> [[cm_column:COLMSM]] then prepares the dry-deposition and water-input source
+!> terms before [[cm_column:COLM]] assembles and solves the column equations.
+!> [[cm_plant:PLCOLM]] also consumes selected cell properties for plant uptake.
 !>
 !> These module variables are shared workspace for the column most recently
 !> prepared by `COLMW`, not arrays of state for every element. A suffix `1`
@@ -25,7 +25,7 @@
 !>
 !> @warning
 !> The manual's `CM57` mobile-water fractions are read into a local array by
-!> [[cmmod:cmrd]], but [[cmmod:phi]] currently returns `0.5` for every soil and water
+!> [[cm_input:CMRD]], but [[cm_column:PHI]] currently returns `0.5` for every soil and water
 !> content. Consequently, active `PPHI` and `PPHI1` entries are always `0.5`.
 !>
 !> At the top interface, `COLM` evaluates `PPHI`, `PPHI1`, `TTHET`, and
@@ -44,7 +44,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE COLM_C2
-   USE SGLOBAL, ONLY : LLEE
+   USE array_limits, ONLY: LLEE
    IMPLICIT NONE
    DOUBLEPRECISION ICAP   !! Prior scaled dry-deposition source, `-Z2OD*IIICFO(NCONT)`.
    DOUBLEPRECISION ICAPT  !! Time-derivative part of `ICAP`; currently set to zero.

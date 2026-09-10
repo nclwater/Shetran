@@ -3,12 +3,12 @@
 !>
 !> `PLANT_CC` replaces the legacy `PLANT.CC` common blocks and the associated
 !> `PLDAT` block-data initialization. Most state belongs to the two-compartment
-!> contaminant plant model: [[frmod:inpl]] prepares the run-wide plant types,
+!> contaminant plant model: [[cm_plant:INPL]] prepares the run-wide plant types,
 !> cover, root distribution, and initial compartment-B mass; each timestep
-!> [[cmmod:plprep]] updates canopy-dependent factors; and
-!> [[cmmod:plcolm]] with [[cmmod:plant]] advances the persistent plant
-!> concentrations. The nitrate path is separate: [[mnmod:mncont]] passes only
-!> `RHOPL` and `DELONE` to [[mnmod:mnplant]], which maintains its other plant
+!> [[cm_plant:PLPREP]] updates canopy-dependent factors; and
+!> [[cm_plant:PLCOLM]] with [[cm_plant:PLANT]] advances the persistent plant
+!> concentrations. The nitrate path is separate: [[mn_driver:MNCONT]] passes only
+!> `RHOPL` and `DELONE` to [[mn_plant:mnplant]], which maintains its other plant
 !> state locally.
 !>
 !> | State group | Producer | Lifetime or consumer |
@@ -45,7 +45,7 @@
 !> contaminant terms. `FLEFT` is also undefined when `PLPREP` uses it for a
 !> plant type whose canopy leaf area is zero. In addition, the contaminant
 !> plant path is gated by the currently unassigned `ISPLT` flag documented in
-!> [[is_cc]].
+!> [[cm_solver_flags]].
 !>
 !> `INPL` sets `NPLT=NV`, but supplies `PMASS` and `PF2MAX` only for plant types
 !> 1--3 and `PKMAX` only for those types and contaminant 1. No guard restricts
@@ -64,7 +64,7 @@
 !> | 2025-10-07 | SB | 4.5.3 | Reused `RHOPL` and `DELONE` in the nitrate plant-uptake path. |
 !> @endhistory
 MODULE PLANT_CC
-   USE SGLOBAL, ONLY : NELEE, NLFEE, LLEE, NPELEE, NCONEE, NPLTEE
+   USE array_limits, ONLY: nelee, nlfee, LLEE, NPELEE, NCONEE, NPLTEE
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: NTEMP1=2*NELEE*NPELEE*NCONEE !! Unused legacy element count for initializing `BCPAA` and `BCPBB`.

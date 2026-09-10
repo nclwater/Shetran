@@ -1,10 +1,10 @@
 !> summary: Column-base, face-overlap, and well-flow state for contaminant transport.
 !> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
 !>
-!> `COLM_CG` replaces the legacy `COLM.CG` common blocks. [[frmod:incm]]
+!> `COLM_CG` replaces the legacy `COLM.CG` common blocks. [[cm_input:INCM]]
 !> establishes the column bases, contaminant scaling, and lateral face-overlap
-!> topology. During simulation, [[cmmod:colmw]] prepares the current column's
-!> well fluxes and [[cmmod:colmsm]] uses the retained overlap mapping to obtain
+!> topology. During simulation, [[cm_column:COLMW]] prepares the current column's
+!> well fluxes and [[cm_column:COLMSM]] uses the retained overlap mapping to obtain
 !> adjacent-cell concentrations.
 !>
 !> | State group | Lifetime and principal use |
@@ -26,7 +26,7 @@
 !> the module interface.
 !>
 !> @warning
-!> [[cmmod:cmrd]] reads the default and per-column base-cell choices from
+!> [[cm_input:CMRD]] reads the default and per-column base-cell choices from
 !> manual records `CM7` and `CM11`, but current `INCM` then unconditionally
 !> replaces every active `NCOLMB` value with `NLYRBT(NCL,1)`. Those manual
 !> choices therefore do not survive the current initialization path.
@@ -51,7 +51,8 @@
 !> @endhistory
 MODULE COLM_CG
 
-   USE SGLOBAL, ONLY: NELEE, LLEE, NVEE, NOLEE, total_no_elements, top_cell_no
+   USE array_limits, ONLY: nelee, LLEE, NVEE, NOLEE
+   USE element_geometry, ONLY: total_no_elements, top_cell_no
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
@@ -81,9 +82,9 @@ CONTAINS
 
 !> Allocates and zero-initializes the active-size face-overlap arrays.
 !>
-!> [[run_sim:simulation]] calls this routine once when contaminant transport
+!> [[simulation_driver:SIMULATION]] calls this routine once when contaminant transport
 !> is enabled, after the model dimensions are available and before the main
-!> simulation loop. [[frmod:incm]] later populates the arrays during the first
+!> simulation loop. [[cm_input:INCM]] later populates the arrays during the first
 !> contaminant initialization.
 !>
 !> | Arrays | Allocated shape | Initial value | Later lifetime |
@@ -137,11 +138,11 @@ CONTAINS
 
 !> Releases the four overlap arrays needed only during contaminant setup.
 !>
-!> [[run_sim:simulation]] calls this routine immediately after the first
-!> [[frmod:incm]] call has finished building column and bank geometry.
+!> [[simulation_driver:SIMULATION]] calls this routine immediately after the first
+!> [[cm_input:INCM]] call has finished building column and bank geometry.
 !> `JKZCOL`, `JOLFN`, `NOL`, and `NOLCE` have no later active consumer and are
 !> deallocated. `NOLBT` and `NOLCEA` deliberately remain allocated because
-!> [[cmmod:colmsm]] uses them during every contaminant timestep.
+!> [[cm_column:COLMSM]] uses them during every contaminant timestep.
 !>
 !> The routine has no dummy arguments. Each `DEALLOCATE` statement is
 !> unconditional and has no `STAT=` handler, so all four setup-only arrays must

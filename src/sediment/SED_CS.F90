@@ -1,10 +1,10 @@
 !> summary: Shared sediment state for sediment yield and contaminant transport.
 !>
-!> Replaces the legacy `SED.CS` common blocks. [[run_sim:simulation]] passes
-!> the principal state arrays to [[symod:symain]], which reads, validates, and
+!> Replaces the legacy `SED.CS` common blocks. [[simulation_driver:SIMULATION]] passes
+!> the principal state arrays to [[sy_driver:SYMAIN]], which reads, validates, and
 !> advances sediment stores, erosion, infiltration, and face discharges.
-!> [[frmod:incm]] supplies a three-size-class fallback when sediment transport
-!> is disabled, and [[cmmod:cmsim]] uses the state to couple particulate
+!> [[cm_input:INCM]] supplies a three-size-class fallback when sediment transport
+!> is disabled, and [[cm_driver:CMSIM]] uses the state to couple particulate
 !> transport and channel-bed changes to contaminant transport. Frame output and
 !> [[visualisation_interface_left]] expose selected results.
 !>
@@ -34,7 +34,7 @@
 !> | 2004-11 | JE | - | Converted to Fortran 95. |
 !> @endhistory
 MODULE sed_cs
-   USE SGLOBAL, ONLY : NELEE, NLFEE, NSEDEE, NSEE
+   USE array_limits, ONLY: nelee, nlfee, NSEDEE, NSEE
    IMPLICIT NONE
 
    DOUBLEPRECISION ARBDEP(NLFEE)        !! Deposited-sediment cross-sectional area by link [m2].

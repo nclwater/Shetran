@@ -1,11 +1,11 @@
-!> summary: Grid dimensions and element-topology lookup state.
+!> summary: Active grid extent, element/coordinate lookup and face connectivity.
 !> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University
 !>
-!> `AL_G` replaces the legacy `AL.G` common blocks. [[frmod:infr]] reads the
-!> active grid dimensions and [[frmod:frind]] constructs `ICMREF`, `ICMXY`,
-!> and `NGDBGN`. Flow, VSS, sediment, contaminant, input, result, and
-!> visualisation routines then use these arrays to translate between grid
-!> coordinates, element numbers, neighbouring faces, and channel topology.
+!> How the model translates between grid coordinates, element numbers,
+!> neighbouring faces and channel topology. [[frame_setup:INFR]] reads the active grid
+!> dimensions and the catchment mask; [[frame_geometry:FRIND]] constructs `ICMREF`,
+!> `ICMXY`, `ICMRF2` and `NGDBGN`. Flow, VSS, sediment, contaminant, input,
+!> result and visualisation routines then all read them.
 !>
 !> `ICMREF(element,column)` has this layout. Internal hydrological faces use
 !> the manual's east/north/west/south order, which differs from the
@@ -23,28 +23,28 @@
 !> necessarily the first grid element. When explicit banks are enabled, bank
 !> elements occupy the range immediately following the links and grid elements
 !> begin after both bank blocks. `ICMXY` is assigned only at active catchment
-!> coordinates; callers use the catchment mask before reading entries outside
-!> that domain. Module state is public by default and has no declaration
+!> coordinates; callers use the catchment mask `INGRID` before reading entries
+!> outside that domain. Module state is public by default and has no declaration
 !> initialization.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 1991-03 | GP | 3.0 | Original version written. |
-!> | 1994-10-01 | RAH | 3.4.1 | Declared all variables, removed `INTEGER*2`, tidied comments, and applied the standard header. |
-!> | 1998-03-07 | RAH | 4.2 | Applied cosmetic updates. |
-!> | 2004-07 | JE | - | Converted the grid state to Fortran 95. |
+!> | 2026-09-10 | SvB | - | Split out of AL_C, AL_D, AL_G; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE AL_G
-   USE SGLOBAL, ONLY : NELEE, NXEE, NYEE
+MODULE grid_topology
+
+   USE ARRAY_LIMITS, ONLY: NELEE, NLFEE, NXEE, NYEE
+
    IMPLICIT NONE
 
+   INTEGER, DIMENSION(NLFEE, 6) :: ICMRF2 !! Multi-link branch map: adjacent elements in columns 1:3 and their faces in 4:6.
+   INTEGER :: INGRID(NXEE,NYEE)   !! Catchment mask: zero inside the active catchment and -1 outside.
    INTEGER :: NX     !! Number of grid positions in the active x direction.
    INTEGER :: NY     !! Number of grid positions in the active y direction.
    INTEGER :: NGDBGN !! First non-link element number, always `total_no_links+1`.
-
    INTEGER :: ICMREF(NELEE,12) !! Element metadata, neighbours, and reciprocal-face mapping described above.
    INTEGER :: ICMXY(NXEE,NYEE) !! Active grid-coordinate to element-number lookup.
 
-!PRIVATE :: NELEE, NXEE, NYEE
-END MODULE AL_G
+END MODULE grid_topology
+

@@ -7,10 +7,10 @@
 !>
 !> | Producer | Shared values prepared | Update point |
 !> |:---------|:-----------------------|:-------------|
-!> | [[frmod:incm]] | `D0`, `Z2`, their derived scales, `SGMA`, `SGSQ`, `OMSGMA`, and `NCETOP` | Contaminant initialisation. |
-!> | [[cmmod:cmsim]] | `TSE` | Once per contaminant timestep. |
-!> | [[cmmod:colmw]] | `SGTSE`, `SGSTSE`, `NCEBOT`, `NCEPSF`, and `CST1:CST3` | Before solving each column. |
-!> | [[cmmod:colmsm]] | `OPSGL` and `OPSGSL` | Before [[cmmod:colm]] for each contaminant. |
+!> | [[cm_input:INCM]] | `D0`, `Z2`, their derived scales, `SGMA`, `SGSQ`, `OMSGMA`, and `NCETOP` | Contaminant initialisation. |
+!> | [[cm_driver:CMSIM]] | `TSE` | Once per contaminant timestep. |
+!> | [[cm_column:COLMW]] | `SGTSE`, `SGSTSE`, `NCEBOT`, `NCEPSF`, and `CST1:CST3` | Before solving each column. |
+!> | [[cm_column:COLMSM]] | `OPSGL` and `OPSGSL` | Before [[cm_column:COLM]] for each contaminant. |
 !>
 !> `CMSIM` processes elements sequentially, so the per-column and
 !> per-contaminant scalars describe only the solver state most recently

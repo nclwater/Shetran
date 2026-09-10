@@ -1,5 +1,5 @@
 !> Tests the open-channel solver row-width derivation used to size the
-!> [[ocmod:ocsim]] workspace. See `test/README.md`.
+!> [[oc_driver:OCSIM]] workspace. See `test/README.md`.
 PROGRAM test_oc_row_width
 
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
@@ -39,7 +39,7 @@ CONTAINS
 
    !> Empty rows must not raise the result, and the widest row must be found
    !> wherever it lies - in particular in the last row, which is bounded by the
-   !> end-of-last-row marker [[ocmod:ocind]] writes into `NROWST(NY+1)`.
+   !> end-of-last-row marker [[oc_indexing:OCIND]] writes into `NROWST(NY+1)`.
    SUBROUTINE test_empty_and_widest_rows()
       CALL assert_equal_integer(MAX_ACTIVE_ROW_WIDTH(row_starts([0, 4, 1, 0, 3])), 4, 'widest row in the interior')
       CALL assert_equal_integer(MAX_ACTIVE_ROW_WIDTH(row_starts([6, 2, 1])), 6, 'widest row first')
@@ -47,7 +47,7 @@ CONTAINS
       CALL assert_equal_integer(MAX_ACTIVE_ROW_WIDTH(row_starts([0, 0, 2, 0, 0])), 2, 'empty leading and trailing rows')
    END SUBROUTINE test_empty_and_widest_rows
 
-   !> Reproduces the running maximum [[ocmod:ocind]] carried in its row loop
+   !> Reproduces the running maximum [[oc_indexing:OCIND]] carried in its row loop
    !> before the derivation was extracted, over a spread of row patterns. The
    !> replacement must agree with it exactly, since the workspace allocation
    !> depends on the value.
@@ -77,7 +77,7 @@ CONTAINS
       END DO
    END SUBROUTINE test_matches_incremental_reference
 
-   !> Builds the row-start pointers [[ocmod:ocind]] would write for the given
+   !> Builds the row-start pointers [[oc_indexing:OCIND]] would write for the given
    !> per-row element counts, including the final end-of-last-row marker.
    PURE FUNCTION row_starts(widths) RESULT(nrowst)
       INTEGER, INTENT(IN) :: widths(:)

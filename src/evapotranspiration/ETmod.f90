@@ -7,10 +7,10 @@
 !> prepares its bank geometry and pressure-head profile, and delegates to the
 !> private [[etin]] and [[et]] calculation path.
 !>
-!> [[frmod:inet]] reads user-manual records `ET2`--`ET18` into this module
-!> after [[initialise_etmod]] has run. [[rest:metin]] supplies the current
+!> [[et_input:INET]] reads user-manual records `ET2`--`ET18` into this module
+!> after [[initialise_etmod]] has run. [[met_input:METIN]] supplies the current
 !> meteorological values and advances time-varying vegetation parameters.
-!> [[run_sim:simulation]] then calls [[etsim]] before the variably saturated
+!> [[simulation_driver:SIMULATION]] then calls [[etsim]] before the variably saturated
 !> subsurface calculation on every model step. The resulting rainfall,
 !> interception, root-extraction, soil-evaporation, and surface-water fluxes
 !> are stored in shared `AL_C`/`AL_D` arrays used by water, contaminant, and
@@ -18,15 +18,15 @@
 !>
 !> | State group | Producer or updater | Principal consumer |
 !> |:------------|:--------------------|:-------------------|
-!> | `BMET*`, `MEASPE`, vegetation controls and lookup tables | [[frmod:inet]] | [[rest:metin]], [[et]] |
-!> | `REL*`, `TIM*`, `NCT*`, and `*1` reference values | [[frmod:inet]] and [[rest:metin]] | [[utilsmod:terpo1]] |
-!> | `DEL` | [[rest:metin]] | [[et]] |
+!> | `BMET*`, `MEASPE`, vegetation controls and lookup tables | [[et_input:INET]] | [[met_input:METIN]], [[et]] |
+!> | `REL*`, `TIM*`, `NCT*`, and `*1` reference values | [[et_input:INET]] and [[met_input:METIN]] | [[interpolation:TERPO1]] |
+!> | `DEL` | [[met_input:METIN]] | [[et]] |
 !> | `PSI4`, `UZALFA` | [[etsim]] | [[et]] and exported AD state |
 !>
 !> `NCTCST`, `NCTPLA`, `NCTCLA`, and `NCTVHT` are current lower-breakpoint
-!> cursors. [[frmod:inet]] initializes each enabled cursor to one; the number
+!> cursors. [[et_input:INET]] initializes each enabled cursor to one; the number
 !> of rows read from the corresponding manual `ET12` record remains local to
-!> `INET`. [[utilsmod:terpo1]] advances the cursor while interpolating a ratio
+!> `INET`. [[interpolation:TERPO1]] advances the cursor while interpolating a ratio
 !> from `REL*`/`TIM*`, then multiplies it by the fixed `*1` reference value.
 !>
 !> @warning
@@ -45,10 +45,10 @@
 !>
 !> @note
 !> Manual `ET2` allows a fourth, optional `BMETDATES` value. Current
-!> [[frmod:inet]] first attempts `(4L7)` and falls back to the legacy three
+!> [[et_input:INET]] first attempts `(4L7)` and falls back to the legacy three
 !> logical values, defaulting `BMETDATES` false. The flag applies to separate
 !> precipitation, potential-evaporation, and temperature series handled by
-!> [[rest:metin]].
+!> [[met_input:METIN]].
 !> @endnote
 !>
 !> @history
@@ -62,20 +62,25 @@
 !> @endhistory
 MODULE ETmod
 
-   USE SGLOBAL
-   USE AL_G, ONLY: ICMREF, NGDBGN, ICMREF
-   USE AL_C, ONLY: NVC, DTUZ, NRD, RDF, ERUZ, DELTAZ, CLAI, PNETTO, DRAINA, ESOILA, &
-                   NHBED, PLAI, NVSWLT, QVSWEL, eevap, UZNEXT, CWIDTH, &
-                   FHBED, NLYRBT, vspsi, NV
-   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, PE, OBSPE, RN, VPD, PNET, precip_m_per_s, CPLAI, EINT, CSTOLD, CSTORE, &
-                   EPOT, EINTA, ERZA, ESWA, BEXSM, DRAIN, ERZ, AE, HRUZ, ESOIL, &
-                   NSMT, S, TIMEUZ, BWIDTH, &
-                   sf, sd, ts, nsmc !THESE NEEDED ONLY FOR AD
+   USE array_limits, ONLY: LLEE, NUZTAB, NVBP, NVEE
+   USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, ZGRUND
+   USE grid_topology, ONLY: ICMREF, NGDBGN, ICMREF
+   USE AL_C, ONLY: NVC, NRD, RDF, ERUZ, DELTAZ, CLAI, PNETTO, DRAINA, ESOILA, NHBED, PLAI, NVSWLT, &
+                  QVSWEL, eevap, CWIDTH, FHBED, NLYRBT, vspsi, NV
+   USE simulation_clock, ONLY: DTUZ, UZNEXT
+   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, PE, OBSPE, RN, VPD, PNET, precip_m_per_s, CPLAI, &
+                  EINT, CSTOLD, CSTORE, EPOT, EINTA, ERZA, ESWA, BEXSM, DRAIN, ERZ, AE, HRUZ, &
+                  ESOIL, NSMT, S, sf, sd, ts, nsmc
+   USE element_geometry, ONLY: BWIDTH
+   USE simulation_clock, ONLY: TIMEUZ
    USE mod_load_filedata, ONLY: ALCHK
 
    USE tolerance_testing, ONLY: lezero, notzero, gtzero, ltzero
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
+                             one, zero, zero1, L_VAPORISATION_ET, PSYCHROMETRIC_CONSTANT, &
+                             RHO_AIR_ET, CP_AIR_ET
+   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn
+   USE file_units, ONLY: FID_logfile
 
    USE UTILSMOD, ONLY: DCOPY
    USE SMmod, ONLY: SMIN, &
@@ -85,10 +90,6 @@ MODULE ETmod
    USE OCMOD2, ONLY: GETHRF
    IMPLICIT NONE
 
-   DOUBLEPRECISION, PARAMETER :: LAMDA = 2465000. !! Latent heat of vaporisation used by the Penman equations (J/kg).
-   DOUBLEPRECISION, PARAMETER :: GAMMA = 0.659 !! Psychrometric constant used with `DEL` (mb/degree C).
-   DOUBLEPRECISION, PARAMETER :: RHO = 1.2 !! Fixed air density (kg/m3).
-   DOUBLEPRECISION, PARAMETER :: CP = 1003. !! Fixed specific heat capacity of air (J/kg/degree C).
 
    LOGICAL :: BAR(NVEE) !! Manual `ET8` selector: compute `RA` from wind when true; retain its input constant otherwise.
    LOGICAL :: BMETP !! Manual `ET2` selector for echoing meteorological input to the print file.
@@ -144,9 +145,9 @@ CONTAINS
 
 !> @brief Allocates and zero-initialises the run-sized ET state.
 !>
-!> [[frmod:frinit]] calls this routine after [[frmod:infr]] has established active
+!> [[frame_setup:FRINIT]] calls this routine after [[frame_setup:INFR]] has established active
 !> vegetation (`NV`), meteorological (`NM`), and rainfall (`NRAIN`) counts and
-!> before [[frmod:inet]] reads the ET data. All 24 allocatables are initialized to
+!> before [[et_input:INET]] reads the ET data. All 24 allocatables are initialized to
 !> double-precision zero after allocation.
 !>
 !> | Arrays | Allocated shape | Role |
@@ -158,7 +159,7 @@ CONTAINS
 !> | `PS1`, `FET`, `RCF` | `NV x NUZTAB` | Soil-tension lookup tables. |
 !> | `REL*`, `TIM*` | `NV x NVBP` | Time-varying vegetation ratios and breakpoint times. |
 !>
-!> The larger `DEL` extent is intentional current behaviour: [[rest:metin]]
+!> The larger `DEL` extent is intentional current behaviour: [[met_input:METIN]]
 !> writes it by meteorological-site index, while the three active counts can
 !> differ. `NVEE` remains the common compile-time capacity for vegetation,
 !> meteorological, and rainfall categories.
@@ -279,14 +280,14 @@ CONTAINS
 !> The current code then defines
 !>
 !> \[
-!> BOTTOM=LAMDA(DEL_{MS}+GAMMA),
+!> BOTTOM=L\_VAPORISATION\_ET(DEL_{MS}+PSYCHROMETRIC\_CONSTANT),
 !> \]
 !>
 !> and either sets `PE=OBSPE(MS)` and `TOP=PE*BOTTOM`, or calculates
 !>
 !> \[
 !> TOP=\max\left(0,
-!> RN_{MS}DEL_{MS}+\frac{RHO\,CP\,VPD_{MS}}{RA_N}\right),
+!> RN_{MS}DEL_{MS}+\frac{RHO\_AIR\_ET\,CP\_AIR\_ET\,VPD_{MS}}{RA_N}\right),
 !> \qquad PE=TOP/BOTTOM.
 !> \]
 !>
@@ -325,14 +326,14 @@ CONTAINS
 !>
 !> \[
 !> AE=\frac{TOP}
-!> {LAMDA\left(DEL_{MS}+GAMMA(1+RC_N/RA_N)\right)}.
+!> {L\_VAPORISATION\_ET\left(DEL_{MS}+PSYCHROMETRIC\_CONSTANT(1+RC_N/RA_N)\right)}.
 !> \]
 !>
 !> Values below/above the tension-table range use its first/last row; a
 !> nonnegative pressure head uses the last `RCF` value in mode 2 and `FE=1` in
 !> mode 3. Interior values are linearly interpolated between adjacent `PS1`
 !> rows. Any mode other than 2 or 3 follows the mode-1 branch; notably
-!> [[frmod:inet]] also treats legacy `MODE=4` as a constant-`RC` case even
+!> [[et_input:INET]] also treats legacy `MODE=4` as a constant-`RC` case even
 !> though the manual documents only modes 1--3.
 !>
 !> Root extraction is applied only when no surface water is present:
@@ -397,7 +398,7 @@ CONTAINS
       INTEGER :: MR !! Rainfall-station index retained from legacy code but otherwise unused.
       INTEGER :: MS !! Meteorological-site index for the element.
       INTEGER :: N !! Vegetation-type index for the element.
-      DOUBLE PRECISION :: BOTTOM !! Penman denominator based on latent heat, `DEL`, and `GAMMA`.
+      DOUBLE PRECISION :: BOTTOM !! Penman denominator based on latent heat, `DEL`, and `PSYCHROMETRIC_CONSTANT`.
       DOUBLE PRECISION :: CALC !! Temporary logarithmic/interpolation value.
       DOUBLE PRECISION :: CT1 !! Candidate canopy storage after supply or evaporation (mm).
       DOUBLE PRECISION :: DFET !! Difference between adjacent `FET` rows.
@@ -431,7 +432,7 @@ CONTAINS
 
       !-----Potential evapotranspiration & Penman equation numerator
       !! sb 20/6/07 has del been defined here? I think not
-      BOTTOM = LAMDA*(DEL(MS) + GAMMA)
+      BOTTOM = L_VAPORISATION_ET*(DEL(MS) + PSYCHROMETRIC_CONSTANT)
       IF (MEASPE(MS) /= 0) THEN
          !---------PE ALREADY KNOWN AS A MEASURED QUANTITY
          PE = OBSPE(MS)
@@ -442,7 +443,7 @@ CONTAINS
             WRITE (msg, '(A,I0,A,I0,A,ES24.16E3)') 'invalid aerodynamic resistance in ET: IEL=', IEL, ' N=', N, ' RA=', RA(N)
             CALL RAISE_ERROR(ERRLVL_fatal, 4998, FID_logfile, IEL, 0, msg)
          END IF
-         TOP = MAX(ZERO, RN(MS)*DEL(MS) + RHO*CP*VPD(MS)/RA(N))
+         TOP = MAX(ZERO, RN(MS)*DEL(MS) + RHO_AIR_ET*CP_AIR_ET*VPD(MS)/RA(N))
          !         TOP = TOP * 1D3 / densityOfWater   is implied!
          PE = TOP/BOTTOM
       END IF
@@ -571,7 +572,7 @@ CONTAINS
             IF (PSI4(II) >= ZERO) THEN
                AE = PE
             ELSE
-               AE = TOP/(LAMDA*(DEL(MS) + GAMMA*(ONE + RC(N)/RA(N))))
+               AE = TOP/(L_VAPORISATION_ET*(DEL(MS) + PSYCHROMETRIC_CONSTANT*(ONE + RC(N)/RA(N))))
             END IF
 
          ELSE IF (M1 == 2) THEN
@@ -600,7 +601,7 @@ CONTAINS
                END DO
             END IF
 
-            AE = TOP/(LAMDA*(DEL(MS) + GAMMA*(ONE + RC(N)/RA(N))))
+            AE = TOP/(L_VAPORISATION_ET*(DEL(MS) + PSYCHROMETRIC_CONSTANT*(ONE + RC(N)/RA(N))))
 
          ELSE IF (M1 == 3) THEN
             !--------------------------------
@@ -656,7 +657,7 @@ CONTAINS
 
 !> @brief Retained private checker for the vegetation channel-root fraction.
 !>
-!> This routine passes `RDL(1:NV)` to [[mod_load_filedata:alchk]] with exact
+!> This routine passes `RDL(1:NV)` to [[input_validation:ALCHK]] with exact
 !> relation `EQ`, object zero, tolerance zero, and error action 2. `LDUM1` is
 !> overwritten with the per-vegetation failure mask and the saved `NERR`
 !> counter is incremented. Any nonzero final count then raises fatal error
@@ -672,7 +673,7 @@ CONTAINS
 !> No current code calls `ETCHK2`, and it is private. Moreover, its equality
 !> test rejects every nonzero `RDL`, whereas manual `ET8` defines positive
 !> `RDL` as the proportion of bank-element roots taking water from the channel.
-!> The active [[frmod:inet]] path reads `RDL` without invoking this checker.
+!> The active [[et_input:INET]] path reads `RDL` without invoking this checker.
 !> @endwarning
 !>
 !> @note
@@ -710,7 +711,7 @@ CONTAINS
 !>
 !> `ETIN` forms current canopy area
 !> `CPLAI=MIN(CLAI(N),1)*PLAI(N)`, where `N=NVC(IEL)`. With snowmelt enabled,
-!> the first [[smmod:smin]] call decides whether freezing/snowpack processing
+!> the first [[snowmelt:SMIN]] call decides whether freezing/snowpack processing
 !> has already supplied the ET state or sets `NSMT` to request [[et]]. If
 !> `NSMT` is nonzero, `ET` runs and a second `SMIN` call may melt an existing
 !> snowpack. Without snowmelt, `ET` always runs.
@@ -755,7 +756,7 @@ CONTAINS
 !> @endwarning
 !>
 !> @warning
-!> If the first [[smmod:smin]] call leaves `NSMT=0`, [[et]] is skipped and
+!> If the first [[snowmelt:SMIN]] call leaves `NSMT=0`, [[et]] is skipped and
 !> `ETIN` exports the scalars left by `SMET`. Current `SMET` does not assign
 !> `DRAIN`, and it can leave `PNET` unchanged when there is neither snowpack nor
 !> precipitation to trigger `SM`; `DRAINA` and sometimes `PNETTO` can therefore
@@ -865,7 +866,7 @@ CONTAINS
 !> @brief Advances evapotranspiration and interception for every land element.
 !>
 !> This is the public timestep driver called by `run_sim:SIMULATION` after
-!> [[rest:tmstep]] has selected `UZNEXT` and updated meteorological forcing.
+!> [[timestep_control:TMSTEP]] has selected `UZNEXT` and updated meteorological forcing.
 !> It converts the upper-zone step from hours to seconds and advances the ET
 !> clock:
 !>

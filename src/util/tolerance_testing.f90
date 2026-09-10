@@ -11,7 +11,7 @@
 MODULE tolerance_testing
 
    USE MOD_PARAMETERS, ONLY: I_P, R8P
-   USE SGLOBAL, ONLY: ZERO, ONE, VSMALL, IMARKER
+   USE mod_parameters, ONLY: zero, one, vsmall, imarker
 
    IMPLICIT NONE
    PRIVATE
@@ -30,9 +30,9 @@ contains
 !> value `999999.9`; it performs neither exact real equality nor a tolerance
 !> comparison.
 !>
-!> [[utilsmod:FINPUT]] writes `marker999` after end-of-file, while
-!> [[utilsmod:HINPUT]] writes it after any failed read. [[ocmod:OCEXT]] tests
-!> its head and flux boundary times, and [[vsmod:VSPREP]] tests the well,
+!> [[timeseries_input:FINPUT]] writes `marker999` after end-of-file, while
+!> [[timeseries_input:HINPUT]] writes it after any failed read. [[oc_boundaries:OCEXT]] tests
+!> its head and flux boundary times, and [[vs_driver:VSPREP]] tests the well,
 !> lateral-flow, lateral-head, lateral-head-gradient, base-flow, and base-head
 !> times. Each current caller supplies a scalar and raises a fatal error for
 !> the boundary data when this function returns true.
@@ -175,7 +175,7 @@ contains
 !> satisfies `ABS(a(i)) < vsmall`. A zero-size array returns true because the
 !> result is initialized to true and the loop has no iterations.
 !>
-!> [[utilsmod:AREADR]] is the only current caller; it passes the active slice
+!> [[grid_arrays:AREADR]] is the only current caller; it passes the active slice
 !> `AOUT(1:total_no_elements)` so that an all-zero real grid can be printed
 !> compactly. The function is `PURE` and has no side effects.
 !>
@@ -207,7 +207,7 @@ contains
 !> zero. An array with either extent equal to zero returns true because the
 !> result is initialized to true and no element changes it.
 !>
-!> [[utilsmod:AREADI]] is the only current caller; it passes the active slice
+!> [[grid_arrays:AREADI]] is the only current caller; it passes the active slice
 !> `IA(1:NX,1:NY)` so that an all-zero integer grid can be printed compactly.
 !> The function is `PURE` and has no side effects.
 !>
@@ -269,7 +269,7 @@ contains
 !> @endnote
 !>
 !> The `ELEMENTAL` interface accepts a scalar or a conformable array and has
-!> no side effects. [[vsmod:VSCOEF]] is the only current consumer and uses a
+!> no side effects. [[vs_column_solver:VSCOEF]] is the only current consumer and uses a
 !> scalar result to select the arithmetic-mean conductivity case.
 !>
 !> @history
@@ -295,7 +295,7 @@ contains
 !> @endnote
 !>
 !> The `ELEMENTAL` interface accepts a scalar or a conformable array and has
-!> no side effects. [[vsmod:VSCOEF]] is the only current consumer and uses a
+!> no side effects. [[vs_column_solver:VSCOEF]] is the only current consumer and uses a
 !> scalar result to decide whether exponentiation is required.
 !>
 !> @history
@@ -313,8 +313,8 @@ contains
 !> Returns `x-y` when `x > y`, and zero otherwise. As an `ELEMENTAL`
 !> function it accepts scalar or conformable array arguments and has no side
 !> effects. Current scalar calls use it to derive non-fine sediment capacity
-!> in [[symod:SYERR2]] and to round an input allocation extent upward in
-!> [[mod_load_filedata:ALSPRD]].
+!> in [[sy_validation:SYERR2]] and to round an input allocation extent upward in
+!> [[spatial_fields:ALSPRD]].
 !>
 !> @warning
 !> The function result is default integer because the function statement does

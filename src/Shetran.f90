@@ -5,14 +5,14 @@
 !> establishes the initial shared state, delegates setup and timestepping to
 !> the model modules, requests final reports, and returns to the Fortran run
 !> time. The hydrological process ordering itself belongs to
-!> [[run_sim:SIMULATION]].
+!> [[simulation_driver:SIMULATION]].
 !>
 !> @author Stephen Birkinshaw, Newcastle University
 !> @author Sven Berendsen, Newcastle University
 !>
 !> ### Command-line selection
 !>
-!> [[getdirqq:get_dir_and_catch]] validates the selected rundata file and sets
+!> [[command_line:get_dir_and_catch]] validates the selected rundata file and sets
 !> the shared filenames before any model file is opened:
 !>
 !> | Invocation | Current behavior |
@@ -56,12 +56,12 @@
 !> allocations are left to normal program termination; this entry point does
 !> not explicitly close or deallocate the complete model state.
 !>
-!> Command-line failures stop before [[frmod:FROPEN]]. Fatal setup or simulation
+!> Command-line failures stop before [[frame_setup:FROPEN]]. Fatal setup or simulation
 !> errors may stop in their owning routines, so the final three calls are made
-!> only after [[run_sim:SIMULATION]] returns normally.
+!> only after [[simulation_driver:SIMULATION]] returns normally.
 !>
 !> @note
-!> [[mod_load_filedata:ALTRAP]] is retained for interface compatibility. Its
+!> [[platform_traps:ALTRAP]] is retained for interface compatibility. Its
 !> platform-specific IEEE handler has been disabled since version 4g-pc; it
 !> currently forces a local status to zero and returns.
 !> @endnote
@@ -81,10 +81,13 @@
 PROGRAM SHETRAN
 
    ! Shared filenames, time, constants, and error service.
-   USE SGLOBAL
+   USE mod_parameters, ONLY: zero
+   USE build_info, ONLY: RUNFIL
+   USE run_context, ONLY: cnam, DIRQQ, filnam, rootdir
+   USE simulation_clock, ONLY: UZNOW
 
    ! Shared timestep number.
-   USE AL_D, ONLY: nstep
+   USE simulation_clock, ONLY: NSTEP
 
    ! Retained no-op floating-point-trap hook.
    USE mod_load_filedata, ONLY : ALTRAP

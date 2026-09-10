@@ -2,7 +2,7 @@
 !> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
 !>
 !> `ocqdqmod` controls calculation of overland and channel flows, together
-!> with the derivatives used by the [[ocmod:ocsim]] implicit solver, at
+!> with the derivatives used by the [[oc_driver:OCSIM]] implicit solver, at
 !> element faces. [[ocqdq]] handles external boundaries, single adjacent
 !> faces, multi-way branch faces, bank exchanges, land-grid exchanges,
 !> link-link exchanges, and ZQ reservoir-table routing hooks by dispatching to
@@ -44,9 +44,13 @@
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-based branch skipping with named-loop `CYCLE` statements and passed whole local work arrays/base element addresses to [[ocmod2]] exchange routines instead of `(0:1)`/column array sections, to avoid array-descriptor overhead (commit `632f254`). |
 !> @endhistory
 MODULE ocqdqmod
-   USE SGLOBAL
-   USE AL_C ,     ONLY : ICMRF2, CWIDTH, DHF, ZBFULL, CLENTH
-   USE AL_G ,     ONLY : ICMREF, ICMXY
+   USE mod_parameters, ONLY: zero
+   USE array_limits, ONLY: nelee, nlfee, NOCTAB
+   USE element_geometry, ONLY: DXQQ, DYQQ, total_no_elements, total_no_links, ZGRUND
+   USE AL_C, ONLY: CWIDTH, ZBFULL, CLENTH
+   USE element_geometry, ONLY: DHF
+   USE grid_topology, ONLY: ICMRF2
+   USE grid_topology, ONLY: ICMREF, ICMXY
    USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, NOCBCC, NOCBCD, NoZQTables,ZQTableRef, ZQTableLink,ZQTableFace
    USE OCmod2 ,   ONLY : GETHRF, OCQMLN, SETQSA, OCQBNK, OCQGRD, OCQLNK, OCQBC
 
@@ -101,7 +105,7 @@ CONTAINS
    !> \quad DQIST(jel,jface)=DQ(1,0).
    !> \]
    !>
-   !> For a multi-link junction, [[ocmod2:ocqmln]] returns branch flows
+   !> For a multi-link junction, [[oc_discharge:OCQMLN]] returns branch flows
    !> \(Q_j\) and the derivative matrix \(DQIJ(j,k)=\partial Q_j/\partial
    !> Z_k\). The diagonal terms are stored in `DQ0ST`, while off-diagonal
    !> confluence couplings are stored in `DQIST2`. In ordinary sign
@@ -112,12 +116,12 @@ CONTAINS
    !> Surface storage: for single- and multi-link participants, a negative
    !> `STRXX(kel)` is treated as a millimetre-scale ponding-depth marker
    !> rather than roughness (see the module-level table); the substituted
-   !> value feeds [[ocmod2:ocqbnk]], [[ocmod2:ocqgrd]], [[ocmod2:ocqlnk]], or
-   !> [[ocmod2:ocqmln]] in place of [[fstr]]'s directional roughness.
+   !> value feeds [[oc_discharge:OCQBNK]], [[oc_discharge:OCQGRD]], [[oc_discharge:OCQLNK]], or
+   !> [[oc_discharge:OCQMLN]] in place of [[fstr]]'s directional roughness.
    !>
    !> If either side of a link-link face matches a configured ZQ table
    !> (`ZQTableLink`, `ZQTableFace`), `OCQDQ` sets `ZQTableRef` and dispatches
-   !> the face as boundary type `12`, so [[ocmod2:ocqlnk]] obtains discharge
+   !> the face as boundary type `12`, so [[oc_discharge:OCQLNK]] obtains discharge
    !> from the ZQ rating table instead of the ordinary link-link equation.
    !>
    !> Entry requirements retained from the legacy routine are:

@@ -1,8 +1,8 @@
 !> @brief Models carbon turnover and mineral-nitrogen cycling in soil columns.
 !>
 !> `MNmod` implements SHETRAN's optional Nitrate Component. It is enabled when
-!> [[frmod:fropen]] finds the main nitrate-data file on unit `MND` (53), and is
-!> called from [[cmmod:cmsim]] rather than acting as an independent transport
+!> [[frame_setup:FROPEN]] finds the main nitrate-data file on unit `MND` (53), and is
+!> called from [[cm_driver:CMSIM]] rather than acting as an independent transport
 !> solver. The contaminant component transports dissolved nitrate; this module
 !> calculates ammonium storage, organic carbon and nitrogen turnover,
 !> mineralisation and immobilisation, nitrification, denitrification, ammonia
@@ -53,10 +53,13 @@
 !> @endhistory
 module MNmod
 
-   use sglobal, only: llee, nconee, nelee, nlfee, nlyree, npelee, npltee, nsee, nvee, nxee, nyee
+   USE array_limits, ONLY: LLEE, NCONEE, nelee, nlfee, NLYREE, NPELEE, NPLTEE, NSEE, NVEE, nxee, &
+                  nyee
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_write, RAISE_ERROR, ERRLVL_fatal, FID_logfile
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_write, &
+                  RAISE_ERROR, ERRLVL_fatal
+   USE file_units, ONLY: FID_logfile
 
    use mod_load_filedata, only: alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
    use utilsmod, only: hour_from_date, tridag
@@ -733,7 +736,7 @@ CONTAINS
 
 !> @brief Controls the mineral nitrogen component from the contaminant timestep.
 !>
-!> `MNCONT` is called by [[cmmod:cmsim]] after [[mninitialise]] has allocated
+!> `MNCONT` is called by [[cm_driver:CMSIM]] after [[mninitialise]] has allocated
 !> and initialised the mineral-nitrogen component. It computes potential plant
 !> nitrogen uptake with [[mnplant]], then calls [[mnmain]] to advance mineral
 !> nitrogen state and fill `SSS1` and `SSS2`, which replace the contaminant
@@ -759,7 +762,7 @@ CONTAINS
 !> [[mnerr0]], [[mnerr1]], [[mnerr2]], [[mnerr3]], and [[mnerr4]].
 !> @endwarning
 !>
-!> @warning [[cmmod:cmsim]] passes `ICMREF(1:NEL,5)` to the explicit-shape
+!> @warning [[cm_driver:CMSIM]] passes `ICMREF(1:NEL,5)` to the explicit-shape
 !> `ICMREF(NEL,4,2:2)` dummy. The MN checks then index four faces, relying on
 !> contiguous storage from columns 5--8 beyond the declared one-column actual
 !> section. This retained coupling is compiler-sensitive and is not changed
@@ -3842,7 +3845,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
-!> | 2026-09-07 | SvB | - | Status-checked the carbon/nitrogen budget `WRITE`s through [[mod_error:errstat_write]]. |
+!> | 2026-09-07 | SvB | - | Status-checked the carbon/nitrogen budget `WRITE`s through [[error_status:errstat_write]]. |
    SUBROUTINE MNOUT(MNOUT1, MNOUT2, NBOTCE, NCETOP, NEL, NLF, NS, NCOLMB, NLYR, NLYRBT, NTSOIL, CNRHUM, GNN, MNCREF, DELTAZ, &
       KDDSOL, PPHI, DTUZ, UZNOW, DXQQ, DYQQ, CNRALT, CNRAMN, VSTHE, VSTHEO, ISBOTC)
 
@@ -4160,8 +4163,8 @@ CONTAINS
 !> @history
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
-!> | 2026-09-06 | SvB | Checked both plant-file `CLOSE` statements through [[mod_error:errstat_fileclose]], which recovers the filename from the unit. |
-!> | 2026-09-07 | SvB | Status-checked the `MNOUTPL` title `WRITE` through [[mod_error:errstat_write]]. |
+!> | 2026-09-06 | SvB | Checked both plant-file `CLOSE` statements through [[error_status:errstat_fileclose]], which recovers the filename from the unit. |
+!> | 2026-09-07 | SvB | Status-checked the `MNOUTPL` title `WRITE` through [[error_status:errstat_write]]. |
 !> @endhistory
    SUBROUTINE MNPLANTINITIALISE(MNPL, MNOUTPL, NEL, NLF, NV, NVC, RHOPL, DELONE, DXQQ, DYQQ, PLAI, CLAI)
 
@@ -4353,7 +4356,7 @@ CONTAINS
       Q10N, CCONC, CDPTH, CTOTTP, DAMHLF, DCHLF, KD1CNC, KD1DTH, KD2CNC, KD2DTH, KDDSOL, KHCONC, KHDPTH, KLCONC, KLDPTH, &
       KMCONC, KMDPTH, KNCONC, KNDPTH, KVCONC, KVDPTH, NACONC, NADPTH, NAMTOP, ISICCD, ISIAMD, ISQ10, IDUM, DUMMY)
 
-      USE SGLOBAL, ONLY: nyee
+      USE array_limits, ONLY: nyee
 
       IMPLICIT NONE
 
@@ -4808,7 +4811,7 @@ CONTAINS
 !>
 !> `mnred2` maintains saved next-event times for the external inorganic nitrogen
 !> (`MNFN`) and external carbon/organic nitrogen (`MNFC`) files. Times read from
-!> `MNFN01` and `MNFC01` are converted with [[utilsmod:hour_from_date]] and
+!> `MNFN01` and `MNFC01` are converted with [[datetime:hour_from_date]] and
 !> shifted by the simulation start hour `TIH`.
 !>
 !> | File | Activation test | Records read when active | Flag |
@@ -4827,7 +4830,7 @@ CONTAINS
       CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, IDUM, DUMMY)
 
       USE UTILSMOD, ONLY: hour_from_date
-      USE SGLOBAL, ONLY: nyee
+      USE array_limits, ONLY: nyee
 
       IMPLICIT NONE
 

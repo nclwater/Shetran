@@ -4,9 +4,9 @@
 !> `LINK_CW` replaces the legacy `LINK.CW` common blocks. It combines run-wide
 !> bed-depth inputs, fixed per-link bed geometry, retained state from the last
 !> contaminant step, and one pointer table for the link currently prepared by
-!> [[cmmod:linkw]]. [[frmod:incm]] initializes the per-link arrays after
-!> [[cmmod:cmrd]] reads the contaminant data; `LINKW` then advances the mutable
-!> state before [[cmmod:linksm]] calculates retardation and solves each link.
+!> [[cm_channel:LINKW]]. [[cm_input:INCM]] initializes the per-link arrays after
+!> [[cm_input:CMRD]] reads the contaminant data; `LINKW` then advances the mutable
+!> state before [[cm_channel:LINKSM]] calculates retardation and solves each link.
 !>
 !> | State group | Initialization and update |
 !> |:------------|:--------------------------|
@@ -19,9 +19,9 @@
 !> The four area arrays are dimensionless cross-sectional areas scaled by
 !> `Z2**2`. `THBED` is the thickness-weighted volumetric moisture content of
 !> the two bank regions within the stream bed, capped at bed porosity `PBSED`;
-!> `THBEDO` retains its preceding value for [[cmmod:fret]]. `LENDA(slot)` maps
+!> `THBEDO` retains its preceding value for [[cm_sorption:FRET]]. `LENDA(slot)` maps
 !> each of the six adjacent-link slots to end 1 or 2 of that adjacent link when
-!> `LINKW` reads `QLINK` and `QDEFF` from [[sed_cs]].
+!> `LINKW` reads `QLINK` and `QDEFF` from [[sy_state]].
 !>
 !> `ACPSFO` is not an immutable previous-step snapshot throughout the ordered
 !> catchment sweep. `LINKW` overwrites the current link entry before reading
@@ -39,7 +39,7 @@
 !> @warning
 !> The `THBED` recalculation in current `LINKW` uses the bank-2 deep-bed cell
 !> boundary for both bank sides. If the two `NCEBD` indices differ, its bank-1
-!> weighting can omit cells or read an unpopulated thickness; see [[link_cc1]]
+!> weighting can omit cells or read an unpopulated thickness; see [[cm_link_scaling]]
 !> for the indexing details. This documentation transfer does not alter it.
 !> @endwarning
 !>
@@ -65,7 +65,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE LINK_CW
-   USE SGLOBAL, ONLY : NLFEE
+   USE array_limits, ONLY: nlfee
    USE LINK_CC1
    IMPLICIT NONE
 

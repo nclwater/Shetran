@@ -35,12 +35,19 @@ endforeach()
 file(WRITE "${VISUALISATION_TEST_DATA_DIR}/records_no_final_newline.txt" "final")
 
 # visualisation_read_parser gains a `USE mod_error` dependency (commit 0f00bfa),
-# which drags in its `sglobal` -> `mod_parameters` chain and stdlib's
+# which drags in the `core/` data modules `mod_error` reads and stdlib's
 # `to_string`. Compile that chain here and link the stdlib strings target the
-# same way the main executable does.
+# same way the main executable does. This list is not topologically sorted by
+# CMake, so it is in dependency order by hand: `mod_parameters` first, then the
+# `core/` modules `mod_error` imports, then `mod_error` itself.
 add_executable(visualisation_read_tests
     "${CMAKE_SOURCE_DIR}/src/core/mod_parameters.f90"
-    "${CMAKE_SOURCE_DIR}/src/core/sglobal.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/array_limits.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/file_units.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/legacy_retained.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/run_context.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/runtime_flags.f90"
+    "${CMAKE_SOURCE_DIR}/src/core/simulation_clock.f90"
     "${CMAKE_SOURCE_DIR}/src/util/mod_error.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read_parser.f90"
     "${CMAKE_SOURCE_DIR}/src/visualisation/visualisation_read.f90"

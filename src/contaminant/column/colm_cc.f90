@@ -3,8 +3,8 @@
 !>
 !> `COLM_CC` replaces the legacy `COLM.CC` common blocks. It is mutable
 !> workspace for the column and contaminant most recently prepared by
-!> [[cmmod:colmsm]], with plant terms optionally supplied by
-!> [[cmmod:plcolm]]. [[cmmod:colm]] consumes this state, solves the coupled
+!> [[cm_column:COLMSM]], with plant terms optionally supplied by
+!> [[cm_plant:PLCOLM]]. [[cm_column:COLM]] consumes this state, solves the coupled
 !> dynamic-region and dead-space equations, and returns updated concentrations
 !> and decay-generation terms.
 !>
@@ -34,7 +34,7 @@
 !> record `CM53`; it is not longitudinal dispersivity. `FFSO` copies the
 !> dynamic-region fraction of adsorption sites from record `CM55`. Although
 !> `DDOD` and `DDOD1` represent prior and current dispersion states,
-!> [[cmmod:disp]] currently ignores its arguments and returns the fixed value
+!> [[cm_column:DISP]] currently ignores its arguments and returns the fixed value
 !> `3.0D-8`, so both arrays receive the same active-cell value after scaling.
 !>
 !> @warning
@@ -56,7 +56,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE COLM_CC
-   USE SGLOBAL, ONLY : LLEE
+   USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
    DOUBLEPRECISION GCAPLA  !! Active contaminant's scaled chemical-decay coefficient, `GCPLA(NCONT)`.

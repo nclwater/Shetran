@@ -2,9 +2,9 @@
 !> author: JE, Newcastle University; RAH, Newcastle University
 !>
 !> `COLM_CC1` replaces the legacy `COLM.CC1` common block and supplements
-!> [[colm_cc]]. [[cmmod:colm]] assembles these coefficient and right-hand-side
-!> arrays for one contaminant in one column, then [[cmmod:slvclm]] eliminates
-!> the dead-space unknown, calls [[utilsmod:tridag]], and returns the dynamic-
+!> [[cm_column_state]]. [[cm_column:COLM]] assembles these coefficient and right-hand-side
+!> arrays for one contaminant in one column, then [[cm_column:SLVCLM]] eliminates
+!> the dead-space unknown, calls [[linear_algebra:TRIDAG]], and returns the dynamic-
 !> and dead-space-region concentration rates in `OME` and `EPS`.
 !>
 !> For equation row (i), the stored linear system is
@@ -38,7 +38,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted to Fortran 90. |
 !> @endhistory
 MODULE COLM_CC1
-   USE SGLOBAL, ONLY : LLEE
+   USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
    DOUBLEPRECISION DLT(LLEE)     !! Coefficient of the next-row dynamic rate, `OME(i+1)`.

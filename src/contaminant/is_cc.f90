@@ -7,11 +7,11 @@
 !>
 !> | Flag | Intended/current lifecycle and principal consumers |
 !> |:-----|:--------------------------------------------------|
-!> | `ISFLXB` | Manual `CM5` base-boundary mode; read by [[cmmod:cmrd]] and consumed by `COLMSM` and `COLM`. |
-!> | `ISADNL` | Manual `CM13` nonlinear-adsorption mode used by `COLMSM`, [[cmmod:linksm]], and [[cmmod:slvclm]]. |
-!> | `ISBK` | Per-column bank workspace set by [[cmmod:colmw]] and then consumed by `COLMW` and [[cmmod:colmsm]]. |
-!> | `ISPLT` | Intended run-wide contaminant plant-uptake switch gating [[frmod:inpl]], [[cmmod:plprep]], and [[cmmod:plcolm]]. |
-!> | `ISMN` | Rundata unit 53 nitrate switch set by [[frmod:fropen]]; gates [[mnmod:mncont]] and `COLMSM` nitrate sources. |
+!> | `ISFLXB` | Manual `CM5` base-boundary mode; read by [[cm_input:CMRD]] and consumed by `COLMSM` and `COLM`. |
+!> | `ISADNL` | Manual `CM13` nonlinear-adsorption mode used by `COLMSM`, [[cm_channel:LINKSM]], and [[cm_column:SLVCLM]]. |
+!> | `ISBK` | Per-column bank workspace set by [[cm_column:COLMW]] and then consumed by `COLMW` and [[cm_column:COLMSM]]. |
+!> | `ISPLT` | Intended run-wide contaminant plant-uptake switch gating [[cm_plant:INPL]], [[cm_plant:PLPREP]], and [[cm_plant:PLCOLM]]. |
+!> | `ISMN` | Rundata unit 53 nitrate switch set by [[frame_setup:FROPEN]]; gates [[mn_driver:MNCONT]] and `COLMSM` nitrate sources. |
 !>
 !> The module declares no `PRIVATE` statement, so all five flags are public.
 !> None has a declaration initializer. `ISBK` is assigned immediately before
@@ -19,7 +19,7 @@
 !> component initialization.
 !>
 !> @warning
-!> In [[cmmod:cmrd]], local declarations named `ISFLXB` and `ISADNL` shadow
+!> In [[cm_input:CMRD]], local declarations named `ISFLXB` and `ISADNL` shadow
 !> the module variables. Manual records `CM5` and `CM13` are therefore read
 !> into locals; `ISFLXB` controls only the input-array setup within `CMRD`, and
 !> the local `ISADNL` has no subsequent use there. The module flags later read

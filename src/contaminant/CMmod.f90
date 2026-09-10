@@ -17,7 +17,7 @@
 !> decay products can use the immediately preceding contaminant as their parent.
 !>
 !> When mineral nitrogen is enabled, the first [[cmsim]] call runs
-!> [[mnmod:mninitialise]] and later calls run [[mnmod:mncont]] before transport.
+!> [[mn_driver:MNINITIALISE]] and later calls run [[mn_driver:MNCONT]] before transport.
 !> [[colmsm]] substitutes the resulting `SSS1`/`SSS2` source and sink terms into
 !> the column equations. Sediment transport supplies link sediment fluxes when
 !> it is active; otherwise [[cmsim]] derives only the water-flow directions.
@@ -37,7 +37,7 @@
 !>
 !> @warning
 !> [[cmrd]] also declares local `ISFLXB` and `ISADNL` variables. They shadow
-!> the same-named flags in [[is_cc]], leaving the module flags later read by the
+!> the same-named flags in [[cm_solver_flags]], leaving the module flags later read by the
 !> solvers undefined under standard Fortran. `ISPLT` likewise has no current
 !> assignment. This documentation records current behaviour; it does not repair
 !> those runtime defects.
@@ -57,16 +57,19 @@
 !> | 2020-03-05 | SvB | - | Replaced the complete `SGLOBAL` include with selected imports. |
 !> @endhistory
 MODULE CMmod
-   USE SGLOBAL, ONLY: &
-      nlf => total_no_links, area => cellarea, NEL => total_no_elements, &
-      ZERO, ONE, TWO, HALF, DYQQ, DXQQ, ZGRUND
+   USE element_geometry, ONLY: nlf => total_no_links, area => cellarea, NEL => total_no_elements, &
+                  DYQQ, DXQQ, ZGRUND
+   USE mod_parameters, ONLY: zero, one, two, half
 
    USE mod_error, ONLY: RAISE_ERROR
    USE tolerance_testing, ONLY: notzero, iszero, gtzero, ltzero, gezero, idimje
 
    USE OCMOD2, ONLY: hrf => hrfzz
    USE AL_C
-   USE AL_G
+   USE element_geometry, ONLY: ISORT
+   USE file_units, ONLY: CMD, MND, MNFC, MNFN, MNOUT1, MNOUT2, MNOUTPL, MNPL, MNPR
+   USE grid_topology, ONLY: ICMREF, ICMRF2, ICMXY, NX, NY
+   USE simulation_clock, ONLY: DTUZ, TIH
    USE IS_CC
    USE UTILSMOD, ONLY: TRIDAG
    USE IS_CC
@@ -126,7 +129,7 @@ CONTAINS
 !> are caller-owned work arrays and their contents are not preserved.
 !>
 !> @warning The local `ISFLXB` and `ISADNL` declarations shadow the flags in
-!> [[is_cc]]. Only the former affects this read routine; neither value reaches
+!> [[cm_solver_flags]]. Only the former affects this read routine; neither value reaches
 !> the later transport solvers. Likewise `PHIDAT`, `DIFDAT`, and `DISPDT` are
 !> local arrays and are discarded. See [[phi]] and [[disp]].
 !> @endwarning
@@ -219,8 +222,8 @@ CONTAINS
       INTEGER :: I, IEL, INDX, NC, NCBC, NCED, NCLBND, NCONCM, NCONT
       INTEGER :: NDATA, NFEX, NMAX(3), NREQ, NSCM, NSEDCM, NTB, NTBL, SOIL
       LOGICAL :: LDUM(1) !! One-value logical input buffer.
-      LOGICAL :: ISFLXB  !! Local `CM5` flag; shadows and does not assign [[is_cc]]'s flag.
-      LOGICAL :: ISADNL  !! Local `CM13` flag; shadows and does not assign [[is_cc]]'s flag.
+      LOGICAL :: ISFLXB  !! Local `CM5` flag; shadows and does not assign [[cm_solver_flags]]'s flag.
+      LOGICAL :: ISADNL  !! Local `CM13` flag; shadows and does not assign [[cm_solver_flags]]'s flag.
       CHARACTER(80)  :: CDUM(1)
       CHARACTER(132) :: MSG
 
@@ -620,8 +623,8 @@ CONTAINS
 !> TSE = D0\,DTUZ/Z2SQ .
 !> \]
 !>
-!> When `ISMN` is true, the first call performs [[mnmod:mninitialise]] but does
-!> not advance the MN processes; later calls run [[mnmod:mncont]]. The optional
+!> When `ISMN` is true, the first call performs [[mn_driver:MNINITIALISE]] but does
+!> not advance the MN processes; later calls run [[mn_driver:MNCONT]]. The optional
 !> plant preparation follows, after which `ISORT` determines the serial sweep:
 !> land elements call [[colmw]] then [[colmsm]], and links call [[linkw]] then
 !> [[linksm]]. Finally the current link and column concentrations are copied to
@@ -636,7 +639,7 @@ CONTAINS
 !> @endnote
 !>
 !> @warning Plant preparation is gated by the currently unassigned `ISPLT`
-!> module flag described in [[is_cc]].
+!> module flag described in [[cm_solver_flags]].
 !> @endwarning
 !>
 !> @history
@@ -657,7 +660,7 @@ CONTAINS
       USE COLM_CG
       USE LINK_CW
       USE PLANT_CC
-      USE SGLOBAL, ONLY: uznow
+      USE simulation_clock, ONLY: UZNOW
       USE AL_D, ONLY: TA
 
       IMPLICIT NONE
@@ -2865,7 +2868,7 @@ CONTAINS
 !> `PLT+PLTSTR*EPS` and add `ELTSTR*OME` to the diagonal before repeating the
 !> solve. There is no convergence test or adaptive iteration count.
 !>
-!> @warning `ISADNL` is the currently unassigned [[is_cc]] module flag, and
+!> @warning `ISADNL` is the currently unassigned [[cm_solver_flags]] module flag, and
 !> the routine divides by `PLT`/`PLTE` without a local zero guard.
 !> @endwarning
    SUBROUTINE SLVCLM(n)

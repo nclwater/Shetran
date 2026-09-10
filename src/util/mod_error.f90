@@ -2,16 +2,16 @@
 !> author: R. A. Heath, Newcastle University; Sven Berendsen, Southampton University
 !>
 !> This module owns SHETRAN's shared error-handling interface: the numbered
-!> diagnostic reporter [[mod_error:RAISE_ERROR]], the termination routine
-!> [[mod_error:ERR_STOP]], the severity selectors passed to `ERROR`, the
+!> diagnostic reporter [[error_reporting:RAISE_ERROR]], the termination routine
+!> [[error_reporting:ERR_STOP]], the severity selectors passed to `ERROR`, the
 !> per-code occurrence counters, and the default primary print unit. It was
-!> extracted from [[sglobal]] so that error handling is no longer coupled to
-!> the global capacity/state module, and so that its consumers declare the
+!> extracted from the former `sglobal` so that error handling is no longer
+!> coupled to the global capacity/state module, and so that its consumers declare the
 !> dependency explicitly.
 !>
-!> The two timestep-reduction request flags remain in [[sglobal]]: `ERROR`
-!> writes them and [[rest:TMSTEP]] consumes them, and keeping them there
-!> avoids a circular dependency between this module and `sglobal`.
+!> The two timestep-reduction request flags live in [[runtime_flags]]: `ERROR`
+!> writes them and [[timestep_control:TMSTEP]] consumes them, and keeping them apart
+!> from this module avoids a circular dependency.
 !>
 !> @note
 !> The `ERROR` interface is unchanged from its former `sglobal` form so that
@@ -28,14 +28,17 @@
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-08-31 | SvB | - | Initial version, extracted from [[sglobal]] with the selectors, counters, and print unit renamed. |
+!> | 2026-08-31 | SvB | - | Initial version, extracted from the former `sglobal` with the selectors, counters, and print unit renamed. |
 !> | 2026-08-31 | SvB | - | Split fatal from ordinary termination in `ALSTOP`, added `err_set_wait_on_exit`, and widened the help-line buffer to `LENGTH_LINE`. |
 !> @endhistory
 MODULE mod_error
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_FILEPATH, LENGTH_LINE
-   USE SGLOBAL, ONLY: UZNOW, EARRAY, rootdir, error_mode, &
-                      flag_runtime_reduction_errors, flag_runtime_reduction_e1060
+   USE file_units, ONLY: FID_logfile
+   USE legacy_retained, ONLY: EARRAY
+   USE run_context, ONLY: rootdir, error_mode
+   USE runtime_flags, ONLY: flag_runtime_reduction_errors, flag_runtime_reduction_e1060
+   USE simulation_clock, ONLY: UZNOW
    USE stdlib_strings, ONLY: to_string
 
    IMPLICIT NONE
@@ -47,7 +50,6 @@ MODULE mod_error
    PUBLIC :: errstat_read, errstat_write
    PUBLIC :: errstat_rewind
    PUBLIC :: ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
-   PUBLIC :: FID_logfile
    PUBLIC :: ERR_limit_error_codes
 
    ! --------------------------------------------------------------------
@@ -82,12 +84,11 @@ MODULE mod_error
    ! --------------------------------------------------------------------
    ! Diagnostic output destinations
    ! --------------------------------------------------------------------
-   INTEGER(KIND=I_P), PARAMETER :: FID_logfile = 23 !! Default Fortran unit for primary PRI output.
    CHARACTER(LEN=LENGTH_FILEPATH) :: helppath !! Help-directory fragment set to `/helpmessages` by each `ERROR` call.
 
 CONTAINS
 
-   !> summary: Selects whether [[mod_error:ERR_STOP]] waits before terminating.
+   !> summary: Selects whether [[error_reporting:ERR_STOP]] waits before terminating.
    !> author: S. Berendsen, Southampton University
    !>
    !> Intended for interactive launches, where the console window closes as
@@ -403,10 +404,10 @@ CONTAINS
    !>
    !> | `ETYPE` | Immediate record and accounting | Control behavior |
    !> |:--------|:--------------------------------|:-----------------|
-   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ERR_STOP]] for error termination. |
+   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[error_reporting:ERR_STOP]] for error termination. |
    !> | `ERRLVL_error=2` | Writes an `ERROR` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `ERRLVL_warn=3` | Writes a `WARNING` header and `TEXT`; increments the counters as above. | Returns to the caller. |
-   !> | `0` | Writes `TEXT` without a severity header and does not increment either counter. | `ERRNUM=0` would also request a summary; current callers use code 12 only for continuation text from [[mod_load_filedata:ALCHK]] and [[mod_load_filedata:ALCHKI]]. |
+   !> | `0` | Writes `TEXT` without a severity header and does not increment either counter. | `ERRNUM=0` would also request a summary; current callers use code 12 only for continuation text from [[input_validation:ALCHK]] and [[input_validation:ALCHKI]]. |
    !>
    !> Every call writes `TEXT` to `OUT`, even if `ETYPE` lies outside zero
    !> through three. Only selectors one through three receive a formatted
@@ -437,7 +438,7 @@ CONTAINS
    !>
    !> Errors 1024 and 1030 request the stronger timestep reduction through
    !> `flag_runtime_reduction_errors`; error 1060 requests the separate
-   !> reduction through `flag_runtime_reduction_e1060`. [[rest:TMSTEP]] divides
+   !> reduction through `flag_runtime_reduction_e1060`. [[timestep_control:TMSTEP]] divides
    !> its proposed timestep by 100 or 10 respectively, subject to a 0.0003 h
    !> floor, and clears the flags after consuming them.
    !>
@@ -482,7 +483,7 @@ CONTAINS
    !> | 2026-04-13 | SvB | Replaced labelled summary/help loops and error branches with named loops and `IOSTAT` handling. |
    !> | 2026-05-08 | SB | Reworked summary output to name the selected print file and write the summary heading to both standard output and `OUT`. |
    !> | 2026-05-10 | SvB | Removed the interactive wait before help-file lookup for noninteractive scripted use. |
-   !> | 2026-08-31 | SvB | Moved from [[sglobal]] to [[mod_error]] and renamed the selectors and counters. |
+   !> | 2026-08-31 | SvB | Moved from the former `sglobal` to [[mod_error]] and renamed the selectors and counters. |
    !> @endhistory
    SUBROUTINE RAISE_ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
@@ -630,13 +631,13 @@ CONTAINS
    !>
    !> A positive `error_number` selects error termination through `ERROR STOP`,
    !> so that the process reports a nonzero status to whatever launched it.
-   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:RAISE_ERROR]]
+   !> Omitting the argument selects an ordinary `STOP`. [[error_reporting:RAISE_ERROR]]
    !> passes `1` after it has printed the fatal-error summary; the
    !> unrecoverable conditions detected directly in the process modules pass
    !> `255`.
    !>
    !> When `flag_wait_on_exit` has been set through
-   !> [[mod_error:err_set_wait_on_exit]], the routine prompts and blocks on
+   !> [[error_reporting:err_set_wait_on_exit]], the routine prompts and blocks on
    !> standard input first, so that an interactively launched console window
    !> does not close before the diagnostics can be read. `error_mode` (the
    !> `-error` command-line option) suppresses that wait unconditionally, which
