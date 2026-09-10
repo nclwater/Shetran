@@ -2,7 +2,7 @@
 !> author: R. A. Heath, Newcastle University; Sven Berendsen, Southampton University
 !>
 !> This module owns SHETRAN's shared error-handling interface: the numbered
-!> diagnostic reporter [[mod_error:ERROR]], the termination routine
+!> diagnostic reporter [[mod_error:RAISE_ERROR]], the termination routine
 !> [[mod_error:ERR_STOP]], the severity selectors passed to `ERROR`, the
 !> per-code occurrence counters, and the default primary print unit. It was
 !> extracted from [[sglobal]] so that error handling is no longer coupled to
@@ -403,7 +403,7 @@ CONTAINS
    !>
    !> | `ETYPE` | Immediate record and accounting | Control behavior |
    !> |:--------|:--------------------------------|:-----------------|
-   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ALSTOP]] for error termination. |
+   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ERR_STOP]] for error termination. |
    !> | `ERRLVL_error=2` | Writes an `ERROR` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `ERRLVL_warn=3` | Writes a `WARNING` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `0` | Writes `TEXT` without a severity header and does not increment either counter. | `ERRNUM=0` would also request a summary; current callers use code 12 only for continuation text from [[mod_load_filedata:ALCHK]] and [[mod_load_filedata:ALCHKI]]. |
@@ -615,7 +615,7 @@ CONTAINS
       ! String format statements
       ! ------------------------
 9100  FORMAT(/' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-         &        ', iel =', I5:', cell =', I5)
+           &        ', iel =', I5:', cell =', I5)
 9200  FORMAT(A, I1, I3.3, A)
 
 9500  FORMAT(' No. of occurrences of error number', I5.4, ' is', I6)
@@ -630,7 +630,7 @@ CONTAINS
    !>
    !> A positive `error_number` selects error termination through `ERROR STOP`,
    !> so that the process reports a nonzero status to whatever launched it.
-   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:ERROR]]
+   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:RAISE_ERROR]]
    !> passes `1` after it has printed the fatal-error summary; the
    !> unrecoverable conditions detected directly in the process modules pass
    !> `255`.

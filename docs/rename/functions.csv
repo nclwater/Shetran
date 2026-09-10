@@ -8452,7 +8452,7 @@ RAISE_ERROR,subroutine,src/util/mod_error.f90,mod_error,487,627,391,391,False,sr
    !>
    !> | `ETYPE` | Immediate record and accounting | Control behavior |
    !> |:--------|:--------------------------------|:-----------------|
-   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ALSTOP]] for error termination. |
+   !> | `ERRLVL_fatal=1` | Writes a `FATAL ERROR` header and `TEXT` to `OUT`; increments `error_counter_total` and, for a representable code, `error_counter`. | Prints the summary, then calls [[mod_error:ERR_STOP]] for error termination. |
    !> | `ERRLVL_error=2` | Writes an `ERROR` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `ERRLVL_warn=3` | Writes a `WARNING` header and `TEXT`; increments the counters as above. | Returns to the caller. |
    !> | `0` | Writes `TEXT` without a severity header and does not increment either counter. | `ERRNUM=0` would also request a summary; current callers use code 12 only for continuation text from [[mod_load_filedata:ALCHK]] and [[mod_load_filedata:ALCHKI]]. |
@@ -8537,7 +8537,7 @@ ERR_STOP,subroutine,src/util/mod_error.f90,mod_error,654,675,629,629,False,src/u
    !>
    !> A positive `error_number` selects error termination through `ERROR STOP`,
    !> so that the process reports a nonzero status to whatever launched it.
-   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:ERROR]]
+   !> Omitting the argument selects an ordinary `STOP`. [[mod_error:RAISE_ERROR]]
    !> passes `1` after it has printed the fatal-error summary; the
    !> unrecoverable conditions detected directly in the process modules pass
    !> `255`.
@@ -8659,7 +8659,7 @@ ALCHK,subroutine,src/util/mod_load_filedata.f90,mod_load_filedata,588,749,544,54
    !>
    !> Every failure sets `NOTOK(i)` and increments cumulative `COUNT`. A
    !> negative `ACTION` first replaces each failing subject with its comparison
-   !> value; `ABS(ACTION)` is then passed to [[sglobal:ERROR]] as the severity
+   !> value; `ABS(ACTION)` is then passed to [[mod_error:RAISE_ERROR]] as the severity
    !> selector. The diagnostic gives the lowest-index failure and, for a
    !> nonfatal action, a continuation reports how many other entries failed.
    !> Up to three indices are inferred from commas in `SNAME`; `IX2` and `IX3`
@@ -8703,7 +8703,7 @@ ALCHKI,subroutine,src/util/mod_load_filedata.f90,mod_load_filedata,788,947,751,7
    !> Failure accounting, optional reset, severity selection, `SNAME` subscript
    !> parsing, and reporting are identical to `ALCHK`: `NOTOK` receives the
    !> mask, `COUNT` is cumulative, and a negative `ACTION` resets bad subjects
-   !> before calling [[sglobal:ERROR]] with `ABS(ACTION)`.
+   !> before calling [[mod_error:RAISE_ERROR]] with `ABS(ACTION)`.
    !>
    !> @warning
    !> `OP` must contain at least two characters. The subtraction, sign
@@ -8787,7 +8787,7 @@ ALREAD,subroutine,src/util/mod_load_filedata.f90,mod_load_filedata,1124,1342,107
    !> `HEAD0_alread`, which a later heading-read failure includes in its message.
    !> Error codes 3--7, 10--11, 14, and 16 distinguish heading, file/data,
    !> grid-row, soil, and VSS-record failures; contained helper `throw_fatal` dispatches
-   !> each through [[sglobal:ERROR]] with fatal severity.
+   !> each through [[mod_error:RAISE_ERROR]] with fatal severity.
    !>
    !> @warning
    !> There is no `CASE DEFAULT`; unsupported flags may consume a heading and
@@ -8816,7 +8816,7 @@ ALREAD,subroutine,src/util/mod_load_filedata.f90,mod_load_filedata,1124,1342,107
 throw_fatal,subroutine,src/util/mod_load_filedata.f90,mod_load_filedata,1335,1340,1323,1323,True,src/io/record_readers.f90,record_readers,Heading-and-value record readers for the component data files.,0,,0,,"!> Reports one `ALREAD` I/O failure as fatal.
       !>
       !> This contained helper host-associates `OUNIT` from [[ALREAD]] and calls
-      !> [[sglobal:ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
+      !> [[mod_error:RAISE_ERROR]] with `ERRLVL_fatal`, the supplied legacy error identifier,
       !> no element/cell context, and the already formatted message. `ERROR`
       !> terminates normal execution for fatal severity.
       !>

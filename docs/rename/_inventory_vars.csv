@@ -362,7 +362,7 @@ src/core/sglobal.f90,sglobal,DYQQ,162,REAL(KIND=R8P),DIMENSION(nelee),(nelee),Fa
 src/core/sglobal.f90,sglobal,ZGRUND,163,REAL(KIND=R8P),DIMENSION(nelee),(nelee),False,False,Ground-surface elevation of each active element [m].
 src/core/sglobal.f90,sglobal,flag_runtime_reduction_errors,170,LOGICAL,,,False,False,Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
 src/core/sglobal.f90,sglobal,flag_runtime_reduction_e1060,171,LOGICAL,,,False,False,Latest `ERROR` call requested the separate timestep reduction for error 1060.
-src/core/sglobal.f90,sglobal,error_mode,176,LOGICAL,,,False,False,State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ALSTOP]].
+src/core/sglobal.f90,sglobal,error_mode,176,LOGICAL,,,False,False,State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ERR_STOP]].
 src/core/sglobal.f90,sglobal,marker999,181,REAL(KIND=R8P),PARAMETER,,True,True,End-of-input time sentinel returned by `FINPUT` and `HINPUT` [h].
 src/core/sglobal.f90,sglobal,imarker,182,INTEGER(KIND=I_P),PARAMETER,,True,True,Truncated sentinel used internally by `eqmarker`.
 src/core/sglobal.f90,sglobal,izero,183,INTEGER(KIND=I_P),PARAMETER,,True,True,Integer zero constant.
