@@ -59,8 +59,8 @@ MODULE run_sim
    USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, &
                   errstat_write
 
-   USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
-      ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
+   USE sy_state, ONLY: NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU, &
+                  GNUBK, QSED, DCBED, DCBSED
 !                 llee, NVSEE, NLYREE, NOCTAB, NXSCEE !NEEDED ONLY FOR AD
    USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
    USE channel_geometry, ONLY: ICMBK, CLENTH, CWIDTH, ZBFULL, BEXBK, LINKNS
@@ -95,7 +95,7 @@ MODULE run_sim
    USE OCmod2, ONLY: GETHRF, &
       HRFZZ !HRFZZ NEEDED ONLY FOR AD
    USE FRmod, ONLY: FRSORT, FROUTPUT, FRMB, FRRESP, DATE_FROM_HOUR
-   USE SYmod, ONLY: SYMAIN, BALSED  !"JE"
+   USE sy_driver, ONLY: SYMAIN, BALSED
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA         !VISVISVIS
    USE VISUALISATION_INTERFACE_LEFT, ONLY: GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
 !NEEDED ONLY FOR AD
@@ -116,7 +116,7 @@ MODULE run_sim
    USE vs_state, ONLY: QH, QVSWLI, VSTHE, VSPSI, QVSH, QVSV, QBKB, QBKF
    USE ETmod, ONLY: rc, ra, cstcap, del, &
       nctcst, nctvht, nctcla, nctpla !these here only for AD
-   USE SYmod, ONLY: issyok_symain  !"JE"
+   USE sy_config, ONLY: ISSYOK_symain
    USE FRmod, ONLY: qoctot, uzold, &
       next_hour, icounter2  !these here only for AD
    USE CONT_CC, ONLY: initialise_cont_cc

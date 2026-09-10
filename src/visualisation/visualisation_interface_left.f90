@@ -106,7 +106,7 @@ MODULE visualisation_interface_left
    USE simulation_clock, ONLY: UZNOW
    USE CONT_CC, ONLY: cccc, nnncon => ncon, ssss
    USE mod_parameters, ONLY: rho_sediment
-   USE SED_CS, ONLY: dls, gnu, nnnsed => nsed, qsed
+   USE sy_state, ONLY: DLS, GNU, nnnsed => NSED, QSED
    USE OCmod2, ONLY: hrfzz
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE

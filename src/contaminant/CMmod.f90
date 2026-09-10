@@ -660,7 +660,7 @@ CONTAINS
    SUBROUTINE CMSIM(ISSDON)
 
       ! Commons and constants
-      USE SED_CS
+      USE sy_state, ONLY: QLINK
       USE CONT_CC
       USE COLM_C1
       USE COLM_CO
@@ -1096,7 +1096,7 @@ CONTAINS
    SUBROUTINE COLMSM(NCL)
 
       ! Commons and constants
-      USE SED_CS
+      USE sy_state, ONLY: FBETA, FDEL, NSED
       USE CONT_CC
       USE COLM_C1
       USE COLM_C2
@@ -1477,7 +1477,7 @@ CONTAINS
 !> @endhistory
    SUBROUTINE COLMW(NCL)
 ! Commons and constants
-      USE SED_CS
+      USE sy_state, ONLY: DLS, GNU
       USE COLM_C1
       USE COLM_C2
       USE COLM_CO
@@ -1891,7 +1891,7 @@ CONTAINS
    SUBROUTINE LINKSM(NLINK)
 
       USE CONT_CC
-      USE SED_CS
+      USE sy_state, ONLY: DLS, FBETA, FBTSD, FDEL, GINFD, GINFS, NSED, NSOBED, PBSED, SOSDFN
       ! USE CONT_CC ! (Duplicate removed)
       USE COLM_C1
       USE LINK_CC
@@ -2198,7 +2198,7 @@ CONTAINS
 !> @endhistory
    SUBROUTINE LINKW(NLINK)
 
-      USE SED_CS
+      USE sy_state, ONLY: ARBDEP, GNUBK, PBSED, QDEFF, QLINK
       USE COLM_C1
       USE COLM_CG
       USE COLM_CO

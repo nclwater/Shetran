@@ -321,3 +321,25 @@ input directory in the repository and appear in no active list in
 `settings.py`, so neither script could run or compare them, and the fixtures
 could not have been regenerated. They were untracked, so the deletion is not
 recoverable from git.
+
+## D15 — `SYFINE`'s first-call state is in a sibling module
+
+`constants_review.md` lists `FIRST_syackw`, `FIRST_syfine` and `WSED_syfine`
+under "Constants deliberately *not* moved", to stay "with their formulas" in
+`sy_transport_capacity`, and `variables.csv` places them there.
+
+But `WSED_syfine`'s formula is not in `sy_transport_capacity`: it is the two
+lines inside `SYFINE` that cache the fine-sediment settling velocity on the
+first call, and `SYFINE` goes to `sy_hillslope`. `FIRST_syfine` is the guard on
+those same two lines. `FIRST_syackw` is genuinely dead — its own note in the
+source says so — and its placement costs nothing.
+
+*What was done.* The tables win (`00_working_rules.md` §2), so both names stay
+in `sy_transport_capacity`, are declared **public** there, and `sy_hillslope`
+imports them. Both module headers say so.
+
+*Cost.* A module's private first-call state became part of another module's
+published interface, and reading `SYFINE` now requires looking somewhere else
+for the two variables it owns. Moving them to `sy_hillslope` would be a
+one-line change with no behaviour effect and would remove the edge; it is a
+follow-up, not part of a move that follows the tables.

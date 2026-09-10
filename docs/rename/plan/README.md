@@ -56,7 +56,7 @@ commits.
 | 03 | [`util/` and `io/`](03_util_io.md) | 14 | `mod_error`, `tolerance_testing`, `utilsmod`, `mod_load_filedata` | ☑ |
 | 04 | [Component state out of `AL_C`/`AL_D`](04_component_state.md) | 8 | `AL_C` | ☑ |
 | 05 | [`nitrate/`](05_nitrate.md) | 9 | `MNmod` | ☑ |
-| 06 | [`sediment/`](06_sediment.md) | 9 | `SYmod`, `SED_CS` | ☐ |
+| 06 | [`sediment/`](06_sediment.md) | 9 | `SYmod`, `SED_CS` | ☑ |
 | 07 | [`evapotranspiration/`](07_evapotranspiration.md) | 4 | `ETmod` | ☐ |
 | 08 | [`snow/`](08_snow.md) | 4 | `SMmod` | ☐ |
 | 09 | [`contaminant/`](09_contaminant.md) | 20 | `CMmod` + 14 data modules | ☐ |
