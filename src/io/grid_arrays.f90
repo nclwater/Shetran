@@ -17,7 +17,7 @@ MODULE grid_arrays
    USE array_limits, ONLY: nelee, nxee, nyee
    USE element_geometry, ONLY: total_no_elements, total_no_links
    USE grid_topology, ONLY: NGDBGN, NX, NY, ICMXY, ICMREF
-   USE AL_C, ONLY: icmbk
+   USE channel_geometry, ONLY: ICMBK
    USE float_compare, ONLY: iszero_a, i_iszero_a2
    USE error_reporting, ONLY: ERR_STOP
    USE error_status, ONLY: errstat_read

@@ -57,10 +57,12 @@ MODULE SMmod
    USE error_reporting, ONLY: ERR_STOP
    USE error_status, ONLY: errstat_alloc, errstat_dealloc
 
-   USE AL_C, ONLY: nvc, ispack, nrd
+   USE et_state, ONLY: NVC, NRD
+   USE snow_state, ONLY: ISPACK
    USE simulation_clock, ONLY: DTUZ
-   USE AL_D, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, msm, nsmc, nrainc, nmc, nsmt, &
-                  precip_m_per_s, pnet, PE, RHOSAR, rn, s, sf, sd, ta, ts, u, vpd, VHT
+   USE AL_D, ONLY: nrainc, nmc, precip_m_per_s, rn, ta, u, vpd
+   USE et_state, ONLY: AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, PNET, PE, S, VHT
+   USE snow_state, ONLY: MSM, NSMC, NSMT, RHOSAR, SF, SD, TS
    USE simulation_clock, ONLY: TIMEUZ
    IMPLICIT NONE
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: smelt !! Routed meltwater slugs by slug number and element (mm water).
@@ -280,8 +282,8 @@ CONTAINS
    !>
    !> @note
    !> The routine operates mainly through module/global state imported from
-   !> [[array_limits]], [[mod_parameters]], [[element_geometry]], [[al_c]], and
-!> [[al_d]]; its only dummy argument is the
+   !> [[array_limits]], [[mod_parameters]], [[element_geometry]], [[snow_state]],
+!> [[et_state]] and [[al_d]]; its only dummy argument is the
    !> element index. The energy-budget saturation-vapour-pressure polynomial
    !> is evaluated for both the snow surface and the air using a shared
    !> `TEMP_RATIO` local to avoid repeating the `(T/5-3)` subexpression; this

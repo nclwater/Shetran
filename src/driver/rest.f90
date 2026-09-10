@@ -31,11 +31,15 @@ MODULE rest
    USE runtime_flags, ONLY: flag_runtime_reduction_e1060, flag_runtime_reduction_errors
    USE simulation_clock, ONLY: UZNOW
    USE grid_topology, ONLY: ICMREF
-   USE AL_C, ONLY: ARXL, CWIDTH, CLAI, DELTAZ, EEVAP, ERUZ, NLYRBT, NV, PLAI, PNETTO, QVSBF, &
-                  QVSWEL, QBKF, QOC, QVSH, VSTHE, WBERR
+   USE channel_geometry, ONLY: CWIDTH
+   USE et_state, ONLY: CLAI, EEVAP, ERUZ, NV, PLAI, PNETTO
+   USE oc_state, ONLY: ARXL, QOC
+   USE vs_state, ONLY: DELTAZ, NLYRBT, QVSBF, QVSWEL, QBKF, QVSH, VSTHE, WBERR
    USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT
-   USE AL_D, ONLY: balanc, DTMET2, BHOTRD, BHOTTI, NM, NRAIN, DTMET3, PE, DTMET, RN, OBSPE, U, TA, &
-                  VPD, TMAX, VHT, SD, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, ista
+   USE AL_D, ONLY: balanc, DTMET2, BHOTRD, BHOTTI, NM, NRAIN, DTMET3, DTMET, RN, OBSPE, U, TA, VPD, &
+                  TMAX, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, ista
+   USE et_state, ONLY: PE, VHT
+   USE snow_state, ONLY: SD
    USE element_geometry, ONLY: CAREA
    USE file_units, ONLY: EPD, PRD, MED, TAH, TAL
    USE legacy_retained, ONLY: FLERRC, SYERRC, CMERRC
@@ -178,7 +182,7 @@ CONTAINS
       &        I7, ' steps.'/)
    END SUBROUTINE extra_output
 
-!> Updates the cumulative water-balance error [[al_c]]`:WBERR` for each column or link.
+!> Updates the cumulative water-balance error [[vs_state:WBERR]] for each column or link.
 !>
 !> The routine computes the change in stored surface/subsurface water since
 !> the previous call and compares it with the net supplied depth over the

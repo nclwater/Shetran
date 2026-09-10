@@ -88,10 +88,16 @@ MODULE visualisation_interface_left
 
    USE element_geometry, ONLY: DXQQ, DYQQ, ZGRUND, total_no_elements, top_cell_no, &
                   nlf => total_no_links
-   USE AL_C, ONLY: draina, cwidth, nlyr, nlyrbt, ntsoil, nvc, pnetto, qoc, wberr
+   USE channel_geometry, ONLY: CWIDTH
+   USE et_state, ONLY: DRAINA, NVC, PNETTO
+   USE oc_state, ONLY: QOC
+   USE vs_state, ONLY: NLYR, NLYRBT, NTSOIL, WBERR
    USE file_units, ONLY: CMD, SYD
-   USE AL_C, ONLY: deltaz, esoila, qvsv, vspsi, vsthe, zvspsl
-   USE AL_D, ONLY: bexcm, bexsy, cstore, einta, epot, erza, sd
+   USE et_state, ONLY: ESOILA
+   USE vs_state, ONLY: DELTAZ, QVSV, VSPSI, VSTHE, ZVSPSL
+   USE AL_D, ONLY: bexcm, bexsy
+   USE et_state, ONLY: CSTORE, EINTA, EPOT, ERZA
+   USE snow_state, ONLY: SD
    USE element_geometry, ONLY: DXIN, DYIN
    USE grid_topology, ONLY: ICMREF, ICMXY, NX, NY
    USE build_info, ONLY: SHEVER

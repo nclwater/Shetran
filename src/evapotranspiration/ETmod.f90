@@ -65,12 +65,14 @@ MODULE ETmod
    USE array_limits, ONLY: LLEE, NUZTAB, NVBP, NVEE
    USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, ZGRUND
    USE grid_topology, ONLY: ICMREF, NGDBGN, ICMREF
-   USE AL_C, ONLY: NVC, NRD, RDF, ERUZ, DELTAZ, CLAI, PNETTO, DRAINA, ESOILA, NHBED, PLAI, NVSWLT, &
-                  QVSWEL, eevap, CWIDTH, FHBED, NLYRBT, vspsi, NV
+   USE channel_geometry, ONLY: NHBED, CWIDTH, FHBED
+   USE et_state, ONLY: NVC, NRD, RDF, ERUZ, CLAI, PNETTO, DRAINA, ESOILA, PLAI, EEVAP, NV
+   USE vs_state, ONLY: DELTAZ, NVSWLT, QVSWEL, NLYRBT, VSPSI
    USE simulation_clock, ONLY: DTUZ, UZNEXT
-   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, PE, OBSPE, RN, VPD, PNET, precip_m_per_s, CPLAI, &
-                  EINT, CSTOLD, CSTORE, EPOT, EINTA, ERZA, ESWA, BEXSM, DRAIN, ERZ, AE, HRUZ, &
-                  ESOIL, NSMT, S, sf, sd, ts, nsmc
+   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, OBSPE, RN, VPD, precip_m_per_s, BEXSM
+   USE et_state, ONLY: PE, PNET, CPLAI, EINT, CSTOLD, CSTORE, EPOT, EINTA, ERZA, ESWA, DRAIN, ERZ, &
+                  AE, HRUZ, ESOIL, S
+   USE snow_state, ONLY: NSMT, SF, SD, TS, NSMC
    USE element_geometry, ONLY: BWIDTH
    USE simulation_clock, ONLY: TIMEUZ
    USE input_validation, ONLY: ALCHK

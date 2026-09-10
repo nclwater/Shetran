@@ -220,3 +220,42 @@ blind spot is scope: the filter is file-wide, so a name declared locally in one
 procedure is dropped for the whole file. That happened once — `jematmul_mm`
 declares a local `ZERO`, which hid `linear_algebra`'s need for
 `mod_parameters`'s `zero` — and the build caught it immediately.
+
+## D11 — `initialise_al_c` allocates an array that belongs to `et_state`
+
+*What the plan says.* `04_component_state.md`, hazards: "**Allocation.** The
+initialisers allocate the arrays they now sit beside; make sure every array
+they touch really moved to the same module, or the initialiser will need a
+`USE` back into a module that `USE`s it — a cycle. `initialise_al_c`/`_al_c2` →
+`vs_state`, `initialise_al_c3` → `et_state` are the placements the proposal
+checked."
+
+*What the tree does.* One array does not follow its initializer.
+`initialise_al_c` allocates and zeroes eight arrays, of which seven are
+`vs_state`'s; the eighth is `ERUZ`, which `variables.csv` places in `et_state`
+because it is the root-extraction sink the ET solver writes.
+
+*What was done.* `vs_state` imports `USE et_state, ONLY: ERUZ`. It is not a
+cycle: `et_state` needs nothing from `vs_state`, so the edge runs one way and
+the dependency sort is unaffected. Both modules' headers record it — `et_state`
+says `ERUZ` is allocated elsewhere, `vs_state` says it allocates an array it
+does not own.
+
+*Cost.* A component state module depends on another component's state module,
+which the plan's "state modules are leaves" intent did not anticipate. Moving
+the `ERUZ` allocation into `initialise_al_c3` would remove the edge and is a
+one-line change, but it alters *when* the array is allocated relative to the
+other seven, so it is not a pure move and is left as a follow-up.
+
+## D12 — `--from-source` added to `rename_use_lines.py`
+
+`sy_state` is a target of both step 04 (`SBERR`, from `AL_C`) and step 06
+(20 variables, from `SED_CS`). Selecting it with `--target` alone therefore
+re-pointed `USE SED_CS` statements in step 04, three steps before those
+variables actually move — which compiles only by accident, or more likely not
+at all.
+
+`--from-source` restricts the remapping to entities that left a named source
+file, matching `rename_extract.py`'s own filtering. Every step that touches a
+target shared with another step must pass it. The wrongly rewritten statements
+were restored from the run's `.backup` files before the step continued.

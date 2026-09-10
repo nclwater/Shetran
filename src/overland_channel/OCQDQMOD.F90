@@ -47,11 +47,13 @@ MODULE ocqdqmod
    USE mod_parameters, ONLY: zero
    USE array_limits, ONLY: nelee, nlfee, NOCTAB
    USE element_geometry, ONLY: DXQQ, DYQQ, total_no_elements, total_no_links, ZGRUND
-   USE AL_C, ONLY: CWIDTH, ZBFULL, CLENTH
+   USE channel_geometry, ONLY: CWIDTH, ZBFULL, CLENTH
    USE element_geometry, ONLY: DHF
    USE grid_topology, ONLY: ICMRF2
    USE grid_topology, ONLY: ICMREF, ICMXY
-   USE AL_D ,     ONLY : DQ0ST, DQIST, DQIST2, NOCBCC, NOCBCD, NoZQTables,ZQTableRef, ZQTableLink,ZQTableFace
+   USE oc_boundaries, ONLY: NOCBCC, NOCBCD
+   USE oc_state, ONLY: DQ0ST, DQIST, DQIST2
+   USE zq_tables, ONLY: NoZQTables, ZQTableRef, ZQTableLink, ZQTableFace
    USE OCmod2 ,   ONLY : GETHRF, OCQMLN, SETQSA, OCQBNK, OCQGRD, OCQLNK, OCQBC
 
    IMPLICIT NONE

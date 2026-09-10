@@ -136,10 +136,13 @@ def body(path, own):
         if re.match(r"^\s*(USE\b|!)", line, re.I):
             continue
         code = line.split("!")[0]
-        # A declaration of a name the target owns is not a reference to it.
+        # A declaration of a name the target owns is not a reference to it, but
+        # the bounds beside it are: `INTEGER :: LCODEX(NXEE,NYEE)` still needs
+        # NXEE and NYEE. Blank the declared names, keep everything else.
         decl = re.match(r"^\s*(?:DOUBLE\s*PRECISION|REAL|INTEGER|LOGICAL|CHARACTER|TYPE\s*\()", code, re.I)
-        if decl and any(re.search(rf"(?<![\w%]){re.escape(n)}\b", code, re.I) for n in own):
-            code = re.sub(r"::.*$", "", code)      # keep the kind/dimension part only
+        if decl:
+            for n in own:
+                code = re.sub(rf"(?<![\w%]){re.escape(n)}\b", " ", code, flags=re.I)
         out.append(re.sub(r"'[^']*'|\"[^\"]*\"", " ", code))
     return "\n".join(out)
 

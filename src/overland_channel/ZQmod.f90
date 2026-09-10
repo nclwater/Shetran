@@ -42,7 +42,7 @@ module ZQmod
 
    USE simulation_clock, ONLY: UZNOW
    USE simulation_clock, ONLY: DTUZ, UZNEXT
-   USE AL_D, ONLY: NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill
+   USE zq_tables, ONLY: NoZQTables, ZQTableLink, ZQTableFace, ZQweirSill
    USE file_units, ONLY: zqd
    USE mod_parameters                                                          ! general parameters
    USE error_status, ONLY: errstat_alloc, errstat_fileclose, errstat_fileopen, errstat_read, &

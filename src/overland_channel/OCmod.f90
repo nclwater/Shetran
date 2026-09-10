@@ -33,14 +33,18 @@
 MODULE OCmod
    USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, NXSCEE, nyee
    USE element_geometry, ONLY: cellarea, total_no_elements, total_no_links, ZGRUND
-   USE AL_C, ONLY: CWIDTH, ZBFULL, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, CLENTH, CLENTH, PNETTO, QH, &
-                  QOC, LINKNS, ARXL
+   USE channel_geometry, ONLY: CWIDTH, ZBFULL, ZBEFF, ICMBK, BEXBK, CLENTH, CLENTH, LINKNS
+   USE et_state, ONLY: PNETTO
+   USE oc_state, ONLY: QOC, ARXL
+   USE vs_state, ONLY: QBKB, QBKF, QH
    USE input_workspace, ONLY: IDUM, DUMMY
    USE element_geometry, ONLY: NBFACE, DHF
    USE grid_topology, ONLY: ICMRF2
    USE simulation_clock, ONLY: TIH
-   USE AL_D, ONLY: DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, ESWA, QMAX, NOCBCC, NOCBCD, LCODEX, LCODEY, &
-                  NOCTAB
+   USE AL_D, ONLY: NOCTAB
+   USE et_state, ONLY: ESWA
+   USE oc_boundaries, ONLY: NOCBCC, NOCBCD
+   USE oc_state, ONLY: DQ0ST, DQIST, DQIST2, OCNOW, OCNEXT, QMAX, LCODEX, LCODEY
    USE file_units, ONLY: OCD, OHB, OFB
    USE grid_topology, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
    USE grid_arrays, ONLY: AREADR, AREADI

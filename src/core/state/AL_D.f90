@@ -68,18 +68,14 @@ MODULE AL_D
 
 
 ! Static integer controls.
-   INTEGER :: MSM        !! Snowmelt method: 0 disabled, 1 degree-day, or 2 energy-budget.
    INTEGER :: NM         !! Number of active meteorological sites.
    INTEGER :: NRAIN      !! Number of active rainfall stations.
    INTEGER :: NSET       !! Number of legacy binary result sets; no current producer was found.
    INTEGER :: MBLINK     !! Link whose selected face supplies outlet discharge to the catchment balance.
    INTEGER :: MBFACE     !! Face of `MBLINK` used for catchment-balance discharge.
    INTEGER :: MBFLAG     !! Catchment-balance schedule: 1 daily, any other value monthly.
-   INTEGER :: NoZQTables !! Number of reservoir ZQ tables read from `zqd`.
-   INTEGER :: ZQTableRef !! Index of the ZQ table selected for the current link-face calculation.
 
 ! Time-dependent integer state.
-   INTEGER :: NSMT   !! Current ET/snowmelt coupling control for one element.
    INTEGER :: MBYEAR !! Calendar year of the next mass-balance report.
    INTEGER :: MBMON  !! Calendar month of the next mass-balance report.
    INTEGER :: MBDAY  !! Calendar day of the next mass-balance report.
@@ -88,7 +84,6 @@ MODULE AL_D
 ! timestep and interval values are in hours unless stated otherwise.
    DOUBLEPRECISION :: PSTART  !! Simulation-relative start time for legacy printed/result output (h).
    DOUBLEPRECISION :: DTMET   !! Combined meteorological input interval (h).
-   DOUBLEPRECISION :: QMAX    !! Maximum permitted overland/channel face discharge magnitude (m3/s); nonpositive disables the check.
    DOUBLEPRECISION :: BHOTTI  !! Requested/read hotstart time (h).
    DOUBLEPRECISION :: BHOTST  !! Interval between hotstart outputs (h).
    DOUBLEPRECISION :: PMAX    !! Maximum rainfall depth permitted in one model timestep (mm).
@@ -99,18 +94,6 @@ MODULE AL_D
    DOUBLEPRECISION :: TOUTPUT !! Interval for regular text/CSV outputs; defaults to 24 h (h).
 
 ! Per-step scalar state.
-   DOUBLEPRECISION :: OCNOW  !! Start time of the current overland/channel step (h).
-   DOUBLEPRECISION :: OCNEXT !! Duration of the current overland/channel step (h).
-   DOUBLEPRECISION :: HRUZ   !! Current element's surface-water depth workspace (m).
-   DOUBLEPRECISION :: PNET   !! Current element's net throughfall rate workspace (mm/s).
-   DOUBLEPRECISION :: PE     !! Current element's available potential-evaporation rate (mm/s).
-   DOUBLEPRECISION :: EINT   !! Current element's canopy-interception evaporation over the step (mm).
-   DOUBLEPRECISION :: ERZ    !! Current element's root-zone extraction rate workspace (mm/s).
-   DOUBLEPRECISION :: DRAIN  !! Current element's canopy drainage over the step (mm).
-   DOUBLEPRECISION :: ESOIL  !! Current element's soil-evaporation rate workspace (mm/s).
-   DOUBLEPRECISION :: AE     !! Current cell's actual-evapotranspiration rate workspace (mm/s).
-   DOUBLEPRECISION :: CSTOLD !! Current element's canopy storage at step start (mm).
-   DOUBLEPRECISION :: CPLAI  !! Current element's intercepted-area fraction, `min(CLAI,1)*PLAI`.
    DOUBLEPRECISION :: PREST  !! Unused legacy value set to `1+PALFA` during frame initialization.
    DOUBLEPRECISION :: HOTIME !! Current/last hotstart time (h).
 
@@ -127,56 +110,33 @@ MODULE AL_D
    LOGICAL :: BEXCM      !! Whether contaminant transport is enabled by FR25.
    LOGICAL :: ISTA       !! Whether separate maximum/minimum air-temperature streams are available.
    LOGICAL :: isextradis !! Whether the extra-discharge point-selection input is available.
-   LOGICAL :: iszq       !! Whether reservoir ZQ-table routing is enabled.
    LOGICAL :: isextrapsl !! Whether the extra phreatic-surface point-selection input is available.
 
 ! Static integer arrays.
    INTEGER :: IOCORS(NSETEE)      !! Contaminant/sediment selector for each legacy result set.
    INTEGER :: NMC(NELEE)          !! Meteorological-site category by element.
-   INTEGER :: LCODEX(NXEE,NYEE)   !! X-face overland/channel topology code grid.
    INTEGER :: IODATA(NSETEE)      !! Data-type number for each legacy result set.
    INTEGER :: NRAINC(NELEE)       !! Rainfall-station category by element.
-   INTEGER :: LCODEY(NXEE,NYEE)   !! Y-face overland/channel topology code grid.
    INTEGER :: IOELEM(NSETEE)      !! Positive element number or negative element-class number by legacy result set.
-   INTEGER :: NOCBCC(NELEE)       !! Overland/channel boundary-condition record number by element.
-   INTEGER :: NOCBCD(NOCTAB,4)    !! OC boundary records: element, face, boundary type, and time-series category.
    INTEGER :: IORES(NSETEE)       !! Open unformatted output unit by legacy result set.
    INTEGER :: ICLIST(NELEE,NCLASS) !! Element numbers belonging to each legacy output class.
    INTEGER :: ICLNUM(NCLASS)      !! Number of elements in each legacy output class.
-   INTEGER, DIMENSION(:), ALLOCATABLE :: ZQTableLink !! Channel-link number for each ZQ table.
-   INTEGER, DIMENSION(:), ALLOCATABLE :: ZQTableFace !! Channel-link face number for each ZQ table.
 
-   INTEGER :: NSMC(NELEE) !! Number of meltwater slugs still travelling through each snowpack.
 
 
 ! Static real arrays.
    DOUBLEPRECISION :: IOSTA(NSETEE)  !! Start time for each legacy result set (h).
    DOUBLEPRECISION :: IOSTEP(NSETEE) !! Output interval for each legacy result set (h).
    DOUBLEPRECISION :: IOEND(NSETEE)  !! End time for each legacy result set (h).
-   DOUBLEPRECISION :: RHOSAR(NELEE)  !! Snow relative-density/specific-gravity state by element.
-   DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: ZQweirSill !! Weir-sill elevation for each ZQ table (m).
 
 ! Time-dependent real arrays.
-   DOUBLEPRECISION :: CSTORE(NELEE) !! Canopy interception storage by element (mm).
-   DOUBLEPRECISION :: ERZA(NELEE)   !! Root-zone extraction rate by element (m/s).
-   DOUBLEPRECISION :: EPOT(NELEE)   !! Potential-evaporation rate by element (m/s).
-   DOUBLEPRECISION :: EINTA(NELEE)  !! Canopy-interception evaporation rate by element (m/s).
-   DOUBLEPRECISION :: SD(NELEE)     !! Snowpack depth by element (mm of snow).
-   DOUBLEPRECISION :: TS(NELEE)     !! Snowpack temperature by element (degrees C).
-   DOUBLEPRECISION :: SF(NELEE)     !! Current snowfall depth by element (mm of snow).
-   DOUBLEPRECISION :: S(LLEE)       !! Current column's volumetric root/soil extraction sink by VSS cell (s-1).
    DOUBLEPRECISION :: precip_m_per_s(NELEE) !! Precipitation rate mapped directly to each element (m/s).
    DOUBLEPRECISION :: OBSPE(NVEE)   !! Potential-evaporation forcing by meteorological site (mm/s).
    DOUBLEPRECISION :: TA(NVEE)      !! Air temperature by meteorological site (degrees C).
    DOUBLEPRECISION :: U(NVEE)       !! Wind speed by meteorological site (m/s).
    DOUBLEPRECISION :: VPD(NVEE)     !! Vapour-pressure deficit by meteorological site (mb).
    DOUBLEPRECISION :: RN(NVEE)      !! Net radiation by meteorological site (W/m2).
-   DOUBLEPRECISION :: VHT(NVEE)     !! Current vegetation height by vegetation type (m).
    DOUBLEPRECISION :: IOTIME(NSETEE) !! Next output time for each legacy result set (h).
-   DOUBLEPRECISION :: DQ0ST(NELEE,4) !! Face-flow derivative with respect to the local element state.
-   DOUBLEPRECISION :: DQIST(NELEE,4) !! Face-flow derivative with respect to the adjacent element state.
-   DOUBLEPRECISION :: DQIST2(NLFEE,3) !! Confluence-flow derivative by branch record and branch position.
-   DOUBLEPRECISION :: ESWA(NELEE)    !! Surface-water evaporation rate by element (m/s).
    DOUBLEPRECISION :: BALANC(20)     !! Catchment water-volume terms described in the module table (m3).
 
    CHARACTER(len=200) :: RESFIL !! Path used as the stem for legacy unformatted result files.

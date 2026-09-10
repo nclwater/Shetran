@@ -65,7 +65,12 @@ MODULE CMmod
    USE float_compare, ONLY: notzero, iszero, gtzero, ltzero, gezero, idimje
 
    USE OCMOD2, ONLY: hrf => hrfzz
-   USE AL_C
+   USE array_limits, ONLY: LLEE, NCONEE, nelee, nlfee, NSEDEE, NSEE, nxee, nyee
+   USE channel_geometry, ONLY: BEXBK, CLENTH, CWIDTH, FHBED, ICMBK, LINKNS, NHBED
+   USE et_state, ONLY: CLAI, EEVAP, ERUZ, NRD, NV, NVC, PLAI, PNETTO, RDF
+   USE oc_state, ONLY: ARXL, QOC
+   USE vs_state, ONLY: DELTAZ, NLYR, NLYRBT, NS, NTSOIL, NVSWLI, NVSWLT, NWELBT, NWELTP, &
+                       QBKB, QVSH, QVSV, QVSWEL, QVSWLI, VSPOR, VSPSI, VSTHE, ZVSNOD
    USE element_geometry, ONLY: ISORT
    USE file_units, ONLY: CMD, MND, MNFC, MNFN, MNOUT1, MNOUT2, MNOUTPL, MNPL, MNPR
    USE grid_topology, ONLY: ICMREF, ICMRF2, ICMXY, NX, NY

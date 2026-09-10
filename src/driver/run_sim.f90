@@ -63,16 +63,21 @@ MODULE run_sim
       ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
 !                 llee, NVSEE, NLYREE, NOCTAB, NXSCEE !NEEDED ONLY FOR AD
    USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
-   USE AL_C, ONLY: pnetto, arxl, eevap, icmbk, nvswlt, qvswel, ns, nv, nlyr, ntsoil, nvc, clenth, &
-                  cwidth, vspor, zbfull, bexbk, linkns, clai, draina, plai, qoc
+   USE channel_geometry, ONLY: ICMBK, CLENTH, CWIDTH, ZBFULL, BEXBK, LINKNS
+   USE et_state, ONLY: PNETTO, EEVAP, NV, NVC, CLAI, DRAINA, PLAI
+   USE oc_state, ONLY: ARXL, QOC
+   USE vs_state, ONLY: NVSWLT, QVSWEL, NS, NLYR, NTSOIL, VSPOR
    USE input_workspace, ONLY: IDUM, DUMMY
    USE element_geometry, ONLY: NBFACE, DHF, ISORT
    USE file_units, ONLY: SFB, SPR, SRB, SYD, CMP
    USE grid_topology, ONLY: ICMRF2
    USE simulation_clock, ONLY: UZNEXT, DTUZ, TIH
 
-   USE AL_D, ONLY: eswa, ocnext, epot, nmc, obspe, ocnow, bexsy, bexcm, precip_m_per_s, mbflag, &
-                  bhotpr, hotime, cstore, dq0st, dqist, dqist2, sd, ts, nsmc, bhotst, bhotrd, tmax
+   USE AL_D, ONLY: nmc, obspe, bexsy, bexcm, precip_m_per_s, mbflag, bhotpr, hotime, bhotst, &
+                  bhotrd, tmax
+   USE et_state, ONLY: ESWA, EPOT, CSTORE
+   USE oc_state, ONLY: OCNEXT, OCNOW, DQ0ST, DQIST, DQIST2
+   USE snow_state, ONLY: SD, TS, NSMC
    USE file_units, ONLY: HOT, TIM
    USE simulation_clock, ONLY: NSTEP, TTH
    USE FRmod, ONLY: tsh, tch, bstore, btime
@@ -94,8 +99,10 @@ MODULE run_sim
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA         !VISVISVIS
    USE VISUALISATION_INTERFACE_LEFT, ONLY: GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
 !NEEDED ONLY FOR AD
-   USE AL_C, ONLY: eruz
-   USE AL_D, ONLY: mblink, mbface, ae, s, erz, esoil, eint, pnet, drain, sf, pe, u, vht, rn, vpd, ta
+   USE et_state, ONLY: ERUZ
+   USE AL_D, ONLY: mblink, mbface, u, rn, vpd, ta
+   USE et_state, ONLY: AE, S, ERZ, ESOIL, EINT, PNET, DRAIN, PE, VHT
+   USE snow_state, ONLY: SF
    USE simulation_clock, ONLY: TIMEUZ
    USE colm_c1, ONLY: z2sq   !"JE"
    USE ocmod, ONLY: qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
@@ -105,7 +112,8 @@ MODULE run_sim
       rlgprv, rlfprv, rwelin, rbhtim, wltime, rlhdum, rbhnxt, rlhtim, rlgdum, rlhnxt, rbftim, rlgtim, &
       wlnow, vskr, rlfnow, rbfnow, ivssto, rlhnow, rbhnow
    USE SMmod, ONLY: rhos, smelt, tmelt
-   USE al_c, ONLY: qh, qvswli, vsthe, vspsi, qvsh, qvsv, qbkb, qbkf, esoila, eruz
+   USE et_state, ONLY: ESOILA, ERUZ
+   USE vs_state, ONLY: QH, QVSWLI, VSTHE, VSPSI, QVSH, QVSV, QBKB, QBKF
    USE ETmod, ONLY: rc, ra, cstcap, del, &
       nctcst, nctvht, nctcla, nctpla !these here only for AD
    USE SYmod, ONLY: issyok_symain  !"JE"

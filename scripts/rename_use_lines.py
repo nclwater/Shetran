@@ -36,11 +36,13 @@ USE_ONLY = re.compile(r"^(\s*)USE\s+([A-Za-z0-9_]+)\s*,\s*ONLY\s*:\s*(.*)$", re.
 USE_BARE = re.compile(r"^(\s*)USE\s+([A-Za-z0-9_]+)\s*(!.*)?$", re.I)
 
 
-def load_map(targets, dirs):
+def load_map(targets, dirs, sources):
     """(source_module.lower(), name.lower()) -> (target_module, new_name)."""
     moved = {}
     for table, key in TABLES.items():
         for row in csv.DictReader((ROOT / "docs" / "rename" / table).open()):
+            if sources and row["source_file"] not in sources:
+                continue
             if targets or dirs:
                 if not (row["target_file"] in targets
                         or any(row["target_file"].startswith(d) for d in dirs)):
@@ -97,10 +99,15 @@ def main():
     parser.add_argument("paths", nargs="*", default=["src", "test"])
     parser.add_argument("--target", action="append", default=[])
     parser.add_argument("--target-dir", action="append", default=[])
+    parser.add_argument("--from-source", action="append", default=[],
+                        help="only remap entities that left this source file (repeatable). "
+                             "Without it, a --target shared by two steps would remap names "
+                             "that have not moved yet.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    moved = load_map(args.target, [d.rstrip("/") + "/" for d in args.target_dir])
+    moved = load_map(args.target, [d.rstrip("/") + "/" for d in args.target_dir],
+                     args.from_source)
     # Only a module that actually loses an entity can make a bare USE stale.
     sources = {m for (m, _), (target, _) in moved.items() if target.lower() != m}
 

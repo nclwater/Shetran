@@ -74,7 +74,7 @@ MODULE OCmod2
    USE file_units, ONLY: FID_logfile
 
    USE ZQmod, ONLY: get_ZQTable_value
-   USE AL_D, ONLY: ZQweirsill, ZQTableRef
+   USE zq_tables, ONLY: ZQweirSill, ZQTableRef
    IMPLICIT NONE
 
    DOUBLEPRECISION, PARAMETER   :: DZMIN = 1.0D-3       !! Small depth/head-difference threshold, in metres.

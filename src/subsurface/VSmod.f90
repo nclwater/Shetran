@@ -111,11 +111,12 @@ MODULE VSmod
    USE file_units, ONLY: FID_logfile
 
    USE grid_topology, ONLY: ICMREF, NX, NY, ICMXY, NGDBGN
-   USE AL_C, ONLY: bexbk, deltaz, ESOILA, ERUZ, EEVAP, FHBED, jvsacn, JVSDEL, icmbk, LINKNS, &
-                  NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, nhbed, NVC, NRD, nlyrbt, NVSWLT, NVSSPT, &
-                  NS, nlyr, PNETTO, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, QVSH, &
-                  QBKI, VSPSI, VSTHE, VSPOR, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, &
-                  INITIALISE_AL_C2
+   USE channel_geometry, ONLY: BEXBK, FHBED, ICMBK, LINKNS, NHBED, ZBEFF
+   USE et_state, ONLY: ESOILA, ERUZ, EEVAP, NVC, NRD, PNETTO
+   USE vs_state, ONLY: DELTAZ, JVSACN, JVSDEL, NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, NLYRBT, &
+                  NVSWLT, NVSSPT, NS, NLYR, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, &
+                  QVSH, QBKI, VSPSI, VSTHE, VSPOR, ZVSPSL, ZLYRBT, ZVSNOD, initialise_al_c, &
+                  initialise_al_c2
    USE input_workspace, ONLY: DUMMY, IDUM
    USE element_geometry, ONLY: DHF, ISORT, NBFACE
    USE file_units, ONLY: BHB, BFB, LFB, LHB, LGB, VSD, VSI, WLD
