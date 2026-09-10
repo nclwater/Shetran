@@ -51,7 +51,7 @@ commits.
 
 | # | Step | New files | Sources retired | Status |
 |--:|:-----|----------:|:----------------|:-------|
-| 01 | [Baseline and tooling](01_baseline.md) | – | – | ☐ |
+| 01 | [Baseline and tooling](01_baseline.md) | – | – | ☑ |
 | 02 | [`core/`](02_core.md) | 10 | `sglobal`, `AL_G`, `CONST_SY` | ☐ |
 | 03 | [`util/` and `io/`](03_util_io.md) | 14 | `mod_error`, `tolerance_testing`, `utilsmod`, `mod_load_filedata` | ☐ |
 | 04 | [Component state out of `AL_C`/`AL_D`](04_component_state.md) | 8 | `AL_C` | ☐ |
