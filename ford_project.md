@@ -16,6 +16,7 @@ display: public
          private
          protected
 preprocess: false
+proc_internals: true
 css: docs/ford_config/stylesheets/ford-dark.css
 exclude_dir: src/legacy
             src/backup
