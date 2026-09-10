@@ -57,12 +57,16 @@ module MNmod
                   nyee
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_write, &
-                  RAISE_ERROR, ERRLVL_fatal
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_write
    USE file_units, ONLY: FID_logfile
 
-   use mod_load_filedata, only: alallf, alalli, alchk, alchki, alintp, alred2, alredc, alredf, alredi, alredl
-   use utilsmod, only: hour_from_date, tridag
+   USE input_validation, ONLY: ALCHK, ALCHKI
+   USE interpolation, ONLY: ALINTP
+   USE record_readers, ONLY: ALRED2, ALREDC, ALREDF, ALREDI, ALREDL
+   USE spatial_fields, ONLY: ALALLF, ALALLI
+   USE datetime, ONLY: hour_from_date
+   USE linear_algebra, ONLY: TRIDAG
 
    IMPLICIT NONE
 
@@ -4829,7 +4833,7 @@ CONTAINS
    SUBROUTINE MNRED2(MNFC, MNFN, MNPR, NEL, NELEE, NLF, NLFEE, NX, NXEE, NY, ICMBK, ICMREF, ICMXY, DTUZ, TIH, UZNOW, BEXBK, LINKNS, &
       CDPTHB, CLTFCT, CMNFCT, CNRAL, CNRAM, CTOT, NAMFCT, NDPTHB, NTOT, ISADDC, ISADDN, IDUM, DUMMY)
 
-      USE UTILSMOD, ONLY: hour_from_date
+      USE datetime, ONLY: hour_from_date
       USE array_limits, ONLY: nyee
 
       IMPLICIT NONE
@@ -5023,7 +5027,7 @@ CONTAINS
 !> @endnote
    SUBROUTINE MNTEMP(LLEE, NCETOP, NEL, NELEE, NLF, NV, NCOLMB, Z2, DELTAZ, ZVSNOD, DTUZ, TA)
 
-      USE UTILSMOD, ONLY: TRIDAG
+      USE linear_algebra, ONLY: TRIDAG
 
       IMPLICIT NONE
 

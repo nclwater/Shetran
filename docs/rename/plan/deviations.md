@@ -175,3 +175,48 @@ self-correcting — by step 13 every target exists, and re-running the rewriter
 does not touch a link that already names its final target. It is noted here so
 that a link that looks broken in an intermediate commit is not mistaken for an
 error.
+
+## D9 — `datetime` depends on `linear_algebra`, for a message buffer
+
+`variables.csv` places `utilsmod`'s two module variables, `eps` and `msg`, in
+`linear_algebra`. `eps` belongs there — it is the singularity tolerance the
+matrix inversion reads. `msg` is a shared `CHARACTER(128)` error-message
+buffer, and the only routine outside `linear_algebra` that writes into it is
+`hour_from_date`, which goes to `datetime`.
+
+The mechanical consequence is that [[datetime]] imports from
+[[linear_algebra]], and that `msg` — private in `utilsmod`, where both routines
+lived — has to become **public**. Both are recorded in `linear_algebra`'s
+header.
+
+The alternative would be to give `datetime` its own local buffer, which is a
+behaviour-preserving but non-mechanical change (the buffer is written and then
+passed straight to `RAISE_ERROR`, so nothing reads it across the call). Left as
+a follow-up; the point of the move is that the oddity is now visible in a
+`USE` line instead of hidden inside a 1,900-line module.
+
+Every `MSG` in the former `mod_load_filedata` is a *local* declaration, so none
+of `record_readers`, `spatial_fields` or `input_validation` imports it.
+
+## D10 — a fifth script: `scripts/rename_imports.py`
+
+Same reasoning as D4, for the other half of the `USE` work. `rename_extract.py`
+leaves a `! TODO USE ..., ONLY: ...` marker in each new module; working out what
+to put there means intersecting what the source module could see with what the
+extracted block actually references. `scripts/rename_imports.py` drafts that,
+from a deliberately narrow candidate set (the source's own imports, followed
+through the tables, plus the sibling modules of the same split), and it skips
+any name the target declares itself.
+
+That last filter is what makes it usable: `ran2`'s dummy argument `idum` is not
+[[input_workspace]]'s `IDUM`, and `ALALLF` takes `NELEE`, `ICMXY`, `ICMBK`,
+`IDUM` and `DUMMY` as dummy arguments rather than importing them. It also
+refuses to follow the tables to a module that does not exist yet, so a step-03
+module correctly imports `icmbk` from `AL_C` rather than from the
+`channel_geometry` that step 04 will create.
+
+It is a draft, not an oracle, and the compiler is still the check. Its one known
+blind spot is scope: the filter is file-wide, so a name declared locally in one
+procedure is dropped for the whole file. That happened once — `jematmul_mm`
+declares a local `ZERO`, which hid `linear_algebra`'s need for
+`mod_parameters`'s `zero` — and the build caught it immediately.

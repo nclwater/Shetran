@@ -85,7 +85,7 @@ MODULE visualisation_map
    USE VISUALISATION_METADATA, ONLY: G_L => GET_METADATA_L
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 

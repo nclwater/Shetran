@@ -100,22 +100,23 @@ MODULE VSmod
    USE array_limits, ONLY: LLEE, nelee, nlfee, NLYREE, NSEE, NVSEE
    USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE simulation_clock, ONLY: UZNOW
-   USE mod_load_filedata, ONLY: ALSPRD, ALREAD
+   USE record_readers, ONLY: ALREAD
+   USE spatial_fields, ONLY: ALSPRD
 
-   USE tolerance_testing, ONLY: dimje, ltzero, gtzero, gezero, iszero, notzero, &
-                                isone, notone, eqmarker
+   USE float_compare, ONLY: dimje, ltzero, gtzero, gezero, iszero, notzero, isone, notone, eqmarker
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              half, one, three, two, zero
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
-                  ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_read
    USE file_units, ONLY: FID_logfile
 
    USE grid_topology, ONLY: ICMREF, NX, NY, ICMXY, NGDBGN
-   USE AL_C, ONLY: bexbk, deltaz, dummy, ESOILA, ERUZ, EEVAP, FHBED, jvsacn, JVSDEL, idum, icmbk, &
-                  LINKNS, NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, nhbed, NVC, NRD, nlyrbt, NVSWLT, &
-                  NVSSPT, NS, nlyr, PNETTO, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, &
-                  QVSH, QBKI, VSPSI, VSTHE, VSPOR, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, &
+   USE AL_C, ONLY: bexbk, deltaz, ESOILA, ERUZ, EEVAP, FHBED, jvsacn, JVSDEL, icmbk, LINKNS, &
+                  NWELBT, NWELTP, NVSSPC, NVSWLI, NTSOIL, nhbed, NVC, NRD, nlyrbt, NVSWLT, NVSSPT, &
+                  NS, nlyr, PNETTO, QVSSPR, QVSBF, QH, QVSWEL, QBKF, QBKB, QVSV, QVSWLI, QVSH, &
+                  QBKI, VSPSI, VSTHE, VSPOR, ZVSPSL, zlyrbt, zvsnod, zbeff, INITIALISE_AL_C, &
                   INITIALISE_AL_C2
+   USE input_workspace, ONLY: DUMMY, IDUM
    USE element_geometry, ONLY: DHF, ISORT, NBFACE
    USE file_units, ONLY: BHB, BFB, LFB, LHB, LGB, VSD, VSI, WLD
    USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT, TIH
@@ -123,7 +124,8 @@ MODULE VSmod
 !USE VSINIT_INC
 !USE VSCOM1_INC
 !USE VSSOIL_INC
-   USE UTILSMOD, ONLY: TRIDAG, FINPUT, HINPUT, DCOPY
+   USE linear_algebra, ONLY: TRIDAG, dcopy
+   USE timeseries_input, ONLY: FINPUT, HINPUT
    USE OCmod2, ONLY: GETHRF
    IMPLICIT NONE
 ! Saved legacy state moved here for AD/current builds.

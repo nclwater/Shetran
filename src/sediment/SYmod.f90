@@ -110,16 +110,19 @@ MODULE SYmod
    USE element_geometry, ONLY: DXQQ, DYQQ, ZGRUND
    USE simulation_clock, ONLY: UZNOW
 !USE AL_P
-   USE mod_load_filedata, ONLY: ALCHKI, ALCHK, ALALLF, ALREAD
+   USE input_validation, ONLY: ALCHKI, ALCHK
+   USE record_readers, ONLY: ALREAD
+   USE spatial_fields, ONLY: ALALLF
 
-   USE tolerance_testing, ONLY: idimje, dimje, iszero, gezero, gtzero, notzero, isone, notone, eqmarker
+   USE float_compare, ONLY: idimje, dimje, iszero, gezero, gtzero, notzero, isone, notone, eqmarker
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              half, ione1, izero1, one, one1, two, zero, zero1, GRAVITY, &
                              RHO_SEDIMENT, RHO_WATER_SEDIMENT, NU_WATER
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
+   USE error_status, ONLY: errstat_alloc
    USE file_units, ONLY: FID_logfile
 
-   USE UTILSMOD, ONLY: DCOPY
+   USE linear_algebra, ONLY: dcopy
 
    IMPLICIT NONE
 

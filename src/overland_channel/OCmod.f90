@@ -33,8 +33,9 @@
 MODULE OCmod
    USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, NXSCEE, nyee
    USE element_geometry, ONLY: cellarea, total_no_elements, total_no_links, ZGRUND
-   USE AL_C, ONLY: IDUM, CWIDTH, ZBFULL, DUMMY, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, CLENTH, CLENTH, &
-                  PNETTO, QH, QOC, LINKNS, ARXL
+   USE AL_C, ONLY: CWIDTH, ZBFULL, ZBEFF, ICMBK, BEXBK, QBKB, QBKF, CLENTH, CLENTH, PNETTO, QH, &
+                  QOC, LINKNS, ARXL
+   USE input_workspace, ONLY: IDUM, DUMMY
    USE element_geometry, ONLY: NBFACE, DHF
    USE grid_topology, ONLY: ICMRF2
    USE simulation_clock, ONLY: TIH
@@ -42,15 +43,17 @@ MODULE OCmod
                   NOCTAB
    USE file_units, ONLY: OCD, OHB, OFB
    USE grid_topology, ONLY: NGDBGN, NX, NY, ICMREF, ICMXY
-   USE UTILSMOD, ONLY: HINPUT, FINPUT, AREADR, AREADI, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
+   USE grid_arrays, ONLY: AREADR, AREADI
+   USE linear_algebra, ONLY: jematmul_vm, jematmul_mm, invertmat
+   USE timeseries_input, ONLY: HINPUT, FINPUT
    USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
-   USE mod_load_filedata, ONLY: ALCHK, ALCHKI
+   USE input_validation, ONLY: ALCHK, ALCHKI
 
-   USE tolerance_testing, ONLY: gtzero, iszero, notzero, eqmarker
+   USE float_compare, ONLY: gtzero, iszero, notzero, eqmarker
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              half, ione1, izero1, one, zero, zero1
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, &
-                  ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read
    USE file_units, ONLY: FID_logfile
 
    USE OCmod2, ONLY: GETHRF, GETQSA, SETHRF, SETQSA, CONVEYAN, OCFIX, XSTAB, &

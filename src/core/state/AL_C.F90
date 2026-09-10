@@ -64,7 +64,7 @@ MODULE AL_C
    USE element_geometry, ONLY: top_cell_no, total_no_elements
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc
+   USE error_status, ONLY: errstat_alloc
 
    IMPLICIT NONE
 
@@ -111,9 +111,7 @@ MODULE AL_C
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: ZLYRBT !! Bottom elevation by element and soil layer (m).
 
 ! Time-dependent and workspace state.
-   INTEGER, DIMENSION(NXEE*NYEE) :: IDUM !! Integer workspace for spatial/category input.
    DOUBLEPRECISION, DIMENSION(NELEE) :: DRAINA !! Canopy drainage reaching the surface by element (m/s).
-   DOUBLEPRECISION, DIMENSION(NELEE) :: DUMMY  !! Floating-point workspace for spatial input and validation.
    DOUBLEPRECISION, DIMENSION(NELEE) :: ESOILA !! Soil-surface evaporation rate by element (m/s).
    DOUBLEPRECISION, DIMENSION(NELEE) :: EEVAP  !! Soil plus surface-water evaporation rate by element (m/s).
    DOUBLEPRECISION, DIMENSION(NELEE) :: PNETTO !! Net surface-water input, including mapped well irrigation (m/s).

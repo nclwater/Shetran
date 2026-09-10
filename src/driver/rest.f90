@@ -44,12 +44,13 @@ MODULE rest
       PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, NCTVHT, &
       VHT1, BMETP, BMETAL, BMETDATES, MEASPE, del
    USE FRmod, ONLY: BSOFT
-   USE UTILSMOD, ONLY: HOUR_FROM_DATE, TERPO1
+   USE datetime, ONLY: hour_from_date
+   USE interpolation, ONLY: TERPO1
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P, &
                              one, zero
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_read, RAISE_ERROR, ERRLVL_fatal, &
-                  ERR_STOP
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERR_STOP
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_read
    USE file_units, ONLY: FID_logfile
 
    USE OCmod2, ONLY: GETHRF

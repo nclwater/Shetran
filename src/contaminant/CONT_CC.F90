@@ -29,7 +29,7 @@ MODULE CONT_CC
    USE element_geometry, ONLY: total_no_elements, top_cell_no, total_no_links
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc
+   USE error_status, ONLY: errstat_alloc
 
    IMPLICIT NONE
 

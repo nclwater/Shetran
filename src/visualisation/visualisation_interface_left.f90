@@ -104,8 +104,8 @@ MODULE visualisation_interface_left
    USE OCmod2, ONLY: hrfzz
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read, RAISE_ERROR, &
-                  ERRLVL_fatal
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_rewind, errstat_read
    USE file_units, ONLY: FID_logfile
 
    IMPLICIT NONE

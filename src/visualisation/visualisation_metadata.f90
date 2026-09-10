@@ -89,7 +89,7 @@ MODULE visualisation_metadata
    USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
    USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc, errstat_fileclose
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose
 
    IMPLICIT NONE
 

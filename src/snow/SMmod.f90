@@ -49,12 +49,13 @@ MODULE SMmod
    USE array_limits, ONLY: max_no_snowmelt_slugs, NVEE
    USE element_geometry, ONLY: total_no_elements, ZGRUND
 
-   USE tolerance_testing, ONLY: gtzero, lezero, ltzero, iszero
+   USE float_compare, ONLY: gtzero, lezero, ltzero, iszero
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              five, one, three, two, zero, RHO_AIR_SNOW, RHO_WATER_SNOW, &
                              CP_AIR_SNOW, CP_WATER, CP_ICE, L_FUSION, L_VAPORISATION_SNOW, &
                              GROUND_HEAT_FLUX_SNOW
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, ERR_STOP
+   USE error_reporting, ONLY: ERR_STOP
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc
 
    USE AL_C, ONLY: nvc, ispack, nrd
    USE simulation_clock, ONLY: DTUZ

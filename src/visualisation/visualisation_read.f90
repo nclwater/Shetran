@@ -80,7 +80,7 @@ MODULE visualisation_read
    USE visualisation_read_parser, ONLY: visualisation_token_reader, transform_visualisation_record, &
                                         visualisation_title_matches, VIS_READ_OK, VIS_READ_END, &
                                         VIS_MAX_RECORD_LENGTH, VIS_RECORD_BUFFER_LENGTH
-   USE mod_error, ONLY: errstat_fileclose
+   USE error_status, ONLY: errstat_fileclose
 
    IMPLICIT NONE
 

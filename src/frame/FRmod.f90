@@ -71,11 +71,12 @@ MODULE FRmod
    USE simulation_clock, ONLY: UZNOW
    USE CONT_CC, ONLY: CCAPE, CCAPR, CCAPB, GNN, alphbd, alphbs, alpha, fads
    USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
-   USE AL_C, ONLY: ARXL, BEXBK, CWIDTH, CLENTH, clai, DELTAZ, DRAINA, DUMMY, EEVAP, ESOILA, FHBED, &
-                  IDUM, ICMBK, JVSACN, JVSDEL, LINKNS, NV, NLYRBT, NRD, NLYR, NHBED, NTSOIL, NVC, &
-                  NVSSPC, NVSSPT, NVSWLI, NVSWLT, NWELBT, NS, NWELTP, plai, PNETTO, QH, QVSH, &
-                  QVSSPR, QVSWEL, QVSWLI, QVSV, QOC, QBKB, QBKF, RDL, RDF, VSPSI, VSTHE, VSPOR, &
-                  WBERR, ZBEFF, ZBFULL, ZLYRBT, ZVSNOD, ZVSPSL, INITIALISE_AL_C3
+   USE AL_C, ONLY: ARXL, BEXBK, CWIDTH, CLENTH, clai, DELTAZ, DRAINA, EEVAP, ESOILA, FHBED, ICMBK, &
+                  JVSACN, JVSDEL, LINKNS, NV, NLYRBT, NRD, NLYR, NHBED, NTSOIL, NVC, NVSSPC, &
+                  NVSSPT, NVSWLI, NVSWLT, NWELBT, NS, NWELTP, plai, PNETTO, QH, QVSH, QVSSPR, &
+                  QVSWEL, QVSWLI, QVSV, QOC, QBKB, QBKF, RDL, RDF, VSPSI, VSTHE, VSPOR, WBERR, &
+                  ZBEFF, ZBFULL, ZLYRBT, ZVSNOD, ZVSPSL, INITIALISE_AL_C3
+   USE input_workspace, ONLY: DUMMY, IDUM
    USE element_geometry, ONLY: DHF, ISORT, NBFACE
    USE file_units, ONLY: BFB, BHB, BUG, CMD, CMP, CMT, CMB, LFB, LHB, LGB, SYD, SPR, VSD, VSI, WLD, &
                   MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL
@@ -97,15 +98,17 @@ MODULE FRmod
    USE simulation_clock, ONLY: TIMEUZ, TTH, UZVAL
    USE OCmod, ONLY: LINKNO, OCLTL
    USE OCQDQMOD, ONLY: STRXX, STRYY
-   USE UTILSMOD, ONLY: AREADR, AREADI, HOUR_FROM_DATE, DATE_FROM_HOUR
-   USE mod_load_filedata, ONLY: ALINTP, ALCHK, ALCHKI
+   USE datetime, ONLY: hour_from_date, date_from_hour
+   USE grid_arrays, ONLY: AREADR, AREADI
+   USE input_validation, ONLY: ALCHK, ALCHKI
+   USE interpolation, ONLY: ALINTP
 
-   USE tolerance_testing, ONLY: idimje, notzero
+   USE float_compare, ONLY: idimje, notzero
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, LENGTH_FILEPATH, I_P, &
                              half, izero, one, two, zero, zero1
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
-                  errstat_rewind, errstat_read, errstat_write, RAISE_ERROR, ERRLVL_fatal, &
-                  ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn, ERR_STOP
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileclose, errstat_fileopen, &
+                  errstat_rewind, errstat_read, errstat_write
    USE file_units, ONLY: FID_logfile
 
    USE SMmod, ONLY: head, binsmp, ddf, rhos, zos, zds, zus, nsd, rhodef, imet, smelt, tmelt

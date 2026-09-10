@@ -90,7 +90,7 @@ PROGRAM SHETRAN
    USE simulation_clock, ONLY: NSTEP
 
    ! Retained no-op floating-point-trap hook.
-   USE mod_load_filedata, ONLY : ALTRAP
+   USE platform_traps, ONLY: ALTRAP
 
    ! Cross-platform command-line and directory handling.
    USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH, RUNDATA_FROM_FILE_DIALOG

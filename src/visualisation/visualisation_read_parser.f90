@@ -66,7 +66,7 @@ MODULE visualisation_read_parser
    USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINELONG
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 

@@ -94,7 +94,7 @@ MODULE visualisation_structure
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_dealloc
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_dealloc
 
    IMPLICIT NONE
 

@@ -66,10 +66,11 @@ MODULE OCmod2
    USE array_limits, ONLY: nelee, nlfee, NXSCEE
    USE element_geometry, ONLY: cellarea, DXQQ, DYQQ, total_no_links, ZGRUND
 
-   USE tolerance_testing, ONLY: notzero, iszero, gtzero, dimje
+   USE float_compare, ONLY: notzero, iszero, gtzero, dimje
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              half, one, zero, TWO_THIRDS, FIVE_THIRDS, SQRT_TWO_G
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_warn
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_warn
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc
    USE file_units, ONLY: FID_logfile
 
    USE ZQmod, ONLY: get_ZQTable_value

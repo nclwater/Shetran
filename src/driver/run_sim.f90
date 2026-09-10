@@ -55,14 +55,17 @@ MODULE run_sim
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              zero
-   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, errstat_write, RAISE_ERROR, ERRLVL_fatal
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, &
+                  errstat_write
 
    USE SED_CS, ONLY: nsed, pbsed, pls, sosdfn, arbdep, dls, fbeta, fdel, &
       ginfd, ginfs, gnu, gnubk, qsed, dcbed, dcbsed
 !                 llee, NVSEE, NLYREE, NOCTAB, NXSCEE !NEEDED ONLY FOR AD
    USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
    USE AL_C, ONLY: pnetto, arxl, eevap, icmbk, nvswlt, qvswel, ns, nv, nlyr, ntsoil, nvc, clenth, &
-                  cwidth, vspor, zbfull, bexbk, linkns, clai, draina, plai, qoc, idum, dummy
+                  cwidth, vspor, zbfull, bexbk, linkns, clai, draina, plai, qoc
+   USE input_workspace, ONLY: IDUM, DUMMY
    USE element_geometry, ONLY: NBFACE, DHF, ISORT
    USE file_units, ONLY: SFB, SPR, SRB, SYD, CMP
    USE grid_topology, ONLY: ICMRF2

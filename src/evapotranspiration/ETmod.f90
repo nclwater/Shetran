@@ -73,16 +73,17 @@ MODULE ETmod
                   ESOIL, NSMT, S, sf, sd, ts, nsmc
    USE element_geometry, ONLY: BWIDTH
    USE simulation_clock, ONLY: TIMEUZ
-   USE mod_load_filedata, ONLY: ALCHK
+   USE input_validation, ONLY: ALCHK
 
-   USE tolerance_testing, ONLY: lezero, notzero, gtzero, ltzero
+   USE float_compare, ONLY: lezero, notzero, gtzero, ltzero
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
                              one, zero, zero1, L_VAPORISATION_ET, PSYCHROMETRIC_CONSTANT, &
                              RHO_AIR_ET, CP_AIR_ET
-   USE MOD_ERROR, ONLY: errstat_alloc, RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_warn
+   USE error_status, ONLY: errstat_alloc
    USE file_units, ONLY: FID_logfile
 
-   USE UTILSMOD, ONLY: DCOPY
+   USE linear_algebra, ONLY: dcopy
    USE SMmod, ONLY: SMIN, &
                     smelt, tmelt !THESE NEEDED ONLY FOR AD
 !NEEDED ONLY FOR AD

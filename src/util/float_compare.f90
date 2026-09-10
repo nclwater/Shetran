@@ -1,26 +1,31 @@
 !> summary: Numeric tolerance testing
 !> author: GP; AB/RAH; J. Ewen, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen
 !>
-!> Several methods for tolerance testing of especially floats. Extracted from SGLOBAL.
+!> Several methods for tolerance testing of especially floats. Every comparison
+!> against zero, one or the end-of-input sentinel in the model goes through one
+!> of these, so that the tolerance is stated in one place rather than repeated
+!> as a literal at each site. Renamed from `tolerance_testing`; the routines and
+!> their tolerances are unchanged.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2026-08-31 | SvB | - | Extracted from SGLOBAL |
+!> | 2026-09-10 | SvB | - | Split out of tolerance_testing; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE tolerance_testing
+MODULE float_compare
 
    USE MOD_PARAMETERS, ONLY: I_P, R8P
    USE mod_parameters, ONLY: zero, one, vsmall, imarker
 
    IMPLICIT NONE
+
    PRIVATE
 
    PUBLIC :: eqmarker, gtzero, gezero, ltzero, lezero, iszero, iszero_a, &
              i_iszero_a2, notzero, isone, notone, &
              idimje, dimje
 
-contains
+CONTAINS
 
 !> summary: Detects the time-series end marker by integer truncation.
 !>
@@ -375,4 +380,5 @@ contains
       END IF
    END FUNCTION dimje
 
-END MODULE tolerance_testing
+END MODULE float_compare
+

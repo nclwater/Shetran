@@ -14,7 +14,7 @@
 !>
 !> | Parameter group | Current use outside this module |
 !> |:----------------|:--------------------------------|
-!> | `R8P`, `I_P` | Numeric declarations across the `core/` data modules, [[mod_load_filedata]], and [[zq_tables]]. |
+!> | `R8P`, `I_P` | Numeric declarations across the `core/`, `util/` and `io/` modules, and [[zq_tables]]. |
 !> | `LENGTH_FILEPATH`, `LENGTH_LINE` | Path, command-line, and diagnostic buffers in [[run_context]] and [[command_line]]. |
 !> | `LENGTH_LINELONG` | Diagnostic-detail buffers in [[visualisation_read_parser]]. |
 !> | `LENGTH_LINEVERYLONG`, `LENGTH_TEXT_R8P` | Initial capacity and per-value width of the dated meteorological record buffer in [[rest]]. |

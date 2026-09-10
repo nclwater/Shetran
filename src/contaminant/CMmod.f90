@@ -61,20 +61,22 @@ MODULE CMmod
                   DYQQ, DXQQ, ZGRUND
    USE mod_parameters, ONLY: zero, one, two, half
 
-   USE mod_error, ONLY: RAISE_ERROR
-   USE tolerance_testing, ONLY: notzero, iszero, gtzero, ltzero, gezero, idimje
+   USE error_reporting, ONLY: RAISE_ERROR
+   USE float_compare, ONLY: notzero, iszero, gtzero, ltzero, gezero, idimje
 
    USE OCMOD2, ONLY: hrf => hrfzz
    USE AL_C
    USE element_geometry, ONLY: ISORT
    USE file_units, ONLY: CMD, MND, MNFC, MNFN, MNOUT1, MNOUT2, MNOUTPL, MNPL, MNPR
    USE grid_topology, ONLY: ICMREF, ICMRF2, ICMXY, NX, NY
+   USE input_workspace, ONLY: DUMMY, IDUM
    USE simulation_clock, ONLY: DTUZ, TIH
    USE IS_CC
-   USE UTILSMOD, ONLY: TRIDAG
+   USE linear_algebra, ONLY: TRIDAG
    USE IS_CC
-   USE mod_load_filedata, ONLY: ALALLI, ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
-   USE UTILSMOD, ONLY: DCOPY
+   USE record_readers, ONLY: ALREDC, ALREDF, ALREDI, ALREDL, ALRED2
+   USE spatial_fields, ONLY: ALALLI
+   USE linear_algebra, ONLY: dcopy
    USE MNMOD, only: MNCONT, MNINITIALISE, MNISINITIALISED
    IMPLICIT NONE
 
