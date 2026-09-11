@@ -20,7 +20,7 @@
 MODULE vs_connectivity
 
    USE MOD_PARAMETERS, ONLY: half, zero
-   USE array_limits, ONLY: LLEE, nelee, NLYREE, nxee, nyee
+   USE array_limits, ONLY: LLEE, nelee, NLYREE
    USE element_geometry, ONLY: top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF
    USE channel_geometry, ONLY: BEXBK, FHBED, ICMBK, NHBED, ZBEFF
@@ -144,7 +144,7 @@ CONTAINS
       LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE(NELEE, 4)
       CHARACTER(LEN=57) :: MSG
       INTEGER :: nlyrmax
-      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      INTEGER, DIMENSION(NELEE), SAVE :: IDUM !! Integer input workspace; subscripted only by element, link and bank element numbers, so `NELEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
 
       ! Modern Initialization replacing DATA blocks
       INTEGER :: LRENUM(NELEE, NLYREE) = 0

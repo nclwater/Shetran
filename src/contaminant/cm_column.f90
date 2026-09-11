@@ -33,7 +33,7 @@
 MODULE cm_column
 
    USE MOD_PARAMETERS, ONLY: half, one, two, zero
-   USE array_limits, ONLY: LLEE, nelee, NSEDEE
+   USE array_limits, ONLY: LLEE, NSEDEE
    USE element_geometry, ONLY: area => cellarea, DXQQ, DYQQ, ZGRUND
    USE grid_topology, ONLY: ICMREF
    USE channel_geometry, ONLY: CLENTH, CWIDTH, NHBED
@@ -454,7 +454,7 @@ CONTAINS
       DOUBLE PRECISION :: CDUM = 0.0D0 !! Saved bank-to-stream concentration workspace due to declaration initialization.
       DOUBLE PRECISION :: GNDUM, QDUM, QCDUM, QCDUM1, UDUMP, UDUMM, UCDUMP, UCDUMM
       DOUBLE PRECISION :: FBO(NSEDEE), FB(NSEDEE), FDLO(NSEDEE), FDL(NSEDEE), KDDUM(NSEDEE)
-      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      DOUBLEPRECISION, DIMENSION(LLEE), SAVE :: DUMMY !! Floating-point input workspace; subscripted only by column cell index over `NCEBOT..NCETOP`, so `LLEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
 
       !----------------------------------------------------------------------*
 
@@ -823,7 +823,6 @@ CONTAINS
       DOUBLE PRECISION :: DBK, DMULT, DINV, ROHDUM, OMROH, THEDUM, QVDUM, PHIDUM
       DOUBLE PRECISION :: DUM, DUM0, DUM1, UUOLD, UUNEW, ERRDUM, UIN
       DOUBLE PRECISION :: Q1(LLEE), TRAN1(LLEE), EMULT(LLEE)
-      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
 !----------------------------------------------------------------------*
 ! Factors & indices
@@ -1027,7 +1026,6 @@ CONTAINS
       main_face_loop: DO JA = 1, 4
          QQ(NCEBOT - 1:NCETOP + 1, JA) = zero
          QQ1(NCEBOT - 1:NCETOP + 1, JA) = zero
-         DUMMY(NCEBOT - 1:NCETOP + 1) = zero
 
          IF (JA == JFLINK) THEN
             !                     IS INSIDE FACE OF BANK

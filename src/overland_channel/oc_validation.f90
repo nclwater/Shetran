@@ -21,7 +21,7 @@
 MODULE oc_validation
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, ione1, izero1, zero, zero1
-   USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, nyee, NXSCEE
+   USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, NXSCEE
    USE element_geometry, ONLY: total_no_elements, total_no_links
    USE grid_topology, ONLY: ICMREF, ICMXY, NGDBGN, NX, NY
    USE file_units, ONLY: FID_logfile, OCD, OFB, OHB
@@ -193,7 +193,7 @@ CONTAINS
       INTEGER :: CODE, FACE, I, IELx, X, Y, TYPEE
       INTEGER :: NERR, IUNDEF
       INTEGER :: IDUMO(1)
-      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      INTEGER, DIMENSION(NXEE), SAVE :: IDUM !! Integer input workspace; holds one grid row of link codes, `IDUM(1:NX)`, so `NXEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
 
       CHARACTER(LEN=23) :: NAME
       CHARACTER, PARAMETER :: XY(0:1) = ['X', 'Y']

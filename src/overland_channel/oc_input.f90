@@ -17,7 +17,7 @@
 MODULE oc_input
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, one, zero
-   USE array_limits, ONLY: nelee, NOCTAB, nxee, nyee
+   USE array_limits, ONLY: nelee, NOCTAB
    USE element_geometry, ONLY: NBFACE, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, ICMXY, NGDBGN, NX, NY
    USE channel_geometry, ONLY: CWIDTH, ZBFULL
@@ -133,7 +133,7 @@ CONTAINS
       CHARACTER(LEN=77)            :: MSG
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
       CHARACTER(LEN=*), PARAMETER :: location = 'oc_input:JEOCBC' !! Location string for read-error reports.
-      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      INTEGER, DIMENSION(NELEE), SAVE :: IDUM !! Integer input workspace; filled by `AREADI` over `1..total_no_elements` and read by element number, so `NELEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
 
       !----------------------------------------------------------------------*
 
@@ -645,7 +645,7 @@ CONTAINS
       INTEGER(KIND=I_P) :: ios !! Status from a `READ` or the closing `REWIND`.
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `READ` or `REWIND`.
       CHARACTER(LEN=*), PARAMETER :: location = 'oc_input:OCREAD' !! Location string for read-error reports.
-      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      INTEGER, DIMENSION(NELEE), SAVE :: IDUM !! Integer input workspace; filled by `AREADI` over `1..total_no_elements`, and passed to `OCPLF` as `NXDEF(NOCTAB)`, so `NELEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
       DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
       INTEGER, PARAMETER :: NC(11) = [0, 0, 0, 0, 5, 0, 4, 4, 0, 0, 5]

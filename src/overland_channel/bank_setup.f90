@@ -21,7 +21,7 @@
 MODULE bank_setup
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, zero
-   USE array_limits, ONLY: nelee, nlfee, nxee, nyee
+   USE array_limits, ONLY: nelee, nlfee
    USE element_geometry, ONLY: total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, NGDBGN
    USE channel_geometry, ONLY: ZBFULL
@@ -97,7 +97,7 @@ CONTAINS
       DOUBLE PRECISION :: DFAULT, DZG, VALUE(NLFEE*2)
       LOGICAL :: BINBKD, found_adjacent
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      INTEGER, DIMENSION(NELEE), SAVE :: IDUM !! Integer input workspace; subscripted only by element number over `NGDBGN..total_no_elements`, so `NELEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
       DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
       CHARACTER(LEN=*), PARAMETER :: location = 'bank_setup:INBK' !! Location string for read-error reports.
 

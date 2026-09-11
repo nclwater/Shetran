@@ -24,7 +24,7 @@
 MODULE oc_driver
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
-   USE array_limits, ONLY: nelee, NOCTAB, NXSCEE
+   USE array_limits, ONLY: nelee, nlfee, NOCTAB, NXSCEE
    USE element_geometry, ONLY: cellarea, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, ICMRF2, NX, NY
    USE channel_geometry, ONLY: BEXBK, CLENTH, CWIDTH, ZBFULL
@@ -117,7 +117,7 @@ CONTAINS
       INTEGER :: ios                                 !! I/O status from a boundary-file title read.
       CHARACTER(LEN=LENGTH_LINE)  :: emsg            !! `IOMSG=` text from a failed `READ`.
       CHARACTER(LEN=*), PARAMETER :: location = 'oc_driver:OCINI' !! Location string for read-error reports.
-      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      DOUBLEPRECISION, DIMENSION(NLFEE), SAVE :: DUMMY !! Floating-point input workspace; `OCCHK2` writes it over `1..total_no_links` (and `1:NXSECT(link)-1 <= NOCTAB`), so `NLFEE` bounds it. `SAVE` keeps it in static storage, as the former module variable was.
 
       !----------------------------------------------------------------------*
 
