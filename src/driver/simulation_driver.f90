@@ -1,141 +1,77 @@
-!> @brief Main SHETRAN simulation time-step driver.
+!> summary: The simulation loop: one coupled timestep after another, until the end time.
+!> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University; Sven Berendsen
 !>
-!> `run_sim` contains [[simulation]], the top-level loop that advances the
-!> model from the configured start time to the end time. It coordinates the
-!> process modules rather than implementing a numerical method itself:
-!> selecting the current time step, running the land-hydrology and
-!> surface-routing components, conditionally running the sediment and
-!> contaminant components, maintaining water/sediment mass-balance
-!> diagnostics, and writing hotstart/result/progress output.
+!> [[SIMULATION]] is the model's main loop. For each coupled timestep it asks
+!> [[timestep_control:TMSTEP]] how long the step may be, then runs the active
+!> components in order — evapotranspiration and snowmelt, the variably
+!> saturated subsurface, overland and channel flow, sediment and contaminant
+!> transport — forms the water balance, and writes the output. It also handles
+!> the hotstart read at the start and the hotstart writes during the run.
 !>
-!> The main loop uses this high-level order:
-!>
-!> | Stage | Main calls/state updates |
-!> |:------|:-------------------------|
-!> | Timestep selection | [[timestep_control:TMSTEP]], increment `NSTEP`, copy `UZNEXT` to `OCNEXT`. |
-!> | Land hydrology | [[et_process:ETSIM]], then [[vs_driver:VSSIM]]. |
-!> | Time advance | `UZNOW = UZNOW + UZNEXT`; channel rainfall, evaporation, and well-transfer terms are updated for links. |
-!> | Surface routing | [[oc_driver:OCSIM]], then `OCNOW = UZNOW`. |
-!> | Optional sediment | [[sy_driver:SYMAIN]] when `BEXSY` and `UZNOW >= TSH-TIH`. |
-!> | Optional contaminants | [[cm_input:INCM]] on the first active contaminant step, then [[cm_driver:CMSIM]] on later active steps. |
-!> | Output and balances | [[water_balance:BALWAT]], [[mass_balance_report:FRMB]], optional [[sy_driver:BALSED]], result/hotstart/time-counter output, visualisation, and [[frame_output:FROUTPUT]]. |
-!>
-!> @note Contaminant setup is intentionally split: contaminant and column
-!> helper arrays are allocated before the loop when `BEXCM` is true, but
-!> [[cm_input:INCM]] is called on the first active contaminant timestep and
-!> `CMSIM` is called only on subsequent active timesteps.
-!> @endnote
+!> [[shetran]] calls it once. Everything above it is setup and everything below
+!> it is a component, which is why this module has the widest import list in
+!> the tree and almost no code of its own.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 1999-01-28 | SB | - | Incorporated sediment output into the `AIOSTO` result-type selection. |
-!> | 2006-03-08 | SB | - | Made mass-balance output (`FRMB`) a daily call. |
-!> | 2007-05-02 | SB | - | Added an additional `FROUTPUT('main ')` call. |
-!> | 2008-12 | JE | 4.3.5F90 | Created during the Fortran 90 conversion by extracting the computational core from `shetrn.f`. |
-!> | 2026-03-19 | SB | 4.6.1 | Added `DATE_FROM_HOUR`-based reporting of the simulation start/end dates, and added the contaminant/column-array allocation and cleanup calls (`initialise_cont_cc`, `initialise_colm_cg`, `initialise_colm_co`, `deallocate_colm_cg`). |
-!> | 2026-04-03 | SvB | 4.6.1 | Replaced `OPEN(UNIT=6, ..., carriagecontrol='fortran')` with `OPEN(UNIT=OUTPUT_UNIT, ...)` from `iso_fortran_env` (portable output-unit handling) as part of a wider restructuring of the main loop. |
-!> | 2026-04-23 | SB | 4.6.1 | Added elapsed/remaining wall-clock time reporting (`cpu_time`) to the progress line, and reordered the run-configuration diagnostics printed at start-up. |
-!> | 2026-04-28 | SB | 4.6.1 | Reworded the progress-line format and added the line that clears the progress display once the simulation loop exits. |
-!> | 2026-05-02 | SvB | 4.6.1 | Removed the pre-loop "Length of Simulation" message during a branch merge; the `9750`/`9900` `FORMAT` labels are no longer referenced by any `WRITE`. |
-!> | 2026-05-03 | SvB | 4.6.1 | Changed the sediment-yield elevation buffer `hrf` from a fixed-size array to `ALLOCATABLE`, allocated only when sediment yield (`BEXSY`) is active, to reduce static memory use. |
+!> | 1989-1998 | GP / RAH | 2.0-4.2 | Developed the frame driver, the meteorological reader and the timestep control. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the remaining frame `.F` files to Fortran 90. |
+!> | 2015-2026 | SB / SvB | 4.5-4.6 | Added the separate temperature streams, the dated meteorological reader and the modernisation pass. |
+!> | 2026-09-11 | SvB | - | Split out of run_sim; see docs/rename/proposal.md. |
 !> @endhistory
-!>
-!> @note The module has a large dependency surface because it orchestrates
-!> most SHETRAN process modules and shared state arrays. Changes here should
-!> be checked against component ordering, mass-balance output, hotstart
-!> output, and visualisation side effects.
-!> @endnote
-!>
-MODULE run_sim
+MODULE simulation_driver
 
-   USE element_geometry, ONLY: cellarea, DXQQ, DYQQ, top_cell_no, total_no_elements, total_no_links, ZGRUND
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, zero
+   USE element_geometry, ONLY: cellarea, DHF, DXQQ, DYQQ, ISORT, NBFACE, top_cell_no, &
+                              total_no_elements, total_no_links, ZGRUND
+   USE grid_topology, ONLY: ICMREF, ICMRF2, ICMXY, NGDBGN, NX, NY
+   USE channel_geometry, ONLY: BEXBK, CLENTH, CWIDTH, ICMBK, LINKNS, ZBFULL
    USE run_context, ONLY: cnam, DIRQQ
-   USE simulation_clock, ONLY: UZNOW
-
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, &
-                             zero
-   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
-   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, &
-                  errstat_write
-
-   USE sy_state, ONLY: NSED, PBSED, PLS, SOSDFN, ARBDEP, DLS, FBETA, FDEL, GINFD, GINFS, GNU, &
-                  GNUBK, QSED, DCBED, DCBSED
-!                 llee, NVSEE, NLYREE, NOCTAB, NXSCEE !NEEDED ONLY FOR AD
-   USE grid_topology, ONLY: NX, NY, ICMREF, ICMXY, NGDBGN
-   USE channel_geometry, ONLY: ICMBK, CLENTH, CWIDTH, ZBFULL, BEXBK, LINKNS
-   USE et_state, ONLY: PNETTO, EEVAP, NV, NVC, CLAI, DRAINA, PLAI
-   USE oc_state, ONLY: ARXL, QOC
-   USE vs_state, ONLY: NVSWLT, QVSWEL, NS, NLYR, NTSOIL, VSPOR
-   USE input_workspace, ONLY: IDUM, DUMMY
-   USE element_geometry, ONLY: NBFACE, DHF, ISORT
-   USE file_units, ONLY: SFB, SPR, SRB, SYD, CMP
-   USE grid_topology, ONLY: ICMRF2
-   USE simulation_clock, ONLY: UZNEXT, DTUZ, TIH
-
-   USE AL_D, ONLY: nmc, obspe, precip_m_per_s, mbflag, tmax
-   USE run_control, ONLY: BEXSY, BEXCM, BHOTPR, HOTIME, BHOTST, BHOTRD
-   USE et_state, ONLY: ESWA, EPOT, CSTORE
-   USE oc_state, ONLY: OCNEXT, OCNOW, DQ0ST, DQIST, DQIST2
-   USE snow_state, ONLY: SD, TS, NSMC
-   USE file_units, ONLY: HOT, TIM
-   USE simulation_clock, ONLY: NSTEP, TTH
-   USE legacy_result_files, ONLY: BSTORE, BTIME
-   USE run_control, ONLY: TSH, TCH
-   USE vs_boundaries, ONLY: RLFTIM
-   USE vs_driver, ONLY: VSSIM
-   USE vs_state, ONLY: ICSOILsv
-   USE cm_driver, ONLY: CMSIM
+   USE run_control, ONLY: BEXCM, BEXSY, BHOTPR, BHOTRD, BHOTST, HOTIME, TCH, TSH
+   USE simulation_clock, ONLY: DTUZ, NSTEP, TIH, TTH, UZNEXT, UZNOW
+   USE file_units, ONLY: CMP, HOT, SFB, SPR, SRB, SYD, TIM
+   USE input_workspace, ONLY: DUMMY, IDUM
+   USE met_forcing, ONLY: NMC, OBSPE, precip_m_per_s
+   USE et_state, ONLY: CLAI, CSTORE, DRAINA, EEVAP, EPOT, ESWA, NV, NVC, PLAI, PNETTO
    USE et_config, ONLY: PSI4, UZALFA
    USE et_process, ONLY: ETSIM
-   USE rest, ONLY: BALWAT, TMSTEP, &
-      metime, melast, eptime, pinp
-   !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
-   USE frame_setup, ONLY: FRINIT
-   USE cm_input, ONLY: INCM
+   USE snow_state, ONLY: NSMC, SD, smelt, tmelt, TS
+   USE vs_state, ONLY: ICSOILsv, NLYR, NS, NTSOIL, NVSWLT, QVSWEL, VSPOR, VSPSI
+   USE vs_boundaries, ONLY: RLFTIM
+   USE vs_driver, ONLY: VSSIM
+   USE oc_state, ONLY: ARXL, DQ0ST, DQIST, DQIST2, OCNEXT, OCNOW, QOC, qsazz
    USE oc_driver, ONLY: OCSIM
-   USE oc_state, ONLY: STRXX, STRYY
    USE oc_node_solver, ONLY: gethrf
-   USE oc_state, ONLY: HRFZZ
-   USE datetime, ONLY: DATE_FROM_HOUR
-   USE frame_geometry, ONLY: FRSORT
-   USE frame_output, ONLY: FROUTPUT
-   USE legacy_result_files, ONLY: FRRESP
-   USE mass_balance_report, ONLY: FRMB
-   USE sy_driver, ONLY: SYMAIN, BALSED
-   USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA         !VISVISVIS
-   USE VISUALISATION_INTERFACE_LEFT, ONLY: GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
-!NEEDED ONLY FOR AD
-   USE et_state, ONLY: ERUZ
-   USE AL_D, ONLY: mblink, mbface, u, rn, vpd, ta
-   USE et_state, ONLY: AE, S, ERZ, ESOIL, EINT, PNET, DRAIN, PE, VHT
-   USE snow_state, ONLY: SF
-   USE simulation_clock, ONLY: TIMEUZ
-   USE cm_column_scaling, ONLY: z2sq   !"JE"
-   USE oc_boundaries, ONLY: QFNEXT, HOCLST, HOCPRV, QOCFIN, HOCNXT, HOCNXV
-   USE oc_boundaries, ONLY: HOCNOW, QOCF
-   USE oc_cross_sections, ONLY: XAFULL
-   USE oc_state, ONLY: HRFZZ, qsazz
-   USE vs_boundaries, ONLY: RLFDUM, RLGNXT, FIRSTvssim, RBHLST, RLHLST, RBHPRV, RLGLST, RLHPRV, &
-                  RBFPRV, RLGPRV, RLFPRV, RWELIN, RBHTIM, WLTIME, RLHDUM, RBHNXT, RLHTIM, RLGDUM, &
-                  RLHNXT, RBFTIM, RLGTIM
-   USE vs_config, ONLY: WLNOW, VSKR, RLFNOW, RBFNOW, IVSSTO, RLHNOW, RBHNOW
-   USE vs_state, ONLY: VSAIJsv, JCBCsv
-   USE snow_config, ONLY: RHOS
-   USE snow_state, ONLY: smelt, tmelt
-   USE et_state, ONLY: ESOILA, ERUZ
-   USE vs_state, ONLY: QH, QVSWLI, VSTHE, VSPSI, QVSH, QVSV, QBKB, QBKF
-   USE et_config, ONLY: RC, RA, CSTCAP, DEL, NCTCST, NCTVHT, NCTCLA, NCTPLA
+   USE sy_state, ONLY: ARBDEP, DCBED, DCBSED, DLS, FBETA, FDEL, GINFD, GINFS, GNU, GNUBK, &
+                       NSED, PBSED, PLS, QSED, SOSDFN
+   USE sy_driver, ONLY: BALSED, SYMAIN
    USE sy_config, ONLY: ISSYOK_symain
-   USE frame_output, ONLY: qoctot, uzold, next_hour, icounter2
+   USE cm_driver, ONLY: CMSIM
+   USE cm_input, ONLY: INCM
    USE cm_parameters, ONLY: initialise_cont_cc
-   USE cm_column_geometry, ONLY: initialise_colm_cg, deallocate_colm_cg
+   USE cm_column_geometry, ONLY: deallocate_colm_cg, initialise_colm_cg
    USE cm_column_previous, ONLY: initialise_colm_co
-!USE PERTURBATIONS, ONLY : LOAD_PERTURBATIONS, spatial1
+   USE cm_column_scaling, ONLY: z2sq
+   USE frame_setup, ONLY: FRINIT
+   USE frame_geometry, ONLY: FRSORT
+   USE frame_output, ONLY: FROUTPUT, icounter2, next_hour, qoctot, uzold
+   USE legacy_result_files, ONLY: BSTORE, BTIME, FRRESP
+   USE mass_balance_report, ONLY: FRMB
+   USE timestep_control, ONLY: TMAX, TMSTEP
+   USE water_balance, ONLY: BALWAT, MBFLAG
+   USE datetime, ONLY: date_from_hour
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
+   USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_fileopen, errstat_rewind, &
+                           errstat_write
+   USE VISUALISATION_INTERFACE_LEFT, ONLY: GET_NCON_EARLY, GET_NSED_EARLY
+   USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA
+
    IMPLICIT NONE
 
    PRIVATE
-   PUBLIC :: simulation
+
+   PUBLIC :: SIMULATION
 
 CONTAINS
 
@@ -437,4 +373,5 @@ CONTAINS
 9900  FORMAT('Normal completion of SHETRAN run: ', F10.2, ' hours, ', I7, ' steps.'/)
    END SUBROUTINE simulation
 
-END MODULE run_sim
+END MODULE simulation_driver
+

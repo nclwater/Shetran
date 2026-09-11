@@ -93,7 +93,7 @@ PROGRAM SHETRAN
    USE platform_traps, ONLY: ALTRAP
 
    ! Cross-platform command-line and directory handling.
-   USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH, RUNDATA_FROM_FILE_DIALOG
+   USE command_line, ONLY: get_dir_and_catch, rundata_from_file_dialog
 
    ! Rundata-controlled file setup and framework output.
    USE frame_output, ONLY: FROUTPUT
@@ -103,10 +103,10 @@ PROGRAM SHETRAN
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA
 
    ! Completion and water-balance reporting.
-   USE REST, ONLY: extra_output
+   USE run_summary, ONLY: extra_output
 
    ! Model initialization and timestep driver.
-   USE RUN_SIM, ONLY: SIMULATION
+   USE simulation_driver, ONLY: SIMULATION
 
    ! Explicit release of the persistent open-channel solver workspace.
    USE oc_driver, ONLY: FINALISE_OCSIM_WORKSPACE

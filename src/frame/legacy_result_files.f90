@@ -48,7 +48,9 @@ MODULE legacy_result_files
    USE file_units, ONLY: BFB, BHB, BKD, BUG, CMB, CMD, CMP, CMT, EPD, ETD, FID_logfile, FRD, &
                          HOT, LFB, LGB, LHB, MED, OCD, OFB, OHB, PPD, PRD, RES, SMD, SPR, SYD, &
                          TIM, VED, VSD, VSI, WLD
-   USE AL_D, ONLY: BALANC, DTMET, NM, NMC, NRAIN, NRAINC, PALFA, PMAX, TMAX
+   USE met_forcing, ONLY: DTMET, NM, NMC, NRAIN, NRAINC
+   USE timestep_control, ONLY: PALFA, PMAX, TMAX
+   USE water_balance, ONLY: BALANC
    USE et_state, ONLY: CSTORE, DRAINA, EINTA, EPOT, ERZA, ESOILA, NRD, NV, NVC, PNETTO, RDF, RDL
    USE snow_state, ONLY: MSM, SD, TS
    USE vs_state, ONLY: DELTAZ, JVSACN, JVSDEL, NLYR, NLYRBT, NS, NTSOIL, NVSSPC, NVSSPT, &

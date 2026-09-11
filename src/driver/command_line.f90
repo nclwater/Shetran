@@ -1,57 +1,44 @@
-!> @brief Resolves the rundata file, catchment name, and working directories.
-!> @author Stephen Birkinshaw, Newcastle University
-!> @author Sven Berendsen, Newcastle University
+!> summary: Selecting the rundata file, from the command line or the file dialog.
+!> author: Stephen Birkinshaw, Newcastle University; Sven Berendsen
 !>
-!> `GETDIRQQ` implements the command-line selection stage used once by
-!> [[shetran]] before any model file is opened. Its sole public procedure,
-!> [[get_dir_and_catch]], validates a direct filename or a `catchments.txt`
-!> lookup and returns the normalized rundata path, its directory, a derived
-!> catchment name, and the launch working directory. All helper procedures and
-!> the optional dialog buffer are private.
+!> [[get_dir_and_catch]] establishes where the run's input is and what the run
+!> is called: it validates the rundata path, derives the catchment name from
+!> its filename stem, and records the launch directory. The path comes either
+!> from a `-f` command-line argument or, on a Windows build with Intel
+!> QuickWin, from the common file dialog opened by `-a`.
 !>
-!> | Build and invocation | Current selection behavior |
-!> |:---------------------|:---------------------------|
-!> | Any build, `-f <path>` | Select the named rundata file. |
-!> | Any build, `-c [name]` | Look up a catchment name in `catchments.txt`. |
-!> | Intel Fortran QuickWin on Windows, no arguments or `-a` | Open the native file-selection dialog. |
-!> | Other builds, no arguments or `-a` | Print portable usage text and stop with status 1. |
+!> `rundata_from_file_dialog` records which of the two it was, because only a
+!> dialog-launched run owns a console window that vanishes on exit and so needs
+!> the closing delay in [[shetran]]. It is always `.FALSE.` in a build without
+!> QuickWin.
 !>
-!> QuickWin support exists only when CMake enables `SHETRAN_HAVE_QUICKWIN`,
-!> which currently requires `ENABLE_QUICKWIN`, Windows, and Intel Fortran.
-!> Ordinary builds depend only on Fortran `GET_COMMAND_ARGUMENT` and
-!> `stdlib_system` path routines.
-!>
-!> @warning
-!> The user manual still says that a no-argument run opens a dialog on every
-!> build and that a bare filename is accepted without `-f`. Neither is true for
-!> the current portable build. The manual also assigns interactive-wait behavior
-!> to `-error`, but the current flag has no consumer and cannot change stopping
-!> behavior.
-!> @endwarning
+!> @note
+!> The QuickWin paths are guarded by `SHETRAN_HAVE_QUICKWIN` and compiled only
+!> where the dialog exists; the `#else` branch makes `-f` the default and
+!> reports the interactive options as unavailable. This module is compiled with
+!> `-cpp` for that reason.
+!> @endnote
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2020-03-05 | SvB | - | Formatted and cleaned the original Intel-specific selector. |
-!> | 2026-04-01 | SvB | - | Replaced the entry workflow with portable command-argument handling. |
-!> | 2026-05-28 | SB | - | Generalised the selector to work across compilers and operating systems, keeping the Intel/Windows `-a` popup available. |
-!> | 2026-06-08 | SvB | - | Adopted `stdlib_system` paths and made Intel QuickWin conditional. |
-!> | 2026-06-19 | SB | 4.6.4 | Revised cross-platform command-line selection and diagnostics. |
-!> | 2026-07-08--11 | SteveB / SvB | 4.6.4 | Reconciled dialog and direct-file results and restored `join_path`. |
+!> | 2026-03 to 2026-05 | SB / SvB | 4.6 | Replaced the DEC-specific dialog code with the QuickWin-guarded path and stdlib path handling. |
+!> | 2026-09-11 | SvB | - | Split out of getdirqq; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE GETDIRQQ
-
-   USE mod_parameters
-   USE run_context, ONLY: error_mode
-   USE stdlib_system, ONLY : base_name, dir_name, get_cwd, join_path
+MODULE command_line
 
 #ifdef SHETRAN_HAVE_QUICKWIN
    USE IFWIN
 #endif
 
+   USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE, LENGTH_FILEPATH
+   USE run_context, ONLY: error_mode, rootdir
+   USE stdlib_system, ONLY: base_name, dir_name, get_cwd, join_path
+
    IMPLICIT NONE
 
    PRIVATE
+
    PUBLIC :: get_dir_and_catch
    PUBLIC :: rundata_from_file_dialog
 
@@ -537,4 +524,5 @@ CONTAINS
    END SUBROUTINE comdlger
 #endif
 
-END MODULE GETDIRQQ
+END MODULE command_line
+

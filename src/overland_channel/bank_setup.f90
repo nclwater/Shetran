@@ -27,7 +27,7 @@ MODULE bank_setup
    USE channel_geometry, ONLY: ZBFULL
    USE file_units, ONLY: BKD, FID_logfile
    USE input_workspace, ONLY: DUMMY, IDUM
-   USE AL_D, ONLY: NMC, NRAINC
+   USE met_forcing, ONLY: NMC, NRAINC
    USE run_control, ONLY: TITLE
    USE et_state, ONLY: NVC
    USE snow_state, ONLY: RHOSAR, SD

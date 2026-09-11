@@ -24,7 +24,7 @@ MODULE snow_input
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, zero
    USE element_geometry, ONLY: total_no_elements
    USE grid_topology, ONLY: NGDBGN
-   USE AL_D, ONLY: NM
+   USE met_forcing, ONLY: NM
    USE file_units, ONLY: FID_logfile, SMD
    USE grid_arrays, ONLY: AREADR
    USE snow_config, ONLY: BINSMP, DDF, HEAD, IMET, NSD, RHODEF, RHOS, ZDS, ZOS, ZUS

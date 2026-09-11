@@ -41,7 +41,7 @@ MODULE cm_driver
    USE vs_state, ONLY: DELTAZ, NLYR, NLYRBT, NS, NTSOIL, QVSWEL, VSPOR, VSPSI, VSTHE, ZVSNOD
    USE oc_state, ONLY: QOC
    USE sy_state, ONLY: QLINK
-   USE AL_D, ONLY: TA
+   USE met_forcing, ONLY: TA
    USE cm_parameters, ONLY: CCCC, CCCCO, NCON, SSSS, SSSSO
    USE cm_column_geometry, ONLY: NCOLMB
    USE cm_column_previous, ONLY: RSZWLO, VSTHEO
@@ -110,7 +110,7 @@ CONTAINS
       USE cm_link_water
       USE cm_plant_state
       USE simulation_clock, ONLY: UZNOW
-      USE AL_D, ONLY: TA
+      USE met_forcing, ONLY: TA
 
       IMPLICIT NONE
 

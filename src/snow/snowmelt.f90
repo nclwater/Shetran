@@ -36,7 +36,7 @@ MODULE snowmelt
    USE array_limits, ONLY: max_no_snowmelt_slugs
    USE element_geometry, ONLY: total_no_elements, ZGRUND
    USE simulation_clock, ONLY: DTUZ, TIMEUZ
-   USE AL_D, ONLY: nrainc, nmc, precip_m_per_s, rn, ta, u, vpd
+   USE met_forcing, ONLY: NRAINC, NMC, precip_m_per_s, RN, TA, U, VPD
    USE et_state, ONLY: NVC, NRD, AE, CSTOLD, CSTORE, CPLAI, ERZ, ESOIL, EINT, PNET, PE, S, VHT
    USE snow_state, ONLY: ISPACK, MSM, NSMC, NSMT, RHOSAR, SF, SD, TS, smelt, tmelt
    USE snow_config, ONLY: DDF, ESM, HEAD, HFC, HFE, HFR, HFT, IMET, NSD, PNSNOW, RHODEF, &
@@ -245,7 +245,7 @@ CONTAINS
    !> @note
    !> The routine operates mainly through module/global state imported from
    !> [[array_limits]], [[mod_parameters]], [[element_geometry]], [[snow_state]],
-!> [[et_state]] and [[al_d]]; its only dummy argument is the
+!> [[et_state]] and [[met_forcing]]; its only dummy argument is the
    !> element index. The energy-budget saturation-vapour-pressure polynomial
    !> is evaluated for both the snow surface and the air using a shared
    !> `TEMP_RATIO` local to avoid repeating the `(T/5-3)` subexpression; this

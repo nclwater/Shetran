@@ -50,7 +50,9 @@ MODULE frame_setup
    USE channel_geometry, ONLY: BEXBK
    USE simulation_clock, ONLY: TIH, TIMEUZ, TTH, UZNEXT, UZNOW, UZVAL
    USE file_units, ONLY: BKD, ETD, FID_logfile, FRD, HOT, OCD, PPD, SMD, TIM, VSD, VSI
-   USE AL_D, ONLY: ISTA, MBDAY, MBMON, MBYEAR, NM, NMC, NRAIN, NRAINC, PALFA, PMAX, PREST, TMAX
+   USE met_forcing, ONLY: ISTA, NM, NMC, NRAIN, NRAINC
+   USE timestep_control, ONLY: PALFA, PMAX, PREST, TMAX
+   USE water_balance, ONLY: MBDAY, MBMON, MBYEAR
    USE frame_geometry, ONLY: FRDIM, FRIND
    USE frame_output, ONLY: BPBAL, BPDEP, BPEPOT, BPHSZ, BPPNET, BPQF, BPQH, BPQOC, BPQSZ, BPSD
    USE legacy_result_files, ONLY: ALLOUT, BSTORE, BTIME, DTAO, FRRESP, IAOUT, PSTART, RESFIL

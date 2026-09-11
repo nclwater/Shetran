@@ -27,8 +27,8 @@ MODULE mass_balance_report
    USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE channel_geometry, ONLY: CLENTH
    USE simulation_clock, ONLY: DTUZ, TIH, UZNOW
-   USE AL_D, ONLY: BALANC, MBDAY, MBFACE, MBFLAG, MBLINK, MBMON, MBYEAR, NRAINC, &
-                   precip_m_per_s
+   USE met_forcing, ONLY: NRAINC, precip_m_per_s
+   USE water_balance, ONLY: BALANC, MBDAY, MBFACE, MBFLAG, MBLINK, MBMON, MBYEAR
    USE et_state, ONLY: CSTORE, EEVAP, EINTA, ERZA
    USE snow_state, ONLY: RHOSAR, SD
    USE vs_state, ONLY: DELTAZ, NLYRBT, QBKB, QBKF, QVSV, VSTHE

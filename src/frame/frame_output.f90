@@ -45,7 +45,7 @@ MODULE frame_output
    USE run_control, ONLY: BEXCM, BEXSY, BHOTRD, BHOTTI, isextradis, isextrapsl, TOUTPUT
    USE simulation_clock, ONLY: TIH, UZNOW
    USE file_units, ONLY: DIS, DIS2, disextra, FID_logfile, MAS, pslextra, VSE
-   USE AL_D, ONLY: BALANC, MBFACE, MBLINK
+   USE water_balance, ONLY: BALANC, MBFACE, MBLINK
    USE vs_state, ONLY: NLYRBT, VSPSI, ZVSPSL
    USE oc_state, ONLY: QOC
    USE oc_boundaries, ONLY: NOCBCC, NOCBCD

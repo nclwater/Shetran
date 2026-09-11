@@ -563,3 +563,39 @@ hand fix).
 Worth noticing because the re-export was invisible in the move tables: an
 entity that a dissolved module merely passed through has no row, so nothing
 flags its consumers.
+
+## D29 — the tree *does* use preprocessor directives, and the guards were split
+
+`00_working_rules.md` §1 states that new files are `.f90` even when the source
+was `.F90` because "no preprocessor is used: `preprocess: false` in
+`ford_project.md`, and nothing in the tree uses `#`-directives, `INCLUDE`,
+`COMMON` or `EQUIVALENCE` — verified."
+
+That is true of FORD and false of the compiler. `src/driver/getdirqq.f90` has
+seven `#ifdef SHETRAN_HAVE_QUICKWIN` blocks guarding the Windows QuickWin file
+dialog, `CMakeLists.txt:819` passes `-cpp`, and `SHETRAN_ENABLE_QUICKWIN`
+defines the macro.
+
+`rename_extract.py` moves an entity's own span, so guards *inside* a moved
+procedure travelled correctly — but two guards that *enclosed* moved entities
+did not:
+
+| Guarded entity | What was left behind |
+|:---------------|:---------------------|
+| `USE IFWIN` | needed by `command_line`'s `T_OPENFILENAME` use |
+| `FileName` declaration | its `#ifdef`/`#endif` pair |
+| `comdlger` (whole routine) | its `#ifdef`/`#endif` pair |
+
+Without the third, a QuickWin build would compile `comdlger` unconditionally
+and a Linux build would fail on `CommDlgExtendedError` and the `CDERR_*`
+constants — which is how it was found. All three were restored by hand.
+
+*Verified*, since the Windows path cannot be compiled here: `cpp -P
+-traditional` over the original `getdirqq.f90` and the new `command_line.f90`,
+both with and without `-DSHETRAN_HAVE_QUICKWIN`, produces **byte-identical**
+procedure bodies (403 and 278 lines respectively); the only difference is the
+`END MODULE` name. The guard structure is the same seven blocks in the same
+order, including the one `#else`.
+
+Any later step that moves code out of a file containing `#` directives must
+check the enclosing guards explicitly; the extractor does not see them.

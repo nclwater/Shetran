@@ -17,7 +17,7 @@
 !> | `R8P`, `I_P` | Numeric declarations across the `core/`, `util/` and `io/` modules, and [[zq_tables]]. |
 !> | `LENGTH_FILEPATH`, `LENGTH_LINE` | Path, command-line, and diagnostic buffers in [[run_context]] and [[command_line]]. |
 !> | `LENGTH_LINELONG` | Diagnostic-detail buffers in [[visualisation_read_parser]]. |
-!> | `LENGTH_LINEVERYLONG`, `LENGTH_TEXT_R8P` | Initial capacity and per-value width of the dated meteorological record buffer in [[rest]]. |
+!> | `LENGTH_LINEVERYLONG`, `LENGTH_TEXT_R8P` | Initial capacity and per-value width of the dated meteorological record buffer in [[met_input]]. |
 !> | Remaining kind, buffer, and `NAN_*` parameters | No named external consumer; retained public API. |
 !>
 !> These are internal compile-time constants and have no user-manual input
@@ -84,7 +84,7 @@ module mod_parameters
    integer(kind=I_P), parameter :: LENGTH_FILEPATH     =    260 !! Project path buffer; classic Windows `MAX_PATH` size.
    integer(kind=I_P), parameter :: LENGTH_LINE         =    256 !! Short text and diagnostic buffer length.
    integer(kind=I_P), parameter :: LENGTH_LINELONG     =  16384 !! Long text buffer; used for parser diagnostics.
-   integer(kind=I_P), parameter :: LENGTH_LINEVERYLONG = 262144 !! Very-long text buffer; upper bound for the dated meteorological record buffer in [[rest]].
+   integer(kind=I_P), parameter :: LENGTH_LINEVERYLONG = 262144 !! Very-long text buffer; upper bound for the dated meteorological record buffer in [[met_input]].
    integer(kind=I_P), parameter :: LENGTH_TEXT_R8P     =     26 !! Characters reserved per free-format `R8P` value, including its separator.
 
 

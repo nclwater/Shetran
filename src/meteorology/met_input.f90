@@ -1,337 +1,65 @@
-!> @brief Miscellaneous run-control, meteorological input, and water-balance routines.
+!> summary: Reading the meteorological input series and advancing the vegetation tables.
+!> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University; Sven Berendsen
 !>
-!> `rest` collects legacy routines that do not naturally belong to one of the
-!> process-specific modules. [[extra_output]] writes the end-of-run error
-!> summary and spatially averaged water-balance totals to the `.pri` output.
-!> [[balwat]] maintains the per-column/link cumulative water-balance
-!> diagnostic `WBERR`. [[metin]] reads or interpolates the meteorological
-!> forcing (precipitation, potential evaporation, radiation, wind,
-!> temperature, and time-varying vegetation/canopy parameters) needed as the
-!> simulation clock advances. [[tmstep]] computes the next model timestep,
-!> subject to soft-start, snowmelt, meteorological record-boundary, and
-!> runtime-error-driven limits, and calls [[metin]] to keep forcing data
-!> current for the chosen step.
+!> [[METIN]] advances every meteorological series to the current model time and
+!> writes the results into [[met_forcing]]; it also interpolates the
+!> time-varying vegetation parameters in [[et_config]] through
+!> [[interpolation:TERPO1]]. [[READ_DATED_RECORD]] and
+!> [[RESIZE_MET_RECORD]] implement the dated record format, growing the record
+!> buffer as needed.
+!>
+!> The buffer starts at `LENGTH_LINEVERYLONG` characters and each value is
+!> allowed `LENGTH_TEXT_R8P`; the `IOSTAGE_*` and `IOS_SHORT_RECORD` values
+!> distinguish a short record from a genuine read failure.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 2005-01-25 | SB | - | Added spatially averaged cumulative-flux and end-of-run storage summary output to `extra_output`. |
-!> | 2008-12 | JE | 4.3.5F90 | Created during Fortran 90 conversion, to collect `.F` routines without another natural module home. |
-!> | 2020-07-07 | SB | - | Added timestep reduction in `TMSTEP` after selected flow errors (1024, 1030, 1060). |
-!> | 2026-03-19 | SB | 4.6.1 | Added optional date-aware (ISO 8601) precipitation, potential-evaporation, and max/min-temperature file input (`BMETDATES`) to `METIN` and `TMSTEP`. |
-!> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` call in `BALWAT` with a direct array-slice assignment. |
-!> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow in `METIN` and `TMSTEP` with named `DO`/`CYCLE`/`EXIT` constructs. |
-!> | 2026-05-10 | SvB | - | Removed interactive "press enter to continue" prompts after fatal read errors in `METIN`/`TMSTEP`; replaced with `ERROR STOP`. |
-!> | 2026-08-22 | SvB | - | Added `READ_DATED_RECORD`, which reads dated meteorological records through a buffer sized to the record instead of a fixed 100000-character line. |
-!> | 2026-09-07 | SvB | - | Replaced the bare `STOP 'Error reading ...'` checks on the undated PET/temperature reads in `METIN` with [[error_status:errstat_read]], which reports `IOSTAT`/`IOMSG`. |
+!> | 1989-1998 | GP / RAH | 2.0-4.2 | Developed the frame driver, the meteorological reader and the timestep control. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the remaining frame `.F` files to Fortran 90. |
+!> | 2015-2026 | SB / SvB | 4.5-4.6 | Added the separate temperature streams, the dated meteorological reader and the modernisation pass. |
+!> | 2026-09-11 | SvB | - | Split out of rest; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE rest
-   USE array_limits, ONLY: nelee, NVEE
-   USE element_geometry, ONLY: cellarea, top_cell_no, total_no_elements, total_no_links, ZGRUND
-   USE runtime_flags, ONLY: flag_runtime_reduction_e1060, flag_runtime_reduction_errors
-   USE simulation_clock, ONLY: UZNOW
-   USE grid_topology, ONLY: ICMREF
-   USE channel_geometry, ONLY: CWIDTH
-   USE et_state, ONLY: CLAI, EEVAP, ERUZ, NV, PLAI, PNETTO
-   USE oc_state, ONLY: ARXL, QOC
-   USE vs_state, ONLY: DELTAZ, NLYRBT, QVSBF, QVSWEL, QBKF, QVSH, VSTHE, WBERR
-   USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT
-   USE AL_D, ONLY: balanc, DTMET2, NM, NRAIN, DTMET3, DTMET, RN, OBSPE, U, TA, VPD, TMAX, PALFA, &
-                  PMAX, precip_m_per_s, NRAINC, ista
-   USE run_control, ONLY: BHOTRD, BHOTTI, BEXSM
-   USE et_state, ONLY: PE, VHT
-   USE snow_state, ONLY: SD
-   USE element_geometry, ONLY: CAREA
-   USE file_units, ONLY: EPD, PRD, MED, TAH, TAL
-   USE legacy_retained, ONLY: FLERRC, SYERRC, CMERRC
-   USE simulation_clock, ONLY: NSTEP, TIMEUZ
-   USE et_config, ONLY: MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, &
-                  NCTPLA, PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, &
-                  NCTVHT, VHT1, BMETP, BMETAL, BMETDATES, MEASPE, DEL
-   USE run_control, ONLY: BSOFT
-   USE datetime, ONLY: hour_from_date
-   USE interpolation, ONLY: TERPO1
+MODULE met_input
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P, &
                              one, zero
-   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERR_STOP
+   USE array_limits, ONLY: NVEE
+   USE simulation_clock, ONLY: TIMEUZ, UZNEXT, UZNOW
+   USE file_units, ONLY: EPD, FID_logfile, MED, PRD, TAH, TAL
+   USE run_control, ONLY: BHOTRD, BHOTTI
+   USE met_forcing, ONLY: DTMET, DTMET2, DTMET3, ISTA, NM, NRAIN, OBSPE, RN, TA, U, VPD
+   USE et_state, ONLY: CLAI, NV, PLAI, VHT
+   USE et_config, ONLY: BMETAL, BMETDATES, BMETP, CLAI1, CSTCA1, CSTCAP, DEL, MEASPE, MODECL, &
+                        MODECS, MODEPL, MODEVH, NCTCLA, NCTCST, NCTPLA, NCTVHT, PLAI1, &
+                        RELCLA, RELCST, RELPLA, RELVHT, TIMCLA, TIMCST, TIMPLA, TIMVHT, VHT1
+   USE interpolation, ONLY: TERPO1
+   USE datetime, ONLY: hour_from_date
+   USE error_reporting, ONLY: ERR_STOP
    USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_read
-   USE file_units, ONLY: FID_logfile
 
-   USE oc_node_solver, ONLY: gethrf
-
-!USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE
 
-   LOGICAL :: FIRST_balwat = .TRUE. !! `.TRUE.` until `BALWAT` has initialised `STORW_balwat` and `WBERR` on its first call.
-   DOUBLEPRECISION :: STORW_balwat(NELEE) = zero !! Water storage depth for each element/link at the previous `BALWAT` call (m).
+   PRIVATE
+
+   PUBLIC :: METIN
+   PUBLIC :: metime, melast, eptime, pinp
+
    DOUBLEPRECISION :: pinp(nvee + 10) = zero !! Current precipitation input by rain station, used by `METIN` and `TMSTEP` (mm/hr).
    DOUBLEPRECISION :: METIME = zero !! End time of the current precipitation/full-meteorological record window (h).
    DOUBLEPRECISION :: MELAST = zero !! Start time of the current precipitation/full-meteorological record window (h).
    DOUBLEPRECISION :: EPTIME = zero !! End time of the current potential-evaporation record window (h).
-
-   ! Dated meteorological record buffer, see READ_DATED_RECORD -----------------
    INTEGER, PARAMETER :: RECORD_HEADROOM = 10 !! Characters kept free at the end of `MET_RECORD`; a record reaching into them is treated as too long for the buffer.
    INTEGER, PARAMETER :: IOSTAGE_NONE = 0 !! `READ_DATED_RECORD` completed without an error.
    INTEGER, PARAMETER :: IOSTAGE_RECORD = 1 !! `READ_DATED_RECORD` failed while reading the timestamp and record text.
    INTEGER, PARAMETER :: IOSTAGE_VALUES = 2 !! `READ_DATED_RECORD` failed while parsing the values of the record.
    INTEGER, PARAMETER :: IOS_SHORT_RECORD = 1 !! `IOS` reported by `READ_DATED_RECORD` for a record holding fewer values than expected.
 
+   ! Dated meteorological record buffer, see READ_DATED_RECORD -----------------
    CHARACTER(LEN=:), ALLOCATABLE :: MET_RECORD !! Reusable buffer holding the value part of the dated meteorological record currently being read.
    LOGICAL :: MET_RECORD_SIZED = .FALSE. !! `.TRUE.` once `MET_RECORD` has been resized from its initial capacity to fit the first data line read.
 
-   PRIVATE
-
-   PUBLIC :: BALWAT, TMSTEP, EXTRA_OUTPUT, &
-      metime, melast, eptime, pinp
-
 CONTAINS
-
-!> Writes end-of-run error counts and spatially averaged water-balance summaries.
-!>
-!> `extra_output` is called once after the simulation loop completes. It
-!> prints the `FLERRC`/`SYERRC`/`CMERRC` flow, sediment, and contaminant error
-!> counters (indices 0-100, offset by 1000/2000/3000 respectively for the
-!> printed error number), the normal-completion line to standard output, and
-!> catchment-averaged cumulative-flux and end-of-run storage totals to the
-!> `.pri` output, using [[al_d]]'s `BALANC` accumulator and `CAREA`:
-!>
-!> | `BALANC` index | Quantity |
-!> |:---------------|:---------|
-!> | 7 | Cumulative precipitation |
-!> | 8 | Cumulative canopy evaporation |
-!> | 9 | Cumulative soil/surface evaporation |
-!> | 10 | Cumulative transpiration |
-!> | 11 | Cumulative aquifer flow |
-!> | 12 | Cumulative discharge |
-!> | 13 | Canopy storage |
-!> | 14 | Snow storage |
-!> | 15 | Subsurface storage |
-!> | 16 | Surface storage |
-!> | 17 | Channel storage |
-!>
-!> Each total is printed as `BALANC(i) * 1000 / CAREA` (mm), converting the
-!> volume accumulator (m^3) to a depth over the catchment plan area (m^2).
-!>
-!> @note
-!> As documented on [[al_d]], no current routine assigns `FLERRC`, `SYERRC`,
-!> or `CMERRC`; the error-count section of this output is therefore always
-!> zero in the current build.
-!> @endnote
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | 2005-01-25 | SB | - | Added the spatially averaged cumulative-flux and storage summary output. |
-!> @endhistory
-   SUBROUTINE extra_output()
-      INTEGER :: i
-      DOUBLEPRECISION    :: car
-      WRITE (FID_logfile, 1400)
-      DO I = 0, 100
-         IF (FLERRC(I) .GT. 0) WRITE (FID_logfile, 1500) I + 1000, FLERRC(I)
-      END DO
-      DO I = 0, 100
-         IF (SYERRC(I) .GT. 0) WRITE (FID_logfile, 1500) I + 2000, SYERRC(I)
-      END DO
-      DO I = 0, 100
-         IF (CMERRC(I) .GT. 0) WRITE (FID_logfile, 1500) I + 3000, CMERRC(I)
-      END DO
-      WRITE (FID_logfile, 1600)
-1400  FORMAT(//'Error message asummary'/)
-1500  FORMAT('No. of occurences of error number ', I4, ': ', I6)
-
-1600  FORMAT(/'End of error message asummary')
-!<<<
-      WRITE (FID_logfile, '(////)')
-      WRITE (FID_logfile, 9900) UZNOW, NSTEP
-!
-      WRITE (*, *)
-
-      WRITE (*, *) 'Normal completion of SHETRAN run'
-
-!^^^^^sb 250105 mass balnce output
-      WRITE (FID_logfile, '(////)')
-      WRITE (FID_logfile, *) ' Spatially Averaged Totals (mm) over the simulation'
-      WRITE (FID_logfile, '(A20,F10.2)') 'Cum Prec = ', balanc(7)*1000/ &
-         carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Cum Can. Evap = ', balanc(8)*1000/ &
-         carea
-      car = carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Cum Soil+Sur Evp = ', balanc(9) &
-         *1000/car
-      WRITE (FID_logfile, '(A20,F10.2)') 'Cum Trans = ', balanc(10)*1000/ &
-         carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Cum Aqu. Flow = ', balanc(11) &
-         *1000/carea
-
-      WRITE (FID_logfile, '(A20,F10.2)') 'Cum Discharge = ', balanc(12) &
-         *1000/carea
-      WRITE (FID_logfile, '(//)')
-      WRITE (FID_logfile, *) ' Storage totals (mm) at the end of the simulation'
-      WRITE (FID_logfile, '(A20,F10.2)') 'Canopy Stor = ', balanc(13)*1000/ &
-         carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Snow Store = ', balanc(14)*1000/ &
-         carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Subsur Stor = ', balanc(15)*1000/ &
-         carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Surface Stor = ', balanc(16)*1000/ &
-         carea
-      WRITE (FID_logfile, '(A20,F10.2)') 'Channel Stor = ', balanc(17)*1000/ &
-         carea
-9900  FORMAT('Normal completion of SHETRAN run: ', F10.2, ' hours, ', &
-      &        I7, ' steps.'/)
-   END SUBROUTINE extra_output
-
-!> Updates the cumulative water-balance error [[vs_state:WBERR]] for each column or link.
-!>
-!> The routine computes the change in stored surface/subsurface water since
-!> the previous call and compares it with the net supplied depth over the
-!> last timestep (precipitation, evaporation, subsurface exchange, well flow,
-!> overland flow, and lateral subsurface advection). The residual is
-!> accumulated in `WBERR` as a diagnostic depth in metres.
-!>
-!> The stored depth used by the balance is
-!>
-!> \[
-!> S_{iel} =
-!> \begin{cases}
-!> ARXL_{iel}/CWIDTH_{iel}, & \text{channel links (}ICMREF(iel,1)=3\text{)},\\
-!> HRF_{iel}-ZGRUND_{iel}, & \text{otherwise},
-!> \end{cases}
-!> + \sum_{k=NLYRBT(iel,1)}^{LL} \Delta z_{k,iel}\,\theta_{k,iel},
-!> \]
-!>
-!> where \(\theta\) is `VSTHE` and `HRF` is read through [[oc_node_solver:gethrf]].
-!> The storage change is \(\Delta S = S_{iel}-S^{old}_{iel}\), where
-!> \(S^{old}\) is the previous call's `STORW_balwat`. On the first call
-!> (`FIRST_balwat`) `WBERR` is initialised to zero and `STORW_balwat` is
-!> primed with \(S\), but no residual is added because no previous storage
-!> state is available.
-!>
-!> On subsequent calls the supplied rate depth before timestep conversion is
-!>
-!> \[
-!> I_{iel} =
-!> PNETTO_{iel} - EEVAP_{iel} + QVSBF_{iel} - QVSWEL_{iel}
-!> - \sum_k ERUZ_{iel,k}
-!> + \frac{Q_{adv}}{AREA_{iel}},
-!> \]
-!>
-!> with channel-bank exchange \(Q_{adv} = -QBKF_{iel,1}-QBKF_{iel,2}\) for
-!> channel links, and zero otherwise, before the paired face-direction terms
-!> are added for \(j=1,2\):
-!>
-!> \[
-!> Q_{adv} \leftarrow Q_{adv}
-!> - QOC_{iel,j} + QOC_{iel,j+2}
-!> + \sum_k \left(QVSH_{j,k,iel}+QVSH_{j+2,k,iel}\right).
-!> \]
-!>
-!> The timestep input depth is `DEPTHI = I * DTUZ`, and the diagnostic update
-!> is
-!>
-!> \[
-!> WBERR_{iel} \leftarrow WBERR_{iel} + \Delta S - DEPTHI .
-!> \]
-!>
-!> @note
-!> This routine has no dummy arguments. It reads and updates shared grid,
-!> geometry, flow, and water-level state from `SGLOBAL`, `AL_C`, `AL_D`, and
-!> `AL_G`, and calls [[oc_node_solver:gethrf]] for the current surface water level.
-!> @endnote
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | 1994-10-03 | RAH | 3.4.1 | Standard header, explicit declarations, extra comments, and first-pass storage initialisation. |
-!> | 1995-02-20 | GP | 4.0 | Updated for the VSS module and revised subsurface flow variables. |
-!> | 1997-02-17 | RAH | 4.1 | Swapped array subscripts for `QVSH`, `DELTAZ`, and `VSTHE`; renamed local counters. |
-!> | 2026-04-05 | SvB | 4.6.1 | Replaced the `ALINIT` call with a direct `WBERR` array-slice assignment and replaced the `GOTO 400` skip on the first call with the `IF (.NOT. FIRST_balwat)` block. |
-!> @endhistory
-   SUBROUTINE BALWAT
-      IMPLICIT NONE
-
-      DOUBLE PRECISION :: DELSTO, DEPTHI, DEPTHS, asum, asumQ
-      INTEGER          :: ITYPE, JDUM, CELL, IEL
-
-      !----------------------------------------------------------------------*
-      ! Initialization
-      ! --------------
-
-      IF (FIRST_balwat) WBERR(1:total_no_elements) = ZERO
-
-      ! Loop Over Columns
-      ! -----------------
-      DO IEL = 1, total_no_elements
-         ITYPE = ICMREF(IEL, 1)
-
-         ! Calculate depth of water stored and change since previous step
-         ! --------------------------------------------------------------
-         ! * surface
-         IF (ITYPE == 3) THEN
-            asum = ARXL(IEL)/CWIDTH(IEL)
-         ELSE
-            asum = GETHRF(IEL) - ZGRUND(IEL)
-         END IF
-
-         ! * sub-surface
-         DO CELL = NLYRBT(IEL, 1), top_cell_no
-            asum = asum + DELTAZ(CELL, IEL)*VSTHE(CELL, IEL)
-         END DO
-
-         DEPTHS = asum
-
-         ! * net increase this timestep
-         DELSTO = DEPTHS - STORW_balwat(IEL)
-
-         ! * save new value for use next timestep
-         STORW_balwat(IEL) = DEPTHS
-
-         ! Calculate net depth of water supplied over the previous step
-         ! ------------------------------------------------------------
-         ! * ... but only if we have a bona fide value for DELSTO
-
-         IF (.NOT. FIRST_balwat) THEN
-
-            ! * sources and sinks
-            asum = PNETTO(IEL) - EEVAP(IEL) + QVSBF(IEL) - QVSWEL(IEL)
-            DO CELL = NLYRBT(IEL, 1), top_cell_no
-               asum = asum - ERUZ(IEL, CELL)
-            END DO
-
-            ! * advection
-            IF (ITYPE == 3) THEN
-               asumQ = -QBKF(IEL, 1) - QBKF(IEL, 2)
-            ELSE
-               asumQ = ZERO
-            END IF
-
-            DO JDUM = 1, 2
-               asumQ = asumQ - QOC(IEL, JDUM) + QOC(IEL, JDUM + 2)
-               DO CELL = NLYRBT(IEL, 1), top_cell_no
-                  asumQ = asumQ + QVSH(JDUM, CELL, IEL) + QVSH(JDUM + 2, CELL, IEL)
-               END DO
-            END DO
-
-            asum = asum + asumQ/cellarea(IEL)
-
-            ! * convert from rate to depth
-            DEPTHI = asum*DTUZ
-
-            ! Update the cumulative water balance error as a depth
-            ! ----------------------------------------------------
-            WBERR(IEL) = WBERR(IEL) + DELSTO - DEPTHI
-
-         END IF
-
-      END DO
-
-      ! Epilogue
-      ! --------
-      FIRST_balwat = .FALSE.
-
-   END SUBROUTINE BALWAT
 
    !> Reads one dated meteorological record: its timestamp and `NVALUES` values.
    !>
@@ -554,7 +282,7 @@ CONTAINS
    !>
    !> Finally, `METIN` updates any time-varying vegetation parameters flagged
    !> in [[et_config]] (`MODECS`, `MODEPL`, `MODECL`, `MODEVH`) by calling
-   !> [[interpolation:TERPO1]] at the current `TIMEUZ` (see [[al_d]]) for canopy-storage
+   !> [[interpolation:TERPO1]] at the current `TIMEUZ` (see [[simulation_clock]]) for canopy-storage
    !> capacity (`CSTCAP`), plant leaf area (`PLAI`), land-cover leaf area
    !> (`CLAI`), and vegetation height (`VHT`), for every vegetation type `1:NV`.
    !>
@@ -1032,372 +760,5 @@ CONTAINS
 
    END SUBROUTINE METIN
 
-!> Computes the next simulation timestep and reads any required meteorological data.
-!>
-!> `TMSTEP` is called once per model step. The candidate timestep is limited
-!> by soft-start growth, snowmelt conditions, forcing-data record boundaries,
-!> the configured maximum timestep, and runtime reductions triggered by
-!> selected flow errors; it then advances the meteorological data ([[metin]])
-!> needed for the chosen step. This routine is the main point where
-!> meteorological file timing and hydrological stability controls meet before
-!> the next model step is taken.
-!>
-!> The candidate timestep is first reduced by these controls:
-!>
-!> | Control | Code expression | Effect |
-!> |:--------|:-----------------|:-------|
-!> | Growth from previous step | `UZNEXT*(1+PALFA)` | Prevents abrupt timestep expansion. |
-!> | Soft start | `TMAX*0.05*1.03**NSTEP` for the first 102 steps when `BSOFT` is true | Starts the run with smaller steps; disabled for hot starts. |
-!> | Snowmelt | `0.5` h when snow is present and any met station has `TA>0` | Limits melt-period steps. |
-!> | Runtime errors | `UZNEXT/10` or `UZNEXT/100`, lower-bounded by `0.0003` h | Retries after selected flow errors (`flag_runtime_reduction_errors`/`flag_runtime_reduction_e1060`, cleared after use). |
-!>
-!> For date-aware forcing (`BMETDATES`) the first call checks that `PRD`,
-!> `EPD`, and optional `TAH`/`TAL` records do not start after the simulation
-!> start date. It also skips older records until the first record whose date
-!> is within about `0.01` h of `TIH` or later, then backspaces so [[metin]]
-!> can read that record.
-!>
-!> Precipitation is accumulated over the candidate timestep by splitting at
-!> meteorological record boundaries:
-!>
-!> \[
-!> PTOT_i = \sum_m \Delta t_m\,PINP_{i,m}.
-!> \]
-!>
-!> If any accumulated station total would exceed `PMAX`, the timestep is
-!> reduced to the crossing time; if the resulting `UZNEXT` still falls below
-!> \(5\times10^{-5}\) h the run stops fatally (`ERROR` code 1025) since this
-!> normally indicates a data problem. The final element precipitation rate is
-!> then
-!>
-!> \[
-!> precip\_m\_per\_s(e) =
-!> \frac{PTOT_{NRAINC(e)}}{UZNEXT\,3.6\times10^6}.
-!> \]
-!>
-!> Finally `METIN(2)` reads or interpolates PE and time-varying
-!> vegetation/canopy parameters needed for the timestep.
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | 1993-07 | GP | 3.4 | Reworked `UZNEXT` algorithm and added soft-start controls. |
-!> | 1994-10-03 | RAH | 3.4.1 | Added legacy double-precision typing. |
-!> | 1996-07-17 | GP | 4.0 | Limited timestep during snowmelt. |
-!> | 1998-10-20 | RAH | 4.2 | Reworked control flow and initialisation. |
-!> | 2020-07-07 | SB | - | Added timestep reduction after selected runtime errors. |
-!> | 2026-03-19 | SB | 4.6.1 | Added date-aware checks for meteorological forcing files. |
-!> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-driven control flow with named `DO`/`CYCLE`/`EXIT` loop constructs. |
-!> @endhistory
-   SUBROUTINE TMSTEP
-      IMPLICIT NONE
+END MODULE met_input
 
-! Locals, etc
-      INTEGER             :: I, IEL, IFLAG, IOS
-      DOUBLE PRECISION    :: TEND, TSNOW, TSOFT, UZTEST, PTOT(NRAIN)
-      LOGICAL             :: EXITT, SMFLAG
-      LOGICAL             :: PRDFIRST = .TRUE., PRDFIRST1 = .TRUE.
-      LOGICAL             :: EPDFIRST = .TRUE., EPDFIRST1 = .TRUE.
-      LOGICAL             :: TAHFIRST = .TRUE., TAHFIRST1 = .TRUE.
-      LOGICAL             :: TALFIRST = .TRUE., TALFIRST1 = .TRUE.
-      INTEGER             :: prdyear, prdmonth, prdday, prdhour, prdminute
-      INTEGER             :: epdyear, epdmonth, epdday, epdhour, epdminute
-      INTEGER             :: tahyear, tahmonth, tahday, tahhour, tahminute
-      INTEGER             :: talyear, talmonth, talday, talhour, talminute
-      DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
-!----------------------------------------------------------------------*
-
-! ----------------------------------------------------------------------
-!  1.  COMPUTE EXPECTED TiMeSTEP
-! ----------------------------------------------------------------------
-      ! CALCULATE REDUCED TIMESTEP FOR SOFTSTART
-      TSOFT = TMAX
-
-      ! sb soft start not needed for hot start?
-      IF (BHOTRD) BSOFT = .FALSE.
-
-      IF (BSOFT .AND. NSTEP <= 102) TSOFT = TMAX*0.05d0*1.03d0**NSTEP
-
-      ! CALCULATE REDUCED TIMESTEP FOR SNOWMELT
-      TSNOW = TMAX
-      IF (BEXSM) THEN
-         SMFLAG = .FALSE.
-         DO I = 1, NM
-            IF (TA(I) > 0.0d0) SMFLAG = .TRUE.
-         END DO
-
-         IF (SMFLAG) THEN
-            snowmelt_check: DO IEL = total_no_links + 1, total_no_elements
-               IF (SD(IEL) > 0.0d0) THEN
-                  TSNOW = 0.5d0
-                  EXIT snowmelt_check
-               END IF
-            END DO snowmelt_check
-         END IF
-      END IF
-
-      ! SET TIMESTEP LENGTH
-      UZNEXT = MIN(UZNEXT*(1.0d0 + PALFA), TSOFT, TSNOW)
-
-      ! SB 07072020 reduce timestep if there are errors 1024,1030,1060
-      IF (flag_runtime_reduction_e1060) THEN
-         UZNEXT = MAX(0.0003d0, UZNEXT/10.0d0)
-      ELSEIF (flag_runtime_reduction_errors) THEN
-         UZNEXT = MAX(0.0003d0, UZNEXT/100.0d0)
-      END IF
-
-      flag_runtime_reduction_e1060 = .FALSE.
-      flag_runtime_reduction_errors = .FALSE.
-
-! ----------------------------------------------------------------------
-!  2.  READ METEOROLOGICAL DATA AND REDUCE TMSTEP IF NECESSARY
-! ----------------------------------------------------------------------
-
-! ----------------------------------------------------------------------
-!  2a.   check the start date is not before any met data occurs
-! ----------------------------------------------------------------------
-      IF (BMETDATES .AND. PRDFIRST1) THEN
-         PRDFIRST1 = .FALSE.
-         READ (prd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-            prdyear, prdmonth, prdday, prdhour, prdminute
-
-         IF (ios /= 0) THEN
-            WRITE (*, '(A)') ' Error reading the precipitation time series file. '// &
-               'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            CALL ERR_STOP(255)
-         END IF
-
-         BACKSPACE (prd)
-         prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
-
-         ! check simulation start time plus precipitation time step length plus 0.01
-         ! is greater than or equal to the first precipitation time series date.
-         ! The 0.01 values is a bit arbitrary
-         IF (tih + dtmet2 + 0.01d0 < prddate) THEN
-            WRITE (*, '(A)') ' The precipitation data starts after the simulation start date. '// &
-               'Check the precipitation data dates and the start time of the simulation'
-            CALL ERR_STOP(255)
-         END IF
-      END IF
-
-      IF (BMETDATES .AND. EPDFIRST1) THEN
-         EPDFIRST1 = .FALSE.
-         READ (epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-            epdyear, epdmonth, epdday, epdhour, epdminute
-
-         IF (ios /= 0) THEN
-            WRITE (*, '(A)') ' Error reading the potential evaporation time series file. '// &
-               'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            CALL ERR_STOP(255)
-         END IF
-
-         BACKSPACE (epd)
-         epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
-
-         IF (tih + dtmet3 + 0.01d0 < epddate) THEN
-            WRITE (*, '(A)') ' The potential evaporation data starts after the simulation start date. '// &
-               'Check the potential evaporation data dates and the start time of the simulation'
-            CALL ERR_STOP(255)
-         END IF
-      END IF
-
-      IF (BMETDATES .AND. TAHFIRST1 .AND. ISTA) THEN
-         TAHFIRST1 = .FALSE.
-         READ (tah, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-            tahyear, tahmonth, tahday, tahhour, tahminute
-
-         IF (ios /= 0) THEN
-            WRITE (*, '(A)') ' Error reading the maximum temperature time series file. '// &
-               'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            CALL ERR_STOP(255)
-         END IF
-
-         BACKSPACE (tah)
-         tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
-
-         IF (tih + dtmet3 + 0.01d0 < tahdate) THEN
-            WRITE (*, '(A)') ' The maximum temperature data starts after the simulation start date. '// &
-               'Check the maximum temperature dates and the start time of the simulation'
-            CALL ERR_STOP(255)
-         END IF
-      END IF
-
-      IF (BMETDATES .AND. TALFIRST1 .AND. ISTA) THEN
-         TALFIRST1 = .FALSE.
-         READ (tal, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-            talyear, talmonth, talday, talhour, talminute
-
-         IF (ios /= 0) THEN
-            WRITE (*, '(A)') ' Error reading the minimum temperature time series file. '// &
-               'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-            CALL ERR_STOP(255)
-         END IF
-
-         BACKSPACE (tal)
-         taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
-
-         IF (tih + dtmet3 + 0.01d0 < taldate) THEN
-            WRITE (*, '(A)') ' The minimum temperature data starts after the simulation start date. '// &
-               'Check the minimum temperature dates and the start time of the simulation'
-            CALL ERR_STOP(255)
-         END IF
-      END IF
-
-! ----------------------------------------------------------------------
-!  2b.   If the met data has dates then the first values can be ignored
-!        if the simulation start date is after the met data start date
-! ----------------------------------------------------------------------
-      IF (BMETDATES .AND. PRDFIRST) THEN
-         DO
-            READ (prd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-               prdyear, prdmonth, prdday, prdhour, prdminute
-
-            IF (ios /= 0) THEN
-               WRITE (*, '(A)') ' Error reading the precipitation time series file. '// &
-                  'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00'
-               WRITE (*, '(A)') ' Check the format of the precipitation time series file '// &
-                  'and the end date is not before the start date of the simulation'
-               CALL ERR_STOP(255)
-            END IF
-
-            prddate = HOUR_FROM_DATE(prdyear, prdmonth, prdday, prdhour, prdminute)
-            ! use the precipitation at this step if it is within 0.01 hour of the start date.
-            ! Otherwise use the next precipitation file. The 0.01 values is a bit arbitrary
-            IF (prddate + 0.01d0 > tih) THEN
-               PRDFIRST = .FALSE.
-               BACKSPACE (prd)
-               EXIT
-            END IF
-         END DO
-      END IF
-
-      IF (BMETDATES .AND. EPDFIRST) THEN
-         DO
-            READ (epd, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-               epdyear, epdmonth, epdday, epdhour, epdminute
-
-            IF (ios /= 0) THEN
-               WRITE (*, '(A)') ' Error reading the potential evaporation time series file. '// &
-                  'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
-               WRITE (*, '(A)') ' Check the format of the potential evaporation time series file '// &
-                  'and the end date is not before the start date of the simulation'
-               CALL ERR_STOP(255)
-            END IF
-
-            epddate = HOUR_FROM_DATE(epdyear, epdmonth, epdday, epdhour, epdminute)
-            IF (epddate + 0.01d0 > tih) THEN
-               EPDFIRST = .FALSE.
-               BACKSPACE (epd)
-               EXIT
-            END IF
-         END DO
-      END IF
-
-      IF (BMETDATES .AND. TAHFIRST .AND. ISTA) THEN
-         DO
-            READ (tah, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-               tahyear, tahmonth, tahday, tahhour, tahminute
-
-            IF (ios /= 0) THEN
-               WRITE (*, '(A)') ' Error reading the maximum temperature time series file. '// &
-                  'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
-               WRITE (*, '(A)') ' Check the format of the maximum daily temperature time series file '// &
-                  'and the end date is not before the start date of the simulation'
-               CALL ERR_STOP(255)
-            END IF
-
-            tahdate = HOUR_FROM_DATE(tahyear, tahmonth, tahday, tahhour, tahminute)
-            IF (tahdate + 0.01d0 > tih) THEN
-               TAHFIRST = .FALSE.
-               BACKSPACE (tah)
-               EXIT
-            END IF
-         END DO
-      END IF
-
-      IF (BMETDATES .AND. TALFIRST .AND. ISTA) THEN
-         DO
-            READ (tal, '(i4,1x,i2,1x,i2,1x,i2,1x,i2)', iostat=ios) &
-               talyear, talmonth, talday, talhour, talminute
-
-            IF (ios /= 0) THEN
-               WRITE (*, '(A)') ' Error reading the minimum daily temperature time series file. '// &
-                  'This should have the date in the iso 8601 format e.g 1980-01-01T00:00:00 '
-               WRITE (*, '(A)') ' Check the format of the minimum daily temperature time series file '// &
-                  'and the end date is not before the start date of the simulation'
-               CALL ERR_STOP(255)
-            END IF
-
-            taldate = HOUR_FROM_DATE(talyear, talmonth, talday, talhour, talminute)
-            IF (taldate + 0.01d0 > tih) THEN
-               TALFIRST = .FALSE.
-               BACKSPACE (tal)
-               EXIT
-            END IF
-         END DO
-      END IF
-
-! set period of validity of current data
-      EXITT = .FALSE.
-
-      timestep_reduction_loop: DO
-         TEND = MIN(UZNOW + UZNEXT, METIME)
-
-         ! store first period of precipitation using array slicing
-         PTOT(1:NRAIN) = (TEND - UZNOW)*PINP(1:NRAIN)
-
-         IF (EXITT) EXIT timestep_reduction_loop
-
-         ! test if timestep reduction required without reading any prec. data
-         DO I = 1, NRAIN
-            IF (PTOT(I) > PMAX) THEN
-               EXITT = .TRUE.
-               UZNEXT = MIN(UZNEXT, PMAX/PINP(I))
-            END IF
-         END DO
-
-         ! If we didn't trigger an exit condition, break the loop naturally
-         IF (.NOT. EXITT) EXIT timestep_reduction_loop
-      END DO timestep_reduction_loop
-
-! read in prec. data if required, test for timestep reduction,
-! and accumulate total prec.
-      meteorological_loop: DO WHILE (.NOT. EXITT .AND. METIME < UZNOW + UZNEXT)
-         IFLAG = 1
-         CALL METIN(IFLAG)
-
-         DO I = 1, NRAIN
-            IF (PTOT(I) + (METIME - MELAST)*PINP(I) > PMAX) THEN
-               EXITT = .TRUE.
-               UZTEST = MELAST - UZNOW + (PMAX - PTOT(I))/PINP(I)
-               UZNEXT = MIN(UZNEXT, UZTEST)
-            END IF
-         END DO
-
-         TEND = MIN(UZNOW + UZNEXT, METIME)
-
-         ! Accumulate using array slicing
-         PTOT(1:NRAIN) = PTOT(1:NRAIN) + (TEND - MELAST)*PINP(1:NRAIN)
-      END DO meteorological_loop
-
-! check for invalid timestep (could be a result of data errors)
-      IF (UZNEXT < 5.0D-5) THEN
-         WRITE (FID_logfile, "(////'UZNEXT = ',G14.6, /' TSOFT = ',G14.6, /'MELAST = ',G14.6, "// &
-            "/'METIME = ',G14.6 /, 'PREC.STN.   PINP        PTOT'/)") &
-            UZNEXT, TSOFT, MELAST, METIME
-         WRITE (FID_logfile, "(4X,I4,2G14.6)") (I, PINP(I), PTOT(I), I=1, NRAIN)
-         CALL RAISE_ERROR(ERRLVL_fatal, 1025, FID_logfile, 0, 0, 'INVALID TIMESTEP')
-      END IF
-
-      ! calculate average value over timestep (& convert mm/h to m/s)
-      DO IEL = 1, total_no_elements
-         precip_m_per_s(IEL) = PTOT(NRAINC(IEL))/UZNEXT/3.6E6
-      END DO
-
-      ! read in breakpoint PE for this timestep (if required)
-      IFLAG = 2
-      CALL METIN(IFLAG)
-
-   END SUBROUTINE TMSTEP
-
-END MODULE rest
