@@ -67,14 +67,34 @@ commits.
 | 14 | [Close-out](14_closeout.md) | – | – | ☑ |
 
 106 target files in place of the 40 in scope; 269 procedures, 1,091 module-level
-variables and 4 derived types move. The "new files" column sums to 114 because
+variables and 4 derived types move. The "new files" column sums to 115 because
 the eight state modules created in step 04 are listed again in the component
-step that completes them.
+step that completes them, and because step 11 produced 15 modules rather than
+14 — `oc_row_width` was kept as its own leaf, the recommended resolution of
+open decision 1 (see `deviations.md`, D24).
 
 The per-step extraction commands have been run end to end over a scratch copy
 of `src/`: they produce all 106 target files, and every retired source is
 reduced to its module shell. What they do not do — and what the steps below
 spend their words on — is the `USE` lines, the FORD headers and the decisions.
+
+## Outcome
+
+All 14 steps are done, one commit each, on `reorg_functions`. `src/` holds 120
+Fortran files: the 106 planned targets, `oc_row_width`, the 12 untouched
+`visualisation/` modules and `Shetran.f90`.
+
+Verified at the close-out: the three retired-name sweeps are empty,
+`rename_ford_links.py --check` reports nothing left to do, all 1,359 qualified
+cross-references resolve, `audit_ford_docs.py` reports the same 329 findings as
+the baseline routine for routine, the clean Debug build has no new warning
+kinds, and `ctest` is 3/3. Reducing both trees to their logical code lines
+gives **22,914 on each side, with zero lost and zero gained** — the move is
+provably pure.
+
+All 32 decisions the plan did not answer are in
+[`deviations.md`](deviations.md). The three open decisions in this README were
+resolved as recommended.
 
 ### Why this order
 
