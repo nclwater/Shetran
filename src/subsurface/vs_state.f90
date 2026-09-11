@@ -3,7 +3,7 @@
 !>
 !> The state of the subsurface solution: the vertical discretisation of each
 !> element column, the soil-layer and well geometry, and the pressure heads,
-!> moisture contents and fluxes the solver advances. [[frmod]] and
+!> moisture contents and fluxes the solver advances. [[frame_setup]] and
 !> [[vs_connectivity]] construct the geometry; [[vs_driver]] advances the
 !> state; sediment, contaminant,
 !> nitrate, result and visualisation routines read selected values. It is the

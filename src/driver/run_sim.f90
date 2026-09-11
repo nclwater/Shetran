@@ -80,7 +80,7 @@ MODULE run_sim
    USE snow_state, ONLY: SD, TS, NSMC
    USE file_units, ONLY: HOT, TIM
    USE simulation_clock, ONLY: NSTEP, TTH
-   USE FRmod, ONLY: bstore, btime
+   USE legacy_result_files, ONLY: BSTORE, BTIME
    USE run_control, ONLY: TSH, TCH
    USE vs_boundaries, ONLY: RLFTIM
    USE vs_driver, ONLY: VSSIM
@@ -91,13 +91,17 @@ MODULE run_sim
    USE rest, ONLY: BALWAT, TMSTEP, &
       metime, melast, eptime, pinp
    !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
-   USE FRmod, ONLY: FRINIT
+   USE frame_setup, ONLY: FRINIT
    USE cm_input, ONLY: INCM
    USE oc_driver, ONLY: OCSIM
    USE oc_state, ONLY: STRXX, STRYY
    USE oc_node_solver, ONLY: gethrf
    USE oc_state, ONLY: HRFZZ
-   USE FRmod, ONLY: FRSORT, FROUTPUT, FRMB, FRRESP, DATE_FROM_HOUR
+   USE datetime, ONLY: DATE_FROM_HOUR
+   USE frame_geometry, ONLY: FRSORT
+   USE frame_output, ONLY: FROUTPUT
+   USE legacy_result_files, ONLY: FRRESP
+   USE mass_balance_report, ONLY: FRMB
    USE sy_driver, ONLY: SYMAIN, BALSED
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA         !VISVISVIS
    USE VISUALISATION_INTERFACE_LEFT, ONLY: GET_NSED_EARLY, GET_NCON_EARLY    !VISVISVIS
@@ -123,8 +127,7 @@ MODULE run_sim
    USE vs_state, ONLY: QH, QVSWLI, VSTHE, VSPSI, QVSH, QVSV, QBKB, QBKF
    USE et_config, ONLY: RC, RA, CSTCAP, DEL, NCTCST, NCTVHT, NCTCLA, NCTPLA
    USE sy_config, ONLY: ISSYOK_symain
-   USE FRmod, ONLY: qoctot, uzold, &
-      next_hour, icounter2  !these here only for AD
+   USE frame_output, ONLY: qoctot, uzold, next_hour, icounter2
    USE cm_parameters, ONLY: initialise_cont_cc
    USE cm_column_geometry, ONLY: initialise_colm_cg, deallocate_colm_cg
    USE cm_column_previous, ONLY: initialise_colm_co

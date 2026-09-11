@@ -96,8 +96,8 @@ PROGRAM SHETRAN
    USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH, RUNDATA_FROM_FILE_DIALOG
 
    ! Rundata-controlled file setup and framework output.
-   USE FRmod, ONLY: FROPEN, &
-      FROUTPUT
+   USE frame_output, ONLY: FROUTPUT
+   USE frame_setup, ONLY: FROPEN
 
    ! Visualisation recording and final cleanup.
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA

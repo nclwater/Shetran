@@ -529,3 +529,37 @@ which looks like a source problem and is not. Removing
 `build/debug/test/CMakeFiles/oc_row_width_tests.dir` and re-running
 `cmake -S . -B build/debug` fixes it. Worth adding to §10, or dropping the
 `rm -rf` in favour of `--clean-app`, which does not need it.
+
+## D27 — `--target-dir` selects rows that an earlier step already moved
+
+Running `rename_extract.py --target-dir src/frame` in step 12 fails with
+
+```
+cannot locate BHOTTI in src/core/state/AL_D.f90
+```
+
+because `run_control` is under `src/frame/` and its 24 rows left in step 11
+(D25). The extractor locates entities by content, finds nothing, and stops —
+which is the right behaviour, but the fix is to name the step's five targets
+explicitly with `--target` instead of the directory.
+
+The same trap applies to any step whose directory contains a module completed
+earlier: it is the extraction-side counterpart of the `--from-source` filter
+D12 added to `rename_use_lines.py`. Five of the eight remaining `.backup` files
+had already been written when the script stopped, so the run also has to be
+cleaned up (`find src test -name '*.backup' -delete` plus removing the
+part-written targets) before retrying.
+
+## D28 — `FRmod` re-exported three names it did not own
+
+`FRmod`'s `PUBLIC` list carried `DATE_FROM_HOUR`, `bsoft`, `tsh` and `tch`,
+which it imported from `utilsmod` and its own state and re-exported "for AD
+only". Once `FRmod` is gone the consumers have to name the real owner:
+`run_sim` now takes `DATE_FROM_HOUR` from [[datetime]], and `bsoft`/`tsh`/`tch`
+from [[run_control]] (the `USE` rewriter did those two, because they are
+tracked rows; `DATE_FROM_HOUR` is not a `FRmod` row at all, so it needed the
+hand fix).
+
+Worth noticing because the re-export was invisible in the move tables: an
+entity that a dissolved module merely passed through has no row, so nothing
+flags its consumers.

@@ -3,7 +3,7 @@
 !>
 !> This module replaces the logical common block in the legacy `IS.CC`
 !> include. The contaminant solvers between them use-associate all five
-!> flags; [[frmod]] additionally imports `ISPLT` and `ISMN` for plant
+!> flags; [[frame_setup]] additionally imports `ISPLT` and `ISMN` for plant
 !> initialization and rundata file handling.
 !>
 !> | Flag | Intended/current lifecycle and principal consumers |

@@ -3,7 +3,7 @@
 !> Replaces the legacy `CONT.CC` common blocks with module data for contaminant
 !> boundary conditions, concentrations, adsorption and decay properties,
 !> retardation, and channel-bed exchange. The contaminant solvers read and advance this
-!> state, while [[frmod]] derives coefficients and establishes initial values.
+!> state, while [[frame_setup]] derives coefficients and establishes initial values.
 !> [[mn_driver]] supplies nitrate and plant source/sink terms through `SSS1` and
 !> `SSS2`, and [[visualisation_interface_left]] exposes current concentrations.
 !>

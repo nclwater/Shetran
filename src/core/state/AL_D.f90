@@ -2,7 +2,7 @@
 !> author: GP, Newcastle University; RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University
 !>
 !> `AL_D` replaces the legacy `AL.D` common blocks used by SHETRAN's flow
-!> components. [[frmod]] establishes the grid, run controls, component flags,
+!> components. [[frame_setup]] establishes the grid, run controls, component flags,
 !> file metadata, hotstart state, and water-balance calendar. [[rest]] updates
 !> meteorological forcing and timestep control; [[et_process]], [[snowmelt]],
 !> [[oc_driver]], and [[oc_stage_discharge]] produce the process arrays;
@@ -71,7 +71,6 @@ MODULE AL_D
 ! Static integer controls.
    INTEGER :: NM         !! Number of active meteorological sites.
    INTEGER :: NRAIN      !! Number of active rainfall stations.
-   INTEGER :: NSET       !! Number of legacy binary result sets; no current producer was found.
    INTEGER :: MBLINK     !! Link whose selected face supplies outlet discharge to the catchment balance.
    INTEGER :: MBFACE     !! Face of `MBLINK` used for catchment-balance discharge.
    INTEGER :: MBFLAG     !! Catchment-balance schedule: 1 daily, any other value monthly.
@@ -83,7 +82,6 @@ MODULE AL_D
 
 ! Static real controls. Absolute times use the same hour count as `TIH`;
 ! timestep and interval values are in hours unless stated otherwise.
-   DOUBLEPRECISION :: PSTART  !! Simulation-relative start time for legacy printed/result output (h).
    DOUBLEPRECISION :: DTMET   !! Combined meteorological input interval (h).
    DOUBLEPRECISION :: PMAX    !! Maximum rainfall depth permitted in one model timestep (mm).
    DOUBLEPRECISION :: PALFA   !! Fractional timestep growth factor used by `TMSTEP`.
@@ -98,21 +96,12 @@ MODULE AL_D
    LOGICAL :: ISTA       !! Whether separate maximum/minimum air-temperature streams are available.
 
 ! Static integer arrays.
-   INTEGER :: IOCORS(NSETEE)      !! Contaminant/sediment selector for each legacy result set.
    INTEGER :: NMC(NELEE)          !! Meteorological-site category by element.
-   INTEGER :: IODATA(NSETEE)      !! Data-type number for each legacy result set.
    INTEGER :: NRAINC(NELEE)       !! Rainfall-station category by element.
-   INTEGER :: IOELEM(NSETEE)      !! Positive element number or negative element-class number by legacy result set.
-   INTEGER :: IORES(NSETEE)       !! Open unformatted output unit by legacy result set.
-   INTEGER :: ICLIST(NELEE,NCLASS) !! Element numbers belonging to each legacy output class.
-   INTEGER :: ICLNUM(NCLASS)      !! Number of elements in each legacy output class.
 
 
 
 ! Static real arrays.
-   DOUBLEPRECISION :: IOSTA(NSETEE)  !! Start time for each legacy result set (h).
-   DOUBLEPRECISION :: IOSTEP(NSETEE) !! Output interval for each legacy result set (h).
-   DOUBLEPRECISION :: IOEND(NSETEE)  !! End time for each legacy result set (h).
 
 ! Time-dependent real arrays.
    DOUBLEPRECISION :: precip_m_per_s(NELEE) !! Precipitation rate mapped directly to each element (m/s).
@@ -121,10 +110,8 @@ MODULE AL_D
    DOUBLEPRECISION :: U(NVEE)       !! Wind speed by meteorological site (m/s).
    DOUBLEPRECISION :: VPD(NVEE)     !! Vapour-pressure deficit by meteorological site (mb).
    DOUBLEPRECISION :: RN(NVEE)      !! Net radiation by meteorological site (W/m2).
-   DOUBLEPRECISION :: IOTIME(NSETEE) !! Next output time for each legacy result set (h).
    DOUBLEPRECISION :: BALANC(20)     !! Catchment water-volume terms described in the module table (m3).
 
-   CHARACTER(len=200) :: RESFIL !! Path used as the stem for legacy unformatted result files.
 
 !PRIVATE :: NELEE, NVEE, NXEE, NYEE, NCONEE, NLFEE, NSETEE, LLEE, NOCTAB
 END MODULE AL_D
