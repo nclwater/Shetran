@@ -8,6 +8,12 @@ place where the plan's own text disagrees with the tree.
 (branch `reorg_functions`). Every `git show <BASE>:<path>` in the steps refers
 to this commit, because the move tables' line numbers are only valid there.
 
+Each `D`-numbered section below describes the tree as it was when that
+deviation was found, and is left as written. Eleven of them were followed up on
+2026-09-11; what was done to each is in
+[Follow-ups closed after this work](#follow-ups-closed-after-this-work), near
+the end.
+
 ## Baseline environment (step 01)
 
 | Item | State at the baseline |
@@ -743,6 +749,30 @@ with differing contents**. Two files are skipped as `too large to compare`
 `shegraph.h5`), which is the size threshold in `examples/_methods/settings.py`,
 not a difference.
 
+## Follow-ups closed after this work
+
+A later pass (2026-09-11) worked through the follow-ups the list below had
+open. Each is recorded against the deviation it came from; the build,
+`ctest` (3/3) and all 13 example models were re-run afterwards, with
+`any_differences = False` for every model and zero files with differing
+contents.
+
+| Deviation | What was done |
+|:----------|:--------------|
+| D1 | `build.sh --test` and `build.bat --test` now build **both** `visualisation_read_tests` and `oc_row_width_tests`, and run the bare `ctest` rather than `-R '^visualisation_read\.'`. The extra manual `cmake --build ... --target oc_row_width_tests` step is no longer needed. `--clean-app` cleans both test targets. |
+| D5 | All ten `core/` modules now declare `PRIVATE` and export every name they declare through an explicit `PUBLIC ::` list: `mod_parameters` 51, `file_units` 50, `legacy_retained` 26, `array_limits` 23, `element_geometry` 20, `run_context` 8, `simulation_clock` 8, `grid_topology` 7, `build_info` 4, `runtime_flags` 2. The imported kind parameters and array limits are no longer re-exported, which is what `sglobal`'s nine `PUBLIC` statements used to achieve. |
+| D9 | [[datetime]] no longer imports `msg` from [[linear_algebra]]; `days_to_start_month` has a local `CHARACTER(LEN=LENGTH_LINE)` buffer and the edge is gone. `linear_algebra` has no `msg` at all — none of its procedures could write to one, being `PURE`. |
+| D11 | Assessed and **rejected**, with a test run: see [`docs/rename/issues/ERUZ_init_loc.md`](../issues/ERUZ_init_loc.md). `initialise_al_c3` runs from `FRINIT` before `VSCONC` computes `top_cell_no`, so `ERUZ` would be allocated `(total_no_elements, -1)` — a zero-sized second dimension — and `ET` aborts on its first write. The allocation stays in `initialise_al_c`. |
+| D14 | `setup_results_check.py` now `shutil.rmtree`s `output_should/` before copying, so a renamed output file can no longer leave a fixture with no counterpart behind. The three names with no `model/` directory — `Cobres-ExtraOutputDischargePoints`, `Cobres-ExtraOutputWaterTable` and `dano100m` — were removed from all three lists in `examples/_methods/settings.py`, and `COMPILING.md`'s note naming `dano100m` was rewritten. Their leftover untracked directories were left on disk, because their `compute/` folders may hold the only surviving copy of those models' input files. |
+| D15 | `FIRST_syfine` and `WSED_syfine` moved to [[sy_hillslope]], private there, next to their only user `SYFINE`. `sy_transport_capacity` no longer publishes them. `FIRST_syackw` stays where it is; it is dead either way. |
+| D17 | All three shared `msg` buffers are gone. `et_config`'s is now a local in `et_process:ET`, sized `LENGTH_LINE`; `linear_algebra`'s is covered by D9; `run_control`'s was dead — no procedure in the tree read or wrote it, and `frame_setup` imported it without using it. The two `RAISE_ERROR` calls in `ET` and the one in `days_to_start_month` now pass `TRIM(msg)`, so the diagnostic text no longer depends on the buffer length. |
+| D21 | `vs_soil_tables`'s `INTEGER :: NSOLEE` plus `PARAMETER(NSOLEE=200)` combined into one `INTEGER, PARAMETER :: NSOLEE = 200`. |
+| D28 | Generalised: no module re-exports any more. The 28 data modules that were public by default and imported names now declare `PRIVATE` and list what they own. `cm_link_water`'s bare `USE cm_link_scaling` — which it did not need — is gone, and `cm_channel`, which reached `KS` and `KSPBK` through it, now names [[cm_link_scaling]] directly. |
+| D31 | `scripts/list_stack_size_hits.py` runs a clean Debug gfortran build, parses the `-fmax-stack-var-size` warnings and writes [`docs/rename/issues/stack_size_limits_hits.csv`](../issues/stack_size_limits_hits.csv): **72 distinct arrays over 177 warning sites** (46 declaration, 104 `USE`, 27 `PUBLIC`). The total is unchanged from the figure recorded above; what moved is where gfortran anchors the module arrays, which is now the export list rather than the declaration, so the script resolves the declaration from the source. `--sites` writes one row per site instead. |
+| D33 | The four `location` strings now name the modules that exist: `"cm_parameters:initialise_cont_cc"`, `"cm_column_geometry:initialise_colm_cg"`, `"cm_column_geometry:deallocate_colm_cg"`, `"cm_column_previous:initialise_colm_co"`. They reach a user only through an allocation-failure diagnostic, so no example output changes. |
+| D33 (extended) | The audit that followed found **43 stale `location` strings in total**, not the four D33 listed — the earlier count of 22 came from a grep that only looked at `location =` declarations and missed the prefixes passed inline to `errstat_alloc`/`errstat_dealloc`, as well as `MNmod:`, `SYmod:`, `SMmod:`, `ZQmod:` and `run_sim:`. All 43 now name their own module, and the procedure part was already correct at every site but one (`run_sim:main` in `simulation_driver`, which is `SIMULATION`). A checker that re-derives each file's module and each site's enclosing procedure reports **82 `module:procedure` literals, 0 stale**. `zq_tables:ReadZQTable` was verified to be an error-message parameter, not a data token like the `ZQTableRef` literal an earlier rename broke. |
+| `input_workspace` | Dissolved. `IDUM` and `DUMMY` are locals in the thirteen procedures that used them, across nine files, and `src/io/input_workspace.f90` is deleted. Every use was already self-contained within one procedure — no routine filled a buffer for another to read — so the change is behaviour-preserving. The locals carry `SAVE` to keep the 4 MB `IDUM` and 2 MB `DUMMY` in static storage, which is where the module variables were and what both gfortran and ifx would do by default anyway. |
+
 ## Still open after this work
 
 The list in `14_closeout.md` plus what the implementation added:
@@ -755,21 +785,19 @@ The list in `14_closeout.md` plus what the implementation added:
 - The 26 orphan variables in `core/legacy_retained.f90`.
 - `DOCIN`, which has no caller; likewise `FRLTL`, `FRRESC`, `write_dis` and
   `ETCHK2`, which this work found to be uncalled too.
-- `input_workspace`'s `IDUM` and `DUMMY`, which should become locals.
 - The `initialise_al_c*` names, which outlive the module they refer to.
-- **Four `location` strings naming retired modules** (D33):
-  `"CONT_CC:initialise_cont_cc"`, `"COLM_CG:initialise_colm_cg"`,
-  `"COLM_CG:deallocate_colm_cg"`, `"COLM_CO:initialise_colm_co"`. Correct to
-  leave for a pure move, since they reach the user through a diagnostic, but
-  now misleading.
-- **`msg` in three modules** (D17) — `et_config`, `linear_algebra` and
-  `run_control` each declare a shared message buffer. Each should be a local.
-- **`FIRST_syfine`/`WSED_syfine` in `sy_transport_capacity`** (D15) while their
-  only user `SYFINE` is in `sy_hillslope`.
 - **`ERUZ` allocated by `vs_state:initialise_al_c`** though it belongs to
-  `et_state` (D11).
-- **`build.sh --test` does not build `oc_row_width_tests`** (D1), and
-  `00_working_rules.md` §10's `rm -rf` of the test module directories needs a
+  `et_state` (D11). The proposed fix does not work; the options that would are
+  in [`docs/rename/issues/ERUZ_init_loc.md`](../issues/ERUZ_init_loc.md).
+- **`IDUM` and `DUMMY` are still `NXEE*NYEE` and `NELEE` in every procedure**
+  that declares them, because that is the size the module variables had. A
+  per-procedure reading of the index ranges is in
+  [`docs/rename/issues/idum_idummy_analysis.md`](../issues/idum_idummy_analysis.md):
+  five of the sixteen locals are fixed by a callee's explicit-shape dummy, three
+  are already right, and eight are oversized — `cm_column`'s two by a factor of
+  5000, since they are indexed by column cell, not by element. Trimming the
+  eight would return about 22 MB of static storage. That note also records a
+  latent (pre-existing, harmless) sequence-association mismatch at the
+  `:VS08c` `ALREAD` call in `vs_input:VSREAD`.
+- `00_working_rules.md` §10's `rm -rf` of the test module directories needs a
   CMake re-configure (D26).
-- **`setup_results_check.py` never clears `output_should/`** (D14), so a
-  renamed output file silently poisons the comparison.

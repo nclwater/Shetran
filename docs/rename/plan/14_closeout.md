@@ -127,7 +127,11 @@ list what to compare:
 - `ZQTableRef` / `ZQTableRefRead` — whether they are one quantity.
 - The 26 orphan variables in `core/legacy_retained.f90`.
 - `DOCIN`, which has no caller.
-- `input_workspace`'s `IDUM` and `DUMMY`, which should become locals.
+- ~~`input_workspace`'s `IDUM` and `DUMMY`, which should become locals.~~
+  Done 2026-09-11: the module is dissolved and both are locals in the thirteen
+  procedures that used them.
 - The `initialise_al_c*` names, which outlive the module they refer to.
 
-Each is a small, independent follow-up commit.
+Each is a small, independent follow-up commit. The eleven that were taken up on
+2026-09-11 are recorded in `deviations.md`,
+"Follow-ups closed after this work".

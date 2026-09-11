@@ -202,8 +202,7 @@ CMake (which `build.sh` does on every invocation) refreshes the glob.
 ## 10. Verifying a step
 
 ```bash
-./build.sh -t Debug -c gfortran --clean-app --test   # configure, build, run the parser tests
-( cd build/debug && ctest --output-on-failure )      # also runs oc_row_width.unit
+./build.sh -t Debug -c gfortran --clean-app --test   # configure, build, run all three tests
 ```
 
 Notes:
@@ -213,8 +212,11 @@ Notes:
   the test targets' module directories — after a step that changes a
   test-compiled module, also
   `rm -rf build/debug/test/modules build/debug/test/modules_oc_row_width`.
-- `build.sh --test` runs only `-R '^visualisation_read\.'`; the bare `ctest`
-  above is what also exercises `oc_row_width.unit`.
+- `build.sh --test` builds both test targets and runs the bare `ctest`, so all
+  three tests (`visualisation_read.unit`, `visualisation_read.examples`,
+  `oc_row_width.unit`) are exercised. It used to build only
+  `visualisation_read_tests` and filter with `-R '^visualisation_read\.'`; see
+  D1 in `deviations.md`.
 - `--clean` rebuilds HDF5 and stdlib from source. Do not use it per step; use it
   once at the close-out.
 - A `Release` build and, where the compiler is installed, an `ifx` build are
