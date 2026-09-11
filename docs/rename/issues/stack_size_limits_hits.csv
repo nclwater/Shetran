@@ -1,0 +1,73 @@
+array,declared_in_file,declared_at_line,declaration,num_warning_sites,num_declaration_sites,num_use_sites,num_public_sites,reported_at
+a,src/io/grid_arrays.f90,295,"DOUBLE PRECISION :: B1, B2, A(NXEE, NYEE)",1,1,0,0,src/io/grid_arrays.f90:295
+arbdep,src/sediment/sy_state.f90,53,DOUBLEPRECISION ARBDEP(NLFEE),5,0,4,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:422;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/driver/simulation_driver.f90:46
+bdone,src/subsurface/vs_connectivity.f90,710,"LOGICAL :: IOK, MOVEJ, TEST1, BDONE(NELEE)",2,2,0,0,src/subsurface/vs_connectivity.f90:710;src/subsurface/vs_connectivity.f90:144
+buffer,src/frame/legacy_result_files.f90,459,"DOUBLE PRECISION :: BUFFER(NELEE), COLBUF(LLEE)",1,1,0,0,src/frame/legacy_result_files.f90:459
+ccapb,src/contaminant/cm_parameters.f90,42,"DOUBLEPRECISION CCAPB(NELEE, NCONEE)",3,0,2,1,src/contaminant/cm_parameters.f90:38;src/contaminant/cm_input.f90:49;src/contaminant/cm_column.f90:427
+ccape,src/contaminant/cm_parameters.f90,44,"DOUBLEPRECISION CCAPE(NELEE, NCONEE)",4,0,3,1,src/contaminant/cm_parameters.f90:38;src/contaminant/cm_channel.f90:114;src/contaminant/cm_input.f90:49;src/contaminant/cm_column.f90:427
+ccapr,src/contaminant/cm_parameters.f90,47,"DOUBLEPRECISION CCAPR(NELEE, NCONEE)",3,0,2,1,src/contaminant/cm_parameters.f90:38;src/contaminant/cm_input.f90:49;src/contaminant/cm_column.f90:427
+ccapro,src/contaminant/cm_parameters.f90,48,"DOUBLEPRECISION CCAPRO(NELEE, NCONEE)",1,0,0,1,src/contaminant/cm_parameters.f90:38
+ccccw,src/contaminant/cm_parameters.f90,52,"DOUBLEPRECISION CCCCW(NELEE, NCONEE)",4,0,3,1,src/contaminant/cm_parameters.f90:38;src/contaminant/cm_channel.f90:114;src/frame/legacy_result_files.f90:64;src/contaminant/cm_column.f90:427
+ccpbo,src/contaminant/cm_parameters.f90,43,"DOUBLEPRECISION CCPBO(NELEE, NCONEE)",1,0,0,1,src/contaminant/cm_parameters.f90:38
+cdnet,src/subsurface/vs_driver.f90,606,"DOUBLE PRECISION :: DELTAP(0:NELEE), CDNET(NELEE), CQ(LLEE, NELEE)",1,1,0,0,src/subsurface/vs_driver.f90:606
+cq,src/subsurface/vs_driver.f90,606,"DOUBLE PRECISION :: DELTAP(0:NELEE), CDNET(NELEE), CQ(LLEE, NELEE)",1,1,0,0,src/subsurface/vs_driver.f90:606
+dcbed,src/sediment/sy_state.f90,59,DOUBLEPRECISION DCBED(NLFEE),3,0,2,1,src/sediment/sy_state.f90:46;src/frame/legacy_result_files.f90:62;src/driver/simulation_driver.f90:46
+dcbsed,src/sediment/sy_state.f90,60,"DOUBLEPRECISION DCBSED(NLFEE,NSEDEE)",3,0,2,1,src/sediment/sy_state.f90:46;src/frame/legacy_result_files.f90:62;src/driver/simulation_driver.f90:46
+deltap,src/subsurface/vs_driver.f90,606,"DOUBLE PRECISION :: DELTAP(0:NELEE), CDNET(NELEE), CQ(LLEE, NELEE)",1,1,0,0,src/subsurface/vs_driver.f90:606
+dls,src/sediment/sy_state.f90,54,DOUBLEPRECISION DLS(NELEE),7,0,6,1,src/sediment/sy_state.f90:46;src/visualisation/visualisation_interface_left.f90:109;src/contaminant/cm_channel.f90:115;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/contaminant/cm_column.f90:808;src/driver/simulation_driver.f90:46
+dlso,src/contaminant/cm_sediment_previous.f90,59,DOUBLEPRECISION DLSO (NELEE),3,0,2,1,src/contaminant/cm_sediment_previous.f90:57;src/contaminant/cm_input.f90:59;src/contaminant/cm_column.f90:814
+elev,src/frame/frame_geometry.f90,1235,"DOUBLE PRECISION :: ELEV(NELEE, 2)",1,1,0,0,src/frame/frame_geometry.f90:1235
+fbbedo,src/contaminant/cm_sediment_previous.f90,64,"DOUBLEPRECISION FBBEDO (NLFEE, NSEDEE)",3,0,2,1,src/contaminant/cm_sediment_previous.f90:57;src/contaminant/cm_channel.f90:120;src/contaminant/cm_input.f90:59
+fbeta,src/sediment/sy_state.f90,62,"DOUBLEPRECISION FBETA(NELEE,NSEDEE)",6,0,5,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:115;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/contaminant/cm_column.f90:426;src/driver/simulation_driver.f90:46
+fbetao,src/contaminant/cm_sediment_previous.f90,62,"DOUBLEPRECISION FBETAO (NELEE, NSEDEE)",2,0,1,1,src/contaminant/cm_sediment_previous.f90:57;src/contaminant/cm_column.f90:433
+fbtsd,src/sediment/sy_state.f90,63,"DOUBLEPRECISION FBTSD(NLFEE,NSEDEE)",3,0,2,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:115;src/contaminant/cm_input.f90:47
+fbtsdo,src/contaminant/cm_sediment_previous.f90,65,"DOUBLEPRECISION FBTSDO (NLFEE, NSEDEE)",3,0,2,1,src/contaminant/cm_sediment_previous.f90:57;src/contaminant/cm_channel.f90:120;src/contaminant/cm_input.f90:59
+fcc,src/sediment/sy_driver.f90,281,"DOUBLE PRECISION :: FBETAE(NSEDEE), FCC(NVEE), FDELE(NSEDEE)",1,1,0,0,src/sediment/sy_driver.f90:281
+fdel,src/sediment/sy_state.f90,61,"DOUBLEPRECISION FDEL(NELEE,NSEDEE)",6,0,5,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:115;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/contaminant/cm_column.f90:426;src/driver/simulation_driver.f90:46
+fdelo,src/contaminant/cm_sediment_previous.f90,63,"DOUBLEPRECISION FDELO (NELEE, NSEDEE)",4,0,3,1,src/contaminant/cm_sediment_previous.f90:57;src/contaminant/cm_channel.f90:120;src/contaminant/cm_input.f90:59;src/contaminant/cm_column.f90:433
+fncebd,src/contaminant/cm_bank_geometry.f90,39,"DOUBLEPRECISION FNCEBD (NLFEE, 2)",4,0,3,1,src/contaminant/cm_bank_geometry.f90:38;src/contaminant/cm_channel.f90:430;src/contaminant/cm_input.f90:52;src/contaminant/cm_column.f90:813
+fsf,src/contaminant/cm_parameters.f90,40,"FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc",3,1,2,0,src/contaminant/cm_parameters.f90:40;src/contaminant/cm_channel.f90:114;src/contaminant/cm_column.f90:427
+fsfc,src/contaminant/cm_parameters.f90,40,"FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc",3,1,2,0,src/contaminant/cm_parameters.f90:40;src/contaminant/cm_channel.f90:114;src/contaminant/cm_column.f90:427
+fsft,src/contaminant/cm_parameters.f90,40,"FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc",3,1,2,0,src/contaminant/cm_parameters.f90:40;src/contaminant/cm_channel.f90:114;src/contaminant/cm_column.f90:427
+ginfd,src/sediment/sy_state.f90,55,"DOUBLEPRECISION GINFD(NLFEE,NSEDEE)",5,0,4,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:115;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/driver/simulation_driver.f90:46
+ginfs,src/sediment/sy_state.f90,56,"DOUBLEPRECISION GINFS(NLFEE,NSEDEE)",5,0,4,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:115;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/driver/simulation_driver.f90:46
+gmcbbo,src/contaminant/cm_plant_state.f90,73,"BCPBB, DELONE, DELTWO, DELTHR, DELFOU, FLEFT, GMCBBO, NPL, NPLTYP, NPLT, PKMAX, PMASS, &",2,1,1,0,src/contaminant/cm_plant_state.f90:73;src/contaminant/cm_plant.f90:340
+gnu,src/sediment/sy_state.f90,57,DOUBLEPRECISION GNU(NELEE),6,0,5,1,src/sediment/sy_state.f90:46;src/visualisation/visualisation_interface_left.f90:109;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/contaminant/cm_column.f90:808;src/driver/simulation_driver.f90:46
+gnubk,src/sediment/sy_state.f90,58,DOUBLEPRECISION GNUBK(NLFEE),5,0,4,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:422;src/frame/legacy_result_files.f90:62;src/contaminant/cm_input.f90:47;src/driver/simulation_driver.f90:46
+gnuo,src/contaminant/cm_sediment_previous.f90,60,DOUBLEPRECISION GNUO (NELEE),3,0,2,1,src/contaminant/cm_sediment_previous.f90:57;src/contaminant/cm_input.f90:59;src/contaminant/cm_column.f90:814
+ia,src/io/grid_arrays.f90,100,"INTEGER              :: IA(NXEE, NYEE)",1,1,0,0,src/io/grid_arrays.f90:100
+ielem,src/overland_channel/bank_setup.f90,96,"INTEGER :: IVALUE(NLFEE*2), IELEM(NLFEE*2)",1,1,0,0,src/overland_channel/bank_setup.f90:96
+istemp,src/frame/frame_geometry.f90,1236,"INTEGER :: ISTEMP(NELEE, 2), NSORT(2)",1,1,0,0,src/frame/frame_geometry.f90:1236
+ivalue,src/overland_channel/bank_setup.f90,96,"INTEGER :: IVALUE(NLFEE*2), IELEM(NLFEE*2)",1,1,0,0,src/overland_channel/bank_setup.f90:96
+ldum1,src/overland_channel/oc_driver.f90,116,LOGICAL :: LDUM1(NELEE)                        !! Discarded per-element check-result scratch passed to [[occhk1]].,1,1,0,0,src/overland_channel/oc_driver.f90:116
+nsobed,src/sediment/sy_state.f90,47,"PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED",3,1,2,0,src/sediment/sy_state.f90:47;src/contaminant/cm_channel.f90:115;src/contaminant/cm_input.f90:47
+ok,src/subsurface/vs_driver.f90,617,LOGICAL :: OK(NELEE),1,1,0,0,src/subsurface/vs_driver.f90:617
+pa,src/meteorology/met_input.f90,316,"DOUBLE PRECISION    :: PA(NVEE), PEIN(NVEE), PETOT(NVEE), PER(NRAIN)",1,1,0,0,src/meteorology/met_input.f90:316
+pbsed,src/sediment/sy_state.f90,64,DOUBLEPRECISION PBSED(NLFEE),4,0,3,1,src/sediment/sy_state.f90:46;src/contaminant/cm_channel.f90:422;src/contaminant/cm_input.f90:47;src/driver/simulation_driver.f90:46
+pdzf3,src/contaminant/cm_plant_state.f90,74,"PFONE, PFTWO, PF2MAX, PDZF3, XXI",2,1,1,0,src/contaminant/cm_plant_state.f90:74;src/contaminant/cm_plant.f90:340
+pein,src/meteorology/met_input.f90,316,"DOUBLE PRECISION    :: PA(NVEE), PEIN(NVEE), PETOT(NVEE), PER(NRAIN)",1,1,0,0,src/meteorology/met_input.f90:316
+petot,src/meteorology/met_input.f90,316,"DOUBLE PRECISION    :: PA(NVEE), PEIN(NVEE), PETOT(NVEE), PER(NRAIN)",1,1,0,0,src/meteorology/met_input.f90:316
+pf2max,src/contaminant/cm_plant_state.f90,74,"PFONE, PFTWO, PF2MAX, PDZF3, XXI",2,1,1,0,src/contaminant/cm_plant_state.f90:74;src/contaminant/cm_plant.f90:340
+pfone,src/contaminant/cm_plant_state.f90,74,"PFONE, PFTWO, PF2MAX, PDZF3, XXI",2,1,1,0,src/contaminant/cm_plant_state.f90:74;src/contaminant/cm_plant.f90:340
+pftwo,src/contaminant/cm_plant_state.f90,74,"PFONE, PFTWO, PF2MAX, PDZF3, XXI",2,1,1,0,src/contaminant/cm_plant_state.f90:74;src/contaminant/cm_plant.f90:282
+pkmax,src/contaminant/cm_plant_state.f90,73,"BCPBB, DELONE, DELTWO, DELTHR, DELFOU, FLEFT, GMCBBO, NPL, NPLTYP, NPLT, PKMAX, PMASS, &",2,1,1,0,src/contaminant/cm_plant_state.f90:73;src/contaminant/cm_plant.f90:340
+pls,src/sediment/sy_state.f90,47,"PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED",3,1,2,0,src/sediment/sy_state.f90:47;src/frame/legacy_result_files.f90:62;src/driver/simulation_driver.f90:46
+pmass,src/contaminant/cm_plant_state.f90,73,"BCPBB, DELONE, DELTWO, DELTHR, DELFOU, FLEFT, GMCBBO, NPL, NPLTYP, NPLT, PKMAX, PMASS, &",2,1,1,0,src/contaminant/cm_plant_state.f90:73;src/contaminant/cm_plant.f90:340
+qdeff,src/sediment/sy_state.f90,47,"PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED",3,1,2,0,src/sediment/sy_state.f90:47;src/contaminant/cm_channel.f90:422;src/contaminant/cm_input.f90:47
+qlink,src/sediment/sy_state.f90,47,"PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED",3,1,2,0,src/sediment/sy_state.f90:47;src/contaminant/cm_channel.f90:422;src/contaminant/cm_driver.f90:105
+qqrvo,src/contaminant/cm_bank_geometry.f90,43,"DOUBLEPRECISION QQRVO (NLFEE, LLEE, 2)",1,0,0,1,src/contaminant/cm_bank_geometry.f90:38
+qsed,src/sediment/sy_state.f90,47,"PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED",5,1,4,0,src/sediment/sy_state.f90:47;src/visualisation/visualisation_interface_left.f90:109;src/frame/frame_output.f90:52;src/frame/legacy_result_files.f90:62;src/driver/simulation_driver.f90:46
+rdd,src/frame/frame_setup.f90,138,"DOUBLE PRECISION :: rdd(NELEE), rddq(NELEE, 4)",1,1,0,0,src/frame/frame_setup.f90:138
+rddq,src/frame/frame_setup.f90,138,"DOUBLE PRECISION :: rdd(NELEE), rddq(NELEE, 4)",1,1,0,0,src/frame/frame_setup.f90:138
+rsw,src/contaminant/cm_parameters.f90,40,"FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc",3,1,2,0,src/contaminant/cm_parameters.f90:40;src/contaminant/cm_channel.f90:114;src/contaminant/cm_column.f90:427
+rswc,src/contaminant/cm_parameters.f90,40,"FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc",3,1,2,0,src/contaminant/cm_parameters.f90:40;src/contaminant/cm_channel.f90:114;src/contaminant/cm_column.f90:427
+rswt,src/contaminant/cm_parameters.f90,40,"FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc",3,1,2,0,src/contaminant/cm_parameters.f90:40;src/contaminant/cm_channel.f90:114;src/contaminant/cm_column.f90:427
+tahigh,src/meteorology/met_input.f90,317,"DOUBLE PRECISION    :: TAHIGHT(NVEE), TALOWT(NVEE), TAHIGH(NVEE), TALOW(NVEE)",1,1,0,0,src/meteorology/met_input.f90:317
+talow,src/meteorology/met_input.f90,317,"DOUBLE PRECISION    :: TAHIGHT(NVEE), TALOWT(NVEE), TAHIGH(NVEE), TALOW(NVEE)",1,1,0,0,src/meteorology/met_input.f90:317
+value,src/overland_channel/bank_setup.f90,97,"DOUBLE PRECISION :: DFAULT, DZG, VALUE(NLFEE*2)",1,1,0,0,src/overland_channel/bank_setup.f90:97
+vspsin,src/subsurface/vs_driver.f90,608,"DOUBLE PRECISION :: PSIM(LLEE), VSPSIN(LLEE, NELEE), VSTHEN(LLEE, NELEE)",1,1,0,0,src/subsurface/vs_driver.f90:608
+vsthen,src/subsurface/vs_driver.f90,608,"DOUBLE PRECISION :: PSIM(LLEE), VSPSIN(LLEE, NELEE), VSTHEN(LLEE, NELEE)",1,1,0,0,src/subsurface/vs_driver.f90:608
+zcolmb,src/contaminant/column/cm_column_geometry.f90,69,DOUBLEPRECISION ZCOLMB(NELEE),3,0,2,1,src/contaminant/column/cm_column_geometry.f90:63;src/contaminant/cm_input.f90:53;src/contaminant/cm_column.f90:812
+zd,src/evapotranspiration/et_input.f90,148,"DOUBLE PRECISION :: ZU(NVEE), ZD(NVEE), ZO(NVEE)",1,1,0,0,src/evapotranspiration/et_input.f90:148
+zo,src/evapotranspiration/et_input.f90,148,"DOUBLE PRECISION :: ZU(NVEE), ZD(NVEE), ZO(NVEE)",1,1,0,0,src/evapotranspiration/et_input.f90:148
+zu,src/evapotranspiration/et_input.f90,148,"DOUBLE PRECISION :: ZU(NVEE), ZD(NVEE), ZO(NVEE)",1,1,0,0,src/evapotranspiration/et_input.f90:148
