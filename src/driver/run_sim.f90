@@ -81,8 +81,9 @@ MODULE run_sim
    USE file_units, ONLY: HOT, TIM
    USE simulation_clock, ONLY: NSTEP, TTH
    USE FRmod, ONLY: tsh, tch, bstore, btime
-   USE VSmod, ONLY: VSSIM, &
-      RLFTIM, icsoilsv !THESE NEEDED ONLY FOR AD
+   USE vs_boundaries, ONLY: RLFTIM
+   USE vs_driver, ONLY: VSSIM
+   USE vs_state, ONLY: ICSOILsv
    USE cm_driver, ONLY: CMSIM
    USE et_config, ONLY: PSI4, UZALFA
    USE et_process, ONLY: ETSIM
@@ -109,9 +110,11 @@ MODULE run_sim
    USE ocmod, ONLY: qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
    USE OCQDQMOD, ONLY: hocnow, qocf, xafull !, firstocqdq
    USE OCmod2, ONLY: hrfzz, qsazz !NEEDED ONLY FOR AD
-   USE vsmod, ONLY: rlfdum, rlgnxt, firstvssim, rbhlst, rlhlst, vsaijsv, jcbcsv, rbhprv, rlglst, rlhprv, rbfprv, &
-      rlgprv, rlfprv, rwelin, rbhtim, wltime, rlhdum, rbhnxt, rlhtim, rlgdum, rlhnxt, rbftim, rlgtim, &
-      wlnow, vskr, rlfnow, rbfnow, ivssto, rlhnow, rbhnow
+   USE vs_boundaries, ONLY: RLFDUM, RLGNXT, FIRSTvssim, RBHLST, RLHLST, RBHPRV, RLGLST, RLHPRV, &
+                  RBFPRV, RLGPRV, RLFPRV, RWELIN, RBHTIM, WLTIME, RLHDUM, RBHNXT, RLHTIM, RLGDUM, &
+                  RLHNXT, RBFTIM, RLGTIM
+   USE vs_config, ONLY: WLNOW, VSKR, RLFNOW, RBFNOW, IVSSTO, RLHNOW, RBHNOW
+   USE vs_state, ONLY: VSAIJsv, JCBCsv
    USE snow_config, ONLY: RHOS
    USE snow_state, ONLY: smelt, tmelt
    USE et_state, ONLY: ESOILA, ERUZ

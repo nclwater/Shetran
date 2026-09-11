@@ -3,8 +3,9 @@
 !>
 !> The state of the subsurface solution: the vertical discretisation of each
 !> element column, the soil-layer and well geometry, and the pressure heads,
-!> moisture contents and fluxes the solver advances. [[frmod]] and [[vsmod]]
-!> construct the geometry; [[vsmod]] advances the state; sediment, contaminant,
+!> moisture contents and fluxes the solver advances. [[frmod]] and
+!> [[vs_connectivity]] construct the geometry; [[vs_driver]] advances the
+!> state; sediment, contaminant,
 !> nitrate, result and visualisation routines read selected values. It is the
 !> most widely read of the component state modules.
 !>
@@ -16,7 +17,7 @@
 !> | Array family | Index order | Principal producer |
 !> |:-------------|:------------|:-------------------|
 !> | `JVSACN`, `JVSDEL`, `QVSH` | face, vertical cell, element | [[vs_connectivity:VSCONC]] / [[vs_driver:VSSIM]] |
-!> | `DELTAZ`, `ZVSNOD`, `QVSV`, `VSPSI`, `VSTHE`, `QVSWLI` | vertical cell, element or well | [[vsmod]] |
+!> | `DELTAZ`, `ZVSNOD`, `QVSV`, `VSPSI`, `VSTHE`, `QVSWLI` | vertical cell, element or well | [[vs_driver]] |
 !> | `NLYRBT`, `NTSOIL`, `ZLYRBT` | element, soil layer | [[vs_input:VSREAD]] / [[vs_connectivity:VSCONC]] |
 !>
 !> Flux units depend on the control surface. Vertical column rates such as
@@ -93,6 +94,12 @@ MODULE vs_state
    DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: QBKB  !! Saturated channel-bed exchange for wet channel area (m3/s).
    DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: QBKF  !! Lateral VSS exchange between channel/link and surrounding column (m3/s).
    DOUBLEPRECISION, DIMENSION(NLFEE, 2) :: QBKI  !! Channel-bed exchange assigned to dry channel area (m3/s).
+
+
+! Saved solver state, retained for automatic differentiation (from VSmod).
+   INTEGER :: ICSOILsv(LLEE, NELEE) !! Cached VSS soil type by cell and element.
+   INTEGER :: JCBCsv(0:5, NELEE)    !! Cached boundary-condition type/category metadata by face and element.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: VSAIJsv !! Cached lateral face area/conductance terms.
 
 CONTAINS
 
@@ -204,6 +211,5 @@ CONTAINS
       ZLYRBT = 0.0d0
 
    END SUBROUTINE initialise_al_c2
-
 END MODULE vs_state
 

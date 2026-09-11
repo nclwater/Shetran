@@ -432,3 +432,47 @@ of the deliverable, and the compiler catches every case it gets wrong.
   statement goes: `CMRD` is visible by host association.
 - **`! USE CONT_CC ! (Duplicate removed)`** in what is now `cm_channel`, a
   commented-out import of a module that no longer exists under that name.
+
+## D21 — `PARAMETER(NSOLEE=200)` did not travel with its declaration
+
+`vs_soil_tables` is sized by `NSOLEE`, which `VSmod` declared in the old
+two-statement form:
+
+```fortran
+   INTEGER NSOLEE
+   PARAMETER(NSOLEE=200)
+```
+
+`rename_extract.py` moves the *declaration* line of a tracked variable. The
+separate `PARAMETER` statement is not a declaration of anything the move tables
+list, so it stayed in `VSmod`'s residual and would have been deleted with it,
+leaving `NSOLEE` an uninitialised integer used as an array bound in seven
+declarations — which does not compile, so it could not have escaped notice, but
+it is the one case so far where the extractor silently left a moved entity
+incomplete.
+
+It is carried into `vs_soil_tables` immediately after the declaration. Checked
+for others: this is the only old-style `PARAMETER(...)` statement left in any
+residual across the ten steps done so far.
+
+## D22 — `errcntallowed` is read by two modules, not one
+
+`constants_review.md` places `errcntallowed` in `vs_column_solver` because it
+is "read only by `VSCOLM`". It is not: `vs_driver`'s `VSSIM` reads it too,
+twice, in the same convergence-warning pattern.
+
+The placement is still right — it is `VSCOLM`'s limit and putting it in
+`vs_config` would make `vs_driver` and `vs_column_solver` mutually dependent,
+which is the cycle the note exists to avoid. But it has to be `PUBLIC` in
+`vs_column_solver` rather than private, and `vs_driver` imports it.
+
+## D23 — a `.append` block has to go before `CONTAINS`
+
+`rename_extract.py` writes `<target>.append` with the declarations and
+procedures to paste in, and the step instructions say to merge it by hand.
+`sy_state` and `snow_state` have no `CONTAINS`, so appending before
+`END MODULE` was correct there; `vs_state` has one (the two `initialise_al_c*`
+routines), and the same mechanical merge put three declarations inside the
+`CONTAINS` section. gfortran rejects it outright
+(`Unexpected data declaration statement in CONTAINS section`). Declarations go
+before `CONTAINS`; only the procedure half of an `.append` goes after it.

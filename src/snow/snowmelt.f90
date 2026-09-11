@@ -6,7 +6,7 @@
 !> [[SMET]] for the energy budget, according to `MSM`. Meltwater leaving the
 !> pack is routed as a set of slugs held in [[snow_state]], so melt at the
 !> surface reaches the bottom of the snowpack with a delay, and the downstream
-!> [[et_process]], [[vsmod]] and [[ocmod]] calculations see the delayed rate.
+!> [[et_process]], [[vs_driver]] and [[ocmod]] calculations see the delayed rate.
 !> `initialise_smmod` allocates the slug arrays.
 !>
 !> Like [[et_process:ETIN]], `SMIN` is a per-element process wrapper rather
