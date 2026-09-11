@@ -261,7 +261,7 @@ CONTAINS
 
          ! write ZQTables to fid_ZQ_log.fort
          ios = 0
-         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableRefRead   =', ZQTableRefRead
+         IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableRef   =', ZQTableRefRead
          IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableLink  =', ZQTableLink(i)
          IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableFace  =', ZQTableFace(i)
          IF (ios == 0) WRITE (fid_ZQ_log, *, IOSTAT=ios, IOMSG=emsg) 'ZQTableOpHour=', ZQTableOpHour(i)

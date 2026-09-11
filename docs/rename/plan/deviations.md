@@ -686,3 +686,51 @@ directly rather than inferred from the build succeeding.
 The check is worth keeping for any future move of this kind; it is what caught
 nothing here, and would have caught the `PARAMETER(NSOLEE=200)` of D21 had the
 compiler not.
+
+## D33 — the `ZQTableRef` rename changed a string literal, and the output with it
+
+**This is the one real defect the reorganisation introduced, and the example
+models caught it.**
+
+`variables.csv` renames `ZQmod`'s `ZQTableRef` to `ZQTableRefRead`, to keep it
+apart from `AL_D`'s same-named variable (step 11). The rename was applied with
+a word-boundary regex over the moved block — which also rewrote the name where
+it appears inside a **string literal**:
+
+```fortran
+! baseline
+IF (ios == 0) WRITE (fid_ZQ_log, *, ...) 'ZQTableRef   =', ZQTableRef
+! after the rename, wrongly
+IF (ios == 0) WRITE (fid_ZQ_log, *, ...) 'ZQTableRefRead   =', ZQTableRefRead
+```
+
+`reservoir-ZQmodule-example` writes that label three times into
+`output_readZQTable.txt`, so its output was 12 bytes longer than the reference
+and the file compared unequal. Every other model was unaffected, and no build
+or sweep could have found it: the code is valid either way.
+
+Fixed by restoring the literal; the variable keeps its new name, which is what
+the move tables ask for. Re-running the model gives
+`any_differences = False`.
+
+*Audited for others.* Five string literals in the whole baseline tree contain
+a name this work renames:
+
+| Literal | State |
+|:--------|:------|
+| `'ZQTableRef   ='` (`ZQmod`) | was wrongly rewritten; **fixed** |
+| `"CONT_CC:initialise_cont_cc"` | untouched |
+| `"COLM_CG:initialise_colm_cg"` | untouched |
+| `"COLM_CG:deallocate_colm_cg"` | untouched |
+| `"COLM_CO:initialise_colm_co"` | untouched |
+
+The four `location` strings survived because the 14 data-module renames matched
+only `^\s*USE\s+NAME` and `^\s*(END )?MODULE\s+NAME`, never free text. They now
+name modules that no longer exist, which is stale but correct for a pure move:
+they are passed to `errstat_alloc` and would appear in a diagnostic, so
+changing them *would* change observable output. Updating them is a follow-up,
+listed below.
+
+*Lesson.* A rename applied by regex must exclude string literals, or be checked
+against them afterwards. The content-equivalence check of the previous section
+cannot see this: it compares code lines, and both versions are code.
