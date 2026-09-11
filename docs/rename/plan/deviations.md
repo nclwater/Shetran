@@ -733,7 +733,15 @@ listed below.
 
 *Lesson.* A rename applied by regex must exclude string literals, or be checked
 against them afterwards. The content-equivalence check of the previous section
-cannot see this: it compares code lines, and both versions are code.
+cannot see this: it compares code lines, and both versions are code. Only
+running the models finds it.
+
+*Final state.* With the literal restored, a full run of all 13 models against
+the reference gives **`any_differences = False` for every one, and zero files
+with differing contents**. Two files are skipped as `too large to compare`
+(`Aire_at_Kildwick_Bridge-AllOptions`'s `spr.txt` and `Slapton-3D`'s
+`shegraph.h5`), which is the size threshold in `examples/_methods/settings.py`,
+not a difference.
 
 ## Still open after this work
 
