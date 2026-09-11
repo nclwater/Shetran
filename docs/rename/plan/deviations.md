@@ -658,3 +658,31 @@ now `[[oc_row_width:MAX_ACTIVE_ROW_WIDTH]]`.
 Final state: 1,359 links, 119 modules, **0 unresolved qualified links**. Bare
 `[[entity]]` links are not checked, because FORD resolves those by name across
 the whole project and they are unaffected by the move.
+
+## Verification: the move is provably pure
+
+Beyond the per-step builds and sweeps, the whole reorganisation was checked
+against the baseline commit by comparing *content* rather than files.
+
+Every `src/**/*.[fF]90` file at `f31d1b8` and at the close-out was reduced to
+its logical code lines — continuations joined, comments stripped, whitespace
+normalised, lowercased, the 20 constant renames and `ZQTableRef` ->
+`ZQTableRefRead` applied, and `USE` / `MODULE` / `END MODULE` /
+`IMPLICIT NONE` / `PRIVATE` / `PUBLIC` / `CONTAINS` / `#` lines excluded,
+those being precisely what the move is allowed to change. The two multisets
+were then compared:
+
+```
+baseline 22914 logical code lines -> final 22914
+lost:   0
+gained: 0
+```
+
+Every declaration and every executable statement in the pre-reorganisation
+tree is present in the new one, exactly once, unchanged. Nothing was dropped,
+duplicated or rewritten. That is the invariant `README.md` states, checked
+directly rather than inferred from the build succeeding.
+
+The check is worth keeping for any future move of this kind; it is what caught
+nothing here, and would have caught the `PARAMETER(NSOLEE=200)` of D21 had the
+compiler not.
