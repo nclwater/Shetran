@@ -42,7 +42,7 @@ MODULE cm_column
    USE et_state, ONLY: EEVAP, ERUZ, PNETTO
    USE vs_state, ONLY: DELTAZ, NLYR, NLYRBT, NTSOIL, NVSWLI, NVSWLT, NWELBT, NWELTP, QBKB, &
                        QVSH, QVSV, QVSWEL, QVSWLI, VSTHE, ZVSNOD
-   USE OCMOD2, ONLY: hrf => hrfzz
+   USE oc_state, ONLY: hrf => HRFZZ
    USE oc_state, ONLY: QOC
    USE sy_state, ONLY: DLS, FBETA, FDEL, GNU, NSED
    USE cm_parameters, ONLY: ALPHA, CCAPB, CCAPE, CCAPI, CCAPIO, CCAPR, CCCC, CCCCO, CCCCW, &

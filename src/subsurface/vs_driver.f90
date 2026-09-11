@@ -50,7 +50,7 @@ MODULE vs_driver
    USE linear_algebra, ONLY: dcopy
    USE error_reporting, ONLY: RAISE_ERROR, ERR_STOP, ERRLVL_fatal, ERRLVL_error
    USE error_status, ONLY: errstat_alloc
-   USE OCmod2, ONLY: GETHRF
+   USE oc_node_solver, ONLY: gethrf
 
    IMPLICIT NONE
 

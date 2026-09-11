@@ -67,7 +67,7 @@ MODULE cm_input
    USE linear_algebra, ONLY: dcopy
    USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error
    USE error_status, ONLY: errstat_alloc
-   USE OCmod2, ONLY: GETHRF
+   USE oc_node_solver, ONLY: gethrf
 
    IMPLICIT NONE
 

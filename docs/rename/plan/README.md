@@ -61,7 +61,7 @@ commits.
 | 08 | [`snow/`](08_snow.md) | 4 | `SMmod` | ☑ |
 | 09 | [`contaminant/`](09_contaminant.md) | 20 | `CMmod` + 14 data modules | ☑ |
 | 10 | [`subsurface/`](10_subsurface.md) | 9 | `VSmod` | ☑ |
-| 11 | [`overland_channel/`](11_overland_channel.md) | 14 | `OCmod`, `OCmod2`, `OCQDQMOD`, `ZQmod`, `oc_row_width` | ☐ |
+| 11 | [`overland_channel/`](11_overland_channel.md) | 15 | `OCmod`, `OCmod2`, `OCQDQMOD`, `ZQmod` | ☑ |
 | 12 | [`frame/`](12_frame.md) | 6 | `FRmod` | ☐ |
 | 13 | [`meteorology/` and `driver/`](13_meteorology_driver.md) | 7 | `rest`, `run_sim`, `getdirqq`, `AL_D` | ☐ |
 | 14 | [Close-out](14_closeout.md) | – | – | ☐ |

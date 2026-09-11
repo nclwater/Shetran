@@ -109,7 +109,7 @@ PROGRAM SHETRAN
    USE RUN_SIM, ONLY: SIMULATION
 
    ! Explicit release of the persistent open-channel solver workspace.
-   USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
+   USE oc_driver, ONLY: FINALISE_OCSIM_WORKSPACE
 
    ! Cross-platform millisecond sleep used before automatic console closure.
    USE stdlib_system, ONLY: sleep

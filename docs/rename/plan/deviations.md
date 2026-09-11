@@ -476,3 +476,56 @@ routines), and the same mechanical merge put three declarations inside the
 `CONTAINS` section. gfortran rejects it outright
 (`Unexpected data declaration statement in CONTAINS section`). Declarations go
 before `CONTAINS`; only the procedure half of an `.append` goes after it.
+
+## D24 — open decision 1 resolved: `oc_row_width` stays as it is
+
+`README.md` open decision 1 offered two ways to handle `MAX_ACTIVE_ROW_WIDTH`,
+which `functions.csv` places in `oc_indexing`. The **recommended** option was
+taken: the function stays in `src/overland_channel/oc_row_width.f90` as its own
+dependency-free leaf module, and `oc_indexing` takes
+`USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH`.
+
+`test/CMakeLists.txt` needs no change, and `oc_row_width.unit` still builds and
+passes from that one source file plus the assertion support — which is the
+whole point of the module, and what folding it into `oc_indexing` would have
+cost. `overland_channel/` therefore has 15 modules rather than 14, and this is
+the one deliberate departure from `functions.csv`.
+
+The test's own four cross-references were re-pointed by the rewriter as the
+plan predicted: `[[ocmod:ocsim]]` became `[[oc_driver:OCSIM]]` and the three
+`[[ocmod:ocind]]` became `[[oc_indexing:OCIND]]`.
+
+## D25 — `run_control` had to be created in step 11, not step 12
+
+`INBK` moves out of `FRmod` into `bank_setup` in step 11, and its first
+statement reads the bank file's title into `TITLE` — which `variables.csv`
+places in `run_control`, a step-12 target. Leaving `TITLE` in `FRmod` for one
+step would make `FRmod` and `bank_setup` `USE` each other, which Fortran
+forbids.
+
+So `run_control` was extracted in step 11, with all 24 of its rows (16 from
+`AL_D`, 8 from `FRmod`), and `FRmod` now imports back the eight names it gave
+up. This is step 12's own first sub-step — "`run_control` — data only, no
+procedures. Everything else may read it" — brought forward, not a change of
+plan; `12_frame.md` has one fewer file to create.
+
+The same reasoning applies to the four other `IN*` routines that left `FRmod`
+in steps 07--09, and it is why they needed no equivalent: `INET`, `INSM`,
+`INCM` and `INPL` read no `FRmod` module variable.
+
+## D26 — `rm -rf` of a test module directory needs a CMake re-configure
+
+`00_working_rules.md` §10 says that after a step that changes a test-compiled
+module, `rm -rf build/debug/test/modules build/debug/test/modules_oc_row_width`.
+Those directories are created by `file(MAKE_DIRECTORY ...)` at *configure*
+time, and `build.sh`'s re-configure does not recreate them once CMake decides
+nothing has changed. The next build of `oc_row_width_tests` then fails with
+
+```
+Error copying Fortran module "test/modules_oc_row_width/oc_row_width.mod".
+```
+
+which looks like a source problem and is not. Removing
+`build/debug/test/CMakeFiles/oc_row_width_tests.dir` and re-running
+`cmake -S . -B build/debug` fixes it. Worth adding to §10, or dropping the
+`rm -rf` in favour of `--clean-app`, which does not need it.

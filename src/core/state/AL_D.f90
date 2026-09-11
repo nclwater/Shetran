@@ -5,7 +5,8 @@
 !> components. [[frmod]] establishes the grid, run controls, component flags,
 !> file metadata, hotstart state, and water-balance calendar. [[rest]] updates
 !> meteorological forcing and timestep control; [[et_process]], [[snowmelt]],
-!> [[ocmod]], and [[ocqdqmod]] produce the process arrays; [[zq_tables]] allocates
+!> [[oc_driver]], and [[oc_stage_discharge]] produce the process arrays;
+!> [[zq_tables]] allocates
 !> the optional reservoir-table metadata.
 !>
 !> Fixed arrays retain compile-time capacity bounds. Active element, link,
@@ -84,33 +85,17 @@ MODULE AL_D
 ! timestep and interval values are in hours unless stated otherwise.
    DOUBLEPRECISION :: PSTART  !! Simulation-relative start time for legacy printed/result output (h).
    DOUBLEPRECISION :: DTMET   !! Combined meteorological input interval (h).
-   DOUBLEPRECISION :: BHOTTI  !! Requested/read hotstart time (h).
-   DOUBLEPRECISION :: BHOTST  !! Interval between hotstart outputs (h).
    DOUBLEPRECISION :: PMAX    !! Maximum rainfall depth permitted in one model timestep (mm).
    DOUBLEPRECISION :: PALFA   !! Fractional timestep growth factor used by `TMSTEP`.
    DOUBLEPRECISION :: TMAX    !! Maximum/basic coupled model timestep, capped at two hours (h).
    DOUBLEPRECISION :: DTMET2  !! Separate precipitation input interval (h).
    DOUBLEPRECISION :: DTMET3  !! Separate potential-evaporation input interval (h).
-   DOUBLEPRECISION :: TOUTPUT !! Interval for regular text/CSV outputs; defaults to 24 h (h).
 
 ! Per-step scalar state.
    DOUBLEPRECISION :: PREST  !! Unused legacy value set to `1+PALFA` during frame initialization.
-   DOUBLEPRECISION :: HOTIME !! Current/last hotstart time (h).
 
 ! Process and optional-file switches.
-   LOGICAL :: BEXET      !! Whether evapotranspiration is active; current frame setup always sets true.
-   LOGICAL :: BEXUZ      !! Whether the legacy upper-zone process is active; current frame setup always sets true.
-   LOGICAL :: BEXEX      !! Whether legacy exchange is active; current frame setup always sets true.
-   LOGICAL :: BEXOC      !! Whether overland/channel flow is active; current frame setup always sets true.
-   LOGICAL :: BEXSZ      !! Whether saturated-zone flow is active; current frame setup always sets true.
-   LOGICAL :: BEXSM      !! Whether snowmelt is enabled by FR25.
-   LOGICAL :: BHOTPR     !! Whether periodic hotstart output is enabled.
-   LOGICAL :: BHOTRD     !! Whether initial state is read from the hotstart file.
-   LOGICAL :: BEXSY      !! Whether sediment transport is enabled by FR25.
-   LOGICAL :: BEXCM      !! Whether contaminant transport is enabled by FR25.
    LOGICAL :: ISTA       !! Whether separate maximum/minimum air-temperature streams are available.
-   LOGICAL :: isextradis !! Whether the extra-discharge point-selection input is available.
-   LOGICAL :: isextrapsl !! Whether the extra phreatic-surface point-selection input is available.
 
 ! Static integer arrays.
    INTEGER :: IOCORS(NSETEE)      !! Contaminant/sediment selector for each legacy result set.

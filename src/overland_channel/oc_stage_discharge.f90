@@ -1,73 +1,41 @@
-!> summary: Overland/channel face flow and derivative controller.
-!> author: JE, Newcastle University; RAH, Newcastle University; SB, Newcastle University
+!> summary: The stage--discharge derivatives assembled for the implicit solve.
+!> author: GP, Newcastle University; AB / RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University; Sven Berendsen
 !>
-!> `ocqdqmod` controls calculation of overland and channel flows, together
-!> with the derivatives used by the [[oc_driver:OCSIM]] implicit solver, at
-!> element faces. [[ocqdq]] handles external boundaries, single adjacent
-!> faces, multi-way branch faces, bank exchanges, land-grid exchanges,
-!> link-link exchanges, and ZQ reservoir-table routing hooks by dispatching to
-!> the exchange-flow routines in [[ocmod2]].
+!> [[OCQDQ]] visits every active face, calls the matching routine in
+!> [[oc_discharge]], and stores the discharge together with its derivatives
+!> with respect to the local and adjacent water levels in [[oc_state]]'s
+!> `DQ0ST`, `DQIST` and `DQIST2`. `fstr` and `fdqq` are its two helpers.
 !>
-!> `STRXX` and `STRYY` normally hold directional Strickler roughness values
-!> read by [[ocmod]]. For land or link participants passed through
-!> [[ocqdq]], a negative `STRXX` is used as a surface-storage marker rather
-!> than as a physical roughness:
-!>
-!> | Condition | Effective roughness passed to flow helper |
-!> |:----------|:------------------------------------------|
-!> | `STRXX(kel) >= 0` | Directional value from [[fstr]] |
-!> | `STRXX(kel) < 0` and `HRF-ZGRUND < -STRXX/1000` | `0.5` |
-!> | `STRXX(kel) < 0` and `HRF-ZGRUND >= -STRXX/1000` | `2.0` |
-!>
-!> The threshold depth is therefore stored in millimetres as `-STRXX`; the
-!> active hydraulic calculation receives the fixed effective values above.
-!>
-!> `ICMXY` is imported from `AL_G` but has no reference in this module; it is
-!> retained because this transfer does not change import lists. Current
-!> `run_sim` imports `HOCNOW`, `QOCF`, and `XAFULL` (alongside a disabled
-!> `firstocqdq` import) without referencing them elsewhere in that file.
+!> Those derivatives are what makes the overland/channel step implicit, which
+!> is why this module sits between the per-face discharge formulae and the
+!> driver rather than inside either.
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
-!> | 1994-10-03 | RAH | 3.4.1 | Brought implicit declarations from `SPEC.AL`. |
-!> | 1998-02-24 | RAH | 4.2 | Reworked face arguments and loop structure; added explicit typing. |
-!> | 1998-02-25 | RAH | 4.2 | Called face-flow routines on lowest element and restructured boundary handling. |
-!> | 1998-02-26 | RAH | 4.2 | Replaced multi-call interface with one element loop. |
-!> | 1998-03-27 | RAH | 4.2 | Added `XAFULL` input argument. |
-!> | 1998-03-31 | RAH | 4.2 | Reworked `OCQGRD` arguments and derivative arrays. |
-!> | 1998-04 | RAH | 4.2 | Reworked bank, link, and boundary-condition calls. |
-!> | 1998-08-07 | RAH | 4.2 | Added local `LINK` to avoid out-of-bounds access. |
-!> | 2009-01 | JE | 4.3.5F90 | Converted to Fortran 90. |
-!> | 2020-05-20 | SB | - | Added ZQ table routing support. |
-!> | 2022-05-19 | SB | - | Added negative-`STRXX` surface-storage switching. |
-!> | 2026-04-06 | SvB | 4.6.1 | Replaced `GOTO`-based branch skipping with named-loop `CYCLE` statements and passed whole local work arrays/base element addresses to [[ocmod2]] exchange routines instead of `(0:1)`/column array sections, to avoid array-descriptor overhead (commit `632f254`). |
+!> | 1989--1998 | GP / AB / RAH | 2.0--4.2 | Developed the overland and channel flow component. |
+!> | 2008-12 | JE | 4.3.5F90 | Converted the OC Fortran sources to Fortran 90. |
+!> | 2020--2026 | SB / SvB | 4.5--4.6 | Added the ZQ reservoir tables, the abstracted state accessors, and the modernisation pass. |
+!> | 2026-09-11 | SvB | - | Split out of OCQDQMOD; see docs/rename/proposal.md. |
 !> @endhistory
-MODULE ocqdqmod
-   USE mod_parameters, ONLY: zero
-   USE array_limits, ONLY: nelee, nlfee, NOCTAB
-   USE element_geometry, ONLY: DXQQ, DYQQ, total_no_elements, total_no_links, ZGRUND
-   USE channel_geometry, ONLY: CWIDTH, ZBFULL, CLENTH
-   USE element_geometry, ONLY: DHF
-   USE grid_topology, ONLY: ICMRF2
-   USE grid_topology, ONLY: ICMREF, ICMXY
-   USE oc_boundaries, ONLY: NOCBCC, NOCBCD
-   USE oc_state, ONLY: DQ0ST, DQIST, DQIST2
-   USE zq_tables, ONLY: NoZQTables, ZQTableRef, ZQTableLink, ZQTableFace
-   USE OCmod2 ,   ONLY : GETHRF, OCQMLN, SETQSA, OCQBNK, OCQGRD, OCQLNK, OCQBC
+MODULE oc_stage_discharge
+
+   USE MOD_PARAMETERS, ONLY: zero
+   USE element_geometry, ONLY: DHF, DXQQ, DYQQ, total_no_elements, total_no_links, ZGRUND
+   USE grid_topology, ONLY: ICMREF, ICMRF2
+   USE channel_geometry, ONLY: CLENTH, CWIDTH, ZBFULL
+   USE oc_state, ONLY: DQ0ST, DQIST, DQIST2, STRXX, STRYY
+   USE oc_boundaries, ONLY: COCBCD, HOCNOW, NOCBCC, NOCBCD, QOCF
+   USE oc_cross_sections, ONLY: XAFULL
+   USE oc_node_solver, ONLY: gethrf, setqsa
+   USE oc_discharge, ONLY: OCQBC, OCQBNK, OCQGRD, OCQLNK, OCQMLN
+   USE zq_tables, ONLY: NoZQTables, ZQTableFace, ZQTableLink, ZQTableRef
 
    IMPLICIT NONE
-   DOUBLEPRECISION    :: XAFULL(NLFEE)     !! Full-flow cross-sectional area for each channel link.
-   DOUBLEPRECISION    :: COCBCD(5, NOCTAB) !! Real-valued overland/channel boundary-condition coefficients.
-   DOUBLEPRECISION    :: HOCNOW (NOCTAB)   !! Current boundary stage/head values by boundary category.
-   DOUBLEPRECISION    :: QOCF (NOCTAB)     !! Current prescribed overland/channel boundary flow values by category.
-   DOUBLEPRECISION    :: STRXX(NELEE)      !! X-direction Strickler roughness, or negative storage-depth marker.
-   DOUBLEPRECISION    :: STRYY(NELEE)      !! Y-direction Strickler roughness.
-!LOGICAL            :: firstocqdq=.TRUE.
-
 
    PRIVATE
-   PUBLIC :: OCQDQ, STRXX, STRYY, HOCNOW, QOCF, XAFULL, COCBCD ! , firstocqdq
+
+   PUBLIC :: OCQDQ
 
 CONTAINS
 
@@ -144,8 +112,9 @@ CONTAINS
    !>
    !> @note
    !> This routine has no dummy arguments. It uses shared grid,
-   !> boundary, geometry, water-level, and ZQ-table state from `SGLOBAL`,
-   !> `AL_C`, `AL_D`, `AL_G`, and [[ocmod2]]. Several calls into [[ocmod2]]
+   !> boundary, geometry, water-level, and ZQ-table state from the `core/`
+   !> modules, [[oc_boundaries]], [[oc_state]] and [[zq_tables]]. Several calls
+   !> into [[oc_discharge]]
    !> pass whole local work arrays (declared `(0:3)`) to dummy arguments
    !> declared `(0:1)`, and pass single-element addresses
    !> (`COCBCD(1,ibc)`/`COCBCD(1,itemp)`) to array dummy arguments, relying on
@@ -364,7 +333,6 @@ CONTAINS
 
    END SUBROUTINE OCQDQ
 
-
    !> Returns the Strickler/roughness value for a face direction.
    !>
    !> Faces 1 and 3 use `STRXX`; faces 2 and 4 use `STRYY`.
@@ -386,7 +354,6 @@ CONTAINS
          r = stryy(jel)
       ENDIF
    END FUNCTION fstr
-
 
    !> Returns the transverse face length used in a face-flow calculation.
    !>
@@ -410,4 +377,5 @@ CONTAINS
       ENDIF
    END FUNCTION fdqq
 
-END MODULE ocqdqmod
+END MODULE oc_stage_discharge
+

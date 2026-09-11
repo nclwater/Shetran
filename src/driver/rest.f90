@@ -36,8 +36,9 @@ MODULE rest
    USE oc_state, ONLY: ARXL, QOC
    USE vs_state, ONLY: DELTAZ, NLYRBT, QVSBF, QVSWEL, QBKF, QVSH, VSTHE, WBERR
    USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT
-   USE AL_D, ONLY: balanc, DTMET2, BHOTRD, BHOTTI, NM, NRAIN, DTMET3, DTMET, RN, OBSPE, U, TA, VPD, &
-                  TMAX, PALFA, BEXSM, PMAX, precip_m_per_s, NRAINC, ista
+   USE AL_D, ONLY: balanc, DTMET2, NM, NRAIN, DTMET3, DTMET, RN, OBSPE, U, TA, VPD, TMAX, PALFA, &
+                  PMAX, precip_m_per_s, NRAINC, ista
+   USE run_control, ONLY: BHOTRD, BHOTTI, BEXSM
    USE et_state, ONLY: PE, VHT
    USE snow_state, ONLY: SD
    USE element_geometry, ONLY: CAREA
@@ -47,7 +48,7 @@ MODULE rest
    USE et_config, ONLY: MODECS, CSTCAP, RELCST, TIMCST, NCTCST, CSTCA1, MODEPL, RELPLA, TIMPLA, &
                   NCTPLA, PLAI1, MODECL, RELCLA, TIMCLA, NCTCLA, CLAI1, MODEVH, RELVHT, TIMVHT, &
                   NCTVHT, VHT1, BMETP, BMETAL, BMETDATES, MEASPE, DEL
-   USE FRmod, ONLY: BSOFT
+   USE run_control, ONLY: BSOFT
    USE datetime, ONLY: hour_from_date
    USE interpolation, ONLY: TERPO1
 
@@ -57,7 +58,7 @@ MODULE rest
    USE error_status, ONLY: errstat_alloc, errstat_dealloc, errstat_read
    USE file_units, ONLY: FID_logfile
 
-   USE OCmod2, ONLY: GETHRF
+   USE oc_node_solver, ONLY: gethrf
 
 !USE PERTURBATIONS, ONLY : GETSPACETIME1
    IMPLICIT NONE

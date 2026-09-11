@@ -29,7 +29,8 @@ MODULE et_input
    USE element_geometry, ONLY: total_no_elements
    USE grid_topology, ONLY: NGDBGN
    USE simulation_clock, ONLY: TIMEUZ
-   USE AL_D, ONLY: BHOTRD, DTMET, DTMET2, DTMET3, ISTA, NM, precip_m_per_s
+   USE AL_D, ONLY: DTMET, DTMET2, DTMET3, ISTA, NM, precip_m_per_s
+   USE run_control, ONLY: BHOTRD
    USE file_units, ONLY: EPD, ETD, FID_logfile, MED, PRD, TAH, TAL
    USE et_config, ONLY: BAR, BINETP, BMETAL, BMETDATES, BMETP, CB, CK, CLAI1, CSTCA1, &
                         CSTCAP, FET, MEASPE, MODE, MODECL, MODECS, MODEPL, MODEVH, NCTCLA, &

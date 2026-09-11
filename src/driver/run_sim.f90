@@ -73,14 +73,15 @@ MODULE run_sim
    USE grid_topology, ONLY: ICMRF2
    USE simulation_clock, ONLY: UZNEXT, DTUZ, TIH
 
-   USE AL_D, ONLY: nmc, obspe, bexsy, bexcm, precip_m_per_s, mbflag, bhotpr, hotime, bhotst, &
-                  bhotrd, tmax
+   USE AL_D, ONLY: nmc, obspe, precip_m_per_s, mbflag, tmax
+   USE run_control, ONLY: BEXSY, BEXCM, BHOTPR, HOTIME, BHOTST, BHOTRD
    USE et_state, ONLY: ESWA, EPOT, CSTORE
    USE oc_state, ONLY: OCNEXT, OCNOW, DQ0ST, DQIST, DQIST2
    USE snow_state, ONLY: SD, TS, NSMC
    USE file_units, ONLY: HOT, TIM
    USE simulation_clock, ONLY: NSTEP, TTH
-   USE FRmod, ONLY: tsh, tch, bstore, btime
+   USE FRmod, ONLY: bstore, btime
+   USE run_control, ONLY: TSH, TCH
    USE vs_boundaries, ONLY: RLFTIM
    USE vs_driver, ONLY: VSSIM
    USE vs_state, ONLY: ICSOILsv
@@ -92,10 +93,10 @@ MODULE run_sim
    !start_impact_window, end_impact_window, per_rain, mx_cnt_rain, cnt_rain !these here only for AD
    USE FRmod, ONLY: FRINIT
    USE cm_input, ONLY: INCM
-   USE OCmod, ONLY: OCSIM
-   USE OCQDQMOD, ONLY: STRXX, STRYY
-   USE OCmod2, ONLY: GETHRF, &
-      HRFZZ !HRFZZ NEEDED ONLY FOR AD
+   USE oc_driver, ONLY: OCSIM
+   USE oc_state, ONLY: STRXX, STRYY
+   USE oc_node_solver, ONLY: gethrf
+   USE oc_state, ONLY: HRFZZ
    USE FRmod, ONLY: FRSORT, FROUTPUT, FRMB, FRRESP, DATE_FROM_HOUR
    USE sy_driver, ONLY: SYMAIN, BALSED
    USE VISUALISATION_INTERFACE_RIGHT, ONLY: RECORD_VISUALISATION_DATA         !VISVISVIS
@@ -107,9 +108,10 @@ MODULE run_sim
    USE snow_state, ONLY: SF
    USE simulation_clock, ONLY: TIMEUZ
    USE cm_column_scaling, ONLY: z2sq   !"JE"
-   USE ocmod, ONLY: qfnext, hoclst, hocprv, qocfin, hocnxt, hocnxv
-   USE OCQDQMOD, ONLY: hocnow, qocf, xafull !, firstocqdq
-   USE OCmod2, ONLY: hrfzz, qsazz !NEEDED ONLY FOR AD
+   USE oc_boundaries, ONLY: QFNEXT, HOCLST, HOCPRV, QOCFIN, HOCNXT, HOCNXV
+   USE oc_boundaries, ONLY: HOCNOW, QOCF
+   USE oc_cross_sections, ONLY: XAFULL
+   USE oc_state, ONLY: HRFZZ, qsazz
    USE vs_boundaries, ONLY: RLFDUM, RLGNXT, FIRSTvssim, RBHLST, RLHLST, RBHPRV, RLGLST, RLHPRV, &
                   RBFPRV, RLGPRV, RLFPRV, RWELIN, RBHTIM, WLTIME, RLHDUM, RBHNXT, RLHTIM, RLGDUM, &
                   RLHNXT, RBFTIM, RLGTIM

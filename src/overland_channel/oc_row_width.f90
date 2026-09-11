@@ -1,6 +1,6 @@
 !> @brief Row widths of the open-channel implicit solver.
 !>
-!> The open-channel row solver in [[OCmod]] works on one block row of the
+!> The open-channel row solver in [[oc_driver]] works on one block row of the
 !> basic grid at a time. [[oc_indexing:OCIND]] lists the elements of every row
 !> contiguously in `NROWEL` and records where each row starts in `NROWST`, so
 !> the width of row `j` is the difference of successive row-start pointers.

@@ -75,6 +75,7 @@ MODULE FRmod
    USE channel_geometry, ONLY: BEXBK, CWIDTH, CLENTH, FHBED, ICMBK, LINKNS, NHBED, ZBEFF, ZBFULL
    USE et_state, ONLY: CLAI, DRAINA, EEVAP, ESOILA, NV, NRD, NVC, PLAI, PNETTO, RDL, RDF, &
                   initialise_al_c3
+   USE bank_setup, ONLY: INBK
    USE oc_state, ONLY: ARXL, QOC
    USE vs_state, ONLY: DELTAZ, JVSACN, JVSDEL, NLYRBT, NLYR, NTSOIL, NVSSPC, NVSSPT, NVSWLI, &
                   NVSWLT, NWELBT, NS, NWELTP, QH, QVSH, QVSSPR, QVSWEL, QVSWLI, QVSV, QBKB, QBKF, &
@@ -85,11 +86,13 @@ MODULE FRmod
                   MND, MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL
    USE grid_topology, ONLY: ICMRF2
    USE simulation_clock, ONLY: DTUZ, TIH, UZNEXT
-   USE AL_D, ONLY: BALANC, BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BHOTRD, BHOTST, &
-                  BHOTTI, BHOTPR, DTMET3, DTMET, DTMET2, HOTIME, ISTA, isextradis, isextrapsl, &
-                  IOCORS, ICLNUM, ICLIST, IODATA, IOELEM, IOSTA, IOSTEP, IOEND, IORES, IOTIME, &
-                  MBLINK, MBFACE, MBFLAG, MBYEAR, MBMON, MBDAY, NRAINC, NMC, NM, NSET, NRAIN, &
-                  precip_m_per_s, PSTART, PMAX, PALFA, PREST, RESFIL, TMAX, TOUTPUT
+   USE AL_D, ONLY: BALANC, DTMET3, DTMET, DTMET2, ISTA, IOCORS, ICLNUM, ICLIST, IODATA, IOELEM, &
+                  IOSTA, IOSTEP, IOEND, IORES, IOTIME, MBLINK, MBFACE, MBFLAG, MBYEAR, MBMON, &
+                  MBDAY, NRAINC, NMC, NM, NSET, NRAIN, precip_m_per_s, PSTART, PMAX, PALFA, PREST, &
+                  RESFIL, TMAX
+   USE run_control, ONLY: BEXSZ, BEXEX, BEXSY, BEXCM, BEXSM, BEXOC, BEXET, BEXUZ, BHOTRD, BHOTST, &
+                  BHOTTI, BHOTPR, HOTIME, isextradis, isextrapsl, TOUTPUT, &
+                  TSH, TCH, BFRTS1, BFRTS2, BINFRP, BSOFT, TITLE, msg
    USE et_state, ONLY: CSTORE, EINTA, ERZA, EPOT, VHT
    USE oc_boundaries, ONLY: NOCBCC, NOCBCD
    USE oc_state, ONLY: DQ0ST, DQIST, DQIST2, LCODEY, LCODEX, OCNOW, QMAX
@@ -102,8 +105,9 @@ MODULE FRmod
    USE grid_topology, ONLY: INGRID
    USE legacy_retained, ONLY: NGRID
    USE simulation_clock, ONLY: TIMEUZ, TTH, UZVAL
-   USE OCmod, ONLY: LINKNO, OCLTL
-   USE OCQDQMOD, ONLY: STRXX, STRYY
+   USE oc_indexing, ONLY: LINKNO
+   USE oc_validation, ONLY: OCLTL
+   USE oc_state, ONLY: STRXX, STRYY
    USE datetime, ONLY: hour_from_date, date_from_hour
    USE grid_arrays, ONLY: AREADR, AREADI
    USE input_validation, ONLY: ALCHK, ALCHKI
@@ -128,8 +132,8 @@ MODULE FRmod
    USE et_input, ONLY: INET
    USE vs_input, ONLY: VSIN
    USE vs_soil_tables, ONLY: VSPTHE, NVSSOL, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, VSPPSI
-   USE OCmod, ONLY: OCINI
-   USE OCmod2, ONLY: GETHRF, SETHRF, SETQSA
+   USE oc_driver, ONLY: OCINI
+   USE oc_node_solver, ONLY: gethrf, sethrf, setqsa
    USE mod_parameters, ONLY: RHO_SEDIMENT
    USE sy_state, ONLY: DLS, GNU, FBETA, FDEL, PLS, GINFD, GINFS, GNUBK, QSED, DCBED, DCBSED, &
                   ARBDEP, NSED, FBTSD, QDEFF, NSOBED, PBSED, SOSDFN, SOFN
@@ -143,19 +147,13 @@ MODULE FRmod
    USE cm_link_water, ONLY: DBDI, ACPBSG, DBS, ACPBI, ACPSFO, ACPBDO, THBEDO, THBED
    USE cm_plant_state, ONLY: PMASS, PF2MAX, PKMAX, NPLT, PFONE, NPLTYP, PDZF3, DELONE, NPL, GMCBBO
 
-   USE ZQmod, ONLY: ReadZQTable
+   USE zq_tables, ONLY: ReadZQTable
 
    IMPLICIT NONE
    INTEGER :: IAOUT !! Legacy frame-output selector read from the FR data file.
    DOUBLEPRECISION :: ALLOUT !! Next accumulated legacy output-control time (h).
    DOUBLEPRECISION :: DTAO   !! Legacy output interval (h).
-   DOUBLEPRECISION :: TSH    !! Sediment-component start time measured from the run start (h).
-   DOUBLEPRECISION :: TCH    !! Contaminant-component start time measured from the run start (h).
-   LOGICAL :: BFRTS1 !! Print the calculation sequence to the screen during simulation.
-   LOGICAL :: BFRTS2 !! Print values exchanged between the frame and components each timestep.
-   LOGICAL :: BINFRP !! Echo frame input data to the print file.
    LOGICAL :: BTIME  !! Enable time-series result processing.
-   LOGICAL :: BSOFT  !! Enable the shortened-timestep soft start.
    LOGICAL :: BSTORE !! Enable the legacy result-output method.
    LOGICAL :: BPPNET !! Print net precipitation arrays.
    LOGICAL :: BPEPOT !! Print potential-evaporation arrays.
@@ -168,8 +166,6 @@ MODULE FRmod
    LOGICAL :: BPBAL  !! Print water-balance arrays.
    LOGICAL :: BPSD   !! Print snow-depth arrays.
 
-   CHARACTER(LEN=80) :: TITLE !! Current run title or input-section heading.
-   CHARACTER(256)    :: msg   !! Shared formatted diagnostic message.
 
    INTEGER, SAVE   :: next_hour = 1     !! AD-exported compatibility copy; shadowed by [[froutput]] and remains 1.
    INTEGER, SAVE   :: icounter2 = 0     !! Next whole-day mass-balance output threshold (h).
@@ -3955,272 +3951,6 @@ CONTAINS
 
    END SUBROUTINE FRSORT
 
-!> @brief Reads and initialises bank water-level/depth data.
-!>
-!> `INBK` reads bank-component input data and sets bank water-surface elevations
-!> and related bank state used by OC, VSS, sediment, and contaminant routines.
-!> The routine loops over 13 bank data records. The `INTYPE` input methods are:
-!>
-!> | `INTYPE` | Meaning |
-!> |:---------|:--------|
-!> | 1 | Copy from an adjacent grid element if possible, otherwise from the first adjacent bank element found on the second pass. Ground level is set from adjacent bank-full elevation. |
-!> | 2 | Set all bank elements from one supplied default value. For ground level, the value is an offset from `ZBFULL`. |
-!> | 3 | Unsupported; the routine raises fatal error 1061. |
-!> | 4 | Read explicit `(bank element, value)` pairs. The read `NVALUE` is ignored and replaced by `2*total_no_links`. |
-!>
-!> | `IDATA` | Target | Type and transform |
-!> |:--------|:-------|:-------------------|
-!> | 1 | `ZGRUND` | Real. `INTYPE=1` sets `ZBFULL(link)`; `INTYPE=2` stores `ZBFULL(link)+DFAULT`; `INTYPE=4` stores the explicit elevation. |
-!> | 2 | `NMC` | Integer meteorological category. |
-!> | 3 | `NRAINC` | Integer rainfall category. |
-!> | 4 | `NVC` | Integer vegetation category. |
-!> | 5 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
-!> | 6 | `STRXX` | Real east-west Strickler/roughness value. |
-!> | 7 | `STRYY` | Real north-south Strickler/roughness value. |
-!> | 8 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
-!> | 9 | None | Integer value is read into workspace for `INTYPE=2/4` but is not applied. |
-!> | 10 | `SD` | Initial bank-element snow depth (mm snow). |
-!> | 11 | `RHOSAR` | Initial bank-element snow specific gravity (dimensionless). |
-!> | 12 | `ZVSPSL` | Real. `INTYPE=1` copies adjacent phreatic elevation plus `ZGRUND(IEL)-ZGRUND(JEL)`; `INTYPE=2/4` interprets input as depth below bank ground and sets `ZGRUND-DUMMY`. |
-!> | 13 | `HRF` | Real. `INTYPE=1` copies adjacent water-surface elevation plus `ZGRUND(IEL)-ZGRUND(JEL)`; `INTYPE=2/4` interprets input as water depth above bank ground and sets `ZGRUND+DUMMY`. |
-!>
-!> Bank widths are not set here. `INTEGR` selects integer input for records 2,
-!> 3, 4, 5, 8, and 9; all other records are read as real values. The routine
-!> uses bank input unit `BKD`, element references `ICMREF`, and bank-full
-!> elevations `ZBFULL`, with `IDUM` and `DUMMY` as workspace.
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | 1994-10-01 | RAH | 3.4.1 | Standardised inherited typing. |
-!> | 1994-08 | GP | 4.0 | Moved VSS soil-layer state out of bank input. |
-!> | 1998-07 | RAH | 4.2 | Removed unsupported class-based bank input. |
-!> | 2009-01 | JE | - | Restructured loops for automatic differentiation. |
-!> @endhistory
-   SUBROUTINE INBK
-
-      IMPLICIT NONE
-
-      ! Locals, etc
-      INTEGER :: I, IEL, ICOUNT, IDATA, IFAULT, IL, INTYPE, ITYPE
-      INTEGER :: J, JEL, NVALUE, ios
-      INTEGER :: IVALUE(NLFEE*2), IELEM(NLFEE*2)
-      DOUBLE PRECISION :: DFAULT, DZG, VALUE(NLFEE*2)
-      LOGICAL :: BINBKD, found_adjacent
-      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INBK' !! Location string for read-error reports.
-
-      LOGICAL, PARAMETER :: INTEGR(13) = [.FALSE., .TRUE., .TRUE., .TRUE., .TRUE., .FALSE., &
-                                          .FALSE., .TRUE., .TRUE., .FALSE., .FALSE., .FALSE., .FALSE.]
-
-      !
-      ! READ TITLE, FLAG FOR PRINTING INITIALISATION DATA
-      ! :BK1
-      READ (BKD, '(A)', IOSTAT=ios, IOMSG=emsg) TITLE
-      CALL errstat_read(ios, location, emsg)
-      READ (BKD, '(L7)', IOSTAT=ios, IOMSG=emsg) BINBKD
-      CALL errstat_read(ios, location, emsg)
-
-      ! ----- LOOP OVER INPUT DATA TYPES
-      !
-      out500: DO IDATA = 1, 13
-         ! INITIALISE DUMMY ARRAYS
-         DO IEL = NGDBGN, total_no_elements
-            IDUM(IEL) = 0
-            DUMMY(IEL) = zero
-         END DO
-
-         ! READ TITLE, INPUT METHOD, NUMBER OF FOLLOWING VALUES
-         ! :BK3
-         READ (BKD, '(A)', IOSTAT=ios, IOMSG=emsg) TITLE
-         CALL errstat_read(ios, location, emsg)
-         IF (BINBKD) WRITE (FID_logfile, '(A)') TITLE
-         READ (BKD, '(10I7)', IOSTAT=ios, IOMSG=emsg) INTYPE, NVALUE
-         CALL errstat_read(ios, location, emsg)
-
-         !
-         ! TYPE 1: SET VALUE = VALUE AT ADJACENT GRID
-         ! ++++++++++++++++++++++++++++++++++++++++++
-         !
-         ! (except ZGRUND     = ZBFULL(il)
-         !     and ZVSPSL,HRF = value + ZGRUND - ZGRUND(jel) )
-         !
-         ! NB. CATCHMENT IS SCANNED TWICE. THE 2nd TIME THROUGH, ANY BANKS WITH
-         !     NO ADJACENT GRID ARE GIVEN THE VALUE OF THE 1st ADJACENT BANK FOUND
-         !
-         IF (INTYPE == 1) THEN
-            out95: DO ICOUNT = 1, 2
-               out90: DO IEL = NGDBGN, total_no_elements
-                  ITYPE = ICMREF(IEL, 1)
-                  IF (ITYPE /= 1 .AND. ITYPE /= 2) CYCLE out90
-
-                  ! * find adjacent element
-                  found_adjacent = .FALSE.
-
-                  out60: DO J = 1, 4
-                     JEL = ICMREF(IEL, 4 + J)
-                     IF (JEL > 0) THEN
-                        IF (ICMREF(JEL, 1) == 0) THEN
-                           found_adjacent = .TRUE.
-                           EXIT out60
-                        END IF
-                     END IF
-                  END DO out60
-
-                  IF (.NOT. found_adjacent) THEN
-                     out65: DO J = 1, 4
-                        JEL = ICMREF(IEL, J + 4)
-                        IF (JEL > 0) THEN
-                           IF (ICMREF(JEL, 1) == 1 .OR. ICMREF(JEL, 1) == 2) THEN
-                              found_adjacent = .TRUE.
-                              EXIT out65
-                           END IF
-                        END IF
-                     END DO out65
-                  END IF
-
-                  ! * set value
-                  DZG = ZGRUND(IEL) - ZGRUND(JEL)
-
-                  SELECT CASE (IDATA)
-                  CASE (1)
-                     IL = ICMREF(IEL, 4)
-                     ZGRUND(IEL) = ZBFULL(IL)
-                  CASE (2)
-                     NMC(IEL) = NMC(JEL)
-                  CASE (3)
-                     NRAINC(IEL) = NRAINC(JEL)
-                  CASE (4)
-                     NVC(IEL) = NVC(JEL)
-                  CASE (6)
-                     STRXX(IEL) = STRXX(JEL)
-                  CASE (7)
-                     STRYY(IEL) = STRYY(JEL)
-                  CASE (10)
-                     SD(IEL) = SD(JEL)
-                  CASE (11)
-                     RHOSAR(IEL) = RHOSAR(JEL)
-                  CASE (12)
-                     ZVSPSL(IEL) = ZVSPSL(JEL) + DZG
-                  CASE (13)
-                     CALL SETHRF(IEL, GETHRF(JEL) + DZG)
-                  END SELECT
-               END DO out90
-            END DO out95
-
-            CYCLE out500
-            !
-            ! TYPE 2: READ SINGLE DEFAULT VALUE
-            ! +++++++++++++++++++++++++++++++++
-            !
-         ELSE IF (INTYPE == 2) THEN
-            ! :BK5
-            IF (INTEGR(IDATA)) THEN
-               READ (BKD, '(10I7)', IOSTAT=ios, IOMSG=emsg) IFAULT
-               CALL errstat_read(ios, location, emsg)
-               IF (BINBKD) WRITE (FID_logfile, 1300) IFAULT
-
-               DO IEL = NGDBGN, total_no_elements
-                  ITYPE = ICMREF(IEL, 1)
-                  IF (ITYPE == 1 .OR. ITYPE == 2) IDUM(IEL) = IFAULT
-               END DO
-               ! :BK6
-            ELSE
-               READ (BKD, '(10F7.0)', IOSTAT=ios, IOMSG=emsg) DFAULT
-               CALL errstat_read(ios, location, emsg)
-               IF (BINBKD) WRITE (FID_logfile, 1500) DFAULT
-
-               DO IEL = NGDBGN, total_no_elements
-                  ITYPE = ICMREF(IEL, 1)
-                  ! amended by GP 18/7/94 to be consistent with DSATE code
-                  IF (ITYPE == 1 .OR. ITYPE == 2) THEN
-                     IF (IDATA == 1) THEN
-                        IL = ICMREF(IEL, 4)
-                        DUMMY(IEL) = ZBFULL(IL) + DFAULT
-                     ELSE
-                        DUMMY(IEL) = DFAULT
-                     END IF
-                  END IF
-               END DO
-            END IF
-
-            ! TYPE 3: READ PAIRS OF (DATA CLASS, VALUE)
-            ! +++++++++++++++++++++++++++++++++++++++++
-         ELSE IF (INTYPE == 3) THEN
-            ! :BK7-8
-            CALL RAISE_ERROR(ERRLVL_fatal, 1061, FID_logfile, 0, 0, 'BKD input type 3 (data class, value) not supported')
-
-            ! TYPE 4: READ PAIRS OF (BANK ELEMENT NUMBER, VALUE)
-            ! ++++++++++++++++++++++++++++++++++++++++++++++++++
-         ELSE IF (INTYPE == 4) THEN
-            NVALUE = 2*total_no_links
-            ! 980713
-            IF (INTEGR(IDATA)) THEN
-               READ (BKD, '(10I7)', IOSTAT=ios, IOMSG=emsg) (IELEM(I), IVALUE(I), I=1, NVALUE)
-               CALL errstat_read(ios, location, emsg)
-               IF (BINBKD) WRITE (FID_logfile, 2000)
-               IF (BINBKD) WRITE (FID_logfile, 2050) (IELEM(I), IVALUE(I), I=1, NVALUE)
-
-               DO I = 1, NVALUE
-                  IEL = IELEM(I)
-                  ITYPE = ICMREF(IEL, 1)
-                  IF (ITYPE == 1 .OR. ITYPE == 2) IDUM(IEL) = IVALUE(I)
-               END DO
-            ELSE
-               READ (BKD, '(5(I7,F7.0))', IOSTAT=ios, IOMSG=emsg) (IELEM(I), VALUE(I), I=1, NVALUE)
-               CALL errstat_read(ios, location, emsg)
-               IF (BINBKD) WRITE (FID_logfile, 2100)
-               IF (BINBKD) WRITE (FID_logfile, 2150) (IELEM(I), VALUE(I), I=1, NVALUE)
-
-               DO I = 1, NVALUE
-                  IEL = IELEM(I)
-                  ITYPE = ICMREF(IEL, 1)
-                  IF (ITYPE == 1 .OR. ITYPE == 2) DUMMY(IEL) = VALUE(I)
-               END DO
-            END IF
-         END IF
-
-         ! MOVE DATA FROM DUMMY ARRAYS INTO ACTUAL DATA ARRAYS
-         DO IEL = NGDBGN, total_no_elements
-            ITYPE = ICMREF(IEL, 1)
-            IF (ITYPE == 1 .OR. ITYPE == 2) THEN
-               SELECT CASE (IDATA)
-               CASE (1)
-                  ZGRUND(IEL) = DUMMY(IEL)
-               CASE (2)
-                  NMC(IEL) = IDUM(IEL)
-               CASE (3)
-                  NRAINC(IEL) = IDUM(IEL)
-               CASE (4)
-                  NVC(IEL) = IDUM(IEL)
-               CASE (6)
-                  STRXX(IEL) = DUMMY(IEL)
-               CASE (7)
-                  STRYY(IEL) = DUMMY(IEL)
-               CASE (10)
-                  SD(IEL) = DUMMY(IEL)
-               CASE (11)
-                  RHOSAR(IEL) = DUMMY(IEL)
-               CASE (12)
-                  ZVSPSL(IEL) = ZGRUND(IEL) - DUMMY(IEL)
-               CASE (13)
-                  CALL SETHRF(IEL, ZGRUND(IEL) + DUMMY(IEL))
-               END SELECT
-            END IF
-         END DO
-
-      END DO out500
-
-      ! FORMAT STATEMENTS
-      !
-1300  FORMAT(' DEFAULT VALUE ', I7, ' USED IN ALL BANK ELEMENTS'/)
-1500  FORMAT(' DEFAULT VALUE ', F12.3, ' USED IN ALL BANK ELEMENTS'/)
-2000  FORMAT(' VALUES ALLOCATED TO EACH ELEMENT:'/3('       ELEMENT   VALUE'))
-2050  FORMAT(3(I7, 2X, I7, 6X))
-2100  FORMAT(' VALUES ALLOCATED TO EACH ELEMENT:'/3('       ELEMENT     VALUE'))
-2150  FORMAT(3(I7, F12.3, 6X))
-
-   END SUBROUTINE INBK
 
 
 

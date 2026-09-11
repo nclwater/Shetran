@@ -47,7 +47,8 @@ MODULE et_process
    USE grid_topology, ONLY: ICMREF, NGDBGN
    USE channel_geometry, ONLY: NHBED, CWIDTH, FHBED
    USE simulation_clock, ONLY: DTUZ, TIMEUZ, UZNEXT
-   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, OBSPE, RN, VPD, precip_m_per_s, BEXSM
+   USE AL_D, ONLY: NMC, NRAINC, NM, NRAIN, U, OBSPE, RN, VPD, precip_m_per_s
+   USE run_control, ONLY: BEXSM
    USE et_config, ONLY: BAR, CB, CK, CLAI1, CSTCA1, CSTCAP, DEL, FET, MEASPE, MODE, msg, &
                         NF, PLAI1, PS1, PSI4, RA, RC, RCF, RELCLA, RELCST, RELPLA, RELVHT, &
                         RTOP, TIMCLA, TIMCST, TIMPLA, TIMVHT, UZALFA, VHT1
@@ -63,7 +64,7 @@ MODULE et_process
    USE file_units, ONLY: FID_logfile
    USE linear_algebra, ONLY: dcopy
    USE snowmelt, ONLY: SMIN
-   USE OCMOD2, ONLY: GETHRF
+   USE oc_node_solver, ONLY: gethrf
 
    IMPLICIT NONE
 

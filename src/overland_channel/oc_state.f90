@@ -17,6 +17,7 @@
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-10 | SvB | - | Split out of AL_C, AL_D; see docs/rename/proposal.md. |
+!> | 2026-09-11 | SvB | - | Gained the Strickler roughness grids, `dtoc`, and the `HRFZZ`/`qsazz`/`xstab` arrays behind the abstracted accessors. |
 !> @endhistory
 MODULE oc_state
 
@@ -38,6 +39,17 @@ MODULE oc_state
    DOUBLEPRECISION :: DQ0ST(NELEE,4) !! Face-flow derivative with respect to the local element state.
    DOUBLEPRECISION :: DQIST(NELEE,4) !! Face-flow derivative with respect to the adjacent element state.
    DOUBLEPRECISION :: DQIST2(NLFEE,3) !! Confluence-flow derivative by branch record and branch position.
+
+
+! Solver working state and the abstracted accessors' storage (from OCmod2, OCQDQMOD, OCmod).
+   DOUBLEPRECISION    :: STRXX(NELEE)      !! X-direction Strickler roughness, or negative storage-depth marker.
+   DOUBLEPRECISION    :: STRYY(NELEE)      !! Y-direction Strickler roughness.
+   DOUBLEPRECISION    :: dtoc                   !! OC timestep in seconds.
+   DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !! Water-surface elevation by element; abstracted for AD and solver access.
+   DOUBLEPRECISION, DIMENSION(NELEE, 4)        :: qsazz    !! Face discharge by element and face; positive into the indexed element.
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: xstab
+   !! Channel lookup table: depth, conveyance, and conveyance slope by row and link.
+   !! Allocated once by [[initialise_ocmod]] to shape `(3,NXSCEE,total_no_links)`.
 
 END MODULE oc_state
 

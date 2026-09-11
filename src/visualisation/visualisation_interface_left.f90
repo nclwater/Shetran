@@ -95,7 +95,7 @@ MODULE visualisation_interface_left
    USE file_units, ONLY: CMD, SYD
    USE et_state, ONLY: ESOILA
    USE vs_state, ONLY: DELTAZ, QVSV, VSPSI, VSTHE, ZVSPSL
-   USE AL_D, ONLY: bexcm, bexsy
+   USE run_control, ONLY: BEXCM, BEXSY
    USE et_state, ONLY: CSTORE, EINTA, EPOT, ERZA
    USE snow_state, ONLY: SD
    USE element_geometry, ONLY: DXIN, DYIN
@@ -107,7 +107,7 @@ MODULE visualisation_interface_left
    USE cm_parameters, ONLY: cccc, nnncon => ncon, ssss
    USE mod_parameters, ONLY: rho_sediment
    USE sy_state, ONLY: DLS, GNU, nnnsed => NSED, QSED
-   USE OCmod2, ONLY: hrfzz
+   USE oc_state, ONLY: HRFZZ
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_LINE
    USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
