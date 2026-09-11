@@ -734,3 +734,34 @@ listed below.
 *Lesson.* A rename applied by regex must exclude string literals, or be checked
 against them afterwards. The content-equivalence check of the previous section
 cannot see this: it compares code lines, and both versions are code.
+
+## Still open after this work
+
+The list in `14_closeout.md` plus what the implementation added:
+
+- The disagreeing physical constants (`constants_review.md`) — kept apart under
+  distinct names.
+- The duplicated plant state between `cm_plant_state` and `mn_state`
+  (`docs/todo/issue_plant_declarations.md`).
+- `ZQTableRef` / `ZQTableRefRead` — whether they are one quantity.
+- The 26 orphan variables in `core/legacy_retained.f90`.
+- `DOCIN`, which has no caller; likewise `FRLTL`, `FRRESC`, `write_dis` and
+  `ETCHK2`, which this work found to be uncalled too.
+- `input_workspace`'s `IDUM` and `DUMMY`, which should become locals.
+- The `initialise_al_c*` names, which outlive the module they refer to.
+- **Four `location` strings naming retired modules** (D33):
+  `"CONT_CC:initialise_cont_cc"`, `"COLM_CG:initialise_colm_cg"`,
+  `"COLM_CG:deallocate_colm_cg"`, `"COLM_CO:initialise_colm_co"`. Correct to
+  leave for a pure move, since they reach the user through a diagnostic, but
+  now misleading.
+- **`msg` in three modules** (D17) — `et_config`, `linear_algebra` and
+  `run_control` each declare a shared message buffer. Each should be a local.
+- **`FIRST_syfine`/`WSED_syfine` in `sy_transport_capacity`** (D15) while their
+  only user `SYFINE` is in `sy_hillslope`.
+- **`ERUZ` allocated by `vs_state:initialise_al_c`** though it belongs to
+  `et_state` (D11).
+- **`build.sh --test` does not build `oc_row_width_tests`** (D1), and
+  `00_working_rules.md` §10's `rm -rf` of the test module directories needs a
+  CMake re-configure (D26).
+- **`setup_results_check.py` never clears `output_should/`** (D14), so a
+  renamed output file silently poisons the comparison.
