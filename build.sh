@@ -30,7 +30,7 @@ Options:
   -j, --jobs N            Number of parallel jobs (default: ${JOBS})
   --ford                  Generate FORD documentation after a successful build
   --docs-only             Generate FORD documentation only (no compile)
-  --test                  Build and run the visualisation parser tests
+  --test                  Build and run the unit tests (visualisation parser and OC row width)
   -h, --help              Show this help message
 
 Examples:
@@ -218,7 +218,7 @@ esac
 echo "INFO: Build type:      $BUILD_TYPE"
 echo "INFO: Compiler:        $COMPILER"
 echo "INFO: Build directory: $BUILD_DIR"
-echo "INFO: Parser tests:    $RUN_TESTS"
+echo "INFO: Unit tests:      $RUN_TESTS"
 
 # Clean build directory if requested
 if $CLEAN_BUILD; then
@@ -234,6 +234,8 @@ if $CLEAN_APP_ONLY; then
         rm -rf "$BUILD_DIR/CMakeFiles/SHETRAN.dir"
         rm -f "$BUILD_DIR/test/bin/visualisation_read_tests"
         rm -rf "$BUILD_DIR/test/CMakeFiles/visualisation_read_tests.dir"
+        rm -f "$BUILD_DIR/test/bin/oc_row_width_tests"
+        rm -rf "$BUILD_DIR/test/CMakeFiles/oc_row_width_tests.dir"
         find "$BUILD_DIR" -maxdepth 1 -type f \( -name "*.mod" -o -name "*.smod" \) -delete
     else
         echo "INFO: Build directory does not exist yet. --clean-app has nothing to clean."
@@ -262,15 +264,17 @@ fi
 cmake "${BUILD_ARGS[@]}"
 
 if $RUN_TESTS; then
-    echo "INFO: Building visualisation parser tests..."
-    TEST_BUILD_ARGS=(--build . --target visualisation_read_tests --parallel "$JOBS")
-    if $VERBOSE; then
-        TEST_BUILD_ARGS+=(--verbose)
-    fi
-    cmake "${TEST_BUILD_ARGS[@]}"
+    for test_target in visualisation_read_tests oc_row_width_tests; do
+        echo "INFO: Building test target: $test_target..."
+        TEST_BUILD_ARGS=(--build . --target "$test_target" --parallel "$JOBS")
+        if $VERBOSE; then
+            TEST_BUILD_ARGS+=(--verbose)
+        fi
+        cmake "${TEST_BUILD_ARGS[@]}"
+    done
 
-    echo "INFO: Running visualisation parser tests..."
-    ctest --output-on-failure -R '^visualisation_read\.'
+    echo "INFO: Running unit tests..."
+    ctest --output-on-failure
 fi
 
 popd >/dev/null
@@ -282,7 +286,7 @@ echo "  Compiler:     $COMPILER"
 echo "  Build type:   $BUILD_TYPE"
 echo "  Build dir:    $BUILD_DIR"
 echo "  Executable:   $BUILD_DIR/bin/shetran"
-echo "  Parser tests: $RUN_TESTS"
+echo "  Unit tests:   $RUN_TESTS"
 echo
 
 if $GENERATE_FORD; then

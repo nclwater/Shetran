@@ -157,7 +157,7 @@ if /i "%BUILD_TYPE%"=="Debug" (
 
 echo INFO: Build type:      %BUILD_TYPE%
 echo INFO: Build directory:  %BUILD_DIR%
-echo INFO: Parser tests:     %RUN_TESTS%
+echo INFO: Unit tests:       %RUN_TESTS%
 
 REM Clean build directory if requested
 if "%CLEAN_BUILD%"=="true" (
@@ -174,6 +174,8 @@ if "%CLEAN_APP_ONLY%"=="true" (
         if exist "%BUILD_DIR%\CMakeFiles\SHETRAN.dir" rmdir /s /q "%BUILD_DIR%\CMakeFiles\SHETRAN.dir"
         if exist "%BUILD_DIR%\test\bin\visualisation_read_tests.exe" del /q "%BUILD_DIR%\test\bin\visualisation_read_tests.exe"
         if exist "%BUILD_DIR%\test\CMakeFiles\visualisation_read_tests.dir" rmdir /s /q "%BUILD_DIR%\test\CMakeFiles\visualisation_read_tests.dir"
+        if exist "%BUILD_DIR%\test\bin\oc_row_width_tests.exe" del /q "%BUILD_DIR%\test\bin\oc_row_width_tests.exe"
+        if exist "%BUILD_DIR%\test\CMakeFiles\oc_row_width_tests.dir" rmdir /s /q "%BUILD_DIR%\test\CMakeFiles\oc_row_width_tests.dir"
 
         for %%f in ("%BUILD_DIR%\*.mod" "%BUILD_DIR%\*.smod") do (
             if exist "%%~f" del /q "%%~f"
@@ -215,22 +217,24 @@ if errorlevel 1 (
 )
 
 if "%RUN_TESTS%"=="true" (
-    echo INFO: Building visualisation parser tests...
-    if "%VERBOSE%"=="true" (
-        nmake visualisation_read_tests VERBOSE=1
-    ) else (
-        nmake visualisation_read_tests
-    )
-    if errorlevel 1 (
-        echo ERROR: Visualisation parser test build failed!
-        cd "%~dp0"
-        exit /b 1
+    for %%t in (visualisation_read_tests oc_row_width_tests) do (
+        echo INFO: Building test target: %%t...
+        if "%VERBOSE%"=="true" (
+            nmake %%t VERBOSE=1
+        ) else (
+            nmake %%t
+        )
+        if errorlevel 1 (
+            echo ERROR: Test build failed for target %%t!
+            cd "%~dp0"
+            exit /b 1
+        )
     )
 
-    echo INFO: Running visualisation parser tests...
-    ctest --output-on-failure -R "visualisation_read\."
+    echo INFO: Running unit tests...
+    ctest --output-on-failure
     if errorlevel 1 (
-        echo ERROR: Visualisation parser tests failed!
+        echo ERROR: Unit tests failed!
         cd "%~dp0"
         exit /b 1
     )
@@ -243,7 +247,7 @@ echo   Compiler:     ifx
 echo   Build type:   %BUILD_TYPE%
 echo   Build dir:    %BUILD_DIR%
 echo   Executable:   %BUILD_DIR%\bin\shetran.exe
-echo   Parser tests: %RUN_TESTS%
+echo   Unit tests:   %RUN_TESTS%
 echo.
 
 REM Return to source directory
@@ -288,7 +292,7 @@ echo   -v, --verbose       Verbose build output
 echo   -j, --jobs N        Number of parallel jobs (default: %NUMBER_OF_PROCESSORS%)
 echo   --ford              Generate FORD documentation after a successful build
 echo   --docs-only         Generate FORD documentation only ^(no compile^)
-echo   --test              Build and run the visualisation parser tests
+echo   --test              Build and run the unit tests ^(visualisation parser and OC row width^)
 echo   -h, --help          Show this help message
 echo.
 echo Examples:
@@ -300,7 +304,7 @@ echo   %~nx0 -t Release --verbose   Verbose Release build
 echo   %~nx0 -t ReleaseNative       Maximum local optimization build
 echo   %~nx0 --ford                 Build and generate FORD documentation
 echo   %~nx0 --docs-only            Generate FORD documentation only
-echo   %~nx0 -t Debug --test        Build and run parser tests
+echo   %~nx0 -t Debug --test        Build and run the unit tests
 echo.
 echo Build Directory Structure:
 echo   Debug builds:    build\debug\
