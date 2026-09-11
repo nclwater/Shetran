@@ -549,4 +549,4 @@ This is automatically platform aware.
   * HDF5 binary files (`.h5`, `.hdf5`) are compared structure-by-structure and dataset-by-dataset with a predefined numeric tolerance.
 * **Results**: If differences are found, the script generates diff reports inside a `diff_delta` directory within that specific example's folder. Finally, it generates a summary report named `results_consistency_check_overview.csv` in the `examples` directory.
 
-*(Note: By default, the script skips very large/long-running models like `dano100m` to save time. To run all examples, you would need to modify the script to pass `-l long` or `-l all` to the `check_results_consistency()` call.)*
+*(Note: By default, the script runs only the short-runtime models to save time. Pass `-l medium`, `-l long` or `-l all` to include the slower ones; the lists are in `examples/_methods/settings.py`.)*

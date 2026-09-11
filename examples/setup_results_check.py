@@ -112,6 +112,13 @@ def main():
             dir_diff=None,
         )
 
+        # Clear the expected-results directory before copying. Without this a
+        # fixture whose output file the model no longer writes survives here
+        # forever, and the comparison reports it as missing - which marks every
+        # model as differing for a reason that has nothing to do with the run.
+        if os.path.isdir(dir_results):
+            shutil.rmtree(dir_results)
+
         # copy over all the files starting with "output_" from the compute
         # directory to the results_should directory
         os.makedirs(dir_results, exist_ok=True)
