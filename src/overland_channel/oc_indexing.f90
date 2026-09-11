@@ -102,7 +102,7 @@ CONTAINS
 !> MAX\_ROW\_WIDTH = \max_j n_j,
 !> \]
 !>
-!> evaluated by [[oc_indexing:MAX_ACTIVE_ROW_WIDTH]] once every row start,
+!> evaluated by [[oc_row_width:MAX_ACTIVE_ROW_WIDTH]] once every row start,
 !> including the end-of-last-row marker `NROWST(NY+1)`, has been written.
 !>
 !> Entry requirements retained from the legacy routine are:

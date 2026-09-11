@@ -64,7 +64,7 @@ commits.
 | 11 | [`overland_channel/`](11_overland_channel.md) | 15 | `OCmod`, `OCmod2`, `OCQDQMOD`, `ZQmod` | ☑ |
 | 12 | [`frame/`](12_frame.md) | 6 | `FRmod` | ☑ |
 | 13 | [`meteorology/` and `driver/`](13_meteorology_driver.md) | 7 | `rest`, `run_sim`, `getdirqq`, `AL_D` | ☑ |
-| 14 | [Close-out](14_closeout.md) | – | – | ☐ |
+| 14 | [Close-out](14_closeout.md) | – | – | ☑ |
 
 106 target files in place of the 40 in scope; 269 procedures, 1,091 module-level
 variables and 4 derived types move. The "new files" column sums to 114 because

@@ -599,3 +599,62 @@ order, including the one `#else`.
 
 Any later step that moves code out of a file containing `#` directives must
 check the enclosing guards explicitly; the extractor does not see them.
+
+## D30 — two modules still have no author line
+
+The close-out asks that every new module have `summary:`, an author line, prose
+and an `@history` row. 105 of the 107 do. The two that do not:
+
+| Module | Why |
+|:-------|:----|
+| `cm_parameters` (was `CONT_CC`) | never had one; a 1:1 `git mv` rename with contents unchanged |
+| `oc_row_width` | never had one; untouched by this work (D24) |
+
+Both gaps predate this work — `git show <BASE>:src/contaminant/CONT_CC.F90`
+and the baseline `oc_row_width.f90` have no `!> author:` line either. Neither
+file's contents were rewritten here, so there is nothing this move could
+attribute. `cm_parameters` does carry an `@history` table naming JE for the
+original 1991 implementation, which is the available provenance; inventing an
+author line from it would be a guess, and the `@history` table already records
+what is known.
+
+## D31 — the stack-size warning count moved, for a reason that is not a change
+
+The clean Debug build has 1,595 warnings against the baseline's 1,610, with no
+new *kinds*. Three counts moved:
+
+| Warning | Baseline | Now | Why |
+|:--------|---------:|----:|:----|
+| `USE statement ... has no ONLY qualifier` | 79 | 53 | the 26 bare `USE`s replaced by explicit lists |
+| `Unused PRIVATE module variable` | 10 | 4 | six were private-and-unused in a module that is now a public data module |
+| `Array 'X' is larger than limit set by -fmax-stack-var-size` | 160 | 177 | see below |
+
+The third needed checking. gfortran emits that warning **once per `USE` site**
+that brings a large module array into scope, not once per array: the log shows
+it pointing at `USE sy_state, ONLY: DLS, GNU, ...` in
+`visualisation_interface_left.f90` as well as at the declaration in
+`sy_state.f90`. Splitting `SYmod` and `CMmod` multiplied the number of modules
+importing those arrays, so the same declarations are reported more often —
+`dls` 5 times to 7, while `pmass` and `pf2max` went 3 to 2 as `FRmod`'s single
+import became none.
+
+The storage class of a module variable is static either way, so nothing about
+code generation changed. It is recorded because a warning count that moves in a
+"pure move" is worth explaining rather than waving through.
+
+## D32 — one link the rewriter broke, found by a substitute for FORD
+
+FORD is not installed (D3), so the generated `docs/ford/` pages could not be
+inspected as `14_closeout.md` §4 asks. Instead every `[[module:entity]]`
+cross-reference in `src/` and `test/` was resolved against the modules that
+now exist and the names they declare.
+
+That found exactly one break, in `oc_indexing`'s own header:
+`[[oc_indexing:MAX_ACTIVE_ROW_WIDTH]]`. The rewriter followed
+`functions.csv`, which places that function in `oc_indexing`, but D24 keeps it
+in `oc_row_width` — so the link named a module that does not contain it. It is
+now `[[oc_row_width:MAX_ACTIVE_ROW_WIDTH]]`.
+
+Final state: 1,359 links, 119 modules, **0 unresolved qualified links**. Bare
+`[[entity]]` links are not checked, because FORD resolves those by name across
+the whole project and they are unaffected by the move.

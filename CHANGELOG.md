@@ -1,5 +1,32 @@
 # Changelog
 
+## 110926
+
+Reorganised `src/` into descriptive, right-sized modules. The 40 modules in
+scope become 107 named ones; `sglobal`, `AL_C`, `AL_D`, `AL_G`, `CONST_SY`,
+`SED_CS`, `mod_error`, `utilsmod`, `mod_load_filedata`, `tolerance_testing`,
+`FRmod`, `rest`, `run_sim`, `getdirqq` and the component `*mod` modules are
+dissolved into per-topic modules under `core/`, `util/`, `io/`,
+`meteorology/`, `driver/` and the component directories, and the 14 opaquely
+named contaminant data modules are renamed (`CONT_CC` to `cm_parameters`,
+`COLM_CC` to `cm_column_state`, and so on).
+
+Every physical constant is now declared once, in `mod_parameters`, under a
+name that says which component's value it is: the pairs that disagree
+(`RHO_AIR_ET` 1.2 against `RHO_AIR_SNOW` 1.29, `RHO_WATER_SEDIMENT` 998.0
+against `RHO_WATER_SNOW` 1000.0, `L_VAPORISATION_ET` 2465000 against
+`L_VAPORISATION_SNOW` 2500000) are kept apart rather than unified.
+
+**No behaviour changes.** Every name, value, declaration, body and doc block was
+carried over unchanged; only its location moved, plus the `USE` lines needed to
+keep it visible and 21 renames. All 13 runnable example models produce output
+identical to the pre-reorganisation reference.
+
+See `docs/rename/proposal.md` for the target structure,
+`docs/rename/constants_review.md` for the constants, and
+`docs/rename/plan/deviations.md` for the 29 places where the implementation had
+to decide something the plan did not cover.
+
 ## 210526
 
 - improved channel junction convergence
