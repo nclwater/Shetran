@@ -31,6 +31,11 @@ MODULE array_limits
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: nxee, nyee, nlfee, nelee, LLEE, NVEE, NSEE, NVSEE, NVBP, NUZTAB, NLYREE, NSETEE, NOCTAB, &
+             NSEDEE, NCONEE, NOLEE, NPLTEE, NPELEE, max_no_snowmelt_slugs, NXSCEE, NCLASS, NXE, NYE
+
    INTEGER(KIND=I_P), PARAMETER :: nxee = 1000 !! Maximum basic-grid extent in the x direction.
    INTEGER(KIND=I_P), PARAMETER :: nyee = 1000 !! Maximum basic-grid extent in the y direction.
    INTEGER(KIND=I_P), PARAMETER :: nlfee = 20000 !! Maximum number of channel links.

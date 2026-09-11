@@ -21,11 +21,10 @@
 MODULE oc_validation
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, ione1, izero1, zero, zero1
-   USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, NXSCEE
+   USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, nyee, NXSCEE
    USE element_geometry, ONLY: total_no_elements, total_no_links
    USE grid_topology, ONLY: ICMREF, ICMXY, NGDBGN, NX, NY
    USE file_units, ONLY: FID_logfile, OCD, OFB, OHB
-   USE input_workspace, ONLY: IDUM
    USE oc_state, ONLY: LCODEX, LCODEY, STRXX, STRYY
    USE oc_boundaries, ONLY: NOCFB, NOCHB
    USE oc_cross_sections, ONLY: NXSECT, XINH, XINW
@@ -194,6 +193,7 @@ CONTAINS
       INTEGER :: CODE, FACE, I, IELx, X, Y, TYPEE
       INTEGER :: NERR, IUNDEF
       INTEGER :: IDUMO(1)
+      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
       CHARACTER(LEN=23) :: NAME
       CHARACTER, PARAMETER :: XY(0:1) = ['X', 'Y']
@@ -454,7 +454,7 @@ CONTAINS
       CHARACTER(LEN=1)     :: A1LINE(500)
       INTEGER              :: I, J, K, L, M, ios
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCLTL' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'oc_validation:OCLTL' !! Location string for read-error reports.
 
       CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
                                      ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']

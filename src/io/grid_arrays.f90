@@ -100,7 +100,7 @@ CONTAINS
       INTEGER              :: IA(NXEE, NYEE)
       CHARACTER(4)         :: TITLE(20)
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'utilsmod:AREADI' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'grid_arrays:AREADI' !! Location string for read-error reports.
 !----------------------------------------------------------------------*
 
 !^^^^^^FILL IN SECTION
@@ -295,7 +295,7 @@ CONTAINS
       DOUBLE PRECISION :: B1, B2, A(NXEE, NYEE)
       CHARACTER(LEN=4) :: TITLE(20)
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'utilsmod:AREADR' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'grid_arrays:AREADR' !! Location string for read-error reports.
 !----------------------------------------------------------------------*
 
 !^^^^^^READ SECTION

@@ -58,6 +58,11 @@ MODULE cm_column_geometry
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: JBTLYR, NCOLMB, ZCOLMB, SCL, OODO, JKZCOL, JOLFN, NOL, NOLBT, NOLCE, NOLCEA, WELDRA, &
+             initialise_colm_cg, deallocate_colm_cg
+
    INTEGER :: JBTLYR(NELEE)  !! Unused legacy bottom-soil-layer index by element.
    INTEGER :: NCOLMB(NELEE)  !! Bottom active contaminant cell by non-link element.
 
@@ -110,7 +115,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:initialise_colm_cg"
+      CHARACTER(LEN=*), PARAMETER :: location = "cm_column_geometry:initialise_colm_cg"
 
       allocate (JKZCOL(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "JKZCOL", location, emsg)
@@ -160,7 +165,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:deallocate_colm_cg"
+      CHARACTER(LEN=*), PARAMETER :: location = "cm_column_geometry:deallocate_colm_cg"
 
       deallocate (JKZCOL, STAT=ios, ERRMSG=emsg)
       CALL errstat_dealloc(ios, "JKZCOL", location, emsg)

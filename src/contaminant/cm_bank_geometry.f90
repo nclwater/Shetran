@@ -32,6 +32,10 @@
 MODULE cm_bank_geometry
    USE array_limits, ONLY: nlfee, LLEE
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: FNCEBD, NBANK, NCEAB, NCEBD, QQRVO
    DOUBLEPRECISION FNCEBD (NLFEE, 2)  !! Fraction of cell `NCEBD+1` below the deep-bed boundary.
    INTEGER :: NBANK (NLFEE, 2)  !! Adjacent bank-element number for each link and bank side.
    INTEGER :: NCEAB (NLFEE, 2)  !! Lowest bank cell exchanging with the stream; currently set to `NHBED`.

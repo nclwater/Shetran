@@ -8,10 +8,9 @@
 !> use; [[SYDR]] derives the representative diameters. `FDGR` and `FA` are
 !> contained inside `SYACKW`.
 !>
-!> The module also holds the six derived coefficients and first-call values
-!> that belong to these formulae rather than to the input: `K1_syovtr`,
-!> `K3_syovtr` and `K4_syovtr` are compile-time combinations of the physical
-!> constants, and `WSED_syfine` caches the fine-sediment settling velocity.
+!> The module also holds the derived coefficients that belong to these formulae
+!> rather than to the input: `K1_syovtr`, `K3_syovtr` and `K4_syovtr` are
+!> compile-time combinations of the physical constants.
 !>
 !> @note
 !> `FIRST_syackw` is no longer read or written anywhere. The one-time
@@ -20,10 +19,6 @@
 !> on (`GRAVITY`, `RHO_SEDIMENT`, `RHO_WATER_SEDIMENT`, `NU_WATER` from
 !> [[mod_parameters]]) are themselves `PARAMETER`s. It is dead state left
 !> behind by that change.
-!>
-!> `FIRST_syfine` and `WSED_syfine` are the first-call state of
-!> [[sy_hillslope:SYFINE]], which is in a sibling module; they are placed here
-!> by `variables.csv` and are public for that reason.
 !> @endnote
 !>
 !> @history
@@ -33,6 +28,7 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted the SY `.F` files into a single Fortran 90 module. |
 !> | 2026-04 to 2026-05 | SvB | 4.6.1 | Modernised the whole component: free-form layout, `IMPLICIT NONE`/`INTENT` throughout, structured control flow in place of `GOTO`s, compile-time `PARAMETER`s for the cached first-call constants, and `symain`'s work arrays moved to allocate-once module storage. |
 !> | 2026-09-10 | SvB | - | Split out of SYmod; see docs/rename/proposal.md. |
+!> | 2026-09-11 | SvB | - | Moved `FIRST_syfine` and `WSED_syfine` to [[sy_hillslope]], next to their only user `SYFINE`, which removes them from this module's published interface (D15). |
 !> @endhistory
 MODULE sy_transport_capacity
 
@@ -45,11 +41,8 @@ MODULE sy_transport_capacity
    PRIVATE
 
    PUBLIC :: SYCLTR, SYCRIT, SYDR, SYOVTR
-   PUBLIC :: FIRST_syfine, WSED_syfine
 
    LOGICAL         :: FIRST_syackw = .TRUE. !! Unused; see the module-level note above `MODULE SYmod`.
-   LOGICAL         :: FIRST_syfine = .TRUE. !! True until the fine-sediment settling velocity `WSED_syfine` has been cached.
-   DOUBLEPRECISION :: WSED_syfine         !! Cached fine-sediment settling velocity, set on the first call to [[syfine]].
    DOUBLE PRECISION, PARAMETER :: K1_syovtr = 0.05D0*RHO_WATER_SEDIMENT**2/((RHO_SEDIMENT - RHO_WATER_SEDIMENT)**2*SQRT(GRAVITY)) !! Engelund-Hansen overland-capacity coefficient.
    DOUBLE PRECISION, PARAMETER :: K3_syovtr = 2.45D0*(RHO_SEDIMENT/RHO_WATER_SEDIMENT)**(-0.4D0)/SQRT((RHO_SEDIMENT - RHO_WATER_SEDIMENT)*GRAVITY) !! Yalin overland-capacity coefficient.
    DOUBLE PRECISION, PARAMETER :: K4_syovtr = 0.635D0/SQRT(RHO_WATER_SEDIMENT) !! Yalin overland-capacity coefficient.

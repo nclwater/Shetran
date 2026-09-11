@@ -13,12 +13,13 @@
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-10 | SvB | - | Split out of utilsmod; see docs/rename/proposal.md. |
+!> | 2026-09-11 | SvB | - | Replaced the `msg` buffer imported from [[linear_algebra]] with a local one, removing the dependency (D9). |
 !> @endhistory
 MODULE datetime
 
    USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERR_STOP
    USE file_units, ONLY: FID_logfile
-   USE linear_algebra, ONLY: msg
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE
 
    IMPLICIT NONE
 
@@ -177,9 +178,11 @@ CONTAINS
 
       INTEGER, PARAMETER :: sd(12) = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334] !! Non-leap offsets.
 
+      CHARACTER(LEN=LENGTH_LINE) :: MSG !! Local diagnostic buffer for the invalid-month report.
+
       IF (m < 1) THEN
     WRITE (MSG, *) 'Date problem, probably with rainfall or evaporation - are their start dates specified correctly in their files?'
-         CALL RAISE_ERROR(ERRLVL_fatal, 4820, FID_logfile, 0, 0, MSG)
+         CALL RAISE_ERROR(ERRLVL_fatal, 4820, FID_logfile, 0, 0, TRIM(MSG))
       END IF
 
       r = sd(m)

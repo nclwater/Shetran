@@ -57,6 +57,13 @@ MODULE vs_state
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: NLYR, NWELBT, NWELTP, NVSWLT, NVSSPC, NVSSPT, NVSWLI, JVSACN, JVSDEL, DELTAZ, ZVSNOD, NS, &
+             THSAT, VSPOR, NLYRBT, NTSOIL, ZLYRBT, QH, WBERR, ZVSPSL, QVSBF, QVSSPR, QVSWEL, QVSV, &
+             VSPSI, VSTHE, QVSWLI, QVSH, QBKB, QBKF, QBKI, ICSOILsv, JCBCsv, VSAIJsv, initialise_al_c, &
+             initialise_al_c2
+
 
 ! Plan and column geometry.
    INTEGER, DIMENSION(NELEE) :: NLYR   !! Number of defined soil/lithology layers by element.
@@ -133,7 +140,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c"
+      CHARACTER(LEN=*), PARAMETER :: location = "vs_state:initialise_al_c"
 
       ALLOCATE (qvsh(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "qvsh", location, emsg)
@@ -191,7 +198,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c2"
+      CHARACTER(LEN=*), PARAMETER :: location = "vs_state:initialise_al_c2"
 
       ALLOCATE (DELTAZ(LLEE, total_no_elements), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "DELTAZ", location, emsg)

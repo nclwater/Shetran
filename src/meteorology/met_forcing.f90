@@ -27,6 +27,10 @@ MODULE met_forcing
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: NM, NRAIN, DTMET, DTMET2, DTMET3, ISTA, NMC, NRAINC, precip_m_per_s, OBSPE, TA, U, VPD, RN
+
    INTEGER :: NM         !! Number of active meteorological sites.
    INTEGER :: NRAIN      !! Number of active rainfall stations.
    DOUBLEPRECISION :: DTMET   !! Combined meteorological input interval (h).

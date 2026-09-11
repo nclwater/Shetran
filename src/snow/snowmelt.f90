@@ -80,7 +80,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "SMmod:initialise_smmod"
+      CHARACTER(LEN=*), PARAMETER :: location = "snowmelt:initialise_smmod"
 
       if (FIRST) then
          ALLOCATE (TMELT(max_no_snowmelt_slugs, total_no_elements), STAT=ios, ERRMSG=emsg)

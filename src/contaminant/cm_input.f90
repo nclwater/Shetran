@@ -40,7 +40,6 @@ MODULE cm_input
    USE grid_topology, ONLY: ICMREF, ICMXY, NX, NY
    USE channel_geometry, ONLY: BEXBK, CLENTH, CWIDTH, FHBED, ICMBK, LINKNS, NHBED
    USE file_units, ONLY: CMD, CMP
-   USE input_workspace, ONLY: DUMMY, IDUM
    USE et_state, ONLY: PNETTO
    USE vs_state, ONLY: DELTAZ, JVSACN, JVSDEL, NLYRBT, NS, NTSOIL, QVSH, QVSV, VSPOR, VSTHE, &
                        ZVSNOD
@@ -760,6 +759,8 @@ CONTAINS
       INTEGER :: NDIFF, NDUM, NDUMA, NELMA, NLINK, NLINKA, NLINKU
       INTEGER :: NOL1, NOL2, NOLBD, NOLDUM, NOLP, NOLX
       INTEGER :: JFCE(2), JOLDUM(2), NBK(2), NCEDUM(2)
+      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
       DOUBLE PRECISION :: ARL, ARP, DBK, DKBED, DMULT, DUM, DUM1, DUM2, DUM3, DUMK
       DOUBLE PRECISION :: FNOLBD, asum, asumK
 
@@ -778,7 +779,7 @@ CONTAINS
 
       INTEGER(KIND=I_P):: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "FRmod:INCM"
+      CHARACTER(LEN=*), PARAMETER :: location = "cm_input:INCM"
 
       ! New by SB 18/11/04
       ! contam.f removed. z2 and d0 (scaling variables) needed here

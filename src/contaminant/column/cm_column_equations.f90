@@ -41,6 +41,10 @@ MODULE cm_column_equations
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: DLT, ELT, ELTSTR, EPS, FLT, GLT, OME, PLT, PLTSTR, QLT, SLT, TLT
+
    DOUBLEPRECISION DLT(LLEE)     !! Coefficient of the next-row dynamic rate, `OME(i+1)`.
    DOUBLEPRECISION ELT(LLEE)     !! Diagonal coefficient of the dynamic rate, `OME(i)`.
    DOUBLEPRECISION ELTSTR(LLEE)  !! Nonlinear correction multiplying `OME(i)` in its diagonal.

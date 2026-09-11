@@ -349,7 +349,7 @@ CONTAINS
 
          INTEGER(KIND=I_P) :: ios
          CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-         CHARACTER(LEN=*), PARAMETER :: location = "FRmod:allocate_extra_discharge"
+         CHARACTER(LEN=*), PARAMETER :: location = "frame_output:allocate_extra_discharge"
 
          IF (ALLOCATED(disextraelement)) THEN
             DEALLOCATE (disextraelement, STAT=ios, ERRMSG=emsg)
@@ -405,7 +405,7 @@ CONTAINS
 
          INTEGER(KIND=I_P) :: ios
          CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-         CHARACTER(LEN=*), PARAMETER :: location = "FRmod:initialise_extra_water_table_output"
+         CHARACTER(LEN=*), PARAMETER :: location = "frame_output:initialise_extra_water_table_output"
 
          READ (pslextra, *, IOSTAT=ios)
          CALL fatal_on_io_error(ios, 1069, &
@@ -808,7 +808,7 @@ CONTAINS
 
          INTEGER(KIND=I_P) :: ios
          CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-         CHARACTER(LEN=*), PARAMETER :: location = "FRmod:write_regular_outputs"
+         CHARACTER(LEN=*), PARAMETER :: location = "frame_output:write_regular_outputs"
 
          SAVE buf
 

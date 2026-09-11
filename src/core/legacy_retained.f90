@@ -43,6 +43,12 @@ MODULE legacy_retained
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: szmonte, ran2monte1, ran2monte2, pcmonte, montec, EARRAY, text32, NHSAT, NRPD, BEXTS1, &
+             NGRID, NEXPO, FLERRC, SYERRC, CMERRC, WIDTF, ZBED, HFLBED, ZFBED, DZFBED, LROOT, HFLBNK, &
+             EPOTR, CMEAN, SMEAN, ADMEAN
+
    INTEGER(KIND=I_P) :: szmonte = -1 !! Inactive retained Monte Carlo state; no current consumer.
    INTEGER(KIND=I_P) :: ran2monte1 = -1 !! Inactive retained Monte Carlo state; no current consumer.
    INTEGER(KIND=I_P) :: ran2monte2 = -1 !! Inactive retained Monte Carlo state; no current consumer.

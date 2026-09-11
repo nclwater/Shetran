@@ -30,11 +30,9 @@
 !> stored current-link value. This existing in-place update is documented
 !> without changing it.
 !>
-!> The unrestricted `USE` of [[cm_link_scaling]] also makes `KS`, `KSPBK`, and the
-!> use-associated `LLEE` accessible through this module. Together with
-!> use-associated `NLFEE`, they and the nine variables declared here are public
-!> because the `PRIVATE` statement remains commented out. The nine declared
-!> variables have no declaration initializers.
+!> The module is `PRIVATE` by default and exports only the nine variables it
+!> declares; they have no declaration initializers. It no longer takes a bare
+!> `USE` of [[cm_link_scaling]], whose `KS` and `KSPBK` it does not reference.
 !>
 !> @warning
 !> The `THBED` recalculation in current `LINKW` uses the bank-2 deep-bed cell
@@ -66,8 +64,11 @@
 !> @endhistory
 MODULE cm_link_water
    USE array_limits, ONLY: nlfee
-   USE cm_link_scaling
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: ACPBDO, ACPBSG, ACPBI, ACPSFO, DBS, DBDI, LENDA, THBED, THBEDO
 
    DOUBLEPRECISION :: ACPBDO(NLFEE) !! Last stored scaled bed/deposited-material area for each link.
    DOUBLEPRECISION :: ACPBSG(NLFEE) !! Fixed scaled bed-surface area, `DBS*CWIDTH/Z2SQ`.

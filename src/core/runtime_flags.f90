@@ -24,6 +24,10 @@ MODULE runtime_flags
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: flag_runtime_reduction_errors, flag_runtime_reduction_e1060
+
    LOGICAL :: flag_runtime_reduction_errors !! Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
    LOGICAL :: flag_runtime_reduction_e1060 !! Latest `ERROR` call requested the separate timestep reduction for error 1060.
 

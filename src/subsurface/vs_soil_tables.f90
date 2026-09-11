@@ -34,12 +34,15 @@ MODULE vs_soil_tables
 
    IMPLICIT NONE
 
-   PUBLIC :: VSSOIL
+   PRIVATE
+
+   PUBLIC :: NSOLEE, VSPPSI, VSPTHE, VSPKR, VSPETA, VSPDTH, VSPDKR, VSPDET, VSPSS, VSPPOR, NVSSOL, &
+             VSSOIL
+
 
 
 ! Legacy VSSOIL.INC soil-parameter tables retained as module state.
-   INTEGER :: NSOLEE !! Maximum number of generated soil lookup-table rows.
-   PARAMETER(NSOLEE=200)
+   INTEGER, PARAMETER :: NSOLEE = 200 !! Maximum number of generated soil lookup-table rows.
    DOUBLEPRECISION :: VSPPSI(NSOLEE)        !! Soil lookup pressure-head ordinates.
    DOUBLEPRECISION :: VSPTHE(NSOLEE, NSEE)   !! Soil lookup volumetric water content.
    DOUBLEPRECISION :: VSPKR(NSOLEE, NSEE)    !! Soil lookup relative hydraulic conductivity.

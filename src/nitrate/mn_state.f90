@@ -37,6 +37,15 @@ MODULE mn_state
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: MN_CONFIG_TYPE, MN_WORKSPACE_TYPE, MN_PLANT_STATE_TYPE, cahum, calit, caman, cdort, chum, &
+             chum1, clit, clit1, cman, cman1, denit, dummy4, dummy6, edeth, emph, emt, enph, ent, gam, &
+             gamtmp, imamm, imdiff, imnit, isimtf, kd1, kd2, khum, klit, kman, knit, kvol, miner, &
+             naamm, namm, namm1, nanit, ndnit, ndsnt, nlit, nlit1, nman, nman1, ntrf, plamm, plnit, &
+             plup, pphi, snit, temp, vol, MN_PLANT_NVALEE, MN_CONFIG, MN_WORK, MN_PLANT_STATE, &
+             MN_INITIALISED, MN_ALLOCATED_NEL, MN_ALLOCATED_NCETOP
+
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: cahum  !! External carbon-addition rate assigned to humus.
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: calit  !! External carbon-addition rate assigned to litter.
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: caman  !! External carbon-addition rate assigned to manure.

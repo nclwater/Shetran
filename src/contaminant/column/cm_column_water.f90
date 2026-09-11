@@ -46,6 +46,12 @@
 MODULE cm_column_water
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: ICAP, ICAPT, ICAPC, QCAP, QCAPT, QCAPC, DDA, DDB, DDDLS, DDDLS1, DDDSW, DDDSW1, GGGNU, &
+             GGGNU1, KSP, KSPP, ZONE, ZONE1, TTTLSE, QQQSW, QQQSW1, GGAMM, GGAMM1, PPHI, PPHI1, QQ, &
+             QQ1, TTHET, TTHET1, UUAJP, UUAJP1, QQRF, QQRF1, QI, QI1
    DOUBLEPRECISION ICAP   !! Prior scaled dry-deposition source, `-Z2OD*IIICFO(NCONT)`.
    DOUBLEPRECISION ICAPT  !! Time-derivative part of `ICAP`; currently set to zero.
    DOUBLEPRECISION ICAPC  !! Concentration derivative of `ICAP`; currently set to zero.

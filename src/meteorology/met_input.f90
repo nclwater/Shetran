@@ -126,7 +126,7 @@ CONTAINS
       IF (.NOT. ALLOCATED(MET_RECORD)) THEN
          ! start from the reserved capacity; the first data line sets the real size
          ALLOCATE (CHARACTER(LEN=LENGTH_LINEVERYLONG) :: MET_RECORD, STAT=status, ERRMSG=emsg)
-         CALL errstat_alloc(status, "MET_RECORD", "rest:READ_DATED_RECORD", emsg)
+         CALL errstat_alloc(status, "MET_RECORD", "met_input:READ_DATED_RECORD", emsg)
          MET_RECORD_SIZED = .FALSE.
       ELSE IF (MET_RECORD_SIZED .AND. LEN(MET_RECORD) < NEEDED) THEN
          ! a wider file than the one that sized the buffer
@@ -205,7 +205,7 @@ CONTAINS
       IF (ALLOCATED(MET_RECORD)) THEN
          IF (LEN(MET_RECORD) == CAPACITY) RETURN
          DEALLOCATE (MET_RECORD, STAT=ios, ERRMSG=emsg)
-         CALL errstat_dealloc(ios, "MET_RECORD", "rest:RESIZE_MET_RECORD", emsg)
+         CALL errstat_dealloc(ios, "MET_RECORD", "met_input:RESIZE_MET_RECORD", emsg)
       END IF
 
       ALLOCATE (CHARACTER(LEN=CAPACITY) :: MET_RECORD)
@@ -320,7 +320,7 @@ CONTAINS
       LOGICAL             :: FIRSTNOMET4 = .TRUE., FIRSTNOMET5 = .TRUE.
       INTEGER             :: ios, iostage
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'rest:METIN' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'met_input:METIN' !! Location string for read-error reports.
       DOUBLE PRECISION    :: prddate, epddate, tahdate, taldate
       !----------------------------------------------------------------------*
 

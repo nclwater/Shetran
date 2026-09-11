@@ -144,7 +144,7 @@ CONTAINS
       CALL ALRED2(0, MNPL, MNOUTPL, 'mnptin')
       CALL ALREDC(0, MNPL, MNOUTPL, ':MNP1', 1, 1, CDUM)
       WRITE (MNOUTPL, '(/1x,A/)', IOSTAT=ios, IOMSG=emsg) CDUM
-      CALL errstat_write(ios, "MNmod:MNPLANTINITIALISE", emsg)
+      CALL errstat_write(ios, "mn_plant:MNPLANTINITIALISE", emsg)
 
       DO I = 1, NV
          CALL ALREDI(0, MNPL, MNOUTPL, ':MNP10', 1, 1, IDUM)

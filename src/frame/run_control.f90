@@ -17,9 +17,6 @@
 !> `BEXET`, `BEXUZ`, `BEXEX`, `BEXOC` and `BEXSZ` are always set true by the
 !> current frame setup; only `BEXSM`, `BEXSY` and `BEXCM` are actually
 !> selectable, through record FR25.
-!>
-!> `msg` is a shared formatted diagnostic buffer rather than a run control. It
-!> is declared here because that is where `variables.csv` places it.
 !> @endnote
 !>
 !> @history
@@ -28,6 +25,7 @@
 !> | 1991--1998 | GP / RAH | 3.0--4.2 | Developed the frame run controls and the component switches. |
 !> | 2020--2024 | SB | 4.5--4.6 | Added the ZQ, extra-discharge and phreatic-surface selectors. |
 !> | 2026-09-11 | SvB | - | Split out of AL_D and FRmod; see docs/rename/proposal.md. Created in step 11 rather than step 12, because bank_setup's INBK reads TITLE. |
+!> | 2026-09-11 | SvB | - | Dropped the shared `msg` buffer, which no procedure in the tree reads or writes (D17). |
 !> @endhistory
 MODULE run_control
 
@@ -57,7 +55,6 @@ MODULE run_control
    LOGICAL :: BINFRP !! Echo frame input data to the print file.
    LOGICAL :: BSOFT  !! Enable the shortened-timestep soft start.
    CHARACTER(LEN=80) :: TITLE !! Current run title or input-section heading.
-   CHARACTER(256)    :: msg   !! Shared formatted diagnostic message.
 
 END MODULE run_control
 

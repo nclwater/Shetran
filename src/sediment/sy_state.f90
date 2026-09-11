@@ -41,6 +41,11 @@ MODULE sy_state
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: SBERR, ARBDEP, DLS, GINFD, GINFS, GNU, GNUBK, DCBED, DCBSED, FDEL, FBETA, FBTSD, PBSED, &
+             PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED
+
    DOUBLEPRECISION, DIMENSION(NELEE, NSEDEE) :: SBERR !! Sediment balance-error state by element and size fraction.
 
 

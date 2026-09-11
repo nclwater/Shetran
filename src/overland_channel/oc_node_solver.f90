@@ -130,7 +130,7 @@ CONTAINS
 
       IF (.NOT. ALLOCATED(xstab)) THEN
          ALLOCATE (xstab(3, nxscee, total_no_links), STAT=ios, ERRMSG=emsg)
-         CALL errstat_alloc(ios, "xstab", "OCmod:initialise_ocmod", emsg)
+         CALL errstat_alloc(ios, "xstab", "oc_node_solver:initialise_ocmod", emsg)
       END IF
 
    END SUBROUTINE initialise_ocmod

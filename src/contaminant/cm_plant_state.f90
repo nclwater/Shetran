@@ -67,6 +67,12 @@ MODULE cm_plant_state
    USE array_limits, ONLY: nelee, nlfee, LLEE, NPELEE, NCONEE, NPLTEE
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: NTEMP1, NTEMP2, GENAA, GENBB, GCPL, GMCPAA, GMCPBB, GMCBBD, QCPAA, QCPBB, RHOPL, BCPAA, &
+             BCPBB, DELONE, DELTWO, DELTHR, DELFOU, FLEFT, GMCBBO, NPL, NPLTYP, NPLT, PKMAX, PMASS, &
+             PFONE, PFTWO, PF2MAX, PDZF3, XXI
+
    INTEGER, PARAMETER :: NTEMP1=2*NELEE*NPELEE*NCONEE !! Unused legacy element count for initializing `BCPAA` and `BCPBB`.
    INTEGER, PARAMETER :: NTEMP2=NPLTEE*NCONEE         !! Unused legacy plant-type/contaminant element count.
 

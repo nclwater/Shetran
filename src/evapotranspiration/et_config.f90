@@ -34,9 +34,6 @@
 !> logical values, defaulting `BMETDATES` false. The flag applies to separate
 !> precipitation, potential-evaporation and temperature series handled by
 !> [[met_input:METIN]].
-!>
-!> `msg` is a shared diagnostic buffer rather than a parameter. It was private
-!> to `ETmod`; it is public here because [[et_process]] writes into it.
 !> @endnote
 !>
 !> @history
@@ -54,6 +51,13 @@ MODULE et_config
    USE array_limits, ONLY: NVEE
 
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: BAR, BMETP, BINETP, BMETAL, BMETDATES, MODE, NF, MEASPE, MODECS, MODEPL, MODECL, MODEVH, &
+             NCTCST, NCTPLA, NCTCLA, NCTVHT, RA, RC, RTOP, CSTCAP, CK, CB, DEL, PSI4, UZALFA, CSTCA1, &
+             PLAI1, CLAI1, VHT1, PS1, FET, RCF, RELCST, TIMCST, RELPLA, TIMPLA, RELCLA, TIMCLA, RELVHT, &
+             TIMVHT
 
    LOGICAL :: BAR(NVEE) !! Manual `ET8` selector: compute `RA` from wind when true; retain its input constant otherwise.
    LOGICAL :: BMETP !! Manual `ET2` selector for echoing meteorological input to the print file.
@@ -95,7 +99,6 @@ MODULE et_config
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: TIMCLA !! Canopy-LAI breakpoint times (days).
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: RELVHT !! Relative vegetation-height values by vegetation and breakpoint.
    DOUBLEPRECISION, DIMENSION(:, :), ALLOCATABLE :: TIMVHT !! Vegetation-height breakpoint times (days).
-   CHARACTER(132) :: msg !! Shared private warning/fatal diagnostic buffer.
 
 END MODULE et_config
 

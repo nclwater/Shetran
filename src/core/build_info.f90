@@ -23,6 +23,10 @@ MODULE build_info
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: SHEVER, BDEVER, BANNER, RUNFIL
+
    REAL(KIND=R8P), PARAMETER :: SHEVER = 4.7_R8P !! SHETRAN version number (Major.Minor format).
    LOGICAL, PARAMETER :: BDEVER = .TRUE. !! Development version flag. `.TRUE.` for development, `.FALSE.` for release.
    CHARACTER(*), PARAMETER :: BANNER = 'SHETRAN Hydrological Model' !! Banner for local implementation.

@@ -28,6 +28,10 @@ MODULE channel_geometry
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: ICMBK, NHBED, CLENTH, CWIDTH, ZBEFF, ZBFULL, FHBED, BEXBK, LINKNS
+
    INTEGER, DIMENSION(NLFEE, 2) :: ICMBK  !! Explicit bank-element number by link and bank side.
    INTEGER, DIMENSION(NLFEE, 2) :: NHBED  !! Highest VSS cell below the channel bed by link and bank side.
    DOUBLEPRECISION, DIMENSION(NLFEE) :: CLENTH !! Channel-link length (m).

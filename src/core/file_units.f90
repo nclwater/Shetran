@@ -25,6 +25,13 @@ MODULE file_units
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: SFB, SRB, VSD, SYD, CMD, SPR, CMP, BUG, VSI, WLD, LFB, LHB, LGB, BFB, BHB, CMT, CMB, MND, &
+             MNFC, MNFN, MNPL, MNPR, MNOUT1, MNOUT2, MNOUTPL, FRD, OCD, ETD, PPD, SMD, BKD, MED, PRD, &
+             EPD, TIM, RES, HOT, VED, OFB, OHB, DIS, VSE, MAS, DIS2, TAH, TAL, disextra, zqd, pslextra, &
+             FID_logfile
+
    INTEGER, PARAMETER :: SFB = 9876   !! Placeholder for the unimplemented sediment flow-boundary stream.
    INTEGER, PARAMETER :: SRB = 9877   !! Placeholder for the unimplemented sediment rating/boundary stream.
    INTEGER, PARAMETER :: VSD = 11     !! Variably saturated subsurface data input unit.

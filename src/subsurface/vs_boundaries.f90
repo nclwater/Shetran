@@ -28,6 +28,12 @@ MODULE vs_boundaries
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: WLLAST, WLTIME, RWELIN, RLFLST, RLFTIM, RLFPRV, RLHLST, RLHTIM, RLHPRV, RLHNXT, RLGLST, &
+             RLGTIM, RLGPRV, RLGNXT, RBFLST, RBFTIM, RBFPRV, RBHLST, RBHTIM, RBHPRV, RBHNXT, RLFDUM, &
+             RLHDUM, RLGDUM, FIRSTvssim
+
    DOUBLEPRECISION :: WLLAST = zero        !! Previous well-input record time.
    DOUBLEPRECISION :: WLTIME = zero        !! Current/next well-input record time.
    DOUBLEPRECISION :: RWELIN(NVSEE) = zero !! Current well abstraction input values.

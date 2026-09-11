@@ -22,6 +22,10 @@ MODULE snow_state
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: ISPACK, MSM, NSMT, NSMC, RHOSAR, SD, TS, SF, smelt, tmelt
+
 
 ! Per-element snowpack presence and the melt-coupling control.
    LOGICAL, DIMENSION(NELEE) :: ISPACK !! Whether a snowpack is present on each element.

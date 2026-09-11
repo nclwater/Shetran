@@ -6,15 +6,11 @@
 !> `ludcmp` pair, the two matrix products, and [[dcopy]]. `eps` is the
 !> singularity tolerance used by the inversion and stays here with it.
 !>
-!> `msg` is a shared message buffer rather than a numerical quantity. It is
-!> declared here because that is where the move tables place it, and it is
-!> public because [[datetime]] — which was in the same module until this split
-!> — writes into it.
-!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-10 | SvB | - | Split out of utilsmod; see docs/rename/proposal.md. |
+!> | 2026-09-11 | SvB | - | Dropped the shared `msg` buffer; [[datetime]] now uses a local one, which removes the dependency on this module (D9, D17). |
 !> @endhistory
 MODULE linear_algebra
 
@@ -26,10 +22,8 @@ MODULE linear_algebra
    PRIVATE
 
    PUBLIC :: TRIDAG, DCOPY, JEMATMUL_VM, JEMATMUL_MM, INVERTMAT
-   PUBLIC :: msg
 
    DOUBLEPRECISION, PARAMETER :: eps = 1.0d-15 !! Singularity/zero tolerance used by matrix inversion.
-   CHARACTER(128)             :: msg         !! Error-message buffer passed to `ERROR`.
 
 CONTAINS
 

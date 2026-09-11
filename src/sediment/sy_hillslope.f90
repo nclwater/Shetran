@@ -8,7 +8,7 @@
 !> The channel half is in [[sy_channel]].
 !>
 !> `SYFINE`'s cached settling velocity `WSED_syfine` and its first-call flag
-!> live in [[sy_transport_capacity]], where `variables.csv` places them.
+!> `FIRST_syfine` are module state here, private to this module.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -17,19 +17,23 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted the SY `.F` files into a single Fortran 90 module. |
 !> | 2026-04 to 2026-05 | SvB | 4.6.1 | Modernised the whole component: free-form layout, `IMPLICIT NONE`/`INTENT` throughout, structured control flow in place of `GOTO`s, compile-time `PARAMETER`s for the cached first-call constants, and `symain`'s work arrays moved to allocate-once module storage. |
 !> | 2026-09-10 | SvB | - | Split out of SYmod; see docs/rename/proposal.md. |
+!> | 2026-09-11 | SvB | - | Took over `FIRST_syfine` and `WSED_syfine` from [[sy_transport_capacity]], whose only user is `SYFINE` here (D15). |
 !> @endhistory
 MODULE sy_hillslope
 
    USE MOD_PARAMETERS, ONLY: half, one, zero, GRAVITY, RHO_SEDIMENT, &
                              RHO_WATER_SEDIMENT, NU_WATER
    USE float_compare, ONLY: dimje, gtzero
-   USE sy_transport_capacity, ONLY: SYCRIT, SYOVTR, FIRST_syfine, WSED_syfine
+   USE sy_transport_capacity, ONLY: SYCRIT, SYOVTR
 
    IMPLICIT NONE
 
    PRIVATE
 
    PUBLIC :: SYCOLM, SYFINE, SYOVER
+
+   LOGICAL         :: FIRST_syfine = .TRUE. !! True until the fine-sediment settling velocity `WSED_syfine` has been cached.
+   DOUBLEPRECISION :: WSED_syfine          !! Cached fine-sediment settling velocity, set on the first call to [[SYFINE]].
 
 CONTAINS
 

@@ -37,6 +37,11 @@ MODULE snow_config
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: USM, DDF, RHOS, ESM, HFC, HFR, HFE, HFT, ZUS, ZDS, ZOS, RHODEF, TOPNET, PNSNOW, BINSMP, &
+             IMET, NSD, HEAD
+
    DOUBLEPRECISION :: USM    !! Snowmelt during the current timestep (mm snow).
    DOUBLEPRECISION :: DDF    !! Degree-day melt factor (mm/s/C).
    DOUBLEPRECISION :: RHOS   !! Active snow specific gravity for the current element.

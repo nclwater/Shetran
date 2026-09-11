@@ -87,7 +87,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "SYmod:initialise_symain_workspace"
+      CHARACTER(LEN=*), PARAMETER :: location = "sy_driver:INITIALISE_SYMAIN_WORKSPACE"
 
       IF (.NOT. ALLOCATED(BARM)) THEN
          ALLOCATE (BARM(NLFEE), STAT=ios, ERRMSG=emsg)

@@ -101,7 +101,7 @@ CONTAINS
       INTEGER                         :: TIME(5), read_stat
       DOUBLE PRECISION                :: SIMEND
       CHARACTER(LEN=LENGTH_LINE)      :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER     :: location = 'utilsmod:FINPUT' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER     :: location = 'timeseries_input:FINPUT' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------
 
@@ -234,7 +234,7 @@ CONTAINS
       INTEGER          :: TIME(5), ios
       DOUBLE PRECISION :: SIMEND, SIMMID
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'utilsmod:HINPUT' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'timeseries_input:HINPUT' !! Location string for read-error reports.
 
       !----------------------------------------------------------------------
 

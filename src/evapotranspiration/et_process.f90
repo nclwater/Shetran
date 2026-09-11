@@ -49,7 +49,7 @@ MODULE et_process
    USE simulation_clock, ONLY: DTUZ, TIMEUZ, UZNEXT
    USE met_forcing, ONLY: NMC, NRAINC, NM, NRAIN, U, OBSPE, RN, VPD, precip_m_per_s
    USE run_control, ONLY: BEXSM
-   USE et_config, ONLY: BAR, CB, CK, CLAI1, CSTCA1, CSTCAP, DEL, FET, MEASPE, MODE, msg, &
+   USE et_config, ONLY: BAR, CB, CK, CLAI1, CSTCA1, CSTCAP, DEL, FET, MEASPE, MODE, &
                         NF, PLAI1, PS1, PSI4, RA, RC, RCF, RELCLA, RELCST, RELPLA, RELVHT, &
                         RTOP, TIMCLA, TIMCST, TIMPLA, TIMVHT, UZALFA, VHT1
    USE et_state, ONLY: AE, CLAI, CPLAI, CSTOLD, CSTORE, DRAIN, DRAINA, EEVAP, EINT, EINTA, &
@@ -65,6 +65,7 @@ MODULE et_process
    USE linear_algebra, ONLY: dcopy
    USE snowmelt, ONLY: SMIN
    USE oc_node_solver, ONLY: gethrf
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE
 
    IMPLICIT NONE
 
@@ -111,7 +112,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = 'ETmod:INITIALISE_ETMOD'
+      CHARACTER(LEN=*), PARAMETER :: location = 'et_process:INITIALISE_ETMOD'
 
       ALLOCATE (RA(NV), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "RA", location, emsg)
@@ -318,6 +319,7 @@ CONTAINS
 
       ! Locals, etc
       DOUBLE PRECISION, PARAMETER :: RABIG = 1.0D10 !! Calm-wind aerodynamic-resistance substitute (s/m).
+      CHARACTER(LEN=LENGTH_LINE) :: msg !! Local warning/fatal diagnostic buffer.
       INTEGER :: II !! Current vertical-cell index, numbered upward from the aquifer bed.
       INTEGER :: IL !! Channel link associated with a bank element.
       INTEGER :: ITYPE !! Element type/bank side from `ICMREF(IEL,1)`.
@@ -372,7 +374,7 @@ CONTAINS
          !---------PE MUST BE CALCULATED USING PENMAN EQUATION
          IF (RA(N) <= ZERO) THEN
             WRITE (msg, '(A,I0,A,I0,A,ES24.16E3)') 'invalid aerodynamic resistance in ET: IEL=', IEL, ' N=', N, ' RA=', RA(N)
-            CALL RAISE_ERROR(ERRLVL_fatal, 4998, FID_logfile, IEL, 0, msg)
+            CALL RAISE_ERROR(ERRLVL_fatal, 4998, FID_logfile, IEL, 0, TRIM(msg))
          END IF
          TOP = MAX(ZERO, RN(MS)*DEL(MS) + RHO_AIR_ET*CP_AIR_ET*VPD(MS)/RA(N))
          !         TOP = TOP * 1D3 / densityOfWater   is implied!
@@ -486,7 +488,7 @@ CONTAINS
          K = top_cell_no
          WRITE (msg, '(A)') 'root zone extends below aquifer bed. Values below aquifer bed are ignored'
          IF (first) THEN
-            CALL RAISE_ERROR(ERRLVL_warn, 4999, FID_logfile, 0, 0, msg)
+            CALL RAISE_ERROR(ERRLVL_warn, 4999, FID_logfile, 0, 0, TRIM(msg))
             first = .FALSE.
          END IF
       END IF

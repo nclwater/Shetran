@@ -116,6 +116,7 @@ CONTAINS
       USE cm_column_scaling
       USE cm_link_state
       USE cm_link_water
+      USE cm_link_scaling, ONLY: KS
       USE cm_sediment_previous
       USE cm_plant_state
 
@@ -425,6 +426,7 @@ CONTAINS
       !####################temporary, for irrigation
       USE cm_link_state
       USE cm_link_water
+      USE cm_link_scaling, ONLY: KS, KSPBK
       USE cm_bank_geometry
       USE cm_plant_state
 

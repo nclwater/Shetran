@@ -52,6 +52,10 @@ MODULE cm_sediment_previous
    USE array_limits, ONLY: nelee, nlfee, NSEDEE
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: DLSO, GNUO, FBETAO, FDELO, FBBEDO, FBTSDO
+
    DOUBLEPRECISION DLSO (NELEE) !! Previous loose/bed-sediment depth by element [m]; actively used for columns.
    DOUBLEPRECISION GNUO (NELEE) !! Previous ground-surface erosion depth rate by element [m/s]; actively used for columns.
 

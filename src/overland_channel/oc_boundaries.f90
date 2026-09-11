@@ -42,7 +42,11 @@ MODULE oc_boundaries
 
    IMPLICIT NONE
 
-   PUBLIC :: OCABC, OCEXT, OCPRI
+   PRIVATE
+
+   PUBLIC :: NOCBCC, NOCBCD, COCBCD, HOCNOW, QOCF, NOCHB, NOCFB, HOCLST, HOCNXT, QFLAST, QFNEXT, &
+             HOCPRV, QOCFIN, HOCNXV, OCABC, OCEXT, OCPRI
+
 
    INTEGER :: NOCBCC(NELEE)       !! Overland/channel boundary-condition record number by element.
    INTEGER :: NOCBCD(NOCTAB,4)    !! OC boundary records: element, face, boundary type, and time-series category.
@@ -373,7 +377,7 @@ CONTAINS
 
 !----------------------------------------------------------------------*
       ALLOCATE (ghrf(total_no_links), STAT=ios, ERRMSG=emsg)
-      CALL errstat_alloc(ios, "ghrf", "OCmod:OCPRI", emsg)
+      CALL errstat_alloc(ios, "ghrf", "oc_boundaries:OCPRI", emsg)
 
       WRITE (FID_logfile, 9100) 'AFTER', OCNOW, ' HOURS ----'
       WRITE (FID_logfile, 9200) 'iel', ('QOC(iel,', FACE, ')', FACE=1, 4), 'HRF', 'ARXL'

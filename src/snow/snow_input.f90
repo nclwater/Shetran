@@ -82,7 +82,7 @@ CONTAINS
       INTEGER :: N, IEL, I, ios
       DOUBLE PRECISION :: TSIN, UNIFSD
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INSM' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'snow_input:INSM' !! Location string for read-error reports.
 
       ! READ PRINT CONTROL PARAMETERS
       READ (SMD, '(20A4)', IOSTAT=ios, IOMSG=emsg) HEAD

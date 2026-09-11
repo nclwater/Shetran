@@ -43,7 +43,7 @@ MODULE frame_setup
                           visualisation_check_filename, visualisation_plan_filename
    USE run_control, ONLY: BEXCM, BEXET, BEXEX, BEXOC, BEXSM, BEXSY, BEXSZ, BEXUZ, BFRTS1, &
                           BFRTS2, BHOTPR, BHOTRD, BHOTST, BHOTTI, BINFRP, BSOFT, HOTIME, &
-                          isextradis, isextrapsl, TCH, TITLE, TOUTPUT, TSH, msg
+                          isextradis, isextrapsl, TCH, TITLE, TOUTPUT, TSH
    USE element_geometry, ONLY: DXIN, DYIN, ISORT, NXEP1, NXM1, NXP1, NYEP1, NYM1, NYP1, &
                               top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, INGRID, NGDBGN, NX, NY
@@ -134,7 +134,7 @@ CONTAINS
       ! Locals, etc
       INTEGER :: IEL, IFACE, JEL, K, ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed `REWIND` or `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:FRINIT' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'frame_setup:FRINIT' !! Location string for read-error reports.
       DOUBLE PRECISION :: rdd(NELEE), rddq(NELEE, 4)
       CHARACTER(LEN=20) :: AIOSTO
       CHARACTER(LEN=10) :: atemp
@@ -693,7 +693,7 @@ CONTAINS
                  nlyrct, ipr, idmc, idra, idve, idlyr, i1, i2, i, ipflg, iel, ios
       DOUBLE PRECISION :: tthx
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INFR' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'frame_setup:INFR' !! Location string for read-error reports.
 
       WRITE (FID_logfile, 10)
 10    FORMAT('1', //T10, '                                E'/T10, &

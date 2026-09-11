@@ -23,6 +23,7 @@
 MODULE simulation_driver
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, zero
+   USE array_limits, ONLY: nelee, nxee, nyee
    USE element_geometry, ONLY: cellarea, DHF, DXQQ, DYQQ, ISORT, NBFACE, top_cell_no, &
                               total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, ICMRF2, ICMXY, NGDBGN, NX, NY
@@ -31,7 +32,6 @@ MODULE simulation_driver
    USE run_control, ONLY: BEXCM, BEXSY, BHOTPR, BHOTRD, BHOTST, HOTIME, TCH, TSH
    USE simulation_clock, ONLY: DTUZ, NSTEP, TIH, TTH, UZNEXT, UZNOW
    USE file_units, ONLY: CMP, HOT, SFB, SPR, SRB, SYD, TIM
-   USE input_workspace, ONLY: DUMMY, IDUM
    USE met_forcing, ONLY: NMC, OBSPE, precip_m_per_s
    USE et_state, ONLY: CLAI, CSTORE, DRAINA, EEVAP, EPOT, ESWA, NV, NVC, PLAI, PNETTO
    USE et_config, ONLY: PSI4, UZALFA
@@ -166,6 +166,8 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG=/IOMSG= text from a failed (de)allocation or open.
+      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
       !-----------------------------------------------------------------
       !                     INITIALISATION
@@ -211,7 +213,7 @@ CONTAINS
       !------------------------------------------------------------------
       IF (bexsy) THEN
          ALLOCATE (hrf(total_no_elements), STAT=ios, ERRMSG=emsg)
-         CALL errstat_alloc(ios, "hrf", "run_sim:main", emsg)
+         CALL errstat_alloc(ios, "hrf", "simulation_driver:SIMULATION", emsg)
          CALL GET_NSED_EARLY()     !VISVISVIS
       END IF
       IF (bexcm) then

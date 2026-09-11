@@ -36,6 +36,11 @@ MODULE zq_tables
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: NoZQTables, ZQTableRef, iszq, ZQTableLink, ZQTableFace, ZQweirSill, nZQcols, nZQrows, &
+             zcol, headerRealArray, ZQ, ZQTableOpHour, ZQTableRefRead, ReadZQTable, get_ZQTable_value
+
    INTEGER :: NoZQTables !! Number of reservoir ZQ tables read from `zqd`.
    INTEGER :: ZQTableRef !! Index of the ZQ table selected for the current link-face calculation.
    LOGICAL :: iszq       !! Whether reservoir ZQ-table routing is enabled.
@@ -111,7 +116,7 @@ CONTAINS
       INTEGER(KIND=I_P)                               :: pos                               !! Position of the next space delimiter in `headerRaw`.
       INTEGER(KIND=I_P)                               :: ios                               !! I/O status integer.
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG=/IOMSG= text from a failed (de)allocation, open, or read.
-      CHARACTER(LEN=*), PARAMETER :: location = "ZQmod:ReadZQTable"                        !! Location string for error messages.
+      CHARACTER(LEN=*), PARAMETER :: location = "zq_tables:ReadZQTable"                        !! Location string for error messages.
 
       ! specific variables
       CHARACTER(LEN=120)                              :: headerRaw                         !! Raw ZQ table header line while it is being split.

@@ -23,6 +23,10 @@ MODULE simulation_clock
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: UZNOW, TIH, DTUZ, UZNEXT, NSTEP, TTH, UZVAL, TIMEUZ
+
    REAL(KIND=R8P) :: UZNOW !! Current simulation time measured from the configured start [h].
    DOUBLEPRECISION TIH !! Simulation start as an absolute hour count returned by `HOUR_FROM_DATE` (h).
    DOUBLEPRECISION DTUZ   !! Current coupled VSS/ET timestep in seconds (s).

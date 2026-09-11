@@ -24,8 +24,9 @@
 !> elements occupy the range immediately following the links and grid elements
 !> begin after both bank blocks. `ICMXY` is assigned only at active catchment
 !> coordinates; callers use the catchment mask `INGRID` before reading entries
-!> outside that domain. Module state is public by default and has no declaration
-!> initialization.
+!> outside that domain. Module state has no declaration initialization. The
+!> module is `PRIVATE` by default and exports every name it declares through an
+!> explicit `PUBLIC` list, so the imported array limits are not re-exported.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -37,6 +38,10 @@ MODULE grid_topology
    USE ARRAY_LIMITS, ONLY: NELEE, NLFEE, NXEE, NYEE
 
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: ICMRF2, INGRID, NX, NY, NGDBGN, ICMREF, ICMXY
 
    INTEGER, DIMENSION(NLFEE, 6) :: ICMRF2 !! Multi-link branch map: adjacent elements in columns 1:3 and their faces in 4:6.
    INTEGER :: INGRID(NXEE,NYEE)   !! Catchment mask: zero inside the active catchment and -1 outside.

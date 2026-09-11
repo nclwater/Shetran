@@ -40,6 +40,16 @@ MODULE sy_config
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: NSYBEE, NSYCEE, ISACKW_symain, ISGSED_symain, ISSYOK_symain, ISTEC_symain, ISUSED_symain, &
+             NEPS_symain, NFINE_symain, NSYB_symain, NSYBCD_symain, NSYC_symain, NTSOBK_symain, &
+             PASS_symain, NTSOTP_symain, ALPHA_symain, CONCOB_symain, DCBEDO_symain, FBIC_symain, &
+             FICRIT_symain, FPCRIT_symain, SYNOW_symain, DLSMAX_symain, DDBSED_symain, ABC_symain, &
+             ACKW_symain, ARXLOL_symain, BBC_symain, BKB_symain, DBFULL_symain, DRDRIP_symain, &
+             DRSED_symain, DRSO50_symain, DWATOL_symain, FCG_symain, FCROCK_symain, FDRIP_symain, &
+             FETA_symain, FPCLAY_symain, GBC_symain, GKF_symain, GKR_symain, RHOSO_symain, XDRIP_symain
+
    INTEGER, PARAMETER  :: NSYBEE = 40       !! Maximum number of sediment boundary entries.
    INTEGER, PARAMETER  :: NSYCEE = 10        !! Maximum number of sediment boundary categories.
    INTEGER          :: ISACKW_symain       !! Channel transport-capacity option.

@@ -29,7 +29,6 @@ MODULE oc_driver
    USE grid_topology, ONLY: ICMREF, ICMRF2, NX, NY
    USE channel_geometry, ONLY: BEXBK, CLENTH, CWIDTH, ZBFULL
    USE file_units, ONLY: FID_logfile, OFB, OHB
-   USE input_workspace, ONLY: DUMMY
    USE et_state, ONLY: ESWA, PNETTO
    USE vs_state, ONLY: QH
    USE oc_state, ONLY: ARXL, DQ0ST, DQIST, DQIST2, dtoc, OCNEXT, OCNOW, QMAX, QOC, qsazz
@@ -117,7 +116,8 @@ CONTAINS
       LOGICAL :: LDUM1(NELEE)                        !! Discarded per-element check-result scratch passed to [[occhk1]].
       INTEGER :: ios                                 !! I/O status from a boundary-file title read.
       CHARACTER(LEN=LENGTH_LINE)  :: emsg            !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'OCmod:OCINI' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'oc_driver:OCINI' !! Location string for read-error reports.
+      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
       !----------------------------------------------------------------------*
 
@@ -190,7 +190,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "OCmod:INITIALISE_OCSIM_WORKSPACE"
+      CHARACTER(LEN=*), PARAMETER :: location = "oc_driver:INITIALISE_OCSIM_WORKSPACE"
 
       IF (MAX_SOLVER_ROW_WIDTH <= 0 .OR. NROWF < 1 .OR. NROWL < NROWF .OR. total_no_elements <= 0) THEN
          WRITE (MSG, '(A,6(A,I0))') 'Invalid OCSIM workspace dimensions:', &
@@ -266,7 +266,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "OCmod:FINALISE_OCSIM_WORKSPACE"
+      CHARACTER(LEN=*), PARAMETER :: location = "oc_driver:FINALISE_OCSIM_WORKSPACE"
 
       IF (ALLOCATED(OCSIM_WORKSPACE%AA)) THEN
          DEALLOCATE (OCSIM_WORKSPACE%AA, STAT=ios, ERRMSG=emsg)

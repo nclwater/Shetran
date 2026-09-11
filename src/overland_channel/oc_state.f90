@@ -25,6 +25,11 @@ MODULE oc_state
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: QOC, ARXL, QMAX, OCNOW, OCNEXT, LCODEX, LCODEY, DQ0ST, DQIST, DQIST2, STRXX, STRYY, dtoc, &
+             HRFZZ, qsazz, xstab
+
 
 ! Face discharge and channel cross-section.
    DOUBLEPRECISION, DIMENSION(NELEE, 4) :: QOC  !! Signed overland/channel discharge through each element face (m3/s).

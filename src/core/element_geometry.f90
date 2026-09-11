@@ -11,7 +11,9 @@
 !> `1:total_no_elements`, the link range established by `FRIND`, and the
 !> per-element range `NLYRBT(element,1):top_cell_no`. The three counts start at
 !> `-1` so that a consumer reading them before setup is visibly wrong rather
-!> than plausibly zero. Module state is public by default.
+!> than plausibly zero. The module is `PRIVATE` by default and exports every
+!> name it declares through an explicit `PUBLIC` list, so the imported kind
+!> parameters and array limits are not re-exported.
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -24,6 +26,11 @@ MODULE element_geometry
    USE ARRAY_LIMITS, ONLY: NELEE, NXEE, NYEE
 
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: total_no_elements, total_no_links, top_cell_no, cellarea, DXQQ, DYQQ, ZGRUND, NBFACE, DHF, &
+             ISORT, NXP1, NYP1, NXM1, NYM1, NXEP1, NYEP1, CAREA, BWIDTH, DXIN, DYIN
 
    INTEGER(KIND=I_P) :: total_no_elements = -1 !! Active total number of grid, bank, and channel-link elements.
    INTEGER(KIND=I_P) :: total_no_links = -1 !! Active number of channel links; link elements occupy the first indices.

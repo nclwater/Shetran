@@ -77,7 +77,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "MNmod:MNALLOCATE"
+      CHARACTER(LEN=*), PARAMETER :: location = "mn_driver:MNALLOCATE"
 
       IF (ALLOCATED(CAHUM)) THEN
          IF (MN_ALLOCATED_NEL /= NEL .OR. MN_ALLOCATED_NCETOP /= NCETOP) &
@@ -285,7 +285,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "MNmod:MNINITIALISE"
+      CHARACTER(LEN=*), PARAMETER :: location = "mn_driver:MNINITIALISE"
 
       IF (MN_INITIALISED) CALL RAISE_ERROR(ERRLVL_fatal, 3002, MNPR, 0, 0, &
          'MNINITIALISE was called more than once')

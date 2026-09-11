@@ -122,7 +122,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "MNmod:MNOUT"
+      CHARACTER(LEN=*), PARAMETER :: location = "mn_output:MNOUT"
 
       !-------------------------------------------------------------------*
 

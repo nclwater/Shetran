@@ -20,12 +20,11 @@
 MODULE vs_connectivity
 
    USE MOD_PARAMETERS, ONLY: half, zero
-   USE array_limits, ONLY: LLEE, nelee, NLYREE
+   USE array_limits, ONLY: LLEE, nelee, NLYREE, nxee, nyee
    USE element_geometry, ONLY: top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF
    USE channel_geometry, ONLY: BEXBK, FHBED, ICMBK, NHBED, ZBEFF
    USE file_units, ONLY: FID_logfile
-   USE input_workspace, ONLY: IDUM
    USE vs_state, ONLY: DELTAZ, initialise_al_c, JVSACN, JVSDEL, NLYR, NLYRBT, NTSOIL, &
                        ZLYRBT, ZVSNOD
    USE vs_config, ONLY: DCRBED, DCRTOT, DCSTOT, DCSZON, JVSALN, NCRBED, NCSZON, NVSERR, &
@@ -145,6 +144,7 @@ CONTAINS
       LOGICAL :: BRENUM, BWARN, MISS, PAIR, BDONE(NELEE, 4)
       CHARACTER(LEN=57) :: MSG
       INTEGER :: nlyrmax
+      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
       ! Modern Initialization replacing DATA blocks
       INTEGER :: LRENUM(NELEE, NLYREE) = 0

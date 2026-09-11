@@ -40,6 +40,12 @@ MODULE et_state
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: NVC, NV, NRD, RDL, RDF, DRAINA, ESOILA, EEVAP, PNETTO, ERUZ, CLAI, PLAI, HRUZ, PNET, PE, &
+             EINT, ERZ, DRAIN, ESOIL, AE, CSTOLD, CPLAI, CSTORE, ERZA, EPOT, EINTA, S, VHT, ESWA, &
+             initialise_al_c3
+
 
 ! Vegetation metadata and the root-zone distribution.
    INTEGER, DIMENSION(NELEE) :: NVC    !! Vegetation-category number by element.
@@ -99,7 +105,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "AL_C:initialise_al_c3"
+      CHARACTER(LEN=*), PARAMETER :: location = "et_state:initialise_al_c3"
 
       ALLOCATE (RDF(NV, LLEE), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "RDF", location, emsg)

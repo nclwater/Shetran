@@ -59,6 +59,13 @@ MODULE cm_column_state
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: GCAPLA, CSWA, CSWAT, RRRSWA, RRRSAT, RRRLS, RRRLSC, RRRLST, RRRSW, RRRSWC, RRRSWT, CCAPA, &
+             CCAPAT, CCAP, COLCAP, SCAP, SOLCAP, EDCAP, EDCAPC, EDCAPT, ESCAP, ESCAPS, ESCAPT, ESSCAP, &
+             ESSCPC, ESSCPT, DDOD, DDOD1, GNERD, GNDSE, GND2, GNDSE2, AALPSO, FFSO, GGNNSO, KKDSO, &
+             CCPRF, CCPRFT
+
    DOUBLEPRECISION GCAPLA  !! Active contaminant's scaled chemical-decay coefficient, `GCPLA(NCONT)`.
 
    DOUBLEPRECISION CSWA(4)    !! Explicit adjacent/boundary surface-water concentration by face.

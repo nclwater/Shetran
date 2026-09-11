@@ -23,12 +23,11 @@
 MODULE vs_input
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, half, one, two, zero
-   USE array_limits, ONLY: LLEE, nelee, NLYREE, NSEE, NVSEE
+   USE array_limits, ONLY: LLEE, nelee, NLYREE, NSEE, NVSEE, nxee, nyee
    USE element_geometry, ONLY: top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, ICMXY, NGDBGN, NX, NY
    USE channel_geometry, ONLY: BEXBK, ICMBK, ZBEFF
    USE file_units, ONLY: BFB, BHB, FID_logfile, LFB, LHB, VSD, VSI, WLD
-   USE input_workspace, ONLY: DUMMY, IDUM
    USE vs_state, ONLY: DELTAZ, initialise_al_c2, NLYR, NLYRBT, NS, NTSOIL, NVSSPC, NVSSPT, &
                        NVSWLI, NVSWLT, NWELBT, NWELTP, VSPOR, VSPSI, ZLYRBT, ZVSNOD, ZVSPSL
    USE vs_config, ONLY: BFAST, BHELEV, BSOILP, DCRBED, DCRTOT, DCSTOT, DCSZON, DRBED, &
@@ -89,7 +88,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "VSmod:initialise_vsread_buffers"
+      CHARACTER(LEN=*), PARAMETER :: location = "vs_input:initialise_vsread_buffers"
 
       IF (.NOT. ALLOCATED(IVSDUM_VSREAD)) THEN
          ALLOCATE (IVSDUM_VSREAD(NELEE, NLYREE), STAT=ios, ERRMSG=emsg)
@@ -196,7 +195,7 @@ CONTAINS
       INTEGER :: IEL, ICL, ILYR, ICBOT, ICTOP, IW, IELIN, ISTART, NAQCON, ios
       INTEGER :: IAQCON(4, NVSEE), ISDUM(LLEE)
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'VSmod:VSIN' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'vs_input:VSIN' !! Location string for read-error reports.
       DOUBLE PRECISION :: DZ, RDUM, ZGI, ZMIN
       DOUBLE PRECISION :: CDUM1(LLEE), CDUM2(LLEE), CDUM3(LLEE), CDUM4(LLEE)
 
@@ -510,7 +509,9 @@ CONTAINS
       CHARACTER(LEN=80)  :: CDUM
       CHARACTER(LEN=132) :: MSG
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'VSmod:VSREAD' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'vs_input:VSREAD' !! Location string for read-error reports.
+      INTEGER, DIMENSION(NXEE*NYEE), SAVE :: IDUM !! Integer input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
+      DOUBLEPRECISION, DIMENSION(NELEE), SAVE :: DUMMY !! Floating-point input workspace; scratch within this routine only. `SAVE` keeps it in static storage, as the former module variable was.
 
       !----------------------------------------------------------------------*
       ! Initialization

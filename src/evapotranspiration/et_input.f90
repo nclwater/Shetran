@@ -141,7 +141,7 @@ CONTAINS
       DOUBLE PRECISION :: DEPTH, ASUM
       CHARACTER(LEN=80):: HEAD
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:INET' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'et_input:INET' !! Location string for read-error reports.
 
       ! Missing local arrays used for Energy Budget calculations
       ! Defined with NVEE size as per the common block logic

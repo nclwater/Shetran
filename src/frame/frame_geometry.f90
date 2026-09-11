@@ -1162,7 +1162,7 @@ CONTAINS
       ! CHARACTER(LEN=80) :: TITLE
       CHARACTER(LEN=1)  :: A1LINE(200)
       CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'FRmod:FRLTL' !! Location string for read-error reports.
+      CHARACTER(LEN=*), PARAMETER :: location = 'frame_geometry:FRLTL' !! Location string for read-error reports.
 
       CHARACTER(LEN=1), PARAMETER :: NMERIC(9) = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 

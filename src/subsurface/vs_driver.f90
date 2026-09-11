@@ -81,7 +81,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "VSmod:initialise_vsmod"
+      CHARACTER(LEN=*), PARAMETER :: location = "vs_driver:initialise_vsmod"
 
       ALLOCATE (vsaijsv(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "vsaijsv", location, emsg)

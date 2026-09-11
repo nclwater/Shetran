@@ -26,6 +26,11 @@ MODULE run_context
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: DIRQQ, filnam, cnam, rootdir, hdf5filename, visualisation_plan_filename, &
+             visualisation_check_filename, error_mode
+
    CHARACTER(LEN=LENGTH_FILEPATH) :: DIRQQ !! Parent directory of the selected rundata file; may be `.` or a pathname.
    CHARACTER(LEN=LENGTH_FILEPATH) :: filnam !! Mutable filename buffer used by command-line setup and rundata-record reading.
    CHARACTER(LEN=LENGTH_FILEPATH) :: cnam !! Catchment name derived from the selected rundata filename stem.

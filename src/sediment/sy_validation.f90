@@ -603,7 +603,7 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
       ! ----------------
       !     * Local counter
       ALLOCATE (RDUM(NXEE*NYEE), STAT=ios, ERRMSG=emsg)
-      CALL errstat_alloc(ios, "RDUM", "SYmod:SYERR2", emsg)
+      CALL errstat_alloc(ios, "RDUM", "sy_validation:SYERR2", emsg)
 
       NERR = 0
 

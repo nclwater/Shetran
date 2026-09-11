@@ -10,7 +10,8 @@
 !>
 !> `R_P` and `I_P` are project aliases currently set to `R8P` and `I4P`.
 !> They do not change the processor's intrinsic default real or integer kinds.
-!> All 51 parameters are public because the module has no `PRIVATE` statement.
+!> The module is `PRIVATE` by default; all 51 parameters are named in its
+!> explicit `PUBLIC` list.
 !>
 !> | Parameter group | Current use outside this module |
 !> |:----------------|:--------------------------------|
@@ -67,6 +68,16 @@
 module mod_parameters
 
    implicit none
+
+   PRIVATE
+
+   PUBLIC :: R8P, R4P, R_P, I8P, I4P, I2P, I1P, I_P, LENGTH_FILEPATH, LENGTH_LINE, LENGTH_LINELONG, &
+             LENGTH_LINEVERYLONG, LENGTH_TEXT_R8P, NAN_REAL_R8P, NAN_REAL_R_P, NAN_INT_I4P, &
+             NAN_INT_I_P, marker999, imarker, izero, ione, izero1, ione1, zero, half, one, two, three, &
+             five, vsmall, zero1, one1, L_VAPORISATION_ET, PSYCHROMETRIC_CONSTANT, RHO_AIR_ET, &
+             CP_AIR_ET, TWO_THIRDS, FIVE_THIRDS, SQRT_TWO_G, GRAVITY, RHO_SEDIMENT, RHO_WATER_SEDIMENT, &
+             NU_WATER, RHO_AIR_SNOW, RHO_WATER_SNOW, CP_AIR_SNOW, CP_WATER, CP_ICE, L_FUSION, &
+             L_VAPORISATION_SNOW, GROUND_HEAT_FLUX_SNOW
 
    ! KIND constants -----------------------------------------------------------
    integer, parameter :: R8P = selected_real_kind(15,307) !! Real kind with precision >= 15 and range >= 307.

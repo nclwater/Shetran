@@ -73,6 +73,10 @@ MODULE cm_column_previous
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: DSWO, QIO, QQRFO, RSZWLO, ZONEO, GGAMMO, QQQSWO, QQO, UUAJPO, VSTHEO, initialise_colm_co
+
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: DSWO     !! Previous surface-water depth above ground by non-link column (m).
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: QIO      !! Previous net-precipitation flow; downward input is negative (m3/s).
    DOUBLEPRECISION, DIMENSION(:), ALLOCATABLE :: QQRFO    !! Previous upward water-volume flow through the column base (m3/s).
@@ -129,7 +133,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CO:initialise_colm_co"
+      CHARACTER(LEN=*), PARAMETER :: location = "cm_column_previous:initialise_colm_co"
 
       allocate (DSWO(total_no_elements), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "DSWO", location, emsg)

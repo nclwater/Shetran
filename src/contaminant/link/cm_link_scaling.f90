@@ -44,6 +44,10 @@
 MODULE cm_link_scaling
    USE array_limits, ONLY: LLEE
    IMPLICIT NONE
+
+   PRIVATE
+
+   PUBLIC :: KS, KSPBK
    DOUBLEPRECISION :: KS             !! Current link length divided by the reference length `Z2`.
    DOUBLEPRECISION :: KSPBK(2,LLEE)  !! Bank-cell thickness divided by `Z2`, for the two adjacent banks.
 !PRIVATE :: LLEE

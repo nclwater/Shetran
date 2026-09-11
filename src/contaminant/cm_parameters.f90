@@ -33,6 +33,12 @@ MODULE cm_parameters
 
    IMPLICIT NONE
 
+   PRIVATE
+
+   PUBLIC :: CCAPB, CCPBO, CCAPE, CCAPI, CCAPIO, CCAPR, CCAPRO, IIICF, IIICFO, CCCCW, CCCC, CCCCO, &
+             SSSS, SSSSO, SSS1, SSS2, GCPLA, GGLMSO, CCAPIN, ALPHA, FADS, GNN, KDDLS, KDDSOL, NCON, &
+             FCPBKO, GCPBKO, FSF, FSFC, FSFT, RSW, RSWC, RSWT, ALPHBD, ALPHBS, initialise_cont_cc
+
    DOUBLEPRECISION CCAPB(NELEE, NCONEE)  !! Base concentration boundary by element and contaminant.
    DOUBLEPRECISION CCPBO(NELEE, NCONEE)  !! Legacy companion to `CCAPB`; not referenced by current source.
    DOUBLEPRECISION CCAPE(NELEE, NCONEE)  !! External-inflow concentration by element and contaminant.
@@ -110,7 +116,7 @@ CONTAINS
 
       INTEGER(KIND=I_P) :: ios
       CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
-      CHARACTER(LEN=*), PARAMETER :: location = "CONT_CC:initialise_cont_cc"
+      CHARACTER(LEN=*), PARAMETER :: location = "cm_parameters:initialise_cont_cc"
 
       allocate (cccc(total_no_elements, top_cell_no + 1, ncon), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "CCCC", location, emsg)
