@@ -42,7 +42,7 @@
 MODULE GETDIRQQ
 
    USE mod_parameters
-   USE sglobal, ONLY : error_mode, casemode
+   USE sglobal, ONLY : error_mode
    USE stdlib_system, ONLY : base_name, dir_name, get_cwd, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN
@@ -53,6 +53,13 @@ MODULE GETDIRQQ
 
    PRIVATE
    PUBLIC :: get_dir_and_catch
+   PUBLIC :: rundata_from_file_dialog
+
+   !> Whether the rundata file was chosen through the QuickWin file dialog
+   !> rather than named on the command line. Only such a run owns a console
+   !> window that vanishes on exit, so only such a run needs the closing delay
+   !> in [[shetran]]. Always `.FALSE.` in a build without QuickWin support.
+   LOGICAL, PROTECTED :: rundata_from_file_dialog = .FALSE.
 
 #ifdef SHETRAN_HAVE_QUICKWIN
    CHARACTER(LEN=LENGTH_FILEPATH) :: FileName !! NUL-terminated QuickWin dialog filename buffer.
@@ -171,7 +178,6 @@ CONTAINS
         ENDIF
 
       message = ''
-      casemode = code  !casemode is set to decide if there is a sleep at the end of the program
 
       SELECT CASE(TRIM(code))
 #ifdef SHETRAN_HAVE_QUICKWIN
@@ -226,6 +232,10 @@ CONTAINS
          ELSE
             cli_argument = FileName
          END IF
+
+         ! The dialog supplied the file, so this run owns a console window that
+         ! closes on exit. Ask [[shetran]] to pause before it does.
+         rundata_from_file_dialog = .TRUE.
 #endif
 
       CASE('-f')

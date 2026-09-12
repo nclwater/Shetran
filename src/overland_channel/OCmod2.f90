@@ -64,26 +64,31 @@
 !> @endhistory
 MODULE OCmod2
    USE SGLOBAL
-   USE ZQmod,     ONLY : get_ZQTable_value
-   USE AL_D,      ONLY : ZQweirsill,ZQTableRef
+
+   USE tolerance_testing, ONLY: notzero, iszero, gtzero, dimje
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, RAISE_ERROR, ERRLVL_warn, FID_logfile
+
+   USE ZQmod, ONLY: get_ZQTable_value
+   USE AL_D, ONLY: ZQweirsill, ZQTableRef
    IMPLICIT NONE
 
-   DOUBLEPRECISION, PARAMETER   :: F23=2.0D0/3.0D0      !! Exponent \(2/3\) used in Strickler conveyance.
-   DOUBLEPRECISION, PARAMETER   :: F53=5.0D0/3.0D0      !! Exponent factor \(5/3\) used by the implemented derivative branches.
+   DOUBLEPRECISION, PARAMETER   :: F23 = 2.0D0/3.0D0      !! Exponent \(2/3\) used in Strickler conveyance.
+   DOUBLEPRECISION, PARAMETER   :: F53 = 5.0D0/3.0D0      !! Exponent factor \(5/3\) used by the implemented derivative branches.
    DOUBLEPRECISION, PARAMETER   :: DZMIN = 1.0D-3       !! Small depth/head-difference threshold, in metres.
-   DOUBLEPRECISION, PARAMETER   :: RDZMIN=3.16227766d-2 !! Square root of `DZMIN`.
-   DOUBLEPRECISION, PARAMETER   :: H23MIN=1.0d-2        !! `DZMIN**(2/3)`, retained for legacy comments and comparisons.
+   DOUBLEPRECISION, PARAMETER   :: RDZMIN = 3.16227766d-2 !! Square root of `DZMIN`.
+   DOUBLEPRECISION, PARAMETER   :: H23MIN = 1.0d-2        !! `DZMIN**(2/3)`, retained for legacy comments and comparisons.
    DOUBLEPRECISION, PARAMETER   :: ROOT2G = 4.42944d0   !! Approximation to \(\sqrt{2g}\) for weir flow.
    DOUBLEPRECISION, DIMENSION(NELEE)          :: HRFZZ    !! Water-surface elevation by element; abstracted for AD and solver access.
-   DOUBLEPRECISION, DIMENSION(NELEE,4)        :: qsazz    !! Face discharge by element and face; positive into the indexed element.
+   DOUBLEPRECISION, DIMENSION(NELEE, 4)        :: qsazz    !! Face discharge by element and face; positive into the indexed element.
 
-   DOUBLEPRECISION, DIMENSION(:,:,:), ALLOCATABLE :: xstab
+   DOUBLEPRECISION, DIMENSION(:, :, :), ALLOCATABLE :: xstab
    !! Channel lookup table: depth, conveyance, and conveyance slope by row and link.
    !! Allocated once by [[initialise_ocmod]] to shape `(3,NXSCEE,total_no_links)`.
 
    PRIVATE
    PUBLIC :: GETHRF, SETHRF, GETQSA, SETQSA, CONVEYAN, OCQBC, OCQMLN, OCQLNK, OCQGRD, OCQBNK, OCFIX, XSTAB, &
-      hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
+             hrfzz, qsazz, OCNODE, initialise_ocmod  !THESE PUBLIC ONLY FOR USE IN AD
 CONTAINS
 
    !> Returns the stored water-surface elevation for an element.
@@ -114,7 +119,6 @@ CONTAINS
       hrfzz(i) = v
 
    END SUBROUTINE sethrf
-
 
    !> Returns the stored face discharge for an element and face.
    !>
@@ -147,7 +151,6 @@ CONTAINS
 
    END SUBROUTINE setqsa
 
-
    !> Allocates the channel cross-section conveyance lookup table.
    !>
    !> `XSTAB(1:3,1:NXSCEE,1:total_no_links)` stores tabulated channel depth,
@@ -168,18 +171,20 @@ CONTAINS
    !> |:-----|:-------|:--------|:------------|
    !> | 2012-12-12 | SB | - | Made `XSTAB` dynamically allocatable in place of a fixed-size `(3,NXSCEE,NLFEE)` array. |
    !> | 2026-04-11 | SvB | - | Added the `ALLOCATED` guard so a repeated call does not attempt to re-allocate an already-allocated table. |
+   !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
    !> @endhistory
    SUBROUTINE initialise_ocmod()
 
       IMPLICIT NONE
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
 
       IF (.NOT. ALLOCATED(xstab)) THEN
-         ALLOCATE(xstab(3, nxscee, total_no_links))
+         ALLOCATE (xstab(3, nxscee, total_no_links), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "xstab", "OCmod:initialise_ocmod", emsg)
       END IF
 
    END SUBROUTINE initialise_ocmod
-
-
 
    !> Solves a multi-link confluence so branch flows sum to zero.
    !>
@@ -278,14 +283,14 @@ CONTAINS
       DOUBLE PRECISION :: A, B, FA, FB, FN, FNM1, SIGMAQ, WN
       LOGICAL :: TEST, FAILED
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! FIRST GUESSES (CHOOSE VALUES A,B SUCH THAT F(A)*F(B) .le. 0 )
-   ! (USE MIN AND MAX OF VALID ELEVATIONS); also, set QJ at absent branches
+      ! FIRST GUESSES (CHOOSE VALUES A,B SUCH THAT F(A)*F(B) .le. 0 )
+      ! (USE MIN AND MAX OF VALID ELEVATIONS); also, set QJ at absent branches
 
       A = ZI(0)
       B = A
-      
+
       init_loop: DO J = 1, 3
          IF (ISZERO(ROOTLI(J))) THEN
             QJ(J) = ZERO
@@ -294,29 +299,29 @@ CONTAINS
             B = MAX(ZI(J), B)
          END IF
       END DO init_loop
-      
+
       CALL FNODE(A, DI, CI, ZI, ROOTLI, QJ, FA)
       IF (ISZERO(FA)) RETURN
-      
+
       CALL FNODE(B, DI, CI, ZI, ROOTLI, QJ, FB)
       IF (ISZERO(FB)) RETURN
 
-   ! Iterate to convergence, using successive linear interpolation
-   
+      ! Iterate to convergence, using successive linear interpolation
+
       FN = FA
       FAILED = .FALSE.
-      
+
       ! Increase iteration limit and tighten convergence for difficult junctions.
       iteration_loop: DO NC = 1, 200
-         
-         WN = (A * FB - B * FA) / (FB - FA)
+
+         WN = (A*FB - B*FA)/(FB - FA)
          FNM1 = FN
-         
+
          CALL FNODE(WN, DI, CI, ZI, ROOTLI, QJ, FN)
-         
+
          SIGMAQ = ABS(QJ(0)) + ABS(QJ(1)) + ABS(QJ(2)) + ABS(QJ(3))
-         
-         IF (ABS(FN) <= SIGMAQ * 1.0D-3 .AND. ABS(B - A) <= 1.0D-4) THEN
+
+         IF (ABS(FN) <= SIGMAQ*1.0D-3 .AND. ABS(B - A) <= 1.0D-4) THEN
             JMAJOR = 0
             DO J = 1, 3
                IF (ABS(QJ(J)) > ABS(QJ(JMAJOR))) JMAJOR = J
@@ -325,35 +330,33 @@ CONTAINS
             FAILED = .FALSE.
             EXIT iteration_loop
          END IF
-         
+
          FAILED = .TRUE.
 
          ! * ... carry on: replace either A or B with WN; and
          ! * adjust interpolation factor if sign of F didn't change
-         TEST = GTZERO(FN * FNM1)  ! TAKE CARE - PRECEDENCE
-         
-         IF (FN * FA >= 0.0D0) THEN
+         TEST = GTZERO(FN*FNM1)  ! TAKE CARE - PRECEDENCE
+
+         IF (FN*FA >= 0.0D0) THEN
             A = WN
             FA = FN
-            IF (TEST) FB = FB * HALF
+            IF (TEST) FB = FB*HALF
          ELSE
             B = WN
             FB = FN
-            IF (TEST) FA = FA * HALF
+            IF (TEST) FA = FA*HALF
          END IF
-         
+
       END DO iteration_loop
 
       IF (FAILED) THEN
-         CALL ERROR(WWWARN, 1027, PPPRI, IELA, 0, 'maximum iterations exceeded for OC confluence')
-         IF (ABS(FN) > SIGMAQ * 1.0D-2 .OR. ABS(B - A) > 1.0D-3) THEN
-            CALL ERROR(WWWARN, 1028, PPPRI, IELA, 0, 'Bad iteration failure for OC confluence')
+         CALL RAISE_ERROR(ERRLVL_warn, 1027, FID_logfile, IELA, 0, 'maximum iterations exceeded for OC confluence')
+         IF (ABS(FN) > SIGMAQ*1.0D-2 .OR. ABS(B - A) > 1.0D-3) THEN
+            CALL RAISE_ERROR(ERRLVL_warn, 1028, FID_logfile, IELA, 0, 'Bad iteration failure for OC confluence')
          END IF
       END IF
 
    END SUBROUTINE OCNODE
-
-
 
    !> Evaluates net flow leaving a confluence for a trial node elevation.
    !>
@@ -419,27 +422,25 @@ CONTAINS
       INTEGER :: J
       DOUBLE PRECISION :: CJ, DZ, QASUM, SIG
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       QASUM = ZERO
       QJ = ZERO
-      
+
       flow_loop: DO J = 0, 3
          IF (ISZERO(ROOTLI(J))) CYCLE flow_loop
-         
+
          DZ = ZNODE - ZI(J)
          SIG = SIGN(ONE, DZ)
-         CJ = CI(J) + DI(J) * MAX(ZERO, DZ)
-         QJ(J) = SIG * CJ * SQRT(SIG * DZ) / ROOTLI(J)
+         CJ = CI(J) + DI(J)*MAX(ZERO, DZ)
+         QJ(J) = SIG*CJ*SQRT(SIG*DZ)/ROOTLI(J)
          QASUM = QJ(J) + QASUM
       END DO flow_loop
-      
+
       RESFNODE = QASUM
-      
+
    END SUBROUTINE FNODE
 
-
-   
    !> Calculates channel-link conveyance and derivative at a water elevation.
    !>
    !> Below bank-full the routine interpolates precomputed cross-section
@@ -524,26 +525,24 @@ CONTAINS
       INTEGER :: I
       DOUBLE PRECISION :: H, HFULL, XA
 
-   !----------------------------------------------------------------------*
-      
+      !----------------------------------------------------------------------*
+
       H = Z - ZG
       HFULL = AFROMXSTYPES(1, NXSCEE)
 
-      I = INT((H / HFULL) * DBLE(NXSCEE - 1) + ONE)
+      I = INT((H/HFULL)*DBLE(NXSCEE - 1) + ONE)
 
       IF (I < NXSCEE) THEN
          ! * use look-up tables
          DERIV = AFROMXSTYPES(3, I)
-         CONV  = AFROMXSTYPES(2, I) + DERIV * DIMJE(H, AFROMXSTYPES(1, I))
+         CONV = AFROMXSTYPES(2, I) + DERIV*DIMJE(H, AFROMXSTYPES(1, I))
       ELSE
          ! * calculate values directly
-         XA = AFROMXAFULL + AFROMCWIDTH * DIMJE(H, HFULL)
+         XA = AFROMXAFULL + AFROMCWIDTH*DIMJE(H, HFULL)
          CALL CONVEYAN(STR, H, CONV, DERIV, 2, XA, AFROMCWIDTH)
       END IF
-      
+
    END SUBROUTINE OCCODE
-
-
 
    !> Calculates flow and derivative at an external overland/channel boundary.
    !>
@@ -661,96 +660,93 @@ CONTAINS
       DOUBLE PRECISION :: SIG, STRW, SUBRIO, ZSILL, ZL, ZU, ZX, COEFF(2)
       DOUBLE PRECISION :: CONVM, CONVMM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Prologue
-   ! --------
-   ! Modernization Fix: Default initialize outputs to zero to prevent passing back uninitialized garbage
+      ! Prologue
+      ! --------
+      ! Modernization Fix: Default initialize outputs to zero to prevent passing back uninitialized garbage
       FROMQ = ZERO
       FROMDQ = ZERO
       MTYPE = MOD(NTYPE, 6)
 
-   ! Part 1
-   ! ------
+      ! Part 1
+      ! ------
       SELECT CASE (MTYPE)
          ! Prescribed time-varying head - grid (3) or channel (9)
          ! NB: see Part 2
-         CASE (3)
-            ZX = AFROMHOCNOW
-            FROMQ = ZERO
-            FROMDQ = ZERO
+      CASE (3)
+         ZX = AFROMHOCNOW
+         FROMQ = ZERO
+         FROMDQ = ZERO
 
          ! Prescribed time-varying flow - grid (4) or channel (10)
          ! NB: QOCF is rate of INFLOW, not discharge
-         CASE (4)
-            FROMQ = AFROMQOCF
-            FROMDQ = ZERO
+      CASE (4)
+         FROMQ = AFROMQOCF
+         FROMDQ = ZERO
 
          ! Flow a polynomial function of head - grid (5) or channel (11)
-         CASE (5)
-            H = ZI - ZGI
-            AH = AFROMCOCBCD(1) * H
-            B = AFROMCOCBCD(2)
-            C = AFROMCOCBCD(3)
-            D = AFROMCOCBCD(4)
-            E = AFROMCOCBCD(5)
-            
-            FROMQ = -((((AH + B) * H + C) * H + D) * H + E)
-            FROMDQ = -(((4.0D0 * AH + 3.0D0 * B) * H + 2.0D0 * C) * H + D)
-            
-         CASE DEFAULT
-            ! Weir (7) ... with river in parallel (8) - see Part 2
-            IF (NTYPE == 7 .OR. NTYPE == 8) THEN
-               COEFF(1) = AFROMCOCBCD(1)
-               SUBRIO   = AFROMCOCBCD(2)
-               ZSILL    = AFROMCOCBCD(3)
-               ZX       = AFROMCOCBCD(4)
-               COEFF(2) = COEFF(1)
-               
-               ZU = MAX(ZX, ZI)
-               ZL = MIN(ZX, ZI)
-               
-               CALL QWEIR(ZU, ZSILL, ZL, COEFF, SUBRIO, FROMQ, DQU, FROMDQ)
-               
-               IF (ZI >= ZX) THEN
-                  FROMQ = -FROMQ
-                  FROMDQ = -DQU
-               END IF
+      CASE (5)
+         H = ZI - ZGI
+         AH = AFROMCOCBCD(1)*H
+         B = AFROMCOCBCD(2)
+         C = AFROMCOCBCD(3)
+         D = AFROMCOCBCD(4)
+         E = AFROMCOCBCD(5)
+
+         FROMQ = -((((AH + B)*H + C)*H + D)*H + E)
+         FROMDQ = -(((4.0D0*AH + 3.0D0*B)*H + 2.0D0*C)*H + D)
+
+      CASE DEFAULT
+         ! Weir (7) ... with river in parallel (8) - see Part 2
+         IF (NTYPE == 7 .OR. NTYPE == 8) THEN
+            COEFF(1) = AFROMCOCBCD(1)
+            SUBRIO = AFROMCOCBCD(2)
+            ZSILL = AFROMCOCBCD(3)
+            ZX = AFROMCOCBCD(4)
+            COEFF(2) = COEFF(1)
+
+            ZU = MAX(ZX, ZI)
+            ZL = MIN(ZX, ZI)
+
+            CALL QWEIR(ZU, ZSILL, ZL, COEFF, SUBRIO, FROMQ, DQU, FROMDQ)
+
+            IF (ZI >= ZX) THEN
+               FROMQ = -FROMQ
+               FROMDQ = -DQU
             END IF
+         END IF
       END SELECT
 
-
-   ! Part 2
-   ! ------
-   ! Head, or river-part of river+weir
-   ! Note: river has fictitious d/s link, same size as u/s
+      ! Part 2
+      ! ------
+      ! Head, or river-part of river+weir
+      ! Note: river has fictitious d/s link, same size as u/s
 
       IF (MTYPE == 3 .OR. NTYPE == 8) THEN
          DZ = ZX - ZI
          SIG = SIGN(ONE, DZ)
-         DZ = SIG * DZ
+         DZ = SIG*DZ
          ROOTDZ = SQRT(DZ)
-         DHH = LI * DBLE(4 - MTYPE)
+         DHH = LI*DBLE(4 - MTYPE)
          ROOTL = SQRT(DHH)
 
          IF (NTYPE == 3) THEN
             HM = ZI - ZGI
-            STRW = STR * W
+            STRW = STR*W
             CALL CONVEYAN(STRW, HM, CONVM, DERIVM, 1)
          ELSE
-            CALL OCCODE(ZGI, STR, W, AFROMXAFULL, XSTAB(:,:,LINK), ZI, CONVM, DERIVM)
+            CALL OCCODE(ZGI, STR, W, AFROMXAFULL, XSTAB(:, :, LINK), ZI, CONVM, DERIVM)
          END IF
 
-         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
-         DUM = HALF * CONVMM / MAX(RDZMIN, ROOTDZ)
+         CONVMM = CONVM + DERIVM*DIMJE(DZMIN, DZ)
+         DUM = HALF*CONVMM/MAX(RDZMIN, ROOTDZ)
 
-         FROMQ = FROMQ + SIG * CONVM * ROOTDZ / ROOTL
-         FROMDQ = FROMDQ + (SIG * DERIVM * ROOTDZ - DUM) / ROOTL
+         FROMQ = FROMQ + SIG*CONVM*ROOTDZ/ROOTL
+         FROMDQ = FROMDQ + (SIG*DERIVM*ROOTDZ - DUM)/ROOTL
       END IF
 
    END SUBROUTINE OCQBC
-
-
 
    !> Calculates exchange flow and derivatives between a channel link and a bank element.
    !>
@@ -856,58 +852,56 @@ CONTAINS
       DOUBLE PRECISION :: ROOTDZ, ROOTL, SIG, STRW
       DOUBLE PRECISION :: DZL, ZB, ZG, COEFF(2), RDUM
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       DZ = ZI(1) - ZI(0)
       SIG = SIGN(ONE, DZ)
-      HI = (1 + NINT(SIG)) / 2
+      HI = (1 + NINT(SIG))/2
       LO = 1 - HI
       ZB = ZBG(0)
       ZG = ZBG(1)
 
       DZL = ZI(LO) - ZB
 
-   ! Channel bank-full lower than adjacent ground: resistance equation
-   ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1
+      ! Channel bank-full lower than adjacent ground: resistance equation
+      ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1
       IF (ZG >= ZB) THEN
-         DZ = SIG * DZ + MIN(DZL, ZERO)
+         DZ = SIG*DZ + MIN(DZL, ZERO)
          ROOTDZ = SQRT(DZ)
          HM = ZI(HI) - ZBG(HI)
-         
-         DHH = LI(0) + LI(1)
-         STRW = W * (STR(0) * LI(0) + STR(1) * LI(1)) / DHH
-         ROOTL = SQRT(DHH)
-         
-         CALL CONVEYAN(STRW, HM, CONVM, DERIVM, 1)
-         
-         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
-         DUM = HALF * CONVMM / MAX(RDZMIN, ROOTDZ)
-         
-         Q(LO) = CONVM * ROOTDZ / ROOTL
-         DQ(LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
-         
-         IF (DZL < -DZMIN) DUM = ZERO
-         
-         DQ(LO, LO) = -DUM / ROOTL
 
-   ! Channel bank-full higher than adjacent ground: flat-crested weir eqn
+         DHH = LI(0) + LI(1)
+         STRW = W*(STR(0)*LI(0) + STR(1)*LI(1))/DHH
+         ROOTL = SQRT(DHH)
+
+         CALL CONVEYAN(STRW, HM, CONVM, DERIVM, 1)
+
+         CONVMM = CONVM + DERIVM*DIMJE(DZMIN, DZ)
+         DUM = HALF*CONVMM/MAX(RDZMIN, ROOTDZ)
+
+         Q(LO) = CONVM*ROOTDZ/ROOTL
+         DQ(LO, HI) = (DERIVM*ROOTDZ + DUM)/ROOTL
+
+         IF (DZL < -DZMIN) DUM = ZERO
+
+         DQ(LO, LO) = -DUM/ROOTL
+
+         ! Channel bank-full higher than adjacent ground: flat-crested weir eqn
       ELSE
-         COEFF(1) = ROOT2G * W
-         COEFF(2) = 0.386D0 * COEFF(1)
-         
+         COEFF(1) = ROOT2G*W
+         COEFF(2) = 0.386D0*COEFF(1)
+
          ! AD aliasing fix: rdum isolates the output variable from DQ array memory
          CALL QWEIR(ZI(HI), ZB, ZI(LO), COEFF, F23, Q(LO), DQ(LO, HI), RDUM)
          DQ(LO, LO) = RDUM
       END IF
 
-   ! Copy LO to HI
+      ! Copy LO to HI
       Q(HI) = -Q(LO)
       DQ(HI, HI) = -DQ(LO, HI)
       DQ(HI, LO) = -DQ(LO, LO)
 
    END SUBROUTINE OCQBNK
-
-
 
    !> Calculates overland flow and derivatives between two land elements.
    !>
@@ -1014,16 +1008,16 @@ CONTAINS
       ! Output arguments
       DOUBLE PRECISION, INTENT(OUT) :: Q(0:1)       !! Paired land-land exchange flows.
       DOUBLE PRECISION, INTENT(OUT) :: DQ(0:1, 0:1) !! Derivatives of paired exchange flows with respect to water levels.
-      
+
       ! Locals
       INTEGER :: HI, LO
       DOUBLE PRECISION :: CONVM, CONVMM, DERIVM, DHH, DUM, DZ, HM
       DOUBLE PRECISION :: ROOTDZ, ROOTL, SIG, STRW
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! INTERNAL IMPERMEABLE BOUNDARY
-   ! NB: NTYPE 3,4,5 not allowed internally
+      ! INTERNAL IMPERMEABLE BOUNDARY
+      ! NB: NTYPE 3,4,5 not allowed internally
       IF (NTYPE == 1) THEN
          ! Modernization Fix: Scalar-to-array broadcasting replaces the DO loop
          Q = ZERO
@@ -1031,45 +1025,43 @@ CONTAINS
          RETURN
       END IF
 
-   ! Set up local variables
-   ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1; but
-   !     note STR is averaged, so CONVM will NOT be strictly "upstream"
-   ! Note: ZGI(LO) is not required
+      ! Set up local variables
+      ! NB: HM has an implicit upstream weighting factor, ie ALPHA=1; but
+      !     note STR is averaged, so CONVM will NOT be strictly "upstream"
+      ! Note: ZGI(LO) is not required
       DZ = ZI(1) - ZI(0)
       SIG = SIGN(ONE, DZ)
-      HI = (1 + NINT(SIG)) / 2
+      HI = (1 + NINT(SIG))/2
       LO = 1 - HI
-      DZ = SIG * DZ
+      DZ = SIG*DZ
       ROOTDZ = SQRT(DZ)
       HM = ZI(HI) - ZGI(HI)
-      
+
       DHH = LI(0) + LI(1)
-      STRW = W * (STR(0) * LI(0) + STR(1) * LI(1)) / DHH
+      STRW = W*(STR(0)*LI(0) + STR(1)*LI(1))/DHH
       ROOTL = SQRT(DHH)
 
-   ! CALCULATE FLOW AND DERIVATIVES
-   ! NB:   H23MIN          in DERIVM  prevents small DQ when HM is small
-   !        DZMIN          in CONVMM  prevents small DQ when DZ is small
-   !       RDZMIN          in DUM     prevents overflow when DZ is small
-   !       ROOTDZ (no MAX) in DQ gives symmetric values when DZ is small
+      ! CALCULATE FLOW AND DERIVATIVES
+      ! NB:   H23MIN          in DERIVM  prevents small DQ when HM is small
+      !        DZMIN          in CONVMM  prevents small DQ when DZ is small
+      !       RDZMIN          in DUM     prevents overflow when DZ is small
+      !       ROOTDZ (no MAX) in DQ gives symmetric values when DZ is small
 
       CALL CONVEYAN(STRW, HM, CONVM, DERIVM, 1)
 
-      CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
-      DUM = HALF * CONVMM / MAX(RDZMIN, ROOTDZ)
-      
-      Q(LO) = CONVM * ROOTDZ / ROOTL
-      DQ(LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
+      CONVMM = CONVM + DERIVM*DIMJE(DZMIN, DZ)
+      DUM = HALF*CONVMM/MAX(RDZMIN, ROOTDZ)
 
-      DQ(LO, LO) = -DUM / ROOTL
+      Q(LO) = CONVM*ROOTDZ/ROOTL
+      DQ(LO, HI) = (DERIVM*ROOTDZ + DUM)/ROOTL
+
+      DQ(LO, LO) = -DUM/ROOTL
       Q(HI) = -Q(LO)
       DQ(HI, HI) = -DQ(LO, HI)
 
       DQ(HI, LO) = -DQ(LO, LO)
 
    END SUBROUTINE OCQGRD
-
-
 
    !> Calculates flow and derivatives between two channel links.
    !>
@@ -1180,60 +1172,60 @@ CONTAINS
       DOUBLE PRECISION :: COEFF(2), RDUM
       DOUBLE PRECISION :: DZU, WEIRSILL
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Set up local variables - part 1
+      ! Set up local variables - part 1
       DZ = ZI(1) - ZI(0)
       SIG = SIGN(ONE, DZ)
-      HI = (1 + NINT(SIG)) / 2
+      HI = (1 + NINT(SIG))/2
       LO = 1 - HI
 
-   ! Internal weir
-   ! NB: NTYPE 1,8,9,10,11 not allowed internally
+      ! Internal weir
+      ! NB: NTYPE 1,8,9,10,11 not allowed internally
 
       IF (NTYPE == 7) THEN
          COEFF(1) = AFROMCOCBCD(1)
          SUBRIO = AFROMCOCBCD(2)
          ZSILL = AFROMCOCBCD(3)
          COEFF(2) = COEFF(1)
-         
+
          ! AD aliasing fix: rdum isolates the output variable from DQ array memory
          CALL QWEIR(ZI(HI), ZSILL, ZI(LO), COEFF, SUBRIO, Q(LO), DQ(LO, HI), RDUM)
          DQ(LO, LO) = RDUM
 
-   ! ***ZQ Module 200520
+         ! ***ZQ Module 200520
       ELSE IF (NTYPE == 12) THEN
          ! print*, ZQTableRef, ZI(HI)
-         
+
          Q(LO) = GET_ZQTABLE_VALUE(ZQTABLEREF, ZI(HI))
          WEIRSILL = ZQWEIRSILL(ZQTABLEREF)
          DZU = DIMJE(ZI(HI), WEIRSILL)
-         
+
          ! This works for Crummock. Stability during step changes should be tested e.g. for a small area reservoir
-         DQ(LO, HI) = 50.0D0 * 1.5D0 * SQRT(DZU)
+         DQ(LO, HI) = 50.0D0*1.5D0*SQRT(DZU)
          DQ(LO, LO) = 0.0D0
-         
+
          ! write(779,*) ZI(HI), Q(LO), DQ(LO,HI)
 
-   ! Standard Channel Flow
+         ! Standard Channel Flow
       ELSE
          ! Set up local variables - part 2
-         DZ = SIG * DZ
+         DZ = SIG*DZ
          ROOTDZ = SQRT(DZ)
          DHH = LI(0) + LI(1)
          ROOTL = SQRT(DHH)
-         
+
          ! CALCULATE FLOW AND DERIVATIVES
          ! NB: CONVM has an implicit upstream weighting factor, ie ALPHA=1
          CALL OCCODE(ZGI(HI), STR(HI), CW(HI), XA(HI), XSTAB(:, :, JXSWORK(HI)), ZI(HI), CONVM, DERIVM)
-         
-         CONVMM = CONVM + DERIVM * DIMJE(DZMIN, DZ)
-         DUM = HALF * CONVMM / MAX(RDZMIN, ROOTDZ)
-         
+
+         CONVMM = CONVM + DERIVM*DIMJE(DZMIN, DZ)
+         DUM = HALF*CONVMM/MAX(RDZMIN, ROOTDZ)
+
          ! Note: ZGI(LO), etc are not required
-         Q(LO) = CONVM * ROOTDZ / ROOTL
-         DQ(LO, HI) = (DERIVM * ROOTDZ + DUM) / ROOTL
-         DQ(LO, LO) = -DUM / ROOTL
+         Q(LO) = CONVM*ROOTDZ/ROOTL
+         DQ(LO, HI) = (DERIVM*ROOTDZ + DUM)/ROOTL
+         DQ(LO, LO) = -DUM/ROOTL
       END IF
 
       Q(HI) = -Q(LO)
@@ -1241,8 +1233,6 @@ CONTAINS
       DQ(HI, LO) = -DQ(LO, LO)
 
    END SUBROUTINE OCQLNK
-
-
 
    !> Calculates confluence flows and derivatives for a multi-link junction.
    !>
@@ -1352,9 +1342,9 @@ CONTAINS
       DOUBLE PRECISION :: CSAVE, DSAVE, CI(0:3), DI(0:3), QDUM2(0:3)
       DOUBLE PRECISION :: ZINC, ZSAVE, ROOTLI(0:3), ZJ(0:3)
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! Calculate conveyance & its derivative (both.ge.0), & set local arrays
+      ! Calculate conveyance & its derivative (both.ge.0), & set local arrays
       DO J = 0, 3
          IF (JEL2(J) <= 0) THEN
             ! * OCNODE uses ROOTLI as a flag
@@ -1366,38 +1356,37 @@ CONTAINS
          END IF
       END DO
 
-   ! Find flows out of node
+      ! Find flows out of node
       CALL OCNODE(IELB, ZI, CI, DI, ROOTLI, QJ)
 
-   ! CALC. DQi/DHj
+      ! CALC. DQi/DHj
       DO J = 0, 3
          IF (JEL2(J) <= 0) CYCLE
-         
+
          ! * temporarily increase ZJ and recalculate CI,DI
          ZSAVE = ZJ(J)
          CSAVE = CI(J)
          DSAVE = DI(J)
-         
-         ZINC = MAX(WLMIN, (ZSAVE - ZGI(J)) * ONEPC)  ! zgi is ground elevation
+
+         ZINC = MAX(WLMIN, (ZSAVE - ZGI(J))*ONEPC)  ! zgi is ground elevation
          ZJ(J) = ZSAVE + ZINC
-         
+
          ! Modernization Fix: Changed scalar array pass (XSTAB(1,1,...)) to full slice to match OCCODE interface
          CALL OCCODE(ZGI(J), STR(J), CW(J), XA(J), XSTAB(:, :, JXSWORK(J)), ZJ(J), CI(J), DI(J))
-         
+
          ! * calculate resultant flows & evaluate derivative
          CALL OCNODE(IELB, ZJ, CI, DI, ROOTLI, QDUM2)
-         
+
          DO I = 0, 3
-            DQIJ(I, J) = (QDUM2(I) - QJ(I)) / ZINC
+            DQIJ(I, J) = (QDUM2(I) - QJ(I))/ZINC
          END DO
-         
+
          ZJ(J) = ZSAVE
          CI(J) = CSAVE
          DI(J) = DSAVE
       END DO
 
    END SUBROUTINE OCQMLN
-
 
    !> Evaluates conveyance and derivative for OC resistance-flow formulae.
    !>
@@ -1447,9 +1436,9 @@ CONTAINS
 
       ! Locals
       DOUBLE PRECISION :: HM23
-      DOUBLE PRECISION, PARAMETER :: MUL = 10.0D0 / 3.0D0
+      DOUBLE PRECISION, PARAMETER :: MUL = 10.0D0/3.0D0
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
       IF (TY == 0) THEN
          IF (H < 1.0D-9) THEN
@@ -1457,33 +1446,33 @@ CONTAINS
             DERIV = 0.0D0
          ELSE IF (H < 1.0D-3) THEN
             ! conv  = deriv * h          ! LINEARIZE NEAR ZERO
-            CONV = STR * MUL * H * H * (4.0D0 - 1.0D3 * H)  ! TAKE CARE valid only for threshold of 1 mm
-            CONV = CONV * XA / H
-            DERIV = STR * MUL * H * (8.0D0 - 3.0D3 * H)     ! TAKE CARE valid only for threshold of 1 mm
+            CONV = STR*MUL*H*H*(4.0D0 - 1.0D3*H)  ! TAKE CARE valid only for threshold of 1 mm
+            CONV = CONV*XA/H
+            DERIV = STR*MUL*H*(8.0D0 - 3.0D3*H)     ! TAKE CARE valid only for threshold of 1 mm
          ELSE
             HM23 = H**F23
-            CONV = STR * XA * HM23      ! NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
-            DERIV = STR * HM23 * F53
+            CONV = STR*XA*HM23      ! NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
+            DERIV = STR*HM23*F53
          END IF
-         
+
       ELSE IF (TY == 1) THEN
          IF (H < 1.0D-9) THEN
             CONV = 0.0D0
             DERIV = 0.0D0
          ELSE IF (H < 1.0D-3) THEN
             ! conv  = deriv * h          ! LINEARIZE NEAR ZERO
-            CONV = STR * MUL * H * H * (4.0D0 - 1.0D3 * H)  ! TAKE CARE valid only for threshold of 1 mm
-            DERIV = STR * MUL * H * (8.0D0 - 3.0D3 * H)     ! TAKE CARE valid only for threshold of 1 mm
+            CONV = STR*MUL*H*H*(4.0D0 - 1.0D3*H)  ! TAKE CARE valid only for threshold of 1 mm
+            DERIV = STR*MUL*H*(8.0D0 - 3.0D3*H)     ! TAKE CARE valid only for threshold of 1 mm
          ELSE
             HM23 = H**F23
-            CONV = STR * H * HM23       ! NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
-            DERIV = STR * HM23 * F53
+            CONV = STR*H*HM23       ! NOTE IS XA FOR CASE 0 BUT H FOR CASE 1
+            DERIV = STR*HM23*F53
          END IF
-         
+
       ELSE IF (TY == 2) THEN
          HM23 = H**F23
-         CONV = STR * XA * HM23
-         DERIV = CONV * (EXTRA / XA + F23 / H)  ! is f23 correct here?
+         CONV = STR*XA*HM23
+         DERIV = CONV*(EXTRA/XA + F23/H)  ! is f23 correct here?
       END IF
 
       ! Legacy Disabled Block
@@ -1500,8 +1489,6 @@ CONTAINS
       ! ELSE
 
    END SUBROUTINE CONVEYAN
-
-
 
    !> Calculates horizontal-crest weir flow and derivatives.
    !>
@@ -1584,9 +1571,9 @@ CONTAINS
       ! Locals
       DOUBLE PRECISION :: CR, DML, DZU, DZL, ROOTDZ
 
-   !----------------------------------------------------------------------*
+      !----------------------------------------------------------------------*
 
-   ! NO FLOW ACROSS WEIR
+      ! NO FLOW ACROSS WEIR
       IF (ZU < ZSILL - DZMIN) THEN
          Q = ZERO
          DQU = ZERO
@@ -1595,27 +1582,25 @@ CONTAINS
          DZU = DIMJE(ZU, ZSILL)
          DZL = ZL - ZSILL
 
-   ! DROWNED WEIR
-         IF (DZL > SUBRIO * DZU) THEN
+         ! DROWNED WEIR
+         IF (DZL > SUBRIO*DZU) THEN
             ROOTDZ = SQRT(ZU - ZL)
             DML = MAX(DZMIN, DZL)
-            CR = COEFF(1) * ROOTDZ
-            Q = CR * DZL
-            DQU = COEFF(1) * DML * HALF / MAX(RDZMIN, ROOTDZ)
+            CR = COEFF(1)*ROOTDZ
+            Q = CR*DZL
+            DQU = COEFF(1)*DML*HALF/MAX(RDZMIN, ROOTDZ)
             DQL = CR - DQU
 
-   ! UNDROWNED WEIR
+            ! UNDROWNED WEIR
          ELSE
             ROOTDZ = SQRT(DZU)
-            Q = COEFF(2) * DZU * ROOTDZ
-            DQU = COEFF(2) * 1.5D0 * MAX(RDZMIN, ROOTDZ)
+            Q = COEFF(2)*DZU*ROOTDZ
+            DQU = COEFF(2)*1.5D0*MAX(RDZMIN, ROOTDZ)
             DQL = ZERO
          END IF
       END IF
 
    END SUBROUTINE QWEIR
-
-
 
    !> Applies final OC flow and depth consistency corrections after a timestep.
    !>
@@ -1723,13 +1708,13 @@ CONTAINS
       INTEGER          :: IELc, IFACE, IBR, idum
       INTEGER          :: JEL, JFACE, PPP, PASSS, PEL, PEL0, PFACE, PFACE0
       DOUBLE PRECISION :: DQE, DZE, QE, ZE, DHQ, DHH, DDZ, DQE0, FDQE, H
-      DOUBLE PRECISION :: DQA, DZA, QA, ZA, QQ, QQMIN, Qasum, SGN, ZG, DXY (0:1), rdum4(4)
-      LOGICAL          :: AOK, QSMALL, HSMALL, FAIL, FAILP, TEST, FLAG (4)
+      DOUBLE PRECISION :: DQA, DZA, QA, ZA, QQ, QQMIN, Qasum, SGN, ZG, DXY(0:1), rdum4(4)
+      LOGICAL          :: AOK, QSMALL, HSMALL, FAIL, FAILP, TEST, FLAG(4)
       CHARACTER(132)   :: MSG
 
-   !----------------------------------------------------------------------*
-   ! Control Loop
-   ! ------------
+      !----------------------------------------------------------------------*
+      ! Control Loop
+      ! ------------
 
       ! `HRFZZ`/`QSAZZ` are corrected in place: they are module state of this
       ! same module, so no staging buffers are needed.
@@ -1755,78 +1740,78 @@ CONTAINS
       ! the buffered form must not be the default. INTENT(INOUT) is required:
       ! the routine reads the incoming state before correcting it.
       AOK = .FALSE.
-      
+
       pass_loop: DO PASSS = 1, NPASS
 
          AOK = .TRUE.
-         
-         element_loop: DO ielc = 1, NEL
-            ZE = HRFZZ (ielc)
-            DZE = DTOC / cellarea (ielc)
-            DXY (0) = DXQQ (ielc)
-            DXY (1) = DYQQ (ielc)
 
-            ZG = ZGRUND (ielc)
+         element_loop: DO ielc = 1, NEL
+            ZE = HRFZZ(ielc)
+            DZE = DTOC/cellarea(ielc)
+            DXY(0) = DXQQ(ielc)
+            DXY(1) = DYQQ(ielc)
+
+            ZG = ZGRUND(ielc)
             H = ZE - ZG
             HSMALL = (H < HCRIT) .AND. NOTZERO(H)
             FDQE = ZERO
-            
+
             IF (HSMALL) THEN
-               DQE0 = -H / DZE
-               SGN = SIGN (ONE, DQE0)
+               DQE0 = -H/DZE
+               SGN = SIGN(ONE, DQE0)
                Qasum = ZERO
-               
+
                DO IFACE = 1, 4
-                  QE = QSAZZ (ielc, IFACE)
-                  FLAG (IFACE) = QE * SGN < ZERO
-                  IF (FLAG (IFACE)) Qasum = Qasum + QE
+                  QE = QSAZZ(ielc, IFACE)
+                  FLAG(IFACE) = QE*SGN < ZERO
+                  IF (FLAG(IFACE)) Qasum = Qasum + QE
                END DO
-               
-               IF (NOTZERO(Qasum)) FDQE = MAX (-ONE, DQE0 / Qasum)
+
+               IF (NOTZERO(Qasum)) FDQE = MAX(-ONE, DQE0/Qasum)
             END IF
-            
+
             ! Face Loop
             Qasum = ZERO
             face_loop: DO IFACE = 1, 4
-               QE = QSAZZ (ielc, IFACE)
-               
+               QE = QSAZZ(ielc, IFACE)
+
                TEST = QE < ZERO
-               IF (HSMALL) TEST = FLAG (IFACE)
+               IF (HSMALL) TEST = FLAG(IFACE)
                IF (.NOT. TEST) CYCLE face_loop
-               
-               QSMALL = -QE < DXY (MOD (IFACE, 2)) * UHCRIT
+
+               QSMALL = -QE < DXY(MOD(IFACE, 2))*UHCRIT
                TEST = QSMALL .OR. HSMALL
-               
-               JEL = afromICMREF (ielc, IFACE + 4)
+
+               JEL = afromICMREF(ielc, IFACE + 4)
                IF (JEL > 0) THEN
-                  JFACE = afromICMREF (ielc, IFACE + 8)
-                  FAIL = HRFZZ (JEL) >= ZE
+                  JFACE = afromICMREF(ielc, IFACE + 8)
+                  FAIL = HRFZZ(JEL) >= ZE
                ELSE IF (JEL == 0) THEN
                   FAIL = .FALSE.
                ELSE
                   IBR = -JEL
                   QQMIN = ZERO
                   FAIL = .FALSE.
-                  
+
                   confluence_loop: DO PPP = 1, 3
-                     PEL = afromICMRF2 (IBR, PPP)
+                     PEL = afromICMRF2(IBR, PPP)
                      IF (PEL < 1) CYCLE confluence_loop
-                     
-                     PFACE = afromICMRF2 (IBR, PPP + 3)
-                     QQ = QSAZZ (PEL, PFACE) * QE
-                     FAILP = (HRFZZ (PEL) >= ZE) .AND. (QQ < ZERO)
-                     
+
+                     PFACE = afromICMRF2(IBR, PPP + 3)
+                     QQ = QSAZZ(PEL, PFACE)*QE
+                     FAILP = (HRFZZ(PEL) >= ZE) .AND. (QQ < ZERO)
+
                      IF ((FAILP .OR. TEST) .AND. QQ < QQMIN) THEN
                         JEL = PEL
                         JFACE = PFACE
                         QQMIN = QQ
                      END IF
-                     
+
                      FAIL = FAIL .OR. FAILP
                      PEL0 = PEL
                      PFACE0 = PFACE
                   END DO confluence_loop
-                  
+
                   IF (JEL < 0) THEN
                      JEL = PEL0
                      JFACE = PFACE0
@@ -1836,47 +1821,47 @@ CONTAINS
                ! Adjustments
                IF (FAIL .OR. TEST) THEN
                   AOK = .FALSE.
-                  
+
                   IF (JEL > 0) THEN
-                     DZA = DTOC / cellarea (JEL)
-                     ZA = HRFZZ (JEL)
-                     QA = QSAZZ (JEL, JFACE)
+                     DZA = DTOC/cellarea(JEL)
+                     ZA = HRFZZ(JEL)
+                     QA = QSAZZ(JEL, JFACE)
                   END IF
-                  
+
                   IF (HSMALL) THEN
-                     DQE = FDQE * QE
+                     DQE = FDQE*QE
                   ELSE IF (QSMALL) THEN
                      DQE = -QE
                   ELSE
                      DDZ = DZMIN + ZA - ZE
-                     DQE = MIN (+QA, -QE, DDZ / (DZA + DZE))
+                     DQE = MIN(+QA, -QE, DDZ/(DZA + DZE))
                   END IF
-                  
+
                   Qasum = Qasum + DQE
                   QSAZZ(ielc, IFACE) = QE + DQE
-                  ZE = ZE + DQE * DZE
-                  
+                  ZE = ZE + DQE*DZE
+
                   IF (JEL > 0) THEN
-                     SGN = SIGN (ONE, DQE)
-                     DQA = -SGN * MIN (SGN * DQE, SGN * QA)
+                     SGN = SIGN(ONE, DQE)
+                     DQA = -SGN*MIN(SGN*DQE, SGN*QA)
                      Qasum = Qasum + DQA
                      QSAZZ(JEL, JFACE) = QA + DQA
-                     HRFZZ(JEL) = ZA + DQA * DZA
+                     HRFZZ(JEL) = ZA + DQA*DZA
                   END IF
-                  
+
                   IF (.NOT. HSMALL) THEN
-                     DHQ = Qasum * DZE
+                     DHQ = Qasum*DZE
                      Qasum = ZERO
-                     
-                     IF ((ABS (DHQ) > HERROR) .OR. (passs == npass)) THEN
-                        rdum4(1) = -QE 
-                        rdum4(2) = -1.0D2 * DQE / QE 
-                        idum = IFACE 
+
+                     IF ((ABS(DHQ) > HERROR) .OR. (passs == npass)) THEN
+                        rdum4(1) = -QE
+                        rdum4(2) = -1.0D2*DQE/QE
+                        idum = IFACE
                         rdum4(4) = DHQ
-                        
+
                         ! PERF FIX: Unrolled the array slice rdum4(1:2)
                         WRITE (MSG, 91030) rdum4(1), rdum4(2), idum, rdum4(4)
-                        CALL ERROR(WWWARN, 1030, PPPRI, ielc, 0, MSG)
+                        CALL RAISE_ERROR(ERRLVL_warn, 1030, FID_logfile, ielc, 0, MSG)
                      END IF
                   END IF
                END IF
@@ -1885,30 +1870,30 @@ CONTAINS
             ! Final Depth Adjustment
             IF (HSMALL) THEN
                AOK = .FALSE.
-               DHQ = Qasum * DZE
+               DHQ = Qasum*DZE
                DHH = ZG - ZE
                ZE = ZG
-               
-               IF ((ABS (DHQ) + ABS (DHH) > HERROR) .OR. (passs == npass)) THEN
-                  rdum4(1) = H 
-                  rdum4(2) = DHQ 
+
+               IF ((ABS(DHQ) + ABS(DHH) > HERROR) .OR. (passs == npass)) THEN
+                  rdum4(1) = H
+                  rdum4(2) = DHQ
                   rdum4(3) = DHH
-                  
+
                   ! PERF FIX: Unrolled the array slice rdum4(1:3)
                   WRITE (MSG, 91024) rdum4(1), rdum4(2), rdum4(3)
-                  CALL ERROR(WWWARN, 1024, PPPRI, ielc, 0, MSG)
+                  CALL RAISE_ERROR(ERRLVL_warn, 1024, FID_logfile, ielc, 0, MSG)
                END IF
             END IF
-            
+
             HRFZZ(ielc) = ZE
          END DO element_loop
 
          ! Clean break out if network satisfies all stability criteria
          IF (AOK) EXIT pass_loop
-         
+
       END DO pass_loop
-      
-      IF (.NOT. AOK) CALL ERROR(WWWARN, 1060, PPPRI, 0, 0, 'OC flow criteria could not be met')
+
+      IF (.NOT. AOK) CALL RAISE_ERROR(ERRLVL_warn, 1060, FID_logfile, 0, 0, 'OC flow criteria could not be met')
 
       ! FORMAT STATEMENTS (Safely compiled exactly once)
 91024 FORMAT('Surface water depth adjusted from', SP, 1PG15.7, ' to zero', ': depth created =', 2G15.7)

@@ -93,6 +93,9 @@ MODULE visualisation_structure
 
    USE ISO_C_BINDING, ONLY: C_PTR, C_NULL_PTR, C_LOC, C_F_POINTER, C_ASSOCIATED
 
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc, errstat_dealloc
+
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: iundef = -1 !! Integer missing-value sentinel.
@@ -109,7 +112,6 @@ MODULE visualisation_structure
 
    INTEGER, PARAMETER :: no_types = 8 !! Private legacy count of storage families; unused in current code.
 
-
 !> @brief Wraps one pointer to a live output-dimension loop index.
 !>
 !> [[get_hdf5]] keeps six instances and associates each `a` component with the
@@ -118,13 +120,11 @@ MODULE visualisation_structure
       INTEGER, POINTER :: a !! Current loop index mapped to one output dimension.
    END TYPE aord
 
-
 !> @brief Holds four integer edge values in north/east/south/west order.
    TYPE integer_edges
       INTEGER :: e(4) = iundef !! Edge values in north/east/south/west order.
    END TYPE integer_edges
    TYPE(INTEGER_EDGES), PARAMETER :: default_integer_edges = INTEGER_EDGES(defi4) !! Missing integer-edge payload.
-
 
 !> @brief Holds four real edge values in north/east/south/west order.
    TYPE real_edges
@@ -132,20 +132,17 @@ MODULE visualisation_structure
    END TYPE real_edges
    TYPE(REAL_EDGES), PARAMETER :: default_real_edges = REAL_EDGES(defr4) !! Missing real-edge payload.
 
-
 !> @brief Holds one integer square/middle value.
    TYPE integer_middle
       INTEGER :: m = rundef !! Square value; `rundef` is converted from real `-1.0` to integer `-1`.
    END TYPE integer_middle
    TYPE(INTEGER_MIDDLE), PARAMETER :: default_integer_middle = INTEGER_MIDDLE(r_not_exist) !! Missing integer middle.
 
-
 !> @brief Holds one real square/middle value.
    TYPE real_middle
       REAL :: m = rundef !! Square/middle value.
    END TYPE real_middle
    TYPE(REAL_MIDDLE), PARAMETER :: default_real_middle = REAL_MIDDLE(r_not_exist) !! Missing real middle payload.
-
 
 !> @brief Holds an integer square plus four bank and four river-link values.
    TYPE integer_middle_and_edges
@@ -157,7 +154,6 @@ MODULE visualisation_structure
    TYPE(INTEGER_MIDDLE_AND_EDGES), PARAMETER :: default_integer_middle_and_edges = &
       INTEGER_MIDDLE_AND_EDGES(i_not_exist, defi4, defi4) !! Missing integer compound payload.
 
-
 !> @brief Holds a real square plus four bank and four river-link values.
    TYPE real_middle_and_edges
       REAL :: m = rundef    !! Square/middle value.
@@ -167,90 +163,85 @@ MODULE visualisation_structure
    TYPE(REAL_MIDDLE_AND_EDGES), PARAMETER :: default_real_middle_and_edges = &
       REAL_MIDDLE_AND_EDGES(r_not_exist, defr4, defr4) !! Missing real compound payload.
 
-
-
 !> @brief Time-list node for real bank-edge (`BS`) data.
    TYPE BS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(REAL_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Column/list, row, layer, extra payload.
-      TYPE(BS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(BS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(REAL_EDGES), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Column/list, row, layer, extra payload.
+      TYPE(BS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(BS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE BS
 
 !> @brief Time-list node for integer bank-edge (`ES`) data.
    TYPE ES
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(INTEGER_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Column/list, row, layer, extra payload.
-      TYPE(ES), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(ES), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(INTEGER_EDGES), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Column/list, row, layer, extra payload.
+      TYPE(ES), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(ES), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE ES
 
 !> @brief Legacy time-list node for integer river-edge (`FS`) data.
    TYPE FS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(INTEGER_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Column/list, row, layer, extra payload.
-      TYPE(FS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(FS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(INTEGER_EDGES), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Column/list, row, layer, extra payload.
+      TYPE(FS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(FS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE FS
 
 !> @brief Time-list node for real square/bank/river compound (`GS`) data.
    TYPE GS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(REAL_MIDDLE_AND_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Compound payload array.
-      TYPE(GS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(GS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(REAL_MIDDLE_AND_EDGES), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Compound payload array.
+      TYPE(GS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(GS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE GS
 
 !> @brief Time-list node for integer square/middle (`IS`) data.
    TYPE IS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(INTEGER_MIDDLE), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Column/list, row, layer, extra payload.
-      TYPE(IS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(IS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(INTEGER_MIDDLE), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Column/list, row, layer, extra payload.
+      TYPE(IS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(IS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE IS
 
 !> @brief Time-list node for real river-edge (`LS`) data.
    TYPE LS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(REAL_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Column/list, row, layer, extra payload.
-      TYPE(LS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(LS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(REAL_EDGES), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Column/list, row, layer, extra payload.
+      TYPE(LS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(LS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE LS
 
 !> @brief Time-list node for real square/middle (`MS`) data.
    TYPE MS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(MS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(MS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
-      TYPE(REAL_MIDDLE), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Column/list, row, layer, extra payload.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(MS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(MS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
+      TYPE(REAL_MIDDLE), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Column/list, row, layer, extra payload.
    END TYPE MS
 
 !> @brief Time-list node for integer square/bank/river compound (`NS`) data.
    TYPE NS
       PRIVATE
-      REAL :: time=zero !! Simulation time in hours.
-      TYPE(INTEGER_MIDDLE_AND_EDGES), DIMENSION(:,:,:,:), POINTER :: s=>NULL() !! Compound payload array.
-      TYPE(NS), POINTER :: previous=>NULL() !! Previous time node, or null at the head.
-      TYPE(NS), POINTER :: next=>NULL()     !! Next time node, or null at the tail.
+      REAL :: time = zero !! Simulation time in hours.
+      TYPE(INTEGER_MIDDLE_AND_EDGES), DIMENSION(:, :, :, :), POINTER :: s => NULL() !! Compound payload array.
+      TYPE(NS), POINTER :: previous => NULL() !! Previous time node, or null at the head.
+      TYPE(NS), POINTER :: next => NULL()     !! Next time node, or null at the tail.
    END TYPE NS
 
-
-   INTERFACE SAVE_ITEMS_WORTH ; MODULE PROCEDURE SAVE_ITEMS_WORTH_I, SAVE_ITEMS_WORTH_R ; ENDINTERFACE
+   INTERFACE SAVE_ITEMS_WORTH; MODULE PROCEDURE SAVE_ITEMS_WORTH_I, SAVE_ITEMS_WORTH_R; END INTERFACE
 
    PRIVATE
    PUBLIC :: FOR_NEW_TIME, SAVE_ITEMS_WORTH, TIME_COUNT, MBR_COUNT, GET_MBR, GET_HDF5_I, GET_HDF5_R, &
       GET_HDF5_TIME, csz
 
-
 CONTAINS
-
 
 !> @brief Returns the timestamp from the first queued node.
 !>
@@ -284,19 +275,17 @@ CONTAINS
       TYPE(MS), POINTER          :: pm    !! Converted real middle node.
       TYPE(NS), POINTER          :: pn    !! Converted integer compound node.
 
-      SELECT CASE(typ)
-       CASE('BS') ; CALL C_F_POINTER(first, pb) ; r = pb%time
-       CASE('ES') ; CALL C_F_POINTER(first, pe) ; r = pe%time
-       CASE('FS') ; CALL C_F_POINTER(first, pf) ; r = pf%time
-       CASE('GS') ; CALL C_F_POINTER(first, pg) ; r = pg%time
-       CASE('IS') ; CALL C_F_POINTER(first, pi) ; r = pi%time
-       CASE('LS') ; CALL C_F_POINTER(first, pl) ; r = pl%time
-       CASE('MS') ; CALL C_F_POINTER(first, pm) ; r = pm%time
-       CASE('NS') ; CALL C_F_POINTER(first, pn) ; r = pn%time
+      SELECT CASE (typ)
+       CASE ('BS'); CALL C_F_POINTER(first, pb); r = pb%time
+       CASE ('ES'); CALL C_F_POINTER(first, pe); r = pe%time
+       CASE ('FS'); CALL C_F_POINTER(first, pf); r = pf%time
+       CASE ('GS'); CALL C_F_POINTER(first, pg); r = pg%time
+       CASE ('IS'); CALL C_F_POINTER(first, pi); r = pi%time
+       CASE ('LS'); CALL C_F_POINTER(first, pl); r = pl%time
+       CASE ('MS'); CALL C_F_POINTER(first, pm); r = pm%time
+       CASE ('NS'); CALL C_F_POINTER(first, pn); r = pn%time
       END SELECT
    END FUNCTION get_hdf5_time
-
-
 
 !> @brief Extracts and destroys one queued integer node.
 !>
@@ -322,11 +311,10 @@ CONTAINS
       TYPE(C_PTR), INTENT(INOUT) :: first !! First-node handle, advanced after destructive extraction.
       INTEGER, DIMENSION(6), INTENT(IN) :: sz !! Extents of the six-dimensional destination.
       INTEGER, DIMENSION(6), INTENT(IN) :: szo !! Logical-to-destination dimension permutation.
-      INTEGER, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)), INTENT(OUT) :: r !! Extracted integer values.
+      INTEGER, DIMENSION(sz(1), sz(2), sz(3), sz(4), sz(5), sz(6)), INTENT(OUT) :: r !! Extracted integer values.
       CHARACTER(*), INTENT(IN) :: typ !! Exact integer storage-family code.
       CALL GET_HDF5(typ, sz, szo, first, ilow, jlow, klow, rint=r)
    END SUBROUTINE get_hdf5_i
-
 
 !> @brief Extracts and destroys one queued real node.
 !>
@@ -352,11 +340,10 @@ CONTAINS
       TYPE(C_PTR), INTENT(INOUT) :: first !! First-node handle, advanced after destructive extraction.
       INTEGER, DIMENSION(6), INTENT(IN) :: sz !! Extents of the six-dimensional destination.
       INTEGER, DIMENSION(6), INTENT(IN) :: szo !! Logical-to-destination dimension permutation.
-      REAL, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)), INTENT(OUT) :: r !! Extracted real values.
+      REAL, DIMENSION(sz(1), sz(2), sz(3), sz(4), sz(5), sz(6)), INTENT(OUT) :: r !! Extracted real values.
       CHARACTER(*), INTENT(IN) :: typ !! Exact real storage-family code.
       CALL GET_HDF5(typ, sz, szo, first, ilow, jlow, klow, rreal=r)
    END SUBROUTINE get_hdf5_r
-
 
 !> @brief Reorders, copies, advances past, and destroys one buffer node.
 !>
@@ -404,6 +391,7 @@ CONTAINS
 !> | 2004-07 | JE | Created dimension-permuted extraction for all visualisation storage families. |
 !> | 2005-08-14 | Unknown | Routed consumed nodes through payload-aware destructors to fix a memory leak. |
 !> | 2026-03-29 | SvB | Replaced integer addresses with `C_PTR`, changed wrappers to subroutines, and fixed middle time access. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE get_hdf5(typ, sz, szo, first, ilow, jlow, klow, rint, rreal)
       INTEGER, INTENT(IN) :: ilow !! Source payload's lower column/list bound.
@@ -428,8 +416,8 @@ CONTAINS
       INTEGER, TARGET :: ee  !! One-based extra-dimension loop index.
       INTEGER, TARGET :: tt  !! Time index, fixed to one for one extracted node.
       TYPE(AORD), DIMENSION(:), POINTER, SAVE :: d !! Saved six-slot destination-index mapping.
-      INTEGER, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)), INTENT(OUT), OPTIONAL :: rint !! Integer result.
-      REAL, DIMENSION(sz(1),sz(2),sz(3),sz(4),sz(5),sz(6)), INTENT(OUT), OPTIONAL :: rreal !! Real result.
+      INTEGER, DIMENSION(sz(1), sz(2), sz(3), sz(4), sz(5), sz(6)), INTENT(OUT), OPTIONAL :: rint !! Integer result.
+      REAL, DIMENSION(sz(1), sz(2), sz(3), sz(4), sz(5), sz(6)), INTENT(OUT), OPTIONAL :: rreal !! Real result.
       CHARACTER(*), INTENT(IN) :: typ !! Exact two-character storage-family code.
       TYPE(BS), POINTER :: pb !! Converted real bank-edge node.
       TYPE(ES), POINTER :: pe !! Converted integer bank-edge node.
@@ -440,67 +428,71 @@ CONTAINS
       TYPE(MS), POINTER :: pm !! Converted real middle node.
       TYPE(NS), POINTER :: pn !! Converted integer compound node.
 
-      LOGICAL, SAVE :: initial=T !! One-time allocation guard for `d`.
-      IF(initial) THEN
+      LOGICAL, SAVE :: initial = T !! One-time allocation guard for `d`.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:get_hdf5"
+
+      IF (initial) THEN
          initial = F
-         ALLOCATE(d(6))
-      ENDIF
+         ALLOCATE (d(6), STAT=ios, ERRMSG=emsg)
+         call errstat_alloc(ios, "d", location, emsg)
+      END IF
 
-      szii = sz(szo(1)) ; d(szo(1))%a=>dii
-      szjj = sz(szo(2)) ; d(szo(2))%a=>djj
-      szkk = sz(szo(3)) ; d(szo(3))%a=>dkk
-      szcc = sz(szo(4)) ; d(szo(4))%a=>cc
-      szee = sz(szo(5)) ; d(szo(5))%a=>ee
-      sztt = sz(szo(6)) ; d(szo(6))%a=>tt
-      IF(PRESENT(rint)) THEN ; rint = 0 ; ELSEIF(PRESENT(rreal)) THEN ; rreal=zero ; ENDIF
-      tt       = 1
+      szii = sz(szo(1)); d(szo(1))%a => dii
+      szjj = sz(szo(2)); d(szo(2))%a => djj
+      szkk = sz(szo(3)); d(szo(3))%a => dkk
+      szcc = sz(szo(4)); d(szo(4))%a => cc
+      szee = sz(szo(5)); d(szo(5))%a => ee
+      sztt = sz(szo(6)); d(szo(6))%a => tt
+      IF (PRESENT(rint)) THEN; rint = 0; ELSEIF (PRESENT(rreal)) THEN; rreal = zero; END IF
+      tt = 1
 
-      SELECT CASE(TYP)
-       CASE('BS')  !real banks
+      SELECT CASE (TYP)
+       CASE ('BS')  !real banks
          CALL C_F_POINTER(first, pb)
          CALL MAIN_LOOP('BS')
-         IF(ASSOCIATED(pb%next)) THEN ; first = C_LOC(pb%next) ; ELSE ; first = C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pb%next)) THEN; first = C_LOC(pb%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PB(pb)
-       CASE('ES')  !integer banks
+       CASE ('ES')  !integer banks
          CALL C_F_POINTER(first, pe)
          CALL MAIN_LOOP('ES')
-         IF(ASSOCIATED(pe%next)) THEN ; first = C_LOC(pe%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pe%next)) THEN; first = C_LOC(pe%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PE(pe)
-       CASE('FS')  !integer rivers
+       CASE ('FS')  !integer rivers
          CALL C_F_POINTER(first, pf)
          CALL MAIN_LOOP('FS')
-         IF(ASSOCIATED(pf%next)) THEN ; first = C_LOC(pf%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pf%next)) THEN; first = C_LOC(pf%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PF(pf)
-       CASE('GS')  !real middle and edges
+       CASE ('GS')  !real middle and edges
          CALL C_F_POINTER(first, pg)
          CALL MAIN_LOOP('GS')
-         IF(ASSOCIATED(pg%next)) THEN ; first = C_LOC(pg%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pg%next)) THEN; first = C_LOC(pg%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PG(pg)
-       CASE('IS')  !integer middle
+       CASE ('IS')  !integer middle
          CALL C_F_POINTER(first, pi)
          CALL MAIN_LOOP('IS')
-         IF(ASSOCIATED(pi%next)) THEN ; first = C_LOC(pi%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pi%next)) THEN; first = C_LOC(pi%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PI(pi)
-       CASE('LS')  !real banks
+       CASE ('LS')  !real banks
          CALL C_F_POINTER(first, pl)
          CALL MAIN_LOOP('LS')
-         IF(ASSOCIATED(pl%next)) THEN ; first = C_LOC(pl%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pl%next)) THEN; first = C_LOC(pl%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PL(pl)
-       CASE('MS')  !real middle
+       CASE ('MS')  !real middle
          CALL C_F_POINTER(first, pm)
          CALL MAIN_LOOP('MS')
-         IF(ASSOCIATED(pm%next)) THEN ; first = C_LOC(pm%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pm%next)) THEN; first = C_LOC(pm%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PM(pm)
-       CASE('NS')  !integer middle and edges
+       CASE ('NS')  !integer middle and edges
          CALL C_F_POINTER(first, pn)
          CALL MAIN_LOOP('NS')
-         IF(ASSOCIATED(pn%next)) THEN ; first = C_LOC(pn%next) ;  ELSE ; first=C_NULL_PTR ; ENDIF
+         IF (ASSOCIATED(pn%next)) THEN; first = C_LOC(pn%next); ELSE; first = C_NULL_PTR; END IF
          CALL DEALL_PN(pn)
       END SELECT
 
-
    CONTAINS
-
 
 !> @brief Copies the selected node payload through the active dimension map.
 !>
@@ -526,33 +518,33 @@ CONTAINS
          INTEGER                  :: idum !! Current integer member value before reordered assignment.
          REAL                     :: rdum !! Current real member value before reordered assignment.
          CHARACTER(*), INTENT(IN) :: text !! Exact storage-family code for the converted host node.
-         DO dii=1,szii ; ii=ilow+dii-1
-            DO djj=1,szjj ; jj=jlow+djj-1
-               DO dkk=1,szkk ; kk=klow+dkk-1
-                  DO ee=1,szee
-                     DO cc=1,szcc
-                        IF(PRESENT(rint)) THEN
-                           SELECT CASE(text)
-                            CASE('ES') ; idum = pe%s(ii, jj, kk, ee)%e(cc)
-                            CASE('FS') ; idum = pf%s(ii, jj, kk, ee)%e(cc)
-                            CASE('IS') ; idum = pi%s(ii, jj, kk, ee)%m
-                            CASE('NS') ; idum = FNS()
+         DO dii = 1, szii; ii = ilow + dii - 1
+            DO djj = 1, szjj; jj = jlow + djj - 1
+               DO dkk = 1, szkk; kk = klow + dkk - 1
+                  DO ee = 1, szee
+                     DO cc = 1, szcc
+                        IF (PRESENT(rint)) THEN
+                           SELECT CASE (text)
+                            CASE ('ES'); idum = pe%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('FS'); idum = pf%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('IS'); idum = pi%s(ii, jj, kk, ee)%m
+                            CASE ('NS'); idum = FNS()
                            END SELECT
-                           rint(d(1)%a,d(2)%a,d(3)%a,d(4)%a,d(5)%a,d(6)%a) = idum
-                        ELSEIF(PRESENT(rreal)) THEN
-                           SELECT CASE(text)
-                            CASE('BS') ; rdum = pb%s(ii, jj, kk, ee)%e(cc)
-                            CASE('GS') ; rdum = FGS()
-                            CASE('LS') ; rdum = pl%s(ii, jj, kk, ee)%e(cc)
-                            CASE('MS') ; rdum = pm%s(ii, jj, kk, ee)%m
+                           rint(d(1)%a, d(2)%a, d(3)%a, d(4)%a, d(5)%a, d(6)%a) = idum
+                        ELSEIF (PRESENT(rreal)) THEN
+                           SELECT CASE (text)
+                            CASE ('BS'); rdum = pb%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('GS'); rdum = FGS()
+                            CASE ('LS'); rdum = pl%s(ii, jj, kk, ee)%e(cc)
+                            CASE ('MS'); rdum = pm%s(ii, jj, kk, ee)%m
                            END SELECT
-                           rreal(d(1)%a,d(2)%a,d(3)%a,d(4)%a,d(5)%a,d(6)%a) = rdum
-                        ENDIF
-                     ENDDO
-                  ENDDO
-               ENDDO
-            ENDDO
-         ENDDO
+                           rreal(d(1)%a, d(2)%a, d(3)%a, d(4)%a, d(5)%a, d(6)%a) = rdum
+                        END IF
+                     END DO
+                  END DO
+               END DO
+            END DO
+         END DO
       END SUBROUTINE main_loop
 
 !> @brief Returns one integer compound member at the host loop position.
@@ -571,13 +563,13 @@ CONTAINS
 !> | 2004-07 | JE | Added integer compound-member selection for extraction. |
 !> @endhistory
       PURE INTEGER FUNCTION FNS()
-         IF(cc==1) THEN
+         IF (cc == 1) THEN
             fns = pn%s(ii, jj, kk, ee)%m
-         ELSEIF(cc>1 .AND. cc<6) THEN
-            fns = pn%s(ii, jj, kk, ee)%b(cc-1)
+         ELSEIF (cc > 1 .AND. cc < 6) THEN
+            fns = pn%s(ii, jj, kk, ee)%b(cc - 1)
          ELSE
-            fns = pn%s(ii, jj, kk, ee)%r(cc-5)
-         ENDIF
+            fns = pn%s(ii, jj, kk, ee)%r(cc - 5)
+         END IF
       END FUNCTION FNS
 
 !> @brief Returns one real compound member at the host loop position.
@@ -596,16 +588,15 @@ CONTAINS
 !> | 2004-07 | JE | Added real compound-member selection for extraction. |
 !> @endhistory
       PURE REAL FUNCTION FGS()
-         IF(cc==1) THEN
+         IF (cc == 1) THEN
             fgs = pg%s(ii, jj, kk, ee)%m
-         ELSEIF(cc>1 .AND. cc<6) THEN
-            fgs = pg%s(ii, jj, kk, ee)%b(cc-1)
+         ELSEIF (cc > 1 .AND. cc < 6) THEN
+            fgs = pg%s(ii, jj, kk, ee)%b(cc - 1)
          ELSE
-            fgs = pg%s(ii, jj, kk, ee)%r(cc-5)
-         ENDIF
+            fgs = pg%s(ii, jj, kk, ee)%r(cc - 5)
+         END IF
       END FUNCTION FGS
    END SUBROUTINE get_hdf5
-
 
 !> @brief Deallocates one consumed real bank-edge node and its payload.
 !>
@@ -621,12 +612,20 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pb(p)
       TYPE(BS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pb"
+
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pb
 
 !> @brief Deallocates one consumed integer bank-edge node and its payload.
@@ -642,12 +641,20 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pe(p)
       TYPE(ES), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pe"
+
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pe
 
 !> @brief Deallocates one consumed integer river-edge node and its payload.
@@ -664,12 +671,20 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pf(p)
       TYPE(FS), POINTER :: p !! Consumed legacy node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pf"
+
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pf
 
 !> @brief Deallocates one consumed real compound node and its payload.
@@ -685,12 +700,18 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pg(p)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pg"
       TYPE(GS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pg
 
 !> @brief Deallocates one consumed integer middle node and its payload.
@@ -706,12 +727,20 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pi(p)
       TYPE(IS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pi"
+
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pi
 
 !> @brief Deallocates one consumed real river-edge node and its payload.
@@ -727,12 +756,18 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pl(p)
       TYPE(LS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pl"
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pl
 
 !> @brief Deallocates one consumed real middle node and its payload.
@@ -748,12 +783,18 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pm(p)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pm"
       TYPE(MS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pm
 
 !> @brief Deallocates one consumed integer compound node and its payload.
@@ -769,14 +810,19 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2005-08-14 | Unknown | Added payload deallocation to fix the visualisation-buffer memory leak. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deall_pn(p)
       TYPE(NS), POINTER :: p !! Consumed node to destroy.
-      DEALLOCATE(p%s)
-      NULLIFY(p%previous, p%next)
-      DEALLOCATE(p)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:deall_pn"
+      DEALLOCATE (p%s, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p%s", location, emsg)
+      NULLIFY (p%previous, p%next)
+      DEALLOCATE (p, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "p", location, emsg)
    END SUBROUTINE deall_pn
-
 
 !> @brief Allocates the element-member labels for one storage family.
 !>
@@ -794,28 +840,36 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added member-label generation for HDF5 metadata. |
 !> | 2026-04-14 | SvB | Made unknown type codes yield a zero-sized label result through `MBR_COUNT`. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION get_mbr(typ) RESULT(r)
       INTEGER :: n !! Number of labels returned for `typ`.
       CHARACTER(2), INTENT(IN) :: typ !! Exact two-character storage-family code.
       CHARACTER(6), DIMENSION(:), POINTER :: r !! Newly allocated caller-owned labels.
-      CHARACTER(6), PARAMETER :: sq(1)=(/'square'/) !! Square/middle label.
-      CHARACTER(6), PARAMETER :: bk(4)=(/'N-bank','E-bank','S-bank','W-bank'/) !! Bank labels.
-      CHARACTER(6), PARAMETER :: rv(4)=(/'N-link','E-link','S-link','W-link'/) !! River-link labels.
+      CHARACTER(6), PARAMETER :: sq(1) = (/'square'/) !! Square/middle label.
+      CHARACTER(6), PARAMETER :: bk(4) = (/'N-bank', 'E-bank', 'S-bank', 'W-bank'/) !! Bank labels.
+      CHARACTER(6), PARAMETER :: rv(4) = (/'N-link', 'E-link', 'S-link', 'W-link'/) !! River-link labels.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "visualisation_structure:get_mbr"
+
       n = MBR_COUNT(typ)
-      ALLOCATE(r(n))
-      SELECT CASE(typ)
-       CASE('BS') ; r = bk
-       CASE('ES') ; r = bk
-       CASE('FS') ; r = rv
-       CASE('GS') ; r = (/sq,bk,rv/)
-       CASE('IS') ; r = sq
-       CASE('LS') ; r = rv
-       CASE('MS') ; r = sq
-       CASE('NS') ; r = (/sq,bk,rv/)
+
+      ALLOCATE (r(n), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+
+      SELECT CASE (typ)
+       CASE ('BS'); r = bk
+       CASE ('ES'); r = bk
+       CASE ('FS'); r = rv
+       CASE ('GS'); r = (/sq, bk, rv/)
+       CASE ('IS'); r = sq
+       CASE ('LS'); r = rv
+       CASE ('MS'); r = sq
+       CASE ('NS'); r = (/sq, bk, rv/)
       END SELECT
    END FUNCTION get_mbr
-
 
 !> @brief Counts nodes in one nonempty visualisation time queue.
 !>
@@ -849,18 +903,17 @@ CONTAINS
       TYPE(MS), POINTER :: pm !! Real middle traversal pointer.
       TYPE(NS), POINTER :: pn !! Integer compound traversal pointer.
       r = 1
-      SELECT CASE(typ)
-       CASE('BS') ; CALL C_F_POINTER(first, pb) ; DO WHILE(ASSOCIATED(pb%next)) ; r=r+1 ; pb => pb%next ; ENDDO
-       CASE('ES') ; CALL C_F_POINTER(first, pe) ; DO WHILE(ASSOCIATED(pe%next)) ; r=r+1 ; pe => pe%next ; ENDDO
-       CASE('FS') ; CALL C_F_POINTER(first, pf) ; DO WHILE(ASSOCIATED(pf%next)) ; r=r+1 ; pf => pf%next ; ENDDO
-       CASE('GS') ; CALL C_F_POINTER(first, pg) ; DO WHILE(ASSOCIATED(pg%next)) ; r=r+1 ; pg => pg%next ; ENDDO
-       CASE('IS') ; CALL C_F_POINTER(first, pi) ; DO WHILE(ASSOCIATED(pi%next)) ; r=r+1 ; pi => pi%next ; ENDDO
-       CASE('LS') ; CALL C_F_POINTER(first, pl) ; DO WHILE(ASSOCIATED(pl%next)) ; r=r+1 ; pl => pl%next ; ENDDO
-       CASE('MS') ; CALL C_F_POINTER(first, pm) ; DO WHILE(ASSOCIATED(pm%next)) ; r=r+1 ; pm => pm%next ; ENDDO
-       CASE('NS') ; CALL C_F_POINTER(first, pn) ; DO WHILE(ASSOCIATED(pn%next)) ; r=r+1 ; pn => pn%next ; ENDDO
+      SELECT CASE (typ)
+       CASE ('BS'); CALL C_F_POINTER(first, pb); DO WHILE (ASSOCIATED(pb%next)); r = r + 1; pb => pb%next; END DO
+       CASE ('ES'); CALL C_F_POINTER(first, pe); DO WHILE (ASSOCIATED(pe%next)); r = r + 1; pe => pe%next; END DO
+       CASE ('FS'); CALL C_F_POINTER(first, pf); DO WHILE (ASSOCIATED(pf%next)); r = r + 1; pf => pf%next; END DO
+       CASE ('GS'); CALL C_F_POINTER(first, pg); DO WHILE (ASSOCIATED(pg%next)); r = r + 1; pg => pg%next; END DO
+       CASE ('IS'); CALL C_F_POINTER(first, pi); DO WHILE (ASSOCIATED(pi%next)); r = r + 1; pi => pi%next; END DO
+       CASE ('LS'); CALL C_F_POINTER(first, pl); DO WHILE (ASSOCIATED(pl%next)); r = r + 1; pl => pl%next; END DO
+       CASE ('MS'); CALL C_F_POINTER(first, pm); DO WHILE (ASSOCIATED(pm%next)); r = r + 1; pm => pm%next; END DO
+       CASE ('NS'); CALL C_F_POINTER(first, pn); DO WHILE (ASSOCIATED(pn%next)); r = r + 1; pn => pn%next; END DO
       END SELECT
    END FUNCTION TIME_COUNT
-
 
 !> @brief Returns the number of element members in a storage family.
 !>
@@ -877,19 +930,18 @@ CONTAINS
 !> @endhistory
    PURE INTEGER FUNCTION mbr_count(typ) RESULT(r)
       CHARACTER(*), INTENT(IN) :: typ !! Exact two-character storage-family code.
-      SELECT CASE(typ)
-       CASE('BS') ; r = 4
-       CASE('ES') ; r = 4
-       CASE('FS') ; r = 4
-       CASE('GS') ; r = 9
-       CASE('IS') ; r = 1
-       CASE('LS') ; r = 4
-       CASE('MS') ; r = 1
-       CASE('NS') ; r = 9
-       CASE DEFAULT ; r = 0
+      SELECT CASE (typ)
+       CASE ('BS'); r = 4
+       CASE ('ES'); r = 4
+       CASE ('FS'); r = 4
+       CASE ('GS'); r = 9
+       CASE ('IS'); r = 1
+       CASE ('LS'); r = 4
+       CASE ('MS'); r = 1
+       CASE ('NS'); r = 9
+       CASE DEFAULT; r = 0
       END SELECT
    END FUNCTION mbr_count
-
 
 !> @brief Dispatches one integer layer vector into the latest item node.
 !>
@@ -927,17 +979,16 @@ CONTAINS
       TYPE(FS), POINTER :: ptr_f !! Converted integer river-edge node.
       TYPE(IS), POINTER :: ptr_i !! Converted integer middle node.
       TYPE(NS), POINTER :: ptr_n !! Converted integer compound node.
-      INTEGER, DIMENSION(khigh-klow+1), INTENT(IN) :: save_this !! Layer vector to store.
+      INTEGER, DIMENSION(khigh - klow + 1), INTENT(IN) :: save_this !! Layer vector to store.
       CHARACTER, INTENT(IN) :: c !! Compound selector `m`, `b`, or `r`; ignored by simple families.
       CHARACTER(*), INTENT(IN) :: typ !! Exact integer storage-family code.
-      SELECT CASE(typ)
-       CASE('ES') ; CALL C_F_POINTER(latest, ptr_e) ; CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this)
-       CASE('FS') ; CALL C_F_POINTER(latest, ptr_f) ; CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this)
-       CASE('IS') ; CALL C_F_POINTER(latest, ptr_i) ; CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, save_this)
-       CASE('NS') ; CALL C_F_POINTER(latest, ptr_n) ; CALL SAVE_NS(ptr_n, a, b, klow, khigh, e, d, save_this, c)
+      SELECT CASE (typ)
+       CASE ('ES'); CALL C_F_POINTER(latest, ptr_e); CALL SAVE_ES(ptr_e, a, b, klow, khigh, e, d, save_this)
+       CASE ('FS'); CALL C_F_POINTER(latest, ptr_f); CALL SAVE_FS(ptr_f, a, b, klow, khigh, e, d, save_this)
+       CASE ('IS'); CALL C_F_POINTER(latest, ptr_i); CALL SAVE_IS(ptr_i, a, b, klow, khigh, e, save_this)
+       CASE ('NS'); CALL C_F_POINTER(latest, ptr_n); CALL SAVE_NS(ptr_n, a, b, klow, khigh, e, d, save_this, c)
       END SELECT
    END SUBROUTINE save_items_worth_i
-
 
 !> @brief Dispatches one real layer vector into the latest item node.
 !>
@@ -972,17 +1023,16 @@ CONTAINS
       TYPE(GS), POINTER :: ptr_g !! Converted real compound node.
       TYPE(LS), POINTER :: ptr_l !! Converted real river-edge node.
       TYPE(MS), POINTER :: ptr_m !! Converted real middle node.
-      REAL, DIMENSION(khigh-klow+1), INTENT(IN) :: save_this !! Layer vector to store.
+      REAL, DIMENSION(khigh - klow + 1), INTENT(IN) :: save_this !! Layer vector to store.
       CHARACTER, INTENT(IN) :: c !! Compound selector `m`, `b`, or `r`; ignored by simple families.
       CHARACTER(*), INTENT(IN) :: typ !! Exact real storage-family code.
-      SELECT CASE(typ)
-       CASE('BS') ; CALL C_F_POINTER(latest, ptr_b) ; CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this)
-       CASE('GS') ; CALL C_F_POINTER(latest, ptr_g) ; CALL SAVE_GS(ptr_g, a, b, klow, khigh, e, d, save_this,c)
-       CASE('LS') ; CALL C_F_POINTER(latest, ptr_l) ; CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this)
-       CASE('MS') ; CALL C_F_POINTER(latest, ptr_m) ; CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, save_this)
+      SELECT CASE (typ)
+       CASE ('BS'); CALL C_F_POINTER(latest, ptr_b); CALL SAVE_BS(ptr_b, a, b, klow, khigh, e, d, save_this)
+       CASE ('GS'); CALL C_F_POINTER(latest, ptr_g); CALL SAVE_GS(ptr_g, a, b, klow, khigh, e, d, save_this, c)
+       CASE ('LS'); CALL C_F_POINTER(latest, ptr_l); CALL SAVE_LS(ptr_l, a, b, klow, khigh, e, d, save_this)
+       CASE ('MS'); CALL C_F_POINTER(latest, ptr_m); CALL SAVE_MS(ptr_m, a, b, klow, khigh, e, save_this)
       END SELECT
    END SUBROUTINE save_items_worth_r
-
 
 !> @brief Stores a real layer vector in one bank direction of a `BS` node.
 !>
@@ -1009,7 +1059,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: e !! Extra-dimension index.
       REAL, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       TYPE(BS), INTENT(INOUT) :: r !! Real bank-edge node to update.
-      r%s(a,b,klow:khigh,e)%e(d) = save_this
+      r%s(a, b, klow:khigh, e)%e(d) = save_this
    END SUBROUTINE save_bs
 
 !> @brief Stores an integer layer vector in one bank direction of an `ES` node.
@@ -1034,7 +1084,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: e !! Extra-dimension index.
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       TYPE(ES), INTENT(INOUT) :: r !! Integer bank-edge node to update.
-      r%s(a,b,klow:khigh,e)%e(d) = save_this
+      r%s(a, b, klow:khigh, e)%e(d) = save_this
    END SUBROUTINE save_es
 
 !> @brief Stores an integer layer vector in one river direction of an `FS` node.
@@ -1062,7 +1112,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: e !! Extra-dimension index.
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       TYPE(FS), INTENT(INOUT) :: r !! Integer river-edge node to update.
-      r%s(a,b,klow:khigh,e)%e(d) = save_this
+      r%s(a, b, klow:khigh, e)%e(d) = save_this
    END SUBROUTINE save_fs
 
 !> @brief Stores a real layer vector in one selected `GS` compound member.
@@ -1091,10 +1141,10 @@ CONTAINS
       REAL, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       CHARACTER, INTENT(IN) :: c !! Lowercase compound selector `m`, `b`, or `r`.
       TYPE(GS), INTENT(INOUT) :: r !! Real compound node to update.
-      SELECT CASE(c)
-       CASE('m') ; r%s(a,b,klow:khigh,e)%m    = save_this
-       CASE('b') ; r%s(a,b,klow:khigh,e)%b(d) = save_this
-       CASE('r') ; r%s(a,b,klow:khigh,e)%r(d) = save_this
+      SELECT CASE (c)
+       CASE ('m'); r%s(a, b, klow:khigh, e)%m = save_this
+       CASE ('b'); r%s(a, b, klow:khigh, e)%b(d) = save_this
+       CASE ('r'); r%s(a, b, klow:khigh, e)%r(d) = save_this
       END SELECT
    END SUBROUTINE save_gs
 
@@ -1119,7 +1169,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: e !! Extra-dimension index.
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       TYPE(IS), INTENT(INOUT) :: r !! Integer middle node to update.
-      r%s(a,b,klow:khigh,e)%m = save_this
+      r%s(a, b, klow:khigh, e)%m = save_this
    END SUBROUTINE save_is
 
 !> @brief Stores a real layer vector in one river direction of an `LS` node.
@@ -1144,7 +1194,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: e !! Extra-dimension index.
       REAL, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       TYPE(LS), INTENT(INOUT) :: r !! Real river-edge node to update.
-      r%s(a,b,klow:khigh,e)%e(d) = save_this
+      r%s(a, b, klow:khigh, e)%e(d) = save_this
    END SUBROUTINE save_ls
 
 !> @brief Stores a real layer vector in the middle member of an `MS` node.
@@ -1168,7 +1218,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: e !! Extra-dimension index.
       REAL, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       TYPE(MS), INTENT(INOUT) :: r !! Real middle node to update.
-      r%s(a,b,klow:khigh,e)%m = save_this
+      r%s(a, b, klow:khigh, e)%m = save_this
    END SUBROUTINE save_ms
 
 !> @brief Stores an integer layer vector in one selected `NS` compound member.
@@ -1197,14 +1247,12 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN) :: save_this !! Layer vector to assign.
       CHARACTER, INTENT(IN) :: c !! Lowercase compound selector `m`, `b`, or `r`.
       TYPE(NS), INTENT(INOUT) :: r !! Integer compound node to update.
-      SELECT CASE(c)
-       CASE('m') ; r%s(a,b,klow:khigh,e)%m = save_this
-       CASE('b') ; r%s(a,b,klow:khigh,e)%b(d) = save_this
-       CASE('r') ; r%s(a,b,klow:khigh,e)%r(d) = save_this
+      SELECT CASE (c)
+       CASE ('m'); r%s(a, b, klow:khigh, e)%m = save_this
+       CASE ('b'); r%s(a, b, klow:khigh, e)%b(d) = save_this
+       CASE ('r'); r%s(a, b, klow:khigh, e)%r(d) = save_this
       END SELECT
    END SUBROUTINE save_ns
-
-
 
 !> @brief Appends a default-initialized node for one item and output time.
 !>
@@ -1257,17 +1305,16 @@ CONTAINS
       TYPE(C_PTR), INTENT(INOUT) :: latest !! Tail handle, replaced by the new node.
       REAL, INTENT(IN) :: time !! Simulation time in hours stored on the node.
       CHARACTER(*), INTENT(IN) :: typ !! Exact active storage-family code.
-      SELECT CASE(typ)
-       CASE('BS') ; CALL FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-       CASE('ES') ; CALL FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-       CASE('GS') ; CALL FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-       CASE('IS') ; CALL FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-       CASE('LS') ; CALL FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-       CASE('MS') ; CALL FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
-       CASE('NS') ; CALL FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+      SELECT CASE (typ)
+       CASE ('BS'); CALL FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('ES'); CALL FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('GS'); CALL FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('IS'); CALL FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('LS'); CALL FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('MS'); CALL FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
+       CASE ('NS'); CALL FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       END SELECT
    END SUBROUTINE FOR_NEW_TIME
-
 
 !> @brief Allocates and appends one real bank-edge (`BS`) time node.
 !>
@@ -1285,6 +1332,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real bank-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_BS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1299,17 +1347,25 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(BS), POINTER :: r !! Newly allocated node.
       TYPE(BS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
-      r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_BS'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      r%time = time
+
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_edges
-      IF(.NOT. C_ASSOCIATED(first)) THEN
+      IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
          CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
+         r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_BS
 
@@ -1328,6 +1384,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer bank-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_ES(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1342,17 +1399,24 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(ES), POINTER :: r !! Newly allocated node.
       TYPE(ES), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
-      r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_ES'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      r%time = time
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_integer_edges
-      IF(.NOT. C_ASSOCIATED(first)) THEN
+      IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
          CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
+         r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_ES
 
@@ -1372,6 +1436,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real compound time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_GS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1387,10 +1452,16 @@ CONTAINS
       TYPE(GS), POINTER :: r !! Newly allocated node.
       TYPE(GS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
 
-      ALLOCATE(r)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_GS'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       r%time = time
 
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_middle_and_edges
 
       IF (.NOT. C_ASSOCIATED(first)) THEN
@@ -1399,7 +1470,7 @@ CONTAINS
          CALL C_F_POINTER(latest, prev_node)
          r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_GS
 
@@ -1418,6 +1489,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer middle time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_IS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1432,17 +1504,26 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(IS), POINTER :: r !! Newly allocated node.
       TYPE(IS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
-      r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_IS'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      r%time = time
+
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_integer_middle
-      IF(.NOT. C_ASSOCIATED(first)) THEN
+
+      IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
          CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
+         r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_IS
 
@@ -1462,6 +1543,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real river-edge time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_LS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1476,17 +1558,26 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(LS), POINTER :: r !! Newly allocated node.
       TYPE(LS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
-      r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_LS'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      r%time = time
+
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_edges
-      IF(.NOT. C_ASSOCIATED(first)) THEN
+
+      IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
          CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
+         r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_LS
 
@@ -1505,6 +1596,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added real middle time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_MS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1519,17 +1611,26 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(MS), POINTER :: r !! Newly allocated node.
       TYPE(MS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
-      r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_MS'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      r%time = time
+
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_real_middle
-      IF(.NOT. C_ASSOCIATED(first)) THEN
+
+      IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
          CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
+         r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_MS
 
@@ -1549,6 +1650,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added integer compound time-node allocation and linking. |
 !> | 2026-03-29 | SvB | Converted head/tail addresses to `C_PTR` and type-safe Fortran pointers. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE FOR_NEW_TIME_NS(time, ilow, ihigh, jlow, jhigh, klow, khigh, ext, first, latest)
       INTEGER, INTENT(IN) :: ilow !! First column/list index.
@@ -1563,17 +1665,26 @@ CONTAINS
       REAL, INTENT(IN) :: time !! Simulation time in hours.
       TYPE(NS), POINTER :: r !! Newly allocated node.
       TYPE(NS), POINTER :: prev_node !! Converted previous tail for a nonempty queue.
-      ALLOCATE(r)
-      r%time =  time
-      ALLOCATE(r%s(ilow:ihigh,jlow:jhigh,klow:khigh,ext))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'FOR_NEW_TIME_NS'
+
+      ALLOCATE (r, STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      r%time = time
+
+      ALLOCATE (r%s(ilow:ihigh, jlow:jhigh, klow:khigh, ext), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r%s", location, emsg)
       r%s = default_integer_middle_and_edges
-      IF(.NOT. C_ASSOCIATED(first)) THEN
+
+      IF (.NOT. C_ASSOCIATED(first)) THEN
          first = C_LOC(r)
       ELSE
          CALL c_f_pointer(latest, prev_node)
-         r%previous      => prev_node
+         r%previous => prev_node
          prev_node%next => r
-      ENDIF
+      END IF
       latest = C_LOC(r)
    END SUBROUTINE FOR_NEW_TIME_NS
 END MODULE visualisation_structure

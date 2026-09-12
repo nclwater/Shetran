@@ -37,10 +37,14 @@
 !> | 2026-04-08 | SB | 4.6.1 | Removed the legacy Intel export directives during the IFX compiler update. |
 !> @endhistory
 MODULE VISUALISATION_EXTRAS
+
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
+
    IMPLICIT NONE
 
    INTEGER, DIMENSION(:), POINTER              :: acol  !! Public legacy integer buffer; allocated and resized by [[react]].
-   DOUBLE PRECISION, DIMENSION(:,:,:), POINTER :: vpsed !! Public legacy sediment buffer; final extent tracks `SIZE(acol)`.
+   DOUBLE PRECISION, DIMENSION(:, :, :), POINTER :: vpsed !! Public legacy sediment buffer; final extent tracks `SIZE(acol)`.
 
    PRIVATE
    PUBLIC :: REACT, acol, vpsed
@@ -74,21 +78,30 @@ CONTAINS
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the allocation/growth routine with an Intel `DLLEXPORT` directive. |
 !> | 2026-04-08 | SB | 4.6.1 | Removed the compiler-specific export directive; allocation behavior was unchanged. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE react(p, j)
       INTEGER, INTENT(IN)           :: p !! Capacity threshold, or initial capacity when `j` is present.
       INTEGER, INTENT(IN), OPTIONAL :: j !! Initial first extent of `vpsed`; its presence selects allocation rather than growth.
       INTEGER                       :: n !! Existing capacity, then the positive increment used by both grow helpers.
-      IF(PRESENT(j)) THEN
-         ALLOCATE(acol(p), vpsed(j,2,p))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:react"
+
+      IF (PRESENT(j)) THEN
+         ALLOCATE (acol(p), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "acol", location, emsg)
+         ALLOCATE (vpsed(j, 2, p), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "vpsed", location, emsg)
       ELSE
          n = SIZE(acol)
-         IF(p>n) THEN
-            n = MAX(1,n/10)
+         IF (p > n) THEN
+            n = MAX(1, n/10)
             CALL INCREMENT_I1(acol, n)
             CALL INCREMENT_D3(vpsed, n)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
    END SUBROUTINE react
 
 !> Reallocates an integer pointer with `n` additional elements.
@@ -108,15 +121,22 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the rank-one pointer-growth helper. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   SUBROUTINE increment_I1(s,n)
+   SUBROUTINE increment_I1(s, n)
       INTEGER, DIMENSION(:), POINTER :: s           !! Integer pointer to grow; existing positive-size values are preserved.
-      INTEGER, DIMENSION(:), POINTER :: old=>NULL() !! Saved alias to the old target during reallocation.
+      INTEGER, DIMENSION(:), POINTER :: old => NULL() !! Saved alias to the old target during reallocation.
       INTEGER, INTENT(IN)            :: n           !! Number of elements appended by the current caller.
       INTEGER                        :: sz          !! Original element count, or zero for a disassociated pointer.
-      IF(ASSOCIATED(s)) THEN ; sz=SIZE(s) ; old=>s ; NULLIFY(s) ; ELSE ; sz=0 ; ENDIF
-      ALLOCATE(s(sz+n))
-      IF(sz>0) THEN ; s(1:sz)=old ; DEALLOCATE(old) ; ENDIF
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:increment_I1"
+
+      IF (ASSOCIATED(s)) THEN; sz = SIZE(s); old => s; NULLIFY (s); ELSE; sz = 0; END IF
+      ALLOCATE (s(sz + n), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "s", location, emsg)
+      IF (sz > 0) THEN; s(1:sz) = old; DEALLOCATE (old); END IF
    END SUBROUTINE increment_I1
 
 !> Reallocates an associated rank-three pointer with a longer final extent.
@@ -135,18 +155,26 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2020-09-08 | SB | - | Added the rank-three pointer-growth helper. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   SUBROUTINE increment_D3(s,n)
-      DOUBLE PRECISION, DIMENSION(:,:,:), POINTER :: s           !! Pointer whose shape and existing values are preserved.
-      DOUBLE PRECISION, DIMENSION(:,:,:), POINTER :: old=>NULL() !! Saved alias to the old target during reallocation.
+   SUBROUTINE increment_D3(s, n)
+      DOUBLE PRECISION, DIMENSION(:, :, :), POINTER :: s           !! Pointer whose shape and existing values are preserved.
+      DOUBLE PRECISION, DIMENSION(:, :, :), POINTER :: old => NULL() !! Saved alias to the old target during reallocation.
       INTEGER, INTENT(IN)                         :: n           !! Number of entries appended to the third extent.
       INTEGER                                     :: sh(3)       !! Original three-dimensional shape.
-      sh=SHAPE(s)
-      old=>s
-      NULLIFY(s)
-      ALLOCATE(s(sh(1),sh(2),sh(3)+n))
-      s(:,:,1:sh(3))=old
-      DEALLOCATE(old)
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_EXTRAS:increment_D3"
+
+      sh = SHAPE(s)
+      old => s
+      NULLIFY (s)
+      ALLOCATE (s(sh(1), sh(2), sh(3) + n), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "s", location, emsg)
+      s(:, :, 1:sh(3)) = old
+      DEALLOCATE (old, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "old", location, emsg)
    END SUBROUTINE increment_D3
 
 END MODULE VISUALISATION_EXTRAS
