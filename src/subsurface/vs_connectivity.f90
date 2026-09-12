@@ -24,6 +24,7 @@ MODULE vs_connectivity
    USE element_geometry, ONLY: top_cell_no, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF
    USE channel_geometry, ONLY: BEXBK, FHBED, ICMBK, NHBED, ZBEFF
+   USE et_state, ONLY: initialise_eruz
    USE file_units, ONLY: FID_logfile
    USE vs_state, ONLY: DELTAZ, initialise_al_c, JVSACN, JVSDEL, NLYR, NLYRBT, NTSOIL, &
                        ZLYRBT, ZVSNOD
@@ -86,11 +87,11 @@ CONTAINS
 !> @note
 !> `LRENUM` and `NRENUM` are module-lifetime state (an initialised local array
 !> and a `SAVE`d counter) and therefore retain state between calls. The routine
-!> also calls [[initialise_vsmod]] and `INITIALISE_AL_C` after each
-!> mesh-construction pass, before the final rebuild test can loop back for
-!> another pass. This matches the original one-call setup assumption; repeated
-!> calls, or a rebuild after allocation routines that do not tolerate repeated
-!> allocation, are not safe.
+!> also calls [[initialise_vsmod]], `INITIALISE_AL_C` and
+!> [[et_state:initialise_eruz]] after each mesh-construction pass, before the
+!> final rebuild test can loop back for another pass. This matches the original
+!> one-call setup assumption; repeated calls, or a rebuild after allocation
+!> routines that do not tolerate repeated allocation, are not safe.
 !> @endnote
 !>
 !> @note
@@ -116,6 +117,7 @@ CONTAINS
 !> | 1997-08-06 | RAH | 4.1 | Added further entry conditions. |
 !> | 1997-08-11 | RAH | 4.1 | Amended the `PAIR` logic to use `MISS`. |
 !> | 2026-04-06/07 | SvB | 4.6 | Rewrote the cell-renumbering outer loop, layer-matching search, and split-cell pairing loop from labelled `GOTO`s to `DO`/`DO WHILE` constructs with `CYCLE`/`EXIT`; replaced `CALL ALINIT` zero-initialisation with Fortran 90 array-slice assignment; converted the obsolete `FNCELL` statement function (never actually defined as a callable in the pre-modernisation source) into the contained function below; replaced the non-standard `IDIMJE` intrinsic with an equivalent `MAX(0, ...)` expression. All of these are direct control-flow/style translations with the same per-cell arithmetic. |
+!> | 2026-09-12 | SvB | - | Added the `INITIALISE_ERUZ` call beside `INITIALISE_AL_C`, which no longer allocates `ERUZ` (D11). Same allocation point, same shape. |
 !> @endhistory
    SUBROUTINE VSCONC()
 
@@ -124,7 +126,8 @@ CONTAINS
       ! top_cell_no, VSZMIN, VSZMAX, ZERO, half, DCSTOT, DCSZON, NCSZON,
       ! DCRBED, NCRBED, ZGRUND, ZLYRBT, DELTAZ, ZVSNOD, JVSACN, JVSDEL,
       ! JVSALN, NHBED, FHBED, NLYR, NLYRBT, ICMREF, ICMBK, ZBEFF, DCRTOT,
-      ! INITIALISE_VSMOD, INITIALISE_AL_C, ALSPRD, ERROR, ERRLVL_fatal, ERRLVL_warn, FID_logfile
+      ! INITIALISE_VSMOD, INITIALISE_AL_C, INITIALISE_ERUZ, ALSPRD, ERROR,
+      ! ERRLVL_fatal, ERRLVL_warn, FID_logfile
 
       IMPLICIT NONE
 
@@ -315,6 +318,7 @@ CONTAINS
 
          CALL INITIALISE_VSMOD()
          CALL INITIALISE_AL_C()
+         CALL INITIALISE_ERUZ()
 
          ! Set up cell connectivities (JVSACN, JVSDEL)
          !_____________________________________________*

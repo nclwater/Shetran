@@ -241,17 +241,24 @@ checked."
 `vs_state`'s; the eighth is `ERUZ`, which `variables.csv` places in `et_state`
 because it is the root-extraction sink the ET solver writes.
 
-*What was done.* `vs_state` imports `USE et_state, ONLY: ERUZ`. It is not a
-cycle: `et_state` needs nothing from `vs_state`, so the edge runs one way and
-the dependency sort is unaffected. Both modules' headers record it — `et_state`
-says `ERUZ` is allocated elsewhere, `vs_state` says it allocates an array it
-does not own.
+*What was done, first.* `vs_state` imported `USE et_state, ONLY: ERUZ`. It was
+not a cycle — `et_state` needs nothing from `vs_state` — but it meant a
+component state module depended on another component's state module, which the
+plan's "state modules are leaves" intent did not anticipate.
 
-*Cost.* A component state module depends on another component's state module,
-which the plan's "state modules are leaves" intent did not anticipate. Moving
-the `ERUZ` allocation into `initialise_al_c3` would remove the edge and is a
-one-line change, but it alters *when* the array is allocated relative to the
-other seven, so it is not a pure move and is left as a follow-up.
+*What was done, in the end (2026-09-12).* The proposed fix — folding the
+allocation into `initialise_al_c3` — was tried and does **not** work:
+[[frame_setup:FRINIT]] runs that routine long before [[vs_connectivity:VSCONC]]
+computes `top_cell_no`, so `ERUZ` gets a zero-sized second dimension and `ET`
+corrupts memory on its first write. What was implemented instead is option 1
+from the assessment: `et_state` gained a second initialiser,
+`initialise_eruz`, which `VSCONC` calls immediately after `INITIALISE_AL_C` —
+the same point in start-up the allocation already happened at. `vs_state` no
+longer allocates `ERUZ` and no longer imports `et_state`; `vs_connectivity`
+imports `et_state` instead, which is also acyclic. All ten short-list example
+models produce output identical to the fixtures, and a `-fcheck=bounds` Debug
+build runs clean. Full reasoning and test record in
+[`docs/rename/issues/ERUZ_init_loc.md`](../issues/ERUZ_init_loc.md).
 
 ## D12 — `--from-source` added to `rename_use_lines.py`
 
@@ -762,7 +769,7 @@ contents.
 | D1 | `build.sh --test` and `build.bat --test` now build **both** `visualisation_read_tests` and `oc_row_width_tests`, and run the bare `ctest` rather than `-R '^visualisation_read\.'`. The extra manual `cmake --build ... --target oc_row_width_tests` step is no longer needed. `--clean-app` cleans both test targets. |
 | D5 | All ten `core/` modules now declare `PRIVATE` and export every name they declare through an explicit `PUBLIC ::` list: `mod_parameters` 51, `file_units` 50, `legacy_retained` 26, `array_limits` 23, `element_geometry` 20, `run_context` 8, `simulation_clock` 8, `grid_topology` 7, `build_info` 4, `runtime_flags` 2. The imported kind parameters and array limits are no longer re-exported, which is what `sglobal`'s nine `PUBLIC` statements used to achieve. |
 | D9 | [[datetime]] no longer imports `msg` from [[linear_algebra]]; `days_to_start_month` has a local `CHARACTER(LEN=LENGTH_LINE)` buffer and the edge is gone. `linear_algebra` has no `msg` at all — none of its procedures could write to one, being `PURE`. |
-| D11 | Assessed and **rejected**, with a test run: see [`docs/rename/issues/ERUZ_init_loc.md`](../issues/ERUZ_init_loc.md). `initialise_al_c3` runs from `FRINIT` before `VSCONC` computes `top_cell_no`, so `ERUZ` would be allocated `(total_no_elements, -1)` — a zero-sized second dimension — and `ET` aborts on its first write. The allocation stays in `initialise_al_c`. |
+| D11 | **Resolved**, though not by the move that was proposed: see [`docs/rename/issues/ERUZ_init_loc.md`](../issues/ERUZ_init_loc.md). Folding `ERUZ` into `initialise_al_c3` fails, because `FRINIT` runs that routine before `VSCONC` computes `top_cell_no`, so the array would be allocated `(total_no_elements, -1)` and `ET` aborts on its first write. Implemented option 1 instead: a second `et_state` initialiser, `initialise_eruz`, called from `VSCONC` beside `INITIALISE_AL_C`. `vs_state` no longer allocates an array it does not own and its `USE et_state` is gone; `vs_connectivity` takes on the (acyclic) edge. Allocation point, shape and zeroing are unchanged, and all ten short-list models reproduce their fixtures exactly. |
 | D14 | `setup_results_check.py` now `shutil.rmtree`s `output_should/` before copying, so a renamed output file can no longer leave a fixture with no counterpart behind. The three names with no `model/` directory — `Cobres-ExtraOutputDischargePoints`, `Cobres-ExtraOutputWaterTable` and `dano100m` — were removed from all three lists in `examples/_methods/settings.py`, and `COMPILING.md`'s note naming `dano100m` was rewritten. Their leftover untracked directories were left on disk, because their `compute/` folders may hold the only surviving copy of those models' input files. |
 | D15 | `FIRST_syfine` and `WSED_syfine` moved to [[sy_hillslope]], private there, next to their only user `SYFINE`. `sy_transport_capacity` no longer publishes them. `FIRST_syackw` stays where it is; it is dead either way. |
 | D17 | All three shared `msg` buffers are gone. `et_config`'s is now a local in `et_process:ET`, sized `LENGTH_LINE`; `linear_algebra`'s is covered by D9; `run_control`'s was dead — no procedure in the tree read or wrote it, and `frame_setup` imported it without using it. The two `RAISE_ERROR` calls in `ET` and the one in `days_to_start_month` now pass `TRIM(msg)`, so the diagnostic text no longer depends on the buffer length. |
@@ -786,9 +793,6 @@ The list in `14_closeout.md` plus what the implementation added:
 - `DOCIN`, which has no caller; likewise `FRLTL`, `FRRESC`, `write_dis` and
   `ETCHK2`, which this work found to be uncalled too.
 - The `initialise_al_c*` names, which outlive the module they refer to.
-- **`ERUZ` allocated by `vs_state:initialise_al_c`** though it belongs to
-  `et_state` (D11). The proposed fix does not work; the options that would are
-  in [`docs/rename/issues/ERUZ_init_loc.md`](../issues/ERUZ_init_loc.md).
 - **`IDUM` and `DUMMY` are still `NXEE*NYEE` and `NELEE` in every procedure**
   that declares them, because that is the size the module variables had. A
   per-procedure reading of the index ranges is in

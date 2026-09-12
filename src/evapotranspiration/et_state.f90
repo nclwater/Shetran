@@ -13,8 +13,12 @@
 !> the legacy canopy formulation uses. Module state is public by default.
 !>
 !> `initialise_al_c3` allocates the root-density array once the active
-!> vegetation count is known. It keeps the name of the module it came from;
-!> renaming it is a follow-up commit.
+!> vegetation count is known; `initialise_eruz` allocates the root-extraction
+!> array once the VSS column discretisation is known. The two extents become
+!> valid at different points in start-up, which is why there are two
+!> initialisers rather than one — see `docs/rename/issues/ERUZ_init_loc.md`.
+!> `initialise_al_c3` keeps the name of the module it came from; renaming it is
+!> a follow-up commit.
 !>
 !> @warning
 !> Manual section 2.3 still describes nonzero `RDL` as reducing the root
@@ -22,20 +26,19 @@
 !> instead requires every active `RDL` value to equal zero, and the ET solver
 !> does not otherwise read the array. This documentation records the current
 !> implementation and does not change that discrepancy.
-!>
-!> `ERUZ` is declared here but allocated and zeroed by
-!> [[vs_state:initialise_al_c]], not by this module's initializer.
 !> @endwarning
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-10 | SvB | - | Split out of AL_C, AL_D; see docs/rename/proposal.md. |
+!> | 2026-09-12 | SvB | - | Took over the `ERUZ` allocation from [[vs_state:initialise_al_c]] as `initialise_eruz`; the `USE et_state` edge out of `vs_state` is gone. |
 !> @endhistory
 MODULE et_state
 
    USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
    USE array_limits, ONLY: nelee, LLEE, NVEE
+   USE element_geometry, ONLY: top_cell_no, total_no_elements
    USE error_status, ONLY: errstat_alloc
 
    IMPLICIT NONE
@@ -44,7 +47,7 @@ MODULE et_state
 
    PUBLIC :: NVC, NV, NRD, RDL, RDF, DRAINA, ESOILA, EEVAP, PNETTO, ERUZ, CLAI, PLAI, HRUZ, PNET, PE, &
              EINT, ERZ, DRAIN, ESOIL, AE, CSTOLD, CPLAI, CSTORE, ERZA, EPOT, EINTA, S, VHT, ESWA, &
-             initialise_al_c3
+             initialise_al_c3, initialise_eruz
 
 
 ! Vegetation metadata and the root-zone distribution.
@@ -112,6 +115,45 @@ CONTAINS
       RDF = 0.0d0
 
    END SUBROUTINE initialise_al_c3
+
+!> Allocates and zero-initializes the root-extraction sink array.
+!>
+!> [[vs_connectivity:VSCONC]] calls this routine once, beside
+!> [[vs_state:initialise_al_c]], after `top_cell_no` and `total_no_elements`
+!> have been established and before the vertical cell connectivity is built.
+!> [[et_process:ET]] writes `ERUZ`; [[vs_driver]], [[water_balance:BALWAT]] and
+!> [[cm_column]] read it.
+!>
+!> | Array | Allocated shape | Initial value |
+!> |:------|:----------------|:--------------|
+!> | `ERUZ` | `(total_no_elements, top_cell_no)` | Zero |
+!>
+!> This cannot be folded into `initialise_al_c3`. [[frame_setup:FRINIT]] calls
+!> that one from `INFR` onwards, long before [[vs_connectivity:VSCONC]] computes
+!> `top_cell_no`, so the second extent would still be the declaration
+!> initializer `-1` — a legal `ALLOCATE` that yields a zero-sized dimension and
+!> then corrupts memory on the first write. See
+!> `docs/rename/issues/ERUZ_init_loc.md`.
+!>
+!> Allocation is unconditional and has no `ALLOCATED` guard, so `ERUZ` must be
+!> unallocated on entry. No current routine deallocates it.
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-09-12 | SvB | - | Split out of [[vs_state:initialise_al_c]] so `ERUZ` is allocated by the module that owns it (D11). Same call site, same allocated shape. |
+!> @endhistory
+   SUBROUTINE initialise_eruz()
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "et_state:initialise_eruz"
+
+      ALLOCATE (ERUZ(total_no_elements, top_cell_no), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "ERUZ", location, emsg)
+      ERUZ = 0.0d0
+
+   END SUBROUTINE initialise_eruz
 
 END MODULE et_state
 

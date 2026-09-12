@@ -36,16 +36,13 @@
 !> there are no `ALLOCATED` guards or matching deallocation routines.
 !> Re-entering an initializer while any of its arrays is allocated is a Fortran
 !> runtime error.
-!>
-!> `initialise_al_c` also allocates and zeroes `ERUZ`, which belongs to
-!> [[et_state]]. That is why this module imports from `et_state`; the edge runs
-!> one way only.
 !> @endwarning
 !>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-10 | SvB | - | Split out of AL_C; see docs/rename/proposal.md. |
+!> | 2026-09-12 | SvB | - | Handed the `ERUZ` allocation to [[et_state:initialise_eruz]], which [[vs_connectivity:VSCONC]] now calls beside `initialise_al_c`; the `USE et_state` import is gone (D11). |
 !> @endhistory
 MODULE vs_state
 
@@ -53,7 +50,6 @@ MODULE vs_state
    USE array_limits, ONLY: nelee, LLEE, nlfee, NLYREE, NSEE
    USE element_geometry, ONLY: top_cell_no, total_no_elements
    USE error_status, ONLY: errstat_alloc
-   USE et_state, ONLY: ERUZ
 
    IMPLICIT NONE
 
@@ -121,11 +117,10 @@ CONTAINS
 !> |:-------|:----------------|:--------------|
 !> | `QVSH`, `JVSACN`, `JVSDEL` | `(4, top_cell_no, total_no_elements)` | Zero |
 !> | `QVSV`, `VSPSI`, `VSTHE`, `QVSWLI` | `(top_cell_no, total_no_elements)` | Zero |
-!> | `ERUZ` | `(total_no_elements, top_cell_no)` | Zero |
 !>
 !> The well-flow array's second dimension is the element-capacity-sized
 !> well-record domain even though only records established by `NVSWLI` are
-!> active. Allocation is unconditional and has no `STAT=` handler; all eight
+!> active. Allocation is unconditional and has no `STAT=` handler; all seven
 !> arrays must be unallocated on entry. No current `AL_C` routine releases
 !> them.
 !>
@@ -135,6 +130,7 @@ CONTAINS
 !> | 2019-11-28 | - | - | Active-size allocation and zero-initialization for the six VSS/ET arrays was present in the initial repository snapshot. |
 !> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for `JVSACN` and `JVSDEL`. |
 !> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
+!> | 2026-09-12 | SvB | - | Moved the `ERUZ` allocation to [[et_state:initialise_eruz]]; the remaining seven arrays are unchanged. |
 !> @endhistory
    SUBROUTINE initialise_al_c()
 
@@ -152,8 +148,6 @@ CONTAINS
       CALL errstat_alloc(ios, "vsthe", location, emsg)
       ALLOCATE (qvswli(top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "qvswli", location, emsg)
-      ALLOCATE (eruz(total_no_elements, top_cell_no), STAT=ios, ERRMSG=emsg)
-      CALL errstat_alloc(ios, "eruz", location, emsg)
       ALLOCATE (JVSACN(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
       CALL errstat_alloc(ios, "JVSACN", location, emsg)
       ALLOCATE (JVSDEL(4, top_cell_no, total_no_elements), STAT=ios, ERRMSG=emsg)
@@ -165,7 +159,6 @@ CONTAINS
       vspsi = 0.0d0
       vsthe = 0.0d0
       qvswli = 0.0d0
-      eruz = 0.0d0
       JVSACN = 0
       JVSDEL = 0
 
