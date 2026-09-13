@@ -6,6 +6,9 @@
 # (C) 2026, S.Berendsen
 #
 # 20260509 - SvB - made the overview files optionally deletable. Default: True
+# 20260913 - SvB - added optional removal of the flame graph results
+# 20260913 - SvB - replaced --clean-overviews, which could not be switched off,
+#                  with --no-clean-overviews
 #
 
 # General Imports
@@ -46,10 +49,22 @@ def main():
         help="Also remove the expected results directories (output_should).",
     )
     parser.add_argument(
-        "--clean-overviews",
+        "--no-clean-overviews",
+        dest="clean_overviews",
+        action="store_false",
+        help="Keep the generated csv overview files (default: remove them).",
+    )
+    parser.add_argument(
+        "--remove-flamegraphs",
         action="store_true",
-        default=True,
-        help="Also remove the generated csv overview files.",
+        help=("Also remove the flame graph run directories and svg files of "
+              "the cleaned models."),
+    )
+    parser.add_argument(
+        "--remove-flamegraph-dir",
+        action="store_true",
+        help=(f"Remove the whole {settings.dir_flamegraphs} directory, "
+              "irrespective of which models are cleaned."),
     )
     args = parser.parse_args()
 
@@ -82,11 +97,24 @@ def main():
         if args.remove_expected_results:
             util.remove_non_empty_dir(dir_results)
 
+        # remove the flame graph results of this model
+        if args.remove_flamegraphs:
+            util.remove_non_empty_dir(
+                os.path.join(settings.dir_flamegraphs, model_name))
+            fn_flamegraph = os.path.join(settings.dir_flamegraphs,
+                                         f"{model_name}.svg")
+            if os.path.exists(fn_flamegraph):
+                os.remove(fn_flamegraph)
+
         # remove the generated analysis files if they exist
         fn_model_analysis = os.path.join(model_name,
                                          settings.fn_model_analysis)
         if os.path.exists(fn_model_analysis):
             os.remove(fn_model_analysis)
+
+    # remove all flame graph results, including those of models not cleaned above
+    if args.remove_flamegraph_dir:
+        util.remove_non_empty_dir(settings.dir_flamegraphs)
 
     # remove the generated overview files if they exist
     if args.clean_overviews:

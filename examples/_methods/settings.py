@@ -13,6 +13,7 @@ dir_inputs = "model"
 dir_compute = "compute"
 dir_results_should = "output_should"
 dir_delta = "diff_delta"
+dir_flamegraphs = "_flamegraphs"
 
 #
 # Model categories - these are cumulatively used in code, but separate here for
