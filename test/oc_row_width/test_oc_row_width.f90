@@ -2,7 +2,7 @@
 !> [[oc_driver:OCSIM]] workspace. See `test/README.md`.
 PROGRAM test_oc_row_width
 
-   USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
+   USE oc_row_width, ONLY: MAX_ACTIVE_ROW_WIDTH
    USE shetran_test_support, ONLY: assert_equal_integer, finish_tests
 
    IMPLICIT NONE

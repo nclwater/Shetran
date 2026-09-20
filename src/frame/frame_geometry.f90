@@ -6,16 +6,10 @@
 !> elements neighbour which faces, and where the link and bank blocks begin.
 !> [[FRDIM]] then computes the plan dimensions, cell areas, face lengths and
 !> the total catchment area into [[element_geometry]], and [[FRSORT]] maintains
-!> the `ISORT` processing order. [[FRLTL]] lists a topology array to the print
-!> file.
+!> the `ISORT` processing order.
 !>
 !> Everything downstream depends on this running first: the component setup
 !> routines, the solvers and the output all index by element number.
-!>
-!> @note
-!> [[FRLTL]] has no caller in the current source. It was public in `FRmod` and
-!> stays public here.
-!> @endnote
 !>
 !> @history
 !> | Date | Author | Version | Description |
@@ -25,30 +19,29 @@
 !> | 2020-05 | SB | 4.5 | Added ZQ-module variables and support. |
 !> | 2026-03 | SB | 4.6 | Added allocation-based initialisation, date-aware meteorological input, the outlet sediment/contaminant text series and the water-table output. |
 !> | 2026-09-11 | SvB | - | Split out of FRmod; see docs/rename/proposal.md. |
+!> | 2026-09-20 | SvB | - | Removed the uncalled `FRLTL`; `OCLTL` is the same reader with a different code table. See docs/rename_functions_routines/README.md. |
 !> @endhistory
 MODULE frame_geometry
 
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, zero
+   USE MOD_PARAMETERS, ONLY: zero
    USE array_limits, ONLY: nelee, nxee, nyee
    USE element_geometry, ONLY: BWIDTH, CAREA, cellarea, DHF, DXIN, DXQQ, DYIN, DYQQ, ISORT, &
                               NBFACE, NXM1, NYM1, total_no_elements, total_no_links, ZGRUND
    USE grid_topology, ONLY: ICMREF, ICMRF2, ICMXY, INGRID, NGDBGN, NX, NY
    USE channel_geometry, ONLY: BEXBK, CLENTH, CWIDTH, ICMBK, LINKNS
-   USE run_control, ONLY: BEXOC, TITLE
+   USE run_control, ONLY: BEXOC
    USE legacy_retained, ONLY: NGRID
    USE file_units, ONLY: FID_logfile
    USE vs_state, ONLY: ZVSPSL
    USE oc_state, ONLY: LCODEX, LCODEY
    USE oc_indexing, ONLY: LINKNO
    USE oc_node_solver, ONLY: gethrf
-   USE error_reporting, ONLY: ERR_STOP
-   USE error_status, ONLY: errstat_read
 
    IMPLICIT NONE
 
    PRIVATE
 
-   PUBLIC :: FRDIM, FRIND, FRLTL, FRSORT
+   PUBLIC :: FRDIM, FRIND, FRSORT
 
 CONTAINS
 
@@ -1111,93 +1104,6 @@ CONTAINS
 1600  FORMAT(' ', 5(4X, I4))
 
    END SUBROUTINE FRIND
-
-!> @brief Reads a gridded numeric-code map used for output class definitions.
-!>
-!> `NNX` and `NNY` are the grid dimensions to read, while `NXE` and `NYE` are the
-!> declared dimensions of output array `IARR`. `INF` is the input file unit,
-!> `IOF` is the output/echo file unit, and `BPCNTL` controls whether the read
-!> code map is printed. The numeric codes read from `INF` are returned in
-!> `IARR`.
-!>
-!> The file section starts with an 80-character title, then reads `NNY` grid
-!> rows. Rows must be supplied from top to bottom: the first row label must be
-!> `NNY`, then `NNY-1`, and so on to 1. Each map character is interpreted as:
-!>
-!> | Character | Stored value |
-!> |:----------|:-------------|
-!> | `1`-`9` | Corresponding integer code. |
-!> | Any other character | 0. |
-!>
-!> @warning
-!> A row-label mismatch writes `INCORRECT COORDINATE` when echoing is enabled
-!> and then executes `STOP`.
-!> @endwarning
-!>
-!> @warning
-!> The local character buffer has 200 entries although the current grid capacity
-!> `NXEE` is 1000, and no guard enforces `NNX<=200`. Larger calls would index
-!> beyond `A1LINE`; there is no call to `FRLTL` elsewhere in the current source.
-!> @endwarning
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | 1994-10-02 | RAH | 3.4.1 | Replaced the two-byte integer map with default integers. |
-!> | 1997-02-23 | RAH | 4.1 | Made typing explicit. |
-!> @endhistory
-   SUBROUTINE FRLTL(NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-
-      IMPLICIT NONE
-
-      ! Input arguments
-      INTEGER, INTENT(IN) :: NNX, NNY, NXE, NYE, INF, IOF
-      LOGICAL, INTENT(IN) :: BPCNTL
-
-      ! Output arguments
-      INTEGER, INTENT(OUT) :: IARR(NXE, NYE)
-
-      ! Locals, etc
-      INTEGER :: I, J, K, L, M, ios
-      ! CHARACTER(LEN=80) :: TITLE
-      CHARACTER(LEN=1)  :: A1LINE(200)
-      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'frame_geometry:FRLTL' !! Location string for read-error reports.
-
-      CHARACTER(LEN=1), PARAMETER :: NMERIC(9) = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-
-      READ (INF, '(A80)', IOSTAT=ios, IOMSG=emsg) TITLE
-      CALL errstat_read(ios, location, emsg)
-      IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
-
-      IARR(1:NNX, 1:NNY) = 0
-
-      I = NNY
-      DO J = 1, NNY
-         READ (INF, '(I7, 1X, 500A1)', IOSTAT=ios, IOMSG=emsg) K, (A1LINE(L), L=1, NNX)
-         CALL errstat_read(ios, location, emsg)
-         IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, (A1LINE(L), L=1, NNX)
-
-         IF (K /= I) THEN
-            IF (BPCNTL) WRITE (IOF, '("   ^^^   INCORRECT COORDINATE")')
-            WRITE (*, '(A)') 'INCORRECT COORDINATE'
-            CALL ERR_STOP(255)
-         END IF
-
-         I = I - 1
-
-         outer_loop: DO L = 1, NNX
-            DO M = 1, 9
-               IF (A1LINE(L) == NMERIC(M)) THEN
-                  IARR(L, K) = M
-                  CYCLE outer_loop
-               END IF
-            END DO
-         END DO outer_loop
-
-      END DO
-
-   END SUBROUTINE FRLTL
 
    ! 14/3/95
    !

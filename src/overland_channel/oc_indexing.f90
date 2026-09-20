@@ -26,7 +26,7 @@ MODULE oc_indexing
    USE channel_geometry, ONLY: ICMBK, LINKNS
    USE file_units, ONLY: FID_logfile
    USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal
-   USE OC_ROW_WIDTH, ONLY: MAX_ACTIVE_ROW_WIDTH
+   USE oc_row_width, ONLY: MAX_ACTIVE_ROW_WIDTH
 
    IMPLICIT NONE
 

@@ -5,7 +5,7 @@
 !> geometry, slopes, flows and shear stresses from the water modules,
 !> [[SYBKER]] computes lateral bank erosion, [[SYLINK]] routes each size
 !> fraction along a link, and [[SYBED]] updates the two-layer bed storage.
-!> `FQOUT` is contained inside `SYWAT`. The hillslope half is in
+!> The hillslope half is in
 !> [[sy_hillslope]].
 !>
 !> @history
@@ -21,6 +21,7 @@ MODULE sy_channel
    USE MOD_PARAMETERS, ONLY: one, two, GRAVITY, RHO_WATER_SEDIMENT
    USE float_compare, ONLY: dimje, iszero
    USE sy_transport_capacity, ONLY: SYCRIT
+   USE sy_state, ONLY: face_outflow
 
    IMPLICIT NONE
 
@@ -564,6 +565,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-04-06 | SvB | 4.6.1 | Removed `GOTO`-driven control flow; replaced the legacy statement function used for face outflow with the internal `FUNCTION` `FQOUT`. |
+!> | 2026-09-20 | SvB | - | Replaced `FQOUT` with the shared [[sy_state:face_outflow]], which [[syerr3]] duplicated as `FNQOUT`. |
 !> | 2026-05-03 | SvB | 4.6.1 | Added the explicit zero-initialisation of `SLOPEJ`/`TAUJ`/`FQCONF`/`LRAIN`/`DRDROP` described in the preceding note. |
 !> @endhistory
    PURE SUBROUTINE SYWAT(NEL, NELEE, NLF, NLFEE, NV, NVC, ICMREF, ICMRF2, &
@@ -682,7 +684,7 @@ CONTAINS
             IF (BSIDE) CYCLE face_loop
 
             ! * Discharge rate
-            QOUT = FQOUT(IEL, FACE)
+            QOUT = face_outflow(QOC, IEL, FACE)
 
             ! * No-flow faces are special case
             IF (ISZERO(QOUT)) THEN
@@ -720,14 +722,14 @@ CONTAINS
                PIN = 0
                POUT = 0
                ! - discharge from node (let this branch be prospect 0)
-               QOUTX(0) = -FQOUT(IEL, KEL)
+               QOUTX(0) = -face_outflow(QOC, IEL, KEL)
 
                ! * Loop over Prospects
                DO P = 1, 3
                   IELP = ICMRF2(IBR, P, 1)
                   IF (IELP > 0) THEN
                      KELP = ICMRF2(IBR, P, 2)
-                     Q = -FQOUT(IELP, KELP)
+                     Q = -face_outflow(QOC, IELP, KELP)
                      QSUM = QSUM + MAX(0.0D0, Q)
                      IF (Q < QOUTX(PIN)) PIN = P
                      IF (Q > QOUTX(POUT)) POUT = P
@@ -803,15 +805,6 @@ CONTAINS
 
          ! * Next element
       END DO element_loop
-
-   CONTAINS
-
-      !> Outflow rate at one element/face, positive for outflow (see the manual face-sign convention in [[syerr3]]).
-      PURE DOUBLE PRECISION FUNCTION FQOUT(IEL, FACE)
-         INTEGER, INTENT(IN) :: IEL  !! Element index.
-         INTEGER, INTENT(IN) :: FACE !! Face index (1-4).
-         FQOUT = SIGN(1, 2 - FACE)*QOC(IEL, FACE)
-      END FUNCTION FQOUT
 
    END SUBROUTINE SYWAT
 

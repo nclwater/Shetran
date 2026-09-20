@@ -45,6 +45,7 @@ MODULE sy_state
 
    PUBLIC :: SBERR, ARBDEP, DLS, GINFD, GINFS, GNU, GNUBK, DCBED, DCBSED, FDEL, FBETA, FBTSD, PBSED, &
              PLS, SOSDFN, SOFN, NSOBED, NSED, QLINK, QDEFF, QSED
+   PUBLIC :: face_outflow
 
    DOUBLEPRECISION, DIMENSION(NELEE, NSEDEE) :: SBERR !! Sediment balance-error state by element and size fraction.
 
@@ -70,6 +71,53 @@ MODULE sy_state
    DOUBLEPRECISION QLINK(NLFEE,2)       !! Water discharge at the two link ends [m3/s].
    DOUBLEPRECISION QDEFF(NLFEE,2)       !! Effective-flow correction at the two link ends [m3/s].
    DOUBLEPRECISION QSED(NELEE,NSEDEE,4) !! Solid-sediment volume discharge by element, size class, and face [m3/s].
+
+CONTAINS
+
+!> @brief Water discharge at one element face, signed positive for outflow.
+!>
+!> `QOC` holds each face discharge with the sign convention of the
+!> overland/channel solver, in which faces 1 and 2 are positive inwards and
+!> faces 3 and 4 positive outwards. The sediment routines need the opposite
+!> question answered — how much water is leaving — so they flip the sign of
+!> faces 3 and 4:
+!>
+!> \[
+!> Q_{out}(i,f) = \operatorname{sign}(1,\,2-f)\;QOC(i,f).
+!> \]
+!>
+!> The integer `SIGN` is deliberate. At `FACE = 2` the second argument is
+!> exactly zero and `SIGN(1, 0)` is `+1`, so the face-2 case is decided by
+!> integer comparison rather than by the sign of a floating-point zero.
+!>
+!> `QOC` is passed in rather than taken from [[oc_state]] because both callers
+!> receive it as a dummy argument, and [[sywat]] is `PURE`. Keeping the data
+!> flowing through the argument list follows `CODING.md` and leaves the
+!> function usable on any discharge array.
+!>
+!> @note
+!> This is the face-sign convention documented in the user manual and applied
+!> in [[syerr3]]. It is only meaningful for `FACE` in `1:4`; the caller is
+!> expected to supply a valid face.
+!> @endnote
+!>
+!> @history
+!> | Date | Author | Version | Description |
+!> |:-----|:-------|:--------|:------------|
+!> | 2026-04-06 | SvB | 4.6.1 | Replaced the legacy statement functions with internal `FUNCTION`s `FQOUT` in [[sywat]] and `FNQOUT` in [[syerr3]]. |
+!> | 2026-09-20 | SvB | - | Merged those two identical copies into this shared function; kept `FQOUT`'s integer `SIGN`. See docs/rename_functions_routines/README.md. |
+!> @endhistory
+   PURE DOUBLEPRECISION FUNCTION face_outflow(QOC, IEL, FACE)
+
+      IMPLICIT NONE
+
+      DOUBLEPRECISION, INTENT(IN) :: QOC(:, :) !! Signed face water fluxes by element and face [m3/s].
+      INTEGER, INTENT(IN) :: IEL  !! Element index.
+      INTEGER, INTENT(IN) :: FACE !! Face index, 1 to 4.
+
+      face_outflow = SIGN(1, 2 - FACE)*QOC(IEL, FACE)
+
+   END FUNCTION face_outflow
 
 END MODULE sy_state
 

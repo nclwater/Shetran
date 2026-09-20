@@ -4,7 +4,6 @@
 !> Four routines that check the sediment input for range and consistency and
 !> report every failure through [[error_reporting:RAISE_ERROR]]. They are
 !> called from [[sy_driver:SYMAIN]] immediately after the data is read.
-!> `FNQOUT` is contained inside [[SYERR3]].
 !>
 !> These stay inside the component: the numbered diagnostics they issue are
 !> sediment-specific, and nothing outside `sediment/` calls them.
@@ -25,6 +24,7 @@ MODULE sy_validation
    USE float_compare, ONLY: idimje
    USE input_validation, ONLY: ALCHK, ALCHKI
    USE linear_algebra, ONLY: dcopy
+   USE sy_state, ONLY: face_outflow
 
    IMPLICIT NONE
 
@@ -879,6 +879,7 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-04-06 | SvB | 4.6.1 | Replaced the `GOTO 640` non-discharge-face skip with `CYCLE element_loop`, and the legacy statement function used to evaluate face outflow with the internal `FUNCTION` `FNQOUT`. |
+!> | 2026-09-20 | SvB | - | Replaced `FNQOUT` with the shared [[sy_state:face_outflow]], which [[sywat]] duplicated as `FQOUT`. |
 !> | 2026-05-03 | SvB | 4.6.1 | Replaced an uninitialised local `IUNDEF` "don't care" argument to `ALCHK`/`ALCHKI` with an explicit `PARAMETER = 0`. |
 !> @endhistory
    SUBROUTINE SYERR3(NEL, NELEE, NLF, NLFEE, NV, SPR, ICMREF, &
@@ -1008,13 +1009,13 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
             IQ(IEL) = 0
 
             !          * non-discharge faces are ok (Cycle directly replaces GOTO 640)
-            IF (FNQOUT(IEL, FACE) <= ZERO1(1)) CYCLE element_loop
+            IF (face_outflow(QOC, IEL, FACE) <= ZERO1(1)) CYCLE element_loop
 
             IADJ = ICMREF(IEL, FACE, 2)
 
             IF (IADJ > 0) THEN
                FADJ = ICMREF(IEL, FACE, 3)
-               QADJ = FNQOUT(IADJ, FADJ)
+               QADJ = face_outflow(QOC, IADJ, FADJ)
                !             * do both elements discharge into the same face?
                IF (QADJ > ZERO1(1)) IQ(IEL) = 1
                !             * IEL must precede IADJ in the ISORT list
@@ -1028,7 +1029,7 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
                   IADJ = ICMRF2(IBR, P, 1)
                   IF (IADJ > 0) THEN
                      FADJ = ICMRF2(IBR, P, 2)
-                     QADJ = FNQOUT(IADJ, FADJ)
+                     QADJ = face_outflow(QOC, IADJ, FADJ)
                      QMIN = MIN(QADJ, QMIN)
                      IF (QADJ < zero1(1)) THEN
                         !                      * IEL must precede IADJ in the ISORT list
@@ -1084,15 +1085,6 @@ CALL ALCHKI(ERRLVL_error, 2071, SPR, ICOL1, NEL, IUNDEF, IUNDEF, 'NTSOIL[iel,NLY
 9100  FORMAT(1X, A, ':'/1P, (8E10.2))
 9150  FORMAT(1X, A, I1, A, ':'/1P, (8E10.2))
 9200  FORMAT(1X, A, ':'/(16I5))
-
-   CONTAINS
-
-      !> Outflow rate at one element/face, positive for outflow (see the routine's face-sign note).
-      PURE DOUBLE PRECISION FUNCTION FNQOUT(ELEM, FCE)
-         INTEGER, INTENT(IN) :: ELEM !! Element index.
-         INTEGER, INTENT(IN) :: FCE  !! Face index (1-4).
-         FNQOUT = SIGN(1.0D0, 2.0D0 - DBLE(FCE))*QOC(ELEM, FCE)
-      END FUNCTION FNQOUT
 
    END SUBROUTINE SYERR3
 

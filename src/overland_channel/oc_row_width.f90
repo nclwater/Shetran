@@ -16,7 +16,7 @@
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-08-22 | SvB | 4.6.4 | Extracted the maximum-row-width derivation from [[oc_indexing:OCIND]] so it can be tested on its own. |
 !> @endhistory
-MODULE OC_ROW_WIDTH
+MODULE oc_row_width
 
    IMPLICIT NONE
 
@@ -61,4 +61,4 @@ CONTAINS
 
    END FUNCTION MAX_ACTIVE_ROW_WIDTH
 
-END MODULE OC_ROW_WIDTH
+END MODULE oc_row_width
