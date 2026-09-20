@@ -1,11 +1,10 @@
-!> summary: The `OCCHK0`--`OCCHK2` checks on the overland/channel input, and `OCLTL`.
+!> summary: The `OCCHK0`--`OCCHK2` checks on the overland/channel input.
 !> author: GP, Newcastle University; AB / RAH, Newcastle University; JE, Newcastle University; SB, Newcastle University; Sven Berendsen
 !>
 !> Three routines that check the overland/channel input for range and
 !> consistency and report every failure through
 !> [[error_reporting:RAISE_ERROR]], called from [[oc_driver:OCINI]] after the
-!> data is read. [[OCLTL]] is the link-topology listing that frame setup
-!> writes to the print file.
+!> data is read.
 !>
 !> These stay inside the component: the numbered diagnostics they issue are
 !> overland/channel-specific.
@@ -17,10 +16,11 @@
 !> | 2008-12 | JE | 4.3.5F90 | Converted the OC Fortran sources to Fortran 90. |
 !> | 2020--2026 | SB / SvB | 4.5--4.6 | Added the ZQ reservoir tables, the abstracted state accessors, and the modernisation pass. |
 !> | 2026-09-11 | SvB | - | Split out of OCmod; see docs/rename/proposal.md. |
+!> | 2026-09-20 | SvB | - | Moved `OCLTL` out to [[grid_arrays]]; it reads the frame data file and issues no OC diagnostic. See docs/rename_functions_routines/README.md. |
 !> @endhistory
 MODULE oc_validation
 
-   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, ione1, izero1, zero, zero1
+   USE MOD_PARAMETERS, ONLY: ione1, izero1, zero, zero1
    USE array_limits, ONLY: nelee, nlfee, NOCTAB, nxee, NXSCEE
    USE element_geometry, ONLY: total_no_elements, total_no_links
    USE grid_topology, ONLY: ICMREF, ICMXY, NGDBGN, NX, NY
@@ -30,14 +30,13 @@ MODULE oc_validation
    USE oc_cross_sections, ONLY: NXSECT, XINH, XINW
    USE oc_indexing, ONLY: LINKNO
    USE input_validation, ONLY: ALCHK, ALCHKI
-   USE error_reporting, ONLY: RAISE_ERROR, ERR_STOP, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
-   USE error_status, ONLY: errstat_read
+   USE error_reporting, ONLY: RAISE_ERROR, ERRLVL_fatal, ERRLVL_error, ERRLVL_warn
 
    IMPLICIT NONE
 
    PRIVATE
 
-   PUBLIC :: OCCHK0, OCCHK1, OCCHK2, OCLTL
+   PUBLIC :: OCCHK0, OCCHK1, OCCHK2
 
 CONTAINS
 
@@ -405,93 +404,6 @@ CONTAINS
 9310  FORMAT('XINH[ link =', I3, '](j)')
 
    END SUBROUTINE OCCHK2
-
-!> @brief Reads an alphanumeric channel-definition grid.
-!>
-!> `OCLTL` decodes the legacy one-character OC map into integer link and
-!> boundary codes, preserving row-number checks and optional echo printing.
-!> Input rows must be supplied from `NNY` down to 1; an unexpected row number
-!> prints an "incorrect coordinate" marker when echo output is enabled and
-!> then stops the program.
-!>
-!> Character mapping:
-!>
-!> | Character | Code | Meaning in OC flow-code grids |
-!> |:----------|:-----|:-------------------------------|
-!> | `I` | 1 | Internal impermeable boundary. |
-!> | `.` | 2 | No special OC boundary/link code. |
-!> | `R` | 6 | River/channel link without boundary type. |
-!> | `W` | 7 | Channel weir boundary. |
-!> | `A` | 8 | Channel river/resistance plus weir boundary. |
-!> | `H` | 9 | Channel time-varying head boundary. |
-!> | `F` | 10 | Channel time-varying flow boundary. |
-!> | `P` | 11 | Channel polynomial boundary. |
-!>
-!> Characters not listed in `CODES` leave the target entry at its initial
-!> zero value.
-!>
-!> @history
-!> | Date | Author | Version | Description |
-!> |:-----|:-------|:--------|:------------|
-!> | 1994-08-12 | - | - | Created this routine. |
-!> | 2015-04-21 | SB | - | Increased the `A1LINE` row buffer and its read/write format from 200 to 500 characters for larger catchments. |
-!> @endhistory
-   SUBROUTINE OCLTL(NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
-      IMPLICIT NONE
-
-      ! Dummy Arguments
-      INTEGER, INTENT(IN)  :: NNX    !! X dimension of the grid to read.
-      INTEGER, INTENT(IN)  :: NNY    !! Y dimension of the grid to read.
-      INTEGER, INTENT(IN)  :: NXE    !! First declared extent of `IARR`.
-      INTEGER, INTENT(IN)  :: NYE    !! Second declared extent of `IARR`.
-      INTEGER, INTENT(IN)  :: INF    !! Input file unit for the OC map records.
-      INTEGER, INTENT(IN)  :: IOF    !! Echo-output file unit.
-      INTEGER, INTENT(OUT) :: IARR(NXE, NYE) !! Decoded OC flow-code grid; entries within `1:NNX,1:NNY` are overwritten.
-      LOGICAL, INTENT(IN)  :: BPCNTL !! Enables echo printing and coordinate-error output.
-
-      ! Local Variables
-      CHARACTER(LEN=80)    :: TITLE
-      CHARACTER(LEN=1)     :: A1LINE(500)
-      INTEGER              :: I, J, K, L, M, ios
-      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
-      CHARACTER(LEN=*), PARAMETER :: location = 'oc_validation:OCLTL' !! Location string for read-error reports.
-
-      CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
-                                     ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
-
-      READ (INF, '(A80)', IOSTAT=ios, IOMSG=emsg) TITLE
-      CALL errstat_read(ios, location, emsg)
-      IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
-
-      IARR(1:NNX, 1:NNY) = 0
-
-      I = NNY
-
-      read_loop: DO J = 1, NNY
-         READ (INF, '(I7, 1X, 500A1)', IOSTAT=ios, IOMSG=emsg) K, A1LINE(1:NNX)
-         CALL errstat_read(ios, location, emsg)
-         IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, A1LINE(1:NNX)
-
-         IF (K /= I) THEN
-            IF (BPCNTL) WRITE (IOF, "('  ^^^   INCORRECT COORDINATE')")
-            WRITE (*, '(A)') 'INCORRECT COORDINATE'
-            CALL ERR_STOP(255)
-         END IF
-
-         I = I - 1
-
-         line_loop: DO L = 1, NNX
-            search_code: DO M = 1, 11
-               IF (A1LINE(L) == CODES(M) .AND. CODES(M) /= ' ') THEN
-                  IARR(L, K) = M
-                  EXIT search_code
-               END IF
-            END DO search_code
-         END DO line_loop
-
-      END DO read_loop
-
-   END SUBROUTINE OCLTL
 
 END MODULE oc_validation
 

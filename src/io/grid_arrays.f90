@@ -1,4 +1,4 @@
-!> summary: Readers for whole-grid integer and real arrays.
+!> summary: Readers for whole-grid integer, real and character-coded arrays.
 !> author: J. Ewen, Newcastle University; Stephen Birkinshaw, Newcastle University; Sven Berendsen
 !>
 !> [[AREADI]] and [[AREADR]] read a value per grid cell and map it onto the
@@ -6,10 +6,14 @@
 !> which cells are active. They are the grid-shaped counterpart of the
 !> record-oriented readers in [[record_readers]].
 !>
+!> [[OCLTL]] reads the same row-per-line grid layout, but with one character
+!> per cell decoded through a code table, and returns the grid unconverted.
+!>
 !> @history
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-09-10 | SvB | - | Split out of utilsmod; see docs/rename/proposal.md. |
+!> | 2026-09-20 | SvB | - | Moved `OCLTL` in from `oc_validation`; it is a grid reader, not an overland/channel check. See docs/rename_functions_routines/README.md. |
 !> @endhistory
 MODULE grid_arrays
 
@@ -26,7 +30,7 @@ MODULE grid_arrays
 
    PRIVATE
 
-   PUBLIC :: AREADI, AREADR
+   PUBLIC :: AREADI, AREADR, OCLTL
 
 CONTAINS
 
@@ -392,6 +396,106 @@ CONTAINS
       WRITE (IOF, "(/,/,2X, 120('*'), /,/)")
 
    END SUBROUTINE AREADR
+
+   !> @brief Reads an alphanumeric channel-definition grid.
+   !>
+   !> `OCLTL` decodes the legacy one-character OC map into integer link and
+   !> boundary codes, preserving row-number checks and optional echo printing.
+   !> Input rows must be supplied from `NNY` down to 1; an unexpected row number
+   !> prints an "incorrect coordinate" marker when echo output is enabled and
+   !> then stops the program.
+   !>
+   !> Character mapping:
+   !>
+   !> | Character | Code | Meaning in OC flow-code grids |
+   !> |:----------|:-----|:-------------------------------|
+   !> | `I` | 1 | Internal impermeable boundary. |
+   !> | `.` | 2 | No special OC boundary/link code. |
+   !> | `R` | 6 | River/channel link without boundary type. |
+   !> | `W` | 7 | Channel weir boundary. |
+   !> | `A` | 8 | Channel river/resistance plus weir boundary. |
+   !> | `H` | 9 | Channel time-varying head boundary. |
+   !> | `F` | 10 | Channel time-varying flow boundary. |
+   !> | `P` | 11 | Channel polynomial boundary. |
+   !>
+   !> Characters not listed in `CODES` leave the target entry at its initial
+   !> zero value.
+   !>
+   !> @note The row buffer and the read/write formats are fixed at 500
+   !> characters, so `NNX` is limited to 500, as `AREADI` limits `NX` for its
+   !> single-digit grid format.
+   !> @endnote
+   !>
+   !> @history
+   !> | Date | Author | Version | Description |
+   !> |:-----|:-------|:--------|:------------|
+   !> | 1994-08-12 | - | - | Created this routine. |
+   !> | 2015-04-21 | SB | - | Increased the `A1LINE` row buffer and its read/write format from 200 to 500 characters for larger catchments. |
+   !> | 2026-09-20 | SvB | - | Moved here from `oc_validation`, and added the missing `NNX <= 500` check against the `A1LINE` buffer. |
+   !> @endhistory
+   SUBROUTINE OCLTL(NNX, NNY, IARR, NXE, NYE, INF, IOF, BPCNTL)
+      IMPLICIT NONE
+
+      ! Dummy Arguments
+      INTEGER, INTENT(IN)  :: NNX    !! X dimension of the grid to read.
+      INTEGER, INTENT(IN)  :: NNY    !! Y dimension of the grid to read.
+      INTEGER, INTENT(IN)  :: NXE    !! First declared extent of `IARR`.
+      INTEGER, INTENT(IN)  :: NYE    !! Second declared extent of `IARR`.
+      INTEGER, INTENT(IN)  :: INF    !! Input file unit for the OC map records.
+      INTEGER, INTENT(IN)  :: IOF    !! Echo-output file unit.
+      INTEGER, INTENT(OUT) :: IARR(NXE, NYE) !! Decoded OC flow-code grid; entries within `1:NNX,1:NNY` are overwritten.
+      LOGICAL, INTENT(IN)  :: BPCNTL !! Enables echo printing and coordinate-error output.
+
+      ! Local Variables
+      CHARACTER(LEN=80)    :: TITLE
+      CHARACTER(LEN=1)     :: A1LINE(500)
+      INTEGER              :: I, J, K, L, M, ios
+      CHARACTER(LEN=LENGTH_LINE)  :: emsg !! `IOMSG=` text from a failed `READ`.
+      CHARACTER(LEN=*), PARAMETER :: location = 'grid_arrays:OCLTL' !! Location string for read-error reports.
+
+      CHARACTER(LEN=1), PARAMETER :: CODES(11) = &
+                                     ['I', '.', ' ', ' ', ' ', 'R', 'W', 'A', 'H', 'F', 'P']
+
+! CHECK I/O FORMATS OK FOR READING AND PRINTING THE ROW (LIMIT CURRENTLY SET TO 500)
+!
+      IF (NNX > 500) THEN
+         WRITE (IOF, "(' ', 'NNX greater than 500. Change I/O formats in OCLTL', /, 'Program aborted.')")
+         CALL ERR_STOP(255)
+      END IF
+
+      READ (INF, '(A80)', IOSTAT=ios, IOMSG=emsg) TITLE
+      CALL errstat_read(ios, location, emsg)
+      IF (BPCNTL) WRITE (IOF, '(A80)') TITLE
+
+      IARR(1:NNX, 1:NNY) = 0
+
+      I = NNY
+
+      read_loop: DO J = 1, NNY
+         READ (INF, '(I7, 1X, 500A1)', IOSTAT=ios, IOMSG=emsg) K, A1LINE(1:NNX)
+         CALL errstat_read(ios, location, emsg)
+         IF (BPCNTL) WRITE (IOF, '(I7, 1X, 500A1)') K, A1LINE(1:NNX)
+
+         IF (K /= I) THEN
+            IF (BPCNTL) WRITE (IOF, "('  ^^^   INCORRECT COORDINATE')")
+            WRITE (*, '(A)') 'INCORRECT COORDINATE'
+            CALL ERR_STOP(255)
+         END IF
+
+         I = I - 1
+
+         line_loop: DO L = 1, NNX
+            search_code: DO M = 1, 11
+               IF (A1LINE(L) == CODES(M) .AND. CODES(M) /= ' ') THEN
+                  IARR(L, K) = M
+                  EXIT search_code
+               END IF
+            END DO search_code
+         END DO line_loop
+
+      END DO read_loop
+
+   END SUBROUTINE OCLTL
 
 END MODULE grid_arrays
 

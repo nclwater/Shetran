@@ -65,14 +65,13 @@ MODULE frame_setup
    USE vs_input, ONLY: VSIN
    USE vs_state, ONLY: NS, VSPSI
    USE oc_driver, ONLY: OCINI
-   USE oc_validation, ONLY: OCLTL
    USE oc_node_solver, ONLY: sethrf, setqsa
    USE oc_state, ONLY: DQ0ST, DQIST, DQIST2, LCODEX, LCODEY, OCNOW, QMAX, QOC
    USE bank_setup, ONLY: INBK
    USE cm_input, ONLY: INCM
    USE cm_solver_flags, ONLY: ISMN
    USE zq_tables, ONLY: iszq, ReadZQTable
-   USE grid_arrays, ONLY: AREADI, AREADR
+   USE grid_arrays, ONLY: AREADI, AREADR, OCLTL
    USE datetime, ONLY: hour_from_date
    USE error_reporting, ONLY: ERR_STOP
    USE error_status, ONLY: errstat_fileclose, errstat_fileopen, errstat_read, errstat_rewind
