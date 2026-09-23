@@ -88,6 +88,9 @@ MODULE visualisation_metadata
    USE VISUALISATION_READ,      ONLY : vp_in, vp_out, mess, mess2, mess3, error_visualisation, R_C, R_I, R_R, COPY
    USE VISUALISATION_STRUCTURE, ONLY : MBR_COUNT, GET_MBR, csz
 
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc, errstat_fileclose
+
    IMPLICIT NONE
 
    INTEGER, PARAMETER                    :: ndim = 6 !! Number of fixed slots in every HDF5 metadata record.
@@ -269,15 +272,24 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added per-item piecewise output scheduling. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    LOGICAL FUNCTION time_to_record(n, time) RESULT(r)
       INTEGER, INTENT(IN) :: n    !! One-based model-facing item index.
       REAL, INTENT(IN)    :: time !! Current simulation time in hours.
       INTEGER             :: i    !! Array-constructor index used during first-call initialization.
       LOGICAL, SAVE       :: first = T !! First-call initialization guard.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_METADATA:time_to_record"
+
       IF(first) THEN
          first = F
-         ALLOCATE(previous_time(no_items), next_time(no_items))
+         ALLOCATE(previous_time(no_items), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "previous_time", location, emsg)
+         ALLOCATE(next_time(no_items), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "next_time", location, emsg)
          previous_time = zero
          next_time     = GET_NEXT_TIME( (/(i,i=1,no_items)/) )
       ENDIF
@@ -588,10 +600,13 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added visualisation-plan scanning and reference resolution. |
 !> | 2026-04-14 | SvB | Routed parser failures through the current fatal visualisation error service. |
+!> | 2026-09-06 | SvB | Checked the temporary-plan `CLOSE` through [[mod_error:errstat_fileclose]]. |
 !> @endhistory
    SUBROUTINE read_dynamic_visualisation_metadata()
       INTEGER      :: i   !! Dynamic item index during reference resolution.
+      INTEGER(KIND=I_P) :: ios !! I/O status from deleting the temporary plan stream.
       CHARACTER(4) :: now !! Current lowercase plan-block keyword.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! `IOMSG=` text from a failed close.
       CALL COPY(DIRQQ, planfile)
       now = CYCLE_TILL_KEYWORD()
       IF(now/='diag') THEN
@@ -610,14 +625,15 @@ CONTAINS
          PRINT*, 'KILLED RUN so visualisation plan can be checked'
          PRINT*, 'Look in output/check_visualisation_plan.txt'
          PRINT*
-         STOP
+         ERROR STOP
       ELSE
       ENDIF
       DO i=no_static_items+1,no_items
          CALL LINK_USERS_NUMBERS_TO_INDEXES(items(i))
       ENDDO
       CALL FINAL_CHECK_OF_ITEM()
-      CLOSE (UNIT=vp_in,status="delete")
+      CLOSE (UNIT=vp_in, STATUS="delete", IOSTAT=ios, IOMSG=emsg)
+      CALL errstat_fileclose(ios, fid=vp_in, iomsg=emsg)
 
    END SUBROUTINE read_dynamic_visualisation_metadata
 
@@ -801,6 +817,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added two-pass matching of plan requests to the model output catalogue. |
 !> | 2026-04-14 | SvB | Routed rejected/unimplemented requests through the current fatal error service. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE register_dynamic_visualisation_metadata(jj, final, name, typ, units, title, &
       extra_dimensions, varies_with_elevation, varies_with_sed, varies_with_con, implemented)
@@ -819,6 +836,12 @@ CONTAINS
       LOGICAL, DIMENSION(:), ALLOCATABLE, SAVE :: found !! Match flag for each parsed dynamic request.
       TYPE(ITEM), POINTER      :: ii=>NULL() !! Current matching/validated request.
       LOGICAL, SAVE            :: first=T !! Plan-reading and `found` allocation guard.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='register_dynamic_visualisation_metadata'
+
+
       IF(jj==1) THEN
          IF(implemented) CALL WRITE_DYN_VARIABLE(name, units, title, extra_dimensions, &
             varies_with_elevation, varies_with_sed, varies_with_con)
@@ -827,7 +850,8 @@ CONTAINS
       IF(first) THEN
          first= F
          CALL READ_DYNAMIC_VISUALISATION_METADATA()
-         ALLOCATE(found(NO_static_items+1:no_items))
+         ALLOCATE(found(NO_static_items+1:no_items), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "found", location, emsg)
          found = F
       ENDIF
       DO i=no_static_items+1, no_items
@@ -897,13 +921,21 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added the HDF5-oriented metadata projection. |
 !> | 2026-04-14 | SvB | Supplied a safe default extra-axis size used by this projection. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE create_hdf5_metadata()
       INTEGER                  :: mn  !! Item index shared by the source and projection catalogues.
       INTEGER                  :: nex !! Physical size of the selected extra axis.
       TYPE(ITEM), POINTER      :: ii  !! Current model-facing source item.
       TYPE(HDF5_ITEM), POINTER :: hh  !! Current HDF5-facing destination item.
-      ALLOCATE(hdf5_items(no_items))
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='create_hdf5_metadata'
+
+      ALLOCATE(hdf5_items(no_items), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "hdf5_items", location, emsg)
+
       DO mn=1,no_items
          ii => items(mn)
          hh => hdf5_ITEMS(mn)
@@ -919,7 +951,10 @@ CONTAINS
          nex                          = NO_EXTRA_DIMENSIONS(ii%extra_dimensions)
          hh%no_extra_dimensions       = nex
          hh%extra_dimensions          = GET_METADATA_C(mn,'extra_dimensions')
-         ALLOCATE(hh%names_of_extra_dimensions(nex))
+
+         ALLOCATE(hh%names_of_extra_dimensions(nex), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%names_of_extra_dimensions", location, emsg)
+
          hh%names_of_extra_dimensions = NAMES_of_EXTRA_DIMENSIONS(nex, ii%extra_dimensions)
          hh%isgrid                    = ii%isgrid
          hh%isreal                    = GET_METADATA_L(mn,'isreal')
@@ -934,12 +969,20 @@ CONTAINS
          hh%khigh  = GET_METADATA_I(mn,'khigh')
          hh%sediment_no    = GET_METADATA_I(mn,'nsed')
          hh%contaminant_no = GET_METADATA_I(mn,'ncon')
-         ALLOCATE(hh%dimensions(ndim), hh%names_of_dimensions(ndim), hh%szorder(ndim))
+
+         ALLOCATE(hh%dimensions(ndim), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%dimensions", location, emsg)
+         ALLOCATE(hh%names_of_dimensions(ndim), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%names_of_dimensions", location, emsg)
+         ALLOCATE(hh%szorder(ndim), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "hh%szorder", location, emsg)
+
          CALL GET_SZ_CR(hh)
          hh%mbr => GET_MBR(hh%typ)
          IF(.NOT.hh%isgrid) THEN
             hh%sz = ii%alist%sz
-            ALLOCATE(hh%list(hh%sz))
+            ALLOCATE(hh%list(hh%sz), STAT=ios, ERRMSG=emsg)
+            CALL errstat_alloc(ios, "hh%list", location, emsg)
             hh%list = ii%alist%a
          ENDIF
       ENDDO
@@ -1222,22 +1265,33 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added the shared static timing sentinel. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION point_to_static() RESULT(r)
       TYPE(TTIME), POINTER :: r !! Shared static schedule.
       LOGICAL, SAVE        :: first=T !! Lazy-allocation guard.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='point_to_static'
+
       IF(first) THEN
          first    =  F
-         ALLOCATE(sstatic)
+         ALLOCATE(sstatic, STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "sstatic", location, emsg)
          r  => sstatic
          r%number = 999
          r%sz     = 1
-         ALLOCATE(r%tstep(1), r%tstop(1))
+         ALLOCATE(r%tstep(1), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r%tstep", location, emsg)
+         ALLOCATE(r%tstop(1), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r%tstop", location, emsg)
          r%tstep(1) = HUGE(1.0)
          r%tstop(1) = HUGE(1.0)
       ENDIF
       r => sstatic
    END FUNCTION point_to_static
+
 
 
 !> @brief Returns the lazily created shared all-true grid mask.
@@ -1255,22 +1309,30 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added the shared whole-grid mask. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    FUNCTION point_to_whole_grid(i,j) RESULT(r)
       INTEGER, INTENT(IN) :: i !! First-dimension extent used on first call.
       INTEGER, INTENT(IN) :: j !! Second-dimension extent used on first call.
       TYPE(MASK), POINTER :: r !! Shared all-true mask.
       LOGICAL, SAVE       :: first=T !! Lazy-allocation guard.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='point_to_whole_grid'
+
       IF(first) THEN
          first    =  F
-         ALLOCATE(whole_grid)
+         ALLOCATE(whole_grid, STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "whole_grid", location, emsg)
          r => whole_grid
          r%number = 999
          r%ilow   =1
          r%ihigh  =i
          r%jlow   =1
          r%jhigh  =j
-         ALLOCATE(r%ma(i,j))
+         ALLOCATE(r%ma(i,j), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "r%ma", location, emsg)
          r%ma = T
       ENDIF
       r => whole_grid
@@ -1656,16 +1718,28 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added timing-block parsing and terminal sentinel values. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE read_time(t)
       TYPE(TTIME), INTENT(INOUT) :: t !! Newly appended timing record populated in place.
       INTEGER                    :: i !! User timing-pair index.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='read_time'
+
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'reading times'
       CALL R_I('TIMES number and size', t%number, t%sz)
-      ALLOCATE(t%tstep(t%sz+1), t%tstop(t%sz+1))
+
+      ALLOCATE(t%tstep(t%sz+1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "t%tstep", location, emsg)
+      ALLOCATE(t%tstop(t%sz+1), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "t%tstop", location, emsg)
+
       DO i=1,t%sz
          CALL R_R('TIMES',t%tstep(i), t%tstop(i))
       ENDDO
+
       t%tstep(t%sz+1) = HUGE(1.0)
       t%tstop(t%sz+1) = HUGE(1.0)
       IF(diagnostics) WRITE(vp_out,'(50X,A)') 'read times'
@@ -1922,6 +1996,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added presence-array deduplication and ascending ordering. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE sort(sza, a)
       INTEGER, INTENT(INOUT)             :: sza !! Candidate count on entry; unique positive count on return.
@@ -1930,8 +2005,14 @@ CONTAINS
       INTEGER                            :: j   !! Count or next output position.
       INTEGER                            :: szd !! Largest candidate and presence-array extent.
       LOGICAL, DIMENSION(:), ALLOCATABLE :: d   !! Presence flags indexed by element number.
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:sort'
+
+
       szd = MAXVAL(a)
-      ALLOCATE(d(szd))
+      ALLOCATE(d(szd), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "d", location, emsg)
       d = F
       j = 0
       DO i=1,sza
@@ -1941,8 +2022,10 @@ CONTAINS
       j = COUNT(d)
       IF(j<sza) THEN     ! Remove absent zeroes and duplicate element numbers.
          sza = j
-         DEALLOCATE(a)
-         ALLOCATE(a(sza))
+         DEALLOCATE(a, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "a", location, emsg)
+         ALLOCATE(a(sza), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "a", location, emsg)
       ENDIF
 
       j = 1
@@ -2022,6 +2105,7 @@ CONTAINS
 !> | 2004-07 | JE | Added mask rendering as a nested plan-reader helper. |
 !> | 2026-03-29 | SvB | Made it standalone with an allocatable character buffer. |
 !> | 2026-04-03 | SvB | Replaced the Intel repeat-count format extension with a runtime format. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE mask_write(txt, ma, tr, fa)
       CHARACTER(*), INTENT(IN) :: txt    !! Heading written before the mask.
@@ -2030,6 +2114,10 @@ CONTAINS
       CHARACTER(1), INTENT(IN) :: fa     !! Character used for false entries.
       CHARACTER(1), ALLOCATABLE :: cc(:,:) !! Rendered character mask.
       CHARACTER(20)             :: fmt_str !! Runtime repeated-character format.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:mask_write'
 
       IF (SIZE(ma, 1) == 0 .OR. SIZE(ma, 2) == 0) RETURN
 
@@ -2045,7 +2133,8 @@ CONTAINS
       WRITE(fmt_str, '("(",I0,"A)")') SIZE(cc, 1)
       WRITE(vp_out, fmt_str) cc
 
-      DEALLOCATE(cc)
+      DEALLOCATE(cc, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "cc", location, emsg)
    END SUBROUTINE mask_write
 
 
@@ -2066,22 +2155,29 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed item-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_item(s,n)
       TYPE(ITEM), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
       INTEGER, INTENT(IN)                             :: n   !! Number of new slots; current contract requires one.
       TYPE(ITEM), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
       INTEGER                                          :: sz  !! Previous array extent.
+      INTEGER(KIND=I_P)                                :: ios  !! IOSTAT value for allocation.
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_item'
 
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n))
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n))
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_items   = no_items + 1
    END SUBROUTINE INCREMENT_item
@@ -2104,6 +2200,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed list-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_LIST(s,n)
       TYPE(LLIST), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
@@ -2111,15 +2208,22 @@ CONTAINS
       TYPE(LLIST), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
       INTEGER                                           :: sz  !! Previous array extent.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_LIST'
+
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n))
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n))
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_lists   = no_lists + 1
    END SUBROUTINE INCREMENT_LIST
@@ -2141,6 +2245,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed mask-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_MASK(s,n)
       TYPE(MASK), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
@@ -2148,15 +2253,22 @@ CONTAINS
       TYPE(MASK), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
       INTEGER                                          :: sz  !! Previous array extent.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_MASK'
+
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n))
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n))
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_masks  = no_masks + 1
    END SUBROUTINE INCREMENT_MASK
@@ -2179,6 +2291,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2004-07 | JE | Added typed timing-array growth. |
 !> | 2026-07-12 | SvB | Inlined the former shared include implementation. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE INCREMENT_TIME(s,n)
       TYPE(TTIME), DIMENSION(:), POINTER, INTENT(INOUT) :: s   !! Pointer array to grow and retarget.
@@ -2186,15 +2299,22 @@ CONTAINS
       TYPE(TTIME), DIMENSION(:), POINTER                :: old !! Previous array target during copying.
       INTEGER                                           :: sz  !! Previous array extent.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location='visualisation_metadata:INCREMENT_TIME'
+
       IF (ASSOCIATED(s)) THEN
          sz = SIZE(s)
          old => s
          NULLIFY(s)
-         ALLOCATE(s(sz+n))
+         ALLOCATE(s(sz+n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
          IF (sz > 0) s(1:sz) = old
-         DEALLOCATE(old)
+         DEALLOCATE(old, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "old", location, emsg)
       ELSE
-         ALLOCATE(s(n))
+         ALLOCATE(s(n), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "s", location, emsg)
       END IF
       no_times  = no_times + 1
    END SUBROUTINE INCREMENT_TIME

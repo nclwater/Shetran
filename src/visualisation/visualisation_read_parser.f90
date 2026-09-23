@@ -64,7 +64,9 @@ MODULE visualisation_read_parser
 
    USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: IOSTAT_END
    USE, INTRINSIC :: IEEE_ARITHMETIC, ONLY: IEEE_IS_FINITE
-   USE mod_parameters, ONLY: LENGTH_LINELONG
+
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P, LENGTH_LINELONG
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -75,7 +77,7 @@ MODULE visualisation_read_parser
    INTEGER, PARAMETER, PUBLIC :: VIS_READ_INVALID = 2 !! Invalid state, record, syntax, conversion, or value.
    INTEGER, PARAMETER, PUBLIC :: VIS_READ_IO_ERROR = 3 !! External I/O failure other than normal EOF.
    INTEGER, PARAMETER, PUBLIC :: VIS_MAX_RECORD_LENGTH = 500 !! Maximum significant record length.
-   INTEGER, PARAMETER, PUBLIC :: VIS_RECORD_BUFFER_LENGTH = 2 * VIS_MAX_RECORD_LENGTH + 1 !! Raw look-ahead extent.
+   INTEGER, PARAMETER, PUBLIC :: VIS_RECORD_BUFFER_LENGTH = 2*VIS_MAX_RECORD_LENGTH + 1 !! Raw look-ahead extent.
 
 !> @brief Holds the cursor and validated record for one caller-owned input unit.
 !>
@@ -673,7 +675,7 @@ CONTAINS
       length = LEN(title)
       IF (length >= 2) THEN
          IF ((title(1:1) == "'" .AND. title(length:length) == "'") .OR. &
-             (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
+            (title(1:1) == '"' .AND. title(length:length) == '"')) THEN
             title = title(2:length - 1)
          END IF
       END IF
@@ -713,6 +715,7 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-07-09 | SvB | - | Added record preprocessing with comments, validation, splitting, and exact allocation. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE transform_visualisation_record(record, delimiter, separators, segments, status, message)
       CHARACTER(*), INTENT(IN) :: record !! Source record; physical trailing spaces are insignificant.
@@ -732,9 +735,14 @@ CONTAINS
       CHARACTER(VIS_MAX_RECORD_LENGTH) :: content !! Validated uncommented content buffer.
       CHARACTER(LENGTH_LINELONG) :: detail !! Formatted module diagnostic.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = 'visualisation_read_parser:transform_visualisation_record'
+
       status = VIS_READ_OK
       message = ''
-      ALLOCATE (segments(0))
+      ALLOCATE (segments(0), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "segments", location, emsg)
 
       content_length = LEN_TRIM(record)
       IF (content_length > 0) THEN
@@ -777,8 +785,10 @@ CONTAINS
          END IF
       END DO
 
-      DEALLOCATE (segments)
-      ALLOCATE (segments(count))
+      DEALLOCATE (segments, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "segments", location, emsg)
+      ALLOCATE (segments(count), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "segments", location, emsg)
       count = 0
       first = 1
       DO i = 1, content_length + 1

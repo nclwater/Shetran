@@ -50,7 +50,12 @@
 !> | 2026-03-30 | SB | 4.6.1 | Retired unused legacy arrays, made six overlap arrays allocatable, and added allocation helpers. |
 !> @endhistory
 MODULE COLM_CG
-   USE SGLOBAL, ONLY : NELEE, LLEE, NVEE, NOLEE, total_no_elements,top_cell_no
+
+   USE SGLOBAL, ONLY: NELEE, LLEE, NVEE, NOLEE, total_no_elements, top_cell_no
+
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
+
    IMPLICIT NONE
 
    INTEGER :: JBTLYR(NELEE)  !! Unused legacy bottom-soil-layer index by element.
@@ -61,12 +66,12 @@ MODULE COLM_CG
    DOUBLEPRECISION SCL   !! Integer-overlap conversion factor, `1/32500`.
    DOUBLEPRECISION OODO  !! Reciprocal reference dispersion coefficient, `1/D0` (s/m2).
 
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JKZCOL  !! Inactive setup-only lateral-transmissivity weights.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: JOLFN   !! Setup-only overlap shares encoded on a 32500 scale.
-   INTEGER, DIMENSION(:,:), ALLOCATABLE :: NOL       !! Number of overlap records by element and face.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLBT   !! First overlap record by element, local cell, and face.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCE   !! Local cell index by element, overlap record, and face.
-   INTEGER, DIMENSION(:,:,:), ALLOCATABLE :: NOLCEA  !! Adjacent cell index by element, overlap record, and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JKZCOL  !! Inactive setup-only lateral-transmissivity weights.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: JOLFN   !! Setup-only overlap shares encoded on a 32500 scale.
+   INTEGER, DIMENSION(:, :), ALLOCATABLE :: NOL       !! Number of overlap records by element and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: NOLBT   !! First overlap record by element, local cell, and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: NOLCE   !! Local cell index by element, overlap record, and face.
+   INTEGER, DIMENSION(:, :, :), ALLOCATABLE :: NOLCEA  !! Adjacent cell index by element, overlap record, and face.
 
    DOUBLEPRECISION WELDRA(LLEE)  !! Current column's signed VSS well-flow flux by cell (m/s).
 
@@ -99,19 +104,34 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added active-size allocation and zero-initialization for six overlap arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE initialise_colm_cg()
 
-      allocate   (JKZCOL(total_no_elements,2*top_cell_no+1,4),JOLFN(total_no_elements,2*top_cell_no+1,4))
-      allocate   (NOL(total_no_elements,4))
-      allocate   (NOLBT(total_no_elements,top_cell_no+1,4),NOLCE(total_no_elements,2*top_cell_no+1,4))
-      allocate   (NOLCEA(total_no_elements,2*top_cell_no+1,4))
-      JKZCOL=0
-      JOLFN=0
-      NOL=0
-      NOLBT=0
-      NOLCE=0
-      NOLCEA=0
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:initialise_colm_cg"
+
+      allocate (JKZCOL(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "JKZCOL", location, emsg)
+      allocate (JOLFN(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "JOLFN", location, emsg)
+      allocate (NOL(total_no_elements, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOL", location, emsg)
+      allocate (NOLBT(total_no_elements, top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOLBT", location, emsg)
+      allocate (NOLCE(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOLCE", location, emsg)
+      allocate (NOLCEA(total_no_elements, 2*top_cell_no + 1, 4), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "NOLCEA", location, emsg)
+
+      ! Initialise to default values
+      JKZCOL = 0
+      JOLFN = 0
+      NOL = 0
+      NOLBT = 0
+      NOLCE = 0
+      NOLCEA = 0
 
    END SUBROUTINE initialise_colm_cg
 
@@ -134,16 +154,23 @@ CONTAINS
 !> | Date | Author | Version | Description |
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-03-30 | SB | 4.6.1 | Added partial cleanup for setup-only overlap arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE deallocate_colm_cg()
 
-      deallocate (JKZCOL)
-      deallocate (JOLFN)
-      deallocate (NOL)
-      deallocate (NOLCE)
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "COLM_CG:deallocate_colm_cg"
+
+      deallocate (JKZCOL, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "JKZCOL", location, emsg)
+      deallocate (JOLFN, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "JOLFN", location, emsg)
+      deallocate (NOL, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "NOL", location, emsg)
+      deallocate (NOLCE, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "NOLCE", location, emsg)
 
    END SUBROUTINE deallocate_colm_cg
-
-
 
 END MODULE COLM_CG

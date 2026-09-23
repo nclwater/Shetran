@@ -81,24 +81,25 @@
 !> @endhistory
 MODULE visualisation_map
 
-   USE VISUALISATION_PASS,     ONLY : BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK
-   USE VISUALISATION_METADATA, ONLY : G_L=>GET_METADATA_L
+   USE VISUALISATION_PASS, ONLY: BANK_NO, SU_NUMBER, RIVER_NO, north, east, south, west, IS_LINK
+   USE VISUALISATION_METADATA, ONLY: G_L => GET_METADATA_L
+
+   USE MOD_PARAMETERS, ONLY: LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY: errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
    INTEGER, PARAMETER :: mmax = 255       !! Highest palette slot; the current index generator does not emit it.
    INTEGER, PARAMETER :: i_background = 0 !! Palette index assigned to background and real zero values.
-   INTEGER, PARAMETER :: i_river = mmax-1 !! Palette index assigned to marked river-link pixels.
+   INTEGER, PARAMETER :: i_river = mmax - 1 !! Palette index assigned to marked river-link pixels.
    REAL, PARAMETER    :: no_data = -1.0   !! Sentinel suppressing a bank or river member in real compound data.
    REAL, PARAMETER    :: background = 0.0 !! Real-grid sentinel converted to `i_background`.
    REAL, PARAMETER    :: river = HUGE(1.0) !! Real-grid sentinel converted to `i_river`.
-
 
    PRIVATE
    PUBLIC :: GET_REAL_IMAGE_INDEX, GET_MAGNIFIED_SU_ARR
 
 CONTAINS
-
 
 !> @brief Converts a real compound grid into indexed palette values.
 !>
@@ -125,37 +126,44 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added indexed real-map generation. |
 !> | 2026-03-29 | SvB | Changed pointer results to allocatables and replaced the masked `WHERE` assignment with explicit loops. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   PURE FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: r     !! Indexed magnified image returned to the caller.
+   FUNCTION get_real_image_index(sz, dat, mag, mn) RESULT(r)
+      INTEGER, DIMENSION(:, :), ALLOCATABLE :: r     !! Indexed magnified image returned to the caller.
       INTEGER, INTENT(IN)                  :: mag   !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                  :: mn    !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)    :: sz    !! Source-grid `(x,y)` extents; at least two entries are required.
-      REAL, DIMENSION(:,:,:), INTENT(IN)   :: dat   !! Nine compound values by source-grid `x` and `y`.
-      REAL, DIMENSION(:,:), ALLOCATABLE    :: rreal !! Magnified real grid before conversion to palette indices.
+      REAL, DIMENSION(:, :, :), INTENT(IN)   :: dat   !! Nine compound values by source-grid `x` and `y`.
+      REAL, DIMENSION(:, :), ALLOCATABLE    :: rreal !! Magnified real grid before conversion to palette indices.
       REAL                                 :: minr  !! Minimum nonzero, non-river value selected for scaling.
       REAL                                 :: maxr  !! Maximum nonzero, non-river value selected for scaling.
       INTEGER                              :: i     !! Magnified-grid first-dimension index.
       INTEGER                              :: j     !! Magnified-grid second-dimension index.
 
-      rreal = GET_MAGNIFIED_REAL(sz, dat, mag, mn, mark_river=.TRUE.)
-      minr  =  MINVAL(rreal, MASK=(rreal/=river .AND. rreal/=background))
-      maxr  =  MAXVAL(rreal, MASK=(rreal/=river .AND. rreal/=background))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_real_image_index"
 
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
+      rreal = GET_MAGNIFIED_REAL(sz, dat, mag, mn, mark_river=.TRUE.)
+      minr = MINVAL(rreal, MASK=(rreal /= river .AND. rreal /= background))
+      maxr = MAXVAL(rreal, MASK=(rreal /= river .AND. rreal /= background))
+
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
       DO j = 1, mag*sz(2)
          DO i = 1, mag*sz(1)
-            IF (rreal(i,j) == river) THEN
-               r(i,j) = i_river
-            ELSE IF (rreal(i,j) == background) THEN
-               r(i,j) = i_background
+            IF (rreal(i, j) == river) THEN
+               r(i, j) = i_river
+            ELSE IF (rreal(i, j) == background) THEN
+               r(i, j) = i_background
             ELSE
-               r(i,j) = 15 + (mmax-17) * (rreal(i,j)-minr)/(maxr-minr)  !scaling
+               r(i, j) = 15 + (mmax - 17)*(rreal(i, j) - minr)/(maxr - minr)  !scaling
             END IF
          END DO
       END DO
 
-      DEALLOCATE(rreal)
+      DEALLOCATE (rreal, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "rreal", location, emsg)
    END FUNCTION get_real_image_index
 
 !> @brief Expands a real compound field into fixed-size raster blocks.
@@ -180,14 +188,15 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added masked real-field magnification. |
 !> | 2026-03-29 | SvB | Changed the pointer result to an allocatable result. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   PURE FUNCTION get_magnified_real(sz, dat, mag, mn, mark_river) RESULT(r)
+   FUNCTION get_magnified_real(sz, dat, mag, mn, mark_river) RESULT(r)
       INTEGER, INTENT(IN)                 :: mag        !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                 :: mn         !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)   :: sz         !! Source-grid `(x,y)` extents.
-      REAL, DIMENSION(:,:,:), INTENT(IN)  :: dat        !! Nine compound values by source-grid `x` and `y`.
+      REAL, DIMENSION(:, :, :), INTENT(IN)  :: dat        !! Nine compound values by source-grid `x` and `y`.
       LOGICAL, INTENT(IN)                 :: mark_river !! Whether river members become the private river sentinel.
-      REAL, DIMENSION(:,:), ALLOCATABLE   :: r          !! Magnified real grid returned to the caller.
+      REAL, DIMENSION(:, :), ALLOCATABLE   :: r          !! Magnified real grid returned to the caller.
       INTEGER                             :: i          !! Source-grid first-dimension index.
       INTEGER                             :: j          !! Source-grid second-dimension index.
       INTEGER                             :: im         !! First-dimension offset of the current output block.
@@ -198,25 +207,30 @@ CONTAINS
       INTEGER                             :: jhigh      !! Upper source second-dimension bound, `sz(2)`.
       INTEGER                             :: su         !! Display-oriented SHETRAN element number for the source cell.
 
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_magnified_real"
 
-      ilow  = 1
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+
+      ilow = 1
       ihigh = sz(1)
-      jlow  = 1
+      jlow = 1
       jhigh = sz(2)
-      im    = -mag
-      r     = 0
-      DO i=ilow,ihigh
+      im = -mag
+      r = 0
+      DO i = ilow, ihigh
          im = im + mag
          jm = -mag
-         DO j=jlow,jhigh
+         DO j = jlow, jhigh
             jm = jm + mag
-            IF(.NOT.G_L(mn,'on', i, j)) CYCLE
-            su = SU_NUMBER(i,j)
-            IF(su==0) CYCLE  ! A non-model cell retains the background default.
-            r(im+1:im+mag,jm+1:jm+mag) = GET_DAT_R(dat(:,i,j), su, mag, mark_river)
-         ENDDO
-      ENDDO
+            IF (.NOT. G_L(mn, 'on', i, j)) CYCLE
+            su = SU_NUMBER(i, j)
+            IF (su == 0) CYCLE  ! A non-model cell retains the background default.
+            r(im + 1:im + mag, jm + 1:jm + mag) = GET_DAT_R(dat(:, i, j), su, mag, mark_river)
+         END DO
+      END DO
 
    END FUNCTION get_magnified_real
 
@@ -243,43 +257,42 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added compound real-block construction. |
 !> @endhistory
-   PURE FUNCTION get_dat_r(d9, su, mag, mark_river)RESULT(r)
+   PURE FUNCTION get_dat_r(d9, su, mag, mark_river) RESULT(r)
       INTEGER, INTENT(IN)            :: su          !! Element number; zero requests only initialized defaults.
       INTEGER, INTENT(IN)            :: mag         !! Width and height of the returned raster block.
       REAL, DIMENSION(9), INTENT(IN) :: d9          !! Gridsquare, four bank, and four river values in layout order.
       LOGICAL, INTENT(IN)            :: mark_river  !! Whether river members are replaced by the river sentinel.
-      REAL, DIMENSION(mag,mag)       :: r           !! Constructed real raster block.
+      REAL, DIMENSION(mag, mag)       :: r           !! Constructed real raster block.
       INTEGER                        :: b           !! Compound member being copied.
       INTEGER                        :: j           !! Retained legacy work index; unused.
       REAL                           :: dum         !! River value or sentinel written for members 6:9.
-      r        = d9(1)
-      r(:,1)   = 0
-      r(:,mag) = 0
-      r(1, :)  = 0
-      r(mag,:) = 0
-      IF(su==0) RETURN
-      DO b=2,9
-         IF(d9(b)/=no_data) THEN
-            IF(mark_river) THEN
-               dum=river
+      r = d9(1)
+      r(:, 1) = 0
+      r(:, mag) = 0
+      r(1, :) = 0
+      r(mag, :) = 0
+      IF (su == 0) RETURN
+      DO b = 2, 9
+         IF (d9(b) /= no_data) THEN
+            IF (mark_river) THEN
+               dum = river
             ELSE
                dum = d9(b)
-            ENDIF
-            SELECT CASE(b)
-             CASE(2) ; r(3:mag-2    ,3:4)         = d9(b)
-             CASE(3) ; r(mag-3:mag-2,3:mag-2)     = d9(b)
-             CASE(4) ; r(3:mag-2    ,mag-3:mag-2) = d9(b)
-             CASE(5) ; r(3:4        ,3:mag-2)     = d9(b)
-             CASE(6) ; r(3:mag-2    ,1:2)         = dum
-             CASE(7) ; r(mag-1:mag  ,3:mag-2)     = dum
-             CASE(8) ; r(3:mag-2    ,mag-1:mag)   = dum
-             CASE(9) ; r(1:2        ,3:mag-2)     = dum
+            END IF
+            SELECT CASE (b)
+             CASE (2); r(3:mag - 2, 3:4) = d9(b)
+             CASE (3); r(mag - 3:mag - 2, 3:mag - 2) = d9(b)
+             CASE (4); r(3:mag - 2, mag - 3:mag - 2) = d9(b)
+             CASE (5); r(3:4, 3:mag - 2) = d9(b)
+             CASE (6); r(3:mag - 2, 1:2) = dum
+             CASE (7); r(mag - 1:mag, 3:mag - 2) = dum
+             CASE (8); r(3:mag - 2, mag - 1:mag) = dum
+             CASE (9); r(1:2, 3:mag - 2) = dum
             END SELECT
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
    END FUNCTION get_dat_r
-
 
 !> @brief Derives a logical river-link mask from a magnified element grid.
 !>
@@ -299,22 +312,29 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added the private magnified link-mask helper. |
 !> | 2026-03-29 | SvB | Changed its pointer result and temporary to allocatables. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   PURE FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
+   FUNCTION get_is_link_magnified(sz, mag, mn) RESULT(r)
       INTEGER, INTENT(IN)                  :: mag !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                  :: mn  !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)    :: sz  !! Source-grid `(x,y)` extents.
-      LOGICAL, DIMENSION(:,:), ALLOCATABLE :: r   !! Logical magnified link mask returned to the caller.
+      LOGICAL, DIMENSION(:, :), ALLOCATABLE :: r   !! Logical magnified link mask returned to the caller.
       INTEGER                              :: i   !! Magnified-grid first-dimension index.
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: su  !! Magnified element-number grid, including background zeroes.
-      su = GET_MAGNIFIED_SU_ARR(sz, mag, mn)
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
-      DO i=1,mag*sz(1)
-         r(i,:) = IS_LINK(su(i,:))
-      ENDDO
-      DEALLOCATE(su)
-   END FUNCTION get_is_link_magnified
+      INTEGER, DIMENSION(:, :), ALLOCATABLE :: su  !! Magnified element-number grid, including background zeroes.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_is_link_magnified"
+
+      su = GET_MAGNIFIED_SU_ARR(sz, mag, mn)
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      DO i = 1, mag*sz(1)
+         r(i, :) = IS_LINK(su(i, :))
+      END DO
+      DEALLOCATE (su, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "su", location, emsg)
+   END FUNCTION get_is_link_magnified
 
 !> @brief Expands selected element numbers and topology into a raster grid.
 !>
@@ -338,13 +358,14 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added masked element-number magnification. |
 !> | 2026-03-29 | SvB | Changed the pointer result to an allocatable result. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
-   PURE FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
+   FUNCTION get_magnified_su_arr(sz, mag, mn) RESULT(r)
       INTEGER, INTENT(IN)                  :: mag   !! Number of output pixels along each source-cell axis.
       INTEGER, INTENT(IN)                  :: mn    !! Metadata item index supplying the active-cell mask.
       INTEGER, DIMENSION(:), INTENT(IN)    :: sz    !! Source-grid `(x,y)` extents.
-      INTEGER, DIMENSION(:,:), ALLOCATABLE :: r     !! Magnified element-number grid returned to the caller.
-      INTEGER, DIMENSION(mag,mag)          :: el    !! Retained legacy block workspace; unused.
+      INTEGER, DIMENSION(:, :), ALLOCATABLE :: r     !! Magnified element-number grid returned to the caller.
+      INTEGER, DIMENSION(mag, mag)          :: el    !! Retained legacy block workspace; unused.
       INTEGER                              :: i     !! Source-grid first-dimension index.
       INTEGER                              :: j     !! Source-grid second-dimension index.
       INTEGER                              :: im    !! First-dimension offset of the current output block.
@@ -355,26 +376,30 @@ CONTAINS
       INTEGER                              :: jhigh !! Upper source second-dimension bound, `sz(2)`.
       INTEGER                              :: su    !! Display-oriented SHETRAN gridsquare element number.
 
-      ALLOCATE(r(mag*sz(1),mag*sz(2)))
-      ilow  = 1
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_MAP:get_magnified_su_arr"
+
+      ALLOCATE (r(mag*sz(1), mag*sz(2)), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "r", location, emsg)
+      ilow = 1
       ihigh = sz(1)
-      jlow  = 1
+      jlow = 1
       jhigh = sz(2)
-      im    = -mag
-      r     = 0
-      DO i=ilow,ihigh
+      im = -mag
+      r = 0
+      DO i = ilow, ihigh
          im = im + mag
          jm = -mag
-         DO j=jlow,jhigh
+         DO j = jlow, jhigh
             jm = jm + mag
-            IF(.NOT.G_L(mn,'on', i, j)) CYCLE
-            su = SU_NUMBER(i,j)
-            IF(su==0) CYCLE  ! A non-model cell retains the background default.
-            r(im+1:im+mag,jm+1:jm+mag) = GET_EL(su, mag)
-         ENDDO
-      ENDDO
+            IF (.NOT. G_L(mn, 'on', i, j)) CYCLE
+            su = SU_NUMBER(i, j)
+            IF (su == 0) CYCLE  ! A non-model cell retains the background default.
+            r(im + 1:im + mag, jm + 1:jm + mag) = GET_EL(su, mag)
+         END DO
+      END DO
    END FUNCTION get_magnified_su_arr
-
 
 !> @brief Builds one magnified element-number block from topology tables.
 !>
@@ -399,25 +424,25 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Added topology-aware element-number block construction. |
 !> @endhistory
-   PURE FUNCTION get_el(su, mag)RESULT(r)
+   PURE FUNCTION get_el(su, mag) RESULT(r)
       INTEGER, INTENT(IN)         :: su  !! Gridsquare element number; zero requests a background block.
       INTEGER, INTENT(IN)         :: mag !! Width and height of the returned raster block.
-      INTEGER, DIMENSION(mag,mag) :: r   !! Constructed element-number raster block.
+      INTEGER, DIMENSION(mag, mag) :: r   !! Constructed element-number raster block.
       INTEGER                     :: j   !! Adjoining bank or river element number.
       r = su
       ! Establish background borders before overlaying present links and banks.
-      r(:,1)   = 0
-      r(:,mag) = 0
-      r(1, :)  = 0
-      r(mag,:) = 0
-      IF(su==0) RETURN
-      j = RIVER_NO(su,north) ; IF(j>0) r(3:mag-2    ,1:2)         = j
-      j = BANK_NO(su,north)  ; IF(j>0) r(3:mag-2    ,3:4)         = j
-      j = BANK_NO(su,south)  ; IF(j>0) r(3:mag-2    ,mag-3:mag-2) = j
-      j = RIVER_NO(su,south) ; IF(j>0) r(3:mag-2    ,mag-1:mag)   = j
-      j = RIVER_NO(su,west)  ; IF(j>0) r(1:2        ,3:mag-2)     = j
-      j = BANK_NO(su,west)   ; IF(j>0) r(3:4        ,3:mag-2)     = j
-      j = BANK_NO(su,east)   ; IF(j>0) r(mag-3:mag-2,3:mag-2)     = j
-      j = RIVER_NO(su,east)  ; IF(j>0) r(mag-1:mag  ,3:mag-2)     = j
+      r(:, 1) = 0
+      r(:, mag) = 0
+      r(1, :) = 0
+      r(mag, :) = 0
+      IF (su == 0) RETURN
+      j = RIVER_NO(su, north); IF (j > 0) r(3:mag - 2, 1:2) = j
+      j = BANK_NO(su, north); IF (j > 0) r(3:mag - 2, 3:4) = j
+      j = BANK_NO(su, south); IF (j > 0) r(3:mag - 2, mag - 3:mag - 2) = j
+      j = RIVER_NO(su, south); IF (j > 0) r(3:mag - 2, mag - 1:mag) = j
+      j = RIVER_NO(su, west); IF (j > 0) r(1:2, 3:mag - 2) = j
+      j = BANK_NO(su, west); IF (j > 0) r(3:4, 3:mag - 2) = j
+      j = BANK_NO(su, east); IF (j > 0) r(mag - 3:mag - 2, 3:mag - 2) = j
+      j = RIVER_NO(su, east); IF (j > 0) r(mag - 1:mag, 3:mag - 2) = j
    END FUNCTION get_el
 END MODULE visualisation_map

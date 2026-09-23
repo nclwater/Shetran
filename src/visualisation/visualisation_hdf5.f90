@@ -44,6 +44,8 @@ MODULE visualisation_hdf5
    USE H5IM
    USE H5LT
 
+   USE MOD_PARAMETERS, ONLY : LENGTH_LINE, I_P
+   USE MOD_ERROR, ONLY : errstat_alloc, errstat_dealloc
 
    IMPLICIT NONE
 
@@ -104,6 +106,7 @@ CONTAINS
 !> | 2020-09-08 | SB | Introduced the dataset initialisation. |
 !> | 2026-04-07 | SvB | Made HDF5 dimensions portable to GFortran. |
 !> | 2026-04-14 | SvB | Added the zero-rank stand-in and one shared unlimited time memory dataspace. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE initialise()
       INTEGER                  :: ni !! Number of registered visualisation items.
@@ -119,11 +122,33 @@ CONTAINS
       INTEGER(HSIZE_T), DIMENSION(1)    :: t_maxdims !! Unlimited maximum extent for time datasets.
       INTEGER(HSIZE_T), PARAMETER       :: one=1 !! Initial time extent and time chunk length.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:initialise"
 
       jndim = (/(jj,jj=1,ndim)/)
       ni    = G_I(0,'no_items')
-      ALLOCATE(dataset(ni), dataspace(ni), orig_dataspace(ni), dtype(ni),szz(ni), &
-         newsz(ni), gp_var(ni), t_dataspace(ni), t_dataset(ni), rank(ni))
+
+      ALLOCATE(dataset(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "dataset", location, emsg)
+      ALLOCATE(dataspace(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "dataspace", location, emsg)
+      ALLOCATE(orig_dataspace(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "orig_dataspace", location, emsg)
+      ALLOCATE(dtype(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "dtype", location, emsg)
+      ALLOCATE(szz(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "szz", location, emsg)
+      ALLOCATE(newsz(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "newsz", location, emsg)
+      ALLOCATE(gp_var(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "gp_var", location, emsg)
+      ALLOCATE(t_dataspace(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "t_dataspace", location, emsg)
+      ALLOCATE(t_dataset(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "t_dataset", location, emsg)
+      ALLOCATE(rank(ni), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "rank", location, emsg)
 
       CALL H5OPEN_F(error)
       CALL H5PCREATE_F(H5P_DATASET_CREATE_F, dataset_compress_property, error)
@@ -326,8 +351,8 @@ CONTAINS
       ENDIF
       IF(time==zero .OR. tc==buffer_length_for_storage) &
          CALL WRITE_MN(mn, tc, time==zero, tstep, G_H5_L(mn,'isreal'), &
-            G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), &
-            G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
+         G_H5_I(mn,'szorder',jndim), G_H5_I(mn,'ilow'), &
+         G_H5_I(mn,'jlow'), G_H5_I(mn,'klow'))
 
    END SUBROUTINE save_visualisation_data_to_disk
 
@@ -352,6 +377,7 @@ CONTAINS
 !> | 2020-09-08 | SB | Introduced queued HDF5 value writes. |
 !> | 2026-03-29 | SvB | Allocated temporary arrays from runtime dimensions to prevent invalid storage and memory corruption. |
 !> | 2026-04-08 | SB | Replaced legacy integer addresses with `C_PTR`. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE write_mn(mn, amount, firstwrites, tstep, isreal, szorder, ilow, jlow, klow)
       INTEGER, INTENT(IN) :: mn !! Registered visualisation-item index.
@@ -383,6 +409,11 @@ CONTAINS
       INTEGER(HSIZE_T), DIMENSION(ndim) :: ccount !! Value hyperslab selection count.
       INTEGER(HSIZE_T), DIMENSION(ndim) :: t_ccount !! Time hyperslab selection count.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:write_mn"
+
+      ! setup
       name            = G_H5_C(mn,'name')
       first           = G_PTR(mn,'first')
       typ             = G_C(mn,'typ')
@@ -441,17 +472,30 @@ CONTAINS
       CALL S_PTR(mn,'first', first)
       CALL H5SCLOSE_F(filespace, error)
       CALL H5SCLOSE_F(t_filespace, error)
-      IF(ALLOCATED(temp_r)) DEALLOCATE(temp_r)
-      IF(ALLOCATED(temp_i)) DEALLOCATE(temp_i)
+      IF(ALLOCATED(temp_r)) THEN
+         DEALLOCATE(temp_r, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "temp_r", location, emsg)
+      ENDIF
+      IF(ALLOCATED(temp_i)) THEN
+         DEALLOCATE(temp_i, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "temp_i", location, emsg)
+      ENDIF
       IF(name=='number') CALL SAVE_NUMBERS_AS_SPREADSHEET(mn)
+
       IF(name=='surf_elv') THEN
-         ALLOCATE(temp_surf_map(sz(4), sz(5), sz(6)))
+         ALLOCATE(temp_surf_map(sz(4), sz(5), sz(6)), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "temp_surf_map", location, emsg)
          temp_surf_map = surf_elv(1,1,1,:,:,:)
          CALL SAVE_SURF_ELEV_AS_MAP(mn, temp_surf_map, magnif=20)
-         DEALLOCATE(temp_surf_map)
-         DEALLOCATE(surf_elv)
+         DEALLOCATE(temp_surf_map, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "temp_surf_map", location, emsg)
+         DEALLOCATE(surf_elv, STAT=ios, ERRMSG=emsg)
+         CALL errstat_dealloc(ios, "surf_elv", location, emsg)
       ENDIF
    END SUBROUTINE write_mn
+
+
+
 !> Adds the `units = "hours"` attribute to an item's time dataset.
 !>
 !> The time dataset must already exist in `t_dataset(mn)`. Temporary HDF5
@@ -517,6 +561,7 @@ CONTAINS
 !> | 2020-09-08 | SB | Introduced dataset and dimension attributes. |
 !> | 2026-04-07 | SvB | Added portable HDF5 size kinds and closed local datatype identifiers. |
 !> | 2026-04-14 | SvB | Guarded empty dimension-member arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE create_variables_attributes(mn)
       IMPLICIT NONE
@@ -536,6 +581,10 @@ CONTAINS
       CHARACTER(6), DIMENSION(:), ALLOCATABLE :: nmed !! Active dimension names in file order.
       INTEGER(HSIZE_T) :: dims1(1) !! One-dimensional attribute extent.
       INTEGER(HSIZE_T) :: dims2(2) !! Two-dimensional attribute extents.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:create_variables_attributes"
 
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
       CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
@@ -582,7 +631,8 @@ CONTAINS
       no_dimensions = G_H5_I(mn, 'no_dimensions')
       dims1(1)      = INT(no_dimensions, HSIZE_T)
 
-      ALLOCATE(nmed(no_dimensions))
+      ALLOCATE(nmed(no_dimensions), STAT=ios, ERRMSG=emsg)
+      CALL errstat_alloc(ios, "nmed", location, emsg)
       ii = 0
       DO jj = 1, ndim
          IF (G_H5_I(mn, 'dimensions', jj) /= 0) THEN
@@ -603,7 +653,8 @@ CONTAINS
          CALL DIMENSION_ATTRIBUTES(nmed(dd))
       END DO
 
-      DEALLOCATE(nmed)
+      DEALLOCATE(nmed, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "nmed", location, emsg)
 
       ! First character of the visualisation structure type code.
       CALL H5TSET_SIZE_F(atype, INT(1, SIZE_T), error)
@@ -643,12 +694,17 @@ CONTAINS
       !> | 2020-09-08 | SB | Introduced per-dimension metadata. |
       !> | 2026-04-07 | SvB | Isolated and closed string datatypes and ceased writing `layer limits`. |
       !> | 2026-04-14 | SvB | Guarded zero-length member arrays. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
       !> @endhistory
       SUBROUTINE dimension_attributes(name)
          CHARACTER(*), INTENT(IN) :: name !! Active dimension name in file order.
          CHARACTER(csz)           :: dum(1) !! Text value for the `time` attribute.
          INTEGER(HID_T)           :: local_atype !! Temporary fixed-length string datatype.
          INTEGER                  :: nvals !! Number of meaningful dimension members.
+
+         INTEGER(KIND=I_P) :: ios
+         CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+         CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:dimension_attributes"
 
          SELECT CASE(name)
 
@@ -693,7 +749,8 @@ CONTAINS
             nvals    = MAX(0, G_H5_I(mn, 'sz'))
             dims2(2) = MAX(1_HSIZE_T, INT(nvals, HSIZE_T))
 
-            ALLOCATE(pairs(dims2(1), dims2(2)))
+            ALLOCATE(pairs(dims2(1), dims2(2)), STAT=ios, ERRMSG=emsg)
+            CALL errstat_alloc(ios, "pairs", location, emsg)
             pairs = 0
             pairs(1,:) = [ (i, i = 1, INT(dims2(2))) ]
             IF(nvals>0) THEN
@@ -707,7 +764,8 @@ CONTAINS
             CALL H5AWRITE_F(attribute, H5T_NATIVE_INTEGER, pairs, dims2, error)
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
-            DEALLOCATE(pairs)
+            DEALLOCATE(pairs, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "pairs", location, emsg)
 
           CASE('el_typ')
             arank    = 1
@@ -717,7 +775,8 @@ CONTAINS
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
 
-            ALLOCATE(nme(dims1(1)))
+            ALLOCATE(nme(dims1(1)), STAT=ios, ERRMSG=emsg)
+            CALL errstat_alloc(ios, "nme", location, emsg)
             nme = ''
             IF(nvals>0) THEN
                DO jj = 1, nvals
@@ -731,7 +790,8 @@ CONTAINS
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
             CALL H5TCLOSE_F(local_atype, error)
-            DEALLOCATE(nme)
+            DEALLOCATE(nme, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "nme", location, emsg)
 
           CASE('extra')
             arank    = 1
@@ -741,7 +801,8 @@ CONTAINS
             CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, local_atype, error)
             CALL H5TSET_SIZE_F(local_atype, INT(6, SIZE_T), error)
 
-            ALLOCATE(nme(dims1(1)))
+            ALLOCATE(nme(dims1(1)), STAT=ios, ERRMSG=emsg)
+            CALL errstat_alloc(ios, "nme", location, emsg)
             nme = ''
             IF(nvals>0) THEN
                DO jj = 1, nvals
@@ -755,7 +816,8 @@ CONTAINS
             CALL H5ACLOSE_F(attribute, error)
             CALL H5SCLOSE_F(a_dataspace, error)
             CALL H5TCLOSE_F(local_atype, error)
-            DEALLOCATE(nme)
+            DEALLOCATE(nme, STAT=ios, ERRMSG=emsg)
+            CALL errstat_dealloc(ios, "nme", location, emsg)
 
          END SELECT
 
@@ -778,6 +840,7 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Introduced the derived elevation map. |
 !> | 2026-03-29 | SvB | Made the temporary image allocatable to prevent invalid storage and memory corruption. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE save_surf_elev_as_map(mn, dat, magnif)
       INTEGER, INTENT(IN) :: mn !! Registered index of the static `surf_elv` item.
@@ -787,12 +850,18 @@ CONTAINS
       CHARACTER(csz) :: name !! HDF5 image dataset name.
       CHARACTER(csz) :: title !! Descriptive title passed to the image helper; currently unused there.
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_pic !! Magnified palette-index image.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:save_surf_elev_as_map"
+
       WRITE(name,'(A,I1,A)') 'SV',ver,'_elevation'
       WRITE(title,'(A,I1,A)') 'SV',ver,' surface elevation'
       sz  = szz(mn)%a(2:3)
       temp_pic = GET_REAL_IMAGE_INDEX(sz, dat, magnif, mn)
       CALL ADD_AN_IMAGE_TO_GROUP(name, title, magnif, pic=temp_pic)
-      DEALLOCATE(temp_pic)
+      DEALLOCATE(temp_pic, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "temp_pic", location, emsg)
    END SUBROUTINE save_surf_elev_as_map
 
 !> Converts static element numbers into a magnified integer grid.
@@ -805,16 +874,23 @@ CONTAINS
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Introduced the derived element-number spreadsheet. |
 !> | 2026-03-29 | SvB | Made the temporary magnified grid allocatable to prevent invalid storage and memory corruption. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE save_numbers_as_spreadsheet(mn)
       INTEGER, INTENT(IN) :: mn !! Registered index of the static `number` item.
       INTEGER, PARAMETER  :: magnif=20 !! Fixed spreadsheet magnification.
       INTEGER             :: sz(2) !! Unmagnified column and row extents.
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: temp_magarr !! Magnified element-number grid.
+
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:save_numbers_as_spreadsheet"
+
       sz = szz(mn)%a(2:3)
       temp_magarr = GET_MAGNIFIED_SU_ARR(sz, magnif, mn)
       CALL ADD_MAGNIFIED_INTEGER_SPREADSHEET_TO_GROUP(mn, nme='numbering', magnif=magnif, magarr=temp_magarr)
-      DEALLOCATE(temp_magarr)
+      DEALLOCATE(temp_magarr, STAT=ios, ERRMSG=emsg)
+      CALL errstat_dealloc(ios, "temp_magarr", location, emsg)
    END SUBROUTINE save_numbers_as_spreadsheet
 
 
@@ -841,6 +917,7 @@ CONTAINS
 !> | Date | Author | Description |
 !> |:-----|:-------|:------------|
 !> | 2020-09-08 | SB | Introduced indexed map and palette output. |
+!> | 2026-09-05 | SvB | - | Added STAT= and ERRMSG= reporting for all (de)allocations. |
 !> @endhistory
    SUBROUTINE add_an_image_to_group(name, title, magnif, pic)
       INTEGER, DIMENSION(:,:), INTENT(IN), OPTIONAL :: pic !! Magnified palette indices; required in practice.
@@ -864,12 +941,17 @@ CONTAINS
       INTEGER(HSIZE_T), DIMENSION(2) :: pal_dims = [mmax,3] !! Palette entry and RGB-component extents.
       INTEGER, DIMENSION(mmax*3) :: pal_data_in !! Flattened RGB palette values.
 
+      INTEGER(KIND=I_P) :: ios
+      CHARACTER(LEN=LENGTH_LINE) :: emsg !! ERRMSG= text from the failed (de)allocation.
+      CHARACTER(LEN=*), PARAMETER :: location = "VISUALISATION_HDF5:add_an_image_to_group"
+
       IF(first) THEN
          pal_data_in                = [(MIN(mmax-1,4*i/3),i,i/2,i=1,mmax)]
          pal_data_in((MMAX-1)*3+1:) = [80,125,255]
          pal_data_in(1:3)           = [5,125,125]
          CALL H5GCREATE_F(file, 'CATCHMENT_MAPS', group_images, error)
-         ALLOCATE(aszz%a(2))
+         ALLOCATE(aszz%a(2), STAT=ios, ERRMSG=emsg)
+         CALL errstat_alloc(ios, "aszz%a", location, emsg)
          FIRST = .FALSE.
       ENDIF
 
@@ -967,7 +1049,7 @@ CONTAINS
       CALL H5PSET_CHUNK_F(dataset_compress_property, arank, dims, error)
 
       CALL H5DCREATE_F(group_magnified_integer, name, H5T_NATIVE_INTEGER, dataspace, &
-                       dataset, error, dcpl_id=dataset_compress_property)
+         dataset, error, dcpl_id=dataset_compress_property)
 
       CALL H5TCOPY_F(H5T_NATIVE_CHARACTER, atype, error)
       CALL H5TSET_SIZE_F(atype, INT(csz, SIZE_T), error)
