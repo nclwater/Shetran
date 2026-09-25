@@ -141,25 +141,30 @@ endif()
 # Runtime linking (Windows/MSVC only)
 # =============================================================================
 if(WIN32)
+    # CMAKE_MSVC_RUNTIME_LIBRARY (CMake 3.15+) selects both the MSVC C runtime
+    # (/MT, /MD, ...) and, for ifx, the matching Intel Fortran runtime
+    # (/libs:static or /libs:dll with /threads). CMAKE_BUILD_TYPE is empty for
+    # multi-config generators such as Visual Studio, so the Debug runtime is
+    # chosen per configuration with a generator expression.
     if(STATIC_RUNTIME)
-        # /MT — statically link MSVC C runtime; applied automatically to all targets
-        # via CMAKE_MSVC_RUNTIME_LIBRARY (CMake 3.15+)
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebug" CACHE STRING "" FORCE)
-            set(HDF5_MSVC_RUNTIME "MultiThreadedDebug")
-        else()
-            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "" FORCE)
-            set(HDF5_MSVC_RUNTIME "MultiThreaded")
-        endif()
+        set(_shetran_msvc_runtime_suffix "")
         message(STATUS "Runtime linking: Static (/libs:static + /MT) — portable executable")
     else()
-        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-            set(HDF5_MSVC_RUNTIME "MultiThreadedDebugDLL")
-        else()
-            set(HDF5_MSVC_RUNTIME "MultiThreadedDLL")
-        endif()
+        set(_shetran_msvc_runtime_suffix "DLL")
         message(STATUS "Runtime linking: Dynamic — requires Intel oneAPI on PATH to run")
     endif()
+    set(CMAKE_MSVC_RUNTIME_LIBRARY
+        "MultiThreaded$<$<CONFIG:Debug>:Debug>${_shetran_msvc_runtime_suffix}"
+        CACHE STRING "" FORCE)
+
+    # HDF5 and zlib-ng receive the same expression. ExternalProject evaluates
+    # generator expressions in its arguments, and "$<1:$>" yields a literal "$",
+    # so the nested projects receive the expression itself and evaluate it for
+    # the configuration they build. Evaluating it here instead would store a
+    # configuration-specific value in the shared nested build tree.
+    set(HDF5_MSVC_RUNTIME
+        "MultiThreaded$<1:$><$<1:$><CONFIG:Debug>:Debug>${_shetran_msvc_runtime_suffix}")
+    unset(_shetran_msvc_runtime_suffix)
 endif()
 
 # =============================================================================
@@ -840,16 +845,33 @@ endfunction()
 
 apply_shetran_fortran_options(SHETRAN)
 
-# /libs:static — statically link Intel Fortran/C runtime libraries
-# so the .exe runs without Intel oneAPI on PATH
-if(WIN32 AND STATIC_RUNTIME)
-    target_link_options(SHETRAN PRIVATE /libs:static)
-endif()
+# /libs:static and /libs:qwin are ifx driver options, not linker options.
+# Visual Studio passes a Fortran project's link options directly to link.exe,
+# which ignores them (LNK4044), or to lld-link when /Qipo is active, which
+# treats them as missing input files. Only use them as link options where ifx
+# drives the link.
+if(CMAKE_GENERATOR MATCHES "^Visual Studio")
+    # The static Intel runtime is already selected by CMAKE_MSVC_RUNTIME_LIBRARY.
+    # Compiling with /libs:qwin embeds the QuickWin libraries as default
+    # libraries in each object. The executable keeps the console subsystem,
+    # as in the ifx-driven builds, where CMake passes /subsystem:console.
+    if(SHETRAN_ENABLE_QUICKWIN)
+        target_compile_options(SHETRAN PRIVATE
+            $<$<COMPILE_LANGUAGE:Fortran>:/libs:qwin>
+        )
+    endif()
+else()
+    # /libs:static — statically link Intel Fortran/C runtime libraries
+    # so the .exe runs without Intel oneAPI on PATH
+    if(WIN32 AND STATIC_RUNTIME)
+        target_link_options(SHETRAN PRIVATE /libs:static)
+    endif()
 
-if(SHETRAN_ENABLE_QUICKWIN)
-    target_link_options(SHETRAN PRIVATE
-        /libs:qwin
-    )
+    if(SHETRAN_ENABLE_QUICKWIN)
+        target_link_options(SHETRAN PRIVATE
+            /libs:qwin
+        )
+    endif()
 endif()
 
 # =============================================================================

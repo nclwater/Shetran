@@ -257,9 +257,10 @@ If you inspect the Visual Studio property pages of the generated project, you wi
 * **Fortran stdlib preprocessing**: `fypp` runs during CMake configuration so its generated Fortran sources exist when Visual Studio scans module and submodule dependencies. The normal custom-build rules remain in the generated projects for subsequent source changes.
 * **Fortran module output**: Per-configuration module directories are created for `Debug`, `Release`, and `ReleaseNative` before `ifx` writes `.mod` and `.smod` files.
 * **Mixed C/Fortran stdlib system target**: C helper objects and Fortran modules are built by the appropriate Visual Studio project systems and combined into the stdlib system library.
-* **Fortran > Libraries**: Static Intel runtime linking is enabled when `STATIC_RUNTIME=ON` (via `/libs:static`).
-* **C/C++ > Code Generation > Runtime Library**: With `STATIC_RUNTIME=ON`, set to **Multi-threaded** (`/MT` for Release, `/MTd` for Debug).
+* **Fortran > Libraries**: Static Intel runtime linking is enabled when `STATIC_RUNTIME=ON` (`/libs:static /threads`, plus `/dbglibs` for Debug).
+* **C/C++ > Code Generation > Runtime Library**: With `STATIC_RUNTIME=ON`, set to **Multi-threaded** (`/MT` for Release, `/MTd` for Debug). HDF5 and zlib-ng are built with the same per-configuration runtime.
   *(These static runtime linkage settings ensure the resulting `.exe` can be distributed and run on machines without Intel oneAPI installed).*
+* **QuickWin**: With `ENABLE_QUICKWIN=ON`, the Fortran sources are compiled with `/libs:qwin` (Fortran > Command Line), which selects the QuickWin libraries. As in the command-line builds, the executable keeps the console subsystem. `/libs:*` is an `ifx` option, so it is not passed to the Visual Studio linker: `link.exe` ignores it, and `lld-link` (used by the IPO-enabled Release builds) fails with `could not open '/libs:qwin'`.
 * **Linker & Includes**: Automatically pointed to the configuration-specific libraries and module files below the generated `hdf5-install` directory.
 * **Windows version resource**: CMake expands `src\resource\shetran.rc.in` into `generated\shetran.rc` in the selected build directory, compiles it with the Windows resource compiler, and links the resulting version metadata into `shetran.exe`.
 
