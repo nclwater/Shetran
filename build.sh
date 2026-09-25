@@ -16,6 +16,7 @@ GENERATE_FORD=false
 DOCS_ONLY=false
 COMPILER="gfortran"
 RUN_TESTS=false
+C_COMPILER=""
 
 show_usage() {
     cat <<EOF
@@ -32,6 +33,9 @@ Options:
   --docs-only             Generate FORD documentation only (no compile)
   --test                  Build and run the visualisation parser tests
   -h, --help              Show this help message
+
+With gfortran, a C compiler of the same GCC major version is selected
+automatically (gcc-<N>, then gcc/cc). Set CC to override; it must match.
 
 Examples:
   $(basename "$0")
@@ -80,6 +84,56 @@ setup_ifx_environment_if_needed() {
     done
 
     return 1
+}
+
+compiler_major_version() {
+    local version
+    version="$("$1" -dumpversion 2>/dev/null)" || return 1
+    echo "${version%%.*}"
+}
+
+# gfortran and the C compiler must come from the same GCC major version:
+# LTO bytecode is not compatible across GCC releases, so mixing (for example)
+# gcc-13 and gfortran-14 breaks HDF5's Fortran/C interface detection.
+# Sets C_COMPILER to a gcc matching gfortran's major version.
+select_matching_gcc() {
+    local fortran_major
+    fortran_major="$(compiler_major_version gfortran)" || {
+        echo "ERROR: Could not determine gfortran version" >&2
+        exit 1
+    }
+
+    # Respect an explicitly provided C compiler, but it must match gfortran.
+    if [[ -n "${CC:-}" ]]; then
+        local cc_major
+        cc_major="$(compiler_major_version "$CC")" || {
+            echo "ERROR: Could not determine version of C compiler from CC=${CC}" >&2
+            exit 1
+        }
+        if [[ "$cc_major" != "$fortran_major" ]]; then
+            echo "ERROR: CC=${CC} is GCC ${cc_major}, but gfortran is GCC ${fortran_major}." >&2
+            echo "ERROR: Use a C compiler of the same major version (e.g. CC=gcc-${fortran_major})." >&2
+            exit 1
+        fi
+        C_COMPILER="$CC"
+        return 0
+    fi
+
+    local candidate candidate_major
+    for candidate in "gcc-${fortran_major}" gcc cc; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            candidate_major="$(compiler_major_version "$candidate")" || continue
+            if [[ "$candidate_major" == "$fortran_major" ]]; then
+                C_COMPILER="$(command -v "$candidate")"
+                return 0
+            fi
+        fi
+    done
+
+    echo "ERROR: No C compiler matching gfortran (GCC ${fortran_major}) found." >&2
+    echo "ERROR: Install one, e.g.: sudo apt install gcc-${fortran_major}" >&2
+    echo "ERROR: or point CC at a matching compiler, e.g.: CC=/path/to/gcc-${fortran_major} $(basename "$0") ..." >&2
+    exit 1
 }
 
 generate_ford_docs() {
@@ -196,6 +250,8 @@ else
     echo "INFO: Checking for gfortran compiler..."
     require_command "gfortran" "gfortran compiler not found in PATH!"
     echo "INFO: Found gfortran compiler"
+    select_matching_gcc
+    echo "INFO: Using matching C compiler: ${C_COMPILER}"
 fi
 
 # Check for CMake
@@ -251,6 +307,9 @@ CMAKE_ARGS=(
     -DCMAKE_Fortran_COMPILER="$COMPILER"
     -DSHETRAN_BUILD_TESTS="$RUN_TESTS"
 )
+if [[ -n "$C_COMPILER" ]]; then
+    CMAKE_ARGS+=(-DCMAKE_C_COMPILER="$C_COMPILER")
+fi
 echo "INFO: CMake arguments: ${CMAKE_ARGS[*]}"
 cmake "${CMAKE_ARGS[@]}" "$SOURCE_PATH"
 
