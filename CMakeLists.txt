@@ -741,6 +741,9 @@ set_target_properties(SHETRAN PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# Visual Studio otherwise starts ALL_BUILD, which is not an executable.
+set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT SHETRAN)
+
 # =============================================================================
 # Include directories
 # =============================================================================
@@ -852,13 +855,13 @@ apply_shetran_fortran_options(SHETRAN)
 # drives the link.
 if(CMAKE_GENERATOR MATCHES "^Visual Studio")
     # The static Intel runtime is already selected by CMAKE_MSVC_RUNTIME_LIBRARY.
-    # Compiling with /libs:qwin embeds the QuickWin libraries as default
-    # libraries in each object. The executable keeps the console subsystem,
-    # as in the ifx-driven builds, where CMake passes /subsystem:console.
+    # Do not compile with /libs:qwin here: it routes unit * through the
+    # QuickWin runtime, but link.exe then uses the ordinary console entry
+    # point, so QuickWin is never initialised and the first WRITE (*, *)
+    # fails ("could not find the environment option"). The file dialog only
+    # needs the Win32 API from IFWIN, so link comdlg32 explicitly instead.
     if(SHETRAN_ENABLE_QUICKWIN)
-        target_compile_options(SHETRAN PRIVATE
-            $<$<COMPILE_LANGUAGE:Fortran>:/libs:qwin>
-        )
+        target_link_libraries(SHETRAN PRIVATE comdlg32)
     endif()
 else()
     # /libs:static — statically link Intel Fortran/C runtime libraries
