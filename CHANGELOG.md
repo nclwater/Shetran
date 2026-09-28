@@ -1,6 +1,51 @@
 # Changelog
 
-## 210526
+## V4.7.3 280926
+
+- Fixes for Visual Studio Setup
+
+## V4.7.2 280926
+
+- Broke up SGLOBAL into one file with all the error handling, one file with the other functions and one file with the variables (still called SGLOBAL)
+- Added default check routines of the STATUS returns from ALLOCATE, DEALLOCATE, READ, WRITE, OPEN, REWIND. 
+- Moved the location all files apart from visualisation into a more self-explanatory layout
+
+## V4.7.1 250826
+
+ - adds complete in-code documentation, both for module & routines and for variables (FORD). Might still contain some errors due to AI assistance.
+ - changed V4.7.0 to use the portable stdlib sleep function.
+
+
+## V4.7.0 200826
+
+Significant changes across the whole code base, including setting up a CMake build system for ease of use.
+Refactored to being standard Fortran 2018 conformant by removing anything deprecated and obsolescent.
+Exceptions are some Quickwin related code gated behind a preprocessor call and "lines too long" instances.
+Also refactored out any GOTO in the codebase.
+Results in noticeable speedups in comparison to previous versions as the compiler can optimise better.
+Also, only the executable is necessary now, the previous library files are now "included" and therefore do not need to be copied over for Shetran to run.
+ 
+Some file-read operations are now stricter but also include more descriptive error messages now.
+Likely culprits are "hidden" Unicode characters, which need to be deleted from the corresponding files.
+ 
+ 
+- Setup of CMake build system.
+  See the compiling.md file for information on how to use it.
+- The libraries are now "included" in the generated executable, improving the ease of program handling.
+- Setup two build scripts for Windows and Linux, which also support program testing and documentation generation.
+- Supports GFortran builds under Linux (only tested with v16.1 or newer).
+- Refactored code to Fortran 2018 standard.
+- Refactored to remove all GOTOs.
+- Shetran is now OS aware for path handling by utilising the Fortran Standard Library.
+- Updated the HDF5 library to v1.14.6.
+
+
+## V4.6.4 190626
+
+- changed getdirqq.f90 so Linux and Windows versions use the same code
+
+
+## V4.6.3 210526
 
 - improved channel junction convergence
 - VSS error messages turned to warnings
