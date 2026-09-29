@@ -77,7 +77,7 @@ MODULE mod_error
    INTEGER(KIND=I_P), PARAMETER :: ERR_limit_error_codes = 100 !! Greatest error-code remainder represented in each module-group counter.
    INTEGER(KIND=I_P) :: error_counter(0:ERR_limit_error_codes, 0:3) = 0 !! Occurrence counts by error-code remainder and module group.
    INTEGER(KIND=I_P) :: error_counter_total = 0 !! Total number of errors and warnings recorded by `ERROR`.
-   LOGICAL :: flag_wait_on_exit = .FALSE. !! Whether `ERR_STOP` waits for the user before terminating.
+   LOGICAL :: flag_wait_on_exit = .TRUE. !! Whether `ERR_STOP` waits for the user before terminating. Set the default to TRUE until err_set_wait_on_exit is correctly wired to the launch mode.
 
    ! --------------------------------------------------------------------
    ! Diagnostic output destinations
@@ -585,6 +585,7 @@ CONTAINS
                IF (COUNT > 0) THEN
                   ! Print number of occurrences
                   WRITE (*, 9500) ERRN + AMODL*1000, COUNT
+                  WRITE (OUT, 9500) ERRN + AMODL*1000, COUNT
 
                   ! Print contents of help file (if any)
                   WRITE (FIL, 9200) TRIM(rootdir)//TRIM(helppath)//'/', AMODL, ERRN, '.txt'
@@ -595,11 +596,13 @@ CONTAINS
                         READ (HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
                         IF (IO_STATUS /= 0) EXIT read_help
                         WRITE (*, '(A)') trim(HLPMSG)
+                        WRITE (OUT, '(A)') trim(HLPMSG)
                      END DO read_help
                      CLOSE (HLP)
                   END IF
 
                   WRITE (*, *)
+                  WRITE (OUT, *)
 
                END IF
             END DO error_loop
