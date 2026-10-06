@@ -42,8 +42,8 @@
 MODULE GETDIRQQ
 
    USE mod_parameters
-   USE sglobal, ONLY : error_mode
-   USE stdlib_system, ONLY : base_name, dir_name, get_cwd, join_path
+   USE sglobal, ONLY: error_mode
+   USE stdlib_system, ONLY: base_name, dir_name, get_cwd, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN
    USE IFWIN
@@ -171,53 +171,53 @@ CONTAINS
          CALL GET_COMMAND_ARGUMENT(1, code)
       ELSE
 #ifdef SHETRAN_HAVE_QUICKWIN
-            code = '-a'  !popup window is default if there is a fortran compiler on Windows
+         code = '-a'  !popup window is default if there is a fortran compiler on Windows
 #else
-            code = '-f'  !otherwise filename is default and user must provide it as an argument
+         code = '-f'  !otherwise filename is default and user must provide it as an argument
 #endif
-        ENDIF
+      END IF
 
       message = ''
 
-      SELECT CASE(TRIM(code))
+      SELECT CASE (TRIM(code))
 #ifdef SHETRAN_HAVE_QUICKWIN
-      CASE('-a')
+      CASE ('-a')
          FileName = CHAR(0)
-         allfilters = 'rundata files (*rundata*.txt)' // CHAR(0) // '*rundata*.txt' // CHAR(0) // &
-                       'All files (*.*)' // CHAR(0) // '*.*' // CHAR(0) // CHAR(0)
+         allfilters = 'rundata files (*rundata*.txt)'//CHAR(0)//'*rundata*.txt'//CHAR(0)// &
+                      'All files (*.*)'//CHAR(0)//'*.*'//CHAR(0)//CHAR(0)
          dlgtitle = 'Select a SHETRAN rundata file'C
 
-         opn%lStructSize       = 0
-         opn%HWNDOWNER         = NULL
-         opn%HINSTANCE         = NULL
-         opn%LPSTRFILTER       = NULL
+         opn%lStructSize = 0
+         opn%HWNDOWNER = NULL
+         opn%HINSTANCE = NULL
+         opn%LPSTRFILTER = NULL
          opn%LPSTRCUSTOMFILTER = NULL
-         opn%NMAXCUSTFILTER    = 0
-         opn%NFILTERINDEX      = 0
-         opn%LPSTRFILE         = NULL
-         opn%NMAXFILE          = 0
-         opn%LPSTRFILETITLE    = NULL
-         opn%NMAXFILETITLE     = 0
-         opn%LPSTRINITIALDIR   = NULL
-         opn%LPSTRTITLE        = NULL
-         opn%FLAGS             = 0
-         opn%NFILEOFFSET       = 0
-         opn%NFILEEXTENSION    = 0
-         opn%LPSTRDEFEXT       = NULL
-         opn%LCUSTDATA         = 0
-         opn%LPFNHOOK          = NULL
-         opn%LPTEMPLATENAME    = NULL
-         opn%PVRESERVED        = NULL
-         opn%DWRESERVED        = 0
-         opn%FLAGSEX           = 0
+         opn%NMAXCUSTFILTER = 0
+         opn%NFILTERINDEX = 0
+         opn%LPSTRFILE = NULL
+         opn%NMAXFILE = 0
+         opn%LPSTRFILETITLE = NULL
+         opn%NMAXFILETITLE = 0
+         opn%LPSTRINITIALDIR = NULL
+         opn%LPSTRTITLE = NULL
+         opn%FLAGS = 0
+         opn%NFILEOFFSET = 0
+         opn%NFILEEXTENSION = 0
+         opn%LPSTRDEFEXT = NULL
+         opn%LCUSTDATA = 0
+         opn%LPFNHOOK = NULL
+         opn%LPTEMPLATENAME = NULL
+         opn%PVRESERVED = NULL
+         opn%DWRESERVED = 0
+         opn%FLAGSEX = 0
 
-         opn%lStructSize       = SIZEOF(opn)
-         opn%LPSTRFILTER       = LOC(allfilters)
-         opn%NFILTERINDEX      = 1
-         opn%LPSTRFILE         = LOC(FileName)
-         opn%NMAXFILE          = LEN(FileName)
-         opn%LPSTRTITLE        = LOC(dlgtitle)
-         opn%FLAGS             = OFN_EXPLORER + OFN_FILEMUSTEXIST + OFN_PATHMUSTEXIST + OFN_NOCHANGEDIR
+         opn%lStructSize = SIZEOF(opn)
+         opn%LPSTRFILTER = LOC(allfilters)
+         opn%NFILTERINDEX = 1
+         opn%LPSTRFILE = LOC(FileName)
+         opn%NMAXFILE = LEN(FileName)
+         opn%LPSTRTITLE = LOC(dlgtitle)
+         opn%FLAGS = OFN_EXPLORER + OFN_FILEMUSTEXIST + OFN_PATHMUSTEXIST + OFN_NOCHANGEDIR
 
          bret = GETOPENFILENAME(opn)
          CALL comdlger(ierror)
@@ -238,31 +238,31 @@ CONTAINS
          rundata_from_file_dialog = .TRUE.
 #endif
 
-      CASE('-f')
+      CASE ('-f')
          IF (na < 2) THEN
             CALL print_usage_and_stop('Missing filename. Usage: shetran -f filename.txt')
          END IF
          CALL GET_COMMAND_ARGUMENT(2, cli_argument)
 
-      CASE('-c')
+      CASE ('-c')
          IF (na < 2) THEN
             cli_argument = 'default'
          ELSE
             CALL GET_COMMAND_ARGUMENT(2, cli_argument)
          END IF
 
-         INQUIRE(FILE=catchment_file, EXIST=ex)
+         INQUIRE (FILE=catchment_file, EXIST=ex)
          IF (ex) THEN
-            OPEN(UNIT=875, FILE=catchment_file, STATUS='OLD', IOSTAT=ios)
+            OPEN (UNIT=875, FILE=catchment_file, STATUS='OLD', IOSTAT=ios)
             IF (ios /= 0) CALL print_usage_and_stop('Error reading catchment file')
 
             found_catchment = .FALSE.
 
             read_catchment: DO
-               READ(875, '(A)', IOSTAT=ios) dum1
+               READ (875, '(A)', IOSTAT=ios) dum1
                IF (ios /= 0) EXIT read_catchment
 
-               READ(875, *, IOSTAT=ios) dum2
+               READ (875, *, IOSTAT=ios) dum2
                IF (ios /= 0) EXIT read_catchment
 
                IF (TRIM(dum1) == TRIM(cli_argument)) THEN
@@ -272,34 +272,34 @@ CONTAINS
                END IF
             END DO read_catchment
 
-            CLOSE(875)
+            CLOSE (875)
 
             IF (.NOT. found_catchment) THEN
-               CALL print_usage_and_stop('Cannot find catchment ' // TRIM(cli_argument) // ' in ' // catchment_file)
+               CALL print_usage_and_stop('Cannot find catchment '//TRIM(cli_argument)//' in '//catchment_file)
             END IF
          ELSE
-            message = 'Cannot find file ' // catchment_file // ' in executable directory'
+            message = 'Cannot find file '//catchment_file//' in executable directory'
          END IF
 
 #ifndef SHETRAN_HAVE_QUICKWIN
-      CASE('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
+      CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
          CALL print_usage_and_stop('Interactive file selection requires Intel QuickWin on Windows. Use: shetran -f filename.txt')
 #endif
 
       CASE DEFAULT
-         message = 'Unrecognised command line argument ' // TRIM(code) // '. Recognise only -a, -c and -f'
+         message = 'Unrecognised command line argument '//TRIM(code)//'. Recognise only -a, -c and -f'
       END SELECT
 
       CALL set_error_mode_from_arguments()
 
       IF (message /= '') CALL print_usage_and_stop(message)
 
-      INQUIRE(FILE=cli_argument, EXIST=ex)
+      INQUIRE (FILE=cli_argument, EXIST=ex)
       IF (.NOT. ex) THEN
          IF (LEN_TRIM(cli_argument) == 0) THEN
             message = 'Missing filename. Use: shetran -f filename.txt'
          ELSE
-            message = 'Cannot find rundata file ' // TRIM(cli_argument)
+            message = 'Cannot find rundata file '//TRIM(cli_argument)
          END IF
          CALL handle_command_line_error(message)
       END IF
@@ -370,10 +370,10 @@ CONTAINS
       SUBROUTINE print_usage_and_stop(err_msg)
          CHARACTER(LEN=*), INTENT(IN) :: err_msg !! Specific command-line or lookup failure.
 
-         WRITE(*, '(A)') 'ERROR: ' // TRIM(err_msg)
-         WRITE(*, '(A)') 'Usage: shetran -f rundata_file.txt'
-         WRITE(*, '(A)') '   or: shetran -c catchment_name'
-         STOP 1
+         WRITE (*, '(A)') 'ERROR: '//TRIM(err_msg)
+         WRITE (*, '(A)') 'Usage: shetran -f rundata_file.txt'
+         WRITE (*, '(A)') '   or: shetran -c catchment_name'
+         STOP 255
       END SUBROUTINE print_usage_and_stop
 
       !> @brief Scans command arguments for the retained `-error` flag.
@@ -398,8 +398,8 @@ CONTAINS
 
          DO arg_index = 1, na
             CALL GET_COMMAND_ARGUMENT(arg_index, argument)
-            SELECT CASE(TRIM(argument))
-            CASE('-error')
+            SELECT CASE (TRIM(argument))
+            CASE ('-error')
                error_mode = .TRUE.
             END SELECT
          END DO
@@ -450,10 +450,10 @@ CONTAINS
 
       CHARACTER(LEN=*), INTENT(IN) :: error_msg !! Missing or nonexistent rundata-file diagnostic.
 
-      WRITE(*, '(A)') 'ERROR: ' // TRIM(error_msg)
-      WRITE(*, '(A)') 'Usage: shetran -f rundata_file.txt'
-      WRITE(*, '(A)') '   or: shetran -c catchment_name'
-      STOP 1
+      WRITE (*, '(A)') 'ERROR: '//TRIM(error_msg)
+      WRITE (*, '(A)') 'Usage: shetran -f rundata_file.txt'
+      WRITE (*, '(A)') '   or: shetran -c catchment_name'
+      STOP 255
 
    END SUBROUTINE handle_command_line_error
 
@@ -495,7 +495,7 @@ CONTAINS
       iret = COMMDLGEXTENDEDERROR()
       msg1 = 'FILE OPEN DIALOG FAILURE'
 
-      SELECT CASE(iret)
+      SELECT CASE (iret)
       CASE (CDERR_FINDRESFAILURE)
          msg2 = 'The common dialog box procedure failed to find a specified resource.'
       CASE (CDERR_INITIALIZATION)

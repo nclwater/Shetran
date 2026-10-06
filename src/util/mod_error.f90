@@ -483,6 +483,7 @@ CONTAINS
    !> | 2026-05-08 | SB | Reworked summary output to name the selected print file and write the summary heading to both standard output and `OUT`. |
    !> | 2026-05-10 | SvB | Removed the interactive wait before help-file lookup for noninteractive scripted use. |
    !> | 2026-08-31 | SvB | Moved from [[sglobal]] to [[mod_error]] and renamed the selectors and counters. |
+   !> | 2026-10-06 | SvB | Error stop now returns standard status 255. |
    !> @endhistory
    SUBROUTINE RAISE_ERROR(ETYPE, ERRNUM, OUT, IEL, CELL, TEXT)
 
@@ -613,12 +614,12 @@ CONTAINS
 
       ! Stop?
       ! -----
-      IF (ETYPE == ERRLVL_fatal) CALL ERR_STOP(1)
+      IF (ETYPE == ERRLVL_fatal) CALL ERR_STOP(255)
 
       ! String format statements
       ! ------------------------
 9100  FORMAT(/' !!!', A, I5.4, ' at time =', F12.2, ' hours': &
-         &        ', iel =', I5:', cell =', I5)
+           &        ', iel =', I5:', cell =', I5)
 9200  FORMAT(A, I1, I3.3, A)
 
 9500  FORMAT(' No. of occurrences of error number', I5.4, ' is', I6)
@@ -631,8 +632,9 @@ CONTAINS
 
    !> summary: Terminates the run, distinguishing fatal from ordinary exits.
    !>
-   !> A positive `error_number` selects error termination through `ERROR STOP`,
-   !> so that the process reports a nonzero status to whatever launched it.
+   !> A positive `error_number` selects error termination through `ERROR STOP`
+   !> with exit status 255, so that the process reports a nonzero status to
+   !> whatever launched it.
    !> Omitting the argument selects an ordinary `STOP`. [[mod_error:ERROR]]
    !> passes `1` after it has printed the fatal-error summary; the
    !> unrecoverable conditions detected directly in the process modules pass
@@ -653,6 +655,7 @@ CONTAINS
    !> | 2026-03-28 | SvB | Converted `FLAG` to selected integer kind with input intent, replaced the legacy pause with an explicit prompt/read, and added the initial FORD block. |
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
+   !> | 2026-10-06 | SvB | Fatal path now uses `ERROR STOP 255`; the character `STOP` code returned status 0. |
    !> @endhistory
    SUBROUTINE ERR_STOP(error_number)
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
@@ -671,7 +674,10 @@ CONTAINS
          READ (*, *)
       END IF
 
-      IF (is_fatal) STOP 'Program terminating due to fatal error'
+      IF (is_fatal) THEN
+         WRITE (*, '(A)') 'Program terminating due to fatal error'
+         ERROR STOP 255
+      END IF
 
       STOP 'Program terminating'
 
