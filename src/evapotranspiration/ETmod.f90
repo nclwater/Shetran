@@ -38,7 +38,7 @@
 !>
 !> @warning
 !> The module is mutable, single-run state. [[initialise_etmod]] allocates
-!> every allocatable unconditionally, has no `STAT=` handling, and there is no
+!> every allocatable unconditionally, and there is no
 !> matching deallocator; a repeated call or allocation failure terminates via
 !> the Fortran runtime.
 !> @endwarning
