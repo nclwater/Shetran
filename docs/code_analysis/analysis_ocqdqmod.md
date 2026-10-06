@@ -2,19 +2,19 @@
 
 ## Scope and method
 
-Source-only assessment of `src/modules/OCQDQMOD.F90` (407 lines, of which the
+Source-only assessment of `src/overland_channel/OCQDQMOD.F90` (407 lines, of which the
 working routine `OCQDQ` is `:149-359`). No profile was taken and no timings were
 measured. Every claim is derived from reading the module together with:
 
-- its callees' dummy-argument declarations in `src/modules/OCmod2.f90`
-  (`OCQBC:636`, `OCQBNK:837`, `OCQGRD:1002`, `OCQLNK:1157`, `OCQMLN:1330`,
-  `OCNODE:262`, `FNODE:403`, the `gethrf`/`setqsa` accessors `:94-148`,
-  `OCFIX:1709`),
-- its only caller, `OCmod.f90:2122` (`OCSIM`), and the two `DQIST2` consumers
-  `OCmod.f90:499-509` and `:2227-2237`,
-- the topology construction in `src/modules/FRmod.f90:780-980` (the `ICMRF2`
-  branch records) and `:1129-1170` (the reciprocal-face fixup),
-- the array declarations in `src/parameters/AL_C.F90`, `AL_D.f90`, `AL_G.F90`
+- its callees' dummy-argument declarations in `src/overland_channel/OCmod2.f90`
+  (`OCQBC:635`, `OCQBNK:833`, `OCQGRD:996`, `OCQLNK:1149`, `OCQMLN:1320`,
+  `OCNODE:267`, `FNODE:406`, the `gethrf`/`setqsa` accessors `:99-152`,
+  `OCFIX:1694`),
+- its only caller, `OCmod.f90:2238` (`OCSIM`), and the two `DQIST2` consumers
+  `OCmod.f90:574-584` and `:2343-2353`,
+- the topology construction in `src/frame/FRmod.f90:781-981` (the `ICMRF2`
+  branch records) and `:1130-1171` (the reciprocal-face fixup),
+- the array declarations in `src/core/state/AL_C.F90`, `AL_D.f90`, `AL_G.F90`
   and `sglobal.f90`.
 
 Where a claim depends on compiler behaviour rather than on the source alone,
@@ -31,13 +31,13 @@ Relevant compiled extents:
 
 | Constant | Value | Source |
 |---|---|---|
-| `NELEE` | 250 000 | `sglobal.f90:118` |
-| `NLFEE` | 20 000 | `sglobal.f90:117` |
-| `NOCTAB` | 20 | `sglobal.f90:128` |
+| `NELEE` | 250 000 | `sglobal.f90:122` |
+| `NLFEE` | 20 000 | `sglobal.f90:121` |
+| `NOCTAB` | 20 | `sglobal.f90:132` |
 
 Element numbering, used throughout below: elements `1 .. total_no_links` are
 channel links and `NGDBGN = total_no_links + 1` onwards are grid and bank
-elements (`FRmod.f90:709`, `OCmod.f90:1815`). So `KEL <= total_no_links` is
+elements (`FRmod.f90:710`, `OCmod.f90:1923`). So `KEL <= total_no_links` is
 exactly the "is a link" test the routine uses.
 
 ---
@@ -132,12 +132,12 @@ IF (NFACE == IFACE) THEN
 carrying the marker, `STR(0)` is the raw negative value.
 
 **Where it lands.** `OCQBC` uses `STR` in Part 2, gated on
-`MTYPE == 3 .OR. NTYPE == 8` (`OCmod2.f90:727`), i.e. boundary types 3 (grid
+`MTYPE == 3 .OR. NTYPE == 8` (`OCmod2.f90:725`), i.e. boundary types 3 (grid
 prescribed head), 9 (channel prescribed head) and 8 (weir with river in
 parallel). Type 3 takes `STRW = STR * W; CALL CONVEYAN(STRW, HM, CONVM, DERIVM, 1)`;
 types 8 and 9 take `CALL OCCODE(ZGI, STR, W, ...)`. Both are linear in `STR`, so
 a negative `STR` gives `CONVM < 0` and `DERIVM < 0`, and then
-(`OCmod2.f90:746-747`):
+(`OCmod2.f90:744-745`):
 
 ```fortran
 FROMQ  = FROMQ  + SIG * CONVM  * ROOTDZ / ROOTL
@@ -192,8 +192,8 @@ multi_scatter_loop: DO J = 0, JMAX
    IF (KEL == 0) CYCLE multi_scatter_loop  ! :335
 ```
 
-`OCQMLN` uses `IF (JEL2(J) <= 0)` for the same test (`OCmod2.f90:1358`,
-`:1375`). The scatter loop is the odd one out. If `ICMRF2` ever held a negative
+`OCQMLN` uses `IF (JEL2(J) <= 0)` for the same test (`OCmod2.f90:1348`,
+`:1365`). The scatter loop is the odd one out. If `ICMRF2` ever held a negative
 participant, `multi_data_loop` and `OCQMLN` would both treat it as inactive
 while `multi_scatter_loop` would treat it as active and execute
 
@@ -204,7 +204,7 @@ DQ0ST(KEL, KFACE) = DQIJ(J, J)
 
 — two out-of-bounds writes with a stale `KFACE` (see **C4**).
 
-Not reachable today: `FRmod:809-971` only ever writes `LINKNO` results into
+Not reachable today: `FRmod:810-972` only ever writes `LINKNO` results into
 `ICMRF2`, and unwritten slots stay at the BSS zero. So this is a one-character
 divergence from the two guards that bracket it, not a bug. Close it anyway; it
 costs nothing and it is the kind of asymmetry that a later change to the
@@ -222,7 +222,7 @@ jxswork(J) = KEL                          ! :327 — links only
 ```
 
 `OCQMLN` then reads it for every active branch, with no guard
-(`OCmod2.f90:1365`, `:1385`):
+(`OCmod2.f90:1355`, `:1375`):
 
 ```fortran
 CALL OCCODE(ZGI(J), STR(J), CW(J), XA(J), XSTAB(:, :, JXSWORK(J)), ZJ(J), CI(J), DI(J))
@@ -289,7 +289,7 @@ Two clamps, two different failure modes:
 
 - **`MIN`**: for a *grid* element with a boundary condition, `ielu > total_no_links`
   and `LINK` becomes `total_no_links` — the last link in the domain. `OCQBC`
-  passes it on as `XAFULL(LINK)` and `XSTAB(:, :, LINK)` (`OCmod2.f90:741`),
+  passes it on as `XAFULL(LINK)` and `XSTAB(:, :, LINK)` (`OCmod2.f90:739`),
   which is an unrelated channel's bank-full area and rating table. Only reached
   on the `NTYPE == 8` (weir plus river in parallel) path, which is presumably
   channel-only, so the value is discarded — but nothing enforces that, and if a
@@ -302,7 +302,7 @@ Two clamps, two different failure modes:
   slice. Again gated on `NTYPE == 8`, so latent.
 
 The clamp is doing the job of a precondition. Replacing it with an explicit
-channel test — and a `FFFATAL` if a type-8 boundary is declared on a grid
+channel test — and an `ERRLVL_fatal` error if a type-8 boundary is declared on a grid
 element — converts two silent wrong answers into a configuration error at the
 point where it can still be fixed.
 
@@ -344,7 +344,7 @@ at `:276`. Harmless — `NTYPE == 12` does not read `AFROMCOCBCD` — but it mea
 
 `QJ` and `DQ` are zeroed once before `element_loop` (`:165-166`); `DQIJ` is not.
 `OCQMLN` declares `DQIJ` `INTENT(OUT)` and writes only the columns of active
-branches (`OCmod2.f90:1374-1395`), so after the call `DQIJ(:, J)` is undefined
+branches (`OCmod2.f90:1364-1385`), so after the call `DQIJ(:, J)` is undefined
 for every inactive `J`. Every read in `multi_scatter_loop` is guarded — `:339`
 by `KEL /= 0`, `:342` by `J > 0` plus the same, `:349` by
 `ICMRF2(JBR, JJ) > 0` — so this is not a live defect.
@@ -357,8 +357,8 @@ assumption (`:135-137`). `DQIJ = zero` alongside `:166` makes the failure mode
 
 Note the asymmetry, incidentally: the pre-zeroing at `:165-166` that *is* there
 is dead. Every callee declares `Q`/`DQ` `INTENT(OUT)` and assigns every element
-it declares — `OCQGRD:1029-1030` for the impermeable case, `:1064-1069`
-otherwise; `OCQBNK:903-906`; `OCQLNK:1239-1241` — and the boundary path assigns
+it declares — `OCQGRD:1023-1024` for the impermeable case, `:1058-1063`
+otherwise; `OCQBNK:899-902`; `OCQLNK:1231-1233` — and the boundary path assigns
 `DQ(0,1)` explicitly at `:199`. So the two statements that exist are unnecessary
 and the one that is needed is absent.
 
@@ -374,10 +374,10 @@ first:
 | Array | Declaration | Column stride |
 |---|---|---|
 | `ICMREF` | `INTEGER (NELEE, 12)` (`AL_G.F90:46`) | 1 MB |
-| `DHF` | `DOUBLEPRECISION (NELEE, 4)` (`AL_C.F90:105`) | 2 MB |
+| `DHF` | `DOUBLEPRECISION (NELEE, 4)` (`AL_C.F90:110`) | 2 MB |
 | `DQ0ST` | `DOUBLEPRECISION (NELEE, 4)` (`AL_D.f90:234`) | 2 MB |
 | `DQIST` | `DOUBLEPRECISION (NELEE, 4)` (`AL_D.f90:235`) | 2 MB |
-| `qsazz` | `DOUBLEPRECISION (NELEE, 4)` (`OCmod2.f90:78`) | 2 MB |
+| `qsazz` | `DOUBLEPRECISION (NELEE, 4)` (`OCmod2.f90:83`) | 2 MB |
 
 Counting the distinct cache lines touched to process **one element's four
 faces**, self side only:
@@ -427,7 +427,7 @@ scalars                                            7
 `DQ0ST` and `DQIST` are always read and written together and could be
 interleaved into one `(2, 4, NELEE)` array for another line.
 
-This is not a local change — `qsazz` is `PUBLIC` and `OCmod.f90:2265-2268`
+This is not a local change — `qsazz` is `PUBLIC` and `OCmod.f90:2381-2384`
 currently copies it column-wise into `QOC`. Transpose `QOC` in the same project
 so that handoff does not become strided. The full layout change should be
 costed across `OCQDQ`, `OCSIM`, `OCFIX`, and the downstream `QOC` consumers,
@@ -538,9 +538,9 @@ DQIST(JEL, JFACE) = DQ(1, 0)
 ```
 
 Two direct stores and one subroutine call, into three arrays of identical shape,
-two lines apart. `setqsa` is one assignment (`OCmod2.f90:139-148`) and cannot be
+two lines apart. `setqsa` is one assignment (`OCmod2.f90:143-152`) and cannot be
 `PURE`, so it is an optimisation barrier in a block the compiler would otherwise
-fuse — though with IPO on (`CMakeLists.txt:73`) it should inline and the barrier
+fuse — though with IPO on (`CMakeLists.txt:88`) it should inline and the barrier
 should vanish.
 
 The asymmetry exists only because `qsazz` is private to `OCmod2` while `DQ0ST`
@@ -669,7 +669,7 @@ DO JJ = 1, 3
 END DO
 ```
 
-**Structure.** `FRmod:797-801` increments `INDEX2` once **per element per
+**Structure.** `FRmod:798-802` increments `INDEX2` once **per element per
 multi-way face**, so each of the up to four members of a junction owns a
 *distinct* branch record listing the other three from its own viewpoint. `IBR`
 and `JBR` are therefore always different rows, and there is no clobbering
@@ -685,10 +685,10 @@ arm by compass direction:
 
 | Block | Self arm | Slot 1 | Slot 2 | Slot 3 | Source |
 |---|---|---|---|---|---|
-| Face 1 (east) of an EW link at `(I,J)` | W | N: `NSOUTH(I+1,J)` | E: `EWEST(I+1,J)` | S: `NSOUTH(I+1,J-1)` | `:803-828` |
-| Face 2 (north) of a NS link at `(I,J)` | S | W: `EWEST(I-1,J+1)` | N: `NSOUTH(I,J+1)` | E: `EWEST(I,J+1)` | `:852-877` |
-| Face 3 (west) of an EW link at `(I,J)` | E | S: `NSOUTH(I,J-1)` | W: `EWEST(I-1,J)` | N: `NSOUTH(I,J)` | `:897-923` |
-| Face 4 (south) of a NS link at `(I,J)` | N | E: `EWEST(I,J)` | S: `NSOUTH(I,J-1)` | W: `EWEST(I-1,J)` | `:944-970` |
+| Face 1 (east) of an EW link at `(I,J)` | W | N: `NSOUTH(I+1,J)` | E: `EWEST(I+1,J)` | S: `NSOUTH(I+1,J-1)` | `FRmod:804-829` |
+| Face 2 (north) of a NS link at `(I,J)` | S | W: `EWEST(I-1,J+1)` | N: `NSOUTH(I,J+1)` | E: `EWEST(I,J+1)` | `FRmod:853-878` |
+| Face 3 (west) of an EW link at `(I,J)` | E | S: `NSOUTH(I,J-1)` | W: `EWEST(I-1,J)` | N: `NSOUTH(I,J)` | `FRmod:898-924` |
+| Face 4 (south) of a NS link at `(I,J)` | N | E: `EWEST(I,J)` | S: `NSOUTH(I,J-1)` | W: `EWEST(I-1,J)` | `FRmod:945-971` |
 
 Each row reads `W,N,E,S` / `S,W,N,E` / `E,S,W,N` / `N,E,S,W` — the **same
 clockwise cycle**, rotated to start at the self arm. That is exactly the
@@ -697,10 +697,10 @@ invariant, so `MOD(J + JJ, 4)` is the right index. ✓
 **Three-way junctions preserve it**: `FRmod` assigns slots by geometric position
 (which `LCODE` test fires), not by compaction, so an absent arm leaves a zero
 *in place* and the remaining slots keep their cyclic offsets. `:307`, `:335` and
-`OCmod2:1358` all key off `JEL2(J)`, which is `ICMRF2(IBR, J)`, so local index
+`OCmod2:1348` all key off `JEL2(J)`, which is `ICMRF2(IBR, J)`, so local index
 and slot index stay aligned throughout. ✓
 
-**The consumers agree**: `OCmod.f90:499-505` and `:2228-2234` both read
+**The consumers agree**: `OCmod.f90:574-580` and `:2344-2350` both read
 `DQIST2(IBR, J)` as ∂Q(owner of `IBR`)/∂z(`ICMRF2(IBR, J)`), guarded by
 `ICMRF2(IBR, J) > 0` — matching what `:342` and `:349` write and matching the
 write guards. ✓
@@ -717,7 +717,7 @@ land-land routine. So a link-bank face reached from the *bank* side would call
 `OCQGRD` on a channel.
 
 It cannot be reached from the bank side: links are elements `1 .. total_no_links`
-and everything else is above (`NGDBGN = total_no_links + 1`, `FRmod:709`), so for
+and everything else is above (`NGDBGN = total_no_links + 1`, `FRmod:710`), so for
 a bank/link pair `JEL < ielu` always holds when `ielu` is the bank, and `:182`
 cycles. The skip is therefore what *guarantees* `ielu` is the link on every
 link-land face — not merely what avoids processing the face twice.
@@ -754,7 +754,7 @@ boundary condition at all — the `eexternal` branch writes nothing, so
 looks like a stale-value hazard; it is not. All three are static arrays in BSS
 (zero at startup), nothing else ever writes them for such a face — `OCFIX`'s
 face loop cycles immediately on `QE < ZERO` being false for `QE == 0`
-(`OCmod2.f90:1791-1795`) — and zero is the physically correct answer for an
+(`OCmod2.f90:1776-1780`) — and zero is the physically correct answer for an
 unspecified external boundary. ✓
 
 ### No hidden array temporaries at any call site

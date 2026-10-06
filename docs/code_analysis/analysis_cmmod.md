@@ -4,9 +4,9 @@
 
 This is a **logical, source-only** assessment. No profile was taken and no
 timings were measured. Every claim below is derived from reading
-`src/modules/CMmod.f90` in full, together with the call site in
-`src/modules/run_sim.f90`, the state modules it shares
-(`src/parameters/CONT_CC.F90`, `colm_c1.f90`, `colm_c2.f90`, `colm_cc.f90`,
+`src/contaminant/CMmod.f90` in full, together with the call site in
+`src/driver/run_sim.f90`, the state modules it shares
+(`src/contaminant/CONT_CC.F90`, `colm_c1.f90`, `colm_c2.f90`, `colm_cc.f90`,
 `colm_cc1.f90`, `colm_cg.f90`, `colm_co.f90`, `link_cc.f90`, `link_cc1.f90`,
 `link_cw.f90`, `bk_cw.f90`, `plant_cc.f90`, `is_cc.f90`, `SED_CS.F90`,
 `sed_co.f90`, `AL_C.F90`, `AL_G.F90`), the dimension parameters in
@@ -14,76 +14,76 @@ timings were measured. Every claim below is derived from reading
 compiler flags in `CMakeLists.txt`. Where a claim depends on compiler behaviour
 rather than on the source alone, that is stated explicitly.
 
-Line numbers refer to `CMmod.f90` at commit `e0aef0b` (3 386 lines).
+Line numbers refer to `CMmod.f90` at commit `866df41` (3 342 lines).
 
 The assessment was requested for `CMmod.f90` only. Callers and callees outside
 this module were read where needed to establish an interface, a call frequency
 or a producer, but are not themselves assessed.
 
 `CMmod` has two entry points. `CMRD` (`:146`) runs **once**, from
-`FRmod:INCM` (`FRmod.f90:4246`). `CMSIM` (`:662`) runs **once per VSS
+`FRmod:INCM` (`FRmod.f90:4414`). `CMSIM` (`:650`) runs **once per VSS
 timestep** whenever the contaminant component is active
-(`run_sim.f90:324`, guarded by `BCM` at `:291`). Everything reachable from
+(`run_sim.f90:334`, guarded by `BCM` at `:301`). Everything reachable from
 `CMSIM` therefore carries per-timestep cost:
 
 ```text
 CMSIM
- ├─ MNINITIALISE (first call) / MNCONT (later calls)   when ISMN   (:702-716)
- ├─ PLPREP                                             when ISPLT  (:719)
- ├─ per element, in ISORT order:                                   (:723-732)
+ ├─ MNINITIALISE (first call) / MNCONT (later calls)   when ISMN   (:690-704)
+ ├─ PLPREP                                             when ISPLT  (:707)
+ ├─ per element, in ISORT order:                                   (:711-720)
  │    ├─ COLMW → COLMSM → { PLCOLM → PLANT }, RET ×2, COLM → SLVCLM → TRIDAG
  │    └─ LINKW → LINKSM → FRET ×6, LINK → SNL3
- └─ CCCC/SSSS → CCCCO/SSSSO save sweep                             (:736-754)
+ └─ CCCC/SSSS → CCCCO/SSSSO save sweep                             (:724-742)
 ```
 
 All seventeen procedures were assessed. Coverage:
 
 | Procedure | Lines | Per-timestep? | Principal findings |
 |---|---|---|---|
-| `CMRD` | 146–620 | no (startup) | 1.14 |
-| `CMSIM` | 662–756 | yes | 2.2, 1.15 |
-| `COLM` | 801–1055 | yes, per cell | 1.2, 1.9, 3.6, 4.1, 4.5 |
-| `COLMSM` | 1102–1437 | yes, per cell | 1.3, 1.4, 1.6, 3.1, 3.5, 5.4 |
-| `COLMW` | 1488–1830 | yes, per cell | 1.1, 1.7, 2.1, 2.3, 3.2, 3.7 |
-| `DISP` | 1843–1860 | yes | 3.1 (constant placeholder) |
-| `LINKSM` | 1905–2169 | yes, per link | 1.3, 1.12, 1.13 |
-| `LINKW` | 2215–2484 | yes, per link | 1.10, 1.11, 1.13, 3.4 |
-| `LINK` | 2517–2691 | yes, per link | 3.3, 5.2 |
-| `PHI` | 2704–2723 | yes | 3.1 (constant placeholder) |
-| `PLCOLM` | 2760–2880 | `ISPLT` only | 1.5, 1.8, 4.3 |
-| `SLVCLM` | 2905–2951 | yes, per column | 4.6 |
-| `RET` | 2978–3028 | yes, ×2 per column | 5.5 |
-| `SNL3` | 3064–3174 | yes, per link | 4.2, 4.4, 5.2 |
-| `FRET` | 3202–3266 | yes, ×6 per link | 5.5 |
-| `PLANT` | 3290–3356 | `ISPLT` only | 1.8 (guards) |
-| `PLPREP` | 3358–3384 | `ISPLT` only | 1.8 |
+| `CMRD` | 146–610 | no (startup) | 1.14 |
+| `CMSIM` | 650–744 | yes | 2.2, 1.15 |
+| `COLM` | 787–1041 | yes, per cell | 1.2, 1.9, 3.6, 4.1, 4.5 |
+| `COLMSM` | 1086–1421 | yes, per cell | 1.3, 1.4, 1.6, 3.1, 3.5, 5.4 |
+| `COLMW` | 1468–1810 | yes, per cell | 1.1, 1.7, 2.1, 2.3, 3.2, 3.7 |
+| `DISP` | 1821–1838 | yes | 3.1 (constant placeholder) |
+| `LINKSM` | 1881–2145 | yes, per link | 1.3, 1.12, 1.13 |
+| `LINKW` | 2189–2458 | yes, per link | 1.10, 1.11, 1.13, 3.4 |
+| `LINK` | 2489–2663 | yes, per link | 3.3, 5.2 |
+| `PHI` | 2674–2693 | yes | 3.1 (constant placeholder) |
+| `PLCOLM` | 2728–2848 | `ISPLT` only | 1.5, 1.8, 4.3 |
+| `SLVCLM` | 2871–2917 | yes, per column | 4.6 |
+| `RET` | 2942–2992 | yes, ×2 per column | 5.5 |
+| `SNL3` | 3026–3136 | yes, per link | 4.2, 4.4, 5.2 |
+| `FRET` | 3162–3226 | yes, ×6 per link | 5.5 |
+| `PLANT` | 3248–3302 | `ISPLT` only | 1.8 (guards) |
+| `PLPREP` | 3314–3340 | `ISPLT` only | 1.8 |
 
 ## Conclusion up front
 
 `CMmod` has, unusually for this codebase, **both** a memory-layout problem and a
 genuine arithmetic hot spot, and the arithmetic one is probably the larger.
 
-- **Arithmetic.** `COLM:880` and `:890` evaluate `COLCAP(NC)**GGNMON` and
+- **Arithmetic.** `COLM:866` and `:876` evaluate `COLCAP(NC)**GGNMON` and
   `SOLCAP(NC)**GGNMON` with a *runtime real* exponent, i.e. two `pow()` calls,
   **per cell, per contaminant, per element, per timestep**. `GGNMON` is
-  `GNN(NCONT) - 1`, constant for the whole run. `SNL3:3095` then runs a
+  `GNN(NCONT) - 1`, constant for the whole run. `SNL3:3057` then runs a
   hard-coded **103 fixed-point iterations with three divisions each** per link
   per contaminant per timestep, with no convergence test and no early exit.
   These two sites dominate; neither is a consequence of the physics.
 
 - **Layout.** Every CM-owned state array that the module carries across
   timesteps is **element-major with cell as the second subscript** — `CCCC`, `CCCCO`,
-  `SSSS`, `SSSSO`, `SSS1`, `SSS2` (`CONT_CC.F90:44-51`), `QQO`, `UUAJPO`,
+  `SSSS`, `SSSSO`, `SSS1`, `SSS2` (`CONT_CC.F90:46-52`), `QQO`, `UUAJPO`,
   `VSTHEO`, `GGAMMO` (`colm_co.f90`) — and the shared, ET-produced `ERUZ`
-  (`AL_C.F90:159`) has the same layout. Every loop that touches them is
+  (`AL_C.F90:164`) has the same layout. Every loop that touches them is
   element-fixed, cell-inner. Each inner iteration
   therefore strides by `total_no_elements` doubles. Everything arriving from VS
   (`VSTHE`, `QVSV`, `DELTAZ`, `ZVSNOD`) is already cell-major and is read
   unit-stride, so the two conventions are mixed inside single loop bodies
-  (`COLMW:1585-1610` is the clearest example). This is the same finding as
+  (`COLMW:1565-1590` is the clearest example). This is the same finding as
   `analysis_mnmod.md` §2.1, and CM is where those arrays are owned.
 
-- **`CMSIM`'s save sweep** (`:736-754`) is the worst single instance: a
+- **`CMSIM`'s save sweep** (`:724-742`) is the worst single instance: a
   `NCON × NEL × ncells` copy of two arrays with the innermost subscript in the
   slowest-varying position. It moves roughly eight cache lines for every one
   line of useful data.
@@ -98,7 +98,7 @@ contaminant index or on `ISORT`. One is an out-of-bounds middle subscript
 (`PDZF3`) that aliases two plant slots onto each other. Two more (`find_jal`,
 `NCETOP+1` in `LLEE` arrays) block bounds-checked validation of everything
 else, since `Debug` uses `-fcheck=bounds` / `/check:bounds`
-(`CMakeLists.txt:651,694`).
+(`CMakeLists.txt:788,831`).
 
 The cheapest substantial win is special-casing the linear-adsorption case in
 `COLM` so the two `pow()` calls disappear. The largest is transposing the
@@ -120,13 +120,13 @@ A grep over `src/` finds **no assignment to `XXI` anywhere**. There are exactly
 two readers, and the first is not on the plant path at all:
 
 ```fortran
-! COLMW:1615 — inside cell_loop, every land column, every timestep
+! COLMW:1595 — inside cell_loop, every land column, every timestep
 GGAMM1(NCE) = ((one - XXI * PHIDUM) * ROH(NCE) * TRAN1(NCE) / (KSP(NCE) * Z2)) &
             + (((one - PHIDUM) * TTHET1(NCE) - (one - PPHI(NCE)) * TTHET(NCE)) / DTUZ)
 ```
 
-`GGAMM1` is stored to `GGAMMO(NCL,NCE)` (`:1617`), read back as `GGAMM`
-(`:1614`) on the next step, and consumed by `COLM:876-877` and `:900-901`:
+`GGAMM1` is stored to `GGAMMO(NCL,NCE)` (`:1597`), read back as `GGAMM`
+(`:1594`) on the next step, and consumed by `COLM:862-863` and `:886-887`:
 
 ```fortran
 BCAP   = Z2SQOD * (AALPH + half * ABS(GGAMM(NC)))
@@ -142,7 +142,7 @@ root-extraction rate `ROH·TRAN1/(KSP·Z2)`. Nothing in the language guarantees
 that, `-finit-real=snan` would expose it immediately, and the mobile-water
 weighting the expression was written for is simply absent.
 
-The second reader is `PLCOLM:2835`:
+The second reader is `PLCOLM:2803`:
 
 ```fortran
 XDUM = XXI * PPHI(NCE)
@@ -150,7 +150,7 @@ CDUM = XDUM * COLCAP(NCE)              ! mobile-region contribution
 SDUM = (ONE - XDUM) * SOLCAP(NCE)      ! dead-space contribution
 ```
 
-With `XXI == 0`, `CDUM` is identically zero and `EDCAP` (`:2843`) receives
+With `XXI == 0`, `CDUM` is identically zero and `EDCAP` (`:2811`) receives
 nothing: **plant uptake draws entirely from the dead-space region and not at
 all from the mobile region**, which is backwards. Reachable only when `ISPLT`
 is true, which today it never is (1.7).
@@ -166,13 +166,13 @@ over `src/` finds no assignment. All three are read in `COLM`, in the block
 that adds the surface-water and sediment terms to the top-cell balance:
 
 ```fortran
-:987   MCAP  = MCAP  + (VCAP * (...) - ESSCAP - ICAP - QCAP + CST2 * SUM1) / KSP(NC)
-:992   MCAPT = MCAPT + (... - ESSCPT - ICAPT - QCAPT + CST2 * SUM2 / TSE) / KSP(NC)
-:995   MCAPC = MCAPC + (VCAP * (...) - ESSCPC - ICAPC - QCAPC + CST2 * SUM3) / KSP(NC)
+:973   MCAP  = MCAP  + (VCAP * (...) - ESSCAP - ICAP - QCAP + CST2 * SUM1) / KSP(NC)
+:978   MCAPT = MCAPT + (... - ESSCPT - ICAPT - QCAPT + CST2 * SUM2 / TSE) / KSP(NC)
+:981   MCAPC = MCAPC + (VCAP * (...) - ESSCPC - ICAPC - QCAPC + CST2 * SUM3) / KSP(NC)
 ```
 
-`MCAP`, `MCAPT` and `MCAPC` go straight into `SLT` (`:1018`) and `ELT`
-(`:1015`) for the top cell, so these are live terms in the solved system on
+`MCAP`, `MCAPT` and `MCAPC` go straight into `SLT` (`:1004`) and `ELT`
+(`:1001`) for the top cell, so these are live terms in the solved system on
 every column on every timestep.
 
 The name and the `colm_cc.f90` comment identify them as the top-cell
@@ -186,7 +186,7 @@ modelled. Both are honest; the present state is neither.
 
 ### 1.3 `COLMSM` and `LINKSM` age their history arrays inside the contaminant loop
 
-`COLMSM`'s `ret_setup_loop` (`:1261-1269`) is **inside** `cont_loop`:
+`COLMSM`'s `ret_setup_loop` (`:1245-1253`) is **inside** `cont_loop`:
 
 ```fortran
 FBO(JSED)         = FBETAO(NCL, JSED)   ! old
@@ -199,7 +199,7 @@ FDELO(NCL, JSED)  = FDL(JSED)
 
 After the pass for contaminant 1, `FBETAO(NCL,:) == FBETA(NCL,:)`. Contaminants
 2..`NCON` therefore read `FBO == FB` and `FDLO == FDL`, and the two `RET` calls
-at `:1272` and `:1276` compute
+at `:1256` and `:1260` compute
 
 ```
 RT = (SUMN/TH - SUMO/THO)/DT
@@ -207,10 +207,10 @@ RT = (SUMN/TH - SUMO/THO)/DT
 
 with `SUMN == SUMO`. **Contaminant 1 sees the sediment-composition change over
 the timestep; contaminants 2 and 3 see none.** `RRRLST` and `RRRSWT` feed
-`RRRSAT` and thence `MCAPT` in `COLM:869` and `:992`, so this is a difference
+`RRRSAT` and thence `MCAPT` in `COLM:855` and `:978`, so this is a difference
 in the solved equation, not in a diagnostic.
 
-`LINKSM:2080-2092` has the identical defect for `FBBEDO`, `FDELO` and
+`LINKSM:2056-2068` has the identical defect for `FBBEDO`, `FDELO` and
 `FBTSDO`.
 
 The shift must be hoisted out of `cont_loop` — read the old values once before
@@ -218,7 +218,7 @@ the loop, write the new values once after it.
 
 ### 1.4 `COLMSM` ages the rainfall and dry-deposition history inside the element sweep
 
-`:1285-1286` and `:1301`:
+`:1269-1270` and `:1285`:
 
 ```fortran
 ICAP          = -Z2OD * IIICFO(NCONT)
@@ -234,7 +234,7 @@ the already-shifted value. So element 1 uses the previous timestep's rate and
 elements 2..N use the current one.
 
 Today this is benign in effect: `CCAPI` and `IIICF` are written only by `CMRD`
-(`:401`, `:479`) and are seeded into `CCAPIO`/`IIICFO` by `FRmod:4563-4564`, so
+(`:396`, `:474`) and are seeded into `CCAPIO`/`IIICFO` by `FRmod:4731-4732`, so
 after the first timestep old == new and the distinction vanishes. It is
 nevertheless a per-element loop mutating per-contaminant global state, it makes
 the first timestep order-dependent, and it silently blocks any future change
@@ -250,8 +250,8 @@ that makes rainfall concentration time-varying — which is exactly what the
 DOUBLEPRECISION PDZF3 (NELEE, NPELEE, LLEE)
 ```
 
-with `NPELEE = 2` (`sglobal.f90:133`) and `LLEE = 50` (`:119`). Both the
-producer (`FRmod:5511`) and the consumer (`PLCOLM:2839`, `:2862`) index it as
+with `NPELEE = 2` (`sglobal.f90:137`) and `LLEE = 50` (`:123`). Both the
+producer (`FRmod:5748`) and the consumer (`PLCOLM:2807`, `:2830`) index it as
 
 ```fortran
 PDZF3(NCL, NCE, JPLANT)
@@ -265,16 +265,16 @@ enough that no access leaves it, so the effect is aliasing rather than
 corruption. In column-major order the linear offset is
 `(NCE-1) + NPELEE*(JPLANT-1)` in units of `NELEE`:
 
-| Slot | Offsets written by `FRmod:5511` (`NCE = 2..NCETOP`) |
+| Slot | Offsets written by `FRmod:5748` (`NCE = 2..NCETOP`) |
 |---|---|
 | `JPLANT = 1` | 1 .. `NCETOP-1` |
 | `JPLANT = 2` | 3 .. `NCETOP+1` |
 
-Offsets 3..`NCETOP-1` are written twice. Since `FRmod:5493-5495` sets
+Offsets 3..`NCETOP-1` are written twice. Since `FRmod:5730-5732` sets
 `NPL(NCL) = 2` and plant slot 2 is written last, **plant slot 1's root
 distribution for cells 4..`NCETOP` is overwritten by plant slot 2's**. When the
 two slots have different `NPLTYP`, and therefore different `RDF`, the uptake in
-`PLCOLM:2839` is wrong for one of them.
+`PLCOLM:2807` is wrong for one of them.
 
 `-fcheck=bounds` traps this immediately. The fix is to declare
 `PDZF3(NELEE, LLEE, NPELEE)`; no use site changes.
@@ -284,15 +284,15 @@ still be fixed before the plant path is re-enabled.
 
 ### 1.6 `COLMSM`'s `CDUM` is an implicitly-`SAVE`d local written for every column
 
-`:1133`:
+`:1117`:
 
 ```fortran
 DOUBLE PRECISION :: CDUM = 0.0D0
 ```
 
 A declaration initialiser gives a local the `SAVE` attribute. `CDUM` is
-assigned only inside `IF (ISBK)` (`:1326`), but is *stored unconditionally* at
-`:1409-1410`:
+assigned only inside `IF (ISBK)` (`:1310`), but is *stored unconditionally* at
+`:1393-1394`:
 
 ```fortran
 CCCCO(NCL, 1, NCONT) = CDUM
@@ -303,41 +303,41 @@ For an ordinary land column, `CDUM` holds whatever the last **bank** column
 processed left there — a value belonging to a different element and, because
 `CDUM` is not subscripted by contaminant, to a different contaminant as well.
 Cell 1 of `CCCCO` is the designated slot for "effective concentration in the
-flow entering the stream via the bed" and is read back by `LINKSM:1947` as
+flow entering the stream via the bed" and is read back by `LINKSM:1923` as
 `CCCCO(NBK(JBK),1,NCONT)`. That read is guarded to bank elements, so the
 garbage written into land columns is not consumed — but nothing enforces that,
-and `CMSIM:748` will overwrite the slot for any element whose
+and `CMSIM:736` will overwrite the slot for any element whose
 `NLYRBT(NELM,1)` is 1.
 
 Two smaller points in the same three lines:
 
-- The write to `CCCC` at `:1410` is **dead**: `save_conc_loop` at `:1413`
+- The write to `CCCC` at `:1394` is **dead**: `save_conc_loop` at `:1397`
   immediately overwrites `CCCC(NCL,1,NCONT)` with `MAX(1.0D-16, CCAP(1))`.
 - Because the write happens inside `cont_loop`, a land column stores the same
   stale `CDUM` into all `NCON` contaminant slices.
 
-Guard the block with `IF (ISBK)` and delete `:1410`.
+Guard the block with `IF (ISBK)` and delete `:1394`.
 
 ### 1.7 Three control flags are never assigned
 
 `IS_CC` declares `ISADNL`, `ISFLXB` and `ISPLT` (`is_cc.f90:3,5,6`). A grep
 over `src/` finds **no assignment to any of them**: the only writes are
-`CMRD:253` and `CMRD:305`, which target *local* declarations (`:221-222`) that
+`CMRD:252` and `CMRD:302`, which target *local* declarations (`:221-222`) that
 shadow the module flags.
 
 These are not cosmetic. Each selects a different set of equations:
 
 | Flag | Read at | What it selects |
 |---|---|---|
-| `ISFLXB` | `COLM:1023`, `COLMSM:1241` | Flux vs. prescribed-concentration lower boundary — a *different bottom equation* |
-| `ISADNL` | `SLVCLM:2931`, `COLMSM:1272,1276,1421`, `LINKSM` (12 `FRET`/`RET` calls) | Linear vs. Freundlich adsorption, and whether `SLVCLM` runs its 10 Picard iterations at all |
-| `ISPLT` | `CMSIM:719`, `COLMSM:1341` | Whether the plant-uptake path runs |
+| `ISFLXB` | `COLM:1009`, `COLMSM:1225` | Flux vs. prescribed-concentration lower boundary — a *different bottom equation* |
+| `ISADNL` | `SLVCLM:2897`, `COLMSM:1256,1260,1405`, `LINKSM` (12 `FRET`/`RET` calls) | Linear vs. Freundlich adsorption, and whether `SLVCLM` runs its 10 Picard iterations at all |
+| `ISPLT` | `CMSIM:707`, `COLMSM:1325` | Whether the plant-uptake path runs |
 
 All three are static module storage, so gfortran and ifx will in practice zero
 them at load and every run takes the `.FALSE.` branch — which happens to be the
 common configuration. Nothing in the language guarantees it, and the `CM5` and
 `CM13` records the manual documents have **no effect whatsoever** today. The
-module header records this at `:38-43` and `:1087-1090`; it is repeated here
+module header records this at `:38-43` and `:1071-1074`; it is repeated here
 because it is a precondition for reasoning about anything in Parts 3 and 4.
 
 Fix: delete the local declarations in `CMRD` and let the assignments reach the
@@ -349,7 +349,7 @@ All are `ISPLT`-gated and therefore dormant, but they should be settled with
 1.5 and 1.7 rather than after them.
 
 **`FLEFT` is never assigned.** `plant_cc.f90:90` declares it "currently
-uninitialized"; the sole reader is `PLPREP:3379`:
+uninitialized"; the sole reader is `PLPREP:3335`:
 
 ```fortran
 IF (NOTZERO(PFTWO(JPLTY))) THEN
@@ -362,36 +362,36 @@ END IF
 `DELFOU` is `1.0` by declaration initialiser (`plant_cc.f90:88`), so `PLPREP`
 *downgrades* it to an undefined value the moment a canopy disappears —
 i.e. exactly when the residual-fraction path matters. `DELFOU` then scales the
-compartment-B recycling term in `PLCOLM:2861`.
+compartment-B recycling term in `PLCOLM:2829`.
 
-**`NRBOT` has no lower bound.** `PLCOLM:2813`:
+**`NRBOT` has no lower bound.** `PLCOLM:2781`:
 
 ```fortran
 NRBOT = NCETOP - NRD(JPLTY)
 ```
 
-`NRD` is the root-zone cell count by vegetation type (`AL_C.F90:127`) and is
+`NRD` is the root-zone cell count by vegetation type (`AL_C.F90:132`) and is
 read from input. If `NRD(JPLTY) >= NCETOP`, `NRBOT <= 0` and
-`rooted_cell_loop` (`:2834`) reads `PPHI(0)`, `COLCAP(0)`, `KSP(0)` and
-`PDZF3(NCL,0,JPLANT)`. `ETmod:492` and `SMmod:644` use the same `NRD` without
+`rooted_cell_loop` (`:2802`) reads `PPHI(0)`, `COLCAP(0)`, `KSP(0)` and
+`PDZF3(NCL,0,JPLANT)`. `ETmod:541` and `SMmod:656` use the same `NRD` without
 a bound either, so the constraint belongs upstream — but `MAX(1, ...)` here
 costs nothing.
 
-**Two unguarded denominators**, both recorded in the header at `:2756-2758`:
-`QDUM = SUM / (PMDUM * (GMCPAA + D3DUM*GMCPBB))` (`:2851`) and
-`F2DUM = PFTWO(JPLTY) / PF2MAX(JPLTY)` (`:2822`). `PMASS` and `PF2MAX` have no
+**Two unguarded denominators**, both recorded in the header at `:2724-2726`:
+`QDUM = SUM / (PMDUM * (GMCPAA + D3DUM*GMCPBB))` (`:2819`) and
+`F2DUM = PFTWO(JPLTY) / PF2MAX(JPLTY)` (`:2790`). `PMASS` and `PF2MAX` have no
 declaration initialiser and are set by `FRmod:INPL`; `PF2MAX` is also divided
-by at `FRmod:5516`.
+by at `FRmod:5753`.
 
 ### 1.9 `COLM` reads stale halo values and can divide 0/0
 
-`COLMW`'s `cell_loop` (`:1579`) sets `TTHET`, `PPHI` and friends only up to
-`NCETOP`. `COLM:842` reads `PPHI(NC+1)` and `TTHET(NC+1)` at `NC = NCETOP` —
+`COLMW`'s `cell_loop` (`:1559`) sets `TTHET`, `PPHI` and friends only up to
+`NCETOP`. `COLM:828` reads `PPHI(NC+1)` and `TTHET(NC+1)` at `NC = NCETOP` —
 values left over from the **previous column** in the sweep.
 
-Numerically this is neutralised today because `COLMSM:1168` sets
+Numerically this is neutralised today because `COLMSM:1152` sets
 `DDOD(NCETOP+1) = zero`, which zeroes the numerator of the harmonic mean at
-`:906-908`:
+`:892-894`:
 
 ```fortran
 OCAPP = two * PPHITH*DDOD(NC) * PPHTHP*DDOD(NC+1) * KSP(NC)*KSP(NC+1) /   &
@@ -405,15 +405,15 @@ of cells both at zero water content. There is no guard, and no `NOTZERO` test,
 on either `OCAPP` or `OCAPP1`.
 
 Two further unguarded divisions in the same loop body: `FCAPC` divides by
-`COLCAP(NC)` (`:882`) and `GCAPS` by `SOLCAP(NC)` (`:892`). Those are safe only
-because of the `MAX(1.0D-16, ...)` floor at `:1415-1416` — which is itself
+`COLCAP(NC)` (`:868`) and `GCAPS` by `SOLCAP(NC)` (`:878`). Those are safe only
+because of the `MAX(1.0D-16, ...)` floor at `:1399-1400` — which is itself
 flagged "temporary" in the source and is a mass-balance defect in its own
 right, since it silently creates contaminant whenever the solved concentration
 goes negative.
 
 ### 1.10 `COLMW`'s `find_jal` is an unbounded search
 
-`:1534-1538`:
+`:1514-1518`:
 
 ```fortran
 JAL = 0
@@ -428,26 +428,26 @@ END DO find_jal
 `ICMREF(NLINKA, 5:8)` — a bank whose link's neighbour list is inconsistent —
 the loop walks column 9, 10, 11, 12 and then off the end of the array, reading
 whatever follows `ICMREF` in memory until it happens to match `NCL` or the
-process faults. `JFLINK = ICMREF(NLINKA, JAL+8)` at `:1540` then reads further
+process faults. `JFLINK = ICMREF(NLINKA, JAL+8)` at `:1520` then reads further
 out still.
 
-`DO JAL = 1, 4 ... END DO` followed by an `ERROR` call costs nothing and turns
+`DO JAL = 1, 4 ... END DO` followed by a `RAISE_ERROR` call costs nothing and turns
 a silent walk-off into a diagnostic.
 
 ### 1.11 The module writes index `NCETOP+1` into `LLEE`-sized arrays
 
-`VSmod`'s documented precondition is `LL <= LLEE` (`VSmod.f90:4168`), i.e.
+`VSmod`'s documented precondition is `LL <= LLEE` (`VSmod.f90:4207`), i.e.
 `top_cell_no` may legitimately equal `LLEE = 50`. `CMmod` requires
 `top_cell_no <= LLEE - 1`:
 
 | Site | Access | Array extent |
 |---|---|---|
-| `COLMW:1622` | `KSP(NCETOP + 1)` | `KSP(LLEE)` `colm_c2.f90` |
-| `COLMSM:1151` | `COLCAP(NCETOP+1)`, `SOLCAP(NCETOP+1)` | `(LLEE)` `colm_cc.f90` |
-| `COLMSM:1168-1169` | `DDOD(NCETOP+1)`, `DDOD1(NCETOP+1)` | `(LLEE)` |
-| `COLMSM:1206` | `CCAPA(NCEPSF+1, JA)`, `CCAPAT(...)` | `(LLEE,4)` |
-| `COLMW:1709-1711` | `QQ(NCETOP+1,JA)`, `QQ1(...)`, `DUMMY(NCETOP+1)` | `(LLEE,4)` |
-| `COLM:842` | `PPHI(NC+1)`, `TTHET(NC+1)` at `NC = NCETOP` | `(LLEE)` |
+| `COLMW:1602` | `KSP(NCETOP + 1)` | `KSP(LLEE)` `colm_c2.f90` |
+| `COLMSM:1135` | `COLCAP(NCETOP+1)`, `SOLCAP(NCETOP+1)` | `(LLEE)` `colm_cc.f90` |
+| `COLMSM:1152-1153` | `DDOD(NCETOP+1)`, `DDOD1(NCETOP+1)` | `(LLEE)` |
+| `COLMSM:1190` | `CCAPA(NCEPSF+1, JA)`, `CCAPAT(...)` | `(LLEE,4)` |
+| `COLMW:1689-1691` | `QQ(NCETOP+1,JA)`, `QQ1(...)`, `DUMMY(NCETOP+1)` | `(LLEE,4)` |
+| `COLM:828` | `PPHI(NC+1)`, `TTHET(NC+1)` at `NC = NCETOP` | `(LLEE)` |
 
 Either the shared precondition should be tightened to `top_cell_no <= LLEE-1`
 and enforced where `top_cell_no` is established, or these arrays should be
@@ -456,35 +456,35 @@ validate any other change in this module on a 50-cell configuration.
 
 ### 1.12 The link path indexes element 0 when a link has no bank
 
-`LINKW:2285-2286` sets `NBK(JBK) = NBANK(NLINK, JBK)`. `NBANK` is written only
-at `FRmod:4423`, inside `IF (ITYPEA == 1 .OR. ITYPEA == 2)` — i.e. only where
+`LINKW:2259-2260` sets `NBK(JBK) = NBANK(NLINK, JBK)`. `NBANK` is written only
+at `FRmod:4591`, inside `IF (ITYPEA == 1 .OR. ITYPEA == 2)` — i.e. only where
 an adjacent element actually is a bank, which requires `BEXBK`
-(`FRmod:682`). `NBANK` is a plain module array (`bk_cw.f90:36`) with no
+(`FRmod:683`). `NBANK` is a plain module array (`bk_cw.f90:36`) with no
 initialiser, so for a link with no bank it holds 0.
 
-Nothing in `CMmod` tests that. `LINKSM:1947` then evaluates
+Nothing in `CMmod` tests that. `LINKSM:1923` then evaluates
 
 ```fortran
 CCPBK(JBK, 1) = CCCCO(NBK(JBK), 1, NCONT)
 ```
 
 with `NBK = 0`, reading before the start of an allocatable whose lower bound is
-1. `LINKSM:1952-1953`, `LINKW:2437` (`QVSH(JFDUMB, NCE, NBK(JBK))`),
-`LINKW:2445` (`NVC(NBK(JBK))`), `LINKW:2450`, `:2464`, `:2469` and
-`LINK:2563` all do the same.
+1. `LINKSM:1928-1929`, `LINKW:2411` (`QVSH(JFDUMB, NCE, NBK(JBK))`),
+`LINKW:2419` (`NVC(NBK(JBK))`), `LINKW:2424`, `:2438`, `:2443` and
+`LINK:2535` all do the same.
 
-`LINKW:2433` has the matching problem on the face index: `JFDUMB =
+`LINKW:2407` has the matching problem on the face index: `JFDUMB =
 ICMREF(NLINK, JFDUM+8)` is 0 for an external face, and `QVSH(0, NCE, ...)` at
-`:2437` is out of range in the first subscript.
+`:2411` is out of range in the first subscript.
 
 "Contaminant transport requires `BEXBK`" may well be the intended contract, but
 it is not stated in the module header and not checked anywhere. One test in
-`LINKW`, calling `ERROR`, closes all seven sites.
+`LINKW`, calling `RAISE_ERROR`, closes all seven sites.
 
 ### 1.13 `LINKW` integrates both banks from bank 2's base cell
 
-`:2446` sets `NDUM = NCEBD(NLINK, JBK) + 1` inside `banks_loop`. After the loop
-`NDUM` holds bank **2**'s value. `bed_cells_loop` (`:2460`) then starts *both*
+`:2420` sets `NDUM = NCEBD(NLINK, JBK) + 1` inside `banks_loop`. After the loop
+`NDUM` holds bank **2**'s value. `bed_cells_loop` (`:2434`) then starts *both*
 banks from it:
 
 ```fortran
@@ -494,20 +494,20 @@ bed_cells_loop: DO JBK = 1, 2
 ```
 
 When `NCEBD(NLINK,1) /= NCEBD(NLINK,2)`, bank 1 is integrated from the wrong
-cell, and — because `kspbk_loop` (`:2449`) only fills `KSPBK(JBK, NCE)` for
+cell, and — because `kspbk_loop` (`:2423`) only fills `KSPBK(JBK, NCE)` for
 `NCE >= NCEBD(NLINK,JBK)+1` — it may read a `KSPBK(1, ·)` entry left over from
-the previous link. The result is `THBED(NLINK)` (`:2479`), the bed moisture
+the previous link. The result is `THBED(NLINK)` (`:2453`), the bed moisture
 content passed to four `FRET` calls in `LINKSM`.
 
-The header records this at `:2204-2208`. The fix is to recompute
+The header records this at `:2178-2182`. The fix is to recompute
 `NDUM = NCEBD(NLINK, JBK) + 1` inside `bed_cells_loop`.
 
-`:2479` also divides `SUM / SUMK` with no zero guard; `SUMK` is zero whenever
+`:2453` also divides `SUM / SUMK` with no zero guard; `SUMK` is zero whenever
 both banks have `FNCEBD == 1` and `NHBED < NDUM`.
 
 ### 1.14 `LINKSM`'s `FCPSW1` indexes a cell array with a contaminant number
 
-`:2116-2117`:
+`:2092-2093`:
 
 ```fortran
 FCPSW1(JBK) = RSW(NA, NCONT) + RSWT(NA, NCONT) * TSE + &
@@ -520,89 +520,89 @@ subtraction is plainly meant to be `CCPBK(JBK, NCETOP)`. With `NCONT <= 3` the
 access is in range but selects cell 1, 2 or 3 — for cell 1 that is the
 bank-inflow slot from 1.6, not a concentration at all.
 
-`FCPSW1` feeds `DUMP7` in `LINK:2645` and thence the stream-water right-hand
-side. The header records the defect at `:1896-1899` as retained behaviour.
+`FCPSW1` feeds `DUMP7` in `LINK:2617` and thence the stream-water right-hand
+side. The header records the defect at `:1872-1875` as retained behaviour.
 
 ### 1.15 `LINKSM` reads `NWELL` and `QQQDUM` before they are defined
 
-`:2005-2006`:
+`:1981-1982`:
 
 ```fortran
 QCDUM = (QQQSL1 - QQQDUM) * CCAPI(NCONT)
 IF (NWELL /= 0) QCDUM = QCDUM + QQQDUM * CCCCW(NWELL, NCONT)
 ```
 
-`NWELL` and `QQQDUM` are module variables (`:90`, `:92`) that `LINKW`
-**redeclares as locals** (`:2237-2238`) and assigns at `:2418-2423`. The module
+`NWELL` and `QQQDUM` are module variables (`:93`, `:95`) that `LINKW`
+**redeclares as locals** (`:2211-2212`) and assigns at `:2392-2397`. The module
 versions are never written. `QQQSL1` is *not* shadowed, so that one arrives
 correctly.
 
 In practice static zeroing makes `QQQDUM = 0` and `NWELL = 0`, which reduces
-the expression to the commented-out legacy line at `:2009`
+the expression to the commented-out legacy line at `:1985`
 (`QCP1 = QQQSL1*CCAPI/(D0*Z2*KS)`). The irrigation hand-off the code was
 written for therefore never happens. Deleting the two local declarations in
 `LINKW` fixes it — and **changes results** on any model with a link-targeted
-well. Recorded in the header at `:46-49` and `:1890-1894`.
+well. Recorded in the header at `:46-49` and `:1866-1870`.
 
 ### 1.16 `CMRD` does not validate `NCOLMB`
 
-`:295`:
+`:293`:
 
 ```fortran
 NCOLMB (IEL) = IDUM (INDX + 1)
 ```
 
-The element index `IEL` is checked (`:291`); the cell number is not. `NCOLMB`
-becomes `NCEBOT` in `COLMW:1515`, and the solver requires `2 <= NCEBOT <=
+The element index `IEL` is checked (`:289`); the cell number is not. `NCOLMB`
+becomes `NCEBOT` in `COLMW:1495`, and the solver requires `2 <= NCEBOT <=
 NCETOP`:
 
-- `COLMW:1624` writes `KSPP(NCEBOT - 1)`;
-- `COLM:927-928` reads `KSPP(NC-1)` and `:954` reads `COLCAP(NC-1)` at
+- `COLMW:1604` writes `KSPP(NCEBOT - 1)`;
+- `COLM:913-914` reads `KSPP(NC-1)` and `:940` reads `COLCAP(NC-1)` at
   `NC = NCEBOT`;
-- `COLMSM:1151` reads `CCCCO(NCL, NCEBOT-1, NCONT)`.
+- `COLMSM:1135` reads `CCCCO(NCL, NCEBOT-1, NCONT)`.
 
 `NCOLMB = 1` gives index 0 in four `LLEE` arrays; `NCOLMB = 0` or a negative
 value gives worse. A value above `NCETOP` makes `main_loop` a zero-trip loop
 and leaves `MCAP`, `FCAP`, `GCAP`, `HLT`, `DUMMY` and `PCAPM` undefined when
-`COLM:986` reads them.
+`COLM:972` reads them.
 
-The default path is safe (`NCED == -1` selects `NLYRBE`, `:281`); only the
+The default path is safe (`NCED == -1` selects `NLYRBE`, `:279`); only the
 `CM11` exception list is unchecked. `IF (NCOLMB(IEL) < 2 .OR. NCOLMB(IEL) >
-top_cell_no)` with an `ERROR` call is one line.
+top_cell_no)` with a `RAISE_ERROR` call is one line.
 
 Three related gaps in the same routine, all cheap to close:
 
-- `NCON` (`:249`) is never checked against `NCONEE`. It is caught indirectly by
-  the epilogue test at `:596` (`NCONCM < NCON` must fail if `NCON > 3`), but
+- `NCON` (`:248`) is never checked against `NCONEE`. It is caught indirectly by
+  the epilogue test at `:587` (`NCONCM < NCON` must fail if `NCON > 3`), but
   only after the whole file has been read.
 - `NUM_CATEGORIES_TYPES`, `NTAB`, `TABLE_*` and `ISCNSV` are `INTENT(OUT)` and
   are assigned only for `I = 1..NCONCM` and only inside `IF (ISCNSV(I))`. The
   remaining elements are undefined on return.
-- The `:CM11` workspace check at `:270` tests `NREQ > NELEE`, but the data is
+- The `:CM11` workspace check at `:268` tests `NREQ > NELEE`, but the data is
   read into `IDUM`, which is `(NXEE*NYEE)` = 10⁶. The check is conservative,
   and therefore safe, but it names the wrong array. The `:CM31`/`:CM37` checks
-  (`:411`, `:453`) do target `DUMMY(NELEE)` correctly.
+  (`:406`, `:448`) do target `DUMMY(NELEE)` correctly.
 
 ### 1.17 The whole sweep is order-dependent, and the order changes every timestep
 
 This is design, not defect, but it constrains everything else so it is worth
 stating precisely.
 
-`update_loop` (`:723`) walks `ISORT`, and `run_sim:294` calls `FRSORT`
+`update_loop` (`:711`) walks `ISORT`, and `run_sim:304` calls `FRSORT`
 unconditionally on **every** timestep, so `ISORT` is a fresh permutation each
 step. Within the sweep, elements read each other's **new** values:
 
 | Site | Reads | Of |
 |---|---|---|
-| `COLMSM:1196` | `CCCC(NWORK(JA), NCETOP, NCONT)` | a neighbouring column |
-| `COLMSM:1227` | `CCCC(NLINKA, NCETOP, NCONT)` | the adjacent link |
-| `COLMSM:1319` | `CCCC(NLINKA, NCETOP-2, NCONT)` | the adjacent link's deep bed |
-| `LINKSM:1956` | `CCCC(NBK(JBK), NCETOP, NCONT)` | an adjacent bank |
-| `LINKSM:1976` | `CCCC(LA, NCETOP, NCONT)` | an adjacent link |
-| `LINKSM:2117` | `CCCC(NA, NCETOP, NCONT)` | an adjacent bank |
+| `COLMSM:1180` | `CCCC(NWORK(JA), NCETOP, NCONT)` | a neighbouring column |
+| `COLMSM:1211` | `CCCC(NLINKA, NCETOP, NCONT)` | the adjacent link |
+| `COLMSM:1303` | `CCCC(NLINKA, NCETOP-2, NCONT)` | the adjacent link's deep bed |
+| `LINKSM:1932` | `CCCC(NBK(JBK), NCETOP, NCONT)` | an adjacent bank |
+| `LINKSM:1952` | `CCCC(LA, NCETOP, NCONT)` | an adjacent link |
+| `LINKSM:2093` | `CCCC(NA, NCETOP, NCONT)` | an adjacent bank |
 
 Each is paired with the corresponding `CCCCO` read to form a *time derivative*
-(`CSWAT` at `:1196`, `FCSFA1` at `:1977`). For a neighbour not yet processed,
+(`CSWAT` at `:1180`, `FCSFA1` at `:1953`). For a neighbour not yet processed,
 `CCCC == CCCCO` and the derivative is zero; for one already processed it is the
 real change. This is Gauss–Seidel on an arbitrary, timestep-varying ordering.
 
@@ -631,18 +631,18 @@ layout:
 
 | Array | Declaration | Inner-loop stride |
 |---|---|---|
-| `CCCC`, `CCCCO`, `SSSS`, `SSSSO` | `(total_no_elements, top_cell_no+1, NCON)` `CONT_CC.F90:44-47` | `nel` doubles |
+| `CCCC`, `CCCCO`, `SSSS`, `SSSSO` | `(total_no_elements, top_cell_no+1, NCON)` `CONT_CC.F90:46-49` | `nel` doubles |
 | `SSS1`, `SSS2` | same | `nel` doubles |
 | `QQO` | `(total_no_elements, top_cell_no+1, 4)` `colm_co.f90` | `nel` doubles |
 | `UUAJPO`, `VSTHEO`, `GGAMMO` | `(total_no_elements, top_cell_no+1)` | `nel` doubles |
-| `ERUZ` | `(total_no_elements, top_cell_no)` `AL_C.F90:159` | `nel` doubles |
+| `ERUZ` | `(total_no_elements, top_cell_no)` `AL_C.F90:164` | `nel` doubles |
 | `FCPBKO`, `GCPBKO` | `(total_no_links, 2, top_cell_no+1, NCON)` | `2·nlf` doubles |
 
 Everything arriving from VS is the other way round and is read correctly:
 `VSTHE(NCE,NCL)`, `QVSV(NCE,NCL)`, `DELTAZ(NCE,NCL)`, `ZVSNOD(NCE,NCL)` are all
 `(cell, element)` and unit-stride.
 
-`COLMW`'s `cell_loop` (`:1579-1618`) mixes both conventions in one body:
+`COLMW`'s `cell_loop` (`:1559-1598`) mixes both conventions in one body:
 
 ```fortran
 KSP(NCE)    = DELTAZ(NCE, NCL) / Z2       ! unit stride
@@ -682,7 +682,7 @@ because CM owns them; this is where that decision has to be made.
 
 ### 2.2 `CMSIM`'s save sweep is the single worst-ordered loop in the module
 
-`:736-754`:
+`:724-742`:
 
 ```fortran
 contaminant_loop: DO NCONT = 1, NCON
@@ -707,7 +707,7 @@ stride `nel · 8` bytes — four cache lines pulled, four doubles used.
 
 For an illustrative 5 000-element, 25-cell, 3-contaminant model that is
 `3 × 5000 × 25 × 4 = 1.5 M` cache lines (96 MB of line traffic) to move 3 MB of
-data, every timestep. The comment at `:735` ("High-Performance Fix … vectorized
+data, every timestep. The comment at `:723` ("High-Performance Fix … vectorized
 array slices") describes a change that made the loop *look* tidier without
 changing its access pattern.
 
@@ -733,11 +733,11 @@ Two independent fixes, both available today:
 
 Two further points in the same loop:
 
-- `RSZWLO(NELM) = QVSWEL(NELM)` (`:746`) is inside `contaminant_loop` and is
+- `RSZWLO(NELM) = QVSWEL(NELM)` (`:734`) is inside `contaminant_loop` and is
   independent of `NCONT`. It executes `NCON` times per element with the same
-  value. The header records this at `:640-642`. Hoist it into its own loop —
+  value. The header records this at `:628-630`. Hoist it into its own loop —
   or, better, one whole-array assignment.
-- The save range is `NLYRBT(NELM,1)..NCETOP`, but `COLMSM:1151` *consumes*
+- The save range is `NLYRBT(NELM,1)..NCETOP`, but `COLMSM:1135` *consumes*
   `CCCCO` from `NCEBOT-1 = NCOLMB(NELM)-1`. Where `CM11` sets `NCOLMB` below
   `NLYRBT(:,1)`, cells `NCOLMB..NLYRBT-1` of `CCCCO` are never refreshed and
   the solver reads values frozen at initialisation. The two ranges should be
@@ -745,25 +745,25 @@ Two further points in the same loop:
 
 ### 2.3 `ERUZ` is the one shared ET/VSS array that is element-major, and `COLMW` gathers a whole column from it
 
-`:1572`:
+`:1552`:
 
 ```fortran
 TRAN1(NAQU : NCETOP) = ERUZ(NCL, NAQU : NCETOP)
 ```
 
-`ERUZ` is `(total_no_elements, top_cell_no)` (`AL_C.F90:159`, allocated at
-`:189`) while every other VS array in the same routine is `(cell, element)`.
+`ERUZ` is `(total_no_elements, top_cell_no)` (`AL_C.F90:164`, allocated at
+`:225`) while every other VS array in the same routine is `(cell, element)`.
 This one line is a `ncells`-long strided gather per column per timestep — about
 25 cache lines to deliver 200 bytes.
 
-`TRAN1` is then read at `:1615` and `:1815`. `ERUZ`'s producer is `ETmod`;
+`TRAN1` is then read at `:1595` and `:1795`. `ERUZ`'s producer is `ETmod`;
 transposing it is a cross-component change and belongs with 2.1, not before it.
 
 ### 2.4 `AL_C::DUMMY` — a 2 MB shared input workspace — is used as per-column solver scratch
 
-`COLMW:1711` and `COLMSM:1304-1306, 1322, 1378` index `DUMMY(NCE)` for
+`COLMW:1691` and `COLMSM:1288-1290, 1306, 1362` index `DUMMY(NCE)` for
 `NCE = NCEBOT-1 .. NCETOP+1`. There is no local declaration; this is
-`AL_C.F90:143`:
+`AL_C.F90:148`:
 
 ```fortran
 DOUBLEPRECISION, DIMENSION(NELEE) :: DUMMY  !! Floating-point workspace for spatial input and validation.
@@ -773,13 +773,13 @@ Three problems:
 
 - It is 2 MB of permanently resident static storage of which this module uses
   the first ~50 doubles.
-- It is the same array `run_sim:308` hands to `SYMAIN` as scratch on the same
+- It is the same array `run_sim:316` hands to `SYMAIN` as scratch on the same
   timestep, and the same array `CMRD` receives as its `DUMMY` argument. Nothing
   documents that CM may clobber it mid-timestep. It happens to be safe because
   `SYMAIN` runs to completion before `CMSIM` starts and CM re-zeroes what it
   uses, but the coupling is invisible and one reordering away from a bug.
-- `COLM:822` declares a **local scalar** also called `DUMMY`, shadowing the
-  array within that one routine. Three distinct `DUMMY`s in one 3 386-line
+- `COLM:808` declares a **local scalar** also called `DUMMY`, shadowing the
+  array within that one routine. Three distinct `DUMMY`s in one 3 342-line
   module.
 
 A local `DOUBLE PRECISION :: SRC(LLEE)` in `COLMSM` — 400 bytes — replaces the
@@ -795,7 +795,7 @@ Sizes at compile-time capacity (`NELEE = 250000`, `NLFEE = 20000`,
 | `PDZF3` | `(NELEE,NPELEE,LLEE)` `plant_cc.f90:104` | **200 MB** | live only when `ISPLT` (never — 1.7) |
 | `QQRVO` | `(NLFEE,LLEE,2)` `bk_cw.f90:40` | 16 MB | **zero references outside its declaration** |
 | `BCPAA`, `BCPBB` | `(NELEE,NPELEE,NCONEE)` | 12 MB each | live only when `ISPLT` |
-| `CCPBO`, `CCAPRO` | `(NELEE,NCONEE)` `CONT_CC.F90:33,38` | 6 MB each | **zero references** |
+| `CCPBO`, `CCAPRO` | `(NELEE,NCONEE)` `CONT_CC.F90:36,41` | 6 MB each | **zero references** |
 | `CCAPB`, `CCAPE`, `CCAPR`, `CCCCW` | `(NELEE,NCONEE)` | 6 MB each | live |
 | `RSW`, `RSWC`, `RSWT` | `(NELEE,NCONEE)` | 6 MB each | live |
 | `GMCBBO`, `PFONE` | `(NELEE,NPELEE)` | 4 MB each | `ISPLT` only |
@@ -825,8 +825,8 @@ arrays (500 B), `TRIDAG`'s automatic `GAM(N)`. None warrants attention.
 ### 2.6 `CCAPA` is indexed cell-outer in `COLM` and face-outer in `COLMSM`
 
 `CCAPA`/`CCAPAT` are `(LLEE,4)` (`colm_cc.f90`). `COLMSM`'s `face_loop`
-(`:1171`) is face-outer, cell-inner — unit stride, correct. `COLM`'s
-`main_loop`/`face_loop` (`:836`/`:855`) is cell-outer, face-inner, so the four
+(`:1155`) is face-outer, cell-inner — unit stride, correct. `COLM`'s
+`main_loop`/`face_loop` (`:822`/`:841`) is cell-outer, face-inner, so the four
 faces of one cell are 400 bytes apart.
 
 That gives `COLM`'s inner body sixteen concurrent 8-byte-per-outer-iteration
@@ -841,7 +841,7 @@ Modest, and much less important than 2.1.
 
 ### 3.1 `COLMSM`'s `disp_loop` recomputes six per-cell arrays that are almost all constant
 
-`:1159-1166`, executed per cell, per contaminant, per element, per timestep:
+`:1143-1150`, executed per cell, per contaminant, per element, per timestep:
 
 ```fortran
 DDOD(NCE)   = OODO * DISP(NCONT, JSOL(NCE), TTHET(NCE),  UUAJP(NCE-1),  UUAJP(NCE))
@@ -852,27 +852,27 @@ GGNNSO(NCE) = GNN(NCONT)
 KKDSO(NCE)  = KDDSOL(JSOL(NCE), NCONT)
 ```
 
-`DISP` (`:1843`) ignores all five arguments and returns `3.0D-8`. So `DDOD` and
+`DISP` (`:1821`) ignores all five arguments and returns `3.0D-8`. So `DDOD` and
 `DDOD1` are the **same constant** `OODO * 3.0D-8` in every cell of every column
 for the whole run, and `GGNNSO` is `GNN(NCONT)` repeated `ncells` times. Of the
 six, only three genuinely vary, and those vary by *soil layer*, not by cell —
-`JSOL(NCE)` is constant within a layer (`COLMW:1580`).
+`JSOL(NCE)` is constant within a layer (`COLMW:1560`).
 
 `DISP` and `PHI` are `PURE` and module-contained, so a good compiler should
 inline and fold them; whether it also eliminates the dead `TTHET`/`UUAJP` loads
 is not something the source can guarantee, and `-O2` with
-`-fp-model=precise` / `-fno-fast-math` (`CMakeLists.txt:681,701`) is
+`-fp-model=precise` / `-fno-fast-math` (`CMakeLists.txt:819,839`) is
 conservative.
 
 This is the placeholder that `CM57`/`CM59`/`CM61` were meant to replace
-(`:114`, `:1840-1842`), so the loop should not simply be deleted. But
+(`:114`, `:1818-1820`), so the loop should not simply be deleted. But
 `GGNNSO(NCEBOT:NCETOP) = GNN(NCONT)` as one slice assignment, and hoisting the
 three table lookups to the layer loop, are both correct under the current *and*
 the intended `DISP`.
 
 ### 3.2 `COLMW`'s face loop zeroes arrays it immediately overwrites
 
-`:1708-1745`:
+`:1688-1725`:
 
 ```fortran
 main_face_loop: DO JA = 1, 4
@@ -888,13 +888,13 @@ main_face_loop: DO JA = 1, 4
 END DO
 ```
 
-- The `QQ`/`QQ1` zeroing covers `NCEBOT..NCETOP`, which the loop at `:1741`
+- The `QQ`/`QQ1` zeroing covers `NCEBOT..NCETOP`, which the loop at `:1721`
   then overwrites in full. Only the two halo entries `NCEBOT-1` and `NCETOP+1`
   survive — and `COLM` reads `QQ(NC,J)` only for `NC = NCEBOT..NCETOP`
-  (`:836`, `:855`), so **even the halo is never read**. All three slice
+  (`:822`, `:841`), so **even the halo is never read**. All three slice
   assignments are dead.
-- `DUMMY` is not read anywhere else in `COLMW`, and `COLMSM:1304` re-zeroes it
-  before use. `:1711` is dead, and it is executed four times.
+- `DUMMY` is not read anywhere else in `COLMW`, and `COLMSM:1288` re-zeroes it
+  before use. `:1691` is dead, and it is executed four times.
 
 That is `4 × 3 × (ncells+2)` stores per column per timestep for nothing —
 around 300 stores per column, or 1.5 M stores per timestep on a
@@ -903,7 +903,7 @@ around 300 stores per column, or 1.5 M stores per timestep on a
 ### 3.3 `LINK` computes the entire stream-water equation for dry links and discards it
 
 `LINK` builds all twenty coefficients unconditionally and only branches on
-wetness at the very end (`:2674`):
+wetness at the very end (`:2646`):
 
 ```fortran
 IF (USCP < HALF) THEN
@@ -919,22 +919,22 @@ Tracing their inputs, the following are dead whenever `USCP < HALF`:
 
 | Dead value | Produced at | Feeds only |
 |---|---|---|
-| `DUMA1`, `DUMA2` | `:2547-2548` | `ALT`, `ALTSTR`, `PLT` |
-| `DUMA5` (`SUM4`), `DUMP6` (`SUM5`), `DUMP5` (`SUM3`) | `:2570-2572` | `ALT`, `PLT` |
-| `DUMA6` | `:2573` | `ALT`, `ALTSTR`, `PLT` |
-| `DUMP1` | `:2615` | `PLT` |
-| `DUMP4` (`DSUM`) | `:2641` | `PLT` |
-| `DUMP7` | `:2647` | `PLT` |
+| `DUMA1`, `DUMA2` | `:2519-2520` | `ALT`, `ALTSTR`, `PLT` |
+| `DUMA5` (`SUM4`), `DUMP6` (`SUM5`), `DUMP5` (`SUM3`) | `:2542-2544` | `ALT`, `PLT` |
+| `DUMA6` | `:2545` | `ALT`, `ALTSTR`, `PLT` |
+| `DUMP1` | `:2587` | `PLT` |
+| `DUMP4` (`DSUM`) | `:2613` | `PLT` |
+| `DUMP7` | `:2619` | `PLT` |
 
 Because `SUM3`, `SUM4` and `SUM5` are all dead, **the whole `bank_loop`
-(`:2556-2568`) is dead work on a dry link** — two banks × up to `NCETOP-NCEBK+1`
+(`:2528-2540`) is dead work on a dry link** — two banks × up to `NCETOP-NCEBK+1`
 cells, reading six arrays (`PCPBK1`, `CCPBK`, `FCPBK`, `GCPBK`, `SCPBK`,
-`KSPBK`) per cell. So are `upstream_loop` (`:2623`), `downstream_loop`
-(`:2634`) and `bank_sum_loop` (`:2644`), together with the two divisions at
-`:2627` and `:2638`.
+`KSPBK`) per cell. So are `upstream_loop` (`:2595`), `downstream_loop`
+(`:2606`) and `bank_sum_loop` (`:2616`), together with the two divisions at
+`:2599` and `:2610`.
 
 Dry links are not an edge case — headwaters and ephemeral channels are dry for
-much of a run, and `LINKW:2266` sets `USCP = ZERO` whenever
+much of a run, and `LINKW:2240` sets `USCP = ZERO` whenever
 `ARXL(NLINK)/Z2SQ < 1.0D-20`.
 
 A compiler *could* sink these computations into the `ELSE` branch, since they
@@ -945,7 +945,7 @@ into `IF (USCP >= HALF)` makes it explicit and is bitwise-neutral.
 
 ### 3.4 `LINKW` loads `QDEFF` to multiply it by zero
 
-`:2379-2380`:
+`:2353-2354`:
 
 ```fortran
 DUM = ZERO
@@ -953,7 +953,7 @@ PCSFA1(JLA) = DUMX * (-QLINK(LA, LENDA(JLA)) - QDEFF(LA, LENDA(JLA)) * DUM) / AC
 ! NB: CONVECTION WITH DISPERSED SEDIMENTS NEGLECTED
 ```
 
-and `:2407-2409`:
+and `:2381-2383`:
 
 ```fortran
 DUMA = ZERO
@@ -970,14 +970,14 @@ disabled physics term as a multiply by a local zero is the worst of both.
 
 ### 3.5 `COLMSM`'s bank source loop always runs one dead iteration
 
-`:1314`:
+`:1298`:
 
 ```fortran
 bank_src_loop: DO NCE = NCEAB(NLINKA, JBK), NHBED(NLINKA, JBK) + 1
 ```
 
-`FRmod:4556` sets `NCEAB(NLINK,JBK) = NHBED(NLINK,JBK)`, so the loop is exactly
-two iterations. `COLMW:1791-1793` zeroes `QQRV` and then sets **only**
+`FRmod:4724` sets `NCEAB(NLINK,JBK) = NHBED(NLINK,JBK)`, so the loop is exactly
+two iterations. `COLMW:1771-1773` zeroes `QQRV` and then sets **only**
 `QQRV(NCEAB(NLINKA,JBK))`. The second iteration therefore has
 `QQRV(NCE) = 0`, giving `DUM1 = DUM2 = DUM3 = QCDUM = 0` and contributing
 nothing to `SUMQ`, `SUM` or `DUMMY(NCE)`.
@@ -988,8 +988,8 @@ is wrong.
 
 ### 3.6 `COLM` computes four coefficients for the top cell and then discards them
 
-`main_loop` (`:836-960`) runs to `NC = NCETOP` and assigns all ten coefficient
-arrays. The block at `:1012-1019` then recomputes `DLT`, `ELT`, `ELTSTR` and
+`main_loop` (`:822-946`) runs to `NC = NCETOP` and assigns all ten coefficient
+arrays. The block at `:998-1005` then recomputes `DLT`, `ELT`, `ELTSTR` and
 `SLT` for that same `NCADJ`. The loop's versions are dead.
 
 More importantly, the code after the loop depends on **fifteen** loop-carried
@@ -1000,14 +1000,14 @@ last iteration. That is legal and intentional, but it means an empty column
 makes the routine impossible to restructure safely without first naming the
 dependency.
 
-The comments at `:1021` and `:1040` are also swapped: `:1021` says "top cell"
-above `NC = NCEBOT`, and `:1040` says "bottom cell" above the row-count
+The comments at `:1007` and `:1026` are also swapped: `:1007` says "top cell"
+above `NC = NCEBOT`, and `:1026` says "bottom cell" above the row-count
 calculation.
 
 ### 3.7 `COLMW` reloads a neighbour index it already has
 
-`convection_loop` (`:1685-1700`) computes `NELMA = ICMREF(NCL, JA+4)` for each
-face and stores the resolved neighbour in `NWORK(JA)`. `main_face_loop:1726`
+`convection_loop` (`:1665-1680`) computes `NELMA = ICMREF(NCL, JA+4)` for each
+face and stores the resolved neighbour in `NWORK(JA)`. `main_face_loop:1706`
 then re-reads the same element:
 
 ```fortran
@@ -1027,15 +1027,15 @@ than in the memory system, and it is where the largest single win is.
 
 ### 4.1 `COLM` calls `pow()` twice per cell per contaminant per element per timestep
 
-`:880` and `:890`:
+`:866` and `:876`:
 
 ```fortran
 FCAP = PPHITH + FFKD * COLCAP(NC)**GGNMON
 GCAP = TTHT - PPHITH + (KKD - FFKD) * SOLCAP(NC)**GGNMON
 ```
 
-`GGNMON = GGNNSO(NC) - one` (`:846`) — and `GGNNSO(NC)` is `GNN(NCONT)` for
-every cell (3.1). `GNN` is read once by `CMRD:509` and never changes.
+`GGNMON = GGNNSO(NC) - one` (`:832`) — and `GGNNSO(NC)` is `GNN(NCONT)` for
+every cell (3.1). `GNN` is read once by `CMRD:502` and never changes.
 
 A `**` with a `DOUBLE PRECISION` exponent compiles to a `pow()` library call —
 roughly 50–100 cycles, not vectorisable, and a call boundary that blocks
@@ -1074,16 +1074,16 @@ the nonlinear case. Given `ISADNL` is never true (1.7), and that a Freundlich
 exponent of 1 is the ordinary configuration, this branch is expected to be
 taken essentially always.
 
-`COLMSM:1429-1430` has the same pattern (`COLCAP(NCE)**GNDUM`,
+`COLMSM:1413-1414` has the same pattern (`COLCAP(NCE)**GNDUM`,
 `SOLCAP(NCE)**GNDUM`) in `fcpbk_loop2`, but that loop is already guarded by
 `ISADNL` and covers only exposed bank cells.
 
-`RET:3019` and `FRET:3256` each evaluate `C**(GN - TWO)`, but both are inside
+`RET:2983` and `FRET:3216` each evaluate `C**(GN - TWO)`, but both are inside
 `IF (ISNL)` branches.
 
 ### 4.2 `SNL3` performs 103 fixed-point iterations with no convergence test
 
-`:3095-3099`:
+`:3057-3061`:
 
 ```fortran
 iteration_loop: DO NJ = 1, 100
@@ -1093,7 +1093,7 @@ iteration_loop: DO NJ = 1, 100
 END DO iteration_loop
 ```
 
-followed by `stability_loop` (`:3130`), three more of the same. **103
+followed by `stability_loop` (`:3092`), three more of the same. **103
 iterations × 3 divisions = 309 divisions per link, per contaminant, per
 timestep**, plus about 1 700 other flops. There is no residual test inside the
 loop and no early exit.
@@ -1130,7 +1130,7 @@ a debug artefact costing 3/103 of the routine on every call.
 
 ### 4.3 `PLCOLM` divides by a factor that cancels algebraically
 
-`:2838-2844`:
+`:2806-2812`:
 
 ```fortran
 TDUM  = CDUM + SDUM
@@ -1150,7 +1150,7 @@ EDDUM = Z2DUM · PDZF3 · F1DUM / (Z2 · KSP(NCE))
 
 `DUM` itself is still needed for `SUM`, but `EDDUM` should be written without
 `TDUM`. That removes one division per rooted cell per contaminant per element
-per timestep **and** removes the `0/0` the header warns about at `:2756-2757`:
+per timestep **and** removes the `0/0` the header warns about at `:2724-2725`:
 when `XXI = 0` and `SOLCAP(NCE) = 0` — or, once `XXI` is given a value, when
 both regions are at zero concentration — `TDUM` is zero and `EDDUM` is `NaN`,
 where the algebraic limit is finite.
@@ -1160,18 +1160,18 @@ the module of a removable singularity and it costs one line.
 
 ### 4.4 `SNL3`'s two unsuppressed diagnostics can turn the run I/O-bound
 
-`:3121-3122` and `:3139-3140` are bare `PRINT` statements. Only diagnostic 3
-(`:3165-3172`) has a suppression counter. A badly conditioned model emits up to
+`:3083-3084` and `:3101-3102` are bare `PRINT` statements. Only diagnostic 3
+(`:3127-3134`) has a suppression counter. A badly conditioned model emits up to
 **two lines of unbuffered stdout per link per contaminant per timestep** from
 diagnostics 1 and 2 — on a 500-link, 3-contaminant model, 3 000 lines per
 timestep.
 
-The header at `:3059-3063` already records that the word `FATAL` in these
-messages is inaccurate (the routine neither stops nor calls `ERROR`). Whatever
+The header at `:3021-3025` already records that the word `FATAL` in these
+messages is inaccurate (the routine neither stops nor calls `RAISE_ERROR`). Whatever
 is decided about the messages themselves, they need the same counter
 diagnostic 3 has.
 
-The saved `COUNT` (`:3086`) also makes `SNL3` stateful and non-reentrant, which
+The saved `COUNT` (`:3048`) also makes `SNL3` stateful and non-reentrant, which
 matters if the sweep is ever parallelised.
 
 ### 4.5 `COLM`'s inner loop divides by loop-invariant quantities
@@ -1180,21 +1180,21 @@ matters if the sweep is ever parallelised.
 
 | Site | Division | Invariance |
 |---|---|---|
-| `:881` | `(PPHIT1 - PPHITH) / TSE` | `TSE` fixed for the whole timestep (`CMSIM:699`) |
-| `:891` | `(TTHT1 - PPHIT1 - TTHT + PPHITH) / TSE` | same |
-| `:882` | `/ COLCAP(NC)` | varies |
-| `:892` | `/ SOLCAP(NC)` | varies |
-| `:906-908` | harmonic mean | varies |
-| `:911-913` | harmonic mean | varies |
-| `:923` | `one / KSP(NC)` | varies |
+| `:867` | `(PPHIT1 - PPHITH) / TSE` | `TSE` fixed for the whole timestep (`CMSIM:687`) |
+| `:877` | `(TTHT1 - PPHIT1 - TTHT + PPHITH) / TSE` | same |
+| `:868` | `/ COLCAP(NC)` | varies |
+| `:878` | `/ SOLCAP(NC)` | varies |
+| `:892-894` | harmonic mean | varies |
+| `:897-899` | harmonic mean | varies |
+| `:909` | `one / KSP(NC)` | varies |
 
 Seven divisions per cell, of which two are by `TSE`. `TSE` is set once per
-timestep in `CMSIM:699` and is a module variable, so the compiler cannot hoist
+timestep in `CMSIM:687` and is a module variable, so the compiler cannot hoist
 `1/TSE` out of the loop without proving no aliasing store to `COLM_C1::TSE` —
 which it cannot, since `SLVCLM` and `PLCOLM` are called from the same call
 tree. A local `OOTSE = one / TSE` at the top of `COLM` turns two divisions per
-cell into two multiplies. `TSE` is also divided by at `:862`, `:993`, `:1001`,
-`:1030`, `:1037`, `:1196`, `:1227`, `:1300`, and in `SLVCLM`'s callers.
+cell into two multiplies. `TSE` is also divided by at `:848`, `:979`, `:987`,
+`:1016`, `:1023`, `:1180`, `:1211`, `:1284`, and in `SLVCLM`'s callers.
 
 Note that replacing `x/TSE` by `x*(1/TSE)` is **not** bitwise-neutral unless
 `TSE` is a power of two. The safe version of this change is to hoist the
@@ -1204,15 +1204,15 @@ against `pow()`'s 100–200.
 
 ### 4.6 `SLVCLM`'s Picard loop has a fixed count and no convergence test
 
-`:2933-2948` runs exactly ten iterations, each a full `TRIDAG` solve plus three
+`:2899-2914` runs exactly ten iterations, each a full `TRIDAG` solve plus three
 `n`-length vector expressions with `n` divisions each. Guarded by `ISADNL`, so
 it is dead today (1.7). If nonlinear adsorption is ever enabled, this is
 `10 × (4n divisions + a Thomas solve)` per cell-column per contaminant per
 element per timestep, and it needs the same treatment as 4.2 — a convergence
-test — before it is turned on. The header at `:2897-2900` records the absence
+test — before it is turned on. The header at `:2863-2866` records the absence
 of the test.
 
-`TRIDAG` itself (`utilsmod.f90:769`) is clean: `PURE`, explicit-shape dummies,
+`TRIDAG` itself (`utilsmod.f90:762`) is clean: `PURE`, explicit-shape dummies,
 one reciprocal per row, no copy-in/copy-out, and it does not modify its inputs.
 Its `GAM(N)` automatic array is at most `LLEE` doubles. It is not a concern.
 
@@ -1224,61 +1224,61 @@ Not performance-relevant, but they obscure the analysis above.
 
 ### 5.1 Dead declarations and duplicate imports
 
-**Dead module variable.** `count` (`:87`) is declared, initialised to 0, and
-never referenced. `SNL3` has its own separate saved `COUNT` (`:3086`). The
-comment on `:87` already says so.
+**Dead module variable.** `count` (`:90`) is declared, initialised to 0, and
+never referenced. `SNL3` has its own separate saved `COUNT` (`:3048`). The
+comment on `:90` already says so.
 
-**Duplicate `USE` statements.** `USE IS_CC` appears at `:67` and `:69`;
-`USE UTILSMOD` at `:68` (`TRIDAG`) and `:71` (`DCOPY`). Both are legal; both
-should be single statements. `USE AL_C` (`:65`) and `USE AL_G` (`:66`) have no
+**Duplicate `USE` statements.** `USE IS_CC` appears at `:70` and `:72`;
+`USE UTILSMOD` at `:71` (`TRIDAG`) and `:74` (`DCOPY`). Both are legal; both
+should be single statements. `USE AL_C` (`:68`) and `USE AL_G` (`:69`) have no
 `ONLY` clause, which is what makes `AL_C::DUMMY` reachable by accident (2.4) —
-and the Debug build sets `-Wuse-without-only` (`CMakeLists.txt:699`).
+and the Debug build sets `-Wuse-without-only` (`CMakeLists.txt:835`).
 
-**Dead locals.** `LINKSM:1922` declares `LFONE`, `LDUM` and `LA`; only `LA` is
-used. `LINKSM:1930` declares `DUMX`, never used — `LINKW` has its own.
+**Dead locals.** `LINKSM:1898` declares `LFONE`, `LDUM` and `LA`; only `LA` is
+used. `LINKSM:1906` declares `DUMX`, never used — `LINKW` has its own.
 `CMRD:218` declares `rubbish(1,1)`, the only rank-2 buffer passed to `ALREDI`
 where every other call passes `IDUM`.
 
-**Dead writes.** `COLMSM:1410` (see 1.6). `COLMSM:1206`'s `bdy_loop` runs to
-`NCEPSF+1 = NCETOP+1`, one index past anything `COLM` reads (`:836` bounds `NC`
-at `NCETOP`), while the non-boundary branch at `:1178` correctly stops at
+**Dead writes.** `COLMSM:1394` (see 1.6). `COLMSM:1190`'s `bdy_loop` runs to
+`NCEPSF+1 = NCETOP+1`, one index past anything `COLM` reads (`:822` bounds `NC`
+at `NCETOP`), while the non-boundary branch at `:1162` correctly stops at
 `MIN(NDUM, NCETOP)`. The two branches should agree.
 
 ### 5.2 `SNL3`'s `C` parameter is dead, and two `LINK` coefficients are identical
 
 `SNL3` is `PRIVATE` (only `CMSIM` and `CMRD` are public) and has exactly two
-call sites, `LINK:2676` and `LINK:2680`. **Both pass `ZERO` for `C`.** The
-`+ C*X3` term in `iteration_loop` (`:3096`), in `stability_loop` (`:3131`) and
-in the `PERR` residual (`:3149`) is therefore always zero, and the first
+call sites, `LINK:2648` and `LINK:2652`. **Both pass `ZERO` for `C`.** The
+`+ C*X3` term in `iteration_loop` (`:3058`), in `stability_loop` (`:3093`) and
+in the `PERR` residual (`:3111`) is therefore always zero, and the first
 equation never couples directly to `X3`. Either the parameter should be
 removed, or a caller that uses it should be written.
 
-In the same routine, `FLTDA` (`:2607`) and `HLTDA` (`:2612`) are both
-`-TSE * ACSBD1`, and `GYLTDA` (`:2671`) is its negation. Three names for one
+In the same routine, `FLTDA` (`:2579`) and `HLTDA` (`:2584`) are both
+`-TSE * ACSBD1`, and `GYLTDA` (`:2643`) is its negation. Three names for one
 quantity.
 
 `LINK`'s `bank_loop` also carries redundant accumulators: `SUM1` and `SUM2` are
-reset per bank (`:2557-2558`) and then immediately summed into `SUM4`/`SUM5`
-(`:2566-2567`), so two accumulators would do the work of four.
+reset per bank (`:2529-2530`) and then immediately summed into `SUM4`/`SUM5`
+(`:2538-2539`), so two accumulators would do the work of four.
 
 ### 5.3 `PLCOLM` and `COLMSM` zero the same arrays over three different ranges
 
 | Site | Range | Arrays |
 |---|---|---|
-| `COLMSM:1140` `init_loop` | `1 .. LLEE` | `GNERD`, `GNDSE`, `GND2`, `GNDSE2` |
-| `COLMSM:1344` `zero_edcap_loop` | `NCEBOT .. NCETOP` | `EDCAP`, `EDCAPC`, `EDCAPT`, `ESCAP`, `ESCAPS`, `ESCAPT` |
-| `PLCOLM:2797` `init_uptake_loop` | `1 .. NCETOP` | the same six |
+| `COLMSM:1124` `init_loop` | `1 .. LLEE` | `GNERD`, `GNDSE`, `GND2`, `GNDSE2` |
+| `COLMSM:1328` `zero_edcap_loop` | `NCEBOT .. NCETOP` | `EDCAP`, `EDCAPC`, `EDCAPT`, `ESCAP`, `ESCAPS`, `ESCAPT` |
+| `PLCOLM:2765` `init_uptake_loop` | `1 .. NCETOP` | the same six |
 
-The two branches of `IF (ISPLT)` at `COLMSM:1341` therefore clear different
-ranges of the same six arrays, and `COLMSM:1356`'s `mn_loop` overwrites all six
+The two branches of `IF (ISPLT)` at `COLMSM:1325` therefore clear different
+ranges of the same six arrays, and `COLMSM:1340`'s `mn_loop` overwrites all six
 again over a fourth range when `ISMN` is true. Only `NCEBOT..NCETOP` is ever
-read (`COLM:836`). Nothing is wrong, but the inconsistency is a standing
+read (`COLM:822`). Nothing is wrong, but the inconsistency is a standing
 invitation to a stale-value bug and costs `ncells` redundant stores per
 contaminant per element per timestep on the `ISPLT` path.
 
 ### 5.4 `COLMSM`'s lateral weighting cancels to a plain arithmetic mean
 
-`layer_loop` (`:1183-1188`):
+`layer_loop` (`:1167-1172`):
 
 ```fortran
 DO NOLP = NOLDUM, NOLBT(NCL, NCE+1, JA) - 1
@@ -1292,15 +1292,15 @@ IF (NOTZERO(SUMQ)) SUMQ = SUMQC / SUMQ
 
 `QDUM` does not depend on the loop variable, so `SUMQC/SUMQ` is the plain
 **arithmetic mean** of the adjacent cell concentrations — the flow weighting the
-header describes at `:1063-1065` cancels exactly. `JOLFN` (`colm_cg.f90`), the
-per-overlap area share, is computed by `FRmod:4401` and is presumably what the
+header describes at `:1047-1049` cancels exactly. `JOLFN` (`colm_cg.f90`), the
+per-overlap area share, is computed by `FRmod:4569` and is presumably what the
 weight was meant to be. Either way this is an expensive way to compute a mean:
 one strided `CCCCO` gather and one `NOLCEA` gather per overlap record.
 
 Two related mismatches:
 
 - `CCAPA` is built from `QQ1` (the **new** flow) but `COLM`'s upwind test at
-  `:856` uses `QQ` (the **old** flow). Where the two have opposite sign, the
+  `:842` uses `QQ` (the **old** flow). Where the two have opposite sign, the
   upwind direction and the averaged concentration disagree.
 - Where `QQ1(NCE,JA)` is exactly zero, `SUMQ` stays zero and `CCAPA` is set to
   **zero concentration** rather than to the neighbour's value — which `COLM`
@@ -1308,32 +1308,32 @@ Two related mismatches:
 
 ### 5.5 `RET` and `FRET` diverge on the zero-concentration case
 
-`FRET:3233` opens with `IF (ISZERO(C))` and returns storage alone. `RET`
-(`:2978`) has no such branch and evaluates `C**(GN - TWO)` directly (`:3019`).
+`FRET:3193` opens with `IF (ISZERO(C))` and returns storage alone. `RET`
+(`:2942`) has no such branch and evaluates `C**(GN - TWO)` directly (`:2983`).
 For `GN < 2` and small `C` that overflows; for `C = 0` it is a domain error.
 
-In practice `RET` is only ever called with `COLCAP(NCETOP)` (`COLMSM:1272`,
-`:1276`), which the `MAX(1.0D-16, ...)` floor (1.9) keeps strictly positive —
+In practice `RET` is only ever called with `COLCAP(NCETOP)` (`COLMSM:1256`,
+`:1260`), which the `MAX(1.0D-16, ...)` floor (1.9) keeps strictly positive —
 so the divergence is currently masked by a defect elsewhere. With `GN = 0.5`,
 `C = 1e-16` gives `C**(-1.5) ≈ 1e24`, which is finite but meaningless.
 
 The two routines are otherwise the same calculation with an extra porosity
 correction in `FRET`; they should share the guard. Both were correctly
 converted to `DOT_PRODUCT` over explicit-shape `(NSED)` dummies
-(`:3009-3010`, `:3243-3244`) and are otherwise efficient.
+(`:2973-2974`, `:3203-3204`) and are otherwise efficient.
 
 ### 5.6 Stale documentation and unenforced preconditions
 
-**Stale documentation.** The "High-Performance Fix" comment at `:735` claims a
+**Stale documentation.** The "High-Performance Fix" comment at `:723` claims a
 vectorisation that the code does not contain (2.2). `COLM`'s comments at
-`:1021` and `:1040` are swapped (3.6). `COLMSM:1115-1122` retains eight lines of
-commented-out `COMMON` declarations. `LINKSM:1909` carries a
+`:1007` and `:1026` are swapped (3.6). `COLMSM:1099-1106` retains eight lines of
+commented-out `COMMON` declarations. `LINKSM:1885` carries a
 `! USE CONT_CC ! (Duplicate removed)` comment for a line that is gone.
 
 **Unenforced preconditions.** Beyond 1.16: nothing checks `NCETOP >= 3` before
-`CMSIM:739` indexes `NCETOP-2`; nothing checks `NCON <= NCONEE`; nothing checks
-`NSED <= NSEDEE` before `LINKSM:2016` and `COLMSM:1261` loop to `NSED`;
-nothing checks that `top_cell_no < LLEE` (1.11). `FRmod:MNERR0` performs
+`CMSIM:727` indexes `NCETOP-2`; nothing checks `NCON <= NCONEE`; nothing checks
+`NSED <= NSEDEE` before `LINKSM:1992` and `COLMSM:1245` loop to `NSED`;
+nothing checks that `top_cell_no < LLEE` (1.11). `MNmod:MNERR0` performs
 exactly these checks for MN's capacities.
 
 ---
@@ -1346,16 +1346,16 @@ exactly these checks for MN's capacities.
 | P0 | Give `ESSCAP`/`ESSCPC`/`ESSCPT` a producer, or make them `ZERO` parameters (1.2) | Correctness: three unassigned values are live terms in the top-cell balance | None if replaced by zero; changes results if given a producer |
 | P0 | Declare the six `LLEE` arrays `(LLEE+1)`, or tighten `top_cell_no` to `<= LLEE-1` (1.11) | Correctness; **unblocks bounds-checked validation of everything below** | None on models with `top_cell_no < LLEE` |
 | P0 | Fix `PDZF3`'s declaration to `(NELEE, LLEE, NPELEE)` (1.5) | Correctness: plant slot 2 currently overwrites slot 1 | None today (`ISPLT` false); **changes results** once the plant path is enabled |
-| P0 | Bound `find_jal` and call `ERROR` on failure (1.10) | Turns an out-of-array walk into a diagnostic | None on well-formed meshes |
-| P0 | Hoist the sediment-fraction shift out of `cont_loop` in `COLMSM:1261` and `LINKSM:2080` (1.3) | Correctness: contaminants 2..`NCON` currently see no sediment-composition change | **Changes results** for `NCON > 1` — the current values are wrong, not approximate |
+| P0 | Bound `find_jal` and call `RAISE_ERROR` on failure (1.10) | Turns an out-of-array walk into a diagnostic | None on well-formed meshes |
+| P0 | Hoist the sediment-fraction shift out of `cont_loop` in `COLMSM:1245` and `LINKSM:2056` (1.3) | Correctness: contaminants 2..`NCON` currently see no sediment-composition change | **Changes results** for `NCON > 1` — the current values are wrong, not approximate |
 | P0 | Move the `IIICFO`/`CCAPIO` shift from `COLMSM` to `CMSIM` (1.4) | Correctness: removes an `ISORT`-order dependency | None while `CCAPI`/`IIICF` are constant; changes the first timestep only |
-| P1 | **Branch `COLM:880,890` on `GGNMON == 0`** (4.1) | **Highest** — removes two `pow()` calls per cell per contaminant per element per timestep from every linear-adsorption run | **None** — `x**0.0` is exactly 1.0 |
-| P1 | Restructure `CMSIM:736-754` for unit stride, and hoist `RSZWLO` (2.2) | **High** — the module's largest single memory-traffic item, ~8× line-to-datum waste | None — pure reordering, bitwise-identical |
+| P1 | **Branch `COLM:866,876` on `GGNMON == 0`** (4.1) | **Highest** — removes two `pow()` calls per cell per contaminant per element per timestep from every linear-adsorption run | **None** — `x**0.0` is exactly 1.0 |
+| P1 | Restructure `CMSIM:724-742` for unit stride, and hoist `RSZWLO` (2.2) | **High** — the module's largest single memory-traffic item, ~8× line-to-datum waste | None — pure reordering, bitwise-identical |
 | P1 | Guard `LINK`'s stream-water block with `IF (USCP >= HALF)` (3.3) | High on catchments with many dry links — removes a two-bank cell sweep and three sums per dry link per contaminant per timestep | None — the values are provably unused on that path |
 | P1 | Add a convergence exit to `SNL3` (4.2); add a suppression counter to diagnostics 1 and 2 (4.4) | High on link-heavy models; removes an unbounded stdout path | **Not bitwise** — must be validated against the unmodified routine on a full run |
-| P1 | Delete the dead zeroing in `COLMW:1709-1711` (3.2); replace `AL_C::DUMMY` with a local (2.4) | ~300 stores per column per timestep; removes an invisible coupling to `SYMAIN` | None |
-| P2 | Guard `COLMSM:1409` with `IF (ISBK)` and delete `:1410` (1.6) | Correctness of the `CCCCO(:,1,:)` bank slot; removes a dead store | None where `NLYRBT(:,1) >= 2` |
-| P2 | Validate `NCOLMB` in `CMRD:295`; add the missing capacity checks (1.16, 5.6) | Turns four silent overruns into diagnostics | None on valid input |
+| P1 | Delete the dead zeroing in `COLMW:1689-1691` (3.2); replace `AL_C::DUMMY` with a local (2.4) | ~300 stores per column per timestep; removes an invisible coupling to `SYMAIN` | None |
+| P2 | Guard `COLMSM:1393` with `IF (ISBK)` and delete `:1394` (1.6) | Correctness of the `CCCCO(:,1,:)` bank slot; removes a dead store | None where `NLYRBT(:,1) >= 2` |
+| P2 | Validate `NCOLMB` in `CMRD:293`; add the missing capacity checks (1.16, 5.6) | Turns four silent overruns into diagnostics | None on valid input |
 | P2 | Recompute `NDUM` inside `LINKW`'s `bed_cells_loop`; guard `SUM/SUMK` (1.13) | Correctness of `THBED` on links with asymmetric banks | **Changes results** on such links |
 | P2 | Test for `NBK == 0` / `JFDUMB == 0` in `LINKW` (1.12) | Closes seven index-0 reads | None where `BEXBK` |
 | P2 | Hoist the invariants out of `disp_loop` (3.1); keep `NELMA` in `COLMW` (3.7); hoist the `TSE` loads in `COLM` (4.5) | Moderate, cheap, local | None if the divisions are kept; reassociating `x/TSE` to `x*(1/TSE)` is **not** bitwise-neutral |
@@ -1379,7 +1379,7 @@ approximate.
 
 One caveat applies to **all** validation of this module. Per 1.17, `CMSIM`
 sweeps in `ISORT` order and elements read each other's partially-updated
-values, while `run_sim:294` recomputes `ISORT` on every timestep. Any change
+values, while `run_sim:304` recomputes `ISORT` on every timestep. Any change
 that perturbs a water level enough to reorder two elements will change the
 answer even when the change is otherwise exact. Bitwise comparison is
 meaningful for changes confined to `CMmod` — which is all of the above — but
