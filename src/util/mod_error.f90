@@ -95,15 +95,15 @@ CONTAINS
    !> the final diagnostics. `error_mode` still overrides the request, so a run
    !> started with `-error` stays noninteractive either way.
    !>
-   !> @note
-   !> No current caller sets this flag, so `ERR_STOP` does not yet wait on the
-   !> strength of it alone. Wiring it to the launch mode is pending.
-   !> @endnote
+   !> [[getdirqq:get_dir_and_catch]] sets this flag on entering its QuickWin
+   !> file-dialog branch, so it is `.TRUE.` only when the rundata file is chosen
+   !> through that dialog.
    !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-08-31 | SvB | Initial version. |
+   !> | 2026-10-07 | SvB | Wired to the QuickWin launch mode from [[getdirqq]]. |
    !> @endhistory
    SUBROUTINE err_set_wait_on_exit(wait)
       LOGICAL, INTENT(IN) :: wait !! `.TRUE.` requests a wait for user input before termination.
@@ -628,8 +628,9 @@ CONTAINS
 
    !> summary: Terminates the run, distinguishing fatal from ordinary exits.
    !>
-   !> A positive `error_number` selects error termination through `ERROR STOP`,
-   !> so that the process reports a nonzero status to whatever launched it.
+   !> A positive `error_number` selects error termination through `ERROR STOP`
+   !> with `error_number` as the stop code, so that the process reports that
+   !> value as its exit status to whatever launched it.
    !> Omitting the argument selects an ordinary `STOP`. [[mod_error:RAISE_ERROR]]
    !> passes `1` after it has printed the fatal-error summary; the
    !> unrecoverable conditions detected directly in the process modules pass
@@ -650,6 +651,7 @@ CONTAINS
    !> | 2026-03-28 | SvB | Converted `FLAG` to selected integer kind with input intent, replaced the legacy pause with an explicit prompt/read, and added the initial FORD block. |
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
+   !> | 2026-10-07 | SvB | Passed `error_number` to `ERROR STOP` as the exit status. |
    !> @endhistory
    SUBROUTINE ERR_STOP(error_number)
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
@@ -668,7 +670,10 @@ CONTAINS
          READ (*, *)
       END IF
 
-      IF (is_fatal) STOP 'Program terminating due to fatal error'
+      IF (is_fatal) THEN
+         WRITE (*, '(A)') 'Program terminating due to fatal error'
+         ERROR STOP INT(error_number)
+      END IF
 
       STOP 'Program terminating'
 
