@@ -20,7 +20,8 @@
 !> | `shetran -f <path>` | Uses the named rundata file directly. This is the normal GFortran invocation. |
 !> | `shetran -c [name]` | Reads alternating name/path records from `catchments.txt`; an omitted name selects `default`. |
 !> | no args or `-a` | Opens a dialog only with Intel QuickWin on Windows; other builds stop with usage text. |
-!> | trailing `-error` | Sets shared `error_mode`; no current routine reads that flag, so termination behavior is unchanged. |
+!> | `-wait-on-error` (any position) | Makes a fatal termination wait for Enter, so a console that closes on exit keeps the diagnostics readable. |
+!> | any other option or argument | Stops with a diagnostic and usage text, including the former `-error`. |
 !>
 !> `catchments.txt` is resolved relative to the launch working directory. A
 !> successful selection sets `FILNAM` to the validated path, `DIRQQ` to its
@@ -32,9 +33,8 @@
 !> @warning
 !> The current non-QuickWin behavior differs from the user manual: a bare
 !> filename is not accepted without `-f`, and no-argument GFortran execution
-!> does not open a dialog. The manual also describes `-error` as suppressing an
-!> interactive wait, but current fatal termination is already noninteractive
-!> and independent of that flag.
+!> does not open a dialog. The manual also still describes the former `-error`
+!> option, which has been replaced by `-wait-on-error`.
 !> @endwarning
 !>
 !> ### Execution sequence

@@ -85,6 +85,7 @@
 !> | 2026-08-20 | SB | - |  remove code for initial error call and sort out helpmessages |
 !> | 2026-08-22 | SvB | 4.6.4 | Removed `NXOCEE`; the OC row solver is sized from the active maximum row width established by [[ocmod:ocind]]. |
 !> | 2026-08-31 | SvB | - | Moved `ERROR`, `ALSTOP`, and the error-accounting state to [[mod_error]]; renamed the retained timestep-reduction flags. |
+!> | 2026-10-08 | SvB | - | Removed `error_mode`; the `-wait-on-error` request now lives in [[mod_error]]. |
 !> @endhistory
 MODULE sglobal
 
@@ -102,7 +103,6 @@ MODULE sglobal
    PUBLIC :: flag_runtime_reduction_errors, flag_runtime_reduction_e1060
    PUBLIC :: marker999, imarker, izero, ione, izero1, ione1, zero, half, one, two, three, five, vsmall, zero1, one1
    PUBLIC :: EARRAY, text32
-   PUBLIC :: error_mode
 
    ! --------------------------------------------------------------------
    ! System Version and Banners
@@ -169,11 +169,6 @@ MODULE sglobal
    ! without a circular dependency.
    LOGICAL :: flag_runtime_reduction_errors !! Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
    LOGICAL :: flag_runtime_reduction_e1060 !! Latest `ERROR` call requested the separate timestep reduction for error 1060.
-
-   ! --------------------------------------------------------------------
-   ! Run Mode Flags
-   ! --------------------------------------------------------------------
-   LOGICAL :: error_mode !! State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ERR_STOP]].
 
    ! --------------------------------------------------------------------
    ! Mathematical and Numerical Constants

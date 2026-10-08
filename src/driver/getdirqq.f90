@@ -15,19 +15,21 @@
 !> | Any build, `-c [name]` | Look up a catchment name in `catchments.txt`. |
 !> | Intel Fortran QuickWin on Windows, no arguments or `-a` | Open the native file-selection dialog. |
 !> | Other builds, no arguments or `-a` | Print portable usage text and stop with status 255. |
+!> | Any build, `-wait-on-error` anywhere | Wait for Enter before a fatal termination. |
+!> | Any build, any other option or argument | Print a diagnostic and usage text and stop with status 255. |
 !>
 !> QuickWin support exists only when CMake enables `SHETRAN_HAVE_QUICKWIN`,
 !> which currently requires `ENABLE_QUICKWIN`, Windows, and Intel Fortran.
 !> Ordinary builds depend only on Fortran `GET_COMMAND_ARGUMENT` and
 !> `stdlib_system` path routines. All failures terminate through
-!> [[mod_error:ERR_STOP]], which waits for the user only in a dialog launch.
+!> [[mod_error:ERR_STOP]], which waits for the user in a dialog launch or when
+!> `-wait-on-error` was given.
 !>
 !> @warning
 !> The user manual still says that a no-argument run opens a dialog on every
 !> build and that a bare filename is accepted without `-f`. Neither is true for
-!> the current portable build. The manual also assigns interactive-wait behavior
-!> to `-error`, whereas the current flag only suppresses the wait in
-!> [[mod_error:ERR_STOP]].
+!> the current portable build. The manual still describes the former `-error`
+!> option, which is now rejected in favour of `-wait-on-error`.
 !> @endwarning
 !>
 !> @history
@@ -40,12 +42,13 @@
 !> | 2026-06-19 | SB | 4.6.4 | Revised cross-platform command-line selection and diagnostics. |
 !> | 2026-07-08--11 | SteveB / SvB | 4.6.4 | Reconciled dialog and direct-file results and restored `join_path`. |
 !> | 2026-10-07 | SvB | - | Routed all failures through `ERR_STOP` and requested its wait for dialog launches. |
+!> | 2026-10-08 | SvB | - | Renamed `-error` to the opt-in `-wait-on-error`; unknown options and stray arguments now stop with a diagnostic. |
 !> @endhistory
 MODULE GETDIRQQ
 
    USE mod_parameters
-   USE sglobal, ONLY: error_mode
-   USE mod_error, ONLY: ERR_STOP, err_set_wait_on_exit
+   USE mod_error, ONLY: ERR_STOP, err_set_wait_on_exit, err_set_wait_on_error
+   USE stdlib_strings, ONLY: to_string
    USE stdlib_system, ONLY: base_name, dir_name, get_cwd, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN
@@ -75,23 +78,22 @@ CONTAINS
    !> This is the only public module procedure and is called by [[shetran]] at
    !> process startup. `runfil` is a retained, unread compatibility argument.
    !> Before examining the command line the routine stores the launch working
-   !> directory in `rootdir`, clears `SGLOBAL:error_mode`, and counts arguments
-   !> with the standard Fortran command-line intrinsics.
+   !> directory in `rootdir`. The contained `parse_arguments` helper then
+   !> classifies every argument; options may appear in any order. The
+   !> `-wait-on-error` request is passed to [[mod_error:err_set_wait_on_error]]
+   !> before the first recorded command-line error, if any, is reported.
    !>
-   !> | First argument | Current action |
-   !> |:---------------|:---------------|
-   !> | `-f` | Require argument 2 and use it as the rundata path. |
-   !> | `-c` | Search `catchments.txt` for argument 2, or for `default` when absent. |
+   !> | Selection option | Current action |
+   !> |:-----------------|:---------------|
+   !> | `-f <path>` | Use the path as the rundata file; a missing path is an error. |
+   !> | `-c [name]` | Search `catchments.txt` for the name, or for `default` when absent. |
    !> | `-a`, QuickWin build | Open a Windows file dialog filtered for `*rundata*.txt` and all files. |
-   !> | no arguments, QuickWin build | Synthesize `-a` and open that dialog. |
-   !> | no arguments, non-QuickWin build | Synthesize `-f`, diagnose its missing filename, and stop. |
-   !> | Legacy dialog aliases, non-QuickWin build | Diagnose that interactive selection requires Intel QuickWin and stop. |
-   !> | Anything else | Report an unrecognized option and stop. |
+   !> | none, QuickWin build | Synthesize `-a` and open that dialog. |
+   !> | none, non-QuickWin build | Synthesize `-f`, diagnose its missing filename, and stop. |
    !>
-   !> The legacy dialog aliases are `-m`, `-af`, `-sd`, `-pattern`, `-delinc`,
-   !> and `-results`. A non-QuickWin build diagnoses these aliases together with
-   !> `-a`; in a QuickWin build only `-a` is recognized and the aliases reach the
-   !> default unrecognized-option error.
+   !> An unknown option (including the former `-error`), a second selection
+   !> option, a stray positional argument, or a legacy dialog alias in a
+   !> non-QuickWin build stops with a diagnostic and usage text.
    !>
    !> `catchments.txt` is resolved relative to the launch working directory,
    !> despite one diagnostic calling it the executable directory. The file is
@@ -115,9 +117,8 @@ CONTAINS
    !> every later [[mod_error:ERR_STOP]], including the dialog failures and the
    !> final existence check, waits for the user before the console closes.
    !>
-   !> The contained `set_error_mode_from_arguments` helper scans for the exact,
-   !> case-sensitive token `-error` before the mode-specific selection block, so
-   !> that every termination path honours it.
+   !> Because the whole command line is scanned before any diagnostic is
+   !> issued, every termination path honours `-wait-on-error`.
    !>
    !> @note
    !> All returned character values use caller-provided fixed-length buffers.
@@ -136,6 +137,7 @@ CONTAINS
    !> | 2026-06-19 | SB | 4.6.4 | Updated option validation and catchment lookup handling. |
    !> | 2026-07-08--11 | SteveB / SvB | 4.6.4 | Reconciled direct and dialog paths and restored `join_path`. |
    !> | 2026-10-07 | SvB | - | Requested the `ERR_STOP` wait for dialog launches and scanned `-error` before selection. |
+   !> | 2026-10-08 | SvB | - | Replaced `-error` with `-wait-on-error`, parsed all arguments up front, and rejected unknown options. |
    !> @endhistory
    SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
@@ -146,16 +148,22 @@ CONTAINS
       CHARACTER(LEN=*), INTENT(OUT) :: rootdir !! Launch working directory, or `.` when `get_cwd` fails.
 
       CHARACTER(LEN=*), PARAMETER :: catchment_file = 'catchments.txt' !! Launch-directory lookup filename.
-      CHARACTER(LEN=LENGTH_LINE) :: message !! Deferred command-line diagnostic.
+#ifdef SHETRAN_HAVE_QUICKWIN
+      CHARACTER(LEN=*), PARAMETER :: known_options = '-a, -c [name], -f <file> and -wait-on-error' !! Options listed in unknown-option diagnostics.
+#else
+      CHARACTER(LEN=*), PARAMETER :: known_options = '-c [name], -f <file> and -wait-on-error' !! Options listed in unknown-option diagnostics.
+#endif
+      CHARACTER(LEN=LENGTH_LINE) :: message !! First deferred command-line diagnostic.
       CHARACTER(LEN=LENGTH_LINE) :: dum1    !! Catchment key read from the lookup file.
       CHARACTER(LEN=LENGTH_LINE) :: dum2    !! Rundata path read from the lookup file.
-      CHARACTER(LEN=LENGTH_LINE) :: code    !! First argument or synthesized default mode.
+      CHARACTER(LEN=LENGTH_LINE) :: code    !! Selection option, or the synthesized default mode.
       CHARACTER(LEN=LENGTH_FILEPATH) :: cli_argument !! Selected path or catchment key while resolving it.
       CHARACTER(LEN=LENGTH_FILEPATH) :: fn_part      !! Basename of the selected rundata path.
       LOGICAL :: ex                !! File-existence result.
       LOGICAL :: found_catchment   !! Whether the requested lookup key was matched.
+      LOGICAL :: has_value         !! Whether the selection option was followed by a value.
+      LOGICAL :: wait_on_error     !! Whether `-wait-on-error` was given.
       INTEGER :: ios               !! Lookup-file I/O status.
-      INTEGER :: na                !! Number of command-line arguments.
 #ifdef SHETRAN_HAVE_QUICKWIN
       INTEGER(KIND=I_P) :: ierror !! Extended Windows common-dialog error code.
       LOGICAL(KIND=4) :: bret     !! Whether the Windows file dialog selected a file.
@@ -167,23 +175,19 @@ CONTAINS
 
       CALL get_current_dir(rootdir)
 
-      error_mode = .FALSE.
-      na = COMMAND_ARGUMENT_COUNT()
+      ! Scan the whole command line before reporting anything, so that every
+      ! ERR_STOP below, including one for a bad option, honours -wait-on-error.
+      CALL parse_arguments()
+      CALL err_set_wait_on_error(wait_on_error)
+      IF (message /= '') CALL print_usage_and_stop(message)
 
-      IF (na > 0) THEN
-         CALL GET_COMMAND_ARGUMENT(1, code)
-      ELSE
+      IF (code == '') THEN
 #ifdef SHETRAN_HAVE_QUICKWIN
          code = '-a'  !popup window is default if there is a fortran compiler on Windows
 #else
          code = '-f'  !otherwise filename is default and user must provide it as an argument
 #endif
       END IF
-
-      message = ''
-
-      ! Scan before selection so that every ERR_STOP below honours -error.
-      CALL set_error_mode_from_arguments()
 
       SELECT CASE (TRIM(code))
 #ifdef SHETRAN_HAVE_QUICKWIN
@@ -249,17 +253,12 @@ CONTAINS
 #endif
 
       CASE ('-f')
-         IF (na < 2) THEN
-            CALL print_usage_and_stop('Missing filename. Usage: shetran -f filename.txt')
+         IF (.NOT. has_value) THEN
+            CALL print_usage_and_stop('Missing filename after -f')
          END IF
-         CALL GET_COMMAND_ARGUMENT(2, cli_argument)
 
       CASE ('-c')
-         IF (na < 2) THEN
-            cli_argument = 'default'
-         ELSE
-            CALL GET_COMMAND_ARGUMENT(2, cli_argument)
-         END IF
+         IF (.NOT. has_value) cli_argument = 'default'
 
          INQUIRE (FILE=catchment_file, EXIST=ex)
          IF (ex) THEN
@@ -290,14 +289,6 @@ CONTAINS
          ELSE
             message = 'Cannot find file '//catchment_file//' in executable directory'
          END IF
-
-#ifndef SHETRAN_HAVE_QUICKWIN
-      CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
-         CALL print_usage_and_stop('Interactive file selection requires Intel QuickWin on Windows. Use: shetran -f filename.txt')
-#endif
-
-      CASE DEFAULT
-         message = 'Unrecognised command line argument '//TRIM(code)//'. Recognise only -a, -c and -f'
       END SELECT
 
       IF (message /= '') CALL print_usage_and_stop(message)
@@ -364,10 +355,9 @@ CONTAINS
 
       !> @brief Prints a startup selection error and portable usage, then stops.
       !>
-      !> The supplied message is prefixed with `ERROR:`. Two usage lines describe
-      !> the supported `-f` and `-c` forms, after which `ERR_STOP(255)` terminates
-      !> the process. This helper handles option, dialog-cancel, and catchment-lookup
-      !> failures that occur before final file-existence validation.
+      !> Delegates to [[handle_command_line_error]]. This helper handles option,
+      !> dialog-cancel, and catchment-lookup failures that occur before final
+      !> file-existence validation.
       !>
       !> @history
       !> | Date | Author | Description |
@@ -375,43 +365,138 @@ CONTAINS
       !> | 2026-04-06 | SvB | Replaced the shared terminal-label error path with a contained helper. |
       !> | 2026-06-08 | SvB | Updated the helper for the portable `-f`/`-c` interface. |
       !> | 2026-10-07 | SvB | Terminated through `ERR_STOP`. |
+      !> | 2026-10-08 | SvB | Delegated to the identical module-level helper. |
       !> @endhistory
       SUBROUTINE print_usage_and_stop(err_msg)
          CHARACTER(LEN=*), INTENT(IN) :: err_msg !! Specific command-line or lookup failure.
 
-         WRITE (*, '(A)') 'ERROR: '//TRIM(err_msg)
-         WRITE (*, '(A)') 'Usage: shetran -f rundata_file.txt'
-         WRITE (*, '(A)') '   or: shetran -c catchment_name'
-         CALL ERR_STOP(255)
+         CALL handle_command_line_error(err_msg)
       END SUBROUTINE print_usage_and_stop
 
-      !> @brief Scans command arguments for the retained `-error` flag.
+      !> @brief Classifies every command argument and records the first error.
       !>
-      !> Every argument from 1 through the host-associated count `na` is read.
-      !> An exact case-sensitive token `-error` sets `SGLOBAL:error_mode` true;
-      !> other tokens leave it unchanged. [[get_dir_and_catch]] clears the flag
-      !> and calls this helper before its option-specific work.
-      !> [[mod_error:ERR_STOP]] reads the flag to suppress its interactive wait.
+      !> Sets the host variables `code`, `cli_argument`, `has_value`,
+      !> `wait_on_error`, and `message`. Every argument is visited, so
+      !> `-wait-on-error` is honoured wherever it appears, but only the first
+      !> problem is kept in `message`; [[get_dir_and_catch]] reports it.
+      !>
+      !> | Argument | Action |
+      !> |:---------|:-------|
+      !> | `-wait-on-error` | Sets `wait_on_error`. |
+      !> | `-f`, `-c`, `-a` (QuickWin only) | Becomes `code`; a second selection option is an error. |
+      !> | Legacy dialog aliases, non-QuickWin build | Error: interactive selection requires Intel QuickWin. |
+      !> | The argument after `-f` or `-c` | Becomes `cli_argument` unless it starts with `-`. |
+      !> | `-error` | Error naming its replacement `-wait-on-error`. |
+      !> | Any other `-...` token | Error: unknown option. |
+      !> | Any other token | Error: unexpected argument. |
+      !>
+      !> The legacy dialog aliases are `-a`, `-m`, `-af`, `-sd`, `-pattern`,
+      !> `-delinc`, and `-results`; in a QuickWin build all but `-a` are unknown
+      !> options. A rundata path that itself starts with `-` must be given with a
+      !> directory prefix, e.g. `./-name.txt`.
       !>
       !> @history
       !> | Date | Author | Description |
       !> |:-----|:-------|:------------|
-      !> | 2026-05-08 | SB | Added the `-error` option to command-line setup. |
-      !> | 2026-06-08 | SvB | Reworked detection to scan the standard Fortran argument list. |
-      !> | 2026-10-07 | SvB | Moved the call ahead of selection. |
+      !> | 2026-10-08 | SvB | Replaced the `-error` scan with a full classification; unknown options are errors. |
       !> @endhistory
-      SUBROUTINE set_error_mode_from_arguments()
-         INTEGER :: arg_index !! One-based command-argument index.
-         CHARACTER(LEN=LENGTH_LINE) :: argument !! Argument currently being tested.
+      SUBROUTINE parse_arguments()
+         INTEGER :: na        !! Number of command-line arguments.
+         INTEGER :: arg_index !! One-based index of the argument being classified.
+         CHARACTER(LEN=LENGTH_FILEPATH) :: argument      !! Argument being classified.
+         CHARACTER(LEN=LENGTH_FILEPATH) :: next_argument !! Candidate value for a selection option.
 
-         DO arg_index = 1, na
-            CALL GET_COMMAND_ARGUMENT(arg_index, argument)
+         code = ''
+         cli_argument = ''
+         has_value = .FALSE.
+         wait_on_error = .FALSE.
+         message = ''
+
+         na = COMMAND_ARGUMENT_COUNT()
+         arg_index = 0
+
+         scan_arguments: DO WHILE (arg_index < na)
+            arg_index = arg_index + 1
+            CALL read_argument(arg_index, argument)
+
             SELECT CASE (TRIM(argument))
+            CASE ('-wait-on-error')
+               wait_on_error = .TRUE.
+
+#ifdef SHETRAN_HAVE_QUICKWIN
+            CASE ('-a', '-c', '-f')
+#else
+            CASE ('-c', '-f')
+#endif
+               IF (code /= '') THEN
+                  CALL record_error('Only one rundata selection option may be given; found both '// &
+                                    TRIM(code)//' and '//TRIM(argument))
+               END IF
+               code = argument
+
+               IF (TRIM(argument) /= '-a' .AND. arg_index < na) THEN
+                  CALL read_argument(arg_index + 1, next_argument)
+                  IF (LEN_TRIM(next_argument) > 0 .AND. next_argument(1:1) /= '-') THEN
+                     arg_index = arg_index + 1
+                     cli_argument = next_argument
+                     has_value = .TRUE.
+                  END IF
+               END IF
+
+#ifndef SHETRAN_HAVE_QUICKWIN
+            CASE ('-a', '-m', '-af', '-sd', '-pattern', '-delinc', '-results')
+               CALL record_error('Interactive file selection ('//TRIM(argument)// &
+                                 ') requires Intel QuickWin on Windows. Use: shetran -f filename.txt')
+#endif
+
             CASE ('-error')
-               error_mode = .TRUE.
+               CALL record_error('Unknown command line option -error; it has been renamed to -wait-on-error')
+
+            CASE DEFAULT
+               IF (LEN_TRIM(argument) == 0) THEN
+                  CALL record_error('Empty command line argument at position '//to_string(arg_index))
+               ELSE IF (argument(1:1) == '-') THEN
+                  CALL record_error('Unknown command line option '//TRIM(argument)// &
+                                    '. Recognised options are '//known_options)
+               ELSE
+                  CALL record_error('Unexpected command line argument '//TRIM(argument)// &
+                                    '. A rundata filename must follow -f, a catchment name must follow -c')
+               END IF
             END SELECT
-         END DO
-      END SUBROUTINE set_error_mode_from_arguments
+         END DO scan_arguments
+      END SUBROUTINE parse_arguments
+
+      !> @brief Reads one command argument, recording an error if it is truncated.
+      !>
+      !> @history
+      !> | Date | Author | Description |
+      !> |:-----|:-------|:------------|
+      !> | 2026-10-08 | SvB | Initial version. |
+      !> @endhistory
+      SUBROUTINE read_argument(arg_index, argument)
+         INTEGER, INTENT(IN) :: arg_index            !! One-based command-argument index.
+         CHARACTER(LEN=*), INTENT(OUT) :: argument   !! Argument text, blank padded.
+         INTEGER :: arg_status !! `GET_COMMAND_ARGUMENT` status; nonzero when truncated or unavailable.
+
+         CALL GET_COMMAND_ARGUMENT(arg_index, argument, STATUS=arg_status)
+         IF (arg_status /= 0) THEN
+            CALL record_error('Command line argument '//to_string(arg_index)//' is longer than '// &
+                              to_string(LEN(argument))//' characters')
+         END IF
+      END SUBROUTINE read_argument
+
+      !> @brief Keeps the first command-line diagnostic in the host `message`.
+      !>
+      !> @history
+      !> | Date | Author | Description |
+      !> |:-----|:-------|:------------|
+      !> | 2026-10-08 | SvB | Initial version. |
+      !> @endhistory
+      SUBROUTINE record_error(err_msg)
+         CHARACTER(LEN=*), INTENT(IN) :: err_msg !! Command-line diagnostic.
+
+         IF (message == '') message = err_msg
+      END SUBROUTINE record_error
 
    END SUBROUTINE get_dir_and_catch
 
@@ -444,25 +529,30 @@ CONTAINS
 
    !> @brief Reports failure of final rundata-file validation and stops.
    !>
-   !> The supplied message is prefixed with `ERROR:`, followed by the same `-f`
-   !> and `-c` usage lines emitted by the contained startup-error helper. The
-   !> process then terminates with `ERR_STOP(255)`. The current caller uses this
-   !> routine only after `INQUIRE` reports that the selected rundata file does
-   !> not exist.
+   !> The supplied message is prefixed with `ERROR:`, followed by usage lines
+   !> for the `-f`, `-c`, (QuickWin builds) `-a`, and `-wait-on-error` forms.
+   !> The process then terminates with `ERR_STOP(255)`. It is called directly
+   !> after `INQUIRE` reports that the selected rundata file does not exist, and
+   !> through the contained `print_usage_and_stop` for all earlier failures.
    !>
    !> @history
    !> | Date | Author | Description |
    !> |:-----|:-------|:------------|
    !> | 2026-04-01 | SvB | Added the portable command-line failure path. |
    !> | 2026-10-07 | SvB | Terminated through `ERR_STOP`. |
+   !> | 2026-10-08 | SvB | Documented `-a` and `-wait-on-error` in the usage lines. |
    !> @endhistory
    SUBROUTINE handle_command_line_error(error_msg)
 
-      CHARACTER(LEN=*), INTENT(IN) :: error_msg !! Missing or nonexistent rundata-file diagnostic.
+      CHARACTER(LEN=*), INTENT(IN) :: error_msg !! Command-line, lookup, or nonexistent rundata-file diagnostic.
 
       WRITE (*, '(A)') 'ERROR: '//TRIM(error_msg)
-      WRITE (*, '(A)') 'Usage: shetran -f rundata_file.txt'
-      WRITE (*, '(A)') '   or: shetran -c catchment_name'
+      WRITE (*, '(A)') 'Usage: shetran -f rundata_file.txt [-wait-on-error]'
+      WRITE (*, '(A)') '   or: shetran -c [catchment_name] [-wait-on-error]'
+#ifdef SHETRAN_HAVE_QUICKWIN
+      WRITE (*, '(A)') '   or: shetran [-a] [-wait-on-error]'
+#endif
+      WRITE (*, '(A)') '-wait-on-error: wait for Enter before exiting on a fatal error.'
       CALL ERR_STOP(255)
 
    END SUBROUTINE handle_command_line_error
