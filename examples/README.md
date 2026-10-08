@@ -111,6 +111,24 @@ Generated comparison details in `<model>/diff_delta/`:
 - Text files: unified diff text output.
 - HDF5 files: dataset-level delta tables and plots (where applicable).
 
+Metrics in `comparison_results.csv` (defined in `_methods/metrics.py`), with the
+expected results as reference O and the new results as simulation S:
+
+| Column | Definition | Unit |
+|:-------|:-----------|:-----|
+| `abs_max_difference`, `abs_mean_difference` | max / mean of \|S − O\| | data unit |
+| `perc_max_difference`, `perc_mean_difference` | max / mean of 100·\|S − O\|/\|O\| (O ≠ 0) | % |
+| `RMSE` | √mean((S − O)²) | data unit |
+| `MAE` | mean \|S − O\| | data unit |
+| `MAPE` | 100·mean(\|S − O\|/\|O\|), O ≠ 0 | % |
+| `PBIAS` | 100·Σ(O − S)/ΣO; positive = underestimation (Moriasi et al., 2007) | % |
+| `NSE` | 1 − Σ(S − O)²/Σ(O − Ō)² (Nash & Sutcliffe, 1970) | – |
+| `R²` | squared Pearson correlation of O and S (Legates & McCabe, 1999) | – |
+| `KGE` | 1 − √((r − 1)² + (σ_S/σ_O − 1)² + (μ_S/μ_O − 1)²) (Gupta et al., 2009) | – |
+
+NSE, R² and KGE are only reported for timeseries (tables and 1D HDF5
+datasets). Delta CSVs contain `diff_abs` = S − O and `diff_pct` = 100·(S − O)/\|O\|.
+
 ### `update_should_results.py`
 
 Copies current `compute/` outputs into `output_should/` for selected models.

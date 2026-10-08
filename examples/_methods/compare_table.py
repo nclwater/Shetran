@@ -5,7 +5,6 @@
 # General Imports
 import os
 from datetime import datetime
-from sqlite3 import DateFromTicks
 
 # Standard Packages
 import numpy as np
@@ -13,6 +12,7 @@ import pandas as pd
 
 # Local Imports
 from . import compare_plots as compare_plots
+from . import metrics as metrics
 from . import settings as settings
 
 
@@ -66,55 +66,6 @@ def _read_table_csv(fn_table: str) -> pd.DataFrame:
         converters=converters,
         index_col=False,
     )
-
-
-def _get_similarity_metrics(df_analysis: pd.DataFrame) -> dict:
-    df_valid = df_analysis[["should", "is"]].dropna()
-    if df_valid.empty:
-        return {
-            "MSE": np.nan,
-            "MAE": np.nan,
-            "MAPE": np.nan,
-            "NSE": np.nan,
-            "R²": np.nan,
-        }
-
-    mse = np.mean((df_valid["should"] - df_valid["is"]) ** 2)
-    mae = np.mean(np.abs(df_valid["should"] - df_valid["is"]))
-
-    mask = df_valid["should"] != 0
-    if mask.any():
-        mape = (
-            np.mean(
-                np.abs(
-                    (df_valid["is"][mask] - df_valid["should"][mask])
-                    / df_valid["should"][mask]
-                )
-            )
-            * 100
-        )
-    else:
-        mape = np.nan
-
-    ss_res = np.sum((df_valid["should"] - df_valid["is"]) ** 2)
-    ss_tot = np.sum((df_valid["should"] - df_valid["should"].mean()) ** 2)
-
-    if ss_tot != 0:
-        nse = 1 - ss_res / ss_tot
-        r2 = 1 - ss_res / ss_tot
-    else:
-        nse = np.nan
-        r2 = np.nan
-
-    res = {
-        "MSE": mse,
-        "MAE": mae,
-        "MAPE": mape,
-        "NSE": nse,
-        "R²": r2,
-    }
-
-    return res
 
 
 def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
@@ -274,37 +225,19 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     {
                         "col_name": col.strip(),
                         "data_differs": data_differs,
-                        "abs_max_difference": np.nan,
-                        "perc_max_difference": np.nan,
-                        "abs_mean_difference": np.nan,
-                        "perc_mean_difference": np.nan,
-                        "MSE": np.nan,
-                        "MAE": np.nan,
-                        "MAPE": np.nan,
-                        "NSE": np.nan,
-                        "R²": np.nan,
+                        **metrics.empty_metrics(),
                     }
                 )
                 continue
 
-            # add difference columns, both percentage and absolute
+            # add difference columns (is - should), absolute and in percent
             df_combined["diff_abs"] = (
-                df_combined[should_col_name] - df_combined[is_col_name]
+                df_combined[is_col_name] - df_combined[should_col_name]
             )
-            df_combined["diff_pct"] = df_combined["diff_abs"] / df_combined[
-                should_col_name
-            ].replace(0, pd.NA)
-
-            both_zero_mask = (df_combined[should_col_name] == 0) & (
-                df_combined[is_col_name] == 0
+            df_combined["diff_pct"] = metrics.relative_difference_pct(
+                df_combined[should_col_name].to_numpy(dtype=np.float64),
+                df_combined[is_col_name].to_numpy(dtype=np.float64),
             )
-            df_combined.loc[both_zero_mask, "diff_abs"] = 0
-            df_combined.loc[both_zero_mask, "diff_pct"] = 0
-
-            abs_max_difference = df_combined["diff_abs"].abs().max()
-            perc_max_difference = df_combined["diff_pct"].abs().max()
-            abs_mean_difference = df_combined["diff_abs"].abs().mean()
-            perc_mean_difference = df_combined["diff_pct"].abs().mean()
 
             # Metrics and plots continue to use canonical names.
             df_analysis = df_combined.rename(
@@ -314,10 +247,13 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 }
             )
 
-            # record legacy percentage difference key for backwards compatibility
-            res[f"perc_diff_max_col_{col_save}"] = perc_max_difference
+            col_metrics = metrics.compute_metrics(
+                df_analysis["should"].to_numpy(dtype=np.float64),
+                df_analysis["is"].to_numpy(dtype=np.float64),
+            )
 
-            metrics = _get_similarity_metrics(df_analysis)
+            # record legacy percentage difference key for backwards compatibility
+            res[f"perc_diff_max_col_{col_save}"] = col_metrics["perc_max_difference"]
 
             # check if the differences are within the tolerance
             within_tolerance = (
@@ -336,15 +272,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 {
                     "col_name": col.strip(),
                     "data_differs": data_differs,
-                    "abs_max_difference": abs_max_difference,
-                    "perc_max_difference": perc_max_difference,
-                    "abs_mean_difference": abs_mean_difference,
-                    "perc_mean_difference": perc_mean_difference,
-                    "MSE": metrics["MSE"],
-                    "MAE": metrics["MAE"],
-                    "MAPE": metrics["MAPE"],
-                    "NSE": metrics["NSE"],
-                    "R²": metrics["R²"],
+                    **col_metrics,
                 }
             )
 
@@ -376,7 +304,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
 
                 # generate column difference plots
                 fn_figure = os.path.splitext(fn_col)[0] + ".png"
-                compare_plots.plot_col_differences(df_analysis, col, fn_figure, metrics)
+                compare_plots.plot_col_differences(df_analysis, col, fn_figure, col_metrics)
 
                 flag_diff = True
                 res[f"numeric_column_{col_save}"] = False

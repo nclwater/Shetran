@@ -19,6 +19,7 @@ import pandas as pd
 # Local Imports
 from _methods import compare as compare
 from _methods import compute as compute
+from _methods import metrics as metrics
 from _methods import settings as settings
 from _methods import util as util
 
@@ -107,123 +108,27 @@ def _build_comparison_results_rows(res_files: dict) -> list[dict]:
         same_row_count = file_res.get("same_row_count")
 
         if file_type == "table":
-            col_metrics = file_res.get("table_column_metrics", [])
-            if col_metrics:
-                for col_res in col_metrics:
-                    rows.append({
-                        "file":
-                        filename,
-                        "data_item":
-                        col_res.get("col_name"),
-                        "file_type":
-                        file_type,
-                        "data_differs":
-                        col_res.get("data_differs", files_different),
-                        "same_row_count":
-                        same_row_count,
-                        "abs_max_difference":
-                        col_res.get("abs_max_difference"),
-                        "perc_max_difference":
-                        col_res.get("perc_max_difference"),
-                        "abs_mean_difference":
-                        col_res.get("abs_mean_difference"),
-                        "perc_mean_difference":
-                        col_res.get("perc_mean_difference"),
-                        "MSE":
-                        col_res.get("MSE"),
-                        "MAE":
-                        col_res.get("MAE"),
-                        "MAPE":
-                        col_res.get("MAPE"),
-                        "NSE":
-                        col_res.get("NSE"),
-                        "R²":
-                        col_res.get("R²"),
-                    })
-            else:
-                rows.append({
-                    "file": filename,
-                    "data_item": "",
-                    "file_type": file_type,
-                    "data_differs": files_different,
-                    "same_row_count": same_row_count,
-                    "abs_max_difference": pd.NA,
-                    "perc_max_difference": pd.NA,
-                    "abs_mean_difference": pd.NA,
-                    "perc_mean_difference": pd.NA,
-                    "MSE": pd.NA,
-                    "MAE": pd.NA,
-                    "MAPE": pd.NA,
-                    "NSE": pd.NA,
-                    "R²": pd.NA,
-                })
+            item_metrics = [{
+                "data_item": col_res.get("col_name"),
+                "same_row_count": same_row_count,
+                **col_res,
+            } for col_res in file_res.get("table_column_metrics", [])]
         elif file_type == "hdf5":
-            dataset_metrics = file_res.get("hdf5_dataset_metrics", [])
-            if dataset_metrics:
-                for dataset_res in dataset_metrics:
-                    rows.append({
-                        "file":
-                        filename,
-                        "data_item":
-                        dataset_res.get("data_item", ""),
-                        "file_type":
-                        file_type,
-                        "data_differs":
-                        dataset_res.get("data_differs", files_different),
-                        "same_row_count":
-                        dataset_res.get("same_row_count"),
-                        "abs_max_difference":
-                        dataset_res.get("abs_max_difference"),
-                        "perc_max_difference":
-                        dataset_res.get("perc_max_difference"),
-                        "abs_mean_difference":
-                        dataset_res.get("abs_mean_difference"),
-                        "perc_mean_difference":
-                        dataset_res.get("perc_mean_difference"),
-                        "MSE":
-                        dataset_res.get("MSE"),
-                        "MAE":
-                        dataset_res.get("MAE"),
-                        "MAPE":
-                        dataset_res.get("MAPE"),
-                        "NSE":
-                        dataset_res.get("NSE"),
-                        "R²":
-                        dataset_res.get("R²"),
-                    })
-            else:
-                rows.append({
-                    "file": filename,
-                    "data_item": "",
-                    "file_type": file_type,
-                    "data_differs": files_different,
-                    "same_row_count": same_row_count,
-                    "abs_max_difference": pd.NA,
-                    "perc_max_difference": pd.NA,
-                    "abs_mean_difference": pd.NA,
-                    "perc_mean_difference": pd.NA,
-                    "MSE": pd.NA,
-                    "MAE": pd.NA,
-                    "MAPE": pd.NA,
-                    "NSE": pd.NA,
-                    "R²": pd.NA,
-                })
+            item_metrics = file_res.get("hdf5_dataset_metrics", [])
         else:
+            item_metrics = []
+
+        if not item_metrics:
+            item_metrics = [{"data_item": "", "same_row_count": same_row_count}]
+
+        for item_res in item_metrics:
             rows.append({
                 "file": filename,
-                "data_item": "",
+                "data_item": item_res.get("data_item", ""),
                 "file_type": file_type,
-                "data_differs": files_different,
-                "same_row_count": same_row_count,
-                "abs_max_difference": pd.NA,
-                "perc_max_difference": pd.NA,
-                "abs_mean_difference": pd.NA,
-                "perc_mean_difference": pd.NA,
-                "MSE": pd.NA,
-                "MAE": pd.NA,
-                "MAPE": pd.NA,
-                "NSE": pd.NA,
-                "R²": pd.NA,
+                "data_differs": item_res.get("data_differs", files_different),
+                "same_row_count": item_res.get("same_row_count"),
+                **{key: item_res.get(key, pd.NA) for key in metrics.METRIC_KEYS},
             })
 
     return rows

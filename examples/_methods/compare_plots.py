@@ -15,10 +15,11 @@ def plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
                          metrics: dict) -> None:
     """
     Generates and saves a plot comparing 'should' and 'is' timeseries data,
-    along with their absolute and percentage differences.
+    along with their absolute (actual - expected) and relative (%) differences.
 
     Args:
-        df_combined (pd.DataFrame): DataFrame with 'should', 'is', 'diff_abs', 'diff_pct' columns.
+        df_combined (pd.DataFrame): DataFrame with 'should', 'is', 'diff_abs' (is - should)
+            and 'diff_pct' (100 * (is - should) / |should|) columns.
         col (str): The name of the data column being plotted.
         fn_figure (str): The output filename for the plot image.
         metrics (dict): A dictionary of similarity metrics to display.
@@ -58,7 +59,7 @@ def plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
 
     # --- Middle plot: Absolute Difference ---
     ax2.plot(df_combined.index, df_combined["diff_abs"], color="red")
-    ax2.set_title("Absolute Difference")
+    ax2.set_title("Difference (actual - expected)")
     ax2.grid(True, linestyle=":", alpha=0.5)
     plt.setp(ax2.get_xticklabels(), visible=False)
 
@@ -66,7 +67,7 @@ def plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
     ax3.plot(df_combined.index,
              df_combined["diff_pct"].fillna(np.nan),
              color="orange")
-    ax3.set_title("Percentage Difference")
+    ax3.set_title("Relative difference (%)")
     ax3.set_xlabel("Time")
     ax3.grid(True, linestyle=":", alpha=0.5)
 
@@ -78,7 +79,7 @@ def plot_col_differences(df_combined: pd.DataFrame, col: str, fn_figure: str,
                      bbox_to_anchor=(0, 0.85))
 
     # Format metrics text and place it in a box below the legend
-    metrics_text = "Similarity Metrics:\n"
+    metrics_text = "Metrics (relative values in %):\n"
 
     def _format_metric_value(value) -> str:
         try:
