@@ -112,8 +112,8 @@ PROGRAM SHETRAN
    ! Explicit release of the persistent open-channel solver workspace.
    USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
 
-   ! Superseded by the ERR_STOP wait at program completion.
-   ! USE stdlib_system, ONLY: sleep
+   ! Cross platform functionality
+   USE stdlib_system, ONLY: sleep
 
    IMPLICIT NONE
 
@@ -150,12 +150,7 @@ PROGRAM SHETRAN
    ! Release the model-lifetime open-channel solver workspace.
    CALL FINALISE_OCSIM_WORKSPACE()
 
-   ! Program completion
-   ! A run launched through the QuickWin file dialog owns the console window and
-   ! closes it on exit, so wait for the user before it does.
-   ! A run given its rundata file on the command line keeps its caller's console.
-   ! Former fixed 5 s pause, superseded by the ERR_STOP wait:
-   ! IF (rundata_from_file_dialog) CALL sleep(5000)
-   IF (rundata_from_file_dialog) CALL ERR_STOP()
+   ! Program completion handling for when it has been started via quickwin
+   IF (rundata_from_file_dialog) CALL sleep(5000)
 
 END PROGRAM SHETRAN
