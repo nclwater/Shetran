@@ -1758,6 +1758,8 @@ CONTAINS
             ZVSNOD(NLYRBT(IEL, 1):LTOP - 1, IEL) = ZVSNOD(NLYRBT(IEL, 1):LTOP - 1, IEL) - ZDIFF
          END IF
 
+         ! cell directly below the river bed (exit index of the former DO 2050 loop)
+         ICL = MAX(NLYRBT(IEL, 1), LTOP)
          ZVSNOD(ICL, IEL) = ZVSNOD(ICL, IEL) - ZDIFF*half
 
          IF (NLYR(IEL) >= 1) THEN
