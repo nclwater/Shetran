@@ -31,12 +31,6 @@
 !> no declaration initializers.
 !>
 !> @warning
-!> `LINKSM` passes `ISADNL` from [[is_cc]] to every link retardation
-!> calculation, but current [[cmmod:cmrd]] reads manual record `CM13` into a
-!> shadowing local variable. The module flag used here therefore remains
-!> undefined under standard Fortran, so the linear/nonlinear adsorption path
-!> for link calculations is not reliably selected.
-!>
 !> When updating `FCPSW1(side)`, `LINKSM` compares the current bank top-cell
 !> concentration with `CCPBK(side,NCONT)`. The second `CCPBK` subscript is a
 !> cell index, so this selects cell `1:NCON` according to contaminant number,

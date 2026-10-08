@@ -30,6 +30,7 @@ model_analysis.csv
 comparison_overview.csv
 setup_overview.csv
 comparison_results.csv
+tmp
 
 
 ## Ignore Visual Studio temporary files, build results, and

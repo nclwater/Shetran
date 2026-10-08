@@ -18,18 +18,13 @@
 !> its active per-column consumers, and `FROPEN` establishes `ISMN` before
 !> component initialization.
 !>
-!> @warning
-!> In [[cmmod:cmrd]], local declarations named `ISFLXB` and `ISADNL` shadow
-!> the module variables. Manual records `CM5` and `CM13` are therefore read
-!> into locals; `ISFLXB` controls only the input-array setup within `CMRD`, and
-!> the local `ISADNL` has no subsequent use there. The module flags later read
-!> by `COLMSM`, `COLM`, `LINKSM`, and `SLVCLM` remain undefined under standard
-!> Fortran.
+!> `ISFLXB` and `ISADNL` are assigned from manual records `CM5` and `CM13` by
+!> [[cmmod:cmrd]]; they must not be redeclared locally there.
 !>
-!> `ISPLT` likewise has no assignment anywhere in the current source before
-!> `INPL`, `PLPREP`, and `PLCOLM` test it, so the contaminant plant-uptake path
-!> also depends on undefined logical state. This documentation transfer records
-!> but does not change these current behaviours.
+!> @warning
+!> `ISPLT` has no assignment anywhere in the current source before `INPL`,
+!> `PLPREP`, and `PLCOLM` test it, so the contaminant plant-uptake path
+!> depends on undefined logical state.
 !> @endwarning
 !>
 !> @history
@@ -46,9 +41,9 @@
 MODULE IS_CC
    IMPLICIT NONE
 
-   LOGICAL :: ISADNL !! Intended nonlinear-adsorption flag from `CM13`; module value is currently unassigned.
+   LOGICAL :: ISADNL !! Nonlinear-adsorption flag from `CM13`, set by [[cmmod:cmrd]].
    LOGICAL :: ISBK   !! True while the current contaminant column is a bank element.
-   LOGICAL :: ISFLXB !! Intended flux-concentration base-boundary flag from `CM5`; module value is currently unassigned.
+   LOGICAL :: ISFLXB !! Flux-concentration base-boundary flag from `CM5`, set by [[cmmod:cmrd]].
    LOGICAL :: ISPLT  !! Intended contaminant plant-uptake flag; currently unassigned.
    LOGICAL :: ISMN   !! Nitrate-component flag established from rundata file unit 53.
 
