@@ -4,8 +4,9 @@
 
 This is a **logical, source-only** assessment. No profile was taken and no
 timings were measured. Every claim below is derived from reading
-`src/modules/VSmod.f90`, its callers, the array declarations in
-`src/parameters/AL_C.F90` and `src/parameters/sglobal.f90`, and the compiler
+`src/subsurface/VSmod.f90`, its callers, the array declarations in
+`src/core/state/AL_C.F90` and `src/core/sglobal.f90`, the comparison helpers in
+`src/util/tolerance_testing.f90`, and the compiler
 flags in `CMakeLists.txt`. Where a claim depends on compiler behaviour rather
 than on the source alone, that is stated explicitly.
 
@@ -13,11 +14,11 @@ The two routines named in the request are:
 
 | Routine | Lines | Role |
 |---|---|---|
-| `VSCOEF` | `src/modules/VSmod.f90:644-850` | Builds vertical (`CBETM`, `CDBETM`, `CDBTMM`) and lateral (`CGAM1`, `CGAM2`, `CDGAM1`, `CDGAM2`) conductances, plus the diagonal accumulators `CF`/`CDF` |
-| `VSINTC` | `src/modules/VSmod.f90:2648-2762` | Assembles the tridiagonal system `CA`, `CB`, `CC`, `CR` from those conductances |
+| `VSCOEF` | `src/subsurface/VSmod.f90:680-886` | Builds vertical (`CBETM`, `CDBETM`, `CDBTMM`) and lateral (`CGAM1`, `CGAM2`, `CDGAM1`, `CDGAM2`) conductances, plus the diagonal accumulators `CF`/`CDF` |
+| `VSINTC` | `src/subsurface/VSmod.f90:2692-2806` | Assembles the tridiagonal system `CA`, `CB`, `CC`, `CR` from those conductances |
 
 Both are called once per Newton iteration from `VSCOLM`
-(`src/modules/VSmod.f90:1068` and `:1075`), inside the loop at `:1060`.
+(`src/subsurface/VSmod.f90:1102` and `:1109`), inside the loop at `:1094`.
 
 ## Conclusion up front
 
@@ -33,11 +34,11 @@ mechanical:
 
 1. **`VSCOEF` computes the lateral conductivity arrays `CKIJ`/`CDKIJ` four
    times over when only two distinct values exist, unconditionally, and for a
-   fully internal element the results are never read.** (`:788`, `:795-799`)
+   fully internal element the results are never read.** (`:824`, `:831-835`)
 2. **`VSINTC` multiplies by a compile-time-zero constant `OMSIG` and the build
    flags prevent the compiler from folding it away**, keeping two whole arrays
    (`CPSIN`, `CPSIN1`) — one of them indirectly indexed — in the hot working
-   set for no arithmetic effect. (`:2712`, `:2721`, `:2755-2756`)
+   set for no arithmetic effect. (`:2756`, `:2765`, `:2799-2800`)
 3. **A large block of the inner-loop arithmetic is invariant** — either static
    for the whole simulation (geometry, connectivity, soil map) or fixed for the
    duration of a `VSCOLM` call (neighbour state) — yet is recomputed on every
@@ -54,25 +55,25 @@ measurement to take**, since it is the multiplier on every item below.
 
 ```text
 per timestep
-  VSSIM                                              VSmod.f90:4220
-    global iteration NIT = 1..10                     :4405   NITMAX = 10
-      element loop over ISORT                        :4410
-        skip if OK(IEL)                              :4413
-        stage neighbour data for 4 faces             :4430-4466
-        VSCOLM                                       :4476
-          Newton iteration NIT = 1..100              :1060   NITMAX = 100
-            VSFUNC   soil property lookup            :1063
-            VSCOEF   conductances                    :1068
-            VSINTC   matrix assembly                 :1075
-            VSUPPR / VSWELL / VSSPR / VSBC / VSSAI   :1084-1115
-            VSLOWR                                   :1119
-            TRIDAG                                   :1124
-            convergence test                         :1135
-          final flux recovery                        :1152-1171
+  VSSIM                                              VSmod.f90:4259
+    global iteration NIT = 1..10                     :4442   NITMAX = 10
+      element loop over ISORT                        :4447
+        skip if OK(IEL)                              :4450
+        stage neighbour data for 4 faces             :4467-4503
+        VSCOLM                                       :4513
+          Newton iteration NIT = 1..100              :1094   NITMAX = 100
+            VSFUNC   soil property lookup            :1097
+            VSCOEF   conductances                    :1102
+            VSINTC   matrix assembly                 :1109
+            VSUPPR / VSWELL / VSSPR / VSBC / VSSAI   :1118-1149
+            VSLOWR                                   :1153
+            TRIDAG                                   :1158
+            convergence test                         :1169
+          final flux recovery                        :1186-1205
 ```
 
 The worst case for a single element in a single timestep is 10 × 100 = 1000
-full assemblies. `LLEE = 50` (`src/parameters/sglobal.f90:119`), so a column is
+full assemblies. `LLEE = 50` (`src/core/sglobal.f90:123`), so a column is
 at most 50 cells and `VSCOEF`'s face loop is at most 4 × 50 = 200 inner
 iterations.
 
@@ -88,7 +89,7 @@ the redundancy. Nothing in the current code exploits classes S, T or G.
 | **G** — per `VSCOLM` call | neighbour state | `CPSI1`, `CPSIN1`, `CZ1`, `CKIJ1` — all `INTENT(IN)` to `VSCOLM` |
 | **N** — per Newton iteration | current iterate | `CPSI`, `CKR`, `CDKR`, `CETA`, `CDETA` |
 
-`CWV` and `CWL` are read once from `VS04` at `VSmod.f90:3394-3395` and never
+`CWV` and `CWL` are read once from `VS04` at `VSmod.f90:3435-3436` and never
 reassigned — they are class S, not merely loop-invariant.
 
 **Calibration against real data.** Every example dataset checked
@@ -96,10 +97,10 @@ reassigned — they are class S, not merely loop-invariant.
 `examples/Aire_at_Kildwick_Bridge-simple`) sets `VSWV = VSWL = 1.0`. So in
 practice:
 
-- the hot vertical path is the **arithmetic-mean branch** at `:731-745`, not
+- the hot vertical path is the **arithmetic-mean branch** at `:767-781`, not
   the harmonic or general branches;
-- `NOTONE(CWL)` at `:824` is **always false**, so none of the `**` operators at
-  `:825-831` are ever evaluated.
+- `NOTONE(CWL)` at `:860` is **always false**, so none of the `**` operators at
+  `:861-867` are ever evaluated.
 
 This matters for prioritisation: the `pow()` calls, which would otherwise
 dominate, are dead in practice. The cost is the surrounding memory traffic and
@@ -108,7 +109,7 @@ one-line predicate is eligible for inlining.
 
 ### 1.3 Build flags
 
-`CMakeLists.txt:72-84,684-706`: the default `Release` build is `-O2
+`CMakeLists.txt:87-99,821-843`: the default `Release` build is `-O2
 -fno-fast-math` for GNU, with no `-march`; `ReleaseNative` is `-O3
 -march=native -fno-fast-math`. CMake requires IPO/LTO support and enables it
 for both optimized configurations. Consequences that matter below:
@@ -132,26 +133,26 @@ for both optimized configurations. Consequences that matter below:
 
 **P0. Bitwise identical to fix.**
 
-At `:788`, `M = 1 + MOD(J - 1, 2)` takes only two values across the four faces:
+At `:824`, `M = 1 + MOD(J - 1, 2)` takes only two values across the four faces:
 
 | `J` | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
 | `M` | 1 | 2 | 1 | 2 |
 
 So `CKIJ(:,3)` is elementwise identical to `CKIJ(:,1)`, and `CKIJ(:,4)` to
-`CKIJ(:,2)` — likewise `CDKIJ`. The fill at `:795-799` runs for all four faces
+`CKIJ(:,2)` — likewise `CDKIJ`. The fill at `:831-835` runs for all four faces
 and all cells, so **half of those 4 × `ncell` gathers, 8 × `ncell` multiplies
 and 8 × `ncell` stores are pure duplication**, on every Newton iteration.
 
 Worse, the results are frequently never read at all. `CKIJ`/`CDKIJ` have no
 consumer inside `VSCOEF` — `KIJ`/`DKIJ` are used as locals. Their only
-consumers are `VSBC` (`VSCOLM:1105-1106`) and `VSSAI` (`:1111-1112`), which are
+consumers are `VSBC` (`VSCOLM:1139-1140`) and `VSSAI` (`:1145-1146`), which are
 called only when `JCBC(IFA)` is in `{3,4,5}` or `{9,10}` respectively
-(`:1102`, `:1109`). **For an element with all four faces internal
+(`:1136`, `:1143`). **For an element with all four faces internal
 (`JCBC(1:4) = 0`) the entire fill is dead code.** That is the common case in
 the interior of a catchment.
 
-There is a second effect. Because the fill sits before the `CYCLE` at `:805`,
+There is a second effect. Because the fill sits before the `CYCLE` at `:841`,
 the cell loop must be entered for every face even when `TEST` is true — that
 is, even when `JELDUM(J) < 1` (no neighbour) or `JCBC(J) == 9` (handled
 elsewhere). A boundary element currently walks its full column on a face that
@@ -163,15 +164,15 @@ derivatives — and only when at least one face has a boundary type in
 `{3,4,5,9,10}`. Then the face loop can open with `IF (TEST) CYCLE face_loop`
 and skip dead faces entirely. This is exactly the same arithmetic, so results
 are bitwise identical; the split loops are also contiguous and vectorisable,
-which the current fused loop is not (the `CYCLE` at `:805` blocks it).
+which the current fused loop is not (the `CYCLE` at `:841` blocks it).
 
 ### V2 — `NOTONE(CWL)` evaluated in the innermost loop
 
 **P0. Bitwise identical to fix.**
 
-`:824` evaluates `NOTONE(CWL)` once per cell, per face, per Newton iteration —
+`:860` evaluates `NOTONE(CWL)` once per cell, per face, per Newton iteration —
 up to 200 evaluations per assembly. `CWL` is class S. `NOTONE` is an
-`ELEMENTAL` module function (`src/parameters/sglobal.f90:505`). IPO/LTO is
+`ELEMENTAL` module function (`src/util/tolerance_testing.f90:306`). IPO/LTO is
 enabled in optimized builds, so call overhead will usually disappear, but the
 invariant comparison and branch remain in the source and need not be hoisted
 out of the loop by every compiler.
@@ -187,19 +188,19 @@ Every one of the following is class S and is re-evaluated per Newton iteration:
 
 | Line | Expression | Cost per cell (or cell-face) |
 |---|---|---|
-| `:713-714` | `VSK3D(ICSOIL(I),3) * AREA2 / CDELZ(I)` | indirect gather + division |
-| `:734`, `:753` | `VSK3D(ICSOIL(I),3)` | indirect gather |
-| `:741`, `:763` | `CA0 / (CDELZ(M) + CDELZ(I))` | division |
-| `:795` | `VSK3D(ICSOIL(I),M)` | indirect gather |
-| `:807-811` | `ABS(JCDEL(J,I))+1`, `JCDEL1(K,J)`, `K+DELKJ`, `ABS(DELKJ)+1` | 3 strided/indirect integer loads |
-| `:815` | `CAIJ(J,I) / DBLE(NKJ)` | stride-4 load + int→double + division |
+| `:749-750` | `VSK3D(ICSOIL(I),3) * AREA2 / CDELZ(I)` | indirect gather + division |
+| `:770`, `:789` | `VSK3D(ICSOIL(I),3)` | indirect gather |
+| `:777`, `:799` | `CA0 / (CDELZ(M) + CDELZ(I))` | division |
+| `:831` | `VSK3D(ICSOIL(I),M)` | indirect gather |
+| `:843-847` | `ABS(JCDEL(J,I))+1`, `JCDEL1(K,J)`, `K+DELKJ`, `ABS(DELKJ)+1` | 3 strided/indirect integer loads |
+| `:851` | `CAIJ(J,I) / DBLE(NKJ)` | stride-4 load + int→double + division |
 
 On baseline x86-64 a `divsd` is ~13–14 cycle latency and poorly pipelined,
 against ~4 cycles for `mulsd`. Two to three divisions per cell-face is a large
 fraction of the routine's real cost, and all of them are avoidable.
 
 **Fix.** Extend the existing one-off setup block in `VSSIM`
-(`:4269-4337`, guarded by `FIRSTvssim`, which already precomputes `VSAIJsv`
+(`:4308-4376`, guarded by `FIRSTvssim`, which already precomputes `VSAIJsv`
 and `ICSOILsv`) to also build per-element static arrays: the vertical
 conductance geometry factor, the lateral area-per-split factor, and the
 connectivity triple `(NIJ, NKJ, K1)`. Precomputing the *whole* expression
@@ -213,8 +214,8 @@ hot loop — see V6.
 
 **P2. Changes results in the last bit.**
 
-`:834-835` divide by `DXDUM` per cell-face. `DXDUM` is set once per face at
-`:790`, and `WO2DX = half * CWL / DXDUM` is *already* hoisted at `:791` — so
+`:870-871` divide by `DXDUM` per cell-face. `DXDUM` is set once per face at
+`:826`, and `WO2DX = half * CWL / DXDUM` is *already* hoisted at `:827` — so
 the reciprocal is simply missing. Adding `RDX = one / DXDUM` beside it and
 multiplying removes two divisions per cell-face.
 
@@ -226,7 +227,7 @@ be decided rather than assumed.
 
 **P1. Bitwise identical to fix.**
 
-`:813-814` compute
+`:849-850` compute
 
 ```fortran
 CKJ  = CKIJ1(K,  J) * CAIJ1(K,  J) / DBLE(NIJ)
@@ -240,7 +241,7 @@ a cost of four indirect loads, two multiplies and two divisions per cell-face.
 
 Hoisting them to a per-element precompute done once per `VSCOLM` entry
 eliminates that entirely. (In the general-`CWL` case it would also hoist the
-`CKJ**CWL` and `CK1J**CWL` calls at `:826-827` — not relevant to the example
+`CKJ**CWL` and `CK1J**CWL` calls at `:862-863` — not relevant to the example
 datasets, but relevant to any dataset that does use a w-mean.)
 
 ### V6 — Stride-4 access in the innermost loop
@@ -252,10 +253,10 @@ read as `(J,I)` with `I` innermost, i.e. **stride 4**. For the double-precision
 `CAIJ` that is a 32-byte stride: two useful values per 64-byte cache line, so
 half the fetched bytes are wasted. For the integer arrays, four per line.
 
-This layout is deliberate — the 1997-05-13 history entry at `:642` records the
+This layout is deliberate — the 1997-05-13 history entry at `:678` records the
 index swap, and the global arrays `JVSACN`, `JVSDEL`, `QVSH` and `VSAIJsv` are
-all `(4, cell, element)` (`src/parameters/AL_C.F90:108-109`, `:160`)
-specifically so `VSSIM` can pass a contiguous per-element slice at `:4477-4482`.
+all `(4, cell, element)` (`src/core/state/AL_C.F90:113-114`, `:165`)
+specifically so `VSSIM` can pass a contiguous per-element slice at `:4514-4519`.
 Changing the global layout would be a module-wide change with wide blast
 radius.
 
@@ -268,16 +269,16 @@ layout at all. This is the cleanest available win-to-risk ratio in the routine.
 
 **P1, follows from V3.**
 
-Each vertical branch (`:712-717`, `:733-737`, `:752-756`) makes one pass to
-fill `C`/`D`, then a second (`:719-729`, `:739-745`, `:758-767`) to combine
+Each vertical branch (`:748-753`, `:769-773`, `:788-792`) makes one pass to
+fill `C`/`D`, then a second (`:755-765`, `:775-781`, `:794-803`) to combine
 them. The first pass carries the `VSK3D(ICSOIL(I),·)` gather, which is what
 blocks vectorisation. Once V3 supplies a contiguous per-cell conductivity
 vector, pass one collapses to `C(I) = CKR(I) * KZA(I)` — a clean vector
 multiply — and can then be fused into pass two with a rolling scalar, removing
 the `C`/`D` array traffic completely.
 
-Note that `C` and `D` are `DWORK1`/`DWORK2` from `VSCOLM` (`:1041`, `:1072`),
-and `DWORK1` is subsequently reused as `VSINTC`'s `H` workspace (`:1080`) and
+Note that `C` and `D` are `DWORK1`/`DWORK2` from `VSCOLM` (`:1075`, `:1106`),
+and `DWORK1` is subsequently reused as `VSINTC`'s `H` workspace (`:1114`) and
 again by `VSBC`/`VSWELL`. The reuse is safe — `C` is dead by then — but it does
 mean the same cache lines are being rewritten several times per iteration.
 
@@ -285,9 +286,9 @@ mean the same cache lines are being rewritten several times per iteration.
 
 **P3. Not hot in any example dataset.**
 
-The general branches use `(CKR*CKZS)**CWV` (`:754`), `CAVE**WI` (`:764`) and
-`(CAVE/CI)**WIM1` twice (`:765-766`) — three `pow()` calls per cell — plus up
-to five per cell-face laterally (`:825-831`). At roughly 40–100 cycles each
+The general branches use `(CKR*CKZS)**CWV` (`:790`), `CAVE**WI` (`:800`) and
+`(CAVE/CI)**WIM1` twice (`:801-802`) — three `pow()` calls per cell — plus up
+to five per cell-face laterally (`:861-867`). At roughly 40–100 cycles each
 these would dominate everything else in the routine.
 
 All example datasets set `VSWV = VSWL = 1.0`, so these paths are dead there.
@@ -295,7 +296,7 @@ All example datasets set `VSWV = VSWL = 1.0`, so these paths are dead there.
 any real run uses a w-mean, V5's hoist becomes the highest-value change in the
 file rather than a P1.
 
-`RCM**2` / `RCI**2` at `:727-728` use integer exponents and expand to
+`RCM**2` / `RCI**2` at `:763-764` use integer exponents and expand to
 multiplies. No action.
 
 ## 3. `VSINTC` findings
@@ -304,7 +305,7 @@ multiplies. No action.
 
 **P0. Identical except for the sign of zero.**
 
-`:2712` declares `SIGMA = 1.0D0, OMSIG = 1.0D0 - SIGMA`, both `PARAMETER`. So
+`:2756` declares `SIGMA = 1.0D0, OMSIG = 1.0D0 - SIGMA`, both `PARAMETER`. So
 `OMSIG` is exactly `0.0` at compile time, and the scheme is fully implicit.
 Yet under `-fno-fast-math` GCC **must not** fold `0.0 * x → 0.0`, because that
 transformation is invalid for NaN and signed-zero operands. (It *will* fold
@@ -313,16 +314,16 @@ cost nothing while the `OMSIG` ones cost everything.)
 
 The result:
 
-- `:2721` — `H(I) = SIGMA*CPSI(I) + OMSIG*CPSIN(I) + CZ(I)` performs a full
+- `:2765` — `H(I) = SIGMA*CPSI(I) + OMSIG*CPSIN(I) + CZ(I)` performs a full
   load of `CPSIN(I)`, a multiply and an add, per cell, to add zero.
-- `:2755-2756` — `HK` and `HK1` each load `CPSIN1(K,J)` and `CPSIN1(K1,J)`.
+- `:2799-2800` — `HK` and `HK1` each load `CPSIN1(K,J)` and `CPSIN1(K1,J)`.
   These are **indirect** loads into a `(LLEE,4)` array, so each one may touch a
   fresh cache line, per cell-face, per Newton iteration, to contribute nothing.
 
 Deleting the `OMSIG` terms removes `CPSIN1` from `VSINTC`'s working set
 entirely. `CPSIN` itself is still needed for `DPSI = CPSI(I) - CPSIN(I)` at
-`:2741`, so it stays — but `CPSIN1` becomes dead across the whole
-`VSCOLM`/`VSINTC` path, which in turn lets the staging copy at `VSSIM:4461` be
+`:2785`, so it stays — but `CPSIN1` becomes dead across the whole
+`VSCOLM`/`VSINTC` path, which in turn lets the staging copy at `VSSIM:4498` be
 deleted (see C1).
 
 **Precision caveat, stated exactly.** For finite `CPSIN`, `x + 0.0*y == x`
@@ -341,7 +342,7 @@ rather than paying for it at runtime on every cell.
 
 **P0. Bitwise identical to fix.**
 
-`:2755-2757` compute
+`:2799-2801` compute
 
 ```fortran
 HK  = SIGMA * CPSI1(K, J)  + OMSIG * CPSIN1(K, J)  + CZ1(K, J)
@@ -354,11 +355,11 @@ with identical results**, at a cost of three indirect loads, two multiplies and
 two adds per cell-face each.
 
 Worse, the same quantity is computed a *third* time in `VSCOLM`'s flux recovery
-loop at `:1166-1167` (`H1 = CZ1(K,J) + CPSI1(K,J)`), which — with `SIGMA = 1` —
+loop at `:1200-1201` (`H1 = CZ1(K,J) + CPSI1(K,J)`), which — with `SIGMA = 1` —
 is numerically the same expression again.
 
 **Fix.** Build a single `H1(LLEE,4) = CZ1 + CPSI1` array once. The natural
-place is `VSSIM`'s neighbour staging loop at `:4456-4464`, which is already
+place is `VSSIM`'s neighbour staging loop at `:4493-4501`, which is already
 walking exactly those arrays — it can write `H1` directly and stop staging
 `CZ1`, `CPSI1` and `CPSIN1` as three separate arrays.
 
@@ -366,15 +367,15 @@ walking exactly those arrays — it can write `H1` directly and stop staging
 
 **P1, folds into V3.**
 
-`K1 = JCDEL1(K,J) + K` is computed at `VSCOEF:809`, `VSINTC:2754` and
-`VSCOLM:1164` — three times per cell-face per Newton iteration, from class-S
+`K1 = JCDEL1(K,J) + K` is computed at `VSCOEF:845`, `VSINTC:2798` and
+`VSCOLM:1198` — three times per cell-face per Newton iteration, from class-S
 data. Precompute once alongside V3.
 
 ### I4 — Division inside the cell loop
 
 **P1 partially, P2 fully.**
 
-`:2739` — `VODT = CDELZ(I) * CA0 / DT` — one division per cell per Newton
+`:2783` — `VODT = CDELZ(I) * CA0 / DT` — one division per cell per Newton
 iteration. `CDELZ(I) * CA0` is class S; `CA0 / DT` is class T.
 
 Two options with different risk:
@@ -392,8 +393,8 @@ single "reciprocal hoisting" policy rather than case by case.
 
 **P2. Changes results in the last bit.**
 
-`:2735-2737` set `CDFM = CDBMMI` (`= CDBTMM(I)`) and `CDFP = CDBTPP`
-(`= CDBETM(P)`) — pure aliases. So `:2743-2744` read:
+`:2779-2781` set `CDFM = CDBMMI` (`= CDBTMM(I)`) and `CDFP = CDBTPP`
+(`= CDBETM(P)`) — pure aliases. So `:2787-2788` read:
 
 ```fortran
 CA(I) = SIGMA*CBETMI - HI*CDFM + HM*CDBMMI   ! = CBETM(I) + CDBTMM(I)*(HM-HI)
@@ -409,7 +410,7 @@ head-difference structure obvious, which the alias chain currently hides.
 
 **P3. Inspect the assembly before touching.**
 
-`:2730-2734` load indices `I` and `I+1` of `CBETM`, `CDBETM` and `CDBTMM`; the
+`:2774-2778` load indices `I` and `I+1` of `CBETM`, `CDBETM` and `CDBTMM`; the
 `I+1` value of one iteration is the `I` value of the next. A rotating-register
 formulation would halve these loads. GCC's load PRE may already be doing this
 at `-O2`, and hand-rotating would *block* vectorisation if `-O3` is later
@@ -420,18 +421,18 @@ assembly.**
 
 **P1, cosmetic but free.**
 
-`:2752` re-tests `JELDUM(J) < 1 .OR. JCBC(J) == 9` on every call, as does
-`VSCOEF:789`. Both are class S. A precomputed per-element active-face list
+`:2796` re-tests `JELDUM(J) < 1 .OR. JCBC(J) == 9` on every call, as does
+`VSCOEF:825`. Both are class S. A precomputed per-element active-face list
 (`nfaces`, `face_list(1:nfaces)`) removes the branch and lets the loop skip
 dead faces without entering them.
 
 ### I8 — What `VSINTC` does well
 
-For balance: the main loop at `:2726-2748` is otherwise clean — unit-stride
+For balance: the main loop at `:2770-2792` is otherwise clean — unit-stride
 throughout, no gathers, no early exits, no calls. Once I1 and I4 are addressed
 it is a genuinely vectorisable loop, and it is the part of the assembly most
 likely to benefit from `-O3 -march=native`. The `H(ICBOT-1) = 0` /
-`H(ICTOP+1) = 0` guard band at `:2717` and `:2724` correctly removes the
+`H(ICTOP+1) = 0` guard band at `:2761` and `:2768` correctly removes the
 boundary special cases from the loop body — that is the right technique and
 should be preserved.
 
@@ -443,7 +444,7 @@ These are outside the two named routines but determine their effective cost.
 
 **P1. High value.**
 
-`VSSIM:4456-4464` copies six arrays over the neighbour's **entire** column, for
+`VSSIM:4493-4501` copies six arrays over the neighbour's **entire** column, for
 all four faces, of every element, on every global iteration:
 
 ```fortran
@@ -476,7 +477,7 @@ Three problems:
 
 **P1. Bitwise identical to fix.**
 
-`VSCOLM:1041-1047` declares about twenty automatic arrays, all dimensioned
+`VSCOLM:1075-1081` declares about twenty automatic arrays, all dimensioned
 `LLEE = 50`, including six of shape `(LLEE,4)`. That is roughly
 `32 × 50 × 8 ≈ 12.8 kB` of stack per call, comparable to a 32 kB L1D and
 touched on every call.
@@ -488,7 +489,7 @@ written. Sizing these to `ICBOT:ICTOP` compacts the working set by the ratio
 `ncell/LLEE`.
 
 This is low-risk: `VSCOLM` already passes scalar-start dummy arguments relying
-on sequence association (see the 2026-04 history entry at `:953`), so the
+on sequence association (see the 2026-04 history entry at `:987`), so the
 bounds are already effectively dynamic at the callee.
 
 ### C3 — Partially-assigned `INTENT(OUT)` arrays: correctness, with a performance edge
@@ -497,9 +498,9 @@ bounds are already effectively dynamic at the callee.
 
 `CGAM1`, `CGAM2`, `CDGAM1`, `CDGAM2`, `CKIJ` and `CDKIJ` are `INTENT(OUT)` in
 `VSCOEF` but are written only where
-`JCACN(J,I) /= 0 .AND. JELDUM(J) >= 1 .AND. JCBC(J) /= 9` (`:789`, `:805`).
+`JCACN(J,I) /= 0 .AND. JELDUM(J) >= 1 .AND. JCBC(J) /= 9` (`:825`, `:841`).
 
-`VSCOLM`'s flux recovery loop at `:1157-1171` reads `CGAM1`/`CGAM2` under a
+`VSCOLM`'s flux recovery loop at `:1191-1205` reads `CGAM1`/`CGAM2` under a
 **weaker** guard — `JELDUM(J) >= 1 .AND. JCACN(J,I) >= 1` — with no
 `JCBC(J) == 9` exclusion. The routine's own FORD header asserts that type-9
 faces have no internal lateral cell connectivity, so today this is held by an
@@ -525,7 +526,7 @@ Under the default `Release` (`-O2`, baseline x86-64, with IPO/LTO):
 - codegen is SSE2, two doubles per vector, **no FMA**;
 - cross-file `NOTONE`/`ISZERO`/`ISONE` calls are eligible for inlining.
 
-`ReleaseNative` (`-O3 -march=native`) already exists in `CMakeLists.txt:704-706`
+`ReleaseNative` (`-O3 -march=native`) already exists in `CMakeLists.txt:841-843`
 and would supply the dynamic vectoriser cost model plus AVX2/FMA. **Measure it
 before doing any source surgery** — it costs nothing and it recalibrates how
 much the source changes are worth. IPO/LTO is already enabled in both optimized
@@ -540,8 +541,8 @@ loops vectorisable in the first place.
 
 **P3 by risk, P0 by information value.**
 
-`VSCOLM` allows `NITMAX = 100` Newton iterations (`:1037`); `VSSIM` allows
-`NITMAX = 10` global iterations (`:4225`). Worst case is 1000 assemblies per
+`VSCOLM` allows `NITMAX = 100` Newton iterations (`:1071`); `VSSIM` allows
+`NITMAX = 10` global iterations (`:4264`). Worst case is 1000 assemblies per
 element per timestep.
 
 Since `VSSIM` holds neighbour data fixed for the duration of a `VSCOLM` call, a
@@ -560,37 +561,37 @@ it is 3, the fixed per-call overheads (C2, staging in C1) dominate; if it is
 imply different work orders**, so this measurement should precede the P1 items.
 
 Related: `VSCOLM` tests convergence only after a full assembly and `TRIDAG`
-solve (`:1124-1135`). On re-entry for an already-converged column, one complete
+solve (`:1158-1169`). On re-entry for an already-converged column, one complete
 assembly is spent to discover `DPSIMX <= CEPSMX`. The `OK(IEL)` mask at
-`:4512-4521` suppresses this, but only from `NIT >= NITMIN = 2` and only when
+`:4549-4558` suppresses this, but only from `NIT >= NITMIN = 2` and only when
 all four neighbours have also converged.
 
 ### C6 — `VSFUNC`: table layout, and a possible Jacobian inconsistency
 
 **P3, but potentially the largest single effect in the file.**
 
-`VSFUNC` (`:2162-2304`) is called once per Newton iteration alongside `VSCOEF`
+`VSFUNC` (`:2188-2330`) is called once per Newton iteration alongside `VSCOEF`
 and `VSINTC`, so it shares their multiplier.
 
-**Layout.** `:2283-2295` read five separate lookup tables — `VSPTHE`, `VSPETA`,
+**Layout.** `:2309-2321` read five separate lookup tables — `VSPTHE`, `VSPETA`,
 `VSPDKR`, `VSPKR`, `VSPDET` — each indexed `(JLO/JHI, IS)`. `JLO` and
 `JHI = JLO+1` are adjacent, so each table costs about one cache line, but there
 are five distinct streams per cell. Interleaving them into a single array
 indexed `(property, row, soil)` would collapse this to one or two lines per
-cell. The hunt-and-bisect with the `ICSTOR` cache (`:2210`, `:2271`) is a sound
+cell. The hunt-and-bisect with the `ICSTOR` cache (`:2236`, `:2297`) is a sound
 design and is near-O(1) once converged — no change needed there.
 
-**Possible Jacobian inconsistency.** `:2286` sets
+**Possible Jacobian inconsistency.** `:2312` sets
 
 ```fortran
 CETA(ICL) = VSPETA(JHI, IS)
 ```
 
 — a nearest-upper table lookup, **not** an interpolation, while its own
-derivative `CDETA` at `:2294-2295` *is* interpolated. As implemented,
+derivative `CDETA` at `:2320-2321` *is* interpolated. As implemented,
 `d(CETA)/d(psi)` is zero within a table interval, yet `CDETA` is non-zero
-there. That inconsistency feeds `CDG` in `VSINTC:2740` and hence the diagonal
-`CB` at `:2745`.
+there. That inconsistency feeds `CDG` in `VSINTC:2784` and hence the diagonal
+`CB` at `:2789`.
 
 An inexact Jacobian degrades Newton from quadratic to linear convergence.
 Since Newton iteration count is the multiplier on every other finding in this
@@ -653,7 +654,7 @@ For P3, timing alone is insufficient — the C5 and C6 items change solver
 behaviour and must be validated on convergence and mass balance.
 
 Throughout, build the P1 work under `-fcheck=bounds` (the `Debug`
-configuration at `CMakeLists.txt:676-678`). The static-precompute work adds new
+configuration at `CMakeLists.txt:831`). The static-precompute work adds new
 indexed arrays to a routine that already relies on sequence association through
 scalar-start dummy arguments, which is precisely the situation where a bounds
 check earns its cost. Note also that C3 must be fixed before bounds-checked
@@ -674,7 +675,7 @@ bounds check but may perturb results non-deterministically.
 - **Compiler behaviour is inferred from flags and version.** The claims about
   `x*0.0` not being folded, about `very-cheap` declining runtime-trip-count
   loops, and about IPO making module predicates eligible for inlining follow
-  from GCC 16 semantics and `CMakeLists.txt:72-84,684-706`. The actual inlining
+  from GCC 16 semantics and `CMakeLists.txt:87-99,821-843`. The actual inlining
   decisions are checkable in generated assembly and have not been checked.
 - **Dataset calibration is from the shipped examples only.** The finding that
   `VSWV = VSWL = 1.0` — which is what makes V8 low priority — was verified

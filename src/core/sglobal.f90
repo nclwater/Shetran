@@ -50,7 +50,7 @@
 !>
 !> @warning
 !> `flag_runtime_reduction_errors` and `flag_runtime_reduction_e1060` have no
-!> declaration initializers, and every [[mod_error:ERROR]] call clears both
+!> declaration initializers, and every [[mod_error:RAISE_ERROR]] call clears both
 !> before setting one for error 1024/1030 or 1060. Consequently an intervening
 !> error call can erase a pending timestep-reduction request before
 !> [[rest:TMSTEP]] consumes it.
@@ -164,7 +164,7 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! Model Timestep Control Flags
    ! --------------------------------------------------------------------
-   ! Written by [[mod_error:ERROR]] and consumed by [[rest:TMSTEP]]. They stay
+   ! Written by [[mod_error:RAISE_ERROR]] and consumed by [[rest:TMSTEP]]. They stay
    ! here rather than in [[mod_error]] so that `mod_error` can use `sglobal`
    ! without a circular dependency.
    LOGICAL :: flag_runtime_reduction_errors !! Latest `ERROR` call requested timestep reduction for error 1024 or 1030.
@@ -173,7 +173,7 @@ MODULE sglobal
    ! --------------------------------------------------------------------
    ! Run Mode Flags
    ! --------------------------------------------------------------------
-   LOGICAL :: error_mode !! State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ALSTOP]].
+   LOGICAL :: error_mode !! State of command-line option `-error`; suppresses the interactive wait in [[mod_error:ERR_STOP]].
 
    ! --------------------------------------------------------------------
    ! Mathematical and Numerical Constants

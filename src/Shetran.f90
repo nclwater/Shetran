@@ -77,6 +77,7 @@
 !> | 2026-05-13 | SvB | - | Removed the final Intel-specific `sleepqq` call from the portable entry point. |
 !> | 2026-06-19 | SB | 4.6.4 | Updated cross-platform command-line selection, including conditional QuickWin support. |
 !> | 2024-06-05 | SB | v4.7.0 |  remove inital call to error subroutine |
+!> | 2026-10-07 | SvB | - | Replaced the 5 s closing pause of dialog launches with the `ERR_STOP` wait. |
 !> @endhistory
 PROGRAM SHETRAN
 
@@ -91,6 +92,9 @@ PROGRAM SHETRAN
 
    ! Cross-platform command-line and directory handling.
    USE GETDIRQQ, ONLY: GET_DIR_AND_CATCH, RUNDATA_FROM_FILE_DIALOG
+
+   ! Termination with the interactive wait requested by a dialog launch.
+   USE mod_error, ONLY: ERR_STOP
 
    ! Rundata-controlled file setup and framework output.
    USE FRmod, ONLY: FROPEN, &
@@ -108,8 +112,8 @@ PROGRAM SHETRAN
    ! Explicit release of the persistent open-channel solver workspace.
    USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
 
-   ! Cross-platform millisecond sleep used before automatic console closure.
-   USE stdlib_system, ONLY: sleep
+   ! Superseded by the ERR_STOP wait at program completion.
+   ! USE stdlib_system, ONLY: sleep
 
    IMPLICIT NONE
 
@@ -148,8 +152,10 @@ PROGRAM SHETRAN
 
    ! Program completion
    ! A run launched through the QuickWin file dialog owns the console window and
-   ! closes it on exit, so pause long enough for the final output to be read.
+   ! closes it on exit, so wait for the user before it does.
    ! A run given its rundata file on the command line keeps its caller's console.
-   IF (rundata_from_file_dialog) CALL sleep(5000)
+   ! Former fixed 5 s pause, superseded by the ERR_STOP wait:
+   ! IF (rundata_from_file_dialog) CALL sleep(5000)
+   IF (rundata_from_file_dialog) CALL ERR_STOP()
 
 END PROGRAM SHETRAN
