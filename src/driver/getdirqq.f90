@@ -48,8 +48,8 @@ MODULE GETDIRQQ
 
    USE mod_parameters
    USE mod_error, ONLY: ERR_STOP, err_set_wait_on_exit, err_set_wait_on_error
-   USE stdlib_strings, ONLY: to_string
-   USE stdlib_system, ONLY: base_name, dir_name, get_cwd, join_path
+   USE stdlib_strings, ONLY: replace_all, to_string
+   USE stdlib_system, ONLY: base_name, dir_name, get_cwd, is_windows, join_path
 
 #ifdef SHETRAN_HAVE_QUICKWIN
    USE IFWIN
@@ -104,8 +104,9 @@ CONTAINS
    !>
    !> After selection, `INQUIRE` must confirm that the rundata file exists. A
    !> basename-only input produces `dirqq='.'`; otherwise `dir_name` and
-   !> `base_name` split the path. `join_path` reconstructs `fn` with the platform
-   !> separator, while `dirqq` deliberately has no appended separator. The
+   !> `base_name` split the path, after `/` has been converted to `\` on Windows.
+   !> `join_path` reconstructs `fn` with the platform separator, while `dirqq`
+   !> deliberately has no appended separator. The
    !> private `derive_catch_from_filename` helper removes the
    !> final extension and an exact lowercase `rundata_` prefix when present.
    !> Unlike the old branch, other filename stems are accepted as catchment names.
@@ -138,6 +139,7 @@ CONTAINS
    !> | 2026-07-08--11 | SteveB / SvB | 4.6.4 | Reconciled direct and dialog paths and restored `join_path`. |
    !> | 2026-10-07 | SvB | - | Requested the `ERR_STOP` wait for dialog launches and scanned `-error` before selection. |
    !> | 2026-10-08 | SvB | - | Replaced `-error` with `-wait-on-error`, parsed all arguments up front, and rejected unknown options. |
+   !> | 2026-10-08 | SvB | - | Accepted `/` as a path separator on Windows (previously the rundata path was split into the whole path plus an empty name). |
    !> @endhistory
    SUBROUTINE get_dir_and_catch(runfil, fn, catch, dirqq, rootdir)
 
@@ -302,6 +304,10 @@ CONTAINS
          END IF
          CALL handle_command_line_error(message)
       END IF
+
+      ! On Windows, dir_name and base_name only split on '\', although '/' is
+      ! an equally valid separator there.
+      IF (is_windows()) cli_argument = replace_all(cli_argument, '/', '\')
 
       IF (INDEX(cli_argument, '/') == 0 .AND. INDEX(cli_argument, '\') == 0) THEN
          dirqq = '.'
