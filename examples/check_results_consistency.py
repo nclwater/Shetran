@@ -12,6 +12,7 @@
 import argparse
 import os
 import re
+import subprocess
 
 # Package Imports
 import pandas as pd
@@ -157,8 +158,18 @@ def do_comparison(
         # check that the model files are present in the inputs directory
 
         # run the model
-        res_model.update(
-            compute.run_model(fn_shetran, dir_model, dir_sim, dir_diff))
+        try:
+            res_model.update(
+                compute.run_model(fn_shetran, dir_model, dir_sim, dir_diff))
+            res_model["exit_code"] = 0
+        except subprocess.CalledProcessError as e:
+            print(f"  SHETRAN failed with exit code {e.returncode}.")
+            res_model["exit_code"] = e.returncode
+
+            # the outputs of a failed run aren't worth comparing
+            if run_comparison:
+                print("  Skipping comparison as the simulation failed.")
+            return res_model
 
     if run_comparison:
         # compare the results with the known good ones
@@ -173,6 +184,23 @@ def do_comparison(
             filename for filename, file_res in res_files.items()
             if file_res.get("status") == "too large"
         ])
+        missing_files = sorted([
+            filename for filename, file_res in res_files.items()
+            if file_res.get("status") == "missing"
+        ])
+        new_files = sorted([
+            f for f in os.listdir(dir_sim)
+            if f.startswith("output_") and f not in res_files
+        ])
+
+        if differing_files:
+            print(f"  Files with differences: {differing_files}")
+        if missing_files:
+            print(f"  Expected files not produced: {missing_files}")
+        if new_files:
+            print(f"  Output files not in expected results: {new_files}")
+        if too_large_files:
+            print(f"  Files too large to compare: {too_large_files}")
 
         differing_files_str = ";".join(differing_files)
         too_large_files_str = ";".join(too_large_files)
@@ -185,7 +213,8 @@ def do_comparison(
                   index=False)
 
         # extract whether there were differences in any of the files
-        res_model["any_differences"] = df["data_differs"].any()
+        res_model["any_differences"] = (bool(df["data_differs"].any())
+                                        or bool(new_files))
 
         # get maximum percentage metrics from table columns that actually differ
         table_rows = df[(df["file_type"] == "table")
@@ -223,6 +252,7 @@ def do_comparison(
         res_model["num_files_too_large_to_compare"] = len(too_large_files)
         res_model["files_with_different_contents"] = differing_files_str
         res_model["files_too_large_to_compare"] = too_large_files_str
+        res_model["files_not_in_expected"] = ";".join(new_files)
 
     return res_model
 
@@ -332,6 +362,26 @@ def main() -> None:
         fn_overview = _get_overview_filename(args.overview_filename,
                                              args.fn_shetran)
         df_overview.to_csv(fn_overview)
+
+    # summary
+    n_models = len(subdirs)
+    print("\nSummary:")
+    if args.run_simulation:
+        n_success = sum(
+            res.get("exit_code") == 0 for res in overview.values())
+        print(f"  Finished successfully (exit code 0): "
+              f"{n_success} of {n_models}")
+    if args.run_comparison:
+        res_comparison = [
+            res["any_differences"] for res in overview.values()
+            if "any_differences" in res
+        ]
+        n_compared = len(res_comparison)
+        n_same = sum(not res for res in res_comparison)
+        print(f"  No differences to expected results:  "
+              f"{n_same} of {n_compared} compared")
+        if n_compared < n_models:
+            print(f"  Not compared (failed run): {n_models - n_compared}")
 
 
 if __name__ == "__main__":

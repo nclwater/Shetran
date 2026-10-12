@@ -96,6 +96,11 @@ Important behavior:
 - `--skip-comparison` performs simulation only.
 - Writes per-model summary to `<model>/comparison_results.csv`.
 - Writes overall summary to `comparison_overview.csv`.
+- Models whose simulation fails (non-zero exit code) are reported and not
+  compared; the remaining models still run.
+- `output_*` files produced but missing from `output_should/` count as a difference.
+- Prints a summary of how many runs finished successfully and how many show
+  no differences to the expected results.
 
 CLI options:
 
@@ -137,7 +142,13 @@ Use this only when you intentionally accept new outputs as the new baseline.
 Important behavior:
 
 - Can optionally run simulations first with `--run-simulation`.
-- If simulations are run, a runtime overview `update_results_overview.csv` is written.
+- Models whose simulation fails (non-zero exit code) are reported and not copied.
+- Before copying, `compute/` is compared against the existing `output_should/`
+  (same logic as `check_results_consistency.py`, details in `diff_delta/`).
+- Prints a summary of how many runs finished successfully and how many show
+  no differences to the expected results.
+- An overview `update_results_overview.csv` (exit code, runtime, comparison
+  result per model) is written.
 
 CLI options:
 
