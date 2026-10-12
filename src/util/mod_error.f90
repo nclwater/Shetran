@@ -608,6 +608,7 @@ CONTAINS
                IF (COUNT > 0) THEN
                   ! Print number of occurrences
                   WRITE (*, 9500) ERRN + AMODL*1000, COUNT
+                  WRITE (OUT, 9500) ERRN + AMODL*1000, COUNT
 
                   ! Print contents of help file (if any)
                   WRITE (FIL, 9200) TRIM(rootdir)//TRIM(helppath)//'/', AMODL, ERRN, '.txt'
@@ -618,17 +619,19 @@ CONTAINS
                         READ (HLP, '(A)', IOSTAT=IO_STATUS) HLPMSG
                         IF (IO_STATUS /= 0) EXIT read_help
                         WRITE (*, '(A)') trim(HLPMSG)
+                        WRITE (OUT, '(A)') trim(HLPMSG)
                      END DO read_help
                      CLOSE (HLP)
                   END IF
 
                   WRITE (*, *)
+                  WRITE (OUT, *)
 
                END IF
             END DO error_loop
          END DO module_loop
 
-         WRITE (*, 9600) error_counter_total
+         !WRITE (*, 9600) error_counter_total
       END IF
 
       ! Stop?
