@@ -26,7 +26,7 @@
 !> |:------------------------|:---------|:---------|
 !> | Column geometry, topology, water, and boundary work state | [[colmw]] | [[colmsm]] and [[colm]] |
 !> | `LWORK`, `NBK`, `ISLK`, `QQQSL1` | [[linkw]] | [[linksm]] and [[link]] |
-!> | `NWELL`, `QQQDUM` | Intended irrigation hand-off | [[linksm]] |
+!> | `NWELL`, `QQQDUM` | [[linkw]] (irrigation hand-off) | [[linksm]] |
 !>
 !> @warning
 !> Manual fields `CM57`, `CM59`, and `CM61` are read by [[cmrd]] into local
@@ -36,17 +36,8 @@
 !> @endwarning
 !>
 !> @warning
-!> [[cmrd]] also declares local `ISFLXB` and `ISADNL` variables. They shadow
-!> the same-named flags in [[is_cc]], leaving the module flags later read by the
-!> solvers undefined under standard Fortran. `ISPLT` likewise has no current
-!> assignment. This documentation records current behaviour; it does not repair
-!> those runtime defects.
-!> @endwarning
-!>
-!> @warning
-!> `NWELL` and `QQQDUM` are intended module-scope irrigation work values, but
-!> [[linkw]] currently redeclares and assigns local variables with the same
-!> names. [[linksm]] therefore reads the unassigned module variables.
+!> `ISPLT` in [[is_cc]] has no assignment in the current source, so the
+!> contaminant plant-uptake path depends on undefined logical state.
 !> @endwarning
 !>
 !> @history
@@ -90,9 +81,9 @@ MODULE CMmod
    INTEGER :: count = 0            !! Unused legacy module counter; [[snl3]] owns its active saved warning counter.
    INTEGER :: LWORK(6)             !! Up to three adjacent-link entries at each end of the current link.
    INTEGER :: NBK(2)               !! Bank-column element numbers on the two sides of the current link.
-   INTEGER :: nwell                !! Intended current link irrigation-well number; shadowed in [[linkw]].
+   INTEGER :: nwell                !! Current link irrigation-well number, set by [[linkw]] for [[linksm]].
    LOGICAL :: islk(2)              !! True where the corresponding end of the current link connects to another link.
-   DOUBLEPRECISION :: qqqdum       !! Intended current link well inflow rate; shadowed in [[linkw]].
+   DOUBLEPRECISION :: qqqdum       !! Current link well inflow rate, set by [[linkw]] for [[linksm]].
    DOUBLEPRECISION :: QQQSL1       !! Current effective rainfall input rate to the link, using the contaminant sign convention.
 
    PRIVATE
@@ -106,15 +97,15 @@ CONTAINS
 !>
 !> | Records | Current destination |
 !> |:--------|:--------------------|
-!> | `CM1`--`CM5` | Title, `NCON`, and the local base-boundary selector `ISFLXB`. |
+!> | `CM1`--`CM5` | Title, `NCON`, and the base-boundary selector `ISFLXB` in [[is_cc]]. |
 !> | `CM7`--`CM11` | Default and exceptional bottom contaminant cells in `NCOLMB`; `-1` selects `NLYRBE`. |
-!> | `CM13`--`CM23` | Local nonlinear flag, bed depths, and property-table counts. |
+!> | `CM13`--`CM23` | Nonlinear-adsorption flag `ISADNL`, bed depths, and property-table counts. |
 !> | `CM25`--`CM26e` | Uniform or category/depth-dependent initial concentrations. |
 !> | `CM27`--`CM39` | Rain, external-flow, base, and dry-deposition boundary data. |
 !> | `CM41`--`CM55` | Soil fractions, reaction/exchange constants, distribution coefficients, and adsorption-site fractions. |
 !> | `CM57`--`CM61` | Local mobile-water, diffusion, and dispersivity tables which are read but not retained. |
 !>
-!> With the local `ISFLXB` true, `CM33` and `CM37` populate `CCAPR`, the
+!> With `ISFLXB` true, `CM33` and `CM37` populate `CCAPR`, the
 !> concentration convected by base flux. Otherwise they populate the prescribed
 !> base-cell concentration `CCAPB`. Spatial initial conditions retain the link
 !> default in `CCAPIN`; the assignment of link entries in `NCATTY` remains
@@ -125,11 +116,14 @@ CONTAINS
 !> call `ERROR` with fatal codes 2101, 2102, or 3001--3008. `IDUM` and `DUMMY`
 !> are caller-owned work arrays and their contents are not preserved.
 !>
-!> @warning The local `ISFLXB` and `ISADNL` declarations shadow the flags in
-!> [[is_cc]]. Only the former affects this read routine; neither value reaches
-!> the later transport solvers. Likewise `PHIDAT`, `DIFDAT`, and `DISPDT` are
-!> local arrays and are discarded. See [[phi]] and [[disp]].
+!> @warning `PHIDAT`, `DIFDAT`, and `DISPDT` are local arrays and are
+!> discarded. See [[phi]] and [[disp]].
 !> @endwarning
+!>
+!> @note `ISFLXB` and `ISADNL` are the [[is_cc]] module flags consumed by the
+!> transport solvers; they must not be redeclared locally (regression
+!> introduced in 4.7.0).
+!> @endnote
 !>
 !> @note The manual requires `DBDI>DBS` and also records an unexplained legacy
 !> restriction that `DBDI` must not equal twice `DBI`. This routine reads both
@@ -219,8 +213,8 @@ CONTAINS
       INTEGER :: I, IEL, INDX, NC, NCBC, NCED, NCLBND, NCONCM, NCONT
       INTEGER :: NDATA, NFEX, NMAX(3), NREQ, NSCM, NSEDCM, NTB, NTBL, SOIL
       LOGICAL :: LDUM(1) !! One-value logical input buffer.
-      LOGICAL :: ISFLXB  !! Local `CM5` flag; shadows and does not assign [[is_cc]]'s flag.
-      LOGICAL :: ISADNL  !! Local `CM13` flag; shadows and does not assign [[is_cc]]'s flag.
+      ! NB: ISFLXB (CM5) and ISADNL (CM13) are the [[is_cc]] module flags and must
+      ! not be redeclared here, otherwise the solvers never see the input values.
       CHARACTER(80)  :: CDUM(1)
       CHARACTER(132) :: MSG
 
@@ -1068,8 +1062,8 @@ CONTAINS
 !> multiplies each sorption term by the corresponding old concentration raised
 !> to `GNN-1`.
 !>
-!> @warning The module flags `ISFLXB`, `ISADNL`, and `ISPLT` used here are not
-!> assigned by current [[cmrd]]. The locally initialised `CDUM` also has implicit
+!> @warning The module flag `ISPLT` used here is not assigned anywhere in the
+!> current source. The locally initialised `CDUM` also has implicit
 !> `SAVE`; only bank calls recalculate it before element-1 concentration storage.
 !> @endwarning
 !>
@@ -1863,12 +1857,6 @@ CONTAINS
 !> linearised retardation and concentration values are retained for the next
 !> contaminant in the decay chain.
 !>
-!> @warning The `NWELL` and `QQQDUM` referenced here are unassigned
-!> module-scope values because [[linkw]] shadows them with locals. The current
-!> irrigation source calculation is therefore undefined under standard
-!> Fortran.
-!> @endwarning
-!>
 !> @warning `FCPSW1(JBK)` indexes `CCPBK(JBK,NCONT)` as though the contaminant
 !> number were a bank-cell number. This can select the wrong cell and can exceed
 !> the cell extent when `NCONT` is large; behaviour is retained unchanged.
@@ -2171,10 +2159,6 @@ CONTAINS
 !> `QQQSL1=-PNETTO*AREA` is the effective rainfall input using the contaminant
 !> convention that upward water flow is positive.
 !>
-!> @warning Local `NWELL` and `QQQDUM` declarations shadow the module values
-!> consumed by [[linksm]], so the intended irrigation hand-off does not occur.
-!> @endwarning
-!>
 !> @warning During the final bed-moisture loop, both banks start from the single
 !> `NDUM` left by the preceding loop (the bank-2 value). When bank base cells
 !> differ, bank 1 is consequently integrated from bank 2's base. The final
@@ -2207,9 +2191,8 @@ CONTAINS
       INTEGER :: JLEND, JDUM, LFONE, LDUM, JLA, JFDUM, JFDUMB, NCE, JVEGBK
       INTEGER :: NDUM, LA, JBK
 
-      ! Temporary variables for irrigation logic
-      INTEGER :: NWELL !! Local irrigation-well number; shadows the intended module hand-off.
-      DOUBLE PRECISION :: QQQDUM !! Local irrigation rate; shadows the intended module hand-off.
+      ! NB: NWELL and QQQDUM (irrigation well-to-stream hand-off) are module
+      ! variables read by [[linksm]] and must not be redeclared here.
 
       DOUBLE PRECISION :: DUMX, DUM, DUMA, DMULT, SUMK, SUM, DUMK
 
@@ -2865,8 +2848,7 @@ CONTAINS
 !> `PLT+PLTSTR*EPS` and add `ELTSTR*OME` to the diagonal before repeating the
 !> solve. There is no convergence test or adaptive iteration count.
 !>
-!> @warning `ISADNL` is the currently unassigned [[is_cc]] module flag, and
-!> the routine divides by `PLT`/`PLTE` without a local zero guard.
+!> @warning The routine divides by `PLT`/`PLTE` without a local zero guard.
 !> @endwarning
    SUBROUTINE SLVCLM(n)
 

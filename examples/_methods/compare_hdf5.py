@@ -13,21 +13,14 @@ from typing import Any
 
 # Local Imports
 from . import compare_plots as compare_plots
+from . import metrics as metrics
 from . import settings as settings
 
 
-def _safe_abs_percentage(numerator: np.ndarray,
-                         denominator: np.ndarray) -> np.ndarray:
-    """
-    Compute |numerator| / |denominator| and return NaN for invalid denominators.
-    """
-    num = np.abs(np.asarray(numerator, dtype=np.float64))
-    den = np.abs(np.asarray(denominator, dtype=np.float64))
-    valid = np.isfinite(num) & np.isfinite(den) & (den > 0)
-
-    res = np.full_like(num, np.nan, dtype=np.float64)
-    np.divide(num, den, out=res, where=valid)
-    return res
+def _abs_relative_difference_pct(should: np.ndarray,
+                                 is_: np.ndarray) -> np.ndarray:
+    """Element-wise |is - should| / |should| in percent (NaN for should == 0)."""
+    return np.abs(metrics.relative_difference_pct(should, is_))
 
 
 def _copy_attrs(src_obj, dst_obj) -> None:
@@ -48,37 +41,8 @@ def _default_metric_row(path: str, differs: bool = False) -> dict:
         "data_item": path,
         "data_differs": differs,
         "same_row_count": True,
-        "abs_max_difference": np.nan,
-        "perc_max_difference": np.nan,
-        "abs_mean_difference": np.nan,
-        "perc_mean_difference": np.nan,
-        "MSE": np.nan,
-        "MAE": np.nan,
-        "MAPE": np.nan,
-        "NSE": np.nan,
-        "R²": np.nan,
+        **metrics.empty_metrics(),
     }
-
-
-def _nse_r2_for_1d(data_should: np.ndarray, data_is: np.ndarray) -> tuple:
-    """Compute NSE and R2 only for 1D timeseries where variance exists."""
-    if data_should.ndim != 1 or data_is.ndim != 1:
-        return (np.nan, np.nan)
-
-    mask = np.isfinite(data_should) & np.isfinite(data_is)
-    if not mask.any():
-        return (np.nan, np.nan)
-
-    should_valid = data_should[mask]
-    is_valid = data_is[mask]
-    ss_res = np.sum((should_valid - is_valid)**2)
-    ss_tot = np.sum((should_valid - should_valid.mean())**2)
-    if ss_tot == 0:
-        return (np.nan, np.nan)
-
-    nse = 1 - ss_res / ss_tot
-    r2 = 1 - ss_res / ss_tot
-    return (float(nse), float(r2))
 
 
 def _plot_hdf5_timeseries(data_should: np.ndarray, data_is: np.ndarray,
@@ -92,10 +56,9 @@ def _plot_hdf5_timeseries(data_should: np.ndarray, data_is: np.ndarray,
         "should": data_should,
         "is": data_is,
     })
-    df_combined["diff_abs"] = df_combined["should"] - df_combined["is"]
-    df_combined[
-        "diff_pct"] = df_combined["diff_abs"] / df_combined["should"].replace(
-            0, pd.NA)
+    df_combined["diff_abs"] = df_combined["is"] - df_combined["should"]
+    df_combined["diff_pct"] = metrics.relative_difference_pct(
+        data_should, data_is)
 
     safe_item = _safe_path_token(path)
     fn_figure = os.path.splitext(fn_delta)[0] + f"_{safe_item}.png"
@@ -128,7 +91,7 @@ def _plot_hdf5_3d_maps(delta: np.ndarray, data_should: np.ndarray, path: str,
         return mean
 
     abs_diff = np.abs(delta)
-    pct_diff = _safe_abs_percentage(delta, data_should)
+    pct_diff = _abs_relative_difference_pct(data_should, data_should + delta)
 
     abs_max_map = _safe_nanmax_over_time(abs_diff)
     abs_mean_map = _safe_nanmean_over_time(abs_diff)
@@ -219,33 +182,13 @@ def _compare_datasets(ds_should, ds_is, f_delta, path, diffs,
 
     delta = data_is - data_should
     abs_diff = np.abs(delta)
-    pct_diff = _safe_abs_percentage(delta, data_should)
+    pct_diff = _abs_relative_difference_pct(data_should, data_is)
 
-    if np.isfinite(abs_diff).any():
-        metric_row["abs_max_difference"] = float(np.nanmax(abs_diff))
-        metric_row["abs_mean_difference"] = float(np.nanmean(abs_diff))
-
-    if np.isfinite(pct_diff).any():
-        metric_row["perc_max_difference"] = float(np.nanmax(pct_diff))
-        metric_row["perc_mean_difference"] = float(np.nanmean(pct_diff))
-
-    valid_mask = np.isfinite(data_should) & np.isfinite(data_is)
-    if valid_mask.any():
-        should_valid = data_should[valid_mask]
-        is_valid = data_is[valid_mask]
-        metric_row["MSE"] = float(np.mean((should_valid - is_valid)**2))
-        metric_row["MAE"] = float(np.mean(np.abs(should_valid - is_valid)))
-
-        mape_mask = should_valid != 0
-        if mape_mask.any():
-            metric_row["MAPE"] = float(
-                np.mean(
-                    np.abs((is_valid[mape_mask] - should_valid[mape_mask]) /
-                           should_valid[mape_mask])) * 100)
-
-    nse, r2 = _nse_r2_for_1d(data_should, data_is)
-    metric_row["NSE"] = nse
-    metric_row["R²"] = r2
+    # goodness-of-fit statistics only for 1D timeseries
+    metric_row.update(
+        metrics.compute_metrics(data_should,
+                                data_is,
+                                goodness_of_fit=data_should.ndim == 1))
 
     # Check if they are equal within the given absolute tolerance.
     # rtol=0.0 ensures we are only strictly checking against the absolute tolerance_numeric.
@@ -270,7 +213,7 @@ def _compare_datasets(ds_should, ds_is, f_delta, path, diffs,
         if np.isfinite(sum_abs_delta) and np.isfinite(
                 sum_abs_should) and sum_abs_should > 0:
             diffs["perc_diff_hdf5_sum_abs_list"].append(
-                float(sum_abs_delta / sum_abs_should))
+                float(100.0 * sum_abs_delta / sum_abs_should))
         else:
             diffs["perc_diff_hdf5_sum_abs_list"].append(float("nan"))
 

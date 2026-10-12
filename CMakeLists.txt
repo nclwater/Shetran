@@ -820,7 +820,7 @@ elseif(UNIX AND NOT APPLE)
 
             $<$<CONFIG:ReleaseNative>:-O3>
             $<$<CONFIG:ReleaseNative>:-xHost>
-            $<$<CONFIG:Release>:-fp-model=precise>
+            $<$<CONFIG:ReleaseNative>:-fp-model=precise>
         )
     elseif(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${target_name} PRIVATE

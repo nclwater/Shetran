@@ -96,6 +96,11 @@ Important behavior:
 - `--skip-comparison` performs simulation only.
 - Writes per-model summary to `<model>/comparison_results.csv`.
 - Writes overall summary to `comparison_overview.csv`.
+- Models whose simulation fails (non-zero exit code) are reported and not
+  compared; the remaining models still run.
+- `output_*` files produced but missing from `output_should/` count as a difference.
+- Prints a summary of how many runs finished successfully and how many show
+  no differences to the expected results.
 
 CLI options:
 
@@ -111,6 +116,24 @@ Generated comparison details in `<model>/diff_delta/`:
 - Text files: unified diff text output.
 - HDF5 files: dataset-level delta tables and plots (where applicable).
 
+Metrics in `comparison_results.csv` (defined in `_methods/metrics.py`), with the
+expected results as reference O and the new results as simulation S:
+
+| Column | Definition | Unit |
+|:-------|:-----------|:-----|
+| `abs_max_difference`, `abs_mean_difference` | max / mean of \|S − O\| | data unit |
+| `perc_max_difference`, `perc_mean_difference` | max / mean of 100·\|S − O\|/\|O\| (O ≠ 0) | % |
+| `RMSE` | √mean((S − O)²) | data unit |
+| `MAE` | mean \|S − O\| | data unit |
+| `MAPE` | 100·mean(\|S − O\|/\|O\|), O ≠ 0 | % |
+| `PBIAS` | 100·Σ(O − S)/ΣO; positive = underestimation (Moriasi et al., 2007) | % |
+| `NSE` | 1 − Σ(S − O)²/Σ(O − Ō)² (Nash & Sutcliffe, 1970) | – |
+| `R²` | squared Pearson correlation of O and S (Legates & McCabe, 1999) | – |
+| `KGE` | 1 − √((r − 1)² + (σ_S/σ_O − 1)² + (μ_S/μ_O − 1)²) (Gupta et al., 2009) | – |
+
+NSE, R² and KGE are only reported for timeseries (tables and 1D HDF5
+datasets). Delta CSVs contain `diff_abs` = S − O and `diff_pct` = 100·(S − O)/\|O\|.
+
 ### `update_should_results.py`
 
 Copies current `compute/` outputs into `output_should/` for selected models.
@@ -119,7 +142,13 @@ Use this only when you intentionally accept new outputs as the new baseline.
 Important behavior:
 
 - Can optionally run simulations first with `--run-simulation`.
-- If simulations are run, a runtime overview `update_results_overview.csv` is written.
+- Models whose simulation fails (non-zero exit code) are reported and not copied.
+- Before copying, `compute/` is compared against the existing `output_should/`
+  (same logic as `check_results_consistency.py`, details in `diff_delta/`).
+- Prints a summary of how many runs finished successfully and how many show
+  no differences to the expected results.
+- An overview `update_results_overview.csv` (exit code, runtime, comparison
+  result per model) is written.
 
 CLI options:
 

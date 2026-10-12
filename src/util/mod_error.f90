@@ -30,18 +30,19 @@
 !> |:-----|:-------|:--------|:------------|
 !> | 2026-08-31 | SvB | - | Initial version, extracted from [[sglobal]] with the selectors, counters, and print unit renamed. |
 !> | 2026-08-31 | SvB | - | Split fatal from ordinary termination in `ALSTOP`, added `err_set_wait_on_exit`, and widened the help-line buffer to `LENGTH_LINE`. |
+!> | 2026-10-08 | SvB | - | Replaced the suppressing `error_mode` with the opt-in `err_set_wait_on_error` for `-wait-on-error`. |
 !> @endhistory
 MODULE mod_error
 
    USE MOD_PARAMETERS, ONLY: I_P, LENGTH_FILEPATH, LENGTH_LINE
-   USE SGLOBAL, ONLY: UZNOW, EARRAY, rootdir, error_mode, &
+   USE SGLOBAL, ONLY: UZNOW, EARRAY, rootdir, &
                       flag_runtime_reduction_errors, flag_runtime_reduction_e1060
    USE stdlib_strings, ONLY: to_string
 
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: RAISE_ERROR, ERR_STOP, err_set_wait_on_exit
+   PUBLIC :: RAISE_ERROR, ERR_STOP, err_set_wait_on_exit, err_set_wait_on_error
    PUBLIC :: errstat_fileopen, errstat_fileclose
    PUBLIC :: errstat_alloc, errstat_dealloc
    PUBLIC :: errstat_read, errstat_write
@@ -78,6 +79,7 @@ MODULE mod_error
    INTEGER(KIND=I_P) :: error_counter(0:ERR_limit_error_codes, 0:3) = 0 !! Occurrence counts by error-code remainder and module group.
    INTEGER(KIND=I_P) :: error_counter_total = 0 !! Total number of errors and warnings recorded by `ERROR`.
    LOGICAL :: flag_wait_on_exit = .FALSE. !! Whether `ERR_STOP` waits for the user before terminating.
+   LOGICAL :: flag_wait_on_error = .FALSE. !! Whether `ERR_STOP` waits for the user before a fatal termination.
 
    ! --------------------------------------------------------------------
    ! Diagnostic output destinations
@@ -92,8 +94,9 @@ CONTAINS
    !>
    !> Intended for interactive launches, where the console window closes as
    !> soon as the process exits and the user would otherwise never get to read
-   !> the final diagnostics. `error_mode` still overrides the request, so a run
-   !> started with `-error` stays noninteractive either way.
+   !> the final diagnostics. The wait applies to every termination through
+   !> [[mod_error:ERR_STOP]], fatal or not; [[mod_error:err_set_wait_on_error]]
+   !> requests it for fatal terminations only.
    !>
    !> [[getdirqq:get_dir_and_catch]] sets this flag on entering its QuickWin
    !> file-dialog branch, so it is `.TRUE.` only when the rundata file is chosen
@@ -110,6 +113,26 @@ CONTAINS
 
       flag_wait_on_exit = wait
    END SUBROUTINE err_set_wait_on_exit
+
+   !> summary: Selects whether [[mod_error:ERR_STOP]] waits before a fatal termination.
+   !> author: S. Berendsen, Southampton University
+   !>
+   !> Requested by the `-wait-on-error` command-line option, so that a run
+   !> started from a shortcut or a console that closes on exit keeps its fatal
+   !> diagnostics on screen. Ordinary terminations are not affected.
+   !> [[getdirqq:get_dir_and_catch]] sets this flag after scanning the whole
+   !> command line, before it reports any command-line error.
+   !>
+   !> @history
+   !> | Date | Author | Description |
+   !> |:-----|:-------|:------------|
+   !> | 2026-10-08 | SvB | Initial version, replacing the suppressing `-error` flag. |
+   !> @endhistory
+   SUBROUTINE err_set_wait_on_error(wait)
+      LOGICAL, INTENT(IN) :: wait !! `.TRUE.` requests a wait for user input before a fatal termination.
+
+      flag_wait_on_error = wait
+   END SUBROUTINE err_set_wait_on_error
 
    !> summary: Standardised check for opening file return status.
    !> author: S. Berendsen, Southampton University
@@ -639,9 +662,11 @@ CONTAINS
    !> When `flag_wait_on_exit` has been set through
    !> [[mod_error:err_set_wait_on_exit]], the routine prompts and blocks on
    !> standard input first, so that an interactively launched console window
-   !> does not close before the diagnostics can be read. `error_mode` (the
-   !> `-error` command-line option) suppresses that wait unconditionally, which
-   !> keeps scripted and batch runs noninteractive.
+   !> does not close before the diagnostics can be read. A fatal termination
+   !> also waits when `flag_wait_on_error` has been set through
+   !> [[mod_error:err_set_wait_on_error]] (the `-wait-on-error` command-line
+   !> option). Neither flag is set for a plain command-line run, which keeps
+   !> scripted and batch runs noninteractive.
    !>
    !> @history
    !> | Date | Author | Description |
@@ -652,6 +677,7 @@ CONTAINS
    !> | 2026-05-08 | SB | Skipped the interactive prompt when `error_mode` (the `-error` command-line flag) was set. |
    !> | 2026-08-31 | SvB | Made the argument optional, split fatal from ordinary termination, and gated the wait on `flag_wait_on_exit`. |
    !> | 2026-10-07 | SvB | Passed `error_number` to `ERROR STOP` as the exit status. |
+   !> | 2026-10-08 | SvB | Replaced the `error_mode` suppression with the opt-in `flag_wait_on_error` for fatal terminations. |
    !> @endhistory
    SUBROUTINE ERR_STOP(error_number)
       INTEGER(KIND=I_P), INTENT(IN), OPTIONAL :: error_number !! Termination code; positive requests fatal error termination.
@@ -661,7 +687,7 @@ CONTAINS
       is_fatal = .FALSE.
       IF (PRESENT(error_number)) is_fatal = (error_number > 0)
 
-      IF (flag_wait_on_exit .AND. .NOT. error_mode) THEN
+      IF (flag_wait_on_exit .OR. (is_fatal .AND. flag_wait_on_error)) THEN
          IF (is_fatal) THEN
             WRITE (*, '(A)') 'FATAL ERROR: Program will terminate. Press Enter to exit...'
          ELSE

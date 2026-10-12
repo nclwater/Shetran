@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- replaced the `-error` command line option with `-wait-on-error`: a fatal error now waits for Enter only when it is given (dialog launches still always wait). `-error` is no longer accepted.
+- any unknown command line option, stray argument, or second rundata selection option now stops with a descriptive error
+- `-f` on Windows now accepts rundata paths with `/` separators (previously failed to open `<path>\\`)
+- Linux ifx ReleaseNative builds now use `-fp-model=precise` (was applied to Release twice instead)
+
 ## V4.7.3 280926
 
 - Fixes for Visual Studio Setup

@@ -5,7 +5,6 @@
 # General Imports
 import os
 from datetime import datetime
-from sqlite3 import DateFromTicks
 
 # Standard Packages
 import numpy as np
@@ -13,6 +12,7 @@ import pandas as pd
 
 # Local Imports
 from . import compare_plots as compare_plots
+from . import metrics as metrics
 from . import settings as settings
 
 
@@ -68,55 +68,6 @@ def _read_table_csv(fn_table: str) -> pd.DataFrame:
     )
 
 
-def _get_similarity_metrics(df_analysis: pd.DataFrame) -> dict:
-    df_valid = df_analysis[["should", "is"]].dropna()
-    if df_valid.empty:
-        return {
-            "MSE": np.nan,
-            "MAE": np.nan,
-            "MAPE": np.nan,
-            "NSE": np.nan,
-            "R²": np.nan,
-        }
-
-    mse = np.mean((df_valid["should"] - df_valid["is"]) ** 2)
-    mae = np.mean(np.abs(df_valid["should"] - df_valid["is"]))
-
-    mask = df_valid["should"] != 0
-    if mask.any():
-        mape = (
-            np.mean(
-                np.abs(
-                    (df_valid["is"][mask] - df_valid["should"][mask])
-                    / df_valid["should"][mask]
-                )
-            )
-            * 100
-        )
-    else:
-        mape = np.nan
-
-    ss_res = np.sum((df_valid["should"] - df_valid["is"]) ** 2)
-    ss_tot = np.sum((df_valid["should"] - df_valid["should"].mean()) ** 2)
-
-    if ss_tot != 0:
-        nse = 1 - ss_res / ss_tot
-        r2 = 1 - ss_res / ss_tot
-    else:
-        nse = np.nan
-        r2 = np.nan
-
-    res = {
-        "MSE": mse,
-        "MAE": mae,
-        "MAPE": mape,
-        "NSE": nse,
-        "R²": r2,
-    }
-
-    return res
-
-
 def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
 
     # prep
@@ -129,11 +80,14 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
         line_should = f_should.readline()
         line_is = f_is.readline()
 
-    if line_should != line_is:
+    if line_should.rstrip() != line_is.rstrip():
         flag_diff = True
+        res["identical_title_line"] = False
         os.makedirs(os.path.dirname(fn_delta), exist_ok=True)
         with open(fn_delta, "w") as f_delta:
-            f_delta.write(line_should)
+            f_delta.write(f"- {line_should.rstrip()}\n+ {line_is.rstrip()}\n")
+    else:
+        res["identical_title_line"] = True
 
     # read the rest of the table into pandas dataframes
     df_should = _read_table_csv(fn_should)
@@ -141,11 +95,31 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
 
     # compare the dataframes
     # start with the textual content (column names, number of rows, etc.)
-    if list(df_should.columns) != list(df_is.columns):
+    cols_should = list(df_should.columns)
+    cols_is = list(df_is.columns)
+    res["columns_matched_by_position"] = False
+    if cols_should != cols_is:
         flag_diff = True
         res["identical_columns"] = False
+
+        # Header renames between versions (e.g. the date column) should not
+        # suppress the data comparison: match columns by position if the
+        # column count agrees and renamed columns are date-like on both sides.
+        renames_ok = len(cols_should) == len(cols_is) and all(
+            c_should == c_is
+            or (_is_datetime_header(c_should) and _is_datetime_header(c_is))
+            for c_should, c_is in zip(cols_should, cols_is))
+        if renames_ok:
+            df_is.columns = cols_should
+            res["columns_matched_by_position"] = True
+
+        os.makedirs(os.path.dirname(fn_delta), exist_ok=True)
+        with open(fn_delta, "a") as f_delta:
+            f_delta.write(f"- {','.join(cols_should)}\n+ {','.join(cols_is)}\n")
     else:
         res["identical_columns"] = True
+    columns_comparable = (res["identical_columns"]
+                          or res["columns_matched_by_position"])
 
     if len(df_should) != len(df_is):
         flag_diff = True
@@ -169,7 +143,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
         if col not in date_time_should:
             if not pd.api.types.is_numeric_dtype(df_should[col]):
                 non_numeric_should.append(col)
-            if not pd.api.types.is_numeric_dtype(df_is[col]):
+            if col in df_is.columns and not pd.api.types.is_numeric_dtype(df_is[col]):
                 non_numeric_is.append(col)
     if non_numeric_should != non_numeric_is:
         flag_diff = True
@@ -208,7 +182,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
 
     # compare the contents column-by-column and expose per-column metrics.
     # This powers the expanded comparison_results.csv output (one row per column).
-    if res["identical_columns"]:
+    if columns_comparable:
         for col in df_should.columns:
             # remove & replace special characters for legacy per-column flags
             col_save = col.replace(" ", "_").replace("/", "_").replace("\\", "_")
@@ -251,37 +225,19 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                     {
                         "col_name": col.strip(),
                         "data_differs": data_differs,
-                        "abs_max_difference": np.nan,
-                        "perc_max_difference": np.nan,
-                        "abs_mean_difference": np.nan,
-                        "perc_mean_difference": np.nan,
-                        "MSE": np.nan,
-                        "MAE": np.nan,
-                        "MAPE": np.nan,
-                        "NSE": np.nan,
-                        "R²": np.nan,
+                        **metrics.empty_metrics(),
                     }
                 )
                 continue
 
-            # add difference columns, both percentage and absolute
+            # add difference columns (is - should), absolute and in percent
             df_combined["diff_abs"] = (
-                df_combined[should_col_name] - df_combined[is_col_name]
+                df_combined[is_col_name] - df_combined[should_col_name]
             )
-            df_combined["diff_pct"] = df_combined["diff_abs"] / df_combined[
-                should_col_name
-            ].replace(0, pd.NA)
-
-            both_zero_mask = (df_combined[should_col_name] == 0) & (
-                df_combined[is_col_name] == 0
+            df_combined["diff_pct"] = metrics.relative_difference_pct(
+                df_combined[should_col_name].to_numpy(dtype=np.float64),
+                df_combined[is_col_name].to_numpy(dtype=np.float64),
             )
-            df_combined.loc[both_zero_mask, "diff_abs"] = 0
-            df_combined.loc[both_zero_mask, "diff_pct"] = 0
-
-            abs_max_difference = df_combined["diff_abs"].abs().max()
-            perc_max_difference = df_combined["diff_pct"].abs().max()
-            abs_mean_difference = df_combined["diff_abs"].abs().mean()
-            perc_mean_difference = df_combined["diff_pct"].abs().mean()
 
             # Metrics and plots continue to use canonical names.
             df_analysis = df_combined.rename(
@@ -291,10 +247,13 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 }
             )
 
-            # record legacy percentage difference key for backwards compatibility
-            res[f"perc_diff_max_col_{col_save}"] = perc_max_difference
+            col_metrics = metrics.compute_metrics(
+                df_analysis["should"].to_numpy(dtype=np.float64),
+                df_analysis["is"].to_numpy(dtype=np.float64),
+            )
 
-            metrics = _get_similarity_metrics(df_analysis)
+            # record legacy percentage difference key for backwards compatibility
+            res[f"perc_diff_max_col_{col_save}"] = col_metrics["perc_max_difference"]
 
             # check if the differences are within the tolerance
             within_tolerance = (
@@ -313,32 +272,27 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
                 {
                     "col_name": col.strip(),
                     "data_differs": data_differs,
-                    "abs_max_difference": abs_max_difference,
-                    "perc_max_difference": perc_max_difference,
-                    "abs_mean_difference": abs_mean_difference,
-                    "perc_mean_difference": perc_mean_difference,
-                    "MSE": metrics["MSE"],
-                    "MAE": metrics["MAE"],
-                    "MAPE": metrics["MAPE"],
-                    "NSE": metrics["NSE"],
-                    "R²": metrics["R²"],
+                    **col_metrics,
                 }
             )
 
             if data_differs:
                 # write to file, putting in an extension with the column name
                 safe_col = col.replace(" ", "_").replace("/", "_").replace("\\", "_")
+                dir_delta, fn_base = os.path.split(fn_delta)
                 fn_col = (
-                    os.path.splitext(fn_delta)[0]
+                    os.path.splitext(fn_base)[0]
                     + f"_{safe_col}"
-                    + os.path.splitext(fn_delta)[1]
+                    + os.path.splitext(fn_base)[1]
                 )
 
                 # any multiple of underscores in a row should be replaced with a single underscore
                 fn_col = "_".join(filter(None, fn_col.split("_")))
-                # same for dots in the filename (except for the extension)
+                # same for dots in the filename (except for the extension);
+                # only applied to the basename so relative paths like ".." survive
                 fn_col_stem, fn_col_ext = os.path.splitext(fn_col)
                 fn_col = ".".join(filter(None, fn_col_stem.split("."))) + fn_col_ext
+                fn_col = os.path.join(dir_delta, fn_col)
 
                 # make certain the filename ending is .csv
                 if not fn_col.endswith(".csv"):
@@ -350,7 +304,7 @@ def compare_table(fn_should: str, fn_is: str, fn_delta: str) -> dict:
 
                 # generate column difference plots
                 fn_figure = os.path.splitext(fn_col)[0] + ".png"
-                compare_plots.plot_col_differences(df_analysis, col, fn_figure, metrics)
+                compare_plots.plot_col_differences(df_analysis, col, fn_figure, col_metrics)
 
                 flag_diff = True
                 res[f"numeric_column_{col_save}"] = False

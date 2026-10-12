@@ -20,7 +20,8 @@
 !> | `shetran -f <path>` | Uses the named rundata file directly. This is the normal GFortran invocation. |
 !> | `shetran -c [name]` | Reads alternating name/path records from `catchments.txt`; an omitted name selects `default`. |
 !> | no args or `-a` | Opens a dialog only with Intel QuickWin on Windows; other builds stop with usage text. |
-!> | trailing `-error` | Sets shared `error_mode`; no current routine reads that flag, so termination behavior is unchanged. |
+!> | `-wait-on-error` (any position) | Makes a fatal termination wait for Enter, so a console that closes on exit keeps the diagnostics readable. |
+!> | any other option or argument | Stops with a diagnostic and usage text, including the former `-error`. |
 !>
 !> `catchments.txt` is resolved relative to the launch working directory. A
 !> successful selection sets `FILNAM` to the validated path, `DIRQQ` to its
@@ -32,9 +33,8 @@
 !> @warning
 !> The current non-QuickWin behavior differs from the user manual: a bare
 !> filename is not accepted without `-f`, and no-argument GFortran execution
-!> does not open a dialog. The manual also describes `-error` as suppressing an
-!> interactive wait, but current fatal termination is already noninteractive
-!> and independent of that flag.
+!> does not open a dialog. The manual also still describes the former `-error`
+!> option, which has been replaced by `-wait-on-error`.
 !> @endwarning
 !>
 !> ### Execution sequence
@@ -112,8 +112,8 @@ PROGRAM SHETRAN
    ! Explicit release of the persistent open-channel solver workspace.
    USE OCmod, ONLY: FINALISE_OCSIM_WORKSPACE
 
-   ! Superseded by the ERR_STOP wait at program completion.
-   ! USE stdlib_system, ONLY: sleep
+   ! Cross platform functionality
+   USE stdlib_system, ONLY: sleep
 
    IMPLICIT NONE
 
@@ -150,12 +150,7 @@ PROGRAM SHETRAN
    ! Release the model-lifetime open-channel solver workspace.
    CALL FINALISE_OCSIM_WORKSPACE()
 
-   ! Program completion
-   ! A run launched through the QuickWin file dialog owns the console window and
-   ! closes it on exit, so wait for the user before it does.
-   ! A run given its rundata file on the command line keeps its caller's console.
-   ! Former fixed 5 s pause, superseded by the ERR_STOP wait:
-   ! IF (rundata_from_file_dialog) CALL sleep(5000)
-   IF (rundata_from_file_dialog) CALL ERR_STOP()
+   ! Program completion handling for when it has been started via quickwin
+   IF (rundata_from_file_dialog) CALL sleep(5000)
 
 END PROGRAM SHETRAN

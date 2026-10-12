@@ -12,6 +12,7 @@
 import argparse
 import os
 import re
+import subprocess
 
 # Package Imports
 import pandas as pd
@@ -19,6 +20,7 @@ import pandas as pd
 # Local Imports
 from _methods import compare as compare
 from _methods import compute as compute
+from _methods import metrics as metrics
 from _methods import settings as settings
 from _methods import util as util
 
@@ -107,123 +109,27 @@ def _build_comparison_results_rows(res_files: dict) -> list[dict]:
         same_row_count = file_res.get("same_row_count")
 
         if file_type == "table":
-            col_metrics = file_res.get("table_column_metrics", [])
-            if col_metrics:
-                for col_res in col_metrics:
-                    rows.append({
-                        "file":
-                        filename,
-                        "data_item":
-                        col_res.get("col_name"),
-                        "file_type":
-                        file_type,
-                        "data_differs":
-                        col_res.get("data_differs", files_different),
-                        "same_row_count":
-                        same_row_count,
-                        "abs_max_difference":
-                        col_res.get("abs_max_difference"),
-                        "perc_max_difference":
-                        col_res.get("perc_max_difference"),
-                        "abs_mean_difference":
-                        col_res.get("abs_mean_difference"),
-                        "perc_mean_difference":
-                        col_res.get("perc_mean_difference"),
-                        "MSE":
-                        col_res.get("MSE"),
-                        "MAE":
-                        col_res.get("MAE"),
-                        "MAPE":
-                        col_res.get("MAPE"),
-                        "NSE":
-                        col_res.get("NSE"),
-                        "R²":
-                        col_res.get("R²"),
-                    })
-            else:
-                rows.append({
-                    "file": filename,
-                    "data_item": "",
-                    "file_type": file_type,
-                    "data_differs": files_different,
-                    "same_row_count": same_row_count,
-                    "abs_max_difference": pd.NA,
-                    "perc_max_difference": pd.NA,
-                    "abs_mean_difference": pd.NA,
-                    "perc_mean_difference": pd.NA,
-                    "MSE": pd.NA,
-                    "MAE": pd.NA,
-                    "MAPE": pd.NA,
-                    "NSE": pd.NA,
-                    "R²": pd.NA,
-                })
+            item_metrics = [{
+                "data_item": col_res.get("col_name"),
+                "same_row_count": same_row_count,
+                **col_res,
+            } for col_res in file_res.get("table_column_metrics", [])]
         elif file_type == "hdf5":
-            dataset_metrics = file_res.get("hdf5_dataset_metrics", [])
-            if dataset_metrics:
-                for dataset_res in dataset_metrics:
-                    rows.append({
-                        "file":
-                        filename,
-                        "data_item":
-                        dataset_res.get("data_item", ""),
-                        "file_type":
-                        file_type,
-                        "data_differs":
-                        dataset_res.get("data_differs", files_different),
-                        "same_row_count":
-                        dataset_res.get("same_row_count"),
-                        "abs_max_difference":
-                        dataset_res.get("abs_max_difference"),
-                        "perc_max_difference":
-                        dataset_res.get("perc_max_difference"),
-                        "abs_mean_difference":
-                        dataset_res.get("abs_mean_difference"),
-                        "perc_mean_difference":
-                        dataset_res.get("perc_mean_difference"),
-                        "MSE":
-                        dataset_res.get("MSE"),
-                        "MAE":
-                        dataset_res.get("MAE"),
-                        "MAPE":
-                        dataset_res.get("MAPE"),
-                        "NSE":
-                        dataset_res.get("NSE"),
-                        "R²":
-                        dataset_res.get("R²"),
-                    })
-            else:
-                rows.append({
-                    "file": filename,
-                    "data_item": "",
-                    "file_type": file_type,
-                    "data_differs": files_different,
-                    "same_row_count": same_row_count,
-                    "abs_max_difference": pd.NA,
-                    "perc_max_difference": pd.NA,
-                    "abs_mean_difference": pd.NA,
-                    "perc_mean_difference": pd.NA,
-                    "MSE": pd.NA,
-                    "MAE": pd.NA,
-                    "MAPE": pd.NA,
-                    "NSE": pd.NA,
-                    "R²": pd.NA,
-                })
+            item_metrics = file_res.get("hdf5_dataset_metrics", [])
         else:
+            item_metrics = []
+
+        if not item_metrics:
+            item_metrics = [{"data_item": "", "same_row_count": same_row_count}]
+
+        for item_res in item_metrics:
             rows.append({
                 "file": filename,
-                "data_item": "",
+                "data_item": item_res.get("data_item", ""),
                 "file_type": file_type,
-                "data_differs": files_different,
-                "same_row_count": same_row_count,
-                "abs_max_difference": pd.NA,
-                "perc_max_difference": pd.NA,
-                "abs_mean_difference": pd.NA,
-                "perc_mean_difference": pd.NA,
-                "MSE": pd.NA,
-                "MAE": pd.NA,
-                "MAPE": pd.NA,
-                "NSE": pd.NA,
-                "R²": pd.NA,
+                "data_differs": item_res.get("data_differs", files_different),
+                "same_row_count": item_res.get("same_row_count"),
+                **{key: item_res.get(key, pd.NA) for key in metrics.METRIC_KEYS},
             })
 
     return rows
@@ -252,8 +158,18 @@ def do_comparison(
         # check that the model files are present in the inputs directory
 
         # run the model
-        res_model.update(
-            compute.run_model(fn_shetran, dir_model, dir_sim, dir_diff))
+        try:
+            res_model.update(
+                compute.run_model(fn_shetran, dir_model, dir_sim, dir_diff))
+            res_model["exit_code"] = 0
+        except subprocess.CalledProcessError as e:
+            print(f"  SHETRAN failed with exit code {e.returncode}.")
+            res_model["exit_code"] = e.returncode
+
+            # the outputs of a failed run aren't worth comparing
+            if run_comparison:
+                print("  Skipping comparison as the simulation failed.")
+            return res_model
 
     if run_comparison:
         # compare the results with the known good ones
@@ -268,6 +184,23 @@ def do_comparison(
             filename for filename, file_res in res_files.items()
             if file_res.get("status") == "too large"
         ])
+        missing_files = sorted([
+            filename for filename, file_res in res_files.items()
+            if file_res.get("status") == "missing"
+        ])
+        new_files = sorted([
+            f for f in os.listdir(dir_sim)
+            if f.startswith("output_") and f not in res_files
+        ])
+
+        if differing_files:
+            print(f"  Files with differences: {differing_files}")
+        if missing_files:
+            print(f"  Expected files not produced: {missing_files}")
+        if new_files:
+            print(f"  Output files not in expected results: {new_files}")
+        if too_large_files:
+            print(f"  Files too large to compare: {too_large_files}")
 
         differing_files_str = ";".join(differing_files)
         too_large_files_str = ";".join(too_large_files)
@@ -280,7 +213,8 @@ def do_comparison(
                   index=False)
 
         # extract whether there were differences in any of the files
-        res_model["any_differences"] = df["data_differs"].any()
+        res_model["any_differences"] = (bool(df["data_differs"].any())
+                                        or bool(new_files))
 
         # get maximum percentage metrics from table columns that actually differ
         table_rows = df[(df["file_type"] == "table")
@@ -318,6 +252,7 @@ def do_comparison(
         res_model["num_files_too_large_to_compare"] = len(too_large_files)
         res_model["files_with_different_contents"] = differing_files_str
         res_model["files_too_large_to_compare"] = too_large_files_str
+        res_model["files_not_in_expected"] = ";".join(new_files)
 
     return res_model
 
@@ -427,6 +362,26 @@ def main() -> None:
         fn_overview = _get_overview_filename(args.overview_filename,
                                              args.fn_shetran)
         df_overview.to_csv(fn_overview)
+
+    # summary
+    n_models = len(subdirs)
+    print("\nSummary:")
+    if args.run_simulation:
+        n_success = sum(
+            res.get("exit_code") == 0 for res in overview.values())
+        print(f"  Finished successfully (exit code 0): "
+              f"{n_success} of {n_models}")
+    if args.run_comparison:
+        res_comparison = [
+            res["any_differences"] for res in overview.values()
+            if "any_differences" in res
+        ]
+        n_compared = len(res_comparison)
+        n_same = sum(not res for res in res_comparison)
+        print(f"  No differences to expected results:  "
+              f"{n_same} of {n_compared} compared")
+        if n_compared < n_models:
+            print(f"  Not compared (failed run): {n_models - n_compared}")
 
 
 if __name__ == "__main__":
